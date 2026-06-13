@@ -66,8 +66,8 @@ func _initialize() -> void:
 			scn._rebuild_all()
 			await create_timer(0.4).timeout
 		"hud":
-			# mid-game: FTUE long done (water chip shown) + leveled (Lv chip shows a
-			# real value) — proves the top-left water/Lv chips stack without overlap
+			# mid-game: FTUE long done (water shown) + leveled (Lv chip shows a real
+			# value) — proves water sits in the top-right cluster next to ★🪙💎
 			var gh := Save.grove()
 			gh["pops"] = 30
 			gh["exp"] = 240

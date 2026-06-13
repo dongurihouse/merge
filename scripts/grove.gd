@@ -93,7 +93,8 @@ var animating := false
 var _idle := 0.0                   # seconds without input → the wiggle hint
 
 var water_label: Label
-var water_next_label: Label
+var _water_icon: Control
+var _wallet_panel: Control
 var refill_btn: Button
 
 func _ready() -> void:
@@ -432,47 +433,26 @@ func _build_hud() -> void:
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; exp is static here)
+	_wallet_panel = hud.wallet       # water joins this cluster (see _build_water_hud)
 	_update_hud()
 
-# the water chip sits top-LEFT (the board's own resource; currencies live right)
+# water lives in the shared currency cluster (top-right) next to the other
+# currencies — no second row (owner 2026-06-13). The refill OFFER stays a separate
+# button, shown only when empty.
 func _build_water_hud() -> void:
-	# the shared HUD pins the Lv chip at top-left (hud.gd); the water counter stacks
-	# below it so the two never overlap (owner report 2026-06-12). The Lv pill renders
-	# ~76px tall (font line-height > the icon) — clear that plus an 8px gap.
-	var lv_clear := 84.0
-	var counter := PanelContainer.new()
-	counter.offset_left = 16.0
-	counter.offset_top = 16.0 + Look.safe_top(self) + lv_clear
-	var cbg := StyleBoxFlat.new()
-	cbg.bg_color = Color("#2E5468", 0.7)
-	cbg.set_corner_radius_all(20)
-	cbg.content_margin_left = 16.0
-	cbg.content_margin_right = 16.0
-	cbg.content_margin_top = 6.0
-	cbg.content_margin_bottom = 6.0
-	counter.add_theme_stylebox_override("panel", cbg)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 7)
-	counter.add_child(row)
-	var icon := Label.new()
-	icon.text = "💧"
-	icon.add_theme_font_size_override("font_size", 28)
-	row.add_child(icon)
+	var row: HBoxContainer = _wallet_panel.get_child(0)
+	_water_icon = Look.icon("water", 40.0)
+	row.add_child(_water_icon)
 	water_label = Label.new()
 	water_label.add_theme_font_size_override("font_size", 34)
-	water_label.add_theme_color_override("font_color", CREAM)
+	water_label.add_theme_color_override("font_color", Color("#33402F"))   # dark, like the other currency labels
+	water_label.add_theme_constant_override("outline_size", 0)
 	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(water_label)
-	water_next_label = Label.new()
-	water_next_label.add_theme_font_size_override("font_size", 20)
-	water_next_label.add_theme_color_override("font_color", Color(CREAM, 0.6))
-	water_next_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(water_next_label)
-	add_child(counter)
 	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
 	refill_btn.custom_minimum_size = Vector2(330, 76)
 	refill_btn.offset_left = 16.0
-	refill_btn.offset_top = 16.0 + Look.safe_top(self) + lv_clear + 76.0   # below the water counter (~67 tall)
+	refill_btn.offset_top = 16.0 + Look.safe_top(self) + 84.0   # top-left under the Lv chip; only shown at empty
 	refill_btn.visible = false
 	add_child(refill_btn)
 	_update_water_hud()
@@ -492,15 +472,12 @@ func _ftue_pops_done() -> bool:
 func _update_water_hud() -> void:
 	if water_label == null:
 		return
-	# FTUE: the water chip stays out of sight until the free intro pops are spent
-	var chip: Control = water_label.get_parent().get_parent()
-	chip.visible = _ftue_pops_done() or not Features.on("ftue_staged_chrome")
+	# FTUE: water stays hidden until the free intro pops are spent — hide just the
+	# water icon + count, not the shared currency cluster
+	var show_water := _ftue_pops_done() or not Features.on("ftue_staged_chrome")
+	_water_icon.visible = show_water
+	water_label.visible = show_water
 	water_label.text = str(water)
-	if water >= G.WATER_CAP:
-		water_next_label.text = ""
-	else:
-		var left := G.REGEN_SECS - int(Time.get_unix_time_from_system() - _regen_ts) % G.REGEN_SECS
-		water_next_label.text = tr("+1 in %d:%02d") % [int(left / 60.0), left % 60]
 	var free_left := refills_used < G.FREE_REFILLS
 	refill_btn.visible = water <= 0 and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
 	if refill_btn.visible:
@@ -704,12 +681,21 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 		inner.add_child(prog)
 		ask_uis.append({"code": acode, "need": int(ask.count), "prog": prog})
 	stand.add_child(pill)
-	# AB3: the +N★ reward floats at the bust's shoulder (top-right of the cutout)
-	var pay_chip := Look.stat_chip("star", "+%d" % int(q.stars))
-	var pay: Control = pay_chip.node
-	(pay_chip.label as Label).add_theme_font_size_override("font_size", 22)
-	pay.position = Vector2(STAND_W / 2.0 + 30.0, 6.0)
+	# AB3: the +N★ reward floats at the bust's shoulder — a bare star + count (no
+	# chip slab; an ink outline lifts the number off the scene)
+	var pay := HBoxContainer.new()
+	pay.add_theme_constant_override("separation", 1)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pay.add_child(Look.icon("star", 30.0))
+	var pay_lbl := Label.new()
+	pay_lbl.text = "+%d" % int(q.stars)
+	pay_lbl.add_theme_font_size_override("font_size", 24)
+	pay_lbl.add_theme_color_override("font_color", STRAW)
+	pay_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
+	pay_lbl.add_theme_constant_override("outline_size", 5)
+	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pay.add_child(pay_lbl)
+	pay.position = Vector2(STAND_W / 2.0 + 30.0, 6.0)
 	stand.add_child(pay)
 	# AB3: the ready check docks on the pill's TOP-LEFT corner (no ring border)
 	var check := _ready_check()
