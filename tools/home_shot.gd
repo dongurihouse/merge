@@ -104,6 +104,9 @@ func _initialize() -> void:
 					(b as Button).pressed.emit()
 					break
 			await create_timer(0.4).timeout
+	elif mode == "settings":
+		scn._open_settings()
+		await create_timer(0.4).timeout
 
 	# minimized windows occasionally serve a STALE frame (the capture then shows
 	# the previous screen) — force a fresh draw right before reading the texture
