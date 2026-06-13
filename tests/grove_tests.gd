@@ -1000,8 +1000,12 @@ func _initialize() -> void:
 	if h4.vista == null:
 		h4._ready()
 	await create_timer(0.05).timeout
-	var lchip: Control = h4.level_label.get_parent().get_parent()
-	var lrow4: Control = h4.level_label.get_parent()
+	# the level number now nests inside a sprout-avatar Control, so walk up to the
+	# pill (PanelContainer) and assert it wraps its content row evenly.
+	var lchip: Control = h4.level_label
+	while lchip != null and not (lchip is PanelContainer):
+		lchip = lchip.get_parent()
+	var lrow4: Control = lchip.get_child(0)
 	assert_wraps(lchip, lrow4, 5.0, 2.0, "R4 level chip")     # ±2: catches lopsided margins
 	# interior pin (a locked spot) — the price pin wraps its row (S7 nests pins
 	# in a centered stack, so search the subtree, and FAIL loudly if absent)

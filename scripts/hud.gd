@@ -70,8 +70,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	host.add_child(panel)
 
 	# S10: the Lv chip is part of THE module — same pixels in both scenes.
-	# icon_level sprout + value (the icon carries the "Lv"; glyph fallback
-	# reads "Lv" too), small exp fraction beside, value TICKS on change.
+	# The level number sits INSIDE the sprout avatar; the exp fraction sits to
+	# its right at a readable size (it used to be icon + number + fraction in a
+	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
 	lv_panel.offset_left = 16.0
 	lv_panel.offset_top = 16.0 + Look.safe_top(host)
@@ -91,16 +92,30 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.add_theme_constant_override("separation", 7)
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
-	lrow.add_child(Look.icon("level", 40.0))   # match the enlarged wallet icons
+	# the level number rides INSIDE the sprout avatar (centered, light glyph with
+	# a dark outline so it reads over the leaves/soil); sized to fit two digits.
+	var lv_px := 48.0
+	var avatar := Control.new()
+	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
+	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lv_ic := Look.icon("level", lv_px)
+	lv_ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar.add_child(lv_ic)
 	var level := Label.new()
-	level.add_theme_font_size_override("font_size", 32)
-	level.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
-	level.add_theme_constant_override("outline_size", 0)   # AF6: no dark halo on a solid pill
+	level.add_theme_font_size_override("font_size", 26)
+	level.add_theme_color_override("font_color", CREAM)         # light glyph...
+	level.add_theme_color_override("font_outline_color", INK)   # ...with a dark outline so it reads on the sprout
+	level.add_theme_constant_override("outline_size", 5)
+	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lrow.add_child(level)
+	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	level.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar.add_child(level)
+	lrow.add_child(avatar)
 	var xp := Label.new()
-	xp.add_theme_font_size_override("font_size", 20)
-	xp.add_theme_color_override("font_color", Color(INK, 0.85))   # AF6: was 0.6 — washed grey on cream
+	xp.add_theme_font_size_override("font_size", 28)   # readable (was 20), to the RIGHT of the avatar
+	xp.add_theme_color_override("font_color", Color(INK, 0.85))
 	xp.add_theme_constant_override("outline_size", 0)
 	xp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lrow.add_child(xp)
