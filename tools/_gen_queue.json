@@ -1,0 +1,475 @@
+{
+  "_doc": "Resumable queue for ART_CHECKLIST.md (Ghibli Grove). SINGLE PROVIDER: ChatGPT ONLY (user directive 2026-06-10 — do NOT use Gemini). Fixed thread https://chatgpt.com/c/6a2a1e89-13fc-83e8-9035-42c9ba931433, never fresh chats. Per item: snapshot current img count (>=512, non-avatar) as tu_baseline -> submit 'Use the image generation tool now. '+prompt (⊕CORE expanded from core field) -> poll count>baseline -> download ~/Downloads/<id>_raw.png (fetch credentials+a.download) -> run `process` -> done; tick [g] in ART_CHECKLIST.md. Spot-Read outputs for quality; re-roll = same prompt + one constraint. Hang ~6.5min -> resubmit same thread. process: icon=process_icon.gd <raw> <dest> N|W H, decor=process_decor.gd <raw> <dest> W H --opaque. After batches: godot --import.",
+  "core": "hand-painted anime film background style, soft gouache and watercolor texture with visible brushwork, gentle diffuse summer daylight, warm nostalgic pastoral palette of meadow green, straw gold and clear sky blue, towering soft cumulus clouds, atmospheric haze in the distance, wind-blown grass, painterly cel-shaded subjects with clean simple line work, no photorealism, no glossy 3D render, no text",
+  "items": [
+    {
+      "name": "flower_1",
+      "out": "res://assets/items/flower_1.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single tiny paper seed packet with a single seed spilling out as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_2",
+      "out": "res://assets/items/flower_2.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single small green sprout with two leaves in a soil mound as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_3",
+      "out": "res://assets/items/flower_3.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single young seedling with first flower bud in a soil mound as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_4",
+      "out": "res://assets/items/flower_4.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single leafy sapling with one open wildflower in a terracotta pot as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_5",
+      "out": "res://assets/items/flower_5.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single bushy wildflower plant with three blooms, planted in the ground, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_6",
+      "out": "res://assets/items/flower_6.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single lush blooming wildflower bush covered in flowers as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_7",
+      "out": "res://assets/items/flower_7.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single small flowering tree with a petal-dusted canopy as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "flower_8",
+      "out": "res://assets/items/flower_8.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single radiant flowering tree in FULL bloom with falling petals and a golden glow as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_1",
+      "out": "res://assets/items/berry_1.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single tiny burlap pouch with a few red berry seeds as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_2",
+      "out": "res://assets/items/berry_2.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single small berry sprout with two leaves in a soil mound as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_3",
+      "out": "res://assets/items/berry_3.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single young berry seedling with white blossoms as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_4",
+      "out": "res://assets/items/berry_4.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single small berry sapling with green unripe berries in a terracotta pot as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_5",
+      "out": "res://assets/items/berry_5.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single berry bush with the first ripe red berries, planted in the ground, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_6",
+      "out": "res://assets/items/berry_6.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single full berry bush heavy with ripe red berry clusters as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_7",
+      "out": "res://assets/items/berry_7.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single small berry tree with abundant fruit as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_8",
+      "out": "res://assets/items/berry_8.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single magnificent berry tree LOADED with glistening fruit and a wooden harvest basket at its base as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "gen_satchel",
+      "out": "res://assets/ui/gen_satchel.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A worn leather seed satchel with the flap open, small seeds and a sprout peeking out, friendly and well-loved, slight three-quarter angle, chunky game-object silhouette, soft painterly shading, single warm rim light, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "bramble_1",
+      "out": "res://assets/ui/bramble_1.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A light patch of thin twigs and a few leaves loosely covering a board cell, sparse and wispy, flat muted colors, NO rim light, low saturation, reads as terrain not as an item, centered on plain solid white background. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "bramble_2",
+      "out": "res://assets/ui/bramble_2.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A medium tangle of thorny bramble with a few small leaves covering a board cell, clearly denser than thin twigs, flat muted colors, NO rim light, low saturation, terrain not item, centered on plain solid white background. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "bramble_3",
+      "out": "res://assets/ui/bramble_3.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A dense dark thicket of thorny bramble completely covering a board cell, clearly the thickest overgrowth, flat muted colors, NO rim light, low saturation, terrain not item, centered on plain solid white background. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "tray_grove",
+      "out": "res://assets/ui/tray_grove.png",
+      "status": "done",
+      "process": "decor 1024 1024 --opaque",
+      "prompt": "Top-down square mossy garden bed mat: soft green moss with tiny clover, a subtle rounded earthen border, completely calm flat and even in the center (game pieces sit on top), no objects, no pockets, flat top-down view, even soft light. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "giver_fox",
+      "out": "res://assets/map/giver_fox.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A friendly round fox character from the chest up, soft fur in gentle painted strokes, big warm amber eyes, a tiny leaf tucked behind one ear, kind expectant smile, three-quarter view, clean character line art over painterly shading, centered on plain solid white background, no text. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "giver_hedgehog",
+      "out": "res://assets/map/giver_hedgehog.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A friendly round hedgehog character from the chest up, soft spines like painted grass, rosy cheeks, a tiny acorn cap worn as a hat, shy happy smile, three-quarter view, clean character line art over painterly shading, centered on plain solid white background, no text. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "giver_squirrel",
+      "out": "res://assets/map/giver_squirrel.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A cheerful round squirrel merchant character from the chest up, fluffy tail curling behind, wearing a tiny straw hat and a coin pouch on a strap, bright eager eyes, friendly grin, three-quarter view, clean character line art over painterly shading, centered on plain solid white background, no text. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "bg_grove_board",
+      "out": "res://assets/ui/bg_grove_board.png",
+      "status": "done",
+      "process": "decor 1080 1920 --opaque",
+      "prompt": "Looking down a quiet forest clearing's edge: tall sunlit grass and wildflowers framing the left and right, dappled light from an unseen canopy, a soft mossy open space in the middle, drifting pollen motes in the light, very calm and low contrast in the center, ambience not focal point. Tall portrait. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "grove_vista",
+      "out": "res://assets/rooms/grove_vista.png",
+      "status": "done",
+      "process": "decor 1920 1080 --opaque",
+      "prompt": "A wide storybook countryside homestead seen from a gentle hill: an old wooden farmhouse with a mossy shingle roof, a leaning barn, a stone well, an overgrown vegetable garden waiting to be tended, a winding dirt path, distant rolling meadows under towering soft clouds, calm and slightly wild and full of promise, no people, no animals yet, painterly depth with light haze toward the horizon. Wide landscape. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "p_petal",
+      "out": "res://assets/fx/p_petal.png",
+      "status": "done",
+      "process": "icon 128",
+      "prompt": "A single soft pink-cream flower petal, small painted game particle, soft edges, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "p_leaf",
+      "out": "res://assets/fx/p_leaf.png",
+      "status": "done",
+      "process": "icon 128",
+      "prompt": "A single small meadow-green leaf, small painted game particle, soft edges, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "p_pollen",
+      "out": "res://assets/fx/p_pollen.png",
+      "status": "done",
+      "process": "icon 128",
+      "prompt": "A single soft golden pollen mote, glowing faintly, small painted game particle, soft edges, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "p_drop",
+      "out": "res://assets/fx/p_drop.png",
+      "status": "done",
+      "process": "icon 128",
+      "prompt": "A single round water droplet with one highlight, small painted game particle, soft edges, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "p_star",
+      "out": "res://assets/fx/p_star.png",
+      "status": "done",
+      "process": "icon 256",
+      "prompt": "A single wobbly hand-painted five-point star, straw gold, small painted game particle, soft edges, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_1",
+      "out": "res://assets/items/mushroom_1.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single tiny paper spore packet with a few brown spores as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_2",
+      "out": "res://assets/items/mushroom_2.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "One small button mushroom sprouting from dark soil as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_3",
+      "out": "res://assets/items/mushroom_3.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single pair of young button mushrooms in a soil mound as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_4",
+      "out": "res://assets/items/mushroom_4.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single cluster of plump mushrooms on a mossy log piece as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_5",
+      "out": "res://assets/items/mushroom_5.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single hearty mushroom cluster with one big speckled cap, planted as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_6",
+      "out": "res://assets/items/mushroom_6.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single rich mushroom patch with caps of several sizes as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_7",
+      "out": "res://assets/items/mushroom_7.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single magnificent fairy-ring of mushrooms with glowing gills as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "mushroom_8",
+      "out": "res://assets/items/mushroom_8.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A single grand mushroom kingdom on a mossy stump with tiny lanterns and a harvest basket as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "gen_compost",
+      "out": "res://assets/ui/gen_compost.png",
+      "status": "done",
+      "process": "icon 512",
+      "prompt": "A friendly wooden compost bin with a slightly open lid, rich dark soil and a tiny mushroom peeking out, well-loved garden object, slight three-quarter angle, chunky game-object silhouette, soft painterly shading, single warm rim light, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "map_grove",
+      "out": "res://assets/rooms/map_grove.png",
+      "process": "decor 2160 2880 --opaque --cover",
+      "prompt": "Seen from high above at a gentle angle, a large empty storybook countryside valley to explore: rolling meadow greens with mowed and wild patches, winding dirt footpaths that fork and wander, low hedgerows, scattered clover and wildflower drifts, a soft treeline closing the edges, small clearings left open and quiet, NO buildings, NO water, NO animals, NO people, NO text, even soft daylight, calm low-contrast painterly ground that game pieces can sit on top of. Tall portrait. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "poi_farmhouse",
+      "out": "res://assets/map/poi_farmhouse.png",
+      "process": "icon 512",
+      "prompt": "A small old wooden farmhouse with a mossy shingle roof and a crooked stone chimney, seen from high above at a gentle three-quarter angle showing the roof and one warm face, a tiny front step and flower pots, chunky readable game-landmark silhouette, soft painterly shading, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "poi_barn",
+      "out": "res://assets/map/poi_barn.png",
+      "process": "icon 512",
+      "prompt": "A leaning weathered red barn with faded doors and a hay loft window, seen from high above at a gentle three-quarter angle showing the roof and one face, a few straw wisps at its base, chunky readable game-landmark silhouette, soft painterly shading, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "poi_pond",
+      "out": "res://assets/map/poi_pond.png",
+      "process": "icon 512",
+      "prompt": "A small calm pond seen from high above, soft blue-green water with painted ripples, a reedy grassy bank all the way around, two lily pads, gentle three-quarter top-down angle, chunky readable game-landmark silhouette, soft painterly shading, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "poi_orchard",
+      "out": "res://assets/map/poi_orchard.png",
+      "process": "icon 512",
+      "prompt": "A tiny apple orchard: a tight cluster of five round fruit trees with red apples on a grassy patch, seen from high above at a gentle three-quarter angle, chunky readable game-landmark silhouette, soft painterly shading, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "poi_meadow",
+      "out": "res://assets/map/poi_meadow.png",
+      "process": "icon 512",
+      "prompt": "A wildflower meadow patch with drifts of blooms, one winding flower-lined footpath and a small rose arch, seen from high above at a gentle three-quarter angle, chunky readable game-landmark silhouette, soft painterly shading, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "berry_2_regen",
+      "out": "res://assets/items/berry_2.png",
+      "process": "icon 512",
+      "prompt": "A single small berry sprout in a soil mound with TWO ROUND RED BERRIES already hanging from a drooping stem, leaf edges tinged dark red, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE Constraint: must NOT read as a plain two-leaf green sprout — the hanging red berries are the silhouette.",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_1",
+      "out": "res://assets/items/honey_1.png",
+      "process": "icon 512",
+      "prompt": "A single hexagonal wax honeycomb cell with one glistening drop of honey as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_2",
+      "out": "res://assets/items/honey_2.png",
+      "process": "icon 512",
+      "prompt": "A small broken piece of honeycomb, three cells, honey oozing from one, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_3",
+      "out": "res://assets/items/honey_3.png",
+      "process": "icon 512",
+      "prompt": "A chunk of golden honeycomb with one tiny bee resting on top as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_4",
+      "out": "res://assets/items/honey_4.png",
+      "process": "icon 512",
+      "prompt": "A small round wax hive nub hanging from a leafy twig, two bees circling, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt",
+      "note": "reworded: papery bee hive variant"
+    },
+    {
+      "name": "honey_5",
+      "out": "res://assets/items/honey_5.png",
+      "process": "icon 512",
+      "prompt": "A squat glass jar full of honey with a wooden dipper resting against it as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_6",
+      "out": "res://assets/items/honey_6.png",
+      "process": "icon 512",
+      "prompt": "A tidy stack of three honey jars tied with twine, one open with a dipper, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_7",
+      "out": "res://assets/items/honey_7.png",
+      "process": "icon 512",
+      "prompt": "A wooden hive box with a little roof, flowers at its base, bees in a friendly halo, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "chatgpt"
+    },
+    {
+      "name": "honey_8",
+      "out": "res://assets/items/honey_8.png",
+      "process": "icon 512",
+      "prompt": "A grand golden hive crowned with wildflowers, honey pots at its base and a gentle glow of circling bees, as a small painted game item: chunky readable silhouette, soft painterly shading with a single warm rim light, clean simple outline, centered on a plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "codex_image_gen",
+      "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool"
+    },
+    {
+      "name": "gen_beehive",
+      "out": "res://assets/ui/gen_beehive.png",
+      "process": "icon 512",
+      "prompt": "A friendly wooden bee hive box with a peaked little roof and a round entrance hole, a few painted bees hovering nearby and wildflowers at its base, well-loved garden object, slight three-quarter angle, chunky game-object silhouette, soft painterly shading, single warm rim light, centered on plain solid white background, generous margin. Square. ⊕CORE",
+      "status": "done",
+      "pick": "codex_image_gen",
+      "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool"
+    },
+    {
+      "name": "tray_grove_tall",
+      "out": "res://assets/ui/tray_grove_tall.png",
+      "process": "decor 1080 1440 --opaque",
+      "prompt": "Top-down TALL mossy garden bed mat (the board now fills the phone edge to edge): soft green moss with tiny clover, completely calm flat and even EDGE TO EDGE — NO border, NO rim, NO frame baked in (owner killed the solid edge; the engine feathers the rim itself), no objects, no pockets, no paths, flat top-down view, even soft light. Tall portrait, 3:4. ⊕CORE",
+      "status": "done",
+      "pick": "codex_image_gen",
+      "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool"
+    },
+    {
+      "name": "fence_grove",
+      "out": "res://assets/ui/fence_grove.png",
+      "process": "decor 1080 220 --opaque --cover",
+      "prompt": "A weathered wooden garden fence strip seen straight on: two warm horizontal rails on sturdy posts, moss tufts and tiny wildflowers at the base, simple calm storybook woodwork, slightly darker top edge so characters popping up behind it read clearly, no animals, no text, even soft light. VERY WIDE landscape banner (about 5:1 — compose the fence full-bleed along the middle band; the crop takes the band). ⊕CORE",
+      "status": "done",
+      "pick": "codex_image_gen",
+      "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool; processed with --cover to remove empty source padding"
+    }
+  ]
+}
