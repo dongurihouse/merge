@@ -16,7 +16,7 @@ const Save = preload("res://scripts/save.gd")
 const FX = preload("res://scripts/fx.gd")
 const Features = preload("res://scripts/features.gd")
 
-const SPIRIT_TYPES := ["puff", "moss", "acorn", "lantern"]   # §I art rows
+const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # §I art rows (puff removed, owner 2026-06-13)
 const SPIRIT_CAP := 5
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
@@ -90,7 +90,7 @@ static func _make_spirit(i: int) -> Control:
 		body.size = Vector2(56, 56)
 		body.position = Vector2(14, 18)
 		var bs := StyleBoxFlat.new()
-		bs.bg_color = Color("#4A4640", 0.92) if kind == "puff" else Color("#6B7B52", 0.92)
+		bs.bg_color = Color("#6B7B52", 0.92)
 		bs.set_corner_radius_all(28)
 		bs.shadow_color = Color(0, 0, 0, 0.2)
 		bs.shadow_size = 4
