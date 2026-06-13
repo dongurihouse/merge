@@ -81,7 +81,7 @@ var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var chapter_label: Label
 var bag_slots_ui: Array = []
-var hint_label: Label
+var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
 var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
 
 var _press_cell := Vector2i(-1, -1)
@@ -225,42 +225,51 @@ func _ready() -> void:
 		bag_slots_ui.append(s)
 	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
 
-	# S1: ONE plank row pinned to the bottom — [◀ Home | hint] — nothing clips
-	# at any aspect (was: a root-flow hint sliding UNDER an absolute home button)
+	# S1: a COMPACT icon bar pinned bottom-LEFT — [◀ Home][🛒] (owner 2026-06-13:
+	# dropped the inline tooltip; the shop moved here from the top cluster).
 	var sb_inset := Look.safe_bottom(self)
 	bottom_bar = PanelContainer.new()
 	var bsb := StyleBoxFlat.new()
 	bsb.bg_color = Color("#33402F", 0.88)
 	bsb.set_corner_radius_all(20)
-	bsb.content_margin_left = 12.0
-	bsb.content_margin_right = 14.0
+	bsb.content_margin_left = 10.0
+	bsb.content_margin_right = 10.0
 	bsb.content_margin_top = 8.0
 	bsb.content_margin_bottom = 8.0
 	bottom_bar.add_theme_stylebox_override("panel", bsb)
 	bottom_bar.anchor_left = 0.0
-	bottom_bar.anchor_right = 1.0
+	bottom_bar.anchor_right = 0.0
 	bottom_bar.anchor_top = 1.0
 	bottom_bar.anchor_bottom = 1.0
+	bottom_bar.grow_horizontal = Control.GROW_DIRECTION_END   # size to content rightward
+	bottom_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN    # ...and upward from the bottom edge
 	bottom_bar.offset_left = 12
-	bottom_bar.offset_right = -12
-	bottom_bar.offset_top = -102 - sb_inset
-	bottom_bar.offset_bottom = -12 - sb_inset
+	bottom_bar.offset_right = 12
+	bottom_bar.offset_top = -14 - sb_inset
+	bottom_bar.offset_bottom = -14 - sb_inset
 	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 12)
+	brow.add_theme_constant_override("separation", 8)
 	bottom_bar.add_child(brow)
 	var home_btn := Look.button(tr("◀ Home"), func() -> void:
 		Audio.play("button_tap", -2.0)
 		get_tree().change_scene_to_file("res://scenes/Home.tscn"), false)
-	home_btn.custom_minimum_size = Vector2(170, 70)
+	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	brow.add_child(home_btn)
-	hint_label = _lbl(tr("Tap the satchel for seeds • drag two matching plants together • a merge beside brambles clears them"), 19, Palette.TEXT_MUTED)
-	hint_label.autowrap_mode = TextServer.AUTOWRAP_WORD
-	hint_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	hint_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hint_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hint_label.size_flags_vertical = Control.SIZE_FILL
-	brow.add_child(hint_label)
+	var shop_btn := Button.new()        # the Store, relocated from the top cluster
+	shop_btn.flat = true
+	shop_btn.focus_mode = Control.FOCUS_NONE
+	shop_btn.custom_minimum_size = Vector2(58, 58)
+	shop_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sc := Look.icon("cart", 40.0)
+	sc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shop_btn.add_child(sc)
+	Look.add_press_juice(shop_btn)
+	shop_btn.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		if _open_shop.is_valid():
+			_open_shop.call())
+	brow.add_child(shop_btn)
 	add_child(bottom_bar)
 
 	_build_hud()
@@ -434,6 +443,7 @@ func _build_hud() -> void:
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; exp is static here)
 	_wallet_panel = hud.wallet       # water joins this cluster (see _build_water_hud)
+	_open_shop = hud.open_shop       # the bottom-bar shop button opens it
 	_update_hud()
 
 # water lives in the shared currency cluster (top-right) next to the other
@@ -442,12 +452,14 @@ func _build_hud() -> void:
 func _build_water_hud() -> void:
 	var row: HBoxContainer = _wallet_panel.get_child(0)
 	_water_icon = Look.icon("water", 40.0)
+	_water_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(_water_icon)
 	water_label = Label.new()
 	water_label.add_theme_font_size_override("font_size", 34)
 	water_label.add_theme_color_override("font_color", Color("#33402F"))   # dark, like the other currency labels
 	water_label.add_theme_constant_override("outline_size", 0)
 	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	water_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(water_label)
 	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
 	refill_btn.custom_minimum_size = Vector2(330, 76)
@@ -643,6 +655,11 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	bust.position = Vector2((STAND_W - 124.0) / 2.0, 0.0)
 	stand.add_child(bust)
 	_giver_bob(bust)
+	# juice: the giver pops in when its stand enters the tree (deferred so the
+	# tween is never created on a not-yet-in-tree node — matches _giver_bob)
+	bust.tree_entered.connect(func() -> void:
+		if is_instance_valid(bust) and bust.is_inside_tree():
+			FX.pop_in(bust), CONNECT_ONE_SHOT)
 	# the ask PILL — hugs [item icon + n/m] PER ASK (X3: 1–3 asks), centered under
 	# the bust, on the fence. The capacity is the same pill; multi-ask just adds pairs.
 	var pill := _ask_pill()
@@ -779,13 +796,23 @@ func _bust(which: int, px: float = 124.0) -> Control:
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var path := "res://assets/map/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which])
 	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.add_child(t)
+		var tex: Texture2D = load(path)
+		# owner 2026-06-13: the frameless cutout blended into the painted scene.
+		# A soft drop shadow + a cream rim (scaled silhouette copies behind) lift it
+		# off the background without a hard square frame.
+		var center := Vector2(px / 2.0, px / 2.0)
+		var shadow := _bust_layer(tex)
+		shadow.modulate = Color(0, 0, 0, 0.40)
+		shadow.pivot_offset = center
+		shadow.scale = Vector2(1.04, 1.04)
+		shadow.position = Vector2(0, 7)
+		face.add_child(shadow)
+		var rim := _bust_layer(tex)
+		rim.modulate = CREAM
+		rim.pivot_offset = center
+		rim.scale = Vector2(1.11, 1.11)
+		face.add_child(rim)
+		face.add_child(_bust_layer(tex))
 	else:
 		var chip := Panel.new()                 # round, not square
 		chip.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -807,6 +834,17 @@ func _bust(which: int, px: float = 124.0) -> Control:
 		chip.add_child(init)
 		face.add_child(chip)
 	return face
+
+# one full-rect, aspect-centered copy of a bust texture (used for the bust itself
+# plus its drop-shadow and cream-rim layers).
+func _bust_layer(tex: Texture2D) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = tex
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 func _mini_item(code: int) -> Control:
 	var holder := Control.new()

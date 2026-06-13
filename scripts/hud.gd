@@ -44,26 +44,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	row.add_theme_constant_override("separation", 6)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	# the Store leads the wallet row — ONE row, nothing below to collide with
-	# the board's fence band (was a second-row button; it sat on the cards)
-	# R1: the store reads as the leading CHIP in the cluster — a 34px cart icon,
-	# not a 48px round button (btn_round's nine-patch forced a 48px min that
-	# spilled past the plank's opaque band). Transparent button, icon does the work.
-	var store := Button.new()
-	store.focus_mode = Control.FOCUS_NONE
-	store.flat = true
-	store.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var cart := Look.icon("cart", 46.0)   # owner 2026-06-12: wallet icons were too small
-	if cart is Label:
-		(cart as Label).add_theme_font_size_override("font_size", 40)
-	store.add_child(cart)
-	store.custom_minimum_size = Vector2(50, 50)
-	cart.position = Vector2(2, 2)
-	Look.add_press_juice(store)
-	row.add_child(store)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(4, 0)
-	row.add_child(spacer)
+	# the cluster is currencies ONLY — the Store moved to the bottom bar
+	# (owner 2026-06-13); scenes open it via out.open_shop.
 	var stars := _pair(row, "star", 44)
 	var coins := _pair(row, "coin", 40)
 	var gems := _pair(row, "gem", 38)
@@ -138,17 +120,20 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	out["refresh"] = refresh
 	var shop_opts := opts.duplicate()
 	shop_opts["refresh"] = refresh
-	store.pressed.connect(func() -> void: Shop.open(host, shop_opts))
+	out["open_shop"] = func() -> void: Shop.open(host, shop_opts)
 	refresh.call()
 	return out
 
 static func _pair(row: HBoxContainer, icon_id: String, gsize: int) -> Label:
-	row.add_child(Look.icon(icon_id, float(gsize)))
+	var ic := Look.icon(icon_id, float(gsize))
+	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER   # vertically center the icon with its number
+	row.add_child(ic)
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", 34)
 	lbl.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
 	lbl.add_theme_constant_override("outline_size", 0)   # AF6: no dark halo on a solid pill (panel-text law)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
 	return lbl
 

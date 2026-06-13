@@ -1193,8 +1193,9 @@ func _initialize() -> void:
 	var bb_home: Control = bb_row.get_child(0)
 	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(bb_home.get_global_rect()), \
 		"S1: the Home button sits fully inside the plank (was half-clipped)")
-	ok(ss.bottom_bar.get_global_rect().encloses(ss.hint_label.get_global_rect()), \
-		"S1: the hint lives inside the plank (was running under the button)")
+	var bb_shop: Control = bb_row.get_child(1)
+	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(bb_shop.get_global_rect()), \
+		"S1: the shop button sits fully inside the plank")
 	assert_wraps(ss.bottom_bar, bb_row, 6.0, 4.0, "S1 bottom bar")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
@@ -1256,8 +1257,8 @@ func _initialize() -> void:
 	var vp2: Rect2 = ss.get_viewport_rect()
 	ok(absf(vp2.size.y - 2340.0) < 2.0, "S1: viewport actually grew to the tall aspect (got %.0f)" % vp2.size.y)
 	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom bar fully on-screen at 1080×2340")
-	ok(ss.bottom_bar.get_global_rect().encloses(ss.hint_label.get_global_rect()), \
-		"S1: the hint stays inside the plank at 1080×2340")
+	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(ss.bottom_bar.get_child(0).get_child(1).get_global_rect()), \
+		"S1: the shop button stays inside the plank at 1080×2340")
 	get_root().size = Vector2i(1080, 1920)
 	await create_timer(0.06).timeout
 

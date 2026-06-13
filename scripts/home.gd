@@ -72,6 +72,7 @@ var xp_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
+var _open_shop := Callable()      # opens the shared Shop (moved to the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat top-zone presses)
 var _pan_drag := false
 var _pan_start := Vector2.ZERO
@@ -1054,6 +1055,7 @@ func _build_hud() -> void:
 	level_label = hud.level
 	xp_label = hud.xp
 	_hud_refresh = hud.refresh
+	_open_shop = hud.open_shop
 	_hud_panels = [hud.wallet, hud.lv_panel]
 
 func _update_hud() -> void:
@@ -1118,6 +1120,39 @@ func _build_chrome() -> void:
 	gear.pressed.connect(_open_settings)
 	add_child(gear)
 	_chrome_nodes.append(gear)
+	# the Store, relocated from the top cluster — sits to the LEFT of the gear
+	var shop := Button.new()
+	shop.focus_mode = Control.FOCUS_NONE
+	shop.custom_minimum_size = Vector2(76, 76)
+	if ResourceLoader.exists(Look.KIT + "btn_round.png"):
+		var st := StyleBoxTexture.new()
+		st.texture = load(Look.KIT + "btn_round.png")
+		st.set_texture_margin_all(24.0)
+		shop.add_theme_stylebox_override("normal", st)
+		shop.add_theme_stylebox_override("hover", st)
+		shop.add_theme_stylebox_override("pressed", st)
+		var si := Look.icon("cart", 36.0)
+		si.set_anchors_preset(Control.PRESET_FULL_RECT)
+		shop.add_child(si)
+	else:
+		shop.text = "🛒"
+		shop.add_theme_font_size_override("font_size", 34)
+		shop.add_theme_color_override("font_color", CREAM)
+	Look.add_press_juice(shop)
+	shop.anchor_left = 1.0
+	shop.anchor_right = 1.0
+	shop.anchor_top = 1.0
+	shop.anchor_bottom = 1.0
+	shop.offset_left = -180
+	shop.offset_right = -104
+	shop.offset_top = -92 - sb
+	shop.offset_bottom = -16 - sb
+	shop.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		if _open_shop.is_valid():
+			_open_shop.call())
+	add_child(shop)
+	_chrome_nodes.append(shop)
 	# the old game, reachable but out of the way during the transition
 	var classic := Button.new()
 	classic.text = tr("classic ▸")
