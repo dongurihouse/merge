@@ -102,16 +102,28 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var lv_ic := Look.icon("level", lv_px)
 	lv_ic.set_anchors_preset(Control.PRESET_FULL_RECT)
 	avatar.add_child(lv_ic)
+	# the busy sprout art has no clean-contrast center, so the number rides a snug
+	# dark medallion (centered, auto-fits 1–2 digits). This is the readable stopgap
+	# until icon_level is regenerated with an open center (see the regen note).
+	var lv_center := CenterContainer.new()
+	lv_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lv_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	avatar.add_child(lv_center)
 	var level := Label.new()
-	level.add_theme_font_size_override("font_size", 26)
-	level.add_theme_color_override("font_color", CREAM)         # light glyph...
-	level.add_theme_color_override("font_outline_color", INK)   # ...with a dark outline so it reads on the sprout
-	level.add_theme_constant_override("outline_size", 5)
+	level.add_theme_font_size_override("font_size", 24)
+	level.add_theme_color_override("font_color", CREAM)
+	var lv_bg := StyleBoxFlat.new()
+	lv_bg.bg_color = Color(INK, 0.66)
+	lv_bg.set_corner_radius_all(13)
+	lv_bg.content_margin_left = 9.0
+	lv_bg.content_margin_right = 9.0
+	lv_bg.content_margin_top = 1.0
+	lv_bg.content_margin_bottom = 1.0
+	level.add_theme_stylebox_override("normal", lv_bg)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	level.set_anchors_preset(Control.PRESET_FULL_RECT)
-	avatar.add_child(level)
+	lv_center.add_child(level)
 	lrow.add_child(avatar)
 	var xp := Label.new()
 	xp.add_theme_font_size_override("font_size", 28)   # readable (was 20), to the RIGHT of the avatar
