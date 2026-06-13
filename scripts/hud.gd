@@ -92,38 +92,30 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.add_theme_constant_override("separation", 7)
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
-	# the level number rides INSIDE the sprout avatar (centered, light glyph with
-	# a dark outline so it reads over the leaves/soil); sized to fit two digits.
+	# the level "coin" — a Panel so it can draw the round token stylebox below.
 	var lv_px := 48.0
-	var avatar := Control.new()
+	var avatar := Panel.new()
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lv_ic := Look.icon("level", lv_px)
-	lv_ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	avatar.add_child(lv_ic)
-	# the busy sprout art has no clean-contrast center, so the number rides a snug
-	# dark medallion (centered, auto-fits 1–2 digits). This is the readable stopgap
-	# until icon_level is regenerated with an open center (see the regen note).
-	var lv_center := CenterContainer.new()
-	lv_center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lv_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	avatar.add_child(lv_center)
+	# a clean level "coin" — deep-leaf token + warm gold ring + cream number. The
+	# busy sprout badge couldn't hold a readable number AND look good; this reads
+	# crisply and matches the HUD's cream/gold language. (Swap to a sprout badge
+	# later only if one is generated with an OPEN center.)
+	var coin := StyleBoxFlat.new()
+	coin.bg_color = Color("#3F6B43")            # deep leaf — growth, and contrasts the cream pill
+	coin.set_corner_radius_all(int(lv_px / 2.0))
+	coin.set_border_width_all(3)
+	coin.border_color = Color("#C9A66B")        # warm gold ring (matches the pill border)
+	avatar.add_theme_stylebox_override("panel", coin)
 	var level := Label.new()
-	level.add_theme_font_size_override("font_size", 24)
+	level.add_theme_font_size_override("font_size", 26)
 	level.add_theme_color_override("font_color", CREAM)
-	var lv_bg := StyleBoxFlat.new()
-	lv_bg.bg_color = Color(INK, 0.66)
-	lv_bg.set_corner_radius_all(13)
-	lv_bg.content_margin_left = 9.0
-	lv_bg.content_margin_right = 9.0
-	lv_bg.content_margin_top = 1.0
-	lv_bg.content_margin_bottom = 1.0
-	level.add_theme_stylebox_override("normal", lv_bg)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lv_center.add_child(level)
+	level.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar.add_child(level)
 	lrow.add_child(avatar)
 	var xp := Label.new()
 	xp.add_theme_font_size_override("font_size", 28)   # readable (was 20), to the RIGHT of the avatar
