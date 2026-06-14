@@ -24,6 +24,10 @@ static func sound(rel: String) -> String:
 	var root: String = _m().AUDIO_ROOT
 	return "" if root == "" else root + rel
 
+## res:// path of the active game's UI font, or "" (engine falls back to a system font).
+static func font() -> String:
+	return _m().FONT
+
 static func id() -> String:
 	return String(Config.active())
 

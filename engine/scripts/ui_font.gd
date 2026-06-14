@@ -1,15 +1,13 @@
 extends RefCounted
-## Tidy Up — global UI font + cozy text styling.
+## Global UI font + cozy text styling.
 ##
-## Uses a cute ROUNDED, TINTABLE font (so font_color actually works) and adds a dark outline
-## globally so cream/peach text pops on the warm room backgrounds. The generated bitmap atlas
-## (ui.fnt) was a baked FULL-COLOR display font — not tintable, no usable outline — so it's no
-## longer used for UI text (keep it for big display art only). If a real rounded ui.ttf is ever
-## dropped in, it's preferred over the system font for cross-device consistency.
+## Uses a ROUNDED, TINTABLE font (so font_color works) and adds a dark outline globally so
+## cream/peach text pops on the warm backgrounds. The face is the ACTIVE GAME's (Game.font());
+## when a game ships none (e.g. the placeholder), a rounded SYSTEM font is used instead.
 
 const Config = preload("res://game_config.gd")
 const Pal = Config.PALETTE
-const TTF_PATH := "res://engine/assets/fonts/ui.ttf"
+const Game = preload("res://engine/scripts/game.gd")
 static var _done := false
 
 static func apply() -> void:
@@ -18,11 +16,12 @@ static func apply() -> void:
 	_done = true
 
 	var f: Font
-	if ResourceLoader.exists(TTF_PATH):
-		# Baloo 2 variable TTF (OFL, license alongside) pinned to SemiBold —
-		# the GROVE_UI_SPEC §2 face; emoji/symbols fall back to system fonts.
+	var ttf := Game.font()                 # the active game's UI font ("" = none)
+	if ttf != "" and ResourceLoader.exists(ttf):
+		# the game's variable TTF (e.g. grove's Baloo 2, OFL, license alongside)
+		# pinned to SemiBold; emoji/symbols fall back to system fonts.
 		var fv := FontVariation.new()
-		fv.base_font = load(TTF_PATH)
+		fv.base_font = load(ttf)
 		fv.variation_opentype = {"wght": 600}
 		f = fv
 	else:

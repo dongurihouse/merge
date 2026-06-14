@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://dugw6fw6kil8h"
-path="res://.godot/imported/ui.ttf-ec2854180bfdb4388309a9f464dbecd7.fontdata"
+uid="uid://cshhmhmvuul5"
+path="res://.godot/imported/ui.ttf-318109a63400c1b2da234e8c99c27fc2.fontdata"
 
 [deps]
 
-source_file="res://engine/assets/fonts/ui.ttf"
-dest_files=["res://.godot/imported/ui.ttf-ec2854180bfdb4388309a9f464dbecd7.fontdata"]
+source_file="res://games/grove/fonts/ui.ttf"
+dest_files=["res://.godot/imported/ui.ttf-318109a63400c1b2da234e8c99c27fc2.fontdata"]
 
 [params]
 
