@@ -8,7 +8,7 @@ TESTS   := grove_tests layout_tests save_tests
 .DEFAULT_GOAL := help
 
 .PHONY: help run run_base run_grove editor test test-one smoke import \
-        shot-home shot-grove shot-map shot \
+        shot-map shot-grove shot \
         decor icon ios clean clean-cache
 
 help: ## list available targets
@@ -56,14 +56,11 @@ icon: ## process an icon raw:  make icon IN=/tmp/x.png OUT=res://assets/ui/y.png
 	$(GODOT) --headless --path $(PROJECT) -s res://tools/process_icon.gd -- "$(IN)" $(OUT) $(SIZE)
 
 ## --- screenshots (quiet: born minimized, never steals focus) ---------------
-shot-home: ## capture Home:  make shot-home [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/home.png]
-	$(QUIET) --path $(PROJECT) -s res://tools/home_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/home.png)
+shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|settings|spirits] [OUT=/tmp/map.png]
+	$(QUIET) --path $(PROJECT) -s res://tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 
 shot-grove: ## capture the board:  make shot-grove [MODE=fresh|played|gate|hud|compost|hive] [OUT=/tmp/grove.png]
 	$(QUIET) --path $(PROJECT) -s res://tools/grove_shot.gd -- $(or $(MODE),hud) $(or $(OUT),/tmp/grove.png)
-
-shot-map: ## capture the map:  make shot-map [MODE=fresh] [OUT=/tmp/map.png]
-	$(QUIET) --path $(PROJECT) -s res://tools/map_shot.gd -- $(or $(MODE),fresh) $(or $(OUT),/tmp/map.png)
 
 shot: ## any quiet capture:  make shot TOOL=grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://tools/$(TOOL).gd -- $(ARGS)
