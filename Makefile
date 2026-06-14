@@ -21,7 +21,7 @@ help: ## list available targets
 run: ## play the active game (GAME env var, default placeholder)
 	$(GODOT) --path $(PROJECT)
 
-run_base: ## play the BARE placeholder (no art/audio — wireframe engine)
+run_base: ## play the BARE placeholder (wireframe engine + debug panel)
 	touch games/grove/assets/.gdignore
 	GAME=placeholder $(GODOT) --path $(PROJECT)
 

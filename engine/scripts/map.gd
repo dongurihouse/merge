@@ -141,6 +141,8 @@ func _ready() -> void:
 		if dz >= 0 and zone_unlocked(dz):
 			_open_interior(dz)
 
+	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
+
 # The dev capture harness births its windows minimized + focusless via a
 # transient override.cfg (tools/quiet_godot.sh). If a REAL launch ever inherits
 # those flags — a leaked file, or launching while a capture is in flight — the

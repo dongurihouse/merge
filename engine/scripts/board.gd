@@ -21,6 +21,7 @@ const Features = preload("res://engine/scripts/features.gd")
 const HomeScene = preload("res://engine/scripts/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/game.gd")
 const Config = preload("res://game_config.gd")
+const Debug = preload("res://engine/scripts/debug.gd")
 const Pal = Config.PALETTE
 
 const GAP := 10.0
@@ -288,6 +289,8 @@ func _ready() -> void:
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
 			tr("It rained while you were away ☔"), CREAM, 38)
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
+
+	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.

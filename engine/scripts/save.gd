@@ -93,6 +93,12 @@ static func flush() -> void:
 	if _loaded:
 		save_now()
 
+## DEBUG: wipe ALL progress back to a fresh install (the base debug panel's Reset).
+static func reset() -> void:
+	data = _default()
+	_loaded = true
+	save_now()
+
 # Deep additive merge: fills keys missing from `over` using `base`, never drops `over`'s data.
 static func _merge(base: Dictionary, over: Dictionary) -> Dictionary:
 	var out := base.duplicate(true)
