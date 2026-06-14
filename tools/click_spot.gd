@@ -4,8 +4,8 @@ extends SceneTree
 ## assert the stars were spent. Exists because handler-level tests stay green
 ## while real input is dead (input-swallow bug class ×3).
 
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -23,7 +23,7 @@ func _initialize() -> void:
 	Save.configure_for_test(dir)
 	Save.add_stars(10)
 
-	var scn = load("res://scenes/Home.tscn").instantiate()
+	var scn = load("res://engine/scenes/Home.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

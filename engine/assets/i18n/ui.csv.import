@@ -6,10 +6,10 @@ uid="uid://1pnbf30r7f6x"
 
 [deps]
 
-files=["res://assets/i18n/ui.en.translation"]
+files=["res://engine/assets/i18n/ui.en.translation"]
 
-source_file="res://assets/i18n/ui.csv"
-dest_files=["res://assets/i18n/ui.en.translation"]
+source_file="res://engine/assets/i18n/ui.csv"
+dest_files=["res://engine/assets/i18n/ui.en.translation"]
 
 [params]
 

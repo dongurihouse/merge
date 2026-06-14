@@ -5,9 +5,9 @@ extends SceneTree
 ## of a wide monospace. Run once whenever the atlas changes, then --import:
 ##   godot --path . -s res://tools/build_font.gd
 ##   godot --headless --path . --import
-## ui_font.gd loads res://assets/fonts/ui.fnt automatically.
+## ui_font.gd loads res://engine/assets/fonts/ui.fnt automatically.
 
-const DIR := "res://assets/fonts/"
+const DIR := "res://engine/assets/fonts/"
 const ALPHA_MIN := 0.20   # pixels above this count as ink (shaves the faint shadow fringe)
 const SIDE := 6           # px of breathing room on each side of a glyph (tighter tracking)
 const SPACE_FRAC := 0.34  # space width as a fraction of the cell

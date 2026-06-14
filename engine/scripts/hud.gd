@@ -5,11 +5,11 @@ extends RefCounted
 ## Usage:  var hud := Hud.build(self, {"water_grant": Callable})
 ##         hud.stars.text = ...   (or call hud.refresh.call())
 
-const Save = preload("res://scripts/save.gd")
-const Look = preload("res://scripts/skin.gd")
-const Shop = preload("res://scripts/shop.gd")
-const FX = preload("res://scripts/fx.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Look = preload("res://engine/scripts/skin.gd")
+const Shop = preload("res://engine/scripts/shop.gd")
+const FX = preload("res://engine/scripts/fx.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 const INK := Color("#33402F")
 const CREAM := Color("#FBF3EA")

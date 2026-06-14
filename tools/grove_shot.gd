@@ -3,8 +3,8 @@ extends SceneTree
 ## in a given state.   quiet_godot.sh --path . -s res://tools/grove_shot.gd -- <mode> <out.png>
 ## modes: fresh | played | gate | compost | ladder | hive
 
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -17,7 +17,7 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	for wa in args:
 		if String(wa).begins_with("weather="):
-			load("res://scripts/ambient.gd").forced_weather = String(wa).split("=")[1]
+			load("res://engine/scripts/ambient.gd").forced_weather = String(wa).split("=")[1]
 	var mode: String = args[0] if args.size() >= 1 else "fresh"
 	var out: String = args[1] if args.size() >= 2 else "/tmp/grove_%s.png" % mode
 	if args.size() >= 3 and "x" in args[2]:
@@ -35,7 +35,7 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	var scn = load("res://scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.5).timeout
@@ -62,7 +62,7 @@ func _initialize() -> void:
 			# V1: open a path out to a line-3 (mushroom/compost) edge bramble so the
 			# locked compost generator shows its greyed "after N spots" silhouette
 			for cc in [Vector2i(1, 3), Vector2i(2, 3), Vector2i(2, 2), Vector2i(2, 1)]:
-				scn.board.terrain[load("res://scripts/grove_board.gd").idx(cc)] = 0
+				scn.board.terrain[load("res://engine/scripts/grove_board.gd").idx(cc)] = 0
 			scn._rebuild_all()
 			await create_timer(0.4).timeout
 		"hud":

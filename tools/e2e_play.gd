@@ -4,12 +4,12 @@ extends SceneTree
 ## replay economy, settings/calm — capturing screenshots and probing suspected bugs
 ## (undo vs friction state). Prints PASS/FINDING lines; shots land in /tmp/e2e_*.png.
 
-const Save = preload("res://scripts/save.gd")
-const Session = preload("res://scripts/session.gd")
-const Districts = preload("res://scripts/districts.gd")
-const Levels = preload("res://scripts/levels.gd")
-const Quests = preload("res://scripts/quests.gd")
-const Board = preload("res://scripts/board.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Session = preload("res://engine/scripts/session.gd")
+const Districts = preload("res://engine/scripts/districts.gd")
+const Levels = preload("res://engine/scripts/levels.gd")
+const Quests = preload("res://engine/scripts/quests.gd")
+const Board = preload("res://engine/scripts/board.gd")
 
 var findings: Array = []
 var checks := 0
@@ -134,7 +134,7 @@ func _initialize() -> void:
 	print("== E2E playthrough ==")
 
 	# A. fresh menu — FTUE staging
-	var menu := goto_scene("res://scenes/Menu.tscn")
+	var menu := goto_scene("res://engine/scenes/Menu.tscn")
 	await wait(0.4)
 	var has_bedroom := false
 	for b in _all_buttons(menu):
@@ -256,21 +256,21 @@ func _initialize() -> void:
 			var delta := Save.coins() - coins_before
 			note("PASS" if Save.client_paid("wren") else "FINDING", "Wren's lump paid on map entry (+%d total beat)" % delta if Save.client_paid("wren") else "Wren's lump did NOT pay")
 			# room: spend what we have
-			goto_scene("res://scenes/Room.tscn")
+			goto_scene("res://engine/scenes/Room.tscn")
 			await wait(0.5)
 			var room := cur()
 			for i in 6:
 				room.call("_on_pin", i)
 				await wait(0.5)
 			await shot("room_partial")
-			goto_scene("res://scenes/Jobs.tscn")
+			goto_scene("res://engine/scenes/Jobs.tscn")
 			await wait(0.8)
 
 	note("PASS" if clears == 15 else "FINDING", "cleared the entire 15-level ladder" if clears == 15 else "only cleared %d/15" % clears)
 
 	# C. final map state
 	if cur() == null or cur().get("board") != null:
-		goto_scene("res://scenes/Jobs.tscn")
+		goto_scene("res://engine/scenes/Jobs.tscn")
 	await wait(1.0)
 	await shot("map_final")
 	var all_paid := Save.client_paid("wren") and Save.client_paid("juniper") and Save.client_paid("pip")
@@ -278,7 +278,7 @@ func _initialize() -> void:
 	note("PASS" if bool(Save.daily().get("claimed", false)) else "FINDING", "daily bundle claimed during the journey" if bool(Save.daily().get("claimed", false)) else "daily bundle never claimed despite met targets")
 
 	# D. room completion
-	goto_scene("res://scenes/Room.tscn")
+	goto_scene("res://engine/scenes/Room.tscn")
 	await wait(0.5)
 	var room2 := cur()
 	for i in 6:
@@ -292,7 +292,7 @@ func _initialize() -> void:
 	# E. replay pays a trickle
 	var before_replay := Save.coins()
 	Session.next_level = 0
-	goto_scene("res://scenes/Main.tscn")
+	goto_scene("res://engine/scenes/Main.tscn")
 	await wait(0.5)
 	var b := cur()
 	await solve_board(b)
@@ -306,7 +306,7 @@ func _initialize() -> void:
 	var scn2 := cur()
 	if scn2.get("board") == null:
 		Session.next_level = 1
-		goto_scene("res://scenes/Main.tscn")
+		goto_scene("res://engine/scenes/Main.tscn")
 		await wait(0.5)
 		scn2 = cur()
 	var pr3 := _pick_pair(scn2)

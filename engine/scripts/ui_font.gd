@@ -7,8 +7,8 @@ extends RefCounted
 ## longer used for UI text (keep it for big display art only). If a real rounded ui.ttf is ever
 ## dropped in, it's preferred over the system font for cross-device consistency.
 
-const Palette = preload("res://scripts/palette.gd")
-const TTF_PATH := "res://assets/fonts/ui.ttf"
+const Palette = preload("res://engine/scripts/palette.gd")
+const TTF_PATH := "res://engine/assets/fonts/ui.ttf"
 static var _done := false
 
 static func apply() -> void:

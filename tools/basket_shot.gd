@@ -2,9 +2,9 @@ extends SceneTree
 ## Y2/Y3 proof shot (run via tools/quiet_godot.sh): the merchant's collection basket
 ## with a few sale chips (and, with porter_collect on, the porter mid-drift).
 ##   quiet_godot.sh --path . -s res://tools/basket_shot.gd -- [out.png] [crop=x,y,w,h] [porter]
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
-const Feat = preload("res://scripts/features.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
+const Feat = preload("res://engine/scripts/features.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -24,7 +24,7 @@ func _initialize() -> void:
 	Save.configure_for_test(dir)
 	Feat.FLAGS["ftue_staged_chrome"] = false        # the merchant + basket are present
 	var root := get_root()
-	var scn = load("res://scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

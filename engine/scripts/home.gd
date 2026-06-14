@@ -9,18 +9,18 @@ extends Control
 ## level-ups gift water+diamonds. A pinned garden button leads to the board.
 ## Art auto-wires: assets/rooms/map_grove.png + assets/map/poi_<zone_id>.png.
 
-const G = preload("res://scripts/grove_content.gd")
-const Save = preload("res://scripts/save.gd")
-const Audio = preload("res://scripts/audio.gd")
-const Music = preload("res://scripts/music.gd")
-const UiFont = preload("res://scripts/ui_font.gd")
-const Look = preload("res://scripts/skin.gd")
-const FX = preload("res://scripts/fx.gd")
-const Hud = preload("res://scripts/hud.gd")
-const Ambient = preload("res://scripts/ambient.gd")
-const Features = preload("res://scripts/features.gd")
-const Layout = preload("res://scripts/layout.gd")
-const Debug = preload("res://scripts/debug.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Audio = preload("res://engine/scripts/audio.gd")
+const Music = preload("res://engine/scripts/music.gd")
+const UiFont = preload("res://engine/scripts/ui_font.gd")
+const Look = preload("res://engine/scripts/skin.gd")
+const FX = preload("res://engine/scripts/fx.gd")
+const Hud = preload("res://engine/scripts/hud.gd")
+const Ambient = preload("res://engine/scripts/ambient.gd")
+const Features = preload("res://engine/scripts/features.gd")
+const Layout = preload("res://engine/scripts/layout.gd")
+const Debug = preload("res://engine/scripts/debug.gd")
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
 const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)
@@ -1207,7 +1207,7 @@ func _toggle(key: String, on_t: String, off_t: String, def: bool, extra: Callabl
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)
 	get_tree().quit_on_go_back = true    # other scenes keep the platform default
-	get_tree().change_scene_to_file("res://scenes/Grove.tscn")
+	get_tree().change_scene_to_file("res://engine/scenes/Grove.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Esc walks out of the room — desktop has no OS back gesture

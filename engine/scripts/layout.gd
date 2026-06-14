@@ -15,7 +15,7 @@ extends RefCounted
 ## fractions is hopeless. The owner drags the real art onto the real ground; we
 ## store whatever lands it right.
 
-const G = preload("res://scripts/grove_content.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 const RES_PATH := "res://data/placements.json"
 const USER_PATH := "user://placements.json"

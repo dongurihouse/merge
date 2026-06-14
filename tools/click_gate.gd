@@ -3,8 +3,8 @@ extends SceneTree
 ## report — stage a gate-ready grove at chapter >= 1, CLICK the button for real,
 ## and print which scene we land on.
 
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -28,7 +28,7 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_stars(10)
 
-	var scn = load("res://scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

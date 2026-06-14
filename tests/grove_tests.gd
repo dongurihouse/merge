@@ -3,9 +3,9 @@ extends SceneTree
 ## policy, chapter gate math, persistence.
 ##   godot --headless --path . -s res://tests/grove_tests.gd
 
-const G = preload("res://scripts/grove_content.gd")
-const GroveBoard = preload("res://scripts/grove_board.gd")
-const Save = preload("res://scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
+const GroveBoard = preload("res://engine/scripts/grove_board.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 var _pass := 0
 var _fail := 0
@@ -326,7 +326,7 @@ func _initialize() -> void:
 
 	# 10. the SCENE stands up and plays headless (merge → bramble → deliver → gate)
 	fresh("scene")
-	var scn = load("res://scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(scn)
 	if scn.board == null:
 		scn._ready()
@@ -431,7 +431,7 @@ func _initialize() -> void:
 
 	# persistence: a fresh scene resumes the same board
 	var snapshot := Array(scn.board.items)
-	var scn2 = load("res://scenes/Grove.tscn").instantiate()
+	var scn2 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(scn2)
 	if scn2.board == null:
 		scn2._ready()
@@ -440,7 +440,7 @@ func _initialize() -> void:
 
 	# 11. P2 — water economy + coins
 	fresh("p2")
-	var s2 = load("res://scenes/Grove.tscn").instantiate()
+	var s2 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s2)
 	if s2.board == null:
 		s2._ready()
@@ -510,7 +510,7 @@ func _initialize() -> void:
 	gw["regen_ts"] = Time.get_unix_time_from_system() - 3 * 86400.0
 	gw["last_seen"] = Time.get_unix_time_from_system() - 3 * 86400.0
 	Save.grove_write()
-	var s3 = load("res://scenes/Grove.tscn").instantiate()
+	var s3 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s3)
 	if s3.board == null:
 		s3._ready()
@@ -525,7 +525,7 @@ func _initialize() -> void:
 			ul16[String(sp.id)] = true
 	gtg["unlocks"] = ul16
 	Save.grove_write()
-	var s4 = load("res://scenes/Grove.tscn").instantiate()
+	var s4 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s4)
 	if s4.board == null:
 		s4._ready()
@@ -535,7 +535,7 @@ func _initialize() -> void:
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's
 	# "no border" bug: move_child(slot, 0) hid the tile behind the moss)
 	fresh("opentile")
-	var s4b = load("res://scenes/Grove.tscn").instantiate()
+	var s4b = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s4b)
 	if s4b.board == null:
 		s4b._ready()
@@ -584,7 +584,7 @@ func _initialize() -> void:
 
 	# 14. P3 — the HOME scene: buy → exp → level-up water gift → zone gating → resume
 	fresh("home")
-	var h = load("res://scenes/Home.tscn").instantiate()
+	var h = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h)
 	if h.vista == null:
 		h._ready()
@@ -780,7 +780,7 @@ func _initialize() -> void:
 	ok(not strand, "level gates never strand the map (worst-case order, all 40 spots)")
 
 	# a fresh Home resumes the same progress
-	var h2 = load("res://scenes/Home.tscn").instantiate()
+	var h2 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h2)
 	if h2.vista == null:
 		h2._ready()
@@ -788,7 +788,7 @@ func _initialize() -> void:
 
 	# 15. P5 — sell anything, diamonds, FTUE staging
 	fresh("p5")
-	var s5 = load("res://scenes/Grove.tscn").instantiate()
+	var s5 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s5)
 	if s5.board == null:
 		s5._ready()
@@ -837,7 +837,7 @@ func _initialize() -> void:
 		"the third bag slot purchase sticks")
 
 	# home grants: a level-up pays diamonds too
-	var h5 = load("res://scenes/Home.tscn").instantiate()
+	var h5 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h5)
 	if h5.vista == null:
 		h5._ready()
@@ -849,7 +849,7 @@ func _initialize() -> void:
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;
 	# unseen tiers stay "?")
 	fresh("ladder")
-	var s6 = load("res://scenes/Grove.tscn").instantiate()
+	var s6 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s6)
 	if s6.board == null:
 		s6._ready()
@@ -870,7 +870,7 @@ func _initialize() -> void:
 
 	# 17. the Shop: diamond packs grant, cash confirm grants directly (no rails yet)
 	fresh("shop")
-	var Shop = load("res://scripts/shop.gd")
+	var Shop = load("res://engine/scripts/shop.gd")
 	ok(not Shop.buy_coin_pack(), "the coin pack refuses without diamonds")
 	Save.add_diamonds(30)
 	var coins_before := Save.coins()
@@ -883,7 +883,7 @@ func _initialize() -> void:
 		"confirming a cash pack adds the diamonds directly")
 	ok(Shop.buy_water() and Save.diamonds() == gems_before + int(Shop.CASH_PACKS[0].gems) - G.REFILL_DIAMOND_COST, \
 		"the water purchase spends its diamonds (price = G.REFILL_DIAMOND_COST)")
-	var s7 = load("res://scenes/Grove.tscn").instantiate()
+	var s7 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s7)
 	if s7.board == null:
 		s7._ready()
@@ -897,7 +897,7 @@ func _initialize() -> void:
 	ok(rows_water == rows_plain + 1, "the water row appears only with a water_grant (%d -> %d)" % [rows_plain, rows_water])
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
-	var h7 = load("res://scenes/Home.tscn").instantiate()
+	var h7 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h7)
 	if h7.vista == null:
 		h7._ready()
@@ -926,7 +926,7 @@ func _initialize() -> void:
 
 	# 19. order L — ambient life + weather
 	fresh("ambient")
-	var Ambient = load("res://scripts/ambient.gd")
+	var Ambient = load("res://engine/scripts/ambient.gd")
 	ok(G.completed_zones({}) == 0, "no zones done on a fresh save")
 	var full0 := {}
 	for sp0 in G.ZONES[0].spots:
@@ -944,14 +944,14 @@ func _initialize() -> void:
 	Ambient.forced_weather = "snow"
 	ok(Ambient.weather_now(true) == "snow", "shot tools can force a state")
 	Ambient.forced_weather = ""
-	var h8 = load("res://scenes/Home.tscn").instantiate()
+	var h8 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h8)
 	if h8.vista == null:
 		h8._ready()
 	ok(h8.vista.get_node_or_null("AmbientLayer") != null, "the map carries the spirit layer")
 	ok(h8.get_node_or_null("WeatherLayer") != null, "the map carries the weather layer")
 	ok(_all_ignore(h8.vista), "the map guard stays green with spirits wandering")
-	var s8 = load("res://scenes/Grove.tscn").instantiate()
+	var s8 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s8)
 	if s8.board == null:
 		s8._ready()
@@ -960,7 +960,7 @@ func _initialize() -> void:
 
 	# 20. order N — feature flags: all-ON is proven by the whole sweep (zero
 	# behavior change); two flip smokes prove the guards actually disconnect
-	var Features = load("res://scripts/features.gd")
+	var Features = load("res://engine/scripts/features.gd")
 	ok(Features.on("idle_hint") and Features.on("nonexistent_flag_xyz"), \
 		"known flags read true; unknown ids warn + default ON (typo-proof)")
 	Features.FLAGS["idle_hint"] = false
@@ -968,7 +968,7 @@ func _initialize() -> void:
 	Features.FLAGS["idle_hint"] = true
 	fresh("flagpop")
 	Features.FLAGS["ftue_free_pops"] = false
-	var s9 = load("res://scenes/Grove.tscn").instantiate()
+	var s9 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(s9)
 	if s9.board == null:
 		s9._ready()
@@ -984,7 +984,7 @@ func _initialize() -> void:
 	# a real misalignment to fix. (wallet was R1; zone pin R2.)
 	fresh("r4")
 	# water chip (board, top-left) — reveal past the FTUE stage, then assert it wraps
-	var sb4 = load("res://scenes/Grove.tscn").instantiate()
+	var sb4 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(sb4)
 	if sb4.board == null:
 		sb4._ready()
@@ -995,7 +995,7 @@ func _initialize() -> void:
 	var wrow: Control = sb4.water_label.get_parent()
 	assert_wraps(wchip, wrow, 5.0, 4.0, "R4 water chip")
 	# level chip (home, top-left)
-	var h4 = load("res://scenes/Home.tscn").instantiate()
+	var h4 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(h4)
 	if h4.vista == null:
 		h4._ready()
@@ -1057,7 +1057,7 @@ func _initialize() -> void:
 	# P2: the drop chain (real _on_press → _on_release drives)
 	fresh("pswap")
 	Features.FLAGS["drag_swap"] = true
-	var sp = load("res://scenes/Grove.tscn").instantiate()
+	var sp = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(sp)
 	if sp.board == null:
 		sp._ready()
@@ -1098,10 +1098,10 @@ func _initialize() -> void:
 	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
 
 	# 24. T — Decorate flow goes WHERE the player decorates
-	var HomeScript = load("res://scripts/home.gd")
+	var HomeScript = load("res://engine/scripts/home.gd")
 	# T1: opening an interior persists last_zone
 	fresh("tlast")
-	var ht = load("res://scenes/Home.tscn").instantiate()
+	var ht = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(ht)
 	if ht.vista == null:
 		ht._ready()
@@ -1110,7 +1110,7 @@ func _initialize() -> void:
 	ht._close_interior()
 	# T1: sanitize — an unknown id is dropped on load
 	Save.grove()["last_zone"] = "atlantis"
-	var ht2 = load("res://scenes/Home.tscn").instantiate()
+	var ht2 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(ht2)
 	if ht2.vista == null:
 		ht2._ready()
@@ -1119,7 +1119,7 @@ func _initialize() -> void:
 	# T2: the Decorate jump — interior pre-opened, NO map flash (asserted before any frame)
 	Save.grove()["last_zone"] = "farmhouse"
 	HomeScript.decorate_zone = "farmhouse"
-	var ht3 = load("res://scenes/Home.tscn").instantiate()
+	var ht3 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(ht3)
 	if ht3.vista == null:
 		ht3._ready()
@@ -1128,7 +1128,7 @@ func _initialize() -> void:
 	ok(HomeScript.decorate_zone == "", "T2: the jump request is one-shot (consumed)")
 	# T2: an unknown jump request falls through to the map
 	HomeScript.decorate_zone = "atlantis"
-	var ht4 = load("res://scenes/Home.tscn").instantiate()
+	var ht4 = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(ht4)
 	if ht4.vista == null:
 		ht4._ready()
@@ -1149,40 +1149,30 @@ func _initialize() -> void:
 	ok(_all_ignore(ht3.interior), "T3: the CTA keeps the single-input-surface rule")
 	ht3._close_interior()
 
-	# 25. order O — ONE continuous playlist (state, not sound; dummy audio driver)
-	var Music = load("res://scripts/music.gd")
+	# 25. order O — music degrades SILENTLY on a BARE engine. Audio is skin and the
+	# real takes are archived, so ensure() must be a quiet no-op (never create a
+	# player to crash on). The full A/B playlist-alternation logic ships + is tested
+	# WITH the audio skin (needs takes on disk); here we only guard the engine never
+	# crashes/hangs without it. (T16: this test used to assume real music on disk.)
+	var Music = load("res://engine/scripts/music.gd")
 	fresh("omusic")
 	Music.stop()
 	Music.ensure()
-	ok(Music._player != null and Music._player.playing, "O: ensure() starts the playlist (real takes on disk)")
-	var o_stream = Music._player.stream
-	Music.ensure()
-	ok(Music._player.stream == o_stream and Music._player.playing, \
-		"O: a second ensure() NEVER restarts/replaces the playing stream")
-	var o_path0: String = o_stream.resource_path
-	Music._on_finished()
-	ok(Music._player.playing and Music._player.stream.resource_path != o_path0, \
-		"O: finished → the OTHER take plays (A→B)")
-	Music._on_finished()
-	ok(Music._player.stream.resource_path == o_path0, "O: finished again → back to take A (B→A, forever)")
+	ok(Music._player == null or not Music._player.playing, "O: no audio skin → ensure() is a silent no-op (no crash/hang)")
 	Save.set_setting("music", false)
 	Music.refresh()
-	ok(not Music._player.playing, "O: music Off → refresh() stops the bed")
-	Music.ensure()
-	ok(not Music._player.playing, "O: ensure() stays silent while the setting is Off")
+	ok(Music._player == null or not Music._player.playing, "O: music Off → refresh() leaves the bed silent")
 	Save.set_setting("music", true)
-	Music.refresh()
-	ok(Music._player.playing, "O: On → refresh() resumes the playlist")
 	Music.stop()
 	Music.take_dir = "res://assets/nonexistent/"
 	Music.ensure()
-	ok(not Music._player.playing, "O: zero takes on disk → ensure() is a silent no-op (no crash)")
+	ok(Music._player == null or not Music._player.playing, "O: zero takes on disk → ensure() is a silent no-op (no crash)")
 	Music.take_dir = "res://assets/music/"
-	ok(Music._takes().size() == 2, "O: both delivered takes resolve (.mp3 — ogg would win if present)")
+	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
 	fresh("sui")
-	var ss = load("res://scenes/Grove.tscn").instantiate()
+	var ss = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(ss)
 	if ss.board == null:
 		ss._ready()
@@ -1209,7 +1199,7 @@ func _initialize() -> void:
 		"S4/S10: the Lv chip sits fully on-screen (board — the module ships it to BOTH scenes)")
 	ok(not wchip4.get_global_rect().intersects(ss.level_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the water chip and the Lv chip do NOT overlap (owner 2026-06-12)")
-	var hs = load("res://scenes/Home.tscn").instantiate()
+	var hs = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(hs)
 	if hs.vista == null:
 		hs._ready()
@@ -1230,7 +1220,7 @@ func _initialize() -> void:
 	# button heights (margins > the rect), which is how both shipped as floating text.
 	ok(s2_ribbon.get_theme_stylebox("panel") is StyleBoxFlat, \
 		"S2: the chapter chip is a solid pill (not the collapsing ribbon_title nine-patch)")
-	var _skin = load("res://scripts/skin.gd")
+	var _skin = load("res://engine/scripts/skin.gd")
 	var _pbtn: Button = _skin.button("X", Callable(), true)
 	ok(_pbtn.get_theme_stylebox("normal") is StyleBoxFlat, \
 		"S6: primary buttons are solid pills (not the collapsing btn_leaf nine-patch)")
@@ -1263,7 +1253,7 @@ func _initialize() -> void:
 	await create_timer(0.06).timeout
 
 	# --- order W: board feel ----------------------------------------------------
-	var ws = load("res://scenes/Grove.tscn").instantiate()
+	var ws = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(ws)
 	if ws.board == null:
 		ws._ready()
@@ -1308,7 +1298,7 @@ func _initialize() -> void:
 	ws._note_item_landed(top_code)
 	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
 	# (b) the merchant brightens + shows a live +N🪙 tag while an item is dragged
-	var Feat = load("res://scripts/features.gd")
+	var Feat = load("res://engine/scripts/features.gd")
 	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
@@ -1335,7 +1325,7 @@ func _initialize() -> void:
 	# V1: a locked generator (compost = GENERATORS[1], line 3, appears_at 16)
 	# previews once a line-3 edge bramble is revealed (adjacent to an open cell).
 	fresh("v1")   # the W2 taps persist a board; start V1 from a guaranteed-clean save
-	var gv = load("res://scenes/Grove.tscn").instantiate()
+	var gv = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(gv)
 	if gv.board == null:
 		gv._ready()
@@ -1350,10 +1340,10 @@ func _initialize() -> void:
 
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
 	fresh("y")
-	var Feat2 = load("res://scripts/features.gd")
+	var Feat2 = load("res://engine/scripts/features.gd")
 	Feat2.FLAGS["ftue_staged_chrome"] = false   # merchant + basket present on a fresh board
 	Feat2.FLAGS["porter_collect"] = false        # test the MECHANICS, not the drift animation
-	var ys = load("res://scenes/Grove.tscn").instantiate()
+	var ys = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(ys)
 	if ys.board == null:
 		ys._ready()
@@ -1421,9 +1411,9 @@ func _initialize() -> void:
 		"Z4: the wayside sink (%d🪙) is ~1.5–2k — absorbs the lifetime faucet" % G.wayside_sink_capacity())
 	# Z2 buy logic: a wayside is dormant until its zone is restored, then coin-buyable, one-time
 	fresh("z")
-	var Feat3 = load("res://scripts/features.gd")
+	var Feat3 = load("res://engine/scripts/features.gd")
 	Feat3.FLAGS["ftue_staged_chrome"] = false
-	var zs = load("res://scenes/Home.tscn").instantiate()
+	var zs = load("res://engine/scenes/Home.tscn").instantiate()
 	get_root().add_child(zs)
 	if zs.vista == null:
 		zs._ready()
@@ -1472,7 +1462,7 @@ func _initialize() -> void:
 	# independent (graceful), and you can't overspend.
 	fresh("z3")
 	Feat3.FLAGS["spirit_treats"] = true
-	var z3 = load("res://scenes/Grove.tscn").instantiate()
+	var z3 = load("res://engine/scenes/Grove.tscn").instantiate()
 	get_root().add_child(z3)
 	if z3.board == null:
 		z3._ready()

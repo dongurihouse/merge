@@ -7,19 +7,19 @@ extends Control
 ## stars, and spend stars at the Restore gate to advance chapters (givers pause
 ## the moment the gate is affordable — the drive-to-spend loop).
 
-const G = preload("res://scripts/grove_content.gd")
-const GroveBoard = preload("res://scripts/grove_board.gd")
-const Save = preload("res://scripts/save.gd")
-const Palette = preload("res://scripts/palette.gd")
-const Audio = preload("res://scripts/audio.gd")
-const Music = preload("res://scripts/music.gd")
-const UiFont = preload("res://scripts/ui_font.gd")
-const Look = preload("res://scripts/skin.gd")
-const FX = preload("res://scripts/fx.gd")
-const Hud = preload("res://scripts/hud.gd")
-const Ambient = preload("res://scripts/ambient.gd")
-const Features = preload("res://scripts/features.gd")
-const HomeScene = preload("res://scripts/home.gd")   # T2: the Decorate jump request
+const G = preload("res://engine/scripts/grove_content.gd")
+const GroveBoard = preload("res://engine/scripts/grove_board.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Palette = preload("res://engine/scripts/palette.gd")
+const Audio = preload("res://engine/scripts/audio.gd")
+const Music = preload("res://engine/scripts/music.gd")
+const UiFont = preload("res://engine/scripts/ui_font.gd")
+const Look = preload("res://engine/scripts/skin.gd")
+const FX = preload("res://engine/scripts/fx.gd")
+const Hud = preload("res://engine/scripts/hud.gd")
+const Ambient = preload("res://engine/scripts/ambient.gd")
+const Features = preload("res://engine/scripts/features.gd")
+const HomeScene = preload("res://engine/scripts/home.gd")   # T2: the Decorate jump request
 
 const GAP := 10.0
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
@@ -252,7 +252,7 @@ func _ready() -> void:
 	bottom_bar.add_child(brow)
 	var home_btn := Look.button(tr("◀ Home"), func() -> void:
 		Audio.play("button_tap", -2.0)
-		get_tree().change_scene_to_file("res://scenes/Home.tscn"), false)
+		get_tree().change_scene_to_file("res://engine/scenes/Home.tscn"), false)
 	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	brow.add_child(home_btn)
@@ -2136,7 +2136,7 @@ func _on_gate() -> void:
 	# T2: Decorate jumps straight INTO the room you were decorating — the map is
 	# the atlas you visit on purpose. Fresh save (no last_zone) → the map, as ever.
 	HomeScene.decorate_zone = String(Save.grove().get("last_zone", ""))
-	get_tree().change_scene_to_file("res://scenes/Home.tscn")
+	get_tree().change_scene_to_file("res://engine/scenes/Home.tscn")
 
 # --- misc -------------------------------------------------------------------------
 

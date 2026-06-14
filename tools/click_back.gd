@@ -4,8 +4,8 @@ extends SceneTree
 ## click the dark surround (room closes again). Exists because handler-level tests
 ## stay green while real input is dead (input-swallow bug class).
 
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -22,7 +22,7 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	var scn = load("res://scenes/Home.tscn").instantiate()
+	var scn = load("res://engine/scenes/Home.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

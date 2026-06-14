@@ -3,8 +3,8 @@ extends SceneTree
 ##   godot --path . -s res://tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | mid | lump | far
 
-const Save = preload("res://scripts/save.gd")
-const Districts = preload("res://scripts/districts.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Districts = preload("res://engine/scripts/districts.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -40,7 +40,7 @@ func _initialize() -> void:
 				Save.record_job(id, 2, 8)
 			Save.collect_client_lump("wren", 150)
 
-	var scn: Node = load("res://scenes/Jobs.tscn").instantiate()
+	var scn: Node = load("res://engine/scenes/Jobs.tscn").instantiate()
 	root.add_child(scn)
 	await create_timer(0.7 if mode == "lump" else 0.45).timeout
 

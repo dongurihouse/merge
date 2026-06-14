@@ -6,8 +6,8 @@ extends SceneTree
 ## Runs MINIMIZED + no-focus: frames still render to the layer, so captures are real
 ## but no window ever appears or steals focus from whatever the owner is doing.
 
-const Session = preload("res://scripts/session.gd")
-const Districts = preload("res://scripts/districts.gd")
+const Session = preload("res://engine/scripts/session.gd")
+const Districts = preload("res://engine/scripts/districts.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -31,7 +31,7 @@ func _initialize() -> void:
 		print("FAIL: unknown level id ", id)
 		quit(1); return
 	Session.next_level = idx
-	var scn: Node = load("res://scenes/Main.tscn").instantiate()
+	var scn: Node = load("res://engine/scenes/Main.tscn").instantiate()
 	root.add_child(scn)
 	await create_timer(0.5).timeout
 	# minimized windows occasionally serve a STALE frame - force a fresh draw

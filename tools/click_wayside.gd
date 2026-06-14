@@ -6,8 +6,8 @@ extends SceneTree
 ## input is dead (input-swallow bug class). Mirrors click_spot.gd.
 ##   tools/quiet_godot.sh --path . -s res://tools/click_wayside.gd
 
-const Save = preload("res://scripts/save.gd")
-const G = preload("res://scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -41,7 +41,7 @@ func _try(label: String, tap_pin: bool) -> int:
 	g["unlocks"] = ul
 	Save.grove_write()
 
-	var scn = load("res://scenes/Home.tscn").instantiate()
+	var scn = load("res://engine/scenes/Home.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.4).timeout

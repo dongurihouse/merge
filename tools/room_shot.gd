@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --path . -s res://tools/_room_shot.gd -- <mode> <out.png>
 ## modes: empty | rich | mid | poor | reveal
 
-const Save = preload("res://scripts/save.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -39,7 +39,7 @@ func _initialize() -> void:
 		"poor", "empty":
 			pass
 
-	var scn: Node = load("res://scenes/Room.tscn").instantiate()
+	var scn: Node = load("res://engine/scenes/Room.tscn").instantiate()
 	root.add_child(scn)
 	await create_timer(0.6).timeout
 

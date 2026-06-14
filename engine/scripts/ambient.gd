@@ -11,10 +11,10 @@ extends RefCounted
 ## pickers read it → it rains for that first minute home. CALM MODE WINS:
 ## calm players get breeze, never rain/snow. Caps: ≤2 emitters, ≤80 particles.
 
-const G = preload("res://scripts/grove_content.gd")
-const Save = preload("res://scripts/save.gd")
-const FX = preload("res://scripts/fx.gd")
-const Features = preload("res://scripts/features.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const FX = preload("res://engine/scripts/fx.gd")
+const Features = preload("res://engine/scripts/features.gd")
 
 const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # §I art rows (puff removed, owner 2026-06-13)
 const SPIRIT_CAP := 5

@@ -1,10 +1,10 @@
 extends RefCounted
 ## Tidy Up — shared juice helpers (static, like Audio/Save). All grove screens use these.
-##   const FX = preload("res://scripts/fx.gd")
+##   const FX = preload("res://engine/scripts/fx.gd")
 
-const Palette = preload("res://scripts/palette.gd")
-const Save = preload("res://scripts/save.gd")
-const Features = preload("res://scripts/features.gd")
+const Palette = preload("res://engine/scripts/palette.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Features = preload("res://engine/scripts/features.gd")
 
 static var _dot_tex: Texture2D
 

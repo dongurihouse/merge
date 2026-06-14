@@ -6,7 +6,7 @@ extends RefCounted
 ## idempotent: it NEVER restarts a playing stream. Degrades silently while
 ## no takes exist. The "music" user setting IS the toggle (no Features flag).
 
-const Save = preload("res://scripts/save.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 const VOLUME_DB := -8.0
 

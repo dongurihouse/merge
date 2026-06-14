@@ -6,11 +6,11 @@ extends RefCounted
 ## ("test build — nothing is charged"); the future IAP hookup replaces only the
 ## middle of `_confirm_cash`. Pure grant funcs are static and test-covered.
 
-const Save = preload("res://scripts/save.gd")
-const Look = preload("res://scripts/skin.gd")
-const G = preload("res://scripts/grove_content.gd")
-const FX = preload("res://scripts/fx.gd")
-const Audio = preload("res://scripts/audio.gd")
+const Save = preload("res://engine/scripts/save.gd")
+const Look = preload("res://engine/scripts/skin.gd")
+const G = preload("res://engine/scripts/grove_content.gd")
+const FX = preload("res://engine/scripts/fx.gd")
+const Audio = preload("res://engine/scripts/audio.gd")
 
 const INK := Color("#33402F")
 const CREAM := Color("#FBF3EA")

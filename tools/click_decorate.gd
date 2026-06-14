@@ -4,7 +4,7 @@ extends SceneTree
 ## the interior's "Tend the garden ▶" CTA → back on the board. Exists because
 ## handler-level tests stay green while real input is dead (input-swallow class).
 
-const Save = preload("res://scripts/save.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -28,7 +28,7 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_stars(5)
 
-	var scn = load("res://scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.8).timeout

@@ -1,9 +1,9 @@
 extends RefCounted
 ## Tidy Up — shared UI skin helpers (background + buttons), so menu/board/room
-## look consistent. Preload: const Skin = preload("res://scripts/skin.gd").
+## look consistent. Preload: const Skin = preload("res://engine/scripts/skin.gd").
 
-const Palette = preload("res://scripts/palette.gd")
-const Features = preload("res://scripts/features.gd")
+const Palette = preload("res://engine/scripts/palette.gd")
+const Features = preload("res://engine/scripts/features.gd")
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds

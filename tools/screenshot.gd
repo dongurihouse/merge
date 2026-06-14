@@ -13,7 +13,7 @@ func _initialize() -> void:
 		return
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
-	var scene_path := "res://scenes/Main.tscn"
+	var scene_path := "res://engine/scenes/Main.tscn"
 	var out := "/tmp/rz_shot.png"
 	var args := OS.get_cmdline_user_args()
 	if args.size() >= 1:

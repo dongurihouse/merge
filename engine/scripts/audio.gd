@@ -1,11 +1,11 @@
 extends RefCounted
 ## Tidy Up — tiny SFX helper (preload + static; no autoload needed).
-##   const Audio = preload("res://scripts/audio.gd")
+##   const Audio = preload("res://engine/scripts/audio.gd")
 ##   Audio.play("merge_success")
 ## Loads everything in assets/sfx/ once and round-robins a small player pool so
 ## sounds can overlap. Missing files are silently skipped.
 
-const Save = preload("res://scripts/save.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 const FILES := [
 	"button_tap", "invalid_soft", "item_drop", "item_pickup",
