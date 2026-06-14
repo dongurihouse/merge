@@ -139,3 +139,11 @@ const ZONES := [
 const EXP_PER_STAR := 10
 const LEVEL_XP := [0, 60, 140, 240, 360, 500, 660, 840, 1040, 1260]
 const LEVEL_WATER_GIFT := 20
+
+# ambient life + board gameplay tuning
+const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # the wandering spirit roster (art rows)
+const SPIRIT_CAP := 5
+const BAG_SLOTS := 2
+const BASKET_CAP := 3            # the merchant's buy-back basket size
+const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
+const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)

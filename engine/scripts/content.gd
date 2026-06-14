@@ -49,6 +49,12 @@ const ZONES = D.ZONES
 const EXP_PER_STAR = D.EXP_PER_STAR
 const LEVEL_XP = D.LEVEL_XP
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
+const SPIRIT_TYPES = D.SPIRIT_TYPES
+const SPIRIT_CAP = D.SPIRIT_CAP
+const BAG_SLOTS = D.BAG_SLOTS
+const BASKET_CAP = D.BASKET_CAP
+const PORTER_SECS = D.PORTER_SECS
+const TREAT_COST = D.TREAT_COST
 
 # --- generators ------------------------------------------------------------------
 static func active_gen_indices(chapter: int) -> Array:

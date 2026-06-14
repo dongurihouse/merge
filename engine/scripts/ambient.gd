@@ -17,8 +17,8 @@ const FX = preload("res://engine/scripts/fx.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
 
-const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # §I art rows (puff removed, owner 2026-06-13)
-const SPIRIT_CAP := 5
+const SPIRIT_TYPES = G.SPIRIT_TYPES   # the spirit roster lives in the game's data now
+const SPIRIT_CAP = G.SPIRIT_CAP
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 

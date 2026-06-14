@@ -32,10 +32,10 @@ const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays i
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
 const HINT_ROCK_CYCLE := 1.2     # W1: seconds per rock cycle
 const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
-const BAG_SLOTS := 2
-const BASKET_CAP := 3            # Y2: the merchant's basket holds the last 3 sales for buy-back
-const PORTER_SECS := 180.0       # Y3: the porter collects the basket every ~3 min
-const TREAT_COST := 10           # Z3: an acorn treat for a wandering spirit (a tiny recurring coin sink)
+const BAG_SLOTS = G.BAG_SLOTS    # the game's data owns the gameplay/economy tuning now
+const BASKET_CAP = G.BASKET_CAP
+const PORTER_SECS = G.PORTER_SECS
+const TREAT_COST = G.TREAT_COST
 
 # grove board palette (the night-purples retire here)
 const GROUND = Pal.GROUND
