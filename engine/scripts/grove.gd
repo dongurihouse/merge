@@ -20,6 +20,7 @@ const Hud = preload("res://engine/scripts/hud.gd")
 const Ambient = preload("res://engine/scripts/ambient.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const HomeScene = preload("res://engine/scripts/home.gd")   # T2: the Decorate jump request
+const Game = preload("res://engine/scripts/game.gd")
 
 const GAP := 10.0
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
@@ -104,7 +105,7 @@ func _ready() -> void:
 	# bleaching the background. A LIGHT veil (AC3) washed the painted meadow to a
 	# colorless void; replace it with a gentle warm DIM that recedes the painting
 	# while KEEPING its hue (calm ≠ bleached).
-	Look.background(self, 0.0, "res://assets/ui/bg_grove_board.png")
+	Look.background(self, 0.0, Game.art("ui/bg_grove_board.png"))
 	var calm_veil := ColorRect.new()
 	calm_veil.color = Color("#2A2A1E", 0.20)        # soft warm dim — recede, don't erase
 	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -576,9 +577,9 @@ func _rebuild_givers() -> void:
 	# AB/owner fix: the fence sprite's background is now cut to transparent
 	# (tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
 	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
-	if ResourceLoader.exists("res://assets/ui/fence_grove.png"):
+	if ResourceLoader.exists(Game.art("ui/fence_grove.png")):
 		var wt := TextureRect.new()
-		wt.texture = load("res://assets/ui/fence_grove.png")
+		wt.texture = load(Game.art("ui/fence_grove.png"))
 		wt.set_anchors_preset(Control.PRESET_FULL_RECT)
 		wt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		wt.stretch_mode = TextureRect.STRETCH_SCALE
@@ -794,7 +795,7 @@ func _bust(which: int, px: float = 124.0) -> Control:
 	face.custom_minimum_size = Vector2(px, px)
 	face.size = Vector2(px, px)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := "res://assets/map/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which])
+	var path := Game.art("map/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which]))
 	if ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		# owner 2026-06-13: the frameless cutout blended into the painted scene.
@@ -921,9 +922,9 @@ func _make_merchant_stand() -> Control:
 		trow.add_theme_constant_override("separation", 3)
 		trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		treat.add_child(trow)
-		if ResourceLoader.exists("res://assets/map/spirit_acorn.png"):
+		if ResourceLoader.exists(Game.art("map/spirit_acorn.png")):
 			var ac := TextureRect.new()
-			ac.texture = load("res://assets/map/spirit_acorn.png")
+			ac.texture = load(Game.art("map/spirit_acorn.png"))
 			ac.custom_minimum_size = Vector2(30, 30)
 			ac.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ac.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1282,7 +1283,7 @@ func _make_board_mat() -> Control:
 	sm.set_shader_parameter("radius_px", 27.0)
 	sm.set_shader_parameter("feather_px", 5.0)
 	var moss: Texture2D = null
-	for pth in ["res://assets/ui/tray_grove_tall.png", "res://assets/ui/tray_grove.png"]:
+	for pth in [Game.art("ui/tray_grove_tall.png"), Game.art("ui/tray_grove.png")]:
 		if ResourceLoader.exists(pth):
 			var base: Texture2D = load(pth)
 			var at := AtlasTexture.new()
@@ -1328,7 +1329,7 @@ func _make_bramble(cell: Vector2i) -> Control:
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ring := mini(req - 1, 3)
-	var path := "res://assets/ui/bramble_%d.png" % ring
+	var path := Game.art("ui/bramble_%d.png" % ring)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.texture = load(path)
@@ -1353,7 +1354,7 @@ func _make_bramble(cell: Vector2i) -> Control:
 		holder.add_child(p)
 	# the padlock ghost: which produced tier opens me — tinted by the gate's
 	# line when only that generator's plants will do (mushroom tan, honey gold)
-	if ResourceLoader.exists(Look.KIT + "icon_star.png"):
+	if ResourceLoader.exists(Look.kit("icon_star.png")):
 		var brow := HBoxContainer.new()
 		brow.alignment = BoxContainer.ALIGNMENT_CENTER
 		brow.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1394,7 +1395,7 @@ func _make_generator(gi: int = 0) -> Control:
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path: String = G.GENERATORS[gi].tex
+	var path: String = Game.art(G.GENERATORS[gi].tex)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.texture = load(path)
@@ -1449,7 +1450,7 @@ func _make_gen_preview(gi: int) -> Control:
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := String(gen.get("tex", ""))
+	var path := Game.art(String(gen.get("tex", "")))
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.texture = load(path)
@@ -2047,11 +2048,11 @@ func _porter_tick(delta: float) -> void:
 func _play_porter() -> void:
 	if merchant_chip == null or not is_instance_valid(merchant_chip):
 		return
-	if not ResourceLoader.exists("res://assets/map/spirit_porter.png"):
+	if not ResourceLoader.exists(Game.art("map/spirit_porter.png")):
 		return
 	_porter_running = true
 	var sp := TextureRect.new()
-	sp.texture = load("res://assets/map/spirit_porter.png")
+	sp.texture = load(Game.art("map/spirit_porter.png"))
 	sp.custom_minimum_size = Vector2(96, 96)
 	sp.size = Vector2(96, 96)
 	sp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

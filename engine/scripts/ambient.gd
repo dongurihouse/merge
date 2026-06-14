@@ -15,6 +15,7 @@ const G = preload("res://engine/scripts/grove_content.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const Features = preload("res://engine/scripts/features.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # §I art rows (puff removed, owner 2026-06-13)
 const SPIRIT_CAP := 5
@@ -75,7 +76,7 @@ static func _make_spirit(i: int) -> Control:
 	sp.pivot_offset = Vector2(42, 42)
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sp.set_meta("spirit", kind)
-	var path := "res://assets/map/spirit_%s.png" % kind
+	var path := Game.art("map/spirit_%s.png" % kind)
 	if ResourceLoader.exists(path):
 		var tex := TextureRect.new()
 		tex.texture = load(path)

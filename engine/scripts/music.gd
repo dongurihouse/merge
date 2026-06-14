@@ -7,12 +7,13 @@ extends RefCounted
 ## no takes exist. The "music" user setting IS the toggle (no Features flag).
 
 const Save = preload("res://engine/scripts/save.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 const VOLUME_DB := -8.0
 
 static var _player: AudioStreamPlayer
 static var _take := 0              # index of the take last started
-static var take_dir := "res://assets/music/"   # tests may point this at a fixture
+static var take_dir := ""   # "" → resolve from the active game; tests may point this at a fixture
 
 ## Start the playlist if it isn't already playing. Safe to call from every
 ## scene's _ready — a playing stream is left untouched.
@@ -44,9 +45,12 @@ static func refresh() -> void:
 ## (.wav accepted last — the silent test fixture; real takes are ogg/mp3.)
 static func _takes() -> Array:
 	var out: Array = []
+	var dir := take_dir if not take_dir.is_empty() else Game.sound("music/")
+	if dir.is_empty():
+		return out                  # the active game ships no music — silent
 	for n in [1, 2]:
 		for ext in ["ogg", "mp3", "wav"]:
-			var p := "%samb_grove%d.%s" % [take_dir, n, ext]
+			var p := "%samb_grove%d.%s" % [dir, n, ext]
 			if ResourceLoader.exists(p) or FileAccess.file_exists(p):
 				out.append(p)
 				break

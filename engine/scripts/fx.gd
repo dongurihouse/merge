@@ -5,6 +5,7 @@ extends RefCounted
 const Palette = preload("res://engine/scripts/palette.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const Features = preload("res://engine/scripts/features.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 static var _dot_tex: Texture2D
 
@@ -183,7 +184,7 @@ static func _pick_tex(color: Color) -> Texture2D:
 		else ("p_leaf" if color.g > color.r else "p_petal")
 	if _grove_tex.has(id):
 		return _grove_tex[id]
-	var path := "res://assets/fx/%s.png" % id
+	var path := Game.art("fx/%s.png" % id)
 	if ResourceLoader.exists(path):
 		_grove_tex[id] = load(path)
 		return _grove_tex[id]

@@ -21,6 +21,7 @@ const Ambient = preload("res://engine/scripts/ambient.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Layout = preload("res://engine/scripts/layout.gd")
 const Debug = preload("res://engine/scripts/debug.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
 const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)
@@ -233,9 +234,9 @@ func _build_vista() -> void:
 	zone_nodes.clear()
 	spot_hits.clear()
 	# the land: generated EMPTY top-down terrain when present, painted ground until then
-	if ResourceLoader.exists("res://assets/rooms/map_grove.png"):
+	if ResourceLoader.exists(Game.art("rooms/map_grove.png")):
 		var t := TextureRect.new()
-		t.texture = load("res://assets/rooms/map_grove.png")
+		t.texture = load(Game.art("rooms/map_grove.png"))
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -278,7 +279,7 @@ func _build_vista() -> void:
 
 
 func _poi_art(z: int, open: bool, px: float) -> Control:
-	var art_path := "res://assets/map/poi_%s.png" % String(G.ZONES[z].id)
+	var art_path := Game.art("map/poi_%s.png" % String(G.ZONES[z].id))
 	var art: Control
 	if ResourceLoader.exists(art_path):
 		var t := TextureRect.new()
@@ -570,7 +571,7 @@ func _build_interior() -> void:
 	var art_h: float = minf(avail.size.y, avail.size.x / 0.75)
 	var art_sz := Vector2(art_h * 0.75, art_h)
 	var art_rect := Rect2(avail.position + (avail.size - art_sz) / 2.0, art_sz)
-	var art_path := "res://assets/rooms/int_%s.png" % String(G.ZONES[z].id)
+	var art_path := Game.art("rooms/int_%s.png" % String(G.ZONES[z].id))
 	if ResourceLoader.exists(art_path):
 		var t := TextureRect.new()
 		t.texture = load(art_path)
@@ -603,9 +604,9 @@ func _build_interior() -> void:
 	var back := Panel.new()
 	back.size = Vector2(92, 92)
 	back.position = Vector2(14, head_y + 2.0)
-	if ResourceLoader.exists(Look.KIT + "btn_round.png"):
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
 		var bs := StyleBoxTexture.new()
-		bs.texture = load(Look.KIT + "btn_round.png")
+		bs.texture = load(Look.kit("btn_round.png"))
 		bs.set_texture_margin_all(24.0)
 		back.add_theme_stylebox_override("panel", bs)
 	else:
@@ -659,7 +660,7 @@ func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var owned := spot_owned(String(spot.id))
 	var gated := G.spot_level_req(z, k) > lvl
-	var furn_path := "res://assets/rooms/furn_%s.png" % String(spot.id)
+	var furn_path := Game.art("rooms/furn_%s.png" % String(spot.id))
 	# debug place mode shows the real sprite for EVERY spot that has art (even
 	# unowned/locked) so the owner drags the actual item, not just its price pin
 	if (owned or _place_on()) and ResourceLoader.exists(furn_path):
@@ -738,10 +739,10 @@ func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
 		prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var ptxt := Label.new()
 		ptxt.add_theme_font_size_override("font_size", 28)
-		var kit_icons := ResourceLoader.exists(Look.KIT + "icon_star.png")
+		var kit_icons := ResourceLoader.exists(Look.kit("icon_star.png"))
 		if gated:
 			ps.bg_color = Color("#4A4F46", 0.72)
-			if kit_icons and ResourceLoader.exists(Look.KIT + "icon_lock.png"):
+			if kit_icons and ResourceLoader.exists(Look.kit("icon_lock.png")):
 				prow.add_child(Look.icon("lock", 24.0))
 				ptxt.text = str(G.spot_level_req(z, k))
 			else:
@@ -1091,9 +1092,9 @@ func _build_chrome() -> void:
 	var gear := Button.new()
 	gear.focus_mode = Control.FOCUS_NONE
 	gear.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.KIT + "btn_round.png"):
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
 		var gt := StyleBoxTexture.new()
-		gt.texture = load(Look.KIT + "btn_round.png")
+		gt.texture = load(Look.kit("btn_round.png"))
 		gt.set_texture_margin_all(24.0)
 		gear.add_theme_stylebox_override("normal", gt)
 		gear.add_theme_stylebox_override("hover", gt)
@@ -1130,9 +1131,9 @@ func _build_chrome() -> void:
 	var shop := Button.new()
 	shop.focus_mode = Control.FOCUS_NONE
 	shop.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.KIT + "btn_round.png"):
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
 		var st := StyleBoxTexture.new()
-		st.texture = load(Look.KIT + "btn_round.png")
+		st.texture = load(Look.kit("btn_round.png"))
 		st.set_texture_margin_all(24.0)
 		shop.add_theme_stylebox_override("normal", st)
 		shop.add_theme_stylebox_override("hover", st)

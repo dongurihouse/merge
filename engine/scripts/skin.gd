@@ -4,6 +4,7 @@ extends RefCounted
 
 const Palette = preload("res://engine/scripts/palette.gd")
 const Features = preload("res://engine/scripts/features.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -54,9 +55,9 @@ static func background(host: Control, scrim_alpha: float = 0.5, art_path: String
 
 ## The coin marker: generated coin art when present, else the classic gold disc.
 static func coin_icon(px: float = 34.0) -> Control:
-	if ResourceLoader.exists("res://assets/ui/coin.png"):
+	if ResourceLoader.exists(Game.art("ui/coin.png")):
 		var t := TextureRect.new()
-		t.texture = load("res://assets/ui/coin.png")
+		t.texture = load(Game.art("ui/coin.png"))
 		t.custom_minimum_size = Vector2(px, px)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -77,7 +78,8 @@ static func coin_icon(px: float = 34.0) -> Control:
 ## Everything ships twice: kit art when generated, code-drawn fallback with the
 ## SAME metrics until then. No component invents its own StyleBox again.
 
-const KIT := "res://assets/ui/kit/"
+static func kit(rel: String) -> String:
+	return Game.art("ui/kit/" + rel)
 
 # Glyph fallbacks = exactly today's characters; the swap is art-arrival, not code.
 const ICON_GLYPHS := {
@@ -89,7 +91,7 @@ const ICON_TINTS := {"star": Color("#E3B23C"), "check": Color.WHITE}
 
 ## The three surfaces (§1): plank (ground band) · parchment (card) · chip.
 static func kit_panel(kind: String) -> StyleBox:
-	var p := KIT + "panel_%s.png" % kind
+	var p := kit("panel_%s.png" % kind)
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)
@@ -145,7 +147,7 @@ static func kit_panel(kind: String) -> StyleBox:
 
 ## One icon (§3): kit sprite when generated, else today's glyph in a Label.
 static func icon(id: String, px: float = 28.0) -> Control:
-	var p := KIT + "icon_%s.png" % id
+	var p := kit("icon_%s.png" % id)
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()
 		t.texture = load(p)

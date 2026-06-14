@@ -6,6 +6,7 @@ extends RefCounted
 ## sounds can overlap. Missing files are silently skipped.
 
 const Save = preload("res://engine/scripts/save.gd")
+const Game = preload("res://engine/scripts/game.gd")
 
 const FILES := [
 	"button_tap", "invalid_soft", "item_drop", "item_pickup",
@@ -23,7 +24,7 @@ static func _ensure() -> void:
 	_ready = true
 	var root = Engine.get_main_loop().root
 	for n in FILES:
-		var p := "res://assets/sfx/%s.wav" % n
+		var p := Game.sound("sfx/%s.wav" % n)
 		if ResourceLoader.exists(p):
 			_sounds[n] = load(p)
 	for i in 8:

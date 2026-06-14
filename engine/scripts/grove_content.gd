@@ -4,6 +4,8 @@ extends RefCounted
 ## script for map 1's opening chapters. All deterministic, all placeholder-tuned
 ## (the P2 sim owns the real numbers).
 
+const Game = preload("res://engine/scripts/game.gd")
+
 const COLS := 7
 const ROWS := 9
 const TOP_TIER := 8
@@ -23,11 +25,11 @@ const LINES := {
 # appears_at is a chapter index (chapter = home spots bought).
 const GENERATORS := [
 	{"id": "satchel", "cell": Vector2i(4, 3), "lines": [1, 2], "appears_at": 0,
-		"tex": "res://assets/ui/gen_satchel.png", "label": "seeds"},
+		"tex": "ui/gen_satchel.png", "label": "seeds"},   # rel to the active game's art root (resolve via Game.art)
 	{"id": "compost", "cell": Vector2i(2, 1), "lines": [3], "appears_at": 16,
-		"tex": "res://assets/ui/gen_compost.png", "label": "compost"},
+		"tex": "ui/gen_compost.png", "label": "compost"},
 	{"id": "beehive", "cell": Vector2i(6, 5), "lines": [4], "appears_at": 26,
-		"tex": "res://assets/ui/gen_beehive.png", "label": "hive"},
+		"tex": "ui/gen_beehive.png", "label": "hive"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -258,7 +260,7 @@ static func waysides() -> Array:
 			out.append({
 				"id": "way_%d_%d" % [z, k],
 				"name": WAYSIDE_PROPS[prop],
-				"tex": "res://assets/map/%s.png" % WAYSIDE_TEX[prop],
+				"tex": Game.art("map/%s.png" % WAYSIDE_TEX[prop]),
 				"cost": 40 + gi * 6,        # 40 … 154 🪙 (rising) — sum ≈ the sink capacity
 				"map_pos": Vector2(0.12 + k * 0.24, 0.16 + (z % 5) * 0.165),   # PROVISIONAL
 				"zone_req": z,              # this plot opens once zone z is fully restored
@@ -456,4 +458,4 @@ static func item_tex_path(code: int) -> String:
 	var tier := code % 100
 	if not LINES.has(line):
 		return ""
-	return "res://assets/items/%s_%d.png" % [LINES[line].base, tier]
+	return Game.art("items/%s_%d.png" % [LINES[line].base, tier])

@@ -73,9 +73,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	header.custom_minimum_size = Vector2(0, 140)
 	header.clip_contents = true
 	col.add_child(header)
-	if ResourceLoader.exists(Look.KIT + "shop_stall.png"):
+	if ResourceLoader.exists(Look.kit("shop_stall.png")):
 		var art := TextureRect.new()
-		art.texture = load(Look.KIT + "shop_stall.png")
+		art.texture = load(Look.kit("shop_stall.png"))
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -149,9 +149,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var x_btn := Button.new()
 	x_btn.focus_mode = Control.FOCUS_NONE
 	x_btn.custom_minimum_size = Vector2(64, 64)
-	if ResourceLoader.exists(Look.KIT + "btn_round.png"):
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
 		var xs := StyleBoxTexture.new()
-		xs.texture = load(Look.KIT + "btn_round.png")
+		xs.texture = load(Look.kit("btn_round.png"))
 		xs.set_texture_margin_all(24.0)
 		x_btn.add_theme_stylebox_override("normal", xs)
 		x_btn.add_theme_stylebox_override("hover", xs)
@@ -209,9 +209,9 @@ static func _divider(col: VBoxContainer, caption: String) -> void:
 	cap.add_theme_color_override("font_color", Color(INK, 0.9))
 	tab.add_child(cap)
 	row.add_child(tab)
-	if ResourceLoader.exists(Look.KIT + "divider_vine.png"):
+	if ResourceLoader.exists(Look.kit("divider_vine.png")):
 		var vine := TextureRect.new()
-		vine.texture = load(Look.KIT + "divider_vine.png")
+		vine.texture = load(Look.kit("divider_vine.png"))
 		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		vine.custom_minimum_size = Vector2(0, 26)
