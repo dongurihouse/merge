@@ -26,3 +26,8 @@ static func sound(rel: String) -> String:
 
 static func id() -> String:
 	return String(Config.ACTIVE)
+
+## The active game's DATA module (its content + tuning tables — engine/content.gd
+## reads these instead of hardcoding them).
+static func data():
+	return _m().DATA

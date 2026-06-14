@@ -3,7 +3,7 @@ extends SceneTree
 ## policy, chapter gate math, persistence.
 ##   godot --headless --path . -s res://tests/grove_tests.gd
 
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const GroveBoard = preload("res://engine/scripts/grove_board.gd")
 const Save = preload("res://engine/scripts/save.gd")
 

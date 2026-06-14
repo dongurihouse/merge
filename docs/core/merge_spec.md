@@ -30,6 +30,16 @@ TAP generator (1 energy → item pops) → MERGE up the tier ladder → DELIVER 
 
 Around that spine: clearing obstacles is **expansion, not the goal** (the board outlasts the content); selling to the merchant and shelving in the bag keep the board drainable, so the only real friction is **energy**.
 
+### Why it works — the merge is the chore, the world is the game
+
+The merge board is a **simple, easy friction engine — deliberately *not* the hook.** It can't be lost and asks little; it is the *effort* you spend, not the reason you play. **What drives play and return is building a world that's yours** — the pull of a life-sim like Animal Crossing (tending a place you own, growing a village), ported onto a mobile-merge effort loop.
+
+- **Why it's fun:** the merge gives a steady, legible micro-reward (two things → one better, with juice); but the *deep* payoff is the **before→after** of a world you turn from empty/overgrown into something finished, alive, and *yours*. No-lose comfort + constant small discoveries keep it relaxing and fresh.
+- **What drives merging (moment-to-moment):** a giver's ask (a concrete tier to reach) · the tier ladder (see the next one) · the reward chain (every merge is a visible step toward building) · scarcity (energy is finite; clearing obstacles buys room).
+- **What drives the comeback:** energy refills (the soft wall = the return hook) · **an unfinished, evolving world** (the strongest pull — *"my world isn't done and I have an idea for it"*) · **yields to collect** (built things produce over time, §8) · new content always a few steps ahead.
+
+> **Design line (locked):** unlocks are **never a laundry list of names that pop after payment.** Every buildable is *teased, charming, aspirational* — the player should *want* it before they can afford it. Desire is the engine; visual appeal and discovery do the work.
+
 ### North-star pattern
 
 **The single emotional target:** *the player reaches their first visible restoration feeling they earned it* — everything is sequenced to reach that as early as is responsible, then breadth layers onto a loop that already works. **Definition of done:** a brand-new player on a fresh save learns the merge verb wordlessly, delivers harvests to givers for progress, spends it to restore the surface spot-by-spot, and reaches a **zone-restored reveal that feels earned** — on economy numbers validated by a headless pacing sim, with corruption-safe save, all strings via `tr()`, a calm mode from launch, and audio that degrades gracefully.
@@ -102,7 +112,7 @@ A generator occupies its cell permanently. **Tap → spend 1 energy → one item
 
 Generators emit **themed item lines** — N lines across the game, each an **exponential tier ladder of M tiers** (engine default top tier **8**; t8 ≈ 128 t1-equivalents, a rare trophy). Codes are `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`.
 
-**Tier readability law:** tiers must step in **size and silhouette**, not just detail — readable at small icon size (~100 px). A freshly debuted line eases in at low tier for its debut zone.
+**Tier readability law:** tiers must step in **size and silhouette**, not just detail — readable at small icon size (~100 px). A freshly debuted line eases in at low tier for its debut zone. *(Each tier is generated once and reused; the shared-motif requirement keeps a line readable as one line — §16.)*
 
 ### The coin pseudo-line
 
@@ -181,16 +191,23 @@ Same trigger (buying a spot), different arithmetic: chapter ticks 1, 2, 3… whi
 
 ---
 
-## 8 · The Spend Surface
+## 8 · Building & the World
 
-The spend surface is **one large free-pan top-down map**. Zones are point-of-interest sprites placed at authored normalized coords; **locked zones render greyed-out (desaturated) in place** and **unlock sequentially** (a zone opens only when the previous one is fully restored). Tapping an unlocked zone walks **inside a full-screen interior room** where the unlock spots live as floor-standing furniture (`interior_view`).
+The spend surface is not a checklist — **it is the game** (§1: *the merge is the chore, the world is the game*). It is a **visible, partly-veiled horizon** the player builds, styles, and upgrades; merging is only the mechanism that funds it. It renders as one large free-pan top-down map of point-of-interest sites; locked sites are veiled/greyed and **unlock in sequence**; tapping an unlocked site walks **inside** it (`interior_view`), where the buildables live.
 
-Each zone has a fixed set of **spots**, each priced **3–5★**:
+- **The horizon — visible *and* veiled (desire + discovery).** The world ahead is *shown*, so the player sees what's possible and *wants* it; but parts sit **behind clouds/fog** — reaching them is a *discovery / reveal*, not a line item ticked. The player always sees there's *more* and feels they're *uncovering* it. (A game tunes how much is shown vs veiled.)
+- **Build — with agency.** The player **chooses what to build** and stays **in control**; the merge loop earns the means, the player decides where it goes — making the world theirs, not auto-filling fixed slots. A buildable is gated by **progress (Stars)** + **level** (§7), shown as a pin (greyed "Lv N" until the level is met, then an "★ N" buy).
+- **Customize — the look is mine.** Each built thing can be **styled** (themes / looks / sets) — expression through appearance.
+- **Upgrade — levels that look better *and* pay back.** Each built thing has **levels** (the same thing, L1→Lⁿ): higher levels **look better** *and* **produce better rewards** — so building is **functional, not decorative**, and leveling is a real investment the player owns. This is the keystone that turns "a nicer laundry list" into the Animal-Crossing drive.
+- **The yield (reward model A — passive).** Built/upgraded things **produce soft currency over time**, collected on return; higher level → **more / faster**. It **closes the loop** (merge → earn → build & upgrade → the world yields more → fund more building), **gives soft currency real power** (§10), and **makes "open it tomorrow" concrete**. **Capped by the same discipline as energy: the yield *extends* sessions, never self-sustains them** — a reason to return, not an idle game that plays itself.
 
-- **Buyable spots.** A spot shows a greyed **"Lv N"** pin until your level is high enough (§7), then an **"★ N"** buy pin; once bought it draws its furniture sprite in place. Empty slots may **ghost-preview** the furniture; a bought piece **settles into place** with a burst, completing a zone plays a fuller **flourish**, and restored zones get **crowded with ambient life**.
-- **Restoration → premium currency.** Buying a spot grants EXP toward your **level**. **Fully restoring a zone grants a premium-currency reward** with a celebration; restored zones also drive ambient life (more wandering spirits) and unlock that zone's wayside cosmetic plots.
+Build reveals stay juicy: empty slots may **ghost-preview** the buildable; a placed/upgraded thing **settles in** with a burst; finishing a region plays a fuller **flourish**; and a restored region fills with **ambient life** (§12) — the "look what I made" beat.
 
-*(The grove's instances — the zones, their spot counts & star totals, the interior furniture: see `grove_spec`.)*
+> **Future / undecided (reward model B):** upgrades *also* buffing the **active merge loop** (a leveled generator pops better tiers / cheaper energy; a leveled stand pays more). Parked, not v1; if added it folds into the same upgrade system.
+
+**Generation (§16):** buildables are floor-standing cut-outs; build-states, upgrades, customization, and the crowd are *composited*, never re-rendered.
+
+*(The grove's instances — the world & its sites, the buildables, and the upgrade/yield instantiation: see `grove_spec`.)*
 
 ---
 
@@ -223,15 +240,15 @@ The canonical **4-currency model**. The governing law is **sink > faucet** (curr
 | Currency | Earned from | Spent on | Role |
 |---|---|---|---|
 | **Water 💧** (energy) | regen (+1/2 min, cap 100, offline) · level-ups (+20) · 3 free refills · win-back · some spot-buys · premium refill | 1 per pop | **THE pacing friction** — the monetization socket. Everything else is free. |
-| **Stars ★** (progress) | quests only (1–3★) | restoration spots (3–5★) | The **progress** currency. Never inflates; soft-gated. |
-| **Coins 🪙** (expression) | merge drops (~10%) · selling t1–t7 · shop pack | cosmetics · variants · treats · basket buy-back | The **expression** currency — cosmetic/utility only; never gates progression or grants advantage. |
+| **Stars ★** (progress) | quests only (1–3★) | building / unlocks (§8) | The **progress** currency that gates *what you can build*. Never inflates; soft-gated. |
+| **Coins 🪙** (soft) | merge drops (~10%) · selling t1–t7 · **building yields (§8)** · shop pack | **building upgrades (§8)** · customization · basket buy-back | The **soft-economy** currency — it funds the build/upgrade loop, so it finally has real power (not dead cosmetics). |
 | **Diamonds 💎** (premium) | level-ups · zone restore · selling a t8 (+1) · cash packs (test-only) | energy refill · bag slot · cosmetic variants | Premium-**shaped**, **earned-only** at launch; IAP socket dark. **Buys speed, never possibility.** |
 
-### Sink > faucet (coins)
+### The soft-currency loop (coins)
 
-**Every live coin sink is cosmetic or a no-gain utility — none gate progression or grant any gameplay advantage** (cosmetic map plots, furniture-tint variants, repeatable spirit treats, net-zero basket buy-back). The lifetime coin **faucet** (merge drops + selling, "cleanup never income") is deliberately **exceeded by the cosmetic sinks**, so coins always have somewhere to go. A shop button sells energy, coins, and cash→premium packs (test popups). *(The grove's instances — sink capacities, variant pricing: see `grove_spec`.)*
+Soft currency **flows in** from the world's **yields** (§8) plus merge drops + selling, and **flows out** into **building upgrades** + customization. This is the engine: *the world pays you, you reinvest in the world.* The governing law still holds — **sinks (upgrades, endless by level) exceed the faucet**, so coins always have somewhere worth going — but the sink is now **functional, not cosmetic**: spending makes the world better *and* pay back more. A shop button also sells energy, coins, and cash→premium packs (test popups). *(The grove's instances — yield/upgrade rates, customization pricing: see `grove_spec`.)*
 
-> **Standing tension (engine-level):** because coin sinks are cosmetic-only, the *motivation* to spend coins can be thin. A game instance should consider a collection/progress hook for decorating, a functional coin use that stays off the "premium buys speed" line, or making the decorated surface *matter*.
+> **Resolved (was a standing tension):** earlier, coin sinks were cosmetic-only, so the *motivation* to spend coins was thin ("coins have no power"). The build/upgrade **yield loop** (§8) is the fix — coins fund upgrades that pay back, off the "premium buys speed" line. Keep the invariant: the soft loop stays **earned and capped** (it extends sessions, never self-sustains), and upgrades buy *yield + look*, never the energy friction itself.
 
 ---
 
@@ -275,7 +292,7 @@ Motion is a **single shared vocabulary, not improvisation** — the same verbs e
 | `ambient_bob` | slow 1–3 px float + ±2° tilt — wandering ambient life |
 | `floater` | outlined text drift-up + fade |
 
-Intended feel: **"floaty, breezy, settling"** — pieces drift and overshoot rather than snap; ambient life keeps the scene gently in motion when idle. **Alive systems:** ambient figures wander each scene (count = 1 + restored zones, cap 5; tap → hop); a porter drifts in for the basket; weather runs hourly; bursts/floaters fire on merges/buys/restores. **Calm mode** (Settings) halves particles and disables `breathe` — quiets the screen without losing function.
+Intended feel: **"floaty, breezy, settling"** — pieces drift and overshoot rather than snap; ambient life keeps the scene gently in motion when idle. **Alive systems:** ambient figures wander each scene (count = 1 + restored zones, cap 5; tap → hop); a porter drifts in for the basket; weather runs hourly; bursts/floaters fire on merges/buys/restores. *(All of it is **composited sprites/particles** over the scene, never a dense single render — §16.)* **Calm mode** (Settings) halves particles and disables `breathe` — quiets the screen without losing function.
 
 ---
 
@@ -313,3 +330,42 @@ Assist features (idle hint, discovery ladder, ready-✓, sell hints, generator p
 **Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **minimized + unfocusable** so captures never steal focus, render at full res, and self-clean. An **economy sim bot** (default + greedy modes) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. iOS export via an `export_presets.cfg` "iOS" preset.
 
 **Code-map pattern:** a pure rules engine for tests · a persistent board model · a live board controller + a spend-surface controller drive the loop · a content module holds item lines, generator policy, quest script, and zone/sink data · static singletons for save/features/econ/layout/hud/shop/skin/audio/music/ambient/fx. *(The grove's instances — exact file names, sizes, current state: see `grove_spec`.)*
+
+---
+
+## 16 · Designing for LLM Asset Generation
+
+The game's art is **LLM-generated**, so generation is a **design input, not a downstream step**: the design must be something an LLM can reliably produce, keep consistent across separate renders, and let us iterate fast. A design that fights the generator (e.g. a picture frame skewed to "hang" on a wall) is a bug in the *design*, not the prompt.
+
+**The LLM limits that drive the rules:** it can't generate one large *consistent* world; separate generations **drift** in style/shape/lighting/scale; it is **bad at precise perspective/skew** on placed objects; it **garbles text/numerals**; each generation is a slow round-trip.
+
+### Design rules
+
+1. **Discrete, self-contained scenes — no seamless world.** Maps/zones are separate images positioned as distinct "islands/screens" that never need to align edge-to-edge. Interiors too — each is its own render, *not* perspective-continuous with the map.
+2. **Floor-standing objects only.** Everything sits flat on the ground with a soft contact shadow — never wall-hung, leaning, or perspective-skewed onto a surface.
+3. **Composite, don't regenerate — the scaling law.** Generate **O(assets), recombine in-engine to O(states).** A scene = one empty background + N object cut-outs; the engine renders every state (empty→built, crowded, weather) by **compositing**. So **upgrades** = swap to a higher-level cut-out (each gen'd once) or a tint; **customization** = tint/swap; **crowding** = composited sprites — *never* regenerate the scene with the new thing.
+4. **Scenes are composed for clean cut-out.** Generate objects **clearly separated** (breathing room, no overlap, soft contact shadows) so each cuts cleanly — you can't slice a *packed* render apart. "Busy/alive" comes from compositing, not a dense render.
+5. **Generate once, reuse forever; re-roll per object.** A bad asset re-rolls *just that object*, never the whole scene.
+6. **No text or numerals in art** — the engine draws all text (a UX law *and* an LLM-gen limit).
+7. **Aspect/resolution tolerance.** Placement is **normalized coords + crop-to-aspect**, never absolute pixels (LLM output size ≠ game canvas).
+8. **One locked style suffix on every prompt + same-batch generation** for cross-asset consistency.
+
+> **The meta-rule:** *design O(assets), never O(combinations) — generate the pieces, compose the game.* Any feature needing a combinatorial pile of renders is a design red flag; restructure it to compose from a small asset set.
+
+### The production method — the zone-gen pipeline
+
+*(Merged from the former `ZONE_GEN_PIPELINE.md`; this is the runbook that executes the rules above.)*
+
+**The idea:** generate **one coherent render** with every object already placed (lit/scaled/styled consistently), then **harvest three things** from that single image: (1) the **empty background** (objects removed), (2) **each object as a clean transparent cut-out**, (3) **each object's placement box** (the box you cut from *is* its position). Paste the cut-outs back at their boxes and you reconstruct the original — that **round-trip is the built-in correctness check**. `[STYLE LOCK]` = the game's locked style suffix, pasted verbatim into every prompt (for the grove, `grove_spec §8`).
+
+The seven phases (per scene; ids must match the content's spot ids so the result feeds the game):
+
+1. **Generate the full scene** — all objects placed, **clearly separated**, soft contact shadows only, `[STYLE LOCK]`. *(P1: "…fully furnished with these N distinct objects, each clearly separated with empty space around it, sitting on the floor… soft even lighting, a small soft contact shadow under each, no overlapping.")* If two objects touch, regenerate.
+2. **Detect → manifest** — ask the vision model for a **tight pixel box per object** (including its contact shadow), output as JSON `{id, bbox_px}`. **Verify the boxes by overlaying them** — never trust raw vision output (often a few % off). The manifest is the source of truth.
+3. **Cut each object** — crop from the full render (pure pixel copy), then **LLM background-removal** to transparent alpha. *(P3: "…return the SAME object on a fully transparent background; keep its soft contact shadow; do NOT change colors/outline/shape/size; do NOT invent parts.")* **Check the alpha over magenta** for halos/scraps; re-roll just that object if it got resized/redrawn.
+4. **Build the empty background** — **masked inpaint of *only* the object regions** (everything else stays byte-identical) is the high-fidelity variant; a whole-image "remove everything" pass is the simpler, noisier one. *(P4: "…repaint ONLY the masked regions as plausible bare floor/wall continuing the room; leave everything outside the mask exactly as-is.")* Pad the mask ~12 px to swallow shadows.
+5. **Recompose** — paste each cut-out onto the empty bg at its box's top-left.
+6. **Verify (human)** — a diff map (darker = more identical) + a full-vs-reconstructed side-by-side; bright diff = a bad box (2), a dirty cut-out (3), or empty-bg drift (4).
+7. **Feed into the game** — boxes → placement format: `pos = box-centre / canvas` (normalized 0–1), `fsize = box-width × (game-canvas-width / render-width)`. Aspect must match the game's ratio or the y-mapping drifts; final tuning is nudged live in the placement sandbox. *(Engine gotcha: the importer can flatten a transparent PNG's alpha — decode at runtime or set the import to preserve alpha.)*
+
+**Gotchas:** objects separated (not touching) · boxes verified by overlay, not trusted raw · boxes include the contact shadow · P3 must not resize/redraw · cut-outs checked over magenta · the inpaint mask padded · canvas **aspect** matches the game · alpha preserved on import.

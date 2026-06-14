@@ -3,7 +3,7 @@ extends SceneTree
 ## with a few sale chips (and, with porter_collect on, the porter mid-drift).
 ##   quiet_godot.sh --path . -s res://tools/basket_shot.gd -- [out.png] [crop=x,y,w,h] [porter]
 const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const Feat = preload("res://engine/scripts/features.gd")
 
 func _initialize() -> void:

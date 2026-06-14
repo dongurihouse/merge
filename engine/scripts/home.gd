@@ -9,7 +9,7 @@ extends Control
 ## level-ups gift water+diamonds. A pinned garden button leads to the board.
 ## Art auto-wires: assets/rooms/map_grove.png + assets/map/poi_<zone_id>.png.
 
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const Audio = preload("res://engine/scripts/audio.gd")
 const Music = preload("res://engine/scripts/music.gd")

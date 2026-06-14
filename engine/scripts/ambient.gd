@@ -11,7 +11,7 @@ extends RefCounted
 ## pickers read it → it rains for that first minute home. CALM MODE WINS:
 ## calm players get breeze, never rain/snow. Caps: ≤2 emitters, ≤80 particles.
 
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const Features = preload("res://engine/scripts/features.gd")

@@ -7,7 +7,7 @@ extends SceneTree
 ## (the input-swallow bug class). Captures the proof shot too.
 
 const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const GB = preload("res://engine/scripts/grove_board.gd")
 
 func _initialize() -> void:

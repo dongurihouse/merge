@@ -7,7 +7,7 @@ extends Control
 ## stars, and spend stars at the Restore gate to advance chapters (givers pause
 ## the moment the gate is affordable — the drive-to-spend loop).
 
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const GroveBoard = preload("res://engine/scripts/grove_board.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const Palette = preload("res://engine/scripts/palette.gd")

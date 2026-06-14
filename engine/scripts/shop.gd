@@ -8,7 +8,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/save.gd")
 const Look = preload("res://engine/scripts/skin.gd")
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const Audio = preload("res://engine/scripts/audio.gd")
 

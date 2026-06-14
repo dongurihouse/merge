@@ -62,11 +62,13 @@ All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (b
 
 ---
 
-## 3 · The Five Zones (the spend surface)
+## 3 · The Homestead — the world you build
 
-*Instantiates Core §8 (The Spend Surface) and Core §7 (the chapter/level/rank tables).*
+*Instantiates Core §8 (Building & the World) and Core §7 (the chapter/level/rank tables).*
 
-The homestead is the core's **one large free-pan top-down map** — grove size `MAP_SIZE = 2160×2880` (2× the portrait viewport per axis). Locked zones render greyed-out in place and **unlock sequentially**; tapping an unlocked zone walks **inside a full-screen interior room** (the core `interior_view`) where spots live as **floor-standing furniture**.
+The homestead is the core's **visible, partly-veiled horizon** — a `MAP_SIZE = 2160×2880` free-pan top-down map (2× the portrait viewport per axis). Locked zones render greyed-out in place and **unlock sequentially**; tapping an unlocked zone walks **inside a full-screen interior room** (the core `interior_view`) where the buildables live as **floor-standing furniture**.
+
+> **Build vs the design target.** The *current* grove implements only the **build** half (unlock fixed spots with ★) + **customize** (style variants, §4). The core §8 **upgrade → passive-yield** loop and the **veiled horizon (clouds / discovery)** are the **design direction the bare-skeleton rebuild is heading toward — not yet in code.** Until they land, the homestead is a build-and-decorate surface; the yield loop is what turns it into the retention engine.
 
 **Five zones, 8 spots each, each spot 3–5★ — 176★ across 40 spots** (code-verified per-zone totals):
 
@@ -132,7 +134,7 @@ Every live coin sink is cosmetic or net-zero utility:
 
 A plot is dormant (greyed) until its zone is fully restored, then shows a coin-cost pin; buying is **coin-only, never level-gated, in no unlock chain**. **Faucet vs sink:** lifetime coin faucet ≈ **1.5–2.2 k** (merge drops + selling); the cosmetic sinks (~1.9 k waysides + ~2.4 k variants) exceed it.
 
-> **The grove's instance of the core "coins have no power" tension (Core §10).** Every live coin sink is cosmetic or net-zero — the numeric sink exceeds the faucet so coins don't visibly overflow, but the **motivation to spend is thin**: a player buys waysides only as a decorator/completionist, and the plots sit at provisional, low-visibility map positions. A real soft spot worth a design pass (a collection/progress hook, a functional-but-not-speed coin use, or making the decorated map *matter*). *(A coin-gated progression sink — bedroom decor, 663🪙 — exists only in the **legacy** `districts.gd`/`room.gd` "Tidy Up rooms" code, not the live grove loop.)*
+> **The "coins have no power" tension — resolved in design (Core §8/§10).** The *current* grove sinks (waysides, variants, treats) are all cosmetic / net-zero, so today's motivation to spend is thin — a decorator/completionist pull only. The fix is the core **build/upgrade → passive-yield loop** (Core §8): coins fund upgrades that pay back, giving them real power. That loop is **not yet implemented** in the grove — wiring it is the economy pass the bare-skeleton rebuild enables. *(A coin-gated progression sink — bedroom decor, 663🪙 — exists only in the **legacy** `districts.gd`/`room.gd` code, not the live grove loop.)*
 
 The grove's **brambles** instantiate Core §5's ring-scaled obstacles; the late-line edge gates (Core `bramble_line_gates`) are: ring ≤2 → any line t2, ring 3 → any line t4, ring 4 (edge = endgame) → **t5 of Mushroom (top half) / Honey (bottom half)**. The star track completes with ~14 edge brambles left as tail content.
 
@@ -232,7 +234,7 @@ Saturation lever: if it reads "digital anime wallpaper," add `muted vintage film
 
 **Juice restyle:** every effect becomes a meadow thing, palette-only — petal/leaf/pollen puffs (not rainbow dots), sun-dapple bloom (not gold flash), ink-brush lettering on cream chips (not neon shouts), water ripple rings, hand-painted wobbly straw-gold stars. Motion is *floaty, breezy, settling*.
 
-> **Zone-art pipeline:** a single coherent render harvests the empty background, each object as a clean transparent cutout, **and** each object's placement box in one pass (the box you cut from *is* its position; round-trip reconstruction is the correctness check). Object ids match the `scripts/grove_content.gd` spot ids; in-game zone canvas **1084×1451** (≈ 3:4). Full runbook: the reusable `../core/ZONE_GEN_PIPELINE.md` (a core production method).
+> **Zone-art pipeline:** a single coherent render harvests the empty background, each object as a clean transparent cutout, **and** each object's placement box in one pass (the box you cut from *is* its position; round-trip reconstruction is the correctness check). Object ids match the `scripts/grove_content.gd` spot ids; in-game zone canvas **1084×1451** (≈ 3:4). Full runbook: **Core §16** (Designing for LLM Asset Generation).
 
 ---
 
@@ -257,4 +259,4 @@ Engine file names are unchanged (`merge_soft.wav`, `level_complete.wav`, `amb_gr
 
 **Open / owner's judgment** (perceptual calls the asserts can't make): the difficulty *feel* of stretch quests; on-map wayside + interior furniture placements are **provisional** pending the drag-to-place editor (notably the meadow bridge `md_brook`, which renders on grass, not on the baked brook); the motion/feel of the porter drift, sell tags, and spirit treats.
 
-> **In flight — branch `feat/farmhouse-alive` (T14, not yet on `main`).** The unlock *moment* is reworked: empty slots **ghost-preview** the furniture (`slot_ghost`), a bought piece **settles into place** with the burst on the object + its style strip auto-opens (`place_pop`), completing a zone plays a fuller **flourish** (`zone_reveal`), and restored zones get **crowded with spirit-folk** in the yard + inside the room (`zone_crowd`). Also fixes a one-buy-per-visit bug (`spot_hits` cleared after the interior rebuilt). Awaiting the owner's eye on feel. The working tree also carries uncommitted experiments around a frame/cutout pipeline (`tools/cutout_frames.gd`, `scenes/frame_test.*`, `scenes/place_test.*`) and `../core/ZONE_GEN_PIPELINE.md`, not yet landed.
+> **In flight — branch `feat/farmhouse-alive` (T14, not yet on `main`).** The unlock *moment* is reworked: empty slots **ghost-preview** the furniture (`slot_ghost`), a bought piece **settles into place** with the burst on the object + its style strip auto-opens (`place_pop`), completing a zone plays a fuller **flourish** (`zone_reveal`), and restored zones get **crowded with spirit-folk** in the yard + inside the room (`zone_crowd`). Also fixes a one-buy-per-visit bug (`spot_hits` cleared after the interior rebuilt). Awaiting the owner's eye on feel. The working tree also carries uncommitted experiments around a frame/cutout pipeline (`tools/cutout_frames.gd`, `scenes/frame_test.*`, `scenes/place_test.*`), not yet landed.

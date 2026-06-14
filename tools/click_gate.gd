@@ -4,7 +4,7 @@ extends SceneTree
 ## and print which scene we land on.
 
 const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/grove_content.gd")
+const G = preload("res://engine/scripts/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
