@@ -2,9 +2,10 @@ extends RefCounted
 ## Tidy Up — shared UI skin helpers (background + buttons), so menu/board/room
 ## look consistent. Preload: const Skin = preload("res://engine/scripts/skin.gd").
 
-const Palette = preload("res://engine/scripts/palette.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -32,7 +33,7 @@ static func safe_bottom(ctrl: Control) -> float:
 ## override (e.g. a district backdrop); falls back to the bedroom, then flat color.
 ## Returns the TextureRect (null on the flat fallback) so callers can swap it later.
 static func background(host: Control, scrim_alpha: float = 0.5, art_path: String = "") -> TextureRect:
-	var path := art_path if (art_path != "" and ResourceLoader.exists(art_path)) else Palette.ROOM_TIDY
+	var path := art_path if (art_path != "" and ResourceLoader.exists(art_path)) else ""
 	if ResourceLoader.exists(path):
 		var bg := TextureRect.new()
 		bg.texture = load(path)
@@ -41,13 +42,13 @@ static func background(host: Control, scrim_alpha: float = 0.5, art_path: String
 		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(bg)
 		var scrim := ColorRect.new()
-		scrim.color = Color(Palette.BG_DEEP, scrim_alpha)
+		scrim.color = Color(Pal.BG_DEEP, scrim_alpha)
 		scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
 		scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		host.add_child(scrim)
 		return bg
 	var c := ColorRect.new()
-	c.color = Palette.BG
+	c.color = Pal.BG
 	c.set_anchors_preset(Control.PRESET_FULL_RECT)
 	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(c)
@@ -66,7 +67,7 @@ static func coin_icon(px: float = 34.0) -> Control:
 	var coin := Panel.new()
 	coin.custom_minimum_size = Vector2(px, px)
 	var cstyle := StyleBoxFlat.new()
-	cstyle.bg_color = Palette.GOLD
+	cstyle.bg_color = Pal.GOLD
 	cstyle.set_corner_radius_all(int(px / 2.0))
 	cstyle.border_color = Color("#C98A2B")
 	cstyle.set_border_width_all(3)

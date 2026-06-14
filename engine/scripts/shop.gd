@@ -11,11 +11,13 @@ const Look = preload("res://engine/scripts/skin.gd")
 const G = preload("res://engine/scripts/content.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const Audio = preload("res://engine/scripts/audio.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
-const INK := Color("#33402F")
-const CREAM := Color("#FBF3EA")
-const STRAW := Color("#E3B23C")
-const BARK := Color("#8A5A3B")
+const INK = Pal.INK
+const CREAM = Pal.CREAM
+const STRAW = Pal.STRAW
+const BARK = Pal.BARK
 
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150

@@ -2,10 +2,11 @@ extends RefCounted
 ## Tidy Up — shared juice helpers (static, like Audio/Save). All grove screens use these.
 ##   const FX = preload("res://engine/scripts/fx.gd")
 
-const Palette = preload("res://engine/scripts/palette.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
 static var _dot_tex: Texture2D
 
@@ -69,7 +70,7 @@ static func floating_text(host: Control, gpos: Vector2, text: String, color: Col
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", size)
 	lbl.add_theme_color_override("font_color", color)
-	lbl.add_theme_color_override("font_outline_color", Palette.BG_DEEP)
+	lbl.add_theme_color_override("font_outline_color", Pal.BG_DEEP)
 	lbl.add_theme_constant_override("outline_size", 10)
 	lbl.position = gpos
 	lbl.z_index = 60

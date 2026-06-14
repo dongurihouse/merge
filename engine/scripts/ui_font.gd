@@ -7,7 +7,8 @@ extends RefCounted
 ## longer used for UI text (keep it for big display art only). If a real rounded ui.ttf is ever
 ## dropped in, it's preferred over the system font for cross-device consistency.
 
-const Palette = preload("res://engine/scripts/palette.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 const TTF_PATH := "res://engine/assets/fonts/ui.ttf"
 static var _done := false
 
@@ -40,6 +41,6 @@ static func apply() -> void:
 	# cozy styling applied to every text control: a dark outline so it pops on the warm bg.
 	# (Per-label font_color / outline overrides in the scenes still win where set.)
 	for t in ["Label", "Button", "RichTextLabel", "LineEdit"]:
-		th.set_color("font_outline_color", t, Palette.BG_DEEP)
+		th.set_color("font_outline_color", t, Pal.BG_DEEP)
 		th.set_constant("outline_size", t, 10)
 	Engine.get_main_loop().root.theme = th

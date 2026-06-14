@@ -10,7 +10,6 @@ extends Control
 const G = preload("res://engine/scripts/content.gd")
 const GroveBoard = preload("res://engine/scripts/grove_board.gd")
 const Save = preload("res://engine/scripts/save.gd")
-const Palette = preload("res://engine/scripts/palette.gd")
 const Audio = preload("res://engine/scripts/audio.gd")
 const Music = preload("res://engine/scripts/music.gd")
 const UiFont = preload("res://engine/scripts/ui_font.gd")
@@ -21,6 +20,8 @@ const Ambient = preload("res://engine/scripts/ambient.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const HomeScene = preload("res://engine/scripts/home.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/game.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
 const GAP := 10.0
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
@@ -37,12 +38,12 @@ const PORTER_SECS := 180.0       # Y3: the porter collects the basket every ~3 m
 const TREAT_COST := 10           # Z3: an acorn treat for a wandering spirit (a tiny recurring coin sink)
 
 # grove board palette (the night-purples retire here)
-const GROUND := Color("#3F6B43")
-const GROUND_EDGE := Color("#33402F")
-const BRAMBLE_BG := Color("#4A5A3A")
-const BRAMBLE_EDGE := Color("#33402F")
-const CREAM := Color("#FBF3EA")
-const STRAW := Color("#E3B23C")
+const GROUND = Pal.GROUND
+const GROUND_EDGE = Pal.GROUND_EDGE
+const BRAMBLE_BG = Pal.BRAMBLE_BG
+const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
+const CREAM = Pal.CREAM
+const STRAW = Pal.STRAW
 
 var board: GroveBoard
 var rng := RandomNumberGenerator.new()
@@ -208,7 +209,7 @@ func _ready() -> void:
 	bag_bar.add_theme_constant_override("separation", 12)
 	bag_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	root.add_child(bag_bar)
-	bag_bar.add_child(_lbl(tr("Bag"), 26, Palette.TEXT))
+	bag_bar.add_child(_lbl(tr("Bag"), 26, Pal.TEXT))
 	for i in 3:
 		var s := Button.new()
 		s.focus_mode = Control.FOCUS_NONE
@@ -1213,7 +1214,7 @@ func _make_piece(code: int, size: float) -> Control:
 	disc.size = Vector2(dsz, dsz)
 	disc.position = (Vector2(size, size) - disc.size) / 2.0
 	var sb := StyleBoxFlat.new()
-	var base: Color = G.LINES[line].color if G.LINES.has(line) else Palette.TEXT_MUTED
+	var base: Color = G.LINES[line].color if G.LINES.has(line) else Pal.TEXT_MUTED
 	sb.bg_color = base.lerp(Color.WHITE, 0.06 * tier)
 	sb.set_corner_radius_all(int(dsz / 2.0))
 	sb.set_border_width_all(3)

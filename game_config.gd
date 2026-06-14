@@ -7,3 +7,4 @@ const ACTIVE := "placeholder"
 # 1a: placeholder runs on the grove ruleset (data is OUT of the engine now); its
 # OWN minimal generic dataset is the next sub-step (1b).
 const DATA := preload("res://games/grove/grove_data.gd")
+const PALETTE := preload("res://games/grove/grove_palette.gd")   # the active game's colours

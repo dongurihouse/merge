@@ -22,6 +22,8 @@ const Features = preload("res://engine/scripts/features.gd")
 const Layout = preload("res://engine/scripts/layout.gd")
 const Debug = preload("res://engine/scripts/debug.gd")
 const Game = preload("res://engine/scripts/game.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
 const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)
@@ -47,14 +49,14 @@ void fragment() {
 	COLOR = vec4(mix(vec3(g), c.rgb, sat), c.a) * COLOR;
 }"
 
-const SKY := Color("#9CCDE8")
-const MEADOW := Color("#7FA65A")
-const LEAF := Color("#3F6B43")
-const INK := Color("#33402F")
-const CREAM := Color("#FBF3EA")
-const STRAW := Color("#E3B23C")
-const BARK := Color("#8A5A3B")
-const CLAY := Color("#C96F4A")
+const SKY = Pal.SKY
+const MEADOW = Pal.MEADOW
+const LEAF = Pal.LEAF
+const INK = Pal.INK
+const CREAM = Pal.CREAM
+const STRAW = Pal.STRAW
+const BARK = Pal.BARK
+const CLAY = Pal.CLAY
 
 var exp_points := 0
 var unlocks := {}

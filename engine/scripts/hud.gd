@@ -10,10 +10,12 @@ const Look = preload("res://engine/scripts/skin.gd")
 const Shop = preload("res://engine/scripts/shop.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const G = preload("res://engine/scripts/content.gd")
+const Config = preload("res://game_config.gd")
+const Pal = Config.PALETTE
 
-const INK := Color("#33402F")
-const CREAM := Color("#FBF3EA")
-const STRAW := Color("#E3B23C")
+const INK = Pal.INK
+const CREAM = Pal.CREAM
+const STRAW = Pal.STRAW
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var panel := PanelContainer.new()
