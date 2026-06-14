@@ -23,7 +23,7 @@ func _initialize() -> void:
 	Save.configure_for_test(dir)
 	Save.add_stars(10)
 
-	var scn = load("res://engine/scenes/Home.tscn").instantiate()
+	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

@@ -71,7 +71,7 @@ func _initialize() -> void:
 			go["exp"] = 400
 			Save.grove_write()
 
-	var scn = load("res://engine/scenes/Home.tscn").instantiate()
+	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.5).timeout

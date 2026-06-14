@@ -28,7 +28,7 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_stars(5)
 
-	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.8).timeout

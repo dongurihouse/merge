@@ -2,7 +2,7 @@ extends SceneTree
 ## Fast engine smoke: the live scenes instantiate cleanly on the ACTIVE game's
 ## clothes (catches broken asset routing / parse errors). ~5s, no full suite.
 func _initialize() -> void:
-	for s in ["res://engine/scenes/Home.tscn", "res://engine/scenes/Grove.tscn"]:
+	for s in ["res://engine/scenes/Map.tscn", "res://engine/scenes/Board.tscn"]:
 		var ps = load(s)
 		if ps == null:
 			print("SMOKE FAIL: cannot load ", s); quit(1); return

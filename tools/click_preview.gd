@@ -25,7 +25,7 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.5).timeout

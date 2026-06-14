@@ -24,7 +24,7 @@ func _initialize() -> void:
 	Save.configure_for_test(dir)
 	Feat.FLAGS["ftue_staged_chrome"] = false        # the merchant + basket are present
 	var root := get_root()
-	var scn = load("res://engine/scenes/Grove.tscn").instantiate()
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.6).timeout

@@ -18,7 +18,7 @@ const FX = preload("res://engine/scripts/fx.gd")
 const Hud = preload("res://engine/scripts/hud.gd")
 const Ambient = preload("res://engine/scripts/ambient.gd")
 const Features = preload("res://engine/scripts/features.gd")
-const HomeScene = preload("res://engine/scripts/home.gd")   # T2: the Decorate jump request
+const HomeScene = preload("res://engine/scripts/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/game.gd")
 const Config = preload("res://game_config.gd")
 const Pal = Config.PALETTE
@@ -254,7 +254,7 @@ func _ready() -> void:
 	bottom_bar.add_child(brow)
 	var home_btn := Look.button(tr("◀ Home"), func() -> void:
 		Audio.play("button_tap", -2.0)
-		get_tree().change_scene_to_file("res://engine/scenes/Home.tscn"), false)
+		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
 	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	brow.add_child(home_btn)
@@ -2139,7 +2139,7 @@ func _on_gate() -> void:
 	# T2: Decorate jumps straight INTO the room you were decorating — the map is
 	# the atlas you visit on purpose. Fresh save (no last_zone) → the map, as ever.
 	HomeScene.decorate_zone = String(Save.grove().get("last_zone", ""))
-	get_tree().change_scene_to_file("res://engine/scenes/Home.tscn")
+	get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")
 
 # --- misc -------------------------------------------------------------------------
 
