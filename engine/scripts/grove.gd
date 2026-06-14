@@ -1045,12 +1045,12 @@ func _rebuild_all() -> void:
 				# AF4: a soft warm WELL (was a flat translucent green square) — a touch
 				# darker+warmer than the light mat, with a gentle shadow for depth
 				sb.bg_color = Color("#C7BB94", 0.55)
-				sb.set_corner_radius_all(16)
+				sb.set_corner_radius_all(28)
 				sb.set_border_width_all(2)
-				sb.border_color = Color("#8A7A52", 0.45)
-				sb.shadow_color = Color(0, 0, 0, 0.13)
-				sb.shadow_size = 5
-				sb.shadow_offset = Vector2(0, 2)
+				sb.border_color = Color("#8A7A52", 0.32)
+				sb.shadow_color = Color(0, 0, 0, 0.22)
+				sb.shadow_size = 8
+				sb.shadow_offset = Vector2(0, 3)
 				slot.add_theme_stylebox_override("panel", sb)
 				slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				board_area.add_child(slot)
@@ -1264,10 +1264,10 @@ func _make_board_mat() -> Control:
 	var under := Panel.new()
 	under.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var us := StyleBoxFlat.new()
-	us.bg_color = Color("#4A3A28", 0.9)
-	us.set_corner_radius_all(32)
-	us.set_border_width_all(3)
-	us.border_color = Color("#3A2D1E")
+	us.bg_color = Color("#4A3A28", 0.3)    # see-through FILL (grove shows through) but enough to read the round shape
+	us.set_corner_radius_all(34)            # round corners
+	us.set_border_width_all(2)              # a SOFT rounded rim (was a hard 3px dark line)
+	us.border_color = Color("#3A2D1E", 0.4)
 	us.shadow_color = Color(0, 0, 0, 0.38)
 	us.shadow_size = 12
 	us.shadow_offset = Vector2(0, 7)
@@ -1303,6 +1303,7 @@ func _make_board_mat() -> Control:
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_SCALE
 		t.material = sm
+		t.modulate.a = 0.25   # transparent moss so the board surface stays see-through
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mat.add_child(t)
 	else:

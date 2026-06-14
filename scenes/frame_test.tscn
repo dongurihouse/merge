@@ -1,0 +1,71 @@
+[gd_scene format=3]
+
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_47_01 PM.png" id="1_g3qu0"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_03 PM (1).png" id="2_dx8fu"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_04 PM (2).png" id="3_hw27k"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_04 PM (3).png" id="4_icg8m"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_04 PM (4).png" id="5_eswda"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_04 PM (5).png" id="6_v516a"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_06 PM (6).png" id="7_d0n1i"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_06 PM (7).png" id="8_aqslb"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_06 PM (8).png" id="9_nl2sm"]
+[ext_resource type="Texture2D" path="res://assets/ChatGPT Image Jun 13, 2026, 01_02_06 PM (9).png" id="10_bgu1o"]
+
+[node name="FrameTest" type="Node2D" unique_id=2013886981]
+
+[node name="House" type="Sprite2D" parent="." unique_id=248458834]
+texture = ExtResource("1_g3qu0")
+centered = false
+
+[node name="frame_1" type="Sprite2D" parent="." unique_id=719148513]
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("2_dx8fu")
+
+[node name="frame_2" type="Sprite2D" parent="." unique_id=1526972051]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("3_hw27k")
+
+[node name="frame_3" type="Sprite2D" parent="." unique_id=2103625234]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("4_icg8m")
+
+[node name="frame_4" type="Sprite2D" parent="." unique_id=146164249]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("5_eswda")
+
+[node name="frame_5" type="Sprite2D" parent="." unique_id=1775736976]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("6_v516a")
+
+[node name="frame_6" type="Sprite2D" parent="." unique_id=866832032]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("7_d0n1i")
+
+[node name="frame_7" type="Sprite2D" parent="." unique_id=1478545627]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("8_aqslb")
+
+[node name="frame_8" type="Sprite2D" parent="." unique_id=1174221139]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("9_nl2sm")
+
+[node name="frame_9" type="Sprite2D" parent="." unique_id=1326563382]
+visible = false
+position = Vector2(390, 300)
+scale = Vector2(0.24, 0.24)
+texture = ExtResource("10_bgu1o")

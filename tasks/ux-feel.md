@@ -45,3 +45,13 @@ layer (animation, FX, audio, breathe/bob/floaters, responsiveness). Format + rul
 - **Verification:** capture (icons read clearly) + grove 238 wallet-on-screen assert.
 - **Iterations:** 1
 - **Result:** commit c491ced.
+
+### T14 — Map upgrade / placement / unlock satisfaction · 2026-06-13 · ux/feel · open (eval)
+- **Asked:** "make the map upgrade and placement look nice and fun to interact with and satisfying when things are unlocked … evaluate the current state and tell me what's wrong or missing."
+- **Problem:** (diagnosed) the END states are lovely (a fully-furnished room) but the JOURNEY is flat — finishing a zone barely changes the map (`_poi_art` keys saturation on `open`/unlocked, NOT `done`/restored, home.gd:275,398-401 → restored vs in-progress differ only by one pill's text/colour); the bought object never animates in (buy juice fires at the TAP point, then a silent `_build_interior/_build_vista` rebuild blinks the sprite in — fx.gd has pop_in/scatter_in unused on the reward); "placement" is dev-only (Debug-gated editor, T1/T2) so the player has no placement agency — they tap a fixed pin to fill a fixed slot. Fails the spec pillar "**visibly restore the homestead / visible renovation**" (TIDY_UP_V2_SPEC.md:10,463).
+- **Type:** new (feel/juice) — touches mechanics if placement becomes a player verb
+- **LLM-reliability:** **low** — "looks nice / fun / satisfying" is perceptual; verify by capture/composite + owner eyeball, never assert. Sibling low-rel: T6 (re-warm), T11 (icon size).
+- **Human-in-loop:** **required** — two Dev design calls before build: (1) is placement a PLAYER verb (drag-to-arrange) or tap-to-fill? (2) how far to push "restored zones come alive" given lux-juice is v2-deferred (MILESTONES.md:217). Reported the eval; awaiting the Dev's steer.
+- **Verification:** _(open)_
+- **Iterations:** _(open)_
+- **Result:** _(open)_

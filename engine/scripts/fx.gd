@@ -176,7 +176,7 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 			then.call())
 
 # then bursts use the soft dot. Choice follows the color's mood (gold → pollen,
-# green → leaf, else petal), per GROVE_STYLE §5.
+# green → leaf, else petal) — the hand-painted FX style.
 static var _grove_tex := {}
 
 static func _pick_tex(color: Color) -> Texture2D:

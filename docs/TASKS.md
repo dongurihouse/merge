@@ -37,4 +37,4 @@ pull the Dev in); last three closed **at done**.
   no matter which file it lands in; the number tells you roughly when it happened.
 - **`LLM-reliability: low` is a trigger, not a label** — build a check (composite, measure, a
   test) or hand the call to the Dev; never ship a low-reliability task on a screenshot.
-- Highest task number so far: **T16**.  (T14 farmhouse-alive parked on its branch; T15 wayside-clickable merged.)
+- Highest task number so far: **T15**.

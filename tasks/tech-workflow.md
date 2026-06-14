@@ -66,12 +66,12 @@ meta layer: roles, the task log, the queue, conventions. Format + rules: `../TAS
 - **Iterations:** 1
 - **Result:** TASKS.md (index) + tasks/*.md + engineer.md + /engineer; commit deab120 (flat) → this split.
 
-### T16 — Bare skeleton: cut the old engine + archive all art/audio · 2026-06-14 · tooling/workflow · open
-- **Asked:** "remove all cosmetics today, leave the bare bone of the game … so I can see the features, how/when things unlock, make the economy make sense, and tune it COMPLETELY separately from the meat … multiple games out of this engine with different clothes." Refined: move all art to a **gitignored `/archive`**, remove the **old Tidy-Up game incl. its engine**, keep unlock-map + coin-sinks as bare **placeholders** (just prove they exist + the user flow), to enable separating data from skin next.
-- **Problem:** the repo was a TWO-game codebase (old Tidy-Up reach-zero puzzle + the live Grove) sharing infra, cosmetics in the view. Reusable engine ⇒ separate engine↔skin; the bare skeleton is step 1. Audit (3 workflows): the merge model is already cosmetic-free, art already falls back to placeholders, 24 feature flags — ~75% separated. Coins sink only into cosmetics (dead currency) — flagged for the economy pass.
-- **Type:** new (architecture/cleanup)
-- **LLM-reliability:** **high** for the CUT (dependency-graph **verified against code**: old game is a sealed 15-file subsystem, ZERO live references; one sever point = `home.gd` Classic button) and the ARCHIVE (filesystem move + the existing ResourceLoader fallbacks). **low** for "does the wireframe READ well / is the flow legible" — owner's eye.
-- **Human-in-loop:** **recommended** — owner approved the destructive kill-list pre-execution; owner eyeballs the wireframe.
-- **Verification:** _(Stage 1 cut: boot probe Home+Grove OK · grove_tests 302 / layout_tests 21 / save_tests 25 green. Stage 2 archive: boot OK on placeholders; wireframe capture pending.)_
-- **Iterations:** _(open)_
-- **Result:** _(open — branch `feat/bare-skeleton`. Parked follow-ups: scrub orphaned `save.gd` accessors (record_job/buy_decor/job-room-client) + `palette.FAMILIES`; formalize the data↔skin seam (3 cracks); the coin economy fix.)_
+### T15 — Consolidated spec doc (`merge_spec`) · 2026-06-14 · workflow · done
+- **Asked:** "review all docs, create a single doc with the spec and the feature set, call it merge_spec."
+- **Problem:** the design truth was spread across ~18 docs (spec, milestones, features, friction, UI, art, audio) + ledgers, several of them stale vs the code; no single authoritative spec.
+- **Type:** new (process/docs)
+- **LLM-reliability:** med — synthesis from sources is mostly deterministic, BUT completeness + catching stale-doc-vs-code drift is the risk; mitigated by code-verifying every number.
+- **Human-in-loop:** recommended — the owner is the authority on what belongs in the canonical spec; a read-through is the close.
+- **Verification:** built via a 6-agent doc/code extraction workflow (concept · mechanics · world/economy · features · art/audio · tech), each told CODE WINS over docs; folded a parallel coin-economy audit into §7/§16. Cross-checked board 7×9, the 24 feature flags vs features.gd, currency numbers vs grove_content/save.
+- **Iterations:** 1
+- **Result:** `docs/merge_spec.md` (now **17 sections** — added §2 Progression: Chapters vs Levels per owner Q; folded the **feature index** `FEATURES.md` into §9 with *Lives in* + owner *Eval* columns + core/tuning/removed-history, and stubbed `FEATURES.md` to a redirect). Surfaced: T14 flags aren't on `main` (branch only); the only coin-progression-gate sink is **legacy** districts code, not the live grove (§17 flags the "coins have no power" tension); `main` has **25** flags (the extraction agent miscounted 24 — fixed). Not committed (owner to review).
