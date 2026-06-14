@@ -5,8 +5,7 @@ extends RefCounted
 const Save = preload("res://engine/scripts/save.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
-const Config = preload("res://game_config.gd")
-const Pal = Config.PALETTE
+const Pal = Game.PALETTE
 
 static var _dot_tex: Texture2D
 

@@ -6,11 +6,10 @@ extends RefCounted
 ## (Was grove_content.gd; the grove tables moved to games/grove/grove_data.gd.)
 
 const Game = preload("res://engine/scripts/game.gd")
-const Config = preload("res://game_config.gd")
 
 # --- the ACTIVE game's DATA (compile-time const), re-exported as consts so every
 # --- existing G.<CONST> reader keeps working and := type inference still resolves.
-const D = Config.DATA
+const D = Game.DATA
 const COLS = D.COLS
 const ROWS = D.ROWS
 const TOP_TIER = D.TOP_TIER

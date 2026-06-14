@@ -20,9 +20,8 @@ const Ambient = preload("res://engine/scripts/ambient.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const HomeScene = preload("res://engine/scripts/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/game.gd")
-const Config = preload("res://game_config.gd")
 const Debug = preload("res://engine/scripts/debug.gd")
-const Pal = Config.PALETTE
+const Pal = Game.PALETTE
 
 const GAP := 10.0
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest

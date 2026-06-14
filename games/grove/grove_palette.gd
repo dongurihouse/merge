@@ -1,6 +1,6 @@
 extends RefCounted
 ## GROVE palette — the game's colours (skin). The engine reads these via
-## Config.PALETTE instead of hardcoding/duplicating them across scripts.
+## Game.PALETTE instead of hardcoding/duplicating them across scripts.
 ## A different game ships its own palette with the same const names.
 
 # the grove's themed colours (were scattered as local consts in grove/home/shop/hud)

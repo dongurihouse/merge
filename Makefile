@@ -16,7 +16,7 @@ help: ## list available targets
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 ## --- run -------------------------------------------------------------------
-## Which game runs is the GAME env var (see game_config.gd). `run` uses the
+## Which game runs is the GAME env var (see games/active.gd). `run` uses the
 ## default; the two below force one game and toggle the grove-art import-skip.
 run: ## play the active game (GAME env var, default placeholder)
 	$(GODOT) --path $(PROJECT)

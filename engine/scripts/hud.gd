@@ -10,8 +10,8 @@ const Look = preload("res://engine/scripts/skin.gd")
 const Shop = preload("res://engine/scripts/shop.gd")
 const FX = preload("res://engine/scripts/fx.gd")
 const G = preload("res://engine/scripts/content.gd")
-const Config = preload("res://game_config.gd")
-const Pal = Config.PALETTE
+const Game = preload("res://engine/scripts/game.gd")
+const Pal = Game.PALETTE
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM

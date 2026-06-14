@@ -22,8 +22,7 @@ const Features = preload("res://engine/scripts/features.gd")
 const Layout = preload("res://engine/scripts/layout.gd")
 const Debug = preload("res://engine/scripts/debug.gd")
 const Game = preload("res://engine/scripts/game.gd")
-const Config = preload("res://game_config.gd")
-const Pal = Config.PALETTE
+const Pal = Game.PALETTE
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
 const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)

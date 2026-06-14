@@ -4,8 +4,7 @@ extends RefCounted
 
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
-const Config = preload("res://game_config.gd")
-const Pal = Config.PALETTE
+const Pal = Game.PALETTE
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
