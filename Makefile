@@ -7,7 +7,7 @@ TESTS   := grove_tests layout_tests save_tests
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run editor test test-one smoke import \
+.PHONY: help run run_base run_grove editor test test-one smoke import \
         shot-home shot-grove shot-map shot \
         decor icon ios clean clean-cache
 
@@ -16,8 +16,18 @@ help: ## list available targets
 		| awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
 ## --- run -------------------------------------------------------------------
-run: ## play the game (desktop window)
+## Which game runs is the GAME env var (see game_config.gd). `run` uses the
+## default; the two below force one game and toggle the grove-art import-skip.
+run: ## play the active game (GAME env var, default placeholder)
 	$(GODOT) --path $(PROJECT)
+
+run_base: ## play the BARE placeholder (no art/audio — wireframe engine)
+	touch games/grove/assets/.gdignore
+	GAME=placeholder $(GODOT) --path $(PROJECT)
+
+run_grove: ## play the GROVE game (full art; first run imports grove art)
+	rm -f games/grove/assets/.gdignore
+	GAME=grove $(GODOT) --path $(PROJECT)
 
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)

@@ -15,3 +15,8 @@ build/
 /tmp/
 override.cfg
 /archive/
+
+# Grove art import-skip toggle: a LOCAL build-speed switch, not source.
+# `make run_base` creates it (placeholder boots without importing grove art);
+# `make run_grove` removes it (grove art imports + loads). Either way: never committed.
+games/grove/assets/.gdignore

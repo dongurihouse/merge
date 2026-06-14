@@ -10,7 +10,7 @@ const _GAMES := {
 }
 
 static func _m():
-	return _GAMES.get(Config.ACTIVE, _GAMES["placeholder"])
+	return _GAMES.get(Config.active(), _GAMES["placeholder"])
 
 ## res:// path for an art asset (rel = path under a game's art root, e.g.
 ## "items/flower_1.png"), or "" when this game has no clothes for it — the caller's
@@ -25,7 +25,7 @@ static func sound(rel: String) -> String:
 	return "" if root == "" else root + rel
 
 static func id() -> String:
-	return String(Config.ACTIVE)
+	return String(Config.active())
 
 ## The active game's DATA module (its content + tuning tables — engine/content.gd
 ## reads these instead of hardcoding them).

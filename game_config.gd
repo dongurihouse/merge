@@ -8,3 +8,9 @@ const ACTIVE := "placeholder"
 # OWN minimal generic dataset is the next sub-step (1b).
 const DATA := preload("res://games/grove/grove_data.gd")
 const PALETTE := preload("res://games/grove/grove_palette.gd")   # the active game's colours
+
+## The active game id. The GAME env var wins (so `make run_grove` / `GAME=grove`
+## can switch clothes without editing this file); otherwise ACTIVE is the default.
+static func active() -> String:
+	var e := OS.get_environment("GAME")
+	return e if not e.is_empty() else ACTIVE
