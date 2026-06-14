@@ -1,9 +1,5 @@
 # Triage / Not sure — task log
 
-Tasks not yet clearly categorized — park them here and re-file into the right list once the
-real category is obvious. Don't let an entry sit here longer than a session. Format + rules:
-`../TASKS.md` (index) → `~/.claude/docs/engineer.md` §"The task log".
+Uncategorized — park here, re-file into the right list once the category is clear.
 
----
-
-*No entries yet.*
+_Cleared for a fresh start (2026-06-14). New entries below; see docs/TASKS.md for the format._
