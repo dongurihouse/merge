@@ -23,3 +23,12 @@ const BG_DEEP := Color("#17121E")
 const TEXT := Color("#FBF3EA")
 const TEXT_MUTED := Color("#A99FB5")
 const GOLD := Color("#FFD56B")
+
+# UI-kit fallback chrome (were inline in skin.gd's StyleBox fallbacks)
+const COIN_EDGE := Color("#C98A2B")        # coin-icon rim
+const PLANK := Color("#6E4B2F")            # wooden plank panel
+const PLANK_EDGE := Color("#3D2A1B")
+const PILL := Color("#FBF6EC")             # cream pill (HUD/ribbon language)
+const PILL_EDGE := Color("#C9A66B")
+const BTN_PRIMARY := Color("#4E7C46")      # primary button (leaf green)
+const BTN_PRIMARY_EDGE := Color("#3C6037")

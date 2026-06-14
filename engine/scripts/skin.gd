@@ -69,7 +69,7 @@ static func coin_icon(px: float = 34.0) -> Control:
 	var cstyle := StyleBoxFlat.new()
 	cstyle.bg_color = Pal.GOLD
 	cstyle.set_corner_radius_all(int(px / 2.0))
-	cstyle.border_color = Color("#C98A2B")
+	cstyle.border_color = Pal.COIN_EDGE
 	cstyle.set_border_width_all(3)
 	coin.add_theme_stylebox_override("panel", cstyle)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -88,7 +88,7 @@ const ICON_GLYPHS := {
 	"cart": "🛒", "gear": "⚙", "check": "✓", "lock": "Lv", "question": "?",
 	"home": "◀", "back": "◀", "level": "Lv", "cash": "$",
 }
-const ICON_TINTS := {"star": Color("#E3B23C"), "check": Color.WHITE}
+const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
 ## The three surfaces (§1): plank (ground band) · parchment (card) · chip.
 static func kit_panel(kind: String) -> StyleBox:
@@ -117,26 +117,26 @@ static func kit_panel(kind: String) -> StyleBox:
 	var sb := StyleBoxFlat.new()
 	match kind:
 		"plank":
-			sb.bg_color = Color("#6E4B2F", 0.94)
+			sb.bg_color = Color(Pal.PLANK, 0.94)
 			sb.set_corner_radius_all(18)
 			sb.set_border_width_all(4)
-			sb.border_color = Color("#3D2A1B")
+			sb.border_color = Pal.PLANK_EDGE
 			sb.content_margin_left = 18.0
 			sb.content_margin_right = 18.0
 			sb.content_margin_top = 14.0
 			sb.content_margin_bottom = 14.0
 		"chip":
-			sb.bg_color = Color("#33402F", 0.62)
+			sb.bg_color = Color(Pal.INK, 0.62)
 			sb.set_corner_radius_all(20)
 			sb.content_margin_left = 16.0
 			sb.content_margin_right = 16.0
 			sb.content_margin_top = 6.0
 			sb.content_margin_bottom = 6.0
 		_:                                       # parchment
-			sb.bg_color = Color("#FBF3EA")
+			sb.bg_color = Pal.CREAM
 			sb.set_corner_radius_all(26)
 			sb.set_border_width_all(5)
-			sb.border_color = Color("#8A5A3B")
+			sb.border_color = Pal.BARK
 			sb.shadow_color = Color(0, 0, 0, 0.3)
 			sb.shadow_size = 8
 			sb.shadow_offset = Vector2(0, 5)
@@ -160,7 +160,7 @@ static func icon(id: String, px: float = 28.0) -> Control:
 	var l := Label.new()
 	l.text = String(ICON_GLYPHS.get(id, "?"))
 	l.add_theme_font_size_override("font_size", int(px))
-	l.add_theme_color_override("font_color", ICON_TINTS.get(id, Color("#FBF3EA")))
+	l.add_theme_color_override("font_color", ICON_TINTS.get(id, Pal.CREAM))
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
@@ -177,7 +177,7 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", 34)
-	lbl.add_theme_color_override("font_color", Color("#FBF3EA"))
+	lbl.add_theme_color_override("font_color", Pal.CREAM)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lbl)
 	return {"node": panel, "label": lbl, "icon": ic}
@@ -191,10 +191,10 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 static func title_ribbon(text: String, font_px: int = 32) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FBF6EC", 0.96)
+	sb.bg_color = Color(Pal.PILL, 0.96)
 	sb.set_corner_radius_all(20)
 	sb.set_border_width_all(3)
-	sb.border_color = Color("#C9A66B", 0.9)
+	sb.border_color = Color(Pal.PILL_EDGE, 0.9)
 	sb.shadow_color = Color(0, 0, 0, 0.22)
 	sb.shadow_size = 5
 	sb.content_margin_left = 30.0
@@ -206,7 +206,7 @@ static func title_ribbon(text: String, font_px: int = 32) -> PanelContainer:
 	l.text = text
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.add_theme_font_size_override("font_size", font_px)
-	l.add_theme_color_override("font_color", Color("#33402F"))
+	l.add_theme_color_override("font_color", Pal.INK)
 	l.add_theme_constant_override("outline_size", 0)   # panel-text law: solid chip = the contrast
 	p.add_child(l)
 	return p
@@ -242,17 +242,17 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 	# (matches the HUD chips) — one consistent, legible button language everywhere.
 	var s := StyleBoxFlat.new()
 	if primary:
-		s.bg_color = Color("#4E7C46")              # leaf green
-		s.border_color = Color("#3C6037")
-		b.add_theme_color_override("font_color", Color("#FBF3EA"))
-		b.add_theme_color_override("font_pressed_color", Color("#FBF3EA"))
-		b.add_theme_color_override("font_hover_color", Color("#FBF3EA"))
+		s.bg_color = Pal.BTN_PRIMARY              # leaf green
+		s.border_color = Pal.BTN_PRIMARY_EDGE
+		b.add_theme_color_override("font_color", Pal.CREAM)
+		b.add_theme_color_override("font_pressed_color", Pal.CREAM)
+		b.add_theme_color_override("font_hover_color", Pal.CREAM)
 	else:
-		s.bg_color = Color("#FBF6EC", 0.97)        # cream (HUD pill language)
-		s.border_color = Color("#C9A66B", 0.9)
-		b.add_theme_color_override("font_color", Color("#33402F"))
-		b.add_theme_color_override("font_pressed_color", Color("#33402F"))
-		b.add_theme_color_override("font_hover_color", Color("#33402F"))
+		s.bg_color = Color(Pal.PILL, 0.97)        # cream (HUD pill language)
+		s.border_color = Color(Pal.PILL_EDGE, 0.9)
+		b.add_theme_color_override("font_color", Pal.INK)
+		b.add_theme_color_override("font_pressed_color", Pal.INK)
+		b.add_theme_color_override("font_hover_color", Pal.INK)
 	s.set_corner_radius_all(28)
 	s.set_border_width_all(3)
 	s.shadow_color = Color(0, 0, 0, 0.30)
