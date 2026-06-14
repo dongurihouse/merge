@@ -24,6 +24,11 @@ const Debug = preload("res://scripts/debug.gd")
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
 const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)
+# T14: the wayside hit rect is the 92px sprite holder, but its "🌰N" price PIN hangs
+# BELOW that holder — so a tap on the visible price chip (the obvious buy affordance)
+# missed entirely and the plot read as un-clickable. Grow the hit rect to swallow the
+# pin and give a comfortable finger target (plots are ~500px apart, so no overlap).
+const WAYSIDE_TAP_PAD := 40.0
 const ZONE_STATUS_DY := 56.0 # R2: status plank top below the building (shared)
 
 # T2: the board's Decorate sets this (a zone id) before changing scene; _ready
@@ -922,9 +927,10 @@ func _on_map_tap(screen_pos: Vector2) -> void:
 			FX.floating_text(self, screen_pos - Vector2(150, 70),
 				tr("Restore %s first ✿") % tr(G.ZONES[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 30)
 		return
-	# Z2: a wayside plot? buy it with coins (the structural sink)
+	# Z2: a wayside plot? buy it with coins (the structural sink). The hit rect is
+	# grown (T14) so the price pin hanging below the sprite is tappable too.
 	for hit in wayside_hits:
-		if (hit.node as Control).get_global_rect().has_point(screen_pos):
+		if (hit.node as Control).get_global_rect().grow(WAYSIDE_TAP_PAD).has_point(screen_pos):
 			_on_wayside_tap(hit.w, hit.node, screen_pos)
 			return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)

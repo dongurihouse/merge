@@ -1441,6 +1441,30 @@ func _initialize() -> void:
 	ok(Save.coins() == zc0 - int(zw0.cost), "Z2: buying spends EXACTLY the coin cost")
 	ok(zs.wayside_owned(String(zw0.id)), "Z2: the wayside is now owned")
 	ok(not zs.buy_wayside(zw0), "Z2: a wayside is one-time (no re-buy)")
+	# Z2 (T14): the TAP TARGET must cover the price PIN, not just the sprite. The
+	# "🌰N" chip hangs below the holder; if the hit-test is only the holder, tapping
+	# the visible price affordance misses and the plot reads as un-clickable.
+	Save.add_coins(300)
+	zs._build_vista()                                # rebuild so way_0_1 shows its pin
+	await create_timer(0.05).timeout
+	var zw1_node: Control = null
+	for zhit in zs.wayside_hits:
+		if String(zhit.w.id) == "way_0_1":
+			zw1_node = zhit.node
+	ok(zw1_node != null, "Z2: way_0_1 (an available plot) is on the map")
+	var zw1_pin: Control = null
+	for zch in zw1_node.get_children():
+		if zch is PanelContainer:
+			zw1_pin = zch
+	ok(zw1_pin != null, "Z2: an available plot shows a price pin")
+	# the pin sits (partly) OUTSIDE the holder — exactly the tap that fails today
+	var zpin_c: Vector2 = zw1_pin.get_global_rect().get_center()
+	ok(not zw1_node.get_global_rect().has_point(zpin_c),
+		"Z2: (regression witness) the price pin's center is outside the bare holder rect")
+	ok(not zs.wayside_owned("way_0_1"), "Z2: way_0_1 unowned before the pin tap")
+	zs._on_map_tap(zpin_c)                            # tap the PRICE PIN, as a player would
+	ok(zs.wayside_owned("way_0_1"),
+		"Z2: tapping the PRICE PIN buys the plot (tap target covers the pin)")
 	Feat3.FLAGS["ftue_staged_chrome"] = true
 	zs.queue_free()
 
