@@ -1,22 +1,21 @@
 extends RefCounted
-## PRODUCTION vs DEBUG mode (owner 2026-06-12).
+## Two debug gates (owner). PRODUCTION is the default and always CLEAN.
 ##
-## PRODUCTION is the default and is always CLEAN — no authoring chrome, no debug
-## affordances, nothing a player could stumble into. DEBUG unlocks the owner's
-## authoring tools; today that means the drag-to-place editor (Layout) on the map
-## and inside rooms — adjust placements, then SAVE them. New debug adjustments
-## hang off Debug.on() the same way.
+## on()  — the on-screen STATE-JUMP panel (reset / premium / unlock / level-up).
+##         The BASE game (games/placeholder) always shows it — running base IS the
+##         test harness. Other games show it only when authoring() (below).
 ##
-## The BASE game (games/placeholder) is ALWAYS in debug — running it IS the test
-## harness; the real game (grove) stays clean. Force debug on ANY game, NO source
-## edit:
-##     godot --path . -- debug          (everything after -- is a user arg)
-##   or set an environment variable:
-##     TU_DEBUG=1 godot --path .
+## authoring() — the owner's drag-to-place LAYOUT editor (adjust placements on the
+##         map + inside rooms, then SAVE). Turned on DELIBERATELY, on ANY game; it
+##         is NOT auto-on in base (base is a mechanics sandbox with no real art to
+##         place). Enable with NO source edit:
+##             godot --path . -- debug      (args after -- are user args)
+##             TU_DEBUG=1 godot --path .
 ##
-## Debug is NEVER on in headless logic suites or quiet capture runs (those would
-## pollute tests/screenshots). Capture tools that WANT the debug chrome set
-## Debug.force = true explicitly (e.g. tools/home_shot.gd `place=1`).
+## Neither gate is ever on in headless logic suites or quiet capture runs (they'd
+## pollute tests/screenshots). Capture tools that WANT the layout-editor chrome set
+## Debug.force = true (e.g. tools/home_shot.gd `place=1`) — force drives authoring()
+## only, so the state-jump panel never leaks into a screenshot.
 
 const Save = preload("res://engine/scripts/save.gd")
 const G = preload("res://engine/scripts/content.gd")
@@ -24,15 +23,27 @@ const Game = preload("res://engine/scripts/game.gd")
 
 static var force := false
 
+## The state-jump debug PANEL: always on the base game, otherwise only when
+## explicitly authoring(). Never in headless suites or quiet captures.
 static func on() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false                     # logic suites never show chrome
+	if OS.get_environment("TU_QUIET") == "1":
+		return false                     # quiet captures stay clean of the panel
+	if Game.id() == "placeholder":
+		return true                      # the base/testing build always shows it
+	return authoring()                   # other games: only when explicitly authoring
+
+## The owner LAYOUT editor: explicit only (force / TU_DEBUG / `-- debug`), ANY game.
+## NOT auto-on in base. force is checked first so capture tools get the editor even
+## under TU_QUIET (where the panel above stays hidden).
+static func authoring() -> bool:
 	if force:
 		return true
 	if DisplayServer.get_name() == "headless":
-		return false                     # logic suites
+		return false
 	if OS.get_environment("TU_QUIET") == "1":
-		return false                     # quiet capture runs
-	if Game.id() == "placeholder":
-		return true                      # the base/testing build always has debug
+		return false
 	if OS.get_environment("TU_DEBUG") == "1":
 		return true
 	return "debug" in OS.get_cmdline_user_args()

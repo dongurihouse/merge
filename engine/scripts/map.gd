@@ -1238,14 +1238,14 @@ func _lbl(t: String, size: int, col: Color) -> Label:
 	return l
 
 # ============================================================================
-# DEBUG-mode tool: drag-to-place editor (Layout). Gated by Debug.on() — production
-# never shows it. Buildings on the map and furniture inside rooms become draggable;
+# DEBUG-mode tool: drag-to-place editor (Layout). Gated by Debug.authoring() — an
+# explicit owner tool, NOT auto-on in base. Buildings on the map and furniture in rooms become draggable;
 # a crosshair marks each anchor; a bottom toolbar saves to res://data/placements.json.
 # The renderers always read through Layout, so saved positions persist for everyone.
 # ============================================================================
 
 func _place_on() -> bool:
-	return Debug.on()                    # placement editor = a DEBUG-mode tool
+	return Debug.authoring()             # the Layout editor is owner-authoring, not base
 
 func _make_crosshair(at_local: Vector2, color: Color) -> Control:
 	var c := Control.new()
