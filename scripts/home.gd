@@ -1159,23 +1159,6 @@ func _build_chrome() -> void:
 			_open_shop.call())
 	add_child(shop)
 	_chrome_nodes.append(shop)
-	# the old game, reachable but out of the way during the transition
-	var classic := Button.new()
-	classic.text = tr("classic ▸")
-	classic.flat = true
-	classic.focus_mode = Control.FOCUS_NONE
-	classic.add_theme_font_size_override("font_size", 20)
-	classic.add_theme_color_override("font_color", Color(CREAM, 0.45))
-	classic.anchor_top = 1.0
-	classic.anchor_bottom = 1.0
-	classic.offset_left = 16
-	classic.offset_top = -52 - sb
-	classic.offset_bottom = -16 - sb
-	classic.pressed.connect(func() -> void:
-		get_tree().quit_on_go_back = true
-		get_tree().change_scene_to_file("res://scenes/Menu.tscn"))
-	add_child(classic)
-	_chrome_nodes.append(classic)
 
 func _open_settings() -> void:
 	Audio.play("button_tap", -2.0)

@@ -1,6 +1,5 @@
 extends RefCounted
-## Tidy Up — shared juice helpers (static, like Audio/Save). New screens use these;
-## main.gd/room.gd still carry local copies pending the FX consolidation pass.
+## Tidy Up — shared juice helpers (static, like Audio/Save). All grove screens use these.
 ##   const FX = preload("res://scripts/fx.gd")
 
 const Palette = preload("res://scripts/palette.gd")

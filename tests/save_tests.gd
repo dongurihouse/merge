@@ -3,9 +3,6 @@ extends SceneTree
 ##   godot --headless -s res://tests/save_tests.gd
 
 const Save = preload("res://scripts/save.gd")
-const Levels = preload("res://scripts/levels.gd")
-const Progress = preload("res://scripts/progress.gd")
-const Econ = preload("res://scripts/econ.gd")
 
 var _pass := 0
 var _fail := 0
@@ -86,28 +83,6 @@ func _initialize() -> void:
 	Save._loaded = false
 	Save.load_now()                          # reloading must NOT re-grant
 	ok(Save.coins() == after, "migration does not double-grant on reload")
-
-	# 8. every level has a unique, stable string id
-	var ids := {}
-	var all_have_id := true
-	for lv in Levels.LEVELS:
-		if not lv.has("id") or String(lv["id"]) == "":
-			all_have_id = false
-		else:
-			ids[String(lv["id"])] = true
-	ok(all_have_id, "every level has a non-empty id")
-	ok(ids.size() == Levels.LEVELS.size(), "all level ids are unique")
-
-	# 9. Progress shim reflects Save and writes through it
-	fresh("shim")
-	Progress.add_cleared(3)
-	ok(Progress.cleared() == 3, "Progress.cleared reads Save")
-	ok(Save.boards_cleared() == 3, "Progress.add_cleared writes through Save")
-
-	# 10. EconConfig payouts
-	ok(Econ.clear_payout(1, true) == 40 and Econ.clear_payout(3, true) == 80, "first-clear payout scales with stars")
-	ok(Econ.clear_payout(3, false) == 15, "replay payout is a trickle")
-	ok(Econ.room_slot_cost(0) == 120, "first room slot costs 120")
 
 	# 11. first-clear flag (full pay once, trickle after)
 	fresh("paid")
