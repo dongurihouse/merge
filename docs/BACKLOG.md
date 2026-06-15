@@ -43,17 +43,34 @@ at audit time (some now stale where the code moved).
 
 ## Open — economy
 
-- **⭐ [P0] Home-hub yield + upgrade-levels loop — "coins get power" (spec done · code · sim). KEYSTONE.**
+- **⭐ [P0] Home-hub yield + upgrade-levels loop — "coins get power" (spec done · code in progress (T22, Part A) · sim). KEYSTONE.**
   §8/§10: built things have **upgrade levels** (L1→Lⁿ — look better **and** pay back more) and
   **produce coins over time** (passive yield, collected on return, scaling with level, **capped** so
   it extends sessions, never self-sustains); coins then **sink** into those upgrades + generator
-  burst-upgrades. **Entirely absent:** spots are binary owned/unowned (`engine/scripts/map.gd:977`,
-  `spot_owned()` boolean `map.gd:187`), nothing accrues over time, and coins sink **only** into
-  cosmetic waysides/variants/treats (net-zero — the "coins have no power" tension the spec says this
-  loop resolves). **Build (engine):** per-buildable level state, yield timers + collect-on-return, the
-  upgrade + generator-burst-upgrade spend paths. **Build (grove):** yield/upgrade rates + prices.
-  *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin
-  faucet and the shop sinks.* **Reworked 2026-06-15 (owner):** yield/upgrade is now **home-hub-concentrated** — the hub (the first map) carries the upgrade/décor→yield loop, **not every building on every map** — so the engine build is the hub's per-buildable level + yield + spend paths (+ burst-upgrades §6), and the grove designates the hub (the homestead). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — rejected for v1 as a collect/grind-across-~10-maps chore; **home hub + live-ops events staged in old maps** (§17) carry anti-abandonment instead. See the map-model item (core-loop). *(Surfaced 2026-06-14 — code audit vs `merge_spec`.)*
+  burst-upgrades. **Today:** hub spots are **binary owned/unowned** — restore = `Save.spend_stars` →
+  `unlocks[id]=true` (`engine/scripts/scenes/map.gd` `_on_spot_tap` ~`:957`; `spot_owned()` `:181` —
+  the audit's `map.gd:977`/`:187` anchors are **stale** post layering-split), nothing accrues over time,
+  and the only owned-spot coin sink is a **cosmetic variant** (`_apply_variant`, net-zero). *(Waysides —
+  the old structural sink — are **removed** by the map-model rework (T21); variants + treats remain, still
+  cosmetic, so the "coins have no power" tension stands.)* **Two coin-sink subsystems, split + sequenced:**
+  • **Part A — hub buildable yield + upgrade-levels = the v1 KEYSTONE.** Per-spot level (restore→L1,
+  coin-upgrade L1→Lⁿ = richer look + higher yield); yield buildings accrue coins to a **per-building daily
+  cap**, swept in **one collect-on-return** beat (never a per-building tap chore). Reads the
+  `kind:"yield"/"decor"` + `hub:true` seam that **ships with the map-model rework (T21)** — so Part A is
+  **unblocked once T21 merges**. **Build (engine):** `content.gd` rate/cap/accrual + `spot_is_yield`;
+  restore→L1 + the coin upgrade-spend + the hub-collect beat (`map.gd`/`hud.gd`). **Build (grove):**
+  yield/upgrade rates, per-building cap (≈ a day), prices. **Status:** **A1 (save schema — `levels{spot_id}`
+  + `hub_collected_at` + accessors + rename-migration in `save.gd`) DONE** on branch `feat/hub-yield` (T22),
+  `save_tests` 32/0; A2–A9 queued behind T21.
+  • **Part B — generator burst-upgrade (§6 board sink) — BLOCKED on burst-popping.** A coin/premium sink to
+  pop more per tap. Needs the burst mechanic first (the **Burst popping** item, `feat/burst-pop`): today
+  `_pop_seed` (`engine/scripts/scenes/board.gd:1603`) pops exactly ONE item, no `BURST_ODDS` — nothing to
+  upgrade yet. Sequence B with that item, not Part A.
+  *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin faucet +
+  the shop sinks.* **Reworked 2026-06-15 (owner):** hub-concentrated (the hub carries the loop, **not every
+  building on every map**). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — a
+  collect-across-~10-maps chore; home hub + live-ops in old maps (§17) carry anti-abandonment. *(Surfaced
+  2026-06-14 — code audit; anchors re-verified + A/B split + deps added 2026-06-15, T22 pickup.)*
 
 - **Selling — per-zone coin bands + drag-only verb (spec done · content · code).** §6/§9: t1–t7 sell
   for **tier coins × a per-zone band** (later zones worth more); t8 stays flat **1💎** so the 32×
