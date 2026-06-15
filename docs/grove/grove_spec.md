@@ -29,13 +29,15 @@ The core pillars carry verbatim, and the grove **adds Cozy** of its own — "a r
 
 **North-star (Core §1) — grove definition of done (v1):** a brand-new player learns the merge verb wordlessly, delivers harvests to **forest neighbours** for Stars, restores the **homestead** spot-by-spot, and reaches a **zone-restored reveal feeling earned** — on sim-validated numbers, corruption-safe save, all strings via `tr()`, Calm Mode from launch, audio that degrades gracefully.
 
-**Scope (v1) = Map 1 only** — the Grove's five sequential zones served by **one** persistent board; the next map comes only after this one is fully restored. **Permanently cut (tone):** gacha/mystery crates, booster-forfeits-star, and the Bomb/×2/Producer/Countdown toys (only the Wild piece ships). **Deferred backlog:** all "lux" juice (dissolve/iris/morph shaders, pets beyond earned animals, tilt parallax, time-of-day, seasons, photo mode, XL fanfares, combo ladders), idle/offline income, runtime solver, endless/expert tracks, stars-as-currency, cloud-save + analytics, notifications.
+**Scope (v1) = Map 1 only** — the Grove's five sequential zones served by **one** persistent board; the next map comes only after this one is fully restored. **Permanently cut (tone):** gacha/mystery crates, booster-forfeits-star, and the Bomb/×2/Producer/Countdown toys (only the Wild piece ships). **Deferred backlog:** all "lux" juice (dissolve/iris/morph shaders, pets beyond earned animals, tilt parallax, time-of-day, seasons, photo mode, XL fanfares, combo ladders), idle/offline income, runtime solver, endless/expert tracks, stars-as-currency, cloud-save, notifications. *(Analytics moved to **launch** — Core §15.)*
+
+**Positioning — the spine (owner pick, 2026-06-14).** A **cozy, gentle f2p** merge-to-restore. Monetization comes from **lowering friction** (energy refills / speed) and **customization** (cosmetics) — **no FOMO, no pay-to-win**, every wall passable for free. A **light story** carries the givers. The hook is the **hand-painted world you build and show off** (the screenshot-share, Core §17). The engine's commercial systems (events §17, shop §10, analytics §15) all serve that cozy spine — tuned gentle, additive, never punishing. *(No design changes needed — the current spec already supports this.)*
 
 ---
 
 ## 2 · Item Lines & Generators
 
-*Instantiates Core §4 (Generators & Item Lines).*
+*Instantiates Core §6 (Generators & Item Lines).*
 
 **Four lines**, the core's exponential **8-tier** ladder each (t8 ≈ 128 t1-equivalents, a rare trophy). Codes `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`:
 
@@ -46,17 +48,19 @@ The core pillars carry verbatim, and the grove **adds Cozy** of its own — "a r
 | 3 | Mushroom | `mushroom` | `#C9A66B` |
 | 4 | Honey | `honey` | `#E3B23C` |
 
-The tier ladder reads as the growth metaphor: **seed → sprout → sapling → bloom → harvest** up the line. Tier-readability law (Core §4) holds: tiers step in size + silhouette, readable at ~100 px.
+The tier ladder reads as the growth metaphor: **seed → sprout → sapling → bloom → harvest** up the line. Tier-readability law (Core §6) holds: tiers step in size + silhouette, readable at ~100 px.
 
-**Generators** (Core §4 — the complexity curve, revealing at scripted chapters, `chapter ≥ appears_at`):
+**Generators** (Core §6 — the complexity curve, **per zone** via the merge-to-evolve gate):
 
-| Generator | Cell | Lines emitted | Appears at chapter |
+| Generator | Cell | Lines emitted | Appears (pending) |
 |---|---|---|---|
 | **Seed satchel** | (4,3) | 1 Wildflower, 2 Berry | 0 (start) |
 | **Compost bin** | (2,1) | 3 Mushroom | 16 |
 | **Beehive** | (6,5) | 4 Honey | 26 |
 
-The **coin pseudo-line** (Core §4): the currency *is* the **acorn** — code `9xx`, 3 tiers worth 1 / 5 / 25, tapped to collect, ~10% merge-drop rate (engine `COIN_DROP_RATE` default).
+> ⚠️ **Superseded by Core §6 (per-zone generators).** The 3-generator / 4-line tables above are retired. Core §6 now gives **each zone its own set** — z1: 2 gens/4 lines · z2–3: 3/6 · z4+: 4/8 — unlocked by the **merge-to-evolve gate** (deliver a **t8 of the previous zone's line** → the new zone's generators; the old set evolves away, old lines retire). Over the grove's 5 zones that's a **16-generator / 32-line lifetime roster** (~2–4 live at once). Full grove generator/line/name rebuild — see `BACKLOG.md`.
+
+The **coin pseudo-line** (Core §6): the currency *is* the **acorn** — code `9xx`, 3 tiers worth 1 / 5 / 25, tapped to collect, ~10% merge-drop rate (engine `COIN_DROP_RATE` default).
 
 All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (board 7×9 with the center 3×3 open around the satchel at (4,3); `WATER_CAP 100` / `POP_COST 1` / +1·120 s regen; first 10 pops free; `TIER_ODDS [0.65,0.25,0.09,0.01]`, `ASK_WEIGHT 0.6`) — see Core §2–4. Grove cell size defaults to **86 px** (`GAP 10`, `MARGIN 12`).
 
@@ -64,7 +68,7 @@ All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (b
 
 ## 3 · The Homestead — the world you build
 
-*Instantiates Core §8 (Building & the World) and Core §7 (the chapter/level/rank tables).*
+*Instantiates Core §8 (Building & the World) and Core §3 (the level/rank tables).*
 
 The homestead is the core's **visible, partly-veiled horizon** — a `MAP_SIZE = 2160×2880` free-pan top-down map (2× the portrait viewport per axis). Locked zones render greyed-out in place and **unlock sequentially**; tapping an unlocked zone walks **inside a full-screen interior room** (the core `interior_view`) where the buildables live as **floor-standing furniture**.
 
@@ -80,7 +84,9 @@ The homestead is the core's **visible, partly-veiled horizon** — a `MAP_SIZE =
 | 4 Orchard | `orchard` | 8 | 37★ | Apple rows, Cider press, Beehives, Scarecrow |
 | 5 Meadow | `meadow` | 8 | 38★ | Wildflower path, Kite, Brook bridge, Stargazer, Rose arch |
 
-### The per-zone difficulty ramp (instantiates Core §6's deterministic ramp)
+### The per-zone difficulty ramp (instantiates Core §7's deterministic ramp)
+
+> ⚠️ **Superseded by Core §7 (generated quests).** Core §7 now **generates** quests (asks weighted by generator + scaling with level; reward **calculated from expected clicks**, capped to ★ + coin overflow) instead of this fixed per-zone curve. The table below is kept as **tuning reference** for the generated model's weights/distribution, but it is **no longer the live ramp** — pending the quest-model rework (see `BACKLOG.md`).
 
 The required single-ask path is the byte-for-byte affordability-proven curve; **multi-line stretch quests are pure additions** (slack grows to cover them), always skippable, paying 2–3★. A freshly debuted line eases in at **≤ t3** for its debut zone; **t8 is never a quest ask** (the sold-only diamond pinnacle):
 
@@ -92,15 +98,15 @@ The required single-ask path is the byte-for-byte affordability-proven curve; **
 | 4 Orchard | t4–t6 | 5 | 1 | every 2 | 1 (3-line) | 4💧 |
 | 5 Meadow | t5–t7 | 6 | 2 | every 2 | 2 (2-line + 3-line) | 5💧 |
 
-Bands climb and stretch density grows zone over zone, so the late game is **juggling all production lines on one board** (Core §6).
+Bands climb and stretch density grows zone over zone, so the late game is **juggling all production lines on one board** (Core §7).
 
-### The givers (instantiate Core §6's fence)
+### The givers (instantiate Core §7's fence)
 
 Grove quest-givers are **forest animals** (fox, hedgehog, owl) over the full-width **fence** — up to 5 stands at once, plus the **Market Squirrel** (the merchant) pinned at the right. The quest shape (1–3 asks → 1–3★, all-or-nothing delivery) and the **soft star-gate** (`gate_pause`) are core; the grove keeps the one hard rule (no-strand: level-gated spots never count as the affordable frontier).
 
-### Chapter / level / rank (instantiate Core §7)
+### Level / rank (instantiate Core §3)
 
-`chapter = unlocks.size()` (+1 per spot bought); EXP per spot is `cost × 10` (`EXP_PER_STAR`), i.e. **+30–50 EXP per spot** over the core thresholds `LEVEL_XP = [0,60,140,240,360,500,660,840,1040,1260]`. The level gate is `level_for_exp(30 × rank)` — the grove's spots run rank 0…39 across the five zones, and the pigeonhole guarantee (Core §7) holds (sim-proven, 0 strands). Each level-up gifts the core energy gift (**+20💧**, Core §3) plus **+3💎** (`LEVEL_DIAMONDS`); **fully restoring a zone grants +10💎** (`ZONE_DIAMONDS`) with a celebration and unlocks that zone's wayside plots.
+The grove's **40 spots run rank 0…39** across the five zones; **level comes from stars earned** (Core §3 `LEVEL_STARS`), and every unlock — generators, zones, spots, board cells — gates on level. Each level-up gifts the core energy gift (Core §4) plus **+3💎** (`LEVEL_DIAMONDS`); **fully restoring a zone grants +10💎** (`ZONE_DIAMONDS`) with a celebration and unlocks that zone's wayside plots. *(`LEVEL_STARS` thresholds + the per-level unlock map: pending the progression rework — `BACKLOG.md`.)*
 
 ---
 
@@ -112,10 +118,10 @@ The 4-currency model (Water / Stars / Coins / Diamonds) and **sink > faucet** la
 
 | Currency | Grove earn additions | Grove spend |
 |---|---|---|
-| **Water 💧** | the **Rain ☔** button (3 free refills), win-back ("it rained"), zone 4–5 spot-buys (4–5💧) | 1 per pop; refill **25💎 → full** |
+| **Water 💧** | the **Rain ☔** button (the daily free refill, Core §4), win-back ("it rained"), zone 4–5 spot-buys (4–5💧) | 1 per pop; refill **25💎 → full** |
 | **Stars ★** | quests only (1–3★) | restoration spots (3–5★) |
 | **Coins 🪙 (acorns)** | merge drops (~10%) · selling t1–t7 · Shop **5💎→150🪙** | waysides · spot variants · spirit treats · basket buy-back |
-| **Diamonds 💎** | level-ups (+3) · zone restore (+10) · selling a t8 (+1) · cash packs (test-only: $0.99→80💎 / $4.99→450💎 / $9.99→1000💎) | Water refill (25💎) · Bag slot 3 (10💎) · gem variants (2–4💎) |
+| **Diamonds 💎** | level-ups (+3) · zone restore (+10) · selling a t8 (+1) · cash packs (test-only: $0.99→80💎 / $4.99→450💎 / $9.99→1000💎) | Water refill (25💎) · Bag slots 7–18 (premium each, Core §5) · gem variants (2–4💎) |
 
 ### The Merchant (instantiates Core §9)
 
@@ -136,7 +142,7 @@ A plot is dormant (greyed) until its zone is fully restored, then shows a coin-c
 
 > **The "coins have no power" tension — resolved in design (Core §8/§10).** The *current* grove sinks (waysides, variants, treats) are all cosmetic / net-zero, so today's motivation to spend is thin — a decorator/completionist pull only. The fix is the core **build/upgrade → passive-yield loop** (Core §8): coins fund upgrades that pay back, giving them real power. That loop is **not yet implemented** in the grove — wiring it is the economy pass the bare-skeleton rebuild enables. *(A coin-gated progression sink — bedroom decor, 663🪙 — exists only in the **legacy** `districts.gd`/`room.gd` code, not the live grove loop.)*
 
-The grove's **brambles** instantiate Core §5's ring-scaled obstacles; the late-line edge gates (Core `bramble_line_gates`) are: ring ≤2 → any line t2, ring 3 → any line t4, ring 4 (edge = endgame) → **t5 of Mushroom (top half) / Honey (bottom half)**. The star track completes with ~14 edge brambles left as tail content.
+The grove's **brambles** are its instance of Core §4's obstacles — the **gating model** (the level-gated board map) lives in **Core §4**, not restated here. The 14 outermost cells stay un-cleared unless the player wants the extra room (optional expansion).
 
 ---
 
@@ -172,7 +178,7 @@ The grove's **brambles** instantiate Core §5's ring-scaled obstacles; the late-
 | `ftue_free_pops` | ftue | first 10 pops free + uncounted; Water meter appears after | `grove.gd:_pop_seed` |
 | `ftue_staged_chrome` | ftue | merchant from ch1, bag from ch2, water chip after intro | `grove.gd` |
 
-**Core (indexed, NOT flaggable — Core §11):** `interior_view` (`home.gd:_open_interior`) · `bramble_line_gates` (`grove_content.bramble_gate`) · `gate_pause` (`grove.gd:_active_quest_idx`) · `spot_level_gates` (`G.spot_level_req`). **Numeric dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE 0.10`, `POP_COST`, idle/re-nudge 4.5/4.0 s) live in `grove_content.gd` / `grove.gd`.
+**Core (indexed, NOT flaggable — Core §11):** `interior_view` (`home.gd:_open_interior`) · `gate_pause` (`grove.gd:_active_quest_idx`) · `spot_level_gates` (`G.spot_level_req`). **Numeric dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE 0.10`, `POP_COST`, idle/re-nudge 4.5/4.0 s) live in `grove_content.gd` / `grove.gd`.
 
 *(The T14 flags — `slot_ghost`, `place_pop`, `zone_reveal`, `zone_crowd` — live on `feat/farmhouse-alive`, not yet on `main`; see §10.)*
 
@@ -253,7 +259,7 @@ Engine file names are unchanged (`merge_soft.wav`, `level_complete.wav`, `amb_gr
 
 *Instantiates Core §15 (Tech, Build & Save).* Engine constants and patterns (Godot 4.6, no autoloads, JSON save with deep-merge + atomic write, the Makefile/headless-suite/quiet-godot/economy-sim infra) are core. Grove specifics:
 
-**Code map.** `board.gd` = pure rules engine (tests) · `grove_board.gd` = persistent board model · `grove.gd` (~86 KB, the live board) + `home.gd` (~63 KB, the homestead map) drive the loop · `grove_content.gd` = item lines, generator policy, quest script, zone/wayside/sell data · static singletons `save.gd`/`features.gd`/`econ.gd`/`layout.gd`/`hud.gd`/`shop.gd`/`skin.gd`/`audio.gd`/`music.gd`/`ambient.gd`/`fx.gd` · legacy `districts.gd`/`levels.gd`/`jobs.gd`/`room.gd`/`main.gd` from the earlier "Tidy Up rooms" framing (not the live grove loop). Main scene `scenes/Home.tscn`. Save `SCHEMA_VERSION = 2`; the `grove` save blob persists board · bag · `qdone` · `unlocks`(=chapter) · `custom` variants · `seen` hints · `pops` · `waysides` · rng/chapter. iOS bundle `com.dongurihouse.dongurimerge`. Headless suites: `core_tests`, `grove_tests` (~297 asserts), `layout_tests`, `map_tests`, `quest_tests`, `save_tests`, + `smoke`; economy bot `tools/grove_sim.gd` (default + greedy). The Makefile also wraps the grove art-processing targets `decor` / `icon` (raw → processed sprite) alongside the core-generic run/test/import/shot/ios targets (Core §15).
+**Code map.** `board.gd` = pure rules engine (tests) · `grove_board.gd` = persistent board model · `grove.gd` (~86 KB, the live board) + `home.gd` (~63 KB, the homestead map) drive the loop · `grove_content.gd` = item lines, generator policy, quest script, zone/wayside/sell data · static singletons `save.gd`/`features.gd`/`econ.gd`/`layout.gd`/`hud.gd`/`shop.gd`/`skin.gd`/`audio.gd`/`music.gd`/`ambient.gd`/`fx.gd` · legacy `districts.gd`/`levels.gd`/`jobs.gd`/`room.gd`/`main.gd` from the earlier "Tidy Up rooms" framing (not the live grove loop). Main scene `scenes/Home.tscn`. Save `SCHEMA_VERSION = 2`; the `grove` save blob persists board · bag · `qdone` · `unlocks`(= spots bought) · `custom` variants · `seen` hints · `pops` · `waysides` · rng. iOS bundle `com.dongurihouse.dongurimerge`. Headless suites: `core_tests`, `grove_tests` (~297 asserts), `layout_tests`, `map_tests`, `quest_tests`, `save_tests`, + `smoke`; economy bot `tools/grove_sim.gd` (default + greedy). The Makefile also wraps the grove art-processing targets `decor` / `icon` (raw → processed sprite) alongside the core-generic run/test/import/shot/ios targets (Core §15).
 
 **Built and verified** (headless asserts + the economy sim, never eyeball): the persistent board with drag-any-to-any merging + the tap-the-satchel generator; the soft star-gate; multi-line stretch quests scaling per zone (t8 never asked); the selling economy (t1–t7 → coins, t8 → 1💎, the 32× no-arbitrage invariant, the 3-slot buy-back basket + porter); 2+ coin sinks (20 waysides, spot variants, the 10🪙 treat); and **all five zone interiors wired and rendered** (32/32 furniture sprites, hole-punched clean). The sim passes **40/40 spots, 0 jams** in both default (day-4) and greedy (day-7) bot modes.
 
