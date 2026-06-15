@@ -6,9 +6,9 @@ extends RefCounted
 ## idempotent: it NEVER restarts a playing stream. Degrades silently while
 ## no takes exist. The "music" user setting IS the toggle (no Features flag).
 
-const Save = preload("res://engine/scripts/save.gd")
-const Game = preload("res://engine/scripts/game.gd")
-const Tune = preload("res://engine/scripts/tuning.gd").Music   # the engine's music dials
+const Save = preload("res://engine/scripts/core/save.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").Music   # the engine's music dials
 
 static var _player: AudioStreamPlayer
 static var _take := 0              # index of the take last started

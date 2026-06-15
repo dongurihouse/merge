@@ -7,20 +7,21 @@ extends Control
 ## stars, and spend stars at the Restore gate to advance chapters (givers pause
 ## the moment the gate is affordable — the drive-to-spend loop).
 
-const G = preload("res://engine/scripts/content.gd")
-const BoardModel = preload("res://engine/scripts/board_model.gd")
-const Save = preload("res://engine/scripts/save.gd")
-const Audio = preload("res://engine/scripts/audio.gd")
-const Music = preload("res://engine/scripts/music.gd")
-const UiFont = preload("res://engine/scripts/ui_font.gd")
-const Look = preload("res://engine/scripts/skin.gd")
-const FX = preload("res://engine/scripts/fx.gd")
-const Hud = preload("res://engine/scripts/hud.gd")
-const Ambient = preload("res://engine/scripts/ambient.gd")
-const Features = preload("res://engine/scripts/features.gd")
-const HomeScene = preload("res://engine/scripts/map.gd")   # T2: the Decorate jump request
-const Game = preload("res://engine/scripts/game.gd")
-const Debug = preload("res://engine/scripts/debug.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
+const Music = preload("res://engine/scripts/core/music.gd")
+const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
+const Game = preload("res://engine/scripts/core/game.gd")
+const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Pal = Game.PALETTE
 
 const GAP := 10.0
@@ -309,23 +310,12 @@ func _process(delta: float) -> void:
 func _hint_pair() -> Array:
 	if not Features.on("idle_hint"):
 		return []
-	var seen := {}
-	for i in board.items.size():
-		var k: int = board.items[i]
-		if k <= 0:
-			continue
-		var top: int = G.COIN_TOP if G.is_coin(k) else G.TOP_TIER
-		if BoardModel.tier_of(k) >= top:
-			continue
-		if seen.has(k):
-			var pair: Array = [seen[k], BoardModel.cell_of(i)]
-			for cell in pair:
-				var n: Control = piece_nodes.get(cell)
-				if n != null and is_instance_valid(n):
-					FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
-			return pair
-		seen[k] = BoardModel.cell_of(i)
-	return []
+	var pair := BoardLogic.find_mergeable_pair(board)
+	for cell in pair:
+		var n: Control = piece_nodes.get(cell)
+		if n != null and is_instance_valid(n):
+			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
+	return pair
 
 func _board_w() -> float:
 	return G.COLS * csz + (G.COLS - 1) * GAP
@@ -389,15 +379,11 @@ func _ladder_entries(line: int) -> Array:
 		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
 	return out
 
-# offline + online regen share one rule: +1 per REGEN_SECS from the anchor, capped
+# water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
-	if water >= G.WATER_CAP:
-		_regen_ts = now
-		return
-	var gained := int((now - _regen_ts) / G.REGEN_SECS)
-	if gained > 0:
-		water = mini(G.WATER_CAP, water + gained)
-		_regen_ts = now if water >= G.WATER_CAP else _regen_ts + gained * G.REGEN_SECS
+	var r := BoardLogic.regen(water, _regen_ts, now)
+	water = int(r.water)
+	_regen_ts = float(r.regen_ts)
 
 func _reset_qdone() -> void:
 	qdone = []
@@ -1563,37 +1549,20 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	g["pops"] = int(g.get("pops", 0)) + 1
 	if Audio.has("water_pop"):
 		Audio.play("water_pop", -2.0)
-	# nearest few cells to this generator, then a random one of those
-	var gcell: Vector2i = cell
-	empties.sort_custom(func(a, b): return _dist_to(a, gcell) < _dist_to(b, gcell))
-	var pick: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
-	# line: this generator's lines, leaning toward what the givers want
+	# the spawn decision (landing cell + code) is board_logic's; the active givers'
+	# wanted lines bias the roll. RNG order is load-bearing (seeded + persisted).
 	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
-	var wanted: Array = []
+	var quests: Array = []
 	for e in giver_chips:
-		var q: Dictionary = _chapter().quests[e.qi]
-		for ask in G.quest_asks(q):
-			if pool.has(int(ask.line)) and not wanted.has(int(ask.line)):
-				wanted.append(int(ask.line))
-	var line: int
-	if not wanted.is_empty() and rng.randf() < G.ASK_WEIGHT:
-		line = wanted[rng.randi_range(0, wanted.size() - 1)]
-	else:
-		line = int(pool[rng.randi_range(0, pool.size() - 1)])
-	var roll := rng.randf()
-	var tier := 1
-	var acc := 0.0
-	for i in G.TIER_ODDS.size():
-		acc += G.TIER_ODDS[i]
-		if roll <= acc:
-			tier = i + 1
-			break
-	var code := line * 100 + tier
+		quests.append(_chapter().quests[e.qi])
+	var spawn := BoardLogic.roll_spawn(empties, cell, pool, BoardLogic.wanted_lines(pool, quests), rng)
+	var pick: Vector2i = spawn.cell
+	var code: int = spawn.code
 	board.place(pick, code)
 	_mark_seen(code)
 	_note_item_landed(code)   # W3: a spawned max-tier item also triggers the one-time hint
 	var n := _make_piece(code, csz)
-	n.position = _cell_pos(gcell)
+	n.position = _cell_pos(cell)
 	n.scale = Vector2(0.3, 0.3)
 	board_area.add_child(n)
 	piece_nodes[pick] = n
@@ -1612,12 +1581,6 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_persist()
 	_refresh_giver_lights()
 	_update_water_hud()
-
-func _dist(cell: Vector2i) -> int:
-	return _dist_to(cell, G.GEN_CELL)
-
-func _dist_to(cell: Vector2i, to: Vector2i) -> int:
-	return absi(cell.x - to.x) + absi(cell.y - to.y)
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)
@@ -1647,7 +1610,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	for cell in board.openable_brambles(b, produced):
 		_open_bramble(cell)
 	# a little luck: merges sometimes shake a coin loose
-	if not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE:
+	if BoardLogic.rolls_coin_drop(produced, rng):
 		_drop_coin_near(b)
 	animating = false
 	_persist()
@@ -1757,7 +1720,7 @@ func _commit_swap(a: Vector2i, b: Vector2i, node: Control) -> void:
 # --- bag --------------------------------------------------------------------------
 
 func _bag_capacity() -> int:
-	return BAG_SLOTS + (1 if bool(Save.grove().get("bag3", false)) else 0)
+	return BoardLogic.bag_capacity(bool(Save.grove().get("bag3", false)))
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if bag.size() >= _bag_capacity():
@@ -1794,7 +1757,7 @@ func _on_bag_tap(i: int) -> void:
 		FX.wobble(bag_slots_ui[i])
 		Audio.play("invalid_soft", -4.0)
 		return
-	empties.sort_custom(func(a, b): return _dist(a) < _dist(b))
+	empties.sort_custom(func(a, b): return BoardLogic.dist_to_gen(a) < BoardLogic.dist_to_gen(b))
 	var cell: Vector2i = empties[0]
 	var code := int(bag[i])
 	bag.remove_at(i)
@@ -1839,11 +1802,10 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	var q: Dictionary = _chapter().quests[qi]
 	var asks: Array = G.quest_asks(q)
 	# X3: deliver only when EVERY ask is payable (multi-ask delivers all-or-nothing)
-	for ask in asks:
-		if board.count_of(int(ask.line) * 100 + int(ask.tier)) < int(ask.count):
-			FX.wobble(chip)
-			Audio.play("invalid_soft", -6.0)
-			return
+	if not BoardLogic.quest_payable(board, asks):
+		FX.wobble(chip)
+		Audio.play("invalid_soft", -6.0)
+		return
 	var flight := 0
 	for ask in asks:
 		var code := int(ask.line) * 100 + int(ask.tier)

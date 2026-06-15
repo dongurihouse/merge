@@ -4,16 +4,16 @@ extends RefCounted
 ## pixels on every screen; scenes keep their refs and refresh the labels.
 ## Usage:  var hud := Hud.build(self, {"water_grant": Callable})
 ##         hud.stars.text = ...   (or call hud.refresh.call())
-## Look/feel values live in Tune (engine/scripts/tuning.gd → class Hud).
+## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Hud).
 
-const Save = preload("res://engine/scripts/save.gd")
-const Look = preload("res://engine/scripts/skin.gd")
-const Shop = preload("res://engine/scripts/shop.gd")
-const FX = preload("res://engine/scripts/fx.gd")
-const G = preload("res://engine/scripts/content.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
+const Shop = preload("res://engine/scripts/ui/shop.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const Tune = preload("res://engine/scripts/tuning.gd").Hud   # the engine's HUD dials
+const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM

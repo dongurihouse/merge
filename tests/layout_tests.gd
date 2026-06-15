@@ -4,8 +4,8 @@ extends SceneTree
 ## Proves: absent overrides → pure grove_content defaults; overrides apply by
 ## stable id (not index); values clamp; and the on-disk JSON round-trips.
 
-const G = preload("res://engine/scripts/content.gd")
-const Layout = preload("res://engine/scripts/layout.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const Layout = preload("res://engine/scripts/core/layout.gd")
 
 var _pass := 0
 var _fail := 0

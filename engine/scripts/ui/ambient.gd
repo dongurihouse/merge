@@ -11,14 +11,14 @@ extends RefCounted
 ## pickers read it → it rains for that first minute back. CALM MODE WINS:
 ## calm players get breeze, never rain/snow. Caps: ≤2 emitters, ≤80 particles.
 ##
-## Every look/feel dial lives in Tune (engine/scripts/tuning.gd → class Ambient).
+## Every look/feel dial lives in Tune (engine/scripts/core/tuning.gd → class Ambient).
 
-const G = preload("res://engine/scripts/content.gd")
-const Save = preload("res://engine/scripts/save.gd")
-const FX = preload("res://engine/scripts/fx.gd")
-const Features = preload("res://engine/scripts/features.gd")
-const Game = preload("res://engine/scripts/game.gd")
-const Tune = preload("res://engine/scripts/tuning.gd").Ambient   # the engine's ambient look/feel dials
+const G = preload("res://engine/scripts/core/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engine's ambient look/feel dials
 
 const CHARACTER_TYPES = G.CHARACTER_TYPES   # the character roster lives in the game's data
 const CHARACTER_ART = G.CHARACTER_ART       # type → clothes asset path (game-provided convention)

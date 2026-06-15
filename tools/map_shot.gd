@@ -3,8 +3,8 @@ extends SceneTree
 ##   quiet_godot.sh --path . -s res://tools/map_shot.gd -- <mode> <out.png>
 ## modes: fresh | interior (alias closeup) | progress | shop | confirm
 
-const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -17,9 +17,9 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	for wa in args:
 		if String(wa).begins_with("weather="):
-			load("res://engine/scripts/ambient.gd").forced_weather = String(wa).split("=")[1]
+			load("res://engine/scripts/ui/ambient.gd").forced_weather = String(wa).split("=")[1]
 		if String(wa) == "place=1":
-			load("res://engine/scripts/debug.gd").force = true   # show the debug placement editor chrome
+			load("res://engine/scripts/ui/debug.gd").force = true   # show the debug placement editor chrome
 	var mode: String = args[0] if args.size() >= 1 else "fresh"
 	var out: String = args[1] if args.size() >= 2 else "/tmp/home_%s.png" % mode
 	if args.size() >= 3 and "x" in args[2]:
@@ -94,7 +94,7 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)
-		load("res://engine/scripts/shop.gd").open(scn, {"refresh": func() -> void: pass})
+		load("res://engine/scripts/ui/shop.gd").open(scn, {"refresh": func() -> void: pass})
 		await create_timer(0.4).timeout
 		if mode == "confirm":
 			# press the first cash pack card → its confirm popup

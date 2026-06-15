@@ -1,14 +1,14 @@
 extends RefCounted
 ## Tiny SFX helper (preload + static; no autoload needed).
-##   const Audio = preload("res://engine/scripts/audio.gd")
+##   const Audio = preload("res://engine/scripts/core/audio.gd")
 ##   Audio.play("merge_success")
 ## Loads the named effects (FILES) from the active game's audio root once and
 ## round-robins a small player pool so sounds can overlap. Missing files are
 ## silently skipped.
 
-const Save = preload("res://engine/scripts/save.gd")
-const Game = preload("res://engine/scripts/game.gd")
-const Tune = preload("res://engine/scripts/tuning.gd").Audio   # the engine's audio dials
+const Save = preload("res://engine/scripts/core/save.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").Audio   # the engine's audio dials
 
 const FILES := [
 	"button_tap", "invalid_soft", "item_drop", "item_pickup",

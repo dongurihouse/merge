@@ -1,12 +1,12 @@
 extends RefCounted
 ## Shared UI skin helpers (background + buttons), so menu/board/room
-## look consistent. Preload: const Skin = preload("res://engine/scripts/skin.gd").
-## Metrics live in Tune (engine/scripts/tuning.gd → class Skin); colours in Pal.
+## look consistent. Preload: const Skin = preload("res://engine/scripts/ui/skin.gd").
+## Metrics live in Tune (engine/scripts/core/tuning.gd → class Skin); colours in Pal.
 
-const Features = preload("res://engine/scripts/features.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const Tune = preload("res://engine/scripts/tuning.gd").UiSkin   # the engine's skin metrics
+const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds

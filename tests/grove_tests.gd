@@ -3,9 +3,9 @@ extends SceneTree
 ## policy, chapter gate math, persistence.
 ##   godot --headless --path . -s res://tests/grove_tests.gd
 
-const G = preload("res://engine/scripts/content.gd")
-const BoardModel = preload("res://engine/scripts/board_model.gd")
-const Save = preload("res://engine/scripts/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0
@@ -911,7 +911,7 @@ func _initialize() -> void:
 
 	# 17. the Shop: diamond packs grant, cash confirm grants directly (no rails yet)
 	fresh("shop")
-	var Shop = load("res://engine/scripts/shop.gd")
+	var Shop = load("res://engine/scripts/ui/shop.gd")
 	ok(not Shop.buy_coin_pack(), "the coin pack refuses without diamonds")
 	Save.add_diamonds(30)
 	var coins_before := Save.coins()
@@ -967,7 +967,7 @@ func _initialize() -> void:
 
 	# 19. order L — ambient life + weather
 	fresh("ambient")
-	var Ambient = load("res://engine/scripts/ambient.gd")
+	var Ambient = load("res://engine/scripts/ui/ambient.gd")
 	ok(G.completed_zones({}) == 0, "no zones done on a fresh save")
 	var full0 := {}
 	for sp0 in G.ZONES[0].spots:
@@ -1001,7 +1001,7 @@ func _initialize() -> void:
 
 	# 20. order N — feature flags: all-ON is proven by the whole sweep (zero
 	# behavior change); two flip smokes prove the guards actually disconnect
-	var Features = load("res://engine/scripts/features.gd")
+	var Features = load("res://engine/scripts/core/features.gd")
 	ok(Features.on("idle_hint") and Features.on("nonexistent_flag_xyz"), \
 		"known flags read true; unknown ids warn + default ON (typo-proof)")
 	Features.FLAGS["idle_hint"] = false
@@ -1139,7 +1139,7 @@ func _initialize() -> void:
 	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
 
 	# 24. T — Decorate flow goes WHERE the player decorates
-	var HomeScript = load("res://engine/scripts/map.gd")
+	var HomeScript = load("res://engine/scripts/scenes/map.gd")
 	# T1: opening an interior persists last_zone
 	fresh("tlast")
 	var ht = load("res://engine/scenes/Map.tscn").instantiate()
@@ -1195,7 +1195,7 @@ func _initialize() -> void:
 	# player to crash on). The full A/B playlist-alternation logic ships + is tested
 	# WITH the audio skin (needs takes on disk); here we only guard the engine never
 	# crashes/hangs without it. (T16: this test used to assume real music on disk.)
-	var Music = load("res://engine/scripts/music.gd")
+	var Music = load("res://engine/scripts/core/music.gd")
 	fresh("omusic")
 	Music.stop()
 	Music.ensure()
@@ -1261,7 +1261,7 @@ func _initialize() -> void:
 	# button heights (margins > the rect), which is how both shipped as floating text.
 	ok(s2_ribbon.get_theme_stylebox("panel") is StyleBoxFlat, \
 		"S2: the chapter chip is a solid pill (not the collapsing ribbon_title nine-patch)")
-	var _skin = load("res://engine/scripts/skin.gd")
+	var _skin = load("res://engine/scripts/ui/skin.gd")
 	var _pbtn: Button = _skin.button("X", Callable(), true)
 	ok(_pbtn.get_theme_stylebox("normal") is StyleBoxFlat, \
 		"S6: primary buttons are solid pills (not the collapsing btn_leaf nine-patch)")
@@ -1339,7 +1339,7 @@ func _initialize() -> void:
 	ws._note_item_landed(top_code)
 	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
 	# (b) the merchant brightens + shows a live +N🪙 tag while an item is dragged
-	var Feat = load("res://engine/scripts/features.gd")
+	var Feat = load("res://engine/scripts/core/features.gd")
 	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
@@ -1369,7 +1369,7 @@ func _initialize() -> void:
 
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
 	fresh("y")
-	var Feat2 = load("res://engine/scripts/features.gd")
+	var Feat2 = load("res://engine/scripts/core/features.gd")
 	Feat2.FLAGS["ftue_staged_chrome"] = false   # merchant + basket present on a fresh board
 	Feat2.FLAGS["porter_collect"] = false        # test the MECHANICS, not the drift animation
 	var ys = load("res://engine/scenes/Board.tscn").instantiate()
@@ -1440,7 +1440,7 @@ func _initialize() -> void:
 		"Z4: the wayside sink (%d🪙) is ~1.5–2k — absorbs the lifetime faucet" % G.wayside_sink_capacity())
 	# Z2 buy logic: a wayside is dormant until its zone is restored, then coin-buyable, one-time
 	fresh("z")
-	var Feat3 = load("res://engine/scripts/features.gd")
+	var Feat3 = load("res://engine/scripts/core/features.gd")
 	Feat3.FLAGS["ftue_staged_chrome"] = false
 	var zs = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(zs)

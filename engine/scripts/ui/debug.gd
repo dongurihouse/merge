@@ -17,9 +17,9 @@ extends RefCounted
 ## Debug.force = true (e.g. tools/map_shot.gd `place=1`) — force drives authoring()
 ## only, so the state-jump panel never leaks into a screenshot.
 
-const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/content.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 
 static var force := false
 

@@ -4,7 +4,7 @@ extends RefCounted
 ## (gate_line 0 = any line; legacy saves stored the bare tier — same decoding).
 ## Items: line*100 + tier (0 = none). A generator occupies its cell permanently.
 
-const G = preload("res://engine/scripts/content.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()

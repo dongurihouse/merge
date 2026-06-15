@@ -5,16 +5,16 @@ extends RefCounted
 ## buy SPEED, never possibility; cash buys diamonds behind an honest confirm
 ## ("test build — nothing is charged"); the future IAP hookup replaces only the
 ## middle of `_confirm_cash`. Pure grant funcs are static and test-covered.
-## Look/feel values live in Tune (engine/scripts/tuning.gd → class Shop).
+## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Shop).
 
-const Save = preload("res://engine/scripts/save.gd")
-const Look = preload("res://engine/scripts/skin.gd")
-const G = preload("res://engine/scripts/content.gd")
-const FX = preload("res://engine/scripts/fx.gd")
-const Audio = preload("res://engine/scripts/audio.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const Tune = preload("res://engine/scripts/tuning.gd").Shop   # the engine's shop dials
+const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM

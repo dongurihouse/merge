@@ -1,13 +1,13 @@
 extends RefCounted
 ## Shared juice helpers (static, like Audio/Save). All scenes use these.
-##   const FX = preload("res://engine/scripts/fx.gd")
-## Every animation value lives in Tune (engine/scripts/tuning.gd → class FX).
+##   const FX = preload("res://engine/scripts/ui/fx.gd")
+## Every animation value lives in Tune (engine/scripts/core/tuning.gd → class FX).
 
-const Save = preload("res://engine/scripts/save.gd")
-const Features = preload("res://engine/scripts/features.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const Tune = preload("res://engine/scripts/tuning.gd").FX   # the engine's juice dials
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX   # the engine's juice dials
 
 static var _dot_tex: Texture2D
 

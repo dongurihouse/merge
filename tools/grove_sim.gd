@@ -7,8 +7,8 @@ extends SceneTree
 ##   I3 the map's authored runway (days to finish all chapters) — reported
 ##   godot --headless --path . -s res://tools/grove_sim.gd -- [days] [seed]
 
-const G = preload("res://engine/scripts/content.gd")
-const BoardModel = preload("res://engine/scripts/board_model.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 
 var rng := RandomNumberGenerator.new()
 var board: BoardModel

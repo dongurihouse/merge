@@ -9,19 +9,19 @@ extends Control
 ## level-ups gift water+diamonds. A pinned garden button leads to the board.
 ## Art auto-wires: assets/rooms/map_grove.png + assets/map/poi_<zone_id>.png.
 
-const G = preload("res://engine/scripts/content.gd")
-const Save = preload("res://engine/scripts/save.gd")
-const Audio = preload("res://engine/scripts/audio.gd")
-const Music = preload("res://engine/scripts/music.gd")
-const UiFont = preload("res://engine/scripts/ui_font.gd")
-const Look = preload("res://engine/scripts/skin.gd")
-const FX = preload("res://engine/scripts/fx.gd")
-const Hud = preload("res://engine/scripts/hud.gd")
-const Ambient = preload("res://engine/scripts/ambient.gd")
-const Features = preload("res://engine/scripts/features.gd")
-const Layout = preload("res://engine/scripts/layout.gd")
-const Debug = preload("res://engine/scripts/debug.gd")
-const Game = preload("res://engine/scripts/game.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const Audio = preload("res://engine/scripts/core/audio.gd")
+const Music = preload("res://engine/scripts/core/music.gd")
+const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
+const Layout = preload("res://engine/scripts/core/layout.gd")
+const Debug = preload("res://engine/scripts/ui/debug.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 
 const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
@@ -159,10 +159,7 @@ func _heal_capture_flags() -> void:
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
 func _zone_for_id(id: String) -> int:
-	for z in G.ZONES.size():
-		if String(G.ZONES[z].id) == id:
-			return z
-	return -1
+	return G.zone_for_id(id)
 
 func _load_state() -> void:
 	var g := Save.grove()
@@ -188,14 +185,10 @@ func zone_complete(z: int) -> bool:
 	return G.zone_done(z, unlocks)
 
 func zone_unlocked(z: int) -> bool:
-	return z == 0 or zone_complete(z - 1)
+	return G.zone_unlocked(z, unlocks)
 
 func owned_count(z: int) -> int:
-	var n := 0
-	for s in G.ZONES[z].spots:
-		if spot_owned(String(s.id)):
-			n += 1
-	return n
+	return G.owned_count(z, unlocks)
 
 # Z: wayside decorations — the COIN sink. Owned-set + the buy transaction (coins only,
 # never level-gated; available once its zone is restored). Pure cosmetics.
@@ -222,11 +215,7 @@ func buy_wayside(w: Dictionary) -> bool:
 # owned state right next to it. Tap the land (or another zone) to close it.
 
 func zone_stars_left(z: int) -> int:
-	var left := 0
-	for s in G.ZONES[z].spots:
-		if not spot_owned(String(s.id)):
-			left += int(s.cost)
-	return left
+	return G.zone_stars_left(z, unlocks)
 
 func _build_vista() -> void:
 	for c in vista.get_children():
@@ -860,14 +849,7 @@ func _on_interior_input(event: InputEvent) -> void:
 
 
 func _is_cheapest_open(z: int, k: int, lvl: int) -> bool:
-	var my_cost := int(G.ZONES[z].spots[k].cost)
-	for j in G.ZONES[z].spots.size():
-		var s: Dictionary = G.ZONES[z].spots[j]
-		if spot_owned(String(s.id)) or G.spot_level_req(z, j) > lvl:
-			continue
-		if int(s.cost) < my_cost or (int(s.cost) == my_cost and j < k):
-			return j == k
-	return true
+	return G.is_cheapest_open(z, k, lvl, unlocks)
 
 func _spot_variant(z: int, k: int) -> Dictionary:
 	var chosen := String(Save.grove().get("custom", {}).get(String(G.ZONES[z].spots[k].id), "base"))
@@ -877,10 +859,7 @@ func _spot_variant(z: int, k: int) -> Dictionary:
 	return G.spot_variants(z, k)[0]
 
 func _frontier_zone() -> int:
-	for z in G.ZONES.size():
-		if zone_unlocked(z) and not zone_complete(z):
-			return z
-	return -1
+	return G.frontier_zone(unlocks)
 
 # Open with the story's current chapter in view — slightly above center, clear
 # of the pinned garden button along the bottom.
@@ -976,8 +955,7 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	Audio.play("level_complete", -6.0, 1.2)
 	# this purchase IS the chapter gate: pay the closing chapter's water gift,
 	# and the garden's givers come back with the next chapter's asks
-	var closing := unlocks.size() - 1
-	var gift := int(G.chapters()[mini(closing, G.chapters().size() - 1)].get("gift", 0))
+	var gift := G.chapter_gift(unlocks)
 	if gift > 0:
 		var gw := Save.grove()
 		gw["water"] = mini(G.WATER_CAP, int(gw.get("water", G.WATER_CAP)) + gift)
@@ -1002,10 +980,7 @@ func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 		_customize_spot = ""
 		_build_vista()
 		return
-	var chosen: Dictionary = {}
-	for v in G.spot_variants(z, k):
-		if String(v.id) == vid:
-			chosen = v
+	var chosen: Dictionary = G.variant_by_id(z, k, vid)
 	var paid := true
 	if String(chosen.currency) == "coins":
 		paid = Save.spend(int(chosen.cost), "decor_variant")
