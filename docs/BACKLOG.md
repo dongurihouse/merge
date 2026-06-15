@@ -23,8 +23,8 @@ at audit time (some now stale where the code moved).
   adjacent merge once the player's Level reaches it (the tier-ring `bramble_gate`/`gate_line_of`/`gate_req_of` are
   gone; terrain stays a 0/≠0 sealed flag, gate reads the static table → no save migration). Open sub-Q resolved in
   spec §4 (merge-openable). **no-strand sim-PASS** (seeds 42/7/123/999); `make test` 436/436. Committed on
-  `feat/level-gated-cells` — **merge to `main` pending the tree clearing** (other agents' uncommitted edits span all
-  6 of this task's files). **Residual PARKED → the Economy tuning item (below):** the shipped gradient ~halves pace +
+  `feat/level-gated-cells` — **merged to `main` 2026-06-15 (`ab7e23f`, T24)** (the tree cleared once the parallel
+  threads committed). **Residual PARKED → the Economy tuning item (below):** the shipped gradient ~halves pace +
   cramps the FTUE (2 free cells until L2); softening recovers pace but breaks I2, so the gradient is tuned jointly with
   the level curve + water gift, not in isolation.
 
