@@ -434,7 +434,9 @@ func _refill_quests() -> void:
 		quests = pend                         # §6: a new map opens with its generator-grant hand-in(s)
 		return
 	quests = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
-	var lines := G.lines_for_zone(G.GENERATORS, _quest_zone())
+	# §6 anchor exemption: ask from the current map's lines ∪ the anchor's lines (its generator
+	# never retires, so its lines stay askable past their debut map) — NOT the bare zone roster.
+	var lines := G.askable_lines(G.GENERATORS, _quest_zone())
 	var lvl := _quest_level()
 	var target := _meter_target()
 	while quests.size() < target:

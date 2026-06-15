@@ -55,8 +55,8 @@ const LINES := {
 # on the board); keeping its lines ASKABLE past map 1 is a parked engine follow-up (BACKLOG).
 const GENERATORS := [
 	# map 1 — Farmhouse (Radish): the two starters, granted outright
-	{"id": "seed_satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "",
-		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in
+	{"id": "seed_satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
+		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
 	{"id": "pantry_crock", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
 		"tex": "ui/gen_compost.png", "label": "pantry"},
 	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
