@@ -3,7 +3,7 @@
 GODOT   ?= godot
 PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
-ENGINE_TESTS := engine/tests/save_tests engine/tests/layout_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/layout_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/ftue_pop_tests
 GROVE_TESTS  := games/grove/tests/grove_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 
