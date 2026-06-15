@@ -266,7 +266,7 @@ func _initialize() -> void:
 	for v in scn.board.items:
 		if v > 0:
 			items_after += 1
-	ok(items_after == items_before + 1, "the satchel pops one item onto the board")
+	ok(items_after >= items_before + 1, "the satchel pops a burst (≥1 item) onto the board")
 
 	# deliver: chapter 1's first quest wants flower t2 (code 102) — we just made one
 	ok(not scn.giver_chips.is_empty(), "givers are on duty")
@@ -409,9 +409,18 @@ func _initialize() -> void:
 	ok(s2.water == G.WATER_CAP, "fresh grove starts at the water cap")
 	Save.grove()["pops"] = 10                 # past the FTUE free pops (tested in P5)
 	var w0: int = s2.water
+	var pop_items_b := 0
+	for v in s2.board.items:
+		if v > 0:
+			pop_items_b += 1
 	s2._pop_seed()
 	await create_timer(0.3).timeout
-	ok(s2.water == w0 - G.POP_COST, "a pop costs water")
+	var pop_burst := -pop_items_b
+	for v in s2.board.items:
+		if v > 0:
+			pop_burst += 1
+	ok(pop_burst >= 1, "a tap pops a burst of at least one item")
+	ok(s2.water == w0 - pop_burst * G.POP_COST, "each item in the burst costs one energy")
 
 	s2.water = 0
 	var pieces_before := 0
@@ -438,6 +447,12 @@ func _initialize() -> void:
 
 	# the chapter water gift now pays on the HOME spot purchase (tested in 14b)
 
+	# the burst pops above may have filled the virgin board — clear the playfield so the coin lands
+	for ci in s2.board.items.size():
+		if s2.board.items[ci] > 0 and not G.is_coin(s2.board.items[ci]):
+			s2.board.items[ci] = 0
+	s2._rebuild_pieces()
+
 	# coins: drop → tap-collect → wallet
 	var coins0 := Save.coins()
 	s2._drop_coin_near(Vector2i(4, 3))
@@ -463,6 +478,55 @@ func _initialize() -> void:
 	bc.place(Vector2i(5, 4), 903)
 	ok(not bc.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "top coin (25) never merges")
 	ok(bc.top_tier_cells().is_empty(), "coins are never merchant goods")
+
+	# 11b. BURST-POP (§6) + the burst-upgrade COIN SINK — both engine-side; the grove only sets the
+	# odds/scale/cost dials. One tap throws a burst that scales with the map + the paid upgrade, each
+	# item costing one energy. The upgrade spends coins, raises the burst, persists, and caps.
+	fresh("burst")
+	var sbp = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbp)
+	if sbp.board == null:
+		sbp._ready()
+	Save.grove()["pops"] = 50                 # well past the FTUE — the energy meter is on
+	ok(sbp._gen_burst_level() == 0, "the burst-upgrade starts at level 0")
+	Save.add_coins(10000)
+	var bu_c0 := Save.coins()
+	ok(sbp._upgrade_gen_burst(), "the burst-upgrade buys with coins")
+	ok(Save.coins() == bu_c0 - G.burst_upgrade_cost(0), "the burst-upgrade spends coins (the sink)")
+	ok(sbp._gen_burst_level() == 1, "the burst-upgrade raises the burst level")
+	ok(sbp._upgrade_gen_burst() and sbp._gen_burst_level() == 2, "a second burst-upgrade stacks")
+	# clear a wide-open area so the burst is bounded only by its own size (not by board space)
+	for ci in sbp.board.items.size():
+		if sbp.board.items[ci] > 0 and not G.is_coin(sbp.board.items[ci]):
+			sbp.board.items[ci] = 0
+	sbp._rebuild_pieces()
+	sbp.water = G.WATER_CAP
+	var bw0: int = sbp.water
+	var bb := 0
+	for v in sbp.board.items:
+		if v > 0:
+			bb += 1
+	sbp._pop_seed()
+	await create_timer(0.3).timeout
+	var burst_got := -bb
+	for v in sbp.board.items:
+		if v > 0:
+			burst_got += 1
+	ok(burst_got >= 3, "with the upgrade a single tap throws a burst of ≥3 items (map 1, level 2)")
+	ok(sbp.water == bw0 - burst_got * G.POP_COST, "each burst item costs one energy")
+	# the sink caps: drive to the max level, then the upgrade refuses
+	while sbp._gen_burst_level() < G.burst_upgrade_max():
+		sbp._upgrade_gen_burst()
+	ok(not sbp._upgrade_gen_burst(), "the burst-upgrade caps — no buy past the max level")
+	# the burst level rides the save
+	var saved_lvl: int = sbp._gen_burst_level()
+	var sbp2 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbp2)
+	if sbp2.board == null:
+		sbp2._ready()
+	ok(sbp2._gen_burst_level() == saved_lvl, "the burst-upgrade level persists across scenes")
+	sbp.queue_free()
+	sbp2.queue_free()
 
 	# 12. win-back: away 3 days with low water → full cap on return
 	fresh("winback")
@@ -802,17 +866,30 @@ func _initialize() -> void:
 	get_root().add_child(s5)
 	if s5.board == null:
 		s5._ready()
-	# FTUE: the first ten SUCCESSFUL pops are free; the eleventh starts the meter
-	s5.board.take(Vector2i(3, 2))            # make room (a virgin board has 2 empties)
-	s5.board.take(Vector2i(3, 4))
+	# FTUE: the intro pops are free; once they're spent the meter begins. A tap now throws a
+	# BURST (1-3 items), so drive the boundary by the pop count and assert the charge tracks the
+	# burst size — each popped item is one energy. Clear a few cells for the burst to fill.
+	for cc in [Vector2i(3, 2), Vector2i(3, 4), Vector2i(3, 3), Vector2i(4, 2), Vector2i(2, 2)]:
+		s5.board.take(cc)
 	s5._rebuild_pieces()
-	Save.grove()["pops"] = 9
-	s5._pop_seed()                            # the 10th intro pop — still free
+	Save.grove()["pops"] = 0
+	s5.water = G.WATER_CAP
+	s5._pop_seed()                            # an intro pop — still free
 	await create_timer(0.25).timeout
 	ok(s5.water == G.WATER_CAP, "the FTUE intro pops are free (the verb before the meter)")
-	s5._pop_seed()                            # the 11th — the meter begins
+	Save.grove()["pops"] = 20                 # well past the 10 free intro pops → the meter is on
+	s5.water = G.WATER_CAP
+	var ftue_b := 0
+	for v in s5.board.items:
+		if v > 0:
+			ftue_b += 1
+	s5._pop_seed()
 	await create_timer(0.25).timeout
-	ok(s5.water == G.WATER_CAP - 1, "the eleventh pop starts costing water")
+	var ftue_n := -ftue_b
+	for v in s5.board.items:
+		if v > 0:
+			ftue_n += 1
+	ok(ftue_n >= 1 and s5.water == G.WATER_CAP - ftue_n * G.POP_COST, "past the FTUE the meter charges one energy per burst item")
 	ok(s5.merchant_chip == null, "the merchant waits for the first spot (chapter 1)")
 
 	# sell anything: a t3 flower pays 3 coins and leaves the board
@@ -984,9 +1061,17 @@ func _initialize() -> void:
 		s9._ready()
 	s9.board.take(Vector2i(3, 2))             # a virgin board has 2 empties — make room
 	s9._rebuild_pieces()
+	var s9b := 0
+	for v in s9.board.items:
+		if v > 0:
+			s9b += 1
 	s9._pop_seed()
 	await create_timer(0.25).timeout
-	ok(s9.water == G.WATER_CAP - 1, "ftue_free_pops OFF: the FIRST pop costs water")
+	var s9n := -s9b
+	for v in s9.board.items:
+		if v > 0:
+			s9n += 1
+	ok(s9n >= 1 and s9.water == G.WATER_CAP - s9n * G.POP_COST, "ftue_free_pops OFF: the FIRST pop costs water (no free intro)")
 	Features.FLAGS["ftue_free_pops"] = true
 
 	# 21. R4 — sweep the composited UI with the pixel-right asserts. Each element
@@ -1279,9 +1364,11 @@ func _initialize() -> void:
 	ok(not ws._hint_pair().is_empty(), "W1: _hint_pair finds a mergeable pair to rock")
 	# W2: rapid generator taps must NEVER be dropped by the animating gate. Open a
 	# comfortable region, fire 5 board taps WITHOUT awaiting the 0.22s spawn flight.
-	for cc in [Vector2i(3, 1), Vector2i(4, 1), Vector2i(5, 1), Vector2i(3, 5), Vector2i(4, 5), Vector2i(5, 5)]:
-		ws.board.terrain[BoardModel.idx(cc)] = 0
-		ws.board.items[BoardModel.idx(cc)] = 0
+	for wy in [1, 2, 4, 5]:                    # open a wide region so 5 bursts can never fill the board
+		for wx in range(1, 8):
+			var wc := Vector2i(wx, wy)
+			ws.board.terrain[BoardModel.idx(wc)] = 0
+			ws.board.items[BoardModel.idx(wc)] = 0
 	ws._rebuild_pieces()
 	var w_before := 0
 	for v in ws.board.items:
@@ -1295,8 +1382,8 @@ func _initialize() -> void:
 	for v in ws.board.items:
 		if v > 0:
 			w_after += 1
-	ok(w_after - w_before == 5, \
-		"W2: 5 rapid generator taps land 5 items (animating no longer eats taps) — got %d" % (w_after - w_before))
+	ok(w_after - w_before >= 5, \
+		"W2: 5 rapid generator taps each land a burst — none eaten by the animating gate (≥5 items) — got %d" % (w_after - w_before))
 	# W3: sell discoverability. (a) the first MAX-TIER item floats a one-time hint.
 	var top_code := 100 + G.TOP_TIER
 	Save.grove().erase("seen_sell_hint")

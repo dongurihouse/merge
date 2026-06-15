@@ -36,6 +36,10 @@ const GATE_ASK_COUNT = D.GATE_ASK_COUNT
 const GATE_STARS = D.GATE_STARS
 const GATE_COIN_BONUS = D.GATE_COIN_BONUS
 const GATE_TIER_BASE = D.GATE_TIER_BASE
+const BURST_ODDS = D.BURST_ODDS
+const BURST_MAP_EVERY = D.BURST_MAP_EVERY
+const BURST_MAX = D.BURST_MAX
+const BURST_UPGRADE_COSTS = D.BURST_UPGRADE_COSTS
 const STARTER_ITEMS = D.STARTER_ITEMS
 const WAYSIDE_PROPS = D.WAYSIDE_PROPS
 const WAYSIDE_TEX = D.WAYSIDE_TEX
@@ -326,6 +330,33 @@ static func gate_quest(roster: Array, zone: int, _rng: RandomNumberGenerator = n
 		asks.append({"line": int(li), "tier": gate_t, "count": 1})
 	var coins: int = int(quest_reward(asks).coins) + GATE_COIN_BONUS
 	return {"asks": asks, "gate": true, "stars": GATE_STARS, "reward": {"stars": GATE_STARS, "coins": coins}}
+
+## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is
+## the base roll (BURST_ODDS = 1/2/3 items) + a FREE per-map scale-up (every BURST_MAP_EVERY
+## maps, generators throw one more) + the player's paid burst-upgrade level, clamped to
+## [1, BURST_MAX]. Each popped item still costs 1 energy (the caller charges per item).
+static func burst_count(zone: int, upgrade_level: int, rng: RandomNumberGenerator) -> int:
+	var base := 1
+	var roll := rng.randf()
+	var acc := 0.0
+	for i in BURST_ODDS.size():
+		acc += float(BURST_ODDS[i])
+		if roll <= acc:
+			base = i + 1
+			break
+	var free_scale := int(zone / float(BURST_MAP_EVERY))     # +1 base burst every N maps
+	return clampi(base + free_scale + upgrade_level, 1, BURST_MAX)
+
+## The burst-upgrade coin sink: the cost to raise the burst from `level` to `level+1`,
+## escalating up the BURST_UPGRADE_COSTS ladder. Returns −1 once maxed (no further upgrade).
+static func burst_upgrade_cost(level: int) -> int:
+	if level >= 0 and level < BURST_UPGRADE_COSTS.size():
+		return int(BURST_UPGRADE_COSTS[level])
+	return -1
+
+## How many paid burst-upgrade levels exist (the ladder length) — i.e. the max upgrade level.
+static func burst_upgrade_max() -> int:
+	return BURST_UPGRADE_COSTS.size()
 
 static func zone_of_chapter(i: int) -> int:
 	var acc := 0
