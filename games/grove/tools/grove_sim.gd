@@ -309,7 +309,7 @@ func _play_session() -> Dictionary:
 		var pair := _best_pair()
 		if not pair.is_empty():
 			var produced: int = board.merge(pair[0], pair[1])
-			for br in board.openable_brambles(pair[1], produced):
+			for br in board.openable_brambles(pair[1], _level()):
 				board.open_bramble(br)
 			if not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE:
 				var empt := board.empty_ground_cells()
@@ -381,10 +381,10 @@ func _best_pair() -> Array:
 	var cells: Array = by_code[best_code]
 	var a: Vector2i = cells[0]
 	var b: Vector2i = cells[1]
-	var produced_code := best_code + 1
-	if not board.openable_brambles(b, produced_code).is_empty():
+	# prefer the dst beside an openable (level-met) sealed cell — grow the board on this merge
+	if not board.openable_brambles(b, _level()).is_empty():
 		return [a, b]
-	if not board.openable_brambles(a, produced_code).is_empty():
+	if not board.openable_brambles(a, _level()).is_empty():
 		return [b, a]
 	return [a, b]
 

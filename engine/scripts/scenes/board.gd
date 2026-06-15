@@ -1383,15 +1383,13 @@ func _make_board_mat() -> Control:
 
 
 func _make_bramble(cell: Vector2i) -> Control:
-	var terr: int = board.terrain[BoardModel.idx(cell)]
-	var req := BoardModel.gate_req_of(terr)
-	var gate := BoardModel.gate_line_of(terr)
+	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring := mini(req - 1, 3)
+	var ring := mini(lvl / 2 - 1, 3)          # art density bands with the §4 level gate
 	var path := Game.art("ui/bramble_%d.png" % ring)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
@@ -1408,15 +1406,15 @@ func _make_bramble(cell: Vector2i) -> Control:
 		var p := Panel.new()
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = BRAMBLE_BG.darkened(0.06 * req)
+		sb.bg_color = BRAMBLE_BG.darkened(0.06 * (ring + 2))
 		sb.set_corner_radius_all(14)
 		sb.set_border_width_all(3)
 		sb.border_color = BRAMBLE_EDGE
 		p.add_theme_stylebox_override("panel", sb)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(p)
-	# the padlock ghost: which produced tier opens me — tinted by the gate's
-	# line when only that generator's plants will do (mushroom tan, honey gold)
+	# the lock ghost: the Level this cell unseals at (§4) — neutral-tinted (the gate is the
+	# player's Level now, not a produced tier/line)
 	if ResourceLoader.exists(Look.kit("icon_star.png")):
 		var brow := HBoxContainer.new()
 		brow.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1425,27 +1423,21 @@ func _make_bramble(cell: Vector2i) -> Control:
 		brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		brow.add_child(Look.icon("star", csz * 0.2))
 		var bnum := Label.new()
-		bnum.text = str(req)
+		bnum.text = str(lvl)
 		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
-		var bcol := Color(CREAM, 0.5)
-		if gate > 0 and G.LINES.has(gate):
-			bcol = Color(G.LINES[gate].color, 0.95)
-		bnum.add_theme_color_override("font_color", bcol)
+		bnum.add_theme_color_override("font_color", Color(CREAM, 0.85))
 		bnum.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
 		bnum.add_theme_constant_override("outline_size", 5)
 		brow.add_child(bnum)
 		holder.add_child(brow)
 		return holder
 	var badge := Label.new()
-	badge.text = tr("✿%d") % req
+	badge.text = tr("Lv%d") % lvl
 	badge.set_anchors_preset(Control.PRESET_FULL_RECT)
 	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	badge.add_theme_font_size_override("font_size", int(csz * 0.26))
-	var badge_col := Color(CREAM, 0.5)
-	if gate > 0 and G.LINES.has(gate):
-		badge_col = Color(G.LINES[gate].color, 0.95)
-	badge.add_theme_color_override("font_color", badge_col)
+	badge.add_theme_color_override("font_color", Color(CREAM, 0.85))
 	badge.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
 	badge.add_theme_constant_override("outline_size", 5)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1713,8 +1705,8 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	var tier := BoardModel.tier_of(produced)
 	FX.burst(board_area, _cell_pos(b) + Vector2(csz, csz) / 2.0, STRAW if tier >= 4 else Color("#7FA65A"), 10 + tier * 3)
 	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, clampf(0.95 + 0.03 * tier, 0.9, 1.3))
-	# growth beside brambles clears them (line-gated edges want the right plant)
-	for cell in board.openable_brambles(b, produced):
+	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
+	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
 	# a little luck: merges sometimes shake a coin loose
 	if BoardLogic.rolls_coin_drop(produced, rng):

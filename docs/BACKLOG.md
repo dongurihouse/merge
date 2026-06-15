@@ -18,15 +18,15 @@ at audit time (some now stale where the code moved).
 
 - **Map model — one image = one map.** ✅ **Shipped as T21** (2026-06-15, `tasks/mechanics.md`): single-image maps + a discrete **map-select** + a persistent **home-hub shortcut**; the free-pan overworld, walk-inside `interior_view`, and on-map wayside coin-sink are removed; the Farmhouse is designated the hub (recast to the §3 roster + a `kind` yield/décor seam). Verified `make test` 404/404 + captures. **Parked follow-ups:** (a) the **`zone`→`map` symbol rename** — deferred (T21 Decisions #1): a now-collision-free, suite-verifiable mechanical sweep across the (committed) §6/§7 code + tests + sim; (b) the hub **upgrade→yield loop** = the KEYSTONE economy item (below); (c) real §16 map images + on-image spot placement (owner re-places via the Layout editor) = art lane. Orphaned old-id `furn_fh_*.png` sprites are now unused (asset cleanup, minor).
 
-- **Level-gated obstacle cells (spec done · code · sim).** §4 reworked obstacle gating: each cell
-  carries a **`min_level`** (diamond gradient — L2/L3 frontier radiating out to **L12** at the
-  corners) that unseals in waves as the player levels, then still opens on an **adjacent merge**.
-  **Code is tier-ring only:** `bramble_gate` → `openable_brambles` (`engine/scripts/content.gd:90`,
-  `engine/scripts/board_model.gd:114`) — no `min_level` exists. **Build:** the per-cell level gate
-  against the §4 board map + **sim re-validation of no-strand** (proven against tier-gating;
-  level-gating the frontier can re-strand it, and the L10–L12 corners must be reachable or
-  intentionally tail). Open sub-Q: reaching `min_level` makes the cell *merge-openable* (chosen,
-  preserves adjacent-unlock) or *auto-open*? *(Surfaced 2026-06-14 — spec review + code audit.)*
+- ✅ **Level-gated obstacle cells — DONE (T24, 2026-06-15).** Per-cell `min_level` shipped: `grove_data.MIN_LEVEL`
+  (the §4 diamond) → `cell_min_level`; `openable_brambles(cell, player_level)` opens a sealed neighbour on any
+  adjacent merge once the player's Level reaches it (the tier-ring `bramble_gate`/`gate_line_of`/`gate_req_of` are
+  gone; terrain stays a 0/≠0 sealed flag, gate reads the static table → no save migration). Open sub-Q resolved in
+  spec §4 (merge-openable). **no-strand sim-PASS** (seeds 42/7/123/999); `make test` 436/436. Committed on
+  `feat/level-gated-cells` — **merge to `main` pending the tree clearing** (other agents' uncommitted edits span all
+  6 of this task's files). **Residual PARKED → the Economy tuning item (below):** the shipped gradient ~halves pace +
+  cramps the FTUE (2 free cells until L2); softening recovers pace but breaks I2, so the gradient is tuned jointly with
+  the level curve + water gift, not in isolation.
 
 ## Open — economy
 
@@ -190,13 +190,19 @@ at audit time (some now stale where the code moved).
   burst item — **level water gift +20 → +50** (`grove_data.gd` `LEVEL_WATER_GIFT`, applied on level-up)
   and **free refills 3-lifetime → 1/day** (today a monotonic `refills_used` vs `FREE_REFILLS`; needs a
   per-day date, not a lifetime int) — both tension the energy faucet against the <30% self-sustain rule,
-  so they ship **with** this rebalance, not before. **New input (T21, 2026-06-15):** burst-pop
+  so they ship **with** this rebalance, not before. **Burst front-loading (T23, 2026-06-15):** burst-pop
   **front-loads energy spend** into the first map (a tap throws a whole burst, so the bot over-pops when
   starved), leaving low-volume early maps a high fixed-gift ratio on some seeds — so the sim now treats
   **maps 1–2 as WARN** and hard-checks **maps 3+** (was map-1-only); this pass must rebalance the gift
-  cadence against burst's front-loaded spend **and** the +50 change above. *(Was the "Economy rebalance
-  under per-zone generators / #4" item — it folded into §7's tuning. Surfaced 2026-06-15 — T17 sim
-  findings; §7 cutover T19; faucet + burst-front-loading folded in T21.)*
+  cadence against burst's front-loaded spend **and** the +50 change above. **The §4 `MIN_LEVEL` gradient
+  (T24, 2026-06-15):** the shipped table is strand-safe + I2-clean, but level-gating **~halves pace** vs
+  the old tier-ring (30d sim: stars ~halved, maps 4–5/5 → 2/5) and caps the early FTUE at **2 free cells
+  until L2** (at L1 nothing is openable). A softer gradient (inner ring → L1) recovers the pace
+  (sim-validated) but **over-feeds the water gift → breaks I2** — so tune the gradient **jointly with
+  `LEVEL_STARS` + `LEVEL_WATER_GIFT`** here, re-validating **both no-strand AND I2** on the sim. *(Was the
+  "Economy rebalance under per-zone generators / #4" item — it folded into §7's tuning. Surfaced
+  2026-06-15 — T17 sim findings; §7 cutover T19; faucet + burst front-loading folded in T23; the §4
+  MIN_LEVEL gradient added T24.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.

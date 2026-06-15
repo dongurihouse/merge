@@ -133,21 +133,17 @@ func _initialize() -> void:
 	ok(b.is_open(G.GEN_CELL) and b.item_at(G.GEN_CELL) == 0, "generator cell open and empty")
 	ok(b.is_open(Vector2i(3, 2)) and b.is_open(Vector2i(5, 4)), "center 3x3 starts open")
 	ok(b.is_bramble(Vector2i(0, 0)) and b.is_bramble(Vector2i(8, 6)), "edges start brambled")
-	ok(b.terrain[BoardModel.idx(Vector2i(4, 1))] == 2, "first frontier opens on ANY merge (req t2)")
-	ok(b.terrain[BoardModel.idx(Vector2i(3, 1))] == 2, "ring 2 stays any-line req t2")
-	ok(b.terrain[BoardModel.idx(Vector2i(1, 3))] == 4, "ring 3 needs a produced t4 (any line)")
-	# the screen edge is END GAME: t5 of the LATE lines (top=mushroom, bottom=honey)
-	ok(BoardModel.gate_line_of(b.terrain[BoardModel.idx(Vector2i(0, 0))]) == 3 \
-		and BoardModel.gate_req_of(b.terrain[BoardModel.idx(Vector2i(0, 0))]) == 5, \
-		"top edge wants mushroom t5 (the compost's line)")
-	ok(BoardModel.gate_line_of(b.terrain[BoardModel.idx(Vector2i(8, 6))]) == 4 \
-		and BoardModel.gate_req_of(b.terrain[BoardModel.idx(Vector2i(8, 6))]) == 5, \
-		"bottom edge wants honey t5 (the beehive's line)")
-	ok(BoardModel.line_of(G.bramble_contents(Vector2i(0, 0))) == 3, \
-		"a gated bramble's contents seed its own line")
-	# legacy saves stored the bare tier: value 3 still decodes as any-line req t3
-	ok(BoardModel.gate_line_of(3) == 0 and BoardModel.gate_req_of(3) == 3, \
-		"legacy bare-tier terrain decodes unchanged")
+	# §4 per-cell LEVEL gate (replaces the old tier-ring encoding): G.cell_min_level
+	ok(G.cell_min_level(G.GEN_CELL) == 0 and G.cell_min_level(Vector2i(3, 2)) == 0, \
+		"the center 3x3 + generator are open at start (min_level 0)")
+	ok(G.cell_min_level(Vector2i(2, 3)) == 2 and G.cell_min_level(Vector2i(4, 1)) == 3, \
+		"the inner frontier gates at L2 / L3 (the diamond's near band)")
+	ok(G.cell_min_level(Vector2i(1, 3)) == 4 and G.cell_min_level(Vector2i(0, 0)) == 12, \
+		"the gradient rises outward to L12 at the four corners")
+	ok(b.terrain[BoardModel.idx(Vector2i(2, 3))] == 2 and b.terrain[BoardModel.idx(Vector2i(0, 0))] == 12, \
+		"a sealed cell's terrain carries its min_level (inspectable; the gate reads the table)")
+	ok(BoardModel.line_of(G.bramble_contents(Vector2i(0, 0))) in [1, 2], \
+		"an opened cell reveals a positional anchor-line (1-2) seed")
 	ok(b.item_at(Vector2i(3, 2)) == 101, "starter items placed")
 
 	# 2. merge rules
@@ -161,25 +157,23 @@ func _initialize() -> void:
 	ok(not b.can_merge(Vector2i(3, 2), Vector2i(4, 2)), "top tier (t8) never merges")
 	ok(b.top_tier_cells().size() == 2, "top tiers visible to the merchant")
 
-	# 3. move / bramble opening
+	# 3. move / the §4 level gate (merge-openable once the player's Level reaches the cell's min)
 	b.move(Vector2i(3, 4), Vector2i(3, 3))
 	ok(b.item_at(Vector2i(3, 3)) == 102 and b.item_at(Vector2i(3, 4)) == 0, "move relocates an item")
-	var openable: Array = b.openable_brambles(Vector2i(3, 3), 102)
-	ok(openable.has(Vector2i(2, 3)), "any merge (produced t2) opens the first frontier")
+	# (2,3) gates at L2 and is (3,3)'s only sealed neighbour: a merge there opens it at L2, not L1.
+	ok(b.openable_brambles(Vector2i(3, 3), 1).is_empty(), \
+		"under the cell's min_level, an adjacent merge opens nothing")
+	ok(b.openable_brambles(Vector2i(3, 3), 2).has(Vector2i(2, 3)), \
+		"at the cell's min_level, any adjacent merge opens it (no tier/line requirement)")
 	var contents := b.open_bramble(Vector2i(2, 3))
 	ok(b.is_open(Vector2i(2, 3)) and b.item_at(Vector2i(2, 3)) == contents and contents == G.bramble_contents(Vector2i(2, 3)), \
-		"opening a bramble reveals its deterministic contents")
-	ok(not b.openable_brambles(Vector2i(2, 3), 103).has(Vector2i(1, 3)), "ring 3 ignores a t3 merge")
-	ok(b.openable_brambles(Vector2i(2, 3), 104).has(Vector2i(1, 3)), "a produced t4 opens ring 3 (any line)")
-	# the line gate: a flower t5 beside the top edge does NOTHING; mushroom t5 opens it
-	var bgate: BoardModel = BoardModel.new()
-	for rr in range(1, 4):
-		bgate.terrain[BoardModel.idx(Vector2i(rr, 0))] = 0    # carve a lane to the corner
-	bgate.place(Vector2i(1, 0), 105)
-	ok(not bgate.openable_brambles(Vector2i(1, 0), 105).has(Vector2i(0, 0)), \
-		"flower t5 can NOT open the mushroom-gated top edge")
-	ok(bgate.openable_brambles(Vector2i(1, 0), 305).has(Vector2i(0, 0)), \
-		"mushroom t5 opens the top edge gate")
+		"opening a cell reveals its deterministic contents")
+	# the gradient holds: (1,3) gates at L4 — sealed at L3, opens at L4
+	b.place(Vector2i(2, 3), 102)              # an item on the freshly-opened cell
+	ok(not b.openable_brambles(Vector2i(2, 3), 3).has(Vector2i(1, 3)), \
+		"the L4 cell (1,3) stays sealed at level 3")
+	ok(b.openable_brambles(Vector2i(2, 3), 4).has(Vector2i(1, 3)), \
+		"the L4 cell (1,3) opens once the player reaches level 4")
 
 	# 4. pigeonhole helper
 	ok(b.any_pair_exists() == false or b.any_pair_exists(), "pair query runs")
@@ -255,11 +249,12 @@ func _initialize() -> void:
 		scn._ready()
 	ok(scn.board != null and scn.board.bramble_count() > 0, "grove scene builds with a brambled board")
 	var half: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+	Save.grove()["stars_earned"] = G.stars_at_level(2)   # §4: reach Lv2 (level clock only) so the L2 frontier cell (2,4) can open
 	scn._on_press(scn._cell_pos(Vector2i(3, 2)) + half)
 	scn._on_release(scn._cell_pos(Vector2i(3, 4)) + half)
 	ok(scn.board.item_at(Vector2i(3, 4)) == 102, "drag-merge grows t1+t1 into t2")
 	await create_timer(0.35).timeout
-	ok(scn.board.is_open(Vector2i(2, 4)), "the merge cleared an adjacent first-frontier bramble")
+	ok(scn.board.is_open(Vector2i(2, 4)), "at Lv2 the merge cleared the adjacent L2 frontier cell")
 	ok(scn.board.item_at(Vector2i(2, 4)) > 0, "the cleared bramble revealed its contents")
 
 	var items_before := 0
