@@ -46,6 +46,12 @@ const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
+# §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
+# while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
+# GEN_DIM is the stopped look; GEN_LIT is full modulate (a cell is free → pop again).
+const GEN_DIM := Color(1, 1, 1, 0.5)
+const GEN_LIT := Color(1, 1, 1, 1.0)
+
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
@@ -1093,6 +1099,23 @@ func _refresh_giver_lights() -> void:
 		var has_top := not board.top_tier_cells().is_empty()
 		merchant_chip.modulate = Color(1, 1, 1, 1.0 if has_top else 0.6)
 
+# §6: dim EVERY live generator to a standing "paused" look while the board has no free
+# cell (popping is free while dimmed — only the cue is missing), and restore full modulate
+# the instant a cell frees up. Called from every event that changes board fullness (pop,
+# merge, sell, deliver, coin collect/drop, buy-back, refill, rebuild). Mirrors the
+# giver-lights refresh: read board state, write modulate — no scattered ad-hoc writes.
+# Safe alongside FX.breathe (that tweens scale, not modulate).
+func _refresh_generator_dim() -> void:
+	if board == null:
+		return
+	var lit := not board.empty_ground_cells().is_empty()
+	var m := GEN_LIT if lit else GEN_DIM
+	for gn in gen_nodes.values():
+		if gn != null and is_instance_valid(gn):
+			gn.modulate = m
+	if gen_node != null and is_instance_valid(gen_node):
+		gen_node.modulate = m
+
 # --- board rendering --------------------------------------------------------------
 
 func _cell_pos(cell: Vector2i) -> Vector2:
@@ -1150,6 +1173,7 @@ func _rebuild_all() -> void:
 	_rebuild_pieces()
 	_rebuild_givers()
 	_rebuild_bag()
+	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
 	_update_hud()
 
 func _rebuild_pieces() -> void:
@@ -1661,6 +1685,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		Audio.play("item_drop", -3.0, 1.1)
 	_persist()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
 	_update_water_hud()
 
 # The player's paid burst-upgrade level (the burst-upgrade COIN SINK, §6/§8) — persisted in the
@@ -1714,6 +1739,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	animating = false
 	_persist()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
 	_update_hud()
 
 func _open_bramble(cell: Vector2i) -> void:
@@ -1789,6 +1815,7 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	_persist()
 	_update_hud()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: collecting a coin freed a cell → un-dim if the board was full
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
@@ -1953,6 +1980,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		Audio.play("level_complete", -1.0)
 	_persist()
 	_rebuild_givers()
+	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	_update_hud()
 	if _gate_ready():
 		FX.floating_text(self, gate_btn.get_global_rect().get_center() - Vector2(140, 70), tr("Ready to restore!"), STRAW, 40)
@@ -2030,6 +2058,7 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	_persist()
 	_update_hud()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: selling freed a cell → un-dim if the board was full
 
 func _on_merchant_tap() -> void:
 	var tops := board.top_tier_cells()
@@ -2046,6 +2075,7 @@ func _on_merchant_tap() -> void:
 	Audio.play("tidy_poof", -1.0)
 	_persist()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: the merchant took a top-tier item → un-dim if the board was full
 	_update_hud()
 
 # Y1/Y2: pay the sale (t8 → 1💎, else 1-7🪙), fly the piece into the basket, float
@@ -2111,6 +2141,7 @@ func _buy_back(idx: int) -> void:
 	_persist()
 	_update_hud()
 	_refresh_giver_lights()
+	_refresh_generator_dim()   # §6: a bought-back item may have filled the last cell → dim
 
 # Y2: paint the <=3 sale chips into the basket (tap one to buy it back).
 func _rebuild_basket() -> void:
