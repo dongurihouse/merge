@@ -5,7 +5,7 @@ extends SceneTree
 ##   I1 zero jams (board full + no merge + nothing deliverable + no coins)
 ##   I2 every chapter's water gift < WATER_REWARD_MAX_RATIO of its measured spend
 ##   I3 the map's authored runway (days to finish all chapters) — reported
-##   godot --headless --path . -s res://tools/grove_sim.gd -- [days] [seed]
+##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")

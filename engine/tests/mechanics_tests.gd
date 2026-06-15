@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless tests for the generator MECHANIC (T17): per-zone roster derivation,
 ## the merge-to-evolve op, line retirement, movable generators.
-##   godot --headless --path . -s res://tests/mechanics_tests.gd
+##   godot --headless --path . -s res://engine/tests/mechanics_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")

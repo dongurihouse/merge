@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless tests for the placement-override layer (scripts/layout.gd).
-##   godot --headless --path . -s res://tests/layout_tests.gd
+##   godot --headless --path . -s res://engine/tests/layout_tests.gd
 ## Proves: absent overrides → pure grove_content defaults; overrides apply by
 ## stable id (not index); values clamp; and the on-disk JSON round-trips.
 

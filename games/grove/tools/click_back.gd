@@ -1,5 +1,5 @@
 extends SceneTree
-## Dev tool (run via tools/quiet_godot.sh): the REAL ways back OUT of an interior —
+## Dev tool (run via engine/tools/quiet_godot.sh): the REAL ways back OUT of an interior —
 ## click the farmhouse (room opens), click the round ◀ (room closes), walk back in,
 ## click the dark surround (room closes again). Exists because handler-level tests
 ## stay green while real input is dead (input-swallow bug class).
@@ -9,7 +9,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: run via tools/quiet_godot.sh")
+		print("REFUSED: run via engine/tools/quiet_godot.sh")
 		quit(2)
 		return
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)

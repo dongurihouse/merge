@@ -6,7 +6,7 @@ extends SceneTree
 ## daisies, ~tens of px) fall under the threshold and survive.
 ##
 ## Headless, pure-Image — run directly, then --import:
-##   godot --headless --path . -s res://tools/cutout_bg.gd -- <png> [png ...] [min=600]
+##   godot --headless --path . -s res://games/tools/cutout_bg.gd -- <png> [png ...] [min=600]
 ##
 ## Uses process_icon's OWN background rule (value > 0.93, sat < 0.10).
 

@@ -1,6 +1,6 @@
 extends SceneTree
-## Dev tool (real renderer; run via tools/quiet_godot.sh): screenshot the Grove
-## in a given state.   quiet_godot.sh --path . -s res://tools/grove_shot.gd -- <mode> <out.png>
+## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
+## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
 ## modes: fresh | played | gate | compost | ladder | hive
 
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -8,7 +8,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: real-renderer tools must run via tools/quiet_godot.sh (born-minimized")
+		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
 		print("window; in-script flags are too late and flash/steal focus). See ~/.claude/CLAUDE.md")
 		quit(2)
 		return

@@ -8,8 +8,8 @@
 
 **Status:** Phases 1–3 **done 2026-06-15** (folder split, pure-logic lift, MIXED-func split — all suites green); next: **Phase 4** (optional: win-back + economy).
 Each phase ends **green on the headless suites** (`smoke`, `mechanics_tests`, `grove_tests`,
-`save_tests`, `layout_tests`, plus the `layering_tests` guard) —
-`godot --headless --path . -s res://tests/<suite>.gd`.
+`save_tests`, `layout_tests`, plus the `layering_tests` guard) — run with `make test`
+(suites live in `engine/tests/` + `games/grove/tests/`).
 
 ---
 

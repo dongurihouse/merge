@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless tests for the Grove P1 core: board model, content sanity, dispenser
 ## policy, chapter gate math, persistence.
-##   godot --headless --path . -s res://tests/grove_tests.gd
+##   godot --headless --path . -s res://games/grove/tests/grove_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")

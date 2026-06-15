@@ -1,6 +1,6 @@
 #!/bin/bash
 ## Run godot WITHOUT stealing focus or showing a window — for screenshot/visual tools.
-##   tools/quiet_godot.sh --path . -s res://tools/board_shot.gd -- tidy_01 /tmp/x.png
+##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- hud /tmp/x.png
 ##
 ## How: drops a temporary override.cfg so the window is BORN minimized + no-focus
 ## (flags applied at window creation — setting them from script code is too late,
@@ -20,9 +20,13 @@
 ## window starts minimized too — just click it in the Dock.
 ##
 ## AUDIO: debug runs are SILENT (--audio-driver Dummy) — no taps/poofs through the
-## owner's speakers. Testing sound specifically? WITH_AUDIO=1 tools/quiet_godot.sh …
+## owner's speakers. Testing sound specifically? WITH_AUDIO=1 engine/tools/quiet_godot.sh …
 set -e
-DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# Project root = where godot's --path points (override.cfg must land there). Walk up
+# from this script to the dir holding project.godot, so the script's depth under the
+# repo (it now lives at engine/tools/) doesn't matter.
+DIR="$(cd "$(dirname "$0")" && pwd)"
+while [ "$DIR" != "/" ] && [ ! -f "$DIR/project.godot" ]; do DIR="$(dirname "$DIR")"; done
 OVR="$DIR/override.cfg"
 if [ -f "$OVR" ] && ! grep -q 'window/size/no_focus=true' "$OVR"; then
   echo "REFUSED: $OVR exists with foreign content — won't clobber it or run loud." >&2

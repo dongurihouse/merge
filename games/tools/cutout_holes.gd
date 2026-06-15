@@ -1,12 +1,12 @@
 extends SceneTree
 ## Q2 — ENCLOSED-BACKGROUND HOLE-PUNCH (eng-owned; do NOT touch the owner's
-## tools/process_icon.gd). A PROCESSED furn sprite already has its OUTER field
+## games/tools/process_icon.gd). A PROCESSED furn sprite already has its OUTER field
 ## transparent, but background trapped INSIDE the silhouette (the gaps between a
 ## table's legs, between stool rungs) stays opaque white — process_icon's
 ## edge flood-fill can't reach it. This pass punches those enclosed pockets.
 ##
 ## Headless, pure-Image (no renderer): just run it directly —
-##   godot --headless --path . -s res://tools/cutout_holes.gd -- <a.png> [b.png ...]
+##   godot --headless --path . -s res://games/tools/cutout_holes.gd -- <a.png> [b.png ...]
 ## then `godot --headless --path . --import` so the engine picks the PNGs up.
 ##
 ## Rule = process_icon's OWN background rule (value > 0.93, sat < 0.10): a tighter

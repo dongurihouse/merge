@@ -1,11 +1,11 @@
 extends SceneTree
 ## Dev tool: process a raw LLM-generated icon into a clean, square, transparent PNG.
 ##
-##   godot --headless --path . -s res://tools/process_icon.gd -- <input.png> <output_res_path> [size]
+##   godot --headless --path . -s res://games/tools/process_icon.gd -- <input.png> <output_res_path> [size]
 ##
 ## Examples:
-##   godot --headless --path . -s res://tools/process_icon.gd -- /tmp/raw.png res://assets/ui/drawer_books.png
-##   godot --headless --path . -s res://tools/process_icon.gd -- /tmp/raw.png res://assets/ui/coin.png 256
+##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://assets/ui/drawer_books.png
+##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://assets/ui/coin.png 256
 ##
 ## Handles both:
 ##   1) Truly transparent PNGs (no-op on the background; just trim + center + resize)

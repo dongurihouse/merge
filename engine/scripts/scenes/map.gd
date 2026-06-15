@@ -142,7 +142,7 @@ func _ready() -> void:
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
 # The dev capture harness births its windows minimized + focusless via a
-# transient override.cfg (tools/quiet_godot.sh). If a REAL launch ever inherits
+# transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever inherits
 # those flags — a leaked file, or launching while a capture is in flight — the
 # game self-heals at boot: restore the window, delete a leftover that is OURS.
 # Quiet runs export TU_QUIET=1 and are exempt (their windows must stay hidden).
