@@ -29,6 +29,7 @@ static var FLAGS := {
 	"spirit_treats": true,        # Z3: a 10🪙 acorn treat at the stall — a wandering spirit nibbles it (recurring sink)
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
 	"gen_preview": true,          # V: locked generators show a greyed "after N spots" silhouette
+	"spot_ghost": true,           # §8: unowned restoration spots ghost-preview the buildable (low-alpha, behind the price-pin)
 	# ambient
 	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
 	"ambient_characters": true,   # characters wander the scenes
