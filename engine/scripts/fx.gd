@@ -1,11 +1,13 @@
 extends RefCounted
-## Tidy Up — shared juice helpers (static, like Audio/Save). All grove screens use these.
+## Shared juice helpers (static, like Audio/Save). All scenes use these.
 ##   const FX = preload("res://engine/scripts/fx.gd")
+## Every animation value lives in Tune (engine/scripts/tuning.gd → class FX).
 
 const Save = preload("res://engine/scripts/save.gd")
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
 const Pal = Game.PALETTE
+const Tune = preload("res://engine/scripts/tuning.gd").FX   # the engine's juice dials
 
 static var _dot_tex: Texture2D
 
@@ -16,15 +18,15 @@ static func calm() -> bool:
 
 ## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
 static func amount_for(amount: int) -> int:
-	return maxi(4, int(amount * 0.4)) if calm() else amount
+	return maxi(Tune.CALM_AMOUNT_FLOOR, int(amount * Tune.CALM_AMOUNT_SCALE)) if calm() else amount
 
 static func pop(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = node.size / 2.0
 	var t := node.create_tween()
-	t.tween_property(node, "scale", Vector2(1.12, 1.12), 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "scale", Vector2.ONE, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "scale", Tune.POP_SCALE, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
@@ -32,17 +34,17 @@ static func wobble(node: Control) -> void:
 	node.pivot_offset = node.size / 2.0
 	var t := node.create_tween()   # bound to node so it dies with it
 	if calm():                     # one gentle tilt instead of a shake
-		t.tween_property(node, "rotation", 0.07, 0.12).set_trans(Tween.TRANS_SINE)
-		t.tween_property(node, "rotation", 0.0, 0.14).set_trans(Tween.TRANS_SINE)
+		t.tween_property(node, "rotation", Tune.WOBBLE_CALM_TILT, Tune.WOBBLE_CALM_T_OUT).set_trans(Tween.TRANS_SINE)
+		t.tween_property(node, "rotation", 0.0, Tune.WOBBLE_CALM_T_BACK).set_trans(Tween.TRANS_SINE)
 		return
-	t.tween_property(node, "rotation", 0.22, 0.05)
-	t.tween_property(node, "rotation", -0.17, 0.06)
-	t.tween_property(node, "rotation", 0.09, 0.05)
-	t.tween_property(node, "rotation", 0.0, 0.05).set_trans(Tween.TRANS_BACK)
+	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[0], Tune.WOBBLE_SHAKE_T[0])
+	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[1], Tune.WOBBLE_SHAKE_T[1])
+	t.tween_property(node, "rotation", Tune.WOBBLE_SHAKE[2], Tune.WOBBLE_SHAKE_T[2])
+	t.tween_property(node, "rotation", 0.0, Tune.WOBBLE_SHAKE_T[3]).set_trans(Tween.TRANS_BACK)
 
 # W1: a gentle, slow ROCK (not a fast shake) — the idle merge hint. Sways ±deg a
 # few times so a sleepy player notices the next move without the board feeling jittery.
-static func rock(node: Control, deg := 6.0, cycle := 1.2, cycles := 3) -> void:
+static func rock(node: Control, deg := Tune.ROCK_DEG, cycle := Tune.ROCK_CYCLE, cycles := Tune.ROCK_CYCLES) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = node.size / 2.0
@@ -55,14 +57,14 @@ static func rock(node: Control, deg := 6.0, cycle := 1.2, cycles := 3) -> void:
 	t.tween_property(node, "rotation", 0.0, half).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 # gentle looping attention pulse (bound to the node — dies with it)
-static func breathe(node: Control, amount := 1.05, period := 0.9) -> void:
+static func breathe(node: Control, amount := Tune.BREATHE_AMOUNT, period := Tune.BREATHE_PERIOD) -> void:
 	node.pivot_offset = node.size / 2.0
 	var t := node.create_tween()
 	t.set_loops()
 	t.tween_property(node, "scale", Vector2(amount, amount), period).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, period).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
-static func floating_text(host: Control, gpos: Vector2, text: String, color: Color, size: int = 44) -> void:
+static func floating_text(host: Control, gpos: Vector2, text: String, color: Color, size: int = Tune.FLOAT_SIZE) -> void:
 	if not Features.on("floaters"):
 		return
 	var lbl := Label.new()
@@ -70,29 +72,29 @@ static func floating_text(host: Control, gpos: Vector2, text: String, color: Col
 	lbl.add_theme_font_size_override("font_size", size)
 	lbl.add_theme_color_override("font_color", color)
 	lbl.add_theme_color_override("font_outline_color", Pal.BG_DEEP)
-	lbl.add_theme_constant_override("outline_size", 10)
+	lbl.add_theme_constant_override("outline_size", Tune.FLOAT_OUTLINE)
 	lbl.position = gpos
-	lbl.z_index = 60
+	lbl.z_index = Tune.FLOAT_Z
 	lbl.pivot_offset = Vector2(size, size) * 0.5
-	lbl.scale = Vector2(0.4, 0.4)
-	lbl.rotation = -0.12
+	lbl.scale = Vector2(Tune.FLOAT_SCALE_START, Tune.FLOAT_SCALE_START)
+	lbl.rotation = Tune.FLOAT_ROT_START
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(lbl)
 	var t := lbl.create_tween()
 	t.set_parallel(true)
-	t.tween_property(lbl, "scale", Vector2(1.3, 1.3), 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(lbl, "rotation", 0.06, 0.16).set_trans(Tween.TRANS_BACK)
-	t.tween_property(lbl, "position:y", gpos.y - 75.0, 0.75).set_ease(Tween.EASE_OUT)
-	t.chain().tween_interval(0.18)
-	t.chain().tween_property(lbl, "modulate:a", 0.0, 0.3)
+	t.tween_property(lbl, "scale", Tune.FLOAT_SCALE_POP, Tune.FLOAT_T_POP).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(lbl, "rotation", Tune.FLOAT_ROT_POP, Tune.FLOAT_T_POP).set_trans(Tween.TRANS_BACK)
+	t.tween_property(lbl, "position:y", gpos.y - Tune.FLOAT_RISE, Tune.FLOAT_T_RISE).set_ease(Tween.EASE_OUT)
+	t.chain().tween_interval(Tune.FLOAT_HOLD)
+	t.chain().tween_property(lbl, "modulate:a", 0.0, Tune.FLOAT_T_FADE)
 	t.chain().tween_callback(lbl.queue_free)
 
 # shout + sparkle at a GLOBAL position (host must be a full-rect root control)
 static func celebrate_at(host: Control, gpos: Vector2, text: String, color: Color) -> void:
 	if not Features.on("celebrate_bursts"):
 		return
-	floating_text(host, gpos - Vector2(text.length() * 11.0, 64.0), text, color)
-	burst(host, gpos, color, 20)
+	floating_text(host, gpos - Vector2(text.length() * Tune.CELEB_TEXT_DX, Tune.CELEB_TEXT_DY), text, color)
+	burst(host, gpos, color, Tune.CELEB_BURST)
 
 # loop-tween guard: breathing twice on one node compounds the oscillation
 static func breathe_once(node: Control) -> void:
@@ -104,17 +106,17 @@ static func breathe_once(node: Control) -> void:
 	breathe(node)
 
 # grove particle sprites (petals/leaves/pollen) auto-wire when generated; until
-# --- the §6 juice vocabulary (GROVE_UI_SPEC) — same verbs on every screen ---------
+# --- the juice vocabulary — same verbs on every screen ----------------------------
 
 ## Overlay cards and confirms enter with this — never a hard cut.
 static func pop_in(node: Control) -> void:
 	node.pivot_offset = node.size / 2.0
-	node.scale = Vector2(0.92, 0.92)
+	node.scale = Vector2(Tune.POPIN_SCALE_START, Tune.POPIN_SCALE_START)
 	node.modulate.a = 0.0
 	var tw := node.create_tween()
 	tw.set_parallel(true)
-	tw.tween_property(node, "scale", Vector2.ONE, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tw.tween_property(node, "modulate:a", 1.0, 0.12)
+	tw.tween_property(node, "scale", Vector2.ONE, Tune.POPIN_T).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(node, "modulate:a", 1.0, Tune.POPIN_T)
 
 ## Staggered arrival for groups (chest items, shop sections/cards).
 static func scatter_in(nodes: Array, base_delay := 0.0) -> void:
@@ -125,10 +127,10 @@ static func scatter_in(nodes: Array, base_delay := 0.0) -> void:
 		if n == null or not is_instance_valid(n):
 			continue
 		n.pivot_offset = n.size / 2.0
-		n.scale = Vector2(0.3, 0.3)
+		n.scale = Vector2(Tune.SCATTER_SCALE_START, Tune.SCATTER_SCALE_START)
 		var tw := n.create_tween()
-		tw.tween_interval(base_delay + 0.04 * i)
-		tw.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(base_delay + Tune.SCATTER_STAGGER * i)
+		tw.tween_property(n, "scale", Vector2.ONE, Tune.SCATTER_T).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## A wallet number counts toward its target and its chip pulses once.
 static func tick(label: Label, to_value: int) -> void:
@@ -137,7 +139,7 @@ static func tick(label: Label, to_value: int) -> void:
 		return
 	var from := int(label.text) if label.text.is_valid_int() else 0
 	var tw := label.create_tween()
-	tw.tween_method(func(v: float) -> void: label.text = str(int(v)), float(from), float(to_value), 0.4)
+	tw.tween_method(func(v: float) -> void: label.text = str(int(v)), float(from), float(to_value), Tune.TICK_T_COUNT)
 	var chip: Node = label.get_parent()
 	while chip != null and not chip is PanelContainer:
 		chip = chip.get_parent()
@@ -145,8 +147,8 @@ static func tick(label: Label, to_value: int) -> void:
 		var c := chip as Control
 		c.pivot_offset = c.size / 2.0
 		var pw := c.create_tween()
-		pw.tween_property(c, "scale", Vector2(1.06, 1.06), 0.12).set_trans(Tween.TRANS_QUAD)
-		pw.tween_property(c, "scale", Vector2.ONE, 0.14)
+		pw.tween_property(c, "scale", Tune.TICK_CHIP_SCALE, Tune.TICK_CHIP_T_OUT).set_trans(Tween.TRANS_QUAD)
+		pw.tween_property(c, "scale", Vector2.ONE, Tune.TICK_CHIP_T_BACK)
 
 ## A grant arcs its icon to the wallet chip, then runs `then` (usually tick).
 static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, to_chip: Control, then: Callable = Callable()) -> void:
@@ -161,15 +163,15 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 			then.call()
 		return
 	host.add_child(fly_icon)
-	fly_icon.global_position = from_gpos - Vector2(16, 16)
-	fly_icon.z_index = 60
-	var dest: Vector2 = to_chip.get_global_rect().get_center() - Vector2(16, 16) \
-		if to_chip != null and is_instance_valid(to_chip) else from_gpos + Vector2(0, -200)
-	var mid: Vector2 = (from_gpos + dest) / 2.0 + Vector2(0, -110)
+	fly_icon.global_position = from_gpos - Tune.FLY_ICON_OFFSET
+	fly_icon.z_index = Tune.FLY_Z
+	var dest: Vector2 = to_chip.get_global_rect().get_center() - Tune.FLY_ICON_OFFSET \
+		if to_chip != null and is_instance_valid(to_chip) else from_gpos + Tune.FLY_FALLBACK
+	var mid: Vector2 = (from_gpos + dest) / 2.0 + Tune.FLY_ARC
 	var tw := fly_icon.create_tween()
-	tw.tween_property(fly_icon, "global_position", mid, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	tw.tween_property(fly_icon, "global_position", dest, 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	tw.parallel().tween_property(fly_icon, "scale", Vector2(0.55, 0.55), 0.22)
+	tw.tween_property(fly_icon, "global_position", mid, Tune.FLY_T_UP).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(fly_icon, "global_position", dest, Tune.FLY_T_DOWN).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(fly_icon, "scale", Tune.FLY_SCALE, Tune.FLY_T_DOWN)
 	tw.tween_callback(func() -> void:
 		fly_icon.queue_free()
 		if then.is_valid():
@@ -180,7 +182,7 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 static var _grove_tex := {}
 
 static func _pick_tex(color: Color) -> Texture2D:
-	var id := "p_pollen" if color.r > 0.7 and color.g > 0.55 and color.b < 0.5 \
+	var id := "p_pollen" if color.r > Tune.POLLEN_R and color.g > Tune.POLLEN_G and color.b < Tune.POLLEN_B \
 		else ("p_leaf" if color.g > color.r else "p_petal")
 	if _grove_tex.has(id):
 		return _grove_tex[id]
@@ -192,7 +194,7 @@ static func _pick_tex(color: Color) -> Texture2D:
 		_dot_tex = _make_dot_texture()
 	return _dot_tex
 
-static func burst(host: Node, center: Vector2, color: Color, amount: int = 14) -> void:
+static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.BURST_AMOUNT) -> void:
 	if not Features.on("celebrate_bursts"):
 		return
 	var tex := _pick_tex(color)
@@ -201,30 +203,30 @@ static func burst(host: Node, center: Vector2, color: Color, amount: int = 14) -
 	p.texture = tex
 	p.position = center
 	p.amount = amount_for(amount)
-	p.lifetime = 1.1 if grove else 0.55      # grove juice is floaty, breezy, settling
+	p.lifetime = Tune.BURST_GROVE_LIFE if grove else Tune.BURST_DOT_LIFE      # grove juice is floaty, breezy, settling
 	p.one_shot = true
 	p.explosiveness = 1.0
-	p.z_index = 30
+	p.z_index = Tune.BURST_Z
 	var mat := ParticleProcessMaterial.new()
 	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
-	mat.emission_sphere_radius = 6.0
+	mat.emission_sphere_radius = Tune.BURST_EMIT_RADIUS
 	mat.direction = Vector3(0, -1, 0)
-	mat.spread = 180.0
-	mat.gravity = Vector3(0, 130, 0) if grove else Vector3(0, 320, 0)
-	mat.initial_velocity_min = 60.0 if grove else 110.0
-	mat.initial_velocity_max = 170.0 if grove else 280.0
-	mat.angular_velocity_min = -160.0 if grove else 0.0
-	mat.angular_velocity_max = 160.0 if grove else 0.0
-	mat.scale_min = 0.05 if grove else 0.4   # particle sprites are 128px; dots are 24px
-	mat.scale_max = 0.14 if grove else 1.0
-	mat.color = color if not grove else Color(1, 1, 1, 0.95)   # sprites carry their own paint
+	mat.spread = Tune.BURST_SPREAD
+	mat.gravity = Vector3(0, Tune.BURST_GROVE_GRAVITY, 0) if grove else Vector3(0, Tune.BURST_DOT_GRAVITY, 0)
+	mat.initial_velocity_min = Tune.BURST_GROVE_VEL_MIN if grove else Tune.BURST_DOT_VEL_MIN
+	mat.initial_velocity_max = Tune.BURST_GROVE_VEL_MAX if grove else Tune.BURST_DOT_VEL_MAX
+	mat.angular_velocity_min = -Tune.BURST_GROVE_SPIN if grove else 0.0
+	mat.angular_velocity_max = Tune.BURST_GROVE_SPIN if grove else 0.0
+	mat.scale_min = Tune.BURST_GROVE_SCALE_MIN if grove else Tune.BURST_DOT_SCALE_MIN   # particle sprites are 128px; dots are 24px
+	mat.scale_max = Tune.BURST_GROVE_SCALE_MAX if grove else Tune.BURST_DOT_SCALE_MAX
+	mat.color = color if not grove else Tune.BURST_GROVE_TINT   # sprites carry their own paint
 	p.process_material = mat
 	host.add_child(p)
 	p.emitting = true
 	p.finished.connect(p.queue_free)
 
 static func _make_dot_texture() -> Texture2D:
-	var n := 24
+	var n := Tune.DOT_TEX_SIZE
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	var c := n / 2.0
 	for y in n:

@@ -62,7 +62,7 @@ func _initialize() -> void:
 			# V1: open a path out to a line-3 (mushroom/compost) edge bramble so the
 			# locked compost generator shows its greyed "after N spots" silhouette
 			for cc in [Vector2i(1, 3), Vector2i(2, 3), Vector2i(2, 2), Vector2i(2, 1)]:
-				scn.board.terrain[load("res://engine/scripts/grove_board.gd").idx(cc)] = 0
+				scn.board.terrain[load("res://engine/scripts/board_model.gd").idx(cc)] = 0
 			scn._rebuild_all()
 			await create_timer(0.4).timeout
 		"hud":

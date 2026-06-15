@@ -16,15 +16,51 @@ const LINES := {
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
 }
 
-# Generators ARE the complexity curve: the satchel from chapter 0; later generators
-# REVEAL in the bramble field as their era begins. appears_at is a chapter index.
+# Generators — the per-zone roster (Core §6, the merge-to-evolve model). Each emits 2
+# lines and belongs to a zone; `evolves_from` is the previous-zone generator it upgrades
+# (consumed on evolve — old lines retire), "" = granted outright (a zone's surplus, or
+# zone 0's two starters). `cell` is denormalized down each lineage (an evolved generator
+# sits at its predecessor's cell). PLACEHOLDER content for the T17 engine milestone — the
+# 3 generator sprites are reused and zones 1–4 emit code-drawn lines (5–33); the themed
+# 16-gen / 32-line map + real art is the parked grove-content task (docs/BACKLOG.md).
 const GENERATORS := [
-	{"id": "satchel", "cell": Vector2i(4, 3), "lines": [1, 2], "appears_at": 0,
-		"tex": "ui/gen_satchel.png", "label": "seeds"},   # rel to the active game's art root
-	{"id": "compost", "cell": Vector2i(2, 1), "lines": [3], "appears_at": 16,
+	# zone 0 — the two starters, granted outright (satchel at center, compost early)
+	{"id": "satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "evolves_from": "",
+		"tex": "ui/gen_satchel.png", "label": "seeds"},
+	{"id": "compost", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "evolves_from": "",
 		"tex": "ui/gen_compost.png", "label": "compost"},
-	{"id": "beehive", "cell": Vector2i(6, 5), "lines": [4], "appears_at": 26,
-		"tex": "ui/gen_beehive.png", "label": "hive"},
+	# zone 1 — 2 evolve from zone 0, +1 surplus (the beehive cell)
+	{"id": "z1a", "zone": 1, "cell": Vector2i(4, 3), "lines": [5, 6], "evolves_from": "satchel",
+		"tex": "ui/gen_satchel.png", "label": "z1a"},
+	{"id": "z1b", "zone": 1, "cell": Vector2i(2, 1), "lines": [7, 8], "evolves_from": "compost",
+		"tex": "ui/gen_compost.png", "label": "z1b"},
+	{"id": "z1c", "zone": 1, "cell": Vector2i(6, 5), "lines": [10, 11], "evolves_from": "",
+		"tex": "ui/gen_beehive.png", "label": "z1c"},
+	# zone 2 — all 3 evolve
+	{"id": "z2a", "zone": 2, "cell": Vector2i(4, 3), "lines": [12, 13], "evolves_from": "z1a",
+		"tex": "ui/gen_satchel.png", "label": "z2a"},
+	{"id": "z2b", "zone": 2, "cell": Vector2i(2, 1), "lines": [14, 15], "evolves_from": "z1b",
+		"tex": "ui/gen_compost.png", "label": "z2b"},
+	{"id": "z2c", "zone": 2, "cell": Vector2i(6, 5), "lines": [16, 17], "evolves_from": "z1c",
+		"tex": "ui/gen_beehive.png", "label": "z2c"},
+	# zone 3 — 3 evolve, +1 surplus
+	{"id": "z3a", "zone": 3, "cell": Vector2i(4, 3), "lines": [18, 19], "evolves_from": "z2a",
+		"tex": "ui/gen_satchel.png", "label": "z3a"},
+	{"id": "z3b", "zone": 3, "cell": Vector2i(2, 1), "lines": [20, 21], "evolves_from": "z2b",
+		"tex": "ui/gen_compost.png", "label": "z3b"},
+	{"id": "z3c", "zone": 3, "cell": Vector2i(6, 5), "lines": [22, 23], "evolves_from": "z2c",
+		"tex": "ui/gen_beehive.png", "label": "z3c"},
+	{"id": "z3d", "zone": 3, "cell": Vector2i(4, 5), "lines": [24, 25], "evolves_from": "",
+		"tex": "ui/gen_satchel.png", "label": "z3d"},
+	# zone 4 — all 4 evolve
+	{"id": "z4a", "zone": 4, "cell": Vector2i(4, 3), "lines": [26, 27], "evolves_from": "z3a",
+		"tex": "ui/gen_satchel.png", "label": "z4a"},
+	{"id": "z4b", "zone": 4, "cell": Vector2i(2, 1), "lines": [28, 29], "evolves_from": "z3b",
+		"tex": "ui/gen_compost.png", "label": "z4b"},
+	{"id": "z4c", "zone": 4, "cell": Vector2i(6, 5), "lines": [30, 31], "evolves_from": "z3c",
+		"tex": "ui/gen_beehive.png", "label": "z4c"},
+	{"id": "z4d", "zone": 4, "cell": Vector2i(4, 5), "lines": [32, 33], "evolves_from": "z3d",
+		"tex": "ui/gen_satchel.png", "label": "z4d"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -39,12 +75,21 @@ const STARTER_ITEMS := {
 }
 
 # Per-zone quest ramp (one entry per zone). quests 5-6/chapter w/ slack.
+# PER-ZONE TUNING (T17): each zone's generators are FRESH (the old set retired, §6), so a
+# zone's lines start at tier 1 and can't be asked deep — difficulty grows by BREADTH (more
+# lines/asks) not DEPTH. Bands are therefore kept shallow + flat across zones (was a 2→7
+# climb that assumed lines persist + mature). INTERIM/PROVISIONAL: the sim runs no-jam +
+# no-strand (40/40 spots) on these, but the water-gift ratio (I2) and pace (I3) still fail
+# — flat-shallow zones are too cheap to pop, so the fixed level-up water gifts exceed 30%
+# of spend and the map clears too fast. Balancing that needs §3 (LEVEL_STARS recalibration)
+# + §7 (metered, level-scaled, expected-clicks-rewarded quests) — both parked. The old
+# 2→7 climb jams instead. See docs/BACKLOG.md / T17 notes.
 const ZONE_RAMP := [
 	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 0, "gift": 0},
-	{"tiers": Vector2i(3, 5), "quests": 5, "slack": 1, "two_count_every": 0, "gift": 0},
-	{"tiers": Vector2i(3, 5), "quests": 5, "slack": 1, "two_count_every": 3, "gift": 0},
-	{"tiers": Vector2i(4, 6), "quests": 5, "slack": 1, "two_count_every": 2, "gift": 4},
-	{"tiers": Vector2i(5, 7), "quests": 6, "slack": 2, "two_count_every": 2, "gift": 5},
+	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 0, "gift": 0},
+	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 3, "gift": 0},
+	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 2, "gift": 4},
+	{"tiers": Vector2i(2, 4), "quests": 6, "slack": 2, "two_count_every": 2, "gift": 5},
 ]
 
 # Waysides — the coin sink (cosmetic, coin-priced, never a gate). 4 per restored zone.

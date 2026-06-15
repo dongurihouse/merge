@@ -1,5 +1,5 @@
 extends Control
-## Ghibli Grove — HOME: the game's hub IS the homestead, seen as one large
+## HOME: the game's hub IS the homestead, seen as one large
 ## free-pan map (owner 2026-06-11): a high top-down EMPTY terrain with the zones
 ## (farmhouse → barn → pond → orchard → meadow) as scenery placed at G.ZONES
 ## map_pos — no boxes, no 0/8 buttons. Each zone's items scatter ON the land

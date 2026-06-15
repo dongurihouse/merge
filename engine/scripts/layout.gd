@@ -1,8 +1,8 @@
 extends RefCounted
 ## Placement overrides — the owner's drag-to-place editor (home.gd place mode)
 ## WRITES here; the renderers READ positions through here. Every value is keyed
-## by a STABLE id (zone id, spot id) so reordering grove_content never desyncs a
-## saved position. An ABSENT file means pure grove_content defaults — i.e. zero
+## by a STABLE id (zone id, spot id) so reordering the game data never desyncs a
+## saved position. An ABSENT file means pure content defaults — i.e. zero
 ## behaviour change until something is actually placed.
 ##
 ## One file, committed with the repo: res://data/placements.json. A user:// mirror
