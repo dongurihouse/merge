@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://engine/scripts/board.gd" id="1_grove"]
+[ext_resource type="Script" path="res://engine/scripts/scenes/board.gd" id="1_grove"]
 
 [node name="Grove" type="Control"]
 layout_mode = 3

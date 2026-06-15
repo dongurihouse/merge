@@ -2,7 +2,7 @@ extends SceneTree
 ## Headless tests for the Save persistence layer.
 ##   godot --headless -s res://tests/save_tests.gd
 
-const Save = preload("res://engine/scripts/save.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0

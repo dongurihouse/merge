@@ -5,7 +5,7 @@ extends RefCounted
 ## cream/peach text pops on the warm backgrounds. The face is the ACTIVE GAME's (Game.font());
 ## when a game ships none (e.g. the placeholder), a rounded SYSTEM font is used instead.
 
-const Game = preload("res://engine/scripts/game.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 static var _done := false
 

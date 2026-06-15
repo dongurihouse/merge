@@ -3,8 +3,8 @@ extends SceneTree
 ## the merge-to-evolve op, line retirement, movable generators.
 ##   godot --headless --path . -s res://tests/mechanics_tests.gd
 
-const G = preload("res://engine/scripts/content.gd")
-const BoardModel = preload("res://engine/scripts/board_model.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 
 var _pass := 0
 var _fail := 0

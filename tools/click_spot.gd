@@ -4,8 +4,8 @@ extends SceneTree
 ## assert the stars were spent. Exists because handler-level tests stay green
 ## while real input is dead (input-swallow bug class ×3).
 
-const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):

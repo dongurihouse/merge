@@ -6,8 +6,8 @@ extends SceneTree
 ## input is dead (input-swallow bug class). Mirrors click_spot.gd.
 ##   tools/quiet_godot.sh --path . -s res://tools/click_wayside.gd
 
-const Save = preload("res://engine/scripts/save.gd")
-const G = preload("res://engine/scripts/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):

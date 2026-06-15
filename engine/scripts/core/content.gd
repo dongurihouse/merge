@@ -5,8 +5,8 @@ extends RefCounted
 ## economy formulas — plus a re-export of the data so callers keep using G.X.
 ## (Was grove_content.gd; the grove tables moved to games/grove/grove_data.gd.)
 
-const Game = preload("res://engine/scripts/game.gd")
-const Save = preload("res://engine/scripts/save.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 # --- the ACTIVE game's DATA (compile-time const), re-exported as consts so every
 # --- existing G.<CONST> reader keeps working and := type inference still resolves.
@@ -307,6 +307,36 @@ static func completed_zones(unlocks: Dictionary) -> int:
 			n += 1
 	return n
 
+# --- map progression queries (folded from map.gd; the scene keeps thin wrappers) --
+static func zone_for_id(id: String) -> int:
+	for z in ZONES.size():
+		if String(ZONES[z].id) == id:
+			return z
+	return -1
+
+static func zone_unlocked(z: int, unlocks: Dictionary) -> bool:
+	return z == 0 or zone_done(z - 1, unlocks)
+
+static func owned_count(z: int, unlocks: Dictionary) -> int:
+	var n := 0
+	for s in ZONES[z].spots:
+		if unlocks.has(String(s.id)):
+			n += 1
+	return n
+
+static func zone_stars_left(z: int, unlocks: Dictionary) -> int:
+	var left := 0
+	for s in ZONES[z].spots:
+		if not unlocks.has(String(s.id)):
+			left += int(s.cost)
+	return left
+
+static func frontier_zone(unlocks: Dictionary) -> int:
+	for z in ZONES.size():
+		if zone_unlocked(z, unlocks) and not zone_done(z, unlocks):
+			return z
+	return -1
+
 ## How many ambient characters wander: 1 + completed zones, capped. The host
 ## passes this to Ambient.build_layer (progression stays a game rule, not engine).
 static func character_count(unlocks: Dictionary) -> int:
@@ -357,7 +387,32 @@ static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
 			return cheapest if cheapest < 99 else -2   # -2 = all remaining level-locked
 	return -1
 
+# Of the open (unowned, level-affordable) spots in a zone, is k the one to buy next?
+# Cheapest wins; ties break to the lower index. (Powers the "buy me next" affordance.)
+static func is_cheapest_open(z: int, k: int, lvl: int, unlocks: Dictionary) -> bool:
+	var my_cost := int(ZONES[z].spots[k].cost)
+	for j in ZONES[z].spots.size():
+		var s: Dictionary = ZONES[z].spots[j]
+		if unlocks.has(String(s.id)) or spot_level_req(z, j) > lvl:
+			continue
+		if int(s.cost) < my_cost or (int(s.cost) == my_cost and j < k):
+			return j == k
+	return true
+
+# The water gift paid when a purchase closes a chapter (0 if none). The buy that
+# triggers this has already added its spot, so the closing chapter = unlocks.size()-1.
+static func chapter_gift(unlocks: Dictionary) -> int:
+	var closing := unlocks.size() - 1
+	return int(chapters()[mini(closing, chapters().size() - 1)].get("gift", 0))
+
 # --- spot customizations ----------------------------------------------------------
+# The variant dict for an id (or {} if none) — the swatch the player tapped.
+static func variant_by_id(z: int, k: int, vid: String) -> Dictionary:
+	for v in spot_variants(z, k):
+		if String(v.id) == vid:
+			return v
+	return {}
+
 static func spot_variants(z: int, k: int) -> Array:
 	var rank := k
 	for i in z:
