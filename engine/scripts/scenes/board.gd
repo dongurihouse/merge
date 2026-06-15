@@ -64,6 +64,8 @@ var bramble_nodes := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var gen_preview_cells := {}        # V: cell -> gi for locked-gen previews (tap → name floater)
+var burst_chip: Control            # §6 coin sink: the on-board "upgrade burst" buy pill (board-level, global)
+var burst_chip_label: Label
 var giver_bar: Control           # the quest fence (givers pop up over it)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
@@ -1142,6 +1144,7 @@ func _rebuild_all() -> void:
 		FX.breathe(gn)
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move, or be replaced by a hand-in grant)
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
+	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
 	# per-chapter `appears_at`. Under per-zone generators the next set arrives on zone
 	# COMPLETION, not after N spots — the preview needs redefining (show the next zone's
@@ -1680,6 +1683,64 @@ func _upgrade_gen_burst() -> bool:
 	Save.grove()["burst_lvl"] = lvl + 1
 	_persist()
 	return true
+
+# The on-board burst-upgrade buy pill (§6 coin sink). The burst level is GLOBAL — one `burst_lvl`
+# sizing every generator (spec §8: "board-level… independent of the hub") — so ONE pill, anchored
+# to the primary generator, is the whole control. Rebuilt with the board (freed by _rebuild_all's
+# child sweep). A still child with MOUSE_FILTER_STOP, so its tap buys and never pops the gen under it.
+func _rebuild_burst_chip() -> void:
+	burst_chip = null
+	burst_chip_label = null
+	if board.gens.is_empty():
+		return
+	var anchor: Vector2i = board.gens.keys()[0]
+	var chip := Look.stat_chip("coin", "")
+	burst_chip = chip.node
+	burst_chip_label = chip.label
+	(burst_chip_label as Label).add_theme_font_size_override("font_size", 18)
+	burst_chip.mouse_filter = Control.MOUSE_FILTER_STOP
+	burst_chip.z_index = 12
+	burst_chip.gui_input.connect(_on_burst_chip_input)
+	board_area.add_child(burst_chip)
+	_refresh_burst_chip()                      # sets the label → its width is known for centering
+	var w: float = burst_chip.get_combined_minimum_size().x
+	burst_chip.position = _cell_pos(anchor) + Vector2((csz - w) / 2.0, csz - 12.0)
+
+func _on_burst_chip_input(ev: InputEvent) -> void:
+	var pressed: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT) or ev is InputEventScreenTouch
+	if pressed and ev.pressed:
+		_try_buy_burst()
+
+# Repaint the pill from the live level/cost — used right after a buy (no full board rebuild).
+func _refresh_burst_chip() -> void:
+	if burst_chip_label == null or not is_instance_valid(burst_chip_label):
+		return
+	var lvl := _gen_burst_level()
+	var cost := G.burst_upgrade_cost(lvl)
+	if cost < 0:
+		burst_chip_label.text = tr("Burst L%d ✦") % lvl       # maxed — no further buy
+	else:
+		burst_chip_label.text = tr("Burst L%d ▸ %d") % [lvl, cost]
+
+# Tap handler for the burst pill: spend coins to raise the burst one level, with feedback. Refuses
+# (a wobble) when maxed or broke — _upgrade_gen_burst() owns the spend + cap rules. Testable directly.
+func _try_buy_burst() -> void:
+	if burst_chip == null or not is_instance_valid(burst_chip):
+		return
+	if G.burst_upgrade_cost(_gen_burst_level()) < 0:
+		FX.wobble(burst_chip)                 # already at the top of the ladder
+		Audio.play("invalid_soft", -4.0)
+		return
+	if not _upgrade_gen_burst():
+		FX.wobble(burst_chip)                 # can't afford it
+		Audio.play("invalid_soft", -4.0)
+		_update_hud()                         # nudge the coin pill so the wall reads
+		return
+	FX.pop(burst_chip)
+	Audio.play("merge_success", -2.0)
+	FX.floating_text(self, burst_chip.get_global_rect().get_center() - Vector2(0, 24), tr("Burst L%d!") % _gen_burst_level(), STRAW, 30)
+	_refresh_burst_chip()
+	_update_hud()
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)

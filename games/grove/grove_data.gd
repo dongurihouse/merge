@@ -129,13 +129,15 @@ const GATE_ASK_COUNT := 3                 # distinct top-tier lines the great-sp
 const GATE_STARS := 5                     # the gate's authored ★ (map-completion beat; off the regular cap)
 const GATE_COIN_BONUS := 100              # plus a large coin bonus over the computed overflow
 const GATE_TIER_BASE := 5                 # gate ceiling = min(GATE_TIER_BASE + map_index, TOP_TIER): t5→t8 over the 5 maps
-# §6 burst-pop — PROVISIONAL (sim-tuned). A generator tap pops a BURST of items, each still 1 energy
-# (burst cuts taps, not the per-item energy economy). Burst = base (BURST_ODDS) + free per-map scale-up
-# + the player's paid burst-upgrade level, capped at BURST_MAX.
+# §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
+# taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,
+# capped on its own at BURST_FREE_MAX) PLUS the player's paid burst-upgrade level added on top — so each
+# bought level always adds +1 (decoupled, T25; the old combined cap wasted the top paid levels on deep maps).
 const BURST_ODDS := [0.55, 0.30, 0.15]    # base burst pops 1 / 2 / 3 items
 const BURST_MAP_EVERY := 2                # +1 base burst every N maps (the free per-map scale-up)
-const BURST_MAX := 6                      # hard cap on a single tap's burst
-const BURST_UPGRADE_COSTS := [60, 180, 480]   # coin cost L0→1, 1→2, 2→3 (the §10 second coin sink); size = max level
+const BURST_FREE_MAX := 4                 # cap on the FREE portion (base + per-map gift) — keeps the gift from trivializing the board
+const BURST_MAX := 8                      # absolute ceiling = BURST_FREE_MAX + the 4 paid levels (paid never clips)
+const BURST_UPGRADE_COSTS := [120, 360, 840, 1800]   # coin cost L0→1…3→4 (the §10 second coin sink); each buys a guaranteed +1; size = max level
 
 # Starter items on the open 3x3 (besides the generator cell).
 const STARTER_ITEMS := {

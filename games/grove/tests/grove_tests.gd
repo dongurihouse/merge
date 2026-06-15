@@ -529,6 +529,31 @@ func _initialize() -> void:
 	sbp.queue_free()
 	sbp2.queue_free()
 
+	# 11c. The on-board burst BUY PILL (§6 coin sink UI): the pill renders on the generator, its tap
+	# handler spends coins + raises the level, refuses when broke (no debt) and past the cap. The
+	# logic under the pill (_try_buy_burst) is unit-tested directly; the pill's look is a Dev eyeball.
+	fresh("burst_chip")
+	var sbc = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbc)
+	if sbc.board == null:
+		sbc._ready()
+	ok(sbc.burst_chip != null, "the burst buy pill renders (a generator is on the board)")
+	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "fresh: burst level 0, no coins")
+	sbc._try_buy_burst()
+	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "tapping the pill broke is refused — no level, no debt")
+	Save.add_coins(10000)
+	var cc0 := Save.coins()
+	sbc._try_buy_burst()
+	ok(sbc._gen_burst_level() == 1, "tapping the pill with coins raises the burst level")
+	ok(Save.coins() == cc0 - G.burst_upgrade_cost(0), "tapping the pill spends the ladder cost (the sink)")
+	while sbc._gen_burst_level() < G.burst_upgrade_max():
+		sbc._try_buy_burst()
+	var pill_maxed: int = sbc._gen_burst_level()
+	var coins_at_max := Save.coins()
+	sbc._try_buy_burst()
+	ok(sbc._gen_burst_level() == pill_maxed and Save.coins() == coins_at_max, "the pill refuses past the max level (no overspend)")
+	sbc.queue_free()
+
 	# 12. win-back: away 3 days with low water → full cap on return
 	fresh("winback")
 	var gw := Save.grove()

@@ -120,8 +120,9 @@ func _initialize() -> void:
 	bm2.from_dict(blob)
 	ok(bm2.gen_id_at(Vector2i(2, 1)) == "hen_coop" and bm2.is_gen(Vector2i(4, 3)) and bm2.gens.size() == 2, "the generator map round-trips through to_dict/from_dict")
 
-	# --- burst-pop (§6): a tap pops a BURST — base (BURST_ODDS) + a free per-map scale-up + the
-	# paid burst-upgrade level, capped at BURST_MAX. Each item still costs 1 energy. ---
+	# --- burst-pop (§6): a tap pops a BURST — a FREE portion (base BURST_ODDS + per-map scale-up,
+	# capped on its own at BURST_FREE_MAX) PLUS the paid burst-upgrade added on top (decoupled, T25),
+	# clamped to BURST_MAX. Each item still costs 1 energy. ---
 	var brng := RandomNumberGenerator.new()
 	brng.seed = 7
 	var bmin := 99
@@ -152,6 +153,22 @@ func _initialize() -> void:
 	# the burst-upgrade coin-sink cost ladder (escalating, then maxed)
 	ok(G.burst_upgrade_cost(0) > 0 and G.burst_upgrade_cost(1) > G.burst_upgrade_cost(0), "the burst-upgrade coin cost escalates")
 	ok(G.burst_upgrade_cost(G.burst_upgrade_max()) == -1, "burst-upgrade caps — cost -1 past the max level")
+	# T25 DECOUPLE: at a deep map the FREE portion is capped (BURST_FREE_MAX), and each PAID level adds
+	# +1 ON TOP — regression guard for the old combined cap that clipped upper paid levels (burst_count(4,3)
+	# was stuck at 6). The MAX burst at the deepest level should walk BURST_FREE_MAX → BURST_MAX, one per level.
+	var deep_max := {}
+	for L in range(0, int(G.BURST_UPGRADE_COSTS.size()) + 1):
+		var m := 0
+		for _i in 400:
+			m = maxi(m, G.burst_count(4, L, brng))
+		deep_max[L] = m
+	ok(deep_max[0] == int(G.BURST_FREE_MAX), "deep-map FREE burst caps at BURST_FREE_MAX")
+	var decoupled := true
+	for L in range(1, int(G.BURST_UPGRADE_COSTS.size()) + 1):
+		if deep_max[L] != mini(int(G.BURST_FREE_MAX) + L, int(G.BURST_MAX)):
+			decoupled = false
+	ok(decoupled, "each paid burst level adds +1 on top of the free cap (decoupled — no wasted levels)")
+	ok(deep_max[int(G.BURST_UPGRADE_COSTS.size())] == int(G.BURST_MAX), "the top paid level reaches BURST_MAX (free cap + all paid)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

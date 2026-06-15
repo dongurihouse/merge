@@ -39,6 +39,7 @@ const GATE_COIN_BONUS = D.GATE_COIN_BONUS
 const GATE_TIER_BASE = D.GATE_TIER_BASE
 const BURST_ODDS = D.BURST_ODDS
 const BURST_MAP_EVERY = D.BURST_MAP_EVERY
+const BURST_FREE_MAX = D.BURST_FREE_MAX
 const BURST_MAX = D.BURST_MAX
 const BURST_UPGRADE_COSTS = D.BURST_UPGRADE_COSTS
 const STARTER_ITEMS = D.STARTER_ITEMS
@@ -326,10 +327,13 @@ static func gate_quest(roster: Array, zone: int, _rng: RandomNumberGenerator = n
 	var coins: int = int(quest_reward(asks).coins) + GATE_COIN_BONUS
 	return {"asks": asks, "gate": true, "stars": GATE_STARS, "reward": {"stars": GATE_STARS, "coins": coins}}
 
-## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is
-## the base roll (BURST_ODDS = 1/2/3 items) + a FREE per-map scale-up (every BURST_MAP_EVERY
-## maps, generators throw one more) + the player's paid burst-upgrade level, clamped to
-## [1, BURST_MAX]. Each popped item still costs 1 energy (the caller charges per item).
+## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
+## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every
+## BURST_MAP_EVERY maps, generators throw one more) — capped on its OWN at BURST_FREE_MAX, PLUS
+## the player's paid burst-upgrade level added on top. Decoupling the paid part from the free cap
+## (T25) means every purchased level ALWAYS adds +1 — the free per-map gift can no longer eat the
+## paid headroom (the old `clampi(base+free+paid, …, 6)` wasted the top paid levels on deep maps).
+## Final clamp to [1, BURST_MAX] is a board-flood safety net. Each popped item still costs 1 energy.
 static func burst_count(zone: int, upgrade_level: int, rng: RandomNumberGenerator) -> int:
 	var base := 1
 	var roll := rng.randf()
@@ -339,8 +343,10 @@ static func burst_count(zone: int, upgrade_level: int, rng: RandomNumberGenerato
 		if roll <= acc:
 			base = i + 1
 			break
-	var free_scale := int(zone / float(BURST_MAP_EVERY))     # +1 base burst every N maps
-	return clampi(base + free_scale + upgrade_level, 1, BURST_MAX)
+	var free_scale := int(zone / float(BURST_MAP_EVERY))     # +1 base burst every N maps…
+	var free := mini(base + free_scale, BURST_FREE_MAX)      # …capped on its own, so the gift can't trivialize the board
+	var paid := mini(upgrade_level, BURST_UPGRADE_COSTS.size())   # the paid sink — always added on top of the free cap
+	return clampi(free + paid, 1, BURST_MAX)
 
 ## The burst-upgrade coin sink: the cost to raise the burst from `level` to `level+1`,
 ## escalating up the BURST_UPGRADE_COSTS ladder. Returns −1 once maxed (no further upgrade).

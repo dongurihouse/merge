@@ -30,13 +30,13 @@ at audit time (some now stale where the code moved).
 
 ## Open — economy
 
-- **⭐ [P0] Home-hub yield + upgrade-levels loop — "coins get power" (spec done · code in progress (T22, Part A) · sim). KEYSTONE.**
+- **⭐ [P0] Home-hub yield + upgrade-levels loop — "coins get power" (spec done · Part B DONE · Part A: A1 merged, A2–A9 = next pickup · sim). KEYSTONE.**
   §8/§10: built things have **upgrade levels** (L1→Lⁿ — look better **and** pay back more) and
   **produce coins over time** (passive yield, collected on return, scaling with level, **capped** so
   it extends sessions, never self-sustains); coins then **sink** into those upgrades + generator
   burst-upgrades. **Today:** hub spots are **binary owned/unowned** — restore = `Save.spend_stars` →
-  `unlocks[id]=true` (`engine/scripts/scenes/map.gd` `_on_spot_tap` ~`:957`; `spot_owned()` `:181` —
-  the audit's `map.gd:977`/`:187` anchors are **stale** post layering-split), nothing accrues over time,
+  `unlocks[id]=true` (`engine/scripts/scenes/map.gd` `_on_spot_tap` `:654`; `spot_owned()` `:158` —
+  re-verified 2026-06-15, T25; earlier `~:957`/`:181` and the audit's `:977`/`:187` are stale), nothing accrues over time,
   and the only owned-spot coin sink is a **cosmetic variant** (`_apply_variant`, net-zero). *(Waysides —
   the old structural sink — are **removed** by the map-model rework (T21); variants + treats remain, still
   cosmetic, so the "coins have no power" tension stands.)* **Two coin-sink subsystems, split + sequenced:**
@@ -47,13 +47,22 @@ at audit time (some now stale where the code moved).
   **unblocked once T21 merges**. **Build (engine):** `content.gd` rate/cap/accrual + `spot_is_yield`;
   restore→L1 + the coin upgrade-spend + the hub-collect beat (`map.gd`/`hud.gd`). **Build (grove):**
   yield/upgrade rates, per-building cap (≈ a day), prices. **Status:** **A1 (save schema — `levels{spot_id}`
-  + `hub_collected_at` + accessors + rename-migration in `save.gd`) DONE** on branch `feat/hub-yield` (T22),
-  `save_tests` 32/0; A2–A9 queued behind T21.
-  • **Part B — generator burst-upgrade (§6 board sink) — MECHANIC BUILT (T23, 2026-06-15).** A coin sink to
-  pop more per tap. The **burst-popping** mechanic + its burst-upgrade spend path are now live (merged from
-  `feat/burst-pop`): `board.gd` `_upgrade_gen_burst()`/`_gen_burst_level()` + the `BURST_UPGRADE_COSTS`
-  ladder — a working coin sink, sim-modelled. **Remaining:** wire the **trigger UI** (a buy affordance on
-  the hub surface), not the logic.
+  + `hub_collected_at` + accessors + rename-migration in `save.gd`) DONE + MERGED to `main`** (T22, `a4168d4`),
+  `save_tests` 32/0. **T21 is now merged (`6f9faf9`), so A2–A9 are UNBLOCKED — this is the keystone's next pickup.**
+  • **Part B — generator burst-upgrade (§6 board sink) — ✅ DONE (T23 mechanic + T25 UI, 2026-06-15).** A coin
+  sink to pop more per tap. T23 built the **burst-popping** mechanic + spend path (`board.gd`
+  `_upgrade_gen_burst()`/`_gen_burst_level()` + the `BURST_UPGRADE_COSTS` ladder). **T25 wired the trigger UI**
+  — an **on-board buy pill** on the primary generator (`_rebuild_burst_chip`/`_try_buy_burst`/`_on_burst_chip_input`),
+  **not** the hub: the affordance lives on the board per spec §8 ("board-level… *independent of the hub*"),
+  reachable on every map. The backlog's earlier "hub surface" wording is **superseded** (board placement, owner
+  call 2026-06-15). `make test` 430/0 (grove +6 pill assertions); chip composited-verified on the live board.
+  **Burst tuning — ✅ DONE (T25, 2026-06-15).** The cap-collision is fixed: the free portion (base + per-map
+  gift) is capped on its own at `BURST_FREE_MAX=4`, the paid level adds **on top** (`burst_count` decoupled), so
+  each bought level always gives +1; `BURST_MAX` 6→8, ladder re-priced + lengthened 60/180/480 → **120/360/840/1800**
+  (4 levels, total 3120 > faucet so coins keep a target). Sim-validated (seeds 42/7/999, 30d): no-strand · I2
+  steady-state hold; the burst sink now absorbs **64–76%** of the coin faucet (was 34–50%). Remaining parked: burst
+  stays GLOBAL (per-generator parked). **⚠️ surfaced during re-validation → see the Economy-tuning item:** the
+  integrated `main` JAMS on seed 123 (burst × level-gating, map 1) — pre-existing, not from this change.
   *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin faucet +
   the shop sinks.* **Reworked 2026-06-15 (owner):** hub-concentrated (the hub carries the loop, **not every
   building on every map**). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — a
@@ -320,7 +329,14 @@ Tier 3 spec↔code drift). Anchors are `file:line` at 2026-06-15.
   the old tier-ring (30d sim: stars ~halved, maps 4–5/5 → 2/5) and caps the early FTUE at **2 free cells
   until L2** (at L1 nothing is openable). A softer gradient (inner ring → L1) recovers the pace
   (sim-validated) but **over-feeds the water gift → breaks I2** — so tune the gradient **jointly with
-  `LEVEL_STARS` + `LEVEL_WATER_GIFT`** here, re-validating **both no-strand AND I2** on the sim. *(Was the
+  `LEVEL_STARS` + `LEVEL_WATER_GIFT`** here, re-validating **both no-strand AND I2** on the sim. **⚠️ NEW — integrated
+  `main` JAMS on seed 123 (surfaced 2026-06-15, T25 re-validation):** burst × level-gating combine to a HARD jam
+  (not just slow pace) — the bot earns 5★ on day 1 then is stuck at L1 on the 9-cell board (nothing openable until
+  L2), burst floods it, and it never recovers (90 jams / 30d, faucet 0). **Each branch passed in isolation; the
+  parallel-merge reconcile (`c0a3acd`) never re-ran the sim on the combined `main`**, so it slipped in. This is the
+  same gradient-vs-faucet tension above, now a strand — it is the strongest argument for opening the inner ring at
+  **L1** (T24's recommendation). Fix belongs to THIS joint pass, not the burst-reprice (T25, which is neutral to it —
+  map-1 burst is unchanged by the decouple). *(Was the
   "Economy rebalance under per-zone generators / #4" item — it folded into §7's tuning. Surfaced
   2026-06-15 — T17 sim findings; §7 cutover T19; faucet + burst front-loading folded in T23; the §4
   MIN_LEVEL gradient added T24.)*
