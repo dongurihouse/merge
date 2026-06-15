@@ -187,98 +187,11 @@ func _initialize() -> void:
 	ok(Array(b3.items) == Array(b.items) and Array(b3.terrain) == Array(b.terrain), \
 		"board roundtrips through to_dict/from_dict")
 
-	# 6. P4 content validity: 40 ramp-built chapters, owner rules, debut ordering
-	var chs := G.chapters()
-	var total_spots := 0
-	for z in G.ZONES.size():
-		total_spots += G.ZONES[z].spots.size()
-	ok(chs.size() == total_spots, "one chapter per home spot (%d)" % total_spots)
-	var rules_ok := true
-	var debut_ok := true
-	for i in chs.size():
-		var ch: Dictionary = chs[i]
-		var debuted := G.lines_debuted(i)
-		for q in ch.quests:
-			if int(q.stars) < 1 or int(q.stars) > 3:
-				rules_ok = false
-			for ask in G.quest_asks(q):
-				if int(ask.get("count", 1)) > 2:
-					rules_ok = false
-				if int(ask.tier) < 2 or int(ask.tier) > G.TOP_TIER - 1:
-					rules_ok = false
-				if not debuted.has(int(ask.line)):
-					debut_ok = false
-	ok(rules_ok, "every quest pays 1-3 stars; each ask t2-t7, count <= 2 (owner rules)")
-	ok(debut_ok, "no chapter asks for a line before its generator debuts")
-	# Lines now arrive PER ZONE (§6): zone 0 emits lines 1-4 (satchel 1,2 + compost 3,4),
-	# so mushroom (3) and honey (4) are asked from the start; and a line is asked ONLY in
-	# its own zone — earlier zones' lines have RETIRED, never asked once the player advances.
-	var first_l4 := -1
-	var l4_after_zone0 := false
-	for i in chs.size():
-		for q in chs[i].quests:
-			for ask in G.quest_asks(q):
-				if int(ask.line) == 4:
-					if first_l4 < 0:
-						first_l4 = i
-					if G.zone_of_chapter(i) > 0:
-						l4_after_zone0 = true
-	ok(first_l4 >= 0 and G.zone_of_chapter(first_l4) == 0, "honey (a zone-0 line) is asked within zone 0")
-	ok(not l4_after_zone0, "a retired line (honey) is never asked once the player advances past zone 0")
-
-	# 6b-X: difficulty GROWS — multi-LINE stretch quests appear (2 lines in zone 3,
-	# reaching 3 lines in zone 4+), they're 2-3★, and t8 NEVER appears (diamond pinnacle).
-	var max_asks := 0
-	var max_asks_z3 := 0
-	var any_t8 := false
-	var multi_is_skippable := true
-	for i in chs.size():
-		var z3 := G.zone_of_chapter(i)
-		var n_multi := 0
-		for q in chs[i].quests:
-			var na: int = G.quest_asks(q).size()
-			max_asks = maxi(max_asks, na)
-			if z3 == 2:
-				max_asks_z3 = maxi(max_asks_z3, na)
-			if na >= 2:
-				n_multi += 1
-				if int(q.stars) < 2:
-					multi_is_skippable = false   # a multi-ask must pay 2-3★
-			for ask in G.quest_asks(q):
-				if int(ask.tier) >= G.TOP_TIER:
-					any_t8 = true
-		# the multi-LINE stretch must stay within slack (never forced on the player)
-		if n_multi > int(chs[i].slack):
-			multi_is_skippable = false
-	ok(max_asks_z3 >= 2, "zone 3 (compost era) introduces 2-line asks")
-	ok(max_asks >= 3, "zone 4+ (beehive era) reaches 3-line asks")
-	ok(not any_t8, "no quest ever asks for t8 — it is the diamond pinnacle (order Y)")
-	ok(multi_is_skippable, "every multi-line ask pays >=2 stars AND stays within slack (skippable stretch)")
-
-	# 6b. CUMULATIVE worst-case affordability: cheapest payouts always fund the
-	# cheapest-first spot purchases — the gate can never strand the player
-	var bank := 0
-	var costs: Array = []
-	for z in G.ZONES.size():
-		var zc: Array = []
-		for sp in G.ZONES[z].spots:
-			zc.append(int(sp.cost))
-		zc.sort()
-		costs.append_array(zc)               # cheapest-first inside each sequential zone
-	var afford_ok := true
-	for i in chs.size():
-		var ch2: Dictionary = chs[i]
-		var pays: Array = []
-		for q in ch2.quests:
-			pays.append(int(q.stars))
-		pays.sort()
-		var needed: int = ch2.quests.size() - int(ch2.slack)
-		for k in needed:
-			bank += pays[k]
-		if bank < int(costs[i]):
-			afford_ok = false
-		bank -= int(costs[i])
-	ok(afford_ok, "worst-case star income funds every spot, cumulatively, to map end")
+	# 6. The §7 GENERATED-quest model — asks, the capped stars+coins reward, the metered fence,
+	# and the gate quest — is covered by quest_tests (engine) + the gate/grant/delivery tests
+	# above. The old deterministic per-chapter ramp + its byte-for-byte affordability proof are
+	# RETIRED (chapters()/ZONE_RAMP/_quest_stars gone); the no-strand guarantee now rests on the
+	# guardrails (every ask producible) + the Monte-Carlo sim (games/grove/tools/grove_sim.gd).
 
 	# 6c. generators arrive PER ZONE (§6). Zone 0 grants both starters (satchel + compost);
 	# the surplus generator's cell (6,5) reveals only when the player enters zone 1.
@@ -377,7 +290,7 @@ func _initialize() -> void:
 		var gck: Control = e.check
 		ok(gck != null and is_instance_valid(gck) and gck is Panel, "AB ready-check node present (ring deleted)")
 	var qi: int = scn.giver_chips[0].qi
-	var dq: Dictionary = scn._chapter().quests[qi]
+	var dq: Dictionary = scn.quests[qi]
 	# clear the open board first so EVERY ask fits regardless of prior test state
 	# (determinism: a crowded board could otherwise starve a multi-ask delivery)
 	for ci in scn.board.items.size():
@@ -393,19 +306,25 @@ func _initialize() -> void:
 				dei += 1
 	scn._rebuild_pieces()
 	var stars_before := Save.stars()
+	var dlv_coins_before := Save.coins()
+	var n_before: int = scn.quests.size()
 	scn._on_giver_tap(qi, scn.giver_chips[0].chip)
-	ok(Save.stars() > stars_before, "delivery pays stars (all asks satisfied)")
-	ok(scn.qdone[qi], "delivery marks the quest done")
+	ok(Save.stars() > stars_before, "§7: delivery pays stars (all asks satisfied)")
+	ok(Save.coins() >= dlv_coins_before, "§7: delivery pays any coin overflow (the quest coin faucet)")
+	ok(scn.quests.size() <= n_before, "§7: the delivered quest leaves the live fence")
 
-	# AA: the star gate is SOFT — banking stars does NOT pause the givers; the finite
-	# pool exhausts naturally, and only THEN is Decorate the lone move.
-	Save.add_stars(10)
+	# §7 soft gate: the fence is METERED to the next unlock — with enough banked stars + level
+	# the next spot is affordable, so the fence EMPTIES (the wordless "go restore" signal).
+	var gg := Save.grove()
+	gg["stars_earned"] = 300
+	Save.grove_write()
+	Save.add_stars(300)
 	scn._rebuild_givers()
 	scn._update_hud()
-	ok(scn._gate_ready(), "AA: the gate is affordable (cheapest frontier spot)")
-	ok(not scn.giver_chips.is_empty(), "AA: givers KEEP serving past gate-ready (bank stars if you want)")
-	ok(scn.gate_btn.visible, "AA: the Decorate CTA appears at gate-ready")
-	# AA2: the CTA's reserved slot never covers a giver/merchant pill (any population)
+	ok(scn._gate_ready(), "§7: the next unlock is affordable (gate ready)")
+	ok(scn.quests.is_empty(), "§7: the metered fence empties once the next unlock is affordable")
+	ok(scn.gate_btn.visible, "§7: the restore CTA appears when affordable")
+	# the CTA's reserved slot never covers a giver/merchant pill (any population)
 	var aa_gate: Rect2 = scn.gate_btn.get_global_rect()
 	var aa_clear := true
 	for e in scn.giver_chips:
@@ -414,33 +333,72 @@ func _initialize() -> void:
 	if scn.merchant_chip != null and is_instance_valid(scn.merchant_chip):
 		if aa_gate.intersects(scn.merchant_chip.get_global_rect()):
 			aa_clear = false
-	ok(aa_clear, "AA2: the Decorate CTA's reserved slot covers no giver/merchant")
-	# AA: finish the WHOLE pool → the fence runs dry, the CTA is the only move left
-	for qd in scn.qdone.size():
-		scn.qdone[qd] = true
-	scn._rebuild_givers()
-	scn._update_hud()
-	ok(scn._active_quest_idx().is_empty(), "AA: the chapter's pool exhausts naturally (fence runs dry)")
-	ok(scn.gate_btn.visible, "AA: with the pool dry, Decorate is the only move")
-	for qd2 in scn.qdone.size():
-		scn.qdone[qd2] = false                # restore for the buy test below
-	scn._rebuild_givers()
-	# buying a home spot IS the chapter gate: chapter derives from unlocks
+	ok(aa_clear, "the restore CTA's reserved slot covers no giver/merchant")
+	# buying a home spot advances the board's progress: it derives from unlocks
 	var ch_before: int = scn._chapter_idx()
 	var gu := Save.grove()
 	var first_spot: String = G.ZONES[0].spots[0].id
 	gu["unlocks"] = {first_spot: true}
 	Save.grove_write()
-	ok(scn._chapter_idx() == ch_before + 1, "a home purchase advances the board's chapter")
+	ok(scn._chapter_idx() == ch_before + 1, "a home purchase advances the board's progress (unlocks)")
 
-	# persistence: a fresh scene resumes the same board
+	# persistence: a fresh scene resumes the same board + progress
 	var snapshot := Array(scn.board.items)
 	var scn2 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(scn2)
 	if scn2.board == null:
 		scn2._ready()
 	ok(Array(scn2.board.items) == snapshot and scn2._chapter_idx() == scn._chapter_idx(), \
-		"a fresh scene resumes the persisted board and chapter")
+		"a fresh scene resumes the persisted board and progress")
+
+	# 10g. §7 GATE quest: restoring all of map 1's spots unveils the great-spirit's gate on the
+	# fence; delivering its top-tier asks records the gate, grants the next map's generators, and
+	# opens map 2 (the completion chain). All engine-side; the grove only supplies the tunables.
+	fresh("gatequest")
+	var sg = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sg)
+	if sg.board == null:
+		sg._ready()
+	var sgg := Save.grove()
+	sgg["stars_earned"] = 300                 # level past map 1's spot gates
+	var gate_ul := {}
+	for sp in G.ZONES[0].spots:
+		gate_ul[String(sp.id)] = true         # all of map 1 spot-restored
+	sgg["unlocks"] = gate_ul
+	sgg["gates"] = []
+	Save.grove_write()
+	sg._init_quests()
+	sg._rebuild_givers()
+	ok(sg.quests.size() == 1 and bool(sg.quests[0].get("gate", false)), "§7: a fully-restored map shows the lone gate quest")
+	var gateq: Dictionary = sg.quests[0]
+	for ci in sg.board.items.size():
+		if sg.board.items[ci] > 0 and not G.is_coin(sg.board.items[ci]):
+			sg.board.items[ci] = 0
+	var gemp: Array = sg.board.empty_ground_cells()
+	var gix := 0
+	for ask in G.quest_asks(gateq):
+		var gcode: int = int(ask.line) * 100 + int(ask.tier)
+		for _n in int(ask.count):
+			if gix < gemp.size():
+				sg.board.place(gemp[gix], gcode)
+				gix += 1
+	sg._rebuild_pieces()
+	var gate_stars_b := Save.stars()
+	sg._on_giver_tap(0, sg.giver_chips[0].chip)
+	ok(Save.grove().get("gates", []).has(0), "§7: delivering the gate records it for map 1")
+	ok(G.zone_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "§7: map 2 unlocks once the gate is delivered")
+	ok(Save.stars() > gate_stars_b, "§7: the gate pays its large authored reward")
+	ok(sg.board.gen_id_at(Vector2i(6, 5)) == "z1c", "§7: the next map's SURPLUS generator appears outright (z1c)")
+	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "satchel", "§7: the hand-in generators wait — the satchel stays for its grant quest")
+	# the new map opens with its generator-grant hand-in(s) on the fence (§6)
+	var grant_qi := -1
+	for gqi in sg.quests.size():
+		if sg.quests[gqi].has("grant") and String(sg.quests[gqi].grant.grants) == "z1a":
+			grant_qi = gqi
+	ok(grant_qi >= 0, "§7: the new map opens with z1a's grant quest (hand in the satchel)")
+	sg._on_giver_tap(grant_qi, sg.giver_chips[grant_qi].chip)
+	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "z1a", "§7: handing the satchel in installs z1a in its place — the new line goes live")
+	sg.queue_free()
 
 	# 11. P2 — water economy + coins
 	fresh("p2")
@@ -537,8 +495,8 @@ func _initialize() -> void:
 	ok(s4.gen_nodes.size() == 3, "a cold load in zone 2 draws all 3 of the zone's live generators")
 	ok(s4.gen_node != null and s4.gen_nodes.values().has(s4.gen_node), "gen_node points at a live generator (not the stale index-0 satchel)")
 
-	# 12c. generators are MOVABLE (#1) and EVOLVE in place (#2) on the live board, and the
-	# scene re-renders both (T17). A fresh board is zone 0: satchel (4,3) + compost (2,1).
+	# 12c. generators are MOVABLE (#1) and arrive by GRANT HAND-IN (#2) on the live board,
+	# and the scene re-renders both (§6). A fresh board is zone 0: satchel (4,3) + compost (2,1).
 	fresh("genmech")
 	var s4c = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s4c)
@@ -549,11 +507,10 @@ func _initialize() -> void:
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()
 	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 3)), "12c: the moved generator re-renders at its new cell")
-	s4c.board.gens[Vector2i(4, 5)] = "z1a"                    # deliver a grant (interim stand-in for §7)
-	ok(s4c.board.evolve_gen(Vector2i(4, 4), Vector2i(4, 5)), "12c: the grant evolves onto the satchel (#2)")
+	ok(s4c.board.grant_gen("z1a"), "12c: a generator-grant quest hands the satchel in for z1a (#2)")
 	s4c._rebuild_all()
-	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "z1a" and not s4c.board.gens.has(Vector2i(4, 5)), "12c: evolved in place — z1a at the cell, grant consumed")
-	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 5)), "12c: the re-render reflects the evolve")
+	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "z1a" and s4c.board.gens.size() == 2, "12c: granted in place — z1a at the satchel's (moved) cell, satchel consumed")
+	ok(s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the grant")
 	s4c.queue_free()
 
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's
@@ -581,8 +538,11 @@ func _initialize() -> void:
 	ok(hint.size() == 2 and s3.board.item_at(hint[0]) == s3.board.item_at(hint[1]) \
 		and s3.board.can_merge(hint[0], hint[1]), "the idle hint wiggles a true mergeable pair")
 
-	# 12d. the fence shows MORE asks at once (owner: not just two)
-	ok(s3.giver_chips.size() >= 3, "the quest fence seats 3+ givers (%d shown)" % s3.giver_chips.size())
+	# 12d. §7: the fence is METERED to the next unlock — it seats exactly active_giver_count
+	# stands (shrinking as stars bank, capped at MAX_GIVERS), not a fixed pool.
+	var s3_nxt: int = G.cheapest_spot_cost(Save.grove().get("unlocks", {}), G.level_for_stars(int(Save.grove().get("stars_earned", 0))))
+	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_nxt), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
+	ok(s3.giver_chips.size() <= int(G.MAX_GIVERS), "§7: the fence never exceeds MAX_GIVERS stands")
 
 	# 13. P3 — zones/spots content sanity + level math
 	var zones_ok := true
@@ -720,7 +680,11 @@ func _initialize() -> void:
 		if not h.spot_owned(sid):
 			h._on_spot_tap(0, i, Button.new(), Vector2(300, 300))
 	ok(h.zone_complete(0), "all farmhouse spots bought")
-	ok(h.zone_unlocked(1), "completing a zone opens the next (sequential gating)")
+	ok(not h.zone_unlocked(1), "§7: spot-completing a map does NOT open the next — its gate quest must land first")
+	var gms := Save.grove()
+	gms["gates"] = [0]                        # the great-spirit's gate, delivered
+	Save.grove_write()
+	ok(h.zone_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
 	h._persist()
 
 	# 14a2. customization: the owned item itself offers coin/diamond looks
@@ -776,27 +740,31 @@ func _initialize() -> void:
 	ok(Save.grove().get("unlocks", {}).size() == ren.size() and not Save.grove().get("unlocks", {}).has(first_old), \
 		"Q migration is idempotent")
 
-	# 14b. an orchard-era purchase pays its chapter's water gift (z4 ramp gifts 4;
-	# earlier zones gift 0 by sim derivation)
+	# 14b. §7: buying a spot grants NO per-spot water — the old per-chapter gift is retired
+	# (water comes from level-ups only), so the purchase leaves water unchanged.
 	var gw2 := Save.grove()
 	var ul24 := {}
-	for z4 in 3:                             # zones 1-3 fully bought → chapter 24
+	for z4 in 3:                             # maps 1-3 (zones 0-2) fully spot-restored
 		for sp in G.ZONES[z4].spots:
 			ul24[String(sp.id)] = true
 	gw2["unlocks"] = ul24
 	h.unlocks = ul24
 	gw2["water"] = 50
-	gw2["stars_earned"] = 200                # high Level clears the orchard gates; buying grants no level water
+	gw2["stars_earned"] = 200                # high Level clears the orchard gates
+	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → zone 4 spots are buyable
 	Save.add_stars(10)
-	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))   # closing ch 24 → zone 4 → gift 4
-	ok(int(Save.grove().get("water", 0)) == 54, "the home purchase pays the chapter water gift (no level water)")
+	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))
+	ok(int(Save.grove().get("water", 0)) == 50, "§7: a home purchase grants no per-spot water (water is level-ups only)")
 
 	# 14c. the pigeonhole proof in motion: worst-case cheapest-first buying is
 	# NEVER stranded by a level gate, all the way to the end of the map
 	var sim_ul := {}
 	var sim_earned := 0
 	var strand := false
-	while sim_ul.size() < G.chapters().size():
+	var all_spots := 0
+	for zc in G.ZONES.size():
+		all_spots += G.ZONES[zc].spots.size()
+	while sim_ul.size() < all_spots:
 		var lvl_now := G.level_for_stars(sim_earned)
 		var pick_z := -1
 		var pick_k := -1

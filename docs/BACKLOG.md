@@ -17,9 +17,12 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 - **Map model — one image = one map (collapse map/zone; open space + props; no interiors) (spec done · code · grove). Owner 2026-06-15.** §8 rewritten: a **map is one self-contained LLM image** (§16) — an **open space** with a few buildings + placed **props**, **no walk-inside interior** and **no seamless overworld** (discrete maps reached via a **map-select**). Restoration spots = the buildings/prop-clusters on that one image (Stars+level gated, as before); restoring all a map's spots **unveils its great-spirit gate quest** (a randomized top-tier offering, §7) and delivering that unlocks the next map; **maps are small → a faster map→map cadence**. Anti-abandonment = the **home hub** (the permanent, coin-fed customization anchor — the keystone item) **+ live-ops events staged in already-restored maps** (§17); the **growing-vista** and **per-map yield/feed-forward** ideas were **rejected/parked** (the vista fights §16's no-seamless-world rule; per-map yield is a chore). **Spec renamed `zone`→`map` throughout `merge_spec`** — this BACKLOG and the **code still say `zone`** (e.g. `map.gd`, `ZONE_RAMP`, `appears_at`, `interior_view`) pending the code rework. **Code is the OLD model:** an overworld-of-zones + walk-inside `interior_view` interiors + per-spot binary own + cosmetic-only coin sinks. **Build (engine):** the single-scene map render + map-select; a **persistent home-shortcut on the HUD** (jump to the hub from anywhere to collect/upgrade) + the hub's **deeper, ongoing upgrade/décor surface** (the hub map is authored differently from a finish-once map); **remove `interior_view`** + the per-map env-unlock/coin-sink code; the `zone`→`map` symbol rename. **No episode/chapter tier — a flat map sequence.** **Build (grove):** designate the hub map (the homestead), the maps & their props, spots-per-map. *(Surfaced 2026-06-15 — owner call.)*
 
 - **Per-zone generators — the grove content map + the art (content · art).** **[Engine mechanic
-  shipped 2026-06-15 as `T17` (`df23351`, `tasks/mechanics.md`); the §7 gate/grant-quest *wiring* and
-  the #4 economy rebalance are their own items below. What remains here is just the grove DATA + ART
-  that dress the now-shipped mechanic. ⚠️ **Reworked 2026-06-15: the T17 evolve-merge is retired** — generators now arrive as **generator-grant quest rewards** (deliver an old generator → receive a new one; no on-board merge). That engine change folds into the §7 quest item below.]** §6 target: a **~16-gen/32-line lifetime roster** —
+  shipped 2026-06-15 as `T17` (`df23351`); the T17 evolve-merge was then **retired in code and
+  replaced by the generator-grant hand-in scaffold** (`T18` 2026-06-15, `docs/tasks/mechanics.md`):
+  `board_model.grant_gen` + `board.gd:_deliver_grant` fire on a `{grant}` quest, `content.gd:grant_quests_for_zone`
+  authors them, and the data field `evolves_from`→`grant_from`. The §7 grant-quest **scheduling** (firing
+  those authored quests in the live script) and the #4 economy rebalance are their own items below. What
+  remains in THIS item is just the grove DATA + ART that dress the now-shipped mechanic.]** §6 target: a **~16-gen/32-line lifetime roster** —
   generators arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8, ~2–4 live), **2 lines
   each**, each arriving as a **generator-grant quest reward** (hand an older generator in → receive a new line; old lines retire) or granted as a surplus. **T17 shipped this on a PLACEHOLDER roster** (16 gens, lines 1–8 & 10–33,
   code-drawn art — `games/grove/grove_data.gd:GENERATORS`; `ZONE_RAMP` is a flat `Vector2i(2,4)`,
@@ -28,21 +31,22 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   **Build (art):** ~256 item sprites + 16 generators via the §16 LLM pipeline — ⚠️ **large art**.
   *(Surfaced 2026-06-14 — spec review + code audit; engine split shipped as T17 2026-06-15.)*
 
-- **Generated quests + calculated reward (spec done · code · sim).** §7 replaced the deterministic
+- **✅ DONE — T19 (2026-06-15) · Generated quests + calculated reward (§7).** §7 replaced the deterministic
   per-zone ramp with **generated** quests (asks drawn from live generator lines, weighted to the
   newest/highest-value, asks/tier scaling with **level**) and a reward **calculated from expected
   clicks** → `stars = min(value, STAR_CAP)` (~1–3★, level ∝ quest count) **+ coins** for the overflow;
   the map's top tier asked **only** by the **gate quest** — the gatekeeper's **end-of-map** capstone (a randomized top-tier offering, up to t8) that **unlocks the next map** for a large reward (the grove's gatekeeper = the **great-spirit**); **generator-grant quests** dispense the next map's producers (deliver an old generator → receive a new line — a **hand-in, not a merge**; the T17 evolve-merge is retired); plus **featured quests** (a random share highlighted, paying a coins/premium **bonus**, no extra ★). Gate + generator-grant quests are **authored**, the rest generated. **Code is the OLD
-  fixed script:** `chapters()` built from `ZONE_RAMP` (`content.gd:115`, `grove_data.gd:42`), stars by
-  ask-count (`_quest_stars`, `content.gd:172`), and **quests pay no coins at all** (`board.gd:1902`
-  `add_stars` only). **Build:** the ask-generator, the click→value→`stars`+`coins` reward + `STAR_CAP`,
-  the authored **great-spirit gate quest** (end-of-map, randomized top-tier, unlocks next map) + **generator-grant quests** (old generator in → new line out) + **featured-quest** highlighting/bonus, **guardrails** (every ask producible on the
-  board; an affordability floor), and a **Monte-Carlo no-strand sim** replacing the retired pigeonhole
-  proof. Adds the **quest coin faucet** (§10). The fence must **meter givers to the next-unlock cost**
-  (`gate_pause`) — the sim must confirm metered supply always reaches the next unlock without
-  deadlocking a level gate. **Grove:** generator weights, level→asks/tier distribution, `STAR_CAP`,
-  click→value rate (keep the old ramp table as a tuning ref). *(Surfaced 2026-06-14 — spec review +
-  code audit.)*
+  fixed script.** **Built + cut over live (engine-side), T19:** the live game now runs the generated
+  metered stream (`gen_quest`/`active_giver_count`), the capped-★ + coin-overflow reward (`quest_reward`),
+  the authored **great-spirit gate quest** (gate-gated map unlock) and the **generator hand-in** opening
+  each new map; `chapters()`/`ZONE_RAMP`/`_quest_stars`/`_stretch`/`lines_debuted` + the per-spot water
+  gift are retired. The **quest coin faucet** (§10) is on. A **Monte-Carlo no-strand sim**
+  (`games/grove/tools/grove_sim.gd`) replaces the pigeonhole proof and is **green across seeds**
+  (I1 no-jam · no-strand · I2 steady-state <30% · Y selling-not-income). **Remaining:** the
+  **PROVISIONAL tunables** (`STAR_CAP`, `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/
+  `GATE_ASK_COUNT`, featured rate — all in `grove_data.gd`) await the owner's **pacing sign-off**; the
+  #4 economy rebalance folds in here (steady-state I2 was carried by the §7 tier knob, so the §3
+  `LEVEL_STARS` curve is untouched + available to recalibrate). *(Surfaced 2026-06-14; built 2026-06-15.)*
 
 - **Economy rebalance under per-zone generators (sim · §3 · §7) — surfaced by T17.** The per-zone
   generator mechanic landed (T17), but the **economy sim cannot be balanced** under the interim
@@ -181,10 +185,10 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 - **Grove: story implementation — the trapped-family spirit-grove arc (story specced · content · art · code).**
   The narrative is now **designed in `grove_spec §1`** — a wordless spirit-world spine: a
   child crosses into a fading spirit-grove, her parents become **silent nature-spirits** (Acorn-dad +
-  Flower-mom) and she restores the grove to **free them** and wake the **forgotten great heart-tree
-  spirit**; reunite-early-then-help-others, scaling **maps = beats** (the family become
+  Flower-mom) and she restores the grove to **reunite the family** and wake the **forgotten great heart-tree
+  spirit** — v1 ends on a **cliffhanger** (the parents' *full freeing* defers to the first post-launch place, `grove_spec §1`); reunite-early-then-help-others, scaling **maps = beats** (the family become
   the grove's new Keepers — the endless-content justification). **Givers re-cast** as humanoid
-  produce/critter spirits (Radish · Carrot · Frog · Bee · Mushroom + menagerie; fox/hedgehog/owl
+  produce/critter spirits (Radish · Carrot · Frog · Bee · Morel + menagerie; fox/hedgehog/owl
   retired). **Build (grove content):** giver names/personalities/wishes + per-zone beats + the Map-1
   episode (authored crossing/FTUE → restoration beats → heart-tree waking → reunion + onward hook);
   image-memory vignettes. **Build (art):** the cast, the parents + their **easing de-transformation**
@@ -199,3 +203,11 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   the **per-event premium lane** that now ships in Core §17. Owner: **not interested for v1**; parked
   as a future LiveOps revenue line if the cozy positioning proves it can carry one. *(Surfaced
   2026-06-14 — director review.)*
+
+- **Engine layering — Phase 4 (optional refactor).** The `core/ui/scenes` split (Phases 1–3) is
+  **done + guard-enforced** — invariant now in `merge_spec §15`, guard `engine/tests/layering_tests.gd`.
+  Phase 4 folds the last view-stranded logic into core: ambient **win-back** trigger → core
+  (`save`/`content`); shop **purchase logic** → `core/economy.gd` (economy numbers → `Game.DATA`) —
+  leaving `ambient.gd`/`shop.gd` pure view. LOW risk, behavior-identical. Out of scope (separate axis):
+  relocating `board`/`map` from `engine/` to `games/`. *(Was `ui_backend_separation.md` §Phase 4; that
+  plan doc is deleted now Phases 1–3 landed — invariant lifted to `merge_spec §15`. Surfaced 2026-06-15.)*

@@ -48,8 +48,8 @@ const STRAW = Pal.STRAW
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
-var qdone: Array = []
-var qdone_chapter := -1            # which chapter qdone belongs to (chapter = spots bought)
+var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
+var quests_zone := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
 var refills_used := 0
@@ -89,7 +89,7 @@ var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
-var _drag_is_gen := false          # the current drag picked up a generator (movable/evolve, T17)
+var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
 var animating := false
@@ -331,8 +331,8 @@ func _load_state() -> void:
 	var g := Save.grove()
 	if g.has("board"):
 		board.from_dict(g["board"])
-		qdone = Array(g.get("qdone", []))
-		qdone_chapter = int(g.get("qdone_chapter", -1))
+		quests = Array(g.get("quests", []))
+		quests_zone = int(g.get("quests_zone", -1))
 		bag = Array(g.get("bag", []))
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
@@ -348,12 +348,23 @@ func _load_state() -> void:
 	else:
 		rng.randomize()
 		_regen_ts = now
-		_reset_qdone()
+		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
 		board.seed_gens(G.zone_of_chapter(_chapter_idx()))   # seed the current zone's set (migration)
-	if qdone_chapter != _chapter_idx() or qdone.size() != _chapter().quests.size():
-		_reset_qdone()
+	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
+		var mg: Array = []
+		var ul: Dictionary = Save.grove().get("unlocks", {})
+		for z in G.ZONES.size():
+			if G.zone_done(z, ul):
+				mg.append(z)
+		var gg := Save.grove()
+		gg["gates"] = mg
+		Save.grove_write()
+	if quests_zone != _quest_zone():        # never-seeded (pre-§7 save) or crossed into a new map
+		_init_quests()
+	else:
+		_refill_quests()                    # top up / trim the live fence to the current meter
 	for v in board.items:                # everything already growing counts as met
 		_mark_seen(int(v))
 	for v in bag:
@@ -385,17 +396,79 @@ func _apply_regen(now: float) -> void:
 	water = int(r.water)
 	_regen_ts = float(r.regen_ts)
 
-func _reset_qdone() -> void:
-	qdone = []
-	qdone_chapter = _chapter_idx()
-	for q in _chapter().quests:
-		qdone.append(false)
+# --- §7 live generated-quest fence ------------------------------------------------
+# Gates delivered so far (zone indices) — the §7 completion chain; persisted in the save.
+func _gates() -> Array:
+	return Save.grove().get("gates", [])
+
+# The map currently being restored (its generators/lines are live). Clamped to a valid map.
+func _quest_zone() -> int:
+	return clampi(G.frontier_zone(Save.grove().get("unlocks", {}), _gates()), 0, G.ZONES.size() - 1)
+
+func _quest_level() -> int:
+	return G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+
+# The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
+func _meter_target() -> int:
+	return G.active_giver_count(Save.stars(), G.zone_cheapest_spot(_quest_zone(), Save.grove().get("unlocks", {}), _quest_level()))
+
+# Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
+# quest is the lone fence stand (§7) — delivering it unlocks the next map.
+func _gate_pending() -> bool:
+	var z := _quest_zone()
+	return G.zone_done(z, Save.grove().get("unlocks", {})) and not _gates().has(z)
+
+# Top up / trim the live fence to the metered count with freshly generated quests (§7); once the
+# map is fully restored, the fence becomes the lone authored GATE quest. Deterministic via the rng.
+func _refill_quests() -> void:
+	if _map_done():
+		quests = []
+		return
+	if _gate_pending():
+		if quests.size() != 1 or not bool(quests[0].get("gate", false)):
+			quests = [G.gate_quest(G.GENERATORS, _quest_zone(), rng)]
+		return
+	var pend := _pending_grant_quests()
+	if not pend.is_empty():
+		quests = pend                         # §6: a new map opens with its generator-grant hand-in(s)
+		return
+	quests = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
+	var lines := G.lines_for_zone(G.GENERATORS, _quest_zone())
+	var lvl := _quest_level()
+	var target := _meter_target()
+	while quests.size() < target:
+		quests.append(G.gen_quest(lvl, lines, rng))
+	while quests.size() > target:
+		quests.pop_back()
+
+# §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
+# generator (still on the board) and rewards a new line. The map opens with these before its
+# regular stream; once handed in, the new generators are live and regular quests resume.
+func _pending_grant_quests() -> Array:
+	var out: Array = []
+	for q in G.grant_quests_for_zone(G.GENERATORS, _quest_zone()):
+		var gid := String(q.grant.grants)
+		if not board.gens.values().has(gid) and G.gen_can_grant(board.gens, G.GENERATORS, gid):
+			out.append(q)
+	return out
+
+# Fresh fence for the current map (load / migration / crossing a map boundary).
+func _init_quests() -> void:
+	quests = []
+	quests_zone = _quest_zone()
+	_refill_quests()
+
+func _quest_stars(q: Dictionary) -> int:
+	return int(q.reward.stars) if q.has("reward") else int(q.get("stars", 0))
+
+func _quest_coins(q: Dictionary) -> int:
+	return int(q.reward.coins) if q.has("reward") else 0
 
 func _persist() -> void:
 	var g := Save.grove()
 	g["board"] = board.to_dict()
-	g["qdone"] = qdone
-	g["qdone_chapter"] = qdone_chapter
+	g["quests"] = quests
+	g["quests_zone"] = quests_zone
 	g["bag"] = bag
 	g["rng_state"] = rng.state
 	g["water"] = water
@@ -407,18 +480,14 @@ func _persist() -> void:
 func _chapter_idx() -> int:
 	return Save.grove().get("unlocks", {}).size()   # chapter = home spots bought
 
-func _chapter() -> Dictionary:
-	return G.chapters()[mini(_chapter_idx(), G.chapters().size() - 1)]
+func _map_done() -> bool:                     # every map fully complete (spots + gate) — no frontier left
+	return G.frontier_zone(Save.grove().get("unlocks", {}), _gates()) == -1
 
-func _map_done() -> bool:
-	return _chapter_idx() >= G.chapters().size()
-
-# the gate: the givers pause once the frontier zone's cheapest spot that the
-# player's LEVEL allows is affordable (level-locked spots can't pause the garden)
+# the restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
+# Scoped to the frontier map (gate-aware), so a fully-restored map (gate pending) is NOT
+# "ready to restore" — the move there is delivering the gate quest, not buying a spot.
 func _gate_ready() -> bool:
-	var g := Save.grove()
-	var lvl := G.level_for_stars(int(g.get("stars_earned", 0)))
-	var cost := G.cheapest_spot_cost(g.get("unlocks", {}), lvl)
+	var cost := G.zone_cheapest_spot(_quest_zone(), Save.grove().get("unlocks", {}), _quest_level())
 	return cost > 0 and Save.stars() >= cost
 
 # --- HUD ------------------------------------------------------------------------
@@ -531,19 +600,11 @@ func _update_hud() -> void:
 # --- givers + merchant ------------------------------------------------------------
 
 func _active_quest_idx() -> Array:
+	# the live fence is already metered to <= MAX_GIVERS by _refill_quests (§7's soft gate:
+	# it shrinks as stars bank toward the next unlock, and empties once it's affordable).
 	var out: Array = []
-	if _map_done():
-		return out
-	# AA: the star gate is SOFT — the givers keep serving the chapter's FULL pool
-	# even past gate-ready (the player may bank stars if they want). The pool is
-	# finite, so it exhausts NATURALLY; once it's dry the only thing left to earn is
-	# the Decorate gate. (No artificial pause — the old `_gate_ready()` stop is gone.
-	# LEVEL-gating of spots is untouched; that lives in cheapest_spot_cost.)
-	for i in qdone.size():
-		if not qdone[i]:
-			out.append(i)
-		if out.size() == 5:                   # the fence seats five (owner: show MORE)
-			break
+	for i in quests.size():
+		out.append(i)
 	return out
 
 func _rebuild_givers() -> void:
@@ -551,9 +612,10 @@ func _rebuild_givers() -> void:
 		if c != gate_btn:
 			c.queue_free()
 	giver_chips.clear()
-	var quests := _active_quest_idx()
+	_refill_quests()                          # §7: size the live fence to the meter before rendering
+	var qidx := _active_quest_idx()
 	var with_merchant := _chapter_idx() >= 1 or not Features.on("ftue_staged_chrome")
-	var stands := quests.size() + (1 if with_merchant else 0)
+	var stands := qidx.size() + (1 if with_merchant else 0)
 	merchant_chip = null
 	if stands == 0:
 		return
@@ -606,9 +668,9 @@ func _rebuild_givers() -> void:
 		row.custom_minimum_size = Vector2(span, FENCE_H)   # few stands sit centered
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(row)
-	for k in quests.size():
-		var qi: int = quests[k]
-		var stand := _make_giver_stand(qi, _chapter().quests[qi])
+	for k in qidx.size():
+		var qi: int = qidx[k]
+		var stand := _make_giver_stand(qi, quests[qi])
 		row.add_child(stand.chip)
 		giver_chips.append(stand)
 	if with_merchant:
@@ -662,6 +724,23 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	pill.add_child(inner)
 	var asks: Array = G.quest_asks(q)
 	var ask_uis: Array = []
+	if q.has("grant"):                        # §6: a generator-grant quest shows the NEW generator to receive
+		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.grant.grants))
+		var gtex := Game.art(String(gdef.get("tex", "")))
+		if ResourceLoader.exists(gtex):
+			var gicon := TextureRect.new()
+			gicon.texture = load(gtex)
+			gicon.custom_minimum_size = Vector2(56, 56)
+			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			inner.add_child(gicon)
+		var glbl := Label.new()
+		glbl.text = tr("✿ new tool")
+		glbl.add_theme_font_size_override("font_size", 22)
+		glbl.add_theme_color_override("font_color", Color("#33402F"))
+		glbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(glbl)
 	var isz := 52.0 if asks.size() >= 2 else 56.0
 	for ai in asks.size():
 		var ask: Dictionary = asks[ai]
@@ -696,7 +775,7 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pay.add_child(Look.icon("star", 30.0))
 	var pay_lbl := Label.new()
-	pay_lbl.text = "+%d" % int(q.stars)
+	pay_lbl.text = "+%d" % _quest_stars(q)
 	pay_lbl.add_theme_font_size_override("font_size", 24)
 	pay_lbl.add_theme_color_override("font_color", STRAW)
 	pay_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
@@ -1056,7 +1135,7 @@ func _rebuild_all() -> void:
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
-		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move / evolve in place)
+		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move, or be replaced by a hand-in grant)
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
 	# per-chapter `appears_at`. Under per-zone generators the next set arrives on zone
@@ -1506,18 +1585,13 @@ func _release_gen(pos: Vector2) -> void:
 		if node != null:
 			_snap_back(from, node)            # never sold
 		return
-	if target != from and board.is_gen(target) and board.evolve_gen(target, from):
-		Audio.play("merge_soft" if Audio.has("merge_soft") else "item_drop", -3.0)
-		_persist()
-		_rebuild_all()                        # #2 evolve: old consumed, new at its cell, lines retire
-		return
 	if target != from and board.is_empty_ground(target) and board.move_gen(from, target):
 		Audio.play("item_drop", -3.0)
 		_persist()
-		_rebuild_all()                        # #1 move
+		_rebuild_all()                        # #1 move (generators are movable-only; grants arrive by hand-in quest)
 		return
 	if node != null:
-		_snap_back(from, node)                # occupied / bramble / invalid evolve — refuse
+		_snap_back(from, node)                # occupied / bramble / dropped on another gen — refuse
 
 func _snap_back(from: Vector2i, node: Control) -> void:
 	var t := node.create_tween()
@@ -1552,10 +1626,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers'
 	# wanted lines bias the roll. RNG order is load-bearing (seeded + persisted).
 	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
-	var quests: Array = []
+	var giver_quests: Array = []
 	for e in giver_chips:
-		quests.append(_chapter().quests[e.qi])
-	var spawn := BoardLogic.roll_spawn(empties, cell, pool, BoardLogic.wanted_lines(pool, quests), rng)
+		if int(e.qi) >= 0 and int(e.qi) < quests.size():
+			giver_quests.append(quests[int(e.qi)])
+	var spawn := BoardLogic.roll_spawn(empties, cell, pool, BoardLogic.wanted_lines(pool, giver_quests), rng)
 	var pick: Vector2i = spawn.cell
 	var code: int = spawn.code
 	board.place(pick, code)
@@ -1799,7 +1874,15 @@ func _rebuild_bag() -> void:
 # --- givers / merchant / gate actions ----------------------------------------------
 
 func _on_giver_tap(qi: int, chip: Control) -> void:
-	var q: Dictionary = _chapter().quests[qi]
+	if qi < 0 or qi >= quests.size():
+		return
+	var q: Dictionary = quests[qi]
+	if q.has("grant"):                        # §6/§7: a generator-grant quest — hand a generator in, not items
+		_deliver_grant(qi, q, chip)
+		return
+	if q.get("gate", false):                  # §7: the great-spirit's gate quest — deliver to unlock the next map
+		_deliver_gate(qi, q, chip)
+		return
 	var asks: Array = G.quest_asks(q)
 	# X3: deliver only when EVERY ask is payable (multi-ask delivers all-or-nothing)
 	if not BoardLogic.quest_payable(board, asks):
@@ -1822,11 +1905,17 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 				t.tween_property(n, "scale", Vector2(0.4, 0.4), 0.3 + 0.08 * flight)
 				t.chain().tween_callback(n.queue_free)
 			flight += 1
-	qdone[qi] = true
+	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
 	# delivering a quest is the ONE place Level advances — earn_stars credits the
 	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
-	var levels_up := G.earn_stars(int(q.stars))
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % int(q.stars), STRAW)
+	var sp_stars := _quest_stars(q)
+	var sp_coins := _quest_coins(q)
+	var levels_up := G.earn_stars(sp_stars)
+	if sp_coins > 0:
+		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
+	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % sp_stars, STRAW)
+	if sp_coins > 0:
+		FX.floating_text(self, chip.get_global_rect().get_center() + Vector2(20, 36), tr("+%d🪙") % sp_coins, STRAW, 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
@@ -1843,6 +1932,64 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_update_hud()
 	if _gate_ready():
 		FX.floating_text(self, gate_btn.get_global_rect().get_center() - Vector2(140, 70), tr("Ready to restore!"), STRAW, 40)
+
+## A generator-grant quest (§6): hand the predecessor generator in, install the granted
+## one in its place, retire the old line. The §7 trigger; mirrors the item-delivery glue
+## above (authored grant quests are scheduled by §7 — none are in the live script yet).
+func _deliver_grant(qi: int, q: Dictionary, chip: Control) -> void:
+	if not board.grant_gen(String(q.grant.grants)):
+		FX.wobble(chip)                       # the predecessor generator isn't on the board
+		Audio.play("invalid_soft", -6.0)
+		return
+	quests.remove_at(qi)
+	var levels_up := G.earn_stars(_quest_stars(q))
+	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % _quest_stars(q), STRAW)
+	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
+	if levels_up > 0:
+		water = int(Save.grove().get("water", water))   # re-sync after the level-up gift
+		_update_water_hud()
+	_persist()
+	_rebuild_all()                            # the granted generator changed — redraw the board
+	_rebuild_givers()
+	_update_hud()
+
+## The great-spirit GATE quest (§7): the map's capstone. Deliver its top-tier asks → mark the
+## gate done (the next map unlocks), grant the next map's generators, pay the large reward, and
+## regenerate the fence for the new map. All-or-nothing like any delivery.
+func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
+	var asks: Array = G.quest_asks(q)
+	if not BoardLogic.quest_payable(board, asks):
+		FX.wobble(chip)
+		Audio.play("invalid_soft", -6.0)
+		return
+	for ask in asks:
+		var code := int(ask.line) * 100 + int(ask.tier)
+		for _k in int(ask.count):
+			board.take(board.first_item_of(code))
+	var z := _quest_zone()
+	var g := Save.grove()
+	var gates: Array = g.get("gates", [])
+	if not gates.has(z):
+		gates.append(z)
+	g["gates"] = gates                        # §7: the gate is delivered → the next map unlocks
+	Save.grove_write()
+	if z + 1 < G.ZONES.size():                # the next map opens: its SURPLUS generators appear now;
+		for sid in G.surplus_gen_ids(G.GENERATORS, z + 1):   # the hand-in ones arrive via grant quests (§6)
+			board.place_surplus_gen(String(sid), G.gen_cell_of(G.GENERATORS, String(sid)))
+	quests.remove_at(qi)
+	var levels_up := G.earn_stars(_quest_stars(q))
+	if _quest_coins(q) > 0:
+		Save.add_coins(_quest_coins(q))
+	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("✿ %s restored! +%d★") % [tr(G.ZONES[z].name), _quest_stars(q)], STRAW)
+	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -1.0)
+	if levels_up > 0:
+		water = int(Save.grove().get("water", water))
+		_update_water_hud()
+	_init_quests()                            # fresh fence for the newly opened map
+	_persist()
+	_rebuild_all()
+	_rebuild_givers()
+	_update_hud()
 
 # sell ANYTHING dragged onto the cart — tier pocket change; cleanup, never income
 func _sell_item(from: Vector2i, node: Control) -> void:

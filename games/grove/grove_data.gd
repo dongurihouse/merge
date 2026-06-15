@@ -16,56 +16,77 @@ const LINES := {
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
 }
 
-# Generators — the per-zone roster (Core §6, the merge-to-evolve model). Each emits 2
-# lines and belongs to a zone; `evolves_from` is the previous-zone generator it upgrades
-# (consumed on evolve — old lines retire), "" = granted outright (a zone's surplus, or
-# zone 0's two starters). `cell` is denormalized down each lineage (an evolved generator
-# sits at its predecessor's cell). PLACEHOLDER content for the T17 engine milestone — the
+# Generators — the per-zone roster (Core §6, the generator-grant hand-in model). Each
+# emits 2 lines and belongs to a zone; `grant_from` is the previous-zone generator you
+# HAND IN (to a generator-grant quest) to receive this one — old lines retire; "" =
+# granted outright (a zone's surplus, or zone 0's two starters). `cell` is denormalized
+# down each lineage (a grant generator sits at its predecessor's cell). PLACEHOLDER content for the §6 engine milestone — the
 # 3 generator sprites are reused and zones 1–4 emit code-drawn lines (5–33); the themed
 # 16-gen / 32-line map + real art is the parked grove-content task (docs/BACKLOG.md).
 const GENERATORS := [
 	# zone 0 — the two starters, granted outright (satchel at center, compost early)
-	{"id": "satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "evolves_from": "",
+	{"id": "satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "",
 		"tex": "ui/gen_satchel.png", "label": "seeds"},
-	{"id": "compost", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "evolves_from": "",
+	{"id": "compost", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
 		"tex": "ui/gen_compost.png", "label": "compost"},
-	# zone 1 — 2 evolve from zone 0, +1 surplus (the beehive cell)
-	{"id": "z1a", "zone": 1, "cell": Vector2i(4, 3), "lines": [5, 6], "evolves_from": "satchel",
+	# zone 1 — 2 hand-in grants of zone 0, +1 surplus (the beehive cell)
+	{"id": "z1a", "zone": 1, "cell": Vector2i(4, 3), "lines": [5, 6], "grant_from": "satchel",
 		"tex": "ui/gen_satchel.png", "label": "z1a"},
-	{"id": "z1b", "zone": 1, "cell": Vector2i(2, 1), "lines": [7, 8], "evolves_from": "compost",
+	{"id": "z1b", "zone": 1, "cell": Vector2i(2, 1), "lines": [7, 8], "grant_from": "compost",
 		"tex": "ui/gen_compost.png", "label": "z1b"},
-	{"id": "z1c", "zone": 1, "cell": Vector2i(6, 5), "lines": [10, 11], "evolves_from": "",
+	{"id": "z1c", "zone": 1, "cell": Vector2i(6, 5), "lines": [10, 11], "grant_from": "",
 		"tex": "ui/gen_beehive.png", "label": "z1c"},
-	# zone 2 — all 3 evolve
-	{"id": "z2a", "zone": 2, "cell": Vector2i(4, 3), "lines": [12, 13], "evolves_from": "z1a",
+	# zone 2 — all 3 hand-in grants
+	{"id": "z2a", "zone": 2, "cell": Vector2i(4, 3), "lines": [12, 13], "grant_from": "z1a",
 		"tex": "ui/gen_satchel.png", "label": "z2a"},
-	{"id": "z2b", "zone": 2, "cell": Vector2i(2, 1), "lines": [14, 15], "evolves_from": "z1b",
+	{"id": "z2b", "zone": 2, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "z1b",
 		"tex": "ui/gen_compost.png", "label": "z2b"},
-	{"id": "z2c", "zone": 2, "cell": Vector2i(6, 5), "lines": [16, 17], "evolves_from": "z1c",
+	{"id": "z2c", "zone": 2, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "z1c",
 		"tex": "ui/gen_beehive.png", "label": "z2c"},
-	# zone 3 — 3 evolve, +1 surplus
-	{"id": "z3a", "zone": 3, "cell": Vector2i(4, 3), "lines": [18, 19], "evolves_from": "z2a",
+	# zone 3 — 3 hand-in grants, +1 surplus
+	{"id": "z3a", "zone": 3, "cell": Vector2i(4, 3), "lines": [18, 19], "grant_from": "z2a",
 		"tex": "ui/gen_satchel.png", "label": "z3a"},
-	{"id": "z3b", "zone": 3, "cell": Vector2i(2, 1), "lines": [20, 21], "evolves_from": "z2b",
+	{"id": "z3b", "zone": 3, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "z2b",
 		"tex": "ui/gen_compost.png", "label": "z3b"},
-	{"id": "z3c", "zone": 3, "cell": Vector2i(6, 5), "lines": [22, 23], "evolves_from": "z2c",
+	{"id": "z3c", "zone": 3, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "z2c",
 		"tex": "ui/gen_beehive.png", "label": "z3c"},
-	{"id": "z3d", "zone": 3, "cell": Vector2i(4, 5), "lines": [24, 25], "evolves_from": "",
+	{"id": "z3d", "zone": 3, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "",
 		"tex": "ui/gen_satchel.png", "label": "z3d"},
-	# zone 4 — all 4 evolve
-	{"id": "z4a", "zone": 4, "cell": Vector2i(4, 3), "lines": [26, 27], "evolves_from": "z3a",
+	# zone 4 — all 4 hand-in grants
+	{"id": "z4a", "zone": 4, "cell": Vector2i(4, 3), "lines": [26, 27], "grant_from": "z3a",
 		"tex": "ui/gen_satchel.png", "label": "z4a"},
-	{"id": "z4b", "zone": 4, "cell": Vector2i(2, 1), "lines": [28, 29], "evolves_from": "z3b",
+	{"id": "z4b", "zone": 4, "cell": Vector2i(2, 1), "lines": [28, 29], "grant_from": "z3b",
 		"tex": "ui/gen_compost.png", "label": "z4b"},
-	{"id": "z4c", "zone": 4, "cell": Vector2i(6, 5), "lines": [30, 31], "evolves_from": "z3c",
+	{"id": "z4c", "zone": 4, "cell": Vector2i(6, 5), "lines": [30, 31], "grant_from": "z3c",
 		"tex": "ui/gen_beehive.png", "label": "z4c"},
-	{"id": "z4d", "zone": 4, "cell": Vector2i(4, 5), "lines": [32, 33], "evolves_from": "z3d",
+	{"id": "z4d", "zone": 4, "cell": Vector2i(4, 5), "lines": [32, 33], "grant_from": "z3d",
 		"tex": "ui/gen_satchel.png", "label": "z4d"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
+
+# §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
+const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
+const CLICK_TO_VALUE := 1.0               # reward value per expected generator-click (the click→value rate)
+# §7 ask shape (level → #asks/tier, line weighting, featured) — PROVISIONAL, sim-tuned.
+const QUEST_2ASK_LEVEL := 5               # ≥ this level a quest may carry a 2nd ask
+const QUEST_3ASK_LEVEL := 12              # ≥ this level a 3rd ask
+const QUEST_TIER_BASE := 2                # floor of the asked-tier band
+const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
+const QUEST_2COUNT_RATE := 0.2            # chance an ask wants 2 of the item (vs 1)
+const QUEST_NEWEST_BIAS := 2.0            # line-pick weight exponent toward the newest/highest-value live line
+const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
+const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
+const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
+# §7 soft gate + authored gate quest — PROVISIONAL, sim-tuned.
+const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
+const STARS_PER_QUEST_EST := 2            # gate_pause sizing: representative ★/quest for the meter
+const GATE_ASK_COUNT := 3                 # distinct top-tier lines the great-spirit's gate asks
+const GATE_STARS := 5                     # the gate's authored ★ (map-completion beat; off the regular cap)
+const GATE_COIN_BONUS := 100              # plus a large coin bonus over the computed overflow
+const GATE_TIER_BASE := 5                 # gate ceiling = min(GATE_TIER_BASE + map_index, TOP_TIER): t5→t8 over the 5 maps
 
 # Starter items on the open 3x3 (besides the generator cell).
 const STARTER_ITEMS := {
@@ -74,23 +95,6 @@ const STARTER_ITEMS := {
 	Vector2i(4, 2): 101, Vector2i(4, 4): 201,
 }
 
-# Per-zone quest ramp (one entry per zone). quests 5-6/chapter w/ slack.
-# PER-ZONE TUNING (T17): each zone's generators are FRESH (the old set retired, §6), so a
-# zone's lines start at tier 1 and can't be asked deep — difficulty grows by BREADTH (more
-# lines/asks) not DEPTH. Bands are therefore kept shallow + flat across zones (was a 2→7
-# climb that assumed lines persist + mature). INTERIM/PROVISIONAL: the sim runs no-jam +
-# no-strand (40/40 spots) on these, but the water-gift ratio (I2) and pace (I3) still fail
-# — flat-shallow zones are too cheap to pop, so the fixed level-up water gifts exceed 30%
-# of spend and the map clears too fast. Balancing that needs §3 (LEVEL_STARS recalibration)
-# + §7 (metered, level-scaled, expected-clicks-rewarded quests) — both parked. The old
-# 2→7 climb jams instead. See docs/BACKLOG.md / T17 notes.
-const ZONE_RAMP := [
-	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 0, "gift": 0},
-	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 0, "gift": 0},
-	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 3, "gift": 0},
-	{"tiers": Vector2i(2, 4), "quests": 5, "slack": 1, "two_count_every": 2, "gift": 4},
-	{"tiers": Vector2i(2, 4), "quests": 6, "slack": 2, "two_count_every": 2, "gift": 5},
-]
 
 # Waysides — the coin sink (cosmetic, coin-priced, never a gate). 4 per restored zone.
 const WAYSIDE_PROPS := ["Lantern post", "Bird bath", "Flower tub", "Mossy bench", "Beehive skep", "Stone cairn"]

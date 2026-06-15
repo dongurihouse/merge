@@ -184,8 +184,11 @@ func spot_owned(id: String) -> bool:
 func zone_complete(z: int) -> bool:
 	return G.zone_done(z, unlocks)
 
+func _gates() -> Array:                       # §7 gate-delivery state (which maps' gate quests are done)
+	return Save.grove().get("gates", [])
+
 func zone_unlocked(z: int) -> bool:
-	return G.zone_unlocked(z, unlocks)
+	return G.zone_unlocked(z, unlocks, _gates())
 
 func owned_count(z: int) -> int:
 	return G.owned_count(z, unlocks)
@@ -859,7 +862,7 @@ func _spot_variant(z: int, k: int) -> Dictionary:
 	return G.spot_variants(z, k)[0]
 
 func _frontier_zone() -> int:
-	return G.frontier_zone(unlocks)
+	return G.frontier_zone(unlocks, _gates())
 
 # Open with the story's current chapter in view — slightly above center, clear
 # of the pinned garden button along the bottom.
@@ -953,13 +956,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
-	# this purchase IS the chapter gate: pay the closing chapter's water gift,
-	# and the garden's givers come back with the next chapter's asks
-	var gift := G.chapter_gift(unlocks)
-	if gift > 0:
-		var gw := Save.grove()
-		gw["water"] = mini(G.WATER_CAP, int(gw.get("water", G.WATER_CAP)) + gift)
-		FX.floating_text(self, at + Vector2(90, -50), tr("+%d💧") % gift, Color("#9CCDE8"), 34)
+	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
+	# level-ups, not a per-spot gift)
 	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden \u2740"), CREAM, 30)
 	_persist()
 	if interior != null:

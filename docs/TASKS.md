@@ -37,5 +37,5 @@ pull the Dev in); last three closed **at done**.
   no matter which file it lands in; the number tells you roughly when it happened.
 - **`LLM-reliability: low` is a trigger, not a label** — build a check (composite, measure, a
   test) or hand the call to the Dev; never ship a low-reliability task on a screenshot.
-- Highest task number so far: **T17** (T17 = per-zone generator engine mechanic, `tasks/mechanics.md`).
+- Highest task number so far: **T19** (T19 = generated quests + calculated reward §7 *the rest*, OPEN; T18 = retire evolve-merge + scaffold the generator-grant hand-in; T17 = per-zone generator engine mechanic — all `tasks/mechanics.md`).
 - ⚠️ Ledger gap: the **progression rework** (one stars-driven Level, commit `2940b0f`) and the **data/skin split** (T16, referenced in `content.gd`) shipped without entries here — the logs were cleared 2026-06-14 and these weren't backfilled. Backfill or confirm numbering on the next reconcile.

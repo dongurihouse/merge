@@ -9,7 +9,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
-                                          # STATEFUL + persisted (movable + player-evolved, T17).
+                                          # STATEFUL + persisted (movable; granted via hand-in, §6/§7).
                                           # Seeded by seed_gens / restored by from_dict.
 
 func _init() -> void:
@@ -54,7 +54,7 @@ func gen_id_at(cell: Vector2i) -> String:
 
 ## Seed the live generator set to a zone's roster (§6) — used on a fresh game (zone 0) and
 ## by the save migration (an existing player's current zone). NOT the in-play path: once
-## seeded, the set changes only by move_gen / evolve_gen. Each gen cell sheds its bramble,
+## seeded, the set changes only by move_gen / grant_gen. Each gen cell sheds its bramble,
 ## and any player item caught on it hops to free ground (never destroyed).
 func seed_gens(zone: int) -> void:
 	gens = G.live_gen_state(G.GENERATORS, zone)
@@ -80,20 +80,36 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 	gens.erase(from)
 	return true
 
-## #2 — the evolve-merge (§6): the grant generator at `grant_cell` merges onto the
-## predecessor it upgrades at `old_cell` — old consumed, new installed at the old's cell,
-## old lines retire (they drop out of gen_live_lines). Validated against the lineage.
-func evolve_gen(old_cell: Vector2i, grant_cell: Vector2i) -> bool:
-	var grant_id := String(gens.get(grant_cell, ""))
-	if grant_id == "" or not G.gen_can_evolve(gens, G.GENERATORS, old_cell, grant_id):
+## #2 — the generator-grant hand-in (§6): a generator-grant quest hands the predecessor
+## of `grant_id` in (wherever it sits on the board) and installs `grant_id` in its place —
+## old consumed, old lines retire (they drop out of gen_live_lines). Validated against the
+## lineage. Generators never merge to evolve (that mechanic is retired).
+func grant_gen(grant_id: String) -> bool:
+	if not G.gen_can_grant(gens, G.GENERATORS, grant_id):
 		return false
-	gens.erase(grant_cell)
-	gens[old_cell] = grant_id
+	gens = G.gen_grant(gens, G.GENERATORS, grant_id)
 	return true
+
+## Place a single granted-OUTRIGHT (surplus) generator at `cell` (§6) — used when a new map
+## opens: its surplus generators appear directly, while its hand-in generators arrive by grant
+## quest. Claims the cell (sheds bramble / hops any item to safety), like seed_gens. No-op if a
+## generator already sits there.
+func place_surplus_gen(id: String, cell: Vector2i) -> void:
+	if gens.has(cell):
+		return
+	gens[cell] = id
+	if terrain[idx(cell)] > 0:
+		terrain[idx(cell)] = 0
+		items[idx(cell)] = 0
+	elif items[idx(cell)] > 0:
+		var refuge := empty_ground_cells()
+		if not refuge.is_empty():
+			items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
+		items[idx(cell)] = 0
 
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a chapter's
 ## generators: re-seed to that chapter's zone. NOT used by the live board (which restores
-## `gens` from save and only mutates it via move/evolve). Returns the live gen cells.
+## `gens` from save and only mutates it via move/grant). Returns the live gen cells.
 func set_active_gens(chapter: int) -> Array:
 	seed_gens(G.zone_of_chapter(chapter))
 	return gens.keys()
