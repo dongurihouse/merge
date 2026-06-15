@@ -3,7 +3,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/layering_tests.gd
 ## Imports may only flow scenes/ -> ui/ -> core/. This proves the direction holds:
 ## core/ never reaches up into ui/ or scenes/, and ui/ never reaches into scenes/.
-## See docs/core/ui_backend_separation.md §1.
+## See docs/design/merge_spec.md §15 (the layering invariant).
 
 const CORE := "res://engine/scripts/core/"
 const UI := "res://engine/scripts/ui/"

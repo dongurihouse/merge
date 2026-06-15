@@ -1,7 +1,7 @@
 # Drop board / room art here
 
 The game auto-uses these if present, and falls back to flat cozy colors if not.
-See ../../docs/core/merge_spec.md §13 for the art direction.
+See ../../docs/design/merge_spec.md §13 for the art direction.
 
 | File | Size | Notes |
 |---|---|---|

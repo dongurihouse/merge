@@ -5,7 +5,7 @@ Drag any two matching items together to merge them up a tier ladder, complete jo
 the neighbourhood, and restore a hand-painted "Ghibli Grove" homestead.
 
 The canonical design — spec **and** feature index — lives in
-[`docs/core/merge_spec.md`](docs/core/merge_spec.md). (This project began as
+[`docs/design/merge_spec.md`](docs/design/merge_spec.md). (This project began as
 "Reach Zero," a merge-solitaire prototype — that original spec and the pivot history are
 kept under [`docs/archive/`](docs/archive/).)
 

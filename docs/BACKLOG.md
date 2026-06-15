@@ -22,13 +22,13 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   `board_model.grant_gen` + `board.gd:_deliver_grant` fire on a `{grant}` quest, `content.gd:grant_quests_for_zone`
   authors them, and the data field `evolves_from`→`grant_from`. The §7 grant-quest **scheduling** (firing
   those authored quests in the live script) and the #4 economy rebalance are their own items below. What
-  remains in THIS item is just the grove DATA + ART that dress the now-shipped mechanic.]** §6 target: a **~16-gen/32-line lifetime roster** —
+  remains in THIS item is just the grove DATA + ART that dress the now-shipped mechanic.]** §6 target: the **open-ended line/generator arc** — now **designed as 15 maps in `grove_spec §2`** (v1 = the home grove, maps 1–5; ≈52 gens / 104 lines across the arc, uncapped beyond) —
   generators arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8, ~2–4 live), **2 lines
   each**, each arriving as a **generator-grant quest reward** (hand an older generator in → receive a new line; old lines retire) or granted as a surplus. **T17 shipped this on a PLACEHOLDER roster** (16 gens, lines 1–8 & 10–33,
   code-drawn art — `games/grove/grove_data.gd:GENERATORS`; `ZONE_RAMP` is a flat `Vector2i(2,4)`,
-  marked PROVISIONAL). **Build (grove content):** the real 5-zone generator→line→name→lineage map
+  marked PROVISIONAL). **Build (grove content):** the **v1 home-grove roster** (maps 1–5, `grove_spec §2`, **12 gens / 24 lines**): the generator→line→name→lineage data
   replacing the placeholder roster, plus the per-zone `ZONE_RAMP` counts (tuned alongside §7's sim).
-  **Build (art):** ~256 item sprites + 16 generators via the §16 LLM pipeline — ⚠️ **large art**.
+  **Build (art):** **v1 ~192 item sprites + 12 generators** (maps 1–5) via the §16 LLM pipeline — ⚠️ **large art** (the full 15-map arc ≈ 832 sprites, post-launch).
   *(Surfaced 2026-06-14 — spec review + code audit; engine split shipped as T17 2026-06-15.)*
 
 - **✅ DONE — T19 (2026-06-15) · Generated quests + calculated reward (§7).** §7 replaced the deterministic

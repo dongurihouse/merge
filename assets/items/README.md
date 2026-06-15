@@ -3,7 +3,7 @@
 The game auto-loads `assets/items/<family>_<tier>.png` and shows it on the tile;
 if a file is missing it falls back to a colored placeholder with the tier number.
 
-Expected files (512×512, transparent PNG — see ../../docs/core/merge_spec.md §13 for the art direction):
+Expected files (512×512, transparent PNG — see ../../docs/design/merge_spec.md §13 for the art direction):
 
 ```
 clothes_1.png  clothes_2.png  clothes_3.png  clothes_4.png  clothes_5.png

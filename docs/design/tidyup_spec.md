@@ -1,6 +1,6 @@
 # Tidy Up
 
-> The **second game** on `merge_core` — the cozy "merge-to-restore" engine themed as **decluttering & organizing**. Where the Grove *grows* a world, Tidy Up *sorts* one: you merge clutter into order and turn chaotic, messy spaces into clean, calm, beautiful ones. This doc carries only Tidy Up's specifics and references the core pattern each instantiates. Read alongside `../core/merge_spec.md`.
+> The **second game** on `merge_core` — the cozy "merge-to-restore" engine themed as **decluttering & organizing**. Where the Grove *grows* a world, Tidy Up *sorts* one: you merge clutter into order and turn chaotic, messy spaces into clean, calm, beautiful ones. This doc carries only Tidy Up's specifics and references the core pattern each instantiates. Read alongside `merge_spec.md`.
 >
 > **Status: concept draft (2026-06-14).** The forks in §4 await an owner call (same process as the grove story). Names/numbers/content are illustrative until then.
 

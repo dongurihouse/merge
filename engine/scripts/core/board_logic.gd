@@ -3,7 +3,7 @@ extends RefCounted
 ## (water regen, the merge-hint search, distances, bag size). Backend layer:
 ## STATELESS statics that take data in and return data out — no Node/Control,
 ## no Save access. The scene reads Save and animates around these results.
-## See docs/core/ui_backend_separation.md.
+## Layering: core/ never imports ui/ or scenes/ — see docs/design/merge_spec.md §15.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
