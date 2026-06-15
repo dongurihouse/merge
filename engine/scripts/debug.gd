@@ -118,8 +118,8 @@ static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
 	_reflect(host)
 
-## Unlock every spot in the next unfinished zone + grant the matching exp, so the
-## chapter (= spots bought) and the level advance together, exactly like real play.
+## Unlock every spot in the next unfinished zone + credit the matching stars_earned,
+## so the Level advances alongside, exactly like real play.
 static func _act_unlock_zone(host: Control) -> void:
 	var g := Save.grove()
 	var unlocks: Dictionary = g.get("unlocks", {})
@@ -137,16 +137,14 @@ static func _act_unlock_zone(host: Control) -> void:
 		if not unlocks.has(sid):
 			unlocks[sid] = true
 			cost += int(sp.cost)
-	g["exp"] = int(g.get("exp", 0)) + cost * G.EXP_PER_STAR
+	g["stars_earned"] = int(g.get("stars_earned", 0)) + cost
 	Save.grove_write()
 	_reflect(host)
 
-## Push exp just past the next level threshold (a no-op once at max level).
+## Push stars_earned to the next level threshold (the clock is uncapped).
 static func _act_level_up(host: Control) -> void:
 	var g := Save.grove()
-	var lvl := G.level_for_exp(int(g.get("exp", 0)))
-	if lvl >= G.LEVEL_XP.size():
-		return                              # already at max level
-	g["exp"] = int(G.LEVEL_XP[lvl])
+	var lvl := G.level_for_stars(int(g.get("stars_earned", 0)))
+	g["stars_earned"] = G.stars_at_level(lvl + 1)
 	Save.grove_write()
 	_reflect(host)

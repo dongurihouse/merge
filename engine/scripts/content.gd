@@ -6,6 +6,7 @@ extends RefCounted
 ## (Was grove_content.gd; the grove tables moved to games/grove/grove_data.gd.)
 
 const Game = preload("res://engine/scripts/game.gd")
+const Save = preload("res://engine/scripts/save.gd")
 
 # --- the ACTIVE game's DATA (compile-time const), re-exported as consts so every
 # --- existing G.<CONST> reader keeps working and := type inference still resolves.
@@ -45,11 +46,12 @@ const COIN_DROP_RATE = D.COIN_DROP_RATE
 const MAP_SIZE = D.MAP_SIZE
 const POI_SIZE = D.POI_SIZE
 const ZONES = D.ZONES
-const EXP_PER_STAR = D.EXP_PER_STAR
-const LEVEL_XP = D.LEVEL_XP
+const LEVEL_STARS = D.LEVEL_STARS
+const LEVEL_STARS_TAIL = D.LEVEL_STARS_TAIL
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
-const SPIRIT_TYPES = D.SPIRIT_TYPES
-const SPIRIT_CAP = D.SPIRIT_CAP
+const CHARACTER_TYPES = D.CHARACTER_TYPES
+const CHARACTER_CAP = D.CHARACTER_CAP
+const CHARACTER_ART = D.CHARACTER_ART
 const BAG_SLOTS = D.BAG_SLOTS
 const BASKET_CAP = D.BASKET_CAP
 const PORTER_SECS = D.PORTER_SECS
@@ -190,7 +192,7 @@ static func spot_level_req(z: int, k: int) -> int:
 	var rank := k
 	for i in z:
 		rank += ZONES[i].spots.size()
-	return level_for_exp(30 * rank)
+	return level_for_stars(3 * rank)   # == the old level_for_exp(30·rank); preserves the gates
 
 static func zone_done(z: int, unlocks: Dictionary) -> bool:
 	for sp in ZONES[z].spots:
@@ -204,6 +206,11 @@ static func completed_zones(unlocks: Dictionary) -> int:
 		if zone_done(z, unlocks):
 			n += 1
 	return n
+
+## How many ambient characters wander: 1 + completed zones, capped. The host
+## passes this to Ambient.build_layer (progression stays a game rule, not engine).
+static func character_count(unlocks: Dictionary) -> int:
+	return mini(1 + completed_zones(unlocks), CHARACTER_CAP)
 
 # --- waysides: the coin sink ------------------------------------------------------
 static var _waysides_cache: Array = []
@@ -287,12 +294,41 @@ static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
 # --- progression ------------------------------------------------------------------
-static func level_for_exp(exp: int) -> int:
+# The ONE level clock (§3): one uncapped Level, driven by stars EARNED (cumulative).
+static func level_for_stars(earned: int) -> int:
 	var lvl := 1
-	for i in LEVEL_XP.size():
-		if exp >= LEVEL_XP[i]:
+	for i in LEVEL_STARS.size():
+		if earned >= int(LEVEL_STARS[i]):
 			lvl = i + 1
+	var top := int(LEVEL_STARS[LEVEL_STARS.size() - 1])
+	if earned > top:
+		lvl += int((earned - top) / float(LEVEL_STARS_TAIL))   # uncapped flat tail
 	return lvl
+
+# Cumulative stars EARNED required to BE at `level` (the inverse — the HUD fraction).
+static func stars_at_level(level: int) -> int:
+	if level <= 1:
+		return 0
+	if level <= LEVEL_STARS.size():
+		return int(LEVEL_STARS[level - 1])
+	return int(LEVEL_STARS[LEVEL_STARS.size() - 1]) + LEVEL_STARS_TAIL * (level - LEVEL_STARS.size())
+
+# Earn stars: credit BOTH the spendable balance and the cumulative EARNED clock that
+# drives Level; on a level-up, gift water + diamonds (once per level gained). Returns
+# the levels gained so the caller can play the juice. The sole way Level advances.
+static func earn_stars(n: int) -> int:
+	Save.add_stars(n)
+	var g := Save.grove()
+	var earned := int(g.get("stars_earned", 0))
+	var before := level_for_stars(earned)
+	earned += n
+	g["stars_earned"] = earned
+	var gained := level_for_stars(earned) - before
+	if gained > 0:
+		g["water"] = mini(WATER_CAP, int(g.get("water", WATER_CAP)) + LEVEL_WATER_GIFT * gained)
+		Save.add_diamonds(LEVEL_DIAMONDS * gained)
+	Save.grove_write()
+	return gained
 
 static func zone_star_total(z: int) -> int:
 	var t := 0

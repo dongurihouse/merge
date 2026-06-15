@@ -136,13 +136,20 @@ const ZONES := [
 	]},
 ]
 
-const EXP_PER_STAR := 10
-const LEVEL_XP := [0, 60, 140, 240, 360, 500, 660, 840, 1040, 1260]
 const LEVEL_WATER_GIFT := 20
+# The one uncapped LEVEL clock, driven by stars EARNED (cumulative): cross a
+# threshold → level up. The ramp is the old LEVEL_XP/10, so the existing pacing
+# and spot-gates carry over unchanged (level_for_stars(3·rank) == the old
+# level_for_exp(30·rank)); past the table a flat tail keeps it UNCAPPED.
+# PROVISIONAL — recalibrated with the generated-quest model + the Monte-Carlo
+# sim (docs/BACKLOG.md).
+const LEVEL_STARS := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]
+const LEVEL_STARS_TAIL := 22       # stars per level past the table (flat tail)
 
 # ambient life + board gameplay tuning
-const SPIRIT_TYPES := ["moss", "acorn", "lantern"]   # the wandering spirit roster (art rows)
-const SPIRIT_CAP := 5
+const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
+const CHARACTER_CAP := 5
+const CHARACTER_ART := "map/spirit_%s.png"              # type → clothes asset (assets keep their names)
 const BAG_SLOTS := 2
 const BASKET_CAP := 3            # the merchant's buy-back basket size
 const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min

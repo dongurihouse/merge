@@ -115,10 +115,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
-		var xpts := int(Save.grove().get("exp", 0))
-		var lvl := G.level_for_exp(xpts)
+		var earned := int(Save.grove().get("stars_earned", 0))
+		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
-		xp.text = ("%d/%d" % [xpts, G.LEVEL_XP[lvl]]) if lvl < G.LEVEL_XP.size() else "max"
+		xp.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
 	out["refresh"] = refresh
 	var shop_opts := opts.duplicate()
 	shop_opts["refresh"] = refresh

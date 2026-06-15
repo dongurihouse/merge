@@ -32,7 +32,7 @@ static var FLAGS := {
 	"gen_preview": true,          # V: locked generators show a greyed "after N spots" silhouette
 	# ambient
 	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
-	"ambient_spirits": true,      # spirit folk wander the scenes
+	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
 	# feature
 	"customize_variants": true,   # owned spots offer coin/gem looks

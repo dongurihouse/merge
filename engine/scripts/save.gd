@@ -244,7 +244,16 @@ static func grove() -> Dictionary:
 	if not data.has("grove"):
 		data["grove"] = {}
 	_migrate_spot_ids(data["grove"])
+	_migrate_exp_to_stars(data["grove"])
 	return data["grove"]
+
+# Old saves stored level as `exp` (= 10 × stars earned). The clock is now the
+# cumulative `stars_earned`, so carry the old level over (exp/10) and drop exp.
+static func _migrate_exp_to_stars(g: Dictionary) -> void:
+	if g.has("exp"):
+		if not g.has("stars_earned"):
+			g["stars_earned"] = int(int(g["exp"]) / 10.0)
+		g.erase("exp")
 
 static func _migrate_spot_ids(g: Dictionary) -> void:
 	for blob_key in ["unlocks", "custom"]:

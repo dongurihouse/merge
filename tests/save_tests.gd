@@ -120,5 +120,13 @@ func _initialize() -> void:
 	Save._loaded = false
 	ok(Save.decor_count("bedroom") == 0, "pre-rooms save loads with an empty rooms dict")
 
+	# 14. exp→stars_earned: an old save stored level as `exp` (=10×stars). The clock
+	# is now stars EARNED, so the level carries over (exp/10) and `exp` is dropped.
+	fresh("exp_mig")
+	Save.grove()["exp"] = 240                 # an old ~L4 save
+	Save.grove()                              # the accessor migrates on read
+	ok(not Save.grove().has("exp") and int(Save.grove().get("stars_earned", -1)) == 24, \
+		"exp→stars_earned migration carries the old level and drops exp")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

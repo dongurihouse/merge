@@ -70,7 +70,7 @@ func _initialize() -> void:
 			# value) — proves water sits in the top-right cluster next to ★🪙💎
 			var gh := Save.grove()
 			gh["pops"] = 30
-			gh["exp"] = 240
+			gh["stars_earned"] = 24
 			gh["water"] = 42
 			Save.grove_write()
 			Save.add_stars(8)

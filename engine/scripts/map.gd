@@ -57,7 +57,6 @@ const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 const CLAY = Pal.CLAY
 
-var exp_points := 0
 var unlocks := {}
 
 var vista: Control               # the map surface (name kept for tools/tests)
@@ -167,7 +166,6 @@ func _zone_for_id(id: String) -> int:
 
 func _load_state() -> void:
 	var g := Save.grove()
-	exp_points = int(g.get("exp", 0))
 	unlocks = g.get("unlocks", {})
 	# T1: sanitize — a last_zone that no longer names a zone is dropped
 	if g.has("last_zone") and _zone_for_id(String(g.last_zone)) < 0:
@@ -177,7 +175,6 @@ func _load_state() -> void:
 
 func _persist() -> void:
 	var g := Save.grove()
-	g["exp"] = exp_points
 	g["unlocks"] = unlocks
 	g["last_seen"] = Time.get_unix_time_from_system()   # the win-back reads this
 	Save.grove_write()
@@ -266,7 +263,7 @@ func _build_vista() -> void:
 			vista.add_child(blot)
 	variant_hits.clear()
 	# ambient life wanders BETWEEN the terrain and the buildings (order L)
-	vista.add_child(Ambient.build_layer(G.MAP_SIZE, unlocks))
+	vista.add_child(Ambient.build_layer(G.MAP_SIZE, G.character_count(unlocks)))
 	for z in G.ZONES.size():
 		var node := _make_zone_closed(z)
 		vista.add_child(node)
@@ -596,7 +593,7 @@ func _build_interior() -> void:
 		fallback.add_theme_stylebox_override("panel", fs)
 		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		room.add_child(fallback)
-	var lvl := G.level_for_exp(exp_points)
+	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 	for k in G.ZONES[z].spots.size():
 		var pin := _make_interior_spot(z, k, lvl, art_rect)
 		room.add_child(pin)
@@ -962,7 +959,7 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		else:
 			_build_vista()
 		return
-	var lvl := G.level_for_exp(exp_points)
+	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 	if G.spot_level_req(z, k) > lvl:
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
@@ -986,7 +983,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		gw["water"] = mini(G.WATER_CAP, int(gw.get("water", G.WATER_CAP)) + gift)
 		FX.floating_text(self, at + Vector2(90, -50), tr("+%d💧") % gift, Color("#9CCDE8"), 34)
 	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden \u2740"), CREAM, 30)
-	_grant_exp(cost * G.EXP_PER_STAR)
 	_persist()
 	if interior != null:
 		_build_interior()                 # the room refreshes; we STAY inside
@@ -1033,23 +1029,6 @@ func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 		_build_vista()
 	_update_hud()
 
-
-func _grant_exp(amount: int) -> void:
-	var before := G.level_for_exp(exp_points)
-	exp_points += amount
-	Save.grove()["exp"] = exp_points     # S10: the shared Lv chip reads the blob
-	var after := G.level_for_exp(exp_points)
-	if after > before:
-		var g := Save.grove()
-		g["water"] = mini(G.WATER_CAP, int(g.get("water", G.WATER_CAP)) + G.LEVEL_WATER_GIFT)
-		Save.add_diamonds(G.LEVEL_DIAMONDS)
-		FX.celebrate_at(self, Vector2(get_global_rect().get_center().x, 220),
-			tr("Level %d!") % after, STRAW)
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 130, 300),
-			tr("+%d💧") % G.LEVEL_WATER_GIFT, Color("#9CCDE8"), 36)
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x + 40, 300),
-			tr("+%d💎") % G.LEVEL_DIAMONDS, Color("#BFE6F2"), 36)
-		Audio.play("level_complete", -1.0)
 
 # --- HUD & chrome -----------------------------------------------------------------------
 

@@ -574,15 +574,28 @@ func _initialize() -> void:
 		if seen_ids.size() != n:
 			zones_ok = false
 	ok(zones_ok, "every zone has 8-10 unique spots costing 3-5 stars (owner pacing)")
-	var asc := true
-	for i in range(1, G.LEVEL_XP.size()):
-		if G.LEVEL_XP[i] <= G.LEVEL_XP[i - 1]:
-			asc = false
-	ok(asc, "level thresholds ascend")
-	ok(G.level_for_exp(0) == 1 and G.level_for_exp(60) == 2 and G.level_for_exp(139) == 2, \
-		"level_for_exp maps thresholds correctly")
+	# 13c. the stars-driven level clock (one uncapped Level, driven by stars EARNED)
+	ok(G.level_for_stars(0) == 1 and G.level_for_stars(5) == 1 and G.level_for_stars(6) == 2, \
+		"level_for_stars maps cumulative-earned thresholds")
+	ok(G.level_for_stars(126) == 10, "L10 lands at 126 earned stars (= the old L10 exp/10)")
+	ok(G.level_for_stars(126 + G.LEVEL_STARS_TAIL) == 11 and G.level_for_stars(100000) > 50, \
+		"the level clock is UNCAPPED — a flat tail past the table")
+	ok(G.stars_at_level(1) == 0 and G.stars_at_level(2) == 6 and G.stars_at_level(10) == 126 \
+		and G.stars_at_level(11) == 126 + G.LEVEL_STARS_TAIL, "stars_at_level inverts the curve")
+	# earn_stars bumps the spendable balance AND the earned clock; a level-up gifts water+gems
+	fresh("earn")
+	var ge := Save.grove()
+	ge["stars_earned"] = 5
+	ge["water"] = 10
+	var gained := G.earn_stars(2)              # 5 -> 7 crosses the L2 line (6)
+	ok(gained == 1, "earn_stars returns the number of levels gained")
+	ok(int(Save.grove()["stars_earned"]) == 7 and Save.stars() == 2, \
+		"earn_stars accrues BOTH the earned clock and the spendable balance")
+	ok(int(Save.grove()["water"]) == 10 + G.LEVEL_WATER_GIFT and Save.diamonds() == G.LEVEL_DIAMONDS, \
+		"a level-up gifts water + diamonds, once per level")
+	ok(G.earn_stars(1) == 0, "earning within a level gains no level (no extra gift)")
 
-	# 14. P3 — the HOME scene: buy → exp → level-up water gift → zone gating → resume
+	# 14. P3 — the HOME scene: buy → earn → level-up water gift → zone gating → resume
 	fresh("home")
 	var h = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h)
@@ -636,7 +649,8 @@ func _initialize() -> void:
 	h._on_spot_tap(0, 0, pin, Vector2(300, 300))
 	ok(h.spot_owned("fh_chest"), "buying a spot records the unlock")
 	ok(Save.stars() == stars0 - 3, "the spot's stars were spent")
-	ok(h.exp_points == 30, "the unlock granted cost*10 exp")
+	ok(G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 1, \
+		"buying a spot does NOT raise Level (Level rides stars EARNED, not spent)")
 	ok(h.interior != null, "the interior STAYS OPEN across a purchase")
 	# OS back: the GO_BACK notification closes the room (and only the room)
 	h.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -666,14 +680,17 @@ func _initialize() -> void:
 	var ul_two := {String(G.ZONES[0].spots[0].id): true, String(G.ZONES[0].spots[1].id): true}
 	ok(G.cheapest_spot_cost(ul_two, 1) == -2, "all-remaining-locked reports -2 (gate stays quiet)")
 
-	# level-up: push exp to the L2 threshold and watch the water gift land
+	# level-up now rides EARNED stars (a quest payout), never buying spots
 	var g2 := Save.grove()
+	g2["stars_earned"] = 5                     # just under the L2 line (6)
 	g2["water"] = 10
-	h.exp_points = 55
-	h._grant_exp(10)                          # 65 ≥ 60 → level 2
-	ok(int(Save.grove().get("water", 0)) == 10 + G.LEVEL_WATER_GIFT, "level-up gifts water")
+	G.earn_stars(2)                            # 5 → 7 crosses L2
+	ok(int(Save.grove().get("water", 0)) == 10 + G.LEVEL_WATER_GIFT \
+		and G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 2, \
+		"a quest-driven level-up raises Level and gifts water")
 
-	# buy out the whole farmhouse (rank order keeps every gate met) → the barn opens
+	# earn enough to clear the farmhouse's higher-rank gates (L3), then buy it all out
+	Save.grove()["stars_earned"] = G.stars_at_level(3)
 	for i in G.ZONES[0].spots.size():
 		var sid: String = G.ZONES[0].spots[i].id
 		if not h.spot_owned(sid):
@@ -745,18 +762,18 @@ func _initialize() -> void:
 	gw2["unlocks"] = ul24
 	h.unlocks = ul24
 	gw2["water"] = 50
-	h.exp_points = 1500                      # past the level table: no level-up water
+	gw2["stars_earned"] = 200                # high Level clears the orchard gates; buying grants no level water
 	Save.add_stars(10)
 	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))   # closing ch 24 → zone 4 → gift 4
-	ok(int(Save.grove().get("water", 0)) == 54, "the home purchase pays the chapter's water gift")
+	ok(int(Save.grove().get("water", 0)) == 54, "the home purchase pays the chapter water gift (no level water)")
 
 	# 14c. the pigeonhole proof in motion: worst-case cheapest-first buying is
 	# NEVER stranded by a level gate, all the way to the end of the map
 	var sim_ul := {}
-	var sim_exp := 0
+	var sim_earned := 0
 	var strand := false
 	while sim_ul.size() < G.chapters().size():
-		var lvl_now := G.level_for_exp(sim_exp)
+		var lvl_now := G.level_for_stars(sim_earned)
 		var pick_z := -1
 		var pick_k := -1
 		var pick_cost := 99
@@ -776,15 +793,15 @@ func _initialize() -> void:
 			strand = true
 			break
 		sim_ul[String(G.ZONES[pick_z].spots[pick_k].id)] = true
-		sim_exp += pick_cost * G.EXP_PER_STAR
-	ok(not strand, "level gates never strand the map (worst-case order, all 40 spots)")
+		sim_earned += pick_cost                  # worst case: earn exactly what you spend
+	ok(not strand, "level gates never strand the map (worst-case order, earn==spend, all 40 spots)")
 
 	# a fresh Home resumes the same progress
 	var h2 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h2)
 	if h2.vista == null:
 		h2._ready()
-	ok(h2.zone_complete(0) and h2.exp_points == h.exp_points, "home progress persists across scenes")
+	ok(h2.zone_complete(0), "home progress persists across scenes")
 
 	# 15. P5 — sell anything, diamonds, FTUE staging
 	fresh("p5")
@@ -842,9 +859,9 @@ func _initialize() -> void:
 	if h5.vista == null:
 		h5._ready()
 	var d0 := Save.diamonds()
-	h5.exp_points = int(G.LEVEL_XP[1]) - 5
-	h5._grant_exp(10)
-	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "level-ups pay diamonds")
+	Save.grove()["stars_earned"] = G.stars_at_level(2) - 1     # one star short of L2
+	G.earn_stars(1)                                            # crosses into L2
+	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "a level-up pays diamonds")
 
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;
 	# unseen tiers stay "?")
@@ -931,10 +948,10 @@ func _initialize() -> void:
 	var full0 := {}
 	for sp0 in G.ZONES[0].spots:
 		full0[String(sp0.id)] = true
-	ok(G.completed_zones(full0) == 1 and Ambient.spirit_count(full0) == 2, \
-		"spirit count = 1 + completed zones")
-	var alayer: Control = Ambient.build_layer(Vector2(1000, 1000), full0)
-	ok(alayer.get_child_count() == 2, "the layer carries that many spirits")
+	ok(G.completed_zones(full0) == 1 and G.character_count(full0) == 2, \
+		"character count = 1 + completed zones")
+	var alayer: Control = Ambient.build_layer(Vector2(1000, 1000), G.character_count(full0))
+	ok(alayer.get_child_count() == 2, "the layer carries that many characters")
 	ok(_all_ignore(alayer), "spirits never eat input")
 	alayer.free()
 	var ga := Save.grove()

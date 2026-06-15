@@ -115,7 +115,7 @@ func _ready() -> void:
 	_load_state()
 	# sparse spirit life in the backdrop band above the fence (tap-less on the board)
 	_amb_layer = Ambient.build_layer(Vector2(get_viewport_rect().size.x, 320.0),
-		Save.grove().get("unlocks", {}), true)
+		G.character_count(Save.grove().get("unlocks", {})), true)
 	add_child(_amb_layer)
 
 	var root := VBoxContainer.new()
@@ -430,7 +430,7 @@ func _map_done() -> bool:
 # player's LEVEL allows is affordable (level-locked spots can't pause the garden)
 func _gate_ready() -> bool:
 	var g := Save.grove()
-	var lvl := G.level_for_exp(int(g.get("exp", 0)))
+	var lvl := G.level_for_stars(int(g.get("stars_earned", 0)))
 	var cost := G.cheapest_spot_cost(g.get("unlocks", {}), lvl)
 	return cost > 0 and Save.stars() >= cost
 
@@ -1899,9 +1899,21 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 				t.chain().tween_callback(n.queue_free)
 			flight += 1
 	qdone[qi] = true
-	Save.add_stars(int(q.stars))
+	# delivering a quest is the ONE place Level advances — earn_stars credits the
+	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
+	var levels_up := G.earn_stars(int(q.stars))
 	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % int(q.stars), STRAW)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
+	if levels_up > 0:
+		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
+		_update_water_hud()
+		var lv := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+		FX.celebrate_at(self, Vector2(get_global_rect().get_center().x, 240), tr("Level %d!") % lv, STRAW)
+		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 130, 320),
+			tr("+%d💧") % (G.LEVEL_WATER_GIFT * levels_up), Color("#9CCDE8"), 36)
+		FX.floating_text(self, Vector2(get_global_rect().get_center().x + 40, 320),
+			tr("+%d💎") % (G.LEVEL_DIAMONDS * levels_up), Color("#BFE6F2"), 36)
+		Audio.play("level_complete", -1.0)
 	_persist()
 	_rebuild_givers()
 	_update_hud()

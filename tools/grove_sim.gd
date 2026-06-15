@@ -20,7 +20,7 @@ var coins := 0
 var diamonds := 0          # Y1: a t8 sells for 1💎, tracked for the abuse tripwire
 var greedy := false        # AA3: do the chapter's FULL pool before decorating
 var water := 0
-var exp := 0                   # spot buys grant cost*10; spots are LEVEL-gated
+var stars_earned := 0          # cumulative stars EARNED — drives the uncapped Level
 var level_gift_water := 0      # level-up water (reported, separate from chapter gifts)
 
 var jams := 0
@@ -61,8 +61,8 @@ func _initialize() -> void:
 	if map_done_day > 0 and (map_done_day < 4 or map_done_day > 14):
 		print("  WARN I3: runway day %d outside the 4-14 engaged-day window (tuning signal)" % map_done_day)
 	print("  merchant sells: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, open_low_mark, jams])
-	print("  level: %d (exp %d) · level-up water gifts: %d💧 (separate from chapter gifts)" % \
-		[G.level_for_exp(exp), exp, level_gift_water])
+	print("  level: %d (stars earned %d) · level-up water gifts: %d💧 (separate from chapter gifts)" % \
+		[G.level_for_stars(stars_earned), stars_earned, level_gift_water])
 
 	# V2: how long the optimal bot STARES at a line-gated edge bramble before that
 	# line's generator arrives — the communication gap order V is about. Report ONLY;
@@ -155,7 +155,7 @@ func _ch() -> Dictionary:
 	return G.chapters()[mini(chapter, G.chapters().size() - 1)]
 
 func _gate_cost() -> int:
-	return G.cheapest_spot_cost(unlocks, G.level_for_exp(exp))
+	return G.cheapest_spot_cost(unlocks, G.level_for_stars(stars_earned))
 
 func _active_quests() -> Array:
 	var out: Array = []
@@ -218,6 +218,12 @@ func _play_session() -> Dictionary:
 				qdone[qi] = true
 				stars += int(q.stars)
 				s_stars += int(q.stars)
+				var lvl_b := G.level_for_stars(stars_earned)   # Level rides stars EARNED
+				stars_earned += int(q.stars)
+				if G.level_for_stars(stars_earned) > lvl_b:
+					var up := G.level_for_stars(stars_earned) - lvl_b
+					water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT * up)
+					level_gift_water += G.LEVEL_WATER_GIFT * up
 				delivered = true
 				break
 		if delivered:
@@ -229,7 +235,7 @@ func _play_session() -> Dictionary:
 		# multi-line stretch won't assemble), it decorates rather than jam.
 		if gcost > 0 and stars >= gcost and (not greedy or _active_quests().is_empty() \
 				or (board.empty_ground_cells().is_empty() and _best_pair().is_empty())):
-			var lvl := G.level_for_exp(exp)
+			var lvl := G.level_for_stars(stars_earned)
 			for z in G.ZONES.size():
 				var bought := false
 				var cheapest_id := ""
@@ -253,11 +259,6 @@ func _play_session() -> Dictionary:
 					var gift := int(_ch().get("gift", 0))
 					chapter_gift[chapter] = int(chapter_gift.get(chapter, 0)) + gift
 					water = mini(G.WATER_CAP, water + gift)
-					var lvl_before := G.level_for_exp(exp)
-					exp += cheapest * G.EXP_PER_STAR
-					if G.level_for_exp(exp) > lvl_before:
-						water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT)
-						level_gift_water += G.LEVEL_WATER_GIFT
 					chapter = unlocks.size()
 					board.set_active_gens(chapter)
 					s_chapters += 1

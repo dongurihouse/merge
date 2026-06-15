@@ -15,7 +15,7 @@ The governing reframe is **"merging is building."** Merge-game nouns map onto wh
 | Pillar | Meaning |
 |---|---|
 | **Zero-learning** | No instruction; the merge verb is discovered, not taught. |
-| **Wordless** | Asks, gates, tutorials communicate through silhouettes/icons, not text. |
+| **No required reading** *(was Wordless)* | Mechanics, asks, gates, and onboarding communicate through silhouettes/icons, not text — **a player who never reads a word can still 100% the game.** Optional narrative (names, dialogue — §7) is a flavor layer, never a gate. |
 | **Juice** | Every beat is felt — pop juice, tier-scaled bursts, giver cheer, completions that *land*. |
 | **Families** | Items merge only within their line; lines arrive *with* their generators. |
 | **Adjacent-unlock** | A merge *adjacent* to a locked cell opens it — expansion as a side effect of play. |
@@ -129,7 +129,7 @@ Merging, moving, delivering, selling, collecting, and decorating are **always fr
 
 ### The monetization-socket philosophy
 
-The economy is **earned-only** at launch; a premium-currency IAP socket exists but is **dark** — cash packs appear only as confirm-only test popups that grant directly, so real IAP later replaces only the grant call. The design line is **premium buys *speed* and *looks*, never *possibility***: every wall is passable for free (slower), never purchase-only; cosmetics/customization are a fair premium sink (they change the look, not the progression).
+Premium 💎 is **earnable in-game** (level-ups, zone restore, selling a t8) **and purchasable with real money — IAP is live from launch**: real cash→💎 packs sell in the Shop from day one (a build flag gates which geos see them, for staged soft-launch). *(Premium is never required — see the design line below.)* The design line is **premium buys *speed* and *looks*, never *possibility***: every wall is passable for free (slower), never purchase-only; cosmetics/customization are a fair premium sink (they change the look, not the progression).
 
 **Energy friction is intentional and must not be designed away** — it is the later monetization hook. The load-bearing invariant: **past the early ramp** (deliberately generous — the flat +50 gift can exceed a cheap early level's cost), **a level's energy rewards stay < 30% of its energy cost** (sessions extend, never self-sustain). A fallback hedge: if energy-resentment plays badly, swap to energy-free with daily quest caps — the rest of the spec survives intact.
 
@@ -245,13 +245,13 @@ So stars-per-quest stays roughly constant (**level ∝ quests done**), while **c
 
 **Stars** are spent **only** on restoration spots (§8) and drive level (stars earned, §3); prices **never inflate** — stars are pure **progress**, not a balanced economy. **The fence meters quests to the next unlock** (`gate_pause`): the number of active givers tracks **how many stars you still need for the next item** — about `ceil((next_spot_cost − banked_stars) / stars-per-quest)`, capped at the 5 slots. The count **shrinks as you bank stars**, and once you can **afford the next unlock the fence empties** — a wordless **"go restore / upgrade"** signal (never a wall: the board stays fully playable; buying the spot sets a new target and the fence refills for it). The one hard rule (**no-strand**): **level-gated spots are never the affordable frontier**, so the fence never meters toward something your level can't yet reach.
 
-> **Safety-model change (was deterministic).** Quests used to be a **fixed, byte-for-byte affordability-proven curve** — that no-strand proof relied on *no RNG*. Generated asks replace it, so the guarantee now rests on **(a) guardrails** — every ask must be **producible on the current board/generators**, plus an **affordability floor** so a run of unlucky quests can't starve progress — and **(b) a Monte-Carlo sim** (statistical worst-case across seeds), not one deterministic run. *(The grove's instances — generator weights, the level→asks/tier distribution, `STAR_CAP` and the click→value rate: see `grove_spec`. The old per-zone ramp table is retired.)*
+> **Safety-model change (was deterministic).** Quests used to be a **fixed, byte-for-byte affordability-proven curve** — that no-strand proof relied on *no RNG*. Generated asks replace it, so the guarantee now rests on **(a) guardrails** — every ask must be **producible on the current board/generators**, plus an **affordability floor** so a run of unlucky quests can't starve progress — and **(b) a Monte-Carlo sim** (statistical worst-case across seeds), not one deterministic run — which **also tracks board occupancy/congestion** (§15), so the late-game "juggle every line on one board" is validated for **space**, not only affordability. *(The grove's instances — generator weights, the level→asks/tier distribution, `STAR_CAP` and the click→value rate: see `grove_spec`. The old per-zone ramp table is retired.)*
 
 ---
 
 ## 8 · Building & the World
 
-The spend surface is not a checklist — **it is the game** (§1: *the merge is the chore, the world is the game*). It is a **visible, partly-veiled horizon** the player builds, styles, and upgrades; merging is only the mechanism that funds it. It renders as one large free-pan top-down map of **zones** (point-of-interest sites); locked zones are veiled/greyed and **unlock in sequence**; tapping an unlocked zone walks **inside** it (`interior_view`), where its **restoration spots** hold the **buildables** you place. **A zone is *complete* when all its spots are restored — and completing a zone is what unlocks the next** (the completion chain that paces the game, §3); the next zone then opens with its **gate quest**, a t8 of the zone you just finished (§6/§7).
+The spend surface is not a checklist — **it is the game** (§1: *the merge is the chore, the world is the game*). It is a **visible, partly-veiled horizon** the player builds, styles, and upgrades; merging is only the mechanism that funds it. It renders as one large free-pan top-down map of **zones** (point-of-interest sites); locked zones are veiled/greyed and **unlock by completion** — each gated by finishing the previous (below); tapping an unlocked zone walks **inside** it (`interior_view`), where its **restoration spots** hold the **buildables** you place. **A zone is *complete* when all its spots are restored — and completing a zone is what unlocks the next** (the completion chain that paces the game, §3); the next zone then opens with its **gate quest**, a t8 of the zone you just finished (§6/§7).
 
 - **The horizon — visible *and* veiled (desire + discovery).** The world ahead is *shown*, so the player sees what's possible and *wants* it; but parts sit **behind clouds/fog** — reaching them is a *discovery / reveal*, not a line item ticked. The player always sees there's *more* and feels they're *uncovering* it. (A game tunes how much is shown vs veiled.)
 - **Build — with agency.** The player **chooses what to build** and stays **in control**; the merge loop earns the means, the player decides where it goes — making the world theirs, not auto-filling fixed slots. A **spot** is gated by **progress (Stars)** + **level** (§3), shown as a pin (greyed "Lv N" until the level is met, then an "★ N" buy); buying it places the **buildable**.
@@ -292,7 +292,7 @@ Sold items fly into a **basket** at the merchant's feet holding the last **3 sal
 
 ## 10 · The Economy
 
-The canonical **4-currency model** (engine names — a game may re-skin them; energy is "Water" in the grove). The governing law is **sink > faucet** (currencies always have somewhere to go), **earned-only** at launch with a **dark IAP socket**.
+The canonical **4-currency model** (engine names — a game may re-skin them; energy is "Water" in the grove). The governing law is **sink > faucet** (currencies always have somewhere to go); premium is **earnable in-game *and* sold via live IAP from launch** (§4 — geo-flagged for staged soft-launch).
 
 ```
 THE SPINE — the loop the economy spins on
@@ -305,7 +305,7 @@ THE SPINE — the loop the economy spins on
   🪙 COINS ◄──────────────────────────────────────────────────────┘
        └─ spent → upgrade builds (↑ yield) · cosmetics      (reinvest → more yield)
 
-  💎 DIAMONDS — premium, earned-only at launch · buys speed, never possibility
+  💎 DIAMONDS — premium, earnable + live IAP from launch · buys speed, never possibility
 ```
 
 | Currency | Earned from | Spent on | Role |
@@ -313,7 +313,7 @@ THE SPINE — the loop the economy spins on
 | **Energy ⚡** | regen (+1/2 min, cap 100, offline) · level-ups (+50) · 1 free refill/day · win-back · some spot-buys · premium refill | 1 per pop | **THE pacing friction** — the monetization socket. Everything else is free. |
 | **Stars ★** (progress) | quests only (1–3★) | building / unlocks (§8) | The **progress** currency that gates *what you can build*. Never inflates; soft-gated. |
 | **Coins 🪙** (soft) | merge drops (~10%) · selling t1–t7 · **building yields (§8)** · shop pack | **building upgrades (§8)** · **generator burst-upgrades (§6)** · customization · basket buy-back | The **soft-economy** currency — it funds the build/upgrade loop, so it finally has real power (not dead cosmetics). |
-| **Diamonds 💎** (premium) | level-ups · zone restore · selling a t8 (+1) · cash packs (test-only) | energy refill · bag slot · cosmetic variants | Premium-**shaped**, **earned-only** at launch; IAP socket dark. **Buys speed + looks, never possibility.** |
+| **Diamonds 💎** (premium) | level-ups · zone restore · selling a t8 (+1) · **cash packs (live IAP from launch)** · rewarded ads | energy refill · bag slot · cosmetics · starter / first-buy packs | Premium-**shaped**; **earnable in-game *and* live IAP from launch** (geo-flagged). **Buys speed + looks, never possibility.** |
 
 ### The soft-currency loop (coins)
 
@@ -321,14 +321,34 @@ Soft currency **flows in** from the world's **yields** (§8) plus merge drops + 
 
 > **Resolved (was a standing tension):** earlier, coin sinks were cosmetic-only, so the *motivation* to spend coins was thin ("coins have no power"). The build/upgrade **yield loop** (§8) is the fix — coins fund upgrades that pay back, off the "premium buys speed" line. Keep the invariant: the soft loop stays **earned and capped** (it extends sessions, never self-sustains), and upgrades buy *yield + look*, never the energy friction itself.
 
+### Rewarded ads (an optional faucet — rewarded-only)
+
+Ads are **opt-in and rewarded-only — no interstitials, no forced ads** (forced ads would break the cozy bed, §1 tone / §9 audio). Every ad is a **player-initiated "watch for a bonus,"** capped + cooldowned so it never becomes the optimal grind, and **flagged off per-geo** where it would cost more LTV than it earns:
+
+- **Refill energy** — at/near empty, *watch → +N💧* (a free, daily-capped alternative to the 💎 refill).
+- **2× collection** — double one build-yield collection (§8) per cycle.
+- **Free shop reroll** — refresh the rotating Shop offers (below) on a cooldown.
+- **Event top-up / catch-up** — a small event-currency boost (§17).
+
+Ads **buy speed, never possibility** (the §4 line) — a goodwill faucet for free players *and* a measured signal (§15 logs impression/complete rates). *(Caps, cooldowns, reward sizes — grove instances, `grove_spec`.)*
+
 ### The Shop (the buy-side sink)
 
 The **Shop** (distinct from the merchant's sell-stall, §9) is the **buy-side** — a currency sink and a deliberate **progress shortcut**. It sells:
-- **energy** and **coins** (for premium), and **cash → premium packs** (dark IAP, test popups);
+- **energy** and **coins** (for premium), and **cash → premium packs** (live IAP from launch, §4) — a **full price ladder** from an entry tier up to **high-value tiers** (a $49.99 / $99.99-class top end) so a whale can always spend more;
+- **the starter pack + first-purchase offer** — a one-time, high-value, low-price bundle surfaced to new players (the highest-converting IAP in mobile), plus a **first-purchase doubler** on the first pack bought;
 - **specific items** — buy a mid-tier piece (coins for low tiers, premium for higher) to **skip the grind** to it; a real shortcut a player can pay for, never the *only* path (on the "buys speed" line);
 - **cosmetics / looks** — skins and variants (**coins** for base looks, **premium** for exclusive ones — the "buys looks" sink).
 
 Offers **rotate** (a few at a time) so there's always a fresh, optional reason to spend. *(The grove's instances — shop stock, item-shortcut prices, cosmetic catalogue: see `grove_spec`.)*
+
+### The piggy bank (the accrual vault)
+
+A **persistent vault that fills as you play** — it skims a **small slice of the premium you earn** (level-ups, zone-restore, t8 sells) into a visible pig/jar the player can only **claim by paying one fixed real-money price**. The fill grows with play; the price doesn't — so **the longer you play, the better the deal** (the *endowment* hook: it's premium you feel you already earned). It is the **friendliest first purchase** for a non-payer — currency released *sooner and amplified*, squarely the "buys speed, never possibility" line (§4). Cracking it resets the vault; it doubles as a **daily-return hook** (§18) — the pig is worth checking. *(Caps, skim rate, and the crack price are a game instance — a genre staple in casual/casino, live in Merge Mansion; the value-vs-Shop math is the conversion engine, not scarcity.)*
+
+### Triggered offers (the contextual sell)
+
+Distinct from the **rotating** Shop (time-driven): a **state-driven**, one-time offer fired **the moment the player feels a need** — the canonical one being **out-of-energy**. Hit 0 energy → a single, **gently-discounted top-up** (energy + a little premium) on a soft timer. This **monetizes the §4 socket at the point of friction** — the one wall the whole economy routes around — and is the primary in-session conversion surface for a cozy game that, by design (§6), **never sells energy-burn acceleration**. Optionally **segment-targeted** (new / returning / spend-tier, via §15 analytics). **Cozy guardrails (locked):** no countdown anxiety, no fail-shaming (there is no fail state), a **low cap + cooldown** — an offer that reads as *help*, never a shakedown.
 
 ---
 
@@ -393,11 +413,11 @@ Assist features (idle hint, discovery ladder, ready-✓, sell hints, generator p
 
 **Save** (`scripts/save.gd`): versioned **JSON at `user://save.json`** (`SCHEMA_VERSION`), atomic writes (`.tmp` → verify → rename) with a `.bak` last-good fallback; loads **deep-merge over defaults** (never drop unknown keys). Persists `currencies`, board/bag/quest-done/`unlocks`(= spots bought)/variants/hints/pops/rng, and `settings`. **Spend-and-grant is one `save_now()`** so a crash can't take currency without the goods.
 
-**Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **minimized + unfocusable** so captures never steal focus, render at full res, and self-clean. An **economy sim** (default + greedy bot strategies, extended to a **Monte-Carlo seed-sweep** for the generated-quest model, §7) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. iOS export via an `export_presets.cfg` "iOS" preset.
+**Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **minimized + unfocusable** so captures never steal focus, render at full res, and self-clean. An **economy sim** (default + greedy bot strategies, extended to a **Monte-Carlo seed-sweep** for the generated-quest model, §7) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. Beyond affordability it tracks **board occupancy/congestion** — **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a free cell, net of the bag §5 and merchant §9 drains) across the run — so the late-game "juggle every line on one board" (§7) is validated for **space**, not just stars: the board must stay drainable and never silently choke. *(Targets — peak-occupancy and stall-rate ceilings: a grove number, `grove_spec`.)* iOS export via an `export_presets.cfg` "iOS" preset.
 
 **Code-map pattern:** a pure rules engine for tests · a persistent board model · a live board controller + a spend-surface controller drive the loop · a content module holds item lines, generator policy, the quest-generation policy (+ authored gate/milestone quests), and zone/sink data · static singletons for save/features/econ/layout/hud/shop/skin/audio/music/ambient/fx. *(The grove's instances — exact file names, sizes, current state: see `grove_spec`.)*
 
-**Analytics (at launch, not deferred).** You can't tune retention or economy blind, so from day 1 log: the **FTUE funnel** (install → first merge → first delivery → first restoration → D1 return), **retention** (D1/D7/D30, session length & count), **economy flow** (per-currency faucet/sink totals, energy-wall hit-rate, refill usage), **progression** (level/zone reached, quest completion, time-to-first-restoration), **monetization** (even while dark: which IAP popups are shown/tapped), and **virality** (share rate, share→install). Event-batched, offline-queued, privacy-light. *(The grove wires these to its analytics sink — see `grove_spec`.)*
+**Analytics (at launch, not deferred).** You can't tune retention or economy blind, so from day 1 log: the **FTUE funnel** (install → first merge → first delivery → first restoration → D1 return), **retention** (D1/D7/D30, session length & count), **economy flow** (per-currency faucet/sink totals, energy-wall hit-rate, refill usage), **progression** (level/zone reached, quest completion, time-to-first-restoration), **monetization** (which IAP packs/offers are shown, tapped, and purchased; rewarded-ad show/complete rates), and **virality** (share rate, share→install). Event-batched, offline-queued, privacy-light. *(The grove wires these to its analytics sink — see `grove_spec`.)*
 
 ---
 
@@ -440,7 +460,7 @@ The seven phases (per scene; ids must match the content's spot ids so the result
 
 ---
 
-## 17 · Live-Ops, Events & Sharing
+## 17 · Live-Ops, Events, Social & Sharing
 
 Finite content churns; the genre **retains on a content cadence**, not a one-time campaign. The engine ships an **event framework** so a small team runs recurring beats from **data**, with no new code per event.
 
@@ -449,12 +469,49 @@ Finite content churns; the genre **retains on a content cadence**, not a one-tim
 An **event** is a time-boxed overlay with its own **mini-track** (a short reward ladder) and, usually, a **limited line**:
 
 - **Limited-time line** — a special generator + item line live **only during the event** (a themed ladder: a holiday bloom, a seasonal harvest). It pops on the same board, its items feed the event's quests, and when the event ends it **retires to the Collection** (§6). A fresh thing to grow that week.
-- **Mini-track** — a handful of event goals (deliver N event items · reach event-tier T) paying **event rewards**: premium, energy, and **event-exclusive cosmetics** (the keepsake that proves you were there).
+- **Mini-track (free + premium lanes)** — a handful of event goals (deliver N event items · reach event-tier T) paying **event rewards** on a **free lane** (premium, energy, some cosmetics), with an **optional paid lane** unlocked once per event (💎 or cash) that adds a richer reward at each rung — **event-exclusive cosmetics** the headline keepsake. The paid lane is **additive, never gating**: the free lane always completes the event; the premium lane buys *more reward + exclusive looks* (the "buys speed + looks" line). *(A standalone, cross-event seasonal **Battle Pass** — a persistent season ladder independent of any single event — is parked as **future, not v1**: see `BACKLOG.md`.)*
 - **Other types, same framework (tuned knobs):** **bonus weekends** (×2 coin drops / cheaper energy), **limited cosmetics** (event-only skins in the Shop, §10), **catch-up bundles** (a discounted spot pack for returning players).
-- **Data-driven & additive.** An event is a config — limited-line art + quests + rewards + window — so adding one needs **no engine change**. Events are **additive, never gating**: skipping one costs nothing on the core track (the no-FOMO line); the pull is *desire and novelty*, not punishment.
+- **Gentle urgency, softened by recurrence (the cozy-safe FOMO).** An event **window** is a real reason to act *now* — its exclusive line + keepsake are time-boxed — but the cozy-safety comes from **recurrence, not permanence**: seasonal beats **come back** (the spring bloom returns every spring), so a miss reads as *"next time,"* never *"gone forever / I fell behind."* The **core track is still never gated** — skipping costs nothing on the main game; only the *optional keepsake* is time-limited, and even that cycles back.
+- **Recurring seasonal calendar.** Events anchor to a **repeating calendar** (real seasons / holidays); each returning beat brings back its limited line + cosmetics. The **calendar itself is a retention engine** — a reason to come back on a *date* — which partly covers the silent energy hook (§18) for players who don't opt into notifications. *(Cozy proof: Animal Crossing runs a full year of recurring seasonal events with zero predatory pressure.)*
+- **Data-driven.** An event is a config — limited-line art + quests + rewards + window + recurrence rule — so adding (or re-running) one needs **no engine change**. Events stay **additive on the core track**: the pull is *desire and novelty*, never punishment.
+
+### Social & competitive (opt-in, async, positive-sum)
+
+The genre's biggest under-used retention lever — added as an **engine capability a game tunes gently**. The cozy default is **opt-in, asynchronous, and no-lose**: you can only *gain* standing, never lose progress or get griefed. Three surfaces, all behind flags (§11):
+
+- **Async leaderboard events ("race a few others").** A time-boxed sprint where you're bracketed against a **handful of comparable players** (not a global ladder) and advance by normal play (deliver N, reach tier T). **Positive-sum:** everyone past a bar is rewarded; placement only *adds* a bonus — there is **no losing**, only *placing*, and brackets are matched so the goal is always reachable. *(Precedent: Gossip Harbor's "race against 4 others.")*
+- **Gifting (social warmth).** Friends send/receive small kindnesses — a splash of energy, a treat — that **cost the sender nothing** (or a tiny faucet) and never trade power. Pure relationship glue; the world feels inhabited by *people*, not just systems.
+- **Light co-op / community goals.** A shared target everyone chips at — *"the whole grove delivers N blooms this week → every participant gets a reward."* **Cooperative, never competitive**; no blame for under-contributing, no leaderboard of shame.
+
+> **Design line (locked):** social is **a layer over a complete single-player game**, never a dependency — every wall is passable and every event winnable **alone**, and opt-in competition **can't cost you anything** (another player can never break the cozy bed, §1). *(The grove's instances — which surfaces ship, bracket sizes, gift caps: see `grove_spec`.)*
 
 ### Sharing — organic virality
 
 A **"share"** button captures a **screenshot of the player's current world** (their progress at its best) and shares it out; sharing grants a **generous reward** (premium + energy) on a **cooldown** (e.g. once/day) — generous enough to feel worth doing, gated enough not to be farmable. The hook is *show off the world you built* — which only lands if the art earns the screenshot (§16), so sharing and the art bet reinforce each other.
 
 *(The grove's instances — the event calendar, limited-line themes, share-reward sizes: see `grove_spec`.)*
+
+---
+
+## 18 · Retention & Re-engagement
+
+The core return-hook — **energy refilling over time** — happens **silently, off-screen**: a full bar reaches no one unless the game *tells* them. These surfaces turn a refilled bar into a session. *(The §4 win-back is the **reward for returning**; these are the **prompts to return**.)*
+
+### Push notifications — the re-engagement channel
+
+The highest-leverage re-engagement surface for a session-gated game — the one the genre's energy-gated leaders engineer hard. Local + (optional) remote pushes, all **opt-in, calm-toned, capped**:
+
+| Trigger | The beat |
+|---|---|
+| **Energy full** | "your Water's brimming" — the silent hook made audible |
+| **Yield ready** | built things have soft currency to collect (§8) |
+| **Event beat** | a new event opened, or a seasonal beat ends soon (gentle urgency, §17) |
+| **Win-back** | away ≥48 h → "it rained while you were away" (pairs with the §4 full-cap grant) |
+
+**Permission is precious** — mobile-game push opt-in is the lowest of any vertical, and an iOS denial is near-permanent — so **never prompt at cold launch**: ask **after a rewarding moment** (a first zone-restore reveal), framed as a kindness (*"want a nudge when your Water's full?"*). **Quiet hours**, per-category **frequency caps**, and a per-type **Settings toggle** are required, not optional — a cozy game that nags loses the channel for good. Local notifications need no server; remote (event/segment beats) needs a push service (§15). **(Un-deferred to launch:** a silent return-hook with no prompt is the costliest omission.)
+
+### Daily login calendar — the forgiving streak
+
+A gentle **escalating reward ladder** for consecutive days played, with bigger **milestones** (day 7 / 30). **Forgiving (locked):** a missed day **never resets the streak to day 1** — it pauses (or soft-decays one step); the punitive reset demotivates and reads as un-cozy. Rewards obey the §4/§10 faucet discipline — **energy stays modest** (under the "sessions extend, never self-sustain" invariant), **milestones lean cosmetic / premium** — so the calendar drives *return*, not a self-sustaining energy faucet. Pairs with the **piggy bank** (§10): both reward the daily open.
+
+> **Flags & analytics.** Every surface here ships behind a §11 flag and is **measured from launch** (§15): push opt-in / open rates, streak length & break-points, piggy fill→crack conversion, triggered-offer impression→buy. Re-engagement you can't measure, you can't tune. *(The grove's instances — copy, cadence, reward ladders: see `grove_spec`.)*

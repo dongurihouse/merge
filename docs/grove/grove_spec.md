@@ -121,7 +121,7 @@ The 4-currency model (Water / Stars / Coins / Diamonds) and **sink > faucet** la
 | **Water 💧** | the **Rain ☔** button (the daily free refill, Core §4), win-back ("it rained"), zone 4–5 spot-buys (4–5💧) | 1 per pop; refill **25💎 → full** |
 | **Stars ★** | quests only (1–3★) | restoration spots (3–5★) |
 | **Coins 🪙 (acorns)** | merge drops (~10%) · selling t1–t7 · Shop **5💎→150🪙** | waysides · spot variants · spirit treats · basket buy-back |
-| **Diamonds 💎** | level-ups (+3) · zone restore (+10) · selling a t8 (+1) · cash packs (test-only: $0.99→80💎 / $4.99→450💎 / $9.99→1000💎) | Water refill (25💎) · Bag slots 7–18 (premium each, Core §5) · gem variants (2–4💎) |
+| **Diamonds 💎** | level-ups (+3) · zone restore (+10) · selling a t8 (+1) · cash packs (**live IAP from launch**, Core §4/§10) — the ladder $0.99→80💎 / $4.99→450💎 / $9.99→1000💎 is a **placeholder**; the real ladder adds **high-end tiers ($49.99/$99.99-class)** + a **starter pack** (`BACKLOG.md`) | Water refill (25💎) · Bag slots 7–18 (premium each, Core §5) · gem variants (2–4💎) |
 
 ### The Merchant (instantiates Core §9)
 

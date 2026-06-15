@@ -56,10 +56,10 @@ func _initialize() -> void:
 			if mode == "progress":
 				g["unlocks"] = {"fh_chest": true, "fh_bed": true, "fh_table": true}
 				g["custom"] = {"fh_bed": "gem", "fh_table": "coin"}
-				g["exp"] = 90
+				g["stars_earned"] = 9
 			else:
 				g["unlocks"] = {"fh_chest": true}    # owned → its customize list opens
-				g["exp"] = 30
+				g["stars_earned"] = 3
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pzone)
 			var go := Save.grove()
@@ -68,7 +68,7 @@ func _initialize() -> void:
 				for sp in G.ZONES[z].spots:
 					ul[String(sp.id)] = true
 			go["unlocks"] = ul
-			go["exp"] = 400
+			go["stars_earned"] = 40
 			Save.grove_write()
 
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
@@ -121,5 +121,5 @@ func _initialize() -> void:
 			cr.resize(int(r[2]) * 3, int(r[3]) * 3, Image.INTERPOLATE_NEAREST)
 			img = cr
 	var err := img.save_png(out)
-	print("SHOT saved=%s err=%d stars=%d exp=%d" % [out, err, Save.stars(), scn.exp_points])
+	print("SHOT saved=%s err=%d stars=%d earned=%d" % [out, err, Save.stars(), int(Save.grove().get("stars_earned", 0))])
 	quit()
