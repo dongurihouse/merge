@@ -687,6 +687,12 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		FX.floating_text(self, get_global_rect().get_center() + Vector2(-60, 70),
 			tr("+%d💎") % G.ZONE_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
+		# §8: this restore completed the map's spots, so its great-spirit GATE quest is now
+		# the lone fence stand WAITING ON THE BOARD — a silent cross-screen handoff. Arm the
+		# wordless pointer; the board consumes it on its next open and pulses the gate stand.
+		# Only when the gate is genuinely still pending (not already delivered for this zone).
+		if not _gates().has(z):
+			Save.set_gate_pointer(z)
 
 # A swatch chip was tapped: pay (if needed) and dress the item — all on the map.
 func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
