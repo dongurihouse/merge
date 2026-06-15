@@ -8,59 +8,81 @@ const COLS := 7
 const ROWS := 9
 const TOP_TIER := 8
 
-# Lines: code = line*100 + tier. Art loads <art_root>/items/<base>_<tier>.png
+# Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>_<tier>.png; until the
+# §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
+# (Acorn & Bloom, grove_spec §2): 24 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
+# 3 Pond · 4 Orchard · 5 Meadow (the 15-map arc ≈104 lines is post-launch). Wildflower (1) is the
+# title line + the permanent ANCHOR (Seed satchel's pair never retires). Codes skip 9 (= COIN_LINE).
 const LINES := {
+	# map 1 — Farmhouse (Radish): the starting lines (keep these bases — sprites may exist)
 	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3")},
 	2: {"name": "Berry", "base": "berry", "color": Color("#7FB4D9")},
 	3: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
+	# map 2 — Barn (Carrot): hen coop + dairy stall
+	5: {"name": "Egg", "base": "egg", "color": Color("#F2E4C4")},
+	6: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},
+	7: {"name": "Milk", "base": "milk", "color": Color("#EDEDE6")},
+	8: {"name": "Wool", "base": "wool", "color": Color("#DED7C8")},
+	# map 3 — Pond (Frog): reed bed + creel
+	10: {"name": "Reed", "base": "reed", "color": Color("#8FB36B")},
+	11: {"name": "Lotus", "base": "lotus", "color": Color("#E8A8C0")},
+	12: {"name": "Fish", "base": "fish", "color": Color("#7FB8C9")},
+	13: {"name": "Snail", "base": "snail", "color": Color("#B89A6B")},
+	# map 4 — Orchard (Bee): orchard basket + stone-fruit bough + nut-&-blossom
+	14: {"name": "Apple", "base": "apple", "color": Color("#D0483B")},
+	15: {"name": "Pear", "base": "pear", "color": Color("#BCD06B")},
+	16: {"name": "Plum", "base": "plum", "color": Color("#8E5AA8")},
+	17: {"name": "Cherry", "base": "cherry", "color": Color("#C8364F")},
+	18: {"name": "Walnut", "base": "walnut", "color": Color("#9A6B43")},
+	19: {"name": "Blossom", "base": "blossom", "color": Color("#F0B6CE")},
+	# map 5 — Meadow (Morel): glow-cap ring + meadow tuft + lantern bloom
+	20: {"name": "Glowcap", "base": "glowcap", "color": Color("#E07AA0")},
+	21: {"name": "Spore", "base": "spore", "color": Color("#C9B8E0")},
+	22: {"name": "Clover", "base": "clover", "color": Color("#6FA86B")},
+	23: {"name": "Dandelion", "base": "dandelion", "color": Color("#EAD24A")},
+	24: {"name": "Poppy", "base": "poppy", "color": Color("#D8503F")},
+	25: {"name": "Firefly", "base": "firefly", "color": Color("#E8E07A")},
 }
 
-# Generators — the per-zone roster (Core §6, the generator-grant hand-in model). Each
-# emits 2 lines and belongs to a zone; `grant_from` is the previous-zone generator you
-# HAND IN (to a generator-grant quest) to receive this one — old lines retire; "" =
-# granted outright (a zone's surplus, or zone 0's two starters). `cell` is denormalized
-# down each lineage (a grant generator sits at its predecessor's cell). PLACEHOLDER content for the §6 engine milestone — the
-# 3 generator sprites are reused and zones 1–4 emit code-drawn lines (5–33); the themed
-# 16-gen / 32-line map + real art is the parked grove-content task (docs/BACKLOG.md).
+# Generators — the v1 home-grove roster (grove_spec §2): 12 generators / 24 lines across maps 1–5
+# (Core §6, the generator-grant hand-in model). Each emits 2 lines and belongs to a map (zone);
+# `grant_from` = the previous-map generator you HAND IN to receive this one (old lines retire); ""
+# = granted outright (a map's surplus, or map 1's two starters). `cell` is denormalized down each
+# lineage (a grant generator sits at its predecessor's cell). 12 gen sprites + ~192 item sprites
+# are PARKED art (§16) — generators reuse 3 stand-in sprites for now. ANCHOR: `seed_satchel`
+# (Wildflower + Berry) is never handed in, so it persists across the home grove (Mom's line stays
+# on the board); keeping its lines ASKABLE past map 1 is a parked engine follow-up (BACKLOG).
 const GENERATORS := [
-	# zone 0 — the two starters, granted outright (satchel at center, compost early)
-	{"id": "satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "",
-		"tex": "ui/gen_satchel.png", "label": "seeds"},
-	{"id": "compost", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
-		"tex": "ui/gen_compost.png", "label": "compost"},
-	# zone 1 — 2 hand-in grants of zone 0, +1 surplus (the beehive cell)
-	{"id": "z1a", "zone": 1, "cell": Vector2i(4, 3), "lines": [5, 6], "grant_from": "satchel",
-		"tex": "ui/gen_satchel.png", "label": "z1a"},
-	{"id": "z1b", "zone": 1, "cell": Vector2i(2, 1), "lines": [7, 8], "grant_from": "compost",
-		"tex": "ui/gen_compost.png", "label": "z1b"},
-	{"id": "z1c", "zone": 1, "cell": Vector2i(6, 5), "lines": [10, 11], "grant_from": "",
-		"tex": "ui/gen_beehive.png", "label": "z1c"},
-	# zone 2 — all 3 hand-in grants
-	{"id": "z2a", "zone": 2, "cell": Vector2i(4, 3), "lines": [12, 13], "grant_from": "z1a",
-		"tex": "ui/gen_satchel.png", "label": "z2a"},
-	{"id": "z2b", "zone": 2, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "z1b",
-		"tex": "ui/gen_compost.png", "label": "z2b"},
-	{"id": "z2c", "zone": 2, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "z1c",
-		"tex": "ui/gen_beehive.png", "label": "z2c"},
-	# zone 3 — 3 hand-in grants, +1 surplus
-	{"id": "z3a", "zone": 3, "cell": Vector2i(4, 3), "lines": [18, 19], "grant_from": "z2a",
-		"tex": "ui/gen_satchel.png", "label": "z3a"},
-	{"id": "z3b", "zone": 3, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "z2b",
-		"tex": "ui/gen_compost.png", "label": "z3b"},
-	{"id": "z3c", "zone": 3, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "z2c",
-		"tex": "ui/gen_beehive.png", "label": "z3c"},
-	{"id": "z3d", "zone": 3, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "",
-		"tex": "ui/gen_satchel.png", "label": "z3d"},
-	# zone 4 — all 4 hand-in grants
-	{"id": "z4a", "zone": 4, "cell": Vector2i(4, 3), "lines": [26, 27], "grant_from": "z3a",
-		"tex": "ui/gen_satchel.png", "label": "z4a"},
-	{"id": "z4b", "zone": 4, "cell": Vector2i(2, 1), "lines": [28, 29], "grant_from": "z3b",
-		"tex": "ui/gen_compost.png", "label": "z4b"},
-	{"id": "z4c", "zone": 4, "cell": Vector2i(6, 5), "lines": [30, 31], "grant_from": "z3c",
-		"tex": "ui/gen_beehive.png", "label": "z4c"},
-	{"id": "z4d", "zone": 4, "cell": Vector2i(4, 5), "lines": [32, 33], "grant_from": "z3d",
-		"tex": "ui/gen_satchel.png", "label": "z4d"},
+	# map 1 — Farmhouse (Radish): the two starters, granted outright
+	{"id": "seed_satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "",
+		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in
+	{"id": "pantry_crock", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
+		"tex": "ui/gen_compost.png", "label": "pantry"},
+	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
+	{"id": "hen_coop", "zone": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
+		"tex": "ui/gen_compost.png", "label": "coop"},
+	{"id": "dairy_stall", "zone": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
+		"tex": "ui/gen_beehive.png", "label": "dairy"},
+	# map 3 — Pond (Frog): two hand-in grants
+	{"id": "reed_bed", "zone": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
+		"tex": "ui/gen_compost.png", "label": "reeds"},
+	{"id": "creel", "zone": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
+		"tex": "ui/gen_beehive.png", "label": "creel"},
+	# map 4 — Orchard (Bee): two hand-in grants + one surplus
+	{"id": "orchard_basket", "zone": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
+		"tex": "ui/gen_compost.png", "label": "orchard"},
+	{"id": "stone_fruit_bough", "zone": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
+		"tex": "ui/gen_beehive.png", "label": "stonefruit"},
+	{"id": "nut_blossom", "zone": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
+		"tex": "ui/gen_satchel.png", "label": "nuts"},
+	# map 5 — Meadow (Morel): three hand-in grants
+	{"id": "glowcap_ring", "zone": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
+		"tex": "ui/gen_compost.png", "label": "glowcap"},
+	{"id": "meadow_tuft", "zone": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
+		"tex": "ui/gen_beehive.png", "label": "tuft"},
+	{"id": "lantern_bloom", "zone": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
+		"tex": "ui/gen_satchel.png", "label": "lantern"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 

@@ -24,12 +24,10 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   those authored quests in the live script) and the #4 economy rebalance are their own items below. What
   remains in THIS item is just the grove DATA + ART that dress the now-shipped mechanic.]** §6 target: the **open-ended line/generator arc** — now **designed as 15 maps in `grove_spec §2`** (v1 = the home grove, maps 1–5; ≈52 gens / 104 lines across the arc, uncapped beyond) —
   generators arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8, ~2–4 live), **2 lines
-  each**, each arriving as a **generator-grant quest reward** (hand an older generator in → receive a new line; old lines retire) or granted as a surplus. **T17 shipped this on a PLACEHOLDER roster** (16 gens, lines 1–8 & 10–33,
-  code-drawn art — `games/grove/grove_data.gd:GENERATORS`; `ZONE_RAMP` is a flat `Vector2i(2,4)`,
-  marked PROVISIONAL). **Build (grove content):** the **v1 home-grove roster** (maps 1–5, `grove_spec §2`, **12 gens / 24 lines**): the generator→line→name→lineage data
-  replacing the placeholder roster, plus the per-zone `ZONE_RAMP` counts (tuned alongside §7's sim).
-  **Build (art):** **v1 ~192 item sprites + 12 generators** (maps 1–5) via the §16 LLM pipeline — ⚠️ **large art** (the full 15-map arc ≈ 832 sprites, post-launch).
-  *(Surfaced 2026-06-14 — spec review + code audit; engine split shipped as T17 2026-06-15.)*
+  each**, each arriving as a **generator-grant quest reward** (hand an older generator in → receive a new line; old lines retire) or granted as a surplus. **✅ Build (grove content) — DONE (T20, 2026-06-15):** the **v1 home-grove roster** is authored in `grove_data.gd` — **12 generators / 24 lines** across maps 1–5 (the `grove_spec §2` table: real names, the 2-lines-per-generator split, the hand-in lineage + surpluses, the `seed_satchel` anchor). The placeholder roster + `ZONE_RAMP` are gone (the §7 sim tunes the live model, not a ramp table); lines render **code-drawn** until the art lands.
+  **⏸ Parked — art + the anchor:** **v1 ~192 item sprites + 12 generators** (maps 1–5) via the §16 LLM pipeline — ⚠️ **large art** (the full 15-map arc ≈ 832 sprites, post-launch); plus the **anchor's cold-load persistence** — the `seed_satchel` (Wildflower + Berry) persists in live play via the hand-in flow, but `seed_gens` on a fresh cold load and `lines_for_zone` (quest asks) don't yet include it past map 1 — a small engine follow-up.
+  **⏸ Parked — economy feel (the items below):** the §7 **pacing sign-off** (the provisional `grove_data.gd` quest tunables) and the **§3 `LEVEL_STARS` recalibration** (#4 economy item) — both await the owner's pacing call, best made once the art makes it playable.
+  *(Surfaced 2026-06-14 — spec review + code audit; engine split T17, hand-in T18, §7 cutover T19, content T20 — all 2026-06-15.)*
 
 - **✅ DONE — T19 (2026-06-15) · Generated quests + calculated reward (§7).** §7 replaced the deterministic
   per-zone ramp with **generated** quests (asks drawn from live generator lines, weighted to the

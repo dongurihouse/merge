@@ -388,16 +388,16 @@ func _initialize() -> void:
 	ok(Save.grove().get("gates", []).has(0), "§7: delivering the gate records it for map 1")
 	ok(G.zone_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "§7: map 2 unlocks once the gate is delivered")
 	ok(Save.stars() > gate_stars_b, "§7: the gate pays its large authored reward")
-	ok(sg.board.gen_id_at(Vector2i(6, 5)) == "z1c", "§7: the next map's SURPLUS generator appears outright (z1c)")
-	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "satchel", "§7: the hand-in generators wait — the satchel stays for its grant quest")
+	ok(sg.board.gen_id_at(Vector2i(6, 5)) == "dairy_stall", "§7: the next map's SURPLUS generator appears outright (dairy stall)")
+	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and sg.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "§7: the anchor satchel stays; the pantry crock waits to be handed in")
 	# the new map opens with its generator-grant hand-in(s) on the fence (§6)
 	var grant_qi := -1
 	for gqi in sg.quests.size():
-		if sg.quests[gqi].has("grant") and String(sg.quests[gqi].grant.grants) == "z1a":
+		if sg.quests[gqi].has("grant") and String(sg.quests[gqi].grant.grants) == "hen_coop":
 			grant_qi = gqi
-	ok(grant_qi >= 0, "§7: the new map opens with z1a's grant quest (hand in the satchel)")
+	ok(grant_qi >= 0, "§7: the new map opens with the hen coop's grant quest (hand in the pantry crock)")
 	sg._on_giver_tap(grant_qi, sg.giver_chips[grant_qi].chip)
-	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "z1a", "§7: handing the satchel in installs z1a in its place — the new line goes live")
+	ok(sg.board.gen_id_at(Vector2i(2, 1)) == "hen_coop", "§7: handing the pantry crock in installs the hen coop — the new line goes live")
 	sg.queue_free()
 
 	# 11. P2 — water economy + coins
@@ -478,8 +478,9 @@ func _initialize() -> void:
 		s3._ready()
 	ok(s3.water == G.WATER_CAP, "returning after days away finds full water")
 
-	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT zone (§6), not
-	# just the satchel — completing zones 0+1 puts the player in zone 2 (3 generators).
+	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT zone (§6), not just
+	# one — completing maps 1+2 puts the player in map 3/Pond (2 generators: reed bed + creel;
+	# the anchor satchel's cold-load persistence is the parked engine follow-up, BACKLOG).
 	fresh("twogens")
 	var gtg := Save.grove()
 	var ul16 := {}
@@ -492,25 +493,25 @@ func _initialize() -> void:
 	get_root().add_child(s4)
 	if s4.board == null:
 		s4._ready()
-	ok(s4.gen_nodes.size() == 3, "a cold load in zone 2 draws all 3 of the zone's live generators")
+	ok(s4.gen_nodes.size() == 2, "a cold load in map 3/Pond draws both of the map's generators (reed bed + creel)")
 	ok(s4.gen_node != null and s4.gen_nodes.values().has(s4.gen_node), "gen_node points at a live generator (not the stale index-0 satchel)")
 
 	# 12c. generators are MOVABLE (#1) and arrive by GRANT HAND-IN (#2) on the live board,
-	# and the scene re-renders both (§6). A fresh board is zone 0: satchel (4,3) + compost (2,1).
+	# and the scene re-renders both (§6). A fresh board is map 1: seed satchel (4,3) + pantry crock (2,1).
 	fresh("genmech")
 	var s4c = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s4c)
 	if s4c.board == null:
 		s4c._ready()
-	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "compost", "12c: a fresh board seeds the zone-0 generators")
+	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: a fresh board seeds the zone-0 generators")
 	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()
 	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 3)), "12c: the moved generator re-renders at its new cell")
-	ok(s4c.board.grant_gen("z1a"), "12c: a generator-grant quest hands the satchel in for z1a (#2)")
+	ok(s4c.board.grant_gen("hen_coop"), "12c: a generator-grant quest hands the pantry crock in for the hen coop (#2)")
 	s4c._rebuild_all()
-	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "z1a" and s4c.board.gens.size() == 2, "12c: granted in place — z1a at the satchel's (moved) cell, satchel consumed")
-	ok(s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the grant")
+	ok(s4c.board.gen_id_at(Vector2i(2, 1)) == "hen_coop" and s4c.board.gen_id_at(Vector2i(4, 4)) == "seed_satchel" and s4c.board.gens.size() == 2, "12c: granted — hen coop at the crock's cell; the moved anchor satchel untouched")
+	ok(s4c.gen_nodes.has(Vector2i(2, 1)) and s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the grant + the moved anchor")
 	s4c.queue_free()
 
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's

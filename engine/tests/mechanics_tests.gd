@@ -97,11 +97,11 @@ func _initialize() -> void:
 	ok(s1.size() == 3 and s1[Vector2i(4, 3)] == "g1a" and s1[Vector2i(2, 1)] == "g1b" and s1[Vector2i(6, 5)] == "g1c", "zone 1 live set: 2 grants (inherited cells) + 1 surplus")
 
 	# --- the board model's STATEFUL, persisted generator map (movable #1 · grant #2 · save #3) ---
-	# Uses the LIVE grove roster (G.GENERATORS): satchel + compost in zone 0; z1a's grant_from is satchel.
+	# Uses the LIVE grove roster (G.GENERATORS): seed_satchel + pantry_crock in map 1; hen_coop's grant_from is pantry_crock.
 	var bm := BoardModel.new()
 	bm.seed_gens(0)
 	ok(bm.is_gen(Vector2i(4, 3)) and bm.is_gen(Vector2i(2, 1)) and bm.gens.size() == 2, "seed_gens(0): the 2 zone-0 starters are live")
-	ok(bm.gen_id_at(Vector2i(4, 3)) == "satchel", "the center cell holds the satchel")
+	ok(bm.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the center cell holds the satchel")
 	ok(bm.gen_id_at(Vector2i(0, 0)) == "", "a non-generator cell has no generator id")
 	# #1 movable: a generator relocates to an empty open cell, refuses an occupied/gen cell
 	var dest := Vector2i(4, 4)
@@ -110,15 +110,15 @@ func _initialize() -> void:
 	ok(bm.is_gen(dest) and not bm.is_gen(Vector2i(4, 3)), "moved: generator at the destination, gone from the origin")
 	ok(not bm.move_gen(dest, Vector2i(2, 1)), "a generator can't move onto another generator")
 	bm.move_gen(dest, Vector2i(4, 3))             # put it back
-	# #2 grant hand-in: a generator-grant quest hands the satchel in and installs z1a in its place
-	ok(not bm.grant_gen("z1c"), "a surplus generator is not granted by hand-in")
-	ok(bm.grant_gen("z1a"), "the grant hands in the satchel (z1a's predecessor) and installs z1a in place")
-	ok(bm.gen_id_at(Vector2i(4, 3)) == "z1a" and bm.gens.size() == 2, "z1a installed at the satchel cell; satchel consumed; live count unchanged")
+	# #2 grant hand-in: a generator-grant quest hands the pantry crock in and installs the hen coop in its place
+	ok(not bm.grant_gen("dairy_stall"), "a surplus generator is not granted by hand-in")
+	ok(bm.grant_gen("hen_coop"), "the grant hands the pantry crock in (the hen coop's predecessor) and installs the hen coop")
+	ok(bm.gen_id_at(Vector2i(2, 1)) == "hen_coop" and bm.gens.size() == 2, "hen coop installed at the crock's cell; the crock consumed; the anchor satchel stays — 2 live")
 	# #3 persistence: gens survive a save round-trip
 	var blob := bm.to_dict()
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
-	ok(bm2.gen_id_at(Vector2i(4, 3)) == "z1a" and bm2.is_gen(Vector2i(2, 1)) and bm2.gens.size() == 2, "the generator map round-trips through to_dict/from_dict")
+	ok(bm2.gen_id_at(Vector2i(2, 1)) == "hen_coop" and bm2.is_gen(Vector2i(4, 3)) and bm2.gens.size() == 2, "the generator map round-trips through to_dict/from_dict")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
