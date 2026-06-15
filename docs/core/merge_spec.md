@@ -6,7 +6,7 @@
 
 ## 1 · Concept, Pillars & Core Loop
 
-A **merge-to-restore** game: the player tends **one persistent merge board**, feeds it from an **energy-gated generator**, and consumes their harvests into a **progress currency** that **visibly restores** a multi-zone spend surface. The board is a saved *workplace*, not a puzzle to win — there is no level select, no board-clear, no undo.
+A **merge-to-restore** game: the player tends **one persistent merge board**, feeds it from an **energy-gated generator**, and consumes their harvests into a **progress currency** that **visibly restores** a multi-map spend surface. The board is a saved *workplace*, not a puzzle to win — there is no level select, no board-clear, no undo.
 
 The governing reframe is **"merging is building."** Merge-game nouns map onto whatever the theme is: the board is a *working clearing*; item families are *growth/production lines*; generators are *theme objects that emit them*; energy is a *themed resource*; locked cells are *themed obstacles*; quest-givers are *themed characters*. Unlocks make ambient life and content **appear and stay** — progress is earned, never decorative. *(The grove's instances: see `grove_spec`.)*
 
@@ -36,13 +36,13 @@ The merge board is a **simple, easy friction engine — deliberately *not* the h
 
 - **Why it's fun:** the merge gives a steady, legible micro-reward (two things → one better, with juice); but the *deep* payoff is the **before→after** of a world you turn from empty/overgrown into something finished, alive, and *yours*. No-lose comfort + constant small discoveries keep it relaxing and fresh.
 - **What drives merging (moment-to-moment):** a giver's ask (a concrete tier to reach) · the tier ladder (see the next one) · the reward chain (every merge is a visible step toward building) · scarcity (energy is finite; clearing obstacles buys room).
-- **What drives the comeback:** energy refills (the soft wall = the return hook) · **an unfinished, evolving world** (the strongest pull — *"my world isn't done and I have an idea for it"*) · **yields to collect** (built things produce over time, §8) · new content always a few steps ahead.
+- **What drives the comeback:** energy refills (the soft wall = the return hook) · **an unfinished, evolving world** (the strongest pull — *"my world isn't done and I have an idea for it"*) · **the home hub's yield to collect** (it produces over time, §8) · **events staged in maps you've restored** (§17) · new content always a few steps ahead.
 
 > **Design line (locked):** unlocks are **never a laundry list of names that pop after payment.** Every buildable is *teased, charming, aspirational* — the player should *want* it before they can afford it. Desire is the engine; visual appeal and discovery do the work.
 
 ### North-star pattern
 
-**The single emotional target:** *the player reaches their first visible restoration feeling they earned it* — everything is sequenced to reach that as early as is responsible, then breadth layers onto a loop that already works. **Definition of done:** a brand-new player on a fresh save learns the merge verb wordlessly, delivers harvests to givers for progress, spends it to restore the surface spot-by-spot, and reaches a **zone-restored reveal that feels earned** — on economy numbers validated by a headless pacing sim, with corruption-safe save, all strings via `tr()`, a calm mode from launch, and audio that degrades gracefully.
+**The single emotional target:** *the player reaches their first visible restoration feeling they earned it* — everything is sequenced to reach that as early as is responsible, then breadth layers onto a loop that already works. **Definition of done:** a brand-new player on a fresh save learns the merge verb wordlessly, delivers harvests to givers for progress, spends it to restore the surface spot-by-spot, and reaches a **map-restored reveal that feels earned** — on economy numbers validated by a headless pacing sim, with corruption-safe save, all strings via `tr()`, a calm mode from launch, and audio that degrades gracefully.
 
 ---
 
@@ -73,7 +73,7 @@ A single persistent merge board fed by energy-gated generators. Terrain + items 
 
 ## 3 · Progression — Level (the one clock)
 
-There is **one progression counter: level** (the old *chapter* counter is gone — note below), and it is **uncapped** — it climbs forever. Level is driven by **stars earned from quests** — cross a `LEVEL_STARS` threshold, level up — and **level gates restoration spots** (§8) **and board cells** (§4). **Generators arrive per zone** (§6) and **zones unlock by completing the previous one** (§8) — *neither is level-gated*, so new zones (with fresh generators/lines) can ship anytime. The whole loop in one line: *do quests → earn stars → level up → spots unlock → spend stars to restore the zone → the next zone (and its generators) opens.*
+There is **one progression counter: level** (the old *chapter* counter is gone — note below), and it is **uncapped** — it climbs forever. Level is driven by **stars earned from quests** — cross a `LEVEL_STARS` threshold, level up — and **level gates restoration spots** (§8) **and board cells** (§4). **Generators arrive per map** (§6) and **maps unlock by completing the previous one** (§8) — *neither is level-gated*, so new maps (with fresh generators/lines) can ship anytime. The whole loop in one line: *do quests → earn stars → level up → spots unlock → spend stars to restore the map → the next map (and its generators) opens.*
 
 Stars do **double duty**: **earned** (cumulative — drives level, never decreases) and **spent** (a balance, on restoration spots §8). Level tracks *lifetime* stars; the wallet holds what's left to spend.
 
@@ -82,7 +82,7 @@ Stars do **double duty**: **earned** (cumulative — drives level, never decreas
 | **What it is** | the single player rank (1 → ∞, **uncapped**) |
 | **Driven by** | **total stars earned** — `level_for_stars(stars_earned)` over `LEVEL_STARS`; each quest pays ~1–3★ (§7), so **level ≈ quests done** |
 | **Shows as** | the **Lv** chip, top-left |
-| **Gates** | **restoration spots** (§8) · **board cells** (§4) — *(generators arrive by **zone** §6; zones by **completion** §8 — neither level-gated)* |
+| **Gates** | **restoration spots** (§8) · **board cells** (§4) — *(generators arrive by **map** §6; maps by **completion** §8 — neither level-gated)* |
 | **Grants** | each level-up gifts energy + premium (`LEVEL_WATER_GIFT` / `LEVEL_DIAMONDS`) |
 
 ### Level curve & expected clicks
@@ -100,11 +100,11 @@ A level's effort is the **generator-clicks** (energy ≈ pops) to complete the q
 | L41–L50 | 1,600 | 30,775 |
 | **L51+** | **3,200 (flat, no cap)** | +3,200 / level |
 
-At ~900 f2p clicks/day: early levels are minutes–hours apart; past L50 each level is a steady **~3.6 days** f2p (or ~16–32 min for a premium player). Waypoints: **L50 ≈ 30,775**, **~L103 ≈ 200k**, L150 ≈ 351k — **open-ended** (the "endgame" is *all shipped zones restored*, not a level). **Generators arrive per zone** (§6), not by level; past the early ramp the new content is **zones** (completion-chained, §8) — each shipping fresh generators/lines + spots + scaling quests. *(Clicks-per-level is the tunable curve; the per-quest split that spends it is §7, validated by the Monte-Carlo sim. Clicks count generator pops — the merges that consume them roughly double real actions/time.)*
+At ~900 f2p clicks/day: early levels are minutes–hours apart; past L50 each level is a steady **~3.6 days** f2p (or ~16–32 min for a premium player). Waypoints: **L50 ≈ 30,775**, **~L103 ≈ 200k**, L150 ≈ 351k — **open-ended** (the "endgame" is *all shipped maps restored*, not a level). **Generators arrive per map** (§6), not by level; past the early ramp the new content is **maps** (completion-chained, §8) — each shipping fresh generators/lines + spots + scaling quests. *(Clicks-per-level is the tunable curve; the per-quest split that spends it is §7, validated by the Monte-Carlo sim. Clicks count generator pops — the merges that consume them roughly double real actions/time.)*
 
 ### No-strand (now statistical, not proven)
 
-The player must never be **stranded** — always able to reach the next unlock. The old guarantee was a **pigeonhole proof** over a deterministic quest curve; **generated** quests (§7) retire that proof, so no-strand now rests on **guardrails** (a spot's level-gate is reachable by the stars earnable before it; the metered fence §7 always supplies the next unlock; **every zone's spots are all reachable so the zone can be completed → the next zone unlocks, §8**) **verified by a Monte-Carlo sim** (worst-case across seeds). Hard rule unchanged: **level-gated content is never the affordable frontier.** *(The grove's instances — `LEVEL_STARS`, spot ranks, the per-level unlock map: see `grove_spec`.)*
+The player must never be **stranded** — always able to reach the next unlock. The old guarantee was a **pigeonhole proof** over a deterministic quest curve; **generated** quests (§7) retire that proof, so no-strand now rests on **guardrails** (a spot's level-gate is reachable by the stars earnable before it; the metered fence §7 always supplies the next unlock; **every map's spots are all reachable so the map can be completed → the next map unlocks, §8**) **verified by a Monte-Carlo sim** (worst-case across seeds). Hard rule unchanged: **level-gated content is never the affordable frontier.** *(The grove's instances — `LEVEL_STARS`, spot ranks, the per-level unlock map: see `grove_spec`.)*
 
 > **Removed — the *chapter* counter.** Progression once split *chapter* (spots bought) from *level* (EXP rank); they are now **one thing: level.** `unlocks.size()` still counts spots in code but drives no separate clock; the `chapter` / `EXP` rename is the parked cleanup (`BACKLOG.md`).
 
@@ -129,7 +129,7 @@ Merging, moving, delivering, selling, collecting, and decorating are **always fr
 
 ### The monetization-socket philosophy
 
-Premium 💎 is **earnable in-game** (level-ups, zone restore, selling a t8) **and purchasable with real money — IAP is live from launch**: real cash→💎 packs sell in the Shop from day one (a build flag gates which geos see them, for staged soft-launch). *(Premium is never required — see the design line below.)* The design line is **premium buys *speed* and *looks*, never *possibility***: every wall is passable for free (slower), never purchase-only; cosmetics/customization are a fair premium sink (they change the look, not the progression).
+Premium 💎 is **earnable in-game** (level-ups, map restore, selling a t8) **and purchasable with real money — IAP is live from launch**: real cash→💎 packs sell in the Shop from day one (a build flag gates which geos see them, for staged soft-launch). *(Premium is never required — see the design line below.)* The design line is **premium buys *speed* and *looks*, never *possibility***: every wall is passable for free (slower), never purchase-only; cosmetics/customization are a fair premium sink (they change the look, not the progression).
 
 **Energy friction is intentional and must not be designed away** — it is the later monetization hook. The load-bearing invariant: **past the early ramp** (deliberately generous — the flat +50 gift can exceed a cheap early level's cost), **a level's energy rewards stay < 30% of its energy cost** (sessions extend, never self-sustain). A fallback hedge: if energy-resentment plays badly, swap to energy-free with daily quest caps — the rest of the spec survives intact.
 
@@ -165,7 +165,7 @@ Every non-center cell is an obstacle. The **default 7×9 board** and the gate at
 
 *(Levels are a **hand-tuned gradient** — tunable, an **owner's-eye** call on feel; the `L10`–`L12` corners are the **last cells to open** (~L12 — still early in a 150-level run; the board is the early-game *workspace*, not the long tail), pending sim re-validation that the level curve gates the *reachable* board without stranding it. Forward design: `min_level` cell-gating is **not yet in code** — `openable_brambles` is tier-only today.)*
 
-The board **fully opens early** — every cell by ~L12 — so it is the early-game *workspace*; the long game is **zones** (§8, completion-chained) and **quests** (§7), not board-clearing. Because the board is persistent, clearing obstacles is **pure expansion, never an objective**. *(The grove's instances — exact gates per ring/half: see `grove_spec`.)*
+The board **fully opens early** — every cell by ~L12 — so it is the early-game *workspace*; the long game is **maps** (§8, completion-chained) and **quests** (§7), not board-clearing. Because the board is persistent, clearing obstacles is **pure expansion, never an objective**. *(The grove's instances — exact gates per ring/half: see `grove_spec`.)*
 
 ### The merchant — see §9.
 
@@ -191,19 +191,24 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 
 ### Generators
 
-A generator emits **two item lines**. **Tap → a small burst pops** — items to free cells, **1 energy each**. Burst size stacks three ways: a **random base** (`BURST_ODDS`), a **free scale-up by zone** (later generators pop bigger), and a **player upgrade** (a coin/premium **sink** — pay to grow a generator's burst, §8/§10). All of it cuts **taps**, not the per-item energy economy, so the §3 pacing curve is unchanged. Each item is from **one of its two lines** at a tier with decaying odds (`TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` for t1–t4); line and tier are **weighted toward what current givers want** (`ASK_WEIGHT = 0.6`). A full board dims the generator (popping is free while dimmed). A generator is **never sold**, and you never merge your *working* producer away; it **can be moved** (dragged / swapped like any piece, §2). The one place generators merge is the **evolve-merge** below.
+A generator emits **two item lines**. **Tap → a small burst pops** — items to free cells, **1 energy each**. Burst size stacks three ways: a **random base** (`BURST_ODDS`), a **free scale-up by map** (later generators pop bigger), and a **player upgrade** (a coin/premium **sink** — pay to grow a generator's burst, §8/§10). All of it cuts **taps**, not the per-item energy economy, so the §3 pacing curve is unchanged. Each item is from **one of its two lines** at a tier with decaying odds (`TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` for t1–t4); line and tier are **weighted toward what current givers want** (`ASK_WEIGHT = 0.6`). A full board dims the generator (popping is free while dimmed). A generator is **never sold** and **never merged** (generators do not evolve by merging — retired); it **can be moved** (dragged / swapped like any piece, §2). It leaves the board only by being **handed in at a map boundary** (a generator-grant quest, below).
 
-**Generators arrive per zone, not by level.** Each zone introduces a **fresh set**: **zone 1 → 2 generators (4 lines)**, **zones 2–3 → 3 (6 lines)**, **zone 4+ → 4 (8 lines)** — so every new zone (even one shipped post-launch) brings up to **4 new generators / 8 new lines**. Only the **current zone's set (~2–4) is ever live** — old sets evolve away, so the board never accumulates generators.
+**Generators arrive per map, not by level.** Each map introduces a **fresh set**: **map 1 → 2 generators (4 lines)**, **maps 2–3 → 3 (6 lines)**, **map 4+ → 4 (8 lines)** — so every new map (even one shipped post-launch) brings up to **4 new generators / 8 new lines**. Only the **current map's set (~2–4) is ever live** — old generators are **handed in at the next boundary** (below), so the board never accumulates generators.
 
-**Unlocking — the merge-to-evolve gate.** A zone is opened by a **gate quest** asking a **t8** (top tier) of a *previous-zone* line — the capstone proving you mastered that zone (the **only** place t8 is asked, §7). Its generators then arrive from **N quests** (N = the zone's generator count), **spread through the zone, not all upfront**: each grants a generator that the player **merges with a previous-zone generator to upgrade it** into a new-zone producer (`old + grant → new`). The upgrade **consumes the old generator**, so **old lines retire** (nothing asks a retired line) and the live count stays ~2–4. When a zone has **more** generators than the last, the **surplus** are **granted outright** (no predecessor to upgrade). *(Zone 1 has no previous zone — its 2 generators are granted outright: start + an early quest, no t8 gate.)*
+**Crossing a map boundary — two authored quests, no merging.** Generators do not merge to evolve (that mechanic is retired). Two **authored** quests bracket each boundary instead:
 
-**Retired lines → the Collection.** A line that retires (zone advance, or an event ending §17) is **archived to the Collection** — a **completionist almanac** of every line you've grown, with its tiers. Retirement is **archival, not loss**: you keep the *record*, not board clutter. A favorite can be **set as décor** somewhere in your world (a cosmetic display, coins/premium §10) — but **never re-summoned to the board** (that would only crowd it and fight your current quests). Freshness (new lines each zone) and attachment (a kept gallery + showable favorites) both win, without touching the live board.
+- **The gate quest (a map's _last_ quest).** Once a map's spots are all restored (§8), its **gatekeeper** — a special giver — offers the **gate**: deliver a **randomized handful of the map's top-tier items** (which lines, and how many, vary — the map's ceiling, reaching **t8** on the deepest maps). It is **deliberately hard** (the map's peak output at once), is the **only** quest that asks the ceiling / t8 (§7, §9), and on delivery it **unlocks the next map** and pays a **large reward**. *(The grove's gatekeeper is the great-spirit.)*
+- **The generator-grant quest (the next map's _first_ quest).** The new map opens by asking for **one of your previous-map generators**; its **reward is a new generator** (a fresh line). You **hand the old producer in for the new one**, so the old line **retires** (→ the Collection) and the live count stays ~2–4. **Additional** new-map generators (when a map has more than the last) arrive from **further generator-grant quests spread through the map** — not all upfront.
 
-**Later zones are worth more** — items from a later zone's generators **sell for more coins** (a per-zone **coin band** on t1–t7; **t8 stays the flat 1💎 pinnacle** so §9's 32× proof holds), so each zone is a real economic step-up, not just new art.
+*(Map 1 is excepted from the hand-in — no previous generators, so its set is granted outright; it still has the gentlest gate quest to open map 2.)*
+
+**Retired lines → the Collection.** A line that retires (map advance, or an event ending §17) is **archived to the Collection** — a **completionist almanac** of every line you've grown, with its tiers. Retirement is **archival, not loss**: you keep the *record*, not board clutter. A favorite can be **set as décor** somewhere in your world (a cosmetic display, coins/premium §10) — but **never re-summoned to the board** (that would only crowd it and fight your current quests). Freshness (new lines each map) and attachment (a kept gallery + showable favorites) both win, without touching the live board.
+
+**Later maps are worth more** — items from a later map's generators **sell for more coins** (a per-map **coin band** on t1–t7; **t8 stays the flat 1💎 pinnacle** so §9's 32× proof holds), so each map is a real economic step-up, not just new art.
 
 ### Item lines
 
-Generators emit **themed item lines** — **2 lines per generator** (each line arrives *with* its generator — the Families pillar). A zone runs on its **2–4 generators' 4–8 lines**; retired lines (above) keep the *live* set small even as the lifetime roster grows zone by zone. Each line is an **exponential tier ladder of M tiers** (engine default top tier **8**; t8 ≈ 128 t1-equivalents — the capstone: sold for a premium, or spent on a zone gate). Codes are `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`.
+Generators emit **themed item lines** — **2 lines per generator** (each line arrives *with* its generator — the Families pillar). A map runs on its **2–4 generators' 4–8 lines**; retired lines (above) keep the *live* set small even as the lifetime roster grows map by map. Each line is an **exponential tier ladder of M tiers** (engine default top tier **8**; t8 ≈ 128 t1-equivalents — the capstone: **sold** for a premium, or **delivered to the gate quest** to unlock the next map, §7). Codes are `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`.
 
 **Tier readability law:** tiers must step in **size and silhouette**, not just detail — readable at small icon size (~100 px). A freshly debuted line eases in at low tier when its generator unlocks. *(Each tier is generated once and reused; a **shared motif** across the ladder keeps a line readable as one object growing.)*
 
@@ -219,18 +224,18 @@ Generators emit **themed item lines** — **2 lines per generator** (each line a
 
 ### The givers (the fence)
 
-Themed characters pop up over a full-width **fence** above the grid — **up to 5 stands** (the active count is metered to the next unlock — see the soft gate), plus the **merchant** pinned at the right. Tapping a giver whose asked items are all on the board delivers them (**all-or-nothing** — they fly into the giver's hands) and pays the quest reward (stars + coins — below).
+Themed characters pop up over a full-width **fence** above the grid — **up to 5 stands** (the active count is metered to the next unlock — see the soft gate), plus the **merchant** pinned at the right. Tapping a giver whose asked items are all on the board delivers them (**all-or-nothing** — they fly into the giver's hands) and pays the quest reward (stars + coins — below). One giver is special — the **gatekeeper**, whose end-of-map **gate quest** (below) is the capstone that unlocks the next map.
 
 Givers can carry an optional **narrative arc** — a name, a personality, and dialogue that unfolds as the world restores. Cozy and low-pressure, but it's the genre's **emotional-retention** hook (the *who* and *why* behind the asks), so a game should use it. *(The grove's givers + their story: see `grove_spec`.)*
 
-A **regular** quest is `{asks: [{line, tier, count}], reward: {stars, coins}}` — **1 to 3 asks**, **generated** (the authored zone-gate / generator quests are the exception, below):
+A **regular** quest is `{asks: [{line, tier, count}], reward: {stars, coins}}` — **1 to 3 asks**, **generated** (the authored gate + generator-grant quests are the exception, below):
 
 ### Generating the asks
 
-- Each ask draws a `{line, tier, count}` from the **currently-available generators' lines** (the current zone's — old lines retire, §6), **weighted toward the newest / highest-value** ones, so the fence keeps pointing at the player's richest content.
+- Each ask draws a `{line, tier, count}` from the **currently-available generators' lines** (the current map's — old lines retire, §6), **weighted toward the newest / highest-value** ones, so the fence keeps pointing at the player's richest content.
 - **Difficulty rises with player level:** as level climbs, quests shift toward **more asks (→3)** and **higher tiers** — early quests are a single low-tier ask; late quests are 2–3 higher-tier, cross-generator asks (the "juggle every line on one board" endgame).
-- **The top tier (t8) is asked _only_ at a zone gate** (the scripted first quest of a zone, below) — never in a regular generated quest.
-- **Zone-gate + generator quests are _authored_, not generated.** A zone's **gate** asks a **t8 of a _previous-zone_ line** (the capstone) and opens the zone; then **N quests spread through the zone** each grant a generator that **upgrades a previous-zone one** (`old + grant → new`) — or is **granted outright** for a surplus generator (§6 merge-to-evolve). The generated stream fills everything between. *(Zone 1 excepted — generators granted outright, no t8 gate.)*
+- **A map's top tier (its ceiling, up to t8) is asked _only_ by the gate quest** (the gatekeeper's capstone at the map's *end*, below) — never in a regular generated quest.
+- **Gate + generator-grant quests are _authored_, not generated (§6).** The **gate quest** is the **gatekeeper's** capstone at a map's *end* — a **randomized handful of the map's top-tier items** (its ceiling, up to **t8**) that **unlocks the next map** for a **large reward**. The **generator-grant quests** dispense the next map's producers: the **first** asks for **one previous-map generator** and **rewards a new one** (a hand-in, not a merge — the old line retires); any extras are **spread through the map**. The generated stream fills everything between. *(Map 1 excepted — generators granted outright, gentlest gate.)*
 
 ### Reward — calculated from expected clicks
 
@@ -241,31 +246,46 @@ The reward is **computed from the quest's expected generator-clicks** — the po
 
 So stars-per-quest stays roughly constant (**level ∝ quests done**), while **clicks-per-quest range wider** and coins compensate the difference.
 
+**Featured quests (highlights, for variety).** A small, random share of regular quests are **featured** — flagged on the fence and paying a **bonus on top of the normal reward** (extra coins, occasionally a premium). The bonus is **coins/premium, never extra ★**, so the level∝quests pacing (§3) is untouched; featured quests just give the stream occasional standouts (and a natural slot for a "do a featured quest" daily/event hook, §17). *(Selection rate + bonus size are a game instance.)*
+
 ### Stars & the soft gate
 
 **Stars** are spent **only** on restoration spots (§8) and drive level (stars earned, §3); prices **never inflate** — stars are pure **progress**, not a balanced economy. **The fence meters quests to the next unlock** (`gate_pause`): the number of active givers tracks **how many stars you still need for the next item** — about `ceil((next_spot_cost − banked_stars) / stars-per-quest)`, capped at the 5 slots. The count **shrinks as you bank stars**, and once you can **afford the next unlock the fence empties** — a wordless **"go restore / upgrade"** signal (never a wall: the board stays fully playable; buying the spot sets a new target and the fence refills for it). The one hard rule (**no-strand**): **level-gated spots are never the affordable frontier**, so the fence never meters toward something your level can't yet reach.
 
-> **Safety-model change (was deterministic).** Quests used to be a **fixed, byte-for-byte affordability-proven curve** — that no-strand proof relied on *no RNG*. Generated asks replace it, so the guarantee now rests on **(a) guardrails** — every ask must be **producible on the current board/generators**, plus an **affordability floor** so a run of unlucky quests can't starve progress — and **(b) a Monte-Carlo sim** (statistical worst-case across seeds), not one deterministic run — which **also tracks board occupancy/congestion** (§15), so the late-game "juggle every line on one board" is validated for **space**, not only affordability. *(The grove's instances — generator weights, the level→asks/tier distribution, `STAR_CAP` and the click→value rate: see `grove_spec`. The old per-zone ramp table is retired.)*
+> **Safety-model change (was deterministic).** Quests used to be a **fixed, byte-for-byte affordability-proven curve** — that no-strand proof relied on *no RNG*. Generated asks replace it, so the guarantee now rests on **(a) guardrails** — every ask must be **producible on the current board/generators**, plus an **affordability floor** so a run of unlucky quests can't starve progress — and **(b) a Monte-Carlo sim** (statistical worst-case across seeds), not one deterministic run — which **also tracks board occupancy/congestion** (§15), so the late-game "juggle every line on one board" is validated for **space**, not only affordability. *(The grove's instances — generator weights, the level→asks/tier distribution, `STAR_CAP` and the click→value rate: see `grove_spec`. The old per-map ramp table is retired.)*
 
 ---
 
 ## 8 · Building & the World
 
-The spend surface is not a checklist — **it is the game** (§1: *the merge is the chore, the world is the game*). It is a **visible, partly-veiled horizon** the player builds, styles, and upgrades; merging is only the mechanism that funds it. It renders as one large free-pan top-down map of **zones** (point-of-interest sites); locked zones are veiled/greyed and **unlock by completion** — each gated by finishing the previous (below); tapping an unlocked zone walks **inside** it (`interior_view`), where its **restoration spots** hold the **buildables** you place. **A zone is *complete* when all its spots are restored — and completing a zone is what unlocks the next** (the completion chain that paces the game, §3); the next zone then opens with its **gate quest**, a t8 of the zone you just finished (§6/§7).
+The spend surface is not a checklist — **it is the game** (§1: *the merge is the chore, the world is the game*). It is a sequence of **maps** the player restores, styles, and (at the hub) upgrades; merging is only the mechanism that funds it.
 
-- **The horizon — visible *and* veiled (desire + discovery).** The world ahead is *shown*, so the player sees what's possible and *wants* it; but parts sit **behind clouds/fog** — reaching them is a *discovery / reveal*, not a line item ticked. The player always sees there's *more* and feels they're *uncovering* it. (A game tunes how much is shown vs veiled.)
-- **Build — with agency.** The player **chooses what to build** and stays **in control**; the merge loop earns the means, the player decides where it goes — making the world theirs, not auto-filling fixed slots. A **spot** is gated by **progress (Stars)** + **level** (§3), shown as a pin (greyed "Lv N" until the level is met, then an "★ N" buy); buying it places the **buildable**.
-- **Customize — the look is mine.** Each built thing can be **styled** (themes / looks / sets) — expression through appearance.
-- **Upgrade — levels that look better *and* pay back.** Each built thing has **levels** (the same thing, L1→Lⁿ): higher levels **look better** *and* **produce better rewards** — so building is **functional, not decorative**, and leveling is a real investment the player owns. This is the keystone that turns "a nicer laundry list" into the Animal-Crossing drive.
-- **The yield (reward model A — passive).** Built/upgraded things **produce soft currency over time**, collected on return; higher level → **more / faster**. It **closes the loop** (merge → earn → build & upgrade → the world yields more → fund more building), **gives soft currency real power** (§10), and **makes "open it tomorrow" concrete**. **Capped by the same discipline as energy: the yield *extends* sessions, never self-sustains them** — a reason to return, not an idle game that plays itself.
+**A map = one generated scene = the unit of world.** Each map is **one self-contained image** (§16): an **open space** with a few buildings (a farmhouse, a barn…) and **props** placed on, around, and outside them. There is **no seamless overworld and no walk-inside interior** — a map *is* the scene. Maps are **discrete islands/screens** reached from a **map-select**, never one giant pannable land (no LLM keeps a huge image consistent — §16).
 
-Build reveals stay juicy: empty slots may **ghost-preview** the buildable; a placed/upgraded thing **settles in** with a burst; finishing a **zone** plays a fuller **flourish**; and a restored **zone** fills with **ambient life** (§12) — the "look what I made" beat.
+- **Restore — spend Stars to fill the map.** A map's **restoration spots** are its buildings + prop-clusters, sitting greyed/veiled on the one image; each is gated by **progress (Stars) + level** (§3) — a pin shows greyed "Lv N" until the level is met, then an "★ N" buy that restores the buildable in place. **A map is *complete* when all its spots are restored — that unveils its _gate quest_ (the gatekeeper's capstone: a randomized handful of the map's top-tier harvest), and delivering it unlocks the next map** (the completion chain that paces the game, §3/§7). The next map then opens with a **generator-grant quest** — hand a previous-map generator in, receive a new line (§6/§7). Maps are small, so the player **moves map→map faster** — which makes *keeping old maps alive* a first-class problem (below).
+- **The horizon — visible *and* veiled (desire + discovery).** Parts of a map sit behind **fog** — reaching them is a *reveal*, not a line item — and the **next map shows veiled** on the select, so the player always sees there's *more* and feels they're *uncovering* it.
+- **Build & customize — with agency.** The player **chooses what to restore and in what order** (within the gates) and can **style** built things (themes / looks / sets) — the world is theirs, not auto-filled.
 
-> **Reward model B (partially live).** The active-loop-buff family — upgrades that improve *merging*, not just the world — now has its **first piece live: generator burst-upgrades** (§6 — pay coins/premium to pop more per tap). The rest (a leveled generator pops better tiers / cheaper energy; a leveled stand pays more) stays **parked, not v1**; if added it folds into the same upgrade system.
+### The home hub — the permanent anchor (and the coin sink)
 
-**Generation (§16):** buildables are floor-standing cut-outs; build-states, upgrades, customization, and the crowd are *composited*, never re-rendered.
+One map is the **home hub** (the game designates it — typically the **first**; the grove's homestead). It restores and completes like any map, but **unlike later maps it never stops being yours to improve**: it is the **permanent customization anchor** the player returns to for the life of the save, and it is **where the coin loop lives.** Coins fund an **endless upgrade + décor layer at the hub** (Animal Crossing's house, Stardew's farm): upgrade a hub building (L1→Lⁿ — **looks better *and* yields more**) or place décor; the hub then **produces soft currency over time, collected on return** — *the home pays you, you reinvest in the home.* Concentrating the upgrade/yield loop in **one place** is deliberate — it gives coins real power (§10) **without** a collect-from-every-map chore. Because it's the one map you return to forever, the hub is **authored differently from a finish-once map** — a deeper, ongoing upgrade/décor surface — and a **persistent "home" shortcut on the HUD jumps straight back to it from anywhere**, to collect its yield and keep upgrading. *(Ongoing per-map **yield** and resource **feed-forward** — old maps continuously paying into the new — were considered and **parked** as a 10-map chore. The one-time **generator hand-in** at a boundary (§6/§7) is *not* that loop: it's a single, forward-flowing step of progression, so it stays. BACKLOG.)*
 
-*(The grove's instances — the world & its sites, the buildables, and the upgrade/yield instantiation: see `grove_spec`.)*
+### Keeping finished maps alive (the anti-abandonment design)
+
+Small maps mean a finished one risks feeling **abandoned**. Two engine systems, aimed at old maps, keep them meaningful — neither a grind:
+
+- **Old maps are the live-ops stage.** Limited / seasonal **events (§17)** are **sited in already-restored maps** (a spring festival fills the orchard you finished months ago), so revisiting is **content, not collection.** *(This is also the grove's fiction — the family become **Keepers** of an endless world that always needs keeping.)*
+- **Restored maps stay inhabited.** A finished map keeps its **ambient life (§12)** and is always revisitable from the select — a living place you made, not a spent level.
+
+*(The growing-vista idea — stitching maps into one ever-larger pannable land — is **rejected**: it fights §16's no-seamless-world rule.)*
+
+Build reveals stay juicy: an empty spot may **ghost-preview** the buildable; a placed/upgraded thing **settles in** with a burst; finishing a **map** plays a fuller **flourish**; a restored map fills with **ambient life** (§12) — the "look what I made" beat.
+
+> **Reward model B (partially live).** The active-loop-buff family — upgrades that improve *merging*, not just the world — has its **first piece live: generator burst-upgrades** (§6 — pay coins/premium to pop more per tap), a **board-level coin sink that scales as maps add lines**, independent of the hub. The rest (a leveled generator pops better tiers / cheaper energy) stays **parked, not v1**.
+
+**Generation (§16):** buildings and props are **floor-standing cut-outs** composited onto the one empty map background; build-states, upgrades, customization, and the crowd are **composited, never re-rendered**.
+
+*(The grove's instances — which map is the hub, the maps & their props, hub upgrade/yield/décor rates, spots-per-map: see `grove_spec`.)*
 
 ---
 
@@ -279,10 +299,10 @@ One merchant runs a stall reached on the board — **cleanup, not income.**
 
 | Tier | Reward |
 |---|---|
-| t1–t7 | tier coins (1 … 7) **× per-zone band** — later zones sell for more (§6) |
+| t1–t7 | tier coins (1 … 7) **× per-map band** — later maps sell for more (§6) |
 | t8 (top) | **1 premium, no coins** — the premium pinnacle |
 
-The energy↔premium round trip is **provably un-abusable**: earning 1 premium (one t8) costs ~2⁷ = **128 energy** of pops, while 1 premium buys only `cap/refill-cost = 4` energy — a **32× loss** (asserted in test/sim). *(The per-zone value band scales only t1–t7 **coins**; **t8→premium stays flat at 1**, so this round-trip proof is unaffected.)* **Selling is cleanup, never income.** The top tier is the **capstone**: *sold* for a premium here, or **spent on a zone gate** (the only quest that asks t8, §6/§7) — never in a regular quest.
+The energy↔premium round trip is **provably un-abusable**: earning 1 premium (one t8) costs ~2⁷ = **128 energy** of pops, while 1 premium buys only `cap/refill-cost = 4` energy — a **32× loss** (asserted in test/sim). *(The per-map value band scales only t1–t7 **coins**; **t8→premium stays flat at 1**, so this round-trip proof is unaffected.)* **Selling is cleanup, never income.** The top tier is the **capstone**: *sold* for a premium here, or **delivered to the gate quest** (the gatekeeper's capstone — the only quest that asks the map's ceiling / t8, §6/§7) — never in a regular quest. *(So top-tier output has two fates: sell it for a flat premium, or save it to feed the gate — a real player choice.)*
 
 ### The buy-back basket + porter
 
@@ -300,10 +320,10 @@ THE SPINE — the loop the economy spins on
        ▲  refill: regen · level-up · daily · 💎              └─ sell ────► 🪙 / 💎 (merchant)
        │
   ★ STARS ─┬─ earned → ▲ LEVEL   (each level grants ⚡ + 💎)
-           └─ spent  → restore spots = BUILD the world → built things YIELD 🪙 over time
+           └─ spent  → restore spots = BUILD the maps → the HOME HUB yields 🪙 over time
                                                                     │
   🪙 COINS ◄──────────────────────────────────────────────────────┘
-       └─ spent → upgrade builds (↑ yield) · cosmetics      (reinvest → more yield)
+       └─ spent → upgrade + décor the HUB (↑ yield) · burst-upgrades · cosmetics   (reinvest)
 
   💎 DIAMONDS — premium, earnable + live IAP from launch · buys speed, never possibility
 ```
@@ -312,21 +332,21 @@ THE SPINE — the loop the economy spins on
 |---|---|---|---|
 | **Energy ⚡** | regen (+1/2 min, cap 100, offline) · level-ups (+50) · 1 free refill/day · win-back · some spot-buys · premium refill | 1 per pop | **THE pacing friction** — the monetization socket. Everything else is free. |
 | **Stars ★** (progress) | quests only (1–3★) | building / unlocks (§8) | The **progress** currency that gates *what you can build*. Never inflates; soft-gated. |
-| **Coins 🪙** (soft) | merge drops (~10%) · selling t1–t7 · **building yields (§8)** · shop pack | **building upgrades (§8)** · **generator burst-upgrades (§6)** · customization · basket buy-back | The **soft-economy** currency — it funds the build/upgrade loop, so it finally has real power (not dead cosmetics). |
-| **Diamonds 💎** (premium) | level-ups · zone restore · selling a t8 (+1) · **cash packs (live IAP from launch)** · rewarded ads | energy refill · bag slot · cosmetics · starter / first-buy packs | Premium-**shaped**; **earnable in-game *and* live IAP from launch** (geo-flagged). **Buys speed + looks, never possibility.** |
+| **Coins 🪙** (soft) | merge drops (~10%) · selling t1–t7 · **home-hub yield (§8)** · shop pack | **home-hub upgrades & décor (§8)** · **generator burst-upgrades (§6)** · customization · basket buy-back | The **soft-economy** currency — it funds the hub upgrade/yield loop + burst-upgrades, so it has real power (not dead cosmetics). |
+| **Diamonds 💎** (premium) | level-ups · map restore · selling a t8 (+1) · **cash packs (live IAP from launch)** · rewarded ads | energy refill · bag slot · cosmetics · starter / first-buy packs | Premium-**shaped**; **earnable in-game *and* live IAP from launch** (geo-flagged). **Buys speed + looks, never possibility.** |
 
 ### The soft-currency loop (coins)
 
-Soft currency **flows in** from the world's **yields** (§8) plus merge drops + selling, and **flows out** into **building upgrades** + customization. This is the engine: *the world pays you, you reinvest in the world.* The governing law still holds — **sinks (upgrades, endless by level) exceed the faucet**, so coins always have somewhere worth going — but the sink is now **functional, not cosmetic**: spending makes the world better *and* pay back more. *(The grove's instances — yield/upgrade rates, customization pricing: see `grove_spec`.)*
+Soft currency **flows in** from the **home hub's yield** (§8) plus merge drops + selling, and **flows out** into **hub upgrades + décor**, **generator burst-upgrades** (§6), and customization. This is the engine: *the home pays you, you reinvest in the home.* The governing law still holds — **sinks (endless hub upgrades/décor + burst-upgrades) exceed the faucet**, so coins always have somewhere worth going — and the sink is **functional, not cosmetic**: hub upgrades make it **look better *and* pay back more**, concentrated in one place to avoid a per-map collection chore. *(The grove's instances — hub yield/upgrade/décor rates, customization pricing: see `grove_spec`.)*
 
-> **Resolved (was a standing tension):** earlier, coin sinks were cosmetic-only, so the *motivation* to spend coins was thin ("coins have no power"). The build/upgrade **yield loop** (§8) is the fix — coins fund upgrades that pay back, off the "premium buys speed" line. Keep the invariant: the soft loop stays **earned and capped** (it extends sessions, never self-sustains), and upgrades buy *yield + look*, never the energy friction itself.
+> **Resolved (was a standing tension):** earlier, coin sinks were cosmetic-only, so the *motivation* to spend coins was thin ("coins have no power"). The **home-hub upgrade→yield loop** (§8) + **generator burst-upgrades** (§6) are the fix — coins fund upgrades that pay back, off the "premium buys speed" line. Keep the invariant: the soft loop stays **earned and capped** (it extends sessions, never self-sustains), and upgrades buy *yield + look*, never the energy friction itself. *(Per-map yield was the earlier design — parked; concentrating the loop at the hub avoids a collect-from-every-map chore. `BACKLOG.md`.)*
 
 ### Rewarded ads (an optional faucet — rewarded-only)
 
 Ads are **opt-in and rewarded-only — no interstitials, no forced ads** (forced ads would break the cozy bed, §1 tone / §9 audio). Every ad is a **player-initiated "watch for a bonus,"** capped + cooldowned so it never becomes the optimal grind, and **flagged off per-geo** where it would cost more LTV than it earns:
 
 - **Refill energy** — at/near empty, *watch → +N💧* (a free, daily-capped alternative to the 💎 refill).
-- **2× collection** — double one build-yield collection (§8) per cycle.
+- **2× collection** — double one **home-hub yield** collection (§8) per cycle.
 - **Free shop reroll** — refresh the rotating Shop offers (below) on a cooldown.
 - **Event top-up / catch-up** — a small event-currency boost (§17).
 
@@ -344,7 +364,7 @@ Offers **rotate** (a few at a time) so there's always a fresh, optional reason t
 
 ### The piggy bank (the accrual vault)
 
-A **persistent vault that fills as you play** — it skims a **small slice of the premium you earn** (level-ups, zone-restore, t8 sells) into a visible pig/jar the player can only **claim by paying one fixed real-money price**. The fill grows with play; the price doesn't — so **the longer you play, the better the deal** (the *endowment* hook: it's premium you feel you already earned). It is the **friendliest first purchase** for a non-payer — currency released *sooner and amplified*, squarely the "buys speed, never possibility" line (§4). Cracking it resets the vault; it doubles as a **daily-return hook** (§18) — the pig is worth checking. *(Caps, skim rate, and the crack price are a game instance — a genre staple in casual/casino, live in Merge Mansion; the value-vs-Shop math is the conversion engine, not scarcity.)*
+A **persistent vault that fills as you play** — it skims a **small slice of the premium you earn** (level-ups, map-restore, t8 sells) into a visible pig/jar the player can only **claim by paying one fixed real-money price**. The fill grows with play; the price doesn't — so **the longer you play, the better the deal** (the *endowment* hook: it's premium you feel you already earned). It is the **friendliest first purchase** for a non-payer — currency released *sooner and amplified*, squarely the "buys speed, never possibility" line (§4). Cracking it resets the vault; it doubles as a **daily-return hook** (§18) — the pig is worth checking. *(Caps, skim rate, and the crack price are a game instance — a genre staple in casual/casino, live in Merge Mansion; the value-vs-Shop math is the conversion engine, not scarcity.)*
 
 ### Triggered offers (the contextual sell)
 
@@ -356,7 +376,7 @@ Distinct from the **rotating** Shop (time-driven): a **state-driven**, one-time 
 
 A **registry of everything we add** — so when something breaks, we can flip features off one at a time and find the culprit. Every player-facing alive/juice/assist/onboarding behavior ships behind a **code-level flag** (a `static var` bool in `features.gd`; **unknown id → `true` + warning** so a typo can't silently kill a feature; **all default ON**). Each flag notes *Lives in* (code site) + *Eval* (owner's **keep / improve / cut** verdict). Player toggles (music/sfx/calm) live in Settings, not here.
 
-Flags group as **`assist` · `juice` · `ambient` · `feature` · `ftue`**. A handful of behaviors are **core — indexed but *not* flaggable** (removing one is a design change, not a toggle): `interior_view`, `gate_pause`, `spot_level_gates`. Numeric **tuning dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE`, `POP_COST`, idle timings) are values, not bools. *(The grove's specific flag list + code sites: see `grove_spec`.)*
+Flags group as **`assist` · `juice` · `ambient` · `feature` · `ftue`**. A handful of behaviors are **core — indexed but *not* flaggable** (removing one is a design change, not a toggle): `gate_pause`, `spot_level_gates`. Numeric **tuning dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE`, `POP_COST`, idle timings) are values, not bools. *(`interior_view` is retired — maps no longer have walk-inside interiors, §8/§16; its code removal is parked, `BACKLOG.md`.)* *(The grove's specific flag list + code sites: see `grove_spec`.)*
 
 ---
 
@@ -377,7 +397,7 @@ Motion is a **single shared vocabulary, not improvisation** — the same verbs e
 | `ambient_bob` | slow 1–3 px float + ±2° tilt — wandering ambient life |
 | `floater` | outlined text drift-up + fade |
 
-Intended feel: **"floaty, breezy, settling"** — pieces drift and overshoot rather than snap; ambient life keeps the scene gently in motion when idle. **Alive systems:** ambient figures wander each scene (count = 1 + restored zones, cap 5; tap → hop); a porter drifts in for the basket; weather runs hourly; bursts/floaters fire on merges/buys/restores. *(All of it is **composited sprites/particles** over the scene, never a dense single render — §16.)* **Calm mode** (Settings) halves particles and disables `breathe` — quiets the screen without losing function.
+Intended feel: **"floaty, breezy, settling"** — pieces drift and overshoot rather than snap; ambient life keeps the scene gently in motion when idle. **Alive systems:** ambient figures wander each scene (count = 1 + restored maps, cap 5; tap → hop); a porter drifts in for the basket; weather runs hourly; bursts/floaters fire on merges/buys/restores. *(All of it is **composited sprites/particles** over the scene, never a dense single render — §16.)* **Calm mode** (Settings) halves particles and disables `breathe` — quiets the screen without losing function.
 
 ---
 
@@ -415,9 +435,9 @@ Assist features (idle hint, discovery ladder, ready-✓, sell hints, generator p
 
 **Build & test:** a `Makefile` wraps `run`/`editor`/`test`/`test-one`/`smoke`/`import`/`shot-*`/`ios`/`clean`. **Headless suites** run as SceneTree scripts with no window (core/board/layout/map/quest/save + smoke). **Visual checks** use a `quiet_godot.sh` wrapper — a transient `override.cfg` makes the window born **minimized + unfocusable** so captures never steal focus, render at full res, and self-clean. An **economy sim** (default + greedy bot strategies, extended to a **Monte-Carlo seed-sweep** for the generated-quest model, §7) is the load-bearing **affordability/jam safety net** — never eyeball economy; composite/measure. Beyond affordability it tracks **board occupancy/congestion** — **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a free cell, net of the bag §5 and merchant §9 drains) across the run — so the late-game "juggle every line on one board" (§7) is validated for **space**, not just stars: the board must stay drainable and never silently choke. *(Targets — peak-occupancy and stall-rate ceilings: a grove number, `grove_spec`.)* iOS export via an `export_presets.cfg` "iOS" preset.
 
-**Code-map pattern:** a pure rules engine for tests · a persistent board model · a live board controller + a spend-surface controller drive the loop · a content module holds item lines, generator policy, the quest-generation policy (+ authored gate/milestone quests), and zone/sink data · static singletons for save/features/econ/layout/hud/shop/skin/audio/music/ambient/fx. *(The grove's instances — exact file names, sizes, current state: see `grove_spec`.)*
+**Code-map pattern:** a pure rules engine for tests · a persistent board model · a live board controller + a spend-surface controller drive the loop · a content module holds item lines, generator policy, the quest-generation policy (+ authored gate/milestone quests), and map/sink data · static singletons for save/features/econ/layout/hud/shop/skin/audio/music/ambient/fx. *(The grove's instances — exact file names, sizes, current state: see `grove_spec`.)*
 
-**Analytics (at launch, not deferred).** You can't tune retention or economy blind, so from day 1 log: the **FTUE funnel** (install → first merge → first delivery → first restoration → D1 return), **retention** (D1/D7/D30, session length & count), **economy flow** (per-currency faucet/sink totals, energy-wall hit-rate, refill usage), **progression** (level/zone reached, quest completion, time-to-first-restoration), **monetization** (which IAP packs/offers are shown, tapped, and purchased; rewarded-ad show/complete rates), and **virality** (share rate, share→install). Event-batched, offline-queued, privacy-light. *(The grove wires these to its analytics sink — see `grove_spec`.)*
+**Analytics (at launch, not deferred).** You can't tune retention or economy blind, so from day 1 log: the **FTUE funnel** (install → first merge → first delivery → first restoration → D1 return), **retention** (D1/D7/D30, session length & count), **economy flow** (per-currency faucet/sink totals, energy-wall hit-rate, refill usage), **progression** (level/map reached, quest completion, time-to-first-restoration), **monetization** (which IAP packs/offers are shown, tapped, and purchased; rewarded-ad show/complete rates), and **virality** (share rate, share→install). Event-batched, offline-queued, privacy-light. *(The grove wires these to its analytics sink — see `grove_spec`.)*
 
 ---
 
@@ -429,7 +449,7 @@ The game's art is **LLM-generated**, so generation is a **design input, not a do
 
 ### Design rules
 
-1. **Discrete, self-contained scenes — no seamless world.** Maps/zones are separate images positioned as distinct "islands/screens" that never need to align edge-to-edge. Interiors too — each is its own render, *not* perspective-continuous with the map.
+1. **Discrete, self-contained scenes — no seamless world.** **Each map is one self-contained image** (a map *is* the scene — §8: open space + props, **no walk-inside interior**), positioned as a distinct "island/screen" on the map-select; maps **never align edge-to-edge** (no LLM keeps one giant world-image consistent). *(The old walk-inside interior render is gone with the map=image collapse.)*
 2. **Floor-standing objects only.** Everything sits flat on the ground with a soft contact shadow — never wall-hung, leaning, or perspective-skewed onto a surface.
 3. **Composite, don't regenerate — the scaling law.** Generate **O(assets), recombine in-engine to O(states).** A scene = one empty background + N object cut-outs; the engine renders every state (empty→built, crowded, weather) by **compositing**. So **upgrades** = swap to a higher-level cut-out (each gen'd once) or a tint; **customization** = tint/swap; **crowding** = composited sprites — *never* regenerate the scene with the new thing.
 4. **Scenes are composed for clean cut-out.** Generate objects **clearly separated** (breathing room, no overlap, soft contact shadows) so each cuts cleanly — you can't slice a *packed* render apart. "Busy/alive" comes from compositing, not a dense render.
@@ -440,7 +460,7 @@ The game's art is **LLM-generated**, so generation is a **design input, not a do
 
 > **The meta-rule:** *design O(assets), never O(combinations) — generate the pieces, compose the game.* Any feature needing a combinatorial pile of renders is a design red flag; restructure it to compose from a small asset set.
 
-### The production method — the zone-gen pipeline
+### The production method — the map-gen pipeline
 
 *(Merged from the former `ZONE_GEN_PIPELINE.md`; this is the runbook that executes the rules above.)*
 
@@ -508,7 +528,7 @@ The highest-leverage re-engagement surface for a session-gated game — the one 
 | **Event beat** | a new event opened, or a seasonal beat ends soon (gentle urgency, §17) |
 | **Win-back** | away ≥48 h → "it rained while you were away" (pairs with the §4 full-cap grant) |
 
-**Permission is precious** — mobile-game push opt-in is the lowest of any vertical, and an iOS denial is near-permanent — so **never prompt at cold launch**: ask **after a rewarding moment** (a first zone-restore reveal), framed as a kindness (*"want a nudge when your Water's full?"*). **Quiet hours**, per-category **frequency caps**, and a per-type **Settings toggle** are required, not optional — a cozy game that nags loses the channel for good. Local notifications need no server; remote (event/segment beats) needs a push service (§15). **(Un-deferred to launch:** a silent return-hook with no prompt is the costliest omission.)
+**Permission is precious** — mobile-game push opt-in is the lowest of any vertical, and an iOS denial is near-permanent — so **never prompt at cold launch**: ask **after a rewarding moment** (a first map-restore reveal), framed as a kindness (*"want a nudge when your Water's full?"*). **Quiet hours**, per-category **frequency caps**, and a per-type **Settings toggle** are required, not optional — a cozy game that nags loses the channel for good. Local notifications need no server; remote (event/segment beats) needs a push service (§15). **(Un-deferred to launch:** a silent return-hook with no prompt is the costliest omission.)
 
 ### Daily login calendar — the forgiving streak
 
