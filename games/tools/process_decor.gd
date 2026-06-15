@@ -3,11 +3,11 @@ extends SceneTree
 ## Unlike process_icon.gd, this DOES NOT trim or center — each decor piece's position on the
 ## canvas is the whole point (layered consistency depends on it).
 ##
-##   godot --headless --path . -s res://tools/process_decor.gd -- <input.png> <output_res_path> [W H] [--opaque]
+##   godot --headless --path . -s res://games/tools/process_decor.gd -- <input.png> <output_res_path> [W H] [--opaque]
 ##
 ## Examples:
-##   godot --headless --path . -s res://tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/decor_bed.png
-##   godot --headless --path . -s res://tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/bedroom_base.png 1024 1280 --opaque
+##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/decor_bed.png
+##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/bedroom_base.png 1024 1280 --opaque
 
 const W := 1024
 const H := 1280

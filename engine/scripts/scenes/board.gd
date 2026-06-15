@@ -565,7 +565,7 @@ func _rebuild_givers() -> void:
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
 	# AB/owner fix: the fence sprite's background is now cut to transparent
-	# (tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
+	# (games/tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
 	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
 	if ResourceLoader.exists(Game.art("ui/fence_grove.png")):
 		var wt := TextureRect.new()

@@ -14,44 +14,29 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 
 ## Open — core loop
 
-- **✅ DONE (2026-06-14) — Progression on one stars-driven level clock (engine · sim).** Owner call:
-  one **uncapped Level** driven by **stars earned** (ramp = the old `LEVEL_XP/10`, flat tail past the
-  table — so the old pacing + spot-gates carry over). **Landed:** `stars_earned` +
-  `LEVEL_STARS`/`level_for_stars()`/`stars_at_level()`/`earn_stars()` (`content.gd`, `grove_data.gd`);
-  Level now advances on **quest delivery** (`board.gd:_on_giver_tap` → `earn_stars`, gifting water+💎
-  on a level-up), **no longer on spot-buy**; `spot_level_req` + the soft gate repointed onto it;
-  `map.gd`/`hud.gd`/`debug.gd`/`grove_sim.gd`/shot-tools updated; **`exp`/`LEVEL_XP`/`EXP_PER_STAR`/
-  `level_for_exp` removed** with a save migration (`exp`→`stars_earned` = exp/10); §8 reworded to
-  "unlock by completion". **Verified:** grove 303 · save 26 · layout 21 · smoke OK · sim PASS
-  default+greedy (40/40 spots, 0 jams, no strand, I2 held; Level uncaps to L12/L19, earned 176/338).
-  **Intentionally parked (separate items, NOT this one):** the **`chapter` = `unlocks.size()`**
-  counter stays as the spot-count that still drives generators / quest pool / giver-reveal — its
-  rename waits on the §6/§7 reworks; and the `LEVEL_STARS` values are **provisional**, recalibrated
-  with the generated-quest model + Monte-Carlo sim. *Unblocked the generator, quest, obstacle, yield
-  items. (Done 2026-06-14 — spec review + code audit + build.)*
+- **Map model — one image = one map (collapse map/zone; open space + props; no interiors) (spec done · code · grove). Owner 2026-06-15.** §8 rewritten: a **map is one self-contained LLM image** (§16) — an **open space** with a few buildings + placed **props**, **no walk-inside interior** and **no seamless overworld** (discrete maps reached via a **map-select**). Restoration spots = the buildings/prop-clusters on that one image (Stars+level gated, as before); restoring all a map's spots **unveils its great-spirit gate quest** (a randomized top-tier offering, §7) and delivering that unlocks the next map; **maps are small → a faster map→map cadence**. Anti-abandonment = the **home hub** (the permanent, coin-fed customization anchor — the keystone item) **+ live-ops events staged in already-restored maps** (§17); the **growing-vista** and **per-map yield/feed-forward** ideas were **rejected/parked** (the vista fights §16's no-seamless-world rule; per-map yield is a chore). **Spec renamed `zone`→`map` throughout `merge_spec`** — this BACKLOG and the **code still say `zone`** (e.g. `map.gd`, `ZONE_RAMP`, `appears_at`, `interior_view`) pending the code rework. **Code is the OLD model:** an overworld-of-zones + walk-inside `interior_view` interiors + per-spot binary own + cosmetic-only coin sinks. **Build (engine):** the single-scene map render + map-select; a **persistent home-shortcut on the HUD** (jump to the hub from anywhere to collect/upgrade) + the hub's **deeper, ongoing upgrade/décor surface** (the hub map is authored differently from a finish-once map); **remove `interior_view`** + the per-map env-unlock/coin-sink code; the `zone`→`map` symbol rename. **No episode/chapter tier — a flat map sequence.** **Build (grove):** designate the hub map (the homestead), the maps & their props, spots-per-map. *(Surfaced 2026-06-15 — owner call.)*
 
-- **Per-zone generators + the merge-to-evolve gate (spec done · content · code).** **[Split 2026-06-14 → engine mechanic = `T17` (in progress, `tasks/mechanics.md`); still parked here: the grove 16-gen/32-line themed map + lineage/names, the ~256 item + 16 generator sprites, and the §7 authored gate/grant-quest wiring.]** §6: generators
-  arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8 — a **~16-gen/32-line lifetime
-  roster**, ~2–4 live), **2 lines each**; a zone's gate quest asks a **t8 of the previous zone**, then
-  N quests grant a generator you **merge with an old one** (`old+grant→new`, old consumed, **old lines
-  retire**); surplus generators are granted outright. **Code is the OLD per-chapter accumulation:**
-  `active_gen_indices(chapter)` reveals by `appears_at` and never consumes
-  (`engine/scripts/content.gd:59`); data has **3 gens / 4 lines**, two gens emit only **1 line**
-  (`games/grove/grove_data.gd:12,21`); a generator **can't even be moved** (`board.gd:1513` returns
-  early on a gen cell); no evolve-merge, no retirement. **Build (engine):** the evolve-merge op,
-  line-retirement, gen-as-movable-piece. **Build (grove):** the 5-zone generator→line→name map. ⚠️
-  **Large art** — ~256 item sprites + 16 generators via the §16 LLM pipeline. *(Surfaced 2026-06-14 —
-  spec review + code audit.)*
+- **Per-zone generators — the grove content map + the art (content · art).** **[Engine mechanic
+  shipped 2026-06-15 as `T17` (`df23351`, `tasks/mechanics.md`); the §7 gate/grant-quest *wiring* and
+  the #4 economy rebalance are their own items below. What remains here is just the grove DATA + ART
+  that dress the now-shipped mechanic. ⚠️ **Reworked 2026-06-15: the T17 evolve-merge is retired** — generators now arrive as **generator-grant quest rewards** (deliver an old generator → receive a new one; no on-board merge). That engine change folds into the §7 quest item below.]** §6 target: a **~16-gen/32-line lifetime roster** —
+  generators arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8, ~2–4 live), **2 lines
+  each**, each arriving as a **generator-grant quest reward** (hand an older generator in → receive a new line; old lines retire) or granted as a surplus. **T17 shipped this on a PLACEHOLDER roster** (16 gens, lines 1–8 & 10–33,
+  code-drawn art — `games/grove/grove_data.gd:GENERATORS`; `ZONE_RAMP` is a flat `Vector2i(2,4)`,
+  marked PROVISIONAL). **Build (grove content):** the real 5-zone generator→line→name→lineage map
+  replacing the placeholder roster, plus the per-zone `ZONE_RAMP` counts (tuned alongside §7's sim).
+  **Build (art):** ~256 item sprites + 16 generators via the §16 LLM pipeline — ⚠️ **large art**.
+  *(Surfaced 2026-06-14 — spec review + code audit; engine split shipped as T17 2026-06-15.)*
 
 - **Generated quests + calculated reward (spec done · code · sim).** §7 replaced the deterministic
   per-zone ramp with **generated** quests (asks drawn from live generator lines, weighted to the
   newest/highest-value, asks/tier scaling with **level**) and a reward **calculated from expected
   clicks** → `stars = min(value, STAR_CAP)` (~1–3★, level ∝ quest count) **+ coins** for the overflow;
-  t8 asked **only** at a zone gate; gate + generator-grant quests **authored**. **Code is the OLD
+  the map's top tier asked **only** by the **gate quest** — the gatekeeper's **end-of-map** capstone (a randomized top-tier offering, up to t8) that **unlocks the next map** for a large reward (the grove's gatekeeper = the **great-spirit**); **generator-grant quests** dispense the next map's producers (deliver an old generator → receive a new line — a **hand-in, not a merge**; the T17 evolve-merge is retired); plus **featured quests** (a random share highlighted, paying a coins/premium **bonus**, no extra ★). Gate + generator-grant quests are **authored**, the rest generated. **Code is the OLD
   fixed script:** `chapters()` built from `ZONE_RAMP` (`content.gd:115`, `grove_data.gd:42`), stars by
   ask-count (`_quest_stars`, `content.gd:172`), and **quests pay no coins at all** (`board.gd:1902`
   `add_stars` only). **Build:** the ask-generator, the click→value→`stars`+`coins` reward + `STAR_CAP`,
-  the authored t8 zone-gate + generator-grant quests, **guardrails** (every ask producible on the
+  the authored **great-spirit gate quest** (end-of-map, randomized top-tier, unlocks next map) + **generator-grant quests** (old generator in → new line out) + **featured-quest** highlighting/bonus, **guardrails** (every ask producible on the
   board; an affordability floor), and a **Monte-Carlo no-strand sim** replacing the retired pigeonhole
   proof. Adds the **quest coin faucet** (§10). The fence must **meter givers to the next-unlock cost**
   (`gate_pause`) — the sim must confirm metered supply always reaches the next unlock without
@@ -78,7 +63,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   raised: **level gift +20 → +50** (`grove_data.gd:141`, applied `map.gd:1044`) and **free refills
   3-lifetime → 1/day** (today a monotonic `refills_used` vs `FREE_REFILLS=3`, `board.gd:497` — needs a
   per-day date, not a lifetime int). **Build:** the burst-pop loop + odds + per-zone scale-up; the two
-  energy changes; then **economy-sim re-validation** (`tools/grove_sim.gd` default + greedy) that a
+  energy changes; then **economy-sim re-validation** (`games/grove/tools/grove_sim.gd` default + greedy) that a
   level's energy rewards stay **< 30%** of its cost and "sessions extend, never self-sustain" — the
   daily full refill (≈100💧/day) is a large recurring grant tensioning the monetization socket, so
   this check decides whether +50/daily is shippable. *(Surfaced 2026-06-14 — spec review + code
@@ -96,7 +81,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 
 ## Open — economy
 
-- **⭐ [P0] Building yield + upgrade-levels loop — "coins get power" (spec done · code · sim). KEYSTONE.**
+- **⭐ [P0] Home-hub yield + upgrade-levels loop — "coins get power" (spec done · code · sim). KEYSTONE.**
   §8/§10: built things have **upgrade levels** (L1→Lⁿ — look better **and** pay back more) and
   **produce coins over time** (passive yield, collected on return, scaling with level, **capped** so
   it extends sessions, never self-sustains); coins then **sink** into those upgrades + generator
@@ -106,7 +91,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   loop resolves). **Build (engine):** per-buildable level state, yield timers + collect-on-return, the
   upgrade + generator-burst-upgrade spend paths. **Build (grove):** yield/upgrade rates + prices.
   *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin
-  faucet and the shop sinks.* *(Surfaced 2026-06-14 — code audit vs `merge_spec`.)*
+  faucet and the shop sinks.* **Reworked 2026-06-15 (owner):** yield/upgrade is now **home-hub-concentrated** — the hub (the first map) carries the upgrade/décor→yield loop, **not every building on every map** — so the engine build is the hub's per-buildable level + yield + spend paths (+ burst-upgrades §6), and the grove designates the hub (the homestead). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — rejected for v1 as a collect/grind-across-~10-maps chore; **home hub + live-ops events staged in old maps** (§17) carry anti-abandonment instead. See the map-model item (core-loop). *(Surfaced 2026-06-14 — code audit vs `merge_spec`.)*
 
 - **Selling — per-zone coin bands + drag-only verb (spec done · content · code).** §6/§9: t1–t7 sell
   for **tier coins × a per-zone band** (later zones worth more); t8 stays flat **1💎** so the 32×
@@ -172,7 +157,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 - **Sharing / virality (spec done · engine code · grove).** §17: a **share** button captures a
   **screenshot of the player's world** and grants premium+energy on a **daily cooldown** (generous
   enough to feel worth it, gated enough not to be farmable). **Absent** — only dev screenshot tools
-  exist (`tools/grove_shot.gd`, `tools/map_shot.gd`), no in-game share. **Build (engine):** in-game
+  exist (`games/grove/tools/grove_shot.gd`, `games/grove/tools/map_shot.gd`), no in-game share. **Build (engine):** in-game
   capture + share + reward + cooldown. **Build (grove):** reward sizes. *(Surfaced 2026-06-14 —
   director review + code audit.)*
 
@@ -186,7 +171,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
 
 - **Save-schema extension + migration (cross-cutting · code).** As the items above land, the `grove`
   save blob needs new fields — **all absent today** (`engine/scripts/save.gd`): cumulative
-  `stars_earned`, a per-day refill date, generator-evolve state, buildable upgrade-levels, yield
+  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model), buildable upgrade-levels, yield
   collection timestamps, the Collection (retired lines), generator burst-upgrade levels, and event
   state. Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
   migration. The atomic-write + `.bak` + deep-merge plumbing is sound — only the schema grows. Park
@@ -197,7 +182,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   The narrative is now **designed in `grove_spec §1`** — a wordless spirit-world spine: a
   child crosses into a fading spirit-grove, her parents become **silent nature-spirits** (Acorn-dad +
   Flower-mom) and she restores the grove to **free them** and wake the **forgotten great heart-tree
-  spirit**; reunite-early-then-help-others, scaling **zone = beat / map = episode** (the family become
+  spirit**; reunite-early-then-help-others, scaling **maps = beats** (the family become
   the grove's new Keepers — the endless-content justification). **Givers re-cast** as humanoid
   produce/critter spirits (Radish · Carrot · Frog · Bee · Mushroom + menagerie; fox/hedgehog/owl
   retired). **Build (grove content):** giver names/personalities/wishes + per-zone beats + the Map-1
@@ -206,7 +191,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   (composited per zone, Core §16), the great-spirit's **bloom-awake** climax, candidate later maps.
   **Build (engine, maybe):** the per-zone de-transform swap is plain compositing (Core §16) — likely no
   new engine system, but the FTUE crossing + the parents-as-guides surface may need wiring. Engine
-  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).*
+  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).* ✅ **`grove_spec` reconciled (2026-06-15):** map = a beat (one image) with **no episode/chapter tier** (a flat map sequence), the **Farmhouse is the home hub** (authored deeper + a HUD home-shortcut to return & keep upgrading), the legacy free-pan/`interior_view` model retired — the §1 story + §3 build sections now read on the single-image-map model. Only the content/art/code **build** below remains (the `zone`→`map` code rename rides with the map-model item, core-loop).
   *(Surfaced 2026-06-14 — director review; designed 2026-06-14.)*
 
 - **Standalone seasonal Battle Pass (future — not v1, owner 2026-06-14).** A persistent, cross-event

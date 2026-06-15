@@ -14,7 +14,7 @@ extends RefCounted
 ##
 ## Neither gate is ever on in headless logic suites or quiet capture runs (they'd
 ## pollute tests/screenshots). Capture tools that WANT the layout-editor chrome set
-## Debug.force = true (e.g. tools/map_shot.gd `place=1`) — force drives authoring()
+## Debug.force = true (e.g. games/grove/tools/map_shot.gd `place=1`) — force drives authoring()
 ## only, so the state-jump panel never leaks into a screenshot.
 
 const Save = preload("res://engine/scripts/core/save.gd")

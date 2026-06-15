@@ -1,5 +1,5 @@
 extends SceneTree
-## Dev tool (run via tools/quiet_godot.sh): the REAL purchase flow, end to end —
+## Dev tool (run via engine/tools/quiet_godot.sh): the REAL purchase flow, end to end —
 ## click the farmhouse (its lid opens), then click the ✿3★ row inside, and
 ## assert the stars were spent. Exists because handler-level tests stay green
 ## while real input is dead (input-swallow bug class ×3).
@@ -9,7 +9,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: run via tools/quiet_godot.sh")
+		print("REFUSED: run via engine/tools/quiet_godot.sh")
 		quit(2)
 		return
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)

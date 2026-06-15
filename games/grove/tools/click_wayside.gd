@@ -1,17 +1,17 @@
 extends SceneTree
-## Dev tool (run via tools/quiet_godot.sh): the REAL wayside buy flow. Forces the
+## Dev tool (run via engine/tools/quiet_godot.sh): the REAL wayside buy flow. Forces the
 ## design-size window (deterministic), restores zone 0, pans way_0_1 on-screen, and
 ## drives a REAL press+release at TWO points — the sprite center and the PRICE-PIN
 ## center — asserting each buys. Exists because handler-level tests pass while real
 ## input is dead (input-swallow bug class). Mirrors click_spot.gd.
-##   tools/quiet_godot.sh --path . -s res://tools/click_wayside.gd
+##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/click_wayside.gd
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
-		print("REFUSED: run via tools/quiet_godot.sh")
+		print("REFUSED: run via engine/tools/quiet_godot.sh")
 		quit(2)
 		return
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
