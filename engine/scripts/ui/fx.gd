@@ -6,6 +6,7 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")   # §13: every glyph is a sprite via Look.icon — no emoji in floaters
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX   # the engine's juice dials
 
@@ -94,6 +95,56 @@ static func celebrate_at(host: Control, gpos: Vector2, text: String, color: Colo
 	if not Features.on("celebrate_bursts"):
 		return
 	floating_text(host, gpos - Vector2(text.length() * Tune.CELEB_TEXT_DX, Tune.CELEB_TEXT_DY), text, color)
+	burst(host, gpos, color, Tune.CELEB_BURST)
+
+## §13 "emoji purge": a drifting reward floater built as an icon SPRITE (Look.icon —
+## kit art when generated, the code-drawn glyph until then) NEXT TO a number-only Label.
+## The Label text is ALWAYS `prefix + number` (pure ASCII) — never an emoji glyph baked
+## into a string. Same drift/pop/fade motion as floating_text. Use this for every
+## currency floater (stars/coins/water/gems) so the number "always sits beside an icon"
+## and the glyph art-swaps the day the kit lands, instead of staying frozen as an emoji.
+## Returns the HBox (the icon + label live under it) for tests / callers; null when gated off.
+static func floating_reward(host: Control, gpos: Vector2, icon_id: String, amount: int, color: Color, size: int = Tune.FLOAT_SIZE, prefix: String = "+") -> Control:
+	if not Features.on("floaters"):
+		return null
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Look.icon(icon_id, float(size))
+	row.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = prefix + str(amount)          # ASCII only — the number sits beside the icon, never an emoji
+	lbl.add_theme_font_size_override("font_size", size)
+	lbl.add_theme_color_override("font_color", color)
+	lbl.add_theme_color_override("font_outline_color", Pal.BG_DEEP)
+	lbl.add_theme_constant_override("outline_size", Tune.FLOAT_OUTLINE)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	row.position = gpos
+	row.z_index = Tune.FLOAT_Z
+	row.pivot_offset = Vector2(size, size) * 0.5
+	row.scale = Vector2(Tune.FLOAT_SCALE_START, Tune.FLOAT_SCALE_START)
+	row.rotation = Tune.FLOAT_ROT_START
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(row)
+	var t := row.create_tween()
+	t.set_parallel(true)
+	t.tween_property(row, "scale", Tune.FLOAT_SCALE_POP, Tune.FLOAT_T_POP).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(row, "rotation", Tune.FLOAT_ROT_POP, Tune.FLOAT_T_POP).set_trans(Tween.TRANS_BACK)
+	t.tween_property(row, "position:y", gpos.y - Tune.FLOAT_RISE, Tune.FLOAT_T_RISE).set_ease(Tween.EASE_OUT)
+	t.chain().tween_interval(Tune.FLOAT_HOLD)
+	t.chain().tween_property(row, "modulate:a", 0.0, Tune.FLOAT_T_FADE)
+	t.chain().tween_callback(row.queue_free)
+	return row
+
+## celebrate_at's icon+number twin: a reward shout (icon sprite + number) + a burst,
+## at a GLOBAL position. Routes the currency feedback through floating_reward so no
+## emoji is ever baked into the celebrate text. (gated on celebrate_bursts, like celebrate_at.)
+static func celebrate_reward(host: Control, gpos: Vector2, icon_id: String, amount: int, color: Color, prefix: String = "+") -> void:
+	if not Features.on("celebrate_bursts"):
+		return
+	floating_reward(host, gpos - Vector2(Tune.CELEB_TEXT_DX * 2.0, Tune.CELEB_TEXT_DY), icon_id, amount, color, Tune.FLOAT_SIZE, prefix)
 	burst(host, gpos, color, Tune.CELEB_BURST)
 
 # loop-tween guard: breathing twice on one node compounds the oscillation
