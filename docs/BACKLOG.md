@@ -5,45 +5,18 @@ Deferred / discovered work, parked as one-liners with enough context to pick up 
 On pickup, an item becomes a `T#` task in [`TASKS.md`](TASKS.md). Format + rules:
 `~/.claude/docs/engineer.md`.
 
-The mechanics/economy items below were **code-verified against `merge_spec` on 2026-06-14** (an
-engine-wide audit): the spec was rewritten that day and the code is still the **pre-rewrite model**
-end-to-end. Code anchors are `file:line` at audit time. The one fully spec-correct system is the
-**zone completion-chain** (`map.gd:193`); everything else is *replace*, *fix*, or *greenfield*.
+The items below come from an **engine-wide audit against `merge_spec` (2026-06-14)**. Since then the
+**generator + quest core has shipped** — per-zone generators, the generator-grant hand-in, the §7
+generated-quest economy, and the v1 content roster (`T17`–`T20`, see [`TASKS.md`](TASKS.md)) — so those
+**completed items are removed from here** (only their parked **art + tuning** tail remains, at the bottom).
+What's left below is the **remaining** *replace* / *fix* / *greenfield* work; code anchors are `file:line`
+at audit time (some now stale where the code moved).
 
 ---
 
 ## Open — core loop
 
 - **Map model — one image = one map (collapse map/zone; open space + props; no interiors) (spec done · code · grove). Owner 2026-06-15.** §8 rewritten: a **map is one self-contained LLM image** (§16) — an **open space** with a few buildings + placed **props**, **no walk-inside interior** and **no seamless overworld** (discrete maps reached via a **map-select**). Restoration spots = the buildings/prop-clusters on that one image (Stars+level gated, as before); restoring all a map's spots **unveils its great-spirit gate quest** (a randomized top-tier offering, §7) and delivering that unlocks the next map; **maps are small → a faster map→map cadence**. Anti-abandonment = the **home hub** (the permanent, coin-fed customization anchor — the keystone item) **+ live-ops events staged in already-restored maps** (§17); the **growing-vista** and **per-map yield/feed-forward** ideas were **rejected/parked** (the vista fights §16's no-seamless-world rule; per-map yield is a chore). **Spec renamed `zone`→`map` throughout `merge_spec`** — this BACKLOG and the **code still say `zone`** (e.g. `map.gd`, `ZONE_RAMP`, `appears_at`, `interior_view`) pending the code rework. **Code is the OLD model:** an overworld-of-zones + walk-inside `interior_view` interiors + per-spot binary own + cosmetic-only coin sinks. **Build (engine):** the single-scene map render + map-select; a **persistent home-shortcut on the HUD** (jump to the hub from anywhere to collect/upgrade) + the hub's **deeper, ongoing upgrade/décor surface** (the hub map is authored differently from a finish-once map); **remove `interior_view`** + the per-map env-unlock/coin-sink code; the `zone`→`map` symbol rename. **No episode/chapter tier — a flat map sequence.** **Build (grove):** designate the hub map (the homestead), the maps & their props, spots-per-map. *(Surfaced 2026-06-15 — owner call.)*
-
-- **Per-zone generators — ✅ engine + content DONE; only art + tuning remain (moved to the bottom).**
-  Shipped: `T17` (per-zone engine mechanic) · `T18` (evolve-merge → generator-grant hand-in) · `T19`
-  (the §7 generated-quest cutover — metered quests, capped-★ + coin reward, the great-spirit gate quest,
-  the generator hand-in; old `chapters()`/`ZONE_RAMP`/`_quest_stars` retired) · `T20` (the v1 home-grove
-  content roster — **12 generators / 24 lines** across maps 1–5 in `grove_data.gd`, per `grove_spec §2`).
-  **NOT done — all parked at the bottom of this backlog:** **(1) art** — the v1 sprites (lines render
-  **code-drawn** meanwhile) → *Grove v1 art*; **(2) economy tuning / pacing sign-off** — the provisional
-  `grove_data.gd` quest tunables + the §3 `LEVEL_STARS` curve → *Economy tuning + pacing sign-off*; **(3)
-  a small engine follow-up** — the `seed_satchel` anchor persists in live play, but `seed_gens` (cold
-  load) and `lines_for_zone` (quest asks) don't keep it live + askable past map 1 (folded into *Grove v1
-  art*). *(Surfaced 2026-06-14; engine + content built T17–T20, 2026-06-15.)*
-
-- **✅ DONE — T19 (2026-06-15) · Generated quests + calculated reward (§7).** §7 replaced the deterministic
-  per-zone ramp with **generated** quests (asks drawn from live generator lines, weighted to the
-  newest/highest-value, asks/tier scaling with **level**) and a reward **calculated from expected
-  clicks** → `stars = min(value, STAR_CAP)` (~1–3★, level ∝ quest count) **+ coins** for the overflow;
-  the map's top tier asked **only** by the **gate quest** — the gatekeeper's **end-of-map** capstone (a randomized top-tier offering, up to t8) that **unlocks the next map** for a large reward (the grove's gatekeeper = the **great-spirit**); **generator-grant quests** dispense the next map's producers (deliver an old generator → receive a new line — a **hand-in, not a merge**; the T17 evolve-merge is retired); plus **featured quests** (a random share highlighted, paying a coins/premium **bonus**, no extra ★). Gate + generator-grant quests are **authored**, the rest generated. **Code is the OLD
-  fixed script.** **Built + cut over live (engine-side), T19:** the live game now runs the generated
-  metered stream (`gen_quest`/`active_giver_count`), the capped-★ + coin-overflow reward (`quest_reward`),
-  the authored **great-spirit gate quest** (gate-gated map unlock) and the **generator hand-in** opening
-  each new map; `chapters()`/`ZONE_RAMP`/`_quest_stars`/`_stretch`/`lines_debuted` + the per-spot water
-  gift are retired. The **quest coin faucet** (§10) is on. A **Monte-Carlo no-strand sim**
-  (`games/grove/tools/grove_sim.gd`) replaces the pigeonhole proof and is **green across seeds**
-  (I1 no-jam · no-strand · I2 steady-state <30% · Y selling-not-income). **Remaining:** the
-  **PROVISIONAL tunables** (`STAR_CAP`, `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/
-  `GATE_ASK_COUNT`, featured rate — all in `grove_data.gd`) await the owner's **pacing sign-off**; the
-  #4 economy rebalance folds in here (steady-state I2 was carried by the §7 tier knob, so the §3
-  `LEVEL_STARS` curve is untouched + available to recalibrate). *(Surfaced 2026-06-14; built 2026-06-15.)*
 
 - **Burst popping + the energy-faucet code changes (spec done · code · sim).** §4/§6: a generator tap
   pops a **burst of 1–3 items** (`BURST_ODDS`), 1 energy each — base × a **per-zone free scale-up** ×
