@@ -120,5 +120,38 @@ func _initialize() -> void:
 	bm2.from_dict(blob)
 	ok(bm2.gen_id_at(Vector2i(2, 1)) == "hen_coop" and bm2.is_gen(Vector2i(4, 3)) and bm2.gens.size() == 2, "the generator map round-trips through to_dict/from_dict")
 
+	# --- burst-pop (§6): a tap pops a BURST — base (BURST_ODDS) + a free per-map scale-up + the
+	# paid burst-upgrade level, capped at BURST_MAX. Each item still costs 1 energy. ---
+	var brng := RandomNumberGenerator.new()
+	brng.seed = 7
+	var bmin := 99
+	var bmax := 0
+	for _i in 400:
+		var b := G.burst_count(0, 0, brng)        # map 1, no upgrade → base only
+		bmin = mini(bmin, b)
+		bmax = maxi(bmax, b)
+	ok(bmin == 1 and bmax == 3, "map-1 base burst rolls 1–3 items")
+	var later := 0
+	for _i in 200:
+		later = maxi(later, G.burst_count(4, 0, brng))
+	ok(later > 3, "a later map's generator pops a bigger burst (free per-map scale-up)")
+	var upgraded := 0
+	for _i in 200:
+		upgraded = maxi(upgraded, G.burst_count(0, 2, brng))
+	ok(upgraded > 3, "a burst-upgrade raises the burst")
+	var capped := true
+	var floored := true
+	for _i in 200:
+		var bc := G.burst_count(4, 9, brng)
+		if bc > int(G.BURST_MAX):
+			capped = false
+		if G.burst_count(0, 0, brng) < 1:
+			floored = false
+	ok(capped, "burst never exceeds BURST_MAX")
+	ok(floored, "burst is always at least 1")
+	# the burst-upgrade coin-sink cost ladder (escalating, then maxed)
+	ok(G.burst_upgrade_cost(0) > 0 and G.burst_upgrade_cost(1) > G.burst_upgrade_cost(0), "the burst-upgrade coin cost escalates")
+	ok(G.burst_upgrade_cost(G.burst_upgrade_max()) == -1, "burst-upgrade caps — cost -1 past the max level")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

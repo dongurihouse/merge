@@ -109,6 +109,13 @@ const GATE_ASK_COUNT := 3                 # distinct top-tier lines the great-sp
 const GATE_STARS := 5                     # the gate's authored ★ (map-completion beat; off the regular cap)
 const GATE_COIN_BONUS := 100              # plus a large coin bonus over the computed overflow
 const GATE_TIER_BASE := 5                 # gate ceiling = min(GATE_TIER_BASE + map_index, TOP_TIER): t5→t8 over the 5 maps
+# §6 burst-pop — PROVISIONAL (sim-tuned). A generator tap pops a BURST of items, each still 1 energy
+# (burst cuts taps, not the per-item energy economy). Burst = base (BURST_ODDS) + free per-map scale-up
+# + the player's paid burst-upgrade level, capped at BURST_MAX.
+const BURST_ODDS := [0.55, 0.30, 0.15]    # base burst pops 1 / 2 / 3 items
+const BURST_MAP_EVERY := 2                # +1 base burst every N maps (the free per-map scale-up)
+const BURST_MAX := 6                      # hard cap on a single tap's burst
+const BURST_UPGRADE_COSTS := [60, 180, 480]   # coin cost L0→1, 1→2, 2→3 (the §10 second coin sink); size = max level
 
 # Starter items on the open 3x3 (besides the generator cell).
 const STARTER_ITEMS := {

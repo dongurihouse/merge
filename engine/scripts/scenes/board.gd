@@ -1611,7 +1611,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			return
 		cell = board.gens.keys()[0]
 	var gnode: Control = gen_nodes.get(cell, gen_node)
-	if _ftue_pops_done() and water < G.POP_COST:
+	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
+	if charged and water < G.POP_COST:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
 		_update_water_hud()                # surfaces the refill offer if available
@@ -1621,46 +1622,72 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		FX.wobble(gnode)                   # full board pauses the generator for FREE
 		Audio.play("invalid_soft", -4.0)
 		return
-	# FTUE: the first ten pops are on the house — the verb before the meter
-	var g := Save.grove()
-	if _ftue_pops_done():
-		water -= G.POP_COST
-	g["pops"] = int(g.get("pops", 0)) + 1
-	if Audio.has("water_pop"):
-		Audio.play("water_pop", -2.0)
-	# the spawn decision (landing cell + code) is board_logic's; the active givers'
-	# wanted lines bias the roll. RNG order is load-bearing (seeded + persisted).
+	# Burst-pop (§6): one tap throws a BURST, not just one item. Its size scales with the map (a
+	# free per-map step-up) and the player's paid burst-upgrade; bound it by what's affordable
+	# (energy) and what fits (open cells). Each popped item still costs G.POP_COST. FTUE: the
+	# first intro pops are on the house — the verb before the meter.
+	var burst := G.burst_count(_quest_zone(), _gen_burst_level(), rng)
+	if charged:
+		burst = mini(burst, int(water / G.POP_COST))
+	burst = mini(burst, empties.size())
+	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines
+	# bias every item's roll. Pool + wanted are fixed across the burst. RNG order is load-bearing.
 	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():
 			giver_quests.append(quests[int(e.qi)])
-	var spawn := BoardLogic.roll_spawn(empties, cell, pool, BoardLogic.wanted_lines(pool, giver_quests), rng)
-	var pick: Vector2i = spawn.cell
-	var code: int = spawn.code
-	board.place(pick, code)
-	_mark_seen(code)
-	_note_item_landed(code)   # W3: a spawned max-tier item also triggers the one-time hint
-	var n := _make_piece(code, csz)
-	n.position = _cell_pos(cell)
-	n.scale = Vector2(0.3, 0.3)
-	board_area.add_child(n)
-	piece_nodes[pick] = n
-	# W2: the spawn flight is COSMETIC and must NOT set `animating` — that flag gates
-	# the board input surface, so a 0.22s flight used to EAT the next generator tap.
-	# The item is already placed in the model (board.place above); rapid taps each
-	# spawn into their own cell and fly independently. `animating` now guards MERGES
-	# only (mid-transition board state), so N rapid taps land N pops (water permitting).
-	var t := n.create_tween()
-	t.set_parallel(true)
-	t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
+	var g := Save.grove()
+	if Audio.has("water_pop"):
+		Audio.play("water_pop", -2.0)
+	# W2: the spawn flight is COSMETIC and must NOT set `animating` — that flag gates the board
+	# input surface, so a 0.22s flight used to EAT the next generator tap. Items are placed in
+	# the model immediately; `animating` now guards MERGES only, so rapid taps each land.
+	for _b in burst:
+		if charged:
+			water -= G.POP_COST
+		g["pops"] = int(g.get("pops", 0)) + 1
+		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng)
+		var pick: Vector2i = spawn.cell
+		var code: int = spawn.code
+		board.place(pick, code)
+		empties.erase(pick)                # each burst item lands in its own cell
+		_mark_seen(code)
+		_note_item_landed(code)            # W3: a spawned max-tier item also triggers the one-time hint
+		var n := _make_piece(code, csz)
+		n.position = _cell_pos(cell)
+		n.scale = Vector2(0.3, 0.3)
+		board_area.add_child(n)
+		piece_nodes[pick] = n
+		var t := n.create_tween()
+		t.set_parallel(true)
+		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	FX.pop(gnode)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
 	_persist()
 	_refresh_giver_lights()
 	_update_water_hud()
+
+# The player's paid burst-upgrade level (the burst-upgrade COIN SINK, §6/§8) — persisted in the
+# grove blob, read by _pop_seed to size the burst. 0 = unbought.
+func _gen_burst_level() -> int:
+	return int(Save.grove().get("burst_lvl", 0))
+
+# Spend coins to raise the burst-upgrade one level (the coin sink): a bigger burst per tap. Refuses
+# when broke or already atop the cost ladder. The upgrade surface (parked, hub-concentrated) calls this.
+func _upgrade_gen_burst() -> bool:
+	var lvl := _gen_burst_level()
+	var cost := G.burst_upgrade_cost(lvl)
+	if cost < 0:
+		return false                          # already at the max burst-upgrade level
+	if not Save.spend(cost, "burst_upgrade"):
+		return false                          # not enough coins
+	Save.grove()["burst_lvl"] = lvl + 1
+	_persist()
+	return true
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)

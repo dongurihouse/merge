@@ -18,19 +18,6 @@ at audit time (some now stale where the code moved).
 
 - **Map model — one image = one map.** ✅ **Shipped as T21** (2026-06-15, `tasks/mechanics.md`): single-image maps + a discrete **map-select** + a persistent **home-hub shortcut**; the free-pan overworld, walk-inside `interior_view`, and on-map wayside coin-sink are removed; the Farmhouse is designated the hub (recast to the §3 roster + a `kind` yield/décor seam). Verified `make test` 404/404 + captures. **Parked follow-ups:** (a) the **`zone`→`map` symbol rename** — deferred (T21 Decisions #1): a now-collision-free, suite-verifiable mechanical sweep across the (committed) §6/§7 code + tests + sim; (b) the hub **upgrade→yield loop** = the KEYSTONE economy item (below); (c) real §16 map images + on-image spot placement (owner re-places via the Layout editor) = art lane. Orphaned old-id `furn_fh_*.png` sprites are now unused (asset cleanup, minor).
 
-- **Burst popping + the energy-faucet code changes (spec done · code · sim).** §4/§6: a generator tap
-  pops a **burst of 1–3 items** (`BURST_ODDS`), 1 energy each — base × a **per-zone free scale-up** ×
-  a player **burst-upgrade** (§8). **Code pops exactly ONE item per tap** (`_pop_seed`,
-  `engine/scripts/board.gd:1585`); no `BURST_ODDS` anywhere. Two faucet code-changes the spec also
-  raised: **level gift +20 → +50** (`grove_data.gd:141`, applied `map.gd:1044`) and **free refills
-  3-lifetime → 1/day** (today a monotonic `refills_used` vs `FREE_REFILLS=3`, `board.gd:497` — needs a
-  per-day date, not a lifetime int). **Build:** the burst-pop loop + odds + per-zone scale-up; the two
-  energy changes; then **economy-sim re-validation** (`games/grove/tools/grove_sim.gd` default + greedy) that a
-  level's energy rewards stay **< 30%** of its cost and "sessions extend, never self-sustain" — the
-  daily full refill (≈100💧/day) is a large recurring grant tensioning the monetization socket, so
-  this check decides whether +50/daily is shippable. *(Surfaced 2026-06-14 — spec review + code
-  audit.)*
-
 - **Level-gated obstacle cells (spec done · code · sim).** §4 reworked obstacle gating: each cell
   carries a **`min_level`** (diamond gradient — L2/L3 frontier radiating out to **L12** at the
   corners) that unseals in waves as the player levels, then still opens on an **adjacent merge**.
@@ -62,15 +49,17 @@ at audit time (some now stale where the code moved).
   yield/upgrade rates, per-building cap (≈ a day), prices. **Status:** **A1 (save schema — `levels{spot_id}`
   + `hub_collected_at` + accessors + rename-migration in `save.gd`) DONE** on branch `feat/hub-yield` (T22),
   `save_tests` 32/0; A2–A9 queued behind T21.
-  • **Part B — generator burst-upgrade (§6 board sink) — BLOCKED on burst-popping.** A coin/premium sink to
-  pop more per tap. Needs the burst mechanic first (the **Burst popping** item, `feat/burst-pop`): today
-  `_pop_seed` (`engine/scripts/scenes/board.gd:1603`) pops exactly ONE item, no `BURST_ODDS` — nothing to
-  upgrade yet. Sequence B with that item, not Part A.
+  • **Part B — generator burst-upgrade (§6 board sink) — MECHANIC BUILT (T23, 2026-06-15).** A coin sink to
+  pop more per tap. The **burst-popping** mechanic + its burst-upgrade spend path are now live (merged from
+  `feat/burst-pop`): `board.gd` `_upgrade_gen_burst()`/`_gen_burst_level()` + the `BURST_UPGRADE_COSTS`
+  ladder — a working coin sink, sim-modelled. **Remaining:** wire the **trigger UI** (a buy affordance on
+  the hub surface), not the logic.
   *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin faucet +
   the shop sinks.* **Reworked 2026-06-15 (owner):** hub-concentrated (the hub carries the loop, **not every
   building on every map**). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — a
   collect-across-~10-maps chore; home hub + live-ops in old maps (§17) carry anti-abandonment. *(Surfaced
-  2026-06-14 — code audit; anchors re-verified + A/B split + deps added 2026-06-15, T22 pickup.)*
+  2026-06-14 — code audit; anchors re-verified + A/B split + deps added 2026-06-15, T22 pickup; Part B burst
+  mechanic merged 2026-06-15, T23.)*
 
 - **Selling — per-zone coin bands + drag-only verb (spec done · content · code).** §6/§9: t1–t7 sell
   for **tier coins × a per-zone band** (later zones worth more); t8 stays flat **1💎** so the 32×
@@ -196,9 +185,18 @@ at audit time (some now stale where the code moved).
   featured rate) await the **owner's pacing sign-off**, and the §3 `LEVEL_STARS` curve is **untouched +
   available to recalibrate** (steady-state I2 was carried by the §7 tier knob, so §3 didn't need to move
   — but it's the lever if leveling should be faster/slower). Best judged once the art (below) makes it
-  playable; re-validate any change through the Monte-Carlo sim (`games/grove/tools/grove_sim.gd`). *(Was
-  the "Economy rebalance under per-zone generators / #4" item — it folded into §7's tuning. Surfaced
-  2026-06-15 — T17 sim findings; §7 cutover T19.)*
+  playable; re-validate any change through the Monte-Carlo sim (`games/grove/tools/grove_sim.gd`).
+  **Folded in here (owner 1a, 2026-06-15):** the two energy-faucet code-changes from the (now-built)
+  burst item — **level water gift +20 → +50** (`grove_data.gd` `LEVEL_WATER_GIFT`, applied on level-up)
+  and **free refills 3-lifetime → 1/day** (today a monotonic `refills_used` vs `FREE_REFILLS`; needs a
+  per-day date, not a lifetime int) — both tension the energy faucet against the <30% self-sustain rule,
+  so they ship **with** this rebalance, not before. **New input (T21, 2026-06-15):** burst-pop
+  **front-loads energy spend** into the first map (a tap throws a whole burst, so the bot over-pops when
+  starved), leaving low-volume early maps a high fixed-gift ratio on some seeds — so the sim now treats
+  **maps 1–2 as WARN** and hard-checks **maps 3+** (was map-1-only); this pass must rebalance the gift
+  cadence against burst's front-loaded spend **and** the +50 change above. *(Was the "Economy rebalance
+  under per-zone generators / #4" item — it folded into §7's tuning. Surfaced 2026-06-15 — T17 sim
+  findings; §7 cutover T19; faucet + burst-front-loading folded in T21.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.
