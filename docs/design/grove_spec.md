@@ -188,9 +188,9 @@ All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (b
 
 *Instantiates Core §8 (Building & the World).*
 
-**Design target (Core §8):** the world is a **sequence of self-contained maps** — each one painted image (an open space with a few buildings + props), restored **in place**; the **Farmhouse map is the home hub** (the permanent, coin-fed anchor — authored deeper than a finish-once map, reached any time via a **home shortcut** on the HUD). **No free-pan overworld, no walk-inside interiors** — navigation is a simple **map-select** of discrete maps. **Current code (the OLD model, pre-Core §8 rewrite):** a `MAP_SIZE = 2160×2880` free-pan top-down map of greyed sites, each tapping into a full-screen `interior_view` room of floor-standing furniture — **superseded by Core §8**; the single-image-map rebuild (drop the overworld + `interior_view`) is parked (`BACKLOG.md`). *(Map-art canvas + the harvest pipeline: §9.)*
+**Design target (Core §8):** the world is a **sequence of self-contained maps** — each one painted image (an open space with a few buildings + props), restored **in place**; the **Farmhouse map is the home hub** (the permanent, coin-fed anchor — authored deeper than a finish-once map, reached any time via a **home shortcut** on the HUD). **No free-pan overworld, no walk-inside interiors** — navigation is a simple **map-select**: a **list view with a preview card per map** (not a pannable world). **Locked spots show in place** — as a **build-pin** or a **broken/covered image** (the before-state of the before→after restore); the grove uses this in-place reveal **instead of fog / a veiled horizon** (maps are small and the player **moves on to the next map**, not into a hidden expanse — so Core §8's fog idea is not used here). **Current code (the OLD model, pre-Core §8 rewrite):** a `MAP_SIZE = 2160×2880` free-pan top-down map of greyed sites, each tapping into a full-screen `interior_view` room of floor-standing furniture — **superseded by Core §8**; the single-image-map rebuild (drop the overworld + `interior_view`) is parked (`BACKLOG.md`). *(Map-art canvas + the harvest pipeline: §9.)*
 
-> **Build vs the design target.** The *current* grove implements only the **build** half (unlock fixed spots with ★) + **customize** (style variants, §5). The core §8 **home-hub upgrade → passive-yield** loop is now **v1 — the keystone**, specified concretely below (*The Farmhouse hub*: the two-axis Stars-restore / Coins-upgrade design); the **veiled horizon (clouds / discovery)** remains design-direction, not yet in code. The hub yield loop is what turns the homestead from a build-and-decorate surface into the **retention engine** — wiring it is the economy pass the bare-skeleton rebuild enables.
+> **Build vs the design target.** The *current* grove implements only the **build** half (unlock fixed spots with ★) + **customize** (style variants, §5). The core §8 **home-hub upgrade → passive-yield** loop is now **v1 — the keystone**, specified concretely below (*The Farmhouse hub*: the two-axis Stars-restore / Coins-upgrade design). The hub yield loop is what turns the homestead from a build-and-decorate surface into the **retention engine** — wiring it is the economy pass the bare-skeleton rebuild enables.
 
 The five maps below are **the home grove** — the first maps in the §1 story (**the only structural unit is the map**, Core §8 — no episode/chapter tier). The **count is a tuning call**, not canon — more maps, and further places, are expected (§1). Current code-verified scaffold — **five maps, 8 spots each, each spot 3–5★ — 176★ across 40 spots**:
 
@@ -201,6 +201,8 @@ The five maps below are **the home grove** — the first maps in the §1 story (
 | 3 Pond | `pond` | 8 | 36★ | Little dock, Lily pads, Rowboat, Willow, Firefly jar |
 | 4 Orchard | `orchard` | 8 | 37★ | Apple rows, Cider press, Beehives, Scarecrow |
 | 5 Meadow | `meadow` | 8 | 38★ | Wildflower path, Kite, Brook bridge, Stargazer, Rose arch |
+
+*(The per-map ★ totals (31–38) are **incidental** — 8 spots × ~3–5★ — not a designed economic ramp; the real per-map effort ramp is the difficulty band (§4) + generator count (§2), rising steeply, so later maps take **multiples longer per ★**. Scaffold numbers — sim-validate the cadence isn't a grind wall.)*
 
 **The completion chain (Core §7/§8 — the pacing spine).** A map is **complete** when all its spots are restored; that **unveils the great-spirit's gate** (its **last quest** — an offering of a randomized handful of the map's **top-tier harvest**), and delivering it **unlocks the next map** for a large reward. The next map opens with a **generator-grant quest** (hand an old generator in → a new line, §2). Completing a map also grants **+10💎** (`ZONE_DIAMONDS`) with a celebration and unlocks that map's **wayside plots** (§5).
 
@@ -226,9 +228,20 @@ The 8 Farmhouse spots split **4 yield buildings + 4 décor**:
 
 *(The roster recasts Map 1's legacy interior furniture — chest/bed/table, superseded with the open-space-map model (§3 above) — into open-space homestead features. Exact props, the per-level yield rates, the L1→L5 upgrade price ladder, and the accrual cap are **grove tuning, sim-validated** — like every other number.)*
 
+**Décor depth.** Four décor spots + the map's waysides (§5) is thin for a *forever home*; the hub's décor surface is meant to **keep growing** — **Collection favorites set as décor** (a line you grew, Core §6), **seasonal décor** from events (Core §17), and added slots — so the showcase deepens for the life of the save.
+
 **Yield collection — one beat.** Tap the farmhouse and all ready coins sweep to the wallet (`fly_to_wallet`); **never per-building taps**. Each yield building accrues to a **per-building cap (≈ a day's worth)**, so returning ~daily collects meaningfully while a missed day never piles up or punishes. Pairs with the **"yield ready" push** (Core §18).
 
-**Invariants (the teeth + safety).** The **coin sink** (the upgrade ladder + the §5 décor sinks) **exceeds the lifetime coin faucet** (merge drops + selling + quest-overflow coins + hub yield); hub yield is **capped below self-funding** (it extends sessions, never self-sustains — sim-validated, the coin analogue of the energy <30% rule); upgrades buy **yield + look, never Water / the wall**.
+**Invariants (the teeth + safety).** The **coin sink** (the upgrade ladder + the §5 décor sinks) **exceeds the lifetime coin faucet** (merge drops + selling + quest-overflow coins + hub yield); hub yield is **capped below self-funding** (it extends sessions, never self-sustains — sim-validated, the coin analogue of the energy <30% rule); upgrades buy **yield + look, never Water / the wall**. The hub ladder is **finite** (4 buildings × L1→L5 = 16 upgrades); once maxed, the **ongoing** coin sink is the **generator burst-upgrades** (§2, scaling with each map's generators) + the **per-map waysides/variants** (§5, +4 plots/map) — sim-check the hub **yield** never outpaces those remaining sinks late-game (else "sink > faucet" breaks once the hub is maxed).
+
+### Keeping finished maps alive (anti-abandonment)
+
+*Instantiates Core §8's anti-abandonment.* 14 of the 15 maps are **finish-once**, so a completed map must never feel spent. Two systems keep old maps alive — neither a grind:
+
+- **Old maps are the live-ops stage.** Seasonal / limited **events** (Core §17) are **sited in already-restored maps** — a spring bloom fills the Orchard you finished months ago — so revisiting is **content, not collection**. This *is* the Keepers fiction (§1): the family tend a world that always needs keeping.
+- **Restored maps stay inhabited.** A finished map keeps its **ambient spirit-folk** (§7) and is always revisitable from the map-select — a living place you made, not a spent level.
+
+**Reveal juice:** a locked spot shows its **before-state** (build-pin or broken/covered image, above); restoring it **settles the finished thing in** with a burst (the before→after); completing a **map** plays a **flourish** — the prime **screenshot-share** moment (§1 hook, Core §17).
 
 ---
 
@@ -236,29 +249,39 @@ The 8 Farmhouse spots split **4 yield buildings + 4 décor**:
 
 *Instantiates Core §7 (Quests & the fence) and Core §3 (level/rank).*
 
-### The per-map difficulty ramp (instantiates Core §7's deterministic ramp)
+### Quests — the live generated model (Core §7, shipped T19)
 
-> ⚠️ **Superseded by Core §7 (generated quests).** Core §7 now **generates** quests (asks weighted by generator + scaling with level; reward **calculated from expected clicks**, capped to ★ + coin overflow) instead of this fixed per-map curve. The table below is kept as **tuning reference** for the generated model's weights/distribution, but it is **no longer the live ramp** — pending the quest-model rework (see `BACKLOG.md`).
+The deterministic per-map ramp is **retired**; the grove runs Core §7's **generated** quest stream (built + cut over live, `T19`):
 
-The required single-ask path is the byte-for-byte affordability-proven curve; **multi-line stretch quests are pure additions** (slack grows to cover them), always skippable, paying 2–3★. A freshly debuted line eases in at **≤ t3** for its debut map; **t8 is never a *regular* quest ask** — the map's top tier is reserved for the **great-spirit's gate** (the offering that unlocks the next map, Core §7):
+- **Asks** draw `{line, tier, count}` from the current map's **live generator lines** (§2), weighted to the **newest / highest-value**; **difficulty rises with level** (one low-tier ask early → 2–3 higher-tier cross-generator asks late — the "juggle every line" endgame). A map's **ceiling (up to t8) is asked _only_ by the gate quest**, never a regular one.
+- **Reward = capped ★ + coin overflow:** `stars = min(expected-clicks-value, STAR_CAP)` (~1–3★, so **level ∝ quest count**); the overflow **pays coins**, so deep asks pay the same ★ but more 🪙 (the **quest coin faucet**, §5).
+- **Authored boundary quests** (§2): the **great-spirit's gate** (a top-tier handful → unlocks the next map for a large reward) + the **generator-grant** hand-in opening each map.
+- **Metered fence** (`gate_pause`): active givers ≈ stars-to-next-unlock (cap 5), and the fence **empties when you can afford the next unlock** — a wordless "go restore." **No-strand** rests on **guardrails + a Monte-Carlo sim** (green: no-jam · no-strand · steady-state <30% · selling-not-income), not the retired pigeonhole proof.
 
-| Map | Tier band | Quests/ch | Slack | 2-count cadence | Stretch | 💧 on spot-buy |
-|---|---|---|---|---|---|---|
-| 1 Farmhouse | t2–t4 | 5 | 1 | — | 0 | 0 |
-| 2 Barn | t3–t5 | 5 | 1 | — | 0 | 0 |
-| 3 Pond | t3–t5 | 5 | 1 | every 3 | 1 (2-line) | 0 |
-| 4 Orchard | t4–t6 | 5 | 1 | every 2 | 1 (3-line) | 4💧 |
-| 5 Meadow | t5–t7 | 6 | 2 | every 2 | 2 (2-line + 3-line) | 5💧 |
+**Featured quests** — a small random share (**~10–15%**, a grove dial) pay a **bonus** (extra 🪙, occasionally 💎) on top, **never extra ★** (level∝quests untouched); they make stream standouts + a **"do a featured quest" daily/event hook** (Core §17/§18).
 
-Bands climb and stretch density grows map over map, so the late game is **juggling all production lines on one board** (Core §7).
+### Pacing tunables — pending the owner's sign-off
+
+The model is **live and sim-proven safe**; what's unsigned is the **feel** — which *is* a monetization dial (it sets how fast ★ arrive and how hard the per-map gate-walls push refills). The grove's provisional knobs (`grove_data.gd`):
+
+| Knob | Sets | Provisional intent |
+|---|---|---|
+| `STAR_CAP` | ★ per quest | ~1–3★ (level ∝ quest count) |
+| `CLICK_TO_VALUE` | click→reward; the ★/coin split | coins compensate deep asks |
+| `QUEST_LEVELS_PER_TIER` | how fast asks climb in tier | the difficulty slope |
+| `GATE_TIER_BASE` / `GATE_ASK_COUNT` | gate-quest hardness | ≈ a map's peak output at once |
+| featured rate | % of quests featured | ~10–15% |
+| `LEVEL_STARS` (Core §3) | ★ → level | the **master pace** — adopt Core §3's default (L2=25 … L51+=3200 flat, uncapped) or recalibrate |
+
+*(Retired reference — the old deterministic ramp, kept only for band intent: **t2–4 early → t5–7 late**, stretch density growing map over map. No longer the live curve.)*
 
 ### The givers (instantiate Core §7's fence)
 
-Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 5 stands at once, with the **Market Squirrel** (the merchant) pinned at the right. The quest shape (1–3 asks → 1–3★, all-or-nothing delivery) and the **soft star-gate** (`gate_pause`) are core; some quests are **featured** (highlighted, a **bonus** reward — Core §7). Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** that unlocks the next map (§3, Core §7). The grove keeps the one hard rule (no-strand: level-gated spots never count as the affordable frontier).
+Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each home-grove map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 5 stands at once, with the **Market Squirrel** (the merchant) pinned at the right. Quest shape (1–3 asks → 1–3★, all-or-nothing) and the **soft star-gate** (`gate_pause`) are core. Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** (§3); the one hard rule is **no-strand** (level-gated spots never count as the affordable frontier). The **lead roster extends per place** — maps 6–15 each get their place's spirit (§1's river-spirit, lantern-keeper…); the **menagerie refreshes per map / event** (a few walk-ons at a time — the warmth + novelty layer).
 
 ### Level / rank (instantiate Core §3)
 
-The grove's **40 spots run rank 0…39** across the five maps; **level comes from stars earned** (Core §3 `LEVEL_STARS`), and every unlock — generators, maps, spots, board cells — gates on level. Each level-up gifts the core energy gift (Core §4) plus **+3💎** (`LEVEL_DIAMONDS`). Map completion — the **+10💎** (`ZONE_DIAMONDS`) grant and the great-spirit's gate that opens the next map — is the **completion chain** (§3). *(`LEVEL_STARS` thresholds + the per-level unlock map: pending the progression rework — `BACKLOG.md`.)*
+The home grove's **40 spots run rank 0…39** (the roster extends with the arc); **level comes from stars earned** (`LEVEL_STARS` — the master pace, in the tunables above), and every unlock — generators, maps, spots, board cells — gates on level. Each level-up gifts the core energy gift (Core §4) plus **+3💎** (`LEVEL_DIAMONDS`); **map completion** grants **+10💎** (`ZONE_DIAMONDS`) and opens the gate (the completion chain, §3). *(The `LEVEL_STARS` curve + per-level unlock map are pending the owner's pacing sign-off — see the tunables table above.)*
 
 ---
 
@@ -270,14 +293,14 @@ The 4-currency model (Water / Stars / Coins / Diamonds) and **sink > faucet** la
 
 | Currency | Grove earn additions | Grove spend |
 |---|---|---|
-| **Water 💧** | the **Rain ☔** button (the daily free refill, Core §4), win-back ("it rained"), map 4–5 spot-buys (4–5💧) | 1 per pop; refill **25💎 → full** |
+| **Water 💧** | the **Rain ☔** button (the daily free refill, Core §4), win-back ("it rained"), **rewarded-ad refill** (below) | 1 per pop; refill **25💎 → full** |
 | **Stars ★** | quests only (1–3★) | restoration spots (3–5★) |
-| **Coins 🪙 (acorns)** | merge drops (~10%) · selling t1–t7 · Shop **5💎→150🪙** | waysides · spot variants · spirit treats · basket buy-back |
-| **Diamonds 💎** | level-ups (+3) · map restore (+10) · selling a t8 (+1) · cash packs (**live IAP from launch**, Core §4/§10) — the ladder $0.99→80💎 / $4.99→450💎 / $9.99→1000💎 is a **placeholder**; the real ladder adds **high-end tiers ($49.99/$99.99-class)** + a **starter pack** (`BACKLOG.md`) | Water refill (25💎) · Bag slots 7–18 (premium each, Core §5) · gem variants (2–4💎) |
+| **Coins 🪙 (acorns)** | merge drops (~10%) · selling t1–t7 · **hub yield** (§3) · **quest-overflow** (§4) · Shop **5💎→150🪙** | **hub upgrades** (§3) · **generator burst** (§2) · waysides · spot variants · spirit treats · basket buy-back |
+| **Diamonds 💎** | level-ups (+3) · map restore (+10) · selling a t8 (+1) · **piggy crack** (cash) · **cash packs** (live IAP from launch — the real ladder + starter pack + doubler are in *Monetization surfaces*, below) | Water refill (25💎) · Bag slots 7–18 (premium each, Core §5) · gem variants (2–4💎) · **Shop item-shortcuts / exclusive cosmetics** (below) |
 
 ### The Merchant (instantiates Core §9)
 
-The **Market Squirrel** runs the stall. Sell reward and the **32× no-arbitrage invariant** are core (t1–t7 → 1…7🪙; t8 → 1💎, no coins). The grove's buy-back valve is a **wicker basket** at the squirrel's feet (`BASKET_CAP = 3`); a 4th sale overflows and summons the **porter spirit**, who also sweeps the basket every `PORTER_SECS = 180`. Basket never persisted. The Squirrel also keeps the **acorn hoard-jar** — the **piggy-bank vault** (Core §10): it skims a slice of earned 💎, visibly filling, cracked for one fixed real-money price (the §1 commerce-dressed frame).
+The **Market Squirrel** runs the stall. Sell reward and the **32× no-arbitrage invariant** are core (t1–t7 → 1…7🪙; t8 → 1💎, no coins). **Later-map items sell for more** — a **per-map coin band** scales t1–t7 up by map (each map an economic step-up), while **t8 stays the flat 1💎 pinnacle** so the 32× proof holds (Core §6). *(The per-map bands are a grove number — sim-tuned across the arc.)* The grove's buy-back valve is a **wicker basket** at the squirrel's feet (`BASKET_CAP = 3`); a 4th sale overflows and summons the **porter spirit**, who also sweeps the basket every `PORTER_SECS = 180`. Basket never persisted. The Squirrel also keeps the **acorn hoard-jar** — the **piggy-bank vault** (Core §10): it skims a slice of earned 💎, visibly filling, cracked for one fixed real-money price (the §1 commerce-dressed frame).
 
 ### Coin sinks (the live grove — Core §10 instantiation)
 
@@ -287,56 +310,70 @@ The **Market Squirrel** runs the stall. Sell reward and the **32× no-arbitrage 
 |---|---|---|---|---|
 | **Hub upgrades** | coin ladder per level (escalating) | 4 yield buildings × L1→L5 | — (core loop) | **functional** — look + passive coin yield (§3 hub) |
 | **Generator burst** | coin ladder per level | each live generator × L1→~L3 | — (core loop) | **functional** — pop more per tap (cuts taps, not energy; §2) |
-| **Wayside plots** | 40🪙 + index·6 → **40–154🪙** | 20 plots (4/map) ≈ **1,940🪙** | `wayside_decor` | pure cosmetic — map decoration |
+| **Wayside plots** | 40🪙 + index·6 → **40–154🪙** | 20 plots (4/map) ≈ **1,940🪙** | `wayside_decor` *(pending — §3 rebuild)* | pure cosmetic — map decoration |
 | **Spot variants** | 25🪙 + map·15 + (k%3)·5 → **25–95🪙** | 40 spots ≈ **2,375🪙** | `customize_variants` | pure cosmetic — furniture tint |
 | **Spirit treats** | **10🪙** (an acorn treat) | endlessly repeatable | `spirit_treats` | pure cosmetic — a spirit hops |
 | **Basket buy-back** | the exact 1–8🪙 paid | per sale | — | utility — recover a mis-sold item (net zero) |
 
-A plot is dormant (greyed) until its map is fully restored, then shows a coin-cost pin; buying is **coin-only, never level-gated, in no unlock chain**. **Faucet vs sink:** the lifetime coin faucet is merge drops + selling + **quest-overflow coins** (Core §7) + **hub yield** (§3); the sinks — the **functional** hub-upgrade ladder (§3) + generator-burst ladder (§2) on top of the cosmetic waysides (~1.9 k) + variants (~2.4 k) — **exceed it** (sink > faucet, *with teeth*). Exact totals are sim-validated.
+A plot is dormant (greyed) until its map is fully restored, then shows a coin-cost pin; buying is **coin-only, never level-gated, in no unlock chain**. **Faucet vs sink:** the lifetime coin faucet is merge drops + selling + **quest-overflow coins** (Core §7) + **hub yield** (§3); the sinks — the **functional** hub-upgrade ladder (§3) + generator-burst ladder (§2) on top of the cosmetic waysides (~1.9 k) + variants (~2.4 k) — **exceed it** (sink > faucet, *with teeth*). Exact totals are sim-validated — including **once the hub upgrades are maxed** (16 levels): the burst-upgrade + per-map décor sinks must still exceed the standing **hub-yield** faucet, or coins lose their sink late.
 
 > **The "coins have no power" tension — resolved by the v1 hub loop (§3, Core §8/§10).** The *legacy* grove sinks (waysides, variants, treats) were all cosmetic / net-zero, so motivation to spend was thin — a decorator pull only. The fix is now **v1**: two functional sinks — the **Farmhouse hub upgrade→yield loop** (§3, paying back in passive coin yield) and **generator burst-upgrades** (§2, fewer taps per item) — give coins real power, off the "premium buys speed" line; the cosmetic sinks stay as the **décor layer** on top. *(Exact yield/upgrade rates + the price ladder are sim-validated, §3. The legacy coin-gated bedroom-decor sink — 663🪙 in `districts.gd`/`room.gd` — is retired with the open-space-map model.)*
+
+### Monetization surfaces (the buy-side — provisional, pending sign-off)
+
+The revenue surfaces ship **IAP-live from launch** (Core §10); their diegetic frames are §1 (the **peddler** = Shop, the Squirrel's **hoard-jar** = piggy, the **dawn-gift** = login). Core §10 defers the **numbers** to here — the grove's provisional instances, a **commercial sign-off checklist** for the owner (like the §4 pacing tunables). Engine build is parked (`BACKLOG.md`); the calls below are what's open:
+
+| Surface | Grove instance (provisional) |
+|---|---|
+| **IAP ladder** | a full ladder — entry $0.99 → … → **$49.99 / $99.99 whale tiers**; a one-time **starter pack** (high-value, low-price — the top-converting IAP) + a **first-purchase doubler** |
+| **Shop stock** | Water (25💎) · coins (5💎→150🪙) · **item-shortcuts** (a mid-tier piece — coins low / 💎 high) · **cosmetics** (coins base / 💎 exclusive); **a few rotate at a time** |
+| **Rewarded ads** (opt-in, geo-flagged) | refill Water · 2× one hub-yield collect · free Shop reroll · event top-up — each **capped + cooldowned**; reward sizes TBD |
+| **Piggy bank** (hoard-jar) | skim **~X%** of earned 💎 → crack for **one fixed cash price** (longer play = better deal; resets on crack) |
+| **Triggered out-of-Water offer** | at 0💧 → one **gently-discounted** Water + a little 💎, **low cap + cooldown**, no countdown / fail-shaming (reads as *help*) |
+| **Login calendar** (dawn-gift, Core §18) | forgiving streak (no day-1 reset), energy modest, milestones lean cosmetic / 💎 |
+
+All ride the **"buys speed + looks, never possibility"** line (Core §4) — every wall passable for free, scarcity gentle + recurring. The **numbers are the open commercial decision**; the cozy guardrails (no forced ads, no FOMO countdowns, no pay-to-win) are **locked**.
 
 The grove's **brambles** are its instance of Core §4's obstacles — the **gating model** (the level-gated board map) lives in **Core §4**, not restated here. The 14 outermost cells stay un-cleared unless the player wants the extra room (optional expansion).
 
 ---
 
-## 6 · The 25 Feature Flags
+## 6 · Feature Flags
 
-*Instantiates Core §11 (the feature-flag system).* Every flag is a `static var` bool in `scripts/features.gd` (unknown id → `true` + warning); **all 25 default ON**. *Eval* = the owner's keep/improve/cut verdict, filled during testing.
+*Instantiates Core §11 (the feature-flag system).* Every flag is a `static var` bool in `engine/scripts/core/features.gd`, checked via `Features.on(id)` (unknown id → `true` + warning); **all default ON**. **24 flags today — a *growing* registry** (new v1 systems add more, below). *Eval* = the owner's **keep / improve / cut** verdict, filled during testing.
 
-| Flag | Group | What it does | Lives in |
-|---|---|---|---|
-| `idle_hint` | assist | ~4.5 s idle → a mergeable pair rocks (±6°); re-nudges ~4 s | `grove.gd:_hint_pair` |
-| `discovery_ladder` | assist | tap an item → upgrade-path card; unseen tiers show "?" | `grove.gd:_open_ladder` |
-| `quest_ready_check` | assist | green ✓ badge on a giver's ask when payable | `grove.gd:_refresh_giver_lights` |
-| `sell_hints` | assist | drag → stall brightens + "+N🪙" tag; first max-tier one-time sell hint | `grove.gd:_show_sell_affordance` |
-| `gen_preview` | assist | locked generators show a greyed silhouette + "after N spots" | `grove.gd` (gen cells) |
-| `breathe_cta` | juice | the ONE suggested next action breathes (max one on screen) | `FX.breathe_once` sites |
-| `press_juice` | juice | buttons squash 0.96 in / overshoot 1.03 out | `Look.add_press_juice` |
-| `wallet_tick` | juice | wallet numbers count up + chip pulse | `hud.gd` / `FX.tick` |
-| `fly_to_wallet` | juice | a grant arcs an icon to the wallet chip | `FX.fly_to_wallet` |
-| `scatter_in` | juice | staggered pop-in for card/section groups | `FX.scatter_in` |
-| `floaters` | juice | outlined drift-up feedback text | `FX.floating_text` |
-| `celebrate_bursts` | juice | particle bursts on merges/buys/restores | `FX.burst` / `celebrate_at` |
-| `spirit_tap_hop` | juice | tapping a map spirit hops it | `ambient.gd` |
-| `giver_bob` | juice | frameless fence givers idle-bob (±3 px, ~3 s) | `grove.gd` (fence) |
-| `porter_collect` | juice | a porter spirit drifts in to clear the sell basket | `grove.gd:_porter_collect` |
-| `winback_rain_beat` | ambient | ≥48 h away → full Water + a one-time "it rained" minute | `grove.gd:_load_state` |
-| `ambient_spirits` | ambient | spirit folk wander; count = 1 + restored maps (cap 5) | `ambient.gd` |
-| `ambient_weather` | ambient | hourly clear/breeze/rain/snow; respects calm | `ambient.gd` |
-| `wayside_decor` | feature | coin-priced cosmetic map plots (the structural coin sink) | `home.gd:_make_wayside` |
-| `spirit_treats` | feature | a 10🪙 acorn treat at the stall; a spirit scurries + hops | `grove.gd:_buy_treat` |
-| `customize_variants` | feature | owned spots offer coin/gem looks via a swatch strip | `home.gd:_apply_variant` |
-| `item_backing` | feature | a soft warm contact shadow under each board piece | `grove.gd:_make_piece` |
-| `drag_swap` | feature | drop on another occupied cell → swap (merge keeps precedence) | `grove.gd` / `board_model.swap` |
-| `ftue_free_pops` | ftue | first 10 pops free + uncounted; Water meter appears after | `grove.gd:_pop_seed` |
-| `ftue_staged_chrome` | ftue | merchant from ch1, bag from ch2, water chip after intro | `grove.gd` |
+| Flag | Group | What it does | Lives in | Eval |
+|---|---|---|---|---|
+| `idle_hint` | assist | ~7 s idle → a mergeable pair wiggles (±6°); re-nudges | `scenes/board.gd:_hint_pair` (search `core/board_logic.gd`) | — |
+| `discovery_ladder` | assist | tap an item → upgrade-path card; unseen tiers show "?" | `scenes/board.gd:_open_ladder` | — |
+| `quest_ready_check` | assist | green ✓ badge on a giver's ask when payable | `scenes/board.gd:_refresh_giver_lights` | — |
+| `sell_hints` | assist | drag → stall brightens + "+N🪙" tag; first max-tier sell hint | `scenes/board.gd:_show_sell_affordance` | — |
+| `breathe_cta` | juice | the ONE suggested next action breathes (max one on screen) | `ui/fx.gd:breathe_once` sites | — |
+| `press_juice` | juice | buttons squash 0.96 in / overshoot 1.03 out | `ui/skin.gd:add_press_juice` | — |
+| `wallet_tick` | juice | wallet numbers count up + chip pulse | `ui/hud.gd` / `ui/fx.gd:tick` | — |
+| `fly_to_wallet` | juice | a grant arcs an icon to the wallet chip | `ui/fx.gd:fly_to_wallet` | — |
+| `scatter_in` | juice | staggered pop-in for card/section groups | `ui/fx.gd:scatter_in` | — |
+| `floaters` | juice | outlined drift-up feedback text | `ui/fx.gd:floating_text` | — |
+| `celebrate_bursts` | juice | particle bursts on merges/buys/restores | `ui/fx.gd:burst` / `celebrate_at` | — |
+| `spirit_tap_hop` | juice | tapping a map spirit hops it | `ui/ambient.gd` | — |
+| `porter_collect` | juice | a porter spirit drifts in to clear the sell basket | `scenes/board.gd:_porter_collect` | — |
+| `spirit_treats` | juice | a 10🪙 acorn treat at the stall; a spirit nibbles + hops | `scenes/board.gd:_buy_treat` | — |
+| `giver_bob` | juice | frameless fence givers idle-bob (±3 px, ~3 s) | `scenes/board.gd` (fence) | — |
+| `gen_preview` | juice | locked generators show a greyed silhouette + "after N spots" | `scenes/board.gd` (gen cells) | — |
+| `winback_rain_beat` | ambient | ≥48 h away → full Water + a one-time "it rained" minute | `scenes/board.gd:_load_state` | — |
+| `ambient_characters` | ambient | spirit-folk wander; count = 1 + restored maps (cap 5) | `ui/ambient.gd` | — |
+| `ambient_weather` | ambient | hourly clear/breeze/rain/snow; respects Calm | `ui/ambient.gd` | — |
+| `customize_variants` | feature | owned spots offer coin/gem looks via a swatch strip | `scenes/map.gd:_apply_variant` | — |
+| `item_backing` | feature | a soft warm contact shadow under each board piece | `scenes/board.gd:_make_piece` | — |
+| `drag_swap` | feature | drop on another occupied cell → swap (merge keeps precedence) | `scenes/board.gd` / `core/board_model.gd:swap` | — |
+| `ftue_free_pops` | ftue | first 10 pops free + uncounted; Water meter appears after | `scenes/board.gd:_pop_seed` | — |
+| `ftue_staged_chrome` | ftue | merchant early, bag a bit later, Water chip after intro | `scenes/board.gd` | — |
 
-**Core (indexed, NOT flaggable — Core §11):** `gate_pause` (`grove.gd:_active_quest_idx`) · `spot_level_gates` (`G.spot_level_req`). *(`interior_view` (`home.gd:_open_interior`) is **retired** per Core §11 — the open-space-map model has no walk-inside interiors; legacy code pending removal, `BACKLOG.md`.)* **Numeric dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE 0.10`, `POP_COST`, idle/re-nudge 4.5/4.0 s) live in `grove_content.gd` / `grove.gd`.
+**Core (indexed, NOT flaggable — Core §11):** `gate_pause` (`scenes/board.gd:_active_quest_idx`) · `spot_level_gates` (`core/content.gd`, `spot_level_req`). *(`interior_view` is **retired** — the open-space-map model has no walk-inside interiors; no `_open_interior` remains in code.)* **Numeric dials** (`TIER_ODDS`, `ASK_WEIGHT`, `COIN_DROP_RATE`, `POP_COST`, the §4 quest tunables, idle timing) live in `core/content.gd` / `games/grove/grove_data.gd`.
 
-*(The T14 flags — `slot_ghost`, `place_pop`, `zone_reveal`, `zone_crowd` — live on `feat/farmhouse-alive`, not yet on `main`; see §11.)*
+**Incoming flags** (v1 systems still to land — Core §11/§18 require a flag each): the **monetization / retention surfaces** (login calendar · triggered offer · piggy · rewarded ads — ads + offers **geo-flagged** for staged soft-launch, Core §10/§18); the **build-reveal juice** (ghost-preview / settle-in burst / map flourish / ambient crowd — the former `slot_ghost`/`place_pop`/`zone_reveal`/`zone_crowd`, **not on `main`**; that branch is gone, re-flagged with the map-model rebuild, §3); and the **de-transformation "thaw"** (§1).
 
-**Removed / retired** (history, so we don't re-litigate): on-map open-state scatter → map interiors; map-chest "lid opens in place" + scattered price pins → map interiors; centered customize modal → inline swatch strip; emoji-glyph UI → the sprite icon kit (the "emoji purge").
+**Removed / retired** (history, so we don't re-litigate): **`wayside_decor`** — the wayside coin sink isn't in live code (it rides the open-space-map rebuild, §3/§5); **`ambient_spirits` → renamed `ambient_characters`**; the legacy interior beats (on-map open-state scatter, map-chest "lid opens in place", scattered price pins — gone with interiors); centered customize modal → inline swatch strip; emoji-glyph UI → the sprite icon kit (the "emoji purge").
 
 ---
 
@@ -344,12 +381,12 @@ The grove's **brambles** are its instance of Core §4's obstacles — the **gati
 
 *Instantiates Core §12 (Juice Vocabulary).* The juice **verbs** are core (`press`, `pop_in`, `scatter_in`, `fly_to_wallet`, `tick`, `wiggle`, `breathe`, `hop`, `ambient_bob`, `floater`) — implemented once in `FX` / `Look`. The grove dresses the **alive systems**:
 
-- **Spirit-folk** are the grove's ambient figures — count = 1 + restored maps (cap 5); tap → `hop`.
+- **Spirit-folk** are the grove's ambient figures — per-scene count = 1 + restored maps (cap 5, a density ceiling so small maps don't clutter); tap → `hop`. Across the 15-map arc the **"crowd as it heals"** payoff (§1) comes from **per-place variety** (new spirit-folk types/looks as each place opens), not raw count — which plateaus by ~map 4. They're also the **"restored maps stay inhabited"** life (§3 anti-abandonment) and the build-reveal **crowd** (a §6 incoming flag).
 - **The porter spirit** drifts in for the sell basket (Core §9 / §12).
 - **Weather** runs hourly (clear / breeze / rain / snow), respecting Calm Mode.
 - **Win-back** is the "it rained" beat (≥48 h → full Water + a one-time minute).
 
-Intended feel (core): **"floaty, breezy, settling."** **Calm Mode** (Settings) halves particles and disables `breathe`.
+Intended feel (core): **"floaty, breezy, settling."** **Calm Mode** (Settings) halves particles and disables `breathe` — a cozy / accessibility + battery lever that reinforces the *relaxing* positioning (§1), not just a toggle.
 
 ---
 

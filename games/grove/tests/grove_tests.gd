@@ -68,16 +68,22 @@ func _all_ignore(node: Node) -> bool:
 			return false
 	return true
 
-# A still-tap (press+release, no drift) straight into the interior's handler.
-func _int_tap(h, at: Vector2) -> void:
+# A still-tap (press+release, no drift) straight into the map's single input
+# surface (content.gui_input → _on_input). `at` is a global point; content is a
+# full-rect Control at the origin, so gui_input positions equal globals.
+func _map_tap_at(h, at: Vector2) -> void:
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT
 	down.pressed = true
 	down.position = at
-	h._on_interior_input(down)
+	h._on_input(down)
 	var up := down.duplicate()
 	up.pressed = false
-	h._on_interior_input(up)
+	h._on_input(up)
+
+# The global-rect center of a hit node (spot/card) — where a player would tap.
+func _hit_center(node: Control) -> Vector2:
+	return node.get_global_rect().get_center()
 
 # W2: a tap through the BOARD input surface (the animating gate lives here) — used
 # to prove rapid generator taps are no longer dropped mid spawn-flight.
@@ -580,125 +586,100 @@ func _initialize() -> void:
 		"a level-up gifts water + diamonds, once per level")
 	ok(G.earn_stars(1) == 0, "earning within a level gains no level (no extra gift)")
 
-	# 14. P3 — the HOME scene: buy → earn → level-up water gift → zone gating → resume
+	# 14. P3 — the HOME scene (NEW map model): a map IS one image with restoration
+	# SPOTS placed on it; discrete maps via the map-select. boot → buy → gate → resume.
 	fresh("home")
 	var h = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h)
-	if h.vista == null:
+	if h.content == null:
 		h._ready()
-	ok(h.zone_unlocked(0) and not h.zone_unlocked(1), "farmhouse open, barn locked, on a fresh save")
-	# the interior model (order K): the map holds ONLY closed chests; tapping a
-	# zone walks INSIDE — a full-screen room listing every unlockable
-	ok(h.spot_hits.is_empty() and h.interior == null, "all closed on arrival — no floating buttons")
-	ok(h.zone_stars_left(0) == 31, "the closed chest can state the stars left inside (31)")
-	# R2: the zone pin — status in a plank, centered h+v, anchored bottom-center
-	# UNDER the building with one shared offset (rect guard; crop is the eye proof)
 	await create_timer(0.05).timeout
-	var poi0: Control = h.zone_nodes[0]
-	var plank0: Control = null
-	for ch in poi0.get_children():
-		if ch is PanelContainer:
-			plank0 = ch
-	ok(plank0 != null, "R2: the zone pin has a status plank")
-	assert_centered(poi0, plank0, "h", 2.0, "R2 pin plank under building")
-	assert_centered(plank0, plank0.get_child(0), "hv", 2.0, "R2 status text in plank")
-	ok(plank0.offset_top >= G.POI_SIZE, "R2: the plank sits below the building art")
-	# the offset is SHARED — every zone's plank uses the same offset_top
-	var shared := true
-	for zz in h.zone_nodes.size():
-		for ch in h.zone_nodes[zz].get_children():
-			if ch is PanelContainer and not is_equal_approx(ch.offset_top, plank0.offset_top):
-				shared = false
-	ok(shared, "R2: all five zones share ONE status-plank offset")
-	h._open_interior(0)
-	ok(h.interior != null, "the interior takeover opens")
-	ok(h.spot_hits.size() == G.ZONES[0].spots.size(), "the room lists every unlockable inside")
-	# systemic guard (3rd input-swallow bug): ONE input surface per layer —
-	# every Control under the vista AND under the interior root IGNOREs
-	ok(_all_ignore(h.vista), "every vista descendant IGNOREs mouse (single input surface)")
-	ok(_all_ignore(h.interior), "every interior descendant IGNOREs mouse too")
-	h._close_interior()
-	ok(h.interior == null and h.spot_hits.is_empty(), "back closes the room")
-	h._open_interior(0)
+	# boot lands ON a map: the frontier (fresh save → the hub, map 0), every spot live
+	ok(h._view == "map" and h._map_idx == G.hub_zone(), "boot opens the frontier map (fresh → the hub)")
+	ok(h.content != null, "the single input surface exists")
+	ok(h.spot_hits.size() == G.ZONES[h._map_idx].spots.size(), "the open map seats every spot as a hit")
+	# the single-input-surface rule (3rd input-swallow bug): EVERY descendant of
+	# content IGNOREs the mouse — only content's gui_input resolves taps
+	ok(_all_ignore(h.content), "every content descendant IGNOREs mouse (single input surface)")
+	ok(h.zone_unlocked(0) and not h.zone_unlocked(1), "farmhouse open, barn locked, on a fresh save")
+
+	# a spot BUY, driven through the REAL spot node: give stars, tap an
+	# affordable + level-ok spot (k=0 fh_hearth, L1, 3★) → owned, stars debited,
+	# the view stays a map (no takeover/scene change).
 	Save.add_stars(100)
-	var card := Control.new()                 # host for stand-in tap nodes
-	get_root().add_child(card)
-	var pin := Button.new()
-	card.add_child(pin)
-	# level gates: rank 2 wants L2 — a fresh L1 player can't buy it, no stars move
+	# level gates derive from rank: k=0 is L1 (buyable now), k=2 wants L2 (greyed)
 	ok(G.spot_level_req(0, 0) == 1 and G.spot_level_req(0, 2) == 2, "spot gates derive from rank")
 	var stars0 := Save.stars()
-	h._on_spot_tap(0, 2, pin, Vector2(300, 300))
+	var locked_node: Control = h.spot_hits[2].node
+	h._on_spot_tap(0, 2, locked_node, _hit_center(locked_node))
 	ok(not h.spot_owned(String(G.ZONES[0].spots[2].id)) and Save.stars() == stars0, \
-		"a level-locked item refuses the purchase (greyed, not buyable)")
-	h._on_spot_tap(0, 0, pin, Vector2(300, 300))
-	ok(h.spot_owned("fh_chest"), "buying a spot records the unlock")
-	ok(Save.stars() == stars0 - 3, "the spot's stars were spent")
+		"a level-locked spot refuses the purchase (greyed, no stars move)")
+	var hearth_id: String = G.ZONES[0].spots[0].id
+	var buy_node: Control = h.spot_hits[0].node
+	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
+	ok(h.spot_owned(hearth_id), "buying a spot records the unlock")
+	ok(Save.stars() == stars0 - int(G.ZONES[0].spots[0].cost), "the spot's stars were spent")
 	ok(G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 1, \
 		"buying a spot does NOT raise Level (Level rides stars EARNED, not spent)")
-	ok(h.interior != null, "the interior STAYS OPEN across a purchase")
-	# OS back: the GO_BACK notification closes the room (and only the room)
-	h.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
-	await create_timer(0.1).timeout
-	ok(h.interior == null, "OS back closes the interior")
-	# every way OUT of the room (owner report: "no way to go back")
-	h._open_interior(0)
-	var esc := InputEventAction.new()
-	esc.action = "ui_cancel"
-	esc.pressed = true
-	h._unhandled_input(esc)
-	ok(h.interior == null, "Esc (ui_cancel) closes the interior")
-	h._open_interior(0)
-	_int_tap(h, h._back_hit.get_center())
-	ok(h.interior == null, "the round back button closes the room")
-	h._open_interior(0)
-	var vsz: Vector2 = h.get_viewport_rect().size
-	_int_tap(h, Vector2(8, vsz.y - 8.0))   # bottom-left corner is surround at any aspect
-	ok(h.interior == null, "a tap on the dark surround steps back out")
-	h._open_interior(0)
-	_int_tap(h, h._int_art_rect.get_center())
-	ok(h.interior != null, "a tap on the room art itself STAYS inside")
-	h._close_interior()
-	h._open_interior(0)
-	# the gate cost ignores level-locked spots (givers must never pause for one)
-	ok(G.cheapest_spot_cost({}, 1) == 3, "gate cost sees the level-1 spots")
-	var ul_two := {String(G.ZONES[0].spots[0].id): true, String(G.ZONES[0].spots[1].id): true}
-	ok(G.cheapest_spot_cost(ul_two, 1) == -2, "all-remaining-locked reports -2 (gate stays quiet)")
+	ok(h._view == "map", "the view stays a map across a purchase (no takeover)")
 
-	# level-up now rides EARNED stars (a quest payout), never buying spots
-	var g2 := Save.grove()
-	g2["stars_earned"] = 5                     # just under the L2 line (6)
-	g2["water"] = 10
-	G.earn_stars(2)                            # 5 → 7 crosses L2
-	ok(int(Save.grove().get("water", 0)) == 10 + G.LEVEL_WATER_GIFT \
-		and G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 2, \
-		"a quest-driven level-up raises Level and gifts water")
+	# the customize strip: opening the inline variant strip on an OWNED spot keeps
+	# the single-input-surface rule and stays in map view (no modal, no veil)
+	h._customize_spot = hearth_id
+	h._build_map()
+	ok(h.variant_hits.size() == 3, "the owned spot's inline strip exposes all 3 variants as chips")
+	ok(_all_ignore(h.content), "the strip keeps the single-input-surface rule")
+	ok(h._view == "map", "customizing keeps you on the map")
+	h._customize_spot = ""
+	h._build_map()
 
-	# earn enough to clear the farmhouse's higher-rank gates (L3), then buy it all out
-	Save.grove()["stars_earned"] = G.stars_at_level(3)
+	# the MAP-SELECT view: every map is a card. an UNLOCKED card opens that map; a
+	# LOCKED card stays put (wobble). drive taps through the real input surface.
+	h._open_select()
+	ok(h._view == "select", "the atlas button opens the map-select view")
+	ok(h.select_hits.size() == G.ZONES.size(), "the select view seats one card per map")
+	ok(_all_ignore(h.content), "every select descendant IGNOREs mouse (single input surface)")
+	await create_timer(0.05).timeout
+	# tapping the LOCKED barn card (z=1) does nothing — still in select
+	var locked_card: Control = null
+	for hit in h.select_hits:
+		if int(hit.z) == 1:
+			locked_card = hit.node
+	_map_tap_at(h, _hit_center(locked_card))
+	ok(h._view == "select", "tapping a LOCKED map card stays in the select view")
+	# tapping the UNLOCKED farmhouse card (z=0) opens that map
+	var open_card: Control = null
+	for hit in h.select_hits:
+		if int(hit.z) == 0:
+			open_card = hit.node
+	_map_tap_at(h, _hit_center(open_card))
+	ok(h._view == "map" and h._map_idx == 0, "tapping an UNLOCKED map card opens that map")
+
+	# the completion chain: spot-restoring map 0 does NOT open map 1 — its gate
+	# quest must land first. buy all of map 0 (earn past its L-gates), then inject
+	# gates=[0] (gate delivery really happens on the board; here we simulate it).
+	Save.grove()["stars_earned"] = G.stars_at_level(3)   # clear the farmhouse's L-gates
 	for i in G.ZONES[0].spots.size():
 		var sid: String = G.ZONES[0].spots[i].id
 		if not h.spot_owned(sid):
-			h._on_spot_tap(0, i, Button.new(), Vector2(300, 300))
-	ok(h.zone_complete(0), "all farmhouse spots bought")
+			h._on_spot_tap(0, i, h.spot_hits[i].node, _hit_center(h.spot_hits[i].node))
+	ok(h.zone_complete(0), "all farmhouse spots restored")
 	ok(not h.zone_unlocked(1), "§7: spot-completing a map does NOT open the next — its gate quest must land first")
-	var gms := Save.grove()
-	gms["gates"] = [0]                        # the great-spirit's gate, delivered
+	var gg2 := Save.grove()
+	var gt2: Array = gg2.get("gates", [])
+	gt2.append(0)                             # the great-spirit's gate, delivered
+	gg2["gates"] = gt2
 	Save.grove_write()
 	ok(h.zone_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
 	h._persist()
 
-	# 14a2. customization: the owned item itself offers coin/diamond looks
+	# 14a2. customization values: each owned spot offers a coin + a diamond look, and
+	# a chosen variant persists + resolves; applying it pays and stays on the map.
 	var vars0: Array = G.spot_variants(0, 0)
 	ok(vars0.size() == 3 and String(vars0[1].currency) == "coins" and String(vars0[2].currency) == "diamonds" \
 		and int(vars0[1].cost) > 0 and int(vars0[2].cost) > 0, "each spot offers a coin and a diamond variant")
-	Save.grove()["custom"] = {"fh_chest": "gem"}
+	Save.grove()["custom"] = {hearth_id: "gem"}
 	ok(String(h._spot_variant(0, 0).id) == "gem", "the chosen variant persists and resolves")
-	# the customize strip is INLINE in the room — no modal, no veil (K carries F2)
-	h._customize_spot = "fh_chest"
-	h._build_interior()
-	ok(h.variant_hits.size() == 3, "the inline strip exposes all 3 variants as chips")
-	ok(_all_ignore(h.interior), "the strip keeps the single-input-surface rule")
 	Save.add_coins(100)
 	var coins_v0 := Save.coins()
 	var coin_vid := ""
@@ -711,8 +692,7 @@ func _initialize() -> void:
 	ok(String(h._spot_variant(0, 0).id) == coin_vid and Save.coins() == coins_v0 - coin_cost, \
 		"a swatch tap pays coins and dresses the item in place")
 	ok(h.variant_hits.is_empty() and h._customize_spot == "", "the strip tucks away after applying")
-	ok(h.interior != null, "customizing keeps you in the room")
-	h._close_interior()
+	ok(h._view == "map", "customizing keeps you on the map")
 
 	# 14a3. Q save migration: a pre-Q save (old spot ids) renames in place on the
 	# shared grove() accessor — ownership AND chosen variant survive, counts intact.
@@ -792,7 +772,7 @@ func _initialize() -> void:
 	# a fresh Home resumes the same progress
 	var h2 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h2)
-	if h2.vista == null:
+	if h2.content == null:
 		h2._ready()
 	ok(h2.zone_complete(0), "home progress persists across scenes")
 
@@ -849,7 +829,7 @@ func _initialize() -> void:
 	# home grants: a level-up pays diamonds too
 	var h5 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h5)
-	if h5.vista == null:
+	if h5.content == null:
 		h5._ready()
 	var d0 := Save.diamonds()
 	Save.grove()["stars_earned"] = G.stars_at_level(2) - 1     # one star short of L2
@@ -909,7 +889,7 @@ func _initialize() -> void:
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h7)
-	if h7.vista == null:
+	if h7.content == null:
 		h7._ready()
 	var kids_h7: int = h7.get_child_count()
 	Shop.open(h7, {})
@@ -956,11 +936,11 @@ func _initialize() -> void:
 	Ambient.forced_weather = ""
 	var h8 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h8)
-	if h8.vista == null:
+	if h8.content == null:
 		h8._ready()
-	ok(h8.vista.get_node_or_null("AmbientLayer") != null, "the map carries the spirit layer")
+	ok(h8.content.get_node_or_null("AmbientLayer") != null, "the map carries the spirit layer")
 	ok(h8.get_node_or_null("WeatherLayer") != null, "the map carries the weather layer")
-	ok(_all_ignore(h8.vista), "the map guard stays green with spirits wandering")
+	ok(_all_ignore(h8.content), "the map guard stays green with spirits wandering")
 	var s8 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s8)
 	if s8.board == null:
@@ -1007,7 +987,7 @@ func _initialize() -> void:
 	# level chip (home, top-left)
 	var h4 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h4)
-	if h4.vista == null:
+	if h4.content == null:
 		h4._ready()
 	await create_timer(0.05).timeout
 	# the level number now nests inside a sprout-avatar Control, so walk up to the
@@ -1017,9 +997,8 @@ func _initialize() -> void:
 		lchip = lchip.get_parent()
 	var lrow4: Control = lchip.get_child(0)
 	assert_wraps(lchip, lrow4, 5.0, 2.0, "R4 level chip")     # ±2: catches lopsided margins
-	# interior pin (a locked spot) — the price pin wraps its row (S7 nests pins
-	# in a centered stack, so search the subtree, and FAIL loudly if absent)
-	h4._open_interior(0)
+	# map spot pin (an unowned, fresh-save spot) — the price pin wraps its row (S7
+	# nests pins in a centered stack, so search the subtree, and FAIL loudly if absent)
 	await create_timer(0.05).timeout
 	var pin_panel: Control = null
 	for hit in h4.spot_hits:
@@ -1028,10 +1007,9 @@ func _initialize() -> void:
 		if not found.is_empty():
 			pin_panel = found[0]
 			break
-	ok(pin_panel != null and pin_panel.get_child_count() > 0, "R4/S7: an interior price pin exists")
+	ok(pin_panel != null and pin_panel.get_child_count() > 0, "R4/S7: a map spot price pin exists")
 	if pin_panel != null and pin_panel.get_child_count() > 0:
-		assert_wraps(pin_panel, pin_panel.get_child(0), 4.0, 4.0, "R4 interior pin")
-	h4._close_interior()
+		assert_wraps(pin_panel, pin_panel.get_child(0), 4.0, 4.0, "R4 spot pin")
 
 	# 22. U1 — item backing (contrast): ON puts a soft dark ellipse UNDER the item
 	# (first child = bottom); OFF leaves the item bare. Flag item_backing.
@@ -1107,57 +1085,44 @@ func _initialize() -> void:
 	sp._on_release(sp._cell_pos(gcell) + phalf)
 	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
 
-	# 24. T — Decorate flow goes WHERE the player decorates
+	# 24. T — the Decorate jump goes to the MAP the player was decorating (NEW model:
+	# decorate_zone opens that MAP, not an interior). Boot lands ON a map view.
 	var HomeScript = load("res://engine/scripts/scenes/map.gd")
-	# T1: opening an interior persists last_zone
+	# T1: opening a map persists last_zone
 	fresh("tlast")
 	var ht = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht)
-	if ht.vista == null:
+	if ht.content == null:
 		ht._ready()
-	ht._open_interior(0)
-	ok(String(Save.grove().get("last_zone", "")) == "farmhouse", "T1: opening a room persists last_zone")
-	ht._close_interior()
-	# T1: sanitize — an unknown id is dropped on load
+	ht._open_map(0)
+	ok(String(Save.grove().get("last_zone", "")) == "farmhouse", "T1: opening a map persists last_zone")
+	# T1: sanitize — an unknown last_zone never survives a boot. _load_state drops it,
+	# then the boot opens the frontier and re-records a VALID map id in its place.
 	Save.grove()["last_zone"] = "atlantis"
 	var ht2 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht2)
-	if ht2.vista == null:
+	if ht2.content == null:
 		ht2._ready()
-	ok(not Save.grove().has("last_zone"), "T1: an unknown last_zone is scrubbed on load")
-	ok(ht2.interior == null, "T1: fresh arrival (no jump request) lands on the map")
-	# T2: the Decorate jump — interior pre-opened, NO map flash (asserted before any frame)
-	Save.grove()["last_zone"] = "farmhouse"
+	ok(G.zone_for_id(String(Save.grove().get("last_zone", ""))) >= 0, \
+		"T1: an unknown last_zone is scrubbed on load (boot re-records a valid map)")
+	ok(ht2._view == "map", "T1: fresh arrival (no jump request) lands on a map view")
+	# T2: the Decorate jump — opens the named map directly, NO map-select flash
+	# (asserted before any frame), and the request is one-shot
 	HomeScript.decorate_zone = "farmhouse"
 	var ht3 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht3)
-	if ht3.vista == null:
+	if ht3.content == null:
 		ht3._ready()
-	ok(ht3.interior != null and ht3._interior_zone == 0, \
-		"T2: Decorate pre-opens last_zone's interior (asserted pre-frame: no map flash)")
+	ok(ht3._view == "map" and ht3._map_idx == 0, \
+		"T2: Decorate opens the named map directly (asserted pre-frame: no select flash)")
 	ok(HomeScript.decorate_zone == "", "T2: the jump request is one-shot (consumed)")
-	# T2: an unknown jump request falls through to the map
+	# T2: an unknown jump request falls through to the frontier map
 	HomeScript.decorate_zone = "atlantis"
 	var ht4 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht4)
-	if ht4.vista == null:
+	if ht4.content == null:
 		ht4._ready()
-	ok(ht4.interior == null, "T2: an unknown jump request falls through to the map")
-	# T3: the interior CTA sits in the SAME slot/size as the map's garden CTA
-	await create_timer(0.05).timeout
-	var map_cta: Control = ht3._chrome_nodes[0]
-	var int_cta: Control = null
-	for ch in ht3.interior.get_children():
-		if ch is Button:
-			int_cta = ch
-	ok(int_cta != null, "T3: the interior carries the board CTA")
-	var rm := map_cta.get_global_rect()
-	var ri := int_cta.get_global_rect()
-	ok(rm.position.distance_to(ri.position) <= 1.0 and (rm.size - ri.size).length() <= 1.0, \
-		"T3: interior CTA rect == map CTA rect (same slot, same size)")
-	ok(ht3._int_cta == int_cta, "T3: the tap zone IS the CTA's own laid-out rect (no dup math)")
-	ok(_all_ignore(ht3.interior), "T3: the CTA keeps the single-input-surface rule")
-	ht3._close_interior()
+	ok(ht4._view == "map", "T2: an unknown jump request falls through to the frontier map")
 
 	# 25. order O — music degrades SILENTLY on a BARE engine. Audio is skin and the
 	# real takes are archived, so ensure() must be a quiet no-op (never create a
@@ -1211,7 +1176,7 @@ func _initialize() -> void:
 		"S4: the water chip and the Lv chip do NOT overlap (owner 2026-06-12)")
 	var hs = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hs)
-	if hs.vista == null:
+	if hs.content == null:
 		hs._ready()
 	await create_timer(0.05).timeout
 	ok(hs.get_viewport_rect().encloses(hs.level_label.get_parent().get_parent().get_global_rect()), \
@@ -1389,73 +1354,11 @@ func _initialize() -> void:
 	ok(G.water_to_earn_diamond() >= 10 * G.water_a_diamond_buys(), \
 		"Y4: water to EARN 1💎 (%d) >= 10x the water 1💎 BUYS (%d)" % [G.water_to_earn_diamond(), G.water_a_diamond_buys()])
 
-	# --- order Z: the coin sink — wayside decorations -----------------------------
-	var zways := G.waysides()
-	ok(zways.size() == 20, "Z1: 20 wayside plots (4 per zone × 5)")
-	var zcoin_ok := true
-	var zgate_ok := true
-	var z_spot_ids := {}
-	for zz in G.ZONES.size():
-		for zsp in G.ZONES[zz].spots:
-			z_spot_ids[String(zsp.id)] = true
-	for w in zways:
-		if int(w.cost) <= 0:
-			zcoin_ok = false
-		if int(w.zone_req) < 0 or int(w.zone_req) >= G.ZONES.size() or z_spot_ids.has(String(w.id)):
-			zgate_ok = false
-	ok(zcoin_ok, "Z1: every wayside is coin-priced (cost > 0)")
-	ok(zgate_ok, "Z4: no wayside gates progression (distinct from spots, valid zone_req)")
-	ok(G.wayside_sink_capacity() >= 1500 and G.wayside_sink_capacity() <= 2200, \
-		"Z4: the wayside sink (%d🪙) is ~1.5–2k — absorbs the lifetime faucet" % G.wayside_sink_capacity())
-	# Z2 buy logic: a wayside is dormant until its zone is restored, then coin-buyable, one-time
-	fresh("z")
+	# --- order Z: the coin sink — spirit treats -----------------------------------
+	# (Z1/Z2 wayside on-map decorations are RETIRED with the old free-pan overworld:
+	# the NEW map model is one image with restoration spots, no on-map wayside plots —
+	# G.waysides()/wayside_available/buy_wayside/_on_map_tap no longer exist.)
 	var Feat3 = load("res://engine/scripts/core/features.gd")
-	Feat3.FLAGS["ftue_staged_chrome"] = false
-	var zs = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(zs)
-	if zs.vista == null:
-		zs._ready()
-	await create_timer(0.05).timeout
-	var zw0: Dictionary = G.waysides()[0]            # zone_req 0
-	ok(not G.wayside_available(zw0, zs.unlocks), "Z2: a wayside is dormant until its zone is restored")
-	ok(not zs.buy_wayside(zw0), "Z2: can't buy a dormant wayside")
-	for zsp in G.ZONES[0].spots:
-		zs.unlocks[String(zsp.id)] = true            # restore zone 0
-	ok(G.wayside_available(zw0, zs.unlocks), "Z2: the wayside opens once its zone is restored")
-	ok(not zs.buy_wayside(zw0), "Z2: can't buy without coins (fresh = 0)")
-	Save.add_coins(int(zw0.cost) + 50)
-	var zc0: int = Save.coins()
-	ok(zs.buy_wayside(zw0), "Z2: buy succeeds once available + affordable")
-	ok(Save.coins() == zc0 - int(zw0.cost), "Z2: buying spends EXACTLY the coin cost")
-	ok(zs.wayside_owned(String(zw0.id)), "Z2: the wayside is now owned")
-	ok(not zs.buy_wayside(zw0), "Z2: a wayside is one-time (no re-buy)")
-	# Z2 (T14): the TAP TARGET must cover the price PIN, not just the sprite. The
-	# "🌰N" chip hangs below the holder; if the hit-test is only the holder, tapping
-	# the visible price affordance misses and the plot reads as un-clickable.
-	Save.add_coins(300)
-	zs._build_vista()                                # rebuild so way_0_1 shows its pin
-	await create_timer(0.05).timeout
-	var zw1_node: Control = null
-	for zhit in zs.wayside_hits:
-		if String(zhit.w.id) == "way_0_1":
-			zw1_node = zhit.node
-	ok(zw1_node != null, "Z2: way_0_1 (an available plot) is on the map")
-	var zw1_pin: Control = null
-	for zch in zw1_node.get_children():
-		if zch is PanelContainer:
-			zw1_pin = zch
-	ok(zw1_pin != null, "Z2: an available plot shows a price pin")
-	# the pin sits (partly) OUTSIDE the holder — exactly the tap that fails today
-	var zpin_c: Vector2 = zw1_pin.get_global_rect().get_center()
-	ok(not zw1_node.get_global_rect().has_point(zpin_c),
-		"Z2: (regression witness) the price pin's center is outside the bare holder rect")
-	ok(not zs.wayside_owned("way_0_1"), "Z2: way_0_1 unowned before the pin tap")
-	zs._on_map_tap(zpin_c)                            # tap the PRICE PIN, as a player would
-	ok(zs.wayside_owned("way_0_1"),
-		"Z2: tapping the PRICE PIN buys the plot (tap target covers the pin)")
-	Feat3.FLAGS["ftue_staged_chrome"] = true
-	zs.queue_free()
-
 	# Z3: spirit treats — a 10🪙 recurring sink. Spend deducts exactly, rapid-buy is
 	# independent (graceful), and you can't overspend.
 	fresh("z3")

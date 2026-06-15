@@ -48,6 +48,24 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	row.add_theme_constant_override("separation", Tune.ROW_SEP)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
+	# A persistent HOME shortcut — jump to the hub map from anywhere. It rides the
+	# LEFT of the currency cluster (same pinned pill, so it reads as chrome, not a
+	# transient CTA). Rendered only when a scene passes a valid `home` Callable in the
+	# config (the board + map both do); harmless and absent otherwise.
+	var home_btn: Button = null
+	var home_cb: Variant = opts.get("home")
+	if home_cb is Callable and (home_cb as Callable).is_valid():
+		home_btn = Button.new()
+		home_btn.flat = true
+		home_btn.focus_mode = Control.FOCUS_NONE
+		home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var hg := Look.icon("home", Tune.STAR_ICON)   # kit sprite when present, else the "◀"/glyph Label
+		hg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		home_btn.add_child(hg)
+		home_btn.custom_minimum_size = Vector2(Tune.STAR_ICON + 8.0, Tune.STAR_ICON + 8.0)
+		Look.add_press_juice(home_btn)
+		home_btn.pressed.connect(func() -> void: (home_cb as Callable).call())
+		row.add_child(home_btn)
 	# the cluster is currencies ONLY — the Store moved to the bottom bar
 	# (owner 2026-06-13); scenes open it via out.open_shop.
 	var stars := _pair(row, "star", Tune.STAR_ICON)
@@ -112,7 +130,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	host.add_child(lv_panel)
 
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "xp": xp,
-		"wallet": panel, "lv_panel": lv_panel}
+		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())

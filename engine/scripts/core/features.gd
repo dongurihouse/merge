@@ -26,7 +26,6 @@ static var FLAGS := {
 	"celebrate_bursts": true,     # particle bursts on merges/buys/restores
 	"spirit_tap_hop": true,       # tapping a map spirit hops it
 	"porter_collect": true,       # Y3: a porter spirit drifts in to clear the sell basket (off → chips just fade)
-	"wayside_decor": true,        # Z2: coin-priced cosmetic plots on the map (the structural coin sink)
 	"spirit_treats": true,        # Z3: a 10🪙 acorn treat at the stall — a wandering spirit nibbles it (recurring sink)
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
 	"gen_preview": true,          # V: locked generators show a greyed "after N spots" silhouette

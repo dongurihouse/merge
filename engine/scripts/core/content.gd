@@ -37,9 +37,6 @@ const GATE_STARS = D.GATE_STARS
 const GATE_COIN_BONUS = D.GATE_COIN_BONUS
 const GATE_TIER_BASE = D.GATE_TIER_BASE
 const STARTER_ITEMS = D.STARTER_ITEMS
-const WAYSIDE_PROPS = D.WAYSIDE_PROPS
-const WAYSIDE_TEX = D.WAYSIDE_TEX
-const WAYSIDE_PER_ZONE = D.WAYSIDE_PER_ZONE
 const VARIANT_NAMES_COIN = D.VARIANT_NAMES_COIN
 const VARIANT_NAMES_GEM = D.VARIANT_NAMES_GEM
 const VARIANT_TINTS_COIN = D.VARIANT_TINTS_COIN
@@ -59,8 +56,6 @@ const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
-const MAP_SIZE = D.MAP_SIZE
-const POI_SIZE = D.POI_SIZE
 const ZONES = D.ZONES
 const LEVEL_STARS = D.LEVEL_STARS
 const LEVEL_STARS_TAIL = D.LEVEL_STARS_TAIL
@@ -362,6 +357,15 @@ static func zone_for_id(id: String) -> int:
 			return z
 	return -1
 
+## The index of the home-hub map (the permanent anchor — Core §8 / grove_spec §3). The game
+## flags it with `hub: true`; defaults to the first map. Drives the boot landing + the HUD home
+## shortcut. (The hub is authored deeper than a finish-once map; its yield loop is the KEYSTONE.)
+static func hub_zone() -> int:
+	for z in ZONES.size():
+		if bool(ZONES[z].get("hub", false)):
+			return z
+	return 0
+
 ## A map is fully complete when all its spots are restored AND its great-spirit gate quest
 ## is delivered (§7) — gate-delivery is tracked in `gates` (zone indices). The NEXT map
 ## unlocks only on it (the completion chain), not merely on spot-completion.
@@ -413,36 +417,6 @@ static func zone_cheapest_spot(z: int, unlocks: Dictionary, level: int = 99) -> 
 ## passes this to Ambient.build_layer (progression stays a game rule, not engine).
 static func character_count(unlocks: Dictionary) -> int:
 	return mini(1 + completed_zones(unlocks), CHARACTER_CAP)
-
-# --- waysides: the coin sink ------------------------------------------------------
-static var _waysides_cache: Array = []
-static func waysides() -> Array:
-	if not _waysides_cache.is_empty():
-		return _waysides_cache
-	var out: Array = []
-	for z in ZONES.size():
-		for k in WAYSIDE_PER_ZONE:
-			var gi := z * WAYSIDE_PER_ZONE + k
-			var prop := gi % WAYSIDE_PROPS.size()
-			out.append({
-				"id": "way_%d_%d" % [z, k],
-				"name": WAYSIDE_PROPS[prop],
-				"tex": Game.art("map/%s.png" % WAYSIDE_TEX[prop]),
-				"cost": 40 + gi * 6,
-				"map_pos": Vector2(0.12 + k * 0.24, 0.16 + (z % 5) * 0.165),   # PROVISIONAL
-				"zone_req": z,
-			})
-	_waysides_cache = out
-	return out
-
-static func wayside_sink_capacity() -> int:
-	var s := 0
-	for w in waysides():
-		s += int(w.cost)
-	return s
-
-static func wayside_available(w: Dictionary, unlocks: Dictionary) -> bool:
-	return zone_done(int(w.zone_req), unlocks)
 
 static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
 	for z in ZONES.size():

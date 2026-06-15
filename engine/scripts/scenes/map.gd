@@ -1,13 +1,12 @@
 extends Control
-## HOME: the game's hub IS the homestead, seen as one large
-## free-pan map (owner 2026-06-11): a high top-down EMPTY terrain with the zones
-## (farmhouse → barn → pond → orchard → meadow) as scenery placed at G.ZONES
-## map_pos — no boxes, no 0/8 buttons. Each zone's items scatter ON the land
-## around its house: level-gated ones sit greyed ("Lv N"), available ones price
-## themselves ("✿ N★" — tap to buy with stars), and OWNED ones open their own
-## customization list (variants priced in coins or diamonds). Buying grants EXP;
-## level-ups gift water+diamonds. A pinned garden button leads to the board.
-## Art auto-wires: assets/rooms/map_grove.png + assets/map/poi_<zone_id>.png.
+## HOME: the game's hub IS the homestead (Core §8 / grove_spec §3). A map IS one
+## self-contained image — an open space (the Farmhouse, the Barn, …) with the
+## restoration SPOTS sitting directly on that image. Level-gated spots sit greyed
+## ("Lv N"), available ones price themselves ("✿ N★" — tap to buy with stars), and
+## OWNED ones open their own customization list (variants priced in coins/diamonds).
+## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
+## home. Buying grants EXP; level-ups gift water+diamonds. A pinned garden button
+## leads to the board. Art auto-wires: assets/map/map_<id>.png + assets/rooms/furn_<id>.png.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -24,29 +23,13 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 
-const TAP_SLOP := 14.0      # drag farther than this and the release is a pan, not a tap
-const ZONE_NAME_DY := 18.0   # R2: name baseline below the building (shared, all zones)
-# T14: the wayside hit rect is the 92px sprite holder, but its "🌰N" price PIN hangs
-# BELOW that holder — so a tap on the visible price chip (the obvious buy affordance)
-# missed entirely and the plot read as un-clickable. Grow the hit rect to swallow the
-# pin and give a comfortable finger target (plots are ~500px apart, so no overlap).
-const WAYSIDE_TAP_PAD := 40.0
-const ZONE_STATUS_DY := 56.0 # R2: status plank top below the building (shared)
+const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
+const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
-# T2: the board's Decorate sets this (a zone id) before changing scene; _ready
-# consumes it and opens that interior BEFORE the first draw — no map flash.
-# Process-scoped on purpose: a fresh app boot always lands on the map.
+# T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
+# consumes it and opens that map BEFORE the first draw — no map-select flash.
+# Process-scoped on purpose: a fresh app boot always lands on the frontier.
 static var decorate_zone := ""
-
-# greys a locked POI to "part of the land, not yet awake" (modulate can only tint)
-const DESAT_SHADER := "
-shader_type canvas_item;
-uniform float sat : hint_range(0.0, 1.0) = 0.15;
-void fragment() {
-	vec4 c = texture(TEXTURE, UV);
-	float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-	COLOR = vec4(mix(vec3(g), c.rgb, sat), c.a) * COLOR;
-}"
 
 const SKY = Pal.SKY
 const MEADOW = Pal.MEADOW
@@ -59,36 +42,32 @@ const CLAY = Pal.CLAY
 
 var unlocks := {}
 
-var vista: Control               # the map surface (name kept for tools/tests)
-var zone_nodes: Array = []       # POI controls, index = zone index
-var spot_hits: Array = []        # [{node, z, k}] — the open INTERIOR's spots
-var wayside_hits: Array = []     # Z2: [{node, w}] — coin-priced wayside plots on the map
-var interior: Control = null     # the room takeover (null = on the map)
-var _interior_zone := -1
-var _back_hit := Rect2()         # the round back button's tap rect (generous)
-var _int_art_rect := Rect2()     # the CONTAIN-fit room art (a dark-tap outside closes)
-var _int_head_rect := Rect2()    # the plank header band (taps there don't close)
-var _int_cta: Control = null     # T3: "to the board" CTA — hit = its OWN laid-out rect
-var _int_press := Vector2.ZERO
-var _chrome_nodes: Array = []    # bottom chrome, hidden while inside
+# THE one input surface. Rebuilding a view clears + repopulates it; every visual
+# descendant is MOUSE_FILTER_IGNORE (the single-input-surface rule; a test asserts it).
+var content: Control
+var _view := "map"               # "map" | "select"
+var _map_idx := 0                # the map being viewed
+var _map_rect := Rect2()         # the CONTAIN-fit map image (spot pos maps to THIS rect)
+var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
+var select_hits: Array = []      # [{node, z}] — the map-select cards
+var variant_hits: Array = []     # [{node, z, k, vid}] — the inline strip's swatch chips
 var _customize_spot := ""        # spot id whose inline variant strip is open
-var variant_hits: Array = []     # [{node, z, k, vid}] — the strip's swatch chips
+var _press := Vector2.ZERO       # last press point (still-tap resolution)
+
+var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var level_label: Label
 var xp_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
-var _open_shop := Callable()      # opens the shared Shop (moved to the bottom chrome)
-var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat top-zone presses)
-var _pan_drag := false
-var _pan_start := Vector2.ZERO
-var _vista_start := Vector2.ZERO
-var _pan_moved := 0.0
+var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
+var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat presses)
+
 # --- dev placement editor (Layout) ---
 var _place_overlay: Control = null    # toolbar + readout, kept topmost
 var _place_readout: Label = null
-var _place_sel_box: Panel = null      # hollow rect over the selected item
-var _place_drag: Dictionary = {}      # {kind:"zone"/"spot", z, k, node, grab}
+var _place_sel_box: Panel = null      # hollow rect over the selected spot
+var _place_drag: Dictionary = {}      # {kind:"spot", z, k, node, grab}
 var _place_sel: Dictionary = {}       # last-touched {kind, z, k, node} for size/reset
 
 func _ready() -> void:
@@ -96,7 +75,7 @@ func _ready() -> void:
 	UiFont.apply()
 	Music.ensure()
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
-		get_tree().quit_on_go_back = false   # we close the interior on OS back instead
+		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
 	_load_state()
 
 	var sky := ColorRect.new()
@@ -104,20 +83,12 @@ func _ready() -> void:
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(sky)
 
-	# the map: one large surface, dragged freely on both axes
-	var clip := Control.new()
-	clip.clip_contents = true
-	clip.set_anchors_preset(Control.PRESET_FULL_RECT)
-	clip.mouse_filter = Control.MOUSE_FILTER_STOP    # the map's ONE input surface
-	clip.gui_input.connect(_on_pan_input)
-	add_child(clip)
-	vista = Control.new()
-	vista.custom_minimum_size = G.MAP_SIZE
-	vista.size = G.MAP_SIZE
-	vista.mouse_filter = Control.MOUSE_FILTER_IGNORE # children never eat the pan/tap
-	clip.add_child(vista)
-	_build_vista()
-	_center_on_frontier()
+	# the single view host — full-rect, the ONE input surface; views repopulate it
+	content = Control.new()
+	content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	content.mouse_filter = Control.MOUSE_FILTER_STOP
+	content.gui_input.connect(_on_input)
+	add_child(content)
 
 	# the day's weather drifts over the whole scene (calm mode wins inside)
 	var g0 := Save.grove()
@@ -130,14 +101,20 @@ func _ready() -> void:
 	if _place_on():
 		_build_place_ui()
 
-	# T2: arriving from the board's Decorate — walk straight into the room you
-	# were decorating (still inside _ready = before the first draw, so the map
-	# never flashes). Unknown/locked zones fall through to the map.
+	# Choose the initial view (still inside _ready = before the first draw):
+	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
+	# open the frontier (falling back to the hub when nothing is open yet).
+	var start := -1
 	if decorate_zone != "":
-		var dz := _zone_for_id(decorate_zone)
-		decorate_zone = ""
+		var dz := G.zone_for_id(decorate_zone)
 		if dz >= 0 and zone_unlocked(dz):
-			_open_interior(dz)
+			start = dz
+	decorate_zone = ""
+	if start < 0:
+		start = _frontier_zone()
+		if start < 0:
+			start = G.hub_zone()
+	_open_map(start)
 
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
@@ -158,14 +135,11 @@ func _heal_capture_flags() -> void:
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, false)
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
 
-func _zone_for_id(id: String) -> int:
-	return G.zone_for_id(id)
-
 func _load_state() -> void:
 	var g := Save.grove()
 	unlocks = g.get("unlocks", {})
-	# T1: sanitize — a last_zone that no longer names a zone is dropped
-	if g.has("last_zone") and _zone_for_id(String(g.last_zone)) < 0:
+	# T1: sanitize — a last_zone that no longer names a map is dropped
+	if g.has("last_zone") and G.zone_for_id(String(g.last_zone)) < 0:
 		g.erase("last_zone")
 	if not g.has("unlocks"):
 		g["unlocks"] = unlocks
@@ -178,14 +152,14 @@ func _persist() -> void:
 
 # --- progression queries ------------------------------------------------------------
 
+func _gates() -> Array:                       # §7 gate-delivery state (which maps' gate quests are done)
+	return Save.grove().get("gates", [])
+
 func spot_owned(id: String) -> bool:
 	return unlocks.has(id)
 
 func zone_complete(z: int) -> bool:
 	return G.zone_done(z, unlocks)
-
-func _gates() -> Array:                       # §7 gate-delivery state (which maps' gate quests are done)
-	return Save.grove().get("gates", [])
 
 func zone_unlocked(z: int) -> bool:
 	return G.zone_unlocked(z, unlocks, _gates())
@@ -193,458 +167,149 @@ func zone_unlocked(z: int) -> bool:
 func owned_count(z: int) -> int:
 	return G.owned_count(z, unlocks)
 
-# Z: wayside decorations — the COIN sink. Owned-set + the buy transaction (coins only,
-# never level-gated; available once its zone is restored). Pure cosmetics.
-func wayside_owned(id: String) -> bool:
-	return Save.grove().get("waysides", {}).has(id)
-
-func buy_wayside(w: Dictionary) -> bool:
-	var id := String(w.id)
-	if wayside_owned(id) or not G.wayside_available(w, unlocks):
-		return false
-	if not Save.spend(int(w.cost), "wayside"):
-		return false                 # not enough coins — caller wobbles
-	var g := Save.grove()
-	if not g.has("waysides"):
-		g["waysides"] = {}
-	g["waysides"][id] = true
-	_persist()
-	return true
-
-# --- the map: zones are CHESTS with lids (owner 2026-06-11) -----------------------------
-# Closed = the building + ONE status line (how to open, or the stars left inside).
-# Tap an unlocked zone and its lid opens IN PLACE, revealing the unlockables —
-# a tidy list of items (chair, hearth...) each with its star price / level gate /
-# owned state right next to it. Tap the land (or another zone) to close it.
-
 func zone_stars_left(z: int) -> int:
 	return G.zone_stars_left(z, unlocks)
 
-func _build_vista() -> void:
-	for c in vista.get_children():
+func _frontier_zone() -> int:
+	return G.frontier_zone(unlocks, _gates())
+
+func _is_cheapest_open(z: int, k: int, lvl: int) -> bool:
+	return G.is_cheapest_open(z, k, lvl, unlocks)
+
+func _spot_variant(z: int, k: int) -> Dictionary:
+	var chosen := String(Save.grove().get("custom", {}).get(String(G.ZONES[z].spots[k].id), "base"))
+	for v in G.spot_variants(z, k):
+		if String(v.id) == chosen:
+			return v
+	return G.spot_variants(z, k)[0]
+
+# --- navigation: a map IS one image; discrete maps via the map-select -------------------
+
+func _open_map(z: int) -> void:
+	_view = "map"
+	_map_idx = z
+	_customize_spot = ""
+	# T1: remember WHICH map you were on — the board's Decorate jumps back here
+	var g := Save.grove()
+	g["last_zone"] = String(G.ZONES[z].id)
+	Save.grove_write()
+	_build_map()
+
+func _open_select() -> void:
+	_view = "select"
+	_customize_spot = ""
+	Audio.play("button_tap", -4.0)
+	_build_select()
+
+# --- THE MAP VIEW (grove_spec §3) -------------------------------------------------------
+# One self-contained image fills the area below the HUD; the spots sit directly on
+# it at spot.pos (a fraction of the fitted image rect). Owned spots draw furniture
+# sprites; the customize strip rides directly beneath an owned spot when open. The
+# whole view lives under `content` — every child IGNOREs (single input surface).
+
+func _build_map() -> void:
+	for c in content.get_children():
 		c.queue_free()
-	zone_nodes.clear()
 	spot_hits.clear()
-	# the land: generated EMPTY top-down terrain when present, painted ground until then
-	if ResourceLoader.exists(Game.art("rooms/map_grove.png")):
-		var t := TextureRect.new()
-		t.texture = load(Game.art("rooms/map_grove.png"))
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vista.add_child(t)
-	else:
-		var meadow := ColorRect.new()
-		meadow.color = MEADOW
-		meadow.set_anchors_preset(Control.PRESET_FULL_RECT)
-		meadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vista.add_child(meadow)
-		var blot_rng := RandomNumberGenerator.new()
-		blot_rng.seed = 7                       # deterministic grass mottling (pan feedback)
-		for i in 70:
-			var blot := Panel.new()
-			var r := blot_rng.randf_range(40.0, 150.0)
-			blot.custom_minimum_size = Vector2(r, r) * Vector2(1.0, 0.62)
-			blot.position = Vector2(blot_rng.randf() * (G.MAP_SIZE.x - r), blot_rng.randf() * (G.MAP_SIZE.y - r))
-			var bs := StyleBoxFlat.new()
-			bs.bg_color = MEADOW.lerp(LEAF, blot_rng.randf_range(0.10, 0.45))
-			bs.set_corner_radius_all(int(r / 2.0))
-			blot.add_theme_stylebox_override("panel", bs)
-			blot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			vista.add_child(blot)
+	select_hits.clear()
 	variant_hits.clear()
-	# ambient life wanders BETWEEN the terrain and the buildings (order L)
-	vista.add_child(Ambient.build_layer(G.MAP_SIZE, G.character_count(unlocks)))
-	for z in G.ZONES.size():
-		var node := _make_zone_closed(z)
-		vista.add_child(node)
-		zone_nodes.append(node)
-	# Z2: the coin sink — wayside plots scattered along the paths (provisional positions;
-	# the owner finalizes with the placement tool). 3 states: dormant → coin-pin → owned.
-	wayside_hits.clear()
-	if Features.on("wayside_decor"):
-		for w in G.waysides():
-			var wp := _make_wayside(w)
-			vista.add_child(wp)
-			wayside_hits.append({"node": wp, "w": w})
-
-
-func _poi_art(z: int, open: bool, px: float) -> Control:
-	var art_path := Game.art("map/poi_%s.png" % String(G.ZONES[z].id))
-	var art: Control
+	var z := _map_idx
+	# the map image fills the viewport below the HUD top inset and above the chrome
+	_map_rect = _map_image_rect()
+	var art_path := Game.art("map/map_%s.png" % String(G.ZONES[z].id))
 	if ResourceLoader.exists(art_path):
 		var t := TextureRect.new()
 		t.texture = load(art_path)
-		t.size = Vector2(px, px)
+		t.position = _map_rect.position
+		t.size = _map_rect.size
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art = t
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		t.clip_contents = true
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(t)
 	else:
-		var disc := Panel.new()
-		disc.size = Vector2(px, px) * 0.78
-		disc.position = Vector2(px, px) * 0.11
-		var ds := StyleBoxFlat.new()
-		ds.bg_color = (CLAY if z == 0 else BARK).lerp(Color.WHITE, 0.12)
-		ds.set_corner_radius_all(int(px * 0.39))
-		ds.set_border_width_all(5)
-		ds.border_color = CREAM
-		ds.shadow_color = Color(0, 0, 0, 0.25)
-		ds.shadow_size = 8
-		ds.shadow_offset = Vector2(0, 5)
-		disc.add_theme_stylebox_override("panel", ds)
-		art = disc
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not open:
-		var sm := ShaderMaterial.new()
-		var sh := Shader.new()
-		sh.code = DESAT_SHADER
-		sm.shader = sh
-		art.material = sm
-		art.modulate = Color(0.72, 0.74, 0.72, 0.9)
-	return art
-
-# Z2: a wayside plot — 3 states. dormant ghost (its zone not restored) → ghosted
-# prop + a coin-cost pin (available, unowned) → the full placed prop (owned).
-func _make_wayside(w: Dictionary) -> Control:
-	var px := 92.0
-	var holder := Control.new()
-	holder.position = (Vector2(w.map_pos) * G.MAP_SIZE) - Vector2(px, px) * 0.5
-	holder.custom_minimum_size = Vector2(px, px)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var spr := TextureRect.new()
-	if ResourceLoader.exists(String(w.tex)):
-		spr.texture = load(String(w.tex))
-	spr.size = Vector2(px, px)
-	spr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	spr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	spr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(spr)
-	if wayside_owned(String(w.id)):
-		return holder                                   # the placed prop, full
-	if not G.wayside_available(w, unlocks):
-		spr.modulate = Color(0.70, 0.72, 0.70, 0.22)    # dormant — its zone isn't restored yet
-		return holder
-	spr.modulate = Color(1, 1, 1, 0.45)                 # available: a ghost preview + a price pin
-	var pin := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("#FBF6EC", 0.96)
-	ps.set_corner_radius_all(14)
-	ps.set_border_width_all(2)
-	ps.border_color = Color("#C9A66B", 0.9)
-	ps.shadow_color = Color(0, 0, 0, 0.22)
-	ps.shadow_size = 4
-	ps.content_margin_left = 10.0
-	ps.content_margin_right = 10.0
-	ps.content_margin_top = 3.0
-	ps.content_margin_bottom = 4.0
-	pin.add_theme_stylebox_override("panel", ps)
-	pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pin.add_child(row)
-	row.add_child(Look.icon("coin", 26.0))
-	var cl := Label.new()
-	cl.text = str(int(w.cost))
-	cl.add_theme_font_size_override("font_size", 22)
-	cl.add_theme_color_override("font_color", Color("#33402F"))
-	cl.add_theme_constant_override("outline_size", 0)
-	row.add_child(cl)
-	pin.position = Vector2(px * 0.5 - 30.0, px - 6.0)
-	holder.add_child(pin)
-	return holder
-
-# Z2: tap an available plot to BUY it (coins only, never a gate) — wobble if its zone
-# isn't restored or you can't afford it.
-func _on_wayside_tap(w: Dictionary, node: Control, at: Vector2) -> void:
-	if wayside_owned(String(w.id)):
-		return
-	if not G.wayside_available(w, unlocks):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(160, 64), tr("Restore %s first ✿") % tr(G.ZONES[int(w.zone_req)].name), Color(CREAM, 0.9), 28)
-		return
-	if not buy_wayside(w):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(120, 64), tr("Need %d🪙 more") % maxi(0, int(w.cost) - Save.coins()), Color(CREAM, 0.9), 28)
-		return
-	FX.burst(self, at, STRAW, 16)
-	Audio.play("level_complete", -6.0, 1.15)
-	FX.floating_text(self, at - Vector2(70, 60), tr("%s placed ✿") % tr(String(w.name)), CREAM, 28)
-	_update_hud()
-	_build_vista()
-
-# Lid CLOSED: the building, its name, and one honest status line.
-func _make_zone_closed(z: int) -> Control:
-	var zone: Dictionary = G.ZONES[z]
-	var open := zone_unlocked(z)
-	var done := zone_complete(z)
-	var poi := Control.new()
-	poi.size = Vector2(G.POI_SIZE, G.POI_SIZE + 104.0)
-	poi.position = Layout.zone_map_pos(z) * G.MAP_SIZE - Vector2(G.POI_SIZE / 2.0, G.POI_SIZE / 2.0)
-	poi.pivot_offset = Vector2(G.POI_SIZE / 2.0, G.POI_SIZE / 2.0)
-	poi.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	poi.add_child(_poi_art(z, open, G.POI_SIZE))
+		var fallback := Panel.new()
+		fallback.position = _map_rect.position
+		fallback.size = _map_rect.size
+		var fs := StyleBoxFlat.new()
+		fs.bg_color = MEADOW
+		fs.set_corner_radius_all(28)
+		fs.set_border_width_all(5)
+		fs.border_color = MEADOW.lerp(LEAF, 0.4)
+		fallback.add_theme_stylebox_override("panel", fs)
+		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(fallback)
+	# ambient life wanders over the map (order L), positioned within the image rect
+	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
+	amb.position = _map_rect.position
+	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(amb)
+	# the title plank — map name + ✿-progress — near the top of the map rect
+	content.add_child(_map_title_plank(z))
+	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+	for k in G.ZONES[z].spots.size():
+		var spot := _make_spot(z, k, lvl, _map_rect)
+		content.add_child(spot)
+		spot_hits.append({"node": spot, "z": z, "k": k})
 	if _place_on():
-		poi.add_child(_make_crosshair(Vector2(G.POI_SIZE / 2.0, G.POI_SIZE / 2.0), STRAW))
-	# S5 (refines R2): name AND status ride ONE plank, centered UNDER the
-	# building — neither line ever sits on the art. One shared offset, all zones.
-	var stxt: String
-	var scol: Color
-	if done:
-		stxt = tr("✿ restored"); scol = STRAW
-	elif open:
-		stxt = tr("✿ %d★ left") % zone_stars_left(z); scol = CREAM
-	else:
-		stxt = tr("✿ after %s") % tr(G.ZONES[z - 1].name); scol = Color(CREAM, 0.7)
-	poi.add_child(_zone_status_plank(tr(zone.name), open, stxt, scol, G.POI_SIZE + ZONE_NAME_DY))
-	if open and not done and z == _frontier_zone():
-		FX.breathe_once(poi)
-	return poi
+		_place_resync_sel()
+		_place_raise()
+	FX.pop_in(content)
 
-# R2+S5: the zone pin — NAME line + STATUS line on one plank, anchored
-# bottom-center under the building (anchor x=0.5, grow both → always on the
-# POI's center axis, whatever the content width). Both lines centered.
-func _zone_status_plank(zname: String, open: bool, status: String, scol: Color, top: float) -> Control:
+# The available area below the HUD and above the bottom chrome; the map image is
+# CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
+func _map_image_rect() -> Rect2:
+	var view := get_viewport_rect().size
+	var top := 96.0 + Look.safe_top(self)
+	var avail := Rect2(Vector2(0, top), Vector2(view.x, view.y - top - 24.0 - Look.safe_bottom(self)))
+	# fit to the available rect's own aspect (the image is full-bleed-ish) — keep the
+	# whole rect so spots have the maximum stable canvas. Center within the viewport.
+	var rw: float = avail.size.x
+	var rh: float = avail.size.y
+	return Rect2(avail.position + (avail.size - Vector2(rw, rh)) / 2.0, Vector2(rw, rh))
+
+# The map's title — NAME + ✿-progress on one plank, centered near the top of the
+# map image (an IGNORE visual; never eats a press).
+func _map_title_plank(z: int) -> Control:
 	var plank := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#3D2A1B", 0.84)
 	sb.set_corner_radius_all(18)
 	sb.set_border_width_all(2)
 	sb.border_color = Color("#2A1C11", 0.9)
-	sb.content_margin_left = 16.0
-	sb.content_margin_right = 16.0
+	sb.content_margin_left = 18.0
+	sb.content_margin_right = 18.0
 	sb.content_margin_top = 6.0
 	sb.content_margin_bottom = 7.0
 	plank.add_theme_stylebox_override("panel", sb)
-	plank.anchor_left = 0.5
-	plank.anchor_right = 0.5
+	plank.position = _map_rect.position + Vector2(_map_rect.size.x / 2.0, 16.0)
 	plank.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	plank.offset_top = top
 	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 0)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plank.add_child(col)
 	var name_l := Label.new()
-	name_l.text = zname
-	name_l.add_theme_font_size_override("font_size", 26)
-	name_l.add_theme_color_override("font_color", CREAM if open else Color(CREAM, 0.6))
+	name_l.text = tr(G.ZONES[z].name)
+	name_l.add_theme_font_size_override("font_size", 30)
+	name_l.add_theme_color_override("font_color", CREAM)
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
 	var lbl := Label.new()
-	lbl.text = status
+	lbl.text = tr("✿ restored") if zone_complete(z) else tr("✿ %d★ left") % zone_stars_left(z)
 	lbl.add_theme_font_size_override("font_size", 22)
-	lbl.add_theme_color_override("font_color", scol)
+	lbl.add_theme_color_override("font_color", STRAW)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(lbl)
 	return plank
 
-# --- THE INTERIOR (order K; spec §0c #10 — supersedes the on-map scatter) --------
-# The map keeps ONLY closed chests. Tapping an unlocked zone walks INSIDE:
-# a full-screen room under the pinned HUD (bottom chrome hidden while open).
-# The room art is the screen; spots sit at their painted plots (spot.pos maps
-# to the ART RECT); owned spots draw furniture sprites when the art exists.
-# The interior is its own ONE input surface — every visual child IGNOREs.
-
-func _open_interior(z: int) -> void:
-	if interior != null:
-		return
-	_interior_zone = z
-	_customize_spot = ""
-	# T1: remember WHERE the player decorates — the board's Decorate jumps here
-	var gz := Save.grove()
-	gz["last_zone"] = String(G.ZONES[z].id)
-	Save.grove_write()
-	Audio.play("roof_open" if Audio.has("roof_open") else "button_tap", -2.0)
-	for c in _chrome_nodes:
-		if is_instance_valid(c):
-			c.visible = false
-	var amb: Control = vista.get_node_or_null("AmbientLayer")
-	if amb != null:
-		amb.set_meta("paused", true)
-	interior = Control.new()
-	interior.set_anchors_preset(Control.PRESET_FULL_RECT)
-	interior.mouse_filter = Control.MOUSE_FILTER_STOP
-	interior.gui_input.connect(_on_interior_input)
-	add_child(interior)
-	move_child(interior, 2)          # above sky+map, UNDER the Hud module
-	_build_interior()
-	_place_clear_sel()
-	_place_raise()
-
-func _close_interior() -> void:
-	if interior == null:
-		return
-	interior.queue_free()
-	interior = null
-	_int_cta = null
-	_interior_zone = -1
-	_customize_spot = ""
-	spot_hits.clear()
-	variant_hits.clear()
-	for c in _chrome_nodes:
-		if is_instance_valid(c):
-			c.visible = true
-	Audio.play("button_tap", -4.0)
-	_place_clear_sel()
-	_build_vista()                   # rebuild un-pauses the ambient layer too
-	_place_raise()
-	_place_hide_map_chrome()         # re-hide (the chrome-restore above un-hid it)
-
-func _build_interior() -> void:
-	for c in interior.get_children():
-		c.queue_free()
-	spot_hits.clear()
-	variant_hits.clear()
-	var z := _interior_zone
-	var view := get_viewport_rect().size
-	# warm room-tone surround (fills whatever the 3:4 art doesn't)
-	var tone := ColorRect.new()
-	tone.color = Color("#3A2D1E")
-	tone.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tone.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interior.add_child(tone)
-	var room := Control.new()        # everything that pops in together
-	room.set_anchors_preset(Control.PRESET_FULL_RECT)
-	room.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interior.add_child(room)
-	# plank header under the hud: back · zone name · stars-left
-	var head_y := 96.0 + Look.safe_top(self)
-	var header := PanelContainer.new()
-	header.add_theme_stylebox_override("panel", Look.kit_panel("plank"))
-	# the plank starts PAST the back button so the wooden circle sits on the dark
-	# room tone and reads as pressable (wood-on-wood made it vanish — owner report)
-	header.position = Vector2(118, head_y)
-	header.size = Vector2(view.x - 130.0, 96.0)
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	room.add_child(header)
-	var hrow := HBoxContainer.new()
-	hrow.add_theme_constant_override("separation", 14)
-	hrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	header.add_child(hrow)
-	# S9: the title CENTERS on the plank (an overlay, not a row slot) and the
-	# ✿-progress docks right INSIDE the content margin — nothing clips
-	var hov := Control.new()
-	hov.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hov.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hrow.add_child(hov)
-	var title := Label.new()
-	title.text = tr(G.ZONES[z].name)
-	title.add_theme_font_size_override("font_size", 36)
-	title.add_theme_color_override("font_color", CREAM)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.set_anchors_preset(Control.PRESET_FULL_RECT)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hov.add_child(title)
-	var left_l := Label.new()
-	left_l.text = tr("✿ restored") if zone_complete(z) else tr("✿ %d★ left") % zone_stars_left(z)
-	left_l.add_theme_font_size_override("font_size", 26)
-	left_l.add_theme_color_override("font_color", STRAW)
-	left_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	left_l.anchor_left = 1.0
-	left_l.anchor_right = 1.0
-	left_l.anchor_top = 0.0
-	left_l.anchor_bottom = 1.0
-	left_l.offset_right = -10.0
-	left_l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	left_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hov.add_child(left_l)
-	_back_hit = Rect2(Vector2(2, head_y - 12.0), Vector2(116, 116))
-	_int_head_rect = Rect2(Vector2(118, head_y), Vector2(view.x - 130.0, 96.0))
-	# the room art: CONTAIN-fit 3:4 below the header (pins map to THIS rect)
-	var top := head_y + 112.0
-	var avail := Rect2(Vector2(0, top), Vector2(view.x, view.y - top - 24.0 - Look.safe_bottom(self)))
-	var art_h: float = minf(avail.size.y, avail.size.x / 0.75)
-	var art_sz := Vector2(art_h * 0.75, art_h)
-	var art_rect := Rect2(avail.position + (avail.size - art_sz) / 2.0, art_sz)
-	var art_path := Game.art("rooms/int_%s.png" % String(G.ZONES[z].id))
-	if ResourceLoader.exists(art_path):
-		var t := TextureRect.new()
-		t.texture = load(art_path)
-		t.position = art_rect.position
-		t.size = art_rect.size
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		room.add_child(t)
-	else:
-		var fallback := Panel.new()
-		fallback.position = art_rect.position
-		fallback.size = art_rect.size
-		var fs := StyleBoxFlat.new()
-		fs.bg_color = Color("#EAD9B8")
-		fs.set_corner_radius_all(24)
-		fs.set_border_width_all(5)
-		fs.border_color = BARK
-		fallback.add_theme_stylebox_override("panel", fs)
-		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		room.add_child(fallback)
-	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	for k in G.ZONES[z].spots.size():
-		var pin := _make_interior_spot(z, k, lvl, art_rect)
-		room.add_child(pin)
-		spot_hits.append({"node": pin, "z": z, "k": k})
-	_int_art_rect = art_rect
-	# THE way out — a REAL round button riding the plank's left end (owner report:
-	# "no way to go back" — the old inline arrow read as wood-grain decoration)
-	var back := Panel.new()
-	back.size = Vector2(92, 92)
-	back.position = Vector2(14, head_y + 2.0)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var bs := StyleBoxTexture.new()
-		bs.texture = load(Look.kit("btn_round.png"))
-		bs.set_texture_margin_all(24.0)
-		back.add_theme_stylebox_override("panel", bs)
-	else:
-		var bf := StyleBoxFlat.new()
-		bf.bg_color = Color("#6E4B2F")
-		bf.set_corner_radius_all(46)
-		bf.set_border_width_all(4)
-		bf.border_color = Color(CREAM, 0.85)
-		bf.shadow_color = Color(0, 0, 0, 0.35)
-		bf.shadow_size = 8
-		back.add_theme_stylebox_override("panel", bf)
-	var bicon := Look.icon("back", 46.0)
-	bicon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	if bicon is Label:
-		(bicon as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		(bicon as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.add_child(bicon)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interior.add_child(back)         # above the room — it must never blend away
-	# T3: "to the board" CTA — the SAME kit button in the SAME slot/size as the
-	# map's garden CTA (one muscle memory). Visual only (the interior is ONE
-	# input surface); the tap resolves via _int_cta_rect in _on_interior_input.
-	var sb_cta := Look.safe_bottom(self)
-	var cta := Look.button(tr("Tend the garden ▶"), func() -> void: pass, true)
-	cta.custom_minimum_size = Vector2(380, 96)
-	cta.anchor_left = 0.5
-	cta.anchor_right = 0.5
-	cta.anchor_top = 1.0
-	cta.anchor_bottom = 1.0
-	cta.offset_left = -190
-	cta.offset_right = 190
-	cta.offset_top = -120 - sb_cta
-	cta.offset_bottom = -24 - sb_cta
-	cta.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	interior.add_child(cta)
-	_int_cta = cta                   # hit-tested against its laid-out rect (no dup math)
-	FX.pop_in(room)
-	_place_resync_sel()
-	_place_raise()
-
-# One spot inside the room: furniture art when owned (and generated), else the
+# One spot ON the map image: furniture art when owned (and generated), else the
 # 3-state pin + name. The customize strip rides directly beneath when open.
-func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
+func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.ZONES[z].spots[k]
-	var pos: Vector2 = art_rect.position + Layout.spot_pos(z, k) * art_rect.size
+	var pos: Vector2 = rect.position + Layout.spot_pos(z, k) * rect.size
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
@@ -660,7 +325,7 @@ func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
 		# ORDER MATTERS: expand_mode must precede size — with the default
 		# EXPAND_KEEP_SIZE the texture's 512px min CLAMPS size up and a later
 		# expand_mode never shrinks it back (every sprite rendered 512px; the
-		# Q3 probe caught it). Footprint is per-spot data (fsize, px on the art).
+		# Q3 probe caught it). Footprint is per-spot data (fsize, px on the image).
 		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		f.texture = load(furn_path)
@@ -712,7 +377,7 @@ func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
 		var stack := VBoxContainer.new()
 		stack.anchor_left = 0.0
 		stack.anchor_right = 1.0
-		stack.offset_top = 50.0
+		stack.offset_top = SPOT_NAME_DY
 		stack.add_theme_constant_override("separation", 2)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var pin := PanelContainer.new()
@@ -769,8 +434,8 @@ func _make_interior_spot(z: int, k: int, lvl: int, art_rect: Rect2) -> Control:
 		item.add_child(_make_crosshair(Vector2(90, 40), Color("#E84AC0")))
 	return item
 
-# The inline customize strip (unchanged law: chips are IGNORE visuals resolved
-# by the interior's input surface via variant_hits).
+# The inline customize strip (chips are IGNORE visuals resolved by content's
+# input surface via variant_hits).
 func _add_variant_strip(item: Control, z: int, k: int) -> void:
 	var current := String(_spot_variant(z, k).id)
 	var variants: Array = G.spot_variants(z, k)
@@ -814,120 +479,177 @@ func _add_variant_strip(item: Control, z: int, k: int) -> void:
 		item.add_child(chip)
 		variant_hits.append({"node": chip, "z": z, "k": k, "vid": String(v.id)})
 
-# The interior's input: still-tap resolution for back / swatches / pins.
-func _on_interior_input(event: InputEvent) -> void:
-	if _place_on() and _place_interior_input(event):
-		return
-	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
-		or event is InputEventScreenTouch
-	if pressed and event.pressed:
-		_int_press = event.position
-	elif pressed and not event.pressed and event.position.distance_to(_int_press) <= 18.0:
-		var gpos: Vector2 = event.position
-		if _back_hit.has_point(gpos):
-			_close_interior()
-			return
-		if _int_cta != null and is_instance_valid(_int_cta) \
-				and _int_cta.get_global_rect().grow(4.0).has_point(gpos):
-			_on_board()                  # T3: straight back to the board
-			return
-		for hit in variant_hits:
-			var vn: Control = hit.node
-			if vn.get_global_rect().grow(6.0).has_point(gpos):
-				_apply_variant(int(hit.z), int(hit.k), String(hit.vid), gpos)
-				return
-		for hit in spot_hits:
-			var n: Control = hit.node
-			if n.get_global_rect().grow(8.0).has_point(gpos):
-				_on_spot_tap(int(hit.z), int(hit.k), n, gpos)
-				return
-		if _customize_spot != "":
-			_customize_spot = ""
-			_build_interior()
-			return
-		# a tap on the dark surround — outside the room art and its header —
-		# steps back out the door (the lost thumb's path off the screen)
-		if not _int_art_rect.grow(16.0).has_point(gpos) and not _int_head_rect.has_point(gpos):
-			_close_interior()
+# --- THE MAP-SELECT VIEW (grove_spec §3) ------------------------------------------------
+# A clean atlas of every map as a card: thumbnail + name + state line. Tapping an
+# unlocked card opens that map; a locked card wobbles. Lives under `content` —
+# every child IGNOREs (single input surface).
 
-
-func _is_cheapest_open(z: int, k: int, lvl: int) -> bool:
-	return G.is_cheapest_open(z, k, lvl, unlocks)
-
-func _spot_variant(z: int, k: int) -> Dictionary:
-	var chosen := String(Save.grove().get("custom", {}).get(String(G.ZONES[z].spots[k].id), "base"))
-	for v in G.spot_variants(z, k):
-		if String(v.id) == chosen:
-			return v
-	return G.spot_variants(z, k)[0]
-
-func _frontier_zone() -> int:
-	return G.frontier_zone(unlocks, _gates())
-
-# Open with the story's current chapter in view — slightly above center, clear
-# of the pinned garden button along the bottom.
-func _center_on_frontier() -> void:
-	var z := _frontier_zone()
-	if z < 0:
-		z = G.ZONES.size() - 1
-	var target: Vector2 = get_viewport_rect().size * Vector2(0.5, 0.40) - Layout.zone_map_pos(z) * G.MAP_SIZE
-	vista.position = _clamp_pan(target)
-
-func _clamp_pan(p: Vector2) -> Vector2:
+func _build_select() -> void:
+	for c in content.get_children():
+		c.queue_free()
+	spot_hits.clear()
+	select_hits.clear()
+	variant_hits.clear()
 	var view := get_viewport_rect().size
-	return Vector2(
-		clampf(p.x, minf(view.x - G.MAP_SIZE.x, 0.0), 0.0),
-		clampf(p.y, minf(view.y - G.MAP_SIZE.y, 0.0), 0.0))
+	var top := 96.0 + Look.safe_top(self)
+	# the header — the grove's name, an invitation to choose
+	var header := _lbl(tr("Choose a place ✿"), 40, CREAM)
+	header.position = Vector2(0, top + 8.0)
+	header.size = Vector2(view.x, 56.0)
+	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(header)
+	# a 2-column grid of cards, centered, scrolling room left below the header
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 18)
+	grid.add_theme_constant_override("v_separation", 18)
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col_w: float = (view.x - 18.0 * 3.0) / 2.0
+	var card_w: float = clampf(col_w, 200.0, 320.0)
+	for z in G.ZONES.size():
+		var card := _make_card(z, card_w)
+		grid.add_child(card)
+		select_hits.append({"node": card, "z": z})
+	# center the grid under the header
+	var grid_top := top + 80.0
+	grid.position = Vector2((view.x - (card_w * 2.0 + 18.0)) / 2.0, grid_top)
+	grid.custom_minimum_size = Vector2(card_w * 2.0 + 18.0, 0)
+	content.add_child(grid)
+	FX.pop_in(content)
 
-# One handler does both: drag pans the land, a still release taps what's under it.
-func _on_pan_input(event: InputEvent) -> void:
-	if _place_on() and _place_map_input(event):
+# One map card: thumbnail + name + state line. Three states drive the line and the
+# greying — locked ("✿ after <prev>"), unlocked-incomplete ("✿ N★ left"), restored.
+func _make_card(z: int, card_w: float) -> Control:
+	var zone: Dictionary = G.ZONES[z]
+	var open := zone_unlocked(z)
+	var done := zone_complete(z)
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(card_w, 0)
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color("#3D2A1B", 0.9) if open else Color("#2A2620", 0.85)
+	cs.set_corner_radius_all(20)
+	cs.set_border_width_all(3)
+	cs.border_color = STRAW if (open and not done) else (Color("#E8C84A") if done else Color(CREAM, 0.25))
+	cs.shadow_color = Color(0, 0, 0, 0.28)
+	cs.shadow_size = 6
+	cs.shadow_offset = Vector2(0, 4)
+	cs.content_margin_left = 12.0
+	cs.content_margin_right = 12.0
+	cs.content_margin_top = 12.0
+	cs.content_margin_bottom = 12.0
+	card.add_theme_stylebox_override("panel", cs)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(col)
+	# thumbnail — the map image (or a meadow-toned fallback)
+	var thumb_h := card_w * 0.62
+	var thumb_path := Game.art("map/map_%s.png" % String(zone.id))
+	if ResourceLoader.exists(thumb_path):
+		var t := TextureRect.new()
+		t.texture = load(thumb_path)
+		t.custom_minimum_size = Vector2(card_w - 24.0, thumb_h)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		t.clip_contents = true
+		if not open:
+			t.modulate = Color(0.72, 0.74, 0.72, 0.85)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(t)
+	else:
+		var ph := Panel.new()
+		ph.custom_minimum_size = Vector2(card_w - 24.0, thumb_h)
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
+		ps.set_corner_radius_all(14)
+		ph.add_theme_stylebox_override("panel", ps)
+		ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(ph)
+	var name_l := Label.new()
+	name_l.text = tr(zone.name)
+	name_l.add_theme_font_size_override("font_size", 26)
+	name_l.add_theme_color_override("font_color", CREAM if open else Color(CREAM, 0.6))
+	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(name_l)
+	var stxt: String
+	var scol: Color
+	if done:
+		stxt = tr("✿ restored"); scol = STRAW
+	elif open:
+		stxt = tr("✿ %d★ left") % zone_stars_left(z); scol = CREAM
+	else:
+		stxt = tr("✿ after %s") % tr(G.ZONES[z - 1].name); scol = Color(CREAM, 0.6)
+	var state_l := Label.new()
+	state_l.text = stxt
+	state_l.add_theme_font_size_override("font_size", 21)
+	state_l.add_theme_color_override("font_color", scol)
+	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(state_l)
+	if open and not done and z == _frontier_zone():
+		FX.breathe_once(card)
+	return card
+
+# --- input: ONE surface, still-tap resolution ------------------------------------------
+
+func _on_input(event: InputEvent) -> void:
+	if _place_on() and _place_input(event):
 		return
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
 		or event is InputEventScreenTouch
 	if pressed and event.pressed:
-		_pan_drag = true
-		_pan_moved = 0.0
-		_pan_start = event.position
-		_vista_start = vista.position
-	elif pressed and not event.pressed:
-		if _pan_drag and _pan_moved <= TAP_SLOP:
-			_on_map_tap(event.position)
-		_pan_drag = false
-	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and _pan_drag:
-		_pan_moved = maxf(_pan_moved, (event.position - _pan_start).length())
-		vista.position = _clamp_pan(_vista_start + (event.position - _pan_start))
+		_press = event.position
+	elif pressed and not event.pressed and event.position.distance_to(_press) <= 18.0:
+		var gpos: Vector2 = event.position
+		if _view == "select":
+			_select_tap(gpos)
+		else:
+			_map_tap(gpos)
 
-func _on_map_tap(screen_pos: Vector2) -> void:
-	for z in zone_nodes.size():
-		if not zone_nodes[z].get_global_rect().has_point(screen_pos):
+func _select_tap(gpos: Vector2) -> void:
+	for hit in select_hits:
+		var n: Control = hit.node
+		if not n.get_global_rect().grow(6.0).has_point(gpos):
 			continue
+		var z := int(hit.z)
 		if zone_unlocked(z):
-			_open_interior(z)             # walk inside (order K)
+			_open_map(z)
 		else:
 			Audio.play("invalid_soft", -4.0)
-			FX.wobble(zone_nodes[z])
-			FX.floating_text(self, screen_pos - Vector2(150, 70),
-				tr("Restore %s first ✿") % tr(G.ZONES[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 30)
+			FX.wobble(n)
+			FX.floating_text(self, gpos - Vector2(150, 70),
+				tr("Restore %s first ✿") % tr(G.ZONES[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
 		return
-	# Z2: a wayside plot? buy it with coins (the structural sink). The hit rect is
-	# grown (T14) so the price pin hanging below the sprite is tappable too.
-	for hit in wayside_hits:
-		if (hit.node as Control).get_global_rect().grow(WAYSIDE_TAP_PAD).has_point(screen_pos):
-			_on_wayside_tap(hit.w, hit.node, screen_pos)
+
+func _map_tap(gpos: Vector2) -> void:
+	for hit in variant_hits:
+		var vn: Control = hit.node
+		if vn.get_global_rect().grow(6.0).has_point(gpos):
+			_apply_variant(int(hit.z), int(hit.k), String(hit.vid), gpos)
 			return
+	for hit in spot_hits:
+		var n: Control = hit.node
+		if n.get_global_rect().grow(8.0).has_point(gpos):
+			_on_spot_tap(int(hit.z), int(hit.k), n, gpos)
+			return
+	if _customize_spot != "":
+		_customize_spot = ""
+		_build_map()
+		return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)
-	var amb: Control = vista.get_node_or_null("AmbientLayer")
+	var amb: Control = content.get_node_or_null("AmbientLayer")
 	if amb != null:
 		for sp in amb.get_children():
-			if (sp as Control).get_global_rect().grow(10.0).has_point(screen_pos):
+			if (sp as Control).get_global_rect().grow(10.0).has_point(gpos):
 				if Features.on("spirit_tap_hop"):
 					Ambient.hop(sp)
 					Audio.play("button_tap", -8.0)
 				return
 
-
-# --- buying & customizing, right on the land (the close-up modal retired) ---------------
+# --- buying & customizing, right on the map image ---------------------------------------
 
 func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	var spot: Dictionary = G.ZONES[z].spots[k]
@@ -936,16 +658,13 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 			return
 		Audio.play("button_tap", -2.0)
 		_customize_spot = "" if _customize_spot == String(spot.id) else String(spot.id)
-		if interior != null:
-			_build_interior()
-		else:
-			_build_vista()
+		_build_map()
 		return
 	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 	if G.spot_level_req(z, k) > lvl:
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(120, 64), tr("Reach Lv %d \u2740") % G.spot_level_req(z, k), Color(CREAM, 0.9), 30)
+		FX.floating_text(self, at - Vector2(120, 64), tr("Reach Lv %d ❀") % G.spot_level_req(z, k), Color(CREAM, 0.9), 30)
 		return
 	var cost := int(spot.cost)
 	if not Save.spend_stars(cost):
@@ -958,11 +677,9 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	Audio.play("level_complete", -6.0, 1.2)
 	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
 	# level-ups, not a per-spot gift)
-	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden \u2740"), CREAM, 30)
+	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden ❀"), CREAM, 30)
 	_persist()
-	if interior != null:
-		_build_interior()                 # the room refreshes; we STAY inside
-	_build_vista()                        # the closed chest's stars-left too
+	_build_map()                          # the map (spot art + stars-left) refreshes
 	_update_hud()
 	if zone_complete(z):
 		Save.add_diamonds(G.ZONE_DIAMONDS)
@@ -971,12 +688,12 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 			tr("+%d💎") % G.ZONE_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
 
-# A swatch chip was tapped: pay (if needed) and dress the item — all on the land.
+# A swatch chip was tapped: pay (if needed) and dress the item — all on the map.
 func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 	var spot_id := String(G.ZONES[z].spots[k].id)
 	if String(_spot_variant(z, k).id) == vid:
 		_customize_spot = ""
-		_build_vista()
+		_build_map()
 		return
 	var chosen: Dictionary = G.variant_by_id(z, k, vid)
 	var paid := true
@@ -996,22 +713,22 @@ func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 	Audio.play("tidy_poof", -2.0, 1.1)
 	FX.burst(self, at, Color(chosen.tint), 12)
 	_customize_spot = ""
-	if interior != null:
-		_build_interior()
-	else:
-		_build_vista()
+	_build_map()
 	_update_hud()
-
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module — ★🪙💎 + Store + the S10 Lv chip
-	# never move between scenes; the chip ticks via the module's refresh)
-	var hud := Hud.build(self, {"water_grant": func() -> void:
-		var g := Save.grove()
-		g["water"] = G.WATER_CAP
-		Save.grove_write()})
+	# never move between scenes; the chip ticks via the module's refresh). `home`
+	# is a shortcut to the hub map — the shared HUD renders its button in a
+	# separate change; passing it now is harmless.
+	var hud := Hud.build(self, {
+		"water_grant": func() -> void:
+			var g := Save.grove()
+			g["water"] = G.WATER_CAP
+			Save.grove_write(),
+		"home": func() -> void: _open_map(G.hub_zone())})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
@@ -1028,7 +745,7 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 
 func _build_chrome() -> void:
-	# the garden CTA — pinned bottom-center so the way to the board never pans away
+	# the garden CTA — pinned bottom-center so the way to the board never moves
 	var sb_cta := Look.safe_bottom(self)
 	var plot := Look.button(tr("Tend the garden ▶"), _on_board, true)
 	plot.custom_minimum_size = Vector2(380, 96)
@@ -1115,6 +832,51 @@ func _build_chrome() -> void:
 			_open_shop.call())
 	add_child(shop)
 	_chrome_nodes.append(shop)
+	# the map-select (atlas) button — sits to the LEFT of the shop; opens the
+	# place-picker. Visible in map view (the place-picker is its own view). The
+	# kit has no map icon, so the glyph (🗺) rides the round-button art directly
+	# (using Look.icon("map") would render "?" — no such kit/glyph entry).
+	var atlas := Button.new()
+	atlas.focus_mode = Control.FOCUS_NONE
+	atlas.custom_minimum_size = Vector2(76, 76)
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
+		var at := StyleBoxTexture.new()
+		at.texture = load(Look.kit("btn_round.png"))
+		at.set_texture_margin_all(24.0)
+		atlas.add_theme_stylebox_override("normal", at)
+		atlas.add_theme_stylebox_override("hover", at)
+		atlas.add_theme_stylebox_override("pressed", at)
+		var ai := Label.new()
+		ai.text = "🗺"
+		ai.add_theme_font_size_override("font_size", 34)
+		ai.add_theme_color_override("font_color", CREAM)
+		ai.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		ai.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		ai.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ai.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		atlas.add_child(ai)
+	else:
+		atlas.text = "🗺"
+		atlas.add_theme_font_size_override("font_size", 34)
+		atlas.add_theme_color_override("font_color", CREAM)
+		var as_sb := StyleBoxFlat.new()
+		as_sb.bg_color = Color(INK, 0.6)
+		as_sb.set_corner_radius_all(38)
+		atlas.add_theme_stylebox_override("normal", as_sb)
+		atlas.add_theme_stylebox_override("hover", as_sb)
+		atlas.add_theme_stylebox_override("pressed", as_sb)
+	Look.add_press_juice(atlas)
+	atlas.anchor_left = 1.0
+	atlas.anchor_right = 1.0
+	atlas.anchor_top = 1.0
+	atlas.anchor_bottom = 1.0
+	atlas.offset_left = -268
+	atlas.offset_right = -192
+	atlas.offset_top = -92 - sb
+	atlas.offset_bottom = -16 - sb
+	atlas.pressed.connect(_open_select)
+	add_child(atlas)
+	_chrome_nodes.append(atlas)
 
 func _open_settings() -> void:
 	Audio.play("button_tap", -2.0)
@@ -1166,17 +928,21 @@ func _on_board() -> void:
 	get_tree().change_scene_to_file("res://engine/scenes/Board.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
-	# Esc walks out of the room — desktop has no OS back gesture
-	if interior != null and event.is_action_pressed("ui_cancel"):
-		_close_interior()
-		get_viewport().set_input_as_handled()
+	# Esc steps back: a map → the place-picker; the picker → quit (desktop has no
+	# OS back gesture). Mirrors _notification(WM_GO_BACK_REQUEST).
+	if event.is_action_pressed("ui_cancel"):
+		if _view == "map":
+			_open_select()
+			get_viewport().set_input_as_handled()
+		elif _view == "select" and get_tree() != null:
+			get_tree().quit()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		if interior != null:
-			_close_interior()
+		if _view == "map":
+			_open_select()               # step back to the place-picker
 		elif get_tree() != null:
-			get_tree().quit()            # the default we disabled, restored by hand
+			get_tree().quit()            # from the picker, the default we disabled (by hand)
 
 func _lbl(t: String, size: int, col: Color) -> Label:
 	var l := Label.new()
@@ -1190,9 +956,10 @@ func _lbl(t: String, size: int, col: Color) -> Label:
 
 # ============================================================================
 # DEBUG-mode tool: drag-to-place editor (Layout). Gated by Debug.authoring() — an
-# explicit owner tool, NOT auto-on in base. Buildings on the map and furniture in rooms become draggable;
-# a crosshair marks each anchor; a bottom toolbar saves to res://data/placements.json.
-# The renderers always read through Layout, so saved positions persist for everyone.
+# explicit owner tool, NOT auto-on in base. Spots on the open map image become
+# draggable; a crosshair marks each anchor; a bottom toolbar saves to
+# res://data/placements.json. The renderer always reads through Layout, so saved
+# positions persist for everyone.
 # ============================================================================
 
 func _place_on() -> bool:
@@ -1232,7 +999,7 @@ func _build_place_ui() -> void:
 	var ov := Control.new()
 	ov.name = "PlaceOverlay"
 	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE    # the screen stays draggable
+	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE    # the screen stays tappable
 	add_child(ov)
 	_place_overlay = ov
 	var box := Panel.new()                            # hollow selection outline
@@ -1285,9 +1052,8 @@ func _build_place_ui() -> void:
 	_place_update_readout()
 
 # The HUD chips (top corners) and bottom chrome are STOP controls above the map —
-# they'd swallow presses on the top-edge zones (meadow under the Lv chip, orchard
-# under the wallet). Authoring placement doesn't need them, so hide them in place
-# mode. Idempotent; re-called after a room visit (which re-shows the chrome).
+# they'd swallow presses on spots near the screen edges. Authoring placement
+# doesn't need them, so hide them in place mode. Idempotent.
 func _place_hide_map_chrome() -> void:
 	if not _place_on():
 		return
@@ -1335,17 +1101,17 @@ func _place_select(d: Dictionary) -> void:
 	_place_update_readout()
 	_place_update_sel_box()
 
-# After an interior rebuild the spot nodes are fresh — re-bind the selected one.
+# After a map rebuild the spot nodes are fresh — re-bind the selected one.
 func _place_resync_sel() -> void:
 	if String(_place_sel.get("kind", "")) != "spot":
 		_place_update_sel_box()
 		return
-	if _interior_zone != int(_place_sel.get("z", -1)):
+	if _map_idx != int(_place_sel.get("z", -1)):
 		_place_clear_sel()
 		return
 	var k := int(_place_sel.get("k", -1))
 	for hit in spot_hits:
-		if int(hit.z) == _interior_zone and int(hit.k) == k:
+		if int(hit.z) == _map_idx and int(hit.k) == k:
 			_place_sel.node = hit.node
 			_place_update_readout()
 			_place_update_sel_box()
@@ -1356,12 +1122,7 @@ func _place_update_readout() -> void:
 	if _place_readout == null or not is_instance_valid(_place_readout):
 		return
 	var kind := String(_place_sel.get("kind", ""))
-	if kind == "zone":
-		var z := int(_place_sel.z)
-		var mp := Layout.zone_map_pos(z)
-		_place_readout.text = "🏠 %s   map_pos (%.4f, %.4f)%s   — drag onto its clearing · tap to enter" % [
-			String(G.ZONES[z].name), mp.x, mp.y, "  •edited" if Layout.zone_overridden(z) else ""]
-	elif kind == "spot":
+	if kind == "spot":
 		var z := int(_place_sel.z)
 		var k := int(_place_sel.k)
 		var sp := Layout.spot_pos(z, k)
@@ -1369,7 +1130,7 @@ func _place_update_readout() -> void:
 		_place_readout.text = "🪑 %s   pos (%.3f, %.3f) · size %d%s" % [
 			String(G.ZONES[z].spots[k].name), sp.x, sp.y, int(fs), "  •edited" if Layout.spot_overridden(z, k) else ""]
 	else:
-		_place_readout.text = "DEBUG · PLACE — drag a building to its clearing · tap to enter a room · 💾 SAVE → data/placements.json"
+		_place_readout.text = "DEBUG · PLACE — drag a spot on the map · − / + resize · 💾 SAVE → data/placements.json"
 
 func _place_update_sel_box() -> void:
 	if _place_sel_box == null or not is_instance_valid(_place_sel_box):
@@ -1384,49 +1145,13 @@ func _place_update_sel_box() -> void:
 	_place_sel_box.global_position = r.position - Vector2(g, g)
 	_place_sel_box.size = r.size + Vector2(g, g) * 2.0
 
-# Map place input: drag a building to reposition (live map_pos); a still tap
-# still enters the room. Returns true when it consumed the event (else the pan
-# handler runs — so empty terrain still pans).
-func _place_map_input(event: InputEvent) -> bool:
-	var is_press: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed) \
-		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
-	var is_release: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed) \
-		or (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed)
-	var is_motion: bool = event is InputEventMouseMotion or event is InputEventScreenDrag
-	if is_press:
-		for z in zone_nodes.size():
-			var n: Control = zone_nodes[z]
-			if n.get_global_rect().has_point(event.position):
-				_place_drag = {"kind": "zone", "z": z, "node": n, "grab": event.position - n.global_position, "press": event.position, "moved": 0.0}
-				_place_select({"kind": "zone", "z": z, "node": n})
-				return true
+# Map place input: drag a SPOT to reposition (live spot_pos on the map image). A
+# press that misses every spot returns false so the normal handler still resolves
+# taps (variant chips, buy, spirits). Returns true when it consumed the event.
+func _place_input(event: InputEvent) -> bool:
+	# only the map view has draggable spots; the place-picker is plain navigation
+	if _view != "map":
 		return false
-	if is_motion and String(_place_drag.get("kind", "")) == "zone":
-		var n: Control = _place_drag.node
-		var press_pt: Vector2 = _place_drag.press
-		_place_drag.moved = maxf(float(_place_drag.moved), (event.position - press_pt).length())
-		if float(_place_drag.moved) > TAP_SLOP:
-			var grab: Vector2 = _place_drag.grab
-			n.global_position = event.position - grab
-			var anchor := n.global_position + Vector2(G.POI_SIZE / 2.0, G.POI_SIZE / 2.0)
-			Layout.set_zone_map_pos(int(_place_drag.z), (anchor - vista.global_position) / G.MAP_SIZE)
-			_place_update_readout()
-			_place_update_sel_box()
-		return true
-	if is_release and String(_place_drag.get("kind", "")) == "zone":
-		var z := int(_place_drag.z)
-		var moved := float(_place_drag.moved)
-		_place_drag = {}
-		if moved <= TAP_SLOP:
-			_open_interior(z)             # debug: a tap enters ANY zone, locked or not
-		else:
-			_place_update_readout()
-		return true
-	return false
-
-# Interior place input: drag furniture/pins to reposition. A press that misses
-# every spot returns false so the normal handler still does back/CTA/close.
-func _place_interior_input(event: InputEvent) -> bool:
 	var is_press: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed) \
 		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
 	var is_release: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed) \
@@ -1448,8 +1173,8 @@ func _place_interior_input(event: InputEvent) -> bool:
 			var grab: Vector2 = _place_drag.grab
 			n.global_position = event.position - grab
 			var anchor := n.global_position + Vector2(90.0, 40.0)
-			if _int_art_rect.size.x > 0.0 and _int_art_rect.size.y > 0.0:
-				Layout.set_spot_pos(int(_place_drag.z), int(_place_drag.k), (anchor - _int_art_rect.position) / _int_art_rect.size)
+			if _map_rect.size.x > 0.0 and _map_rect.size.y > 0.0:
+				Layout.set_spot_pos(int(_place_drag.z), int(_place_drag.k), (anchor - _map_rect.position) / _map_rect.size)
 			_place_update_readout()
 			_place_update_sel_box()
 		return true
@@ -1470,14 +1195,11 @@ func _place_save() -> void:
 
 func _place_reset_sel() -> void:
 	var kind := String(_place_sel.get("kind", ""))
-	if kind == "zone":
-		Layout.reset_zone(int(_place_sel.z))
-		_rebuild_after_reset()
-	elif kind == "spot":
+	if kind == "spot":
 		Layout.reset_spot(int(_place_sel.z), int(_place_sel.k))
 		_rebuild_after_reset()
 	else:
-		_place_flash("select something to reset")
+		_place_flash("select a spot to reset")
 
 func _place_reset_all() -> void:
 	Layout.reset_all()
@@ -1486,21 +1208,17 @@ func _place_reset_all() -> void:
 
 func _rebuild_after_reset() -> void:
 	_place_clear_sel()
-	if interior != null:
-		_build_interior()
-	else:
-		_build_vista()
+	_build_map()
 	_place_raise()
 
 func _place_size(delta: float) -> void:
 	if String(_place_sel.get("kind", "")) != "spot":
-		_place_flash("select a furniture item first, then − / + resize it")
+		_place_flash("select a spot first, then − / + resize it")
 		return
 	var z := int(_place_sel.z)
 	var k := int(_place_sel.k)
 	Layout.set_spot_fsize(z, k, Layout.spot_fsize(z, k) + delta)
-	if interior != null:
-		_build_interior()                 # re-renders at the new size (resyncs sel)
+	_build_map()                          # re-renders at the new size (resyncs sel)
 	_place_update_readout()
 
 func _place_flash(msg: String) -> void:

@@ -118,11 +118,6 @@ const STARTER_ITEMS := {
 }
 
 
-# Waysides — the coin sink (cosmetic, coin-priced, never a gate). 4 per restored zone.
-const WAYSIDE_PROPS := ["Lantern post", "Bird bath", "Flower tub", "Mossy bench", "Beehive skep", "Stone cairn"]
-const WAYSIDE_TEX := ["way_lantern", "way_birdbath", "way_flowertub", "way_bench", "way_skep", "way_cairn"]
-const WAYSIDE_PER_ZONE := 4
-
 # Spot customizations — coin/gem variants per owned spot (deterministic).
 const VARIANT_NAMES_COIN := ["Rosewood", "Whitewash", "Mossy", "Sunbaked", "Riverstone"]
 const VARIANT_NAMES_GEM := ["Gilded", "Moonlit", "Blossom", "Starlit", "Amber"]
@@ -151,21 +146,28 @@ const COIN_TOP := 3
 const COIN_VALUES := {1: 1, 2: 5, 3: 25}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
-# The home map: zones + unlock spots. One large free-pan map. Spot costs 3-5★.
-const MAP_SIZE := Vector2(2160, 2880)     # 2× the portrait viewport each axis
-const POI_SIZE := 300.0                   # a building sprite's footprint on the map
+# The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
+# image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside
+# interior; discrete maps reached via a map-select. `hub: true` marks the permanent home hub (the
+# Farmhouse — authored deeper; its upgrade→yield loop is the KEYSTONE economy task, BACKLOG).
+# Spots sit on the map image at `pos` (0..1 of the fitted image rect), `fsize` px; `kind`
+# ("yield"/"decor"/"") is the hub seam (yield is parked — the keystone reads it). Spot costs 3-5★.
+# Map art loads <art_root>/map/map_<id>.png (a painted fallback panel until the §16 images land).
 const ZONES := [
-	{"id": "farmhouse", "name": "The Farmhouse", "map_pos": Vector2(0.230, 0.760), "spots": [
-		{"id": "fh_chest", "name": "Storage chest", "cost": 3, "pos": Vector2(0.33, 0.49), "fsize": 230},
-		{"id": "fh_bed", "name": "Quilted bed", "cost": 3, "pos": Vector2(0.70, 0.50), "fsize": 380},
-		{"id": "fh_table", "name": "Oak table", "cost": 3, "pos": Vector2(0.45, 0.60), "fsize": 320},
-		{"id": "fh_rug", "name": "Braided rug", "cost": 4, "pos": Vector2(0.47, 0.67), "fsize": 320},
-		{"id": "fh_plant", "name": "Potted fern", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170},
-		{"id": "fh_wheel", "name": "Spinning wheel", "cost": 4, "pos": Vector2(0.30, 0.66), "fsize": 250},
-		{"id": "fh_chair", "name": "Rocking chair", "cost": 5, "pos": Vector2(0.17, 0.52), "fsize": 230},
-		{"id": "fh_picture", "name": "Framed painting", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190},
+	# Map 1 — the home hub (grove_spec §3): 4 yield + 4 décor, 31★. (pos/fsize are PROVISIONAL —
+	# carried from the legacy interior; the owner re-places them on the real map image via the
+	# Layout editor once §16 art lands. Yield/décor BEHAVIOR is the keystone task; `kind` is its seam.)
+	{"id": "farmhouse", "name": "The Farmhouse", "hub": true, "spots": [
+		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.33, 0.49), "fsize": 230},
+		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.70, 0.50), "fsize": 380},
+		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.45, 0.60), "fsize": 320},
+		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.47, 0.67), "fsize": 320},
+		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170},
+		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.30, 0.66), "fsize": 250},
+		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.17, 0.52), "fsize": 230},
+		{"id": "fh_fence", "name": "Garden fence", "kind": "decor", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190},
 	]},
-	{"id": "barn", "name": "The Barn", "map_pos": Vector2(0.737, 0.814), "spots": [
+	{"id": "barn", "name": "The Barn", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
 		{"id": "bn_stool", "name": "Milking stool", "cost": 4, "pos": Vector2(0.55, 0.30)},
 		{"id": "bn_churns", "name": "Milk churns", "cost": 4, "pos": Vector2(0.70, 0.62)},
@@ -175,7 +177,7 @@ const ZONES := [
 		{"id": "bn_coop", "name": "Hen coop", "cost": 5, "pos": Vector2(0.15, 0.40)},
 		{"id": "bn_plow", "name": "Old plow", "cost": 5, "pos": Vector2(0.60, 0.85)},
 	]},
-	{"id": "pond", "name": "The Pond", "map_pos": Vector2(0.516, 0.446), "spots": [
+	{"id": "pond", "name": "The Pond", "spots": [
 		{"id": "pd_dock", "name": "Little dock", "cost": 4, "pos": Vector2(0.30, 0.60)},
 		{"id": "pd_lilies", "name": "Lily pads", "cost": 4, "pos": Vector2(0.60, 0.70)},
 		{"id": "pd_reeds", "name": "Reeds", "cost": 4, "pos": Vector2(0.20, 0.35)},
@@ -185,7 +187,7 @@ const ZONES := [
 		{"id": "pd_boat", "name": "Rowboat", "cost": 5, "pos": Vector2(0.55, 0.45)},
 		{"id": "pd_fireflies", "name": "Firefly jar", "cost": 5, "pos": Vector2(0.15, 0.75)},
 	]},
-	{"id": "orchard", "name": "The Orchard", "map_pos": Vector2(0.738, 0.210), "spots": [
+	{"id": "orchard", "name": "The Orchard", "spots": [
 		{"id": "or_rows", "name": "Apple rows", "cost": 4, "pos": Vector2(0.30, 0.50)},
 		{"id": "or_ladder", "name": "Picker's ladder", "cost": 4, "pos": Vector2(0.55, 0.35)},
 		{"id": "or_baskets", "name": "Fruit baskets", "cost": 4, "pos": Vector2(0.70, 0.70)},
@@ -195,7 +197,7 @@ const ZONES := [
 		{"id": "or_scarecrow", "name": "Scarecrow", "cost": 5, "pos": Vector2(0.15, 0.30)},
 		{"id": "or_wagon", "name": "Apple wagon", "cost": 5, "pos": Vector2(0.60, 0.85)},
 	]},
-	{"id": "meadow", "name": "The Meadow", "map_pos": Vector2(0.242, 0.117), "spots": [
+	{"id": "meadow", "name": "The Meadow", "spots": [
 		{"id": "md_path", "name": "Wildflower path", "cost": 4, "pos": Vector2(0.35, 0.60)},
 		{"id": "md_picnic", "name": "Picnic blanket", "cost": 4, "pos": Vector2(0.60, 0.75)},
 		{"id": "md_kite", "name": "Kite", "cost": 5, "pos": Vector2(0.70, 0.25)},

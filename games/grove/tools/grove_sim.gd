@@ -129,12 +129,11 @@ func _initialize() -> void:
 		print("  FAIL Y: the water<->diamond round trip is abusable (<10x loss)")
 		pass_all = false
 
-	# --- Z: coin faucet vs sink — REPORTED (the §8 hub sink is parked; waysides are interim) ---
-	var sink := G.wayside_sink_capacity()
-	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · wayside sink %d🪙 absorbs %.0f%%" % \
-		[coins, quest_coins, sell_coins, coins - quest_coins - sell_coins, sink, (100.0 * float(sink) / float(maxi(1, coins)))])
-	if coins > 0 and sink < int(0.6 * float(coins)):
-		print("  WARN Z: waysides absorb <60%% of the coin faucet — EXPECTED until the §8 hub sink lands (parked)")
+	# --- Z: coin faucet vs sink — REPORTED (the §8 hub sink is parked; there is no coin sink yet) ---
+	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · sink 0🪙 (no coin sink yet)" % \
+		[coins, quest_coins, sell_coins, coins - quest_coins - sell_coins])
+	if coins > 0:
+		print("  WARN Z: no coin sink absorbs the faucet — EXPECTED until the §8 hub sink lands (parked)")
 
 	print("== sim %s ==" % ("PASS" if pass_all else "FAIL"))
 	quit(0 if pass_all else 1)

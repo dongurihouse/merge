@@ -54,14 +54,6 @@ static func _arr_to_v2(a: Variant, fallback: Vector2) -> Vector2:
 
 # --- read accessors (renderers call these instead of grove_content directly) -------
 
-static func zone_map_pos(z: int) -> Vector2:
-	_ensure()
-	var dflt := Vector2(G.ZONES[z].map_pos)
-	var o: Variant = _data.zones.get(String(G.ZONES[z].id), null)
-	if o is Dictionary and (o as Dictionary).has("map_pos"):
-		return _arr_to_v2((o as Dictionary).map_pos, dflt)
-	return dflt
-
 static func spot_pos(z: int, k: int) -> Vector2:
 	_ensure()
 	var dflt := Vector2(G.ZONES[z].spots[k].pos)
@@ -78,22 +70,11 @@ static func spot_fsize(z: int, k: int) -> float:
 		return float((o as Dictionary).fsize)
 	return dflt
 
-static func zone_overridden(z: int) -> bool:
-	_ensure()
-	return _data.zones.has(String(G.ZONES[z].id))
-
 static func spot_overridden(z: int, k: int) -> bool:
 	_ensure()
 	return _data.spots.has(String(G.ZONES[z].spots[k].id))
 
 # --- write (in-memory; flush with save()) ------------------------------------------
-
-static func set_zone_map_pos(z: int, v: Vector2) -> void:
-	_ensure()
-	var id := String(G.ZONES[z].id)
-	if not _data.zones.has(id):
-		_data.zones[id] = {}
-	_data.zones[id]["map_pos"] = [snappedf(clampf(v.x, 0.0, 1.0), 0.0001), snappedf(clampf(v.y, 0.0, 1.0), 0.0001)]
 
 static func set_spot_pos(z: int, k: int, v: Vector2) -> void:
 	_ensure()
@@ -108,10 +89,6 @@ static func set_spot_fsize(z: int, k: int, f: float) -> void:
 	if not _data.spots.has(id):
 		_data.spots[id] = {}
 	_data.spots[id]["fsize"] = snappedf(clampf(f, 40.0, 700.0), 1.0)
-
-static func reset_zone(z: int) -> void:
-	_ensure()
-	_data.zones.erase(String(G.ZONES[z].id))
 
 static func reset_spot(z: int, k: int) -> void:
 	_ensure()

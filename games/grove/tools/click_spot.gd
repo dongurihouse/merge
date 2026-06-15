@@ -39,7 +39,7 @@ func _initialize() -> void:
 		quit(1)
 		return
 
-	# stage 2: click the (0,0) row inside — fh_chest (Q v2 spot 0) costs 3★
+	# stage 2: click the (0,0) row inside — fh_hearth (Q v2 spot 0) costs 3★
 	var row: Control = null
 	for hit in scn.spot_hits:
 		if int(hit.z) == 0 and int(hit.k) == 0:
@@ -47,9 +47,9 @@ func _initialize() -> void:
 			break
 	_click(row.get_global_rect().get_center())
 	await create_timer(0.6).timeout
-	var bought: bool = scn.spot_owned("fh_chest") and Save.stars() == 7
+	var bought: bool = scn.spot_owned("fh_hearth") and Save.stars() == 7
 	print("STAGE2 %s: clicked row -> owned=%s stars=%d (want true/7)" % \
-		["PASS" if bought else "FAIL", scn.spot_owned("fh_chest"), Save.stars()])
+		["PASS" if bought else "FAIL", scn.spot_owned("fh_hearth"), Save.stars()])
 	quit(0 if bought else 1)
 
 func _click(at: Vector2) -> void:

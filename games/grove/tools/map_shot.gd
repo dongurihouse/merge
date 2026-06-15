@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
-## modes: fresh | interior (alias closeup) | progress | shop | confirm
+## modes: fresh | select | closeup | progress | owned | shop | settings | spirits
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -54,11 +54,11 @@ func _initialize() -> void:
 			Save.add_stars(20)
 			var g := Save.grove()
 			if mode == "progress":
-				g["unlocks"] = {"fh_chest": true, "fh_bed": true, "fh_table": true}
-				g["custom"] = {"fh_bed": "gem", "fh_table": "coin"}
+				g["unlocks"] = {"fh_hearth": true, "fh_kitchen": true, "fh_well": true}
+				g["custom"] = {"fh_kitchen": "gem", "fh_well": "coin"}
 				g["stars_earned"] = 9
 			else:
-				g["unlocks"] = {"fh_chest": true}    # owned → its customize list opens
+				g["unlocks"] = {"fh_hearth": true}   # owned → its customize strip opens
 				g["stars_earned"] = 3
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pzone)
@@ -75,22 +75,19 @@ func _initialize() -> void:
 	root.add_child(scn)
 	current_scene = scn
 	await create_timer(0.5).timeout
-	if mode == "fullmap":
-		# M acceptance: the WHOLE 2160×2880 vista at 0.5 in one 1080×1440 frame —
-		# all five zones on their painted clearings at a glance
-		scn.vista.scale = Vector2(0.5, 0.5)
-		scn.vista.position = Vector2.ZERO
-		await create_timer(0.3).timeout
-	var pzone := 0                        # which zone's room to open (debug: any, even locked)
+	var pmap := 0                         # which map to open (debug: any, even locked)
 	for wa in args:
 		if String(wa).begins_with("pzone="):
-			pzone = int(String(wa).split("=")[1])
-	if mode == "interior" or mode == "closeup" or mode == "progress" or mode == "owned":
-		scn._open_interior(pzone)         # walk inside (order K)
-		await create_timer(0.6).timeout
+			pmap = int(String(wa).split("=")[1])
+	if mode == "select":
+		scn._open_select()                # the discrete map-select screen
+		await create_timer(0.4).timeout
+	elif mode == "closeup" or mode == "progress" or mode == "owned":
+		scn._open_map(pmap)               # the one-image map view (spots on the image)
+		await create_timer(0.5).timeout
 		if mode == "progress":            # + the inline customize strip, open
-			scn._customize_spot = "fh_chest"
-			scn._build_interior()
+			scn._customize_spot = "fh_hearth"
+			scn._build_map()
 			await create_timer(0.3).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)

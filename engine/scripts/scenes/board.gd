@@ -255,6 +255,7 @@ func _ready() -> void:
 	bottom_bar.add_child(brow)
 	var home_btn := Look.button(tr("◀ Home"), func() -> void:
 		Audio.play("button_tap", -2.0)
+		HomeScene.decorate_zone = String(G.ZONES[G.hub_zone()].id)   # land on the HUB map
 		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
 	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -497,7 +498,11 @@ func _build_hud() -> void:
 	var hud := Hud.build(self, {"water_grant": func() -> void:
 		water = G.WATER_CAP
 		_update_water_hud()
-		_persist()})
+		_persist(),
+		"home": func() -> void:
+			Audio.play("button_tap", -2.0)
+			HomeScene.decorate_zone = String(G.ZONES[G.hub_zone()].id)   # land on the HUB map
+			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
