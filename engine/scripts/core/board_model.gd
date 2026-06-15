@@ -1,7 +1,8 @@
 extends RefCounted
 ## The persistent board model (pure data, fully serializable).
-## Terrain per cell: 0 = open ground; >0 = bramble encoded gate_line*16 + req_tier
-## (gate_line 0 = any line; legacy saves stored the bare tier — same decoding).
+## Terrain per cell: 0 = open ground; >0 = a SEALED obstacle cell (§4). The gate is the player's
+## Level vs the static G.cell_min_level table — NOT the stored value — so legacy saves (the old
+## gate_line*16+tier encoding) still read correctly as "sealed" and need no migration.
 ## Items: line*100 + tier (0 = none). A generator occupies its cell permanently.
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -21,12 +22,6 @@ func _init() -> void:
 			terrain[idx(cell)] = 0 if G.open_at_start(cell) else G.bramble_terrain(cell)
 	for cell in G.STARTER_ITEMS:
 		items[idx(cell)] = int(G.STARTER_ITEMS[cell])
-
-static func gate_line_of(terr: int) -> int:
-	return int(terr / 16.0)
-
-static func gate_req_of(terr: int) -> int:
-	return terr % 16
 
 static func idx(cell: Vector2i) -> int:
 	return cell.x * G.COLS + cell.y
@@ -156,17 +151,14 @@ func take(cell: Vector2i) -> int:
 func place(cell: Vector2i, code: int) -> void:
 	items[idx(cell)] = code
 
-## Brambles adjacent to `cell` that the produced ITEM opens: its tier must meet
-## the requirement, and a line-gated bramble also wants the produced item's line.
-func openable_brambles(cell: Vector2i, produced_code: int) -> Array:
+## Sealed cells adjacent to `cell` that a merge here can open: §4 level-gated — a neighbour
+## opens when the player's Level has reached its G.cell_min_level. The merge is the trigger;
+## the level gates *when* (any merge opens an eligible neighbour — no tier/line requirement).
+func openable_brambles(cell: Vector2i, player_level: int) -> Array:
 	var out: Array = []
 	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 		var n: Vector2i = cell + d
-		if not is_bramble(n):
-			continue
-		var terr := terrain[idx(n)]
-		var gate := gate_line_of(terr)
-		if tier_of(produced_code) >= gate_req_of(terr) and (gate == 0 or gate == line_of(produced_code)):
+		if is_bramble(n) and G.cell_min_level(n) <= player_level:
 			out.append(n)
 	return out
 

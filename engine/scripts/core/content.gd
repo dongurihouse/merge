@@ -17,6 +17,7 @@ const TOP_TIER = D.TOP_TIER
 const LINES = D.LINES
 const GENERATORS = D.GENERATORS
 const GEN_CELL = D.GEN_CELL
+const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
 const STAR_CAP = D.STAR_CAP
@@ -196,29 +197,28 @@ static func live_gen_state(roster: Array, zone: int) -> Dictionary:
 		out[gen_cell_of(roster, String(g.id))] = String(g.id)
 	return out
 
-# --- brambles: terrain = gate_line * 16 + required_tier (gate_line 0 = any line) -
-static func ring_of(cell: Vector2i) -> int:
+# --- the obstacle field (§4): every non-center cell is sealed until the player's Level reaches
+# --- its min_level, then opens on the next adjacent merge. `terrain` is a plain sealed flag
+# --- (0 = open, >0 = sealed); the gate is the STATIC MIN_LEVEL table, never the stored value —
+# --- so legacy saves (old tier-encoded terrain) still read as "sealed" and need no migration.
+static func ring_of(cell: Vector2i) -> int:                # Chebyshev distance — the art band only
 	return maxi(absi(cell.x - GEN_CELL.x), absi(cell.y - GEN_CELL.y))
 
-static func bramble_gate(cell: Vector2i) -> Vector2i:   # (gate_line, required_tier)
-	var ring := ring_of(cell)
-	if ring <= 2:
-		return Vector2i(0, 2)                  # FTUE frontier: any merge
-	if ring == 3:
-		return Vector2i(0, 4)                  # mid board: a real ladder, any line
-	# ring 4 — the screen edge: tier 5 of a late line (3 top half, 4 bottom half)
-	return Vector2i(3 if cell.x < GEN_CELL.x else 4, 5)
-
-static func bramble_terrain(cell: Vector2i) -> int:
-	var g := bramble_gate(cell)
-	return g.x * 16 + g.y
+## The Level a cell unseals at (§4). 0 = open at start (the center 3×3 + the generator). The
+## grove authors a hand-tuned diamond (L2/L3 frontier → L12 corners) in MIN_LEVEL; we read it.
+static func cell_min_level(cell: Vector2i) -> int:
+	return int(MIN_LEVEL[cell.x][cell.y])
 
 static func open_at_start(cell: Vector2i) -> bool:
-	return ring_of(cell) <= 1             # the center 3x3
+	return cell_min_level(cell) == 0
 
+static func bramble_terrain(cell: Vector2i) -> int:        # sealed marker = the min_level (inspectable)
+	return cell_min_level(cell)
+
+## A freshly-opened cell's reward item — a low-tier seed of a positional anchor line. The gate is
+## level-based now, so contents no longer carry a gate line; derive deterministically (lines 1-2).
 static func bramble_contents(cell: Vector2i) -> int:
-	var gate_line := bramble_gate(cell).x
-	var line := gate_line if gate_line > 0 else 1 + (cell.x + cell.y) % 2
+	var line := 1 + (cell.x + cell.y) % 2
 	var tier := 1 + (cell.x * 3 + cell.y) % 2     # t1 or t2
 	return line * 100 + tier
 
