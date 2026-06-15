@@ -231,9 +231,9 @@ static func spend_stars(n: int) -> bool:
 # roster — chest/bed/table… → hearth/kitchen/well/larder/porch/boxes/lantern/fence). This
 # is the ONE permitted code mention of the retired ids — every reader shares grove(), so the
 # rename runs here, once a save touches it, and is naturally idempotent (key and value id
-# sets are disjoint; after the rename the old keys are gone). Migrates BOTH unlocks
-# (ownership) and custom (chosen variant) so counts/stars/looks survive. (A save from a
-# naming TWO renames back isn't chained — pre-launch, disposable; the live model is what matters.)
+# sets are disjoint; after the rename the old keys are gone). Migrates unlocks (ownership),
+# custom (chosen variant), and levels (hub upgrade level) so counts/stars/looks/yield survive.
+# (A save from a naming TWO renames back isn't chained — pre-launch, disposable; the live model is what matters.)
 const _SPOT_ID_RENAMES := {
 	"fh_chest": "fh_hearth", "fh_bed": "fh_kitchen", "fh_table": "fh_well", "fh_rug": "fh_larder",
 	"fh_plant": "fh_porch", "fh_wheel": "fh_boxes", "fh_chair": "fh_lantern", "fh_picture": "fh_fence",
@@ -258,7 +258,7 @@ static func _migrate_exp_to_stars(g: Dictionary) -> void:
 		g.erase("exp")
 
 static func _migrate_spot_ids(g: Dictionary) -> void:
-	for blob_key in ["unlocks", "custom"]:
+	for blob_key in ["unlocks", "custom", "levels"]:
 		var blob: Dictionary = g.get(blob_key, {})
 		for old in _SPOT_ID_RENAMES:
 			if blob.has(old):
@@ -268,6 +268,30 @@ static func _migrate_spot_ids(g: Dictionary) -> void:
 static func grove_write() -> void:
 	_ensure_loaded()
 	save_now()
+
+# --- hub buildables: per-spot upgrade level + yield collection (Core §8 keystone, Part A) ---
+# A restored hub spot is L1, then upgrades along L1→Lⁿ with coins (a richer look AND a higher
+# coin yield, §8/§10). Levels live in the grove blob keyed by spot id — migrated with
+# unlocks/custom on a spot-id rename (_migrate_spot_ids). The hub's accrued yield is swept in
+# one collect-on-return beat; `hub_collected_at` is the unix time of the last sweep (0 = never).
+# Storage only — the yield/upgrade BEHAVIOUR (rates, caps, spend paths) is the keystone's engine
+# + grove work, queued behind the map-model rework (BACKLOG).
+static func spot_level(spot_id: String) -> int:
+	return int(grove().get("levels", {}).get(spot_id, 0))
+
+static func set_spot_level(spot_id: String, level: int) -> void:
+	var g := grove()
+	if not g.has("levels"):
+		g["levels"] = {}
+	g["levels"][spot_id] = level
+	grove_write()
+
+static func hub_collected_at() -> float:
+	return float(grove().get("hub_collected_at", 0.0))
+
+static func set_hub_collected_at(t: float) -> void:
+	grove()["hub_collected_at"] = t
+	grove_write()
 
 # --- settings -----------------------------------------------------------------
 
