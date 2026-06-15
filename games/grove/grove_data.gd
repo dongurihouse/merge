@@ -254,3 +254,17 @@ const BAG_SLOTS := 2
 const BASKET_CAP := 3            # the merchant's buy-back basket size
 const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
 const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)
+
+# §14 FTUE feature-spotlight registry (T28). The staged features the game announces
+# on FIRST appearance — a spotlight + pulse + a mimed hand gesture showing how to use
+# them — IN the order they unlock over the early levels (chrome stages merchant ch1+,
+# bag ch2+; the shop sits in the bottom bar from the start). The engine reads this
+# table game-agnostically (Spotlight.gesture_for / feature_order); the merge verb is
+# NOT here — the idle hint teaches it (§14). `gesture`: "tap" = a mimed finger-tap
+# scale-pulse at the target; "drag" = a finger gliding along a short path (sell/stow).
+# `label` is the wordless-friendly one-liner the overlay may caption (all via tr()).
+const SPOTLIGHTS := [
+	{"id": "merchant", "gesture": "drag", "label": "Drag a top item here to sell"},
+	{"id": "bag", "gesture": "drag", "label": "Drag a piece here to tuck it away"},
+	{"id": "shop", "gesture": "tap", "label": "Tap to visit the shop"},
+]

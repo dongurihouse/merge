@@ -19,6 +19,8 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
+const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
@@ -86,6 +88,8 @@ var chapter_label: Label
 var bag_slots_ui: Array = []
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
 var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
+var shop_btn: Button             # T28: kept as a member so the §14 spotlight can target it
+var _spotlight_active := false   # T28: one spotlight at a time (don't stack overlays)
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
@@ -260,7 +264,7 @@ func _ready() -> void:
 	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	brow.add_child(home_btn)
-	var shop_btn := Button.new()        # the Store, relocated from the top cluster
+	shop_btn = Button.new()             # the Store, relocated from the top cluster
 	shop_btn.flat = true
 	shop_btn.focus_mode = Control.FOCUS_NONE
 	shop_btn.custom_minimum_size = Vector2(58, 58)
@@ -1151,6 +1155,56 @@ func _rebuild_all() -> void:
 	_rebuild_givers()
 	_rebuild_bag()
 	_update_hud()
+	_maybe_spotlight_chrome()
+
+# T28 (§14): the instant a staged chrome feature FIRST appears, announce it once — a
+# spotlight + pulse over it and a mimed tap/drag guide. Driven from _rebuild_all (which
+# runs on every state change), but the first-appearance GATE (Spotlight.should_spotlight)
+# fires each only once, ever. Target rects must be laid out, so resolve on the next frame.
+# Only the chrome that is currently VISIBLE is eligible (merchant ch1+, bag ch2+, §14).
+func _maybe_spotlight_chrome() -> void:
+	if not Features.on("ftue_feature_spotlight"):
+		return
+	# nothing eligible? skip the deferred work entirely.
+	if Spotlight.should_spotlight("merchant") or Spotlight.should_spotlight("bag") \
+			or Spotlight.should_spotlight("shop"):
+		_spotlight_chrome_deferred.call_deferred()
+
+func _spotlight_chrome_deferred() -> void:
+	await get_tree().process_frame              # let busts/slots get real global rects
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	# one at a time, in the staged order, so we never stack overlays. Merchant first
+	# (appears earliest), then the bag, then the shop.
+	if merchant_chip != null and is_instance_valid(merchant_chip) and Spotlight.should_spotlight("merchant"):
+		_show_spotlight("merchant", merchant_chip)
+		return
+	if bag_bar != null and bag_bar.visible and not bag_slots_ui.is_empty() \
+			and is_instance_valid(bag_slots_ui[0]) and Spotlight.should_spotlight("bag"):
+		_show_spotlight("bag", bag_slots_ui[0])
+		return
+	if shop_btn != null and is_instance_valid(shop_btn) and Spotlight.should_spotlight("shop"):
+		_show_spotlight("shop", shop_btn)
+
+# Present the §14 overlay for `feature_id` over `target` and mark it spotlit (so it never
+# re-announces). One overlay at a time; the gesture/caption come from the game's registry.
+# The completion callback is a BOUND method (not a self-capturing lambda) so a torn-down
+# scene leaves an auto-invalidated Callable, never a "freed capture" error.
+func _show_spotlight(feature_id: String, target: Control) -> void:
+	if _spotlight_active:
+		return
+	_spotlight_active = true
+	Spotlight.mark_spotlit(feature_id)          # record now — announced exactly once
+	var ov := SpotlightOverlay.present(self, target, Spotlight.gesture_for(feature_id),
+		tr(Spotlight.label_for(feature_id)), Callable(self, "_on_spotlight_done"))
+	if ov == null:                              # flag flipped off mid-call → release the latch
+		_spotlight_active = false
+
+# A spotlight was dismissed: release the latch and chain to the next staged feature that
+# may already be visible (so merchant → bag → shop announce one after another).
+func _on_spotlight_done() -> void:
+	_spotlight_active = false
+	_maybe_spotlight_chrome()
 
 func _rebuild_pieces() -> void:
 	for n in piece_nodes.values():

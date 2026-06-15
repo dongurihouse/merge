@@ -293,6 +293,25 @@ static func set_hub_collected_at(t: float) -> void:
 	grove()["hub_collected_at"] = t
 	grove_write()
 
+# --- FTUE feature-spotlight seen-state (Core §14 / T28) -------------------------
+# Which staged features have already been spotlit (so a feature is announced exactly
+# ONCE, ever). Lives in the grove blob keyed by feature id; absent on old saves and
+# defaulted empty via the deep-merge-over-defaults path (no migration). The §14
+# first-appearance gate (engine/scripts/core/spotlight.gd) reads + records here.
+static func spotlights_seen() -> Array:
+	return Array(grove().get("spotlights_seen", []))
+
+static func spotlight_seen(feature_id: String) -> bool:
+	return spotlights_seen().has(feature_id)
+
+static func mark_spotlight_seen(feature_id: String) -> void:
+	var g := grove()
+	var seen: Array = g.get("spotlights_seen", [])
+	if not seen.has(feature_id):
+		seen.append(feature_id)
+		g["spotlights_seen"] = seen
+		grove_write()
+
 # --- settings -----------------------------------------------------------------
 
 static func get_setting(key: String, def: bool = true) -> bool:
