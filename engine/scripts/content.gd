@@ -58,10 +58,14 @@ const PORTER_SECS = D.PORTER_SECS
 const TREAT_COST = D.TREAT_COST
 
 # --- generators ------------------------------------------------------------------
+## The generators LIVE right now = the current zone's set (per zone, §6 — not the old
+## per-chapter accumulation). The zone is read off the spot-count `chapter`; the live set
+## switches when the player crosses into the next zone (the interim "grant on zone entry").
 static func active_gen_indices(chapter: int) -> Array:
+	var zone := zone_of_chapter(chapter)
 	var out: Array = []
 	for i in GENERATORS.size():
-		if chapter >= int(GENERATORS[i].appears_at):
+		if int(GENERATORS[i].zone) == zone:
 			out.append(i)
 	return out
 
@@ -79,11 +83,111 @@ static func lines_debuted(chapter: int) -> Array:
 				out.append(int(l))
 	return out
 
-static func line_debut_chapter(line: int) -> int:
-	for gen in GENERATORS:
-		if gen.lines.has(line):
-			return int(gen.appears_at)
-	return 0
+# --- per-zone generator roster (the merge-to-evolve model, §6) --------------------
+# A roster is an Array of {id, zone, lines:[a,b], evolves_from}. evolves_from = the
+# id of the previous-zone generator this one upgrades (consumed on evolve); "" means
+# granted outright (a zone's surplus, or zone 0's starters). Pure derivation — the
+# live code passes GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
+static func generators_for_zone(roster: Array, zone: int) -> Array:
+	var out: Array = []
+	for g in roster:
+		if int(g.zone) == zone:
+			out.append(g)
+	return out
+
+## The lines LIVE while the player is in `zone` — its generators' lines only (older
+## zones' lines have retired, §6). Replaces the accumulating lines_debuted(chapter).
+static func lines_for_zone(roster: Array, zone: int) -> Array:
+	var out: Array = []
+	for g in generators_for_zone(roster, zone):
+		for l in g.lines:
+			if not out.has(int(l)):
+				out.append(int(l))
+	return out
+
+## Lines that have RETIRED by the time you reach `zone` — every earlier zone's lines.
+## A retired line is never popped or asked again (it archives to the Collection — that
+## hook is a separate task; here it simply drops out of the live set).
+static func retired_lines(roster: Array, zone: int) -> Array:
+	var out: Array = []
+	for z in zone:
+		for l in lines_for_zone(roster, z):
+			if not out.has(int(l)):
+				out.append(int(l))
+	return out
+
+## The evolve lineage: {grant_id -> consumed_predecessor_id} for every generator that
+## upgrades an older one. Surplus (granted-outright) generators are absent.
+static func evolve_map(roster: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for g in roster:
+		if String(g.evolves_from) != "":
+			out[String(g.id)] = String(g.evolves_from)
+	return out
+
+## The ids of a zone's generators that are granted OUTRIGHT (no predecessor to evolve).
+static func surplus_gen_ids(roster: Array, zone: int) -> Array:
+	var out: Array = []
+	for g in generators_for_zone(roster, zone):
+		if String(g.evolves_from) == "":
+			out.append(String(g.id))
+	return out
+
+static func gen_def(roster: Array, id: String) -> Dictionary:
+	for g in roster:
+		if String(g.id) == id:
+			return g
+	return {}
+
+## The lines currently LIVE = the union of the lines of every generator on the board.
+## `gen_state` maps cell (Vector2i) -> generator id. Sorted, deduped. A line drops out
+## of this set the moment its generator is consumed by an evolve — that IS retirement.
+static func gen_live_lines(gen_state: Dictionary, roster: Array) -> Array:
+	var out: Array = []
+	for cell in gen_state:
+		for l in gen_def(roster, String(gen_state[cell])).get("lines", []):
+			if not out.has(int(l)):
+				out.append(int(l))
+	out.sort()
+	return out
+
+## A grant generator may evolve onto `old_cell` iff that cell holds the exact generator
+## the grant declares as its predecessor (`evolves_from`). A surplus grant ("") never
+## evolves — it is placed on a fresh cell instead.
+static func gen_can_evolve(gen_state: Dictionary, roster: Array, old_cell: Vector2i, grant_id: String) -> bool:
+	if not gen_state.has(old_cell):
+		return false
+	var grant := gen_def(roster, grant_id)
+	if grant.is_empty() or String(grant.evolves_from) == "":
+		return false
+	return String(grant.evolves_from) == String(gen_state[old_cell])
+
+## Evolve: the grant generator consumes the one at `old_cell` and takes its place — the
+## old generator's lines retire, the grant's go live (§6). Returns a NEW state (the input
+## is left untouched); an invalid evolve is a no-op. The caller clears the grant's own
+## board piece and flags the retired lines for the Collection (a separate task).
+static func gen_evolve(gen_state: Dictionary, roster: Array, old_cell: Vector2i, grant_id: String) -> Dictionary:
+	var out: Dictionary = gen_state.duplicate(true)
+	if gen_can_evolve(gen_state, roster, old_cell, grant_id):
+		out[old_cell] = grant_id
+	return out
+
+## The cell a generator occupies — its own `cell` if granted outright, else (an evolved
+## generator) the cell of the predecessor it grew from, walked up the lineage to the root.
+static func gen_cell_of(roster: Array, id: String) -> Vector2i:
+	var g := gen_def(roster, id)
+	while not g.is_empty() and String(g.evolves_from) != "":
+		g = gen_def(roster, String(g.evolves_from))
+	return g.get("cell", Vector2i(-1, -1))
+
+## The live generator set for a zone: {cell -> id} for each of the zone's generators,
+## evolved ones inheriting their lineage cell. The interim "grant on zone entry" resolver
+## — §7's grant quests will drive the same end state one evolve at a time.
+static func live_gen_state(roster: Array, zone: int) -> Dictionary:
+	var out: Dictionary = {}
+	for g in generators_for_zone(roster, zone):
+		out[gen_cell_of(roster, String(g.id))] = String(g.id)
+	return out
 
 # --- brambles: terrain = gate_line * 16 + required_tier (gate_line 0 = any line) -
 static func ring_of(cell: Vector2i) -> int:
@@ -135,8 +239,6 @@ static func chapters() -> Array:
 		for q in int(ramp.quests):
 			var line: int = lines[(i + q) % lines.size()]
 			var t: int = lo + ((i + q * 2) % (hi - lo + 1))
-			if line > 2 and zone_of_chapter(line_debut_chapter(line)) == z:
-				t = mini(t, 3)               # a freshly debuted line eases in for its zone
 			var cnt := 1
 			if int(ramp.two_count_every) > 0 and q == 0 and (i % int(ramp.two_count_every)) == 0:
 				cnt = 2
@@ -166,8 +268,6 @@ static func _stretch_asks(z: int, i: int, sidx: int, lines: Array, lo: int, hi: 
 	for a in n:
 		var line: int = lines[(i + sidx + a) % lines.size()]
 		var t: int = lo + ((i + sidx * 2 + a) % (hi - lo + 1))
-		if line > 2 and zone_of_chapter(line_debut_chapter(line)) == z:
-			t = mini(t, 3)
 		asks.append({"line": line, "tier": t, "count": 1})
 	return asks
 

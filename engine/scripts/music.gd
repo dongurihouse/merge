@@ -1,5 +1,5 @@
 extends RefCounted
-## Tidy Up — ONE continuous ambient playlist across every screen (order O).
+## ONE continuous ambient playlist across every screen (order O).
 ## Two takes (assets/music/amb_grove1+2, .ogg wins over .mp3) alternate A↔B
 ## forever on `finished` — no crossfade, the material is near-silence. The
 ## player lives on root, so scene swaps never cut the audio. ensure() is
@@ -8,8 +8,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/save.gd")
 const Game = preload("res://engine/scripts/game.gd")
-
-const VOLUME_DB := -8.0
+const Tune = preload("res://engine/scripts/tuning.gd").Music   # the engine's music dials
 
 static var _player: AudioStreamPlayer
 static var _take := 0              # index of the take last started
@@ -69,7 +68,7 @@ static func _start(path: String) -> void:
 	if stream is AudioStreamOggVorbis or stream is AudioStreamMP3:
 		stream.loop = false
 	_player.stream = stream
-	_player.volume_db = VOLUME_DB
+	_player.volume_db = Tune.VOLUME_DB
 	# the player may still be entering the tree (add_child was deferred from a
 	# scene's _ready) — playing before it's inside the tree errors, so defer too
 	if _player.is_inside_tree():

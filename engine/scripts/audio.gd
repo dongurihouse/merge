@@ -1,12 +1,14 @@
 extends RefCounted
-## Tidy Up — tiny SFX helper (preload + static; no autoload needed).
+## Tiny SFX helper (preload + static; no autoload needed).
 ##   const Audio = preload("res://engine/scripts/audio.gd")
 ##   Audio.play("merge_success")
-## Loads everything in assets/sfx/ once and round-robins a small player pool so
-## sounds can overlap. Missing files are silently skipped.
+## Loads the named effects (FILES) from the active game's audio root once and
+## round-robins a small player pool so sounds can overlap. Missing files are
+## silently skipped.
 
 const Save = preload("res://engine/scripts/save.gd")
 const Game = preload("res://engine/scripts/game.gd")
+const Tune = preload("res://engine/scripts/tuning.gd").Audio   # the engine's audio dials
 
 const FILES := [
 	"button_tap", "invalid_soft", "item_drop", "item_pickup",
@@ -27,7 +29,7 @@ static func _ensure() -> void:
 		var p := Game.sound("sfx/%s.wav" % n)
 		if ResourceLoader.exists(p):
 			_sounds[n] = load(p)
-	for i in 8:
+	for i in Tune.VOICES:
 		var pl := AudioStreamPlayer.new()
 		root.add_child(pl)
 		_players.append(pl)

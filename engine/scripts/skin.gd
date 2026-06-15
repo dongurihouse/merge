@@ -1,10 +1,12 @@
 extends RefCounted
-## Tidy Up — shared UI skin helpers (background + buttons), so menu/board/room
+## Shared UI skin helpers (background + buttons), so menu/board/room
 ## look consistent. Preload: const Skin = preload("res://engine/scripts/skin.gd").
+## Metrics live in Tune (engine/scripts/tuning.gd → class Skin); colours in Pal.
 
 const Features = preload("res://engine/scripts/features.gd")
 const Game = preload("res://engine/scripts/game.gd")
 const Pal = Game.PALETTE
+const Tune = preload("res://engine/scripts/tuning.gd").UiSkin   # the engine's skin metrics
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -31,7 +33,7 @@ static func safe_bottom(ctrl: Control) -> float:
 ## Cozy room background + a dark scrim (so foreground UI/tiles pop). Optional art
 ## override (e.g. a district backdrop); falls back to the bedroom, then flat color.
 ## Returns the TextureRect (null on the flat fallback) so callers can swap it later.
-static func background(host: Control, scrim_alpha: float = 0.5, art_path: String = "") -> TextureRect:
+static func background(host: Control, scrim_alpha: float = Tune.BG_SCRIM_ALPHA, art_path: String = "") -> TextureRect:
 	var path := art_path if (art_path != "" and ResourceLoader.exists(art_path)) else ""
 	if ResourceLoader.exists(path):
 		var bg := TextureRect.new()
@@ -54,7 +56,7 @@ static func background(host: Control, scrim_alpha: float = 0.5, art_path: String
 	return null
 
 ## The coin marker: generated coin art when present, else the classic gold disc.
-static func coin_icon(px: float = 34.0) -> Control:
+static func coin_icon(px: float = Tune.COIN_PX) -> Control:
 	if ResourceLoader.exists(Game.art("ui/coin.png")):
 		var t := TextureRect.new()
 		t.texture = load(Game.art("ui/coin.png"))
@@ -69,12 +71,12 @@ static func coin_icon(px: float = 34.0) -> Control:
 	cstyle.bg_color = Pal.GOLD
 	cstyle.set_corner_radius_all(int(px / 2.0))
 	cstyle.border_color = Pal.COIN_EDGE
-	cstyle.set_border_width_all(3)
+	cstyle.set_border_width_all(Tune.COIN_BORDER_W)
 	coin.add_theme_stylebox_override("panel", cstyle)
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return coin
 
-## --- THE KIT (GROVE_UI_SPEC §1/§3/§4) — one source for panels, icons, chips. ---
+## --- THE KIT — one source for panels, icons, chips. ------------------------------
 ## Everything ships twice: kit art when generated, code-drawn fallback with the
 ## SAME metrics until then. No component invents its own StyleBox again.
 
@@ -89,64 +91,64 @@ const ICON_GLYPHS := {
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
-## The three surfaces (§1): plank (ground band) · parchment (card) · chip.
+## The three surfaces: plank (ground band) · parchment (card) · chip.
 static func kit_panel(kind: String) -> StyleBox:
 	var p := kit("panel_%s.png" % kind)
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)
-		sbt.set_texture_margin_all(96.0)        # 512 source — corners never stretch
+		sbt.set_texture_margin_all(Tune.KIT_TEX_MARGIN)        # 512 source — corners never stretch
 		match kind:
 			"plank":
-				sbt.content_margin_left = 18.0
-				sbt.content_margin_right = 18.0
-				sbt.content_margin_top = 14.0
-				sbt.content_margin_bottom = 14.0
+				sbt.content_margin_left = Tune.PLANK_PAD_X
+				sbt.content_margin_right = Tune.PLANK_PAD_X
+				sbt.content_margin_top = Tune.PLANK_PAD_Y
+				sbt.content_margin_bottom = Tune.PLANK_PAD_Y
 			"chip":
-				sbt.content_margin_left = 16.0
-				sbt.content_margin_right = 16.0
-				sbt.content_margin_top = 6.0
-				sbt.content_margin_bottom = 6.0
+				sbt.content_margin_left = Tune.CHIP_PAD_X
+				sbt.content_margin_right = Tune.CHIP_PAD_X
+				sbt.content_margin_top = Tune.CHIP_PAD_Y
+				sbt.content_margin_bottom = Tune.CHIP_PAD_Y
 			_:
-				sbt.content_margin_left = 26.0
-				sbt.content_margin_right = 26.0
-				sbt.content_margin_top = 20.0
-				sbt.content_margin_bottom = 22.0
+				sbt.content_margin_left = Tune.PARCH_PAD_X
+				sbt.content_margin_right = Tune.PARCH_PAD_X
+				sbt.content_margin_top = Tune.PARCH_PAD_T
+				sbt.content_margin_bottom = Tune.PARCH_PAD_B
 		return sbt
 	var sb := StyleBoxFlat.new()
 	match kind:
 		"plank":
-			sb.bg_color = Color(Pal.PLANK, 0.94)
-			sb.set_corner_radius_all(18)
-			sb.set_border_width_all(4)
+			sb.bg_color = Color(Pal.PLANK, Tune.PLANK_ALPHA)
+			sb.set_corner_radius_all(Tune.PLANK_RADIUS)
+			sb.set_border_width_all(Tune.PLANK_BORDER_W)
 			sb.border_color = Pal.PLANK_EDGE
-			sb.content_margin_left = 18.0
-			sb.content_margin_right = 18.0
-			sb.content_margin_top = 14.0
-			sb.content_margin_bottom = 14.0
+			sb.content_margin_left = Tune.PLANK_PAD_X
+			sb.content_margin_right = Tune.PLANK_PAD_X
+			sb.content_margin_top = Tune.PLANK_PAD_Y
+			sb.content_margin_bottom = Tune.PLANK_PAD_Y
 		"chip":
-			sb.bg_color = Color(Pal.INK, 0.62)
-			sb.set_corner_radius_all(20)
-			sb.content_margin_left = 16.0
-			sb.content_margin_right = 16.0
-			sb.content_margin_top = 6.0
-			sb.content_margin_bottom = 6.0
+			sb.bg_color = Color(Pal.INK, Tune.CHIP_ALPHA)
+			sb.set_corner_radius_all(Tune.CHIP_RADIUS)
+			sb.content_margin_left = Tune.CHIP_PAD_X
+			sb.content_margin_right = Tune.CHIP_PAD_X
+			sb.content_margin_top = Tune.CHIP_PAD_Y
+			sb.content_margin_bottom = Tune.CHIP_PAD_Y
 		_:                                       # parchment
 			sb.bg_color = Pal.CREAM
-			sb.set_corner_radius_all(26)
-			sb.set_border_width_all(5)
+			sb.set_corner_radius_all(Tune.PARCH_RADIUS)
+			sb.set_border_width_all(Tune.PARCH_BORDER_W)
 			sb.border_color = Pal.BARK
-			sb.shadow_color = Color(0, 0, 0, 0.3)
-			sb.shadow_size = 8
-			sb.shadow_offset = Vector2(0, 5)
-			sb.content_margin_left = 26.0
-			sb.content_margin_right = 26.0
-			sb.content_margin_top = 20.0
-			sb.content_margin_bottom = 22.0
+			sb.shadow_color = Tune.PARCH_SHADOW
+			sb.shadow_size = Tune.PARCH_SHADOW_SIZE
+			sb.shadow_offset = Tune.PARCH_SHADOW_OFFSET
+			sb.content_margin_left = Tune.PARCH_PAD_X
+			sb.content_margin_right = Tune.PARCH_PAD_X
+			sb.content_margin_top = Tune.PARCH_PAD_T
+			sb.content_margin_bottom = Tune.PARCH_PAD_B
 	return sb
 
-## One icon (§3): kit sprite when generated, else today's glyph in a Label.
-static func icon(id: String, px: float = 28.0) -> Control:
+## One icon: kit sprite when generated, else today's glyph in a Label.
+static func icon(id: String, px: float = Tune.ICON_PX) -> Control:
 	var p := kit("icon_%s.png" % id)
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()
@@ -169,13 +171,13 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", kit_panel("chip"))
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
+	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
 	panel.add_child(row)
-	var ic := icon(icon_id, 28.0)
+	var ic := icon(icon_id, Tune.ICON_PX)
 	row.add_child(ic)
 	var lbl := Label.new()
 	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 34)
+	lbl.add_theme_font_size_override("font_size", Tune.STAT_NUM_SIZE)
 	lbl.add_theme_color_override("font_color", Pal.CREAM)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lbl)
@@ -187,19 +189,19 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 ## chip's ~66px height and collapse it to invisible (the chapter title AND both
 ## shop titles shipped as floating text that way). Returns a PanelContainer whose
 ## only child is the centered Label (caller reads get_child(0) if it needs to update text).
-static func title_ribbon(text: String, font_px: int = 32) -> PanelContainer:
+static func title_ribbon(text: String, font_px: int = Tune.TITLE_SIZE) -> PanelContainer:
 	var p := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(Pal.PILL, 0.96)
-	sb.set_corner_radius_all(20)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(Pal.PILL_EDGE, 0.9)
-	sb.shadow_color = Color(0, 0, 0, 0.22)
-	sb.shadow_size = 5
-	sb.content_margin_left = 30.0
-	sb.content_margin_right = 30.0
-	sb.content_margin_top = 7.0
-	sb.content_margin_bottom = 9.0
+	sb.bg_color = Color(Pal.PILL, Tune.TITLE_BG_ALPHA)
+	sb.set_corner_radius_all(Tune.TITLE_RADIUS)
+	sb.set_border_width_all(Tune.TITLE_BORDER_W)
+	sb.border_color = Color(Pal.PILL_EDGE, Tune.TITLE_EDGE_ALPHA)
+	sb.shadow_color = Tune.TITLE_SHADOW
+	sb.shadow_size = Tune.TITLE_SHADOW_SIZE
+	sb.content_margin_left = Tune.TITLE_PAD_X
+	sb.content_margin_right = Tune.TITLE_PAD_X
+	sb.content_margin_top = Tune.TITLE_PAD_T
+	sb.content_margin_bottom = Tune.TITLE_PAD_B
 	p.add_theme_stylebox_override("panel", sb)
 	var l := Label.new()
 	l.text = text
@@ -210,25 +212,25 @@ static func title_ribbon(text: String, font_px: int = 32) -> PanelContainer:
 	p.add_child(l)
 	return p
 
-## The §6 press juice: scale dip on touch, overshoot on release. Every button.
+## The press juice: scale dip on touch, overshoot on release. Every button.
 static func add_press_juice(b: Button) -> void:
 	if not Features.on("press_juice"):
 		return
 	b.button_down.connect(func() -> void:
 		b.pivot_offset = b.size / 2.0
 		var tw := b.create_tween()
-		tw.tween_property(b, "scale", Vector2(0.96, 0.96), 0.05))
+		tw.tween_property(b, "scale", Tune.PRESS_DOWN_SCALE, Tune.PRESS_DOWN_T))
 	b.button_up.connect(func() -> void:
 		var tw := b.create_tween()
-		tw.tween_property(b, "scale", Vector2(1.03, 1.03), 0.05)
-		tw.tween_property(b, "scale", Vector2.ONE, 0.04))
+		tw.tween_property(b, "scale", Tune.PRESS_UP_SCALE, Tune.PRESS_UP_T)
+		tw.tween_property(b, "scale", Vector2.ONE, Tune.PRESS_SETTLE_T))
 
 ## A poppy rounded button. primary = warm peach CTA; else a soft raised card.
 static func button(text: String, cb: Callable, primary: bool = false, tap: Callable = Callable()) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(190, 88)
-	b.add_theme_font_size_override("font_size", 32)
+	b.custom_minimum_size = Tune.BTN_MIN_SIZE
+	b.add_theme_font_size_override("font_size", Tune.BTN_SIZE)
 	b.add_theme_constant_override("outline_size", 0)   # panel-text law: solid pill = the contrast, no halo
 	b.focus_mode = Control.FOCUS_NONE
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -247,26 +249,26 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 		b.add_theme_color_override("font_pressed_color", Pal.CREAM)
 		b.add_theme_color_override("font_hover_color", Pal.CREAM)
 	else:
-		s.bg_color = Color(Pal.PILL, 0.97)        # cream (HUD pill language)
-		s.border_color = Color(Pal.PILL_EDGE, 0.9)
+		s.bg_color = Color(Pal.PILL, Tune.BTN_PILL_ALPHA)        # cream (HUD pill language)
+		s.border_color = Color(Pal.PILL_EDGE, Tune.BTN_EDGE_ALPHA)
 		b.add_theme_color_override("font_color", Pal.INK)
 		b.add_theme_color_override("font_pressed_color", Pal.INK)
 		b.add_theme_color_override("font_hover_color", Pal.INK)
-	s.set_corner_radius_all(28)
-	s.set_border_width_all(3)
-	s.shadow_color = Color(0, 0, 0, 0.30)
-	s.shadow_size = 5
-	s.shadow_offset = Vector2(0, 3)
-	s.content_margin_left = 30.0
-	s.content_margin_right = 30.0
-	s.content_margin_top = 12.0
-	s.content_margin_bottom = 14.0
+	s.set_corner_radius_all(Tune.BTN_RADIUS)
+	s.set_border_width_all(Tune.BTN_BORDER_W)
+	s.shadow_color = Tune.BTN_SHADOW
+	s.shadow_size = Tune.BTN_SHADOW_SIZE
+	s.shadow_offset = Tune.BTN_SHADOW_OFFSET
+	s.content_margin_left = Tune.BTN_PAD_X
+	s.content_margin_right = Tune.BTN_PAD_X
+	s.content_margin_top = Tune.BTN_PAD_T
+	s.content_margin_bottom = Tune.BTN_PAD_B
 	b.add_theme_stylebox_override("normal", s)
 	b.add_theme_stylebox_override("hover", s)
 	var sp := s.duplicate()
-	sp.bg_color = s.bg_color.darkened(0.10)
-	sp.shadow_size = 2
-	sp.shadow_offset = Vector2(0, 1)
+	sp.bg_color = s.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
+	sp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
+	sp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
 	b.add_theme_stylebox_override("pressed", sp)
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER   # S6: label centered in the pill
 	add_press_juice(b)

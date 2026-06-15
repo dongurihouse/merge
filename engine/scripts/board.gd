@@ -1,5 +1,5 @@
 extends Control
-## Ghibli Grove — P1 core feel (TIDY_UP_V2_SPEC §9 P1, water OFF).
+## The board — P1 core feel (water OFF).
 ## One persistent SAVED board: tap the seed satchel to pop items (random tier,
 ## ask-weighted line), drag matching plants together to grow them, merge beside
 ## brambles to clear them, drag onto empty ground to rearrange, stash in the Bag,
@@ -8,7 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/content.gd")
-const GroveBoard = preload("res://engine/scripts/grove_board.gd")
+const BoardModel = preload("res://engine/scripts/board_model.gd")
 const Save = preload("res://engine/scripts/save.gd")
 const Audio = preload("res://engine/scripts/audio.gd")
 const Music = preload("res://engine/scripts/music.gd")
@@ -45,7 +45,7 @@ const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
-var board: GroveBoard
+var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var qdone: Array = []
 var qdone_chapter := -1            # which chapter qdone belongs to (chapter = spots bought)
@@ -88,7 +88,7 @@ var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
-var _gen_tap := false
+var _drag_is_gen := false          # the current drag picked up a generator (movable/evolve, T17)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
 var animating := false
@@ -315,16 +315,16 @@ func _hint_pair() -> Array:
 		if k <= 0:
 			continue
 		var top: int = G.COIN_TOP if G.is_coin(k) else G.TOP_TIER
-		if GroveBoard.tier_of(k) >= top:
+		if BoardModel.tier_of(k) >= top:
 			continue
 		if seen.has(k):
-			var pair: Array = [seen[k], GroveBoard.cell_of(i)]
+			var pair: Array = [seen[k], BoardModel.cell_of(i)]
 			for cell in pair:
 				var n: Control = piece_nodes.get(cell)
 				if n != null and is_instance_valid(n):
 					FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
 			return pair
-		seen[k] = GroveBoard.cell_of(i)
+		seen[k] = BoardModel.cell_of(i)
 	return []
 
 func _board_w() -> float:
@@ -336,7 +336,7 @@ func _board_h() -> float:
 # --- state ----------------------------------------------------------------------
 
 func _load_state() -> void:
-	board = GroveBoard.new()
+	board = BoardModel.new()
 	var now := Time.get_unix_time_from_system()
 	var g := Save.grove()
 	if g.has("board"):
@@ -360,7 +360,8 @@ func _load_state() -> void:
 		_regen_ts = now
 		_reset_qdone()
 		_persist()
-	board.set_active_gens(_chapter_idx())
+	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
+		board.seed_gens(G.zone_of_chapter(_chapter_idx()))   # seed the current zone's set (migration)
 	if qdone_chapter != _chapter_idx() or qdone.size() != _chapter().quests.size():
 		_reset_qdone()
 	for v in board.items:                # everything already growing counts as met
@@ -990,7 +991,7 @@ func _hide_sell_affordance() -> void:
 # W3: the first time a MAX-TIER item lands on the board, a one-time floater points
 # the player at the stall (persisted seen-flag — never nags twice).
 func _note_item_landed(code: int) -> void:
-	if not Features.on("sell_hints") or G.is_coin(code) or GroveBoard.tier_of(code) < G.TOP_TIER:
+	if not Features.on("sell_hints") or G.is_coin(code) or BoardModel.tier_of(code) < G.TOP_TIER:
 		return
 	var g := Save.grove()
 	if bool(g.get("seen_sell_hint", false)):
@@ -1064,30 +1065,18 @@ func _rebuild_all() -> void:
 				board_area.add_child(br)
 				bramble_nodes[cell] = br
 	gen_nodes.clear()
-	for gi in G.active_gen_indices(_chapter_idx()):
-		var gn := _make_generator(gi)
-		gn.position = _cell_pos(Vector2i(G.GENERATORS[gi].cell))
+	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
+		var gn := _make_generator(String(board.gens[cell]))
+		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
-		gen_nodes[gi] = gn
-	gen_node = gen_nodes.get(0)
-	# V1: locked generators preview — the moment a bramble gated on a generator's
-	# line is REVEALED, its future cell shows a greyed silhouette + "after N spots"
-	# so the edge stops reading as impossible. (The cell stays bramble; no gameplay
-	# change — tapping it just floats the name.)
+		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move / evolve in place)
+	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
+	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
+	# per-chapter `appears_at`. Under per-zone generators the next set arrives on zone
+	# COMPLETION, not after N spots — the preview needs redefining (show the next zone's
+	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
 	gen_preview_cells.clear()
-	if Features.on("gen_preview"):
-		var ch := _chapter_idx()
-		for gi in G.GENERATORS.size():
-			if ch >= int(G.GENERATORS[gi].appears_at):
-				continue                     # already arrived (rendered above)
-			if not _gen_line_revealed(gi):
-				continue
-			var cell := Vector2i(G.GENERATORS[gi].cell)
-			var pv := _make_gen_preview(gi)
-			pv.position = _cell_pos(cell)
-			board_area.add_child(pv)
-			gen_preview_cells[cell] = gi
 	_rebuild_pieces()
 	_rebuild_givers()
 	_rebuild_bag()
@@ -1187,7 +1176,7 @@ func _make_piece(code: int, size: float) -> Control:
 	# coins: a gold disc with its value (tap to pocket)
 	if G.is_coin(code):
 		var cdisc := Panel.new()
-		var cd := size * (0.5 + 0.1 * GroveBoard.tier_of(code))
+		var cd := size * (0.5 + 0.1 * BoardModel.tier_of(code))
 		cdisc.size = Vector2(cd, cd)
 		cdisc.position = (Vector2(size, size) - cdisc.size) / 2.0
 		var csb := StyleBoxFlat.new()
@@ -1209,8 +1198,8 @@ func _make_piece(code: int, size: float) -> Control:
 		holder.add_child(clbl)
 		return holder
 	# placeholder: line-colored disc that grows with tier + tier number
-	var tier := GroveBoard.tier_of(code)
-	var line := GroveBoard.line_of(code)
+	var tier := BoardModel.tier_of(code)
+	var line := BoardModel.line_of(code)
 	var disc := Panel.new()
 	var dsz := size * (0.5 + 0.06 * tier)
 	disc.size = Vector2(dsz, dsz)
@@ -1324,9 +1313,9 @@ func _make_board_mat() -> Control:
 
 
 func _make_bramble(cell: Vector2i) -> Control:
-	var terr: int = board.terrain[GroveBoard.idx(cell)]
-	var req := GroveBoard.gate_req_of(terr)
-	var gate := GroveBoard.gate_line_of(terr)
+	var terr: int = board.terrain[BoardModel.idx(cell)]
+	var req := BoardModel.gate_req_of(terr)
+	var gate := BoardModel.gate_line_of(terr)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
@@ -1393,13 +1382,14 @@ func _make_bramble(cell: Vector2i) -> Control:
 	holder.add_child(badge)
 	return holder
 
-func _make_generator(gi: int = 0) -> Control:
+func _make_generator(id: String) -> Control:
+	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path: String = Game.art(G.GENERATORS[gi].tex)
+	var path: String = Game.art(String(gdef.get("tex", "")))
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.texture = load(path)
@@ -1420,7 +1410,7 @@ func _make_generator(gi: int = 0) -> Control:
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(p)
 	var lbl := Label.new()
-	lbl.text = tr(String(G.GENERATORS[gi].label))
+	lbl.text = tr(String(gdef.get("label", id)))
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1428,68 +1418,6 @@ func _make_generator(gi: int = 0) -> Control:
 	lbl.add_theme_color_override("font_color", CREAM)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(lbl)
-	return holder
-
-# V1: a locked generator's line is "revealed" once any bramble gated on that line
-# sits next to an open cell — i.e. the player has expanded to meet it.
-func _gen_line_revealed(gi: int) -> bool:
-	var lines: Array = G.GENERATORS[gi].lines
-	for r in G.ROWS:
-		for c in G.COLS:
-			var cell := Vector2i(r, c)
-			if not board.is_bramble(cell):
-				continue
-			if not lines.has(GroveBoard.gate_line_of(board.terrain[GroveBoard.idx(cell)])):
-				continue
-			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-				var n: Vector2i = cell + d
-				if board.in_bounds(n) and board.is_open(n):
-					return true
-	return false
-
-# V1: the greyed silhouette + "after N spots" chip at a locked generator's cell.
-func _make_gen_preview(gi: int) -> Control:
-	var gen: Dictionary = G.GENERATORS[gi]
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(csz, csz)
-	holder.size = Vector2(csz, csz)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := Game.art(String(gen.get("tex", "")))
-	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		var inset := csz * 0.16
-		t.position = Vector2(inset, inset * 0.4)
-		t.size = Vector2(csz - inset * 2.0, csz - inset * 2.0)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.modulate = Color(0.30, 0.28, 0.24, 0.5)     # greyed/ghosted silhouette
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
-	var n_more := maxi(1, int(gen.appears_at) - _chapter_idx())
-	var chip := PanelContainer.new()
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color(GROUND_EDGE, 0.82)
-	cs.set_corner_radius_all(11)
-	cs.content_margin_left = 8.0
-	cs.content_margin_right = 8.0
-	cs.content_margin_top = 3.0
-	cs.content_margin_bottom = 3.0
-	chip.add_theme_stylebox_override("panel", cs)
-	chip.anchor_left = 0.5
-	chip.anchor_right = 0.5
-	chip.anchor_top = 1.0
-	chip.anchor_bottom = 1.0
-	chip.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	chip.offset_top = -4.0 - csz * 0.30
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cl := Label.new()
-	cl.text = tr("after %d spots") % n_more
-	cl.add_theme_font_size_override("font_size", maxi(14, int(csz * 0.135)))
-	cl.add_theme_color_override("font_color", CREAM)
-	cl.add_theme_constant_override("outline_size", 0)
-	chip.add_child(cl)
-	holder.add_child(chip)
 	return holder
 
 # --- input ---------------------------------------------------------------------
@@ -1510,8 +1438,14 @@ func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
 	_press_cell = cell
 	_press_pos = pos
-	_gen_tap = G.gen_index_at(cell, _chapter_idx()) >= 0
-	if _gen_tap:
+	_drag_is_gen = board.is_gen(cell)
+	if _drag_is_gen:                          # a generator is a movable piece now (§2/T17)
+		_drag_from = cell
+		_drag_node = gen_nodes.get(cell)
+		if _drag_node != null:
+			_drag_node.z_index = 20
+			_drag_node.scale = Vector2(1.12, 1.12)
+			Audio.play("item_pickup", -6.0)
 		return
 	if board.item_at(cell) > 0:
 		_drag_from = cell
@@ -1523,21 +1457,8 @@ func _on_press(pos: Vector2) -> void:
 			_show_sell_affordance(board.item_at(cell))   # W3: the stall brightens + shoulder tag
 
 func _on_release(pos: Vector2) -> void:
-	if _gen_tap:
-		_gen_tap = false
-		var gi := G.gen_index_at(_pos_to_cell(pos), _chapter_idx())
-		if gi >= 0 and _pos_to_cell(pos) == _press_cell:
-			_pop_seed(gi)
-		return
-	# V1: tapping a locked-generator preview floats its name + arrival count
-	var rel_cell := _pos_to_cell(pos)
-	if gen_preview_cells.has(rel_cell) and rel_cell == _press_cell and _drag_node == null:
-		var pgi: int = gen_preview_cells[rel_cell]
-		var n_more := maxi(1, int(G.GENERATORS[pgi].appears_at) - _chapter_idx())
-		var gp2: Vector2 = board_area.get_global_transform() * pos
-		FX.floating_text(self, gp2 - Vector2(90, 46),
-			"%s — %s" % [tr(String(G.GENERATORS[pgi].label)), tr("after %d spots") % n_more], CREAM, 26)
-		Audio.play("button_tap", -8.0)
+	if _drag_is_gen:
+		_release_gen(pos)
 		return
 	if _drag_node == null:
 		return
@@ -1563,7 +1484,7 @@ func _on_release(pos: Vector2) -> void:
 		_collect_coin(from, node)          # tapping a coin pockets it
 	elif target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
 		_snap_back(from, node)             # a STILL tap shows the upgrade path
-		_open_ladder(GroveBoard.line_of(board.item_at(from)), GroveBoard.tier_of(board.item_at(from)))
+		_open_ladder(BoardModel.line_of(board.item_at(from)), BoardModel.tier_of(board.item_at(from)))
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif board.is_empty_ground(target) and target != from:
@@ -1575,6 +1496,43 @@ func _on_release(pos: Vector2) -> void:
 	else:
 		_snap_back(from, node)
 
+## A generator was dragged (T17). A still tap pops it; otherwise it MOVES to empty ground
+## (#1) or EVOLVES onto the predecessor it upgrades (#2 — the grant→old merge). A generator
+## is never sold and never normal-merges; any other drop snaps it back.
+func _release_gen(pos: Vector2) -> void:
+	_drag_is_gen = false
+	var target := _pos_to_cell(pos)
+	var from := _drag_from
+	var node := _drag_node
+	_drag_node = null
+	_drag_from = Vector2i(-1, -1)
+	if node != null:
+		node.z_index = 0
+		node.scale = Vector2.ONE
+	if target == from and pos.distance_to(_press_pos) <= 18.0:
+		if node != null:
+			node.position = _cell_pos(from)
+		_pop_seed(from)                       # a still tap pops the generator (merge fuel)
+		return
+	var gp: Vector2 = board_area.get_global_transform() * pos
+	if merchant_chip != null and is_instance_valid(merchant_chip) \
+			and merchant_chip.get_global_rect().has_point(gp):
+		if node != null:
+			_snap_back(from, node)            # never sold
+		return
+	if target != from and board.is_gen(target) and board.evolve_gen(target, from):
+		Audio.play("merge_soft" if Audio.has("merge_soft") else "item_drop", -3.0)
+		_persist()
+		_rebuild_all()                        # #2 evolve: old consumed, new at its cell, lines retire
+		return
+	if target != from and board.is_empty_ground(target) and board.move_gen(from, target):
+		Audio.play("item_drop", -3.0)
+		_persist()
+		_rebuild_all()                        # #1 move
+		return
+	if node != null:
+		_snap_back(from, node)                # occupied / bramble / invalid evolve — refuse
+
 func _snap_back(from: Vector2i, node: Control) -> void:
 	var t := node.create_tween()
 	t.tween_property(node, "position", _cell_pos(from), 0.14).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -1582,8 +1540,12 @@ func _snap_back(from: Vector2i, node: Control) -> void:
 
 # --- actions ---------------------------------------------------------------------
 
-func _pop_seed(gi: int = 0) -> void:
-	var gnode: Control = gen_nodes.get(gi, gen_node)
+func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
+	if cell.x < 0:                            # default: the first live generator (tests / FTUE / no-arg)
+		if board.gens.is_empty():
+			return
+		cell = board.gens.keys()[0]
+	var gnode: Control = gen_nodes.get(cell, gen_node)
 	if _ftue_pops_done() and water < G.POP_COST:
 		FX.wobble(gnode)
 		Audio.play("invalid_soft", -4.0)
@@ -1602,11 +1564,11 @@ func _pop_seed(gi: int = 0) -> void:
 	if Audio.has("water_pop"):
 		Audio.play("water_pop", -2.0)
 	# nearest few cells to this generator, then a random one of those
-	var gcell: Vector2i = Vector2i(G.GENERATORS[gi].cell)
+	var gcell: Vector2i = cell
 	empties.sort_custom(func(a, b): return _dist_to(a, gcell) < _dist_to(b, gcell))
 	var pick: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
 	# line: this generator's lines, leaning toward what the givers want
-	var pool: Array = G.GENERATORS[gi].lines
+	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
 	var wanted: Array = []
 	for e in giver_chips:
 		var q: Dictionary = _chapter().quests[e.qi]
@@ -1678,7 +1640,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	board_area.add_child(n)
 	piece_nodes[b] = n
 	FX.pop(n)
-	var tier := GroveBoard.tier_of(produced)
+	var tier := BoardModel.tier_of(produced)
 	FX.burst(board_area, _cell_pos(b) + Vector2(csz, csz) / 2.0, STRAW if tier >= 4 else Color("#7FA65A"), 10 + tier * 3)
 	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, clampf(0.95 + 0.03 * tier, 0.9, 1.3))
 	# growth beside brambles clears them (line-gated edges want the right plant)

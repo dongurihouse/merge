@@ -1,6 +1,6 @@
 # Merge Core
 
-> The game-agnostic engine spec for a **merge-to-restore** game: a single persistent merge board, a one-friction energy economy, themed item lines, a quest fence, a sequential-unlock spend surface, a 4-currency economy, a live-ops event framework, and the alive/save/build patterns that carry them. This is the reusable engine; a game instantiates it with names, art, and content-tied numbers (the reference instantiation is the Ghibli Grove — see `grove_spec`).
+> The game-agnostic engine spec for a **merge-to-restore** game: a single persistent merge board, a one-friction energy economy, themed item lines, a quest fence, a sequential-unlock spend surface, a 4-currency economy, a live-ops event framework, and the alive/save/build patterns that carry them. This is the reusable engine; a game instantiates it with names, art, and content-tied numbers (the reference instantiation is **Acorn & Bloom** (the Grove) — see `grove_spec`).
 
 ---
 
@@ -67,7 +67,7 @@ A single persistent merge board fed by energy-gated generators. Terrain + items 
 - There is **no slide/rook routing** — placement is direct drag. Drop targets get a generous catch radius; the bag tray (§5) and the merchant's stall (§9) are also drop targets.
 - **Idle hint:** after ~4.5 s idle the engine rocks one mergeable pair gently (±6°, 3 cycles) and re-nudges ~every 4 s; obstacles a merge would open pulse; deliverable givers bob.
 
-*(Codebase pattern: a pure rules engine (`board.gd`) backs tests; a persistent board model (`grove_board.gd`) and the live board controller drive the loop. An older sliding-merge engine may be retained for tests only and is **not** the shipping model.)*
+*(Codebase pattern: a pure rules engine (`board.gd`) backs tests; a persistent board model (`board_model.gd`) and the live board controller drive the loop. An older sliding-merge engine may be retained for tests only and is **not** the shipping model.)*
 
 ---
 

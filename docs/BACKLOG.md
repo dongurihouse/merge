@@ -30,7 +30,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   with the generated-quest model + Monte-Carlo sim. *Unblocked the generator, quest, obstacle, yield
   items. (Done 2026-06-14 — spec review + code audit + build.)*
 
-- **Per-zone generators + the merge-to-evolve gate (spec done · content · code).** §6: generators
+- **Per-zone generators + the merge-to-evolve gate (spec done · content · code).** **[Split 2026-06-14 → engine mechanic = `T17` (in progress, `tasks/mechanics.md`); still parked here: the grove 16-gen/32-line themed map + lineage/names, the ~256 item + 16 generator sprites, and the §7 authored gate/grant-quest wiring.]** §6: generators
   arrive **per zone** (z1→2 gens/4 lines · z2–3→3/6 · z4+→4/8 — a **~16-gen/32-line lifetime
   roster**, ~2–4 live), **2 lines each**; a zone's gate quest asks a **t8 of the previous zone**, then
   N quests grant a generator you **merge with an old one** (`old+grant→new`, old consumed, **old lines
@@ -59,6 +59,18 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   click→value rate (keep the old ramp table as a tuning ref). *(Surfaced 2026-06-14 — spec review +
   code audit.)*
 
+- **Economy rebalance under per-zone generators (sim · §3 · §7) — surfaced by T17.** The per-zone
+  generator mechanic landed (T17), but the **economy sim cannot be balanced** under the interim
+  `chapters()`/`ZONE_RAMP` quest model: per-zone-fresh lines mean **steep tier bands jam** the board
+  (can't climb a just-granted line), **shallow bands strand** (low ★ income → level lags → the frontier
+  spot is affordable-but-level-locked), and **low-uniform bands break I2** (zones too cheap → the fixed
+  +20/level water gift exceeds 30% of spend) **and clear day-1**. Proven across 4 sim runs (see T17 in
+  `tasks/mechanics.md`). `grove_sim` is left **RED** at uniform `t2–4` (no jam / no strand, but I2 fail +
+  day-1 clear). **Fix:** balance is inseparable from **§7** (metered, level-scaled, expected-clicks
+  rewards) + **§3** (`LEVEL_STARS` recalibration, already flagged provisional), re-run through the
+  Monte-Carlo sim. **Likely folds into the §7 item above** (do it as the recalibration pass there) rather
+  than standalone. *(Surfaced 2026-06-15 — T17 sim findings.)*
+
 - **Burst popping + the energy-faucet code changes (spec done · code · sim).** §4/§6: a generator tap
   pops a **burst of 1–3 items** (`BURST_ODDS`), 1 energy each — base × a **per-zone free scale-up** ×
   a player **burst-upgrade** (§8). **Code pops exactly ONE item per tap** (`_pop_seed`,
@@ -76,7 +88,7 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   carries a **`min_level`** (diamond gradient — L2/L3 frontier radiating out to **L12** at the
   corners) that unseals in waves as the player levels, then still opens on an **adjacent merge**.
   **Code is tier-ring only:** `bramble_gate` → `openable_brambles` (`engine/scripts/content.gd:90`,
-  `engine/scripts/grove_board.gd:114`) — no `min_level` exists. **Build:** the per-cell level gate
+  `engine/scripts/board_model.gd:114`) — no `min_level` exists. **Build:** the per-cell level gate
   against the §4 board map + **sim re-validation of no-strand** (proven against tier-gating;
   level-gating the frontier can re-strand it, and the L10–L12 corners must be reachable or
   intentionally tail). Open sub-Q: reaching `min_level` makes the cell *merge-openable* (chosen,
@@ -181,11 +193,21 @@ end-to-end. Code anchors are `file:line` at audit time. The one fully spec-corre
   the matching field alongside whichever item introduces it. *(Surfaced 2026-06-14 — code audit vs
   `merge_spec`.)*
 
-- **Grove: story / character arcs for the givers (content).** The givers (fox, hedgehog, owl, …) are
-  anonymous. Add a **light narrative spine** — name them, give each a personality + a thread/arc that
-  unfolds as zones restore (cozy, low-pressure; the genre's emotional-retention engine — Gossip Harbor
-  / Merge Mansion lean on story hard). Engine supports it (Core §7: givers carry name / personality /
-  dialogue / arc). *(Surfaced 2026-06-14 — director review.)*
+- **Grove: story implementation — the trapped-family spirit-grove arc (story specced · content · art · code).**
+  The narrative is now **designed in `grove_spec §1`** — a wordless spirit-world spine: a
+  child crosses into a fading spirit-grove, her parents become **silent nature-spirits** (Acorn-dad +
+  Flower-mom) and she restores the grove to **free them** and wake the **forgotten great heart-tree
+  spirit**; reunite-early-then-help-others, scaling **zone = beat / map = episode** (the family become
+  the grove's new Keepers — the endless-content justification). **Givers re-cast** as humanoid
+  produce/critter spirits (Radish · Carrot · Frog · Bee · Mushroom + menagerie; fox/hedgehog/owl
+  retired). **Build (grove content):** giver names/personalities/wishes + per-zone beats + the Map-1
+  episode (authored crossing/FTUE → restoration beats → heart-tree waking → reunion + onward hook);
+  image-memory vignettes. **Build (art):** the cast, the parents + their **easing de-transformation**
+  (composited per zone, Core §16), the great-spirit's **bloom-awake** climax, candidate later maps.
+  **Build (engine, maybe):** the per-zone de-transform swap is plain compositing (Core §16) — likely no
+  new engine system, but the FTUE crossing + the parents-as-guides surface may need wiring. Engine
+  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).*
+  *(Surfaced 2026-06-14 — director review; designed 2026-06-14.)*
 
 - **Standalone seasonal Battle Pass (future — not v1, owner 2026-06-14).** A persistent, cross-event
   **season ladder** (free + premium tracks, leveled by all play over a ~30-day season) — distinct from

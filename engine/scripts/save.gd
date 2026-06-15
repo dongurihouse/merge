@@ -1,5 +1,5 @@
 extends RefCounted
-## Tidy Up — THE persistence layer (single owner of all saved state).
+## THE persistence layer (single owner of all saved state).
 ## Static singleton (like Audio): everything reads/writes via Save.* — no other save file,
 ## no other format. Versioned JSON at user://save.json with atomic writes + a .bak fallback
 ## and a one-time migration from the legacy progress.cfg.

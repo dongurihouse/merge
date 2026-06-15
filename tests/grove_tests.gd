@@ -4,7 +4,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://tests/grove_tests.gd
 
 const G = preload("res://engine/scripts/content.gd")
-const GroveBoard = preload("res://engine/scripts/grove_board.gd")
+const BoardModel = preload("res://engine/scripts/board_model.gd")
 const Save = preload("res://engine/scripts/save.gd")
 
 var _pass := 0
@@ -123,24 +123,24 @@ func _initialize() -> void:
 	print("== Grove tests ==")
 
 	# 1. board genesis
-	var b: GroveBoard = GroveBoard.new()
+	var b: BoardModel = BoardModel.new()
 	ok(b.is_open(G.GEN_CELL) and b.item_at(G.GEN_CELL) == 0, "generator cell open and empty")
 	ok(b.is_open(Vector2i(3, 2)) and b.is_open(Vector2i(5, 4)), "center 3x3 starts open")
 	ok(b.is_bramble(Vector2i(0, 0)) and b.is_bramble(Vector2i(8, 6)), "edges start brambled")
-	ok(b.terrain[GroveBoard.idx(Vector2i(4, 1))] == 2, "first frontier opens on ANY merge (req t2)")
-	ok(b.terrain[GroveBoard.idx(Vector2i(3, 1))] == 2, "ring 2 stays any-line req t2")
-	ok(b.terrain[GroveBoard.idx(Vector2i(1, 3))] == 4, "ring 3 needs a produced t4 (any line)")
+	ok(b.terrain[BoardModel.idx(Vector2i(4, 1))] == 2, "first frontier opens on ANY merge (req t2)")
+	ok(b.terrain[BoardModel.idx(Vector2i(3, 1))] == 2, "ring 2 stays any-line req t2")
+	ok(b.terrain[BoardModel.idx(Vector2i(1, 3))] == 4, "ring 3 needs a produced t4 (any line)")
 	# the screen edge is END GAME: t5 of the LATE lines (top=mushroom, bottom=honey)
-	ok(GroveBoard.gate_line_of(b.terrain[GroveBoard.idx(Vector2i(0, 0))]) == 3 \
-		and GroveBoard.gate_req_of(b.terrain[GroveBoard.idx(Vector2i(0, 0))]) == 5, \
+	ok(BoardModel.gate_line_of(b.terrain[BoardModel.idx(Vector2i(0, 0))]) == 3 \
+		and BoardModel.gate_req_of(b.terrain[BoardModel.idx(Vector2i(0, 0))]) == 5, \
 		"top edge wants mushroom t5 (the compost's line)")
-	ok(GroveBoard.gate_line_of(b.terrain[GroveBoard.idx(Vector2i(8, 6))]) == 4 \
-		and GroveBoard.gate_req_of(b.terrain[GroveBoard.idx(Vector2i(8, 6))]) == 5, \
+	ok(BoardModel.gate_line_of(b.terrain[BoardModel.idx(Vector2i(8, 6))]) == 4 \
+		and BoardModel.gate_req_of(b.terrain[BoardModel.idx(Vector2i(8, 6))]) == 5, \
 		"bottom edge wants honey t5 (the beehive's line)")
-	ok(GroveBoard.line_of(G.bramble_contents(Vector2i(0, 0))) == 3, \
+	ok(BoardModel.line_of(G.bramble_contents(Vector2i(0, 0))) == 3, \
 		"a gated bramble's contents seed its own line")
 	# legacy saves stored the bare tier: value 3 still decodes as any-line req t3
-	ok(GroveBoard.gate_line_of(3) == 0 and GroveBoard.gate_req_of(3) == 3, \
+	ok(BoardModel.gate_line_of(3) == 0 and BoardModel.gate_req_of(3) == 3, \
 		"legacy bare-tier terrain decodes unchanged")
 	ok(b.item_at(Vector2i(3, 2)) == 101, "starter items placed")
 
@@ -166,9 +166,9 @@ func _initialize() -> void:
 	ok(not b.openable_brambles(Vector2i(2, 3), 103).has(Vector2i(1, 3)), "ring 3 ignores a t3 merge")
 	ok(b.openable_brambles(Vector2i(2, 3), 104).has(Vector2i(1, 3)), "a produced t4 opens ring 3 (any line)")
 	# the line gate: a flower t5 beside the top edge does NOTHING; mushroom t5 opens it
-	var bgate: GroveBoard = GroveBoard.new()
+	var bgate: BoardModel = BoardModel.new()
 	for rr in range(1, 4):
-		bgate.terrain[GroveBoard.idx(Vector2i(rr, 0))] = 0    # carve a lane to the corner
+		bgate.terrain[BoardModel.idx(Vector2i(rr, 0))] = 0    # carve a lane to the corner
 	bgate.place(Vector2i(1, 0), 105)
 	ok(not bgate.openable_brambles(Vector2i(1, 0), 105).has(Vector2i(0, 0)), \
 		"flower t5 can NOT open the mushroom-gated top edge")
@@ -177,12 +177,12 @@ func _initialize() -> void:
 
 	# 4. pigeonhole helper
 	ok(b.any_pair_exists() == false or b.any_pair_exists(), "pair query runs")
-	var b2: GroveBoard = GroveBoard.new()
+	var b2: BoardModel = BoardModel.new()
 	ok(b2.any_pair_exists(), "fresh board has mergeable pairs")
 
 	# 5. persistence roundtrip
 	var d := b.to_dict()
-	var b3: GroveBoard = GroveBoard.new()
+	var b3: BoardModel = BoardModel.new()
 	b3.from_dict(d)
 	ok(Array(b3.items) == Array(b.items) and Array(b3.terrain) == Array(b.terrain), \
 		"board roundtrips through to_dict/from_dict")
@@ -210,18 +210,21 @@ func _initialize() -> void:
 					debut_ok = false
 	ok(rules_ok, "every quest pays 1-3 stars; each ask t2-t7, count <= 2 (owner rules)")
 	ok(debut_ok, "no chapter asks for a line before its generator debuts")
-	var first_l3 := -1
+	# Lines now arrive PER ZONE (§6): zone 0 emits lines 1-4 (satchel 1,2 + compost 3,4),
+	# so mushroom (3) and honey (4) are asked from the start; and a line is asked ONLY in
+	# its own zone — earlier zones' lines have RETIRED, never asked once the player advances.
 	var first_l4 := -1
+	var l4_after_zone0 := false
 	for i in chs.size():
 		for q in chs[i].quests:
 			for ask in G.quest_asks(q):
-				if int(ask.line) == 3 and first_l3 < 0:
-					first_l3 = i
-				if int(ask.line) == 4 and first_l4 < 0:
-					first_l4 = i
-	ok(first_l3 >= 16, "the mushroom line first appears with the compost bin (chapter 17+)")
-	ok(first_l4 >= 26, "the honey line first appears with the beehive (chapter 27+)")
-	ok(first_l4 > 0 and first_l4 < chs.size(), "honey asks DO arrive before the map ends")
+				if int(ask.line) == 4:
+					if first_l4 < 0:
+						first_l4 = i
+					if G.zone_of_chapter(i) > 0:
+						l4_after_zone0 = true
+	ok(first_l4 >= 0 and G.zone_of_chapter(first_l4) == 0, "honey (a zone-0 line) is asked within zone 0")
+	ok(not l4_after_zone0, "a retired line (honey) is never asked once the player advances past zone 0")
 
 	# 6b-X: difficulty GROWS — multi-LINE stretch quests appear (2 lines in zone 3,
 	# reaching 3 lines in zone 4+), they're 2-3★, and t8 NEVER appears (diamond pinnacle).
@@ -277,24 +280,25 @@ func _initialize() -> void:
 		bank -= int(costs[i])
 	ok(afford_ok, "worst-case star income funds every spot, cumulatively, to map end")
 
-	# 6c. the compost bin reveals at its chapter and sheds its bramble
-	var bg: GroveBoard = GroveBoard.new()
-	ok(not bg.is_gen(Vector2i(2, 1)), "compost cell starts as plain bramble")
-	var fresh_cells: Array = bg.set_active_gens(16)
-	ok(fresh_cells.has(Vector2i(2, 1)) and bg.is_gen(Vector2i(2, 1)) and bg.is_open(Vector2i(2, 1)), \
-		"chapter 16 reveals the compost bin and clears its bramble")
-	ok(not bg.is_gen(Vector2i(6, 5)), "the beehive waits for its own era")
-	# 6d. the beehive reveals at 26 — and an item caught on its cell hops away safely
-	var bh: GroveBoard = GroveBoard.new()
-	bh.set_active_gens(16)
-	bh.terrain[GroveBoard.idx(Vector2i(6, 5))] = 0
-	bh.place(Vector2i(6, 5), 204)              # a player item parked on the future hive
+	# 6c. generators arrive PER ZONE (§6). Zone 0 grants both starters (satchel + compost);
+	# the surplus generator's cell (6,5) reveals only when the player enters zone 1.
+	var z1_chapter := G.ZONES[0].spots.size()      # first chapter of zone 1 (all zone-0 spots bought)
+	var bg: BoardModel = BoardModel.new()
+	bg.set_active_gens(0)
+	ok(bg.is_gen(Vector2i(4, 3)) and bg.is_gen(Vector2i(2, 1)), "zone 0 grants both starters (satchel + compost)")
+	ok(not bg.is_gen(Vector2i(6, 5)), "the zone-1 surplus generator waits for its own zone")
+	# 6d. entering zone 1 reveals the surplus generator at (6,5) — and an item caught on
+	# that cell hops away safely (never destroyed).
+	var bh: BoardModel = BoardModel.new()
+	bh.set_active_gens(0)
+	bh.terrain[BoardModel.idx(Vector2i(6, 5))] = 0
+	bh.place(Vector2i(6, 5), 204)              # a player item parked on the future generator cell
 	var before_count := 0
 	for v in bh.items:
 		if v == 204:
 			before_count += 1
-	var fresh_hive: Array = bh.set_active_gens(26)
-	ok(fresh_hive.has(Vector2i(6, 5)) and bh.is_gen(Vector2i(6, 5)), "chapter 26 reveals the beehive")
+	var fresh_hive: Array = bh.set_active_gens(z1_chapter)
+	ok(fresh_hive.has(Vector2i(6, 5)) and bh.is_gen(Vector2i(6, 5)), "entering zone 1 reveals the surplus generator")
 	var after_count := 0
 	for v in bh.items:
 		if v == 204:
@@ -483,7 +487,7 @@ func _initialize() -> void:
 	var coin_cell := Vector2i(-1, -1)
 	for i in s2.board.items.size():
 		if s2.board.items[i] > 0 and G.is_coin(s2.board.items[i]):
-			coin_cell = GroveBoard.cell_of(i)
+			coin_cell = BoardModel.cell_of(i)
 			break
 	ok(coin_cell != Vector2i(-1, -1), "a coin dropped onto the board")
 	var chalf: Vector2 = Vector2(s2.csz, s2.csz) / 2.0
@@ -493,7 +497,7 @@ func _initialize() -> void:
 	ok(s2.board.item_at(coin_cell) == 0, "the collected coin left the board")
 
 	# coin merge rules (model): c1+c1 merges, c3 is capped
-	var bc: GroveBoard = GroveBoard.new()
+	var bc: BoardModel = BoardModel.new()
 	bc.place(Vector2i(3, 2), 901)
 	bc.place(Vector2i(3, 4), 901)
 	ok(bc.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "coins merge with coins")
@@ -505,7 +509,7 @@ func _initialize() -> void:
 	# 12. win-back: away 3 days with low water → full cap on return
 	fresh("winback")
 	var gw := Save.grove()
-	gw["board"] = GroveBoard.new().to_dict()
+	gw["board"] = BoardModel.new().to_dict()
 	gw["water"] = 10
 	gw["regen_ts"] = Time.get_unix_time_from_system() - 3 * 86400.0
 	gw["last_seen"] = Time.get_unix_time_from_system() - 3 * 86400.0
@@ -516,7 +520,8 @@ func _initialize() -> void:
 		s3._ready()
 	ok(s3.water == G.WATER_CAP, "returning after days away finds full water")
 
-	# 12b. a cold load at chapter 16+ draws EVERY active generator, not just the satchel
+	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT zone (§6), not
+	# just the satchel — completing zones 0+1 puts the player in zone 2 (3 generators).
 	fresh("twogens")
 	var gtg := Save.grove()
 	var ul16 := {}
@@ -529,8 +534,27 @@ func _initialize() -> void:
 	get_root().add_child(s4)
 	if s4.board == null:
 		s4._ready()
-	ok(s4.gen_nodes.size() == 2, "chapter-16 rebuild draws both the satchel and the compost bin")
-	ok(s4.gen_node == s4.gen_nodes.get(0), "gen_node still points at the starter satchel")
+	ok(s4.gen_nodes.size() == 3, "a cold load in zone 2 draws all 3 of the zone's live generators")
+	ok(s4.gen_node != null and s4.gen_nodes.values().has(s4.gen_node), "gen_node points at a live generator (not the stale index-0 satchel)")
+
+	# 12c. generators are MOVABLE (#1) and EVOLVE in place (#2) on the live board, and the
+	# scene re-renders both (T17). A fresh board is zone 0: satchel (4,3) + compost (2,1).
+	fresh("genmech")
+	var s4c = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(s4c)
+	if s4c.board == null:
+		s4c._ready()
+	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "compost", "12c: a fresh board seeds the zone-0 generators")
+	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
+	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
+	s4c._rebuild_all()
+	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 3)), "12c: the moved generator re-renders at its new cell")
+	s4c.board.gens[Vector2i(4, 5)] = "z1a"                    # deliver a grant (interim stand-in for §7)
+	ok(s4c.board.evolve_gen(Vector2i(4, 4), Vector2i(4, 5)), "12c: the grant evolves onto the satchel (#2)")
+	s4c._rebuild_all()
+	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "z1a" and not s4c.board.gens.has(Vector2i(4, 5)), "12c: evolved in place — z1a at the cell, grant consumed")
+	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 5)), "12c: the re-render reflects the evolve")
+	s4c.queue_free()
 
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's
 	# "no border" bug: move_child(slot, 0) hid the tile behind the moss)
@@ -1054,11 +1078,11 @@ func _initialize() -> void:
 
 	# 23. P — drag-to-swap two unlocked items (flag drag_swap)
 	# P1: the model — swap trades codes, a coin swaps like anything, it persists
-	var pb := GroveBoard.new()
+	var pb := BoardModel.new()
 	var pa := Vector2i(4, 4)
 	var pbc := Vector2i(4, 5)
-	pb.terrain[GroveBoard.idx(pa)] = 0
-	pb.terrain[GroveBoard.idx(pbc)] = 0
+	pb.terrain[BoardModel.idx(pa)] = 0
+	pb.terrain[BoardModel.idx(pbc)] = 0
 	pb.place(pa, 101)
 	pb.place(pbc, 203)
 	pb.swap(pa, pbc)
@@ -1067,7 +1091,7 @@ func _initialize() -> void:
 	pb.place(pa, pcoin)
 	pb.swap(pa, pbc)                          # pbc held 101
 	ok(pb.item_at(pa) == 101 and pb.item_at(pbc) == pcoin, "P1: a coin swaps like any item")
-	var pb2 := GroveBoard.new()
+	var pb2 := BoardModel.new()
 	pb2.from_dict(pb.to_dict())
 	ok(pb2.item_at(pa) == 101 and pb2.item_at(pbc) == pcoin, "P1: to_dict/from_dict preserves the swapped board")
 
@@ -1280,15 +1304,15 @@ func _initialize() -> void:
 	ok(int(ws.HINT_ROCK_CYCLES) >= 2 and float(ws.HINT_ROCK_DEG) <= 10.0, \
 		"W1: the hint is a gentle multi-cycle rock, not a one-off fast shake")
 	for cc in [Vector2i(1, 3), Vector2i(2, 3)]:
-		ws.board.terrain[GroveBoard.idx(cc)] = 0
+		ws.board.terrain[BoardModel.idx(cc)] = 0
 		ws.board.place(cc, 101)
 	ws._rebuild_pieces()
 	ok(not ws._hint_pair().is_empty(), "W1: _hint_pair finds a mergeable pair to rock")
 	# W2: rapid generator taps must NEVER be dropped by the animating gate. Open a
 	# comfortable region, fire 5 board taps WITHOUT awaiting the 0.22s spawn flight.
 	for cc in [Vector2i(3, 1), Vector2i(4, 1), Vector2i(5, 1), Vector2i(3, 5), Vector2i(4, 5), Vector2i(5, 5)]:
-		ws.board.terrain[GroveBoard.idx(cc)] = 0
-		ws.board.items[GroveBoard.idx(cc)] = 0
+		ws.board.terrain[BoardModel.idx(cc)] = 0
+		ws.board.items[BoardModel.idx(cc)] = 0
 	ws._rebuild_pieces()
 	var w_before := 0
 	for v in ws.board.items:
@@ -1339,21 +1363,9 @@ func _initialize() -> void:
 	Feat.FLAGS["ftue_staged_chrome"] = true
 	ws.queue_free()
 
-	# V1: a locked generator (compost = GENERATORS[1], line 3, appears_at 16)
-	# previews once a line-3 edge bramble is revealed (adjacent to an open cell).
-	fresh("v1")   # the W2 taps persist a board; start V1 from a guaranteed-clean save
-	var gv = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(gv)
-	if gv.board == null:
-		gv._ready()
-	await create_timer(0.05).timeout
-	ok(not gv._gen_line_revealed(1), "V1: no preview while the compost line is unrevealed")
-	gv.board.terrain[GroveBoard.idx(Vector2i(1, 3))] = 0   # open the neighbor of edge bramble (0,3)
-	gv._rebuild_all()
-	await create_timer(0.05).timeout
-	ok(gv._gen_line_revealed(1), "V1: compost line reads revealed once its edge bramble is open-adjacent")
-	ok(gv.gen_preview_cells.has(Vector2i(G.GENERATORS[1].cell)), "V1: the compost preview renders at its cell")
-	gv.queue_free()
+	# V1 (the locked-generator "after N spots" preview) is PARKED with T17: it was keyed on
+	# the old per-chapter `appears_at`; under per-zone generators the next set arrives on zone
+	# COMPLETION, so the preview needs redefining alongside §6/§7. Test removed with the feature.
 
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
 	fresh("y")

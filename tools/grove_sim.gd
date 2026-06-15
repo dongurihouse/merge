@@ -8,10 +8,10 @@ extends SceneTree
 ##   godot --headless --path . -s res://tools/grove_sim.gd -- [days] [seed]
 
 const G = preload("res://engine/scripts/content.gd")
-const GroveBoard = preload("res://engine/scripts/grove_board.gd")
+const BoardModel = preload("res://engine/scripts/board_model.gd")
 
 var rng := RandomNumberGenerator.new()
-var board: GroveBoard
+var board: BoardModel
 var unlocks := {}              # home spots bought — chapter = unlocks.size()
 var chapter := 0
 var qdone: Array = []
@@ -35,7 +35,7 @@ func _initialize() -> void:
 	var days: int = int(args[0]) if args.size() >= 1 else 7
 	rng.seed = int(args[1]) if args.size() >= 2 else 42
 	greedy = args.has("greedy")
-	board = GroveBoard.new()
+	board = BoardModel.new()
 	_reset_qdone()
 	print("== Grove pacing sim: %d days, 3 sessions/day, %d💧/session ==" % [days, G.WATER_CAP])
 
@@ -64,21 +64,10 @@ func _initialize() -> void:
 	print("  level: %d (stars earned %d) · level-up water gifts: %d💧 (separate from chapter gifts)" % \
 		[G.level_for_stars(stars_earned), stars_earned, level_gift_water])
 
-	# V2: how long the optimal bot STARES at a line-gated edge bramble before that
-	# line's generator arrives — the communication gap order V is about. Report ONLY;
-	# the owner retunes appears_at from these numbers (this order does NOT change 16/26).
-	print("  -- V2 generator-arrival gap (optimal bot, seed %d) --" % rng.seed)
-	for gi in [1, 2]:
-		var gen: Dictionary = G.GENERATORS[gi]
-		var app := int(gen.appears_at)
-		var rev := int(gen_reveal_ch.get(gi, -1))
-		if rev < 0:
-			print("    %s (line %s, arrives after %d spots): gate-bramble never revealed in the window" % \
-				[String(gen.label), str(gen.lines), app])
-		else:
-			print("    %s (line %s): first SEEN after %d spots, ARRIVES after %d spots → blind gap %d spots%s" % \
-				[String(gen.label), str(gen.lines), rev, app, app - rev,
-				("  <- long blind wait" if (app - rev) >= 6 else "")])
+	# Generators now arrive PER ZONE (§6, the merge-to-evolve roster) — the live set is the
+	# current zone's generators, evolving on zone entry, not a per-chapter `appears_at`
+	# reveal. (The old V2 arrival-gap report is retired with that model.)
+	print("  -- generators: per-zone roster, %d live in the final zone reached --" % G.active_gen_indices(chapter).size())
 
 	var pass_all := true
 
@@ -315,7 +304,7 @@ func _line_revealed(gi: int) -> bool:
 			var cell := Vector2i(r, c)
 			if not board.is_bramble(cell):
 				continue
-			if not lines.has(GroveBoard.gate_line_of(board.terrain[GroveBoard.idx(cell)])):
+			if not lines.has(BoardModel.gate_line_of(board.terrain[BoardModel.idx(cell)])):
 				continue
 			for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
 				var n: Vector2i = cell + d
@@ -326,7 +315,7 @@ func _line_revealed(gi: int) -> bool:
 func _first_coin() -> Vector2i:
 	for i in board.items.size():
 		if board.items[i] > 0 and G.is_coin(board.items[i]):
-			return GroveBoard.cell_of(i)
+			return BoardModel.cell_of(i)
 	return Vector2i(-1, -1)
 
 func _wanted_lines() -> Array:
@@ -344,11 +333,11 @@ func _best_pair() -> Array:
 		var k: int = board.items[i]
 		if k <= 0 or G.is_coin(k):
 			continue
-		if GroveBoard.tier_of(k) >= G.TOP_TIER:
+		if BoardModel.tier_of(k) >= G.TOP_TIER:
 			continue
 		if not by_code.has(k):
 			by_code[k] = []
-		by_code[k].append(GroveBoard.cell_of(i))
+		by_code[k].append(BoardModel.cell_of(i))
 	var wanted := _wanted_lines()
 	var best_code := -1
 	var best_score := -999
@@ -356,9 +345,9 @@ func _best_pair() -> Array:
 		if by_code[k].size() < 2:
 			continue
 		var score := 0
-		if wanted.has(GroveBoard.line_of(k)):
+		if wanted.has(BoardModel.line_of(k)):
 			score += 10
-		score -= GroveBoard.tier_of(k)        # build from the bottom
+		score -= BoardModel.tier_of(k)        # build from the bottom
 		if score > best_score:
 			best_score = score
 			best_code = k

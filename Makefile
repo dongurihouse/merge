@@ -3,7 +3,7 @@
 GODOT   ?= godot
 PROJECT := .
 QUIET   := tools/quiet_godot.sh
-TESTS   := grove_tests layout_tests save_tests
+TESTS   := grove_tests mechanics_tests layout_tests save_tests
 
 .DEFAULT_GOAL := help
 

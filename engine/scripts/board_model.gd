@@ -1,5 +1,5 @@
 extends RefCounted
-## Ghibli Grove — the persistent board model (pure data, fully serializable).
+## The persistent board model (pure data, fully serializable).
 ## Terrain per cell: 0 = open ground; >0 = bramble encoded gate_line*16 + req_tier
 ## (gate_line 0 = any line; legacy saves stored the bare tier — same decoding).
 ## Items: line*100 + tier (0 = none). A generator occupies its cell permanently.
@@ -8,7 +8,9 @@ const G = preload("res://engine/scripts/content.gd")
 
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()
-var gen_cells: Array = [G.GEN_CELL]       # active generators (chapter-driven; scene/sim set)
+var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
+                                          # STATEFUL + persisted (movable + player-evolved, T17).
+                                          # Seeded by seed_gens / restored by from_dict.
 
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
@@ -45,27 +47,56 @@ func item_at(cell: Vector2i) -> int:
 	return items[idx(cell)] if in_bounds(cell) else 0
 
 func is_gen(cell: Vector2i) -> bool:
-	return gen_cells.has(cell)
+	return gens.has(cell)
 
-## Activate the generators for a chapter: newly revealed ones shed their bramble,
-## and any player item caught on the cell hops to free ground (never destroyed).
-## Returns the cells that just became generators (for the scene's reveal beat).
-func set_active_gens(chapter: int) -> Array:
-	var fresh: Array = []
-	for i in G.active_gen_indices(chapter):
-		var cell: Vector2i = Vector2i(G.GENERATORS[i].cell)
-		if not gen_cells.has(cell):
-			gen_cells.append(cell)
-			fresh.append(cell)
+func gen_id_at(cell: Vector2i) -> String:
+	return String(gens.get(cell, ""))
+
+## Seed the live generator set to a zone's roster (§6) — used on a fresh game (zone 0) and
+## by the save migration (an existing player's current zone). NOT the in-play path: once
+## seeded, the set changes only by move_gen / evolve_gen. Each gen cell sheds its bramble,
+## and any player item caught on it hops to free ground (never destroyed).
+func seed_gens(zone: int) -> void:
+	gens = G.live_gen_state(G.GENERATORS, zone)
+	_claim_gen_cells()
+
+func _claim_gen_cells() -> void:
+	for cell in gens:
 		if terrain[idx(cell)] > 0:
-			terrain[idx(cell)] = 0           # the reveal clears its bramble (no contents)
+			terrain[idx(cell)] = 0           # clears its bramble (no contents)
 			items[idx(cell)] = 0
 		elif items[idx(cell)] > 0:
 			var refuge := empty_ground_cells()
 			if not refuge.is_empty():
 				items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
 			items[idx(cell)] = 0
-	return fresh
+
+## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator
+## cell. Refuses an occupied cell, a bramble, or another generator's cell. Persisted via `gens`.
+func move_gen(from: Vector2i, to: Vector2i) -> bool:
+	if not gens.has(from) or gens.has(to) or not is_open(to) or item_at(to) != 0:
+		return false
+	gens[to] = gens[from]
+	gens.erase(from)
+	return true
+
+## #2 — the evolve-merge (§6): the grant generator at `grant_cell` merges onto the
+## predecessor it upgrades at `old_cell` — old consumed, new installed at the old's cell,
+## old lines retire (they drop out of gen_live_lines). Validated against the lineage.
+func evolve_gen(old_cell: Vector2i, grant_cell: Vector2i) -> bool:
+	var grant_id := String(gens.get(grant_cell, ""))
+	if grant_id == "" or not G.gen_can_evolve(gens, G.GENERATORS, old_cell, grant_id):
+		return false
+	gens.erase(grant_cell)
+	gens[old_cell] = grant_id
+	return true
+
+## Compat shim for the fresh-run tools (sim / shot) that still ask for a chapter's
+## generators: re-seed to that chapter's zone. NOT used by the live board (which restores
+## `gens` from save and only mutates it via move/evolve). Returns the live gen cells.
+func set_active_gens(chapter: int) -> Array:
+	seed_gens(G.zone_of_chapter(chapter))
+	return gens.keys()
 
 func is_empty_ground(cell: Vector2i) -> bool:
 	return is_open(cell) and item_at(cell) == 0 and not is_gen(cell)
@@ -179,7 +210,10 @@ func top_tier_cells() -> Array:
 # --- persistence ---------------------------------------------------------------
 
 func to_dict() -> Dictionary:
-	return {"terrain": Array(terrain), "items": Array(items)}
+	var gl: Array = []
+	for c in gens:
+		gl.append([c.x, c.y, gens[c]])       # [row, col, id] — JSON-safe (no Vector2i keys)
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl}
 
 func from_dict(d: Dictionary) -> void:
 	var t: Array = d.get("terrain", [])
@@ -188,3 +222,6 @@ func from_dict(d: Dictionary) -> void:
 		for i in t.size():
 			terrain[i] = int(t[i])
 			items[i] = int(it[i])
+	gens = {}
+	for e in d.get("gens", []):
+		gens[Vector2i(int(e[0]), int(e[1]))] = String(e[2])
