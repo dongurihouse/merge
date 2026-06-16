@@ -228,6 +228,18 @@ The 8 Farmhouse spots split **4 yield buildings + 4 décor**:
 
 *(The roster recasts Map 1's legacy interior furniture — chest/bed/table, superseded with the open-space-map model (§3 above) — into open-space homestead features. Exact props, the per-level yield rates, the L1→L5 upgrade price ladder, and the accrual cap are **grove tuning, sim-validated** — like every other number.)*
 
+**Shipped Part-A numbers (T42 — PROVISIONAL feel dials, owner sign-off pending).** The grove instance lives in `grove_data.gd` (`HUB_*`), read by `content.gd` (`spot_is_yield`, `hub_yield_rate/cap`, `hub_coins_ready`, `hub_upgrade_cost`). `max level = 5` (L1→L5); **accrual** = `clamp(rate(level) × elapsed_since(hub_collected_at), 0, cap(level))` summed over restored yield spots, swept in one collect-on-return. The dials and their reasoning:
+
+| Level | yield rate (🪙/h) | per-bldg cap (🪙 ≈ a day) | upgrade cost L→L+1 (🪙) |
+|---|---|---|---|
+| L1 (restore) | 0.25 | 6 (~24 h) | 150 → L2 |
+| L2 | 0.45 | 11 | 350 → L3 |
+| L3 | 0.65 | 16 | 650 → L4 |
+| L4 | 0.85 | 20 | 1,000 → L5 |
+| L5 (max) | 1.0 | 24 (~24 h) | — (maxed) |
+
+*Rationale (the keystone invariant — "extend, never self-sustain"):* the **max daily hub faucet** is `4 yield bldgs × 24🪙 = 96🪙/day` at full L5 — a meaningful daily reason to return, but the **hub-upgrade ladder is a new ~8,600🪙 coin SINK** (`4 × (150+350+650+1000) = 8,600`) on top of the burst ladder (~3,120🪙) and the §5 cosmetic décor sinks — so the sink dwarfs the faucet. Crucially the **standing** daily yield is held DELIBERATELY LOW so it stays under the ongoing sinks even once the (finite) hub ladder is maxed: a **week** of max yield (672🪙) is well under the standing burst ladder (3,120🪙), and a **month** (≈2,880🪙) can't even buy the hub ladder itself — so coins always have somewhere worth going (sink > faucet holds late-game). Caps are ~a day so a daily return collects meaningfully while a missed day never piles up. **All sim-validated** (the §7 sim, extended with the hub faucet + the hub-upgrade sink — `grove_sim.gd`: I1/no-strand/I2/Y green, §8 "a week of yield < the burst ladder" green across seeds); re-tune freely — these are owner-sign-off PACING dials.
+
 **Décor depth.** Four décor spots + the map's waysides (§5) is thin for a *forever home*; the hub's décor surface is meant to **keep growing** — **Collection favorites set as décor** (a line you grew, Core §6), **seasonal décor** from events (Core §17), and added slots — so the showcase deepens for the life of the save.
 
 **Yield collection — one beat.** Tap the farmhouse and all ready coins sweep to the wallet (`fly_to_wallet`); **never per-building taps**. Each yield building accrues to a **per-building cap (≈ a day's worth)**, so returning ~daily collects meaningfully while a missed day never piles up or punishes. Pairs with the **"yield ready" push** (Core §18).

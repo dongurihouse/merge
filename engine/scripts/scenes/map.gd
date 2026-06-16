@@ -78,6 +78,7 @@ var _map_rect := Rect2()         # the CONTAIN-fit map image (spot pos maps to T
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z}] — the map-select cards
 var variant_hits: Array = []     # [{node, z, k, vid}] — the inline strip's swatch chips
+var upgrade_hits: Array = []     # [{node, z, k}] — the hub yield-building coin-upgrade pills (§8)
 var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
@@ -88,6 +89,7 @@ var xp_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
+var _home_cue := Callable()       # toggles the §8 home-shortcut yield-ready pip (Hud.home_cue)
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat presses)
 
@@ -228,12 +230,47 @@ func _open_map(z: int) -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 	_build_map()
+	# §8 keystone: entering/returning to the HUB sweeps all ready yield in ONE beat (the home
+	# pays you). Credit + clock-reset happen NOW (correct even headless / pre-layout); the single
+	# satisfying collect FX is deferred a frame so the wallet chip has a real global rect to arc to.
+	if z == G.hub_map():
+		_collect_hub_yield()
 
 func _open_select() -> void:
 	_view = "select"
 	_customize_spot = ""
 	Audio.play("button_tap", -4.0)
 	_build_select()
+
+# §8 keystone — the hub-collect BEAT. Sweep every restored yield building's accrued coins to the
+# wallet in ONE go and reset the accrual clock (G.hub_collect does the credit + reset together).
+# Always runs the economy immediately (correct headless / pre-layout); when in-tree it then plays a
+# single satisfying collect FX — a coin arcs to the wallet chip + a shout — deferred a frame so the
+# chip has a real global rect. A 0-yield open silently no-ops the FX (the clock still reset).
+func _collect_hub_yield() -> void:
+	var got := G.hub_collect(unlocks, Time.get_unix_time_from_system())
+	if got <= 0:
+		_refresh_home_cue()
+		return
+	_update_hud()
+	_refresh_home_cue()
+	if get_tree() == null or not is_inside_tree():
+		return
+	_hub_collect_fx.call_deferred(got)
+
+func _hub_collect_fx(amount: int) -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	var chip: Control = _hud_panels[0] if _hud_panels.size() > 0 and is_instance_valid(_hud_panels[0]) else null
+	var center := get_global_rect().get_center()
+	Audio.play("level_complete", -5.0, 1.15)
+	# a coin arcs from the hub center to the wallet chip, then the wallet ticks; plus a warm shout.
+	FX.fly_to_wallet(self, center, Look.icon("coin", 44.0), chip, func() -> void: _update_hud())
+	FX.celebrate_reward(self, center - Vector2(0, 40), "coin", amount, Color("#E3B23C"))
+	FX.floating_text(self, center - Vector2(150, 110), tr("The home gathered some coins ✿"), CREAM, 28)
 
 # --- THE MAP VIEW (grove_spec §3) -------------------------------------------------------
 # One self-contained image fills the area below the HUD; the spots sit directly on
@@ -247,6 +284,7 @@ func _build_map() -> void:
 	spot_hits.clear()
 	select_hits.clear()
 	variant_hits.clear()
+	upgrade_hits.clear()
 	var z := _map_idx
 	# the map image fills the viewport below the HUD top inset and above the chrome
 	_map_rect = _map_image_rect()
@@ -490,11 +528,79 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		item.add_child(stack)
 		if not gated and z == _frontier_map() and _is_cheapest_open(z, k, lvl):
 			FX.breathe_once(item)
+	# §8 keystone: an OWNED hub YIELD building wears a coin-upgrade pill — its current level
+	# and (until maxed) the next upgrade cost. Tapping it spends coins → +1 level (richer look +
+	# higher yield). Décor + non-hub spots never get it. A breathe nudges an affordable upgrade.
+	if owned and z == G.hub_map() and G.spot_is_yield(z, String(spot.id)):
+		_add_upgrade_pill(item, z, k)
 	if owned and _customize_spot == String(spot.id):
 		_add_variant_strip(item, z, k)
 	if _place_on():
 		item.add_child(_make_crosshair(Vector2(90, 40), Color("#E84AC0")))
 	return item
+
+# §8: the coin-upgrade affordance on an owned hub yield building. A compact pill above the spot:
+# "Lk" when maxed, else "Lk · 🪙N" (the cost to reach L k+1). Tapping it (resolved via upgrade_hits)
+# spends N coins and raises the level. An IGNORE visual; the content surface resolves the tap. The
+# pill breathes when the upgrade is currently affordable — a subtle "spend your coins here" cue.
+func _add_upgrade_pill(item: Control, z: int, k: int) -> void:
+	var spot_id := String(G.MAPS[z].spots[k].id)
+	var level: int = Save.spot_level(spot_id)
+	var cost: int = G.hub_upgrade_cost(level)
+	var maxed: bool = cost < 0
+	var pill := PanelContainer.new()
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color("#E8C84A", 0.92) if maxed else Color(INK, 0.86)
+	ps.set_corner_radius_all(14)
+	ps.set_border_width_all(2)
+	ps.border_color = Color("#E8C84A") if maxed else STRAW
+	ps.content_margin_left = 10.0
+	ps.content_margin_right = 10.0
+	ps.content_margin_top = 4.0
+	ps.content_margin_bottom = 4.0
+	pill.add_theme_stylebox_override("panel", ps)
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(row)
+	var lv := Label.new()
+	lv.text = tr("Lv %d") % level
+	lv.add_theme_font_size_override("font_size", 19)
+	lv.add_theme_color_override("font_color", INK if maxed else CREAM)
+	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lv)
+	if maxed:
+		var star := Look.icon("star", 18.0)
+		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(star)
+	else:
+		var up := Label.new()
+		up.text = "▲"
+		up.add_theme_font_size_override("font_size", 15)
+		up.add_theme_color_override("font_color", STRAW)
+		up.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		up.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(up)
+		var ci := Look.icon("coin", 18.0)
+		ci.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(ci)
+		var cl := Label.new()
+		cl.text = str(cost)
+		cl.add_theme_font_size_override("font_size", 19)
+		cl.add_theme_color_override("font_color", CREAM)
+		cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(cl)
+	# pinned just ABOVE the spot's center plot (the furniture fills the middle); shrink-centered.
+	pill.position = Vector2(90, -2)
+	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	item.add_child(pill)
+	upgrade_hits.append({"node": pill, "z": z, "k": k})
+	if not maxed and Save.coins() >= cost:
+		FX.breathe_once(pill)
 
 # The inline customize strip (chips are IGNORE visuals resolved by content's
 # input surface via variant_hits).
@@ -558,6 +664,7 @@ func _build_select() -> void:
 	spot_hits.clear()
 	select_hits.clear()
 	variant_hits.clear()
+	upgrade_hits.clear()
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
 	# the header — the grove's name, an invitation to choose
@@ -773,6 +880,12 @@ func _map_tap(gpos: Vector2) -> void:
 		if vn.get_global_rect().grow(6.0).has_point(gpos):
 			_apply_variant(int(hit.z), int(hit.k), String(hit.vid), gpos)
 			return
+	# §8 upgrade pills sit ABOVE their owned spot — resolve them before the spot's own tap.
+	for hit in upgrade_hits:
+		var un: Control = hit.node
+		if un.get_global_rect().grow(6.0).has_point(gpos):
+			_on_upgrade_tap(int(hit.z), int(hit.k), un, gpos)
+			return
 	for hit in spot_hits:
 		var n: Control = hit.node
 		if n.get_global_rect().grow(8.0).has_point(gpos):
@@ -816,6 +929,11 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		FX.floating_text(self, at - Vector2(110, 64), tr("Need %d more") % (cost - Save.stars()), Color(CREAM, 0.9), 30)
 		return
 	unlocks[String(spot.id)] = true
+	# §8 keystone: restoring a HUB spot brings it to L1 — the start of the coin upgrade ladder
+	# (a yield building immediately drips its L1 base yield; a décor spot just reads "restored").
+	# Non-hub maps don't run the level system, so only the hub map records a level.
+	if z == G.hub_map():
+		Save.set_spot_level(String(spot.id), 1)
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
 	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
@@ -865,6 +983,33 @@ func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 	_build_map()
 	_update_hud()
 
+# §8 keystone: a coin-upgrade pill was tapped on an owned hub yield building. Refuse at the cap
+# (a finite ladder — wiggle + "fully upgraded") or when broke (wiggle + "need N more" — never
+# blocks progress, §10), else SPEND the coins and raise the stored level by 1 (richer look +
+# higher yield). The map re-renders (the pill reprices, the spot's variant wash unchanged) and the
+# HUD ticks. Spend-then-bump: Save.spend is atomic, so a refusal leaves the level untouched.
+func _on_upgrade_tap(z: int, k: int, node: Control, at: Vector2) -> void:
+	var spot_id := String(G.MAPS[z].spots[k].id)
+	var level: int = Save.spot_level(spot_id)
+	var cost: int = G.hub_upgrade_cost(level)
+	if cost < 0:                                   # already at the max level — nothing to buy
+		Audio.play("invalid_soft", -4.0)
+		FX.wobble(node)
+		FX.floating_text(self, at - Vector2(110, 60), tr("Fully upgraded ✿"), Color(CREAM, 0.9), 28)
+		return
+	if not Save.spend(cost, "hub_upgrade"):
+		Audio.play("invalid_soft", -4.0)
+		FX.wobble(node)
+		FX.floating_text(self, at - Vector2(110, 60), tr("Need %d more") % (cost - Save.coins()), Color(CREAM, 0.9), 28)
+		return
+	Save.set_spot_level(spot_id, level + 1)
+	Audio.play("level_complete", -5.0, 1.15)
+	FX.burst(self, at, STRAW, 14)
+	FX.floating_text(self, at - Vector2(90, 70), tr("%s → Lv %d ✿") % [tr(G.MAPS[z].spots[k].name), level + 1], STRAW, 28)
+	_build_map()
+	_update_hud()
+	_refresh_home_cue()
+
 # --- HUD & chrome -----------------------------------------------------------------------
 
 func _build_hud() -> void:
@@ -883,8 +1028,17 @@ func _build_hud() -> void:
 	level_label = hud.level
 	xp_label = hud.xp
 	_hud_refresh = hud.refresh
+	_home_cue = hud.get("home_cue", Callable())
 	_open_shop = hud.open_shop
 	_hud_panels = [hud.wallet, hud.lv_panel]
+	_refresh_home_cue()
+
+# §8 keystone: light the home-shortcut yield-ready pip iff the hub has uncollected coin yield.
+# Called after HUD build and whenever the hub's ready-state can change (map open, collect, upgrade).
+# On the hub itself it reads false right after the collect beat; off the hub it nudges the return.
+func _refresh_home_cue() -> void:
+	if _home_cue.is_valid():
+		_home_cue.call(G.hub_has_yield_ready(unlocks, Time.get_unix_time_from_system()))
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():

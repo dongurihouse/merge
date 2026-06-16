@@ -66,6 +66,24 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		Look.add_press_juice(home_btn)
 		home_btn.pressed.connect(func() -> void: (home_cb as Callable).call())
 		row.add_child(home_btn)
+		# §8 keystone: a subtle yield-READY cue — a small gold pip on the corner of the home
+		# shortcut when the hub has uncollected coin yield, so the player knows to return. Built
+		# hidden; scenes toggle it via out.home_cue(on). Pure chrome (IGNORE), never eats a press.
+		var pip := Panel.new()
+		pip.name = "YieldPip"
+		var pip_d := 14.0
+		pip.custom_minimum_size = Vector2(pip_d, pip_d)
+		pip.size = Vector2(pip_d, pip_d)
+		var pip_sb := StyleBoxFlat.new()
+		pip_sb.bg_color = Color("#E3B23C")             # warm gold — the coin/yield colour
+		pip_sb.set_corner_radius_all(int(pip_d / 2.0))
+		pip_sb.set_border_width_all(2)
+		pip_sb.border_color = CREAM
+		pip.add_theme_stylebox_override("panel", pip_sb)
+		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pip.position = Vector2(home_btn.custom_minimum_size.x - pip_d + 2.0, -2.0)   # top-right corner
+		pip.visible = false
+		home_btn.add_child(pip)
 	# the cluster is currencies ONLY — the Store moved to the bottom bar
 	# (owner 2026-06-13); scenes open it via out.open_shop.
 	var stars := _pair(row, "star", Tune.STAR_ICON)
@@ -131,6 +149,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "xp": xp,
 		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
+	# §8 keystone: scenes toggle the home-shortcut yield-ready pip via this. A no-op when the
+	# home button (and thus the pip) isn't rendered (e.g. a scene that passes no `home`).
+	out["home_cue"] = func(on: bool) -> void:
+		if home_btn == null or not is_instance_valid(home_btn):
+			return
+		var pip := home_btn.get_node_or_null("YieldPip")
+		if pip != null:
+			(pip as Control).visible = on
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())

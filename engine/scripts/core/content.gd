@@ -44,6 +44,10 @@ const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
 const BURST_MAX = D.BURST_MAX
 const BURST_UPGRADE_COSTS = D.BURST_UPGRADE_COSTS
+const HUB_MAX_LEVEL = D.HUB_MAX_LEVEL
+const HUB_YIELD_RATE = D.HUB_YIELD_RATE
+const HUB_YIELD_CAP = D.HUB_YIELD_CAP
+const HUB_UPGRADE_COST = D.HUB_UPGRADE_COST
 const STARTER_ITEMS = D.STARTER_ITEMS
 const VARIANT_NAMES_COIN = D.VARIANT_NAMES_COIN
 const VARIANT_NAMES_GEM = D.VARIANT_NAMES_GEM
@@ -419,6 +423,117 @@ static func burst_upgrade_cost(level: int) -> int:
 ## How many paid burst-upgrade levels exist (the ladder length) — i.e. the max upgrade level.
 static func burst_upgrade_max() -> int:
 	return BURST_UPGRADE_COSTS.size()
+
+# --- §8/§10 home-hub yield + upgrade-levels (the v1 KEYSTONE coin loop, grove_spec §3) -----
+# A restored hub YIELD building sits at L1, then UPGRADES with coins L1→Lⁿ (richer look + higher
+# yield); each accrues coins over time to a PER-BUILDING CAP (≈ a day), swept in one collect-on-
+# return beat. Data-driven — every number reads the game's HUB_* tables (grove_data). The
+# KEYSTONE INVARIANT (extend, never self-sustain): the cap bounds the daily yield well under the
+# coin SINK demand (the hub-upgrade ladder it funds + burst + cosmetics). PROVISIONAL feel dials.
+
+## The `kind` of map `z`'s spot `id` — the hub seam: "yield" (coin-producing, coin-upgradable),
+## "decor" (style-variant cosmetic, no yield), or "" (a non-hub map's plain restoration spot).
+## Reads the spot def off MAPS; "" when the spot/map is unknown (defensive).
+static func spot_kind(z: int, spot_id: String) -> String:
+	if z < 0 or z >= MAPS.size():
+		return ""
+	for sp in MAPS[z].spots:
+		if String(sp.id) == spot_id:
+			return String(sp.get("kind", ""))
+	return ""
+
+## Is map `z`'s spot a YIELD building (it accrues coins when restored, and upgrades for more)?
+## The single seam the keystone reads — décor + plain spots are false (they never yield).
+static func spot_is_yield(z: int, spot_id: String) -> bool:
+	return spot_kind(z, spot_id) == "yield"
+
+## The hub's max building level (L1 restore → this cap, via coin upgrades). Reads HUB_MAX_LEVEL.
+static func hub_max_level() -> int:
+	return int(HUB_MAX_LEVEL)
+
+## The coin YIELD RATE of a yield building at `level`, in 🪙 PER HOUR (0 at L0 = unrestored).
+## Clamped to the HUB_YIELD_RATE table so an over-cap level reads the top entry (never crashes).
+static func hub_yield_rate(level: int) -> float:
+	if HUB_YIELD_RATE.is_empty():
+		return 0.0
+	return float(HUB_YIELD_RATE[clampi(level, 0, HUB_YIELD_RATE.size() - 1)])
+
+## The per-building ACCRUAL CAP of a yield building at `level`, in 🪙 (≈ a day's worth). Accrual
+## clamps here so one building never piles up past ~a day. Clamped to the HUB_YIELD_CAP table.
+static func hub_yield_cap(level: int) -> int:
+	if HUB_YIELD_CAP.is_empty():
+		return 0
+	return int(HUB_YIELD_CAP[clampi(level, 0, HUB_YIELD_CAP.size() - 1)])
+
+## The COIN COST to upgrade ONE yield building from `level` to `level+1` (the coin sink with
+## teeth). Returns −1 when there is no next level — at/above hub_max_level, or below L1 (L0→L1 is
+## the Stars RESTORE, never a coin buy). Mirrors burst_upgrade_cost's "−1 = can't upgrade" contract.
+static func hub_upgrade_cost(level: int) -> int:
+	if level < 1 or level >= hub_max_level():
+		return -1
+	if level >= HUB_UPGRADE_COST.size():
+		return -1
+	var c := int(HUB_UPGRADE_COST[level])
+	return c if c > 0 else -1
+
+## The coins ONE yield building at `level` has accrued over `elapsed_secs` since the last collect:
+## clamp(rate_per_sec(level) × elapsed, 0, cap(level)), floored to whole coins. Pure (no save read)
+## — the testable core of the accrual. A non-yielding level (L0) or non-positive elapsed yields 0.
+static func hub_spot_ready(level: int, elapsed_secs: float) -> int:
+	if level <= 0 or elapsed_secs <= 0.0:
+		return 0
+	var per_sec := hub_yield_rate(level) / 3600.0
+	return clampi(int(floor(per_sec * elapsed_secs)), 0, hub_yield_cap(level))
+
+## The TOTAL coins ready to collect across ALL restored hub yield buildings, given `unlocks`
+## (spot ownership) and the wall-clock `now` (unix secs). Sums hub_spot_ready over every yield
+## spot on the hub map that is restored (in unlocks), reading each spot's stored level (Save) and
+## the shared elapsed since the last sweep (now − hub_collected_at). The §8 "one beat" total.
+## A first-ever call (hub_collected_at == 0) measures from boot 0 → the cap binds it (never a flood).
+static func hub_coins_ready(unlocks: Dictionary, now: float) -> int:
+	var z := hub_map()
+	if z < 0 or z >= MAPS.size():
+		return 0
+	var elapsed := now - Save.hub_collected_at()
+	if elapsed <= 0.0:
+		return 0
+	var total := 0
+	for sp in MAPS[z].spots:
+		var sid := String(sp.id)
+		if String(sp.get("kind", "")) != "yield":
+			continue
+		if not unlocks.has(sid):
+			continue
+		total += hub_spot_ready(Save.spot_level(sid), elapsed)
+	return total
+
+## True iff the hub has uncollected yield ready (drives the HUD home-shortcut yield-ready cue).
+static func hub_has_yield_ready(unlocks: Dictionary, now: float) -> bool:
+	return hub_coins_ready(unlocks, now) > 0
+
+## The hub-collect BEAT (§8): sweep all ready yield to the wallet in one go and reset the clock.
+## Credits Save.add_coins(total) + Save.set_hub_collected_at(now) (always resets the clock, even on
+## a 0 sweep, so elapsed restarts from this visit). Returns the total collected (0 = nothing ready).
+## The caller plays the single satisfying collect FX. Grant + clock-reset land in the save together.
+static func hub_collect(unlocks: Dictionary, now: float) -> int:
+	var total := hub_coins_ready(unlocks, now)
+	if total > 0:
+		Save.add_coins(total)
+	Save.set_hub_collected_at(now)
+	return total
+
+## The TOTAL the hub could yield in a day at FULL upgrade (the keystone-invariant bound, reported by
+## the sim): #yield-buildings × the top-level cap. Pure derivation off MAPS + HUB_YIELD_CAP — the
+## ceiling the daily hub faucet can never exceed, which must stay ≪ the coin sink demand.
+static func hub_max_daily_yield() -> int:
+	var z := hub_map()
+	if z < 0 or z >= MAPS.size():
+		return 0
+	var n := 0
+	for sp in MAPS[z].spots:
+		if String(sp.get("kind", "")) == "yield":
+			n += 1
+	return n * hub_yield_cap(hub_max_level())
 
 static func map_of_chapter(i: int) -> int:
 	var acc := 0
