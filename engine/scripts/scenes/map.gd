@@ -26,6 +26,16 @@ const Pal = Game.PALETTE
 const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
+# §8 ghost-preview: an UNOWNED spot may show a faint cut-out of the buildable that
+# will fill it (behind the price-pin + name, which stay legible). Gated by Features
+# "spot_ghost". The treatment is a low-alpha desaturating MULTIPLY — the same grey
+# wash the map-select uses to grey incomplete maps (a true desaturate needs a shader;
+# a neutral multiply reads as "not real yet" and costs no material). GHOST_ALPHA is
+# the opacity; GHOST_TINT is the grey it multiplies by (the lower the channels, the
+# more it cools/dims). Owned/built spots draw the REAL sprite — never a ghost.
+const GHOST_ALPHA := 0.34
+const GHOST_TINT := Color(0.72, 0.74, 0.72)
+
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
 # Process-scoped on purpose: a fresh app boot always lands on the frontier.
@@ -320,6 +330,29 @@ func _map_title_plank(z: int) -> Control:
 	col.add_child(lbl)
 	return plank
 
+# §8: the optional ghost-preview of an UNOWNED spot's buildable. Reuses the SAME
+# buildable-sprite lookup the Layout editor draws from (the caller's `furn_path` =
+# Game.art("rooms/furn_<id>.png")), so there is ONE asset-path source. Returns null
+# when the flag is off or this spot has no art — the caller then draws only the pin.
+# A faint, desaturated cut-out: low alpha + colour leaned toward neutral grey, sized
+# and centered exactly like the real sprite so the build "settles into" its outline.
+func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
+	if not Features.on("spot_ghost"):
+		return null
+	if furn_path == "" or not ResourceLoader.exists(furn_path):
+		return null
+	var g := TextureRect.new()
+	# Same ORDER-MATTERS dance as the real sprite (expand_mode before size).
+	g.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	g.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	g.texture = load(furn_path)
+	g.size = Vector2(fs, fs)
+	g.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real one
+	g.modulate = Color(GHOST_TINT.r, GHOST_TINT.g, GHOST_TINT.b, GHOST_ALPHA)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	g.set_meta("ghost", true)
+	return g
+
 # One spot ON the map image: furniture art when owned (and generated), else the
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
@@ -387,6 +420,12 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		item.add_child(chip)
 	else:
+		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
+		# empty plot teases what will fill it. Owned spots took the branches above —
+		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
+		var ghost := _ghost_sprite(furn_path, Layout.spot_fsize(z, k))
+		if ghost != null:
+			item.add_child(ghost)
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
 		# point, ≥28px chip text, never covering the plot the furniture will fill
 		var stack := VBoxContainer.new()
