@@ -58,7 +58,7 @@ func _initialize() -> void:
 		n.position = Vector2(12 + i * 96, 210)
 		page.add_child(n)
 
-	# row 4: make_generator for the zone-0 generators -----------------------------------
+	# row 4: make_generator for the map-0 generators -----------------------------------
 	var gens: Dictionary = G.live_gen_state(G.GENERATORS, 0)
 	var gi := 0
 	for cell in gens:
