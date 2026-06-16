@@ -445,6 +445,150 @@ static func collect_client_lump(client_id: String, amount: int) -> bool:
 	save_now()
 	return true
 
+# ════════════════════════════════════════════════════════════════════════════
+# T43 — STORE / REWARDED-ADS / OUT-OF-WATER state (ADDITIVE accessor block)
+# ════════════════════════════════════════════════════════════════════════════
+# A self-contained, append-only persistence block for the §10 monetization layer:
+#   • rewarded-ad per-type DAILY usage + cooldown timestamps (Ads, core/ads.gd),
+#   • the collect-2× "armed" flag the hub-collect reads (§8 / T42 hook),
+#   • one-time purchase flags (starter pack claimed, first cash pack made),
+#   • the out-of-water triggered-offer daily usage + cooldown (board energy-wall).
+# Everything lives in the grove blob (grove()), so it is test-redirected with the
+# rest of the save and DEFAULTED on old saves by the deep-merge-over-defaults path —
+# NO SCHEMA bump, no migration. The per-type cap rollover uses the same day index
+# (unix/86400) as daily(); cooldowns compare wall-clock seconds.
+
+# The per-type ad ledger: {type -> {day, used, last}} (a live ref in the grove blob).
+static func _ad_ledger() -> Dictionary:
+	var g := grove()
+	if not g.has("ad_ledger"):
+		g["ad_ledger"] = {}
+	return g["ad_ledger"]
+
+# This type's row for TODAY — rolls `used` back to 0 on the first touch of a new day
+# (so a daily cap resets at the day boundary, like the daily bundle). `last` is the
+# unix time of the most recent watch (0 = never), kept across days for the cooldown.
+static func _ad_row(ad_type: String) -> Dictionary:
+	var today := int(Time.get_unix_time_from_system() / 86400.0)
+	var led := _ad_ledger()
+	var r: Dictionary = led.get(ad_type, {})
+	if int(r.get("day", -1)) != today:
+		r = {"day": today, "used": 0, "last": float(r.get("last", 0.0))}
+		led[ad_type] = r
+	return r
+
+# How many times this ad type was watched TODAY (after the day-rollover check).
+static func ad_used_today(ad_type: String) -> int:
+	return int(_ad_row(ad_type).get("used", 0))
+
+# Whether this ad type may be shown right now: under its daily `cap` AND past its
+# `cooldown_s` since the last watch. Pure read — no state change. A cap/cooldown of 0
+# means "unlimited / no wait" on that axis.
+static func ad_can_show(ad_type: String, cap: int, cooldown_s: float) -> bool:
+	var r := _ad_row(ad_type)
+	if cap > 0 and int(r.get("used", 0)) >= cap:
+		return false
+	if cooldown_s > 0.0:
+		var since := Time.get_unix_time_from_system() - float(r.get("last", 0.0))
+		if since < cooldown_s:
+			return false
+	return true
+
+# Seconds remaining on this ad type's cooldown (0 if ready) — for a cozy "ready in…"
+# read, never a punitive countdown.
+static func ad_cooldown_left(ad_type: String, cooldown_s: float) -> float:
+	if cooldown_s <= 0.0:
+		return 0.0
+	var since := Time.get_unix_time_from_system() - float(_ad_row(ad_type).get("last", 0.0))
+	return maxf(0.0, cooldown_s - since)
+
+# Record one watch of this ad type: bump today's `used` and stamp `last` = now. The
+# caller checks ad_can_show first; this is the commit half.
+static func ad_record(ad_type: String) -> void:
+	var r := _ad_row(ad_type)
+	r["used"] = int(r.get("used", 0)) + 1
+	r["last"] = Time.get_unix_time_from_system()
+	_ad_ledger()[ad_type] = r
+	grove_write()
+
+# The collect-2× hook (§8 / T42): the rewarded "2× collection" ad ARMS the next hub
+# collect; the hub-collect reads collect_2x_armed() to pick the multiplier, then calls
+# consume_2x() once it has applied it. Persisted so the bonus survives the map→board hop.
+static func collect_2x_armed() -> bool:
+	return bool(grove().get("collect_2x_armed", false))
+
+static func set_collect_2x_armed(v: bool) -> void:
+	grove()["collect_2x_armed"] = v
+	grove_write()
+
+# One-time purchase flags (§10 starter pack + first-purchase doubler). Defaulted false
+# on old saves; flipped true once, never reset (cracking/refresh does not re-arm them).
+static func starter_claimed() -> bool:
+	return bool(grove().get("starter_claimed", false))
+
+static func set_starter_claimed() -> void:
+	grove()["starter_claimed"] = true
+	grove_write()
+
+static func first_purchase_made() -> bool:
+	return bool(grove().get("first_purchase_made", false))
+
+static func set_first_purchase_made() -> void:
+	grove()["first_purchase_made"] = true
+	grove_write()
+
+# A banked WATER credit (e.g. the starter pack's water bonus, bought from the map where
+# no live board exists). The board adds + clears it on its next open (capped to WATER_CAP
+# there). Like shop_pending for items — survives the map→board hop, drained exactly once.
+static func water_pending() -> int:
+	return int(grove().get("water_pending", 0))
+
+static func add_water_pending(n: int) -> void:
+	if n <= 0:
+		return
+	var g := grove()
+	g["water_pending"] = int(g.get("water_pending", 0)) + n
+	grove_write()
+
+# Return the banked water credit and clear it in the same step (so the board applies it
+# exactly once). Returns 0 when there's nothing pending.
+static func take_water_pending() -> int:
+	var n := water_pending()
+	if n > 0:
+		grove().erase("water_pending")
+		grove_write()
+	return n
+
+# The out-of-water triggered offer (§10) — its own daily-usage + cooldown ledger,
+# mirroring the ad gate (low cap + long cooldown, cozy). {day, used, last} in the grove
+# blob under `oow_offer`.
+static func _oow_row() -> Dictionary:
+	var today := int(Time.get_unix_time_from_system() / 86400.0)
+	var g := grove()
+	var r: Dictionary = g.get("oow_offer", {})
+	if int(r.get("day", -1)) != today:
+		r = {"day": today, "used": 0, "last": float(r.get("last", 0.0))}
+		g["oow_offer"] = r
+	return r
+
+static func oow_used_today() -> int:
+	return int(_oow_row().get("used", 0))
+
+static func oow_can_show(cap: int, cooldown_s: float) -> bool:
+	var r := _oow_row()
+	if cap > 0 and int(r.get("used", 0)) >= cap:
+		return false
+	if cooldown_s > 0.0 and Time.get_unix_time_from_system() - float(r.get("last", 0.0)) < cooldown_s:
+		return false
+	return true
+
+static func oow_record() -> void:
+	var r := _oow_row()
+	r["used"] = int(r.get("used", 0)) + 1
+	r["last"] = Time.get_unix_time_from_system()
+	grove()["oow_offer"] = r
+	grove_write()
+
 # --- test support ----------------------------------------------------------
 
 static func configure_for_test(dir: String) -> void:

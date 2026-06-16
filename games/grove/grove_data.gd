@@ -364,3 +364,67 @@ const SHOP_COSMETICS := [
 # drawn deterministically from SHOP_ITEM_OFFERS + SHOP_COSMETICS by a day/refresh seed so
 # the spread feels fresh without ever overwhelming. Pool = 5 items + 4 looks = 9.
 const SHOP_ROTATION_COUNT := 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's
+# instance of the §4/§10 monetization layer. The ENGINE (grant/cap/cooldown logic)
+# lives in engine/scripts/ui/shop.gd, engine/scripts/core/ads.gd, and the board's
+# energy-wall area; these are the OWNER-TUNABLE numbers. DESIGN LAW (§4): premium &
+# ads buy SPEED + LOOKS, never POSSIBILITY — every wall is passable for FREE (slower).
+# Cozy guardrails (§10, LOCKED): rewarded-ONLY (no interstitials), opt-in, capped +
+# cooldowned; the out-of-water offer has NO countdown, NO fail-shaming, a low cap.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The full cash → 💎 price ladder (§10 "from an entry tier up to a $49.99/$99.99-class
+# top end so a whale can always spend more"). Data-driven: shop.gd renders + grants from
+# this. The 💎-per-dollar RISES monotonically up the ladder (the bulk-discount whale curve
+# — the top tier is always the best rate), so there's always a higher, better-value tier to
+# buy. `pop` marks the merchandised "Popular" card (the mid anchor). LIVE from launch behind
+# the honest confirm-stub; a real store SDK + receipt check replaces only the grant middle.
+const CASH_PACKS := [
+	{"usd": "$0.99", "gems": 80},                # 80.8 💎/$  — the entry tier
+	{"usd": "$4.99", "gems": 450},               # 90.2 💎/$
+	{"usd": "$9.99", "gems": 1000, "pop": true}, # 100.1 💎/$ — the merchandised anchor
+	{"usd": "$19.99", "gems": 2200},             # 110.1 💎/$
+	{"usd": "$49.99", "gems": 6000},             # 120.0 💎/$
+	{"usd": "$99.99", "gems": 13000},            # 130.0 💎/$ — the whale ceiling, best rate
+]
+
+# The STARTER PACK (§10) — a ONE-TIME, high-value, low-price bundle surfaced to new
+# players (the highest-converting IAP in mobile). Deliberately ~4–5× the entry rate so it
+# reads as an unmissable welcome deal; claimable exactly once (Save.starter_claimed). Grants
+# diamonds + a water top-up. Separate from the first-purchase doubler below — it is its own
+# one-time SKU and does NOT consume the doubler.
+const STARTER_PACK := {"usd": "$1.99", "gems": 400, "water": 60}
+
+# The FIRST-PURCHASE DOUBLER (§10) — the FIRST ladder cash pack a player buys grants ×this
+# many diamonds, then never again (Save.first_purchase_made). A one-time conversion sweetener
+# on the standard ladder (the starter pack is excluded — it's its own SKU).
+const FIRST_BUY_MULT := 2
+
+# REWARDED ADS (§10 — "opt-in, rewarded-ONLY, capped + cooldowned, geo-flagged"). One row
+# per ad surface: the per-type DAILY cap and COOLDOWN (seconds) gate how often it pays, so an
+# ad never becomes the optimal grind (§4 "buys speed, never possibility"; §10 cozy bed). The
+# ad itself is a STUB in this build (an honest confirm — "no ad network"); the real SDK call
+# replaces only the play middle. `reward`/`gems`/`water` describe the grant the engine applies:
+#   refill_water — at the wall: watch → a FULL can (a free, daily-capped alt to the 💎 refill).
+#   collect_2x   — double ONE home-hub yield collect (§8); a persisted ARMED flag the hub-collect
+#                  reads (engine/scripts/core/ads.gd Ads.collect_2x_armed / consume_2x) — the ad
+#                  grants no currency directly, it arms the next collect.
+#   shop_reroll  — refresh the rotating Shop offers (advances the `shop_reroll` rotation seed).
+#   event_topup  — a small event-currency boost (§17); stubbed as a small 💎 grant for now.
+const ADS := {
+	"refill_water": {"cap": 3, "cooldown": 1800,  "water": WATER_CAP},  # 3/day, 30 min apart — a full can
+	"collect_2x":   {"cap": 2, "cooldown": 3600,  "mult": 2},           # 2/day, 1 h apart — arms the next collect
+	"shop_reroll":  {"cap": 2, "cooldown": 7200},                       # 2/day, 2 h apart — fresh featured band
+	"event_topup":  {"cap": 1, "cooldown": 86400, "gems": 8},           # 1/day — a small event boost (stub)
+}
+
+# The OUT-OF-WATER TRIGGERED OFFER (§10 "the contextual sell" — state-driven, fired at the
+# moment of friction: water hits 0). A single, gently-DISCOUNTED top-up — a full can + a little
+# premium for the entry price — surfaced beside the free/ad/💎 refill at the wall. Cozy
+# guardrails (LOCKED): a LOW daily cap + a long cooldown, NO countdown, NO fail copy — it reads
+# as "a little help," never a shakedown. The discount is the value: the same $0.99 entry price
+# buys a full refill PLUS gems (a refill alone is 25💎; this throws the can in on top). LIVE
+# behind the same confirm-stub as the cash packs.
+const OOW_OFFER := {"usd": "$0.99", "water": WATER_CAP, "gems": 30, "cap": 1, "cooldown": 43200}  # 1/day, 12 h apart
