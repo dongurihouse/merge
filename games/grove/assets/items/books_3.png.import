@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://betynmiawop0x"
-path="res://.godot/imported/books_3.png-223c25e77f4ea9d7899ebbdd7f07e1dc.ctex"
+path="res://.godot/imported/books_3.png-a27918c306e8f1a5e8f47361d2767ded.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/books_3.png"
-dest_files=["res://.godot/imported/books_3.png-223c25e77f4ea9d7899ebbdd7f07e1dc.ctex"]
+source_file="res://games/grove/assets/items/books_3.png"
+dest_files=["res://.godot/imported/books_3.png-a27918c306e8f1a5e8f47361d2767ded.ctex"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://1r4so3rin1xx"
-path="res://.godot/imported/gen_compost.png-776d2f4472c57fa28d5001e5157eddf5.ctex"
+path="res://.godot/imported/gen_compost.png-2aa7ed18722bf045c3fe7b216d97b588.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/gen_compost.png"
-dest_files=["res://.godot/imported/gen_compost.png-776d2f4472c57fa28d5001e5157eddf5.ctex"]
+source_file="res://games/grove/assets/ui/gen_compost.png"
+dest_files=["res://.godot/imported/gen_compost.png-2aa7ed18722bf045c3fe7b216d97b588.ctex"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cm0yygkvsuawp"
-path="res://.godot/imported/furn_pd_bench.png-1768efd82df10d4ca99e045d80d06cc8.ctex"
+path="res://.godot/imported/furn_pd_bench.png-9bf14f3fd6c0a67924ec064ae77f3501.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_pd_bench.png"
-dest_files=["res://.godot/imported/furn_pd_bench.png-1768efd82df10d4ca99e045d80d06cc8.ctex"]
+source_file="res://games/grove/assets/rooms/furn_pd_bench.png"
+dest_files=["res://.godot/imported/furn_pd_bench.png-9bf14f3fd6c0a67924ec064ae77f3501.ctex"]
 
 [params]
 

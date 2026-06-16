@@ -9,7 +9,7 @@ TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_base run_grove editor test test-engine test-grove test-one smoke import \
+.PHONY: help run run_base run_grove editor place test test-engine test-grove test-one smoke import \
         shot-map shot-grove shot \
         decor icon ios clean clean-cache
 
@@ -33,6 +33,10 @@ run_grove: ## play the GROVE game (full art; first run imports grove art)
 
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)
+
+place: ## interactive map placement editor (VISIBLE window, takes focus; arrow keys pan, drag to place, SAVE writes data/placements.json)
+	rm -f games/grove/assets/.gdignore
+	GAME=grove $(GODOT) --path $(PROJECT) -s res://games/grove/tools/map_place.gd
 
 ## --- tests (headless, no window) ------------------------------------------
 test: ## run every headless suite (engine + game)

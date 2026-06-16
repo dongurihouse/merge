@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://df12jgxk84fle"
-path="res://.godot/imported/undo.wav-2cd830e78525a1061dec27c10b04e6e6.sample"
+path="res://.godot/imported/undo.wav-432fa37f9f5ef41c0367a32bd5f287c1.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/undo.wav"
-dest_files=["res://.godot/imported/undo.wav-2cd830e78525a1061dec27c10b04e6e6.sample"]
+source_file="res://games/grove/assets/sfx/undo.wav"
+dest_files=["res://.godot/imported/undo.wav-432fa37f9f5ef41c0367a32bd5f287c1.sample"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cifi20v76ff3e"
-path="res://.godot/imported/flower_4.png-c2e93d350ac1b9f241d70254fd700d02.ctex"
+path="res://.godot/imported/flower_4.png-1cd80e324e2b05c21a187f6ff80895ce.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/flower_4.png"
-dest_files=["res://.godot/imported/flower_4.png-c2e93d350ac1b9f241d70254fd700d02.ctex"]
+source_file="res://games/grove/assets/items/flower_4.png"
+dest_files=["res://.godot/imported/flower_4.png-1cd80e324e2b05c21a187f6ff80895ce.ctex"]
 
 [params]
 

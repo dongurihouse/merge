@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dx02ue7ps5a6m"
-path="res://.godot/imported/clothes_3.png-a6cdecf7bdbd3105ee1a75cadf1c56da.ctex"
+path="res://.godot/imported/clothes_3.png-2895b23a907c66ddcb05a1556c5ced31.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/clothes_3.png"
-dest_files=["res://.godot/imported/clothes_3.png-a6cdecf7bdbd3105ee1a75cadf1c56da.ctex"]
+source_file="res://games/grove/assets/items/clothes_3.png"
+dest_files=["res://.godot/imported/clothes_3.png-2895b23a907c66ddcb05a1556c5ced31.ctex"]
 
 [params]
 

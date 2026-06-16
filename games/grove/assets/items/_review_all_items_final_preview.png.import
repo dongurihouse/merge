@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxccl537y5jvu"
-path="res://.godot/imported/_review_all_items_final_preview.png-3688497aecbd01218b4b9786d73181ed.ctex"
+path="res://.godot/imported/_review_all_items_final_preview.png-175c6ecdee2a381bedc66a1156487a1b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/_review_all_items_final_preview.png"
-dest_files=["res://.godot/imported/_review_all_items_final_preview.png-3688497aecbd01218b4b9786d73181ed.ctex"]
+source_file="res://games/grove/assets/items/_review_all_items_final_preview.png"
+dest_files=["res://.godot/imported/_review_all_items_final_preview.png-175c6ecdee2a381bedc66a1156487a1b.ctex"]
 
 [params]
 

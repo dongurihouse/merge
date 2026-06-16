@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://byimvqrvpiyjg"
-path="res://.godot/imported/fx_glow.png-829ac4475047406e50d921e519047015.ctex"
+path="res://.godot/imported/fx_glow.png-4a1cbd310aca623f7e063a50426b4f09.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/fx/fx_glow.png"
-dest_files=["res://.godot/imported/fx_glow.png-829ac4475047406e50d921e519047015.ctex"]
+source_file="res://games/grove/assets/fx/fx_glow.png"
+dest_files=["res://.godot/imported/fx_glow.png-4a1cbd310aca623f7e063a50426b4f09.ctex"]
 
 [params]
 

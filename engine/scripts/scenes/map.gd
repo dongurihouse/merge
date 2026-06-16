@@ -79,7 +79,8 @@ var unlocks := {}
 var content: Control
 var _view := "map"               # "map" | "select"
 var _map_idx := 0                # the map being viewed
-var _map_rect := Rect2()         # the CONTAIN-fit map image (spot pos maps to THIS rect)
+var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
+var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z}] — the map-select cards
 var variant_hits: Array = []     # [{node, z, k, vid}] — the inline strip's swatch chips
@@ -101,11 +102,25 @@ var _open_shop := Callable()      # opens the shared Shop (lives in the bottom c
 var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat presses)
 
 # --- dev placement editor (Layout) ---
+# In place mode the map rides a CAMERA: a uniform zoom on `content` (so the background
+# art AND the spots scale together — same relative sizes, same cover-crop the real game
+# uses) plus a pan. Only the screen-fixed toolbar/HUD stay put. The zoom is LIVE — the
+# mouse wheel over empty space zooms the view, the arrow keys pan, `0` resets — so you
+# dial how much of the map you see instead of a baked-in size. Default sits a touch
+# zoomed-OUT so the whole map is framed with margin. The editor's hit-testing works in
+# content-LOCAL coordinates, so the camera scale never skews a drag.
+const PLACE_ZOOM_DEFAULT := 0.85      # start framed with margin (whole map visible)
+const PLACE_ZOOM_MIN := 0.3
+const PLACE_ZOOM_MAX := 3.0
+const PLACE_ZOOM_STEP := 0.1          # wheel notch
+const PLACE_PAN_STEP := 90.0          # arrow-key pan, px per press
 var _place_overlay: Control = null    # toolbar + readout, kept topmost
 var _place_readout: Label = null
 var _place_sel_box: Panel = null      # hollow rect over the selected spot
 var _place_drag: Dictionary = {}      # {kind:"spot", z, k, node, grab}
 var _place_sel: Dictionary = {}       # last-touched {kind, z, k, node} for size/reset
+var _place_pan := Vector2.ZERO        # camera pan (place mode only), px
+var _place_zoom := 0.85               # camera zoom (place mode only); PLACE_ZOOM_DEFAULT
 
 func _ready() -> void:
 	_heal_capture_flags()
@@ -397,14 +412,17 @@ func _build_map() -> void:
 	variant_hits.clear()
 	upgrade_hits.clear()
 	var z := _map_idx
-	# the map image fills the viewport below the HUD top inset and above the chrome
+	# the stable map canvas fills the viewport below the HUD top inset and above
+	# the chrome. Background art can move/scale behind it, but spots stay on this
+	# fixed canvas so resizing the background never drags placed buildings around.
 	_map_rect = _map_image_rect()
+	_map_art_rect = _map_placed_rect(z, _map_rect)
 	var art_path := Game.art("map/map_%s.png" % String(G.MAPS[z].id))
 	if ResourceLoader.exists(art_path):
 		var t := TextureRect.new()
 		t.texture = load(art_path)
-		t.position = _map_rect.position
-		t.size = _map_rect.size
+		t.position = _map_art_rect.position
+		t.size = _map_art_rect.size
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		t.clip_contents = true
@@ -412,8 +430,8 @@ func _build_map() -> void:
 		content.add_child(t)
 	else:
 		var fallback := Panel.new()
-		fallback.position = _map_rect.position
-		fallback.size = _map_rect.size
+		fallback.position = _map_art_rect.position
+		fallback.size = _map_art_rect.size
 		var fs := StyleBoxFlat.new()
 		fs.bg_color = MEADOW
 		fs.set_corner_radius_all(28)
@@ -435,9 +453,12 @@ func _build_map() -> void:
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
 	if _place_on():
+		_place_apply_cam()                # zoom past the edges + apply the pan
 		_place_resync_sel()
 		_place_raise()
-	FX.pop_in(content)
+		content.modulate.a = 1.0
+	else:
+		FX.pop_in(content)
 
 # The available area below the HUD and above the bottom chrome; the map image is
 # CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
@@ -450,6 +471,12 @@ func _map_image_rect() -> Rect2:
 	var rw: float = avail.size.x
 	var rh: float = avail.size.y
 	return Rect2(avail.position + (avail.size - Vector2(rw, rh)) / 2.0, Vector2(rw, rh))
+
+func _map_placed_rect(z: int, base: Rect2) -> Rect2:
+	var scale := Layout.map_scale(z)
+	var size := base.size * scale
+	var pos := base.position + (base.size - size) / 2.0 + Layout.map_offset(z) * base.size
+	return Rect2(pos, size)
 
 # The map's title — NAME + ✿-progress on one plank, centered near the top of the
 # map image (an IGNORE visual; never eats a press).
@@ -964,7 +991,9 @@ func _on_input(event: InputEvent) -> void:
 	if pressed and event.pressed:
 		_press = event.position
 	elif pressed and not event.pressed and event.position.distance_to(_press) <= 18.0:
-		var gpos: Vector2 = event.position
+		# tap targets hit-test against GLOBAL rects; in place mode `content` is scaled,
+		# so lift the content-local event point into global space (identity otherwise).
+		var gpos: Vector2 = content.get_global_transform() * event.position
 		if _view == "select":
 			_select_tap(gpos)
 		else:
@@ -1467,6 +1496,9 @@ func _on_board() -> void:
 	get_tree().change_scene_to_file("res://engine/scenes/Board.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
+	# place mode: arrow keys pan the blown-up camera so off-screen parts come into view.
+	if _place_on() and _view == "map" and _place_pan_keys(event):
+		return
 	# Esc steps back: a map → the place-picker; the picker → quit (desktop has no
 	# OS back gesture). Mirrors _notification(WM_GO_BACK_REQUEST).
 	if event.is_action_pressed("ui_cancel"):
@@ -1563,30 +1595,35 @@ func _build_place_ui() -> void:
 	strip.anchor_top = 1.0
 	strip.anchor_bottom = 1.0
 	var sb := Look.safe_bottom(self)
-	strip.offset_top = -104.0 - sb
+	strip.offset_top = -154.0 - sb
 	strip.mouse_filter = Control.MOUSE_FILTER_STOP    # taps here never reach the map
 	ov.add_child(strip)
-	var row := HBoxContainer.new()
-	row.set_anchors_preset(Control.PRESET_FULL_RECT)
-	row.add_theme_constant_override("separation", 8)
-	row.offset_left = 14.0
-	row.offset_right = -14.0
-	row.offset_top = 8.0
-	row.offset_bottom = -8.0 - sb
-	strip.add_child(row)
+	var col := VBoxContainer.new()
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.add_theme_constant_override("separation", 6)
+	col.offset_left = 12.0
+	col.offset_right = -12.0
+	col.offset_top = 8.0
+	col.offset_bottom = -8.0 - sb
+	strip.add_child(col)
 	var ro := Label.new()
-	ro.add_theme_font_size_override("font_size", 21)
+	ro.add_theme_font_size_override("font_size", 18)
 	ro.add_theme_color_override("font_color", Color("#39E0C8"))
 	ro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ro.custom_minimum_size = Vector2(0, 58)
 	ro.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	ro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	row.add_child(ro)
+	col.add_child(ro)
 	_place_readout = ro
-	row.add_child(_dbg_btn("− size", func() -> void: _place_size(-10.0)))
+	var row := HBoxContainer.new()
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 6)
+	col.add_child(row)
+	row.add_child(_dbg_btn("- size", func() -> void: _place_size(-10.0)))
 	row.add_child(_dbg_btn("+ size", func() -> void: _place_size(10.0)))
-	row.add_child(_dbg_btn("↺ sel", _place_reset_sel))
-	row.add_child(_dbg_btn("↺ all", _place_reset_all))
-	row.add_child(_dbg_btn("💾 SAVE", _place_save))
+	row.add_child(_dbg_btn("reset", _place_reset_sel))
+	row.add_child(_dbg_btn("all", _place_reset_all))
+	row.add_child(_dbg_btn("save", _place_save))
 	_place_hide_map_chrome()
 	_place_update_readout()
 
@@ -1606,15 +1643,16 @@ func _place_hide_map_chrome() -> void:
 func _dbg_btn(text: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.text = text
-	b.add_theme_font_size_override("font_size", 22)
-	b.custom_minimum_size = Vector2(0, 72)
+	b.add_theme_font_size_override("font_size", 18)
+	b.custom_minimum_size = Vector2(0, 54)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var bn := StyleBoxFlat.new()
 	bn.bg_color = Color("#E84AC0")
 	bn.set_corner_radius_all(10)
-	bn.content_margin_left = 14.0
-	bn.content_margin_right = 14.0
-	bn.content_margin_top = 8.0
-	bn.content_margin_bottom = 8.0
+	bn.content_margin_left = 8.0
+	bn.content_margin_right = 8.0
+	bn.content_margin_top = 6.0
+	bn.content_margin_bottom = 6.0
 	b.add_theme_stylebox_override("normal", bn)
 	b.add_theme_stylebox_override("hover", bn)
 	var bp := bn.duplicate()
@@ -1629,6 +1667,41 @@ func _place_raise() -> void:
 	if _place_overlay != null and is_instance_valid(_place_overlay) and _place_overlay.get_parent() == self:
 		move_child(_place_overlay, get_child_count() - 1)
 
+# Place-mode camera: scale `content` up by PLACE_ZOOM about the screen centre (so the
+# map blows past the edges) and offset it by _place_pan (the arrow-key walk). The map
+# and its spots ride `content`, so they magnify and pan as one; the toolbar/HUD live
+# under `self` and stay screen-fixed. Cheap enough to call on every pan press — no
+# rebuild needed, just the transform + the selection box refresh.
+func _place_apply_cam() -> void:
+	if not _place_on():
+		return
+	var view := get_viewport_rect().size
+	content.pivot_offset = Vector2.ZERO
+	content.scale = Vector2(PLACE_ZOOM, PLACE_ZOOM)
+	content.position = view * 0.5 * (1.0 - PLACE_ZOOM) + _place_pan
+	_place_update_sel_box()
+
+# Arrow keys walk the place-mode camera so the off-screen parts of the blown-up image
+# come into view. Returns true when it consumed the key. The arrow points where you
+# want to LOOK (Right reveals the right edge), so the map slides the opposite way.
+func _place_pan_keys(event: InputEvent) -> bool:
+	var d := Vector2.ZERO
+	if event.is_action_pressed("ui_right", true):
+		d.x = -PLACE_PAN_STEP
+	elif event.is_action_pressed("ui_left", true):
+		d.x = PLACE_PAN_STEP
+	elif event.is_action_pressed("ui_down", true):
+		d.y = -PLACE_PAN_STEP
+	elif event.is_action_pressed("ui_up", true):
+		d.y = PLACE_PAN_STEP
+	else:
+		return false
+	_place_pan += d
+	_place_apply_cam()
+	if get_viewport() != null:
+		get_viewport().set_input_as_handled()
+	return true
+
 func _place_clear_sel() -> void:
 	_place_sel = {}
 	_place_drag = {}
@@ -1642,6 +1715,10 @@ func _place_select(d: Dictionary) -> void:
 
 # After a map rebuild the spot nodes are fresh — re-bind the selected one.
 func _place_resync_sel() -> void:
+	if String(_place_sel.get("kind", "")) == "map":
+		_place_update_readout()
+		_place_update_sel_box()
+		return
 	if String(_place_sel.get("kind", "")) != "spot":
 		_place_update_sel_box()
 		return
@@ -1661,18 +1738,33 @@ func _place_update_readout() -> void:
 	if _place_readout == null or not is_instance_valid(_place_readout):
 		return
 	var kind := String(_place_sel.get("kind", ""))
-	if kind == "spot":
+	if kind == "map":
+		var z := int(_place_sel.z)
+		var off := Layout.map_offset(z)
+		var sc := Layout.map_scale(z)
+		_place_readout.text = "BG %s   offset (%.3f, %.3f) / scale %.3f%s" % [
+			String(G.MAPS[z].name), off.x, off.y, sc, "  *edited" if Layout.map_overridden(z) else ""]
+	elif kind == "spot":
 		var z := int(_place_sel.z)
 		var k := int(_place_sel.k)
 		var sp := Layout.spot_pos(z, k)
 		var fs := Layout.spot_fsize(z, k)
-		_place_readout.text = "🪑 %s   pos (%.3f, %.3f) · size %d%s" % [
-			String(G.MAPS[z].spots[k].name), sp.x, sp.y, int(fs), "  •edited" if Layout.spot_overridden(z, k) else ""]
+		_place_readout.text = "SPOT %s   pos (%.3f, %.3f) / size %d%s" % [
+			String(G.MAPS[z].spots[k].name), sp.x, sp.y, int(fs), "  *edited" if Layout.spot_overridden(z, k) else ""]
 	else:
-		_place_readout.text = "DEBUG · PLACE — drag a spot on the map · − / + resize · 💾 SAVE → data/placements.json"
+		_place_readout.text = "PLACE - arrow keys pan the view; drag empty map art for background, drag a building for spots; +/- resizes selected; save writes data/placements.json"
 
 func _place_update_sel_box() -> void:
 	if _place_sel_box == null or not is_instance_valid(_place_sel_box):
+		return
+	if String(_place_sel.get("kind", "")) == "map":
+		# the box lives under `self` (screen space); the art rides scaled `content`, so
+		# lift its content-local rect into global to outline it where it actually shows.
+		var ar: Rect2 = content.get_global_transform() * _map_art_rect
+		var grow := 6.0
+		_place_sel_box.visible = true
+		_place_sel_box.global_position = ar.position - Vector2(grow, grow)
+		_place_sel_box.size = ar.size + Vector2(grow, grow) * 2.0
 		return
 	var n: Variant = _place_sel.get("node", null)
 	if n == null or not is_instance_valid(n):
@@ -1684,9 +1776,8 @@ func _place_update_sel_box() -> void:
 	_place_sel_box.global_position = r.position - Vector2(g, g)
 	_place_sel_box.size = r.size + Vector2(g, g) * 2.0
 
-# Map place input: drag a SPOT to reposition (live spot_pos on the map image). A
-# press that misses every spot returns false so the normal handler still resolves
-# taps (variant chips, buy, spirits). Returns true when it consumed the event.
+# Map place input: drag a SPOT to reposition it, or drag the map image itself to
+# adjust the background offset. Returns true when it consumed the event.
 func _place_input(event: InputEvent) -> bool:
 	# only the map view has draggable spots; the place-picker is plain navigation
 	if _view != "map":
@@ -1696,28 +1787,63 @@ func _place_input(event: InputEvent) -> bool:
 	var is_release: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed) \
 		or (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed)
 	var is_motion: bool = event is InputEventMouseMotion or event is InputEventScreenDrag
+	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
+		var wheel := (event as InputEventMouseButton).button_index
+		if wheel == MOUSE_BUTTON_WHEEL_UP or wheel == MOUSE_BUTTON_WHEEL_DOWN:
+			var kind := String(_place_sel.get("kind", ""))
+			if kind == "map" or kind == "spot":
+				_place_size(10.0 if wheel == MOUSE_BUTTON_WHEEL_UP else -10.0)
+				return true
+			return false
 	if is_press:
 		for hit in spot_hits:
 			var n: Control = hit.node
-			if n.get_global_rect().grow(8.0).has_point(event.position):
-				_place_drag = {"kind": "spot", "z": int(hit.z), "k": int(hit.k), "node": n, "grab": event.position - n.global_position, "press": event.position, "moved": 0.0}
+			# spots are direct children of `content`, so their content-local rect is
+			# Rect2(position, size). Working in content-local keeps the math right when
+			# `content` is scaled by the place-mode camera (event.position is local too).
+			if Rect2(n.position, n.size).grow(8.0).has_point(event.position):
+				_place_drag = {"kind": "spot", "z": int(hit.z), "k": int(hit.k), "node": n, "grab": event.position - n.position, "press": event.position, "moved": 0.0}
 				_place_select({"kind": "spot", "z": int(hit.z), "k": int(hit.k), "node": n})
 				return true
-		return false                      # navigation taps fall through
+		if _map_rect.has_point(event.position):
+			_place_drag = {
+				"kind": "map",
+				"z": _map_idx,
+				"press": event.position,
+				"start_offset": Layout.map_offset(_map_idx),
+				"moved": 0.0,
+			}
+			_place_select({"kind": "map", "z": _map_idx})
+			return true
+		return false
+	if is_motion and String(_place_drag.get("kind", "")) == "map":
+		var press_pt: Vector2 = _place_drag.press
+		_place_drag.moved = maxf(float(_place_drag.moved), (event.position - press_pt).length())
+		if float(_place_drag.moved) > TAP_SLOP and _map_rect.size.x > 0.0 and _map_rect.size.y > 0.0:
+			var delta: Vector2 = (event.position - press_pt) / _map_rect.size
+			var start_offset: Vector2 = _place_drag.start_offset
+			Layout.set_map_offset(int(_place_drag.z), start_offset + delta)
+			_build_map()
+			_place_select({"kind": "map", "z": int(_place_drag.z)})
+		return true
 	if is_motion and String(_place_drag.get("kind", "")) == "spot":
 		var n: Control = _place_drag.node
 		var press_pt: Vector2 = _place_drag.press
 		_place_drag.moved = maxf(float(_place_drag.moved), (event.position - press_pt).length())
 		if float(_place_drag.moved) > TAP_SLOP:
 			var grab: Vector2 = _place_drag.grab
-			n.global_position = event.position - grab
-			var anchor := n.global_position + Vector2(90.0, 40.0)
+			n.position = event.position - grab                   # content-local (see press)
+			var anchor := n.position + Vector2(90.0, 40.0)
 			if _map_rect.size.x > 0.0 and _map_rect.size.y > 0.0:
 				Layout.set_spot_pos(int(_place_drag.z), int(_place_drag.k), (anchor - _map_rect.position) / _map_rect.size)
 			_place_update_readout()
 			_place_update_sel_box()
 		return true
 	if is_release and String(_place_drag.get("kind", "")) == "spot":
+		_place_drag = {}
+		_place_update_readout()
+		return true
+	if is_release and String(_place_drag.get("kind", "")) == "map":
 		_place_drag = {}
 		_place_update_readout()
 		return true
@@ -1729,21 +1855,24 @@ func _place_save() -> void:
 		_place_flash("⚠ SAVE FAILED — could not write placements.json")
 		push_warning("[place] save failed")
 	else:
-		_place_flash("✔ saved → %s" % p)
+		_place_flash("saved -> %s" % p)
 		print("[place] saved → ", ProjectSettings.globalize_path(p))
 
 func _place_reset_sel() -> void:
 	var kind := String(_place_sel.get("kind", ""))
-	if kind == "spot":
+	if kind == "map":
+		Layout.reset_map(int(_place_sel.z))
+		_rebuild_after_reset()
+	elif kind == "spot":
 		Layout.reset_spot(int(_place_sel.z), int(_place_sel.k))
 		_rebuild_after_reset()
 	else:
-		_place_flash("select a spot to reset")
+		_place_flash("select the background or a spot to reset")
 
 func _place_reset_all() -> void:
 	Layout.reset_all()
 	_rebuild_after_reset()
-	_place_flash("↺ all placements reset to defaults (not yet saved)")
+	_place_flash("all placements reset to defaults (not yet saved)")
 
 func _rebuild_after_reset() -> void:
 	_place_clear_sel()
@@ -1751,8 +1880,15 @@ func _rebuild_after_reset() -> void:
 	_place_raise()
 
 func _place_size(delta: float) -> void:
-	if String(_place_sel.get("kind", "")) != "spot":
-		_place_flash("select a spot first, then − / + resize it")
+	var kind := String(_place_sel.get("kind", ""))
+	if kind == "map":
+		var z := int(_place_sel.z)
+		Layout.set_map_scale(z, Layout.map_scale(z) + delta * 0.005)
+		_build_map()
+		_place_select({"kind": "map", "z": z})
+		return
+	if kind != "spot":
+		_place_flash("select the background or a spot first, then − / + resize it")
 		return
 	var z := int(_place_sel.z)
 	var k := int(_place_sel.k)

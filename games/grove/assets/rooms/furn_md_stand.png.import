@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://mk6qslqcxlfk"
-path="res://.godot/imported/furn_md_stand.png-0833d7247f336c37966c59ce66870f00.ctex"
+path="res://.godot/imported/furn_md_stand.png-7f88933c828894a1dfbe810d915f79d9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_md_stand.png"
-dest_files=["res://.godot/imported/furn_md_stand.png-0833d7247f336c37966c59ce66870f00.ctex"]
+source_file="res://games/grove/assets/rooms/furn_md_stand.png"
+dest_files=["res://.godot/imported/furn_md_stand.png-7f88933c828894a1dfbe810d915f79d9.ctex"]
 
 [params]
 

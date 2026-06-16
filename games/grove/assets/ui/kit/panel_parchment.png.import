@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://3u6dosvtbun5"
-path="res://.godot/imported/panel_parchment.png-b1c9739fec37719f4d4b20eec6535274.ctex"
+path="res://.godot/imported/panel_parchment.png-4017a1d466e4499fba769b1ea4932a9a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/panel_parchment.png"
-dest_files=["res://.godot/imported/panel_parchment.png-b1c9739fec37719f4d4b20eec6535274.ctex"]
+source_file="res://games/grove/assets/ui/kit/panel_parchment.png"
+dest_files=["res://.godot/imported/panel_parchment.png-4017a1d466e4499fba769b1ea4932a9a.ctex"]
 
 [params]
 

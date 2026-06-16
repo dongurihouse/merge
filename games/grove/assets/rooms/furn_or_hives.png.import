@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://nvrwmmwhad0r"
-path="res://.godot/imported/furn_or_hives.png-a239d0af12729eef2cf1dc64ae91ff95.ctex"
+path="res://.godot/imported/furn_or_hives.png-af7fee63cd75efbd8f56b9df9551ec2c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_or_hives.png"
-dest_files=["res://.godot/imported/furn_or_hives.png-a239d0af12729eef2cf1dc64ae91ff95.ctex"]
+source_file="res://games/grove/assets/rooms/furn_or_hives.png"
+dest_files=["res://.godot/imported/furn_or_hives.png-af7fee63cd75efbd8f56b9df9551ec2c.ctex"]
 
 [params]
 

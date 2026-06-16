@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://g5bdh7tgv2t5"
-path="res://.godot/imported/bramble_3.png-bf250f987b991af2f5bb27c81e0d82d8.ctex"
+path="res://.godot/imported/bramble_3.png-d52f159b0836a874d29445fba45ce77f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/bramble_3.png"
-dest_files=["res://.godot/imported/bramble_3.png-bf250f987b991af2f5bb27c81e0d82d8.ctex"]
+source_file="res://games/grove/assets/ui/bramble_3.png"
+dest_files=["res://.godot/imported/bramble_3.png-d52f159b0836a874d29445fba45ce77f.ctex"]
 
 [params]
 

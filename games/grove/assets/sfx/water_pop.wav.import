@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://b21t854t7hntb"
-path="res://.godot/imported/water_pop.wav-0dfdf2822c13f5faeeceb38793bf2ede.sample"
+path="res://.godot/imported/water_pop.wav-68f15d5c412e1554e15c50d402dcf726.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/water_pop.wav"
-dest_files=["res://.godot/imported/water_pop.wav-0dfdf2822c13f5faeeceb38793bf2ede.sample"]
+source_file="res://games/grove/assets/sfx/water_pop.wav"
+dest_files=["res://.godot/imported/water_pop.wav-68f15d5c412e1554e15c50d402dcf726.sample"]
 
 [params]
 

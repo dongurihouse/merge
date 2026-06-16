@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b58i4817i8i34"
-path="res://.godot/imported/toys_4.png-b1b24265b14e23f72f614f5057dcc5fd.ctex"
+path="res://.godot/imported/toys_4.png-0a379d3c6d401e0d3214e2e51040fb68.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/toys_4.png"
-dest_files=["res://.godot/imported/toys_4.png-b1b24265b14e23f72f614f5057dcc5fd.ctex"]
+source_file="res://games/grove/assets/items/toys_4.png"
+dest_files=["res://.godot/imported/toys_4.png-0a379d3c6d401e0d3214e2e51040fb68.ctex"]
 
 [params]
 

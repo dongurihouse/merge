@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dy11g8bjlad2l"
-path="res://.godot/imported/honey_6.png-72db98c95f862b99b9a76fd607af4ca9.ctex"
+path="res://.godot/imported/honey_6.png-0e7d5d220b3fbb9dff3ad3911ee00123.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/honey_6.png"
-dest_files=["res://.godot/imported/honey_6.png-72db98c95f862b99b9a76fd607af4ca9.ctex"]
+source_file="res://games/grove/assets/items/honey_6.png"
+dest_files=["res://.godot/imported/honey_6.png-0e7d5d220b3fbb9dff3ad3911ee00123.ctex"]
 
 [params]
 

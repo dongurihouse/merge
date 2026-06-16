@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dde3fspu6ubhr"
-path="res://.godot/imported/_review_board_tray_square_source.png-772f8158dcd3466b5eedb3b2435371b2.ctex"
+path="res://.godot/imported/_review_board_tray_square_source.png-e44372f0eb725b028dfabae386f0c419.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/_review_board_tray_square_source.png"
-dest_files=["res://.godot/imported/_review_board_tray_square_source.png-772f8158dcd3466b5eedb3b2435371b2.ctex"]
+source_file="res://games/grove/assets/ui/_review_board_tray_square_source.png"
+dest_files=["res://.godot/imported/_review_board_tray_square_source.png-e44372f0eb725b028dfabae386f0c419.ctex"]
 
 [params]
 

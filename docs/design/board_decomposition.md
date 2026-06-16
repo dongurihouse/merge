@@ -4,6 +4,12 @@ Status: in progress — **Waves 1–2 shipped 2026-06-15**; Wave 3 pending reass
 invariant (`merge_spec.md` §15). Companion to the engine layering split already shipped
 for `core/` / `ui/` / `scenes/`.
 
+**Vocabulary note (2026-06-15):** a later repo-wide rename swept `zone → map`
+(`G.ZONES`→`G.MAPS`, `frontier_zone`→`frontier_map`, `zone_done`→`map_spots_done`,
+`zone_cheapest_spot`→`map_cheapest_spot`, `_quest_zone`→`_quest_map`, the save key
+`quests_zone`→`quests_map`, and `core/quests.gd` `zone()`→`current_map()`). The Wave 1/2
+history below keeps its original `zone` wording; read it as today's `map`.
+
 ## Problem
 
 `engine/scripts/scenes/board.gd` is a 2621-line, 109-function God-scene
@@ -36,7 +42,7 @@ architectural layer and without behaviour change**, addressing all four drivers
    call order must be preserved exactly (see `core/board_logic.gd` `roll_spawn`).
    Any extraction touching spawning/refilling must not reorder `rng` calls.
 4. **Save schema is frozen.** `_persist()` writes a fixed key set
-   (`board`, `quests`, `quests_zone`, `bag`, `rng_state`, `water`, `refills_used`,
+   (`board`, `quests`, `quests_map`, `bag`, `rng_state`, `water`, `refills_used`,
    `regen_ts`, `last_seen`). Extraction must not change what is written or read.
 5. **No behaviour change.** This is a structural refactor. Visuals and gameplay
    must be byte-for-byte equivalent (verified by composite/measure, never eyeball).
@@ -97,16 +103,16 @@ intent and trust the coordinator to apply + refresh.
 
 | Module | Layer | Shape | Receives | Status |
 |---|---|---|---|---|
-| `core/board_logic.gd` | core | statics | model/data in | extend: `openable_for_hint` |
-| `core/quests.gd` | core | statics | grove dict, `board.gens`, rng | **new** |
-| `ui/piece_view.gd` | ui | builder | `(code, size)` etc. | **new** (~550) |
-| `ui/bust.gd` | ui | builder | `(which, px)` | **new** (~80) |
-| `ui/grid.gd` | ui | Control | model + render calls; emits merge/move/swap/stash/tap | **new** (~450) |
-| `ui/fence.gd` | ui | Control | quests + render; emits deliver/ask | **new** (~450) |
-| `ui/merchant.gd` | ui | Control | basket + render; emits sell/buyback/treat | **new** (~350) |
-| `ui/bag_view.gd` | ui | Control | bag + render; emits tap | **new** (~120) |
-| `ui/burst_chip.gd` | ui | Control | level/cost; emits buy | **new** (~80) |
-| `scenes/board.gd` | scenes | coordinator | — | shrinks to ~400 |
+| `core/board_logic.gd` | core | statics | model/data in | **shipped**: `openable_for_hint` |
+| `core/quests.gd` | core | statics | unlocks/gates, `board.gens`, stars, level, rng | **shipped** (88) |
+| `ui/piece_view.gd` | ui | builder | `(code, size)`, `(cell, csz)`, board dims | **shipped** (340) |
+| `ui/bust.gd` | ui | builder | `(which, px)` | **shipped** (66) |
+| `ui/grid.gd` | ui | Control | model + render calls; emits merge/move/swap/stash/tap | Wave 3 (~470 today) |
+| `ui/fence.gd` | ui | Control | quests + render; emits deliver/ask | Wave 3 (~580 today) |
+| `ui/merchant.gd` | ui | Control | basket + render; emits sell/buyback/treat | Wave 3 (~340 today) |
+| `ui/bag_view.gd` | ui | Control | bag + render; emits tap/buy-slot/drag | Wave 3 (~175 today) |
+| `ui/burst_chip.gd` | ui | Control | level/cost; emits buy | Wave 3 (~74 today) |
+| `scenes/board.gd` | scenes | coordinator | — | 2621 → 2316 now → ~450 target |
 
 ## Wave 1 — logic to `core/` (smallest; calibration note below)
 
@@ -195,12 +201,37 @@ precedent) owning its own subtree, node dicts, input, and `render`/`refresh`
 methods. It emits intents upward; the coordinator owns state + transactions and
 calls `_after_board_change()` to fan refreshes back out.
 
+**Current inventory (measured 2026-06-15 — board.gd = 2316 lines, 112 funcs, 54 vars).**
+After Waves 1–2 the view *construction* is gone; what remains is the coordinator spine
+plus the stateful subsystems below. The five subsystems are ~70% of the file and are
+what Wave 3 extracts; the rest is genuine coordinator residue that stays.
+
+| Cluster → component | ~lines today | Key functions today |
+|---|---|---|
+| **fence** → `ui/fence.gd` | ~580 | `_rebuild_givers`, `_make_giver_stand` (119), `_ask_pill`/`_featured_ribbon`/`_ready_check`/`_dock_check`, `_giver_bob*`, `_giver_is_payable`, `_refresh_giver_lights`, `_on_giver_tap`, `_deliver_grant`, `_deliver_gate`, gate-cue, thin quest wrappers |
+| **grid** → `ui/grid.gd` | ~470 | `_rebuild_all`/`_rebuild_pieces`, `_on_press`/`_on_release`/`_release_gen`/`_snap_back`, `_pop_seed` (71), `_commit_merge`/`_after_merge`/`_commit_move`/`_commit_swap`, `_open_bramble`, `_drop_coin_near`/`_collect_coin`, `_refresh_generator_dim`, `_hint_pair`, cell helpers |
+| **merchant** → `ui/merchant.gd` | ~340 | `_make_merchant_stand` (104), `_buy_treat`, sell-affordance (`_show`/`_hide_sell_affordance`, `_swap_tag_icon`, `_note_item_landed`), `_sell_item`/`_grant_sale`/`_record_sale`/`_buy_back`/`_rebuild_basket`, porter (`_porter_collect`/`_porter_tick`/`_play_porter`) |
+| **bag** → `ui/bag_view.gd` | ~175 | `_bag_capacity`/`_bag_has_buy_slot`, `_stash`/`_retrieve_from_bag`, `_buy_bag_slot` (💎 slot), `_build_bag_bar`/`_rebuild_bag`, `_on_bag_slot_input`/`_end_bag_drag` (drag-to-place), `_drain_shop_pieces` |
+| **burst** → `ui/burst_chip.gd` | ~74 | `_gen_burst_level`/`_upgrade_gen_burst`, `_rebuild_burst_chip`/`_refresh_burst_chip`, `_on_burst_chip_input`/`_try_buy_burst` |
+
+**Stays in the coordinator (~600 today → ~450 target):** `_ready` (the 186-line scene
+assembly), `_process`, state + persistence (`_load_state`/`_persist`/`_mark_seen`/
+`_apply_regen`), HUD/water wiring (`_build_hud`/`_build_water_hud`/`_update_hud`/water
+tick), FTUE spotlight orchestration, the discovery ladder (`_open_ladder`), the gate
+button (`_on_gate`), and the transaction + signal-wiring glue.
+
+> **The bag grew since Wave 2.** An external feature added 💎 slot-buying + drag-to-place
+> (`_buy_bag_slot`, `_build_bag_bar`, `_retrieve_from_bag`, `_end_bag_drag`, `_input`,
+> `_bag_has_buy_slot`), pushing board.gd **2225 → 2316**. Fresh evidence the file is still
+> a magnet — each subsystem wants its own home, and `bag_view` is now meatier than first
+> estimated (~120 → ~175).
+
 | Component | Owns (view) | Emits (intent) | Coordinator applies |
 |---|---|---|---|
 | `ui/grid.gd` | `board_area`, piece/bramble/gen node dicts, drag/input | `merge_requested(a,b)`, `move(a,b)`, `swap(a,b)`, `stash(cell)`, `sell(cell)`, `tap(cell)`, `gen_burst(cell)` | mutate `BoardModel`, maybe coin drop, `_after_board_change()` |
 | `ui/fence.gd` | `giver_bar`, stands, bob, lights, gate stand | `deliver(qi)`, `ask_tapped(qi)` | grant currency / unlock, spotlight, refill, `_after_board_change()` |
 | `ui/merchant.gd` | merchant chip, basket chip, sell affordance, porter timer | `sell_top()`, `buyback(idx)`, `buy_treat()` | pay wallet, record sale, `_after_board_change()` |
-| `ui/bag_view.gd` | bag slots | `slot_tapped(i)` | place/stash, `_after_board_change()` |
+| `ui/bag_view.gd` | bag slots + buy-slot pill | `slot_tapped(i)`, `buy_slot()`, `drag_to(cell)` | place/stash/retrieve, spend 💎, `_after_board_change()` |
 | `ui/burst_chip.gd` | the coin-sink pill | `buy()` | spend, bump `burst_lvl`, refresh |
 
 `scenes/board.gd` becomes the coordinator: builds the layout shell (the `_ready`
@@ -208,7 +239,7 @@ VBox: spacer → chapter ribbon → fence slot → grid slot → bag slot, plus 
 button, bottom bar, HUD), instantiates each component into its slot, owns
 run-state + transactions + lifecycle (`_process`, water tick, winback, gate cue,
 spotlight orchestration), and wires intents → transactions → `_after_board_change()`.
-Target ~400 lines.
+Target ~450 lines.
 
 **Gate:** full suite green (`layering`, `quest`, `gate_unveil`, `ftue_pop`,
 `gendim`, `featured`, `floater`, `spotlight`, `save`, `smoke`); visual composites

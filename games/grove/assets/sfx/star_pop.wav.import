@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://cfj6f8vdv76sb"
-path="res://.godot/imported/star_pop.wav-b8a28d1e633e2a98df2fb95292f7eafd.sample"
+path="res://.godot/imported/star_pop.wav-799ef5e220c1dc4b98a92a79a2ea87a1.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/star_pop.wav"
-dest_files=["res://.godot/imported/star_pop.wav-b8a28d1e633e2a98df2fb95292f7eafd.sample"]
+source_file="res://games/grove/assets/sfx/star_pop.wav"
+dest_files=["res://.godot/imported/star_pop.wav-799ef5e220c1dc4b98a92a79a2ea87a1.sample"]
 
 [params]
 

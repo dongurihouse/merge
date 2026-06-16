@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://da77voslbhfh5"
-path="res://.godot/imported/tray_clothes.png-1105b775d0b39e75e6465c173e593eae.ctex"
+path="res://.godot/imported/tray_clothes.png-d1ff0165d6478ced6ec826b4791c13b8.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/tray_clothes.png"
-dest_files=["res://.godot/imported/tray_clothes.png-1105b775d0b39e75e6465c173e593eae.ctex"]
+source_file="res://games/grove/assets/ui/tray_clothes.png"
+dest_files=["res://.godot/imported/tray_clothes.png-d1ff0165d6478ced6ec826b4791c13b8.ctex"]
 
 [params]
 

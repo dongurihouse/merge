@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://embwbncv2baq"
-path="res://.godot/imported/ribbon_title.png-04f78039a5b87748d8f88f47dd238ea4.ctex"
+path="res://.godot/imported/ribbon_title.png-950acadf886e91de2231a216b52ef1e1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/ribbon_title.png"
-dest_files=["res://.godot/imported/ribbon_title.png-04f78039a5b87748d8f88f47dd238ea4.ctex"]
+source_file="res://games/grove/assets/ui/kit/ribbon_title.png"
+dest_files=["res://.godot/imported/ribbon_title.png-950acadf886e91de2231a216b52ef1e1.ctex"]
 
 [params]
 

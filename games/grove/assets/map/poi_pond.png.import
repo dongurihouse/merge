@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8v1j7kqhaagk"
-path="res://.godot/imported/poi_pond.png-35ac58a57b00186bef431fc8f394140c.ctex"
+path="res://.godot/imported/poi_pond.png-b94e35bafcb7d73b622c28fd54f3b574.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/poi_pond.png"
-dest_files=["res://.godot/imported/poi_pond.png-35ac58a57b00186bef431fc8f394140c.ctex"]
+source_file="res://games/grove/assets/map/poi_pond.png"
+dest_files=["res://.godot/imported/poi_pond.png-b94e35bafcb7d73b622c28fd54f3b574.ctex"]
 
 [params]
 

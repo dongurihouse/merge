@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://qqpxsjxjgsb"
-path="res://.godot/imported/poi_barn.png-fb953ec72642c437d33ecfa409439332.ctex"
+path="res://.godot/imported/poi_barn.png-5b664ebc8c826564c64c800661797f11.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/poi_barn.png"
-dest_files=["res://.godot/imported/poi_barn.png-fb953ec72642c437d33ecfa409439332.ctex"]
+source_file="res://games/grove/assets/map/poi_barn.png"
+dest_files=["res://.godot/imported/poi_barn.png-5b664ebc8c826564c64c800661797f11.ctex"]
 
 [params]
 

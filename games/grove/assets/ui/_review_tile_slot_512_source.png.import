@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8laa546gceis"
-path="res://.godot/imported/_review_tile_slot_512_source.png-642c45830b1cb5b425714de7842f6c1d.ctex"
+path="res://.godot/imported/_review_tile_slot_512_source.png-227678a7eb6d4bc973b71a94c0961ba5.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/_review_tile_slot_512_source.png"
-dest_files=["res://.godot/imported/_review_tile_slot_512_source.png-642c45830b1cb5b425714de7842f6c1d.ctex"]
+source_file="res://games/grove/assets/ui/_review_tile_slot_512_source.png"
+dest_files=["res://.godot/imported/_review_tile_slot_512_source.png-227678a7eb6d4bc973b71a94c0961ba5.ctex"]
 
 [params]
 

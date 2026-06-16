@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c56f0pwu7mpso"
-path="res://.godot/imported/helper_shuffle.png-ef55ba7a5247d4ac29b4d887f8bc827d.ctex"
+path="res://.godot/imported/helper_shuffle.png-a9825b147f7f6adb9c8da4e09b03ae5e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/helper_shuffle.png"
-dest_files=["res://.godot/imported/helper_shuffle.png-ef55ba7a5247d4ac29b4d887f8bc827d.ctex"]
+source_file="res://games/grove/assets/ui/helper_shuffle.png"
+dest_files=["res://.godot/imported/helper_shuffle.png-a9825b147f7f6adb9c8da4e09b03ae5e.ctex"]
 
 [params]
 

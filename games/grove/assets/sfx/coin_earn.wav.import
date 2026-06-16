@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://xerqa4osaycs"
-path="res://.godot/imported/coin_earn.wav-597af3688057dab4dfc00e5d1cb53941.sample"
+path="res://.godot/imported/coin_earn.wav-d6c890e4a6a0027f64609b9b99599900.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/coin_earn.wav"
-dest_files=["res://.godot/imported/coin_earn.wav-597af3688057dab4dfc00e5d1cb53941.sample"]
+source_file="res://games/grove/assets/sfx/coin_earn.wav"
+dest_files=["res://.godot/imported/coin_earn.wav-d6c890e4a6a0027f64609b9b99599900.sample"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bym7kfuvw20nj"
-path="res://.godot/imported/icon_gem.png-fa6605035b2957146a083195de7c5fe9.ctex"
+path="res://.godot/imported/icon_gem.png-27e554d658ee50a145eed5488923541b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/icon_gem.png"
-dest_files=["res://.godot/imported/icon_gem.png-fa6605035b2957146a083195de7c5fe9.ctex"]
+source_file="res://games/grove/assets/ui/kit/icon_gem.png"
+dest_files=["res://.godot/imported/icon_gem.png-27e554d658ee50a145eed5488923541b.ctex"]
 
 [params]
 

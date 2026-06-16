@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://sksqum01dmuy"
-path="res://.godot/imported/room_complete.wav-4ab46696a1e2c5d81b191a7d9d73b18c.sample"
+path="res://.godot/imported/room_complete.wav-e9323a30e1fb8038e1624a2934a5146a.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/room_complete.wav"
-dest_files=["res://.godot/imported/room_complete.wav-4ab46696a1e2c5d81b191a7d9d73b18c.sample"]
+source_file="res://games/grove/assets/sfx/room_complete.wav"
+dest_files=["res://.godot/imported/room_complete.wav-e9323a30e1fb8038e1624a2934a5146a.sample"]
 
 [params]
 

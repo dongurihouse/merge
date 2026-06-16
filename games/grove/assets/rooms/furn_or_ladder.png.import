@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://clntfjajhy8tc"
-path="res://.godot/imported/furn_or_ladder.png-294f1fd0271fd3cb802606425f750541.ctex"
+path="res://.godot/imported/furn_or_ladder.png-406fa7f7170bc2be02f2fb3a94a0d765.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_or_ladder.png"
-dest_files=["res://.godot/imported/furn_or_ladder.png-294f1fd0271fd3cb802606425f750541.ctex"]
+source_file="res://games/grove/assets/rooms/furn_or_ladder.png"
+dest_files=["res://.godot/imported/furn_or_ladder.png-406fa7f7170bc2be02f2fb3a94a0d765.ctex"]
 
 [params]
 

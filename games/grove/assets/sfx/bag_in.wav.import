@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://drdfa3l0xmywv"
-path="res://.godot/imported/bag_in.wav-c74597987b6c4c356d13c68cd67e25df.sample"
+path="res://.godot/imported/bag_in.wav-a4b14412147acc3488edf510a02fb982.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/bag_in.wav"
-dest_files=["res://.godot/imported/bag_in.wav-c74597987b6c4c356d13c68cd67e25df.sample"]
+source_file="res://games/grove/assets/sfx/bag_in.wav"
+dest_files=["res://.godot/imported/bag_in.wav-a4b14412147acc3488edf510a02fb982.sample"]
 
 [params]
 

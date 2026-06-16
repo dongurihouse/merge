@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bb3utiryd3l37"
-path="res://.godot/imported/district_clothes.png-ff5cc7a15f05edfdd12015121eb15856.ctex"
+path="res://.godot/imported/district_clothes.png-6912a8eded9a75382c3179a0ea31ca00.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/district_clothes.png"
-dest_files=["res://.godot/imported/district_clothes.png-ff5cc7a15f05edfdd12015121eb15856.ctex"]
+source_file="res://games/grove/assets/map/district_clothes.png"
+dest_files=["res://.godot/imported/district_clothes.png-6912a8eded9a75382c3179a0ea31ca00.ctex"]
 
 [params]
 

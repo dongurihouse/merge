@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dlqxl3d6ljcve"
-path="res://.godot/imported/ticket_stamp_done.png-47c2c0597dd3ef58cc41e2079d782427.ctex"
+path="res://.godot/imported/ticket_stamp_done.png-3656b1ed801987d4ee8b3a76ead44d1c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/ticket_stamp_done.png"
-dest_files=["res://.godot/imported/ticket_stamp_done.png-47c2c0597dd3ef58cc41e2079d782427.ctex"]
+source_file="res://games/grove/assets/ui/ticket_stamp_done.png"
+dest_files=["res://.godot/imported/ticket_stamp_done.png-3656b1ed801987d4ee8b3a76ead44d1c.ctex"]
 
 [params]
 

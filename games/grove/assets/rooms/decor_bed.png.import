@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cpkc3eajdb7ki"
-path="res://.godot/imported/decor_bed.png-af42067598770e8c02cb2b62a0d2e924.ctex"
+path="res://.godot/imported/decor_bed.png-aa2c653848a63d2c53eb6f597e271e66.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/decor_bed.png"
-dest_files=["res://.godot/imported/decor_bed.png-af42067598770e8c02cb2b62a0d2e924.ctex"]
+source_file="res://games/grove/assets/rooms/decor_bed.png"
+dest_files=["res://.godot/imported/decor_bed.png-aa2c653848a63d2c53eb6f597e271e66.ctex"]
 
 [params]
 

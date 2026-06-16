@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bphbv3cvlbm6i"
-path="res://.godot/imported/fx_sparkle.png-d51aa6ab0273cadc077f994d5a8a8871.ctex"
+path="res://.godot/imported/fx_sparkle.png-5e7622c8181de61735bf1e62f3cb86d7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/fx/fx_sparkle.png"
-dest_files=["res://.godot/imported/fx_sparkle.png-d51aa6ab0273cadc077f994d5a8a8871.ctex"]
+source_file="res://games/grove/assets/fx/fx_sparkle.png"
+dest_files=["res://.godot/imported/fx_sparkle.png-5e7622c8181de61735bf1e62f3cb86d7.ctex"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://dc7v0pxvxxvc0"
-path="res://.godot/imported/giver_cheer.wav-58e44edbffd7943888f77eadc1c05ed3.sample"
+path="res://.godot/imported/giver_cheer.wav-8bda83618e7c7dd72567f85f137dac84.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/giver_cheer.wav"
-dest_files=["res://.godot/imported/giver_cheer.wav-58e44edbffd7943888f77eadc1c05ed3.sample"]
+source_file="res://games/grove/assets/sfx/giver_cheer.wav"
+dest_files=["res://.godot/imported/giver_cheer.wav-8bda83618e7c7dd72567f85f137dac84.sample"]
 
 [params]
 

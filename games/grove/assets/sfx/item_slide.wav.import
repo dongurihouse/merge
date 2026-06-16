@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://ct7wawiaecsdd"
-path="res://.godot/imported/item_slide.wav-b1e57758ca8ddcda37040893c5e6c0ed.sample"
+path="res://.godot/imported/item_slide.wav-91416072323f18c8a7f285a251693b6f.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/item_slide.wav"
-dest_files=["res://.godot/imported/item_slide.wav-b1e57758ca8ddcda37040893c5e6c0ed.sample"]
+source_file="res://games/grove/assets/sfx/item_slide.wav"
+dest_files=["res://.godot/imported/item_slide.wav-91416072323f18c8a7f285a251693b6f.sample"]
 
 [params]
 

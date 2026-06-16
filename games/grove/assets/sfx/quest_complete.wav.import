@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://v47016w5ru2a"
-path="res://.godot/imported/quest_complete.wav-e4fd40d0ceb230c9ae3fdf65177db569.sample"
+path="res://.godot/imported/quest_complete.wav-dfc8ea5b67ec094ab5cc5f7d73dcd1fa.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/quest_complete.wav"
-dest_files=["res://.godot/imported/quest_complete.wav-e4fd40d0ceb230c9ae3fdf65177db569.sample"]
+source_file="res://games/grove/assets/sfx/quest_complete.wav"
+dest_files=["res://.godot/imported/quest_complete.wav-dfc8ea5b67ec094ab5cc5f7d73dcd1fa.sample"]
 
 [params]
 

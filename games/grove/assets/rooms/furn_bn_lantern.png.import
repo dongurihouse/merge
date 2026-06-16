@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://chju8g2ab34sw"
-path="res://.godot/imported/furn_bn_lantern.png-369d4374b64b31fe7fd1659852b5ea49.ctex"
+path="res://.godot/imported/furn_bn_lantern.png-a56061bc2f454bdcf15410d1d4d5a0bd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_bn_lantern.png"
-dest_files=["res://.godot/imported/furn_bn_lantern.png-369d4374b64b31fe7fd1659852b5ea49.ctex"]
+source_file="res://games/grove/assets/rooms/furn_bn_lantern.png"
+dest_files=["res://.godot/imported/furn_bn_lantern.png-a56061bc2f454bdcf15410d1d4d5a0bd.ctex"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://b0gvn4m1xb7sg"
-path="res://.godot/imported/bag_out.wav-cc2913f7b50407239a7891ba6240d4f0.sample"
+path="res://.godot/imported/bag_out.wav-f33e5f6f640ec3872f80d05fcef4531d.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/bag_out.wav"
-dest_files=["res://.godot/imported/bag_out.wav-cc2913f7b50407239a7891ba6240d4f0.sample"]
+source_file="res://games/grove/assets/sfx/bag_out.wav"
+dest_files=["res://.godot/imported/bag_out.wav-f33e5f6f640ec3872f80d05fcef4531d.sample"]
 
 [params]
 

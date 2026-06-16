@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ce746ibis1rdl"
-path="res://.godot/imported/berry_4.png-90f3d92511789c20f981fc70042cb7c5.ctex"
+path="res://.godot/imported/berry_4.png-8df972ad209437c4aea637653668b75f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/berry_4.png"
-dest_files=["res://.godot/imported/berry_4.png-90f3d92511789c20f981fc70042cb7c5.ctex"]
+source_file="res://games/grove/assets/items/berry_4.png"
+dest_files=["res://.godot/imported/berry_4.png-8df972ad209437c4aea637653668b75f.ctex"]
 
 [params]
 

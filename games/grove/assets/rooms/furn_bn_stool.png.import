@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://30od3a2pheqx"
-path="res://.godot/imported/furn_bn_stool.png-4f76ce9f8350f10524d3ad2b2dcdda96.ctex"
+path="res://.godot/imported/furn_bn_stool.png-da6a44a755eb890f69fa7412800642d7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_bn_stool.png"
-dest_files=["res://.godot/imported/furn_bn_stool.png-4f76ce9f8350f10524d3ad2b2dcdda96.ctex"]
+source_file="res://games/grove/assets/rooms/furn_bn_stool.png"
+dest_files=["res://.godot/imported/furn_bn_stool.png-da6a44a755eb890f69fa7412800642d7.ctex"]
 
 [params]
 

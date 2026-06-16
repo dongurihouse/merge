@@ -1,10 +1,9 @@
 extends SceneTree
 ## Headless tests for the placement-override layer (scripts/core/layout.gd).
 ##   godot --headless --path . -s res://engine/tests/layout_tests.gd
-## Proves: absent overrides → pure grove_content defaults; overrides apply by
-## stable spot id (not index); values clamp; and the on-disk JSON round-trips.
-## (The NEW map model has no overworld map placement — a map IS one image with
-## spots ON it — so the per-map placement layer is gone; only spot pos/fsize remain.)
+## Proves: absent overrides → pure grove_content defaults; spot overrides apply by
+## stable spot id; background image overrides apply by stable map id; values clamp;
+## and the on-disk JSON round-trips.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Layout = preload("res://engine/scripts/core/layout.gd")
@@ -80,6 +79,38 @@ func _initialize() -> void:
 	Layout.reset_spot(0, 0)
 	ok(not Layout.spot_overridden(0, 0), "reset_spot clears that spot")
 	ok(Layout.spot_overridden(0, 1), "reset_spot leaves the sibling override intact")
+
+	# 6. map background placement: offset + scale are keyed by stable map id
+	var map_id := String(G.MAPS[0].id)
+	Layout._ingest({"maps": {map_id: {"offset": [0.12, -0.08], "scale": 1.25}}, "spots": {}})
+	ok(_v2_near(Layout.map_offset(0), Vector2(0.12, -0.08)), "map background offset overridden by id")
+	ok(absf(Layout.map_scale(0) - 1.25) < 0.001, "map background scale overridden by id")
+	ok(Layout.map_overridden(0), "map_overridden true after map background override")
+
+	# 7. map setters clamp to sane ranges and round-trip through JSON
+	Layout.reset_all()
+	Layout.set_map_offset(0, Vector2(4.0, -4.0))
+	ok(_v2_near(Layout.map_offset(0), Vector2(3.0, -3.0)), "map background offset clamps to [-3,3]")
+	Layout.set_map_scale(0, 10.0)
+	ok(Layout.map_scale(0) <= 3.0, "map background scale clamps to <= 3")
+	Layout.set_map_scale(0, 0.01)
+	ok(absf(Layout.map_scale(0) - 0.01) < 0.001, "map background scale allows very small values")
+	Layout.set_map_scale(0, 0.001)
+	ok(absf(Layout.map_scale(0) - 0.005) < 0.001, "map background scale clamps to >= 0.005")
+	Layout.set_map_offset(0, Vector2(0.25, -0.125))
+	Layout.set_map_scale(0, 1.5)
+	ok(Layout.save_to(tmp), "save_to(temp) with map background succeeds")
+	f = FileAccess.open(tmp, FileAccess.READ)
+	txt = f.get_as_text() if f != null else ""
+	if f != null:
+		f.close()
+	parsed = JSON.parse_string(txt)
+	Layout._ingest(parsed if parsed is Dictionary else {})
+	ok(_v2_near(Layout.map_offset(0), Vector2(0.25, -0.125)), "round-trip: map background offset survives")
+	ok(absf(Layout.map_scale(0) - 1.5) < 0.001, "round-trip: map background scale survives")
+	Layout.reset_map(0)
+	ok(not Layout.map_overridden(0), "reset_map clears the map background override")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(tmp))
 
 	# leave the cache clean for any later in-process use
 	Layout.reset_all()

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://cvuf3cv8xnr13"
-path="res://.godot/imported/roof_open.wav-fb1836434a744a1a24d8098e53be5ba8.sample"
+path="res://.godot/imported/roof_open.wav-0aaff4068cc058624e93c77808de51a5.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/roof_open.wav"
-dest_files=["res://.godot/imported/roof_open.wav-fb1836434a744a1a24d8098e53be5ba8.sample"]
+source_file="res://games/grove/assets/sfx/roof_open.wav"
+dest_files=["res://.godot/imported/roof_open.wav-0aaff4068cc058624e93c77808de51a5.sample"]
 
 [params]
 

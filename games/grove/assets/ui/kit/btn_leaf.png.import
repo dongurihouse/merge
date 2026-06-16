@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b85rj2it4bqmb"
-path="res://.godot/imported/btn_leaf.png-33736f435e02c26db7df65cfe80e34ee.ctex"
+path="res://.godot/imported/btn_leaf.png-16ab8e19dea572f72c2d683f1ac3c5e3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/btn_leaf.png"
-dest_files=["res://.godot/imported/btn_leaf.png-33736f435e02c26db7df65cfe80e34ee.ctex"]
+source_file="res://games/grove/assets/ui/kit/btn_leaf.png"
+dest_files=["res://.godot/imported/btn_leaf.png-16ab8e19dea572f72c2d683f1ac3c5e3.ctex"]
 
 [params]
 

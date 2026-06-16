@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://crte85yvdnk2b"
-path="res://.godot/imported/way_bench.png-54f5ecac6c699aae347e53c94b714d08.ctex"
+path="res://.godot/imported/way_bench.png-259d7ae97ab9f81879e2638ac4e817c9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/way_bench.png"
-dest_files=["res://.godot/imported/way_bench.png-54f5ecac6c699aae347e53c94b714d08.ctex"]
+source_file="res://games/grove/assets/map/way_bench.png"
+dest_files=["res://.godot/imported/way_bench.png-259d7ae97ab9f81879e2638ac4e817c9.ctex"]
 
 [params]
 

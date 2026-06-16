@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8omxaylqyjg8"
-path="res://.godot/imported/furn_bn_plow.png-ec55e055c877a3c471a6d0fa1b8e0320.ctex"
+path="res://.godot/imported/furn_bn_plow.png-210a3bf54667d23a696aeb42abeedcb4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_bn_plow.png"
-dest_files=["res://.godot/imported/furn_bn_plow.png-ec55e055c877a3c471a6d0fa1b8e0320.ctex"]
+source_file="res://games/grove/assets/rooms/furn_bn_plow.png"
+dest_files=["res://.godot/imported/furn_bn_plow.png-210a3bf54667d23a696aeb42abeedcb4.ctex"]
 
 [params]
 

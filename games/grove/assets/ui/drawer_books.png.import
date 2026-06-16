@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cj6m22ce45p1j"
-path="res://.godot/imported/drawer_books.png-1333bb3c96ff0d813230f43e5acc84f5.ctex"
+path="res://.godot/imported/drawer_books.png-1c9ba77fdc5f365220f1c2c05b198857.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/drawer_books.png"
-dest_files=["res://.godot/imported/drawer_books.png-1333bb3c96ff0d813230f43e5acc84f5.ctex"]
+source_file="res://games/grove/assets/ui/drawer_books.png"
+dest_files=["res://.godot/imported/drawer_books.png-1c9ba77fdc5f365220f1c2c05b198857.ctex"]
 
 [params]
 

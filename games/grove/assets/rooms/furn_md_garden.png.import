@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c450wytp0wrsm"
-path="res://.godot/imported/furn_md_garden.png-c6df1e884cae05d7b9f7c5b28eab4c22.ctex"
+path="res://.godot/imported/furn_md_garden.png-a0e33e08bc52ef725f0b8d28baf79613.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_md_garden.png"
-dest_files=["res://.godot/imported/furn_md_garden.png-c6df1e884cae05d7b9f7c5b28eab4c22.ctex"]
+source_file="res://games/grove/assets/rooms/furn_md_garden.png"
+dest_files=["res://.godot/imported/furn_md_garden.png-a0e33e08bc52ef725f0b8d28baf79613.ctex"]
 
 [params]
 

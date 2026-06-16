@@ -2,7 +2,7 @@ extends RefCounted
 ## Placement overrides — the owner's drag-to-place editor (home.gd place mode)
 ## WRITES here; the renderers READ positions through here. Every value is keyed
 ## by a STABLE id (map id, spot id) so reordering the game data never desyncs a
-## saved position. An ABSENT file means pure content defaults — i.e. zero
+## saved background/spot position. An ABSENT file means pure content defaults — i.e. zero
 ## behaviour change until something is actually placed.
 ##
 ## One file, committed with the repo: res://data/placements.json. A user:// mirror
@@ -10,7 +10,7 @@ extends RefCounted
 ## both exist they are written in lockstep, so load order is moot.
 ##
 ## Why this exists (owner 2026-06-12): a building sprite is anchored by its CENTER
-## to map_pos, but its visual BASE must sit on the painted clearing — the gap
+## to spot_pos, but its visual BASE must sit on the painted clearing — the gap
 ## between the two depends on each sprite's transparent padding, so hand-tuning
 ## fractions is hopeless. The owner drags the real art onto the real ground; we
 ## store whatever lands it right.
@@ -19,8 +19,11 @@ const G = preload("res://engine/scripts/core/content.gd")
 
 const RES_PATH := "res://data/placements.json"
 const USER_PATH := "user://placements.json"
+const MAP_OFFSET_LIMIT := 3.0
+const MAP_SCALE_MIN := 0.005
+const MAP_SCALE_MAX := 3.0
 
-static var _data: Dictionary = {}      # {"maps": {id: {map_pos:[x,y]}}, "spots": {id: {pos:[x,y], fsize:f}}}
+static var _data: Dictionary = {}      # {"maps": {id: {offset:[x,y], scale:f}}, "spots": {id: {pos:[x,y], fsize:f}}}
 static var _loaded := false
 
 # --- loading -----------------------------------------------------------------------
@@ -55,6 +58,25 @@ static func _arr_to_v2(a: Variant, fallback: Vector2) -> Vector2:
 
 # --- read accessors (renderers call these instead of grove_content directly) -------
 
+static func map_offset(z: int) -> Vector2:
+	_ensure()
+	var o: Variant = _data.maps.get(String(G.MAPS[z].id), null)
+	if o is Dictionary:
+		var v := _arr_to_v2((o as Dictionary).get("offset", []), Vector2.ZERO)
+		return Vector2(clampf(v.x, -MAP_OFFSET_LIMIT, MAP_OFFSET_LIMIT), clampf(v.y, -MAP_OFFSET_LIMIT, MAP_OFFSET_LIMIT))
+	return Vector2.ZERO
+
+static func map_scale(z: int) -> float:
+	_ensure()
+	var o: Variant = _data.maps.get(String(G.MAPS[z].id), null)
+	if o is Dictionary and (o as Dictionary).has("scale"):
+		return clampf(float((o as Dictionary).scale), MAP_SCALE_MIN, MAP_SCALE_MAX)
+	return 1.0
+
+static func map_overridden(z: int) -> bool:
+	_ensure()
+	return _data.maps.has(String(G.MAPS[z].id))
+
 static func spot_pos(z: int, k: int) -> Vector2:
 	_ensure()
 	var dflt := Vector2(G.MAPS[z].spots[k].pos)
@@ -77,6 +99,23 @@ static func spot_overridden(z: int, k: int) -> bool:
 
 # --- write (in-memory; flush with save()) ------------------------------------------
 
+static func set_map_offset(z: int, v: Vector2) -> void:
+	_ensure()
+	var id := String(G.MAPS[z].id)
+	if not _data.maps.has(id):
+		_data.maps[id] = {}
+	_data.maps[id]["offset"] = [
+		snappedf(clampf(v.x, -MAP_OFFSET_LIMIT, MAP_OFFSET_LIMIT), 0.0001),
+		snappedf(clampf(v.y, -MAP_OFFSET_LIMIT, MAP_OFFSET_LIMIT), 0.0001),
+	]
+
+static func set_map_scale(z: int, f: float) -> void:
+	_ensure()
+	var id := String(G.MAPS[z].id)
+	if not _data.maps.has(id):
+		_data.maps[id] = {}
+	_data.maps[id]["scale"] = snappedf(clampf(f, MAP_SCALE_MIN, MAP_SCALE_MAX), 0.001)
+
 static func set_spot_pos(z: int, k: int, v: Vector2) -> void:
 	_ensure()
 	var id := String(G.MAPS[z].spots[k].id)
@@ -94,6 +133,10 @@ static func set_spot_fsize(z: int, k: int, f: float) -> void:
 static func reset_spot(z: int, k: int) -> void:
 	_ensure()
 	_data.spots.erase(String(G.MAPS[z].spots[k].id))
+
+static func reset_map(z: int) -> void:
+	_ensure()
+	_data.maps.erase(String(G.MAPS[z].id))
 
 static func reset_all() -> void:
 	_loaded = true

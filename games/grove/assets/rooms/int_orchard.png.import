@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ck0w2x4detd2u"
-path="res://.godot/imported/int_orchard.png-1d8c295800c1b5b3d925d410d6325bce.ctex"
+path="res://.godot/imported/int_orchard.png-47343d3d04e08696e7f78b5e21eef09d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/int_orchard.png"
-dest_files=["res://.godot/imported/int_orchard.png-1d8c295800c1b5b3d925d410d6325bce.ctex"]
+source_file="res://games/grove/assets/rooms/int_orchard.png"
+dest_files=["res://.godot/imported/int_orchard.png-47343d3d04e08696e7f78b5e21eef09d.ctex"]
 
 [params]
 

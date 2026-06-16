@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjnkg7vystule"
-path="res://.godot/imported/furn_or_wagon.png-e67857c8eed81e19658152634e6d2c74.ctex"
+path="res://.godot/imported/furn_or_wagon.png-909821f3f22db0fdbcbfdb7c8be4d43e.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_or_wagon.png"
-dest_files=["res://.godot/imported/furn_or_wagon.png-e67857c8eed81e19658152634e6d2c74.ctex"]
+source_file="res://games/grove/assets/rooms/furn_or_wagon.png"
+dest_files=["res://.godot/imported/furn_or_wagon.png-909821f3f22db0fdbcbfdb7c8be4d43e.ctex"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://coedfge0eboee"
-path="res://.godot/imported/button_tap.wav-1524c52d4782958f3adbb69ceaa4ebc7.sample"
+path="res://.godot/imported/button_tap.wav-16bc55002616b8967f5986b997d241d2.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/button_tap.wav"
-dest_files=["res://.godot/imported/button_tap.wav-1524c52d4782958f3adbb69ceaa4ebc7.sample"]
+source_file="res://games/grove/assets/sfx/button_tap.wav"
+dest_files=["res://.godot/imported/button_tap.wav-16bc55002616b8967f5986b997d241d2.sample"]
 
 [params]
 

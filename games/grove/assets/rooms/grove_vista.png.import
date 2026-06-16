@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3j8c6dh1wq77"
-path="res://.godot/imported/grove_vista.png-a4b2880b7c99e3aafcc52cc2d999b12a.ctex"
+path="res://.godot/imported/grove_vista.png-0ed7f2dab92dbd50406204f810215078.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/grove_vista.png"
-dest_files=["res://.godot/imported/grove_vista.png-a4b2880b7c99e3aafcc52cc2d999b12a.ctex"]
+source_file="res://games/grove/assets/rooms/grove_vista.png"
+dest_files=["res://.godot/imported/grove_vista.png-0ed7f2dab92dbd50406204f810215078.ctex"]
 
 [params]
 

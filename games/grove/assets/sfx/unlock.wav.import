@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://dflm70aso4kin"
-path="res://.godot/imported/unlock.wav-9cd812a1ba9759c35494476d73d69042.sample"
+path="res://.godot/imported/unlock.wav-63fb3799d960c4f0db45ddf4de8ed830.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/unlock.wav"
-dest_files=["res://.godot/imported/unlock.wav-9cd812a1ba9759c35494476d73d69042.sample"]
+source_file="res://games/grove/assets/sfx/unlock.wav"
+dest_files=["res://.godot/imported/unlock.wav-63fb3799d960c4f0db45ddf4de8ed830.sample"]
 
 [params]
 

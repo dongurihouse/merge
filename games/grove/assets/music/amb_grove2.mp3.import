@@ -3,12 +3,12 @@
 importer="mp3"
 type="AudioStreamMP3"
 uid="uid://d4el7f2vcfvcy"
-path="res://.godot/imported/amb_grove2.mp3-2ebf44fddce4656e4e475e611970983f.mp3str"
+path="res://.godot/imported/amb_grove2.mp3-76b87b40fec7d542c0269804323ea0e5.mp3str"
 
 [deps]
 
-source_file="res://archive/assets/music/amb_grove2.mp3"
-dest_files=["res://.godot/imported/amb_grove2.mp3-2ebf44fddce4656e4e475e611970983f.mp3str"]
+source_file="res://games/grove/assets/music/amb_grove2.mp3"
+dest_files=["res://.godot/imported/amb_grove2.mp3-76b87b40fec7d542c0269804323ea0e5.mp3str"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://dhtcrwxydgfud"
-path="res://.godot/imported/level_complete.wav-531a28be15b71da23f4b08f00dcbd592.sample"
+path="res://.godot/imported/level_complete.wav-30f1413f6a03727069e80a99f523d42f.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/level_complete.wav"
-dest_files=["res://.godot/imported/level_complete.wav-531a28be15b71da23f4b08f00dcbd592.sample"]
+source_file="res://games/grove/assets/sfx/level_complete.wav"
+dest_files=["res://.godot/imported/level_complete.wav-30f1413f6a03727069e80a99f523d42f.sample"]
 
 [params]
 

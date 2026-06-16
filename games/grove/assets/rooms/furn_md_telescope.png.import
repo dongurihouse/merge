@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dt4nesjxwa5nu"
-path="res://.godot/imported/furn_md_telescope.png-0a4ffdadd0af4abc75be9965a3ce2516.ctex"
+path="res://.godot/imported/furn_md_telescope.png-c9d8935bfa8ebb9b7837f54f00fe51d6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_md_telescope.png"
-dest_files=["res://.godot/imported/furn_md_telescope.png-0a4ffdadd0af4abc75be9965a3ce2516.ctex"]
+source_file="res://games/grove/assets/rooms/furn_md_telescope.png"
+dest_files=["res://.godot/imported/furn_md_telescope.png-c9d8935bfa8ebb9b7837f54f00fe51d6.ctex"]
 
 [params]
 

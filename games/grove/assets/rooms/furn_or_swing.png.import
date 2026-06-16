@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cdv4v6pctssqr"
-path="res://.godot/imported/furn_or_swing.png-822ac28955f34c621a19700dc03163f9.ctex"
+path="res://.godot/imported/furn_or_swing.png-75be6f3001fdc5360bfc76333b960035.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_or_swing.png"
-dest_files=["res://.godot/imported/furn_or_swing.png-822ac28955f34c621a19700dc03163f9.ctex"]
+source_file="res://games/grove/assets/rooms/furn_or_swing.png"
+dest_files=["res://.godot/imported/furn_or_swing.png-75be6f3001fdc5360bfc76333b960035.ctex"]
 
 [params]
 

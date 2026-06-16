@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://btccl1n58ke4h"
-path="res://.godot/imported/p_snow.png-98a0b44f391451fb51f27c1f0cc1d920.ctex"
+path="res://.godot/imported/p_snow.png-58d57401e3c67acf64b72f80e7a0dffc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/fx/p_snow.png"
-dest_files=["res://.godot/imported/p_snow.png-98a0b44f391451fb51f27c1f0cc1d920.ctex"]
+source_file="res://games/grove/assets/fx/p_snow.png"
+dest_files=["res://.godot/imported/p_snow.png-58d57401e3c67acf64b72f80e7a0dffc.ctex"]
 
 [params]
 

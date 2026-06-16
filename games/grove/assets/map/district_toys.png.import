@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dra6rowidot7w"
-path="res://.godot/imported/district_toys.png-6e76ed8eb45cd5f8260d4a888152630c.ctex"
+path="res://.godot/imported/district_toys.png-230ff607a6f0d5a7e0836a5256de5170.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/district_toys.png"
-dest_files=["res://.godot/imported/district_toys.png-6e76ed8eb45cd5f8260d4a888152630c.ctex"]
+source_file="res://games/grove/assets/map/district_toys.png"
+dest_files=["res://.godot/imported/district_toys.png-230ff607a6f0d5a7e0836a5256de5170.ctex"]
 
 [params]
 

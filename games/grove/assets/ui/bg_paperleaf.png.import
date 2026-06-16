@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://di3fv3m8vmmsc"
-path="res://.godot/imported/bg_paperleaf.png-fe05834c5d63153aa0b047774dfd224b.ctex"
+path="res://.godot/imported/bg_paperleaf.png-d599547a67dfd6d0eb71f53cdf76d2ba.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/bg_paperleaf.png"
-dest_files=["res://.godot/imported/bg_paperleaf.png-fe05834c5d63153aa0b047774dfd224b.ctex"]
+source_file="res://games/grove/assets/ui/bg_paperleaf.png"
+dest_files=["res://.godot/imported/bg_paperleaf.png-d599547a67dfd6d0eb71f53cdf76d2ba.ctex"]
 
 [params]
 

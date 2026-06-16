@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxeudyulmpotr"
-path="res://.godot/imported/int_meadow.png-423d1af759183d74f7c255835769b75c.ctex"
+path="res://.godot/imported/int_meadow.png-955cc453eb71f9963c14f03abd50a9ac.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/int_meadow.png"
-dest_files=["res://.godot/imported/int_meadow.png-423d1af759183d74f7c255835769b75c.ctex"]
+source_file="res://games/grove/assets/rooms/int_meadow.png"
+dest_files=["res://.godot/imported/int_meadow.png-955cc453eb71f9963c14f03abd50a9ac.ctex"]
 
 [params]
 

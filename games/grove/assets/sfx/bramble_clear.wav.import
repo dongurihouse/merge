@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://c75m5mw7oqge1"
-path="res://.godot/imported/bramble_clear.wav-db252432c62cd66e6acdf544b1745315.sample"
+path="res://.godot/imported/bramble_clear.wav-b629423910fe5b8666fc504b2d3b1bc5.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/bramble_clear.wav"
-dest_files=["res://.godot/imported/bramble_clear.wav-db252432c62cd66e6acdf544b1745315.sample"]
+source_file="res://games/grove/assets/sfx/bramble_clear.wav"
+dest_files=["res://.godot/imported/bramble_clear.wav-b629423910fe5b8666fc504b2d3b1bc5.sample"]
 
 [params]
 

@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://cfclwcap1qgk1"
-path="res://.godot/imported/star_earn.wav-a6b2d57282f31f4d03f0b5354f7188d2.sample"
+path="res://.godot/imported/star_earn.wav-a2121966596b74d6e1932fd8b1cf5ed4.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/star_earn.wav"
-dest_files=["res://.godot/imported/star_earn.wav-a6b2d57282f31f4d03f0b5354f7188d2.sample"]
+source_file="res://games/grove/assets/sfx/star_earn.wav"
+dest_files=["res://.godot/imported/star_earn.wav-a2121966596b74d6e1932fd8b1cf5ed4.sample"]
 
 [params]
 

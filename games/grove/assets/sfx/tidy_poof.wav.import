@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://c3tn3l8yblx4j"
-path="res://.godot/imported/tidy_poof.wav-328d508c2041642115901594d87b3ea5.sample"
+path="res://.godot/imported/tidy_poof.wav-fb9354a4e1a011245d0609cfa0cdaed0.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/tidy_poof.wav"
-dest_files=["res://.godot/imported/tidy_poof.wav-328d508c2041642115901594d87b3ea5.sample"]
+source_file="res://games/grove/assets/sfx/tidy_poof.wav"
+dest_files=["res://.godot/imported/tidy_poof.wav-fb9354a4e1a011245d0609cfa0cdaed0.sample"]
 
 [params]
 

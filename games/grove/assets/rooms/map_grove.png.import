@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dpom04exxpfih"
-path="res://.godot/imported/map_grove.png-40e6b2a46ebd91401f5c48ace32126b2.ctex"
+path="res://.godot/imported/map_grove.png-82fb71ef7522c21c08bf11c28055f82f.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/map_grove.png"
-dest_files=["res://.godot/imported/map_grove.png-40e6b2a46ebd91401f5c48ace32126b2.ctex"]
+source_file="res://games/grove/assets/rooms/map_grove.png"
+dest_files=["res://.godot/imported/map_grove.png-82fb71ef7522c21c08bf11c28055f82f.ctex"]
 
 [params]
 

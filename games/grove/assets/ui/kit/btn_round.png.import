@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ysq4tm5hxs63"
-path="res://.godot/imported/btn_round.png-7bae1d0891c645702db38c7161860b17.ctex"
+path="res://.godot/imported/btn_round.png-7b4745579c855038286602d1fc90265c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/btn_round.png"
-dest_files=["res://.godot/imported/btn_round.png-7bae1d0891c645702db38c7161860b17.ctex"]
+source_file="res://games/grove/assets/ui/kit/btn_round.png"
+dest_files=["res://.godot/imported/btn_round.png-7b4745579c855038286602d1fc90265c.ctex"]
 
 [params]
 

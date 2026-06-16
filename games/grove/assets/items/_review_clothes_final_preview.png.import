@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://epae1kv51dys"
-path="res://.godot/imported/_review_clothes_final_preview.png-9c8a27ad35628fd37a98dcf8ea9cf3a7.ctex"
+path="res://.godot/imported/_review_clothes_final_preview.png-b9a4f054608761a0107330b38700dff7.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/items/_review_clothes_final_preview.png"
-dest_files=["res://.godot/imported/_review_clothes_final_preview.png-9c8a27ad35628fd37a98dcf8ea9cf3a7.ctex"]
+source_file="res://games/grove/assets/items/_review_clothes_final_preview.png"
+dest_files=["res://.godot/imported/_review_clothes_final_preview.png-b9a4f054608761a0107330b38700dff7.ctex"]
 
 [params]
 

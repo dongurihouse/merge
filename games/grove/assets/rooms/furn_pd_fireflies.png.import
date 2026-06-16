@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cnff43itg0xj8"
-path="res://.godot/imported/furn_pd_fireflies.png-60c624e934a2c912ecffe6d6b0881566.ctex"
+path="res://.godot/imported/furn_pd_fireflies.png-0c747e1a8c6de2b7d600786b1ca4bb37.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_pd_fireflies.png"
-dest_files=["res://.godot/imported/furn_pd_fireflies.png-60c624e934a2c912ecffe6d6b0881566.ctex"]
+source_file="res://games/grove/assets/rooms/furn_pd_fireflies.png"
+dest_files=["res://.godot/imported/furn_pd_fireflies.png-0c747e1a8c6de2b7d600786b1ca4bb37.ctex"]
 
 [params]
 

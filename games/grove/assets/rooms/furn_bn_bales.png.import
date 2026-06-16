@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dore70fss8jn6"
-path="res://.godot/imported/furn_bn_bales.png-e128631ef42abc3fb72cd8ab36c1e8b2.ctex"
+path="res://.godot/imported/furn_bn_bales.png-63d8fe82890e8dc84ae26e3b78e4b74a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_bn_bales.png"
-dest_files=["res://.godot/imported/furn_bn_bales.png-e128631ef42abc3fb72cd8ab36c1e8b2.ctex"]
+source_file="res://games/grove/assets/rooms/furn_bn_bales.png"
+dest_files=["res://.godot/imported/furn_bn_bales.png-63d8fe82890e8dc84ae26e3b78e4b74a.ctex"]
 
 [params]
 

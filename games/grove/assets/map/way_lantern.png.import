@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dlcewhawe4f8q"
-path="res://.godot/imported/way_lantern.png-5d8061426761ed57893d04c92f9d7568.ctex"
+path="res://.godot/imported/way_lantern.png-c8b4cd40ef481659ebb0a846039cadcc.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/way_lantern.png"
-dest_files=["res://.godot/imported/way_lantern.png-5d8061426761ed57893d04c92f9d7568.ctex"]
+source_file="res://games/grove/assets/map/way_lantern.png"
+dest_files=["res://.godot/imported/way_lantern.png-c8b4cd40ef481659ebb0a846039cadcc.ctex"]
 
 [params]
 

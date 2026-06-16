@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d2a5bdy07wstp"
-path="res://.godot/imported/way_cairn.png-6a7ab887a92727508d404b49730a218c.ctex"
+path="res://.godot/imported/way_cairn.png-1cf88c2665924244ffe471fcc736ff41.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/map/way_cairn.png"
-dest_files=["res://.godot/imported/way_cairn.png-6a7ab887a92727508d404b49730a218c.ctex"]
+source_file="res://games/grove/assets/map/way_cairn.png"
+dest_files=["res://.godot/imported/way_cairn.png-1cf88c2665924244ffe471fcc736ff41.ctex"]
 
 [params]
 

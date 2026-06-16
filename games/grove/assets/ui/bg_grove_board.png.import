@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dkovyighcyc2l"
-path="res://.godot/imported/bg_grove_board.png-d81060954fbe4ce887431d4d526a7987.ctex"
+path="res://.godot/imported/bg_grove_board.png-f1957801a28c0ca37525254c9e59f816.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/bg_grove_board.png"
-dest_files=["res://.godot/imported/bg_grove_board.png-d81060954fbe4ce887431d4d526a7987.ctex"]
+source_file="res://games/grove/assets/ui/bg_grove_board.png"
+dest_files=["res://.godot/imported/bg_grove_board.png-f1957801a28c0ca37525254c9e59f816.ctex"]
 
 [params]
 

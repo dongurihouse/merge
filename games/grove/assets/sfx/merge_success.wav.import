@@ -3,12 +3,12 @@
 importer="wav"
 type="AudioStreamWAV"
 uid="uid://yeiv40xlcx4q"
-path="res://.godot/imported/merge_success.wav-4e0887aa5a3b3296dbc25844282e4db5.sample"
+path="res://.godot/imported/merge_success.wav-ffa3d562db021813cdc47d64e03eda4b.sample"
 
 [deps]
 
-source_file="res://archive/assets/sfx/merge_success.wav"
-dest_files=["res://.godot/imported/merge_success.wav-4e0887aa5a3b3296dbc25844282e4db5.sample"]
+source_file="res://games/grove/assets/sfx/merge_success.wav"
+dest_files=["res://.godot/imported/merge_success.wav-ffa3d562db021813cdc47d64e03eda4b.sample"]
 
 [params]
 

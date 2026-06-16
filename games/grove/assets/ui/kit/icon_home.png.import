@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkh2xf0bghn1o"
-path="res://.godot/imported/icon_home.png-80a09ddb8245b7406cd7e3f7e44c4553.ctex"
+path="res://.godot/imported/icon_home.png-3bf319578093a7715d4e9afa20f5b4f3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/icon_home.png"
-dest_files=["res://.godot/imported/icon_home.png-80a09ddb8245b7406cd7e3f7e44c4553.ctex"]
+source_file="res://games/grove/assets/ui/kit/icon_home.png"
+dest_files=["res://.godot/imported/icon_home.png-3bf319578093a7715d4e9afa20f5b4f3.ctex"]
 
 [params]
 

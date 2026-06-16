@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dxslxe2s7co8v"
-path="res://.godot/imported/ticket_checkmark.png-cda01bd583042b3bbe4b817c28939c83.ctex"
+path="res://.godot/imported/ticket_checkmark.png-fff67c433bcb65c63b956c4a5c358c9b.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/ticket_checkmark.png"
-dest_files=["res://.godot/imported/ticket_checkmark.png-cda01bd583042b3bbe4b817c28939c83.ctex"]
+source_file="res://games/grove/assets/ui/ticket_checkmark.png"
+dest_files=["res://.godot/imported/ticket_checkmark.png-fff67c433bcb65c63b956c4a5c358c9b.ctex"]
 
 [params]
 

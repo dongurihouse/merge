@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bi0gilnu24wfs"
-path="res://.godot/imported/divider_vine.png-cb2f85bf4e11f057b6ed7e05aa0899e3.ctex"
+path="res://.godot/imported/divider_vine.png-0f308497d923c63d24437ebe0d9322c9.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/ui/kit/divider_vine.png"
-dest_files=["res://.godot/imported/divider_vine.png-cb2f85bf4e11f057b6ed7e05aa0899e3.ctex"]
+source_file="res://games/grove/assets/ui/kit/divider_vine.png"
+dest_files=["res://.godot/imported/divider_vine.png-0f308497d923c63d24437ebe0d9322c9.ctex"]
 
 [params]
 

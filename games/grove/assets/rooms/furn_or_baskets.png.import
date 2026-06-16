@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjm3dbitg1n3c"
-path="res://.godot/imported/furn_or_baskets.png-c2de7b6e0dad8ed395c2a8e75c596e0a.ctex"
+path="res://.godot/imported/furn_or_baskets.png-c49499161033491f63fe64ea594d8e68.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/furn_or_baskets.png"
-dest_files=["res://.godot/imported/furn_or_baskets.png-c2de7b6e0dad8ed395c2a8e75c596e0a.ctex"]
+source_file="res://games/grove/assets/rooms/furn_or_baskets.png"
+dest_files=["res://.godot/imported/furn_or_baskets.png-c49499161033491f63fe64ea594d8e68.ctex"]
 
 [params]
 

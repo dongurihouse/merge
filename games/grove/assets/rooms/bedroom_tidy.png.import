@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://coisl8bhokjc6"
-path="res://.godot/imported/bedroom_tidy.png-ecdd4376fecac0008e76c177c483ed0b.ctex"
+path="res://.godot/imported/bedroom_tidy.png-4c62260417e7846ca53031ae183a3f2a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/rooms/bedroom_tidy.png"
-dest_files=["res://.godot/imported/bedroom_tidy.png-ecdd4376fecac0008e76c177c483ed0b.ctex"]
+source_file="res://games/grove/assets/rooms/bedroom_tidy.png"
+dest_files=["res://.godot/imported/bedroom_tidy.png-4c62260417e7846ca53031ae183a3f2a.ctex"]
 
 [params]
 

@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctu2r7hlmq8k3"
-path="res://.godot/imported/p_petal.png-c54a2e88d93c9ba367bb61272f085e19.ctex"
+path="res://.godot/imported/p_petal.png-6473c8f9cb4890bc339d5579f5251dd1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://archive/assets/fx/p_petal.png"
-dest_files=["res://.godot/imported/p_petal.png-c54a2e88d93c9ba367bb61272f085e19.ctex"]
+source_file="res://games/grove/assets/fx/p_petal.png"
+dest_files=["res://.godot/imported/p_petal.png-6473c8f9cb4890bc339d5579f5251dd1.ctex"]
 
 [params]
 
