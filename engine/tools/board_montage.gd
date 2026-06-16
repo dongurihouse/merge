@@ -12,7 +12,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 
 const W := 1000
-const H := 820
+const H := 1040
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -91,6 +91,11 @@ func _initialize() -> void:
 	var st1: Dictionary = b._make_giver_stand(1, q_feat)
 	st1.chip.position = Vector2(348, 558)
 	page.add_child(st1.chip)
+
+	# row 7: the merchant stall (merchant-slice builder) ---------------------------------
+	var ms: Control = b._make_merchant_stand()
+	ms.position = Vector2(8, 826)
+	page.add_child(ms)
 
 	await create_timer(0.4).timeout
 	RenderingServer.force_draw()

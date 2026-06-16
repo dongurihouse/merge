@@ -19,6 +19,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
+const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
@@ -901,108 +902,20 @@ func _bust_layer(tex: Texture2D) -> TextureRect:
 func _mini_item(code: int) -> Control:
 	return PieceView.mini_item(code)
 
-# The merchant keeps the right end of the fence — same card anatomy.
+# Build the merchant stall. Wave 3: construction lives in ui/merchant_stand.gd; the coordinator
+# keeps the basket state, the sell/buy-back transactions, the drag-driven affordance, the porter.
 func _make_merchant_stand() -> Control:
-	var stand := Control.new()
-	stand.custom_minimum_size = Vector2(STAND_W, FENCE_H)
-	stand.pivot_offset = Vector2(STAND_W / 2.0, FENCE_H * 0.6)
-	var bust := _bust(2, 124.0)              # AB4: frameless, like the givers
-	bust.position = Vector2((STAND_W - 124.0) / 2.0, 0.0)
-	stand.add_child(bust)
-	GiverStand.bob(bust)
-	var pill := GiverStand.ask_pill()        # the trade rides the same pill (W3 brightens it)
-	pill.offset_top = 130.0
-	# T39 sell pill: the pill advertises the TOP-tier reward -- t8 sells for a flat 1 premium (the
-	# pinnacle), NOT a stale flat coin count. Per the chrome rule the number is pure ASCII ("+1")
-	# and the currency is a Look.icon sprite (gem), never an emoji baked into the text. The figure
-	# tracks sell_reward so the invariant (t8 -> 1 premium) can never drift from what the merchant pays.
-	var top_rw := G.sell_reward(100 + G.TOP_TIER)   # the premium pinnacle -> Vector2i(0, 1)
-	var prow := HBoxContainer.new()
-	prow.add_theme_constant_override("separation", 4)
-	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lbl := Label.new()
-	lbl.text = tr("top \u25b6 +%d") % (top_rw.y if top_rw.y > 0 else top_rw.x)
-	lbl.add_theme_font_size_override("font_size", 24)
-	lbl.add_theme_color_override("font_color", Color("#6E4B2F"))
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	prow.add_child(lbl)
-	var pill_icon := Look.icon("gem" if top_rw.y > 0 else "coin", 24.0)
-	pill_icon.set_meta("icon_id", "gem" if top_rw.y > 0 else "coin")
-	prow.add_child(pill_icon)
-	pill.add_child(prow)
-	stand.add_child(pill)
-	# W3: a live "+N🪙" sell tag at the shoulder, shown only WHILE an item is dragged
-	# (the dragged item's own sell_value) — the AB3 reward-chip convention.
-	var tag := Look.stat_chip("coin", "")
-	merchant_sell_tag = tag.node
-	merchant_sell_tag_label = tag.label
-	merchant_sell_tag_icon = tag.icon
-	merchant_sell_tag_icon.set_meta("icon_id", "coin")   # the chip is built with the coin icon — track it for swaps
-	(merchant_sell_tag_label as Label).add_theme_font_size_override("font_size", 22)
-	merchant_sell_tag.position = Vector2(STAND_W / 2.0 + 30.0, 6.0)
-	merchant_sell_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	merchant_sell_tag.visible = false
-	stand.add_child(merchant_sell_tag)
-	# Y2: the collection basket rides at the merchant's feet — sold items land here
-	# and stay buy-backable until the porter collects. A wicker tray of <=3 sale chips.
-	basket_chip = PanelContainer.new()
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color("#9C7A4E", 0.96)        # wicker
-	bsb.set_corner_radius_all(12)
-	bsb.set_border_width_all(2)
-	bsb.border_color = Color("#6E4B2F")
-	bsb.shadow_color = Color(0, 0, 0, 0.22)
-	bsb.shadow_size = 4
-	bsb.content_margin_left = 8.0
-	bsb.content_margin_right = 8.0
-	bsb.content_margin_top = 5.0
-	bsb.content_margin_bottom = 5.0
-	basket_chip.add_theme_stylebox_override("panel", bsb)
-	basket_chip.position = Vector2(STAND_W / 2.0 - 56.0, FENCE_H - 62.0)
-	basket_chip.visible = false
-	stand.add_child(basket_chip)
-	_rebuild_basket()
-	# Z3: a 10🪙 acorn treat at the stall — tap it and a wandering spirit scurries
-	# over to nibble (a tiny, endlessly-repeatable coin sink between wayside buys).
-	if Features.on("spirit_treats"):
-		var treat := PanelContainer.new()
-		var tsb := StyleBoxFlat.new()
-		tsb.bg_color = Color("#FBF6EC", 0.96)
-		tsb.set_corner_radius_all(14)
-		tsb.set_border_width_all(2)
-		tsb.border_color = Color("#C9A66B", 0.9)
-		tsb.shadow_color = Color(0, 0, 0, 0.22)
-		tsb.shadow_size = 4
-		tsb.content_margin_left = 8.0
-		tsb.content_margin_right = 8.0
-		tsb.content_margin_top = 4.0
-		tsb.content_margin_bottom = 5.0
-		treat.add_theme_stylebox_override("panel", tsb)
-		var trow := HBoxContainer.new()
-		trow.add_theme_constant_override("separation", 3)
-		trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		treat.add_child(trow)
-		if ResourceLoader.exists(Game.art("map/spirit_acorn.png")):
-			var ac := TextureRect.new()
-			ac.texture = load(Game.art("map/spirit_acorn.png"))
-			ac.custom_minimum_size = Vector2(30, 30)
-			ac.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			ac.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			ac.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			trow.add_child(ac)
-		var tl := Label.new()
-		tl.text = "%d" % TREAT_COST
-		tl.add_theme_font_size_override("font_size", 22)
-		tl.add_theme_color_override("font_color", Color("#33402F"))
-		tl.add_theme_constant_override("outline_size", 0)
-		trow.add_child(tl)
-		trow.add_child(Look.icon("coin", 22.0))
-		treat.position = Vector2(-22.0, 8.0)        # the merchant's shoulder-left
-		_stand_tap(treat, _buy_treat)
-		stand.add_child(treat)
-	# T39 §9: NO tap-sell — dragging an item onto the stall is the ONLY sell verb. (The basket
-	# buy-back chips and the treat keep their own taps; the stall itself is drag-only.)
-	return stand
+	var m := MerchantStand.build({
+		"stand_w": STAND_W, "fence_h": FENCE_H,
+		"buy_treat": _buy_treat,
+		"wire_tap": _stand_tap,
+	})
+	merchant_sell_tag = m.sell_tag
+	merchant_sell_tag_label = m.sell_tag_label
+	merchant_sell_tag_icon = m.sell_tag_icon
+	basket_chip = m.basket_chip
+	_rebuild_basket()                        # paint any held sales now that basket_chip exists
+	return m.stand
 
 # Z3: spend 10🪙 → a random wandering spirit scurries over, nibbles, hops + glows.
 # Endlessly repeatable; rapid taps each resolve independently (no queue to break).
