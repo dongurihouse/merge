@@ -7,10 +7,10 @@ On pickup, an item becomes a `T#` task in [`TASKS.md`](TASKS.md). Format + rules
 
 Most items trace to the **engine-wide `merge_spec` audit (2026-06-14)**. Since shipped and dropped
 from here: the generator + quest core (T17–T20), the map model + `zone`→`map` sweep (T21, T38), the
-burst sink + level-gating (T23–T25, T37). Code anchors are `file:line` and **drift** — after the
+burst sink + level-gating (T23–T25, T37), and the **selling bands + Shop buy-sinks + bag 6→18 model
+(T39–T41, parallel worktree batch 2026-06-15)**. Code anchors are `file:line` and **drift** — after the
 `core/ui/scenes` layering split many paths moved (`content.gd`→`core/content.gd`, `board.gd`→
 `scenes/board.gd`, `shop.gd`→`ui/shop.gd`); trust the symbol name over the line number.
-**In flight now (left as-is until they merge):** Selling (T39), Shop (T40), Bag (T41).
 
 ---
 
@@ -50,45 +50,24 @@ burst sink + level-gating (T23–T25, T37). Code anchors are `file:line` and **d
   2026-06-14 — code audit; anchors re-verified + A/B split + deps added 2026-06-15, T22 pickup; Part B burst
   mechanic merged 2026-06-15, T23.)*
 
-- **Selling — per-zone coin bands + drag-only verb (spec done · content · code).** §6/§9: t1–t7 sell
-  for **tier coins × a per-zone band** (later zones worth more); t8 stays flat **1💎** so the 32×
-  anti-arbitrage proof holds. **Code sells flat:** `sell_reward` is tier-coins with no zone band
-  (`engine/scripts/content.gd:272`), plus a stale flat `MERCHANT_COINS=25` stall pill
-  (`grove_data.gd:61`, `board.gd:873`). Also: **tap-sell still exists** (`_on_merchant_tap`,
-  `board.gd:1927`) but §9 says **drag is the only sell verb** — remove tap-sell. **Build:** the
-  per-zone band (re-derive 32× per zone) + drop tap-sell. **Grove:** the per-zone sell-value bands.
-  *(Surfaced 2026-06-14 — code audit vs `merge_spec`.)*
-
-- **The Shop — buy-side sinks (spec done · engine code · grove stock).** §10: the Shop sells
-  **item-shortcuts** (buy a mid-tier piece to skip the grind — coins low / premium high),
-  **cosmetics/looks**, energy/coins-for-premium, and dark-IAP cash packs — with **rotating offers** (a
-  few at a time). **Code has only** a water buy + one coin pouch + 3 cash→💎 packs, a **fixed** static
-  layout with **no rotation, no item-shortcuts, no cosmetics** (`engine/scripts/shop.gd:33,47`), and a
-  stale "no IAP wired" header that contradicts the live confirm-grant cash packs (`shop.gd:191`).
-  **Build (engine):** the item-shortcut + cosmetic offer types + offer rotation. **Build (grove):**
-  the stock list, item-shortcut prices, cosmetic catalogue. *(Surfaced 2026-06-14 — code audit vs
-  `merge_spec`.)*
-
-- **Bag capacity model (spec done · code).** §5: **6 starting slots**, **+1 at a time bought with
-  premium 💎**, **max 18** (12 expansions); shelving free, no timers, persisted. **Code is the OLD
-  model:** `BAG_SLOTS=2` + a single `BAG3_DIAMOND_COST=10` "3rd slot" (`games/grove/grove_data.gd:67,146`),
-  a hard-coded 3-slot UI loop (`engine/scripts/board.gd:213`), and bag items **retrieved by tap**
-  vs the spec's drag-back (`board.gd:1814`). **Build:** the 6→18 model, the save-blob `bag` + slot-buy
-  path, drag-back retrieve, and the per-slot 💎 price schedule (flat or escalating — a grove number,
-  not yet set). *(Surfaced 2026-06-14 — spec review + code audit.)*
+- **Shop cosmetic LOOKS — apply the owned look to the board/map render (small follow-up · T40).** The
+  Shop now sells cosmetic looks (T40 — `SHOP_COSMETICS` in `grove_data.gd`, unlock stored in
+  `grove()["cosmetics"]`), but the chosen theme is **granted-and-owned only — not yet applied** to the
+  board background / map render. **Build:** read the owned cosmetic in the board/map view and swap the
+  look. *(Surfaced 2026-06-15 — T40 parked tail.)*
 
 - **Rewarded ads + the live-IAP surfaces (spec done · engine code · grove).** Core §4/§10 now:
   **IAP is live from launch** (real cash→💎, geo-flagged — supersedes the old "dark / earned-only"
-  language; the stale `shop.gd:191` "no IAP wired" header must go), plus **rewarded ads**
+  language; the stale "no IAP wired" header was corrected in T40), plus **rewarded ads**
   (rewarded-only, capped, geo-flagged: refill energy / 2× build-yield collect / free shop reroll /
   event top-up), a **starter pack + first-purchase doubler**, and a **full price ladder incl.
   $49.99/$99.99-class tiers** (replace the placeholder $0.99/$4.99/$9.99 set). **Build (engine):** an
   ad-SDK + the rewarded surfaces + caps; live-IAP store + receipt validation behind the geo flag.
   **Build (grove):** the real pack ladder + starter pack, ad caps/cooldowns/reward sizes. *Pairs with
-  the Shop item above; also retire "even while dark" in the analytics item.* *(Surfaced 2026-06-14 —
+  the shipped Shop sinks (T40); also retire "even while dark" in the analytics item.* *(Surfaced 2026-06-14 —
   director review.)*
 
-- **Monetization surfaces — piggy bank, triggered offers, daily login calendar (spec done · engine code · grove).** §10/§18: a **piggy-bank accrual vault** (skims earned premium → crack for one fixed cash price), **triggered "out-of-Water" offers** (state-fired at the energy wall, distinct from the rotating Shop), and a **forgiving daily login calendar** (escalating streak, no day-1 reset). **All absent** — Shop is static-rotating only (`engine/scripts/shop.gd`); no vault / trigger / login-calendar code. **Build (engine):** the vault skim+claim path; the state-triggered offer hook (keyed off §15 analytics); the login-streak model (respecting the §4 self-sustain invariant). **Build (grove):** skim rate + pig price, offer discount/caps, the streak ladder + milestones. *(Surfaced 2026-06-14 — director review.)*
+- **Monetization surfaces — piggy bank, triggered offers, daily login calendar (spec done · engine code · grove).** §10/§18: a **piggy-bank accrual vault** (skims earned premium → crack for one fixed cash price), **triggered "out-of-Water" offers** (state-fired at the energy wall, distinct from the rotating Shop), and a **forgiving daily login calendar** (escalating streak, no day-1 reset). **Vault / trigger / login all absent** — the Shop now *rotates* offers (T40) but has no accrual vault, no state-triggered offer (also waits on §15 analytics — absent), no login calendar. **Build (engine):** the vault skim+claim path; the state-triggered offer hook (keyed off §15 analytics); the login-streak model (respecting the §4 self-sustain invariant). **Build (grove):** skim rate + pig price, offer discount/caps, the streak ladder + milestones. *(Surfaced 2026-06-14 — director review.)*
 
 ## Open — meta, content-cadence & infra
 
