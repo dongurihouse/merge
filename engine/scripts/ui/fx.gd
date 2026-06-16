@@ -56,8 +56,19 @@ static func rock(node: Control, deg := Tune.ROCK_DEG, cycle := Tune.ROCK_CYCLE, 
 		t.tween_property(node, "rotation", -rad, half).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(node, "rotation", 0.0, half).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-# gentle looping attention pulse (bound to the node — dies with it)
+# The ONE suggested action pulses ONLY when the feature is on AND calm mode is off.
+# Calm mode (§12) disables breathe — the screen quiets without losing function.
+static func breathe_active() -> bool:
+	return Features.on("breathe_cta") and not calm()
+
+# gentle looping attention pulse (bound to the node — dies with it).
+# A no-op under calm: the node rests at its natural scale rather than pulsing.
 static func breathe(node: Control, amount := Tune.BREATHE_AMOUNT, period := Tune.BREATHE_PERIOD) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	if not breathe_active():
+		node.scale = Vector2.ONE   # quiet: rest at natural scale, never stuck mid-pulse
+		return
 	node.pivot_offset = node.size / 2.0
 	var t := node.create_tween()
 	t.set_loops()
@@ -98,7 +109,10 @@ static func celebrate_at(host: Control, gpos: Vector2, text: String, color: Colo
 
 # loop-tween guard: breathing twice on one node compounds the oscillation
 static func breathe_once(node: Control) -> void:
-	if not Features.on("breathe_cta"):
+	if not (node and is_instance_valid(node)):
+		return
+	if not breathe_active():
+		node.scale = Vector2.ONE   # calm/off: rest at natural scale (don't latch the meta flag)
 		return
 	if node.has_meta("_fx_breathing"):
 		return
