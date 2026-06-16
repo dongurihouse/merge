@@ -162,7 +162,18 @@ const MERCHANT_COINS := 25                # per top-tier item taken
 const LEVEL_DIAMONDS := 3                 # per level-up
 const MAP_DIAMONDS := 10                 # per map fully restored
 const REFILL_DIAMOND_COST := 25           # paid rain, once free refills are spent
-const BAG3_DIAMOND_COST := 10             # the third bag slot
+
+# §5 The Bag — 6 owned slots at start, +1 at a time bought with 💎, hard cap 18 (12
+# purchasable expansions). Shelving/retrieving are always free, no timers, persisted.
+# BAG_SLOT_PRICES is the per-EXPANSION 💎 price, one entry per slot 7..18 (index 0 = the
+# 7th slot, … index 11 = the 18th). Escalating bands of 3 keep early expansion gentle
+# (the 7th stays the old 10💎) and make the late slots a real, earned premium; buying slots
+# is convenience, never possibility (§4/§5 "premium buys speed, never the wall"). The 32×
+# is unaffected — this is a 💎 sink, not a coin one. OWNER-TUNABLE (grove number, §5 in
+# grove_spec): 12 escalating prices summing to 210💎 to reach the cap from 6.
+const BAG_START_SLOTS := 6
+const BAG_MAX_SLOTS := 18
+const BAG_SLOT_PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
 
 # Water (the pacing friction).
 const WATER_CAP := 100
@@ -255,7 +266,6 @@ const LEVEL_STARS_TAIL := 22       # stars per level past the table (flat tail)
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
 const CHARACTER_CAP := 5
 const CHARACTER_ART := "map/spirit_%s.png"              # type → clothes asset (assets keep their names)
-const BAG_SLOTS := 2
 const BASKET_CAP := 3            # the merchant's buy-back basket size
 const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
 const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)

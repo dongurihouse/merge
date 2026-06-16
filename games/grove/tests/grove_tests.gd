@@ -921,12 +921,42 @@ func _initialize() -> void:
 	ok(s5.water == G.WATER_CAP and Save.diamonds() == 30 - G.REFILL_DIAMOND_COST, \
 		"paid rain fills the cap and spends diamonds")
 
-	# the third bag slot: buy with diamonds, capacity grows
-	ok(s5._bag_capacity() == 2, "bag starts at two slots")
-	Save.add_diamonds(G.BAG3_DIAMOND_COST)
-	s5._on_bag_tap(2)
-	ok(bool(Save.grove().get("bag3", false)) and s5._bag_capacity() == 3, \
-		"the third bag slot purchase sticks")
+	# §5 bag: 6 owned slots at start, +1 per 💎 buy up to 18. The bar renders one button per owned
+	# slot PLUS a trailing "+slot" buy affordance while below the cap (so owned 6 → 7 buttons).
+	ok(s5._bag_capacity() == 6, "the bag starts at six owned slots")
+	ok(s5.bag_slots_ui.size() == 7, "the bar renders the 6 owned slots plus the +slot buy button")
+	var slots0 := Save.bag_slots()
+	var price := G.next_bag_slot_price(slots0)
+	Save.add_diamonds(price)
+	var dia0 := Save.diamonds()
+	s5._buy_bag_slot()
+	ok(Save.bag_slots() == slots0 + 1 and Save.diamonds() == dia0 - price, \
+		"buying the 7th slot grows the owned count and spends its 💎 price")
+	ok(s5._bag_capacity() == 7 and s5.bag_slots_ui.size() == 8, \
+		"the bought slot shows up in the capacity and the rebuilt bar (7 owned + buy)")
+	# a broke buy is refused — no slot, no charge
+	Save.spend_diamonds(Save.diamonds())      # drain the wallet
+	var slots1 := Save.bag_slots()
+	s5._buy_bag_slot()
+	ok(Save.bag_slots() == slots1, "a broke slot-buy is refused (premium is convenience, never a wall)")
+
+	# at the 18 cap the +slot affordance is gone: 18 buttons, no trailing buy slot.
+	Save.set_bag_slots(18)
+	s5._build_bag_bar()
+	ok(s5.bag_slots_ui.size() == 18 and not s5._bag_has_buy_slot(), \
+		"at the 18-slot cap the bar shows 18 slots and drops the +slot buy affordance")
+	Save.set_bag_slots(6)                      # restore for the drag-back check below
+	s5._build_bag_bar()
+
+	# §5 drag-back retrieve: a bagged item returns to the board by being dropped on a cell.
+	s5.bag = [104]                            # one t4 flower waiting in the bag
+	s5._rebuild_bag()
+	var dest := Vector2i(3, 3)
+	s5.board.take(dest)                       # make sure the target cell is empty ground
+	s5._rebuild_pieces()
+	s5._retrieve_from_bag(0, dest)
+	ok(s5.board.item_at(dest) == 104 and s5.bag.is_empty(), \
+		"dragging a bagged item onto an empty cell places it and empties that bag slot")
 
 	# home grants: a level-up pays diamonds too
 	var h5 = load("res://engine/scenes/Map.tscn").instantiate()

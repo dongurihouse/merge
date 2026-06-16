@@ -9,6 +9,11 @@ extends RefCounted
 
 const SCHEMA_VERSION := 2
 const COINS_PER_CLEAR_SEED := 35   # migration: coins granted per past board clear
+# §5 The Bag — the owned-slot floor/cap. The persistence layer is a pure leaf (no content.gd
+# import — that would be circular), so the band lives here; the game's per-slot 💎 price
+# schedule lives in grove_data and is passed into buy_bag_slot() by the scene.
+const BAG_MIN_SLOTS := 6
+const BAG_MAX_SLOTS := 18
 
 # Paths are static vars (not consts) so tests can redirect them to a temp dir.
 static var path := "user://save.json"
@@ -303,6 +308,29 @@ static func hub_collected_at() -> float:
 static func set_hub_collected_at(t: float) -> void:
 	grove()["hub_collected_at"] = t
 	grove_write()
+
+# --- the bag: owned-slot count (Core §5) -----------------------------------------
+# How many bag slots the player OWNS (the spec capacity, §5): 6 at start, +1 per 💎 buy,
+# hard cap 18. Stored in the grove blob, defaulted on read (like hub levels above) — so an
+# OLD save with no key, or the retired `bag3` flag, reads as 6 with no migration and no data
+# loss (6 >= the old 2/3 capacity). The bag CONTENTS stay in the separate `bag` array.
+static func bag_slots() -> int:
+	return clampi(int(grove().get("bag_slots", BAG_MIN_SLOTS)), BAG_MIN_SLOTS, BAG_MAX_SLOTS)
+
+static func set_bag_slots(n: int) -> void:
+	grove()["bag_slots"] = clampi(n, BAG_MIN_SLOTS, BAG_MAX_SLOTS)
+	grove_write()
+
+# Buy ONE expansion for `price` 💎: refuse at the cap (nothing left to buy) or when broke,
+# else spend and grow the owned count by 1. Returns whether a slot was actually bought.
+# Convenience, never possibility (§4/§5) — a refusal never blocks progress, only the speed-up.
+static func buy_bag_slot(price: int) -> bool:
+	if bag_slots() >= BAG_MAX_SLOTS:
+		return false
+	if not spend_diamonds(price):
+		return false
+	set_bag_slots(bag_slots() + 1)
+	return true
 
 # --- the gate-unveil pointer (Core §8 — the wordless map→board handoff) ----------
 # Completing a map's spots unveils its great-spirit GATE quest, which now waits on the
