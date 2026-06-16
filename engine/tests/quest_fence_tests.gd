@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless tests for core/quests.gd — the §7 fence-COMPOSITION layer that sits above
 ## the quest engine in content.gd (G.gen_quest / gate_quest / active_giver_count). board.gd's
-## instance methods (_quest_zone/_refill_quests/_gate_pending/…) are thin Save-reading wrappers
+## instance methods (_quest_map/_refill_quests/_gate_pending/…) are thin Save-reading wrappers
 ## over these pure statics, so the fence decision is testable with no scene/window/Save.
 ##   godot --headless --path . -s res://engine/tests/quest_fence_tests.gd
 
@@ -30,12 +30,12 @@ func _initialize() -> void:
 	ok(Quests.coins(q_legacy) == 0 and Quests.gems(q_legacy) == 0, "legacy quests pay no coins/gems")
 	ok(Quests.gems({"reward": {"stars": 1, "coins": 0}}) == 0, "a normal (non-featured) quest has 0 gems")
 
-	# --- zone / map_done on a fresh game (no spots owned, no gates delivered) ---
-	ok(Quests.zone({}, []) == 0, "a fresh game's frontier is zone 0")
+	# --- map / map_done on a fresh game (no spots owned, no gates delivered) ---
+	ok(Quests.current_map({}, []) == 0, "a fresh game's frontier is map 0")
 	ok(not Quests.map_done({}, []), "a fresh game is not map-done (a frontier exists)")
 
-	# --- gate_pending: zone 0 is not spot-complete on a fresh game → no gate yet ---
-	ok(not Quests.gate_pending(0, {}, []), "zone 0's gate is not pending until its spots are restored")
+	# --- gate_pending: map 0 is not spot-complete on a fresh game → no gate yet ---
+	ok(not Quests.gate_pending(0, {}, []), "map 0's gate is not pending until its spots are restored")
 
 	# --- gate_ready: 0★ can't afford the next spot; a huge bank at max level can ---
 	ok(not Quests.gate_ready(0, 0, {}, 1), "0★ → the next unlock is not affordable (not ready)")
@@ -46,7 +46,7 @@ func _initialize() -> void:
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
 	ok(Quests.meter_target(0, 0, {}, 99) >= Quests.meter_target(0, 100000, {}, 99), "the fence shrinks monotonically as ★ bank toward the unlock")
 
-	# --- pending_grant_quests: zone 0 (first map) has no predecessor generators to hand in ---
+	# --- pending_grant_quests: map 0 (first map) has no predecessor generators to hand in ---
 	ok(Quests.pending_grant_quests(0, {}).is_empty(), "the first map has no pending generator-grant hand-ins")
 
 	# --- refill: the normal stream fills to the metered target with non-gate quests ---

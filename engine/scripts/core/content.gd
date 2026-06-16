@@ -51,7 +51,7 @@ const VARIANT_TINTS_COIN = D.VARIANT_TINTS_COIN
 const VARIANT_TINTS_GEM = D.VARIANT_TINTS_GEM
 const MERCHANT_COINS = D.MERCHANT_COINS
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
-const ZONE_DIAMONDS = D.ZONE_DIAMONDS
+const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
 const BAG3_DIAMOND_COST = D.BAG3_DIAMOND_COST
 const WATER_CAP = D.WATER_CAP
@@ -64,7 +64,7 @@ const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
-const ZONES = D.ZONES
+const MAPS = D.MAPS
 const LEVEL_STARS = D.LEVEL_STARS
 const LEVEL_STARS_TAIL = D.LEVEL_STARS_TAIL
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
@@ -78,31 +78,31 @@ const TREAT_COST = D.TREAT_COST
 const SPOTLIGHTS = D.SPOTLIGHTS
 
 # --- generators ------------------------------------------------------------------
-# --- per-zone generator roster (the generator-grant hand-in model, §6) ------------
-# A roster is an Array of {id, zone, lines:[a,b], grant_from}. grant_from = the id of
-# the previous-zone generator you HAND IN (to a generator-grant quest) to receive this
-# one — old lines retire; "" = granted outright (a zone's surplus, or zone 0's starters).
+# --- per-map generator roster (the generator-grant hand-in model, §6) ------------
+# A roster is an Array of {id, map, lines:[a,b], grant_from}. grant_from = the id of
+# the previous-map generator you HAND IN (to a generator-grant quest) to receive this
+# one — old lines retire; "" = granted outright (a map's surplus, or map 0's starters).
 # Generators never merge to evolve (that mechanic is retired). Pure derivation — the
 # live code passes GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
-static func generators_for_zone(roster: Array, zone: int) -> Array:
+static func generators_for_map(roster: Array, map: int) -> Array:
 	var out: Array = []
 	for g in roster:
-		if int(g.zone) == zone:
+		if int(g.map) == map:
 			out.append(g)
 	return out
 
-## The lines LIVE while the player is in `zone` — its generators' lines only (older zones'
+## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
 ## lines have retired, §6). The current map's quests + gate draw only from these.
-static func lines_for_zone(roster: Array, zone: int) -> Array:
+static func lines_for_map(roster: Array, map: int) -> Array:
 	var out: Array = []
-	for g in generators_for_zone(roster, zone):
+	for g in generators_for_map(roster, map):
 		for l in g.lines:
 			if not out.has(int(l)):
 				out.append(int(l))
 	return out
 
 ## The ANCHOR lines (§6's anchor-line exemption): the union of the lines of every generator
-## flagged `anchor: true`, from any zone. An anchor generator is NEVER handed in — it
+## flagged `anchor: true`, from any map. An anchor generator is NEVER handed in — it
 ## permanently holds one of the live slots — so its lines stay LIVE and ASKABLE for the life
 ## of the save, even past the map they debuted in. Game-agnostic: the flag is read off the
 ## roster def (a game designates at most one anchor; this unions all that are flagged). Sorted.
@@ -116,26 +116,26 @@ static func anchor_lines(roster: Array) -> Array:
 	out.sort()
 	return out
 
-## The lines a regular quest may ASK while the player is in `zone` (§6/§7): the current map's
-## live lines (`lines_for_zone`) UNIONED with the anchor lines, deduped. Non-anchor earlier-zone
+## The lines a regular quest may ASK while the player is in `map` (§6/§7): the current map's
+## live lines (`lines_for_map`) UNIONED with the anchor lines, deduped. Non-anchor earlier-map
 ## lines stay EXCLUDED (they retired) — only the anchor is exempt, so its lines remain askable
-## past their debut map (fixing the dead-anchor bug). At zone 0 the anchor is already in the
+## past their debut map (fixing the dead-anchor bug). At map 0 the anchor is already in the
 ## roster, so the union is a no-op there. Sorted.
-static func askable_lines(roster: Array, zone: int) -> Array:
-	var out: Array = lines_for_zone(roster, zone)
+static func askable_lines(roster: Array, map: int) -> Array:
+	var out: Array = lines_for_map(roster, map)
 	for l in anchor_lines(roster):
 		if not out.has(int(l)):
 			out.append(int(l))
 	out.sort()
 	return out
 
-## Lines that have RETIRED by the time you reach `zone` — every earlier zone's lines.
+## Lines that have RETIRED by the time you reach `map` — every earlier map's lines.
 ## A retired line is never popped or asked again (it archives to the Collection — that
 ## hook is a separate task; here it simply drops out of the live set).
-static func retired_lines(roster: Array, zone: int) -> Array:
+static func retired_lines(roster: Array, map: int) -> Array:
 	var out: Array = []
-	for z in zone:
-		for l in lines_for_zone(roster, z):
+	for z in map:
+		for l in lines_for_map(roster, z):
 			if not out.has(int(l)):
 				out.append(int(l))
 	return out
@@ -149,22 +149,22 @@ static func grant_map(roster: Array) -> Dictionary:
 			out[String(g.id)] = String(g.grant_from)
 	return out
 
-## The ids of a zone's generators that are granted OUTRIGHT (no predecessor to hand in).
-static func surplus_gen_ids(roster: Array, zone: int) -> Array:
+## The ids of a map's generators that are granted OUTRIGHT (no predecessor to hand in).
+static func surplus_gen_ids(roster: Array, map: int) -> Array:
 	var out: Array = []
-	for g in generators_for_zone(roster, zone):
+	for g in generators_for_map(roster, map):
 		if String(g.grant_from) == "":
 			out.append(String(g.id))
 	return out
 
-## The authored generator-grant quests that open `zone` (§6/§7): one per hand-in
+## The authored generator-grant quests that open `map` (§6/§7): one per hand-in
 ## generator (those with a predecessor). Each `{asks:[], grant:{hand_in, grants}, stars}`
 ## asks for no items — it hands the predecessor generator in and grants the new one.
 ## Surpluses are granted outright (absent here). §7 schedules these into the live quest
-## script; the interim path still auto-seeds the full set on zone entry (live_gen_state).
-static func grant_quests_for_zone(roster: Array, zone: int) -> Array:
+## script; the interim path still auto-seeds the full set on map entry (live_gen_state).
+static func grant_quests_for_map(roster: Array, map: int) -> Array:
 	var out: Array = []
-	for g in generators_for_zone(roster, zone):
+	for g in generators_for_map(roster, map):
 		if String(g.grant_from) != "":
 			out.append({"asks": [], "grant": {"hand_in": String(g.grant_from), "grants": String(g.id)}, "stars": 1})
 	return out
@@ -219,12 +219,12 @@ static func gen_cell_of(roster: Array, id: String) -> Vector2i:
 		g = gen_def(roster, String(g.grant_from))
 	return g.get("cell", Vector2i(-1, -1))
 
-## The live generator set for a zone: {cell -> id} for each of the zone's generators,
-## hand-in grants inheriting their lineage cell. The interim "grant on zone entry" resolver
+## The live generator set for a map: {cell -> id} for each of the map's generators,
+## hand-in grants inheriting their lineage cell. The interim "grant on map entry" resolver
 ## — §7's grant quests will drive the same end state one hand-in at a time.
-static func live_gen_state(roster: Array, zone: int) -> Dictionary:
+static func live_gen_state(roster: Array, map: int) -> Dictionary:
 	var out: Dictionary = {}
-	for g in generators_for_zone(roster, zone):
+	for g in generators_for_map(roster, map):
 		out[gen_cell_of(roster, String(g.id))] = String(g.id)
 	return out
 
@@ -346,16 +346,16 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 		return 0
 	return clampi(int(ceil(need / float(STARS_PER_QUEST_EST))), 1, max_givers)
 
-## The authored great-spirit GATE quest that ends map `zone` (§6/§7): asks a randomized handful
+## The authored great-spirit GATE quest that ends map `map` (§6/§7): asks a randomized handful
 ## of the map's TOP-TIER harvest (its richest/newest lines at t8 = TOP_TIER) and, delivered,
 ## unlocks the next map for a large authored reward. Deterministic given `rng`. The one quest
 ## that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
-static func gate_quest(roster: Array, zone: int, _rng: RandomNumberGenerator = null) -> Dictionary:
-	var lines: Array = lines_for_zone(roster, zone)
+static func gate_quest(roster: Array, map: int, _rng: RandomNumberGenerator = null) -> Dictionary:
+	var lines: Array = lines_for_map(roster, map)
 	lines.sort()                                       # the richest (newest) lines sit last
 	var n: int = mini(GATE_ASK_COUNT, lines.size())
 	var pick: Array = lines.slice(lines.size() - n, lines.size())   # the top n (richest) lines
-	var gate_t: int = mini(GATE_TIER_BASE + zone, TOP_TIER)         # the map's ceiling: t5 (map 1) → t8 (map 4+)
+	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t8 (map 4+)
 	var asks: Array = []
 	for li in pick:
 		asks.append({"line": int(li), "tier": gate_t, "count": 1})
@@ -369,7 +369,7 @@ static func gate_quest(roster: Array, zone: int, _rng: RandomNumberGenerator = n
 ## (T25) means every purchased level ALWAYS adds +1 — the free per-map gift can no longer eat the
 ## paid headroom (the old `clampi(base+free+paid, …, 6)` wasted the top paid levels on deep maps).
 ## Final clamp to [1, BURST_MAX] is a board-flood safety net. Each popped item still costs 1 energy.
-static func burst_count(zone: int, upgrade_level: int, rng: RandomNumberGenerator) -> int:
+static func burst_count(map: int, upgrade_level: int, rng: RandomNumberGenerator) -> int:
 	var base := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -378,7 +378,7 @@ static func burst_count(zone: int, upgrade_level: int, rng: RandomNumberGenerato
 		if roll <= acc:
 			base = i + 1
 			break
-	var free_scale := int(zone / float(BURST_MAP_EVERY))     # +1 base burst every N maps…
+	var free_scale := int(map / float(BURST_MAP_EVERY))     # +1 base burst every N maps…
 	var free := mini(base + free_scale, BURST_FREE_MAX)      # …capped on its own, so the gift can't trivialize the board
 	var paid := mini(upgrade_level, BURST_UPGRADE_COSTS.size())   # the paid sink — always added on top of the free cap
 	return clampi(free + paid, 1, BURST_MAX)
@@ -394,88 +394,88 @@ static func burst_upgrade_cost(level: int) -> int:
 static func burst_upgrade_max() -> int:
 	return BURST_UPGRADE_COSTS.size()
 
-static func zone_of_chapter(i: int) -> int:
+static func map_of_chapter(i: int) -> int:
 	var acc := 0
-	for z in ZONES.size():
-		acc += ZONES[z].spots.size()
+	for z in MAPS.size():
+		acc += MAPS[z].spots.size()
 		if i < acc:
 			return z
-	return ZONES.size() - 1
+	return MAPS.size() - 1
 
 # --- spot level gates -------------------------------------------------------------
 static func spot_level_req(z: int, k: int) -> int:
 	var rank := k
 	for i in z:
-		rank += ZONES[i].spots.size()
+		rank += MAPS[i].spots.size()
 	return level_for_stars(3 * rank)   # == the old level_for_exp(30·rank); preserves the gates
 
-static func zone_done(z: int, unlocks: Dictionary) -> bool:
-	for sp in ZONES[z].spots:
+static func map_spots_done(z: int, unlocks: Dictionary) -> bool:
+	for sp in MAPS[z].spots:
 		if not unlocks.has(String(sp.id)):
 			return false
 	return true
 
-static func completed_zones(unlocks: Dictionary) -> int:
+static func completed_maps(unlocks: Dictionary) -> int:
 	var n := 0
-	for z in ZONES.size():
-		if zone_done(z, unlocks):
+	for z in MAPS.size():
+		if map_spots_done(z, unlocks):
 			n += 1
 	return n
 
 # --- map progression queries (folded from map.gd; the scene keeps thin wrappers) --
-static func zone_for_id(id: String) -> int:
-	for z in ZONES.size():
-		if String(ZONES[z].id) == id:
+static func map_for_id(id: String) -> int:
+	for z in MAPS.size():
+		if String(MAPS[z].id) == id:
 			return z
 	return -1
 
 ## The index of the home-hub map (the permanent anchor — Core §8 / grove_spec §3). The game
 ## flags it with `hub: true`; defaults to the first map. Drives the boot landing + the HUD home
 ## shortcut. (The hub is authored deeper than a finish-once map; its yield loop is the KEYSTONE.)
-static func hub_zone() -> int:
-	for z in ZONES.size():
-		if bool(ZONES[z].get("hub", false)):
+static func hub_map() -> int:
+	for z in MAPS.size():
+		if bool(MAPS[z].get("hub", false)):
 			return z
 	return 0
 
 ## A map is fully complete when all its spots are restored AND its great-spirit gate quest
-## is delivered (§7) — gate-delivery is tracked in `gates` (zone indices). The NEXT map
+## is delivered (§7) — gate-delivery is tracked in `gates` (map indices). The NEXT map
 ## unlocks only on it (the completion chain), not merely on spot-completion.
 static func map_complete(z: int, unlocks: Dictionary, gates: Array) -> bool:
-	return zone_done(z, unlocks) and gates.has(z)
+	return map_spots_done(z, unlocks) and gates.has(z)
 
-static func zone_unlocked(z: int, unlocks: Dictionary, gates: Array = []) -> bool:
+static func map_unlocked(z: int, unlocks: Dictionary, gates: Array = []) -> bool:
 	return z == 0 or map_complete(z - 1, unlocks, gates)
 
 static func owned_count(z: int, unlocks: Dictionary) -> int:
 	var n := 0
-	for s in ZONES[z].spots:
+	for s in MAPS[z].spots:
 		if unlocks.has(String(s.id)):
 			n += 1
 	return n
 
-static func zone_stars_left(z: int, unlocks: Dictionary) -> int:
+static func map_stars_left(z: int, unlocks: Dictionary) -> int:
 	var left := 0
-	for s in ZONES[z].spots:
+	for s in MAPS[z].spots:
 		if not unlocks.has(String(s.id)):
 			left += int(s.cost)
 	return left
 
-static func frontier_zone(unlocks: Dictionary, gates: Array = []) -> int:
-	for z in ZONES.size():
-		if zone_unlocked(z, unlocks, gates) and not map_complete(z, unlocks, gates):
+static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
+	for z in MAPS.size():
+		if map_unlocked(z, unlocks, gates) and not map_complete(z, unlocks, gates):
 			return z
 	return -1
 
 ## The cheapest unowned, level-affordable spot IN map `z` (the frontier's next restore) — the
 ## §7 meter sizes the fence to it. Returns the cost, -1 (all of z owned → gate time), or -2
-## (all remaining level-locked → keep questing to level up). Zone-scoped, so gate-locked later
+## (all remaining level-locked → keep questing to level up). Map-scoped, so gate-locked later
 ## maps are never the meter target.
-static func zone_cheapest_spot(z: int, unlocks: Dictionary, level: int = 99) -> int:
+static func map_cheapest_spot(z: int, unlocks: Dictionary, level: int = 99) -> int:
 	var cheapest := 99
 	var missing := false
-	for k in ZONES[z].spots.size():
-		var sp: Dictionary = ZONES[z].spots[k]
+	for k in MAPS[z].spots.size():
+		var sp: Dictionary = MAPS[z].spots[k]
 		if unlocks.has(String(sp.id)):
 			continue
 		missing = true
@@ -485,17 +485,17 @@ static func zone_cheapest_spot(z: int, unlocks: Dictionary, level: int = 99) -> 
 		return -1
 	return cheapest if cheapest < 99 else -2
 
-## How many ambient characters wander: 1 + completed zones, capped. The host
+## How many ambient characters wander: 1 + completed maps, capped. The host
 ## passes this to Ambient.build_layer (progression stays a game rule, not engine).
 static func character_count(unlocks: Dictionary) -> int:
-	return mini(1 + completed_zones(unlocks), CHARACTER_CAP)
+	return mini(1 + completed_maps(unlocks), CHARACTER_CAP)
 
 static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
-	for z in ZONES.size():
+	for z in MAPS.size():
 		var cheapest := 99
 		var missing := false
-		for k in ZONES[z].spots.size():
-			var s: Dictionary = ZONES[z].spots[k]
+		for k in MAPS[z].spots.size():
+			var s: Dictionary = MAPS[z].spots[k]
 			if unlocks.has(String(s.id)):
 				continue
 			missing = true
@@ -505,12 +505,12 @@ static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
 			return cheapest if cheapest < 99 else -2   # -2 = all remaining level-locked
 	return -1
 
-# Of the open (unowned, level-affordable) spots in a zone, is k the one to buy next?
+# Of the open (unowned, level-affordable) spots in a map, is k the one to buy next?
 # Cheapest wins; ties break to the lower index. (Powers the "buy me next" affordance.)
 static func is_cheapest_open(z: int, k: int, lvl: int, unlocks: Dictionary) -> bool:
-	var my_cost := int(ZONES[z].spots[k].cost)
-	for j in ZONES[z].spots.size():
-		var s: Dictionary = ZONES[z].spots[j]
+	var my_cost := int(MAPS[z].spots[k].cost)
+	for j in MAPS[z].spots.size():
+		var s: Dictionary = MAPS[z].spots[j]
 		if unlocks.has(String(s.id)) or spot_level_req(z, j) > lvl:
 			continue
 		if int(s.cost) < my_cost or (int(s.cost) == my_cost and j < k):
@@ -528,7 +528,7 @@ static func variant_by_id(z: int, k: int, vid: String) -> Dictionary:
 static func spot_variants(z: int, k: int) -> Array:
 	var rank := k
 	for i in z:
-		rank += ZONES[i].spots.size()
+		rank += MAPS[i].spots.size()
 	var coin_cost := 25 + z * 15 + (k % 3) * 5
 	var gem_cost := 2 + int(z / 2.0)
 	return [
@@ -597,9 +597,9 @@ static func earn_stars(n: int) -> int:
 	Save.grove_write()
 	return gained
 
-static func zone_star_total(z: int) -> int:
+static func map_star_total(z: int) -> int:
 	var t := 0
-	for s in ZONES[z].spots:
+	for s in MAPS[z].spots:
 		t += int(s.cost)
 	return t
 

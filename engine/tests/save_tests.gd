@@ -153,5 +153,21 @@ func _initialize() -> void:
 	ok(not gl["levels"].has("fh_chest") and int(gl["levels"].get("fh_hearth", -1)) == 4, \
 		"spot-id rename carries levels like unlocks/custom")
 
+	# 17. T38 zone→map sweep: the two persisted grove keys migrate (value carried, old key dropped).
+	fresh("map_keys_rename")
+	var gm := Save.grove()
+	gm["last_zone"] = "farmhouse"
+	gm["quests_zone"] = 3
+	Save._migrate_map_keys(gm)
+	ok(not gm.has("last_zone") and String(gm.get("last_map", "")) == "farmhouse", \
+		"last_zone → last_map carries the value and drops the old key")
+	ok(not gm.has("quests_zone") and int(gm.get("quests_map", -99)) == 3, \
+		"quests_zone → quests_map carries the value and drops the old key")
+	# idempotent + non-clobbering: an existing new key wins, a re-run is a no-op.
+	gm["last_zone"] = "stale"; gm["last_map"] = "barn"
+	Save._migrate_map_keys(gm)
+	ok(not gm.has("last_zone") and String(gm.get("last_map", "")) == "barn", \
+		"migration never clobbers an existing last_map")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

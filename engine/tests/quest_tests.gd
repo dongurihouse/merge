@@ -122,9 +122,9 @@ func _initialize() -> void:
 		gate_lines[int(a.line)] = true
 	ok(all_ceiling, "map 1's gate asks its ceiling tier t%d (not the engine top yet)" % map1_ceiling)
 	ok(gq.asks.size() == gate_lines.size(), "the gate asks distinct lines (no duplicate ask)")
-	ok(gq.asks.size() == mini(int(G.GATE_ASK_COUNT), G.lines_for_zone(G.GENERATORS, 0).size()), "the gate asks GATE_ASK_COUNT of the map's lines")
+	ok(gq.asks.size() == mini(int(G.GATE_ASK_COUNT), G.lines_for_map(G.GENERATORS, 0).size()), "the gate asks GATE_ASK_COUNT of the map's lines")
 	ok(int(gq.reward.stars) == int(G.GATE_STARS) and int(gq.reward.coins) > int(G.GATE_COIN_BONUS), "the gate pays its large authored reward (★ + big coins)")
-	var gq_last := G.gate_quest(G.GENERATORS, G.ZONES.size() - 1, rng)
+	var gq_last := G.gate_quest(G.GENERATORS, G.MAPS.size() - 1, rng)
 	var last_is_top := true
 	for a in gq_last.asks:
 		if int(a.tier) != int(G.TOP_TIER):

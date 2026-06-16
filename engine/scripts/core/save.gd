@@ -247,6 +247,7 @@ static func grove() -> Dictionary:
 		data["grove"] = {}
 	_migrate_spot_ids(data["grove"])
 	_migrate_exp_to_stars(data["grove"])
+	_migrate_map_keys(data["grove"])
 	return data["grove"]
 
 # Old saves stored level as `exp` (= 10 × stars earned). The clock is now the
@@ -264,6 +265,16 @@ static func _migrate_spot_ids(g: Dictionary) -> void:
 			if blob.has(old):
 				blob[_SPOT_ID_RENAMES[old]] = blob[old]
 				blob.erase(old)
+
+# T38: the zone→map vocabulary sweep renamed two persisted grove keys. Carry an old
+# save's values over (idempotent — old key erased after the move).
+const _MAP_KEY_RENAMES := {"last_zone": "last_map", "quests_zone": "quests_map"}
+static func _migrate_map_keys(g: Dictionary) -> void:
+	for old in _MAP_KEY_RENAMES:
+		if g.has(old):
+			if not g.has(_MAP_KEY_RENAMES[old]):
+				g[_MAP_KEY_RENAMES[old]] = g[old]
+			g.erase(old)
 
 static func grove_write() -> void:
 	_ensure_loaded()
@@ -296,14 +307,14 @@ static func set_hub_collected_at(t: float) -> void:
 # --- the gate-unveil pointer (Core §8 — the wordless map→board handoff) ----------
 # Completing a map's spots unveils its great-spirit GATE quest, which now waits on the
 # BOARD as the lone fence stand (§7). That handoff is silent across screens, so the map
-# ARMS this pointer (the just-completed zone index) on completion; the board CONSUMES it
+# ARMS this pointer (the just-completed map index) on completion; the board CONSUMES it
 # on its next open — playing a wordless cue toward the gate stand — and clears it. -1 =
 # nothing pending. Persisted in the grove blob so it survives the map→board scene change.
 static func gate_pointer() -> int:
 	return int(grove().get("gate_pointer", -1))
 
-static func set_gate_pointer(zone: int) -> void:
-	grove()["gate_pointer"] = zone
+static func set_gate_pointer(map: int) -> void:
+	grove()["gate_pointer"] = map
 	grove_write()
 
 static func clear_gate_pointer() -> void:
@@ -311,7 +322,7 @@ static func clear_gate_pointer() -> void:
 		grove().erase("gate_pointer")
 		grove_write()
 
-# Consume the pointer: return the pending zone (or -1) and clear it in the same step, so
+# Consume the pointer: return the pending map (or -1) and clear it in the same step, so
 # the board's wordless cue fires exactly once per unveil.
 static func take_gate_pointer() -> int:
 	var z := gate_pointer()

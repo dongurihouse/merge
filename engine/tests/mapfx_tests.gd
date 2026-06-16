@@ -83,8 +83,8 @@ func _initialize() -> void:
 	h._open_select()
 	await create_timer(0.05).timeout
 	ok(h._view == "select", "the map-select view is up")
-	ok(h.select_hits.size() == G.ZONES.size(), "one card per map")
-	ok(h.zone_unlocked(0) and not h.zone_unlocked(1), "fresh save: map 0 open, map 1 locked (the fixture)")
+	ok(h.select_hits.size() == G.MAPS.size(), "one card per map")
+	ok(h.map_unlocked(0) and not h.map_unlocked(1), "fresh save: map 0 open, map 1 locked (the fixture)")
 
 	# the locked card (z=1) wears the fog veil; the open card (z=0) does not.
 	var locked: Control = _card_for(h, 1)
@@ -127,15 +127,15 @@ func _initialize() -> void:
 	ok(_all_ignore(veil), "every veil node IGNOREs the mouse (single-input-surface safe)")
 
 	# sweep: EVERY locked map gets a veil; NO unlocked map does. (Guards future
-	# zones + the open/locked branch staying in one place.)
+	# maps + the open/locked branch staying in one place.)
 	var all_locked_veiled := true
 	var any_open_veiled := false
-	for z in G.ZONES.size():
+	for z in G.MAPS.size():
 		var card := _card_for(h, z)
 		if card == null:
 			continue
 		var v := _find(card, Map.VEIL_NODE)
-		if h.zone_unlocked(z):
+		if h.map_unlocked(z):
 			if v != null:
 				any_open_veiled = true
 		else:

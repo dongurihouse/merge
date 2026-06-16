@@ -41,7 +41,7 @@ const GHOST_TINT := Color(0.72, 0.74, 0.72)
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
 # Process-scoped on purpose: a fresh app boot always lands on the frontier.
-static var decorate_zone := ""
+static var decorate_map := ""
 
 const SKY = Pal.SKY
 const MEADOW = Pal.MEADOW
@@ -133,15 +133,15 @@ func _ready() -> void:
 	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
 	# open the frontier (falling back to the hub when nothing is open yet).
 	var start := -1
-	if decorate_zone != "":
-		var dz := G.zone_for_id(decorate_zone)
-		if dz >= 0 and zone_unlocked(dz):
+	if decorate_map != "":
+		var dz := G.map_for_id(decorate_map)
+		if dz >= 0 and map_unlocked(dz):
 			start = dz
-	decorate_zone = ""
+	decorate_map = ""
 	if start < 0:
-		start = _frontier_zone()
+		start = _frontier_map()
 		if start < 0:
-			start = G.hub_zone()
+			start = G.hub_map()
 	_open_map(start)
 
 	# T28 (§14): if the player lands on the map first, announce the shop on its first
@@ -172,9 +172,9 @@ func _heal_capture_flags() -> void:
 func _load_state() -> void:
 	var g := Save.grove()
 	unlocks = g.get("unlocks", {})
-	# T1: sanitize — a last_zone that no longer names a map is dropped
-	if g.has("last_zone") and G.zone_for_id(String(g.last_zone)) < 0:
-		g.erase("last_zone")
+	# T1: sanitize — a last_map that no longer names a map is dropped
+	if g.has("last_map") and G.map_for_id(String(g.last_map)) < 0:
+		g.erase("last_map")
 	if not g.has("unlocks"):
 		g["unlocks"] = unlocks
 
@@ -192,26 +192,26 @@ func _gates() -> Array:                       # §7 gate-delivery state (which m
 func spot_owned(id: String) -> bool:
 	return unlocks.has(id)
 
-func zone_complete(z: int) -> bool:
-	return G.zone_done(z, unlocks)
+func map_spots_done(z: int) -> bool:
+	return G.map_spots_done(z, unlocks)
 
-func zone_unlocked(z: int) -> bool:
-	return G.zone_unlocked(z, unlocks, _gates())
+func map_unlocked(z: int) -> bool:
+	return G.map_unlocked(z, unlocks, _gates())
 
 func owned_count(z: int) -> int:
 	return G.owned_count(z, unlocks)
 
-func zone_stars_left(z: int) -> int:
-	return G.zone_stars_left(z, unlocks)
+func map_stars_left(z: int) -> int:
+	return G.map_stars_left(z, unlocks)
 
-func _frontier_zone() -> int:
-	return G.frontier_zone(unlocks, _gates())
+func _frontier_map() -> int:
+	return G.frontier_map(unlocks, _gates())
 
 func _is_cheapest_open(z: int, k: int, lvl: int) -> bool:
 	return G.is_cheapest_open(z, k, lvl, unlocks)
 
 func _spot_variant(z: int, k: int) -> Dictionary:
-	var chosen := String(Save.grove().get("custom", {}).get(String(G.ZONES[z].spots[k].id), "base"))
+	var chosen := String(Save.grove().get("custom", {}).get(String(G.MAPS[z].spots[k].id), "base"))
 	for v in G.spot_variants(z, k):
 		if String(v.id) == chosen:
 			return v
@@ -225,7 +225,7 @@ func _open_map(z: int) -> void:
 	_customize_spot = ""
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
-	g["last_zone"] = String(G.ZONES[z].id)
+	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 	_build_map()
 
@@ -250,7 +250,7 @@ func _build_map() -> void:
 	var z := _map_idx
 	# the map image fills the viewport below the HUD top inset and above the chrome
 	_map_rect = _map_image_rect()
-	var art_path := Game.art("map/map_%s.png" % String(G.ZONES[z].id))
+	var art_path := Game.art("map/map_%s.png" % String(G.MAPS[z].id))
 	if ResourceLoader.exists(art_path):
 		var t := TextureRect.new()
 		t.texture = load(art_path)
@@ -281,7 +281,7 @@ func _build_map() -> void:
 	# the title plank — map name + ✿-progress — near the top of the map rect
 	content.add_child(_map_title_plank(z))
 	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	for k in G.ZONES[z].spots.size():
+	for k in G.MAPS[z].spots.size():
 		var spot := _make_spot(z, k, lvl, _map_rect)
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
@@ -324,14 +324,14 @@ func _map_title_plank(z: int) -> Control:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plank.add_child(col)
 	var name_l := Label.new()
-	name_l.text = tr(G.ZONES[z].name)
+	name_l.text = tr(G.MAPS[z].name)
 	name_l.add_theme_font_size_override("font_size", 30)
 	name_l.add_theme_color_override("font_color", CREAM)
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
 	var lbl := Label.new()
-	lbl.text = tr("✿ restored") if zone_complete(z) else tr("✿ %d★ left") % zone_stars_left(z)
+	lbl.text = tr("✿ restored") if map_spots_done(z) else tr("✿ %d★ left") % map_stars_left(z)
 	lbl.add_theme_font_size_override("font_size", 22)
 	lbl.add_theme_color_override("font_color", STRAW)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -365,7 +365,7 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 # One spot ON the map image: furniture art when owned (and generated), else the
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
-	var spot: Dictionary = G.ZONES[z].spots[k]
+	var spot: Dictionary = G.MAPS[z].spots[k]
 	var pos: Vector2 = rect.position + Layout.spot_pos(z, k) * rect.size
 	var item := Control.new()
 	item.size = Vector2(180, 150)
@@ -488,7 +488,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(name_l)
 		item.add_child(stack)
-		if not gated and z == _frontier_zone() and _is_cheapest_open(z, k, lvl):
+		if not gated and z == _frontier_map() and _is_cheapest_open(z, k, lvl):
 			FX.breathe_once(item)
 	if owned and _customize_spot == String(spot.id):
 		_add_variant_strip(item, z, k)
@@ -574,7 +574,7 @@ func _build_select() -> void:
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col_w: float = (view.x - 18.0 * 3.0) / 2.0
 	var card_w: float = clampf(col_w, 200.0, 320.0)
-	for z in G.ZONES.size():
+	for z in G.MAPS.size():
 		var card := _make_card(z, card_w)
 		grid.add_child(card)
 		select_hits.append({"node": card, "z": z})
@@ -588,9 +588,9 @@ func _build_select() -> void:
 # One map card: thumbnail + name + state line. Three states drive the line and the
 # greying — locked ("✿ after <prev>"), unlocked-incomplete ("✿ N★ left"), restored.
 func _make_card(z: int, card_w: float) -> Control:
-	var zone: Dictionary = G.ZONES[z]
-	var open := zone_unlocked(z)
-	var done := zone_complete(z)
+	var map_data: Dictionary = G.MAPS[z]
+	var open := map_unlocked(z)
+	var done := map_spots_done(z)
 	var card := PanelContainer.new()
 	card.custom_minimum_size = Vector2(card_w, 0)
 	var cs := StyleBoxFlat.new()
@@ -616,7 +616,7 @@ func _make_card(z: int, card_w: float) -> Control:
 	var thumb_h := card_w * 0.62
 	var thumb_w := card_w - 24.0
 	var thumb: Control
-	var thumb_path := Game.art("map/map_%s.png" % String(zone.id))
+	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
 	if ResourceLoader.exists(thumb_path):
 		var t := TextureRect.new()
 		t.texture = load(thumb_path)
@@ -642,9 +642,9 @@ func _make_card(z: int, card_w: float) -> Control:
 		thumb = ph
 	# LOCKED → veil it (the §8 horizon: visible AND not-yet-revealed). One place.
 	if not open:
-		_veil_thumb(thumb, String(zone.id))
+		_veil_thumb(thumb, String(map_data.id))
 	var name_l := Label.new()
-	name_l.text = tr(zone.name)
+	name_l.text = tr(map_data.name)
 	name_l.add_theme_font_size_override("font_size", 26)
 	name_l.add_theme_color_override("font_color", CREAM if open else Color(CREAM, 0.6))
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -655,9 +655,9 @@ func _make_card(z: int, card_w: float) -> Control:
 	if done:
 		stxt = tr("✿ restored"); scol = STRAW
 	elif open:
-		stxt = tr("✿ %d★ left") % zone_stars_left(z); scol = CREAM
+		stxt = tr("✿ %d★ left") % map_stars_left(z); scol = CREAM
 	else:
-		stxt = tr("✿ after %s") % tr(G.ZONES[z - 1].name); scol = Color(CREAM, 0.6)
+		stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
 	var state_l := Label.new()
 	state_l.text = stxt
 	state_l.add_theme_font_size_override("font_size", 21)
@@ -666,7 +666,7 @@ func _make_card(z: int, card_w: float) -> Control:
 	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
 	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(state_l)
-	if open and not done and z == _frontier_zone():
+	if open and not done and z == _frontier_map():
 		FX.breathe_once(card)
 	return card
 
@@ -679,7 +679,7 @@ func _make_card(z: int, card_w: float) -> Control:
 # no code change. Every node IGNOREs the mouse (single-input-surface rule). The
 # overlay node is named VEIL_NODE so a headless test can assert its presence/look.
 # The veil anchors full-rect to `thumb`, so it tracks the thumbnail's size for free.
-func _veil_thumb(thumb: Control, zone_id: String) -> void:
+func _veil_thumb(thumb: Control, map_id: String) -> void:
 	thumb.clip_contents = true
 	var veil := Control.new()
 	veil.name = VEIL_NODE
@@ -687,7 +687,7 @@ func _veil_thumb(thumb: Control, zone_id: String) -> void:
 	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	thumb.add_child(veil)
 	# ART SEAM — a painted veil sprite, if grove (or any game) supplies one.
-	var art := Game.art("map/veil_%s.png" % zone_id)
+	var art := Game.art("map/veil_%s.png" % map_id)
 	if not ResourceLoader.exists(art):
 		art = Game.art(VEIL_ART)
 	if ResourceLoader.exists(art):
@@ -758,13 +758,13 @@ func _select_tap(gpos: Vector2) -> void:
 		if not n.get_global_rect().grow(6.0).has_point(gpos):
 			continue
 		var z := int(hit.z)
-		if zone_unlocked(z):
+		if map_unlocked(z):
 			_open_map(z)
 		else:
 			Audio.play("invalid_soft", -4.0)
 			FX.wobble(n)
 			FX.floating_text(self, gpos - Vector2(150, 70),
-				tr("Restore %s first ✿") % tr(G.ZONES[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
+				tr("Restore %s first ✿") % tr(G.MAPS[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
 		return
 
 func _map_tap(gpos: Vector2) -> void:
@@ -795,7 +795,7 @@ func _map_tap(gpos: Vector2) -> void:
 # --- buying & customizing, right on the map image ---------------------------------------
 
 func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
-	var spot: Dictionary = G.ZONES[z].spots[k]
+	var spot: Dictionary = G.MAPS[z].spots[k]
 	if spot_owned(String(spot.id)):
 		if not Features.on("customize_variants"):
 			return
@@ -824,22 +824,22 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	_persist()
 	_build_map()                          # the map (spot art + stars-left) refreshes
 	_update_hud()
-	if zone_complete(z):
-		Save.add_diamonds(G.ZONE_DIAMONDS)
-		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.ZONES[z].name), STRAW)
+	if map_spots_done(z):
+		Save.add_diamonds(G.MAP_DIAMONDS)
+		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
 		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
-			"gem", G.ZONE_DIAMONDS, Color("#BFE6F2"), 38)
+			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
 		# §8: this restore completed the map's spots, so its great-spirit GATE quest is now
 		# the lone fence stand WAITING ON THE BOARD — a silent cross-screen handoff. Arm the
 		# wordless pointer; the board consumes it on its next open and pulses the gate stand.
-		# Only when the gate is genuinely still pending (not already delivered for this zone).
+		# Only when the gate is genuinely still pending (not already delivered for this map).
 		if not _gates().has(z):
 			Save.set_gate_pointer(z)
 
 # A swatch chip was tapped: pay (if needed) and dress the item — all on the map.
 func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
-	var spot_id := String(G.ZONES[z].spots[k].id)
+	var spot_id := String(G.MAPS[z].spots[k].id)
 	if String(_spot_variant(z, k).id) == vid:
 		_customize_spot = ""
 		_build_map()
@@ -877,7 +877,7 @@ func _build_hud() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP
 			Save.grove_write(),
-		"home": func() -> void: _open_map(G.hub_zone())})
+		"home": func() -> void: _open_map(G.hub_map())})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
@@ -1290,7 +1290,7 @@ func _place_update_readout() -> void:
 		var sp := Layout.spot_pos(z, k)
 		var fs := Layout.spot_fsize(z, k)
 		_place_readout.text = "🪑 %s   pos (%.3f, %.3f) · size %d%s" % [
-			String(G.ZONES[z].spots[k].name), sp.x, sp.y, int(fs), "  •edited" if Layout.spot_overridden(z, k) else ""]
+			String(G.MAPS[z].spots[k].name), sp.x, sp.y, int(fs), "  •edited" if Layout.spot_overridden(z, k) else ""]
 	else:
 		_place_readout.text = "DEBUG · PLACE — drag a spot on the map · − / + resize · 💾 SAVE → data/placements.json"
 
