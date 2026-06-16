@@ -5,18 +5,18 @@ Deferred / discovered work, parked as one-liners with enough context to pick up 
 On pickup, an item becomes a `T#` task in [`TASKS.md`](TASKS.md). Format + rules:
 `~/.claude/docs/engineer.md`.
 
-The items below come from an **engine-wide audit against `merge_spec` (2026-06-14)**. Since then the
-**generator + quest core has shipped** — per-zone generators, the generator-grant hand-in, the §7
-generated-quest economy, and the v1 content roster (`T17`–`T20`, see [`TASKS.md`](TASKS.md)) — so those
-**completed items are removed from here** (only their parked **art + tuning** tail remains, at the bottom).
-What's left below is the **remaining** *replace* / *fix* / *greenfield* work; code anchors are `file:line`
-at audit time (some now stale where the code moved).
+Most items trace to the **engine-wide `merge_spec` audit (2026-06-14)**. Since shipped and dropped
+from here: the generator + quest core (T17–T20), the map model + `zone`→`map` sweep (T21, T38), the
+burst sink + level-gating (T23–T25, T37). Code anchors are `file:line` and **drift** — after the
+`core/ui/scenes` layering split many paths moved (`content.gd`→`core/content.gd`, `board.gd`→
+`scenes/board.gd`, `shop.gd`→`ui/shop.gd`); trust the symbol name over the line number.
+**In flight now (left as-is until they merge):** Selling (T39), Shop (T40), Bag (T41).
 
 ---
 
 ## Open — core loop
 
-- **Map model — real §16 map images + on-image spot placement (art lane · owner).** The remaining tail of the single-image-map rework (the rename (a) + sprite cleanup (c) shipped as **T38**; the model itself as T21). What's left is **art + owner action, no engine gap**: the map view already auto-wires `assets/map/map_<id>.png` (`map.gd` `_open_map`/:253) and the Layout editor places spots on the image — so dropping a real per-map image and re-placing its spots is owner-driven. **Build (art):** the §16 map background images (overlaps the *Grove v1 art* item below — same §16 pipeline). **Owner:** re-place each map's spots on the new image via the Layout editor (recreates `data/placements.json`). **Placements wiped to a clean slate (owner call, 2026-06-15):** `data/placements.json` was **deleted** — it held 7 dead old-id fh entries **and** 7 hand-tuned pond (`pd_*`) positions; `layout.gd` tolerates the missing file (spots fall back to their `grove_data` defaults until re-placed). So (b)'s re-placement starts **fresh for every map** (pond included), not just the new-image ones. *(The hub upgrade→yield loop is the KEYSTONE economy item below.)* *(Surfaced 2026-06-15 — T21 parked tail; (a)+(c) shipped T38, placements wiped, 2026-06-15.)*
+- **Map model — real §16 map images + on-image spot placement (art lane · owner).** The tail of the single-image-map rework (model T21; the `zone`→`map` rename + orphan-sprite cleanup shipped T38). **No engine gap** — the map view auto-wires `assets/map/map_<id>.png` (`map.gd` `_open_map`) and the Layout editor places spots on the image; this is **art + owner action**: generate the §16 per-map backgrounds (same pipeline as *Grove v1 art*, below), then re-place each map's spots via the Layout editor. `data/placements.json` was wiped to a clean slate (T38, owner call — `layout.gd` falls back to `grove_data` defaults), so re-placement starts fresh for **every** map. *(Pairs with the KEYSTONE hub loop below.)* *(T21 parked tail; (a)+(c) shipped T38.)*
 
 ## Open — economy
 
@@ -97,7 +97,7 @@ at audit time (some now stale where the code moved).
 - **Gentle-urgency + recurring-scarcity events & opt-in social/competitive (spec done · engine · grove).** §17 adds **gentle urgency softened by recurrence** (time-boxed exclusives that return on a **seasonal calendar** — cozy-safe FOMO) and an **opt-in, async, positive-sum social layer** (bracketed "race a few others" leaderboard events, gifting, light co-op / community goals — no-lose, solo-playable). **Absent** (no recurrence, leaderboard, gifting, or community-goal code). **Build (engine):** event recurrence rules; the async-bracket leaderboard, gifting, and community-goal surfaces (flagged, §11). **Build (grove):** the seasonal calendar, which social surfaces ship, bracket/gift caps. *Extends the live-ops/events framework item below.* *(Surfaced 2026-06-14 — director review.)*
 
 - **The Collection — retired-line almanac (spec done · engine code · grove).** §6: a line that retires
-  (zone advance, or an event ending) **archives to the Collection** — a completionist almanac keeping
+  (map advance, or an event ending) **archives to the Collection** — a completionist almanac keeping
   its tiers; a favorite can be set as **décor**, never re-summoned to the board. **Entirely absent**
   (no archive/almanac/codex code). **Build (engine):** the archive + décor-display path. **Build
   (grove):** re-summon/décor prices. Depends on line-retirement (generator item). *(Surfaced
@@ -142,13 +142,13 @@ at audit time (some now stale where the code moved).
   spirit** — v1 ends on a **cliffhanger** (the parents' *full freeing* defers to the first post-launch place, `grove_spec §1`); reunite-early-then-help-others, scaling **maps = beats** (the family become
   the grove's new Keepers — the endless-content justification). **Givers re-cast** as humanoid
   produce/critter spirits (Radish · Carrot · Frog · Bee · Morel + menagerie; fox/hedgehog/owl
-  retired). **Build (grove content):** giver names/personalities/wishes + per-zone beats + the Map-1
+  retired). **Build (grove content):** giver names/personalities/wishes + per-map beats + the Map-1
   episode (authored crossing/FTUE → restoration beats → heart-tree waking → reunion + onward hook);
   image-memory vignettes. **Build (art):** the cast, the parents + their **easing de-transformation**
-  (composited per zone, Core §16), the great-spirit's **bloom-awake** climax, candidate later maps.
-  **Build (engine, maybe):** the per-zone de-transform swap is plain compositing (Core §16) — likely no
+  (composited per map, Core §16), the great-spirit's **bloom-awake** climax, candidate later maps.
+  **Build (engine, maybe):** the per-map de-transform swap is plain compositing (Core §16) — likely no
   new engine system, but the FTUE crossing + the parents-as-guides surface may need wiring. Engine
-  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).* ✅ **`grove_spec` reconciled (2026-06-15):** map = a beat (one image) with **no episode/chapter tier** (a flat map sequence), the **Farmhouse is the home hub** (authored deeper + a HUD home-shortcut to return & keep upgrading), the legacy free-pan/`interior_view` model retired — the §1 story + §3 build sections now read on the single-image-map model. Only the content/art/code **build** below remains (the `zone`→`map` code rename rides with the map-model item, core-loop).
+  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).* ✅ **`grove_spec` reconciled (2026-06-15):** map = a beat (one image) with **no episode/chapter tier** (a flat map sequence), the **Farmhouse is the home hub** (authored deeper + a HUD home-shortcut to return & keep upgrading), the legacy free-pan/`interior_view` model retired — the §1 story + §3 build sections now read on the single-image-map model. Only the content/art/code **build** below remains.
   *(Surfaced 2026-06-14 — director review; designed 2026-06-14.)*
 
 - **Standalone seasonal Battle Pass (future — not v1, owner 2026-06-14).** A persistent, cross-event
@@ -164,42 +164,29 @@ at audit time (some now stale where the code moved).
   leaving `ambient.gd`/`shop.gd` pure view. LOW risk, behavior-identical. Out of scope (separate axis):
   relocating `board`/`map` from `engine/` to `games/`. *(Was `ui_backend_separation.md` §Phase 4; that
   plan doc is deleted now Phases 1–3 landed — invariant lifted to `merge_spec §15`. Surfaced 2026-06-15.)*
+  ⚠️ **Separate, in-progress on another thread (unlogged — flag for backfill):** a **`board.gd` decomposition**
+  refactor — **Wave 1** extracted quest-fence composition → `core/quests.gd` (`1edbdea`), **Wave 2** view
+  builders → `ui/piece_view` + `ui/bust` (`a102b85`); both shipped to `main` with **no `T#` entry**, and "Wave N"
+  implies more passes touching `board.gd`. Backfill the task entries + coordinate before other `board.gd` work.
 
-## Parked — per-zone generators: art + tuning (the remaining tail of T17–T20)
+## Parked — per-map generators: art + tuning (the remaining tail of T17–T20)
 
-- **Economy tuning + pacing sign-off (§3 · §7 · sim).** The §7 generated-quest economy is **live and
-  sim-green on the invariants** (T19: no-jam · no-strand · I2 steady-state <30% · selling-not-income).
-  What remains is the **feel/pacing call the sim can't make:** the provisional `grove_data.gd` quest
-  tunables (`STAR_CAP`, `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/`GATE_ASK_COUNT`,
-  featured rate) await the **owner's pacing sign-off**, and the §3 `LEVEL_STARS` curve is **untouched +
-  available to recalibrate** (steady-state I2 was carried by the §7 tier knob, so §3 didn't need to move
-  — but it's the lever if leveling should be faster/slower). Best judged once the art (below) makes it
-  playable; re-validate any change through the Monte-Carlo sim (`games/grove/tools/grove_sim.gd`).
-  **Folded in here (owner 1a, 2026-06-15):** the two energy-faucet code-changes from the (now-built)
-  burst item — **level water gift +20 → +50** (`grove_data.gd` `LEVEL_WATER_GIFT`, applied on level-up)
-  and **free refills 3-lifetime → 1/day** (today a monotonic `refills_used` vs `FREE_REFILLS`; needs a
-  per-day date, not a lifetime int) — both tension the energy faucet against the <30% self-sustain rule,
-  so they ship **with** this rebalance, not before. **Burst front-loading (T23, 2026-06-15):** burst-pop
-  **front-loads energy spend** into the first map (a tap throws a whole burst, so the bot over-pops when
-  starved), leaving low-volume early maps a high fixed-gift ratio on some seeds — so the sim now treats
-  **maps 1–2 as WARN** and hard-checks **maps 3+** (was map-1-only); this pass must rebalance the gift
-  cadence against burst's front-loaded spend **and** the +50 change above. **The §4 `MIN_LEVEL` gradient
-  (T24 → T37):** the seed-123 burst × level-gating **strand/jam is FIXED** — T37 shifted the whole diamond
-  down one level (center 0, corners 12→11) so **L1 now has a frontier** and the board grows before L2;
-  grove_sim seed 123 = 90 jams → **0** (40/40 spots), 14-seed sweep 0 fails (no-strand + I2 steady-state
-  maps 3+). What's **still open** is only the **feel/pacing call** (T37 is *done — pending owner feel
-  sign-off*): T37's faster early opening lifts the map-1 water-gift ratio (~0.37 → ~0.8–1.5, WARN-exempt
-  onboarding), so the remaining lever is the joint **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** sign-off above
-  (re-validated on the sim) — no longer a strand. *(Was the
-  "Economy rebalance under per-zone generators / #4" item — it folded into §7's tuning. Surfaced
-  2026-06-15 — T17 sim findings; §7 cutover T19; faucet + burst front-loading folded in T23; §4 MIN_LEVEL
-  gradient T24; **seed-123 strand fixed T37**.)*
+- **Economy tuning + pacing sign-off (§3 · §7 · sim) — owner feel call.** The §7 economy is sim-green
+  on the invariants (no-jam · no-strand · I2 steady-state <30% · selling-not-income); the seed-123
+  level-gating × burst strand is **fixed** (T37). What's left is the **feel/pacing call the sim can't
+  make** — owner sign-off on the provisional `grove_data.gd` quest tunables (`STAR_CAP`,
+  `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/`GATE_ASK_COUNT`, featured rate) and the
+  joint **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** curve. **Two faucet changes ride with this rebalance,
+  not before:** level water gift **+20 → +50** (`LEVEL_WATER_GIFT`), and free refills **3-lifetime →
+  1/day** (needs a per-day date, not the current lifetime `refills_used`). Best judged once the art
+  makes it playable; re-validate every change on the Monte-Carlo sim (`grove_sim.gd`). *(T17 sim → T19
+  cutover → T23 burst → T24 gradient → T37 strand fix.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.
   **Build (art):** the **24 lines × 8 tiers (~192) item sprites + 12 generator sprites** (maps 1–5,
   Farmhouse · Barn · Pond · Orchard · Meadow) via the §16 pipeline — tier-readability law (steps in
   size + silhouette, ~100 px), a shared per-line motif. (The full 15-map arc ≈ 832 sprites is
-  post-launch.) **+ a small engine follow-up** (per-zone item #3): keep the `seed_satchel` anchor live +
-  askable past map 1 on a **cold load** (`seed_gens` / `lines_for_zone`) — it already persists in live
+  post-launch.) **+ a small engine follow-up:** keep the `seed_satchel` anchor live +
+  askable past map 1 on a **cold load** (`seed_gens` / `lines_for_map`) — it already persists in live
   play via the hand-in flow. *(Surfaced 2026-06-14; data built T20 2026-06-15.)*
