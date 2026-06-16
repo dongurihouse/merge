@@ -6,10 +6,10 @@ extends SceneTree
 ## Run when YOU are ready to place (it takes window focus):
 ##   GAME=grove godot --path . -s res://games/grove/tools/map_place.gd
 ##
-## The map is shown blown up past the screen edges (≈20% bleeds off) and centred, so you get a big
-## working canvas. ARROW KEYS pan the view to walk the off-screen parts into reach.
+## The map rides a camera framed with a margin so the whole map is visible. MOUSE WHEEL (with
+## nothing selected) zooms the view · ARROW KEYS pan · 0 resets the framing.
 ## In the window: drag a building to move it · drag empty map art to move the background ·
-## −/+ buttons resize the selected building/background · 💾 SAVE writes res://data/placements.json.
+## −/+ buttons (or wheel on a selection) resize the selected building/background · 💾 SAVE writes res://data/placements.json.
 ## Close the window when done — the saved positions persist (committed with the repo), and the real
 ## game reads through them. Uses a throwaway /tmp save, so your real progress is untouched; only
 ## placements.json changes.
@@ -43,6 +43,6 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	scn._open_map(0)                            # the Farmhouse (map index 0)
 	print("\n=== MAP 1 PLACEMENT EDITOR ===")
-	print("Arrow keys pan the blown-up view · drag a building to move it · drag empty map art to move background · −/+ resize selected · 💾 SAVE → data/placements.json")
+	print("Wheel (nothing selected) zooms the view · arrows pan · 0 resets · drag a building to move it · drag empty map art to move background · −/+ resize selected · 💾 SAVE → data/placements.json")
 	print("Close the window when done, then tell me — I'll read back the positions.\n")
 	# NO quit — stay interactive until the window is closed

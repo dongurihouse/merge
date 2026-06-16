@@ -122,7 +122,7 @@ func _initialize() -> void:
 	var W := img.get_width(); var H := img.get_height()
 	# 2D segmentation: content ROW bands (gap rows) → COLUMNS within each band → reading order.
 	# A single-row strip yields one band → N columns, so this also handles the old row layout.
-	var GAP_PX := 5                # a row/col with fewer opaque px than this is a gap
+	var GAP_PX := int(ar[5]) if ar.size() >= 6 else 8   # a row/col with fewer opaque px than this is a gap (tunable)
 	var MIN_RUN := 16              # ignore content runs shorter than this (noise)
 	var crops: Array = []          # {img, bbox} — reading order (row-major)
 	var maxdim := 1

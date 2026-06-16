@@ -1667,24 +1667,32 @@ func _place_raise() -> void:
 	if _place_overlay != null and is_instance_valid(_place_overlay) and _place_overlay.get_parent() == self:
 		move_child(_place_overlay, get_child_count() - 1)
 
-# Place-mode camera: scale `content` up by PLACE_ZOOM about the screen centre (so the
-# map blows past the edges) and offset it by _place_pan (the arrow-key walk). The map
-# and its spots ride `content`, so they magnify and pan as one; the toolbar/HUD live
-# under `self` and stay screen-fixed. Cheap enough to call on every pan press — no
-# rebuild needed, just the transform + the selection box refresh.
+# Place-mode camera: scale `content` by _place_zoom about the screen centre and offset
+# it by _place_pan. The map and its spots ride `content`, so they zoom and pan as one;
+# the toolbar/HUD live under `self` and stay screen-fixed. Cheap enough to call on every
+# wheel/pan event — no rebuild, just the transform + the selection box refresh.
 func _place_apply_cam() -> void:
 	if not _place_on():
 		return
 	var view := get_viewport_rect().size
 	content.pivot_offset = Vector2.ZERO
-	content.scale = Vector2(PLACE_ZOOM, PLACE_ZOOM)
-	content.position = view * 0.5 * (1.0 - PLACE_ZOOM) + _place_pan
+	content.scale = Vector2(_place_zoom, _place_zoom)
+	content.position = view * 0.5 * (1.0 - _place_zoom) + _place_pan
 	_place_update_sel_box()
 
-# Arrow keys walk the place-mode camera so the off-screen parts of the blown-up image
-# come into view. Returns true when it consumed the key. The arrow points where you
-# want to LOOK (Right reveals the right edge), so the map slides the opposite way.
+# Camera keys: arrows pan (the arrow points where you want to LOOK, so the map slides
+# the opposite way); `0` resets zoom+pan to the framed default. Returns true when it
+# consumed the key.
 func _place_pan_keys(event: InputEvent) -> bool:
+	if event is InputEventKey and (event as InputEventKey).pressed \
+			and (event as InputEventKey).keycode == KEY_0:
+		_place_zoom = PLACE_ZOOM_DEFAULT
+		_place_pan = Vector2.ZERO
+		_place_apply_cam()
+		_place_flash_zoom()
+		if get_viewport() != null:
+			get_viewport().set_input_as_handled()
+		return true
 	var d := Vector2.ZERO
 	if event.is_action_pressed("ui_right", true):
 		d.x = -PLACE_PAN_STEP
@@ -1701,6 +1709,17 @@ func _place_pan_keys(event: InputEvent) -> bool:
 	if get_viewport() != null:
 		get_viewport().set_input_as_handled()
 	return true
+
+# The mouse wheel over empty space zooms the camera (when a spot/background IS selected
+# the wheel resizes it instead — see _place_input). `dir` is +1 (in) / -1 (out).
+func _place_zoom_by(dir: float) -> void:
+	_place_zoom = clampf(_place_zoom + dir * PLACE_ZOOM_STEP, PLACE_ZOOM_MIN, PLACE_ZOOM_MAX)
+	_place_apply_cam()
+	_place_flash_zoom()
+
+func _place_flash_zoom() -> void:
+	if _place_readout != null and is_instance_valid(_place_readout):
+		_place_readout.text = "view zoom ×%.2f   (wheel zooms · arrows pan · 0 resets)" % _place_zoom
 
 func _place_clear_sel() -> void:
 	_place_sel = {}
@@ -1752,7 +1771,7 @@ func _place_update_readout() -> void:
 		_place_readout.text = "SPOT %s   pos (%.3f, %.3f) / size %d%s" % [
 			String(G.MAPS[z].spots[k].name), sp.x, sp.y, int(fs), "  *edited" if Layout.spot_overridden(z, k) else ""]
 	else:
-		_place_readout.text = "PLACE - arrow keys pan the view; drag empty map art for background, drag a building for spots; +/- resizes selected; save writes data/placements.json"
+		_place_readout.text = "PLACE - wheel (nothing selected) zooms the view · arrows pan · 0 resets; drag empty map art for background, drag a building for spots; +/- resizes selected; save writes data/placements.json"
 
 func _place_update_sel_box() -> void:
 	if _place_sel_box == null or not is_instance_valid(_place_sel_box):
@@ -1794,7 +1813,9 @@ func _place_input(event: InputEvent) -> bool:
 			if kind == "map" or kind == "spot":
 				_place_size(10.0 if wheel == MOUSE_BUTTON_WHEEL_UP else -10.0)
 				return true
-			return false
+			# nothing selected → the wheel zooms the CAMERA (the whole view)
+			_place_zoom_by(1.0 if wheel == MOUSE_BUTTON_WHEEL_UP else -1.0)
+			return true
 	if is_press:
 		for hit in spot_hits:
 			var n: Control = hit.node
