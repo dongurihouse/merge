@@ -1,5 +1,5 @@
 extends RefCounted
-## FEATURE FLAGS (order N; the index lives in FEATURES.md, triage-owned).
+## FEATURE FLAGS — the registry index lives in docs/FEATURES.md (Lives-in + Eval per flag).
 ## Flipping a bool HERE disables the feature — code-level only by owner's word
 ## (player-facing settings like music/sfx/calm stay in Settings).
 ##
