@@ -25,7 +25,6 @@ const Ads = preload("res://engine/scripts/core/ads.gd")                      # T
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
-const Layout = preload("res://engine/scripts/core/layout.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
@@ -99,28 +98,7 @@ var _2x_offer: Control = null     # T45: the post-collect "double your coins" re
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
 var _home_cue := Callable()       # toggles the §8 home-shortcut yield-ready pip (Hud.home_cue)
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
-var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat presses)
-
-# --- dev placement editor (Layout) ---
-# In place mode the map rides a CAMERA: a uniform zoom on `content` (so the background
-# art AND the spots scale together — same relative sizes, same cover-crop the real game
-# uses) plus a pan. Only the screen-fixed toolbar/HUD stay put. The zoom is LIVE — the
-# mouse wheel over empty space zooms the view, the arrow keys pan, `0` resets — so you
-# dial how much of the map you see instead of a baked-in size. Default sits a touch
-# zoomed-OUT so the whole map is framed with margin. The editor's hit-testing works in
-# content-LOCAL coordinates, so the camera scale never skews a drag.
-const PLACE_ZOOM_DEFAULT := 0.85      # start framed with margin (whole map visible)
-const PLACE_ZOOM_MIN := 0.3
-const PLACE_ZOOM_MAX := 3.0
-const PLACE_ZOOM_STEP := 0.1          # wheel notch
-const PLACE_PAN_STEP := 90.0          # arrow-key pan, px per press
-var _place_overlay: Control = null    # toolbar + readout, kept topmost
-var _place_readout: Label = null
-var _place_sel_box: Panel = null      # hollow rect over the selected spot
-var _place_drag: Dictionary = {}      # {kind:"spot", z, k, node, grab}
-var _place_sel: Dictionary = {}       # last-touched {kind, z, k, node} for size/reset
-var _place_pan := Vector2.ZERO        # camera pan (place mode only), px
-var _place_zoom := 0.85               # camera zoom (place mode only); PLACE_ZOOM_DEFAULT
+var _hud_panels: Array = []       # wallet + Lv chips
 
 func _ready() -> void:
 	_heal_capture_flags()
@@ -150,8 +128,6 @@ func _ready() -> void:
 	_build_hud()
 	_build_chrome()
 	_update_hud()
-	if _place_on():
-		_build_place_ui()
 
 	# Choose the initial view (still inside _ready = before the first draw):
 	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
@@ -452,31 +428,19 @@ func _build_map() -> void:
 		var spot := _make_spot(z, k, lvl, _map_rect)
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
-	if _place_on():
-		_place_apply_cam()                # zoom past the edges + apply the pan
-		_place_resync_sel()
-		_place_raise()
-		content.modulate.a = 1.0
-	else:
-		FX.pop_in(content)
+	FX.pop_in(content)
 
 # The available area below the HUD and above the bottom chrome; the map image is
 # CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
 func _map_image_rect() -> Rect2:
-	var view := get_viewport_rect().size
-	var top := 96.0 + Look.safe_top(self)
-	var avail := Rect2(Vector2(0, top), Vector2(view.x, view.y - top - 24.0 - Look.safe_bottom(self)))
-	# fit to the available rect's own aspect (the image is full-bleed-ish) — keep the
-	# whole rect so spots have the maximum stable canvas. Center within the viewport.
-	var rw: float = avail.size.x
-	var rh: float = avail.size.y
-	return Rect2(avail.position + (avail.size - Vector2(rw, rh)) / 2.0, Vector2(rw, rh))
+	# FULL-BLEED: the map canvas IS the whole viewport, matching the standalone placement
+	# tool (TestFarm.tscn) — the tool is authoritative, so a position authored there maps
+	# 1:1 to a spot pos here (same image, same KEEP_ASPECT_COVERED, same rect). The HUD
+	# floats ON TOP of the top band; spots are authored to clear it.
+	return Rect2(Vector2.ZERO, get_viewport_rect().size)
 
-func _map_placed_rect(z: int, base: Rect2) -> Rect2:
-	var scale := Layout.map_scale(z)
-	var size := base.size * scale
-	var pos := base.position + (base.size - size) / 2.0 + Layout.map_offset(z) * base.size
-	return Rect2(pos, size)
+func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
+	return base
 
 # The map's title — NAME + ✿-progress on one plank, centered near the top of the
 # map image (an IGNORE visual; never eats a press).
@@ -492,7 +456,8 @@ func _map_title_plank(z: int) -> Control:
 	sb.content_margin_top = 6.0
 	sb.content_margin_bottom = 7.0
 	plank.add_theme_stylebox_override("panel", sb)
-	plank.position = _map_rect.position + Vector2(_map_rect.size.x / 2.0, 16.0)
+	# canvas is now full-bleed, so push the name plank below the floating HUD band
+	plank.position = _map_rect.position + Vector2(_map_rect.size.x / 2.0, 16.0 + 96.0 + Look.safe_top(self))
 	plank.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var col := VBoxContainer.new()
@@ -542,7 +507,7 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
-	var pos: Vector2 = rect.position + Layout.spot_pos(z, k) * rect.size
+	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
@@ -551,9 +516,8 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var owned := spot_owned(String(spot.id))
 	var gated := G.spot_level_req(z, k) > lvl
 	var furn_path := Game.art("rooms/furn_%s.png" % String(spot.id))
-	# debug place mode shows the real sprite for EVERY spot that has art (even
-	# unowned/locked) so the owner drags the actual item, not just its price pin
-	if (owned or _place_on()) and ResourceLoader.exists(furn_path):
+	# an owned spot draws its furniture sprite (when the art exists)
+	if owned and ResourceLoader.exists(furn_path):
 		var f := TextureRect.new()
 		# ORDER MATTERS: expand_mode must precede size — with the default
 		# EXPAND_KEEP_SIZE the texture's 512px min CLAMPS size up and a later
@@ -562,7 +526,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		f.texture = load(furn_path)
-		var fs: float = Layout.spot_fsize(z, k)
+		var fs: float = float(spot.get("fsize", 240.0))
 		f.size = Vector2(fs, fs)
 		f.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot
 		# S8: the variant is a SUBTLE wash (was a full multiply — green wood read
@@ -608,7 +572,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
 		# empty plot teases what will fill it. Owned spots took the branches above —
 		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
-		var ghost := _ghost_sprite(furn_path, Layout.spot_fsize(z, k))
+		var ghost := _ghost_sprite(furn_path, float(spot.get("fsize", 240.0)))
 		if ghost != null:
 			item.add_child(ghost)
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
@@ -673,8 +637,6 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		_add_upgrade_pill(item, z, k)
 	if owned and _customize_spot == String(spot.id):
 		_add_variant_strip(item, z, k)
-	if _place_on():
-		item.add_child(_make_crosshair(Vector2(90, 40), Color("#E84AC0")))
 	return item
 
 # §8: the coin-upgrade affordance on an owned hub yield building. A compact pill above the spot:
@@ -984,8 +946,6 @@ func _veil_thumb(thumb: Control, map_id: String) -> void:
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
 func _on_input(event: InputEvent) -> void:
-	if _place_on() and _place_input(event):
-		return
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
 		or event is InputEventScreenTouch
 	if pressed and event.pressed:
@@ -1496,9 +1456,6 @@ func _on_board() -> void:
 	get_tree().change_scene_to_file("res://engine/scenes/Board.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
-	# place mode: arrow keys pan the blown-up camera so off-screen parts come into view.
-	if _place_on() and _view == "map" and _place_pan_keys(event):
-		return
 	# Esc steps back: a map → the place-picker; the picker → quit (desktop has no
 	# OS back gesture). Mirrors _notification(WM_GO_BACK_REQUEST).
 	if event.is_action_pressed("ui_cancel"):
@@ -1524,399 +1481,3 @@ func _lbl(t: String, size: int, col: Color) -> Label:
 	l.add_theme_color_override("font_outline_color", INK if col != INK else CREAM)
 	l.add_theme_constant_override("outline_size", 6)
 	return l
-
-# ============================================================================
-# DEBUG-mode tool: drag-to-place editor (Layout). Gated by Debug.authoring() — an
-# explicit owner tool, NOT auto-on in base. Spots on the open map image become
-# draggable; a crosshair marks each anchor; a bottom toolbar saves to
-# res://data/placements.json. The renderer always reads through Layout, so saved
-# positions persist for everyone.
-# ============================================================================
-
-func _place_on() -> bool:
-	return Debug.authoring()             # the Layout editor is owner-authoring, not base
-
-func _make_crosshair(at_local: Vector2, color: Color) -> Control:
-	var c := Control.new()
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var arm := 16.0
-	var th := 3.0
-	var h := ColorRect.new()
-	h.color = color
-	h.size = Vector2(arm * 2.0, th)
-	h.position = at_local - Vector2(arm, th / 2.0)
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.add_child(h)
-	var v := ColorRect.new()
-	v.color = color
-	v.size = Vector2(th, arm * 2.0)
-	v.position = at_local - Vector2(th / 2.0, arm)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.add_child(v)
-	var dot := Panel.new()
-	var ds := StyleBoxFlat.new()
-	ds.bg_color = color
-	ds.set_corner_radius_all(5)
-	dot.add_theme_stylebox_override("panel", ds)
-	dot.size = Vector2(10, 10)
-	dot.position = at_local - Vector2(5, 5)
-	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	c.add_child(dot)
-	return c
-
-func _build_place_ui() -> void:
-	if _place_overlay != null and is_instance_valid(_place_overlay):
-		return
-	var ov := Control.new()
-	ov.name = "PlaceOverlay"
-	ov.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ov.mouse_filter = Control.MOUSE_FILTER_IGNORE    # the screen stays tappable
-	add_child(ov)
-	_place_overlay = ov
-	var box := Panel.new()                            # hollow selection outline
-	var bs := StyleBoxFlat.new()
-	bs.bg_color = Color(0, 0, 0, 0)
-	bs.set_border_width_all(3)
-	bs.border_color = Color("#39E0C8")
-	bs.set_corner_radius_all(8)
-	box.add_theme_stylebox_override("panel", bs)
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.visible = false
-	ov.add_child(box)
-	_place_sel_box = box
-	var strip := Panel.new()                          # bottom toolbar
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color("#1A0E22", 0.93)
-	ss.set_border_width_all(2)
-	ss.border_color = Color("#E84AC0")
-	strip.add_theme_stylebox_override("panel", ss)
-	strip.anchor_left = 0.0
-	strip.anchor_right = 1.0
-	strip.anchor_top = 1.0
-	strip.anchor_bottom = 1.0
-	var sb := Look.safe_bottom(self)
-	strip.offset_top = -154.0 - sb
-	strip.mouse_filter = Control.MOUSE_FILTER_STOP    # taps here never reach the map
-	ov.add_child(strip)
-	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.add_theme_constant_override("separation", 6)
-	col.offset_left = 12.0
-	col.offset_right = -12.0
-	col.offset_top = 8.0
-	col.offset_bottom = -8.0 - sb
-	strip.add_child(col)
-	var ro := Label.new()
-	ro.add_theme_font_size_override("font_size", 18)
-	ro.add_theme_color_override("font_color", Color("#39E0C8"))
-	ro.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ro.custom_minimum_size = Vector2(0, 58)
-	ro.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(ro)
-	_place_readout = ro
-	var row := HBoxContainer.new()
-	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_theme_constant_override("separation", 6)
-	col.add_child(row)
-	row.add_child(_dbg_btn("- size", func() -> void: _place_size(-10.0)))
-	row.add_child(_dbg_btn("+ size", func() -> void: _place_size(10.0)))
-	row.add_child(_dbg_btn("reset", _place_reset_sel))
-	row.add_child(_dbg_btn("all", _place_reset_all))
-	row.add_child(_dbg_btn("save", _place_save))
-	_place_hide_map_chrome()
-	_place_update_readout()
-
-# The HUD chips (top corners) and bottom chrome are STOP controls above the map —
-# they'd swallow presses on spots near the screen edges. Authoring placement
-# doesn't need them, so hide them in place mode. Idempotent.
-func _place_hide_map_chrome() -> void:
-	if not _place_on():
-		return
-	for p in _hud_panels:
-		if p != null and is_instance_valid(p):
-			(p as Control).visible = false
-	for c in _chrome_nodes:
-		if is_instance_valid(c):
-			(c as Control).visible = false
-
-func _dbg_btn(text: String, cb: Callable) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.add_theme_font_size_override("font_size", 18)
-	b.custom_minimum_size = Vector2(0, 54)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var bn := StyleBoxFlat.new()
-	bn.bg_color = Color("#E84AC0")
-	bn.set_corner_radius_all(10)
-	bn.content_margin_left = 8.0
-	bn.content_margin_right = 8.0
-	bn.content_margin_top = 6.0
-	bn.content_margin_bottom = 6.0
-	b.add_theme_stylebox_override("normal", bn)
-	b.add_theme_stylebox_override("hover", bn)
-	var bp := bn.duplicate()
-	bp.bg_color = Color("#C0349E")
-	b.add_theme_stylebox_override("pressed", bp)
-	b.add_theme_color_override("font_color", Color.WHITE)
-	b.mouse_filter = Control.MOUSE_FILTER_STOP
-	b.pressed.connect(cb)
-	return b
-
-func _place_raise() -> void:
-	if _place_overlay != null and is_instance_valid(_place_overlay) and _place_overlay.get_parent() == self:
-		move_child(_place_overlay, get_child_count() - 1)
-
-# Place-mode camera: scale `content` by _place_zoom about the screen centre and offset
-# it by _place_pan. The map and its spots ride `content`, so they zoom and pan as one;
-# the toolbar/HUD live under `self` and stay screen-fixed. Cheap enough to call on every
-# wheel/pan event — no rebuild, just the transform + the selection box refresh.
-func _place_apply_cam() -> void:
-	if not _place_on():
-		return
-	var view := get_viewport_rect().size
-	content.pivot_offset = Vector2.ZERO
-	content.scale = Vector2(_place_zoom, _place_zoom)
-	content.position = view * 0.5 * (1.0 - _place_zoom) + _place_pan
-	_place_update_sel_box()
-
-# Camera keys: arrows pan (the arrow points where you want to LOOK, so the map slides
-# the opposite way); `0` resets zoom+pan to the framed default. Returns true when it
-# consumed the key.
-func _place_pan_keys(event: InputEvent) -> bool:
-	if event is InputEventKey and (event as InputEventKey).pressed \
-			and (event as InputEventKey).keycode == KEY_0:
-		_place_zoom = PLACE_ZOOM_DEFAULT
-		_place_pan = Vector2.ZERO
-		_place_apply_cam()
-		_place_flash_zoom()
-		if get_viewport() != null:
-			get_viewport().set_input_as_handled()
-		return true
-	var d := Vector2.ZERO
-	if event.is_action_pressed("ui_right", true):
-		d.x = -PLACE_PAN_STEP
-	elif event.is_action_pressed("ui_left", true):
-		d.x = PLACE_PAN_STEP
-	elif event.is_action_pressed("ui_down", true):
-		d.y = -PLACE_PAN_STEP
-	elif event.is_action_pressed("ui_up", true):
-		d.y = PLACE_PAN_STEP
-	else:
-		return false
-	_place_pan += d
-	_place_apply_cam()
-	if get_viewport() != null:
-		get_viewport().set_input_as_handled()
-	return true
-
-# The mouse wheel over empty space zooms the camera (when a spot/background IS selected
-# the wheel resizes it instead — see _place_input). `dir` is +1 (in) / -1 (out).
-func _place_zoom_by(dir: float) -> void:
-	_place_zoom = clampf(_place_zoom + dir * PLACE_ZOOM_STEP, PLACE_ZOOM_MIN, PLACE_ZOOM_MAX)
-	_place_apply_cam()
-	_place_flash_zoom()
-
-func _place_flash_zoom() -> void:
-	if _place_readout != null and is_instance_valid(_place_readout):
-		_place_readout.text = "view zoom ×%.2f   (wheel zooms · arrows pan · 0 resets)" % _place_zoom
-
-func _place_clear_sel() -> void:
-	_place_sel = {}
-	_place_drag = {}
-	if _place_sel_box != null and is_instance_valid(_place_sel_box):
-		_place_sel_box.visible = false
-
-func _place_select(d: Dictionary) -> void:
-	_place_sel = d
-	_place_update_readout()
-	_place_update_sel_box()
-
-# After a map rebuild the spot nodes are fresh — re-bind the selected one.
-func _place_resync_sel() -> void:
-	if String(_place_sel.get("kind", "")) == "map":
-		_place_update_readout()
-		_place_update_sel_box()
-		return
-	if String(_place_sel.get("kind", "")) != "spot":
-		_place_update_sel_box()
-		return
-	if _map_idx != int(_place_sel.get("z", -1)):
-		_place_clear_sel()
-		return
-	var k := int(_place_sel.get("k", -1))
-	for hit in spot_hits:
-		if int(hit.z) == _map_idx and int(hit.k) == k:
-			_place_sel.node = hit.node
-			_place_update_readout()
-			_place_update_sel_box()
-			return
-	_place_clear_sel()
-
-func _place_update_readout() -> void:
-	if _place_readout == null or not is_instance_valid(_place_readout):
-		return
-	var kind := String(_place_sel.get("kind", ""))
-	if kind == "map":
-		var z := int(_place_sel.z)
-		var off := Layout.map_offset(z)
-		var sc := Layout.map_scale(z)
-		_place_readout.text = "BG %s   offset (%.3f, %.3f) / scale %.3f%s" % [
-			String(G.MAPS[z].name), off.x, off.y, sc, "  *edited" if Layout.map_overridden(z) else ""]
-	elif kind == "spot":
-		var z := int(_place_sel.z)
-		var k := int(_place_sel.k)
-		var sp := Layout.spot_pos(z, k)
-		var fs := Layout.spot_fsize(z, k)
-		_place_readout.text = "SPOT %s   pos (%.3f, %.3f) / size %d%s" % [
-			String(G.MAPS[z].spots[k].name), sp.x, sp.y, int(fs), "  *edited" if Layout.spot_overridden(z, k) else ""]
-	else:
-		_place_readout.text = "PLACE - wheel (nothing selected) zooms the view · arrows pan · 0 resets; drag empty map art for background, drag a building for spots; +/- resizes selected; save writes data/placements.json"
-
-func _place_update_sel_box() -> void:
-	if _place_sel_box == null or not is_instance_valid(_place_sel_box):
-		return
-	if String(_place_sel.get("kind", "")) == "map":
-		# the box lives under `self` (screen space); the art rides scaled `content`, so
-		# lift its content-local rect into global to outline it where it actually shows.
-		var ar: Rect2 = content.get_global_transform() * _map_art_rect
-		var grow := 6.0
-		_place_sel_box.visible = true
-		_place_sel_box.global_position = ar.position - Vector2(grow, grow)
-		_place_sel_box.size = ar.size + Vector2(grow, grow) * 2.0
-		return
-	var n: Variant = _place_sel.get("node", null)
-	if n == null or not is_instance_valid(n):
-		_place_sel_box.visible = false
-		return
-	var r: Rect2 = (n as Control).get_global_rect()
-	var g := 6.0
-	_place_sel_box.visible = true
-	_place_sel_box.global_position = r.position - Vector2(g, g)
-	_place_sel_box.size = r.size + Vector2(g, g) * 2.0
-
-# Map place input: drag a SPOT to reposition it, or drag the map image itself to
-# adjust the background offset. Returns true when it consumed the event.
-func _place_input(event: InputEvent) -> bool:
-	# only the map view has draggable spots; the place-picker is plain navigation
-	if _view != "map":
-		return false
-	var is_press: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (event as InputEventMouseButton).pressed) \
-		or (event is InputEventScreenTouch and (event as InputEventScreenTouch).pressed)
-	var is_release: bool = (event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and not (event as InputEventMouseButton).pressed) \
-		or (event is InputEventScreenTouch and not (event as InputEventScreenTouch).pressed)
-	var is_motion: bool = event is InputEventMouseMotion or event is InputEventScreenDrag
-	if event is InputEventMouseButton and (event as InputEventMouseButton).pressed:
-		var wheel := (event as InputEventMouseButton).button_index
-		if wheel == MOUSE_BUTTON_WHEEL_UP or wheel == MOUSE_BUTTON_WHEEL_DOWN:
-			var kind := String(_place_sel.get("kind", ""))
-			if kind == "map" or kind == "spot":
-				_place_size(10.0 if wheel == MOUSE_BUTTON_WHEEL_UP else -10.0)
-				return true
-			# nothing selected → the wheel zooms the CAMERA (the whole view)
-			_place_zoom_by(1.0 if wheel == MOUSE_BUTTON_WHEEL_UP else -1.0)
-			return true
-	if is_press:
-		for hit in spot_hits:
-			var n: Control = hit.node
-			# spots are direct children of `content`, so their content-local rect is
-			# Rect2(position, size). Working in content-local keeps the math right when
-			# `content` is scaled by the place-mode camera (event.position is local too).
-			if Rect2(n.position, n.size).grow(8.0).has_point(event.position):
-				_place_drag = {"kind": "spot", "z": int(hit.z), "k": int(hit.k), "node": n, "grab": event.position - n.position, "press": event.position, "moved": 0.0}
-				_place_select({"kind": "spot", "z": int(hit.z), "k": int(hit.k), "node": n})
-				return true
-		if _map_rect.has_point(event.position):
-			_place_drag = {
-				"kind": "map",
-				"z": _map_idx,
-				"press": event.position,
-				"start_offset": Layout.map_offset(_map_idx),
-				"moved": 0.0,
-			}
-			_place_select({"kind": "map", "z": _map_idx})
-			return true
-		return false
-	if is_motion and String(_place_drag.get("kind", "")) == "map":
-		var press_pt: Vector2 = _place_drag.press
-		_place_drag.moved = maxf(float(_place_drag.moved), (event.position - press_pt).length())
-		if float(_place_drag.moved) > TAP_SLOP and _map_rect.size.x > 0.0 and _map_rect.size.y > 0.0:
-			var delta: Vector2 = (event.position - press_pt) / _map_rect.size
-			var start_offset: Vector2 = _place_drag.start_offset
-			Layout.set_map_offset(int(_place_drag.z), start_offset + delta)
-			_build_map()
-			_place_select({"kind": "map", "z": int(_place_drag.z)})
-		return true
-	if is_motion and String(_place_drag.get("kind", "")) == "spot":
-		var n: Control = _place_drag.node
-		var press_pt: Vector2 = _place_drag.press
-		_place_drag.moved = maxf(float(_place_drag.moved), (event.position - press_pt).length())
-		if float(_place_drag.moved) > TAP_SLOP:
-			var grab: Vector2 = _place_drag.grab
-			n.position = event.position - grab                   # content-local (see press)
-			var anchor := n.position + Vector2(90.0, 40.0)
-			if _map_rect.size.x > 0.0 and _map_rect.size.y > 0.0:
-				Layout.set_spot_pos(int(_place_drag.z), int(_place_drag.k), (anchor - _map_rect.position) / _map_rect.size)
-			_place_update_readout()
-			_place_update_sel_box()
-		return true
-	if is_release and String(_place_drag.get("kind", "")) == "spot":
-		_place_drag = {}
-		_place_update_readout()
-		return true
-	if is_release and String(_place_drag.get("kind", "")) == "map":
-		_place_drag = {}
-		_place_update_readout()
-		return true
-	return false
-
-func _place_save() -> void:
-	var p := Layout.save()
-	if p == "":
-		_place_flash("⚠ SAVE FAILED — could not write placements.json")
-		push_warning("[place] save failed")
-	else:
-		_place_flash("saved -> %s" % p)
-		print("[place] saved → ", ProjectSettings.globalize_path(p))
-
-func _place_reset_sel() -> void:
-	var kind := String(_place_sel.get("kind", ""))
-	if kind == "map":
-		Layout.reset_map(int(_place_sel.z))
-		_rebuild_after_reset()
-	elif kind == "spot":
-		Layout.reset_spot(int(_place_sel.z), int(_place_sel.k))
-		_rebuild_after_reset()
-	else:
-		_place_flash("select the background or a spot to reset")
-
-func _place_reset_all() -> void:
-	Layout.reset_all()
-	_rebuild_after_reset()
-	_place_flash("all placements reset to defaults (not yet saved)")
-
-func _rebuild_after_reset() -> void:
-	_place_clear_sel()
-	_build_map()
-	_place_raise()
-
-func _place_size(delta: float) -> void:
-	var kind := String(_place_sel.get("kind", ""))
-	if kind == "map":
-		var z := int(_place_sel.z)
-		Layout.set_map_scale(z, Layout.map_scale(z) + delta * 0.005)
-		_build_map()
-		_place_select({"kind": "map", "z": z})
-		return
-	if kind != "spot":
-		_place_flash("select the background or a spot first, then − / + resize it")
-		return
-	var z := int(_place_sel.z)
-	var k := int(_place_sel.k)
-	Layout.set_spot_fsize(z, k, Layout.spot_fsize(z, k) + delta)
-	_build_map()                          # re-renders at the new size (resyncs sel)
-	_place_update_readout()
-
-func _place_flash(msg: String) -> void:
-	if _place_readout != null and is_instance_valid(_place_readout):
-		_place_readout.text = msg

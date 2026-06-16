@@ -16,7 +16,7 @@ const TOP_TIER := 8
 const LINES := {
 	# map 1 — Farmhouse (Radish): the starting lines (keep these bases — sprites may exist)
 	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3")},
-	2: {"name": "Berry", "base": "berry", "color": Color("#7FB4D9")},
+	2: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},
 	3: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
 	# map 2 — Barn (Carrot): hen coop + dairy stall
@@ -58,29 +58,29 @@ const GENERATORS := [
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
 		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
 	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
-		"tex": "ui/gen_compost.png", "label": "pantry"},
+		"tex": "ui/gen_jar.png", "label": "pantry"},
 	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
-		"tex": "ui/gen_compost.png", "label": "coop"},
+		"tex": "ui/gen_hen_coop.png", "label": "coop"},
 	{"id": "dairy_stall", "map": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
-		"tex": "ui/gen_beehive.png", "label": "dairy"},
+		"tex": "ui/gen_dairy_stall.png", "label": "dairy"},
 	# map 3 — Pond (Frog): two hand-in grants
 	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
-		"tex": "ui/gen_compost.png", "label": "reeds"},
+		"tex": "ui/gen_reed_bed.png", "label": "reeds"},
 	{"id": "creel", "map": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
-		"tex": "ui/gen_beehive.png", "label": "creel"},
+		"tex": "ui/gen_creel.png", "label": "creel"},
 	# map 4 — Orchard (Bee): two hand-in grants + one surplus
 	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
-		"tex": "ui/gen_compost.png", "label": "orchard"},
+		"tex": "ui/gen_orchard_basket.png", "label": "orchard"},
 	{"id": "stone_fruit_bough", "map": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
-		"tex": "ui/gen_beehive.png", "label": "stonefruit"},
+		"tex": "ui/gen_stone_fruit_bough.png", "label": "stonefruit"},
 	{"id": "nut_blossom", "map": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
-		"tex": "ui/gen_satchel.png", "label": "nuts"},
+		"tex": "ui/gen_nut_blossom.png", "label": "nuts"},
 	# map 5 — Meadow (Morel): three hand-in grants
 	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
-		"tex": "ui/gen_compost.png", "label": "glowcap"},
+		"tex": "ui/gen_glowcap_ring.png", "label": "glowcap"},
 	{"id": "meadow_tuft", "map": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
-		"tex": "ui/gen_beehive.png", "label": "tuft"},
+		"tex": "ui/gen_meadow_tuft.png", "label": "tuft"},
 	{"id": "lantern_bloom", "map": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
 		"tex": "ui/gen_satchel.png", "label": "lantern"},
 ]
@@ -343,7 +343,7 @@ const SPOTLIGHTS := [
 # drops the piece into the bag (the board drains it on open). `icon` rides the card.
 const SHOP_ITEM_OFFERS := [
 	{"id": "skip_flower3", "code": 103, "currency": "coins",    "cost": 240,  "icon": "flower",   "label": "Wildflower"},   # t3 — a cheap nudge up the home line
-	{"id": "skip_berry3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "berry",    "label": "Berry"},        # t3 — the other starter line
+	{"id": "skip_tools3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "tools",    "label": "Garden tools"},  # t3 — the other starter line
 	{"id": "skip_mush4",   "code": 304, "currency": "coins",    "cost": 700,  "icon": "mushroom", "label": "Mushroom"},     # t4 — a deeper coin skip
 	{"id": "skip_honey4",  "code": 404, "currency": "diamonds", "cost": 8,    "icon": "honey",    "label": "Honey"},        # t4 — premium skip
 	{"id": "skip_egg5",    "code": 505, "currency": "diamonds", "cost": 14,   "icon": "egg",      "label": "Egg"},          # t5 — a map-2 line, premium

@@ -261,17 +261,18 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 		p.add_theme_stylebox_override("panel", sb)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(p)
-	# the lock ghost: the Level this cell unseals at (§4) — neutral-tinted (the gate is the
-	# player's Level now, not a produced tier/line)
-	if ResourceLoader.exists(Look.kit("icon_star.png")):
+	# the lock ghost: the Level this cell unseals at (§4) — a LOCK icon, never the ★ (the gate
+	# is the player's Level now, not stars/a produced tier; ★ would misread as a star price).
+	# Mirrors the map spot-gate (map.gd: lock icon + number, "Lv %d" text fallback).
+	if ResourceLoader.exists(Look.kit("icon_lock.png")):
 		var brow := HBoxContainer.new()
 		brow.alignment = BoxContainer.ALIGNMENT_CENTER
 		brow.set_anchors_preset(Control.PRESET_FULL_RECT)
 		brow.add_theme_constant_override("separation", 2)
 		brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		brow.add_child(Look.icon("star", csz * 0.2))
+		brow.add_child(Look.icon("lock", csz * 0.2))
 		var bnum := Label.new()
-		bnum.text = str(lvl)
+		bnum.text = TranslationServer.translate("Lv%d") % lvl   # "Lv11" — never a bare number (reads as a Level, not a count)
 		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
 		bnum.add_theme_color_override("font_color", Color(CREAM, 0.85))
 		bnum.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)

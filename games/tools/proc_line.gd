@@ -120,41 +120,61 @@ func _initialize() -> void:
 	img.convert(Image.FORMAT_RGBA8)
 	_clear_bg(img)                 # clear the checker on the WHOLE image first
 	var W := img.get_width(); var H := img.get_height()
-	# 2D segmentation: content ROW bands (gap rows) → COLUMNS within each band → reading order.
-	# A single-row strip yields one band → N columns, so this also handles the old row layout.
-	var GAP_PX := int(ar[5]) if ar.size() >= 6 else 8   # a row/col with fewer opaque px than this is a gap (tunable)
-	var MIN_RUN := 16              # ignore content runs shorter than this (noise)
+	# Segmentation. The optional 6th arg is EITHER a gap threshold (int) OR a fixed grid "RxC"
+	# (equal cells — for evenly-placed objects that TOUCH, where gap-detection can't separate them).
+	var arg6 := String(ar[5]) if ar.size() >= 6 else ""
 	var crops: Array = []          # {img, bbox} — reading order (row-major)
 	var maxdim := 1
-	var bands := _runs_v(img, W, H, GAP_PX, MIN_RUN)
-	for b in bands:
-		var by0: int = b.x; var bh: int = b.y - b.x
-		for c in _runs_h(img, W, b.x, b.y, GAP_PX, MIN_RUN):
-			var cw: int = c.y - c.x
-			var seg := Image.create(cw, bh, false, Image.FORMAT_RGBA8)
-			seg.blit_rect(img, Rect2i(c.x, by0, cw, bh), Vector2i.ZERO)
-			var bb := _bbox(seg)
-			crops.append({"img": seg, "bb": bb})
-			maxdim = maxi(maxdim, maxi(bb.size.x, bb.size.y))
-	print("segmented %d objects in %d rows (expected %d)" % [crops.size(), bands.size(), n])
+	if "x" in arg6:
+		var rc := arg6.split("x")
+		var rows := int(rc[0]); var cols := int(rc[1])
+		for r in rows:
+			var y0 := int(round(float(r) * H / rows)); var y1 := int(round(float(r + 1) * H / rows))
+			for c2 in cols:
+				var x0 := int(round(float(c2) * W / cols)); var x1 := int(round(float(c2 + 1) * W / cols))
+				var seg := Image.create(x1 - x0, y1 - y0, false, Image.FORMAT_RGBA8)
+				seg.blit_rect(img, Rect2i(x0, y0, x1 - x0, y1 - y0), Vector2i.ZERO)
+				var bb := _bbox(seg)
+				crops.append({"img": seg, "bb": bb})
+				maxdim = maxi(maxdim, maxi(bb.size.x, bb.size.y))
+		print("fixed grid %dx%d → %d cells (expected %d)" % [rows, cols, crops.size(), n])
+	else:
+		var GAP_PX := int(arg6) if arg6 != "" else 8
+		var MIN_RUN := 16
+		var bands := _runs_v(img, W, H, GAP_PX, MIN_RUN)
+		for b in bands:
+			var by0: int = b.x; var bh: int = b.y - b.x
+			for c in _runs_h(img, W, b.x, b.y, GAP_PX, MIN_RUN):
+				var cw: int = c.y - c.x
+				var seg := Image.create(cw, bh, false, Image.FORMAT_RGBA8)
+				seg.blit_rect(img, Rect2i(c.x, by0, cw, bh), Vector2i.ZERO)
+				var bb := _bbox(seg)
+				crops.append({"img": seg, "bb": bb})
+				maxdim = maxi(maxdim, maxi(bb.size.x, bb.size.y))
+		print("segmented %d objects in %d rows (expected %d)" % [crops.size(), bands.size(), n])
 	n = crops.size()
-	var scale := float(SIZE) * FRAME_FILL / float(maxdim)
+	# ICON mode (last arg "icon"): each cell normalized to fill its own frame + CENTERED — UI glyphs
+	# read at one size. Default (items/objects): ONE global scale (keeps the size progression) +
+	# BOTTOM-anchored (sit on a common baseline).
+	var icon_mode := ar.size() >= 7 and String(ar[6]) == "icon"
+	var gscale := float(SIZE) * FRAME_FILL / float(maxdim)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var frames: Array = []
 	for i in n:
 		var bb: Rect2i = crops[i].bb
 		var obj := Image.create(bb.size.x, bb.size.y, false, Image.FORMAT_RGBA8)
 		obj.blit_rect(crops[i].img, bb, Vector2i.ZERO)
+		var scale: float = (float(SIZE) * FRAME_FILL / float(maxi(bb.size.x, bb.size.y))) if icon_mode else gscale
 		var nw := maxi(1, int(round(bb.size.x * scale))); var nh := maxi(1, int(round(bb.size.y * scale)))
 		obj.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
 		var frame := Image.create(SIZE, SIZE, false, Image.FORMAT_RGBA8)
 		frame.fill(Color(0, 0, 0, 0))
 		var px := (SIZE - nw) / 2
-		var py := SIZE - int(round(SIZE * BASE_MARGIN)) - nh     # bottom-anchored
+		var py := (SIZE - nh) / 2 if icon_mode else SIZE - int(round(SIZE * BASE_MARGIN)) - nh
 		frame.blend_rect(obj, Rect2i(0, 0, nw, nh), Vector2i(px, maxi(0, py)))
 		frame.save_png("%s/%s_%d.png" % [out_dir, base, i + 1])
 		frames.append(frame)
-	print("WROTE %d sprites to %s/%s_*.png (scale=%.3f, maxdim=%d)" % [n, out_dir, base, scale, maxdim])
+	print("WROTE %d sprites to %s/%s_*.png (gscale=%.3f, maxdim=%d, icon=%s)" % [n, out_dir, base, gscale, maxdim, str(icon_mode)])
 	if montage != "":
 		var gap := 8
 		var mw := n * SIZE + (n + 1) * gap
