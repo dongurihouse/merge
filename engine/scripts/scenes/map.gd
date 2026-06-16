@@ -18,6 +18,8 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
+const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Layout = preload("res://engine/scripts/core/layout.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -80,6 +82,7 @@ var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
+var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
 var level_label: Label
 var xp_label: Label
 var stars_label: Label
@@ -140,6 +143,12 @@ func _ready() -> void:
 		if start < 0:
 			start = G.hub_zone()
 	_open_map(start)
+
+	# T28 (§14): if the player lands on the map first, announce the shop on its first
+	# appearance (a tap guide). Shared seen-state with the board, so whichever scene shows
+	# it first wins and it never double-announces. Deferred so the button has a real rect.
+	if Spotlight.should_spotlight("shop"):
+		_spotlight_shop_deferred.call_deferred()
 
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
@@ -941,6 +950,7 @@ func _build_chrome() -> void:
 	_chrome_nodes.append(gear)
 	# the Store, relocated from the top cluster — sits to the LEFT of the gear
 	var shop := Button.new()
+	_shop_btn = shop                 # T28: target for the §14 shop spotlight
 	shop.focus_mode = Control.FOCUS_NONE
 	shop.custom_minimum_size = Vector2(76, 76)
 	if ResourceLoader.exists(Look.kit("btn_round.png")):
@@ -1017,6 +1027,18 @@ func _build_chrome() -> void:
 	atlas.pressed.connect(_open_select)
 	add_child(atlas)
 	_chrome_nodes.append(atlas)
+
+# T28 (§14): present the shop spotlight over the chrome's shop button on first appearance,
+# then mark it spotlit. The gesture/caption come from the game's registry; the overlay
+# honours the §11 flag itself.
+func _spotlight_shop_deferred() -> void:
+	await get_tree().process_frame              # let the shop button get a real global rect
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	if _shop_btn == null or not is_instance_valid(_shop_btn) or not Spotlight.should_spotlight("shop"):
+		return
+	Spotlight.mark_spotlit("shop")
+	SpotlightOverlay.present(self, _shop_btn, Spotlight.gesture_for("shop"), tr(Spotlight.label_for("shop")))
 
 func _open_settings() -> void:
 	Audio.play("button_tap", -2.0)

@@ -73,6 +73,7 @@ const BAG_SLOTS = D.BAG_SLOTS
 const BASKET_CAP = D.BASKET_CAP
 const PORTER_SECS = D.PORTER_SECS
 const TREAT_COST = D.TREAT_COST
+const SPOTLIGHTS = D.SPOTLIGHTS
 
 # --- generators ------------------------------------------------------------------
 # --- per-zone generator roster (the generator-grant hand-in model, §6) ------------

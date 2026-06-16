@@ -41,6 +41,7 @@ static var FLAGS := {
 	# ftue
 	"ftue_free_pops": true,       # first 10 pops cost no water
 	"ftue_staged_chrome": true,   # merchant ch1+, bag ch2+, water chip after intro
+	"ftue_feature_spotlight": true,  # T28: a feature's FIRST appearance → spotlight + pulse + a mimed tap/drag guide (§14)
 }
 
 static func on(id: String) -> bool:
