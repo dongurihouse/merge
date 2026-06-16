@@ -36,6 +36,18 @@ static func find_mergeable_pair(board: BoardModel) -> Array:
 		seen[k] = BoardModel.cell_of(i)
 	return []
 
+# §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
+# A merge can land on EITHER cell of the pair, so we union the level-reached sealed
+# neighbours of both (deduped). Empty pair, or nothing level-reached adjacent → []. The
+# merge is the trigger; player_level gates WHEN a neighbour is eligible (§4, openable_brambles).
+static func openable_for_hint(model: BoardModel, pair: Array, player_level: int) -> Array:
+	var out: Array = []
+	for cell in pair:
+		for n in model.openable_brambles(cell, player_level):
+			if not out.has(n):
+				out.append(n)
+	return out
+
 # Manhattan distance between two cells.
 static func dist_to(a: Vector2i, b: Vector2i) -> int:
 	return absi(a.x - b.x) + absi(a.y - b.y)

@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless tests for the idle-hint OPENABLE teach-signal (§2): when the idle hint
 ## highlights a mergeable pair, it also pulses the sealed cell(s) that merging that
-## pair would OPEN. The decision is exposed as a pure seam — Board.openable_for_hint
+## pair would OPEN. The decision is exposed as a pure seam — BoardLogic.openable_for_hint
 ## (board, pair, player_level) — so we assert it directly, no scene/window/Save.
 ##   godot --headless --path . -s res://engine/tests/hint_tests.gd
 ##
@@ -13,7 +13,7 @@ extends SceneTree
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
-const Board = preload("res://engine/scripts/scenes/board.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 var _pass := 0
 var _fail := 0
@@ -57,7 +57,7 @@ func _initialize() -> void:
 	# Pair on the open center: (3,3)'s only sealed orthogonal neighbour is (2,3); (4,3) borders open cells.
 	var m1 := _board_with_pair(Vector2i(3, 3), Vector2i(4, 3))
 	var pair1 := [Vector2i(3, 3), Vector2i(4, 3)]
-	var open_at_gate: Array = Board.openable_for_hint(m1, pair1, g23)
+	var open_at_gate: Array = BoardLogic.openable_for_hint(m1, pair1, g23)
 	ok(_has(open_at_gate, Vector2i(2, 3)), "at (2,3)'s gate (L%d): the hint's openable set INCLUDES it" % g23)
 	ok(open_at_gate.size() == 1, "only the one eligible neighbour is in the set")
 	ok(_no_dupes(open_at_gate), "the openable set has no duplicate cells")
@@ -67,9 +67,9 @@ func _initialize() -> void:
 	var m2 := _board_with_pair(Vector2i(3, 2), Vector2i(4, 2))
 	var pair2 := [Vector2i(3, 2), Vector2i(4, 2)]
 	if g31 >= 2:
-		ok(not _has(Board.openable_for_hint(m2, pair2, g31 - 1), Vector2i(3, 1)), \
+		ok(not _has(BoardLogic.openable_for_hint(m2, pair2, g31 - 1), Vector2i(3, 1)), \
 			"below (3,1)'s gate (L%d): the level gate keeps it out of the openable set" % g31)
-	ok(_has(Board.openable_for_hint(m2, pair2, g31), Vector2i(3, 1)), \
+	ok(_has(BoardLogic.openable_for_hint(m2, pair2, g31), Vector2i(3, 1)), \
 		"at (3,1)'s gate (L%d): it enters the openable set" % g31)
 
 	# === Case 3: nothing SEALED is adjacent → empty even at a high Level ===
@@ -78,7 +78,7 @@ func _initialize() -> void:
 	for cell in [Vector2i(2, 3), Vector2i(3, 2), Vector2i(3, 4), Vector2i(2, 4),
 			Vector2i(4, 2), Vector2i(4, 4), Vector2i(5, 3), Vector2i(1, 3)]:
 		m3.terrain[BoardModel.idx(cell)] = 0     # force-open every neighbour cell
-	var none_set: Array = Board.openable_for_hint(m3, pair1, 99)
+	var none_set: Array = BoardLogic.openable_for_hint(m3, pair1, 99)
 	ok(none_set.is_empty(), "no sealed neighbour to open → empty set (pulse nothing extra, just the pair)")
 
 	# === Case 4: the seam UNIONS both pair cells' eligible neighbours ===
@@ -86,13 +86,13 @@ func _initialize() -> void:
 	var m4 := _board_with_pair(Vector2i(3, 2), Vector2i(4, 2))
 	var pair4 := [Vector2i(3, 2), Vector2i(4, 2)]
 	var lvl4: int = maxi(maxi(g31, g22), g41)
-	var union_l: Array = Board.openable_for_hint(m4, pair4, lvl4)
+	var union_l: Array = BoardLogic.openable_for_hint(m4, pair4, lvl4)
 	ok(_has(union_l, Vector2i(3, 1)) and _has(union_l, Vector2i(2, 2)), "L%d: includes (3,2)'s sealed neighbours (3,1) and (2,2)" % lvl4)
 	ok(_has(union_l, Vector2i(4, 1)), "L%d: ALSO includes (4,2)'s sealed neighbour (4,1) — both pair cells contribute" % lvl4)
 	ok(union_l.size() == 3 and _no_dupes(union_l), "the union is exactly the 3 distinct eligible cells")
 
 	# === Case 5: an empty pair (no merge available) opens nothing ===
-	ok(Board.openable_for_hint(m1, [], 99).is_empty(), "an empty pair → empty openable set")
+	ok(BoardLogic.openable_for_hint(m1, [], 99).is_empty(), "an empty pair → empty openable set")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

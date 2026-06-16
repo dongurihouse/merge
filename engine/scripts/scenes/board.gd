@@ -10,6 +10,7 @@ extends Control
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
+const Quests = preload("res://engine/scripts/core/quests.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
@@ -336,23 +337,11 @@ func _hint_pair() -> Array:
 		var n: Control = piece_nodes.get(cell)
 		if n != null and is_instance_valid(n):
 			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
-	for cell in openable_for_hint(board, pair, _quest_level()):
+	for cell in BoardLogic.openable_for_hint(board, pair, _quest_level()):
 		var br: Control = bramble_nodes.get(cell)
 		if br != null and is_instance_valid(br):
 			FX.rock(br, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)
 	return pair
-
-# §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
-# A merge can land on EITHER cell of the pair, so we union the level-reached sealed
-# neighbours of both (deduped). Empty pair, or nothing level-reached adjacent → []. The
-# merge is the trigger; player_level gates WHEN a neighbour is eligible (§4, openable_brambles).
-static func openable_for_hint(model: BoardModel, pair: Array, player_level: int) -> Array:
-	var out: Array = []
-	for cell in pair:
-		for n in model.openable_brambles(cell, player_level):
-			if not out.has(n):
-				out.append(n)
-	return out
 
 func _board_w() -> float:
 	return G.COLS * csz + (G.COLS - 1) * GAP
@@ -420,12 +409,7 @@ func _mark_seen(code: int) -> void:
 
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
-	var seen: Dictionary = Save.grove().get("seen", {})
-	var out: Array = []
-	for t in range(1, G.TOP_TIER + 1):
-		var code := line * 100 + t
-		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
-	return out
+	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
 # water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
@@ -440,20 +424,19 @@ func _gates() -> Array:
 
 # The map currently being restored (its generators/lines are live). Clamped to a valid map.
 func _quest_zone() -> int:
-	return clampi(G.frontier_zone(Save.grove().get("unlocks", {}), _gates()), 0, G.ZONES.size() - 1)
+	return Quests.zone(Save.grove().get("unlocks", {}), _gates())
 
 func _quest_level() -> int:
 	return G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 
 # The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
 func _meter_target() -> int:
-	return G.active_giver_count(Save.stars(), G.zone_cheapest_spot(_quest_zone(), Save.grove().get("unlocks", {}), _quest_level()))
+	return Quests.meter_target(_quest_zone(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
 
 # Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
 # quest is the lone fence stand (§7) — delivering it unlocks the next map.
 func _gate_pending() -> bool:
-	var z := _quest_zone()
-	return G.zone_done(z, Save.grove().get("unlocks", {})) and not _gates().has(z)
+	return Quests.gate_pending(_quest_zone(), Save.grove().get("unlocks", {}), _gates())
 
 # §8 wordless map→board pointer. The map arms Save's gate_pointer on completion (the silent
 # handoff); the board consumes it on open. Take the pending pointer (clears it so it fires
@@ -484,38 +467,13 @@ func _play_gate_cue() -> void:
 # Top up / trim the live fence to the metered count with freshly generated quests (§7); once the
 # map is fully restored, the fence becomes the lone authored GATE quest. Deterministic via the rng.
 func _refill_quests() -> void:
-	if _map_done():
-		quests = []
-		return
-	if _gate_pending():
-		if quests.size() != 1 or not bool(quests[0].get("gate", false)):
-			quests = [G.gate_quest(G.GENERATORS, _quest_zone(), rng)]
-		return
-	var pend := _pending_grant_quests()
-	if not pend.is_empty():
-		quests = pend                         # §6: a new map opens with its generator-grant hand-in(s)
-		return
-	quests = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
-	# §6 anchor exemption: ask from the current map's lines ∪ the anchor's lines (its generator
-	# never retires, so its lines stay askable past their debut map) — NOT the bare zone roster.
-	var lines := G.askable_lines(G.GENERATORS, _quest_zone())
-	var lvl := _quest_level()
-	var target := _meter_target()
-	while quests.size() < target:
-		quests.append(G.gen_quest(lvl, lines, rng))
-	while quests.size() > target:
-		quests.pop_back()
+	quests = Quests.refill(quests, _quest_zone(), Save.grove().get("unlocks", {}), _gates(), board.gens, Save.stars(), _quest_level(), rng)
 
 # §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
 # generator (still on the board) and rewards a new line. The map opens with these before its
 # regular stream; once handed in, the new generators are live and regular quests resume.
 func _pending_grant_quests() -> Array:
-	var out: Array = []
-	for q in G.grant_quests_for_zone(G.GENERATORS, _quest_zone()):
-		var gid := String(q.grant.grants)
-		if not board.gens.values().has(gid) and G.gen_can_grant(board.gens, G.GENERATORS, gid):
-			out.append(q)
-	return out
+	return Quests.pending_grant_quests(_quest_zone(), board.gens)
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
@@ -524,14 +482,13 @@ func _init_quests() -> void:
 	_refill_quests()
 
 func _quest_stars(q: Dictionary) -> int:
-	return int(q.reward.stars) if q.has("reward") else int(q.get("stars", 0))
+	return Quests.stars(q)
 
 func _quest_coins(q: Dictionary) -> int:
-	return int(q.reward.coins) if q.has("reward") else 0
+	return Quests.coins(q)
 
-# §7 featured premium: the occasional 💎 bonus on a featured quest (0 on a normal one).
 func _quest_gems(q: Dictionary) -> int:
-	return int(q.reward.get("gems", 0)) if q.has("reward") else 0
+	return Quests.gems(q)
 
 func _persist() -> void:
 	var g := Save.grove()
@@ -550,14 +507,13 @@ func _chapter_idx() -> int:
 	return Save.grove().get("unlocks", {}).size()   # chapter = home spots bought
 
 func _map_done() -> bool:                     # every map fully complete (spots + gate) — no frontier left
-	return G.frontier_zone(Save.grove().get("unlocks", {}), _gates()) == -1
+	return Quests.map_done(Save.grove().get("unlocks", {}), _gates())
 
 # the restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
 # Scoped to the frontier map (gate-aware), so a fully-restored map (gate pending) is NOT
 # "ready to restore" — the move there is delivering the gate quest, not buying a spot.
 func _gate_ready() -> bool:
-	var cost := G.zone_cheapest_spot(_quest_zone(), Save.grove().get("unlocks", {}), _quest_level())
-	return cost > 0 and Save.stars() >= cost
+	return Quests.gate_ready(_quest_zone(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
 
 # --- HUD ------------------------------------------------------------------------
 
