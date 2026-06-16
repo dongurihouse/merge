@@ -20,6 +20,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
+const BagView = preload("res://engine/scripts/ui/bag_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
@@ -1666,62 +1667,23 @@ func _build_bag_bar() -> void:
 	for s in bag_slots_ui:
 		if is_instance_valid(s):
 			s.queue_free()
-	bag_slots_ui.clear()
-	var owned := Save.bag_slots()
-	var total := owned + (1 if _bag_has_buy_slot() else 0)
-	for i in total:
-		var s := Button.new()
-		s.focus_mode = Control.FOCUS_NONE
-		s.custom_minimum_size = Vector2(84, 84)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(GROUND_EDGE, 0.6)
-		sb.set_corner_radius_all(18)
-		sb.set_border_width_all(3)
-		sb.border_color = Color(CREAM, 0.35)
-		s.add_theme_stylebox_override("normal", sb)
-		s.add_theme_stylebox_override("hover", sb)
-		s.add_theme_stylebox_override("pressed", sb)
-		var is_buy := i == owned          # the trailing +slot affordance (only present below cap)
-		if is_buy:
-			s.pressed.connect(_buy_bag_slot)
-		else:
-			s.gui_input.connect(_on_bag_slot_input.bind(i))   # §5: a bagged item drags back out
-		bag_bar.add_child(s)
-		bag_slots_ui.append(s)
+	bag_slots_ui = BagView.build_bar(bag_bar, {
+		"owned": Save.bag_slots(),
+		"has_buy": _bag_has_buy_slot(),
+		"on_buy": _buy_bag_slot,
+		"on_slot_input": _on_bag_slot_input,
+	})
 	_rebuild_bag()
 
 func _rebuild_bag() -> void:
 	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
 	var owned := Save.bag_slots()
-	for i in bag_slots_ui.size():
-		var s: Button = bag_slots_ui[i]
-		for c in s.get_children():
-			c.queue_free()
-		if i == owned and _bag_has_buy_slot():
-			# §13: the buyable +slot price — gem SPRITE + a number-only "+N" label (centered),
-			# never an emoji baked into the text.
-			var lock := HBoxContainer.new()
-			lock.set_anchors_preset(Control.PRESET_FULL_RECT)
-			lock.alignment = BoxContainer.ALIGNMENT_CENTER
-			lock.add_theme_constant_override("separation", 2)
-			lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var lock_ic := Look.icon("gem", 22.0)
-			lock_ic.modulate = Color(CREAM, 0.55)
-			lock.add_child(lock_ic)
-			var lock_lbl := Label.new()
-			lock_lbl.text = "+%d" % G.next_bag_slot_price(owned)
-			lock_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lock_lbl.add_theme_font_size_override("font_size", 22)
-			lock_lbl.add_theme_color_override("font_color", Color(CREAM, 0.55))
-			lock_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			lock.add_child(lock_lbl)
-			s.add_child(lock)
-			continue
-		if i < bag.size():
-			var mini_n := _make_piece(int(bag[i]), 76.0)
-			mini_n.position = Vector2(4, 4)
-			mini_n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			s.add_child(mini_n)
+	BagView.rebuild(bag_slots_ui, {
+		"bag": bag,
+		"owned": owned,
+		"has_buy": _bag_has_buy_slot(),
+		"slot_price": G.next_bag_slot_price(owned),
+	})
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node

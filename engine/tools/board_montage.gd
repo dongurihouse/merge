@@ -12,7 +12,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")
 
 const W := 1000
-const H := 1040
+const H := 1160
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -96,6 +96,16 @@ func _initialize() -> void:
 	var ms: Control = b._make_merchant_stand()
 	ms.position = Vector2(8, 826)
 	page.add_child(ms)
+
+	# row 8: the bag bar (bag-view builder; 2 filled slots + the +slot buy affordance) ----
+	var bag_bar := HBoxContainer.new()
+	bag_bar.add_theme_constant_override("separation", 8)
+	bag_bar.position = Vector2(8, 1056)
+	page.add_child(bag_bar)
+	b.bag_bar = bag_bar
+	b.bag = [101, 305]
+	b._build_bag_bar()
+	bag_bar.visible = true   # montage-only: _rebuild_bag may hide the bar before chapter 2
 
 	await create_timer(0.4).timeout
 	RenderingServer.force_draw()
