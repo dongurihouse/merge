@@ -1762,6 +1762,9 @@ func _initialize() -> void:
 
 	# T42 · §8/§10 home-hub yield + upgrade-levels (the v1 KEYSTONE coin loop) — own scope.
 	_test_hub_yield()
+	# T45 · the integration wiring: the 2×-collect doubler, the piggy-vault chrome entry, the
+	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
+	await _test_t45_wiring()
 	# --- order T (T43): live-IAP ladder + starter + first-buy doubler + rewarded ads +
 	# --- the out-of-water triggered offer. §4 law: premium & ads buy SPEED + LOOKS, never
 	# --- POSSIBILITY — every wall is free-passable (slower); ads/offers are capped+cooled.
@@ -2047,6 +2050,162 @@ func _test_hub_yield() -> void:
 	ok(max_daily * 7 < burst_sink, "a week of max yield < the standing burst-ladder sink — the late-game ongoing sink outpaces the standing yield")
 	print("  [T42 hub-yield bound] max daily faucet=%d🪙 · hub-upgrade sink=%d🪙 · burst sink=%d🪙" % \
 		[max_daily, hub_sink, burst_sink])
+
+# ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
+# The three monetization engines (2×-collect ad, piggy vault, daily-login calendar) merged
+# tested but UNREACHABLE; this proves their entry points are now live:
+#   1. a hub auto-collect of N coins surfaces an opt-in 2× DOUBLER that credits exactly a
+#      second N and consumes the arm (and does NOT appear when the ad isn't offerable),
+#   2. the piggy-bank button lives in the map chrome, opens the jar, and lights its pip when
+#      the vault is claimable,
+#   3. the daily-login calendar auto-pops on a fresh (unclaimed) day past the FTUE, and stays
+#      shut when already claimed today.
+func _test_t45_wiring() -> void:
+	var Ads := load("res://engine/scripts/core/ads.gd")
+	var Feat := load("res://engine/scripts/core/features.gd")
+	var hub := G.hub_map()
+	var hub_id := String(G.MAPS[hub].spots[0].id)   # a real hub spot to restore as a yield building
+
+	# isolate the 2× tests: the login auto-popup is exercised in section 3 — keep it OFF here so the
+	# ONLY deferred overlay is the doubler card (the calendar opening grants nothing, but this keeps
+	# the surface unambiguous). Restored before section 3.
+	Feat.FLAGS["daily_login_popup"] = false
+
+	# 1a. THE 2× DOUBLER. Stand up the hub with a restored yield building and a long-elapsed collect
+	# clock so the auto-collect-on-open sweeps a real N>0 (the scene collects at real `now`, so we
+	# MEASURE the actual swept amount from the wallet delta rather than predicting it). The offer
+	# card then appears (the ad is fresh); pressing "Double" must credit EXACTLY that same N again.
+	fresh("t45_2x")
+	Save.set_hub_collected_at(0.0)                    # long-ago clock → the open sweeps the per-building cap
+	var unl := {hub_id: true}
+	Save.set_spot_level(hub_id, 1)
+	var g2 := Save.grove()
+	g2["unlocks"] = unl
+	Save.grove_write()
+	ok(Ads.can_show("collect_2x"), "the 2× ad is offerable (fresh)")
+	var coins_before_open: int = Save.coins()
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	var got_actual: int = Save.coins() - coins_before_open   # the amount the auto-collect-on-open swept
+	ok(got_actual > 0, "the hub auto-collect on open swept N>0 coins (%d🪙)" % got_actual)
+	var coins_after_collect: int = Save.coins()
+	# the deferred collect FX + offer build a frame later — let them run (the timer spans frames).
+	await create_timer(0.15).timeout
+	ok(hx._2x_offer != null and is_instance_valid(hx._2x_offer), "the post-collect 2× DOUBLER card appears (opt-in, near the FX)")
+	# the card carries a "Double" CTA — press it; it credits a SECOND N and consumes the arm.
+	var pressed_double := _press_label(hx._2x_offer, "Double")
+	ok(pressed_double, "the 2× card shows a Double CTA")
+	ok(Save.coins() == coins_after_collect + got_actual, "accepting the 2× credits EXACTLY a second %d🪙 (the doubled half)" % got_actual)
+	ok(not Ads.collect_2x_armed() and Ads.collect_multiplier() == 1, "...and consumes the arm (back to ×1)")
+	ok(hx._2x_offer == null, "the offer card dismisses after accept")
+	hx.queue_free()
+
+	# 1b. NO offer when the ad is not offerable — exhaust the daily cap, then re-open: a collect with
+	# yield must NOT surface the card (the doubler is gated on Ads.can_show, never forced).
+	fresh("t45_2x_capped")
+	Save.set_hub_collected_at(0.0)
+	var unl_c := {hub_id: true}
+	Save.set_spot_level(hub_id, 1)
+	var gc := Save.grove()
+	gc["unlocks"] = unl_c
+	Save.grove_write()
+	# burn the collect_2x daily cap (clear cooldown between claims) so can_show goes false.
+	for _i in range(Ads.remaining_today("collect_2x")):
+		Save.grove()["ad_ledger"]["collect_2x"]["last"] = 0.0
+		Ads.claim("collect_2x")
+	Ads.consume_2x()
+	Save.grove()["ad_ledger"]["collect_2x"]["last"] = 0.0
+	ok(not Ads.can_show("collect_2x"), "the 2× ad is capped out for the day")
+	Save.set_hub_collected_at(0.0)
+	var hxc = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hxc)
+	if hxc.content == null:
+		hxc._ready()
+	await create_timer(0.15).timeout
+	ok(hxc._2x_offer == null, "a capped-out 2× ad surfaces NO offer card (gated, never forced)")
+	hxc.queue_free()
+
+	# 2. THE PIGGY-VAULT CHROME ENTRY. The map chrome carries a piggy button that opens the jar;
+	# its ready-pip reflects Vault.claimable(). Drive _open_vault() → a parchment overlay appears.
+	fresh("t45_vault")
+	var hv = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hv)
+	if hv.content == null:
+		hv._ready()
+	# a sub-threshold jar → the pip is dark; fill it past the claim min → the pip lights.
+	hv._refresh_piggy_pip()
+	ok(hv._piggy_pip != null and not hv._piggy_pip.visible, "the piggy ready-pip is dark while the jar is below the claim threshold")
+	Vault.skim(Vault.claim_min() * Vault.skim_den() * 4)   # well past claimable
+	hv._refresh_piggy_pip()
+	ok(Vault.claimable() and hv._piggy_pip.visible, "the piggy ready-pip LIGHTS once the jar is claimable")
+	var ov_before: int = hv.get_child_count()
+	hv._open_vault()
+	ok(hv.get_child_count() == ov_before + 1, "tapping the piggy button opens a surface overlay")
+	var vov: Control = hv.get_child(hv.get_child_count() - 1)
+	ok(vov.find_children("*", "PanelContainer", true, false).size() >= 1, "the vault opens as a framed parchment jar card (diegetic, §13)")
+	ok(_press_label(vov, "Claim"), "the opened vault shows a Claim button (the jar surface, reachable from the hub)")
+	hv.queue_free()
+
+	# 3. THE DAILY-LOGIN AUTO-POPUP. Past the FTUE (a spot owned) and unclaimed today, the day's
+	# first hub open auto-shows the calendar ONCE; already-claimed → it stays shut.
+	Feat.FLAGS["daily_login_popup"] = true            # restore the flag the 2× section turned off
+	fresh("t45_login_fresh")
+	# mark the FTUE shop spotlight as already seen so it doesn't compete for the overlay slot.
+	Save.mark_spotlight_seen("shop")
+	var gl := Save.grove()
+	gl["unlocks"] = {hub_id: true}                    # past the cold FTUE (a rewarding beat happened)
+	Save.grove_write()
+	ok(not Login.claimed_today(), "today is unclaimed (the day's first open)")
+	var hl = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hl)
+	if hl.content == null:
+		hl._ready()
+	await create_timer(0.2).timeout                   # the popup is deferred two frames; the timer spans them
+	var login_up := _find_calendar_overlay(hl)
+	ok(login_up != null, "the daily-login calendar AUTO-POPS on the day's first hub open (past the FTUE)")
+	ok(_press_label(login_up, "Collect"), "the auto-popped calendar shows a Collect button")
+	hl.queue_free()
+
+	# 3b. ALREADY CLAIMED today → no auto-popup (it fired its once; never nags).
+	fresh("t45_login_claimed")
+	Save.mark_spotlight_seen("shop")
+	var gl2 := Save.grove()
+	gl2["unlocks"] = {hub_id: true}
+	Save.grove_write()
+	ok(Login.claim_today(), "claim today's rung up front")
+	ok(Login.claimed_today(), "today now reads claimed")
+	var hl2 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hl2)
+	if hl2.content == null:
+		hl2._ready()
+	await create_timer(0.2).timeout
+	ok(_find_calendar_overlay(hl2) == null, "an already-claimed day shows NO calendar popup (fires once, never nags)")
+	hl2.queue_free()
+
+	# 3c. the cold FTUE session (no spots owned) is SKIPPED — §18 "after a reward, not a cold open".
+	fresh("t45_login_ftue")
+	Save.mark_spotlight_seen("shop")                  # isolate the FTUE gate from the spotlight gate
+	var hf = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hf)
+	if hf.content == null:
+		hf._ready()
+	await create_timer(0.2).timeout
+	ok(_find_calendar_overlay(hf) == null, "the cold first FTUE session (no spots owned) skips the calendar (§18)")
+	hf.queue_free()
+
+# Find a live login-calendar overlay on `host`: the LoginUI roots a full-rect Control whose
+# subtree carries a "Daily visit" title and a "Collect"/"Come back" CTA. Returns it or null.
+func _find_calendar_overlay(host: Control) -> Control:
+	for c in host.get_children():
+		if not (c is Control):
+			continue
+		for b in (c as Control).find_children("*", "Button", true, false):
+			var t := String((b as Button).text)
+			if t.findn("Collect") != -1 or t.findn("tomorrow") != -1:
+				return c as Control
+	return null
 # T44: press the first Button whose text contains `frag` inside `overlay`. Returns whether
 # one was found+pressed (so a test asserts the control exists AND fires its action).
 func _press_label(overlay: Control, frag: String) -> bool:

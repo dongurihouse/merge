@@ -20,6 +20,10 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
+const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T45: the diegetic piggy-bank jar (chrome entry point)
+const Ads = preload("res://engine/scripts/core/ads.gd")                      # T45: the rewarded 2×-collect doubler (post hub-collect offer)
+const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
+const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Layout = preload("res://engine/scripts/core/layout.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
@@ -90,6 +94,8 @@ var xp_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
+var _2x_offer: Control = null     # T45: the post-collect "double your coins" rewarded-ad card (opt-in, dismissible)
+var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
 var _home_cue := Callable()       # toggles the §8 home-shortcut yield-ready pip (Hud.home_cue)
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips — hidden in place mode (they'd eat presses)
@@ -152,6 +158,12 @@ func _ready() -> void:
 	# it first wins and it never double-announces. Deferred so the button has a real rect.
 	if Spotlight.should_spotlight("shop"):
 		_spotlight_shop_deferred.call_deferred()
+
+	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
+	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
+	# is open yet — and the board's Home button returns here). Gated + deferred so it never collides
+	# with the FTUE shop spotlight or fires on a cold first launch (see _maybe_login_popup).
+	_maybe_login_popup_deferred.call_deferred()
 
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
@@ -226,6 +238,7 @@ func _open_map(z: int) -> void:
 	_view = "map"
 	_map_idx = z
 	_customize_spot = ""
+	_dismiss_2x_offer()                  # T45: a stale doubler card from a prior hub visit closes on nav (a fresh collect re-offers)
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
 	g["last_map"] = String(G.MAPS[z].id)
@@ -240,6 +253,7 @@ func _open_map(z: int) -> void:
 func _open_select() -> void:
 	_view = "select"
 	_customize_spot = ""
+	_dismiss_2x_offer()                  # T45: leaving the hub for the map-select closes any open doubler card
 	Audio.play("button_tap", -4.0)
 	_build_select()
 
@@ -272,6 +286,102 @@ func _hub_collect_fx(amount: int) -> void:
 	FX.fly_to_wallet(self, center, Look.icon("coin", 44.0), chip, func() -> void: _update_hud())
 	FX.celebrate_reward(self, center - Vector2(0, 40), "coin", amount, Color("#E3B23C"))
 	FX.floating_text(self, center - Vector2(150, 110), tr("The home gathered some coins ✿"), CREAM, 28)
+	# T45: AUTO-COLLECT TENSION — the hub already swept the coins for free (above). So the 2× ad is
+	# a POST-collect DOUBLER, not a pre-collect choice: an OPT-IN card offering to watch a cloud and
+	# add the SAME amount again. It never auto-plays, never blocks (tap-away dismisses), and only
+	# appears when the rewarded ad is offerable (capped + cooled, §4/§10). Decline = keep your coins.
+	_maybe_offer_2x(amount, center)
+
+# T45: the cozy, optional 2×-collect DOUBLER card. Surfaced AFTER an automatic hub-collect of
+# `got` coins, only when the rewarded ad is offerable (Ads.can_show — capped + cooled). A small
+# parchment card floats just below the collect FX with a "double it" CTA and a "No thanks" out.
+# Accept → claim the ad, credit a SECOND `got` (Save.add_coins), celebrate + tick the wallet, and
+# consume the arm for bookkeeping. It is opt-in (never auto-plays), dismissible (tap-away / decline),
+# and never blocks play. One at a time — a still-open offer is replaced.
+func _maybe_offer_2x(got: int, _center: Vector2) -> void:
+	if got <= 0 or not Ads.can_show("collect_2x"):
+		return
+	if not is_inside_tree():
+		return
+	if _2x_offer != null and is_instance_valid(_2x_offer):
+		_2x_offer.queue_free()                       # never stack offers
+	var view := get_viewport_rect().size
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	# pinned just under the wallet/HUD, centered — near the collect FX, clear of the spots
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.offset_top = 150.0 + Look.safe_top(self)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.z_index = 40
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(col)
+	# the pitch — an icon + number ("double your N ✿"), emoji-free per §13 (coin is a sprite)
+	var pitch := HBoxContainer.new()
+	pitch.alignment = BoxContainer.ALIGNMENT_CENTER
+	pitch.add_theme_constant_override("separation", 6)
+	col.add_child(pitch)
+	var pl := Label.new()
+	pl.text = tr("Watch a cloud → double it!")
+	pl.add_theme_font_size_override("font_size", 24)
+	pl.add_theme_color_override("font_color", INK)
+	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pitch.add_child(pl)
+	var sub := HBoxContainer.new()
+	sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	sub.add_theme_constant_override("separation", 4)
+	col.add_child(sub)
+	var sl := Label.new()
+	sl.text = tr("+")
+	sl.add_theme_font_size_override("font_size", 22)
+	sl.add_theme_color_override("font_color", Color(BARK, 0.95))
+	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sl)
+	sub.add_child(Look.icon("coin", 22.0))
+	var sn := Label.new()
+	sn.text = str(got)
+	sn.add_theme_font_size_override("font_size", 22)
+	sn.add_theme_color_override("font_color", Color(BARK, 0.95))
+	sn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sn)
+	# the two ways out — a primary "Double" and a quiet "No thanks" (decline keeps the coins)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	btns.add_theme_constant_override("separation", 12)
+	col.add_child(btns)
+	btns.add_child(Look.button(tr("No thanks"), _dismiss_2x_offer, false))
+	btns.add_child(Look.button(tr("Double ✿"), func() -> void: _accept_2x_offer(got), true))
+	add_child(card)
+	_2x_offer = card
+	FX.pop_in(card)
+	FX.breathe_once(card)
+
+# Accept the 2× doubler: re-check + claim the rewarded ad (the stub records the watch), then credit
+# a SECOND `got` coins, celebrate the bonus from the card, tick the wallet, consume the arm, and
+# close the card. A refused claim (raced past the cap) just closes cozily — no penalty.
+func _accept_2x_offer(got: int) -> void:
+	var at := _2x_offer.get_global_rect().get_center() if _2x_offer != null and is_instance_valid(_2x_offer) else get_global_rect().get_center()
+	_dismiss_2x_offer()
+	var res := Ads.claim("collect_2x")
+	if not bool(res.get("ok", false)):
+		Audio.play("invalid_soft", -4.0)
+		return
+	Save.add_coins(got)                              # the doubled half — the same amount again
+	Ads.consume_2x()                                 # spend the arm (bookkeeping; the bonus is applied)
+	Audio.play("level_complete", -3.0, 1.2)
+	FX.celebrate_reward(self, at, "coin", got, Color("#E3B23C"))
+	FX.fly_to_wallet(self, at, Look.icon("coin", 40.0),
+		_hud_panels[0] if _hud_panels.size() > 0 and is_instance_valid(_hud_panels[0]) else null,
+		func() -> void: _update_hud())
+	_update_hud()
+
+# Close the 2× offer card (decline, tap-away, or post-accept). Idempotent.
+func _dismiss_2x_offer() -> void:
+	if _2x_offer != null and is_instance_valid(_2x_offer):
+		_2x_offer.queue_free()
+	_2x_offer = null
 
 # --- THE MAP VIEW (grove_spec §3) -------------------------------------------------------
 # One self-contained image fills the area below the HUD; the spots sit directly on
@@ -1183,6 +1293,77 @@ func _build_chrome() -> void:
 	atlas.pressed.connect(_open_select)
 	add_child(atlas)
 	_chrome_nodes.append(atlas)
+	# T45: the PIGGY BANK — the diegetic accrual-vault entry (§10/§13). The hub map is the
+	# natural home: it is the return surface the player lands on. Sits to the LEFT of the atlas,
+	# same round-button language as the rest of the chrome. A gold ready-pip rides its corner
+	# when the jar has filled past the claim threshold (Vault.claimable()) — a gentle "ready"
+	# cue, never a nag. Tapping opens the jar surface (ui/vault.gd), which refreshes the pip on close.
+	var piggy := Button.new()
+	piggy.focus_mode = Control.FOCUS_NONE
+	piggy.custom_minimum_size = Vector2(76, 76)
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
+		var pt := StyleBoxTexture.new()
+		pt.texture = load(Look.kit("btn_round.png"))
+		pt.set_texture_margin_all(24.0)
+		piggy.add_theme_stylebox_override("normal", pt)
+		piggy.add_theme_stylebox_override("hover", pt)
+		piggy.add_theme_stylebox_override("pressed", pt)
+	else:
+		var pgs := StyleBoxFlat.new()
+		pgs.bg_color = Color(INK, 0.6)
+		pgs.set_corner_radius_all(38)
+		piggy.add_theme_stylebox_override("normal", pgs)
+		piggy.add_theme_stylebox_override("hover", pgs)
+		piggy.add_theme_stylebox_override("pressed", pgs)
+	# the piggy glyph rides the round button (the kit has no "piggy" icon entry, so a glyph,
+	# matching how the atlas button renders its 🗺 — Look.icon("piggy") would render "?")
+	var pgi := Label.new()
+	pgi.text = "🐷"
+	pgi.add_theme_font_size_override("font_size", 34)
+	pgi.add_theme_color_override("font_color", CREAM)
+	pgi.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pgi.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pgi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pgi.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	piggy.add_child(pgi)
+	Look.add_press_juice(piggy)
+	piggy.anchor_left = 1.0
+	piggy.anchor_right = 1.0
+	piggy.anchor_top = 1.0
+	piggy.anchor_bottom = 1.0
+	piggy.offset_left = -356
+	piggy.offset_right = -280
+	piggy.offset_top = -92 - sb
+	piggy.offset_bottom = -16 - sb
+	piggy.pressed.connect(_open_vault)
+	add_child(piggy)
+	_chrome_nodes.append(piggy)
+	# the ready-pip — a small gold dot on the button's top-right, shown only when claimable
+	var pip := Panel.new()
+	var pps := StyleBoxFlat.new()
+	pps.bg_color = Color("#E8C84A")
+	pps.set_corner_radius_all(9)
+	pps.set_border_width_all(2)
+	pps.border_color = Color(CREAM, 0.9)
+	pip.add_theme_stylebox_override("panel", pps)
+	pip.custom_minimum_size = Vector2(18, 18)
+	pip.size = Vector2(18, 18)
+	pip.position = Vector2(58, 2)
+	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	piggy.add_child(pip)
+	_piggy_pip = pip
+	_refresh_piggy_pip()
+
+# T45: open the diegetic piggy-bank jar (the accrual vault, ui/vault.gd). On close it refreshes
+# the ready-pip so a just-cracked (now empty) jar drops its cue immediately.
+func _open_vault() -> void:
+	Audio.play("button_tap", -2.0)
+	VaultUI.open(self, {"refresh": func() -> void: _refresh_piggy_pip()})
+
+# Light the piggy ready-pip iff the jar has banked past the claim threshold (Vault.claimable()).
+func _refresh_piggy_pip() -> void:
+	if _piggy_pip != null and is_instance_valid(_piggy_pip):
+		_piggy_pip.visible = Vault.claimable()
 
 # T28 (§14): present the shop spotlight over the chrome's shop button on first appearance,
 # then mark it spotlit. The gesture/caption come from the game's registry; the overlay
@@ -1195,6 +1376,46 @@ func _spotlight_shop_deferred() -> void:
 		return
 	Spotlight.mark_spotlit("shop")
 	SpotlightOverlay.present(self, _shop_btn, Spotlight.gesture_for("shop"), tr(Spotlight.label_for("shop")))
+
+# T45 (§18): auto-show the daily-login calendar on the day's first hub open — ONCE, and only after a
+# rewarding moment, never on a cold first launch. The §18 spirit is "prompt after a reward, not a
+# cold open", so all of these must hold:
+#   • the flag is on (daily_login_popup),
+#   • today is genuinely unclaimed (not Login.claimed_today() — the day's first open),
+#   • this is NOT the very-first FTUE session (unlocks.size() > 0 — at least one spot restored, so a
+#     rewarding beat has already happened; a brand-new save sees the FTUE, not a money-ish calendar),
+#   • no FTUE shop spotlight is owed (not Spotlight.should_spotlight("shop")) — never two overlays at once.
+# Deferred TWO frames: one so the scene/chrome is built, one more so the same-frame shop-spotlight
+# defer resolves first (it marks itself seen), so the should_spotlight gate reads settled state.
+func _maybe_login_popup_deferred() -> void:
+	if not Features.on("daily_login_popup"):
+		return
+	if Login.claimed_today():
+		return
+	if unlocks.size() <= 0:                       # cold first FTUE session — show the FTUE, not the calendar
+		return
+	if Spotlight.should_spotlight("shop"):        # an FTUE shop spotlight is owed → don't collide; skip today
+		return
+	await get_tree().process_frame                # let the shop-spotlight defer (same frame) settle first
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	# re-check after the await — a spotlight may have just been raised, or today claimed elsewhere
+	if Login.claimed_today() or _2x_offer != null:
+		return
+	if _spotlight_overlay_live():                 # an FTUE spotlight is on screen → never stack a second overlay
+		return
+	LoginUI.open(self, {"refresh": func() -> void:
+		_update_hud()
+		_refresh_piggy_pip()})
+
+# True if a feature-spotlight overlay is currently on screen (SpotlightOverlay.present roots a
+# full-rect Control at z_index 4096 — its signature). Used to keep the login popup from stacking
+# on top of an FTUE spotlight on a borderline frame.
+func _spotlight_overlay_live() -> bool:
+	for c in get_children():
+		if c is Control and (c as Control).z_index == 4096:
+			return true
+	return false
 
 func _open_settings() -> void:
 	Audio.play("button_tap", -2.0)
