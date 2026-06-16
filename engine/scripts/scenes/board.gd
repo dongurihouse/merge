@@ -992,10 +992,11 @@ func _giver_bob(bust: Control, active: bool = true) -> void:
 		return
 	if not bust.has_meta("bob_y"):
 		bust.set_meta("bob_y", bust.position.y)
+		bust.set_meta("bob_tw", null)         # seed so later get_meta("bob_tw") never errors on a missing key (Godot 4.6 logs even with a default)
 	if not active:
 		_giver_bob_stop(bust)
 		return
-	var existing: Variant = bust.get_meta("bob_tw", null)
+	var existing: Variant = bust.get_meta("bob_tw") if bust.has_meta("bob_tw") else null
 	if existing is Tween and (existing as Tween).is_valid():
 		return                                    # already bobbing — don't stack tweens
 	# start now if already in the tree (the reactive payable case), else on entry
@@ -1016,11 +1017,13 @@ func _giver_bob_start(bust: Control) -> void:
 	bust.set_meta("bob_tw", tw)
 
 func _giver_bob_stop(bust: Control) -> void:
-	var existing: Variant = bust.get_meta("bob_tw", null)
-	if existing is Tween and (existing as Tween).is_valid():
-		(existing as Tween).kill()
-	bust.set_meta("bob_tw", null)
-	bust.position.y = bust.get_meta("bob_y", bust.position.y)   # settle to rest
+	if bust.has_meta("bob_tw"):
+		var existing: Variant = bust.get_meta("bob_tw")
+		if existing is Tween and (existing as Tween).is_valid():
+			(existing as Tween).kill()
+		bust.set_meta("bob_tw", null)
+	if bust.has_meta("bob_y"):
+		bust.position.y = bust.get_meta("bob_y")   # settle to rest
 
 
 # AB1: a FRAMELESS giver — the chest-up cutout IS the UI element (no panel, no
