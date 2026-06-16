@@ -45,6 +45,30 @@ func _initialize() -> void:
 				ful[String(sp.id)] = true
 			gs["unlocks"] = ful
 			Save.grove_write()
+		"vault2x":
+			# T45: the hub with the piggy-VAULT button (pip lit) + a 2×-collect DOUBLER offer.
+			# Restore every hub yield building to L1, back-date the collect clock so the open
+			# sweeps a real yield (→ the offer fires), and fill the jar past claimable (→ the pip).
+			var gv := Save.grove()
+			var fv := {}
+			for sp in G.MAPS[G.hub_map()].spots:
+				fv[String(sp.id)] = true
+				Save.set_spot_level(String(sp.id), 1)
+			gv["unlocks"] = fv
+			gv["stars_earned"] = 20
+			Save.grove_write()
+			Save.set_hub_collected_at(0.0)                # long-ago → the open collects a real N (→ the 2× offer)
+			Save.mark_spotlight_seen("shop")             # don't let the FTUE shop spotlight dim this composite
+			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
+		"login":
+			# T45: the daily-login calendar AUTO-POPUP on a fresh day. One hub spot owned (past the
+			# cold FTUE) + the shop spotlight pre-seen (so it doesn't claim the overlay slot) + today
+			# unclaimed (the default) → the _ready-driven popup fires.
+			var gl := Save.grove()
+			gl["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
+			gl["stars_earned"] = 6
+			Save.grove_write()
+			Save.mark_spotlight_seen("shop")
 		"calmbreeze":
 			Save.set_setting("calm", true)
 			var gc := Save.grove()
@@ -82,6 +106,13 @@ func _initialize() -> void:
 	if mode == "select":
 		scn._open_select()                # the discrete map-select screen
 		await create_timer(0.4).timeout
+	elif mode == "vault2x":
+		# _ready already opened the frontier (the HUB while its gate is pending) and auto-collected,
+		# arming the deferred 2× offer — just let the collect-FX + the offer card finish building.
+		# (Re-opening the hub here would reset the clock to a 0-yield collect and drop the offer.)
+		await create_timer(0.5).timeout
+	elif mode == "login":
+		await create_timer(0.6).timeout   # the calendar popup is deferred two frames from _ready
 	elif mode == "closeup" or mode == "progress" or mode == "owned":
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
