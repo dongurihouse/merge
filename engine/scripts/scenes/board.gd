@@ -292,6 +292,11 @@ func _ready() -> void:
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
 			tr("It rained while you were away ☔"), CREAM, 38)
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
+	# §8: the map armed a gate-unveil pointer on completion — point the player (wordlessly) at
+	# the gate quest now waiting on the fence. Consume the pointer (fires once); the fence is
+	# already built above, so the lone gate stand exists to pulse.
+	if _take_gate_cue_zone() >= 0:
+		_play_gate_cue()
 
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
 
@@ -438,6 +443,32 @@ func _meter_target() -> int:
 func _gate_pending() -> bool:
 	var z := _quest_zone()
 	return G.zone_done(z, Save.grove().get("unlocks", {})) and not _gates().has(z)
+
+# §8 wordless map→board pointer. The map arms Save's gate_pointer on completion (the silent
+# handoff); the board consumes it on open. Take the pending pointer (clears it so it fires
+# exactly once) and decide whether a cue is due: only when it points at the CURRENT frontier
+# map AND that gate is genuinely pending (the lone gate stand is on the fence to point at).
+# Returns the zone to cue, or -1 (nothing armed, or stale — consumed silently either way).
+func _take_gate_cue_zone() -> int:
+	var z := Save.take_gate_pointer()
+	if z >= 0 and z == _quest_zone() and _gate_pending():
+		return z
+	return -1
+
+# Play the wordless cue toward the just-unveiled gate quest: a sparkle burst over the lone
+# gate stand plus a pop on its chip — no text the player must read (§13 no-required-reading).
+# The gate stand is the sole fence stand when the gate is pending, so it is giver_chips[0].
+func _play_gate_cue() -> void:
+	if giver_chips.is_empty():
+		return
+	var chip: Control = giver_chips[0].get("chip")
+	if chip == null or not is_instance_valid(chip):
+		return
+	FX.pop(chip)
+	FX.breathe_once(chip)
+	if Features.on("celebrate_bursts"):
+		FX.burst(self, chip.get_global_rect().get_center(), STRAW)   # FX.burst's own default count
+	Audio.play("level_complete", -6.0, 1.2)
 
 # Top up / trim the live fence to the metered count with freshly generated quests (§7); once the
 # map is fully restored, the fence becomes the lone authored GATE quest. Deterministic via the rng.

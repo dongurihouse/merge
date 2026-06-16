@@ -293,6 +293,32 @@ static func set_hub_collected_at(t: float) -> void:
 	grove()["hub_collected_at"] = t
 	grove_write()
 
+# --- the gate-unveil pointer (Core §8 — the wordless map→board handoff) ----------
+# Completing a map's spots unveils its great-spirit GATE quest, which now waits on the
+# BOARD as the lone fence stand (§7). That handoff is silent across screens, so the map
+# ARMS this pointer (the just-completed zone index) on completion; the board CONSUMES it
+# on its next open — playing a wordless cue toward the gate stand — and clears it. -1 =
+# nothing pending. Persisted in the grove blob so it survives the map→board scene change.
+static func gate_pointer() -> int:
+	return int(grove().get("gate_pointer", -1))
+
+static func set_gate_pointer(zone: int) -> void:
+	grove()["gate_pointer"] = zone
+	grove_write()
+
+static func clear_gate_pointer() -> void:
+	if grove().has("gate_pointer"):
+		grove().erase("gate_pointer")
+		grove_write()
+
+# Consume the pointer: return the pending zone (or -1) and clear it in the same step, so
+# the board's wordless cue fires exactly once per unveil.
+static func take_gate_pointer() -> int:
+	var z := gate_pointer()
+	if z >= 0:
+		clear_gate_pointer()
+	return z
+
 # --- settings -----------------------------------------------------------------
 
 static func get_setting(key: String, def: bool = true) -> bool:
