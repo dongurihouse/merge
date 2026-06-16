@@ -1011,12 +1011,24 @@ func _make_merchant_stand() -> Control:
 	_giver_bob(bust)
 	var pill := _ask_pill()                  # the trade rides the same pill (W3 brightens it)
 	pill.offset_top = 130.0
+	# T39 sell pill: the pill advertises the TOP-tier reward -- t8 sells for a flat 1 premium (the
+	# pinnacle), NOT a stale flat coin count. Per the chrome rule the number is pure ASCII ("+1")
+	# and the currency is a Look.icon sprite (gem), never an emoji baked into the text. The figure
+	# tracks sell_reward so the invariant (t8 -> 1 premium) can never drift from what the merchant pays.
+	var top_rw := G.sell_reward(100 + G.TOP_TIER)   # the premium pinnacle -> Vector2i(0, 1)
+	var prow := HBoxContainer.new()
+	prow.add_theme_constant_override("separation", 4)
+	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
-	lbl.text = tr("top \u25b6 +%d") % G.MERCHANT_COINS
+	lbl.text = tr("top \u25b6 +%d") % (top_rw.y if top_rw.y > 0 else top_rw.x)
 	lbl.add_theme_font_size_override("font_size", 24)
 	lbl.add_theme_color_override("font_color", Color("#6E4B2F"))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(lbl)
+	prow.add_child(lbl)
+	var pill_icon := Look.icon("gem" if top_rw.y > 0 else "coin", 24.0)
+	pill_icon.set_meta("icon_id", "gem" if top_rw.y > 0 else "coin")
+	prow.add_child(pill_icon)
+	pill.add_child(prow)
 	stand.add_child(pill)
 	# W3: a live "+N🪙" sell tag at the shoulder, shown only WHILE an item is dragged
 	# (the dragged item's own sell_value) — the AB3 reward-chip convention.
@@ -1087,7 +1099,8 @@ func _make_merchant_stand() -> Control:
 		treat.position = Vector2(-22.0, 8.0)        # the merchant's shoulder-left
 		_stand_tap(treat, _buy_treat)
 		stand.add_child(treat)
-	_stand_tap(stand, _on_merchant_tap)
+	# T39 §9: NO tap-sell — dragging an item onto the stall is the ONLY sell verb. (The basket
+	# buy-back chips and the treat keep their own taps; the stall itself is drag-only.)
 	return stand
 
 # Z3: spend 10🪙 → a random wandering spirit scurries over, nibbles, hops + glows.
@@ -1991,26 +2004,9 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: selling freed a cell → un-dim if the board was full
 
-func _on_merchant_tap() -> void:
-	var tops := board.top_tier_cells()
-	if tops.is_empty():
-		FX.wobble(merchant_chip)
-		Audio.play("invalid_soft", -6.0)
-		return
-	var cell: Vector2i = tops[0]
-	var code := board.item_at(cell)
-	board.take(cell)
-	var n: Control = piece_nodes.get(cell)
-	piece_nodes.erase(cell)
-	_grant_sale(code, n)
-	Audio.play("tidy_poof", -1.0)
-	_persist()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: the merchant took a top-tier item → un-dim if the board was full
-	_update_hud()
-
-# Y1/Y2: pay the sale (t8 → 1💎, else 1-7🪙), fly the piece into the basket, float
-# the right currency, and RECORD the sale so it can be bought back until the porter comes.
+# Y1/Y2: pay the sale (t8 → a flat 1💎; t1–t7 → tier coins × the item's per-map band, §6),
+# fly the piece into the basket, float the right currency, and RECORD the sale so it can be
+# bought back for the EXACT grant until the porter comes.
 func _grant_sale(code: int, node: Control) -> void:
 	var reward := G.sell_reward(code)        # Vector2i(coins, diamonds)
 	if reward.x > 0:

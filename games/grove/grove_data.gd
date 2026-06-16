@@ -156,7 +156,14 @@ const VARIANT_NAMES_GEM := ["Gilded", "Moonlit", "Blossom", "Starlit", "Amber"]
 const VARIANT_TINTS_COIN := [Color("#C96F4A"), Color("#EDE3D2"), Color("#7FA65A"), Color("#E3B23C"), Color("#9CB8C9")]
 const VARIANT_TINTS_GEM := [Color("#E8C84A"), Color("#BFD9F2"), Color("#E8A8C0"), Color("#D9C9F2"), Color("#E8B06A")]
 
-const MERCHANT_COINS := 25                # per top-tier item taken
+# §6/§9 per-map SELL COIN band — later maps' items sell for MORE coins (each map a real
+# economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A
+# t1–t7 item sells for round(tier_coins × band[map]); t8 stays the FLAT 1💎 pinnacle on every
+# map (the 32× anti-arbitrage proof, §9 — only the t1–t7 COIN reward scales, never t8→premium).
+# Monotonic by construction. Map 1 == 1.0 keeps the FTUE-era sell proofs exact. OWNER/SIM FEEL
+# DIAL — re-tune across the arc (grove_spec §5); the engine reads it via G.SELL_MAP_BAND in
+# content.sell_reward(). One entry per MAPS row.
+const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Farmhouse · Barn · Pond · Orchard · Meadow
 
 # Diamonds (earned-only).
 const LEVEL_DIAMONDS := 3                 # per level-up
