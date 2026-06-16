@@ -331,3 +331,49 @@ const SHOP_COSMETICS := [
 # drawn deterministically from SHOP_ITEM_OFFERS + SHOP_COSMETICS by a day/refresh seed so
 # the spread feels fresh without ever overwhelming. Pool = 5 items + 4 looks = 9.
 const SHOP_ROTATION_COUNT := 3
+
+# ─────────────────────────────────────────────────────────────────────────────
+# §10/§18 RETURN SURFACES — the piggy bank (accrual vault) + the daily login calendar
+# (T44). The ENGINE logic (skim/crack · ladder/claim) lives in engine/scripts/core/
+# vault.gd + login.gd; these are the OWNER-TUNABLE numbers. Both reward the daily open
+# and obey the §4/§10 faucet law: rewards NEVER make energy self-sustaining (water stays
+# a modest top-up; the premium that fills the jar is a SKIM of premium already earned).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The piggy bank (§10): a RATIONAL skim of earned premium (level-up 3💎 · map-restore
+# 10💎 · t8-sell 1💎) banks into the jar; cracking pays one FIXED real-money price. The
+# fill grows with play, the price is fixed → the longer you play, the better the deal.
+# DESIGN: 25% skim (1/4) — the jar fills visibly over a session while the player still
+# pockets 75% directly, so the vault AMPLIFIES (releases premium sooner) rather than
+# withholds (§10 "released sooner and amplified", the friendliest first purchase). The
+# carried remainder (vault.gd) means even the 1💎 t8 sells accrue (4 sells → +1 banked).
+const VAULT_SKIM_NUM := 1                 # skim numerator …
+const VAULT_SKIM_DEN := 4                 # … / denominator = 25% of earned premium banked
+const VAULT_CLAIM_MIN := 30               # min banked 💎 before the jar may be cracked (an empty pig isn't sold)
+const VAULT_PRICE_USD := "$2.99"          # the ONE fixed crack price (mirrors the shop's entry cash tier; real IAP is external)
+const VAULT_CAP := 500                    # a generous ceiling so the jar art has a "full" state; the bank never exceeds it
+
+# The daily login calendar (§18): a repeating WEEK ladder (7 entries, days 1..7 in a
+# week) of small rewards, escalating in value, with bigger MILESTONES at absolute streak
+# day 7 / 30 that OVERRIDE the week slot. A reward is any of {coins, water, gems,
+# cosmetic}. Faucet discipline: mostly COINS (the friendly soft currency); WATER stays a
+# modest top-up on a couple of days (≤ LOGIN_WATER_SAFE_MAX, far under a day's ~720 natural
+# regen — the calendar tops up, it never refills); PREMIUM (💎) lands as the weekly capstone
+# and the milestones lean premium/cosmetic. The streak is FORGIVING (Save.daily soft-decays
+# a missed day one step, never to day 1). OWNER-TUNABLE — re-tune copy/cadence here.
+const LOGIN_LADDER := [
+	{"coins": 50},                        # day 1 — a friendly welcome
+	{"water": 8},                         # day 2 — a modest splash
+	{"coins": 100},                       # day 3
+	{"water": 12},                        # day 4 — the largest single-day water gift (≤ safe max)
+	{"coins": 150},                       # day 5
+	{"gems": 1, "coins": 60},             # day 6 — a first taste of premium (the build toward the cap)
+	{"coins": 200, "gems": 1},            # day 7 slot for NON-milestone weeks (14/21/28 — day-7 absolute is the milestone below)
+]
+# Milestones keyed by ABSOLUTE streak day — a bigger, premium/cosmetic payout that
+# overrides the week slot when the streak lands here (§18 "bigger milestones, day 7/30").
+const LOGIN_MILESTONES := {
+	7:  {"gems": 3, "coins": 150},                          # the first-week cap — a real premium beat
+	30: {"gems": 15, "coins": 300, "cosmetic": "look_twilight"},  # the month cap — leans premium + a cosmetic unlock
+}
+const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)

@@ -19,6 +19,7 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
+const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Layout = preload("res://engine/scripts/core/layout.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
@@ -826,6 +827,7 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	_update_hud()
 	if map_spots_done(z):
 		Save.add_diamonds(G.MAP_DIAMONDS)
+		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
 		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
 		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
 			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
