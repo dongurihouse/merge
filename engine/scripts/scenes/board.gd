@@ -1768,9 +1768,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		return
 	# Burst-pop (§6): one tap throws a BURST, not just one item. Its size scales with the map (a
 	# free per-map step-up) and the player's paid burst-upgrade; bound it by what's affordable
-	# (energy) and what fits (open cells). Each popped item still costs G.POP_COST. FTUE: the
-	# first intro pops are on the house — the verb before the meter.
-	var burst := G.burst_count(_quest_zone(), _gen_burst_level(), rng)
+	# (energy) and what fits (open cells). Each popped item still costs G.POP_COST.
+	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
+	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
+	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
+	var burst := 1 if not charged else G.burst_count(_quest_zone(), _gen_burst_level(), rng)
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
