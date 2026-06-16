@@ -194,6 +194,46 @@ by smoke, not the pixel-diff — they are trivial verbatim lines.
 the stateful surgery, confirm the component seam (coordinator owns state +
 transactions; components are views emitting intents) still fits the code as it reads.
 
+### Reassess outcome (2026-06-15, worktree off `91d15c3`)
+
+Done — the seam holds against the code as it reads today. Three findings:
+
+1. **board.gd is now 2471 lines, not 2225.** Since Wave 2, T43 (`dac167a`, out-of-water
+   monetization) added ~155 lines to the **water/HUD** area — `_first_visible_refill`,
+   `_on_ad_refill`, `_on_oow_offer`, `_grant_oow_offer`, `_open_oow_confirm` (rewarded-ad
+   refill + IAP offer + confirm dialog). This is **coordinator residue** (or a future
+   `ui/` offer-card builder), NOT one of the five components — the five are structurally
+   unchanged. T39 (drag-only selling) and T41 (6→18 bag model) also landed and are
+   reflected in the merchant/bag counts below.
+
+2. **Coupling map drives the order** (measured attach points + interaction modes):
+   - **fence** (`giver_bar`→`root`): tap-driven (`_on_giver_tap`), reads the board only
+     for payability lights, **no drag**. Fully decoupled from the drag system.
+   - **merchant** (stand): selling is **drag-only** (T39) — the *grid* detects the drag
+     onto the stall (`_on_release`→`_sell_item`, `_show_sell_affordance`). View coupled to
+     grid drag events.
+   - **bag** (`bag_bar`→`root`): owns its **own** drag system (`_input`/`_on_bag_slot_input`/
+     `_end_bag_drag`) dropping onto board cells — crosses into grid coords.
+   - **burst** (`burst_chip`→`board_area`): **grid-internal** — positioned via `_cell_pos`/
+     `csz`; `_gen_burst_level()` is also read by the grid's `_pop_seed`. Not a standalone peer.
+   - **grid**: the core — originates every drag, hosts burst.
+
+3. **Revised order: fence → merchant → bag → grid (+ burst folded in).** (The original
+   plan's implicit "small-first = burst" is wrong — burst is grid-internal.) Fence first
+   because it is the *only* component fully decoupled from the drag system, so it carries
+   zero entanglement with the thorniest cross-cut. Grid last because it owns the drag
+   gesture that bag/merchant drops resolve against; `burst_chip` rides with grid.
+
+**Fence in two slices** (cleanest boundary, but ~580 lines):
+- **Slice 1 — giver-stand builder** → `ui/giver_stand.gd`: lift the construction
+  (`_make_giver_stand`/`_ask_pill`/`_featured_ribbon`/`_ready_check`/`_dock_check`) to a
+  Wave-2-style stateless builder taking injected `Callable`s for the ask-tap (`_open_ladder`)
+  and stand-tap (`_on_giver_tap`). Low-risk; gate = giver-stand visual composite + full suite.
+- **Slice 2 — fence controller** → `ui/fence.gd` (Control): owns `giver_bar`, bob, lights,
+  `_active_quest_idx`/`_rebuild_givers`/`_refresh_giver_lights`; emits `deliver(qi)`. The
+  coordinator keeps the delivery transactions (`_deliver_grant`/`_deliver_gate`), quest
+  state, refill, gate-cue, and `_after_board_change()`.
+
 ## Wave 3 — stateful component Controls to `ui/` (the isolation payoff)
 
 Each cluster becomes an `extends Control` component (the `spotlight_overlay`
@@ -201,10 +241,11 @@ precedent) owning its own subtree, node dicts, input, and `render`/`refresh`
 methods. It emits intents upward; the coordinator owns state + transactions and
 calls `_after_board_change()` to fan refreshes back out.
 
-**Current inventory (measured 2026-06-15 — board.gd = 2316 lines, 112 funcs, 54 vars).**
-After Waves 1–2 the view *construction* is gone; what remains is the coordinator spine
-plus the stateful subsystems below. The five subsystems are ~70% of the file and are
-what Wave 3 extracts; the rest is genuine coordinator residue that stays.
+**Current inventory (measured 2026-06-15 in worktree off `91d15c3` — board.gd = 2471
+lines, 117 funcs, 54 vars).** After Waves 1–2 the view *construction* is gone; what
+remains is the coordinator spine plus the stateful subsystems below. The five subsystems
+are ~65% of the file and are what Wave 3 extracts; the rest is coordinator residue that
+stays (and grew by the T43 OOW cluster — see Reassess outcome).
 
 | Cluster → component | ~lines today | Key functions today |
 |---|---|---|

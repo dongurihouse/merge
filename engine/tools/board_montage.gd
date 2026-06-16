@@ -82,6 +82,16 @@ func _initialize() -> void:
 	mat.position = Vector2(560, 520)
 	page.add_child(mat)
 
+	# row 6: giver stands via _make_giver_stand (fence slice-1 builder; a normal + a featured stand)
+	var q_norm := {"asks": [{"line": 1, "tier": 2, "count": 1}], "reward": {"stars": 2, "coins": 0}}
+	var q_feat := {"asks": [{"line": 2, "tier": 1, "count": 1}, {"line": 3, "tier": 2, "count": 2}], "reward": {"stars": 1, "coins": 0, "gems": 1}, "featured": true}
+	var st0: Dictionary = b._make_giver_stand(0, q_norm)
+	st0.chip.position = Vector2(8, 558)
+	page.add_child(st0.chip)
+	var st1: Dictionary = b._make_giver_stand(1, q_feat)
+	st1.chip.position = Vector2(348, 558)
+	page.add_child(st1.chip)
+
 	await create_timer(0.4).timeout
 	RenderingServer.force_draw()
 	await create_timer(0.1).timeout
