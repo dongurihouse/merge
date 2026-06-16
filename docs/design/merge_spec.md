@@ -384,20 +384,20 @@ Flags group as **`assist` · `juice` · `ambient` · `feature` · `ftue`**. A ha
 
 ## 12 · Juice Vocabulary
 
-Motion is a **single shared vocabulary, not improvisation** — the same verbs everywhere, and that sameness *is* the visual cohesion. Implemented once in `FX` / `Look` and called by name:
+Motion is a **single shared vocabulary, not improvisation** — the same verbs everywhere, and that sameness *is* the visual cohesion. The verbs live across three kits and are called by name: **most in `FX`** (`fx.gd`), the press feedback in **`Look`** (`add_press_juice`, `skin.gd`), and the ambient tap reaction in **`Ambient`** (`hop`, `ambient.gd`); the wandering bob is **not a standalone verb** — it is inlined in the ambient wander path. Verb column = the actual call site:
 
-| Verb | Motion |
+| Verb (call site) | Motion |
 |---|---|
-| `press` | scale 0.96 in / 1.03 overshoot out (0.09 s) |
-| `pop_in` | scale 0.92→1 + fade (0.12 s) — overlays |
-| `scatter_in` | per-item 0.3→1, stagger 0.04 s — groups |
-| `fly_to_wallet` | icon arcs to the HUD chip, which ticks |
-| `tick` | wallet number counts ~0.4 s + chip pulse |
-| `wiggle` | ±6° ×3 — idle hint and refusals |
-| `breathe` | scale 1↔1.04 loop — the ONE suggested action |
-| `hop` | quick squash-stretch — tapped ambient life |
-| `ambient_bob` | slow 1–3 px float + ±2° tilt — wandering ambient life |
-| `floater` | outlined text drift-up + fade |
+| `Look.add_press_juice` | scale 0.96 in / 1.03 overshoot out (0.09 s) — button press |
+| `FX.pop_in` | scale 0.92→1 + fade (0.12 s) — overlays |
+| `FX.scatter_in` | per-item 0.3→1, stagger 0.04 s — groups |
+| `FX.fly_to_wallet` | icon arcs to the HUD chip, which ticks |
+| `FX.tick` | wallet number counts ~0.4 s + chip pulse |
+| `FX.wobble` | ±6° ×3 — idle hint and refusals *(`FX.rock` is the gentler, slower related sway)* |
+| `FX.breathe` / `FX.breathe_once` | scale 1↔1.04 loop — the ONE suggested action |
+| `Ambient.hop` | quick squash-stretch — tapped ambient life |
+| *(ambient bob — inlined)* | slow vertical bob, part of the ambient wander path (`_character_pos`, `ambient.gd`); no standalone callable |
+| `FX.floating_text` | outlined text drift-up + fade |
 
 Intended feel: **"floaty, breezy, settling"** — pieces drift and overshoot rather than snap; ambient life keeps the scene gently in motion when idle. **Alive systems:** ambient figures wander each scene (count = 1 + restored maps, cap 5; tap → hop); a porter drifts in for the basket; weather runs hourly; bursts/floaters fire on merges/buys/restores. *(All of it is **composited sprites/particles** over the scene, never a dense single render — §16.)* **Calm mode** (Settings) halves particles and disables `breathe` — quiets the screen without losing function.
 
