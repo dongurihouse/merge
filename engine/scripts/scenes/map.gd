@@ -463,11 +463,10 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 			ps.bg_color = Color(INK, 0.85)
 			ps.set_border_width_all(2)
 			ps.border_color = STRAW
-			if kit_icons:
-				prow.add_child(Look.icon("star", 26.0))
-				ptxt.text = str(int(spot.cost))
-			else:
-				ptxt.text = tr("✿ %d★") % int(spot.cost)
+			# §13: the star price is ALWAYS a Look.icon sprite + a number-only label
+			# (Look.icon ships the ★ glyph as its own fallback) — no emoji baked in.
+			prow.add_child(Look.icon("star", 26.0))
+			ptxt.text = str(int(spot.cost))
 			ptxt.add_theme_color_override("font_color", CREAM)
 		prow.add_child(ptxt)
 		pin.add_theme_stylebox_override("panel", ps)
@@ -516,17 +515,23 @@ func _add_variant_strip(item: Control, z: int, k: int) -> void:
 		sw.custom_minimum_size = Vector2(22, 22)
 		sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(sw)
+		# §13: currency variants show a Look.icon SPRITE (coin/gem) + a number-only
+		# label — never an emoji baked into the price text. The owned variant shows a
+		# check sprite; the free "Classic" stays plain text.
 		var price := Label.new()
 		if String(v.id) == current:
-			price.text = "✓"
+			row.add_child(Look.icon("check", 20.0))
 		elif String(v.currency) == "coins":
-			price.text = "%d🪙" % int(v.cost)
+			row.add_child(Look.icon("coin", 20.0))
+			price.text = "%d" % int(v.cost)
 		elif String(v.currency) == "diamonds":
-			price.text = "%d💎" % int(v.cost)
+			row.add_child(Look.icon("gem", 20.0))
+			price.text = "%d" % int(v.cost)
 		else:
 			price.text = tr("Classic")
 		price.add_theme_font_size_override("font_size", 19)
 		price.add_theme_color_override("font_color", CREAM)
+		price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(price)
 		chip.position = Vector2(2.0 + i * 60.0, 110.0)
@@ -813,8 +818,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if zone_complete(z):
 		Save.add_diamonds(G.ZONE_DIAMONDS)
 		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.ZONES[z].name), STRAW)
-		FX.floating_text(self, get_global_rect().get_center() + Vector2(-60, 70),
-			tr("+%d💎") % G.ZONE_DIAMONDS, Color("#BFE6F2"), 38)
+		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
+			"gem", G.ZONE_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
 		# §8: this restore completed the map's spots, so its great-spirit GATE quest is now
 		# the lone fence stand WAITING ON THE BOARD — a silent cross-screen handoff. Arm the

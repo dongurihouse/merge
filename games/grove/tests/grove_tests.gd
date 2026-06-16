@@ -1388,8 +1388,13 @@ func _initialize() -> void:
 	ws._show_sell_affordance(top_code)
 	ok(ws.merchant_sell_tag.visible and ws.merchant_chip.modulate.a >= 0.99, \
 		"W3: dragging brightens the stall + shows the sell tag")
-	ok(String(ws.merchant_sell_tag_label.text) == "+1💎", \
-		"W3/Y1: the tag shows the t8 reward as a diamond (+1💎)")
+	# §13 (T32): the t8 reward reads as "+1" (pure ASCII, no emoji) beside a gem ICON
+	# sprite — the currency is the swapped Look.icon, never a glyph baked into the text.
+	ok(String(ws.merchant_sell_tag_label.text) == "+1", \
+		"W3/Y1: the t8 sell tag number is pure-ASCII +1 (no emoji)")
+	ok(ws.merchant_sell_tag_icon != null and ws.merchant_sell_tag_icon.has_meta("icon_id") \
+		and String(ws.merchant_sell_tag_icon.get_meta("icon_id")) == "gem", \
+		"W3/Y1: the t8 sell tag's currency sprite is swapped to the gem icon")
 	ws._hide_sell_affordance()
 	ok(not ws.merchant_sell_tag.visible, "W3: releasing the drag hides the sell tag")
 	# X3: the giver pill renders one [item icon + n/m] pair PER ASK (1-3), no second card

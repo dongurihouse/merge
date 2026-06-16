@@ -75,8 +75,9 @@ var burst_chip_label: Label
 var giver_bar: Control           # the quest fence (givers pop up over it)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
-var merchant_sell_tag: Control       # W3: live "+N🪙" tag at the merchant's shoulder (drag only)
+var merchant_sell_tag: Control       # W3: live "+N coin/gem" tag at the merchant's shoulder (drag only)
 var merchant_sell_tag_label: Label
+var merchant_sell_tag_icon: Control  # the tag's currency sprite — swapped coin↔gem per the dragged item's reward (§13)
 # Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
 # for an exact buy-back. NOT persisted (the porter clears it within ~3 min anyway).
 var basket: Array = []               # [{code, coins, diamonds}]
@@ -630,7 +631,7 @@ func _on_refill() -> void:
 	water = G.WATER_CAP
 	_regen_ts = Time.get_unix_time_from_system()
 	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
-	FX.celebrate_at(self, refill_btn.get_global_rect().get_center(), tr("+%d💧") % G.WATER_CAP, Color("#9CCDE8"))
+	FX.celebrate_reward(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
 	refill_btn.visible = false
 	_persist()
 	_update_water_hud()
@@ -1043,6 +1044,8 @@ func _make_merchant_stand() -> Control:
 	var tag := Look.stat_chip("coin", "")
 	merchant_sell_tag = tag.node
 	merchant_sell_tag_label = tag.label
+	merchant_sell_tag_icon = tag.icon
+	merchant_sell_tag_icon.set_meta("icon_id", "coin")   # the chip is built with the coin icon — track it for swaps
 	(merchant_sell_tag_label as Label).add_theme_font_size_override("font_size", 22)
 	merchant_sell_tag.position = Vector2(STAND_W / 2.0 + 30.0, 6.0)
 	merchant_sell_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1140,14 +1143,38 @@ func _show_sell_affordance(code: int) -> void:
 	merchant_chip.modulate = Color(1, 1, 1, 1.0)
 	if merchant_sell_tag != null and is_instance_valid(merchant_sell_tag):
 		if merchant_sell_tag_label != null and is_instance_valid(merchant_sell_tag_label):
-			var rw := G.sell_reward(code)          # Y1: a t8 shows "+1💎", else "+N🪙"
-			merchant_sell_tag_label.text = ("+%d💎" % rw.y) if rw.y > 0 else ("+%d" % rw.x)
+			var rw := G.sell_reward(code)          # Y1: a t8 sells for 1 gem, else N coins
+			# §13: the number is pure ASCII ("+N") and the currency rides as a Look.icon
+			# sprite (swapped coin↔gem) — never an emoji baked into the label text.
+			var icon_id := "gem" if rw.y > 0 else "coin"
+			var amount := rw.y if rw.y > 0 else rw.x
+			merchant_sell_tag_label.text = "+%d" % amount
+			_swap_tag_icon(icon_id)
 		merchant_sell_tag.visible = true
 
 func _hide_sell_affordance() -> void:
 	if merchant_sell_tag != null and is_instance_valid(merchant_sell_tag):
 		merchant_sell_tag.visible = false
 	_refresh_giver_lights()   # restores the merchant's has-top modulate
+
+# §13: swap the shoulder tag's currency sprite (coin↔gem) in place. The icon is the
+# first child of the stat_chip row; we replace the node so it stays a Look.icon sprite
+# (art-swappable) rather than re-coloring a baked emoji glyph.
+func _swap_tag_icon(icon_id: String) -> void:
+	if merchant_sell_tag_icon == null or not is_instance_valid(merchant_sell_tag_icon):
+		return
+	if merchant_sell_tag_icon.has_meta("icon_id") and String(merchant_sell_tag_icon.get_meta("icon_id")) == icon_id:
+		return                                   # already showing this currency — nothing to do
+	var row := merchant_sell_tag_icon.get_parent()
+	if row == null:
+		return
+	var slot := merchant_sell_tag_icon.get_index()
+	merchant_sell_tag_icon.queue_free()
+	var fresh := Look.icon(icon_id, Look.Tune.ICON_PX)
+	fresh.set_meta("icon_id", icon_id)
+	row.add_child(fresh)
+	row.move_child(fresh, slot)
+	merchant_sell_tag_icon = fresh
 
 # W3: the first time a MAX-TIER item lands on the board, a one-time floater points
 # the player at the stall (persisted seen-flag — never nags twice).
@@ -2065,14 +2092,23 @@ func _rebuild_bag() -> void:
 		for c in s.get_children():
 			c.queue_free()
 		if i == BAG_SLOTS and not bool(Save.grove().get("bag3", false)):
-			var lock := Label.new()                  # the buyable third slot
-			lock.text = tr("+ %d💎") % G.BAG3_DIAMOND_COST
+			# §13: the buyable third slot's price — gem SPRITE + a number-only "+N" label
+			# (centered), never an emoji baked into the text.
+			var lock := HBoxContainer.new()
 			lock.set_anchors_preset(Control.PRESET_FULL_RECT)
-			lock.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			lock.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			lock.add_theme_font_size_override("font_size", 22)
-			lock.add_theme_color_override("font_color", Color(CREAM, 0.55))
+			lock.alignment = BoxContainer.ALIGNMENT_CENTER
+			lock.add_theme_constant_override("separation", 2)
 			lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var lock_ic := Look.icon("gem", 22.0)
+			lock_ic.modulate = Color(CREAM, 0.55)
+			lock.add_child(lock_ic)
+			var lock_lbl := Label.new()
+			lock_lbl.text = "+%d" % G.BAG3_DIAMOND_COST
+			lock_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			lock_lbl.add_theme_font_size_override("font_size", 22)
+			lock_lbl.add_theme_color_override("font_color", Color(CREAM, 0.55))
+			lock_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			lock.add_child(lock_lbl)
 			s.add_child(lock)
 			continue
 		if i < bag.size():
@@ -2123,19 +2159,19 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	var levels_up := G.earn_stars(sp_stars)
 	if sp_coins > 0:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % sp_stars, STRAW)
+	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
 	if sp_coins > 0:
-		FX.floating_text(self, chip.get_global_rect().get_center() + Vector2(20, 36), tr("+%d🪙") % sp_coins, STRAW, 26)
+		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
 		_update_water_hud()
 		var lv := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 		FX.celebrate_at(self, Vector2(get_global_rect().get_center().x, 240), tr("Level %d!") % lv, STRAW)
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 130, 320),
-			tr("+%d💧") % (G.LEVEL_WATER_GIFT * levels_up), Color("#9CCDE8"), 36)
-		FX.floating_text(self, Vector2(get_global_rect().get_center().x + 40, 320),
-			tr("+%d💎") % (G.LEVEL_DIAMONDS * levels_up), Color("#BFE6F2"), 36)
+		FX.floating_reward(self, Vector2(get_global_rect().get_center().x - 130, 320),
+			"water", G.LEVEL_WATER_GIFT * levels_up, Color("#9CCDE8"), 36)
+		FX.floating_reward(self, Vector2(get_global_rect().get_center().x + 40, 320),
+			"gem", G.LEVEL_DIAMONDS * levels_up, Color("#BFE6F2"), 36)
 		Audio.play("level_complete", -1.0)
 	_persist()
 	_rebuild_givers()
@@ -2154,7 +2190,7 @@ func _deliver_grant(qi: int, q: Dictionary, chip: Control) -> void:
 		return
 	quests.remove_at(qi)
 	var levels_up := G.earn_stars(_quest_stars(q))
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("+%d★") % _quest_stars(q), STRAW)
+	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", _quest_stars(q), STRAW)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync after the level-up gift
@@ -2191,7 +2227,9 @@ func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
 	var levels_up := G.earn_stars(_quest_stars(q))
 	if _quest_coins(q) > 0:
 		Save.add_coins(_quest_coins(q))
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("✿ %s restored! +%d★") % [tr(G.ZONES[z].name), _quest_stars(q)], STRAW)
+	# §13: the message stays text; the star reward rides an icon+number floater (no emoji).
+	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("%s restored!") % tr(G.ZONES[z].name), STRAW)
+	FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(0, 40), "star", _quest_stars(q), STRAW)
 	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -1.0)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))
@@ -2255,11 +2293,11 @@ func _grant_sale(code: int, node: Control) -> void:
 		t.tween_property(node, "scale", Vector2(0.35, 0.35), 0.25)
 		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
-		FX.floating_text(self, center - Vector2(30, 60), tr("+%d💎") % reward.y, Color("#A9C7E8"), 30)
+		FX.floating_reward(self, center - Vector2(30, 60), "gem", reward.y, Color("#A9C7E8"), 30)
 		if Features.on("fly_to_wallet") and stars_label != null:
 			FX.fly_to_wallet(self, center, Look.icon("gem", 30.0), diamonds_label)
 	else:
-		FX.floating_text(self, center - Vector2(30, 60), "+%d" % reward.x, STRAW, 30)
+		FX.floating_reward(self, center - Vector2(30, 60), "coin", reward.x, STRAW, 30)
 	_record_sale(code, reward)
 
 # Y2: hold the sale for buy-back; a 4th sale overflows → the porter comes at once.
