@@ -1,6 +1,6 @@
 # Board decomposition — breaking up `scenes/board.gd`
 
-Status: in progress — **Wave 1 shipped 2026-06-15**. Implements within the layering
+Status: in progress — **Waves 1–2 shipped 2026-06-15**; Wave 3 pending reassess. Implements within the layering
 invariant (`merge_spec.md` §15). Companion to the engine layering split already shipped
 for `core/` / `ui/` / `scenes/`.
 
@@ -167,9 +167,26 @@ taking explicit params (no hidden instance reads).
 the project's no-eyeball rule) proving pieces / brambles / generators / busts
 render pixel-identical before vs after.
 
-**REASSESS HERE** before Wave 3. With Waves 1–2 done, `board.gd` is ~1900 lines
-and all construction lives in `ui/`. Confirm the component seam still fits the
-code as it actually reads before the stateful surgery.
+**SHIPPED 2026-06-15.** New `ui/bust.gd` (66 lines: `make`/`layer`) and
+`ui/piece_view.gd` (340 lines: `make_piece`, `make_board_mat`, `make_bramble`,
+`make_generator`, `bramble_mat`, `backing_tex`, `mini_item`, both shaders + caches).
+Instance state became explicit params (`csz`, board dims); `tr()` → static-safe
+`TranslationServer.translate()` (no translations loaded → identical output).
+Realization vs plan: board.gd KEEPS thin instance wrappers (e.g. `_make_piece(c,s)
+→ PieceView.make_piece(c,s)`) rather than rewiring ~20 call sites — `grove_tests`
+calls `_make_piece` externally, and the wrappers let one montage tool render the
+same API before/after. Only the ~300 lines of construction bodies moved. board.gd
+2581 → 2225. New gate tool `engine/tools/board_montage.gd` (deterministic widget
+montage via the real renderer). Verified: before/after montage **byte-identical**
+(sha e091780a), full engine suite green (layering 34→36, smoke OK, mechanics 50) +
+grove_tests 282, zero script errors. Note: the montage runs base art (grove `.ctex`
+imports absent in this checkout), so the real-sprite `load()` branches are covered
+by smoke, not the pixel-diff — they are trivial verbatim lines.
+
+**REASSESS HERE** before Wave 3. After Waves 1–2 `board.gd` is **2225 lines** (was
+2621), with quest composition in `core/` and all view construction in `ui/`. Before
+the stateful surgery, confirm the component seam (coordinator owns state +
+transactions; components are views emitting intents) still fits the code as it reads.
 
 ## Wave 3 — stateful component Controls to `ui/` (the isolation payoff)
 

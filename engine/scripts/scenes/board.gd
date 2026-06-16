@@ -16,6 +16,8 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const Bust = preload("res://engine/scripts/ui/bust.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -990,69 +992,13 @@ func _giver_bob_stop(bust: Control) -> void:
 # border). Pops over the fence rail. Art-missing fallback is a ROUND initial chip
 # (never a square).
 func _bust(which: int, px: float = 124.0) -> Control:
-	var face := Control.new()
-	face.custom_minimum_size = Vector2(px, px)
-	face.size = Vector2(px, px)
-	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := Game.art("map/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which]))
-	if ResourceLoader.exists(path):
-		var tex: Texture2D = load(path)
-		# owner 2026-06-13: the frameless cutout blended into the painted scene.
-		# A soft drop shadow + a cream rim (scaled silhouette copies behind) lift it
-		# off the background without a hard square frame.
-		var center := Vector2(px / 2.0, px / 2.0)
-		var shadow := _bust_layer(tex)
-		shadow.modulate = Color(0, 0, 0, 0.40)
-		shadow.pivot_offset = center
-		shadow.scale = Vector2(1.04, 1.04)
-		shadow.position = Vector2(0, 7)
-		face.add_child(shadow)
-		var rim := _bust_layer(tex)
-		rim.modulate = CREAM
-		rim.pivot_offset = center
-		rim.scale = Vector2(1.11, 1.11)
-		face.add_child(rim)
-		face.add_child(_bust_layer(tex))
-	else:
-		var chip := Panel.new()                 # round, not square
-		chip.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var cs := StyleBoxFlat.new()
-		cs.bg_color = [Color("#C96F4A"), Color("#8A5A3B"), Color("#7FA65A")][which % 3]
-		cs.set_corner_radius_all(int(px / 2.0))
-		cs.set_border_width_all(3)
-		cs.border_color = CREAM
-		chip.add_theme_stylebox_override("panel", cs)
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var init := Label.new()
-		init.text = ["F", "H", "S"][which % 3]
-		init.set_anchors_preset(Control.PRESET_FULL_RECT)
-		init.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		init.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		init.add_theme_font_size_override("font_size", int(px * 0.32))
-		init.add_theme_color_override("font_color", CREAM)
-		init.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip.add_child(init)
-		face.add_child(chip)
-	return face
+	return Bust.make(which, px)
 
-# one full-rect, aspect-centered copy of a bust texture (used for the bust itself
-# plus its drop-shadow and cream-rim layers).
 func _bust_layer(tex: Texture2D) -> TextureRect:
-	var t := TextureRect.new()
-	t.texture = tex
-	t.set_anchors_preset(Control.PRESET_FULL_RECT)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
+	return Bust.layer(tex)
 
 func _mini_item(code: int) -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(52, 52)
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var n := _make_piece(code, 52.0)
-	holder.add_child(n)
-	return holder
+	return PieceView.mini_item(code)
 
 # The merchant keeps the right end of the fence — same card anatomy.
 func _make_merchant_stand() -> Control:
@@ -1402,320 +1348,18 @@ func _rebuild_pieces() -> void:
 				board_area.add_child(n)
 				piece_nodes[cell] = n
 
-# S3/AC: the bramble art reads near-BLACK on the light tray — heavier than
-# anything else. A multiply-modulate can't lift black; this warm-lift shader adds
-# a deep MOSS-BROWN floor and rides the texture on top with a warm gain, so the
-# nests read as warm earth (not black) while keeping their detail. One shared mat.
-const BRAMBLE_WARM_SHADER := "
-shader_type canvas_item;
-void fragment() {
-	vec4 c = texture(TEXTURE, UV);
-	vec3 moss = vec3(0.40, 0.32, 0.18);
-	vec3 outc = min(moss + c.rgb * vec3(1.25, 1.10, 0.80), vec3(0.92));
-	COLOR = vec4(outc, c.a) * COLOR;
-}"
-static var _bramble_material: ShaderMaterial
-static func _bramble_mat() -> ShaderMaterial:
-	if _bramble_material == null:
-		var sh := Shader.new()
-		sh.code = BRAMBLE_WARM_SHADER
-		_bramble_material = ShaderMaterial.new()
-		_bramble_material.shader = sh
-	return _bramble_material
-
-# U1: a soft white radial ellipse (alpha fades to 0 at the rim); modulated to the
-# warm-earth backing colour at the call site. Cached — one texture for the board.
-static var _backing: Texture2D
-static func _backing_tex() -> Texture2D:
-	if _backing == null:
-		var w := 96
-		var h := 64
-		var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-		var cx := (w - 1) / 2.0
-		var cy := (h - 1) / 2.0
-		for y in h:
-			for x in w:
-				var nx := (float(x) - cx) / cx
-				var ny := (float(y) - cy) / cy
-				var a := clampf(1.0 - sqrt(nx * nx + ny * ny), 0.0, 1.0)
-				img.set_pixel(x, y, Color(1, 1, 1, a * a))   # squared = feathered rim
-		_backing = ImageTexture.create_from_image(img)
-	return _backing
-
 func _make_piece(code: int, size: float) -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(size, size)
-	holder.size = Vector2(size, size)
-	holder.pivot_offset = Vector2(size, size) / 2.0
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# AF3: a soft warm CONTACT SHADOW under the item (first child = bottom) — tight
-	# and LOW (it grounds the piece on the light mat), not the old centered dark
-	# ellipse that vanished on a light surface. Warm-grey, ~28% alpha, never eats input.
-	if Features.on("item_backing"):
-		var back := TextureRect.new()
-		back.texture = _backing_tex()
-		var bw := size * 0.62
-		var bh := size * 0.22
-		back.position = Vector2((size - bw) / 2.0, size * 0.70)   # low — a contact shadow
-		back.size = Vector2(bw, bh)
-		back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		back.stretch_mode = TextureRect.STRETCH_SCALE
-		back.modulate = Color("#3E342A", 0.30)                    # warm-grey, soft
-		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(back)
-	var path := G.item_tex_path(code)
-	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var inset := size * 0.06
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
-		return holder
-	# coins: a gold disc with its value (tap to pocket)
-	if G.is_coin(code):
-		var cdisc := Panel.new()
-		var cd := size * (0.5 + 0.1 * BoardModel.tier_of(code))
-		cdisc.size = Vector2(cd, cd)
-		cdisc.position = (Vector2(size, size) - cdisc.size) / 2.0
-		var csb := StyleBoxFlat.new()
-		csb.bg_color = STRAW
-		csb.set_corner_radius_all(int(cd / 2.0))
-		csb.set_border_width_all(3)
-		csb.border_color = Color("#C98A2B")
-		cdisc.add_theme_stylebox_override("panel", csb)
-		cdisc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(cdisc)
-		var clbl := Label.new()
-		clbl.text = str(G.coin_value(code))
-		clbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-		clbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		clbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		clbl.add_theme_font_size_override("font_size", int(size * 0.26))
-		clbl.add_theme_color_override("font_color", Color("#6B4A12"))
-		clbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(clbl)
-		return holder
-	# placeholder: line-colored disc that grows with tier + tier number
-	var tier := BoardModel.tier_of(code)
-	var line := BoardModel.line_of(code)
-	var disc := Panel.new()
-	var dsz := size * (0.5 + 0.06 * tier)
-	disc.size = Vector2(dsz, dsz)
-	disc.position = (Vector2(size, size) - disc.size) / 2.0
-	var sb := StyleBoxFlat.new()
-	var base: Color = G.LINES[line].color if G.LINES.has(line) else Pal.TEXT_MUTED
-	sb.bg_color = base.lerp(Color.WHITE, 0.06 * tier)
-	sb.set_corner_radius_all(int(dsz / 2.0))
-	sb.set_border_width_all(3)
-	sb.border_color = GROUND_EDGE
-	disc.add_theme_stylebox_override("panel", sb)
-	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(disc)
-	var lbl := Label.new()
-	lbl.text = str(tier)
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(size * 0.3))
-	lbl.add_theme_color_override("font_color", GROUND_EDGE)
-	lbl.add_theme_color_override("font_outline_color", CREAM)
-	lbl.add_theme_constant_override("outline_size", 6)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(lbl)
-	return holder
+	return PieceView.make_piece(code, size)
 
-# Rounded-corner mask in PIXELS (owner: rounded corners + pop are back; the
-# previous UV feather read as a flat square). Soft 8px melt at the rim only.
-const MAT_MASK_SHADER := "
-shader_type canvas_item;
-uniform vec2 rect_size = vec2(1080.0, 1400.0);
-uniform float radius_px = 28.0;
-uniform float feather_px = 8.0;
-void fragment() {
-	vec2 p = (UV - vec2(0.5)) * rect_size;
-	vec2 b = rect_size * 0.5 - vec2(radius_px);
-	vec2 q = abs(p) - b;
-	float d = length(max(q, vec2(0.0))) - radius_px;
-	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= 1.0 - smoothstep(-feather_px, 0.0, d);
-}"
-
-# The garden-bed mat: ONE object with screen juice — rounded under-panel with a
-# bordered, shadowed pop-out edge, a light rim catch, and the moss (cropped past
-# any baked border) masked to matching rounded corners on top.
 func _make_board_mat() -> Control:
-	var pad := 20.0
-	var mat := Control.new()
-	mat.position = Vector2(-pad, -pad)
-	mat.size = Vector2(_board_w() + pad * 2.0, _board_h() + pad * 2.0)
-	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# H retune: a THIN warm soil edge hugging the moss (was near-black green
-	# pooling into a dark crescent at every corner); cream rim deleted.
-	var under := Panel.new()
-	under.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var us := StyleBoxFlat.new()
-	us.bg_color = Color("#4A3A28", 0.3)    # see-through FILL (grove shows through) but enough to read the round shape
-	us.set_corner_radius_all(34)            # round corners
-	us.set_border_width_all(2)              # a SOFT rounded rim (was a hard 3px dark line)
-	us.border_color = Color("#3A2D1E", 0.4)
-	us.shadow_color = Color(0, 0, 0, 0.38)
-	us.shadow_size = 12
-	us.shadow_offset = Vector2(0, 7)
-	under.add_theme_stylebox_override("panel", us)
-	under.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mat.add_child(under)
-	var sm := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = MAT_MASK_SHADER
-	sm.shader = sh
-	var inset := 5.0
-	sm.set_shader_parameter("rect_size", mat.size - Vector2(inset, inset) * 2.0)
-	sm.set_shader_parameter("radius_px", 27.0)
-	sm.set_shader_parameter("feather_px", 5.0)
-	var moss: Texture2D = null
-	for pth in [Game.art("ui/tray_grove_tall.png"), Game.art("ui/tray_grove.png")]:
-		if ResourceLoader.exists(pth):
-			var base: Texture2D = load(pth)
-			var at := AtlasTexture.new()
-			at.atlas = base
-			var sz := Vector2(base.get_size())
-			at.region = Rect2(sz * 0.13, sz * 0.74)   # the calm moss interior only
-			moss = at
-			break
-	if moss != null:
-		var t := TextureRect.new()
-		t.texture = moss
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		t.material = sm
-		t.modulate.a = 0.25   # transparent moss so the board surface stays see-through
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(t)
-	else:
-		var c := ColorRect.new()
-		c.color = Color("#557B47")
-		c.set_anchors_preset(Control.PRESET_FULL_RECT)
-		c.offset_left = inset
-		c.offset_top = inset
-		c.offset_right = -inset
-		c.offset_bottom = -inset
-		c.material = sm
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(c)
-	return mat
+	return PieceView.make_board_mat(_board_w(), _board_h())
 
 
 func _make_bramble(cell: Vector2i) -> Control:
-	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(csz, csz)
-	holder.size = Vector2(csz, csz)
-	holder.pivot_offset = Vector2(csz, csz) / 2.0
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring := mini(lvl / 2 - 1, 3)          # art density bands with the §4 level gate
-	var path := Game.art("ui/bramble_%d.png" % ring)
-	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# S3/AC: lift the near-black nest toward deep moss-brown (warm-lift shader —
-		# a multiply-modulate can't brighten true black; this adds a warm floor)
-		t.material = _bramble_mat()
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
-	else:
-		var p := Panel.new()
-		p.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = BRAMBLE_BG.darkened(0.06 * (ring + 2))
-		sb.set_corner_radius_all(14)
-		sb.set_border_width_all(3)
-		sb.border_color = BRAMBLE_EDGE
-		p.add_theme_stylebox_override("panel", sb)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(p)
-	# the lock ghost: the Level this cell unseals at (§4) — neutral-tinted (the gate is the
-	# player's Level now, not a produced tier/line)
-	if ResourceLoader.exists(Look.kit("icon_star.png")):
-		var brow := HBoxContainer.new()
-		brow.alignment = BoxContainer.ALIGNMENT_CENTER
-		brow.set_anchors_preset(Control.PRESET_FULL_RECT)
-		brow.add_theme_constant_override("separation", 2)
-		brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		brow.add_child(Look.icon("star", csz * 0.2))
-		var bnum := Label.new()
-		bnum.text = str(lvl)
-		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
-		bnum.add_theme_color_override("font_color", Color(CREAM, 0.85))
-		bnum.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
-		bnum.add_theme_constant_override("outline_size", 5)
-		brow.add_child(bnum)
-		holder.add_child(brow)
-		return holder
-	var badge := Label.new()
-	badge.text = tr("Lv%d") % lvl
-	badge.set_anchors_preset(Control.PRESET_FULL_RECT)
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", int(csz * 0.26))
-	badge.add_theme_color_override("font_color", Color(CREAM, 0.85))
-	badge.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
-	badge.add_theme_constant_override("outline_size", 5)
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(badge)
-	return holder
+	return PieceView.make_bramble(cell, csz)
 
 func _make_generator(id: String) -> Control:
-	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(csz, csz)
-	holder.size = Vector2(csz, csz)
-	holder.pivot_offset = Vector2(csz, csz) / 2.0
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path: String = Game.art(String(gdef.get("tex", "")))
-	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
-		return holder
-	var p := Panel.new()
-	p.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#8A5A3B")
-	sb.set_corner_radius_all(int(csz * 0.3))
-	sb.set_border_width_all(4)
-	sb.border_color = STRAW
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(p)
-	var lbl := Label.new()
-	lbl.text = tr(String(gdef.get("label", id)))
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(csz * 0.24))
-	lbl.add_theme_color_override("font_color", CREAM)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(lbl)
-	return holder
+	return PieceView.make_generator(String(id), csz)
 
 # --- input ---------------------------------------------------------------------
 
