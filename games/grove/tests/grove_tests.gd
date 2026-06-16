@@ -1401,6 +1401,48 @@ func _initialize() -> void:
 	ok(x3_1.asks.size() == 1, "X3: a single-ask quest renders 1 pair")
 	x3_3.chip.queue_free()
 	x3_1.chip.queue_free()
+
+	# XB (Tier 2 §2): the idle-bob carries readiness — ONLY a deliverable giver bobs.
+	# A pure, asserted predicate (_giver_is_payable) gates both the ✓ and the bob, and
+	# the gate is REACTIVE: it flips as the board gains/loses the asked items. We assert
+	# the decision (the boolean) AND the effect (the live loop tween in the bob_tw meta).
+	var xb_feat = load("res://engine/scripts/core/features.gd")
+	xb_feat.FLAGS["giver_bob"] = true             # the bob is the thing under test
+	# a clean board: clear every item, then build a single-ask giver wanting 2× code 102
+	for r in G.ROWS:
+		for c in G.COLS:
+			if ws.board.is_open(Vector2i(r, c)):
+				ws.board.place(Vector2i(r, c), 0)
+	var xb_giver: Dictionary = ws._make_giver_stand(7, {"asks": [{"line": 1, "tier": 2, "count": 2}], "stars": 1})
+	ws.add_child(xb_giver.chip)                    # in-tree so the bob can start immediately
+	ws.giver_chips = [xb_giver]
+	var bob_bust: Control = xb_giver.bust
+	# helper: is a live (valid, running) loop tween parked on the bust?
+	var bobbing := func(b: Control) -> bool:
+		var tw: Variant = b.get_meta("bob_tw", null)
+		return tw is Tween and (tw as Tween).is_valid()
+	# (1) NOT payable (board holds zero 102) → no bob, ✓ hidden
+	ws._refresh_giver_lights()
+	ok(ws.board.count_of(102) == 0, "XB: board set up with the ask UNMET (0×102)")
+	ok(not ws._giver_is_payable(xb_giver), "XB: an unmet quest is NOT payable")
+	ok(not bobbing.call(bob_bust), "XB: a giver whose quest is NOT payable does NOT bob")
+	ok(not xb_giver.check.visible, "XB: the ready ✓ is hidden while not payable (same predicate)")
+	# (2) becomes payable (place the 2 asked items) → bob starts, ✓ shows
+	var free_cells: Array = ws.board.empty_ground_cells()
+	ws.board.place(free_cells[0], 102)
+	ws.board.place(free_cells[1], 102)
+	ws._refresh_giver_lights()
+	ok(ws._giver_is_payable(xb_giver), "XB: the quest is payable once both asked items are present")
+	ok(bobbing.call(bob_bust), "XB: a giver whose quest IS payable bobs (bob tween live)")
+	ok(xb_giver.check.visible, "XB: the ready ✓ shows on the same payable transition")
+	# (3) payable → unmet again (remove one item) → bob STOPS (reactive, not one-way)
+	ws.board.place(free_cells[0], 0)
+	ws._refresh_giver_lights()
+	ok(not ws._giver_is_payable(xb_giver), "XB: removing an asked item makes it un-payable again")
+	ok(not bobbing.call(bob_bust), "XB: the bob stops when the giver is no longer deliverable")
+	xb_giver.chip.queue_free()
+	ws.giver_chips = []
+
 	Feat.FLAGS["ftue_staged_chrome"] = true
 	ws.queue_free()
 

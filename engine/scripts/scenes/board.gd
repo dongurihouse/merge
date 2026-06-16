@@ -732,7 +732,9 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	var bust := _bust(qi % 2, 124.0)
 	bust.position = Vector2((STAND_W - 124.0) / 2.0, 0.0)
 	stand.add_child(bust)
-	_giver_bob(bust)
+	# Tier 2 §2: the idle-bob is NOT started here — it now means "deliverable", so
+	# _refresh_giver_lights gates it per giver via _giver_is_payable. (The bust is
+	# returned in the chip entry so the refresh can reach it.)
 	# juice: the giver pops in when its stand enters the tree (deferred so the
 	# tween is never created on a not-yet-in-tree node — matches _giver_bob)
 	bust.tree_entered.connect(func() -> void:
@@ -814,7 +816,7 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	stand.add_child(check)
 	_dock_check(check, pill, stand)
 	_stand_tap(stand, func() -> void: _on_giver_tap(qi, stand))
-	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": check}
+	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": check, "bust": bust}
 
 # AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
 # border + shadow), anchored to center on its parent's x and grow both ways.
@@ -868,17 +870,49 @@ func _dock_check(check: Control, pill: Control, stand: Control) -> void:
 	pill.resized.connect(dock)
 	dock.call_deferred()
 
-# AB1: slow ±4px sine bob (~3s) once the bust is in the tree (giver_bob)
-func _giver_bob(bust: Control) -> void:
+# AB1: slow ±4px sine bob (~3s) on a bust. Tier 2 §2: the bob now carries "ready"
+# information — only a DELIVERABLE giver bobs, so callers gate it with `active`
+# (driven by _giver_is_payable in _refresh_giver_lights). The merchant, which is not
+# a deliverable giver, keeps the default always-on bob.
+#
+# Idempotent + reversible: the live loop tween is parked in the "bob_tw" meta and the
+# rest-Y baseline in "bob_y" (captured ONCE, so toggling never drifts the baseline
+# mid-flight). active=true starts the loop if not already running; active=false kills
+# it and settles the bust back to rest.
+func _giver_bob(bust: Control, active: bool = true) -> void:
 	if not Features.on("giver_bob"):
 		return
-	bust.tree_entered.connect(func() -> void:
-		if not is_instance_valid(bust) or not bust.is_inside_tree():
-			return
-		var by := bust.position.y
-		var tw := bust.create_tween().set_loops()
-		tw.tween_property(bust, "position:y", by - 4.0, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		tw.tween_property(bust, "position:y", by, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT))
+	if not bust.has_meta("bob_y"):
+		bust.set_meta("bob_y", bust.position.y)
+	if not active:
+		_giver_bob_stop(bust)
+		return
+	var existing: Variant = bust.get_meta("bob_tw", null)
+	if existing is Tween and (existing as Tween).is_valid():
+		return                                    # already bobbing — don't stack tweens
+	# start now if already in the tree (the reactive payable case), else on entry
+	if bust.is_inside_tree():
+		_giver_bob_start(bust)
+	else:
+		bust.tree_entered.connect(func() -> void:
+			# only (re)start if still wanted by the time we enter the tree
+			if is_instance_valid(bust) and bust.is_inside_tree() \
+					and not (bust.get_meta("bob_tw", null) is Tween and (bust.get_meta("bob_tw") as Tween).is_valid()):
+				_giver_bob_start(bust), CONNECT_ONE_SHOT)
+
+func _giver_bob_start(bust: Control) -> void:
+	var by: float = bust.get_meta("bob_y", bust.position.y)
+	var tw := bust.create_tween().set_loops()
+	tw.tween_property(bust, "position:y", by - 4.0, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(bust, "position:y", by, 1.5).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	bust.set_meta("bob_tw", tw)
+
+func _giver_bob_stop(bust: Control) -> void:
+	var existing: Variant = bust.get_meta("bob_tw", null)
+	if existing is Tween and (existing as Tween).is_valid():
+		(existing as Tween).kill()
+	bust.set_meta("bob_tw", null)
+	bust.position.y = bust.get_meta("bob_y", bust.position.y)   # settle to rest
 
 
 # AB1: a FRAMELESS giver — the chest-up cutout IS the UI element (no panel, no
@@ -1090,21 +1124,36 @@ func _note_item_landed(code: int) -> void:
 	FX.floating_text(self, Vector2(get_global_rect().get_center().x - 250, 220),
 		tr("the merchant buys spares — drag it to his stall"), CREAM, 28)
 
+# X3 / Tier 2 §2: the one notion of "deliverable" — every ask of this giver is fully
+# on the board RIGHT NOW (the player could deliver it this instant). This is the SAME
+# per-ask `count_of >= need` test that drives the green ✓ and matches
+# BoardLogic.quest_payable (which works on the raw {line,tier,count} ask shape; here
+# the asks are the UI {code,need} shape). A pure boolean, asserted by tests, that
+# both the ✓ and the bob read so they can never diverge. Also refreshes each ask's n/m.
+func _giver_is_payable(e: Dictionary) -> bool:
+	var payable := true
+	for ask in e.asks:
+		var have := mini(board.count_of(int(ask.code)), int(ask.need))
+		if have < int(ask.need):
+			payable = false
+		var prog: Label = ask.prog
+		if prog != null and is_instance_valid(prog):
+			prog.text = "%d/%d" % [have, int(ask.need)]
+	return payable
+
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
-		# X3: the giver is ready only when EVERY ask is satisfied; each ask shows its own n/m
-		var lit := true
-		for ask in e.asks:
-			var have := mini(board.count_of(int(ask.code)), int(ask.need))
-			if have < int(ask.need):
-				lit = false
-			var prog: Label = ask.prog
-			if prog != null and is_instance_valid(prog):
-				prog.text = "%d/%d" % [have, int(ask.need)]
+		var lit := _giver_is_payable(e)
 		var ready_ui := lit and Features.on("quest_ready_check")
 		var check: Control = e.check
 		if check != null and is_instance_valid(check):
 			check.visible = ready_ui     # AB3: the check IS the ready state (no ring)
+		# Tier 2 §2: bob ONLY deliverable givers — the bob now carries readiness, so it
+		# starts when the quest becomes payable and stops when it no longer is. Gated on
+		# the SAME predicate as the ✓ above (no second, divergent notion of payable).
+		var bust: Control = e.get("bust")
+		if bust != null and is_instance_valid(bust):
+			_giver_bob(bust, lit)
 		var chip: Control = e.chip
 		chip.modulate = Color(1, 1, 1, 1.0 if lit else 0.78)
 		if lit:
