@@ -83,6 +83,7 @@ A handful of behaviors are core: **indexed here but not behind a flag**. Removin
 |---|---|---|
 | `gate_pause` | §7 soft gate — active giver-stand count metered to the NEXT unlock (fence empties when the next unlock is affordable → wordless "go restore") | `engine/scripts/core/content.gd` `active_giver_count()` region (L298); sizing const `STARS_PER_QUEST_EST` in `games/grove/grove_data.gd` (L127) |
 | `spot_level_gates` | §4 per-cell `min_level` gating — a sealed cell unseals when the player's Level reaches its `cell_min_level`, opened by an adjacent merge | `engine/scripts/core/content.gd` `cell_min_level()` (L208); `engine/scripts/core/board_model.gd` `openable_brambles()` (L157); table `MIN_LEVEL` in `games/grove/grove_data.gd` (L95) |
+| `daily_login_popup` | §18 — the daily login calendar auto-pops on the day's first hub open (gated past the cold FTUE; never on first launch) | `engine/scripts/scenes/map.gd` `_maybe_login_popup_deferred()` (T45, on branch `t45-integration` pending merge) |
 
 ---
 
