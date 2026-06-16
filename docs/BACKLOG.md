@@ -185,126 +185,26 @@ at audit time (some now stale where the code moved).
   relocating `board`/`map` from `engine/` to `games/`. *(Was `ui_backend_separation.md` §Phase 4; that
   plan doc is deleted now Phases 1–3 landed — invariant lifted to `merge_spec §15`. Surfaced 2026-06-15.)*
 
-## Open — second-pass spec audit (2026-06-15) — un-parked engine gaps
+## ✅ Shipped — second-pass spec audit (2026-06-15, batch-merged to `main`)
 
-A second pass over `merge_spec` (engine re-read §2–§15 by parallel auditors) found gaps the
-**first audit (2026-06-14) missed** — engine mechanisms the spec calls for that are absent or
-half-built, none already parked above. Grouped by severity (Tier 1 functional · Tier 2 polish ·
-Tier 3 spec↔code drift). Anchors are `file:line` at 2026-06-15.
+The full second-pass audit (15 items: 6 Tier-1 functional · 6 Tier-2 polish · 3 Tier-3 drift) was
+dispatched as a parallel-worktree fleet and **all 15 merged to `main` 2026-06-15** (batch-merge T35,
+`make test` 661/0 + smoke clean). Removed from the parking lot per the backlog convention; the merge
+commits are the record. ⚠️ **Ledger gap:** only T26/T27/T34 wrote `tasks/` entries — the other 12
+(T28–T33 + the six Tier-2 tasks) shipped code without individual entries; the **T35** batch entry
+covers them collectively (see `TASKS.md`).
 
-### Tier 1 — functional gaps (missing or wrong engine behavior)
-
-- **FTUE feature-spotlight + hand-gesture guide — ABSENT (spec done · engine code · grove).** §14/§11:
-  every feature, on first appearance, gets a spotlight + pulse **and a mimed tap/drag guide** ("no
-  feature appears unannounced") — the load-bearing wordless-teach surface for the §1 zero-learning
-  pillar. **Code:** the `ftue_feature_spotlight` flag isn't in `engine/scripts/core/features.gd` (only
-  `ftue_free_pops` + `ftue_staged_chrome`); no spotlight/pulse/gesture code anywhere (grep-clean).
-  **Build (engine):** the spotlight overlay + pulse + a mimed-gesture (tap/drag) player + a per-feature
-  first-appearance trigger. **Build (grove):** which features spotlight, in what order. *The largest
-  single gap in the audit.* *(Surfaced 2026-06-15 — second-pass audit §14.)*
-
-- **Featured quests are invisible — fence flag + premium bonus missing (spec done · engine code).** §7:
-  a random share of quests are "featured — **flagged on the fence**," paying a bonus (extra coins,
-  *occasionally a premium*), never extra ★. **Code:** `gen_quest` computes `featured` and adds the coin
-  bonus (`engine/scripts/core/content.gd:293`) but the `featured` key is **read nowhere** — the fence
-  (`board.gd:708`) never renders it, so a featured quest looks identical; no premium-bonus branch
-  exists. **Build (engine):** render the featured flag on the giver stand + add the occasional-premium
-  bonus. *(The featured **rate** is already parked as an economy-tuning number — this is the missing
-  surface, not the rate.)* *(Surfaced 2026-06-15 — second-pass audit §7.)*
-
-- **Anchor-line exemption is half-built — anchor lines un-askable past map 1 (spec done · engine code).**
-  §6: the anchor line "permanently holds one of the live slots" — its lines stay live **and askable**
-  for the life of the save. **Code:** the anchor generator persists (never a `grant_from`) and keeps
-  popping lines 1/2, but quest/gate generation draws from `lines_for_zone` (the **zone roster**) not
-  `gen_live_lines` (the **live board set**) — `board.gd:437` — so past map 1 no quest ever asks the
-  anchor's lines (dead output). **Build (engine):** feed quest/gate generation the live board lines
-  (anchor ∪ current zone), not the zone roster. *(The "Grove v1 art" engine follow-up #3 below parks
-  only the cold-load slice + asserts live-play "already persists" — true of the generator, false of its
-  askability; this is the un-parked half.)* *(Surfaced 2026-06-15 — second-pass audit §6.)*
-
-- **Calm mode doesn't disable `breathe` (spec done · engine code).** §12: calm "halves particles **AND
-  disables breathe**." **Code:** particle-halving works (`engine/scripts/ui/fx.gd:21`); `breathe` /
-  `breathe_once` (`fx.gd:60`, `:100`) have no calm guard, so the one-suggested-action pulse still runs
-  in calm mode (refill/gate buttons, generators, quest chips, spot cards). **Build:** gate `breathe` /
-  `breathe_once` on `FX.calm()`. *(Surfaced 2026-06-15 — second-pass audit §12.)*
-
-- **Emoji-purge violated in runtime floaters/tags (spec done · engine code).** §13: "no emoji glyphs in
-  shipped UI; every glyph a sprite via `Look.icon()`; numbers sit beside an icon." **Code:** currency
-  floaters/tags bake emoji into `Label.text` unconditionally — `tr("+%d★")` / `tr("+%d🪙")` /
-  `tr("+%d💧")` / `tr("+%d💎")` (`board.gd:1940`–`:2069`, `map.gd:688`) — bypassing `Look.icon` with **no
-  art-swap path**, so they keep showing emoji after kit art lands. **Build:** a floater/tag variant that
-  composites an icon sprite + number. *(Distinct from the sanctioned `ICON_GLYPHS` **fallback** dict in
-  `skin.gd:87` and the gear/shop/✕ fallback branches.)* *(Surfaced 2026-06-15 — second-pass audit §13.)*
-
-- **FTUE free pops × burst — the 10-pop intro is consumed by burst (spec done · engine code · decision).**
-  §4: "first 10 pops… uncounted; the opening minute is pure frictionless merging." **Code:** burst
-  applies during the free phase and each item increments the same `pops` odometer (`board.gd:1639`), so
-  a 3-item tap spends 3 of the 10 free pops (the intro can end in ~4 taps; the boundary can overshoot
-  mid-burst). **Decide + build:** suppress burst during FTUE, or count taps not items, or raise the free
-  budget. *(Surfaced 2026-06-15 — second-pass audit §4.)*
-
-### Tier 2 — polish deviations
-
-- **Idle hint doesn't pulse the obstacle a merge would open (spec done · engine code).** §2: the idle
-  hint should pulse "obstacles a merge would open." **Code:** the rock-pair + ~4.5 s / 4 s re-nudge
-  cadence is correct, but `board_model.openable_brambles` is never called during the hint
-  (`board.gd:311`) — the "this merge unseals that cell" teach-signal is missing. **Build:** pulse the
-  cell(s) the hinted pair's merge would open. *(Surfaced 2026-06-15 — second-pass audit §2.)*
-
-- **Giver bob fires on every giver, not only deliverable ones (spec done · engine code).** §2:
-  "deliverable givers bob." **Code:** `_giver_bob` is called unconditionally (`board.gd:715`) with no
-  payable check, so the bob carries no "ready" information (the green ✓ check is the only ready cue).
-  **Build:** gate the bob on quest-payable. *(Surfaced 2026-06-15 — second-pass audit §2.)*
-
-- **Full board doesn't dim the generator (spec done · engine code).** §6: "a full board dims the
-  generator (popping is free while dimmed)." **Code:** a blocked tap wobbles + plays the invalid sound
-  (`board.gd:1612`) but applies no standing dim; the free-while-full economics work, only the dim cue is
-  missing. **Build:** modulate the generator dim while the board has no free cell. *(Surfaced 2026-06-15
-  — second-pass audit §6.)*
-
-- **No fog / veiled horizon on the map-select (spec done · engine code · grove art).** §8: "parts of a
-  map sit behind fog… the next map shows **veiled** on the select." **Code:** locked maps render as
-  plainly-greyed-but-legible cards (`map.gd:557`) with a "✿ after X" line — desaturated, not
-  veiled/teased; no fog layer, no on-map fogged regions. **Build (engine):** a fog/veil treatment for
-  locked-map cards (+ optionally fogged on-map regions). **Build (grove):** the veil art. *Pairs with
-  ghost-preview below — the §8 desire/discovery build-juice layer T21 didn't cover.* *(Surfaced
-  2026-06-15 — second-pass audit §8.)*
-
-- **No ghost-preview of empty restoration spots (spec done · engine code).** §8: "an empty spot may
-  ghost-preview the buildable." **Code:** unowned spots show only a price-pin + name (`map.gd:323`); the
-  buildable sprite renders only in the debug Layout editor, never for players. **Build:** an optional
-  ghosted preview of the buildable on an unowned spot. *(Surfaced 2026-06-15 — second-pass audit §8.)*
-
-- **Gate-quest unveil is silent across screens (spec done · engine code).** §8: completing a map
-  "unveils its gate quest." **Code:** the mechanism is correct (map-complete → gate quest becomes the
-  lone fence stand → unlock chain), but map-completion fires only a flourish on the map screen
-  (`map.gd:684`) and never points the player to the gate quest now waiting on the board — a silent
-  cross-screen handoff (against the no-required-reading pillar). **Build:** a wordless map→board pointer
-  on completion. *(Surfaced 2026-06-15 — second-pass audit §8.)*
-
-### Tier 3 — spec↔code drift (likely reconcile the SPEC)
-
-- **HUD law drift — Shop moved out of the top-right bar (decision).** §13 HUD law: the top bar is
-  "wallet + Shop" top-right, primary CTA bottom-center. **Code:** the Shop was deliberately moved to the
-  bottom bar (owner 2026-06-13, `engine/scripts/ui/hud.gd:69`); the board shows `[◀ Home][🛒]`
-  bottom-left, the map a bottom-right Shop beside the gear. **Decide:** update §13's HUD law to the
-  shipped bottom-bar decision (recommended), or move Shop back. *(Surfaced 2026-06-15 — second-pass
-  audit §13.)*
-
-- **Flag registry index missing — `FEATURES.md` absent, flags lack Eval (spec done · process).** §11:
-  every flag notes *Lives-in* (code site) + an *Eval* (keep/improve/cut verdict); the registry is the
-  index of everything added. **Code:** `features.gd:2` points to a `FEATURES.md` that doesn't exist
-  (find-clean); flags carry one-line comments but no structured Lives-in / Eval, and the
-  core-non-flaggable set (`gate_pause`, `spot_level_gates`) isn't indexed. **Build:** create
-  `FEATURES.md` (Lives-in + Eval per flag + the core list), or fix the stale header. *(Surfaced
-  2026-06-15 — second-pass audit §11.)*
-
-- **Juice verb-name drift (spec done · doc reconciliation).** §12 names the verbs "called by name," but
-  the engine implements the motions under different names: `wiggle`→`FX.wobble`, `floater`→
-  `FX.floating_text`, `press`→`skin.add_press_juice` (not FX), `hop`/`ambient_bob` in `ambient.gd` (bob
-  inlined at `ambient.gd:69`, no callable verb). The motions all exist; only the named-verb surface
-  deviates. **Build:** reconcile the §12 vocabulary table to the actual call names (or rename in code).
-  *(Surfaced 2026-06-15 — second-pass audit §12.)*
+- **Tier 1 (functional):** FTUE feature-spotlight + gesture guide (`feat/ftue-spotlight` `8d637c5`, T28) ·
+  featured-quest fence flag + premium bonus (`feat/featured-quests` `7ebd176`, T29) · anchor-line askable
+  past map 1 — quest/gate draw from the live board set, not the zone roster (`feat/anchor-lines` `621f245`,
+  T30) · calm-mode disables `breathe` (`feat/calm-breathe` `02b2433`, T31) · emoji-purge: floaters/tags →
+  icon+number (`feat/emoji-floaters` `7015b40`, T32) · FTUE free-pops suppress burst (`feat/ftue-burst-pops`
+  `f0e71da`, T33).
+- **Tier 2 (polish):** idle-hint pulses the openable cell (`87a5dbc`) · giver-bob only deliverable givers
+  (`cfeb6d8`) · full board dims the generator (`22927b1`) · map-select fog/veil (`54fe8e4`) · ghost-preview
+  unowned spots (`ab24725`) · gate-unveil map→board pointer (`02c0e9b`).
+- **Tier 3 (spec reconciles):** §13 HUD-law → bottom-bar Shop (`6848443`, T34) · `FEATURES.md` flag registry
+  (`b02dec2`, T26) · §12 juice verb-name table (`e223c66`, T27).
 
 ## Parked — per-zone generators: art + tuning (the remaining tail of T17–T20)
 
