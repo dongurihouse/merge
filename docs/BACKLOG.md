@@ -16,17 +16,7 @@ at audit time (some now stale where the code moved).
 
 ## Open — core loop
 
-- **Map model — one image = one map.** ✅ **Shipped as T21** (2026-06-15, `tasks/mechanics.md`): single-image maps + a discrete **map-select** + a persistent **home-hub shortcut**; the free-pan overworld, walk-inside `interior_view`, and on-map wayside coin-sink are removed; the Farmhouse is designated the hub (recast to the §3 roster + a `kind` yield/décor seam). Verified `make test` 404/404 + captures. **Parked follow-ups:** (a) the **`zone`→`map` symbol rename** — deferred (T21 Decisions #1): a now-collision-free, suite-verifiable mechanical sweep across the (committed) §6/§7 code + tests + sim; (b) the hub **upgrade→yield loop** = the KEYSTONE economy item (below); (c) real §16 map images + on-image spot placement (owner re-places via the Layout editor) = art lane. Orphaned old-id `furn_fh_*.png` sprites are now unused (asset cleanup, minor).
-
-- ✅ **Level-gated obstacle cells — DONE (T24, 2026-06-15).** Per-cell `min_level` shipped: `grove_data.MIN_LEVEL`
-  (the §4 diamond) → `cell_min_level`; `openable_brambles(cell, player_level)` opens a sealed neighbour on any
-  adjacent merge once the player's Level reaches it (the tier-ring `bramble_gate`/`gate_line_of`/`gate_req_of` are
-  gone; terrain stays a 0/≠0 sealed flag, gate reads the static table → no save migration). Open sub-Q resolved in
-  spec §4 (merge-openable). **no-strand sim-PASS** (seeds 42/7/123/999); `make test` 436/436. Committed on
-  `feat/level-gated-cells` — **merged to `main` 2026-06-15 (`ab7e23f`, T24)** (the tree cleared once the parallel
-  threads committed). **Residual PARKED → the Economy tuning item (below):** the shipped gradient ~halves pace +
-  cramps the FTUE (2 free cells until L2); softening recovers pace but breaks I2, so the gradient is tuned jointly with
-  the level curve + water gift, not in isolation.
+- **Map model — remaining follow-ups (the map-model itself shipped as T21).** Open tails of the single-image-map rework: (a) the **`zone`→`map` symbol rename** — a now-collision-free, suite-verifiable mechanical sweep across the §6/§7 code + tests + sim (deferred, T21 Decisions #1); (b) real **§16 map images + on-image spot placement** (owner re-places via the Layout editor) — art lane; (c) orphaned old-id `furn_fh_*.png` sprites now unused — asset cleanup, minor. *(The hub upgrade→yield loop is the KEYSTONE economy item below.)* *(Surfaced 2026-06-15 — T21 parked tail.)*
 
 ## Open — economy
 
@@ -49,20 +39,10 @@ at audit time (some now stale where the code moved).
   yield/upgrade rates, per-building cap (≈ a day), prices. **Status:** **A1 (save schema — `levels{spot_id}`
   + `hub_collected_at` + accessors + rename-migration in `save.gd`) DONE + MERGED to `main`** (T22, `a4168d4`),
   `save_tests` 32/0. **T21 is now merged (`6f9faf9`), so A2–A9 are UNBLOCKED — this is the keystone's next pickup.**
-  • **Part B — generator burst-upgrade (§6 board sink) — ✅ DONE (T23 mechanic + T25 UI, 2026-06-15).** A coin
-  sink to pop more per tap. T23 built the **burst-popping** mechanic + spend path (`board.gd`
-  `_upgrade_gen_burst()`/`_gen_burst_level()` + the `BURST_UPGRADE_COSTS` ladder). **T25 wired the trigger UI**
-  — an **on-board buy pill** on the primary generator (`_rebuild_burst_chip`/`_try_buy_burst`/`_on_burst_chip_input`),
-  **not** the hub: the affordance lives on the board per spec §8 ("board-level… *independent of the hub*"),
-  reachable on every map. The backlog's earlier "hub surface" wording is **superseded** (board placement, owner
-  call 2026-06-15). `make test` 430/0 (grove +6 pill assertions); chip composited-verified on the live board.
-  **Burst tuning — ✅ DONE (T25, 2026-06-15).** The cap-collision is fixed: the free portion (base + per-map
-  gift) is capped on its own at `BURST_FREE_MAX=4`, the paid level adds **on top** (`burst_count` decoupled), so
-  each bought level always gives +1; `BURST_MAX` 6→8, ladder re-priced + lengthened 60/180/480 → **120/360/840/1800**
-  (4 levels, total 3120 > faucet so coins keep a target). Sim-validated (seeds 42/7/999, 30d): no-strand · I2
-  steady-state hold; the burst sink now absorbs **64–76%** of the coin faucet (was 34–50%). Remaining parked: burst
-  stays GLOBAL (per-generator parked). **⚠️ surfaced during re-validation → see the Economy-tuning item:** the
-  integrated `main` JAMS on seed 123 (burst × level-gating, map 1) — pre-existing, not from this change.
+  • **Part B — generator burst-upgrade (§6 board sink) — ✅ DONE (T23 mechanic + T25 on-board buy-pill UI +
+  reprice/free-paid decouple).** A coin sink to pop more per tap; now absorbs **64–76%** of the coin faucet.
+  *(Burst stays GLOBAL — per-generator parked. The ⚠️ seed-123 burst × level-gating jam it surfaced is parked in
+  the Economy-tuning item below.)*
   *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin faucet +
   the shop sinks.* **Reworked 2026-06-15 (owner):** hub-concentrated (the hub carries the loop, **not every
   building on every map**). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — a
@@ -184,27 +164,6 @@ at audit time (some now stale where the code moved).
   leaving `ambient.gd`/`shop.gd` pure view. LOW risk, behavior-identical. Out of scope (separate axis):
   relocating `board`/`map` from `engine/` to `games/`. *(Was `ui_backend_separation.md` §Phase 4; that
   plan doc is deleted now Phases 1–3 landed — invariant lifted to `merge_spec §15`. Surfaced 2026-06-15.)*
-
-## ✅ Shipped — second-pass spec audit (2026-06-15, batch-merged to `main`)
-
-The full second-pass audit (15 items: 6 Tier-1 functional · 6 Tier-2 polish · 3 Tier-3 drift) was
-dispatched as a parallel-worktree fleet and **all 15 merged to `main` 2026-06-15** (batch-merge T35,
-`make test` 661/0 + smoke clean). Removed from the parking lot per the backlog convention; the merge
-commits are the record. ⚠️ **Ledger gap:** only T26/T27/T34 wrote `tasks/` entries — the other 12
-(T28–T33 + the six Tier-2 tasks) shipped code without individual entries; the **T35** batch entry
-covers them collectively (see `TASKS.md`).
-
-- **Tier 1 (functional):** FTUE feature-spotlight + gesture guide (`feat/ftue-spotlight` `8d637c5`, T28) ·
-  featured-quest fence flag + premium bonus (`feat/featured-quests` `7ebd176`, T29) · anchor-line askable
-  past map 1 — quest/gate draw from the live board set, not the zone roster (`feat/anchor-lines` `621f245`,
-  T30) · calm-mode disables `breathe` (`feat/calm-breathe` `02b2433`, T31) · emoji-purge: floaters/tags →
-  icon+number (`feat/emoji-floaters` `7015b40`, T32) · FTUE free-pops suppress burst (`feat/ftue-burst-pops`
-  `f0e71da`, T33).
-- **Tier 2 (polish):** idle-hint pulses the openable cell (`87a5dbc`) · giver-bob only deliverable givers
-  (`cfeb6d8`) · full board dims the generator (`22927b1`) · map-select fog/veil (`54fe8e4`) · ghost-preview
-  unowned spots (`ab24725`) · gate-unveil map→board pointer (`02c0e9b`).
-- **Tier 3 (spec reconciles):** §13 HUD-law → bottom-bar Shop (`6848443`, T34) · `FEATURES.md` flag registry
-  (`b02dec2`, T26) · §12 juice verb-name table (`e223c66`, T27).
 
 ## Parked — per-zone generators: art + tuning (the remaining tail of T17–T20)
 
