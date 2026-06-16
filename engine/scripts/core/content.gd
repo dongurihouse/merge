@@ -7,6 +7,7 @@ extends RefCounted
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 SKIM-SITE — the piggy bank skims earned premium here
 
 # --- the ACTIVE game's DATA (compile-time const), re-exported as consts so every
 # --- existing G.<CONST> reader keeps working and := type inference still resolves.
@@ -746,7 +747,9 @@ static func earn_stars(n: int) -> int:
 	var gained := level_for_stars(earned) - before
 	if gained > 0:
 		g["water"] = mini(WATER_CAP, int(g.get("water", WATER_CAP)) + LEVEL_WATER_GIFT * gained)
-		Save.add_diamonds(LEVEL_DIAMONDS * gained)
+		var lvl_gems := LEVEL_DIAMONDS * gained
+		Save.add_diamonds(lvl_gems)
+		Vault.skim(lvl_gems)                  # T44 SKIM-SITE 1/3 (level-up): the piggy bank skims a slice of the level-up premium (§10)
 	Save.grove_write()
 	return gained
 

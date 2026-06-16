@@ -212,6 +212,32 @@ static func spend_diamonds(n: int) -> bool:
 	save_now()
 	return true
 
+# --- the piggy bank / accrual vault (T44, section 10) ---------------------------
+# A persistent vault that SKIMS a fraction of earned premium into a banked balance
+# (claimable by one fixed real-money price). Storage only: {bank, carry} where `bank`
+# is the whole claimable diamonds and `carry` is the sub-unit numerator remainder, so a
+# fractional skim of many small earns never truncates to nothing (the skim MATH lives in
+# core/vault.gd; this is the pure persistence). Absent on old saves -> {0,0} via the
+# default-on-read path, no migration. Stored at the top level (sibling of currencies).
+static func vault() -> Dictionary:
+	_ensure_loaded()
+	if not data.has("vault"):
+		data["vault"] = {"bank": 0, "carry": 0}
+	return data["vault"]
+
+static func vault_bank() -> int:
+	return int(vault().get("bank", 0))
+
+static func vault_carry() -> int:
+	return int(vault().get("carry", 0))
+
+# Set both the banked whole and the sub-unit carry in ONE write (vault.gd computes them).
+static func set_vault(bank: int, carry: int) -> void:
+	var v := vault()
+	v["bank"] = maxi(0, bank)
+	v["carry"] = maxi(0, carry)
+	save_now()
+
 # --- stars + the grove (v2) -----------------------------------------------------
 
 static func stars() -> int:
@@ -406,10 +432,21 @@ static func daily() -> Dictionary:
 	_ensure_loaded()
 	var today := int(Time.get_unix_time_from_system() / 86400.0)
 	var d: Dictionary = data.get("daily", {})
-	if int(d.get("day", -1)) != today:
+	var last := int(d.get("day", -1))
+	if last != today:
 		var streak := int(d.get("streak", 0))
-		if int(d.get("day", -1)) != today - 1 or not bool(d.get("claimed", false)):
-			streak = 0           # missed a day (or never finished yesterday)
+		# FORGIVING STREAK (§18 — the login calendar's locked rule): a missed day NEVER
+		# resets the streak to day 1; it SOFT-DECAYS one step per missed day (floored at 0).
+		# A continued streak (claimed yesterday, today = yesterday+1) carries intact — the
+		# claim then bumps it. The old code hard-zeroed on any miss; that punitive reset is
+		# exactly what the spec forbids.
+		if last < 0:
+			streak = 0                              # never played → start fresh
+		else:
+			var missed := (today - last) - 1        # 0 = played yesterday (chain intact)
+			if not bool(d.get("claimed", false)):
+				missed += 1                          # never finished yesterday → one more miss
+			streak = maxi(0, streak - maxi(0, missed))   # soft-decay one step per missed day
 		d = {"day": today, "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": streak}
 		data["daily"] = d
 	return d

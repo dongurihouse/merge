@@ -3,6 +3,8 @@ extends SceneTree
 ##   godot --headless -s res://engine/tests/save_tests.gd
 
 const Save = preload("res://engine/scripts/core/save.gd")
+const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy-bank accrual vault
+const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 
 var _pass := 0
 var _fail := 0
@@ -209,6 +211,147 @@ func _initialize() -> void:
 	var kept: Array = Save.grove().get("bag", [])   # JSON round-trips ints as floats; code reads int(bag[i])
 	ok(kept.size() == 2 and int(kept[0]) == 101 and int(kept[1]) == 102, \
 		"the bagged contents survive the migration")
+
+	# ── T44 · the piggy bank (the accrual vault) — §10 ──────────────────────────
+	# Vault.skim(earned) banks a CONFIGURED FRACTION (num/den) of premium earned at
+	# the level-up / map-restore / t8-sell sites; the fill grows with play, the
+	# crack price is fixed. Vault.crack() releases the banked diamonds and resets.
+	var SK_N := Vault.skim_num()
+	var SK_D := Vault.skim_den()
+
+	# 19a. a fresh vault is empty.
+	fresh("vault_fresh")
+	ok(Vault.balance() == 0, "a fresh vault banks nothing")
+
+	# 19b. skim banks floor(earned * num/den) and carries the remainder so small
+	# earns aren't truncated to nothing — the fractional skim accrues honestly.
+	fresh("vault_skim")
+	# one big earn → its exact rational floor
+	var big := 40
+	Vault.skim(big)
+	ok(Vault.balance() == int(big * SK_N / float(SK_D)) and Vault.balance() == (big * SK_N) / SK_D, \
+		"skim banks floor(earned * num/den) of a single earn")
+
+	# 19c. the remainder carries: SK_D earns of 1💎 each bank exactly SK_N (no loss).
+	fresh("vault_carry")
+	for _i in SK_D:
+		Vault.skim(1)
+	ok(Vault.balance() == SK_N, "the fractional remainder carries across many small earns (no truncation loss)")
+
+	# 19d. balance accrues across multiple earns (the three sites add into one jar).
+	# The carry makes the cumulative banked total EXACTLY floor(total_earned * num/den) —
+	# the clean accrual invariant (no per-call truncation, no over-credit).
+	fresh("vault_accrue")
+	Vault.skim(3)                              # a level-up's premium
+	Vault.skim(10)                             # a map-restore's premium
+	Vault.skim(1)                              # a t8 sell
+	ok(Vault.balance() == ((3 + 10 + 1) * SK_N) / SK_D, \
+		"the vault accrues to floor(total_earned * num/den) across multiple earns")
+
+	# 19e. skim of 0 / negative is a safe no-op (never banks, never goes negative).
+	fresh("vault_safe")
+	Vault.skim(0)
+	Vault.skim(-50)
+	ok(Vault.balance() == 0, "skim of 0 / negative banks nothing (safe)")
+
+	# 19f. crack grants the banked diamonds to the wallet, then resets the vault to 0.
+	fresh("vault_crack")
+	var d0 := Save.diamonds()
+	Vault.skim(40)
+	var banked := Vault.balance()
+	ok(banked > 0, "the vault has a positive balance before cracking")
+	var got := Vault.crack()
+	ok(got == banked, "crack returns the banked total")
+	ok(Save.diamonds() == d0 + banked, "crack grants the banked diamonds to the wallet")
+	ok(Vault.balance() == 0, "crack resets the vault to 0")
+
+	# 19g. cracking an empty vault grants nothing (no free diamonds).
+	fresh("vault_crack_empty")
+	var de := Save.diamonds()
+	ok(Vault.crack() == 0 and Save.diamonds() == de, "cracking an empty vault grants nothing")
+
+	# 19h. the balance (and the carry) persist across a reload.
+	fresh("vault_persist")
+	Vault.skim(7)
+	Vault.skim(7)                              # exercise the carry too
+	var bp := Vault.balance()
+	Save._loaded = false                      # force a reload from disk
+	ok(Vault.balance() == bp, "the vault balance persists across a reload")
+
+	# 19i. the crack is claimable only at/above the fill threshold (an empty pig isn't sold).
+	fresh("vault_threshold")
+	ok(not Vault.claimable(), "a fresh (sub-threshold) vault is not claimable")
+	Vault.skim(Vault.claim_min() * SK_D / SK_N + SK_D)   # earn well past the threshold
+	ok(Vault.balance() >= Vault.claim_min() and Vault.claimable(), "the vault is claimable once it fills past the threshold")
+
+	# ── T44 · the daily login calendar — the forgiving streak (§18) ─────────────
+	# Login reads Save.daily()'s streak and pays an ESCALATING ladder with day-7/30
+	# MILESTONES; a missed day SOFT-DECAYS the streak one step (never resets to day 1).
+
+	# 20a. the ladder reward escalates with the streak (later days pay more value).
+	#   value() is a single comparable scalar across coins/water/💎 (for the test only).
+	fresh("login_escalate")
+	var v_lo := Login.day_value(1)
+	var v_mid := Login.day_value(5)
+	ok(v_mid > v_lo, "the ladder reward escalates by streak (day 5 > day 1)")
+
+	# 20b. a milestone day pays its bigger reward (day 7 carries premium 💎).
+	fresh("login_milestone")
+	ok(Login.is_milestone(7), "day 7 is a milestone")
+	ok(int(Login.reward_for(7).get("gems", 0)) > 0, "the day-7 milestone pays premium diamonds")
+	ok(Login.day_value(7) > Login.day_value(6), "the milestone day pays more than the day before it")
+
+	# 20c. energy (water) stays modest — under the self-sustain invariant (§4/§10).
+	#   the largest single-day water gift must stay well under a day's natural regen.
+	fresh("login_faucet")
+	var max_water := 0
+	for dd in range(1, 8):
+		max_water = maxi(max_water, int(Login.reward_for(dd).get("water", 0)))
+	ok(max_water <= Login.water_safe_max(), "daily water gifts stay modest (under the self-sustain cap)")
+
+	# 20d. claim grants the day's reward exactly once per day; a second claim is refused.
+	fresh("login_claim_once")
+	var c0 := Save.coins()
+	var first := Login.claim_today()
+	ok(first and Save.coins() > c0, "the first claim grants the day's reward")
+	var c1 := Save.coins()
+	var second := Login.claim_today()
+	ok(not second and Save.coins() == c1, "a second claim the same day is refused (once per day)")
+
+	# 20e. a claim bumps the streak (today's claim advances the ladder by one).
+	fresh("login_streak_bump")
+	ok(Login.streak() == 0, "a fresh streak is 0")
+	Login.claim_today()
+	ok(Login.streak() == 1, "claiming bumps the streak to 1")
+
+	# 20f. FORGIVING: a missed day SOFT-DECAYS the streak by one step — never to day 1/0.
+	#   simulate a 5-day streak, then a one-day gap, and prove it drops to 4 (not 0).
+	fresh("login_forgiving")
+	var g := Save.data
+	# plant a claimed streak of 5 as of YESTERDAY, then read today (the rollover).
+	var yesterday := int(Time.get_unix_time_from_system() / 86400.0) - 2   # a one-DAY gap (missed 1)
+	g["daily"] = {"day": yesterday, "jobs": 0, "merges": 0, "coins": 0, "claimed": true, "streak": 5}
+	Save.save_now()
+	Save._loaded = false
+	ok(Login.streak() == 4, "a missed day soft-decays the streak one step (5 → 4), never resets to 0")
+
+	# 20g. a missed day still leaves a claimable reward (the calendar keeps paying after a gap):
+	# the streak decays (5 → 3 after a 2-day gap) but the ladder RESUMES — today's claim
+	# succeeds and bumps from the decayed streak (3 → 4), not from 0.
+	fresh("login_gap_claim")
+	var g2 := Save.data
+	g2["daily"] = {"day": int(Time.get_unix_time_from_system() / 86400.0) - 3, "jobs": 0, "merges": 0, "coins": 0, "claimed": true, "streak": 5}
+	Save.save_now()
+	Save._loaded = false
+	ok(Login.streak() == 3, "a 2-day gap soft-decays the streak by two steps (5 → 3)")
+	ok(Login.claim_today() and Login.streak() == 4, "after a gap the calendar still pays and the ladder resumes from the decayed streak (3 → 4)")
+
+	# 20h. the streak (and claim state) persist across a reload.
+	fresh("login_persist")
+	Login.claim_today()
+	var sp := Login.streak()
+	Save._loaded = false
+	ok(Login.streak() == sp, "the streak persists across a reload")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

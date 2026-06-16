@@ -6,6 +6,10 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy bank skims earned premium
+const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
+const VaultUI = preload("res://engine/scripts/ui/vault.gd")   # T44 — the diegetic piggy-bank jar surface
+const LoginUI = preload("res://engine/scripts/ui/login.gd")   # T44 — the diegetic login-calendar surface
 
 var _pass := 0
 var _fail := 0
@@ -1003,9 +1007,14 @@ func _initialize() -> void:
 	if h5.content == null:
 		h5._ready()
 	var d0 := Save.diamonds()
+	var vault0 := Vault.balance() * Vault.skim_den() + Save.vault_carry()   # total skimmed-units before
 	Save.grove()["stars_earned"] = G.stars_at_level(2) - 1     # one star short of L2
 	G.earn_stars(1)                                            # crosses into L2
 	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "a level-up pays diamonds")
+	# T44 SKIM-SITE wiring (content.earn_stars): the piggy bank skimmed a slice of the
+	# level-up premium — the banked-units pool advanced by exactly LEVEL_DIAMONDS × num.
+	var vault1 := Vault.balance() * Vault.skim_den() + Save.vault_carry()
+	ok(vault1 - vault0 == G.LEVEL_DIAMONDS * Vault.skim_num(), "a level-up SKIMS its premium into the piggy bank (§10)")
 
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;
 	# unseen tiers stay "?")
@@ -1897,6 +1906,46 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
 	bw.queue_free()
+	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
+	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
+	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons
+	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Collect claims.
+	fresh("vault_surface")
+	var vhost = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(vhost)
+	if vhost.has_method("_ready") and vhost.content == null:
+		vhost._ready()
+	# fill the jar past the threshold, open the surface, and assert it framed a parchment card.
+	Vault.skim(Vault.claim_min() * Vault.skim_den() * 4)   # well past claimable
+	var v_before := Save.diamonds()
+	var v_banked := Vault.balance()
+	VaultUI.open(vhost)
+	var v_overlay: Control = vhost.get_child(vhost.get_child_count() - 1)
+	ok(v_overlay.find_children("*", "PanelContainer", true, false).size() >= 1, \
+		"the piggy bank opens as a framed parchment card (diegetic, §13)")
+	# press Claim → then Confirm on the spawned confirm overlay → the jar cracks.
+	ok(_press_label(v_overlay, "Claim"), "the piggy bank shows a Claim button")
+	var v_confirm: Control = vhost.get_child(vhost.get_child_count() - 1)
+	ok(_press_label(v_confirm, "Confirm"), "the crack confirm shows a Confirm button")
+	ok(Save.diamonds() == v_before + v_banked and Vault.balance() == 0, \
+		"cracking the jar through the surface grants the banked 💎 and empties it")
+	vhost.queue_free()
+
+	fresh("login_surface")
+	var lhost = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(lhost)
+	if lhost.has_method("_ready") and lhost.content == null:
+		lhost._ready()
+	var l_coins := Save.coins()
+	var l_streak := Login.streak()
+	LoginUI.open(lhost)
+	var l_overlay: Control = lhost.get_child(lhost.get_child_count() - 1)
+	ok(l_overlay.find_children("*", "PanelContainer", true, false).size() >= 8, \
+		"the calendar opens as a framed card with a week of reward cells (diegetic, §13)")
+	ok(_press_label(l_overlay, "Collect"), "the calendar shows a Collect button")
+	ok(Login.streak() == l_streak + 1 and Save.coins() >= l_coins, \
+		"collecting through the surface claims today's rung and bumps the streak")
+	lhost.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
@@ -1998,6 +2047,14 @@ func _test_hub_yield() -> void:
 	ok(max_daily * 7 < burst_sink, "a week of max yield < the standing burst-ladder sink — the late-game ongoing sink outpaces the standing yield")
 	print("  [T42 hub-yield bound] max daily faucet=%d🪙 · hub-upgrade sink=%d🪙 · burst sink=%d🪙" % \
 		[max_daily, hub_sink, burst_sink])
+# T44: press the first Button whose text contains `frag` inside `overlay`. Returns whether
+# one was found+pressed (so a test asserts the control exists AND fires its action).
+func _press_label(overlay: Control, frag: String) -> bool:
+	for b in overlay.find_children("*", "Button", true, false):
+		if String((b as Button).text).findn(frag) != -1:
+			(b as Button).pressed.emit()
+			return true
+	return false
 
 # T40 helpers: pull the id list out of a rotation, and a uniq pass.
 func _offer_ids(offers: Array) -> Array:
