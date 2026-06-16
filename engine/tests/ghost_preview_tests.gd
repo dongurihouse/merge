@@ -37,9 +37,9 @@ func _find_ghost(node: Node) -> Node:
 
 # First (z, k) whose buildable sprite actually exists on disk, else [-1, -1].
 func _first_spot_with_art() -> Array:
-	for z in G.ZONES.size():
-		for k in G.ZONES[z].spots.size():
-			var p := Game.art("rooms/furn_%s.png" % String(G.ZONES[z].spots[k].id))
+	for z in G.MAPS.size():
+		for k in G.MAPS[z].spots.size():
+			var p := Game.art("rooms/furn_%s.png" % String(G.MAPS[z].spots[k].id))
 			if p != "" and ResourceLoader.exists(p):
 				return [z, k]
 	return [-1, -1]
@@ -90,7 +90,7 @@ func _initialize() -> void:
 	if sa[0] >= 0:
 		var z: int = sa[0]
 		var k: int = sa[1]
-		var sid := String(G.ZONES[z].spots[k].id)
+		var sid := String(G.MAPS[z].spots[k].id)
 		var lvl := 99   # high enough that the spot is buyable, not level-gated
 		var rect := Rect2(Vector2.ZERO, Vector2(1000, 1000))
 

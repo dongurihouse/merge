@@ -20,8 +20,8 @@ const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 var rng := RandomNumberGenerator.new()
 var board: BoardModel
 var unlocks := {}              # spot id -> true (bought)
-var zone := 0                  # the map currently being restored
-var gates_done := {}           # zone -> true (its great-spirit gate quest delivered)
+var map := 0                  # the map currently being restored
+var gates_done := {}           # map -> true (its great-spirit gate quest delivered)
 var live_quests: Array = []    # the active fence — generated regular quests, or the lone gate quest
 
 var stars := 0                 # spendable ★ balance
@@ -37,8 +37,8 @@ var level_gift_water := 0
 
 var jams := 0
 var merchant_sells := 0
-var zone_spend := {}           # zone -> water spent while restoring it
-var zone_gift := {}            # zone -> level-up water credited while in it
+var map_spend := {}           # map -> water spent while restoring it
+var map_gift := {}            # map -> level-up water credited while in it
 var open_low_mark := 999
 var gates_reached := 0
 var maps_done := 0
@@ -60,14 +60,14 @@ func _initialize() -> void:
 			var r := _play_session()
 			d_stars += r.stars
 			d_water += r.water
-		if map_done_day < 0 and zone >= G.ZONES.size():
+		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
 		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · gates %d · coins %d (quest %d/sell %d) · brambles %d" % \
-			[day + 1, d_water, d_stars, mini(zone + 1, G.ZONES.size()), G.ZONES.size(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
+			[day + 1, d_water, d_stars, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
 
-	maps_done = mini(zone, G.ZONES.size())
+	maps_done = mini(map, G.MAPS.size())
 	print("\n== results ==")
-	print("  maps restored: %d/%d%s" % [maps_done, G.ZONES.size(),
+	print("  maps restored: %d/%d%s" % [maps_done, G.MAPS.size(),
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
 	print("  spots bought: %d/40 · gates delivered: %d · level %d (★ earned %d)" % \
 		[unlocks.size(), gates_reached, G.level_for_stars(stars_earned), stars_earned])
@@ -88,8 +88,8 @@ func _initialize() -> void:
 	# signal (the top-tier grind is long), not a strand. ---
 	if jams == 0:
 		print("  PASS no-strand: producible asks + a never-jammed board — the bot can always progress")
-	if zone < G.ZONES.size() and _gate_pending():
-		print("  -- note: map %d's gate was still pending at run end (top-tier grind unfinished in the window) --" % (zone + 1))
+	if map < G.MAPS.size() and _gate_pending():
+		print("  -- note: map %d's gate was still pending at run end (top-tier grind unfinished in the window) --" % (map + 1))
 
 	# --- I2: per-map level-up water gift < ratio of that map's spend. The <30% anti-self-sustain
 	# rule is a STEADY-STATE / late-game guardrail. Early maps (1-2) intentionally front-load water
@@ -100,9 +100,9 @@ func _initialize() -> void:
 	# "§7 economy tuning + pacing sign-off" pass — see BACKLOG. ---
 	var i2_ftue_maps := 2                       # maps 1-2: low-volume early game — WARN, not FAIL
 	var i2_ok := true
-	for z in zone_gift:
-		var spend: int = int(zone_spend.get(z, 0))
-		var gift: int = int(zone_gift.get(z, 0))
+	for z in map_gift:
+		var spend: int = int(map_spend.get(z, 0))
+		var gift: int = int(map_gift.get(z, 0))
 		var ratio := (float(gift) / float(spend)) if spend > 0 else 999.0
 		if gift > 0 and ratio >= G.WATER_REWARD_MAX_RATIO:
 			if z < i2_ftue_maps:
@@ -120,12 +120,12 @@ func _initialize() -> void:
 	if map_done_day > 0:
 		print("  -- I3 runway: all maps restored by day %d --" % map_done_day)
 	else:
-		print("  -- I3 runway: %d/%d maps in %d days (full restoration is a long arc, §3) --" % [maps_done, G.ZONES.size(), days])
+		print("  -- I3 runway: %d/%d maps in %d days (full restoration is a long arc, §3) --" % [maps_done, G.MAPS.size(), days])
 
 	# --- Y: selling is cleanup, never income (sell-coins only) + the water↔💎 round trip ---
 	var total_water := 0
-	for z in zone_spend:
-		total_water += int(zone_spend[z])
+	for z in map_spend:
+		total_water += int(map_spend[z])
 	var scpw := (float(sell_coins) * 100.0 / float(total_water)) if total_water > 0 else 0.0
 	print("  -- Y selling --  💎 earned: %d · SELL-coins/100💧: %.1f (tripwire < 25) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
 		[diamonds, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
@@ -153,15 +153,15 @@ func _level() -> int:
 	return G.level_for_stars(stars_earned)
 
 func _live_lines() -> Array:
-	return G.lines_for_zone(G.GENERATORS, zone)
+	return G.lines_for_map(G.GENERATORS, map)
 
 # Cheapest unowned, level-affordable spot in `z`: [cost, id]; [-1,""] all owned; [-2,""] all level-locked.
-func _zone_next_spot(z: int, lvl: int) -> Array:
+func _map_next_spot(z: int, lvl: int) -> Array:
 	var cheapest := 99
 	var cid := ""
 	var missing := false
-	for k in G.ZONES[z].spots.size():
-		var sp: Dictionary = G.ZONES[z].spots[k]
+	for k in G.MAPS[z].spots.size():
+		var sp: Dictionary = G.MAPS[z].spots[k]
 		if unlocks.has(String(sp.id)):
 			continue
 		missing = true
@@ -176,24 +176,24 @@ func _zone_next_spot(z: int, lvl: int) -> Array:
 		return [-2, ""]
 	return [cheapest, cid]
 
-func _zone_all_bought(z: int) -> bool:
-	return _zone_next_spot(z, 9999)[0] == -1
+func _map_all_bought(z: int) -> bool:
+	return _map_next_spot(z, 9999)[0] == -1
 
 func _gate_pending() -> bool:
-	return zone < G.ZONES.size() and _zone_all_bought(zone) and not gates_done.has(zone)
+	return map < G.MAPS.size() and _map_all_bought(map) and not gates_done.has(map)
 
 # Refill the fence: the lone gate quest when the map is complete, else generated regulars
 # metered to the next unlock.
 func _refill_quests() -> void:
-	if zone >= G.ZONES.size():
+	if map >= G.MAPS.size():
 		live_quests = []
 		return
 	if _gate_pending():
 		if live_quests.size() != 1 or not bool(live_quests[0].get("gate", false)):
-			live_quests = [G.gate_quest(G.GENERATORS, zone, rng)]
+			live_quests = [G.gate_quest(G.GENERATORS, map, rng)]
 		return
 	live_quests = live_quests.filter(func(q): return not bool(q.get("gate", false)))
-	var want := G.active_giver_count(stars, _zone_next_spot(zone, _level())[0])
+	var want := G.active_giver_count(stars, _map_next_spot(map, _level())[0])
 	while live_quests.size() < want:
 		live_quests.append(G.gen_quest(_level(), _live_lines(), rng))
 	while live_quests.size() > want:
@@ -243,13 +243,13 @@ func _play_session() -> Dictionary:
 				var up := _level() - lvl_b
 				water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT * up)
 				level_gift_water += G.LEVEL_WATER_GIFT * up
-				zone_gift[zone] = int(zone_gift.get(zone, 0)) + G.LEVEL_WATER_GIFT * up
+				map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
 			if bool(q.get("gate", false)):
-				gates_done[zone] = true
+				gates_done[map] = true
 				gates_reached += 1
-				zone += 1                              # unlock + grant the next map's generators
-				if zone < G.ZONES.size():
-					board.seed_gens(zone)
+				map += 1                              # unlock + grant the next map's generators
+				if map < G.MAPS.size():
+					board.seed_gens(map)
 			else:
 				live_quests.erase(q)
 			delivered = true
@@ -267,8 +267,8 @@ func _play_session() -> Dictionary:
 			continue
 
 		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied)
-		if zone < G.ZONES.size() and not _gate_pending():
-			var ns := _zone_next_spot(zone, _level())
+		if map < G.MAPS.size() and not _gate_pending():
+			var ns := _map_next_spot(map, _level())
 			if int(ns[0]) > 0 and stars >= int(ns[0]):
 				stars -= int(ns[0])
 				unlocks[String(ns[1])] = true
@@ -319,19 +319,19 @@ func _play_session() -> Dictionary:
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + burst-upgrade),
 		# each costing G.POP_COST, bounded by affordable energy + open cells.
-		if water >= G.POP_COST and not board.empty_ground_cells().is_empty() and zone < G.ZONES.size():
-			var burst: int = G.burst_count(zone, burst_level, rng)
+		if water >= G.POP_COST and not board.empty_ground_cells().is_empty() and map < G.MAPS.size():
+			var burst: int = G.burst_count(map, burst_level, rng)
 			burst = mini(burst, int(water / G.POP_COST))
 			burst = mini(burst, board.empty_ground_cells().size())
 			for _b in burst:
 				water -= G.POP_COST
 				s_water += G.POP_COST
-				zone_spend[zone] = int(zone_spend.get(zone, 0)) + G.POP_COST
+				map_spend[map] = int(map_spend.get(map, 0)) + G.POP_COST
 				_pop()
 			continue
 
 		# 7. nothing to do
-		if water > 0 and board.empty_ground_cells().is_empty() and zone < G.ZONES.size():
+		if water > 0 and board.empty_ground_cells().is_empty() and map < G.MAPS.size():
 			jams += 1
 		break
 
@@ -393,7 +393,7 @@ func _pop() -> void:
 	if empties.is_empty():
 		return
 	var cell: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
-	var gens := G.generators_for_zone(G.GENERATORS, zone)
+	var gens := G.generators_for_map(G.GENERATORS, map)
 	if gens.is_empty():
 		return
 	var wanted := _wanted_lines()

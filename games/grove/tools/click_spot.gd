@@ -29,12 +29,12 @@ func _initialize() -> void:
 	await create_timer(0.6).timeout
 
 	# stage 1: click the farmhouse — the chest's lid should open
-	var zone_center: Vector2 = scn.zone_nodes[0].get_global_rect().get_center()
-	_click(zone_center)
+	var map_center: Vector2 = scn.map_nodes[0].get_global_rect().get_center()
+	_click(map_center)
 	await create_timer(0.6).timeout
 	var lid_open: bool = not scn.spot_hits.is_empty()
-	print("STAGE1 %s: clicked zone at %s -> lid_open=%s (%d rows)" % \
-		["PASS" if lid_open else "FAIL", zone_center, lid_open, scn.spot_hits.size()])
+	print("STAGE1 %s: clicked map at %s -> lid_open=%s (%d rows)" % \
+		["PASS" if lid_open else "FAIL", map_center, lid_open, scn.spot_hits.size()])
 	if not lid_open:
 		quit(1)
 		return

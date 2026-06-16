@@ -41,7 +41,7 @@ func _initialize() -> void:
 		"spirits":
 			var gs := Save.grove()
 			var ful := {}
-			for sp in G.ZONES[0].spots:
+			for sp in G.MAPS[0].spots:
 				ful[String(sp.id)] = true
 			gs["unlocks"] = ful
 			Save.grove_write()
@@ -61,11 +61,11 @@ func _initialize() -> void:
 				g["unlocks"] = {"fh_hearth": true}   # owned → its customize strip opens
 				g["stars_earned"] = 3
 			Save.grove_write()
-		"owned":                                  # Q4/AD: a fully-restored room (any pzone)
+		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
 			var ul := {}
-			for z in G.ZONES.size():
-				for sp in G.ZONES[z].spots:
+			for z in G.MAPS.size():
+				for sp in G.MAPS[z].spots:
 					ul[String(sp.id)] = true
 			go["unlocks"] = ul
 			go["stars_earned"] = 40
@@ -77,7 +77,7 @@ func _initialize() -> void:
 	await create_timer(0.5).timeout
 	var pmap := 0                         # which map to open (debug: any, even locked)
 	for wa in args:
-		if String(wa).begins_with("pzone="):
+		if String(wa).begins_with("pmap="):
 			pmap = int(String(wa).split("=")[1])
 	if mode == "select":
 		scn._open_select()                # the discrete map-select screen

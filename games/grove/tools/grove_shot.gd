@@ -104,11 +104,11 @@ func _initialize() -> void:
 			var g := Save.grove()
 			var ul := {}
 			for z in (2 if mode == "compost" else 3):   # 16 → compost · +2 spots → 26 hive
-				for sp in G.ZONES[z].spots:
+				for sp in G.MAPS[z].spots:
 					ul[String(sp.id)] = true
 			if mode == "hive":
-				ul[String(G.ZONES[3].spots[0].id)] = true
-				ul[String(G.ZONES[3].spots[1].id)] = true
+				ul[String(G.MAPS[3].spots[0].id)] = true
+				ul[String(G.MAPS[3].spots[1].id)] = true
 			g["unlocks"] = ul
 			Save.grove_write()
 			scn.board.set_active_gens(scn._chapter_idx())

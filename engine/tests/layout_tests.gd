@@ -3,8 +3,8 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/layout_tests.gd
 ## Proves: absent overrides → pure grove_content defaults; overrides apply by
 ## stable spot id (not index); values clamp; and the on-disk JSON round-trips.
-## (The NEW map model has no overworld zone placement — a map IS one image with
-## spots ON it — so the zone_map_pos layer is gone; only spot pos/fsize remain.)
+## (The NEW map model has no overworld map placement — a map IS one image with
+## spots ON it — so the per-map placement layer is gone; only spot pos/fsize remain.)
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Layout = preload("res://engine/scripts/core/layout.gd")
@@ -29,24 +29,24 @@ func _initialize() -> void:
 	# 1. empty overrides → every spot accessor returns the grove_content default
 	Layout._ingest({"spots": {}})
 	var all_default := true
-	for z in G.ZONES.size():
-		for k in G.ZONES[z].spots.size():
-			if not _v2_near(Layout.spot_pos(z, k), Vector2(G.ZONES[z].spots[k].pos)):
+	for z in G.MAPS.size():
+		for k in G.MAPS[z].spots.size():
+			if not _v2_near(Layout.spot_pos(z, k), Vector2(G.MAPS[z].spots[k].pos)):
 				all_default = false
-			var dflt_fs := float(G.ZONES[z].spots[k].get("fsize", 240.0))
+			var dflt_fs := float(G.MAPS[z].spots[k].get("fsize", 240.0))
 			if absf(Layout.spot_fsize(z, k) - dflt_fs) > 0.01:
 				all_default = false
 	ok(all_default, "no overrides → all spot accessors fall through to grove_content")
 	ok(not Layout.spot_overridden(0, 0), "spot_overridden false when absent")
 
 	# 2. a spot pos + fsize override applies by ID and leaves the rest at default
-	#    (key by the stable spot id so reordering ZONES never desyncs)
+	#    (key by the stable spot id so reordering MAPS never desyncs)
 	Layout._ingest({"spots": {"fh_hearth": {"pos": [0.11, 0.22], "fsize": 333}}})
 	ok(_v2_near(Layout.spot_pos(0, 0), Vector2(0.11, 0.22)), "fh_hearth pos overridden by id")
 	ok(absf(Layout.spot_fsize(0, 0) - 333.0) < 0.01, "fh_hearth fsize overridden")
 	ok(Layout.spot_overridden(0, 0), "spot_overridden true after override")
-	ok(absf(Layout.spot_fsize(0, 1) - float(G.ZONES[0].spots[1].get("fsize", 240.0))) < 0.01, "sibling spot fsize still default")
-	ok(_v2_near(Layout.spot_pos(0, 1), Vector2(G.ZONES[0].spots[1].pos)), "sibling spot pos still default")
+	ok(absf(Layout.spot_fsize(0, 1) - float(G.MAPS[0].spots[1].get("fsize", 240.0))) < 0.01, "sibling spot fsize still default")
+	ok(_v2_near(Layout.spot_pos(0, 1), Vector2(G.MAPS[0].spots[1].pos)), "sibling spot pos still default")
 
 	# 3. setters clamp to sane ranges
 	Layout.reset_all()

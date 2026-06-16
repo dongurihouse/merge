@@ -198,14 +198,14 @@ func _initialize() -> void:
 	# RETIRED (chapters()/ZONE_RAMP/_quest_stars gone); the no-strand guarantee now rests on the
 	# guardrails (every ask producible) + the Monte-Carlo sim (games/grove/tools/grove_sim.gd).
 
-	# 6c. generators arrive PER ZONE (§6). Zone 0 grants both starters (satchel + compost);
-	# the surplus generator's cell (6,5) reveals only when the player enters zone 1.
-	var z1_chapter := G.ZONES[0].spots.size()      # first chapter of zone 1 (all zone-0 spots bought)
+	# 6c. generators arrive PER MAP (§6). Map 0 grants both starters (satchel + compost);
+	# the surplus generator's cell (6,5) reveals only when the player enters map 1.
+	var z1_chapter := G.MAPS[0].spots.size()      # first chapter of map 1 (all map-0 spots bought)
 	var bg: BoardModel = BoardModel.new()
 	bg.set_active_gens(0)
-	ok(bg.is_gen(Vector2i(4, 3)) and bg.is_gen(Vector2i(2, 1)), "zone 0 grants both starters (satchel + compost)")
-	ok(not bg.is_gen(Vector2i(6, 5)), "the zone-1 surplus generator waits for its own zone")
-	# 6d. entering zone 1 reveals the surplus generator at (6,5) — and an item caught on
+	ok(bg.is_gen(Vector2i(4, 3)) and bg.is_gen(Vector2i(2, 1)), "map 0 grants both starters (satchel + compost)")
+	ok(not bg.is_gen(Vector2i(6, 5)), "the map-1 surplus generator waits for its own map")
+	# 6d. entering map 1 reveals the surplus generator at (6,5) — and an item caught on
 	# that cell hops away safely (never destroyed).
 	var bh: BoardModel = BoardModel.new()
 	bh.set_active_gens(0)
@@ -216,7 +216,7 @@ func _initialize() -> void:
 		if v == 204:
 			before_count += 1
 	var fresh_hive: Array = bh.set_active_gens(z1_chapter)
-	ok(fresh_hive.has(Vector2i(6, 5)) and bh.is_gen(Vector2i(6, 5)), "entering zone 1 reveals the surplus generator")
+	ok(fresh_hive.has(Vector2i(6, 5)) and bh.is_gen(Vector2i(6, 5)), "entering map 1 reveals the surplus generator")
 	var after_count := 0
 	for v in bh.items:
 		if v == 204:
@@ -343,7 +343,7 @@ func _initialize() -> void:
 	# buying a home spot advances the board's progress: it derives from unlocks
 	var ch_before: int = scn._chapter_idx()
 	var gu := Save.grove()
-	var first_spot: String = G.ZONES[0].spots[0].id
+	var first_spot: String = G.MAPS[0].spots[0].id
 	gu["unlocks"] = {first_spot: true}
 	Save.grove_write()
 	ok(scn._chapter_idx() == ch_before + 1, "a home purchase advances the board's progress (unlocks)")
@@ -368,7 +368,7 @@ func _initialize() -> void:
 	var sgg := Save.grove()
 	sgg["stars_earned"] = 300                 # level past map 1's spot gates
 	var gate_ul := {}
-	for sp in G.ZONES[0].spots:
+	for sp in G.MAPS[0].spots:
 		gate_ul[String(sp.id)] = true         # all of map 1 spot-restored
 	sgg["unlocks"] = gate_ul
 	sgg["gates"] = []
@@ -392,7 +392,7 @@ func _initialize() -> void:
 	var gate_stars_b := Save.stars()
 	sg._on_giver_tap(0, sg.giver_chips[0].chip)
 	ok(Save.grove().get("gates", []).has(0), "§7: delivering the gate records it for map 1")
-	ok(G.zone_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "§7: map 2 unlocks once the gate is delivered")
+	ok(G.map_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "§7: map 2 unlocks once the gate is delivered")
 	ok(Save.stars() > gate_stars_b, "§7: the gate pays its large authored reward")
 	ok(sg.board.gen_id_at(Vector2i(6, 5)) == "dairy_stall", "§7: the next map's SURPLUS generator appears outright (dairy stall)")
 	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and sg.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "§7: the anchor satchel stays; the pantry crock waits to be handed in")
@@ -573,14 +573,14 @@ func _initialize() -> void:
 		s3._ready()
 	ok(s3.water == G.WATER_CAP, "returning after days away finds full water")
 
-	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT zone (§6), not just
+	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT map (§6), not just
 	# one — completing maps 1+2 puts the player in map 3/Pond (2 generators: reed bed + creel;
 	# the anchor satchel's cold-load persistence is the parked engine follow-up, BACKLOG).
 	fresh("twogens")
 	var gtg := Save.grove()
 	var ul16 := {}
 	for z in 2:
-		for sp in G.ZONES[z].spots:
+		for sp in G.MAPS[z].spots:
 			ul16[String(sp.id)] = true
 	gtg["unlocks"] = ul16
 	Save.grove_write()
@@ -598,7 +598,7 @@ func _initialize() -> void:
 	get_root().add_child(s4c)
 	if s4c.board == null:
 		s4c._ready()
-	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: a fresh board seeds the zone-0 generators")
+	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: a fresh board seeds the map-0 generators")
 	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()
@@ -640,20 +640,20 @@ func _initialize() -> void:
 	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_nxt), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
 	ok(s3.giver_chips.size() <= int(G.MAX_GIVERS), "§7: the fence never exceeds MAX_GIVERS stands")
 
-	# 13. P3 — zones/spots content sanity + level math
-	var zones_ok := true
-	for z in G.ZONES.size():
-		var n: int = G.ZONES[z].spots.size()
+	# 13. P3 — maps/spots content sanity + level math
+	var maps_ok := true
+	for z in G.MAPS.size():
+		var n: int = G.MAPS[z].spots.size()
 		if n < 8 or n > 10:
-			zones_ok = false
+			maps_ok = false
 		var seen_ids := {}
-		for s in G.ZONES[z].spots:
+		for s in G.MAPS[z].spots:
 			if int(s.cost) < 3 or int(s.cost) > 5:
-				zones_ok = false
+				maps_ok = false
 			seen_ids[String(s.id)] = true
 		if seen_ids.size() != n:
-			zones_ok = false
-	ok(zones_ok, "every zone has 8-10 unique spots costing 3-5 stars (owner pacing)")
+			maps_ok = false
+	ok(maps_ok, "every map has 8-10 unique spots costing 3-5 stars (owner pacing)")
 	# 13c. the stars-driven level clock (one uncapped Level, driven by stars EARNED)
 	ok(G.level_for_stars(0) == 1 and G.level_for_stars(5) == 1 and G.level_for_stars(6) == 2, \
 		"level_for_stars maps cumulative-earned thresholds")
@@ -684,13 +684,13 @@ func _initialize() -> void:
 		h._ready()
 	await create_timer(0.05).timeout
 	# boot lands ON a map: the frontier (fresh save → the hub, map 0), every spot live
-	ok(h._view == "map" and h._map_idx == G.hub_zone(), "boot opens the frontier map (fresh → the hub)")
+	ok(h._view == "map" and h._map_idx == G.hub_map(), "boot opens the frontier map (fresh → the hub)")
 	ok(h.content != null, "the single input surface exists")
-	ok(h.spot_hits.size() == G.ZONES[h._map_idx].spots.size(), "the open map seats every spot as a hit")
+	ok(h.spot_hits.size() == G.MAPS[h._map_idx].spots.size(), "the open map seats every spot as a hit")
 	# the single-input-surface rule (3rd input-swallow bug): EVERY descendant of
 	# content IGNOREs the mouse — only content's gui_input resolves taps
 	ok(_all_ignore(h.content), "every content descendant IGNOREs mouse (single input surface)")
-	ok(h.zone_unlocked(0) and not h.zone_unlocked(1), "farmhouse open, barn locked, on a fresh save")
+	ok(h.map_unlocked(0) and not h.map_unlocked(1), "farmhouse open, barn locked, on a fresh save")
 
 	# a spot BUY, driven through the REAL spot node: give stars, tap an
 	# affordable + level-ok spot (k=0 fh_hearth, L1, 3★) → owned, stars debited,
@@ -701,13 +701,13 @@ func _initialize() -> void:
 	var stars0 := Save.stars()
 	var locked_node: Control = h.spot_hits[2].node
 	h._on_spot_tap(0, 2, locked_node, _hit_center(locked_node))
-	ok(not h.spot_owned(String(G.ZONES[0].spots[2].id)) and Save.stars() == stars0, \
+	ok(not h.spot_owned(String(G.MAPS[0].spots[2].id)) and Save.stars() == stars0, \
 		"a level-locked spot refuses the purchase (greyed, no stars move)")
-	var hearth_id: String = G.ZONES[0].spots[0].id
+	var hearth_id: String = G.MAPS[0].spots[0].id
 	var buy_node: Control = h.spot_hits[0].node
 	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
 	ok(h.spot_owned(hearth_id), "buying a spot records the unlock")
-	ok(Save.stars() == stars0 - int(G.ZONES[0].spots[0].cost), "the spot's stars were spent")
+	ok(Save.stars() == stars0 - int(G.MAPS[0].spots[0].cost), "the spot's stars were spent")
 	ok(G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 1, \
 		"buying a spot does NOT raise Level (Level rides stars EARNED, not spent)")
 	ok(h._view == "map", "the view stays a map across a purchase (no takeover)")
@@ -726,7 +726,7 @@ func _initialize() -> void:
 	# LOCKED card stays put (wobble). drive taps through the real input surface.
 	h._open_select()
 	ok(h._view == "select", "the atlas button opens the map-select view")
-	ok(h.select_hits.size() == G.ZONES.size(), "the select view seats one card per map")
+	ok(h.select_hits.size() == G.MAPS.size(), "the select view seats one card per map")
 	ok(_all_ignore(h.content), "every select descendant IGNOREs mouse (single input surface)")
 	await create_timer(0.05).timeout
 	# tapping the LOCKED barn card (z=1) does nothing — still in select
@@ -748,18 +748,18 @@ func _initialize() -> void:
 	# quest must land first. buy all of map 0 (earn past its L-gates), then inject
 	# gates=[0] (gate delivery really happens on the board; here we simulate it).
 	Save.grove()["stars_earned"] = G.stars_at_level(3)   # clear the farmhouse's L-gates
-	for i in G.ZONES[0].spots.size():
-		var sid: String = G.ZONES[0].spots[i].id
+	for i in G.MAPS[0].spots.size():
+		var sid: String = G.MAPS[0].spots[i].id
 		if not h.spot_owned(sid):
 			h._on_spot_tap(0, i, h.spot_hits[i].node, _hit_center(h.spot_hits[i].node))
-	ok(h.zone_complete(0), "all farmhouse spots restored")
-	ok(not h.zone_unlocked(1), "§7: spot-completing a map does NOT open the next — its gate quest must land first")
+	ok(h.map_spots_done(0), "all farmhouse spots restored")
+	ok(not h.map_unlocked(1), "§7: spot-completing a map does NOT open the next — its gate quest must land first")
 	var gg2 := Save.grove()
 	var gt2: Array = gg2.get("gates", [])
 	gt2.append(0)                             # the great-spirit's gate, delivered
 	gg2["gates"] = gt2
 	Save.grove_write()
-	ok(h.zone_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
+	ok(h.map_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
 	h._persist()
 
 	# 14a2. customization values: each owned spot offers a coin + a diamond look, and
@@ -814,14 +814,14 @@ func _initialize() -> void:
 	# (water comes from level-ups only), so the purchase leaves water unchanged.
 	var gw2 := Save.grove()
 	var ul24 := {}
-	for z4 in 3:                             # maps 1-3 (zones 0-2) fully spot-restored
-		for sp in G.ZONES[z4].spots:
+	for z4 in 3:                             # maps 1-3 (maps 0-2) fully spot-restored
+		for sp in G.MAPS[z4].spots:
 			ul24[String(sp.id)] = true
 	gw2["unlocks"] = ul24
 	h.unlocks = ul24
 	gw2["water"] = 50
 	gw2["stars_earned"] = 200                # high Level clears the orchard gates
-	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → zone 4 spots are buyable
+	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → map 4 spots are buyable
 	Save.add_stars(10)
 	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))
 	ok(int(Save.grove().get("water", 0)) == 50, "§7: a home purchase grants no per-spot water (water is level-ups only)")
@@ -832,29 +832,29 @@ func _initialize() -> void:
 	var sim_earned := 0
 	var strand := false
 	var all_spots := 0
-	for zc in G.ZONES.size():
-		all_spots += G.ZONES[zc].spots.size()
+	for zc in G.MAPS.size():
+		all_spots += G.MAPS[zc].spots.size()
 	while sim_ul.size() < all_spots:
 		var lvl_now := G.level_for_stars(sim_earned)
 		var pick_z := -1
 		var pick_k := -1
 		var pick_cost := 99
-		for z5 in G.ZONES.size():
-			var zone_missing := false
-			for k5 in G.ZONES[z5].spots.size():
-				if sim_ul.has(String(G.ZONES[z5].spots[k5].id)):
+		for z5 in G.MAPS.size():
+			var map_missing := false
+			for k5 in G.MAPS[z5].spots.size():
+				if sim_ul.has(String(G.MAPS[z5].spots[k5].id)):
 					continue
-				zone_missing = true
-				if G.spot_level_req(z5, k5) <= lvl_now and int(G.ZONES[z5].spots[k5].cost) < pick_cost:
-					pick_cost = int(G.ZONES[z5].spots[k5].cost)
+				map_missing = true
+				if G.spot_level_req(z5, k5) <= lvl_now and int(G.MAPS[z5].spots[k5].cost) < pick_cost:
+					pick_cost = int(G.MAPS[z5].spots[k5].cost)
 					pick_z = z5
 					pick_k = k5
-			if zone_missing:
-				break                          # zones open sequentially
+			if map_missing:
+				break                          # maps open sequentially
 		if pick_z < 0:
 			strand = true
 			break
-		sim_ul[String(G.ZONES[pick_z].spots[pick_k].id)] = true
+		sim_ul[String(G.MAPS[pick_z].spots[pick_k].id)] = true
 		sim_earned += pick_cost                  # worst case: earn exactly what you spend
 	ok(not strand, "level gates never strand the map (worst-case order, earn==spend, all 40 spots)")
 
@@ -863,7 +863,7 @@ func _initialize() -> void:
 	get_root().add_child(h2)
 	if h2.content == null:
 		h2._ready()
-	ok(h2.zone_complete(0), "home progress persists across scenes")
+	ok(h2.map_spots_done(0), "home progress persists across scenes")
 
 	# 15. P5 — sell anything, diamonds, FTUE staging
 	fresh("p5")
@@ -898,7 +898,7 @@ func _initialize() -> void:
 	ok(s5.merchant_chip == null, "the merchant waits for the first spot (chapter 1)")
 
 	# sell anything: a t3 flower pays 3 coins and leaves the board
-	Save.grove()["unlocks"] = {String(G.ZONES[0].spots[0].id): true}
+	Save.grove()["unlocks"] = {String(G.MAPS[0].spots[0].id): true}
 	Save.grove_write()
 	s5._rebuild_givers()
 	ok(s5.merchant_chip != null, "the merchant arrives with chapter 1")
@@ -1019,12 +1019,12 @@ func _initialize() -> void:
 	# 19. order L — ambient life + weather
 	fresh("ambient")
 	var Ambient = load("res://engine/scripts/ui/ambient.gd")
-	ok(G.completed_zones({}) == 0, "no zones done on a fresh save")
+	ok(G.completed_maps({}) == 0, "no maps done on a fresh save")
 	var full0 := {}
-	for sp0 in G.ZONES[0].spots:
+	for sp0 in G.MAPS[0].spots:
 		full0[String(sp0.id)] = true
-	ok(G.completed_zones(full0) == 1 and G.character_count(full0) == 2, \
-		"character count = 1 + completed zones")
+	ok(G.completed_maps(full0) == 1 and G.character_count(full0) == 2, \
+		"character count = 1 + completed maps")
 	var alayer: Control = Ambient.build_layer(Vector2(1000, 1000), G.character_count(full0))
 	ok(alayer.get_child_count() == 2, "the layer carries that many characters")
 	ok(_all_ignore(alayer), "spirits never eat input")
@@ -1081,7 +1081,7 @@ func _initialize() -> void:
 
 	# 21. R4 — sweep the composited UI with the pixel-right asserts. Each element
 	# now has PERMANENT rect coverage (the law's durable value); a failure here is
-	# a real misalignment to fix. (wallet was R1; zone pin R2.)
+	# a real misalignment to fix. (wallet was R1; map pin R2.)
 	fresh("r4")
 	# water chip (board, top-left) — reveal past the FTUE stage, then assert it wraps
 	var sb4 = load("res://engine/scenes/Board.tscn").instantiate()
@@ -1196,38 +1196,38 @@ func _initialize() -> void:
 	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
 
 	# 24. T — the Decorate jump goes to the MAP the player was decorating (NEW model:
-	# decorate_zone opens that MAP, not an interior). Boot lands ON a map view.
+	# decorate_map opens that MAP, not an interior). Boot lands ON a map view.
 	var HomeScript = load("res://engine/scripts/scenes/map.gd")
-	# T1: opening a map persists last_zone
+	# T1: opening a map persists last_map
 	fresh("tlast")
 	var ht = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht)
 	if ht.content == null:
 		ht._ready()
 	ht._open_map(0)
-	ok(String(Save.grove().get("last_zone", "")) == "farmhouse", "T1: opening a map persists last_zone")
-	# T1: sanitize — an unknown last_zone never survives a boot. _load_state drops it,
+	ok(String(Save.grove().get("last_map", "")) == "farmhouse", "T1: opening a map persists last_map")
+	# T1: sanitize — an unknown last_map never survives a boot. _load_state drops it,
 	# then the boot opens the frontier and re-records a VALID map id in its place.
-	Save.grove()["last_zone"] = "atlantis"
+	Save.grove()["last_map"] = "atlantis"
 	var ht2 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht2)
 	if ht2.content == null:
 		ht2._ready()
-	ok(G.zone_for_id(String(Save.grove().get("last_zone", ""))) >= 0, \
-		"T1: an unknown last_zone is scrubbed on load (boot re-records a valid map)")
+	ok(G.map_for_id(String(Save.grove().get("last_map", ""))) >= 0, \
+		"T1: an unknown last_map is scrubbed on load (boot re-records a valid map)")
 	ok(ht2._view == "map", "T1: fresh arrival (no jump request) lands on a map view")
 	# T2: the Decorate jump — opens the named map directly, NO map-select flash
 	# (asserted before any frame), and the request is one-shot
-	HomeScript.decorate_zone = "farmhouse"
+	HomeScript.decorate_map = "farmhouse"
 	var ht3 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht3)
 	if ht3.content == null:
 		ht3._ready()
 	ok(ht3._view == "map" and ht3._map_idx == 0, \
 		"T2: Decorate opens the named map directly (asserted pre-frame: no select flash)")
-	ok(HomeScript.decorate_zone == "", "T2: the jump request is one-shot (consumed)")
+	ok(HomeScript.decorate_map == "", "T2: the jump request is one-shot (consumed)")
 	# T2: an unknown jump request falls through to the frontier map
-	HomeScript.decorate_zone = "atlantis"
+	HomeScript.decorate_map = "atlantis"
 	var ht4 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(ht4)
 	if ht4.content == null:
@@ -1457,7 +1457,7 @@ func _initialize() -> void:
 	ws.queue_free()
 
 	# V1 (the locked-generator "after N spots" preview) is PARKED with T17: it was keyed on
-	# the old per-chapter `appears_at`; under per-zone generators the next set arrives on zone
+	# the old per-chapter `appears_at`; under per-map generators the next set arrives on map
 	# COMPLETION, so the preview needs redefining alongside §6/§7. Test removed with the feature.
 
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------

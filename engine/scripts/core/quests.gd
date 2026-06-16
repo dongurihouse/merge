@@ -4,31 +4,31 @@ extends RefCounted
 ## in (the grove's unlocks/gates, the board's live generators, banked stars, level, rng) and a
 ## quests Array comes out. The quest ENGINE (gen_quest / gate_quest / active_giver_count) and
 ## all tuning live in content.gd (G); this layer only orchestrates it. board.gd keeps thin
-## Save-reading wrappers (_quest_zone / _refill_quests / _gate_pending / …) over these.
+## Save-reading wrappers (_quest_map / _refill_quests / _gate_pending / …) over these.
 ## Layering: core/ never imports ui/ or scenes/ — see docs/design/merge_spec.md §15.
 
 const G = preload("res://engine/scripts/core/content.gd")
 
 # The map currently being restored (its generators/lines are live). Clamped to a valid map.
-static func zone(unlocks: Dictionary, gates: Array) -> int:
-	return clampi(G.frontier_zone(unlocks, gates), 0, G.ZONES.size() - 1)
+static func current_map(unlocks: Dictionary, gates: Array) -> int:
+	return clampi(G.frontier_map(unlocks, gates), 0, G.MAPS.size() - 1)
 
 # Every map fully complete (spots + gate) — no frontier left.
 static func map_done(unlocks: Dictionary, gates: Array) -> bool:
-	return G.frontier_zone(unlocks, gates) == -1
+	return G.frontier_map(unlocks, gates) == -1
 
 # Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
 # quest is the lone fence stand (§7) — delivering it unlocks the next map.
 static func gate_pending(z: int, unlocks: Dictionary, gates: Array) -> bool:
-	return G.zone_done(z, unlocks) and not gates.has(z)
+	return G.map_spots_done(z, unlocks) and not gates.has(z)
 
 # The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
 static func meter_target(z: int, banked_stars: int, unlocks: Dictionary, level: int) -> int:
-	return G.active_giver_count(banked_stars, G.zone_cheapest_spot(z, unlocks, level))
+	return G.active_giver_count(banked_stars, G.map_cheapest_spot(z, unlocks, level))
 
 # The restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
 static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary, level: int) -> bool:
-	var cost := G.zone_cheapest_spot(z, unlocks, level)
+	var cost := G.map_cheapest_spot(z, unlocks, level)
 	return cost > 0 and banked_stars >= cost
 
 # §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
@@ -36,7 +36,7 @@ static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary, level: in
 # regular stream; once handed in, the new generators are live and regular quests resume.
 static func pending_grant_quests(z: int, board_gens: Dictionary) -> Array:
 	var out: Array = []
-	for q in G.grant_quests_for_zone(G.GENERATORS, z):
+	for q in G.grant_quests_for_map(G.GENERATORS, z):
 		var gid := String(q.grant.grants)
 		if not board_gens.values().has(gid) and G.gen_can_grant(board_gens, G.GENERATORS, gid):
 			out.append(q)
@@ -58,7 +58,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		return pend                           # §6: a new map opens with its generator-grant hand-in(s)
 	var out: Array = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
 	# §6 anchor exemption: ask from the current map's lines ∪ the anchor's lines (its generator
-	# never retires, so its lines stay askable past their debut map) — NOT the bare zone roster.
+	# never retires, so its lines stay askable past their debut map) — NOT the bare map roster.
 	var lines := G.askable_lines(G.GENERATORS, z)
 	var target := meter_target(z, banked_stars, unlocks, level)
 	while out.size() < target:

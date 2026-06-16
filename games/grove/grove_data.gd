@@ -1,7 +1,7 @@
 extends RefCounted
 ## GROVE game DATA — the content + tuning the engine's content logic reads via
 ## Game.data(). Pure tables, zero logic: item lines, generators, the bramble curve
-## numbers, the quest ramp, zones/spots, waysides, variants, and all economy dials.
+## numbers, the quest ramp, maps/spots, waysides, variants, and all economy dials.
 ## A different game ships its own data module with the SAME const names.
 
 const COLS := 7
@@ -46,7 +46,7 @@ const LINES := {
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): 12 generators / 24 lines across maps 1–5
-# (Core §6, the generator-grant hand-in model). Each emits 2 lines and belongs to a map (zone);
+# (Core §6, the generator-grant hand-in model). Each emits 2 lines and belongs to a map (map);
 # `grant_from` = the previous-map generator you HAND IN to receive this one (old lines retire); ""
 # = granted outright (a map's surplus, or map 1's two starters). `cell` is denormalized down each
 # lineage (a grant generator sits at its predecessor's cell). 12 gen sprites + ~192 item sprites
@@ -55,33 +55,33 @@ const LINES := {
 # on the board); keeping its lines ASKABLE past map 1 is a parked engine follow-up (BACKLOG).
 const GENERATORS := [
 	# map 1 — Farmhouse (Radish): the two starters, granted outright
-	{"id": "seed_satchel", "zone": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
+	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
 		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
-	{"id": "pantry_crock", "zone": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
+	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
 		"tex": "ui/gen_compost.png", "label": "pantry"},
 	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
-	{"id": "hen_coop", "zone": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
 		"tex": "ui/gen_compost.png", "label": "coop"},
-	{"id": "dairy_stall", "zone": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
+	{"id": "dairy_stall", "map": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
 		"tex": "ui/gen_beehive.png", "label": "dairy"},
 	# map 3 — Pond (Frog): two hand-in grants
-	{"id": "reed_bed", "zone": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
+	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
 		"tex": "ui/gen_compost.png", "label": "reeds"},
-	{"id": "creel", "zone": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
+	{"id": "creel", "map": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
 		"tex": "ui/gen_beehive.png", "label": "creel"},
 	# map 4 — Orchard (Bee): two hand-in grants + one surplus
-	{"id": "orchard_basket", "zone": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
+	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
 		"tex": "ui/gen_compost.png", "label": "orchard"},
-	{"id": "stone_fruit_bough", "zone": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
+	{"id": "stone_fruit_bough", "map": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
 		"tex": "ui/gen_beehive.png", "label": "stonefruit"},
-	{"id": "nut_blossom", "zone": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
+	{"id": "nut_blossom", "map": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
 		"tex": "ui/gen_satchel.png", "label": "nuts"},
 	# map 5 — Meadow (Morel): three hand-in grants
-	{"id": "glowcap_ring", "zone": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
+	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
 		"tex": "ui/gen_compost.png", "label": "glowcap"},
-	{"id": "meadow_tuft", "zone": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
+	{"id": "meadow_tuft", "map": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
 		"tex": "ui/gen_beehive.png", "label": "tuft"},
-	{"id": "lantern_bloom", "zone": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
+	{"id": "lantern_bloom", "map": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
 		"tex": "ui/gen_satchel.png", "label": "lantern"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
@@ -160,7 +160,7 @@ const MERCHANT_COINS := 25                # per top-tier item taken
 
 # Diamonds (earned-only).
 const LEVEL_DIAMONDS := 3                 # per level-up
-const ZONE_DIAMONDS := 10                 # per zone fully restored
+const MAP_DIAMONDS := 10                 # per map fully restored
 const REFILL_DIAMOND_COST := 25           # paid rain, once free refills are spent
 const BAG3_DIAMOND_COST := 10             # the third bag slot
 
@@ -185,7 +185,7 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # Spots sit on the map image at `pos` (0..1 of the fitted image rect), `fsize` px; `kind`
 # ("yield"/"decor"/"") is the hub seam (yield is parked — the keystone reads it). Spot costs 3-5★.
 # Map art loads <art_root>/map/map_<id>.png (a painted fallback panel until the §16 images land).
-const ZONES := [
+const MAPS := [
 	# Map 1 — the home hub (grove_spec §3): 4 yield + 4 décor, 31★. (pos/fsize are PROVISIONAL —
 	# carried from the legacy interior; the owner re-places them on the real map image via the
 	# Layout editor once §16 art lands. Yield/décor BEHAVIOR is the keystone task; `kind` is its seam.)

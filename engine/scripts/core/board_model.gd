@@ -47,12 +47,12 @@ func is_gen(cell: Vector2i) -> bool:
 func gen_id_at(cell: Vector2i) -> String:
 	return String(gens.get(cell, ""))
 
-## Seed the live generator set to a zone's roster (§6) — used on a fresh game (zone 0) and
-## by the save migration (an existing player's current zone). NOT the in-play path: once
+## Seed the live generator set to a map's roster (§6) — used on a fresh game (map 0) and
+## by the save migration (an existing player's current map). NOT the in-play path: once
 ## seeded, the set changes only by move_gen / grant_gen. Each gen cell sheds its bramble,
 ## and any player item caught on it hops to free ground (never destroyed).
-func seed_gens(zone: int) -> void:
-	gens = G.live_gen_state(G.GENERATORS, zone)
+func seed_gens(map: int) -> void:
+	gens = G.live_gen_state(G.GENERATORS, map)
 	_claim_gen_cells()
 
 func _claim_gen_cells() -> void:
@@ -103,10 +103,10 @@ func place_surplus_gen(id: String, cell: Vector2i) -> void:
 		items[idx(cell)] = 0
 
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a chapter's
-## generators: re-seed to that chapter's zone. NOT used by the live board (which restores
+## generators: re-seed to that chapter's map. NOT used by the live board (which restores
 ## `gens` from save and only mutates it via move/grant). Returns the live gen cells.
 func set_active_gens(chapter: int) -> Array:
-	seed_gens(G.zone_of_chapter(chapter))
+	seed_gens(G.map_of_chapter(chapter))
 	return gens.keys()
 
 func is_empty_ground(cell: Vector2i) -> bool:

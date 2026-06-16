@@ -1,7 +1,7 @@
 extends RefCounted
 ## Placement overrides — the owner's drag-to-place editor (home.gd place mode)
 ## WRITES here; the renderers READ positions through here. Every value is keyed
-## by a STABLE id (zone id, spot id) so reordering the game data never desyncs a
+## by a STABLE id (map id, spot id) so reordering the game data never desyncs a
 ## saved position. An ABSENT file means pure content defaults — i.e. zero
 ## behaviour change until something is actually placed.
 ##
@@ -20,7 +20,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const RES_PATH := "res://data/placements.json"
 const USER_PATH := "user://placements.json"
 
-static var _data: Dictionary = {}      # {"zones": {id: {map_pos:[x,y]}}, "spots": {id: {pos:[x,y], fsize:f}}}
+static var _data: Dictionary = {}      # {"maps": {id: {map_pos:[x,y]}}, "spots": {id: {pos:[x,y], fsize:f}}}
 static var _loaded := false
 
 # --- loading -----------------------------------------------------------------------
@@ -29,7 +29,7 @@ static func _ensure() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	_data = {"zones": {}, "spots": {}}
+	_data = {"maps": {}, "spots": {}}
 	var raw := ""
 	# user:// first (the latest local edits), then the committed res:// baseline.
 	for p in [USER_PATH, RES_PATH]:
@@ -44,7 +44,8 @@ static func _ensure() -> void:
 		return
 	var parsed: Variant = JSON.parse_string(raw)
 	if parsed is Dictionary:
-		_data.zones = (parsed as Dictionary).get("zones", {})
+		# T38: the key is "maps" now; accept a pre-rename "zones" file too (back-compat).
+		_data.maps = (parsed as Dictionary).get("maps", (parsed as Dictionary).get("zones", {}))
 		_data.spots = (parsed as Dictionary).get("spots", {})
 
 static func _arr_to_v2(a: Variant, fallback: Vector2) -> Vector2:
@@ -56,47 +57,47 @@ static func _arr_to_v2(a: Variant, fallback: Vector2) -> Vector2:
 
 static func spot_pos(z: int, k: int) -> Vector2:
 	_ensure()
-	var dflt := Vector2(G.ZONES[z].spots[k].pos)
-	var o: Variant = _data.spots.get(String(G.ZONES[z].spots[k].id), null)
+	var dflt := Vector2(G.MAPS[z].spots[k].pos)
+	var o: Variant = _data.spots.get(String(G.MAPS[z].spots[k].id), null)
 	if o is Dictionary and (o as Dictionary).has("pos"):
 		return _arr_to_v2((o as Dictionary).pos, dflt)
 	return dflt
 
 static func spot_fsize(z: int, k: int) -> float:
 	_ensure()
-	var dflt := float(G.ZONES[z].spots[k].get("fsize", 240.0))
-	var o: Variant = _data.spots.get(String(G.ZONES[z].spots[k].id), null)
+	var dflt := float(G.MAPS[z].spots[k].get("fsize", 240.0))
+	var o: Variant = _data.spots.get(String(G.MAPS[z].spots[k].id), null)
 	if o is Dictionary and (o as Dictionary).has("fsize"):
 		return float((o as Dictionary).fsize)
 	return dflt
 
 static func spot_overridden(z: int, k: int) -> bool:
 	_ensure()
-	return _data.spots.has(String(G.ZONES[z].spots[k].id))
+	return _data.spots.has(String(G.MAPS[z].spots[k].id))
 
 # --- write (in-memory; flush with save()) ------------------------------------------
 
 static func set_spot_pos(z: int, k: int, v: Vector2) -> void:
 	_ensure()
-	var id := String(G.ZONES[z].spots[k].id)
+	var id := String(G.MAPS[z].spots[k].id)
 	if not _data.spots.has(id):
 		_data.spots[id] = {}
 	_data.spots[id]["pos"] = [snappedf(clampf(v.x, 0.0, 1.0), 0.0001), snappedf(clampf(v.y, 0.0, 1.0), 0.0001)]
 
 static func set_spot_fsize(z: int, k: int, f: float) -> void:
 	_ensure()
-	var id := String(G.ZONES[z].spots[k].id)
+	var id := String(G.MAPS[z].spots[k].id)
 	if not _data.spots.has(id):
 		_data.spots[id] = {}
 	_data.spots[id]["fsize"] = snappedf(clampf(f, 40.0, 700.0), 1.0)
 
 static func reset_spot(z: int, k: int) -> void:
 	_ensure()
-	_data.spots.erase(String(G.ZONES[z].spots[k].id))
+	_data.spots.erase(String(G.MAPS[z].spots[k].id))
 
 static func reset_all() -> void:
 	_loaded = true
-	_data = {"zones": {}, "spots": {}}
+	_data = {"maps": {}, "spots": {}}
 
 # --- persistence -------------------------------------------------------------------
 
@@ -132,7 +133,7 @@ static func save() -> String:
 
 static func _ingest(d: Dictionary) -> void:
 	_loaded = true
-	_data = {"zones": d.get("zones", {}), "spots": d.get("spots", {})}
+	_data = {"maps": d.get("maps", d.get("zones", {})), "spots": d.get("spots", {})}
 
 static func _force_reload() -> void:
 	_loaded = false

@@ -58,7 +58,7 @@ const GEN_LIT := Color(1, 1, 1, 1.0)
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
-var quests_zone := -1              # the map these quests were generated for (regenerate on map change)
+var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
 var refills_used := 0
@@ -269,7 +269,7 @@ func _ready() -> void:
 	bottom_bar.add_child(brow)
 	var home_btn := Look.button(tr("◀ Home"), func() -> void:
 		Audio.play("button_tap", -2.0)
-		HomeScene.decorate_zone = String(G.ZONES[G.hub_zone()].id)   # land on the HUB map
+		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
 		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
 	home_btn.custom_minimum_size = Vector2(150, 58)
 	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -307,7 +307,7 @@ func _ready() -> void:
 	# §8: the map armed a gate-unveil pointer on completion — point the player (wordlessly) at
 	# the gate quest now waiting on the fence. Consume the pointer (fires once); the fence is
 	# already built above, so the lone gate stand exists to pulse.
-	if _take_gate_cue_zone() >= 0:
+	if _take_gate_cue_map() >= 0:
 		_play_gate_cue()
 
 	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
@@ -358,7 +358,7 @@ func _load_state() -> void:
 	if g.has("board"):
 		board.from_dict(g["board"])
 		quests = Array(g.get("quests", []))
-		quests_zone = int(g.get("quests_zone", -1))
+		quests_map = int(g.get("quests_map", -1))
 		bag = Array(g.get("bag", []))
 		rng.state = int(g.get("rng_state", 0))
 		water = int(g.get("water", G.WATER_CAP))
@@ -377,17 +377,17 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		board.seed_gens(G.zone_of_chapter(_chapter_idx()))   # seed the current zone's set (migration)
+		board.seed_gens(G.map_of_chapter(_chapter_idx()))   # seed the current map's set (migration)
 	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
 		var mg: Array = []
 		var ul: Dictionary = Save.grove().get("unlocks", {})
-		for z in G.ZONES.size():
-			if G.zone_done(z, ul):
+		for z in G.MAPS.size():
+			if G.map_spots_done(z, ul):
 				mg.append(z)
 		var gg := Save.grove()
 		gg["gates"] = mg
 		Save.grove_write()
-	if quests_zone != _quest_zone():        # never-seeded (pre-§7 save) or crossed into a new map
+	if quests_map != _quest_map():        # never-seeded (pre-§7 save) or crossed into a new map
 		_init_quests()
 	else:
 		_refill_quests()                    # top up / trim the live fence to the current meter
@@ -418,34 +418,34 @@ func _apply_regen(now: float) -> void:
 	_regen_ts = float(r.regen_ts)
 
 # --- §7 live generated-quest fence ------------------------------------------------
-# Gates delivered so far (zone indices) — the §7 completion chain; persisted in the save.
+# Gates delivered so far (map indices) — the §7 completion chain; persisted in the save.
 func _gates() -> Array:
 	return Save.grove().get("gates", [])
 
 # The map currently being restored (its generators/lines are live). Clamped to a valid map.
-func _quest_zone() -> int:
-	return Quests.zone(Save.grove().get("unlocks", {}), _gates())
+func _quest_map() -> int:
+	return Quests.current_map(Save.grove().get("unlocks", {}), _gates())
 
 func _quest_level() -> int:
 	return G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 
 # The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
 func _meter_target() -> int:
-	return Quests.meter_target(_quest_zone(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
+	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
 
 # Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
 # quest is the lone fence stand (§7) — delivering it unlocks the next map.
 func _gate_pending() -> bool:
-	return Quests.gate_pending(_quest_zone(), Save.grove().get("unlocks", {}), _gates())
+	return Quests.gate_pending(_quest_map(), Save.grove().get("unlocks", {}), _gates())
 
 # §8 wordless map→board pointer. The map arms Save's gate_pointer on completion (the silent
 # handoff); the board consumes it on open. Take the pending pointer (clears it so it fires
 # exactly once) and decide whether a cue is due: only when it points at the CURRENT frontier
 # map AND that gate is genuinely pending (the lone gate stand is on the fence to point at).
-# Returns the zone to cue, or -1 (nothing armed, or stale — consumed silently either way).
-func _take_gate_cue_zone() -> int:
+# Returns the map to cue, or -1 (nothing armed, or stale — consumed silently either way).
+func _take_gate_cue_map() -> int:
 	var z := Save.take_gate_pointer()
-	if z >= 0 and z == _quest_zone() and _gate_pending():
+	if z >= 0 and z == _quest_map() and _gate_pending():
 		return z
 	return -1
 
@@ -467,18 +467,18 @@ func _play_gate_cue() -> void:
 # Top up / trim the live fence to the metered count with freshly generated quests (§7); once the
 # map is fully restored, the fence becomes the lone authored GATE quest. Deterministic via the rng.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_zone(), Save.grove().get("unlocks", {}), _gates(), board.gens, Save.stars(), _quest_level(), rng)
+	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, Save.stars(), _quest_level(), rng)
 
 # §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
 # generator (still on the board) and rewards a new line. The map opens with these before its
 # regular stream; once handed in, the new generators are live and regular quests resume.
 func _pending_grant_quests() -> Array:
-	return Quests.pending_grant_quests(_quest_zone(), board.gens)
+	return Quests.pending_grant_quests(_quest_map(), board.gens)
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
 	quests = []
-	quests_zone = _quest_zone()
+	quests_map = _quest_map()
 	_refill_quests()
 
 func _quest_stars(q: Dictionary) -> int:
@@ -494,7 +494,7 @@ func _persist() -> void:
 	var g := Save.grove()
 	g["board"] = board.to_dict()
 	g["quests"] = quests
-	g["quests_zone"] = quests_zone
+	g["quests_map"] = quests_map
 	g["bag"] = bag
 	g["rng_state"] = rng.state
 	g["water"] = water
@@ -513,7 +513,7 @@ func _map_done() -> bool:                     # every map fully complete (spots 
 # Scoped to the frontier map (gate-aware), so a fully-restored map (gate pending) is NOT
 # "ready to restore" — the move there is delivering the gate quest, not buying a spot.
 func _gate_ready() -> bool:
-	return Quests.gate_ready(_quest_zone(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
+	return Quests.gate_ready(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
 
 # --- HUD ------------------------------------------------------------------------
 
@@ -525,7 +525,7 @@ func _build_hud() -> void:
 		_persist(),
 		"home": func() -> void:
 			Audio.play("button_tap", -2.0)
-			HomeScene.decorate_zone = String(G.ZONES[G.hub_zone()].id)   # land on the HUB map
+			HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
 			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")})
 	stars_label = hud.stars
 	coins_label = hud.coins
@@ -1327,8 +1327,8 @@ func _rebuild_all() -> void:
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
-	# per-chapter `appears_at`. Under per-zone generators the next set arrives on zone
-	# COMPLETION, not after N spots — the preview needs redefining (show the next zone's
+	# per-chapter `appears_at`. Under per-map generators the next set arrives on map
+	# COMPLETION, not after N spots — the preview needs redefining (show the next map's
 	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
 	gen_preview_cells.clear()
 	_rebuild_pieces()
@@ -1855,7 +1855,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# FTUE (§4): during the free-pop intro a tap pops EXACTLY ONE item — burst is suppressed so the
 	# 10 free pops are ~10 deliberate frictionless taps (not spent 3-at-a-time) and the counter can't
 	# overshoot 10 mid-burst. Burst resumes the moment the free budget is gone (`charged`).
-	var burst := 1 if not charged else G.burst_count(_quest_zone(), _gen_burst_level(), rng)
+	var burst := 1 if not charged else G.burst_count(_quest_map(), _gen_burst_level(), rng)
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
@@ -2303,14 +2303,14 @@ func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
 		var code := int(ask.line) * 100 + int(ask.tier)
 		for _k in int(ask.count):
 			board.take(board.first_item_of(code))
-	var z := _quest_zone()
+	var z := _quest_map()
 	var g := Save.grove()
 	var gates: Array = g.get("gates", [])
 	if not gates.has(z):
 		gates.append(z)
 	g["gates"] = gates                        # §7: the gate is delivered → the next map unlocks
 	Save.grove_write()
-	if z + 1 < G.ZONES.size():                # the next map opens: its SURPLUS generators appear now;
+	if z + 1 < G.MAPS.size():                # the next map opens: its SURPLUS generators appear now;
 		for sid in G.surplus_gen_ids(G.GENERATORS, z + 1):   # the hand-in ones arrive via grant quests (§6)
 			board.place_surplus_gen(String(sid), G.gen_cell_of(G.GENERATORS, String(sid)))
 	quests.remove_at(qi)
@@ -2318,7 +2318,7 @@ func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
 	if _quest_coins(q) > 0:
 		Save.add_coins(_quest_coins(q))
 	# §13: the message stays text; the star reward rides an icon+number floater (no emoji).
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("%s restored!") % tr(G.ZONES[z].name), STRAW)
+	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
 	FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(0, 40), "star", _quest_stars(q), STRAW)
 	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -1.0)
 	if levels_up > 0:
@@ -2564,8 +2564,8 @@ func _on_gate() -> void:
 	Audio.play("button_tap", -2.0)
 	_persist()
 	# T2: Decorate jumps straight INTO the room you were decorating — the map is
-	# the atlas you visit on purpose. Fresh save (no last_zone) → the map, as ever.
-	HomeScene.decorate_zone = String(Save.grove().get("last_zone", ""))
+	# the atlas you visit on purpose. Fresh save (no last_map) → the map, as ever.
+	HomeScene.decorate_map = String(Save.grove().get("last_map", ""))
 	get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")
 
 # --- misc -------------------------------------------------------------------------

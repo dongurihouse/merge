@@ -74,7 +74,7 @@ static func mount(host: Control) -> void:
 
 	_action(menu, host, "Reset progress", _act_reset)
 	_action(menu, host, "+100 premium", _act_premium)
-	_action(menu, host, "Unlock next zone", _act_unlock_zone)
+	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
 
 	host.add_child(layer)
@@ -118,21 +118,21 @@ static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
 	_reflect(host)
 
-## Unlock every spot in the next unfinished zone + credit the matching stars_earned,
+## Unlock every spot in the next unfinished map + credit the matching stars_earned,
 ## so the Level advances alongside, exactly like real play.
-static func _act_unlock_zone(host: Control) -> void:
+static func _act_unlock_map(host: Control) -> void:
 	var g := Save.grove()
 	var unlocks: Dictionary = g.get("unlocks", {})
 	g["unlocks"] = unlocks
 	var z := -1
-	for i in G.ZONES.size():
-		if not G.zone_done(i, unlocks):
+	for i in G.MAPS.size():
+		if not G.map_spots_done(i, unlocks):
 			z = i
 			break
 	if z < 0:
-		return                              # every zone already restored
+		return                              # every map already restored
 	var cost := 0
-	for sp in G.ZONES[z].spots:
+	for sp in G.MAPS[z].spots:
 		var sid := String(sp.id)
 		if not unlocks.has(sid):
 			unlocks[sid] = true
