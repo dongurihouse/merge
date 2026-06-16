@@ -41,8 +41,8 @@ at audit time (some now stale where the code moved).
   `save_tests` 32/0. **T21 is now merged (`6f9faf9`), so A2–A9 are UNBLOCKED — this is the keystone's next pickup.**
   • **Part B — generator burst-upgrade (§6 board sink) — ✅ DONE (T23 mechanic + T25 on-board buy-pill UI +
   reprice/free-paid decouple).** A coin sink to pop more per tap; now absorbs **64–76%** of the coin faucet.
-  *(Burst stays GLOBAL — per-generator parked. The ⚠️ seed-123 burst × level-gating jam it surfaced is parked in
-  the Economy-tuning item below.)*
+  *(Burst stays GLOBAL — per-generator parked. The seed-123 burst × level-gating jam it surfaced was **fixed in
+  T37** — see the Economy-tuning item below.)*
   *This closes the soft-currency loop the rest of the economy hinges on — pair with the quest coin faucet +
   the shop sinks.* **Reworked 2026-06-15 (owner):** hub-concentrated (the hub carries the loop, **not every
   building on every map**). **Parked (owner 2026-06-15):** **per-map yield** + **cross-map feed-forward** — a
@@ -184,21 +184,16 @@ at audit time (some now stale where the code moved).
   starved), leaving low-volume early maps a high fixed-gift ratio on some seeds — so the sim now treats
   **maps 1–2 as WARN** and hard-checks **maps 3+** (was map-1-only); this pass must rebalance the gift
   cadence against burst's front-loaded spend **and** the +50 change above. **The §4 `MIN_LEVEL` gradient
-  (T24, 2026-06-15):** the shipped table is strand-safe + I2-clean, but level-gating **~halves pace** vs
-  the old tier-ring (30d sim: stars ~halved, maps 4–5/5 → 2/5) and caps the early FTUE at **2 free cells
-  until L2** (at L1 nothing is openable). A softer gradient (inner ring → L1) recovers the pace
-  (sim-validated) but **over-feeds the water gift → breaks I2** — so tune the gradient **jointly with
-  `LEVEL_STARS` + `LEVEL_WATER_GIFT`** here, re-validating **both no-strand AND I2** on the sim. **⚠️ NEW — integrated
-  `main` JAMS on seed 123 (surfaced 2026-06-15, T25 re-validation):** burst × level-gating combine to a HARD jam
-  (not just slow pace) — the bot earns 5★ on day 1 then is stuck at L1 on the 9-cell board (nothing openable until
-  L2), burst floods it, and it never recovers (90 jams / 30d, faucet 0). **Each branch passed in isolation; the
-  parallel-merge reconcile (`c0a3acd`) never re-ran the sim on the combined `main`**, so it slipped in. This is the
-  same gradient-vs-faucet tension above, now a strand — it is the strongest argument for opening the inner ring at
-  **L1** (T24's recommendation). Fix belongs to THIS joint pass, not the burst-reprice (T25, which is neutral to it —
-  map-1 burst is unchanged by the decouple). *(Was the
+  (T24 → T37):** the seed-123 burst × level-gating **strand/jam is FIXED** — T37 shifted the whole diamond
+  down one level (center 0, corners 12→11) so **L1 now has a frontier** and the board grows before L2;
+  grove_sim seed 123 = 90 jams → **0** (40/40 spots), 14-seed sweep 0 fails (no-strand + I2 steady-state
+  maps 3+). What's **still open** is only the **feel/pacing call** (T37 is *done — pending owner feel
+  sign-off*): T37's faster early opening lifts the map-1 water-gift ratio (~0.37 → ~0.8–1.5, WARN-exempt
+  onboarding), so the remaining lever is the joint **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** sign-off above
+  (re-validated on the sim) — no longer a strand. *(Was the
   "Economy rebalance under per-zone generators / #4" item — it folded into §7's tuning. Surfaced
-  2026-06-15 — T17 sim findings; §7 cutover T19; faucet + burst front-loading folded in T23; the §4
-  MIN_LEVEL gradient added T24.)*
+  2026-06-15 — T17 sim findings; §7 cutover T19; faucet + burst front-loading folded in T23; §4 MIN_LEVEL
+  gradient T24; **seed-123 strand fixed T37**.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.
