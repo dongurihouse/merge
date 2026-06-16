@@ -310,6 +310,8 @@ func _process(delta: float) -> void:
 		_hint_pair()
 
 # Find one mergeable pair and wiggle it. Returns the pair (tests; [] = none).
+# §2: the hint also pulses the sealed cell(s) that merging that pair would OPEN —
+# the "this merge unseals that" teach-signal. Same rock vocabulary as the pair.
 func _hint_pair() -> Array:
 	if not Features.on("idle_hint"):
 		return []
@@ -318,7 +320,23 @@ func _hint_pair() -> Array:
 		var n: Control = piece_nodes.get(cell)
 		if n != null and is_instance_valid(n):
 			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
+	for cell in openable_for_hint(board, pair, _quest_level()):
+		var br: Control = bramble_nodes.get(cell)
+		if br != null and is_instance_valid(br):
+			FX.rock(br, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)
 	return pair
+
+# §2 seam (pure, headless-testable): the sealed cells the hinted pair would open.
+# A merge can land on EITHER cell of the pair, so we union the level-reached sealed
+# neighbours of both (deduped). Empty pair, or nothing level-reached adjacent → []. The
+# merge is the trigger; player_level gates WHEN a neighbour is eligible (§4, openable_brambles).
+static func openable_for_hint(model: BoardModel, pair: Array, player_level: int) -> Array:
+	var out: Array = []
+	for cell in pair:
+		for n in model.openable_brambles(cell, player_level):
+			if not out.has(n):
+				out.append(n)
+	return out
 
 func _board_w() -> float:
 	return G.COLS * csz + (G.COLS - 1) * GAP
