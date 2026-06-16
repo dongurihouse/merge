@@ -133,15 +133,19 @@ func _initialize() -> void:
 	ok(b.is_open(G.GEN_CELL) and b.item_at(G.GEN_CELL) == 0, "generator cell open and empty")
 	ok(b.is_open(Vector2i(3, 2)) and b.is_open(Vector2i(5, 4)), "center 3x3 starts open")
 	ok(b.is_bramble(Vector2i(0, 0)) and b.is_bramble(Vector2i(8, 6)), "edges start brambled")
-	# §4 per-cell LEVEL gate (replaces the old tier-ring encoding): G.cell_min_level
+	# §4 per-cell LEVEL gate (replaces the old tier-ring encoding): G.cell_min_level. MIN_LEVEL is the
+	# owner's feel dial (T37 — re-tuned to open an L1 frontier), so these assert the MECHANISM
+	# (gradient-agnostic, derived from cell_min_level), not fixed table values.
+	var g_inner := G.cell_min_level(Vector2i(2, 3))    # a center-adjacent frontier cell
+	var g_next := G.cell_min_level(Vector2i(1, 3))     # one ring further out
+	var g_corner := G.cell_min_level(Vector2i(0, 0))   # a far corner
 	ok(G.cell_min_level(G.GEN_CELL) == 0 and G.cell_min_level(Vector2i(3, 2)) == 0, \
 		"the center 3x3 + generator are open at start (min_level 0)")
-	ok(G.cell_min_level(Vector2i(2, 3)) == 2 and G.cell_min_level(Vector2i(4, 1)) == 3, \
-		"the inner frontier gates at L2 / L3 (the diamond's near band)")
-	ok(G.cell_min_level(Vector2i(1, 3)) == 4 and G.cell_min_level(Vector2i(0, 0)) == 12, \
-		"the gradient rises outward to L12 at the four corners")
-	ok(b.terrain[BoardModel.idx(Vector2i(2, 3))] == 2 and b.terrain[BoardModel.idx(Vector2i(0, 0))] == 12, \
-		"a sealed cell's terrain carries its min_level (inspectable; the gate reads the table)")
+	ok(g_inner >= 1, "the inner frontier is sealed but reachable early (gates at L%d)" % g_inner)
+	ok(g_next > g_inner and g_corner > g_next, \
+		"the gradient rises strictly outward (inner L%d < ring L%d < corner L%d)" % [g_inner, g_next, g_corner])
+	ok(b.terrain[BoardModel.idx(Vector2i(2, 3))] != 0 and b.terrain[BoardModel.idx(Vector2i(0, 0))] != 0, \
+		"a sealed cell's terrain is non-zero (inspectable; the gate reads the static table, not this value)")
 	ok(BoardModel.line_of(G.bramble_contents(Vector2i(0, 0))) in [1, 2], \
 		"an opened cell reveals a positional anchor-line (1-2) seed")
 	ok(b.item_at(Vector2i(3, 2)) == 101, "starter items placed")
@@ -160,20 +164,21 @@ func _initialize() -> void:
 	# 3. move / the §4 level gate (merge-openable once the player's Level reaches the cell's min)
 	b.move(Vector2i(3, 4), Vector2i(3, 3))
 	ok(b.item_at(Vector2i(3, 3)) == 102 and b.item_at(Vector2i(3, 4)) == 0, "move relocates an item")
-	# (2,3) gates at L2 and is (3,3)'s only sealed neighbour: a merge there opens it at L2, not L1.
-	ok(b.openable_brambles(Vector2i(3, 3), 1).is_empty(), \
-		"under the cell's min_level, an adjacent merge opens nothing")
-	ok(b.openable_brambles(Vector2i(3, 3), 2).has(Vector2i(2, 3)), \
-		"at the cell's min_level, any adjacent merge opens it (no tier/line requirement)")
+	# (2,3) is (3,3)'s sealed neighbour, gating at g_inner: a merge there opens it AT g_inner.
+	ok(b.openable_brambles(Vector2i(3, 3), g_inner).has(Vector2i(2, 3)), \
+		"at the cell's min_level (L%d), any adjacent merge opens it (no tier/line requirement)" % g_inner)
+	if g_inner >= 2:
+		ok(not b.openable_brambles(Vector2i(3, 3), g_inner - 1).has(Vector2i(2, 3)), \
+			"below the cell's min_level, an adjacent merge opens nothing")
 	var contents := b.open_bramble(Vector2i(2, 3))
 	ok(b.is_open(Vector2i(2, 3)) and b.item_at(Vector2i(2, 3)) == contents and contents == G.bramble_contents(Vector2i(2, 3)), \
 		"opening a cell reveals its deterministic contents")
-	# the gradient holds: (1,3) gates at L4 — sealed at L3, opens at L4
+	# the gradient holds outward: (1,3) gates at g_next > g_inner — sealed just below it, opens at it
 	b.place(Vector2i(2, 3), 102)              # an item on the freshly-opened cell
-	ok(not b.openable_brambles(Vector2i(2, 3), 3).has(Vector2i(1, 3)), \
-		"the L4 cell (1,3) stays sealed at level 3")
-	ok(b.openable_brambles(Vector2i(2, 3), 4).has(Vector2i(1, 3)), \
-		"the L4 cell (1,3) opens once the player reaches level 4")
+	ok(not b.openable_brambles(Vector2i(2, 3), g_next - 1).has(Vector2i(1, 3)), \
+		"the outer cell (1,3) stays sealed at L%d (below its L%d gate)" % [g_next - 1, g_next])
+	ok(b.openable_brambles(Vector2i(2, 3), g_next).has(Vector2i(1, 3)), \
+		"the outer cell (1,3) opens once the player reaches its gate (L%d)" % g_next)
 
 	# 4. pigeonhole helper
 	ok(b.any_pair_exists() == false or b.any_pair_exists(), "pair query runs")
