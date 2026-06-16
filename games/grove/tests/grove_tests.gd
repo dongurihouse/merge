@@ -1424,7 +1424,7 @@ func _initialize() -> void:
 	var bob_bust: Control = xb_giver.bust
 	# helper: is a live (valid, running) loop tween parked on the bust?
 	var bobbing := func(b: Control) -> bool:
-		var tw: Variant = b.get_meta("bob_tw", null)
+		var tw: Variant = b.get_meta("bob_tw") if b.has_meta("bob_tw") else null
 		return tw is Tween and (tw as Tween).is_valid()
 	# (1) NOT payable (board holds zero 102) → no bob, ✓ hidden
 	ws._refresh_giver_lights()

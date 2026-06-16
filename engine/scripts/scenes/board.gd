@@ -1004,9 +1004,13 @@ func _giver_bob(bust: Control, active: bool = true) -> void:
 		_giver_bob_start(bust)
 	else:
 		bust.tree_entered.connect(func() -> void:
-			# only (re)start if still wanted by the time we enter the tree
-			if is_instance_valid(bust) and bust.is_inside_tree() \
-					and not (bust.get_meta("bob_tw", null) is Tween and (bust.get_meta("bob_tw") as Tween).is_valid()):
+			# only (re)start if still wanted, and not already bobbing, when we enter the tree
+			if not is_instance_valid(bust) or not bust.is_inside_tree():
+				return
+			# bob_tw may be unseeded here (e.g. the merchant bust): get_meta(key, null) ERRORS on a
+			# missing key in Godot 4.6 — guard with has_meta to avoid the stderr spam (T35 missed this read)
+			var tw: Variant = bust.get_meta("bob_tw") if bust.has_meta("bob_tw") else null
+			if not (tw is Tween and (tw as Tween).is_valid()):
 				_giver_bob_start(bust), CONNECT_ONE_SHOT)
 
 func _giver_bob_start(bust: Control) -> void:
