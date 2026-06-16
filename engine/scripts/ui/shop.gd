@@ -32,11 +32,12 @@ const BARK = Pal.BARK
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
 const COIN_PACK_GEM_COST := 5
-const CASH_PACKS := [
-	{"usd": "$0.99", "gems": 80},
-	{"usd": "$4.99", "gems": 450},
-	{"usd": "$9.99", "gems": 1000},
-]
+
+# The cash → 💎 price ladder is OWNER-TUNABLE grove data (§10 full ladder up to a
+# $49.99/$99.99-class top, T43). Re-exported so the UI + tests keep using Shop.CASH_PACKS.
+const CASH_PACKS := D.CASH_PACKS
+const STARTER_PACK := D.STARTER_PACK     # the one-time welcome bundle (§10)
+const FIRST_BUY_MULT := D.FIRST_BUY_MULT # the first ladder pack grants ×this, once (§10)
 
 # --- grants (pure; the UI calls these) --------------------------------------------
 
@@ -49,8 +50,40 @@ static func buy_coin_pack() -> bool:
 	Save.add_coins(COIN_PACK)
 	return true
 
-static func grant_cash_pack(i: int) -> void:
-	Save.add_diamonds(int(CASH_PACKS[i].gems))
+# Grant a ladder cash pack (§4/§10 — LIVE IAP; in this build the confirm grants directly,
+# an honest "test build — nothing is charged"; a real store SDK + receipt check replaces
+# ONLY the confirm middle). The FIRST ladder pack a player ever buys is DOUBLED (the §10
+# first-purchase doubler), then never again — the starter pack is a separate SKU and does
+# NOT consume the doubler. Returns the 💎 actually granted (so the UI can celebrate the 2×).
+static func grant_cash_pack(i: int) -> int:
+	var base := int(CASH_PACKS[i].gems)
+	var mult := 1
+	if not Save.first_purchase_made():
+		mult = int(FIRST_BUY_MULT)
+		Save.set_first_purchase_made()
+	Save.add_diamonds(base * mult)
+	return base * mult
+
+# Whether the next ladder pack would be doubled (the first-purchase offer still live).
+static func first_buy_doubled() -> bool:
+	return not Save.first_purchase_made()
+
+# --- the starter pack (§10): a one-time, high-value, low-price welcome bundle ------
+# Surfaced to NEW players only (claimable while not yet claimed). Grants 💎 directly and
+# BANKS its water bonus (the board applies the credit on open, so it works even when the
+# shop is opened from the map). Refuses a second claim (own-once). Returns the granted 💎
+# (0 on refusal). Behind the same confirm-stub as the ladder; LIVE IAP from launch.
+static func starter_available() -> bool:
+	return not Save.starter_claimed()
+
+static func grant_starter() -> int:
+	if Save.starter_claimed():
+		return 0
+	Save.set_starter_claimed()
+	var gems := int(STARTER_PACK.get("gems", 0))
+	Save.add_diamonds(gems)
+	Save.add_water_pending(int(STARTER_PACK.get("water", 0)))
+	return gems
 
 # --- item-shortcuts (§10): buy a mid-tier PIECE to skip the grind to it ------------
 # Spends the offer's currency (coins for low tiers / 💎 for deeper ones) and QUEUES the
@@ -276,6 +309,16 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			offer_row.add_child(_item_card(host, refs, offer.def))
 		else:
 			offer_row.add_child(_cosmetic_card(host, refs, offer.def))
+
+	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
+	# only (until claimed). The single highest-converting IAP in mobile.
+	if starter_available():
+		_divider(col, host.tr("Welcome gift"))
+		var starter_row := HBoxContainer.new()
+		starter_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		starter_row.add_theme_constant_override("separation", Tune.ROW_SEP)
+		col.add_child(starter_row)
+		starter_row.add_child(_starter_card(host, refs))
 
 	# — Dewdrop pouches (cash → diamonds; confirm-only) —
 	_divider(col, host.tr("Dewdrop pouches"))
@@ -530,23 +573,12 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(inner)
-	if i == 1:
-		var pop := PanelContainer.new()
-		var pp := StyleBoxFlat.new()
-		pp.bg_color = STRAW
-		pp.set_corner_radius_all(Tune.POP_RADIUS)
-		pp.content_margin_left = Tune.POP_PAD_X
-		pp.content_margin_right = Tune.POP_PAD_X
-		pp.content_margin_top = Tune.POP_PAD_Y
-		pp.content_margin_bottom = Tune.POP_PAD_Y
-		pop.add_theme_stylebox_override("panel", pp)
-		var pl := Label.new()
-		pl.text = host.tr("Popular")
-		pl.add_theme_font_size_override("font_size", Tune.POP_SIZE)
-		pl.add_theme_color_override("font_color", INK)
-		pop.add_child(pl)
-		pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		inner.add_child(pop)
+	# A small badge band: the first-ever pack shows "2×" (the §10 first-purchase doubler,
+	# the strongest conversion nudge); otherwise the merchandised pack shows "Popular".
+	if first_buy_doubled():
+		inner.add_child(_badge(host.tr("2× first buy")))
+	elif bool(pack.get("pop", false)):
+		inner.add_child(_badge(host.tr("Popular")))
 	var ic := Look.icon("gem", Tune.GEM_ICON)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	inner.add_child(ic)
@@ -581,6 +613,83 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	b.pressed.connect(func() -> void:
 		_confirm_cash(host, refs, i))
 	return b
+
+# The starter-pack card (§10): a wide welcome card — a "Welcome" badge, the 💎 count +
+# its water bonus, the low price. Whole card presses → the confirm grants directly.
+static func _starter_card(host: Control, refs: Dictionary) -> Button:
+	var b := _card_button(Tune.GEM_CARD)
+	var inner := VBoxContainer.new()
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
+	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(inner)
+	inner.add_child(_badge(host.tr("Welcome")))
+	var what := HBoxContainer.new()
+	what.alignment = BoxContainer.ALIGNMENT_CENTER
+	what.add_theme_constant_override("separation", Tune.WHAT_SEP)
+	what.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(what)
+	what.add_child(Look.icon("gem", Tune.GEM_ICON))
+	var n := Label.new()
+	n.text = str(int(STARTER_PACK.get("gems", 0)))
+	n.add_theme_font_size_override("font_size", Tune.GEM_COUNT_SIZE)
+	n.add_theme_color_override("font_color", INK)
+	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	what.add_child(n)
+	var water_amt := int(STARTER_PACK.get("water", 0))
+	if water_amt > 0:
+		var wic := Look.icon("water", Tune.HELP_ICON)
+		wic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		what.add_child(wic)
+		var wn := Label.new()
+		wn.text = "+%d" % water_amt
+		wn.add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
+		wn.add_theme_color_override("font_color", INK)
+		wn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		what.add_child(wn)
+	var price := PanelContainer.new()
+	var prs := StyleBoxFlat.new()
+	prs.bg_color = Tune.GEM_PRICE_BG
+	prs.set_corner_radius_all(Tune.GEM_PRICE_RADIUS)
+	prs.set_border_width_all(Tune.GEM_PRICE_BORDER_W)
+	prs.border_color = Tune.GEM_PRICE_EDGE
+	prs.content_margin_left = Tune.GEM_PRICE_PAD_X
+	prs.content_margin_right = Tune.GEM_PRICE_PAD_X
+	prs.content_margin_top = Tune.GEM_PRICE_PAD_T
+	prs.content_margin_bottom = Tune.GEM_PRICE_PAD_B
+	price.add_theme_stylebox_override("panel", prs)
+	var pr := Label.new()
+	pr.text = String(STARTER_PACK.get("usd", ""))
+	pr.add_theme_font_size_override("font_size", Tune.GEM_PRICE_SIZE)
+	pr.add_theme_color_override("font_color", CREAM)
+	price.add_child(pr)
+	price.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	inner.add_child(price)
+	b.set_meta("shop_buy", true)
+	b.set_meta("shop_starter", true)
+	b.pressed.connect(func() -> void:
+		_confirm_starter(host, refs))
+	return b
+
+# A small STRAW pill badge ("Popular" / "2× first buy" / "Best value") for a cash card.
+static func _badge(text: String) -> PanelContainer:
+	var pop := PanelContainer.new()
+	var pp := StyleBoxFlat.new()
+	pp.bg_color = STRAW
+	pp.set_corner_radius_all(Tune.POP_RADIUS)
+	pp.content_margin_left = Tune.POP_PAD_X
+	pp.content_margin_right = Tune.POP_PAD_X
+	pp.content_margin_top = Tune.POP_PAD_Y
+	pp.content_margin_bottom = Tune.POP_PAD_Y
+	pop.add_theme_stylebox_override("panel", pp)
+	var pl := Label.new()
+	pl.text = text
+	pl.add_theme_font_size_override("font_size", Tune.POP_SIZE)
+	pl.add_theme_color_override("font_color", INK)
+	pop.add_child(pl)
+	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return pop
 
 static func _card_button(min_size: Vector2) -> Button:
 	var b := Button.new()
@@ -673,8 +782,34 @@ static func _settle(host: Control, refs: Dictionary) -> void:
 
 # The cash confirm: parchment, pop_in, the honest caption — confirming grants the
 # diamonds directly (the future IAP hookup replaces exactly this middle).
+# The FIRST ladder pack shows its DOUBLED count (the §10 first-purchase doubler is live),
+# and a "first-buy doubled!" line — so the confirm matches what actually lands.
 static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	var pack: Dictionary = CASH_PACKS[i]
+	var doubled := first_buy_doubled()
+	var gems := int(pack.gems) * (int(FIRST_BUY_MULT) if doubled else 1)
+	var sub := host.tr("first-buy bonus doubled!") if doubled else ""
+	_confirm_gem_grant(host, refs, host.tr("Dewdrop pouch"),
+		host.tr("%d for %s") % [gems, String(pack.usd)], sub, func() -> void:
+			grant_cash_pack(i))
+
+# The starter-pack confirm: same honest parchment confirm; confirming grants the bundle
+# (💎 now + the water credit the board applies on open) exactly once.
+static func _confirm_starter(host: Control, refs: Dictionary) -> void:
+	var gems := int(STARTER_PACK.get("gems", 0))
+	var water_amt := int(STARTER_PACK.get("water", 0))
+	var line := host.tr("%d for %s") % [gems, String(STARTER_PACK.get("usd", ""))]
+	var sub := host.tr("+%d water — a warm welcome") % water_amt if water_amt > 0 else ""
+	_confirm_gem_grant(host, refs, host.tr("Welcome gift"), line, sub, func() -> void:
+		grant_starter())
+
+# The shared honest cash-confirm body (§10): parchment card, ribbon title, the 💎 line,
+# an optional sub-line, the "(test build — nothing is charged)" note, Cancel/Confirm. On
+# Confirm it runs `grant` (the pure grant that owns the actual currency math), flies a 💎
+# to the wallet, and settles. A real store SDK + receipt check replaces ONLY the inside of
+# `grant` + a guard around this Confirm — the frame, the note, and the wiring stay.
+static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
+		line: String, sub: String, grant: Callable) -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
@@ -696,7 +831,7 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	card.add_child(col)
 	# S16: kit-normalized title chip (Look.title_ribbon — same solid chip as the
 	# shop header; the ribbon_title nine-patch collapsed invisibly here too).
-	var ribbon := Look.title_ribbon(host.tr("Dewdrop pouch"), Tune.CONFIRM_TITLE_SIZE)
+	var ribbon := Look.title_ribbon(title, Tune.CONFIRM_TITLE_SIZE)
 	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(ribbon)
 	var what := HBoxContainer.new()
@@ -705,11 +840,18 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	col.add_child(what)
 	what.add_child(Look.icon("gem", Tune.CONFIRM_GEM_ICON))
 	var amount := Label.new()
-	amount.text = host.tr("%d for %s") % [int(pack.gems), String(pack.usd)]
+	amount.text = line
 	amount.add_theme_font_size_override("font_size", Tune.CONFIRM_AMOUNT_SIZE)
 	amount.add_theme_color_override("font_color", INK)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	what.add_child(amount)
+	if sub != "":
+		var subl := Label.new()
+		subl.text = sub
+		subl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		subl.add_theme_font_size_override("font_size", Tune.CONFIRM_NOTE_SIZE)
+		subl.add_theme_color_override("font_color", STRAW)
+		col.add_child(subl)
 	var note := Label.new()
 	note.text = host.tr("(test build — nothing is charged)")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -722,7 +864,7 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	col.add_child(btns)
 	btns.add_child(Look.button(host.tr("Cancel"), func() -> void: overlay.queue_free(), false))
 	btns.add_child(Look.button(host.tr("Confirm"), func() -> void:
-		grant_cash_pack(i)
+		grant.call()
 		var at := card.get_global_rect().get_center()
 		overlay.queue_free()
 		FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), refs.gem.node)

@@ -24,11 +24,13 @@ const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bo
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
+const Ads = preload("res://engine/scripts/core/ads.gd")                       # T43: §10 rewarded-ad refill at the wall
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Pal = Game.PALETTE
+const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
 const GAP := 10.0
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
@@ -117,6 +119,12 @@ var water_label: Label
 var _water_icon: Control
 var _wallet_panel: Control
 var refill_btn: Button
+# T43: the empty-water surfaces stack under the Lv chip (shown only at water<=0): the
+# free/💎 refill (refill_btn), a rewarded WATCH-AD refill, and the cozy out-of-water OFFER.
+var _refill_stack: VBoxContainer
+var ad_refill_btn: Button
+var oow_offer_btn: Button
+var _water_pending_drained := false   # the starter-pack water credit drains once per board open
 
 func _ready() -> void:
 	UiFont.apply()
@@ -549,12 +557,26 @@ func _build_water_hud() -> void:
 	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	water_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(water_label)
+	# T43: the empty-water surfaces live in a vertical stack under the Lv chip, shown only
+	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded
+	# WATCH-AD refill (capped) and the cozy out-of-water OFFER, each shown only when live.
+	_refill_stack = VBoxContainer.new()
+	_refill_stack.add_theme_constant_override("separation", 8)
+	_refill_stack.offset_left = 16.0
+	_refill_stack.offset_top = 16.0 + Look.safe_top(self) + 84.0
+	_refill_stack.visible = false
+	add_child(_refill_stack)
 	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
 	refill_btn.custom_minimum_size = Vector2(330, 76)
-	refill_btn.offset_left = 16.0
-	refill_btn.offset_top = 16.0 + Look.safe_top(self) + 84.0   # top-left under the Lv chip; only shown at empty
-	refill_btn.visible = false
-	add_child(refill_btn)
+	_refill_stack.add_child(refill_btn)
+	ad_refill_btn = Look.button(tr("Watch a cloud ☁ → fill"), _on_ad_refill, false)
+	ad_refill_btn.custom_minimum_size = Vector2(330, 68)
+	ad_refill_btn.visible = false
+	_refill_stack.add_child(ad_refill_btn)
+	oow_offer_btn = Look.button(tr("A little help ✿"), _on_oow_offer, false)
+	oow_offer_btn.custom_minimum_size = Vector2(330, 68)
+	oow_offer_btn.visible = false
+	_refill_stack.add_child(oow_offer_btn)
 	_update_water_hud()
 
 func _tick_water() -> void:
@@ -572,17 +594,37 @@ func _ftue_pops_done() -> bool:
 func _update_water_hud() -> void:
 	if water_label == null:
 		return
+	# T43: apply any banked water credit (e.g. the starter pack's water bonus bought from
+	# the map) ONCE on board open — before the empty check, so a fresh top-up shows.
+	if not _water_pending_drained:
+		_water_pending_drained = true
+		var credit := Save.take_water_pending()
+		if credit > 0:
+			water = mini(G.WATER_CAP, water + credit)
+			_persist()
 	# FTUE: water stays hidden until the free intro pops are spent — hide just the
 	# water icon + count, not the shared currency cluster
 	var show_water := _ftue_pops_done() or not Features.on("ftue_staged_chrome")
 	_water_icon.visible = show_water
 	water_label.visible = show_water
 	water_label.text = str(water)
+	# the empty-water surfaces (§10 the friction point): the stack appears at water<=0.
+	var empty := water <= 0
 	var free_left := refills_used < G.FREE_REFILLS
-	refill_btn.visible = water <= 0 and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
+	refill_btn.visible = empty and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
 	if refill_btn.visible:
 		refill_btn.text = tr("Rain ☔ free refill") if free_left else tr("Rain ☔ %d💎") % G.REFILL_DIAMOND_COST
-		FX.breathe_once(refill_btn)
+	# the rewarded WATCH-AD refill — a free, capped + cooldowned alternative (§10 ads).
+	ad_refill_btn.visible = empty and Ads.can_show("refill_water")
+	# the cozy OUT-OF-WATER offer — a gently-discounted top-up on a low cap + long cooldown,
+	# NO countdown, NO fail copy (§10 locked guardrails). Shows only inside its cap/cooldown.
+	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
+	if oow_offer_btn.visible:
+		oow_offer_btn.text = tr("A little help ✿ +%d💧 +%d💎 · %s") % \
+			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), String(Data.OOW_OFFER.usd)]
+	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
+	if _refill_stack.visible:
+		FX.breathe_once(refill_btn if refill_btn.visible else _first_visible_refill())
 
 func _on_refill() -> void:
 	if water > 0:
@@ -597,10 +639,121 @@ func _on_refill() -> void:
 	_regen_ts = Time.get_unix_time_from_system()
 	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 	FX.celebrate_reward(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
-	refill_btn.visible = false
 	_persist()
 	_update_water_hud()
 	_update_hud()
+
+# The first currently-visible refill button (for the breathe pulse when the free/💎
+# refill is spent but the ad / offer surfaces remain).
+func _first_visible_refill() -> Control:
+	if ad_refill_btn.visible:
+		return ad_refill_btn
+	if oow_offer_btn.visible:
+		return oow_offer_btn
+	return refill_btn
+
+# Rewarded WATCH-AD refill (§10): the ad is a STUB here — Ads.claim re-checks the cap +
+# cooldown, records the watch, and hands back the water target; we fill to it. The real
+# ad-SDK show→reward callback replaces only the (here-instant) "watch"; everything else
+# — the cap gate, the grant, the persist — is wired. Refuses cozily if just-capped.
+func _on_ad_refill() -> void:
+	if water > 0:
+		return
+	var res := Ads.claim("refill_water")
+	if not bool(res.get("ok", false)):
+		FX.wobble(ad_refill_btn)
+		Audio.play("invalid_soft", -4.0)
+		_update_water_hud()
+		return
+	water = mini(G.WATER_CAP, int(res.get("water", G.WATER_CAP)))
+	_regen_ts = Time.get_unix_time_from_system()
+	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
+	FX.celebrate_reward(self, ad_refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
+	_persist()
+	_update_water_hud()
+	_update_hud()
+
+# The cozy OUT-OF-WATER offer (§10): an honest confirm (LIVE IAP, "test build" note) for a
+# gently-discounted top-up — a full can + a little 💎 at the entry price, on a low cap + long
+# cooldown. NO countdown, NO fail-shaming (the locked guardrails). Confirming grants both and
+# records the show (so the cap/cooldown holds); cancelling costs nothing.
+func _on_oow_offer() -> void:
+	if water > 0:
+		return
+	if not Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown)):
+		FX.wobble(oow_offer_btn)
+		_update_water_hud()
+		return
+	var line := tr("+%d water, +%d dewdrops") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
+	_open_oow_confirm(line, tr("for %s — a little help on a dry day") % String(Data.OOW_OFFER.usd))
+
+# Grant the out-of-water offer (pure side effects): the water top-up, the 💎, and record
+# the show. Factored so it is the single grant seam (a real receipt check guards the call).
+func _grant_oow_offer() -> void:
+	water = mini(G.WATER_CAP, water + int(Data.OOW_OFFER.water))
+	_regen_ts = Time.get_unix_time_from_system()
+	Save.add_diamonds(int(Data.OOW_OFFER.gems))
+	Save.oow_record()
+	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
+	FX.celebrate_reward(self, oow_offer_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
+	_persist()
+	_update_water_hud()
+	_update_hud()
+
+# A compact honest parchment confirm for the out-of-water offer (same "(test build —
+# nothing is charged)" disclosure as the shop's cash confirm). Cozy: warm copy, a Maybe
+# later / Yes please pair, no pressure.
+func _open_oow_confirm(line: String, sub: String) -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var veil := ColorRect.new()
+	veil.color = Color(Pal.INK, 0.5)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	cc.add_child(card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 12)
+	card.add_child(col)
+	var title := Look.title_ribbon(tr("A little help"), 32)
+	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(title)
+	var amount := Label.new()
+	amount.text = line
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	amount.add_theme_font_size_override("font_size", 30)
+	amount.add_theme_color_override("font_color", Pal.INK)
+	col.add_child(amount)
+	var subl := Label.new()
+	subl.text = sub
+	subl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subl.add_theme_font_size_override("font_size", 22)
+	subl.add_theme_color_override("font_color", Pal.BARK)
+	col.add_child(subl)
+	var note := Label.new()
+	note.text = tr("(test build — nothing is charged)")
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_font_size_override("font_size", 22)
+	note.add_theme_color_override("font_color", Pal.BARK)
+	col.add_child(note)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	btns.add_theme_constant_override("separation", 16)
+	col.add_child(btns)
+	btns.add_child(Look.button(tr("Maybe later"), func() -> void: overlay.queue_free(), false))
+	btns.add_child(Look.button(tr("Yes please"), func() -> void:
+		overlay.queue_free()
+		_grant_oow_offer(), true))
+	FX.pop_in(card)
 
 func _update_hud() -> void:
 	stars_label.text = str(Save.stars())
