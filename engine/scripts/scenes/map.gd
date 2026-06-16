@@ -40,6 +40,21 @@ const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 const CLAY = Pal.CLAY
 
+# --- map-select veil (§8 "the horizon — visible AND veiled") ----------------
+# A LOCKED map card sits behind FOG: not greyed-but-legible, but teased — a soft
+# fog scrim over its thumbnail that thickens toward the bottom (fog settling in)
+# with a faint ✿ ghost, so the next map reads "there's MORE, not yet revealed."
+# UNLOCKED/available cards get NO veil. The look is code-drawn today; the seam
+# `map/veil[_<id>].png` lets grove art drop in a painted veil sprite later with
+# zero code change (see `_veil_thumb`). All dials are named + tunable here.
+const VEIL_NODE := "Veil"                       # the overlay's name (tests assert it by this)
+const VEIL_TINT := INK                          # fog colour (deep ink — the unknown)
+const VEIL_SCRIM_ALPHA := 0.42                  # flat fog haze over the whole thumb
+const VEIL_DEEP_ALPHA := 0.66                   # extra fog pooled at the bottom edge
+const VEIL_MARK_ALPHA := 0.16                   # the teasing ✿ ghost in the mist
+const VEIL_MARK_SIZE := 64                      # ✿ glyph size, px
+const VEIL_ART := "map/veil.png"                # generic painted-veil seam (per-map: veil_<id>.png)
+
 var unlocks := {}
 
 # THE one input surface. Rebuilding a view clears + repopulates it; every visual
@@ -543,13 +558,16 @@ func _make_card(z: int, card_w: float) -> Control:
 	col.add_theme_constant_override("separation", 8)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(col)
-	# thumbnail — the map image (or a meadow-toned fallback)
+	# thumbnail — the map image (or a meadow-toned fallback). Captured so a LOCKED
+	# card can wear its fog veil over exactly the thumb rect (text stays clear below).
 	var thumb_h := card_w * 0.62
+	var thumb_w := card_w - 24.0
+	var thumb: Control
 	var thumb_path := Game.art("map/map_%s.png" % String(zone.id))
 	if ResourceLoader.exists(thumb_path):
 		var t := TextureRect.new()
 		t.texture = load(thumb_path)
-		t.custom_minimum_size = Vector2(card_w - 24.0, thumb_h)
+		t.custom_minimum_size = Vector2(thumb_w, thumb_h)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		t.clip_contents = true
@@ -557,15 +575,21 @@ func _make_card(z: int, card_w: float) -> Control:
 			t.modulate = Color(0.72, 0.74, 0.72, 0.85)
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(t)
+		thumb = t
 	else:
 		var ph := Panel.new()
-		ph.custom_minimum_size = Vector2(card_w - 24.0, thumb_h)
+		ph.custom_minimum_size = Vector2(thumb_w, thumb_h)
+		ph.clip_contents = true
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
 		ps.set_corner_radius_all(14)
 		ph.add_theme_stylebox_override("panel", ps)
 		ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(ph)
+		thumb = ph
+	# LOCKED → veil it (the §8 horizon: visible AND not-yet-revealed). One place.
+	if not open:
+		_veil_thumb(thumb, String(zone.id))
 	var name_l := Label.new()
 	name_l.text = tr(zone.name)
 	name_l.add_theme_font_size_override("font_size", 26)
@@ -592,6 +616,72 @@ func _make_card(z: int, card_w: float) -> Control:
 	if open and not done and z == _frontier_zone():
 		FX.breathe_once(card)
 	return card
+
+# The fog veil for a LOCKED map card (§8). ONE place that dresses a thumbnail as
+# "behind fog, not yet revealed" — a translucent ink scrim + a soft gradient that
+# pools fog at the bottom edge + a faint ✿ ghost in the mist. It overlays exactly
+# the thumb rect (full-rect child of `thumb`), so the "✿ after …" line below stays
+# crisp. ART SEAM: if `map/veil_<id>.png` (per-map) or `map/veil.png` (generic)
+# exists, that painted sprite REPLACES the code-drawn fog — grove art drops in with
+# no code change. Every node IGNOREs the mouse (single-input-surface rule). The
+# overlay node is named VEIL_NODE so a headless test can assert its presence/look.
+# The veil anchors full-rect to `thumb`, so it tracks the thumbnail's size for free.
+func _veil_thumb(thumb: Control, zone_id: String) -> void:
+	thumb.clip_contents = true
+	var veil := Control.new()
+	veil.name = VEIL_NODE
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thumb.add_child(veil)
+	# ART SEAM — a painted veil sprite, if grove (or any game) supplies one.
+	var art := Game.art("map/veil_%s.png" % zone_id)
+	if not ResourceLoader.exists(art):
+		art = Game.art(VEIL_ART)
+	if ResourceLoader.exists(art):
+		var sprite := TextureRect.new()
+		sprite.texture = load(art)
+		sprite.set_anchors_preset(Control.PRESET_FULL_RECT)
+		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		veil.add_child(sprite)
+		return
+	# CODE-DRAWN fog (today's default — no art asset needed).
+	# 1. a flat haze over the whole thumb.
+	var haze := ColorRect.new()
+	haze.color = Color(VEIL_TINT, VEIL_SCRIM_ALPHA)
+	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
+	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(haze)
+	# 2. fog settling — a top→bottom gradient that deepens to VEIL_DEEP_ALPHA at the
+	#    base, so the thumb dissolves into mist rather than reading as flat grey.
+	var grad := Gradient.new()
+	grad.set_color(0, Color(VEIL_TINT, 0.0))
+	grad.set_color(1, Color(VEIL_TINT, VEIL_DEEP_ALPHA - VEIL_SCRIM_ALPHA))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0.5, 0.0)
+	gtex.fill_to = Vector2(0.5, 1.0)
+	gtex.width = 4
+	gtex.height = 64
+	var settle := TextureRect.new()
+	settle.texture = gtex
+	settle.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	settle.stretch_mode = TextureRect.STRETCH_SCALE
+	settle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(settle)
+	# 3. the teasing ✿ ghost — a faint mark in the mist (there IS something here).
+	var ghost := Label.new()
+	ghost.name = "VeilMark"
+	ghost.text = "✿"
+	ghost.add_theme_font_size_override("font_size", VEIL_MARK_SIZE)
+	ghost.add_theme_color_override("font_color", Color(CREAM, VEIL_MARK_ALPHA))
+	ghost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ghost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(ghost)
 
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
