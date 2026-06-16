@@ -5,11 +5,11 @@ extends SceneTree
 ## (board, pair, player_level) — so we assert it directly, no scene/window/Save.
 ##   godot --headless --path . -s res://engine/tests/hint_tests.gd
 ##
-## Board geometry under test (grove_data.MIN_LEVEL, 9×7, generator at (4,3)):
-##   r2: [8, 6, 2, 2, 2, 6, 8]      sealed cells unseal at their listed Level (§4)
-##   r3: [6, 3, 0, 0, 0, 3, 6]      0 = open at start (center 3×3 + the generator)
-##   r4: [4, 3, 0, 0, 0, 3, 4]
-## So (2,3) is sealed at L2; (3,1)/(4,1) at L3; (2,2) at L2 — all border the open center.
+## Board geometry: the center 3×3 (incl. the generator at (4,3)) is open at start; the cells
+## bordering it are sealed and gate at their grove_data.MIN_LEVEL (the owner's feel dial — re-tuned
+## in T37 to open an L1 frontier). These tests read the gates via G.cell_min_level rather than
+## pinning table values, so a re-tune of the diamond can't break them — they assert the
+## openable-for-hint MECHANISM (§2): a sealed neighbour enters the hint set at/above its gate, not below.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
@@ -45,26 +45,32 @@ func _no_dupes(arr: Array) -> bool:
 	return true
 
 func _initialize() -> void:
-	# --- guard the fixture: the table values the cases below rely on ---
-	ok(G.cell_min_level(Vector2i(2, 3)) == 2, "fixture: (2,3) is sealed at L2")
-	ok(G.cell_min_level(Vector2i(3, 1)) == 3, "fixture: (3,1) is sealed at L3")
-	ok(G.cell_min_level(Vector2i(4, 1)) == 3, "fixture: (4,1) is sealed at L3")
-	ok(G.cell_min_level(Vector2i(2, 2)) == 2, "fixture: (2,2) is sealed at L2")
-	ok(G.cell_min_level(Vector2i(3, 3)) == 0, "fixture: (3,3) is open at start")
-	ok(G.cell_min_level(Vector2i(4, 3)) == 0, "fixture: (4,3) (the generator) is open at start")
+	# --- the table is the owner's feel dial (T37); derive the gates the cases use, don't pin them ---
+	var g23 := G.cell_min_level(Vector2i(2, 3))    # (3,3)'s sealed orthogonal neighbour
+	var g31 := G.cell_min_level(Vector2i(3, 1))    # (3,2)'s sealed neighbours…
+	var g22 := G.cell_min_level(Vector2i(2, 2))
+	var g41 := G.cell_min_level(Vector2i(4, 1))    # (4,2)'s sealed neighbour
+	ok(g23 >= 1 and g31 >= 1 and g22 >= 1 and g41 >= 1, "fixture: the inner-frontier cells border the open center and are sealed")
+	ok(G.cell_min_level(Vector2i(3, 3)) == 0 and G.cell_min_level(Vector2i(4, 3)) == 0, "fixture: the center + generator are open at start")
 
 	# === Case 1: merging the pair WOULD open a sealed, level-REACHED cell ===
-	# Pair on the open center: (3,3) borders sealed (2,3)[L2]; (4,3) borders only open cells.
+	# Pair on the open center: (3,3)'s only sealed orthogonal neighbour is (2,3); (4,3) borders open cells.
 	var m1 := _board_with_pair(Vector2i(3, 3), Vector2i(4, 3))
 	var pair1 := [Vector2i(3, 3), Vector2i(4, 3)]
-	var open_at_l2: Array = Board.openable_for_hint(m1, pair1, 2)
-	ok(_has(open_at_l2, Vector2i(2, 3)), "L2: the hint's openable set INCLUDES the sealed level-reached neighbour (2,3)")
-	ok(open_at_l2.size() == 1, "L2: only the one eligible neighbour is in the set")
-	ok(_no_dupes(open_at_l2), "the openable set has no duplicate cells")
+	var open_at_gate: Array = Board.openable_for_hint(m1, pair1, g23)
+	ok(_has(open_at_gate, Vector2i(2, 3)), "at (2,3)'s gate (L%d): the hint's openable set INCLUDES it" % g23)
+	ok(open_at_gate.size() == 1, "only the one eligible neighbour is in the set")
+	ok(_no_dupes(open_at_gate), "the openable set has no duplicate cells")
 
-	# === Case 2: the same merge, but the player's Level has NOT reached the gate ===
-	var open_at_l1: Array = Board.openable_for_hint(m1, pair1, 1)
-	ok(open_at_l1.is_empty(), "L1 (< (2,3)'s min_level): nothing would open yet → empty set")
+	# === Case 2: below a sealed cell's gate, the level gate keeps it OUT of the set ===
+	# Use (3,1) (gate g31 >= 2 in any sane diamond) so "gate - 1" is a real player level.
+	var m2 := _board_with_pair(Vector2i(3, 2), Vector2i(4, 2))
+	var pair2 := [Vector2i(3, 2), Vector2i(4, 2)]
+	if g31 >= 2:
+		ok(not _has(Board.openable_for_hint(m2, pair2, g31 - 1), Vector2i(3, 1)), \
+			"below (3,1)'s gate (L%d): the level gate keeps it out of the openable set" % g31)
+	ok(_has(Board.openable_for_hint(m2, pair2, g31), Vector2i(3, 1)), \
+		"at (3,1)'s gate (L%d): it enters the openable set" % g31)
 
 	# === Case 3: nothing SEALED is adjacent → empty even at a high Level ===
 	# Clear the terrain around the pair so openable_brambles finds no sealed neighbour.
@@ -76,13 +82,14 @@ func _initialize() -> void:
 	ok(none_set.is_empty(), "no sealed neighbour to open → empty set (pulse nothing extra, just the pair)")
 
 	# === Case 4: the seam UNIONS both pair cells' eligible neighbours ===
-	# (3,2) borders sealed (3,1)[L3] + (2,2)[L2]; (4,2) borders sealed (4,1)[L3].
+	# (3,2) borders sealed (3,1) + (2,2); (4,2) borders sealed (4,1). At the highest of their gates, all open.
 	var m4 := _board_with_pair(Vector2i(3, 2), Vector2i(4, 2))
 	var pair4 := [Vector2i(3, 2), Vector2i(4, 2)]
-	var union_l3: Array = Board.openable_for_hint(m4, pair4, 3)
-	ok(_has(union_l3, Vector2i(3, 1)) and _has(union_l3, Vector2i(2, 2)), "L3: includes (3,2)'s sealed neighbours (3,1) and (2,2)")
-	ok(_has(union_l3, Vector2i(4, 1)), "L3: ALSO includes (4,2)'s sealed neighbour (4,1) — both pair cells contribute")
-	ok(union_l3.size() == 3 and _no_dupes(union_l3), "the union is exactly the 3 distinct eligible cells")
+	var lvl4: int = maxi(maxi(g31, g22), g41)
+	var union_l: Array = Board.openable_for_hint(m4, pair4, lvl4)
+	ok(_has(union_l, Vector2i(3, 1)) and _has(union_l, Vector2i(2, 2)), "L%d: includes (3,2)'s sealed neighbours (3,1) and (2,2)" % lvl4)
+	ok(_has(union_l, Vector2i(4, 1)), "L%d: ALSO includes (4,2)'s sealed neighbour (4,1) — both pair cells contribute" % lvl4)
+	ok(union_l.size() == 3 and _no_dupes(union_l), "the union is exactly the 3 distinct eligible cells")
 
 	# === Case 5: an empty pair (no merge available) opens nothing ===
 	ok(Board.openable_for_hint(m1, [], 99).is_empty(), "an empty pair → empty openable set")
