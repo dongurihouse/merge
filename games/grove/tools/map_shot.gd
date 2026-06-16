@@ -91,6 +91,7 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)
+		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed
 		load("res://engine/scripts/ui/shop.gd").open(scn, {"refresh": func() -> void: pass})
 		await create_timer(0.4).timeout
 		if mode == "confirm":

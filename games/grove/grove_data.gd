@@ -273,3 +273,44 @@ const SPOTLIGHTS := [
 	{"id": "bag", "gesture": "drag", "label": "Drag a piece here to tuck it away"},
 	{"id": "shop", "gesture": "tap", "label": "Tap to visit the shop"},
 ]
+
+# ─────────────────────────────────────────────────────────────────────────────
+# §10 SHOP STOCK — the buy-side sinks (T40). The grove's instance of the §10 Shop:
+# the item-shortcut catalogue, the cosmetic/look catalogue, and how many offers the
+# storefront features at once. The ENGINE logic (spend/grant/rotate) lives in
+# engine/scripts/ui/shop.gd; these are the OWNER-TUNABLE numbers (prices/codes/count).
+# DESIGN LAW (§4): premium buys SPEED + LOOKS, never POSSIBILITY — an item-shortcut is
+# a grind-SKIP to a piece the player can already reach by merging, never a gate-only or
+# purchase-only item; a cosmetic only re-dresses what's there. Cozy: small catalogue, no
+# anxiety, no pay-to-win (a shortcut piece is mid-tier — it saves taps, it never wins the
+# board). Coins for low tiers / base looks; premium (💎) for deeper skips / exclusive looks.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Item-shortcut offers (§10 "specific items"): buy a MID-TIER piece to skip the grind to
+# it. `code` = line*100 + tier (the same encoding the board uses), drawn from EARLY, already-
+# askable lines so the shortcut is always a real skip, never a gate. Low tiers (t2–t3) are
+# CHEAP COINS; deeper tiers (t4–t5) are PREMIUM (💎) — the §4 "buys speed" curve. The grant
+# drops the piece into the bag (the board drains it on open). `icon` rides the card.
+const SHOP_ITEM_OFFERS := [
+	{"id": "skip_flower3", "code": 103, "currency": "coins",    "cost": 240,  "icon": "flower",   "label": "Wildflower"},   # t3 — a cheap nudge up the home line
+	{"id": "skip_berry3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "berry",    "label": "Berry"},        # t3 — the other starter line
+	{"id": "skip_mush4",   "code": 304, "currency": "coins",    "cost": 700,  "icon": "mushroom", "label": "Mushroom"},     # t4 — a deeper coin skip
+	{"id": "skip_honey4",  "code": 404, "currency": "diamonds", "cost": 8,    "icon": "honey",    "label": "Honey"},        # t4 — premium skip
+	{"id": "skip_egg5",    "code": 505, "currency": "diamonds", "cost": 14,   "icon": "egg",      "label": "Egg"},          # t5 — a map-2 line, premium
+]
+
+# Cosmetic offers (§10 "cosmetics / looks"): a GROVE THEME — a board look the player owns
+# once, distinct from the per-spot map variants (VARIANT_* above, applied on the map). Base
+# looks are COINS; exclusive looks are PREMIUM (💎). Pure look — owning one changes nothing
+# about possibility (§4). `tint` is the swatch the card previews / the look applies.
+const SHOP_COSMETICS := [
+	{"id": "look_meadow_dawn",   "currency": "coins",    "cost": 500,  "name": "Meadow Dawn",   "tint": Color("#EAD9A8")},
+	{"id": "look_harvest_gold",  "currency": "coins",    "cost": 500,  "name": "Harvest Gold",  "tint": Color("#E3B23C")},
+	{"id": "look_twilight",      "currency": "diamonds", "cost": 12,   "name": "Twilight",      "tint": Color("#8E7CC3")},
+	{"id": "look_blossom_drift", "currency": "diamonds", "cost": 12,   "name": "Blossom Drift", "tint": Color("#E8A8C0")},
+]
+
+# How many offers the featured band shows at once — a FEW (§10 "rotate, a few at a time"),
+# drawn deterministically from SHOP_ITEM_OFFERS + SHOP_COSMETICS by a day/refresh seed so
+# the spread feels fresh without ever overwhelming. Pool = 5 items + 4 looks = 9.
+const SHOP_ROTATION_COUNT := 3

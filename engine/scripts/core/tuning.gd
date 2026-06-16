@@ -361,6 +361,12 @@ class Shop:
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
 	const HELP_PRICE_SIZE := 26           # gem price chip number
 
+	# --- featured offer cards (T40: item-shortcuts + cosmetics) -------------------------
+	# Reuse the help-card frame (HELP_CARD / HELP_* fonts); the cosmetic swatch is a tint chip.
+	const SWATCH_SIZE := 56.0             # the cosmetic look-preview swatch
+	const SWATCH_RADIUS := 14
+	const SWATCH_BORDER_W := 2
+
 	# --- gem (cash pack) card ----------------------------------------------------------
 	const GEM_CARD := Vector2(206, 312)
 	const POP_RADIUS := 10                # "Popular" badge
