@@ -1,18 +1,26 @@
 extends RefCounted
-## The Shop as the squirrel merchant's MARKET STALL (
-## owner: "the store menu shouldn't just be a list of buttons"). Presentation
-## only — grants, prices and the confirm-only cash flow are unchanged: diamonds
-## buy SPEED, never possibility; cash buys diamonds behind an honest confirm
-## ("test build — nothing is charged"); the future IAP hookup replaces only the
-## middle of `_confirm_cash`. Pure grant funcs are static and test-covered.
+## The Shop as the squirrel merchant's MARKET STALL (the §10 buy-side sink; owner:
+## "the store menu shouldn't just be a list of buttons"). It sells, all behind an
+## honest confirm where money is involved: water + a coin pouch (quick help), a few
+## item-SHORTCUTS (buy a mid-tier piece to skip the grind) and cosmetic LOOKS in a
+## DETERMINISTICALLY-ROTATING featured band (a few at a time, §10), and the cash →
+## 💎 dewdrop pouches. The cash packs are LIVE: confirming grants the diamonds
+## directly (an honest "test build — nothing is charged"); a real store SDK replaces
+## ONLY the middle of `_confirm_cash` — nothing else changes. §4 law: premium buys
+## SPEED + LOOKS, never POSSIBILITY — a shortcut is a grind-skip to a piece you can
+## already merge to, a cosmetic only re-dresses. The grove's stock/prices/rotation
+## count are owner-tunable in games/grove/grove_data.gd (§10 SHOP STOCK). Pure grant
+## + rotation funcs are static and test-covered.
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Shop).
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # real piece previews on item-shortcut cards
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
 
@@ -43,6 +51,125 @@ static func buy_coin_pack() -> bool:
 
 static func grant_cash_pack(i: int) -> void:
 	Save.add_diamonds(int(CASH_PACKS[i].gems))
+
+# --- item-shortcuts (§10): buy a mid-tier PIECE to skip the grind to it ------------
+# Spends the offer's currency (coins for low tiers / 💎 for deeper ones) and QUEUES the
+# piece into the pending grant. The board drains the queue into its bag on its next open
+# (drain_pending below) — so the grant survives whether the shop is opened from the map
+# (no live board) or over the board itself. Refuses (no spend, no grant) when broke.
+static func buy_item_offer(i: int) -> bool:
+	if i < 0 or i >= D.SHOP_ITEM_OFFERS.size():
+		return false
+	var off: Dictionary = D.SHOP_ITEM_OFFERS[i]
+	if not _spend(String(off.currency), int(off.cost)):
+		return false
+	var g := Save.grove()
+	var q: Array = g.get("shop_pending", [])
+	q.append(int(off.code))
+	g["shop_pending"] = q
+	Save.grove_write()
+	return true
+
+# The queued item-shortcut codes awaiting pickup (the board drains these on open).
+static func pending_pieces() -> Array:
+	return Array(Save.grove().get("shop_pending", []))
+
+# Drain up to `capacity` queued shortcut pieces into `bag` (mutated in place); the rest
+# stay queued for next time. The board calls this on open with its current bag + capacity.
+# Returns the number drained (so the caller can persist if any moved).
+static func drain_pending(bag: Array, capacity: int) -> int:
+	var g := Save.grove()
+	var q: Array = g.get("shop_pending", [])
+	var moved := 0
+	while not q.is_empty() and bag.size() < capacity:
+		bag.append(int(q.pop_front()))
+		moved += 1
+	if moved > 0:
+		g["shop_pending"] = q
+		Save.grove_write()
+	return moved
+
+# --- cosmetics (§10): buy a LOOK (own-once) ----------------------------------------
+# Spends the cosmetic's currency and unlocks the look in the grove blob. Owning a look
+# changes nothing about possibility (§4 — buys looks, not power). Refuses a second buy of
+# an already-owned look (no double-charge) and refuses when broke.
+static func cosmetic_owned(id: String) -> bool:
+	return bool(Save.grove().get("cosmetics", {}).get(id, false))
+
+static func cosmetic_def(id: String) -> Dictionary:
+	for c in D.SHOP_COSMETICS:
+		if String(c.id) == id:
+			return c
+	return {}
+
+static func buy_cosmetic(id: String) -> bool:
+	var c := cosmetic_def(id)
+	if c.is_empty() or cosmetic_owned(id):
+		return false
+	if not _spend(String(c.currency), int(c.cost)):
+		return false
+	var g := Save.grove()
+	var owned: Dictionary = g.get("cosmetics", {})
+	owned[id] = true
+	g["cosmetics"] = owned
+	Save.grove_write()
+	return true
+
+# Spend a cost in the named currency ("coins" | "diamonds"). One seam for both shop sinks.
+static func _spend(currency: String, cost: int) -> bool:
+	if currency == "diamonds":
+		return Save.spend_diamonds(cost)
+	return Save.spend(cost, "shop")
+
+# --- rotating offers (§10): a FEW featured offers, deterministically ---------------
+# The featured band shows SHOP_ROTATION_COUNT offers drawn from the combined item +
+# cosmetic pool, selected by a SEED (the day index, or a future refresh counter) — NEVER
+# randi(), so the spread is testable and stable within a refresh window. The seed picks a
+# rotating START into a fixed shuffle order, so the same seed always yields the same set
+# and advancing the seed slides the window. Owned cosmetics still appear (greyed in the
+# UI) — owning one is harmless; the featured band is about discovery, not inventory.
+static func shop_pool() -> Array:
+	var pool: Array = []
+	for off in D.SHOP_ITEM_OFFERS:
+		pool.append({"kind": "item", "id": String(off.id), "def": off})
+	for cos in D.SHOP_COSMETICS:
+		pool.append({"kind": "cosmetic", "id": String(cos.id), "def": cos})
+	return pool
+
+# The current rotation seed: the day index (offline-stable, advances once per day). A
+# future "free reroll" (§17 ads) would bump a saved counter added on top of this.
+static func rotation_seed() -> int:
+	return int(Time.get_unix_time_from_system() / 86400.0) + int(Save.grove().get("shop_reroll", 0))
+
+# Deterministically pick SHOP_ROTATION_COUNT offers for `seed`. A fixed seeded shuffle of
+# the pool gives a stable order; the seed rotates the window start over it, so each step
+# slides to a fresh (wrapping) slice — same seed → same offers, seed+1 → rotated.
+static func rotation_offers(seed: int) -> Array:
+	var pool := shop_pool()
+	var n: int = mini(int(D.SHOP_ROTATION_COUNT), pool.size())
+	if n <= 0:
+		return []
+	var order := _seeded_order(pool.size())
+	var start: int = ((seed % pool.size()) + pool.size()) % pool.size()
+	var out: Array = []
+	for k in n:
+		out.append(pool[order[(start + k) % pool.size()]])
+	return out
+
+# A fixed permutation of [0..size) from a fixed seed (a tiny LCG Fisher–Yates) — the
+# stable "shelf order" the rotation window slides over. Same `size` → same order always.
+static func _seeded_order(size: int) -> Array:
+	var idx: Array = []
+	for k in size:
+		idx.append(k)
+	var s := 2654435761                       # a fixed mixing constant (Knuth) — order is deterministic
+	for k in range(size - 1, 0, -1):
+		s = (s * 1103515245 + 12345) & 0x7fffffff
+		var j: int = s % (k + 1)
+		var tmp = idx[k]
+		idx[k] = idx[j]
+		idx[j] = tmp
+	return idx
 
 # --- the storefront ----------------------------------------------------------------
 
@@ -137,6 +264,19 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	help_row.add_child(_help_card(host, refs, "coin", host.tr("Coin pouch"),
 		host.tr("+%d acorns") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin"))
 
+	# — Featured (§10): a FEW deterministically-rotating offers (item-shortcuts + looks),
+	# the fresh "always something new" band — NOT the whole static pool.
+	_divider(col, host.tr("Featured"))
+	var offer_row := HBoxContainer.new()
+	offer_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	offer_row.add_theme_constant_override("separation", Tune.ROW_SEP)
+	col.add_child(offer_row)
+	for offer in rotation_offers(rotation_seed()):
+		if String(offer.kind) == "item":
+			offer_row.add_child(_item_card(host, refs, offer.def))
+		else:
+			offer_row.add_child(_cosmetic_card(host, refs, offer.def))
+
 	# — Dewdrop pouches (cash → diamonds; confirm-only) —
 	_divider(col, host.tr("Dewdrop pouches"))
 	var gem_row := HBoxContainer.new()
@@ -186,7 +326,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	place_x.call_deferred()
 
 	FX.pop_in(card)
-	FX.scatter_in([wallet, help_row, gem_row], Tune.SCATTER_DELAY)
+	FX.scatter_in([wallet, help_row, offer_row, gem_row], Tune.SCATTER_DELAY)
 
 # A thin sprig divider with a caption (divider_vine art when generated).
 # S13: the caption is a parchment TAB chip, baseline-aligned with its vine —
@@ -264,6 +404,119 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 		_try_buy(host, refs, b, cost, action, fly_id))
 	_apply_afford(b)
 	return b
+
+# One item-shortcut card (§10): a real PIECE preview, the line name + tier, the price
+# chip (coins or 💎). Whole card presses → buy: spend, queue the piece into the bag, and —
+# if the host is the live board (opts.piece_grant) — drain it onto the board now.
+static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Button:
+	var b := _card_button(Tune.HELP_CARD)
+	var inner := VBoxContainer.new()
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
+	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(inner)
+	var code := int(off.code)
+	var preview := PieceView.make_piece(code, Tune.HELP_ICON)
+	preview.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	inner.add_child(preview)
+	var t := Label.new()
+	t.text = String(off.get("label", ""))
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", Tune.HELP_TITLE_SIZE)
+	t.add_theme_color_override("font_color", INK)
+	inner.add_child(t)
+	var c := Label.new()
+	c.text = host.tr("skip to tier %d") % (code % 100)
+	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
+	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
+	inner.add_child(c)
+	var cur := String(off.currency)
+	var cost := int(off.cost)
+	var price := Look.stat_chip("gem" if cur == "diamonds" else "coin", str(cost))
+	price.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	(price.label as Label).add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
+	inner.add_child(price.node)
+	b.set_meta("shop_buy", true)
+	b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
+	var idx := _offer_index(String(off.id))
+	b.pressed.connect(func() -> void:
+		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
+			if not buy_item_offer(idx):
+				return false
+			if (refs.opts as Dictionary).has("piece_grant"):
+				((refs.opts as Dictionary).piece_grant as Callable).call()
+			return true, host.tr("Into your bag")))
+	_apply_afford(b)
+	return b
+
+# One cosmetic card (§10): a tint SWATCH, the look name, the price chip. Whole card
+# presses → buy: spend + unlock the look (own-once). An already-owned look shows an
+# "Owned" badge and a no-op press (no double-charge).
+static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> Button:
+	var b := _card_button(Tune.HELP_CARD)
+	var inner := VBoxContainer.new()
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
+	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(inner)
+	var id := String(cos.id)
+	var owned := cosmetic_owned(id)
+	# the swatch — a rounded chip in the look's tint (the look preview)
+	var sw := PanelContainer.new()
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color(cos.tint)
+	ss.set_corner_radius_all(Tune.SWATCH_RADIUS)
+	ss.set_border_width_all(Tune.SWATCH_BORDER_W)
+	ss.border_color = Color(BARK, Tune.CARD_EDGE_ALPHA)
+	sw.add_theme_stylebox_override("panel", ss)
+	sw.custom_minimum_size = Vector2(Tune.SWATCH_SIZE, Tune.SWATCH_SIZE)
+	sw.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(sw)
+	var t := Label.new()
+	t.text = String(cos.name)
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	t.add_theme_font_size_override("font_size", Tune.HELP_TITLE_SIZE)
+	t.add_theme_color_override("font_color", INK)
+	inner.add_child(t)
+	var c := Label.new()
+	c.text = host.tr("Owned") if owned else host.tr("a grove look")
+	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
+	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
+	inner.add_child(c)
+	var cur := String(cos.currency)
+	var cost := int(cos.cost)
+	if owned:
+		var got := Look.icon("check", Tune.HELP_PRICE_SIZE)
+		got.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		inner.add_child(got)
+		b.set_meta("owned", true)
+	else:
+		var price := Look.stat_chip("gem" if cur == "diamonds" else "coin", str(cost))
+		price.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		(price.label as Label).add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
+		inner.add_child(price.node)
+		b.set_meta("shop_buy", true)
+		b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
+	b.pressed.connect(func() -> void:
+		if cosmetic_owned(id):
+			Audio.play("invalid_soft", -6.0)
+			return
+		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
+			return buy_cosmetic(id), host.tr("Unlocked!")))
+	_apply_afford(b)
+	return b
+
+# The index of an item offer by id (the stable handle the pure grant func takes).
+static func _offer_index(id: String) -> int:
+	for i in D.SHOP_ITEM_OFFERS.size():
+		if String(D.SHOP_ITEM_OFFERS[i].id) == id:
+			return i
+	return -1
 
 # One cash pack card: gem art/icon, the count, the $ price. Middle = "Popular".
 static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
@@ -350,10 +603,19 @@ static func _card_button(min_size: Vector2) -> Button:
 	return b
 
 # Affordability is shown, never blocking: a dim card still presses (wallet wiggles).
+# Reads whichever price meta the card carries — gem_cost (💎), coin_cost (🪙), or an
+# `owned` flag (a bought cosmetic shows full-bright with its own "Owned" treatment).
 static func _apply_afford(b: Button) -> void:
-	if not b.has_meta("gem_cost"):
+	if b.has_meta("owned") and bool(b.get_meta("owned")):
+		b.modulate = Color(1, 1, 1, 1.0)
 		return
-	var ok := Save.diamonds() >= int(b.get_meta("gem_cost"))
+	var ok := true
+	if b.has_meta("gem_cost"):
+		ok = Save.diamonds() >= int(b.get_meta("gem_cost"))
+	elif b.has_meta("coin_cost"):
+		ok = Save.coins() >= int(b.get_meta("coin_cost"))
+	else:
+		return
 	b.modulate = Color(1, 1, 1, 1.0) if ok else Tune.DIM_MODULATE
 
 static func _refresh_afford(overlay: Control) -> void:
@@ -376,6 +638,27 @@ static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 	var target: Control = refs.coin.node if fly_id == "coin" else refs.gem.node
 	FX.fly_to_wallet(host, b.get_global_rect().get_center(), Look.icon(fly_id, Tune.FLY_ICON), target,
 		func() -> void: _settle(host, refs))
+	_settle(host, refs)
+
+# The item-shortcut / cosmetic buy: pays in `currency` ("coins"|"diamonds"), wiggling the
+# right wallet chip + a "Need N more" floater when short (never blocking, §13). On success
+# the `grant` callable does the spend+grant (it owns the price), then a celebratory floater
+# and the wallet settle. `grant` returns false to abort cleanly (e.g. a race).
+static func _try_buy_currency(host: Control, refs: Dictionary, b: Button, currency: String,
+		cost: int, grant: Callable, ok_text: String) -> void:
+	var have: int = Save.diamonds() if currency == "diamonds" else Save.coins()
+	var chip: Control = refs.gem.node if currency == "diamonds" else refs.coin.node
+	if have < cost:
+		Audio.play("invalid_soft", -4.0)
+		FX.wobble(chip)
+		FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET,
+			host.tr("Need %d more") % (cost - have), CREAM, Tune.NEED_SIZE)
+		return
+	if not bool(grant.call()):
+		return
+	Audio.play("merge_success", -3.0, 1.2)
+	FX.pop(b)
+	FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET, ok_text, STRAW, Tune.NEED_SIZE)
 	_settle(host, refs)
 
 # Wallet chips (shop + HUD) tick to the new balances; affordability re-tints.

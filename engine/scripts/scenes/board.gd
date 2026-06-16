@@ -20,6 +20,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
@@ -384,6 +385,12 @@ func _load_state() -> void:
 		_mark_seen(int(v))
 	for v in bag:
 		_mark_seen(int(v))
+	# §10: drain any item-shortcuts bought in the Shop into the bag (bounded by capacity);
+	# leftovers stay queued. Persist + mark-seen the pieces that landed.
+	if Shop.drain_pending(bag, _bag_capacity()) > 0:
+		for v in bag:
+			_mark_seen(int(v))
+		_persist()
 
 # --- the discovery log: which items has this player ever grown? -------------------
 # Powers the upgrade-path card (unseen tiers show as "?").
@@ -512,6 +519,9 @@ func _build_hud() -> void:
 		water = G.WATER_CAP
 		_update_water_hud()
 		_persist(),
+		# §10: a shop-bought item-shortcut lands in the bag LIVE (drained from the queue)
+		# while the board is open — no scene reload needed for it to appear.
+		"piece_grant": func() -> void: _drain_shop_pieces(),
 		"home": func() -> void:
 			Audio.play("button_tap", -2.0)
 			HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
@@ -1767,6 +1777,17 @@ func _bag_capacity() -> int:
 # Is there a buyable "+slot" affordance at the end of the bar right now? (Below the cap only.)
 func _bag_has_buy_slot() -> bool:
 	return Save.bag_slots() < G.BAG_MAX_SLOTS
+
+# §10: pull any item-shortcuts bought in the (open) Shop into the live bag, up to
+# capacity, then persist + rebuild the bag UI so the new pieces show without a reload.
+# Leftovers (bag full) stay queued for the next open / a freed slot.
+func _drain_shop_pieces() -> void:
+	if Shop.drain_pending(bag, _bag_capacity()) > 0:
+		for v in bag:
+			_mark_seen(int(v))
+		_persist()
+		_rebuild_bag()
+		_refresh_giver_lights()
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if bag.size() >= _bag_capacity():

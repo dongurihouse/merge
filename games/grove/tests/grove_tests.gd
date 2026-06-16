@@ -1056,6 +1056,13 @@ func _initialize() -> void:
 	Shop.open(s7, {"water_grant": func() -> void: pass})
 	var rows_water := _shop_rows(s7)
 	ok(rows_water == rows_plain + 1, "the water row appears only with a water_grant (%d -> %d)" % [rows_plain, rows_water])
+	# T40: the storefront now carries the Featured rotation band — its pressable offer
+	# cards are part of the buy-card count (coin pouch + SHOP_ROTATION_COUNT featured +
+	# the cash packs), so the storefront is no longer a fixed water+coin+cash layout.
+	var DataUi = load("res://games/active.gd").DATA
+	ok(rows_plain >= int(DataUi.SHOP_ROTATION_COUNT) + 1, \
+		"the storefront features the rotating offers band (%d cards ≥ %d featured + pouch)" % \
+		[rows_plain, int(DataUi.SHOP_ROTATION_COUNT)])
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()
@@ -1625,5 +1632,137 @@ func _initialize() -> void:
 	ok(Save.coins() == 0, "Z3: no treat without coins (no overspend)")
 	z3.queue_free()
 
+	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, cosmetics, rotation ---
+	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind),
+	# cosmetics (looks), behind a FEW deterministically-rotating offers. Pure grant
+	# funcs spend correctly, grant, and refuse when broke; rotation is seeded (testable).
+	var ShopS = load("res://engine/scripts/ui/shop.gd")
+	var Data = load("res://games/active.gd").DATA
+
+	# S-A: the stock tables exist and are well-formed (owner-tunable grove numbers).
+	fresh("shop_stock")
+	ok(Data.SHOP_ITEM_OFFERS.size() >= 2, "the shop stocks item-shortcut offers")
+	ok(Data.SHOP_COSMETICS.size() >= 2, "the shop stocks a cosmetic catalogue")
+	ok(Data.SHOP_ROTATION_COUNT >= 1 and Data.SHOP_ROTATION_COUNT <= \
+		Data.SHOP_ITEM_OFFERS.size() + Data.SHOP_COSMETICS.size(), \
+		"the rotation shows a FEW offers (1..pool size)")
+	for off in Data.SHOP_ITEM_OFFERS:
+		var t := int(off.code) % 100
+		ok(int(off.code) > 0 and t >= 2 and t < Data.TOP_TIER, \
+			"item offer %s is a mid-tier piece (t%d, never a gate-only pinnacle)" % [off.id, t])
+		var cur := String(off.currency)
+		ok((cur == "coins" or cur == "diamonds") and int(off.cost) > 0, \
+			"item offer %s costs %d %s" % [off.id, int(off.cost), cur])
+	for cos in Data.SHOP_COSMETICS:
+		ok(String(cos.id) != "" and int(cos.cost) > 0 and \
+			(String(cos.currency) == "coins" or String(cos.currency) == "diamonds"), \
+			"cosmetic %s costs %d %s" % [cos.id, int(cos.cost), cos.currency])
+
+	# S-B: item-shortcut grant — spends the right currency, drops the piece into the
+	# bag blob (the board drains it on open), and refuses when the wallet is short.
+	fresh("shop_item_coin")
+	var ci := -1
+	for i in Data.SHOP_ITEM_OFFERS.size():
+		if String(Data.SHOP_ITEM_OFFERS[i].currency) == "coins":
+			ci = i
+			break
+	ok(ci >= 0, "there is a coin-priced item-shortcut (low tiers are coins, §10)")
+	var coff: Dictionary = Data.SHOP_ITEM_OFFERS[ci]
+	ok(not ShopS.buy_item_offer(ci), "the item-shortcut refuses when broke")
+	ok(ShopS.pending_pieces().is_empty(), "...and grants no piece when it refuses")
+	Save.add_coins(int(coff.cost) + 50)
+	var coins_b := Save.coins()
+	ok(ShopS.buy_item_offer(ci), "the coin item-shortcut sells once affordable")
+	ok(Save.coins() == coins_b - int(coff.cost), "...spending exactly its coin cost")
+	ok(ShopS.pending_pieces() == [int(coff.code)], "...and queues the piece into the bag blob")
+
+	# a gem-priced (higher-tier) item-shortcut spends diamonds, never coins.
+	fresh("shop_item_gem")
+	var gi := -1
+	for i in Data.SHOP_ITEM_OFFERS.size():
+		if String(Data.SHOP_ITEM_OFFERS[i].currency) == "diamonds":
+			gi = i
+			break
+	ok(gi >= 0, "there is a premium (gem) item-shortcut for higher tiers (§10)")
+	var goff: Dictionary = Data.SHOP_ITEM_OFFERS[gi]
+	ok(not ShopS.buy_item_offer(gi), "the gem item-shortcut refuses without diamonds")
+	Save.add_diamonds(int(goff.cost) + 5)
+	var gem_b := Save.diamonds()
+	var gc0 := Save.coins()
+	ok(ShopS.buy_item_offer(gi), "the gem item-shortcut sells with diamonds")
+	ok(Save.diamonds() == gem_b - int(goff.cost) and Save.coins() == gc0, \
+		"...spending diamonds only (premium buys speed, never coins)")
+
+	# the live board drains the queued shortcut onto open ground on its next open.
+	fresh("shop_item_board")
+	Save.add_coins(int(coff.cost) + 10)
+	ShopS.buy_item_offer(ci)
+	var sb = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sb)
+	if sb.board == null:
+		sb._ready()
+	ok(sb.bag.has(int(coff.code)), "the board picks the queued shortcut up into the bag on open")
+	ok(ShopS.pending_pieces().is_empty(), "...and the pending queue is drained")
+	sb.queue_free()
+
+	# S-C: cosmetic grant — spends, unlocks the look, and refuses a second buy (own-once).
+	fresh("shop_cosmetic")
+	var cos0: Dictionary = Data.SHOP_COSMETICS[0]
+	var cid := String(cos0.id)
+	ok(not ShopS.cosmetic_owned(cid), "a cosmetic starts unowned")
+	ok(not ShopS.buy_cosmetic(cid), "the cosmetic refuses when broke")
+	if String(cos0.currency) == "coins":
+		Save.add_coins(int(cos0.cost) + 5)
+	else:
+		Save.add_diamonds(int(cos0.cost) + 5)
+	var cwc := Save.coins()
+	var cwg := Save.diamonds()
+	ok(ShopS.buy_cosmetic(cid), "the cosmetic sells once affordable")
+	var spent_c := cwc - Save.coins()
+	var spent_g := cwg - Save.diamonds()
+	ok((spent_c == int(cos0.cost) and spent_g == 0) if String(cos0.currency) == "coins" \
+		else (spent_g == int(cos0.cost) and spent_c == 0), "...spending exactly its price in its currency")
+	ok(ShopS.cosmetic_owned(cid), "...and the look is now unlocked (persisted in grove)")
+	var afterc := Save.coins()
+	var afterg := Save.diamonds()
+	ok(not ShopS.buy_cosmetic(cid), "buying an owned cosmetic is refused (own-once, no double-charge)")
+	ok(Save.coins() == afterc and Save.diamonds() == afterg, "...and charges nothing the second time")
+
+	# S-D: rotation determinism — same seed → same offers; advancing rotates them.
+	fresh("shop_rotation")
+	var r_a: Array = ShopS.rotation_offers(7)
+	var r_a2: Array = ShopS.rotation_offers(7)
+	ok(r_a.size() == Data.SHOP_ROTATION_COUNT, "the rotation surfaces exactly SHOP_ROTATION_COUNT offers")
+	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the same seed yields the SAME offers (deterministic, no randi)")
+	# every rotated offer is a real stock entry (item or cosmetic), no duplicates.
+	var ids_a := _offer_ids(r_a)
+	ok(ids_a.size() == _uniq(ids_a).size(), "a rotation has no duplicate offers")
+	# advancing the seed across a window of days rotates the featured set at least once.
+	var changed := false
+	for day in range(8, 40):
+		if _offer_ids(ShopS.rotation_offers(day)) != ids_a:
+			changed = true
+			break
+	ok(changed, "advancing the seed (day/refresh) rotates the featured offers")
+	# the live storefront wires the rotation in (a new featured band of pressable cards).
+	var s_seed: int = ShopS.rotation_seed()
+	ok(s_seed >= 0, "the rotation seed is a non-negative day/refresh index")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# T40 helpers: pull the id list out of a rotation, and a uniq pass.
+func _offer_ids(offers: Array) -> Array:
+	var out: Array = []
+	for o in offers:
+		out.append(String(o.id))
+	return out
+
+func _uniq(arr: Array) -> Array:
+	var seen := {}
+	var out: Array = []
+	for v in arr:
+		if not seen.has(v):
+			seen[v] = true
+			out.append(v)
+	return out
