@@ -49,7 +49,7 @@ const VARIANT_NAMES_COIN = D.VARIANT_NAMES_COIN
 const VARIANT_NAMES_GEM = D.VARIANT_NAMES_GEM
 const VARIANT_TINTS_COIN = D.VARIANT_TINTS_COIN
 const VARIANT_TINTS_GEM = D.VARIANT_TINTS_GEM
-const MERCHANT_COINS = D.MERCHANT_COINS
+const SELL_MAP_BAND = D.SELL_MAP_BAND
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
@@ -174,6 +174,21 @@ static func gen_def(roster: Array, id: String) -> Dictionary:
 		if String(g.id) == id:
 			return g
 	return {}
+
+## The map a LINE belongs to — its emitting generator's `map` (0-indexed). Pure derivation
+## off the GENERATORS roster (line → the generator whose `lines` lists it → that gen's map).
+## Drives the §6/§9 per-map sell band. Returns 0 if the line has no generator (defensive: an
+## unrostered/coin line falls to the map-1 band 1.0 rather than crashing the sell path).
+static func map_for_line(line: int) -> int:
+	for g in GENERATORS:
+		if g.get("lines", []).has(line):
+			return int(g.map)
+	return 0
+
+## The map an ITEM (code = line*100 + tier) belongs to — derive its line, then its map.
+## The sell band reads this so later-map harvests sell for more coins (§6).
+static func map_for_code(code: int) -> int:
+	return map_for_line(int(code / 100.0))
 
 ## The lines currently LIVE = the union of the lines of every generator on the board.
 ## `gen_state` maps cell (Vector2i) -> generator id. Sorted, deduped. A line drops out
@@ -543,11 +558,23 @@ static func spot_variants(z: int, k: int) -> Array:
 static func sell_value(code: int) -> int:
 	return maxi(1, code % 100)            # t1=1 … t8=8 coins
 
+## What an item sells for at the merchant (§9): Vector2i(coins, premium). t1–t7 pay their
+## tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); t8 stays
+## the FLAT 1💎 pinnacle on every map (the 32× anti-arbitrage invariant — only the t1–t7 coin
+## reward bands up, never t8→premium). The band is read off SELL_MAP_BAND by the item's map.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
 	if tier >= TOP_TIER:
-		return Vector2i(0, 1)            # the diamond pinnacle
-	return Vector2i(maxi(1, tier), 0)
+		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
+	var band: float = sell_map_band(map_for_code(code))
+	return Vector2i(int(round(maxi(1, tier) * band)), 0)
+
+## The per-map coin band for `map` (0-indexed), clamped to the table (a map past the table
+## reuses the last entry). Owner/sim feel dial; t8 never reads this (it stays flat 1💎).
+static func sell_map_band(map: int) -> float:
+	if SELL_MAP_BAND.is_empty():
+		return 1.0
+	return float(SELL_MAP_BAND[clampi(map, 0, SELL_MAP_BAND.size() - 1)])
 
 static func water_to_earn_diamond() -> int:
 	return int(pow(2, TOP_TIER - 1))

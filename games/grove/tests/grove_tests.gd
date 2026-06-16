@@ -910,6 +910,45 @@ func _initialize() -> void:
 		"selling a t3 pays 3 coins and clears the cell")
 	ok(G.sell_value(108) == 8 and G.sell_value(201) == 1, "sell value scales with tier")
 
+	# T39: per-map sell COIN band (§6/§9) — later maps sell t1–t7 for more coins; t8 stays a
+	# flat 1💎 on EVERY map (the 32× anti-arbitrage pinnacle). Only the t1–t7 coin reward scales.
+	# The band is a grove number (owner/sim-tuned), keyed by the item's map (0-indexed maps 1–5).
+	var band := G.SELL_MAP_BAND
+	ok(band.size() == G.MAPS.size(), "T39: the sell band has one entry per map (%d)" % G.MAPS.size())
+	var band_mono := true
+	for bi in range(1, band.size()):
+		if float(band[bi]) <= float(band[bi - 1]):
+			band_mono = false
+	ok(band_mono and float(band[0]) >= 1.0, "T39: the per-map band rises monotonically across maps 1–5 (≥1.0 at map 1)")
+	# map resolution: code → line → generator → its map. Sample lines spanning maps 0..4.
+	ok(G.map_for_line(1) == 0 and G.map_for_line(4) == 0, "T39: map-1 lines (Wildflower/Honey) resolve to map 0")
+	ok(G.map_for_line(5) == 1 and G.map_for_line(8) == 1, "T39: map-2 lines (Egg/Wool) resolve to map 1")
+	ok(G.map_for_line(12) == 2, "T39: a map-3 line (Fish) resolves to map 2")
+	ok(G.map_for_line(16) == 3 and G.map_for_line(24) == 4, "T39: map-4/5 lines (Plum/Poppy) resolve to maps 3/4")
+	ok(G.map_for_code(1205) == 2, "T39: map_for_code derives the line then the map (Fish t5 → map 2)")
+	# t1–t7 reward == round(tier_coins × band[map]); checked across every line, every sub-top tier.
+	var band_ok := true
+	var t8_flat := true
+	for line in G.LINES:
+		var lm: int = G.map_for_line(int(line))
+		var lb: float = float(band[lm])
+		for tier in range(1, G.TOP_TIER):
+			var code: int = int(line) * 100 + tier
+			var want_coins: int = int(round(maxi(1, tier) * lb))
+			var rw: Vector2i = G.sell_reward(code)
+			if rw != Vector2i(want_coins, 0):
+				band_ok = false
+		var top_rw: Vector2i = G.sell_reward(int(line) * 100 + G.TOP_TIER)
+		if top_rw != Vector2i(0, 1):
+			t8_flat = false
+	ok(band_ok, "T39: every t1–t7 reward == round(tier coins × the line's map band)")
+	ok(t8_flat, "T39: a t8 sells for EXACTLY 1💎 (no coins) on every line/map — the flat pinnacle (32× proof)")
+	# concrete worked examples (map 0 band == 1.0 keeps the FTUE-era proofs exact)
+	ok(G.sell_reward(103) == Vector2i(3, 0), "T39: a map-1 t3 (band 1.0) still sells for exactly 3🪙")
+	ok(G.sell_reward(105) == Vector2i(5, 0), "T39: a map-1 t5 (band 1.0) still sells for exactly 5🪙")
+	ok(G.sell_reward(2405) == Vector2i(int(round(5 * float(band[4]))), 0), \
+		"T39: a map-5 t5 (band %.1f) sells for %d🪙 (later map → more coins)" % [float(band[4]), int(round(5 * float(band[4])))])
+
 	# diamonds: accessors + paid rain once the freebies are spent
 	ok(Save.diamonds() == 0, "diamonds default 0")
 	Save.add_diamonds(30)
@@ -1402,6 +1441,23 @@ func _initialize() -> void:
 		"W3/Y1: the t8 sell tag's currency sprite is swapped to the gem icon")
 	ws._hide_sell_affordance()
 	ok(not ws.merchant_sell_tag.visible, "W3: releasing the drag hides the sell tag")
+	# T39 (§9): drag is the ONLY sell verb — the tap-sell path is GONE. The board no longer
+	# defines _on_merchant_tap; tapping the stall does nothing (the basket buy-back + the
+	# treat keep their own taps; drag-to-stall selling stays the live verb).
+	ok(not ws.has_method("_on_merchant_tap"), "T39: tap-sell is removed — board has no _on_merchant_tap")
+	# T39: the merchant pill reflects the REAL top-tier reward (t8 = 1💎), not a stale flat coin
+	# count. The pill carries a gem icon + "+1", and shows no coin figure (MERCHANT_COINS is gone).
+	var mp_lbls: Array = ws.merchant_chip.find_children("*", "Label", true, false)
+	var mp_has_one := false
+	for mpl in mp_lbls:
+		if String((mpl as Label).text).find("1") != -1 and String((mpl as Label).text).find("25") == -1:
+			mp_has_one = true
+	ok(mp_has_one, "T39: the merchant pill reads the top-tier reward (+1), not the stale flat 25")
+	var mp_has_gem := false
+	for mpn in ws.merchant_chip.find_children("*", "", true, false):
+		if mpn.has_meta("icon_id") and String(mpn.get_meta("icon_id")) == "gem":
+			mp_has_gem = true
+	ok(mp_has_gem, "T39: the merchant pill carries the gem pinnacle icon (icon_id=gem), not a coin")
 	# X3: the giver pill renders one [item icon + n/m] pair PER ASK (1-3), no second card
 	var x3_3: Dictionary = ws._make_giver_stand(0, {"asks": [
 		{"line": 1, "tier": 3, "count": 1}, {"line": 2, "tier": 4, "count": 1},
