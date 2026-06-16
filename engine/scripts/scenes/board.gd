@@ -527,6 +527,10 @@ func _quest_stars(q: Dictionary) -> int:
 func _quest_coins(q: Dictionary) -> int:
 	return int(q.reward.coins) if q.has("reward") else 0
 
+# §7 featured premium: the occasional 💎 bonus on a featured quest (0 on a normal one).
+func _quest_gems(q: Dictionary) -> int:
+	return int(q.reward.get("gems", 0)) if q.has("reward") else 0
+
 func _persist() -> void:
 	var g := Save.grove()
 	g["board"] = board.to_dict()
@@ -853,6 +857,30 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 	pay.add_child(pay_lbl)
 	pay.position = Vector2(STAND_W / 2.0 + 30.0, 6.0)
 	stand.add_child(pay)
+	# §7 FEATURED: a small random share of regular quests are featured — flag it on the fence.
+	# A code-drawn gold ribbon sits above the bust ("this one's special"); when the featured
+	# bonus rolled a premium, a +N💎 rides the shoulder under the ★. The bonus is coins/premium,
+	# never extra ★ (the ★ shoulder above is untouched by featuring).
+	if bool(q.get("featured", false)):
+		var ribbon := _featured_ribbon()
+		ribbon.position = Vector2((STAND_W - 122.0) / 2.0, -2.0)
+		stand.add_child(ribbon)
+		var feat_gems := _quest_gems(q)
+		if feat_gems > 0:
+			var gem_pay := HBoxContainer.new()
+			gem_pay.add_theme_constant_override("separation", 1)
+			gem_pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gem_pay.add_child(Look.icon("gem", 26.0))
+			var gem_lbl := Label.new()
+			gem_lbl.text = "+%d" % feat_gems
+			gem_lbl.add_theme_font_size_override("font_size", 22)
+			gem_lbl.add_theme_color_override("font_color", Color("#BFE6F2"))
+			gem_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
+			gem_lbl.add_theme_constant_override("outline_size", 5)
+			gem_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			gem_pay.add_child(gem_lbl)
+			gem_pay.position = Vector2(STAND_W / 2.0 + 30.0, 38.0)
+			stand.add_child(gem_pay)
 	# AB3: the ready check docks on the pill's TOP-LEFT corner (no ring border)
 	var check := _ready_check()
 	stand.add_child(check)
@@ -882,6 +910,42 @@ func _ask_pill() -> PanelContainer:
 	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return pill
+
+# §7 FEATURED: a code-drawn gold ribbon that crowns a featured giver's stand — a clear
+# "this one's special" highlight on the fence (no art exists; Look-kit warm palette). A
+# straw-gold pill, deeper-gold border + soft shadow, holding a ★ glyph + a "Featured" caption.
+func _featured_ribbon() -> PanelContainer:
+	var ribbon := PanelContainer.new()
+	var rs := StyleBoxFlat.new()
+	rs.bg_color = STRAW                        # the warm straw-gold accent the fence already uses
+	rs.set_corner_radius_all(11)
+	rs.set_border_width_all(2)
+	rs.border_color = Color("#8A5A3B")         # the bark-brown border the asks/plus use
+	rs.shadow_color = Color(0, 0, 0, 0.28)
+	rs.shadow_size = 4
+	rs.shadow_offset = Vector2(0, 2)
+	rs.content_margin_left = 10.0
+	rs.content_margin_right = 12.0
+	rs.content_margin_top = 3.0
+	rs.content_margin_bottom = 3.0
+	ribbon.add_theme_stylebox_override("panel", rs)
+	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 5)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ribbon.add_child(row)
+	var star := Look.icon("star", 20.0)
+	star.modulate = Color("#FBF3EA")           # a cream star reads on the straw fill
+	row.add_child(star)
+	var lbl := Label.new()
+	lbl.text = tr("Featured")
+	lbl.add_theme_font_size_override("font_size", 17)
+	lbl.add_theme_color_override("font_color", Color("#4A2F1B"))
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	return ribbon
 
 func _ready_check() -> Panel:
 	var check := Panel.new()
@@ -2212,12 +2276,17 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
 	var sp_stars := _quest_stars(q)
 	var sp_coins := _quest_coins(q)
+	var sp_gems := _quest_gems(q)             # §7: a featured quest may carry an occasional 💎 bonus
 	var levels_up := G.earn_stars(sp_stars)
 	if sp_coins > 0:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
+	if sp_gems > 0:
+		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra ★)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
+	if sp_gems > 0:
+		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 64), "gem", sp_gems, Color("#BFE6F2"), 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift

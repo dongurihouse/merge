@@ -30,6 +30,8 @@ const QUEST_2COUNT_RATE = D.QUEST_2COUNT_RATE
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
+const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
+const QUEST_FEATURED_GEM_BONUS = D.QUEST_FEATURED_GEM_BONUS
 const QUEST_DEBUT_TIER_CAP = D.QUEST_DEBUT_TIER_CAP
 const MAX_GIVERS = D.MAX_GIVERS
 const STARS_PER_QUEST_EST = D.STARS_PER_QUEST_EST
@@ -294,7 +296,11 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator)
 	var reward: Dictionary = quest_reward(asks)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
+		# the featured bonus is coins/premium, NEVER extra ★ (§7): reward.stars is left untouched
+		# so level ∝ quests-done holds. A flat coin bonus always; OCCASIONALLY (gem-odds) a small premium.
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
+		if rng.randf() < QUEST_FEATURED_GEM_ODDS:
+			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
 	return {"asks": asks, "reward": reward, "featured": featured}
 
 ## §7 soft gate (gate_pause): how many giver stands are active, metered to the NEXT unlock —

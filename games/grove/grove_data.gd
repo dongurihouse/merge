@@ -121,6 +121,8 @@ const QUEST_2COUNT_RATE := 0.2            # chance an ask wants 2 of the item (v
 const QUEST_NEWEST_BIAS := 2.0            # line-pick weight exponent toward the newest/highest-value live line
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
+const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that ALSO carry a premium (≈3% of all quests)
+const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those — never extra ★ (§7); buys speed, not possibility
 const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
 # §7 soft gate + authored gate quest — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
