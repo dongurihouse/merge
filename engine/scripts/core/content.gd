@@ -101,6 +101,34 @@ static func lines_for_zone(roster: Array, zone: int) -> Array:
 				out.append(int(l))
 	return out
 
+## The ANCHOR lines (§6's anchor-line exemption): the union of the lines of every generator
+## flagged `anchor: true`, from any zone. An anchor generator is NEVER handed in — it
+## permanently holds one of the live slots — so its lines stay LIVE and ASKABLE for the life
+## of the save, even past the map they debuted in. Game-agnostic: the flag is read off the
+## roster def (a game designates at most one anchor; this unions all that are flagged). Sorted.
+static func anchor_lines(roster: Array) -> Array:
+	var out: Array = []
+	for g in roster:
+		if bool(g.get("anchor", false)):
+			for l in g.get("lines", []):
+				if not out.has(int(l)):
+					out.append(int(l))
+	out.sort()
+	return out
+
+## The lines a regular quest may ASK while the player is in `zone` (§6/§7): the current map's
+## live lines (`lines_for_zone`) UNIONED with the anchor lines, deduped. Non-anchor earlier-zone
+## lines stay EXCLUDED (they retired) — only the anchor is exempt, so its lines remain askable
+## past their debut map (fixing the dead-anchor bug). At zone 0 the anchor is already in the
+## roster, so the union is a no-op there. Sorted.
+static func askable_lines(roster: Array, zone: int) -> Array:
+	var out: Array = lines_for_zone(roster, zone)
+	for l in anchor_lines(roster):
+		if not out.has(int(l)):
+			out.append(int(l))
+	out.sort()
+	return out
+
 ## Lines that have RETIRED by the time you reach `zone` — every earlier zone's lines.
 ## A retired line is never popped or asked again (it archives to the Collection — that
 ## hook is a separate task; here it simply drops out of the live set).
