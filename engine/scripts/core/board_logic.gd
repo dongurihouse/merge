@@ -56,9 +56,11 @@ static func dist_to(a: Vector2i, b: Vector2i) -> int:
 static func dist_to_gen(cell: Vector2i) -> int:
 	return dist_to(cell, G.GEN_CELL)
 
-# Bag slots: the game's base count, +1 once the bag3 upgrade is owned.
-static func bag_capacity(bag3: bool) -> int:
-	return G.BAG_SLOTS + (1 if bag3 else 0)
+# Bag slots (§5): the OWNED slot count (persisted, 6 at start, bought up to 18 with 💎),
+# clamped to the legal band. The scene reads Save.bag_slots() and passes it in; this keeps
+# the bound enforced in one pure, headless-testable place even if a save is hand-edited.
+static func bag_capacity(owned: int) -> int:
+	return clampi(owned, G.BAG_START_SLOTS, G.BAG_MAX_SLOTS)
 
 # The generator's lines that some active quest currently asks for (a subset of pool).
 static func wanted_lines(pool: Array, quests: Array) -> Array:

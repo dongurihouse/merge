@@ -169,5 +169,46 @@ func _initialize() -> void:
 	ok(not gm.has("last_zone") and String(gm.get("last_map", "")) == "barn", \
 		"migration never clobbers an existing last_map")
 
+	# 18. bag-slot count (§5: 6 owned at start, +1 per 💎 buy, hard cap 18). Stored in the
+	# grove blob (default-on-read, like hub levels) — accessor + buy path + cap + persistence.
+	fresh("bag_slots")
+	ok(Save.bag_slots() == 6, "owned bag slots default to 6")
+	Save.set_bag_slots(9)
+	Save._loaded = false                      # force a reload from disk
+	ok(Save.bag_slots() == 9, "owned bag slots persist across reload")
+	# set_bag_slots clamps to the 6..18 band (never below the floor, never above the cap)
+	Save.set_bag_slots(2)
+	ok(Save.bag_slots() == 6, "set_bag_slots clamps below the 6 floor")
+	Save.set_bag_slots(99)
+	ok(Save.bag_slots() == 18, "set_bag_slots clamps above the 18 cap")
+
+	# 18b. the buy path: spends 💎, +1 slot, refuses when broke or already maxed.
+	fresh("bag_buy")
+	Save.set_bag_slots(6)
+	Save.add_diamonds(10)
+	ok(Save.buy_bag_slot(10) and Save.bag_slots() == 7 and Save.diamonds() == 0, \
+		"buying a slot spends diamonds and grows the owned count by 1")
+	ok(not Save.buy_bag_slot(10) and Save.bag_slots() == 7, \
+		"a broke buy is refused and leaves the count untouched")
+	Save.add_diamonds(500)
+	Save.set_bag_slots(17)
+	ok(Save.buy_bag_slot(25) and Save.bag_slots() == 18, "the 12th expansion reaches the 18 cap")
+	var dia_at_cap := Save.diamonds()
+	ok(not Save.buy_bag_slot(25) and Save.bag_slots() == 18 and Save.diamonds() == dia_at_cap, \
+		"a buy at the cap is refused and never charges diamonds")
+
+	# 18c. migration from an OLD save: no bag_slots key (and the legacy bag3 world) reads as the
+	# default 6 — strictly >= the old 2/3 capacity, so no data and no capacity is lost.
+	fresh("bag_migrate")
+	var bg := Save.grove()
+	bg["bag3"] = true                         # the retired single-3rd-slot flag
+	bg["bag"] = [101, 102]                     # bagged CONTENTS must survive untouched
+	Save.grove_write()
+	Save._loaded = false                      # reload the way a returning OLD save would
+	ok(Save.bag_slots() == 6, "an OLD save (no bag_slots key) migrates to the default 6")
+	var kept: Array = Save.grove().get("bag", [])   # JSON round-trips ints as floats; code reads int(bag[i])
+	ok(kept.size() == 2 and int(kept[0]) == 101 and int(kept[1]) == 102, \
+		"the bagged contents survive the migration")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

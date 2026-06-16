@@ -53,7 +53,9 @@ const SELL_MAP_BAND = D.SELL_MAP_BAND
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
-const BAG3_DIAMOND_COST = D.BAG3_DIAMOND_COST
+const BAG_START_SLOTS = D.BAG_START_SLOTS
+const BAG_MAX_SLOTS = D.BAG_MAX_SLOTS
+const BAG_SLOT_PRICES = D.BAG_SLOT_PRICES
 const WATER_CAP = D.WATER_CAP
 const REGEN_SECS = D.REGEN_SECS
 const POP_COST = D.POP_COST
@@ -71,11 +73,20 @@ const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
 const CHARACTER_ART = D.CHARACTER_ART
-const BAG_SLOTS = D.BAG_SLOTS
 const BASKET_CAP = D.BASKET_CAP
 const PORTER_SECS = D.PORTER_SECS
 const TREAT_COST = D.TREAT_COST
 const SPOTLIGHTS = D.SPOTLIGHTS
+
+# --- the bag (§5) ----------------------------------------------------------------
+# The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).
+# Indexes BAG_SLOT_PRICES by how many expansions are already bought (owned - START). Returns 0
+# at/above the cap (nothing left to buy) — the caller treats 0 as "maxed".
+static func next_bag_slot_price(owned: int) -> int:
+	var bought := owned - BAG_START_SLOTS
+	if bought < 0 or bought >= BAG_SLOT_PRICES.size():
+		return 0
+	return int(BAG_SLOT_PRICES[bought])
 
 # --- generators ------------------------------------------------------------------
 # --- per-map generator roster (the generator-grant hand-in model, §6) ------------

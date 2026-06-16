@@ -302,6 +302,19 @@ The 4-currency model (Water / Stars / Coins / Diamonds) and **sink > faucet** la
 
 The **Market Squirrel** runs the stall. Sell reward and the **32× no-arbitrage invariant** are core (t1–t7 → 1…7🪙; t8 → 1💎, no coins). **Later-map items sell for more** — a **per-map coin band** scales t1–t7 up by map (each map an economic step-up), while **t8 stays the flat 1💎 pinnacle** so the 32× proof holds (Core §6). *(The per-map bands are a grove number — sim-tuned across the arc.)* The grove's buy-back valve is a **wicker basket** at the squirrel's feet (`BASKET_CAP = 3`); a 4th sale overflows and summons the **porter spirit**, who also sweeps the basket every `PORTER_SECS = 180`. Basket never persisted. The Squirrel also keeps the **acorn hoard-jar** — the **piggy-bank vault** (Core §10): it skims a slice of earned 💎, visibly filling, cracked for one fixed real-money price (the §1 commerce-dressed frame).
 
+### Bag slots — the 💎 sink (instantiates Core §5)
+
+The bag opens at **6 owned slots** and expands **+1 at a time with 💎**, hard-capped at **18** (12 purchasable expansions); shelving and retrieving are always free, no timers, persisted. Expansion is **convenience, never possibility** (the §10 "premium buys speed, never the wall" line) — a refusal (broke or maxed) never blocks progress. The per-slot price is a **grove number** (`BAG_SLOT_PRICES` in `grove_data.gd`, one entry per slot 7…18) — **owner-tunable**. The shipped schedule is **escalating bands of 3**, so early expansion stays gentle and the late slots are an earned premium:
+
+| Slots | Per-slot 💎 |
+|---|---|
+| 7 – 9 | **10** |
+| 10 – 12 | **15** |
+| 13 – 15 | **20** |
+| 16 – 18 | **25** |
+
+Total **210💎** to go 6 → 18. The 7th slot keeps the old single-slot price (10💎) for continuity. This is a **💎 sink** only — the coin economy and the 32× sell invariant are untouched.
+
 ### Coin sinks (the live grove — Core §10 instantiation)
 
 **Two functional sinks** — hub upgrades (§3) and generator burst (§2) — give coins real power; the rest are cosmetic / net-zero:

@@ -38,7 +38,7 @@ const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays i
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
 const HINT_ROCK_CYCLE := 1.2     # W1: seconds per rock cycle
 const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
-const BAG_SLOTS = G.BAG_SLOTS    # the game's data owns the gameplay/economy tuning now
+# §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
 const BASKET_CAP = G.BASKET_CAP
 const PORTER_SECS = G.PORTER_SECS
 const TREAT_COST = G.TREAT_COST
@@ -98,6 +98,7 @@ var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var chapter_label: Label
 var bag_slots_ui: Array = []
+var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
 var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
 var shop_btn: Button             # T28: kept as a member so the §14 spotlight can target it
@@ -226,22 +227,8 @@ func _ready() -> void:
 	bag_bar.add_theme_constant_override("separation", 12)
 	bag_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	root.add_child(bag_bar)
-	bag_bar.add_child(_lbl(tr("Bag"), 26, Pal.TEXT))
-	for i in 3:
-		var s := Button.new()
-		s.focus_mode = Control.FOCUS_NONE
-		s.custom_minimum_size = Vector2(84, 84)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(GROUND_EDGE, 0.6)
-		sb.set_corner_radius_all(18)
-		sb.set_border_width_all(3)
-		sb.border_color = Color(CREAM, 0.35)
-		s.add_theme_stylebox_override("normal", sb)
-		s.add_theme_stylebox_override("hover", sb)
-		s.add_theme_stylebox_override("pressed", sb)
-		s.pressed.connect(_on_bag_tap.bind(i))
-		bag_bar.add_child(s)
-		bag_slots_ui.append(s)
+	bag_bar.add_child(_lbl(tr("Bag"), 26, Pal.TEXT))   # the label stays; _build_bag_bar only manages slots
+	_build_bag_bar()
 	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
 
 	# S1: a COMPACT icon bar pinned bottom-LEFT — [◀ Home][🛒] (owner 2026-06-13:
@@ -1773,8 +1760,13 @@ func _commit_swap(a: Vector2i, b: Vector2i, node: Control) -> void:
 
 # --- bag --------------------------------------------------------------------------
 
+# §5: the bag holds as many items as the player OWNS slots (6 at start, bought up to 18).
 func _bag_capacity() -> int:
-	return BoardLogic.bag_capacity(bool(Save.grove().get("bag3", false)))
+	return BoardLogic.bag_capacity(Save.bag_slots())
+
+# Is there a buyable "+slot" affordance at the end of the bar right now? (Below the cap only.)
+func _bag_has_buy_slot() -> bool:
+	return Save.bag_slots() < G.BAG_MAX_SLOTS
 
 func _stash(from: Vector2i, node: Control) -> void:
 	if bag.size() >= _bag_capacity():
@@ -1790,29 +1782,29 @@ func _stash(from: Vector2i, node: Control) -> void:
 	_rebuild_bag()
 	_refresh_giver_lights()
 
-func _on_bag_tap(i: int) -> void:
-	# the third slot sells itself before it serves
-	if i == BAG_SLOTS and not bool(Save.grove().get("bag3", false)):
-		if Save.spend_diamonds(G.BAG3_DIAMOND_COST):
-			Save.grove()["bag3"] = true
-			Save.grove_write()
-			Audio.play("level_complete", -4.0, 1.2)
-			FX.celebrate_at(self, bag_slots_ui[i].get_global_rect().get_center(), tr("Bag +1!"), STRAW)
-			_rebuild_bag()
-			_update_hud()
-		else:
-			FX.wobble(bag_slots_ui[i])
-			Audio.play("invalid_soft", -4.0)
-		return
-	if i >= bag.size():
-		return
-	var empties := board.empty_ground_cells()
-	if empties.is_empty():
-		FX.wobble(bag_slots_ui[i])
+# §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. A refusal
+# (broke or already maxed) just wobbles — convenience, never a wall (§4/§5).
+func _buy_bag_slot() -> void:
+	var price := G.next_bag_slot_price(Save.bag_slots())
+	var buy_slot: Button = bag_slots_ui[bag_slots_ui.size() - 1] if not bag_slots_ui.is_empty() else null
+	if price > 0 and Save.buy_bag_slot(price):
+		Audio.play("level_complete", -4.0, 1.2)
+		if buy_slot != null and is_instance_valid(buy_slot):
+			FX.celebrate_at(self, buy_slot.get_global_rect().get_center(), tr("Bag +1!"), STRAW)
+		_build_bag_bar()              # one more owned slot → rebuild the row
+		_update_hud()
+	else:
+		if buy_slot != null and is_instance_valid(buy_slot):
+			FX.wobble(buy_slot)
 		Audio.play("invalid_soft", -4.0)
-		return
-	empties.sort_custom(func(a, b): return BoardLogic.dist_to_gen(a) < BoardLogic.dist_to_gen(b))
-	var cell: Vector2i = empties[0]
+
+# §5 drag-back retrieve (the model half — also the headless-test seam): drop bagged item `i`
+# onto board `cell`. The cell must be empty ground; returns whether it was placed.
+func _retrieve_from_bag(i: int, cell: Vector2i) -> bool:
+	if i < 0 or i >= bag.size():
+		return false
+	if not board.is_empty_ground(cell):
+		return false
 	var code := int(bag[i])
 	bag.remove_at(i)
 	board.place(cell, code)
@@ -1826,16 +1818,50 @@ func _on_bag_tap(i: int) -> void:
 	_persist()
 	_rebuild_bag()
 	_refresh_giver_lights()
+	return true
+
+# (Re)build the bag-bar buttons to match the OWNED slot count, plus a trailing "+slot" buy
+# affordance while below the cap. Called at _ready and whenever a slot is bought (the count grows
+# at runtime, so the row is rebuilt, not just refilled). Each item slot is a DRAG SOURCE for the
+# §5 drag-back retrieve; the buy slot is a tap.
+func _build_bag_bar() -> void:
+	for s in bag_slots_ui:
+		if is_instance_valid(s):
+			s.queue_free()
+	bag_slots_ui.clear()
+	var owned := Save.bag_slots()
+	var total := owned + (1 if _bag_has_buy_slot() else 0)
+	for i in total:
+		var s := Button.new()
+		s.focus_mode = Control.FOCUS_NONE
+		s.custom_minimum_size = Vector2(84, 84)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GROUND_EDGE, 0.6)
+		sb.set_corner_radius_all(18)
+		sb.set_border_width_all(3)
+		sb.border_color = Color(CREAM, 0.35)
+		s.add_theme_stylebox_override("normal", sb)
+		s.add_theme_stylebox_override("hover", sb)
+		s.add_theme_stylebox_override("pressed", sb)
+		var is_buy := i == owned          # the trailing +slot affordance (only present below cap)
+		if is_buy:
+			s.pressed.connect(_buy_bag_slot)
+		else:
+			s.gui_input.connect(_on_bag_slot_input.bind(i))   # §5: a bagged item drags back out
+		bag_bar.add_child(s)
+		bag_slots_ui.append(s)
+	_rebuild_bag()
 
 func _rebuild_bag() -> void:
-	bag_bar.visible = _chapter_idx() >= 2
+	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
+	var owned := Save.bag_slots()
 	for i in bag_slots_ui.size():
 		var s: Button = bag_slots_ui[i]
 		for c in s.get_children():
 			c.queue_free()
-		if i == BAG_SLOTS and not bool(Save.grove().get("bag3", false)):
-			# §13: the buyable third slot's price — gem SPRITE + a number-only "+N" label
-			# (centered), never an emoji baked into the text.
+		if i == owned and _bag_has_buy_slot():
+			# §13: the buyable +slot price — gem SPRITE + a number-only "+N" label (centered),
+			# never an emoji baked into the text.
 			var lock := HBoxContainer.new()
 			lock.set_anchors_preset(Control.PRESET_FULL_RECT)
 			lock.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1845,7 +1871,7 @@ func _rebuild_bag() -> void:
 			lock_ic.modulate = Color(CREAM, 0.55)
 			lock.add_child(lock_ic)
 			var lock_lbl := Label.new()
-			lock_lbl.text = "+%d" % G.BAG3_DIAMOND_COST
+			lock_lbl.text = "+%d" % G.next_bag_slot_price(owned)
 			lock_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			lock_lbl.add_theme_font_size_override("font_size", 22)
 			lock_lbl.add_theme_color_override("font_color", Color(CREAM, 0.55))
@@ -1858,6 +1884,54 @@ func _rebuild_bag() -> void:
 			mini_n.position = Vector2(4, 4)
 			mini_n.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			s.add_child(mini_n)
+
+# §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
+# over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
+# slot, gated by _bag_drag_idx so the board-piece drag path (idx -1) is untouched. Motion + release
+# while the drag is live are tracked in _input (the cursor leaves this button onto the board).
+func _on_bag_slot_input(event: InputEvent, i: int) -> void:
+	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed) \
+		or (event is InputEventScreenTouch and event.pressed)
+	if not pressed or _bag_drag_idx >= 0 or _drag_node != null:
+		return
+	if i >= bag.size():
+		return
+	_bag_drag_idx = i
+	var n := _make_piece(int(bag[i]), csz)
+	n.z_index = 40
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(n)
+	n.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
+	_drag_node = n
+	bag_slots_ui[i].modulate = Color(1, 1, 1, 0.4)   # the slot dims while its item is in hand
+	Audio.play("item_pickup", -6.0)
+
+func _input(event: InputEvent) -> void:
+	if _bag_drag_idx < 0 or _drag_node == null:
+		return
+	if event is InputEventMouseMotion or event is InputEventScreenDrag:
+		_drag_node.global_position = get_global_mouse_position() - Vector2(csz, csz) / 2.0
+	elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
+			or (event is InputEventScreenTouch and not event.pressed):
+		_end_bag_drag(get_global_mouse_position())
+
+# Resolve a bag drag-back at the global release point: place on the board cell under the cursor
+# if it is empty ground, else snap the item back into the bag (no loss).
+func _end_bag_drag(gpos: Vector2) -> void:
+	var i := _bag_drag_idx
+	var node := _drag_node
+	_bag_drag_idx = -1
+	_drag_node = null
+	if is_instance_valid(node):
+		node.queue_free()
+	if i >= 0 and i < bag_slots_ui.size() and is_instance_valid(bag_slots_ui[i]):
+		bag_slots_ui[i].modulate = Color.WHITE
+	var local: Vector2 = board_area.get_global_transform().affine_inverse() * gpos
+	var cell := _pos_to_cell(local)
+	if board_area.get_global_rect().has_point(gpos) and _retrieve_from_bag(i, cell):
+		return
+	Audio.play("invalid_soft", -8.0)
+	_rebuild_bag()                                    # the dimmed slot restores; item stays put
 
 # --- givers / merchant / gate actions ----------------------------------------------
 
