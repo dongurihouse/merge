@@ -31,6 +31,11 @@ var quest_coins := 0           # coins from quest rewards (the §7 faucet)
 var sell_coins := 0            # coins from selling only (the Y "cleanup, not income" tripwire)
 var burst_level := 0           # the player's paid burst-upgrade level (the §6 burst coin SINK)
 var burst_coins_spent := 0     # coins sunk into burst-upgrades (the new Z sink)
+# §8 KEYSTONE hub loop: yield buildings restored on the hub map accrue coins to a per-building cap,
+# swept once per day (the FAUCET), and coins reinvest into the hub-upgrade ladder (a new coin SINK).
+var hub_levels := {}           # hub yield spot id -> level (1=restored … HUB_MAX_LEVEL); 0/absent = unrestored
+var hub_coins := 0             # coins COLLECTED from hub yield over the run (the §8 faucet)
+var hub_coins_spent := 0       # coins sunk into hub upgrades (the §8 sink with teeth)
 var diamonds := 0
 var water := 0
 var level_gift_water := 0
@@ -60,6 +65,10 @@ func _initialize() -> void:
 			var r := _play_session()
 			d_stars += r.stars
 			d_water += r.water
+		# §8 KEYSTONE faucet: returning daily, the player sweeps a DAY's worth of hub yield in one
+		# beat (capped per building ≈ a day, so a daily return collects ~the full cap). Folds the
+		# coins into the wallet; the bot then reinvests them into hub upgrades (the sink, in-session).
+		_collect_hub_day()
 		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
 		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · gates %d · coins %d (quest %d/sell %d) · brambles %d" % \
@@ -136,13 +145,61 @@ func _initialize() -> void:
 		print("  FAIL Y: the water<->diamond round trip is abusable (<10x loss)")
 		pass_all = false
 
-	# --- Z: coin faucet vs sink — REPORTED (the §8 hub sink is parked; the §6 burst-upgrade
-	# is the only interim coin sink — waysides were removed with the old overworld, T21) ---
-	var total_sink := burst_coins_spent
-	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · burst-sink %d🪙 (lvl %d) = %d🪙 absorbs %.0f%%" % \
-		[coins, quest_coins, sell_coins, coins - quest_coins - sell_coins, burst_coins_spent, burst_level, total_sink, (100.0 * float(total_sink) / float(maxi(1, coins)))])
+	# --- Z: coin faucet vs sink — now BOTH functional sinks live (§8 hub-upgrade ladder + §6
+	# burst-upgrade). The faucet = quest + sell + drops/featured + the §8 HUB YIELD; the sinks =
+	# the hub-upgrade ladder + the burst ladder. REPORTED; the sink absorbing <60% is a WARN
+	# (the full sink set also includes cosmetics/waysides, unmodeled here), not a fail. ---
+	var other_coins := coins - quest_coins - sell_coins - hub_coins   # drops + featured bonuses
+	var total_sink := burst_coins_spent + hub_coins_spent
+	var hub_lv_sum := 0
+	for id in hub_levels:
+		hub_lv_sum += int(hub_levels[id])
+	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + HUB-yield %d + drops/featured %d)" % \
+		[coins, quest_coins, sell_coins, hub_coins, other_coins])
+	print("                 sink %d🪙 = burst %d🪙 (lvl %d) + HUB-upgrade %d🪙 (%d levels bought) → absorbs %.0f%% of the faucet" % \
+		[total_sink, burst_coins_spent, burst_level, hub_coins_spent, hub_lv_sum - hub_levels.size(), (100.0 * float(total_sink) / float(maxi(1, coins)))])
 	if coins > 0 and total_sink < int(0.6 * float(coins)):
-		print("  WARN Z: the burst sink absorbs <60%% of the coin faucet — EXPECTED until the §8 hub sink lands (parked)")
+		print("  WARN Z: the functional sinks absorb <60%% of the coin faucet — the rest goes to the cosmetic sinks (waysides/variants, §5, unmodeled here)")
+
+	# --- KEYSTONE INVARIANT (§4/§10 — "extend, never self-sustain", the coin analogue of the
+	# energy <30% rule). The teeth (grove_spec §3): the ONGOING coin sinks must exceed the STANDING
+	# hub-yield faucet EVEN once the finite hub-upgrade ladder is maxed — else coins lose their sink
+	# late-game. Two checks: (1) a week of max yield < the standing burst ladder; (2) the run's total
+	# hub yield < the ongoing-sink CAPACITY (burst ladder + the §5 cosmetic décor sinks). ---
+	var max_daily := G.hub_max_daily_yield()
+	print("  -- §8 hub --  collected %d🪙 yield over %d days · MAX daily yield ceiling %d🪙/day (= %d yield-bldgs × %d🪙 cap)" % \
+		[hub_coins, days, max_daily, _hub_yield_building_count(), G.hub_yield_cap(G.hub_max_level())])
+	# the ongoing coin sinks beyond the (finite) hub ladder: the burst ladder (§6) + the §5 cosmetic
+	# décor sinks (waysides ≈1,940🪙 + spot variants ≈2,375🪙 — grove_spec §5; not bot-modeled here, so
+	# stated as their spec capacities). The standing hub yield must stay under THIS, the late-game sink.
+	var burst_ladder := 0
+	for c in G.BURST_UPGRADE_COSTS:
+		burst_ladder += int(c)
+	var decor_sink := 1940 + 2375                       # §5 waysides + variants (spec capacities)
+	var ongoing_sink := burst_ladder + decor_sink
+	# 1. a WEEK of max hub yield must not fund even the standing burst ladder alone (the tightest ongoing sink).
+	if max_daily * 7 >= burst_ladder:
+		print("  FAIL §8: a WEEK of max hub yield (%d🪙) >= the standing burst-ladder sink (%d🪙) — the hub would self-sustain" % [max_daily * 7, burst_ladder])
+		pass_all = false
+	else:
+		print("  PASS §8: a week of max hub yield (%d🪙) stays under the standing burst-ladder sink (%d🪙) — extend, never self-sustain" % [max_daily * 7, burst_ladder])
+	# 2. REPORTED (a pacing signal — owner feel call, not a hard gate, like the Z coin invariant): the
+	#    standing daily hub yield vs the active-play coin faucet (selling+quests). The hub should READ as
+	#    a SUPPLEMENT — but the exact ratio depends on how deep the bot played, so this is a WARN, while
+	#    the hard "extend, never self-sustain" guarantee rests on check #1 (a week of yield < the burst
+	#    ladder, a static bound that always holds at these dials). max_daily is the L5 CEILING (the
+	#    averaged active faucet sits below it only because a real run rarely sits a fully-maxed hub).
+	var productive_days: int = map_done_day if map_done_day > 0 else days
+	var active_faucet_day := float(quest_coins + sell_coins) / float(maxi(1, productive_days))
+	if float(max_daily) >= active_faucet_day:
+		print("  WARN §8: the max daily hub-yield CEILING (%d🪙) is at/above the averaged active-play faucet (%.0f🪙/day over %d days) — fine while the hub isn't fully maxed; watch the dial if it climbs (owner pacing call)" % [max_daily, active_faucet_day, productive_days])
+	else:
+		print("  PASS §8: max daily hub yield (%d🪙) stays under the active-play coin faucet (%.0f🪙/day over %d days) — a clear supplement, not the primary income" % [max_daily, active_faucet_day, productive_days])
+	# RUNWAY note: the finite ongoing sinks (burst ladder + §5 décor) give the hub faucet this many
+	# days of headroom before a FINISHED game's coins begin to pile (the §17/§6 anti-abandonment
+	# content — events, Collection décor, new maps — is what refreshes the sink then). Reported.
+	var runway_days: int = int(float(ongoing_sink) / float(maxi(1, max_daily)))
+	print("  -- §8 runway: the finite ongoing sinks (%d🪙 = burst %d + décor %d) absorb ~%d days of max hub yield before a finished game's coins pile (post-launch content refreshes the sink) --" % [ongoing_sink, burst_ladder, decor_sink, runway_days])
 
 	print("== sim %s ==" % ("PASS" if pass_all else "FAIL"))
 	quit(0 if pass_all else 1)
@@ -154,6 +211,37 @@ func _level() -> int:
 
 func _live_lines() -> Array:
 	return G.lines_for_map(G.GENERATORS, map)
+
+# §8 KEYSTONE faucet: sweep ONE day's hub yield to the wallet (the daily collect-on-return beat).
+# Each restored yield building accrues rate(level) over 86400s, capped at its per-building cap —
+# G.hub_spot_ready does exactly that. Adds to coins + the hub_coins faucet counter.
+func _collect_hub_day() -> void:
+	var got := 0
+	for id in hub_levels:
+		got += G.hub_spot_ready(int(hub_levels[id]), 86400.0)
+	coins += got
+	hub_coins += got
+
+# How many yield buildings the hub map has (for the max-daily-yield report line).
+func _hub_yield_building_count() -> int:
+	var n := 0
+	for sp in G.MAPS[G.hub_map()].spots:
+		if String(sp.get("kind", "")) == "yield":
+			n += 1
+	return n
+
+# §8 KEYSTONE sink: the cheapest available hub upgrade — the LOWEST-level restored yield building
+# that can still climb (cost > 0). {id, cost} or {} when none can upgrade (all maxed / none owned).
+func _cheapest_hub_upgrade() -> Dictionary:
+	var best := {}
+	for id in hub_levels:
+		var lv := int(hub_levels[id])
+		var cost := G.hub_upgrade_cost(lv)
+		if cost <= 0:
+			continue
+		if best.is_empty() or lv < int(best.level) or (lv == int(best.level) and cost < int(best.cost)):
+			best = {"id": String(id), "level": lv, "cost": cost}
+	return best
 
 # Cheapest unowned, level-affordable spot in `z`: [cost, id]; [-1,""] all owned; [-2,""] all level-locked.
 func _map_next_spot(z: int, lvl: int) -> Array:
@@ -257,13 +345,24 @@ func _play_session() -> Dictionary:
 		if delivered:
 			continue
 
-		# 1b. SINK surplus coins into the burst-upgrade (§6 coin sink): buy the next level whenever
-		# NET coins (faucet minus what's already sunk) can afford it — a player draining the coin
-		# faucet into bigger bursts. The ladder is capped, so this can't loop forever.
+		# 1b. SINK surplus coins into the two FUNCTIONAL coin sinks — the §6 burst-upgrade ladder
+		# and the §8 HUB-upgrade ladder (the keystone). A coin-draining player buys whichever next
+		# functional level is CHEAPEST and affordable from NET coins (faucet minus all sinks). Both
+		# ladders are finite (burst → L4; hub → 4 bldgs × L1→L5), so neither loops forever. The home
+		# pays you, you reinvest in the home — coins always have somewhere worth going (§10).
+		var net := coins - burst_coins_spent - hub_coins_spent
 		var buc := G.burst_upgrade_cost(burst_level)
-		if buc > 0 and (coins - burst_coins_spent) >= buc:
+		var hu := _cheapest_hub_upgrade()
+		var buy_burst := buc > 0 and net >= buc
+		var buy_hub := not hu.is_empty() and net >= int(hu.cost)
+		# prefer the cheaper available functional upgrade (interleaves both sinks like a real player)
+		if buy_burst and (not buy_hub or buc <= int(hu.cost)):
 			burst_coins_spent += buc
 			burst_level += 1
+			continue
+		if buy_hub:
+			hub_coins_spent += int(hu.cost)
+			hub_levels[String(hu.id)] = int(hub_levels[String(hu.id)]) + 1
 			continue
 
 		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied)
@@ -272,6 +371,9 @@ func _play_session() -> Dictionary:
 			if int(ns[0]) > 0 and stars >= int(ns[0]):
 				stars -= int(ns[0])
 				unlocks[String(ns[1])] = true
+				# §8: restoring a HUB YIELD building brings it to L1 — it starts accruing coins.
+				if map == G.hub_map() and G.spot_is_yield(map, String(ns[1])):
+					hub_levels[String(ns[1])] = 1
 				continue
 
 		# 3. sell tops for coins — but HOLD them when the gate is pending (save top-tier for the gate)

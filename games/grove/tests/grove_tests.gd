@@ -1748,8 +1748,109 @@ func _initialize() -> void:
 	var s_seed: int = ShopS.rotation_seed()
 	ok(s_seed >= 0, "the rotation seed is a non-negative day/refresh index")
 
+	# T42 · §8/§10 home-hub yield + upgrade-levels (the v1 KEYSTONE coin loop) — own scope.
+	_test_hub_yield()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# ── T42 · the home-hub yield + upgrade-levels keystone (own fn = its own scope) ───────────
+# The hub map (Farmhouse, map 0) splits 4 yield buildings + 4 décor; a yield building restored
+# to L1 accrues coins over time to a per-building cap, upgrades L1→L5 for more yield + look, and
+# the whole hub sweeps in one collect-on-return beat. All math is data-driven (HUB_* tables).
+func _test_hub_yield() -> void:
+	var hub := G.hub_map()
+	ok(hub == 0, "hub map is the Farmhouse (map 0)")
+
+	# 1. the `kind` seam — spot_is_yield reads it; only the 4 yield buildings are yield.
+	ok(G.spot_is_yield(hub, "fh_hearth"), "Hearth is a yield building (kind:yield)")
+	ok(G.spot_is_yield(hub, "fh_well"), "Well is a yield building")
+	ok(not G.spot_is_yield(hub, "fh_porch"), "Porch is décor, NOT yield (kind:decor)")
+	ok(not G.spot_is_yield(hub, "fh_fence"), "Garden fence is décor, NOT yield")
+	ok(not G.spot_is_yield(1, "bn_bales"), "a plain non-hub spot (Barn) is not yield")
+	ok(G.spot_kind(hub, "fh_hearth") == "yield" and G.spot_kind(hub, "fh_porch") == "decor", "spot_kind exposes the raw seam")
+	var n_yield := 0
+	for hsp in G.MAPS[hub].spots:
+		if G.spot_is_yield(hub, String(hsp.id)):
+			n_yield += 1
+	ok(n_yield == 4, "the hub has exactly 4 yield buildings (grove_spec §3)")
+
+	# 2. accrual = rate × elapsed, FLOORED to whole coins, CAPPED at the per-building cap. Asserts the
+	#    MECHANISM against the HUB_* tables (so re-tuning the dials never breaks the test), plus the
+	#    invariant shape: rate>0 and cap>0 at L1, rate 0 at L0, monotonic, and the cap binds.
+	ok(G.hub_yield_rate(1) > 0.0, "L1 yield rate is positive (a restored building drips coins)")
+	ok(G.hub_yield_rate(0) == 0.0, "an unrestored (L0) building has 0 yield rate")
+	# accrual below the cap == floor(rate_per_sec × elapsed): 4h at L1 reads the table, never hardcoded.
+	var lvl1_4h: int = int(floor(G.hub_yield_rate(1) / 3600.0 * 4.0 * 3600.0))
+	ok(G.hub_spot_ready(1, 4.0 * 3600.0) == lvl1_4h, "L1 accrues floor(rate × elapsed) below the cap")
+	# a huge elapsed CAPS at the per-building cap (≈ a day's worth) — the anti-pile-up guard.
+	ok(G.hub_spot_ready(1, 1000.0 * 3600.0) == G.hub_yield_cap(1), "L1 accrual CAPS at the per-building cap")
+	ok(G.hub_spot_ready(5, 1000.0 * 3600.0) == G.hub_yield_cap(5), "L5 accrual CAPS at the L5 per-building cap")
+	ok(G.hub_yield_cap(1) > 0 and G.hub_yield_cap(5) > G.hub_yield_cap(1), "caps are positive and rise with level (richer building holds more)")
+	# 0 elapsed and an L0 building both accrue nothing.
+	ok(G.hub_spot_ready(1, 0.0) == 0, "zero elapsed accrues 0")
+	ok(G.hub_spot_ready(0, 1000.0 * 3600.0) == 0, "an L0 (unrestored) building accrues 0 regardless of time")
+
+	# 3. hub_coins_ready sums ONLY restored yield spots; an unrestored or décor spot adds nothing.
+	fresh("hub_ready")
+	Save.set_hub_collected_at(0.0)
+	var unl := {}
+	Save.set_spot_level("fh_hearth", 1); unl["fh_hearth"] = true
+	Save.set_spot_level("fh_porch", 1);  unl["fh_porch"] = true     # décor — restored but yields 0
+	var t10h := 10.0 * 3600.0
+	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h), "ready = the one L1 yield building (décor adds 0)")
+	Save.set_spot_level("fh_well", 3)                              # level set but NOT in unlocks → unrestored
+	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h), "an unrestored yield spot (not owned) yields 0")
+	unl["fh_well"] = true                                         # now restore it → the total is the SUM
+	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h) + G.hub_spot_ready(3, t10h), "ready SUMS over restored yield buildings")
+
+	# 4. the collect BEAT: add the summed yield to coins AND reset hub_collected_at to `now`.
+	fresh("hub_collect")
+	Save.set_hub_collected_at(0.0)
+	var unl2 := {"fh_hearth": true, "fh_kitchen": true}
+	Save.set_spot_level("fh_hearth", 2)
+	Save.set_spot_level("fh_kitchen", 1)
+	var coins0 := Save.coins()
+	var t8h := 8.0 * 3600.0
+	var want := G.hub_spot_ready(2, t8h) + G.hub_spot_ready(1, t8h)
+	ok(G.hub_collect(unl2, t8h) == want and want > 0, "collect returns the summed ready yield (%d🪙)" % want)
+	ok(Save.coins() == coins0 + want, "collect ADDS the summed yield to the wallet")
+	ok(Save.hub_collected_at() == t8h, "collect RESETS hub_collected_at to now")
+	ok(G.hub_coins_ready(unl2, t8h) == 0, "right after a collect, nothing is ready (clock reset)")
+	var coins1 := Save.coins()
+	ok(G.hub_collect(unl2, t8h + 1.0) == 0 and Save.coins() == coins1, "a no-yield re-collect adds 0🪙")
+
+	# 5. upgrade raises BOTH the level and the next yield rate; cost escalates; refused at max / below L1.
+	ok(G.hub_max_level() == 5, "hub max level is L5 (L1 restore → 4 coin upgrades)")
+	ok(G.hub_yield_rate(2) > G.hub_yield_rate(1), "an upgrade (L1→L2) raises the yield rate")
+	ok(G.hub_yield_rate(5) > G.hub_yield_rate(4), "each level keeps raising the yield (L4→L5)")
+	ok(G.hub_upgrade_cost(1) == 150, "L1→L2 upgrade costs 150🪙")
+	ok(G.hub_upgrade_cost(2) > G.hub_upgrade_cost(1), "the upgrade ladder escalates (L2→L3 dearer than L1→L2)")
+	ok(G.hub_upgrade_cost(5) == -1, "no upgrade at the max level (L5) → -1")
+	ok(G.hub_upgrade_cost(0) == -1, "L0→L1 is the Stars RESTORE, not a coin upgrade → -1")
+	# the spend path: a restored yield building's stored level rises by 1 on a coin upgrade.
+	fresh("hub_upgrade")
+	Save.set_spot_level("fh_hearth", 1)
+	ok(Save.spot_level("fh_hearth") == 1, "a restored yield building sits at L1")
+	Save.set_spot_level("fh_hearth", Save.spot_level("fh_hearth") + 1)
+	ok(Save.spot_level("fh_hearth") == 2, "a coin upgrade raises the stored level to L2")
+
+	# the keystone INVARIANT bound (data-driven): max daily faucet = #yield × top cap, ≪ the coin
+	# SINK it funds — so the hub can never self-sustain (a MONTH of max yield can't even buy the ladder).
+	var max_daily := G.hub_max_daily_yield()
+	ok(max_daily == n_yield * G.hub_yield_cap(G.hub_max_level()), "max daily hub yield = #yield-buildings × the top-level cap")
+	var hub_sink := 0
+	for lv in range(1, G.hub_max_level()):
+		hub_sink += G.hub_upgrade_cost(lv)
+	hub_sink *= n_yield                                           # all 4 buildings, L1→L5
+	ok(hub_sink == 8600, "the hub-upgrade ladder is an 8,600🪙 coin sink (4 × 2,150)")
+	ok(max_daily * 30 < hub_sink, "a full month of max yield < the hub-upgrade ladder alone — extend, never self-sustain")
+	var burst_sink := 0
+	for c in G.BURST_UPGRADE_COSTS:
+		burst_sink += int(c)
+	ok(max_daily * 7 < burst_sink, "a week of max yield < the standing burst-ladder sink — the late-game ongoing sink outpaces the standing yield")
+	print("  [T42 hub-yield bound] max daily faucet=%d🪙 · hub-upgrade sink=%d🪙 · burst sink=%d🪙" % \
+		[max_daily, hub_sink, burst_sink])
 
 # T40 helpers: pull the id list out of a rotation, and a uniq pass.
 func _offer_ids(offers: Array) -> Array:
