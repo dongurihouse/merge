@@ -177,7 +177,7 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	var planter := Panel.new()
 	planter.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("#86603A")                # warm planter wood (ties to the fence)
+	ps.bg_color = Color("#BE9568")                # light warm wood rim (was a dark #86603A — read muddy)
 	ps.set_corner_radius_all(30)
 	ps.set_border_width_all(0)
 	ps.shadow_color = Color(0, 0, 0, 0.34)
@@ -191,7 +191,7 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	lip.position = Vector2(rim * 0.5, rim * 0.5)
 	lip.size = Vector2(mat.size.x - rim, rim)
 	var ls := StyleBoxFlat.new()
-	ls.bg_color = Color("#9C7547", 0.9)           # a sunlit catch on the rim
+	ls.bg_color = Color("#D8B98C", 0.9)           # a sunlit catch on the rim (lightened to match)
 	ls.corner_radius_top_left = 22
 	ls.corner_radius_top_right = 22
 	lip.add_theme_stylebox_override("panel", ls)
@@ -203,11 +203,11 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	soil.position = Vector2(rim, rim)
 	soil.size = mat.size - Vector2(rim, rim) * 2.0
 	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color("#5E4828", 0.95)          # tilled soil
+	ss.bg_color = Color("#E6DCC2", 0.98)          # COMFORTABLE light warm oat bed (was dark #5E4828 soil)
 	ss.set_corner_radius_all(20)
 	ss.set_border_width_all(2)
-	ss.border_color = Color("#3A2D1E", 0.55)
-	ss.shadow_color = Color(0, 0, 0, 0.28)        # a soft inner shade under the rim
+	ss.border_color = Color("#C2A878", 0.5)       # soft warm outline, not a hard dark line
+	ss.shadow_color = Color(0, 0, 0, 0.12)        # a faint inner shade under the rim
 	ss.shadow_size = 5
 	soil.add_theme_stylebox_override("panel", ss)
 	soil.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -239,7 +239,7 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 		grain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		grain.stretch_mode = TextureRect.STRETCH_SCALE
 		grain.material = sm
-		grain.modulate = Color("#7A5A30", 0.34)   # warm soil-moss tint, woven into the bed
+		grain.modulate = Color("#CDBB90", 0.14)   # barely-there warm grain on the light bed (was a dark muddy wash)
 		grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		mat.add_child(grain)
 	return mat
@@ -252,11 +252,24 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# Art density band → existing bramble_1..3 only (no bramble_-1/_0 — those don't ship).
-	# MONOTONIC: higher gate Level = denser thicket. The §4 diamond gates are {1,2,3,5,7,9,11},
-	# so map 1-3→1, 5-7→2, 9-11→3 — the FRONTIER cells (Lv1/2/3, nearest the eye) now paint
-	# real bramble instead of falling back to a flat debug panel.
+	# A locked cell reads as a CALM MUTED TILE, not a dark thicket — the painted brambles read
+	# heavy/ugly at cell size and dragged the whole board dark (most cells are locked). The base is
+	# a soft muted tan (slightly shaded vs an open cell = "inactive"); the bramble art rides ON TOP
+	# at low opacity as a faint "overgrown" texture hint; the lock badge below marks it sealed.
+	# Density band → existing bramble_1..3 only; §4 gates {1,2,3,5,7,9,11} map 1-3→1, 5-7→2, 9-11→3.
 	var ring := clampi(lvl / 4 + 1, 1, 3)
+	var tile := Panel.new()
+	tile.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var tsb := StyleBoxFlat.new()
+	tsb.bg_color = Color("#C5B88E", 0.92).darkened(0.02 * ring)   # muted tan; deeper rings a touch more shaded
+	tsb.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
+	tsb.set_border_width_all(2)
+	tsb.border_color = Color("#A8946A", 0.40)
+	tsb.shadow_color = Color(0, 0, 0, 0.10)        # a faint inset → reads sealed/inactive
+	tsb.shadow_size = 3
+	tile.add_theme_stylebox_override("panel", tsb)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(tile)
 	var path := Game.art("ui/bramble_%d.png" % ring)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
@@ -264,22 +277,10 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		# S3/AC: lift the near-black nest toward deep moss-brown (warm-lift shader —
-		# a multiply-modulate can't brighten true black; this adds a warm floor)
 		t.material = bramble_mat()
+		t.modulate = Color(1, 1, 1, 0.20 + 0.04 * ring)   # a faint thicket hint, denser rings slightly stronger
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(t)
-	else:
-		var p := Panel.new()
-		p.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = BRAMBLE_BG.darkened(0.06 * (ring + 2))
-		sb.set_corner_radius_all(14)
-		sb.set_border_width_all(3)
-		sb.border_color = BRAMBLE_EDGE
-		p.add_theme_stylebox_override("panel", sb)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(p)
 	# The Level gate (§4): NO-REQUIRED-READING — a lock glyph carries "sealed"; a small styled
 	# badge carries the number only where it earns its keep. To keep the board CALM we show the
 	# "Lv N" chip on the FRONTIER (the shallow inner gates the player is about to reach) and a
@@ -320,17 +321,12 @@ static func _lv_gate_badge(lvl: int, csz: float, with_num: bool) -> Control:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(maxf(2.0, csz * 0.05)))
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var glyph := Look.icon("lock", csz * (0.26 if with_num else 0.32))
-	var glyph_is_text := glyph is Label   # art missing → glyph fallback already prints "Lv"
-	if glyph is Label:
-		# tint the fallback glyph to match the cream-on-bark chip (skin tints it CREAM already,
-		# but force it so it reads against the bark even if the kit theme differs)
-		glyph.add_theme_color_override("font_color", CREAM)
-	row.add_child(glyph)
+	# always a lock SHAPE (kit sprite if present, else a code-drawn padlock) — never the bare
+	# text "Lv" the glyph fallback prints — so the number, when shown, is always a clean "Lv%d".
+	row.add_child(_lock_glyph(csz * (0.30 if with_num else 0.36), CREAM, Pal.BARK.darkened(0.35)))
 	if with_num:
 		var bnum := Label.new()
-		# bare digits when the glyph already says "Lv"; "Lv%d" when a real lock icon precedes it
-		bnum.text = str(lvl) if glyph_is_text else (TranslationServer.translate("Lv%d") % lvl)
+		bnum.text = TranslationServer.translate("Lv%d") % lvl
 		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
 		bnum.add_theme_color_override("font_color", CREAM)      # cream on bark — high contrast, no outline needed
 		bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -339,6 +335,41 @@ static func _lv_gate_badge(lvl: int, csz: float, with_num: bool) -> Control:
 	chip.add_child(row)
 	center.add_child(chip)
 	return center
+
+# A lock SHAPE that never degrades to text: the kit sprite if it resolves, else a code-drawn
+# padlock — so a locked cell can never fall back to the literal "Lv" the icon glyph prints.
+static func _lock_glyph(px: float, body: Color, key: Color) -> Control:
+	var ic := Look.icon("lock", px)
+	if ic is TextureRect:
+		return ic                          # real lock art
+	var g := _LockGlyph.new()
+	g.body_col = body
+	g.key_col = key
+	g.custom_minimum_size = Vector2(px, px)
+	return g
+
+# A tiny painted padlock (shackle arc + rounded body + keyhole) — the bulletproof fallback so a
+# missing kit icon never prints "Lv" on a locked cell.
+class _LockGlyph extends Control:
+	var body_col: Color = Color(1, 1, 1)
+	var key_col: Color = Color(0, 0, 0, 0.5)
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+	func _draw() -> void:
+		var u := minf(size.x, size.y)
+		if u <= 0.0:
+			return
+		var cx := size.x * 0.5
+		var by := size.y * 0.5 - u * 0.04          # body top edge
+		draw_arc(Vector2(cx, by), u * 0.20, PI, TAU, 24, body_col, maxf(2.0, u * 0.11), true)  # shackle
+		var bw := u * 0.60
+		var bh := u * 0.46
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = body_col
+		sb.set_corner_radius_all(int(maxf(2.0, u * 0.12)))
+		draw_style_box(sb, Rect2(cx - bw * 0.5, by, bw, bh))   # body
+		draw_circle(Vector2(cx, by + bh * 0.45), maxf(1.0, u * 0.07), key_col)   # keyhole
 
 static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
