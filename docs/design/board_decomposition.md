@@ -276,7 +276,7 @@ button (`_on_gate`), and the transaction + signal-wiring glue.
 | `ui/burst_chip.gd` | the coin-sink pill | `buy()` | spend, bump `burst_lvl`, refresh |
 
 `scenes/board.gd` becomes the coordinator: builds the layout shell (the `_ready`
-VBox: spacer → chapter ribbon → fence slot → grid slot → bag slot, plus gate
+VBox: spacer → fence slot → grid slot → bag slot, plus gate
 button, bottom bar, HUD), instantiates each component into its slot, owns
 run-state + transactions + lifecycle (`_process`, water tick, winback, gate cue,
 spotlight orchestration), and wires intents → transactions → `_after_board_change()`.

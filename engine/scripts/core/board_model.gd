@@ -102,11 +102,11 @@ func place_surplus_gen(id: String, cell: Vector2i) -> void:
 			items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
 		items[idx(cell)] = 0
 
-## Compat shim for the fresh-run tools (sim / shot) that still ask for a chapter's
-## generators: re-seed to that chapter's map. NOT used by the live board (which restores
-## `gens` from save and only mutates it via move/grant). Returns the live gen cells.
-func set_active_gens(chapter: int, level: int = G.APPEAR_ALL) -> Array:
-	seed_gens(G.map_of_chapter(chapter), level)
+## Compat shim for the fresh-run tools (sim / shot) that still ask for a spot-count's
+## generators: re-seed to the map that many home spots reaches. NOT used by the live board
+## (which restores `gens` from save and only mutates it via move/grant). Returns the live gen cells.
+func set_active_gens(spots: int, level: int = G.APPEAR_ALL) -> Array:
+	seed_gens(G.map_for_spots(spots), level)
 	return gens.keys()
 
 ## Install any of `map`'s surplus generators that have GROWN IN by `level` (appear_level

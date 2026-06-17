@@ -78,7 +78,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 
 	# S10: the Lv chip is part of THE module — same pixels in both scenes.
-	# The level number sits INSIDE the sprout avatar; the exp fraction sits to
+	# The level number sits INSIDE the sprout avatar; the level-progress fraction sits to
 	# its right at a readable size (it used to be icon + number + fraction in a
 	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
@@ -124,19 +124,19 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	level.set_anchors_preset(Control.PRESET_FULL_RECT)
 	avatar.add_child(level)
 	lrow.add_child(avatar)
-	var xp := Label.new()
-	xp.add_theme_font_size_override("font_size", Tune.XP_SIZE)   # readable (was 20), to the RIGHT of the avatar
-	xp.add_theme_color_override("font_color", Color(INK, Tune.XP_INK_ALPHA))
-	xp.add_theme_constant_override("outline_size", 0)
-	xp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lrow.add_child(xp)
+	var level_prog := Label.new()
+	level_prog.add_theme_font_size_override("font_size", Tune.LVL_PROG_SIZE)   # readable (was 20), to the RIGHT of the avatar
+	level_prog.add_theme_color_override("font_color", Color(INK, Tune.LVL_PROG_INK_ALPHA))
+	level_prog.add_theme_constant_override("outline_size", 0)
+	level_prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lrow.add_child(level_prog)
 	left.add_child(lv_panel)
 
 	# the standalone HOME chip, to the RIGHT of the Lv chip in the shared left row.
 	var home_btn := _build_home_chip(left, opts)
 	host.add_child(left)
 
-	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "xp": xp,
+	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
 		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	# §8 keystone: scenes toggle the home-shortcut yield-ready pip via this. A no-op when the
 	# home button (and thus the pip) isn't rendered (e.g. a scene that passes no `home`).
@@ -153,7 +153,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		var earned := int(Save.grove().get("stars_earned", 0))
 		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
-		xp.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
+		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +

@@ -106,7 +106,7 @@ At ~900 f2p clicks/day: early levels are minutes–hours apart; past L50 each le
 
 The player must never be **stranded** — always able to reach the next unlock. The old guarantee was a **pigeonhole proof** over a deterministic quest curve; **generated** quests (§7) retire that proof, so no-strand now rests on **guardrails** (a spot's level-gate is reachable by the stars earnable before it; the metered fence §7 always supplies the next unlock; **every map's spots are all reachable so the map can be completed → the next map unlocks, §8**) **verified by a Monte-Carlo sim** (worst-case across seeds). Hard rule unchanged: **level-gated content is never the affordable frontier.** *(The grove's instances — `LEVEL_STARS`, spot ranks, the per-level unlock map: see `grove_spec`.)*
 
-> **Removed — the *chapter* counter.** Progression once split *chapter* (spots bought) from *level* (EXP rank); they are now **one thing: level.** `unlocks.size()` still counts spots in code but drives no separate clock; the `chapter` / `EXP` rename is the parked cleanup (`BACKLOG.md`).
+> **Removed — the *chapter* counter.** Progression once split *chapter* (spots bought) from *level* (EXP rank); they are now **one thing: level.** `unlocks.size()` still counts spots in code — exposed as `_spots_bought()` (was `_chapter_idx()`) and `map_for_spots()` (was `map_of_chapter()`) — but drives no separate clock. The `chapter`/`EXP` rename **shipped (T49):** the player-facing "Chapter N" ribbon is deleted (per the UI-language redesign §6) and the level-progress widget is `level_prog` (was `xp`); the legacy `exp`/`qdone_chapter` save keys were already retired by `_migrate_exp_to_stars`.
 
 ---
 

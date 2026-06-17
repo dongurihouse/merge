@@ -228,7 +228,7 @@ const REGEN_SECS := 120                   # +1 water per 2 min, offline included
 const POP_COST := 1
 const FREE_REFILLS := 3                   # lifetime, on the first empties (FTUE)
 const WINBACK_HOURS := 48                 # away >= this → full cap ("it rained")
-const WATER_REWARD_MAX_RATIO := 0.3       # invariant: chapter water rewards < 30% of cost
+const WATER_REWARD_MAX_RATIO := 0.3       # invariant: per-spot water rewards < 30% of cost
 
 # Coins on the board.
 const COIN_LINE := 9                      # code 9xx; never popped, never asked

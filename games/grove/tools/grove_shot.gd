@@ -111,7 +111,7 @@ func _initialize() -> void:
 				ul[String(G.MAPS[3].spots[1].id)] = true
 			g["unlocks"] = ul
 			Save.grove_write()
-			scn.board.set_active_gens(scn._chapter_idx())
+			scn.board.set_active_gens(scn._spots_bought())
 			for r in G.ROWS:                     # clear starters so the whole ladder fits
 				for c in G.COLS:
 					var cl := Vector2i(r, c)

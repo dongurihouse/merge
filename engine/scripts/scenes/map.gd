@@ -5,7 +5,7 @@ extends Control
 ## ("Lv N"), available ones price themselves ("✿ N★" — tap to buy with stars), and
 ## OWNED ones open their own customization list (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
-## home. Buying grants EXP; level-ups gift water+diamonds. A pinned garden button
+## home. Buying advances your level; level-ups gift water+diamonds. A pinned garden button
 ## leads to the board. Art auto-wires: assets/map/map_<id>.png + assets/rooms/furn_<id>.png.
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -95,7 +95,7 @@ var _weather: Control = null     # ambient weather layer — belongs to a MAP; h
 var _backdrop: Control = null    # the place-picker's sky backdrop (gradient + clouds); hidden on a MAP
 var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
 var level_label: Label
-var xp_label: Label
+var level_prog_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
@@ -1407,7 +1407,7 @@ func _build_hud() -> void:
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
-	xp_label = hud.xp
+	level_prog_label = hud.level_prog
 	_hud_refresh = hud.refresh
 	_home_cue = hud.get("home_cue", Callable())
 	_open_shop = hud.open_shop
