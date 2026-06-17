@@ -131,5 +131,30 @@ func _initialize() -> void:
 			last_is_top = false
 	ok(last_is_top, "the final map's gate climbs to the engine top tier (t%d)" % int(G.TOP_TIER))
 
+	# --- §7: the gate asks a RANDOMIZED handful — the rng is wired, not ignored. WHICH lines
+	# --- vary across seeds (map 0 has more lines than GATE_ASK_COUNT), reproducible per seed,
+	# --- and rng==null falls back to a deterministic richest-n for callers without an rng. ---
+	var z0_lines := G.lines_for_map(G.GENERATORS, 0)
+	if z0_lines.size() > int(G.GATE_ASK_COUNT):
+		var sets := {}
+		for s in 24:
+			var rs := RandomNumberGenerator.new(); rs.seed = s
+			var key: Array = []
+			for a in G.gate_quest(G.GENERATORS, 0, rs).asks:
+				key.append(int(a.line))
+			key.sort()
+			sets[str(key)] = true
+		ok(sets.size() >= 2, "the gate's asked lines VARY across seeds (randomized handful, §7) — %d distinct sets" % sets.size())
+	var rr1 := RandomNumberGenerator.new(); rr1.seed = 99
+	var rr2 := RandomNumberGenerator.new(); rr2.seed = 99
+	ok(str(G.gate_quest(G.GENERATORS, 0, rr1)) == str(G.gate_quest(G.GENERATORS, 0, rr2)), "the gate is deterministic for a given seed (reproducible)")
+	var det_lines: Array = []
+	for a in G.gate_quest(G.GENERATORS, 0).asks:    # rng omitted → deterministic fallback
+		det_lines.append(int(a.line))
+	det_lines.sort()
+	var rich := G.lines_for_map(G.GENERATORS, 0); rich.sort()
+	var n_det: int = mini(int(G.GATE_ASK_COUNT), rich.size())
+	ok(det_lines == rich.slice(rich.size() - n_det, rich.size()), "rng==null falls back to the deterministic richest-n handful")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

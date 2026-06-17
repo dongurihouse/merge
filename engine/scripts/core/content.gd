@@ -21,6 +21,7 @@ const GEN_CELL = D.GEN_CELL
 const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
+const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const STAR_CAP = D.STAR_CAP
 const CLICK_TO_VALUE = D.CLICK_TO_VALUE
 const QUEST_2ASK_LEVEL = D.QUEST_2ASK_LEVEL
@@ -381,11 +382,18 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 ## of the map's TOP-TIER harvest (its richest/newest lines at t8 = TOP_TIER) and, delivered,
 ## unlocks the next map for a large authored reward. Deterministic given `rng`. The one quest
 ## that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
-static func gate_quest(roster: Array, map: int, _rng: RandomNumberGenerator = null) -> Dictionary:
+static func gate_quest(roster: Array, map: int, rng: RandomNumberGenerator = null) -> Dictionary:
 	var lines: Array = lines_for_map(roster, map)
 	lines.sort()                                       # the richest (newest) lines sit last
 	var n: int = mini(GATE_ASK_COUNT, lines.size())
-	var pick: Array = lines.slice(lines.size() - n, lines.size())   # the top n (richest) lines
+	var pick: Array
+	if rng == null:
+		pick = lines.slice(lines.size() - n, lines.size())          # no rng → deterministic richest n
+	else:
+		var pool: Array = lines.duplicate()                         # §7: a RANDOMIZED handful — sample
+		pick = []                                                   # n distinct lines from the map's roster
+		for _i in n:
+			pick.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
 	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t8 (map 4+)
 	var asks: Array = []
 	for li in pick:

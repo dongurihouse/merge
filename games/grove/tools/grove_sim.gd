@@ -295,6 +295,21 @@ func _wanted_lines() -> Array:
 				out.append(int(a.line))
 	return out
 
+# §6 mirror of BoardLogic.wanted_tiers: the poppable asked tiers per pool line — so the sim's
+# spawn applies the same line-AND-tier bias the live board does, and validates its economy.
+func _wanted_tiers(pool: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for q in live_quests:
+		for a in q.asks:
+			var li := int(a.line)
+			var t := int(a.tier)
+			if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
+				if not out.has(li):
+					out[li] = []
+				if not out[li].has(t):
+					out[li].append(t)
+	return out
+
 func _payable(q: Dictionary) -> bool:
 	for a in q.asks:
 		if board.count_of(int(a.line) * 100 + int(a.tier)) < int(a.count):
@@ -524,4 +539,13 @@ func _pop() -> void:
 		if roll <= acc:
 			tier = i + 1
 			break
+	# §6 tier-bias (mirrors BoardLogic.roll_spawn): lean toward an asked poppable tier for this line,
+	# with probability G.ASK_TIER_WEIGHT (0 = off → byte-identical baseline; owner pacing dial).
+	if G.ASK_TIER_WEIGHT > 0.0:
+		var wt: Array = []
+		for t in _wanted_tiers(pool).get(line, []):
+			if int(t) >= 1 and int(t) <= G.TIER_ODDS.size():
+				wt.append(int(t))
+		if not wt.is_empty() and rng.randf() < G.ASK_TIER_WEIGHT:
+			tier = int(wt[rng.randi_range(0, wt.size() - 1)])
 	board.place(cell, line * 100 + tier)

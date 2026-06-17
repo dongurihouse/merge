@@ -80,5 +80,24 @@ func _initialize() -> void:
 	ok(bool(Quests.ladder_entries({"101": true}, 1)[0].seen), "a code in the `seen` set marks that tier seen")
 	ok(not bool(Quests.ladder_entries({"101": true}, 1)[1].seen), "an unseen tier stays unseen")
 
+	# --- §6/§7 generator-grant SCHEDULING: a new map opens with its hand-in and surfaces extra
+	# --- grants ONE AT A TIME (spread through the map), the regular stream filling the slots
+	# --- between — NOT all grants at once. Map index 2 (Pond) has two hand-ins in the live roster
+	# --- (reed_bed←hen_coop, creel←dairy_stall). ---
+	var z2_gens := {Vector2i(2, 1): "hen_coop", Vector2i(6, 5): "dairy_stall"}
+	ok(Quests.pending_grant_quests(2, z2_gens).size() == 2, "fixture: map 2 has two pending generator-grant hand-ins")
+	var rngz := RandomNumberGenerator.new(); rngz.seed = 11
+	var fence2 := Quests.refill([], 2, {}, [], z2_gens, 0, 99, rngz)
+	ok(fence2.filter(func(q): return q.has("grant")).size() == 1, "only ONE generator-grant shows at a time (the rest spread through the map)")
+	ok(fence2.size() >= 1 and bool(fence2[0].has("grant")), "the map's first stand is the generator-grant hand-in")
+	var tgt2 := Quests.meter_target(2, 0, {}, 99)
+	if tgt2 >= 2:
+		ok(fence2.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))).size() >= 1, "the regular generated stream fills the slots between hand-ins")
+		ok(fence2.size() == tgt2, "the fence still meters to the soft-gate target (lead grant + regular = target)")
+	# handing the lead grant in (hen_coop → reed_bed) surfaces the NEXT grant (creel) — spread.
+	var z2_after := {Vector2i(2, 1): "reed_bed", Vector2i(6, 5): "dairy_stall"}
+	var lead_after := Quests.refill([], 2, {}, [], z2_after, 0, 99, RandomNumberGenerator.new()).filter(func(q): return q.has("grant"))
+	ok(lead_after.size() == 1 and String(lead_after[0].grant.grants) == "creel", "after the first hand-in, the NEXT grant (creel) surfaces")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

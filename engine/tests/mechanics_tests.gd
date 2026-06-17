@@ -5,6 +5,7 @@ extends SceneTree
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 
 var _pass := 0
 var _fail := 0
@@ -169,6 +170,47 @@ func _initialize() -> void:
 			decoupled = false
 	ok(decoupled, "each paid burst level adds +1 on top of the free cap (decoupled — no wasted levels)")
 	ok(deep_max[int(G.BURST_UPGRADE_COSTS.size())] == int(G.BURST_MAX), "the top paid level reaches BURST_MAX (free cap + all paid)")
+
+	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
+	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier
+	# --- directly — you still must merge up, and the §9 sell economy / 128-energy-per-t8 holds. ---
+	var pop_max: int = G.TIER_ODDS.size()
+	var qs := [{"asks": [{"line": 1, "tier": 3, "count": 1}, {"line": 1, "tier": pop_max + 3, "count": 1}, {"line": 9, "tier": 2, "count": 1}]}]
+	var wts := BoardLogic.wanted_tiers([1, 2], qs)
+	ok(wts.get(1, []).has(3), "wanted_tiers keeps a poppable asked tier (line 1 @ t3)")
+	ok(not wts.get(1, []).has(pop_max + 3), "wanted_tiers EXCLUDES an above-poppable asked tier (never pop a high tier)")
+	ok(not wts.has(9), "wanted_tiers ignores asks for lines the generator can't emit")
+	# empty wanted_tiers is a NO-OP — byte-identical to omitting it (the load-bearing rng order is preserved).
+	var ra := RandomNumberGenerator.new(); ra.seed = 31
+	var rb := RandomNumberGenerator.new(); rb.seed = 31
+	ok(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1, 2], [1], ra) \
+		== BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1, 2], [1], rb, {}), \
+		"roll_spawn with empty wanted_tiers is identical to omitting it (no extra rng draws)")
+	# the dial ships OFF: with no tier_weight (default 0) even a named wanted tier is a no-op (byte-identical).
+	ok(G.ASK_TIER_WEIGHT == 0.0, "the spawn tier-bias ships OFF by default (ASK_TIER_WEIGHT dial = 0)")
+	var rf := RandomNumberGenerator.new(); rf.seed = 17
+	var rg := RandomNumberGenerator.new(); rg.seed = 17
+	ok(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rf, {1: [3]}) \
+		== BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rg, {}), \
+		"default weight (0) makes a wanted tier a no-op — no rng draw, off until the owner ramps the dial")
+	# at a non-zero weight, with line 1 forced (pool=[1]) and t3 wanted, t3 pops far above its baseline.
+	var biased := 0
+	var unbiased := 0
+	var rc := RandomNumberGenerator.new(); rc.seed = 5
+	var rd := RandomNumberGenerator.new(); rd.seed = 5
+	for _i in 2000:
+		if BoardModel.tier_of(int(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rc, {1: [3]}, 0.6).code)) == 3:
+			biased += 1
+		if BoardModel.tier_of(int(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rd, {}, 0.6).code)) == 3:
+			unbiased += 1
+	ok(biased > unbiased * 2, "at weight 0.6 the spawn tier leans toward the asked tier (%d vs %d t3 of 2000)" % [biased, unbiased])
+	# even a high-tier ask never makes a generator pop above its poppable range (economy guard).
+	var safe := true
+	var re := RandomNumberGenerator.new(); re.seed = 8
+	for _i in 1000:
+		if BoardModel.tier_of(int(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], re, {1: [pop_max + 4]}, 0.6).code)) > pop_max:
+			safe = false
+	ok(safe, "a high-tier ask never makes the generator pop above its TIER_ODDS range (economy guard)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
