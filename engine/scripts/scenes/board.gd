@@ -94,14 +94,11 @@ var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var gen_preview_cells := {}        # V: cell -> gi for locked-gen previews (tap → name floater)
 var _grown_cells: Array = []       # cells of generators that just GREW IN this rebuild (appear_level reached) — popped for feedback
-var burst_chip: Control            # §6 coin sink: the on-board "upgrade burst" buy pill (board-level, global)
-var burst_chip_label: Label
+# (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
+#  T48 ahead of the UI redesign; the burst coin sink stays in code, see _upgrade_gen_burst)
 var giver_bar: Control           # the quest fence (givers pop up over it)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
-var merchant_sell_tag: Control       # W3: live "+N coin/gem" tag at the merchant's shoulder (drag only)
-var merchant_sell_tag_label: Label
-var merchant_sell_tag_icon: Control  # the tag's currency sprite — swapped coin↔gem per the dragged item's reward (§13)
 # Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
 # for an exact buy-back. NOT persisted (the porter clears it within ~3 min anyway).
 var basket: Array = []               # [{code, coins, diamonds}]
@@ -893,9 +890,6 @@ func _make_merchant_stand() -> Control:
 		"buy_treat": _buy_treat,
 		"wire_tap": _stand_tap,
 	})
-	merchant_sell_tag = m.sell_tag
-	merchant_sell_tag_label = m.sell_tag_label
-	merchant_sell_tag_icon = m.sell_tag_icon
 	basket_chip = m.basket_chip
 	_rebuild_basket()                        # paint any held sales now that basket_chip exists
 	return m.stand
@@ -924,46 +918,17 @@ func _buy_treat() -> void:
 	_persist()
 	_update_hud()
 
-# W3: while ANY item is dragged, the merchant's stall brightens and a "+N🪙" tag
-# (the dragged item's sell value) appears at his shoulder — the sell affordance.
-func _show_sell_affordance(code: int) -> void:
+# W3: while ANY item is dragged, the merchant's stall brightens — the sell affordance.
+# (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
+#  redesign; the +N value read returns as a new-language chip during the redesign. The `code`
+#  is no longer read here, kept on the signature for the callers + the redesign rebuild.)
+func _show_sell_affordance(_code: int) -> void:
 	if not Features.on("sell_hints") or merchant_chip == null or not is_instance_valid(merchant_chip):
 		return
 	merchant_chip.modulate = Color(1, 1, 1, 1.0)
-	if merchant_sell_tag != null and is_instance_valid(merchant_sell_tag):
-		if merchant_sell_tag_label != null and is_instance_valid(merchant_sell_tag_label):
-			var rw := G.sell_reward(code)          # Y1: a t8 sells for 1 gem, else N coins
-			# §13: the number is pure ASCII ("+N") and the currency rides as a Look.icon
-			# sprite (swapped coin↔gem) — never an emoji baked into the label text.
-			var icon_id := "gem" if rw.y > 0 else "coin"
-			var amount := rw.y if rw.y > 0 else rw.x
-			merchant_sell_tag_label.text = "+%d" % amount
-			_swap_tag_icon(icon_id)
-		merchant_sell_tag.visible = true
 
 func _hide_sell_affordance() -> void:
-	if merchant_sell_tag != null and is_instance_valid(merchant_sell_tag):
-		merchant_sell_tag.visible = false
 	_refresh_giver_lights()   # restores the merchant's has-top modulate
-
-# §13: swap the shoulder tag's currency sprite (coin↔gem) in place. The icon is the
-# first child of the stat_chip row; we replace the node so it stays a Look.icon sprite
-# (art-swappable) rather than re-coloring a baked emoji glyph.
-func _swap_tag_icon(icon_id: String) -> void:
-	if merchant_sell_tag_icon == null or not is_instance_valid(merchant_sell_tag_icon):
-		return
-	if merchant_sell_tag_icon.has_meta("icon_id") and String(merchant_sell_tag_icon.get_meta("icon_id")) == icon_id:
-		return                                   # already showing this currency — nothing to do
-	var row := merchant_sell_tag_icon.get_parent()
-	if row == null:
-		return
-	var slot := merchant_sell_tag_icon.get_index()
-	merchant_sell_tag_icon.queue_free()
-	var fresh := Look.icon(icon_id, Look.Tune.ICON_PX)
-	fresh.set_meta("icon_id", icon_id)
-	row.add_child(fresh)
-	row.move_child(fresh, slot)
-	merchant_sell_tag_icon = fresh
 
 # W3: the first time a MAX-TIER item lands on the board, a one-time floater points
 # the player at the stall (persisted seen-flag — never nags twice).
@@ -1104,7 +1069,8 @@ func _rebuild_all() -> void:
 		Audio.play("level_complete", -6.0, 1.1)
 		_grown_cells = []
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
-	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
+	# (the §6 burst buy pill was rebuilt here — retired T48 ahead of the UI redesign; the burst
+	#  coin sink stays live via _upgrade_gen_burst, only its on-board pill is gone)
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
 	# per-chapter `appears_at`. Under per-map generators the next set arrives on map
 	# COMPLETION, not after N spots — the preview needs redefining (show the next map's
@@ -1419,63 +1385,10 @@ func _upgrade_gen_burst() -> bool:
 	_persist()
 	return true
 
-# The on-board burst-upgrade buy pill (§6 coin sink). The burst level is GLOBAL — one `burst_lvl`
-# sizing every generator (spec §8: "board-level… independent of the hub") — so ONE pill, anchored
-# to the primary generator, is the whole control. Rebuilt with the board (freed by _rebuild_all's
-# child sweep). A still child with MOUSE_FILTER_STOP, so its tap buys and never pops the gen under it.
-func _rebuild_burst_chip() -> void:
-	burst_chip = null
-	burst_chip_label = null
-	if board.gens.is_empty():
-		return
-	var anchor: Vector2i = board.gens.keys()[0]
-	var chip := Look.stat_chip("coin", "")
-	burst_chip = chip.node
-	burst_chip_label = chip.label
-	(burst_chip_label as Label).add_theme_font_size_override("font_size", 18)
-	burst_chip.mouse_filter = Control.MOUSE_FILTER_STOP
-	burst_chip.z_index = 12
-	burst_chip.gui_input.connect(_on_burst_chip_input)
-	board_area.add_child(burst_chip)
-	_refresh_burst_chip()                      # sets the label → its width is known for centering
-	var w: float = burst_chip.get_combined_minimum_size().x
-	burst_chip.position = _cell_pos(anchor) + Vector2((csz - w) / 2.0, csz - 12.0)
-
-func _on_burst_chip_input(ev: InputEvent) -> void:
-	var pressed: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT) or ev is InputEventScreenTouch
-	if pressed and ev.pressed:
-		_try_buy_burst()
-
-# Repaint the pill from the live level/cost — used right after a buy (no full board rebuild).
-func _refresh_burst_chip() -> void:
-	if burst_chip_label == null or not is_instance_valid(burst_chip_label):
-		return
-	var lvl := _gen_burst_level()
-	var cost := G.burst_upgrade_cost(lvl)
-	if cost < 0:
-		burst_chip_label.text = tr("Burst L%d ✦") % lvl       # maxed — no further buy
-	else:
-		burst_chip_label.text = tr("Burst L%d ▸ %d") % [lvl, cost]
-
-# Tap handler for the burst pill: spend coins to raise the burst one level, with feedback. Refuses
-# (a wobble) when maxed or broke — _upgrade_gen_burst() owns the spend + cap rules. Testable directly.
-func _try_buy_burst() -> void:
-	if burst_chip == null or not is_instance_valid(burst_chip):
-		return
-	if G.burst_upgrade_cost(_gen_burst_level()) < 0:
-		FX.wobble(burst_chip)                 # already at the top of the ladder
-		Audio.play("invalid_soft", -4.0)
-		return
-	if not _upgrade_gen_burst():
-		FX.wobble(burst_chip)                 # can't afford it
-		Audio.play("invalid_soft", -4.0)
-		_update_hud()                         # nudge the coin pill so the wall reads
-		return
-	FX.pop(burst_chip)
-	Audio.play("merge_success", -2.0)
-	FX.floating_text(self, burst_chip.get_global_rect().get_center() - Vector2(0, 24), tr("Burst L%d!") % _gen_burst_level(), STRAW, 30)
-	_refresh_burst_chip()
-	_update_hud()
+# (The on-board burst-upgrade buy pill — _rebuild_burst_chip / _on_burst_chip_input /
+#  _refresh_burst_chip / _try_buy_burst — was the dark stat_chip pill; retired T48 ahead of the UI
+#  redesign. The §6 coin sink lives on in _gen_burst_level + _upgrade_gen_burst above (still tested);
+#  the redesign re-surfaces a burst-upgrade buy affordance in the new chip language.)
 
 func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)

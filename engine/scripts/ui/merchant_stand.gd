@@ -1,8 +1,9 @@
 extends RefCounted
 ## The merchant-stall BUILDER (Wave 3, merchant slice) — pure construction of the merchant's
-## stand on the §7 fence: the frameless bust, the "top -> +N" sell pill, the W3 drag-only sell
-## tag at the shoulder (hidden until a drag), the wicker buy-back basket, and the optional acorn
-## treat. Stateless: the coordinator owns the basket array + sell/buy-back transactions + the
+## stand on the §7 fence: the frameless bust, the "top -> +N" sell pill, the wicker buy-back
+## basket, and the optional acorn treat. (The W3 drag sell-tag was the dark stat_chip pill —
+## retired T48 ahead of the UI redesign.) Stateless: the coordinator owns the basket array +
+## sell/buy-back transactions + the
 ## porter, and drives the sell affordance from the grid's drag; this only assembles nodes and
 ## returns the refs the coordinator keeps. Tap behaviour is injected as `Callable`s so this never
 ## reaches up into scenes/ (the §15 layering invariant).
@@ -12,7 +13,7 @@ extends RefCounted
 ##           "buy_treat": Callable(),            # the acorn treat was tapped
 ##           "wire_tap": Callable(node, action)})# the coordinator's still-release tap wirer
 ##         merchant_chip = m.stand ; basket_chip = m.basket_chip ; ... ; _rebuild_basket()
-## Returns {stand, sell_tag, sell_tag_label, sell_tag_icon, basket_chip}.
+## Returns {stand, basket_chip}.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -55,18 +56,9 @@ static func build(cfg: Dictionary) -> Dictionary:
 	prow.add_child(pill_icon)
 	pill.add_child(prow)
 	stand.add_child(pill)
-	# W3: a live "+N🪙" sell tag at the shoulder, shown only WHILE an item is dragged
-	# (the dragged item's own sell_value) — the AB3 reward-chip convention.
-	var tag := Look.stat_chip("coin", "")
-	var sell_tag: Control = tag.node
-	var sell_tag_label: Label = tag.label
-	var sell_tag_icon: Control = tag.icon
-	sell_tag_icon.set_meta("icon_id", "coin")   # the chip is built with the coin icon — track it for swaps
-	(sell_tag_label as Label).add_theme_font_size_override("font_size", 22)
-	sell_tag.position = Vector2(sw / 2.0 + 30.0, 6.0)
-	sell_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sell_tag.visible = false
-	stand.add_child(sell_tag)
+	# (W3's live "+N🪙" drag sell-tag was the dark stat_chip pill — retired T48 ahead of the UI
+	# redesign. The stall still brightens on drag (board.gd `_show_sell_affordance`); the +N value
+	# read returns as a new-language chip during the redesign.)
 	# Y2: the collection basket rides at the merchant's feet — sold items land here
 	# and stay buy-backable until the porter collects. A wicker tray of <=3 sale chips.
 	var basket_chip := PanelContainer.new()
@@ -126,5 +118,4 @@ static func build(cfg: Dictionary) -> Dictionary:
 		stand.add_child(treat)
 	# T39 §9: NO tap-sell — dragging an item onto the stall is the ONLY sell verb. (The basket
 	# buy-back chips and the treat keep their own taps; the stall itself is drag-only.)
-	return {"stand": stand, "sell_tag": sell_tag, "sell_tag_label": sell_tag_label,
-		"sell_tag_icon": sell_tag_icon, "basket_chip": basket_chip}
+	return {"stand": stand, "basket_chip": basket_chip}

@@ -70,11 +70,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	jar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(jar)
 
-	# the banked amount, as an icon + number chip (the number sits beside the icon, §13)
-	var amount := Look.stat_chip("gem", str(Vault.balance()))
-	amount.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	(amount.label as Label).add_theme_font_size_override("font_size", 30)
-	col.add_child(amount.node)
+	# (the banked-amount number chip was the dark stat_chip pill — retired T48 ahead of the UI
+	# redesign; the jar above already conveys balance/cap. The explicit number returns in the new
+	# chip language during the redesign.)
 
 	# the pitch line — the longer you play, the better the deal
 	var pitch := Label.new()

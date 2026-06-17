@@ -565,29 +565,18 @@ func _initialize() -> void:
 	sbp.queue_free()
 	sbp2.queue_free()
 
-	# 11c. The on-board burst BUY PILL (§6 coin sink UI): the pill renders on the generator, its tap
-	# handler spends coins + raises the level, refuses when broke (no debt) and past the cap. The
-	# logic under the pill (_try_buy_burst) is unit-tested directly; the pill's look is a Dev eyeball.
-	fresh("burst_chip")
+	# 11c. The burst-upgrade coin sink refuses cleanly when broke — no level gain, no coin debt.
+	# (The on-board buy PILL that used to drive this was the dark stat_chip pill — retired T48
+	# ahead of the UI redesign; the sink logic above + this broke-refusal is the lasting coverage,
+	# and the redesign re-surfaces a buy affordance over the same `_upgrade_gen_burst`.)
+	fresh("burst_broke")
 	var sbc = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbc)
 	if sbc.board == null:
 		sbc._ready()
-	ok(sbc.burst_chip != null, "the burst buy pill renders (a generator is on the board)")
 	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "fresh: burst level 0, no coins")
-	sbc._try_buy_burst()
-	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "tapping the pill broke is refused — no level, no debt")
-	Save.add_coins(10000)
-	var cc0 := Save.coins()
-	sbc._try_buy_burst()
-	ok(sbc._gen_burst_level() == 1, "tapping the pill with coins raises the burst level")
-	ok(Save.coins() == cc0 - G.burst_upgrade_cost(0), "tapping the pill spends the ladder cost (the sink)")
-	while sbc._gen_burst_level() < G.burst_upgrade_max():
-		sbc._try_buy_burst()
-	var pill_maxed: int = sbc._gen_burst_level()
-	var coins_at_max := Save.coins()
-	sbc._try_buy_burst()
-	ok(sbc._gen_burst_level() == pill_maxed and Save.coins() == coins_at_max, "the pill refuses past the max level (no overspend)")
+	ok(not sbc._upgrade_gen_burst(), "broke: the burst-upgrade refuses — returns false")
+	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "broke refusal leaves no level and no coin debt")
 	sbc.queue_free()
 
 	# 12. win-back: away 3 days with low water → full cap on return
@@ -1506,24 +1495,18 @@ func _initialize() -> void:
 	ok(lbls1 > lbls0, "W3: the one-time sell hint floater appears on the first max-tier item")
 	ws._note_item_landed(top_code)
 	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
-	# (b) the merchant brightens + shows a live +N🪙 tag while an item is dragged
+	# (b) the merchant stall brightens while an item is dragged — the sell affordance.
+	# (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
+	# redesign; the stall brighten is the surviving affordance and the +N read returns in the
+	# new chip language during the redesign.)
 	var Feat = load("res://engine/scripts/core/features.gd")
 	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
 	ok(ws.merchant_chip != null, "W3: merchant present for the affordance test")
 	ws._show_sell_affordance(top_code)
-	ok(ws.merchant_sell_tag.visible and ws.merchant_chip.modulate.a >= 0.99, \
-		"W3: dragging brightens the stall + shows the sell tag")
-	# §13 (T32): the t8 reward reads as "+1" (pure ASCII, no emoji) beside a gem ICON
-	# sprite — the currency is the swapped Look.icon, never a glyph baked into the text.
-	ok(String(ws.merchant_sell_tag_label.text) == "+1", \
-		"W3/Y1: the t8 sell tag number is pure-ASCII +1 (no emoji)")
-	ok(ws.merchant_sell_tag_icon != null and ws.merchant_sell_tag_icon.has_meta("icon_id") \
-		and String(ws.merchant_sell_tag_icon.get_meta("icon_id")) == "gem", \
-		"W3/Y1: the t8 sell tag's currency sprite is swapped to the gem icon")
+	ok(ws.merchant_chip.modulate.a >= 0.99, "W3: dragging brightens the merchant stall (sell affordance)")
 	ws._hide_sell_affordance()
-	ok(not ws.merchant_sell_tag.visible, "W3: releasing the drag hides the sell tag")
 	# T39 (§9): drag is the ONLY sell verb — the tap-sell path is GONE. The board no longer
 	# defines _on_merchant_tap; tapping the stall does nothing (the basket buy-back + the
 	# treat keep their own taps; drag-to-stall selling stays the live verb).

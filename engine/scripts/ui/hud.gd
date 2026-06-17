@@ -27,11 +27,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	panel.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
 	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	# R1: the plank must visibly WRAP the whole cluster with EVEN padding.
-	# panel_chip.png is a 512² nine-patch whose opaque art is an asymmetric pill
-	# thinner than the layout rect — on this short strip even layout padding read
-	# as lopsided and the tall icons spilled past the opaque band. A clean
-	# wood-tone pill makes layout padding == visual padding (so the rect asserts
-	# below match what the eye sees), and fully contains the row.
+	# (The old dark chip nine-patch was an asymmetric pill thinner than the layout rect —
+	# on this short strip even layout padding read as lopsided and the tall icons spilled
+	# past the opaque band; that widget is now retired entirely, T48.) A clean wood-tone
+	# pill makes layout padding == visual padding (so the rect asserts below match what the
+	# eye sees), and fully contains the row.
 	var chip_sb := StyleBoxFlat.new()
 	chip_sb.bg_color = Tune.PILL_BG             # AC4: soft cream pill (was dark wood)
 	chip_sb.set_corner_radius_all(Tune.PILL_RADIUS)

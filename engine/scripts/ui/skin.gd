@@ -154,21 +154,17 @@ static func kit_panel(kind: String) -> StyleBox:
 				sbt.content_margin_right = Tune.PLANK_PAD_X
 				sbt.content_margin_top = Tune.PLANK_PAD_Y
 				sbt.content_margin_bottom = Tune.PLANK_PAD_Y
-			"chip":
-				sbt.content_margin_left = Tune.CHIP_PAD_X
-				sbt.content_margin_right = Tune.CHIP_PAD_X
-				sbt.content_margin_top = Tune.CHIP_PAD_Y
-				sbt.content_margin_bottom = Tune.CHIP_PAD_Y
 			_:
 				sbt.content_margin_left = Tune.PARCH_PAD_X
 				sbt.content_margin_right = Tune.PARCH_PAD_X
 				sbt.content_margin_top = Tune.PARCH_PAD_T
 				sbt.content_margin_bottom = Tune.PARCH_PAD_B
 		return sbt
-	# Flat fallbacks adopt the sticker recipe: unified radius (rectangles → RADIUS_CARD,
-	# chips → RADIUS_CHIP) + a resting drop shadow so each surface lifts off the bg even
-	# without the nine-patch art. (The two-tone light inner rim is added by code-built
-	# WIDGETS via rim_overlay — a bare StyleBox can't host the second border colour.)
+	# Flat fallbacks adopt the sticker recipe: unified radius (RADIUS_CARD) + a resting drop
+	# shadow so each surface lifts off the bg even without the nine-patch art. (The two-tone
+	# light inner rim is added by code-built WIDGETS via rim_overlay — a bare StyleBox can't
+	# host the second border colour.)  (The "chip" arm was the dark stat_chip pill — retired
+	# T48 ahead of the UI redesign.)
 	var sb := StyleBoxFlat.new()
 	match kind:
 		"plank":
@@ -183,16 +179,6 @@ static func kit_panel(kind: String) -> StyleBox:
 			sb.content_margin_right = Tune.PLANK_PAD_X
 			sb.content_margin_top = Tune.PLANK_PAD_Y
 			sb.content_margin_bottom = Tune.PLANK_PAD_Y
-		"chip":
-			sb.bg_color = Color(Pal.INK, Tune.CHIP_ALPHA)
-			sb.set_corner_radius_all(Tune.RADIUS_CHIP)
-			sb.shadow_color = Tune.SHADOW_RESTING
-			sb.shadow_size = Tune.SHADOW_RESTING_SIZE
-			sb.shadow_offset = Tune.SHADOW_RESTING_OFFSET
-			sb.content_margin_left = Tune.CHIP_PAD_X
-			sb.content_margin_right = Tune.CHIP_PAD_X
-			sb.content_margin_top = Tune.CHIP_PAD_Y
-			sb.content_margin_bottom = Tune.CHIP_PAD_Y
 		_:                                       # parchment — a raised card surface
 			sb.bg_color = Pal.CREAM
 			sb.set_corner_radius_all(Tune.RADIUS_CARD)
@@ -231,26 +217,11 @@ static func icon(id: String, px: float = Tune.ICON_PX) -> Control:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
-## icon + number on a chip — the wallet, water chip, prices, pins all read this way.
-static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", kit_panel("chip"))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(row)
-	var ic := icon(icon_id, Tune.ICON_PX)
-	# the icon's box is vertically centered against the number's line box
-	(ic as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ic)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", Tune.STAT_NUM_SIZE)
-	lbl.add_theme_color_override("font_color", Pal.CREAM)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lbl)
-	return {"node": panel, "label": lbl, "icon": ic}
+# (stat_chip — "icon + number on a dark chip" → kit_panel("chip") → panel_chip.png — was the
+#  dark semicircle pill; retired T48 ahead of the UI redesign. Its three consumers (burst pill,
+#  vault gem balance, merchant sell tag) were stripped with it; the redesign rebuilds those reads
+#  in the new Rest-plane cream-chip language. The HUD wallet never used it — it builds its own
+#  cream PILL_* recipe in hud.gd.)
 
 ## A title chip in the HUD pill language (solid cream, lifts off ANY background).
 ## ONE source for every title. NOTE: kit/ribbon_title.png (a wide gold banner) is
