@@ -22,6 +22,7 @@ const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const BagView = preload("res://engine/scripts/ui/bag_view.gd")
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
+const OowOffer = preload("res://engine/scripts/ui/oow_offer.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
@@ -709,56 +710,8 @@ func _grant_oow_offer() -> void:
 # nothing is charged)" disclosure as the shop's cash confirm). Cozy: warm copy, a Maybe
 # later / Yes please pair, no pressure.
 func _open_oow_confirm(line: String, sub: String) -> void:
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(Pal.INK, 0.5)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	cc.add_child(card)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
-	card.add_child(col)
-	var title := Look.title_ribbon(tr("A little help"), 32)
-	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(title)
-	var amount := Label.new()
-	amount.text = line
-	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	amount.add_theme_font_size_override("font_size", 30)
-	amount.add_theme_color_override("font_color", Pal.INK)
-	col.add_child(amount)
-	var subl := Label.new()
-	subl.text = sub
-	subl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subl.add_theme_font_size_override("font_size", 22)
-	subl.add_theme_color_override("font_color", Pal.BARK)
-	col.add_child(subl)
-	var note := Label.new()
-	note.text = tr("(test build — nothing is charged)")
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note.add_theme_font_size_override("font_size", 22)
-	note.add_theme_color_override("font_color", Pal.BARK)
-	col.add_child(note)
-	var btns := HBoxContainer.new()
-	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	btns.add_theme_constant_override("separation", 16)
-	col.add_child(btns)
-	btns.add_child(Look.button(tr("Maybe later"), func() -> void: overlay.queue_free(), false))
-	btns.add_child(Look.button(tr("Yes please"), func() -> void:
-		overlay.queue_free()
-		_grant_oow_offer(), true))
-	FX.pop_in(card)
+	# Wave 3: the modal lives in ui/oow_offer.gd; the gate + grant stay in the coordinator.
+	OowOffer.open(self, {"amount": line, "sub": sub, "on_accept": _grant_oow_offer})
 
 func _update_hud() -> void:
 	stars_label.text = str(Save.stars())
