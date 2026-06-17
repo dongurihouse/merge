@@ -17,6 +17,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const TreeWind = preload("res://engine/scripts/ui/tree_wind.gd")    # shared foliage-sway shader + gusts
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
@@ -221,6 +222,14 @@ func _gates() -> Array:                       # §7 gate-delivery state (which m
 
 func spot_owned(id: String) -> bool:
 	return unlocks.has(id)
+
+# The fixed `fence` overlay shows only once its reveal-spot (a spot with reveal:"fence") is restored;
+# maps with no such spot always show their fence. Keeps the fence from reading as already-restored.
+func _fence_revealed(z: int) -> bool:
+	for sp in G.MAPS[z].spots:
+		if String(sp.get("reveal", "")) == "fence":
+			return spot_owned(String(sp.id))
+	return true
 
 func map_spots_done(z: int) -> bool:
 	return G.map_spots_done(z, unlocks)
@@ -494,7 +503,7 @@ func _build_map() -> void:
 		content.add_child(frame)
 		_add_cover_layer(frame, art_path)
 		var fence_path := String(G.MAPS[z].get("fence", ""))
-		if fence_path != "" and ResourceLoader.exists(fence_path):
+		if fence_path != "" and ResourceLoader.exists(fence_path) and _fence_revealed(z):
 			_add_cover_layer(frame, fence_path)
 	else:
 		var fallback := Panel.new()
@@ -593,48 +602,10 @@ func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
 		if "/trees/" in art:
 			_sway(t, fs)   # trees rock gently from the base in the wind
 
-# Tree wind (items 5 & 6): a shader shears the sprite horizontally by an amount that grows toward the
-# CANOPY (zero at the trunk base, so only leaves/outer branches move), and a per-tree gust scheduler
-# drives it in occasional bursts — trees rest, then sway briefly, rather than rocking nonstop.
-const _TREE_SWAY_SHADER := "shader_type canvas_item;
-uniform float phase = 0.0;
-uniform float freq = 2.0;
-uniform float amp = 0.06;
-uniform float trunk = 0.62;
-uniform float gust = 0.0;
-void fragment() {
-	float w = smoothstep(trunk, 0.0, UV.y);          // 0 at/below the trunk line, → 1 at the top
-	float wind = sin(TIME * freq + phase) * gust * amp * w;
-	vec2 uv = UV + vec2(wind, 0.0);
-	if (uv.x < 0.0 || uv.x > 1.0) { COLOR = vec4(0.0); }
-	else { COLOR = texture(TEXTURE, uv); }
-}"
-var _tree_shader: Shader
-
+# Trees sway in the wind (items 5 & 6): only the canopy bends (trunk stays planted), in occasional
+# random gusts. The shader + gust scheduler live in TreeWind, shared with the map placer.
 func _sway(t: Control, _fs: float) -> void:
-	if _tree_shader == null:
-		_tree_shader = Shader.new()
-		_tree_shader.code = _TREE_SWAY_SHADER
-	var mat := ShaderMaterial.new()
-	mat.shader = _tree_shader
-	mat.set_shader_parameter("phase", randf() * TAU)
-	mat.set_shader_parameter("freq", 1.5 + randf() * 1.3)       # ~1.5–2.8 rad/s
-	mat.set_shader_parameter("amp", 0.045 + randf() * 0.03)     # max canopy shear (fraction of width)
-	mat.set_shader_parameter("trunk", 0.58 + randf() * 0.08)    # UV.y below this stays planted
-	mat.set_shader_parameter("gust", 0.0)
-	t.material = mat
-	_gust(t, mat)
-
-# One gust cycle: rest a random while, ramp the sway in, hold briefly, damp out — then reschedule.
-func _gust(t: Control, mat: ShaderMaterial) -> void:
-	if not is_instance_valid(t):
-		return
-	var tw := t.create_tween()
-	tw.tween_interval(4.0 + randf() * 9.0)                                              # rest between gusts
-	tw.tween_property(mat, "shader_parameter/gust", 1.0, 0.5 + randf() * 0.4).set_ease(Tween.EASE_OUT)
-	tw.tween_interval(0.5 + randf() * 0.8)
-	tw.tween_property(mat, "shader_parameter/gust", 0.0, 1.3 + randf() * 1.4).set_ease(Tween.EASE_IN)
-	tw.tween_callback(_gust.bind(t, mat))
+	TreeWind.auto_gust(t, TreeWind.apply(t))
 
 # Clouds placed in the map placer (layer "cloud"): each starts where it was placed, then drifts slowly
 # leftward and wraps around the sky. Rendered behind everything (added before the buildings/spots).
@@ -665,7 +636,7 @@ func _drift_cloud(c: TextureRect, rect: Rect2, cloud_w: float) -> void:
 		return
 	var left := rect.position.x - cloud_w
 	var base_x := c.position.x
-	var period := (span / rect.size.x) * (90.0 + randf() * 50.0)   # ~90–140s to cross, per-cloud
+	var period := (span / rect.size.x) * (300.0 + randf() * 160.0)   # ~5–8 min to cross — a slow drift
 	var tw := c.create_tween().set_loops()
 	tw.tween_method(func(prog: float):
 			c.position.x = left + fposmod(base_x - prog * span - left, span),
@@ -783,6 +754,9 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 			dot.add_theme_stylebox_override("panel", ds)
 			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			item.add_child(dot)
+	elif owned and String(spot.get("reveal", "")) != "":
+		pass   # an overlay-reward spot (e.g. the garden fence): the reward is the revealed `fence`
+		       # layer, so the restored spot draws no point sprite (no stray solid-colour chip).
 	elif owned:
 		var chip := PanelContainer.new()
 		var fs := StyleBoxFlat.new()

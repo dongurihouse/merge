@@ -251,8 +251,9 @@ static func _build_maps() -> Array:
 	# PLACER (games/grove/tools/MapPlacer.tscn → data/map1_placements.json) and are MERGED in at load by
 	# _merge_map1_placements via the `art` binding (the cutout's basename is the JSON key). The values
 	# below are gameplay (id/cost/kind) + the `art` binding + FALLBACK pos/fsize (used only when the JSON
-	# has no entry). No bake step — save in the placer and the game reads it. (Porch & Garden fence have
-	# no placed cutout → they keep the fallback pos + furn art.)
+	# has no entry). No bake step — save in the placer and the game reads it. (The garden fence has no
+	# cutout: its `reveal:"fence"` means restoring it UNVEILS the map's fixed `fence` overlay — so the
+	# fence is hidden until restored, and the owned spot draws no point sprite. See map._fence_revealed.)
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
 		"bg": "res://assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
 		"fence": "res://assets/map1v2/fence.png",         # fixed fence layer, composited over the base
@@ -268,7 +269,7 @@ static func _build_maps() -> Array:
 		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://assets/map1v2/items/doghouse.png"},
 		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://assets/map1v2/items/flowerbox.png"},
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://assets/map1v2/items/lantern.png"},
-		{"id": "fh_fence", "name": "Garden fence", "kind": "decor", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190},
+		{"id": "fh_fence", "name": "Garden fence", "kind": "decor", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190, "reveal": "fence"},
 	]},
 	{"id": "barn", "name": "The Barn", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},

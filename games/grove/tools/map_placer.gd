@@ -14,6 +14,7 @@ extends Control
 ## in-game exactly as it is here.
 
 const Design = preload("res://engine/scripts/core/design.gd")
+const TreeWind = preload("res://engine/scripts/ui/tree_wind.gd")   # foliage sway — preview it here with G
 
 const PALETTE_DIRS := ["res://assets/map1v2/trees/", "res://assets/map1v2/grass/", "res://assets/map1v2/clouds/"]
 const ITEMS_DIR := "res://assets/map1v2/items/"
@@ -21,7 +22,7 @@ const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "drag · wheel scale · w/e z-order (crosses the buildings) · right-click/Del delete · Ctrl+S save"
+const HINT := "drag · wheel scale · w/e z-order · G wind gust · right-click/Del delete · Ctrl+S save"
 
 const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
@@ -378,6 +379,8 @@ func _spawn(art_path: String, forced_layer := "") -> Control:
 	var bg := _bg_size()
 	var spot := Vector2(bg.x * 0.5, bg.y * 0.16) if _layer_of(art_path) == "cloud" else bg * 0.5
 	_set_center(item, spot)
+	if "/trees/" in art_path:                       # trees sway in the wind — preview it here (G to gust)
+		TreeWind.auto_gust(item, TreeWind.apply(item))
 	_select(item)
 	return item
 
@@ -480,6 +483,15 @@ func _delete_item(item: Control) -> void:
 	_set_info("removed")
 	_refresh_zlist()
 
+# Trigger one wind gust on every placed tree, to preview the foliage sway (key G).
+func _gust_trees() -> void:
+	var n := 0
+	for t in _back_layer.get_children():
+		if t.material is ShaderMaterial:
+			TreeWind.gust_once(t, t.material)
+			n += 1
+	_set_info("wind gust → %d tree(s)" % n)
+
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey and ev.pressed):
@@ -490,6 +502,9 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if ev.keycode == KEY_F:
 		_full.visible = not _full.visible
 		_set_info("reference %s" % ("ON" if _full.visible else "off"))
+		get_viewport().set_input_as_handled(); return
+	if ev.keycode == KEY_G:                         # trigger a wind gust on every tree (preview the sway)
+		_gust_trees()
 		get_viewport().set_input_as_handled(); return
 	if ev.ctrl_pressed or ev.meta_pressed:
 		if ev.keycode == KEY_S:
