@@ -91,6 +91,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
+var _backdrop: Control = null    # the place-picker's sky backdrop (gradient + clouds); hidden on a MAP
 var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
 var level_label: Label
 var xp_label: Label
@@ -116,6 +117,12 @@ func _ready() -> void:
 	sky.color = SKY
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(sky)
+
+	# the place-picker's richer sky (gradient + drifting-free clouds) sits BEHIND content; shown
+	# only on the chooser (a map has its own painted backdrop). Built hidden; the nav toggles it.
+	_backdrop = _build_backdrop()
+	_backdrop.visible = false
+	add_child(_backdrop)
 
 	# the single view host — full-rect, the ONE input surface; views repopulate it
 	content = Control.new()
@@ -265,6 +272,56 @@ func _set_map_chrome_visible(on: bool) -> void:
 			(n as CanvasItem).visible = on
 	if _weather != null and is_instance_valid(_weather):
 		_weather.visible = on
+	if _backdrop != null and is_instance_valid(_backdrop):
+		_backdrop.visible = not on        # the sky backdrop is the chooser's, not the map's
+
+# The place-picker's backdrop: a soft daytime sky (a vertical gradient — deeper up top, warm
+# toward the horizon) with a few painted clouds peeking in. Replaces the flat-blue fill so the
+# chooser reads as "your grove's sky" without weather motion. The cloud art is a grove seam
+# (ui/cloud.png) — absent, it degrades to the gradient alone. Every node IGNOREs the mouse.
+func _build_backdrop() -> Control:
+	var layer := Control.new()
+	layer.name = "SelectBackdrop"
+	layer.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.clip_contents = true
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the sky gradient
+	var grad := Gradient.new()
+	grad.set_color(0, SKY.darkened(0.12))          # top — a touch deeper
+	grad.set_color(1, SKY.lerp(CREAM, 0.34))       # horizon — warm, hazy, bright
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0.5, 0.0)
+	gtex.fill_to = Vector2(0.5, 1.0)
+	gtex.width = 8
+	gtex.height = 128
+	var sky_rect := TextureRect.new()
+	sky_rect.texture = gtex
+	sky_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sky_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sky_rect.stretch_mode = TextureRect.STRETCH_SCALE
+	sky_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(sky_rect)
+	# painted clouds — a few soft, static drifts high in the sky (grove art seam)
+	var cloud_path := Game.art("ui/cloud.png")
+	if ResourceLoader.exists(cloud_path):
+		var view := get_viewport_rect().size
+		var tex := load(cloud_path)
+		var spots := [Vector2(0.18, 0.015), Vector2(0.70, 0.0), Vector2(0.46, 0.075), Vector2(0.52, 0.90), Vector2(0.90, 0.55)]
+		var sizes := [0.50, 0.60, 0.34, 0.42, 0.40]
+		var alphas := [0.92, 0.88, 0.75, 0.82, 0.70]
+		for i in spots.size():
+			var c := TextureRect.new()
+			c.texture = tex
+			c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+			var cw := view.x * float(sizes[i])
+			c.size = Vector2(cw, cw)
+			c.position = Vector2(spots[i].x * view.x - cw * 0.5, spots[i].y * view.y)
+			c.modulate = Color(1.0, 1.0, 1.0, alphas[i])
+			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			layer.add_child(c)
+	return layer
 
 # §8 keystone — the hub-collect BEAT. Sweep every restored yield building's accrued coins to the
 # wallet in ONE go and reset the accrual clock (G.hub_collect does the credit + reset together).
@@ -928,19 +985,19 @@ func _build_select() -> void:
 	header.size = Vector2(view.x, 56.0)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(header)
-	# ONE wide card per row — a vista per place. The stack is sized to FILL the band between the
-	# header and the safe bottom, so there is no pool of dead space below: per-card height is the
-	# band split evenly (clamped), and when clamped the stack centers in the band. No ScrollContainer
-	# (the single-input-surface model has none, and every map fits one screen); cards are positioned
-	# directly and hit-tested by their global rect.
+	# ONE wide card per row — a vista per place, floating in the grove SKY. Cards split the band
+	# between the header and the safe bottom (no pool of dead space), but card height is capped so a
+	# modest sky margin frames the stack top/bottom + sides — the backdrop's gradient + clouds read
+	# as a real sky, not flat blue. The stack centers in the band. No ScrollContainer (the single-
+	# input-surface model has none, every map fits one screen); cards are positioned + hit-tested directly.
 	var n := G.MAPS.size()
-	var side := 36.0
+	var side := 52.0
 	var card_w := view.x - side * 2.0
-	var sep := 18.0
-	var band_top := top + 76.0
+	var sep := 20.0
+	var band_top := top + 72.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 40.0)
 	var band_h := band_bot - band_top
-	var card_h := clampf((band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1)), 168.0, 360.0)
+	var card_h := clampf((band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1)), 168.0, 288.0)
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
 	for z in n:
