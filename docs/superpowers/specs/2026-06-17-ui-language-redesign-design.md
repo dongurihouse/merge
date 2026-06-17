@@ -229,3 +229,30 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 **Shop component**
 
 > Cozy farm-game shop popup, hand-painted storybook style. A warm parchment panel #F4E9D6 with a soft bark border over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Shop"; a round red close button #D75A4E sits at the top-right corner. Two featured product cards, each a cream tile with the product illustration on a pale honey plate #F4E7CA and a leaf-green #4E7C46 price button. Below, a "Gems" section: a row of three teal-gem #3FC6B0 cash packs of increasing size, the middle one wearing a small red "Popular" badge, each with a green buy button. Soft shadows, warm light, no flat vectors.
+
+---
+
+## Asset manifest & batch generation
+
+**The problem:** the redesign is mostly a re-tune of code-drawn chrome and a palette swap, so it needs surprisingly little *new* art. Most of what looks like UI art is either already in the repo or drawn procedurally. This manifest separates the three cases so generation effort goes only where it is real.
+
+**Legend:** ✅ exists (keep, or retint via the palette) · ⚙️ code-drawn (no art — retune `tuning.gd`) · 🎨 generate.
+
+### Already have (✅)
+- **Icon kit** `games/grove/assets/ui/kit/icon_*.png`: `home`, `gear`, `cart`, `coin`, `gem`, `star`, `water`, `lock`, `level`, `check`, `back`, `question`, `cash`, `rain`. Resolved via `Look.icon("<id>")` ([skin.gd:201](../../../engine/scripts/ui/skin.gd)).
+- **Surfaces / panels** `ui/kit/`: `panel_parchment`, `panel_plank`, `ribbon_title`, `divider_vine`, `btn_leaf`, `btn_round`, `shop_stall`; plus `ui/`: `tile_slot`, `wallet`, `board_tray`, `bg_grove_board`, `fence_grove`.
+- **Content:** 71 item PNGs (`items/`), generators (`ui/gen_*`), characters (`map/giver_*`, `client_*`, `spirit_*`, `wren_bust`), map art (`map/poi_*`, `way_*`, `map_*`), FX (`fx_sparkle`, `fx_glow`, `p_*`).
+
+### Code-drawn — no art (⚙️)
+Currency pills, chips, the level token, nav button bases, the CTA / contextual gate pill, the red close ✕ disc, the "+" acquire token, badges, and the item **contact shadow** are all built from `tuning.gd` StyleBoxFlat + the sticker recipe (`RIM_LIGHT` + tiered shadows). These are *retuned*, never generated.
+
+### Generate (🎨)
+1. **Unified chrome icon kit (Batch 1, 12 icons).** Spec §9 ("one chrome style") wants the whole kit matched. Three are net-new (`bag`, `map`, `sprout`); the other nine are restyled for consistency. One 3×4 grid covers all 12.
+2. **Recessive locked texture (single, full-bleed).** The current `bramble_1-3` read dark and high-contrast; the Sunk plane needs a quiet covered-soil texture in the `LOCKED #C2C7A6` family. Surfaces generate individually (tileable, full-bleed), not in the isolated-object grid.
+
+### Batch 1 — the 3×4 icon-kit grid prompt
+
+> A single square image laid out as a clean 3-column × 4-row grid (12 equal cells) with even gutters and a plain off-white #F3EEE2 background. Each cell holds ONE cozy farm-game UI icon, centered and isolated with generous padding so it can be cropped out on its own. Cohesive hand-painted storybook style: soft rounded forms, a gentle top rim-light, a small soft contact shadow, warm muted palette keyed to leaf-green #4E7C46, warm gold #C9A66B, ink #3B402F, honey #E3B23C, teal #3FC6B0, sky-blue #7FB9DD; identical scale, line weight, and lighting across all 12. No text, no labels, no frames around the cells. The 12 icons, left to right, top to bottom — row 1: a cozy cottage (home), a canvas backpack (bag), a wooden market stall (shop); row 2: a settings gear, a folded paper map, a young sprout in soil (garden); row 3: a five-point gold star, a teal cut gem, a blue water drop; row 4: a brown acorn coin, a closed padlock, a lowercase letter "i" in a circle (info).
+
+### Pipeline
+Generate at high resolution → slice the grid into 12 cells → alpha-cut each → place into `games/grove/assets/ui/kit/` via `make icon IN=/tmp/<cell>.png OUT=res://games/grove/assets/ui/kit/icon_<id>.png SIZE=512`. Keep the established ids (`home`, `gear`, `cart`, `coin`, `gem`, `star`, `water`, `lock`, `question`) so no code changes; add new ids `bag`, `map`, `sprout` and point the nav buttons at them (Phase 3). The locked texture follows the `make decor` path into `ui/` and is wired where `bramble_*` is loaded ([board.gd](../../../engine/scripts/scenes/board.gd)).
