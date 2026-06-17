@@ -20,7 +20,7 @@ const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "Tab palette · drag · wheel scale · shift+wheel or [ ] z-order · right-click/Del delete · Ctrl+S save"
+const HINT := "Tab palette · drag · wheel scale · w/e z-order · right-click/Del delete · Ctrl+S save"
 
 const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
@@ -289,7 +289,11 @@ func _spawn(art_path: String) -> Control:
 	item.gui_input.connect(_on_item_input.bind(item))
 	var layer := _front_layer if _layer_of(art_path) == "front" else _back_layer   # grass in front; trees/clouds behind
 	layer.add_child(item)
-	_set_center(item, _bg_size() * 0.5)
+	# default spawn spot: a cloud drops into the SKY — the back layer sits behind the buildings, so a
+	# cloud spawned dead-centre would land hidden behind the house. Everything else spawns at centre.
+	var bg := _bg_size()
+	var spot := Vector2(bg.x * 0.5, bg.y * 0.16) if _layer_of(art_path) == "cloud" else bg * 0.5
+	_set_center(item, spot)
 	_select(item)
 	return item
 
@@ -384,10 +388,10 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_scale_item(_selected, 1.05)
 		KEY_MINUS, KEY_KP_SUBTRACT:
 			_scale_item(_selected, 1.0 / 1.05)
-		KEY_BRACKETRIGHT:
-			_restack(_selected, 1)         # ] = raise z (reliable keyboard z-order)
-		KEY_BRACKETLEFT:
-			_restack(_selected, -1)        # [ = lower z
+		KEY_E:
+			_restack(_selected, 1)         # e = raise z (reliable keyboard z-order)
+		KEY_W:
+			_restack(_selected, -1)        # w = lower z
 
 
 # --- persistence (data/map1v2_decor.json) ------------------------------------
