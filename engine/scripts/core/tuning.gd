@@ -217,10 +217,39 @@ class Hud:
 	const PILL_PAD_Y := 12.0              # vertical content margin (both pills)
 
 	# --- currency cluster --------------------------------------------------------------
-	const STAR_ICON := 44                 # icon px, per currency
-	const COIN_ICON := 40
-	const GEM_ICON := 38
+	# ONE shared icon BOX so the three currencies share a centerline and the numbers
+	# line up; each sprite is centered in the box and given a per-icon OPTICAL SCALE so
+	# their visual weights match (the gold flower fills its box, the acorn is tall+narrow,
+	# the gem is a slim teardrop — equal box ≠ equal weight without these).
+	const CHIP_ICON_BOX := 40.0           # the shared square box every currency icon centers in
+	const STAR_ICON := 44                 # sprite px (the gold flower runs a touch large for parity)
+	const COIN_ICON := 40                 # the acorn
+	const GEM_ICON := 40                  # the gem (was 38 — same box as the rest now)
+	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
+	const COIN_OPTICAL := 1.0             # acorn: the reference weight
+	const GEM_OPTICAL := 1.06             # gem: a slim teardrop, nudge UP for equal presence
+	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
+	const PAIR_SEP := 14                  # gap BETWEEN currency pairs (was the row's ROW_SEP=6)
 	const NUM_SIZE := 34                  # currency number font size
+
+	# --- identity tints (modulate over the sprites; star=gold, acorn=warm brown, gem=teal) ---
+	# The art already carries each currency's hue; a gentle modulate REINFORCES the read so
+	# gold/brown/teal stay distinct and the gem stops reading as a blue water drop.
+	const STAR_TINT := Color("#FFE08A")   # warm gold pop on the flower
+	const COIN_TINT := Color("#E7A24A")   # warm acorn brown
+	const GEM_TINT := Color("#5FE0CF")    # cool teal — pushes the gem away from water-cyan
+
+	# --- the "+" acquire button (opens the store) --------------------------------------
+	const PLUS_BOX := 26.0                # the little round +-token diameter
+	const PLUS_SIZE := 22                 # the "+" glyph font size
+	const PLUS_GAP := 2                   # gap between a currency number and its + button
+	const PLUS_BG := Color("#4E7C46")     # leaf green (the primary-CTA language → "get more")
+	const PLUS_BORDER := Color("#3C6037")
+	const PLUS_GLYPH := Color("#FBF6EC")  # cream "+"
+
+	# --- the standalone HOME chip (pulled OUT of the wallet pill) -----------------------
+	const HOME_GAP := 8.0                 # gap between the Lv chip and the Home chip (top-left row)
+	const HOME_ICON := 36                 # the home glyph/sprite px inside its chip
 
 	# --- the level chip ----------------------------------------------------------------
 	const LV_PX := 48.0                   # the round level "coin" diameter

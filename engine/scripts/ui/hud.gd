@@ -45,59 +45,44 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	chip_sb.content_margin_bottom = Tune.PILL_PAD_Y
 	panel.add_theme_stylebox_override("panel", chip_sb)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", Tune.ROW_SEP)
+	# The row's uniform separation IS the tight icon↔number gap; the WIDER gap BETWEEN
+	# currencies comes from explicit spacer Controls (so every pair shares one centerline
+	# and the numbers align). Keeping every icon/number/+ a DIRECT child of `row` is also a
+	# contract: scenes resolve the wallet panel as stars_label.get_parent().get_parent().
+	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	# A persistent HOME shortcut — jump to the hub map from anywhere. It rides the
-	# LEFT of the currency cluster (same pinned pill, so it reads as chrome, not a
-	# transient CTA). Rendered only when a scene passes a valid `home` Callable in the
-	# config (the board + map both do); harmless and absent otherwise.
-	var home_btn: Button = null
-	var home_cb: Variant = opts.get("home")
-	if home_cb is Callable and (home_cb as Callable).is_valid():
-		home_btn = Button.new()
-		home_btn.flat = true
-		home_btn.focus_mode = Control.FOCUS_NONE
-		home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var hg := Look.icon("home", Tune.STAR_ICON)   # kit sprite when present, else the "◀"/glyph Label
-		hg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		home_btn.add_child(hg)
-		home_btn.custom_minimum_size = Vector2(Tune.STAR_ICON + 8.0, Tune.STAR_ICON + 8.0)
-		Look.add_press_juice(home_btn)
-		home_btn.pressed.connect(func() -> void: (home_cb as Callable).call())
-		row.add_child(home_btn)
-		# §8 keystone: a subtle yield-READY cue — a small gold pip on the corner of the home
-		# shortcut when the hub has uncollected coin yield, so the player knows to return. Built
-		# hidden; scenes toggle it via out.home_cue(on). Pure chrome (IGNORE), never eats a press.
-		var pip := Panel.new()
-		pip.name = "YieldPip"
-		var pip_d := 14.0
-		pip.custom_minimum_size = Vector2(pip_d, pip_d)
-		pip.size = Vector2(pip_d, pip_d)
-		var pip_sb := StyleBoxFlat.new()
-		pip_sb.bg_color = Color("#E3B23C")             # warm gold — the coin/yield colour
-		pip_sb.set_corner_radius_all(int(pip_d / 2.0))
-		pip_sb.set_border_width_all(2)
-		pip_sb.border_color = CREAM
-		pip.add_theme_stylebox_override("panel", pip_sb)
-		pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		pip.position = Vector2(home_btn.custom_minimum_size.x - pip_d + 2.0, -2.0)   # top-right corner
-		pip.visible = false
-		home_btn.add_child(pip)
-	# the cluster is currencies ONLY — the Store moved to the bottom bar
-	# (owner 2026-06-13); scenes open it via out.open_shop.
-	var stars := _pair(row, "star", Tune.STAR_ICON)
-	var coins := _pair(row, "coin", Tune.COIN_ICON)
-	var gems := _pair(row, "gem", Tune.GEM_ICON)
+	# the cluster is currencies ONLY now — the Store moved to the bottom bar (owner
+	# 2026-06-13) and HOME was pulled OUT into its own top-left chip (nav ≠ wallet). The +
+	# acquire buttons route to the SAME store the bottom-bar button opens (built as
+	# out["open_shop"] below — shares this closure so the refresh tick is wired once).
+	var shop_opts := opts.duplicate()
+	var open_store := func() -> void: Shop.open(host, shop_opts)
+	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store)
+	_spacer(row)
+	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, true, open_store)
+	_spacer(row)
+	# the GEM always gets a + (the key monetization affordance — the path from "I want
+	# more gems" to the store, which the wallet was missing entirely).
+	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, true, open_store)
 	host.add_child(panel)
+
+	# The top-LEFT cluster: the Lv chip + (when a scene passes `home`) a SEPARATE Home chip,
+	# laid out in a shared pinned row so they flow side by side and never overlap. HOME used
+	# to live INSIDE the wallet pill (nav mixed into the currency cluster); it now has its own
+	# pill here so nav reads as chrome, distinct from the wallet.
+	var left := HBoxContainer.new()
+	left.offset_left = Tune.EDGE_MARGIN
+	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
+	left.add_theme_constant_override("separation", Tune.HOME_GAP)
+	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 
 	# S10: the Lv chip is part of THE module — same pixels in both scenes.
 	# The level number sits INSIDE the sprout avatar; the exp fraction sits to
 	# its right at a readable size (it used to be icon + number + fraction in a
 	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
-	lv_panel.offset_left = Tune.EDGE_MARGIN
-	lv_panel.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
+	lv_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var lv_sb := StyleBoxFlat.new()
 	lv_sb.bg_color = Tune.PILL_BG               # AC4: soft cream pill
 	lv_sb.set_corner_radius_all(Tune.PILL_RADIUS)
@@ -145,7 +130,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	xp.add_theme_constant_override("outline_size", 0)
 	xp.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lrow.add_child(xp)
-	host.add_child(lv_panel)
+	left.add_child(lv_panel)
+
+	# the standalone HOME chip, to the RIGHT of the Lv chip in the shared left row.
+	var home_btn := _build_home_chip(left, opts)
+	host.add_child(left)
 
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "xp": xp,
 		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
@@ -166,16 +155,21 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(level, lvl)
 		xp.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
 	out["refresh"] = refresh
-	var shop_opts := opts.duplicate()
+	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
+	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
+	# buttons and the bottom-bar store tick the wallet after a purchase.
 	shop_opts["refresh"] = refresh
-	out["open_shop"] = func() -> void: Shop.open(host, shop_opts)
+	out["open_shop"] = open_store
 	refresh.call()
 	return out
 
-static func _pair(row: HBoxContainer, icon_id: String, gsize: int) -> Label:
-	var ic := Look.icon(icon_id, float(gsize))
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER   # vertically center the icon with its number
-	row.add_child(ic)
+# One currency pair: a fixed icon BOX (so all three share a centerline) + the number, and
+# optionally a small "+" acquire button that opens the store. The icon, number, and + are all
+# DIRECT children of `row` (the wallet-resolution contract: stars_label.get_parent() == row),
+# so the wider gap BETWEEN currencies comes from _spacer, never an inner container.
+static func _pair(row: HBoxContainer, icon_id: String, gsize: int, optical: float,
+		tint: Color, plus: bool, open_store: Callable) -> Label:
+	row.add_child(_icon_box(icon_id, gsize, optical, tint))
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", Tune.NUM_SIZE)
 	lbl.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
@@ -183,7 +177,115 @@ static func _pair(row: HBoxContainer, icon_id: String, gsize: int) -> Label:
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
+	if plus:
+		row.add_child(_plus_button(open_store))
 	return lbl
+
+# A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
+# (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
+# sprite to reinforce each currency's hue (star=gold, acorn=brown, gem=teal — gem ≠ water).
+static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color) -> Control:
+	var box := CenterContainer.new()
+	box.custom_minimum_size = Vector2(Tune.CHIP_ICON_BOX, Tune.CHIP_ICON_BOX)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Look.icon(icon_id, float(gsize) * optical)
+	ic.modulate = tint
+	if ic is Label:                                   # glyph fallback — re-tint via font_color too
+		(ic as Label).add_theme_color_override("font_color", tint)
+		ic.modulate = Color.WHITE
+	box.add_child(ic)
+	return box
+
+# A small round "+" that opens the store — the acquire affordance (the wallet had no path to
+# "get more"). Reuses Look.add_press_juice so it inherits the shared button polish.
+static func _plus_button(open_store: Callable) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE   # NOT flat — flat suppresses the stylebox bg (the green token)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.custom_minimum_size = Vector2(Tune.PLUS_BOX, Tune.PLUS_BOX)
+	b.add_theme_constant_override("h_separation", 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tune.PLUS_BG                          # leaf green — the "get more" CTA hue
+	sb.set_corner_radius_all(int(Tune.PLUS_BOX / 2.0))
+	sb.set_border_width_all(2)
+	sb.border_color = Tune.PLUS_BORDER
+	for st in ["normal", "hover", "pressed", "focus"]:
+		b.add_theme_stylebox_override(st, sb)
+	var g := Label.new()
+	g.text = "+"
+	g.add_theme_font_size_override("font_size", Tune.PLUS_SIZE)
+	g.add_theme_color_override("font_color", Tune.PLUS_GLYPH)
+	g.add_theme_constant_override("outline_size", 0)
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	g.set_anchors_preset(Control.PRESET_FULL_RECT)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(g)
+	Look.add_press_juice(b)
+	if open_store.is_valid():
+		b.pressed.connect(func() -> void: open_store.call())
+	return b
+
+# A fixed-width invisible gap BETWEEN currency pairs (the row's own separation is the tight
+# icon↔number gap; this widens only pair↔pair while every node stays a direct row child).
+static func _spacer(row: HBoxContainer) -> void:
+	var s := Control.new()
+	s.custom_minimum_size = Vector2(Tune.PAIR_SEP - Tune.CHIP_ROW_SEP, 0)
+	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(s)
+
+# HOME — its own pinned chip (a cream pill matching the HUD language), placed to the right of
+# the Lv chip in the shared left row. Pulled OUT of the wallet pill so nav ≠ currency. Returns
+# the inner button (null when no `home` callback) so home_cue can toggle the yield pip.
+static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
+	var home_cb: Variant = opts.get("home")
+	if not (home_cb is Callable and (home_cb as Callable).is_valid()):
+		return null
+	var pill := PanelContainer.new()
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tune.PILL_BG
+	sb.set_corner_radius_all(Tune.PILL_RADIUS)
+	sb.set_border_width_all(Tune.PILL_BORDER_W)
+	sb.border_color = Tune.PILL_BORDER
+	sb.shadow_color = Tune.PILL_SHADOW
+	sb.shadow_size = Tune.PILL_SHADOW_SIZE
+	sb.content_margin_left = Tune.PILL_PAD_Y          # square padding → a round chip
+	sb.content_margin_right = Tune.PILL_PAD_Y
+	sb.content_margin_top = Tune.PILL_PAD_Y
+	sb.content_margin_bottom = Tune.PILL_PAD_Y
+	pill.add_theme_stylebox_override("panel", sb)
+	var home_btn := Button.new()
+	home_btn.flat = true
+	home_btn.focus_mode = Control.FOCUS_NONE
+	var hg := Look.icon("home", Tune.HOME_ICON)
+	hg.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	home_btn.add_child(hg)
+	home_btn.custom_minimum_size = Vector2(Tune.HOME_ICON, Tune.HOME_ICON)
+	Look.add_press_juice(home_btn)
+	home_btn.pressed.connect(func() -> void: (home_cb as Callable).call())
+	pill.add_child(home_btn)
+	# §8 keystone: a subtle yield-READY cue — a small gold pip on the chip corner when the hub
+	# has uncollected coin yield. Built hidden; scenes toggle it via out.home_cue(on). Pure
+	# chrome (IGNORE), never eats a press.
+	var pip := Panel.new()
+	pip.name = "YieldPip"
+	var pip_d := 14.0
+	pip.custom_minimum_size = Vector2(pip_d, pip_d)
+	pip.size = Vector2(pip_d, pip_d)
+	var pip_sb := StyleBoxFlat.new()
+	pip_sb.bg_color = Color("#E3B23C")               # warm gold — the coin/yield colour
+	pip_sb.set_corner_radius_all(int(pip_d / 2.0))
+	pip_sb.set_border_width_all(2)
+	pip_sb.border_color = CREAM
+	pip.add_theme_stylebox_override("panel", pip_sb)
+	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pip.position = Vector2(home_btn.custom_minimum_size.x - pip_d + 2.0, -2.0)
+	pip.visible = false
+	home_btn.add_child(pip)
+	left.add_child(pill)
+	return home_btn
 
 # Numbers TICK when they change (spec §7) and set silently when they don't.
 static func _set_or_tick(lbl: Label, v: int) -> void:
