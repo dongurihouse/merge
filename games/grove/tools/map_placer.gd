@@ -20,7 +20,7 @@ const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "Tab palette · drag · wheel scale · shift+wheel z-order · right-click/Del delete · Ctrl+S save"
+const HINT := "Tab palette · drag · wheel scale · shift+wheel or [ ] z-order · right-click/Del delete · Ctrl+S save"
 
 const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
@@ -319,6 +319,11 @@ func _on_item_input(ev: InputEvent, item: Control) -> void:
 		elif ev.button_index == MOUSE_BUTTON_WHEEL_DOWN and ev.pressed:
 			if ev.shift_pressed: _restack(item, -1)       # shift = lower z
 			else: _scale_item(item, 1.0 / 1.05)
+		# macOS turns shift+wheel into a HORIZONTAL wheel (no shift flag), so treat that as z-order too
+		elif ev.button_index == MOUSE_BUTTON_WHEEL_RIGHT and ev.pressed:
+			_restack(item, 1)
+		elif ev.button_index == MOUSE_BUTTON_WHEEL_LEFT and ev.pressed:
+			_restack(item, -1)
 	elif ev is InputEventMouseMotion and _dragging and item == _selected:
 		_set_center(item, item.get_global_mouse_position() - _drag_off)
 		_select(item)
@@ -368,6 +373,10 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_scale_item(_selected, 1.05)
 		KEY_MINUS, KEY_KP_SUBTRACT:
 			_scale_item(_selected, 1.0 / 1.05)
+		KEY_BRACKETRIGHT:
+			_restack(_selected, 1)         # ] = raise z (reliable keyboard z-order)
+		KEY_BRACKETLEFT:
+			_restack(_selected, -1)        # [ = lower z
 
 
 # --- persistence (data/map1v2_decor.json) ------------------------------------
