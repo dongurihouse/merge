@@ -341,20 +341,20 @@ class Shop:
 	const X_TEX_MARGIN := 24.0            # nine-patch margin when art exists
 	const X_RADIUS := 32
 	const X_BORDER_W := 3
-	const X_BG := Color("#6E4B2F")        # fallback brown disc
-	const X_BG_PRESSED := Color("#5A3D26")
-	const X_EDGE := Color("#3D2A1B")
+	const X_BG := Color("#D75A4E")        # RED close disc — an unmistakable control (was a brown btn_round, read as an ornament)
+	const X_BG_PRESSED := Color("#BC483D")
+	const X_EDGE := Color("#9C3A30")
 
 	# --- divider tab + vine ------------------------------------------------------------
-	const TAB_BG := Color("#E8D9BC")
+	const TAB_BG := Color("#F0DCA8")      # warmer honey banner (was #E8D9BC) — sections read as headers, not quiet tags
 	const TAB_RADIUS := 12
 	const TAB_BORDER_W := 2
-	const TAB_EDGE_ALPHA := 0.45          # border = Color(BARK, this)
-	const TAB_PAD_X := 12.0
-	const TAB_PAD_T := 3.0
-	const TAB_PAD_B := 4.0
-	const DIV_CAP_SIZE := 23
-	const DIV_CAP_INK_ALPHA := 0.9        # caption = Color(INK, this)
+	const TAB_EDGE_ALPHA := 0.5           # border = Color(BARK, this)
+	const TAB_PAD_X := 14.0
+	const TAB_PAD_T := 4.0
+	const TAB_PAD_B := 5.0
+	const DIV_CAP_SIZE := 25              # bolder section caption (was 23)
+	const DIV_CAP_INK_ALPHA := 0.95       # caption = Color(INK, this)
 	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
 	const LINE_H := 3                     # ...else a flat rule this tall
 	const LINE_ALPHA := 0.35              # rule = Color(BARK, this)
@@ -363,6 +363,12 @@ class Shop:
 	const HELP_CARD := Vector2(330, 232)
 	const CARD_INNER_SEP := 4             # inner VBox spacing (help + gem cards)
 	const HELP_ICON := 56.0
+	# The product icon is the HERO of a help/featured card: enlarged and seated on a soft honey
+	# disc so it pops off the cream card (the bare 56px glyph read tiny + faint on parchment).
+	const HERO_ICON := 72.0               # the enlarged product icon (was the bare HELP_ICON 56)
+	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
+	const ICON_PLATE_BG := Color("#F4E7CA")  # pale honey — lifts the icon off the #F4E9D6 card
+	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
 	const HELP_TITLE_SIZE := 27
 	const HELP_CAP_SIZE := 20
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
@@ -393,17 +399,28 @@ class Shop:
 	const POP_PAD_Y := 2.0
 	const POP_SIZE := 18
 	const GEM_ICON := 64.0
+	# The cash packs scale their gem cluster by tier so a bigger pack LOOKS bigger (same art, grown
+	# size) — the value ladder reads at a glance instead of six identical clusters. Lerped MIN→MAX
+	# across the pack list; GEM_ICON stays the starter-banner size.
+	const GEM_ICON_MIN := 46.0            # the entry pack's cluster
+	const GEM_ICON_MAX := 82.0            # the whale pack's cluster
 	const GEM_COUNT_SIZE := 40
-	const GEM_PRICE_BG := Color("#5A3F28", 0.94)
-	const GEM_PRICE_RADIUS := 18
-	const GEM_PRICE_BORDER_W := 2
-	const GEM_PRICE_EDGE := Color("#3D2A1B")
-	const GEM_PRICE_PAD_X := 14.0
-	const GEM_PRICE_PAD_T := 5.0
-	const GEM_PRICE_PAD_B := 6.0
-	const GEM_PRICE_SIZE := 26
-	const PRICE_ICON := 28.0              # the coin/gem glyph inside a cost pill (cost = icon + number)
-	const PRICE_ROW_SEP := 5             # gap between that glyph and the number
+	# The BUY capsule — ONE source for every price on a card (help / featured / cosmetic / cash /
+	# starter). White text on leaf-GREEN (Pal.BTN_PRIMARY, the established primary-CTA colour), fully
+	# rounded with a raised shadow, so the price reads as the tappable buy button. The whole card
+	# presses; the pill is its visual CTA. (Replaces the old brown #5A3F28 "mud pebble".)
+	const BUY_RADIUS := 21                # ~capsule for the pill's ≈42px height (radius ≈ h/2)
+	const BUY_BORDER_W := 2
+	const BUY_PAD_X := 16.0
+	const BUY_PAD_T := 6.0
+	const BUY_PAD_B := 7.0
+	const BUY_SIZE := 26                  # price number font
+	const BUY_SHADOW := Color(0, 0, 0, 0.22)
+	const BUY_SHADOW_SIZE := 5
+	const BUY_SHADOW_OFFSET := Vector2(0, 3)
+	const BUY_NEED_MODULATE := Color(0.74, 0.77, 0.72, 0.95)  # can't-afford → dim the PILL only (the card stays bright)
+	const PRICE_ICON := 28.0              # the coin/gem glyph inside the BUY pill (cost = icon + number)
+	const PRICE_ROW_SEP := 6             # gap between that glyph and the number
 
 	# --- starter (welcome) banner ------------------------------------------------------
 	# A WIDE banner (not a narrow pouch) so the two-currency bundle (💎 + 💧) fits on one row
@@ -420,8 +437,30 @@ class Shop:
 	const CARD_SHADOW_SIZE := 4
 	const CARD_SHADOW_OFFSET := Vector2(0, 3)
 
+	# --- urgency + info chrome (red dot · countdown · the "i" badge) --------------------
+	# A red "new / claimable" dot for actionable surfaces (free reroll ready, unclaimed welcome
+	# gift); a small ink countdown chip on the daily-rotating Featured band; and the per-card "i"
+	# info badge (VISUAL placeholder — the detail popup is a parked task, taps still fall through
+	# to buy). Self-contained here; consolidate onto the shared "sticker" badge once it merges.
+	const DOT_SIZE := 18.0                # red claimable dot
+	const DOT_BG := Color("#D75A4E")
+	const DOT_RIM := Color("#FBF3EA")     # cream rim (= CREAM)
+	const DOT_RIM_W := 3
+	const DOT_MARGIN := 6.0               # inset from a card's / button's top-right
+	const CLOCK_BG := Color("#33402F", 0.82)  # ink chip behind the countdown (= INK)
+	const CLOCK_RADIUS := 11
+	const CLOCK_PAD_X := 10.0
+	const CLOCK_PAD_Y := 3.0
+	const CLOCK_SIZE := 17
+	const INFO_SIZE := 24.0               # the per-card "i" info badge disc
+	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
+	const INFO_EDGE := Color("#3E83AD")
+	const INFO_BORDER_W := 2
+	const INFO_FONT := 17
+	const INFO_MARGIN := 7.0
+
 	# --- affordability + purchase feedback ---------------------------------------------
-	const DIM_MODULATE := Color(0.72, 0.73, 0.7, 0.92)   # can't-afford card tint
+	const DIM_MODULATE := Color(0.72, 0.73, 0.7, 0.92)   # legacy: cards no longer whole-dim — see BUY_NEED_MODULATE (the pill dims, the card stays bright)
 	const NEED_OFFSET := Vector2(100, 70)  # "Need N more" floater offset
 	const NEED_SIZE := 28
 	const FLY_ICON := 32.0                # the grant icon that arcs to the wallet
