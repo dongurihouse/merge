@@ -9,6 +9,10 @@ extends RefCounted
 
 const SCHEMA_VERSION := 2
 const COINS_PER_CLEAR_SEED := 35   # migration: coins granted per past board clear
+# A small starting gem balance for a brand-new save, so the premium-currency wallet slot reads
+# alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
+# deliberately small — a taste, not a giveaway. Only fresh saves get it (defaulted, never re-granted).
+const NEW_SAVE_GEMS := 5
 # §5 The Bag — the owned-slot floor/cap. The persistence layer is a pure leaf (no content.gd
 # import — that would be circular), so the band lives here; the game's per-slot 💎 price
 # schedule lives in grove_data and is passed into buy_bag_slot() by the scene.
@@ -28,7 +32,7 @@ static func _default() -> Dictionary:
 	return {
 		"schema_version": SCHEMA_VERSION,
 		"migrated_v2": false,
-		"currencies": {"coins": 0},
+		"currencies": {"coins": 0, "diamonds": NEW_SAVE_GEMS},
 		"jobs": {},                       # job_id -> {best_stars, best_drags, completed, plays, first_clear_paid}
 		"rooms": {},                      # room_id -> {decor: {slot_id: item_id}}
 		"clients": {},                    # client_id -> {lump_paid}

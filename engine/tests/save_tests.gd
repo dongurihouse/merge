@@ -187,6 +187,7 @@ func _initialize() -> void:
 	# 18b. the buy path: spends 💎, +1 slot, refuses when broke or already maxed.
 	fresh("bag_buy")
 	Save.set_bag_slots(6)
+	Save.spend_diamonds(Save.diamonds())      # drain the small new-save seed → start from a known 0
 	Save.add_diamonds(10)
 	ok(Save.buy_bag_slot(10) and Save.bag_slots() == 7 and Save.diamonds() == 0, \
 		"buying a slot spends diamonds and grows the owned count by 1")

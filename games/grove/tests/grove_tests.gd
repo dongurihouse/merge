@@ -698,6 +698,7 @@ func _initialize() -> void:
 		and G.stars_at_level(11) == 126 + G.LEVEL_STARS_TAIL, "stars_at_level inverts the curve")
 	# earn_stars bumps the spendable balance AND the earned clock; a level-up gifts water+gems
 	fresh("earn")
+	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → the gift below is exact
 	var ge := Save.grove()
 	ge["stars_earned"] = 5
 	ge["water"] = 10
@@ -983,8 +984,10 @@ func _initialize() -> void:
 	ok(G.sell_reward(2405) == Vector2i(int(round(5 * float(band[4]))), 0), \
 		"T39: a map-5 t5 (band %.1f) sells for %d🪙 (later map → more coins)" % [float(band[4]), int(round(5 * float(band[4])))])
 
-	# diamonds: accessors + paid rain once the freebies are spent
-	ok(Save.diamonds() == 0, "diamonds default 0")
+	# diamonds: accessors + paid rain once the freebies are spent. A fresh save SEEDS a small
+	# starting balance (so the premium slot never reads a dead 0); drain it to a known 0 first.
+	ok(Save.diamonds() == Save.NEW_SAVE_GEMS, "diamonds default = the small new-save seed")
+	Save.spend_diamonds(Save.diamonds())
 	Save.add_diamonds(30)
 	s5.refills_used = G.FREE_REFILLS
 	s5.water = 0
@@ -1071,6 +1074,7 @@ func _initialize() -> void:
 	# 17. the Shop: diamond packs grant, cash confirm grants directly (no rails yet)
 	fresh("shop")
 	var Shop = load("res://engine/scripts/ui/shop.gd")
+	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → genuinely broke
 	ok(not Shop.buy_coin_pack(), "the coin pack refuses without diamonds")
 	Save.add_diamonds(30)
 	var coins_before := Save.coins()
