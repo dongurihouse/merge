@@ -30,7 +30,8 @@ const GUTTER_SHADE := Color(0.0, 0.0, 0.0, 0.32)   # dim the off-view gutters so
 var _stage: Control          # the game-view region (design 1080×1920), centered in the wider window
 var _bg: TextureRect
 var _backdrop: Control       # static items + fence (context only)
-var _items_layer: Control    # the placed decoration (interactive)
+var _back_layer: Control     # placed decor BEHIND the buildings (trees + clouds), interactive
+var _front_layer: Control    # placed decor IN FRONT of the buildings (grass), interactive
 var _full: TextureRect
 var _bounds: Control         # the two view-edge lines + dimmed gutters (overlay, non-interactive)
 var _line_l: ColorRect
@@ -47,8 +48,9 @@ func _ready() -> void:
 	_fit_tool_window()                 # wider than the game window → side gutters for the controls
 	await get_tree().process_frame     # let the resize settle so the viewport size is final
 	_build_stage()                     # central game-view region; the .tscn Background moves inside it
-	_build_backdrop()
-	_build_items_layer()
+	_back_layer = _make_item_layer("BackItems")    # trees + clouds — BEHIND the buildings (game order)
+	_build_backdrop()                  # the buildings, sandwiched between the back + front decor layers
+	_front_layer = _make_item_layer("FrontItems")  # grass — IN FRONT of the buildings
 	_build_full_overlay()
 	_build_bounds()                    # the two "edge of the player's view" lines + dimmed gutters
 	_build_palette()
@@ -204,12 +206,19 @@ func _build_backdrop() -> void:
 	_backdrop.modulate = Color(1, 1, 1, 0.85)   # slightly faded so placed decor reads clearly on top
 
 
-func _build_items_layer() -> void:
-	_items_layer = Control.new()
-	_items_layer.name = "Items"
-	_items_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_items_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage.add_child(_items_layer)
+# An interactive decor layer filling the stage. Two of these straddle the buildings backdrop so trees
+# render behind the house (matching the game) while grass renders in front.
+func _make_item_layer(nm: String) -> Control:
+	var layer := Control.new()
+	layer.name = nm
+	layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage.add_child(layer)
+	return layer
+
+# Every placed item across both layers — back first, so a flat save preserves each layer's order.
+func _all_items() -> Array:
+	return _back_layer.get_children() + _front_layer.get_children()
 
 
 func _build_full_overlay() -> void:
@@ -278,7 +287,8 @@ func _spawn(art_path: String) -> Control:
 	item.pivot_offset = item.size * 0.5
 	item.mouse_filter = Control.MOUSE_FILTER_STOP
 	item.gui_input.connect(_on_item_input.bind(item))
-	_items_layer.add_child(item)
+	var layer := _front_layer if _layer_of(art_path) == "front" else _back_layer   # grass in front; trees/clouds behind
+	layer.add_child(item)
 	_set_center(item, _bg_size() * 0.5)
 	_select(item)
 	return item
@@ -338,8 +348,9 @@ func _scale_item(item: Control, factor: float) -> void:
 # Raise/lower an item in the draw order (shift+wheel). Child order = draw order in the tool AND the
 # order written on save, so it round-trips to the game's per-layer stacking.
 func _restack(item: Control, dir: int) -> void:
-	var ni := clampi(item.get_index() + dir, 0, _items_layer.get_child_count() - 1)
-	_items_layer.move_child(item, ni)
+	var layer := item.get_parent()                  # restack within the item's own layer (back or front)
+	var ni := clampi(item.get_index() + dir, 0, layer.get_child_count() - 1)
+	layer.move_child(item, ni)
 	_select(item)
 
 func _delete_item(item: Control) -> void:
@@ -394,7 +405,7 @@ func _layer_of(art: String) -> String:
 func _save() -> void:
 	var bg := _bg_size()
 	var placed := []
-	for item in _items_layer.get_children():
+	for item in _all_items():
 		var c := _center_of(item)
 		var art := String(item.get_meta("art"))
 		var nat: Vector2 = item.texture.get_size()
@@ -416,7 +427,7 @@ func _save() -> void:
 
 
 func _load() -> void:
-	for item in _items_layer.get_children():
+	for item in _all_items():
 		item.queue_free()
 	_selected = null
 	var data = _read_json(SAVE_PATH)
