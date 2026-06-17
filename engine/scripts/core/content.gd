@@ -17,6 +17,7 @@ const ROWS = D.ROWS
 const TOP_TIER = D.TOP_TIER
 const LINES = D.LINES
 const GENERATORS = D.GENERATORS
+const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator regardless of appear_level"
 const GEN_CELL = D.GEN_CELL
 const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
@@ -101,18 +102,23 @@ static func next_bag_slot_price(owned: int) -> int:
 # one — old lines retire; "" = granted outright (a map's surplus, or map 0's starters).
 # Generators never merge to evolve (that mechanic is retired). Pure derivation — the
 # live code passes GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
-static func generators_for_map(roster: Array, map: int) -> Array:
+# `level` gates generators that GROW IN later (a def's `appear_level`, default 0 = live at
+# start): a generator whose appear_level exceeds the player's Level is not yet on the map, so
+# it is excluded from placement (live_gen_state) AND from the askable lines (askable_lines) —
+# the two must agree or the fence would ask for a line nothing on the board can produce. The
+# default APPEAR_ALL includes every generator (the many callers that don't care about staging).
+static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
 	for g in roster:
-		if int(g.map) == map:
+		if int(g.map) == map and int(g.get("appear_level", 0)) <= level:
 			out.append(g)
 	return out
 
 ## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
 ## lines have retired, §6). The current map's quests + gate draw only from these.
-static func lines_for_map(roster: Array, map: int) -> Array:
+static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
-	for g in generators_for_map(roster, map):
+	for g in generators_for_map(roster, map, level):
 		for l in g.lines:
 			if not out.has(int(l)):
 				out.append(int(l))
@@ -138,8 +144,8 @@ static func anchor_lines(roster: Array) -> Array:
 ## lines stay EXCLUDED (they retired) — only the anchor is exempt, so its lines remain askable
 ## past their debut map (fixing the dead-anchor bug). At map 0 the anchor is already in the
 ## roster, so the union is a no-op there. Sorted.
-static func askable_lines(roster: Array, map: int) -> Array:
-	var out: Array = lines_for_map(roster, map)
+static func askable_lines(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
+	var out: Array = lines_for_map(roster, map, level)
 	for l in anchor_lines(roster):
 		if not out.has(int(l)):
 			out.append(int(l))
@@ -254,9 +260,9 @@ static func gen_cell_of(roster: Array, id: String) -> Vector2i:
 ## The live generator set for a map: {cell -> id} for each of the map's generators,
 ## hand-in grants inheriting their lineage cell. The interim "grant on map entry" resolver
 ## — §7's grant quests will drive the same end state one hand-in at a time.
-static func live_gen_state(roster: Array, map: int) -> Dictionary:
+static func live_gen_state(roster: Array, map: int, level: int = APPEAR_ALL) -> Dictionary:
 	var out: Dictionary = {}
-	for g in generators_for_map(roster, map):
+	for g in generators_for_map(roster, map, level):
 		out[gen_cell_of(roster, String(g.id))] = String(g.id)
 	return out
 

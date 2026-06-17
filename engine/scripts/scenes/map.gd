@@ -25,6 +25,7 @@ const Ads = preload("res://engine/scripts/core/ads.gd")                      # T
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
+const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # the shared Settings card (gear + board bottom bar)
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
@@ -1592,19 +1593,10 @@ func _build_chrome() -> void:
 	piggy.pressed.connect(_open_vault)
 	add_child(piggy)
 	_chrome_nodes.append(piggy)
-	# the ready-pip — a small gold dot on the button's top-right, shown only when claimable
-	var pip := Panel.new()
-	var pps := StyleBoxFlat.new()
-	pps.bg_color = Color("#E8C84A")
-	pps.set_corner_radius_all(9)
-	pps.set_border_width_all(2)
-	pps.border_color = Color(CREAM, 0.9)
-	pip.add_theme_stylebox_override("panel", pps)
-	pip.custom_minimum_size = Vector2(18, 18)
-	pip.size = Vector2(18, 18)
-	pip.position = Vector2(58, 2)
-	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	piggy.add_child(pip)
+	# the ready-pip — the shared "something new" badge on the button's top-right corner,
+	# shown only when claimable (visibility still driven by _refresh_piggy_pip → Vault.claimable())
+	var pip := Look.badge("dot")
+	Look.attach_badge(piggy, pip)
 	_piggy_pip = pip
 	_refresh_piggy_pip()
 
@@ -1672,48 +1664,7 @@ func _spotlight_overlay_live() -> bool:
 	return false
 
 func _open_settings() -> void:
-	Audio.play("button_tap", -2.0)
-	var overlay := Control.new()
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.6)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(cc)
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	cc.add_child(card)
-	# inner padding so the content clears the parchment's deckled edge (was flush)
-	var pad := MarginContainer.new()
-	pad.add_theme_constant_override("margin_left", 36)
-	pad.add_theme_constant_override("margin_right", 36)
-	pad.add_theme_constant_override("margin_top", 30)
-	pad.add_theme_constant_override("margin_bottom", 30)
-	card.add_child(pad)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 20)
-	pad.add_child(col)
-	col.add_child(_lbl(tr("Settings"), 44, INK))
-	col.add_child(_toggle("music", tr("Music: On"), tr("Music: Off"), true, func() -> void: Music.refresh()))
-	col.add_child(_toggle("sfx", tr("Sounds: On"), tr("Sounds: Off"), true, Callable()))
-	col.add_child(_toggle("calm", tr("Calm mode: On"), tr("Calm mode: Off"), false, Callable()))
-	col.add_child(Look.button(tr("Close"), func() -> void:
-		Audio.play("button_tap", -2.0)
-		overlay.queue_free(), true))
-	FX.pop_in(card)
-
-func _toggle(key: String, on_t: String, off_t: String, def: bool, extra: Callable) -> Button:
-	var b := Look.button(on_t if Save.get_setting(key, def) else off_t, func() -> void: pass, false)
-	b.pressed.connect(func() -> void:
-		Save.set_setting(key, not Save.get_setting(key, def))
-		if extra.is_valid():
-			extra.call()
-		Audio.play("button_tap", -2.0)
-		b.text = on_t if Save.get_setting(key, def) else off_t)
-	return b
+	SettingsUI.open(self)               # the shared card (music/sounds/calm) — also on the board's bottom bar
 
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)

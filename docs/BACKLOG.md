@@ -160,6 +160,118 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 - **Task strip — a short-term goal + reward loop wired to the next spot.** A reference (Juice) shows "Task 1/4 → chest"; we have the place-restore goal ("31 left") but **no chrome task loop with a reward**. **Build:** a slim cozy strip above the "Tend the garden" CTA — "Today's task ✿ N/M → 🎁" — chained off the existing restore-the-next-spot goal so the cozy spine *is* the task loop (not a bolted-on quest). Reward = small acorn/water/gem grant. **Acceptance:** the strip reflects real spot/quest progress and pays out on completion; it never blocks play. *(Lower priority than the funnel + polish; pairs with the §17 live-ops/events framework above.)*
 
+## Open — board & quest visual/UX polish (owner review 2026-06-16)
+
+A board+quest readability/feel pass from the owner's review against two reference merge games — the
+board reads as a debug grid (ugly brambles + per-cell "Lv N" text, givers blending into the fence, a
+flat fence↔board seam, ad-hoc badges, an under-used bottom). **Scope = the board + quest surfaces only.**
+The **currency pills, Store, HUD top bar, red-dot/count badges, and LiveOps/bottom-map chrome are the
+sibling *"HUD, currencies & button chrome"* section above** ("coin pills are worked on separately") — out
+of scope here; where a shared primitive is needed (the "sticker" badge), reuse the one being built there.
+**Coordinate before pickup — overlapping work is IN FLIGHT (uncommitted worktrees):** `board-polish`
+already reworks the **board background** (a raised wooden planter + tilled-soil bed), the **fence↔board
+joint** (the planter rim replaces the "glass-bar" margin; drifting clouds in the sky band), and adds a
+**parchment sign-board plaque** behind each giver; `agent-a7a4921469ea92722` (`skin.gd`/`tuning.gd`) is
+building the shared two-tone **"sticker" badge recipe** (`_RimOverlay`, `Tune.UiSkin.RIM_LIGHT`) that
+items 1/4/5 should consume. Each item notes the overlap.
+
+- **1 · Brambles + the Lv gate badge — kill the debug-grid look (NOT in board-polish).** *Problem:* the
+  level-gated obstacle tiles are ugly and the white "Lv N" text is hard to read on them; the **frontier
+  cells (Lv1/2/3) fall back to a flat panel** because `ring := mini(lvl/2 - 1, 3)` yields `-1/0/0` and only
+  `bramble_{1,2,3}.png` exist; and "Lv N" is stamped on **all ~30 locked cells** (text-heavy, against
+  no-required-reading). *Direction:* either a **simple, calm obstacle treatment** OR drop the bramble
+  texture on the near cells for a **nicely styled "Lv" badge** (reuse the sticker recipe, item 5 —
+  high-contrast cream-on-bark). Fix the ring so every gate maps into `bramble_1..3` (e.g.
+  `clampi(lvl/4 + 1, 1, 3)`). Cut text load: show the Lv badge only on the **next-openable frontier** (or
+  on tap), a small lock glyph elsewhere. *Refs:* `engine/scripts/ui/piece_view.gd:233` `make_bramble`
+  (ring + the `Lv%d` badge at :267–293); assets `games/grove/assets/ui/bramble_{1,2,3}.png` (no `bramble_0`).
+
+- **2 · Quest row — givers sit into the fence (board-polish IN FLIGHT — extend, don't duplicate).**
+  *Problem:* the frameless chest-up giver cutouts blend into the painted fence; the row doesn't read as
+  distinct quest cards. *Direction:* a **bordered / high-contrast plaque or sign-board behind each giver**
+  so it pops off the rail and "falls right on the background." **board-polish already adds a parchment
+  wooden sign-board** (`giver_stand.gd`, the `plaque` Panel) — review and tune its contrast/border/shadow
+  so the bust + ask read clearly on the fence; add more only if needed. *Refs:*
+  `engine/scripts/ui/giver_stand.gd:30` `make()` (board-polish plaque); `engine/scripts/scenes/board.gd:761`
+  the fence wall.
+
+- **3 · Fence↔board joint / transition (board-polish IN FLIGHT — extend).** *Problem:* the seam between
+  the quest row/fence and the board reads as a flat "glass bar"; no nice transition. *Direction:* a
+  deliberate transition — a painted **joint strip** (a ledge / hedgerow) and/or **FX** (soft shadow
+  gradient, sky-band clouds). **board-polish already replaces the glass-bar margin with the raised-planter
+  rim and adds drifting clouds** — review whether the seam now reads well; add an explicit painted joint
+  only if the rim alone is thin. *Refs:* `piece_view.gd:166` `make_board_mat` (board-polish planter);
+  `board.gd:146` clouds (board-polish); `board.gd:761` fence.
+
+- **4 · Quest ask internals — star/item/progress layout + a "satisfied" state (NOT in board-polish).**
+  *Problem:* within a giver the **star reward, asked-item icon(s), and the `n/m` progress aren't
+  well-placed/sized** relative to the bust, and there's **no clear visual for an ask already satisfied**
+  (enough of it is on the board). *Direction:* define the ask layout — star reward position/size, item-icon
+  size, and the progress as a **count badge ON the item** (the sticker badge, item 5 — not a detached
+  `%d/%d`) relative to the bust/plaque; add a per-ask **satisfied state** (a green check on the item /
+  desaturate the met ask) so a glance reads "this one's ready." Drive it from the deliverable test that
+  already computes `have >= need`. *Refs:* `giver_stand.gd:79–119` (ask icon + prog + `+N★` + featured
+  ribbon); `board.gd:959` `_refresh_giver_lights` (per-ask `have>=need` → the ✓ source).
+
+- **5 · One consistent badge — reuse the shared sticker recipe on board+quest (DEPENDS on the HUD lane).**
+  *Problem:* badges/counts across board+quest (Lv gate, ask `n/m`, star reward, featured) are styled
+  ad-hoc. *Direction:* the board/quest badges should reuse the **same** badge component the sibling HUD lane
+  is building — the two-tone die-cut "sticker" (`skin.gd` `_RimOverlay`) and the shared count/red-dot badge
+  — for the Lv gate badge (item 1), the ask count (item 4), the star reward, etc. **This item is the
+  board+quest *consumer* of that primitive; coordinate with the HUD "Button & panel POLISH" + "Badge
+  system" items, don't re-implement.** *Refs:* `engine/scripts/ui/skin.gd` `_RimOverlay` (agent worktree);
+  `Tune.UiSkin.RIM_LIGHT`/`RADIUS_CARD` in `engine/scripts/core/tuning.gd`.
+
+- **6 · Board background colour — comfortable + calm (board-polish IN FLIGHT — colour sign-off).**
+  *Problem:* the board has no real background; it's simpler and looks good, but wants a nice, comfortable
+  colour. *Direction:* pick a **calm, comfortable** board surface. **board-polish replaces the see-through
+  mat with a warm wooden planter + tilled-soil bed** (`#86603A` wood / `#5E4828` soil) — this item is
+  largely a **colour/feel sign-off** on that; soften if it reads too dark/heavy. *Refs:* `piece_view.gd:166`
+  `make_board_mat` (board-polish planter colours).
+
+- **7 · Cell border — soft + tight (cells already bordered — a tune).** *Problem:* each cell should have a
+  **nice soft border, little margin/padding**; spacing tight and consistent. *Direction:* keep but soften
+  the per-cell border (today radius 16, 2 px, `GROUND_EDGE@50%`), make **both slot-creation paths match**,
+  and **reduce `GAP`/`BOARD_MARGIN`** so cells sit tight. *Refs:* `board.gd:1029` and `board.gd:1460` slot
+  `StyleBoxFlat` (bg `GROUND@0.38`, radius 16, 2 px `GROUND_EDGE@0.5`); `board.gd:41` `GAP := 10.0`, `:42`
+  `BOARD_MARGIN := 12.0`.
+
+- **8 · Shading as an affordance — show what's clickable/important.** *Problem:* nothing uses shading to
+  signal interactivity/importance; everything reads at one level. *Direction:* use **shading/dimming** as
+  the affordance — shade the inert/locked/satisfied, leave the **clickable/important UN-shaded (or
+  brighter)**: dim a satisfied or locked element, keep the generator / deliverable bright. Extend the
+  existing modulate-based dim systems. *Refs:* `board.gd:993` `_refresh_giver_lights`,
+  `_refresh_generator_dim` (existing modulate dimming to build on).
+
+- **9 · Board bottom bar — use the empty space (CONFIRM-FIRST; the BOARD scene, not the map chrome).**
+  *Problem:* the bottom is under-used; the owner asked to confirm before designing. *Confirmed:* on the
+  **board scene** the bottom holds only a **bottom-LEFT `[◀ Home][🛒]`** cluster; **bottom-center and
+  bottom-right are empty**, and **no in-flight change moves a primary button there** (the sibling HUD lane
+  reworks the **map scene** `_build_chrome`, a different scene). *Direction:* decide what useful element
+  fills the board's empty bottom — per §13 HUD law the **primary CTA belongs bottom-center** (e.g. a
+  contextual "tap to grow / deliver / restore-ready" prompt). *Refs:* `board.gd:249–300` `bottom_bar`
+  (Home+Shop, bottom-left); `docs/design/merge_spec.md` §13 ("primary CTA stays bottom-center").
+
+*(Surfaced 2026-06-16 — owner board+quest review vs two reference merge games.)*
+
+## Open — Shop screen (storefront UX + buy funnel)
+
+*Surfaced 2026-06-16 — Shop-screen design review against two reference cozy/merge shops (a cream "cat" shop with Backpack + Store tabs; a saturated blue match-3 Store). Verdict: our cottagecore identity (squirrel-merchant sign, parchment, vine dividers — keep all of it) is a real asset, but the screen **doesn't read as a shop**: nothing looks tappable and half the cards look disabled. Borrow the references' **button clarity, art scale, contrast, and scarcity cues — not their candy style.** All shop UI is `engine/scripts/ui/shop.gd`; look/feel dials in `engine/scripts/core/tuning.gd` → `class Shop`. Build the **card-affordance fix (greying + buy button) FIRST** — it's the difference between "broken" and "shop"; everything else is polish on top. Verify every visual with a composite/zoom capture on a fresh save (gem = 0) AND a flush save (so the dim/afford states are both seen) — never eyeball.*
+
+- **Card affordances — de-grey the cards + give every card a real BUY button (THE fix).** *Problem:* (1) `_apply_afford` (`shop.gd:789`) desaturates the **whole card** to `Tune.DIM_MODULATE` (`tuning.gd:424`) when the player can't afford it — on a fresh save (dewdrop/gem = 0) that greys out Fill-water, Coin-pouch, Honey, and the watch-offers button at once, so the storefront reads **disabled / sold-out**. (2) The price is `_price_pill` (`shop.gd:699`) — a **brown pebble** (`GEM_PRICE_BG #5A3F28`, cream text) embedded mid-card with no button affordance; nothing signals "tap to buy." Both references make the price *itself* a bright CTA the eye lands on. *Solution:* (a) **Stop desaturating affordable-cards-only** — keep the card cream + bright always; show un-affordability only on the price chip (a softer "you need more" state) and route an un-affordable tap to the currency `+` / Store ("get more gems") instead of a dead wallet-wiggle. Acceptance: a fresh-save shop has **zero grey cards**. (b) **Turn `_price_pill` into a green BUY capsule** — saturated cozy green fill, **white text** (per the user ask "white text on green"), fully rounded (radius = height/2), a raised shadow + thin light inner rim so it floats as a sticker; currency glyph + amount inside. New dials `Shop.BUY_BG / BUY_EDGE / BUY_TEXT / BUY_SHADOW`. This is the single highest-leverage change. *(References: cat shop's green `🪙130` / `Free` pills; candy shop's green `💎10` buttons — the price is always the brightest thing on the card.)*
+
+- **Item art is the hero — enlarge it + give it a plate, and commission cleaner icons.** *Problem:* help-card icons are `Look.icon(id, HELP_ICON=56)` (`shop.gd:463`) floating tiny + faint at the card top with two lines of text below; the water-can / acorn-pouch / honey / garden-tools glyphs are thin and low-contrast against cream. References fill ~50–60% of the card with large, appetizing product art. *Solution:* (a) blow the art up to dominate the card's top half; demote title/caption to a single tight line. (b) Drop a **soft tinted disc/plate** behind each icon (a pale honey or sage circle) so the glyph pops off the parchment — new dial `Shop.ICON_PLATE_*`. (c) Commission **cleaner kit icons** (water can, acorn pouch, honey jar, garden tools, mushroom) via the §16 pipeline — the user ask "better looking icons"; the featured cards already use real `PieceView.make_piece` previews (`shop.gd:498`) and look better, so match that fidelity. *(Reference: candy shop's chunky treasure-chest / scissors / compass icons read instantly at a glance.)*
+
+- **Section structure — tabs OR bolder banners (the groups blur together).** *Problem:* `_divider` (`shop.gd:405`) renders a small tan tab + vine per group ("Quick help / Featured / Welcome gift / Dewdrop pouches"); the captions (`DIV_CAP_SIZE=23`) are too quiet to separate the groups, so the screen reads as one long scroll. *Solution:* the user ask "clear section between groups or use tabs" — two routes: **(A) Tabs** (preferred if the list keeps growing) — a top tab bar splitting **Items** (consumables + featured skips) from **Specials & Gems** (welcome gift + IAP pouches), like the cat shop's `Item / Special Offer`. **(B) Bolder banners** — keep the one-scroll but make each `_divider` a real header (bigger caption, a warm filled banner, the vine flowing off its right edge), like the candy shop's yellow `Nice Boost` / `Diamonds` bars. Keep the leafy vine either way — it's our signature. *(References: cat shop = tabs; candy shop = bold yellow section banners.)*
+
+- **Scarcity & urgency — red dots + countdown timers on limited/claimable items.** *Problem:* every section sits at the same flat energy; nothing pulls the eye to what's claimable or expiring. *Solution:* the user asks "red dot where applicable for urgency" + "show time left on limited items." (a) **Red dot** — reuse the shared badge component (see the *Badge system* item in the HUD/chrome section, and the existing `_badge` `shop.gd:676`, today a yellow `STRAW` pill) for: the **free reroll** when a watch-offer is ready (`Ads`/reroll), an **unclaimed Welcome/starter** gift, and any **daily free** card. (b) **Countdown clock chip** — a small `🕐 19h13m` chip on rotating / limited offers, driven off the existing rotation (`rotation_seed` `shop.gd:175`, `rotation_offers` `:181`) so the chip shows real time-to-refresh; add a **stock badge** (`5 Left`) to limited offers for the same scarcity beat. *(References: cat shop's `⏱19h13m` / `1h13m` headers + `1 Left` / `5 Left` blue stock badges; candy shop's `Refreshes in: 4h 58m`.)*
+
+- **IAP pouches — scale the art by tier + crown the best value + fix the copy.** *Problem:* `_gem_card` (`shop.gd:594`) renders the **same dewdrop cluster** on all six pouches with only the number changing, so "more value" isn't *visible*; the `2ⁿᵈ first buy` badge copy is contradictory (it's the `FIRST_BUY_MULT` 2× first-purchase bonus). *Solution:* (a) grow the dewdrop-cluster art per pack tier (tiny pair → big pile) so bigger packs *look* bigger; (b) a **"Popular" / "Best value" starburst** on the top pack (reuse `_badge` / the starburst look); (c) reword the bonus to **"2× on first purchase"**. (d) Make the **Welcome gift** (`_starter_card` `shop.gd:636`) a proper **hero card** — wider, a ribbon, the bundle contents shown as a little stack, a "Best Deal" flag — it's the best offer and currently looks like a plain row. *(Reference: candy shop's `Diamonds` grid grows the gem pile per tier + `Popular` starburst.)*
+
+- **Close button — make it an unmistakable control.** *Problem:* the top-right close reads as a decorative compass/diamond corner ornament half-off the frame, not a button. *Solution:* a clear **red circular X**, fully on-panel, matching both references' close affordance and our round-chrome button language (see the button-polish item). Anchor: the close built in `Shop.open` (`shop.gd:210`).
+
+- **Shop item info — the "i" badge popup (PARKED · visual-only now, hookup later).** *Problem:* both references put a small circular **"i" badge top-right of every card** that opens an item-detail sheet (what it is / does / where it's used); we have none. *Solution (this item, parked):* the popup itself — a detail sheet (item name, effect, tier preview, source) — is **its own task, not wired now**, per the owner ask. ⚠️ **Build note for whoever picks it up:** the whole card surface currently presses to **buy** (`_card_button` `shop.gd:766` → `_try_buy`), so the "i" must be a **separate hit target stacked above** the buy press (own `mouse_filter` + z-order) that opens the sheet **without** triggering a purchase. *(A separate, smaller item: dropping the static "i" glyph onto each card — purely visual, no popup — can ship with the card-art pass above; this parked item is the live detail sheet behind it.)* *(Surfaced 2026-06-16 — Shop review; owner parked the info hookup separately.)*
+
 ## Parked — per-map generators: art + tuning (the remaining tail of T17–T20)
 
 - **Economy tuning + pacing sign-off (§3 · §7 · sim) — owner feel call.** The §7 economy is sim-green

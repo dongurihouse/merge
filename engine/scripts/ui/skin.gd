@@ -91,6 +91,56 @@ const ICON_GLYPHS := {
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
+## --- the sticker recipe --------------------------------------------------------------
+## A StyleBoxFlat has exactly ONE border colour, so the two-tone rim (a darker OUTER
+## edge + a lighter INNER highlight) can't live in a single box. We keep the dark outer
+## edge on the box itself and add the light inner rim as a sibling/child OVERLAY: a
+## borderless Control that draws ONLY a rounded light stroke, inset by the outer border
+## width so it sits just inside it. This reads as a crisp die-cut sticker on any bg, and
+## — being mouse-ignored and self-sizing (full-rect) — it costs the caller nothing.
+class _RimOverlay extends Control:
+	var radius: float = Tune.RADIUS_CARD
+	var inset: float = 0.0           # push the rim inward (past the outer border)
+	var rim_color: Color = Tune.RIM_LIGHT
+	var rim_w: float = float(Tune.RIM_LIGHT_W)
+	func _ready() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		resized.connect(queue_redraw)
+	# Godot has no rounded-rect OUTLINE primitive, so we stroke a rounded path
+	# (4 quarter-arcs + the 4 straight sides) just inside the host's outer border.
+	func _draw() -> void:
+		var pad := inset + rim_w / 2.0
+		var rect := Rect2(Vector2(pad, pad), size - Vector2(pad, pad) * 2.0)
+		if rect.size.x <= 0 or rect.size.y <= 0:
+			return
+		var rr: float = clampf(radius - inset, 1.0, minf(rect.size.x, rect.size.y) / 2.0)
+		var pts := PackedVector2Array()
+		var seg := 5
+		var corners := [
+			[Vector2(rect.position.x + rr, rect.position.y + rr), PI, PI * 1.5],      # top-left
+			[Vector2(rect.end.x - rr, rect.position.y + rr), PI * 1.5, TAU],          # top-right
+			[Vector2(rect.end.x - rr, rect.end.y - rr), 0.0, PI * 0.5],               # bottom-right
+			[Vector2(rect.position.x + rr, rect.end.y - rr), PI * 0.5, PI],           # bottom-left
+		]
+		for corner in corners:
+			var ctr: Vector2 = corner[0]
+			var a0: float = corner[1]
+			var a1: float = corner[2]
+			for i in range(seg + 1):
+				var a: float = lerpf(a0, a1, float(i) / float(seg))
+				pts.append(ctr + Vector2(cos(a), sin(a)) * rr)
+		pts.append(pts[0])
+		draw_polyline(pts, rim_color, rim_w, true)
+
+## Build the light inner-rim overlay sized to a host. `radius` = the host's OUTER corner
+## radius; `outer_w` = the host's outer border width (the rim sits just inside it).
+static func rim_overlay(radius: float, outer_w: float = 0.0) -> Control:
+	var o := _RimOverlay.new()
+	o.radius = float(radius)
+	o.inset = outer_w
+	return o
+
 ## The three surfaces: plank (ground band) · parchment (card) · chip.
 static func kit_panel(kind: String) -> StyleBox:
 	var p := kit("panel_%s.png" % kind)
@@ -115,39 +165,52 @@ static func kit_panel(kind: String) -> StyleBox:
 				sbt.content_margin_top = Tune.PARCH_PAD_T
 				sbt.content_margin_bottom = Tune.PARCH_PAD_B
 		return sbt
+	# Flat fallbacks adopt the sticker recipe: unified radius (rectangles → RADIUS_CARD,
+	# chips → RADIUS_CHIP) + a resting drop shadow so each surface lifts off the bg even
+	# without the nine-patch art. (The two-tone light inner rim is added by code-built
+	# WIDGETS via rim_overlay — a bare StyleBox can't host the second border colour.)
 	var sb := StyleBoxFlat.new()
 	match kind:
 		"plank":
 			sb.bg_color = Color(Pal.PLANK, Tune.PLANK_ALPHA)
-			sb.set_corner_radius_all(Tune.PLANK_RADIUS)
+			sb.set_corner_radius_all(Tune.RADIUS_CARD)
 			sb.set_border_width_all(Tune.PLANK_BORDER_W)
 			sb.border_color = Pal.PLANK_EDGE
+			sb.shadow_color = Tune.SHADOW_RESTING
+			sb.shadow_size = Tune.SHADOW_RESTING_SIZE
+			sb.shadow_offset = Tune.SHADOW_RESTING_OFFSET
 			sb.content_margin_left = Tune.PLANK_PAD_X
 			sb.content_margin_right = Tune.PLANK_PAD_X
 			sb.content_margin_top = Tune.PLANK_PAD_Y
 			sb.content_margin_bottom = Tune.PLANK_PAD_Y
 		"chip":
 			sb.bg_color = Color(Pal.INK, Tune.CHIP_ALPHA)
-			sb.set_corner_radius_all(Tune.CHIP_RADIUS)
+			sb.set_corner_radius_all(Tune.RADIUS_CHIP)
+			sb.shadow_color = Tune.SHADOW_RESTING
+			sb.shadow_size = Tune.SHADOW_RESTING_SIZE
+			sb.shadow_offset = Tune.SHADOW_RESTING_OFFSET
 			sb.content_margin_left = Tune.CHIP_PAD_X
 			sb.content_margin_right = Tune.CHIP_PAD_X
 			sb.content_margin_top = Tune.CHIP_PAD_Y
 			sb.content_margin_bottom = Tune.CHIP_PAD_Y
-		_:                                       # parchment
+		_:                                       # parchment — a raised card surface
 			sb.bg_color = Pal.CREAM
-			sb.set_corner_radius_all(Tune.PARCH_RADIUS)
+			sb.set_corner_radius_all(Tune.RADIUS_CARD)
 			sb.set_border_width_all(Tune.PARCH_BORDER_W)
 			sb.border_color = Pal.BARK
-			sb.shadow_color = Tune.PARCH_SHADOW
-			sb.shadow_size = Tune.PARCH_SHADOW_SIZE
-			sb.shadow_offset = Tune.PARCH_SHADOW_OFFSET
+			sb.shadow_color = Tune.SHADOW_RAISED
+			sb.shadow_size = Tune.SHADOW_RAISED_SIZE
+			sb.shadow_offset = Tune.SHADOW_RAISED_OFFSET
 			sb.content_margin_left = Tune.PARCH_PAD_X
 			sb.content_margin_right = Tune.PARCH_PAD_X
 			sb.content_margin_top = Tune.PARCH_PAD_T
 			sb.content_margin_bottom = Tune.PARCH_PAD_B
 	return sb
 
-## One icon: kit sprite when generated, else today's glyph in a Label.
+## One icon: kit sprite when generated, else today's glyph in a Label. BOTH paths
+## occupy the SAME px×px box and center their mark inside it, so an icon lines up
+## consistently next to a number (the glyph font's own ascent/descent no longer
+## nudges it off-center vs a sprite — the box + center alignment normalize it).
 static func icon(id: String, px: float = Tune.ICON_PX) -> Control:
 	var p := kit("icon_%s.png" % id)
 	if ResourceLoader.exists(p):
@@ -162,6 +225,8 @@ static func icon(id: String, px: float = Tune.ICON_PX) -> Control:
 	l.text = String(ICON_GLYPHS.get(id, "?"))
 	l.add_theme_font_size_override("font_size", int(px))
 	l.add_theme_color_override("font_color", ICON_TINTS.get(id, Pal.CREAM))
+	l.custom_minimum_size = Vector2(px, px)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
@@ -172,14 +237,18 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 	panel.add_theme_stylebox_override("panel", kit_panel("chip"))
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
 	var ic := icon(icon_id, Tune.ICON_PX)
+	# the icon's box is vertically centered against the number's line box
+	(ic as Control).size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(ic)
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.add_theme_font_size_override("font_size", Tune.STAT_NUM_SIZE)
 	lbl.add_theme_color_override("font_color", Pal.CREAM)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
 	return {"node": panel, "label": lbl, "icon": ic}
 
@@ -256,24 +325,151 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 		b.add_theme_color_override("font_hover_color", Pal.INK)
 	s.set_corner_radius_all(Tune.BTN_RADIUS)
 	s.set_border_width_all(Tune.BTN_BORDER_W)
-	s.shadow_color = Tune.BTN_SHADOW
-	s.shadow_size = Tune.BTN_SHADOW_SIZE
-	s.shadow_offset = Tune.BTN_SHADOW_OFFSET
+	# Sticker shadow tier: a primary CTA FLOATS (raised); a secondary RESTS.
+	if primary:
+		s.shadow_color = Tune.SHADOW_RAISED
+		s.shadow_size = Tune.SHADOW_RAISED_SIZE
+		s.shadow_offset = Tune.SHADOW_RAISED_OFFSET
+	else:
+		s.shadow_color = Tune.SHADOW_RESTING
+		s.shadow_size = Tune.SHADOW_RESTING_SIZE
+		s.shadow_offset = Tune.SHADOW_RESTING_OFFSET
 	s.content_margin_left = Tune.BTN_PAD_X
 	s.content_margin_right = Tune.BTN_PAD_X
 	s.content_margin_top = Tune.BTN_PAD_T
 	s.content_margin_bottom = Tune.BTN_PAD_B
 	b.add_theme_stylebox_override("normal", s)
 	b.add_theme_stylebox_override("hover", s)
+	# Pressed: darken (existing juice) AND settle the shadow down to the resting tier —
+	# a raised button drops toward the surface, a resting one stays low.
 	var sp := s.duplicate()
 	sp.bg_color = s.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
+	sp.shadow_color = Tune.SHADOW_RESTING
 	sp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
 	sp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
 	b.add_theme_stylebox_override("pressed", sp)
+	# the LIGHT inner rim — a sibling overlay inset past the dark outer border, so the
+	# button reads as a crisp two-tone sticker on any bg (the StyleBox owns only one
+	# border colour; this adds the second). Mouse-ignored; full-rect via _RimOverlay.
+	b.add_child(rim_overlay(Tune.BTN_RADIUS, Tune.BTN_BORDER_W))
 	b.alignment = HORIZONTAL_ALIGNMENT_CENTER   # S6: label centered in the pill
 	add_press_juice(b)
 	b.pressed.connect(func() -> void:
 		if tap.is_valid():
 			tap.call()
 		cb.call())
+	return b
+
+## A circular chrome button with the sticker recipe — light inner rim + RAISED shadow +
+## a fully-circular radius + a centred icon. Prefers the kit's btn_round.png nine-patch
+## (no flat chrome then — the art carries it); falls back to a code-built INK disc.
+## opts: { "px": float (diameter), "icon_px": float, "bg": Color, "tap": Callable }.
+## A LATER wave adopts this in map.gd's chrome — it is NOT wired there yet (per task).
+static func round_button(icon_id: String, cb: Callable, opts: Dictionary = {}) -> Button:
+	var px: float = float(opts.get("px", Tune.ROUND_BTN_PX))
+	var icon_px: float = float(opts.get("icon_px", Tune.ROUND_BTN_ICON_PX))
+	var tap: Callable = opts.get("tap", Callable())
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	var p := kit("btn_round.png")
+	if ResourceLoader.exists(p):
+		var st := StyleBoxTexture.new()
+		st.texture = load(p)
+		st.set_texture_margin_all(Tune.KIT_TEX_MARGIN / 4.0)   # 512 source vs ~76px button
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", st)
+		b.add_theme_stylebox_override("pressed", st)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = opts.get("bg", Tune.ROUND_BTN_BG)
+		s.set_corner_radius_all(int(px / 2.0))             # circular
+		s.set_border_width_all(Tune.ROUND_BTN_BORDER_W)
+		s.border_color = Color(Pal.PILL_EDGE, Tune.BTN_EDGE_ALPHA)
+		s.shadow_color = Tune.SHADOW_RAISED                # round chrome buttons FLOAT
+		s.shadow_size = Tune.SHADOW_RAISED_SIZE
+		s.shadow_offset = Tune.SHADOW_RAISED_OFFSET
+		b.add_theme_stylebox_override("normal", s)
+		b.add_theme_stylebox_override("hover", s)
+		var sp := s.duplicate()
+		sp.bg_color = s.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
+		sp.shadow_color = Tune.SHADOW_RESTING              # pressed → settle toward surface
+		sp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
+		sp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
+		b.add_theme_stylebox_override("pressed", sp)
+		# the circular light inner rim (radius = px/2)
+		b.add_child(rim_overlay(px / 2.0, Tune.ROUND_BTN_BORDER_W))
+	# the icon, centred full-rect over the disc
+	var ic := icon(icon_id, icon_px)
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if ic is Label:
+		(ic as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		(ic as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	b.add_child(ic)
+	add_press_juice(b)
+	b.pressed.connect(func() -> void:
+		if tap.is_valid():
+			tap.call()
+		cb.call())
+	return b
+
+## --- badges ---------------------------------------------------------------------------
+## A small alert mark for "something new" / a count. kind:
+##   "dot"  → a bare red dot with a cream/white rim (no number)
+##   "pill" → a red pill carrying `count` (clamped 1+, shows "99+" past 99)
+## Always MOUSE_FILTER_IGNORE. Position it via attach_badge (top-right overhang) or by
+## hand. Returns a Control (the badge root).
+static func badge(kind: String = "dot", count: int = 0) -> Control:
+	if kind == "pill":
+		var pill := PanelContainer.new()
+		pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var s := StyleBoxFlat.new()
+		s.bg_color = Tune.BADGE_COLOR
+		s.set_corner_radius_all(int(Tune.BADGE_PILL_H / 2.0))
+		s.set_border_width_all(Tune.BADGE_RIM_W)
+		s.border_color = Tune.BADGE_RIM
+		s.content_margin_left = Tune.BADGE_PILL_PAD_X
+		s.content_margin_right = Tune.BADGE_PILL_PAD_X
+		s.content_margin_top = 1.0
+		s.content_margin_bottom = 1.0
+		pill.add_theme_stylebox_override("panel", s)
+		pill.custom_minimum_size = Vector2(Tune.BADGE_PILL_H, Tune.BADGE_PILL_H)  # min = a circle
+		var l := Label.new()
+		l.text = ("99+" if count > 99 else str(maxi(count, 1)))
+		l.add_theme_font_size_override("font_size", Tune.BADGE_NUM_SIZE)
+		l.add_theme_color_override("font_color", Color.WHITE)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pill.add_child(l)
+		return pill
+	# "dot" — a bare rimmed disc
+	var dot := Panel.new()
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Tune.BADGE_COLOR
+	ds.set_corner_radius_all(int(Tune.BADGE_DOT_PX / 2.0))
+	ds.set_border_width_all(Tune.BADGE_RIM_W)
+	ds.border_color = Tune.BADGE_RIM
+	dot.add_theme_stylebox_override("panel", ds)
+	dot.custom_minimum_size = Vector2(Tune.BADGE_DOT_PX, Tune.BADGE_DOT_PX)
+	dot.size = Vector2(Tune.BADGE_DOT_PX, Tune.BADGE_DOT_PX)
+	return dot
+
+## Pin a badge to the top-right CORNER of `host`, overhanging the edge (the badge pokes
+## slightly past the corner — the universal "new" placement). The badge is a child of
+## host and anchored to its top-right; MOUSE_FILTER_IGNORE keeps the single-input-surface
+## rule intact. Returns the badge so the caller can toggle `.visible`.
+static func attach_badge(host: Control, b: Control) -> Control:
+	host.add_child(b)
+	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)   # all offsets now relative to host top-right
+	var sz := b.custom_minimum_size
+	if sz == Vector2.ZERO:
+		sz = b.size
+	# OVERHANG = how far the badge's right/top poke PAST host's corner (positive = outside).
+	var over := Tune.BADGE_OVERHANG
+	b.offset_right = over.x                           # right edge: +over.x past host right
+	b.offset_left = b.offset_right - sz.x
+	b.offset_top = -over.y                            # top edge: over.y above host top
+	b.offset_bottom = b.offset_top + sz.y
 	return b

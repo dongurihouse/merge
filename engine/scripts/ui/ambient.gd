@@ -131,6 +131,76 @@ static func winback_active() -> bool:
 		return false
 	return Time.get_unix_time_from_system() < float(Save.grove().get("winback_until", 0.0))
 
+# --- clouds (the sky band) ----------------------------------------------------------
+## A few soft clouds drift slowly across the top "sky" band (behind the fence + HUD),
+## giving the scene depth + gentle life so the backdrop never reads as a flat field.
+## Stateless like the wandering layer: each cloud's x derives from wall-clock time, so
+## the layer can be freed/re-inserted at any moment. Mouse-ignored; ≤3 sprites.
+static func build_clouds(view: Vector2) -> Control:
+	var layer := Control.new()
+	layer.name = "CloudLayer"
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.size = view
+	if not Features.on("ambient_clouds"):
+		return layer
+	var tex := _cloud_tex()
+	if tex == null:
+		return layer                          # no art → no clouds (the layer keeps the node contract)
+	var aspect := float(tex.get_height()) / float(tex.get_width())
+	# y-frac (kept in the top sky band, clear of the grid), on-screen WIDTH px, alpha, px/sec, flip
+	var specs := [
+		[0.035, 250.0, 0.55, 7.0, false],
+		[0.100, 165.0, 0.42, 11.0, true],
+		[0.155, 300.0, 0.30, 4.5, false],
+	]
+	var clouds: Array = []
+	for s in specs:
+		var c := TextureRect.new()
+		c.texture = tex
+		var w := float(s[1])
+		var h := w * aspect
+		c.custom_minimum_size = Vector2(w, h)
+		c.size = Vector2(w, h)
+		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.stretch_mode = TextureRect.STRETCH_SCALE
+		c.flip_h = bool(s[4])
+		c.modulate = Color(1, 1, 1, float(s[2]))
+		c.position.y = view.y * float(s[0])
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(c)
+		clouds.append({"node": c, "w": w, "speed": float(s[3])})
+	layer.set_meta("clouds", clouds)
+	_update_clouds(layer, view)
+	var tw := layer.create_tween().set_loops()
+	tw.tween_method(func(_t: float) -> void: _update_clouds(layer, view), 0.0, 1.0, 1.0)
+	return layer
+
+static func _update_clouds(layer: Control, view: Vector2) -> void:
+	if layer == null or not is_instance_valid(layer) or layer.get_meta("paused", false):
+		return
+	var t := Time.get_unix_time_from_system()
+	for cd in layer.get_meta("clouds", []):
+		var c: Control = cd["node"]
+		if not is_instance_valid(c):
+			continue
+		var span: float = view.x + float(cd["w"])
+		c.position.x = fmod(t * float(cd["speed"]), span) - float(cd["w"])   # off-left → off-right, wrapping
+
+# cloud.png is a 1086×1448 cluster (several puffs + lots of empty space); crop a single
+# clean puff so each drifting sprite reads as one cloud, not a sparse far-flung group.
+static var _cloud: Texture2D
+static func _cloud_tex() -> Texture2D:
+	if _cloud == null:
+		var path := Game.art("ui/cloud.png")
+		if not ResourceLoader.exists(path):
+			return null
+		var base: Texture2D = load(path)
+		var at := AtlasTexture.new()
+		at.atlas = base
+		at.region = Rect2(24, 28, 644, 410)   # the top-left puff
+		_cloud = at
+	return _cloud
+
 # --- weather -----------------------------------------------------------------------
 
 static func weather_now(calm: bool) -> String:

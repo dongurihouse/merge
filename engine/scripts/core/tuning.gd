@@ -217,10 +217,39 @@ class Hud:
 	const PILL_PAD_Y := 12.0              # vertical content margin (both pills)
 
 	# --- currency cluster --------------------------------------------------------------
-	const STAR_ICON := 44                 # icon px, per currency
-	const COIN_ICON := 40
-	const GEM_ICON := 38
+	# ONE shared icon BOX so the three currencies share a centerline and the numbers
+	# line up; each sprite is centered in the box and given a per-icon OPTICAL SCALE so
+	# their visual weights match (the gold flower fills its box, the acorn is tall+narrow,
+	# the gem is a slim teardrop — equal box ≠ equal weight without these).
+	const CHIP_ICON_BOX := 40.0           # the shared square box every currency icon centers in
+	const STAR_ICON := 44                 # sprite px (the gold flower runs a touch large for parity)
+	const COIN_ICON := 40                 # the acorn
+	const GEM_ICON := 40                  # the gem (was 38 — same box as the rest now)
+	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
+	const COIN_OPTICAL := 1.0             # acorn: the reference weight
+	const GEM_OPTICAL := 1.06             # gem: a slim teardrop, nudge UP for equal presence
+	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
+	const PAIR_SEP := 14                  # gap BETWEEN currency pairs (was the row's ROW_SEP=6)
 	const NUM_SIZE := 34                  # currency number font size
+
+	# --- identity tints (modulate over the sprites; star=gold, acorn=warm brown, gem=teal) ---
+	# The art already carries each currency's hue; a gentle modulate REINFORCES the read so
+	# gold/brown/teal stay distinct and the gem stops reading as a blue water drop.
+	const STAR_TINT := Color("#FFE08A")   # warm gold pop on the flower
+	const COIN_TINT := Color("#E7A24A")   # warm acorn brown
+	const GEM_TINT := Color("#5FE0CF")    # cool teal — pushes the gem away from water-cyan
+
+	# --- the "+" acquire button (opens the store) --------------------------------------
+	const PLUS_BOX := 26.0                # the little round +-token diameter
+	const PLUS_SIZE := 22                 # the "+" glyph font size
+	const PLUS_GAP := 2                   # gap between a currency number and its + button
+	const PLUS_BG := Color("#4E7C46")     # leaf green (the primary-CTA language → "get more")
+	const PLUS_BORDER := Color("#3C6037")
+	const PLUS_GLYPH := Color("#FBF6EC")  # cream "+"
+
+	# --- the standalone HOME chip (pulled OUT of the wallet pill) -----------------------
+	const HOME_GAP := 8.0                 # gap between the Lv chip and the Home chip (top-left row)
+	const HOME_ICON := 36                 # the home glyph/sprite px inside its chip
 
 	# --- the level chip ----------------------------------------------------------------
 	const LV_PX := 48.0                   # the round level "coin" diameter
@@ -299,6 +328,41 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const BTN_PRESS_DARKEN := 0.1         # pressed bg = normal.darkened(this)
 	const BTN_PRESS_SHADOW_SIZE := 2
 	const BTN_PRESS_SHADOW_OFFSET := Vector2(0, 1)
+
+	# --- the "sticker" recipe (shared by buttons + flat panel fallbacks) ----------------
+	# Goal: every code-built surface reads as a crisp die-cut sticker on ANY background —
+	# a LIGHT inner rim hugging the existing darker outer edge, plus a tiered drop shadow.
+	# Two shadow tiers separate what FLOATS (primary CTA, round chrome buttons → RAISED)
+	# from what RESTS (chips, pills, secondary buttons → RESTING). Pressed state drops a
+	# raised surface back to the resting shadow (it visually settles toward the surface).
+	const RIM_LIGHT := Color(0.984, 0.953, 0.918, 0.7)   # = Color(Pal.CREAM, 0.7) — the inner highlight
+	const RIM_LIGHT_W := 2                                # inner highlight thickness (px)
+	const SHADOW_RESTING := Color(0, 0, 0, 0.16)         # chips / pills / secondary
+	const SHADOW_RESTING_SIZE := 4
+	const SHADOW_RESTING_OFFSET := Vector2(0, 2)
+	const SHADOW_RAISED := Color(0, 0, 0, 0.28)          # primary CTA / floating round buttons
+	const SHADOW_RAISED_SIZE := 10
+	const SHADOW_RAISED_OFFSET := Vector2(0, 5)
+	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
+	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
+
+	# --- round chrome button (Look.round_button) ---------------------------------------
+	const ROUND_BTN_PX := 76.0            # default diameter of a circular chrome button
+	const ROUND_BTN_ICON_PX := 36.0       # icon size centred inside it
+	const ROUND_BTN_BG := Color(0.2, 0.251, 0.184, 0.6)  # = Color(Pal.INK, 0.6), matches map gear fallback
+	const ROUND_BTN_BORDER_W := 3
+
+	# --- badges (Look.badge) -----------------------------------------------------------
+	const BADGE_COLOR := Color("#E24B4A")  # alert red — "something new" / counts
+	const BADGE_DOT_PX := 14               # the bare red dot diameter
+	const BADGE_RIM := Color(1, 1, 1, 0.95)  # cream/white ring so it reads on any colour
+	const BADGE_RIM_W := 2
+	const BADGE_PILL_H := 22               # count-pill height
+	const BADGE_PILL_PAD_X := 6.0          # count-pill horizontal padding
+	const BADGE_NUM_SIZE := 14             # count-pill number font size
+	# Top-right corner-overhang: how far the badge pokes PAST its host's top-right corner
+	# (x = past the right edge, y = above the top edge), both positive = outside the host.
+	const BADGE_OVERHANG := Vector2(6, 6)
 
 
 class Music:

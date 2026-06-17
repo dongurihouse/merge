@@ -54,10 +54,14 @@ const LINES := {
 # (Wildflower + Berry) is never handed in, so it persists across the home grove (Mom's line stays
 # on the board); keeping its lines ASKABLE past map 1 is a parked engine follow-up (BACKLOG).
 const GENERATORS := [
-	# map 1 — Farmhouse (Radish): the two starters, granted outright
+	# map 1 — Farmhouse (Radish): the satchel ANCHOR is live from the first second; the pantry
+	# crock GROWS IN LATER (appear_level) so a brand-new player learns the loop with ONE generator
+	# + two lines before a second arrives (owner: don't open with two generators). `appear_level`
+	# gates BOTH its placement and its lines becoming askable; absent = 0 (live at start). 5 matches
+	# the pantry cell's own §4 unseal level, so the tool arrives just as its plot would clear.
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
 		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
-	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "",
+	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "", "appear_level": 5,
 		"tex": "ui/gen_jar.png", "label": "pantry"},
 	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",

@@ -35,10 +35,11 @@ const Vault = preload("res://engine/scripts/core/vault.gd")                  # T
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
+const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
-const GAP := 10.0
+const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
 const FENCE_H := 212.0           # the quest fence band above the grid
 const STAND_W := 330.0           # one giver's card width (the row scrolls when full)
@@ -60,11 +61,19 @@ const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
+# Shading IS the clickable/important affordance (board polish #8): the brighter a thing
+# reads, the more it's asking to be tapped. BRIGHT/un-shaded = actionable right now; a
+# gentle DIM = inert/locked/satisfied. One cozy dim value (~0.78 alpha) for every
+# "step back" read — a soft difference, never harsh — so the eye lands on what's live.
+const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
+const SHADE_DIM := Color(1, 1, 1, 0.78)     # inert: not-yet-payable giver, nothing to sell
+
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
-# GEN_DIM is the stopped look; GEN_LIT is full modulate (a cell is free → pop again).
+# A generator's stop is a stronger signal than a giver's, so it dims further (0.5) — same
+# affordance family (bright = tappable), just a deeper "paused" read for the harder stop.
 const GEN_DIM := Color(1, 1, 1, 0.5)
-const GEN_LIT := Color(1, 1, 1, 1.0)
+const GEN_LIT := SHADE_LIT
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
@@ -84,6 +93,7 @@ var bramble_nodes := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var gen_preview_cells := {}        # V: cell -> gi for locked-gen previews (tap → name floater)
+var _grown_cells: Array = []       # cells of generators that just GREW IN this rebuild (appear_level reached) — popped for feedback
 var burst_chip: Control            # §6 coin sink: the on-board "upgrade burst" buy pill (board-level, global)
 var burst_chip_label: Label
 var giver_bar: Control           # the quest fence (givers pop up over it)
@@ -145,6 +155,9 @@ func _ready() -> void:
 	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	calm_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(calm_veil)
+	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
+	# never reads as a flat field (sits behind the fence/board content, over the meadow)
+	add_child(Ambient.build_clouds(get_viewport_rect().size))
 	_load_state()
 	# sparse spirit life in the backdrop band above the fence (tap-less on the board)
 	_amb_layer = Ambient.build_layer(Vector2(get_viewport_rect().size.x, 320.0),
@@ -292,6 +305,21 @@ func _ready() -> void:
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
+	# the Settings gear — music/sounds/calm reachable from the board (was map-only; the player
+	# had to trip Home for it). Same shared card the map's gear opens (ui/settings.gd).
+	var settings_btn := Button.new()
+	settings_btn.flat = true
+	settings_btn.focus_mode = Control.FOCUS_NONE
+	settings_btn.custom_minimum_size = Vector2(58, 58)
+	settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var gi := Look.icon("gear", 40.0)
+	gi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settings_btn.add_child(gi)
+	Look.add_press_juice(settings_btn)
+	settings_btn.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		SettingsUI.open(self))
+	brow.add_child(settings_btn)
 	add_child(bottom_bar)
 
 	_build_hud()
@@ -381,7 +409,7 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		board.seed_gens(G.map_of_chapter(_chapter_idx()))   # seed the current map's set (migration)
+		board.seed_gens(G.map_of_chapter(_chapter_idx()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
 	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
 		var mg: Array = []
 		var ul: Dictionary = Save.grove().get("unlocks", {})
@@ -959,11 +987,23 @@ func _giver_is_payable(e: Dictionary) -> bool:
 	var payable := true
 	for ask in e.asks:
 		var have := mini(board.count_of(int(ask.code)), int(ask.need))
-		if have < int(ask.need):
+		var ask_met := have >= int(ask.need)
+		if not ask_met:
 			payable = false
-		var prog: Label = ask.prog
-		if prog != null and is_instance_valid(prog):
-			prog.text = "%d/%d" % [have, int(ask.need)]
+		# #4: drive the per-ask UI from the SAME have>=need test — the count chip ON
+		# the item retints (cream → soft sage) and a small green ✓ overlays its corner
+		# when this single ask is satisfied; cleared when it no longer is.
+		var met: Control = ask.get("met")
+		if met != null and is_instance_valid(met):
+			met.visible = ask_met
+		var badge: PanelContainer = ask.get("badge")
+		if badge != null and is_instance_valid(badge):
+			var bs: StyleBox = badge.get_theme_stylebox("panel")
+			if bs is StyleBoxFlat:
+				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
+		var badge_lbl: Label = ask.get("badge_lbl")
+		if badge_lbl != null and is_instance_valid(badge_lbl):
+			badge_lbl.add_theme_color_override("font_color", Color("#2F5A2A") if ask_met else Pal.INK)
 	return payable
 
 func _refresh_giver_lights() -> void:
@@ -979,13 +1019,17 @@ func _refresh_giver_lights() -> void:
 		var bust: Control = e.get("bust")
 		if bust != null and is_instance_valid(bust):
 			GiverStand.bob(bust, lit)
+		# board polish #8: a deliverable giver reads BRIGHT (it's the actionable thing);
+		# one not-yet-payable sits gently shaded. Same `lit` predicate as the ✓/bob above.
 		var chip: Control = e.chip
-		chip.modulate = Color(1, 1, 1, 1.0 if lit else 0.78)
+		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
 	if merchant_chip != null and is_instance_valid(merchant_chip):
+		# the stall is actionable only when there's a top-tier spare to sell — bright then,
+		# softly shaded otherwise (same cozy dim as the givers, so the rule reads as one).
 		var has_top := not board.top_tier_cells().is_empty()
-		merchant_chip.modulate = Color(1, 1, 1, 1.0 if has_top else 0.6)
+		merchant_chip.modulate = SHADE_LIT if has_top else SHADE_DIM
 
 # §6: dim EVERY live generator to a standing "paused" look while the board has no free
 # cell (popping is free while dimmed — only the cue is missing), and restore full modulate
@@ -993,6 +1037,21 @@ func _refresh_giver_lights() -> void:
 # merge, sell, deliver, coin collect/drop, buy-back, refill, rebuild). Mirrors the
 # giver-lights refresh: read board state, write modulate — no scattered ad-hoc writes.
 # Safe alongside FX.breathe (that tweens scale, not modulate).
+# A staged second generator (appear_level) grows in once the player's Level reaches it — the
+# board no longer opens with two generators (owner). Self-healing: called at the top of every
+# _rebuild_all, it installs any now-eligible surplus generator missing from the board, makes its
+# lines askable (refill), and persists. Records the new cell(s) so the rebuild can pop them in.
+func _grow_generators() -> void:
+	if board == null:
+		return
+	var added: Array = board.grow_surplus_gens(G.map_of_chapter(_chapter_idx()), _quest_level())
+	if added.is_empty():
+		return
+	for id in added:
+		_grown_cells.append(G.gen_cell_of(G.GENERATORS, String(id)))
+	_refill_quests()                          # the new generator's lines are now askable
+	_persist()
+
 func _refresh_generator_dim() -> void:
 	if board == null:
 		return
@@ -1013,6 +1072,7 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 	return Vector2i(clampi(int(p.y / (csz + GAP)), 0, G.ROWS - 1), clampi(int(p.x / (csz + GAP)), 0, G.COLS - 1))
 
 func _rebuild_all() -> void:
+	_grow_generators()                        # a staged second generator grows in once its level is reached
 	for n in board_area.get_children():
 		n.queue_free()
 	slot_nodes.clear()
@@ -1023,21 +1083,7 @@ func _rebuild_all() -> void:
 		for c in G.COLS:
 			var cell := Vector2i(r, c)
 			if board.is_open(cell):
-				var slot := Panel.new()
-				slot.position = _cell_pos(cell)
-				slot.size = Vector2(csz, csz)
-				var sb := StyleBoxFlat.new()
-				# AF4: a soft warm WELL (was a flat translucent green square) — a touch
-				# darker+warmer than the light mat, with a gentle shadow for depth
-				sb.bg_color = Color("#C7BB94", 0.55)
-				sb.set_corner_radius_all(28)
-				sb.set_border_width_all(2)
-				sb.border_color = Color("#8A7A52", 0.32)
-				sb.shadow_color = Color(0, 0, 0, 0.22)
-				sb.shadow_size = 8
-				sb.shadow_offset = Vector2(0, 3)
-				slot.add_theme_stylebox_override("panel", sb)
-				slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var slot := _make_slot(cell)   # #7: shared soft-well builder
 				board_area.add_child(slot)
 				slot_nodes[cell] = slot
 			else:
@@ -1051,7 +1097,12 @@ func _rebuild_all() -> void:
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
+		if _grown_cells.has(cell):            # a just-grown second generator — pop it in
+			FX.pop(gn)
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move, or be replaced by a hand-in grant)
+	if not _grown_cells.is_empty():
+		Audio.play("level_complete", -6.0, 1.1)
+		_grown_cells = []
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
@@ -1136,6 +1187,26 @@ func _make_piece(code: int, size: float) -> Control:
 func _make_board_mat() -> Control:
 	return PieceView.make_board_mat(_board_w(), _board_h())
 
+
+# #7: the per-cell empty "well" — a single shared builder so both creation sites
+# (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
+# low-alpha rounded outline (reads as an outline, not a hard line) and little
+# inner padding, plus a faint shadow for depth.
+func _make_slot(cell: Vector2i) -> Panel:
+	var slot := Panel.new()
+	slot.position = _cell_pos(cell)
+	slot.size = Vector2(csz, csz)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#C7BB94", 0.55)
+	sb.set_corner_radius_all(24)
+	sb.set_border_width_all(2)
+	sb.border_color = Color("#8A7A52", 0.28)
+	sb.shadow_color = Color(0, 0, 0, 0.20)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 2)
+	slot.add_theme_stylebox_override("panel", sb)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return slot
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)
@@ -1454,16 +1525,7 @@ func _open_bramble(cell: Vector2i) -> void:
 		t.tween_property(br, "scale", Vector2(1.35, 1.35), 0.25).set_ease(Tween.EASE_OUT)
 		t.tween_property(br, "modulate:a", 0.0, 0.25)
 		t.chain().tween_callback(br.queue_free)
-	var slot := Panel.new()
-	slot.position = _cell_pos(cell)
-	slot.size = Vector2(csz, csz)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(GROUND, 0.38)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(GROUND_EDGE, 0.5)
-	slot.add_theme_stylebox_override("panel", sb)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var slot := _make_slot(cell)   # #7: same shared soft-well builder as _rebuild_all
 	board_area.add_child(slot)
 	# right ABOVE the mat (child 0), under brambles/pieces — index 0 hid the
 	# tile behind the moss until the next full rebuild (owner's "no border" bug)

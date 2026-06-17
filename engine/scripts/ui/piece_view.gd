@@ -159,39 +159,68 @@ void fragment() {
 	COLOR.a *= 1.0 - smoothstep(-feather_px, 0.0, d);
 }"
 
-# The garden-bed mat: ONE object with screen juice — rounded under-panel with a
-# bordered, shadowed pop-out edge, a light rim catch, and the moss (cropped past
-# any baked border) masked to matching rounded corners on top. board_w/board_h are
-# the grid's pixel size (the scene passes _board_w()/_board_h()).
+# The garden bed: a RAISED WOODEN PLANTER (warm wood walls + a soft drop shadow)
+# holding a tilled-soil interior with a mossy grain on top. The wood rim IS the board
+# edge — it replaces the old see-through mat whose translucent top margin read as a
+# "glass bar" between the fence and the grid, and gives the play surface a tactile,
+# themed look instead of a flat field showing through. board_w/board_h = the grid's
+# pixel size (the scene passes _board_w()/_board_h()).
 static func make_board_mat(board_w: float, board_h: float) -> Control:
-	var pad := 20.0
+	var pad := 22.0
+	var rim := 13.0                               # the wooden planter wall thickness
 	var mat := Control.new()
 	mat.position = Vector2(-pad, -pad)
 	mat.size = Vector2(board_w + pad * 2.0, board_h + pad * 2.0)
 	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# H retune: a THIN warm soil edge hugging the moss (was near-black green
-	# pooling into a dark crescent at every corner); cream rim deleted.
-	var under := Panel.new()
-	under.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var us := StyleBoxFlat.new()
-	us.bg_color = Color("#4A3A28", 0.3)    # see-through FILL (grove shows through) but enough to read the round shape
-	us.set_corner_radius_all(34)            # round corners
-	us.set_border_width_all(2)              # a SOFT rounded rim (was a hard 3px dark line)
-	us.border_color = Color("#3A2D1E", 0.4)
-	us.shadow_color = Color(0, 0, 0, 0.38)
-	us.shadow_size = 12
-	us.shadow_offset = Vector2(0, 7)
-	under.add_theme_stylebox_override("panel", us)
-	under.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mat.add_child(under)
+	# the planter box — warm wood, rounded, with a soft drop shadow so the whole bed
+	# reads as raised off the meadow (the rim, not a glassy strip, shows above row 0).
+	var planter := Panel.new()
+	planter.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color("#86603A")                # warm planter wood (ties to the fence)
+	ps.set_corner_radius_all(30)
+	ps.set_border_width_all(0)
+	ps.shadow_color = Color(0, 0, 0, 0.34)
+	ps.shadow_size = 14
+	ps.shadow_offset = Vector2(0, 6)
+	planter.add_theme_stylebox_override("panel", ps)
+	planter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(planter)
+	# a thin lighter lip along the top inside edge → the wood wall reads as raised
+	var lip := Panel.new()
+	lip.position = Vector2(rim * 0.5, rim * 0.5)
+	lip.size = Vector2(mat.size.x - rim, rim)
+	var ls := StyleBoxFlat.new()
+	ls.bg_color = Color("#9C7547", 0.9)           # a sunlit catch on the rim
+	ls.corner_radius_top_left = 22
+	ls.corner_radius_top_right = 22
+	lip.add_theme_stylebox_override("panel", ls)
+	lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(lip)
+	# the soil bed — inset inside the wood walls, near-opaque so the surface reads as
+	# ground (not see-through), with a thin dark rim so the wood lip looks raised.
+	var soil := Panel.new()
+	soil.position = Vector2(rim, rim)
+	soil.size = mat.size - Vector2(rim, rim) * 2.0
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color("#5E4828", 0.95)          # tilled soil
+	ss.set_corner_radius_all(20)
+	ss.set_border_width_all(2)
+	ss.border_color = Color("#3A2D1E", 0.55)
+	ss.shadow_color = Color(0, 0, 0, 0.28)        # a soft inner shade under the rim
+	ss.shadow_size = 5
+	soil.add_theme_stylebox_override("panel", ss)
+	soil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(soil)
+	# a mossy grain on the soil, masked to the bed's rounded corners (tactile texture,
+	# not a flat fill). Higher alpha than the old see-through wash so it reads as soil.
 	var sm := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = MAT_MASK_SHADER
 	sm.shader = sh
-	var inset := 5.0
-	sm.set_shader_parameter("rect_size", mat.size - Vector2(inset, inset) * 2.0)
-	sm.set_shader_parameter("radius_px", 27.0)
-	sm.set_shader_parameter("feather_px", 5.0)
+	sm.set_shader_parameter("rect_size", soil.size)
+	sm.set_shader_parameter("radius_px", 20.0)
+	sm.set_shader_parameter("feather_px", 4.0)
 	var moss: Texture2D = null
 	for pth in [Game.art("ui/tray_grove_tall.png"), Game.art("ui/tray_grove.png")]:
 		if ResourceLoader.exists(pth):
@@ -203,30 +232,16 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 			moss = at
 			break
 	if moss != null:
-		var t := TextureRect.new()
-		t.texture = moss
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		t.material = sm
-		t.modulate.a = 0.25   # transparent moss so the board surface stays see-through
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(t)
-	else:
-		var c := ColorRect.new()
-		c.color = Color("#557B47")
-		c.set_anchors_preset(Control.PRESET_FULL_RECT)
-		c.offset_left = inset
-		c.offset_top = inset
-		c.offset_right = -inset
-		c.offset_bottom = -inset
-		c.material = sm
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(c)
+		var grain := TextureRect.new()
+		grain.texture = moss
+		grain.position = soil.position
+		grain.size = soil.size
+		grain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		grain.stretch_mode = TextureRect.STRETCH_SCALE
+		grain.material = sm
+		grain.modulate = Color("#7A5A30", 0.34)   # warm soil-moss tint, woven into the bed
+		grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mat.add_child(grain)
 	return mat
 
 
@@ -237,7 +252,11 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring := mini(lvl / 2 - 1, 3)          # art density bands with the §4 level gate
+	# Art density band → existing bramble_1..3 only (no bramble_-1/_0 — those don't ship).
+	# MONOTONIC: higher gate Level = denser thicket. The §4 diamond gates are {1,2,3,5,7,9,11},
+	# so map 1-3→1, 5-7→2, 9-11→3 — the FRONTIER cells (Lv1/2/3, nearest the eye) now paint
+	# real bramble instead of falling back to a flat debug panel.
+	var ring := clampi(lvl / 4 + 1, 1, 3)
 	var path := Game.art("ui/bramble_%d.png" % ring)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
@@ -261,37 +280,65 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 		p.add_theme_stylebox_override("panel", sb)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(p)
-	# the lock ghost: the Level this cell unseals at (§4) — a LOCK icon, never the ★ (the gate
-	# is the player's Level now, not stars/a produced tier; ★ would misread as a star price).
-	# Mirrors the map spot-gate (map.gd: lock icon + number, "Lv %d" text fallback).
-	if ResourceLoader.exists(Look.kit("icon_lock.png")):
-		var brow := HBoxContainer.new()
-		brow.alignment = BoxContainer.ALIGNMENT_CENTER
-		brow.set_anchors_preset(Control.PRESET_FULL_RECT)
-		brow.add_theme_constant_override("separation", 2)
-		brow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		brow.add_child(Look.icon("lock", csz * 0.2))
-		var bnum := Label.new()
-		bnum.text = TranslationServer.translate("Lv%d") % lvl   # "Lv11" — never a bare number (reads as a Level, not a count)
-		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
-		bnum.add_theme_color_override("font_color", Color(CREAM, 0.85))
-		bnum.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
-		bnum.add_theme_constant_override("outline_size", 5)
-		brow.add_child(bnum)
-		holder.add_child(brow)
-		return holder
-	var badge := Label.new()
-	badge.text = TranslationServer.translate("Lv%d") % lvl
-	badge.set_anchors_preset(Control.PRESET_FULL_RECT)
-	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	badge.add_theme_font_size_override("font_size", int(csz * 0.26))
-	badge.add_theme_color_override("font_color", Color(CREAM, 0.85))
-	badge.add_theme_color_override("font_outline_color", BRAMBLE_EDGE)
-	badge.add_theme_constant_override("outline_size", 5)
-	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(badge)
+	# The Level gate (§4): NO-REQUIRED-READING — a lock glyph carries "sealed"; a small styled
+	# badge carries the number only where it earns its keep. To keep the board CALM we show the
+	# "Lv N" chip on the FRONTIER (the shallow inner gates the player is about to reach) and a
+	# bare lock glyph (no number) on the deeper rings — so ~30 locked cells aren't all text.
+	var on_frontier := lvl <= FRONTIER_LV   # the inner L1/2/3 diamond — nearest the player's eye
+	holder.add_child(_lv_gate_badge(lvl, csz, on_frontier))
 	return holder
+
+const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the styled number)
+
+# A high-contrast cream-on-bark gate chip: a small rounded sticker with a lock glyph, and the
+# Level number only on the FRONTIER (deeper cells get the lock alone). Reads at cell size on
+# the dark bramble; replaces the old low-contrast outlined Label stamped on every cell.
+#
+# The lock glyph: where the lock ART is missing, Look.icon("lock") falls back to the literal
+# text "Lv" (skin.gd ICON_GLYPHS) — so "Lv" + an "Lv%d" label would double to "LvLv3". We
+# detect the fallback and let the glyph itself supply the "Lv" prefix, pairing it with a bare
+# number ("Lv" + "3" → "Lv 3"); with real lock art we prefix the number ("🔒 Lv3"). Either
+# way the chip reads as a Level gate, never a bare count.
+static func _lv_gate_badge(lvl: int, csz: float, with_num: bool) -> Control:
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chip := PanelContainer.new()
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pad := maxf(3.0, csz * 0.06)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.BARK                     # warm bark/parchment chip
+	sb.set_corner_radius_all(int(maxf(6.0, csz * 0.16)))
+	sb.set_border_width_all(2)
+	sb.border_color = Pal.BARK.darkened(0.28)  # subtle darker rim for definition
+	sb.set_content_margin_all(pad)
+	sb.shadow_color = Color(Pal.INK, 0.40)     # soft drop shadow grounds the sticker
+	sb.shadow_size = int(maxf(2.0, csz * 0.05))
+	sb.shadow_offset = Vector2(0, maxf(1.0, csz * 0.025))
+	chip.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(maxf(2.0, csz * 0.05)))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var glyph := Look.icon("lock", csz * (0.26 if with_num else 0.32))
+	var glyph_is_text := glyph is Label   # art missing → glyph fallback already prints "Lv"
+	if glyph is Label:
+		# tint the fallback glyph to match the cream-on-bark chip (skin tints it CREAM already,
+		# but force it so it reads against the bark even if the kit theme differs)
+		glyph.add_theme_color_override("font_color", CREAM)
+	row.add_child(glyph)
+	if with_num:
+		var bnum := Label.new()
+		# bare digits when the glyph already says "Lv"; "Lv%d" when a real lock icon precedes it
+		bnum.text = str(lvl) if glyph_is_text else (TranslationServer.translate("Lv%d") % lvl)
+		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
+		bnum.add_theme_color_override("font_color", CREAM)      # cream on bark — high contrast, no outline needed
+		bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(bnum)
+	chip.add_child(row)
+	center.add_child(chip)
+	return center
 
 static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
