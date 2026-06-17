@@ -39,7 +39,7 @@ const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
-const GAP := 10.0
+const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
 const FENCE_H := 212.0           # the quest fence band above the grid
 const STAND_W := 330.0           # one giver's card width (the row scrolls when full)
@@ -1059,21 +1059,7 @@ func _rebuild_all() -> void:
 		for c in G.COLS:
 			var cell := Vector2i(r, c)
 			if board.is_open(cell):
-				var slot := Panel.new()
-				slot.position = _cell_pos(cell)
-				slot.size = Vector2(csz, csz)
-				var sb := StyleBoxFlat.new()
-				# AF4: a soft warm WELL (was a flat translucent green square) — a touch
-				# darker+warmer than the light mat, with a gentle shadow for depth
-				sb.bg_color = Color("#C7BB94", 0.55)
-				sb.set_corner_radius_all(28)
-				sb.set_border_width_all(2)
-				sb.border_color = Color("#8A7A52", 0.32)
-				sb.shadow_color = Color(0, 0, 0, 0.22)
-				sb.shadow_size = 8
-				sb.shadow_offset = Vector2(0, 3)
-				slot.add_theme_stylebox_override("panel", sb)
-				slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				var slot := _make_slot(cell)   # #7: shared soft-well builder
 				board_area.add_child(slot)
 				slot_nodes[cell] = slot
 			else:
@@ -1177,6 +1163,26 @@ func _make_piece(code: int, size: float) -> Control:
 func _make_board_mat() -> Control:
 	return PieceView.make_board_mat(_board_w(), _board_h())
 
+
+# #7: the per-cell empty "well" — a single shared builder so both creation sites
+# (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
+# low-alpha rounded outline (reads as an outline, not a hard line) and little
+# inner padding, plus a faint shadow for depth.
+func _make_slot(cell: Vector2i) -> Panel:
+	var slot := Panel.new()
+	slot.position = _cell_pos(cell)
+	slot.size = Vector2(csz, csz)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#C7BB94", 0.55)
+	sb.set_corner_radius_all(24)
+	sb.set_border_width_all(2)
+	sb.border_color = Color("#8A7A52", 0.28)
+	sb.shadow_color = Color(0, 0, 0, 0.20)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 2)
+	slot.add_theme_stylebox_override("panel", sb)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return slot
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)
@@ -1495,16 +1501,7 @@ func _open_bramble(cell: Vector2i) -> void:
 		t.tween_property(br, "scale", Vector2(1.35, 1.35), 0.25).set_ease(Tween.EASE_OUT)
 		t.tween_property(br, "modulate:a", 0.0, 0.25)
 		t.chain().tween_callback(br.queue_free)
-	var slot := Panel.new()
-	slot.position = _cell_pos(cell)
-	slot.size = Vector2(csz, csz)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(GROUND, 0.38)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(GROUND_EDGE, 0.5)
-	slot.add_theme_stylebox_override("panel", sb)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var slot := _make_slot(cell)   # #7: same shared soft-well builder as _rebuild_all
 	board_area.add_child(slot)
 	# right ABOVE the mat (child 0), under brambles/pieces — index 0 hid the
 	# tile behind the moss until the next full rebuild (owner's "no border" bug)
