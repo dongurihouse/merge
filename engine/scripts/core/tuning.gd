@@ -307,7 +307,14 @@ class Music:
 
 class Shop:
 	# --- overlay / card ----------------------------------------------------------------
-	const VEIL_ALPHA := 0.6               # dim behind the storefront = Color(INK, this)
+	# The backdrop behind the storefront is a BLURRED + warm-tinted + vignetted copy of the
+	# live scene (interim until a dedicated shop backdrop is generated — see BACKLOG / merge_spec
+	# §10). A flat dim read as dead space; the frosted warm backdrop focuses the parchment.
+	const BACKDROP_BLUR := 2.6            # screen-blur radius (× SCREEN_PIXEL_SIZE) for the backdrop
+	const BACKDROP_TINT := Color("#1E160E")  # warm dark the backdrop tints toward
+	const BACKDROP_TINT_AMT := 0.42       # how far the blurred scene is mixed toward the tint
+	const BACKDROP_VIGNETTE := 0.55       # extra edge-darkening toward the tint (focuses the centre)
+	const VEIL_ALPHA := 0.6               # dim behind the storefront = Color(INK, this) — flat fallback
 	const CONFIRM_VEIL_ALPHA := 0.5       # ...and behind the cash confirm
 	const COL_SEP := 12                   # storefront column spacing
 	const CONFIRM_COL_SEP := 14
@@ -348,7 +355,7 @@ class Shop:
 	const TAB_PAD_B := 4.0
 	const DIV_CAP_SIZE := 23
 	const DIV_CAP_INK_ALPHA := 0.9        # caption = Color(INK, this)
-	const VINE_H := 26                    # divider vine art height
+	const VINE_H := 40                    # divider vine height — COVERED fills the gap at this height, showing most of the leafy strip
 	const LINE_H := 3                     # ...else a flat rule this tall
 	const LINE_ALPHA := 0.35              # rule = Color(BARK, this)
 
@@ -372,7 +379,15 @@ class Shop:
 	const SWATCH_BORDER_W := 2
 
 	# --- gem (cash pack) card ----------------------------------------------------------
-	const GEM_CARD := Vector2(206, 312)
+	# The full $0.99…$99.99 ladder shows in a 3-wide GRID (2 rows of 3) so every tier — including
+	# the whale $49.99/$99.99 — is visible at once, no hidden scroll. The badge rides a FIXED-height
+	# slot on EVERY card (empty when un-badged) so a "Popular"/"2×" tag never shoves one card's
+	# content down relative to its row-mates.
+	const GEM_CARD := Vector2(206, 222)   # shorter now the badge is a reserved slot, not extra flow
+	const GEM_GRID_COLS := 3
+	const GEM_GRID_HSEP := 14
+	const GEM_GRID_VSEP := 12
+	const BADGE_SLOT_H := 26              # reserved badge band height (keeps card content aligned)
 	const POP_RADIUS := 10                # "Popular" badge
 	const POP_PAD_X := 10.0
 	const POP_PAD_Y := 2.0
@@ -387,6 +402,13 @@ class Shop:
 	const GEM_PRICE_PAD_T := 5.0
 	const GEM_PRICE_PAD_B := 6.0
 	const GEM_PRICE_SIZE := 26
+	const PRICE_ICON := 28.0              # the coin/gem glyph inside a cost pill (cost = icon + number)
+	const PRICE_ROW_SEP := 5             # gap between that glyph and the number
+
+	# --- starter (welcome) banner ------------------------------------------------------
+	# A WIDE banner (not a narrow pouch) so the two-currency bundle (💎 + 💧) fits on one row
+	# without spilling, and the card doesn't look stretched/empty.
+	const STARTER_CARD := Vector2(480, 176)
 
 	# --- the card button (both card kinds) ---------------------------------------------
 	const CARD_BG := Color("#F4E9D6")

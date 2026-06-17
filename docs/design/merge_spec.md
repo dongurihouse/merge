@@ -364,6 +364,8 @@ The **Shop** (distinct from the merchant's sell-stall, §9) is the **buy-side** 
 
 Offers **rotate** (a few at a time) so there's always a fresh, optional reason to spend. *(The grove's instances — shop stock, item-shortcut prices, cosmetic catalogue: see `grove_spec`.)*
 
+**Presentation (§16):** the Shop renders over its **own dedicated backdrop** — the merchant's market-stall interior, generated like any §16 scene — **not** the live game board behind a flat scrim (that reads as dead space). Until the backdrop art ships, the engine renders an **interim blurred + warm-tinted + vignetted** copy of the scene so the storefront still feels framed and cozy (`BACKLOG`).
+
 ### The piggy bank (the accrual vault)
 
 A **persistent vault that fills as you play** — it skims a **small slice of the premium you earn** (level-ups, map-restore, t8 sells) into a visible pig/jar the player can only **claim by paying one fixed real-money price**. The fill grows with play; the price doesn't — so **the longer you play, the better the deal** (the *endowment* hook: it's premium you feel you already earned). It is the **friendliest first purchase** for a non-payer — currency released *sooner and amplified*, squarely the "buys speed, never possibility" line (§4). Cracking it resets the vault; it doubles as a **daily-return hook** (§18) — the pig is worth checking. *(Caps, skim rate, and the crack price are a game instance — a genre staple in casual/casino, live in Merge Mansion; the value-vs-Shop math is the conversion engine, not scarcity.)*
