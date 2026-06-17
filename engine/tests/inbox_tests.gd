@@ -1,0 +1,105 @@
+extends SceneTree
+## Headless tests for the LiveOps Inbox (core/inbox.gd) — the mailbox + claimable gifts.
+##   godot --headless -s res://engine/tests/inbox_tests.gd
+
+const Save = preload("res://engine/scripts/core/save.gd")
+const Inbox = preload("res://engine/scripts/core/inbox.gd")
+
+var _pass := 0
+var _fail := 0
+
+func ok(cond: bool, label: String) -> void:
+	if cond:
+		_pass += 1
+		print("  PASS  ", label)
+	else:
+		_fail += 1
+		print("  FAIL  ", label)
+
+# Point Save at a clean temp dir (never touches the real save).
+func fresh(name: String) -> void:
+	var dir := "user://tu_inbox_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+func _initialize() -> void:
+	print("== Inbox tests ==")
+
+	# 1. SEED-ONCE: a fresh inbox carries the starter messages; touching it again does NOT
+	#    re-seed (the count is stable), and a reload keeps the seed without re-running it.
+	fresh("seed")
+	var seeded := Inbox.messages().size()
+	ok(seeded >= 2, "a fresh inbox seeds a couple of starter messages")
+	ok(Inbox.messages().size() == seeded, "a second read does not re-seed")
+	Save._loaded = false                          # force a reload from disk
+	ok(Inbox.messages().size() == seeded, "the seed persists across a reload (no re-seed)")
+	ok(bool(Save.grove().get("inbox_seeded", false)), "the seed-once guard flag is set")
+
+	# 2. ADD fills defaults + assigns id/ts, and prepends (newest first).
+	fresh("add")
+	var before := Inbox.messages().size()
+	Inbox.add({"title": "Hi", "body": "there"})
+	var lst := Inbox.messages()
+	ok(lst.size() == before + 1, "add appends one message")
+	var top: Dictionary = lst[0]
+	ok(String(top.get("title", "")) == "Hi", "add prepends the new message (newest first)")
+	ok(String(top.get("id", "")) != "", "add assigns an id when absent")
+	ok(top.has("ts") and top.has("reward") and top.has("claimed") and top.has("read"), \
+		"add fills the default keys (reward/claimed/read/ts)")
+	ok(int(top["reward"].get("coins", 0)) == 0, "a missing reward normalises to a zero dict")
+
+	# 3. UNREAD_COUNT: counts unread OR unclaimed-gift messages.
+	fresh("unread")
+	# the seed has a welcome (no reward, unread) + a gift (reward, unread) → both count
+	var u0 := Inbox.unread_count()
+	ok(u0 >= 2, "fresh seed messages all count as unread")
+	Inbox.mark_all_read()
+	# after reading: the no-reward welcome drops out, but the unclaimed GIFT still counts
+	var u1 := Inbox.unread_count()
+	ok(u1 >= 1 and u1 < u0, "mark_all_read clears plain reads but keeps the unclaimed gift counted")
+
+	# 4. HAS_UNCLAIMED: true while a positive reward sits unclaimed, false once grabbed.
+	fresh("has_unclaimed")
+	ok(Inbox.has_unclaimed(), "the seeded starter gift makes has_unclaimed true")
+
+	# 5. CLAIM grants the reward (coins) and is idempotent (a second claim grants nothing).
+	fresh("claim")
+	Inbox.add({"id": "gift_a", "title": "Gift", "body": "coins", "reward": {"coins": 50}})
+	var c0 := Save.coins()
+	var got := Inbox.claim("gift_a")
+	ok(int(got.get("coins", 0)) == 50, "claim returns the granted reward dict")
+	ok(Save.coins() == c0 + 50, "claim grants the coins to the wallet")
+	var c1 := Save.coins()
+	var again := Inbox.claim("gift_a")
+	ok(again.is_empty() and Save.coins() == c1, "a second claim is a no-op (idempotent, grants nothing)")
+	ok(Inbox.claim("nope").is_empty(), "claiming an unknown id is a safe no-op")
+
+	# 5b. CLAIM grants gems + water too (water tops up the capped grove can).
+	fresh("claim_multi")
+	Inbox.add({"id": "gift_b", "title": "Bundle", "body": "all three", "reward": {"coins": 10, "gems": 3, "water": 5}})
+	var d0 := Save.diamonds()
+	var w0 := int(Save.grove().get("water", 0))
+	var g := Inbox.claim("gift_b")
+	ok(int(g.get("gems", 0)) == 3 and Save.diamonds() == d0 + 3, "claim grants gems to the wallet")
+	ok(int(Save.grove().get("water", 0)) == w0 + 5, "claim tops up the grove water")
+
+	# 6. PERSISTENCE: a claimed flag + an added message survive a reload.
+	fresh("persist")
+	Inbox.add({"id": "keep", "title": "Keep me", "body": "x", "reward": {"coins": 20}})
+	Inbox.claim("keep")
+	Save._loaded = false                          # force a reload from disk
+	var found := false
+	for m in Inbox.messages():
+		if String(m.get("id", "")) == "keep":
+			found = true
+			ok(bool(m.get("claimed", false)), "the claimed flag persists across a reload")
+	ok(found, "an added message persists across a reload")
+	ok(not Inbox.claim("keep").has("coins") or Inbox.claim("keep").is_empty(), \
+		"a claimed message stays claimed after reload (no re-grant)")
+
+	print("== %d passed, %d failed ==" % [_pass, _fail])
+	quit(0 if _fail == 0 else 1)
