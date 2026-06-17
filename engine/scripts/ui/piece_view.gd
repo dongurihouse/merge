@@ -159,39 +159,68 @@ void fragment() {
 	COLOR.a *= 1.0 - smoothstep(-feather_px, 0.0, d);
 }"
 
-# The garden-bed mat: ONE object with screen juice — rounded under-panel with a
-# bordered, shadowed pop-out edge, a light rim catch, and the moss (cropped past
-# any baked border) masked to matching rounded corners on top. board_w/board_h are
-# the grid's pixel size (the scene passes _board_w()/_board_h()).
+# The garden bed: a RAISED WOODEN PLANTER (warm wood walls + a soft drop shadow)
+# holding a tilled-soil interior with a mossy grain on top. The wood rim IS the board
+# edge — it replaces the old see-through mat whose translucent top margin read as a
+# "glass bar" between the fence and the grid, and gives the play surface a tactile,
+# themed look instead of a flat field showing through. board_w/board_h = the grid's
+# pixel size (the scene passes _board_w()/_board_h()).
 static func make_board_mat(board_w: float, board_h: float) -> Control:
-	var pad := 20.0
+	var pad := 22.0
+	var rim := 13.0                               # the wooden planter wall thickness
 	var mat := Control.new()
 	mat.position = Vector2(-pad, -pad)
 	mat.size = Vector2(board_w + pad * 2.0, board_h + pad * 2.0)
 	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# H retune: a THIN warm soil edge hugging the moss (was near-black green
-	# pooling into a dark crescent at every corner); cream rim deleted.
-	var under := Panel.new()
-	under.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var us := StyleBoxFlat.new()
-	us.bg_color = Color("#4A3A28", 0.3)    # see-through FILL (grove shows through) but enough to read the round shape
-	us.set_corner_radius_all(34)            # round corners
-	us.set_border_width_all(2)              # a SOFT rounded rim (was a hard 3px dark line)
-	us.border_color = Color("#3A2D1E", 0.4)
-	us.shadow_color = Color(0, 0, 0, 0.38)
-	us.shadow_size = 12
-	us.shadow_offset = Vector2(0, 7)
-	under.add_theme_stylebox_override("panel", us)
-	under.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mat.add_child(under)
+	# the planter box — warm wood, rounded, with a soft drop shadow so the whole bed
+	# reads as raised off the meadow (the rim, not a glassy strip, shows above row 0).
+	var planter := Panel.new()
+	planter.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color("#86603A")                # warm planter wood (ties to the fence)
+	ps.set_corner_radius_all(30)
+	ps.set_border_width_all(0)
+	ps.shadow_color = Color(0, 0, 0, 0.34)
+	ps.shadow_size = 14
+	ps.shadow_offset = Vector2(0, 6)
+	planter.add_theme_stylebox_override("panel", ps)
+	planter.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(planter)
+	# a thin lighter lip along the top inside edge → the wood wall reads as raised
+	var lip := Panel.new()
+	lip.position = Vector2(rim * 0.5, rim * 0.5)
+	lip.size = Vector2(mat.size.x - rim, rim)
+	var ls := StyleBoxFlat.new()
+	ls.bg_color = Color("#9C7547", 0.9)           # a sunlit catch on the rim
+	ls.corner_radius_top_left = 22
+	ls.corner_radius_top_right = 22
+	lip.add_theme_stylebox_override("panel", ls)
+	lip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(lip)
+	# the soil bed — inset inside the wood walls, near-opaque so the surface reads as
+	# ground (not see-through), with a thin dark rim so the wood lip looks raised.
+	var soil := Panel.new()
+	soil.position = Vector2(rim, rim)
+	soil.size = mat.size - Vector2(rim, rim) * 2.0
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color("#5E4828", 0.95)          # tilled soil
+	ss.set_corner_radius_all(20)
+	ss.set_border_width_all(2)
+	ss.border_color = Color("#3A2D1E", 0.55)
+	ss.shadow_color = Color(0, 0, 0, 0.28)        # a soft inner shade under the rim
+	ss.shadow_size = 5
+	soil.add_theme_stylebox_override("panel", ss)
+	soil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(soil)
+	# a mossy grain on the soil, masked to the bed's rounded corners (tactile texture,
+	# not a flat fill). Higher alpha than the old see-through wash so it reads as soil.
 	var sm := ShaderMaterial.new()
 	var sh := Shader.new()
 	sh.code = MAT_MASK_SHADER
 	sm.shader = sh
-	var inset := 5.0
-	sm.set_shader_parameter("rect_size", mat.size - Vector2(inset, inset) * 2.0)
-	sm.set_shader_parameter("radius_px", 27.0)
-	sm.set_shader_parameter("feather_px", 5.0)
+	sm.set_shader_parameter("rect_size", soil.size)
+	sm.set_shader_parameter("radius_px", 20.0)
+	sm.set_shader_parameter("feather_px", 4.0)
 	var moss: Texture2D = null
 	for pth in [Game.art("ui/tray_grove_tall.png"), Game.art("ui/tray_grove.png")]:
 		if ResourceLoader.exists(pth):
@@ -203,30 +232,16 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 			moss = at
 			break
 	if moss != null:
-		var t := TextureRect.new()
-		t.texture = moss
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		t.material = sm
-		t.modulate.a = 0.25   # transparent moss so the board surface stays see-through
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(t)
-	else:
-		var c := ColorRect.new()
-		c.color = Color("#557B47")
-		c.set_anchors_preset(Control.PRESET_FULL_RECT)
-		c.offset_left = inset
-		c.offset_top = inset
-		c.offset_right = -inset
-		c.offset_bottom = -inset
-		c.material = sm
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(c)
+		var grain := TextureRect.new()
+		grain.texture = moss
+		grain.position = soil.position
+		grain.size = soil.size
+		grain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		grain.stretch_mode = TextureRect.STRETCH_SCALE
+		grain.material = sm
+		grain.modulate = Color("#7A5A30", 0.34)   # warm soil-moss tint, woven into the bed
+		grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mat.add_child(grain)
 	return mat
 
 

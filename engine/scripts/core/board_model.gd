@@ -51,8 +51,8 @@ func gen_id_at(cell: Vector2i) -> String:
 ## by the save migration (an existing player's current map). NOT the in-play path: once
 ## seeded, the set changes only by move_gen / grant_gen. Each gen cell sheds its bramble,
 ## and any player item caught on it hops to free ground (never destroyed).
-func seed_gens(map: int) -> void:
-	gens = G.live_gen_state(G.GENERATORS, map)
+func seed_gens(map: int, level: int = G.APPEAR_ALL) -> void:
+	gens = G.live_gen_state(G.GENERATORS, map, level)
 	_claim_gen_cells()
 
 func _claim_gen_cells() -> void:
@@ -105,9 +105,23 @@ func place_surplus_gen(id: String, cell: Vector2i) -> void:
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a chapter's
 ## generators: re-seed to that chapter's map. NOT used by the live board (which restores
 ## `gens` from save and only mutates it via move/grant). Returns the live gen cells.
-func set_active_gens(chapter: int) -> Array:
-	seed_gens(G.map_of_chapter(chapter))
+func set_active_gens(chapter: int, level: int = G.APPEAR_ALL) -> Array:
+	seed_gens(G.map_of_chapter(chapter), level)
 	return gens.keys()
+
+## Install any of `map`'s surplus generators that have GROWN IN by `level` (appear_level
+## reached) but are not yet on the board — the staged-second-generator path (§ owner: don't
+## open with two generators). Idempotent: a generator already present is skipped, so this is
+## safe to call on every board open / level-up. Returns the ids newly installed (for a beat).
+func grow_surplus_gens(map: int, level: int) -> Array:
+	var added: Array = []
+	for id in G.surplus_gen_ids(G.GENERATORS, map):
+		var gdef := G.gen_def(G.GENERATORS, id)
+		if int(gdef.get("appear_level", 0)) > level or gens.values().has(id):
+			continue
+		place_surplus_gen(id, G.gen_cell_of(G.GENERATORS, id))
+		added.append(id)
+	return added
 
 func is_empty_ground(cell: Vector2i) -> bool:
 	return is_open(cell) and item_at(cell) == 0 and not is_gen(cell)

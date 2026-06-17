@@ -56,7 +56,9 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var out: Array = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
 	# §6 anchor exemption: ask from the current map's lines ∪ the anchor's lines (its generator
 	# never retires, so its lines stay askable past their debut map) — NOT the bare map roster.
-	var lines := G.askable_lines(G.GENERATORS, z)
+	# `level` also gates a not-yet-grown generator's lines out (a delayed second generator's lines
+	# stay un-askable until it appears, so the fence never asks for what nothing can produce).
+	var lines := G.askable_lines(G.GENERATORS, z, level)
 	var target := meter_target(z, banked_stars, unlocks, level)
 	# §6/§7: a new map opens with a generator-grant hand-in, and extra grants surface ONE AT A
 	# TIME (spread through the map, not all upfront) — the regular generated stream fills the slots
