@@ -301,9 +301,11 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			(opts.water_grant as Callable).call()
 			return true
 		help_row.add_child(_help_card(host, refs, "rain", host.tr("Fill your water"),
-			host.tr("top up the can"), G.REFILL_DIAMOND_COST, water_action, "water"))
+			host.tr("top up the can"), G.REFILL_DIAMOND_COST, water_action, "water",
+			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own.")))
 	help_row.add_child(_help_card(host, refs, "coin", host.tr("Coin pouch"),
-		host.tr("+%d acorns") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin"))
+		host.tr("+%d acorns") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
+		host.tr("Adds %d acorns to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
 
 	# — Featured (§10): a FEW deterministically-rotating offers (item-shortcuts + looks),
 	# the fresh "always something new" band — NOT the whole static pool.
@@ -331,7 +333,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			, false)
 		reroll.name = "RerollFeatured"
 		reroll_row.add_child(reroll)
-		_overlay_corner(reroll, _red_dot(), Tune.DOT_SIZE, Tune.DOT_MARGIN, false)   # a ready free reroll is actionable
+		Look.attach_badge(reroll, Look.badge("dot"))   # a ready free reroll is actionable (shared sticker badge)
 
 	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
 	# only (until claimed). The single highest-converting IAP in mobile.
@@ -449,7 +451,7 @@ static func _divider(col: VBoxContainer, caption: String, trailing: Control = nu
 
 # One "Quick help" card: icon, title, caption, gem price chip. Whole card presses.
 static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: String,
-		caption: String, cost: int, action: Callable, fly_id: String) -> Button:
+		caption: String, cost: int, action: Callable, fly_id: String, info: String) -> Button:
 	var b := _card_button(Tune.HELP_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -475,7 +477,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 	b.set_meta("gem_cost", cost)
 	b.pressed.connect(func() -> void:
 		_try_buy(host, refs, b, cost, action, fly_id))
-	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
+	_overlay_corner(b, _info_badge(host, title, info), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
 	_apply_afford(b)
 	return b
 
@@ -517,7 +519,8 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 			if (refs.opts as Dictionary).has("piece_grant"):
 				((refs.opts as Dictionary).piece_grant as Callable).call()
 			return true, host.tr("Into your bag")))
-	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
+	var info := host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, String(off.get("label", host.tr("this line")))]
+	_overlay_corner(b, _info_badge(host, String(off.get("label", "")), info), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
 	_apply_afford(b)
 	return b
 
@@ -575,7 +578,8 @@ static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> 
 			return
 		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
 			return buy_cosmetic(id), host.tr("Unlocked!")))
-	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
+	_overlay_corner(b, _info_badge(host, String(cos.name),
+		host.tr("A new look for your grove board. Yours to keep once unlocked.")), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
 	_apply_afford(b)
 	return b
 
@@ -674,7 +678,7 @@ static func _starter_card(host: Control, refs: Dictionary) -> Button:
 	b.set_meta("shop_starter", true)
 	b.pressed.connect(func() -> void:
 		_confirm_starter(host, refs))
-	_overlay_corner(b, _red_dot(), Tune.DOT_SIZE, Tune.DOT_MARGIN, true)   # an unclaimed welcome gift is always actionable
+	Look.attach_badge(b, Look.badge("dot"))   # an unclaimed welcome gift is always actionable (shared sticker badge)
 	return b
 
 # A small STRAW pill badge ("Popular" / "2× first buy" / "Best value") for a cash card.
@@ -755,42 +759,74 @@ static func _on_plate(art: Control) -> Control:
 	cc.add_child(art)
 	return plate
 
-# The per-card "i" info badge — a small blue disc, VISUAL placeholder only (the detail popup is a
-# parked task). It ignores input, so a tap falls through to the card's buy press (today's behaviour).
-static func _info_badge() -> Control:
-	var p := PanelContainer.new()
+# The per-card "i" info badge — a small blue disc that opens the item's detail sheet. It is a REAL
+# button stacked above the card's buy press (MOUSE_FILTER STOP), so tapping the "i" opens the sheet
+# and does NOT trigger a purchase; tapping anywhere else on the card still buys.
+static func _info_badge(host: Control, title: String, body: String) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(Tune.INFO_SIZE, Tune.INFO_SIZE)
+	b.text = "i"
+	b.add_theme_font_size_override("font_size", Tune.INFO_FONT)
+	b.add_theme_color_override("font_color", CREAM)
+	b.add_theme_color_override("font_hover_color", CREAM)
+	b.add_theme_color_override("font_pressed_color", CREAM)
+	b.add_theme_constant_override("outline_size", 0)
 	var s := StyleBoxFlat.new()
 	s.bg_color = Tune.INFO_BG
 	s.set_corner_radius_all(int(Tune.INFO_SIZE / 2.0))
 	s.set_border_width_all(Tune.INFO_BORDER_W)
 	s.border_color = Tune.INFO_EDGE
-	p.add_theme_stylebox_override("panel", s)
-	p.custom_minimum_size = Vector2(Tune.INFO_SIZE, Tune.INFO_SIZE)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := Label.new()
-	l.text = "i"
-	l.set_anchors_preset(Control.PRESET_FULL_RECT)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", Tune.INFO_FONT)
-	l.add_theme_color_override("font_color", CREAM)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(l)
-	return p
+	b.add_theme_stylebox_override("normal", s)
+	b.add_theme_stylebox_override("hover", s)
+	var sp: StyleBoxFlat = s.duplicate()
+	sp.bg_color = Tune.INFO_EDGE
+	b.add_theme_stylebox_override("pressed", sp)
+	b.add_child(Look.rim_overlay(Tune.INFO_SIZE / 2.0, Tune.INFO_BORDER_W))   # shared two-tone sticker rim
+	Look.add_press_juice(b)
+	b.pressed.connect(func() -> void: _info_sheet(host, title, body))
+	return b
 
-# A red "new / claimable" dot (cream rim) — pulls the eye to an actionable surface (a free reroll
-# ready, an unclaimed welcome gift). Input-transparent.
-static func _red_dot() -> Control:
-	var p := PanelContainer.new()
-	var s := StyleBoxFlat.new()
-	s.bg_color = Tune.DOT_BG
-	s.set_corner_radius_all(int(Tune.DOT_SIZE / 2.0))
-	s.set_border_width_all(Tune.DOT_RIM_W)
-	s.border_color = Tune.DOT_RIM
-	p.add_theme_stylebox_override("panel", s)
-	p.custom_minimum_size = Vector2(Tune.DOT_SIZE, Tune.DOT_SIZE)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return p
+# The item-detail sheet the "i" opens (§10 product info) — a parchment modal in the confirm
+# language: ribbon title + a body paragraph + a "Got it" close; tap the veil to dismiss. Read-only,
+# never buys. (The card's "i" is the only path here, so it never collides with the buy press.)
+static func _info_sheet(host: Control, title: String, body: String) -> void:
+	var overlay := Control.new()
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	host.add_child(overlay)
+	var veil := ColorRect.new()
+	veil.color = Color(INK, Tune.CONFIRM_VEIL_ALPHA)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	card.custom_minimum_size = Vector2(Tune.INFO_SHEET_W, 0)
+	cc.add_child(card)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", Tune.CONFIRM_COL_SEP)
+	card.add_child(col)
+	var ribbon := Look.title_ribbon(title, Tune.CONFIRM_TITLE_SIZE)
+	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(ribbon)
+	var para := Label.new()
+	para.text = body
+	para.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	para.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	para.add_theme_font_size_override("font_size", Tune.INFO_BODY_SIZE)
+	para.add_theme_color_override("font_color", INK)
+	col.add_child(para)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(btns)
+	btns.add_child(Look.button(host.tr("Got it"), func() -> void: overlay.queue_free(), true))
+	FX.pop_in(card)
 
 # A small ink countdown chip ("↻ 5h 12m") for the Featured band — the offers rotate once per day
 # (rotation_seed = day index), so this is the real time to the next UTC-midnight refresh.
@@ -818,10 +854,13 @@ static func _rotation_left_text() -> String:
 	var secs := 86400 - (int(Time.get_unix_time_from_system()) % 86400)
 	return "↻ %dh %dm" % [secs / 3600, (secs % 3600) / 60]
 
-# Pin a small node at a card/button corner, input-transparent (overlays the press surface).
-static func _overlay_corner(host_btn: Button, node: Control, size: float, margin: float, left: bool) -> void:
+# Pin a small node at a card/button corner. Decorative overlays are input-transparent (the press
+# surface shows through); an `interactive` node (the "i" button) keeps its own input so it can be
+# tapped without triggering the card's buy press.
+static func _overlay_corner(host_btn: Button, node: Control, size: float, margin: float, left: bool, interactive: bool = false) -> void:
 	host_btn.add_child(node)
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not interactive:
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.anchor_top = 0.0
 	node.anchor_bottom = 0.0
 	node.offset_top = margin
