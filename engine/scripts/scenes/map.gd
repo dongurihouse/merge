@@ -28,7 +28,6 @@ const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
-const Flipbook = preload("res://engine/scripts/ui/flipbook.gd")
 const Pal = Game.PALETTE
 
 const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
@@ -424,10 +423,10 @@ func _build_map() -> void:
 		fallback.add_theme_stylebox_override("panel", fs)
 		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(fallback)
-	_add_clouds(z, _map_rect)   # slow-drifting clouds in the sky, behind everything else
-	# decoration placed in the map placer (data/map1v2_decor.json): trees BEHIND the buildings (they sway)
+	# decoration placed in the map placer (data/map1v2_decor.json)
 	var decor := _load_decor_list(z)
-	_add_decor(decor, "back", _map_rect)
+	_add_placed_clouds(decor, _map_rect)    # placed clouds drift slowly in the sky, behind everything
+	_add_decor(decor, "back", _map_rect)    # trees BEHIND the buildings (their canopies sway)
 	# ambient life wanders over the map (order L), positioned within the image rect
 	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
@@ -441,7 +440,6 @@ func _build_map() -> void:
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
 	_add_decor(decor, "front", _map_rect)   # grass IN FRONT of the buildings
-	_add_chimney_smoke(z, _map_rect)        # animated smoke rising from the cottage chimney
 	FX.pop_in(content)
 
 # The available area below the HUD and above the bottom chrome; the map image is
@@ -510,70 +508,83 @@ func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
 		if "/trees/" in art:
 			_sway(t, fs)   # trees rock gently from the base in the wind
 
-# A gentle, randomized wind sway: rock the sprite around its base (bottom-centre).
-func _sway(t: Control, fs: float) -> void:
-	t.pivot_offset = Vector2(fs * 0.5, fs)
-	var amp := deg_to_rad(1.8 + randf() * 1.6)        # ~1.8°–3.4°
-	var per := 2.0 + randf() * 1.8                     # ~2–3.8s each way (randomized per tree)
-	t.rotation = -amp
-	var sw := t.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-	sw.tween_property(t, "rotation", amp, per)
-	sw.tween_property(t, "rotation", -amp, per)
+# Tree wind (items 5 & 6): a shader shears the sprite horizontally by an amount that grows toward the
+# CANOPY (zero at the trunk base, so only leaves/outer branches move), and a per-tree gust scheduler
+# drives it in occasional bursts — trees rest, then sway briefly, rather than rocking nonstop.
+const _TREE_SWAY_SHADER := "shader_type canvas_item;
+uniform float phase = 0.0;
+uniform float freq = 2.0;
+uniform float amp = 0.06;
+uniform float trunk = 0.62;
+uniform float gust = 0.0;
+void fragment() {
+	float w = smoothstep(trunk, 0.0, UV.y);          // 0 at/below the trunk line, → 1 at the top
+	float wind = sin(TIME * freq + phase) * gust * amp * w;
+	vec2 uv = UV + vec2(wind, 0.0);
+	if (uv.x < 0.0 || uv.x > 1.0) { COLOR = vec4(0.0); }
+	else { COLOR = texture(TEXTURE, uv); }
+}"
+var _tree_shader: Shader
 
-# Slow-drifting clouds: two copies of the cloud sheet side by side, scrolling left and looping
-# seamlessly (at wrap, copy B sits exactly where copy A started). Transparent except the clouds.
-func _add_clouds(z: int, rect: Rect2) -> void:
-	var path := String(G.MAPS[z].get("clouds", ""))
-	if path == "" or not ResourceLoader.exists(path):
-		return
-	var tex: Texture2D = load(path)
-	var w := rect.size.x
-	var h := w * tex.get_height() / tex.get_width()
-	var layer := Control.new()
-	layer.position = rect.position
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(layer)
-	for i in 2:
-		var c := TextureRect.new()
-		c.texture = tex
-		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		c.stretch_mode = TextureRect.STRETCH_SCALE
-		c.size = Vector2(w, h)
-		c.position = Vector2(i * w, 0)
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		layer.add_child(c)
-	var dr := layer.create_tween().set_loops()
-	dr.tween_property(layer, "position:x", rect.position.x - w, 90.0).from(rect.position.x)
+func _sway(t: Control, _fs: float) -> void:
+	if _tree_shader == null:
+		_tree_shader = Shader.new()
+		_tree_shader.code = _TREE_SWAY_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _tree_shader
+	mat.set_shader_parameter("phase", randf() * TAU)
+	mat.set_shader_parameter("freq", 1.5 + randf() * 1.3)       # ~1.5–2.8 rad/s
+	mat.set_shader_parameter("amp", 0.045 + randf() * 0.03)     # max canopy shear (fraction of width)
+	mat.set_shader_parameter("trunk", 0.58 + randf() * 0.08)    # UV.y below this stays planted
+	mat.set_shader_parameter("gust", 0.0)
+	t.material = mat
+	_gust(t, mat)
 
-# Chimney smoke: cycle base_chimney's growing puffs (a flipbook) over the cottage chimney.
-func _add_chimney_smoke(z: int, rect: Rect2) -> void:
-	var ch = G.MAPS[z].get("chimney", null)
-	if typeof(ch) != TYPE_DICTIONARY:
+# One gust cycle: rest a random while, ramp the sway in, hold briefly, damp out — then reschedule.
+func _gust(t: Control, mat: ShaderMaterial) -> void:
+	if not is_instance_valid(t):
 		return
-	var dir := String(ch.get("frames", ""))
-	var frames := []
-	var i := 1
-	while ResourceLoader.exists(dir + "frame%d.png" % i):
-		frames.append(load(dir + "frame%d.png" % i))
-		i += 1
-	if frames.is_empty():
-		return
+	var tw := t.create_tween()
+	tw.tween_interval(4.0 + randf() * 9.0)                                              # rest between gusts
+	tw.tween_property(mat, "shader_parameter/gust", 1.0, 0.5 + randf() * 0.4).set_ease(Tween.EASE_OUT)
+	tw.tween_interval(0.5 + randf() * 0.8)
+	tw.tween_property(mat, "shader_parameter/gust", 0.0, 1.3 + randf() * 1.4).set_ease(Tween.EASE_IN)
+	tw.tween_callback(_gust.bind(t, mat))
+
+# Clouds placed in the map placer (layer "cloud"): each starts where it was placed, then drifts slowly
+# leftward and wraps around the sky. Rendered behind everything (added before the buildings/spots).
+func _add_placed_clouds(decor: Array, rect: Rect2) -> void:
 	var sc := rect.size.x / Design.size().x
-	var size := float(ch.get("size", 280)) * sc
-	var fr0: Texture2D = frames[0]
-	var hsize := size * fr0.get_height() / fr0.get_width()
-	var p = ch.get("pos", [0.45, 0.20])
-	var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
-	var fb := Flipbook.new()
-	fb.frames = frames
-	fb.fps = float(ch.get("fps", 6))
-	fb.texture = fr0
-	fb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	fb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	fb.size = Vector2(size, hsize)
-	fb.position = center - Vector2(size, hsize) * 0.5
-	fb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(fb)
+	for d in decor:
+		if String(d.get("layer", "front")) != "cloud":
+			continue
+		var art := String(d.get("art", ""))
+		if not ResourceLoader.exists(art):
+			continue
+		var fs := float(d.get("fsize", 240)) * sc
+		var p = d.get("pos", [0.5, 0.18])
+		var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
+		var c := TextureRect.new()
+		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		c.texture = load(art)
+		c.size = Vector2(fs, fs)
+		c.position = center - Vector2(fs, fs) * 0.5
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(c)
+		_drift_cloud(c, rect, fs)
+
+func _drift_cloud(c: TextureRect, rect: Rect2, cloud_w: float) -> void:
+	var span := rect.size.x + cloud_w                       # travel from off-right to off-left
+	if span <= 0.0:
+		return
+	var left := rect.position.x - cloud_w
+	var base_x := c.position.x
+	var period := (span / rect.size.x) * (90.0 + randf() * 50.0)   # ~90–140s to cross, per-cloud
+	var tw := c.create_tween().set_loops()
+	tw.tween_method(func(prog: float):
+			c.position.x = left + fposmod(base_x - prog * span - left, span),
+		0.0, 1.0, period)
 
 # The map's title — NAME + ✿-progress on one plank, centered near the top of the
 # map image (an IGNORE visual; never eats a press).

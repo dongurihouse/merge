@@ -14,15 +14,15 @@ extends Control
 
 const Design = preload("res://engine/scripts/core/design.gd")
 
-const DECOR_DIRS := ["res://assets/map1v2/trees/", "res://assets/map1v2/grass/"]
+const PALETTE_DIRS := ["res://assets/map1v2/trees/", "res://assets/map1v2/grass/", "res://assets/map1v2/clouds/"]
 const ITEMS_DIR := "res://assets/map1v2/items/"
 const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "Tab palette · F reference · drag · wheel/+- scale · Del · Ctrl+S save"
+const HINT := "Tab palette · drag · wheel scale · shift+wheel z-order · right-click/Del delete · Ctrl+S save"
 
-const WINDOW_WIDTH_MULT := 2.0      # tool window width = this × the game-view width (capped to the screen)
+const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
 const LINE_COLOR := Color(0.25, 0.95, 1.0, 0.95)   # bright cyan — reads clearly over the art
 const GUTTER_SHADE := Color(0.0, 0.0, 0.0, 0.32)   # dim the off-view gutters so the play area pops
@@ -241,10 +241,10 @@ func _build_palette() -> void:
 	var save_btn := Button.new(); save_btn.text = "💾 Save"; save_btn.pressed.connect(_save); vb.add_child(save_btn)
 	var load_btn := Button.new(); load_btn.text = "↻ Load"; load_btn.pressed.connect(_load); vb.add_child(load_btn)
 
-	for dir in DECOR_DIRS:
+	for dir in PALETTE_DIRS:
 		vb.add_child(HSeparator.new())
 		var hdr := Label.new()
-		hdr.text = "TREES" if "trees" in dir else "GRASS"
+		hdr.text = String(dir).trim_suffix("/").get_file().to_upper()   # TREES / GRASS / CLOUDS
 		hdr.add_theme_font_size_override("font_size", 13)
 		vb.add_child(hdr)
 		var d := DirAccess.open(dir)
@@ -298,7 +298,7 @@ func _select(item: Control) -> void:
 	if item:
 		item.modulate = Color(1.0, 1.0, 0.7)
 		var nm := String(item.get_meta("art")).get_file().get_basename()
-		_set_info("%s · scale %.2f · (%.3f, %.3f)" % [nm, item.scale.x,
+		_set_info("%s · z%d · scale %.2f · (%.3f, %.3f)" % [nm, item.get_index(), item.scale.x,
 			_center_of(item).x / _bg_size().x, _center_of(item).y / _bg_size().y])
 
 
@@ -311,10 +311,14 @@ func _on_item_input(ev: InputEvent, item: Control) -> void:
 				_drag_off = item.get_global_mouse_position() - _center_of(item)
 			else:
 				_dragging = false
+		elif ev.button_index == MOUSE_BUTTON_RIGHT and ev.pressed:
+			_delete_item(item)                       # right-click removes
 		elif ev.button_index == MOUSE_BUTTON_WHEEL_UP and ev.pressed:
-			_scale_item(item, 1.05)
+			if ev.shift_pressed: _restack(item, 1)        # shift = raise z
+			else: _scale_item(item, 1.05)
 		elif ev.button_index == MOUSE_BUTTON_WHEEL_DOWN and ev.pressed:
-			_scale_item(item, 1.0 / 1.05)
+			if ev.shift_pressed: _restack(item, -1)       # shift = lower z
+			else: _scale_item(item, 1.0 / 1.05)
 	elif ev is InputEventMouseMotion and _dragging and item == _selected:
 		_set_center(item, item.get_global_mouse_position() - _drag_off)
 		_select(item)
@@ -325,6 +329,19 @@ func _scale_item(item: Control, factor: float) -> void:
 	item.scale = (item.scale * factor).clamp(Vector2(0.03, 0.03), Vector2(10, 10))
 	_set_center(item, c)
 	_select(item)
+
+# Raise/lower an item in the draw order (shift+wheel). Child order = draw order in the tool AND the
+# order written on save, so it round-trips to the game's per-layer stacking.
+func _restack(item: Control, dir: int) -> void:
+	var ni := clampi(item.get_index() + dir, 0, _items_layer.get_child_count() - 1)
+	_items_layer.move_child(item, ni)
+	_select(item)
+
+func _delete_item(item: Control) -> void:
+	if item == _selected:
+		_selected = null
+	item.queue_free()
+	_set_info("removed")
 
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -346,7 +363,7 @@ func _unhandled_input(ev: InputEvent) -> void:
 		return
 	match ev.keycode:
 		KEY_DELETE, KEY_BACKSPACE:
-			_selected.queue_free(); _selected = null; _set_info("removed")
+			_delete_item(_selected)
 		KEY_EQUAL, KEY_KP_ADD:
 			_scale_item(_selected, 1.05)
 		KEY_MINUS, KEY_KP_SUBTRACT:
@@ -354,6 +371,16 @@ func _unhandled_input(ev: InputEvent) -> void:
 
 
 # --- persistence (data/map1v2_decor.json) ------------------------------------
+
+# In-game render layer for a placed item, by its source folder: trees go BEHIND the buildings,
+# clouds drift in the sky (own layer), everything else (grass) renders IN FRONT.
+func _layer_of(art: String) -> String:
+	if "/trees/" in art:
+		return "back"
+	if "/clouds/" in art:
+		return "cloud"
+	return "front"
+
 
 func _save() -> void:
 	var bg := _bg_size()
@@ -367,7 +394,7 @@ func _save() -> void:
 			"pos": [c.x / bg.x, c.y / bg.y],
 			# footprint in design px = the sprite's LARGER native dim × scale (KEEP_ASPECT_CENTERED in-game)
 			"fsize": int(round(max(nat.x, nat.y) * item.scale.x)),
-			"layer": ("back" if "/trees/" in art else "front"),
+			"layer": _layer_of(art),
 		})
 	var p := ProjectSettings.globalize_path(SAVE_PATH)
 	DirAccess.make_dir_recursive_absolute(p.get_base_dir())

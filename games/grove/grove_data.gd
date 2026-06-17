@@ -250,9 +250,7 @@ static func _build_maps() -> Array:
 		"bg": "res://assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
 		"fence": "res://assets/map1v2/fence.png",         # fixed fence layer, composited over the base
 		"full": "res://assets/map1v2/base_full.png",      # reference image, toggleable for testing
-		"decor": "res://data/map1v2_decor.json",          # trees/grass placed in the map placer (read at load)
-		"clouds": "res://assets/map1v2/clouds.png",       # drift slowly across the sky
-		"chimney": {"frames": "res://assets/map1v2/chimney/", "pos": [0.452, 0.205], "size": 300, "fps": 6},  # smoke flipbook over the cottage
+		"decor": "res://data/map1v2_decor.json",          # trees/grass/clouds placed in the map placer (read at load)
 		"spots": [
 		# `art` points each spot at its map1v2 item cutout; pos/fsize are AUTO-DERIVED from base_items
 		# (assets/map1v2/items_layout.json, merged at load by item name = the art's basename).
