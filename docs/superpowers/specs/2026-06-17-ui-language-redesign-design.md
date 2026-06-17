@@ -38,7 +38,7 @@ The engine already runs a two-tier shadow system (`SHADOW_RESTING` / `SHADOW_RAI
 
 Green currently means three contradictory things: play surface (`GROUND`), locked state (`BRAMBLE_BG`), and primary action (`BTN_PRIMARY`). This is the root cause of the missing figure/ground.
 
-- **Board surface → warm neutral** (oat / wheat / soft warm-grey). It recedes and becomes a stage.
+- **Board surface → a desaturated neutral** (sage / oat / soft warm-grey — locked to cool sage; see Reference instantiation). It recedes and becomes a stage.
 - **Green is reclaimed as a signal** — growth, "go," primary CTA. It now means something because it is the only green on screen.
 - **Items keep their painterly saturation** and pop against the neutral stage automatically.
 
@@ -46,7 +46,7 @@ Green currently means three contradictory things: play surface (`GROUND`), locke
 
 `grove_palette.gd` is restructured from a flat list into **role tiers**. Values below are described by *intent*; exact hex is tuned during implementation.
 
-- **Surface** — warm neutral, low saturation, mid-high value. The stage. (Replaces olive `GROUND`.)
+- **Surface** — desaturated neutral, low saturation, mid-high value. The stage. (Replaces olive `GROUND`.)
 - **Cell / inset** — a hair off Surface; delineates the grid by *structure*, not contrast.
 - **Locked** — desaturated, value-merged toward Surface, faint texture hint. Recedes.
 - **Item pedestal** — light, soft disc/napkin that lifts any piece off the board. (Reuse the shop's `ICON_PLATE`.)
@@ -112,6 +112,38 @@ Motion reinforces the depth planes rather than decorating: Float elements may po
 
 ---
 
+## Reference instantiation (locked values)
+
+These concretize the role tiers above into the palette locked during design (2026-06-17). Most chrome values are retained from the existing tuned system; the systemic change is the **board field** (olive → **cool sage `#D9DCC4`**, chosen over warm oat / warm wheat for the strongest item pop via warm-cool contrast and tightest fit to the neutral-backdrop model) and the **locked state** (dark olive → recessive muted sage).
+
+### Palette
+
+| Group | Token | Hex |
+|---|---|---|
+| **Surface** | screen chrome bg · board field · board frame | `#EFE7D5` · `#D9DCC4` · `#C3C8AC` |
+| | empty cell (inset) · locked (Sunk) · lock glyph | `#CFD3B6` · `#C2C7A6` · `#8F977A` |
+| | near-unlock · hint border · item pedestal | `#CDD3B0` · `#8FAE6E` · `#F2EFDC` |
+| **Ink** | ink · muted · cream | `#3B402F` · `#7A7558` · `#FBF3EA` |
+| **Accents** (reserved) | CTA green / edge · reward gold / bright | `#4E7C46`/`#3C6037` · `#E3B23C`/`#FFD56B` |
+| | alert red · close red · info blue | `#E24B4A` · `#D75A4E` · `#5FA8D8` |
+| **HUD** | wallet pill / edge · level token / ring · chapter ribbon | `#FBF6EC`/`#C9A66B` · `#3F6B43`/`#C9A66B` · `#F0DCA8` |
+| **Currency tints** | star · acorn · gem · water | `#F2C14E` · `#C8852F` · `#3FC6B0` · `#7FB9DD` |
+| **Shop** | parchment / edge · hero plate · banner | `#F4E9D6`/`#8A5A3B` · `#F4E7CA` · `#F0DCA8` |
+
+Warm cream chrome (`#EFE7D5`) intentionally frames the cooler sage play field so the board reads as its own zone. This is a reference instantiation, not a contract — implementation may fine-tune within each tier so long as the plane relationships hold (locked recedes below playable; accents stay reserved for meaning).
+
+### Component reference
+
+Interactive mockups were produced during design for five components, each rendering the values above and standing as the visual target:
+
+- **Top pill set** — round green level token + honey chapter ribbon + cream currency capsule with per-cluster green "+".
+- **Board** — colorful items on pale pedestals (Float) over the sage field, empty inset cells (Rest), and a recessive muted-sage locked frontier with quiet glyphs (Sunk); two near-unlock cells carry a faint green hint.
+- **Quest / order bar** — parchment order cards; actionable = bright + raised + green "Ready" chip, pending = dimmed + flat + muted "Lv N" chip.
+- **Play button** — large green round primary CTA (raised) flanked by smaller neutral cream chrome buttons (flatter); plus a wide green primary pill.
+- **Shop panel** — parchment card over a warm-dark scrim, honey banner title, red close disc, hero icons on honey plates, green BUY pills, reserved badge slot on the popular gem pack.
+
+Diffusion prompts for painterly reference art are in the appendix.
+
 ## Where it lands (file map)
 
 - **`games/grove/grove_palette.gd`** — restructure flat list → role tiers (Surface / Cell / Locked / Pedestal / reserved Accents / Ink). Raw colors stay; add the semantic role→value layer.
@@ -145,3 +177,29 @@ Motion reinforces the depth planes rather than decorating: Float elements may po
 4. Green appears only as a CTA/growth/reward signal — never as a structural surface.
 5. The HUD uses one shape/elevation family; the current order/goal is legible at a glance.
 6. The entire look re-tunes from `grove_palette.gd` role tiers + `tuning.gd` dials — no per-scene hardcoded colors reintroduced.
+
+---
+
+## Appendix: image-generation prompts
+
+Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produce painterly reference art on-palette.
+
+**Top pill set (level → currencies)**
+
+> Mobile game HUD top bar, cozy hand-painted farm style, soft storybook illustration. Left: round level token, deep leaf-green #3F6B43 disc with a warm-gold #C9A66B ring, cream "3" numeral. Center: a small honey banner ribbon #F0DCA8 reading "Chapter 1". Right: a single cream capsule pill #FBF6EC with a thin gold #C9A66B edge, holding three currency icons — a gold flower star #F2C14E, a warm-brown acorn #C8852F, a teal gem #3FC6B0 — each with a number, and a small round leaf-green "+" button. Flat warm lighting, subtle soft drop shadow, no gradients on UI, transparent bg.
+
+**Board**
+
+> Top-down cozy merge-game board, hand-painted warm storybook style. A calm cool-sage play field #D9DCC4 framed by a soft muted-sage border #C3C8AC. Bright interior cells hold colorful garden items — tomato, carrot, sprout, flower, honey — each seated on a pale cream disc pedestal #F2EFDC with a soft raised shadow so they pop against the cool field. The outer frontier cells are quiet, desaturated muted-sage #C2C7A6 with a small low-contrast padlock glyph #8F977A, clearly receding behind the play area. Two near-unlock cells glow faintly green #8FAE6E. Items saturated, locks muted, soft daylight, no harsh outlines.
+
+**Quest / order bar**
+
+> Row of cozy farm order cards, hand-painted UI. Each card is warm parchment #F4E9D6 with a soft bark edge: a small round character avatar, the requested item on a pale cream pedestal #F2EFDC, a gold-coin reward "+6" in warm gold #E3B23C, and a status chip. One card is bright and raised with a leaf-green #4E7C46 "Ready" chip; the next is dimmed and flat with a muted "Lv 4" lock chip. Storybook lighting, soft shadows on the ready card only, transparent bg.
+
+**Play button (primary CTA)**
+
+> Cozy farm mobile-game button set, hand-painted. A large round primary button, leaf-green #4E7C46 with a darker #3C6037 rim and a cream map icon, sitting proud with a soft raised drop shadow (the hero call-to-action). Flanked by two smaller neutral round buttons, cream #FBF6EC with a warm-gold #C9A66B ring and ink #3B402F icons, sitting flatter and quieter. Plus a wide green pill button #4E7C46 reading "Restore garden". Glossy candy-soft finish, warm light.
+
+**Shop component**
+
+> Cozy farm-game shop popup, hand-painted storybook style. A warm parchment panel #F4E9D6 with a soft bark border over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Shop"; a round red close button #D75A4E sits at the top-right corner. Two featured product cards, each a cream tile with the product illustration on a pale honey plate #F4E7CA and a leaf-green #4E7C46 price button. Below, a "Gems" section: a row of three teal-gem #3FC6B0 cash packs of increasing size, the middle one wearing a small red "Popular" badge, each with a green buy button. Soft shadows, warm light, no flat vectors.
