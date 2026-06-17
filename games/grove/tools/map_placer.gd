@@ -1,10 +1,11 @@
 extends Control
-## Map-1 DECORATION placer (dev tool). Background = base_empty; the items + fence render as a static
-## BACKDROP (matching the grove) so you place trees/grass in context. Trees save to the BACK layer
-## (behind the buildings), grass to the FRONT layer. Saved to data/map1v2_decor.json; the grove reads it
-## at load and renders + animates the decoration — no bake step.
+## Map-1 DECORATION placer (dev tool). Background = base_empty. The scene is one z-stack, bottom→top:
+## FENCE (smallest z) · BACK decor (trees/clouds) · BUILDINGS (house/shed/… — fixed context, not movable
+## but selectable) · FRONT decor (grass) — matching the grove's render order. Placed decor saves to
+## data/map1v2_decor.json (layer back/front/cloud); the grove reads it at load. The right-gutter Z-ORDER
+## list shows every item's z; raise/lower decor with w/e (it crosses behind/in-front of the buildings).
 ##
-## Controls — Tab palette · F reference · drag move · wheel or +/- scale · Del remove · Ctrl+S save · Ctrl+L load.
+## Controls — Tab palette · F reference · drag move · wheel +/- scale · w/e z-order · right-click/Del remove · Ctrl+S save.
 ## Run:  make place   (or: godot --path . res://games/grove/tools/MapPlacer.tscn)
 ##
 ## The window is WIDER than the game's portrait view. The central "stage" IS the real game view (design
@@ -20,7 +21,7 @@ const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "Tab palette · drag · wheel scale · w/e z-order · right-click/Del delete · Ctrl+S save"
+const HINT := "drag · wheel scale · w/e z-order (crosses the buildings) · right-click/Del delete · Ctrl+S save"
 
 const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
@@ -29,9 +30,12 @@ const GUTTER_SHADE := Color(0.0, 0.0, 0.0, 0.32)   # dim the off-view gutters so
 
 var _stage: Control          # the game-view region (design 1080×1920), centered in the wider window
 var _bg: TextureRect
-var _backdrop: Control       # static items + fence (context only)
+var _fence_layer: Control    # the fence — smallest z (bottom of the stack, below all decor)
 var _back_layer: Control     # placed decor BEHIND the buildings (trees + clouds), interactive
+var _buildings: Control      # the house/shed/… — fixed context (not movable), selectable for their z
 var _front_layer: Control    # placed decor IN FRONT of the buildings (grass), interactive
+var _zlist: PanelContainer   # right-gutter list of every item by z
+var _zlist_box: VBoxContainer
 var _full: TextureRect
 var _bounds: Control         # the two view-edge lines + dimmed gutters (overlay, non-interactive)
 var _line_l: ColorRect
@@ -48,12 +52,17 @@ func _ready() -> void:
 	_fit_tool_window()                 # wider than the game window → side gutters for the controls
 	await get_tree().process_frame     # let the resize settle so the viewport size is final
 	_build_stage()                     # central game-view region; the .tscn Background moves inside it
-	_back_layer = _make_item_layer("BackItems")    # trees + clouds — BEHIND the buildings (game order)
-	_build_backdrop()                  # the buildings, sandwiched between the back + front decor layers
-	_front_layer = _make_item_layer("FrontItems")  # grass — IN FRONT of the buildings
+	# the z-stack, bottom→top: fence · back decor · buildings · front decor (created in that order)
+	_fence_layer = _make_item_layer("Fence")
+	_back_layer = _make_item_layer("BackItems")
+	_buildings = _make_item_layer("Buildings")
+	_front_layer = _make_item_layer("FrontItems")
+	_populate_fence()
+	_populate_buildings()
 	_build_full_overlay()
 	_build_bounds()                    # the two "edge of the player's view" lines + dimmed gutters
 	_build_palette()
+	_build_zlist()                     # right-gutter z-order readout
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	_set_info("")
 	await get_tree().process_frame
@@ -179,22 +188,24 @@ func _static_sprite(art: String, frac: Vector2, fsize: float) -> TextureRect:
 	return t
 
 
-func _build_backdrop() -> void:
-	_backdrop = Control.new()
-	_backdrop.name = "Backdrop"
-	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_stage.add_child(_backdrop)
-	# fence behind the buildings (matches the grove: base -> fence -> items)
-	if ResourceLoader.exists(FENCE_PATH):
-		var f := TextureRect.new()
-		f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		f.texture = load(FENCE_PATH)
-		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_backdrop.add_child(f)
-	# the buildings, at their auto-derived positions
+# The fence at the very bottom of the stack (smallest z) — below every placed decoration, matching the
+# grove (base → fence → trees → buildings → grass).
+func _populate_fence() -> void:
+	if not ResourceLoader.exists(FENCE_PATH):
+		return
+	var f := TextureRect.new()
+	f.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	f.texture = load(FENCE_PATH)
+	f.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	f.set_meta("art", FENCE_PATH)
+	f.set_meta("fixed", true)            # appears in the z-list (z 0); never moved
+	_fence_layer.add_child(f)
+
+# The buildings, at their auto-derived positions — fixed context (not movable), but they carry a z and
+# show in the z-list, and selecting one (from the list) highlights it so you can read its z.
+func _populate_buildings() -> void:
 	var data = _read_json(ITEMS_LAYOUT)
 	if typeof(data) == TYPE_DICTIONARY and data.has("items"):
 		for rec in data["items"]:
@@ -202,8 +213,11 @@ func _build_backdrop() -> void:
 			if not ResourceLoader.exists(art):
 				continue
 			var p = rec.get("pos", [0.5, 0.5])
-			_backdrop.add_child(_static_sprite(art, Vector2(float(p[0]), float(p[1])), float(rec.get("fsize", 240))))
-	_backdrop.modulate = Color(1, 1, 1, 0.85)   # slightly faded so placed decor reads clearly on top
+			var b := _static_sprite(art, Vector2(float(p[0]), float(p[1])), float(rec.get("fsize", 240)))
+			b.set_meta("art", art)
+			b.set_meta("fixed", true)
+			_buildings.add_child(b)
+	_buildings.modulate = Color(1, 1, 1, 0.85)   # slightly faded so trees BEHIND read through
 
 
 # An interactive decor layer filling the stage. Two of these straddle the buildings backdrop so trees
@@ -274,9 +288,78 @@ func _build_palette() -> void:
 			vb.add_child(btn)
 
 
+# --- z-order list (right gutter) ---------------------------------------------
+
+# The whole stack bottom→top: fence, back decor, buildings, front decor. Index in this list == z.
+func _z_order() -> Array:
+	var out := []
+	out += _fence_layer.get_children()
+	out += _back_layer.get_children()
+	out += _buildings.get_children()
+	out += _front_layer.get_children()
+	return out
+
+func _global_z(item: Control) -> int:
+	return _z_order().find(item)
+
+func _kind_of(item: Control) -> String:
+	if item.get_parent() == _fence_layer: return "fence"
+	if item.has_meta("fixed"): return "bldg"
+	if item.get_parent() == _front_layer: return "front"
+	if "/clouds/" in String(item.get_meta("art", "")): return "cloud"
+	return "back"
+
+func _name_of(item: Control) -> String:
+	var nm := String(item.get_meta("art", "")).get_file().get_basename()
+	return nm if nm != "" else String(item.name)
+
+# A panel pinned to the window's right edge (the right gutter) listing every item by z, front on top.
+func _build_zlist() -> void:
+	_zlist = PanelContainer.new()
+	_zlist.name = "ZList"
+	_zlist.anchor_left = 1.0; _zlist.anchor_right = 1.0
+	_zlist.offset_left = -252; _zlist.offset_right = -12; _zlist.offset_top = 12
+	_zlist.modulate = Color(1, 1, 1, 0.95)
+	add_child(_zlist)
+	var scroll := ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(240, min(get_viewport_rect().size.y - 24, 1400))
+	_zlist.add_child(scroll)
+	_zlist_box = VBoxContainer.new()
+	_zlist_box.add_theme_constant_override("separation", 1)
+	scroll.add_child(_zlist_box)
+	_refresh_zlist()
+
+# Rebuild the z-list. Each row is a button that selects its item (so buildings — IGNORE on the canvas —
+# are still reachable). Highest z (front-most) sits on top, like a layers panel.
+func _refresh_zlist() -> void:
+	if _zlist_box == null:
+		return
+	for c in _zlist_box.get_children():
+		c.queue_free()
+	var hdr := Label.new()
+	hdr.text = "Z-ORDER  (top = front)"
+	hdr.add_theme_font_size_override("font_size", 12)
+	_zlist_box.add_child(hdr)
+	var order := _z_order()
+	for i in range(order.size() - 1, -1, -1):
+		var it: Control = order[i]
+		var b := Button.new()
+		b.text = "z%d  %s · %s" % [i, _name_of(it), _kind_of(it)]
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.flat = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_font_size_override("font_size", 12)
+		if it == _selected:
+			b.add_theme_color_override("font_color", Color(1.0, 0.92, 0.4))      # selected
+		elif it.has_meta("fixed"):
+			b.add_theme_color_override("font_color", Color(0.74, 0.82, 1.0))     # fence/buildings
+		b.pressed.connect(_select.bind(it))
+		_zlist_box.add_child(b)
+
+
 # --- placed decoration -------------------------------------------------------
 
-func _spawn(art_path: String) -> Control:
+func _spawn(art_path: String, forced_layer := "") -> Control:
 	if not ResourceLoader.exists(art_path):
 		return null
 	var tex: Texture2D = load(art_path)
@@ -287,7 +370,8 @@ func _spawn(art_path: String) -> Control:
 	item.pivot_offset = item.size * 0.5
 	item.mouse_filter = Control.MOUSE_FILTER_STOP
 	item.gui_input.connect(_on_item_input.bind(item))
-	var layer := _front_layer if _layer_of(art_path) == "front" else _back_layer   # grass in front; trees/clouds behind
+	var lay := forced_layer if forced_layer != "" else _layer_of(art_path)         # saved layer wins on load
+	var layer := _front_layer if lay == "front" else _back_layer                   # grass in front; trees/clouds behind
 	layer.add_child(item)
 	# default spawn spot: a cloud drops into the SKY — the back layer sits behind the buildings, so a
 	# cloud spawned dead-centre would land hidden behind the house. Everything else spawns at centre.
@@ -306,14 +390,21 @@ func _center_of(item: Control) -> Vector2:
 
 
 func _select(item: Control) -> void:
+	if item == _selected:                 # same item (e.g. dragging) — refresh the readout, not the list
+		if item:
+			_update_info(item)
+		return
 	if _selected and is_instance_valid(_selected):
 		_selected.modulate = Color.WHITE
 	_selected = item
 	if item:
 		item.modulate = Color(1.0, 1.0, 0.7)
-		var nm := String(item.get_meta("art")).get_file().get_basename()
-		_set_info("%s · z%d · scale %.2f · (%.3f, %.3f)" % [nm, item.get_index(), item.scale.x,
-			_center_of(item).x / _bg_size().x, _center_of(item).y / _bg_size().y])
+		_update_info(item)
+	_refresh_zlist()
+
+func _update_info(item: Control) -> void:
+	_set_info("%s · z%d · scale %.2f · (%.3f, %.3f)" % [_name_of(item), _global_z(item), item.scale.x,
+		_center_of(item).x / _bg_size().x, _center_of(item).y / _bg_size().y])
 
 
 func _on_item_input(ev: InputEvent, item: Control) -> void:
@@ -349,19 +440,45 @@ func _scale_item(item: Control, factor: float) -> void:
 	_set_center(item, c)
 	_select(item)
 
-# Raise/lower an item in the draw order (shift+wheel). Child order = draw order in the tool AND the
-# order written on save, so it round-trips to the game's per-layer stacking.
+# Raise (dir>0) / lower (dir<0) a decor item in the unified z-stack. Within a layer it just shifts; at a
+# layer edge it CROSSES the buildings — back's top → front's bottom (in front of the house) and back, so
+# w/e walk an item continuously from behind the buildings to in front. Buildings/fence don't move.
 func _restack(item: Control, dir: int) -> void:
-	var layer := item.get_parent()                  # restack within the item's own layer (back or front)
-	var ni := clampi(item.get_index() + dir, 0, layer.get_child_count() - 1)
-	layer.move_child(item, ni)
-	_select(item)
+	if item == null or item.has_meta("fixed"):
+		return
+	var parent := item.get_parent()
+	var idx := item.get_index()
+	if dir > 0:                                                  # raise → toward the front
+		if parent == _back_layer and idx >= _back_layer.get_child_count() - 1:
+			_move_to_layer(item, _front_layer, 0)               # cross above the buildings
+		else:
+			parent.move_child(item, mini(idx + 1, parent.get_child_count() - 1))
+	else:                                                        # lower → toward the back
+		if parent == _front_layer and idx <= 0:
+			_move_to_layer(item, _back_layer, _back_layer.get_child_count())   # cross below the buildings
+		else:
+			parent.move_child(item, maxi(idx - 1, 0))
+	_refresh_zlist()
+	_update_info(item)
+
+# Reparent an item between the back and front decor layers, keeping its on-stage position (both layers
+# fill the stage at the same origin, so there is no visual jump).
+func _move_to_layer(item: Control, layer: Control, idx: int) -> void:
+	var pos := item.position
+	item.get_parent().remove_child(item)
+	layer.add_child(item)
+	item.position = pos
+	layer.move_child(item, clampi(idx, 0, layer.get_child_count() - 1))
 
 func _delete_item(item: Control) -> void:
+	if item == null or item.has_meta("fixed"):       # buildings/fence can't be deleted
+		return
 	if item == _selected:
 		_selected = null
+	item.get_parent().remove_child(item)             # remove now so the z-list refresh excludes it
 	item.queue_free()
 	_set_info("removed")
+	_refresh_zlist()
 
 
 func _unhandled_input(ev: InputEvent) -> void:
@@ -381,6 +498,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 			_load(); get_viewport().set_input_as_handled(); return
 	if _selected == null or not is_instance_valid(_selected):
 		return
+	if _selected.has_meta("fixed"):           # buildings/fence: visible + selectable, but not editable
+		return
 	match ev.keycode:
 		KEY_DELETE, KEY_BACKSPACE:
 			_delete_item(_selected)
@@ -396,14 +515,23 @@ func _unhandled_input(ev: InputEvent) -> void:
 
 # --- persistence (data/map1v2_decor.json) ------------------------------------
 
-# In-game render layer for a placed item, by its source folder: trees go BEHIND the buildings,
-# clouds drift in the sky (own layer), everything else (grass) renders IN FRONT.
+# Default layer for a freshly-spawned item, by its source folder: trees → BACK (behind buildings),
+# clouds → their own sky layer (also behind), everything else (grass) → FRONT. The user can then move
+# it across the buildings with w/e, which is why save reads the item's ACTUAL layer (_save_layer), not this.
 func _layer_of(art: String) -> String:
 	if "/trees/" in art:
 		return "back"
 	if "/clouds/" in art:
 		return "cloud"
 	return "front"
+
+# The layer to SAVE an item under = where it actually sits now (the user may have crossed the buildings).
+func _save_layer(item: Control) -> String:
+	if item.get_parent() == _front_layer:
+		return "front"
+	if "/clouds/" in String(item.get_meta("art", "")):
+		return "cloud"
+	return "back"
 
 
 func _save() -> void:
@@ -418,7 +546,7 @@ func _save() -> void:
 			"pos": [c.x / bg.x, c.y / bg.y],
 			# footprint in design px = the sprite's LARGER native dim × scale (KEEP_ASPECT_CENTERED in-game)
 			"fsize": int(round(max(nat.x, nat.y) * item.scale.x)),
-			"layer": _layer_of(art),
+			"layer": _save_layer(item),
 		})
 	var p := ProjectSettings.globalize_path(SAVE_PATH)
 	DirAccess.make_dir_recursive_absolute(p.get_base_dir())
@@ -439,7 +567,7 @@ func _load() -> void:
 		return
 	var bg := _bg_size()
 	for rec in data["decor"]:
-		var item := _spawn(String(rec.get("art", "")))
+		var item := _spawn(String(rec.get("art", "")), String(rec.get("layer", "")))   # restore its saved layer
 		if item == null:
 			continue
 		var nat: Vector2 = item.texture.get_size()
@@ -448,4 +576,5 @@ func _load() -> void:
 		var pos = rec.get("pos", [0.5, 0.5])
 		_set_center(item, Vector2(float(pos[0]) * bg.x, float(pos[1]) * bg.y))
 	_select(null)
+	_refresh_zlist()
 	_set_info("loaded %d decoration(s)" % data["decor"].size())
