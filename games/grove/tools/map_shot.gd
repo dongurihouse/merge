@@ -38,6 +38,8 @@ func _initialize() -> void:
 	Save.configure_for_test(dir)
 
 	match mode:
+		"select":
+			Save.mark_spotlight_seen("shop")   # the place-picker capture shouldn't be dimmed by the FTUE shop spotlight
 		"spirits":
 			var gs := Save.grove()
 			var ful := {}

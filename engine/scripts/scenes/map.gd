@@ -90,6 +90,7 @@ var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
+var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
 var level_label: Label
 var xp_label: Label
@@ -123,10 +124,12 @@ func _ready() -> void:
 	content.gui_input.connect(_on_input)
 	add_child(content)
 
-	# the day's weather drifts over the whole scene (calm mode wins inside)
+	# the day's weather drifts over the MAP (calm mode wins inside); kept as a member so the
+	# place-picker can hide it — drifting leaves over a static chooser read as stray sprites.
 	var g0 := Save.grove()
 	Ambient.check_winback(g0, Time.get_unix_time_from_system())
-	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm())))
+	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	add_child(_weather)
 
 	_build_hud()
 	_build_chrome()
@@ -232,6 +235,7 @@ func _open_map(z: int) -> void:
 	_view = "map"
 	_map_idx = z
 	_customize_spot = ""
+	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
 	_dismiss_2x_offer()                  # T45: a stale doubler card from a prior hub visit closes on nav (a fresh collect re-offers)
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
@@ -247,9 +251,20 @@ func _open_map(z: int) -> void:
 func _open_select() -> void:
 	_view = "select"
 	_customize_spot = ""
+	_set_map_chrome_visible(false)        # the place-picker is a calm chooser — no map chrome, no weather
 	_dismiss_2x_offer()                  # T45: leaving the hub for the map-select closes any open doubler card
 	Audio.play("button_tap", -4.0)
 	_build_select()
+
+# The bottom chrome (garden CTA / gear / shop / atlas / piggy) and ambient weather belong to a
+# MAP, not the place-picker. One toggle keeps the chooser clean and restores the lived-in map on
+# return. The piggy pip rides its button's own visible flag, so it stays correct under this.
+func _set_map_chrome_visible(on: bool) -> void:
+	for n in _chrome_nodes:
+		if is_instance_valid(n):
+			(n as CanvasItem).visible = on
+	if _weather != null and is_instance_valid(_weather):
+		_weather.visible = on
 
 # §8 keystone — the hub-collect BEAT. Sweep every restored yield building's accrued coins to the
 # wallet in ONE go and reset the accrual clock (G.hub_collect does the credit + reset together).
@@ -604,13 +619,16 @@ func _map_title_plank(z: int) -> Control:
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
-	var lbl := Label.new()
-	lbl.text = tr("✿ restored") if map_spots_done(z) else tr("✿ %d★ left") % map_stars_left(z)
-	lbl.add_theme_font_size_override("font_size", 22)
-	lbl.add_theme_color_override("font_color", STRAW)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(lbl)
+	if map_spots_done(z):
+		var lbl := Label.new()
+		lbl.text = tr("✿ restored")
+		lbl.add_theme_font_size_override("font_size", 22)
+		lbl.add_theme_color_override("font_color", STRAW)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(lbl)
+	else:
+		col.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
 	return plank
 
 # §8: the optional ghost-preview of an UNOWNED spot's buildable. Reuses the SAME
@@ -910,33 +928,41 @@ func _build_select() -> void:
 	header.size = Vector2(view.x, 56.0)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(header)
-	# a 2-column grid of cards, centered, scrolling room left below the header
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col_w: float = (view.x - 18.0 * 3.0) / 2.0
-	var card_w: float = clampf(col_w, 200.0, 320.0)
-	for z in G.MAPS.size():
-		var card := _make_card(z, card_w)
-		grid.add_child(card)
+	# ONE wide card per row — a vista per place. The stack is sized to FILL the band between the
+	# header and the safe bottom, so there is no pool of dead space below: per-card height is the
+	# band split evenly (clamped), and when clamped the stack centers in the band. No ScrollContainer
+	# (the single-input-surface model has none, and every map fits one screen); cards are positioned
+	# directly and hit-tested by their global rect.
+	var n := G.MAPS.size()
+	var side := 36.0
+	var card_w := view.x - side * 2.0
+	var sep := 18.0
+	var band_top := top + 76.0
+	var band_bot := view.y - (Look.safe_bottom(self) + 40.0)
+	var band_h := band_bot - band_top
+	var card_h := clampf((band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1)), 168.0, 360.0)
+	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
+	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
+	for z in n:
+		var card := _make_card(z, card_w, card_h)
+		card.position = Vector2(side, y)
+		card.size = Vector2(card_w, card_h)
+		content.add_child(card)
 		select_hits.append({"node": card, "z": z})
-	# center the grid under the header
-	var grid_top := top + 80.0
-	grid.position = Vector2((view.x - (card_w * 2.0 + 18.0)) / 2.0, grid_top)
-	grid.custom_minimum_size = Vector2(card_w * 2.0 + 18.0, 0)
-	content.add_child(grid)
+		y += card_h + sep
 	FX.pop_in(content)
 
 # One map card: thumbnail + name + state line. Three states drive the line and the
-# greying — locked ("✿ after <prev>"), unlocked-incomplete ("✿ N★ left"), restored.
-func _make_card(z: int, card_w: float) -> Control:
+# greying — locked ("after <prev>"), unlocked-incomplete (★ N left), restored.
+# `card_h` > 0 makes the thumbnail a BANNER that expands to fill the card (the one-per-row
+# place-picker); 0 keeps the legacy fixed-aspect thumb.
+func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
 	var map_data: Dictionary = G.MAPS[z]
 	var open := map_unlocked(z)
 	var done := map_spots_done(z)
+	var banner := card_h > 0.0
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(card_w, 0)
+	card.custom_minimum_size = Vector2(card_w, card_h)
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = Color("#3D2A1B", 0.9) if open else Color("#2A2620", 0.85)
 	cs.set_corner_radius_all(20)
@@ -959,12 +985,21 @@ func _make_card(z: int, card_w: float) -> Control:
 	# card can wear its fog veil over exactly the thumb rect (text stays clear below).
 	var thumb_h := card_w * 0.62
 	var thumb_w := card_w - 24.0
+	var thumb_min_h := 0.0 if banner else thumb_h   # banner thumbs EXPAND to fill the card height
 	var thumb: Control
+	# prefer the map's own thumbnail; else fall back to its `poi_<id>` teaser so every LOCKED place
+	# shows ITS scenery under the fog instead of an identical blank tile; else a meadow-toned panel.
 	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
+	if not ResourceLoader.exists(thumb_path):
+		var poi := Game.art("map/poi_%s.png" % String(map_data.id))
+		if ResourceLoader.exists(poi):
+			thumb_path = poi
 	if ResourceLoader.exists(thumb_path):
 		var t := TextureRect.new()
 		t.texture = load(thumb_path)
-		t.custom_minimum_size = Vector2(thumb_w, thumb_h)
+		t.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
+		if banner:
+			t.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		t.clip_contents = true
@@ -975,7 +1010,9 @@ func _make_card(z: int, card_w: float) -> Control:
 		thumb = t
 	else:
 		var ph := Panel.new()
-		ph.custom_minimum_size = Vector2(thumb_w, thumb_h)
+		ph.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
+		if banner:
+			ph.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		ph.clip_contents = true
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
@@ -994,25 +1031,48 @@ func _make_card(z: int, card_w: float) -> Control:
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
-	var stxt: String
-	var scol: Color
-	if done:
-		stxt = tr("✿ restored"); scol = STRAW
-	elif open:
-		stxt = tr("✿ %d★ left") % map_stars_left(z); scol = CREAM
+	if open and not done:
+		# §13: the star count is the GOLD sprite + a number — not a baked ★ glyph — so it reads as
+		# the same currency as the HUD wallet and the in-map spot pins (a centered icon+number row).
+		col.add_child(_stars_left_row(map_stars_left(z), CREAM, 21))
 	else:
-		stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
-	var state_l := Label.new()
-	state_l.text = stxt
-	state_l.add_theme_font_size_override("font_size", 21)
-	state_l.add_theme_color_override("font_color", scol)
-	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
-	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(state_l)
+		var stxt: String
+		var scol: Color
+		if done:
+			stxt = tr("✿ restored"); scol = STRAW
+		else:
+			stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
+		var state_l := Label.new()
+		state_l.text = stxt
+		state_l.add_theme_font_size_override("font_size", 21)
+		state_l.add_theme_color_override("font_color", scol)
+		state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
+		state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(state_l)
 	if open and not done and z == _frontier_map():
 		FX.breathe_once(card)
 	return card
+
+# A centered "★ N left" status row: the GOLD star SPRITE (Look.icon) + a number-only label, so
+# every star reads as the same currency as the HUD wallet. Used by the map cards and the map title
+# plank (replaces the old baked-glyph "✿ N★ left"). Every node IGNOREs the single input surface.
+func _stars_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Look.icon("star", float(px) + 3.0)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = tr("%d left") % n
+	lbl.add_theme_font_size_override("font_size", px)
+	lbl.add_theme_color_override("font_color", num_col)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	return row
 
 # The fog veil for a LOCKED map card (§8). ONE place that dresses a thumbnail as
 # "behind fog, not yet revealed" — a translucent ink scrim + a soft gradient that
