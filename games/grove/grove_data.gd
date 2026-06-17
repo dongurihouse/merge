@@ -474,6 +474,7 @@ const ADS := {
 	"collect_2x":   {"cap": 2, "cooldown": 3600,  "mult": 2},           # 2/day, 1 h apart — arms the next collect
 	"shop_reroll":  {"cap": 2, "cooldown": 7200},                       # 2/day, 2 h apart — fresh featured band
 	"event_topup":  {"cap": 1, "cooldown": 86400, "gems": 8},           # 1/day — a small event boost (stub)
+	"free_gems":    {"cap": 3, "cooldown": 1800,  "gems": 5},           # 3/day, 30 min apart — the persistent LiveOps gem faucet ("Free")
 }
 
 # The OUT-OF-WATER TRIGGERED OFFER (§10 "the contextual sell" — state-driven, fired at the
@@ -528,3 +529,9 @@ const LOGIN_MILESTONES := {
 	30: {"gems": 15, "coins": 300, "cosmetic": "look_twilight"},  # the month cap — leans premium + a cosmetic unlock
 }
 const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)
+
+# The MAP TASK-STRIP reward (§17 chrome task loop). The strip rides the EXISTING
+# restore-the-next-spot goal (no bolted-on quest); finishing a map's spots pays this
+# small bonus once. A modest soft-currency + premium dribble — never possibility (§4):
+# it celebrates the milestone the player already reached, it does not gate the next.
+const MAP_TASK_REWARD := {"coins": 120, "gems": 2}

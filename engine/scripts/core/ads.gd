@@ -29,7 +29,7 @@ const D = Game.DATA
 
 # The known ad surfaces (also the keys of DATA.ADS). Exposed so callers/tests can
 # enumerate without reaching into the data module.
-const TYPES := ["refill_water", "collect_2x", "shop_reroll", "event_topup"]
+const TYPES := ["refill_water", "collect_2x", "shop_reroll", "event_topup", "free_gems"]
 
 # This ad type's tuning row from the active game's DATA (cap / cooldown / reward).
 # Unknown id → an empty row (cap 0 / cooldown 0 → treated as "no such ad": can_show false).
@@ -92,6 +92,13 @@ static func claim(ad_type: String) -> Dictionary:
 			if gems > 0:
 				Save.add_diamonds(gems)
 			return {"ok": true, "kind": ad_type, "gems": gems}
+		"free_gems":
+			# The persistent "Free" rail faucet (§4/§10): watch → a small 💎 grant, capped + cooled.
+			# Granted PURELY here (premium lives in Save); the caller plays the reward FX.
+			var fg := int(def.get("gems", 0))
+			if fg > 0:
+				Save.add_diamonds(fg)
+			return {"ok": true, "kind": ad_type, "gems": fg}
 		_:
 			return {"ok": false}
 
