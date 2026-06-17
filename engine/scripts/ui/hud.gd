@@ -168,6 +168,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	out["refresh"] = refresh
 	var shop_opts := opts.duplicate()
 	shop_opts["refresh"] = refresh
+	# The shop drops its own (redundant) currency strip and reuses THIS bar as the wallet:
+	# pass the cluster pill + labels so buy feedback (fly-home / tick / "need more" wobble)
+	# targets it, and both pills so the shop can RAISE them crisp above its blurred backdrop.
+	shop_opts["wallet"] = {
+		"coin": {"node": panel, "label": coins},
+		"gem": {"node": panel, "label": gems},
+		"panels": [panel, lv_panel],
+	}
 	out["open_shop"] = func() -> void: Shop.open(host, shop_opts)
 	refresh.call()
 	return out

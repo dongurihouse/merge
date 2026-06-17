@@ -211,9 +211,14 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
+	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
+	# flat dim becomes a cozy frosted backdrop that focuses the parchment (interim until a
+	# dedicated shop backdrop is generated — BACKLOG / merge_spec §10). Falls back to a flat
+	# dim if the screen-read shader can't compile.
 	var veil := ColorRect.new()
 	veil.color = Color(INK, Tune.VEIL_ALPHA)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.material = _backdrop_material()
 	overlay.add_child(veil)
 	veil.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
@@ -265,21 +270,23 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	ribbon.grow_vertical = Control.GROW_DIRECTION_END
 	header.add_child(ribbon)
 
-	# S12: the wallet docks INSIDE the parchment below the stall art, with its
-	# own breathing room — chips never sit on the art
+	# breathing room below the stall art
 	var wpad := Control.new()
 	wpad.custom_minimum_size = Vector2(0, Tune.SECTION_PAD)
 	col.add_child(wpad)
-	# wallet strip — you're here to spend; these chips tick on every purchase
-	var wallet := HBoxContainer.new()
-	wallet.alignment = BoxContainer.ALIGNMENT_CENTER
-	wallet.add_theme_constant_override("separation", Tune.ROW_SEP)
-	col.add_child(wallet)
-	var coin_chip := Look.stat_chip("coin", str(Save.coins()))
-	wallet.add_child(coin_chip.node)
-	var gem_chip := Look.stat_chip("gem", str(Save.diamonds()))
-	wallet.add_child(gem_chip.node)
-	var refs := {"coin": coin_chip, "gem": gem_chip, "overlay": overlay, "opts": opts}
+	# The shop no longer draws its own currency strip — the HUD bar IS the wallet (one source,
+	# no redundancy). The opener (hud.open_shop) passes the HUD's wallet refs so buy feedback
+	# (fly-home / tick / "need more" wobble) targets it, and its panels so we can RAISE them
+	# above the blurred backdrop (kept crisp + readable). When opened without them (a capture
+	# tool), the feedback simply no-ops and nothing is raised.
+	var hud_wallet: Dictionary = opts.get("wallet", {})
+	for p in hud_wallet.get("panels", []):
+		if p != null and is_instance_valid(p) and (p as Node).get_parent() == host:
+			host.move_child(p, host.get_child_count() - 1)
+	var refs := {
+		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
+		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
+		"overlay": overlay, "opts": opts}
 
 	# — Quick help —
 	_divider(col, host.tr("Quick help"))
@@ -335,21 +342,18 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		col.add_child(starter_row)
 		starter_row.add_child(_starter_card(host, refs))
 
-	# — Dewdrop pouches (cash → diamonds; confirm-only) — the full ladder ($0.99…$99.99) is
-	# wider than the parchment, so it rides a HORIZONTAL SCROLLER clipped to the card: the
-	# cheapest pack reads at rest, swipe right for the bigger tiers. Without this the row's
-	# combined min-width would FLOOR the parchment wider than the screen (custom_minimum_size
-	# is a floor, not a cap) and bleed the whole shop off both edges.
+	# — Dewdrop pouches (cash → diamonds; confirm-only) — the full $0.99…$99.99 ladder shows in
+	# a 3-wide GRID (2 rows) so EVERY tier — including the whale $49.99/$99.99 — is visible at
+	# once, no hidden scroll. 3*GEM_CARD.x + 2*HSEP stays inside the parchment inner width.
 	_divider(col, host.tr("Dewdrop pouches"))
-	var gem_scroll := ScrollContainer.new()
-	gem_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-	gem_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	col.add_child(gem_scroll)
-	var gem_row := HBoxContainer.new()                # left-aligned inside the scroller (cheapest first)
-	gem_row.add_theme_constant_override("separation", Tune.ROW_SEP)
-	gem_scroll.add_child(gem_row)
+	var gem_grid := GridContainer.new()
+	gem_grid.columns = Tune.GEM_GRID_COLS
+	gem_grid.add_theme_constant_override("h_separation", Tune.GEM_GRID_HSEP)
+	gem_grid.add_theme_constant_override("v_separation", Tune.GEM_GRID_VSEP)
+	gem_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(gem_grid)
 	for i in CASH_PACKS.size():
-		gem_row.add_child(_gem_card(host, refs, i))
+		gem_grid.add_child(_gem_card(host, refs, i))
 	var foot := Control.new()
 	foot.custom_minimum_size = Vector2(0, Tune.SECTION_PAD)
 	col.add_child(foot)
@@ -393,7 +397,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	place_x.call_deferred()
 
 	FX.pop_in(card)
-	FX.scatter_in([wallet, help_row, offer_row, gem_row], Tune.SCATTER_DELAY)
+	FX.scatter_in([help_row, offer_row, gem_grid], Tune.SCATTER_DELAY)
 
 # A thin sprig divider with a caption (divider_vine art when generated).
 # S13: the caption is a parchment TAB chip, baseline-aligned with its vine —
@@ -424,9 +428,19 @@ static func _divider(col: VBoxContainer, caption: String) -> void:
 		var vine := TextureRect.new()
 		vine.texture = load(Look.kit("divider_vine.png"))
 		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		# the vine art is a 768×64 leafy STRIP (12:1) made to span. Shown KEEP_ASPECT_CENTERED in a
+		# row tall enough (VINE_H) that the strip is always WIDTH-limited, so the WHOLE leafy vine
+		# scales to fill the gap from the tab to the card's right edge — consistent across rows.
+		# (At a short VINE_H it floated a sprig mid-gap; SCALE flattened it; COVERED cropped the
+		# leaves to a bare stem.)
+		# COVER the gap with the leafy strip, keeping its horizontal proportions (only outer leaf
+		# tips crop) so the WHOLE vine spans from the tab to the card's right edge on every row.
+		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		vine.clip_contents = true
 		vine.custom_minimum_size = Vector2(0, Tune.VINE_H)
 		vine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vine.size_flags_vertical = Control.SIZE_FILL
+		row.custom_minimum_size = Vector2(0, Tune.VINE_H)     # only force the row tall when the real vine is present (fallback stays a thin rule)
 		row.add_child(vine)
 	else:
 		var line := ColorRect.new()
@@ -461,10 +475,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
 	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
 	inner.add_child(c)
-	var price := Look.stat_chip("gem", str(cost))
-	price.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	(price.label as Label).add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
-	inner.add_child(price.node)
+	inner.add_child(_price_pill(str(cost), "gem"))
 	b.set_meta("shop_buy", true)
 	b.set_meta("gem_cost", cost)
 	b.pressed.connect(func() -> void:
@@ -501,10 +512,7 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 	inner.add_child(c)
 	var cur := String(off.currency)
 	var cost := int(off.cost)
-	var price := Look.stat_chip("gem" if cur == "diamonds" else "coin", str(cost))
-	price.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	(price.label as Label).add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
-	inner.add_child(price.node)
+	inner.add_child(_price_pill(str(cost), "gem" if cur == "diamonds" else "coin"))
 	b.set_meta("shop_buy", true)
 	b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
 	var idx := _offer_index(String(off.id))
@@ -563,10 +571,7 @@ static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> 
 		inner.add_child(got)
 		b.set_meta("owned", true)
 	else:
-		var price := Look.stat_chip("gem" if cur == "diamonds" else "coin", str(cost))
-		price.node.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		(price.label as Label).add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
-		inner.add_child(price.node)
+		inner.add_child(_price_pill(str(cost), "gem" if cur == "diamonds" else "coin"))
 		b.set_meta("shop_buy", true)
 		b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
 	b.pressed.connect(func() -> void:
@@ -588,8 +593,6 @@ static func _offer_index(id: String) -> int:
 # One cash pack card: gem art/icon, the count, the $ price. Middle = "Popular".
 static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	var pack: Dictionary = CASH_PACKS[i]
-	# S14: tall enough for badge+icon+count+price IN FLOW — content used to
-	# overflow the 280px card and the Popular badge poked past the top edge
 	var b := _card_button(Tune.GEM_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -597,12 +600,21 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(inner)
-	# A small badge band: the first-ever pack shows "2×" (the §10 first-purchase doubler,
-	# the strongest conversion nudge); otherwise the merchandised pack shows "Popular".
+	# The badge rides a FIXED-height slot (empty when un-badged) so a "Popular"/"2×" tag never
+	# shoves this card's icon/count/price below its un-tagged row-mates (the §4 alignment fix).
+	# The first-ever pack shows "2×" (the §10 first-purchase doubler); otherwise the
+	# merchandised pack shows "Popular".
+	var slot := CenterContainer.new()
+	slot.custom_minimum_size = Vector2(0, Tune.BADGE_SLOT_H)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(slot)
+	var badge_text := ""
 	if first_buy_doubled():
-		inner.add_child(_badge(host.tr("2× first buy")))
+		badge_text = host.tr("2× first buy")
 	elif bool(pack.get("pop", false)):
-		inner.add_child(_badge(host.tr("Popular")))
+		badge_text = host.tr("Popular")
+	if badge_text != "":
+		slot.add_child(_badge(badge_text))
 	var ic := Look.icon("gem", Tune.GEM_ICON)
 	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	inner.add_child(ic)
@@ -612,26 +624,7 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	n.add_theme_font_size_override("font_size", Tune.GEM_COUNT_SIZE)
 	n.add_theme_color_override("font_color", INK)
 	inner.add_child(n)
-	# S14: a clean flat pill sized to content — the kit chip nine-patch's opaque
-	# band is thinner than its layout rect (R1's lesson) and the price overflowed
-	var price := PanelContainer.new()
-	var prs := StyleBoxFlat.new()
-	prs.bg_color = Tune.GEM_PRICE_BG
-	prs.set_corner_radius_all(Tune.GEM_PRICE_RADIUS)
-	prs.set_border_width_all(Tune.GEM_PRICE_BORDER_W)
-	prs.border_color = Tune.GEM_PRICE_EDGE
-	prs.content_margin_left = Tune.GEM_PRICE_PAD_X
-	prs.content_margin_right = Tune.GEM_PRICE_PAD_X
-	prs.content_margin_top = Tune.GEM_PRICE_PAD_T
-	prs.content_margin_bottom = Tune.GEM_PRICE_PAD_B
-	price.add_theme_stylebox_override("panel", prs)
-	var pr := Label.new()
-	pr.text = String(pack.usd)
-	pr.add_theme_font_size_override("font_size", Tune.GEM_PRICE_SIZE)
-	pr.add_theme_color_override("font_color", CREAM)
-	price.add_child(pr)
-	price.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	inner.add_child(price)
+	inner.add_child(_price_pill(String(pack.usd)))
 	b.set_meta("shop_buy", true)
 	b.set_meta("shop_cash", i)
 	b.pressed.connect(func() -> void:
@@ -641,7 +634,7 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 # The starter-pack card (§10): a wide welcome card — a "Welcome" badge, the 💎 count +
 # its water bonus, the low price. Whole card presses → the confirm grants directly.
 static func _starter_card(host: Control, refs: Dictionary) -> Button:
-	var b := _card_button(Tune.GEM_CARD)
+	var b := _card_button(Tune.STARTER_CARD)   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -672,24 +665,7 @@ static func _starter_card(host: Control, refs: Dictionary) -> Button:
 		wn.add_theme_color_override("font_color", INK)
 		wn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		what.add_child(wn)
-	var price := PanelContainer.new()
-	var prs := StyleBoxFlat.new()
-	prs.bg_color = Tune.GEM_PRICE_BG
-	prs.set_corner_radius_all(Tune.GEM_PRICE_RADIUS)
-	prs.set_border_width_all(Tune.GEM_PRICE_BORDER_W)
-	prs.border_color = Tune.GEM_PRICE_EDGE
-	prs.content_margin_left = Tune.GEM_PRICE_PAD_X
-	prs.content_margin_right = Tune.GEM_PRICE_PAD_X
-	prs.content_margin_top = Tune.GEM_PRICE_PAD_T
-	prs.content_margin_bottom = Tune.GEM_PRICE_PAD_B
-	price.add_theme_stylebox_override("panel", prs)
-	var pr := Label.new()
-	pr.text = String(STARTER_PACK.get("usd", ""))
-	pr.add_theme_font_size_override("font_size", Tune.GEM_PRICE_SIZE)
-	pr.add_theme_color_override("font_color", CREAM)
-	price.add_child(pr)
-	price.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	inner.add_child(price)
+	inner.add_child(_price_pill(String(STARTER_PACK.get("usd", ""))))
 	b.set_meta("shop_buy", true)
 	b.set_meta("shop_starter", true)
 	b.pressed.connect(func() -> void:
@@ -714,6 +690,78 @@ static func _badge(text: String) -> PanelContainer:
 	pop.add_child(pl)
 	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return pop
+
+# A cost pill — ONE source for every price on a card (help / featured / cash / starter). A clean
+# brown StyleBoxFlat (cream text), optionally led by a currency glyph. Replaces Look.stat_chip on
+# cards: that backed prices with the kit `panel_chip` nine-patch whose opaque art is a thin pill
+# narrower than its rect, so the number sat on a cut-off semicircle (the HUD bar already abandoned
+# it for the same reason). `icon_id` "" = a plain $ price (no glyph).
+static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
+	var pill := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tune.GEM_PRICE_BG
+	s.set_corner_radius_all(Tune.GEM_PRICE_RADIUS)
+	s.set_border_width_all(Tune.GEM_PRICE_BORDER_W)
+	s.border_color = Tune.GEM_PRICE_EDGE
+	s.content_margin_left = Tune.GEM_PRICE_PAD_X
+	s.content_margin_right = Tune.GEM_PRICE_PAD_X
+	s.content_margin_top = Tune.GEM_PRICE_PAD_T
+	s.content_margin_bottom = Tune.GEM_PRICE_PAD_B
+	pill.add_theme_stylebox_override("panel", s)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", Tune.PRICE_ROW_SEP)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(row)
+	if icon_id != "":
+		var ic := Look.icon(icon_id, Tune.PRICE_ICON)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(ic)
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", Tune.GEM_PRICE_SIZE)
+	l.add_theme_color_override("font_color", CREAM)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(l)
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return pill
+
+# The blurred + warm-tinted + vignetted backdrop material (the §1 interim shop backdrop). A
+# screen-read canvas shader: 9-tap box blur of the live scene, mixed toward a warm dark, with a
+# radial vignette to focus the parchment. Returns a ShaderMaterial applied to the full-rect veil.
+static func _backdrop_material() -> ShaderMaterial:
+	var sh := Shader.new()
+	sh.code = "shader_type canvas_item;\n" + \
+		"uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;\n" + \
+		"uniform float blur = 2.6;\n" + \
+		"uniform vec4 tint : source_color = vec4(0.12, 0.086, 0.055, 1.0);\n" + \
+		"uniform float tint_amt = 0.42;\n" + \
+		"uniform float vignette = 0.55;\n" + \
+		"void fragment() {\n" + \
+		"\tvec2 ps = SCREEN_PIXEL_SIZE * blur;\n" + \
+		"\tvec3 c = vec3(0.0);\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2(-1.0, -1.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2( 0.0, -1.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2( 1.0, -1.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2(-1.0,  0.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2( 1.0,  0.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2(-1.0,  1.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2( 0.0,  1.0) * ps).rgb;\n" + \
+		"\tc += texture(screen_tex, SCREEN_UV + vec2( 1.0,  1.0) * ps).rgb;\n" + \
+		"\tc /= 9.0;\n" + \
+		"\tc = mix(c, tint.rgb, tint_amt);\n" + \
+		"\tfloat d = distance(SCREEN_UV, vec2(0.5));\n" + \
+		"\tc = mix(c, tint.rgb, clamp(d * vignette, 0.0, 1.0));\n" + \
+		"\tCOLOR = vec4(c, 1.0);\n" + \
+		"}\n"
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("blur", Tune.BACKDROP_BLUR)
+	m.set_shader_parameter("tint", Tune.BACKDROP_TINT)
+	m.set_shader_parameter("tint_amt", Tune.BACKDROP_TINT_AMT)
+	m.set_shader_parameter("vignette", Tune.BACKDROP_VIGNETTE)
+	return m
 
 static func _card_button(min_size: Vector2) -> Button:
 	var b := Button.new()
@@ -755,11 +803,19 @@ static func _refresh_afford(overlay: Control) -> void:
 	for b in overlay.find_children("*", "Button", true, false):
 		_apply_afford(b)
 
+# The HUD wallet node for a currency ("coin"|"gem"), or null when the opener passed no wallet
+# (e.g. a capture tool) — feedback then no-ops gracefully instead of touching a missing chip.
+static func _wallet_node(refs: Dictionary, key: String) -> Control:
+	var n: Variant = (refs.get(key, {}) as Dictionary).get("node")
+	return n if (n != null and is_instance_valid(n)) else null
+
 static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 		action: Callable, fly_id: String) -> void:
 	if Save.diamonds() < cost:
 		Audio.play("invalid_soft", -4.0)
-		FX.wobble(refs.gem.node)
+		var gem_n := _wallet_node(refs, "gem")
+		if gem_n != null:
+			FX.wobble(gem_n)
 		FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET,
 			host.tr("Need %d more") % (cost - Save.diamonds()), CREAM, Tune.NEED_SIZE)
 		return
@@ -767,10 +823,11 @@ static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 		return
 	Audio.play("merge_success", -3.0, 1.2)
 	FX.pop(b)
-	# the grant flies home and the wallet ticks — no rebuild flash
-	var target: Control = refs.coin.node if fly_id == "coin" else refs.gem.node
-	FX.fly_to_wallet(host, b.get_global_rect().get_center(), Look.icon(fly_id, Tune.FLY_ICON), target,
-		func() -> void: _settle(host, refs))
+	# the grant flies home to the HUD wallet and it ticks — no rebuild flash
+	var target := _wallet_node(refs, "coin" if fly_id == "coin" else "gem")
+	if target != null:
+		FX.fly_to_wallet(host, b.get_global_rect().get_center(), Look.icon(fly_id, Tune.FLY_ICON), target,
+			func() -> void: _settle(host, refs))
 	_settle(host, refs)
 
 # The item-shortcut / cosmetic buy: pays in `currency` ("coins"|"diamonds"), wiggling the
@@ -780,10 +837,11 @@ static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 static func _try_buy_currency(host: Control, refs: Dictionary, b: Button, currency: String,
 		cost: int, grant: Callable, ok_text: String) -> void:
 	var have: int = Save.diamonds() if currency == "diamonds" else Save.coins()
-	var chip: Control = refs.gem.node if currency == "diamonds" else refs.coin.node
+	var chip := _wallet_node(refs, "gem" if currency == "diamonds" else "coin")
 	if have < cost:
 		Audio.play("invalid_soft", -4.0)
-		FX.wobble(chip)
+		if chip != null:
+			FX.wobble(chip)
 		FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET,
 			host.tr("Need %d more") % (cost - have), CREAM, Tune.NEED_SIZE)
 		return
@@ -794,10 +852,9 @@ static func _try_buy_currency(host: Control, refs: Dictionary, b: Button, curren
 	FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET, ok_text, STRAW, Tune.NEED_SIZE)
 	_settle(host, refs)
 
-# Wallet chips (shop + HUD) tick to the new balances; affordability re-tints.
+# The HUD wallet ticks to the new balances (via its own refresh — the shop no longer owns a
+# wallet); affordability re-tints across the storefront.
 static func _settle(host: Control, refs: Dictionary) -> void:
-	FX.tick(refs.coin.label, Save.coins())
-	FX.tick(refs.gem.label, Save.diamonds())
 	var opts: Dictionary = refs.opts
 	if opts.has("refresh"):
 		(opts.refresh as Callable).call()
@@ -891,6 +948,8 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		grant.call()
 		var at := card.get_global_rect().get_center()
 		overlay.queue_free()
-		FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), refs.gem.node)
+		var gem_n := _wallet_node(refs, "gem")
+		if gem_n != null:
+			FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), gem_n)
 		_settle(host, refs), true))
 	FX.pop_in(card)

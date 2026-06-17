@@ -15,6 +15,7 @@ generator stand-ins + retired fox/hedgehog givers) is **disowned**, one uniform 
 | **Item sprites** | **192** — 24 lines × 8 tiers (codes 1–8, 10–25; skip 9) | `items/<base>_<tier>.png` |
 | **Generator sprites** | **12** — maps 1–5 | `ui/gen_<id>.png` (+ edit `grove_data.GENERATORS[].tex`) |
 | **Board backdrop** | **1** | `ui/bg_grove_board.png` |
+| **Shop backdrop** | **1** — the squirrel merchant's market-stall interior (`merge_spec §10` presentation) | `ui/kit/bg_shop.png` (engine renders an interim blur until this lands) |
 | **Map scenes** | **5** — farmhouse · barn · pond · orchard · meadow (§16 scene pipeline) | `map/map_<id>.png` + placement coords |
 | ~~Engine follow-up~~ | **shipped as T30** (`seed_satchel` `anchor:true` → `askable_lines`, cold-load-safe, `anchor_tests.gd`) — **dropped from this task, verify-only** | — |
 
