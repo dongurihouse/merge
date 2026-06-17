@@ -550,7 +550,7 @@ static func hub_max_daily_yield() -> int:
 			n += 1
 	return n * hub_yield_cap(hub_max_level())
 
-static func map_of_chapter(i: int) -> int:
+static func map_for_spots(i: int) -> int:
 	var acc := 0
 	for z in MAPS.size():
 		acc += MAPS[z].spots.size()

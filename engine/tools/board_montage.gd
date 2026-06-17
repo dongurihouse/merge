@@ -105,7 +105,7 @@ func _initialize() -> void:
 	b.bag_bar = bag_bar
 	b.bag = [101, 305]
 	b._build_bag_bar()
-	bag_bar.visible = true   # montage-only: _rebuild_bag may hide the bar before chapter 2
+	bag_bar.visible = true   # montage-only: _rebuild_bag may hide the bar before 2 spots bought
 
 	await create_timer(0.4).timeout
 	RenderingServer.force_draw()

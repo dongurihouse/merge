@@ -4,7 +4,7 @@ extends Control
 ## ask-weighted line), drag matching plants together to grow them, merge beside
 ## brambles to clear them, drag onto empty ground to rearrange, stash in the Bag,
 ## feed top tiers to the Merchant, deliver quest asks to the fox/hedgehog for
-## stars, and spend stars at the Restore gate to advance chapters (givers pause
+## stars, and spend stars at the Restore gate to restore the grove (givers pause
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -115,7 +115,6 @@ var stars_label: Label
 var coins_label: Label
 var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
-var chapter_label: Label
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
@@ -175,15 +174,9 @@ func _ready() -> void:
 	spacer.custom_minimum_size = Vector2(0, 64.0 + Look.safe_top(self))
 	root.add_child(spacer)
 
-	# S2: the chapter rides a solid CREAM title chip (Look.title_ribbon — ONE source
-	# for all titles; the kit ribbon_title nine-patch collapses invisibly at chip
-	# height, so the chapter title used to float as plain text). Gold-banner art is
-	# an owner look-option (flagged), not guessed.
-	var ribbon := Look.title_ribbon("", 30)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE   # single-input-surface law
-	chapter_label = ribbon.get_child(0) as Label
-	root.add_child(ribbon)
+	# The chapter ribbon is retired (T49 — progression is one `level` clock, merge_spec §3;
+	# the player-facing "Chapter N" title is gone per the UI-language redesign §6). The
+	# top-bar center stays empty, which also reclaims vertical space for the fence below.
 
 	# the quest fence: a full-width wall the giver animals pop up over, each
 	# with a big cream ask-card (item + progress + star reward; ✓ when ready)
@@ -257,7 +250,7 @@ func _ready() -> void:
 	root.add_child(bag_bar)
 	bag_bar.add_child(_lbl(tr("Bag"), 26, Pal.TEXT))   # the label stays; _build_bag_bar only manages slots
 	_build_bag_bar()
-	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
+	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
 
 	# S1: a COMPACT icon bar pinned bottom-LEFT — [◀ Home][🛒] (owner 2026-06-13:
 	# dropped the inline tooltip; the shop moved here from the top cluster).
@@ -409,7 +402,7 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		board.seed_gens(G.map_of_chapter(_chapter_idx()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
+		board.seed_gens(G.map_for_spots(_spots_bought()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
 	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
 		var mg: Array = []
 		var ul: Dictionary = Save.grove().get("unlocks", {})
@@ -541,8 +534,8 @@ func _persist() -> void:
 	g["last_seen"] = Time.get_unix_time_from_system()
 	Save.grove_write()
 
-func _chapter_idx() -> int:
-	return Save.grove().get("unlocks", {}).size()   # chapter = home spots bought
+func _spots_bought() -> int:
+	return Save.grove().get("unlocks", {}).size()   # the count of home spots bought
 
 func _map_done() -> bool:                     # every map fully complete (spots + gate) — no frontier left
 	return Quests.map_done(Save.grove().get("unlocks", {}), _gates())
@@ -571,7 +564,7 @@ func _build_hud() -> void:
 	stars_label = hud.stars
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
-	level_label = hud.level          # S10: store the board's Lv chip (set at build; exp is static here)
+	level_label = hud.level          # S10: store the board's Lv chip (set at build; level is static here)
 	_wallet_panel = hud.wallet       # water joins this cluster (see _build_water_hud)
 	_open_shop = hud.open_shop       # the bottom-bar shop button opens it
 	_update_hud()
@@ -747,17 +740,15 @@ func _update_hud() -> void:
 	if diamonds_label != null:
 		diamonds_label.text = str(Save.diamonds())
 	if _map_done():
-		chapter_label.text = tr("The grove rests — more to grow soon ✿")
 		gate_btn.visible = false
 		return
-	chapter_label.text = tr("Chapter %d") % (_chapter_idx() + 1)
 	var ready := _gate_ready()
 	gate_btn.text = tr("✿ Decorate!")
 	gate_btn.visible = ready
 	gate_btn.disabled = not ready
 	gate_btn.modulate = Color(1, 1, 1, 1.0 if ready else 0.55)
 	if ready:
-		# AA2: at gate-ready the CTA breathes; once the chapter's quest pool runs DRY
+		# AA2: at gate-ready the CTA breathes; once the map's quest pool runs DRY
 		# (nothing left to earn) it ESCALATES to a hop — the soft nudge to advance.
 		if _active_quest_idx().is_empty():
 			FX.pop(gate_btn)
@@ -781,7 +772,7 @@ func _rebuild_givers() -> void:
 	giver_chips.clear()
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
 	var qidx := _active_quest_idx()
-	var with_merchant := _chapter_idx() >= 1 or not Features.on("ftue_staged_chrome")
+	var with_merchant := _spots_bought() >= 1 or not Features.on("ftue_staged_chrome")
 	var stands := qidx.size() + (1 if with_merchant else 0)
 	merchant_chip = null
 	if stands == 0:
@@ -818,7 +809,7 @@ func _rebuild_givers() -> void:
 		wall_bg.add_theme_stylebox_override("panel", ws)
 		wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		wall.add_child(wall_bg)
-	# the stands scroll horizontally when the chapter is generous (cards stay BIG)
+	# the stands scroll horizontally when the map is generous (cards stay BIG)
 	var span := giver_bar.size.x
 	if span <= 0.0:
 		span = get_viewport_rect().size.x
@@ -1044,7 +1035,7 @@ func _refresh_giver_lights() -> void:
 func _grow_generators() -> void:
 	if board == null:
 		return
-	var added: Array = board.grow_surplus_gens(G.map_of_chapter(_chapter_idx()), _quest_level())
+	var added: Array = board.grow_surplus_gens(G.map_for_spots(_spots_bought()), _quest_level())
 	if added.is_empty():
 		return
 	for id in added:
@@ -1106,7 +1097,7 @@ func _rebuild_all() -> void:
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
-	# per-chapter `appears_at`. Under per-map generators the next set arrives on map
+	# per-spot-count `appears_at`. Under per-map generators the next set arrives on map
 	# COMPLETION, not after N spots — the preview needs redefining (show the next map's
 	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
 	gen_preview_cells.clear()
@@ -1695,7 +1686,7 @@ func _build_bag_bar() -> void:
 	_rebuild_bag()
 
 func _rebuild_bag() -> void:
-	bag_bar.visible = _chapter_idx() >= 2 or not Features.on("ftue_staged_chrome")
+	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
 	var owned := Save.bag_slots()
 	BagView.rebuild(bag_slots_ui, {
 		"bag": bag,
@@ -2034,7 +2025,7 @@ func _play_porter() -> void:
 		if is_instance_valid(sp):
 			sp.queue_free())
 
-# The real gate lives on the HOME scene now (buying a spot IS the chapter) —
+# The real gate lives on the HOME scene now (buying a spot IS the progression step) —
 # this button is the invitation: stars suffice, go decorate.
 # The upgrade path: the line's full ladder, tier by tier — grown tiers show their
 # art, never-seen tiers show "?", and the tapped/asked tier wears a gold ring.

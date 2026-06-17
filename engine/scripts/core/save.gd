@@ -261,7 +261,7 @@ static func spend_stars(n: int) -> bool:
 	save_now()
 	return true
 
-# The grove's persistent state blob (board/bag/chapter/quests/rng) — a live ref.
+# The grove's persistent state blob (board/bag/unlocks/quests/rng) — a live ref.
 # Spot-id renames: barn = Order Q (placement-law v2); farmhouse = T21 (the §8 home-hub
 # roster — chest/bed/table… → hearth/kitchen/well/larder/porch/boxes/lantern/fence). This
 # is the ONE permitted code mention of the retired ids — every reader shares grove(), so the

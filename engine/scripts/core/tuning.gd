@@ -256,8 +256,8 @@ class Hud:
 	const LV_TOKEN_BG := Color("#3F6B43") # deep leaf — growth, contrasts the cream pill
 	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
 	const LV_NUM_SIZE := 26               # the level number inside the token
-	const XP_SIZE := 28                   # the exp fraction to its right
-	const XP_INK_ALPHA := 0.85            # xp text = Color(INK, this)
+	const LVL_PROG_SIZE := 28             # the level-progress fraction to its right
+	const LVL_PROG_INK_ALPHA := 0.85      # level-progress text = Color(INK, this)
 
 
 class UiSkin:                             # NOT "Skin" — that's a native Godot class

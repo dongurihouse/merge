@@ -255,8 +255,8 @@ static func stat_chip(icon_id: String, text: String = "") -> Dictionary:
 ## A title chip in the HUD pill language (solid cream, lifts off ANY background).
 ## ONE source for every title. NOTE: kit/ribbon_title.png (a wide gold banner) is
 ## deliberately NOT used as a nine-patch — its 48px texture margins exceed a title
-## chip's ~66px height and collapse it to invisible (the chapter title AND both
-## shop titles shipped as floating text that way). Returns a PanelContainer whose
+## chip's ~66px height and collapse it to invisible (titles once shipped as
+## floating text that way). Returns a PanelContainer whose
 ## only child is the centered Label (caller reads get_child(0) if it needs to update text).
 static func title_ribbon(text: String, font_px: int = Tune.TITLE_SIZE) -> PanelContainer:
 	var p := PanelContainer.new()
@@ -306,8 +306,8 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 	# S6: buttons are SOLID grove pills, not the kit btn_leaf nine-patch. btn_leaf
 	# (512×256, 60px margins) COLLAPSES on our 88-96px buttons — vertical margins
 	# (120px) exceed the height, so it rendered as a thin green sliver under
-	# floating dark text (the documented nine-patch-thinner-than-rect trap, same
-	# class as the chapter ribbon). Solid pills in the grove palette: a warm leaf
+	# floating dark text (the documented nine-patch-thinner-than-rect trap, the
+	# same class of bug). Solid pills in the grove palette: a warm leaf
 	# GREEN primary CTA (matches the board Decorate pill), a CREAM secondary
 	# (matches the HUD chips) — one consistent, legible button language everywhere.
 	var s := StyleBoxFlat.new()

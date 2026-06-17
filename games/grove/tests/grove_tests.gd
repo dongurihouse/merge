@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless tests for the Grove P1 core: board model, content sanity, dispenser
-## policy, chapter gate math, persistence.
+## policy, spot gate math, persistence.
 ##   godot --headless --path . -s res://games/grove/tests/grove_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -204,7 +204,7 @@ func _initialize() -> void:
 
 	# 6c. generators arrive PER MAP (§6). Map 0 grants both starters (satchel + compost);
 	# the surplus generator's cell (6,5) reveals only when the player enters map 1.
-	var z1_chapter: int = G.MAPS[0].spots.size()  # first chapter of map 1 (all map-0 spots bought)
+	var z1_spots: int = G.MAPS[0].spots.size()  # all map-0 spots bought (= entering map 1)
 	var bg: BoardModel = BoardModel.new()
 	bg.set_active_gens(0)
 	ok(bg.is_gen(Vector2i(4, 3)) and bg.is_gen(Vector2i(2, 1)), "map 0 grants both starters (satchel + compost)")
@@ -219,7 +219,7 @@ func _initialize() -> void:
 	for v in bh.items:
 		if v == 204:
 			before_count += 1
-	var fresh_hive: Array = bh.set_active_gens(z1_chapter)
+	var fresh_hive: Array = bh.set_active_gens(z1_spots)
 	ok(fresh_hive.has(Vector2i(6, 5)) and bh.is_gen(Vector2i(6, 5)), "entering map 1 reveals the surplus generator")
 	var after_count := 0
 	for v in bh.items:
@@ -300,7 +300,7 @@ func _initialize() -> void:
 			items_after += 1
 	ok(items_after >= items_before + 1, "the satchel pops a burst (≥1 item) onto the board")
 
-	# deliver: chapter 1's first quest wants flower t2 (code 102) — we just made one
+	# deliver: map 1's first quest wants flower t2 (code 102) — we just made one
 	ok(not scn.giver_chips.is_empty(), "givers are on duty")
 
 	# AB5: frameless fence anatomy — the ask rides a content-sized pill (no
@@ -367,12 +367,12 @@ func _initialize() -> void:
 			aa_clear = false
 	ok(aa_clear, "the restore CTA's reserved slot covers no giver/merchant")
 	# buying a home spot advances the board's progress: it derives from unlocks
-	var ch_before: int = scn._chapter_idx()
+	var spots_before: int = scn._spots_bought()
 	var gu := Save.grove()
 	var first_spot: String = G.MAPS[0].spots[0].id
 	gu["unlocks"] = {first_spot: true}
 	Save.grove_write()
-	ok(scn._chapter_idx() == ch_before + 1, "a home purchase advances the board's progress (unlocks)")
+	ok(scn._spots_bought() == spots_before + 1, "a home purchase advances the board's progress (unlocks)")
 
 	# persistence: a fresh scene resumes the same board + progress
 	var snapshot := Array(scn.board.items)
@@ -380,7 +380,7 @@ func _initialize() -> void:
 	get_root().add_child(scn2)
 	if scn2.board == null:
 		scn2._ready()
-	ok(Array(scn2.board.items) == snapshot and scn2._chapter_idx() == scn._chapter_idx(), \
+	ok(Array(scn2.board.items) == snapshot and scn2._spots_bought() == scn._spots_bought(), \
 		"a fresh scene resumes the persisted board and progress")
 
 	# 10g. §7 GATE quest: restoring all of map 1's spots unveils the great-spirit's gate on the
@@ -482,7 +482,7 @@ func _initialize() -> void:
 	s2._tick_water()
 	ok(s2.water == 55, "regen pays +1 per 2 minutes (offline math)")
 
-	# the chapter water gift now pays on the HOME spot purchase (tested in 14b)
+	# the per-spot water gift now pays on the HOME spot purchase (tested in 14b)
 
 	# the burst pops above may have filled the virgin board — clear the playfield so the coin lands
 	for ci in s2.board.items.size():
@@ -838,14 +838,14 @@ func _initialize() -> void:
 		if um.has(old) or not um.has(String(ren[old])):
 			all_renamed = false
 	ok(all_renamed, "Q migration renames ALL unlock ids old→new (ownership survives)")
-	ok(um.size() == ren.size(), "migration preserves the unlock COUNT (chapters/stars intact)")
+	ok(um.size() == ren.size(), "migration preserves the unlock COUNT (spots/stars intact)")
 	ok(String(cm.get(String(ren[first_old]), "")) == "gem" and not cm.has(first_old), \
 		"Q migration renames custom old→new (chosen look survives)")
 	Save.grove()                              # idempotent: a second pass changes nothing
 	ok(Save.grove().get("unlocks", {}).size() == ren.size() and not Save.grove().get("unlocks", {}).has(first_old), \
 		"Q migration is idempotent")
 
-	# 14b. §7: buying a spot grants NO per-spot water — the old per-chapter gift is retired
+	# 14b. §7: buying a spot grants NO per-spot water — the old per-spot gift is retired
 	# (water comes from level-ups only), so the purchase leaves water unchanged.
 	var gw2 := Save.grove()
 	var ul24 := {}
@@ -930,13 +930,13 @@ func _initialize() -> void:
 		if v > 0:
 			ftue_n += 1
 	ok(ftue_n >= 1 and s5.water == G.WATER_CAP - ftue_n * G.POP_COST, "past the FTUE the meter charges one energy per burst item")
-	ok(s5.merchant_chip == null, "the merchant waits for the first spot (chapter 1)")
+	ok(s5.merchant_chip == null, "the merchant waits for the first spot")
 
 	# sell anything: a t3 flower pays 3 coins and leaves the board
 	Save.grove()["unlocks"] = {String(G.MAPS[0].spots[0].id): true}
 	Save.grove_write()
 	s5._rebuild_givers()
-	ok(s5.merchant_chip != null, "the merchant arrives with chapter 1")
+	ok(s5.merchant_chip != null, "the merchant arrives with the first spot")
 	s5.board.place(Vector2i(3, 3), 103)
 	s5._rebuild_pieces()
 	var c0 := Save.coins()
@@ -1416,17 +1416,10 @@ func _initialize() -> void:
 	ok(hs.get_viewport_rect().encloses(hs.stars_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the wallet sits fully on-screen (home)")
 
-	# S2: the chapter title rides a CENTERED ribbon chip (was floating plain text)
-	var s2_ribbon: Control = ss.chapter_label.get_parent()
-	ok(absf(s2_ribbon.get_global_rect().get_center().x - vp.get_center().x) <= 6.0, \
-		"S2: the chapter ribbon is centered on screen (dx=%.1f)" % (s2_ribbon.get_global_rect().get_center().x - vp.get_center().x))
-	assert_centered(s2_ribbon, ss.chapter_label, "h", 4.0, "S2 chapter label on its ribbon")
-
-	# S2/S6 regression guards: the chapter chip AND buttons must be SOLID pills —
-	# the kit nine-patches (ribbon_title / btn_leaf) collapse invisibly at chip and
-	# button heights (margins > the rect), which is how both shipped as floating text.
-	ok(s2_ribbon.get_theme_stylebox("panel") is StyleBoxFlat, \
-		"S2: the chapter chip is a solid pill (not the collapsing ribbon_title nine-patch)")
+	# S6 regression guard: primary buttons must be SOLID pills — the kit btn_leaf
+	# nine-patch collapses invisibly at button heights (margins > the rect), which is
+	# how buttons once shipped as floating text. (The chapter ribbon that shared this
+	# trap is retired — T49.)
 	var _skin = load("res://engine/scripts/ui/skin.gd")
 	var _pbtn: Button = _skin.button("X", Callable(), true)
 	ok(_pbtn.get_theme_stylebox("normal") is StyleBoxFlat, \
@@ -1596,7 +1589,7 @@ func _initialize() -> void:
 	ws.queue_free()
 
 	# V1 (the locked-generator "after N spots" preview) is PARKED with T17: it was keyed on
-	# the old per-chapter `appears_at`; under per-map generators the next set arrives on map
+	# the old per-spot-count `appears_at`; under per-map generators the next set arrives on map
 	# COMPLETION, so the preview needs redefining alongside §6/§7. Test removed with the feature.
 
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
