@@ -362,7 +362,11 @@ class Shop:
 	const HELP_PRICE_SIZE := 26           # gem price chip number
 
 	# --- featured offer cards (T40: item-shortcuts + cosmetics) -------------------------
-	# Reuse the help-card frame (HELP_CARD / HELP_* fonts); the cosmetic swatch is a tint chip.
+	# Narrower than the help card so SHOP_ROTATION_COUNT (3) fit ACROSS the parchment's inner
+	# width without overflowing it (3*276 + 2*ROW_SEP = 856 < card inner ≈ 868); the help row
+	# only has two cards so it keeps the wider HELP_CARD. Reuses the HELP_* fonts; the cosmetic
+	# swatch is a tint chip.
+	const FEATURED_CARD := Vector2(276, 232)
 	const SWATCH_SIZE := 56.0             # the cosmetic look-preview swatch
 	const SWATCH_RADIUS := 14
 	const SWATCH_BORDER_W := 2

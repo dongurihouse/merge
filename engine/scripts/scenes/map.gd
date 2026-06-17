@@ -27,6 +27,8 @@ const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
+const Flipbook = preload("res://engine/scripts/ui/flipbook.gd")
 const Pal = Game.PALETTE
 
 const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
@@ -88,6 +90,7 @@ var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
+var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
 var level_label: Label
 var xp_label: Label
@@ -102,6 +105,7 @@ var _hud_panels: Array = []       # wallet + Lv chips
 
 func _ready() -> void:
 	_heal_capture_flags()
+	Design.fit_desktop_window()          # desktop: open at the design portrait aspect, monitor height
 	UiFont.apply()
 	Music.ensure()
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
@@ -120,10 +124,12 @@ func _ready() -> void:
 	content.gui_input.connect(_on_input)
 	add_child(content)
 
-	# the day's weather drifts over the whole scene (calm mode wins inside)
+	# the day's weather drifts over the MAP (calm mode wins inside); kept as a member so the
+	# place-picker can hide it — drifting leaves over a static chooser read as stray sprites.
 	var g0 := Save.grove()
 	Ambient.check_winback(g0, Time.get_unix_time_from_system())
-	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm())))
+	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	add_child(_weather)
 
 	_build_hud()
 	_build_chrome()
@@ -229,6 +235,7 @@ func _open_map(z: int) -> void:
 	_view = "map"
 	_map_idx = z
 	_customize_spot = ""
+	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
 	_dismiss_2x_offer()                  # T45: a stale doubler card from a prior hub visit closes on nav (a fresh collect re-offers)
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
@@ -244,9 +251,20 @@ func _open_map(z: int) -> void:
 func _open_select() -> void:
 	_view = "select"
 	_customize_spot = ""
+	_set_map_chrome_visible(false)        # the place-picker is a calm chooser — no map chrome, no weather
 	_dismiss_2x_offer()                  # T45: leaving the hub for the map-select closes any open doubler card
 	Audio.play("button_tap", -4.0)
 	_build_select()
+
+# The bottom chrome (garden CTA / gear / shop / atlas / piggy) and ambient weather belong to a
+# MAP, not the place-picker. One toggle keeps the chooser clean and restores the lived-in map on
+# return. The piggy pip rides its button's own visible flag, so it stays correct under this.
+func _set_map_chrome_visible(on: bool) -> void:
+	for n in _chrome_nodes:
+		if is_instance_valid(n):
+			(n as CanvasItem).visible = on
+	if _weather != null and is_instance_valid(_weather):
+		_weather.visible = on
 
 # §8 keystone — the hub-collect BEAT. Sweep every restored yield building's accrued coins to the
 # wallet in ONE go and reset the accrual clock (G.hub_collect does the credit + reset together).
@@ -388,22 +406,27 @@ func _build_map() -> void:
 	variant_hits.clear()
 	upgrade_hits.clear()
 	var z := _map_idx
-	# the stable map canvas fills the viewport below the HUD top inset and above
-	# the chrome. Background art can move/scale behind it, but spots stay on this
-	# fixed canvas so resizing the background never drags placed buildings around.
+	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
+	# floats over. Background art fills it; spots ride this same rect, so the painting and the
+	# buildings stay locked together on any window aspect.
 	_map_rect = _map_image_rect()
 	_map_art_rect = _map_placed_rect(z, _map_rect)
-	var art_path := Game.art("map/map_%s.png" % String(G.MAPS[z].id))
+	# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
+	var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
 	if ResourceLoader.exists(art_path):
-		var t := TextureRect.new()
-		t.texture = load(art_path)
-		t.position = _map_art_rect.position
-		t.size = _map_art_rect.size
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.clip_contents = true
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(t)
+		# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit). Anchoring to
+		# a sized parent avoids the TextureRect native-size reset. The base fills it; an optional fixed
+		# `fence` layer composites on top at its baked position/size.
+		var frame := Control.new()
+		frame.position = _map_art_rect.position
+		frame.size = _map_art_rect.size
+		frame.clip_contents = true
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(frame)
+		_add_cover_layer(frame, art_path)
+		var fence_path := String(G.MAPS[z].get("fence", ""))
+		if fence_path != "" and ResourceLoader.exists(fence_path):
+			_add_cover_layer(frame, fence_path)
 	else:
 		var fallback := Panel.new()
 		fallback.position = _map_art_rect.position
@@ -416,6 +439,10 @@ func _build_map() -> void:
 		fallback.add_theme_stylebox_override("panel", fs)
 		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(fallback)
+	_add_clouds(z, _map_rect)   # slow-drifting clouds in the sky, behind everything else
+	# decoration placed in the map placer (data/map1v2_decor.json): trees BEHIND the buildings (they sway)
+	var decor := _load_decor_list(z)
+	_add_decor(decor, "back", _map_rect)
 	# ambient life wanders over the map (order L), positioned within the image rect
 	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
@@ -428,19 +455,140 @@ func _build_map() -> void:
 		var spot := _make_spot(z, k, lvl, _map_rect)
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
+	_add_decor(decor, "front", _map_rect)   # grass IN FRONT of the buildings
+	_add_chimney_smoke(z, _map_rect)        # animated smoke rising from the cottage chimney
 	FX.pop_in(content)
 
 # The available area below the HUD and above the bottom chrome; the map image is
 # CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
 func _map_image_rect() -> Rect2:
-	# FULL-BLEED: the map canvas IS the whole viewport, matching the standalone placement
-	# tool (TestFarm.tscn) — the tool is authoritative, so a position authored there maps
-	# 1:1 to a spot pos here (same image, same KEEP_ASPECT_COVERED, same rect). The HUD
-	# floats ON TOP of the top band; spots are authored to clear it.
-	return Rect2(Vector2.ZERO, get_viewport_rect().size)
+	# The map canvas is a phone-aspect rect, CONTAIN-fit and CENTERED in the viewport, so the
+	# WHOLE map image is always visible — never zoomed/cropped — on ANY window aspect (a wide
+	# desktop window no longer blows the cover-fit up). On the design phone aspect this fills the
+	# viewport exactly, so it stays identical to the map placer. Spots map to THIS rect; the sky
+	# ColorRect shows through any gap on an off-aspect (desktop) window. The HUD floats on top.
+	var view := get_viewport_rect().size
+	var aspect := Design.aspect()          # design portrait aspect (the art is authored to it)
+	var w := view.x
+	var h := w / aspect
+	if h > view.y:
+		h = view.y
+		w = h * aspect
+	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
 func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
 	return base
+
+# Add a full-rect, cover-fit, click-through TextureRect under `parent` (a map-rect frame). Used for the
+# base background and for fixed overlay layers (fence) so they share the exact same fit.
+func _add_cover_layer(parent: Control, path: String) -> void:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	t.texture = load(path)
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(t)
+
+# Decoration placed in the map placer (data/map1v2_decor.json). `back` = trees (behind the buildings),
+# `front` = grass (in front). Flat sprites for now; wind/idle animation comes in a later phase.
+func _load_decor_list(z: int) -> Array:
+	var path := String(G.MAPS[z].get("decor", ""))
+	if path == "" or not FileAccess.file_exists(path):
+		return []
+	var f := FileAccess.open(path, FileAccess.READ)
+	var data = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(data) != TYPE_DICTIONARY or not data.has("decor"):
+		return []
+	return data["decor"]
+
+func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
+	var sc := rect.size.x / Design.size().x          # footprints are authored at the design-width canvas
+	for d in decor:
+		if String(d.get("layer", "front")) != layer:
+			continue
+		var art := String(d.get("art", ""))
+		if not ResourceLoader.exists(art):
+			continue
+		var fs := float(d.get("fsize", 200)) * sc
+		var p = d.get("pos", [0.5, 0.5])
+		var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
+		var t := TextureRect.new()
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture = load(art)
+		t.size = Vector2(fs, fs)
+		t.position = center - Vector2(fs, fs) * 0.5
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(t)
+		if "/trees/" in art:
+			_sway(t, fs)   # trees rock gently from the base in the wind
+
+# A gentle, randomized wind sway: rock the sprite around its base (bottom-centre).
+func _sway(t: Control, fs: float) -> void:
+	t.pivot_offset = Vector2(fs * 0.5, fs)
+	var amp := deg_to_rad(1.8 + randf() * 1.6)        # ~1.8°–3.4°
+	var per := 2.0 + randf() * 1.8                     # ~2–3.8s each way (randomized per tree)
+	t.rotation = -amp
+	var sw := t.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	sw.tween_property(t, "rotation", amp, per)
+	sw.tween_property(t, "rotation", -amp, per)
+
+# Slow-drifting clouds: two copies of the cloud sheet side by side, scrolling left and looping
+# seamlessly (at wrap, copy B sits exactly where copy A started). Transparent except the clouds.
+func _add_clouds(z: int, rect: Rect2) -> void:
+	var path := String(G.MAPS[z].get("clouds", ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path)
+	var w := rect.size.x
+	var h := w * tex.get_height() / tex.get_width()
+	var layer := Control.new()
+	layer.position = rect.position
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(layer)
+	for i in 2:
+		var c := TextureRect.new()
+		c.texture = tex
+		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.stretch_mode = TextureRect.STRETCH_SCALE
+		c.size = Vector2(w, h)
+		c.position = Vector2(i * w, 0)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(c)
+	var dr := layer.create_tween().set_loops()
+	dr.tween_property(layer, "position:x", rect.position.x - w, 90.0).from(rect.position.x)
+
+# Chimney smoke: cycle base_chimney's growing puffs (a flipbook) over the cottage chimney.
+func _add_chimney_smoke(z: int, rect: Rect2) -> void:
+	var ch = G.MAPS[z].get("chimney", null)
+	if typeof(ch) != TYPE_DICTIONARY:
+		return
+	var dir := String(ch.get("frames", ""))
+	var frames := []
+	var i := 1
+	while ResourceLoader.exists(dir + "frame%d.png" % i):
+		frames.append(load(dir + "frame%d.png" % i))
+		i += 1
+	if frames.is_empty():
+		return
+	var sc := rect.size.x / Design.size().x
+	var size := float(ch.get("size", 280)) * sc
+	var fr0: Texture2D = frames[0]
+	var hsize := size * fr0.get_height() / fr0.get_width()
+	var p = ch.get("pos", [0.45, 0.20])
+	var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
+	var fb := Flipbook.new()
+	fb.frames = frames
+	fb.fps = float(ch.get("fps", 6))
+	fb.texture = fr0
+	fb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	fb.size = Vector2(size, hsize)
+	fb.position = center - Vector2(size, hsize) * 0.5
+	fb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(fb)
 
 # The map's title — NAME + ✿-progress on one plank, centered near the top of the
 # map image (an IGNORE visual; never eats a press).
@@ -471,13 +619,16 @@ func _map_title_plank(z: int) -> Control:
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
-	var lbl := Label.new()
-	lbl.text = tr("✿ restored") if map_spots_done(z) else tr("✿ %d★ left") % map_stars_left(z)
-	lbl.add_theme_font_size_override("font_size", 22)
-	lbl.add_theme_color_override("font_color", STRAW)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(lbl)
+	if map_spots_done(z):
+		var lbl := Label.new()
+		lbl.text = tr("✿ restored")
+		lbl.add_theme_font_size_override("font_size", 22)
+		lbl.add_theme_color_override("font_color", STRAW)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(lbl)
+	else:
+		col.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
 	return plank
 
 # §8: the optional ghost-preview of an UNOWNED spot's buildable. Reuses the SAME
@@ -507,7 +658,12 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
+	# pos + fsize come from grove_data.MAPS, which merges the placer's data/map1_placements.json once at
+	# load (see grove_data._merge_map1_placements). `art` (a res:// cutout) overrides the default furn art.
 	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
+	var art_scale := rect.size.x / Design.size().x   # footprints are authored at the design-width canvas
+	var fs_eff := float(spot.get("fsize", 240.0)) * art_scale
+	var furn_path := String(spot.get("art", Game.art("rooms/furn_%s.png" % String(spot.id))))
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
@@ -515,7 +671,6 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var owned := spot_owned(String(spot.id))
 	var gated := G.spot_level_req(z, k) > lvl
-	var furn_path := Game.art("rooms/furn_%s.png" % String(spot.id))
 	# an owned spot draws its furniture sprite (when the art exists)
 	if owned and ResourceLoader.exists(furn_path):
 		var f := TextureRect.new()
@@ -526,7 +681,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		f.texture = load(furn_path)
-		var fs: float = float(spot.get("fsize", 240.0))
+		var fs: float = fs_eff
 		f.size = Vector2(fs, fs)
 		f.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot
 		# S8: the variant is a SUBTLE wash (was a full multiply — green wood read
@@ -572,7 +727,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
 		# empty plot teases what will fill it. Owned spots took the branches above —
 		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
-		var ghost := _ghost_sprite(furn_path, float(spot.get("fsize", 240.0)))
+		var ghost := _ghost_sprite(furn_path, fs_eff)
 		if ghost != null:
 			item.add_child(ghost)
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
@@ -773,33 +928,41 @@ func _build_select() -> void:
 	header.size = Vector2(view.x, 56.0)
 	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(header)
-	# a 2-column grid of cards, centered, scrolling room left below the header
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 18)
-	grid.add_theme_constant_override("v_separation", 18)
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col_w: float = (view.x - 18.0 * 3.0) / 2.0
-	var card_w: float = clampf(col_w, 200.0, 320.0)
-	for z in G.MAPS.size():
-		var card := _make_card(z, card_w)
-		grid.add_child(card)
+	# ONE wide card per row — a vista per place. The stack is sized to FILL the band between the
+	# header and the safe bottom, so there is no pool of dead space below: per-card height is the
+	# band split evenly (clamped), and when clamped the stack centers in the band. No ScrollContainer
+	# (the single-input-surface model has none, and every map fits one screen); cards are positioned
+	# directly and hit-tested by their global rect.
+	var n := G.MAPS.size()
+	var side := 36.0
+	var card_w := view.x - side * 2.0
+	var sep := 18.0
+	var band_top := top + 76.0
+	var band_bot := view.y - (Look.safe_bottom(self) + 40.0)
+	var band_h := band_bot - band_top
+	var card_h := clampf((band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1)), 168.0, 360.0)
+	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
+	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
+	for z in n:
+		var card := _make_card(z, card_w, card_h)
+		card.position = Vector2(side, y)
+		card.size = Vector2(card_w, card_h)
+		content.add_child(card)
 		select_hits.append({"node": card, "z": z})
-	# center the grid under the header
-	var grid_top := top + 80.0
-	grid.position = Vector2((view.x - (card_w * 2.0 + 18.0)) / 2.0, grid_top)
-	grid.custom_minimum_size = Vector2(card_w * 2.0 + 18.0, 0)
-	content.add_child(grid)
+		y += card_h + sep
 	FX.pop_in(content)
 
 # One map card: thumbnail + name + state line. Three states drive the line and the
-# greying — locked ("✿ after <prev>"), unlocked-incomplete ("✿ N★ left"), restored.
-func _make_card(z: int, card_w: float) -> Control:
+# greying — locked ("after <prev>"), unlocked-incomplete (★ N left), restored.
+# `card_h` > 0 makes the thumbnail a BANNER that expands to fill the card (the one-per-row
+# place-picker); 0 keeps the legacy fixed-aspect thumb.
+func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
 	var map_data: Dictionary = G.MAPS[z]
 	var open := map_unlocked(z)
 	var done := map_spots_done(z)
+	var banner := card_h > 0.0
 	var card := PanelContainer.new()
-	card.custom_minimum_size = Vector2(card_w, 0)
+	card.custom_minimum_size = Vector2(card_w, card_h)
 	var cs := StyleBoxFlat.new()
 	cs.bg_color = Color("#3D2A1B", 0.9) if open else Color("#2A2620", 0.85)
 	cs.set_corner_radius_all(20)
@@ -822,12 +985,21 @@ func _make_card(z: int, card_w: float) -> Control:
 	# card can wear its fog veil over exactly the thumb rect (text stays clear below).
 	var thumb_h := card_w * 0.62
 	var thumb_w := card_w - 24.0
+	var thumb_min_h := 0.0 if banner else thumb_h   # banner thumbs EXPAND to fill the card height
 	var thumb: Control
+	# prefer the map's own thumbnail; else fall back to its `poi_<id>` teaser so every LOCKED place
+	# shows ITS scenery under the fog instead of an identical blank tile; else a meadow-toned panel.
 	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
+	if not ResourceLoader.exists(thumb_path):
+		var poi := Game.art("map/poi_%s.png" % String(map_data.id))
+		if ResourceLoader.exists(poi):
+			thumb_path = poi
 	if ResourceLoader.exists(thumb_path):
 		var t := TextureRect.new()
 		t.texture = load(thumb_path)
-		t.custom_minimum_size = Vector2(thumb_w, thumb_h)
+		t.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
+		if banner:
+			t.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		t.clip_contents = true
@@ -838,7 +1010,9 @@ func _make_card(z: int, card_w: float) -> Control:
 		thumb = t
 	else:
 		var ph := Panel.new()
-		ph.custom_minimum_size = Vector2(thumb_w, thumb_h)
+		ph.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
+		if banner:
+			ph.size_flags_vertical = Control.SIZE_EXPAND_FILL
 		ph.clip_contents = true
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
@@ -857,25 +1031,48 @@ func _make_card(z: int, card_w: float) -> Control:
 	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(name_l)
-	var stxt: String
-	var scol: Color
-	if done:
-		stxt = tr("✿ restored"); scol = STRAW
-	elif open:
-		stxt = tr("✿ %d★ left") % map_stars_left(z); scol = CREAM
+	if open and not done:
+		# §13: the star count is the GOLD sprite + a number — not a baked ★ glyph — so it reads as
+		# the same currency as the HUD wallet and the in-map spot pins (a centered icon+number row).
+		col.add_child(_stars_left_row(map_stars_left(z), CREAM, 21))
 	else:
-		stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
-	var state_l := Label.new()
-	state_l.text = stxt
-	state_l.add_theme_font_size_override("font_size", 21)
-	state_l.add_theme_color_override("font_color", scol)
-	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
-	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(state_l)
+		var stxt: String
+		var scol: Color
+		if done:
+			stxt = tr("✿ restored"); scol = STRAW
+		else:
+			stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
+		var state_l := Label.new()
+		state_l.text = stxt
+		state_l.add_theme_font_size_override("font_size", 21)
+		state_l.add_theme_color_override("font_color", scol)
+		state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
+		state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(state_l)
 	if open and not done and z == _frontier_map():
 		FX.breathe_once(card)
 	return card
+
+# A centered "★ N left" status row: the GOLD star SPRITE (Look.icon) + a number-only label, so
+# every star reads as the same currency as the HUD wallet. Used by the map cards and the map title
+# plank (replaces the old baked-glyph "✿ N★ left"). Every node IGNOREs the single input surface.
+func _stars_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ic := Look.icon("star", float(px) + 3.0)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = tr("%d left") % n
+	lbl.add_theme_font_size_override("font_size", px)
+	lbl.add_theme_color_override("font_color", num_col)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	return row
 
 # The fog veil for a LOCKED map card (§8). ONE place that dresses a thumbnail as
 # "behind fog, not yet revealed" — a translucent ink scrim + a soft gradient that

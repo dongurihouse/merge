@@ -27,7 +27,7 @@ run_base: ## play the BARE placeholder (wireframe engine + debug panel)
 	touch games/grove/assets/.gdignore
 	GAME=placeholder $(GODOT) --path $(PROJECT)
 
-run_grove: ## play the GROVE game (full art; first run imports grove art)
+run: ## play the GROVE game (full art; first run imports grove art)
 	rm -f games/grove/assets/.gdignore
 	GAME=grove $(GODOT) --path $(PROJECT)
 
@@ -62,6 +62,9 @@ smoke: ## scene smoke test (instantiates the UI + board)
 ## --- assets ----------------------------------------------------------------
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
+
+place: ## open the map-1 placement editor (drag cutouts onto the base, Ctrl+S to save — the game reads it live)
+	GAME=grove $(GODOT) --path $(PROJECT) res://games/grove/tools/MapPlacer.tscn
 
 decor: ## process a bg/decor raw:  make decor IN=/tmp/x.png OUT=res://assets/rooms/y.png W=2160 H=2880 [OPAQUE=1]
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_decor.gd -- "$(IN)" $(OUT) $(W) $(H) $(if $(OPAQUE),--opaque,)

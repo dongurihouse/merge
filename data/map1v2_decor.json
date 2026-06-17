@@ -1,0 +1,49 @@
+{
+	"decor": [
+		{
+			"art": "res://assets/map1v2/trees/tree1.png",
+			"fsize": 479,
+			"layer": "back",
+			"pos": [
+				0.109999998410543,
+				0.279999987284342
+			]
+		},
+		{
+			"art": "res://assets/map1v2/trees/tree2.png",
+			"fsize": 385,
+			"layer": "back",
+			"pos": [
+				0.879999987284342,
+				0.3
+			]
+		},
+		{
+			"art": "res://assets/map1v2/trees/tree6.png",
+			"fsize": 303,
+			"layer": "back",
+			"pos": [
+				0.920000012715658,
+				0.620000012715658
+			]
+		},
+		{
+			"art": "res://assets/map1v2/grass/grass1.png",
+			"fsize": 174,
+			"layer": "front",
+			"pos": [
+				0.3,
+				0.920000012715658
+			]
+		},
+		{
+			"art": "res://assets/map1v2/grass/grass5.png",
+			"fsize": 157,
+			"layer": "front",
+			"pos": [
+				0.620000012715658,
+				0.95
+			]
+		}
+	]
+}

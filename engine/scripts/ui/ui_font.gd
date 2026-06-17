@@ -31,6 +31,10 @@ static func apply() -> void:
 			"Comic Sans MS", "SF Pro Rounded", "Verdana", "Arial",
 		])
 		sys.font_weight = 700          # chunky / bold for the cozy look
+		# the 1080-wide canvas is down-sampled to the device/desktop window (stretch =
+		# canvas_items); mipmaps keep glyphs crisp instead of shimmering/waving at minified
+		# sizes — the fix for the blurry shop text.
+		sys.generate_mipmaps = true
 		f = sys
 
 	var th := Theme.new()
