@@ -71,12 +71,34 @@ static func wanted_lines(pool: Array, quests: Array) -> Array:
 				wanted.append(int(ask.line))
 	return wanted
 
-# The spawn roll: a landing cell (one of the few nearest the generator, then random)
-# and a code (line*100 + tier). `wanted` lines win with odds ASK_WEIGHT, else any of
-# the generator's `pool`; tier comes off TIER_ODDS. RNG ORDER IS LOAD-BEARING (the rng
-# is seeded + persisted): cell pick, then [ask-weight, line], then tier. `empties` is
-# not mutated.
-static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: Array, rng: RandomNumberGenerator) -> Dictionary:
+# §6: the POPPABLE asked tiers per pool line — {line -> [tiers]} that some active quest wants AND
+# the generator can pop directly (tier within the TIER_ODDS range). Tiers above the pop range are
+# EXCLUDED, so the spawn tier-bias never pops a high tier directly — you still merge up for those,
+# and the §9 sell economy (128 energy per t8) holds.
+static func wanted_tiers(pool: Array, quests: Array) -> Dictionary:
+	var out: Dictionary = {}
+	for q in quests:
+		for ask in G.quest_asks(q):
+			var li := int(ask.line)
+			var t := int(ask.tier)
+			if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
+				if not out.has(li):
+					out[li] = []
+				if not out[li].has(t):
+					out[li].append(t)
+	return out
+
+# The spawn roll: a landing cell (one of the few nearest the generator, then random) and a code
+# (line*100 + tier). `wanted` lines win with odds ASK_WEIGHT, else any of the generator's `pool`;
+# the tier comes off TIER_ODDS and then, when `tier_weight` > 0 and `wanted_tiers` names a poppable
+# tier for the picked line, leans toward it with odds `tier_weight` (§6: line AND tier biased toward
+# what givers want). `tier_weight` defaults to 0 (OFF) — the live caller passes G.ASK_TIER_WEIGHT, an
+# owner pacing dial held at 0 for now (the sim showed full strength front-loads spend; parked pacing
+# pass). RNG ORDER IS LOAD-BEARING (the rng is seeded + persisted): cell pick, then [ask-weight, line],
+# then tier, then [tier-weight, wanted-tier] — that last draw fires ONLY when tier_weight > 0 AND the
+# line has a poppable wanted tier, so an off/empty `wanted_tiers` is a byte-identical no-op. `empties`
+# is not mutated.
+static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: Array, rng: RandomNumberGenerator, wanted_tiers: Dictionary = {}, tier_weight: float = 0.0) -> Dictionary:
 	var es := empties.duplicate()
 	es.sort_custom(func(a, b): return absi(a.x - gen_cell.x) + absi(a.y - gen_cell.y) < absi(b.x - gen_cell.x) + absi(b.y - gen_cell.y))
 	var pick: Vector2i = es[rng.randi_range(0, mini(2, es.size() - 1))]
@@ -93,6 +115,16 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 		if roll <= acc:
 			tier = i + 1
 			break
+	# §6: lean the tier toward an asked POPPABLE tier for this line (guarded to the TIER_ODDS range,
+	# so a generator never pops above it), with probability `tier_weight`. OFF (0.0) skips the whole
+	# block — no rng draw, byte-identical — so the default is a true no-op until the owner ramps the dial.
+	if tier_weight > 0.0:
+		var wt: Array = []
+		for t in wanted_tiers.get(line, []):
+			if int(t) >= 1 and int(t) <= G.TIER_ODDS.size():
+				wt.append(int(t))
+		if not wt.is_empty() and rng.randf() < tier_weight:
+			tier = int(wt[rng.randi_range(0, wt.size() - 1)])
 	return {"cell": pick, "code": line * 100 + tier}
 
 # A merge sometimes shakes a coin loose (never off a coin). RNG: one randf, taken

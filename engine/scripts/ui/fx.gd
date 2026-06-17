@@ -24,7 +24,7 @@ static func amount_for(amount: int) -> int:
 static func pop(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _center_pivot(node)
 	var t := node.create_tween()
 	t.tween_property(node, "scale", Tune.POP_SCALE, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -32,7 +32,7 @@ static func pop(node: Control) -> void:
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _center_pivot(node)
 	var t := node.create_tween()   # bound to node so it dies with it
 	if calm():                     # one gentle tilt instead of a shake
 		t.tween_property(node, "rotation", Tune.WOBBLE_CALM_TILT, Tune.WOBBLE_CALM_T_OUT).set_trans(Tween.TRANS_SINE)
@@ -48,7 +48,7 @@ static func wobble(node: Control) -> void:
 static func rock(node: Control, deg := Tune.ROCK_DEG, cycle := Tune.ROCK_CYCLE, cycles := Tune.ROCK_CYCLES) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _center_pivot(node)
 	var rad := deg_to_rad(deg)
 	var half := cycle * 0.5
 	var t := node.create_tween()   # bound to node so it dies with it
@@ -70,7 +70,7 @@ static func breathe(node: Control, amount := Tune.BREATHE_AMOUNT, period := Tune
 	if not breathe_active():
 		node.scale = Vector2.ONE   # quiet: rest at natural scale, never stuck mid-pulse
 		return
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _center_pivot(node)   # scale from the CENTER (size may be 0 pre-layout)
 	var t := node.create_tween()
 	t.set_loops()
 	t.tween_property(node, "scale", Vector2(amount, amount), period).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -173,9 +173,18 @@ static func breathe_once(node: Control) -> void:
 # grove particle sprites (petals/leaves/pollen) auto-wire when generated; until
 # --- the juice vocabulary — same verbs on every screen ----------------------------
 
+## The CENTER of a node for scale animations. node.size is (0,0) until the node has been
+## laid out (e.g. an un-parented card mid-build), which would pivot a scale at the top-left
+## corner — so fall back to custom_minimum_size, the intended size set before layout.
+static func _center_pivot(node: Control) -> Vector2:
+	var sz := node.size
+	if sz.x <= 0.0 or sz.y <= 0.0:
+		sz = node.custom_minimum_size
+	return sz / 2.0
+
 ## Overlay cards and confirms enter with this — never a hard cut.
 static func pop_in(node: Control) -> void:
-	node.pivot_offset = node.size / 2.0
+	node.pivot_offset = _center_pivot(node)
 	node.scale = Vector2(Tune.POPIN_SCALE_START, Tune.POPIN_SCALE_START)
 	node.modulate.a = 0.0
 	var tw := node.create_tween()
@@ -191,7 +200,7 @@ static func scatter_in(nodes: Array, base_delay := 0.0) -> void:
 		var n: Control = nodes[i]
 		if n == null or not is_instance_valid(n):
 			continue
-		n.pivot_offset = n.size / 2.0
+		n.pivot_offset = _center_pivot(n)
 		n.scale = Vector2(Tune.SCATTER_SCALE_START, Tune.SCATTER_SCALE_START)
 		var tw := n.create_tween()
 		tw.tween_interval(base_delay + Tune.SCATTER_STAGGER * i)

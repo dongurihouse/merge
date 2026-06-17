@@ -3,7 +3,7 @@
 GODOT   ?= godot
 PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/ghost_preview_tests engine/tests/hint_tests engine/tests/gate_unveil_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/ftue_pop_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/ghost_preview_tests engine/tests/hint_tests engine/tests/gate_unveil_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/ftue_pop_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests
 GROVE_TESTS  := games/grove/tests/grove_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 
@@ -23,11 +23,16 @@ help: ## list available targets
 run: ## play the active game (GAME env var, default placeholder)
 	$(GODOT) --path $(PROJECT)
 
+
+run_debug: ## play the active game (default grove) WITH the debug panel + toggles
+	rm -f games/grove/assets/.gdignore
+	GAME=$${GAME:-grove} $(GODOT) --path $(PROJECT) -- debug
+
 run_base: ## play the BARE placeholder (wireframe engine + debug panel)
 	touch games/grove/assets/.gdignore
 	GAME=placeholder $(GODOT) --path $(PROJECT)
 
-run: ## play the GROVE game (full art; first run imports grove art)
+run_grove: ## play the GROVE game (full art; first run imports grove art)
 	rm -f games/grove/assets/.gdignore
 	GAME=grove $(GODOT) --path $(PROJECT)
 
