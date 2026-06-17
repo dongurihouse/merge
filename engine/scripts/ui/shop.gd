@@ -307,7 +307,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 
 	# — Featured (§10): a FEW deterministically-rotating offers (item-shortcuts + looks),
 	# the fresh "always something new" band — NOT the whole static pool.
-	_divider(col, host.tr("Featured"))
+	_divider(col, host.tr("Featured"), _clock_chip(_rotation_left_text()))
 	var offer_row := HBoxContainer.new()
 	offer_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	offer_row.add_theme_constant_override("separation", Tune.ROW_SEP)
@@ -331,6 +331,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			, false)
 		reroll.name = "RerollFeatured"
 		reroll_row.add_child(reroll)
+		_overlay_corner(reroll, _red_dot(), Tune.DOT_SIZE, Tune.DOT_MARGIN, false)   # a ready free reroll is actionable
 
 	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
 	# only (until claimed). The single highest-converting IAP in mobile.
@@ -362,24 +363,17 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var x_btn := Button.new()
 	x_btn.focus_mode = Control.FOCUS_NONE
 	x_btn.custom_minimum_size = Vector2(Tune.X_BTN, Tune.X_BTN)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var xs := StyleBoxTexture.new()
-		xs.texture = load(Look.kit("btn_round.png"))
-		xs.set_texture_margin_all(Tune.X_TEX_MARGIN)
-		x_btn.add_theme_stylebox_override("normal", xs)
-		x_btn.add_theme_stylebox_override("hover", xs)
-		x_btn.add_theme_stylebox_override("pressed", xs)
-	else:
-		var xs := StyleBoxFlat.new()
-		xs.bg_color = Tune.X_BG
-		xs.set_corner_radius_all(Tune.X_RADIUS)
-		xs.set_border_width_all(Tune.X_BORDER_W)
-		xs.border_color = Tune.X_EDGE
-		x_btn.add_theme_stylebox_override("normal", xs)
-		x_btn.add_theme_stylebox_override("hover", xs)
-		var xp: StyleBoxFlat = xs.duplicate()
-		xp.bg_color = Tune.X_BG_PRESSED
-		x_btn.add_theme_stylebox_override("pressed", xp)
+	# A RED circular close disc (the kit btn_round art read as a compass ornament, not a control).
+	var xs := StyleBoxFlat.new()
+	xs.bg_color = Tune.X_BG
+	xs.set_corner_radius_all(Tune.X_RADIUS)
+	xs.set_border_width_all(Tune.X_BORDER_W)
+	xs.border_color = Tune.X_EDGE
+	x_btn.add_theme_stylebox_override("normal", xs)
+	x_btn.add_theme_stylebox_override("hover", xs)
+	var xp: StyleBoxFlat = xs.duplicate()
+	xp.bg_color = Tune.X_BG_PRESSED
+	x_btn.add_theme_stylebox_override("pressed", xp)
 	x_btn.text = "✕"
 	x_btn.add_theme_font_size_override("font_size", Tune.X_FONT)
 	x_btn.add_theme_color_override("font_color", CREAM)
@@ -402,7 +396,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 # A thin sprig divider with a caption (divider_vine art when generated).
 # S13: the caption is a parchment TAB chip, baseline-aligned with its vine —
 # not bare text floating at the parchment edge.
-static func _divider(col: VBoxContainer, caption: String) -> void:
+static func _divider(col: VBoxContainer, caption: String, trailing: Control = null) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", Tune.DIV_SEP)
 	col.add_child(row)
@@ -424,6 +418,9 @@ static func _divider(col: VBoxContainer, caption: String) -> void:
 	cap.add_theme_color_override("font_color", Color(INK, Tune.DIV_CAP_INK_ALPHA))
 	tab.add_child(cap)
 	row.add_child(tab)
+	if trailing != null:
+		trailing.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(trailing)               # a chip riding between the caption tab and the vine (e.g. the Featured countdown)
 	if ResourceLoader.exists(Look.kit("divider_vine.png")):
 		var vine := TextureRect.new()
 		vine.texture = load(Look.kit("divider_vine.png"))
@@ -460,9 +457,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(inner)
-	var ic := Look.icon(icon_id, Tune.HELP_ICON)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	inner.add_child(ic)
+	inner.add_child(_on_plate(Look.icon(icon_id, Tune.HERO_ICON)))
 	var t := Label.new()
 	t.text = title
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -480,6 +475,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 	b.set_meta("gem_cost", cost)
 	b.pressed.connect(func() -> void:
 		_try_buy(host, refs, b, cost, action, fly_id))
+	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
 	_apply_afford(b)
 	return b
 
@@ -495,9 +491,7 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(inner)
 	var code := int(off.code)
-	var preview := PieceView.make_piece(code, Tune.HELP_ICON)
-	preview.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	inner.add_child(preview)
+	inner.add_child(_on_plate(PieceView.make_piece(code, Tune.HERO_ICON)))
 	var t := Label.new()
 	t.text = String(off.get("label", ""))
 	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -523,6 +517,7 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 			if (refs.opts as Dictionary).has("piece_grant"):
 				((refs.opts as Dictionary).piece_grant as Callable).call()
 			return true, host.tr("Into your bag")))
+	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
 	_apply_afford(b)
 	return b
 
@@ -580,6 +575,7 @@ static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> 
 			return
 		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
 			return buy_cosmetic(id), host.tr("Unlocked!")))
+	_overlay_corner(b, _info_badge(), Tune.INFO_SIZE, Tune.INFO_MARGIN, false)
 	_apply_afford(b)
 	return b
 
@@ -610,14 +606,22 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	inner.add_child(slot)
 	var badge_text := ""
 	if first_buy_doubled():
-		badge_text = host.tr("2× first buy")
+		badge_text = host.tr("First buy x2")
 	elif bool(pack.get("pop", false)):
 		badge_text = host.tr("Popular")
+	elif i == CASH_PACKS.size() - 1:
+		badge_text = host.tr("Best value")     # the whale pack (best 💎/$ rate) — crown it
 	if badge_text != "":
 		slot.add_child(_badge(badge_text))
-	var ic := Look.icon("gem", Tune.GEM_ICON)
-	ic.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	inner.add_child(ic)
+	# scale the cluster by tier so a bigger pack LOOKS bigger (the value ladder reads at a glance);
+	# the icon sits in a FIXED-height slot (= GEM_ICON_MAX) centred, so a smaller cluster never
+	# shoves this card's count/price up relative to its row-mates (keeps the grid row aligned).
+	var frac := float(i) / float(maxi(1, CASH_PACKS.size() - 1))
+	var icon_slot := CenterContainer.new()
+	icon_slot.custom_minimum_size = Vector2(0, Tune.GEM_ICON_MAX)
+	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(icon_slot)
+	icon_slot.add_child(Look.icon("gem", lerpf(Tune.GEM_ICON_MIN, Tune.GEM_ICON_MAX, frac)))
 	var n := Label.new()
 	n.text = str(int(pack.gems))
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -670,6 +674,7 @@ static func _starter_card(host: Control, refs: Dictionary) -> Button:
 	b.set_meta("shop_starter", true)
 	b.pressed.connect(func() -> void:
 		_confirm_starter(host, refs))
+	_overlay_corner(b, _red_dot(), Tune.DOT_SIZE, Tune.DOT_MARGIN, true)   # an unclaimed welcome gift is always actionable
 	return b
 
 # A small STRAW pill badge ("Popular" / "2× first buy" / "Best value") for a cash card.
@@ -691,22 +696,26 @@ static func _badge(text: String) -> PanelContainer:
 	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return pop
 
-# A cost pill — ONE source for every price on a card (help / featured / cash / starter). A clean
-# brown StyleBoxFlat (cream text), optionally led by a currency glyph. Replaces Look.stat_chip on
-# cards: that backed prices with the kit `panel_chip` nine-patch whose opaque art is a thin pill
-# narrower than its rect, so the number sat on a cut-off semicircle (the HUD bar already abandoned
-# it for the same reason). `icon_id` "" = a plain $ price (no glyph).
+# The BUY pill — ONE source for every price on a card (help / featured / cosmetic / cash / starter).
+# White text on leaf-GREEN (Pal.BTN_PRIMARY, the game's primary-CTA colour), fully rounded with a
+# raised shadow, optionally led by a currency glyph, so the price reads as the tappable buy button
+# (the whole card presses; this pill is its visual CTA). Named "BuyPill" so _apply_afford can dim
+# THIS, not the whole card. `icon_id` "" = a plain $ price (no glyph). (Was a brown #5A3F28 pebble.)
 static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
 	var pill := PanelContainer.new()
+	pill.name = "BuyPill"
 	var s := StyleBoxFlat.new()
-	s.bg_color = Tune.GEM_PRICE_BG
-	s.set_corner_radius_all(Tune.GEM_PRICE_RADIUS)
-	s.set_border_width_all(Tune.GEM_PRICE_BORDER_W)
-	s.border_color = Tune.GEM_PRICE_EDGE
-	s.content_margin_left = Tune.GEM_PRICE_PAD_X
-	s.content_margin_right = Tune.GEM_PRICE_PAD_X
-	s.content_margin_top = Tune.GEM_PRICE_PAD_T
-	s.content_margin_bottom = Tune.GEM_PRICE_PAD_B
+	s.bg_color = Pal.BTN_PRIMARY
+	s.set_corner_radius_all(Tune.BUY_RADIUS)
+	s.set_border_width_all(Tune.BUY_BORDER_W)
+	s.border_color = Pal.BTN_PRIMARY_EDGE
+	s.shadow_color = Tune.BUY_SHADOW
+	s.shadow_size = Tune.BUY_SHADOW_SIZE
+	s.shadow_offset = Tune.BUY_SHADOW_OFFSET
+	s.content_margin_left = Tune.BUY_PAD_X
+	s.content_margin_right = Tune.BUY_PAD_X
+	s.content_margin_top = Tune.BUY_PAD_T
+	s.content_margin_bottom = Tune.BUY_PAD_B
 	pill.add_theme_stylebox_override("panel", s)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -719,12 +728,114 @@ static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
 		row.add_child(ic)
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", Tune.GEM_PRICE_SIZE)
+	l.add_theme_font_size_override("font_size", Tune.BUY_SIZE)
 	l.add_theme_color_override("font_color", CREAM)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(l)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return pill
+
+# A product icon / piece preview seated on a soft honey disc — the HERO of a help/featured card,
+# so the art pops off the cream parchment instead of floating tiny + faint.
+static func _on_plate(art: Control) -> Control:
+	var plate := PanelContainer.new()
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Tune.ICON_PLATE_BG
+	ps.set_corner_radius_all(int(Tune.ICON_PLATE / 2.0))
+	ps.set_border_width_all(2)
+	ps.border_color = Color(BARK, Tune.ICON_PLATE_EDGE_ALPHA)
+	plate.add_theme_stylebox_override("panel", ps)
+	plate.custom_minimum_size = Vector2(Tune.ICON_PLATE, Tune.ICON_PLATE)
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(cc)
+	cc.add_child(art)
+	return plate
+
+# The per-card "i" info badge — a small blue disc, VISUAL placeholder only (the detail popup is a
+# parked task). It ignores input, so a tap falls through to the card's buy press (today's behaviour).
+static func _info_badge() -> Control:
+	var p := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tune.INFO_BG
+	s.set_corner_radius_all(int(Tune.INFO_SIZE / 2.0))
+	s.set_border_width_all(Tune.INFO_BORDER_W)
+	s.border_color = Tune.INFO_EDGE
+	p.add_theme_stylebox_override("panel", s)
+	p.custom_minimum_size = Vector2(Tune.INFO_SIZE, Tune.INFO_SIZE)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Label.new()
+	l.text = "i"
+	l.set_anchors_preset(Control.PRESET_FULL_RECT)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", Tune.INFO_FONT)
+	l.add_theme_color_override("font_color", CREAM)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(l)
+	return p
+
+# A red "new / claimable" dot (cream rim) — pulls the eye to an actionable surface (a free reroll
+# ready, an unclaimed welcome gift). Input-transparent.
+static func _red_dot() -> Control:
+	var p := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tune.DOT_BG
+	s.set_corner_radius_all(int(Tune.DOT_SIZE / 2.0))
+	s.set_border_width_all(Tune.DOT_RIM_W)
+	s.border_color = Tune.DOT_RIM
+	p.add_theme_stylebox_override("panel", s)
+	p.custom_minimum_size = Vector2(Tune.DOT_SIZE, Tune.DOT_SIZE)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return p
+
+# A small ink countdown chip ("↻ 5h 12m") for the Featured band — the offers rotate once per day
+# (rotation_seed = day index), so this is the real time to the next UTC-midnight refresh.
+static func _clock_chip(text: String) -> Control:
+	var p := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Tune.CLOCK_BG
+	s.set_corner_radius_all(Tune.CLOCK_RADIUS)
+	s.content_margin_left = Tune.CLOCK_PAD_X
+	s.content_margin_right = Tune.CLOCK_PAD_X
+	s.content_margin_top = Tune.CLOCK_PAD_Y
+	s.content_margin_bottom = Tune.CLOCK_PAD_Y
+	p.add_theme_stylebox_override("panel", s)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", Tune.CLOCK_SIZE)
+	l.add_theme_color_override("font_color", CREAM)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(l)
+	return p
+
+# Time until the daily Featured rotation refreshes (next UTC midnight), as "↻ Hh Mm".
+static func _rotation_left_text() -> String:
+	var secs := 86400 - (int(Time.get_unix_time_from_system()) % 86400)
+	return "↻ %dh %dm" % [secs / 3600, (secs % 3600) / 60]
+
+# Pin a small node at a card/button corner, input-transparent (overlays the press surface).
+static func _overlay_corner(host_btn: Button, node: Control, size: float, margin: float, left: bool) -> void:
+	host_btn.add_child(node)
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.anchor_top = 0.0
+	node.anchor_bottom = 0.0
+	node.offset_top = margin
+	node.offset_bottom = margin + size
+	if left:
+		node.anchor_left = 0.0
+		node.anchor_right = 0.0
+		node.offset_left = margin
+		node.offset_right = margin + size
+	else:
+		node.anchor_left = 1.0
+		node.anchor_right = 1.0
+		node.offset_left = -(size + margin)
+		node.offset_right = -margin
 
 # The blurred + warm-tinted + vignetted backdrop material (the §1 interim shop backdrop). A
 # screen-read canvas shader: 9-tap box blur of the live scene, mixed toward a warm dark, with a
@@ -783,12 +894,12 @@ static func _card_button(min_size: Vector2) -> Button:
 	Look.add_press_juice(b)
 	return b
 
-# Affordability is shown, never blocking: a dim card still presses (wallet wiggles).
-# Reads whichever price meta the card carries — gem_cost (💎), coin_cost (🪙), or an
-# `owned` flag (a bought cosmetic shows full-bright with its own "Owned" treatment).
+# Affordability is shown, never blocking: a can't-afford card still presses (wallet wiggles).
+# The CARD stays bright always (a whole-card dim read as disabled/sold-out — the storefront's
+# worst signal); only the BUY pill takes the muted "need more" state. Reads whichever price meta
+# the card carries — gem_cost (💎), coin_cost (🪙), or an `owned` flag (no pill, nothing to dim).
 static func _apply_afford(b: Button) -> void:
 	if b.has_meta("owned") and bool(b.get_meta("owned")):
-		b.modulate = Color(1, 1, 1, 1.0)
 		return
 	var ok := true
 	if b.has_meta("gem_cost"):
@@ -797,7 +908,9 @@ static func _apply_afford(b: Button) -> void:
 		ok = Save.coins() >= int(b.get_meta("coin_cost"))
 	else:
 		return
-	b.modulate = Color(1, 1, 1, 1.0) if ok else Tune.DIM_MODULATE
+	var pill := b.find_child("BuyPill", true, false)
+	if pill != null:
+		(pill as Control).modulate = Color(1, 1, 1, 1.0) if ok else Tune.BUY_NEED_MODULATE
 
 static func _refresh_afford(overlay: Control) -> void:
 	for b in overlay.find_children("*", "Button", true, false):
