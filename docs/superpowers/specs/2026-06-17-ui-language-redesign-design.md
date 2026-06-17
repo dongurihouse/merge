@@ -144,12 +144,13 @@ Warm cream chrome (`#EFE7D5`) intentionally frames the cooler sage play field so
 
 ### Component reference
 
-Interactive mockups were produced during design for five components, each rendering the values above and standing as the visual target:
+Interactive mockups were produced during design for six components, each rendering the values above and standing as the visual target:
 
 - **Top pill set** — round green level token (left) + cream currency capsule (right) with a green "+"; no chapter ribbon, top-bar center stays empty.
 - **Board** — colorful items grounded by a soft contact shadow (Float) over the sage field, empty inset cells (Rest), and a recessive muted-sage locked frontier with quiet glyphs (Sunk); two near-unlock cells carry a faint green hint.
 - **Quest / order bar** — parchment order cards anchored by a large character avatar; actionable = bright + raised + green "Ready" chip, pending = dimmed + flat + muted "Lv N" chip.
 - **Navigation** — one row of neutral round chrome buttons; exactly one green Float button = the page's primary destination (board: the contextual gate pill above the row; map: enter garden). No two-row stack.
+- **Map / home page** — the same HUD and nav language in the homestead context; decor spots (cream dashed disc + star cost) as the actionable layer, with one locked spot; the nav's green Float is the persistent *enter garden* button.
 - **Shop panel** — parchment card over a warm-dark scrim, honey banner title, red close disc, hero icons on honey plates, green BUY pills, reserved badge slot on the popular gem pack.
 
 Diffusion prompts for painterly reference art are in the appendix.
@@ -162,6 +163,16 @@ Diffusion prompts for painterly reference art are in the appendix.
 - **`engine/scripts/scenes/map.gd`** — the map's bottom chrome adopts the same neutral nav row, with *enter garden* as its single green primary destination.
 - **`engine/scripts/ui/hud.gd`** — collapse the shape vocabulary (level token + wallet only; no chapter ribbon).
 - **`engine/scripts/ui/giver_stand.gd`** — order/giver cards in the shop card language, anchored by an enlarged character avatar, with plane-based actionable/pending states.
+
+### Precursor — the old dark pill widget is retired (T48, 2026-06-17)
+
+Before implementation, the legacy `Look.stat_chip()` → `kit_panel("chip")` → `panel_chip.png` dark nine-patch capsule was **removed wholesale** (Dev call: "remove this stupid semicircle pill thing + related"). It was the clearest instance of the overloaded shape vocabulary §6 collapses. It backed three live surfaces, all now **rendering blank pending their rebuild in this language**:
+
+- **Burst-upgrade pill** (`board.gd`) — the §6/§10 coin sink's only entry point. The **sink itself stays in code** (`burst_lvl` / `burst_count` / `_upgrade_gen_burst` / cost ladder); only the pill is gone. The redesign must re-surface a burst-upgrade buy affordance (a Rest-plane chip, hub- or generator-anchored) in the new chip language.
+- **Vault gem balance** (`vault.gd`) — the jar already conveys balance visually; the redundant number-chip was dropped. Rebuild the explicit balance read in the new chip.
+- **Merchant sell tag** (`merchant_stand.gd`) — the live "+N🪙/💎 while dragging" affordance. The stall still brightens on drag; the **+N value read was lost** and must return as a new-language chip (a real affordance, not decoration — see BACKLOG).
+
+Orphaned `UiSkin` chip dials (`CHIP_PAD_X/Y`, `CHIP_ALPHA`, `STAT_NUM_SIZE`, `UiSkin.CHIP_ROW_SEP`) were left in place for the `tuning.gd` rework to absorb; `RADIUS_CHIP` stays (this spec's radius scale uses it).
 
 ---
 
