@@ -24,6 +24,7 @@ const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T
 const Ads = preload("res://engine/scripts/core/ads.gd")                      # T45: the rewarded 2×-collect doubler (post hub-collect offer)
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
+const Shop = preload("res://engine/scripts/ui/shop.gd")                      # chrome: the Store-badge query (starter_available)
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # the shared Settings card (gear + board bottom bar)
 const Debug = preload("res://engine/scripts/ui/debug.gd")
@@ -103,6 +104,16 @@ var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" r
 var _home_cue := Callable()       # toggles the §8 home-shortcut yield-ready pip (Hud.home_cue)
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips
+# chrome badges (driven by actionable-state queries; visibility only — never a nag)
+var _store_badge: Control = null  # Store "new offer" badge — lit while the starter pack is unclaimed
+var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
+var _free_badge: Control = null   # Free rail badge — lit when the rewarded gem faucet is offerable
+var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
+var _task_strip: Control = null   # the above-CTA task strip (rebuilt when frontier progress changes)
+var _task_strip_sb := 0.0         # cached safe-bottom so a rebuild keeps the strip's pin
+# Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
+# this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
+var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
 
 func _ready() -> void:
 	_heal_capture_flags()
@@ -249,6 +260,7 @@ func _open_map(z: int) -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 	_build_map()
+	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
 	# §8 keystone: entering/returning to the HUB sweeps all ready yield in ONE beat (the home
 	# pays you). Credit + clock-reset happen NOW (correct even headless / pre-layout); the single
 	# satisfying collect FX is deferred a frame so the wallet chip has a real global rect to arc to.
@@ -1308,6 +1320,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	_persist()
 	_build_map()                          # the map (spot art + stars-left) refreshes
 	_update_hud()
+	if _task_strip != null:               # the chrome task strip tracks the frontier — rebuild it
+		_build_task_strip(_task_strip_sb)
 	if map_spots_done(z):
 		Save.add_diamonds(G.MAP_DIAMONDS)
 		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
@@ -1469,41 +1483,54 @@ func _build_chrome() -> void:
 	gear.pressed.connect(_open_settings)
 	add_child(gear)
 	_chrome_nodes.append(gear)
-	# the Store, relocated from the top cluster — sits to the LEFT of the gear
-	var shop := Button.new()
-	_shop_btn = shop                 # T28: target for the §14 shop spotlight
-	shop.focus_mode = Control.FOCUS_NONE
-	shop.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var st := StyleBoxTexture.new()
-		st.texture = load(Look.kit("btn_round.png"))
-		st.set_texture_margin_all(24.0)
-		shop.add_theme_stylebox_override("normal", st)
-		shop.add_theme_stylebox_override("hover", st)
-		shop.add_theme_stylebox_override("pressed", st)
-		var si := Look.icon("cart", 36.0)
-		si.set_anchors_preset(Control.PRESET_FULL_RECT)
-		shop.add_child(si)
-	else:
-		shop.text = "🛒"
-		shop.add_theme_font_size_override("font_size", 34)
-		shop.add_theme_color_override("font_color", CREAM)
-	Look.add_press_juice(shop)
-	shop.anchor_left = 1.0
-	shop.anchor_right = 1.0
-	shop.anchor_top = 1.0
-	shop.anchor_bottom = 1.0
-	shop.offset_left = -180
-	shop.offset_right = -104
-	shop.offset_top = -92 - sb
-	shop.offset_bottom = -16 - sb
-	shop.pressed.connect(func() -> void:
-		Audio.play("button_tap", -2.0)
+	# the STORE — promoted to a PROMINENT, persistent entry (§10 monetization-funnel; backlog
+	# "Store"). Money = WARM (the hierarchy): a larger, CLAY-filled round sticker pinned bottom-LEFT
+	# so it balances the gear/atlas cluster on the right and is reachable in one tap from anywhere on
+	# the map. A "new offer" badge lights while the one-time starter pack is unclaimed. Opens the
+	# shared Shop. Larger than the cream chrome buttons so it reads as the 2nd-tier CTA under the
+	# garden primary. (Look.round_button: the kit's btn_round art carries the look when present; the
+	# warm bg is the code-fallback fill — so we tint the icon background via a sibling disc when art
+	# is used, keeping the warm identity either way.)
+	var store_px := 92.0
+	var store := Look.round_button("cart", func() -> void:
 		if _open_shop.is_valid():
-			_open_shop.call())
-	add_child(shop)
-	_chrome_nodes.append(shop)
-	# the map-select (atlas) button — sits to the LEFT of the shop; opens the
+			_open_shop.call(),
+		{"px": store_px, "icon_px": 44.0, "bg": CLAY, "tap": func() -> void: Audio.play("button_tap", -2.0)})
+	_shop_btn = store                # T28: target for the §14 shop spotlight
+	# warm-tint disc UNDER the icon so the Store reads "money/warm" even on the cream kit art. Inset a
+	# few px so the kit button's rim/shadow still frames it (the warm fill is the identity, not a cover).
+	var warm := Panel.new()
+	var ws := StyleBoxFlat.new()
+	ws.bg_color = Color(CLAY, 0.95)
+	ws.set_corner_radius_all(int(store_px / 2.0))
+	ws.border_color = CLAY.darkened(0.18)
+	ws.set_border_width_all(2)
+	warm.add_theme_stylebox_override("panel", ws)
+	warm.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := 7.0
+	warm.offset_left = inset
+	warm.offset_top = inset
+	warm.offset_right = -inset
+	warm.offset_bottom = -inset
+	warm.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	store.add_child(warm)
+	store.move_child(warm, 0)         # behind the rim overlay + icon
+	store.anchor_left = 0.0
+	store.anchor_right = 0.0
+	store.anchor_top = 1.0
+	store.anchor_bottom = 1.0
+	store.offset_left = 16
+	store.offset_right = 16 + store_px
+	store.offset_top = -100 - sb
+	store.offset_bottom = -8 - sb
+	add_child(store)
+	_chrome_nodes.append(store)
+	FX.breathe_once(store)
+	# the "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
+	_store_badge = Look.badge("dot")
+	Look.attach_badge(store, _store_badge)
+	_refresh_store_badge()
+	# the map-select (atlas) button — sits to the LEFT of the gear; opens the
 	# place-picker. Visible in map view (the place-picker is its own view). The
 	# kit has no map icon, so the glyph (🗺) rides the round-button art directly
 	# (using Look.icon("map") would render "?" — no such kit/glyph entry).
@@ -1541,8 +1568,8 @@ func _build_chrome() -> void:
 	atlas.anchor_right = 1.0
 	atlas.anchor_top = 1.0
 	atlas.anchor_bottom = 1.0
-	atlas.offset_left = -268
-	atlas.offset_right = -192
+	atlas.offset_left = -180
+	atlas.offset_right = -104
 	atlas.offset_top = -92 - sb
 	atlas.offset_bottom = -16 - sb
 	atlas.pressed.connect(_open_select)
@@ -1586,8 +1613,8 @@ func _build_chrome() -> void:
 	piggy.anchor_right = 1.0
 	piggy.anchor_top = 1.0
 	piggy.anchor_bottom = 1.0
-	piggy.offset_left = -356
-	piggy.offset_right = -280
+	piggy.offset_left = -268
+	piggy.offset_right = -192
 	piggy.offset_top = -92 - sb
 	piggy.offset_bottom = -16 - sb
 	piggy.pressed.connect(_open_vault)
@@ -1599,6 +1626,268 @@ func _build_chrome() -> void:
 	Look.attach_badge(piggy, pip)
 	_piggy_pip = pip
 	_refresh_piggy_pip()
+	# the LiveOps rail (right edge) + the task strip (above the CTA) — the two new chrome slices.
+	_build_liveops_rail(sb)
+	_build_task_strip(sb_cta)
+
+# The LIVE-OPS RAIL (backlog "LiveOps buttons") — a CALM vertical column of round buttons on the
+# right edge, ABOVE the bottom corner cluster: Daily, Free, and (guarded) Inbox. Each is a quiet
+# cream chrome button; the RED BADGE does all the attention-pulling, shown ONLY when actionable
+# (today unclaimed / a free watch is ready / unread mail). Every rail button is appended to
+# _chrome_nodes so it follows _set_map_chrome_visible (hidden on the place-picker). The rail
+# stacks UPWARD from just above the corner cluster so it never collides with the CTA or the gear.
+func _build_liveops_rail(sb: float) -> void:
+	var px := 72.0
+	var gap := 14.0
+	var bottom := 116.0 + sb            # first rail button sits above the ~92px corner cluster row
+	var slot := 0
+	# Daily — opens the existing login calendar on demand; badge when today is unclaimed.
+	var daily := _rail_button("📅", _open_daily)
+	_place_rail(daily, px, bottom, slot); slot += 1
+	_daily_badge = Look.badge("dot")
+	Look.attach_badge(daily, _daily_badge)
+	# Free — a rewarded-video gem faucet; badge when a watch is offerable.
+	var free := _rail_button("▶", _claim_free_gems)
+	_place_rail(free, px, bottom, slot); slot += 1
+	_free_badge = Look.badge("dot")
+	Look.attach_badge(free, _free_badge)
+	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
+	if _has_inbox:
+		var inbox := _rail_button("✉", _open_inbox)
+		_place_rail(inbox, px, bottom, slot); slot += 1
+		_inbox_badge = Look.badge("pill", 0)
+		Look.attach_badge(inbox, _inbox_badge)
+	_refresh_liveops_badges()
+
+# One calm cream rail button: the round-button art (or an INK-disc fallback) carrying a glyph Label
+# directly — same pattern the atlas/piggy chrome uses for glyphs the kit has no icon for, so we
+# never touch skin.gd's ICON_GLYPHS. Mouse-ignored glyph keeps the single-input-surface rule.
+func _rail_button(glyph: String, cb: Callable) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(72, 72)
+	if ResourceLoader.exists(Look.kit("btn_round.png")):
+		var st := StyleBoxTexture.new()
+		st.texture = load(Look.kit("btn_round.png"))
+		st.set_texture_margin_all(24.0)
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", st)
+		b.add_theme_stylebox_override("pressed", st)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Color(INK, 0.6)
+		s.set_corner_radius_all(36)
+		b.add_theme_stylebox_override("normal", s)
+		b.add_theme_stylebox_override("hover", s)
+		b.add_theme_stylebox_override("pressed", s)
+	var g := Label.new()
+	g.text = glyph
+	g.add_theme_font_size_override("font_size", 32)
+	g.add_theme_color_override("font_color", CREAM)
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	g.set_anchors_preset(Control.PRESET_FULL_RECT)
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(g)
+	Look.add_press_juice(b)
+	b.pressed.connect(cb)
+	add_child(b)
+	_chrome_nodes.append(b)
+	return b
+
+# Pin a rail button to the right edge, stacked UPWARD (slot 0 lowest) from `bottom` px off the floor.
+func _place_rail(b: Button, px: float, bottom: float, slot: int) -> void:
+	var step := px + 14.0
+	b.anchor_left = 1.0
+	b.anchor_right = 1.0
+	b.anchor_top = 1.0
+	b.anchor_bottom = 1.0
+	b.offset_left = -16 - px
+	b.offset_right = -16
+	b.offset_bottom = -(bottom + slot * step)
+	b.offset_top = b.offset_bottom - px
+
+# Light each rail badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
+# button). Daily = today unclaimed; Free = a rewarded watch offerable; Inbox = unread count (guarded).
+func _refresh_liveops_badges() -> void:
+	if _daily_badge != null and is_instance_valid(_daily_badge):
+		_daily_badge.visible = not Login.claimed_today()
+	if _free_badge != null and is_instance_valid(_free_badge):
+		_free_badge.visible = Ads.can_show("free_gems")
+	if _has_inbox and _inbox_badge != null and is_instance_valid(_inbox_badge):
+		var n := int(load("res://engine/scripts/core/inbox.gd").unread_count())
+		_inbox_badge.visible = n > 0
+		# the count-pill badge is a PanelContainer whose only child is its number Label (skin.gd badge("pill"))
+		if _inbox_badge.get_child_count() > 0 and _inbox_badge.get_child(0) is Label:
+			(_inbox_badge.get_child(0) as Label).text = ("99+" if n > 99 else str(maxi(n, 1)))
+
+# Daily rail tap: open the login calendar on demand (the persistent entry the auto-popup lacked).
+# Refreshes the wallet + the day-badge on close (a just-claimed day drops its cue).
+func _open_daily() -> void:
+	Audio.play("button_tap", -2.0)
+	LoginUI.open(self, {"refresh": func() -> void:
+		_update_hud()
+		_refresh_piggy_pip()
+		_refresh_liveops_badges()})
+
+# Free rail tap: the rewarded gem faucet. If a watch is offerable, claim it (the stub records the
+# watch + grants the 💎 purely in Save) and play a small reward FX from the button; else a soft
+# "come back" nudge — never a wall. Refreshes the wallet + the Free badge after.
+func _claim_free_gems() -> void:
+	# the FX origin is the Free button (the badge's host), so coins/gems arc from where the player tapped
+	var src: Vector2 = get_global_rect().get_center()
+	if _free_badge != null and is_instance_valid(_free_badge) and is_instance_valid(_free_badge.get_parent()):
+		src = (_free_badge.get_parent() as Control).get_global_rect().get_center()
+	var res := Ads.claim("free_gems")
+	if not bool(res.get("ok", false)):
+		Audio.play("invalid_soft", -6.0)
+		FX.floating_text(self, src, tr("More gems soon — come back later"), CREAM, 22)
+		_refresh_liveops_badges()
+		return
+	var gems := int(res.get("gems", 0))
+	Audio.play("level_complete", -3.0, 1.15)
+	FX.celebrate_reward(self, src, "gem", gems, Color("#A9C7E8"))
+	FX.fly_to_wallet(self, src, Look.icon("gem", 36.0),
+		_hud_panels[0] if _hud_panels.size() > 0 and is_instance_valid(_hud_panels[0]) else null,
+		func() -> void: _update_hud())
+	_update_hud()
+	_refresh_liveops_badges()
+
+# Inbox rail tap (GUARDED): open the parallel mailbox modal via load() so this worktree never hard-
+# depends on a system it doesn't own. Refreshes the unread badge on close.
+func _open_inbox() -> void:
+	if not _has_inbox:
+		return
+	Audio.play("button_tap", -2.0)
+	load("res://engine/scripts/ui/inbox.gd").open(self)
+	# refresh deferred so a modal that grants on open settles before we re-read the count
+	_refresh_liveops_badges.call_deferred()
+
+# The TASK STRIP (backlog "Task strip") — a slim cozy band JUST ABOVE the garden CTA showing the
+# next short-term goal: "Today  ✿ N/M  → 🎁", chained off the EXISTING restore-the-next-spot goal
+# (no bolted-on quest — the cozy spine IS the task). On a fully-restored frontier it celebrates
+# "✿ restored → 🎁" and, once, pays MAP_TASK_REWARD. Decorative + informative; never blocks play.
+# Appended to _chrome_nodes so it follows the place-picker hide.
+func _build_task_strip(sb_cta: float) -> void:
+	_task_strip_sb = sb_cta
+	if _task_strip != null and is_instance_valid(_task_strip):
+		_task_strip.queue_free()
+		_chrome_nodes.erase(_task_strip)
+		_task_strip = null
+	var z := _frontier_map()
+	if z < 0:
+		z = G.hub_map()
+	var total: int = G.MAPS[z].spots.size()
+	var done: int = owned_count(z)
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#3D2A1B", 0.84)
+	sb.set_corner_radius_all(14)                  # small chip radius (matches UiSkin.RADIUS_CHIP)
+	sb.set_border_width_all(2)
+	sb.border_color = Color("#2A1C11", 0.9)
+	sb.content_margin_left = 16.0
+	sb.content_margin_right = 16.0
+	sb.content_margin_top = 6.0
+	sb.content_margin_bottom = 6.0
+	card.add_theme_stylebox_override("panel", sb)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(row)
+	var head := Label.new()
+	head.text = tr("Today")
+	head.add_theme_font_size_override("font_size", 20)
+	head.add_theme_color_override("font_color", STRAW)
+	head.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(head)
+	row.add_child(Look.icon("star", 22.0))
+	var prog := Label.new()
+	prog.text = ("%d/%d" % [done, total]) if done < total else tr("restored")
+	prog.add_theme_font_size_override("font_size", 20)
+	prog.add_theme_color_override("font_color", CREAM)
+	prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	prog.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(prog)
+	var arrow := Label.new()
+	arrow.text = "→"
+	arrow.add_theme_font_size_override("font_size", 20)
+	arrow.add_theme_color_override("font_color", Color(CREAM, 0.8))
+	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(arrow)
+	var gift := Label.new()
+	gift.text = "🎁"
+	gift.add_theme_font_size_override("font_size", 22)
+	gift.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	gift.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(gift)
+	# pinned centered, just ABOVE the CTA (the CTA top is -120 - sb_cta; the strip sits above it)
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.anchor_top = 1.0
+	card.anchor_bottom = 1.0
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.offset_top = -166 - sb_cta
+	card.offset_bottom = -128 - sb_cta
+	add_child(card)
+	_chrome_nodes.append(card)
+	_task_strip = card
+	card.visible = (_view == "map")          # a rebuild mid-place-picker stays hidden (follows the chrome toggle)
+	# pay the milestone ONCE: the frontier map is fully restored and we haven't granted yet.
+	if done >= total and total > 0:
+		_grant_map_task_reward(z)
+
+# Grant the slim task-strip milestone reward ONCE per map (persisted by a per-map flag) when its
+# spots are all restored. Celebrates the beat the player already reached (§4: no possibility gate).
+func _grant_map_task_reward(z: int) -> void:
+	var g := Save.grove()
+	var claimed: Dictionary = g.get("task_reward", {})
+	var key := String(G.MAPS[z].id)
+	if claimed.has(key):
+		return
+	claimed[key] = true
+	g["task_reward"] = claimed
+	Save.grove_write()
+	var rew: Dictionary = Game.DATA.MAP_TASK_REWARD
+	var coins := int(rew.get("coins", 0))
+	var gems := int(rew.get("gems", 0))
+	if coins > 0:
+		Save.add_coins(coins)
+	if gems > 0:
+		Save.add_diamonds(gems)
+	if not is_inside_tree():
+		return
+	_task_reward_fx.call_deferred(coins, gems)
+
+func _task_reward_fx(coins: int, gems: int) -> void:
+	if not is_inside_tree():
+		return
+	await get_tree().process_frame
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	var at := get_global_rect().get_center() + Vector2(0, 120)
+	Audio.play("level_complete", -4.0, 1.1)
+	var dy := 0.0
+	if gems > 0:
+		FX.celebrate_reward(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8")); dy += 34
+	if coins > 0:
+		FX.celebrate_reward(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"))
+	FX.floating_text(self, at - Vector2(0, 40), tr("Today's task complete ✿"), CREAM, 24)
+	_update_hud()
+
+# Refresh the Store "new offer" badge — lit while the one-time starter pack is unclaimed (the
+# clearest "there's an offer for you" signal; Shop.starter_available is the public query).
+func _refresh_store_badge() -> void:
+	if _store_badge != null and is_instance_valid(_store_badge):
+		_store_badge.visible = Shop.starter_available()
+
+# Re-read every chrome badge's actionable state in one go (called on map nav). Cheap, idempotent.
+func _refresh_chrome_badges() -> void:
+	_refresh_store_badge()
+	_refresh_liveops_badges()
 
 # T45: open the diegetic piggy-bank jar (the accrual vault, ui/vault.gd). On close it refreshes
 # the ready-pip so a just-cracked (now empty) jar drops its cue immediately.
