@@ -320,12 +320,19 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		col.add_child(starter_row)
 		starter_row.add_child(_starter_card(host, refs))
 
-	# — Dewdrop pouches (cash → diamonds; confirm-only) —
+	# — Dewdrop pouches (cash → diamonds; confirm-only) — the full ladder ($0.99…$99.99) is
+	# wider than the parchment, so it rides a HORIZONTAL SCROLLER clipped to the card: the
+	# cheapest pack reads at rest, swipe right for the bigger tiers. Without this the row's
+	# combined min-width would FLOOR the parchment wider than the screen (custom_minimum_size
+	# is a floor, not a cap) and bleed the whole shop off both edges.
 	_divider(col, host.tr("Dewdrop pouches"))
-	var gem_row := HBoxContainer.new()
-	gem_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	var gem_scroll := ScrollContainer.new()
+	gem_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	gem_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(gem_scroll)
+	var gem_row := HBoxContainer.new()                # left-aligned inside the scroller (cheapest first)
 	gem_row.add_theme_constant_override("separation", Tune.ROW_SEP)
-	col.add_child(gem_row)
+	gem_scroll.add_child(gem_row)
 	for i in CASH_PACKS.size():
 		gem_row.add_child(_gem_card(host, refs, i))
 	var foot := Control.new()
@@ -452,7 +459,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 # chip (coins or 💎). Whole card presses → buy: spend, queue the piece into the bag, and —
 # if the host is the live board (opts.piece_grant) — drain it onto the board now.
 static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Button:
-	var b := _card_button(Tune.HELP_CARD)
+	var b := _card_button(Tune.FEATURED_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -498,7 +505,7 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 # presses → buy: spend + unlock the look (own-once). An already-owned look shows an
 # "Owned" badge and a no-op press (no double-charge).
 static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> Button:
-	var b := _card_button(Tune.HELP_CARD)
+	var b := _card_button(Tune.FEATURED_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
