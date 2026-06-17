@@ -67,7 +67,7 @@ Raw named colors stay; the new semantic layer maps **role → value**, so consum
 ### 4. Cell + item container system
 
 - **One cell.** Every board cell is the same rounded-square slot at one shared radius. Empty = a subtle inset on the Surface (Sunk plane). The grid reads as structure, never as content.
-- **One pedestal.** Every item sits on the same light pedestal (reuse `ICON_PLATE`), so pieces feel like pieces on a board.
+- **One pedestal.** Every item sits on the same light pedestal — reuse or evolve the shop's `ICON_PLATE`, or author a dedicated board-piece pedestal if the board needs its own — so pieces feel like pieces on a board.
 - **One item box + optical scale.** The HUD already solves uneven art weight with `CHIP_ICON_BOX` + per-icon `*_OPTICAL`. Extend that pattern to board pieces: a single `ITEM_BOX` with per-item optical scale, so a large item (seed bag) no longer dwarfs a small one (shovel).
 
 ### 5. Locked / sealed state — the most visible fix
@@ -108,7 +108,7 @@ Ink on light = `INK`, on dark = `CREAM`, plus one muted. Tile labels get **one p
 
 ### 10. Motion / feedback
 
-No new motion — **map existing FX to the planes.** Float elements may pop/breathe; Sunk/locked elements stay still. Rewards arc to the wallet (existing `fly_to_wallet`). Motion reinforces depth rather than decorating.
+Motion reinforces the depth planes rather than decorating: Float elements may pop/breathe, Sunk/locked elements stay still, rewards arc to the wallet (existing `fly_to_wallet`). Start from the existing FX dials, **and add net-new motion where the language calls for it** — e.g. a satisfying merge/fuse, a sealed-cell reveal (covered ground peeling back) on unlock, an order-complete celebration, and a near-unlock anticipation cue. New motion is in scope when it serves a moment in the loop, not as ambient decoration.
 
 ---
 
@@ -122,12 +122,18 @@ No new motion — **map existing FX to the planes.** Float elements may pop/brea
 
 ---
 
-## Non-goals (YAGNI)
+## Scope notes
 
-- No new art assets beyond what the pedestal/chrome-style consolidation requires.
-- No new animation systems — existing FX dials are remapped, not extended.
+**In scope — and not limited to what exists today.** New art and motion are welcome wherever they advance the language. Reusing an existing pattern (e.g. `ICON_PLATE`, the shop card language, the FX dials) is the default *only when it already fits* — when the system needs something new, make it new:
+
+- **Net-new art** — item pedestals, a consolidated single-style chrome icon set, the locked/covered-ground texture, the chapter ribbon, order-card frames, a neutral board surface — whatever the role tiers and cell/item system call for.
+- **Net-new motion** — for key moments in the loop (merge/fuse, sealed-cell reveal, order-complete, near-unlock anticipation), building on the existing FX vocabulary where it fits and extending it where it doesn't.
+
+**Out of scope (YAGNI):**
+
 - No re-theme of the cozy-farm identity.
 - No change to game logic, board model, merge rules, or progression — visual/UI language only.
+- No art or motion unrelated to the UI language: every new asset or animation must serve a principle or a loop moment in this spec, not decorate.
 
 ---
 
