@@ -23,11 +23,16 @@ help: ## list available targets
 run: ## play the active game (GAME env var, default placeholder)
 	$(GODOT) --path $(PROJECT)
 
+
+run_debug: ## play the active game (default grove) WITH the debug panel + toggles
+	rm -f games/grove/assets/.gdignore
+	GAME=$${GAME:-grove} $(GODOT) --path $(PROJECT) -- debug
+
 run_base: ## play the BARE placeholder (wireframe engine + debug panel)
 	touch games/grove/assets/.gdignore
 	GAME=placeholder $(GODOT) --path $(PROJECT)
 
-run: ## play the GROVE game (full art; first run imports grove art)
+run_grove: ## play the GROVE game (full art; first run imports grove art)
 	rm -f games/grove/assets/.gdignore
 	GAME=grove $(GODOT) --path $(PROJECT)
 

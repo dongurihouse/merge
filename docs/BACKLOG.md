@@ -11,7 +11,9 @@ burst sink + level-gating (T23–T25, T37), the **selling bands + Shop buy-sinks
 (T39–T41)**, and the **2nd economy batch — keystone hub-yield (T42) · live-IAP + rewarded ads +
 out-of-water offer (T43) · piggy vault + forgiving login calendar (T44)** (parallel worktree batches,
 2026-06-15; the T45 entry-point wiring is committed on `t45-integration`, **held** behind the active §16
-map work — see the economy item below). Code anchors are `file:line` and **drift** — after the
+map work — see the economy item below); and the **4 `merge_spec`-audit gap fixes** — gate-quest
+randomization (§7), generator-grant scheduling (§6/§7), the spawn tier-bias dial (§6, off by default),
+and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code anchors are `file:line` and **drift** — after the
 `core/ui/scenes` layering split many paths moved (`content.gd`→`core/content.gd`, `board.gd`→
 `scenes/board.gd`, `shop.gd`→`ui/shop.gd`); trust the symbol name over the line number.
 
@@ -128,6 +130,18 @@ map work — see the economy item below). Code anchors are `file:line` and **dri
   builders → `ui/piece_view` + `ui/bust` (`a102b85`); both shipped to `main` with **no `T#` entry**, and "Wave N"
   implies more passes touching `board.gd`. Backfill the task entries + coordinate before other `board.gd` work.
 
+- **Economy sim — track board occupancy/congestion (sim tooling · grove `grove_sim.gd`).** §15
+  (`merge_spec.md:438`; echoed §7 `:257`) requires the sim to validate the board for **space**, not just
+  affordability: **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a
+  free cell, net of the bag §5 and merchant §9 drains), so the late-game "juggle every line on one board"
+  is proven drainable. Today `games/grove/tools/grove_sim.gd` tracks only a binary jam count (`:437`) and a
+  free-cell low-water mark (`:310`, `open_low_mark`) — **no mean occupancy and no stall *rate***
+  (`grep occupancy|congestion|stall_rate` → none). The engine primitives already exist
+  (`engine/scripts/core/board_model.gd:172` `empty_ground_cells()`). **Build (sim):** aggregate peak/mean
+  occupancy + a drain-net stall rate into the sim results. **Build (grove):** set the peak-occupancy +
+  stall-rate ceilings (a grove number, §15). **Minor** — tooling/validation, not a runtime gap. *(Surfaced
+  2026-06-16 — engine vs `merge_spec` gap audit.)*
+
 ## Parked — per-map generators: art + tuning (the remaining tail of T17–T20)
 
 - **Economy tuning + pacing sign-off (§3 · §7 · sim) — owner feel call.** The §7 economy is sim-green
@@ -137,9 +151,13 @@ map work — see the economy item below). Code anchors are `file:line` and **dri
   `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/`GATE_ASK_COUNT`, featured rate) and the
   joint **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** curve. **Two faucet changes ride with this rebalance,
   not before:** level water gift **+20 → +50** (`LEVEL_WATER_GIFT`), and free refills **3-lifetime →
-  1/day** (needs a per-day date, not the current lifetime `refills_used`). Best judged once the art
-  makes it playable; re-validate every change on the Monte-Carlo sim (`grove_sim.gd`). *(T17 sim → T19
-  cutover → T23 burst → T24 gradient → T37 strand fix.)*
+  1/day** (needs a per-day date, not the current lifetime `refills_used`). **New dial to sweep:
+  `ASK_TIER_WEIGHT`** (§6 spawn tier-bias, `grove_data.gd`) ships at **0 = OFF** — the mechanism is live
+  + tested (`board_logic.roll_spawn`, mirrored in `grove_sim`), but the sim showed full strength (0.6)
+  front-loads spend ~3× (1 map vs 4 over a 7-day run), so ramping it belongs to THIS pacing pass (re-tune
+  the level curve alongside). Best judged once the art makes it playable; re-validate every change on the
+  Monte-Carlo sim (`grove_sim.gd`). *(T17 sim → T19 cutover → T23 burst → T24 gradient → T37 strand fix →
+  2026-06-16 tier-bias dial.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.
