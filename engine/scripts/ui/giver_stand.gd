@@ -36,6 +36,26 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.6)
+	# a wooden sign-board behind the giver — the frameless chest-up cutout used to
+	# blend into the painted fence; a bordered, shadowed plaque lifts each quest off
+	# the rail and makes the row read as distinct cards. The bust's head pokes above
+	# it and the ask pill rides on its face (added after, so both sit in front).
+	var plaque := Panel.new()
+	var plw := 178.0
+	var plh := 150.0
+	plaque.position = Vector2((sw - plw) / 2.0, 60.0)
+	plaque.size = Vector2(plw, plh)
+	var pls := StyleBoxFlat.new()
+	pls.bg_color = Color("#E7D3A6", 0.97)         # warm parchment-wood board
+	pls.set_corner_radius_all(22)
+	pls.set_border_width_all(3)
+	pls.border_color = Color("#8A5A3B")           # the bark-brown used by the asks/pill
+	pls.shadow_color = Color(0, 0, 0, 0.34)
+	pls.shadow_size = 9
+	pls.shadow_offset = Vector2(0, 5)
+	plaque.add_theme_stylebox_override("panel", pls)
+	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stand.add_child(plaque)
 	var bust := Bust.make(qi % 2, 124.0)
 	bust.position = Vector2((sw - 124.0) / 2.0, 0.0)
 	stand.add_child(bust)

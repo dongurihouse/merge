@@ -228,6 +228,28 @@ func _initialize() -> void:
 	ok(after_count == before_count and bh.item_at(Vector2i(6, 5)) == 0, \
 		"an item on the revealing generator's cell relocates, never vanishes")
 
+	# 6e. the SECOND map-0 generator (pantry_crock) is STAGED via appear_level — it grows in only
+	# once the player's Level reaches it, so a new player opens with ONE generator + its lines, not
+	# two. The gate covers BOTH placement (live_gen_state/seed) AND askable lines (so the fence never
+	# asks for a line nothing on the board can produce yet). Read the dial off the def → retune-proof.
+	var pantry_def := G.gen_def(G.GENERATORS, "pantry_crock")
+	var pantry_lvl := int(pantry_def.get("appear_level", 0))
+	var pantry_cell: Vector2i = pantry_def.cell
+	var below := pantry_lvl - 1
+	ok(pantry_lvl > 0, "the pantry crock is staged (appear_level L%d > 0)" % pantry_lvl)
+	ok(G.live_gen_state(G.GENERATORS, 0, below).size() == 1, "below its level, map 0 places only the anchor satchel")
+	ok(G.live_gen_state(G.GENERATORS, 0, pantry_lvl).has(pantry_cell), "at its level, the pantry joins the live set")
+	ok(not G.askable_lines(G.GENERATORS, 0, below).has(3), "the pantry's lines are NOT askable before it appears")
+	ok(G.askable_lines(G.GENERATORS, 0, pantry_lvl).has(3) and G.askable_lines(G.GENERATORS, 0, pantry_lvl).has(4), \
+		"the pantry's lines (3,4) become askable when it appears")
+	var bs: BoardModel = BoardModel.new()
+	bs.seed_gens(0, below)
+	ok(bs.is_gen(G.GEN_CELL) and not bs.is_gen(pantry_cell), "seeding below the level places only the anchor")
+	ok(bs.grow_surplus_gens(0, below).is_empty(), "nothing grows in below the level")
+	var grown: Array = bs.grow_surplus_gens(0, pantry_lvl)
+	ok(grown.has("pantry_crock") and bs.is_gen(pantry_cell), "reaching the level grows the pantry in at its cell")
+	ok(bs.grow_surplus_gens(0, pantry_lvl).is_empty(), "growing is idempotent (no duplicate install)")
+
 	# 7. dispenser odds well-formed
 	var total := 0.0
 	for p in G.TIER_ODDS:
@@ -377,6 +399,11 @@ func _initialize() -> void:
 	sgg["unlocks"] = gate_ul
 	sgg["gates"] = []
 	Save.grove_write()
+	# the pantry crock is now STAGED (appear_level 5): in real play it grows in during map-0 play,
+	# long before the map is fully restored. This fast-forward seeded the board at L1 (satchel only),
+	# so install the pantry as map-0 play would have — the cross-map hand-in (pantry → hen coop) below
+	# needs it present on the board.
+	sg.board.grow_surplus_gens(0, 99)
 	sg._init_quests()
 	sg._rebuild_givers()
 	ok(sg.quests.size() == 1 and bool(sg.quests[0].get("gate", false)), "§7: a fully-restored map shows the lone gate quest")
@@ -602,7 +629,10 @@ func _initialize() -> void:
 	get_root().add_child(s4c)
 	if s4c.board == null:
 		s4c._ready()
-	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: a fresh board seeds the map-0 generators")
+	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and not s4c.board.is_gen(Vector2i(2, 1)), \
+		"12c: a fresh board seeds only the anchor satchel (the pantry crock is staged)")
+	s4c.board.grow_surplus_gens(0, 99)                        # the pantry grows in mid map-0 play (appear_level) — the grant mechanic below hands it in
+	ok(s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: the staged pantry crock grows in at its cell")
 	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()

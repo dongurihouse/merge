@@ -35,6 +35,7 @@ const Vault = preload("res://engine/scripts/core/vault.gd")                  # T
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
+const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
@@ -84,6 +85,7 @@ var bramble_nodes := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
 var gen_preview_cells := {}        # V: cell -> gi for locked-gen previews (tap → name floater)
+var _grown_cells: Array = []       # cells of generators that just GREW IN this rebuild (appear_level reached) — popped for feedback
 var burst_chip: Control            # §6 coin sink: the on-board "upgrade burst" buy pill (board-level, global)
 var burst_chip_label: Label
 var giver_bar: Control           # the quest fence (givers pop up over it)
@@ -145,6 +147,9 @@ func _ready() -> void:
 	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	calm_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(calm_veil)
+	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
+	# never reads as a flat field (sits behind the fence/board content, over the meadow)
+	add_child(Ambient.build_clouds(get_viewport_rect().size))
 	_load_state()
 	# sparse spirit life in the backdrop band above the fence (tap-less on the board)
 	_amb_layer = Ambient.build_layer(Vector2(get_viewport_rect().size.x, 320.0),
@@ -292,6 +297,21 @@ func _ready() -> void:
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
+	# the Settings gear — music/sounds/calm reachable from the board (was map-only; the player
+	# had to trip Home for it). Same shared card the map's gear opens (ui/settings.gd).
+	var settings_btn := Button.new()
+	settings_btn.flat = true
+	settings_btn.focus_mode = Control.FOCUS_NONE
+	settings_btn.custom_minimum_size = Vector2(58, 58)
+	settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var gi := Look.icon("gear", 40.0)
+	gi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settings_btn.add_child(gi)
+	Look.add_press_juice(settings_btn)
+	settings_btn.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		SettingsUI.open(self))
+	brow.add_child(settings_btn)
 	add_child(bottom_bar)
 
 	_build_hud()
@@ -381,7 +401,7 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		board.seed_gens(G.map_of_chapter(_chapter_idx()))   # seed the current map's set (migration)
+		board.seed_gens(G.map_of_chapter(_chapter_idx()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
 	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
 		var mg: Array = []
 		var ul: Dictionary = Save.grove().get("unlocks", {})
@@ -993,6 +1013,21 @@ func _refresh_giver_lights() -> void:
 # merge, sell, deliver, coin collect/drop, buy-back, refill, rebuild). Mirrors the
 # giver-lights refresh: read board state, write modulate — no scattered ad-hoc writes.
 # Safe alongside FX.breathe (that tweens scale, not modulate).
+# A staged second generator (appear_level) grows in once the player's Level reaches it — the
+# board no longer opens with two generators (owner). Self-healing: called at the top of every
+# _rebuild_all, it installs any now-eligible surplus generator missing from the board, makes its
+# lines askable (refill), and persists. Records the new cell(s) so the rebuild can pop them in.
+func _grow_generators() -> void:
+	if board == null:
+		return
+	var added: Array = board.grow_surplus_gens(G.map_of_chapter(_chapter_idx()), _quest_level())
+	if added.is_empty():
+		return
+	for id in added:
+		_grown_cells.append(G.gen_cell_of(G.GENERATORS, String(id)))
+	_refill_quests()                          # the new generator's lines are now askable
+	_persist()
+
 func _refresh_generator_dim() -> void:
 	if board == null:
 		return
@@ -1013,6 +1048,7 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 	return Vector2i(clampi(int(p.y / (csz + GAP)), 0, G.ROWS - 1), clampi(int(p.x / (csz + GAP)), 0, G.COLS - 1))
 
 func _rebuild_all() -> void:
+	_grow_generators()                        # a staged second generator grows in once its level is reached
 	for n in board_area.get_children():
 		n.queue_free()
 	slot_nodes.clear()
@@ -1051,7 +1087,12 @@ func _rebuild_all() -> void:
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
+		if _grown_cells.has(cell):            # a just-grown second generator — pop it in
+			FX.pop(gn)
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move, or be replaced by a hand-in grant)
+	if not _grown_cells.is_empty():
+		Audio.play("level_complete", -6.0, 1.1)
+		_grown_cells = []
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	_rebuild_burst_chip()                     # §6 coin sink: the "upgrade burst" buy pill on the primary generator
 	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old

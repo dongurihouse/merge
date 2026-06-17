@@ -34,6 +34,7 @@ static var FLAGS := {
 	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
 	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
+	"ambient_clouds": true,       # soft clouds drift across the sky band (board + map)
 	# feature
 	"customize_variants": true,   # owned spots offer coin/gem looks
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
