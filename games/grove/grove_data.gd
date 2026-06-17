@@ -236,18 +236,33 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # Spots sit on the map image at `pos` (0..1 of the fitted image rect), `fsize` px; `kind`
 # ("yield"/"decor"/"") is the hub seam (yield is parked — the keystone reads it). Spot costs 3-5★.
 # Map art loads <art_root>/map/map_<id>.png (a painted fallback panel until the §16 images land).
-const MAPS := [
-	# Map 1 — the home hub (grove_spec §3): 4 yield + 4 décor, 31★. (pos/fsize are PROVISIONAL —
-	# carried from the legacy interior; the owner re-places them on the real map image via the
-	# Layout editor once §16 art lands. Yield/décor BEHAVIOR is the keystone task; `kind` is its seam.)
-	{"id": "farmhouse", "name": "The Farmhouse", "hub": true, "spots": [
-		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.33, 0.49), "fsize": 230},
-		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.70, 0.50), "fsize": 380},
-		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.45, 0.60), "fsize": 320},
-		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.47, 0.67), "fsize": 320},
-		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170},
-		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.30, 0.66), "fsize": 250},
-		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.17, 0.52), "fsize": 230},
+static var MAPS: Array = _build_maps()
+
+static func _build_maps() -> Array:
+	var maps: Array = [
+	# Map 1 — the home hub. pos + fsize + `art` (the cutout image) are the hub layout. They come from the
+	# PLACER (games/grove/tools/MapPlacer.tscn → data/map1_placements.json) and are MERGED in at load by
+	# _merge_map1_placements via the `art` binding (the cutout's basename is the JSON key). The values
+	# below are gameplay (id/cost/kind) + the `art` binding + FALLBACK pos/fsize (used only when the JSON
+	# has no entry). No bake step — save in the placer and the game reads it. (Porch & Garden fence have
+	# no placed cutout → they keep the fallback pos + furn art.)
+	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
+		"bg": "res://assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
+		"fence": "res://assets/map1v2/fence.png",         # fixed fence layer, composited over the base
+		"full": "res://assets/map1v2/base_full.png",      # reference image, toggleable for testing
+		"decor": "res://data/map1v2_decor.json",          # trees/grass placed in the map placer (read at load)
+		"clouds": "res://assets/map1v2/clouds.png",       # drift slowly across the sky
+		"chimney": {"frames": "res://assets/map1v2/chimney/", "pos": [0.452, 0.205], "size": 300, "fps": 6},  # smoke flipbook over the cottage
+		"spots": [
+		# `art` points each spot at its map1v2 item cutout; pos/fsize are AUTO-DERIVED from base_items
+		# (assets/map1v2/items_layout.json, merged at load by item name = the art's basename).
+		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265), "fsize": 808, "art": "res://assets/map1v2/items/cottage.png"},
+		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379), "fsize": 808, "art": "res://assets/map1v2/items/garden.png"},
+		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778), "fsize": 370, "art": "res://assets/map1v2/items/well.png"},
+		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.7454, 0.5065), "fsize": 450, "art": "res://assets/map1v2/items/shed.png"},
+		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://assets/map1v2/items/doghouse.png"},
+		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://assets/map1v2/items/flowerbox.png"},
+		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://assets/map1v2/items/lantern.png"},
 		{"id": "fh_fence", "name": "Garden fence", "kind": "decor", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190},
 	]},
 	{"id": "barn", "name": "The Barn", "spots": [
@@ -290,7 +305,43 @@ const MAPS := [
 		{"id": "md_telescope", "name": "Stargazer", "cost": 5, "pos": Vector2(0.50, 0.30)},
 		{"id": "md_arch", "name": "Rose arch", "cost": 5, "pos": Vector2(0.45, 0.85)},
 	]},
-]
+	]
+	_merge_map1_placements(maps)
+	return maps
+
+
+# Merge the placer's saved hub layout (data/map1_placements.json) into the hub map's spots: each spot
+# whose `art` cutout is placed takes that placement's `pos` (center fraction) and `fsize` (footprint px,
+# in design-canvas units). Both come straight from the JSON — NO texture loads here, so boot stays cheap.
+# Read via res:// so it works the same in the editor and in an exported build — the .json must be in the
+# export preset's include_filter to ship. No file / no entry → the literal's fallback pos/fsize stay.
+static func _merge_map1_placements(maps: Array) -> void:
+	var f := FileAccess.open("res://assets/map1v2/items_layout.json", FileAccess.READ)
+	if f == null:
+		return
+	var data = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(data) != TYPE_DICTIONARY or not data.has("items"):
+		return
+	var place := {}
+	for rec in data["items"]:
+		var nm := String(rec.get("item", ""))
+		if nm != "":
+			place[nm] = rec
+	for m in maps:
+		if not bool(m.get("hub", false)):
+			continue
+		for spot in m["spots"]:
+			if not spot.has("art"):
+				continue
+			var cut := String(spot["art"]).get_file().get_basename()
+			if not place.has(cut):
+				continue
+			var rec: Dictionary = place[cut]
+			var ps = rec.get("pos", [0.5, 0.5])
+			spot["pos"] = Vector2(float(ps[0]), float(ps[1]))
+			spot["fsize"] = int(rec.get("fsize", spot.get("fsize", 240)))
+
 
 const LEVEL_WATER_GIFT := 20
 # The one uncapped LEVEL clock, driven by stars EARNED (cumulative): cross a

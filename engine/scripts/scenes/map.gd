@@ -27,6 +27,8 @@ const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T
 const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
+const Flipbook = preload("res://engine/scripts/ui/flipbook.gd")
 const Pal = Game.PALETTE
 
 const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
@@ -102,6 +104,7 @@ var _hud_panels: Array = []       # wallet + Lv chips
 
 func _ready() -> void:
 	_heal_capture_flags()
+	Design.fit_desktop_window()          # desktop: open at the design portrait aspect, monitor height
 	UiFont.apply()
 	Music.ensure()
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
@@ -388,22 +391,27 @@ func _build_map() -> void:
 	variant_hits.clear()
 	upgrade_hits.clear()
 	var z := _map_idx
-	# the stable map canvas fills the viewport below the HUD top inset and above
-	# the chrome. Background art can move/scale behind it, but spots stay on this
-	# fixed canvas so resizing the background never drags placed buildings around.
+	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
+	# floats over. Background art fills it; spots ride this same rect, so the painting and the
+	# buildings stay locked together on any window aspect.
 	_map_rect = _map_image_rect()
 	_map_art_rect = _map_placed_rect(z, _map_rect)
-	var art_path := Game.art("map/map_%s.png" % String(G.MAPS[z].id))
+	# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
+	var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
 	if ResourceLoader.exists(art_path):
-		var t := TextureRect.new()
-		t.texture = load(art_path)
-		t.position = _map_art_rect.position
-		t.size = _map_art_rect.size
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.clip_contents = true
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(t)
+		# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit). Anchoring to
+		# a sized parent avoids the TextureRect native-size reset. The base fills it; an optional fixed
+		# `fence` layer composites on top at its baked position/size.
+		var frame := Control.new()
+		frame.position = _map_art_rect.position
+		frame.size = _map_art_rect.size
+		frame.clip_contents = true
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(frame)
+		_add_cover_layer(frame, art_path)
+		var fence_path := String(G.MAPS[z].get("fence", ""))
+		if fence_path != "" and ResourceLoader.exists(fence_path):
+			_add_cover_layer(frame, fence_path)
 	else:
 		var fallback := Panel.new()
 		fallback.position = _map_art_rect.position
@@ -416,6 +424,10 @@ func _build_map() -> void:
 		fallback.add_theme_stylebox_override("panel", fs)
 		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(fallback)
+	_add_clouds(z, _map_rect)   # slow-drifting clouds in the sky, behind everything else
+	# decoration placed in the map placer (data/map1v2_decor.json): trees BEHIND the buildings (they sway)
+	var decor := _load_decor_list(z)
+	_add_decor(decor, "back", _map_rect)
 	# ambient life wanders over the map (order L), positioned within the image rect
 	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
@@ -428,19 +440,140 @@ func _build_map() -> void:
 		var spot := _make_spot(z, k, lvl, _map_rect)
 		content.add_child(spot)
 		spot_hits.append({"node": spot, "z": z, "k": k})
+	_add_decor(decor, "front", _map_rect)   # grass IN FRONT of the buildings
+	_add_chimney_smoke(z, _map_rect)        # animated smoke rising from the cottage chimney
 	FX.pop_in(content)
 
 # The available area below the HUD and above the bottom chrome; the map image is
 # CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
 func _map_image_rect() -> Rect2:
-	# FULL-BLEED: the map canvas IS the whole viewport, matching the standalone placement
-	# tool (TestFarm.tscn) — the tool is authoritative, so a position authored there maps
-	# 1:1 to a spot pos here (same image, same KEEP_ASPECT_COVERED, same rect). The HUD
-	# floats ON TOP of the top band; spots are authored to clear it.
-	return Rect2(Vector2.ZERO, get_viewport_rect().size)
+	# The map canvas is a phone-aspect rect, CONTAIN-fit and CENTERED in the viewport, so the
+	# WHOLE map image is always visible — never zoomed/cropped — on ANY window aspect (a wide
+	# desktop window no longer blows the cover-fit up). On the design phone aspect this fills the
+	# viewport exactly, so it stays identical to the map placer. Spots map to THIS rect; the sky
+	# ColorRect shows through any gap on an off-aspect (desktop) window. The HUD floats on top.
+	var view := get_viewport_rect().size
+	var aspect := Design.aspect()          # design portrait aspect (the art is authored to it)
+	var w := view.x
+	var h := w / aspect
+	if h > view.y:
+		h = view.y
+		w = h * aspect
+	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
 func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
 	return base
+
+# Add a full-rect, cover-fit, click-through TextureRect under `parent` (a map-rect frame). Used for the
+# base background and for fixed overlay layers (fence) so they share the exact same fit.
+func _add_cover_layer(parent: Control, path: String) -> void:
+	var t := TextureRect.new()
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	t.texture = load(path)
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(t)
+
+# Decoration placed in the map placer (data/map1v2_decor.json). `back` = trees (behind the buildings),
+# `front` = grass (in front). Flat sprites for now; wind/idle animation comes in a later phase.
+func _load_decor_list(z: int) -> Array:
+	var path := String(G.MAPS[z].get("decor", ""))
+	if path == "" or not FileAccess.file_exists(path):
+		return []
+	var f := FileAccess.open(path, FileAccess.READ)
+	var data = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(data) != TYPE_DICTIONARY or not data.has("decor"):
+		return []
+	return data["decor"]
+
+func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
+	var sc := rect.size.x / Design.size().x          # footprints are authored at the design-width canvas
+	for d in decor:
+		if String(d.get("layer", "front")) != layer:
+			continue
+		var art := String(d.get("art", ""))
+		if not ResourceLoader.exists(art):
+			continue
+		var fs := float(d.get("fsize", 200)) * sc
+		var p = d.get("pos", [0.5, 0.5])
+		var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
+		var t := TextureRect.new()
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.texture = load(art)
+		t.size = Vector2(fs, fs)
+		t.position = center - Vector2(fs, fs) * 0.5
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(t)
+		if "/trees/" in art:
+			_sway(t, fs)   # trees rock gently from the base in the wind
+
+# A gentle, randomized wind sway: rock the sprite around its base (bottom-centre).
+func _sway(t: Control, fs: float) -> void:
+	t.pivot_offset = Vector2(fs * 0.5, fs)
+	var amp := deg_to_rad(1.8 + randf() * 1.6)        # ~1.8°–3.4°
+	var per := 2.0 + randf() * 1.8                     # ~2–3.8s each way (randomized per tree)
+	t.rotation = -amp
+	var sw := t.create_tween().set_loops().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	sw.tween_property(t, "rotation", amp, per)
+	sw.tween_property(t, "rotation", -amp, per)
+
+# Slow-drifting clouds: two copies of the cloud sheet side by side, scrolling left and looping
+# seamlessly (at wrap, copy B sits exactly where copy A started). Transparent except the clouds.
+func _add_clouds(z: int, rect: Rect2) -> void:
+	var path := String(G.MAPS[z].get("clouds", ""))
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var tex: Texture2D = load(path)
+	var w := rect.size.x
+	var h := w * tex.get_height() / tex.get_width()
+	var layer := Control.new()
+	layer.position = rect.position
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(layer)
+	for i in 2:
+		var c := TextureRect.new()
+		c.texture = tex
+		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.stretch_mode = TextureRect.STRETCH_SCALE
+		c.size = Vector2(w, h)
+		c.position = Vector2(i * w, 0)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(c)
+	var dr := layer.create_tween().set_loops()
+	dr.tween_property(layer, "position:x", rect.position.x - w, 90.0).from(rect.position.x)
+
+# Chimney smoke: cycle base_chimney's growing puffs (a flipbook) over the cottage chimney.
+func _add_chimney_smoke(z: int, rect: Rect2) -> void:
+	var ch = G.MAPS[z].get("chimney", null)
+	if typeof(ch) != TYPE_DICTIONARY:
+		return
+	var dir := String(ch.get("frames", ""))
+	var frames := []
+	var i := 1
+	while ResourceLoader.exists(dir + "frame%d.png" % i):
+		frames.append(load(dir + "frame%d.png" % i))
+		i += 1
+	if frames.is_empty():
+		return
+	var sc := rect.size.x / Design.size().x
+	var size := float(ch.get("size", 280)) * sc
+	var fr0: Texture2D = frames[0]
+	var hsize := size * fr0.get_height() / fr0.get_width()
+	var p = ch.get("pos", [0.45, 0.20])
+	var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
+	var fb := Flipbook.new()
+	fb.frames = frames
+	fb.fps = float(ch.get("fps", 6))
+	fb.texture = fr0
+	fb.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fb.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	fb.size = Vector2(size, hsize)
+	fb.position = center - Vector2(size, hsize) * 0.5
+	fb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(fb)
 
 # The map's title — NAME + ✿-progress on one plank, centered near the top of the
 # map image (an IGNORE visual; never eats a press).
@@ -507,7 +640,12 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
+	# pos + fsize come from grove_data.MAPS, which merges the placer's data/map1_placements.json once at
+	# load (see grove_data._merge_map1_placements). `art` (a res:// cutout) overrides the default furn art.
 	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
+	var art_scale := rect.size.x / Design.size().x   # footprints are authored at the design-width canvas
+	var fs_eff := float(spot.get("fsize", 240.0)) * art_scale
+	var furn_path := String(spot.get("art", Game.art("rooms/furn_%s.png" % String(spot.id))))
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
@@ -515,7 +653,6 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var owned := spot_owned(String(spot.id))
 	var gated := G.spot_level_req(z, k) > lvl
-	var furn_path := Game.art("rooms/furn_%s.png" % String(spot.id))
 	# an owned spot draws its furniture sprite (when the art exists)
 	if owned and ResourceLoader.exists(furn_path):
 		var f := TextureRect.new()
@@ -526,7 +663,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		f.texture = load(furn_path)
-		var fs: float = float(spot.get("fsize", 240.0))
+		var fs: float = fs_eff
 		f.size = Vector2(fs, fs)
 		f.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot
 		# S8: the variant is a SUBTLE wash (was a full multiply — green wood read
@@ -572,7 +709,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
 		# empty plot teases what will fill it. Owned spots took the branches above —
 		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
-		var ghost := _ghost_sprite(furn_path, float(spot.get("fsize", 240.0)))
+		var ghost := _ghost_sprite(furn_path, fs_eff)
 		if ghost != null:
 			item.add_child(ghost)
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot

@@ -204,7 +204,7 @@ func _initialize() -> void:
 
 	# 6c. generators arrive PER MAP (§6). Map 0 grants both starters (satchel + compost);
 	# the surplus generator's cell (6,5) reveals only when the player enters map 1.
-	var z1_chapter := G.MAPS[0].spots.size()      # first chapter of map 1 (all map-0 spots bought)
+	var z1_chapter: int = G.MAPS[0].spots.size()  # first chapter of map 1 (all map-0 spots bought)
 	var bg: BoardModel = BoardModel.new()
 	bg.set_active_gens(0)
 	ok(bg.is_gen(Vector2i(4, 3)) and bg.is_gen(Vector2i(2, 1)), "map 0 grants both starters (satchel + compost)")
