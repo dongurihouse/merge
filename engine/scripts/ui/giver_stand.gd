@@ -23,6 +23,9 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const STRAW = Game.PALETTE.STRAW
+const CREAM = Game.PALETTE.CREAM
+const BARK = Game.PALETTE.BARK
+const INK = Game.PALETTE.INK
 
 # AB: the giver pops over the fence UNFRAMED — the chest-up cutout IS the UI. The ask rides a
 # small content-sized cream pill UNDER them; the +N★ reward floats at the shoulder; a green
@@ -95,7 +98,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		glbl.add_theme_color_override("font_color", Color("#33402F"))
 		glbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		inner.add_child(glbl)
-	var isz := 52.0 if asks.size() >= 2 else 56.0
+	var isz := 56.0 if asks.size() >= 2 else 62.0
 	for ai in asks.size():
 		var ask: Dictionary = asks[ai]
 		var aline := int(ask.line)
@@ -105,22 +108,44 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			var plus := Label.new()
 			plus.text = "+"
 			plus.add_theme_font_size_override("font_size", 24)
-			plus.add_theme_color_override("font_color", Color("#8A5A3B"))
+			plus.add_theme_color_override("font_color", BARK)
 			plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			inner.add_child(plus)
+		# #4: the ASK item — the icon IS the ask; its progress rides ON it as a
+		# corner count-chip (wordless: just the wanted count), and a green ✓ overlays
+		# the corner when this single ask is already satisfied on the board. No
+		# detached "n/m" label anymore. The whole returned {badge_lbl, badge, met}
+		# is driven from _refresh_giver_lights' have>=need test.
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
 		icon.mouse_filter = Control.MOUSE_FILTER_STOP   # tapping the ITEM shows its ladder
-		icon.add_child(PieceView.make_piece(acode, isz))
+		var piece := PieceView.make_piece(acode, isz)
+		icon.add_child(piece)
+		# the count chip hugs the item's BOTTOM-RIGHT, the ✓ its TOP-RIGHT — both via
+		# anchors (no deferred positioning lambda, so nothing dangles past teardown).
+		var badge := _count_badge(int(ask.count))           # cream chip, bottom-right ON the item
+		badge.anchor_left = 1.0
+		badge.anchor_top = 1.0
+		badge.anchor_right = 1.0
+		badge.anchor_bottom = 1.0
+		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
+		badge.offset_left = 5.0
+		badge.offset_top = 5.0
+		badge.offset_right = 5.0
+		badge.offset_bottom = 5.0
+		icon.add_child(badge)
+		var met := _ask_met_check()                         # green ✓, top-right, hidden until satisfied
+		met.anchor_left = 1.0
+		met.anchor_right = 1.0
+		met.offset_left = -met.size.x + 5.0
+		met.offset_top = -5.0
+		met.offset_right = 5.0
+		met.offset_bottom = met.size.y - 5.0
+		icon.add_child(met)
 		wire_tap.call(icon, func() -> void: ask_tap.call(aline, atier))
 		inner.add_child(icon)
-		var prog := Label.new()
-		prog.add_theme_font_size_override("font_size", 28)
-		prog.add_theme_color_override("font_color", Color("#33402F"))
-		prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		prog.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(prog)
-		ask_uis.append({"code": acode, "need": int(ask.count), "prog": prog})
+		ask_uis.append({"code": acode, "need": int(ask.count), "piece": piece, "badge": badge, "badge_lbl": badge.get_child(0), "met": met})
 	stand.add_child(pill)
 	# AB3: the +N★ reward floats at the bust's shoulder — a bare star + count (no
 	# chip slab; an ink outline lifts the number off the scene)
@@ -228,6 +253,64 @@ static func _featured_ribbon() -> PanelContainer:
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(lbl)
 	return ribbon
+
+# #4: the per-ask COUNT CHIP — a small high-contrast cream sticker that rides the
+# item's bottom-right corner showing the wanted count (wordless: a number, no "/m").
+# The chip's number is updated live and its fill greens to a soft sage when this ask
+# is satisfied (have >= need) so a met ask reads "done" even before the ✓ lands.
+# child(0) is the Label (board.gd reads it to retint/leave the number as-is).
+static func _count_badge(need: int) -> PanelContainer:
+	var chip := PanelContainer.new()
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = CREAM
+	cs.set_corner_radius_all(11)
+	cs.set_border_width_all(2)
+	cs.border_color = BARK
+	cs.shadow_color = Color(0, 0, 0, 0.28)
+	cs.shadow_size = 2
+	cs.shadow_offset = Vector2(0, 1)
+	cs.content_margin_left = 6.0
+	cs.content_margin_right = 6.0
+	cs.content_margin_top = 0.0
+	cs.content_margin_bottom = 0.0
+	chip.add_theme_stylebox_override("panel", cs)
+	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lbl := Label.new()
+	lbl.text = "%d" % need
+	lbl.add_theme_font_size_override("font_size", 20)
+	lbl.add_theme_color_override("font_color", INK)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.custom_minimum_size = Vector2(16, 0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	chip.add_child(lbl)
+	return chip
+
+# #4: a SMALL green ✓ sticker on the item's top-right corner — the per-ask
+# "this one's ready" mark, shown only when its single ask is satisfied. Distinct
+# from (and smaller than) the stand-level _ready_check that drives delivery.
+static func _ask_met_check() -> Panel:
+	var mark := Panel.new()
+	mark.custom_minimum_size = Vector2(26, 26)
+	mark.size = Vector2(26, 26)
+	var mbg := StyleBoxFlat.new()
+	mbg.bg_color = Color("#5CAF5C")
+	mbg.set_corner_radius_all(13)
+	mbg.set_border_width_all(2)
+	mbg.border_color = CREAM
+	mbg.shadow_color = Color(0, 0, 0, 0.28)
+	mbg.shadow_size = 2
+	mbg.shadow_offset = Vector2(0, 1)
+	mark.add_theme_stylebox_override("panel", mbg)
+	var mi := Look.icon("check", 18.0)
+	mi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if mi is Label:
+		(mi as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		(mi as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.add_child(mi)
+	mark.visible = false
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return mark
 
 static func _ready_check() -> Panel:
 	var check := Panel.new()

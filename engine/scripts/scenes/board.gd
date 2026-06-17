@@ -987,11 +987,23 @@ func _giver_is_payable(e: Dictionary) -> bool:
 	var payable := true
 	for ask in e.asks:
 		var have := mini(board.count_of(int(ask.code)), int(ask.need))
-		if have < int(ask.need):
+		var ask_met := have >= int(ask.need)
+		if not ask_met:
 			payable = false
-		var prog: Label = ask.prog
-		if prog != null and is_instance_valid(prog):
-			prog.text = "%d/%d" % [have, int(ask.need)]
+		# #4: drive the per-ask UI from the SAME have>=need test — the count chip ON
+		# the item retints (cream → soft sage) and a small green ✓ overlays its corner
+		# when this single ask is satisfied; cleared when it no longer is.
+		var met: Control = ask.get("met")
+		if met != null and is_instance_valid(met):
+			met.visible = ask_met
+		var badge: PanelContainer = ask.get("badge")
+		if badge != null and is_instance_valid(badge):
+			var bs: StyleBox = badge.get_theme_stylebox("panel")
+			if bs is StyleBoxFlat:
+				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
+		var badge_lbl: Label = ask.get("badge_lbl")
+		if badge_lbl != null and is_instance_valid(badge_lbl):
+			badge_lbl.add_theme_color_override("font_color", Color("#2F5A2A") if ask_met else Pal.INK)
 	return payable
 
 func _refresh_giver_lights() -> void:
