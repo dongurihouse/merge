@@ -1285,14 +1285,17 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if charged:
 		burst = mini(burst, int(water / G.POP_COST))
 	burst = mini(burst, empties.size())
-	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines
-	# bias every item's roll. Pool + wanted are fixed across the burst. RNG order is load-bearing.
+	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
+	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
+	# RNG order is load-bearing.
 	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():
 			giver_quests.append(quests[int(e.qi)])
 	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
+	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
+	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
 	if Audio.has("water_pop"):
 		Audio.play("water_pop", -2.0)
@@ -1303,7 +1306,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		if charged:
 			water -= G.POP_COST
 		g["pops"] = int(g.get("pops", 0)) + 1
-		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng)
+		var spawn := BoardLogic.roll_spawn(empties, cell, pool, wanted, rng, wanted_t, G.ASK_TIER_WEIGHT)
 		var pick: Vector2i = spawn.cell
 		var code: int = spawn.code
 		board.place(pick, code)

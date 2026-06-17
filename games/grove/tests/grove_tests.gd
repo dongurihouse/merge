@@ -1864,6 +1864,20 @@ func _initialize() -> void:
 	ok(bool(Ads.claim("shop_reroll").ok), "the free-reroll ad watches")
 	ok(ShopS.rotation_seed() == seed_b + 1, "...advancing the rotation seed by one (fresh featured band)")
 
+	# T-G2 (§10 + §13): the Featured band exposes the rewarded "free reroll" as a player-facing
+	# TRIGGER SURFACE — gated by Ads.can_show, and pressing it watches the ad + slides the band.
+	fresh("shop_reroll_ui")
+	var rr_host := Control.new()
+	get_root().add_child(rr_host)
+	ShopS.open(rr_host)
+	var rr_btn := rr_host.find_child("RerollFeatured", true, false)
+	ok(rr_btn != null, "the Featured band shows a 'free reroll' watch-ad button when Ads.can_show")
+	if rr_btn != null:
+		var seed_before: int = ShopS.rotation_seed()
+		(rr_btn as Button).pressed.emit()
+		ok(ShopS.rotation_seed() == seed_before + 1, "pressing the reroll watches the ad and advances the featured band")
+	rr_host.queue_free()
+
 	# T-H: the event top-up ad grants a small 💎, capped at 1/day.
 	fresh("ads_event")
 	var ev_b := Save.diamonds()

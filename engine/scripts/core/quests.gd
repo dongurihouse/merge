@@ -53,18 +53,24 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		if quests.size() != 1 or not bool(quests[0].get("gate", false)):
 			return [G.gate_quest(G.GENERATORS, z, rng)]
 		return quests
-	var pend := pending_grant_quests(z, board_gens)
-	if not pend.is_empty():
-		return pend                           # §6: a new map opens with its generator-grant hand-in(s)
 	var out: Array = quests.filter(func(q): return not bool(q.get("gate", false)) and not q.has("grant"))
 	# §6 anchor exemption: ask from the current map's lines ∪ the anchor's lines (its generator
 	# never retires, so its lines stay askable past their debut map) — NOT the bare map roster.
 	var lines := G.askable_lines(G.GENERATORS, z)
 	var target := meter_target(z, banked_stars, unlocks, level)
-	while out.size() < target:
+	# §6/§7: a new map opens with a generator-grant hand-in, and extra grants surface ONE AT A
+	# TIME (spread through the map, not all upfront) — the regular generated stream fills the slots
+	# between. The lead grant always shows while pending (it is how the new line arrives — it leads
+	# the fence and reserves one slot, never metered away by the soft gate). With no grants pending
+	# (every map ≤ the shipped grove) this is byte-identical to the plain metered fill.
+	var pend := pending_grant_quests(z, board_gens)
+	var regular_target := maxi(0, target - 1) if not pend.is_empty() else target
+	while out.size() < regular_target:
 		out.append(G.gen_quest(level, lines, rng))
-	while out.size() > target:
+	while out.size() > regular_target:
 		out.pop_back()
+	if not pend.is_empty():
+		return [pend[0]] + out                # the hand-in leads; the generated stream fills the rest
 	return out
 
 # The discovery ladder for a line: one row per tier, code = line*100+tier, with `seen` flagged

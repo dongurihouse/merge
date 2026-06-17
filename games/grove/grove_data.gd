@@ -109,6 +109,9 @@ const MIN_LEVEL := [
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
+const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
+                                         # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
+                                         # pass); ramp here once the level curve is re-tuned on grove_sim.
 
 # §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★

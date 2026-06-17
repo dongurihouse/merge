@@ -19,6 +19,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # real piec
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
+const Ads = preload("res://engine/scripts/core/ads.gd")            # §10 rewarded "free shop reroll" faucet
 const Game = preload("res://engine/scripts/core/game.gd")
 const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
@@ -309,6 +310,20 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			offer_row.add_child(_item_card(host, refs, offer.def))
 		else:
 			offer_row.add_child(_cosmetic_card(host, refs, offer.def))
+	# §10 rewarded "free shop reroll": a player-initiated watch-for-bonus that slides the band to a
+	# fresh window (Ads gates the cap + cooldown; rotation_seed folds the bump in). Shown only when
+	# a watch is available; pressing claims the ad and rebuilds the storefront with the new offers.
+	if Ads.can_show("shop_reroll"):
+		var reroll_row := HBoxContainer.new()
+		reroll_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		col.add_child(reroll_row)
+		var reroll := Look.button(host.tr("Watch ☁ → fresh offers"), func() -> void:
+			if bool(Ads.claim("shop_reroll").get("ok", false)):
+				overlay.queue_free()
+				open(host, opts)
+			, false)
+		reroll.name = "RerollFeatured"
+		reroll_row.add_child(reroll)
 
 	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
 	# only (until claimed). The single highest-converting IAP in mobile.
@@ -363,6 +378,8 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	# S15: the ✕ docks INSIDE the parchment's top-right (same close treatment
 	# as the interior's round button) — it no longer floats on the awning corner
 	var place_x := func() -> void:
+		if not is_instance_valid(card) or not is_instance_valid(x_btn):
+			return                              # the overlay was closed before this deferred call ran (e.g. a reroll rebuild)
 		var r := card.get_global_rect()
 		x_btn.global_position = Vector2(r.position.x + r.size.x - Tune.X_BTN - Tune.X_MARGIN, r.position.y + Tune.X_MARGIN)
 	card.resized.connect(place_x)
