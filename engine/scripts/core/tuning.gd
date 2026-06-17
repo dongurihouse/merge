@@ -501,27 +501,23 @@ class Shop:
 	const CARD_SHADOW_SIZE := 4
 	const CARD_SHADOW_OFFSET := Vector2(0, 3)
 
-	# --- urgency + info chrome (red dot · countdown · the "i" badge) --------------------
-	# A red "new / claimable" dot for actionable surfaces (free reroll ready, unclaimed welcome
-	# gift); a small ink countdown chip on the daily-rotating Featured band; and the per-card "i"
-	# info badge (VISUAL placeholder — the detail popup is a parked task, taps still fall through
-	# to buy). Self-contained here; consolidate onto the shared "sticker" badge once it merges.
-	const DOT_SIZE := 18.0                # red claimable dot
-	const DOT_BG := Color("#D75A4E")
-	const DOT_RIM := Color("#FBF3EA")     # cream rim (= CREAM)
-	const DOT_RIM_W := 3
-	const DOT_MARGIN := 6.0               # inset from a card's / button's top-right
+	# --- urgency + info chrome (countdown chip · the "i" info badge + its sheet) ---------
+	# The claimable RED DOT is the shared `Look.badge("dot")` (UiSkin.BADGE_*) — no local dot here.
+	# Local to the shop: a small ink countdown chip on the daily-rotating Featured band, and the
+	# per-card "i" badge (a real button) that opens an item-detail sheet.
 	const CLOCK_BG := Color("#33402F", 0.82)  # ink chip behind the countdown (= INK)
 	const CLOCK_RADIUS := 11
 	const CLOCK_PAD_X := 10.0
 	const CLOCK_PAD_Y := 3.0
 	const CLOCK_SIZE := 17
-	const INFO_SIZE := 24.0               # the per-card "i" info badge disc
+	const INFO_SIZE := 26.0               # the per-card "i" info badge disc (a real tap target)
 	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
 	const INFO_EDGE := Color("#3E83AD")
 	const INFO_BORDER_W := 2
-	const INFO_FONT := 17
+	const INFO_FONT := 18
 	const INFO_MARGIN := 7.0
+	const INFO_SHEET_W := 560.0           # the item-detail sheet's card width
+	const INFO_BODY_SIZE := 24            # its body-paragraph font
 
 	# --- affordability + purchase feedback ---------------------------------------------
 	const DIM_MODULATE := Color(0.72, 0.73, 0.7, 0.92)   # legacy: cards no longer whole-dim — see BUY_NEED_MODULATE (the pill dims, the card stays bright)
