@@ -61,11 +61,19 @@ const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
+# Shading IS the clickable/important affordance (board polish #8): the brighter a thing
+# reads, the more it's asking to be tapped. BRIGHT/un-shaded = actionable right now; a
+# gentle DIM = inert/locked/satisfied. One cozy dim value (~0.78 alpha) for every
+# "step back" read — a soft difference, never harsh — so the eye lands on what's live.
+const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
+const SHADE_DIM := Color(1, 1, 1, 0.78)     # inert: not-yet-payable giver, nothing to sell
+
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
-# GEN_DIM is the stopped look; GEN_LIT is full modulate (a cell is free → pop again).
+# A generator's stop is a stronger signal than a giver's, so it dims further (0.5) — same
+# affordance family (bright = tappable), just a deeper "paused" read for the harder stop.
 const GEN_DIM := Color(1, 1, 1, 0.5)
-const GEN_LIT := Color(1, 1, 1, 1.0)
+const GEN_LIT := SHADE_LIT
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
@@ -999,13 +1007,17 @@ func _refresh_giver_lights() -> void:
 		var bust: Control = e.get("bust")
 		if bust != null and is_instance_valid(bust):
 			GiverStand.bob(bust, lit)
+		# board polish #8: a deliverable giver reads BRIGHT (it's the actionable thing);
+		# one not-yet-payable sits gently shaded. Same `lit` predicate as the ✓/bob above.
 		var chip: Control = e.chip
-		chip.modulate = Color(1, 1, 1, 1.0 if lit else 0.78)
+		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
 	if merchant_chip != null and is_instance_valid(merchant_chip):
+		# the stall is actionable only when there's a top-tier spare to sell — bright then,
+		# softly shaded otherwise (same cozy dim as the givers, so the rule reads as one).
 		var has_top := not board.top_tier_cells().is_empty()
-		merchant_chip.modulate = Color(1, 1, 1, 1.0 if has_top else 0.6)
+		merchant_chip.modulate = SHADE_LIT if has_top else SHADE_DIM
 
 # §6: dim EVERY live generator to a standing "paused" look while the board has no free
 # cell (popping is free while dimmed — only the cue is missing), and restore full modulate
