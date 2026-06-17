@@ -1593,19 +1593,10 @@ func _build_chrome() -> void:
 	piggy.pressed.connect(_open_vault)
 	add_child(piggy)
 	_chrome_nodes.append(piggy)
-	# the ready-pip — a small gold dot on the button's top-right, shown only when claimable
-	var pip := Panel.new()
-	var pps := StyleBoxFlat.new()
-	pps.bg_color = Color("#E8C84A")
-	pps.set_corner_radius_all(9)
-	pps.set_border_width_all(2)
-	pps.border_color = Color(CREAM, 0.9)
-	pip.add_theme_stylebox_override("panel", pps)
-	pip.custom_minimum_size = Vector2(18, 18)
-	pip.size = Vector2(18, 18)
-	pip.position = Vector2(58, 2)
-	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	piggy.add_child(pip)
+	# the ready-pip — the shared "something new" badge on the button's top-right corner,
+	# shown only when claimable (visibility still driven by _refresh_piggy_pip → Vault.claimable())
+	var pip := Look.badge("dot")
+	Look.attach_badge(piggy, pip)
 	_piggy_pip = pip
 	_refresh_piggy_pip()
 

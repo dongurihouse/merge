@@ -300,6 +300,41 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const BTN_PRESS_SHADOW_SIZE := 2
 	const BTN_PRESS_SHADOW_OFFSET := Vector2(0, 1)
 
+	# --- the "sticker" recipe (shared by buttons + flat panel fallbacks) ----------------
+	# Goal: every code-built surface reads as a crisp die-cut sticker on ANY background —
+	# a LIGHT inner rim hugging the existing darker outer edge, plus a tiered drop shadow.
+	# Two shadow tiers separate what FLOATS (primary CTA, round chrome buttons → RAISED)
+	# from what RESTS (chips, pills, secondary buttons → RESTING). Pressed state drops a
+	# raised surface back to the resting shadow (it visually settles toward the surface).
+	const RIM_LIGHT := Color(0.984, 0.953, 0.918, 0.7)   # = Color(Pal.CREAM, 0.7) — the inner highlight
+	const RIM_LIGHT_W := 2                                # inner highlight thickness (px)
+	const SHADOW_RESTING := Color(0, 0, 0, 0.16)         # chips / pills / secondary
+	const SHADOW_RESTING_SIZE := 4
+	const SHADOW_RESTING_OFFSET := Vector2(0, 2)
+	const SHADOW_RAISED := Color(0, 0, 0, 0.28)          # primary CTA / floating round buttons
+	const SHADOW_RAISED_SIZE := 10
+	const SHADOW_RAISED_OFFSET := Vector2(0, 5)
+	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
+	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
+
+	# --- round chrome button (Look.round_button) ---------------------------------------
+	const ROUND_BTN_PX := 76.0            # default diameter of a circular chrome button
+	const ROUND_BTN_ICON_PX := 36.0       # icon size centred inside it
+	const ROUND_BTN_BG := Color(0.2, 0.251, 0.184, 0.6)  # = Color(Pal.INK, 0.6), matches map gear fallback
+	const ROUND_BTN_BORDER_W := 3
+
+	# --- badges (Look.badge) -----------------------------------------------------------
+	const BADGE_COLOR := Color("#E24B4A")  # alert red — "something new" / counts
+	const BADGE_DOT_PX := 14               # the bare red dot diameter
+	const BADGE_RIM := Color(1, 1, 1, 0.95)  # cream/white ring so it reads on any colour
+	const BADGE_RIM_W := 2
+	const BADGE_PILL_H := 22               # count-pill height
+	const BADGE_PILL_PAD_X := 6.0          # count-pill horizontal padding
+	const BADGE_NUM_SIZE := 14             # count-pill number font size
+	# Top-right corner-overhang: how far the badge pokes PAST its host's top-right corner
+	# (x = past the right edge, y = above the top edge), both positive = outside the host.
+	const BADGE_OVERHANG := Vector2(6, 6)
+
 
 class Music:
 	const VOLUME_DB := -8.0               # the ambient bed's playback level
