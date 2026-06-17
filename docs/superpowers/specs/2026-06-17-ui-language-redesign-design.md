@@ -222,6 +222,10 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 > Cozy farm mobile-game bottom navigation, hand-painted. One row of small neutral round buttons, cream #FBF6EC with a warm-gold #C9A66B ring and ink #3B402F icons (home, bag, shop, settings), sitting flat and quiet. Above the row, a single slim leaf-green #4E7C46 pill with a #3C6037 rim and a cream label — a contextual call-to-action carrying a gold-star #FFD56B cost — raised with a soft drop shadow. On the map screen, one button instead becomes a larger green #4E7C46 round "enter garden" button: the single primary destination. Warm light, soft shadows, no two-row stack.
 
+**Map / home page**
+
+> Cozy farm-game map / homestead screen, hand-painted storybook style. A soft daylight scene — pale sky, rolling meadow, a small farmhouse and trees. The same UI chrome as the board: a round leaf-green #3F6B43 level token with a gold #C9A66B ring top-left, a cream #FBF6EC currency pill top-right. On the meadow sit decor "spots" to restore — cream #FBF6EC discs with a dashed gold #C9A66B rim, a warm-brown #C8852F plus, and a small gold-star #FFD56B cost — plus one locked spot as a muted #C2C7A6 disc with a quiet lock glyph #8F977A. A bottom row of neutral cream round buttons, with the "enter garden" button promoted to a larger leaf-green #4E7C46 primary destination. Soft warm light, no flat vectors.
+
 **Shop component**
 
 > Cozy farm-game shop popup, hand-painted storybook style. A warm parchment panel #F4E9D6 with a soft bark border over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Shop"; a round red close button #D75A4E sits at the top-right corner. Two featured product cards, each a cream tile with the product illustration on a pale honey plate #F4E7CA and a leaf-green #4E7C46 price button. Below, a "Gems" section: a row of three teal-gem #3FC6B0 cash packs of increasing size, the middle one wearing a small red "Popular" badge, each with a green buy button. Soft shadows, warm light, no flat vectors.
