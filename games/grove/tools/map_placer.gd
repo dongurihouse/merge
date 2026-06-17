@@ -6,6 +6,11 @@ extends Control
 ##
 ## Controls — Tab palette · F reference · drag move · wheel or +/- scale · Del remove · Ctrl+S save · Ctrl+L load.
 ## Run:  make place   (or: godot --path . res://games/grove/tools/MapPlacer.tscn)
+##
+## The window is WIDER than the game's portrait view. The central "stage" IS the real game view (design
+## 1080×1920); the extra width on each side is gutter space to work the controls in. Two bright lines mark
+## the edges of the player's view, and the off-view gutters are dimmed — anything past the lines is cropped
+## in-game exactly as it is here.
 
 const Design = preload("res://engine/scripts/core/design.gd")
 
@@ -17,10 +22,21 @@ const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
 const HINT := "Tab palette · F reference · drag · wheel/+- scale · Del · Ctrl+S save"
 
+const WINDOW_WIDTH_MULT := 2.0      # tool window width = this × the game-view width (capped to the screen)
+const LINE_W := 4.0                 # thickness of each view-edge line (design px)
+const LINE_COLOR := Color(0.25, 0.95, 1.0, 0.95)   # bright cyan — reads clearly over the art
+const GUTTER_SHADE := Color(0.0, 0.0, 0.0, 0.32)   # dim the off-view gutters so the play area pops
+
+var _stage: Control          # the game-view region (design 1080×1920), centered in the wider window
 var _bg: TextureRect
 var _backdrop: Control       # static items + fence (context only)
 var _items_layer: Control    # the placed decoration (interactive)
 var _full: TextureRect
+var _bounds: Control         # the two view-edge lines + dimmed gutters (overlay, non-interactive)
+var _line_l: ColorRect
+var _line_r: ColorRect
+var _shade_l: ColorRect
+var _shade_r: ColorRect
 var _palette: PanelContainer
 var _selected: Control = null
 var _drag_off := Vector2.ZERO
@@ -28,12 +44,15 @@ var _dragging := false
 
 
 func _ready() -> void:
-	Design.fit_desktop_window()   # same fit the game uses → tool + game start identical
-	_bg = $Background
+	_fit_tool_window()                 # wider than the game window → side gutters for the controls
+	await get_tree().process_frame     # let the resize settle so the viewport size is final
+	_build_stage()                     # central game-view region; the .tscn Background moves inside it
 	_build_backdrop()
 	_build_items_layer()
 	_build_full_overlay()
+	_build_bounds()                    # the two "edge of the player's view" lines + dimmed gutters
 	_build_palette()
+	get_viewport().size_changed.connect(_on_viewport_resized)
 	_set_info("")
 	await get_tree().process_frame
 	_load()
@@ -44,10 +63,93 @@ func _set_info(text: String) -> void:
 
 
 func _bg_size() -> Vector2:
-	var s := _bg.size
-	if s.x <= 0.0 or s.y <= 0.0:
-		return get_viewport_rect().size
-	return s
+	# The authoritative game-view region. Every placed item's saved position is a fraction of THIS, so it
+	# stays identical to before even though the window is now wider than the view.
+	return _stage.size if _stage else Design.size()
+
+
+# --- window + game-view stage -------------------------------------------------
+
+# Like Design.fit_desktop_window(), but WIDER: full monitor height, width up to WINDOW_WIDTH_MULT× the
+# game's portrait width (capped to the screen), centered. The extra width becomes side gutters to work in.
+func _fit_tool_window() -> void:
+	if OS.has_feature("mobile") or OS.get_environment("TU_QUIET") == "1":
+		return
+	var scr := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+	if scr.size.y <= 0:
+		return
+	var deco_y: int = maxi(0, DisplayServer.window_get_size_with_decorations().y - DisplayServer.window_get_size().y)
+	var h: float = float(scr.size.y - deco_y)
+	var stage_w: float = h * Design.aspect()
+	var w: float = minf(stage_w * WINDOW_WIDTH_MULT, float(scr.size.x))
+	DisplayServer.window_set_size(Vector2i(roundi(w), roundi(h)))
+	DisplayServer.window_set_position(Vector2i(int(scr.position.x + (float(scr.size.x) - w) / 2.0), scr.position.y))
+
+
+# The game-view region: a design-sized (1080×1920) Control centered in the wider window. The .tscn
+# Background moves inside it so the base art renders ONLY where the player will see it, and the stage
+# clips its children — items dragged past an edge vanish exactly as the game crops them.
+func _build_stage() -> void:
+	_stage = Control.new()
+	_stage.name = "Stage"
+	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_stage.clip_contents = true
+	add_child(_stage)
+	_bg = $Background
+	_bg.get_parent().remove_child(_bg)
+	_stage.add_child(_bg)
+	_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_layout_stage()
+
+
+func _layout_stage() -> void:
+	var vp := get_viewport_rect().size
+	_stage.size = Design.size()                                  # game view is always the design size
+	_stage.position = Vector2(roundf((vp.x - _stage.size.x) * 0.5), 0.0)   # centered → equal gutters
+	if _bounds:
+		_layout_bounds()
+
+
+# Two bright vertical lines mark the left/right edges of the player's view; the gutters beyond them are
+# dimmed so they read as off-screen working space. All non-interactive (clicks pass through to items).
+func _build_bounds() -> void:
+	_bounds = Control.new()
+	_bounds.name = "ViewBounds"
+	_bounds.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_bounds.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_bounds)
+	_shade_l = _bounds_rect(GUTTER_SHADE)
+	_shade_r = _bounds_rect(GUTTER_SHADE)
+	_line_l = _bounds_rect(LINE_COLOR)
+	_line_r = _bounds_rect(LINE_COLOR)
+	_layout_bounds()
+
+
+func _bounds_rect(col: Color) -> ColorRect:
+	var r := ColorRect.new()
+	r.color = col
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_bounds.add_child(r)
+	return r
+
+
+func _layout_bounds() -> void:
+	var vp := get_viewport_rect().size
+	var left: float = _stage.position.x
+	var right: float = _stage.position.x + _stage.size.x
+	_shade_l.position = Vector2.ZERO
+	_shade_l.size = Vector2(maxf(left, 0.0), vp.y)
+	_shade_r.position = Vector2(right, 0.0)
+	_shade_r.size = Vector2(maxf(vp.x - right, 0.0), vp.y)
+	_line_l.position = Vector2(left - LINE_W * 0.5, 0.0)
+	_line_l.size = Vector2(LINE_W, vp.y)
+	_line_r.position = Vector2(right - LINE_W * 0.5, 0.0)
+	_line_r.size = Vector2(LINE_W, vp.y)
+
+
+func _on_viewport_resized() -> void:
+	if _stage:
+		_layout_stage()
 
 
 # --- scaffolding -------------------------------------------------------------
@@ -80,7 +182,7 @@ func _build_backdrop() -> void:
 	_backdrop.name = "Backdrop"
 	_backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_backdrop)
+	_stage.add_child(_backdrop)
 	# fence behind the buildings (matches the grove: base -> fence -> items)
 	if ResourceLoader.exists(FENCE_PATH):
 		var f := TextureRect.new()
@@ -107,7 +209,7 @@ func _build_items_layer() -> void:
 	_items_layer.name = "Items"
 	_items_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_items_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_items_layer)
+	_stage.add_child(_items_layer)
 
 
 func _build_full_overlay() -> void:
@@ -119,7 +221,7 @@ func _build_full_overlay() -> void:
 		_full.texture = load(FULL_PATH)
 	_full.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_full.visible = false
-	add_child(_full)
+	_stage.add_child(_full)
 
 
 func _build_palette() -> void:
