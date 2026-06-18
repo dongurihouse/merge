@@ -14,7 +14,7 @@ config/name="Tidy Up"
 config/description="Cozy merge-and-tidy: combine clutter, clear the room, relax."
 run/main_scene="res://engine/scenes/Map.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
-config/icon="uid://cavbk8emtkdsg"
+config/icon="res://icon.png"
 
 [display]
 
