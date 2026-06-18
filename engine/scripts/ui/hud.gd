@@ -341,15 +341,36 @@ static func _set_or_tick(lbl: Label, v: int) -> void:
 	else:
 		lbl.text = str(v)
 
-# Load a texture only if it BOTH exists AND imports to a non-null resource.
-# ResourceLoader.exists() can return true from a committed .import while the imported
-# .ctex is missing (new art not yet reimported in this checkout) — load() then returns
-# null, which would leave the frame BLANK (a ringless cream disc). Returning null here
-# lets the caller fall through to the next visible fallback instead.
+# Load a texture only if it BOTH exists AND imports to a GENUINE, fully-imported image.
+# Two distinct failure modes to reject (both would otherwise put garbage in the frame):
+#   1) ResourceLoader.exists() can return true from a committed .import while the imported
+#      .ctex is missing (new art not yet reimported in this checkout) — load() then returns
+#      null, which would leave the frame BLANK (a ringless cream disc).
+#   2) WORSE: when the .ctex is STALE/unresolved on the player's machine, load() returns a
+#      NON-null import PLACEHOLDER (a PlaceholderTexture2D — the engine's missing-texture
+#      stand-in). A bare `as Texture2D` lets that through, and the square frame TextureRect
+#      then renders Godot's missing-texture CHECKERBOARD ("the white grid"). So a non-null
+#      result is NOT enough — we must confirm it is a real, decoded image.
+# We accept ONLY the concrete texture types a real imported .ctex (or runtime ImageTexture)
+# produces, and require non-zero pixels. The placeholder is a PlaceholderTexture2D (and any
+# other untyped fallback fails the type test), so it is rejected here — the caller then
+# falls through to the next VISIBLE, non-square fallback (rope ring → honey token), and a
+# checkerboard can never reach the screen.
 static func _safe_tex(path: String) -> Texture2D:
 	if path == "" or not ResourceLoader.exists(path):
 		return null
-	return load(path) as Texture2D
+	var res := load(path)
+	# Reject the import placeholder by allow-listing only genuine image textures. A stale
+	# .ctex resolves to PlaceholderTexture2D (NOT in this list) → rejected, not drawn.
+	var real := res is CompressedTexture2D or res is ImageTexture or res is PortableCompressedTexture2D
+	if not real:
+		return null
+	var tex := res as Texture2D
+	# A genuine import always has real pixels; a zero-size texture is a degenerate/empty
+	# import we should never paint into the frame rect.
+	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+		return null
+	return tex
 
 # The level-chip frame texture: the evolving badge for this Level, else the rope ring,
 # else null (the caller then draws the honey-token ring). Guarantees a VISIBLE ring

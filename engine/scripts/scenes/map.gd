@@ -16,6 +16,7 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
@@ -483,32 +484,66 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 	frame.add_child(t)
 	return t
 
-# A ✿cost restore badge (farm_icons circle + the spot's star cost), centered on the building.
+# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on
+# the building. Two variants picked from the spot's GATE state (the same signal _make_spot uses —
+# spot_level_req(z,k) vs the player's level): a still-GATED spot shows badge_locked.png (lock + sprout,
+# no price — you can't buy it yet); an unlockable/buyable spot shows badge_cost.png with a "+" stacked
+# over the star cost "★ N". Decoration only (mouse-ignored); the spot's tap hit-area is the spot_hit node.
 func _home_badge(z: int, k: int, b) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
 	var d := _map_rect.size.x * 0.16                  # badge diameter relative to the map
+	# the gate signal: a spot whose level requirement exceeds the player's level is still LOCKED
+	# (the lock disc, no price); otherwise it prices itself (the cost disc).
+	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+	var gated := G.spot_level_req(z, k) > lvl
 	var node := Control.new()
 	node.size = Vector2(d, d)
 	node.position = ctr - Vector2(d, d) * 0.5
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the disc — the sliced round badge (cost vs locked). Falls back to the legacy farm/badge.png disc.
+	var disc_kit := Look.kit("badge_locked.png" if gated else "badge_cost.png")
 	var bg := TextureRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	bg.texture = load(Game.art("farm/badge.png"))
+	bg.texture = load(disc_kit) if ResourceLoader.exists(disc_kit) else load(Game.art("farm/badge.png"))
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(bg)
+	# a still-gated spot shows ONLY the locked disc (the lock + sprout art carries the meaning — no price).
+	if gated:
+		return node
+	# the buyable disc stacks a "+" over the star cost "★ N", centered on the disc.
+	var col := VBoxContainer.new()
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", -2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(col)
+	var plus := Label.new()
+	plus.text = "+"
+	plus.add_theme_font_size_override("font_size", int(d * 0.30))
+	plus.add_theme_color_override("font_color", Color("#6E4E25"))
+	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(plus)
+	# the star cost — a gold star sprite (Look.icon) + the number, on the second line (matches the wallet).
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 3)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	var ic := Look.icon("star", d * 0.26)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ic)
 	var lbl := Label.new()
-	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	lbl.text = "★%d" % int(spot.cost)
-	lbl.add_theme_font_size_override("font_size", int(d * 0.34))
+	lbl.text = "%d" % int(spot.cost)
+	lbl.add_theme_font_size_override("font_size", int(d * 0.26))
 	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_child(lbl)
+	row.add_child(lbl)
 	return node
 
 # An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with
@@ -633,9 +668,104 @@ func _drift_cloud(c: TextureRect, rect: Rect2, cloud_w: float) -> void:
 			c.position.x = left + fposmod(base_x - prog * span - left, span),
 		0.0, 1.0, period)
 
-# The map's title — NAME + ✿-progress on one plank, centered near the top of the
-# map image (an IGNORE visual; never eats a press).
+# Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
+# (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +
+# sprout baked in) carries a gold star + "N to the next place" text in its upper body and a GREEN fill
+# bar (pill_progress_fill.png) inside its lower groove, sized to restore-progress. The map NAME is
+# dropped entirely. A fully-restored map shows the "restored" state. If the pill art is missing it
+# degrades to the old dark plank look so the read never blanks.
+const _PILL_ASPECT := 603.0 / 109.0
+# the green groove rect inside pill_progress.png, as fractions of the pill size (measured from the art).
+const _PILL_GROOVE_X := 0.085
+const _PILL_GROOVE_W := 0.78
+const _PILL_GROOVE_Y := 0.66
+const _PILL_GROOVE_H := 0.22
+
 func _map_title_plank(z: int) -> Control:
+	var pill_path := Look.kit("pill_progress.png")
+	if not ResourceLoader.exists(pill_path):
+		return _map_title_plank_fallback(z)
+	# size the pill relative to the map width (clamped), keeping the source aspect.
+	var pw := clampf(_map_rect.size.x * 0.74, 360.0, 560.0)
+	var ph := pw / _PILL_ASPECT
+	var node := Control.new()
+	node.size = Vector2(pw, ph)
+	node.position = _map_rect.position + Vector2((_map_rect.size.x - pw) / 2.0, 16.0 + 96.0 + Look.safe_top(self))
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the pill background art
+	var bg := TextureRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.texture = load(pill_path)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(bg)
+	# the GREEN fill bar inside the groove, clipped to the progress fraction (paid / total star cost).
+	var total := 0
+	for s in G.MAPS[z].spots:
+		total += int(s.cost)
+	var left := map_stars_left(z)
+	var frac := 1.0 if total <= 0 else clampf(float(total - left) / float(total), 0.0, 1.0)
+	if map_spots_done(z):
+		frac = 1.0
+	var fill_path := Look.kit("pill_progress_fill.png")
+	if ResourceLoader.exists(fill_path) and frac > 0.0:
+		var groove_x := _PILL_GROOVE_X * pw
+		var groove_w := _PILL_GROOVE_W * pw
+		var groove_y := _PILL_GROOVE_Y * ph
+		var groove_h := _PILL_GROOVE_H * ph
+		# a clip frame at the FULL groove width; the bar inside spans the full groove and the frame
+		# crops it to `frac`, so the green bar grows left→right without squashing its rounded caps.
+		var clip := Control.new()
+		clip.position = Vector2(groove_x, groove_y)
+		clip.size = Vector2(groove_w * frac, groove_h)
+		clip.clip_contents = true
+		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(clip)
+		var fill := TextureRect.new()
+		fill.position = Vector2.ZERO
+		fill.size = Vector2(groove_w, groove_h)
+		fill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fill.stretch_mode = TextureRect.STRETCH_SCALE
+		fill.texture = load(fill_path)
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clip.add_child(fill)
+	# the text row — a gold star + "N to the next place" (or "restored"), in the pill's UPPER body,
+	# clear of the flower badge on the far left.
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.position = Vector2(groove_text_left(pw), ph * 0.10)
+	row.size = Vector2(_PILL_GROOVE_W * pw, ph * 0.42)
+	node.add_child(row)
+	if map_spots_done(z):
+		row.add_child(Look.icon("star", ph * 0.34))
+		var done_l := Label.new()
+		done_l.text = tr("restored ✿")
+		done_l.add_theme_font_size_override("font_size", int(ph * 0.30))
+		done_l.add_theme_color_override("font_color", Color("#6E4E25"))
+		done_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		done_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(done_l)
+	else:
+		row.add_child(Look.icon("star", ph * 0.34))
+		var lbl := Label.new()
+		lbl.text = tr("%d to the next place") % left
+		lbl.add_theme_font_size_override("font_size", int(ph * 0.28))
+		lbl.add_theme_color_override("font_color", Color("#6E4E25"))
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
+	return node
+
+# Where the pill's text row starts — inset past the baked flower badge on the far left.
+func groove_text_left(pw: float) -> float:
+	return _PILL_GROOVE_X * pw + pw * 0.06
+
+# The legacy dark-plank read, kept ONLY as a graceful fallback when the pill art is missing (so the
+# progress read never blanks). The map NAME is dropped here too (item 5).
+func _map_title_plank_fallback(z: int) -> Control:
 	var plank := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#3D2A1B", 0.84)
@@ -647,21 +777,9 @@ func _map_title_plank(z: int) -> Control:
 	sb.content_margin_top = 6.0
 	sb.content_margin_bottom = 7.0
 	plank.add_theme_stylebox_override("panel", sb)
-	# canvas is now full-bleed, so push the name plank below the floating HUD band
 	plank.position = _map_rect.position + Vector2(_map_rect.size.x / 2.0, 16.0 + 96.0 + Look.safe_top(self))
 	plank.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 0)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plank.add_child(col)
-	var name_l := Label.new()
-	name_l.text = tr(G.MAPS[z].name)
-	name_l.add_theme_font_size_override("font_size", 30)
-	name_l.add_theme_color_override("font_color", CREAM)
-	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(name_l)
 	if map_spots_done(z):
 		var lbl := Label.new()
 		lbl.text = tr("✿ restored")
@@ -669,9 +787,9 @@ func _map_title_plank(z: int) -> Control:
 		lbl.add_theme_color_override("font_color", STRAW)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(lbl)
+		plank.add_child(lbl)
 	else:
-		col.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
+		plank.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
 	return plank
 
 # §8: the optional ghost-preview of an UNOWNED spot's buildable. Reuses the SAME
@@ -1369,15 +1487,15 @@ func _on_welcome_tap(z: int, type_id: String, node: Control, at: Vector2) -> voi
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module — ★🪙💎 + Store + the S10 Lv chip
-	# never move between scenes; the chip ticks via the module's refresh). `home`
-	# is a shortcut to the hub map — the shared HUD renders its button in a
-	# separate change; passing it now is harmless.
+	# never move between scenes; the chip ticks via the module's refresh). The home
+	# screen is the hub itself, so it does NOT pass `home` — the HUD's home chip is
+	# redundant here and the level ring stands alone (item 2; the board still passes
+	# `home` since its nav legitimately returns to the map).
 	var hud := Hud.build(self, {
 		"water_grant": func() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP
-			Save.grove_write(),
-		"home": func() -> void: _open_map(G.hub_map())})
+			Save.grove_write()})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
@@ -1394,204 +1512,51 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 
 func _build_chrome() -> void:
-	# the garden CTA — pinned bottom-center so the way to the board never moves
-	var sb_cta := Look.safe_bottom(self)
-	var plot := Look.button(tr("Tend the garden ▶"), _on_board, true)
-	plot.custom_minimum_size = Vector2(380, 96)
-	plot.anchor_left = 0.5
-	plot.anchor_right = 0.5
-	plot.anchor_top = 1.0
-	plot.anchor_bottom = 1.0
-	plot.offset_left = -190
-	plot.offset_right = 190
-	plot.offset_top = -120 - sb_cta
-	plot.offset_bottom = -24 - sb_cta
-	add_child(plot)
-	FX.breathe_once(plot)
-	_chrome_nodes.append(plot)
-	# settings gear (bottom-right) — the compact music/sounds/calm card
-	var gear := Button.new()
-	gear.focus_mode = Control.FOCUS_NONE
-	gear.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var gt := StyleBoxTexture.new()
-		gt.texture = load(Look.kit("btn_round.png"))
-		gt.set_texture_margin_all(24.0)
-		gear.add_theme_stylebox_override("normal", gt)
-		gear.add_theme_stylebox_override("hover", gt)
-		gear.add_theme_stylebox_override("pressed", gt)
-		var gi := Look.icon("gear", 36.0)
-		gi.set_anchors_preset(Control.PRESET_FULL_RECT)
-		if gi is Label:
-			(gi as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		gear.add_child(gi)
-	else:
-		gear.text = "⚙"
-		gear.add_theme_font_size_override("font_size", 38)
-		gear.add_theme_color_override("font_color", CREAM)
-		var gs := StyleBoxFlat.new()
-		gs.bg_color = Color(INK, 0.6)
-		gs.set_corner_radius_all(38)
-		gear.add_theme_stylebox_override("normal", gs)
-		gear.add_theme_stylebox_override("hover", gs)
-		gear.add_theme_stylebox_override("pressed", gs)
-	Look.add_press_juice(gear)
-	gear.anchor_left = 1.0
-	gear.anchor_right = 1.0
-	gear.anchor_top = 1.0
-	gear.anchor_bottom = 1.0
+	# Item 4 — the home/map bottom nav is now ONE shared row (ui/nav_bar.gd, the same component the
+	# board uses), replacing the scattered chrome (the standalone gear, the store sticker, the
+	# atlas/piggy cluster, and the lone "Tend the garden" CTA). Order matches the farm_ui mockup:
+	# Settings · Shop · [Enter Garden] (the prominent green primary CTA, center) · Map · Piggy. Every
+	# entry point already existed; this consolidates them. The Store "new offer" badge rides the Shop
+	# button and the piggy "claimable" ready-pip rides the Piggy button (both kept, item 4). _shop_btn
+	# stays the §14 spotlight target.
 	var sb := Look.safe_bottom(self)
-	gear.offset_left = -92
-	gear.offset_right = -16
-	gear.offset_top = -92 - sb
-	gear.offset_bottom = -16 - sb
-	gear.pressed.connect(_open_settings)
-	add_child(gear)
-	_chrome_nodes.append(gear)
-	# the STORE — promoted to a PROMINENT, persistent entry (§10 monetization-funnel; backlog
-	# "Store"). Money = WARM (the hierarchy): a larger, CLAY-filled round sticker pinned bottom-LEFT
-	# so it balances the gear/atlas cluster on the right and is reachable in one tap from anywhere on
-	# the map. A "new offer" badge lights while the one-time starter pack is unclaimed. Opens the
-	# shared Shop. Larger than the cream chrome buttons so it reads as the 2nd-tier CTA under the
-	# garden primary. (Look.round_button: the kit's btn_round art carries the look when present; the
-	# warm bg is the code-fallback fill — so we tint the icon background via a sibling disc when art
-	# is used, keeping the warm identity either way.)
-	var store_px := 92.0
-	var store := Look.round_button("cart", func() -> void:
-		if _open_shop.is_valid():
-			_open_shop.call(),
-		{"px": store_px, "icon_px": 44.0, "bg": CLAY, "tap": func() -> void: Audio.play("button_tap", -2.0)})
-	_shop_btn = store                # T28: target for the §14 shop spotlight
-	# warm-tint disc UNDER the icon so the Store reads "money/warm" even on the cream kit art. Inset a
-	# few px so the kit button's rim/shadow still frames it (the warm fill is the identity, not a cover).
-	var warm := Panel.new()
-	var ws := StyleBoxFlat.new()
-	ws.bg_color = Color(CLAY, 0.95)
-	ws.set_corner_radius_all(int(store_px / 2.0))
-	ws.border_color = CLAY.darkened(0.18)
-	ws.set_border_width_all(2)
-	warm.add_theme_stylebox_override("panel", ws)
-	warm.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var inset := 7.0
-	warm.offset_left = inset
-	warm.offset_top = inset
-	warm.offset_right = -inset
-	warm.offset_bottom = -inset
-	warm.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	store.add_child(warm)
-	store.move_child(warm, 0)         # behind the rim overlay + icon
-	store.anchor_left = 0.0
-	store.anchor_right = 0.0
-	store.anchor_top = 1.0
-	store.anchor_bottom = 1.0
-	store.offset_left = 16
-	store.offset_right = 16 + store_px
-	store.offset_top = -100 - sb
-	store.offset_bottom = -8 - sb
-	add_child(store)
-	_chrome_nodes.append(store)
-	FX.breathe_once(store)
-	# the "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
+	var sb_cta := sb
+	var nav := NavBar.build(self, [
+		# Settings — the shared music/sounds/calm card (ui/settings.gd).
+		{"icon": "nav_gear.png", "px": 96.0, "label": tr("Settings"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_settings()},
+		# Shop — the shared currency store (the wallet's open_shop closure).
+		{"icon": "nav_shop.png", "px": 96.0, "label": tr("Shop"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			if _open_shop.is_valid():
+				_open_shop.call()},
+		# Enter Garden — the green primary CTA, the prominent CENTER button (bigger than the chrome).
+		{"icon": "nav_garden.png", "px": 132.0, "label": tr("Enter Garden"), "action": _on_board},
+		# Map — the place-picker (atlas).
+		{"icon": "nav_map.png", "px": 96.0, "label": tr("Map"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_select()},
+		# Piggy bank — the diegetic accrual-vault (the ready-pip rides this button).
+		{"icon": "nav_piggy.png", "px": 96.0, "label": tr("Piggy bank"), "action": _open_vault}])
+	for b in nav.buttons:
+		_chrome_nodes.append(b)
+	_chrome_nodes.append(nav.row)
+	# §14 spotlight target = the Shop button (index 1, after Settings).
+	_shop_btn = nav.buttons[1]
+	# the green CTA breathes so the way to the board reads as the primary action.
+	FX.breathe_once(nav.buttons[2])
+	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
 	_store_badge = Look.badge("dot")
-	Look.attach_badge(store, _store_badge)
+	Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the map-select (atlas) button — sits to the LEFT of the gear; opens the
-	# place-picker. Visible in map view (the place-picker is its own view). The
-	# kit has no map icon, so the glyph (🗺) rides the round-button art directly
-	# (using Look.icon("map") would render "?" — no such kit/glyph entry).
-	var atlas := Button.new()
-	atlas.focus_mode = Control.FOCUS_NONE
-	atlas.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var at := StyleBoxTexture.new()
-		at.texture = load(Look.kit("btn_round.png"))
-		at.set_texture_margin_all(24.0)
-		atlas.add_theme_stylebox_override("normal", at)
-		atlas.add_theme_stylebox_override("hover", at)
-		atlas.add_theme_stylebox_override("pressed", at)
-		var ai := Label.new()
-		ai.text = "🗺"
-		ai.add_theme_font_size_override("font_size", 34)
-		ai.add_theme_color_override("font_color", CREAM)
-		ai.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		ai.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		ai.set_anchors_preset(Control.PRESET_FULL_RECT)
-		ai.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		atlas.add_child(ai)
-	else:
-		atlas.text = "🗺"
-		atlas.add_theme_font_size_override("font_size", 34)
-		atlas.add_theme_color_override("font_color", CREAM)
-		var as_sb := StyleBoxFlat.new()
-		as_sb.bg_color = Color(INK, 0.6)
-		as_sb.set_corner_radius_all(38)
-		atlas.add_theme_stylebox_override("normal", as_sb)
-		atlas.add_theme_stylebox_override("hover", as_sb)
-		atlas.add_theme_stylebox_override("pressed", as_sb)
-	Look.add_press_juice(atlas)
-	atlas.anchor_left = 1.0
-	atlas.anchor_right = 1.0
-	atlas.anchor_top = 1.0
-	atlas.anchor_bottom = 1.0
-	atlas.offset_left = -180
-	atlas.offset_right = -104
-	atlas.offset_top = -92 - sb
-	atlas.offset_bottom = -16 - sb
-	atlas.pressed.connect(_open_select)
-	add_child(atlas)
-	_chrome_nodes.append(atlas)
-	# T45: the PIGGY BANK — the diegetic accrual-vault entry (§10/§13). The hub map is the
-	# natural home: it is the return surface the player lands on. Sits to the LEFT of the atlas,
-	# same round-button language as the rest of the chrome. A gold ready-pip rides its corner
-	# when the jar has filled past the claim threshold (Vault.claimable()) — a gentle "ready"
-	# cue, never a nag. Tapping opens the jar surface (ui/vault.gd), which refreshes the pip on close.
-	var piggy := Button.new()
-	piggy.focus_mode = Control.FOCUS_NONE
-	piggy.custom_minimum_size = Vector2(76, 76)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
-		var pt := StyleBoxTexture.new()
-		pt.texture = load(Look.kit("btn_round.png"))
-		pt.set_texture_margin_all(24.0)
-		piggy.add_theme_stylebox_override("normal", pt)
-		piggy.add_theme_stylebox_override("hover", pt)
-		piggy.add_theme_stylebox_override("pressed", pt)
-	else:
-		var pgs := StyleBoxFlat.new()
-		pgs.bg_color = Color(INK, 0.6)
-		pgs.set_corner_radius_all(38)
-		piggy.add_theme_stylebox_override("normal", pgs)
-		piggy.add_theme_stylebox_override("hover", pgs)
-		piggy.add_theme_stylebox_override("pressed", pgs)
-	# the piggy glyph rides the round button (the kit has no "piggy" icon entry, so a glyph,
-	# matching how the atlas button renders its 🗺 — Look.icon("piggy") would render "?")
-	var pgi := Label.new()
-	pgi.text = "🐷"
-	pgi.add_theme_font_size_override("font_size", 34)
-	pgi.add_theme_color_override("font_color", CREAM)
-	pgi.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pgi.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pgi.set_anchors_preset(Control.PRESET_FULL_RECT)
-	pgi.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	piggy.add_child(pgi)
-	Look.add_press_juice(piggy)
-	piggy.anchor_left = 1.0
-	piggy.anchor_right = 1.0
-	piggy.anchor_top = 1.0
-	piggy.anchor_bottom = 1.0
-	piggy.offset_left = -268
-	piggy.offset_right = -192
-	piggy.offset_top = -92 - sb
-	piggy.offset_bottom = -16 - sb
-	piggy.pressed.connect(_open_vault)
-	add_child(piggy)
-	_chrome_nodes.append(piggy)
-	# the ready-pip — the shared "something new" badge on the button's top-right corner,
-	# shown only when claimable (visibility still driven by _refresh_piggy_pip → Vault.claimable())
+	# the piggy ready-pip — the shared "something new" badge, shown only when the jar is claimable
+	# (visibility driven by _refresh_piggy_pip → Vault.claimable()).
 	var pip := Look.badge("dot")
-	Look.attach_badge(piggy, pip)
+	Look.attach_badge(nav.buttons[4], pip)
 	_piggy_pip = pip
 	_refresh_piggy_pip()
-	# the LiveOps rail (right edge) + the task strip (above the CTA) — the two new chrome slices.
+	# the LiveOps rail (right edge) + the task strip (above the nav row) — the two kept chrome slices.
 	_build_liveops_rail(sb)
 	_build_task_strip(sb_cta)
 
@@ -1604,7 +1569,7 @@ func _build_chrome() -> void:
 func _build_liveops_rail(sb: float) -> void:
 	var px := 72.0
 	var gap := 14.0
-	var bottom := 116.0 + sb            # first rail button sits above the ~92px corner cluster row
+	var bottom := 172.0 + sb            # first rail button sits above the ~150px full-width nav row (item 4)
 	var slot := 0
 	# Daily — opens the existing login calendar on demand; badge when today is unclaimed.
 	var daily := _rail_button("📅", _open_daily)
@@ -1789,14 +1754,15 @@ func _build_task_strip(sb_cta: float) -> void:
 	gift.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	gift.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gift)
-	# pinned centered, just ABOVE the CTA (the CTA top is -120 - sb_cta; the strip sits above it)
+	# pinned centered, just ABOVE the nav row (item 4 moved the bottom chrome into one full-width row
+	# ~132px tall — its prominent center CTA; the strip clears it).
 	card.anchor_left = 0.5
 	card.anchor_right = 0.5
 	card.anchor_top = 1.0
 	card.anchor_bottom = 1.0
 	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	card.offset_top = -166 - sb_cta
-	card.offset_bottom = -128 - sb_cta
+	card.offset_top = -208 - sb_cta
+	card.offset_bottom = -170 - sb_cta
 	add_child(card)
 	_chrome_nodes.append(card)
 	_task_strip = card
