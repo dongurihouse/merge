@@ -10,6 +10,8 @@ const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the pigg
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")   # T44 — the diegetic piggy-bank jar surface
 const LoginUI = preload("res://engine/scripts/ui/login.gd")   # T44 — the diegetic login-calendar surface
+const Pal = preload("res://games/grove/grove_palette.gd")      # UI redesign — role tiers
+const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # UI redesign — board component builders
 
 var _pass := 0
 var _fail := 0
@@ -1973,6 +1975,11 @@ func _initialize() -> void:
 	ok(Login.streak() == l_streak + 1 and Save.coins() >= l_coins, \
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
+
+	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
+	var cell_sb := BoardScript._cell_style()
+	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
+	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

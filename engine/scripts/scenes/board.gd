@@ -16,6 +16,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
@@ -1153,17 +1154,23 @@ func _make_slot(cell: Vector2i) -> Panel:
 	var slot := Panel.new()
 	slot.position = _cell_pos(cell)
 	slot.size = Vector2(csz, csz)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#C7BB94", 0.55)
-	sb.set_corner_radius_all(24)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#8A7A52", 0.28)
-	sb.shadow_color = Color(0, 0, 0, 0.20)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 2)
-	slot.add_theme_stylebox_override("panel", sb)
+	slot.add_theme_stylebox_override("panel", _cell_style())
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
+
+# The empty playable cell — a Sunk-plane well (UI redesign): CELL_EMPTY fill, a faint
+# inset line, and NO drop shadow (Sunk floats nothing), so it reads as a recessed slot
+# on the SURFACE field. Static so it is unit-testable in isolation (grove_tests).
+static func _cell_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CELL_EMPTY
+	sb.set_corner_radius_all(Tuning.UiSkin.RADIUS_CARD)
+	sb.set_border_width_all(Tuning.UiSkin.INSET_LINE_W)
+	sb.border_color = Tuning.UiSkin.INSET_LINE
+	sb.shadow_color = Tuning.UiSkin.SHADOW_SUNK
+	sb.shadow_size = Tuning.UiSkin.SHADOW_SUNK_SIZE
+	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
+	return sb
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)
