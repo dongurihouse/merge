@@ -1768,6 +1768,7 @@ func _initialize() -> void:
 	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
 	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.
 	_test_residents()
+	_test_resident_wiring()
 	# T45 · the integration wiring: the 2×-collect doubler, the piggy-vault chrome entry, the
 	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
 	await _test_t45_wiring()
@@ -2099,6 +2100,80 @@ func _test_residents() -> void:
 	ok(Save.resident_counts(map_id, cid) == [2, 1, 0], "a core roster line persists across a reload")
 	ok(Save.resident_counts(map_id, pid) == [0, 0, 1], "a premium roster line persists across a reload")
 	ok(Save.resident_counts(map_id, "no_such_type") == [0, 0, 0], "an un-welcomed type defaults to all-zero counts")
+
+# §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
+# completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
+# (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.
+func _test_resident_wiring() -> void:
+	fresh("residents_wiring")
+	var z := 0
+	var map_id := String(G.MAPS[z].id)
+	# stand map 0 up as COMPLETE (all spots restored + its gate delivered) so it can populate.
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	g["last_map"] = map_id
+	Save.grove_write()
+	Save.add_coins(1000)
+	ok(G.can_populate(z, unl, [z]), "map 0 complete → can_populate (the wiring's precondition)")
+
+	# the first core (coin) kind, and PRE-POPULATE the roster via the API (3 welcomes → a t2 + a t1)
+	# so the scene builds against a known non-empty roster (one clean build to inspect).
+	var cid := ""
+	for td in G.resident_lines(z):
+		if not bool(td.get("premium", false)):
+			cid = String(td.id)
+			break
+	G.welcome_resident(z, cid)
+	G.welcome_resident(z, cid)
+	G.welcome_resident(z, cid)
+	ok(Save.resident_counts(map_id, cid) == [1, 1, 0], "3 welcomes leave a t1 + an auto-merged t2")
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	hx.unlocks = unl
+	hx._open_map(z)
+	ok(hx.resident_hits.size() >= 1, "the 'welcome a spirit' panel built its kind rows on a populatable map")
+	# map.gd rendered the roster as one tier-tagged sprite per member (the population layer).
+	var sprites := _find_residents(hx.content, [])
+	var has_t1 := false
+	var has_t2 := false
+	for s in sprites:
+		if String(s.get_meta("resident", "")) == cid:
+			if int(s.get_meta("tier", 0)) == 1:
+				has_t1 = true
+			if int(s.get_meta("tier", 0)) == 2:
+				has_t2 = true
+	ok(sprites.size() >= 2 and has_t1 and has_t2, "map.gd rendered the roster as resident sprites (a t1 + the merged t2)")
+
+	# the REAL welcome handler spends + cascades the roster (asserted via the persisted roster — the
+	# on-screen rebuild is frame-deferred, so we trust the durable state, not a re-count of nodes).
+	var coins_b := Save.coins()
+	_welcome_kind(hx, z, cid)                                     # a 4th t1 → cascades t1+t2 → a t3
+	ok(Save.coins() == coins_b - G.RESIDENT_BASE_COST, "welcoming through map.gd spent the coin cost")
+	ok(Save.resident_counts(map_id, cid) == [0, 0, 1], "the welcome cascaded the roster to a single t3")
+	hx.queue_free()
+
+# collect every rendered resident sprite under `n` (meta-tagged by build_population_layer).
+func _find_residents(n: Node, acc: Array) -> Array:
+	if n.has_meta("resident"):
+		acc.append(n)
+	for c in n.get_children():
+		_find_residents(c, acc)
+	return acc
+
+# drive map.gd's REAL welcome handler for kind `cid` via its freshly-registered panel row (the row
+# nodes are rebuilt each _build_map, so re-find the hit each call rather than caching it).
+func _welcome_kind(hx, z: int, cid: String) -> void:
+	for h in hx.resident_hits:
+		if String(h.type) == cid:
+			hx._on_welcome_tap(z, cid, h.node, Vector2(100, 100))
+			return
 
 # ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
 # The three monetization engines (2×-collect ad, piggy vault, daily-login calendar) merged
