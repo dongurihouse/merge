@@ -249,6 +249,7 @@ Currency pills, chips, the level token, nav button bases, the CTA / contextual g
 ### Generate (🎨)
 1. **Unified chrome icon kit (Batch 1, 12 icons).** Spec §9 ("one chrome style") wants the whole kit matched. Three are net-new (`bag`, `map`, `sprout`); the other nine are restyled for consistency. One 3×4 grid covers all 12.
 2. **Recessive locked texture (single, full-bleed).** The current `bramble_1-3` read dark and high-contrast; the Sunk plane needs a quiet covered-soil texture in the `LOCKED #C2C7A6` family. Surfaces generate individually (tileable, full-bleed), not in the isolated-object grid.
+3. **Painterly container surfaces (reskin).** The **board backdrop** (`ui/bg_grove_board.png`) is the key miss — it is the old *olive* field and clashes with the sage stage; plus the **fence band** and an **optional board frame**. Shop containers and the order box are reused / code-drawn (see below). Detailed in "Painterly surfaces".
 
 ### Batch 1 — the 3×4 icon-kit grid prompt
 
@@ -259,6 +260,28 @@ Currency pills, chips, the level token, nav button bases, the CTA / contextual g
 Replaces `bramble_1-3` — the clearable cover over sealed cells. Generated as a 1×3 strip (three variants for board variety, matching today's count); the padlock is *not* part of this art — it is the separate code-drawn `icon_lock` glyph laid on top per the Sunk treatment.
 
 > Three cozy farm-game "covered ground" tiles in a single 1×3 horizontal strip, evenly spaced on a transparent background, each a square cell-sized cover for a merge board. Hand-painted storybook style, but deliberately QUIET and recessive: a soft mound of tangled moss, leaf-litter and loose soil filling the cell, in a muted desaturated sage-grey-brown family keyed to #C2C7A6 with the darkest accents no stronger than #8F977A — low contrast, no bright highlights, no hard outlines, gently shadowed so it reads as sunken and sealed rather than popping forward. Three subtly different variants (denser, sparser, and one with a few tiny dormant sprigs). No padlock, no text, no bright greens, consistent soft lighting and scale across all three.
+
+### Painterly surfaces — reskin / generate (containers & backdrops)
+
+How the board/shop/quest containers split:
+
+- **Board backdrop `ui/bg_grove_board.png` — RESKIN (the key one).** Today's olive painted field clashes with the sage cells. Either regenerate it as a quiet neutral sage stage (prompt below), or drop it for a flat `SURFACE` fill (code-drawn, fully re-tintable) — an open decision.
+- **Fence band `ui/fence_grove.png` — RESKIN if it clashes.** The wall the givers pop over; verify against sage in Phase 2 — warm weathered wood may sit fine, else retint cooler/quieter.
+- **Board frame/border — code-draw or generate.** No frame asset today (the backdrop is the edge). Default is a code-drawn `SURFACE_FRAME` border; generate a painterly woven/wood nine-patch only if you want more character.
+- **Shop containers — REUSE.** `panel_parchment`, `panel_plank`, `shop_stall` are warm-parchment nine-patches already in the cream language; reuse (minor retint at most). Dedicated stall-interior backdrop already parked in BACKLOG.
+- **Quest / order box — code-drawn + existing art.** Ask pill / ribbon / chips are `StyleBoxFlat` (re-tintable from the palette); the only raster is the giver animals (`map/giver_*`, exist) and the fence band above.
+
+**Board backdrop prompt (textured sage reskin):**
+
+> A seamless cozy farm-game board backdrop, hand-painted storybook style, top-down. A calm, QUIET cool-sage field #D9DCC4 that reads as a neutral stage so colourful items pop on top — a soft low-contrast painterly texture (faint tilled-soil rows, a few barely-there leaf specks), no bright greens, no busy detail, even soft daylight, a gentle edge vignette toward #C3C8AC. Full-bleed, fills the frame, nothing centered, designed to sit behind a grid of game items.
+
+**Fence band prompt (reskin):**
+
+> A long horizontal cozy farm fence band, hand-painted storybook style, to run full-width across the top of a merge board as a low wall that character animals pop up behind. Soft weathered wood in warm muted tones that sit calmly against a cool-sage #D9DCC4 board below — low contrast, no bright saturated colour, with a plain flat area along the top rail for characters to rest on. Transparent above and below the fence, tileable horizontally.
+
+**Optional board frame prompt (nine-patch):**
+
+> A square cozy farm-game panel frame as a nine-patch tile, hand-painted storybook style: a soft woven-willow / light-wood border running around all four edges with a fully transparent centre, uniform border thickness on every side so it slices cleanly as a nine-patch. Warm muted tones keyed to #C3C8AC that frame a cool-sage field without competing with the items inside. No text, even lighting.
 
 ### Pipeline
 Generate at high resolution → slice the grid into 12 cells → alpha-cut each → place into `games/grove/assets/ui/kit/` via `make icon IN=/tmp/<cell>.png OUT=res://games/grove/assets/ui/kit/icon_<id>.png SIZE=512`. Keep the established ids (`home`, `gear`, `cart`, `coin`, `gem`, `star`, `water`, `lock`, `question`) so no code changes; add new ids `bag`, `map`, `sprout` and point the nav buttons at them (Phase 3). The locked texture follows the `make decor` path into `ui/` and is wired where `bramble_*` is loaded ([board.gd](../../../engine/scripts/scenes/board.gd)).
