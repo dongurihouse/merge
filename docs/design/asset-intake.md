@@ -8,12 +8,12 @@ every pixel op and every file move. Same plan + same source → identical result
 
 ## When to run
 
-Raw art lands in `games/grove/assets/_originals/new/` whenever the artist drops it. Nothing watches
+Raw art lands in `games/grove/assets/_new/` whenever the artist drops it. Nothing watches
 the folder. When the Dev says "pick up the new art" (or similar), run this loop.
 
 ## The loop
 
-1. **List the drop.** `ls games/grove/assets/_originals/new/`. Artists often deliver a pair:
+1. **List the drop.** `ls games/grove/assets/_new/`. Artists often deliver a pair:
    `X.png` (composed reference, usually not shipped) + `X_asset.png` (a sheet of the pieces). Treat
    `*_asset.png` as the sliceable source.
 
@@ -36,17 +36,17 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
 
    ```
    godot --headless --path . -s res://games/tools/slice_islands.gd -- \
-     games/grove/assets/_originals/new/bag_asset.png /tmp/peek/cell_
+     games/grove/assets/_new/bag_asset.png /tmp/peek/cell_
    ```
 
    `slice_islands` prints `n -> x,y wxh (px=count)` top→bottom, left→right. Open the `/tmp/peek/cell_<n>.png`
    files, decide which islands to keep and what to call each.
 
-4. **Write the plan** as `<name>.plan.json` next to the raw in `_originals/new/`. Schema:
+4. **Write the plan** as `<name>.plan.json` next to the raw in `_new/`. Schema:
 
    ```json
    {
-     "source": "_originals/new/bag_asset.png",
+     "source": "_new/bag_asset.png",
      "category": "sheet",
      "params": { "min_area": 400 },
      "outputs": [
@@ -66,11 +66,11 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
    - `archive` is where the raw moves after success (under `_originals/<kind>/`).
 
 5. **Apply it.** `make intake` (all pending plans) or `make intake PLAN=<file>` (one). The runner
-   writes the outputs, **moves** the raw to `archive`, moves the plan to `new/_processed/`, and
+   writes the outputs, **moves** the raw to `archive`, moves the plan to `_new/_processed/`, and
    reimports. On any tool failure it **skips** that plan and leaves the raw in place for a retry.
 
-6. **Verify.** Confirm the outputs landed (`ls` the target folder), the raw is gone from `new/`, and
-   the plan is in `new/_processed/`. For in-engine checks use `make shot-grove` / `make shot-map`.
+6. **Verify.** Confirm the outputs landed (`ls` the target folder), the raw is gone from `_new/`, and
+   the plan is in `_new/_processed/`. For in-engine checks use `make shot-grove` / `make shot-map`.
    Keep `make test` green.
 
 ## Principles

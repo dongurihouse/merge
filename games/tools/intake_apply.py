@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ASSET_ROOT = Path("games/grove/assets")
-DROP = ASSET_ROOT / "_originals" / "new"
+DROP = ASSET_ROOT / "_new"                  # raw-drop inbox (gdignored; not imported)
 PROCESSED = DROP / "_processed"
 SCRATCH = Path(".godot") / "intake_scratch"
 

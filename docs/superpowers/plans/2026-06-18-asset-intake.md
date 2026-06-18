@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a manifest-driven asset-intake process: an agent classifies each raw image dropped in `_originals/new/` and authors a `plan.json`; a deterministic Python runner (`make intake`) applies the plan — dispatching to the existing godot image tools and archiving the raw.
+**Goal:** Build a manifest-driven asset-intake process: an agent classifies each raw image dropped in `_new/` and authors a `plan.json`; a deterministic Python runner (`make intake`) applies the plan — dispatching to the existing godot image tools and archiving the raw.
 
 **Architecture:** A pure-stdlib Python orchestrator (`games/tools/intake_apply.py`) reads each `*.plan.json`, dispatches by `category` to an existing godot tool via subprocess (`process_icon`, `process_decor`, `slice_grid`, `slice_islands`, `cutout_bg`), writes the named outputs, then **moves** the raw to its archive and the plan to a `_processed/` log. The runner holds zero judgment — classification, naming, and params all live in the plan, authored by the agent. The orchestration logic (validation, arg-building, file moves) is pure and unit-tested with stdlib `unittest`; the godot subprocess calls are exercised by an end-to-end smoke task.
 
@@ -14,7 +14,7 @@
 
 **Asset root:** `games/grove/assets/` (this is `ART_ROOT`, `game.gd:7`). Every plan path (`source`, `archive`, each `outputs[].path`) is relative to this root.
 
-**Drop folder:** `games/grove/assets/_originals/new/` (exists; currently holds `bag.png`, `bag_asset.png`, `shop.png`, `shop_asset.png`).
+**Drop folder:** `games/grove/assets/_new/` (exists; currently holds `bag.png`, `bag_asset.png`, `shop.png`, `shop_asset.png`).
 
 **Existing godot tools and their exact CLI (verified by reading each tool's header):**
 
@@ -32,7 +32,7 @@ A godot tool is run as: `godot --headless --path . -s <res_tool> -- <args…>`. 
 
 ```json
 {
-  "source": "_originals/new/bag_asset.png",
+  "source": "_new/bag_asset.png",
   "category": "sheet",
   "inner": "icon",
   "params": { "min_area": 400 },
@@ -77,11 +77,11 @@ class ValidateTests(unittest.TestCase):
         ia.validate_plan(plan)  # raises on bad
 
     def test_minimal_icon_ok(self):
-        self._ok({"source": "_originals/new/a.png", "category": "icon",
+        self._ok({"source": "_new/a.png", "category": "icon",
                   "outputs": [{"path": "ui/a.png"}], "archive": "_originals/ui/a.png"})
 
     def test_scene_needs_only_source_and_category(self):
-        self._ok({"source": "_originals/new/m.png", "category": "scene"})
+        self._ok({"source": "_new/m.png", "category": "scene"})
 
     def test_missing_source_rejected(self):
         with self.assertRaises(ia.PlanError):
@@ -359,7 +359,7 @@ class FileMoveTests(unittest.TestCase):
         (root / "_originals" / "new").mkdir(parents=True)
         src = root / "_originals" / "new" / "a.png"
         src.write_bytes(b"PNG")
-        ia.archive_raw("_originals/new/a.png", "_originals/ui/a.png", root=root)
+        ia.archive_raw("_new/a.png", "_originals/ui/a.png", root=root)
         self.assertFalse(src.exists())
         self.assertEqual((root / "_originals" / "ui" / "a.png").read_bytes(), b"PNG")
 
@@ -560,7 +560,7 @@ In `Makefile`, the `.PHONY` declaration spans three backslash-continued lines en
 Then, under the `## --- assets ---` section (right after the `import:` target block), insert:
 
 ```make
-intake: ## apply intake plans in _originals/new/ (agent authors plan.json first): make intake [PLAN=path]
+intake: ## apply intake plans in _new/ (agent authors plan.json first): make intake [PLAN=path]
 	python3 games/tools/intake_apply.py --godot $(GODOT) $(if $(PLAN),--plan $(PLAN),)
 
 intake-test: ## unit-test the intake runner (pure stdlib, no godot)
@@ -580,7 +580,7 @@ Expected: output includes `intake` and `intake-test` rows with their description
 - [ ] **Step 4: Verify `make intake` no-ops cleanly when no plans exist**
 
 Run: `make intake`
-Expected: prints `no *.plan.json in games/grove/assets/_originals/new` (the `bag*`/`shop*` raws have no plan yet, so nothing is processed) and exits 0.
+Expected: prints `no *.plan.json in games/grove/assets/_new` (the `bag*`/`shop*` raws have no plan yet, so nothing is processed) and exits 0.
 
 - [ ] **Step 5: Commit**
 
@@ -611,12 +611,12 @@ every pixel op and every file move. Same plan + same source → identical result
 
 ## When to run
 
-Raw art lands in `games/grove/assets/_originals/new/` whenever the artist drops it. Nothing watches
+Raw art lands in `games/grove/assets/_new/` whenever the artist drops it. Nothing watches
 the folder. When the Dev says "pick up the new art" (or similar), run this loop.
 
 ## The loop
 
-1. **List the drop.** `ls games/grove/assets/_originals/new/`. Artists often deliver a pair:
+1. **List the drop.** `ls games/grove/assets/_new/`. Artists often deliver a pair:
    `X.png` (composed reference, usually not shipped) + `X_asset.png` (a sheet of the pieces). Treat
    `*_asset.png` as the sliceable source.
 
@@ -639,17 +639,17 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
 
    ```
    godot --headless --path . -s res://games/tools/slice_islands.gd -- \
-     games/grove/assets/_originals/new/bag_asset.png /tmp/peek/cell_
+     games/grove/assets/_new/bag_asset.png /tmp/peek/cell_
    ```
 
    `slice_islands` prints `n -> x,y wxh (px=count)` top→bottom, left→right. Open the `/tmp/peek/cell_<n>.png`
    files, decide which islands to keep and what to call each.
 
-4. **Write the plan** as `<name>.plan.json` next to the raw in `_originals/new/`. Schema:
+4. **Write the plan** as `<name>.plan.json` next to the raw in `_new/`. Schema:
 
    ```json
    {
-     "source": "_originals/new/bag_asset.png",
+     "source": "_new/bag_asset.png",
      "category": "sheet",
      "params": { "min_area": 400 },
      "outputs": [
@@ -669,11 +669,11 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
    - `archive` is where the raw moves after success (under `_originals/<kind>/`).
 
 5. **Apply it.** `make intake` (all pending plans) or `make intake PLAN=<file>` (one). The runner
-   writes the outputs, **moves** the raw to `archive`, moves the plan to `new/_processed/`, and
+   writes the outputs, **moves** the raw to `archive`, moves the plan to `_new/_processed/`, and
    reimports. On any tool failure it **skips** that plan and leaves the raw in place for a retry.
 
 6. **Verify.** Confirm the outputs landed (`ls` the target folder), the raw is gone from `new/`, and
-   the plan is in `new/_processed/`. For in-engine checks use `make shot-grove` / `make shot-map`.
+   the plan is in `_new/_processed/`. For in-engine checks use `make shot-grove` / `make shot-map`.
    Keep `make test` green.
 
 ## Principles
@@ -717,7 +717,7 @@ Create `CLAUDE.md`:
 
 ## Asset intake
 
-Raw art lands in `games/grove/assets/_originals/new/`. When asked to process intake or "pick up the
+Raw art lands in `games/grove/assets/_new/`. When asked to process intake or "pick up the
 new art," follow `docs/design/asset-intake.md`: open and **classify** each drop, author a
 `plan.json`, run `make intake`, verify, archive.
 
@@ -752,12 +752,12 @@ fixture artifacts live under a `_intaketest/` folder that is deleted at the end.
 - [ ] **Step 1: Stage a fixture raw + plan**
 
 ```bash
-mkdir -p games/grove/assets/_originals/new
+mkdir -p games/grove/assets/_new
 FIX=$(ls games/grove/assets/ui/*.png | head -1)
-cp "$FIX" games/grove/assets/_originals/new/_intaketest.png
-cat > games/grove/assets/_originals/new/_intaketest.plan.json <<'JSON'
+cp "$FIX" games/grove/assets/_new/_intaketest.png
+cat > games/grove/assets/_new/_intaketest.plan.json <<'JSON'
 {
-  "source": "_originals/new/_intaketest.png",
+  "source": "_new/_intaketest.png",
   "category": "icon",
   "params": { "size": 64 },
   "outputs": [ { "path": "_originals/_intaketest/out.png" } ],
@@ -768,30 +768,30 @@ JSON
 
 - [ ] **Step 2: Run the runner on just that plan**
 
-Run: `make intake PLAN=games/grove/assets/_originals/new/_intaketest.plan.json`
+Run: `make intake PLAN=games/grove/assets/_new/_intaketest.plan.json`
 (process_icon on a small PNG finishes in seconds; it does not open a window.)
-Expected: prints `  OK _originals/new/_intaketest.png -> 1 output(s); raw archived to _originals/_intaketest/raw.png`.
+Expected: prints `  OK _new/_intaketest.png -> 1 output(s); raw archived to _originals/_intaketest/raw.png`.
 
 - [ ] **Step 3: Assert the outputs are correct**
 
 ```bash
 ls games/grove/assets/_originals/_intaketest/out.png \
    games/grove/assets/_originals/_intaketest/raw.png \
-   games/grove/assets/_originals/new/_processed/_intaketest.plan.json
-test ! -e games/grove/assets/_originals/new/_intaketest.png && echo "RAW REMOVED FROM DROP: ok"
+   games/grove/assets/_new/_processed/_intaketest.plan.json
+test ! -e games/grove/assets/_new/_intaketest.png && echo "RAW REMOVED FROM DROP: ok"
 ```
 Expected: all three listed files exist, and `RAW REMOVED FROM DROP: ok` prints (the raw moved out of `new/`).
 
 - [ ] **Step 4: Confirm the failure path leaves the raw in place**
 
 ```bash
-cp "$(ls games/grove/assets/ui/*.png | head -1)" games/grove/assets/_originals/new/_intakebad.png
-cat > games/grove/assets/_originals/new/_intakebad.plan.json <<'JSON'
-{ "source": "_originals/new/_intakebad.png", "category": "icon",
+cp "$(ls games/grove/assets/ui/*.png | head -1)" games/grove/assets/_new/_intakebad.png
+cat > games/grove/assets/_new/_intakebad.plan.json <<'JSON'
+{ "source": "_new/_intakebad.png", "category": "icon",
   "outputs": [ { "path": "_originals/_intaketest/bad.png" } ] }
 JSON
-make intake PLAN=games/grove/assets/_originals/new/_intakebad.plan.json ; echo "exit=$?"
-test -e games/grove/assets/_originals/new/_intakebad.png && echo "RAW KEPT ON FAILURE: ok"
+make intake PLAN=games/grove/assets/_new/_intakebad.plan.json ; echo "exit=$?"
+test -e games/grove/assets/_new/_intakebad.png && echo "RAW KEPT ON FAILURE: ok"
 ```
 Expected: prints `  SKIP _intakebad.plan.json: missing required field: archive`, `exit=1`, and `RAW KEPT ON FAILURE: ok` (a bad plan never deletes the raw).
 
@@ -799,11 +799,11 @@ Expected: prints `  SKIP _intakebad.plan.json: missing required field: archive`,
 
 ```bash
 rm -rf games/grove/assets/_originals/_intaketest
-rm -f  games/grove/assets/_originals/new/_intakebad.png \
-       games/grove/assets/_originals/new/_intakebad.plan.json \
-       games/grove/assets/_originals/new/_processed/_intaketest.plan.json
-rmdir  games/grove/assets/_originals/new/_processed 2>/dev/null || true
-git status --short games/grove/assets/_originals/new
+rm -f  games/grove/assets/_new/_intakebad.png \
+       games/grove/assets/_new/_intakebad.plan.json \
+       games/grove/assets/_new/_processed/_intaketest.plan.json
+rmdir  games/grove/assets/_new/_processed 2>/dev/null || true
+git status --short games/grove/assets/_new
 ```
 Expected: `git status --short` shows no leftover `_intaketest`/`_intakebad` files (only the pre-existing untracked `bag*`/`shop*` raws, if any, remain). Nothing to commit for this task.
 
@@ -815,7 +815,7 @@ The live acceptance run: the actual agent loop on the real art already sitting i
 involves judgment (naming the sliced islands) — that is the design working as intended, not a gap.
 
 **Files:**
-- Create: `games/grove/assets/_originals/new/bag.plan.json` (then logged to `_processed/` by the run)
+- Create: `games/grove/assets/_new/bag.plan.json` (then logged to `_processed/` by the run)
 - Result: new PNGs under `games/grove/assets/ui/kit/` + the raw moved to `_originals/ui/`
 
 - [ ] **Step 1: Inspect the sheet's islands**
@@ -823,7 +823,7 @@ involves judgment (naming the sliced islands) — that is the design working as 
 ```bash
 mkdir -p /tmp/bagpeek
 godot --headless --path . -s res://games/tools/slice_islands.gd -- \
-  games/grove/assets/_originals/new/bag_asset.png /tmp/bagpeek/cell_
+  games/grove/assets/_new/bag_asset.png /tmp/bagpeek/cell_
 ls /tmp/bagpeek
 ```
 Expected: prints one `n -> x,y wxh (px=...)` line per island and writes `/tmp/bagpeek/cell_<n>.png`.
@@ -836,7 +836,7 @@ you reuse the established vocabulary (e.g. `nav_bag.png`, `panel_*.png`). Drop s
 
 - [ ] **Step 3: Author the plan**
 
-Create `games/grove/assets/_originals/new/bag.plan.json`, filling `outputs` from Step 2 — one entry
+Create `games/grove/assets/_new/bag.plan.json`, filling `outputs` from Step 2 — one entry
 per kept island, `island` set to its printed index, `path` to its `ui/kit/<name>.png`, and
 `post: "icon:512"` on any piece that should be trimmed to a square icon (omit `post` for pieces whose
 exact placement/size matters, e.g. a panel). Example shape (replace indices/names with your Step-2
@@ -844,7 +844,7 @@ mapping):
 
 ```json
 {
-  "source": "_originals/new/bag_asset.png",
+  "source": "_new/bag_asset.png",
   "category": "sheet",
   "params": { "min_area": 600 },
   "outputs": [
@@ -856,15 +856,15 @@ mapping):
 
 - [ ] **Step 4: Apply it**
 
-Run: `make intake PLAN=games/grove/assets/_originals/new/bag.plan.json`
-Expected: `  OK _originals/new/bag_asset.png -> N output(s); raw archived to _originals/ui/bag_asset.png`.
+Run: `make intake PLAN=games/grove/assets/_new/bag.plan.json`
+Expected: `  OK _new/bag_asset.png -> N output(s); raw archived to _originals/ui/bag_asset.png`.
 
 - [ ] **Step 5: Verify**
 
 ```bash
 ls games/grove/assets/ui/kit/                # new kit PNGs present
 ls games/grove/assets/_originals/ui/bag_asset.png   # raw archived
-ls games/grove/assets/_originals/new/_processed/bag.plan.json  # plan logged
+ls games/grove/assets/_new/_processed/bag.plan.json  # plan logged
 make test                                    # regression: still green
 ```
 Expected: the kit PNGs you named exist, the raw is archived, the plan is logged, and `make test` passes (intake only added files; no engine code changed).
@@ -873,7 +873,7 @@ Expected: the kit PNGs you named exist, the raw is archived, the plan is logged,
 
 ```bash
 git add games/grove/assets/ui/kit games/grove/assets/_originals/ui/bag_asset.png \
-        games/grove/assets/_originals/new/_processed/bag.plan.json
+        games/grove/assets/_new/_processed/bag.plan.json
 git commit -m "assets(intake): process bag_asset sheet into ui/kit via make intake"
 ```
 

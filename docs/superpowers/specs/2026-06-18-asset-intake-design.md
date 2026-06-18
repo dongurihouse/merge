@@ -17,13 +17,13 @@ which covers generation + hook-up but not a standard "new image → filed" loop.
 |---|---|
 | Decision-to-execution shape | **Manifest-driven.** Agent authors a per-drop `plan.json`; one deterministic runner applies it. The plan is the audit trail and is replayable. |
 | Where agent instructions live | New project-root `CLAUDE.md` (auto-loaded) with a short trigger → full runbook in `docs/design/asset-intake.md`. |
-| Raw disposition after processing | **Archive, never delete** — raw moves `new/ → _originals/<category>/`, matching the `_originals` keep-the-source convention. |
+| Raw disposition after processing | **Archive, never delete** — raw moves `_new/ → _originals/<category>/`, matching the `_originals` keep-the-source convention. |
 | Map scenes | **Stay agent-driven** (the §16 box-detection + share-gate are perceptual). The runner does their mechanical steps; the agent supplies/verifies boxes. |
 | Drop-folder watching | **None.** Nothing watches the folder; an agent is explicitly directed to pick up the new art. |
 
 ## 1 · The drop convention
 
-- **Drop zone:** `games/grove/assets/_originals/new/` (already exists; currently holds the
+- **Drop zone:** `games/grove/assets/_new/` (already exists; currently holds the
   `bag*`/`shop*` raws). The user or artist drops raw PNGs here at any time. Nothing watches it.
 - **Pair recognition:** the artist often returns a pair — `X.png` (composed reference look, usually
   *not shipped*) and `X_asset.png` (a transparent sheet of the individual pieces, irregularly
@@ -35,11 +35,11 @@ which covers generation + hook-up but not a standard "new image → filed" loop.
 ## 2 · The manifest (`<name>.plan.json`) — the only non-deterministic artifact
 
 When directed to pick up the new art, the agent inspects each drop and writes a sibling plan file
-in `new/`. The plan captures every judgment so the runner needs none.
+in `_new/`. The plan captures every judgment so the runner needs none.
 
 ```json
 {
-  "source": "_originals/new/bag_asset.png",
+  "source": "_new/bag_asset.png",
   "category": "sheet",
   "params": { "threshold": 0.05, "min_area": 400 },
   "outputs": [
@@ -98,12 +98,12 @@ it back to the Dev rather than forcing a category (§5).
 
 A thin orchestrator (`games/tools/intake_apply.py`, pure-stdlib Python) wired as a Makefile target.
 It dispatches to the godot image tools via subprocess and does the file moves itself. For each
-`*.plan.json` in `new/` (or one named plan via `make intake PLAN=<file>`):
+`*.plan.json` in `_new/` (or one named plan via `make intake PLAN=<file>`):
 
 1. **Dispatch** by `category` to the tool in §3, passing the plan's `params`.
 2. **Write `outputs`** to their target paths, applying any per-output `post` step.
 3. **Archive** the raw: move `source` → `archive` (move, never delete).
-4. **Log** the plan: move the applied `*.plan.json` → `new/_processed/`.
+4. **Log** the plan: move the applied `*.plan.json` → `_new/_processed/`.
 5. **Reimport:** run the equivalent of `make import` so Godot picks up the new art.
 6. **Summarize:** print one line per output (`wrote ui/kit/nav_bag.png  (512×512)`).
 
@@ -112,7 +112,7 @@ The runner contains **no classification and no naming** — it is a pure functio
 outputs (idempotent), which is what makes it safe to replay and easy to verify.
 
 **Failure handling:** if a tool fails or a target path's parent doesn't exist, the runner aborts
-that plan **before** archiving the raw (so the raw stays in `new/` for a retry) and prints the
+that plan **before** archiving the raw (so the raw stays in `_new/` for a retry) and prints the
 error. Other plans in the batch still run.
 
 ## 5 · Division of labor
@@ -139,7 +139,7 @@ a script's.
 
 - **New project-root `CLAUDE.md`** — a short trigger, auto-loaded by Claude Code each session:
 
-  > **Asset intake.** Raw art lands in `games/grove/assets/_originals/new/`. When asked to process
+  > **Asset intake.** Raw art lands in `games/grove/assets/_new/`. When asked to process
   > intake / "pick up the new art," follow `docs/design/asset-intake.md`: classify each drop,
   > author a `plan.json`, run `make intake`, verify, archive. Scripts are deterministic; all
   > judgment (classification, naming, params) goes in the plan.
@@ -178,7 +178,7 @@ keyers `cutout_map1_asset.py` / `process_map1v2.py` stay owned by the §16 flow.
 2. `make intake` target in the `Makefile`.
 3. `docs/design/asset-intake.md` — the runbook (§6).
 4. Project-root `CLAUDE.md` — the trigger (§6).
-5. `new/_processed/` — the applied-plan log dir (created on first run).
+5. `_new/_processed/` — the applied-plan log dir (created on first run).
 
 ## 9 · Risks
 
