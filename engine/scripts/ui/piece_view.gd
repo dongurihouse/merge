@@ -92,27 +92,47 @@ static func make_piece(code: int, size: float) -> Control:
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(t)
 		return holder
-	# coins: a gold disc with its value (tap to pocket)
+	# coins: painted acorn art by tier (tap to pocket), value drawn over it as a small
+	# outlined label (§16 — sprites carry no numerals). Falls back to the code-drawn gold
+	# disc when the tier sprite is absent.
 	if G.is_coin(code):
-		var cdisc := Panel.new()
-		var cd := size * (0.5 + 0.1 * BoardModel.tier_of(code))
-		cdisc.size = Vector2(cd, cd)
-		cdisc.position = (Vector2(size, size) - cdisc.size) / 2.0
-		var csb := StyleBoxFlat.new()
-		csb.bg_color = STRAW
-		csb.set_corner_radius_all(int(cd / 2.0))
-		csb.set_border_width_all(3)
-		csb.border_color = Color("#C98A2B")
-		cdisc.add_theme_stylebox_override("panel", csb)
-		cdisc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(cdisc)
+		var ctier := BoardModel.tier_of(code)
+		var cpath := Game.art("ui/kit/icon_coin_t%d.png" % ctier)
+		if cpath != "" and ResourceLoader.exists(cpath):
+			var ct := TextureRect.new()
+			ct.texture = _content_tex(cpath)
+			ct.set_anchors_preset(Control.PRESET_FULL_RECT)
+			var cinset := size * 0.06
+			ct.offset_left = cinset
+			ct.offset_top = cinset
+			ct.offset_right = -cinset
+			ct.offset_bottom = -cinset
+			ct.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			ct.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			ct.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			holder.add_child(ct)
+		else:
+			var cdisc := Panel.new()
+			var cd := size * (0.5 + 0.1 * ctier)
+			cdisc.size = Vector2(cd, cd)
+			cdisc.position = (Vector2(size, size) - cdisc.size) / 2.0
+			var csb := StyleBoxFlat.new()
+			csb.bg_color = STRAW
+			csb.set_corner_radius_all(int(cd / 2.0))
+			csb.set_border_width_all(3)
+			csb.border_color = Color("#C98A2B")
+			cdisc.add_theme_stylebox_override("panel", csb)
+			cdisc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			holder.add_child(cdisc)
 		var clbl := Label.new()
 		clbl.text = str(G.coin_value(code))
 		clbl.set_anchors_preset(Control.PRESET_FULL_RECT)
 		clbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		clbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		clbl.add_theme_font_size_override("font_size", int(size * 0.26))
-		clbl.add_theme_color_override("font_color", Color("#6B4A12"))
+		clbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		clbl.add_theme_font_size_override("font_size", int(size * 0.24))
+		clbl.add_theme_color_override("font_color", Color("#FBF3EA"))
+		clbl.add_theme_color_override("font_outline_color", Color("#5A3A12"))
+		clbl.add_theme_constant_override("outline_size", 5)
 		clbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(clbl)
 		return holder
