@@ -230,6 +230,14 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 > Cozy farm-game shop popup, hand-painted storybook style. A warm parchment panel #F4E9D6 with a soft bark border over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Shop"; a round red close button #D75A4E sits at the top-right corner. Two featured product cards, each a cream tile with the product illustration on a pale honey plate #F4E7CA and a leaf-green #4E7C46 price button. Below, a "Gems" section: a row of three teal-gem #3FC6B0 cash packs of increasing size, the middle one wearing a small red "Popular" badge, each with a green buy button. Soft shadows, warm light, no flat vectors.
 
+**Settings card**
+
+> Cozy farm-game settings popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border, centered over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Settings"; a round red close button #D75A4E at the top-right corner. Three stacked toggle rows — "Music", "Sounds", "Calm mode" — each a cream #FBF6EC pill with an ink #3B402F label on the left and a rounded toggle switch on the right: the ON switches filled leaf-green #4E7C46 with a cream knob, the OFF switch a muted grey #C7BBA0. Soft shadows, warm light, no flat vectors, no extra text.
+
+**Map-select / world page**
+
+> Cozy farm-game world map-select screen, hand-painted storybook style. A soft daylight sky with a few drifting clouds as the backdrop. The same UI chrome as elsewhere: a round leaf-green #3F6B43 level token with a gold #C9A66B ring top-left, a cream #FBF6EC currency pill top-right. A gentle vertical path of large map cards, each a painterly thumbnail of a homestead district — a farmhouse, a barn, an orchard, a pond — in a soft cream #FBF6EC rounded frame with a warm-gold #C9A66B edge and a small honey title ribbon. The first card or two are bright and inviting (unlocked); the cards further along sit behind a soft deep-ink #33402F fog that thickens toward their lower edge (locked — teased, not greyed). A neutral cream round back button #FBF6EC bottom-left. Warm light, soft shadows, no flat vectors.
+
 ---
 
 ## Asset manifest & batch generation
