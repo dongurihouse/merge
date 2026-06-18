@@ -144,7 +144,9 @@ static func _update_layer(layer: Control) -> void:
 	var t := Time.get_unix_time_from_system()
 	var day := int(t / Tune.SECS_PER_DAY)
 	for i in layer.get_child_count():
-		var ch: Control = layer.get_child(i)
+		var ch := layer.get_child(i) as Control
+		if ch == null:                      # merge_poof's transient FX.burst particles ride this layer too — skip non-Controls
+			continue
 		ch.position = _character_pos(i, t, day, layer.size) - ch.size / 2.0
 
 ## Pure path function: a slow figure-wander + a gentle vertical bob.
