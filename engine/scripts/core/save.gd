@@ -339,6 +339,33 @@ static func set_hub_collected_at(t: float) -> void:
 	grove()["hub_collected_at"] = t
 	grove_write()
 
+# --- residents: the per-map population roster (§1 population sub-game) -------------
+# Residents WELCOMED on a completed map, auto-merging two-of-a-kind a tier up. Stored in
+# the grove blob as residents = {map_id: {type_id: [t1count, t2count, t3count]}} — a count
+# array of length RESIDENT_MAX_TIER per type. Defaulted on read (like hub levels / bag slots
+# above): an OLD save with no `residents` key reads as empty, no migration. The merge MATH +
+# the welcome/cost logic live in content.gd; this is the pure persistence (read with defaults,
+# write + persist). NO roster cap — the ambient display rebuilds from this stateless.
+static func residents(map_id: String) -> Dictionary:
+	return grove().get("residents", {}).get(map_id, {})
+
+static func resident_counts(map_id: String, type_id: String) -> Array:
+	var c: Array = residents(map_id).get(type_id, [])
+	if c.size() < 3:
+		return [0, 0, 0]
+	# JSON reloads ints as floats — cast so callers (and == tests) see a clean int array.
+	return [int(c[0]), int(c[1]), int(c[2])]
+
+static func set_resident_counts(map_id: String, type_id: String, counts: Array) -> void:
+	var g := grove()
+	if not g.has("residents"):
+		g["residents"] = {}
+	var by_map: Dictionary = g["residents"]
+	if not by_map.has(map_id):
+		by_map[map_id] = {}
+	by_map[map_id][type_id] = counts
+	grove_write()
+
 # --- the bag: owned-slot count (Core §5) -----------------------------------------
 # How many bag slots the player OWNS (the spec capacity, §5): 6 at start, +1 per 💎 buy,
 # hard cap 18. Stored in the grove blob, defaulted on read (like hub levels above) — so an

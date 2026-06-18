@@ -27,7 +27,15 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ## Open — economy
 
-- **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).** The
+- **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).**
+  ⚠️ **SUPERSEDED IN PART by the population/residents design change (2026-06-17):** the **hub-yield +
+  upgrade-levels loop (T42)** is being **REMOVED** — the §8 keystone is now the **population/residents loop**
+  (welcome residents on completed maps; Coins base / Diamonds premium; same-kind auto-merge), restoration
+  spots become **unlock-once** (no Coins-upgrade axis), and the §10 economy is **reopened** (re-author
+  `grove_sim` around the resident sink; the 96🪙/day faucet + ~8,600🪙 hub ladder are deleted). See
+  `merge_spec §8`, `grove_spec §3/§5/§10`. The **T42 hub-yield code/tests/`HUB_*` dials below are now
+  the thing to RIP OUT**, not sign off; T43/T44/T45 (IAP/ads/vault/login) are **unaffected** and still apply.
+  Below records the shipped state for the rip-out, not a live keystone. — The
   §8 keystone **hub-yield + upgrade-levels loop** (T42 — restore→L1, upgrade L1→L5 = richer look + higher
   yield, per-building daily-cap yield swept on return), the §4/§10 **live-IAP ladder + rewarded ads +
   out-of-water offer** (T43), and the §10/§18 **piggy vault + forgiving login calendar** (T44) all **shipped
@@ -91,9 +99,13 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 - **Save-schema extension + migration (cross-cutting · code).** As the items above land, the `grove`
   save blob needs new fields — **all absent today** (`engine/scripts/save.gd`): cumulative
-  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model), buildable upgrade-levels, yield
-  collection timestamps, the Collection (retired lines), generator burst-upgrade levels, and event
-  state. Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
+  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model),
+  the **per-map resident roster** (the population loop's source of truth — type+tier counts per completed map,
+  Core §8 / `grove_spec §3` — this is the persisted-roster the on-screen wanderers render from),
+  the Collection (retired lines), generator burst-upgrade levels, and event
+  state. **(The old buildable upgrade-levels + yield-collection timestamps are NO LONGER needed — the
+  hub-yield loop is removed; spots are unlock-once and the roster replaces yield state, 2026-06-17.)**
+  Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
   migration. The atomic-write + `.bak` + deep-merge plumbing is sound — only the schema grows. Park
   the matching field alongside whichever item introduces it. *(Surfaced 2026-06-14 — code audit vs
   `merge_spec`.)*
@@ -119,6 +131,24 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
   the **per-event premium lane** that now ships in Core §17. Owner: **not interested for v1**; parked
   as a future LiveOps revenue line if the cozy positioning proves it can carry one. *(Surfaced
   2026-06-14 — director review.)*
+
+- **Premium diamond surprise-capsule — special-character "gachapon" (post-v1, behind a readiness gate;
+  REVERSED from cut, owner 2026-06-17).** A diamond surprise-capsule yielding **special characters** for the
+  population/residents loop (Core §8 / `grove_spec §3`). Previously **permanently cut (tone)** — that
+  `grove_spec §1` line is now **amended** (gacha/mystery crates removed from it; the bounded reversal
+  recorded). **It is part of the design but ships POST-V1**, gated on a **readiness condition: the
+  deterministic resident loop is proven healthy** (the v1 base/premium-resident welcome + auto-merge
+  economy is sim-validated and live) **AND a special-character library exists** (enough premium-resident art
+  to fill a non-disappointing pull). It must carry all **seven locked cozy guardrails** (Core §4's
+  bounded-surprise-capsule clause — absent any one, it does not ship): **(a)** cosmetic-only forever (no
+  yield, no power); **(b)** no-loss randomness — every pull is *wanted*, dupes **auto-convert** to
+  merge-fuel / soft-currency, never wasted; **(c)** no dangled rarity tiers; **(d)** no pity timer; **(e)**
+  evergreen — no time-limited / FOMO capsules; **(f)** soft, transparent pricing with a **free/earned path**
+  to the same collection; **(g)** diegetic framing — **never the word "gacha"**, and **not bolted onto the
+  peddler** (its no-predatory role is already set). **Build (engine):** the capsule mechanism (pull,
+  dupe-auto-convert, the earned-path faucet) behind a flag. **Build (grove):** the premium-resident
+  library + diegetic frame + pricing. Spec: `merge_spec §4` (the clause), `grove_spec §1` (Scope — the
+  reversal). *(Surfaced 2026-06-17 — owner reversal of the §1 "permanently cut" gacha line.)*
 
 - **Engine layering — Phase 4 (optional refactor).** The `core/ui/scenes` split (Phases 1–3) is
   **done + guard-enforced** — invariant now in `merge_spec §15`, guard `engine/tests/layering_tests.gd`.
@@ -146,17 +176,16 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ## Open — UI language & colour redesign (2026-06-17)
 
-Systematic UI-language + colour-scheme redesign — neutral **cool-sage `#D9DCC4`** board so items pop, a three-plane depth ladder (Sunk/Rest/Float), and de-overloaded green (reclaimed as the CTA/growth signal). Full spec: [`superpowers/specs/2026-06-17-ui-language-redesign-design.md`](superpowers/specs/2026-06-17-ui-language-redesign-design.md). Sequenced into **4 independently-shippable phases**; Phase 1 has a full TDD plan, Phases 2–4 get their own plans on pickup. Pull in order (each depends on the prior).
+Systematic UI-language + colour-scheme redesign — a **light warm-neutral `#EDE6D2`** board so items pop, a three-plane depth ladder (Sunk/Rest/Float), and de-overloaded green (reclaimed as the CTA/growth signal). Full spec: [`superpowers/specs/2026-06-17-ui-language-redesign-design.md`](superpowers/specs/2026-06-17-ui-language-redesign-design.md).
 
-- **Phase 1 — palette foundation (tech/ux).** Restructure `games/grove/grove_palette.gd` into semantic role tiers (`SURFACE`/`SURFACE_FRAME`/`CELL_EMPTY`/`LOCKED`/`LOCKED_GLYPH`/`NEAR_UNLOCK`/`NEAR_HINT`/`CARD_PEDESTAL`/`INK_MUTED`/`ACCENT_*`) at the locked values; re-point the board-surface consts (`GROUND`/`GROUND_EDGE`/`BRAMBLE_BG`/`BRAMBLE_EDGE`) so the board shifts off olive without touching `board.gd`. **Steps:** (1) write headless guard `engine/tests/palette_tests.gd` — role tokens present + figure/ground relations (surface desaturated, locked recedes by value, `ACCENT_CTA`≠`SURFACE`, the old `GROUND`≈`BTN_PRIMARY` collision gone); (2) add tokens + re-point values; (3) register the suite in `Makefile` `ENGINE_TESTS`; (4) measured screenshot via `games/grove/tools/shot_sample.gd` proving the field reads sage, not olive. **Verify:** `make test` (all suites 0-fail) + the sampler. **Refs:** plan [`superpowers/plans/2026-06-17-ui-redesign-phase1-palette-foundation.md`](superpowers/plans/2026-06-17-ui-redesign-phase1-palette-foundation.md); spec §1–§3 + Reference instantiation. *(Picked up 2026-06-17 → T50, worktree `t50-ui-redesign-palette`.)*
+**SHIPPED (2026-06-17).** Phase 1 palette foundation (**T50**, merge `186bdc0`) + Phases 2–4 (**T51**, merge `daf6f2f`): semantic role tiers in `grove_palette.gd`; the **Sunk** elevation tier; board field → flat `SURFACE`, empty cells → `CELL_EMPTY`, **locked cells recede** (light `LOCKED` well + quiet glyph, dark bramble overlay + chip gone); **de-greened honey level token**; **light quest band** + bigger giver busts; **light bottom nav** (home icon); shop/overlay coherence pass; and the **12-icon chrome kit** (`ui/kit/icon_*`, + new `bag`/`map`/`sprout`). The board reads light top-to-bottom, locks recede, green = CTA only. Full headless gate green (palette 25/0, grove 489/0) + three adversarial verify passes. Dead `bramble_*` + `fence_grove` art removed.
 
-- **Phase 2 — board (ux-feel).** Apply the three planes in `engine/scripts/scenes/board.gd`: migrate `GROUND`/`BRAMBLE_BG` → the `SURFACE`/`LOCKED` role names; **contact-shadow** item grounding (no disc); a single `ITEM_BOX` + per-item optical scale (mirror HUD `CHIP_ICON_BOX`/`*_OPTICAL`); recessive `LOCKED_GLYPH` lock replacing the high-contrast badge; near-unlock hint tied to `BoardLogic.openable_for_hint`; one micro-label placement convention. New dials in `engine/scripts/core/tuning.gd` (the **Sunk** elevation tier + item dials + locked-cell dials). **Verify:** extend `shot_sample.gd` (locked patch lower-value than field; an item patch saturated) + headless mechanics suites green. **Refs:** spec §4–§5, §8–§10. Asset: the recessive covered-soil texture (replaces `bramble_1-3`).
+**Parked tails (follow-ups — NOT regressions):**
 
-- **Phase 3 — HUD + order strip + navigation (ux-feel).** Collapse the HUD shape vocabulary (`engine/scripts/ui/hud.gd`); enlarge the order-card character avatar (`engine/scripts/ui/giver_stand.gd`); unify the bottom chrome into **one neutral nav row** with exactly one green primary-destination per page (board = the contextual gate pill in `scenes/board.gd`; map = enter-garden in `scenes/map.gd`). **Coordinate:** `t49-chapter-rename` already deletes `chapter_label` and renames the level widget → `level_prog` (committed, **unmerged** — merge/rebase it first so the ribbon is already gone and the widget already renamed). New nav icons `bag`/`map`/`sprout` come from the icon-kit grid. **Verify:** `make shot-grove MODE=hud` + `make shot-map` — single-row nav, no chapter region, avatar ≥ a minimum card fraction. **Refs:** spec §6–§7, §11.
-
-- **Phase 4 — shop / overlay inheritance (ux-feel).** Confirm `engine/scripts/ui/{shop,vault,settings}.gd` and the `ui/*` sweep read the role tiers; reconcile per-scene hardcoded `Color()` literals toward success-criterion 6 (the whole look re-tunes from one file). **Verify:** `make shot-grove MODE=shop|settings`; optional guard counting raw `Color("#…")` literals in `ui/`/`scenes/` (must not grow). **Refs:** spec §11 file map + success criteria.
-
-- **Assets — generate (content-art).** A unified **12-icon chrome kit** as one 3×4 grid (3 net-new — `bag`/`map`/`sprout`; 9 restyled for one consistent look) → slice → `make icon` → `ui/kit/icon_*.png`; plus the recessive **covered-soil texture** (1×3, replaces `bramble_1-3`). Most chrome already exists in `ui/kit/` or is code-drawn — these are the only real generate-needs. **Refs:** spec "Asset manifest & batch generation" (grid + texture prompts + the slice→`make icon` pipeline). *(Pairs with Phases 2–3.)*
+- **Textured garden-bed backdrop (§2, content-art).** The field ships as a flat `SURFACE` fill; spec §2 wants a subtle hand-painted tilled-soil mat. Process a soil tile (`assets/llm/llm_dirt`/`llm_board`) → swap behind the cells (`board.gd` `_field_backdrop`). `bg_grove_board.png` is now unreferenced — reuse or replace.
+- **Item grounding + `ITEM_BOX` optical scale (§4, ux-feel).** Items still render via `PieceView.make_piece` without contact-shadow grounding or a normalized per-item optical scale (mirror HUD `CHIP_ICON_BOX`/`*_OPTICAL`) so a big item doesn't dwarf a small one. *(Lower impact — items already read fine.)*
+- **Map-page chrome (ux-feel).** The map view (painted-art context, not the light `SURFACE` board) keeps dark borders/chests/power-pill (`map.gd` `#2A1C11`/`#2A2620`/`#4A4F46`) — evaluate against the map art separately; not a board clash.
+- **Colour-token consolidation (tech, success-criterion 6).** Pre-existing hardcoded `#33402F`→`Pal.INK` (board/giver/merchant labels) + the gem-FX reward tints (`#A9C7E8`/`#BFE6F2`, ~10 sites) want shared tokens. No visual change; a clean sweep. *(Pre-existing, not a redesign regression.)*
 
 ## Open — HUD, currencies & button chrome (presentation + monetization funnel)
 

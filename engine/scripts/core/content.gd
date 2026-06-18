@@ -25,12 +25,11 @@ const ASK_WEIGHT = D.ASK_WEIGHT
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const STAR_CAP = D.STAR_CAP
 const CLICK_TO_VALUE = D.CLICK_TO_VALUE
-const QUEST_2ASK_LEVEL = D.QUEST_2ASK_LEVEL
-const QUEST_3ASK_LEVEL = D.QUEST_3ASK_LEVEL
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
 const QUEST_2COUNT_RATE = D.QUEST_2COUNT_RATE
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
+const QUEST_REPEAT_PENALTY = D.QUEST_REPEAT_PENALTY
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
@@ -47,10 +46,11 @@ const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
 const BURST_MAX = D.BURST_MAX
 const BURST_UPGRADE_COSTS = D.BURST_UPGRADE_COSTS
-const HUB_MAX_LEVEL = D.HUB_MAX_LEVEL
-const HUB_YIELD_RATE = D.HUB_YIELD_RATE
-const HUB_YIELD_CAP = D.HUB_YIELD_CAP
-const HUB_UPGRADE_COST = D.HUB_UPGRADE_COST
+const RESIDENT_MAX_TIER = D.RESIDENT_MAX_TIER
+const RESIDENT_CORE = D.RESIDENT_CORE
+const RESIDENT_ART = D.RESIDENT_ART
+const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
+const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
 const STARTER_ITEMS = D.STARTER_ITEMS
 const VARIANT_NAMES_COIN = D.VARIANT_NAMES_COIN
 const VARIANT_NAMES_GEM = D.VARIANT_NAMES_GEM
@@ -323,42 +323,45 @@ static func quest_reward(asks: Array) -> Dictionary:
 
 ## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
 ## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
-static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator) -> int:
+## `avoid` are lines already on the fence — their weight is scaled by QUEST_REPEAT_PENALTY so the
+## concurrent stands favour DISTINCT lines (anti-monotony, §7); it is a soft penalty, not a ban,
+## so the pick still resolves when every live line is already taken (live lines < fence slots).
+static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> int:
+	var weights: Array = []
 	var total := 0.0
 	for i in sorted_lines.size():
-		total += pow(i + 1, QUEST_NEWEST_BIAS)
+		var w: float = pow(i + 1, QUEST_NEWEST_BIAS)
+		if avoid.has(int(sorted_lines[i])):
+			w *= QUEST_REPEAT_PENALTY
+		weights.append(w)
+		total += w
 	var r := rng.randf() * total
 	var acc := 0.0
 	for i in sorted_lines.size():
-		acc += pow(i + 1, QUEST_NEWEST_BIAS)
+		acc += weights[i]
 		if r <= acc:
 			return int(sorted_lines[i])
 	return int(sorted_lines[sorted_lines.size() - 1])
 
-## Generate a regular quest for a player at `level` from the live lines (§7). Asks scale with
-## level (more asks, higher tiers), drawn weighted toward the NEWEST/highest-value live line;
-## the map's top tier (t8) is never asked (gate-quest only), and a freshly-debuted line eases
-## in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic given `rng`. Returns {asks, reward, featured}.
-## All numbers are PROVISIONAL game tunables (set by the Monte-Carlo balance pass).
-static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator) -> Dictionary:
+## Generate a regular quest for a player at `level` from the live lines (§7). A regular quest is a
+## SINGLE ask (one item type, count≥1) — difficulty rises by higher TIER + more FREQUENT quests
+## (level ∝ quest count, §3), not by adding asks; the multi-line "juggle" beat lives on the fence
+## (several distinct single-line stands at once) and in the authored gate quest. The ask is drawn
+## weighted toward the NEWEST/highest-value live line, steered off the lines in `avoid` (those
+## already on the fence) so concurrent stands stay distinct; the map's top tier (t8) is never asked
+## (gate-quest only), and a freshly-debuted line eases in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic
+## given `rng`. Returns {asks, reward, featured}. All numbers are PROVISIONAL (Monte-Carlo pass).
+static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
-	var n_asks := 1
-	if level >= QUEST_3ASK_LEVEL:
-		n_asks = 3
-	elif level >= QUEST_2ASK_LEVEL:
-		n_asks = 2
-	n_asks = mini(n_asks, lines.size())
 	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER - 1)
 	var newest: int = int(lines[lines.size() - 1])
-	var asks: Array = []
-	for _a in n_asks:
-		var li := _weighted_line_pick(lines, rng)
-		var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
-		if li == newest:                                # the freshest line eases in low
-			tier = mini(tier, QUEST_DEBUT_TIER_CAP)
-		var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
-		asks.append({"line": li, "tier": tier, "count": count})
+	var li := _weighted_line_pick(lines, rng, avoid)
+	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
+	if li == newest:                                    # the freshest line eases in low
+		tier = mini(tier, QUEST_DEBUT_TIER_CAP)
+	var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
+	var asks: Array = [{"line": li, "tier": tier, "count": count}]
 	var reward: Dictionary = quest_reward(asks)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
@@ -439,116 +442,93 @@ static func burst_upgrade_cost(level: int) -> int:
 static func burst_upgrade_max() -> int:
 	return BURST_UPGRADE_COSTS.size()
 
-# --- §8/§10 home-hub yield + upgrade-levels (the v1 KEYSTONE coin loop, grove_spec §3) -----
-# A restored hub YIELD building sits at L1, then UPGRADES with coins L1→Lⁿ (richer look + higher
-# yield); each accrues coins over time to a PER-BUILDING CAP (≈ a day), swept in one collect-on-
-# return beat. Data-driven — every number reads the game's HUB_* tables (grove_data). The
-# KEYSTONE INVARIANT (extend, never self-sustain): the cap bounds the daily yield well under the
-# coin SINK demand (the hub-upgrade ladder it funds + burst + cosmetics). PROVISIONAL feel dials.
+# --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
+# Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
+# into one a tier up (cascading). The roster is persisted (Save.residents…); the ambient
+# display rebuilds from it (stateless), with NO cap. A map is addressed by int `z`; the data
+# layer keys by map_id (MAPS[z].id). Cost: coins for core/non-premium, diamonds for premium.
 
-## The `kind` of map `z`'s spot `id` — the hub seam: "yield" (coin-producing, coin-upgradable),
-## "decor" (style-variant cosmetic, no yield), or "" (a non-hub map's plain restoration spot).
-## Reads the spot def off MAPS; "" when the spot/map is unknown (defensive).
-static func spot_kind(z: int, spot_id: String) -> String:
-	if z < 0 or z >= MAPS.size():
-		return ""
-	for sp in MAPS[z].spots:
-		if String(sp.id) == spot_id:
-			return String(sp.get("kind", ""))
-	return ""
+## Can the player welcome residents on map `z`? Only on a fully-completed map (spots done +
+## gate delivered) — the same bar as `map_complete`. (Welcoming lives on the finished map.)
+static func can_populate(z: int, unlocks: Dictionary, gates: Array) -> bool:
+	return map_complete(z, unlocks, gates)
 
-## Is map `z`'s spot a YIELD building (it accrues coins when restored, and upgrades for more)?
-## The single seam the keystone reads — décor + plain spots are false (they never yield).
-static func spot_is_yield(z: int, spot_id: String) -> bool:
-	return spot_kind(z, spot_id) == "yield"
+## The resident types OFFERED on map `z`: the shared core + that map's signature (each a
+## Dictionary {id, name, premium?}). Delegates to the game data, addressed by the map's id.
+static func resident_lines(z: int) -> Array:
+	return D.resident_lines(String(MAPS[z].id))
 
-## The hub's max building level (L1 restore → this cap, via coin upgrades). Reads HUB_MAX_LEVEL.
-static func hub_max_level() -> int:
-	return int(HUB_MAX_LEVEL)
+## The cost to welcome a t1 of `type_def`: {currency, cost}. Premium (signature, marked) types
+## cost diamonds (RESIDENT_PREMIUM_COST); everything else costs coins (RESIDENT_BASE_COST).
+static func resident_cost(type_def: Dictionary) -> Dictionary:
+	if bool(type_def.get("premium", false)):
+		return {"currency": "diamonds", "cost": int(RESIDENT_PREMIUM_COST)}
+	return {"currency": "coins", "cost": int(RESIDENT_BASE_COST)}
 
-## The coin YIELD RATE of a yield building at `level`, in 🪙 PER HOUR (0 at L0 = unrestored).
-## Clamped to the HUB_YIELD_RATE table so an over-cap level reads the top entry (never crashes).
-static func hub_yield_rate(level: int) -> float:
-	if HUB_YIELD_RATE.is_empty():
-		return 0.0
-	return float(HUB_YIELD_RATE[clampi(level, 0, HUB_YIELD_RATE.size() - 1)])
+## The res:// art path for a resident `type_id` (reuses the CHARACTER_ART convention via Game.art).
+static func resident_art(type_id: String) -> String:
+	return Game.art(RESIDENT_ART % type_id)
 
-## The per-building ACCRUAL CAP of a yield building at `level`, in 🪙 (≈ a day's worth). Accrual
-## clamps here so one building never piles up past ~a day. Clamped to the HUB_YIELD_CAP table.
-static func hub_yield_cap(level: int) -> int:
-	if HUB_YIELD_CAP.is_empty():
-		return 0
-	return int(HUB_YIELD_CAP[clampi(level, 0, HUB_YIELD_CAP.size() - 1)])
+## Flatten map `z`'s persisted roster into one {type, tier} per resident INSTANCE — what the
+## wander layer renders. Stable order: resident_lines order, then tier 1..MAX, pushing one copy
+## per counted resident. Reads the counts off Save (no merge here — that's resolve_…).
+static func resident_members(z: int) -> Array:
+	var map_id := String(MAPS[z].id)
+	var out: Array = []
+	for type_def in resident_lines(z):
+		var tid := String(type_def.id)
+		var counts: Array = Save.resident_counts(map_id, tid)
+		for t in range(1, RESIDENT_MAX_TIER + 1):
+			var n := int(counts[t - 1]) if t - 1 < counts.size() else 0
+			for _i in n:
+				out.append({"type": tid, "tier": t})
+	return out
 
-## The COIN COST to upgrade ONE yield building from `level` to `level+1` (the coin sink with
-## teeth). Returns −1 when there is no next level — at/above hub_max_level, or below L1 (L0→L1 is
-## the Stars RESTORE, never a coin buy). Mirrors burst_upgrade_cost's "−1 = can't upgrade" contract.
-static func hub_upgrade_cost(level: int) -> int:
-	if level < 1 or level >= hub_max_level():
-		return -1
-	if level >= HUB_UPGRADE_COST.size():
-		return -1
-	var c := int(HUB_UPGRADE_COST[level])
-	return c if c > 0 else -1
+## Resolve all pending two-of-a-kind merges on map `z`, cascading upward: for each type, for each
+## tier below the cap, while ≥2 sit at that tier, consume two and add one a tier up. Persists the
+## new counts (Save.set_resident_counts) and returns the merge events [{type, from, to}], in order.
+static func resolve_resident_merges(z: int) -> Array:
+	var map_id := String(MAPS[z].id)
+	var events: Array = []
+	for type_def in resident_lines(z):
+		var tid := String(type_def.id)
+		var counts: Array = Save.resident_counts(map_id, tid).duplicate()
+		var changed := false
+		for tier in range(1, RESIDENT_MAX_TIER):     # 1..(MAX-1): the top tier never merges further
+			while int(counts[tier - 1]) >= 2:
+				counts[tier - 1] = int(counts[tier - 1]) - 2
+				counts[tier] = int(counts[tier]) + 1
+				events.append({"type": tid, "from": tier, "to": tier + 1})
+				changed = true
+		if changed:
+			Save.set_resident_counts(map_id, tid, counts)
+	return events
 
-## The coins ONE yield building at `level` has accrued over `elapsed_secs` since the last collect:
-## clamp(rate_per_sec(level) × elapsed, 0, cap(level)), floored to whole coins. Pure (no save read)
-## — the testable core of the accrual. A non-yielding level (L0) or non-positive elapsed yields 0.
-static func hub_spot_ready(level: int, elapsed_secs: float) -> int:
-	if level <= 0 or elapsed_secs <= 0.0:
-		return 0
-	var per_sec := hub_yield_rate(level) / 3600.0
-	return clampi(int(floor(per_sec * elapsed_secs)), 0, hub_yield_cap(level))
-
-## The TOTAL coins ready to collect across ALL restored hub yield buildings, given `unlocks`
-## (spot ownership) and the wall-clock `now` (unix secs). Sums hub_spot_ready over every yield
-## spot on the hub map that is restored (in unlocks), reading each spot's stored level (Save) and
-## the shared elapsed since the last sweep (now − hub_collected_at). The §8 "one beat" total.
-## A first-ever call (hub_collected_at == 0) measures from boot 0 → the cap binds it (never a flood).
-static func hub_coins_ready(unlocks: Dictionary, now: float) -> int:
-	var z := hub_map()
-	if z < 0 or z >= MAPS.size():
-		return 0
-	var elapsed := now - Save.hub_collected_at()
-	if elapsed <= 0.0:
-		return 0
-	var total := 0
-	for sp in MAPS[z].spots:
-		var sid := String(sp.id)
-		if String(sp.get("kind", "")) != "yield":
-			continue
-		if not unlocks.has(sid):
-			continue
-		total += hub_spot_ready(Save.spot_level(sid), elapsed)
-	return total
-
-## True iff the hub has uncollected yield ready (drives the HUD home-shortcut yield-ready cue).
-static func hub_has_yield_ready(unlocks: Dictionary, now: float) -> bool:
-	return hub_coins_ready(unlocks, now) > 0
-
-## The hub-collect BEAT (§8): sweep all ready yield to the wallet in one go and reset the clock.
-## Credits Save.add_coins(total) + Save.set_hub_collected_at(now) (always resets the clock, even on
-## a 0 sweep, so elapsed restarts from this visit). Returns the total collected (0 = nothing ready).
-## The caller plays the single satisfying collect FX. Grant + clock-reset land in the save together.
-static func hub_collect(unlocks: Dictionary, now: float) -> int:
-	var total := hub_coins_ready(unlocks, now)
-	if total > 0:
-		Save.add_coins(total)
-	Save.set_hub_collected_at(now)
-	return total
-
-## The TOTAL the hub could yield in a day at FULL upgrade (the keystone-invariant bound, reported by
-## the sim): #yield-buildings × the top-level cap. Pure derivation off MAPS + HUB_YIELD_CAP — the
-## ceiling the daily hub faucet can never exceed, which must stay ≪ the coin sink demand.
-static func hub_max_daily_yield() -> int:
-	var z := hub_map()
-	if z < 0 or z >= MAPS.size():
-		return 0
-	var n := 0
-	for sp in MAPS[z].spots:
-		if String(sp.get("kind", "")) == "yield":
-			n += 1
-	return n * hub_yield_cap(hub_max_level())
+## Welcome (buy) one t1 resident of `type_id` on map `z`: charge the cost (coins or diamonds via
+## Save), add one to its t1 count, then resolve cascading merges. Returns {ok, events}: ok=false
+## with no events on insufficient funds; ok=true with the merge events on success.
+static func welcome_resident(z: int, type_id: String) -> Dictionary:
+	var type_def: Dictionary = {}
+	for td in resident_lines(z):
+		if String(td.id) == type_id:
+			type_def = td
+			break
+	if type_def.is_empty():
+		return {"ok": false, "events": []}
+	var cost: Dictionary = resident_cost(type_def)
+	var paid: bool
+	if String(cost.currency) == "diamonds":
+		paid = Save.spend_diamonds(int(cost.cost))
+	else:
+		paid = Save.spend(int(cost.cost), "welcome_resident")
+	if not paid:
+		return {"ok": false, "events": []}
+	var map_id := String(MAPS[z].id)
+	var counts: Array = Save.resident_counts(map_id, type_id).duplicate()
+	counts[0] = int(counts[0]) + 1
+	Save.set_resident_counts(map_id, type_id, counts)
+	var events := resolve_resident_merges(z)
+	return {"ok": true, "events": events}
 
 static func map_for_spots(i: int) -> int:
 	var acc := 0

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://g5bdh7tgv2t5"
-path="res://.godot/imported/bramble_3.png-d52f159b0836a874d29445fba45ce77f.ctex"
+uid="uid://b142eioi74m1d"
+path="res://.godot/imported/ring_level.png-24509ff1f5564fef5d579889dc1df469.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/bramble_3.png"
-dest_files=["res://.godot/imported/bramble_3.png-d52f159b0836a874d29445fba45ce77f.ctex"]
+source_file="res://games/grove/assets/ui/kit/ring_level.png"
+dest_files=["res://.godot/imported/ring_level.png-24509ff1f5564fef5d579889dc1df469.ctex"]
 
 [params]
 

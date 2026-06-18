@@ -25,6 +25,17 @@ const CHARACTER_ART = G.CHARACTER_ART       # type → clothes asset path (game-
 
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 
+# --- residents (the population sub-game) --------------------------------------------
+# Tier reads as "elder": each step up scales the sprite a touch larger and warms its
+# tint, so a merged-up resident looks more settled/venerable without a new asset. These
+# are small, tasteful steps (the cozy look) — kept LOCAL since Tune.Ambient owns the
+# generic-wander dials, and the resident layer is a distinct, no-cap concern.
+const RES_TIER_SCALE_STEP := 0.14      # +this per tier above t1 (t1=1.0, t2=1.14, t3=1.28…)
+const RES_TIER_TINT := Color("#F3D9A6")  # the warm "elder" wash a higher tier leans toward
+const RES_TIER_TINT_STEP := 0.18       # how far toward RES_TIER_TINT each tier above t1 leans
+const RES_POOF_PER_EVENT := 12         # burst particles per merge event
+const RES_POOF_COLOR := Color("#F3D9A6")  # the warm celebratory poof colour
+
 # --- characters --------------------------------------------------------------------
 
 ## The wandering layer. `bounds` = the area they roam; `count` = how many wander
@@ -47,6 +58,85 @@ static func build_layer(bounds: Vector2, count: int, sparse := false) -> Control
 	var tw := layer.create_tween().set_loops()
 	tw.tween_method(func(_t: float) -> void: _update_layer(layer), 0.0, 1.0, Tune.REPATH_SPAN)
 	return layer
+
+## The POPULATION layer (the residents sub-game). Like build_layer, but the wandering set
+## is the map's ROSTER: one sprite per member dict `{type, tier}` from G.resident_members.
+## The roster is the source of truth — the layer is stateless + freely rebuildable (positions
+## stay a pure function of child index + time via _update_layer), so a welcome/merge just
+## rebuilds it. NO cap on member count. Every node IGNOREs the mouse. Higher TIERS read as
+## "elder" via a gentle scale + warm recolour. Art per member = load(G.resident_art(type)),
+## falling back to the shared placeholder body when the sprite is absent.
+static func build_population_layer(bounds: Vector2, members: Array) -> Control:
+	var layer := Control.new()
+	layer.name = "AmbientLayer"          # same node name → _map_tap's spirit-hop find still works
+	layer.size = bounds
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if not Features.on("ambient_characters"):
+		return layer                       # the empty layer keeps the node contract
+	for i in members.size():
+		var m: Dictionary = members[i]
+		layer.add_child(_make_resident(i, String(m.get("type", "")), int(m.get("tier", 1))))
+	_update_layer(layer)                  # correct positions on the very first frame
+	var tw := layer.create_tween().set_loops()
+	tw.tween_method(func(_t: float) -> void: _update_layer(layer), 0.0, 1.0, Tune.REPATH_SPAN)
+	return layer
+
+# One resident sprite: the type's art (G.resident_art) when present, else the shared placeholder
+# body. The TIER is applied visually — a gentle scale step + a warm recolour wash — so a merged-up
+# resident reads as more settled/venerable. Mouse-IGNORE like every wandering sprite.
+static func _make_resident(_i: int, type_id: String, tier: int) -> Control:
+	var ch := Control.new()
+	ch.size = Tune.CHAR_SIZE
+	ch.pivot_offset = Tune.CHAR_SIZE / 2.0
+	ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ch.set_meta("resident", type_id)
+	ch.set_meta("tier", tier)
+	var path := G.resident_art(type_id)
+	if path != "" and ResourceLoader.exists(path):
+		var tex := TextureRect.new()
+		tex.texture = load(path)
+		tex.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ch.add_child(tex)
+	else:
+		# placeholder resident: the same soft rounded body the generic wanderers use
+		var body := Panel.new()
+		body.size = Tune.BODY_SIZE
+		body.position = Tune.BODY_OFFSET
+		var bs := StyleBoxFlat.new()
+		bs.bg_color = Tune.BODY_COLOR
+		bs.set_corner_radius_all(int(Tune.BODY_SIZE.x / 2.0))
+		bs.shadow_color = Tune.BODY_SHADOW
+		bs.shadow_size = Tune.BODY_SHADOW_SIZE
+		body.add_theme_stylebox_override("panel", bs)
+		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ch.add_child(body)
+		for e in Tune.EYE_COUNT:
+			var eye := ColorRect.new()
+			eye.color = Tune.EYE_COLOR
+			eye.size = Tune.EYE_SIZE
+			eye.position = Tune.EYE_ORIGIN + Vector2(e * Tune.EYE_SPACING, 0)
+			eye.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ch.add_child(eye)
+	# TIER as "elder": grow a step + warm the wash, per tier above t1 (t1 is untouched).
+	var steps := float(maxi(tier - 1, 0))
+	if steps > 0.0:
+		ch.scale = Vector2.ONE * (1.0 + RES_TIER_SCALE_STEP * steps)
+		ch.modulate = Color.WHITE.lerp(RES_TIER_TINT, clampf(RES_TIER_TINT_STEP * steps, 0.0, 0.7))
+	return ch
+
+## A one-shot celebratory burst for `count` two-of-a-kind merge events — the merge FLOURISH. Safe
+## to call AFTER a layer rebuild (idempotent; relies on no specific surviving sprite): it plays a
+## warm poof over the layer's center for each event. The roster is already committed by the API, so
+## this is pure juice. A 0-or-fewer count is a no-op.
+static func merge_poof(layer: Control, count: int) -> void:
+	if layer == null or not is_instance_valid(layer) or count <= 0:
+		return
+	var center := layer.size / 2.0
+	for _e in count:
+		FX.burst(layer, center, RES_POOF_COLOR, RES_POOF_PER_EVENT)
 
 static func _update_layer(layer: Control) -> void:
 	if layer == null or not is_instance_valid(layer) or layer.get_meta("paused", false):

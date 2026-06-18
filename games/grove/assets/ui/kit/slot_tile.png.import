@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dul6v8tbd8n61"
-path="res://.godot/imported/fence_grove.png-179660bb1d5d991915b513e2f5143753.ctex"
+uid="uid://03eeu30bbbqn"
+path="res://.godot/imported/slot_tile.png-932071442b919cd0e65034960cc8f99c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/fence_grove.png"
-dest_files=["res://.godot/imported/fence_grove.png-179660bb1d5d991915b513e2f5143753.ctex"]
+source_file="res://games/grove/assets/ui/kit/slot_tile.png"
+dest_files=["res://.godot/imported/slot_tile.png-932071442b919cd0e65034960cc8f99c.ctex"]
 
 [params]
 

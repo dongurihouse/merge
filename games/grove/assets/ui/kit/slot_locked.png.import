@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cshukkphfbmk2"
-path="res://.godot/imported/bramble_2.png-6054db434c12abe67700d0d51c065bb0.ctex"
+uid="uid://dx0miywyde65k"
+path="res://.godot/imported/slot_locked.png-285c8291a7e2e2a05470600025d4d991.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/bramble_2.png"
-dest_files=["res://.godot/imported/bramble_2.png-6054db434c12abe67700d0d51c065bb0.ctex"]
+source_file="res://games/grove/assets/ui/kit/slot_locked.png"
+dest_files=["res://.godot/imported/slot_locked.png-285c8291a7e2e2a05470600025d4d991.ctex"]
 
 [params]
 

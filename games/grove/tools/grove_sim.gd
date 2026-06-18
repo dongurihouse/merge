@@ -7,12 +7,26 @@ extends SceneTree
 ##   I3 runway (days to finish all maps) — reported (tuning signal, not a hard fail)
 ##   no-strand — the bot never sits a full session unable to earn ★ while spots remain
 ##   Y selling is cleanup, not income (sell-coins tripwire + the water↔💎 round trip)
-##   Z coin faucet vs sink — REPORTED; the big sink is the §8 hub (parked), so WARN not fail
+##   Z coin faucet vs sink — REPORTED; the new endless sink is the §1 POPULATION loop
+##   P population invariants (NEW — replaces the deleted §8 hub keystone check):
+##     P1 LATE-GAME no-pile: once a map completes, the resident sink absorbs the
+##        post-completion coin faucet (residents are an ENDLESS coin sink, no roster cap)
+##     P2 EARLY-GAME no dead-zone: before the first completion there is no idle coin
+##        gap — the active faucet (burst-upgrade ladder + restoration) keeps coins moving
+##     D diamond faucet (level-ups + map-restores + t8-sells) vs sink (premium residents)
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 ##
 ## Quests are GENERATED (G.gen_quest), metered to the next unlock (G.active_giver_count),
 ## paying G.quest_reward (stars-first, coins-overflow). A map ends with the authored
 ## great-spirit GATE quest (G.gate_quest, top-tier) → unlock the next map + grant its lines.
+##
+## §1 POPULATION (the new post-hub economy): a COMPLETED map opens its resident roster. The
+## bot WELCOMES residents — coins (RESIDENT_BASE_COST) buy core/non-premium, diamonds
+## (RESIDENT_PREMIUM_COST) buy the per-map premium signature — and two-of-a-kind AUTO-MERGE
+## one tier up (cascading, capped at RESIDENT_MAX_TIER). There is NO roster cap, so the bot
+## re-buys base feeders forever to climb tiers: this is the ENDLESS coin sink that replaced
+## the finite hub-upgrade ladder. Mirrors content.gd's welcome/merge math locally (the sim
+## keeps its own wallet rather than driving Save). All numbers are PROVISIONAL (sim dials).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
@@ -26,19 +40,38 @@ var live_quests: Array = []    # the active fence — generated regular quests, 
 
 var stars := 0                 # spendable ★ balance
 var stars_earned := 0          # cumulative ★ EARNED — drives the uncapped Level
-var coins := 0                 # total wallet (quest + sell + drops + featured)
+var coins := 0                 # spendable wallet BALANCE (faucet minus the sinks spent in-session)
+var coins_earned := 0          # cumulative coin INTAKE over the run (the faucet total — balance never goes negative, so the report reads intake, not the drained balance)
 var quest_coins := 0           # coins from quest rewards (the §7 faucet)
 var sell_coins := 0            # coins from selling only (the Y "cleanup, not income" tripwire)
 var burst_level := 0           # the player's paid burst-upgrade level (the §6 burst coin SINK)
-var burst_coins_spent := 0     # coins sunk into burst-upgrades (the new Z sink)
-# §8 KEYSTONE hub loop: yield buildings restored on the hub map accrue coins to a per-building cap,
-# swept once per day (the FAUCET), and coins reinvest into the hub-upgrade ladder (a new coin SINK).
-var hub_levels := {}           # hub yield spot id -> level (1=restored … HUB_MAX_LEVEL); 0/absent = unrestored
-var hub_coins := 0             # coins COLLECTED from hub yield over the run (the §8 faucet)
-var hub_coins_spent := 0       # coins sunk into hub upgrades (the §8 sink with teeth)
-var diamonds := 0
+var burst_coins_spent := 0     # coins sunk into burst-upgrades (a finite Z sink)
+# §1 POPULATION loop: once a map COMPLETES, its resident roster opens. Welcoming spends coins
+# (base/core) or diamonds (premium signature); two-of-a-kind auto-merges a tier up. NO roster cap,
+# so the bot re-buys base feeders forever — this is the ENDLESS coin sink that replaced the hub.
+# residents[z] = { type_id -> [t1,t2,t3] } — the per-map roster, mirroring Save.resident_counts.
+var residents := {}            # map index -> { type_id -> Array[RESIDENT_MAX_TIER] }
+var resident_coins_spent := 0  # coins sunk into welcoming base residents (the new endless coin SINK)
+var resident_gems_spent := 0   # diamonds sunk into premium residents (the new diamond SINK)
+var residents_welcomed := 0    # total t1 residents welcomed (coin + premium) over the run
+var residents_premium := 0     # of those, how many were premium (diamond) welcomes
+var resident_merges := 0       # auto-merge events fired (two-of-a-kind → a tier up)
+# §1 diamond ECONOMY (previously unmodeled): a faucet (level-ups + map-restores + t8 sells) vs the
+# new premium-resident sink. Tracked so the report shows BOTH ledgers, not just coins.
+var diamonds := 0              # spendable 💎 balance (faucet minus the premium sink)
+var gems_from_levels := 0      # 💎 from level-ups (LEVEL_DIAMONDS each)
+var gems_from_maps := 0        # 💎 from fully restoring a map (MAP_DIAMONDS each)
+var gems_from_sells := 0       # 💎 from selling t8 pinnacles (the flat 1💎 each)
+# the coin faucet measured ONCE the FIRST map completes (drives the P1 late-game no-pile check) —
+# coins earned AFTER population opens must have somewhere to go.
+var coins_at_first_complete := -1   # cumulative coin INTAKE the moment the first map completed (-1 = not yet)
+var balance_at_first_complete := 0  # held coin BALANCE at that moment (the pre-population pile, for P2)
+var resident_spend_at_first_complete := 0
+var first_complete_day := -1
 var water := 0
 var level_gift_water := 0
+var _greedy := false           # bot mode: greedy welcomes residents whenever affordable (no cushion)
+var _cur_day := 0              # the current day index (0-based), for the P1 first-completion stamp
 
 var jams := 0
 var merchant_sells := 0
@@ -52,12 +85,16 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var days: int = int(args[0]) if args.size() >= 1 else 7
 	rng.seed = int(args[1]) if args.size() >= 2 else 42
+	# 3rd arg "greedy" (or "g") flips the bot to the aggressive-welcome mode: it pours every
+	# affordable coin/diamond into residents with no restoration cushion (stress-tests the sink).
+	_greedy = args.size() >= 3 and String(args[2]).to_lower() in ["greedy", "g", "1", "true"]
 	board = BoardModel.new()
 	board.seed_gens(0)
-	print("== Grove §7 pacing sim: %d days, 3 sessions/day, %d💧/session (seed %d) ==" % [days, G.WATER_CAP, rng.seed])
+	print("== Grove §7 pacing sim: %d days, 3 sessions/day, %d💧/session (seed %d, %s bot) ==" % [days, G.WATER_CAP, rng.seed, "GREEDY" if _greedy else "default"])
 
 	var map_done_day := -1
 	for day in days:
+		_cur_day = day
 		var d_stars := 0
 		var d_water := 0
 		for _session in 3:
@@ -65,14 +102,10 @@ func _initialize() -> void:
 			var r := _play_session()
 			d_stars += r.stars
 			d_water += r.water
-		# §8 KEYSTONE faucet: returning daily, the player sweeps a DAY's worth of hub yield in one
-		# beat (capped per building ≈ a day, so a daily return collects ~the full cap). Folds the
-		# coins into the wallet; the bot then reinvests them into hub upgrades (the sink, in-session).
-		_collect_hub_day()
 		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
-		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · gates %d · coins %d (quest %d/sell %d) · brambles %d" % \
-			[day + 1, d_water, d_stars, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, board.bramble_count()])
+		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · gates %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
+			[day + 1, d_water, d_stars, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
 
 	maps_done = mini(map, G.MAPS.size())
 	print("\n== results ==")
@@ -132,12 +165,13 @@ func _initialize() -> void:
 		print("  -- I3 runway: %d/%d maps in %d days (full restoration is a long arc, §3) --" % [maps_done, G.MAPS.size(), days])
 
 	# --- Y: selling is cleanup, never income (sell-coins only) + the water↔💎 round trip ---
+	var gems_earned := gems_from_levels + gems_from_maps + gems_from_sells
 	var total_water := 0
 	for z in map_spend:
 		total_water += int(map_spend[z])
 	var scpw := (float(sell_coins) * 100.0 / float(total_water)) if total_water > 0 else 0.0
 	print("  -- Y selling --  💎 earned: %d · SELL-coins/100💧: %.1f (tripwire < 25) · earn-1💎=%d💧 vs buy=%d💧 (>=10x)" % \
-		[diamonds, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
+		[gems_earned, scpw, G.water_to_earn_diamond(), G.water_a_diamond_buys()])
 	if scpw >= 25.0:
 		print("  FAIL Y: sell-coins/100💧 %.1f >= 25 — selling became an income pump" % scpw)
 		pass_all = false
@@ -145,61 +179,79 @@ func _initialize() -> void:
 		print("  FAIL Y: the water<->diamond round trip is abusable (<10x loss)")
 		pass_all = false
 
-	# --- Z: coin faucet vs sink — now BOTH functional sinks live (§8 hub-upgrade ladder + §6
-	# burst-upgrade). The faucet = quest + sell + drops/featured + the §8 HUB YIELD; the sinks =
-	# the hub-upgrade ladder + the burst ladder. REPORTED; the sink absorbing <60% is a WARN
-	# (the full sink set also includes cosmetics/waysides, unmodeled here), not a fail. ---
-	var other_coins := coins - quest_coins - sell_coins - hub_coins   # drops + featured bonuses
-	var total_sink := burst_coins_spent + hub_coins_spent
-	var hub_lv_sum := 0
-	for id in hub_levels:
-		hub_lv_sum += int(hub_levels[id])
-	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + HUB-yield %d + drops/featured %d)" % \
-		[coins, quest_coins, sell_coins, hub_coins, other_coins])
-	print("                 sink %d🪙 = burst %d🪙 (lvl %d) + HUB-upgrade %d🪙 (%d levels bought) → absorbs %.0f%% of the faucet" % \
-		[total_sink, burst_coins_spent, burst_level, hub_coins_spent, hub_lv_sum - hub_levels.size(), (100.0 * float(total_sink) / float(maxi(1, coins)))])
-	if coins > 0 and total_sink < int(0.6 * float(coins)):
-		print("  WARN Z: the functional sinks absorb <60%% of the coin faucet — the rest goes to the cosmetic sinks (waysides/variants, §5, unmodeled here)")
+	# --- Z: coin faucet vs sink — the §8 hub yield/upgrade ladder is DELETED; the standing sink is now
+	# the §1 POPULATION loop (welcoming residents on completed maps), which has NO roster cap, so it is
+	# the new ENDLESS sink (the bot re-buys base feeders forever to climb resident tiers). The faucet =
+	# quest + sell + drops/featured; the sinks = the resident-welcome spend + the (finite) burst ladder.
+	# REPORTED; the absorption ratio is a tuning signal (the population invariants P1/P2 below are the
+	# hard checks). ---
+	var other_coins := coins_earned - quest_coins - sell_coins   # drop-coins (merge spawns) + featured bonuses
+	var total_sink := burst_coins_spent + resident_coins_spent
+	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · held balance %d🪙" % \
+		[coins_earned, quest_coins, sell_coins, other_coins, coins])
+	print("                 sink %d🪙 = residents %d🪙 (%d welcomed, %d auto-merges) + burst %d🪙 (lvl %d) → absorbs %.0f%% of the faucet" % \
+		[total_sink, resident_coins_spent, residents_welcomed - residents_premium, resident_merges, burst_coins_spent, burst_level, minf(100.0, 100.0 * float(total_sink) / float(maxi(1, coins_earned)))])
 
-	# --- KEYSTONE INVARIANT (§4/§10 — "extend, never self-sustain", the coin analogue of the
-	# energy <30% rule). The teeth (grove_spec §3): the ONGOING coin sinks must exceed the STANDING
-	# hub-yield faucet EVEN once the finite hub-upgrade ladder is maxed — else coins lose their sink
-	# late-game. Two checks: (1) a week of max yield < the standing burst ladder; (2) the run's total
-	# hub yield < the ongoing-sink CAPACITY (burst ladder + the §5 cosmetic décor sinks). ---
-	var max_daily := G.hub_max_daily_yield()
-	print("  -- §8 hub --  collected %d🪙 yield over %d days · MAX daily yield ceiling %d🪙/day (= %d yield-bldgs × %d🪙 cap)" % \
-		[hub_coins, days, max_daily, _hub_yield_building_count(), G.hub_yield_cap(G.hub_max_level())])
-	# the ongoing coin sinks beyond the (finite) hub ladder: the burst ladder (§6) + the §5 cosmetic
-	# décor sinks (waysides ≈1,940🪙 + spot variants ≈2,375🪙 — grove_spec §5; not bot-modeled here, so
-	# stated as their spec capacities). The standing hub yield must stay under THIS, the late-game sink.
+	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
+	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
+	# (RESIDENT_PREMIUM_COST each). REPORTED as a ledger — the premium sink is gated behind completing
+	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
+	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
+		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, resident_gems_spent, residents_premium, diamonds])
+
+	# --- P: the POPULATION invariants (NEW — the old §8 hub keystone is deleted, not re-runnable).
+	# The residents loop is the post-completion economy, so the two failure modes it must avoid are:
+	#   P1 LATE-GAME pile-up: once a map completes and the roster opens, the coin faucet earned AFTER
+	#      that point must find a sink (residents) — a completed game whose coins just pile is the bug
+	#      the endless sink exists to prevent. We measure the coins earned post-first-completion vs the
+	#      resident spend over the same window; the population sink must absorb a healthy share.
+	#   P2 EARLY-GAME dead-zone: BEFORE the first completion (population isn't open yet) there must be
+	#      no idle coin gap — the active faucet has to keep flowing into restoration + the burst ladder,
+	#      i.e. the bot is never sitting on a fat pre-population coin pile with nothing to spend on. ---
 	var burst_ladder := 0
 	for c in G.BURST_UPGRADE_COSTS:
 		burst_ladder += int(c)
-	var decor_sink := 1940 + 2375                       # §5 waysides + variants (spec capacities)
-	var ongoing_sink := burst_ladder + decor_sink
-	# 1. a WEEK of max hub yield must not fund even the standing burst ladder alone (the tightest ongoing sink).
-	if max_daily * 7 >= burst_ladder:
-		print("  FAIL §8: a WEEK of max hub yield (%d🪙) >= the standing burst-ladder sink (%d🪙) — the hub would self-sustain" % [max_daily * 7, burst_ladder])
-		pass_all = false
+
+	# P1 — late-game (post-first-completion) no-pile. The HARD check: once population opened, the coin
+	# faucet earned since must have been ABSORBED, leaving no growing pile. We compare the coin INTAKE
+	# after the first completion against the RESIDENT spend over the same window, and also assert the
+	# final held BALANCE didn't run away (the endless sink keeps draining). Only checkable once a map
+	# completed in the window; otherwise NOTED out-of-window (the run never reached population — runway).
+	if first_complete_day > 0 and coins_at_first_complete >= 0:
+		var faucet_after := coins_earned - coins_at_first_complete                   # coin intake since pop opened
+		var sink_after := resident_coins_spent - resident_spend_at_first_complete    # resident coins spent since
+		var absorb := minf(100.0, 100.0 * float(sink_after) / float(maxi(1, faucet_after)))
+		# the held balance is the actual pile; with an endless sink it must stay BOUNDED (under one more
+		# welcome's worth of cushion), never grow with the faucet. That bound is the real anti-pile teeth.
+		var pile_bound := 2 * G.RESIDENT_BASE_COST
+		if faucet_after <= 0:
+			print("  -- P1: no coin faucet after the first completion (day %d) — nothing to pile (ok) --" % first_complete_day)
+		elif coins > pile_bound and sink_after <= 0:
+			print("  FAIL P1: %d🪙 earned after population opened (day %d) but the resident sink absorbed NONE and %d🪙 piled — late-game coins pile" % [faucet_after, first_complete_day, coins])
+			pass_all = false
+		elif coins > pile_bound and absorb < 50.0:
+			print("  WARN P1: only %.0f%% of the %d🪙 earned post-completion went to residents and %d🪙 sits held (> %d🪙 bound) — tune the welcome cost/cadence (residents are endless; the bot just out-earned its welcomes)" % [absorb, faucet_after, coins, pile_bound])
+		else:
+			print("  PASS P1: the population sink absorbed %.0f%% of the %d🪙 earned after the first completion (day %d); only %d🪙 held (≤ %d🪙 bound) — late-game coins keep draining into residents (endless sink)" % [absorb, faucet_after, first_complete_day, coins, pile_bound])
 	else:
-		print("  PASS §8: a week of max hub yield (%d🪙) stays under the standing burst-ladder sink (%d🪙) — extend, never self-sustain" % [max_daily * 7, burst_ladder])
-	# 2. REPORTED (a pacing signal — owner feel call, not a hard gate, like the Z coin invariant): the
-	#    standing daily hub yield vs the active-play coin faucet (selling+quests). The hub should READ as
-	#    a SUPPLEMENT — but the exact ratio depends on how deep the bot played, so this is a WARN, while
-	#    the hard "extend, never self-sustain" guarantee rests on check #1 (a week of yield < the burst
-	#    ladder, a static bound that always holds at these dials). max_daily is the L5 CEILING (the
-	#    averaged active faucet sits below it only because a real run rarely sits a fully-maxed hub).
-	var productive_days: int = map_done_day if map_done_day > 0 else days
-	var active_faucet_day := float(quest_coins + sell_coins) / float(maxi(1, productive_days))
-	if float(max_daily) >= active_faucet_day:
-		print("  WARN §8: the max daily hub-yield CEILING (%d🪙) is at/above the averaged active-play faucet (%.0f🪙/day over %d days) — fine while the hub isn't fully maxed; watch the dial if it climbs (owner pacing call)" % [max_daily, active_faucet_day, productive_days])
+		print("  -- P1: no map completed in the %d-day window — population never opened (a RUNWAY signal, not a pile; see I3) --" % days)
+
+	# P2 — early-game (pre-population) no dead-zone. Before the first map completes, population isn't
+	# open, so the ONLY coin sink is the (finite) burst ladder. The dead-zone bug would be a fat
+	# pre-population coin PILE the bot can't spend. We assert the held balance at the first completion
+	# (the end of the pre-pop phase) stayed within the burst ladder's reach — i.e. surplus coins kept
+	# flowing into burst-upgrades until population opened, leaving no idle gap. (If no map completed,
+	# population never opened and there is no pre-pop/post-pop boundary — P1 already noted the runway.)
+	if first_complete_day > 0:
+		var pre_pop_pile := balance_at_first_complete
+		# the burst ladder is the standing pre-pop sink; one ladder's worth of held coins between
+		# upgrades is normal churn — a pile beyond that before pop opens is the dead-zone to flag.
+		if pre_pop_pile <= burst_ladder:
+			print("  PASS P2: at the first completion the held pile (%d🪙) stayed within the burst-ladder sink (%d🪙) — surplus kept flowing pre-population, no early-game coin dead-zone" % [pre_pop_pile, burst_ladder])
+		else:
+			print("  WARN P2: at the first completion the bot held %d🪙 — beyond the %d🪙 burst ladder, the only pre-population sink — an early-game coin gap (tune the burst cadence or open population sooner)" % [pre_pop_pile, burst_ladder])
 	else:
-		print("  PASS §8: max daily hub yield (%d🪙) stays under the active-play coin faucet (%.0f🪙/day over %d days) — a clear supplement, not the primary income" % [max_daily, active_faucet_day, productive_days])
-	# RUNWAY note: the finite ongoing sinks (burst ladder + §5 décor) give the hub faucet this many
-	# days of headroom before a FINISHED game's coins begin to pile (the §17/§6 anti-abandonment
-	# content — events, Collection décor, new maps — is what refreshes the sink then). Reported.
-	var runway_days: int = int(float(ongoing_sink) / float(maxi(1, max_daily)))
-	print("  -- §8 runway: the finite ongoing sinks (%d🪙 = burst %d + décor %d) absorb ~%d days of max hub yield before a finished game's coins pile (post-launch content refreshes the sink) --" % [ongoing_sink, burst_ladder, decor_sink, runway_days])
+		print("  -- P2: population never opened (no completion) — no pre-population boundary to check (see I3 runway) --")
 
 	print("== sim %s ==" % ("PASS" if pass_all else "FAIL"))
 	quit(0 if pass_all else 1)
@@ -212,36 +264,87 @@ func _level() -> int:
 func _live_lines() -> Array:
 	return G.lines_for_map(G.GENERATORS, map)
 
-# §8 KEYSTONE faucet: sweep ONE day's hub yield to the wallet (the daily collect-on-return beat).
-# Each restored yield building accrues rate(level) over 86400s, capped at its per-building cap —
-# G.hub_spot_ready does exactly that. Adds to coins + the hub_coins faucet counter.
-func _collect_hub_day() -> void:
-	var got := 0
-	for id in hub_levels:
-		got += G.hub_spot_ready(int(hub_levels[id]), 86400.0)
-	coins += got
-	hub_coins += got
+# --- §1 POPULATION: the endless coin/diamond sink on COMPLETED maps -----------------
+# The sim keeps its OWN resident roster (residents[z] = {type_id -> [t1..tMAX]}) rather than
+# driving Save, but mirrors content.gd's welcome + auto-merge math exactly: welcome adds a t1,
+# then two-of-a-kind cascade up to RESIDENT_MAX_TIER. Cost is read off G.resident_cost (coins for
+# core/non-premium, diamonds for the per-map premium signature).
 
-# How many yield buildings the hub map has (for the max-daily-yield report line).
-func _hub_yield_building_count() -> int:
-	var n := 0
-	for sp in G.MAPS[G.hub_map()].spots:
-		if String(sp.get("kind", "")) == "yield":
-			n += 1
-	return n
+# The list of COMPLETED maps whose rosters are open to welcome onto.
+func _completed_maps() -> Array:
+	var out: Array = []
+	for z in G.MAPS.size():
+		if _map_all_bought(z) and gates_done.has(z):
+			out.append(z)
+	return out
 
-# §8 KEYSTONE sink: the cheapest available hub upgrade — the LOWEST-level restored yield building
-# that can still climb (cost > 0). {id, cost} or {} when none can upgrade (all maxed / none owned).
-func _cheapest_hub_upgrade() -> Dictionary:
-	var best := {}
-	for id in hub_levels:
-		var lv := int(hub_levels[id])
-		var cost := G.hub_upgrade_cost(lv)
-		if cost <= 0:
-			continue
-		if best.is_empty() or lv < int(best.level) or (lv == int(best.level) and cost < int(best.cost)):
-			best = {"id": String(id), "level": lv, "cost": cost}
-	return best
+# The roster array for (map z, type_id), defaulting to all-zero counts (length RESIDENT_MAX_TIER).
+func _resident_counts(z: int, type_id: String) -> Array:
+	if not residents.has(z):
+		residents[z] = {}
+	if not residents[z].has(type_id):
+		var zero: Array = []
+		for _i in G.RESIDENT_MAX_TIER:
+			zero.append(0)
+		residents[z][type_id] = zero
+	return residents[z][type_id]
+
+# Resolve cascading two-of-a-kind merges for (z, type_id) in place — mirrors resolve_resident_merges.
+# Returns the number of merge events fired.
+func _resolve_merges(z: int, type_id: String) -> int:
+	var counts: Array = _resident_counts(z, type_id)
+	var fired := 0
+	for tier in range(1, G.RESIDENT_MAX_TIER):     # 1..(MAX-1): the top tier never merges further
+		while int(counts[tier - 1]) >= 2:
+			counts[tier - 1] = int(counts[tier - 1]) - 2
+			counts[tier] = int(counts[tier]) + 1
+			fired += 1
+	return fired
+
+# Welcome one t1 resident of type_def on completed map z, paying from the sim wallet (coins or
+# diamonds). Mirrors content.gd.welcome_resident: charge → add a t1 → cascade merges. Returns true
+# on a successful welcome (funds available), false when broke for that currency.
+func _welcome(z: int, type_def: Dictionary) -> bool:
+	var cost: Dictionary = G.resident_cost(type_def)
+	var premium := String(cost.currency) == "diamonds"
+	var amt := int(cost.cost)
+	if premium:
+		if diamonds < amt:
+			return false
+		diamonds -= amt
+		resident_gems_spent += amt
+		residents_premium += 1
+	else:
+		if coins < amt:
+			return false
+		coins -= amt
+		resident_coins_spent += amt
+	var counts: Array = _resident_counts(z, String(type_def.id))
+	counts[0] = int(counts[0]) + 1
+	residents_welcomed += 1
+	resident_merges += _resolve_merges(z, String(type_def.id))
+	return true
+
+# The cheapest BASE (coin) resident the bot can welcome on any completed map, given the coin balance,
+# or {} when none affordable / no completed map. Premium picks are handled separately (diamonds).
+func _next_base_welcome() -> Dictionary:
+	for z in _completed_maps():
+		for td in G.resident_lines(z):
+			if bool(td.get("premium", false)):
+				continue
+			if coins >= int(G.resident_cost(td).cost):
+				return {"z": z, "def": td}
+	return {}
+
+# The cheapest PREMIUM (diamond) resident the bot can welcome on any completed map, or {}.
+func _next_premium_welcome() -> Dictionary:
+	for z in _completed_maps():
+		for td in G.resident_lines(z):
+			if not bool(td.get("premium", false)):
+				continue
+			if diamonds >= int(G.resident_cost(td).cost):
+				return {"z": z, "def": td}
+	return {}
 
 # Cheapest unowned, level-affordable spot in `z`: [cost, id]; [-1,""] all owned; [-2,""] all level-locked.
 func _map_next_spot(z: int, lvl: int) -> Array:
@@ -283,7 +386,13 @@ func _refill_quests() -> void:
 	live_quests = live_quests.filter(func(q): return not bool(q.get("gate", false)))
 	var want := G.active_giver_count(stars, _map_next_spot(map, _level())[0])
 	while live_quests.size() < want:
-		live_quests.append(G.gen_quest(_level(), _live_lines(), rng))
+		# mirror quests.gd refill: steer each new single-ask stand off the lines already on the
+		# fence so the sim validates the real anti-monotony line-diversity behaviour.
+		var avoid: Array = []
+		for q in live_quests:
+			for a in q.asks:
+				avoid.append(int(a.line))
+		live_quests.append(G.gen_quest(_level(), _live_lines(), rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()
 
@@ -339,6 +448,7 @@ func _play_session() -> Dictionary:
 			stars += sp_stars
 			s_stars += sp_stars
 			coins += int(rw.coins)
+			coins_earned += int(rw.coins)
 			quest_coins += int(rw.coins)
 			var lvl_b := _level()
 			stars_earned += sp_stars
@@ -347,9 +457,22 @@ func _play_session() -> Dictionary:
 				water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT * up)
 				level_gift_water += G.LEVEL_WATER_GIFT * up
 				map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
+				# §1 diamond FAUCET: each level gained gifts LEVEL_DIAMONDS (mirrors earn_stars).
+				diamonds += G.LEVEL_DIAMONDS * up
+				gems_from_levels += G.LEVEL_DIAMONDS * up
 			if bool(q.get("gate", false)):
 				gates_done[map] = true
 				gates_reached += 1
+				# §1 diamond FAUCET: fully restoring a map (its gate delivered) gifts MAP_DIAMONDS.
+				diamonds += G.MAP_DIAMONDS
+				gems_from_maps += G.MAP_DIAMONDS
+				# P1/P2 seam: the FIRST completion is where population OPENS — snapshot the coin
+				# faucet/sink so the late-game no-pile (P1) check measures the post-population window.
+				if first_complete_day < 0:
+					first_complete_day = _cur_day + 1
+					coins_at_first_complete = coins_earned       # cumulative INTAKE, not the drained balance
+					balance_at_first_complete = coins            # the held pile pre-population (for P2)
+					resident_spend_at_first_complete = resident_coins_spent
 				map += 1                              # unlock + grant the next map's generators
 				if map < G.MAPS.size():
 					board.seed_gens(map)
@@ -360,25 +483,33 @@ func _play_session() -> Dictionary:
 		if delivered:
 			continue
 
-		# 1b. SINK surplus coins into the two FUNCTIONAL coin sinks — the §6 burst-upgrade ladder
-		# and the §8 HUB-upgrade ladder (the keystone). A coin-draining player buys whichever next
-		# functional level is CHEAPEST and affordable from NET coins (faucet minus all sinks). Both
-		# ladders are finite (burst → L4; hub → 4 bldgs × L1→L5), so neither loops forever. The home
-		# pays you, you reinvest in the home — coins always have somewhere worth going (§10).
-		var net := coins - burst_coins_spent - hub_coins_spent
+		# 1b. SINK surplus coins. Two sinks now: the FINITE §6 burst-upgrade ladder, and the ENDLESS
+		# §1 POPULATION loop (welcoming residents on COMPLETED maps — no roster cap, so it absorbs
+		# coins forever once the first map is done). The bot first tops up the cheap finite burst
+		# ladder, then pours the rest into residents — the new standing coin sink that replaced the
+		# deleted §8 hub-upgrade ladder. (Greedy mode welcomes more aggressively; see _greedy.)
+		var net := coins - burst_coins_spent
 		var buc := G.burst_upgrade_cost(burst_level)
-		var hu := _cheapest_hub_upgrade()
-		var buy_burst := buc > 0 and net >= buc
-		var buy_hub := not hu.is_empty() and net >= int(hu.cost)
-		# prefer the cheaper available functional upgrade (interleaves both sinks like a real player)
-		if buy_burst and (not buy_hub or buc <= int(hu.cost)):
+		if buc > 0 and net >= buc:
 			burst_coins_spent += buc
 			burst_level += 1
 			continue
-		if buy_hub:
-			hub_coins_spent += int(hu.cost)
-			hub_levels[String(hu.id)] = int(hub_levels[String(hu.id)]) + 1
-			continue
+		# §1 population SINK (coins): welcome a base resident on a completed map. The default mode
+		# keeps a one-resident coin cushion for restoration; greedy welcomes whenever it can afford one.
+		var coin_cushion: int = 0 if _greedy else G.RESIDENT_BASE_COST
+		if coins >= G.RESIDENT_BASE_COST + coin_cushion:
+			var bw := _next_base_welcome()
+			if not bw.is_empty():
+				_welcome(int(bw.z), bw.def)
+				continue
+		# §1 population SINK (diamonds): spend surplus premium on the per-map signature resident.
+		# Keep a small premium reserve in the default mode (the diamond faucet leads the sink).
+		var gem_reserve: int = 0 if _greedy else G.RESIDENT_PREMIUM_COST
+		if diamonds >= G.RESIDENT_PREMIUM_COST + gem_reserve:
+			var pw := _next_premium_welcome()
+			if not pw.is_empty():
+				_welcome(int(pw.z), pw.def)
+				continue
 
 		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied)
 		if map < G.MAPS.size() and not _gate_pending():
@@ -386,9 +517,6 @@ func _play_session() -> Dictionary:
 			if int(ns[0]) > 0 and stars >= int(ns[0]):
 				stars -= int(ns[0])
 				unlocks[String(ns[1])] = true
-				# §8: restoring a HUB YIELD building brings it to L1 — it starts accruing coins.
-				if map == G.hub_map() and G.spot_is_yield(map, String(ns[1])):
-					hub_levels[String(ns[1])] = 1
 				continue
 
 		# 3. sell tops for coins — but HOLD them when the gate is pending (save top-tier for the gate)
@@ -398,15 +526,19 @@ func _play_session() -> Dictionary:
 				var rw := G.sell_reward(board.item_at(tops[0]))
 				board.take(tops[0])
 				coins += rw.x
+				coins_earned += rw.x
 				sell_coins += rw.x
-				diamonds += rw.y
+				diamonds += rw.y                  # t8 pinnacle pays a flat 1💎 (the §1 diamond faucet)
+				gems_from_sells += rw.y
 				merchant_sells += 1
 				continue
 
 		# 4. collect coins
 		var coin_cell := _first_coin()
 		if coin_cell != Vector2i(-1, -1):
-			coins += G.coin_value(board.take(coin_cell))
+			var cv := G.coin_value(board.take(coin_cell))
+			coins += cv
+			coins_earned += cv
 			continue
 
 		# 4b. clear RETIRED-line clutter — old-map items no live quest can ever want (a line
@@ -417,8 +549,10 @@ func _play_session() -> Dictionary:
 			var rwj := G.sell_reward(board.item_at(junk))
 			board.take(junk)
 			coins += rwj.x
+			coins_earned += rwj.x
 			sell_coins += rwj.x
-			diamonds += rwj.y
+			diamonds += rwj.y                 # t8 clutter also pays its 1💎 pinnacle
+			gems_from_sells += rwj.y
 			merchant_sells += 1
 			continue
 

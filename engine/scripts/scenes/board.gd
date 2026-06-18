@@ -16,6 +16,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
@@ -54,10 +55,7 @@ const PORTER_SECS = G.PORTER_SECS
 const TREAT_COST = G.TREAT_COST
 
 # grove board palette (the night-purples retire here)
-const GROUND = Pal.GROUND
 const GROUND_EDGE = Pal.GROUND_EDGE
-const BRAMBLE_BG = Pal.BRAMBLE_BG
-const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
@@ -115,7 +113,7 @@ var level_label: Label            # S10: the shared Lv chip, wired in BOTH scene
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
-var bottom_bar: PanelContainer   # S1: the [Home | hint] plank row
+var bottom_bar: Control          # the painted bottom nav row (Home·Shop·Leaf·Gear·Bag)
 var shop_btn: Button             # T28: kept as a member so the §14 spotlight can target it
 var _spotlight_active := false   # T28: one spotlight at a time (don't stack overlays)
 
@@ -141,16 +139,10 @@ var _water_pending_drained := false   # the starter-pack water credit drains onc
 func _ready() -> void:
 	UiFont.apply()
 	Music.ensure()
-	# AF2: the play surface is the lightest thing because the MAT is light — NOT by
-	# bleaching the background. A LIGHT veil (AC3) washed the painted meadow to a
-	# colorless void; replace it with a gentle warm DIM that recedes the painting
-	# while KEEPING its hue (calm ≠ bleached).
-	Look.background(self, 0.0, Game.art("ui/bg_grove_board.png"))
-	var calm_veil := ColorRect.new()
-	calm_veil.color = Color("#2A2A1E", 0.20)        # soft warm dim — recede, don't erase
-	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	calm_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(calm_veil)
+	# UI redesign: the play surface is a flat SURFACE stage so items pop — replacing the
+	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
+	# A flat neutral field needs no veil.
+	add_child(_field_backdrop())
 	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
 	# never reads as a flat field (sits behind the fence/board content, over the meadow)
 	add_child(Ambient.build_clouds(get_viewport_rect().size))
@@ -211,6 +203,21 @@ func _ready() -> void:
 	gate_btn.add_theme_color_override("font_hover_color", Color("#FBF3EA"))
 	gate_btn.add_theme_color_override("font_pressed_color", Color("#FBF3EA"))
 	gate_btn.add_theme_color_override("font_disabled_color", Color("#FBF3EA", 0.6))
+	# kit art: the painted green pill (`ui/kit/btn_pill_green.png`) replaces the flat
+	# normal/hover/disabled fill when present (the darker flat `pressed` stays as the push
+	# state); the flat boxes above are the fallback. Text padding is kept generous.
+	var gate_tex := Look.kit("btn_pill_green.png")
+	if ResourceLoader.exists(gate_tex):
+		var gst := StyleBoxTexture.new()
+		gst.texture = load(gate_tex)
+		gst.set_texture_margin_all(56.0)
+		gst.content_margin_left = 40.0
+		gst.content_margin_right = 40.0
+		gst.content_margin_top = 16.0
+		gst.content_margin_bottom = 20.0
+		gate_btn.add_theme_stylebox_override("normal", gst)
+		gate_btn.add_theme_stylebox_override("hover", gst)
+		gate_btn.add_theme_stylebox_override("disabled", gst)
 	# AA2: the Decorate CTA gets a RESERVED slot — pinned bottom-center of the BOARD,
 	# above the Home/hint bar and clear of the fence band, so it never covers a giver
 	# or the merchant (the owner's screenshot bug) at any fence population.
@@ -249,67 +256,50 @@ func _ready() -> void:
 	_build_bag_bar()
 	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
 
-	# S1: a COMPACT icon bar pinned bottom-LEFT — [◀ Home][🛒] (owner 2026-06-13:
-	# dropped the inline tooltip; the shop moved here from the top cluster).
+	# UI redesign (board art kit): a CENTERED bottom nav of 5 painted buttons sitting on the
+	# meadow (no bar slab) — [Home · Shop · Leaf · Gear · Bag], matching the new board art.
+	# Same actions as before; the Leaf is the current-scene mark (this IS the board), the Bag
+	# button bounces the inline bag row into view. shop_btn stays a member (§14 spotlight target).
 	var sb_inset := Look.safe_bottom(self)
-	bottom_bar = PanelContainer.new()
-	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color("#33402F", 0.88)
-	bsb.set_corner_radius_all(20)
-	bsb.content_margin_left = 10.0
-	bsb.content_margin_right = 10.0
-	bsb.content_margin_top = 8.0
-	bsb.content_margin_bottom = 8.0
-	bottom_bar.add_theme_stylebox_override("panel", bsb)
-	bottom_bar.anchor_left = 0.0
-	bottom_bar.anchor_right = 0.0
-	bottom_bar.anchor_top = 1.0
-	bottom_bar.anchor_bottom = 1.0
-	bottom_bar.grow_horizontal = Control.GROW_DIRECTION_END   # size to content rightward
-	bottom_bar.grow_vertical = Control.GROW_DIRECTION_BEGIN    # ...and upward from the bottom edge
-	bottom_bar.offset_left = 12
-	bottom_bar.offset_right = 12
-	bottom_bar.offset_top = -14 - sb_inset
-	bottom_bar.offset_bottom = -14 - sb_inset
 	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 8)
-	bottom_bar.add_child(brow)
-	var home_btn := Look.button(tr("◀ Home"), func() -> void:
+	brow.add_theme_constant_override("separation", 14)
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	bottom_bar = brow
+	brow.anchor_left = 0.5
+	brow.anchor_right = 0.5
+	brow.anchor_top = 1.0
+	brow.anchor_bottom = 1.0
+	brow.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	brow.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	brow.offset_top = -16 - sb_inset
+	brow.offset_bottom = -16 - sb_inset
+	var home_btn := _make_nav_button("nav_home.png", 64.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
-	home_btn.custom_minimum_size = Vector2(150, 58)
-	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
 	brow.add_child(home_btn)
-	shop_btn = Button.new()             # the Store, relocated from the top cluster
-	shop_btn.flat = true
-	shop_btn.focus_mode = Control.FOCUS_NONE
-	shop_btn.custom_minimum_size = Vector2(58, 58)
-	shop_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var sc := Look.icon("cart", 40.0)
-	sc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shop_btn.add_child(sc)
-	Look.add_press_juice(shop_btn)
-	shop_btn.pressed.connect(func() -> void:
+	shop_btn = _make_nav_button("nav_shop.png", 64.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
-	# the Settings gear — music/sounds/calm reachable from the board (was map-only; the player
-	# had to trip Home for it). Same shared card the map's gear opens (ui/settings.gd).
-	var settings_btn := Button.new()
-	settings_btn.flat = true
-	settings_btn.focus_mode = Control.FOCUS_NONE
-	settings_btn.custom_minimum_size = Vector2(58, 58)
-	settings_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var gi := Look.icon("gear", 40.0)
-	gi.set_anchors_preset(Control.PRESET_FULL_RECT)
-	settings_btn.add_child(gi)
-	Look.add_press_juice(settings_btn)
-	settings_btn.pressed.connect(func() -> void:
+	# the Leaf — this scene's own mark (slightly larger, the green centerpiece); a tap just
+	# bounces it (you're already on the board), so it reads as "you are here".
+	var leaf_btn := _make_nav_button("nav_leaf.png", 84.0, func() -> void:
+		Audio.play("button_tap", -2.0))
+	leaf_btn.disabled = false
+	brow.add_child(leaf_btn)
+	# the Settings gear — same shared card the map's gear opens (ui/settings.gd).
+	var settings_btn := _make_nav_button("nav_gear.png", 64.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		SettingsUI.open(self))
 	brow.add_child(settings_btn)
+	# the Bag — bounces the inline bag row (the live drag-to-bag system stays on the board).
+	var bag_btn := _make_nav_button("nav_bag.png", 64.0, func() -> void:
+		Audio.play("button_tap", -2.0)
+		if bag_bar != null and is_instance_valid(bag_bar):
+			FX.breathe_once(bag_bar))
+	brow.add_child(bag_btn)
 	add_child(bottom_bar)
 
 	_build_hud()
@@ -784,28 +774,14 @@ func _rebuild_givers() -> void:
 	# AB/owner fix: the fence sprite's background is now cut to transparent
 	# (games/tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
 	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
-	if ResourceLoader.exists(Game.art("ui/fence_grove.png")):
-		var wt := TextureRect.new()
-		wt.texture = load(Game.art("ui/fence_grove.png"))
-		wt.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		wt.stretch_mode = TextureRect.STRETCH_SCALE
-		wt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wt)
-	else:
-		var wall_bg := Panel.new()
-		wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ws := StyleBoxFlat.new()
-		ws.bg_color = Color("#6E4B2F", 0.94)
-		ws.set_corner_radius_all(18)
-		ws.set_border_width_all(4)
-		ws.border_color = Color("#3D2A1B")
-		ws.shadow_color = Color(0, 0, 0, 0.3)
-		ws.shadow_size = 6
-		ws.shadow_offset = Vector2(0, 4)
-		wall_bg.add_theme_stylebox_override("panel", ws)
-		wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wall_bg)
+	# UI redesign: the quest band is a LIGHT Rest-plane strip — the dark wooden fence
+	# (fence_grove.png) / brown plank became the loudest dark element once the board went light,
+	# so it's replaced by a soft warm-neutral band the busts + cream ask-pills ride on.
+	var wall_bg := Panel.new()
+	wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wall_bg.add_theme_stylebox_override("panel", _quest_band_style())
+	wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wall.add_child(wall_bg)
 	# the stands scroll horizontally when the map is generous (cards stay BIG)
 	var span := giver_bar.size.x
 	if span <= 0.0:
@@ -959,7 +935,7 @@ func _giver_is_payable(e: Dictionary) -> bool:
 				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
 		var badge_lbl: Label = ask.get("badge_lbl")
 		if badge_lbl != null and is_instance_valid(badge_lbl):
-			badge_lbl.add_theme_color_override("font_color", Color("#2F5A2A") if ask_met else Pal.INK)
+			badge_lbl.add_theme_color_override("font_color", Pal.INK)   # neutral both states; the green ✓ glyph marks "met" (green = CTA-only)
 	return payable
 
 func _refresh_giver_lights() -> void:
@@ -1141,8 +1117,46 @@ func _rebuild_pieces() -> void:
 func _make_piece(code: int, size: float) -> Control:
 	return PieceView.make_piece(code, size)
 
+# The garden bed under the grid — the bamboo grid FRAME (`ui/kit/panel_grid.png`) as a
+# nine-patch, sized to the 7×9 grid, with a flat parchment field behind the cells so the
+# gutters read cream (and the frame's own stretched interior + mismatched gridlines stay
+# hidden). Falls back to the code-drawn planter when the kit art is absent.
+const FRAME_OUT := 56.0      # how far the bamboo frame extends OUTSIDE the cell grid
+const FRAME_PATCH := 48.0    # rendered bamboo border thickness (nine-patch margin)
+const FIELD_CREAM := Color("#FADBA7")   # sampled parchment — the gutter colour behind cells
 func _make_board_mat() -> Control:
-	return PieceView.make_board_mat(_board_w(), _board_h())
+	var fp := Look.kit("panel_grid.png")
+	if not ResourceLoader.exists(fp):
+		return PieceView.make_board_mat(_board_w(), _board_h())
+	var bw := _board_w()
+	var bh := _board_h()
+	var mat := Control.new()
+	mat.position = Vector2(-FRAME_OUT, -FRAME_OUT)
+	mat.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
+	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# parchment field — covers the whole inner opening so the cells sit on cream, not on the
+	# frame's stretched interior. Placed at the frame's inner edge (FRAME_PATCH in from each side).
+	var field := Panel.new()
+	field.position = Vector2(FRAME_PATCH, FRAME_PATCH)
+	field.size = mat.size - Vector2(FRAME_PATCH, FRAME_PATCH) * 2.0
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = FIELD_CREAM
+	fs.set_corner_radius_all(16)
+	field.add_theme_stylebox_override("panel", fs)
+	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(field)
+	# the bamboo frame on top of the field's edges (its inner opening reveals the cream field)
+	var frame := NinePatchRect.new()
+	frame.texture = load(fp)
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.patch_margin_left = int(FRAME_PATCH)
+	frame.patch_margin_top = int(FRAME_PATCH)
+	frame.patch_margin_right = int(FRAME_PATCH)
+	frame.patch_margin_bottom = int(FRAME_PATCH)
+	frame.draw_center = false   # the painted interior (with its own gridlines) is dropped; cream field shows
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mat.add_child(frame)
+	return mat
 
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
@@ -1153,17 +1167,92 @@ func _make_slot(cell: Vector2i) -> Panel:
 	var slot := Panel.new()
 	slot.position = _cell_pos(cell)
 	slot.size = Vector2(csz, csz)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#C7BB94", 0.55)
-	sb.set_corner_radius_all(24)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#8A7A52", 0.28)
-	sb.shadow_color = Color(0, 0, 0, 0.20)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 2)
-	slot.add_theme_stylebox_override("panel", sb)
+	slot.add_theme_stylebox_override("panel", _slot_style())
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
+
+# The per-cell empty well: the kit tile-slot sprite (`ui/kit/slot_tile.png`) as a nine-patch,
+# falling back to the code-drawn `_cell_style()` well when the art is absent.
+static func _slot_style() -> StyleBox:
+	var p := Look.kit("slot_tile.png")
+	if ResourceLoader.exists(p):
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = load(p)
+		sbt.set_texture_margin_all(28.0)   # ~180px source corners → crisp at cell size
+		return sbt
+	return _cell_style()
+
+# One painted nav button: a flat Button hosting the kit sprite (`ui/kit/<kit_name>`),
+# centered + aspect-kept in a px×px box, with the shared press juice. Falls back to a glyph
+# Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
+func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var p := Look.kit(kit_name)
+	var mark: Control
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		mark = t
+	else:
+		mark = Look.icon(kit_name.trim_prefix("nav_").trim_suffix(".png"), px * 0.62)
+	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(mark)
+	Look.add_press_juice(b)
+	if cb.is_valid():
+		b.pressed.connect(cb)
+	return b
+
+# The empty playable cell — a Sunk-plane well (UI redesign): CELL_EMPTY fill, a faint
+# inset line, and NO drop shadow (Sunk floats nothing), so it reads as a recessed slot
+# on the SURFACE field. Static so it is unit-testable in isolation (grove_tests).
+static func _cell_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CELL_EMPTY
+	sb.set_corner_radius_all(Tuning.UiSkin.RADIUS_CARD)
+	sb.set_border_width_all(Tuning.UiSkin.INSET_LINE_W)
+	sb.border_color = Tuning.UiSkin.INSET_LINE
+	sb.shadow_color = Tuning.UiSkin.SHADOW_SUNK
+	sb.shadow_size = Tuning.UiSkin.SHADOW_SUNK_SIZE
+	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
+	return sb
+
+# The board backdrop — the painted grove meadow (sky + windmill + fence rail + flowers,
+# `ui/bg_grove_board2.png`). Items + grid pop against it; the dynamic givers/merchant ride
+# over the painted fence band. Falls back to the flat SURFACE field when the art is absent.
+static func _field_backdrop() -> Control:
+	var path := Game.art("ui/bg_grove_board2.png")
+	if ResourceLoader.exists(path):
+		var bg := TextureRect.new()
+		bg.texture = load(path)
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return bg
+	var c := ColorRect.new()
+	c.color = Pal.SURFACE
+	c.set_anchors_preset(Control.PRESET_FULL_RECT)
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
+
+# The quest band behind the givers (UI redesign) — a LIGHT Rest-plane strip (SURFACE_FRAME) with
+# a quiet rim + soft resting shadow, replacing the old dark wooden fence. Static so it is testable.
+static func _quest_band_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.SURFACE_FRAME, 0.92)
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(Pal.BARK, 0.22)
+	sb.shadow_color = Color(0, 0, 0, 0.12)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	return sb
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)

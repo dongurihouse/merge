@@ -253,7 +253,7 @@ class Hud:
 
 	# --- the level chip ----------------------------------------------------------------
 	const LV_PX := 48.0                   # the round level "coin" diameter
-	const LV_TOKEN_BG := Color("#3F6B43") # deep leaf — growth, contrasts the cream pill
+	const LV_TOKEN_BG := Color("#EAD49C") # honey token (de-greened — green is reserved for the CTA); gold ring + ink number
 	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
 	const LV_NUM_SIZE := 26               # the level number inside the token
 	const LVL_PROG_SIZE := 28             # the level-progress fraction to its right
@@ -343,6 +343,14 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const SHADOW_RAISED := Color(0, 0, 0, 0.28)          # primary CTA / floating round buttons
 	const SHADOW_RAISED_SIZE := 10
 	const SHADOW_RAISED_OFFSET := Vector2(0, 5)
+	# --- Sunk tier (UI redesign): the recessive plane BELOW Resting --------------------
+	# Locked/sealed cells + empty wells live here — they float NOTHING (no drop shadow) and
+	# read as carved-in via a faint top inset line, receding under playable content.
+	const SHADOW_SUNK := Color(0, 0, 0, 0.0)             # no drop shadow — Sunk elevates nothing
+	const SHADOW_SUNK_SIZE := 0
+	const SHADOW_SUNK_OFFSET := Vector2(0, 0)
+	const INSET_LINE := Color(0, 0, 0, 0.10)             # faint top inner line so a Sunk well reads carved-in
+	const INSET_LINE_W := 2
 	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
 	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
 
@@ -431,7 +439,7 @@ class Shop:
 	# disc so it pops off the cream card (the bare 56px glyph read tiny + faint on parchment).
 	const HERO_ICON := 72.0               # the enlarged product icon (was the bare HELP_ICON 56)
 	const ICON_PLATE := 108.0             # the soft disc behind the hero icon
-	const ICON_PLATE_BG := Color("#F4E7CA")  # pale honey — lifts the icon off the #F4E9D6 card
+	const ICON_PLATE_BG := Color("#F2EFDC")  # pale disc under card items — matches the grove CARD_PEDESTAL role value
 	const ICON_PLATE_EDGE_ALPHA := 0.16   # disc rim = Color(BARK, this)
 	const HELP_TITLE_SIZE := 27
 	const HELP_CAP_SIZE := 20
@@ -505,7 +513,7 @@ class Shop:
 	# The claimable RED DOT is the shared `Look.badge("dot")` (UiSkin.BADGE_*) — no local dot here.
 	# Local to the shop: a small ink countdown chip on the daily-rotating Featured band, and the
 	# per-card "i" badge (a real button) that opens an item-detail sheet.
-	const CLOCK_BG := Color("#33402F", 0.82)  # ink chip behind the countdown (= INK)
+	const CLOCK_BG := Color("#33402F", 0.55)  # soft ink-tint chip behind the countdown (lightened for the new airy language)
 	const CLOCK_RADIUS := 11
 	const CLOCK_PAD_X := 10.0
 	const CLOCK_PAD_Y := 3.0
@@ -520,7 +528,6 @@ class Shop:
 	const INFO_BODY_SIZE := 24            # its body-paragraph font
 
 	# --- affordability + purchase feedback ---------------------------------------------
-	const DIM_MODULATE := Color(0.72, 0.73, 0.7, 0.92)   # legacy: cards no longer whole-dim — see BUY_NEED_MODULATE (the pill dims, the card stays bright)
 	const NEED_OFFSET := Vector2(100, 70)  # "Need N more" floater offset
 	const NEED_SIZE := 28
 	const FLY_ICON := 32.0                # the grant icon that arcs to the wallet

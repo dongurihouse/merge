@@ -86,7 +86,7 @@ var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z}] — the map-select cards
 var variant_hits: Array = []     # [{node, z, k, vid}] — the inline strip's swatch chips
-var upgrade_hits: Array = []     # [{node, z, k}] — the hub yield-building coin-upgrade pills (§8)
+var resident_hits: Array = []    # [{node, z, type}] — the "welcome a spirit" panel's kind rows (residents §1)
 var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
@@ -101,7 +101,6 @@ var coins_label: Label
 var _hud_refresh := Callable()
 var _2x_offer: Control = null     # T45: the post-collect "double your coins" rewarded-ad card (opt-in, dismissible)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
-var _home_cue := Callable()       # toggles the §8 home-shortcut yield-ready pip (Hud.home_cue)
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
@@ -269,11 +268,6 @@ func _open_map(z: int) -> void:
 	Save.grove_write()
 	_build_map()
 	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
-	# §8 keystone: entering/returning to the HUB sweeps all ready yield in ONE beat (the home
-	# pays you). Credit + clock-reset happen NOW (correct even headless / pre-layout); the single
-	# satisfying collect FX is deferred a frame so the wallet chip has a real global rect to arc to.
-	if z == G.hub_map():
-		_collect_hub_yield()
 
 func _open_select() -> void:
 	_view = "select"
@@ -342,41 +336,6 @@ func _build_backdrop() -> Control:
 			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			layer.add_child(c)
 	return layer
-
-# §8 keystone — the hub-collect BEAT. Sweep every restored yield building's accrued coins to the
-# wallet in ONE go and reset the accrual clock (G.hub_collect does the credit + reset together).
-# Always runs the economy immediately (correct headless / pre-layout); when in-tree it then plays a
-# single satisfying collect FX — a coin arcs to the wallet chip + a shout — deferred a frame so the
-# chip has a real global rect. A 0-yield open silently no-ops the FX (the clock still reset).
-func _collect_hub_yield() -> void:
-	var got := G.hub_collect(unlocks, Time.get_unix_time_from_system())
-	if got <= 0:
-		_refresh_home_cue()
-		return
-	_update_hud()
-	_refresh_home_cue()
-	if get_tree() == null or not is_inside_tree():
-		return
-	_hub_collect_fx.call_deferred(got)
-
-func _hub_collect_fx(amount: int) -> void:
-	if not is_inside_tree():
-		return
-	await get_tree().process_frame
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	var chip: Control = _hud_panels[0] if _hud_panels.size() > 0 and is_instance_valid(_hud_panels[0]) else null
-	var center := get_global_rect().get_center()
-	Audio.play("level_complete", -5.0, 1.15)
-	# a coin arcs from the hub center to the wallet chip, then the wallet ticks; plus a warm shout.
-	FX.fly_to_wallet(self, center, Look.icon("coin", 44.0), chip, func() -> void: _update_hud())
-	FX.celebrate_reward(self, center - Vector2(0, 40), "coin", amount, Color("#E3B23C"))
-	FX.floating_text(self, center - Vector2(150, 110), tr("The home gathered some coins ✿"), CREAM, 28)
-	# T45: AUTO-COLLECT TENSION — the hub already swept the coins for free (above). So the 2× ad is
-	# a POST-collect DOUBLER, not a pre-collect choice: an OPT-IN card offering to watch a cloud and
-	# add the SAME amount again. It never auto-plays, never blocks (tap-away dismisses), and only
-	# appears when the rewarded ad is offerable (capped + cooled, §4/§10). Decline = keep your coins.
-	_maybe_offer_2x(amount, center)
 
 # T45: the cozy, optional 2×-collect DOUBLER card. Surfaced AFTER an automatic hub-collect of
 # `got` coins, only when the rewarded ad is offerable (Ads.can_show — capped + cooled). A small
@@ -481,7 +440,7 @@ func _build_map() -> void:
 	spot_hits.clear()
 	select_hits.clear()
 	variant_hits.clear()
-	upgrade_hits.clear()
+	resident_hits.clear()
 	var z := _map_idx
 	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
 	# floats over. Background art fills it; spots ride this same rect, so the painting and the
@@ -523,8 +482,13 @@ func _build_map() -> void:
 		decor = _load_decor_list(z)           # trees/grass/clouds placed in the map placer
 		_add_placed_clouds(decor, _map_rect)
 		_add_decor(decor, "back", _map_rect)
-	# ambient life + title — both render paths
-	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
+	# ambient life + title — both render paths. On a COMPLETED map the wanderers ARE its residents
+	# (the §1 population sub-game); an in-progress map keeps the baseline generic ambient.
+	var amb: Control
+	if G.can_populate(z, unlocks, _gates()):
+		amb = Ambient.build_population_layer(_map_rect.size, G.resident_members(z))
+	else:
+		amb = Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
@@ -536,6 +500,9 @@ func _build_map() -> void:
 			content.add_child(spot)
 			spot_hits.append({"node": spot, "z": z, "k": k})
 		_add_decor(decor, "front", _map_rect)
+	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
+	if G.can_populate(z, unlocks, _gates()):
+		_add_welcome_panel(z)
 	FX.pop_in(content)
 
 # --- §16 mask-reveal home (the hub) ------------------------------------------------------
@@ -579,9 +546,7 @@ func _build_home(z: int, home: Dictionary) -> void:
 				var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
 				if String(vcur.id) != "base":
 					rev.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28)
-			hit = _home_owned_item(z, k, b)               # carries the upgrade pill + customize strip
-			if z == G.hub_map() and G.spot_is_yield(z, sid):
-				_add_upgrade_pill(hit, z, k)
+			hit = _home_owned_item(z, k, b)               # carries the inline customize strip
 			if _customize_spot == sid:
 				_add_variant_strip(hit, z, k)
 		else:
@@ -952,77 +917,9 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		item.add_child(stack)
 		if not gated and z == _frontier_map() and _is_cheapest_open(z, k, lvl):
 			FX.breathe_once(item)
-	# §8 keystone: an OWNED hub YIELD building wears a coin-upgrade pill — its current level
-	# and (until maxed) the next upgrade cost. Tapping it spends coins → +1 level (richer look +
-	# higher yield). Décor + non-hub spots never get it. A breathe nudges an affordable upgrade.
-	if owned and z == G.hub_map() and G.spot_is_yield(z, String(spot.id)):
-		_add_upgrade_pill(item, z, k)
 	if owned and _customize_spot == String(spot.id):
 		_add_variant_strip(item, z, k)
 	return item
-
-# §8: the coin-upgrade affordance on an owned hub yield building. A compact pill above the spot:
-# "Lk" when maxed, else "Lk · 🪙N" (the cost to reach L k+1). Tapping it (resolved via upgrade_hits)
-# spends N coins and raises the level. An IGNORE visual; the content surface resolves the tap. The
-# pill breathes when the upgrade is currently affordable — a subtle "spend your coins here" cue.
-func _add_upgrade_pill(item: Control, z: int, k: int) -> void:
-	var spot_id := String(G.MAPS[z].spots[k].id)
-	var level: int = Save.spot_level(spot_id)
-	var cost: int = G.hub_upgrade_cost(level)
-	var maxed: bool = cost < 0
-	var pill := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color("#E8C84A", 0.92) if maxed else Color(INK, 0.86)
-	ps.set_corner_radius_all(14)
-	ps.set_border_width_all(2)
-	ps.border_color = Color("#E8C84A") if maxed else STRAW
-	ps.content_margin_left = 10.0
-	ps.content_margin_right = 10.0
-	ps.content_margin_top = 4.0
-	ps.content_margin_bottom = 4.0
-	pill.add_theme_stylebox_override("panel", ps)
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(row)
-	var lv := Label.new()
-	lv.text = tr("Lv %d") % level
-	lv.add_theme_font_size_override("font_size", 19)
-	lv.add_theme_color_override("font_color", INK if maxed else CREAM)
-	lv.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lv.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lv)
-	if maxed:
-		var star := Look.icon("star", 18.0)
-		star.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(star)
-	else:
-		var up := Label.new()
-		up.text = "▲"
-		up.add_theme_font_size_override("font_size", 15)
-		up.add_theme_color_override("font_color", STRAW)
-		up.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		up.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(up)
-		var ci := Look.icon("coin", 18.0)
-		ci.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(ci)
-		var cl := Label.new()
-		cl.text = str(cost)
-		cl.add_theme_font_size_override("font_size", 19)
-		cl.add_theme_color_override("font_color", CREAM)
-		cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(cl)
-	# pinned just ABOVE the spot's center plot (the furniture fills the middle); shrink-centered.
-	pill.position = Vector2(90, -2)
-	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	item.add_child(pill)
-	upgrade_hits.append({"node": pill, "z": z, "k": k})
-	if not maxed and Save.coins() >= cost:
-		FX.breathe_once(pill)
 
 # The inline customize strip (chips are IGNORE visuals resolved by content's
 # input surface via variant_hits).
@@ -1086,7 +983,7 @@ func _build_select() -> void:
 	spot_hits.clear()
 	select_hits.clear()
 	variant_hits.clear()
-	upgrade_hits.clear()
+	resident_hits.clear()
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
 	# the header — the grove's name, an invitation to choose
@@ -1344,11 +1241,12 @@ func _map_tap(gpos: Vector2) -> void:
 		if vn.get_global_rect().grow(6.0).has_point(gpos):
 			_apply_variant(int(hit.z), int(hit.k), String(hit.vid), gpos)
 			return
-	# §8 upgrade pills sit ABOVE their owned spot — resolve them before the spot's own tap.
-	for hit in upgrade_hits:
-		var un: Control = hit.node
-		if un.get_global_rect().grow(6.0).has_point(gpos):
-			_on_upgrade_tap(int(hit.z), int(hit.k), un, gpos)
+	# §1 residents: the "welcome a spirit" panel's kind rows float over the map — resolve them
+	# before the spots so a tap on the panel never falls through to a spot behind it.
+	for hit in resident_hits:
+		var rn: Control = hit.node
+		if rn.get_global_rect().grow(6.0).has_point(gpos):
+			_on_welcome_tap(int(hit.z), String(hit.type), rn, gpos)
 			return
 	for hit in spot_hits:
 		var n: Control = hit.node
@@ -1393,11 +1291,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		FX.floating_text(self, at - Vector2(110, 64), tr("Need %d more") % (cost - Save.stars()), Color(CREAM, 0.9), 30)
 		return
 	unlocks[String(spot.id)] = true
-	# §8 keystone: restoring a HUB spot brings it to L1 — the start of the coin upgrade ladder
-	# (a yield building immediately drips its L1 base yield; a décor spot just reads "restored").
-	# Non-hub maps don't run the level system, so only the hub map records a level.
-	if z == G.hub_map():
-		Save.set_spot_level(String(spot.id), 1)
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
 	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
@@ -1450,32 +1343,113 @@ func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
 	_build_map()
 	_update_hud()
 
-# §8 keystone: a coin-upgrade pill was tapped on an owned hub yield building. Refuse at the cap
-# (a finite ladder — wiggle + "fully upgraded") or when broke (wiggle + "need N more" — never
-# blocks progress, §10), else SPEND the coins and raise the stored level by 1 (richer look +
-# higher yield). The map re-renders (the pill reprices, the spot's variant wash unchanged) and the
-# HUD ticks. Spend-then-bump: Save.spend is atomic, so a refusal leaves the level untouched.
-func _on_upgrade_tap(z: int, k: int, node: Control, at: Vector2) -> void:
-	var spot_id := String(G.MAPS[z].spots[k].id)
-	var level: int = Save.spot_level(spot_id)
-	var cost: int = G.hub_upgrade_cost(level)
-	if cost < 0:                                   # already at the max level — nothing to buy
+# --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
+# On a COMPLETED map the player WELCOMES wandering spirits. A cozy panel lists each welcomable
+# KIND (G.resident_lines) with its name + cost (coin/diamond). Tapping a row welcomes one
+# (G.welcome_resident, which spends + adds + silently auto-merges two-of-a-kind). The roster is
+# the source of truth: on success the population layer is REBUILT from it and a warm merge
+# flourish plays once per merge event. The panel itself is an IGNORE visual; content's input
+# surface resolves the taps via resident_hits.
+
+# The "Welcome a spirit" panel — a small parchment card pinned bottom-center (above the CTA),
+# one tappable row per welcomable kind. Built only on a populatable map; appended under `content`
+# so it clears + rebuilds with the map. Frame copy WELCOMES (never "Buy").
+func _add_welcome_panel(z: int) -> void:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 6)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(col)
+	var head := Label.new()
+	head.text = tr("Welcome a spirit ✿")
+	head.add_theme_font_size_override("font_size", 22)
+	head.add_theme_color_override("font_color", INK)
+	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(head)
+	for type_def in G.resident_lines(z):
+		col.add_child(_welcome_row(z, type_def))
+	# pinned centered, just ABOVE the task strip / CTA stack at the bottom of the map
+	var sb_cta := Look.safe_bottom(self)
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.anchor_top = 1.0
+	card.anchor_bottom = 1.0
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.offset_top = -340 - sb_cta
+	card.offset_bottom = -184 - sb_cta
+	content.add_child(card)
+
+# One welcomable-kind row: the kind's name + its cost (coin/diamond icon + number). An IGNORE
+# visual resolved by content's input surface (registered in resident_hits → _on_welcome_tap).
+func _welcome_row(z: int, type_def: Dictionary) -> Control:
+	var cost: Dictionary = G.resident_cost(type_def)
+	var row_panel := PanelContainer.new()
+	var rs := StyleBoxFlat.new()
+	rs.bg_color = Color(INK, 0.10)
+	rs.set_corner_radius_all(12)
+	rs.content_margin_left = 10.0
+	rs.content_margin_right = 10.0
+	rs.content_margin_top = 5.0
+	rs.content_margin_bottom = 5.0
+	row_panel.add_theme_stylebox_override("panel", rs)
+	row_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row_panel.add_child(row)
+	var name_l := Label.new()
+	name_l.text = tr(String(type_def.name))
+	name_l.add_theme_font_size_override("font_size", 20)
+	name_l.add_theme_color_override("font_color", INK)
+	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.custom_minimum_size = Vector2(150, 0)
+	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(name_l)
+	# the price: the currency SPRITE (coin/gem) + a number-only label (§13 — no baked emoji)
+	var icon_id := "gem" if String(cost.currency) == "diamonds" else "coin"
+	var ci := Look.icon(icon_id, 22.0)
+	ci.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ci)
+	var pl := Label.new()
+	pl.text = str(int(cost.cost))
+	pl.add_theme_font_size_override("font_size", 20)
+	pl.add_theme_color_override("font_color", Color(BARK, 0.95))
+	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(pl)
+	resident_hits.append({"node": row_panel, "z": z, "type": String(type_def.id)})
+	return row_panel
+
+# A welcome-row was tapped: welcome one spirit of `type_id` on map z. G.welcome_resident spends +
+# adds + silently auto-merges. On ok: rebuild the population layer from the now-updated roster, play
+# a warm float-text + a merge flourish once per merge event. On not-ok: the standard "can't afford"
+# feedback (the same wobble + "need more" the spots use).
+func _on_welcome_tap(z: int, type_id: String, node: Control, at: Vector2) -> void:
+	var res := G.welcome_resident(z, type_id)
+	if not bool(res.get("ok", false)):
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 60), tr("Fully upgraded ✿"), Color(CREAM, 0.9), 28)
+		FX.floating_text(self, at - Vector2(110, 60), tr("Not enough — keep tending ✿"), Color(CREAM, 0.9), 26)
 		return
-	if not Save.spend(cost, "hub_upgrade"):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 60), tr("Need %d more") % (cost - Save.coins()), Color(CREAM, 0.9), 28)
-		return
-	Save.set_spot_level(spot_id, level + 1)
-	Audio.play("level_complete", -5.0, 1.15)
+	Audio.play("level_complete", -6.0, 1.15)
 	FX.burst(self, at, STRAW, 14)
-	FX.floating_text(self, at - Vector2(90, 70), tr("%s → Lv %d ✿") % [tr(G.MAPS[z].spots[k].name), level + 1], STRAW, 28)
+	FX.floating_text(self, at - Vector2(120, 70), tr("A new friend wanders in ✿"), STRAW, 26)
+	# the roster changed → rebuild the whole map (the population layer reads the fresh roster). Then
+	# play the merge flourish on the rebuilt layer, once per auto-merge event (the roster is already
+	# committed by the API, so this is pure juice).
 	_build_map()
 	_update_hud()
-	_refresh_home_cue()
+	var events: Array = res.get("events", [])
+	if not events.is_empty():
+		var amb: Control = content.get_node_or_null("AmbientLayer")
+		Ambient.merge_poof(amb, events.size())
+		Audio.play("tidy_poof", -2.0, 1.1)
+		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
+			tr("Two friends became one ✿"), CREAM, 26)
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
@@ -1495,17 +1469,8 @@ func _build_hud() -> void:
 	level_label = hud.level
 	level_prog_label = hud.level_prog
 	_hud_refresh = hud.refresh
-	_home_cue = hud.get("home_cue", Callable())
 	_open_shop = hud.open_shop
 	_hud_panels = [hud.wallet, hud.lv_panel]
-	_refresh_home_cue()
-
-# §8 keystone: light the home-shortcut yield-ready pip iff the hub has uncollected coin yield.
-# Called after HUD build and whenever the hub's ready-state can change (map open, collect, upgrade).
-# On the hub itself it reads false right after the collect beat; off the hub it nudges the return.
-func _refresh_home_cue() -> void:
-	if _home_cue.is_valid():
-		_home_cue.call(G.hub_has_yield_ready(unlocks, Time.get_unix_time_from_system()))
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():
