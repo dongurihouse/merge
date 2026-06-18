@@ -38,106 +38,71 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var wire_tap: Callable = cfg.wire_tap
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
-	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.6)
-	# a wooden sign-board behind the giver — the frameless chest-up cutout used to
-	# blend into the painted fence; a bordered, shadowed plaque lifts each quest off
-	# the rail and makes the row read as distinct cards. The bust's head pokes above
-	# it and the ask pill rides on its face (added after, so both sit in front).
-	var plaque := Panel.new()
-	var plw := 178.0
-	var plh := 150.0
-	plaque.position = Vector2((sw - plw) / 2.0, 60.0)
-	plaque.size = Vector2(plw, plh)
-	# the giver card — a warm parchment-wood board sized to grove's vertical bust+ask layout.
-	# (The kit's `card_quest.png` is a HORIZONTAL speech-bubble card for an NPC-portrait+item
-	#  layout, which doesn't fit this vertical stand — left available for a future redesign.)
-	var pls := StyleBoxFlat.new()
-	pls.bg_color = Color("#E7D3A6", 0.97)         # warm parchment-wood board
-	pls.set_corner_radius_all(22)
-	pls.set_border_width_all(3)
-	pls.border_color = Color("#8A5A3B")           # the bark-brown used by the asks/pill
-	pls.shadow_color = Color(0, 0, 0, 0.34)
-	pls.shadow_size = 9
-	pls.shadow_offset = Vector2(0, 5)
-	plaque.add_theme_stylebox_override("panel", pls)
-	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stand.add_child(plaque)
-	var bust := Bust.make(qi % 2, 150.0)   # UI redesign: enlarged — the character is the card's anchor
-	bust.position = Vector2((sw - 150.0) / 2.0, 0.0)
+	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
+	# A HORIZONTAL quest card (reference layout): the character PORTRAIT on the left, the
+	# requested item LARGE in the speech bubble on the right. The painted `card_quest.png`
+	# IS the card (its bubble sits upper-right); a flat parchment card is the fallback.
+	var cardW := sw - 14.0
+	var cardH := minf(fh - 24.0, cardW * 0.60)
+	var cx := (sw - cardW) / 2.0
+	var cy := (fh - cardH) / 2.0
+	var card := _quest_card(cardW, cardH)
+	card.position = Vector2(cx, cy)
+	card.size = Vector2(cardW, cardH)
+	stand.add_child(card)
+	# the character portrait — left ~40% of the card, vertically centered
+	var bsz := cardH * 0.82
+	var bust := Bust.make(qi % 2, bsz)
+	bust.position = Vector2(cx + cardW * 0.04, cy + (cardH - bsz) / 2.0)
 	stand.add_child(bust)
-	# Tier 2 §2: the idle-bob is NOT started here — it now means "deliverable", so
-	# _refresh_giver_lights gates it per giver via _giver_is_payable. (The bust is
-	# returned in the chip entry so the refresh can reach it.)
-	# juice: the giver pops in when its stand enters the tree (deferred so the
-	# tween is never created on a not-yet-in-tree node — matches bob)
+	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the ask PILL — hugs [item icon + n/m] PER ASK (X3: 1–3 asks), centered under
-	# the bust, on the fence. The capacity is the same pill; multi-ask just adds pairs.
-	var pill := ask_pill()
-	pill.offset_top = 122.0
-	var inner := HBoxContainer.new()
-	inner.add_theme_constant_override("separation", 8)
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(inner)
+	# the requested item(s) — large, inside the speech bubble (right portion of the card)
 	var asks: Array = G.quest_asks(q)
 	var ask_uis: Array = []
+	var bub := Vector2(cx + cardW * 0.66, cy + cardH * 0.40)   # bubble centre (matches the art)
 	if q.has("grant"):                        # §6: a generator-grant quest shows the NEW generator to receive
 		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.grant.grants))
 		var gtex := Game.art(String(gdef.get("tex", "")))
 		if ResourceLoader.exists(gtex):
 			var gicon := TextureRect.new()
 			gicon.texture = load(gtex)
-			gicon.custom_minimum_size = Vector2(56, 56)
 			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			inner.add_child(gicon)
-		var glbl := Label.new()
-		glbl.text = TranslationServer.translate("✿ new tool")
-		glbl.add_theme_font_size_override("font_size", 22)
-		glbl.add_theme_color_override("font_color", Color("#33402F"))
-		glbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(glbl)
-	var isz := 56.0 if asks.size() >= 2 else 62.0
+			var gs := cardH * 0.5
+			gicon.size = Vector2(gs, gs)
+			gicon.position = bub - Vector2(gs, gs) / 2.0
+			stand.add_child(gicon)
+	var isz := (cardH * 0.5) if asks.size() >= 2 else (cardH * 0.62)   # LARGE — the item is the message
+	var span := isz * 0.92
 	for ai in asks.size():
 		var ask: Dictionary = asks[ai]
 		var aline := int(ask.line)
 		var atier := int(ask.tier)
 		var acode := aline * 100 + atier
-		if ai > 0:                              # a "+" joins the pairs of a multi-ask
-			var plus := Label.new()
-			plus.text = "+"
-			plus.add_theme_font_size_override("font_size", 24)
-			plus.add_theme_color_override("font_color", BARK)
-			plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			inner.add_child(plus)
-		# #4: the ASK item — the icon IS the ask; its progress rides ON it as a
-		# corner count-chip (wordless: just the wanted count), and a green ✓ overlays
-		# the corner when this single ask is already satisfied on the board. No
-		# detached "n/m" label anymore. The whole returned {badge_lbl, badge, met}
-		# is driven from _refresh_giver_lights' have>=need test.
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
+		icon.size = Vector2(isz, isz)
 		icon.mouse_filter = Control.MOUSE_FILTER_STOP   # tapping the ITEM shows its ladder
+		# centre the item(s) on the bubble; multi-ask spreads them around it
+		var off := (float(ai) - (asks.size() - 1) / 2.0) * span
+		icon.position = Vector2(bub.x - isz / 2.0 + off, bub.y - isz / 2.0)
 		var piece := PieceView.make_piece(acode, isz)
 		icon.add_child(piece)
-		# the count chip hugs the item's BOTTOM-RIGHT, the ✓ its TOP-RIGHT — both via
-		# anchors (no deferred positioning lambda, so nothing dangles past teardown).
-		var badge := _count_badge(int(ask.count))           # cream chip, bottom-right ON the item
-		badge.anchor_left = 1.0
-		badge.anchor_top = 1.0
-		badge.anchor_right = 1.0
-		badge.anchor_bottom = 1.0
-		badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-		badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
-		badge.offset_left = 5.0
-		badge.offset_top = 5.0
-		badge.offset_right = 5.0
-		badge.offset_bottom = 5.0
-		icon.add_child(badge)
+		# #4: the count chip shows ONLY when more than one is wanted (no lone "1")
+		var badge: PanelContainer = null
+		var badge_lbl: Label = null
+		if int(ask.count) > 1:
+			badge = _count_badge(int(ask.count))
+			badge.anchor_left = 1.0; badge.anchor_top = 1.0; badge.anchor_right = 1.0; badge.anchor_bottom = 1.0
+			badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+			badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
+			badge.offset_left = 5.0; badge.offset_top = 5.0; badge.offset_right = 5.0; badge.offset_bottom = 5.0
+			icon.add_child(badge)
+			badge_lbl = badge.get_child(0)
 		var met := _ask_met_check()                         # green ✓, top-right, hidden until satisfied
 		met.anchor_left = 1.0
 		met.anchor_right = 1.0
@@ -147,55 +112,74 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		met.offset_bottom = met.size.y - 5.0
 		icon.add_child(met)
 		wire_tap.call(icon, func() -> void: ask_tap.call(aline, atier))
-		inner.add_child(icon)
-		ask_uis.append({"code": acode, "need": int(ask.count), "piece": piece, "badge": badge, "badge_lbl": badge.get_child(0), "met": met})
-	stand.add_child(pill)
-	# AB3: the +N★ reward floats at the bust's shoulder — a bare star + count (no
-	# chip slab; an ink outline lifts the number off the scene)
+		stand.add_child(icon)
+		ask_uis.append({"code": acode, "need": int(ask.count), "piece": piece, "badge": badge, "badge_lbl": badge_lbl, "met": met})
+	# the +N★ reward — a small bare star + count, tucked in the card's TOP-RIGHT corner
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 1)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pay.add_child(Look.icon("star", 30.0))
+	pay.add_child(Look.icon("star", 26.0))
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.stars(q)
-	pay_lbl.add_theme_font_size_override("font_size", 24)
+	pay_lbl.add_theme_font_size_override("font_size", 22)
 	pay_lbl.add_theme_color_override("font_color", STRAW)
 	pay_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
 	pay_lbl.add_theme_constant_override("outline_size", 5)
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
-	pay.position = Vector2(sw / 2.0 + 30.0, 6.0)
+	pay.position = Vector2(cx + cardW - 78.0, cy + 6.0)
 	stand.add_child(pay)
-	# §7 FEATURED: a small random share of regular quests are featured — flag it on the fence.
-	# A code-drawn gold ribbon sits above the bust ("this one's special"); when the featured
-	# bonus rolled a premium, a +N💎 rides the shoulder under the ★. The bonus is coins/premium,
-	# never extra ★ (the ★ shoulder above is untouched by featuring).
+	# §7 FEATURED: a gold ribbon crowns a featured card; a +N💎 rides under the ★ when premium.
 	if bool(q.get("featured", false)):
 		var ribbon := _featured_ribbon()
-		ribbon.position = Vector2((sw - 122.0) / 2.0, -2.0)
+		ribbon.position = Vector2(cx + 8.0, cy - 12.0)
 		stand.add_child(ribbon)
 		var feat_gems := Quests.gems(q)
 		if feat_gems > 0:
 			var gem_pay := HBoxContainer.new()
 			gem_pay.add_theme_constant_override("separation", 1)
 			gem_pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			gem_pay.add_child(Look.icon("gem", 26.0))
+			gem_pay.add_child(Look.icon("gem", 24.0))
 			var gem_lbl := Label.new()
 			gem_lbl.text = "+%d" % feat_gems
-			gem_lbl.add_theme_font_size_override("font_size", 22)
+			gem_lbl.add_theme_font_size_override("font_size", 20)
 			gem_lbl.add_theme_color_override("font_color", Color("#BFE6F2"))
 			gem_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
 			gem_lbl.add_theme_constant_override("outline_size", 5)
 			gem_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 			gem_pay.add_child(gem_lbl)
-			gem_pay.position = Vector2(sw / 2.0 + 30.0, 38.0)
+			gem_pay.position = Vector2(cx + cardW - 76.0, cy + 36.0)
 			stand.add_child(gem_pay)
-	# AB3: the ready check docks on the pill's TOP-LEFT corner (no ring border)
+	# the ready check — sits at the card's bottom-right corner when the quest is payable
 	var check := _ready_check()
+	check.position = Vector2(cx + cardW - 46.0, cy + cardH - 46.0)
 	stand.add_child(check)
-	_dock_check(check, pill, stand)
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
 	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": check, "bust": bust}
+
+# The quest card surface: the painted `ui/kit/card_quest.png` (horizontal speech-bubble card)
+# stretched to the card rect; a flat parchment card when the art is absent.
+static func _quest_card(w: float, h: float) -> Control:
+	var p := Look.kit("card_quest.png")
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var card := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#FBF1D8", 0.98)
+	sb.set_corner_radius_all(20)
+	sb.set_border_width_all(3)
+	sb.border_color = Color("#C9A66B")
+	sb.shadow_color = Color(0, 0, 0, 0.28)
+	sb.shadow_size = 7
+	sb.shadow_offset = Vector2(0, 4)
+	card.add_theme_stylebox_override("panel", sb)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return card
 
 # AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
 # border + shadow), anchored to center on its parent's x and grow both ways.

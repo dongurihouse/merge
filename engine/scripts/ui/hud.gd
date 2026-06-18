@@ -60,11 +60,17 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var open_store := func() -> void: Shop.open(host, shop_opts)
 	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store)
 	_spacer(row)
-	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, true, open_store)
+	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store)
 	_spacer(row)
-	# the GEM always gets a + (the key monetization affordance — the path from "I want
-	# more gems" to the store, which the wallet was missing entirely).
-	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, true, open_store)
+	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store)
+	# the whole currency pill is the acquire affordance now — a tap anywhere on it opens the
+	# store (the per-currency "+" buttons are retired; they bloated the pill + skewed its padding).
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.gui_input.connect(func(ev: InputEvent) -> void:
+		var click: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
+			or (ev is InputEventScreenTouch and not ev.pressed)
+		if click and open_store.is_valid():
+			open_store.call())
 	host.add_child(panel)
 
 	# The top-LEFT cluster: the Lv chip + (when a scene passes `home`) a SEPARATE Home chip,
@@ -83,24 +89,16 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
 	lv_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var lv_sb := StyleBoxFlat.new()
-	lv_sb.bg_color = Tune.PILL_BG               # AC4: soft cream pill
-	lv_sb.set_corner_radius_all(Tune.PILL_RADIUS)
-	lv_sb.set_border_width_all(Tune.PILL_BORDER_W)
-	lv_sb.border_color = Tune.PILL_BORDER       # warm border
-	lv_sb.shadow_color = Tune.PILL_SHADOW
-	lv_sb.shadow_size = Tune.PILL_SHADOW_SIZE
-	lv_sb.content_margin_left = Tune.PILL_PAD_X
-	lv_sb.content_margin_right = Tune.PILL_PAD_X
-	lv_sb.content_margin_top = Tune.PILL_PAD_Y
-	lv_sb.content_margin_bottom = Tune.PILL_PAD_Y
-	lv_panel.add_theme_stylebox_override("panel", lv_sb)
+	# the level badge is the painted rope RING standing alone (reference: the "15" badge) — no
+	# cream pill box behind it and no "n/m" fraction beside it. (lv_panel stays a valid Control
+	# because the map keeps it in its panel list; it just carries no background now.)
+	lv_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var lrow := HBoxContainer.new()
 	lrow.add_theme_constant_override("separation", Tune.LV_ROW_SEP)
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
-	# the level "coin" — a Panel so it can draw the round token stylebox below.
-	var lv_px := Tune.LV_PX
+	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
+	var lv_px := 72.0   # the standalone ring reads larger than the old in-pill token
 	var avatar := Panel.new()
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -110,6 +108,18 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the CTA) when the art is absent, so the chip still reads on any build.
 	var ring_p := Look.kit("ring_level.png")
 	if ResourceLoader.exists(ring_p):
+		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no default dark Panel bg behind the ring
+		# a cream disc fills the ring's open centre (reference: the number reads on cream, not sky)
+		var disc := Panel.new()
+		var dpad := lv_px * 0.16
+		disc.position = Vector2(dpad, dpad)
+		disc.size = Vector2(lv_px - dpad * 2.0, lv_px - dpad * 2.0)
+		var dsb := StyleBoxFlat.new()
+		dsb.bg_color = Color("#FBF3E2")
+		dsb.set_corner_radius_all(int(lv_px))
+		disc.add_theme_stylebox_override("panel", dsb)
+		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		avatar.add_child(disc)
 		var ring := TextureRect.new()
 		ring.texture = load(ring_p)
 		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -125,7 +135,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
 		avatar.add_theme_stylebox_override("panel", coin)
 	var level := Label.new()
-	level.add_theme_font_size_override("font_size", Tune.LV_NUM_SIZE)
+	level.add_theme_font_size_override("font_size", 40)   # big number centered in the ring (reference)
 	level.add_theme_color_override("font_color", INK)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -138,7 +148,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	level_prog.add_theme_color_override("font_color", Color(INK, Tune.LVL_PROG_INK_ALPHA))
 	level_prog.add_theme_constant_override("outline_size", 0)
 	level_prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lrow.add_child(level_prog)
+	# the "n/m" progress fraction is retired from the badge (reference shows the ring + number
+	# only). level_prog stays constructed (the map still reads the dict key) but is never shown.
 	left.add_child(lv_panel)
 
 	# the standalone HOME chip, to the RIGHT of the Lv chip in the shared left row.

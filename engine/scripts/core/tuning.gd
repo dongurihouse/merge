@@ -235,8 +235,8 @@ class Hud:
 	# --- identity tints (modulate over the sprites; star=gold, acorn=warm brown, gem=teal) ---
 	# The art already carries each currency's hue; a gentle modulate REINFORCES the read so
 	# gold/brown/teal stay distinct and the gem stops reading as a blue water drop.
-	const STAR_TINT := Color("#FFE08A")   # warm gold pop on the flower
-	const COIN_TINT := Color("#E7A24A")   # warm acorn brown
+	const STAR_TINT := Color.WHITE        # painted clover icon renders as-is (no muddying tint)
+	const COIN_TINT := Color.WHITE        # painted acorn coin renders as-is (the brown tint muddied it)
 	const GEM_TINT := Color("#5FE0CF")    # cool teal — pushes the gem away from water-cyan
 
 	# --- the "+" acquire button (opens the store) --------------------------------------

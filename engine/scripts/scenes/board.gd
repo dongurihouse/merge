@@ -42,8 +42,8 @@ const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water of
 
 const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
-const FENCE_H := 212.0           # the quest fence band above the grid
-const STAND_W := 330.0           # one giver's card width (the row scrolls when full)
+const FENCE_H := 196.0           # the quest fence band above the grid (horizontal cards)
+const STAND_W := 270.0           # one giver card's width — ~4 fit across like the reference (row scrolls beyond)
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -143,14 +143,9 @@ func _ready() -> void:
 	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
 	# A flat neutral field needs no veil.
 	add_child(_field_backdrop())
-	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
-	# never reads as a flat field (sits behind the fence/board content, over the meadow)
-	add_child(Ambient.build_clouds(get_viewport_rect().size))
+	# (drifting clouds + wandering spirits removed — the painted backdrop already carries sky +
+	# clouds; the extra animated layers cluttered the top. _amb_layer stays null; _buy_treat guards it.)
 	_load_state()
-	# sparse spirit life in the backdrop band above the fence (tap-less on the board)
-	_amb_layer = Ambient.build_layer(Vector2(get_viewport_rect().size.x, 320.0),
-		G.character_count(Save.grove().get("unlocks", {})), true)
-	add_child(_amb_layer)
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -240,8 +235,10 @@ func _ready() -> void:
 	# the board fills the screen side to side (owner); on wide screens the
 	# HEIGHT budget binds instead so the fence/bag rows always fit
 	var view := get_viewport_rect().size
-	var w_csz := (view.x - 2.0 * BOARD_MARGIN - (G.COLS - 1) * GAP) / float(G.COLS)
-	var h_csz := (view.y - 520.0 - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the
+	# frame + last column never run off-screen (the prior calc sized only the cells → overflow).
+	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
+	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	csz = minf(w_csz, h_csz)
 	board_area.custom_minimum_size = Vector2(_board_w(), _board_h())
 	board_area.gui_input.connect(_on_board_input)
@@ -262,7 +259,7 @@ func _ready() -> void:
 	# button bounces the inline bag row into view. shop_btn stays a member (§14 spotlight target).
 	var sb_inset := Look.safe_bottom(self)
 	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 14)
+	brow.add_theme_constant_override("separation", 18)
 	brow.alignment = BoxContainer.ALIGNMENT_CENTER
 	bottom_bar = brow
 	brow.anchor_left = 0.5
@@ -273,29 +270,29 @@ func _ready() -> void:
 	brow.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	brow.offset_top = -16 - sb_inset
 	brow.offset_bottom = -16 - sb_inset
-	var home_btn := _make_nav_button("nav_home.png", 64.0, func() -> void:
+	var home_btn := _make_nav_button("nav_home.png", 88.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
 		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
 	brow.add_child(home_btn)
-	shop_btn = _make_nav_button("nav_shop.png", 64.0, func() -> void:
+	shop_btn = _make_nav_button("nav_shop.png", 88.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
 	# the Leaf — this scene's own mark (slightly larger, the green centerpiece); a tap just
 	# bounces it (you're already on the board), so it reads as "you are here".
-	var leaf_btn := _make_nav_button("nav_leaf.png", 84.0, func() -> void:
+	var leaf_btn := _make_nav_button("nav_leaf.png", 110.0, func() -> void:
 		Audio.play("button_tap", -2.0))
 	leaf_btn.disabled = false
 	brow.add_child(leaf_btn)
 	# the Settings gear — same shared card the map's gear opens (ui/settings.gd).
-	var settings_btn := _make_nav_button("nav_gear.png", 64.0, func() -> void:
+	var settings_btn := _make_nav_button("nav_gear.png", 88.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		SettingsUI.open(self))
 	brow.add_child(settings_btn)
 	# the Bag — bounces the inline bag row (the live drag-to-bag system stays on the board).
-	var bag_btn := _make_nav_button("nav_bag.png", 64.0, func() -> void:
+	var bag_btn := _make_nav_button("nav_bag.png", 88.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if bag_bar != null and is_instance_valid(bag_bar):
 			FX.breathe_once(bag_bar))
@@ -543,11 +540,8 @@ func _build_hud() -> void:
 		_persist(),
 		# §10: a shop-bought item-shortcut lands in the bag LIVE (drained from the queue)
 		# while the board is open — no scene reload needed for it to appear.
-		"piece_grant": func() -> void: _drain_shop_pieces(),
-		"home": func() -> void:
-			Audio.play("button_tap", -2.0)
-			HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")})
+		"piece_grant": func() -> void: _drain_shop_pieces()})
+		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	stars_label = hud.stars
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
@@ -771,17 +765,8 @@ func _rebuild_givers() -> void:
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
-	# AB/owner fix: the fence sprite's background is now cut to transparent
-	# (games/tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
-	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
-	# UI redesign: the quest band is a LIGHT Rest-plane strip — the dark wooden fence
-	# (fence_grove.png) / brown plank became the loudest dark element once the board went light,
-	# so it's replaced by a soft warm-neutral band the busts + cream ask-pills ride on.
-	var wall_bg := Panel.new()
-	wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wall_bg.add_theme_stylebox_override("panel", _quest_band_style())
-	wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wall.add_child(wall_bg)
+	# (the full-width quest-band Panel is removed — the giver cards now ride directly on the
+	# painted backdrop; the band box read as a phantom slab.)
 	# the stands scroll horizontally when the map is generous (cards stay BIG)
 	var span := giver_bar.size.x
 	if span <= 0.0:

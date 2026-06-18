@@ -34,6 +34,28 @@ static func backing_tex() -> Texture2D:
 		_backing = ImageTexture.create_from_image(img)
 	return _backing
 
+# Item textures are framed with inconsistent transparent padding, so KEEP_ASPECT_CENTERED on the
+# raw image leaves the visible art off-centre in the cell. Crop each to its opaque content (cached
+# per path) via an AtlasTexture so the art CENTERS. Falls back to the raw texture if get_image fails.
+static var _content_cache: Dictionary = {}
+static func _content_tex(path: String) -> Texture2D:
+	if _content_cache.has(path):
+		return _content_cache[path]
+	var tex: Texture2D = load(path)
+	var result: Texture2D = tex
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			var ur := img.get_used_rect()
+			var full := Vector2i(tex.get_width(), tex.get_height())
+			if ur.size.x > 0 and ur.size.y > 0 and (ur.position != Vector2i.ZERO or ur.size != full):
+				var at := AtlasTexture.new()
+				at.atlas = tex
+				at.region = Rect2(ur)
+				result = at
+	_content_cache[path] = result
+	return result
+
 static func make_piece(code: int, size: float) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(size, size)
@@ -58,9 +80,9 @@ static func make_piece(code: int, size: float) -> Control:
 	var path := G.item_tex_path(code)
 	if ResourceLoader.exists(path):
 		var t := TextureRect.new()
-		t.texture = load(path)
+		t.texture = _content_tex(path)   # cropped to opaque content so it CENTERS in the cell (art padding varies)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var inset := size * 0.06
+		var inset := size * 0.12
 		t.offset_left = inset
 		t.offset_top = inset
 		t.offset_right = -inset
@@ -241,6 +263,9 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 	tile.set_anchors_preset(Control.PRESET_FULL_RECT)
 	tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
 	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# RECEDE: locked cells should read as "not yet", not a wall of bold padlocks — fade them
+	# back (deeper rings fade a little more) so the eye lands on the live, playable cells.
+	tile.modulate = Color(1.0, 1.0, 1.0, 0.66 - 0.06 * float(ring - 1))
 	holder.add_child(tile)
 	# The Level gate (§4): NO-REQUIRED-READING — a lock glyph carries "sealed"; a small styled
 	# badge carries the number only where it earns its keep. To keep the board CALM we show the
@@ -256,25 +281,20 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 		holder.add_child(_lv_gate_badge(lvl, csz, on_frontier))
 	return holder
 
-# Just the "Lv N" teach-number, tucked at the cell's bottom with a soft light outline — used on
-# FRONTIER cells when the painted slot_locked tile (which already shows a padlock) is the surface.
+# The "Lv N" teach-number for a FRONTIER locked cell — centered INSIDE the tile (over the faint
+# padlock), bold INK with a light outline so it reads on the receded cell.
 static func _lv_num_badge(lvl: int, csz: float) -> Control:
-	var wrap := Control.new()
-	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var bnum := Label.new()
+	bnum.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bnum.text = TranslationServer.translate("Lv%d") % lvl
-	bnum.add_theme_font_size_override("font_size", int(maxf(11.0, csz * 0.19)))
-	bnum.add_theme_color_override("font_color", Pal.INK_MUTED)
-	bnum.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.75))
-	bnum.add_theme_constant_override("outline_size", 4)
+	bnum.add_theme_font_size_override("font_size", int(maxf(13.0, csz * 0.26)))
+	bnum.add_theme_color_override("font_color", Pal.INK)
+	bnum.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.85))
+	bnum.add_theme_constant_override("outline_size", 5)
 	bnum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bnum.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bnum.offset_top = -int(csz * 0.30)
-	bnum.offset_bottom = -int(csz * 0.06)
+	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(bnum)
-	return wrap
+	return bnum
 
 const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the styled number)
 

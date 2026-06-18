@@ -306,24 +306,17 @@ func _initialize() -> void:
 	# deliver: map 1's first quest wants flower t2 (code 102) — we just made one
 	ok(not scn.giver_chips.is_empty(), "givers are on duty")
 
-	# AB5: frameless fence anatomy — the ask rides a content-sized pill (no
-	# band-filling parchment card), the pill sits BELOW the bust, and the
-	# ready-check is present but hidden (the old border ring is gone).
+	# HORIZONTAL card anatomy: a character portrait (bust) on the left + the requested item(s)
+	# large in the speech bubble on the right (no ask-pill-below-bust). The ready-check is present
+	# (the old border ring is gone); its visibility is driven by board state.
 	await create_timer(0.05).timeout
 	for e in scn.giver_chips:
-		var gstand: Control = e.chip
-		var gpills := gstand.find_children("*", "PanelContainer", true, false)
-		ok(gpills.size() >= 1, "AB: the giver ask rides a pill")
-		if not gpills.is_empty():
-			var gpill: Control = gpills[0]
-			var ghb := gpill.find_children("*", "HBoxContainer", true, false)
-			if not ghb.is_empty():
-				assert_wraps(gpill, ghb[0], 6.0, 8.0, "AB ask pill hugs its content")
-			ok(gpill.get_rect().position.y >= 100.0, "AB pill rides below the bust, on the fence")
-		# AB3: the check is the ONLY ready affordance (the border ring is deleted);
-		# its visibility is driven by board state, so assert presence, not momentary vis.
+		ok(e.bust != null and is_instance_valid(e.bust), "giver card carries a character portrait")
+		ok(not (e.asks as Array).is_empty(), "giver card shows at least one requested item")
+		for au in e.asks:
+			ok(au.get("piece") != null and is_instance_valid(au.get("piece")), "the ask item renders on the card")
 		var gck: Control = e.check
-		ok(gck != null and is_instance_valid(gck) and gck is Panel, "AB ready-check node present (ring deleted)")
+		ok(gck != null and is_instance_valid(gck) and gck is Panel, "ready-check node present (ring deleted)")
 	var qi: int = scn.giver_chips[0].qi
 	var dq: Dictionary = scn.quests[qi]
 	# clear the open board first so EVERY ask fits regardless of prior test state
@@ -1161,8 +1154,8 @@ func _initialize() -> void:
 	get_root().add_child(s8)
 	if s8.board == null:
 		s8._ready()
-	ok(s8.get_node_or_null("AmbientLayer") != null and s8.get_node_or_null("WeatherLayer") != null, \
-		"the board carries both layers (sparse band)")
+	ok(s8.get_node_or_null("WeatherLayer") != null, \
+		"the board carries the weather layer (the drifting-cloud/spirit band was removed in the art reskin)")
 
 	# 20. order N — feature flags: all-ON is proven by the whole sweep (zero
 	# behavior change); two flip smokes prove the guards actually disconnect
@@ -1214,13 +1207,12 @@ func _initialize() -> void:
 	if h4.content == null:
 		h4._ready()
 	await create_timer(0.05).timeout
-	# the level number now nests inside a sprout-avatar Control, so walk up to the
-	# pill (PanelContainer) and assert it wraps its content row evenly.
+	# the level badge is the standalone rope RING now (no wrapping pill), so assert the chip is
+	# present + fully on-screen rather than that a plank wraps it with even padding.
 	var lchip: Control = h4.level_label
 	while lchip != null and not (lchip is PanelContainer):
 		lchip = lchip.get_parent()
-	var lrow4: Control = lchip.get_child(0)
-	assert_wraps(lchip, lrow4, 5.0, 2.0, "R4 level chip")     # ±2: catches lopsided margins
+	ok(lchip != null and h4.get_viewport_rect().encloses(lchip.get_global_rect()), "R4 level chip sits on-screen")
 	# map spot pin (an unowned, fresh-save spot) — the price pin wraps its row (S7
 	# nests pins in a centered stack, so search the subtree, and FAIL loudly if absent)
 	await create_timer(0.05).timeout
