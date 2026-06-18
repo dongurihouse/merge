@@ -249,8 +249,13 @@ func _ready() -> void:
 	var sb_inset := Look.safe_bottom(self)
 	bottom_bar = PanelContainer.new()
 	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color("#33402F", 0.88)
+	bsb.bg_color = Color(Pal.PILL, 0.95)          # UI redesign: light cream nav bar (was dark #33402F)
 	bsb.set_corner_radius_all(20)
+	bsb.set_border_width_all(2)
+	bsb.border_color = Color(Pal.PILL_EDGE, 0.9)  # warm gold rim — matches the HUD pill
+	bsb.shadow_color = Color(0, 0, 0, 0.16)       # Rest plane
+	bsb.shadow_size = 4
+	bsb.shadow_offset = Vector2(0, 2)
 	bsb.content_margin_left = 10.0
 	bsb.content_margin_right = 10.0
 	bsb.content_margin_top = 8.0
@@ -269,12 +274,19 @@ func _ready() -> void:
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 8)
 	bottom_bar.add_child(brow)
-	var home_btn := Look.button(tr("◀ Home"), func() -> void:
+	var home_btn := Button.new()                # UI redesign: a neutral home ICON (was a wide text button)
+	home_btn.flat = true
+	home_btn.focus_mode = Control.FOCUS_NONE
+	home_btn.custom_minimum_size = Vector2(58, 58)
+	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var hi := Look.icon("home", 40.0)
+	hi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	home_btn.add_child(hi)
+	Look.add_press_juice(home_btn)
+	home_btn.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
-	home_btn.custom_minimum_size = Vector2(150, 58)
-	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
 	brow.add_child(home_btn)
 	shop_btn = Button.new()             # the Store, relocated from the top cluster
 	shop_btn.flat = true
