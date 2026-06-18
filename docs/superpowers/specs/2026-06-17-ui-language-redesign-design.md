@@ -140,7 +140,7 @@ These concretize the role tiers above into the palette (2026-06-17, with a same-
 | **Currency tints** | star · acorn · gem · water | `#F2C14E` · `#C8852F` · `#3FC6B0` · `#7FB9DD` |
 | **Shop** | parchment / edge · hero plate · banner | `#F4E9D6`/`#8A5A3B` · `#F4E7CA` · `#F0DCA8` |
 
-Warm cream chrome (`#EFE7D5`) intentionally frames the cooler sage play field so the board reads as its own zone. This is a reference instantiation, not a contract — implementation may fine-tune within each tier so long as the plane relationships hold (locked recedes below playable; accents stay reserved for meaning).
+The chrome (`#F4EEDF`) and field (`#EDE6D2`) are both light warm-neutrals, close in warmth — figure/ground comes from the depth planes (locked recedes; items sit on the Float plane) and a tinted play-area panel, not from a hue contrast between chrome and field. This is a reference instantiation, not a contract — implementation may fine-tune within each tier so long as the plane relationships hold (locked recedes below playable; accents stay reserved for meaning).
 
 ### Component reference
 
