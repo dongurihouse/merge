@@ -142,16 +142,10 @@ var _water_pending_drained := false   # the starter-pack water credit drains onc
 func _ready() -> void:
 	UiFont.apply()
 	Music.ensure()
-	# AF2: the play surface is the lightest thing because the MAT is light — NOT by
-	# bleaching the background. A LIGHT veil (AC3) washed the painted meadow to a
-	# colorless void; replace it with a gentle warm DIM that recedes the painting
-	# while KEEPING its hue (calm ≠ bleached).
-	Look.background(self, 0.0, Game.art("ui/bg_grove_board.png"))
-	var calm_veil := ColorRect.new()
-	calm_veil.color = Color("#2A2A1E", 0.20)        # soft warm dim — recede, don't erase
-	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	calm_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(calm_veil)
+	# UI redesign: the play surface is a flat SURFACE stage so items pop — replacing the
+	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
+	# A flat neutral field needs no veil.
+	add_child(_field_backdrop())
 	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
 	# never reads as a flat field (sits behind the fence/board content, over the meadow)
 	add_child(Ambient.build_clouds(get_viewport_rect().size))
@@ -1171,6 +1165,15 @@ static func _cell_style() -> StyleBoxFlat:
 	sb.shadow_size = Tuning.UiSkin.SHADOW_SUNK_SIZE
 	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
 	return sb
+
+# The board's flat SURFACE field (UI redesign) — the neutral stage items pop against,
+# replacing the painted backdrop. Static so it is unit-testable in isolation.
+static func _field_backdrop() -> ColorRect:
+	var bg := ColorRect.new()
+	bg.color = Pal.SURFACE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return bg
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)

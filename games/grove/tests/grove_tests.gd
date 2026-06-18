@@ -1980,6 +1980,7 @@ func _initialize() -> void:
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
 	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
+	ok(BoardScript._field_backdrop().color.is_equal_approx(Pal.SURFACE), "board backdrop is the flat SURFACE field (not the painted olive bg)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
