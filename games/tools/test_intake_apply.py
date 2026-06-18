@@ -43,5 +43,50 @@ class ValidateTests(unittest.TestCase):
                   "outputs": [{"island": 0, "path": "x"}], "archive": "a"})
 
 
+class ArgTests(unittest.TestCase):
+    def test_icon_args_default_size(self):
+        self.assertEqual(ia.icon_args("/in.png", "/out.png", {}),
+                         ["/in.png", "/out.png"])
+
+    def test_icon_args_square_size(self):
+        self.assertEqual(ia.icon_args("/in.png", "/out.png", {"size": 256}),
+                         ["/in.png", "/out.png", "256"])
+
+    def test_icon_args_wh_size(self):
+        self.assertEqual(ia.icon_args("/in.png", "/out.png", {"size": [300, 400]}),
+                         ["/in.png", "/out.png", "300", "400"])
+
+    def test_decor_args_opaque_canvas(self):
+        self.assertEqual(
+            ia.decor_args("/in.png", "/out.png", {"w": 1024, "h": 1280, "opaque": True}),
+            ["/in.png", "/out.png", "1024", "1280", "--opaque"])
+
+    def test_decor_args_bare(self):
+        self.assertEqual(ia.decor_args("/in.png", "/out.png", {}),
+                         ["/in.png", "/out.png"])
+
+    def test_grid_slice_args(self):
+        self.assertEqual(ia.slice_args("grid", "/in.png", "/scratch/s_", {}),
+                         ["/in.png", "/scratch/s_"])
+
+    def test_sheet_slice_args_uses_params(self):
+        self.assertEqual(
+            ia.slice_args("sheet", "/in.png", "/scratch/s_", {"min_area": 400, "pad": 5}),
+            ["/in.png", "/scratch/s_", "0.9", "0.1", "400", "5"])
+
+    def test_parse_post_none(self):
+        self.assertIsNone(ia.parse_post(None))
+
+    def test_parse_post_icon_size(self):
+        self.assertEqual(ia.parse_post("icon:512"), {"size": 512})
+
+    def test_parse_post_icon_wh(self):
+        self.assertEqual(ia.parse_post("icon:300x400"), {"size": [300, 400]})
+
+    def test_parse_post_unknown_rejected(self):
+        with self.assertRaises(ia.PlanError):
+            ia.parse_post("blur:3")
+
+
 if __name__ == "__main__":
     unittest.main()

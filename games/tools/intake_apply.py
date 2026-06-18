@@ -70,3 +70,49 @@ def validate_plan(plan: dict) -> None:
             idx = o.get("island", o.get("tile"))
             if not isinstance(idx, int):
                 raise PlanError(f"sliced output needs an integer island/tile index: {o}")
+
+
+def icon_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
+    a = [src_abs, out_abs]
+    size = params.get("size")
+    if isinstance(size, (list, tuple)):
+        a += [str(size[0]), str(size[1])]
+    elif size is not None:
+        a += [str(size)]
+    return a
+
+
+def decor_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
+    a = [src_abs, out_abs]
+    w, h = params.get("w"), params.get("h")
+    if w and h:
+        a += [str(w), str(h)]
+    if params.get("opaque"):
+        a.append("--opaque")
+    if params.get("cover"):
+        a.append("--cover")
+    return a
+
+
+def slice_args(eff: str, src_abs: str, prefix: str, params: dict) -> list[str]:
+    if eff == "grid":
+        return [src_abs, prefix]
+    # sheet: <in> <prefix> [val_min sat_max min_area pad]
+    return [src_abs, prefix,
+            str(params.get("val_min", 0.9)), str(params.get("sat_max", 0.1)),
+            str(params.get("min_area", 600)), str(params.get("pad", 3))]
+
+
+def parse_post(post: str | None) -> dict | None:
+    """'icon:512' -> {'size': 512}; 'icon:300x400' -> {'size': [300,400]}; None -> None."""
+    if not post:
+        return None
+    name, _, arg = post.partition(":")
+    if name != "icon":
+        raise PlanError(f"unknown post op: {post!r} (only 'icon:<size>' is supported)")
+    if not arg:
+        return {}
+    if "x" in arg:
+        w, h = arg.split("x")
+        return {"size": [int(w), int(h)]}
+    return {"size": int(arg)}
