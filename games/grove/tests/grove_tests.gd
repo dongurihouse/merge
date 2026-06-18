@@ -1772,6 +1772,7 @@ func _initialize() -> void:
 	# T45 · the integration wiring: the 2×-collect doubler, the piggy-vault chrome entry, the
 	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
 	await _test_t45_wiring()
+	_test_2x_doubler_rehome()
 	# --- order T (T43): live-IAP ladder + starter + first-buy doubler + rewarded ads +
 	# --- the out-of-water triggered offer. §4 law: premium & ads buy SPEED + LOOKS, never
 	# --- POSSIBILITY — every wall is free-passable (slower); ads/offers are capped+cooled.
@@ -2174,6 +2175,28 @@ func _welcome_kind(hx, z: int, cid: String) -> void:
 		if String(h.type) == cid:
 			hx._on_welcome_tap(z, cid, h.node, Vector2(100, 100))
 			return
+
+# §10 · the 2× DOUBLER re-homed to the board's quest COIN reward (was the removed hub yield-collect).
+# Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,
+# a zero reward never offers. The one-line wiring (`if sp_coins > 0: _maybe_offer_2x(...)` in
+# _on_giver_tap) rides on this; the risk is the moved card, which this drives directly.
+func _test_2x_doubler_rehome() -> void:
+	fresh("rehome_2x")
+	var Ads := load("res://engine/scripts/core/ads.gd")
+	var scn = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(scn)
+	if scn.board == null:
+		scn._ready()
+	ok(Ads.can_show("collect_2x"), "the 2× ad is offerable on a fresh save")
+	scn._maybe_offer_2x(50, scn.get_global_rect().get_center())
+	ok(scn._2x_offer != null and is_instance_valid(scn._2x_offer), "a quest coin reward surfaces the 2× doubler on the board")
+	var coins_b := Save.coins()
+	scn._accept_2x_offer(50)
+	ok(Save.coins() == coins_b + 50, "accepting the 2× credits a SECOND N coins (the doubled half)")
+	ok(scn._2x_offer == null, "the card dismisses after accept")
+	scn._maybe_offer_2x(0, scn.get_global_rect().get_center())
+	ok(scn._2x_offer == null, "a zero-coin reward never offers the doubler")
+	scn.queue_free()
 
 # ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
 # The three monetization engines (2×-collect ad, piggy vault, daily-login calendar) merged
