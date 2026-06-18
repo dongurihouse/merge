@@ -202,76 +202,6 @@ Orphaned `UiSkin` chip dials (`CHIP_PAD_X/Y`, `CHIP_ALPHA`, `STAT_NUM_SIZE`, `Ui
 
 ---
 
-## Appendix: image-generation prompts
-
-Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produce painterly reference art on-palette.
-
-**Top pill set (level → currencies)**
-
-> Mobile game HUD top bar, cozy hand-painted farm style, soft storybook illustration. Left: a round level token — a soft gold-cream #EAD49C disc with a warm-gold #C9A66B ring and an ink #3B402F "3" numeral. Right: a single cream capsule pill #FBF6EC with a thin gold #C9A66B edge, holding three currency icons — a gold flower star #F2C14E, a warm-brown acorn #C8852F, a teal gem #3FC6B0 — each with a number, and a small round leaf-green "+" button. Center is empty (no chapter ribbon). Flat warm lighting, subtle soft drop shadow, no gradients on UI, transparent bg.
-
-**Board**
-
-> Top-down cozy merge-game board, hand-painted storybook style — soft visible ink linework with gentle watercolor and cel shading, warm and colour-rich, never flat white. A warm hand-painted garden-bed mat #ECE0C4 with low-contrast tilled-soil patches #CDA87A in a warm wood-tan frame #D8B483, scattered with a few white daisies. Vibrant glossy produce items — ripe red tomato #E2594A, orange carrot #E2913C, green sprout/cabbage #9FBE6A, soft pink flower #E6A6C0, golden honey jar #E3B23C — each on a soft glow halo with a tiny sparkle, popping off the warm mat. Whisper-quiet covered locked patches #D9D2BE with faint low-contrast glyphs #A99F86 recede at the edges. Soft airy low-contrast light, gentle bloom, cozy and charming, dopamine-inducing, ink outline #3B402F, never washed-out white, never flat or dark.
-
-**Board — full screen**
-
-> A cozy isometric hand-painted storybook farm-merge board screen, portrait mobile, full of warm pastel colour and watercolor warmth, soft visible ink linework with cel-shaded painterly brush texture throughout, never washed-out white, never flat or dark. Top to bottom: an airy pastel sky band (#BFE3EC) with big puffy cream clouds (#F7F3E8) and faint sage hills (#BCD3A8) over a soft green meadow (#C5D89A); a low warm-wood fence (#D8B483, deeper #C29A66) runs across with a tiny smiling bunny and a little fox peeking up behind it, scattered white daisies. Centre: the merge play grid as a warm hand-painted tilled garden-bed mat (#ECE0C4 with low-contrast soft soil patches #CDA87A) that gently recedes, a winding pale stone path (#E8DCC0) threading through, holding a tidy grid of cells with juicy glossy produce items popping forward — ripe red tomato (#E2594A), orange carrot (#E2913C), green cabbage sprout (#9FBE6A), soft pink flower (#E6A6C0), golden honey jar (#E3B23C) — each with a soft glow halo, gentle bloom and a tiny sparkle; a few whisper-quiet locked covered patches (#D9D2BE, glyph #A99F86) softly recede at the edges. Top HUD: a gold-cream level token (#EAD49C) with warm-gold ring (#C9A66B) top-left, a cream currency pill (#FBF6EC) with star (#F2C14E), acorn (#C8852F) and gem (#3FC6B0) icons top-right. A slim order strip of cream cards with big charming character avatars, and one bottom row of cream round nav buttons with a single small saturated leaf-green CTA (#4E7C46, edge #3C6037). Soft, airy, low-contrast lighting, colour-rich warm pastels, cozy and calm, dopamine-inducing premium polish, ink outline #3B402F.
-
-**Quest / order bar**
-
-> Row of cozy farm order cards, hand-painted UI. Each card is warm parchment #F4E9D6 with a soft bark edge: a large round character avatar as the focal anchor, the requested item on a pale cream pedestal #F2EFDC, a gold-coin reward "+6" in warm gold #E3B23C, and a status chip. One card is bright and raised with a leaf-green #4E7C46 "Ready" chip; the next is dimmed and flat with a muted "Lv 4" lock chip. Storybook lighting, soft shadows on the ready card only, transparent bg.
-
-**Bottom navigation + primary action**
-
-> Cozy farm mobile-game bottom navigation, hand-painted. One row of small neutral round buttons, cream #FBF6EC with a warm-gold #C9A66B ring and ink #3B402F icons (home, bag, shop, settings), sitting flat and quiet. Above the row, a single slim leaf-green #4E7C46 pill with a #3C6037 rim and a cream label — a contextual call-to-action carrying a gold-star #FFD56B cost — raised with a soft drop shadow. On the map screen, one button instead becomes a larger green #4E7C46 round "enter garden" button: the single primary destination. Warm light, soft shadows, no two-row stack.
-
-**Map / home page**
-
-> Soft-light daylight homestead "home" screen for a cozy farm merge game, portrait mobile, polished premium mobile-game art — bright, clean, airy, uncluttered and dopamine-inducing. Keep the painterly backdrop SIMPLE with generous breathing room: a soft warm-cream sky wash #F4EEDF washing down into a gently rolling, soft pastel-green meadow #C5D89A, one small storybook farmhouse and a few light, lightly-leafed trees set far back — scene greenery soft and pale (tiny green hint #8FAE6E only), never heavy saturated green. On the meadow rest a few restoration spots: OPEN spots are a glossy cream disc #FBF6EC with a dashed warm-gold rim #C9A66B, a warm-brown plus #C8852F and a tiny gold-star cost #FFD56B, each lifted on a soft drop shadow with a gentle glow halo and a tiny sparkle; ONE whisper-quiet LOCKED disc in muted #D9D2BE shows a faint low-contrast lock glyph #A99F86. Top HUD is light and crisp: top-left a soft gold-cream level token with a warm-gold ring #C9A66B, top-right a cream currency pill #FBF6EC with glossy star #F2C14E, acorn #C8852F and gem #3FC6B0 icons. Bottom: one row of light neutral cream round nav buttons, with a single leaf-green primary "enter garden" button #4E7C46 edge #3C6037, glowing as the only green accent. Soft diffused daylight, gentle bloom, juicy glossy highlights, tiny sparkles, premium and satisfying, no clutter, no heavy outlines, no dark heavy greens.
-
-**Shop component**
-
-> Cozy farm-game shop popup, hand-painted storybook style. A warm parchment panel #F4E9D6 with a soft bark border over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Shop"; a round red close button #D75A4E sits at the top-right corner. Two featured product cards, each a cream tile with the product illustration on a pale honey plate #F4E7CA and a leaf-green #4E7C46 price button. Below, a "Gems" section: a row of three teal-gem #3FC6B0 cash packs of increasing size, the middle one wearing a small red "Popular" badge, each with a green buy button. Soft shadows, warm light, no flat vectors.
-
-**Settings card**
-
-> Cozy farm-game settings popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border, centered over a dimmed warm-dark scrim. A honey banner title #F0DCA8 reads "Settings"; a round red close button #D75A4E at the top-right corner. Three stacked toggle rows — "Music", "Sounds", "Calm mode" — each a cream #FBF6EC pill with an ink #3B402F label on the left and a rounded toggle switch on the right: the ON switches filled leaf-green #4E7C46 with a cream knob, the OFF switch a muted grey #C7BBA0. Soft shadows, warm light, no flat vectors, no extra text.
-
-**Map-select / world page**
-
-> Soft, light cozy farm merge-game world-chooser screen, portrait mobile, polished premium mobile-game art — bright, clean, airy and dopamine-inducing. Keep it SIMPLE and uncluttered: a soft daylight sky washing into warm cream #F4EEDF, with only a few drifting clouds and the faintest bloom for an airy hint of depth, nothing competing. A gentle vertical path of large painterly map cards floats up the screen, each a glossy thumbnail of a homestead district — farmhouse, barn, orchard, pond on softly desaturated light meadow with calm #7FB9DD water, greenery kept soft and light — set in a rounded cream #FBF6EC frame with a warm-gold #C9A66B edge and a small honey #F0DCA8 title ribbon. The first card or two glow bright, glossy and inviting with juicy highlights, soft glow halos and tiny #F2C14E sparkles (unlocked); cards further along sit behind a soft deep-ink #33402F fog veil thickening toward their lower edge (locked — teased, not greyed). Light crisp chrome: a gold-cream level token with a #C9A66B ring top-left, a cream #FBF3EA currency pill top-right, a neutral cream #FBF6EC round back button bottom-left. There is no green chrome on this chooser — selection happens by tapping a card — so the screen stays light cream, warm gold and soft sky-blue, with green only as the soft natural foliage in the thumbnails. Soft diffused daylight, gentle bloom, generous breathing room, premium and satisfying, no clutter, no heavy outlines, no dark heavy greens.
-
-**Daily login calendar**
-
-> Cozy farm-game daily-reward calendar popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Daily gifts", a round red close button #D75A4E top-right. Inside, a horizontal week-strip of seven reward cells; each is a small cream #FBF6EC tile with a day label and a gift icon (coins, a gem, a water drop, a wrapped present). The earlier days are claimed with a soft gold checkmark, today's cell is lifted, glowing and gently breathing with a leaf-green #4E7C46 "Claim" button, and the later days are quietly dimmed. Warm light, soft shadows, no flat vectors.
-
-**Inbox / mailbox**
-
-> Cozy farm-game inbox / mailbox popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Mail" with a small envelope motif, a round red close button #D75A4E top-right. Inside, a vertical scrollable list of message rows; each row is a cream #FBF6EC strip with a round icon on the left (a gift, a leaf, a notice), an ink #3B402F title and a short muted body line, a gold reward chip, and a leaf-green #4E7C46 "Claim" button on the right. Warm light, soft shadows, no flat vectors.
-
-**Vault / piggy bank**
-
-> Cozy farm-game savings-vault popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Vault", a round red close button #D75A4E top-right. The hero is a large hand-drawn ceramic jar, half-filled with glittering teal gems #3FC6B0 and gold coins, a soft fill line showing how much premium has accrued and a gem count above it. Below, one fixed leaf-green #4E7C46 price button with a real-money price. Warm light, soft shadows, no flat vectors.
-
-**Discovery ladder**
-
-> Cozy farm-game discovery-ladder popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8, a round red close button #D75A4E top-right. Inside, a vertical ladder of tier slots from small to large; each slot is a cream #FBF6EC rounded tile — discovered tiers show their painterly item sprite, undiscovered tiers show a soft "?" — and the current tier wears a warm-gold #C9A66B ring. A gentle vine or dotted path links the slots. Warm light, soft shadows, no flat vectors.
-
-**Out-of-water offer**
-
-> Cozy farm-game "out of water" offer popup, hand-painted storybook style. A small warm parchment confirm card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Out of water", a round red close button #D75A4E top-right. A centered watering-can / blue water-drop #7FB9DD icon with an amount line, a short muted sub copy, and a tiny disclosure line. Two buttons side by side at the bottom: a neutral cream #FBF6EC "Maybe later" and a leaf-green #4E7C46 "Yes please". Warm light, soft shadows, no flat vectors.
-
-**Purchase / cash confirm**
-
-> Cozy farm-game purchase-confirm popup, hand-painted storybook style. A small warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8, a round red close button #D75A4E top-right. Centered, a "what you get" row — a hero icon (a teal gem cluster #3FC6B0 or a coin pouch) on a pale honey plate #F4E7CA with an amount — above a short note. Two buttons at the bottom: a neutral cream #FBF6EC "Cancel" and a leaf-green #4E7C46 buy button showing the price. Warm light, soft shadows, no flat vectors.
-
-**Item detail / info sheet**
-
-> Cozy farm-game item-detail sheet, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a round red close button #D75A4E top-right. At the top, the item's painterly illustration enlarged on a pale honey plate #F4E7CA, its ink #3B402F name below, then a short body paragraph of muted description, and a small row of meta chips (where it comes from / what it makes). One leaf-green #4E7C46 button at the bottom. Warm light, soft shadows, no flat vectors.
-
----
-
 ## Asset manifest & batch generation
 
 **The problem:** the redesign is mostly a re-tune of code-drawn chrome and a palette swap, so it needs surprisingly little *new* art. Most of what looks like UI art is either already in the repo or drawn procedurally. This manifest separates the three cases so generation effort goes only where it is real.
@@ -291,37 +221,15 @@ Currency pills, chips, the level token, nav button bases, the CTA / contextual g
 2. **Recessive locked texture (single, full-bleed).** The current `bramble_1-3` read dark and high-contrast; the Sunk plane needs a quiet covered-soil texture in the `LOCKED #D9D2BE` family. Surfaces generate individually (tileable, full-bleed), not in the isolated-object grid.
 3. **Painterly container surfaces (reskin).** The **board backdrop** (`ui/bg_grove_board.png`) is the key miss — it is the old *olive* field and clashes with the sage stage; plus the **fence band** and an **optional board frame**. Shop containers and the order box are reused / code-drawn (see below). Detailed in "Painterly surfaces".
 
-### Batch 1 — the 3×4 icon-kit grid prompt
-
-> A single square image laid out as a clean 3-column × 4-row grid (12 equal cells) with even gutters and a plain off-white #F3EEE2 background. Each cell holds ONE cozy farm-game UI icon, centered and isolated with generous padding so it can be cropped out on its own. Cohesive hand-painted storybook style: soft rounded forms, a gentle top rim-light, a small soft contact shadow, warm muted palette keyed to leaf-green #4E7C46, warm gold #C9A66B, ink #3B402F, honey #E3B23C, teal #3FC6B0, sky-blue #7FB9DD; identical scale, line weight, and lighting across all 12. No text, no labels, no frames around the cells. The 12 icons, left to right, top to bottom — row 1: a cozy cottage (home), a canvas backpack (bag), a wooden market stall (shop); row 2: a settings gear, a folded paper map, a young sprout in soil (garden); row 3: a five-point gold star, a teal cut gem, a blue water drop; row 4: a brown acorn coin, a closed padlock, a lowercase letter "i" in a circle (info).
-
-### Locked / covered-soil texture prompt (single, 3 variants)
-
-Replaces `bramble_1-3` — the clearable cover over sealed cells. Generated as a 1×3 strip (three variants for board variety, matching today's count); the padlock is *not* part of this art — it is the separate code-drawn `icon_lock` glyph laid on top per the Sunk treatment.
-
-> Three cozy farm-game "covered ground" tiles in a single 1×3 horizontal strip, evenly spaced on a transparent background, each a square cell-sized cover for a merge board. Hand-painted storybook style, but deliberately QUIET and recessive: a soft mound of tangled moss, leaf-litter and loose soil filling the cell, in a muted desaturated warm-grey-beige family keyed to #D9D2BE with the darkest accents no stronger than #A99F86 — low contrast, no bright highlights, no hard outlines, gently shadowed so it reads as sunken and sealed rather than popping forward. Three subtly different variants (denser, sparser, and one with a few tiny dormant sprigs). No padlock, no text, no bright greens, consistent soft lighting and scale across all three.
-
 ### Painterly surfaces — reskin / generate (containers & backdrops)
 
 How the board/shop/quest containers split:
 
-- **Board backdrop `ui/bg_grove_board.png` — RESKIN (the key one).** Today's olive painted field clashes with the sage cells. Either regenerate it as a quiet neutral sage stage (prompt below), or drop it for a flat `SURFACE` fill (code-drawn, fully re-tintable) — an open decision.
+- **Board backdrop `ui/bg_grove_board.png` — RESKIN (the key one).** Today's olive painted field clashes with the warm garden-bed cells. Either regenerate it as a quiet warm garden-bed stage, or drop it for a flat `SURFACE` fill (code-drawn, fully re-tintable) — an open decision.
 - **Fence band `ui/fence_grove.png` — RESKIN if it clashes.** The wall the givers pop over; verify against sage in Phase 2 — warm weathered wood may sit fine, else retint cooler/quieter.
 - **Board frame/border — code-draw or generate.** No frame asset today (the backdrop is the edge). Default is a code-drawn `SURFACE_FRAME` border; generate a painterly woven/wood nine-patch only if you want more character.
 - **Shop containers — REUSE.** `panel_parchment`, `panel_plank`, `shop_stall` are warm-parchment nine-patches already in the cream language; reuse (minor retint at most). Dedicated stall-interior backdrop already parked in BACKLOG.
 - **Quest / order box — code-drawn + existing art.** Ask pill / ribbon / chips are `StyleBoxFlat` (re-tintable from the palette); the only raster is the giver animals (`map/giver_*`, exist) and the fence band above.
-
-**Board backdrop prompt (textured sage reskin):**
-
-> A seamless cozy farm-game board backdrop, hand-painted storybook style, top-down. A calm, warm hand-painted garden-bed field #ECE0C4 with gentle low-contrast tilled-soil patches #CDA87A — colour-rich and cozy, never flat white — reading as a soft stage so colourful items pop on top; soft visible linework and watercolor shading, no bright greens, no busy detail, soft even daylight, a gentle edge vignette toward the warm wood-tan #D8B483. Full-bleed, fills the frame, nothing centered, designed to sit behind a grid of game items.
-
-**Fence band prompt (reskin):**
-
-> A long horizontal cozy farm fence band, hand-painted storybook style, to run full-width across the top of a merge board as a low wall that character animals pop up behind. Soft weathered wood in warm muted tones that sit calmly against a warm garden-bed #ECE0C4 board below — low contrast, no bright saturated colour, with a plain flat area along the top rail for characters to rest on. Transparent above and below the fence, tileable horizontally.
-
-**Optional board frame prompt (nine-patch):**
-
-> A square cozy farm-game panel frame as a nine-patch tile, hand-painted storybook style: a soft woven-willow / light-wood border running around all four edges with a fully transparent centre, uniform border thickness on every side so it slices cleanly as a nine-patch. Warm muted tones keyed to warm wood-tan #D8B483 that frame a warm garden-bed field without competing with the items inside. No text, even lighting.
 
 ### Pipeline
 Generate at high resolution → slice the grid into 12 cells → alpha-cut each → place into `games/grove/assets/ui/kit/` via `make icon IN=/tmp/<cell>.png OUT=res://games/grove/assets/ui/kit/icon_<id>.png SIZE=512`. Keep the established ids (`home`, `gear`, `cart`, `coin`, `gem`, `star`, `water`, `lock`, `question`) so no code changes; add new ids `bag`, `map`, `sprout` and point the nav buttons at them (Phase 3). The locked texture follows the `make decor` path into `ui/` and is wired where `bramble_*` is loaded ([board.gd](../../../engine/scripts/scenes/board.gd)).
