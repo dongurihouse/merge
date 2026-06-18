@@ -109,11 +109,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# CTA), so the chip still reads on any build. The texture is swapped on level-up in
 	# `refresh` below; the INK number sits centred in its open middle.
 	var lvl0 := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	var frame_p := Look.level_badge_path(lvl0)
-	if frame_p == "":
-		frame_p = Look.kit("ring_level.png")
+	var frame_tex := _frame_tex(lvl0)   # badge -> rope ring -> null; null only if NO art loads
 	var frame: TextureRect = null
-	if ResourceLoader.exists(frame_p):
+	if frame_tex != null:
 		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no default dark Panel bg behind the ring
 		# a cream disc fills the ring's open centre (reference: the number reads on cream, not sky)
 		var disc := Panel.new()
@@ -127,7 +125,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		avatar.add_child(disc)
 		frame = TextureRect.new()
-		frame.texture = load(frame_p)
+		frame.texture = frame_tex
 		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
 		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -162,7 +160,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var home_btn := _build_home_chip(left, opts)
 	host.add_child(left)
 
-	var frame_state := {"path": frame_p}   # last-applied badge path — only reload when the tier flips
+	var frame_state := {"path": Look.level_badge_path(lvl0)}   # last-applied badge path — only reload when the tier flips
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
 		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
@@ -174,12 +172,15 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(level, lvl)
 		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
 		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
-		# upgrade the frame when leveling crosses a badge tier (no-op when art/config absent)
+		# upgrade the frame when leveling crosses a badge tier — but only if the new badge
+		# actually loads; a failed load keeps the current visible ring instead of blanking it
 		if frame != null:
 			var bp := Look.level_badge_path(lvl)
 			if bp != "" and bp != frame_state["path"]:
-				frame.texture = load(bp)
-				frame_state["path"] = bp
+				var t := _safe_tex(bp)
+				if t != null:
+					frame.texture = t
+					frame_state["path"] = bp
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
@@ -309,6 +310,25 @@ static func _set_or_tick(lbl: Label, v: int) -> void:
 		FX.tick(lbl, v)
 	else:
 		lbl.text = str(v)
+
+# Load a texture only if it BOTH exists AND imports to a non-null resource.
+# ResourceLoader.exists() can return true from a committed .import while the imported
+# .ctex is missing (new art not yet reimported in this checkout) — load() then returns
+# null, which would leave the frame BLANK (a ringless cream disc). Returning null here
+# lets the caller fall through to the next visible fallback instead.
+static func _safe_tex(path: String) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	return load(path) as Texture2D
+
+# The level-chip frame texture: the evolving badge for this Level, else the rope ring,
+# else null (the caller then draws the honey-token ring). Guarantees a VISIBLE ring
+# whenever ANY of the art loads — the chip never renders an empty frame.
+static func _frame_tex(level: int) -> Texture2D:
+	var t := _safe_tex(Look.level_badge_path(level))
+	if t == null:
+		t = _safe_tex(Look.kit("ring_level.png"))
+	return t
 
 # The level number sits in the badge's open centre, which is tighter than the plain
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold

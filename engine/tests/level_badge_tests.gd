@@ -7,6 +7,7 @@ extends SceneTree
 ## all 16 sliced frames resolve as grove art (so a level-up actually has a frame to swap).
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Hud = preload("res://engine/scripts/ui/hud.gd")
 
 var _pass := 0
 var _fail := 0
@@ -66,6 +67,18 @@ func _initialize() -> void:
 	ok(p1.ends_with("badge_00.png") and ResourceLoader.exists(p1), "L1 resolves to badge_00 art")
 	ok(p_crown.ends_with("badge_15.png") and ResourceLoader.exists(p_crown), "L46 resolves to badge_15 art")
 	ok(p1 != p_crown, "the frame changes between low and high level")
+
+	# --- the chip never renders a BLANK frame (regression: trusting exists() over load()) ---
+	# A committed .import can make exists() true while load() returns null (art not yet
+	# reimported in this checkout) — the frame must fall back to a VISIBLE ring, never null.
+	ok(Hud._safe_tex("") == null, "_safe_tex('') is null")
+	ok(Hud._safe_tex("res://does/not/exist.png") == null, "_safe_tex(missing) is null")
+	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "badge_00 actually LOADS (not just exists)")
+	ok(Hud._frame_tex(2) != null, "L2 frame texture is non-null (a ring is shown)")
+	# simulate the user's case: badges unavailable -> still a visible ring (rope-ring fallback)
+	Look._badge_cfg = {"badge_count": 16, "levels_per_tier": 3, "dir": "no_such_dir", "prefix": "x_"}
+	ok(Look.level_badge_path(2) == "", "missing badge art -> empty path")
+	ok(Hud._frame_tex(2) != null, "badges absent -> frame falls back to a visible ring (NOT blank)")
 
 	print("== level_badge: %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
