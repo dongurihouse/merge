@@ -17,7 +17,6 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
-const TreeWind = preload("res://engine/scripts/ui/tree_wind.gd")    # shared foliage-sway shader + gusts
 const Features = preload("res://engine/scripts/core/features.gd")
 const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
@@ -520,7 +519,7 @@ func _build_map() -> void:
 	# decoration placed in the map placer (data/map1v2_decor.json)
 	var decor := _load_decor_list(z)
 	_add_placed_clouds(decor, _map_rect)    # placed clouds drift slowly in the sky, behind everything
-	_add_decor(decor, "back", _map_rect)    # trees BEHIND the buildings (their canopies sway)
+	_add_decor(decor, "back", _map_rect)    # trees BEHIND the buildings
 	# ambient life wanders over the map (order L), positioned within the image rect
 	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
@@ -599,13 +598,6 @@ func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
 		t.position = center - Vector2(fs, fs) * 0.5
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		content.add_child(t)
-		if "/trees/" in art:
-			_sway(t, fs)   # trees rock gently from the base in the wind
-
-# Trees sway in the wind (items 5 & 6): only the canopy bends (trunk stays planted), in occasional
-# random gusts. The shader + gust scheduler live in TreeWind, shared with the map placer.
-func _sway(t: Control, _fs: float) -> void:
-	TreeWind.auto_gust(t, TreeWind.apply(t))
 
 # Clouds placed in the map placer (layer "cloud"): each starts where it was placed, then drifts slowly
 # leftward and wraps around the sky. Rendered behind everything (added before the buildings/spots).
