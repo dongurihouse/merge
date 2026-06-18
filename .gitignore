@@ -11,6 +11,10 @@ build/
 # macOS
 .DS_Store
 
+# Python bytecode cache (tools/)
+__pycache__/
+*.pyc
+
 # Local scratch / transient overrides
 /tmp/
 override.cfg
