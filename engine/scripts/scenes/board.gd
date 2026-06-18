@@ -55,10 +55,7 @@ const PORTER_SECS = G.PORTER_SECS
 const TREAT_COST = G.TREAT_COST
 
 # grove board palette (the night-purples retire here)
-const GROUND = Pal.GROUND
 const GROUND_EDGE = Pal.GROUND_EDGE
-const BRAMBLE_BG = Pal.BRAMBLE_BG
-const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
@@ -952,7 +949,7 @@ func _giver_is_payable(e: Dictionary) -> bool:
 				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
 		var badge_lbl: Label = ask.get("badge_lbl")
 		if badge_lbl != null and is_instance_valid(badge_lbl):
-			badge_lbl.add_theme_color_override("font_color", Color("#2F5A2A") if ask_met else Pal.INK)
+			badge_lbl.add_theme_color_override("font_color", Pal.INK)   # neutral both states; the green ✓ glyph marks "met" (green = CTA-only)
 	return payable
 
 func _refresh_giver_lights() -> void:
