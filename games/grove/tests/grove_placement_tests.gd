@@ -1,0 +1,425 @@
+extends "res://games/grove/tests/grove_test_base.gd"
+## grove · placement — split from the grove_tests monolith; shares grove_test_base.gd.
+
+func _initialize() -> void:
+	begin("grove · placement")
+	fresh("sui")
+	var ss = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ss)
+	if ss.board == null:
+		ss._ready()
+	await create_timer(0.05).timeout
+	var vp: Rect2 = ss.get_viewport_rect()
+	# the board-art nav is a slab-less FULL-WIDTH ROW of 5 painted buttons (bottom_bar IS the row),
+	# now interleaved with expanding spacers for even edge-to-edge spacing — so count the Button
+	# children (not raw children) and check the row + its buttons sit on-screen, not a wrapping plank.
+	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
+	var nav_btns: Array = ss.bottom_bar.get_children().filter(func(c): return c is Button)
+	ok(nav_btns.size() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
+	var board_mat: Control = ss.board_area.get_child(0)
+	ok(board_mat.get_global_rect().position.y >= ss.giver_bar.get_global_rect().end.y, \
+		"S1: the board frame starts below the quest strip and does not cut off ready cards")
+	ok(not board_mat.get_global_rect().intersects(ss.bottom_bar.get_global_rect()), \
+		"S1: the board frame reserves its full height and stays clear of the bottom nav")
+	var bb_home: Control = nav_btns[0]
+	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
+	var bb_shop: Control = ss.shop_btn
+	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
+	var bag_bg: Panel = ss.bag_btn.get_child(0)
+	ok(bag_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
+		"S1: the empty bag target uses the same slot-tile background as board drop cells")
+	var merchant_bg: Panel = ss.merchant_btn.get_child(0)
+	ok(merchant_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
+		"S1: the merchant target uses the same slot-tile background as board drop cells")
+	ok(ss.merchant_rest == null or not is_instance_valid(ss.merchant_rest) \
+		or ss.merchant_rest.get_parent() != ss.merchant_btn or not ss.merchant_rest.visible, \
+		"S1: the merchant drop target has no centered shop/cart icon")
+	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
+	Save.grove()["pops"] = 10
+	ss._update_water_hud()
+	await create_timer(0.05).timeout
+	var wchip4: Control = ss.water_label.get_parent().get_parent()
+	ok(vp.encloses(wchip4.get_global_rect()), "S4: the water chip sits fully on-screen (board)")
+	ok(vp.encloses(ss.stars_label.get_parent().get_parent().get_global_rect()), \
+		"S4: the wallet sits fully on-screen (board)")
+	ok(vp.encloses(ss.level_label.get_parent().get_parent().get_global_rect()), \
+		"S4/S10: the Lv chip sits fully on-screen (board — the module ships it to BOTH scenes)")
+	ok(not wchip4.get_global_rect().intersects(ss.level_label.get_parent().get_parent().get_global_rect()), \
+		"S4: the water chip and the Lv chip do NOT overlap (owner 2026-06-12)")
+	var hs = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hs)
+	if hs.content == null:
+		hs._ready()
+	await create_timer(0.05).timeout
+	ok(hs.get_viewport_rect().encloses(hs.level_label.get_parent().get_parent().get_global_rect()), \
+		"S4: the Lv chip sits fully on-screen (home)")
+	ok(hs.get_viewport_rect().encloses(hs.stars_label.get_parent().get_parent().get_global_rect()), \
+		"S4: the wallet sits fully on-screen (home)")
+
+	# S6 regression guard: primary buttons must be SOLID pills — the kit btn_leaf
+	# nine-patch collapses invisibly at button heights (margins > the rect), which is
+	# how buttons once shipped as floating text. (The chapter ribbon that shared this
+	# trap is retired — T49.)
+	var _skin = load("res://engine/scripts/ui/skin.gd")
+	var _pbtn: Button = _skin.button("X", Callable(), true)
+	ok(_pbtn.get_theme_stylebox("normal") is StyleBoxFlat, \
+		"S6: primary buttons are solid pills (not the collapsing btn_leaf nine-patch)")
+	ok(_pbtn.get_theme_constant("outline_size") == 0, \
+		"S6: button labels carry no world-outline on the solid pill (panel-text law)")
+	_pbtn.queue_free()
+	var _sbtn: Button = _skin.button("Y", Callable(), false)
+	ok(_sbtn.get_theme_stylebox("normal") is StyleBoxFlat, "S6: secondary buttons are solid pills too")
+	ok(_sbtn.alignment == HORIZONTAL_ALIGNMENT_CENTER, "S6: button labels center in the pill")
+	_sbtn.queue_free()
+
+	# S4: the rain-refill chip never clips (it shipped as a half-off-screen sliver)
+	ss.water = 0
+	ss._update_water_hud()
+	await create_timer(0.05).timeout
+	ok(ss.refill_btn.visible, "S4: the refill offer shows when water is empty")
+	ok(vp.encloses(ss.refill_btn.get_global_rect()), "S4: the refill button sits fully on-screen (was a sliver)")
+	ss.water = G.WATER_CAP
+	ss._update_water_hud()
+
+	# S1: nothing clips at the TALLER aspect either (owner named 1080×1920 + 1080×2340)
+	get_root().size = Vector2i(1080, 2340)
+	await create_timer(0.06).timeout
+	var vp2: Rect2 = ss.get_viewport_rect()
+	ok(absf(vp2.size.y - 2340.0) < 2.0, "S1: viewport actually grew to the tall aspect (got %.0f)" % vp2.size.y)
+	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom nav fully on-screen at 1080×2340")
+	ok(vp2.encloses(ss.shop_btn.get_global_rect()), \
+		"S1: the shop button stays on-screen at 1080×2340")
+	get_root().size = Vector2i(1080, 1920)
+	await create_timer(0.06).timeout
+
+	# --- order W: board feel ----------------------------------------------------
+	var ws = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ws)
+	if ws.board == null:
+		ws._ready()
+	await create_timer(0.05).timeout
+	# W1: the idle merge hint comes SOONER and rocks gently (was 7s + a fast shake)
+	ok(absf(float(ws.IDLE_HINT_SECS) - 4.5) < 0.01, "W1: first idle hint at 4.5s (was 7)")
+	ok(int(ws.HINT_ROCK_CYCLES) >= 2 and float(ws.HINT_ROCK_DEG) <= 10.0, \
+		"W1: the hint is a gentle multi-cycle rock, not a one-off fast shake")
+	for cc in [Vector2i(1, 3), Vector2i(2, 3)]:
+		ws.board.terrain[BoardModel.idx(cc)] = 0
+		ws.board.place(cc, 101)
+	ws._rebuild_pieces()
+	ok(not ws._hint_pair().is_empty(), "W1: _hint_pair finds a mergeable pair to rock")
+	# W2: rapid generator taps must NEVER be dropped by the animating gate. Open a
+	# comfortable region, fire 5 board taps WITHOUT awaiting the 0.22s spawn flight.
+	for wy in [1, 2, 4, 5]:                    # open a wide region so 5 bursts can never fill the board
+		for wx in range(1, 8):
+			var wc := Vector2i(wx, wy)
+			ws.board.terrain[BoardModel.idx(wc)] = 0
+			ws.board.items[BoardModel.idx(wc)] = 0
+	ws._rebuild_pieces()
+	var w_before := 0
+	for v in ws.board.items:
+		if v > 0:
+			w_before += 1
+	var ghalf := Vector2(ws.csz, ws.csz) / 2.0
+	var gpos: Vector2 = ws._cell_pos(Vector2i(G.GEN_CELL)) + ghalf
+	for i in 5:
+		_tap_board(ws, gpos)
+	var w_after := 0
+	for v in ws.board.items:
+		if v > 0:
+			w_after += 1
+	ok(w_after - w_before >= 5, \
+		"W2: 5 rapid generator taps each land a burst — none eaten by the animating gate (≥5 items) — got %d" % (w_after - w_before))
+	# W3: sell discoverability. (a) the first MAX-TIER item floats a one-time hint.
+	var top_code := 100 + G.TOP_TIER
+	Save.grove().erase("seen_sell_hint")
+	var lbls0: int = ws.find_children("*", "Label", true, false).size()
+	ws._note_item_landed(top_code)
+	ok(bool(Save.grove().get("seen_sell_hint", false)), "W3: a max-tier landing sets the persisted seen flag")
+	var lbls1: int = ws.find_children("*", "Label", true, false).size()
+	ok(lbls1 > lbls0, "W3: the one-time sell hint floater appears on the first max-tier item")
+	ws._note_item_landed(top_code)
+	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
+	# (b) the merchant stall brightens while an item is dragged — the sell affordance.
+	# (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
+	# redesign; the stall brighten is the surviving affordance and the +N read returns in the
+	# new chip language during the redesign.)
+	Feat.FLAGS["ftue_staged_chrome"] = false
+	ws._rebuild_givers()
+	await create_timer(0.05).timeout
+	ok(ws.merchant_btn != null and is_instance_valid(ws.merchant_btn), "W3: the merchant sell-well rides the bottom nav (no fence stall)")
+	ws._show_sell_affordance(top_code)
+	ok(ws.merchant_btn.modulate.a >= 0.99, "W3: dragging a spare brightens the merchant well (sell affordance)")
+	# the well PREVIEWS the payout while a spare is dragged over it: a top-tier spare reads "+N"
+	# with its currency icon, so the player sees the reward before dropping.
+	ok(ws.merchant_pay.visible and String(ws.merchant_pay_lbl.text).begins_with("+"), \
+		"W3: the merchant well previews the payout (+N) while a spare is dragged")
+	ws._hide_sell_affordance()
+	ok(not ws.merchant_pay.visible, "W3: the payout preview clears when the drag ends")
+	# drag is the ONLY sell verb — there is no tap-sell path on the board.
+	ok(not ws.has_method("_on_merchant_tap"), "T39: tap-sell is removed — board has no _on_merchant_tap")
+	# X3: the giver pill renders one [item icon + n/m] pair PER ASK (1-3), no second card
+	var x3_3: Dictionary = ws._make_giver_stand(0, {"asks": [
+		{"line": 1, "tier": 3, "count": 1}, {"line": 2, "tier": 4, "count": 1},
+		{"line": 3, "tier": 3, "count": 1}], "stars": 3})
+	ok(x3_3.asks.size() == 3, "X3: a 3-ask quest renders 3 item pairs in one pill")
+	var x3_1: Dictionary = ws._make_giver_stand(1, {"asks": [{"line": 1, "tier": 2, "count": 1}], "stars": 1})
+	ok(x3_1.asks.size() == 1, "X3: a single-ask quest renders 1 pair")
+	x3_3.chip.queue_free()
+	x3_1.chip.queue_free()
+
+	# XB (Tier 2 §2): the idle-bob carries readiness — ONLY a deliverable giver bobs.
+	# A pure, asserted predicate (_giver_is_payable) gates both the ✓ and the bob, and
+	# the gate is REACTIVE: it flips as the board gains/loses the asked items. We assert
+	# the decision (the boolean) AND the effect (the live loop tween in the bob_tw meta).
+	var xb_feat = load("res://engine/scripts/core/features.gd")
+	xb_feat.FLAGS["giver_bob"] = true             # the bob is the thing under test
+	# a clean board: clear every item, then build a single-ask giver wanting 2× code 102
+	for r in G.ROWS:
+		for c in G.COLS:
+			if ws.board.is_open(Vector2i(r, c)):
+				ws.board.place(Vector2i(r, c), 0)
+	var xb_giver: Dictionary = ws._make_giver_stand(7, {"asks": [{"line": 1, "tier": 2, "count": 2}], "stars": 1})
+	ws.add_child(xb_giver.chip)                    # in-tree so the bob can start immediately
+	ws.giver_chips = [xb_giver]
+	var bob_bust: Control = xb_giver.bust
+	# helper: is a live (valid, running) loop tween parked on the bust?
+	var bobbing := func(b: Control) -> bool:
+		var tw: Variant = b.get_meta("bob_tw") if b.has_meta("bob_tw") else null
+		return tw is Tween and (tw as Tween).is_valid()
+	# (1) NOT payable (board holds zero 102) → no bob, ✓ hidden
+	ws._refresh_giver_lights()
+	ok(ws.board.count_of(102) == 0, "XB: board set up with the ask UNMET (0×102)")
+	ok(not ws._giver_is_payable(xb_giver), "XB: an unmet quest is NOT payable")
+	ok(not bobbing.call(bob_bust), "XB: a giver whose quest is NOT payable does NOT bob")
+	ok(not (xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ is hidden while not payable (same predicate)")
+	# (2) becomes payable (place the 2 asked items) → bob starts, ✓ shows
+	var free_cells: Array = ws.board.empty_ground_cells()
+	ws.board.place(free_cells[0], 102)
+	ws.board.place(free_cells[1], 102)
+	ws._refresh_giver_lights()
+	ok(ws._giver_is_payable(xb_giver), "XB: the quest is payable once both asked items are present")
+	ok(bobbing.call(bob_bust), "XB: a giver whose quest IS payable bobs (bob tween live)")
+	ok((xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ shows on the same payable transition")
+	# (3) payable → unmet again (remove one item) → bob STOPS (reactive, not one-way)
+	ws.board.place(free_cells[0], 0)
+	ws._refresh_giver_lights()
+	ok(not ws._giver_is_payable(xb_giver), "XB: removing an asked item makes it un-payable again")
+	ok(not bobbing.call(bob_bust), "XB: the bob stops when the giver is no longer deliverable")
+	xb_giver.chip.queue_free()
+	ws.giver_chips = []
+
+	Feat.FLAGS["ftue_staged_chrome"] = true
+	ws.queue_free()
+
+	# V1 (the locked-generator "after N spots" preview) is PARKED with T17: it was keyed on
+	# the old per-spot-count `appears_at`; under per-map generators the next set arrives on map
+	# COMPLETION, so the preview needs redefining alongside §6/§7. Test removed with the feature.
+
+	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
+	fresh("y")
+	var Feat2 = load("res://engine/scripts/core/features.gd")
+	Feat2.FLAGS["ftue_staged_chrome"] = false   # merchant + basket present on a fresh board
+	Feat2.FLAGS["porter_collect"] = false        # test the MECHANICS, not the drift animation
+	var ys = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ys)
+	if ys.board == null:
+		ys._ready()
+	await create_timer(0.05).timeout
+	ys._rebuild_givers()
+	await create_timer(0.05).timeout
+	ok(ys.basket != null and ys.basket.is_empty(), "Y2: the sell basket starts empty (buy-back parked; no fence chip)")
+	# Y1: a t8 sells for exactly 1💎 (no coins); a t5 for 5🪙
+	var yt8 := 100 + G.TOP_TIER
+	var yd0: int = Save.diamonds()
+	var yc0: int = Save.coins()
+	ys._grant_sale(yt8, null)
+	ok(Save.diamonds() == yd0 + 1 and Save.coins() == yc0, "Y1: a t8 sells for exactly 1💎, no coins")
+	ys._grant_sale(105, null)
+	ok(Save.coins() == yc0 + 5, "Y1: a t5 sells for 5🪙")
+	ok(ys.basket.size() == 2, "Y2: sales land in the basket")
+	# Y2: buy back the t8 — EXACT refund (the 1💎 returns), item back on a free cell
+	var yd1: int = Save.diamonds()
+	var yopen0: int = ys.board.empty_ground_cells().size()
+	ys._buy_back(0)
+	ok(Save.diamonds() == yd1 - 1, "Y2: buy-back refunds EXACTLY the 1💎 granted (no arbitrage)")
+	ok(ys.board.empty_ground_cells().size() == yopen0 - 1, "Y2: the bought-back item returns to a free cell")
+	ok(ys.basket.size() == 1, "Y2: the sale leaves the basket on buy-back")
+	# Y2: a FULL board blocks buy-back (wobble, no refund, sale kept)
+	for yfc in ys.board.empty_ground_cells():
+		ys.board.place(yfc, 101)
+	var ycfull: int = Save.coins()
+	ys._buy_back(0)
+	ok(Save.coins() == ycfull and ys.basket.size() == 1, "Y2: full-board buy-back is blocked (no refund, sale kept)")
+	# Y2/Y3: a 4th sale overflows cap-3 → the porter collects at once
+	ys.basket.clear()
+	ys._rebuild_basket()
+	for yi4 in 4:
+		ys._record_sale(105, Vector2i(5, 0))
+	ok(ys.basket.is_empty(), "Y2/Y3: a 4th sale overflows cap-3 → the porter collects (basket emptied)")
+	# Y3: the timer collects after ~3 min (buy-back window closes)
+	ys._record_sale(105, Vector2i(5, 0))
+	ok(ys.basket.size() == 1, "Y3: a sale arms the porter timer")
+	ys._porter_tick(ys.PORTER_SECS + 1.0)
+	ok(ys.basket.is_empty(), "Y3: the porter collects the basket after ~3 min")
+	Feat2.FLAGS["ftue_staged_chrome"] = true
+	Feat2.FLAGS["porter_collect"] = true
+	ys.queue_free()
+	# Y4 invariant: the water↔diamond round trip loses >=10x — never a water pump
+	ok(G.water_to_earn_diamond() >= 10 * G.water_a_diamond_buys(), \
+		"Y4: water to EARN 1💎 (%d) >= 10x the water 1💎 BUYS (%d)" % [G.water_to_earn_diamond(), G.water_a_diamond_buys()])
+
+	# --- order Z: the coin sink — spirit treats -----------------------------------
+	# (Z1/Z2 wayside on-map decorations are RETIRED with the old free-pan overworld:
+	# the NEW map model is one image with restoration spots, no on-map wayside plots —
+	# G.waysides()/wayside_available/buy_wayside/_on_map_tap no longer exist.)
+	var Feat3 = load("res://engine/scripts/core/features.gd")
+	# Z3: spirit treats — a 10🪙 recurring sink. Spend deducts exactly, rapid-buy is
+	# independent (graceful), and you can't overspend.
+	fresh("z3")
+	Feat3.FLAGS["spirit_treats"] = true
+	var z3 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(z3)
+	if z3.board == null:
+		z3._ready()
+	await create_timer(0.05).timeout
+	Save.add_coins(40)
+	var z3c0: int = Save.coins()
+	z3._buy_treat()
+	ok(Save.coins() == z3c0 - z3.TREAT_COST, "Z3: a treat costs exactly 10🪙")
+	z3._buy_treat()
+	z3._buy_treat()
+	ok(Save.coins() == z3c0 - 3 * z3.TREAT_COST, "Z3: rapid treats each deduct independently (graceful)")
+	Save.spend(Save.coins())                 # drain to 0
+	z3._buy_treat()
+	ok(Save.coins() == 0, "Z3: no treat without coins (no overspend)")
+	z3.queue_free()
+
+	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, cosmetics, rotation ---
+	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind),
+	# cosmetics (looks), behind a FEW deterministically-rotating offers. Pure grant
+	# funcs spend correctly, grant, and refuse when broke; rotation is seeded (testable).
+
+	# S-A: the stock tables exist and are well-formed (owner-tunable grove numbers).
+	fresh("shop_stock")
+	ok(Data.SHOP_ITEM_OFFERS.size() >= 2, "the shop stocks item-shortcut offers")
+	ok(Data.SHOP_COSMETICS.size() >= 2, "the shop stocks a cosmetic catalogue")
+	ok(Data.SHOP_ROTATION_COUNT >= 1 and Data.SHOP_ROTATION_COUNT <= \
+		Data.SHOP_ITEM_OFFERS.size() + Data.SHOP_COSMETICS.size(), \
+		"the rotation shows a FEW offers (1..pool size)")
+	for off in Data.SHOP_ITEM_OFFERS:
+		var t := int(off.code) % 100
+		ok(int(off.code) > 0 and t >= 2 and t < Data.TOP_TIER, \
+			"item offer %s is a mid-tier piece (t%d, never a gate-only pinnacle)" % [off.id, t])
+		var cur := String(off.currency)
+		ok((cur == "coins" or cur == "diamonds") and int(off.cost) > 0, \
+			"item offer %s costs %d %s" % [off.id, int(off.cost), cur])
+	for cos in Data.SHOP_COSMETICS:
+		ok(String(cos.id) != "" and int(cos.cost) > 0 and \
+			(String(cos.currency) == "coins" or String(cos.currency) == "diamonds"), \
+			"cosmetic %s costs %d %s" % [cos.id, int(cos.cost), cos.currency])
+
+	# S-B: item-shortcut grant — spends the right currency, drops the piece into the
+	# bag blob (the board drains it on open), and refuses when the wallet is short.
+	fresh("shop_item_coin")
+	var ci := -1
+	for i in Data.SHOP_ITEM_OFFERS.size():
+		if String(Data.SHOP_ITEM_OFFERS[i].currency) == "coins":
+			ci = i
+			break
+	ok(ci >= 0, "there is a coin-priced item-shortcut (low tiers are coins, §10)")
+	var coff: Dictionary = Data.SHOP_ITEM_OFFERS[ci]
+	ok(not ShopS.buy_item_offer(ci), "the item-shortcut refuses when broke")
+	ok(ShopS.pending_pieces().is_empty(), "...and grants no piece when it refuses")
+	Save.add_coins(int(coff.cost) + 50)
+	var coins_b := Save.coins()
+	ok(ShopS.buy_item_offer(ci), "the coin item-shortcut sells once affordable")
+	ok(Save.coins() == coins_b - int(coff.cost), "...spending exactly its coin cost")
+	ok(ShopS.pending_pieces() == [int(coff.code)], "...and queues the piece into the bag blob")
+
+	# a gem-priced (higher-tier) item-shortcut spends diamonds, never coins.
+	fresh("shop_item_gem")
+	var gi := -1
+	for i in Data.SHOP_ITEM_OFFERS.size():
+		if String(Data.SHOP_ITEM_OFFERS[i].currency) == "diamonds":
+			gi = i
+			break
+	ok(gi >= 0, "there is a premium (gem) item-shortcut for higher tiers (§10)")
+	var goff: Dictionary = Data.SHOP_ITEM_OFFERS[gi]
+	ok(not ShopS.buy_item_offer(gi), "the gem item-shortcut refuses without diamonds")
+	Save.add_diamonds(int(goff.cost) + 5)
+	var gem_b := Save.diamonds()
+	var gc0 := Save.coins()
+	ok(ShopS.buy_item_offer(gi), "the gem item-shortcut sells with diamonds")
+	ok(Save.diamonds() == gem_b - int(goff.cost) and Save.coins() == gc0, \
+		"...spending diamonds only (premium buys speed, never coins)")
+
+	# the live board drains the queued shortcut onto open ground on its next open.
+	fresh("shop_item_board")
+	Save.add_coins(int(coff.cost) + 10)
+	ShopS.buy_item_offer(ci)
+	var sb = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sb)
+	if sb.board == null:
+		sb._ready()
+	ok(sb.bag.has(int(coff.code)), "the board picks the queued shortcut up into the bag on open")
+	ok(ShopS.pending_pieces().is_empty(), "...and the pending queue is drained")
+	sb.queue_free()
+
+	# S-C: cosmetic grant — spends, unlocks the look, and refuses a second buy (own-once).
+	fresh("shop_cosmetic")
+	var cos0: Dictionary = Data.SHOP_COSMETICS[0]
+	var cid := String(cos0.id)
+	ok(not ShopS.cosmetic_owned(cid), "a cosmetic starts unowned")
+	ok(not ShopS.buy_cosmetic(cid), "the cosmetic refuses when broke")
+	if String(cos0.currency) == "coins":
+		Save.add_coins(int(cos0.cost) + 5)
+	else:
+		Save.add_diamonds(int(cos0.cost) + 5)
+	var cwc := Save.coins()
+	var cwg := Save.diamonds()
+	ok(ShopS.buy_cosmetic(cid), "the cosmetic sells once affordable")
+	var spent_c := cwc - Save.coins()
+	var spent_g := cwg - Save.diamonds()
+	ok((spent_c == int(cos0.cost) and spent_g == 0) if String(cos0.currency) == "coins" \
+		else (spent_g == int(cos0.cost) and spent_c == 0), "...spending exactly its price in its currency")
+	ok(ShopS.cosmetic_owned(cid), "...and the look is now unlocked (persisted in grove)")
+	var afterc := Save.coins()
+	var afterg := Save.diamonds()
+	ok(not ShopS.buy_cosmetic(cid), "buying an owned cosmetic is refused (own-once, no double-charge)")
+	ok(Save.coins() == afterc and Save.diamonds() == afterg, "...and charges nothing the second time")
+
+	# S-D: rotation determinism — same seed → same offers; advancing rotates them.
+	fresh("shop_rotation")
+	var r_a: Array = ShopS.rotation_offers(7)
+	var r_a2: Array = ShopS.rotation_offers(7)
+	ok(r_a.size() == Data.SHOP_ROTATION_COUNT, "the rotation surfaces exactly SHOP_ROTATION_COUNT offers")
+	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the same seed yields the SAME offers (deterministic, no randi)")
+	# every rotated offer is a real stock entry (item or cosmetic), no duplicates.
+	var ids_a := _offer_ids(r_a)
+	ok(ids_a.size() == _uniq(ids_a).size(), "a rotation has no duplicate offers")
+	# advancing the seed across a window of days rotates the featured set at least once.
+	var changed := false
+	for day in range(8, 40):
+		if _offer_ids(ShopS.rotation_offers(day)) != ids_a:
+			changed = true
+			break
+	ok(changed, "advancing the seed (day/refresh) rotates the featured offers")
+	# the live storefront wires the rotation in (a new featured band of pressable cards).
+	var s_seed: int = ShopS.rotation_seed()
+	ok(s_seed >= 0, "the rotation seed is a non-negative day/refresh index")
+
+	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
+	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.
+	_test_residents()
+	_test_resident_wiring()
+	# T45 · the integration wiring: the 2×-collect doubler, the piggy-vault chrome entry, the
+	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
+	await _test_t45_wiring()
+	_test_2x_doubler_rehome()
+	# --- order T (T43): live-IAP ladder + starter + first-buy doubler + rewarded ads +
+	# --- the out-of-water triggered offer. §4 law: premium & ads buy SPEED + LOOKS, never
+	# --- POSSIBILITY — every wall is free-passable (slower); ads/offers are capped+cooled.
+
+	# T-A: the cash ladder is a real, well-formed escalating curve up to a $49.99/$99.99
+	# top, with 💎-per-dollar RISING up the ladder (the whale always gets the best rate).
+	finish()

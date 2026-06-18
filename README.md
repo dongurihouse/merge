@@ -18,16 +18,23 @@ Godot **4.6** (developed on 4.6.2). On this machine: `/opt/homebrew/bin/godot`.
 - Main scene: `scenes/Home.tscn`.
 
 ## Run the tests (headless — no display needed)
+Suites run **in parallel** with a per-suite timing table (`engine/tools/run_suites.py`,
+`JOBS=4` by default). After **every change**, run the fast inner-loop check; run the
+full sweep only before you commit or hand off:
 ```bash
-make test           # every suite (engine + game)
+make test-fast      # ⚡ INNER LOOP — engine suites only, parallel (use after every change)
+make test           # full sweep: every suite (engine + grove), parallel + timing table
 make test-engine    # base-engine suites only
 make test-grove     # grove game suites only
-make test-one SUITE=engine/tests/save_tests   # a single suite
+make test-one SUITE=engine/tests/save_tests   # a single suite (serial)
 make smoke          # scene-instantiation smoke check
+JOBS=8 make test    # raise/lower parallelism
 ```
-Suites live beside the code they cover: the base-engine ones in `engine/tests/`
-(`save_tests`, `layout_tests`, `mechanics_tests`, `layering_tests`, plus the scene
-`smoke`), and the grove game's in `games/grove/tests/` (`grove_tests`).
+Suites live beside the code they cover: the base-engine ones in `engine/tests/`, and the
+grove game's in `games/grove/tests/`. The grove suite was split from one 2.3k-line
+monolith into focused suites (`grove_model_tests`, `grove_economy_tests`, `grove_ui_tests`,
+`grove_placement_tests`, `grove_shop_ads_tests`) sharing `grove_test_base.gd`, so they
+parallelise and you can run just the slice you touched.
 
 ## Layout
 | Path | Role |

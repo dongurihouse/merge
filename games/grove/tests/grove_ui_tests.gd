@@ -1,0 +1,328 @@
+extends "res://games/grove/tests/grove_test_base.gd"
+## grove · ui — split from the grove_tests monolith; shares grove_test_base.gd.
+
+func _initialize() -> void:
+	begin("grove · ui")
+	fresh("ladder")
+	var s6 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(s6)
+	if s6.board == null:
+		s6._ready()
+	var lad: Array = s6._ladder_entries(1)
+	ok(lad.size() == G.TOP_TIER, "the ladder lists every tier of the line")
+	ok(bool(lad[0].seen) and not bool(lad[1].seen), "starters are known; tier 2 still a mystery")
+	var h6: Vector2 = Vector2(s6.csz, s6.csz) / 2.0
+	s6._on_press(s6._cell_pos(Vector2i(3, 2)) + h6)
+	s6._on_release(s6._cell_pos(Vector2i(3, 4)) + h6)
+	await create_timer(0.3).timeout
+	ok(bool(s6._ladder_entries(1)[1].seen), "merging writes the produced tier into the log")
+	ok(not bool(s6._ladder_entries(3)[0].seen), "an undebuted line stays fully unknown")
+	var kids0: int = s6.get_child_count()
+	s6._open_ladder(1, 2)
+	ok(s6.get_child_count() == kids0 + 1, "the upgrade-path card opens over the board")
+	var persisted: Dictionary = Save.grove().get("seen", {})
+	ok(persisted.has("102"), "the discovery log persists in the save")
+
+	# 17. the Shop: diamond packs grant, cash confirm grants directly (no rails yet)
+	fresh("shop")
+	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → genuinely broke
+	ok(not Shop.buy_coin_pack(), "the coin pack refuses without diamonds")
+	Save.add_diamonds(30)
+	var coins_before := Save.coins()
+	ok(Shop.buy_coin_pack(), "the coin pack sells")
+	ok(Save.coins() == coins_before + Shop.COIN_PACK and Save.diamonds() == 30 - Shop.COIN_PACK_GEM_COST, \
+		"coin pack: -%d💎 +%d🪙" % [Shop.COIN_PACK_GEM_COST, Shop.COIN_PACK])
+	# T43: the FIRST ladder pack is doubled (first-purchase offer — covered in order-T);
+	# spend it first so this asserts the STEADY-STATE direct grant (×1).
+	Save.set_first_purchase_made()
+	var gems_before := Save.diamonds()
+	Shop.grant_cash_pack(0)
+	ok(Save.diamonds() == gems_before + int(Shop.CASH_PACKS[0].gems), \
+		"confirming a cash pack adds the diamonds directly")
+	ok(Shop.buy_water() and Save.diamonds() == gems_before + int(Shop.CASH_PACKS[0].gems) - G.REFILL_DIAMOND_COST, \
+		"the water purchase spends its diamonds (price = G.REFILL_DIAMOND_COST)")
+	var s7 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(s7)
+	if s7.board == null:
+		s7._ready()
+	var kids7: int = s7.get_child_count()
+	Shop.open(s7, {})
+	ok(s7.get_child_count() == kids7 + 1, "the storefront opens over the board")
+	# the water row appears ONLY when the host can grant water
+	var rows_plain := _shop_rows(s7)
+	Shop.open(s7, {"water_grant": func() -> void: pass})
+	var rows_water := _shop_rows(s7)
+	ok(rows_water == rows_plain + 1, "the water row appears only with a water_grant (%d -> %d)" % [rows_plain, rows_water])
+	# T40: the storefront now carries the Featured rotation band — its pressable offer
+	# cards are part of the buy-card count (coin pouch + SHOP_ROTATION_COUNT featured +
+	# the cash packs), so the storefront is no longer a fixed water+coin+cash layout.
+	var DataUi = load("res://games/active.gd").DATA
+	ok(rows_plain >= int(DataUi.SHOP_ROTATION_COUNT) + 1, \
+		"the storefront features the rotating offers band (%d cards ≥ %d featured + pouch)" % \
+		[rows_plain, int(DataUi.SHOP_ROTATION_COUNT)])
+
+	# 18. the HUD module: same labels, same pixels, in BOTH scenes
+	var h7 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(h7)
+	if h7.content == null:
+		h7._ready()
+	var kids_h7: int = h7.get_child_count()
+	Shop.open(h7, {})
+	ok(h7.get_child_count() == kids_h7 + 1, "the storefront opens over the home map too")
+	ok(s7.stars_label != null and s7.coins_label != null and s7.diamonds_label != null, \
+		"the board's HUD labels exist")
+	ok(h7.stars_label != null and h7.coins_label != null, "home's HUD labels exist")
+	Save.add_stars(3)
+	h7._update_hud()
+	await create_timer(0.6).timeout            # numbers TICK toward the target (§6)
+	ok(h7.stars_label.text == str(Save.stars()), "the module refresh keeps the wallet live (ticked)")
+	var p_grove: Control = s7.stars_label.get_parent().get_parent()
+	var p_home: Control = h7.stars_label.get_parent().get_parent()
+	ok(p_grove.offset_top == p_home.offset_top and p_grove.offset_right == p_home.offset_right, \
+		"the wallet panel sits at IDENTICAL offsets in both scenes")
+	# R1: the plank wraps the WHOLE cluster — even (symmetric) padding, the row
+	# (store basket + ★/🪙/💧) fully inside (rect guard; the crop is the eye proof)
+	await create_timer(0.05).timeout            # let the panel lay out
+	var row_home: Control = h7.stars_label.get_parent()
+	assert_wraps(p_home, row_home, 10.0, 4.0, "R1 wallet")
+	var store_btn: Control = row_home.get_child(0)
+	ok(p_home.get_global_rect().grow(-4.0).encloses(store_btn.get_global_rect()), \
+		"R1: the store button sits fully inside the plank")
+
+	# 19. order L — ambient life + weather
+	fresh("ambient")
+	var Ambient = load("res://engine/scripts/ui/ambient.gd")
+	ok(G.completed_maps({}) == 0, "no maps done on a fresh save")
+	var full0 := {}
+	for sp0 in G.MAPS[0].spots:
+		full0[String(sp0.id)] = true
+	ok(G.completed_maps(full0) == 1 and G.character_count(full0) == 2, \
+		"character count = 1 + completed maps")
+	var alayer: Control = Ambient.build_layer(Vector2(1000, 1000), G.character_count(full0))
+	ok(alayer.get_child_count() == 2, "the layer carries that many characters")
+	ok(_all_ignore(alayer), "spirits never eat input")
+	alayer.free()
+	var ga := Save.grove()
+	ga["winback_until"] = Time.get_unix_time_from_system() + 60.0
+	ok(Ambient.weather_now(false) == "rain", "the win-back minute rains")
+	ok(Ambient.weather_now(true) == "breeze", "calm mode WINS: breeze, never rain")
+	Ambient.forced_weather = "snow"
+	ok(Ambient.weather_now(true) == "snow", "shot tools can force a state")
+	Ambient.forced_weather = ""
+	var h8 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(h8)
+	if h8.content == null:
+		h8._ready()
+	ok(h8.content.get_node_or_null("AmbientLayer") != null, "the map carries the spirit layer")
+	ok(h8.get_node_or_null("WeatherLayer") != null, "the map carries the weather layer")
+	ok(_all_ignore(h8.content), "the map guard stays green with spirits wandering")
+	var s8 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(s8)
+	if s8.board == null:
+		s8._ready()
+	ok(s8.get_node_or_null("WeatherLayer") != null, \
+		"the board carries the weather layer (the drifting-cloud/spirit band was removed in the art reskin)")
+
+	# 20. order N — feature flags: all-ON is proven by the whole sweep (zero
+	# behavior change); two flip smokes prove the guards actually disconnect
+	var Features = load("res://engine/scripts/core/features.gd")
+	ok(Features.on("idle_hint") and Features.on("nonexistent_flag_xyz"), \
+		"known flags read true; unknown ids warn + default ON (typo-proof)")
+	Features.FLAGS["idle_hint"] = false
+	ok(s8._hint_pair().is_empty(), "idle_hint OFF: _hint_pair returns [] and wiggles nothing")
+	Features.FLAGS["idle_hint"] = true
+	fresh("flagpop")
+	Features.FLAGS["ftue_free_pops"] = false
+	var s9 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(s9)
+	if s9.board == null:
+		s9._ready()
+	s9.board.take(Vector2i(3, 2))             # a virgin board has 2 empties — make room
+	s9._rebuild_pieces()
+	var s9b := 0
+	for v in s9.board.items:
+		if v > 0:
+			s9b += 1
+	s9._pop_seed()
+	await create_timer(0.25).timeout
+	var s9n := -s9b
+	for v in s9.board.items:
+		if v > 0:
+			s9n += 1
+	ok(s9n >= 1 and s9.water == G.WATER_CAP - s9n * G.POP_COST, "ftue_free_pops OFF: the FIRST pop costs water (no free intro)")
+	Features.FLAGS["ftue_free_pops"] = true
+
+	# 21. R4 — sweep the composited UI with the pixel-right asserts. Each element
+	# now has PERMANENT rect coverage (the law's durable value); a failure here is
+	# a real misalignment to fix. (wallet was R1; map pin R2.)
+	fresh("r4")
+	# water chip (board, top-left) — reveal past the FTUE stage, then assert it wraps
+	var sb4 = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sb4)
+	if sb4.board == null:
+		sb4._ready()
+	Save.grove()["pops"] = 10                 # FTUE done → the water chip shows
+	sb4._update_water_hud()
+	await create_timer(0.05).timeout
+	var wchip: Control = sb4.water_label.get_parent().get_parent()
+	var wrow: Control = sb4.water_label.get_parent()
+	assert_wraps(wchip, wrow, 5.0, 4.0, "R4 water chip")
+	# level chip (home, top-left)
+	var h4 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(h4)
+	if h4.content == null:
+		h4._ready()
+	await create_timer(0.05).timeout
+	# the level badge is the standalone rope RING now (no wrapping pill), so assert the chip is
+	# present + fully on-screen rather than that a plank wraps it with even padding.
+	var lchip: Control = h4.level_label
+	while lchip != null and not (lchip is PanelContainer):
+		lchip = lchip.get_parent()
+	ok(lchip != null and h4.get_viewport_rect().encloses(lchip.get_global_rect()), "R4 level chip sits on-screen")
+	# §16 home: an unrestored hub building shows a ✿cost RESTORE BADGE (the mask-reveal home replaced
+	# the old cutout price-pin; the badge is a farm_icons circle + the star cost).
+	await create_timer(0.05).timeout
+	var badge_found := false
+	for hit in h4.spot_hits:
+		var node: Control = hit.node
+		if not node.find_children("*", "TextureRect", true, false).is_empty():
+			badge_found = true
+			break
+	ok(badge_found, "R4/§16: an unrestored hub spot shows a restore badge")
+
+	# 22. U1 — item backing (contrast): ON puts a soft dark ellipse UNDER the item
+	# (first child = bottom); OFF leaves the item bare. Flag item_backing.
+	Features.FLAGS["item_backing"] = true
+	var pc_on: Control = sb4._make_piece(101, 100.0)
+	ok(pc_on.get_child(0) is TextureRect and pc_on.get_child(0).modulate.a < 0.5, \
+		"item_backing ON: a soft low-alpha ellipse sits under the item")
+	ok(_all_ignore(pc_on), "U1: the backing never eats input")
+	Features.FLAGS["item_backing"] = false
+	var pc_off: Control = sb4._make_piece(101, 100.0)
+	ok(pc_off.get_child(0).modulate.a > 0.9, "item_backing OFF: the item is bare (no backing)")
+	Features.FLAGS["item_backing"] = true   # AF3: ON is the default (now a contact shadow)
+
+	# 23. P — drag-to-swap two unlocked items (flag drag_swap)
+	# P1: the model — swap trades codes, a coin swaps like anything, it persists
+	var pb := BoardModel.new()
+	var pa := Vector2i(4, 4)
+	var pbc := Vector2i(4, 5)
+	pb.terrain[BoardModel.idx(pa)] = 0
+	pb.terrain[BoardModel.idx(pbc)] = 0
+	pb.place(pa, 101)
+	pb.place(pbc, 203)
+	pb.swap(pa, pbc)
+	ok(pb.item_at(pa) == 203 and pb.item_at(pbc) == 101, "P1: swap trades two item codes")
+	var pcoin := G.COIN_LINE * 100 + 1
+	pb.place(pa, pcoin)
+	pb.swap(pa, pbc)                          # pbc held 101
+	ok(pb.item_at(pa) == 101 and pb.item_at(pbc) == pcoin, "P1: a coin swaps like any item")
+	var pb2 := BoardModel.new()
+	pb2.from_dict(pb.to_dict())
+	ok(pb2.item_at(pa) == 101 and pb2.item_at(pbc) == pcoin, "P1: to_dict/from_dict preserves the swapped board")
+
+	# P2: the drop chain (real _on_press → _on_release drives)
+	fresh("pswap")
+	Features.FLAGS["drag_swap"] = true
+	var sp = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sp)
+	if sp.board == null:
+		sp._ready()
+	var phalf: Vector2 = Vector2(sp.csz, sp.csz) / 2.0
+	var es: Array = sp.board.empty_ground_cells()
+	var c1 := Vector2i(es[0])
+	var c2 := Vector2i(es[1])
+	# occupied-different → swap; BOTH piece_nodes update
+	sp.board.place(c1, 101)
+	sp.board.place(c2, 203)
+	sp._rebuild_pieces()
+	sp._on_press(sp._cell_pos(c1) + phalf)
+	sp._on_release(sp._cell_pos(c2) + phalf)
+	ok(sp.board.item_at(c1) == 203 and sp.board.item_at(c2) == 101, "P2: occupied-different target → swap")
+	ok(sp.piece_nodes.has(c1) and sp.piece_nodes.has(c2), "P2: piece_nodes updated for BOTH cells")
+	# same-code → MERGE keeps precedence (never swaps)
+	sp.board.place(c1, 101)
+	sp.board.place(c2, 101)
+	sp._rebuild_pieces()
+	sp._on_press(sp._cell_pos(c1) + phalf)
+	sp._on_release(sp._cell_pos(c2) + phalf)
+	ok(sp.board.item_at(c2) == 102 and sp.board.item_at(c1) == 0, "P2: same-code drop MERGES (precedence over swap)")
+	# flag OFF → snap-back, nothing swaps
+	Features.FLAGS["drag_swap"] = false
+	sp.board.place(c1, 101)
+	sp.board.place(c2, 203)
+	sp._rebuild_pieces()
+	sp._on_press(sp._cell_pos(c1) + phalf)
+	sp._on_release(sp._cell_pos(c2) + phalf)
+	ok(sp.board.item_at(c1) == 101 and sp.board.item_at(c2) == 203, "P2: drag_swap OFF → snap-back (no swap)")
+	Features.FLAGS["drag_swap"] = true
+	# drop on a generator cell → snap-back (never swaps with a generator)
+	var gcell := Vector2i(G.GEN_CELL)
+	sp.board.place(c1, 101)
+	sp._rebuild_pieces()
+	sp._on_press(sp._cell_pos(c1) + phalf)
+	sp._on_release(sp._cell_pos(gcell) + phalf)
+	ok(sp.board.item_at(c1) == 101, "P2: drop on a generator cell → snap-back")
+
+	# 24. T — the Decorate jump goes to the MAP the player was decorating (NEW model:
+	# decorate_map opens that MAP, not an interior). Boot lands ON a map view.
+	var HomeScript = load("res://engine/scripts/scenes/map.gd")
+	# T1: opening a map persists last_map
+	fresh("tlast")
+	var ht = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(ht)
+	if ht.content == null:
+		ht._ready()
+	ht._open_map(0)
+	ok(String(Save.grove().get("last_map", "")) == "farmhouse", "T1: opening a map persists last_map")
+	# T1: sanitize — an unknown last_map never survives a boot. _load_state drops it,
+	# then the boot opens the frontier and re-records a VALID map id in its place.
+	Save.grove()["last_map"] = "atlantis"
+	var ht2 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(ht2)
+	if ht2.content == null:
+		ht2._ready()
+	ok(G.map_for_id(String(Save.grove().get("last_map", ""))) >= 0, \
+		"T1: an unknown last_map is scrubbed on load (boot re-records a valid map)")
+	ok(ht2._view == "map", "T1: fresh arrival (no jump request) lands on a map view")
+	# T2: the Decorate jump — opens the named map directly, NO map-select flash
+	# (asserted before any frame), and the request is one-shot
+	HomeScript.decorate_map = "farmhouse"
+	var ht3 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(ht3)
+	if ht3.content == null:
+		ht3._ready()
+	ok(ht3._view == "map" and ht3._map_idx == 0, \
+		"T2: Decorate opens the named map directly (asserted pre-frame: no select flash)")
+	ok(HomeScript.decorate_map == "", "T2: the jump request is one-shot (consumed)")
+	# T2: an unknown jump request falls through to the frontier map
+	HomeScript.decorate_map = "atlantis"
+	var ht4 = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(ht4)
+	if ht4.content == null:
+		ht4._ready()
+	ok(ht4._view == "map", "T2: an unknown jump request falls through to the frontier map")
+
+	# 25. order O — music degrades SILENTLY on a BARE engine. Audio is skin and the
+	# real takes are archived, so ensure() must be a quiet no-op (never create a
+	# player to crash on). The full A/B playlist-alternation logic ships + is tested
+	# WITH the audio skin (needs takes on disk); here we only guard the engine never
+	# crashes/hangs without it. (T16: this test used to assume real music on disk.)
+	var Music = load("res://engine/scripts/core/music.gd")
+	fresh("omusic")
+	Music.stop()
+	Music.ensure()
+	ok(Music._player == null or not Music._player.playing, "O: no audio skin → ensure() is a silent no-op (no crash/hang)")
+	Save.set_setting("music", false)
+	Music.refresh()
+	ok(Music._player == null or not Music._player.playing, "O: music Off → refresh() leaves the bed silent")
+	Save.set_setting("music", true)
+	Music.stop()
+	Music.take_dir = "res://games/grove/assets/nonexistent/"
+	Music.ensure()
+	ok(Music._player == null or not Music._player.playing, "O: zero takes on disk → ensure() is a silent no-op (no crash)")
+	Music.take_dir = "res://games/grove/assets/music_archived/"   # archived: the dir is gone → no takes resolve
+	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
+
+	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
+	finish()

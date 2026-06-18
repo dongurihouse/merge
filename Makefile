@@ -3,13 +3,18 @@
 GODOT   ?= godot
 PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
+JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
+RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
 ENGINE_TESTS := engine/tests/save_tests engine/tests/inbox_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/ghost_preview_tests engine/tests/hint_tests engine/tests/gate_unveil_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/ftue_pop_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests engine/tests/palette_tests engine/tests/level_badge_tests
-GROVE_TESTS  := games/grove/tests/grove_tests
+# the grove suite was split from one 2.3k-line monolith into focused suites so they
+# parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
+GROVE_TESTS  := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_shop_ads_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
+export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor test test-engine test-grove test-one smoke import \
+.PHONY: help run run_debug run_grove editor test test-fast test-engine test-grove test-one smoke import \
         shot-map shot-grove shot \
         decor icon ios clean clean-cache intake intake-test
 
@@ -35,24 +40,22 @@ run_grove: ## play the GROVE game (full art; first run imports grove art)
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)
 
-## --- tests (headless, no window) ------------------------------------------
-test: ## run every headless suite (engine + game)
-	@for t in $(TESTS); do \
-		echo "== $$t =="; \
-		$(GODOT) --headless --path $(PROJECT) -s res://$$t.gd || exit 1; \
-	done
+## --- tests (headless, no window; parallel — override with JOBS=N) ----------
+## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
+## Run the full `make test` (adds the grove game suites) before you commit / hand off.
+## Suites run in parallel via $(RUNNER), which prints a per-suite timing table and
+## fails on any FAIL / crash (it never trusts a zero exit code alone).
+test-fast: ## ⚡ inner-loop check — engine suites only, parallel. USE THIS AFTER EVERY CHANGE.
+	@python3 $(RUNNER) $(ENGINE_TESTS)
 
-test-engine: ## run only the base-engine suites
-	@for t in $(ENGINE_TESTS); do \
-		echo "== $$t =="; \
-		$(GODOT) --headless --path $(PROJECT) -s res://$$t.gd || exit 1; \
-	done
+test: ## full sweep: every suite (engine + grove), parallel + per-suite timing table
+	@python3 $(RUNNER) $(TESTS)
 
-test-grove: ## run only the grove game suites
-	@for t in $(GROVE_TESTS); do \
-		echo "== $$t =="; \
-		$(GODOT) --headless --path $(PROJECT) -s res://$$t.gd || exit 1; \
-	done
+test-engine: ## only the base-engine suites (parallel)
+	@python3 $(RUNNER) $(ENGINE_TESTS)
+
+test-grove: ## only the grove game suites (parallel)
+	@python3 $(RUNNER) $(GROVE_TESTS)
 
 test-one: ## run one suite by path:  make test-one SUITE=engine/tests/save_tests
 	$(GODOT) --headless --path $(PROJECT) -s res://$(SUITE).gd
