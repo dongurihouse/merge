@@ -108,6 +108,7 @@ var gate_btn: Button
 var bag_bar: HBoxContainer
 var stars_label: Label
 var coins_label: Label
+var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
 var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var bag_slots_ui: Array = []
@@ -1810,8 +1811,97 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_rebuild_givers()
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	_update_hud()
+	# §10: a quest's coin overflow is the surviving lump coin faucet — the re-home of the old
+	# hub-collect 2× doubler. Offer to double it via a rewarded ad (opt-in, capped by Ads.can_show).
+	if sp_coins > 0:
+		_maybe_offer_2x(sp_coins, chip.get_global_rect().get_center())
 	if _gate_ready():
 		FX.floating_text(self, gate_btn.get_global_rect().get_center() - Vector2(140, 70), tr("Ready to restore!"), STRAW, 40)
+
+# The cozy, optional 2× DOUBLER card — re-homed from the removed hub yield-collect to the quest
+# COIN reward (the surviving lump coin faucet, §7/§10). Shown after a quest pays `got` coins when
+# the rewarded ad is offerable; accept → claim the ad + credit a SECOND `got`. Opt-in, dismissible,
+# one at a time, never blocks play. The board frees on scene-change, so no nav-dismiss is needed.
+func _maybe_offer_2x(got: int, _center: Vector2) -> void:
+	if got <= 0 or not Ads.can_show("collect_2x"):
+		return
+	if not is_inside_tree():
+		return
+	if _2x_offer != null and is_instance_valid(_2x_offer):
+		_2x_offer.queue_free()                       # never stack offers
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	# pinned just under the wallet/HUD, centered — near the reward FX, clear of the board
+	card.anchor_left = 0.5
+	card.anchor_right = 0.5
+	card.offset_top = 150.0 + Look.safe_top(self)
+	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	card.z_index = 40
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	card.add_child(col)
+	# the pitch — copy + an icon/number ("+ N coin"), emoji-free per §13 (coin is a sprite)
+	var pitch := HBoxContainer.new()
+	pitch.alignment = BoxContainer.ALIGNMENT_CENTER
+	pitch.add_theme_constant_override("separation", 6)
+	col.add_child(pitch)
+	var pl := Label.new()
+	pl.text = tr("Watch a cloud → double it!")
+	pl.add_theme_font_size_override("font_size", 24)
+	pl.add_theme_color_override("font_color", Pal.INK)
+	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pitch.add_child(pl)
+	var sub := HBoxContainer.new()
+	sub.alignment = BoxContainer.ALIGNMENT_CENTER
+	sub.add_theme_constant_override("separation", 4)
+	col.add_child(sub)
+	var sl := Label.new()
+	sl.text = tr("+")
+	sl.add_theme_font_size_override("font_size", 22)
+	sl.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sl)
+	sub.add_child(Look.icon("coin", 22.0))
+	var sn := Label.new()
+	sn.text = str(got)
+	sn.add_theme_font_size_override("font_size", 22)
+	sn.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	sn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sn)
+	# the two ways out — a primary "Double" and a quiet "No thanks" (decline keeps the coins)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	btns.add_theme_constant_override("separation", 12)
+	col.add_child(btns)
+	btns.add_child(Look.button(tr("No thanks"), _dismiss_2x_offer, false))
+	btns.add_child(Look.button(tr("Double ✿"), func() -> void: _accept_2x_offer(got), true))
+	add_child(card)
+	_2x_offer = card
+	FX.pop_in(card)
+	FX.breathe_once(card)
+
+# Accept the 2× doubler: re-check + claim the rewarded ad, credit a SECOND `got` coins, celebrate
+# the bonus, tick the wallet, consume the arm, and close the card. A refused claim closes cozily.
+func _accept_2x_offer(got: int) -> void:
+	var at := _2x_offer.get_global_rect().get_center() if _2x_offer != null and is_instance_valid(_2x_offer) else get_global_rect().get_center()
+	_dismiss_2x_offer()
+	var res := Ads.claim("collect_2x")
+	if not bool(res.get("ok", false)):
+		Audio.play("invalid_soft", -4.0)
+		return
+	Save.add_coins(got)                              # the doubled half — the same amount again
+	Ads.consume_2x()                                 # spend the arm (bookkeeping; the bonus is applied)
+	Audio.play("level_complete", -3.0, 1.2)
+	FX.celebrate_reward(self, at, "coin", got, Color("#E3B23C"))
+	FX.fly_to_wallet(self, at, Look.icon("coin", 40.0), coins_label, func() -> void: _update_hud())
+	_update_hud()
+
+# Close the 2× offer card (decline, tap-away, or post-accept). Idempotent.
+func _dismiss_2x_offer() -> void:
+	if _2x_offer != null and is_instance_valid(_2x_offer):
+		_2x_offer.queue_free()
+	_2x_offer = null
 
 ## A generator-grant quest (§6): hand the predecessor generator in, install the granted
 ## one in its place, retire the old line. The §7 trigger; mirrors the item-delivery glue
