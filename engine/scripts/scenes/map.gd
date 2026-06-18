@@ -359,7 +359,6 @@ func _build_map() -> void:
 	_map_rect = _map_image_rect()
 	_map_art_rect = _map_placed_rect(z, _map_rect)
 	var home = G.MAPS[z].get("home", null)   # §16 mask-reveal home (the hub) — overrides cutout rendering
-	var decor := []
 	if typeof(home) == TYPE_DICTIONARY:
 		_build_home(z, home)                 # overgrown base + per-building reveal/badge (→ spot_hits)
 	else:
@@ -390,9 +389,6 @@ func _build_map() -> void:
 			fallback.add_theme_stylebox_override("panel", fs)
 			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			content.add_child(fallback)
-		decor = _load_decor_list(z)           # trees/grass/clouds placed in the map placer
-		_add_placed_clouds(decor, _map_rect)
-		_add_decor(decor, "back", _map_rect)
 	# ambient life + title — both render paths. On a COMPLETED map the wanderers ARE its residents
 	# (the §1 population sub-game); an in-progress map keeps the baseline generic ambient.
 	var amb: Control
@@ -410,7 +406,6 @@ func _build_map() -> void:
 			var spot := _make_spot(z, k, lvl, _map_rect)
 			content.add_child(spot)
 			spot_hits.append({"node": spot, "z": z, "k": k})
-		_add_decor(decor, "front", _map_rect)
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
 	if G.can_populate(z, unlocks, _gates()):
 		_add_welcome_panel(z)
@@ -599,74 +594,6 @@ func _add_cover_layer(parent: Control, path: String) -> void:
 	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.add_child(t)
-
-# Decoration placed in the map placer (data/map1v2_decor.json). `back` = trees (behind the buildings),
-# `front` = grass (in front). Flat sprites for now; wind/idle animation comes in a later phase.
-func _load_decor_list(z: int) -> Array:
-	var path := String(G.MAPS[z].get("decor", ""))
-	if path == "" or not FileAccess.file_exists(path):
-		return []
-	var f := FileAccess.open(path, FileAccess.READ)
-	var data = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(data) != TYPE_DICTIONARY or not data.has("decor"):
-		return []
-	return data["decor"]
-
-func _add_decor(decor: Array, layer: String, rect: Rect2) -> void:
-	var sc := rect.size.x / Design.size().x          # footprints are authored at the design-width canvas
-	for d in decor:
-		if String(d.get("layer", "front")) != layer:
-			continue
-		var art := String(d.get("art", ""))
-		if not ResourceLoader.exists(art):
-			continue
-		var fs := float(d.get("fsize", 200)) * sc
-		var p = d.get("pos", [0.5, 0.5])
-		var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
-		var t := TextureRect.new()
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.texture = load(art)
-		t.size = Vector2(fs, fs)
-		t.position = center - Vector2(fs, fs) * 0.5
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(t)
-
-# Clouds placed in the map placer (layer "cloud"): each starts where it was placed, then drifts slowly
-# leftward and wraps around the sky. Rendered behind everything (added before the buildings/spots).
-func _add_placed_clouds(decor: Array, rect: Rect2) -> void:
-	var sc := rect.size.x / Design.size().x
-	for d in decor:
-		if String(d.get("layer", "front")) != "cloud":
-			continue
-		var art := String(d.get("art", ""))
-		if not ResourceLoader.exists(art):
-			continue
-		var fs := float(d.get("fsize", 240)) * sc
-		var p = d.get("pos", [0.5, 0.18])
-		var center := rect.position + Vector2(float(p[0]), float(p[1])) * rect.size
-		var c := TextureRect.new()
-		c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		c.texture = load(art)
-		c.size = Vector2(fs, fs)
-		c.position = center - Vector2(fs, fs) * 0.5
-		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(c)
-		_drift_cloud(c, rect, fs)
-
-func _drift_cloud(c: TextureRect, rect: Rect2, cloud_w: float) -> void:
-	var span := rect.size.x + cloud_w                       # travel from off-right to off-left
-	if span <= 0.0:
-		return
-	var left := rect.position.x - cloud_w
-	var base_x := c.position.x
-	var period := (span / rect.size.x) * (300.0 + randf() * 160.0)   # ~5–8 min to cross — a slow drift
-	var tw := c.create_tween().set_loops()
-	tw.tween_method(func(prog: float):
-			c.position.x = left + fposmod(base_x - prog * span - left, span),
-		0.0, 1.0, period)
 
 # Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
 # (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +

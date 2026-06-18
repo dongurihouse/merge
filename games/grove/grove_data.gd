@@ -262,7 +262,6 @@ static func _build_maps() -> Array:
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
 		"fence": "res://games/grove/assets/map1v2/fence.png",         # fixed fence layer, composited over the base
 		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
-		"decor": "res://data/map1v2_decor.json",          # trees/grass/clouds placed in the map placer (read at load)
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
 		"home": {"clean": "res://games/grove/assets/farm/farm.png", "broken": "res://games/grove/assets/farm/farm_brokenv2.png", "data": "res://games/grove/assets/farm/farm_home.json"},
