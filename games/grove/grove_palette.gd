@@ -12,10 +12,10 @@ const SKY := Color("#9CCDE8")
 const MEADOW := Color("#7FA65A")
 const LEAF := Color("#3F6B43")
 const CLAY := Color("#C96F4A")
-const GROUND := Color("#D9DCC4")        # was olive #3F6B43 — now the sage SURFACE (UI redesign P1)
-const GROUND_EDGE := Color("#C3C8AC")   # was #33402F — now SURFACE_FRAME
-const BRAMBLE_BG := Color("#C2C7A6")    # was olive #4A5A3A — now the recessive LOCKED tone
-const BRAMBLE_EDGE := Color("#B4B996")  # was #33402F — a muted edge so locked recedes
+const GROUND := Color("#EDE6D2")        # was olive #3F6B43 — now the light SURFACE (UI redesign)
+const GROUND_EDGE := Color("#E0D6BC")   # was #33402F — now SURFACE_FRAME
+const BRAMBLE_BG := Color("#D9D2BE")    # was olive #4A5A3A — now the recessive LOCKED tone
+const BRAMBLE_EDGE := Color("#CFC6B0")  # was #33402F — a muted edge so locked recedes
 
 # chrome colours the shared UI/fx use (were in the old palette.gd)
 const BG := Color("#241E2E")
@@ -36,13 +36,13 @@ const BTN_PRIMARY_EDGE := Color("#3C6037")
 # --- UI redesign (2026-06-17): semantic role tiers --------------------------------
 # Spec: docs/superpowers/specs/2026-06-17-ui-language-redesign-design.md
 # Surface = the neutral stage; Locked recedes below it; accents are reserved for meaning.
-const SCREEN_BG := Color("#EFE7D5")        # warm cream chrome that frames the cooler board
-const SURFACE := Color("#D9DCC4")          # cool-sage board field (the play stage)
-const SURFACE_FRAME := Color("#C3C8AC")    # board border
-const CELL_EMPTY := Color("#CFD3B6")       # an empty playable cell (inset on the surface)
-const LOCKED := Color("#C2C7A6")           # sealed/locked cell — desaturated, recedes (Sunk plane)
-const LOCKED_GLYPH := Color("#8F977A")     # the small low-contrast lock icon
-const NEAR_UNLOCK := Color("#CDD3B0")      # a cell one merge from opening
+const SCREEN_BG := Color("#F4EEDF")        # light warm cream chrome
+const SURFACE := Color("#EDE6D2")          # light warm-neutral board field (the airy play stage)
+const SURFACE_FRAME := Color("#E0D6BC")    # board border
+const CELL_EMPTY := Color("#E7DFC9")       # an empty playable cell (inset on the surface)
+const LOCKED := Color("#D9D2BE")           # sealed/locked cell — whisper-quiet, recedes (Sunk plane)
+const LOCKED_GLYPH := Color("#A99F86")     # the small low-contrast lock icon
+const NEAR_UNLOCK := Color("#E4DCC4")      # a cell one merge from opening
 const NEAR_HINT := Color("#8FAE6E")        # its faint green anticipation edge
 const CARD_PEDESTAL := Color("#F2EFDC")    # pale disc under items in CARDS (orders/shop) — NOT the board
 const INK_MUTED := Color("#7A7558")        # muted ink (INK already exists above)

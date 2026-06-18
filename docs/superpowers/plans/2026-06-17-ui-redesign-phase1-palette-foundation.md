@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Restructure `grove_palette.gd` into semantic role tiers (the locked cool-sage palette), shift the board off its single olive field, and guard the figure/ground relationships with a headless test plus a measured screenshot — the foundation every later phase depends on.
+**Goal:** Restructure `grove_palette.gd` into semantic role tiers (the light warm-neutral palette), shift the board off its single olive field, and guard the figure/ground relationships with a headless test plus a measured screenshot — the foundation every later phase depends on.
 
-**Architecture:** The grove palette is a flat list of ~30 named colours consumed engine-wide via `Game.PALETTE` (aliased `const Pal = Game.PALETTE`; `board.gd` re-aliases `Pal.GROUND`, `Pal.BRAMBLE_BG`, etc.). This phase *adds* a semantic role-tier layer (`SURFACE`, `LOCKED`, `ACCENT_CTA`, …) alongside the raw names, and re-points the four board-surface consts (`GROUND`, `GROUND_EDGE`, `BRAMBLE_BG`, `BRAMBLE_EDGE`) to the new sage/muted values — so the board shifts to the new look without touching `board.gd` yet. A new headless guard (`engine/tests/palette_tests.gd`, modelled on `layering_tests.gd`) asserts the role tokens exist and that the depth relationships hold (surface desaturated, locked recedes, green reclaimed as an accent). A measured screenshot sampler proves the rendered board reads as sage, not olive.
+**Architecture:** The grove palette is a flat list of ~30 named colours consumed engine-wide via `Game.PALETTE` (aliased `const Pal = Game.PALETTE`; `board.gd` re-aliases `Pal.GROUND`, `Pal.BRAMBLE_BG`, etc.). This phase *adds* a semantic role-tier layer (`SURFACE`, `LOCKED`, `ACCENT_CTA`, …) alongside the raw names, and re-points the four board-surface consts (`GROUND`, `GROUND_EDGE`, `BRAMBLE_BG`, `BRAMBLE_EDGE`) to the new light-neutral / muted values — so the board shifts to the new look without touching `board.gd` yet. A new headless guard (`engine/tests/palette_tests.gd`, modelled on `layering_tests.gd`) asserts the role tokens exist and that the depth relationships hold (surface desaturated, locked recedes, green reclaimed as an accent). A measured screenshot sampler proves the rendered board reads as a light warm neutral, not olive.
 
 **Tech Stack:** Godot 4.6 / GDScript. Headless `SceneTree` test scripts run via `make test-one` / `make test-grove`. Real-renderer quiet screenshots via `make shot-grove` (window born minimized — never steals focus). Spec: [`docs/superpowers/specs/2026-06-17-ui-language-redesign-design.md`](../specs/2026-06-17-ui-language-redesign-design.md).
 
@@ -106,13 +106,13 @@ In `games/grove/grove_palette.gd`, append this block after the last line (`const
 # --- UI redesign (2026-06-17): semantic role tiers --------------------------------
 # Spec: docs/superpowers/specs/2026-06-17-ui-language-redesign-design.md
 # Surface = the neutral stage; Locked recedes below it; accents are reserved for meaning.
-const SCREEN_BG := Color("#EFE7D5")        # warm cream chrome that frames the cooler board
-const SURFACE := Color("#D9DCC4")          # cool-sage board field (the play stage)
-const SURFACE_FRAME := Color("#C3C8AC")    # board border
-const CELL_EMPTY := Color("#CFD3B6")       # an empty playable cell (inset on the surface)
-const LOCKED := Color("#C2C7A6")           # sealed/locked cell — desaturated, recedes (Sunk plane)
-const LOCKED_GLYPH := Color("#8F977A")     # the small low-contrast lock icon
-const NEAR_UNLOCK := Color("#CDD3B0")      # a cell one merge from opening
+const SCREEN_BG := Color("#F4EEDF")        # light warm cream chrome
+const SURFACE := Color("#EDE6D2")          # light warm-neutral board field (the airy play stage)
+const SURFACE_FRAME := Color("#E0D6BC")    # board border
+const CELL_EMPTY := Color("#E7DFC9")       # an empty playable cell (inset on the surface)
+const LOCKED := Color("#D9D2BE")           # sealed/locked cell — whisper-quiet, recedes (Sunk plane)
+const LOCKED_GLYPH := Color("#A99F86")     # the small low-contrast lock icon
+const NEAR_UNLOCK := Color("#E4DCC4")      # a cell one merge from opening
 const NEAR_HINT := Color("#8FAE6E")        # its faint green anticipation edge
 const CARD_PEDESTAL := Color("#F2EFDC")    # pale disc under items in CARDS (orders/shop) — NOT the board
 const INK_MUTED := Color("#7A7558")        # muted ink (INK already exists above)
@@ -135,10 +135,10 @@ const BRAMBLE_EDGE := Color("#33402F")
 to:
 
 ```gdscript
-const GROUND := Color("#D9DCC4")        # was olive #3F6B43 — now the sage SURFACE
-const GROUND_EDGE := Color("#C3C8AC")   # was #33402F — now SURFACE_FRAME
-const BRAMBLE_BG := Color("#C2C7A6")    # was olive #4A5A3A — now the recessive LOCKED tone
-const BRAMBLE_EDGE := Color("#B4B996")  # was #33402F — a muted edge so locked recedes
+const GROUND := Color("#EDE6D2")        # was olive #3F6B43 — now the light SURFACE
+const GROUND_EDGE := Color("#E0D6BC")   # was #33402F — now SURFACE_FRAME
+const BRAMBLE_BG := Color("#D9D2BE")    # was olive #4A5A3A — now the recessive LOCKED tone
+const BRAMBLE_EDGE := Color("#CFC6B0")  # was #33402F — a muted edge so locked recedes
 ```
 
 (Use literal hex rather than referencing `SURFACE` etc.: these consts appear *earlier* in the file than the new block, and GDScript forbids referencing a later constant.)
@@ -166,7 +166,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 ---
 
-## Task 2: Measured screenshot — board reads as sage, not olive
+## Task 2: Measured screenshot — board reads light & warm, not olive
 
 **Files:**
 - Create: `games/grove/tools/shot_sample.gd`
@@ -178,7 +178,7 @@ Create `games/grove/tools/shot_sample.gd`:
 ```gdscript
 extends SceneTree
 ## Loads a captured board PNG and proves the play field reads as a desaturated
-## sage stage (not the old saturated olive). Image.load_from_file works headless
+## light warm stage (not the old saturated olive). Image.load_from_file works headless
 ## (it is the live-viewport get_image() that returns null headless, not file loads).
 ## Coordinates are FRACTIONAL so they survive resolution changes; nudge fx/fy if
 ## the board region moves.
@@ -212,7 +212,7 @@ func _initialize() -> void:
 	print("  field avg = %s (s=%.3f v=%.3f)" % [field, field.s, field.v])
 	var pass_cond := field.s < 0.22 and field.v > 0.66
 	if pass_cond:
-		print("  PASS  board field reads as a desaturated sage stage")
+		print("  PASS  board field reads as a desaturated light warm stage")
 		print("== 1 passed, 0 failed ==")
 		quit(0)
 	else:
