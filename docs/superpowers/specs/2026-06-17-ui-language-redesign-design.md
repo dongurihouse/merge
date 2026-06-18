@@ -242,6 +242,34 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 > Cozy farm-game world map-select screen, hand-painted storybook style. A soft daylight sky with a few drifting clouds as the backdrop. The same UI chrome as elsewhere: a round leaf-green #3F6B43 level token with a gold #C9A66B ring top-left, a cream #FBF6EC currency pill top-right. A gentle vertical path of large map cards, each a painterly thumbnail of a homestead district — a farmhouse, a barn, an orchard, a pond — in a soft cream #FBF6EC rounded frame with a warm-gold #C9A66B edge and a small honey title ribbon. The first card or two are bright and inviting (unlocked); the cards further along sit behind a soft deep-ink #33402F fog that thickens toward their lower edge (locked — teased, not greyed). A neutral cream round back button #FBF6EC bottom-left. Warm light, soft shadows, no flat vectors.
 
+**Daily login calendar**
+
+> Cozy farm-game daily-reward calendar popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Daily gifts", a round red close button #D75A4E top-right. Inside, a horizontal week-strip of seven reward cells; each is a small cream #FBF6EC tile with a day label and a gift icon (coins, a gem, a water drop, a wrapped present). The earlier days are claimed with a soft gold checkmark, today's cell is lifted, glowing and gently breathing with a leaf-green #4E7C46 "Claim" button, and the later days are quietly dimmed. Warm light, soft shadows, no flat vectors.
+
+**Inbox / mailbox**
+
+> Cozy farm-game inbox / mailbox popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Mail" with a small envelope motif, a round red close button #D75A4E top-right. Inside, a vertical scrollable list of message rows; each row is a cream #FBF6EC strip with a round icon on the left (a gift, a leaf, a notice), an ink #3B402F title and a short muted body line, a gold reward chip, and a leaf-green #4E7C46 "Claim" button on the right. Warm light, soft shadows, no flat vectors.
+
+**Vault / piggy bank**
+
+> Cozy farm-game savings-vault popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Vault", a round red close button #D75A4E top-right. The hero is a large hand-drawn ceramic jar, half-filled with glittering teal gems #3FC6B0 and gold coins, a soft fill line showing how much premium has accrued and a gem count above it. Below, one fixed leaf-green #4E7C46 price button with a real-money price. Warm light, soft shadows, no flat vectors.
+
+**Discovery ladder**
+
+> Cozy farm-game discovery-ladder popup, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8, a round red close button #D75A4E top-right. Inside, a vertical ladder of tier slots from small to large; each slot is a cream #FBF6EC rounded tile — discovered tiers show their painterly item sprite, undiscovered tiers show a soft "?" — and the current tier wears a warm-gold #C9A66B ring. A gentle vine or dotted path links the slots. Warm light, soft shadows, no flat vectors.
+
+**Out-of-water offer**
+
+> Cozy farm-game "out of water" offer popup, hand-painted storybook style. A small warm parchment confirm card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8 reading "Out of water", a round red close button #D75A4E top-right. A centered watering-can / blue water-drop #7FB9DD icon with an amount line, a short muted sub copy, and a tiny disclosure line. Two buttons side by side at the bottom: a neutral cream #FBF6EC "Maybe later" and a leaf-green #4E7C46 "Yes please". Warm light, soft shadows, no flat vectors.
+
+**Purchase / cash confirm**
+
+> Cozy farm-game purchase-confirm popup, hand-painted storybook style. A small warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a honey banner title #F0DCA8, a round red close button #D75A4E top-right. Centered, a "what you get" row — a hero icon (a teal gem cluster #3FC6B0 or a coin pouch) on a pale honey plate #F4E7CA with an amount — above a short note. Two buttons at the bottom: a neutral cream #FBF6EC "Cancel" and a leaf-green #4E7C46 buy button showing the price. Warm light, soft shadows, no flat vectors.
+
+**Item detail / info sheet**
+
+> Cozy farm-game item-detail sheet, hand-painted storybook style. A warm parchment card #F4E9D6 with a soft bark border over a dimmed warm-dark scrim, a round red close button #D75A4E top-right. At the top, the item's painterly illustration enlarged on a pale honey plate #F4E7CA, its ink #3B402F name below, then a short body paragraph of muted description, and a small row of meta chips (where it comes from / what it makes). One leaf-green #4E7C46 button at the bottom. Warm light, soft shadows, no flat vectors.
+
 ---
 
 ## Asset manifest & batch generation
