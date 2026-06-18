@@ -135,7 +135,7 @@ These concretize the role tiers above into the palette (2026-06-17, with a same-
 | **Ink** | ink · muted · cream | `#3B402F` · `#7A7558` · `#FBF3EA` |
 | **Accents** (reserved) | CTA green / edge · reward gold / bright | `#4E7C46`/`#3C6037` · `#E3B23C`/`#FFD56B` |
 | | alert red · close red · info blue | `#E24B4A` · `#D75A4E` · `#5FA8D8` |
-| **HUD** | wallet pill / edge · level token / ring | `#FBF6EC`/`#C9A66B` · `#3F6B43`/`#C9A66B` |
+| **HUD** | wallet pill / edge · level token / ring | `#FBF6EC`/`#C9A66B` · `#EAD49C`/`#C9A66B` |
 | **Nav** | neutral round button (fill / ring) · primary destination | `#FBF6EC`/`#C9A66B` · `#4E7C46` |
 | **Currency tints** | star · acorn · gem · water | `#F2C14E` · `#C8852F` · `#3FC6B0` · `#7FB9DD` |
 | **Shop** | parchment / edge · hero plate · banner | `#F4E9D6`/`#8A5A3B` · `#F4E7CA` · `#F0DCA8` |
@@ -208,7 +208,7 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 **Top pill set (level → currencies)**
 
-> Mobile game HUD top bar, cozy hand-painted farm style, soft storybook illustration. Left: round level token, deep leaf-green #3F6B43 disc with a warm-gold #C9A66B ring, cream "3" numeral. Right: a single cream capsule pill #FBF6EC with a thin gold #C9A66B edge, holding three currency icons — a gold flower star #F2C14E, a warm-brown acorn #C8852F, a teal gem #3FC6B0 — each with a number, and a small round leaf-green "+" button. Center is empty (no chapter ribbon). Flat warm lighting, subtle soft drop shadow, no gradients on UI, transparent bg.
+> Mobile game HUD top bar, cozy hand-painted farm style, soft storybook illustration. Left: a round level token — a soft gold-cream #EAD49C disc with a warm-gold #C9A66B ring and an ink #3B402F "3" numeral. Right: a single cream capsule pill #FBF6EC with a thin gold #C9A66B edge, holding three currency icons — a gold flower star #F2C14E, a warm-brown acorn #C8852F, a teal gem #3FC6B0 — each with a number, and a small round leaf-green "+" button. Center is empty (no chapter ribbon). Flat warm lighting, subtle soft drop shadow, no gradients on UI, transparent bg.
 
 **Board**
 
@@ -228,7 +228,7 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 **Map / home page**
 
-> Cozy farm-game map / homestead screen, hand-painted storybook style. A soft daylight scene — pale sky, rolling meadow, a small farmhouse and trees. The same UI chrome as the board: a round leaf-green #3F6B43 level token with a gold #C9A66B ring top-left, a cream #FBF6EC currency pill top-right. On the meadow sit decor "spots" to restore — cream #FBF6EC discs with a dashed gold #C9A66B rim, a warm-brown #C8852F plus, and a small gold-star #FFD56B cost — plus one locked spot as a muted #D9D2BE disc with a quiet lock glyph #A99F86. A bottom row of neutral cream round buttons, with the "enter garden" button promoted to a larger leaf-green #4E7C46 primary destination. Soft warm light, no flat vectors.
+> Soft-light daylight homestead "home" screen for a cozy farm merge game, portrait mobile, polished premium mobile-game art — bright, clean, airy, uncluttered and dopamine-inducing. Keep the painterly backdrop SIMPLE with generous breathing room: a soft warm-cream sky wash #F4EEDF washing down into a gently rolling, soft-desaturated meadow #EDE6D2, one small storybook farmhouse and a few light, lightly-leafed trees set far back — scene greenery soft and pale (tiny green hint #8FAE6E only), never heavy saturated green. On the meadow rest a few restoration spots: OPEN spots are a glossy cream disc #FBF6EC with a dashed warm-gold rim #C9A66B, a warm-brown plus #C8852F and a tiny gold-star cost #FFD56B, each lifted on a soft drop shadow with a gentle glow halo and a tiny sparkle; ONE whisper-quiet LOCKED disc in muted #D9D2BE shows a faint low-contrast lock glyph #A99F86. Top HUD is light and crisp: top-left a soft gold-cream level token with a warm-gold ring #C9A66B, top-right a cream currency pill #FBF6EC with glossy star #F2C14E, acorn #C8852F and gem #3FC6B0 icons. Bottom: one row of light neutral cream round nav buttons, with a single leaf-green primary "enter garden" button #4E7C46 edge #3C6037, glowing as the only green accent. Soft diffused daylight, gentle bloom, juicy glossy highlights, tiny sparkles, premium and satisfying, no clutter, no heavy outlines, no dark heavy greens.
 
 **Shop component**
 
@@ -240,7 +240,7 @@ Copy-paste prompts for a diffusion model (Midjourney / DALL·E / SDXL) to produc
 
 **Map-select / world page**
 
-> Cozy farm-game world map-select screen, hand-painted storybook style. A soft daylight sky with a few drifting clouds as the backdrop. The same UI chrome as elsewhere: a round leaf-green #3F6B43 level token with a gold #C9A66B ring top-left, a cream #FBF6EC currency pill top-right. A gentle vertical path of large map cards, each a painterly thumbnail of a homestead district — a farmhouse, a barn, an orchard, a pond — in a soft cream #FBF6EC rounded frame with a warm-gold #C9A66B edge and a small honey title ribbon. The first card or two are bright and inviting (unlocked); the cards further along sit behind a soft deep-ink #33402F fog that thickens toward their lower edge (locked — teased, not greyed). A neutral cream round back button #FBF6EC bottom-left. Warm light, soft shadows, no flat vectors.
+> Soft, light cozy farm merge-game world-chooser screen, portrait mobile, polished premium mobile-game art — bright, clean, airy and dopamine-inducing. Keep it SIMPLE and uncluttered: a soft daylight sky washing into warm cream #F4EEDF, with only a few drifting clouds and the faintest bloom for an airy hint of depth, nothing competing. A gentle vertical path of large painterly map cards floats up the screen, each a glossy thumbnail of a homestead district — farmhouse, barn, orchard, pond on softly desaturated light meadow with calm #7FB9DD water, greenery kept soft and light — set in a rounded cream #FBF6EC frame with a warm-gold #C9A66B edge and a small honey #F0DCA8 title ribbon. The first card or two glow bright, glossy and inviting with juicy highlights, soft glow halos and tiny #F2C14E sparkles (unlocked); cards further along sit behind a soft deep-ink #33402F fog veil thickening toward their lower edge (locked — teased, not greyed). Light crisp chrome: a gold-cream level token with a #C9A66B ring top-left, a cream #FBF3EA currency pill top-right, a neutral cream #FBF6EC round back button bottom-left. There is no green chrome on this chooser — selection happens by tapping a card — so the screen stays light cream, warm gold and soft sky-blue, with green only as the soft natural foliage in the thumbnails. Soft diffused daylight, gentle bloom, generous breathing room, premium and satisfying, no clutter, no heavy outlines, no dark heavy greens.
 
 **Daily login calendar**
 
