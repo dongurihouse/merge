@@ -1427,13 +1427,11 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 
 func _build_chrome() -> void:
-	# Item 4 — the home/map bottom nav is now ONE shared row (ui/nav_bar.gd, the same component the
-	# board uses), replacing the scattered chrome (the standalone gear, the store sticker, the
-	# atlas/piggy cluster, and the lone "Tend the garden" CTA). Order matches the farm_ui mockup:
-	# Settings · Shop · [Enter Garden] (the prominent green primary CTA, center) · Map · Piggy. Every
-	# entry point already existed; this consolidates them. The Store "new offer" badge rides the Shop
-	# button and the piggy "claimable" ready-pip rides the Piggy button (both kept, item 4). _shop_btn
-	# stays the §14 spotlight target.
+	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), fed its own
+	# specs: Settings · [Play] (centre, prominent) · Shop · Map. PLAY is the way into the garden/board —
+	# the prominent leaf that replaces the old wide "Enter Garden ▶" text CTA. The Store "new offer" badge
+	# rides the Shop button; the piggy bank moved to the LiveOps rail (its ready-pip rides it there).
+	# _shop_btn stays the §14 spotlight target.
 	var sb := Look.safe_bottom(self)
 	var sb_cta := sb
 	var nav := NavBar.build(self, [
@@ -1441,39 +1439,30 @@ func _build_chrome() -> void:
 		{"icon": "nav_gear.png", "px": 96.0, "label": tr("Settings"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_settings()},
+		# Play — the way into the garden/board: the prominent leaf (the old "Enter Garden ▶" text CTA retired).
+		{"icon": "nav_leaf.png", "px": 140.0, "label": tr("Play"), "action": _on_board},
 		# Shop — the shared currency store (the wallet's open_shop closure).
 		{"icon": "nav_shop.png", "px": 96.0, "label": tr("Shop"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			if _open_shop.is_valid():
 				_open_shop.call()},
-		# Enter Garden — the green primary CTA: a WIDE green text pill (the mockup's centre), not a round
-		# icon. Routed through NavBar's `text` shape → Look.button(text, cb, true), the same solid grove
-		# primary pill the old "Tend the garden ▶" CTA used.
-		{"text": tr("Enter Garden ▶"), "primary": true, "label": tr("Enter Garden"), "action": _on_board},
 		# Map — the place-picker (atlas).
 		{"icon": "nav_map.png", "px": 96.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
-			_open_select()},
-		# Piggy bank — the diegetic accrual-vault (the ready-pip rides this button).
-		{"icon": "nav_piggy.png", "px": 96.0, "label": tr("Piggy bank"), "action": _open_vault}])
+			_open_select()}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	# §14 spotlight target = the Shop button (index 1, after Settings).
-	_shop_btn = nav.buttons[1]
-	# the green CTA breathes so the way to the board reads as the primary action.
-	FX.breathe_once(nav.buttons[2])
+	# §14 spotlight target = the Shop button (index 2, after Settings and Play).
+	_shop_btn = nav.buttons[2]
+	# the Play leaf breathes so the way to the board reads as the primary action.
+	FX.breathe_once(nav.buttons[1])
 	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
 	_store_badge = Look.badge("dot")
 	Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the piggy ready-pip — the shared "something new" badge, shown only when the jar is claimable
-	# (visibility driven by _refresh_piggy_pip → Vault.claimable()).
-	var pip := Look.badge("dot")
-	Look.attach_badge(nav.buttons[4], pip)
-	_piggy_pip = pip
-	_refresh_piggy_pip()
 	# the LiveOps rail (right edge) + the task strip (above the nav row) — the two kept chrome slices.
+	# The piggy bank now lives on the rail (its claimable ready-pip is attached there).
 	_build_liveops_rail(sb)
 	_build_task_strip(sb_cta)
 
@@ -1504,6 +1493,13 @@ func _build_liveops_rail(sb: float) -> void:
 		_place_rail(inbox, px, bottom, slot); slot += 1
 		_inbox_badge = Look.badge("pill", 0)
 		Look.attach_badge(inbox, _inbox_badge)
+	# Piggy bank — the diegetic accrual-vault, moved here off the bottom bar. Its "claimable" ready-pip
+	# (driven by _refresh_piggy_pip → Vault.claimable()) rides this rail button now.
+	var piggy := _rail_button("🐷", _open_vault)
+	_place_rail(piggy, px, bottom, slot); slot += 1
+	_piggy_pip = Look.badge("dot")
+	Look.attach_badge(piggy, _piggy_pip)
+	_refresh_piggy_pip()
 	_refresh_liveops_badges()
 
 # One calm cream rail button: the round-button art (or an INK-disc fallback) carrying a glyph Label

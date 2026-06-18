@@ -27,6 +27,7 @@ const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const OowOffer = preload("res://engine/scripts/ui/oow_offer.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared global bottom nav row (board + map)
 const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -271,48 +272,31 @@ func _ready() -> void:
 	# single home affordance (the Leaf is retired) and sits centred + prominent — the way back to
 	# the Map/decorate hub. The Bag and Merchant are circular wells; the Merchant is the new
 	# drag-to-sell drop target (the fence stall is gone). shop_btn stays a member (§14 spotlight).
-	var sb_inset := Look.safe_bottom(self)
-	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 0)
-	brow.alignment = BoxContainer.ALIGNMENT_CENTER
-	bottom_bar = brow
-	brow.anchor_left = 0.0
-	brow.anchor_right = 1.0
-	brow.anchor_top = 1.0
-	brow.anchor_bottom = 1.0
-	brow.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	brow.offset_left = 32
-	brow.offset_right = -32
-	brow.offset_top = -16 - sb_inset
-	brow.offset_bottom = -16 - sb_inset
-	# Shop — the currency store (unchanged action)
-	shop_btn = _make_nav_button("nav_shop.png", 140.0, func() -> void:
-		Audio.play("button_tap", -2.0)
-		if _open_shop.is_valid():
-			_open_shop.call())
-	brow.add_child(shop_btn)
-	brow.add_child(_nav_spacer())
-	# Settings — the shared card the map's gear opens (ui/settings.gd)
-	var settings_btn := _make_nav_button("nav_gear.png", 140.0, func() -> void:
-		Audio.play("button_tap", -2.0)
-		SettingsUI.open(self))
-	brow.add_child(settings_btn)
-	brow.add_child(_nav_spacer())
-	# Home — the centre, prominent button; the single home affordance back to the Map/decorate hub
-	var home_btn := _make_nav_button("nav_home.png", 184.0, func() -> void:
-		Audio.play("button_tap", -2.0)
-		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
-	brow.add_child(home_btn)
-	brow.add_child(_nav_spacer())
-	# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
-	bag_btn = _make_bag_button(140.0)
-	brow.add_child(bag_btn)
-	brow.add_child(_nav_spacer())
-	# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)
-	merchant_btn = _make_merchant_button(140.0)
-	brow.add_child(merchant_btn)
-	add_child(bottom_bar)
+	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the
+	# home/map screen uses, just fed different specs; the per-scene builder it used to duplicate is gone.
+	var nav := NavBar.build(self, [
+		# Shop — the currency store (unchanged action)
+		{"icon": "nav_shop.png", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			if _open_shop.is_valid():
+				_open_shop.call()},
+		# Settings — the shared card the map's gear opens (ui/settings.gd)
+		{"icon": "nav_gear.png", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			SettingsUI.open(self)},
+		# Home — the centre, prominent button; the single home affordance back to the Map/decorate hub
+		{"icon": "nav_home.png", "px": 184.0, "label": tr("Home"), "action": func() -> void:
+			Audio.play("button_tap", -2.0)
+			HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
+			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")},
+		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
+		{"make": func() -> Control: return _make_bag_button(140.0)},
+		# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)
+		{"make": func() -> Control: return _make_merchant_button(140.0)}])
+	bottom_bar = nav.row
+	shop_btn = nav.buttons[0] as Button       # §14 spotlight target
+	bag_btn = nav.buttons[3] as Button
+	merchant_btn = nav.buttons[4] as Button
 
 	_build_hud()
 	_build_water_hud()
@@ -1202,36 +1186,6 @@ static func _slot_style() -> StyleBox:
 # Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
 # An expanding gap between two nav buttons — the full-width row distributes its leftover
 # space equally across these so the 5 buttons spread evenly edge to edge.
-func _nav_spacer() -> Control:
-	var sp := Control.new()
-	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return sp
-
-func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
-	var b := Button.new()
-	b.flat = true
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var p := Look.kit(kit_name)
-	var mark: Control
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		mark = t
-	else:
-		mark = Look.icon(kit_name.trim_prefix("nav_").trim_suffix(".png"), px * 0.62)
-	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
-	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(mark)
-	Look.add_press_juice(b)
-	if cb.is_valid():
-		b.pressed.connect(cb)
-	return b
-
 # A board-matching drop well for the bottom nav (Bag + Merchant): empty by default,
 # using the same slot tile language as board cells so it reads as a droppable target.
 func _tray_well(px: float) -> Button:
