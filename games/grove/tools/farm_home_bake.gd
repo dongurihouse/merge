@@ -1,5 +1,6 @@
 extends SceneTree
-## Bake the mask-reveal home-screen data from assets/farm/{farm,farm_broken,farm_vines,farm_icons}.
+## Bake the mask-reveal home-screen data: clean/broken bases from assets/farm/, source
+## sheets (farm_vinesv2, farm_icons) from assets/_originals/farm/.
 ## Outputs (committed): assets/farm/badge.png, assets/farm/mask_<spot>.png (per building),
 ## assets/farm/farm_home.json [{spot,cost,pos:[fx,fy],mask}]. Proof: /tmp/fh_one.png (one building cleaned).
 ##   godot --headless --path . -s res://games/grove/tools/farm_home_bake.gd
@@ -22,8 +23,8 @@ const BUILDINGS := [
 func _initialize() -> void:
 	var farm := _img("res://games/grove/assets/farm/farm.png")
 	var broken := _img("res://games/grove/assets/farm/farm_brokenv2.png")
-	var vines := _img("res://games/grove/assets/farm/farm_vinesv2.png")
-	var icons := _img("res://games/grove/assets/farm/farm_icons.png")
+	var vines := _img("res://games/grove/assets/_originals/farm/farm_vinesv2.png")
+	var icons := _img("res://games/grove/assets/_originals/farm/farm_icons.png")
 	if farm == null or broken == null or vines == null or icons == null:
 		print("FAILED to load"); quit(1); return
 	var w := farm.get_width(); var h := farm.get_height()
