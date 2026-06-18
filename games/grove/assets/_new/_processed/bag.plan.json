@@ -1,0 +1,24 @@
+{
+  "source": "_new/bag_asset.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#40C8F5", "tol": 0.22, "min_area": 3000, "pad": 4 },
+  "outputs": [
+    { "island": 0,  "name": "bag_panel",      "path": "ui/kit/bag_panel.png" },
+    { "island": 1,  "name": "bag_banner",     "path": "ui/kit/bag_banner.png" },
+    { "island": 2,  "name": "bag_pill",       "path": "ui/kit/bag_pill.png" },
+    { "island": 3,  "name": "bag_pill_green", "path": "ui/kit/bag_pill_green.png" },
+    { "island": 4,  "name": "bag_pill_b",     "path": "ui/kit/bag_pill_b.png" },
+    { "island": 5,  "name": "bag_pill_thin",  "path": "ui/kit/bag_pill_thin.png" },
+    { "island": 6,  "name": "bag_card",       "path": "ui/kit/bag_card.png" },
+    { "island": 7,  "name": "bag_card_empty", "path": "ui/kit/bag_card_empty.png" },
+    { "island": 8,  "name": "bag_card_gold",  "path": "ui/kit/bag_card_gold.png" },
+    { "island": 9,  "name": "bag_btn_close",  "path": "ui/kit/bag_btn_close.png" },
+    { "island": 10, "name": "bag_acorn",      "path": "ui/kit/bag_acorn.png" },
+    { "island": 11, "name": "bag_droplet",    "path": "ui/kit/bag_droplet.png" },
+    { "island": 12, "name": "bag_lock",       "path": "ui/kit/bag_lock.png" },
+    { "island": 13, "name": "bag_leaf_l",     "path": "ui/kit/bag_leaf_l.png" },
+    { "island": 14, "name": "bag_leaf_r",     "path": "ui/kit/bag_leaf_r.png" }
+  ],
+  "archive": "_originals/ui/bag_asset.png"
+}
