@@ -53,10 +53,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	# the cluster is currencies ONLY now — the Store moved to the bottom bar (owner
-	# 2026-06-13) and HOME was pulled OUT into its own top-left chip (nav ≠ wallet). The +
-	# acquire buttons route to the SAME store the bottom-bar button opens (built as
-	# out["open_shop"] below — shares this closure so the refresh tick is wired once).
+	# The wallet cluster owns currencies only. Lv stays in the standalone top-left HUD row;
+	# HOME joins that row only when a scene passes it as navigation chrome.
 	var shop_opts := opts.duplicate()
 	var open_store := func() -> void: Shop.open(host, shop_opts)
 	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store)
@@ -74,32 +72,30 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 			open_store.call())
 	host.add_child(panel)
 
-	# The top-LEFT cluster: the Lv chip + (when a scene passes `home`) a SEPARATE Home chip,
-	# laid out in a shared pinned row so they flow side by side and never overlap. HOME used
-	# to live INSIDE the wallet pill (nav mixed into the currency cluster); it now has its own
-	# pill here so nav reads as chrome, distinct from the wallet.
+	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
+	# from the wallet; the level badge is player status, not currency.
 	var left := HBoxContainer.new()
 	left.offset_left = Tune.EDGE_MARGIN
 	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 
-	# S10: the Lv chip is part of THE module — same pixels in both scenes.
+	# S10: the Lv chip is part of THE module — same top-left pixels in both scenes.
 	# The level number sits INSIDE the sprout avatar; the level-progress fraction sits to
 	# its right at a readable size (it used to be icon + number + fraction in a
 	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
 	lv_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# the level badge is the painted rope RING standing alone (reference: the "15" badge) — no
-	# cream pill box behind it and no "n/m" fraction beside it. (lv_panel stays a valid Control
-	# because the map keeps it in its panel list; it just carries no background now.)
+	# the level badge is the painted rope RING — no cream mini-pill behind it and no "n/m"
+	# fraction beside it. (lv_panel stays a valid Control because the map keeps it in its
+	# panel list; it just carries no background now.)
 	lv_panel.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
 	var lrow := HBoxContainer.new()
 	lrow.add_theme_constant_override("separation", Tune.LV_ROW_SEP)
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
-	var lv_px := 72.0   # the standalone ring reads larger than the old in-pill token
+	var lv_px := 72.0   # standalone top-left badge size
 	var avatar := Panel.new()
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -157,11 +153,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# only). level_prog stays constructed (the map still reads the dict key) but is never shown.
 	left.add_child(lv_panel)
 
-	# the standalone HOME chip, to the RIGHT of the Lv chip in the shared left row.
+	# the standalone HOME chip, to the RIGHT of the Lv chip when requested.
 	var home_btn := _build_home_chip(left, opts)
 	host.add_child(left)
 
-	var frame_state := {"path": Look.level_badge_path(lvl0)}   # last-applied badge path — only reload when the tier flips
+	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
 		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
@@ -173,15 +169,15 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(level, lvl)
 		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
 		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
-		# upgrade the frame when leveling crosses a badge tier — but only if the new badge
-		# actually loads; a failed load keeps the current visible ring instead of blanking it
+		# Upgrade the frame when leveling crosses a badge tier, but still route through
+		# _frame_tex so opaque-corner badge slices cannot bring back a square backing.
 		if frame != null:
-			var bp := Look.level_badge_path(lvl)
-			if bp != "" and bp != frame_state["path"]:
-				var t := _safe_tex(bp)
+			var tier := Look.level_badge_index(lvl)
+			if tier != int(frame_state["tier"]):
+				var t := _frame_tex(lvl)
 				if t != null:
 					frame.texture = t
-					frame_state["path"] = bp
+					frame_state["tier"] = tier
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
@@ -372,14 +368,30 @@ static func _safe_tex(path: String) -> Texture2D:
 		return null
 	return tex
 
-# The level-chip frame texture: the evolving badge for this Level, else the rope ring,
-# else null (the caller then draws the honey-token ring). Guarantees a VISIBLE ring
-# whenever ANY of the art loads — the chip never renders an empty frame.
+# The level-chip frame texture: use tier art only when its corners are really transparent.
+# Some sliced badge PNGs currently carry an opaque checker/white backing; those must not
+# appear in the compact HUD, so they fall back to the clean rope ring.
 static func _frame_tex(level: int) -> Texture2D:
-	var t := _safe_tex(Look.level_badge_path(level))
-	if t == null:
-		t = _safe_tex(Look.kit("ring_level.png"))
-	return t
+	var badge := _safe_tex(Look.level_badge_path(level))
+	if badge != null and _tex_has_transparent_corner(badge):
+		return badge
+	var ring := _safe_tex(Look.kit("ring_level.png"))
+	if ring != null:
+		return ring
+	return badge
+
+static func _tex_has_transparent_corner(tex: Texture2D) -> bool:
+	if tex == null:
+		return false
+	var img := tex.get_image()
+	if img == null or img.get_width() <= 0 or img.get_height() <= 0:
+		return false
+	var x := img.get_width() - 1
+	var y := img.get_height() - 1
+	return img.get_pixel(0, 0).a < 0.2 \
+		or img.get_pixel(x, 0).a < 0.2 \
+		or img.get_pixel(0, y).a < 0.2 \
+		or img.get_pixel(x, y).a < 0.2
 
 # The level number sits in the badge's open centre, which is tighter than the plain
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold

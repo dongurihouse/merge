@@ -75,6 +75,7 @@ func _initialize() -> void:
 	ok(Hud._safe_tex("res://does/not/exist.png") == null, "_safe_tex(missing) is null")
 	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "badge_00 actually LOADS (not just exists)")
 	ok(Hud._frame_tex(2) != null, "L2 frame texture is non-null (a ring is shown)")
+	ok(_has_transparent_corner(Hud._frame_tex(2)), "HUD level frame has transparent corners (no square backing)")
 	# simulate the user's case: badges unavailable -> still a visible ring (rope-ring fallback)
 	Look._badge_cfg = {"badge_count": 16, "levels_per_tier": 3, "dir": "no_such_dir", "prefix": "x_"}
 	ok(Look.level_badge_path(2) == "", "missing badge art -> empty path")
@@ -82,3 +83,15 @@ func _initialize() -> void:
 
 	print("== level_badge: %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
+
+func _has_transparent_corner(tex: Texture2D) -> bool:
+	if tex == null:
+		return false
+	var img := tex.get_image()
+	if img == null or img.get_width() <= 0 or img.get_height() <= 0:
+		return false
+	var last := Vector2i(img.get_width() - 1, img.get_height() - 1)
+	for p in [Vector2i(0, 0), Vector2i(last.x, 0), Vector2i(0, last.y), last]:
+		if img.get_pixelv(p).a < 0.2:
+			return true
+	return false

@@ -80,6 +80,26 @@ func _initialize() -> void:
 	var p_home: Control = h7.stars_label.get_parent().get_parent()
 	ok(p_grove.offset_top == p_home.offset_top and p_grove.offset_right == p_home.offset_right, \
 		"the wallet panel sits at IDENTICAL offsets in both scenes")
+	var lv_grove: Control = s7.level_label
+	while lv_grove != null and not (lv_grove is PanelContainer):
+		lv_grove = lv_grove.get_parent()
+	var lv_home: Control = h7.level_label
+	while lv_home != null and not (lv_home is PanelContainer):
+		lv_home = lv_home.get_parent()
+	var lv_row_grove: Control = lv_grove.get_parent() if lv_grove != null else null
+	var lv_row_home: Control = lv_home.get_parent() if lv_home != null else null
+	ok(lv_row_grove != null and lv_row_grove.get_parent() == s7, \
+		"the board Lv badge stays in the standalone top-left HUD row")
+	ok(lv_row_home != null and lv_row_home.get_parent() == h7, \
+		"the home Lv badge stays in the standalone top-left HUD row")
+	ok(lv_row_grove != null and lv_row_home != null \
+		and lv_row_grove.offset_left == lv_row_home.offset_left \
+		and lv_row_grove.offset_top == lv_row_home.offset_top, \
+		"the Lv top-left row sits at IDENTICAL offsets in both scenes")
+	ok(lv_grove != null and lv_grove.get_global_rect().position.x < p_grove.get_global_rect().position.x, \
+		"the board Lv badge remains separate from the wallet cluster")
+	ok(lv_home != null and lv_home.get_global_rect().position.x < p_home.get_global_rect().position.x, \
+		"the home Lv badge remains separate from the wallet cluster")
 	# R1: the plank wraps the WHOLE cluster — even (symmetric) padding, the row
 	# (store basket + ★/🪙/💧) fully inside (rect guard; the crop is the eye proof)
 	await create_timer(0.05).timeout            # let the panel lay out
@@ -167,18 +187,22 @@ func _initialize() -> void:
 	var wchip: Control = sb4.water_label.get_parent().get_parent()
 	var wrow: Control = sb4.water_label.get_parent()
 	assert_wraps(wchip, wrow, 5.0, 4.0, "R4 water chip")
-	# level chip (home, top-left)
+	# level chip (home) — the badge belongs to the top-left HUD row, separate from the wallet.
 	var h4 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h4)
 	if h4.content == null:
 		h4._ready()
 	await create_timer(0.05).timeout
-	# the level badge is the standalone rope RING now (no wrapping pill), so assert the chip is
-	# present + fully on-screen rather than that a plank wraps it with even padding.
 	var lchip: Control = h4.level_label
 	while lchip != null and not (lchip is PanelContainer):
 		lchip = lchip.get_parent()
-	ok(lchip != null and h4.get_viewport_rect().encloses(lchip.get_global_rect()), "R4 level chip sits on-screen")
+	var wallet4: Control = h4.stars_label.get_parent().get_parent()
+	ok(lchip != null and lchip.get_parent() != null and lchip.get_parent().get_parent() == h4, \
+		"R4 level chip sits in the top-left HUD row")
+	ok(lchip != null and h4.get_viewport_rect().encloses(lchip.get_global_rect()), \
+		"R4 level chip sits on-screen")
+	ok(lchip != null and not lchip.get_global_rect().intersects(wallet4.get_global_rect()), \
+		"R4 level chip stays separate from the wallet plank")
 	# §16 home: an unrestored hub building shows a ✿cost RESTORE BADGE (the mask-reveal home replaced
 	# the old cutout price-pin; the badge is a farm_icons circle + the star cost).
 	await create_timer(0.05).timeout
