@@ -10,7 +10,12 @@ Run from the repo root (paths in a plan are relative to games/grove/assets/).
 """
 from __future__ import annotations
 
+import argparse
 import json
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 ASSET_ROOT = Path("games/grove/assets")
@@ -85,7 +90,7 @@ def icon_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
 def decor_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
     a = [src_abs, out_abs]
     w, h = params.get("w"), params.get("h")
-    if w and h:
+    if w is not None and h is not None:
         a += [str(w), str(h)]
     if params.get("opaque"):
         a.append("--opaque")
@@ -97,14 +102,20 @@ def decor_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
 def slice_args(eff: str, src_abs: str, prefix: str, params: dict) -> list[str]:
     if eff == "grid":
         return [src_abs, prefix]
-    # sheet: <in> <prefix> [val_min sat_max min_area pad]
+    # sheet: <in> <prefix> [val_min sat_max min_area pad] — defaults match slice_islands.gd
     return [src_abs, prefix,
             str(params.get("val_min", 0.9)), str(params.get("sat_max", 0.1)),
             str(params.get("min_area", 600)), str(params.get("pad", 3))]
 
 
 def parse_post(post: str | None) -> dict | None:
-    """'icon:512' -> {'size': 512}; 'icon:300x400' -> {'size': [300,400]}; None -> None."""
+    """Parse an output post-op into params for icon_args.
+
+    'icon:512'    -> {'size': 512}        (square 512)
+    'icon:300x400'-> {'size': [300, 400]} (fit into 300x400)
+    'icon' / 'icon:' -> {}                (clean to process_icon's default size)
+    None / ''     -> None                 (no post-op; copy the slice as-is)
+    """
     if not post:
         return None
     name, _, arg = post.partition(":")
@@ -116,9 +127,6 @@ def parse_post(post: str | None) -> dict | None:
         w, h = arg.split("x")
         return {"size": [int(w), int(h)]}
     return {"size": int(arg)}
-
-
-import shutil
 
 
 def abspath(rel_under_asset_root: str, root: Path = ASSET_ROOT) -> str:
@@ -136,12 +144,6 @@ def log_plan(plan_path: Path, processed: Path = PROCESSED) -> None:
     shutil.move(str(plan_path), str(processed / Path(plan_path).name))
 
 
-import argparse
-import os
-import subprocess
-import sys
-
-
 def run_tool(godot: str, tool_res: str, args: list[str]) -> str:
     cmd = [godot, "--headless", "--path", ".", "-s", tool_res, "--", *args]
     r = subprocess.run(cmd, capture_output=True, text=True)
@@ -151,7 +153,10 @@ def run_tool(godot: str, tool_res: str, args: list[str]) -> str:
 
 
 def reimport(godot: str) -> None:
-    subprocess.run([godot, "--headless", "--path", ".", "--import"], check=False)
+    r = subprocess.run([godot, "--headless", "--path", ".", "--import"], check=False)
+    if r.returncode != 0:
+        print(f"  WARN godot --import returned {r.returncode}; "
+              f"new files may not be picked up — run `make import` manually.")
 
 
 def process_plan(plan_path: Path, godot: str) -> None:
@@ -170,6 +175,8 @@ def process_plan(plan_path: Path, godot: str) -> None:
     eff = cat
 
     # matte: key out the bright background in place on a scratch copy, then re-dispatch.
+    # params is shared with the inner category; the inner arg-builders ignore the
+    # matte-only key (min_area), so a single params block carries both.
     if cat == "matte":
         eff = plan["inner"]
         SCRATCH.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Unit tests for the asset-intake runner (pure-stdlib, no godot needed)."""
-import sys, unittest
+import shutil
+import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -83,17 +86,22 @@ class ArgTests(unittest.TestCase):
     def test_parse_post_icon_wh(self):
         self.assertEqual(ia.parse_post("icon:300x400"), {"size": [300, 400]})
 
+    def test_parse_post_icon_no_size_cleans_to_default(self):
+        # 'icon' / 'icon:' = clean to a square icon at process_icon's default size.
+        self.assertEqual(ia.parse_post("icon"), {})
+        self.assertEqual(ia.parse_post("icon:"), {})
+
     def test_parse_post_unknown_rejected(self):
         with self.assertRaises(ia.PlanError):
             ia.parse_post("blur:3")
 
 
-import tempfile
-
-
 class FileMoveTests(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
 
     def test_archive_raw_moves_and_makes_parent(self):
         root = self.tmp
