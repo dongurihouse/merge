@@ -7,20 +7,22 @@ extends SceneTree
 const MIN_AREA := 60
 const DILATE := 5                 # grow each vine mask a few px so the reveal fully covers the vine
 
-# The 5 vined buildings in farm.png → which farmhouse spot + its ✿cost. Approx centres (fraction) are
+# The vined buildings in farm.png → which farmhouse spot + its ✿cost. Approx centres (fraction) are
 # ONLY used to assign auto-detected vine clumps to a building; the saved pos/mask come from the image.
 const BUILDINGS := [
 	{"spot": "fh_hearth",  "cost": 3, "c": Vector2(0.42, 0.40)},   # cottage
-	{"spot": "fh_larder",  "cost": 4, "c": Vector2(0.72, 0.52)},   # shed
-	{"spot": "fh_well",    "cost": 3, "c": Vector2(0.18, 0.78)},   # well
-	{"spot": "fh_porch",   "cost": 4, "c": Vector2(0.55, 0.86)},   # doghouse
-	{"spot": "fh_lantern", "cost": 5, "c": Vector2(0.82, 0.80)},   # lantern
+	{"spot": "fh_larder",  "cost": 4, "c": Vector2(0.78, 0.55)},   # shed
+	{"spot": "fh_boxes",   "cost": 4, "c": Vector2(0.13, 0.62)},   # flower boxes
+	{"spot": "fh_well",    "cost": 3, "c": Vector2(0.18, 0.80)},   # well
+	{"spot": "fh_kitchen", "cost": 3, "c": Vector2(0.58, 0.66)},   # kitchen garden (veg-plot fence)
+	{"spot": "fh_porch",   "cost": 4, "c": Vector2(0.55, 0.87)},   # doghouse
+	{"spot": "fh_lantern", "cost": 5, "c": Vector2(0.86, 0.84)},   # lantern
 ]
 
 func _initialize() -> void:
 	var farm := _img("res://assets/farm/farm.png")
-	var broken := _img("res://assets/farm/farm_broken.png")
-	var vines := _img("res://assets/farm/farm_vines.png")
+	var broken := _img("res://assets/farm/farm_brokenv2.png")
+	var vines := _img("res://assets/farm/farm_vinesv2.png")
 	var icons := _img("res://assets/farm/farm_icons.png")
 	if farm == null or broken == null or vines == null or icons == null:
 		print("FAILED to load"); quit(1); return
