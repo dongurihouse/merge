@@ -92,9 +92,9 @@ static func make_piece(code: int, size: float) -> Control:
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(t)
 		return holder
-	# coins: painted acorn art by tier (tap to pocket), value drawn over it as a small
-	# outlined label (§16 — sprites carry no numerals). Falls back to the code-drawn gold
-	# disc when the tier sprite is absent.
+	# coins: painted acorn art by tier (tap to pocket). Tier alone reads the value —
+	# no numeral is drawn over the sprite. Falls back to the code-drawn gold disc when
+	# the tier sprite is absent.
 	if G.is_coin(code):
 		var ctier := BoardModel.tier_of(code)
 		var cpath := Game.art("ui/kit/icon_coin_t%d.png" % ctier)
@@ -124,17 +124,6 @@ static func make_piece(code: int, size: float) -> Control:
 			cdisc.add_theme_stylebox_override("panel", csb)
 			cdisc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			holder.add_child(cdisc)
-		var clbl := Label.new()
-		clbl.text = str(G.coin_value(code))
-		clbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-		clbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		clbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
-		clbl.add_theme_font_size_override("font_size", int(size * 0.24))
-		clbl.add_theme_color_override("font_color", Color("#FBF3EA"))
-		clbl.add_theme_color_override("font_outline_color", Color("#5A3A12"))
-		clbl.add_theme_constant_override("outline_size", 5)
-		clbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(clbl)
 		return holder
 	# placeholder: line-colored disc that grows with tier + tier number
 	var tier := BoardModel.tier_of(code)
