@@ -106,13 +106,9 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			badge.offset_left = 5.0; badge.offset_top = 5.0; badge.offset_right = 5.0; badge.offset_bottom = 5.0
 			icon.add_child(badge)
 			badge_lbl = badge.get_child(0)
-		var met := _ask_met_check()                         # green ✓, top-right, hidden until satisfied
-		met.anchor_left = 1.0
-		met.anchor_right = 1.0
-		met.offset_left = -met.size.x + 5.0
-		met.offset_top = -5.0
-		met.offset_right = 5.0
-		met.offset_bottom = met.size.y - 5.0
+		var mpx := isz * 0.85                               # big disc that overtakes the item
+		var met := _ask_met_check(mpx)                      # green ✓, centered, hidden until satisfied
+		met.position = Vector2((isz - mpx) / 2.0, (isz - mpx) / 2.0)
 		icon.add_child(met)
 		wire_tap.call(icon, func() -> void: ask_tap.call(aline, atier))
 		stand.add_child(icon)
@@ -137,12 +133,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# `featured` flag + its coins/premium bonus still ride in the quest data and pay out silently
 	# on hand-in (board.gd). A real surface — where featured-ness DOES drive a choice (a daily/
 	# event "do a featured quest" hook, §17/§18) — is parked in the backlog.
-	# the ready check — sits at the card's bottom-right corner when the quest is payable
-	var check := _ready_check()
-	check.position = Vector2(cx + cardW - 46.0, cy + cardH - 46.0)
-	stand.add_child(check)
+	# the ready check is now per-ask (the big centered ✓ over each item), so there is no
+	# separate stand-level check. The "check" key stays in the result for board.gd, set to
+	# null (the board already guards it with `if check != null and is_instance_valid(check)`).
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
-	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": check, "bust": bust}
+	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": null, "bust": bust}
 
 # The quest card surface: the painted `ui/kit/card_quest.png` (horizontal speech-bubble card)
 # stretched to the card rect; a flat parchment card when the art is absent.
@@ -224,23 +219,24 @@ static func _count_badge(need: int) -> PanelContainer:
 	chip.add_child(lbl)
 	return chip
 
-# #4: a SMALL green ✓ sticker on the item's top-right corner — the per-ask
-# "this one's ready" mark, shown only when its single ask is satisfied. Distinct
-# from (and smaller than) the stand-level _ready_check that drives delivery.
-static func _ask_met_check() -> Panel:
+# #4: the per-ask green ✓ — a BIG round disc that overtakes the item when its single
+# ask is satisfied (centered over the icon, not a corner sticker). Sized by the caller
+# to ~85% of the item so a single large mark reads "this one's ready". This is now the
+# ONLY check on the stand — the old stand-level bottom-right check was removed.
+static func _ask_met_check(px: float) -> Panel:
 	var mark := Panel.new()
-	mark.custom_minimum_size = Vector2(26, 26)
-	mark.size = Vector2(26, 26)
+	mark.custom_minimum_size = Vector2(px, px)
+	mark.size = Vector2(px, px)
 	var mbg := StyleBoxFlat.new()
 	mbg.bg_color = Color("#5CAF5C")
-	mbg.set_corner_radius_all(13)
-	mbg.set_border_width_all(2)
+	mbg.set_corner_radius_all(int(px / 2.0))
+	mbg.set_border_width_all(3)
 	mbg.border_color = CREAM
 	mbg.shadow_color = Color(0, 0, 0, 0.28)
-	mbg.shadow_size = 2
-	mbg.shadow_offset = Vector2(0, 1)
+	mbg.shadow_size = 4
+	mbg.shadow_offset = Vector2(0, 2)
 	mark.add_theme_stylebox_override("panel", mbg)
-	var mi := Look.icon("check", 18.0)
+	var mi := Look.icon("check", px * 0.7)
 	mi.set_anchors_preset(Control.PRESET_FULL_RECT)
 	if mi is Label:
 		(mi as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -249,26 +245,6 @@ static func _ask_met_check() -> Panel:
 	mark.visible = false
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return mark
-
-static func _ready_check() -> Panel:
-	var check := Panel.new()
-	check.custom_minimum_size = Vector2(40, 40)
-	check.size = Vector2(40, 40)
-	var ck_bg := StyleBoxFlat.new()
-	ck_bg.bg_color = Color("#5CAF5C")
-	ck_bg.set_corner_radius_all(20)
-	ck_bg.set_border_width_all(3)
-	ck_bg.border_color = Color("#FBF3EA")
-	check.add_theme_stylebox_override("panel", ck_bg)
-	var ck_icon := Look.icon("check", 26.0)
-	ck_icon.set_anchors_preset(Control.PRESET_FULL_RECT)
-	if ck_icon is Label:
-		(ck_icon as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		(ck_icon as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	check.add_child(ck_icon)
-	check.visible = false
-	check.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return check
 
 # keep the check pinned to the (content-sized, centered) pill's top-left corner
 static func _dock_check(check: Control, pill: Control, stand: Control) -> void:

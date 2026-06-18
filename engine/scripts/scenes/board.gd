@@ -22,6 +22,7 @@ const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const BagView = preload("res://engine/scripts/ui/bag_view.gd")
+const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const OowOffer = preload("res://engine/scripts/ui/oow_offer.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -105,7 +106,18 @@ var _porter_timer := 0.0             # Y3: counts up while the basket has anythi
 var _porter_running := false
 var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
 var gate_btn: Button
-var bag_bar: HBoxContainer
+# the bottom-nav bag + merchant are circular wells (the always-present bag row is retired).
+# bag_btn: tap → full bag, drag a board item onto it → stash; bag_content shows the most-recent
+# stashed item; bag_count_badge shows the count when >1. merchant_btn: drag a spare onto it →
+# sell; merchant_pay previews the payout (+N coin/acorn) while a spare is dragged over it.
+var bag_btn: Button
+var bag_content: Control
+var bag_count_badge: Control
+var merchant_btn: Button
+var merchant_rest: Control
+var merchant_pay: Control
+var merchant_pay_lbl: Label
+var merchant_pay_icon: Control
 var stars_label: Label
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
@@ -150,7 +162,7 @@ func _ready() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.alignment = BoxContainer.ALIGNMENT_CENTER
+	root.alignment = BoxContainer.ALIGNMENT_BEGIN   # pin the stack to the top so quests sit right above the grid (no centred dead band)
 	root.add_theme_constant_override("separation", 10)
 	add_child(root)
 
@@ -232,7 +244,9 @@ func _ready() -> void:
 	add_child(gate_btn)
 
 	var center := CenterContainer.new()
-	center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	# the grid pins DIRECTLY under the quest fence (no vertical centring) — quests sit right
+	# above the board; the leftover meadow falls below toward the bottom nav.
+	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(center)
 	board_area = Control.new()
 	# the board fills the screen side to side (owner); on wide screens the
@@ -247,21 +261,13 @@ func _ready() -> void:
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
 
-	bag_bar = HBoxContainer.new()
-	bag_bar.alignment = BoxContainer.ALIGNMENT_CENTER
-	bag_bar.add_theme_constant_override("separation", 12)
-	bag_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	root.add_child(bag_bar)
-	bag_bar.add_child(_lbl(tr("Bag"), 26, Pal.TEXT))   # the label stays; _build_bag_bar only manages slots
-	_build_bag_bar()
-	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
+	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
+	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
 
-	# UI redesign (board art kit): a FULL-WIDTH bottom nav of 5 BIG painted buttons sitting on the
-	# meadow (no bar slab) — [Home · Shop · Leaf · Gear · Bag], matching the new board art. The row
-	# spans edge to edge (small side margin); expanding spacers between the buttons distribute them
-	# evenly (Home near the left, Bag near the right). Same actions as before; the Leaf is the
-	# current-scene mark (this IS the board), the Bag button bounces the inline bag row into view.
-	# shop_btn stays a member (§14 spotlight target).
+	# the full-width bottom nav: Shop · Settings · [Home centre] · Bag · Merchant. Home is the
+	# single home affordance (the Leaf is retired) and sits centred + prominent — the way back to
+	# the Map/decorate hub. The Bag and Merchant are circular wells; the Merchant is the new
+	# drag-to-sell drop target (the fence stall is gone). shop_btn stays a member (§14 spotlight).
 	var sb_inset := Look.safe_bottom(self)
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 0)
@@ -276,37 +282,33 @@ func _ready() -> void:
 	brow.offset_right = -32
 	brow.offset_top = -16 - sb_inset
 	brow.offset_bottom = -16 - sb_inset
-	var home_btn := _make_nav_button("nav_home.png", 150.0, func() -> void:
-		Audio.play("button_tap", -2.0)
-		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
-	brow.add_child(home_btn)
-	brow.add_child(_nav_spacer())
-	shop_btn = _make_nav_button("nav_shop.png", 150.0, func() -> void:
+	# Shop — the currency store (unchanged action)
+	shop_btn = _make_nav_button("nav_shop.png", 140.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
 	brow.add_child(_nav_spacer())
-	# the Leaf — this scene's own mark (the larger green centerpiece); a tap just
-	# bounces it (you're already on the board), so it reads as "you are here".
-	var leaf_btn := _make_nav_button("nav_leaf.png", 178.0, func() -> void:
-		Audio.play("button_tap", -2.0))
-	leaf_btn.disabled = false
-	brow.add_child(leaf_btn)
-	brow.add_child(_nav_spacer())
-	# the Settings gear — same shared card the map's gear opens (ui/settings.gd).
-	var settings_btn := _make_nav_button("nav_gear.png", 150.0, func() -> void:
+	# Settings — the shared card the map's gear opens (ui/settings.gd)
+	var settings_btn := _make_nav_button("nav_gear.png", 140.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		SettingsUI.open(self))
 	brow.add_child(settings_btn)
 	brow.add_child(_nav_spacer())
-	# the Bag — bounces the inline bag row (the live drag-to-bag system stays on the board).
-	var bag_btn := _make_nav_button("nav_bag.png", 150.0, func() -> void:
+	# Home — the centre, prominent button; the single home affordance back to the Map/decorate hub
+	var home_btn := _make_nav_button("nav_home.png", 184.0, func() -> void:
 		Audio.play("button_tap", -2.0)
-		if bag_bar != null and is_instance_valid(bag_bar):
-			FX.breathe_once(bag_bar))
+		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
+		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
+	brow.add_child(home_btn)
+	brow.add_child(_nav_spacer())
+	# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
+	bag_btn = _make_bag_button(140.0)
 	brow.add_child(bag_btn)
+	brow.add_child(_nav_spacer())
+	# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)
+	merchant_btn = _make_merchant_button(140.0)
+	brow.add_child(merchant_btn)
 	add_child(bottom_bar)
 
 	_build_hud()
@@ -763,9 +765,8 @@ func _rebuild_givers() -> void:
 	giver_chips.clear()
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
 	var qidx := _active_quest_idx()
-	var with_merchant := _spots_bought() >= 1 or not Features.on("ftue_staged_chrome")
-	var stands := qidx.size() + (1 if with_merchant else 0)
-	merchant_chip = null
+	var stands := qidx.size()
+	merchant_chip = null   # the sell merchant is a bottom-nav well now (no fence stall)
 	if stands == 0:
 		return
 	# the fence wall — one bordered strip; busts and cards pop up over its edge
@@ -799,10 +800,6 @@ func _rebuild_givers() -> void:
 		var stand := _make_giver_stand(qi, quests[qi])
 		row.add_child(stand.chip)
 		giver_chips.append(stand)
-	if with_merchant:
-		var ms := _make_merchant_stand()
-		row.add_child(ms)
-		merchant_chip = ms
 	_refresh_giver_lights()
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
@@ -884,13 +881,34 @@ func _buy_treat() -> void:
 # (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
 #  redesign; the +N value read returns as a new-language chip during the redesign. The `code`
 #  is no longer read here, kept on the signature for the callers + the redesign rebuild.)
-func _show_sell_affordance(_code: int) -> void:
-	if not Features.on("sell_hints") or merchant_chip == null or not is_instance_valid(merchant_chip):
+func _show_sell_affordance(code: int) -> void:
+	if not Features.on("sell_hints") or merchant_btn == null or not is_instance_valid(merchant_btn):
 		return
-	merchant_chip.modulate = Color(1, 1, 1, 1.0)
+	merchant_btn.modulate = Color(1, 1, 1, 1.0)
+	FX.breathe_once(merchant_btn)
+	# preview the payout on the well so the player sees what they'll get before dropping
+	if G.is_coin(code) or merchant_pay == null or not is_instance_valid(merchant_pay):
+		return
+	var rw := G.sell_reward(code)            # Vector2i(coins, acorns)
+	var gem := rw.y > 0
+	merchant_pay_lbl.text = "+%d" % (rw.y if gem else rw.x)
+	for c in merchant_pay_icon.get_children():
+		c.queue_free()
+	var ic := Look.icon("gem" if gem else "coin", merchant_pay_icon.custom_minimum_size.x)
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	merchant_pay_icon.add_child(ic)
+	merchant_pay.visible = true
+	if merchant_rest != null and is_instance_valid(merchant_rest):
+		merchant_rest.visible = false
 
 func _hide_sell_affordance() -> void:
-	_refresh_giver_lights()   # restores the merchant's has-top modulate
+	if merchant_pay != null and is_instance_valid(merchant_pay):
+		merchant_pay.visible = false
+	if merchant_rest != null and is_instance_valid(merchant_rest):
+		merchant_rest.visible = true
+	if merchant_btn != null and is_instance_valid(merchant_btn):
+		merchant_btn.modulate = Color(1, 1, 1, 1.0)
 
 # W3: the first time a MAX-TIER item lands on the board, a one-time floater points
 # the player at the stall (persisted seen-flag — never nags twice).
@@ -1064,12 +1082,11 @@ func _spotlight_chrome_deferred() -> void:
 		return
 	# one at a time, in the staged order, so we never stack overlays. Merchant first
 	# (appears earliest), then the bag, then the shop.
-	if merchant_chip != null and is_instance_valid(merchant_chip) and Spotlight.should_spotlight("merchant"):
-		_show_spotlight("merchant", merchant_chip)
+	if merchant_btn != null and is_instance_valid(merchant_btn) and Spotlight.should_spotlight("merchant"):
+		_show_spotlight("merchant", merchant_btn)
 		return
-	if bag_bar != null and bag_bar.visible and not bag_slots_ui.is_empty() \
-			and is_instance_valid(bag_slots_ui[0]) and Spotlight.should_spotlight("bag"):
-		_show_spotlight("bag", bag_slots_ui[0])
+	if bag_btn != null and is_instance_valid(bag_btn) and Spotlight.should_spotlight("bag"):
+		_show_spotlight("bag", bag_btn)
 		return
 	if shop_btn != null and is_instance_valid(shop_btn) and Spotlight.should_spotlight("shop"):
 		_show_spotlight("shop", shop_btn)
@@ -1212,6 +1229,150 @@ func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
 		b.pressed.connect(cb)
 	return b
 
+# A round "tray" well for the bottom nav (the Bag + Merchant): a soft cream disc with a warm rim
+# and shadow. Content (a stashed item, a payout) is added by the caller into a centred holder.
+func _tray_well(px: float) -> Button:
+	var b := Button.new()
+	b.flat = true
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var bg := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#FBF3EA", 0.95)
+	sb.set_corner_radius_all(int(px / 2.0))
+	sb.set_border_width_all(4)
+	sb.border_color = Color(Pal.BARK, 0.55)
+	sb.shadow_color = Color(0, 0, 0, 0.28)
+	sb.shadow_size = 6
+	sb.shadow_offset = Vector2(0, 3)
+	bg.add_theme_stylebox_override("panel", sb)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(bg)
+	Look.add_press_juice(b)
+	return b
+
+# A small painted kit icon pinned to a tray well's lower-right corner (the bag/cart badge naming it).
+func _corner_badge(kit_name: String, px: float) -> Control:
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(px, px)
+	holder.size = Vector2(px, px)
+	holder.anchor_left = 1.0; holder.anchor_top = 1.0; holder.anchor_right = 1.0; holder.anchor_bottom = 1.0
+	holder.offset_left = -px + 6.0; holder.offset_top = -px + 6.0; holder.offset_right = 6.0; holder.offset_bottom = 6.0
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var p := Look.kit(kit_name)
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(t)
+	return holder
+
+# A small count pill for the bag well's corner (shows the stashed total when >1). child(0) = Label.
+func _count_pill() -> Control:
+	var pill := PanelContainer.new()
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color("#4E7C46")
+	cs.set_corner_radius_all(11)
+	cs.set_border_width_all(2)
+	cs.border_color = CREAM
+	cs.content_margin_left = 6.0
+	cs.content_margin_right = 6.0
+	pill.add_theme_stylebox_override("panel", cs)
+	pill.anchor_left = 0.0; pill.anchor_top = 0.0; pill.anchor_right = 0.0; pill.anchor_bottom = 0.0
+	pill.offset_left = -4.0; pill.offset_top = -4.0
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var l := Label.new()
+	l.add_theme_font_size_override("font_size", 18)
+	l.add_theme_color_override("font_color", CREAM)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(l)
+	return pill
+
+# The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
+# (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
+# item; bag_count_badge shows the total when >1.
+func _make_bag_button(px: float) -> Button:
+	var b := _tray_well(px)
+	bag_content = Control.new()
+	bag_content.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var pad := px * 0.20
+	bag_content.offset_left = pad
+	bag_content.offset_top = pad
+	bag_content.offset_right = -pad
+	bag_content.offset_bottom = -pad
+	bag_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(bag_content)
+	b.add_child(_corner_badge("nav_bag.png", px * 0.46))
+	bag_count_badge = _count_pill()
+	bag_count_badge.visible = false
+	b.add_child(bag_count_badge)
+	b.pressed.connect(_open_bag_overlay)
+	return b
+
+# The Merchant well (bottom nav): drag a board spare onto it to SELL (drop resolved in _on_release).
+# While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);
+# a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
+func _make_merchant_button(px: float) -> Button:
+	var b := _tray_well(px)
+	merchant_rest = Look.icon("cart", px * 0.5)
+	merchant_rest.set_anchors_preset(Control.PRESET_FULL_RECT)
+	if merchant_rest is Label:
+		(merchant_rest as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		(merchant_rest as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	merchant_rest.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(merchant_rest)
+	merchant_pay = HBoxContainer.new()
+	merchant_pay.alignment = BoxContainer.ALIGNMENT_CENTER
+	merchant_pay.add_theme_constant_override("separation", 2)
+	merchant_pay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	merchant_pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	merchant_pay.visible = false
+	merchant_pay_lbl = Label.new()
+	merchant_pay_lbl.add_theme_font_size_override("font_size", int(px * 0.26))
+	merchant_pay_lbl.add_theme_color_override("font_color", Color("#33402F"))
+	merchant_pay_lbl.add_theme_color_override("font_outline_color", CREAM)
+	merchant_pay_lbl.add_theme_constant_override("outline_size", 4)
+	merchant_pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	merchant_pay.add_child(merchant_pay_lbl)
+	merchant_pay_icon = Control.new()
+	merchant_pay_icon.custom_minimum_size = Vector2(px * 0.32, px * 0.32)
+	merchant_pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	merchant_pay.add_child(merchant_pay_icon)
+	b.add_child(merchant_pay)
+	b.add_child(_corner_badge("icon_cart.png", px * 0.40))
+	b.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), tr("drag a spare here to sell"), CREAM, 26))
+	return b
+
+# Open the full bag overlay (the bottom-nav Bag well's tap). Tapping an item there returns it to
+# the board's first empty cell; the +slot tile buys a slot. Built in ui/bag_overlay.gd (pure view).
+func _open_bag_overlay() -> void:
+	Audio.play("button_tap", -2.0)
+	var owned := Save.bag_slots()
+	BagOverlay.open(self, {
+		"bag": bag,
+		"owned": owned,
+		"has_buy": _bag_has_buy_slot(),
+		"slot_price": G.next_bag_slot_price(owned),
+		"on_retrieve": func(i: int) -> void: _retrieve_to_first_empty(i),
+		"on_buy_slot": _buy_bag_slot,
+	})
+
+# Return bagged item `i` to the first empty board cell (the overlay's click-to-retrieve path).
+func _retrieve_to_first_empty(i: int) -> void:
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		Audio.play("invalid_soft", -6.0)
+		return
+	_retrieve_from_bag(i, empties[0])
+
 # The empty playable cell — a Sunk-plane well (UI redesign): CELL_EMPTY fill, a faint
 # inset line, and NO drop shadow (Sunk floats nothing), so it reads as a recessed slot
 # on the SURFACE field. Static so it is unit-testable in isolation (grove_tests).
@@ -1258,7 +1419,36 @@ static func _quest_band_style() -> StyleBoxFlat:
 	return sb
 
 func _make_bramble(cell: Vector2i) -> Control:
-	return PieceView.make_bramble(cell, csz)
+	var frontier := _is_frontier_bramble(cell)
+	# unlockable NOW = on the frontier AND the player's Level has reached this cell's gate, so a
+	# merge beside it would open it (board_model.openable_brambles is the authority).
+	var unlockable := frontier and G.cell_min_level(cell) <= _quest_level()
+	return PieceView.make_bramble(cell, csz, frontier, unlockable)
+
+# A locked cell is on the FRONTIER when at least one 4-neighbour is already open (playable) — only
+# these show the numbered lock; deeper locks stay numberless + receded (board-UI pass item 3).
+func _is_frontier_bramble(cell: Vector2i) -> bool:
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		if board.is_open(cell + d):
+			return true
+	return false
+
+# Re-evaluate every locked cell's frontier/unlockable state and rebuild its tile in place. Called
+# when the open set changes (a bramble opened) or the player levels up (a deeper gate becomes
+# reachable) — cheap (~one map's locked cells), keeps the highlight + numbering live.
+func _refresh_locked_cells() -> void:
+	if board == null:
+		return
+	for cell in bramble_nodes.keys():
+		var old: Control = bramble_nodes[cell]
+		if old == null or not is_instance_valid(old):
+			continue
+		var nb := _make_bramble(cell)
+		nb.position = _cell_pos(cell)
+		board_area.add_child(nb)
+		board_area.move_child(nb, old.get_index())
+		old.queue_free()
+		bramble_nodes[cell] = nb
 
 func _make_generator(id: String) -> Control:
 	return PieceView.make_generator(String(id), csz)
@@ -1315,12 +1505,11 @@ func _on_release(pos: Vector2) -> void:
 	_hide_sell_affordance()   # W3: drag ended — drop the tag, restore the stall's modulate
 	# the bag and the merchant's cart are drop targets too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
-	for i in bag_slots_ui.size():
-		if bag_slots_ui[i].get_global_rect().has_point(gp):
-			_stash(from, node)
-			return
-	if merchant_chip != null and is_instance_valid(merchant_chip) \
-			and merchant_chip.get_global_rect().has_point(gp):
+	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
+		_stash(from, node)
+		return
+	if merchant_btn != null and is_instance_valid(merchant_btn) \
+			and merchant_btn.get_global_rect().has_point(gp):
 		_sell_item(from, node)
 		return
 	if target == from and G.is_coin(board.item_at(from)):
@@ -1358,8 +1547,8 @@ func _release_gen(pos: Vector2) -> void:
 		_pop_seed(from)                       # a still tap pops the generator (merge fuel)
 		return
 	var gp: Vector2 = board_area.get_global_transform() * pos
-	if merchant_chip != null and is_instance_valid(merchant_chip) \
-			and merchant_chip.get_global_rect().has_point(gp):
+	if merchant_btn != null and is_instance_valid(merchant_btn) \
+			and merchant_btn.get_global_rect().has_point(gp):
 		if node != null:
 			_snap_back(from, node)            # never sold
 		return
@@ -1500,6 +1689,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
+	_refresh_locked_cells()   # the open set changed → re-evaluate neighbours' frontier/highlight
 	# a little luck: merges sometimes shake a coin loose
 	if BoardLogic.rolls_coin_drop(produced, rng):
 		_drop_coin_near(b)
@@ -1640,16 +1830,15 @@ func _stash(from: Vector2i, node: Control) -> void:
 # (broke or already maxed) just wobbles — convenience, never a wall (§4/§5).
 func _buy_bag_slot() -> void:
 	var price := G.next_bag_slot_price(Save.bag_slots())
-	var buy_slot: Button = bag_slots_ui[bag_slots_ui.size() - 1] if not bag_slots_ui.is_empty() else null
 	if price > 0 and Save.buy_bag_slot(price):
 		Audio.play("level_complete", -4.0, 1.2)
-		if buy_slot != null and is_instance_valid(buy_slot):
-			FX.celebrate_at(self, buy_slot.get_global_rect().get_center(), tr("Bag +1!"), STRAW)
-		_build_bag_bar()              # one more owned slot → rebuild the row
+		if bag_btn != null and is_instance_valid(bag_btn):
+			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), tr("Bag +1!"), STRAW)
+		_build_bag_bar()              # one more owned slot → refresh the bag well
 		_update_hud()
 	else:
-		if buy_slot != null and is_instance_valid(buy_slot):
-			FX.wobble(buy_slot)
+		if bag_btn != null and is_instance_valid(bag_btn):
+			FX.wobble(bag_btn)
 		Audio.play("invalid_soft", -4.0)
 
 # §5 drag-back retrieve (the model half — also the headless-test seam): drop bagged item `i`
@@ -1679,26 +1868,25 @@ func _retrieve_from_bag(i: int, cell: Vector2i) -> bool:
 # at runtime, so the row is rebuilt, not just refilled). Each item slot is a DRAG SOURCE for the
 # §5 drag-back retrieve; the buy slot is a tap.
 func _build_bag_bar() -> void:
-	for s in bag_slots_ui:
-		if is_instance_valid(s):
-			s.queue_free()
-	bag_slots_ui = BagView.build_bar(bag_bar, {
-		"owned": Save.bag_slots(),
-		"has_buy": _bag_has_buy_slot(),
-		"on_buy": _buy_bag_slot,
-		"on_slot_input": _on_bag_slot_input,
-	})
-	_rebuild_bag()
+	_rebuild_bag()   # the bag is a single bottom-nav well now; just refresh it
 
+# Refresh the bottom-nav Bag well: show the most-recent stashed item in the circle (empty when the
+# bag is empty) and a count pill when more than one is held.
 func _rebuild_bag() -> void:
-	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
-	var owned := Save.bag_slots()
-	BagView.rebuild(bag_slots_ui, {
-		"bag": bag,
-		"owned": owned,
-		"has_buy": _bag_has_buy_slot(),
-		"slot_price": G.next_bag_slot_price(owned),
-	})
+	if bag_content == null or not is_instance_valid(bag_content):
+		return
+	for c in bag_content.get_children():
+		c.queue_free()
+	if not bag.is_empty():
+		var top := _make_piece(int(bag[bag.size() - 1]), 80.0)
+		top.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bag_content.add_child(top)
+	if bag_count_badge != null and is_instance_valid(bag_count_badge):
+		bag_count_badge.visible = bag.size() > 1
+		if bag.size() > 1:
+			var lbl: Label = bag_count_badge.get_child(0)
+			if lbl != null:
+				lbl.text = str(bag.size())
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
@@ -1802,6 +1990,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
 		_update_water_hud()
+		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now
 		var lv := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 		FX.celebrate_at(self, Vector2(get_global_rect().get_center().x, 240), tr("Level %d!") % lv, STRAW)
 		FX.floating_reward(self, Vector2(get_global_rect().get_center().x - 130, 320),
@@ -1992,7 +2181,7 @@ func _grant_sale(code: int, node: Control) -> void:
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)
-	var target: Control = basket_chip if (basket_chip != null and is_instance_valid(basket_chip)) else merchant_chip
+	var target: Control = merchant_btn   # the sale flies into the bottom-nav merchant well
 	var center: Vector2 = target.get_global_rect().get_center() if (target != null and is_instance_valid(target)) else get_global_rect().get_center()
 	if node != null and is_instance_valid(node):
 		var dest: Vector2 = center - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
