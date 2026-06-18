@@ -99,3 +99,8 @@ clean: ## remove the gitignored build/ output
 
 clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 	rm -rf .godot
+
+commit:
+	git add .
+	git commit -m "changes"
+	git push
