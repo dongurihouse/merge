@@ -1,0 +1,49 @@
+{
+	"buildings": [
+		{
+			"cost": 3,
+			"mask": "mask_fh_hearth.png",
+			"pos": [
+				0.497638517314477,
+				0.40976931719583
+			],
+			"spot": "fh_hearth"
+		},
+		{
+			"cost": 4,
+			"mask": "mask_fh_larder.png",
+			"pos": [
+				0.77141484415875,
+				0.530521726196623
+			],
+			"spot": "fh_larder"
+		},
+		{
+			"cost": 3,
+			"mask": "mask_fh_well.png",
+			"pos": [
+				0.235994534452469,
+				0.781252422464783
+			],
+			"spot": "fh_well"
+		},
+		{
+			"cost": 4,
+			"mask": "mask_fh_porch.png",
+			"pos": [
+				0.581629726400533,
+				0.883928682506152
+			],
+			"spot": "fh_porch"
+		},
+		{
+			"cost": 5,
+			"mask": "mask_fh_lantern.png",
+			"pos": [
+				0.849855170484899,
+				0.848547010558514
+			],
+			"spot": "fh_lantern"
+		}
+	]
+}
