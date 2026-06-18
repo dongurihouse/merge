@@ -73,20 +73,22 @@ Each category maps to a tool that **already exists** in `games/tools/`.
 |---|---|---|---|
 | `icon` | one subject; trim + center + square transparent PNG | `process_icon.gd` | `ui/` |
 | `decor` | bg/layer; position preserved, fit to a fixed canvas | `process_decor.gd` | `rooms/` |
-| `grid` | clean N×N item sheet | `split_grid.gd` → `process_icon` per tile | `items/` |
-| `sheet` | irregular transparent island sheet (the `*_asset.png`) | `slice_islands.gd` → island→name map | `ui/kit/` |
-| `scene` | map locale; §16 multi-phase pipeline | runner does the mechanical steps; **agent supplies/verifies boxes + share-gate** | `map/` |
-| `matte` | raw with a solid / chroma background | `cutout` (flood-fill or chroma-key) **then** re-dispatch to the inner category | (inner) |
+| `grid` | LLM icon-sheet (band-detected, not uniform) | `slice_grid.gd` → `process_icon` per tile | `items/` |
+| `sheet` | irregular transparent/checkerboard island sheet (the `*_asset.png`) | `slice_islands.gd` → island→name map | `ui/kit/` |
+| `scene` | map locale; §16 multi-phase pipeline | **handed off** — not pixel-processed by the runner; the §16 map flow in `grove_art_pipeline.md` owns it | `map/` |
+| `matte` | raw with a bright/white background baked in | `cutout_bg.gd` (clears bright+achromatic regions) **then** re-dispatch to the inner category | (inner) |
 
 **`matte` is a prefix, not a leaf.** A `matte` plan carries an inner category (e.g.
 `"category": "matte", "inner": "icon"`): the runner keys out the background first, then runs the
 inner category's tool on the result.
 
-**`scene` is the one category the auto-runner does not fully own.** The §16 pipeline's
-box-detection and the §9 share-gate are perceptual calls. The runner handles the mechanical steps
-(cut each box → transparent, build the empty bg, recompose + diff). The agent supplies/verifies the
-boxes and signs off the look. This is intentional — it keeps the perceptual judgment with a brain,
-consistent with the division of labor in §5.
+**`scene` is handed off, not pixel-processed by the runner.** The §16 pipeline's box-detection and
+the §9 share-gate are perceptual calls, and the existing map tools (`process_map1v2.py`, the
+cutout/recompose steps in `grove_art_pipeline.md`) already own map slicing. So when a drop is a map
+scene, the runner recognizes the `scene` category and prints a one-line hand-off to the §16 flow
+rather than slicing it. Building the full scene cut/recompose into the runner is deferred (YAGNI) —
+nothing today needs it, and folding it in would push a perceptual call into a script. This keeps the
+runner small and keeps the perceptual judgment with a brain (§5).
 
 This taxonomy is **images only** — no audio, no animation flipbooks (those follow their own paths
 in the existing pipeline doc). If a new art class appears that none of these fit, the agent parks
@@ -94,8 +96,9 @@ it back to the Dev rather than forcing a category (§5).
 
 ## 4 · The deterministic runner — `make intake`
 
-A thin orchestrator (`games/tools/intake_apply.gd`, headless `SceneTree`) wired as a Makefile
-target. For each `*.plan.json` in `new/` (or one named plan via `make intake PLAN=<file>`):
+A thin orchestrator (`games/tools/intake_apply.py`, pure-stdlib Python) wired as a Makefile target.
+It dispatches to the godot image tools via subprocess and does the file moves itself. For each
+`*.plan.json` in `new/` (or one named plan via `make intake PLAN=<file>`):
 
 1. **Dispatch** by `category` to the tool in §3, passing the plan's `params`.
 2. **Write `outputs`** to their target paths, applying any per-output `post` step.
@@ -165,12 +168,13 @@ a script's.
 
 ## 8 · What this reuses vs. builds
 
-**Reuses (already in `games/tools/`):** `process_icon.gd`, `process_decor.gd`, `split_grid.gd`,
-`slice_islands.gd`, `cutout_map1_asset.py` / `process_map1v2.py` (chroma/flood-fill), `make import`,
-`make shot-*`.
+**Reuses (already in `games/tools/`):** `process_icon.gd`, `process_decor.gd`, `slice_grid.gd`,
+`slice_islands.gd`, `cutout_bg.gd` (bright-bg keyer), `make import`, `make shot-*`. (The map-scene
+keyers `cutout_map1_asset.py` / `process_map1v2.py` stay owned by the §16 flow.)
 
 **Builds:**
-1. `games/tools/intake_apply.gd` — the manifest runner (§4).
+1. `games/tools/intake_apply.py` — the manifest runner (§4), pure-stdlib Python that dispatches to
+   the godot tools and does the file moves.
 2. `make intake` target in the `Makefile`.
 3. `docs/design/asset-intake.md` — the runbook (§6).
 4. Project-root `CLAUDE.md` — the trigger (§6).
