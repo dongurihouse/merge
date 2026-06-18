@@ -11,11 +11,21 @@ extends RefCounted
 ##       ...
 ##   ])
 ##   nav.row        — the HBoxContainer (anchored bottom; the spotlight/refs target it)
-##   nav.buttons    — [Button] in spec order (spacers are NOT included here)
-## Each spec is a Dictionary:
+##   nav.buttons    — [Control] in spec order (round icons + the primary pill; spacers NOT included)
+## Each spec is a Dictionary. A spec is one of three shapes:
+##   - a round ICON button (the default): set `icon`.
+##   - a PRIMARY TEXT pill (the wide green CTA the map centers): set `text` (and usually `primary`:true).
+##     It uses Look.button(text, action, primary) — the same solid grove pill the old "Tend the garden ▶"
+##     CTA used — so it reads as the prominent centre action flanked by the round icons. The even-spacing
+##     layout is unchanged (expanding spacers between every entry), so the wider pill sits centred.
+##   - a CUSTOM control: set `make` (a Callable returning a Control) for full control over the button.
+## Fields:
 ##   icon     (String)   kit png name, e.g. "nav_shop.png" — Look.kit(icon); falls back to a glyph icon
+##   text     (String)   primary-pill label, e.g. "Enter Garden ▶" — routes to Look.button (text mode)
+##   primary  (bool)     text pills only: green primary CTA look (default true when `text` is set)
+##   make     (Callable) returns the Control to use as this entry (overrides icon/text)
 ##   action   (Callable)  pressed handler (optional)
-##   px       (float)     button box size (optional; defaults to opts.px / DEFAULT_PX)
+##   px       (float)     button box size (optional; defaults to opts.px / DEFAULT_PX) — icon buttons only
 ##   enabled  (bool)      false → disabled (optional, default true)
 ##   visible  (bool)      false → hidden (optional, default true)
 ##   label    (String)    accessible/tooltip text (optional)
@@ -53,11 +63,20 @@ static func build(host: Control, specs: Array, opts: Dictionary = {}) -> Diction
 	var buttons: Array = []
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
-		var px: float = float(spec.get("px", def_px))
-		var b := _make_nav_button(String(spec.get("icon", "")), px, spec.get("action", Callable()))
+		# Three shapes: a custom `make` Callable, a PRIMARY TEXT pill (`text`), or the default round icon.
+		var b: Control
+		if spec.has("make") and (spec.make as Callable).is_valid():
+			b = (spec.make as Callable).call()
+		elif spec.has("text"):
+			# the wide green CTA — the same solid grove primary pill the old "Tend the garden ▶" used.
+			b = Look.button(String(spec.text), spec.get("action", Callable()), bool(spec.get("primary", true)))
+		else:
+			var px: float = float(spec.get("px", def_px))
+			b = _make_nav_button(String(spec.get("icon", "")), px, spec.get("action", Callable()))
 		if spec.has("label"):
 			b.tooltip_text = String(spec.label)
-		b.disabled = not bool(spec.get("enabled", true))
+		if b is Button:
+			(b as Button).disabled = not bool(spec.get("enabled", true))
 		b.visible = bool(spec.get("visible", true))
 		if i > 0:
 			row.add_child(_spacer())

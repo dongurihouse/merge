@@ -670,8 +670,9 @@ func _drift_cloud(c: TextureRect, rect: Rect2, cloud_w: float) -> void:
 
 # Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
 # (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +
-# sprout baked in) carries a gold star + "N to the next place" text in its upper body and a GREEN fill
-# bar (pill_progress_fill.png) inside its lower groove, sized to restore-progress. The map NAME is
+# sprout baked in) carries "N to the next place" text in its upper body (NO inline icon — the pill art's
+# baked flower is the single left mark) and a GREEN fill bar (pill_progress_fill.png) inside its lower
+# groove, sized to restore-progress. The map NAME is
 # dropped entirely. A fully-restored map shows the "restored" state. If the pill art is missing it
 # degrades to the old dark plank look so the read never blanks.
 const _PILL_ASPECT := 603.0 / 109.0
@@ -730,36 +731,23 @@ func _map_title_plank(z: int) -> Control:
 		fill.texture = load(fill_path)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		clip.add_child(fill)
-	# the text row — a gold star + "N to the next place" (or "restored"), in the pill's UPPER body,
-	# clear of the flower badge on the far left.
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.position = Vector2(groove_text_left(pw), ph * 0.10)
-	row.size = Vector2(_PILL_GROOVE_W * pw, ph * 0.42)
-	node.add_child(row)
-	if map_spots_done(z):
-		row.add_child(Look.icon("star", ph * 0.34))
-		var done_l := Label.new()
-		done_l.text = tr("restored ✿")
-		done_l.add_theme_font_size_override("font_size", int(ph * 0.30))
-		done_l.add_theme_color_override("font_color", Color("#6E4E25"))
-		done_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		done_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(done_l)
-	else:
-		row.add_child(Look.icon("star", ph * 0.34))
-		var lbl := Label.new()
-		lbl.text = tr("%d to the next place") % left
-		lbl.add_theme_font_size_override("font_size", int(ph * 0.28))
-		lbl.add_theme_color_override("font_color", Color("#6E4E25"))
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(lbl)
+	# the text — just "N to the next place" (or "restored ✿"), in the pill's UPPER body. pill_progress.png
+	# already bakes a flower into its top-left, so we DON'T add an icon here — that flower IS the single
+	# left mark (mockup: one flower + text). The label fills the area to the RIGHT of the baked flower and
+	# centers itself in that remaining span, so the text never overlaps the flower.
+	var lbl := Label.new()
+	lbl.text = tr("restored ✿") if map_spots_done(z) else tr("%d to the next place") % left
+	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
+	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.position = Vector2(groove_text_left(pw), ph * 0.10)
+	lbl.size = Vector2(pw - groove_text_left(pw) - _PILL_GROOVE_X * pw, ph * 0.42)
+	node.add_child(lbl)
 	return node
 
-# Where the pill's text row starts — inset past the baked flower badge on the far left.
+# Where the pill's text starts — inset past the baked flower badge on the far left.
 func groove_text_left(pw: float) -> float:
 	return _PILL_GROOVE_X * pw + pw * 0.06
 
@@ -1531,8 +1519,10 @@ func _build_chrome() -> void:
 			Audio.play("button_tap", -2.0)
 			if _open_shop.is_valid():
 				_open_shop.call()},
-		# Enter Garden — the green primary CTA, the prominent CENTER button (bigger than the chrome).
-		{"icon": "nav_garden.png", "px": 132.0, "label": tr("Enter Garden"), "action": _on_board},
+		# Enter Garden — the green primary CTA: a WIDE green text pill (the mockup's centre), not a round
+		# icon. Routed through NavBar's `text` shape → Look.button(text, cb, true), the same solid grove
+		# primary pill the old "Tend the garden ▶" CTA used.
+		{"text": tr("Enter Garden ▶"), "primary": true, "label": tr("Enter Garden"), "action": _on_board},
 		# Map — the place-picker (atlas).
 		{"icon": "nav_map.png", "px": 96.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
