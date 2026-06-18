@@ -1,8 +1,9 @@
 extends RefCounted
 ## The giver-stand BUILDER (Wave 3, fence slice 1) — pure construction of one quest-giver
 ## stand on the §7 fence: the chest-up bust over the rail, the ask pill (1–3 asks + progress),
-## the +N★ (and featured +N💎) shoulder reward, the featured ribbon, and the ready-check that
-## docks on the pill. Stateless: state (the quests array, payability) stays in the board
+## the +N★ shoulder reward, and the ready-check that docks on the pill. (Featured-ness is NOT
+## surfaced here — the flag/bonus pay out silently; see the note in make().) Stateless: state
+## (the quests array, payability) stays in the board
 ## coordinator; this only assembles nodes and returns their refs. Tap behaviour is injected as
 ## `Callable`s so this never reaches up into scenes/ (the §15 layering invariant).
 ##
@@ -129,27 +130,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	pay.add_child(pay_lbl)
 	pay.position = Vector2(cx + cardW - 78.0, cy + 6.0)
 	stand.add_child(pay)
-	# §7 FEATURED: a gold ribbon crowns a featured card; a +N💎 rides under the ★ when premium.
-	if bool(q.get("featured", false)):
-		var ribbon := _featured_ribbon()
-		ribbon.position = Vector2(cx + 8.0, cy - 12.0)
-		stand.add_child(ribbon)
-		var feat_gems := Quests.gems(q)
-		if feat_gems > 0:
-			var gem_pay := HBoxContainer.new()
-			gem_pay.add_theme_constant_override("separation", 1)
-			gem_pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			gem_pay.add_child(Look.icon("gem", 24.0))
-			var gem_lbl := Label.new()
-			gem_lbl.text = "+%d" % feat_gems
-			gem_lbl.add_theme_font_size_override("font_size", 20)
-			gem_lbl.add_theme_color_override("font_color", Color("#BFE6F2"))
-			gem_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
-			gem_lbl.add_theme_constant_override("outline_size", 5)
-			gem_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-			gem_pay.add_child(gem_lbl)
-			gem_pay.position = Vector2(cx + cardW - 76.0, cy + 36.0)
-			stand.add_child(gem_pay)
+	# §7 FEATURED is intentionally NOT surfaced on the board: quests aren't skippable, so a
+	# "this one's special" highlight (or a +N💎 shoulder) is noise the player can't act on. The
+	# `featured` flag + its coins/premium bonus still ride in the quest data and pay out silently
+	# on hand-in (board.gd). A real surface — where featured-ness DOES drive a choice (a daily/
+	# event "do a featured quest" hook, §17/§18) — is parked in the backlog.
 	# the ready check — sits at the card's bottom-right corner when the quest is payable
 	var check := _ready_check()
 	check.position = Vector2(cx + cardW - 46.0, cy + cardH - 46.0)
@@ -204,42 +189,6 @@ static func ask_pill() -> PanelContainer:
 	pill.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return pill
-
-# §7 FEATURED: a code-drawn gold ribbon that crowns a featured giver's stand — a clear
-# "this one's special" highlight on the fence (no art exists; Look-kit warm palette). A
-# straw-gold pill, deeper-gold border + soft shadow, holding a ★ glyph + a "Featured" caption.
-static func _featured_ribbon() -> PanelContainer:
-	var ribbon := PanelContainer.new()
-	var rs := StyleBoxFlat.new()
-	rs.bg_color = STRAW                        # the warm straw-gold accent the fence already uses
-	rs.set_corner_radius_all(11)
-	rs.set_border_width_all(2)
-	rs.border_color = Color("#8A5A3B")         # the bark-brown border the asks/plus use
-	rs.shadow_color = Color(0, 0, 0, 0.28)
-	rs.shadow_size = 4
-	rs.shadow_offset = Vector2(0, 2)
-	rs.content_margin_left = 10.0
-	rs.content_margin_right = 12.0
-	rs.content_margin_top = 3.0
-	rs.content_margin_bottom = 3.0
-	ribbon.add_theme_stylebox_override("panel", rs)
-	ribbon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 5)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ribbon.add_child(row)
-	var star := Look.icon("star", 20.0)
-	star.modulate = Color("#FBF3EA")           # a cream star reads on the straw fill
-	row.add_child(star)
-	var lbl := Label.new()
-	lbl.text = TranslationServer.translate("Featured")
-	lbl.add_theme_font_size_override("font_size", 17)
-	lbl.add_theme_color_override("font_color", Color("#4A2F1B"))
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lbl)
-	return ribbon
 
 # #4: the per-ask COUNT CHIP — a small high-contrast cream sticker that rides the
 # item's bottom-right corner showing the wanted count (wordless: a number, no "/m").

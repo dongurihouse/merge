@@ -55,6 +55,24 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
   build-flag — the one piece that can't ship in-engine; everything game-side sits behind the honest
   confirm-stub. *(Surfaced 2026-06-15 — 2nd economy batch, T42–T45; engines merged, the above is the tail.)*
 
+- **2× rewarded-ad doubler — flush out the full workflow (engine SDK + trigger coverage + tuning · grove/engine).**
+  The 2× "double your coins" card was **re-homed** from the removed hub yield-collect to the **quest coin overflow**
+  (`board.gd` `_on_giver_tap` → `_maybe_offer_2x(sp_coins, …)` after `Save.add_coins`; card + `_accept_2x_offer`/
+  `_dismiss_2x_offer` now live in `board.gd`; the ad id is still `collect_2x`). It works end-to-end against the
+  honest stub (`grove_tests` `_test_2x_doubler_rehome`), but the workflow is **not finished**:
+  • **Real ad SDK.** `ads.gd` `can_show`/`claim`/`consume_2x` are stubs (instant "watch"); the load→show→reward
+  callback behind the geo build-flag is the **external remainder** (shared with the T43 ads tail above) — until it
+  lands, accepting credits the bonus on a confirm-stub, no actual video.
+  • **Trigger coverage.** It fires only on **regular** quest deliveries. The **gate quest's large coin reward**
+  (`board.gd` `_deliver_gate`) is an infrequent big lump and the strongest 2× moment — decide whether to extend it
+  there (and to generator-grant deliveries). Currently those pay coins with no doubler offer.
+  • **Rename the ad id.** `collect_2x` is now a misnomer (it doubles a quest reward, not a hub collect) — rename in
+  `ads.gd` + its cap/cooldown config and the call sites for clarity.
+  • **Owner tuning (perceptual).** The `collect_2x` daily cap + cooldown, the card copy ("Watch a cloud → double
+  it!") + its board placement, and the **offer frequency** — quest deliveries are frequent, so confirm the cap keeps
+  the card a treat, not a nag (observe / sim the offer rate vs. the cap). Was flagged as T45 "perceptual placement."
+  Spec: `merge_spec §10/§18`, `grove_spec §10`. *(Surfaced 2026-06-18 — re-home shipped (`6ff5b01`); this is the maturation tail.)*
+
 - **Shop cosmetic LOOKS — apply the owned look to the board/map render (small follow-up · T40).** The
   Shop now sells cosmetic looks (T40 — `SHOP_COSMETICS` in `grove_data.gd`, unlock stored in
   `grove()["cosmetics"]`), but the chosen theme is **granted-and-owned only — not yet applied** to the
@@ -66,6 +84,8 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 - **Push notifications + re-engagement (spec done · engine code · grove — UN-DEFERRED to launch).** §18: local + remote pushes (energy-full · yield-ready · event beat · win-back), opt-in, calm-toned, capped, prompted **after a rewarding moment** (never cold launch), per-type Settings toggle. The grove skeleton **deferred** notifications (`grove_spec §1`) — now **launch scope** (a silent energy return-hook with no prompt is the costliest omission, per the director review). **Absent** (no notification code). **Build (engine):** local-notification scheduling + a remote-push hook + opt-in / quiet-hours / caps. **Build (grove):** copy, cadence, reward sizes. *(Surfaced 2026-06-14 — director review.)*
 
 - **Gentle-urgency + recurring-scarcity events & opt-in social/competitive (spec done · engine · grove).** §17 adds **gentle urgency softened by recurrence** (time-boxed exclusives that return on a **seasonal calendar** — cozy-safe FOMO) and an **opt-in, async, positive-sum social layer** (bracketed "race a few others" leaderboard events, gifting, light co-op / community goals — no-lose, solo-playable). **Absent** (no recurrence, leaderboard, gifting, or community-goal code). **Build (engine):** event recurrence rules; the async-bracket leaderboard, gifting, and community-goal surfaces (flagged, §11). **Build (grove):** the seasonal calendar, which social surfaces ship, bracket/gift caps. *Extends the live-ops/events framework item below.* *(Surfaced 2026-06-14 — director review.)*
+
+- **Featured quests — flesh out a surface where featured-ness is actually a CHOICE (engine flag exists; board UI removed).** The §7 `featured` flag + its coins/premium bonus are live in the quest data (`content.gd` `gen_quest`; rate/bonus dials in `grove_data.gd` `QUEST_FEATURED_*`) and still pay out silently on hand-in (`board.gd`). **The board badge was removed** (the gold "Featured" ribbon + the `+N💎` shoulder on the giver stand, `giver_stand.gd`) because **quests aren't skippable** — flagging one as special on the fence is noise the player can't act on, so it added nothing. Featured-ness only earns a surface when it drives a *decision*: the spec's **"do a featured quest" daily/event hook** (§17/§18) — an objective that points the player at a featured quest, so the highlight finally has a target. **Build:** a featured-quest daily/event objective (rides the live-ops/events framework + task strip), and only then a fence highlight wired to it. Until that lands, featured is a silent bonus — correct, just invisible. *(Surfaced 2026-06-18 — owner call: drop the board badge, keep the mechanic.)*
 
 - **The Collection — retired-line almanac (spec done · engine code · grove).** §6: a line that retires
   (map advance, or an event ending) **archives to the Collection** — a completionist almanac keeping
