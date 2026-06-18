@@ -48,6 +48,9 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var plh := 150.0
 	plaque.position = Vector2((sw - plw) / 2.0, 60.0)
 	plaque.size = Vector2(plw, plh)
+	# the giver card — a warm parchment-wood board sized to grove's vertical bust+ask layout.
+	# (The kit's `card_quest.png` is a HORIZONTAL speech-bubble card for an NPC-portrait+item
+	#  layout, which doesn't fit this vertical stand — left available for a future redesign.)
 	var pls := StyleBoxFlat.new()
 	pls.bg_color = Color("#E7D3A6", 0.97)         # warm parchment-wood board
 	pls.set_corner_radius_all(22)

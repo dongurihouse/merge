@@ -247,15 +247,53 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 	# "Lv N" chip on the FRONTIER (the shallow inner gates the player is about to reach) and a
 	# bare lock glyph (no number) on the deeper rings — so ~30 locked cells aren't all text.
 	var on_frontier := lvl <= FRONTIER_LV   # the inner L1/2/3 diamond — nearest the player's eye
-	holder.add_child(_lv_gate_badge(lvl, csz, on_frontier))
+	if ResourceLoader.exists(_locked_art()):
+		# the painted tile already carries the padlock — add ONLY the frontier "Lv N" number
+		# (tucked at the bottom) so the teach-signal survives without a second, code-drawn lock.
+		if on_frontier:
+			holder.add_child(_lv_num_badge(lvl, csz))
+	else:
+		holder.add_child(_lv_gate_badge(lvl, csz, on_frontier))
 	return holder
+
+# Just the "Lv N" teach-number, tucked at the cell's bottom with a soft light outline — used on
+# FRONTIER cells when the painted slot_locked tile (which already shows a padlock) is the surface.
+static func _lv_num_badge(lvl: int, csz: float) -> Control:
+	var wrap := Control.new()
+	wrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bnum := Label.new()
+	bnum.text = TranslationServer.translate("Lv%d") % lvl
+	bnum.add_theme_font_size_override("font_size", int(maxf(11.0, csz * 0.19)))
+	bnum.add_theme_color_override("font_color", Pal.INK_MUTED)
+	bnum.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.75))
+	bnum.add_theme_constant_override("outline_size", 4)
+	bnum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bnum.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bnum.offset_top = -int(csz * 0.30)
+	bnum.offset_bottom = -int(csz * 0.06)
+	bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(bnum)
+	return wrap
 
 const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the styled number)
 
-# The locked/sealed cell well (UI redesign) — a LIGHT recessive Sunk surface (Pal.LOCKED): no drop
-# shadow (Sunk floats nothing), a whisper-quiet rim, deeper rings barely shaded for depth. Static
-# so it is unit-testable. Mirrors board.gd's _cell_style() (the empty cell) one value lower.
-static func _locked_style(csz: float, ring: int = 1) -> StyleBoxFlat:
+## The board art kit's painted locked-slot tile (cream + a wood padlock); "" when absent.
+static func _locked_art() -> String:
+	return Game.art("ui/kit/slot_locked.png")
+
+# The locked/sealed cell well. With the board art kit present this IS the painted slot_locked
+# tile (cream + baked padlock) so locked cells read warm, matching the open slots + frame.
+# Fallback (no art): a LIGHT recessive Sunk surface (Pal.LOCKED) with a quiet rim, deeper rings
+# barely shaded for depth. Static so it stays unit-testable.
+static func _locked_style(csz: float, ring: int = 1) -> StyleBox:
+	var p := _locked_art()
+	if ResourceLoader.exists(p):
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = load(p)
+		sbt.set_texture_margin_all(28.0)                          # ~180px source corners → crisp at cell size
+		sbt.modulate_color = Color(1, 1, 1).darkened(0.05 * float(ring - 1))   # deeper rings recede a hair
+		return sbt
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Pal.LOCKED.darkened(0.018 * float(ring - 1))   # ring 1 == Pal.LOCKED exactly
 	sb.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))

@@ -105,15 +105,25 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a clean level "coin" — honey token + warm gold ring + INK number (de-greened: green is now
-	# reserved for the CTA/growth signal). Reads crisply and matches the HUD's cream/gold language.
-	# (Swap to a sprout badge later only if one is generated with an OPEN center.)
-	var coin := StyleBoxFlat.new()
-	coin.bg_color = Tune.LV_TOKEN_BG            # honey token (de-greened) — warm, not the CTA green
-	coin.set_corner_radius_all(int(lv_px / 2.0))
-	coin.set_border_width_all(Tune.PILL_BORDER_W)
-	coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
-	avatar.add_theme_stylebox_override("panel", coin)
+	# the level badge — the kit's painted ROPE RING (`ui/kit/ring_level.png`) with the INK
+	# number in its open center. Falls back to a honey token (de-greened: green is reserved for
+	# the CTA) when the art is absent, so the chip still reads on any build.
+	var ring_p := Look.kit("ring_level.png")
+	if ResourceLoader.exists(ring_p):
+		var ring := TextureRect.new()
+		ring.texture = load(ring_p)
+		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
+		ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		avatar.add_child(ring)
+	else:
+		var coin := StyleBoxFlat.new()
+		coin.bg_color = Tune.LV_TOKEN_BG            # honey token — warm, not the CTA green
+		coin.set_corner_radius_all(int(lv_px / 2.0))
+		coin.set_border_width_all(Tune.PILL_BORDER_W)
+		coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
+		avatar.add_theme_stylebox_override("panel", coin)
 	var level := Label.new()
 	level.add_theme_font_size_override("font_size", Tune.LV_NUM_SIZE)
 	level.add_theme_color_override("font_color", INK)
@@ -137,14 +147,6 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
 		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
-	# §8 keystone: scenes toggle the home-shortcut yield-ready pip via this. A no-op when the
-	# home button (and thus the pip) isn't rendered (e.g. a scene that passes no `home`).
-	out["home_cue"] = func(on: bool) -> void:
-		if home_btn == null or not is_instance_valid(home_btn):
-			return
-		var pip := home_btn.get_node_or_null("YieldPip")
-		if pip != null:
-			(pip as Control).visible = on
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
@@ -244,7 +246,7 @@ static func _spacer(row: HBoxContainer) -> void:
 
 # HOME — its own pinned chip (a cream pill matching the HUD language), placed to the right of
 # the Lv chip in the shared left row. Pulled OUT of the wallet pill so nav ≠ currency. Returns
-# the inner button (null when no `home` callback) so home_cue can toggle the yield pip.
+# the inner button (null when no `home` callback) so scenes can target/spotlight it.
 static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
 	var home_cb: Variant = opts.get("home")
 	if not (home_cb is Callable and (home_cb as Callable).is_valid()):
@@ -273,24 +275,6 @@ static func _build_home_chip(left: HBoxContainer, opts: Dictionary) -> Button:
 	Look.add_press_juice(home_btn)
 	home_btn.pressed.connect(func() -> void: (home_cb as Callable).call())
 	pill.add_child(home_btn)
-	# §8 keystone: a subtle yield-READY cue — a small gold pip on the chip corner when the hub
-	# has uncollected coin yield. Built hidden; scenes toggle it via out.home_cue(on). Pure
-	# chrome (IGNORE), never eats a press.
-	var pip := Panel.new()
-	pip.name = "YieldPip"
-	var pip_d := 14.0
-	pip.custom_minimum_size = Vector2(pip_d, pip_d)
-	pip.size = Vector2(pip_d, pip_d)
-	var pip_sb := StyleBoxFlat.new()
-	pip_sb.bg_color = Color("#E3B23C")               # warm gold — the coin/yield colour
-	pip_sb.set_corner_radius_all(int(pip_d / 2.0))
-	pip_sb.set_border_width_all(2)
-	pip_sb.border_color = CREAM
-	pip.add_theme_stylebox_override("panel", pip_sb)
-	pip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pip.position = Vector2(home_btn.custom_minimum_size.x - pip_d + 2.0, -2.0)
-	pip.visible = false
-	home_btn.add_child(pip)
 	left.add_child(pill)
 	return home_btn
 
