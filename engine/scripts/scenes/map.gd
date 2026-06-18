@@ -1706,7 +1706,7 @@ func _claim_free_gems() -> void:
 	var res := Ads.claim("free_gems")
 	if not bool(res.get("ok", false)):
 		Audio.play("invalid_soft", -6.0)
-		FX.floating_text(self, src, tr("More gems soon — come back later"), CREAM, 22)
+		FX.floating_text(self, src, tr("More acorns soon — come back later"), CREAM, 22)
 		_refresh_liveops_badges()
 		return
 	var gems := int(res.get("gems", 0))

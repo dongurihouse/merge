@@ -83,9 +83,11 @@ static func coin_icon(px: float = Tune.COIN_PX) -> Control:
 static func kit(rel: String) -> String:
 	return Game.art("ui/kit/" + rel)
 
-# Glyph fallbacks = exactly today's characters; the swap is art-arrival, not code.
+# Glyph fallbacks (shown only when a sprite is absent). NOTE: "coin" = the SOFT currency
+# (a gold coin) and "gem" = the PREMIUM currency (the grove's golden acorn 🌰) — the icons
+# were inverted from the old acorn-coin / dewdrop-gem scheme; the code ids still map to roles.
 const ICON_GLYPHS := {
-	"star": "★", "coin": "🪙", "gem": "💎", "water": "💧", "rain": "☔",
+	"star": "★", "coin": "🪙", "gem": "🌰", "water": "💧", "rain": "☔",
 	"cart": "🛒", "gear": "⚙", "check": "✓", "lock": "Lv", "question": "?",
 	"home": "◀", "back": "◀", "level": "Lv", "cash": "$",
 }

@@ -4,7 +4,7 @@ extends RefCounted
 ## honest confirm where money is involved: water + a coin pouch (quick help), a few
 ## item-SHORTCUTS (buy a mid-tier piece to skip the grind) and cosmetic LOOKS in a
 ## DETERMINISTICALLY-ROTATING featured band (a few at a time, §10), and the cash →
-## 💎 dewdrop pouches. The cash packs are LIVE: confirming grants the diamonds
+## premium acorn pouches. The cash packs are LIVE: confirming grants the diamonds
 ## directly (an honest "test build — nothing is charged"); a real store SDK replaces
 ## ONLY the middle of `_confirm_cash` — nothing else changes. §4 law: premium buys
 ## SPEED + LOOKS, never POSSIBILITY — a shortcut is a grind-skip to a piece you can
@@ -304,8 +304,8 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			host.tr("top up the can"), G.REFILL_DIAMOND_COST, water_action, "water",
 			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own.")))
 	help_row.add_child(_help_card(host, refs, "coin_sack", host.tr("Coin pouch"),
-		host.tr("+%d acorns") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
-		host.tr("Adds %d acorns to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
+		host.tr("+%d coins") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
+		host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
 
 	# — Featured (§10): a FEW deterministically-rotating offers (item-shortcuts + looks),
 	# the fresh "always something new" band — NOT the whole static pool.
@@ -345,10 +345,11 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		col.add_child(starter_row)
 		starter_row.add_child(_starter_card(host, refs))
 
-	# — Dewdrop pouches (cash → diamonds; confirm-only) — the full $0.99…$99.99 ladder shows in
+	# — Acorn pouches (cash → diamonds; confirm-only) — the full $0.99…$99.99 ladder shows in
 	# a 3-wide GRID (2 rows) so EVERY tier — including the whale $49.99/$99.99 — is visible at
 	# once, no hidden scroll. 3*GEM_CARD.x + 2*HSEP stays inside the parchment inner width.
-	_divider(col, host.tr("Dewdrop pouches"))
+	# (Premium currency is "diamonds" in code; it is DISPLAYED as a golden acorn — the grove's premium.)
+	_divider(col, host.tr("Acorn pouches"))
 	var gem_grid := GridContainer.new()
 	gem_grid.columns = Tune.GEM_GRID_COLS
 	gem_grid.add_theme_constant_override("h_separation", Tune.GEM_GRID_HSEP)
@@ -1024,7 +1025,7 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	var doubled := first_buy_doubled()
 	var gems := int(pack.gems) * (int(FIRST_BUY_MULT) if doubled else 1)
 	var sub := host.tr("first-buy bonus doubled!") if doubled else ""
-	_confirm_gem_grant(host, refs, host.tr("Dewdrop pouch"),
+	_confirm_gem_grant(host, refs, host.tr("Acorn pouch"),
 		host.tr("%d for %s") % [gems, String(pack.usd)], sub, func() -> void:
 			grant_cash_pack(i))
 

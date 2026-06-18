@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b2v5ir4f40baf"
-path="res://.godot/imported/icon_coin_pair.png-71f66ac9c239359751855bf370440db8.ctex"
+uid="uid://di0xyso4uoras"
+path="res://.godot/imported/coin_set.png-065c1877d391b6da448b9b74a1150e7d.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/kit/icon_coin_pair.png"
-dest_files=["res://.godot/imported/icon_coin_pair.png-71f66ac9c239359751855bf370440db8.ctex"]
+source_file="res://assets/board/coin_set.png"
+dest_files=["res://.godot/imported/coin_set.png-065c1877d391b6da448b9b74a1150e7d.ctex"]
 
 [params]
 

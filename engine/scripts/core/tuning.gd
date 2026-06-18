@@ -226,18 +226,18 @@ class Hud:
 	const COIN_ICON := 40                 # the acorn
 	const GEM_ICON := 40                  # the gem (was 38 — same box as the rest now)
 	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
-	const COIN_OPTICAL := 1.0             # acorn: the reference weight
-	const GEM_OPTICAL := 1.06             # gem: a slim teardrop, nudge UP for equal presence
+	const COIN_OPTICAL := 1.0             # gold coin (soft currency): the reference weight
+	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin
 	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
 	const PAIR_SEP := 14                  # gap BETWEEN currency pairs (was the row's ROW_SEP=6)
 	const NUM_SIZE := 34                  # currency number font size
 
-	# --- identity tints (modulate over the sprites; star=gold, acorn=warm brown, gem=teal) ---
-	# The art already carries each currency's hue; a gentle modulate REINFORCES the read so
-	# gold/brown/teal stay distinct and the gem stops reading as a blue water drop.
+	# --- identity tints (modulate over the sprites) ---
+	# Soft currency = a GOLD COIN, premium = a GOLDEN ACORN (the grove's premium). Both art
+	# pieces already carry their warm hue, so they render as-is — no modulate (a tint muddied them).
 	const STAR_TINT := Color.WHITE        # painted clover icon renders as-is (no muddying tint)
-	const COIN_TINT := Color.WHITE        # painted acorn coin renders as-is (the brown tint muddied it)
-	const GEM_TINT := Color("#5FE0CF")    # cool teal — pushes the gem away from water-cyan
+	const COIN_TINT := Color.WHITE        # gold coin renders as-is
+	const GEM_TINT := Color.WHITE         # premium acorn renders as-is (was teal for the old dewdrop gem)
 
 	# --- the "+" acquire button (opens the store) --------------------------------------
 	const PLUS_BOX := 26.0                # the little round +-token diameter

@@ -631,14 +631,14 @@ func _update_water_hud() -> void:
 	var free_left := refills_used < G.FREE_REFILLS
 	refill_btn.visible = empty and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
 	if refill_btn.visible:
-		refill_btn.text = tr("Rain ☔ free refill") if free_left else tr("Rain ☔ %d💎") % G.REFILL_DIAMOND_COST
+		refill_btn.text = tr("Rain ☔ free refill") if free_left else tr("Rain ☔ %d🌰") % G.REFILL_DIAMOND_COST
 	# the rewarded WATCH-AD refill — a free, capped + cooldowned alternative (§10 ads).
 	ad_refill_btn.visible = empty and Ads.can_show("refill_water")
 	# the cozy OUT-OF-WATER offer — a gently-discounted top-up on a low cap + long cooldown,
 	# NO countdown, NO fail copy (§10 locked guardrails). Shows only inside its cap/cooldown.
 	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
 	if oow_offer_btn.visible:
-		oow_offer_btn.text = tr("A little help ✿ +%d💧 +%d💎 · %s") % \
+		oow_offer_btn.text = tr("A little help ✿ +%d💧 +%d🌰 · %s") % \
 			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), String(Data.OOW_OFFER.usd)]
 	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
 	if _refill_stack.visible:
@@ -702,7 +702,7 @@ func _on_oow_offer() -> void:
 		FX.wobble(oow_offer_btn)
 		_update_water_hud()
 		return
-	var line := tr("+%d water, +%d dewdrops") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
+	var line := tr("+%d water, +%d acorns") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
 	_open_oow_confirm(line, tr("for %s — a little help on a dry day") % String(Data.OOW_OFFER.usd))
 
 # Grant the out-of-water offer (pure side effects): the water top-up, the 💎, and record
