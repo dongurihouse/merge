@@ -134,3 +134,106 @@ def archive_raw(source_rel: str, archive_rel: str, root: Path = ASSET_ROOT) -> N
 def log_plan(plan_path: Path, processed: Path = PROCESSED) -> None:
     processed.mkdir(parents=True, exist_ok=True)
     shutil.move(str(plan_path), str(processed / Path(plan_path).name))
+
+
+import argparse
+import os
+import subprocess
+import sys
+
+
+def run_tool(godot: str, tool_res: str, args: list[str]) -> str:
+    cmd = [godot, "--headless", "--path", ".", "-s", tool_res, "--", *args]
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    if r.returncode != 0:
+        raise PlanError(f"tool failed: {tool_res}\n{r.stdout}\n{r.stderr}")
+    return r.stdout
+
+
+def reimport(godot: str) -> None:
+    subprocess.run([godot, "--headless", "--path", ".", "--import"], check=False)
+
+
+def process_plan(plan_path: Path, godot: str) -> None:
+    plan = load_plan(plan_path)
+    validate_plan(plan)
+    cat = plan["category"]
+    src_rel = plan["source"]
+
+    if cat == "scene":
+        print(f"  SCENE {src_rel} — handed off to the §16 map flow "
+              f"(docs/design/grove_art_pipeline.md); not processed by make intake.")
+        return
+
+    src_abs = abspath(src_rel)
+    params = plan.get("params", {})
+    eff = cat
+
+    # matte: key out the bright background in place on a scratch copy, then re-dispatch.
+    if cat == "matte":
+        eff = plan["inner"]
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        keyed = SCRATCH / ("matte_" + Path(src_rel).name)
+        shutil.copy(src_abs, keyed)
+        run_tool(godot, TOOLS["matte"],
+                 [str(keyed.resolve()), f"min={params.get('min_area', 600)}"])
+        src_abs = str(keyed.resolve())
+
+    if eff in SINGLE:
+        out = plan["outputs"][0]
+        out_abs = abspath(out["path"])
+        Path(out_abs).parent.mkdir(parents=True, exist_ok=True)
+        args = icon_args(src_abs, out_abs, params) if eff == "icon" \
+            else decor_args(src_abs, out_abs, params)
+        run_tool(godot, TOOLS[eff], args)
+    elif eff in SLICED:
+        SCRATCH.mkdir(parents=True, exist_ok=True)
+        prefix = str((SCRATCH / "slice_").resolve())
+        run_tool(godot, TOOLS[eff], slice_args(eff, src_abs, prefix, params))
+        for o in plan["outputs"]:
+            idx = o.get("island", o.get("tile"))
+            cell = Path(f"{prefix}{idx}.png")
+            if not cell.exists():
+                raise PlanError(f"slice index {idx} not produced ({cell})")
+            out_abs = abspath(o["path"])
+            Path(out_abs).parent.mkdir(parents=True, exist_ok=True)
+            post = parse_post(o.get("post"))
+            if post is not None:
+                run_tool(godot, TOOLS["icon"], icon_args(str(cell), out_abs, post))
+            else:
+                shutil.copy(str(cell), out_abs)
+
+    # Only after every output succeeded: archive the raw and log the plan.
+    archive_raw(src_rel, plan["archive"])
+    log_plan(plan_path)
+    print(f"  OK {src_rel} -> {len(plan['outputs'])} output(s); "
+          f"raw archived to {plan['archive']}")
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description="Apply asset-intake plan.json files.")
+    ap.add_argument("--godot", default=os.environ.get("GODOT", "godot"))
+    ap.add_argument("--plan", default=None, help="process only this plan file")
+    ap.add_argument("--no-import", action="store_true",
+                    help="skip the final godot --import")
+    a = ap.parse_args(argv)
+
+    plans = [Path(a.plan)] if a.plan else sorted(DROP.glob("*.plan.json"))
+    if not plans:
+        print(f"no *.plan.json in {DROP}")
+        return 0
+
+    failures = 0
+    for p in plans:
+        try:
+            process_plan(p, a.godot)
+        except PlanError as e:
+            failures += 1
+            print(f"  SKIP {p.name}: {e}")  # raw NOT archived — left in new/ for retry
+    if not a.no_import and failures < len(plans):
+        reimport(a.godot)
+    return 1 if failures else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
