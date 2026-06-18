@@ -9,9 +9,9 @@ TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_base run_grove editor test test-engine test-grove test-one smoke import \
+.PHONY: help run run_debug run_grove editor test test-engine test-grove test-one smoke import \
         shot-map shot-grove shot \
-        decor icon ios clean clean-cache
+        decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -19,18 +19,14 @@ help: ## list available targets
 
 ## --- run -------------------------------------------------------------------
 ## Which game runs is the GAME env var (see games/active.gd). `run` uses the
-## default; the two below force one game and toggle the grove-art import-skip.
-run: ## play the active game (GAME env var, default placeholder)
+## default (grove); the ones below force the game and toggle the grove-art import.
+run: ## play the active game (GAME env var, default grove)
 	$(GODOT) --path $(PROJECT)
 
 
 run_debug: ## play the active game (default grove) WITH the debug panel + toggles
 	rm -f games/grove/assets/.gdignore
 	GAME=$${GAME:-grove} $(GODOT) --path $(PROJECT) -- debug
-
-run_base: ## play the BARE placeholder (wireframe engine + debug panel)
-	touch games/grove/assets/.gdignore
-	GAME=placeholder $(GODOT) --path $(PROJECT)
 
 run_grove: ## play the GROVE game (full art; first run imports grove art)
 	rm -f games/grove/assets/.gdignore
@@ -67,6 +63,12 @@ smoke: ## scene smoke test (instantiates the UI + board)
 ## --- assets ----------------------------------------------------------------
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
+
+intake: ## apply intake plans in _originals/new/ (agent authors plan.json first): make intake [PLAN=path]
+	python3 games/tools/intake_apply.py --godot $(GODOT) $(if $(PLAN),--plan $(PLAN),)
+
+intake-test: ## unit-test the intake runner (pure stdlib, no godot)
+	python3 games/tools/test_intake_apply.py
 
 place: ## open the map-1 placement editor (drag cutouts onto the base, Ctrl+S to save — the game reads it live)
 	GAME=grove $(GODOT) --path $(PROJECT) res://games/grove/tools/MapPlacer.tscn
