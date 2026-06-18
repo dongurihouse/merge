@@ -20,7 +20,7 @@ func _globalize(p: String) -> String:
 
 func _initialize() -> void:
 	var a := OS.get_cmdline_user_args()
-	var src := String(a[0]) if a.size() > 0 else "res://assets/board/lvls.png"
+	var src := String(a[0]) if a.size() > 0 else "res://games/grove/assets/_originals/board/lvls.png"
 	var out_dir := String(a[1]) if a.size() > 1 else "res://games/grove/assets/ui/kit/badges"
 	var cols := int(a[2]) if a.size() > 2 else 4
 	var rows := int(a[3]) if a.size() > 3 else 4

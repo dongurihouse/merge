@@ -1,6 +1,6 @@
 [gd_scene load_steps=3 format=3 uid="uid://btestfarm0001"]
 
-[ext_resource type="Texture2D" uid="uid://cb28s6p0kbs01" path="res://assets/map1v2/base_empty.jpg" id="1_base"]
+[ext_resource type="Texture2D" uid="uid://cb28s6p0kbs01" path="res://games/grove/assets/map1v2/base_empty.jpg" id="1_base"]
 [ext_resource type="Script" path="res://games/grove/tools/map_placer.gd" id="2_edit"]
 
 [node name="MapPlacer" type="Control"]

@@ -1352,10 +1352,10 @@ func _initialize() -> void:
 	ok(Music._player == null or not Music._player.playing, "O: music Off → refresh() leaves the bed silent")
 	Save.set_setting("music", true)
 	Music.stop()
-	Music.take_dir = "res://assets/nonexistent/"
+	Music.take_dir = "res://games/grove/assets/nonexistent/"
 	Music.ensure()
 	ok(Music._player == null or not Music._player.playing, "O: zero takes on disk → ensure() is a silent no-op (no crash)")
-	Music.take_dir = "res://assets/music/"
+	Music.take_dir = "res://games/grove/assets/music/"
 	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)

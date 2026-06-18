@@ -6,8 +6,8 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/tools/process_decor.gd -- <input.png> <output_res_path> [W H] [--opaque]
 ##
 ## Examples:
-##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/decor_bed.png
-##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://assets/rooms/bedroom_base.png 1024 1280 --opaque
+##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://games/grove/assets/rooms/decor_bed.png
+##   godot --headless --path . -s res://games/tools/process_decor.gd -- /tmp/raw.png res://games/grove/assets/rooms/bedroom_base.png 1024 1280 --opaque
 
 const W := 1024
 const H := 1280

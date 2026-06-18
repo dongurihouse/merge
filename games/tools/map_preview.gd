@@ -4,8 +4,8 @@ extends SceneTree
 ## Each entry {file, cx, cy_bottom, w} places a cutout: trimmed to its opaque bbox, scaled so the
 ## object width = w × base_width, centered at cx and BOTTOM-anchored at cy (so it sits on the ground).
 
-const BASE := "res://assets/map1/base.png"
-const DIR := "res://assets/map1/cutouts/"
+const BASE := "res://games/grove/assets/_unused/map1/base.png"
+const DIR := "res://games/grove/assets/_unused/map1/cutouts/"
 # placement: cx (center x), cy (ground line, the object's BOTTOM), w (object width as a fraction of base width)
 const PLACE := [
 	{"f": "cottage.png",  "cx": 0.50, "cy": 0.49, "w": 0.46},

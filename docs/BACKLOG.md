@@ -19,6 +19,92 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
+## Open — board screen UI overhaul (owner pass · 2026-06-18)
+
+A focused **board-screen-only** redesign (the merge grid scene, `engine/scripts/scenes/board.gd` +
+its `ui/` builders). Map/home untouched this pass. **Owner decisions are baked in below** (resolved
+2026-06-18). Code anchors are `file:symbol` (line numbers drift). Seven changes:
+
+- **1 · Quests sit directly above the grid (kill the dead band).** The grid is wrapped in a
+  `CenterContainer` (`board.gd:_ready`, `center := CenterContainer.new()`) with `SIZE_EXPAND_FILL`,
+  so it vertically-centres in the leftover space and a tall gap opens between the quest fence
+  (`giver_bar`, `FENCE_H = 196`) and the grid. **Change:** stop vertical-centring the grid — pin it
+  just under the fence (drop the expand/centre, or top-align the VBox so no empty band sits between
+  fence and grid). Removing the inline bag row (item 6) reclaims more height. **Why:** the white gap
+  reads as broken layout; quests should anchor to the board they feed.
+
+- **2 · One big checkmark on a ready quest, not two.** A completed ask shows BOTH a small per-ask
+  ✓ on the item's corner (`giver_stand.gd:_ask_met_check`, placed ~L109-116) AND a stand-level ✓ at
+  the card's bottom-right (`giver_stand.gd:_ready_check`, placed ~L141-143; toggled by
+  `board.gd:_refresh_giver_lights` via `e.check`). **Change:** delete the bottom-right `_ready_check`
+  (and its `check` ref wiring); enlarge the per-ask ✓ into a **big, obvious mark centred over the
+  asked item** (overlapping it), driven by the existing per-ask `met` toggle in
+  `_giver_is_payable`. Multi-ask quests get one big ✓ per satisfied item. **Why:** two checks are
+  redundant and small; one bold mark reads "ready" at a glance.
+
+- **3 · Locked cells use the numbered atlas; number only on the frontier; highlight what's
+  unlockable now.** Art is **`assets/_originals/board/locked_cells.png`** — a **5×5 atlas of 25
+  cream padlock tiles, each with a baked-in number 1-25** (bottom-right, sprout motif). First import
+  it into the kit (e.g. `ui/kit/locked_cells.png`) and load via `AtlasTexture` regioned by number
+  (5 cols × 5 rows; tile index = the cell's gate level, `content.gd:cell_min_level`, clamped 1-25).
+  Rendering lives in `piece_view.gd:make_bramble` / `_locked_style` / `_locked_art` /
+  `_lv_num_badge` / `FRONTIER_LV`. **Changes:**
+  - **Numbered tile only when the locked cell is immediately adjacent to an OPEN cell** (a 4-neighbour
+    is `board.is_open`). Replaces the current level-≤`FRONTIER_LV` rule. Deeper (non-adjacent) cells
+    show a **numberless** lock (reuse `slot_locked.png`, or a numberless variant) so ~30 locks stay calm.
+  - **Highlight "unlockable now" cells** — a glow/bright border on a locked cell that is adjacent to an
+    open cell **AND** the player's level has reached its gate (`cell_min_level <= _quest_level()`), i.e.
+    a merge beside it would open it (`board_model.openable_brambles` is the authority). Needs a live
+    refresh: re-evaluate after every board change (pop/merge/move/sell/retrieve), alongside
+    `_refresh_generator_dim`. **Why:** teach the player exactly where the next unlock is, without a wall
+    of numbered padlocks.
+  - *Open detail to confirm on build:* atlas number = gate level (the diamond runs ~L2→L12, within 1-25).
+    If the owner means number = unlock ORDER instead, swap the index source.
+
+- **4 · Generators + items are slightly smaller (no cell overflow).** `piece_view.gd:make_piece`
+  insets the item art by `size * 0.12`; `piece_view.gd:make_generator` draws the art **full-cell with
+  NO inset** (so generators bleed past the cell). **Change:** add an inset to `make_generator`
+  (≈`csz * 0.12-0.16`) and nudge the item inset up a touch, so every piece sits comfortably inside
+  its cell with a little margin. **Why:** art currently overflows the cell frame.
+
+- **5 · Bottom bar = Home (centre) · Shop · Settings · Bag · Merchant — drop the Leaf.** Today the row
+  is `[Home · Shop · Leaf · Gear · Bag]` (`board.gd:_ready`, built via `_make_nav_button`; `home_btn`
+  →Map, `leaf_btn` is a no-op "you are here", `bag_btn` bounces the row). **Change:** remove the Leaf
+  entirely; make **Home the centre, prominent button** (the larger centerpiece slot the Leaf held) that
+  still navigates to the Map/decorate hub. Suggested arrangement: `Shop · Settings · [Home] · Bag ·
+  Merchant` (tap-only openers left, drag-target circles right, Home dead-centre). **Why:** Home + Leaf
+  read as two "home" affordances; one centred Home is unambiguous.
+
+- **6 · Bag becomes a single circle icon (drag in / out), not an always-present row.** Remove the inline
+  `bag_bar` HBox + label (`board.gd:_ready`, `_build_bag_bar`, `_rebuild_bag`, `ui/bag_view.gd`).
+  **New Bag bottom-bar button:** an **empty circle with a small bag badge near the corner**; **tap →
+  open the full bag** (a NEW overlay/panel listing all owned slots + the buy-a-slot affordance — none
+  exists today, build it). **Drag a board item onto the circle → stash** (reuse `board.gd:_stash`); when
+  the bag holds items the **circle shows the (most-recent) stashed item's icon** (+ a count badge if >1).
+  **Drag/tap from the circle → return to the board** (reuse the drag-back path: `_on_bag_slot_input` /
+  `_input` / `_end_bag_drag` / `_retrieve_from_bag`, re-pointed at the single icon). **Why:** the
+  persistent row eats space; a single self-describing icon is cleaner.
+
+- **7 · Merchant becomes a bottom-bar drag-to-sell circle; the fence stall is removed completely.**
+  Keep the existing **Shop (currency store) button as-is** (`_open_shop` → `ui/shop.gd`). **Remove the
+  squirrel sell-stall from the fence entirely:** `board.gd:_make_merchant_stand`, `ui/merchant_stand.gd`,
+  `merchant_chip`, and — **parked/removed for now** — the buy-back **basket** (`basket`, `basket_chip`,
+  `_rebuild_basket`, `_record_sale`, `_buy_back`, porter `_porter_tick`/`_porter_collect`) and the acorn
+  **treat** (`_buy_treat`, `TREAT_COST`). **New Merchant bottom-bar button** (same circle pattern as the
+  bag): a **drag-to-sell drop target**. Reuse the sell transaction `board.gd:_sell_item` → `_grant_sale`
+  (drop the basket fly-target; fly the piece into the merchant circle / wallet instead). **While a spare
+  is dragged over the circle, show its payout** — `G.sell_reward(code)` returns `(coins, acorns)`, so
+  render e.g. **"+1 🪙"** (coin) or the acorn for a top-tier spare, so the player sees the exact reward
+  before dropping. Re-point `_show_sell_affordance` / `_hide_sell_affordance` and the drop-target hit
+  test (`board.gd:_on_release`, currently checks `merchant_chip.get_global_rect`) at the new icon. **Why:**
+  the fence stall is clutter; a single labelled drop target makes selling clear and consistent with the bag.
+
+**Tests / verify (per item).** Logic-testable (headless): locked-cell frontier/unlockable predicate
+(adjacency + level), generator inset math, sell-payout preview value. Visual (composite/measure, never
+eyeball): quests-above-grid gap = 0 dead band, single big ✓ centred on the item, bottom-bar 5-button
+layout with Home centred, bag/merchant circles showing stashed-icon / payout. *(Surfaced 2026-06-18 —
+owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
+
 ## Open — core loop
 
 - **Shop backdrop — a dedicated stall-interior scene (art lane · owner).** The Shop currently renders over an **interim engine backdrop** (a blurred + warm-tinted + vignetted copy of the live scene — `engine/scripts/ui/shop.gd` `_backdrop_material`, dials in `tuning.gd` `Shop.BACKDROP_*`) because the flat dim read as dead space. Replace with **generated art**: the squirrel merchant's **market-stall interior** (warm wood, shelves, hanging goods, soft light), `ui/kit/bg_shop.png`, same §16 pipeline as the board backdrop. On arrival the shop should draw it behind the parchment (a small engine hookup in `Shop.open` — load `bg_shop.png` when present, else keep the blur). Spec: `merge_spec §10` (presentation) + `grove_art_pipeline §1` table row. *(Surfaced 2026-06-16 — shop polish pass.)*
@@ -226,6 +312,22 @@ Systematic UI-language + colour-scheme redesign — a **light warm-neutral `#EDE
 - **LiveOps buttons — surface Daily · Free(ad) · Inbox (backends mostly exist).** We **have** the login calendar (`core/login.gd` — auto-popup only, no button) and the rewarded-ad / 2× system (`core/ads.gd`, the post-collect doubler) but neither has a **persistent entry**, and there is **no inbox**. **Build:** a calm vertical rail (right edge) of round buttons — **Daily** (persistent entry to the existing login calendar, badged when claimable), **Free** (a persistent rewarded-video → gems faucet, reusing `ads.gd`), and **Inbox** (NEW — a small mailbox for LiveOps gifts / compensation / news, with an unread count badge). Keep the rail calm (cozy, not the references' clutter): buttons auto-hide or de-emphasize when nothing is actionable; the badge does the attention-pulling. **Acceptance:** Daily + Free reachable persistently (not just via auto-popup); Inbox stores and grants gifts; all three use the shared badge. *(Inbox is the one net-new system; Daily/Free are mostly wiring.)*
 
 - **Task strip — a short-term goal + reward loop wired to the next spot.** A reference (Juice) shows "Task 1/4 → chest"; we have the place-restore goal ("31 left") but **no chrome task loop with a reward**. **Build:** a slim cozy strip above the "Tend the garden" CTA — "Today's task ✿ N/M → 🎁" — chained off the existing restore-the-next-spot goal so the cozy spine *is* the task loop (not a bolted-on quest). Reward = small acorn/water/gem grant. **Acceptance:** the strip reflects real spot/quest progress and pays out on completion; it never blocks play. *(Lower priority than the funnel + polish; pairs with the §17 live-ops/events framework above.)*
+
+## Open — Home-screen (map) chrome → the `farm_ui` mockup (2026-06-18)
+
+*Surfaced 2026-06-18 — owner UI review of the home/map screen against the authored mockup [`assets/farm/farm_ui.png`](../assets/farm/farm_ui.png) and its sliced component sheet [`assets/farm/farm_icons.png`](../assets/farm/farm_icons.png). The mockup is the target: a standalone gold **level ring** top-left (no home chip beside it), a cream **currency pill** top-right, round **unlock-cost badges** on buildings, ONE cream **"N to the next place" progress pill** with a green bar, and a clean **bottom nav row** of round buttons. This section is the map-scene counterpart to the sibling "HUD, currencies & button chrome" section above and **supersedes that section's "Map-page chrome (ux-feel)" parked tail** (the map's dark borders/plank/scattered chrome). Anchors: top bar `engine/scripts/ui/hud.gd`; map chrome `engine/scripts/scenes/map.gd` (`_build_hud`/`_build_chrome`/`_map_title_plank`/`_home_badge`/`_build_task_strip`); board nav `engine/scripts/scenes/board.gd` (`_make_nav_button`). The mockup pieces are NOT sliced yet — do the **slice item below first** (it is the art source for items 1/3/4/5). Verify every visual with a quiet capture (`make shot-map`) — never eyeball.*
+
+- **0 · Slice `farm_icons.png` into kit assets (art-prep · do first).** The mockup components live in one sheet ([`assets/farm/farm_icons.png`](../assets/farm/farm_icons.png)): the empty + locked **round badges**, the **"+" / star** glyphs, the wide **progress-pill** background + its **green fill + sprout** caps, the **level ring** ("15"), and the **bottom nav round buttons** (gear · market · leaf/garden · map · potion-piggy). **Build:** slice into `games/grove/assets/ui/kit/` PNGs (or AtlasTexture regions) following the existing pattern — `games/grove/tools/slice_badges.gd` already slices `assets/board/lvls.png` → `kit/badges/badge_NN.png`, driven by a small JSON region map (`data/level_badges.json`). Name the new pieces so the items below can `Look.kit(...)` them (e.g. `badge_cost.png`, `badge_locked.png`, `pill_progress.png` + `pill_progress_fill.png`, `nav_garden.png`/`nav_map.png`/`nav_piggy.png`/`nav_market.png`). **Acceptance:** each piece loads via `Look.kit` and reimports cleanly (no stale `.ctex` → no checkerboard). *Blocks 1/3/4/5.*
+
+- **1 · Level badge — kill the "white grid", render the standalone ring (`hud.gd`).** *Problem:* the level chip's frame `TextureRect` draws Godot's **missing-texture checkerboard** ("white grid") when the imported badge `.ctex` is stale — `_safe_tex` (`hud.gd:349`) only rejects a *null* `load()`, so a non-null editor-placeholder slips through and fills the square frame rect (`hud.gd:128-134`); in the quiet build it instead falls all the way to the flat honey token, confirming the art isn't loading cleanly. *Direction:* (a) harden the load — verify the loaded texture is a **real image, not the placeholder** (e.g. check `get_size()`/format against the placeholder, or force-reimport), so the honey-token fallback (`hud.gd:135-141`, round, warm) is the *only* fallback and a checkerboard can never show; (b) render the clean standalone gold ring from the mockup (cream center, INK number) — reuse the evolving `kit/badges/badge_NN.png` system (`hud.gd:357` `_frame_tex`, `data/level_badges.json`) but on the freshly sliced ring from item 0. *Refs:* `hud.gd:103-149` (avatar/disc/frame), `hud.gd:349` `_safe_tex`, `hud.gd:357` `_frame_tex`; mockup top-left "15".
+
+- **2 · Remove the home chip on the home/map screen (`hud.gd` + `map.gd`).** *Problem:* a separate cream home-pill renders to the right of the level ring (`hud.gd:306-335` `_build_home_chip`) because `map.gd:1375-1380` passes a `home` callback — but on the home screen that nav is redundant (you're already home) and the mockup shows the level ring **alone**. *Direction:* don't render the home chip on the hub/map scene — drop the `home` opt in `map.gd`'s `Hud.build` (or gate the chip off when the scene is the hub). The board still passes `home` (its nav legitimately returns to the map). *Note:* dovetails with the sibling section's "Currency cluster … (c) Pull Home OUT of the wallet" — that split already happened; this removes it on the home screen specifically. *Refs:* `hud.gd:306` `_build_home_chip`, `map.gd:1375-1380`.
+
+- **3 · Unlock-cost badges — round dashed "+ / ★N" badge + locked variant (`map.gd`).** *Problem:* `_home_badge` (`map.gd:487-512`) draws a plain disc (`assets/farm/badge.png`) with brown "★N" text — not the mockup's badge. *Direction:* rebuild it from the sliced art (item 0): a **round dashed cream badge** with a "+" and "★ N" stacked on a second line for an affordable/unlockable spot, and a **locked variant** (lock glyph + sprout, the darker disc) for a still-gated spot — pick the variant from the spot's gate/affordability state. Keep it centered on the building and mouse-ignored (decoration; the spot hit-area is separate). *Refs:* `map.gd:487-512` `_home_badge`; sliced `badge_cost.png`/`badge_locked.png`; mockup "+ ✿20" badges + the bottom-left locked disc.
+
+- **4 · Bottom row — extract ONE reusable parameterized nav component, reuse on board + map.** *Problem:* the board has a clean even nav row (`board.gd:260-310` via `_make_nav_button` `:1191` + `_nav_spacer` `:1185`) but the map's bottom is **scattered** — a "Tend the garden" CTA (`map.gd:1399`), a gear bottom-right (`map.gd:1413`), a store sticker bottom-left (`map.gd:1460`), plus the atlas/piggy cluster — all in `_build_chrome` (`map.gd:1396`). *Direction:* extract the nav-row builder into a **shared component** (e.g. `engine/scripts/ui/nav_bar.gd`) that takes a list of button specs `{icon, action, enabled/visible, label}` and lays them out evenly; have **both** board and map build their row through it. The home row = **Enter Garden** (`_on_board` — the green CTA, center) · **Shop** (`_open_shop`) · **Piggy bank** (`VaultUI.open`, `map.gd:22-23`) · **Map** (`_open_select`, `map.gd:270`) · **Settings** (`_open_settings`). All five entry points already exist — this consolidates the scattered stickers into the row; the piggy "claimable" pip (`_piggy_pip`, `map.gd:102`) rides its button. The board keeps its own set (Home·Shop·Leaf·Gear·Bag) via the same component. *Refs:* `board.gd:1185-1213` (component to generalize), `map.gd:1396+` `_build_chrome` (chrome to replace); mockup bottom row; sliced `nav_*` from item 0.
+
+- **5 · Progress pill replaces the top plank; drop the map name; keep the Today strip (`map.gd`).** *Problem:* the dark wood **"The Farmhouse / N left"** plank (`map.gd:638-675` `_map_title_plank`, star row `:1038` `_stars_left_row`) doesn't match the mockup. *Direction (owner choice — option 2):* replace the plank with the mockup's **cream progress pill** — gold star + "**N to the next place**" + a **green progress bar** (sliced `pill_progress*` from item 0), wired to the stars-remaining-to-next-place metric (reuse `map_stars_left` / the next-place value; confirm which on pickup). **Drop the map name entirely** (mockup shows no name plank). **Keep** the existing bottom **"Today N/M → 🎁"** task strip (`map.gd:1736` `_build_task_strip`) — it stays as the daily-restore loop. *Placement:* the pill takes the **plank's top-center slot** so it doesn't collide with the Today strip at the bottom (the mockup shows the pill at the bottom, but that mockup has no Today strip — keeping both means pill-top / strip-bottom; flag for an owner eye-call on the composite). *Refs:* `map.gd:638-675` `_map_title_plank`, `map.gd:1038` `_stars_left_row`, `map.gd:1736` `_build_task_strip` (KEPT); mockup bottom "✿ 12 to the next place" pill.
 
 ## Open — board & quest visual/UX polish (owner review 2026-06-16)
 

@@ -16,11 +16,11 @@ extends Control
 
 const Design = preload("res://engine/scripts/core/design.gd")
 
-const PALETTE_DIRS := ["res://assets/map1v2/trees/", "res://assets/map1v2/grass/", "res://assets/map1v2/clouds/"]
-const ITEMS_DIR := "res://assets/map1v2/items/"
-const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
-const FENCE_PATH := "res://assets/map1v2/fence.png"
-const FULL_PATH := "res://assets/map1v2/base_full.png"
+const PALETTE_DIRS := ["res://games/grove/assets/map1v2/trees/", "res://games/grove/assets/map1v2/grass/", "res://games/grove/assets/map1v2/clouds/"]
+const ITEMS_DIR := "res://games/grove/assets/map1v2/items/"
+const ITEMS_LAYOUT := "res://games/grove/assets/map1v2/items_layout.json"
+const FENCE_PATH := "res://games/grove/assets/map1v2/fence.png"
+const FULL_PATH := "res://games/grove/assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
 const HINT := "drag · wheel scale · w/e z-order · B move buildings · right-click/Del delete · Ctrl+S save"
 

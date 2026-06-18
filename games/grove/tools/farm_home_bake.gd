@@ -20,10 +20,10 @@ const BUILDINGS := [
 ]
 
 func _initialize() -> void:
-	var farm := _img("res://assets/farm/farm.png")
-	var broken := _img("res://assets/farm/farm_brokenv2.png")
-	var vines := _img("res://assets/farm/farm_vinesv2.png")
-	var icons := _img("res://assets/farm/farm_icons.png")
+	var farm := _img("res://games/grove/assets/farm/farm.png")
+	var broken := _img("res://games/grove/assets/farm/farm_brokenv2.png")
+	var vines := _img("res://games/grove/assets/farm/farm_vinesv2.png")
+	var icons := _img("res://games/grove/assets/farm/farm_icons.png")
 	if farm == null or broken == null or vines == null or icons == null:
 		print("FAILED to load"); quit(1); return
 	var w := farm.get_width(); var h := farm.get_height()
@@ -40,7 +40,7 @@ func _initialize() -> void:
 				badge.set_pixel(x, y, Color(0, 0, 0, 0))
 			else:
 				badge.set_pixel(x, y, px)
-	badge.save_png(ProjectSettings.globalize_path("res://assets/farm/badge.png"))
+	badge.save_png(ProjectSettings.globalize_path("res://games/grove/assets/farm/badge.png"))
 
 	# --- vine coverage + connected-component clumps ---
 	var vd := vines.get_data(); var kr := vd[0]; var kg := vd[1]; var kb := vd[2]
@@ -96,7 +96,7 @@ func _initialize() -> void:
 		for i in w * h:
 			mask.set_pixel(i % w, i / w, Color(1, 1, 1, 1) if m[i] == 1 else Color(0, 0, 0, 0))
 		var spot := String(BUILDINGS[bi]["spot"])
-		mask.save_png(ProjectSettings.globalize_path("res://assets/farm/mask_%s.png" % spot))
+		mask.save_png(ProjectSettings.globalize_path("res://games/grove/assets/farm/mask_%s.png" % spot))
 		data["buildings"].append({
 			"spot": spot, "cost": BUILDINGS[bi]["cost"],
 			"pos": [p["sx"] / p["n"] / w, p["sy"] / p["n"] / h],
@@ -104,7 +104,7 @@ func _initialize() -> void:
 		})
 		print("  %s  cost %d  pos (%.3f,%.3f)  vine_px %d" % [spot, BUILDINGS[bi]["cost"], p["sx"]/p["n"]/w, p["sy"]/p["n"]/h, p["n"]])
 
-	var jf := FileAccess.open(ProjectSettings.globalize_path("res://assets/farm/farm_home.json"), FileAccess.WRITE)
+	var jf := FileAccess.open(ProjectSettings.globalize_path("res://games/grove/assets/farm/farm_home.json"), FileAccess.WRITE)
 	jf.store_string(JSON.stringify(data, "\t")); jf.close()
 
 	# --- proof: clean just the WELL (fh_well) over the broken base ---

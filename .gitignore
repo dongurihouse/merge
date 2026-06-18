@@ -22,4 +22,4 @@ override.cfg
 games/grove/assets/.gdignore
 
 # raw LLM image drops (process via slice_grid + make icon/decor; not committed)
-assets/llm/
+games/placeholder/assets/llm/

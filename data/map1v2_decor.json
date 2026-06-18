@@ -1,7 +1,7 @@
 {
 	"decor": [
 		{
-			"art": "res://assets/map1v2/trees/tree1.png",
+			"art": "res://games/grove/assets/map1v2/trees/tree1.png",
 			"fsize": 479,
 			"layer": "back",
 			"pos": [
@@ -10,7 +10,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/trees/tree2.png",
+			"art": "res://games/grove/assets/map1v2/trees/tree2.png",
 			"fsize": 385,
 			"layer": "back",
 			"pos": [
@@ -19,7 +19,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/trees/tree6.png",
+			"art": "res://games/grove/assets/map1v2/trees/tree6.png",
 			"fsize": 303,
 			"layer": "back",
 			"pos": [
@@ -28,7 +28,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/clouds/cloud1.png",
+			"art": "res://games/grove/assets/map1v2/clouds/cloud1.png",
 			"fsize": 363,
 			"layer": "cloud",
 			"pos": [
@@ -37,7 +37,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/clouds/cloud2.png",
+			"art": "res://games/grove/assets/map1v2/clouds/cloud2.png",
 			"fsize": 365,
 			"layer": "cloud",
 			"pos": [
@@ -46,7 +46,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/clouds/cloud3.png",
+			"art": "res://games/grove/assets/map1v2/clouds/cloud3.png",
 			"fsize": 145,
 			"layer": "cloud",
 			"pos": [
@@ -55,7 +55,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/clouds/cloud4.png",
+			"art": "res://games/grove/assets/map1v2/clouds/cloud4.png",
 			"fsize": 89,
 			"layer": "cloud",
 			"pos": [
@@ -64,7 +64,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/grass/grass1.png",
+			"art": "res://games/grove/assets/map1v2/grass/grass1.png",
 			"fsize": 174,
 			"layer": "front",
 			"pos": [
@@ -73,7 +73,7 @@
 			]
 		},
 		{
-			"art": "res://assets/map1v2/grass/grass5.png",
+			"art": "res://games/grove/assets/map1v2/grass/grass5.png",
 			"fsize": 157,
 			"layer": "front",
 			"pos": [

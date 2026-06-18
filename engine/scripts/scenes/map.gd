@@ -447,7 +447,7 @@ func _build_home(z: int, home: Dictionary) -> void:
 		var b = by_id.get(sid, null)
 		var hit: Control
 		if spot_owned(sid):
-			var mtex: Texture2D = load("res://assets/farm/" + String(b.get("mask", ""))) if b != null else null
+			var mtex: Texture2D = load(Game.art("farm/" + String(b.get("mask", "")))) if b != null else null
 			if mtex != null:
 				# clean farm, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout
 				# that hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that
@@ -497,7 +497,7 @@ func _home_badge(z: int, k: int, b) -> Control:
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	bg.texture = load("res://assets/farm/badge.png")
+	bg.texture = load(Game.art("farm/badge.png"))
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(bg)
 	var lbl := Label.new()

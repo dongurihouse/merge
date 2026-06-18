@@ -260,23 +260,23 @@ static func _build_maps() -> Array:
 	# cutout: its `reveal:"fence"` means restoring it UNVEILS the map's fixed `fence` overlay — so the
 	# fence is hidden until restored, and the owned spot draws no point sprite. See map._fence_revealed.)
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
-		"bg": "res://assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
-		"fence": "res://assets/map1v2/fence.png",         # fixed fence layer, composited over the base
-		"full": "res://assets/map1v2/base_full.png",      # reference image, toggleable for testing
+		"bg": "res://games/grove/assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
+		"fence": "res://games/grove/assets/map1v2/fence.png",         # fixed fence layer, composited over the base
+		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		"decor": "res://data/map1v2_decor.json",          # trees/grass/clouds placed in the map placer (read at load)
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
-		"home": {"clean": "res://assets/farm/farm.png", "broken": "res://assets/farm/farm_brokenv2.png", "data": "res://assets/farm/farm_home.json"},
+		"home": {"clean": "res://games/grove/assets/farm/farm.png", "broken": "res://games/grove/assets/farm/farm_brokenv2.png", "data": "res://games/grove/assets/farm/farm_home.json"},
 		"spots": [
 		# `art` points each spot at its map1v2 item cutout; pos/fsize are AUTO-DERIVED from base_items
 		# (assets/map1v2/items_layout.json, merged at load by item name = the art's basename).
-		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265), "fsize": 808, "art": "res://assets/map1v2/items/cottage.png"},
-		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379), "fsize": 808, "art": "res://assets/map1v2/items/garden.png"},
-		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778), "fsize": 370, "art": "res://assets/map1v2/items/well.png"},
-		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.7454, 0.5065), "fsize": 450, "art": "res://assets/map1v2/items/shed.png"},
-		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://assets/map1v2/items/doghouse.png"},
-		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://assets/map1v2/items/flowerbox.png"},
-		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://assets/map1v2/items/lantern.png"},
+		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/cottage.png"},
+		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/garden.png"},
+		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778), "fsize": 370, "art": "res://games/grove/assets/map1v2/items/well.png"},
+		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.7454, 0.5065), "fsize": 450, "art": "res://games/grove/assets/map1v2/items/shed.png"},
+		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://games/grove/assets/map1v2/items/doghouse.png"},
+		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://games/grove/assets/map1v2/items/flowerbox.png"},
+		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://games/grove/assets/map1v2/items/lantern.png"},
 	]},
 	{"id": "barn", "name": "The Barn", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
@@ -329,7 +329,7 @@ static func _build_maps() -> Array:
 # Read via res:// so it works the same in the editor and in an exported build — the .json must be in the
 # export preset's include_filter to ship. No file / no entry → the literal's fallback pos/fsize stay.
 static func _merge_map1_placements(maps: Array) -> void:
-	var f := FileAccess.open("res://assets/map1v2/items_layout.json", FileAccess.READ)
+	var f := FileAccess.open("res://games/grove/assets/map1v2/items_layout.json", FileAccess.READ)
 	if f == null:
 		return
 	var data = JSON.parse_string(f.get_as_text())
