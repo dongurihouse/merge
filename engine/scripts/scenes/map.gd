@@ -447,11 +447,15 @@ func _build_home(z: int, home: Dictionary) -> void:
 		var b = by_id.get(sid, null)
 		var hit: Control
 		if spot_owned(sid):
-			if b != null:
-				var rev := _add_fill_layer(frame, String(home.get("clean", "")))   # clean farm, masked to this building
+			var mtex: Texture2D = load("res://assets/farm/" + String(b.get("mask", ""))) if b != null else null
+			if mtex != null:
+				# clean farm, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout
+				# that hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that
+				# would clean the WHOLE farm off one restore. No mask → skip the reveal (stays overgrown).
+				var rev := _add_fill_layer(frame, String(home.get("clean", "")))
 				var mat := ShaderMaterial.new()
 				mat.shader = _home_mask_shader()
-				mat.set_shader_parameter("mask", load("res://assets/farm/" + String(b.get("mask", ""))))
+				mat.set_shader_parameter("mask", mtex)
 				rev.material = mat
 				var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
 				if String(vcur.id) != "base":
