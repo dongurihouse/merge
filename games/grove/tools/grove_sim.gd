@@ -283,7 +283,13 @@ func _refill_quests() -> void:
 	live_quests = live_quests.filter(func(q): return not bool(q.get("gate", false)))
 	var want := G.active_giver_count(stars, _map_next_spot(map, _level())[0])
 	while live_quests.size() < want:
-		live_quests.append(G.gen_quest(_level(), _live_lines(), rng))
+		# mirror quests.gd refill: steer each new single-ask stand off the lines already on the
+		# fence so the sim validates the real anti-monotony line-diversity behaviour.
+		var avoid: Array = []
+		for q in live_quests:
+			for a in q.asks:
+				avoid.append(int(a.line))
+		live_quests.append(G.gen_quest(_level(), _live_lines(), rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()
 

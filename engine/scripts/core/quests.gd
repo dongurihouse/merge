@@ -68,7 +68,13 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var pend := pending_grant_quests(z, board_gens)
 	var regular_target := maxi(0, target - 1) if not pend.is_empty() else target
 	while out.size() < regular_target:
-		out.append(G.gen_quest(level, lines, rng))
+		# §7 anti-monotony: steer the new stand off the lines already on the fence so the
+		# concurrent single-ask stands stay distinct (the "juggle several lines" texture).
+		var avoid: Array = []
+		for q in out:
+			for a in G.quest_asks(q):
+				avoid.append(int(a.line))
+		out.append(G.gen_quest(level, lines, rng, avoid))
 	while out.size() > regular_target:
 		out.pop_back()
 	if not pend.is_empty():

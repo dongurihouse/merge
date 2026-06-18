@@ -120,13 +120,12 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 # §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
 const CLICK_TO_VALUE := 1.0               # reward value per expected generator-click (the click→value rate)
-# §7 ask shape (level → #asks/tier, line weighting, featured) — PROVISIONAL, sim-tuned.
-const QUEST_2ASK_LEVEL := 5               # ≥ this level a quest may carry a 2nd ask
-const QUEST_3ASK_LEVEL := 12              # ≥ this level a 3rd ask
+# §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 2                # floor of the asked-tier band
 const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
-const QUEST_2COUNT_RATE := 0.2            # chance an ask wants 2 of the item (vs 1)
-const QUEST_NEWEST_BIAS := 2.0            # line-pick weight exponent toward the newest/highest-value live line
+const QUEST_2COUNT_RATE := 0.2            # chance the single ask wants 2 of the item (vs 1) — the ×N badge
+const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
+const QUEST_REPEAT_PENALTY := 0.15        # weight ×factor for a line already on the fence → distinct concurrent stands (anti-monotony, §7)
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
 const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that ALSO carry a premium (≈3% of all quests)

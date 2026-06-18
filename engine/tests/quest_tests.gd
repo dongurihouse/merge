@@ -58,6 +58,7 @@ func _initialize() -> void:
 	var hi_lines := [1, 2, 3, 4, 5, 6]
 	var newest := 6
 	var max_asks := 0
+	var min_asks := 99
 	var all_in_lines := true
 	var never_t8 := true
 	var count_ok := true
@@ -66,6 +67,7 @@ func _initialize() -> void:
 	for _i in 400:
 		var q := G.gen_quest(20, hi_lines, rng)
 		max_asks = maxi(max_asks, int(q.asks.size()))
+		min_asks = mini(min_asks, int(q.asks.size()))
 		for a in q.asks:
 			if not hi_lines.has(int(a.line)):
 				all_in_lines = false
@@ -77,7 +79,7 @@ func _initialize() -> void:
 				newest_tier_capped = false
 		if int(q.reward.stars) > int(G.STAR_CAP):
 			star_cap_ok = false
-	ok(max_asks == 3, "a high-level quest can carry up to 3 asks")
+	ok(max_asks == 1 and min_asks == 1, "every regular quest is a single ask at any level (one item, count≥1)")
 	ok(all_in_lines, "every generated ask draws from the live lines (producible)")
 	ok(never_t8, "a regular quest never asks t8 / an out-of-range tier (t8 = gate-only)")
 	ok(count_ok, "ask counts stay 1–2")
@@ -100,6 +102,19 @@ func _initialize() -> void:
 	rA.seed = 42
 	rB.seed = 42
 	ok(str(G.gen_quest(10, hi_lines, rA)) == str(G.gen_quest(10, hi_lines, rB)), "gen_quest is deterministic for a given seed")
+
+	# --- §7 anti-monotony: `avoid` (lines already on the fence) steers the single ask OFF those
+	# --- lines, so concurrent stands stay distinct. The newest line is the most-picked; with it in
+	# --- `avoid` its share must collapse (a soft penalty, not a ban — still possible, just rare). ---
+	rng.seed = 31
+	var newest_free := 0
+	var newest_avoided := 0
+	for _i in 600:
+		if int(G.gen_quest(20, hi_lines, rng).asks[0].line) == newest:
+			newest_free += 1
+		if int(G.gen_quest(20, hi_lines, rng, [newest]).asks[0].line) == newest:
+			newest_avoided += 1
+	ok(newest_avoided * 3 < newest_free, "avoid steers the ask off the fenced line (newest picked %d→%d with it avoided)" % [newest_free, newest_avoided])
 
 	# --- the soft gate (gate_pause): active giver count metered to the next unlock (§7) ---
 	ok(G.active_giver_count(0, -1) == 0, "no active givers when every spot is owned (next_cost -1)")

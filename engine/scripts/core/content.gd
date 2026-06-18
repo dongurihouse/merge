@@ -25,12 +25,11 @@ const ASK_WEIGHT = D.ASK_WEIGHT
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const STAR_CAP = D.STAR_CAP
 const CLICK_TO_VALUE = D.CLICK_TO_VALUE
-const QUEST_2ASK_LEVEL = D.QUEST_2ASK_LEVEL
-const QUEST_3ASK_LEVEL = D.QUEST_3ASK_LEVEL
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
 const QUEST_2COUNT_RATE = D.QUEST_2COUNT_RATE
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
+const QUEST_REPEAT_PENALTY = D.QUEST_REPEAT_PENALTY
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
@@ -323,42 +322,45 @@ static func quest_reward(asks: Array) -> Dictionary:
 
 ## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
 ## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
-static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator) -> int:
+## `avoid` are lines already on the fence — their weight is scaled by QUEST_REPEAT_PENALTY so the
+## concurrent stands favour DISTINCT lines (anti-monotony, §7); it is a soft penalty, not a ban,
+## so the pick still resolves when every live line is already taken (live lines < fence slots).
+static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> int:
+	var weights: Array = []
 	var total := 0.0
 	for i in sorted_lines.size():
-		total += pow(i + 1, QUEST_NEWEST_BIAS)
+		var w: float = pow(i + 1, QUEST_NEWEST_BIAS)
+		if avoid.has(int(sorted_lines[i])):
+			w *= QUEST_REPEAT_PENALTY
+		weights.append(w)
+		total += w
 	var r := rng.randf() * total
 	var acc := 0.0
 	for i in sorted_lines.size():
-		acc += pow(i + 1, QUEST_NEWEST_BIAS)
+		acc += weights[i]
 		if r <= acc:
 			return int(sorted_lines[i])
 	return int(sorted_lines[sorted_lines.size() - 1])
 
-## Generate a regular quest for a player at `level` from the live lines (§7). Asks scale with
-## level (more asks, higher tiers), drawn weighted toward the NEWEST/highest-value live line;
-## the map's top tier (t8) is never asked (gate-quest only), and a freshly-debuted line eases
-## in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic given `rng`. Returns {asks, reward, featured}.
-## All numbers are PROVISIONAL game tunables (set by the Monte-Carlo balance pass).
-static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator) -> Dictionary:
+## Generate a regular quest for a player at `level` from the live lines (§7). A regular quest is a
+## SINGLE ask (one item type, count≥1) — difficulty rises by higher TIER + more FREQUENT quests
+## (level ∝ quest count, §3), not by adding asks; the multi-line "juggle" beat lives on the fence
+## (several distinct single-line stands at once) and in the authored gate quest. The ask is drawn
+## weighted toward the NEWEST/highest-value live line, steered off the lines in `avoid` (those
+## already on the fence) so concurrent stands stay distinct; the map's top tier (t8) is never asked
+## (gate-quest only), and a freshly-debuted line eases in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic
+## given `rng`. Returns {asks, reward, featured}. All numbers are PROVISIONAL (Monte-Carlo pass).
+static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
-	var n_asks := 1
-	if level >= QUEST_3ASK_LEVEL:
-		n_asks = 3
-	elif level >= QUEST_2ASK_LEVEL:
-		n_asks = 2
-	n_asks = mini(n_asks, lines.size())
 	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER - 1)
 	var newest: int = int(lines[lines.size() - 1])
-	var asks: Array = []
-	for _a in n_asks:
-		var li := _weighted_line_pick(lines, rng)
-		var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
-		if li == newest:                                # the freshest line eases in low
-			tier = mini(tier, QUEST_DEBUT_TIER_CAP)
-		var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
-		asks.append({"line": li, "tier": tier, "count": count})
+	var li := _weighted_line_pick(lines, rng, avoid)
+	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
+	if li == newest:                                    # the freshest line eases in low
+		tier = mini(tier, QUEST_DEBUT_TIER_CAP)
+	var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
+	var asks: Array = [{"line": li, "tier": tier, "count": count}]
 	var reward: Dictionary = quest_reward(asks)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:

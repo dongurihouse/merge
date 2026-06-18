@@ -265,7 +265,7 @@ The 8 Farmhouse spots split **4 yield buildings + 4 décor**:
 
 The deterministic per-map ramp is **retired**; the grove runs Core §7's **generated** quest stream (built + cut over live, `T19`):
 
-- **Asks** draw `{line, tier, count}` from the current map's **live generator lines** (§2), weighted to the **newest / highest-value**; **difficulty rises with level** (one low-tier ask early → 2–3 higher-tier cross-generator asks late — the "juggle every line" endgame). A map's **ceiling (up to t8) is asked _only_ by the gate quest**, never a regular one.
+- **The ask** draws `{line, tier, count}` from the current map's **live generator lines** (§2), weighted to the **newest / highest-value** and **steered off the lines already on the fence** (distinct concurrent stands). A regular quest is a **single ask** (one item type, count ≥ 1 → a ×N badge); **difficulty rises with level** via **higher tiers + more frequent quests** (level ∝ quest count), *not* more asks. The late-game "juggle" is **several distinct single-line stands on the fence at once**, with the multi-line **co-assembly reserved for the gate quest**. A map's **ceiling (up to t8) is asked _only_ by the gate quest**, never a regular one.
 - **Reward = capped ★ + coin overflow:** `stars = min(expected-clicks-value, STAR_CAP)` (~1–3★, so **level ∝ quest count**); the overflow **pays coins**, so deep asks pay the same ★ but more 🪙 (the **quest coin faucet**, §5).
 - **Authored boundary quests** (§2): the **great-spirit's gate** (a top-tier handful → unlocks the next map for a large reward) + the **generator-grant** hand-in opening each map.
 - **Metered fence** (`gate_pause`): active givers ≈ stars-to-next-unlock (cap 5), and the fence **empties when you can afford the next unlock** — a wordless "go restore." **No-strand** rests on **guardrails + a Monte-Carlo sim** (green: no-jam · no-strand · steady-state <30% · selling-not-income), not the retired pigeonhole proof.
@@ -280,16 +280,20 @@ The model is **live and sim-proven safe**; what's unsigned is the **feel** — w
 |---|---|---|
 | `STAR_CAP` | ★ per quest | ~1–3★ (level ∝ quest count) |
 | `CLICK_TO_VALUE` | click→reward; the ★/coin split | coins compensate deep asks |
-| `QUEST_LEVELS_PER_TIER` | how fast asks climb in tier | the difficulty slope |
+| `QUEST_LEVELS_PER_TIER` | how fast the single ask climbs in tier | the difficulty slope |
+| `QUEST_NEWEST_BIAS` / `QUEST_REPEAT_PENALTY` | line pick: newest-lean + fence diversity | distinct concurrent stands (anti-monotony) |
+| `QUEST_2COUNT_RATE` | chance the ask wants 2 (the ×N badge) | the only in-ask effort knob once asks=1 |
 | `GATE_TIER_BASE` / `GATE_ASK_COUNT` | gate-quest hardness | ≈ a map's peak output at once |
 | featured rate | % of quests featured | ~10–15% |
 | `LEVEL_STARS` (Core §3) | ★ → level | the **master pace** — adopt Core §3's default (L2=25 … L51+=3200 flat, uncapped) or recalibrate |
 
-*(Retired reference — the old deterministic ramp, kept only for band intent: **t2–4 early → t5–7 late**, stretch density growing map over map. No longer the live curve.)*
+*(Retired reference — the old deterministic ramp, kept only for band intent: **t2–4 early → t5–7 late**, stretch density growing map over map. No longer the live curve. **Also retired: the per-quest `#asks` ramp** — `QUEST_2ASK_LEVEL` / `QUEST_3ASK_LEVEL`; regular quests are now a **single ask** and difficulty rises by tier + frequency.)*
+
+**Open balance follow-up (single-ask economy).** Collapsing to one ask shifts more value through **selling** (each delivery consumes fewer board items → more surplus → more sell-coins): on the `grove_sim` sweep the **hard invariants stay green** (no-strand, zero jams, the §8 hub-yield-vs-sink keystone) but the soft **Y "selling-is-income" tripwire** (sell-coins/100💧 < 25) trips on most seeds (baseline already tripped 2/7). Bringing Y back under the line is a **coin-economy balance pass** (the levers: a level-scaled **count** curve to absorb surplus, and/or a modest `SELL_MAP_BAND` trim) — owned by the Monte-Carlo balance pass these dials are PROVISIONAL pending, not the structural single-ask change.
 
 ### The givers (instantiate Core §7's fence)
 
-Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each home-grove map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 5 stands at once, with the **Market Squirrel** (the merchant) pinned at the right. Quest shape (1–3 asks → 1–3★, all-or-nothing) and the **soft star-gate** (`gate_pause`) are core. Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** (§3); the one hard rule is **no-strand** (level-gated spots never count as the affordable frontier). The **lead roster extends per place** — maps 6–15 each get their place's spirit (§1's river-spirit, lantern-keeper…); the **menagerie refreshes per map / event** (a few walk-ons at a time — the warmth + novelty layer).
+Grove quest-givers are one class (the §1 cast): the **named leads** — **Radish, Carrot, Frog, Bee, Morel** (one anchoring each home-grove map, each a map-long **wish**) — **plus a rotating menagerie** of one-wish walk-ons (the old fox/hedgehog/owl naming is **retired**), over the full-width **fence**, up to 5 stands at once, with the **Market Squirrel** (the merchant) pinned at the right. Quest shape (a **single ask** → 1–3★, all-or-nothing; the **gate is the multi-line exception**) and the **soft star-gate** (`gate_pause`) are core. Off the fence, the **great-spirit (heart-tree)** is the **gatekeeper** — its end-of-map gate quest is the **completion chain** (§3); the one hard rule is **no-strand** (level-gated spots never count as the affordable frontier). The **lead roster extends per place** — maps 6–15 each get their place's spirit (§1's river-spirit, lantern-keeper…); the **menagerie refreshes per map / event** (a few walk-ons at a time — the warmth + novelty layer).
 
 ### Level / rank (instantiate Core §3)
 
