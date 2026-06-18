@@ -149,37 +149,43 @@ const BURST_MAX := 8                      # absolute ceiling = BURST_FREE_MAX + 
 const BURST_UPGRADE_COSTS := [120, 360, 840, 1800]   # coin cost L0→1…3→4 (the §10 second coin sink); each buys a guaranteed +1; size = max level
 
 # ─────────────────────────────────────────────────────────────────────────────
-# §8/§10 HOME-HUB YIELD + UPGRADE-LEVELS — the v1 KEYSTONE coin loop (grove_spec §3,
-# T42 Part A). A restored hub YIELD building (kind:"yield" in MAPS map 0 — Hearth ·
-# Kitchen garden · Well · Larder) sits at L1, then UPGRADES with coins along L1→L5 —
-# each level a richer composited look (§16) AND a higher coin yield. Each yield
-# building accrues coins over time to a PER-BUILDING CAP (≈ a day's worth), swept in
-# ONE collect-on-return beat (never a per-building tap chore). The ENGINE math
-# (spot_is_yield / hub_yield_rate / hub_yield_cap / hub_coins_ready / hub_upgrade_cost)
-# lives in content.gd and reads THESE tables — pure numbers here.
-#
-# THE KEYSTONE INVARIANT ("extend, never self-sustain", §4/§10 — the coin analogue of
-# the energy <30% rule): the per-building cap bounds the daily yield WELL UNDER the coin
-# SINK demand. Max daily faucet at full L5 = 4 yield bldgs × HUB_YIELD_CAP[5] = 96🪙/day
-# (caps are ~a day, so a daily return collects ~that). Held DELIBERATELY LOW so the STANDING
-# yield stays under the ongoing sinks even once the finite hub ladder is maxed: a week of max
-# yield (672🪙) < the standing burst ladder (3,120🪙), and a month (~2,880🪙) can't even buy the
-# hub-upgrade ladder it funds (a NEW ~8,600🪙 sink = 4 × Σ HUB_UPGRADE_COSTS) — so sink ≫ faucet,
-# late-game included. ALL PROVISIONAL — OWNER-TUNABLE PACING DIALS, sim-validated by grove_sim.gd
-# (the §7 sim, extended with the hub faucet + the hub-upgrade sink: I1/no-strand/I2/Y green).
-const HUB_MAX_LEVEL := 5                   # L1 (restore) → L5 (4 coin upgrades per yield building)
-# Coin YIELD RATE per yield building, 🪙 PER HOUR, indexed by level (index 0 = unrestored = 0; then
-# L1…L5). Rises with each upgrade — the upgrade buys MORE yield, not just a look. DELIBERATELY SMALL:
-# the STANDING daily yield ceiling must stay under the ONGOING coin sinks (burst + per-map décor), or
-# a fully-restored hub out-faucets the late-game sink (sim-checked — the keystone late-game guardrail).
-const HUB_YIELD_RATE := [0.0, 0.25, 0.45, 0.65, 0.85, 1.0] # 🪙/hour at L0…L5
-# Per-building ACCRUAL CAP, 🪙, indexed by level (≈ a day's worth: rate × ~24h, rounded warm). Accrual
-# clamps here so a yield building never piles up past ~a day — extends sessions, never self-sustains.
-const HUB_YIELD_CAP := [0, 6, 11, 16, 20, 24]              # 🪙 cap at L0…L5  (max daily faucet = 4 × 24 = 96🪙)
-# UPGRADE COST to raise ONE yield building from level L to L+1, 🪙, indexed by the CURRENT level
-# (index 1 = L1→L2 … index 4 = L4→L5; index 0 unused — L0→L1 is the Stars RESTORE, not a coin buy).
-# Escalating — the coin sink with teeth (4 buildings × Σ = 4 × 2,150 = 8,600🪙 to fully max the hub).
-const HUB_UPGRADE_COST := [0, 150, 350, 650, 1000, 0]      # 🪙 to go L→L+1 (0 at L0 and at the L5 cap = maxed)
+# §1 RESIDENTS — the population sub-game (replaces the removed home-hub coin-yield
+# loop). Residents are WELCOMED (bought) on COMPLETED maps; two of the same type+tier
+# AUTO-MERGE into one a tier up (cascading). The roster is persisted (Save.residents);
+# the ambient display (ambient.gd) is stateless and rebuilt from the roster — NO cap.
+# Each map offers a SHARED CORE set (on every map, recolorable) plus a couple of
+# SIGNATURE residents (one premium 💎). Art reuses the CHARACTER_ART convention. The
+# ENGINE math (welcome / merge / members) lives in content.gd and reads these tables.
+const RESIDENT_MAX_TIER := 3              # t1 welcomed → merges up to this tier (cascading)
+const RESIDENT_ART := "map/spirit_%s.png"   # type → clothes asset (reuse the CHARACTER_ART convention)
+# The SHARED core residents — offered on every map, recolorable. Each {id, name}.
+const RESIDENT_CORE := [
+	{"id": "moss", "name": "Moss sprite"},
+	{"id": "acorn", "name": "Acorn sprite"},
+	{"id": "lantern", "name": "Lantern sprite"},
+]
+# The per-map SIGNATURE residents — ~2 unique to each map; one marked premium (💎). Keyed by map id.
+const RESIDENT_SIGNATURE := {
+	"farmhouse": [{"id": "hen", "name": "Hen-kin"}, {"id": "piglet", "name": "Piglet-kin", "premium": true}],
+	"barn": [{"id": "lamb", "name": "Lamb-kin"}, {"id": "mouse", "name": "Barn-mouse", "premium": true}],
+	"pond": [{"id": "frog", "name": "Frog-kin"}, {"id": "duck", "name": "Duckling", "premium": true}],
+	"orchard": [{"id": "bee", "name": "Bee-kin"}, {"id": "robin", "name": "Robin", "premium": true}],
+	"meadow": [{"id": "flutter", "name": "Flutterby"}, {"id": "firefly", "name": "Firefly", "premium": true}],
+}
+# Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 core / non-premium
+# resident costs coins; a premium (signature, marked) resident costs diamonds.
+const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 core / non-premium resident
+const RESIDENT_PREMIUM_COST := 3         # 💎 to welcome a premium resident
+
+# The full set of resident types OFFERED on `map_id`: the shared core + that map's signature
+# (each entry a Dictionary {id, name, premium?}). The order here is the stable roster order the
+# engine flattens/merges in (content.resident_members / resolve_resident_merges).
+static func resident_lines(map_id: String) -> Array:
+	var out: Array = RESIDENT_CORE.duplicate(true)
+	out.append_array(RESIDENT_SIGNATURE.get(map_id, []))
+	return out
+
+# BACKLOG (post-v1): premium 💎 surprise-capsule (no-loss, cosmetic, guardrails) — see grove_spec §1.
 
 # Starter items on the open 3x3 (besides the generator cell).
 const STARTER_ITEMS := {

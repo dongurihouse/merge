@@ -1377,15 +1377,15 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
-	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom bar sits fully on-screen")
-	var bb_row: Control = ss.bottom_bar.get_child(0)
-	var bb_home: Control = bb_row.get_child(0)
-	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(bb_home.get_global_rect()), \
-		"S1: the Home button sits fully inside the plank (was half-clipped)")
-	var bb_shop: Control = bb_row.get_child(1)
-	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(bb_shop.get_global_rect()), \
-		"S1: the shop button sits fully inside the plank")
-	assert_wraps(ss.bottom_bar, bb_row, 6.0, 4.0, "S1 bottom bar")
+	# the board-art nav is a slab-less centered ROW of 5 painted buttons (bottom_bar IS the row;
+	# children 0..4 = home·shop·leaf·gear·bag) sitting on the meadow — so the asserts check the
+	# row + its buttons sit on-screen, not a wrapping plank.
+	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
+	ok(ss.bottom_bar.get_child_count() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
+	var bb_home: Control = ss.bottom_bar.get_child(0)
+	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
+	var bb_shop: Control = ss.bottom_bar.get_child(1)
+	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
 	ss._update_water_hud()
@@ -1438,9 +1438,9 @@ func _initialize() -> void:
 	await create_timer(0.06).timeout
 	var vp2: Rect2 = ss.get_viewport_rect()
 	ok(absf(vp2.size.y - 2340.0) < 2.0, "S1: viewport actually grew to the tall aspect (got %.0f)" % vp2.size.y)
-	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom bar fully on-screen at 1080×2340")
-	ok(ss.bottom_bar.get_global_rect().grow(-2.0).encloses(ss.bottom_bar.get_child(0).get_child(1).get_global_rect()), \
-		"S1: the shop button stays inside the plank at 1080×2340")
+	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom nav fully on-screen at 1080×2340")
+	ok(vp2.encloses(ss.bottom_bar.get_child(1).get_global_rect()), \
+		"S1: the shop button stays on-screen at 1080×2340")
 	get_root().size = Vector2i(1080, 1920)
 	await create_timer(0.06).timeout
 
@@ -1773,8 +1773,9 @@ func _initialize() -> void:
 	var s_seed: int = ShopS.rotation_seed()
 	ok(s_seed >= 0, "the rotation seed is a non-negative day/refresh index")
 
-	# T42 · §8/§10 home-hub yield + upgrade-levels (the v1 KEYSTONE coin loop) — own scope.
-	_test_hub_yield()
+	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
+	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.
+	_test_residents()
 	# T45 · the integration wiring: the 2×-collect doubler, the piggy-vault chrome entry, the
 	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
 	await _test_t45_wiring()
@@ -1996,103 +1997,116 @@ func _initialize() -> void:
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
 
-# ── T42 · the home-hub yield + upgrade-levels keystone (own fn = its own scope) ───────────
-# The hub map (Farmhouse, map 0) splits 4 yield buildings + 4 décor; a yield building restored
-# to L1 accrues coins over time to a per-building cap, upgrades L1→L5 for more yield + look, and
-# the whole hub sweeps in one collect-on-return beat. All math is data-driven (HUB_* tables).
-func _test_hub_yield() -> void:
-	var hub := G.hub_map()
-	ok(hub == 0, "hub map is the Farmhouse (map 0)")
+# ── §1 · the RESIDENTS population sub-game (own fn = its own scope) ────────────────────────
+# Replaces the removed §8 home-hub coin-yield keystone. A COMPLETED map opens its resident
+# roster: welcome (buy) a t1 — coins for a core/non-premium type, diamonds for the per-map
+# premium signature — and two-of-a-kind AUTO-MERGE one tier up, cascading to RESIDENT_MAX_TIER.
+# No roster cap (the endless coin sink). The merge + cost math is content.gd; storage is Save.
+func _test_residents() -> void:
+	var z := 0                                  # map 0 (Farmhouse) — populate it once it's complete
+	var map_id := String(G.MAPS[z].id)
 
-	# 1. the `kind` seam — spot_is_yield reads it; only the 4 yield buildings are yield.
-	ok(G.spot_is_yield(hub, "fh_hearth"), "Hearth is a yield building (kind:yield)")
-	ok(G.spot_is_yield(hub, "fh_well"), "Well is a yield building")
-	ok(not G.spot_is_yield(hub, "fh_porch"), "Porch is décor, NOT yield (kind:decor)")
-	ok(not G.spot_is_yield(hub, "fh_fence"), "Garden fence is décor, NOT yield")
-	ok(not G.spot_is_yield(1, "bn_bales"), "a plain non-hub spot (Barn) is not yield")
-	ok(G.spot_kind(hub, "fh_hearth") == "yield" and G.spot_kind(hub, "fh_porch") == "decor", "spot_kind exposes the raw seam")
-	var n_yield := 0
-	for hsp in G.MAPS[hub].spots:
-		if G.spot_is_yield(hub, String(hsp.id)):
-			n_yield += 1
-	ok(n_yield == 4, "the hub has exactly 4 yield buildings (grove_spec §3)")
+	# 0. the OFFER: the roster = the shared core (moss/acorn/lantern) + this map's signature, with
+	# exactly one premium (diamond) signature per map. Costs come off resident_cost.
+	var lines := G.resident_lines(z)
+	ok(lines.size() >= G.RESIDENT_CORE.size() + 1, "the map's roster offers the core + its signature(s)")
+	var premium_count := 0
+	var core_def := {}
+	var premium_def := {}
+	for td in lines:
+		if bool(td.get("premium", false)):
+			premium_count += 1
+			premium_def = td
+		elif core_def.is_empty():
+			core_def = td
+	ok(premium_count == 1, "each map offers exactly one premium (💎) signature resident")
+	ok(String(G.resident_cost(core_def).currency) == "coins" and int(G.resident_cost(core_def).cost) == G.RESIDENT_BASE_COST, \
+		"a core resident costs %d🪙" % G.RESIDENT_BASE_COST)
+	ok(String(G.resident_cost(premium_def).currency) == "diamonds" and int(G.resident_cost(premium_def).cost) == G.RESIDENT_PREMIUM_COST, \
+		"a premium resident costs %d💎" % G.RESIDENT_PREMIUM_COST)
+	var _rart := G.resident_art(String(core_def.id))   # "" under the placeholder art-root (engine draws its fallback), else a real .png
+	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
 
-	# 2. accrual = rate × elapsed, FLOORED to whole coins, CAPPED at the per-building cap. Asserts the
-	#    MECHANISM against the HUB_* tables (so re-tuning the dials never breaks the test), plus the
-	#    invariant shape: rate>0 and cap>0 at L1, rate 0 at L0, monotonic, and the cap binds.
-	ok(G.hub_yield_rate(1) > 0.0, "L1 yield rate is positive (a restored building drips coins)")
-	ok(G.hub_yield_rate(0) == 0.0, "an unrestored (L0) building has 0 yield rate")
-	# accrual below the cap == floor(rate_per_sec × elapsed): 4h at L1 reads the table, never hardcoded.
-	var lvl1_4h: int = int(floor(G.hub_yield_rate(1) / 3600.0 * 4.0 * 3600.0))
-	ok(G.hub_spot_ready(1, 4.0 * 3600.0) == lvl1_4h, "L1 accrues floor(rate × elapsed) below the cap")
-	# a huge elapsed CAPS at the per-building cap (≈ a day's worth) — the anti-pile-up guard.
-	ok(G.hub_spot_ready(1, 1000.0 * 3600.0) == G.hub_yield_cap(1), "L1 accrual CAPS at the per-building cap")
-	ok(G.hub_spot_ready(5, 1000.0 * 3600.0) == G.hub_yield_cap(5), "L5 accrual CAPS at the L5 per-building cap")
-	ok(G.hub_yield_cap(1) > 0 and G.hub_yield_cap(5) > G.hub_yield_cap(1), "caps are positive and rise with level (richer building holds more)")
-	# 0 elapsed and an L0 building both accrue nothing.
-	ok(G.hub_spot_ready(1, 0.0) == 0, "zero elapsed accrues 0")
-	ok(G.hub_spot_ready(0, 1000.0 * 3600.0) == 0, "an L0 (unrestored) building accrues 0 regardless of time")
-
-	# 3. hub_coins_ready sums ONLY restored yield spots; an unrestored or décor spot adds nothing.
-	fresh("hub_ready")
-	Save.set_hub_collected_at(0.0)
+	# 1. the POPULATE GATE: can_populate is FALSE until the map is fully complete (spots done AND its
+	# gate delivered) — the same bar as map_complete. An incomplete or gate-pending map stays closed.
+	fresh("residents_gate")
 	var unl := {}
-	Save.set_spot_level("fh_hearth", 1); unl["fh_hearth"] = true
-	Save.set_spot_level("fh_porch", 1);  unl["fh_porch"] = true     # décor — restored but yields 0
-	var t10h := 10.0 * 3600.0
-	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h), "ready = the one L1 yield building (décor adds 0)")
-	Save.set_spot_level("fh_well", 3)                              # level set but NOT in unlocks → unrestored
-	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h), "an unrestored yield spot (not owned) yields 0")
-	unl["fh_well"] = true                                         # now restore it → the total is the SUM
-	ok(G.hub_coins_ready(unl, t10h) == G.hub_spot_ready(1, t10h) + G.hub_spot_ready(3, t10h), "ready SUMS over restored yield buildings")
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true                                # all spots restored…
+	ok(not G.can_populate(z, unl, []), "can_populate is FALSE on a spot-done but gate-PENDING map")
+	ok(not G.can_populate(z, {}, [z]), "can_populate is FALSE on a gated but spot-INCOMPLETE map")
+	ok(G.can_populate(z, unl, [z]), "can_populate opens once the map is COMPLETE (spots done + gate delivered)")
 
-	# 4. the collect BEAT: add the summed yield to coins AND reset hub_collected_at to `now`.
-	fresh("hub_collect")
-	Save.set_hub_collected_at(0.0)
-	var unl2 := {"fh_hearth": true, "fh_kitchen": true}
-	Save.set_spot_level("fh_hearth", 2)
-	Save.set_spot_level("fh_kitchen", 1)
-	var coins0 := Save.coins()
-	var t8h := 8.0 * 3600.0
-	var want := G.hub_spot_ready(2, t8h) + G.hub_spot_ready(1, t8h)
-	ok(G.hub_collect(unl2, t8h) == want and want > 0, "collect returns the summed ready yield (%d🪙)" % want)
-	ok(Save.coins() == coins0 + want, "collect ADDS the summed yield to the wallet")
-	ok(Save.hub_collected_at() == t8h, "collect RESETS hub_collected_at to now")
-	ok(G.hub_coins_ready(unl2, t8h) == 0, "right after a collect, nothing is ready (clock reset)")
-	var coins1 := Save.coins()
-	ok(G.hub_collect(unl2, t8h + 1.0) == 0 and Save.coins() == coins1, "a no-yield re-collect adds 0🪙")
+	# 2. WELCOME spends + adds a t1. A core welcome debits coins and pushes the t1 count to 1.
+	fresh("residents_welcome")
+	Save.add_coins(1000)
+	var cid := String(core_def.id)
+	var coins_b := Save.coins()
+	var r1: Dictionary = G.welcome_resident(z, cid)
+	ok(bool(r1.ok) and r1.events.is_empty(), "welcoming the first t1 succeeds with NO merge event")
+	ok(Save.coins() == coins_b - G.RESIDENT_BASE_COST, "the welcome debited the coin cost")
+	ok(Save.resident_counts(map_id, cid)[0] == 1, "the welcomed t1 lands in the t1 count")
 
-	# 5. upgrade raises BOTH the level and the next yield rate; cost escalates; refused at max / below L1.
-	ok(G.hub_max_level() == 5, "hub max level is L5 (L1 restore → 4 coin upgrades)")
-	ok(G.hub_yield_rate(2) > G.hub_yield_rate(1), "an upgrade (L1→L2) raises the yield rate")
-	ok(G.hub_yield_rate(5) > G.hub_yield_rate(4), "each level keeps raising the yield (L4→L5)")
-	ok(G.hub_upgrade_cost(1) == 150, "L1→L2 upgrade costs 150🪙")
-	ok(G.hub_upgrade_cost(2) > G.hub_upgrade_cost(1), "the upgrade ladder escalates (L2→L3 dearer than L1→L2)")
-	ok(G.hub_upgrade_cost(5) == -1, "no upgrade at the max level (L5) → -1")
-	ok(G.hub_upgrade_cost(0) == -1, "L0→L1 is the Stars RESTORE, not a coin upgrade → -1")
-	# the spend path: a restored yield building's stored level rises by 1 on a coin upgrade.
-	fresh("hub_upgrade")
-	Save.set_spot_level("fh_hearth", 1)
-	ok(Save.spot_level("fh_hearth") == 1, "a restored yield building sits at L1")
-	Save.set_spot_level("fh_hearth", Save.spot_level("fh_hearth") + 1)
-	ok(Save.spot_level("fh_hearth") == 2, "a coin upgrade raises the stored level to L2")
+	# 3. TWO of a kind AUTO-MERGE to a t2 — the second welcome collapses the pair and returns an event.
+	var r2: Dictionary = G.welcome_resident(z, cid)
+	ok(bool(r2.ok), "the second welcome succeeds")
+	ok(r2.events.size() == 1 and int(r2.events[0].from) == 1 and int(r2.events[0].to) == 2, \
+		"two t1 of a kind auto-merge into one t2 (an event is returned)")
+	var c_after2: Array = Save.resident_counts(map_id, cid)
+	ok(int(c_after2[0]) == 0 and int(c_after2[1]) == 1, "the counts collapse: 0×t1, 1×t2")
 
-	# the keystone INVARIANT bound (data-driven): max daily faucet = #yield × top cap, ≪ the coin
-	# SINK it funds — so the hub can never self-sustain (a MONTH of max yield can't even buy the ladder).
-	var max_daily := G.hub_max_daily_yield()
-	ok(max_daily == n_yield * G.hub_yield_cap(G.hub_max_level()), "max daily hub yield = #yield-buildings × the top-level cap")
-	var hub_sink := 0
-	for lv in range(1, G.hub_max_level()):
-		hub_sink += G.hub_upgrade_cost(lv)
-	hub_sink *= n_yield                                           # all 4 buildings, L1→L5
-	ok(hub_sink == 8600, "the hub-upgrade ladder is an 8,600🪙 coin sink (4 × 2,150)")
-	ok(max_daily * 30 < hub_sink, "a full month of max yield < the hub-upgrade ladder alone — extend, never self-sustain")
-	var burst_sink := 0
-	for c in G.BURST_UPGRADE_COSTS:
-		burst_sink += int(c)
-	ok(max_daily * 7 < burst_sink, "a week of max yield < the standing burst-ladder sink — the late-game ongoing sink outpaces the standing yield")
-	print("  [T42 hub-yield bound] max daily faucet=%d🪙 · hub-upgrade sink=%d🪙 · burst sink=%d🪙" % \
-		[max_daily, hub_sink, burst_sink])
+	# 4. CASCADE to t3 — building a second t2 (two more t1s) cascades t2→t3 (capped at RESIDENT_MAX_TIER).
+	G.welcome_resident(z, cid)                                    # → t1=1
+	var r4: Dictionary = G.welcome_resident(z, cid)              # → second t2 forms, then cascades to t3
+	var saw_t2 := false
+	var saw_t3 := false
+	for ev in r4.events:
+		if int(ev.to) == 2:
+			saw_t2 = true
+		if int(ev.to) == 3:
+			saw_t3 = true
+	ok(saw_t2 and saw_t3, "a fourth t1 cascades t1→t2→t3 (RESIDENT_MAX_TIER=%d)" % G.RESIDENT_MAX_TIER)
+	var c_after4: Array = Save.resident_counts(map_id, cid)
+	ok(int(c_after4[0]) == 0 and int(c_after4[1]) == 0 and int(c_after4[2]) == 1, "after 4 welcomes the roster is a single t3")
+
+	# 5. resident_members FLATTENS the persisted counts into one {type,tier} per instance. With a lone
+	# t3 plus a fresh t1 of the same type, the flattened list is exactly those two members.
+	G.welcome_resident(z, cid)                                    # add one more t1 alongside the t3
+	var members := G.resident_members(z)
+	var my := members.filter(func(m): return String(m.type) == cid)
+	ok(my.size() == 2, "resident_members flattens to one entry per resident instance")
+	var tiers := []
+	for m in my:
+		tiers.append(int(m.tier))
+	tiers.sort()
+	ok(tiers == [1, 3], "the flattened members carry the right tiers (a t1 + the merged t3)")
+
+	# 6. INSUFFICIENT funds refuse cleanly — no count change, no event, ok=false.
+	fresh("residents_broke")
+	var before_broke: Array = Save.resident_counts(map_id, cid)
+	var rb: Dictionary = G.welcome_resident(z, cid)             # 0 coins → refuse
+	ok(not bool(rb.ok) and rb.events.is_empty(), "a broke welcome refuses (ok=false, no event)")
+	ok(Save.resident_counts(map_id, cid) == before_broke, "a refused welcome leaves the roster untouched")
+
+	# 7. a PREMIUM welcome spends DIAMONDS, not coins.
+	fresh("residents_premium")
+	Save.add_diamonds(20)
+	var pid := String(premium_def.id)
+	var gems_b := Save.diamonds()
+	var coins_pb := Save.coins()
+	var rp: Dictionary = G.welcome_resident(z, pid)
+	ok(bool(rp.ok) and Save.diamonds() == gems_b - G.RESIDENT_PREMIUM_COST and Save.coins() == coins_pb, \
+		"a premium welcome spends diamonds (coins untouched)")
+	ok(Save.resident_counts(map_id, pid)[0] == 1, "the premium t1 lands in its own roster line")
+
+	# 8. PERSISTENCE: the roster survives a cold reload (set → reload from disk → counts intact).
+	fresh("residents_persist")
+	Save.set_resident_counts(map_id, cid, [2, 1, 0])
+	Save.set_resident_counts(map_id, pid, [0, 0, 1])
+	Save._loaded = false                                         # force a reload from disk
+	ok(Save.resident_counts(map_id, cid) == [2, 1, 0], "a core roster line persists across a reload")
+	ok(Save.resident_counts(map_id, pid) == [0, 0, 1], "a premium roster line persists across a reload")
+	ok(Save.resident_counts(map_id, "no_such_type") == [0, 0, 0], "an un-welcomed type defaults to all-zero counts")
 
 # ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
 # The three monetization engines (2×-collect ad, piggy vault, daily-login calendar) merged
@@ -2109,66 +2123,9 @@ func _test_t45_wiring() -> void:
 	var hub := G.hub_map()
 	var hub_id := String(G.MAPS[hub].spots[0].id)   # a real hub spot to restore as a yield building
 
-	# isolate the 2× tests: the login auto-popup is exercised in section 3 — keep it OFF here so the
-	# ONLY deferred overlay is the doubler card (the calendar opening grants nothing, but this keeps
-	# the surface unambiguous). Restored before section 3.
-	Feat.FLAGS["daily_login_popup"] = false
-
-	# 1a. THE 2× DOUBLER. Stand up the hub with a restored yield building and a long-elapsed collect
-	# clock so the auto-collect-on-open sweeps a real N>0 (the scene collects at real `now`, so we
-	# MEASURE the actual swept amount from the wallet delta rather than predicting it). The offer
-	# card then appears (the ad is fresh); pressing "Double" must credit EXACTLY that same N again.
-	fresh("t45_2x")
-	Save.set_hub_collected_at(0.0)                    # long-ago clock → the open sweeps the per-building cap
-	var unl := {hub_id: true}
-	Save.set_spot_level(hub_id, 1)
-	var g2 := Save.grove()
-	g2["unlocks"] = unl
-	Save.grove_write()
-	ok(Ads.can_show("collect_2x"), "the 2× ad is offerable (fresh)")
-	var coins_before_open: int = Save.coins()
-	var hx = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hx)
-	if hx.content == null:
-		hx._ready()
-	var got_actual: int = Save.coins() - coins_before_open   # the amount the auto-collect-on-open swept
-	ok(got_actual > 0, "the hub auto-collect on open swept N>0 coins (%d🪙)" % got_actual)
-	var coins_after_collect: int = Save.coins()
-	# the deferred collect FX + offer build a frame later — let them run (the timer spans frames).
-	await create_timer(0.15).timeout
-	ok(hx._2x_offer != null and is_instance_valid(hx._2x_offer), "the post-collect 2× DOUBLER card appears (opt-in, near the FX)")
-	# the card carries a "Double" CTA — press it; it credits a SECOND N and consumes the arm.
-	var pressed_double := _press_label(hx._2x_offer, "Double")
-	ok(pressed_double, "the 2× card shows a Double CTA")
-	ok(Save.coins() == coins_after_collect + got_actual, "accepting the 2× credits EXACTLY a second %d🪙 (the doubled half)" % got_actual)
-	ok(not Ads.collect_2x_armed() and Ads.collect_multiplier() == 1, "...and consumes the arm (back to ×1)")
-	ok(hx._2x_offer == null, "the offer card dismisses after accept")
-	hx.queue_free()
-
-	# 1b. NO offer when the ad is not offerable — exhaust the daily cap, then re-open: a collect with
-	# yield must NOT surface the card (the doubler is gated on Ads.can_show, never forced).
-	fresh("t45_2x_capped")
-	Save.set_hub_collected_at(0.0)
-	var unl_c := {hub_id: true}
-	Save.set_spot_level(hub_id, 1)
-	var gc := Save.grove()
-	gc["unlocks"] = unl_c
-	Save.grove_write()
-	# burn the collect_2x daily cap (clear cooldown between claims) so can_show goes false.
-	for _i in range(Ads.remaining_today("collect_2x")):
-		Save.grove()["ad_ledger"]["collect_2x"]["last"] = 0.0
-		Ads.claim("collect_2x")
-	Ads.consume_2x()
-	Save.grove()["ad_ledger"]["collect_2x"]["last"] = 0.0
-	ok(not Ads.can_show("collect_2x"), "the 2× ad is capped out for the day")
-	Save.set_hub_collected_at(0.0)
-	var hxc = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(hxc)
-	if hxc.content == null:
-		hxc._ready()
-	await create_timer(0.15).timeout
-	ok(hxc._2x_offer == null, "a capped-out 2× ad surfaces NO offer card (gated, never forced)")
-	hxc.queue_free()
+	# (The 2× DOUBLER sub-tests (1a/1b) were retired with the hub-yield auto-collect they hung off —
+	# the §8 home-hub loop is gone (population sub-game now). FOLLOW-UP: re-point the rewarded "2×"
+	# ad from "double a yield collect" to "double a welcome" and restore coverage. See grove_spec §10.)
 
 	# 2. THE PIGGY-VAULT CHROME ENTRY. The map chrome carries a piggy button that opens the jar;
 	# its ready-pip reflects Vault.claimable(). Drive _open_vault() → a parchment overlay appears.

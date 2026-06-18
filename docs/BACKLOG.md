@@ -27,7 +27,15 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ## Open — economy
 
-- **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).** The
+- **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).**
+  ⚠️ **SUPERSEDED IN PART by the population/residents design change (2026-06-17):** the **hub-yield +
+  upgrade-levels loop (T42)** is being **REMOVED** — the §8 keystone is now the **population/residents loop**
+  (welcome residents on completed maps; Coins base / Diamonds premium; same-kind auto-merge), restoration
+  spots become **unlock-once** (no Coins-upgrade axis), and the §10 economy is **reopened** (re-author
+  `grove_sim` around the resident sink; the 96🪙/day faucet + ~8,600🪙 hub ladder are deleted). See
+  `merge_spec §8`, `grove_spec §3/§5/§10`. The **T42 hub-yield code/tests/`HUB_*` dials below are now
+  the thing to RIP OUT**, not sign off; T43/T44/T45 (IAP/ads/vault/login) are **unaffected** and still apply.
+  Below records the shipped state for the rip-out, not a live keystone. — The
   §8 keystone **hub-yield + upgrade-levels loop** (T42 — restore→L1, upgrade L1→L5 = richer look + higher
   yield, per-building daily-cap yield swept on return), the §4/§10 **live-IAP ladder + rewarded ads +
   out-of-water offer** (T43), and the §10/§18 **piggy vault + forgiving login calendar** (T44) all **shipped
@@ -91,9 +99,13 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 - **Save-schema extension + migration (cross-cutting · code).** As the items above land, the `grove`
   save blob needs new fields — **all absent today** (`engine/scripts/save.gd`): cumulative
-  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model), buildable upgrade-levels, yield
-  collection timestamps, the Collection (retired lines), generator burst-upgrade levels, and event
-  state. Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
+  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model),
+  the **per-map resident roster** (the population loop's source of truth — type+tier counts per completed map,
+  Core §8 / `grove_spec §3` — this is the persisted-roster the on-screen wanderers render from),
+  the Collection (retired lines), generator burst-upgrade levels, and event
+  state. **(The old buildable upgrade-levels + yield-collection timestamps are NO LONGER needed — the
+  hub-yield loop is removed; spots are unlock-once and the roster replaces yield state, 2026-06-17.)**
+  Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
   migration. The atomic-write + `.bak` + deep-merge plumbing is sound — only the schema grows. Park
   the matching field alongside whichever item introduces it. *(Surfaced 2026-06-14 — code audit vs
   `merge_spec`.)*
@@ -119,6 +131,24 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
   the **per-event premium lane** that now ships in Core §17. Owner: **not interested for v1**; parked
   as a future LiveOps revenue line if the cozy positioning proves it can carry one. *(Surfaced
   2026-06-14 — director review.)*
+
+- **Premium diamond surprise-capsule — special-character "gachapon" (post-v1, behind a readiness gate;
+  REVERSED from cut, owner 2026-06-17).** A diamond surprise-capsule yielding **special characters** for the
+  population/residents loop (Core §8 / `grove_spec §3`). Previously **permanently cut (tone)** — that
+  `grove_spec §1` line is now **amended** (gacha/mystery crates removed from it; the bounded reversal
+  recorded). **It is part of the design but ships POST-V1**, gated on a **readiness condition: the
+  deterministic resident loop is proven healthy** (the v1 base/premium-resident welcome + auto-merge
+  economy is sim-validated and live) **AND a special-character library exists** (enough premium-resident art
+  to fill a non-disappointing pull). It must carry all **seven locked cozy guardrails** (Core §4's
+  bounded-surprise-capsule clause — absent any one, it does not ship): **(a)** cosmetic-only forever (no
+  yield, no power); **(b)** no-loss randomness — every pull is *wanted*, dupes **auto-convert** to
+  merge-fuel / soft-currency, never wasted; **(c)** no dangled rarity tiers; **(d)** no pity timer; **(e)**
+  evergreen — no time-limited / FOMO capsules; **(f)** soft, transparent pricing with a **free/earned path**
+  to the same collection; **(g)** diegetic framing — **never the word "gacha"**, and **not bolted onto the
+  peddler** (its no-predatory role is already set). **Build (engine):** the capsule mechanism (pull,
+  dupe-auto-convert, the earned-path faucet) behind a flag. **Build (grove):** the premium-resident
+  library + diegetic frame + pricing. Spec: `merge_spec §4` (the clause), `grove_spec §1` (Scope — the
+  reversal). *(Surfaced 2026-06-17 — owner reversal of the §1 "permanently cut" gacha line.)*
 
 - **Engine layering — Phase 4 (optional refactor).** The `core/ui/scenes` split (Phases 1–3) is
   **done + guard-enforced** — invariant now in `merge_spec §15`, guard `engine/tests/layering_tests.gd`.
