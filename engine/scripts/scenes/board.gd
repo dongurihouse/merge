@@ -16,6 +16,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
@@ -54,10 +55,7 @@ const PORTER_SECS = G.PORTER_SECS
 const TREAT_COST = G.TREAT_COST
 
 # grove board palette (the night-purples retire here)
-const GROUND = Pal.GROUND
 const GROUND_EDGE = Pal.GROUND_EDGE
-const BRAMBLE_BG = Pal.BRAMBLE_BG
-const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
@@ -141,16 +139,10 @@ var _water_pending_drained := false   # the starter-pack water credit drains onc
 func _ready() -> void:
 	UiFont.apply()
 	Music.ensure()
-	# AF2: the play surface is the lightest thing because the MAT is light — NOT by
-	# bleaching the background. A LIGHT veil (AC3) washed the painted meadow to a
-	# colorless void; replace it with a gentle warm DIM that recedes the painting
-	# while KEEPING its hue (calm ≠ bleached).
-	Look.background(self, 0.0, Game.art("ui/bg_grove_board.png"))
-	var calm_veil := ColorRect.new()
-	calm_veil.color = Color("#2A2A1E", 0.20)        # soft warm dim — recede, don't erase
-	calm_veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	calm_veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(calm_veil)
+	# UI redesign: the play surface is a flat SURFACE stage so items pop — replacing the
+	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
+	# A flat neutral field needs no veil.
+	add_child(_field_backdrop())
 	# soft clouds drift across the top sky band — gentle depth + motion so the backdrop
 	# never reads as a flat field (sits behind the fence/board content, over the meadow)
 	add_child(Ambient.build_clouds(get_viewport_rect().size))
@@ -254,8 +246,13 @@ func _ready() -> void:
 	var sb_inset := Look.safe_bottom(self)
 	bottom_bar = PanelContainer.new()
 	var bsb := StyleBoxFlat.new()
-	bsb.bg_color = Color("#33402F", 0.88)
+	bsb.bg_color = Color(Pal.PILL, 0.95)          # UI redesign: light cream nav bar (was dark #33402F)
 	bsb.set_corner_radius_all(20)
+	bsb.set_border_width_all(2)
+	bsb.border_color = Color(Pal.PILL_EDGE, 0.9)  # warm gold rim — matches the HUD pill
+	bsb.shadow_color = Color(0, 0, 0, 0.16)       # Rest plane
+	bsb.shadow_size = 4
+	bsb.shadow_offset = Vector2(0, 2)
 	bsb.content_margin_left = 10.0
 	bsb.content_margin_right = 10.0
 	bsb.content_margin_top = 8.0
@@ -274,12 +271,19 @@ func _ready() -> void:
 	var brow := HBoxContainer.new()
 	brow.add_theme_constant_override("separation", 8)
 	bottom_bar.add_child(brow)
-	var home_btn := Look.button(tr("◀ Home"), func() -> void:
+	var home_btn := Button.new()                # UI redesign: a neutral home ICON (was a wide text button)
+	home_btn.flat = true
+	home_btn.focus_mode = Control.FOCUS_NONE
+	home_btn.custom_minimum_size = Vector2(58, 58)
+	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var hi := Look.icon("home", 40.0)
+	hi.set_anchors_preset(Control.PRESET_FULL_RECT)
+	home_btn.add_child(hi)
+	Look.add_press_juice(home_btn)
+	home_btn.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
-		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"), false)
-	home_btn.custom_minimum_size = Vector2(150, 58)
-	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
 	brow.add_child(home_btn)
 	shop_btn = Button.new()             # the Store, relocated from the top cluster
 	shop_btn.flat = true
@@ -784,28 +788,14 @@ func _rebuild_givers() -> void:
 	# AB/owner fix: the fence sprite's background is now cut to transparent
 	# (games/tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
 	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
-	if ResourceLoader.exists(Game.art("ui/fence_grove.png")):
-		var wt := TextureRect.new()
-		wt.texture = load(Game.art("ui/fence_grove.png"))
-		wt.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		wt.stretch_mode = TextureRect.STRETCH_SCALE
-		wt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wt)
-	else:
-		var wall_bg := Panel.new()
-		wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ws := StyleBoxFlat.new()
-		ws.bg_color = Color("#6E4B2F", 0.94)
-		ws.set_corner_radius_all(18)
-		ws.set_border_width_all(4)
-		ws.border_color = Color("#3D2A1B")
-		ws.shadow_color = Color(0, 0, 0, 0.3)
-		ws.shadow_size = 6
-		ws.shadow_offset = Vector2(0, 4)
-		wall_bg.add_theme_stylebox_override("panel", ws)
-		wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wall_bg)
+	# UI redesign: the quest band is a LIGHT Rest-plane strip — the dark wooden fence
+	# (fence_grove.png) / brown plank became the loudest dark element once the board went light,
+	# so it's replaced by a soft warm-neutral band the busts + cream ask-pills ride on.
+	var wall_bg := Panel.new()
+	wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wall_bg.add_theme_stylebox_override("panel", _quest_band_style())
+	wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wall.add_child(wall_bg)
 	# the stands scroll horizontally when the map is generous (cards stay BIG)
 	var span := giver_bar.size.x
 	if span <= 0.0:
@@ -959,7 +949,7 @@ func _giver_is_payable(e: Dictionary) -> bool:
 				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
 		var badge_lbl: Label = ask.get("badge_lbl")
 		if badge_lbl != null and is_instance_valid(badge_lbl):
-			badge_lbl.add_theme_color_override("font_color", Color("#2F5A2A") if ask_met else Pal.INK)
+			badge_lbl.add_theme_color_override("font_color", Pal.INK)   # neutral both states; the green ✓ glyph marks "met" (green = CTA-only)
 	return payable
 
 func _refresh_giver_lights() -> void:
@@ -1153,17 +1143,45 @@ func _make_slot(cell: Vector2i) -> Panel:
 	var slot := Panel.new()
 	slot.position = _cell_pos(cell)
 	slot.size = Vector2(csz, csz)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#C7BB94", 0.55)
-	sb.set_corner_radius_all(24)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#8A7A52", 0.28)
-	sb.shadow_color = Color(0, 0, 0, 0.20)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 2)
-	slot.add_theme_stylebox_override("panel", sb)
+	slot.add_theme_stylebox_override("panel", _cell_style())
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
+
+# The empty playable cell — a Sunk-plane well (UI redesign): CELL_EMPTY fill, a faint
+# inset line, and NO drop shadow (Sunk floats nothing), so it reads as a recessed slot
+# on the SURFACE field. Static so it is unit-testable in isolation (grove_tests).
+static func _cell_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CELL_EMPTY
+	sb.set_corner_radius_all(Tuning.UiSkin.RADIUS_CARD)
+	sb.set_border_width_all(Tuning.UiSkin.INSET_LINE_W)
+	sb.border_color = Tuning.UiSkin.INSET_LINE
+	sb.shadow_color = Tuning.UiSkin.SHADOW_SUNK
+	sb.shadow_size = Tuning.UiSkin.SHADOW_SUNK_SIZE
+	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
+	return sb
+
+# The board's flat SURFACE field (UI redesign) — the neutral stage items pop against,
+# replacing the painted backdrop. Static so it is unit-testable in isolation.
+static func _field_backdrop() -> ColorRect:
+	var bg := ColorRect.new()
+	bg.color = Pal.SURFACE
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return bg
+
+# The quest band behind the givers (UI redesign) — a LIGHT Rest-plane strip (SURFACE_FRAME) with
+# a quiet rim + soft resting shadow, replacing the old dark wooden fence. Static so it is testable.
+static func _quest_band_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.SURFACE_FRAME, 0.92)
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(Pal.BARK, 0.22)
+	sb.shadow_color = Color(0, 0, 0, 0.12)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	return sb
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)

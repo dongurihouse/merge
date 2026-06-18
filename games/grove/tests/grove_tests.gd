@@ -10,6 +10,9 @@ const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the pigg
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")   # T44 — the diegetic piggy-bank jar surface
 const LoginUI = preload("res://engine/scripts/ui/login.gd")   # T44 — the diegetic login-calendar surface
+const Pal = preload("res://games/grove/grove_palette.gd")      # UI redesign — role tiers
+const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # UI redesign — board component builders
+const PieceViewScript = preload("res://engine/scripts/ui/piece_view.gd")  # UI redesign — locked-cell builder
 
 var _pass := 0
 var _fail := 0
@@ -1974,6 +1977,22 @@ func _initialize() -> void:
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
 
+	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
+	var cell_sb := BoardScript._cell_style()
+	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
+	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
+	ok(BoardScript._field_backdrop().color.is_equal_approx(Pal.SURFACE), "board backdrop is the flat SURFACE field (not the painted olive bg)")
+	var lock_sb := PieceViewScript._locked_style(100.0)
+	ok(lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
+	ok(lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+	ok(not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
+	ok(lock_sb.border_color.is_equal_approx(Color(Pal.LOCKED_GLYPH, 0.30)), "locked cell rim is the quiet recessive LOCKED_GLYPH @ 0.30")
+	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
+	ok(not _tree_has(bramble_node, "TextureRect"), "locked cell has no bramble texture overlay (the dark thicket is gone)")
+	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
+	bramble_node.free()
+	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
 
@@ -2254,3 +2273,12 @@ func _uniq(arr: Array) -> Array:
 			seen[v] = true
 			out.append(v)
 	return out
+
+# UI redesign: true if `n` or any descendant is of the given built-in class name.
+func _tree_has(n: Node, klass: String) -> bool:
+	if n.is_class(klass):
+		return true
+	for c in n.get_children():
+		if _tree_has(c, klass):
+			return true
+	return false
