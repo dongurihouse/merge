@@ -67,7 +67,7 @@ smoke: ## scene smoke test (instantiates the UI + board)
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
 
-intake: ## apply intake plans in _originals/new/ (agent authors plan.json first): make intake [PLAN=path]
+intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): make intake [PLAN=path]
 	python3 games/tools/intake_apply.py --godot $(GODOT) $(if $(PLAN),--plan $(PLAN),)
 
 intake-test: ## unit-test the intake runner (pure stdlib, no godot)
