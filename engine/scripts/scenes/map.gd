@@ -221,14 +221,6 @@ func _gates() -> Array:                       # §7 gate-delivery state (which m
 func spot_owned(id: String) -> bool:
 	return unlocks.has(id)
 
-# The fixed `fence` overlay shows only once its reveal-spot (a spot with reveal:"fence") is restored;
-# maps with no such spot always show their fence. Keeps the fence from reading as already-restored.
-func _fence_revealed(z: int) -> bool:
-	for sp in G.MAPS[z].spots:
-		if String(sp.get("reveal", "")) == "fence":
-			return spot_owned(String(sp.id))
-	return true
-
 func map_spots_done(z: int) -> bool:
 	return G.map_spots_done(z, unlocks)
 
@@ -365,8 +357,7 @@ func _build_map() -> void:
 		# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
 		var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
 		if ResourceLoader.exists(art_path):
-			# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit). The base
-			# fills it; an optional fixed `fence` layer composites on top at its baked position/size.
+			# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit).
 			var frame := Control.new()
 			frame.position = _map_art_rect.position
 			frame.size = _map_art_rect.size
@@ -374,9 +365,6 @@ func _build_map() -> void:
 			frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			content.add_child(frame)
 			_add_cover_layer(frame, art_path)
-			var fence_path := String(G.MAPS[z].get("fence", ""))
-			if fence_path != "" and ResourceLoader.exists(fence_path) and _fence_revealed(z):
-				_add_cover_layer(frame, fence_path)
 		else:
 			var fallback := Panel.new()
 			fallback.position = _map_art_rect.position
@@ -734,8 +722,8 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 # 3-state pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
-	# pos + fsize come from grove_data.MAPS, which merges the placer's data/map1_placements.json once at
-	# load (see grove_data._merge_map1_placements). `art` (a res:// cutout) overrides the default furn art.
+	# pos + fsize come from grove_data.MAPS, which merges assets/map1v2/items_layout.json once at load
+	# (see grove_data._merge_map1_placements). `art` (a res:// cutout) overrides the default furn art.
 	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
 	var art_scale := rect.size.x / Design.size().x   # footprints are authored at the design-width canvas
 	var fs_eff := float(spot.get("fsize", 240.0)) * art_scale
@@ -778,9 +766,6 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 			dot.add_theme_stylebox_override("panel", ds)
 			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			item.add_child(dot)
-	elif owned and String(spot.get("reveal", "")) != "":
-		pass   # an overlay-reward spot (e.g. the garden fence): the reward is the revealed `fence`
-		       # layer, so the restored spot draws no point sprite (no stray solid-colour chip).
 	elif owned:
 		var chip := PanelContainer.new()
 		var fs := StyleBoxFlat.new()

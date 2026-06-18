@@ -73,9 +73,6 @@ intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): m
 intake-test: ## unit-test the intake runner (pure stdlib, no godot)
 	python3 games/tools/test_intake_apply.py
 
-place: ## open the map-1 placement editor (drag cutouts onto the base, Ctrl+S to save — the game reads it live)
-	GAME=grove $(GODOT) --path $(PROJECT) res://games/grove/tools/MapPlacer.tscn
-
 decor: ## process a bg/decor raw:  make decor IN=/tmp/x.png OUT=res://assets/rooms/y.png W=2160 H=2880 [OPAQUE=1]
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_decor.gd -- "$(IN)" $(OUT) $(W) $(H) $(if $(OPAQUE),--opaque,)
 

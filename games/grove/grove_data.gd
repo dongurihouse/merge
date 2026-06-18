@@ -252,15 +252,12 @@ static var MAPS: Array = _build_maps()
 
 static func _build_maps() -> Array:
 	var maps: Array = [
-	# Map 1 — the home hub. pos + fsize + `art` (the cutout image) are the hub layout. They come from the
-	# PLACER (games/grove/tools/MapPlacer.tscn → data/map1_placements.json) and are MERGED in at load by
-	# _merge_map1_placements via the `art` binding (the cutout's basename is the JSON key). The values
-	# below are gameplay (id/cost/kind) + the `art` binding + FALLBACK pos/fsize (used only when the JSON
-	# has no entry). No bake step — save in the placer and the game reads it. (The garden fence has no
-	# cutout: its `reveal:"fence"` means restoring it UNVEILS the map's fixed `fence` overlay — so the
-	# fence is hidden until restored, and the owned spot draws no point sprite. See map._fence_revealed.)
+	# Map 1 — the home hub. pos + fsize + `art` (the cutout image) are the hub layout. The pos/fsize come
+	# from assets/map1v2/items_layout.json (produced by the intake pipeline, games/tools/process_map1v2.py)
+	# and are MERGED in at load by _merge_map1_placements via the `art` binding (the cutout's basename is
+	# the JSON key). The values below are gameplay (id/cost/kind) + the `art` binding + FALLBACK pos/fsize
+	# (used only when the JSON has no entry). No bake step — the game reads the layout file directly.
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
-		"fence": "res://games/grove/assets/map1v2/fence.png",         # fixed fence layer, composited over the base
 		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
@@ -321,11 +318,12 @@ static func _build_maps() -> Array:
 	return maps
 
 
-# Merge the placer's saved hub layout (data/map1_placements.json) into the hub map's spots: each spot
-# whose `art` cutout is placed takes that placement's `pos` (center fraction) and `fsize` (footprint px,
-# in design-canvas units). Both come straight from the JSON — NO texture loads here, so boot stays cheap.
-# Read via res:// so it works the same in the editor and in an exported build — the .json must be in the
-# export preset's include_filter to ship. No file / no entry → the literal's fallback pos/fsize stay.
+# Merge the saved hub layout (assets/map1v2/items_layout.json, produced by games/tools/process_map1v2.py)
+# into the hub map's spots: each spot whose `art` cutout has an entry takes that entry's `pos` (center
+# fraction) and `fsize` (footprint px, in design-canvas units). Both come straight from the JSON — NO
+# texture loads here, so boot stays cheap. Read via res:// so it works the same in the editor and in an
+# exported build — the .json must be in the export preset's include_filter to ship. No file / no entry →
+# the literal's fallback pos/fsize stay.
 static func _merge_map1_placements(maps: Array) -> void:
 	var f := FileAccess.open("res://games/grove/assets/map1v2/items_layout.json", FileAccess.READ)
 	if f == null:

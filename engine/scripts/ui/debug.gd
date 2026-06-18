@@ -71,6 +71,7 @@ static func mount(host: Control) -> void:
 
 	_action(menu, host, "Reset progress", _act_reset)
 	_action(menu, host, "+100 premium", _act_premium)
+	_action(menu, host, "+100 stars", _act_stars)
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
 
@@ -113,6 +114,13 @@ static func _act_reset(host: Control) -> void:
 
 static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
+	_reflect(host)
+
+## Top up the SPENDABLE star balance (currencies.stars) so you can unlock spots
+## through the normal UI. Distinct from "Unlock next map" (auto-unlocks + bumps the
+## level clock); this just hands you the currency. Tap again for the big gate spots.
+static func _act_stars(host: Control) -> void:
+	Save.add_stars(100)
 	_reflect(host)
 
 ## Unlock every spot in the next unfinished map + credit the matching stars_earned,
