@@ -315,8 +315,11 @@ func _initialize() -> void:
 		ok(not (e.asks as Array).is_empty(), "giver card shows at least one requested item")
 		for au in e.asks:
 			ok(au.get("piece") != null and is_instance_valid(au.get("piece")), "the ask item renders on the card")
-		var gck: Control = e.check
-		ok(gck != null and is_instance_valid(gck) and gck is Panel, "ready-check node present (ring deleted)")
+		# the stand-level ready-check is retired — one big per-ask ✓ (the `met` node) carries readiness
+		ok(e.check == null, "the stand-level ready-check is retired (single big per-ask ✓)")
+		for au2 in e.asks:
+			var mck: Control = au2.get("met")
+			ok(mck != null and is_instance_valid(mck) and mck is Panel, "the ask carries a big met-✓ node (over the item)")
 	var qi: int = scn.giver_chips[0].qi
 	var dq: Dictionary = scn.quests[qi]
 	# clear the open board first so EVERY ask fits regardless of prior test state
@@ -921,7 +924,7 @@ func _initialize() -> void:
 	Save.grove()["unlocks"] = {String(G.MAPS[0].spots[0].id): true}
 	Save.grove_write()
 	s5._rebuild_givers()
-	ok(s5.merchant_chip != null, "the merchant arrives with the first spot")
+	ok(s5.merchant_btn != null and is_instance_valid(s5.merchant_btn), "the merchant sell-well rides the bottom nav")
 	s5.board.place(Vector2i(3, 3), 103)
 	s5._rebuild_pieces()
 	var c0 := Save.coins()
@@ -985,7 +988,7 @@ func _initialize() -> void:
 	# §5 bag: 6 owned slots at start, +1 per 💎 buy up to 18. The bar renders one button per owned
 	# slot PLUS a trailing "+slot" buy affordance while below the cap (so owned 6 → 7 buttons).
 	ok(s5._bag_capacity() == 6, "the bag starts at six owned slots")
-	ok(s5.bag_slots_ui.size() == 7, "the bar renders the 6 owned slots plus the +slot buy button")
+	ok(s5.bag_btn != null and is_instance_valid(s5.bag_btn), "the bag is a single bottom-nav well (no always-on row)")
 	var slots0 := Save.bag_slots()
 	var price := G.next_bag_slot_price(slots0)
 	Save.add_diamonds(price)
@@ -993,8 +996,7 @@ func _initialize() -> void:
 	s5._buy_bag_slot()
 	ok(Save.bag_slots() == slots0 + 1 and Save.diamonds() == dia0 - price, \
 		"buying the 7th slot grows the owned count and spends its 💎 price")
-	ok(s5._bag_capacity() == 7 and s5.bag_slots_ui.size() == 8, \
-		"the bought slot shows up in the capacity and the rebuilt bar (7 owned + buy)")
+	ok(s5._bag_capacity() == 7, "the bought slot shows up in the bag capacity (7 owned)")
 	# a broke buy is refused — no slot, no charge
 	Save.spend_diamonds(Save.diamonds())      # drain the wallet
 	var slots1 := Save.bag_slots()
@@ -1004,8 +1006,8 @@ func _initialize() -> void:
 	# at the 18 cap the +slot affordance is gone: 18 buttons, no trailing buy slot.
 	Save.set_bag_slots(18)
 	s5._build_bag_bar()
-	ok(s5.bag_slots_ui.size() == 18 and not s5._bag_has_buy_slot(), \
-		"at the 18-slot cap the bar shows 18 slots and drops the +slot buy affordance")
+	ok(s5._bag_capacity() == 18 and not s5._bag_has_buy_slot(), \
+		"at the 18-slot cap the capacity is 18 and the +slot buy affordance is gone")
 	Save.set_bag_slots(6)                      # restore for the drag-back check below
 	s5._build_bag_bar()
 
@@ -1489,27 +1491,17 @@ func _initialize() -> void:
 	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
-	ok(ws.merchant_chip != null, "W3: merchant present for the affordance test")
+	ok(ws.merchant_btn != null and is_instance_valid(ws.merchant_btn), "W3: the merchant sell-well rides the bottom nav (no fence stall)")
 	ws._show_sell_affordance(top_code)
-	ok(ws.merchant_chip.modulate.a >= 0.99, "W3: dragging brightens the merchant stall (sell affordance)")
+	ok(ws.merchant_btn.modulate.a >= 0.99, "W3: dragging a spare brightens the merchant well (sell affordance)")
+	# the well PREVIEWS the payout while a spare is dragged over it: a top-tier spare reads "+N"
+	# with its currency icon, so the player sees the reward before dropping.
+	ok(ws.merchant_pay.visible and String(ws.merchant_pay_lbl.text).begins_with("+"), \
+		"W3: the merchant well previews the payout (+N) while a spare is dragged")
 	ws._hide_sell_affordance()
-	# T39 (§9): drag is the ONLY sell verb — the tap-sell path is GONE. The board no longer
-	# defines _on_merchant_tap; tapping the stall does nothing (the basket buy-back + the
-	# treat keep their own taps; drag-to-stall selling stays the live verb).
+	ok(not ws.merchant_pay.visible, "W3: the payout preview clears when the drag ends")
+	# drag is the ONLY sell verb — there is no tap-sell path on the board.
 	ok(not ws.has_method("_on_merchant_tap"), "T39: tap-sell is removed — board has no _on_merchant_tap")
-	# T39: the merchant pill reflects the REAL top-tier reward (t8 = 1💎), not a stale flat coin
-	# count. The pill carries a gem icon + "+1", and shows no coin figure (MERCHANT_COINS is gone).
-	var mp_lbls: Array = ws.merchant_chip.find_children("*", "Label", true, false)
-	var mp_has_one := false
-	for mpl in mp_lbls:
-		if String((mpl as Label).text).find("1") != -1 and String((mpl as Label).text).find("25") == -1:
-			mp_has_one = true
-	ok(mp_has_one, "T39: the merchant pill reads the top-tier reward (+1), not the stale flat 25")
-	var mp_has_gem := false
-	for mpn in ws.merchant_chip.find_children("*", "", true, false):
-		if mpn.has_meta("icon_id") and String(mpn.get_meta("icon_id")) == "gem":
-			mp_has_gem = true
-	ok(mp_has_gem, "T39: the merchant pill carries the gem pinnacle icon (icon_id=gem), not a coin")
 	# X3: the giver pill renders one [item icon + n/m] pair PER ASK (1-3), no second card
 	var x3_3: Dictionary = ws._make_giver_stand(0, {"asks": [
 		{"line": 1, "tier": 3, "count": 1}, {"line": 2, "tier": 4, "count": 1},
@@ -1544,7 +1536,7 @@ func _initialize() -> void:
 	ok(ws.board.count_of(102) == 0, "XB: board set up with the ask UNMET (0×102)")
 	ok(not ws._giver_is_payable(xb_giver), "XB: an unmet quest is NOT payable")
 	ok(not bobbing.call(bob_bust), "XB: a giver whose quest is NOT payable does NOT bob")
-	ok(not xb_giver.check.visible, "XB: the ready ✓ is hidden while not payable (same predicate)")
+	ok(not (xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ is hidden while not payable (same predicate)")
 	# (2) becomes payable (place the 2 asked items) → bob starts, ✓ shows
 	var free_cells: Array = ws.board.empty_ground_cells()
 	ws.board.place(free_cells[0], 102)
@@ -1552,7 +1544,7 @@ func _initialize() -> void:
 	ws._refresh_giver_lights()
 	ok(ws._giver_is_payable(xb_giver), "XB: the quest is payable once both asked items are present")
 	ok(bobbing.call(bob_bust), "XB: a giver whose quest IS payable bobs (bob tween live)")
-	ok(xb_giver.check.visible, "XB: the ready ✓ shows on the same payable transition")
+	ok((xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ shows on the same payable transition")
 	# (3) payable → unmet again (remove one item) → bob STOPS (reactive, not one-way)
 	ws.board.place(free_cells[0], 0)
 	ws._refresh_giver_lights()
@@ -1580,7 +1572,7 @@ func _initialize() -> void:
 	await create_timer(0.05).timeout
 	ys._rebuild_givers()
 	await create_timer(0.05).timeout
-	ok(ys.basket_chip != null, "Y2: the merchant has a collection basket")
+	ok(ys.basket != null and ys.basket.is_empty(), "Y2: the sell basket starts empty (buy-back parked; no fence chip)")
 	# Y1: a t8 sells for exactly 1💎 (no coins); a t5 for 5🪙
 	var yt8 := 100 + G.TOP_TIER
 	var yd0: int = Save.diamonds()

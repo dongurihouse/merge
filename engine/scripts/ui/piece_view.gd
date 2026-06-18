@@ -82,7 +82,7 @@ static func make_piece(code: int, size: float) -> Control:
 		var t := TextureRect.new()
 		t.texture = _content_tex(path)   # cropped to opaque content so it CENTERS in the cell (art padding varies)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var inset := size * 0.12
+		var inset := size * 0.16   # a little margin so the item sits INSIDE the cell, not bleeding to its edge
 		t.offset_left = inset
 		t.offset_top = inset
 		t.offset_right = -inset
@@ -256,38 +256,85 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	return mat
 
 
-static func make_bramble(cell: Vector2i, csz: float) -> Control:
+# The numbered-padlock atlas: 5×5 grid of 25 cream lock tiles, each baked with a number 1..25
+# (left-to-right then top-to-bottom — tile N is at col (N-1)%5, row (N-1)/5). Sliced per number
+# into an AtlasTexture, cached so repeated cells don't re-slice (mirrors _content_cache).
+const _LOCKED_CELLS_ART := "ui/kit/locked_cells.png"
+static var _locked_cells_cache: Dictionary = {}
+static func _locked_cell_tex(n: int) -> Texture2D:
+	if _locked_cells_cache.has(n):
+		return _locked_cells_cache[n]
+	var atlas: Texture2D = load(Game.art(_LOCKED_CELLS_ART))
+	var result: Texture2D = null
+	if atlas != null:
+		var tile_size := atlas.get_size() / 5.0
+		var col := (n - 1) % 5
+		var row := (n - 1) / 5
+		var at := AtlasTexture.new()
+		at.atlas = atlas
+		at.region = Rect2(Vector2(float(col), float(row)) * tile_size, tile_size)
+		result = at
+	_locked_cells_cache[n] = result
+	return result
+
+# A sealed cell. The look is now FLAG-DRIVEN by the scene (no internal level gating):
+#   frontier   → the cell sits on the live border the player is reaching; render the NUMBERED
+#                padlock tile (atlas tile n, n = this cell's unseal level clamped 1..25) — the
+#                baked number IS the teach-signal, so no code-drawn "Lv N" badge is added.
+#   not frontier → a NUMBERLESS locked tile (the calm slot_locked look), faded back so deep
+#                rings recede and the eye lands on the playable cells.
+#   unlockable → this cell can be opened by a merge RIGHT NOW: it gets a bright highlight border
+#                and full (un-faded) modulate so it POPS as the actionable next move.
+# Defaults keep existing callers (board.gd, tools, tests) compiling unchanged.
+static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlockable: bool = false) -> Control:
 	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
+	var n := clampi(lvl, 1, 25)                 # the numbered atlas tile (1..25) for this gate
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# UI redesign: a locked cell is a LIGHT, recessive Sunk well (Pal.LOCKED) with a quiet lock
-	# glyph — NOT a dark thicket. The old painted bramble overlay + dark cream-on-bark badge dragged
-	# the whole board dark (most cells start locked); locks now recede by being LIGHT. The density
-	# band only shades deeper rings a hair, for a faint sense of depth.
 	var ring := clampi(lvl / 4 + 1, 1, 3)
-	var tile := Panel.new()
-	tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-	tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# RECEDE: locked cells should read as "not yet", not a wall of bold padlocks — fade them
-	# back (deeper rings fade a little more) so the eye lands on the live, playable cells.
-	tile.modulate = Color(1.0, 1.0, 1.0, 0.66 - 0.06 * float(ring - 1))
-	holder.add_child(tile)
-	# The Level gate (§4): NO-REQUIRED-READING — a lock glyph carries "sealed"; a small styled
-	# badge carries the number only where it earns its keep. To keep the board CALM we show the
-	# "Lv N" chip on the FRONTIER (the shallow inner gates the player is about to reach) and a
-	# bare lock glyph (no number) on the deeper rings — so ~30 locked cells aren't all text.
-	var on_frontier := lvl <= FRONTIER_LV   # the inner L1/2/3 diamond — nearest the player's eye
-	if ResourceLoader.exists(_locked_art()):
-		# the painted tile already carries the padlock — add ONLY the frontier "Lv N" number
-		# (tucked at the bottom) so the teach-signal survives without a second, code-drawn lock.
-		if on_frontier:
-			holder.add_child(_lv_num_badge(lvl, csz))
+	if frontier and ResourceLoader.exists(Game.art(_LOCKED_CELLS_ART)):
+		# FRONTIER + atlas present: the numbered padlock tile IS the cell — it carries its own
+		# baked number, so DON'T also add the code-drawn _lv_num_badge.
+		var t := TextureRect.new()
+		t.texture = _locked_cell_tex(n)
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(t)
 	else:
-		holder.add_child(_lv_gate_badge(lvl, csz, on_frontier))
+		# NOT frontier (or atlas absent): the calm NUMBERLESS slot_locked look, faded so deeper
+		# rings recede. No number badge — non-frontier locks stay quiet and recessive.
+		var tile := Panel.new()
+		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(tile)
+		# RECEDE: locked cells read as "not yet" — fade them back (deeper rings fade a hair more).
+		# An unlockable cell is the exception (handled below) — it keeps full modulate to POP.
+		if not unlockable:
+			holder.modulate = Color(1.0, 1.0, 1.0, 0.66 - 0.06 * float(ring - 1))
+	if unlockable:
+		# This cell can be opened by a merge RIGHT NOW — make it POP: full modulate (don't fade)
+		# plus a bright warm-gold highlight border with a soft glow, so it reads as the inviting,
+		# actionable next move against the receded locks.
+		holder.modulate = Color(1.0, 1.0, 1.0, 1.0)
+		var pop := Panel.new()
+		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var radius := int(maxf(10.0, csz * 0.18))
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Color(0, 0, 0, 0)                 # transparent fill — only the border + glow show
+		ps.set_border_width_all(4)
+		ps.border_color = STRAW                          # warm gold == "inviting / actionable"
+		ps.set_corner_radius_all(radius)
+		ps.shadow_color = Color(STRAW, 0.55)             # a soft warm glow around the highlight
+		ps.shadow_size = int(maxf(4.0, csz * 0.10))
+		pop.add_theme_stylebox_override("panel", ps)
+		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(pop)
 	return holder
 
 # The "Lv N" teach-number for a FRONTIER locked cell — centered INSIDE the tile (over the faint
@@ -397,6 +444,11 @@ static func make_generator(id: String, csz: float) -> Control:
 		var t := TextureRect.new()
 		t.texture = load(path)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var inset := csz * 0.14   # margin so generator art sits INSIDE the cell, not bleeding to its edge
+		t.offset_left = inset
+		t.offset_top = inset
+		t.offset_right = -inset
+		t.offset_bottom = -inset
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
