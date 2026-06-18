@@ -1,9 +1,10 @@
 extends Control
 ## Map-1 DECORATION placer (dev tool). Background = base_empty. The scene is one z-stack, bottom→top:
-## FENCE (smallest z) · BACK decor (trees/clouds) · BUILDINGS (house/shed/… — fixed context, not movable
-## but selectable) · FRONT decor (grass) — matching the grove's render order. Placed decor saves to
-## data/map1v2_decor.json (layer back/front/cloud); the grove reads it at load. The right-gutter Z-ORDER
-## list shows every item's z; raise/lower decor with w/e (it crosses behind/in-front of the buildings).
+## FENCE (smallest z) · BACK decor (trees/clouds) · BUILDINGS (house/shed/…) · FRONT decor (grass) —
+## matching the grove's render order. Placed decor saves to data/map1v2_decor.json (layer back/front/cloud);
+## the grove reads it at load. Press B to enter BUILDING-move mode (drag/resize the house/shed/…; their
+## positions save to assets/map1v2/items_layout.json, which the grove merges into the hub spots at load).
+## The right-gutter Z-ORDER list shows every item's z; raise/lower decor with w/e (it crosses the buildings).
 ##
 ## Controls — Tab palette · F reference · drag move · wheel +/- scale · w/e z-order · right-click/Del remove · Ctrl+S save.
 ## Run:  make place   (or: godot --path . res://games/grove/tools/MapPlacer.tscn)
@@ -21,7 +22,7 @@ const ITEMS_LAYOUT := "res://assets/map1v2/items_layout.json"
 const FENCE_PATH := "res://assets/map1v2/fence.png"
 const FULL_PATH := "res://assets/map1v2/base_full.png"
 const SAVE_PATH := "res://data/map1v2_decor.json"
-const HINT := "drag · wheel scale · w/e z-order · right-click/Del delete · Ctrl+S save"
+const HINT := "drag · wheel scale · w/e z-order · B move buildings · right-click/Del delete · Ctrl+S save"
 
 const WINDOW_WIDTH_MULT := 2.6      # tool window width = this × the game-view width (capped to the screen)
 const LINE_W := 4.0                 # thickness of each view-edge line (design px)
@@ -46,6 +47,8 @@ var _palette: PanelContainer
 var _selected: Control = null
 var _drag_off := Vector2.ZERO
 var _dragging := false
+var _edit_buildings := false   # B toggles "building move" mode: buildings draggable, decor locked
+var _buildings_moved := false  # a building was dragged/scaled → Ctrl+S rewrites items_layout.json
 
 
 func _ready() -> void:
@@ -215,7 +218,10 @@ func _populate_buildings() -> void:
 			var p = rec.get("pos", [0.5, 0.5])
 			var b := _static_sprite(art, Vector2(float(p[0]), float(p[1])), float(rec.get("fsize", 240)))
 			b.set_meta("art", art)
-			b.set_meta("fixed", true)
+			b.set_meta("fixed", true)               # can't restack/delete — but CAN move (press B)
+			b.pivot_offset = b.size * 0.5           # center pivot so the drag math matches decor
+			b.gui_input.connect(_on_item_input.bind(b))
+			b.mouse_filter = Control.MOUSE_FILTER_IGNORE   # click-through until B mode (set by _apply_lock)
 			_buildings.add_child(b)
 	_buildings.modulate = Color(1, 1, 1, 0.85)   # slightly faded so trees BEHIND read through
 
@@ -431,6 +437,8 @@ func _on_item_input(ev: InputEvent, item: Control) -> void:
 			_restack(item, -1)
 	elif ev is InputEventMouseMotion and _dragging and item == _selected:
 		_set_center(item, item.get_global_mouse_position() - _drag_off)
+		if item.has_meta("fixed"):
+			_buildings_moved = true
 		_select(item)
 
 
@@ -438,6 +446,8 @@ func _scale_item(item: Control, factor: float) -> void:
 	var c := _center_of(item)
 	item.scale = (item.scale * factor).clamp(Vector2(0.03, 0.03), Vector2(10, 10))
 	_set_center(item, c)
+	if item.has_meta("fixed"):
+		_buildings_moved = true
 	_select(item)
 
 # Raise (dir>0) / lower (dir<0) a decor item in the unified z-stack. Within a layer it just shifts; at a
@@ -480,6 +490,14 @@ func _delete_item(item: Control) -> void:
 	_set_info("removed")
 	_refresh_zlist()
 
+# Building-move mode: when ON, buildings are draggable and the decor is click-locked (so a building's
+# big bounding box doesn't steal decor clicks); when OFF, the reverse (normal decor editing).
+func _apply_lock() -> void:
+	for b in _buildings.get_children():
+		b.mouse_filter = Control.MOUSE_FILTER_STOP if _edit_buildings else Control.MOUSE_FILTER_IGNORE
+	for c in _back_layer.get_children() + _front_layer.get_children():
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE if _edit_buildings else Control.MOUSE_FILTER_STOP
+
 
 func _unhandled_input(ev: InputEvent) -> void:
 	if not (ev is InputEventKey and ev.pressed):
@@ -490,6 +508,11 @@ func _unhandled_input(ev: InputEvent) -> void:
 	if ev.keycode == KEY_F:
 		_full.visible = not _full.visible
 		_set_info("reference %s" % ("ON" if _full.visible else "off"))
+		get_viewport().set_input_as_handled(); return
+	if ev.keycode == KEY_B:                         # toggle BUILDING-move mode
+		_edit_buildings = not _edit_buildings
+		_apply_lock()
+		_set_info("BUILDING move %s — drag to reposition, wheel to resize, Ctrl+S to save" % ("ON" if _edit_buildings else "off"))
 		get_viewport().set_input_as_handled(); return
 	if ev.ctrl_pressed or ev.meta_pressed:
 		if ev.keycode == KEY_S:
@@ -555,7 +578,35 @@ func _save() -> void:
 		_set_info("SAVE FAILED"); return
 	f.store_string(JSON.stringify({"decor": placed}, "\t"))
 	f.close()
-	_set_info("saved %d decoration(s)" % placed.size())
+	var extra := ""
+	if _buildings_moved:
+		extra = " + buildings" if _save_buildings() else " (BUILDINGS SAVE FAILED)"
+	_set_info("saved %d decoration(s)%s" % [placed.size(), extra])
+
+# Write moved/resized buildings back to items_layout.json (the file the grove merges at load to position
+# the hub's spots). Updates each item's pos/fsize in place, preserving the file's order/structure.
+func _save_buildings() -> bool:
+	var bg := _bg_size()
+	var data = _read_json(ITEMS_LAYOUT)
+	if typeof(data) != TYPE_DICTIONARY or not data.has("items"):
+		return false
+	var by_name := {}
+	for b in _buildings.get_children():
+		by_name[String(b.get_meta("art")).get_file().get_basename()] = b
+	for rec in data["items"]:
+		var b = by_name.get(String(rec.get("item", "")), null)
+		if b == null:
+			continue
+		var c := _center_of(b)
+		rec["pos"] = [c.x / bg.x, c.y / bg.y]
+		rec["fsize"] = int(round(b.size.x * b.scale.x))
+	var f := FileAccess.open(ProjectSettings.globalize_path(ITEMS_LAYOUT), FileAccess.WRITE)
+	if f == null:
+		return false
+	f.store_string(JSON.stringify(data, "\t"))
+	f.close()
+	_buildings_moved = false
+	return true
 
 
 func _load() -> void:
