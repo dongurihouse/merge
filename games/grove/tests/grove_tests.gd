@@ -1986,6 +1986,11 @@ func _initialize() -> void:
 	ok(lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
 	ok(lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
 	ok(not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
+	ok(lock_sb.border_color.is_equal_approx(Color(Pal.LOCKED_GLYPH, 0.30)), "locked cell rim is the quiet recessive LOCKED_GLYPH @ 0.30")
+	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
+	ok(not _tree_has(bramble_node, "TextureRect"), "locked cell has no bramble texture overlay (the dark thicket is gone)")
+	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
+	bramble_node.free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
@@ -2267,3 +2272,12 @@ func _uniq(arr: Array) -> Array:
 			seen[v] = true
 			out.append(v)
 	return out
+
+# UI redesign: true if `n` or any descendant is of the given built-in class name.
+func _tree_has(n: Node, klass: String) -> bool:
+	if n.is_class(klass):
+		return true
+	for c in n.get_children():
+		if _tree_has(c, klass):
+			return true
+	return false

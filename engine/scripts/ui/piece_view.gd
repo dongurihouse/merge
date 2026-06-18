@@ -8,32 +8,12 @@ extends RefCounted
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Pal = Game.PALETTE
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 const GROUND_EDGE = Pal.GROUND_EDGE
-const BRAMBLE_BG = Pal.BRAMBLE_BG
-const BRAMBLE_EDGE = Pal.BRAMBLE_EDGE
-
-const BRAMBLE_WARM_SHADER := "
-shader_type canvas_item;
-void fragment() {
-	vec4 c = texture(TEXTURE, UV);
-	vec3 moss = vec3(0.40, 0.32, 0.18);
-	vec3 outc = min(moss + c.rgb * vec3(1.25, 1.10, 0.80), vec3(0.92));
-	COLOR = vec4(outc, c.a) * COLOR;
-}"
-static var _bramble_material: ShaderMaterial
-static func bramble_mat() -> ShaderMaterial:
-	if _bramble_material == null:
-		var sh := Shader.new()
-		sh.code = BRAMBLE_WARM_SHADER
-		_bramble_material = ShaderMaterial.new()
-		_bramble_material.shader = sh
-	return _bramble_material
 
 # U1: a soft white radial ellipse (alpha fades to 0 at the rim); modulated to the
 # warm-earth backing colour at the call site. Cached — one texture for the board.
