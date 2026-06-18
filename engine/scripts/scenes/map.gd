@@ -179,7 +179,7 @@ func _ready() -> void:
 	# with the FTUE shop spotlight or fires on a cold first launch (see _maybe_login_popup).
 	_maybe_login_popup_deferred.call_deferred()
 
-	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
+	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
 # The dev capture harness births its windows minimized + focusless via a
 # transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever inherits

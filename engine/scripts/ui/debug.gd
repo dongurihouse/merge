@@ -2,13 +2,12 @@ extends RefCounted
 ## Two debug gates (owner). PRODUCTION is the default and always CLEAN.
 ##
 ## on()  — the on-screen STATE-JUMP panel (reset / premium / unlock / level-up).
-##         The BASE game (games/placeholder) always shows it — running base IS the
-##         test harness. Other games show it only when authoring() (below).
+##         Shows only when authoring() (below) is on: the same explicit debug gate
+##         as the layout editor, minus quiet captures (see on()).
 ##
 ## authoring() — the owner's drag-to-place LAYOUT editor (adjust placements on the
-##         map + inside rooms, then SAVE). Turned on DELIBERATELY, on ANY game; it
-##         is NOT auto-on in base (base is a mechanics sandbox with no real art to
-##         place). Enable with NO source edit:
+##         map + inside rooms, then SAVE). Turned on DELIBERATELY; never auto-on.
+##         Enable with NO source edit:
 ##             godot --path . -- debug      (args after -- are user args)
 ##             TU_DEBUG=1 godot --path .
 ##
@@ -19,20 +18,18 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
-const Game = preload("res://engine/scripts/core/game.gd")
 
 static var force := false
 
-## The state-jump debug PANEL: always on the base game, otherwise only when
-## explicitly authoring(). Never in headless suites or quiet captures.
+## The state-jump debug PANEL: on only when explicitly authoring(). Never in
+## headless suites or quiet captures — the quiet guard here also keeps the panel
+## out of force-driven screenshots (force bypasses quiet in authoring() below).
 static func on() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false                     # logic suites never show chrome
 	if OS.get_environment("TU_QUIET") == "1":
 		return false                     # quiet captures stay clean of the panel
-	if Game.id() == "placeholder":
-		return true                      # the base/testing build always shows it
-	return authoring()                   # other games: only when explicitly authoring
+	return authoring()                   # only when explicitly authoring
 
 ## The owner LAYOUT editor: explicit only (force / TU_DEBUG / `-- debug`), ANY game.
 ## NOT auto-on in base. force is checked first so capture tools get the editor even
@@ -49,7 +46,7 @@ static func authoring() -> bool:
 	return "debug" in OS.get_cmdline_user_args()
 
 
-# --- on-screen debug panel (base/testing only) -----------------------------------
+# --- on-screen debug panel (debug/authoring only) --------------------------------
 ## A corner toggle that expands to a column of state-jump actions. Map and Board
 ## call this at the END of _ready(); it's a NO-OP unless on(), so it never appears
 ## in production, headless tests, or quiet captures. Add an action = one _action().

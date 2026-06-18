@@ -65,8 +65,9 @@ func _initialize() -> void:
 	# No art path -> no ghost, regardless of flag.
 	ok(map._ghost_sprite("", 200.0) == null, "no art path -> _ghost_sprite returns null")
 
-	# Any real texture proves the on/off behaviour without depending on game art.
-	var any_tex := "res://icon.png"
+	# Any real texture proves the on/off behaviour; a stable grove item under the
+	# clothes forced above (Game.art tracks the active art root).
+	var any_tex := Game.art("items/flower_1.png")
 	ok(ResourceLoader.exists(any_tex), "fixture texture exists (%s)" % any_tex)
 
 	Features.FLAGS["spot_ghost"] = false

@@ -295,19 +295,20 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ring := clampi(lvl / 4 + 1, 1, 3)
-	if frontier and ResourceLoader.exists(Game.art(_LOCKED_CELLS_ART)):
-		# FRONTIER + atlas present: the numbered padlock tile IS the cell — it carries its own
-		# baked number, so DON'T also add the code-drawn _lv_num_badge.
-		var t := TextureRect.new()
-		t.texture = _locked_cell_tex(n)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
+	if frontier:
+		holder.add_child(_locked_fill(csz, ring))
+		var tile := Panel.new()
+		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
+		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(tile)
+		holder.add_child(_frontier_number_badge(n, csz))
+		if not unlockable:
+			holder.modulate = Color(1.0, 1.0, 1.0, 0.86)
 	else:
 		# NOT frontier (or atlas absent): the calm NUMBERLESS slot_locked look, faded so deeper
 		# rings recede. No number badge — non-frontier locks stay quiet and recessive.
+		holder.add_child(_locked_fill(csz, ring))
 		var tile := Panel.new()
 		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
 		tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
@@ -335,6 +336,60 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 		pop.add_theme_stylebox_override("panel", ps)
 		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(pop)
+	return holder
+
+static func _locked_fill(csz: float, ring: int) -> Panel:
+	var base := Panel.new()
+	base.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Pal.LOCKED.darkened(0.018 * float(ring - 1))
+	fs.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
+	fs.shadow_color = Color(0, 0, 0, 0)
+	fs.shadow_size = 0
+	base.add_theme_stylebox_override("panel", fs)
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return base
+
+static func _frontier_number_badge(n: int, csz: float) -> Control:
+	var holder := Control.new()
+	var d := maxf(28.0, csz * 0.34)
+	holder.custom_minimum_size = Vector2(d, d)
+	holder.size = Vector2(d, d)
+	holder.anchor_left = 1.0
+	holder.anchor_top = 1.0
+	holder.anchor_right = 1.0
+	holder.anchor_bottom = 1.0
+	holder.offset_left = -d - csz * 0.06
+	holder.offset_top = -d - csz * 0.06
+	holder.offset_right = -csz * 0.06
+	holder.offset_bottom = -csz * 0.06
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var coin := Panel.new()
+	coin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var cs := StyleBoxFlat.new()
+	cs.bg_color = Color("#F4CF82")
+	cs.set_corner_radius_all(int(d * 0.5))
+	cs.set_border_width_all(2)
+	cs.border_color = Color("#8D6B35")
+	cs.shadow_color = Color(0, 0, 0, 0.20)
+	cs.shadow_size = 3
+	cs.shadow_offset = Vector2(0, 1)
+	coin.add_theme_stylebox_override("panel", cs)
+	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(coin)
+
+	var lbl := Label.new()
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.text = str(n)
+	lbl.add_theme_font_size_override("font_size", int(maxf(14.0, csz * 0.23)))
+	lbl.add_theme_color_override("font_color", Color("#61441E"))
+	lbl.add_theme_color_override("font_outline_color", Color("#FCE8B8", 0.86))
+	lbl.add_theme_constant_override("outline_size", 3)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(lbl)
 	return holder
 
 # The "Lv N" teach-number for a FRONTIER locked cell — centered INSIDE the tile (over the faint

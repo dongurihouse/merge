@@ -257,6 +257,9 @@ func _ready() -> void:
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
 	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	csz = minf(w_csz, h_csz)
+	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
+	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
+	center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
 	board_area.custom_minimum_size = Vector2(_board_w(), _board_h())
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
@@ -331,7 +334,7 @@ func _ready() -> void:
 	if _take_gate_cue_map() >= 0:
 		_play_gate_cue()
 
-	Debug.mount(self)                    # base/testing debug panel (no-op in prod)
+	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.
@@ -1229,8 +1232,8 @@ func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
 		b.pressed.connect(cb)
 	return b
 
-# A round "tray" well for the bottom nav (the Bag + Merchant): a soft cream disc with a warm rim
-# and shadow. Content (a stashed item, a payout) is added by the caller into a centred holder.
+# A board-matching drop well for the bottom nav (Bag + Merchant): empty by default,
+# using the same slot tile language as board cells so it reads as a droppable target.
 func _tray_well(px: float) -> Button:
 	var b := Button.new()
 	b.flat = true
@@ -1238,15 +1241,7 @@ func _tray_well(px: float) -> Button:
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var bg := Panel.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FBF3EA", 0.95)
-	sb.set_corner_radius_all(int(px / 2.0))
-	sb.set_border_width_all(4)
-	sb.border_color = Color(Pal.BARK, 0.55)
-	sb.shadow_color = Color(0, 0, 0, 0.28)
-	sb.shadow_size = 6
-	sb.shadow_offset = Vector2(0, 3)
-	bg.add_theme_stylebox_override("panel", sb)
+	bg.add_theme_stylebox_override("panel", _slot_style())
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(bg)
@@ -1320,13 +1315,7 @@ func _make_bag_button(px: float) -> Button:
 # a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
 func _make_merchant_button(px: float) -> Button:
 	var b := _tray_well(px)
-	merchant_rest = Look.icon("cart", px * 0.5)
-	merchant_rest.set_anchors_preset(Control.PRESET_FULL_RECT)
-	if merchant_rest is Label:
-		(merchant_rest as Label).horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		(merchant_rest as Label).vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	merchant_rest.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(merchant_rest)
+	merchant_rest = null
 	merchant_pay = HBoxContainer.new()
 	merchant_pay.alignment = BoxContainer.ALIGNMENT_CENTER
 	merchant_pay.add_theme_constant_override("separation", 2)

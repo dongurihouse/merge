@@ -260,7 +260,6 @@ static func _build_maps() -> Array:
 	# cutout: its `reveal:"fence"` means restoring it UNVEILS the map's fixed `fence` overlay — so the
 	# fence is hidden until restored, and the owned spot draws no point sprite. See map._fence_revealed.)
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
-		"bg": "res://games/grove/assets/map1v2/base_empty.jpg",       # the empty field (map1v2)
 		"fence": "res://games/grove/assets/map1v2/fence.png",         # fixed fence layer, composited over the base
 		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		"decor": "res://data/map1v2_decor.json",          # trees/grass/clouds placed in the map placer (read at load)

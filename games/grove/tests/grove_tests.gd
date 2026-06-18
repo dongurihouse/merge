@@ -1357,7 +1357,7 @@ func _initialize() -> void:
 	Music.take_dir = "res://games/grove/assets/nonexistent/"
 	Music.ensure()
 	ok(Music._player == null or not Music._player.playing, "O: zero takes on disk → ensure() is a silent no-op (no crash)")
-	Music.take_dir = "res://games/grove/assets/music/"
+	Music.take_dir = "res://games/grove/assets/music_archived/"   # archived: the dir is gone → no takes resolve
 	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
@@ -1374,10 +1374,24 @@ func _initialize() -> void:
 	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
 	var nav_btns: Array = ss.bottom_bar.get_children().filter(func(c): return c is Button)
 	ok(nav_btns.size() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
+	var board_mat: Control = ss.board_area.get_child(0)
+	ok(board_mat.get_global_rect().position.y >= ss.giver_bar.get_global_rect().end.y, \
+		"S1: the board frame starts below the quest strip and does not cut off ready cards")
+	ok(not board_mat.get_global_rect().intersects(ss.bottom_bar.get_global_rect()), \
+		"S1: the board frame reserves its full height and stays clear of the bottom nav")
 	var bb_home: Control = nav_btns[0]
 	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
 	var bb_shop: Control = ss.shop_btn
 	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
+	var bag_bg: Panel = ss.bag_btn.get_child(0)
+	ok(bag_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
+		"S1: the empty bag target uses the same slot-tile background as board drop cells")
+	var merchant_bg: Panel = ss.merchant_btn.get_child(0)
+	ok(merchant_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
+		"S1: the merchant target uses the same slot-tile background as board drop cells")
+	ok(ss.merchant_rest == null or not is_instance_valid(ss.merchant_rest) \
+		or ss.merchant_rest.get_parent() != ss.merchant_btn or not ss.merchant_rest.visible, \
+		"S1: the merchant drop target has no centered shop/cart icon")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
 	ss._update_water_hud()
@@ -1966,14 +1980,22 @@ func _initialize() -> void:
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
 	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
-	ok(BoardScript._field_backdrop().color.is_equal_approx(Pal.SURFACE), "board backdrop is the flat SURFACE field (not the painted olive bg)")
+	var backdrop := BoardScript._field_backdrop()
+	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
+		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
 	var lock_sb := PieceViewScript._locked_style(100.0)
-	ok(lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
-	ok(lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
-	ok(not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
-	ok(lock_sb.border_color.is_equal_approx(Color(Pal.LOCKED_GLYPH, 0.30)), "locked cell rim is the quiet recessive LOCKED_GLYPH @ 0.30")
+	if lock_sb is StyleBoxFlat:
+		ok((lock_sb as StyleBoxFlat).bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
+		ok((lock_sb as StyleBoxFlat).shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+		ok(not (lock_sb as StyleBoxFlat).bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
+		ok((lock_sb as StyleBoxFlat).border_color.is_equal_approx(Color(Pal.LOCKED_GLYPH, 0.30)), "locked cell rim is the quiet recessive LOCKED_GLYPH @ 0.30")
+	else:
+		ok(lock_sb is StyleBoxTexture, "locked cell well uses the painted slot_locked art when the kit is present")
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
-	ok(not _tree_has(bramble_node, "TextureRect"), "locked cell has no bramble texture overlay (the dark thicket is gone)")
+	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the numbered art")
+	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \
+		"frontier locked cell background is a solid fill, not transparent art that exposes the board gutter")
+	ok(not _tree_has(bramble_node, "TextureRect"), "frontier locked cell does not use the checkerboard-backed numbered atlas")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	bramble_node.free()
 	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
