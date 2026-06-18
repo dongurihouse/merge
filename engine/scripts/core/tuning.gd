@@ -343,6 +343,14 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	const SHADOW_RAISED := Color(0, 0, 0, 0.28)          # primary CTA / floating round buttons
 	const SHADOW_RAISED_SIZE := 10
 	const SHADOW_RAISED_OFFSET := Vector2(0, 5)
+	# --- Sunk tier (UI redesign): the recessive plane BELOW Resting --------------------
+	# Locked/sealed cells + empty wells live here — they float NOTHING (no drop shadow) and
+	# read as carved-in via a faint top inset line, receding under playable content.
+	const SHADOW_SUNK := Color(0, 0, 0, 0.0)             # no drop shadow — Sunk elevates nothing
+	const SHADOW_SUNK_SIZE := 0
+	const SHADOW_SUNK_OFFSET := Vector2(0, 0)
+	const INSET_LINE := Color(0, 0, 0, 0.10)             # faint top inner line so a Sunk well reads carved-in
+	const INSET_LINE_W := 2
 	const RADIUS_CARD := 24               # unified corner radius for rectangular surfaces
 	const RADIUS_CHIP := 14               # unified corner radius for small chips/pills
 

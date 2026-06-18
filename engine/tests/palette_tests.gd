@@ -44,5 +44,20 @@ func _initialize() -> void:
 	# ...and the old GROUND~BTN_PRIMARY olive collision is gone.
 	ok(_dist(c.get("GROUND", Color.BLACK), c.get("BTN_PRIMARY", Color.BLACK)) > 0.30,
 		"GROUND vs BTN_PRIMARY collision resolved")
+	# --- elevation tiers (tuning.gd UiSkin): Sunk < Rest < Float ---
+	# The three-plane depth ladder: Sunk (locked/empty wells) floats nothing and recedes
+	# below Resting (chips/pills), which sits below Raised (items/CTA).
+	var sk := (preload("res://engine/scripts/core/tuning.gd").UiSkin as GDScript).get_script_constant_map()
+	ok(sk.has("SHADOW_SUNK") and sk.has("SHADOW_SUNK_SIZE"), "Sunk elevation tier present")
+	var sunk_sz: int = sk.get("SHADOW_SUNK_SIZE", -1)
+	var rest_sz: int = sk.get("SHADOW_RESTING_SIZE", 0)
+	var raised_sz: int = sk.get("SHADOW_RAISED_SIZE", 0)
+	ok(sunk_sz <= rest_sz and rest_sz <= raised_sz,
+		"shadow sizes ordered Sunk<=Rest<=Raised (%d<=%d<=%d)" % [sunk_sz, rest_sz, raised_sz])
+	var sunk_a: float = (sk.get("SHADOW_SUNK", Color(0, 0, 0, 1)) as Color).a
+	var rest_a: float = (sk.get("SHADOW_RESTING", Color(0, 0, 0, 0)) as Color).a
+	var raised_a: float = (sk.get("SHADOW_RAISED", Color(0, 0, 0, 0)) as Color).a
+	ok(sunk_a <= rest_a and rest_a <= raised_a,
+		"shadow alphas ordered Sunk<=Rest<=Raised (%.2f<=%.2f<=%.2f)" % [sunk_a, rest_a, raised_a])
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
