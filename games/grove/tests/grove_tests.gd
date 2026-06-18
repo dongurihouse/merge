@@ -667,7 +667,7 @@ func _initialize() -> void:
 	var maps_ok := true
 	for z in G.MAPS.size():
 		var n: int = G.MAPS[z].spots.size()
-		if n < 8 or n > 10:
+		if n < 7 or n > 10:
 			maps_ok = false
 		var seen_ids := {}
 		for s in G.MAPS[z].spots:
@@ -676,7 +676,7 @@ func _initialize() -> void:
 			seen_ids[String(s.id)] = true
 		if seen_ids.size() != n:
 			maps_ok = false
-	ok(maps_ok, "every map has 8-10 unique spots costing 3-5 stars (owner pacing)")
+	ok(maps_ok, "every map has 7-10 unique spots costing 3-5 stars (owner pacing)")
 	# 13c. the stars-driven level clock (one uncapped Level, driven by stars EARNED)
 	ok(G.level_for_stars(0) == 1 and G.level_for_stars(5) == 1 and G.level_for_stars(6) == 2, \
 		"level_for_stars maps cumulative-earned thresholds")
@@ -1218,19 +1218,16 @@ func _initialize() -> void:
 		lchip = lchip.get_parent()
 	var lrow4: Control = lchip.get_child(0)
 	assert_wraps(lchip, lrow4, 5.0, 2.0, "R4 level chip")     # ±2: catches lopsided margins
-	# map spot pin (an unowned, fresh-save spot) — the price pin wraps its row (S7
-	# nests pins in a centered stack, so search the subtree, and FAIL loudly if absent)
+	# §16 home: an unrestored hub building shows a ✿cost RESTORE BADGE (the mask-reveal home replaced
+	# the old cutout price-pin; the badge is a farm_icons circle + the star cost).
 	await create_timer(0.05).timeout
-	var pin_panel: Control = null
+	var badge_found := false
 	for hit in h4.spot_hits:
 		var node: Control = hit.node
-		var found: Array = node.find_children("*", "PanelContainer", true, false)
-		if not found.is_empty():
-			pin_panel = found[0]
+		if not node.find_children("*", "TextureRect", true, false).is_empty():
+			badge_found = true
 			break
-	ok(pin_panel != null and pin_panel.get_child_count() > 0, "R4/S7: a map spot price pin exists")
-	if pin_panel != null and pin_panel.get_child_count() > 0:
-		assert_wraps(pin_panel, pin_panel.get_child(0), 4.0, 4.0, "R4 spot pin")
+	ok(badge_found, "R4/§16: an unrestored hub spot shows a restore badge")
 
 	# 22. U1 — item backing (contrast): ON puts a soft dark ellipse UNDER the item
 	# (first child = bottom); OFF leaves the item bare. Flag item_backing.
@@ -1989,7 +1986,6 @@ func _test_hub_yield() -> void:
 	ok(G.spot_is_yield(hub, "fh_hearth"), "Hearth is a yield building (kind:yield)")
 	ok(G.spot_is_yield(hub, "fh_well"), "Well is a yield building")
 	ok(not G.spot_is_yield(hub, "fh_porch"), "Porch is décor, NOT yield (kind:decor)")
-	ok(not G.spot_is_yield(hub, "fh_fence"), "Garden fence is décor, NOT yield")
 	ok(not G.spot_is_yield(1, "bn_bales"), "a plain non-hub spot (Barn) is not yield")
 	ok(G.spot_kind(hub, "fh_hearth") == "yield" and G.spot_kind(hub, "fh_porch") == "decor", "spot_kind exposes the raw seam")
 	var n_yield := 0

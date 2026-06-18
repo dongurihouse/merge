@@ -488,52 +488,172 @@ func _build_map() -> void:
 	# buildings stay locked together on any window aspect.
 	_map_rect = _map_image_rect()
 	_map_art_rect = _map_placed_rect(z, _map_rect)
-	# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
-	var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
-	if ResourceLoader.exists(art_path):
-		# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit). Anchoring to
-		# a sized parent avoids the TextureRect native-size reset. The base fills it; an optional fixed
-		# `fence` layer composites on top at its baked position/size.
-		var frame := Control.new()
-		frame.position = _map_art_rect.position
-		frame.size = _map_art_rect.size
-		frame.clip_contents = true
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(frame)
-		_add_cover_layer(frame, art_path)
-		var fence_path := String(G.MAPS[z].get("fence", ""))
-		if fence_path != "" and ResourceLoader.exists(fence_path) and _fence_revealed(z):
-			_add_cover_layer(frame, fence_path)
+	var home = G.MAPS[z].get("home", null)   # §16 mask-reveal home (the hub) — overrides cutout rendering
+	var decor := []
+	if typeof(home) == TYPE_DICTIONARY:
+		_build_home(z, home)                 # overgrown base + per-building reveal/badge (→ spot_hits)
 	else:
-		var fallback := Panel.new()
-		fallback.position = _map_art_rect.position
-		fallback.size = _map_art_rect.size
-		var fs := StyleBoxFlat.new()
-		fs.bg_color = MEADOW
-		fs.set_corner_radius_all(28)
-		fs.set_border_width_all(5)
-		fs.border_color = MEADOW.lerp(LEAF, 0.4)
-		fallback.add_theme_stylebox_override("panel", fs)
-		fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(fallback)
-	# decoration placed in the map placer (data/map1v2_decor.json)
-	var decor := _load_decor_list(z)
-	_add_placed_clouds(decor, _map_rect)    # placed clouds drift slowly in the sky, behind everything
-	_add_decor(decor, "back", _map_rect)    # trees BEHIND the buildings
-	# ambient life wanders over the map (order L), positioned within the image rect
+		# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
+		var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
+		if ResourceLoader.exists(art_path):
+			# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit). The base
+			# fills it; an optional fixed `fence` layer composites on top at its baked position/size.
+			var frame := Control.new()
+			frame.position = _map_art_rect.position
+			frame.size = _map_art_rect.size
+			frame.clip_contents = true
+			frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			content.add_child(frame)
+			_add_cover_layer(frame, art_path)
+			var fence_path := String(G.MAPS[z].get("fence", ""))
+			if fence_path != "" and ResourceLoader.exists(fence_path) and _fence_revealed(z):
+				_add_cover_layer(frame, fence_path)
+		else:
+			var fallback := Panel.new()
+			fallback.position = _map_art_rect.position
+			fallback.size = _map_art_rect.size
+			var fs := StyleBoxFlat.new()
+			fs.bg_color = MEADOW
+			fs.set_corner_radius_all(28)
+			fs.set_border_width_all(5)
+			fs.border_color = MEADOW.lerp(LEAF, 0.4)
+			fallback.add_theme_stylebox_override("panel", fs)
+			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			content.add_child(fallback)
+		decor = _load_decor_list(z)           # trees/grass/clouds placed in the map placer
+		_add_placed_clouds(decor, _map_rect)
+		_add_decor(decor, "back", _map_rect)
+	# ambient life + title — both render paths
 	var amb := Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
-	# the title plank — map name + ✿-progress — near the top of the map rect
 	content.add_child(_map_title_plank(z))
-	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	for k in G.MAPS[z].spots.size():
-		var spot := _make_spot(z, k, lvl, _map_rect)
-		content.add_child(spot)
-		spot_hits.append({"node": spot, "z": z, "k": k})
-	_add_decor(decor, "front", _map_rect)   # grass IN FRONT of the buildings
+	if typeof(home) != TYPE_DICTIONARY:
+		var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+		for k in G.MAPS[z].spots.size():
+			var spot := _make_spot(z, k, lvl, _map_rect)
+			content.add_child(spot)
+			spot_hits.append({"node": spot, "z": z, "k": k})
+		_add_decor(decor, "front", _map_rect)
 	FX.pop_in(content)
+
+# --- §16 mask-reveal home (the hub) ------------------------------------------------------
+
+const _HOME_MASK_SHADER := "shader_type canvas_item;
+uniform sampler2D mask;
+void fragment() {
+	COLOR = texture(TEXTURE, UV);
+	COLOR.a *= texture(mask, UV).a;
+}"
+var _home_mask: Shader
+
+# The hub home screen: an overgrown base (farm_brokenv2). Each RESTORED building reveals the clean farm
+# through its baked mask; each UNRESTORED building shows a ✿cost badge that taps into the normal buy flow.
+func _build_home(z: int, home: Dictionary) -> void:
+	var frame := Control.new()
+	frame.position = _map_art_rect.position
+	frame.size = _map_art_rect.size
+	frame.clip_contents = true
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(frame)
+	_add_fill_layer(frame, String(home.get("broken", "")))          # overgrown base
+	var data = _read_json_file(String(home.get("data", "")))
+	var by_id := {}
+	if typeof(data) == TYPE_DICTIONARY:
+		for b in data.get("buildings", []):
+			by_id[String(b.get("spot", ""))] = b
+	# ONE spot_hit per spot, index-aligned with G.MAPS[z].spots — the buy flow + tests rely on this:
+	# owned → reveal the clean farm through its mask + an invisible tap marker; unowned → the ✿cost badge.
+	for k in G.MAPS[z].spots.size():
+		var sid := String(G.MAPS[z].spots[k].id)
+		var b = by_id.get(sid, null)
+		var hit: Control
+		if spot_owned(sid):
+			if b != null:
+				var rev := _add_fill_layer(frame, String(home.get("clean", "")))   # clean farm, masked to this building
+				var mat := ShaderMaterial.new()
+				mat.shader = _home_mask_shader()
+				mat.set_shader_parameter("mask", load("res://assets/farm/" + String(b.get("mask", ""))))
+				rev.material = mat
+				var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
+				if String(vcur.id) != "base":
+					rev.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28)
+			hit = _home_owned_item(z, k, b)               # carries the upgrade pill + customize strip
+			if z == G.hub_map() and G.spot_is_yield(z, sid):
+				_add_upgrade_pill(hit, z, k)
+			if _customize_spot == sid:
+				_add_variant_strip(hit, z, k)
+		else:
+			hit = _home_badge(z, k, b)
+		content.add_child(hit)
+		spot_hits.append({"node": hit, "z": z, "k": k})
+
+func _home_mask_shader() -> Shader:
+	if _home_mask == null:
+		_home_mask = Shader.new(); _home_mask.code = _HOME_MASK_SHADER
+	return _home_mask
+
+func _add_fill_layer(frame: Control, path: String) -> TextureRect:
+	var t := TextureRect.new()
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE       # SCALE → UV [0,1] = full texture, so masks align
+	t.texture = load(path)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.add_child(t)
+	return t
+
+# A ✿cost restore badge (farm_icons circle + the spot's star cost), centered on the building.
+func _home_badge(z: int, k: int, b) -> Control:
+	var spot: Dictionary = G.MAPS[z].spots[k]
+	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
+	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
+	var d := _map_rect.size.x * 0.16                  # badge diameter relative to the map
+	var node := Control.new()
+	node.size = Vector2(d, d)
+	node.position = ctr - Vector2(d, d) * 0.5
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := TextureRect.new()
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	bg.texture = load("res://assets/farm/badge.png")
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(bg)
+	var lbl := Label.new()
+	lbl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lbl.text = "★%d" % int(spot.cost)
+	lbl.add_theme_font_size_override("font_size", int(d * 0.34))
+	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(lbl)
+	return node
+
+# An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with
+# the spots) that also carries the upgrade pill + the inline customize strip, exactly like _make_spot.
+func _home_owned_item(z: int, k: int, b) -> Control:
+	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
+	var pos := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
+	var item := Control.new()
+	item.size = Vector2(180, 150)                    # match _make_spot's box so the pill/strip place the same
+	item.position = pos - Vector2(90, 40)
+	item.pivot_offset = Vector2(90, 50)
+	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return item
+
+func _spot_index(z: int, id: String) -> int:
+	for k in G.MAPS[z].spots.size():
+		if String(G.MAPS[z].spots[k].id) == id:
+			return k
+	return -1
+
+func _read_json_file(path: String):
+	if path == "" or not FileAccess.file_exists(path):
+		return null
+	return JSON.parse_string(FileAccess.get_file_as_string(path))
 
 # The available area below the HUD and above the bottom chrome; the map image is
 # CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).

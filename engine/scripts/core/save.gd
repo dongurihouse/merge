@@ -271,7 +271,7 @@ static func spend_stars(n: int) -> bool:
 # (A save from a naming TWO renames back isn't chained — pre-launch, disposable; the live model is what matters.)
 const _SPOT_ID_RENAMES := {
 	"fh_chest": "fh_hearth", "fh_bed": "fh_kitchen", "fh_table": "fh_well", "fh_rug": "fh_larder",
-	"fh_plant": "fh_porch", "fh_wheel": "fh_boxes", "fh_chair": "fh_lantern", "fh_picture": "fh_fence",
+	"fh_plant": "fh_porch", "fh_wheel": "fh_boxes", "fh_chair": "fh_lantern",
 	"bn_doors": "bn_bales", "bn_loft": "bn_stool",
 	"bn_stalls": "bn_churns", "bn_weathervane": "bn_plow",
 }

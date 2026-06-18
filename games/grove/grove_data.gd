@@ -259,6 +259,9 @@ static func _build_maps() -> Array:
 		"fence": "res://assets/map1v2/fence.png",         # fixed fence layer, composited over the base
 		"full": "res://assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		"decor": "res://data/map1v2_decor.json",          # trees/grass/clouds placed in the map placer (read at load)
+		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
+		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
+		"home": {"clean": "res://assets/farm/farm.png", "broken": "res://assets/farm/farm_brokenv2.png", "data": "res://assets/farm/farm_home.json"},
 		"spots": [
 		# `art` points each spot at its map1v2 item cutout; pos/fsize are AUTO-DERIVED from base_items
 		# (assets/map1v2/items_layout.json, merged at load by item name = the art's basename).
@@ -269,7 +272,6 @@ static func _build_maps() -> Array:
 		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://assets/map1v2/items/doghouse.png"},
 		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://assets/map1v2/items/flowerbox.png"},
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://assets/map1v2/items/lantern.png"},
-		{"id": "fh_fence", "name": "Garden fence", "kind": "decor", "cost": 5, "pos": Vector2(0.37, 0.34), "fsize": 190, "reveal": "fence"},
 	]},
 	{"id": "barn", "name": "The Barn", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
