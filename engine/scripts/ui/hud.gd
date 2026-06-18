@@ -103,11 +103,17 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the level badge — the kit's painted ROPE RING (`ui/kit/ring_level.png`) with the INK
-	# number in its open center. Falls back to a honey token (de-greened: green is reserved for
-	# the CTA) when the art is absent, so the chip still reads on any build.
-	var ring_p := Look.kit("ring_level.png")
-	if ResourceLoader.exists(ring_p):
+	# the level badge FRAME — an EVOLVING gold ring that upgrades with Level (kit/badges/
+	# badge_NN.png, sliced from lvls.png, mapped by data/level_badges.json). Falls back to
+	# the single rope ring (`ring_level.png`), then a honey token (de-greened: green is the
+	# CTA), so the chip still reads on any build. The texture is swapped on level-up in
+	# `refresh` below; the INK number sits centred in its open middle.
+	var lvl0 := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+	var frame_p := Look.level_badge_path(lvl0)
+	if frame_p == "":
+		frame_p = Look.kit("ring_level.png")
+	var frame: TextureRect = null
+	if ResourceLoader.exists(frame_p):
 		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no default dark Panel bg behind the ring
 		# a cream disc fills the ring's open centre (reference: the number reads on cream, not sky)
 		var disc := Panel.new()
@@ -120,13 +126,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		disc.add_theme_stylebox_override("panel", dsb)
 		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		avatar.add_child(disc)
-		var ring := TextureRect.new()
-		ring.texture = load(ring_p)
-		ring.set_anchors_preset(Control.PRESET_FULL_RECT)
-		ring.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ring.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		avatar.add_child(ring)
+		frame = TextureRect.new()
+		frame.texture = load(frame_p)
+		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		avatar.add_child(frame)
 	else:
 		var coin := StyleBoxFlat.new()
 		coin.bg_color = Tune.LV_TOKEN_BG            # honey token — warm, not the CTA green
@@ -135,7 +141,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
 		avatar.add_theme_stylebox_override("panel", coin)
 	var level := Label.new()
-	level.add_theme_font_size_override("font_size", 40)   # big number centered in the ring (reference)
+	level.add_theme_font_size_override("font_size", _lv_font_size(lvl0))   # fits the badge opening (steps down for 2-3 digits)
 	level.add_theme_color_override("font_color", INK)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -156,8 +162,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var home_btn := _build_home_chip(left, opts)
 	host.add_child(left)
 
+	var frame_state := {"path": frame_p}   # last-applied badge path — only reload when the tier flips
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
-		"wallet": panel, "lv_panel": lv_panel, "home": home_btn}
+		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
@@ -165,7 +172,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		var earned := int(Save.grove().get("stars_earned", 0))
 		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
+		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
 		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
+		# upgrade the frame when leveling crosses a badge tier (no-op when art/config absent)
+		if frame != null:
+			var bp := Look.level_badge_path(lvl)
+			if bp != "" and bp != frame_state["path"]:
+				frame.texture = load(bp)
+				frame_state["path"] = bp
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
@@ -295,3 +309,13 @@ static func _set_or_tick(lbl: Label, v: int) -> void:
 		FX.tick(lbl, v)
 	else:
 		lbl.text = str(v)
+
+# The level number sits in the badge's open centre, which is tighter than the plain
+# avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
+# ring (and clear the crown/laurel on the high badges) instead of crowding it.
+static func _lv_font_size(level: int) -> int:
+	if level >= 100:
+		return 22
+	if level >= 10:
+		return 28
+	return 36

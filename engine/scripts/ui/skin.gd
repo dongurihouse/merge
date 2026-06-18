@@ -91,6 +91,47 @@ const ICON_GLYPHS := {
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
+## --- the level chip's evolving frame -------------------------------------------------
+## The HUD level badge swaps to a fancier gold frame as the player levels up (plainest
+## ring 00 -> crown 15, sliced from assets/board/lvls.png into kit/badges/). Which badge
+## a Level shows is DATA: res://data/level_badges.json maps Level -> badge index by an
+## even-tier rule. level_badge_path() returns the resolved kit path, or "" when the
+## config/art is absent so the HUD keeps its ring_level.png fallback. Parsed once.
+const LEVEL_BADGE_CFG := "res://data/level_badges.json"
+static var _badge_cfg: Dictionary = {}
+
+static func _level_badge_cfg() -> Dictionary:
+	if _badge_cfg.is_empty():
+		var f := FileAccess.open(LEVEL_BADGE_CFG, FileAccess.READ)
+		if f == null:
+			_badge_cfg = {"badge_count": 0}      # cache the "no config" verdict; don't re-open
+			return _badge_cfg
+		var d = JSON.parse_string(f.get_as_text())
+		_badge_cfg = (d as Dictionary) if d is Dictionary else {"badge_count": 0}
+	return _badge_cfg
+
+## The badge index for a Level (0-based), or -1 when no badges are configured.
+## idx = clamp(floor((level-1) / levels_per_tier), 0, badge_count-1).
+static func level_badge_index(level: int) -> int:
+	var cfg := _level_badge_cfg()
+	var count := int(cfg.get("badge_count", 0))
+	if count <= 0:
+		return -1
+	var per := maxi(1, int(cfg.get("levels_per_tier", 1)))
+	var tier := int(floor((maxf(1.0, float(level)) - 1.0) / float(per)))
+	return clampi(tier, 0, count - 1)
+
+## The resolved kit path of the badge for a Level, or "" when config/art is missing.
+static func level_badge_path(level: int) -> String:
+	var cfg := _level_badge_cfg()
+	var idx := level_badge_index(level)
+	if idx < 0:
+		return ""
+	var dir := String(cfg.get("dir", "badges"))
+	var prefix := String(cfg.get("prefix", "badge_"))
+	var p := kit("%s/%s%02d.png" % [dir, prefix, idx])
+	return p if ResourceLoader.exists(p) else ""
+
 ## --- the sticker recipe --------------------------------------------------------------
 ## A StyleBoxFlat has exactly ONE border colour, so the two-tone rim (a darker OUTER
 ## edge + a lighter INNER highlight) can't live in a single box. We keep the dark outer

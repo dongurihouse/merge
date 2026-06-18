@@ -303,7 +303,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		help_row.add_child(_help_card(host, refs, "rain", host.tr("Fill your water"),
 			host.tr("top up the can"), G.REFILL_DIAMOND_COST, water_action, "water",
 			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own.")))
-	help_row.add_child(_help_card(host, refs, "coin", host.tr("Coin pouch"),
+	help_row.add_child(_help_card(host, refs, "coin_sack", host.tr("Coin pouch"),
 		host.tr("+%d acorns") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
 		host.tr("Adds %d acorns to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
 
@@ -617,15 +617,17 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 		badge_text = host.tr("Best value")     # the whale pack (best 💎/$ rate) — crown it
 	if badge_text != "":
 		slot.add_child(_badge(badge_text))
-	# scale the cluster by tier so a bigger pack LOOKS bigger (the value ladder reads at a glance);
-	# the icon sits in a FIXED-height slot (= GEM_ICON_MAX) centred, so a smaller cluster never
-	# shoves this card's count/price up relative to its row-mates (keeps the grid row aligned).
-	var frac := float(i) / float(maxi(1, CASH_PACKS.size() - 1))
+	# the hoard art escalates per pack (a single dewdrop → a brimming chest) so a bigger pack
+	# LOOKS bigger — the value ladder reads at a glance. All render at the FIXED box (= GEM_ICON_MAX)
+	# centred, so the art carries the ladder without shoving a card's count/price out of row-align.
+	var gem_art := "gem_t%d" % (i + 1)
+	if not ResourceLoader.exists(Look.kit("icon_%s.png" % gem_art)):
+		gem_art = "gem"                          # safety: more packs than tier sprites → the plain glyph
 	var icon_slot := CenterContainer.new()
 	icon_slot.custom_minimum_size = Vector2(0, Tune.GEM_ICON_MAX)
 	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(icon_slot)
-	icon_slot.add_child(Look.icon("gem", lerpf(Tune.GEM_ICON_MIN, Tune.GEM_ICON_MAX, frac)))
+	icon_slot.add_child(Look.icon(gem_art, Tune.GEM_ICON_MAX))
 	var n := Label.new()
 	n.text = str(int(pack.gems))
 	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
