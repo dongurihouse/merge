@@ -1991,6 +1991,7 @@ func _initialize() -> void:
 	ok(not _tree_has(bramble_node, "TextureRect"), "locked cell has no bramble texture overlay (the dark thicket is gone)")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	bramble_node.free()
+	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

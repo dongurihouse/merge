@@ -779,28 +779,14 @@ func _rebuild_givers() -> void:
 	# AB/owner fix: the fence sprite's background is now cut to transparent
 	# (games/tools/cutout_bg.gd), so the SCENE shows through its gaps — no brown slab
 	# behind it. The slab survives only as a FALLBACK when the fence art is absent.
-	if ResourceLoader.exists(Game.art("ui/fence_grove.png")):
-		var wt := TextureRect.new()
-		wt.texture = load(Game.art("ui/fence_grove.png"))
-		wt.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		wt.stretch_mode = TextureRect.STRETCH_SCALE
-		wt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wt)
-	else:
-		var wall_bg := Panel.new()
-		wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ws := StyleBoxFlat.new()
-		ws.bg_color = Color("#6E4B2F", 0.94)
-		ws.set_corner_radius_all(18)
-		ws.set_border_width_all(4)
-		ws.border_color = Color("#3D2A1B")
-		ws.shadow_color = Color(0, 0, 0, 0.3)
-		ws.shadow_size = 6
-		ws.shadow_offset = Vector2(0, 4)
-		wall_bg.add_theme_stylebox_override("panel", ws)
-		wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wall.add_child(wall_bg)
+	# UI redesign: the quest band is a LIGHT Rest-plane strip — the dark wooden fence
+	# (fence_grove.png) / brown plank became the loudest dark element once the board went light,
+	# so it's replaced by a soft warm-neutral band the busts + cream ask-pills ride on.
+	var wall_bg := Panel.new()
+	wall_bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	wall_bg.add_theme_stylebox_override("panel", _quest_band_style())
+	wall_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wall.add_child(wall_bg)
 	# the stands scroll horizontally when the map is generous (cards stay BIG)
 	var span := giver_bar.size.x
 	if span <= 0.0:
@@ -1174,6 +1160,19 @@ static func _field_backdrop() -> ColorRect:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return bg
+
+# The quest band behind the givers (UI redesign) — a LIGHT Rest-plane strip (SURFACE_FRAME) with
+# a quiet rim + soft resting shadow, replacing the old dark wooden fence. Static so it is testable.
+static func _quest_band_style() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.SURFACE_FRAME, 0.92)
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(Pal.BARK, 0.22)
+	sb.shadow_color = Color(0, 0, 0, 0.12)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	return sb
 
 func _make_bramble(cell: Vector2i) -> Control:
 	return PieceView.make_bramble(cell, csz)

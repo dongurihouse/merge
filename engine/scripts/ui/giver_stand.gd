@@ -59,8 +59,8 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	plaque.add_theme_stylebox_override("panel", pls)
 	plaque.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stand.add_child(plaque)
-	var bust := Bust.make(qi % 2, 124.0)
-	bust.position = Vector2((sw - 124.0) / 2.0, 0.0)
+	var bust := Bust.make(qi % 2, 150.0)   # UI redesign: enlarged — the character is the card's anchor
+	bust.position = Vector2((sw - 150.0) / 2.0, 0.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is NOT started here — it now means "deliverable", so
 	# _refresh_giver_lights gates it per giver via _giver_is_payable. (The bust is
