@@ -62,7 +62,9 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# the requested item(s) — large, inside the speech bubble (right portion of the card)
 	var asks: Array = G.quest_asks(q)
 	var ask_uis: Array = []
-	var bub := Vector2(cx + cardW * 0.66, cy + cardH * 0.40)   # bubble centre (matches the art)
+	# the painted bubble sits in the card's RIGHT third (centre ~0.82w, 0.41h of card_quest.png);
+	# the item is centred on it so it reads as "spoken" from the bubble, not floating mid-card.
+	var bub := Vector2(cx + cardW * 0.82, cy + cardH * 0.41)   # bubble centre (matches the art)
 	if q.has("grant"):                        # §6: a generator-grant quest shows the NEW generator to receive
 		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.grant.grants))
 		var gtex := Game.art(String(gdef.get("tex", "")))
@@ -76,8 +78,8 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			gicon.size = Vector2(gs, gs)
 			gicon.position = bub - Vector2(gs, gs) / 2.0
 			stand.add_child(gicon)
-	var isz := (cardH * 0.5) if asks.size() >= 2 else (cardH * 0.62)   # LARGE — the item is the message
-	var span := isz * 0.92
+	var isz := (cardH * 0.36) if asks.size() >= 2 else (cardH * 0.46)   # sized to sit INSIDE the bubble
+	var span := isz * 0.88
 	for ai in asks.size():
 		var ask: Dictionary = asks[ai]
 		var aline := int(ask.line)

@@ -224,8 +224,10 @@ func _ready() -> void:
 	gate_btn.offset_left = -210
 	gate_btn.offset_right = 210
 	var gate_inset := Look.safe_bottom(self)
-	gate_btn.offset_top = -206 - gate_inset
-	gate_btn.offset_bottom = -118 - gate_inset
+	# sits just ABOVE the full-width nav row (its big buttons reach ~194px up from the bottom) —
+	# the reserved slot rides clear of the nav so the CTA never covers a button.
+	gate_btn.offset_top = -300 - gate_inset
+	gate_btn.offset_bottom = -212 - gate_inset
 	gate_btn.z_index = 10
 	add_child(gate_btn)
 
@@ -254,46 +256,53 @@ func _ready() -> void:
 	_build_bag_bar()
 	bag_bar.visible = _spots_bought() >= 2 or not Features.on("ftue_staged_chrome")
 
-	# UI redesign (board art kit): a CENTERED bottom nav of 5 painted buttons sitting on the
-	# meadow (no bar slab) — [Home · Shop · Leaf · Gear · Bag], matching the new board art.
-	# Same actions as before; the Leaf is the current-scene mark (this IS the board), the Bag
-	# button bounces the inline bag row into view. shop_btn stays a member (§14 spotlight target).
+	# UI redesign (board art kit): a FULL-WIDTH bottom nav of 5 BIG painted buttons sitting on the
+	# meadow (no bar slab) — [Home · Shop · Leaf · Gear · Bag], matching the new board art. The row
+	# spans edge to edge (small side margin); expanding spacers between the buttons distribute them
+	# evenly (Home near the left, Bag near the right). Same actions as before; the Leaf is the
+	# current-scene mark (this IS the board), the Bag button bounces the inline bag row into view.
+	# shop_btn stays a member (§14 spotlight target).
 	var sb_inset := Look.safe_bottom(self)
 	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 18)
+	brow.add_theme_constant_override("separation", 0)
 	brow.alignment = BoxContainer.ALIGNMENT_CENTER
 	bottom_bar = brow
-	brow.anchor_left = 0.5
-	brow.anchor_right = 0.5
+	brow.anchor_left = 0.0
+	brow.anchor_right = 1.0
 	brow.anchor_top = 1.0
 	brow.anchor_bottom = 1.0
-	brow.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	brow.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	brow.offset_left = 32
+	brow.offset_right = -32
 	brow.offset_top = -16 - sb_inset
 	brow.offset_bottom = -16 - sb_inset
-	var home_btn := _make_nav_button("nav_home.png", 88.0, func() -> void:
+	var home_btn := _make_nav_button("nav_home.png", 150.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
 		get_tree().change_scene_to_file("res://engine/scenes/Map.tscn"))
 	brow.add_child(home_btn)
-	shop_btn = _make_nav_button("nav_shop.png", 88.0, func() -> void:
+	brow.add_child(_nav_spacer())
+	shop_btn = _make_nav_button("nav_shop.png", 150.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if _open_shop.is_valid():
 			_open_shop.call())
 	brow.add_child(shop_btn)
-	# the Leaf — this scene's own mark (slightly larger, the green centerpiece); a tap just
+	brow.add_child(_nav_spacer())
+	# the Leaf — this scene's own mark (the larger green centerpiece); a tap just
 	# bounces it (you're already on the board), so it reads as "you are here".
-	var leaf_btn := _make_nav_button("nav_leaf.png", 110.0, func() -> void:
+	var leaf_btn := _make_nav_button("nav_leaf.png", 178.0, func() -> void:
 		Audio.play("button_tap", -2.0))
 	leaf_btn.disabled = false
 	brow.add_child(leaf_btn)
+	brow.add_child(_nav_spacer())
 	# the Settings gear — same shared card the map's gear opens (ui/settings.gd).
-	var settings_btn := _make_nav_button("nav_gear.png", 88.0, func() -> void:
+	var settings_btn := _make_nav_button("nav_gear.png", 150.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		SettingsUI.open(self))
 	brow.add_child(settings_btn)
+	brow.add_child(_nav_spacer())
 	# the Bag — bounces the inline bag row (the live drag-to-bag system stays on the board).
-	var bag_btn := _make_nav_button("nav_bag.png", 88.0, func() -> void:
+	var bag_btn := _make_nav_button("nav_bag.png", 150.0, func() -> void:
 		Audio.play("button_tap", -2.0)
 		if bag_bar != null and is_instance_valid(bag_bar):
 			FX.breathe_once(bag_bar))
@@ -1171,6 +1180,14 @@ static func _slot_style() -> StyleBox:
 # One painted nav button: a flat Button hosting the kit sprite (`ui/kit/<kit_name>`),
 # centered + aspect-kept in a px×px box, with the shared press juice. Falls back to a glyph
 # Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
+# An expanding gap between two nav buttons — the full-width row distributes its leftover
+# space equally across these so the 5 buttons spread evenly edge to edge.
+func _nav_spacer() -> Control:
+	var sp := Control.new()
+	sp.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return sp
+
 func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
 	var b := Button.new()
 	b.flat = true

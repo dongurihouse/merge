@@ -1369,14 +1369,15 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
-	# the board-art nav is a slab-less centered ROW of 5 painted buttons (bottom_bar IS the row;
-	# children 0..4 = home·shop·leaf·gear·bag) sitting on the meadow — so the asserts check the
-	# row + its buttons sit on-screen, not a wrapping plank.
+	# the board-art nav is a slab-less FULL-WIDTH ROW of 5 painted buttons (bottom_bar IS the row),
+	# now interleaved with expanding spacers for even edge-to-edge spacing — so count the Button
+	# children (not raw children) and check the row + its buttons sit on-screen, not a wrapping plank.
 	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
-	ok(ss.bottom_bar.get_child_count() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
-	var bb_home: Control = ss.bottom_bar.get_child(0)
+	var nav_btns: Array = ss.bottom_bar.get_children().filter(func(c): return c is Button)
+	ok(nav_btns.size() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
+	var bb_home: Control = nav_btns[0]
 	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
-	var bb_shop: Control = ss.bottom_bar.get_child(1)
+	var bb_shop: Control = ss.shop_btn
 	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
@@ -1431,7 +1432,7 @@ func _initialize() -> void:
 	var vp2: Rect2 = ss.get_viewport_rect()
 	ok(absf(vp2.size.y - 2340.0) < 2.0, "S1: viewport actually grew to the tall aspect (got %.0f)" % vp2.size.y)
 	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom nav fully on-screen at 1080×2340")
-	ok(vp2.encloses(ss.bottom_bar.get_child(1).get_global_rect()), \
+	ok(vp2.encloses(ss.shop_btn.get_global_rect()), \
 		"S1: the shop button stays on-screen at 1080×2340")
 	get_root().size = Vector2i(1080, 1920)
 	await create_timer(0.06).timeout
