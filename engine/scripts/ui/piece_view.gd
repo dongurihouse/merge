@@ -252,35 +252,16 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# A locked cell reads as a CALM MUTED TILE, not a dark thicket — the painted brambles read
-	# heavy/ugly at cell size and dragged the whole board dark (most cells are locked). The base is
-	# a soft muted tan (slightly shaded vs an open cell = "inactive"); the bramble art rides ON TOP
-	# at low opacity as a faint "overgrown" texture hint; the lock badge below marks it sealed.
-	# Density band → existing bramble_1..3 only; §4 gates {1,2,3,5,7,9,11} map 1-3→1, 5-7→2, 9-11→3.
+	# UI redesign: a locked cell is a LIGHT, recessive Sunk well (Pal.LOCKED) with a quiet lock
+	# glyph — NOT a dark thicket. The old painted bramble overlay + dark cream-on-bark badge dragged
+	# the whole board dark (most cells start locked); locks now recede by being LIGHT. The density
+	# band only shades deeper rings a hair, for a faint sense of depth.
 	var ring := clampi(lvl / 4 + 1, 1, 3)
 	var tile := Panel.new()
 	tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var tsb := StyleBoxFlat.new()
-	tsb.bg_color = Color("#C5B88E", 0.92).darkened(0.02 * ring)   # muted tan; deeper rings a touch more shaded
-	tsb.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
-	tsb.set_border_width_all(2)
-	tsb.border_color = Color("#A8946A", 0.40)
-	tsb.shadow_color = Color(0, 0, 0, 0.10)        # a faint inset → reads sealed/inactive
-	tsb.shadow_size = 3
-	tile.add_theme_stylebox_override("panel", tsb)
+	tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
 	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(tile)
-	var path := Game.art("ui/bramble_%d.png" % ring)
-	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.material = bramble_mat()
-		t.modulate = Color(1, 1, 1, 0.20 + 0.04 * ring)   # a faint thicket hint, denser rings slightly stronger
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
 	# The Level gate (§4): NO-REQUIRED-READING — a lock glyph carries "sealed"; a small styled
 	# badge carries the number only where it earns its keep. To keep the board CALM we show the
 	# "Lv N" chip on the FRONTIER (the shallow inner gates the player is about to reach) and a
@@ -291,62 +272,48 @@ static func make_bramble(cell: Vector2i, csz: float) -> Control:
 
 const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the styled number)
 
-# A high-contrast cream-on-bark gate chip: a small rounded sticker with a lock glyph, and the
-# Level number only on the FRONTIER (deeper cells get the lock alone). Reads at cell size on
-# the dark bramble; replaces the old low-contrast outlined Label stamped on every cell.
-#
-# The lock glyph: where the lock ART is missing, Look.icon("lock") falls back to the literal
-# text "Lv" (skin.gd ICON_GLYPHS) — so "Lv" + an "Lv%d" label would double to "LvLv3". We
-# detect the fallback and let the glyph itself supply the "Lv" prefix, pairing it with a bare
-# number ("Lv" + "3" → "Lv 3"); with real lock art we prefix the number ("🔒 Lv3"). Either
-# way the chip reads as a Level gate, never a bare count.
+# The locked/sealed cell well (UI redesign) — a LIGHT recessive Sunk surface (Pal.LOCKED): no drop
+# shadow (Sunk floats nothing), a whisper-quiet rim, deeper rings barely shaded for depth. Static
+# so it is unit-testable. Mirrors board.gd's _cell_style() (the empty cell) one value lower.
+static func _locked_style(csz: float, ring: int = 1) -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.LOCKED.darkened(0.018 * float(ring - 1))   # ring 1 == Pal.LOCKED exactly
+	sb.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
+	sb.set_border_width_all(2)
+	sb.border_color = Color(Pal.LOCKED_GLYPH, 0.30)              # quiet recessive rim
+	sb.shadow_color = Color(0, 0, 0, 0)                          # Sunk plane — floats nothing
+	sb.shadow_size = 0
+	return sb
+
+# A QUIET level-gate mark (UI redesign): a small low-contrast code-drawn padlock in LOCKED_GLYPH,
+# with the "Lv N" number — muted ink, NO chip — only on the FRONTIER (deeper cells get the bare
+# lock). No dark cream-on-bark sticker: the lock must RECEDE on the light Sunk cell, not shout.
+# A code-drawn glyph (not the painterly kit icon) keeps ~30 locked cells whisper-quiet.
 static func _lv_gate_badge(lvl: int, csz: float, with_num: bool) -> Control:
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var chip := PanelContainer.new()
-	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var pad := maxf(3.0, csz * 0.06)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.BARK                     # warm bark/parchment chip
-	sb.set_corner_radius_all(int(maxf(6.0, csz * 0.16)))
-	sb.set_border_width_all(2)
-	sb.border_color = Pal.BARK.darkened(0.28)  # subtle darker rim for definition
-	sb.set_content_margin_all(pad)
-	sb.shadow_color = Color(Pal.INK, 0.40)     # soft drop shadow grounds the sticker
-	sb.shadow_size = int(maxf(2.0, csz * 0.05))
-	sb.shadow_offset = Vector2(0, maxf(1.0, csz * 0.025))
-	chip.add_theme_stylebox_override("panel", sb)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(maxf(2.0, csz * 0.05)))
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# always a lock SHAPE (kit sprite if present, else a code-drawn padlock) — never the bare
-	# text "Lv" the glyph fallback prints — so the number, when shown, is always a clean "Lv%d".
-	row.add_child(_lock_glyph(csz * (0.30 if with_num else 0.36), CREAM, Pal.BARK.darkened(0.35)))
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", int(maxf(1.0, csz * 0.02)))
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gpx := csz * (0.30 if with_num else 0.34)
+	var glyph := _LockGlyph.new()
+	glyph.body_col = Pal.LOCKED_GLYPH                       # whisper-quiet, recedes
+	glyph.key_col = Pal.LOCKED_GLYPH.darkened(0.22)
+	glyph.custom_minimum_size = Vector2(gpx, gpx)
+	box.add_child(glyph)
 	if with_num:
 		var bnum := Label.new()
 		bnum.text = TranslationServer.translate("Lv%d") % lvl
-		bnum.add_theme_font_size_override("font_size", int(csz * 0.26))
-		bnum.add_theme_color_override("font_color", CREAM)      # cream on bark — high contrast, no outline needed
+		bnum.add_theme_font_size_override("font_size", int(maxf(11.0, csz * 0.20)))
+		bnum.add_theme_color_override("font_color", Pal.INK_MUTED)   # muted ink, no chip
+		bnum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(bnum)
-	chip.add_child(row)
-	center.add_child(chip)
+		box.add_child(bnum)
+	center.add_child(box)
 	return center
-
-# A lock SHAPE that never degrades to text: the kit sprite if it resolves, else a code-drawn
-# padlock — so a locked cell can never fall back to the literal "Lv" the icon glyph prints.
-static func _lock_glyph(px: float, body: Color, key: Color) -> Control:
-	var ic := Look.icon("lock", px)
-	if ic is TextureRect:
-		return ic                          # real lock art
-	var g := _LockGlyph.new()
-	g.body_col = body
-	g.key_col = key
-	g.custom_minimum_size = Vector2(px, px)
-	return g
 
 # A tiny painted padlock (shackle arc + rounded body + keyhole) — the bulletproof fallback so a
 # missing kit icon never prints "Lv" on a locked cell.

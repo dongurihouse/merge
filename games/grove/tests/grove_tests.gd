@@ -12,6 +12,7 @@ const VaultUI = preload("res://engine/scripts/ui/vault.gd")   # T44 — the dieg
 const LoginUI = preload("res://engine/scripts/ui/login.gd")   # T44 — the diegetic login-calendar surface
 const Pal = preload("res://games/grove/grove_palette.gd")      # UI redesign — role tiers
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # UI redesign — board component builders
+const PieceViewScript = preload("res://engine/scripts/ui/piece_view.gd")  # UI redesign — locked-cell builder
 
 var _pass := 0
 var _fail := 0
@@ -1981,6 +1982,10 @@ func _initialize() -> void:
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
 	ok(cell_sb.shadow_size == 0, "empty cell sits on the Sunk plane (no drop shadow)")
 	ok(BoardScript._field_backdrop().color.is_equal_approx(Pal.SURFACE), "board backdrop is the flat SURFACE field (not the painted olive bg)")
+	var lock_sb := PieceViewScript._locked_style(100.0)
+	ok(lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
+	ok(lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+	ok(not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
