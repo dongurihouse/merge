@@ -253,7 +253,7 @@ class Hud:
 
 	# --- the level chip ----------------------------------------------------------------
 	const LV_PX := 48.0                   # the round level "coin" diameter
-	const LV_TOKEN_BG := Color("#3F6B43") # deep leaf — growth, contrasts the cream pill
+	const LV_TOKEN_BG := Color("#EAD49C") # honey token (de-greened — green is reserved for the CTA); gold ring + ink number
 	const LV_TOKEN_BORDER := Color("#C9A66B")  # warm gold ring
 	const LV_NUM_SIZE := 26               # the level number inside the token
 	const LVL_PROG_SIZE := 28             # the level-progress fraction to its right

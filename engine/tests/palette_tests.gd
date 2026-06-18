@@ -59,5 +59,10 @@ func _initialize() -> void:
 	var raised_a: float = (sk.get("SHADOW_RAISED", Color(0, 0, 0, 0)) as Color).a
 	ok(sunk_a <= rest_a and rest_a <= raised_a,
 		"shadow alphas ordered Sunk<=Rest<=Raised (%.2f<=%.2f<=%.2f)" % [sunk_a, rest_a, raised_a])
+	# --- HUD: the level token is de-greened (green is reserved for the CTA) ---
+	var hud := (preload("res://engine/scripts/core/tuning.gd").Hud as GDScript).get_script_constant_map()
+	var lvbg: Color = hud.get("LV_TOKEN_BG", Color.BLACK)
+	ok(lvbg.r >= lvbg.g and lvbg.v > 0.70,
+		"level token is de-greened — warm + light, not green (r=%.2f g=%.2f v=%.2f)" % [lvbg.r, lvbg.g, lvbg.v])
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

@@ -105,19 +105,18 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a clean level "coin" — deep-leaf token + warm gold ring + cream number. The
-	# busy sprout badge couldn't hold a readable number AND look good; this reads
-	# crisply and matches the HUD's cream/gold language. (Swap to a sprout badge
-	# later only if one is generated with an OPEN center.)
+	# a clean level "coin" — honey token + warm gold ring + INK number (de-greened: green is now
+	# reserved for the CTA/growth signal). Reads crisply and matches the HUD's cream/gold language.
+	# (Swap to a sprout badge later only if one is generated with an OPEN center.)
 	var coin := StyleBoxFlat.new()
-	coin.bg_color = Tune.LV_TOKEN_BG            # deep leaf — growth, and contrasts the cream pill
+	coin.bg_color = Tune.LV_TOKEN_BG            # honey token (de-greened) — warm, not the CTA green
 	coin.set_corner_radius_all(int(lv_px / 2.0))
 	coin.set_border_width_all(Tune.PILL_BORDER_W)
 	coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
 	avatar.add_theme_stylebox_override("panel", coin)
 	var level := Label.new()
 	level.add_theme_font_size_override("font_size", Tune.LV_NUM_SIZE)
-	level.add_theme_color_override("font_color", CREAM)
+	level.add_theme_color_override("font_color", INK)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
