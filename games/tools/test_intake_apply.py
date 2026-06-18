@@ -88,5 +88,30 @@ class ArgTests(unittest.TestCase):
             ia.parse_post("blur:3")
 
 
+import tempfile
+
+
+class FileMoveTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def test_archive_raw_moves_and_makes_parent(self):
+        root = self.tmp
+        (root / "_originals" / "new").mkdir(parents=True)
+        src = root / "_originals" / "new" / "a.png"
+        src.write_bytes(b"PNG")
+        ia.archive_raw("_originals/new/a.png", "_originals/ui/a.png", root=root)
+        self.assertFalse(src.exists())
+        self.assertEqual((root / "_originals" / "ui" / "a.png").read_bytes(), b"PNG")
+
+    def test_log_plan_moves_into_processed(self):
+        plan = self.tmp / "a.plan.json"
+        plan.write_text("{}")
+        processed = self.tmp / "_processed"
+        ia.log_plan(plan, processed=processed)
+        self.assertFalse(plan.exists())
+        self.assertTrue((processed / "a.plan.json").exists())
+
+
 if __name__ == "__main__":
     unittest.main()

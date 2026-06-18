@@ -116,3 +116,21 @@ def parse_post(post: str | None) -> dict | None:
         w, h = arg.split("x")
         return {"size": [int(w), int(h)]}
     return {"size": int(arg)}
+
+
+import shutil
+
+
+def abspath(rel_under_asset_root: str, root: Path = ASSET_ROOT) -> str:
+    return str((root / rel_under_asset_root).resolve())
+
+
+def archive_raw(source_rel: str, archive_rel: str, root: Path = ASSET_ROOT) -> None:
+    dst = root / archive_rel
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(root / source_rel), str(dst))
+
+
+def log_plan(plan_path: Path, processed: Path = PROCESSED) -> None:
+    processed.mkdir(parents=True, exist_ok=True)
+    shutil.move(str(plan_path), str(processed / Path(plan_path).name))
