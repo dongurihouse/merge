@@ -20,3 +20,6 @@ override.cfg
 # `make run_base` creates it (placeholder boots without importing grove art);
 # `make run_grove` removes it (grove art imports + loads). Either way: never committed.
 games/grove/assets/.gdignore
+
+# raw LLM image drops (process via slice_grid + make icon/decor; not committed)
+assets/llm/
