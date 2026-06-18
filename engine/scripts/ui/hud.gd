@@ -19,6 +19,15 @@ const INK = Pal.INK
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
+# The currency pill's painted background (ui/kit/panel_pill.png) is a CAPSULE — its rounded
+# gold caps are as tall as the whole pill. A nine-patch keeps those caps a fixed size while
+# only the flat middle stretches to the counts, BUT a nine-patch corner draws 1:1 (no scale),
+# so the source must be exported at the rendered slot height or the caps crush into a thin
+# border (the exact failure that retired the old chip nine-patch, T48). The slot is 346×65
+# (probe); the asset is 292×65, cap radius ≈ 32 → that is the nine-patch margin.
+const PILL_SLOT_H := 65.0
+const PILL_CAP_PX := 32
+
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var panel := PanelContainer.new()
 	panel.anchor_left = 1.0
@@ -32,18 +41,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# past the opaque band; that widget is now retired entirely, T48.) A clean wood-tone
 	# pill makes layout padding == visual padding (so the rect asserts below match what the
 	# eye sees), and fully contains the row.
-	var chip_sb := StyleBoxFlat.new()
-	chip_sb.bg_color = Tune.PILL_BG             # AC4: soft cream pill (was dark wood)
-	chip_sb.set_corner_radius_all(Tune.PILL_RADIUS)
-	chip_sb.set_border_width_all(Tune.PILL_BORDER_W)
-	chip_sb.border_color = Tune.PILL_BORDER     # warm border (matches the AB ask pills)
-	chip_sb.shadow_color = Tune.PILL_SHADOW
-	chip_sb.shadow_size = Tune.PILL_SHADOW_SIZE
-	chip_sb.content_margin_left = Tune.CLUSTER_PAD_X
-	chip_sb.content_margin_right = Tune.CLUSTER_PAD_X
-	chip_sb.content_margin_top = Tune.PILL_PAD_Y
-	chip_sb.content_margin_bottom = Tune.PILL_PAD_Y
-	panel.add_theme_stylebox_override("panel", chip_sb)
+	panel.add_theme_stylebox_override("panel", _pill_style())
+	# pin the slot ≥ the nine-patch cap height so the painted capsule's rounded gold ends
+	# always draw 1:1 and never crush into a thin border (T48 failure mode).
+	panel.custom_minimum_size.y = PILL_SLOT_H
 	var row := HBoxContainer.new()
 	# The row's uniform separation IS the tight icon↔number gap; the WIDER gap BETWEEN
 	# currencies comes from explicit spacer Controls (so every pair shares one centerline
@@ -197,6 +198,35 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	out["open_shop"] = open_store   # currency item 2: same Shop.open(host, shop_opts), shared with the + buttons
 	refresh.call()
 	return out
+
+# The currency-cluster background: prefer the painted capsule (ui/kit/panel_pill.png),
+# nine-sliced so the rounded gold caps keep a FIXED size while only the flat middle stretches
+# to the three counts; fall back to the code-drawn cream pill when the art is absent. The
+# content margins (text inset) are identical on both paths, so the layout rect — and the R1
+# even-wrap contract (grove_tests) — is unchanged regardless of which background draws.
+static func _pill_style() -> StyleBox:
+	var p := Look.kit("panel_pill.png")
+	if ResourceLoader.exists(p):
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = load(p)
+		sbt.set_texture_margin_all(PILL_CAP_PX)   # = cap radius: round ends never squash
+		sbt.content_margin_left = Tune.CLUSTER_PAD_X
+		sbt.content_margin_right = Tune.CLUSTER_PAD_X
+		sbt.content_margin_top = Tune.PILL_PAD_Y
+		sbt.content_margin_bottom = Tune.PILL_PAD_Y
+		return sbt
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Tune.PILL_BG             # AC4: soft cream pill (was dark wood)
+	sb.set_corner_radius_all(Tune.PILL_RADIUS)
+	sb.set_border_width_all(Tune.PILL_BORDER_W)
+	sb.border_color = Tune.PILL_BORDER     # warm border (matches the AB ask pills)
+	sb.shadow_color = Tune.PILL_SHADOW
+	sb.shadow_size = Tune.PILL_SHADOW_SIZE
+	sb.content_margin_left = Tune.CLUSTER_PAD_X
+	sb.content_margin_right = Tune.CLUSTER_PAD_X
+	sb.content_margin_top = Tune.PILL_PAD_Y
+	sb.content_margin_bottom = Tune.PILL_PAD_Y
+	return sb
 
 # One currency pair: a fixed icon BOX (so all three share a centerline) + the number, and
 # optionally a small "+" acquire button that opens the store. The icon, number, and + are all
