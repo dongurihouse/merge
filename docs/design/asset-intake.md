@@ -61,7 +61,10 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
      (`{"size": 512}` or `{"w":1024,"h":1280,"opaque":true}`).
    - `grid`/`sheet`: one entry per kept slice, keyed by `tile`/`island` index; add `"post": "icon:512"`
      to clean each slice into a square icon.
-   - `matte`: add `"inner": "<category>"`; `params.min_area` controls the keyer.
+   - `matte`: add `"inner": "<category>"`. Bright/white baked background → `params.min_area` tunes the
+     keyer. **Saturated colour** background (e.g. the cyan UI sheets) → add `"key": "#RRGGBB"` (+ optional
+     `"tol"`, default 0.18); the runner chroma-keys it transparent, then the inner `sheet`/`icon` slices
+     it. Sample the colour from a corner pixel; bump `tol` if a colour fringe survives.
    - `scene`: just `{ "source": "...", "category": "scene" }` — the runner prints a hand-off.
    - `archive` is where the raw moves after success (under `_originals/<kind>/`).
 

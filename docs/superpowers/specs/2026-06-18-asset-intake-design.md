@@ -57,7 +57,7 @@ in `_new/`. The plan captures every judgment so the runner needs none.
 | `source` | path (under `games/grove/assets/`) of the raw being processed |
 | `category` | one of the taxonomy values in §3 |
 | `inner` | required only when `category` is `matte`: the taxonomy value to re-dispatch to after the background is keyed out (see §3) |
-| `params` | category-specific knobs (size, canvas `W`/`H`, grid `rows`/`cols`, `threshold`, `min_area`) |
+| `params` | category-specific knobs (size, canvas `W`/`H`, grid `rows`/`cols`, `threshold`, `min_area`, `pad`; for a chroma `matte`: `key` = `#RRGGBB` background colour + optional `tol`) |
 | `outputs` | the deterministic targets. For single-output categories: one entry `{ "path": "...", "post": "..." }`. For `grid`: one entry per tile (or a `name_template` + tile order). For `sheet`: one entry per kept island, keyed by `island` index. |
 | `outputs[].post` | optional follow-up op on a produced PNG, e.g. `icon:512` (run `process_icon` at size 512 after slicing) |
 | `archive` | where the raw moves after a successful run (under `games/grove/assets/`) |
@@ -67,7 +67,8 @@ way the engine loads art.
 
 ## 3 · The category taxonomy
 
-Each category maps to a tool that **already exists** in `games/tools/`.
+Each category maps to a small deterministic tool in `games/tools/` (all reused as-is except
+`chroma_key.gd`, added for saturated-background sheets — see `matte`).
 
 | `category` | What it is | Deterministic tool | Default folder |
 |---|---|---|---|
@@ -76,11 +77,14 @@ Each category maps to a tool that **already exists** in `games/tools/`.
 | `grid` | LLM icon-sheet (band-detected, not uniform) | `slice_grid.gd` → `process_icon` per tile | `items/` |
 | `sheet` | irregular transparent/checkerboard island sheet (the `*_asset.png`) | `slice_islands.gd` → island→name map | `ui/kit/` |
 | `scene` | map locale; §16 multi-phase pipeline | **handed off** — not pixel-processed by the runner; the §16 map flow in `grove_art_pipeline.md` owns it | `map/` |
-| `matte` | raw with a bright/white background baked in | `cutout_bg.gd` (clears bright+achromatic regions) **then** re-dispatch to the inner category | (inner) |
+| `matte` | raw with a solid background baked in | bright/white → `cutout_bg.gd`; a **saturated colour** (give `params.key`) → `chroma_key.gd`; **then** re-dispatch to the inner category | (inner) |
 
 **`matte` is a prefix, not a leaf.** A `matte` plan carries an inner category (e.g.
-`"category": "matte", "inner": "icon"`): the runner keys out the background first, then runs the
-inner category's tool on the result.
+`"category": "matte", "inner": "sheet"`): the runner keys out the background first, then runs the
+inner category's tool on the result. The keyer is chosen by the params — `chroma_key.gd` when a
+`key` colour is given (saturated backgrounds, e.g. the cyan UI sheets), otherwise `cutout_bg.gd`
+(bright/white). `slice_islands.gd` treats already-transparent pixels as background, so it slices a
+chroma-keyed sheet the same way it slices a checkerboard one.
 
 **`scene` is handed off, not pixel-processed by the runner.** The §16 pipeline's box-detection and
 the §9 share-gate are perceptual calls, and the existing map tools (`process_map1v2.py`, the

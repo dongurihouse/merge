@@ -95,6 +95,21 @@ class ArgTests(unittest.TestCase):
         with self.assertRaises(ia.PlanError):
             ia.parse_post("blur:3")
 
+    def test_matte_bright_uses_cutout_bg(self):
+        tool, args = ia.matte_tool_and_args("/k.png", {"min_area": 800})
+        self.assertEqual(tool, ia.TOOLS["matte"])
+        self.assertEqual(args, ["/k.png", "min=800"])
+
+    def test_matte_chroma_uses_chroma_key(self):
+        tool, args = ia.matte_tool_and_args("/k.png", {"key": "#41C7F2", "tol": 0.2})
+        self.assertEqual(tool, ia.CHROMA_TOOL)
+        self.assertEqual(args, ["/k.png", "key=#41C7F2", "tol=0.2"])
+
+    def test_matte_chroma_default_tol(self):
+        tool, args = ia.matte_tool_and_args("/k.png", {"key": "#41C7F2"})
+        self.assertEqual(tool, ia.CHROMA_TOOL)
+        self.assertEqual(args, ["/k.png", "key=#41C7F2", "tol=0.18"])
+
 
 class FileMoveTests(unittest.TestCase):
     def setUp(self):

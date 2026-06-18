@@ -30,6 +30,7 @@ TOOLS = {
     "sheet": "res://games/tools/slice_islands.gd",
     "matte": "res://games/tools/cutout_bg.gd",
 }
+CHROMA_TOOL = "res://games/tools/chroma_key.gd"   # matte keyer for saturated backgrounds
 SINGLE = {"icon", "decor"}      # one source -> one output
 SLICED = {"grid", "sheet"}      # one source -> many indexed slices
 VALID = set(TOOLS) | {"scene"}
@@ -108,6 +109,15 @@ def slice_args(eff: str, src_abs: str, prefix: str, params: dict) -> list[str]:
             str(params.get("min_area", 600)), str(params.get("pad", 3))]
 
 
+def matte_tool_and_args(keyed_abs: str, params: dict) -> tuple[str, list[str]]:
+    """Pick the matte keyer for a scratch copy: chroma_key when a `key` colour is given
+    (saturated backgrounds), else cutout_bg (bright/white backgrounds)."""
+    key = params.get("key")
+    if key:
+        return CHROMA_TOOL, [keyed_abs, f"key={key}", f"tol={params.get('tol', 0.18)}"]
+    return TOOLS["matte"], [keyed_abs, f"min={params.get('min_area', 600)}"]
+
+
 def parse_post(post: str | None) -> dict | None:
     """Parse an output post-op into params for icon_args.
 
@@ -182,8 +192,8 @@ def process_plan(plan_path: Path, godot: str) -> None:
         SCRATCH.mkdir(parents=True, exist_ok=True)
         keyed = SCRATCH / ("matte_" + Path(src_rel).name)
         shutil.copy(src_abs, keyed)
-        run_tool(godot, TOOLS["matte"],
-                 [str(keyed.resolve()), f"min={params.get('min_area', 600)}"])
+        tool_res, margs = matte_tool_and_args(str(keyed.resolve()), params)
+        run_tool(godot, tool_res, margs)
         src_abs = str(keyed.resolve())
 
     if eff in SINGLE:

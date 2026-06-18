@@ -23,6 +23,8 @@ var _smax := 0.0
 
 func _is_bglike(i: int) -> bool:
 	var o := i * 4
+	if _data[o + 3] < 8:
+		return true                       # already transparent (e.g. chroma-keyed) → background
 	var r := _data[o]
 	var g := _data[o + 1]
 	var b := _data[o + 2]
