@@ -14,22 +14,20 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["button", "pill", "icon", "card", "dialog"]
+const IDS := ["button", "icon", "card", "dialog"]
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
-	"pill": "Cost pill — the cream button variant",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"card": "Mail card — pill + Claim",
 	"dialog": "Mail dialog — cards",
 }
 # Per-element knob schema: [key, min, max]. The sidebar renders one slider per entry.
 const SCHEMA := {
-	"pill": [],                                             # no own controls — it's the shared Button (cream)
 	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
 	"icon": [["feather", 0, 4], ["supersample", 1, 4]],     # defringe is a toggle, added below
-	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
-	"dialog": [                                             # pill size inherits from the Cost pill
-		["width", 360, 720], ["card_corner", 0, 60],
+	"card": [["title", 12, 30], ["body", 10, 24]],          # cost pill + Claim come from the shared Button
+	"dialog": [                                             # cost pill + Claim come from the shared Button
+		["width", 360, 720],                                # card corner / slice are shown per-mode below
 		["banner_font", 16, 56], ["banner_h", 50, 160], ["banner_icon", 24, 110],
 		["banner_x", -200, 200], ["banner_y", -120, 120],
 		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
@@ -40,12 +38,11 @@ const SCHEMA := {
 }
 
 var _params := {
-	"pill": {},                                             # the cost pill is the shared Button (no own state)
 	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
-		"width": 560, "card_corner": 22,
+		"width": 560, "card_corner": 22, "card_art": false, "card_slice": 48,
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
@@ -139,8 +136,6 @@ func _build() -> void:
 func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
-		"pill":
-			return Kit.cost_pill("gem", 50, _btn_opts())
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"icon":
@@ -155,6 +150,8 @@ func _make_element(id: String) -> Control:
 		"dialog":
 			var opts := {
 				"card_corner": float(p.card_corner),
+				"card_art": bool(p.card_art),
+				"card_slice": float(p.card_slice),
 				"banner_font": int(p.banner_font),
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
@@ -370,7 +367,7 @@ func _rebuild_sidebar() -> void:
 	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(sub)
-	if _selected == "pill" or _selected == "card" or _selected == "dialog":
+	if _selected == "card" or _selected == "dialog":
 		var note := Label.new()
 		note.text = "Cost pill + Claim are the shared Button (cream / green) — edit them on the Button item."
 		note.add_theme_font_size_override("font_size", 12)
@@ -386,6 +383,11 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
 	elif _selected == "dialog":
 		_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
+		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art", true))   # rebuilds the sidebar
+		if bool(_params["dialog"]["card_art"]):
+			_sidebar_body.add_child(_slider_row(["card_slice", 8, 120]))   # art mode: tune the 9-slice margin
+		else:
+			_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))   # code mode: tune the corner
 	elif _selected == "icon":
 		_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 	for spec in SCHEMA[_selected]:
@@ -441,7 +443,7 @@ func _text_row(label: String, key: String) -> Control:
 	row.add_child(le)
 	return row
 
-func _toggle_row(label: String, key: String) -> Control:
+func _toggle_row(label: String, key: String, rebuild_sidebar := false) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -453,7 +455,9 @@ func _toggle_row(label: String, key: String) -> Control:
 	cb.button_pressed = bool(_params[_selected].get(key, false))
 	cb.toggled.connect(func(on: bool) -> void:
 		_params[_selected][key] = on
-		_rebuild_gallery())
+		_rebuild_gallery()
+		if rebuild_sidebar:
+			_rebuild_sidebar.call_deferred())   # defer — we're inside this toggle's own signal
 	row.add_child(cb)
 	return row
 
