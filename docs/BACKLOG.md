@@ -477,20 +477,27 @@ items 1/4/5 should consume. Each item notes the overlap.
 
 ## Parked — per-map generators: art + tuning (the remaining tail of T17–T20)
 
-- **Economy tuning + pacing sign-off (§3 · §7 · sim) — owner feel call.** The §7 economy is sim-green
-  on the invariants (no-jam · no-strand · I2 steady-state <30% · selling-not-income); the seed-123
-  level-gating × burst strand is **fixed** (T37). What's left is the **feel/pacing call the sim can't
-  make** — owner sign-off on the provisional `grove_data.gd` quest tunables (`STAR_CAP`,
-  `CLICK_TO_VALUE`, `QUEST_LEVELS_PER_TIER`, `GATE_TIER_BASE`/`GATE_ASK_COUNT`, featured rate) and the
-  joint **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** curve. **Two faucet changes ride with this rebalance,
-  not before:** level water gift **+20 → +50** (`LEVEL_WATER_GIFT`), and free refills **3-lifetime →
-  1/day** (needs a per-day date, not the current lifetime `refills_used`). **New dial to sweep:
-  `ASK_TIER_WEIGHT`** (§6 spawn tier-bias, `grove_data.gd`) ships at **0 = OFF** — the mechanism is live
-  + tested (`board_logic.roll_spawn`, mirrored in `grove_sim`), but the sim showed full strength (0.6)
-  front-loads spend ~3× (1 map vs 4 over a 7-day run), so ramping it belongs to THIS pacing pass (re-tune
-  the level curve alongside). Best judged once the art makes it playable; re-validate every change on the
-  Monte-Carlo sim (`grove_sim.gd`). *(T17 sim → T19 cutover → T23 burst → T24 gradient → T37 strand fix →
-  2026-06-16 tier-bias dial.)*
+- **Economy balance pass — level-based reward curve + pacing sign-off (§3 · §7 · sim) — owner feel call.**
+  The quest/generator simplification (2026-06-18) replaced the expected-clicks reward with a **level-based**
+  one: `quest_reward(level) = {stars: min(level, STAR_CAP=3), coins: max(0, level-STAR_CAP), gems: QUEST_PREMIUM_GEMS when level >= QUEST_PREMIUM_MIN_LEVEL (10)}`.
+  All these numbers are **provisional**. What's left is the owner feel/pacing call plus a real sweep:
+  - **Reward curve.** Linear coins likely **under-price deep asks** (a t12 take is far more merges than a t4 but
+    pays only `12-3=9` coins). Decide the real coin curve (and whether the premium-gem level/amount is right),
+    and re-tune `STAR_CAP` / `QUEST_TIER_BASE` / `QUEST_LEVELS_PER_TIER` / featured rate.
+  - **grove_sim tripwires are RED and clearing them is the sign-off gate.** `grove_sim.gd` runs the new model
+    end-to-end but FAILs **I2** (per-map water-gift ratio, maps 3–4) and **Y** (sell-coins income pump, 52.7 ≥ 25).
+    Both are the expected un-tuned signals (I1 no-jam · no-strand · P1 · P2 pass).
+  - **New gen-grant dial:** `GEN_GRANT_REMAINING_STARS` (when the next-generator quest surfaces near map end) —
+    invariant: keep it below each non-final map's cheapest final-spot cost (today 4 < 5; preserve on roster changes).
+  - **Faucet changes ride with this rebalance, not before:** level water gift **+20 → +50** (`LEVEL_WATER_GIFT`),
+    free refills **3-lifetime → 1/day** (needs a per-day date, not lifetime `refills_used`), and the joint
+    **`LEVEL_STARS` + `LEVEL_WATER_GIFT`** curve.
+  - **`ASK_TIER_WEIGHT`** (§6 spawn tier-bias, `grove_data.gd`) ships at **0 = OFF** — live + tested
+    (`board_logic.roll_spawn`, mirrored in `grove_sim`); full strength (0.6) front-loads spend ~3×, so ramping it
+    belongs to THIS pass (re-tune the level curve alongside).
+  Best judged once the art makes it playable; re-validate every change on the Monte-Carlo sim (`grove_sim.gd`).
+  *(T17 sim → T19 cutover → T23 burst → T24 gradient → T37 strand fix → 2026-06-16 tier-bias dial →
+  2026-06-18 level-based reward + one-generator-per-map.)*
 
 - **Grove v1 art — ~192 item sprites + 12 generators (§16 LLM pipeline) — ⚠️ large.** The v1 home-grove
   content roster (T20) is authored as DATA; its lines render **code-drawn** until the sprites land.

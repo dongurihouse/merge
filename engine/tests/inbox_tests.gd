@@ -101,5 +101,33 @@ func _initialize() -> void:
 	ok(not Inbox.claim("keep").has("coins") or Inbox.claim("keep").is_empty(), \
 		"a claimed message stays claimed after reload (no re-grant)")
 
+	# 7. ICON MIGRATION (inbox_icons_v2): an already-seeded inbox on the OLD glyph icons (star /
+	#    coin) is lifted onto the plated mail-kit icons (leaf / gift) exactly once, and never reverts.
+	fresh("icon_migrate")
+	var gm := Save.grove()
+	gm["inbox"] = [
+		{"id": "starter_gift", "title": "A little something", "body": "x", "icon": "coin",
+			"reward": {"coins": 100}, "claimed": false, "read": false, "ts": 0.0},
+		{"id": "welcome", "title": "Welcome", "body": "y", "icon": "star",
+			"reward": {}, "claimed": false, "read": false, "ts": 0.0},
+	]
+	gm["inbox_seeded"] = true                      # already seeded (old icons) → migrate, never re-seed
+	Save.grove_write()
+	var icons := {}
+	for m in Inbox.messages():
+		icons[String(m.get("id", ""))] = String(m.get("icon", ""))
+	ok(icons.get("welcome", "") == "leaf", "migration lifts the welcome icon star -> leaf")
+	ok(icons.get("starter_gift", "") == "gift", "migration lifts the starter gift icon coin -> gift")
+	ok(bool(Save.grove().get("inbox_icons_v2", false)), "the migration guard flag is set")
+	# idempotent: with the flag set, a later deliberate icon change is NOT reverted on the next read.
+	for m in Save.grove()["inbox"]:
+		if String(m.get("id", "")) == "welcome":
+			m["icon"] = "news"
+	var after := ""
+	for m in Inbox.messages():
+		if String(m.get("id", "")) == "welcome":
+			after = String(m.get("icon", ""))
+	ok(after == "news", "migration runs once — a later icon change is not reverted")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

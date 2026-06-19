@@ -11,7 +11,8 @@
     { "island": 9,  "name": "icon_gift",   "path": "ui/shared/icon_gift.png" },
     { "island": 10, "name": "icon_leaf",   "path": "ui/shared/icon_leaf.png" },
     { "island": 11, "name": "icon_news",   "path": "ui/shared/icon_news.png" },
-    { "island": 26, "name": "mail_pill",   "path": "ui/kit/mail_pill.png" }
+    { "island": 26, "name": "mail_pill",      "path": "ui/kit/mail_pill.png" },
+    { "island": 27, "name": "mail_pill_cream", "path": "ui/kit/mail_pill_cream.png" }
   ],
   "archive": "_originals/ui/mail.png"
 }

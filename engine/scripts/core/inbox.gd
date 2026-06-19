@@ -31,7 +31,12 @@ static func messages() -> Array:
 		g["inbox"] = []
 	if not bool(g.get("inbox_seeded", false)):
 		g["inbox_seeded"] = true
+		g["inbox_icons_v2"] = true        # a fresh seed already carries the plated mail-kit icons
 		_seed(g["inbox"])
+		Save.grove_write()
+	elif not bool(g.get("inbox_icons_v2", false)):
+		g["inbox_icons_v2"] = true        # one-time: lift an already-seeded inbox onto the plated icons
+		_migrate_seed_icons(g["inbox"])
 		Save.grove_write()
 	return g["inbox"]
 
@@ -52,6 +57,17 @@ static func _seed(list: Array) -> void:
 		"icon": "gift",
 		"reward": {"coins": 100},
 	})
+
+# One-time icon migration (inbox_icons_v2): an inbox seeded before the plated mail-kit icons existed
+# still carries the old glyph ids (star / coin) — lift the two known starter messages onto the new
+# plated sprites in place. Targeted by id + old value so it never clobbers a deliberately-set icon.
+static func _migrate_seed_icons(list: Array) -> void:
+	for m in list:
+		var id := String(m.get("id", ""))
+		if id == "welcome" and String(m.get("icon", "")) == "star":
+			m["icon"] = "leaf"
+		elif id == "starter_gift" and String(m.get("icon", "")) == "coin":
+			m["icon"] = "gift"
 
 # --- reads --------------------------------------------------------------------------
 

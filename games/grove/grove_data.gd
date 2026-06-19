@@ -46,48 +46,34 @@ const LINES := {
 	25: {"name": "Firefly", "base": "firefly", "color": Color("#E8E07A")},
 }
 
-# Generators — the v1 home-grove roster (grove_spec §2): 12 generators / 24 lines across maps 1–5
-# (Core §6, the generator-grant hand-in model). Each emits 2 lines and belongs to a map (map);
-# `grant_from` = the previous-map generator you HAND IN to receive this one (old lines retire); ""
-# = granted outright (a map's surplus, or map 1's two starters). `cell` is denormalized down each
-# lineage (a grant generator sits at its predecessor's cell). 12 gen sprites + ~192 item sprites
-# are PARKED art (§16) — generators reuse 3 stand-in sprites for now. ANCHOR: `seed_satchel`
-# (Wildflower + Berry) is never handed in, so it persists across the home grove (Mom's line stays
-# on the board); keeping its lines ASKABLE past map 1 is a parked engine follow-up (BACKLOG).
+# Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
+# (Farmhouse · Barn · Pond · Orchard · Meadow). Each generator is its map's sole producer and emits
+# 2 lines (popped at random). Generators PERSIST — never handed in / consumed (§6); the next map's
+# generator is the reward of a near-end quest, auto-placed on the board. `grant_from` is vestigial
+# (kept "" — the hand-in model is retired). `cell` only seeds the FIRST map (map 0); later maps'
+# generators auto-place on the first open cell when granted, so their `cell` is unused. The map-1
+# anchor (`seed_satchel`) is live from the first second.
+#
+# NOTE — the 14 lines NOT listed here (3,4,7,8,12,13,16-19,22-25) stay DEFINED in LINES (+ their art)
+# but are DORMANT: no generator produces them, so they are never popped or asked. Re-introducing them
+# (or splitting the content into more maps) is a content call (BACKLOG). Generator sprites are PARKED
+# art (§16) — they reuse stand-in sprites for now.
 const GENERATORS := [
-	# map 1 — Farmhouse (Radish): the satchel ANCHOR is live from the first second; the pantry
-	# crock GROWS IN LATER (appear_level) so a brand-new player learns the loop with ONE generator
-	# + two lines before a second arrives (owner: don't open with two generators). `appear_level`
-	# gates BOTH its placement and its lines becoming askable; absent = 0 (live at start). 5 matches
-	# the pantry cell's own §4 unseal level, so the tool arrives just as its plot would clear.
+	# map 1 — Farmhouse (Radish): Wildflower + Garden tools. The ANCHOR — live from the first second.
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
-		"tex": "items/generator/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
-	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "", "appear_level": 5,
-		"tex": "items/generator/gen_jar.png", "label": "pantry"},
-	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
+		"tex": "items/generator/gen_satchel.png", "label": "seeds"},
+	# map 2 — Barn (Carrot): Egg + Feather.
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "",
 		"tex": "items/generator/gen_hen_coop.png", "label": "coop"},
-	{"id": "dairy_stall", "map": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
-		"tex": "items/generator/gen_dairy_stall.png", "label": "dairy"},
-	# map 3 — Pond (Frog): two hand-in grants
-	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
+	# map 3 — Pond (Frog): Reed + Lotus.
+	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "",
 		"tex": "items/generator/gen_reed_bed.png", "label": "reeds"},
-	{"id": "creel", "map": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
-		"tex": "items/generator/gen_creel.png", "label": "creel"},
-	# map 4 — Orchard (Bee): two hand-in grants + one surplus
-	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
+	# map 4 — Orchard (Bee): Apple + Pear.
+	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "",
 		"tex": "items/generator/gen_orchard_basket.png", "label": "orchard"},
-	{"id": "stone_fruit_bough", "map": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
-		"tex": "items/generator/gen_stone_fruit_bough.png", "label": "stonefruit"},
-	{"id": "nut_blossom", "map": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
-		"tex": "items/generator/gen_nut_blossom.png", "label": "nuts"},
-	# map 5 — Meadow (Morel): three hand-in grants
-	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
+	# map 5 — Meadow (Morel): Glowcap + Spore.
+	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "",
 		"tex": "items/generator/gen_glowcap_ring.png", "label": "glowcap"},
-	{"id": "meadow_tuft", "map": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
-		"tex": "items/generator/gen_meadow_tuft.png", "label": "tuft"},
-	{"id": "lantern_bloom", "map": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
-		"tex": "items/generator/gen_satchel.png", "label": "lantern"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 

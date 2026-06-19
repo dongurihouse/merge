@@ -182,16 +182,14 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_child(body)
 
-	# the reward affordance — a Claim button + reward chip when there's an unclaimed gift,
-	# a quiet "Claimed" tag once grabbed, nothing at all for a plain news note.
+	# the reward affordance — the reward chip + a Claim button SIDE BY SIDE on the row's right
+	# (cream count pill, then the green Claim — the mockup layout), a quiet "Claimed" tag once
+	# grabbed, nothing at all for a plain news note. All vertically centered against the text.
 	var rew: Dictionary = m.get("reward", {})
 	if _reward_total(rew) > 0:
-		var side := VBoxContainer.new()
-		side.alignment = BoxContainer.ALIGNMENT_CENTER
-		side.add_theme_constant_override("separation", 5)
-		side.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(side)
-		side.add_child(_reward_chip(host, rew))
+		var chip := _reward_chip(host, rew)
+		chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(chip)
 		if not bool(m.get("claimed", false)):
 			var id := String(m.get("id", ""))
 			var claim := _claim_button(host, func() -> void:
@@ -200,14 +198,16 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 				if not granted.is_empty():
 					_celebrate(host, at, granted)
 				_fill_rows(host, rows, scroll, card_w))
-			side.add_child(claim)
+			claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(claim)
 		else:
 			var done := Label.new()
 			done.text = host.tr("Claimed")
 			done.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 			done.add_theme_font_size_override("font_size", 14)
 			done.add_theme_color_override("font_color", Color(LEAF.darkened(0.1), 0.95))
-			side.add_child(done)
+			done.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(done)
 			panel.modulate = Color(1, 1, 1, 0.7)
 	return panel
 
@@ -237,36 +237,39 @@ static func _claim_button(host: Control, cb: Callable) -> Button:
 
 # A reward's components as icon sprites + numbers (emoji-purge §13) — shows every non-zero part
 # (coins / 💎 / water) so the player sees exactly what the Claim grants. The cluster rides the
-# sliced mail_pill green capsule (CREAM numbers for contrast); a bare row when the art is absent.
+# sliced CREAM capsule (mail_pill_cream — green is reserved for the Claim CTA, §mockup), dark INK
+# numbers for contrast; a bare row when the art is absent.
 static func _reward_chip(host: Control, rew: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 6)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := Look.kit_box("kit/mail_pill.png", PILL_TEX, Vector4(16, 5, 16, 5))
-	var num_color := CREAM if box != null else INK
+	# currencies STACK vertically inside the pill (one icon+number per line) so the chip stays
+	# NARROW whatever the count — a 3-currency compensation gift doesn't crowd out the row's text.
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 2)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := Look.kit_box("kit/mail_pill_cream.png", PILL_TEX, Vector4(14, 6, 14, 6))
 	for pair in [["coin", int(rew.get("coins", 0))], ["gem", int(rew.get("gems", 0))], ["water", int(rew.get("water", 0))]]:
 		if int(pair[1]) <= 0:
 			continue
 		var cell := HBoxContainer.new()
-		cell.add_theme_constant_override("separation", 2)
+		cell.alignment = BoxContainer.ALIGNMENT_CENTER
+		cell.add_theme_constant_override("separation", 3)
 		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(Look.icon(String(pair[0]), 20))
 		var l := Label.new()
 		l.text = str(int(pair[1]))
 		l.add_theme_font_size_override("font_size", 14)
-		l.add_theme_color_override("font_color", num_color)
+		l.add_theme_color_override("font_color", INK)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
-		row.add_child(cell)
+		col.add_child(cell)
 	if box == null:
-		return row
+		return col
 	var pill := PanelContainer.new()
 	pill.add_theme_stylebox_override("panel", box)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(row)
+	pill.add_child(col)
 	return pill
 
 # Play the claimed gift's juice — a small reward shout per granted component (mirrors the
