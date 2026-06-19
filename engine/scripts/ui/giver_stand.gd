@@ -66,20 +66,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# the painted bubble sits in the card's RIGHT third (centre ~0.82w, 0.41h of card_quest.png);
 	# the item is centred on it so it reads as "spoken" from the bubble, not floating mid-card.
 	var bub := Vector2(cx + cardW * 0.82, cy + cardH * 0.41)   # bubble centre (matches the art)
-	if q.has("grant"):                        # (still drawn for now; grant type removed in Task 4)
-		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.grant.grants))
-		var gtex := Game.art(String(gdef.get("tex", "")))
-		if ResourceLoader.exists(gtex):
-			var gicon := TextureRect.new()
-			gicon.texture = load(gtex)
-			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var gs := cardH * 0.5
-			gicon.size = Vector2(gs, gs)
-			gicon.position = bub - Vector2(gs, gs) / 2.0
-			stand.add_child(gicon)
-	elif not it.is_empty():
+	if not it.is_empty():
 		var isz := cardH * 0.46
 		var acode := int(it.line) * 100 + int(it.tier)
 		var icon := Control.new()
@@ -99,6 +86,21 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		var lvl := _level_badge(int(it.tier))
 		lvl.position = Vector2(cx + 8.0, cy + cardH - 34.0)
 		stand.add_child(lvl)
+	# the near-end map quest ALSO rewards the next map's generator — preview its tool icon as a
+	# small badge tucked in the bubble's lower-right, so the player sees the bonus they'll earn.
+	if q.has("reward") and (q.reward as Dictionary).has("generators") and not (q.reward.generators as Array).is_empty():
+		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.reward.generators[0]))
+		var gtex := Game.art(String(gdef.get("tex", "")))
+		if ResourceLoader.exists(gtex):
+			var gs := cardH * 0.34
+			var gicon := TextureRect.new()
+			gicon.texture = load(gtex)
+			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			gicon.size = Vector2(gs, gs)
+			gicon.position = Vector2(bub.x + cardH * 0.18, bub.y + cardH * 0.10)
+			stand.add_child(gicon)
 	# the +N★ reward — a small bare star + count, tucked in the card's TOP-RIGHT corner
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 1)

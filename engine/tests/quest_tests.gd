@@ -1,5 +1,6 @@
 extends SceneTree
-## Headless tests for the §7 quest engine: level-based reward, gen_quest shape, gate quest, and the soft gate.
+## Headless tests for the §7 quest engine: level-based reward, gen_quest shape, the soft gate, the
+## near-end generator grant, and current-map askable lines.
 ##   godot --headless --path . -s res://engine/tests/quest_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -68,31 +69,24 @@ func _initialize() -> void:
 	var shrinks := G.active_giver_count(0, 8) >= G.active_giver_count(4, 8) and G.active_giver_count(4, 8) >= G.active_giver_count(6, 8)
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
-	# --- the authored great-spirit GATE quest: single top-tier ask, large reward, unlocks next map (§7) ---
-	var gq := G.gate_quest(G.GENERATORS, 0, rng)
-	ok(bool(gq.get("gate", false)), "the gate quest is flagged `gate`")
-	ok(gq.has("line"), "the gate quest has a `line` field (flat single-item)")
-	var map1_ceiling := mini(int(G.GATE_TIER_BASE) + 0, int(G.TOP_TIER))
-	ok(int(gq.tier) == map1_ceiling, "map 1's gate asks its ceiling tier t%d" % map1_ceiling)
-	ok(int(gq.reward.stars) == int(G.GATE_STARS) and int(gq.reward.coins) > int(G.GATE_COIN_BONUS), "the gate pays its large authored reward (★ + big coins)")
-	var gq_last := G.gate_quest(G.GENERATORS, G.MAPS.size() - 1, rng)
-	var last_map_ceiling := mini(int(G.GATE_TIER_BASE) + G.MAPS.size() - 1, int(G.TOP_TIER))
-	ok(int(gq_last.tier) == last_map_ceiling, "the final map's gate climbs to its ceiling tier t%d (capped at TOP_TIER t%d)" % [last_map_ceiling, int(G.TOP_TIER)])
+	# --- gens_to_grant: the NEXT map's generators not yet owned (the near-end quest's reward) ---
+	ok(str(G.gens_to_grant(G.GENERATORS, 0, [])) == str(G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))), "gens_to_grant(0) lists map 1's generator ids (the next map's unowned tools)")
+	var map1_ids: Array = G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))
+	ok(G.gens_to_grant(G.GENERATORS, 0, map1_ids).is_empty(), "gens_to_grant empties once all the next map's generators are owned")
+	ok(str(G.gens_to_grant(G.GENERATORS, 0, [map1_ids[0]])) == str([map1_ids[1]]), "gens_to_grant returns only the UNOWNED next-map ids (drops one already owned)")
+	ok(G.gens_to_grant(G.GENERATORS, G.MAPS.size() - 1, []).is_empty(), "the final map grants nothing (no next map)")
 
-	# --- §7: the gate's line is randomized — varies across seeds ---
-	var z0_lines := G.lines_for_map(G.GENERATORS, 0)
-	if z0_lines.size() > 1:
-		var line_set := {}
-		for s in 24:
-			var rs := RandomNumberGenerator.new(); rs.seed = s
-			line_set[int(G.gate_quest(G.GENERATORS, 0, rs).line)] = true
-		ok(line_set.size() >= 2, "the gate's asked line VARIES across seeds (%d distinct lines)" % line_set.size())
-	var rr1 := RandomNumberGenerator.new(); rr1.seed = 99
-	var rr2 := RandomNumberGenerator.new(); rr2.seed = 99
-	ok(str(G.gate_quest(G.GENERATORS, 0, rr1)) == str(G.gate_quest(G.GENERATORS, 0, rr2)), "the gate is deterministic for a given seed (reproducible)")
-	var det_gq := G.gate_quest(G.GENERATORS, 0)    # rng omitted → deterministic fallback: richest line
-	var rich := G.lines_for_map(G.GENERATORS, 0); rich.sort()
-	ok(int(det_gq.line) == int(rich[rich.size() - 1]), "rng==null falls back to the deterministic richest line")
+	# --- askable_lines is CURRENT-MAP only (no anchor union) — equals lines_for_map, sorted ---
+	for z in G.MAPS.size():
+		var live := G.lines_for_map(G.GENERATORS, z); live.sort()
+		ok(str(G.askable_lines(G.GENERATORS, z)) == str(live), "askable_lines(map %d) == lines_for_map sorted (current-map only)" % z)
+	var z1_ask := G.askable_lines(G.GENERATORS, 1)
+	var z0_only := G.lines_for_map(G.GENERATORS, 0)
+	var z1_excludes_z0 := true
+	for l in z0_only:
+		if z1_ask.has(int(l)):
+			z1_excludes_z0 = false
+	ok(z1_excludes_z0, "askable_lines(roster, 1) excludes map-0 lines (old-map lines aren't quested)")
 
 	# --- economy ceiling + PREMIUM_TIER pinning ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")

@@ -257,11 +257,6 @@ func _ready() -> void:
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
 			tr("It rained while you were away ☔"), CREAM, 38)
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
-	# §8: the map armed a gate-unveil pointer on completion — point the player (wordlessly) at
-	# the gate quest now waiting on the fence. Consume the pointer (fires once); the fence is
-	# already built above, so the lone gate stand exists to pulse.
-	if _take_gate_cue_map() >= 0:
-		_play_gate_cue()
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
@@ -392,47 +387,10 @@ func _quest_level() -> int:
 func _meter_target() -> int:
 	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
-# Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
-# quest is the lone fence stand (§7) — delivering it unlocks the next map.
-func _gate_pending() -> bool:
-	return Quests.gate_pending(_quest_map(), Save.grove().get("unlocks", {}), _gates())
-
-# §8 wordless map→board pointer. The map arms Save's gate_pointer on completion (the silent
-# handoff); the board consumes it on open. Take the pending pointer (clears it so it fires
-# exactly once) and decide whether a cue is due: only when it points at the CURRENT frontier
-# map AND that gate is genuinely pending (the lone gate stand is on the fence to point at).
-# Returns the map to cue, or -1 (nothing armed, or stale — consumed silently either way).
-func _take_gate_cue_map() -> int:
-	var z := Save.take_gate_pointer()
-	if z >= 0 and z == _quest_map() and _gate_pending():
-		return z
-	return -1
-
-# Play the wordless cue toward the just-unveiled gate quest: a sparkle burst over the lone
-# gate stand plus a pop on its chip — no text the player must read (§13 no-required-reading).
-# The gate stand is the sole fence stand when the gate is pending, so it is giver_chips[0].
-func _play_gate_cue() -> void:
-	if giver_chips.is_empty():
-		return
-	var chip: Control = giver_chips[0].get("chip")
-	if chip == null or not is_instance_valid(chip):
-		return
-	FX.pop(chip)
-	FX.breathe_once(chip)
-	if Features.on("celebrate_bursts"):
-		FX.burst(self, chip.get_global_rect().get_center(), STRAW)   # FX.burst's own default count
-	Audio.play("level_complete", -6.0, 1.2)
-
-# Top up / trim the live fence to the metered count with freshly generated quests (§7); once the
-# map is fully restored, the fence becomes the lone authored GATE quest. Deterministic via the rng.
+# Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
+# via the rng. Near the end of the map, one quest also carries the next map's generator(s) → gen_bag.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, Save.stars(), _quest_level(), rng)
-
-# §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
-# generator (still on the board) and rewards a new line. The map opens with these before its
-# regular stream; once handed in, the new generators are live and regular quests resume.
-func _pending_grant_quests() -> Array:
-	return Quests.pending_grant_quests(_quest_map(), board.gens)
+	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng)
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
@@ -900,7 +858,7 @@ func _refresh_giver_lights() -> void:
 func _grow_generators() -> void:
 	if board == null:
 		return
-	var added: Array = board.grow_surplus_gens(G.map_for_spots(_spots_bought()), _quest_level())
+	var added: Array = board.grow_gens(G.map_for_spots(_spots_bought()), _quest_level())
 	if added.is_empty():
 		return
 	for id in added:
@@ -1853,12 +1811,6 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	if qi < 0 or qi >= quests.size():
 		return
 	var q: Dictionary = quests[qi]
-	if q.has("grant"):                        # §6/§7: a generator-grant quest — hand a generator in, not items
-		_deliver_grant(qi, q, chip)
-		return
-	if q.get("gate", false):                  # §7: the great-spirit's gate quest — deliver to unlock the next map
-		_deliver_gate(qi, q, chip)
-		return
 	var it: Dictionary = G.quest_item(q)
 	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
@@ -1887,12 +1839,24 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
 	if sp_gems > 0:
 		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra ★)
+	# the near-end map quest grants the NEXT map's generator(s) — they land in the bag's generator
+	# section (gen_bag), which the player drags onto the board once they reach the next map.
+	var got_gens: Array = []
+	if q.has("reward") and q.reward.has("generators"):
+		for gid in q.reward.generators:
+			if not board.gen_bag.has(String(gid)) and not board.gens.values().has(String(gid)):
+				board.gen_bag.append(String(gid))
+				got_gens.append(String(gid))
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
 	if sp_gems > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 64), "gem", sp_gems, Color("#BFE6F2"), 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
+	if not got_gens.is_empty():
+		# a new tool joined the bag — a warm beat over the chip (it lives in the bag's generator section)
+		FX.celebrate_at(self, chip.get_global_rect().get_center() - Vector2(0, 60), tr("New tool in your bag!"), STRAW)
+		Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
 		_update_water_hud()
@@ -1998,63 +1962,6 @@ func _dismiss_2x_offer() -> void:
 	if _2x_offer != null and is_instance_valid(_2x_offer):
 		_2x_offer.queue_free()
 	_2x_offer = null
-
-## A generator-grant quest (§6): hand the predecessor generator in, install the granted
-## one in its place, retire the old line. The §7 trigger; mirrors the item-delivery glue
-## above (authored grant quests are scheduled by §7 — none are in the live script yet).
-func _deliver_grant(qi: int, q: Dictionary, chip: Control) -> void:
-	if not board.grant_gen(String(q.grant.grants)):
-		FX.wobble(chip)                       # the predecessor generator isn't on the board
-		Audio.play("invalid_soft", -6.0)
-		return
-	quests.remove_at(qi)
-	var levels_up := G.earn_stars(_quest_stars(q))
-	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", _quest_stars(q), STRAW)
-	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
-	if levels_up > 0:
-		water = int(Save.grove().get("water", water))   # re-sync after the level-up gift
-		_update_water_hud()
-	_persist()
-	_rebuild_all()                            # the granted generator changed — redraw the board
-	_rebuild_givers()
-	_update_hud()
-
-## The great-spirit GATE quest (§7): the map's capstone. Deliver its top-tier ask → mark the
-## gate done (the next map unlocks), grant the next map's generators, pay the large reward, and
-## regenerate the fence for the new map.
-func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
-	if not BoardLogic.quest_payable(board, q):
-		FX.wobble(chip)
-		Audio.play("invalid_soft", -6.0)
-		return
-	var it: Dictionary = G.quest_item(q)
-	board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
-	var z := _quest_map()
-	var g := Save.grove()
-	var gates: Array = g.get("gates", [])
-	if not gates.has(z):
-		gates.append(z)
-	g["gates"] = gates                        # §7: the gate is delivered → the next map unlocks
-	Save.grove_write()
-	if z + 1 < G.MAPS.size():                # the next map opens: its SURPLUS generators appear now;
-		for sid in G.surplus_gen_ids(G.GENERATORS, z + 1):   # the hand-in ones arrive via grant quests (§6)
-			board.place_surplus_gen(String(sid), G.gen_cell_of(G.GENERATORS, String(sid)))
-	quests.remove_at(qi)
-	var levels_up := G.earn_stars(_quest_stars(q))
-	if _quest_coins(q) > 0:
-		Save.add_coins(_quest_coins(q))
-	# §13: the message stays text; the star reward rides an icon+number floater (no emoji).
-	FX.celebrate_at(self, chip.get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
-	FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(0, 40), "star", _quest_stars(q), STRAW)
-	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -1.0)
-	if levels_up > 0:
-		water = int(Save.grove().get("water", water))
-		_update_water_hud()
-	_init_quests()                            # fresh fence for the newly opened map
-	_persist()
-	_rebuild_all()
-	_rebuild_givers()
-	_update_hud()
 
 # sell ANYTHING dragged onto the cart — tier pocket change; cleanup, never income
 func _sell_item(from: Vector2i, node: Control) -> void:

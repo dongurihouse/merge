@@ -1196,12 +1196,16 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
 			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
-		# §8: this restore completed the map's spots, so its great-spirit GATE quest is now
-		# the lone fence stand WAITING ON THE BOARD — a silent cross-screen handoff. Arm the
-		# wordless pointer; the board consumes it on its next open and pulses the gate stand.
-		# Only when the gate is genuinely still pending (not already delivered for this map).
+		# Spots-done unlock: completing the map's spots IS the completion record now (the gate
+		# quest is retired). Append z to `gates` so `map_complete`/`frontier_map` advance — the
+		# next map unlocks immediately. (The next map's generator already arrived earlier, via a
+		# near-end quest's reward.generators into the gen_bag.)
 		if not _gates().has(z):
-			Save.set_gate_pointer(z)
+			var gg := Save.grove()
+			var gl: Array = gg.get("gates", [])
+			gl.append(z)
+			gg["gates"] = gl
+			Save.grove_write()
 
 # --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
 # On a COMPLETED map the player WELCOMES wandering spirits. A cozy panel lists each welcomable

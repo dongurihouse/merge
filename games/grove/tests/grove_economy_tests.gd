@@ -176,8 +176,9 @@ func _initialize() -> void:
 	ok(s4.gen_nodes.size() == 2, "a cold load in map 3/Pond draws both of the map's generators (reed bed + creel)")
 	ok(s4.gen_node != null and s4.gen_nodes.values().has(s4.gen_node), "gen_node points at a live generator (not the stale index-0 satchel)")
 
-	# 12c. generators are MOVABLE (#1) and arrive by GRANT HAND-IN (#2) on the live board,
-	# and the scene re-renders both (§6). A fresh board is map 1: seed satchel (4,3) + pantry crock (2,1).
+	# 12c. generators are MOVABLE (#1) and PERSIST into the bag's generator section (#2 store/place,
+	# never consumed) on the live board, and the scene re-renders both. A fresh board is map 0:
+	# seed satchel (4,3) live; the pantry crock (2,1) is staged (appear_level).
 	fresh("genmech")
 	var s4c = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s4c)
@@ -185,16 +186,18 @@ func _initialize() -> void:
 		s4c._ready()
 	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and not s4c.board.is_gen(Vector2i(2, 1)), \
 		"12c: a fresh board seeds only the anchor satchel (the pantry crock is staged)")
-	s4c.board.grow_surplus_gens(0, 99)                        # the pantry grows in mid map-0 play (appear_level) — the grant mechanic below hands it in
+	s4c.board.grow_gens(0, 99)                                # the pantry grows in mid map-0 play (appear_level)
 	ok(s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: the staged pantry crock grows in at its cell")
 	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()
 	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 3)), "12c: the moved generator re-renders at its new cell")
-	ok(s4c.board.grant_gen("hen_coop"), "12c: a generator-grant quest hands the pantry crock in for the hen coop (#2)")
+	ok(s4c.board.store_gen(Vector2i(2, 1)) and s4c.board.gen_bag.has("pantry_crock") and not s4c.board.is_gen(Vector2i(2, 1)), "12c: the pantry crock STORES into the gen_bag, freeing its cell (#2 — persists, never consumed)")
 	s4c._rebuild_all()
-	ok(s4c.board.gen_id_at(Vector2i(2, 1)) == "hen_coop" and s4c.board.gen_id_at(Vector2i(4, 4)) == "seed_satchel" and s4c.board.gens.size() == 2, "12c: granted — hen coop at the crock's cell; the moved anchor satchel untouched")
-	ok(s4c.gen_nodes.has(Vector2i(2, 1)) and s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the grant + the moved anchor")
+	ok(not s4c.gen_nodes.has(Vector2i(2, 1)), "12c: the stored generator leaves the board render")
+	ok(s4c.board.place_gen_from_bag("pantry_crock", Vector2i(2, 1)) and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock" and not s4c.board.gen_bag.has("pantry_crock"), "12c: placing it back from the bag restores it to the board (#2)")
+	s4c._rebuild_all()
+	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "seed_satchel" and s4c.gen_nodes.has(Vector2i(2, 1)) and s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the restored generator + the moved anchor")
 	s4c.queue_free()
 
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's
@@ -328,22 +331,23 @@ func _initialize() -> void:
 	_map_tap_at(h, _hit_center(open_card))
 	ok(h._view == "map" and h._map_idx == 0, "tapping an UNLOCKED map card opens that map")
 
-	# the completion chain: spot-restoring map 0 does NOT open map 1 — its gate
-	# quest must land first. buy all of map 0 (earn past its L-gates), then inject
-	# gates=[0] (gate delivery really happens on the board; here we simulate it).
+	# the completion chain: restoring the LAST spot of map 0 auto-unlocks map 1 (the gate quest
+	# type is retired — the completion record now sets the moment the map's spots are done). Buy
+	# all of map 0 (earn past its L-gates); the final purchase appends z=0 to `gates` itself.
 	Save.grove()["stars_earned"] = G.stars_at_level(3)   # clear the farmhouse's L-gates
-	for i in G.MAPS[0].spots.size():
+	# buy all but the last spot, then check the next map is STILL locked (spots not yet done)
+	for i in G.MAPS[0].spots.size() - 1:
 		var sid: String = G.MAPS[0].spots[i].id
 		if not h.spot_owned(sid):
 			h._on_spot_tap(0, i, h.spot_hits[i].node, _hit_center(h.spot_hits[i].node))
+	ok(not h.map_spots_done(0), "before the last spot, map 0 is not yet complete")
+	ok(not h.map_unlocked(1), "§7: a partially-restored map does NOT open the next")
+	# restore the LAST spot → spots done → z=0 auto-appended to `gates` → map 1 unlocks
+	var last_i: int = G.MAPS[0].spots.size() - 1
+	h._on_spot_tap(0, last_i, h.spot_hits[last_i].node, _hit_center(h.spot_hits[last_i].node))
 	ok(h.map_spots_done(0), "all farmhouse spots restored")
-	ok(not h.map_unlocked(1), "§7: spot-completing a map does NOT open the next — its gate quest must land first")
-	var gg2 := Save.grove()
-	var gt2: Array = gg2.get("gates", [])
-	gt2.append(0)                             # the great-spirit's gate, delivered
-	gg2["gates"] = gt2
-	Save.grove_write()
-	ok(h.map_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
+	ok(Save.grove().get("gates", []).has(0), "§7: restoring the last spot auto-records map 0 in `gates` (no gate quest)")
+	ok(h.map_unlocked(1), "§7: completing a map's spots opens the next (the completion chain)")
 	h._persist()
 
 	# 14a3. Q save migration: a pre-Q save (old spot ids) renames in place on the

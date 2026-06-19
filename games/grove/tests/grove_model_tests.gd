@@ -117,10 +117,10 @@ func _initialize() -> void:
 	var bs: BoardModel = BoardModel.new()
 	bs.seed_gens(0, below)
 	ok(bs.is_gen(G.GEN_CELL) and not bs.is_gen(pantry_cell), "seeding below the level places only the anchor")
-	ok(bs.grow_surplus_gens(0, below).is_empty(), "nothing grows in below the level")
-	var grown: Array = bs.grow_surplus_gens(0, pantry_lvl)
+	ok(bs.grow_gens(0, below).is_empty(), "nothing grows in below the level")
+	var grown: Array = bs.grow_gens(0, pantry_lvl)
 	ok(grown.has("pantry_crock") and bs.is_gen(pantry_cell), "reaching the level grows the pantry in at its cell")
-	ok(bs.grow_surplus_gens(0, pantry_lvl).is_empty(), "growing is idempotent (no duplicate install)")
+	ok(bs.grow_gens(0, pantry_lvl).is_empty(), "growing is idempotent (no duplicate install)")
 
 	# 6f. gen_bag: store a board generator and place it back
 	var bm := BoardModel.new()
@@ -251,55 +251,76 @@ func _initialize() -> void:
 	ok(Array(scn2.board.items) == snapshot and scn2._spots_bought() == scn._spots_bought(), \
 		"a fresh scene resumes the persisted board and progress")
 
-	# 10g. §7 GATE quest: restoring all of map 1's spots unveils the great-spirit's gate on the
-	# fence; delivering its top-tier asks records the gate, grants the next map's generators, and
-	# opens map 2 (the completion chain). All engine-side; the grove only supplies the tunables.
-	fresh("gatequest")
+	# 10g. NEAR-END generator grant + spots-done unlock (the gate/grant quest types are retired).
+	# (a) Near the end of map 0, ONE ordinary quest carries reward.generators = map 1's unowned
+	# generators; delivering it appends them to the board's gen_bag (they PERSIST — the player drags
+	# them out on the next map). (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the
+	# next map (no gate quest). All engine/grove-side; the grove only supplies the tunables.
+	fresh("grant")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sg)
 	if sg.board == null:
 		sg._ready()
 	var sgg := Save.grove()
-	sgg["stars_earned"] = 300                 # level past map 1's spot gates
-	var gate_ul := {}
-	for sp in G.MAPS[0].spots:
-		gate_ul[String(sp.id)] = true         # all of map 1 spot-restored
-	sgg["unlocks"] = gate_ul
+	sgg["stars_earned"] = 300                 # level past map 0's spot gates
+	# buy all of map 0's spots EXCEPT the last, so one spot remains and the fence still meters non-empty
+	var near_ul := {}
+	for i in G.MAPS[0].spots.size() - 1:
+		near_ul[String(G.MAPS[0].spots[i].id)] = true
+	sgg["unlocks"] = near_ul
 	sgg["gates"] = []
 	Save.grove_write()
-	# the pantry crock is now STAGED (appear_level 5): in real play it grows in during map-0 play,
-	# long before the map is fully restored. This fast-forward seeded the board at L1 (satchel only),
-	# so install the pantry as map-0 play would have — the cross-map hand-in (pantry → hen coop) below
-	# needs it present on the board.
-	sg.board.grow_surplus_gens(0, 99)
+	Save.add_stars(1)                          # banked 1 → stars_remaining ≤ GEN_GRANT_REMAINING_STARS
 	sg._init_quests()
 	sg._rebuild_givers()
-	ok(sg.quests.size() == 1 and bool(sg.quests[0].get("gate", false)), "§7: a fully-restored map shows the lone gate quest")
-	var gateq: Dictionary = sg.quests[0]
+	# exactly one quest on the fence carries the next map's generators as a reward
+	var carrier_qi := -1
+	for cq in sg.quests.size():
+		if sg.quests[cq].has("reward") and (sg.quests[cq].reward as Dictionary).has("generators"):
+			carrier_qi = cq
+	ok(carrier_qi >= 0, "near the end of map 0, one ordinary quest carries reward.generators")
+	var carry_q: Dictionary = sg.quests[carrier_qi]
+	ok(str(carry_q.reward.generators) == str(G.gens_to_grant(G.GENERATORS, 0, [])), "the carried generators are map 1's unowned ids (hen_coop + dairy_stall)")
+	# make the carrier payable, then deliver it → the generators land in the gen_bag
 	for ci in sg.board.items.size():
 		if sg.board.items[ci] > 0 and not G.is_coin(sg.board.items[ci]):
 			sg.board.items[ci] = 0
-	var gemp: Array = sg.board.empty_ground_cells()
-	var it_gate := G.quest_item(gateq)
-	if not it_gate.is_empty() and not gemp.is_empty():
-		sg.board.place(gemp[0], int(it_gate.line) * 100 + int(it_gate.tier))
+	var cemp: Array = sg.board.empty_ground_cells()
+	var it_carry := G.quest_item(carry_q)
+	if not it_carry.is_empty() and not cemp.is_empty():
+		sg.board.place(cemp[0], int(it_carry.line) * 100 + int(it_carry.tier))
 	sg._rebuild_pieces()
-	var gate_stars_b := Save.stars()
-	sg._on_giver_tap(0, sg.giver_chips[0].chip)
-	ok(Save.grove().get("gates", []).has(0), "§7: delivering the gate records it for map 1")
-	ok(G.map_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "§7: map 2 unlocks once the gate is delivered")
-	ok(Save.stars() > gate_stars_b, "§7: the gate pays its large authored reward")
-	ok(sg.board.gen_id_at(Vector2i(6, 5)) == "dairy_stall", "§7: the next map's SURPLUS generator appears outright (dairy stall)")
-	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and sg.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "§7: the anchor satchel stays; the pantry crock waits to be handed in")
-	# the new map opens with its generator-grant hand-in(s) on the fence (§6)
-	var grant_qi := -1
-	for gqi in sg.quests.size():
-		if sg.quests[gqi].has("grant") and String(sg.quests[gqi].grant.grants) == "hen_coop":
-			grant_qi = gqi
-	ok(grant_qi >= 0, "§7: the new map opens with the hen coop's grant quest (hand in the pantry crock)")
-	sg._on_giver_tap(grant_qi, sg.giver_chips[grant_qi].chip)
-	ok(sg.board.gen_id_at(Vector2i(2, 1)) == "hen_coop", "§7: handing the pantry crock in installs the hen coop — the new line goes live")
+	var carry_stars_b := Save.stars()
+	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip)
+	ok(sg.board.gen_bag.has("hen_coop") and sg.board.gen_bag.has("dairy_stall"), "delivering the near-end quest appends map 1's generators to the gen_bag (they persist)")
+	ok(Save.stars() >= carry_stars_b, "the near-end quest still pays its ordinary star reward")
+	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel stays on the board (generators are never consumed)")
 	sg.queue_free()
+
+	# (b) spots-done unlock via the REAL Map scene: buying the final spot records z in `gates`.
+	fresh("spotsdone")
+	var hm = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hm)
+	if hm.content == null:
+		hm._ready()
+	var hmg := Save.grove()
+	hmg["stars_earned"] = 300
+	var sd_ul := {}
+	for i in G.MAPS[0].spots.size() - 1:
+		sd_ul[String(G.MAPS[0].spots[i].id)] = true   # all but the last spot
+	hmg["unlocks"] = sd_ul
+	hmg["gates"] = []
+	Save.grove_write()
+	hm.unlocks = sd_ul.duplicate()
+	Save.add_stars(50)                          # afford the last spot
+	var last_k: int = G.MAPS[0].spots.size() - 1
+	var sd_node := Control.new()
+	hm.add_child(sd_node)
+	hm._on_spot_tap(0, last_k, sd_node, Vector2(100, 100))
+	ok(G.map_spots_done(0, hm.unlocks), "buying the last spot completes map 0's spots")
+	ok(Save.grove().get("gates", []).has(0), "restoring the last spot auto-records map 0 in `gates` (no gate quest)")
+	ok(G.map_unlocked(1, Save.grove().get("unlocks", {}), Save.grove().get("gates", [])), "the next map (1) unlocks once map 0's spots are done")
+	hm.queue_free()
 
 	# 11. P2 — water economy + coins
 	finish()
