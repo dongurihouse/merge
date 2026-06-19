@@ -49,18 +49,17 @@ static func make_icon(id: String, px: float) -> Control:
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).
 static func cost_pill(rew_id: String, n: int, font_px: int = 18, icon_px: float = 24.0) -> Control:
 	var pill := PanelContainer.new()
-	var box := Look.kit_box("kit/mail_pill_cream.png", PILL_TEX, PILL_PAD)
-	if box != null:
-		pill.add_theme_stylebox_override("panel", box)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Pal.CREAM
-		s.set_corner_radius_all(18)
-		s.set_border_width_all(2)
-		s.border_color = Pal.STRAW
-		s.content_margin_left = 14; s.content_margin_right = 14
-		s.content_margin_top = 6; s.content_margin_bottom = 6
-		pill.add_theme_stylebox_override("panel", s)
+	# Code-drawn cream capsule — NOT the mail_pill_cream nine-patch. The corner radius clamps to
+	# height/2 → a clean pill at ANY size, matching the buy button's fix. The card + dialog inherit
+	# this same builder, so their pills are no longer 9-cut and no longer deform when shrunk.
+	var s := StyleBoxFlat.new()
+	s.bg_color = Pal.CREAM
+	s.border_color = Pal.STRAW
+	s.set_corner_radius_all(999)
+	s.set_border_width_all(2)
+	s.content_margin_left = 14; s.content_margin_right = 14
+	s.content_margin_top = 5; s.content_margin_bottom = 6
+	pill.add_theme_stylebox_override("panel", s)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var row := HBoxContainer.new()
@@ -298,9 +297,19 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.add_child(col)
 
+	# the banner band lives in a SLOT that reserves its height in the column, but is a FREE child of
+	# that slot so the workbench can DRAG it (offset banner_pos — e.g. pull it up to overhang the card).
+	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
+	var banner_slot := Control.new()
+	banner_slot.custom_minimum_size = Vector2(0, banner_h)
+	banner_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	banner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(banner_slot)
 	var header := Look.banner_title("Mail", banner_font, banner_h, "mail/mail_banner.png")
-	header.size_flags_horizontal = Control.SIZE_FILL
-	col.add_child(header)
+	header.name = "DialogBanner"
+	header.custom_minimum_size = Vector2(width, banner_h)   # explicit width — banner_slot isn't a container
+	header.position = banner_pos
+	banner_slot.add_child(header)
 	if ResourceLoader.exists(Look.kit("mail/mail_banner.png")):
 		var env := Look.icon("mail", banner_icon)
 		env.name = "DialogBannerIcon"

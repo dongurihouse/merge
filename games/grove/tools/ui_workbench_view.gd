@@ -31,6 +31,7 @@ const SCHEMA := {
 	"dialog": [                                             # pill size inherits from the Cost pill
 		["width", 360, 720],
 		["banner_font", 16, 56], ["banner_h", 50, 160], ["banner_icon", 24, 110],
+		["banner_x", -200, 200], ["banner_y", -120, 120],
 		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
 		["close_size", 30, 96], ["close_x", -100, 100], ["close_y", -100, 100],
 		["snap", 1, 40],
@@ -45,6 +46,7 @@ var _params := {
 	"card": {"title": 20, "body": 15},
 	"dialog": {
 		"width": 560, "banner_font": 32, "banner_h": 92, "banner_icon": 54,
+		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
 		"entries": 4, "list_max_h": 0,
@@ -145,6 +147,7 @@ func _make_element(id: String) -> Control:
 				"banner_font": int(p.banner_font),
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
+				"banner_pos": Vector2(float(p.banner_x), float(p.banner_y)),
 				"banner_icon_pos": Vector2(float(p.banner_icon_x), float(p.banner_icon_y)),
 				"close_size": float(p.close_size),
 				"close_poke": Vector2(float(p.close_x), float(p.close_y)),
@@ -198,8 +201,8 @@ func _section(id: String) -> Control:
 ## inner buttons (Claim / ✕ / the buy pill) falls through to the section and selects it.
 func _ignore_nonbuttons(n: Node) -> void:
 	for c in n.get_children():
-		# keep the draggable banner icon mouse-active so it can be grabbed
-		if c is Control and not (c is BaseButton) and String(c.name) != "DialogBannerIcon":
+		# keep the draggable banner + banner icon mouse-active so they can be grabbed
+		if c is Control and not (c is BaseButton) and String(c.name) != "DialogBannerIcon" and String(c.name) != "DialogBanner":
 			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_ignore_nonbuttons(c)
 
@@ -207,6 +210,10 @@ func _ignore_nonbuttons(n: Node) -> void:
 
 ## Make the dialog's named handles draggable. Re-run on every dialog rebuild (new nodes each time).
 func _attach_dialog_drag(d: Control) -> void:
+	var banner: Control = d.find_child("DialogBanner", true, false)
+	if banner != null:
+		banner.mouse_filter = Control.MOUSE_FILTER_STOP
+		_make_draggable(banner, "banner")
 	var env: Control = d.find_child("DialogBannerIcon", true, false)
 	if env != null:
 		env.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -252,7 +259,10 @@ func _snap_vec(v: Vector2) -> Vector2:
 
 func _store_drag(kind: String, local: Vector2) -> void:
 	var p: Dictionary = _params["dialog"]
-	if kind == "banner_icon":
+	if kind == "banner":
+		p["banner_x"] = local.x
+		p["banner_y"] = local.y
+	elif kind == "banner_icon":
 		p["banner_icon_x"] = local.x
 		p["banner_icon_y"] = local.y
 	elif kind == "close":
