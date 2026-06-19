@@ -515,11 +515,12 @@ func _update_water_hud() -> void:
 		if credit > 0:
 			water = mini(G.WATER_CAP, water + credit)
 			_persist()
-	# FTUE: water stays hidden until the free intro pops are spent — hide just the
-	# water icon + count, not the shared currency cluster
-	var show_water := _ftue_pops_done() or not Features.on("ftue_staged_chrome")
-	_water_icon.visible = show_water
-	water_label.visible = show_water
+	# Water is a first-class currency in the shared top bar — always visible on the board now, matching
+	# the map. (The old FTUE staged-chrome hide that kept the meter hidden until the 10 free pops were
+	# spent is retired; the separate water-COST gate at _ftue_pops_done() — see _charge — is unchanged,
+	# so during the free intro the meter simply reads full.)
+	_water_icon.visible = true
+	water_label.visible = true
 	water_label.text = str(water)
 	# the empty-water surfaces (§10 the friction point): the stack appears at water<=0.
 	var empty := water <= 0
