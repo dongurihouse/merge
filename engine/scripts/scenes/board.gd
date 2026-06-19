@@ -39,6 +39,7 @@ const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Deco
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
@@ -280,8 +281,8 @@ func _process(delta: float) -> void:
 		_hint_pair()
 
 # Find one mergeable pair and wiggle it. Returns the pair (tests; [] = none).
-# §2: the hint also pulses the sealed cell(s) that merging that pair would OPEN —
-# the "this merge unseals that" teach-signal. Same rock vocabulary as the pair.
+# The unlockable cell(s) this merge would OPEN are NOT rocked — they already carry the bright
+# highlight border + glow (PieceView.make_bramble), so the rock was redundant teach-signal.
 func _hint_pair() -> Array:
 	if not Features.on("idle_hint"):
 		return []
@@ -290,10 +291,6 @@ func _hint_pair() -> Array:
 		var n: Control = piece_nodes.get(cell)
 		if n != null and is_instance_valid(n):
 			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
-	for cell in BoardLogic.openable_for_hint(board, pair, _quest_level()):
-		var br: Control = bramble_nodes.get(cell)
-		if br != null and is_instance_valid(br):
-			FX.rock(br, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)
 	return pair
 
 func _board_w() -> float:
@@ -484,7 +481,9 @@ func _build_hud() -> void:
 		_persist(),
 		# §10: a shop-bought item-shortcut lands in the bag LIVE (drained from the queue)
 		# while the board is open — no scene reload needed for it to appear.
-		"piece_grant": func() -> void: _drain_shop_pieces()})
+		"piece_grant": func() -> void: _drain_shop_pieces(),
+		# tap the level badge -> the level screen (stars earned / needed for the next level)
+		"on_level": func() -> void: LevelPopup.open(self)})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	stars_label = hud.stars
 	coins_label = hud.coins
@@ -1399,6 +1398,9 @@ func _on_release(pos: Vector2) -> void:
 		_release_gen(pos)
 		return
 	if _drag_node == null:
+		var tap := _pos_to_cell(pos)
+		if tap == _press_cell and board.is_bramble(tap):
+			LevelPopup.open(self)   # tap a locked cell -> the level screen (its gate Level + your progress)
 		return
 	var target := _pos_to_cell(pos)
 	var from := _drag_from

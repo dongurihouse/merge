@@ -104,6 +104,16 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var frame := avatar.get_node_or_null("lv_frame") as TextureRect   # null when on the honey-token fallback
 	var level := avatar.get_node_or_null("lv_num") as Label
+	# tap the level badge -> open the level screen (stars earned / needed for the next level), when
+	# the scene wires "on_level". The badge's children ignore input, so the avatar catches the tap.
+	var on_level: Variant = opts.get("on_level")
+	if on_level is Callable and (on_level as Callable).is_valid():
+		avatar.mouse_filter = Control.MOUSE_FILTER_STOP
+		avatar.gui_input.connect(func(ev: InputEvent) -> void:
+			var click: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
+				or (ev is InputEventScreenTouch and not ev.pressed)
+			if click:
+				(on_level as Callable).call())
 	lrow.add_child(avatar)
 	var level_prog := Label.new()
 	level_prog.add_theme_font_size_override("font_size", Tune.LVL_PROG_SIZE)   # readable (was 20), to the RIGHT of the avatar

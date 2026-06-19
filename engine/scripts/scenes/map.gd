@@ -18,6 +18,7 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -1321,7 +1322,9 @@ func _build_hud() -> void:
 		"water_grant": func() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP
-			Save.grove_write()})
+			Save.grove_write(),
+		# tap the level badge -> the level screen (stars earned / needed for the next level)
+		"on_level": func() -> void: LevelPopup.open(self)})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
