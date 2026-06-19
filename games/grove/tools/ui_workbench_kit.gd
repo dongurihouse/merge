@@ -149,13 +149,16 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).
-static func cost_pill(rew_id: String, n: int, font_px: int = 18, icon_px: float = 24.0) -> Control:
-	# The cost pill IS the shared pill_button — the cream variant, with the reward icon, carrying the
-	# number, marked static (a display chip, not pressable). One button component, two backgrounds.
-	return pill_button(str(n), {
-		"bg": "cream", "icon": rew_id, "font": font_px, "icon_size": int(icon_px),
-		"corner": 999, "static": true,
-	})
+static func cost_pill(rew_id: String, n: int, btn_opts: Dictionary = {}) -> Control:
+	# The cost pill IS the shared pill_button, driven by the SAME state as the Claim — it only overrides
+	# the background (cream) + content (reward icon + number) and is static (a display chip). So editing
+	# the shared Button (corner, font, …) updates the cost pill too. One state, two backgrounds.
+	var o := btn_opts.duplicate()
+	o["bg"] = "cream"
+	o["icon"] = rew_id
+	o["static"] = true
+	o["enabled"] = true
+	return pill_button(str(n), o)
 
 ## (The old nine-patch claim_button was REMOVED — the mail Claim is now the shared pill_button below,
 ## so there is one button component. The mail card/dialog drive their Claim entirely from it.)
@@ -252,8 +255,7 @@ static func plated_icon(id: String, px: float = 56.0) -> Control:
 
 ## A mail card (mockup image 2): plated icon + title/body + a cost_pill + a claim_button.
 ## COMPOSES the two atoms — pill size flows in from the caller so a knob change propagates here.
-static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float = 24.0,
-		title_font: int = 20, body_font: int = 15, btn_opts: Dictionary = {}) -> Control:
+static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 15, btn_opts: Dictionary = {}) -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
 	if box != null:
@@ -298,16 +300,57 @@ static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float =
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_child(body)
 
-	var chip := cost_pill(String(entry.get("rew", "gem")), int(entry.get("n", 0)), pill_font, pill_icon)
+	# Both the cost pill AND the Claim are the SHARED pill_button (cream variant vs green) — driven
+	# entirely by the same btn_opts, so editing the shared Button updates them across every row.
+	var chip := cost_pill(String(entry.get("rew", "gem")), int(entry.get("n", 0)), btn_opts)
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chip)
-	# the Claim is the SHARED pill_button — it has no styling of its own, it's driven entirely by the
-	# button opts passed down (text/bg/icon/enabled/font/corner), so editing the shared Button updates
-	# every Claim in the card + dialog automatically.
 	var claim := pill_button(String(btn_opts.get("text", "Claim")), btn_opts)
 	claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(claim)
 	return panel
+
+## The dialog banner band: ribbon art + the "Mail" text drawn FULL-RECT and vertically CENTRED, so it
+## auto-aligns whatever the font size; plus an optional envelope icon (toggle). Named DialogBanner /
+## DialogBannerIcon so the workbench can drag them.
+static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
+		icon_px: float, icon_pos) -> Control:
+	var header := Control.new()
+	header.name = "DialogBanner"
+	header.custom_minimum_size = Vector2(width, band_h)
+	var bp := Look.kit("mail/mail_banner.png")
+	if ResourceLoader.exists(bp):
+		var art := TextureRect.new()
+		art.texture = load(bp)
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(art)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER       # auto-vcentre on any font size
+	lbl.add_theme_font_size_override("font_size", font)
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(lbl)
+	if icon_on and ResourceLoader.exists(bp):
+		var env := Look.icon("mail", icon_px)
+		env.name = "DialogBannerIcon"
+		env.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(env)
+		if icon_pos != null:
+			env.position = icon_pos
+		else:
+			var place := func() -> void:                       # default: ~30% across, vertically centred
+				if is_instance_valid(env) and is_instance_valid(header):
+					env.position = Vector2(header.size.x * 0.30 - icon_px / 2.0, header.size.y / 2.0 - icon_px / 2.0)
+			header.resized.connect(place)
+			header.ready.connect(place)
+	return header
 
 ## The whole Mail dialog (mockup image 3): a parchment card with the gold banner + envelope, a
 ## docked ✕, and a column of mail_cards. COMPOSES mail_card for every entry.
@@ -315,41 +358,30 @@ static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float =
 ## banner band, or absent = ~30% across, centred), close_size (px), close_poke (Vector2 — how far the
 ## ✕ poles past the card's top-right corner). The banner icon ("DialogBannerIcon") and the ✕
 ## ("DialogClose") are NAMED so the workbench can make them mouse-draggable.
-static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 24.0, width: float = 560.0,
-		opts: Dictionary = {}) -> Control:
+static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary = {}) -> Control:
 	var banner_font: int = int(opts.get("banner_font", 32))
 	var banner_h: float = float(opts.get("banner_h", BANNER_H))
 	var banner_icon: float = float(opts.get("banner_icon", 54.0))
+	var banner_icon_on: bool = bool(opts.get("banner_icon_on", true))    # the envelope toggle
 	var banner_icon_pos = opts.get("banner_icon_pos", null)        # Vector2 (px in the band) or null = auto
 	var close_size: float = float(opts.get("close_size", 64.0))
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
-	var btn_opts: Dictionary = opts.get("btn", {})       # the shared Button drives every row's Claim
-	var card_art: bool = bool(opts.get("card_art", false))     # true = parchment nine-patch; false = code-drawn
+	var btn_opts: Dictionary = opts.get("btn", {})       # the shared Button drives the cost pills + Claims
 	var card_corner: float = float(opts.get("card_corner", 22.0))
-	var card_slice: float = float(opts.get("card_slice", 48.0)) # the 9-slice texture margin (art mode)
 
 	var wrap := Control.new()
 
 	var card := PanelContainer.new()
-	# The card background: code-drawn (configurable CORNER — the parchment art's corners are baked and
-	# can't be un-rounded by a 9-slice) OR the parchment nine-patch with a tunable SLICE margin.
-	var pp := Look.kit("shared/panel_parchment.png")
-	if card_art and ResourceLoader.exists(pp):
-		var st := StyleBoxTexture.new()
-		st.texture = load(pp)
-		st.set_texture_margin_all(card_slice)
-		st.content_margin_left = 18; st.content_margin_right = 18
-		st.content_margin_top = 18; st.content_margin_bottom = 18
-		card.add_theme_stylebox_override("panel", st)
-	else:
-		var cf := StyleBoxFlat.new()
-		cf.bg_color = Pal.CREAM
-		cf.border_color = Pal.BARK
-		cf.set_corner_radius_all(int(card_corner))
-		cf.set_border_width_all(3)
-		cf.content_margin_left = 18; cf.content_margin_right = 18
-		cf.content_margin_top = 18; cf.content_margin_bottom = 18
-		card.add_theme_stylebox_override("panel", cf)
+	# Code-drawn parchment card with a configurable CORNER. (The parchment art's corners are baked and
+	# can't be un-rounded by a 9-slice, so we draw it — the Card corner slider always works.)
+	var cf := StyleBoxFlat.new()
+	cf.bg_color = Pal.CREAM
+	cf.border_color = Pal.BARK
+	cf.set_corner_radius_all(int(card_corner))
+	cf.set_border_width_all(3)
+	cf.content_margin_left = 18; cf.content_margin_right = 18
+	cf.content_margin_top = 18; cf.content_margin_bottom = 18
+	card.add_theme_stylebox_override("panel", cf)
 	card.custom_minimum_size = Vector2(width, 0)
 	card.position = Vector2.ZERO
 	wrap.add_child(card)
@@ -367,24 +399,9 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	banner_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	banner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(banner_slot)
-	var header := Look.banner_title("Mail", banner_font, banner_h, "mail/mail_banner.png")
-	header.name = "DialogBanner"
-	header.custom_minimum_size = Vector2(width, banner_h)   # explicit width — banner_slot isn't a container
+	var header := _banner("Mail", banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos)
 	header.position = banner_pos
 	banner_slot.add_child(header)
-	if ResourceLoader.exists(Look.kit("mail/mail_banner.png")):
-		var env := Look.icon("mail", banner_icon)
-		env.name = "DialogBannerIcon"
-		env.mouse_filter = Control.MOUSE_FILTER_IGNORE          # the workbench re-enables this to drag it
-		header.add_child(env)
-		if banner_icon_pos != null:
-			env.position = banner_icon_pos
-		else:
-			var place := func() -> void:                       # default: ~30% across, vertically centred
-				if is_instance_valid(env) and is_instance_valid(header):
-					env.position = Vector2(header.size.x * 0.30 - banner_icon / 2.0, header.size.y / 2.0 - banner_icon / 2.0)
-			header.resized.connect(place)
-			header.ready.connect(place)
 
 	var entries_count: int = int(opts.get("entries_count", entries.size()))
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))   # 0 = uncapped (grows freely, no scroll)
@@ -392,7 +409,7 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	rows.add_theme_constant_override("separation", 10)
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in maxi(0, entries_count):
-		rows.add_child(mail_card(entries[i % entries.size()], pill_font, pill_icon, 20, 15, btn_opts))
+		rows.add_child(mail_card(entries[i % entries.size()], 20, 15, btn_opts))
 	if list_max_h > 0.0:
 		var scroll := ScrollContainer.new()
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED

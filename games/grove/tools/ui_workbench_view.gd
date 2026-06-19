@@ -24,12 +24,12 @@ const CAPTIONS := {
 }
 # Per-element knob schema: [key, min, max]. The sidebar renders one slider per entry.
 const SCHEMA := {
-	"pill": [["font", 10, 36], ["icon", 12, 48]],
+	"pill": [],                                             # no own controls — it's the shared Button (cream)
 	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
 	"icon": [["feather", 0, 4], ["supersample", 1, 4]],     # defringe is a toggle, added below
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
 	"dialog": [                                             # pill size inherits from the Cost pill
-		["width", 360, 720], ["card_corner", 0, 60], ["card_slice", 8, 120],
+		["width", 360, 720], ["card_corner", 0, 60],
 		["banner_font", 16, 56], ["banner_h", 50, 160], ["banner_icon", 24, 110],
 		["banner_x", -200, 200], ["banner_y", -120, 120],
 		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
@@ -40,13 +40,13 @@ const SCHEMA := {
 }
 
 var _params := {
-	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
+	"pill": {},                                             # the cost pill is the shared Button (no own state)
 	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
-		"width": 560, "card_art": false, "card_corner": 22, "card_slice": 48,
-		"banner_font": 32, "banner_h": 92, "banner_icon": 54,
+		"width": 560, "card_corner": 22,
+		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
@@ -140,7 +140,7 @@ func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
 		"pill":
-			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
+			return Kit.cost_pill("gem", 50, _btn_opts())
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"icon":
@@ -150,25 +150,24 @@ func _make_element(id: String) -> Control:
 			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample)}))
 			return box
 		"card":
-			# pill font/icon INHERIT from the Cost pill; the Claim INHERITS from the shared Button
-			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body), _btn_opts())
+			# the cost pill AND the Claim both inherit from the shared Button
+			return Kit.mail_card(Kit.DEMO_MAIL[0], int(p.title), int(p.body), _btn_opts())
 		"dialog":
 			var opts := {
-				"card_art": bool(p.card_art),
 				"card_corner": float(p.card_corner),
-				"card_slice": float(p.card_slice),
 				"banner_font": int(p.banner_font),
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
+				"banner_icon_on": bool(p.banner_icon_on),
 				"banner_pos": Vector2(float(p.banner_x), float(p.banner_y)),
 				"banner_icon_pos": Vector2(float(p.banner_icon_x), float(p.banner_icon_y)),
 				"close_size": float(p.close_size),
 				"close_poke": Vector2(float(p.close_x), float(p.close_y)),
 				"entries_count": int(p.entries),
 				"list_max_h": float(p.list_max_h),
-				"btn": _btn_opts(),                        # the shared Button drives every Claim
+				"btn": _btn_opts(),                        # the shared Button drives the cost pills + Claims
 			}
-			var d := Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width), opts)
+			var d := Kit.mail_dialog(Kit.DEMO_MAIL, float(p.width), opts)
 			_attach_dialog_drag(d)
 			return d
 	return Control.new()
@@ -371,9 +370,9 @@ func _rebuild_sidebar() -> void:
 	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(sub)
-	if _selected == "card" or _selected == "dialog":
+	if _selected == "pill" or _selected == "card" or _selected == "dialog":
 		var note := Label.new()
-		note.text = "Pill size inherits from the Cost pill; the Claim inherits from the shared Button — edit those."
+		note.text = "Cost pill + Claim are the shared Button (cream / green) — edit them on the Button item."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -386,7 +385,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_toggle_row("Show icon", "show_icon"))
 		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
 	elif _selected == "dialog":
-		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art"))
+		_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
 	elif _selected == "icon":
 		_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 	for spec in SCHEMA[_selected]:
