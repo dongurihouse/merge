@@ -78,13 +78,30 @@ ICON_GLYPHS note). Re-skin updates the **art** behind those ids; ids/roles are u
 - Move the claimable ready-pip (`_piggy_pip`, driven by `_refresh_piggy_pip` →
   `Vault.claimable()`) onto the new nav button via `Look.attach_badge`.
 
+### 1b. Bottom bar realigned + resized to match the board
+The board (`board.gd:220`) sizes its shared nav at **px 140** for side buttons and **184**
+for the centered primary (Home). The map currently uses 96 (sides) / 140 (Play) — too small
+and the primary sits off-centre. Bring the map's bottom bar to the **same sizing and
+alignment as the board**:
+- Side buttons → **px 140**; the primary Play (leaf) → **px 184**.
+- Reorder so the primary is **centred** (3rd of 5), mirroring the board's centred Home:
+  `gear · shop · Play(leaf) · map · piggy`. This is the "realign" — Play was 2nd of 4 and
+  would be 2nd of 5 after adding piggy; centring it matches both the board and `home.png`.
+- The `_shop_btn` / Store-badge anchor index is updated for the new order.
+
 ### 2. Side rail → top-right + kit badges
 - `_place_rail`: anchor **top-right**, stack **downward** from below the currency pill
   (instead of bottom-right stacking up). First slot sits clear of the wallet pill's bottom.
 - `_rail_button`: build a framed circular badge using the circular shell art + a real kit
   icon (gift / faucet / mail as the reference shows) + a small caption tab ("Daily" /
-  "Free" / "Inbox") beneath. Keep `Look.badge("dot"/"pill")` for the actionable red
-  cue — the calm rule (badge pulls, not the button) is preserved.
+  "Free" / "Inbox") beneath. Keep `Look.badge` for the actionable cue — the calm rule
+  (badge pulls, not the button) is preserved.
+- **Rail button size = the bottom-bar side-button size (px 140)** — the rail buttons match
+  the bottom bar (and the board), per `home.png`. (Up from the current 72.) The downward
+  stack and caption tabs are sized to this.
+- **Mail/Inbox badge shows the unread number** (like the reference's red "3"): the Inbox
+  badge is `Look.badge("pill", n)` — a red disc with the white count — pinned to the icon's
+  top-right corner and driven by `_refresh_liveops_badges` (`inbox.unread_count()`).
 - Rail entries after the move: Daily, Free, Inbox (Inbox still guarded by `_has_inbox`).
 
 ### 3. Level display ~15% larger
