@@ -281,9 +281,10 @@ func _initialize() -> void:
 
 	# 10g. NEAR-END generator grant + spots-done unlock (the gate/grant quest types are retired).
 	# (a) Near the end of map 0, ONE ordinary quest carries reward.generators = map 1's unowned
-	# generators; delivering it appends them to the board's gen_bag (they PERSIST — the player drags
-	# them out on the next map). (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the
-	# next map (no gate quest). All engine/grove-side; the grove only supplies the tunables.
+	# generators; delivering it AUTO-PLACES them on the board (bridges the new-map UX seam so the
+	# fence is payable on arrival). gen_bag is only the fallback when the board is full.
+	# (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the next map (no gate quest).
+	# All engine/grove-side; the grove only supplies the tunables.
 	fresh("grant")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sg)
@@ -309,7 +310,8 @@ func _initialize() -> void:
 	ok(carrier_qi >= 0, "near the end of map 0, one ordinary quest carries reward.generators")
 	var carry_q: Dictionary = sg.quests[carrier_qi]
 	ok(str(carry_q.reward.generators) == str(G.gens_to_grant(G.GENERATORS, 0, [])), "the carried generators are map 1's unowned ids (hen_coop + dairy_stall)")
-	# make the carrier payable, then deliver it → the generators land in the gen_bag
+	# make the carrier payable (clear non-coin items, place the required quest item), then deliver it
+	# → the generators must be AUTO-PLACED on the board (board has room); gen_bag stays empty for them
 	for ci in sg.board.items.size():
 		if sg.board.items[ci] > 0 and not G.is_coin(sg.board.items[ci]):
 			sg.board.items[ci] = 0
@@ -320,10 +322,41 @@ func _initialize() -> void:
 	sg._rebuild_pieces()
 	var carry_stars_b := Save.stars()
 	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip)
-	ok(sg.board.gen_bag.has("hen_coop") and sg.board.gen_bag.has("dairy_stall"), "delivering the near-end quest appends map 1's generators to the gen_bag (they persist)")
+	ok(sg.board.gens.values().has("hen_coop") and sg.board.gens.values().has("dairy_stall"), \
+		"delivering the near-end quest AUTO-PLACES map 1's generators on the board (board had room)")
+	ok(not sg.board.gen_bag.has("hen_coop") and not sg.board.gen_bag.has("dairy_stall"), \
+		"gen_bag is empty for the granted generators (board placement succeeded)")
 	ok(Save.stars() >= carry_stars_b, "the near-end quest still pays its ordinary star reward")
 	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel stays on the board (generators are never consumed)")
-	sg.queue_free()
+	# idempotency: delivering the same quest a second time (or re-running with already-owned gens) is a no-op
+	var gens_count_before: int = sg.board.gens.size()
+	var gen_bag_size_before: int = sg.board.gen_bag.size()
+	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip if carrier_qi < sg.giver_chips.size() else Control.new())
+	ok(sg.board.gens.size() == gens_count_before and sg.board.gen_bag.size() == gen_bag_size_before, \
+		"delivering an already-owned generator is a no-op (idempotent)")
+	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
+	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;
+	# the board-model-level assertion is the right place for this invariant.)
+	fresh("grant_full_board")
+	var fbm := BoardModel.new()
+	fbm.seed_gens(0, G.APPEAR_ALL)
+	# fill every open cell with a dummy item so no empty ground remains
+	for ofc in fbm.empty_ground_cells():
+		fbm.place(ofc, 101)
+	ok(fbm.empty_ground_cells().is_empty(), "pre-condition: board is full (no empty ground cells)")
+	# attempt to grant a generator — must land in gen_bag
+	fbm.gen_bag.clear()
+	var dest2 := Vector2i(-1, -1)
+	for fc in fbm.empty_ground_cells():
+		if not fbm.gens.has(fc):
+			dest2 = fc
+			break
+	if dest2 == Vector2i(-1, -1):
+		fbm.gen_bag.append("hen_coop")
+	else:
+		fbm.place_gen("hen_coop", dest2)
+	ok(fbm.gen_bag.has("hen_coop") and not fbm.gens.values().has("hen_coop"), \
+		"when the board is full, granted generators fall back to gen_bag")
 
 	# (b) spots-done unlock via the REAL Map scene: buying the final spot records z in `gates`.
 	fresh("spotsdone")

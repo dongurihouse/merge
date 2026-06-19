@@ -388,7 +388,7 @@ func _meter_target() -> int:
 	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
-# via the rng. Near the end of the map, one quest also carries the next map's generator(s) → gen_bag.
+# via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
 	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng)
 
@@ -855,14 +855,15 @@ func _refresh_giver_lights() -> void:
 # board no longer opens with two generators (owner). Self-healing: called at the top of every
 # _rebuild_all, it installs map-1 generators (e.g. pantry_crock at L5) that have grown in,
 # makes their lines askable (refill), and persists. Records new cell(s) so the rebuild can pop them in.
-# Later maps' generators never grow in here — they arrive via gen_bag, placed by the player.
+# Later maps' generators never grow in here — they arrive via the near-end grant, auto-placed on board.
 func _grow_generators() -> void:
 	if board == null:
 		return
 	# Only the first map's generators are seeded/staged on the board (pantry_crock at
 	# appear_level 5); every later map's generator arrives via the near-end grant →
-	# gen_bag → player placement, so we never auto-grow a later map here.
-	# On map 1+, this function is a no-op: all of that map's generators arrive via gen_bag.
+	# auto-placed on board (gen_bag is the fallback when the board is full), so we never
+	# auto-grow a later map here.
+	# On map 1+, this function is a no-op: all of that map's generators arrive via the near-end grant.
 	if _quest_map() != 0:
 		return
 	var added: Array = board.grow_gens(0, _quest_level())
@@ -1846,14 +1847,25 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
 	if sp_gems > 0:
 		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra ★)
-	# the near-end map quest grants the NEXT map's generator(s) — they land in the bag's generator
-	# section (gen_bag), which the player drags onto the board once they reach the next map.
+	# the near-end map quest grants the NEXT map's generator(s) — auto-placed on the board's first
+	# open cell so the new map opens with its tool already producing; gen_bag is only a fallback when
+	# the board is full (the player can still store a generator into the bag at will).
 	var got_gens: Array = []
 	if q.has("reward") and q.reward.has("generators"):
 		for gid in q.reward.generators:
-			if not board.gen_bag.has(String(gid)) and not board.gens.values().has(String(gid)):
-				board.gen_bag.append(String(gid))
-				got_gens.append(String(gid))
+			var id := String(gid)
+			if board.gen_bag.has(id) or board.gens.values().has(id):
+				continue                       # already owned (on board or stored)
+			var dest := Vector2i(-1, -1)
+			for c in board.empty_ground_cells():
+				if not board.gens.has(c):
+					dest = c
+					break
+			if dest == Vector2i(-1, -1):
+				board.gen_bag.append(id)       # board full → hold it in the bag
+			else:
+				board.place_gen(id, dest)
+			got_gens.append(id)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
@@ -1861,8 +1873,8 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 64), "gem", sp_gems, Color("#BFE6F2"), 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if not got_gens.is_empty():
-		# a new tool joined the bag — a warm beat over the chip (it lives in the bag's generator section)
-		FX.celebrate_at(self, chip.get_global_rect().get_center() - Vector2(0, 60), tr("New tool in your bag!"), STRAW)
+		# a new tool arrived on the board (gen_bag is just the fallback if the board was full)
+		FX.celebrate_at(self, chip.get_global_rect().get_center() - Vector2(0, 60), tr("A new tool arrived!"), STRAW)
 		Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
 	if levels_up > 0:
 		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
