@@ -116,16 +116,19 @@ func set_active_gens(spots: int, level: int = G.APPEAR_ALL) -> Array:
 	seed_gens(G.map_for_spots(spots), level)
 	return gens.keys()
 
-## Install any of `map`'s OWN generators that have GROWN IN by `level` (appear_level reached) but
-## are not yet on the board — the staged-second-generator path (§ owner: don't open with two
-## generators; e.g. pantry_crock at appear_level 5). Idempotent: a generator already present is
-## skipped, so this is safe to call on every board open / level-up. Returns the ids newly
-## installed (for a beat). Does NOT install the next map's generators (those arrive via gen_bag).
+## Install any of `map`'s OWN generators that have GROWN IN by `level` (appear_level reached)
+## but are not yet on the board AND are not stored in gen_bag — the staged-second-generator
+## path (§ owner: don't open with two generators; e.g. pantry_crock at appear_level 5).
+## Idempotent: a generator already on the board or deliberately stored in gen_bag is skipped,
+## so this is safe to call on every board open / level-up. Returns the ids newly installed
+## (for a beat). Does NOT install the next map's generators (those arrive via gen_bag).
 func grow_gens(map: int, level: int) -> Array:
 	var added: Array = []
 	for g in G.generators_for_map(G.GENERATORS, map, level):
 		var id := String(g.id)
 		if gens.values().has(id):
+			continue
+		if gen_bag.has(id):
 			continue
 		place_gen(id, G.gen_cell_of(G.GENERATORS, id))
 		added.append(id)

@@ -858,7 +858,13 @@ func _refresh_giver_lights() -> void:
 func _grow_generators() -> void:
 	if board == null:
 		return
-	var added: Array = board.grow_gens(G.map_for_spots(_spots_bought()), _quest_level())
+	# Only the first map's generators are seeded/staged on the board (pantry_crock at
+	# appear_level 5); every later map's generator arrives via the near-end grant →
+	# gen_bag → player placement, so we never auto-grow a later map here.
+	# On map 1+, this function is a no-op: all of that map's generators arrive via gen_bag.
+	if _quest_map() != 0:
+		return
+	var added: Array = board.grow_gens(0, _quest_level())
 	if added.is_empty():
 		return
 	for id in added:

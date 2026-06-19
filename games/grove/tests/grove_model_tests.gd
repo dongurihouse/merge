@@ -122,6 +122,34 @@ func _initialize() -> void:
 	ok(grown.has("pantry_crock") and bs.is_gen(pantry_cell), "reaching the level grows the pantry in at its cell")
 	ok(bs.grow_gens(0, pantry_lvl).is_empty(), "growing is idempotent (no duplicate install)")
 
+	# 6e-bis: grow_gens(0, ...) must NEVER place map 1's generators (hen_coop, dairy_stall).
+	# Regression for the bug where map_for_spots(_spots_bought()) returned 1 once all map-0
+	# spots were bought, causing grow_gens(1, level) to auto-place map 1's gens on the board.
+	var bmap0: BoardModel = BoardModel.new()
+	bmap0.seed_gens(0)
+	bmap0.grow_gens(0, 99)
+	ok(not bmap0.gens.values().has("hen_coop") and not bmap0.gens.values().has("dairy_stall"), \
+		"grow_gens(0, ...) never places map 1's generators (hen_coop, dairy_stall) on the board")
+	ok(bmap0.gens.values().has("seed_satchel") and bmap0.gens.values().has("pantry_crock"), \
+		"grow_gens(0, 99) places exactly map 0's own generators (satchel + pantry_crock)")
+
+	# 6e-ter: a generator stored in gen_bag must NOT be auto-re-placed by grow_gens.
+	# Regression for the duplicate-gen bug (gen in both gen_bag and board.gens).
+	var bgb: BoardModel = BoardModel.new()
+	bgb.seed_gens(0, pantry_lvl)
+	# move pantry_crock to gen_bag (simulates the player storing it, or a near-end grant landing there)
+	var pc_cell: Vector2i = G.gen_cell_of(G.GENERATORS, "pantry_crock")
+	if bgb.gens.has(pc_cell):
+		bgb.store_gen(pc_cell)
+	else:
+		bgb.gen_bag.append("pantry_crock")
+	ok(bgb.gen_bag.has("pantry_crock") and not bgb.gens.values().has("pantry_crock"), \
+		"pre-condition: pantry_crock is in gen_bag, not on the board")
+	bgb.grow_gens(0, 99)
+	ok(not bgb.gens.values().has("pantry_crock"), \
+		"grow_gens skips a generator already stored in gen_bag (no auto-re-place)")
+	ok(bgb.gen_bag.has("pantry_crock"), "pantry_crock remains in gen_bag after grow_gens")
+
 	# 6f. gen_bag: store a board generator and place it back
 	var bm := BoardModel.new()
 	bm.seed_gens(0)
