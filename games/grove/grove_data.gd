@@ -122,7 +122,7 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 2                # floor of the asked-tier band
-const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
+const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels, up to TOP_TIER
 const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
 const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
 const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
@@ -134,7 +134,7 @@ const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those 
 const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
 # §7 soft gate — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
-const STARS_PER_QUEST_EST := 2            # gate_pause sizing: representative ★/quest for the meter
+const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
 const GEN_GRANT_REMAINING_STARS := 4      # surface the next-generator quest when this few ★ remain to finish the map
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
 # taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,

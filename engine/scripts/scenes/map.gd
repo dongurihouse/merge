@@ -234,7 +234,7 @@ func _persist() -> void:
 
 # --- progression queries ------------------------------------------------------------
 
-func _gates() -> Array:                       # §7 gate-delivery state (which maps' gate quests are done)
+func _gates() -> Array:                       # which maps are spots-done (all spots restored → next map unlocks)
 	return Save.grove().get("gates", [])
 
 func spot_owned(id: String) -> bool:

@@ -262,10 +262,13 @@ static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator,
 
 ## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
-## The ask is drawn weighted toward the NEWEST/highest-value live line, steered off the lines in
-## `avoid` (those already on the fence) so concurrent stands stay distinct; the map's top tier
-## the top tier is never asked as a regular quest (gate-quest only), and a freshly-debuted line eases in at ≤
-## QUEST_DEBUT_TIER_CAP. Deterministic given `rng`. Returns {line, tier, reward, featured}.
+## Picks a line weighted toward the newest/highest-value live line, steered off `avoid` (lines
+## already on the fence) so concurrent stands stay distinct. Tier is sampled in
+## [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
+## TOP_TIER) — so the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling).
+## A freshly-debuted (newest) line eases in at ≤ QUEST_DEBUT_TIER_CAP. Reward is level-based:
+## stars=min(level,3), coins=max(0,level-3), gems at level≥QUEST_PREMIUM_MIN_LEVEL.
+## Deterministic given `rng`. Returns {line, tier, reward, featured}.
 ## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
@@ -286,7 +289,7 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 soft gate (gate_pause): how many giver stands are active, metered to the NEXT unlock —
+## §7 giver meter: how many giver stands are active, metered to the NEXT unlock —
 ## ≈ ceil((next_cost − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
 ## next unlock is affordable (the fence empties → wordless "go restore"). next_cost == -1
 ## (all spots owned) → 0.

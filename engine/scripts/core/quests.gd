@@ -73,6 +73,11 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 			already = true
 			break
 	var grant := G.gens_to_grant(G.GENERATORS, z, owned_gens(board_gens, gen_bag))
+	# INVARIANT: GEN_GRANT_REMAINING_STARS must stay BELOW the cheapest "final remaining spot"
+	# cost on every non-final map — otherwise a player could afford that last spot and auto-unlock
+	# the next map before this generator-carrier quest ever surfaces, skipping the generator
+	# delivery entirely. Today's roster: costliest final spots are 5 > 4 stars, so the grant
+	# window (currently 4) always opens first. Any future roster pass must preserve this margin.
 	if not already and not grant.is_empty() and stars_remaining(z, unlocks, banked_stars) <= G.GEN_GRANT_REMAINING_STARS and not out.is_empty():
 		var q0: Dictionary = out[0].duplicate(true)
 		var rw: Dictionary = (q0.get("reward", {}) as Dictionary).duplicate(true)

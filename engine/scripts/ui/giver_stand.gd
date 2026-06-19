@@ -1,18 +1,18 @@
 extends RefCounted
 ## The giver-stand BUILDER (Wave 3, fence slice 1) — pure construction of one quest-giver
-## stand on the §7 fence: the chest-up bust over the rail, the ask pill (1–3 asks + progress),
-## the +N★ shoulder reward, and the ready-check that docks on the pill. (Featured-ness is NOT
-## surfaced here — the flag/bonus pay out silently; see the note in make().) Stateless: state
-## (the quests array, payability) stays in the board
-## coordinator; this only assembles nodes and returns their refs. Tap behaviour is injected as
-## `Callable`s so this never reaches up into scenes/ (the §15 layering invariant).
+## stand on the §7 fence: the chest-up bust over the rail, a single-item ask pill showing the
+## piece icon + level badge, the +N★ shoulder reward, and the ready-check that docks on the pill.
+## (Featured-ness is NOT surfaced here — the flag/bonus pay out silently; see the note in make().)
+## Stateless: state (the quests array, payability) stays in the board coordinator; this only
+## assembles nodes and returns their refs. Tap behaviour is injected as `Callable`s so this
+## never reaches up into scenes/ (the §15 layering invariant).
 ##
 ## Usage:  GiverStand.make(qi, q, {
-##           "ask_tap": Callable(line, tier),   # an ask icon was tapped → open its ladder
+##           "ask_tap": Callable(line, tier),   # the ask pill was tapped → open its ladder
 ##           "stand_tap": Callable(qi, chip),   # the stand was tapped → try to deliver
 ##           "wire_tap": Callable(node, action),# the coordinator's still-release tap wirer
 ##           "stand_w": float, "fence_h": float})
-## Returns {chip, qi, asks:[{code, need, prog}], check, bust} — the same entry board.gd's
+## Returns {chip, qi, item:{code, piece, met}, check, bust} — the same entry board.gd's
 ## giver_chips holds, so _refresh_giver_lights / _giver_is_payable read it unchanged.
 
 const G = preload("res://engine/scripts/core/content.gd")
