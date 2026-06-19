@@ -75,6 +75,22 @@ static func breathe(node: Control, amount := Tune.BREATHE_AMOUNT, period := Tune
 	t.set_loops()
 	t.tween_property(node, "scale", Vector2(amount, amount), period).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, period).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	node.set_meta("_fx_breathe_tween", t)   # handle so breathe_stop() can end the loop (it otherwise runs forever)
+
+# Stop a looping breathe (started by breathe / breathe_once): kill its tween, settle back to the
+# natural scale, and clear the guard meta so the node can breathe again later. Safe on a node that
+# was never breathing (no-op). The COMPLEMENT to breathe_once — a drag-time pulse must end on drop.
+static func breathe_stop(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	if node.has_meta("_fx_breathe_tween"):
+		var t = node.get_meta("_fx_breathe_tween")
+		if t is Tween and t.is_valid():
+			t.kill()
+		node.remove_meta("_fx_breathe_tween")
+	if node.has_meta("_fx_breathing"):
+		node.remove_meta("_fx_breathing")
+	node.scale = Vector2.ONE
 
 static func floating_text(host: Control, gpos: Vector2, text: String, color: Color, size: int = Tune.FLOAT_SIZE) -> void:
 	if not Features.on("floaters"):
