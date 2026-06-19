@@ -60,13 +60,13 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the requested item(s) — large, inside the speech bubble (right portion of the card)
-	var asks: Array = G.quest_asks(q)
-	var ask_uis: Array = []
+	# the requested item — large, inside the speech bubble (right portion of the card)
+	var it: Dictionary = G.quest_item(q)
+	var item_ui: Dictionary = {}
 	# the painted bubble sits in the card's RIGHT third (centre ~0.82w, 0.41h of card_quest.png);
 	# the item is centred on it so it reads as "spoken" from the bubble, not floating mid-card.
 	var bub := Vector2(cx + cardW * 0.82, cy + cardH * 0.41)   # bubble centre (matches the art)
-	if q.has("grant"):                        # §6: a generator-grant quest shows the NEW generator to receive
+	if q.has("grant"):                        # (still drawn for now; grant type removed in Task 4)
 		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.grant.grants))
 		var gtex := Game.art(String(gdef.get("tex", "")))
 		if ResourceLoader.exists(gtex):
@@ -79,40 +79,26 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			gicon.size = Vector2(gs, gs)
 			gicon.position = bub - Vector2(gs, gs) / 2.0
 			stand.add_child(gicon)
-	var isz := (cardH * 0.36) if asks.size() >= 2 else (cardH * 0.46)   # sized to sit INSIDE the bubble
-	var span := isz * 0.88
-	for ai in asks.size():
-		var ask: Dictionary = asks[ai]
-		var aline := int(ask.line)
-		var atier := int(ask.tier)
-		var acode := aline * 100 + atier
+	elif not it.is_empty():
+		var isz := cardH * 0.46
+		var acode := int(it.line) * 100 + int(it.tier)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
 		icon.size = Vector2(isz, isz)
-		icon.mouse_filter = Control.MOUSE_FILTER_STOP   # tapping the ITEM shows its ladder
-		# centre the item(s) on the bubble; multi-ask spreads them around it
-		var off := (float(ai) - (asks.size() - 1) / 2.0) * span
-		icon.position = Vector2(bub.x - isz / 2.0 + off, bub.y - isz / 2.0)
+		icon.mouse_filter = Control.MOUSE_FILTER_STOP
+		icon.position = Vector2(bub.x - isz / 2.0, bub.y - isz / 2.0)
 		var piece := PieceView.make_piece(acode, isz)
 		icon.add_child(piece)
-		# #4: the count chip shows ONLY when more than one is wanted (no lone "1")
-		var badge: PanelContainer = null
-		var badge_lbl: Label = null
-		if int(ask.count) > 1:
-			badge = _count_badge(int(ask.count))
-			badge.anchor_left = 1.0; badge.anchor_top = 1.0; badge.anchor_right = 1.0; badge.anchor_bottom = 1.0
-			badge.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-			badge.grow_vertical = Control.GROW_DIRECTION_BEGIN
-			badge.offset_left = 5.0; badge.offset_top = 5.0; badge.offset_right = 5.0; badge.offset_bottom = 5.0
-			icon.add_child(badge)
-			badge_lbl = badge.get_child(0)
-		var mpx := isz * 0.85                               # big disc that overtakes the item
-		var met := _ask_met_check(mpx)                      # green ✓, centered, hidden until satisfied
+		var mpx := isz * 0.85
+		var met := _ask_met_check(mpx)
 		met.position = Vector2((isz - mpx) / 2.0, (isz - mpx) / 2.0)
 		icon.add_child(met)
-		wire_tap.call(icon, func() -> void: ask_tap.call(aline, atier))
+		wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
 		stand.add_child(icon)
-		ask_uis.append({"code": acode, "need": int(ask.count), "piece": piece, "badge": badge, "badge_lbl": badge_lbl, "met": met})
+		item_ui = {"code": acode, "piece": piece, "met": met}
+		var lvl := _level_badge(int(it.tier))
+		lvl.position = Vector2(cx + 8.0, cy + cardH - 34.0)
+		stand.add_child(lvl)
 	# the +N★ reward — a small bare star + count, tucked in the card's TOP-RIGHT corner
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 1)
@@ -133,11 +119,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# `featured` flag + its coins/premium bonus still ride in the quest data and pay out silently
 	# on hand-in (board.gd). A real surface — where featured-ness DOES drive a choice (a daily/
 	# event "do a featured quest" hook, §17/§18) — is parked in the backlog.
-	# the ready check is now per-ask (the big centered ✓ over each item), so there is no
+	# the ready check is per-item (the big centered ✓ over the item), so there is no
 	# separate stand-level check. The "check" key stays in the result for board.gd, set to
 	# null (the board already guards it with `if check != null and is_instance_valid(check)`).
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
-	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": null, "bust": bust}
+	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": bust}
 
 # The quest card surface: the painted `ui/quest/card_quest.png` (horizontal speech-bubble card)
 # stretched to the card rect; a flat parchment card when the art is absent.
@@ -187,35 +173,20 @@ static func ask_pill() -> PanelContainer:
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return pill
 
-# #4: the per-ask COUNT CHIP — a small high-contrast cream sticker that rides the
-# item's bottom-right corner showing the wanted count (wordless: a number, no "/m").
-# The chip's number is updated live and its fill greens to a soft sage when this ask
-# is satisfied (have >= need) so a met ask reads "done" even before the ✓ lands.
-# child(0) is the Label (board.gd reads it to retint/leave the number as-is).
-static func _count_badge(need: int) -> PanelContainer:
+# The level badge: a small dark pill showing "Lv N" — the asked tier.
+static func _level_badge(level: int) -> Control:
 	var chip := PanelContainer.new()
 	var cs := StyleBoxFlat.new()
-	cs.bg_color = CREAM
-	cs.set_corner_radius_all(11)
-	cs.set_border_width_all(2)
-	cs.border_color = BARK
-	cs.shadow_color = Color(0, 0, 0, 0.28)
-	cs.shadow_size = 2
-	cs.shadow_offset = Vector2(0, 1)
-	cs.content_margin_left = 6.0
-	cs.content_margin_right = 6.0
-	cs.content_margin_top = 0.0
-	cs.content_margin_bottom = 0.0
+	cs.bg_color = BARK
+	cs.set_corner_radius_all(10)
+	cs.content_margin_left = 8.0; cs.content_margin_right = 8.0
+	cs.content_margin_top = 1.0; cs.content_margin_bottom = 1.0
 	chip.add_theme_stylebox_override("panel", cs)
 	chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
-	lbl.text = "%d" % need
-	lbl.add_theme_font_size_override("font_size", 20)
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.custom_minimum_size = Vector2(16, 0)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lbl.text = "Lv %d" % level
+	lbl.add_theme_font_size_override("font_size", 18)
+	lbl.add_theme_color_override("font_color", CREAM)
 	chip.add_child(lbl)
 	return chip
 

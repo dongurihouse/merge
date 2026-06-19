@@ -164,14 +164,9 @@ func _initialize() -> void:
 	ok(not ws.merchant_pay.visible, "W3: the payout preview clears when the drag ends")
 	# drag is the ONLY sell verb — there is no tap-sell path on the board.
 	ok(not ws.has_method("_on_merchant_tap"), "T39: tap-sell is removed — board has no _on_merchant_tap")
-	# X3: the giver pill renders one [item icon + n/m] pair PER ASK (1-3), no second card
-	var x3_3: Dictionary = ws._make_giver_stand(0, {"asks": [
-		{"line": 1, "tier": 3, "count": 1}, {"line": 2, "tier": 4, "count": 1},
-		{"line": 3, "tier": 3, "count": 1}], "stars": 3})
-	ok(x3_3.asks.size() == 3, "X3: a 3-ask quest renders 3 item pairs in one pill")
-	var x3_1: Dictionary = ws._make_giver_stand(1, {"asks": [{"line": 1, "tier": 2, "count": 1}], "stars": 1})
-	ok(x3_1.asks.size() == 1, "X3: a single-ask quest renders 1 pair")
-	x3_3.chip.queue_free()
+	# X3: the giver pill renders one item on the stand for a single-item quest
+	var x3_1: Dictionary = ws._make_giver_stand(1, {"line": 1, "tier": 2, "reward": {"stars": 1, "coins": 0}})
+	ok(x3_1.item.has("code"), "a quest renders one item on the giver card")
 	x3_1.chip.queue_free()
 
 	# XB (Tier 2 §2): the idle-bob carries readiness — ONLY a deliverable giver bobs.
@@ -185,7 +180,7 @@ func _initialize() -> void:
 		for c in G.COLS:
 			if ws.board.is_open(Vector2i(r, c)):
 				ws.board.place(Vector2i(r, c), 0)
-	var xb_giver: Dictionary = ws._make_giver_stand(7, {"asks": [{"line": 1, "tier": 2, "count": 2}], "stars": 1})
+	var xb_giver: Dictionary = ws._make_giver_stand(7, {"line": 1, "tier": 2, "reward": {"stars": 1, "coins": 0}})
 	ws.add_child(xb_giver.chip)                    # in-tree so the bob can start immediately
 	ws.giver_chips = [xb_giver]
 	var bob_bust: Control = xb_giver.bust
@@ -198,19 +193,18 @@ func _initialize() -> void:
 	ok(ws.board.count_of(102) == 0, "XB: board set up with the ask UNMET (0×102)")
 	ok(not ws._giver_is_payable(xb_giver), "XB: an unmet quest is NOT payable")
 	ok(not bobbing.call(bob_bust), "XB: a giver whose quest is NOT payable does NOT bob")
-	ok(not (xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ is hidden while not payable (same predicate)")
-	# (2) becomes payable (place the 2 asked items) → bob starts, ✓ shows
+	ok(not (xb_giver.item.met as Control).visible, "XB: the ✓ is hidden while not payable")
+	# (2) becomes payable (place the asked item) → bob starts, ✓ shows
 	var free_cells: Array = ws.board.empty_ground_cells()
 	ws.board.place(free_cells[0], 102)
-	ws.board.place(free_cells[1], 102)
 	ws._refresh_giver_lights()
-	ok(ws._giver_is_payable(xb_giver), "XB: the quest is payable once both asked items are present")
+	ok(ws._giver_is_payable(xb_giver), "XB: the quest is payable once the asked item is present")
 	ok(bobbing.call(bob_bust), "XB: a giver whose quest IS payable bobs (bob tween live)")
-	ok((xb_giver.asks[0].met as Control).visible, "XB: the big per-ask ✓ shows on the same payable transition")
-	# (3) payable → unmet again (remove one item) → bob STOPS (reactive, not one-way)
+	ok((xb_giver.item.met as Control).visible, "XB: the ✓ shows on the same payable transition")
+	# (3) payable → unmet again (remove item) → bob STOPS (reactive, not one-way)
 	ws.board.place(free_cells[0], 0)
 	ws._refresh_giver_lights()
-	ok(not ws._giver_is_payable(xb_giver), "XB: removing an asked item makes it un-payable again")
+	ok(not ws._giver_is_payable(xb_giver), "XB: removing the asked item makes it un-payable again")
 	ok(not bobbing.call(bob_bust), "XB: the bob stops when the giver is no longer deliverable")
 	xb_giver.chip.queue_free()
 	ws.giver_chips = []

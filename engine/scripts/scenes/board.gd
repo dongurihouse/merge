@@ -849,34 +849,18 @@ func _note_item_landed(code: int) -> void:
 	FX.floating_text(self, Vector2(get_global_rect().get_center().x - 250, 220),
 		tr("the merchant buys spares — drag it to his stall"), CREAM, 28)
 
-# X3 / Tier 2 §2: the one notion of "deliverable" — every ask of this giver is fully
-# on the board RIGHT NOW (the player could deliver it this instant). This is the SAME
-# per-ask `count_of >= need` test that drives the green ✓ and matches
-# BoardLogic.quest_payable (which works on the raw {line,tier,count} ask shape; here
-# the asks are the UI {code,need} shape). A pure boolean, asserted by tests, that
-# both the ✓ and the bob read so they can never diverge. Also refreshes each ask's n/m.
+# The one notion of "deliverable" — the single asked item is on the board RIGHT NOW.
+# A pure boolean, asserted by tests, that both the ✓ and the bob read so they can never diverge.
 func _giver_is_payable(e: Dictionary) -> bool:
-	var payable := true
-	for ask in e.asks:
-		var have := mini(board.count_of(int(ask.code)), int(ask.need))
-		var ask_met := have >= int(ask.need)
-		if not ask_met:
-			payable = false
-		# #4: drive the per-ask UI from the SAME have>=need test — the count chip ON
-		# the item retints (cream → soft sage) and a small green ✓ overlays its corner
-		# when this single ask is satisfied; cleared when it no longer is.
-		var met: Control = ask.get("met")
-		if met != null and is_instance_valid(met):
-			met.visible = ask_met
-		var badge: PanelContainer = ask.get("badge")
-		if badge != null and is_instance_valid(badge):
-			var bs: StyleBox = badge.get_theme_stylebox("panel")
-			if bs is StyleBoxFlat:
-				(bs as StyleBoxFlat).bg_color = Color("#CFE8C2") if ask_met else CREAM
-		var badge_lbl: Label = ask.get("badge_lbl")
-		if badge_lbl != null and is_instance_valid(badge_lbl):
-			badge_lbl.add_theme_color_override("font_color", Pal.INK)   # neutral both states; the green ✓ glyph marks "met" (green = CTA-only)
-	return payable
+	var item: Dictionary = e.get("item", {})
+	if item.is_empty():
+		return true                       # a generator-reward-only card with no item ask
+	var have := board.count_of(int(item.code))
+	var met_ok := have >= 1
+	var met: Control = item.get("met")
+	if met != null and is_instance_valid(met):
+		met.visible = met_ok
+	return met_ok
 
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
@@ -1857,28 +1841,23 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	if q.get("gate", false):                  # §7: the great-spirit's gate quest — deliver to unlock the next map
 		_deliver_gate(qi, q, chip)
 		return
-	var asks: Array = G.quest_asks(q)
-	# X3: deliver only when EVERY ask is payable (multi-ask delivers all-or-nothing)
-	if not BoardLogic.quest_payable(board, asks):
+	var it: Dictionary = G.quest_item(q)
+	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var flight := 0
-	for ask in asks:
-		var code := int(ask.line) * 100 + int(ask.tier)
-		for k in int(ask.count):
-			var cell := board.first_item_of(code)
-			board.take(cell)
-			var n: Control = piece_nodes.get(cell)
-			piece_nodes.erase(cell)
-			if n != null and is_instance_valid(n):
-				var dest := chip.get_global_rect().get_center() - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
-				var t := n.create_tween()
-				t.set_parallel(true)
-				t.tween_property(n, "position", dest, 0.3 + 0.08 * flight).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-				t.tween_property(n, "scale", Vector2(0.4, 0.4), 0.3 + 0.08 * flight)
-				t.chain().tween_callback(n.queue_free)
-			flight += 1
+	var code := int(it.line) * 100 + int(it.tier)
+	var cell := board.first_item_of(code)
+	board.take(cell)
+	var n: Control = piece_nodes.get(cell)
+	piece_nodes.erase(cell)
+	if n != null and is_instance_valid(n):
+		var dest := chip.get_global_rect().get_center() - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
+		var t := n.create_tween()
+		t.set_parallel(true)
+		t.tween_property(n, "position", dest, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		t.tween_property(n, "scale", Vector2(0.4, 0.4), 0.3)
+		t.chain().tween_callback(n.queue_free)
 	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
 	# delivering a quest is the ONE place Level advances — earn_stars credits the
 	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
@@ -2022,19 +2001,16 @@ func _deliver_grant(qi: int, q: Dictionary, chip: Control) -> void:
 	_rebuild_givers()
 	_update_hud()
 
-## The great-spirit GATE quest (§7): the map's capstone. Deliver its top-tier asks → mark the
+## The great-spirit GATE quest (§7): the map's capstone. Deliver its top-tier ask → mark the
 ## gate done (the next map unlocks), grant the next map's generators, pay the large reward, and
-## regenerate the fence for the new map. All-or-nothing like any delivery.
+## regenerate the fence for the new map.
 func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
-	var asks: Array = G.quest_asks(q)
-	if not BoardLogic.quest_payable(board, asks):
+	if not BoardLogic.quest_payable(board, q):
 		FX.wobble(chip)
 		Audio.play("invalid_soft", -6.0)
 		return
-	for ask in asks:
-		var code := int(ask.line) * 100 + int(ask.tier)
-		for _k in int(ask.count):
-			board.take(board.first_item_of(code))
+	var git: Dictionary = G.quest_item(q)
+	board.take(board.first_item_of(int(git.line) * 100 + int(git.tier)))
 	var z := _quest_map()
 	var g := Save.grove()
 	var gates: Array = g.get("gates", [])

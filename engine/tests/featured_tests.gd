@@ -39,8 +39,8 @@ func _initialize() -> void:
 		if not q.has("featured"):
 			has_key = false
 			continue
-		# the baseline reward for THIS quest's asks — featuring only adds coins/premium on top.
-		var base := G.quest_reward(G.quest_asks(q))
+		# the baseline reward for THIS quest's tier — featuring only adds coins/premium on top.
+		var base := G.quest_reward(int(G.quest_item(q).tier))
 		# §7: featuring NEVER inflates ★ — reward.stars equals the un-featured computation.
 		if int(q.reward.stars) != int(base.stars):
 			stars_never_inflated = false
@@ -49,15 +49,16 @@ func _initialize() -> void:
 			# the flat coin bonus is applied on top of the base overflow coins.
 			if int(q.reward.coins) != int(base.coins) + int(G.QUEST_FEATURED_COIN_BONUS):
 				coin_bonus_ok = false
-			if int(q.reward.get("gems", 0)) > 0:
+			if int(q.reward.get("gems", 0)) > int(base.get("gems", 0)):
 				gem_count += 1
-				if int(q.reward.gems) != int(G.QUEST_FEATURED_GEM_BONUS):
+				# featured gem bonus is the ADDITIONAL amount on top of base (which may already have premium gems)
+				if int(q.reward.get("gems", 0)) != int(base.get("gems", 0)) + int(G.QUEST_FEATURED_GEM_BONUS):
 					gem_amount_ok = false
 		else:
-			# a NON-featured quest is plain: no coin bonus, no premium.
+			# a NON-featured quest is plain: no coin bonus, no premium beyond base.
 			if int(q.reward.coins) != int(base.coins):
 				coin_bonus_ok = false
-			if int(q.reward.get("gems", 0)) != 0:
+			if int(q.reward.get("gems", 0)) != int(base.get("gems", 0)):
 				nonfeatured_never_gem = false
 
 	ok(has_key, "every quest dict carries the `featured` key")
@@ -72,15 +73,14 @@ func _initialize() -> void:
 	ok(stars_never_inflated, "featuring NEVER inflates reward.stars (the bonus is coins/premium only, §7)")
 	ok(nonfeatured_never_gem, "a non-featured quest never carries a premium bonus")
 
-	# --- featured vs non-featured stars for EQUIVALENT asks: featuring touches only coins/premium ---
-	# Pin one ask set; the only difference is the featured treatment. Stars must match exactly;
+	# --- featured vs non-featured stars for EQUIVALENT tier: featuring touches only coins/premium ---
+	# Pin one tier; the only difference is the featured treatment. Stars must match exactly;
 	# the featured one's coins are higher by exactly the bonus.
-	var asks := [{"line": 3, "tier": 4, "count": 1}]
-	var plain := G.quest_reward(asks)
+	var plain := G.quest_reward(4)
 	var featured_reward := plain.duplicate()
 	featured_reward["coins"] = int(featured_reward.coins) + int(G.QUEST_FEATURED_COIN_BONUS)   # mirrors gen_quest's featured branch
-	ok(int(featured_reward.stars) == int(plain.stars), "for equivalent asks, a featured quest pays the SAME ★ as a non-featured one")
-	ok(int(featured_reward.coins) == int(plain.coins) + int(G.QUEST_FEATURED_COIN_BONUS), "for equivalent asks, the featured coin bonus is added on top (+%d🪙)" % int(G.QUEST_FEATURED_COIN_BONUS))
+	ok(int(featured_reward.stars) == int(plain.stars), "for equivalent tier, a featured quest pays the SAME ★ as a non-featured one")
+	ok(int(featured_reward.coins) == int(plain.coins) + int(G.QUEST_FEATURED_COIN_BONUS), "for equivalent tier, the featured coin bonus is added on top (+%d🪙)" % int(G.QUEST_FEATURED_COIN_BONUS))
 
 	# --- deterministic: the same seed reproduces the same featured/gem outcomes byte-for-byte ---
 	var rA := RandomNumberGenerator.new()

@@ -27,7 +27,8 @@ const STAR_CAP = D.STAR_CAP
 const CLICK_TO_VALUE = D.CLICK_TO_VALUE
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
-const QUEST_2COUNT_RATE = D.QUEST_2COUNT_RATE
+const QUEST_PREMIUM_MIN_LEVEL = D.QUEST_PREMIUM_MIN_LEVEL
+const QUEST_PREMIUM_GEMS = D.QUEST_PREMIUM_GEMS
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_REPEAT_PENALTY = D.QUEST_REPEAT_PENALTY
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
@@ -287,35 +288,20 @@ static func bramble_contents(cell: Vector2i) -> int:
 	var tier := 1 + (cell.x * 3 + cell.y) % 2     # t1 or t2
 	return line * 100 + tier
 
-static func quest_asks(q: Dictionary) -> Array:
-	if q.has("asks"):
-		return q.asks
-	return [{"line": int(q.line), "tier": int(q.tier), "count": int(q.get("count", 1))}]
+static func quest_item(q: Dictionary) -> Dictionary:
+	if q.has("line"):
+		return {"line": int(q.line), "tier": int(q.tier)}
+	if q.has("asks") and not q.asks.is_empty():   # tolerate a stale pre-change save
+		return {"line": int(q.asks[0].line), "tier": int(q.asks[0].tier)}
+	return {}
 
-# --- §7 generated-quest reward: stars-first (capped), coins absorb the overflow ----
-## The avg t1-equivalent VALUE one generator pop yields, given the tier-decay pop odds:
-## a pop lands at tier i+1 (worth 2^i t1-equivalents) with TIER_ODDS[i]. ≈1.59 today.
-static func avg_pop_value() -> float:
-	var v := 0.0
-	for i in TIER_ODDS.size():
-		v += float(TIER_ODDS[i]) * pow(2.0, i)
-	return v
-
-## Expected generator-clicks (pops) to PRODUCE a quest's asks (§7): the asks' total worth in
-## t1-equivalents (Σ count × 2^(tier-1)) over the avg value a pop yields (TIER_ODDS-adjusted).
-static func quest_expected_clicks(asks: Array) -> float:
-	var raw := 0.0
-	for a in asks:
-		raw += float(int(a.count)) * pow(2.0, int(a.tier) - 1)
-	return raw / avg_pop_value()
-
-## The §7 reward {stars, coins}: value = expected_clicks × CLICK_TO_VALUE, paid STARS-FIRST
-## (floored at 1, capped at STAR_CAP so level ∝ quest COUNT, §3) then COINS take the overflow —
-## a deeper ask pays the same ★ but more 🪙, absorbing click-variance. STAR_CAP + CLICK_TO_VALUE
-## are PROVISIONAL game tunables (set by the Monte-Carlo balance pass).
-static func quest_reward(asks: Array) -> Dictionary:
-	var value: int = int(round(quest_expected_clicks(asks) * CLICK_TO_VALUE))
-	return {"stars": clampi(value, 1, STAR_CAP), "coins": maxi(0, value - STAR_CAP)}
+## The level-based reward: capped stars (§3 pacing), the surplus in coins, premium 💎 at high levels.
+## All numbers PROVISIONAL (sim-tuned).
+static func quest_reward(level: int) -> Dictionary:
+	var r := {"stars": clampi(level, 1, STAR_CAP), "coins": maxi(0, level - STAR_CAP)}
+	if level >= QUEST_PREMIUM_MIN_LEVEL:
+		r["gems"] = QUEST_PREMIUM_GEMS
+	return r
 
 ## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
 ## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
@@ -339,14 +325,13 @@ static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator,
 			return int(sorted_lines[i])
 	return int(sorted_lines[sorted_lines.size() - 1])
 
-## Generate a regular quest for a player at `level` from the live lines (§7). A regular quest is a
-## SINGLE ask (one item type, count≥1) — difficulty rises by higher TIER + more FREQUENT quests
-## (level ∝ quest count, §3), not by adding asks; the multi-line "juggle" beat lives on the fence
-## (several distinct single-line stands at once) and in the authored gate quest. The ask is drawn
-## weighted toward the NEWEST/highest-value live line, steered off the lines in `avoid` (those
-## already on the fence) so concurrent stands stay distinct; the map's top tier (t8) is never asked
-## (gate-quest only), and a freshly-debuted line eases in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic
-## given `rng`. Returns {asks, reward, featured}. All numbers are PROVISIONAL (Monte-Carlo pass).
+## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
+## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
+## The ask is drawn weighted toward the NEWEST/highest-value live line, steered off the lines in
+## `avoid` (those already on the fence) so concurrent stands stay distinct; the map's top tier
+## (t8) is never asked (gate-quest only), and a freshly-debuted line eases in at ≤
+## QUEST_DEBUT_TIER_CAP. Deterministic given `rng`. Returns {line, tier, reward, featured}.
+## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
@@ -356,9 +341,7 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
 	if li == newest:                                    # the freshest line eases in low
 		tier = mini(tier, QUEST_DEBUT_TIER_CAP)
-	var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
-	var asks: Array = [{"line": li, "tier": tier, "count": count}]
-	var reward: Dictionary = quest_reward(asks)
+	var reward: Dictionary = quest_reward(tier)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
 		# the featured bonus is coins/premium, NEVER extra ★ (§7): reward.stars is left untouched
@@ -366,7 +349,7 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
 		if rng.randf() < QUEST_FEATURED_GEM_ODDS:
 			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
-	return {"asks": asks, "reward": reward, "featured": featured}
+	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
 ## §7 soft gate (gate_pause): how many giver stands are active, metered to the NEXT unlock —
 ## ≈ ceil((next_cost − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
@@ -380,28 +363,21 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 		return 0
 	return clampi(int(ceil(need / float(STARS_PER_QUEST_EST))), 1, max_givers)
 
-## The authored great-spirit GATE quest that ends map `map` (§6/§7): asks a randomized handful
-## of the map's TOP-TIER harvest (its richest/newest lines at t8 = TOP_TIER) and, delivered,
-## unlocks the next map for a large authored reward. Deterministic given `rng`. The one quest
-## that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
+## The authored great-spirit GATE quest that ends map `map` (§6/§7): asks a single line at the
+## map's ceiling tier and, delivered, unlocks the next map for a large authored reward. Deterministic
+## given `rng`. The one quest that asks the ceiling tier (regular quests never do).
+## {line, tier, gate:true, reward}.
 static func gate_quest(roster: Array, map: int, rng: RandomNumberGenerator = null) -> Dictionary:
 	var lines: Array = lines_for_map(roster, map)
-	lines.sort()                                       # the richest (newest) lines sit last
-	var n: int = mini(GATE_ASK_COUNT, lines.size())
-	var pick: Array
+	lines.sort()
+	var li: int
 	if rng == null:
-		pick = lines.slice(lines.size() - n, lines.size())          # no rng → deterministic richest n
+		li = int(lines[lines.size() - 1])                 # deterministic richest line
 	else:
-		var pool: Array = lines.duplicate()                         # §7: a RANDOMIZED handful — sample
-		pick = []                                                   # n distinct lines from the map's roster
-		for _i in n:
-			pick.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t8 (map 4+)
-	var asks: Array = []
-	for li in pick:
-		asks.append({"line": int(li), "tier": gate_t, "count": 1})
-	var coins: int = int(quest_reward(asks).coins) + GATE_COIN_BONUS
-	return {"asks": asks, "gate": true, "stars": GATE_STARS, "reward": {"stars": GATE_STARS, "coins": coins}}
+		li = int(lines[rng.randi_range(0, lines.size() - 1)])
+	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)
+	var coins: int = int(quest_reward(gate_t).coins) + GATE_COIN_BONUS
+	return {"line": li, "tier": gate_t, "gate": true, "reward": {"stars": GATE_STARS, "coins": coins}}
 
 ## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
 ## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every

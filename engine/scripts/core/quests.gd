@@ -72,8 +72,9 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		# concurrent single-ask stands stay distinct (the "juggle several lines" texture).
 		var avoid: Array = []
 		for q in out:
-			for a in G.quest_asks(q):
-				avoid.append(int(a.line))
+			var it := G.quest_item(q)
+			if not it.is_empty():
+				avoid.append(int(it.line))
 		out.append(G.gen_quest(level, lines, rng, avoid))
 	while out.size() > regular_target:
 		out.pop_back()

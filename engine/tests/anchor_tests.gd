@@ -80,16 +80,16 @@ func _initialize() -> void:
 	var askable := G.askable_lines(G.GENERATORS, z)
 	for s in 200:
 		rng.seed = s
-		for a in G.gen_quest(20, askable, rng).asks:
-			var li := int(a.line)
-			if ANCHOR_LINES.has(li):
-				anchor_asks += 1
-			if NONANCHOR_Z0.has(li):
-				nonanchor_z0_asks += 1
-			if not askable.has(li):
-				all_in_askable = false
-			if int(a.tier) >= G.TOP_TIER or int(a.tier) < 1:
-				never_t8 = false
+		var aq := G.gen_quest(20, askable, rng)
+		var li := int(aq.line)
+		if ANCHOR_LINES.has(li):
+			anchor_asks += 1
+		if NONANCHOR_Z0.has(li):
+			nonanchor_z0_asks += 1
+		if not askable.has(li):
+			all_in_askable = false
+		if int(aq.tier) >= G.TOP_TIER or int(aq.tier) < 1:
+			never_t8 = false
 	ok(anchor_asks > 0, "at a later map gen_quest CAN ask an anchor line (anchor is live output again — %d hits across seeds)" % anchor_asks)
 	ok(nonanchor_z0_asks == 0, "at a later map gen_quest NEVER asks a retired non-anchor map-0 line (%d hits)" % nonanchor_z0_asks)
 	ok(all_in_askable, "every generated ask draws from the askable set (producible on the live board)")
@@ -102,22 +102,19 @@ func _initialize() -> void:
 	var newest_hits := 0
 	var newest := int(askable[askable.size() - 1])
 	for _i in 600:
-		for a in G.gen_quest(20, askable, rng).asks:
-			if int(a.line) == 1:                # an anchor line (oldest)
-				oldest_anchor += 1
-			if int(a.line) == newest:
-				newest_hits += 1
+		var aq2 := G.gen_quest(20, askable, rng)
+		if int(aq2.line) == 1:                # an anchor line (oldest)
+			oldest_anchor += 1
+		if int(aq2.line) == newest:
+			newest_hits += 1
 	ok(newest_hits > oldest_anchor, "the anchor stays a MINOR ask — the newest current-map line still dominates (%d newest vs %d anchor)" % [newest_hits, oldest_anchor])
 
 	# --- DECISION (recorded): gate_quest stays MAP-SCOPED — the anchor is NOT folded into a
 	# --- later map's gate. The anchor exemption is a REGULAR-quest rule (§6/§7); the gate asks the
 	# --- map's own ceiling lines. Lock that: a later gate must draw only from that map's lines. ---
 	var gq := G.gate_quest(G.GENERATORS, 2, rng)
-	var gate_anchor_free := true
 	var z2_live := G.lines_for_map(G.GENERATORS, 2)
-	for a in gq.asks:
-		if ANCHOR_LINES.has(int(a.line)) or not z2_live.has(int(a.line)):
-			gate_anchor_free = false
+	var gate_anchor_free := not ANCHOR_LINES.has(int(gq.line)) and z2_live.has(int(gq.line))
 	ok(gate_anchor_free, "DECISION: the later-map gate quest stays map-scoped (asks only that map's lines, never the anchor) — scope-tight, keeps quest_tests' gate asserts intact")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

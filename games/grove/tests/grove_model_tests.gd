@@ -175,20 +175,20 @@ func _initialize() -> void:
 	# deliver: map 1's first quest wants flower t2 (code 102) — we just made one
 	ok(not scn.giver_chips.is_empty(), "givers are on duty")
 
-	# HORIZONTAL card anatomy: a character portrait (bust) on the left + the requested item(s)
+	# HORIZONTAL card anatomy: a character portrait (bust) on the left + the requested item
 	# large in the speech bubble on the right (no ask-pill-below-bust). The ready-check is present
 	# (the old border ring is gone); its visibility is driven by board state.
 	await create_timer(0.05).timeout
 	for e in scn.giver_chips:
 		ok(e.bust != null and is_instance_valid(e.bust), "giver card carries a character portrait")
-		ok(not (e.asks as Array).is_empty(), "giver card shows at least one requested item")
-		for au in e.asks:
-			ok(au.get("piece") != null and is_instance_valid(au.get("piece")), "the ask item renders on the card")
-		# the stand-level ready-check is retired — one big per-ask ✓ (the `met` node) carries readiness
-		ok(e.check == null, "the stand-level ready-check is retired (single big per-ask ✓)")
-		for au2 in e.asks:
-			var mck: Control = au2.get("met")
-			ok(mck != null and is_instance_valid(mck) and mck is Panel, "the ask carries a big met-✓ node (over the item)")
+		var item_ui: Dictionary = e.get("item", {})
+		if not item_ui.is_empty():
+			ok(item_ui.get("piece") != null and is_instance_valid(item_ui.get("piece")), "the item renders on the card")
+		# the stand-level ready-check is retired — one big per-item ✓ (the `met` node) carries readiness
+		ok(e.check == null, "the stand-level ready-check is retired (single big per-item ✓)")
+		if not item_ui.is_empty():
+			var mck: Control = item_ui.get("met")
+			ok(mck != null and is_instance_valid(mck) and mck is Panel, "the item carries a big met-✓ node (over the item)")
 	var qi: int = scn.giver_chips[0].qi
 	var dq: Dictionary = scn.quests[qi]
 	# clear the open board first so EVERY ask fits regardless of prior test state
@@ -197,13 +197,9 @@ func _initialize() -> void:
 		if scn.board.items[ci] > 0 and not G.is_coin(scn.board.items[ci]):
 			scn.board.items[ci] = 0
 	var demp: Array = scn.board.empty_ground_cells()
-	var dei := 0
-	for ask in G.quest_asks(dq):
-		var ac: int = int(ask.line) * 100 + int(ask.tier)
-		for n in int(ask.count):
-			if dei < demp.size():
-				scn.board.place(demp[dei], ac)
-				dei += 1
+	var it_dq := G.quest_item(dq)
+	if not it_dq.is_empty() and not demp.is_empty():
+		scn.board.place(demp[0], int(it_dq.line) * 100 + int(it_dq.tier))
 	scn._rebuild_pieces()
 	var stars_before := Save.stars()
 	var dlv_coins_before := Save.coins()
@@ -273,13 +269,9 @@ func _initialize() -> void:
 		if sg.board.items[ci] > 0 and not G.is_coin(sg.board.items[ci]):
 			sg.board.items[ci] = 0
 	var gemp: Array = sg.board.empty_ground_cells()
-	var gix := 0
-	for ask in G.quest_asks(gateq):
-		var gcode: int = int(ask.line) * 100 + int(ask.tier)
-		for _n in int(ask.count):
-			if gix < gemp.size():
-				sg.board.place(gemp[gix], gcode)
-				gix += 1
+	var it_gate := G.quest_item(gateq)
+	if not it_gate.is_empty() and not gemp.is_empty():
+		sg.board.place(gemp[0], int(it_gate.line) * 100 + int(it_gate.tier))
 	sg._rebuild_pieces()
 	var gate_stars_b := Save.stars()
 	sg._on_giver_tap(0, sg.giver_chips[0].chip)

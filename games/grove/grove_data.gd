@@ -123,7 +123,8 @@ const CLICK_TO_VALUE := 1.0               # reward value per expected generator-
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 2                # floor of the asked-tier band
 const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
-const QUEST_2COUNT_RATE := 0.2            # chance the single ask wants 2 of the item (vs 1) — the ×N badge
+const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
+const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
 const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
 const QUEST_REPEAT_PENALTY := 0.15        # weight ×factor for a line already on the fence → distinct concurrent stands (anti-monotony, §7)
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
