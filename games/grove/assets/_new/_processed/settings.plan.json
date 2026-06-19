@@ -1,0 +1,10 @@
+{
+  "source": "_new/settings.png",
+  "category": "sheet",
+  "params": { "min_area": 600, "pad": 3 },
+  "outputs": [
+    { "island": 4, "name": "switch_on",  "path": "ui/kit/switch_on.png" },
+    { "island": 5, "name": "switch_off", "path": "ui/kit/switch_off.png" }
+  ],
+  "archive": "_originals/ui/settings.png"
+}

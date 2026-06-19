@@ -372,6 +372,14 @@ class UiSkin:                             # NOT "Skin" — that's a native Godot
 	# (x = past the right edge, y = above the top edge), both positive = outside the host.
 	const BADGE_OVERHANG := Vector2(6, 6)
 
+	# --- toggle switch (Look.toggle_switch — settings music / sounds / calm) ------------
+	# A press surface wearing the sliced switch art (kit/switch_on·off.png — the green/tan
+	# pill with the knob baked in), or a code-drawn track + knob when the art is absent.
+	const SWITCH_H := 48.0                 # the switch pill's height; width follows the aspect
+	const SWITCH_ASPECT := 1.95            # the sliced pill's native w:h (≈150×77)
+	const SWITCH_KNOB_INSET := 4.0         # fallback knob inset from the track edge
+	const SWITCH_OFF_ALPHA := 0.32         # fallback OFF track = Color(Pal.BARK, this)
+
 
 class Music:
 	const VOLUME_DB := -8.0               # the ambient bed's playback level
