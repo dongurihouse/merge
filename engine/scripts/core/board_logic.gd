@@ -48,14 +48,6 @@ static func openable_for_hint(model: BoardModel, pair: Array, player_level: int)
 				out.append(n)
 	return out
 
-# Manhattan distance between two cells.
-static func dist_to(a: Vector2i, b: Vector2i) -> int:
-	return absi(a.x - b.x) + absi(a.y - b.y)
-
-# Manhattan distance from a cell to the default generator cell.
-static func dist_to_gen(cell: Vector2i) -> int:
-	return dist_to(cell, G.GEN_CELL)
-
 # Bag slots (§5): the OWNED slot count (persisted, 6 at start, bought up to 18 with 💎),
 # clamped to the legal band. The scene reads Save.bag_slots() and passes it in; this keeps
 # the bound enforced in one pure, headless-testable place even if a save is hand-edited.

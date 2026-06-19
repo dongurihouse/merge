@@ -1,6 +1,6 @@
 extends RefCounted
 ## GROVE game DATA — the content + tuning the engine's content logic reads via
-## Game.data(). Pure tables, zero logic: item lines, generators, the bramble curve
+## Game.DATA. Pure tables, zero logic: item lines, generators, the bramble curve
 ## numbers, the quest ramp, maps/spots, waysides, variants, and all economy dials.
 ## A different game ships its own data module with the SAME const names.
 

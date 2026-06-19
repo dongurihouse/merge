@@ -98,10 +98,6 @@ static func save_now() -> void:
 		dir.rename(path.get_file(), bak.get_file())   # keep last-good as backup
 	dir.rename(tmp.get_file(), path.get_file())        # atomic swap-in
 
-static func flush() -> void:
-	if _loaded:
-		save_now()
-
 ## DEBUG: wipe ALL progress back to a fresh install (the base debug panel's Reset).
 static func reset() -> void:
 	data = _default()
@@ -397,16 +393,6 @@ static func set_setting(key: String, v: bool) -> void:
 
 # --- quest counters (daily bundle + silent milestones) --------------------------
 
-# In-memory bump; persisted by the NEXT save_now (clears, purchases, claims, flush).
-# Quest counters aren't worth a disk write per merge.
-static func bump_stat(key: String, n: int = 1) -> void:
-	_ensure_loaded()
-	data["stats"][key] = int(data["stats"].get(key, 0)) + n
-
-static func stat(key: String) -> int:
-	_ensure_loaded()
-	return int(data["stats"].get(key, 0))
-
 # Today's bundle state, rolling over (and resolving the streak) on the first touch
 # of a new day. {day, jobs, merges, coins, claimed, streak} — a live reference.
 static func daily() -> Dictionary:
@@ -443,23 +429,6 @@ static func claim_daily(reward: int) -> bool:
 	d["claimed"] = true
 	d["streak"] = int(d.get("streak", 0)) + 1
 	data["currencies"]["coins"] = coins() + reward
-	save_now()
-	return true
-
-# --- clients (story spine) ----------------------------------------------------
-# A client's thank-you coin lump pays exactly once. Grant + flag in ONE write,
-# same crash-safety shape as buy_decor.
-
-static func client_paid(client_id: String) -> bool:
-	_ensure_loaded()
-	return bool(data["clients"].get(client_id, {}).get("lump_paid", false))
-
-static func collect_client_lump(client_id: String, amount: int) -> bool:
-	_ensure_loaded()
-	if client_paid(client_id):
-		return false
-	data["currencies"]["coins"] = coins() + amount
-	data["clients"][client_id] = {"lump_paid": true}
 	save_now()
 	return true
 

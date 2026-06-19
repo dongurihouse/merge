@@ -1,6 +1,6 @@
 extends RefCounted
 ## Content ENGINE (theme-agnostic). The DATA lives in the active game
-## (games/<name>/*_data.gd, reached via Game.data()); this file is the generic
+## (games/<name>/*_data.gd, reached via Game.DATA); this file is the generic
 ## logic that operates on it — bramble field, quest generation, progression,
 ## economy formulas — plus a re-export of the data so callers keep using G.X.
 ## (Was grove_content.gd; the grove tables moved to games/grove/grove_data.gd.)
@@ -202,9 +202,6 @@ static func live_gen_state(roster: Array, map: int, level: int = APPEAR_ALL) -> 
 # --- its min_level, then opens on the next adjacent merge. `terrain` is a plain sealed flag
 # --- (0 = open, >0 = sealed); the gate is the STATIC MIN_LEVEL table, never the stored value —
 # --- so legacy saves (old tier-encoded terrain) still read as "sealed" and need no migration.
-static func ring_of(cell: Vector2i) -> int:                # Chebyshev distance — the art band only
-	return maxi(absi(cell.x - GEN_CELL.x), absi(cell.y - GEN_CELL.y))
-
 ## The Level a cell unseals at (§4). 0 = open at start (the center 3×3 + the generator). The
 ## grove authors a hand-tuned diamond (L2/L3 frontier → L12 corners) in MIN_LEVEL; we read it.
 static func cell_min_level(cell: Vector2i) -> int:
@@ -601,12 +598,6 @@ static func earn_stars(n: int) -> int:
 		Vault.skim(lvl_gems)                  # T44 SKIM-SITE 1/3 (level-up): the piggy bank skims a slice of the level-up premium (§10)
 	Save.grove_write()
 	return gained
-
-static func map_star_total(z: int) -> int:
-	var t := 0
-	for s in MAPS[z].spots:
-		t += int(s.cost)
-	return t
 
 static func item_tex_path(code: int) -> String:
 	var line := int(code / 100.0)

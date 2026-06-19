@@ -725,9 +725,6 @@ func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
 func _bust(which: int, px: float = 124.0) -> Control:
 	return Bust.make(which, px)
 
-func _bust_layer(tex: Texture2D) -> TextureRect:
-	return Bust.layer(tex)
-
 func _mini_item(code: int) -> Control:
 	return PieceView.mini_item(code)
 

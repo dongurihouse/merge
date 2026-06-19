@@ -22,9 +22,6 @@ static func active() -> String:
 static func _m():
 	return Active.ROSTER.get(active(), Active.ROSTER[Active.DEFAULT])
 
-static func id() -> String:
-	return active()
-
 ## res:// path for an art asset (rel = path under a game's art root, e.g.
 ## "items/flower/flower_1.png"), or "" when this game has no clothes for it — the caller's
 ## ResourceLoader.exists() then fails and the engine draws its built-in placeholder.
@@ -40,7 +37,3 @@ static func sound(rel: String) -> String:
 ## res:// path of the active game's UI font, or "" (engine falls back to a system font).
 static func font() -> String:
 	return _m().FONT
-
-## The active game's DATA module (the compile-time base ruleset).
-static func data():
-	return DATA
