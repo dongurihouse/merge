@@ -46,6 +46,87 @@ static func make_icon(id: String, px: float) -> Control:
 			return t
 	return Look.icon(id, px)
 
+## --- icon edge polish (defringe / feather / supersample) -----------------------------------------
+## Clean up a generated icon's rough alpha edge. opts: defringe (bool), feather (px), supersample
+## (1-4), size (working/output px). Returns a polished Texture2D (or the raw texture on failure).
+static func polish_icon_tex(id_or_path: String, opts: Dictionary = {}) -> Texture2D:
+	var path := id_or_path
+	if not path.begins_with("res://"):
+		path = Game.art("ui/currency/icon_%s.png" % id_or_path)
+	if not ResourceLoader.exists(path):
+		return null
+	var img := (load(path) as Texture2D).get_image()
+	return ImageTexture.create_from_image(polish_image(img, opts))
+
+static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
+	var do_defringe: bool = bool(opts.get("defringe", false))
+	var feather: float = float(opts.get("feather", 0.0))
+	var ss: int = clampi(int(opts.get("supersample", 1)), 1, 4)
+	var size: int = int(opts.get("size", 160))
+	var img := src.duplicate()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	# Work at size×ss, then Lanczos-downscale to size — the downscale IS the supersample anti-aliasing.
+	img.resize(maxi(8, size * ss), maxi(8, size * ss), Image.INTERPOLATE_LANCZOS)
+	if do_defringe:
+		_defringe(img)
+	if feather > 0.0:
+		_feather_alpha(img, feather * float(ss))
+	if ss > 1:
+		img.resize(size, size, Image.INTERPOLATE_LANCZOS)
+	return img
+
+## Bleed the nearest opaque colour outward into the semi-transparent edge pixels (keeping their
+## alpha), so the fringe of old-background colour disappears. A few passes for a clean rim.
+static func _defringe(img: Image) -> void:
+	var w := img.get_width()
+	var h := img.get_height()
+	for _pass in 4:
+		var data := img.get_data()
+		var out := data.duplicate()
+		for y in h:
+			for x in w:
+				var i := (y * w + x) * 4
+				var a := data[i + 3]
+				if a >= 230:
+					continue
+				var r := 0; var g := 0; var b := 0; var wsum := 0
+				for off in [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [-1, 1], [1, -1]]:
+					var nx: int = x + int(off[0])
+					var ny: int = y + int(off[1])
+					if nx < 0 or ny < 0 or nx >= w or ny >= h:
+						continue
+					var ni: int = (ny * w + nx) * 4
+					var na := data[ni + 3]
+					if na > a + 12:
+						r += data[ni] * na; g += data[ni + 1] * na; b += data[ni + 2] * na; wsum += na
+				if wsum > 0:
+					out[i] = int(r / wsum); out[i + 1] = int(g / wsum); out[i + 2] = int(b / wsum)
+		img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
+
+## Box-blur the ALPHA channel by `radius` px — turns the aliased stair-step edge into smooth AA.
+static func _feather_alpha(img: Image, radius: float) -> void:
+	var r := int(round(radius))
+	if r < 1:
+		return
+	var w := img.get_width()
+	var h := img.get_height()
+	var data := img.get_data()
+	var out := data.duplicate()
+	for y in h:
+		for x in w:
+			var sum := 0
+			var cnt := 0
+			for dy in range(-r, r + 1):
+				for dx in range(-r, r + 1):
+					var nx: int = x + dx
+					var ny: int = y + dy
+					if nx < 0 or ny < 0 or nx >= w or ny >= h:
+						continue
+					sum += data[(ny * w + nx) * 4 + 3]; cnt += 1
+			out[(y * w + x) * 4 + 3] = int(sum / cnt)
+	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
+
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).
 static func cost_pill(rew_id: String, n: int, font_px: int = 18, icon_px: float = 24.0) -> Control:
 	var pill := PanelContainer.new()

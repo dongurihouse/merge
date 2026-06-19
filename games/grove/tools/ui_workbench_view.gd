@@ -14,11 +14,12 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["buy", "pill", "button", "card", "dialog"]
+const IDS := ["buy", "pill", "button", "icon", "card", "dialog"]
 const CAPTIONS := {
 	"buy": "Buy button — green CTA",
 	"pill": "Cost pill — cream atom",
 	"button": "Button — shared (bg · icon · state)",
+	"icon": "Icon — edge polish (raw vs cleaned)",
 	"card": "Mail card — pill + Claim",
 	"dialog": "Mail dialog — cards",
 }
@@ -27,6 +28,7 @@ const SCHEMA := {
 	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40], ["corner", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
 	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
+	"icon": [["feather", 0, 4], ["supersample", 1, 4]],     # defringe is a toggle, added below
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
 	"dialog": [                                             # pill size inherits from the Cost pill
 		["width", 360, 720], ["card_corner", 0, 60], ["card_slice", 8, 120],
@@ -43,6 +45,7 @@ var _params := {
 	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7, "corner": 16},
 	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
 	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
+	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
 		"width": 560, "card_art": false, "card_corner": 22, "card_slice": 48,
@@ -56,6 +59,9 @@ var _params := {
 var _selected := "buy"
 var _gallery: VBoxContainer = null
 var _sidebar_body: VBoxContainer = null
+
+# polished-icon textures, cached by their opts so an unrelated rebuild doesn't re-run the (slow) polish
+var _icon_cache: Dictionary = {}
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -135,6 +141,12 @@ func _make_element(id: String) -> Control:
 			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
+		"icon":
+			var box := HBoxContainer.new()
+			box.add_theme_constant_override("separation", 28)
+			box.add_child(_icon_preview("Raw", {"defringe": false, "feather": 0.0, "supersample": 1}))
+			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample)}))
+			return box
 		"card":
 			# pill font/icon INHERIT from the Cost pill; the Claim INHERITS from the shared Button
 			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body), _btn_opts())
@@ -158,6 +170,27 @@ func _make_element(id: String) -> Control:
 			_attach_dialog_drag(d)
 			return d
 	return Control.new()
+
+## One labelled icon preview (raw or polished) for the Icon element.
+func _icon_preview(label: String, opts: Dictionary) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	var l := Label.new()
+	l.text = label
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.8))
+	v.add_child(l)
+	var tr := TextureRect.new()
+	tr.custom_minimum_size = Vector2(170, 170)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	opts["size"] = 160
+	var key := "%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1)]
+	if not _icon_cache.has(key):
+		_icon_cache[key] = Kit.polish_icon_tex("gem", opts)
+	tr.texture = _icon_cache[key]
+	v.add_child(tr)
+	return v
 
 ## The shared Button's params as a kit opts dict. The card + dialog Claim are built ENTIRELY from
 ## this (no styling of their own), so editing the Button item updates every Claim automatically.
@@ -354,6 +387,8 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
 	elif _selected == "dialog":
 		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art"))
+	elif _selected == "icon":
+		_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 	for spec in SCHEMA[_selected]:
 		_sidebar_body.add_child(_slider_row(spec))
 
