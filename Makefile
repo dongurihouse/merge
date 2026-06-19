@@ -5,7 +5,7 @@ PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
 JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
 RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
-ENGINE_TESTS := engine/tests/save_tests engine/tests/inbox_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/ftue_pop_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests engine/tests/palette_tests engine/tests/level_badge_tests engine/tests/bag_overlay_tests engine/tests/switch_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/inbox_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests engine/tests/palette_tests engine/tests/level_badge_tests engine/tests/bag_overlay_tests engine/tests/switch_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
 GROVE_TESTS  := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_shop_ads_tests
@@ -14,8 +14,8 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor test test-fast test-engine test-grove test-one smoke import \
-        shot-map shot-grove shot \
+.PHONY: help run run_debug run_grove editor workbench test test-fast test-engine test-grove test-one smoke import \
+        shot-map shot-grove shot shot-workbench \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -39,6 +39,9 @@ grove: ## play the GROVE game (full art; first run imports grove art)
 
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)
+
+workbench: ## see + test the UI workbench live (a real window you can click)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
@@ -88,6 +91,9 @@ shot-grove: ## capture the board:  make shot-grove [MODE=fresh|played|gate|hud|c
 
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)
+
+shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios: ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/iOS_BUILD.md)

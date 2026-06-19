@@ -17,8 +17,9 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# map-0 lines: seed_satchel emits Wildflower(1)+Berry(2); pantry_crock emits Mushroom(3)+Honey(4).
-const Z0_LINES := [1, 2, 3, 4]
+# map-0 lines: seed_satchel emits Wildflower(1)+Berry(2). (Map 0 ships ONE generator now; lines
+# 3,4 are dormant — no generator emits them.)
+const Z0_LINES := [1, 2]
 
 func _initialize() -> void:
 	# --- askable_lines == lines_for_map (sorted), at EVERY map — no anchor union ---
@@ -44,14 +45,17 @@ func _initialize() -> void:
 		var live := G.lines_for_map(G.GENERATORS, z); live.sort()
 		ok(str(ask) == str(live), "at map %d askable is exactly the current-map live set (no stray line)" % z)
 
-	# --- `level` still gates a not-yet-grown generator's lines out (the staging invariant) ---
-	var pantry_def := G.gen_def(G.GENERATORS, "pantry_crock")
-	var pantry_lvl := int(pantry_def.get("appear_level", 0))
-	if pantry_lvl > 0:
-		var below := G.askable_lines(G.GENERATORS, 0, pantry_lvl - 1)
-		ok(not below.has(3) and not below.has(4), "the pantry's lines (3,4) are NOT askable before it grows in (level gate)")
-		var at := G.askable_lines(G.GENERATORS, 0, pantry_lvl)
-		ok(at.has(3) and at.has(4), "the pantry's lines become askable once it appears at its level")
+	# --- `level` still gates a not-yet-grown generator's lines out (the staging invariant). The
+	# shipped roster is one generator per map (no staged gen), so drive the gate on a SYNTHETIC
+	# roster: map 0 = a live anchor (L0) + a staged gen (appear_level 5) emitting lines 3,4. ---
+	var staged := [
+		{"id": "fix_anchor", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "anchor": true},
+		{"id": "fix_staged", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "appear_level": 5},
+	]
+	ok(not G.askable_lines(staged, 0, 4).has(3) and not G.askable_lines(staged, 0, 4).has(4), \
+		"a staged gen's lines (3,4) are NOT askable before it grows in (level gate)")
+	ok(G.askable_lines(staged, 0, 5).has(3) and G.askable_lines(staged, 0, 5).has(4), \
+		"a staged gen's lines become askable once it appears at its level")
 
 	# --- gen_quest at a later map draws only from the current-map askable set ---
 	var rng := RandomNumberGenerator.new()

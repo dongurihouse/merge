@@ -73,7 +73,11 @@ func _initialize() -> void:
 	ok(str(G.gens_to_grant(G.GENERATORS, 0, [])) == str(G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))), "gens_to_grant(0) lists map 1's generator ids (the next map's unowned tools)")
 	var map1_ids: Array = G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))
 	ok(G.gens_to_grant(G.GENERATORS, 0, map1_ids).is_empty(), "gens_to_grant empties once all the next map's generators are owned")
-	ok(str(G.gens_to_grant(G.GENERATORS, 0, [map1_ids[0]])) == str([map1_ids[1]]), "gens_to_grant returns only the UNOWNED next-map ids (drops one already owned)")
+	# the drop-one-owned path on a SYNTHETIC roster (the shipped roster is one generator per map,
+	# so a real next map can't hold two — a fixture exercises the partial-owned filter directly).
+	var two_gen := [{"id": "g_a", "map": 1, "cell": Vector2i(2, 1), "lines": [5]},
+		{"id": "g_b", "map": 1, "cell": Vector2i(3, 1), "lines": [6]}]
+	ok(str(G.gens_to_grant(two_gen, 0, ["g_a"])) == str(["g_b"]), "gens_to_grant returns only the UNOWNED next-map ids (drops one already owned)")
 	ok(G.gens_to_grant(G.GENERATORS, G.MAPS.size() - 1, []).is_empty(), "the final map grants nothing (no next map)")
 
 	# --- askable_lines is CURRENT-MAP only (no anchor union) — equals lines_for_map, sorted ---

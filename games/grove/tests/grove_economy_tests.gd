@@ -158,9 +158,9 @@ func _initialize() -> void:
 		s3._ready()
 	ok(s3.water == G.WATER_CAP, "returning after days away finds full water")
 
-	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT map (§6), not just
-	# one — completing maps 1+2 puts the player in map 3/Pond (2 generators: reed bed + creel;
-	# the anchor satchel's cold-load persistence is the parked engine follow-up, BACKLOG).
+	# 12b. a cold load mid-game draws EVERY live generator of the CURRENT map (§6) — completing
+	# maps 1+2 puts the player in map 3/Pond, which ships ONE generator (the reed bed; the roster
+	# is one generator per map). The anchor satchel's cold-load persistence is BACKLOG.
 	fresh("twogens")
 	var gtg := Save.grove()
 	var ul16 := {}
@@ -173,31 +173,30 @@ func _initialize() -> void:
 	get_root().add_child(s4)
 	if s4.board == null:
 		s4._ready()
-	ok(s4.gen_nodes.size() == 2, "a cold load in map 3/Pond draws both of the map's generators (reed bed + creel)")
+	ok(s4.gen_nodes.size() == 1, "a cold load in map 3/Pond draws the map's generator (reed bed)")
 	ok(s4.gen_node != null and s4.gen_nodes.values().has(s4.gen_node), "gen_node points at a live generator (not the stale index-0 satchel)")
 
 	# 12c. generators are MOVABLE (#1) and PERSIST into the bag's generator section (#2 store/place,
-	# never consumed) on the live board, and the scene re-renders both. A fresh board is map 0:
-	# seed satchel (4,3) live; the pantry crock (2,1) is staged (appear_level).
+	# never consumed) on the live board, and the scene re-renders each step. Map 0 ships ONE
+	# generator (the anchor satchel at (4,3)) — drive the whole move→store→place loop on it.
 	fresh("genmech")
 	var s4c = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(s4c)
 	if s4c.board == null:
 		s4c._ready()
-	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and not s4c.board.is_gen(Vector2i(2, 1)), \
-		"12c: a fresh board seeds only the anchor satchel (the pantry crock is staged)")
-	s4c.board.grow_gens(0, 99)                                # the pantry grows in mid map-0 play (appear_level)
-	ok(s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock", "12c: the staged pantry crock grows in at its cell")
+	ok(s4c.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel" and s4c.board.gens.size() == 1, \
+		"12c: a fresh board seeds the one anchor satchel at its cell")
 	s4c.board.items[BoardModel.idx(Vector2i(4, 4))] = 0       # clear the destination
 	ok(s4c.board.move_gen(Vector2i(4, 3), Vector2i(4, 4)), "12c: the satchel moves to an empty cell (#1)")
 	s4c._rebuild_all()
 	ok(s4c.gen_nodes.has(Vector2i(4, 4)) and not s4c.gen_nodes.has(Vector2i(4, 3)), "12c: the moved generator re-renders at its new cell")
-	ok(s4c.board.store_gen(Vector2i(2, 1)) and s4c.board.gen_bag.has("pantry_crock") and not s4c.board.is_gen(Vector2i(2, 1)), "12c: the pantry crock STORES into the gen_bag, freeing its cell (#2 — persists, never consumed)")
+	ok(s4c.board.store_gen(Vector2i(4, 4)) and s4c.board.gen_bag.has("seed_satchel") and not s4c.board.is_gen(Vector2i(4, 4)), "12c: the satchel STORES into the gen_bag, freeing its cell (#2 — persists, never consumed)")
 	s4c._rebuild_all()
-	ok(not s4c.gen_nodes.has(Vector2i(2, 1)), "12c: the stored generator leaves the board render")
-	ok(s4c.board.place_gen_from_bag("pantry_crock", Vector2i(2, 1)) and s4c.board.gen_id_at(Vector2i(2, 1)) == "pantry_crock" and not s4c.board.gen_bag.has("pantry_crock"), "12c: placing it back from the bag restores it to the board (#2)")
+	ok(not s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the stored generator leaves the board render")
+	var back_cell: Vector2i = s4c.board.empty_ground_cells()[0]
+	ok(s4c.board.place_gen_from_bag("seed_satchel", back_cell) and s4c.board.gen_id_at(back_cell) == "seed_satchel" and not s4c.board.gen_bag.has("seed_satchel"), "12c: placing it back from the bag restores it to the board (#2)")
 	s4c._rebuild_all()
-	ok(s4c.board.gen_id_at(Vector2i(4, 4)) == "seed_satchel" and s4c.gen_nodes.has(Vector2i(2, 1)) and s4c.gen_nodes.has(Vector2i(4, 4)), "12c: the re-render reflects the restored generator + the moved anchor")
+	ok(s4c.board.gen_id_at(back_cell) == "seed_satchel" and s4c.gen_nodes.has(back_cell), "12c: the re-render reflects the restored generator")
 	s4c.queue_free()
 
 	# 12b2. a runtime-opened cell's ground tile sits ABOVE the mat (owner's
@@ -412,18 +411,13 @@ func _initialize() -> void:
 	get_root().add_child(s5)
 	if s5.board == null:
 		s5._ready()
-	# FTUE: the intro pops are free; once they're spent the meter begins. A tap now throws a
-	# BURST (1-3 items), so drive the boundary by the pop count and assert the charge tracks the
-	# burst size — each popped item is one energy. Clear a few cells for the burst to fill.
+	# Pops charge energy from the FIRST tap — the FTUE free-pop intro was retired (water now costs
+	# from the start). A tap throws a BURST (1-3 items); the charge tracks the burst size — each
+	# popped item is one energy. Clear a few cells for the burst to fill.
 	for cc in [Vector2i(3, 2), Vector2i(3, 4), Vector2i(3, 3), Vector2i(4, 2), Vector2i(2, 2)]:
 		s5.board.take(cc)
 	s5._rebuild_pieces()
 	Save.grove()["pops"] = 0
-	s5.water = G.WATER_CAP
-	s5._pop_seed()                            # an intro pop — still free
-	await create_timer(0.25).timeout
-	ok(s5.water == G.WATER_CAP, "the FTUE intro pops are free (the verb before the meter)")
-	Save.grove()["pops"] = 20                 # well past the 10 free intro pops → the meter is on
 	s5.water = G.WATER_CAP
 	var ftue_b := 0
 	for v in s5.board.items:
@@ -435,7 +429,7 @@ func _initialize() -> void:
 	for v in s5.board.items:
 		if v > 0:
 			ftue_n += 1
-	ok(ftue_n >= 1 and s5.water == G.WATER_CAP - ftue_n * G.POP_COST, "past the FTUE the meter charges one energy per burst item")
+	ok(ftue_n >= 1 and s5.water == G.WATER_CAP - ftue_n * G.POP_COST, "a pop charges one energy per burst item from the first tap (no free intro)")
 	ok(s5.merchant_chip == null, "the merchant waits for the first spot")
 
 	# sell anything: a t3 flower pays 3 coins and leaves the board
@@ -463,11 +457,11 @@ func _initialize() -> void:
 			band_mono = false
 	ok(band_mono and float(band[0]) >= 1.0, "T39: the per-map band rises monotonically across maps 1–5 (≥1.0 at map 1)")
 	# map resolution: code → line → generator → its map. Sample lines spanning maps 0..4.
-	ok(G.map_for_line(1) == 0 and G.map_for_line(4) == 0, "T39: map-1 lines (Wildflower/Honey) resolve to map 0")
-	ok(G.map_for_line(5) == 1 and G.map_for_line(8) == 1, "T39: map-2 lines (Egg/Wool) resolve to map 1")
-	ok(G.map_for_line(12) == 2, "T39: a map-3 line (Fish) resolves to map 2")
-	ok(G.map_for_line(16) == 3 and G.map_for_line(24) == 4, "T39: map-4/5 lines (Plum/Poppy) resolve to maps 3/4")
-	ok(G.map_for_code(1205) == 2, "T39: map_for_code derives the line then the map (Fish t5 → map 2)")
+	ok(G.map_for_line(1) == 0 and G.map_for_line(2) == 0, "T39: map-1 lines (Wildflower/Berry) resolve to map 0")
+	ok(G.map_for_line(5) == 1 and G.map_for_line(6) == 1, "T39: map-2 lines (Egg/Feather) resolve to map 1")
+	ok(G.map_for_line(10) == 2, "T39: a map-3 line (Reed) resolves to map 2")
+	ok(G.map_for_line(14) == 3 and G.map_for_line(20) == 4, "T39: map-4/5 lines (Apple/Glowcap) resolve to maps 3/4")
+	ok(G.map_for_code(1005) == 2, "T39: map_for_code derives the line then the map (Reed t5 → map 2)")
 	# t1..(PREMIUM_TIER-1) reward == round(tier_coins × band[map]); checked across every line, every sub-pinnacle tier.
 	var band_ok := true
 	var t8_flat := true
@@ -488,7 +482,7 @@ func _initialize() -> void:
 	# concrete worked examples (map 0 band == 1.0 keeps the FTUE-era proofs exact)
 	ok(G.sell_reward(103) == Vector2i(3, 0), "T39: a map-1 t3 (band 1.0) still sells for exactly 3🪙")
 	ok(G.sell_reward(105) == Vector2i(5, 0), "T39: a map-1 t5 (band 1.0) still sells for exactly 5🪙")
-	ok(G.sell_reward(2405) == Vector2i(int(round(5 * float(band[4]))), 0), \
+	ok(G.sell_reward(2005) == Vector2i(int(round(5 * float(band[4]))), 0), \
 		"T39: a map-5 t5 (band %.1f) sells for %d🪙 (later map → more coins)" % [float(band[4]), int(round(5 * float(band[4])))])
 
 	# diamonds: accessors + paid rain once the freebies are spent. A fresh save SEEDS a small

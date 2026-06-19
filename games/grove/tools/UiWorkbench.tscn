@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://cwbnchgrovev0a"]
+
+[ext_resource type="Script" path="res://games/grove/tools/ui_workbench_view.gd" id="1_wb"]
+
+[node name="UiWorkbench" type="Control"]
+custom_minimum_size = Vector2(720, 1280)
+offset_right = 720.0
+offset_bottom = 1280.0
+script = ExtResource("1_wb")

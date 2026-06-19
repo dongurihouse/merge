@@ -73,10 +73,10 @@ func _initialize() -> void:
 	ok(s1.size() == 3 and s1[Vector2i(4, 3)] == "g1a" and s1[Vector2i(2, 1)] == "g1b" and s1[Vector2i(6, 5)] == "g1c", "map 1 live set: 3 generators at their own cells")
 
 	# --- the board model's STATEFUL, persisted generator map (movable #1 · store/place #2 · save #3) ---
-	# Uses the LIVE grove roster (G.GENERATORS): seed_satchel + pantry_crock in map 0.
+	# Uses the LIVE grove roster (G.GENERATORS): map 0 ships ONE generator, the anchor seed_satchel.
 	var bm := BoardModel.new()
 	bm.seed_gens(0)
-	ok(bm.is_gen(Vector2i(4, 3)) and bm.is_gen(Vector2i(2, 1)) and bm.gens.size() == 2, "seed_gens(0): the 2 map-0 starters are live")
+	ok(bm.is_gen(Vector2i(4, 3)) and bm.gens.size() == 1, "seed_gens(0): the map-0 anchor satchel is live")
 	ok(bm.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the center cell holds the satchel")
 	ok(bm.gen_id_at(Vector2i(0, 0)) == "", "a non-generator cell has no generator id")
 	# #1 movable: a generator relocates to an empty open cell, refuses an occupied/gen cell
@@ -87,15 +87,16 @@ func _initialize() -> void:
 	ok(not bm.move_gen(dest, Vector2i(2, 1)), "a generator can't move onto another generator")
 	bm.move_gen(dest, Vector2i(4, 3))             # put it back
 	# #2 store/place: a generator persists into the gen_bag and back onto the board (no hand-in consumption)
-	ok(bm.store_gen(Vector2i(2, 1)) and bm.gen_bag.has("pantry_crock") and not bm.gens.has(Vector2i(2, 1)), "store_gen moves the pantry crock board→gen_bag (frees the cell)")
+	ok(bm.store_gen(Vector2i(4, 3)) and bm.gen_bag.has("seed_satchel") and not bm.gens.has(Vector2i(4, 3)), "store_gen moves the satchel board→gen_bag (frees the cell)")
 	var open_cell: Vector2i = bm.empty_ground_cells()[0]
-	ok(bm.place_gen_from_bag("pantry_crock", open_cell) and bm.gens.values().has("pantry_crock") and not bm.gen_bag.has("pantry_crock"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
-	# #3 persistence: gens + gen_bag survive a save round-trip
-	bm.store_gen(open_cell)                        # stash one so gen_bag is non-empty for the round-trip
+	ok(bm.place_gen_from_bag("seed_satchel", open_cell) and bm.gens.values().has("seed_satchel") and not bm.gen_bag.has("seed_satchel"), "place_gen_from_bag moves it gen_bag→board (persists, never consumed)")
+	# #3 persistence: gens + gen_bag survive a save round-trip. Realistic state: the map-0 satchel
+	# sits on the board (at open_cell) while a granted next-map generator (hen_coop) waits in the bag.
+	bm.gen_bag.append("hen_coop")                  # a granted-but-unplaced generator, stashed in the bag
 	var blob := bm.to_dict()
 	var bm2 := BoardModel.new()
 	bm2.from_dict(blob)
-	ok(bm2.is_gen(Vector2i(4, 3)) and str(bm2.gen_bag) == str(bm.gen_bag), "the generator map + gen_bag round-trip through to_dict/from_dict")
+	ok(bm2.gen_id_at(open_cell) == "seed_satchel" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("hen_coop"), "the generator map + gen_bag round-trip through to_dict/from_dict")
 
 	# --- burst-pop (§6): a tap pops a BURST — a FREE portion (base BURST_ODDS + per-map scale-up,
 	# capped on its own at BURST_FREE_MAX) PLUS the paid burst-upgrade added on top (decoupled, T25),
