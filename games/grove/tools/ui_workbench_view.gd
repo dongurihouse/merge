@@ -48,7 +48,7 @@ func _build() -> void:
 		return
 	for c in get_children():
 		remove_child(c)
-		c.free()
+		c.queue_free()
 
 	var bg := ColorRect.new()
 	bg.color = Pal.BG
@@ -120,7 +120,7 @@ func _rebuild_gallery() -> void:
 		return
 	for c in _gallery.get_children():
 		_gallery.remove_child(c)
-		c.free()
+		c.queue_free()
 	for id in IDS:
 		_gallery.add_child(_section(id))
 
@@ -169,8 +169,11 @@ func select(id: String) -> void:
 	if id == _selected:
 		return
 	_selected = id
-	_rebuild_gallery()      # refresh the selection highlight
-	_rebuild_sidebar()      # swap in this element's options
+	# DEFER: select() runs inside a section's gui_input dispatch — rebuilding (freeing the very
+	# section that is mid-emit) here would hit "Object is locked and can't be freed". Defer so the
+	# tree is mutated only after the input dispatch returns.
+	_rebuild_gallery.call_deferred()      # refresh the selection highlight
+	_rebuild_sidebar.call_deferred()      # swap in this element's options
 
 func _section_style(selected: bool) -> StyleBox:
 	var sb := StyleBoxFlat.new()
@@ -193,7 +196,7 @@ func _rebuild_sidebar() -> void:
 		return
 	for c in _sidebar_body.get_children():
 		_sidebar_body.remove_child(c)
-		c.free()
+		c.queue_free()
 	var head := Label.new()
 	head.text = "Options"
 	head.add_theme_font_size_override("font_size", 26)
