@@ -57,6 +57,10 @@ func _initialize() -> void:
 			Save.add_diamonds(87)
 			Save.mark_spotlight_seen("shop")
 			load("res://engine/scripts/core/login.gd").claim_today()
+			# 3 unread letters so the Inbox count badge reads "3" (home.png).
+			var Inbox = load("res://engine/scripts/core/inbox.gd")
+			for _i in 3:
+				Inbox.add({"title": "Gift", "body": "A little something.", "icon": "coin", "reward": {"coins": 50}, "read": false})
 		"spirits":
 			var gs := Save.grove()
 			var ful := {}
