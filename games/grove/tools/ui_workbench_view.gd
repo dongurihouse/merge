@@ -38,8 +38,7 @@ const SCHEMA := {
 }
 
 var _params := {
-	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16,
-		"art": true, "slice_l": 46, "slice_t": 34, "slice_r": 46, "slice_b": 34, "h_stretch": "stretch", "v_stretch": "stretch"},
+	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16, "art": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
@@ -210,10 +209,6 @@ func _btn_opts() -> Dictionary:
 		"font": int(b.font),
 		"corner": int(b.corner),
 		"art": bool(b.art),
-		"slice_l": float(b.slice_l), "slice_t": float(b.slice_t),
-		"slice_r": float(b.slice_r), "slice_b": float(b.slice_b),
-		"h_stretch": {"stretch": 0, "tile": 1, "tile_fit": 2}.get(String(b.h_stretch), 0),
-		"v_stretch": {"stretch": 0, "tile": 1, "tile_fit": 2}.get(String(b.v_stretch), 0),
 	}
 
 ## --- gallery (left) ------------------------------------------------------------------------------
@@ -394,13 +389,8 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
 		_sidebar_body.add_child(_toggle_row("Show icon", "show_icon"))
 		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
-		_sidebar_body.add_child(_toggle_row("Use art", "art", true))   # sprite border vs code-drawn
-		if bool(_params["button"]["art"]):
-			for k in ["slice_l", "slice_t", "slice_r", "slice_b"]:
-				_sidebar_body.add_child(_slider_row([k, 0, 120]))
-			_sidebar_body.add_child(_option_row("H stretch", "h_stretch", ["stretch", "tile", "tile_fit"]))
-			_sidebar_body.add_child(_option_row("V stretch", "v_stretch", ["stretch", "tile", "tile_fit"]))
-		else:
+		_sidebar_body.add_child(_toggle_row("Use art", "art", true))   # sprite (scaled whole) vs code-drawn
+		if not bool(_params["button"]["art"]):
 			_sidebar_body.add_child(_slider_row(["corner", 0, 40]))
 	elif _selected == "dialog":
 		_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))

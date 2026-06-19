@@ -34,17 +34,16 @@ const DEMO_MAIL := [
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
 static func make_icon(id: String, px: float) -> Control:
-	if id == "bluegem":
-		var p := Game.art("ui/currency/icon_gem_t3.png")
-		if ResourceLoader.exists(p):
-			var t := TextureRect.new()
-			t.texture = load(p)
-			t.custom_minimum_size = Vector2(px, px)
-			t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			return t
-	return Look.icon(id, px)
+	var tex := _icon_tex(id)               # polished (defringe + feather), via the shared resolver
+	if tex != null:
+		var t := TextureRect.new()
+		t.texture = tex
+		t.custom_minimum_size = Vector2(px, px)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	return Look.icon(id, px)               # glyph fallback when no sprite
 
 ## --- icon edge polish (defringe / feather / supersample) -----------------------------------------
 ## Clean up a generated icon's rough alpha edge. opts: defringe (bool), feather (px), supersample
@@ -148,6 +147,35 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 		out[i * 4 + 3] = al[i]
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
+## --- baked asset cleanup: defringe + feather 2, cached per asset (applied to every workbench sprite) ---
+static var _clean_cache: Dictionary = {}
+
+## A cleaned version of a sprite: defringe (kill the rough-cut colour fringe) + feather 2 (smooth the
+## jagged edge). Cached by path so it runs once per asset. max_dim caps the working resolution.
+static func clean_tex_path(path: String, max_dim: int = 256) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	if _clean_cache.has(path):
+		return _clean_cache[path]
+	var img := (load(path) as Texture2D).get_image()
+	var t := ImageTexture.create_from_image(_clean_image(img, max_dim))
+	_clean_cache[path] = t
+	return t
+
+static func _clean_image(src: Image, max_dim: int) -> Image:
+	var img := src.duplicate() as Image
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var w: int = img.get_width()
+	var h: int = img.get_height()
+	var m := maxi(w, h)
+	if m > max_dim:                                   # cap the working res (aspect-preserving) for speed
+		var s := float(max_dim) / float(m)
+		img.resize(maxi(1, int(w * s)), maxi(1, int(h * s)), Image.INTERPOLATE_LANCZOS)
+	_defringe(img)
+	_feather_alpha(img, 2.0)
+	return img
+
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).
 static func cost_pill(rew_id: String, n: int, btn_opts: Dictionary = {}) -> Control:
 	# The cost pill IS the shared pill_button, driven by the SAME state as the Claim — it only overrides
@@ -176,7 +204,7 @@ static func _icon_tex(id: String) -> Texture2D:
 	for rel in rels:
 		var p := Game.art(rel)
 		if ResourceLoader.exists(p):
-			return load(p)
+			return clean_tex_path(p, 192)      # defringe + feather the rough-cut icon
 	return null
 
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
@@ -214,16 +242,11 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	# --- background: the sprite NINE-PATCH (nice baked borders) when "art" is on, else code-drawn ---
 	if bool(opts.get("art", false)):
 		var art_rel := "kit/mail_pill.png" if bg == "green" else "kit/mail_pill_cream.png"
-		var ap := Look.kit(art_rel)
-		if ResourceLoader.exists(ap):
+		var tex := clean_tex_path(Look.kit(art_rel), 256)   # polished; scaled WHOLE (9-slice cut pills poorly)
+		if tex != null:
 			var stx := StyleBoxTexture.new()
-			stx.texture = load(ap)
-			stx.set_texture_margin(SIDE_LEFT, float(opts.get("slice_l", 46.0)))
-			stx.set_texture_margin(SIDE_TOP, float(opts.get("slice_t", 34.0)))
-			stx.set_texture_margin(SIDE_RIGHT, float(opts.get("slice_r", 46.0)))
-			stx.set_texture_margin(SIDE_BOTTOM, float(opts.get("slice_b", 34.0)))
-			stx.axis_stretch_horizontal = int(opts.get("h_stretch", 0))
-			stx.axis_stretch_vertical = int(opts.get("v_stretch", 0))
+			stx.texture = tex
+			# NO texture margins → the entire sprite scales to the button, no slicing
 			stx.content_margin_left = 22; stx.content_margin_right = 22
 			stx.content_margin_top = 8; stx.content_margin_bottom = 9
 			b.add_theme_stylebox_override("normal", stx)
@@ -343,7 +366,7 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var bp := Look.kit("mail/mail_banner.png")
 	if ResourceLoader.exists(bp):
 		var art := TextureRect.new()
-		art.texture = load(bp)
+		art.texture = clean_tex_path(bp, 480)   # polished ribbon
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -360,7 +383,7 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	header.add_child(lbl)
 	if icon_on and ResourceLoader.exists(bp):
-		var env := Look.icon("mail", icon_px)
+		var env := make_icon("mail", icon_px)   # polished envelope
 		env.name = "DialogBannerIcon"
 		env.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header.add_child(env)
@@ -373,6 +396,25 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 			header.resized.connect(place)
 			header.ready.connect(place)
 	return header
+
+## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
+static func _close_button(size: float, cb: Callable) -> Button:
+	var b := Button.new()
+	b.name = "DialogClose"
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(size, size)
+	var tex := clean_tex_path(Look.kit("kit/mail_close.png"), 192)
+	if tex != null:
+		var st := StyleBoxTexture.new()
+		st.texture = tex
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", st)
+		var sp: StyleBoxTexture = st.duplicate()
+		sp.modulate_color = Color(0.88, 0.88, 0.88)
+		b.add_theme_stylebox_override("pressed", sp)
+	b.pressed.connect(func() -> void:
+		if cb.is_valid(): cb.call())
+	return b
 
 ## The whole Mail dialog (mockup image 3): a parchment card with the gold banner + envelope, a
 ## docked ✕, and a column of mail_cards. COMPOSES mail_card for every entry.
@@ -469,9 +511,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		col.add_child(rows)
 
 	# the ✕ disc poles past the card's top-right corner once the card has laid out + sized.
-	var close := Look.close_button(func() -> void: print("WORKBENCH: mail closed"), "kit/mail_close.png")
-	close.name = "DialogClose"
-	close.custom_minimum_size = Vector2(close_size, close_size)
+	var close := _close_button(close_size, func() -> void: print("WORKBENCH: mail closed"))
 	wrap.add_child(close)
 	var dock := func() -> void:
 		if not is_instance_valid(card) or not is_instance_valid(close):
