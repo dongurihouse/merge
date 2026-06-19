@@ -1343,43 +1343,50 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 
 func _build_chrome() -> void:
-	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), fed its own
-	# specs: Settings · [Play] (centre, prominent) · Shop · Map. PLAY is the way into the garden/board —
-	# the prominent leaf that replaces the old wide "Enter Garden ▶" text CTA. The Store "new offer" badge
-	# rides the Shop button; the piggy bank moved to the LiveOps rail (its ready-pip rides it there).
-	# _shop_btn is kept as the Store-badge anchor.
+	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
+	# board sizing — side buttons 140, the centred primary (Play) 184 — so the two screens' bottom bars
+	# match. Order: Settings · Shop · [Play] · Map · Piggy, with PLAY in the CENTRE (3rd of 5), mirroring
+	# the board's centred Home and home.png. PLAY is the way into the garden/board (the prominent leaf
+	# that replaced the old wide "Enter Garden ▶" CTA). The Store "new offer" badge rides the Shop button
+	# (_shop_btn anchor); the piggy bank rides the bottom bar (home.png) with its ready-pip.
 	var sb := Look.safe_bottom(self)
 	var nav := NavBar.build(self, [
 		# Settings — the shared music/sounds/calm card (ui/settings.gd).
-		{"icon": "nav_gear.png", "px": 96.0, "label": tr("Settings"), "action": func() -> void:
+		{"icon": "nav_gear.png", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_settings()},
-		# Play — the way into the garden/board: the prominent leaf (the old "Enter Garden ▶" text CTA retired).
-		{"icon": "nav_leaf.png", "px": 140.0, "label": tr("Play"), "action": _on_board},
 		# Shop — the shared currency store (the wallet's open_shop closure).
-		{"icon": "nav_shop.png", "px": 96.0, "label": tr("Shop"), "action": func() -> void:
+		{"icon": "nav_shop.png", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			if _open_shop.is_valid():
 				_open_shop.call()},
+		# Play — the CENTRE, prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
+		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board},
 		# Map — the place-picker (atlas).
-		{"icon": "nav_map.png", "px": 96.0, "label": tr("Map"), "action": func() -> void:
+		{"icon": "nav_map.png", "px": 140.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
-			_open_select()}])
+			_open_select()},
+		# Piggy bank — the diegetic accrual-vault, on the bottom bar (home.png). Its claimable ready-pip
+		# rides this button (driven by _refresh_piggy_pip → Vault.claimable()).
+		{"icon": "nav_piggy.png", "px": 140.0, "label": tr("Vault"), "action": _open_vault}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	# the Store-badge anchor = the Shop button (index 2, after Settings and Play).
-	_shop_btn = nav.buttons[2]
-	# the Play leaf breathes so the way to the board reads as the primary action.
-	FX.breathe_once(nav.buttons[1])
+	# the Store-badge anchor = the Shop button (index 1).
+	_shop_btn = nav.buttons[1]
+	# the Play leaf breathes so the way to the board reads as the primary action (centre, index 2).
+	FX.breathe_once(nav.buttons[2])
 	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
 	_store_badge = Look.badge("dot")
 	Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the LiveOps rail (right edge) — the kept chrome slice. The map's restore progress (and its
-	# completion gift) rides the top progress pill, so there is no separate above-CTA strip.
-	# The piggy bank now lives on the rail (its claimable ready-pip is attached there).
-	_build_liveops_rail(sb)
+	# the piggy's claimable ready-pip rides the bottom-bar piggy button (index 4).
+	_piggy_pip = Look.badge("dot")
+	Look.attach_badge(nav.buttons[4], _piggy_pip)
+	_refresh_piggy_pip()
+	# the LiveOps rail: Daily · Free · Inbox, pinned TOP-right below the wallet (home.png). The map's
+	# restore progress (and its completion gift) rides the top progress pill, so there's no above-CTA strip.
+	_build_liveops_rail()
 	# the place-picker's bottom-left BACK arrow (map.png) — returns to the map you were viewing. A real
 	# Button on `self` (chrome), NOT under the content input surface; hidden on a map, shown in select.
 	_select_back = _make_back_button(sb)
@@ -1456,49 +1463,48 @@ func _make_back_button(sb: float) -> Button:
 		_open_map(_map_idx))
 	return b
 
-# The LIVE-OPS RAIL (backlog "LiveOps buttons") — a CALM vertical column of round buttons on the
-# right edge, ABOVE the bottom corner cluster: Daily, Free, and (guarded) Inbox. Each is a quiet
-# cream chrome button; the RED BADGE does all the attention-pulling, shown ONLY when actionable
-# (today unclaimed / a free watch is ready / unread mail). Every rail button is appended to
-# _chrome_nodes so it follows _set_map_chrome_visible (hidden on the place-picker). The rail
-# stacks UPWARD from just above the corner cluster so it never collides with the CTA or the gear.
-func _build_liveops_rail(sb: float) -> void:
-	var px := 72.0
-	var gap := 14.0
-	var bottom := 172.0 + sb            # first rail button sits above the ~150px full-width nav row (item 4)
+# The LIVE-OPS RAIL — a CALM vertical column of round badge-buttons pinned TOP-RIGHT, below the
+# wallet pill (home.png): Daily · Free · (guarded) Inbox. Each is a quiet cream disc carrying a kit
+# icon with a small caption tab beneath; the RED BADGE does all the attention-pulling, shown ONLY
+# when actionable (today unclaimed / a free watch ready / unread mail — the mail badge shows the
+# count). Discs are board-sized (RAIL_PX 140) to match the bottom bar. Every button is appended to
+# _chrome_nodes so it follows _set_map_chrome_visible (hidden on the place-picker).
+const RAIL_PX := 140.0          # disc size — matches the bottom-bar side buttons
+const RAIL_MARGIN := 18.0       # right-edge inset
+const RAIL_CAP_H := 42.0        # caption-tab band beneath each disc
+const RAIL_GAP := 16.0          # gap between stacked entries
+const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
+
+func _build_liveops_rail() -> void:
+	var step := RAIL_PX + RAIL_CAP_H + RAIL_GAP
+	var top := Look.safe_top(self) + RAIL_TOP
 	var slot := 0
-	# Daily — opens the existing login calendar on demand; badge when today is unclaimed.
-	var daily := _rail_button("📅", _open_daily)
-	_place_rail(daily, px, bottom, slot); slot += 1
+	# Daily — opens the login calendar on demand; badge when today is unclaimed.
+	var daily := _rail_button("gift", tr("Daily"), _open_daily)
+	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot")
 	Look.attach_badge(daily, _daily_badge)
 	# Free — a rewarded-video gem faucet; badge when a watch is offerable.
-	var free := _rail_button("▶", _claim_free_gems)
-	_place_rail(free, px, bottom, slot); slot += 1
+	var free := _rail_button("faucet", tr("Free"), _claim_free_gems)
+	_place_rail(free, top, slot, step); slot += 1
 	_free_badge = Look.badge("dot")
 	Look.attach_badge(free, _free_badge)
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
-		var inbox := _rail_button("✉", _open_inbox)
-		_place_rail(inbox, px, bottom, slot); slot += 1
+		var inbox := _rail_button("mail", tr("Inbox"), _open_inbox)
+		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0)
 		Look.attach_badge(inbox, _inbox_badge)
-	# Piggy bank — the diegetic accrual-vault, moved here off the bottom bar. Its "claimable" ready-pip
-	# (driven by _refresh_piggy_pip → Vault.claimable()) rides this rail button now.
-	var piggy := _rail_button("🐷", _open_vault)
-	_place_rail(piggy, px, bottom, slot); slot += 1
-	_piggy_pip = Look.badge("dot")
-	Look.attach_badge(piggy, _piggy_pip)
-	_refresh_piggy_pip()
 	_refresh_liveops_badges()
 
-# One calm cream rail button: the round-button art (or an INK-disc fallback) carrying a glyph Label
-# directly — same pattern the atlas/piggy chrome uses for glyphs the kit has no icon for, so we
-# never touch skin.gd's ICON_GLYPHS. Mouse-ignored glyph keeps the single-input-surface rule.
-func _rail_button(glyph: String, cb: Callable) -> Button:
+# One calm cream rail badge-button: the round-button art (or an INK-disc fallback) carrying a kit
+# icon centred on the disc, with a small caption tab beneath. The icon + caption IGNORE the mouse
+# so the Button is the only hit surface (single-input-surface rule).
+func _rail_button(icon_id: String, label: String, cb: Callable) -> Button:
+	var px := RAIL_PX
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(72, 72)
+	b.custom_minimum_size = Vector2(px, px)
 	if ResourceLoader.exists(Look.kit("shared/btn_round.png")):
 		var st := StyleBoxTexture.new()
 		st.texture = load(Look.kit("shared/btn_round.png"))
@@ -1509,36 +1515,48 @@ func _rail_button(glyph: String, cb: Callable) -> Button:
 	else:
 		var s := StyleBoxFlat.new()
 		s.bg_color = Color(INK, 0.6)
-		s.set_corner_radius_all(36)
+		s.set_corner_radius_all(int(px * 0.5))
 		b.add_theme_stylebox_override("normal", s)
 		b.add_theme_stylebox_override("hover", s)
 		b.add_theme_stylebox_override("pressed", s)
-	var g := Label.new()
-	g.text = glyph
-	g.add_theme_font_size_override("font_size", 32)
-	g.add_theme_color_override("font_color", CREAM)
-	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(g)
+	# the kit icon, centred on the disc
+	var icwrap := CenterContainer.new()
+	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icwrap.add_child(Look.icon(icon_id, px * 0.5))
+	b.add_child(icwrap)
+	# the caption tab, centred just beneath the disc (overflows into the step gap)
+	var capwrap := CenterContainer.new()
+	capwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	capwrap.anchor_left = 0.0
+	capwrap.anchor_right = 1.0
+	capwrap.anchor_top = 1.0
+	capwrap.anchor_bottom = 1.0
+	capwrap.offset_top = 2.0
+	capwrap.offset_bottom = 2.0 + RAIL_CAP_H
+	var cap := Look.title_ribbon(label, 22)
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if cap.get_child_count() > 0:
+		cap.get_child(0).mouse_filter = Control.MOUSE_FILTER_IGNORE
+	capwrap.add_child(cap)
+	b.add_child(capwrap)
 	Look.add_press_juice(b)
 	b.pressed.connect(cb)
 	add_child(b)
 	_chrome_nodes.append(b)
 	return b
 
-# Pin a rail button to the right edge, stacked UPWARD (slot 0 lowest) from `bottom` px off the floor.
-func _place_rail(b: Button, px: float, bottom: float, slot: int) -> void:
-	var step := px + 14.0
+# Pin a rail button to the TOP-right edge, stacked DOWNWARD (slot 0 highest) from `top` px below the
+# safe-top. The caption tab overflows into the `step` gap beneath each disc.
+func _place_rail(b: Button, top: float, slot: int, step: float) -> void:
 	b.anchor_left = 1.0
 	b.anchor_right = 1.0
-	b.anchor_top = 1.0
-	b.anchor_bottom = 1.0
-	b.offset_left = -16 - px
-	b.offset_right = -16
-	b.offset_bottom = -(bottom + slot * step)
-	b.offset_top = b.offset_bottom - px
+	b.anchor_top = 0.0
+	b.anchor_bottom = 0.0
+	b.offset_right = -RAIL_MARGIN
+	b.offset_left = -RAIL_MARGIN - RAIL_PX
+	b.offset_top = top + slot * step
+	b.offset_bottom = b.offset_top + RAIL_PX
 
 # Light each rail badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
 # button). Daily = today unclaimed; Free = a rewarded watch offerable; Inbox = unread count (guarded).
