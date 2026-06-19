@@ -66,13 +66,15 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 	var img := src.duplicate()
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
-	# Work at size×ss, then Lanczos-downscale to size — the downscale IS the supersample anti-aliasing.
-	img.resize(maxi(8, size * ss), maxi(8, size * ss), Image.INTERPOLATE_LANCZOS)
+	# Process at a CAPPED working resolution (so a high supersample can't blow up the cost and freeze
+	# the tool), then Lanczos-downscale to the output size — the downscale is the supersample AA.
+	var work := mini(320, maxi(8, size * ss))
+	img.resize(work, work, Image.INTERPOLATE_LANCZOS)
 	if do_defringe:
 		_defringe(img)
 	if feather > 0.0:
-		_feather_alpha(img, feather * float(ss))
-	if ss > 1:
+		_feather_alpha(img, feather * float(work) / float(size))   # radius in working pixels
+	if work != size:
 		img.resize(size, size, Image.INTERPOLATE_LANCZOS)
 	return img
 
@@ -81,7 +83,7 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 static func _defringe(img: Image) -> void:
 	var w := img.get_width()
 	var h := img.get_height()
-	for _pass in 4:
+	for _pass in 3:
 		var data := img.get_data()
 		var out := data.duplicate()
 		for y in h:
@@ -104,7 +106,9 @@ static func _defringe(img: Image) -> void:
 					out[i] = int(r / wsum); out[i + 1] = int(g / wsum); out[i + 2] = int(b / wsum)
 		img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
-## Box-blur the ALPHA channel by `radius` px — turns the aliased stair-step edge into smooth AA.
+## Box-blur the ALPHA channel by `radius` px — smooths the aliased stair-step edge. SEPARABLE
+## (horizontal then vertical pass), so the cost is O(radius), not O(radius²) — that O(r²) kernel at a
+## supersampled resolution was what froze the tool.
 static func _feather_alpha(img: Image, radius: float) -> void:
 	var r := int(round(radius))
 	if r < 1:
@@ -112,19 +116,36 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 	var w := img.get_width()
 	var h := img.get_height()
 	var data := img.get_data()
-	var out := data.duplicate()
-	for y in h:
+	var n := w * h
+	var al := PackedInt32Array()
+	al.resize(n)
+	for i in n:
+		al[i] = data[i * 4 + 3]
+	var tmp := PackedInt32Array()
+	tmp.resize(n)
+	for y in h:                                  # horizontal pass
+		for x in w:
+			var sum := 0
+			var cnt := 0
+			for dx in range(-r, r + 1):
+				var nx: int = x + dx
+				if nx < 0 or nx >= w:
+					continue
+				sum += al[y * w + nx]; cnt += 1
+			tmp[y * w + x] = sum / cnt
+	for y in h:                                  # vertical pass
 		for x in w:
 			var sum := 0
 			var cnt := 0
 			for dy in range(-r, r + 1):
-				for dx in range(-r, r + 1):
-					var nx: int = x + dx
-					var ny: int = y + dy
-					if nx < 0 or ny < 0 or nx >= w or ny >= h:
-						continue
-					sum += data[(ny * w + nx) * 4 + 3]; cnt += 1
-			out[(y * w + x) * 4 + 3] = int(sum / cnt)
+				var ny: int = y + dy
+				if ny < 0 or ny >= h:
+					continue
+				sum += tmp[ny * w + x]; cnt += 1
+			al[y * w + x] = sum / cnt
+	var out := data.duplicate()
+	for i in n:
+		out[i * 4 + 3] = al[i]
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).

@@ -115,6 +115,13 @@ func _build() -> void:
 	ssb.border_color = Color(Pal.CREAM, 0.12)
 	ssb.set_content_margin_all(18)
 	side.add_theme_stylebox_override("panel", ssb)
+	# scope a SMALL font to the sidebar — the global 40px default made the row labels balloon and
+	# crowd the sliders out. Keep the rounded face, drop the heavy outline for small text.
+	var st := UiFont.make()
+	st.default_font_size = 16
+	for t in ["Label", "Button", "LineEdit", "OptionButton", "CheckButton"]:
+		st.set_constant("outline_size", t, 0)
+	side.theme = st
 	hb.add_child(side)
 	hb.move_child(side, 0)   # sidebar on the LEFT, gallery to its right
 	var side_scroll := ScrollContainer.new()
