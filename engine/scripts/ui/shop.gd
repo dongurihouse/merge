@@ -208,38 +208,59 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	col.add_theme_constant_override("separation", Tune.COL_SEP)
 	card.add_child(col)
 
-	# the stall: banner art when generated, plank band until then; the title is
-	# ENGINE text riding a ribbon (images never carry words — §0.3)
+	# the stall header. Priority: the sliced GOLD RIBBON BANNER (the mockup header — engine
+	# "Shop" text rides it centered), then the older stall art (COVER) + floating title chip,
+	# then a plank band + chip. Images never carry words (§0.3), so the title is always
+	# engine text laid over the art.
 	var header := Control.new()
 	header.custom_minimum_size = Vector2(0, Tune.HEADER_H)
 	header.clip_contents = true
 	col.add_child(header)
-	if ResourceLoader.exists(Look.kit("shop/shop_stall.png")):
-		var art := TextureRect.new()
-		art.texture = load(Look.kit("shop/shop_stall.png"))
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(art)
+	if ResourceLoader.exists(Look.kit("shop/shop_banner.png")):
+		var banner := TextureRect.new()
+		banner.texture = load(Look.kit("shop/shop_banner.png"))
+		banner.set_anchors_preset(Control.PRESET_FULL_RECT)
+		banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(banner)
+		var title := Label.new()
+		title.text = host.tr("Shop")
+		title.set_anchors_preset(Control.PRESET_FULL_RECT)
+		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		title.add_theme_font_size_override("font_size", Tune.TITLE_SIZE)
+		title.add_theme_color_override("font_color", INK)
+		title.add_theme_constant_override("outline_size", 0)   # panel-text law: the ribbon is the contrast
+		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(title)
 	else:
-		var band := Panel.new()
-		band.set_anchors_preset(Control.PRESET_FULL_RECT)
-		band.add_theme_stylebox_override("panel", Look.kit_panel("plank"))
-		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(band)
-	# S11: the title rides a solid chip on the AWNING (Look.title_ribbon — the kit
-	# ribbon_title nine-patch collapsed invisibly, so "Shop" used to float on the
-	# squirrel's face). The chip sits at the top band — the mascot is never covered.
-	var ribbon := Look.title_ribbon(host.tr("Shop"), Tune.TITLE_SIZE)
-	ribbon.anchor_left = 0.5
-	ribbon.anchor_right = 0.5
-	ribbon.anchor_top = 0.0
-	ribbon.anchor_bottom = 0.0
-	ribbon.offset_top = Tune.RIBBON_TOP
-	ribbon.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	ribbon.grow_vertical = Control.GROW_DIRECTION_END
-	header.add_child(ribbon)
+		if ResourceLoader.exists(Look.kit("shop/shop_stall.png")):
+			var art := TextureRect.new()
+			art.texture = load(Look.kit("shop/shop_stall.png"))
+			art.set_anchors_preset(Control.PRESET_FULL_RECT)
+			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+			art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			header.add_child(art)
+		else:
+			var band := Panel.new()
+			band.set_anchors_preset(Control.PRESET_FULL_RECT)
+			band.add_theme_stylebox_override("panel", Look.kit_panel("plank"))
+			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			header.add_child(band)
+		# S11: the title rides a solid chip on the AWNING (Look.title_ribbon — the kit
+		# ribbon_title nine-patch collapsed invisibly, so "Shop" used to float on the
+		# squirrel's face). The chip sits at the top band — the mascot is never covered.
+		var ribbon := Look.title_ribbon(host.tr("Shop"), Tune.TITLE_SIZE)
+		ribbon.anchor_left = 0.5
+		ribbon.anchor_right = 0.5
+		ribbon.anchor_top = 0.0
+		ribbon.anchor_bottom = 0.0
+		ribbon.offset_top = Tune.RIBBON_TOP
+		ribbon.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		ribbon.grow_vertical = Control.GROW_DIRECTION_END
+		header.add_child(ribbon)
 
 	# breathing room below the stall art
 	var wpad := Control.new()
@@ -334,20 +355,32 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var x_btn := Button.new()
 	x_btn.focus_mode = Control.FOCUS_NONE
 	x_btn.custom_minimum_size = Vector2(Tune.X_BTN, Tune.X_BTN)
-	# A RED circular close disc (the kit btn_round art read as a compass ornament, not a control).
-	var xs := StyleBoxFlat.new()
-	xs.bg_color = Tune.X_BG
-	xs.set_corner_radius_all(Tune.X_RADIUS)
-	xs.set_border_width_all(Tune.X_BORDER_W)
-	xs.border_color = Tune.X_EDGE
-	x_btn.add_theme_stylebox_override("normal", xs)
-	x_btn.add_theme_stylebox_override("hover", xs)
-	var xp: StyleBoxFlat = xs.duplicate()
-	xp.bg_color = Tune.X_BG_PRESSED
-	x_btn.add_theme_stylebox_override("pressed", xp)
-	x_btn.text = "✕"
-	x_btn.add_theme_font_size_override("font_size", Tune.X_FONT)
-	x_btn.add_theme_color_override("font_color", CREAM)
+	# The sliced red ✕ disc (the X is baked into the art) when present, else a code-drawn RED
+	# disc with a ✕ glyph (the kit btn_round art read as a compass ornament, not a control).
+	# A ROUND button is FULL-STRETCHED (Vector2.ZERO margin), never nine-patched — 9-slicing a
+	# disc keeps its transparent corners and pinches the ring into a star, letting the backdrop
+	# bleed through. The source (~square) maps cleanly onto the square X_BTN box.
+	var xbox := _kit_box("kit/shop_close.png", Vector2.ZERO)
+	if xbox != null:
+		x_btn.add_theme_stylebox_override("normal", xbox)
+		x_btn.add_theme_stylebox_override("hover", xbox)
+		var xbp: StyleBoxTexture = xbox.duplicate()
+		xbp.modulate_color = Tune.CARD_PRESS_MODULATE
+		x_btn.add_theme_stylebox_override("pressed", xbp)
+	else:
+		var xs := StyleBoxFlat.new()
+		xs.bg_color = Tune.X_BG
+		xs.set_corner_radius_all(Tune.X_RADIUS)
+		xs.set_border_width_all(Tune.X_BORDER_W)
+		xs.border_color = Tune.X_EDGE
+		x_btn.add_theme_stylebox_override("normal", xs)
+		x_btn.add_theme_stylebox_override("hover", xs)
+		var xp: StyleBoxFlat = xs.duplicate()
+		xp.bg_color = Tune.X_BG_PRESSED
+		x_btn.add_theme_stylebox_override("pressed", xp)
+		x_btn.text = "✕"
+		x_btn.add_theme_font_size_override("font_size", Tune.X_FONT)
+		x_btn.add_theme_color_override("font_color", CREAM)
 	Look.add_press_juice(x_btn)
 	x_btn.pressed.connect(func() -> void: overlay.queue_free())
 	overlay.add_child(x_btn)
@@ -554,7 +587,7 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 # The starter-pack card (§10): a wide welcome card — a "Welcome" badge, the 💎 count +
 # its water bonus, the low price. Whole card presses → the confirm grants directly.
 static func _starter_card(host: Control, refs: Dictionary) -> Button:
-	var b := _card_button(Tune.STARTER_CARD)   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
+	var b := _card_button(Tune.STARTER_CARD, "kit/shop_card_wide.png")   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -596,18 +629,27 @@ static func _starter_card(host: Control, refs: Dictionary) -> Button:
 # A small STRAW pill badge ("Popular" / "2× first buy" / "Best value") for a cash card.
 static func _badge(text: String) -> PanelContainer:
 	var pop := PanelContainer.new()
-	var pp := StyleBoxFlat.new()
-	pp.bg_color = STRAW
-	pp.set_corner_radius_all(Tune.POP_RADIUS)
-	pp.content_margin_left = Tune.POP_PAD_X
-	pp.content_margin_right = Tune.POP_PAD_X
-	pp.content_margin_top = Tune.POP_PAD_Y
-	pp.content_margin_bottom = Tune.POP_PAD_Y
-	pop.add_theme_stylebox_override("panel", pp)
+	# the red ribbon tag art when sliced (CREAM text on red), else the code-drawn STRAW pill
+	# (INK text). The ribbon is a horizontal banner → wide H / small V nine-patch margin.
+	var box := _kit_box("kit/shop_tag.png", Tune.TAG_TEX_MARGIN,
+		Vector4(Tune.POP_PAD_X, Tune.POP_PAD_Y, Tune.POP_PAD_X, Tune.POP_PAD_Y))
+	var fg := CREAM
+	if box != null:
+		pop.add_theme_stylebox_override("panel", box)
+	else:
+		var pp := StyleBoxFlat.new()
+		pp.bg_color = STRAW
+		pp.set_corner_radius_all(Tune.POP_RADIUS)
+		pp.content_margin_left = Tune.POP_PAD_X
+		pp.content_margin_right = Tune.POP_PAD_X
+		pp.content_margin_top = Tune.POP_PAD_Y
+		pp.content_margin_bottom = Tune.POP_PAD_Y
+		pop.add_theme_stylebox_override("panel", pp)
+		fg = INK
 	var pl := Label.new()
 	pl.text = text
 	pl.add_theme_font_size_override("font_size", Tune.POP_SIZE)
-	pl.add_theme_color_override("font_color", INK)
+	pl.add_theme_color_override("font_color", fg)
 	pop.add_child(pl)
 	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return pop
@@ -620,19 +662,27 @@ static func _badge(text: String) -> PanelContainer:
 static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
 	var pill := PanelContainer.new()
 	pill.name = "BuyPill"
-	var s := StyleBoxFlat.new()
-	s.bg_color = Pal.BTN_PRIMARY
-	s.set_corner_radius_all(Tune.BUY_RADIUS)
-	s.set_border_width_all(Tune.BUY_BORDER_W)
-	s.border_color = Pal.BTN_PRIMARY_EDGE
-	s.shadow_color = Tune.BUY_SHADOW
-	s.shadow_size = Tune.BUY_SHADOW_SIZE
-	s.shadow_offset = Tune.BUY_SHADOW_OFFSET
-	s.content_margin_left = Tune.BUY_PAD_X
-	s.content_margin_right = Tune.BUY_PAD_X
-	s.content_margin_top = Tune.BUY_PAD_T
-	s.content_margin_bottom = Tune.BUY_PAD_B
-	pill.add_theme_stylebox_override("panel", s)
+	# the green buy-button art when sliced, else the solid leaf-green capsule (same pads, so
+	# the icon+number sit identically either way). A horizontal capsule → wide H / small V
+	# nine-patch margin (BUY_TEX_MARGIN) so short pills don't collapse the box.
+	var box := _kit_box("kit/shop_buy.png", Tune.BUY_TEX_MARGIN,
+		Vector4(Tune.BUY_PAD_X, Tune.BUY_PAD_T, Tune.BUY_PAD_X, Tune.BUY_PAD_B))
+	if box != null:
+		pill.add_theme_stylebox_override("panel", box)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Pal.BTN_PRIMARY
+		s.set_corner_radius_all(Tune.BUY_RADIUS)
+		s.set_border_width_all(Tune.BUY_BORDER_W)
+		s.border_color = Pal.BTN_PRIMARY_EDGE
+		s.shadow_color = Tune.BUY_SHADOW
+		s.shadow_size = Tune.BUY_SHADOW_SIZE
+		s.shadow_offset = Tune.BUY_SHADOW_OFFSET
+		s.content_margin_left = Tune.BUY_PAD_X
+		s.content_margin_right = Tune.BUY_PAD_X
+		s.content_margin_top = Tune.BUY_PAD_T
+		s.content_margin_bottom = Tune.BUY_PAD_B
+		pill.add_theme_stylebox_override("panel", s)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", Tune.PRICE_ROW_SEP)
@@ -825,10 +875,40 @@ static func _backdrop_material() -> ShaderMaterial:
 	m.set_shader_parameter("vignette", Tune.BACKDROP_VIGNETTE)
 	return m
 
-static func _card_button(min_size: Vector2) -> Button:
+# A nine-patch StyleBoxTexture from a kit sprite, or null when the sprite is absent (the
+# caller then keeps its code-drawn fallback — the §-kit invariant). `tex` is the (H, V)
+# non-stretching border; `pad` is the content inset (l, t, r, b).
+static func _kit_box(rel: String, tex: Vector2, pad := Vector4.ZERO) -> StyleBoxTexture:
+	var p := Look.kit(rel)
+	if not ResourceLoader.exists(p):
+		return null
+	var sbt := StyleBoxTexture.new()
+	sbt.texture = load(p)
+	sbt.set_texture_margin(SIDE_LEFT, tex.x)
+	sbt.set_texture_margin(SIDE_RIGHT, tex.x)
+	sbt.set_texture_margin(SIDE_TOP, tex.y)
+	sbt.set_texture_margin(SIDE_BOTTOM, tex.y)
+	sbt.content_margin_left = pad.x
+	sbt.content_margin_top = pad.y
+	sbt.content_margin_right = pad.z
+	sbt.content_margin_bottom = pad.w
+	return sbt
+
+# A card surface: the sliced parchment card art (`art`) when present, else the code-drawn
+# CARD_BG box with the SAME radius/shadow. The wide starter card passes shop_card_wide.
+static func _card_button(min_size: Vector2, art: String = "kit/shop_card.png") -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = min_size
+	var box := _kit_box(art, Vector2(Tune.CARD_TEX_MARGIN, Tune.CARD_TEX_MARGIN))
+	if box != null:
+		b.add_theme_stylebox_override("normal", box)
+		b.add_theme_stylebox_override("hover", box)
+		var bp: StyleBoxTexture = box.duplicate()
+		bp.modulate_color = Tune.CARD_PRESS_MODULATE
+		b.add_theme_stylebox_override("pressed", bp)
+		Look.add_press_juice(b)
+		return b
 	var s := StyleBoxFlat.new()
 	s.bg_color = Tune.CARD_BG
 	s.set_corner_radius_all(Tune.CARD_RADIUS)

@@ -1,0 +1,26 @@
+{
+  "source": "_new/shop_asset.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#40C8F5", "tol": 0.30, "min_area": 3000, "pad": 4 },
+  "outputs": [
+    { "island": 0,  "name": "panel_parchment", "path": "ui/shared/panel_parchment.png" },
+    { "island": 1,  "name": "shop_banner",     "path": "ui/shop/shop_banner.png" },
+    { "island": 2,  "name": "shop_plank",      "path": "ui/kit/shop_plank.png" },
+    { "island": 3,  "name": "shop_card_wide",  "path": "ui/kit/shop_card_wide.png" },
+    { "island": 4,  "name": "shop_card",       "path": "ui/kit/shop_card.png" },
+    { "island": 5,  "name": "shop_card_b",     "path": "ui/kit/shop_card_b.png" },
+    { "island": 6,  "name": "shop_oval",       "path": "ui/kit/shop_oval.png" },
+    { "island": 7,  "name": "shop_buy",        "path": "ui/kit/shop_buy.png" },
+    { "island": 8,  "name": "shop_buy_off",    "path": "ui/kit/shop_buy_off.png" },
+    { "island": 9,  "name": "shop_plate",      "path": "ui/kit/shop_plate.png" },
+    { "island": 10, "name": "shop_close",      "path": "ui/kit/shop_close.png" },
+    { "island": 11, "name": "shop_acorn",      "path": "ui/kit/shop_acorn.png" },
+    { "island": 12, "name": "shop_tag",        "path": "ui/kit/shop_tag.png" },
+    { "island": 13, "name": "shop_droplet",    "path": "ui/kit/shop_droplet.png" },
+    { "island": 14, "name": "shop_leaf",       "path": "ui/kit/shop_leaf.png" },
+    { "island": 15, "name": "shop_daisy",      "path": "ui/kit/shop_daisy.png" },
+    { "island": 16, "name": "shop_flower",     "path": "ui/kit/shop_flower.png" }
+  ],
+  "archive": "_originals/ui/shop_asset.png"
+}

@@ -505,6 +505,17 @@ class Shop:
 	const CARD_SHADOW_SIZE := 4
 	const CARD_SHADOW_OFFSET := Vector2(0, 3)
 
+	# --- kit-art nine-patch margins (used when the sliced shop sprites are present) ------
+	# Each art slot keeps its code-drawn fallback; these only size the StyleBoxTexture's
+	# non-stretching border so a decorated frame nine-patches without smearing its corners.
+	# tex margins are (horizontal, vertical) — a horizontal capsule/ribbon needs a wide
+	# H margin (the round/folded ends) and a SMALL V margin (the §6 nine-patch-thinner-than-
+	# rect trap: a V margin past half the control's height collapses the box).
+	const CARD_TEX_MARGIN := 64.0         # square / wide card frame (288–601px source)
+	const CARD_PRESS_MODULATE := Color(0.93, 0.89, 0.83)  # pressed = a soft darken of the card/✕ art
+	const BUY_TEX_MARGIN := Vector2(46.0, 22.0)   # the green buy capsule (296×94 source)
+	const TAG_TEX_MARGIN := Vector2(54.0, 16.0)   # the red "Popular" ribbon (231×66 source)
+
 	# --- urgency + info chrome (countdown chip · the "i" info badge + its sheet) ---------
 	# The claimable RED DOT is the shared `Look.badge("dot")` (UiSkin.BADGE_*) — no local dot here.
 	# Local to the shop: a small ink countdown chip on the daily-rotating Featured band, and the
