@@ -79,7 +79,8 @@ func _initialize() -> void:
 	ok(price_ok, "the gold tile's price matches G.next_bag_slot_price at every owned count")
 
 	# 6. build-smoke: open() assembles the modal under a host and the root is a live Control with the
-	#    backdrop, banner, and close docked on it (>= 4 children). Then it frees without erroring.
+	#    backdrop, the centered body, and the close ✕ docked on it (>= 3 children; the banner rides
+	#    INSIDE the card now, the shared shop chrome). Then it frees without erroring.
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(host)
@@ -90,7 +91,7 @@ func _initialize() -> void:
 		"on_buy_slot": func() -> void: pass,
 	})
 	ok(is_instance_valid(overlay) and overlay is Control, "open() returns a live Control overlay")
-	ok(overlay.get_child_count() >= 4, "the overlay carries the veil, body, banner, and close")
+	ok(overlay.get_child_count() >= 3, "the overlay carries the veil, body, and close")
 	overlay.queue_free()
 	host.queue_free()
 

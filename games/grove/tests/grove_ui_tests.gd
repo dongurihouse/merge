@@ -239,21 +239,27 @@ func _initialize() -> void:
 	ok(gen_off.get_child(0).modulate.a > 0.9, "item_backing OFF: the generator is bare (no backing)")
 	Features.FLAGS["item_backing"] = true
 
-	# 22c. Resting vs picked-up shadow: idle is a TIGHT shadow hugging the item; picking it up
-	# (set_lifted true) swaps to the larger spread shadow that reads as the item floating;
-	# dropping it (set_lifted false) restores the tight resting shadow. Generators flip too.
+	# 22c. Resting vs picked-up. Idle is a TIGHT shadow hugging the item. Picking it up must read
+	# clearly, so set_lifted does TWO things: the item ART RISES (offset_top moves up, opening a
+	# gap) and the shadow drops + spreads beneath it. Dropping settles both back. A shadow that
+	# only grew in place was invisible — it sits behind the item, so the item must lift off it.
 	Features.FLAGS["item_backing"] = true
 	var lift_pc: Control = sb4._make_piece(101, 100.0)
 	var lift_shadow: TextureRect = lift_pc.get_child(0)
+	var lift_art: Control = lift_pc.get_node("ItemArt")
 	var idle_w := lift_shadow.size.x
+	var art_rest_top := lift_art.offset_top
 	PieceViewScript.set_lifted(lift_pc, true)
-	ok(lift_shadow.size.x > idle_w, "picking the item up grows the shadow (it lifts off the board)")
+	ok(lift_shadow.size.x > idle_w, "picking the item up grows the shadow")
+	ok(lift_art.offset_top < art_rest_top, "picking the item up RAISES the art (it lifts off its shadow)")
 	PieceViewScript.set_lifted(lift_pc, false)
-	ok(is_equal_approx(lift_shadow.size.x, idle_w), "dropping the item restores the tight resting shadow")
+	ok(is_equal_approx(lift_shadow.size.x, idle_w), "dropping restores the tight resting shadow")
+	ok(is_equal_approx(lift_art.offset_top, art_rest_top), "dropping settles the art back down")
 	var lift_gen: Control = PieceViewScript.make_generator("seed_satchel", 100.0)
-	var gen_idle_w: float = lift_gen.get_child(0).size.x
+	var gen_art: Control = lift_gen.get_node("ItemArt")
+	var gen_rest_top := gen_art.offset_top
 	PieceViewScript.set_lifted(lift_gen, true)
-	ok(lift_gen.get_child(0).size.x > gen_idle_w, "a generator lifts the same way (shared pipeline)")
+	ok(gen_art.offset_top < gen_rest_top, "a generator lifts the same way (shared pipeline)")
 	PieceViewScript.set_lifted(lift_gen, false)
 
 	# 23. P — drag-to-swap two unlocked items (flag drag_swap)

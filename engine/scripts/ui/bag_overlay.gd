@@ -2,14 +2,15 @@ extends RefCounted
 ## The full-bag OVERLAY builder — the modal that replaces the always-on inline bag row (BagView):
 ## the bottom-bar bag icon opens THIS, a dimmed-backdrop parchment modal showing the WHOLE slot
 ## ladder (§5) as a grid of tiles — every owned slot (filled = a bagged piece, empty = an owned
-## vacancy), the next purchasable slot (the GOLD tile, its 💎 price shown inside), and every locked
-## future slot beyond it (a padlock + its 💎 price). Skinned to the bag.png preview: the wood-framed
-## parchment (bag_panel), a gold "Bag" banner straddling the top (bag_banner), a red ✕ disc in the
-## top-right corner (bag_btn_close), and a cream acorn-balance chip (bag_acorn + the live 💎 count,
-## shown as the grove's golden acorn). Stateless pure VIEW: the board owns the bag array, the slot
-## count, the 💎 balance, and the retrieve / buy-slot transactions; this only assembles the view and
-## fires injected Callables. Tap behaviour uses the still-release pattern (a small move threshold so
-## a scroll/drag doesn't mis-fire). ui/ never imports scenes/ (the §15 layering invariant) — every
+## vacancy), the next purchasable slot (warm-tinted, its 💎 price shown inside), and every locked
+## future slot beyond it (a padlock + its 💎 price below). Built entirely from the SHARED popup
+## components (skin.gd) so every modal — shop, bag, … — speaks one language: the parchment panel
+## (Look.kit_panel), the gold ribbon banner (Look.banner_title), the red ✕ disc (Look.close_button),
+## the storefront card (Look.card_button → shop_card / shop_card_b), and the shared 💎 currency icon
+## (Look.icon("gem")). No bag-specific art. Stateless pure VIEW: the board owns the bag array, the
+## slot count, the 💎 balance, and the retrieve / buy-slot transactions; this only assembles the view
+## and fires injected Callables. Tap behaviour uses the still-release pattern (a small move threshold
+## so a scroll/drag doesn't mis-fire). ui/ never imports scenes/ (the §15 layering invariant) — every
 ## action AND every read (the balance, the price ladder) is injected through `cfg`.
 ##
 ## Usage:
@@ -21,7 +22,7 @@ extends RefCounted
 ##     start_slots: int,      # the starting slot count (G.BAG_START_SLOTS) — prices index from here
 ##     prices: Array,         # the per-expansion 💎 price ladder (G.BAG_SLOT_PRICES)
 ##     on_retrieve: Callable, # (index: int) -> a filled slot was tapped: pull the piece back out
-##     on_buy_slot: Callable, # () -> the GOLD (next) tile was tapped: buy the next slot
+##     on_buy_slot: Callable, # () -> the next (tinted) tile was tapped: buy the next slot
 ##     on_close: Callable })  # (optional) () -> the overlay was dismissed (any path)
 ## Returns the overlay root Control (already added to host).
 
@@ -35,24 +36,18 @@ const INK = Pal.INK
 const CREAM = Pal.CREAM
 const GROUND_EDGE = Pal.GROUND_EDGE
 
-const GRID_COLS := 6              # the preview's six-wide ladder (3 rows reach the 18-slot cap)
-const CELL_W := 120.0            # a slot tile's width (the card art rides this, KEEP_ASPECT)
-const CELL_H := 150.0            # a slot tile's height (≈ the bag_card portrait aspect, 1.27)
+const GRID_COLS := 6              # the six-wide ladder (3 rows reach the 18-slot cap)
+const CELL_W := 116.0            # a slot tile's width (the shared shop_card rides this)
+const CELL_H := 120.0            # a slot tile's height (≈ shop_card's square aspect)
 const H_SEP := 12.0
-const V_SEP := 14.0
+const V_SEP := 12.0
 const PRICE_ROW_H := 30.0        # the reserved strip UNDER each tile (a locked slot's price sits here)
-const PIECE_FRAC := 0.66         # a bagged piece's size as a fraction of CELL_W
-const LOCK_FRAC := 0.54          # a padlock's size as a fraction of CELL_W
-const BANNER_W := 360.0
-const BANNER_H := 116.0
-const CLOSE_W := 96.0
-const CLOSE_H := 102.0
+const PIECE_FRAC := 0.62         # a bagged piece's size as a fraction of CELL_W
+const LOCK_FRAC := 0.40          # the padlock glyph's size as a fraction of CELL_W
+const CLOSE_MARGIN := 10.0       # the ✕ disc's inset from the card's top-right corner
+const NEXT_TINT := Color(1.0, 0.88, 0.55)   # the next-buyable tile: a warm gold wash on shop_card
+const LOCKED_TINT := Color(0.82, 0.80, 0.76) # a locked tile: shop_card_b, dimmed
 const TAP_MOVE_THRESH := 24.0    # a release within this many px of the press is a TAP (not a drag/scroll)
-
-# Kit-asset resolver: the bag screen's pieces live in ui/kit/bag_<name>.png (authored by the
-# asset-intake flow). Returns the resolved res:// path; callers guard with ResourceLoader.exists.
-static func _kit_path(name: String) -> String:
-	return Look.kit("kit/bag_%s.png" % name)
 
 # --- the slot ladder (pure, headless-testable) ------------------------------------
 # The 💎 price to UNLOCK 1-based slot `k`: index the ladder by how many expansions precede it.
@@ -67,7 +62,7 @@ static func _price_at(k: int, prices: Array, start_slots: int) -> int:
 # each entry to a tile; tests assert the classification + prices without building any nodes.
 #   {kind:"filled", index:i}  an owned slot holding bag[i]
 #   {kind:"empty"}            an owned but vacant slot
-#   {kind:"next",  price:p}   the single purchasable slot (gold), p = its 💎 price
+#   {kind:"next",  price:p}   the single purchasable slot (tinted), p = its 💎 price
 #   {kind:"locked",price:p}   a future slot beyond the next one, p = its 💎 price
 static func slot_plan(owned: int, max_slots: int, bag_size: int, prices: Array, start_slots: int) -> Array:
 	var out: Array = []
@@ -101,7 +96,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	host.add_child(overlay)
 
 	# the single dismiss seam: fire on_close once (if valid), then free the overlay. Reused by the
-	# backdrop tap, the ✕ button, a slot retrieve, and the gold +slot buy.
+	# backdrop tap, the ✕ button, a slot retrieve, and the next-slot buy.
 	var dismiss := func() -> void:
 		if not is_instance_valid(overlay):
 			return
@@ -124,21 +119,27 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
+	# the shared parchment card (Look.kit_panel) — the same surface every modal uses.
 	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", _panel_box())
+	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
 	cc.add_child(card)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 16)
+	col.add_theme_constant_override("separation", 14)
 	card.add_child(col)
 
-	# the acorn-balance chip, docked top-right inside the parchment (under the banner).
+	# the shared gold ribbon banner with engine "Bag" text riding it (Look.banner_title).
+	var banner := Look.banner_title(host.tr("Bag"), 40, 108.0)
+	banner.size_flags_horizontal = Control.SIZE_FILL
+	col.add_child(banner)
+
+	# the acorn-balance chip, docked top-right under the banner (the shared 💎 currency icon).
 	var top := HBoxContainer.new()
 	top.alignment = BoxContainer.ALIGNMENT_END
 	col.add_child(top)
 	top.add_child(_counter_chip(balance))
 
-	# the slot ladder: every owned slot (filled/empty), the gold next slot, then the locked future.
+	# the slot ladder: every owned slot (filled/empty), the tinted next slot, then the locked future.
 	var grid := GridContainer.new()
 	grid.columns = GRID_COLS
 	grid.add_theme_constant_override("h_separation", int(H_SEP))
@@ -148,46 +149,27 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	for e in slot_plan(owned, max_slots, bag.size(), prices, start_slots):
 		grid.add_child(_slot_cell(e, bag, on_retrieve, on_buy_slot, dismiss))
 
-	# the footer caption (the preview's "Open a slot with acorns."), flanked by the kit leaf sprigs.
+	# the footer caption (the preview's "Open a slot with acorns."), flanked by the shared leaf sprig.
 	col.add_child(_caption(host.tr("Open a slot with acorns.")))
 
-	# the gold banner straddling the top edge + the red ✕ disc in the top-right corner — both docked
-	# to the card's rect after layout (the shop.gd place-deferred pattern), reconnected on resize.
-	var banner := _banner(host.tr("Bag"))
-	overlay.add_child(banner)
-	var close := _close_button(dismiss)
+	# the shared red ✕ disc (Look.close_button), docked inside the card's top-right corner after
+	# layout (the shop.gd place-deferred pattern), reconnected on resize.
+	var close := Look.close_button(dismiss)
 	overlay.add_child(close)
 	var place := func() -> void:
-		if not is_instance_valid(card):
+		if not is_instance_valid(card) or not is_instance_valid(close):
 			return
 		var r := card.get_global_rect()
-		if is_instance_valid(banner):
-			banner.global_position = Vector2(
-				r.position.x + (r.size.x - BANNER_W) * 0.5, r.position.y - BANNER_H * 0.52)
-		if is_instance_valid(close):
-			close.global_position = Vector2(
-				r.position.x + r.size.x - CLOSE_W * 0.66, r.position.y - CLOSE_H * 0.28)
+		var cw: float = close.custom_minimum_size.x
+		close.global_position = Vector2(
+			r.position.x + r.size.x - cw - CLOSE_MARGIN, r.position.y + CLOSE_MARGIN)
 	card.resized.connect(place)
 	place.call_deferred()
 
 	FX.pop_in(card)
 	return overlay
 
-# The wood-framed parchment panel (bag_panel) as a nine-patch; a generic parchment when art is absent.
-static func _panel_box() -> StyleBox:
-	var p := _kit_path("panel")
-	if ResourceLoader.exists(p):
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(p)
-		sbt.set_texture_margin_all(50.0)              # ~50px wood frame — corners never stretch
-		sbt.content_margin_left = 52.0
-		sbt.content_margin_right = 52.0
-		sbt.content_margin_top = 74.0                 # clearance for the straddling banner + the chip
-		sbt.content_margin_bottom = 40.0
-		return sbt
-	return Look.kit_panel("parchment")
-
-# The acorn-balance chip (a cream HUD pill): the kit acorn + the live 💎 count.
+# The acorn-balance chip (a cream HUD pill): the shared 💎 currency icon + the live balance.
 static func _counter_chip(balance: int) -> Control:
 	var chip := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -203,7 +185,7 @@ static func _counter_chip(balance: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	chip.add_child(row)
-	row.add_child(_acorn(30.0))
+	row.add_child(Look.icon("gem", 30.0))
 	var lbl := Label.new()
 	lbl.text = str(balance)
 	lbl.add_theme_font_size_override("font_size", 30)
@@ -212,20 +194,7 @@ static func _counter_chip(balance: int) -> Control:
 	row.add_child(lbl)
 	return chip
 
-# The kit acorn (the 💎 currency, drawn as the grove's golden acorn); Look.icon("gem") when absent.
-static func _acorn(px: float) -> Control:
-	var p := _kit_path("acorn")
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	return Look.icon("gem", px)
-
-# A "💎 price" cluster — the acorn + a number; used inside the gold tile and under a locked tile.
+# A "💎 price" cluster — a number + the shared 💎 icon; used inside the next tile and under a lock.
 static func _price_row(price: int, px: float, font: int) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 3)
@@ -236,48 +205,50 @@ static func _price_row(price: int, px: float, font: int) -> Control:
 	lbl.add_theme_color_override("font_color", INK)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lbl)
-	row.add_child(_acorn(px))
+	row.add_child(Look.icon("gem", px))
 	return row
 
-# A single ladder tile (the card art + its centred content + a price strip below). `e` is one
-# slot_plan entry; filled/next tiles are tappable (retrieve / buy), empty/locked tiles are inert.
+# A single ladder tile, built on the SHARED card (Look.card_button): the storefront parchment card +
+# its centred content + a price strip below. `e` is one slot_plan entry; filled/next tiles tap
+# (retrieve / buy), empty/locked tiles are inert (the card still press-juices, like every shop card).
 static func _slot_cell(e: Dictionary, bag: Array, on_retrieve: Callable, on_buy_slot: Callable, dismiss: Callable) -> Control:
 	var cell := VBoxContainer.new()
 	cell.add_theme_constant_override("separation", 2)
 	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 
-	var box := Control.new()
-	box.custom_minimum_size = Vector2(CELL_W, CELL_H)
 	var kind: String = e.kind
-	var card_name := "card"
+	var art := "kit/shop_card.png"
+	if kind == "locked":
+		art = "kit/shop_card_b.png"
+	var tile := Look.card_button(Vector2(CELL_W, CELL_H), art)
 	if kind == "next":
-		card_name = "card_gold"
+		tile.self_modulate = NEXT_TINT          # a warm gold wash marks the buyable slot
 	elif kind == "locked":
-		card_name = "card_empty"
-	box.add_child(_card_bg(card_name))
+		tile.self_modulate = LOCKED_TINT        # a greyed card reads as locked (self_modulate spares the glyph)
 
+	# centred content rides ON the card (a full-rect CenterContainer; the card keeps the tap)
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.add_child(center)
+	tile.add_child(center)
 	match kind:
 		"filled":
 			var piece := PieceView.make_piece(int(bag[int(e.index)]), CELL_W * PIECE_FRAC)
 			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			center.add_child(piece)
-			_wire_tap(box, func() -> void:
+			tile.pressed.connect(func() -> void:
 				if on_retrieve.is_valid():
 					on_retrieve.call(int(e.index))
 				dismiss.call())
 		"next":
 			center.add_child(_price_row(int(e.price), 28.0, 28))
-			_wire_tap(box, func() -> void:
+			tile.pressed.connect(func() -> void:
 				if on_buy_slot.is_valid():
 					on_buy_slot.call()
 				dismiss.call())
 		"locked":
-			center.add_child(_lock(CELL_W * LOCK_FRAC))
-	cell.add_child(box)
+			center.add_child(_lock_glyph(CELL_W * LOCK_FRAC))
+	cell.add_child(tile)
 
 	# the price strip under the tile: a locked slot shows its 💎 price here; every other tile
 	# reserves the same height so the grid rows stay aligned.
@@ -289,112 +260,24 @@ static func _slot_cell(e: Dictionary, bag: Array, on_retrieve: Callable, on_buy_
 	cell.add_child(below)
 	return cell
 
-# The padlock glyph (kit bag_lock); Look.icon("lock") when the art is absent.
-static func _lock(px: float) -> Control:
-	var p := _kit_path("lock")
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var l := Look.icon("lock", px)
-	l.modulate = Color(INK, 0.5)
+# The padlock glyph (a font character — no separate asset), tinted to read as a closed lock.
+static func _lock_glyph(px: float) -> Control:
+	var l := Label.new()
+	l.text = "🔒"
+	l.add_theme_font_size_override("font_size", int(px))
+	l.add_theme_color_override("font_color", Color(INK, 0.55))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return l
 
-# A slot tile's BACKGROUND: the kit card art (bag_card / bag_card_empty / bag_card_gold) as a
-# full-rect TextureRect; a soft rounded fallback Panel when the art is absent.
-static func _card_bg(name: String) -> Control:
-	var p := _kit_path(name)
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var panel := Panel.new()
-	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(GROUND_EDGE, 0.6)
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(CREAM, 0.35)
-	panel.add_theme_stylebox_override("panel", sb)
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return panel
-
-# The gold "Bag" banner: the kit ribbon art with the title as ENGINE text riding it (images never
-# carry words — §0.3). Falls back to the shared solid title chip when the art is absent.
-static func _banner(text: String) -> Control:
-	var p := _kit_path("banner")
-	if not ResourceLoader.exists(p):
-		var ribbon := Look.title_ribbon(text, 34)
-		ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		return ribbon
-	var wrap := Control.new()
-	wrap.custom_minimum_size = Vector2(BANNER_W, BANNER_H)
-	wrap.size = Vector2(BANNER_W, BANNER_H)
-	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var art := TextureRect.new()
-	art.texture = load(p)
-	art.set_anchors_preset(Control.PRESET_FULL_RECT)
-	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(art)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", 38)
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	wrap.add_child(lbl)
-	return wrap
-
-# The red ✕ close disc (kit bag_btn_close); a styled round button when the art is absent. Tapping
-# dismisses the overlay.
-static func _close_button(dismiss: Callable) -> Control:
-	var p := _kit_path("btn_close")
-	if ResourceLoader.exists(p):
-		var b := TextureButton.new()
-		b.texture_normal = load(p)
-		b.custom_minimum_size = Vector2(CLOSE_W, CLOSE_H)
-		b.size = Vector2(CLOSE_W, CLOSE_H)
-		b.ignore_texture_size = true
-		b.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
-		b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(func() -> void: dismiss.call())
-		return b
-	var btn := Button.new()
-	btn.text = "✕"
-	btn.custom_minimum_size = Vector2(CLOSE_W, CLOSE_H)
-	btn.focus_mode = Control.FOCUS_NONE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#D1503F")
-	sb.set_corner_radius_all(int(CLOSE_W * 0.5))
-	sb.set_border_width_all(4)
-	sb.border_color = Color(CREAM, 0.8)
-	btn.add_theme_stylebox_override("normal", sb)
-	btn.add_theme_stylebox_override("hover", sb)
-	btn.add_theme_stylebox_override("pressed", sb)
-	btn.add_theme_color_override("font_color", CREAM)
-	btn.add_theme_font_size_override("font_size", 36)
-	btn.pressed.connect(func() -> void: dismiss.call())
-	return btn
-
-# The footer caption flanked by the kit leaf sprigs (the preview's vine flourish).
+# The footer caption flanked by the SHARED leaf sprig (kit/shop_leaf.png), or text alone when absent.
 static func _caption(text: String) -> Control:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var leaf_l := _leaf("leaf_l")
+	var leaf_l := _leaf(false)
 	if leaf_l != null:
 		row.add_child(leaf_l)
 	var lbl := Label.new()
@@ -403,36 +286,21 @@ static func _caption(text: String) -> Control:
 	lbl.add_theme_color_override("font_color", Color(INK, 0.7))
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(lbl)
-	var leaf_r := _leaf("leaf_r")
+	var leaf_r := _leaf(true)
 	if leaf_r != null:
 		row.add_child(leaf_r)
 	return row
 
-# A kit leaf sprig at caption height, or null when the art is absent (the caption then stands alone).
-static func _leaf(name: String) -> Control:
-	var p := _kit_path(name)
+# The shared leaf sprig at caption height (flipped for the right side), or null when the art is absent.
+static func _leaf(flip: bool) -> Control:
+	var p := Look.kit("kit/shop_leaf.png")
 	if not ResourceLoader.exists(p):
 		return null
 	var t := TextureRect.new()
 	t.texture = load(p)
-	t.custom_minimum_size = Vector2(54, 28)
+	t.flip_h = flip
+	t.custom_minimum_size = Vector2(40, 36)
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
-
-# The still-release tap wirer (mirrors board.gd `_stand_tap`): fire `action` on a LEFT-button /
-# touch release that landed within TAP_MOVE_THRESH px of its press, so a scroll/drag never mis-fires.
-static func _wire_tap(node: Control, action: Callable) -> void:
-	node.gui_input.connect(func(ev: InputEvent) -> void:
-		var btn: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT) \
-			or ev is InputEventScreenTouch
-		if not btn:
-			return
-		if ev.pressed:
-			node.set_meta("press_pos", ev.position)
-		elif node.has_meta("press_pos"):
-			var moved: float = ev.position.distance_to(node.get_meta("press_pos"))
-			node.remove_meta("press_pos")
-			if moved <= TAP_MOVE_THRESH:
-				action.call())

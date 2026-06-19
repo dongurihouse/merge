@@ -73,12 +73,15 @@ static func _make_holder(size: float) -> Control:
 
 # AF3: a soft warm CONTACT SHADOW under the item (first child = bottom). It has TWO states:
 # RESTING (idle) — a tight ellipse hugging the item's lower border, just grounding it; and
-# LIFTED (picked up) — the larger, spread ellipse that reads as the item floating above the
-# board. make_* builds the resting shadow; the board flips it via set_lifted() on drag/drop.
-# Warm-grey, soft, never eats input. No-op when item_backing is off.
+# LIFTED (picked up) — a wider, lower, SOFTER ellipse that drops toward the board floor WHILE the
+# item art RISES above it (set_lifted opens that gap). Without the gap the shadow just grows behind
+# the item and stays invisible — the lift has to be the art pulling away from the ground shadow.
+# make_* builds the resting state; the board flips it via set_lifted() on drag/drop. Never eats input.
 const SHADOW_NAME := "ContactShadow"
+const ART_NAME := "ItemArt"
+const LIFT_RISE := 0.12   # how far the art rises (fraction of the cell) when picked up
 const SHADOW_RESTING := {"w": 0.40, "h": 0.10, "y": 0.62, "a": 0.30}   # tight — hugs the item's lower border
-const SHADOW_LIFTED := {"w": 0.54, "h": 0.15, "y": 0.60, "a": 0.30}    # spread — the item floats off the board
+const SHADOW_LIFTED := {"w": 0.62, "h": 0.17, "y": 0.74, "a": 0.24}    # wide, low, soft — the ground shadow of a raised item
 
 static func _add_contact_shadow(holder: Control, size: float) -> void:
 	if not Features.on("item_backing"):
@@ -101,17 +104,27 @@ static func _apply_shadow(back: TextureRect, size: float, p: Dictionary) -> void
 	back.size = Vector2(w, h)
 	back.modulate = Color("#3E342A", float(p["a"]))
 
-# Flip a built piece / generator between its RESTING and LIFTED shadow. The board calls this on
-# pickup (lifted = true) and on drop (lifted = false). No-op if the item has no shadow.
+# Flip a built piece / generator between RESTING and LIFTED. The board calls this on pickup
+# (lifted = true) and on drop (lifted = false). The art RISES and the shadow drops + spreads so
+# the item visibly lifts OFF the board; both settle back on drop. No-ops for parts it can't find.
 static func set_lifted(holder: Control, lifted: bool) -> void:
+	var size := holder.size.x
 	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
 	if back is TextureRect:
-		_apply_shadow(back, holder.size.x, SHADOW_LIFTED if lifted else SHADOW_RESTING)
+		_apply_shadow(back, size, SHADOW_LIFTED if lifted else SHADOW_RESTING)
+	var art := holder.get_node_or_null(NodePath(ART_NAME))
+	if art is Control and art.has_meta("inset_px"):
+		var inset: float = art.get_meta("inset_px")
+		var rise := size * LIFT_RISE if lifted else 0.0
+		art.offset_top = inset - rise          # shift the art rect UP by `rise`, keeping its height
+		art.offset_bottom = -inset - rise
 
 # The sprite over the shadow: cropped to its opaque content so it CENTERS in the cell (raw art
 # padding varies), inset a little so it sits INSIDE the cell, aspect-preserving. Never eats input.
+# Named + tagged with its resting inset so set_lifted() can RAISE it (lift off its shadow).
 static func _add_sprite(holder: Control, tex: Texture2D, size: float, inset_frac: float) -> void:
 	var t := TextureRect.new()
+	t.name = ART_NAME
 	t.texture = tex
 	t.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var inset := size * inset_frac
@@ -119,6 +132,7 @@ static func _add_sprite(holder: Control, tex: Texture2D, size: float, inset_frac
 	t.offset_top = inset
 	t.offset_right = -inset
 	t.offset_bottom = -inset
+	t.set_meta("inset_px", inset)   # resting top/bottom — set_lifted shifts up from here
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE

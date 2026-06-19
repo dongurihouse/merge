@@ -7,6 +7,7 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics
+const TuneShop = preload("res://engine/scripts/core/tuning.gd").Shop # popup-chrome dials (card/✕/banner), shared by every modal
 
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
@@ -452,6 +453,125 @@ static func button(text: String, cb: Callable, primary: bool = false, tap: Calla
 			tap.call()
 		cb.call())
 	return b
+
+## --- shared popup chrome — the storefront's reusable card / ✕ / banner builders, promoted from
+## shop.gd so EVERY modal (shop, bag, …) speaks one component language (no per-screen asset set). ----
+
+## A nine-patch StyleBoxTexture from a kit sprite, or null when the sprite is absent (the caller
+## keeps its code-drawn fallback — the kit invariant). `tex` = the (H,V) non-stretching border;
+## `pad` = the content inset (l,t,r,b). A ROUND control passes Vector2.ZERO (full-stretch — 9-slicing
+## a disc pinches its ring into a star and lets the backdrop bleed through the transparent corners).
+static func kit_box(rel: String, tex: Vector2, pad := Vector4.ZERO) -> StyleBoxTexture:
+	var p := kit(rel)
+	if not ResourceLoader.exists(p):
+		return null
+	var sbt := StyleBoxTexture.new()
+	sbt.texture = load(p)
+	sbt.set_texture_margin(SIDE_LEFT, tex.x)
+	sbt.set_texture_margin(SIDE_RIGHT, tex.x)
+	sbt.set_texture_margin(SIDE_TOP, tex.y)
+	sbt.set_texture_margin(SIDE_BOTTOM, tex.y)
+	sbt.content_margin_left = pad.x
+	sbt.content_margin_top = pad.y
+	sbt.content_margin_right = pad.z
+	sbt.content_margin_bottom = pad.w
+	return sbt
+
+## The shared popup CARD surface (kit/shop_card.png et al.): a Button wearing the sliced parchment
+## nine-patch when present, else a code-drawn card box with the SAME radius/shadow. Carries the
+## press-darken juice. The wide welcome card passes shop_card_wide; a plainer tile passes shop_card_b.
+static func card_button(min_size: Vector2, art: String = "kit/shop_card.png") -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = min_size
+	var box := kit_box(art, Vector2(TuneShop.CARD_TEX_MARGIN, TuneShop.CARD_TEX_MARGIN))
+	if box != null:
+		b.add_theme_stylebox_override("normal", box)
+		b.add_theme_stylebox_override("hover", box)
+		var bp: StyleBoxTexture = box.duplicate()
+		bp.modulate_color = TuneShop.CARD_PRESS_MODULATE
+		b.add_theme_stylebox_override("pressed", bp)
+		add_press_juice(b)
+		return b
+	var s := StyleBoxFlat.new()
+	s.bg_color = TuneShop.CARD_BG
+	s.set_corner_radius_all(TuneShop.CARD_RADIUS)
+	s.set_border_width_all(TuneShop.CARD_BORDER_W)
+	s.border_color = Color(Pal.BARK, TuneShop.CARD_EDGE_ALPHA)
+	s.shadow_color = TuneShop.CARD_SHADOW
+	s.shadow_size = TuneShop.CARD_SHADOW_SIZE
+	s.shadow_offset = TuneShop.CARD_SHADOW_OFFSET
+	b.add_theme_stylebox_override("normal", s)
+	b.add_theme_stylebox_override("hover", s)
+	var sp: StyleBoxFlat = s.duplicate()
+	sp.bg_color = TuneShop.CARD_BG_PRESSED
+	b.add_theme_stylebox_override("pressed", sp)
+	add_press_juice(b)
+	return b
+
+## The shared popup CLOSE ✕: a Button wearing the sliced red disc (kit/shop_close.png, the ✕ baked
+## in) full-stretched, else a code-drawn RED disc with a ✕ glyph. `cb` fires on press. The caller
+## sizes/positions it (modals dock it inside the card's top-right corner after layout).
+static func close_button(cb: Callable) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(TuneShop.X_BTN, TuneShop.X_BTN)
+	var box := kit_box("kit/shop_close.png", Vector2.ZERO)
+	if box != null:
+		b.add_theme_stylebox_override("normal", box)
+		b.add_theme_stylebox_override("hover", box)
+		var bp: StyleBoxTexture = box.duplicate()
+		bp.modulate_color = TuneShop.CARD_PRESS_MODULATE
+		b.add_theme_stylebox_override("pressed", bp)
+	else:
+		var xs := StyleBoxFlat.new()
+		xs.bg_color = TuneShop.X_BG
+		xs.set_corner_radius_all(TuneShop.X_RADIUS)
+		xs.set_border_width_all(TuneShop.X_BORDER_W)
+		xs.border_color = TuneShop.X_EDGE
+		b.add_theme_stylebox_override("normal", xs)
+		b.add_theme_stylebox_override("hover", xs)
+		var xp: StyleBoxFlat = xs.duplicate()
+		xp.bg_color = TuneShop.X_BG_PRESSED
+		b.add_theme_stylebox_override("pressed", xp)
+		b.text = "✕"
+		b.add_theme_font_size_override("font_size", TuneShop.X_FONT)
+		b.add_theme_color_override("font_color", Pal.CREAM)
+	add_press_juice(b)
+	b.pressed.connect(func() -> void: cb.call())
+	return b
+
+## The shared popup BANNER title: the gold ribbon (ui/shop/shop_banner.png) with the title as ENGINE
+## text riding it centered (images never carry words — §0.3); a solid title chip when the art is
+## absent. Returns a Control sized to a header band, FILL-width so the ribbon centers across the card.
+static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: float = 120.0) -> Control:
+	var p := kit("shop/shop_banner.png")
+	if not ResourceLoader.exists(p):
+		var ribbon := title_ribbon(text, font_px)
+		ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		return ribbon
+	var header := Control.new()
+	header.custom_minimum_size = Vector2(0, band_h)
+	header.size_flags_horizontal = Control.SIZE_FILL
+	header.clip_contents = true
+	var art := TextureRect.new()
+	art.texture = load(p)
+	art.set_anchors_preset(Control.PRESET_FULL_RECT)
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(art)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", font_px)
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(lbl)
+	return header
 
 ## A circular chrome button with the sticker recipe — light inner rim + RAISED shadow +
 ## a fully-circular radius + a centred icon. Prefers the kit's btn_round.png nine-patch

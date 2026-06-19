@@ -352,37 +352,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	col.add_child(foot)
 
 	# the round ✕ rides the card's top-right corner (placed after layout)
-	var x_btn := Button.new()
-	x_btn.focus_mode = Control.FOCUS_NONE
-	x_btn.custom_minimum_size = Vector2(Tune.X_BTN, Tune.X_BTN)
-	# The sliced red ✕ disc (the X is baked into the art) when present, else a code-drawn RED
-	# disc with a ✕ glyph (the kit btn_round art read as a compass ornament, not a control).
-	# A ROUND button is FULL-STRETCHED (Vector2.ZERO margin), never nine-patched — 9-slicing a
-	# disc keeps its transparent corners and pinches the ring into a star, letting the backdrop
-	# bleed through. The source (~square) maps cleanly onto the square X_BTN box.
-	var xbox := _kit_box("kit/shop_close.png", Vector2.ZERO)
-	if xbox != null:
-		x_btn.add_theme_stylebox_override("normal", xbox)
-		x_btn.add_theme_stylebox_override("hover", xbox)
-		var xbp: StyleBoxTexture = xbox.duplicate()
-		xbp.modulate_color = Tune.CARD_PRESS_MODULATE
-		x_btn.add_theme_stylebox_override("pressed", xbp)
-	else:
-		var xs := StyleBoxFlat.new()
-		xs.bg_color = Tune.X_BG
-		xs.set_corner_radius_all(Tune.X_RADIUS)
-		xs.set_border_width_all(Tune.X_BORDER_W)
-		xs.border_color = Tune.X_EDGE
-		x_btn.add_theme_stylebox_override("normal", xs)
-		x_btn.add_theme_stylebox_override("hover", xs)
-		var xp: StyleBoxFlat = xs.duplicate()
-		xp.bg_color = Tune.X_BG_PRESSED
-		x_btn.add_theme_stylebox_override("pressed", xp)
-		x_btn.text = "✕"
-		x_btn.add_theme_font_size_override("font_size", Tune.X_FONT)
-		x_btn.add_theme_color_override("font_color", CREAM)
-	Look.add_press_juice(x_btn)
-	x_btn.pressed.connect(func() -> void: overlay.queue_free())
+	var x_btn := Look.close_button(func() -> void: overlay.queue_free())
 	overlay.add_child(x_btn)
 	# S15: the ✕ docks INSIDE the parchment's top-right (same close treatment
 	# as the interior's round button) — it no longer floats on the awning corner
@@ -454,7 +424,7 @@ static func _divider(col: VBoxContainer, caption: String, trailing: Control = nu
 # One "Quick help" card: icon, title, caption, gem price chip. Whole card presses.
 static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: String,
 		caption: String, cost: int, action: Callable, fly_id: String, info: String) -> Button:
-	var b := _card_button(Tune.HELP_CARD)
+	var b := Look.card_button(Tune.HELP_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -487,7 +457,7 @@ static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: 
 # chip (coins or 💎). Whole card presses → buy: spend, queue the piece into the bag, and —
 # if the host is the live board (opts.piece_grant) — drain it onto the board now.
 static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Button:
-	var b := _card_button(Tune.FEATURED_CARD)
+	var b := Look.card_button(Tune.FEATURED_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -536,7 +506,7 @@ static func _offer_index(id: String) -> int:
 # One cash pack card: gem art/icon, the count, the $ price. Middle = "Popular".
 static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	var pack: Dictionary = CASH_PACKS[i]
-	var b := _card_button(Tune.GEM_CARD)
+	var b := Look.card_button(Tune.GEM_CARD)
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -587,7 +557,7 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 # The starter-pack card (§10): a wide welcome card — a "Welcome" badge, the 💎 count +
 # its water bonus, the low price. Whole card presses → the confirm grants directly.
 static func _starter_card(host: Control, refs: Dictionary) -> Button:
-	var b := _card_button(Tune.STARTER_CARD, "kit/shop_card_wide.png")   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
+	var b := Look.card_button(Tune.STARTER_CARD, "kit/shop_card_wide.png")   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
 	var inner := VBoxContainer.new()
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
@@ -631,7 +601,7 @@ static func _badge(text: String) -> PanelContainer:
 	var pop := PanelContainer.new()
 	# the red ribbon tag art when sliced (CREAM text on red), else the code-drawn STRAW pill
 	# (INK text). The ribbon is a horizontal banner → wide H / small V nine-patch margin.
-	var box := _kit_box("kit/shop_tag.png", Tune.TAG_TEX_MARGIN,
+	var box := Look.kit_box("kit/shop_tag.png", Tune.TAG_TEX_MARGIN,
 		Vector4(Tune.POP_PAD_X, Tune.POP_PAD_Y, Tune.POP_PAD_X, Tune.POP_PAD_Y))
 	var fg := CREAM
 	if box != null:
@@ -665,7 +635,7 @@ static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
 	# the green buy-button art when sliced, else the solid leaf-green capsule (same pads, so
 	# the icon+number sit identically either way). A horizontal capsule → wide H / small V
 	# nine-patch margin (BUY_TEX_MARGIN) so short pills don't collapse the box.
-	var box := _kit_box("kit/shop_buy.png", Tune.BUY_TEX_MARGIN,
+	var box := Look.kit_box("kit/shop_buy.png", Tune.BUY_TEX_MARGIN,
 		Vector4(Tune.BUY_PAD_X, Tune.BUY_PAD_T, Tune.BUY_PAD_X, Tune.BUY_PAD_B))
 	if box != null:
 		pill.add_theme_stylebox_override("panel", box)
@@ -875,55 +845,6 @@ static func _backdrop_material() -> ShaderMaterial:
 	m.set_shader_parameter("vignette", Tune.BACKDROP_VIGNETTE)
 	return m
 
-# A nine-patch StyleBoxTexture from a kit sprite, or null when the sprite is absent (the
-# caller then keeps its code-drawn fallback — the §-kit invariant). `tex` is the (H, V)
-# non-stretching border; `pad` is the content inset (l, t, r, b).
-static func _kit_box(rel: String, tex: Vector2, pad := Vector4.ZERO) -> StyleBoxTexture:
-	var p := Look.kit(rel)
-	if not ResourceLoader.exists(p):
-		return null
-	var sbt := StyleBoxTexture.new()
-	sbt.texture = load(p)
-	sbt.set_texture_margin(SIDE_LEFT, tex.x)
-	sbt.set_texture_margin(SIDE_RIGHT, tex.x)
-	sbt.set_texture_margin(SIDE_TOP, tex.y)
-	sbt.set_texture_margin(SIDE_BOTTOM, tex.y)
-	sbt.content_margin_left = pad.x
-	sbt.content_margin_top = pad.y
-	sbt.content_margin_right = pad.z
-	sbt.content_margin_bottom = pad.w
-	return sbt
-
-# A card surface: the sliced parchment card art (`art`) when present, else the code-drawn
-# CARD_BG box with the SAME radius/shadow. The wide starter card passes shop_card_wide.
-static func _card_button(min_size: Vector2, art: String = "kit/shop_card.png") -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = min_size
-	var box := _kit_box(art, Vector2(Tune.CARD_TEX_MARGIN, Tune.CARD_TEX_MARGIN))
-	if box != null:
-		b.add_theme_stylebox_override("normal", box)
-		b.add_theme_stylebox_override("hover", box)
-		var bp: StyleBoxTexture = box.duplicate()
-		bp.modulate_color = Tune.CARD_PRESS_MODULATE
-		b.add_theme_stylebox_override("pressed", bp)
-		Look.add_press_juice(b)
-		return b
-	var s := StyleBoxFlat.new()
-	s.bg_color = Tune.CARD_BG
-	s.set_corner_radius_all(Tune.CARD_RADIUS)
-	s.set_border_width_all(Tune.CARD_BORDER_W)
-	s.border_color = Color(BARK, Tune.CARD_EDGE_ALPHA)
-	s.shadow_color = Tune.CARD_SHADOW
-	s.shadow_size = Tune.CARD_SHADOW_SIZE
-	s.shadow_offset = Tune.CARD_SHADOW_OFFSET
-	b.add_theme_stylebox_override("normal", s)
-	b.add_theme_stylebox_override("hover", s)
-	var sp: StyleBoxFlat = s.duplicate()
-	sp.bg_color = Tune.CARD_BG_PRESSED
-	b.add_theme_stylebox_override("pressed", sp)
-	Look.add_press_juice(b)
-	return b
 
 # Affordability is shown, never blocking: a can't-afford card still presses (wallet wiggles).
 # The CARD stays bright always (a whole-card dim read as disabled/sold-out — the storefront's
