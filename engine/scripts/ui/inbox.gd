@@ -14,7 +14,6 @@ extends RefCounted
 ## that taps away to dismiss, a centered card, FX.pop_in, every node MOUSE_FILTER_IGNORE except the
 ## veil + the buttons. Rewards are icon SPRITES beside a number (emoji-purge §13), never a glyph.
 
-const Save = preload("res://engine/scripts/core/save.gd")
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")

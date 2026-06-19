@@ -352,23 +352,6 @@ static func _frontier_number_badge(n: int, csz: float) -> Control:
 	badge.offset_bottom = -csz * 0.04
 	return badge
 
-# The "Lv N" teach-number for a FRONTIER locked cell — centered INSIDE the tile (over the faint
-# padlock), bold INK with a light outline so it reads on the receded cell.
-static func _lv_num_badge(lvl: int, csz: float) -> Control:
-	var bnum := Label.new()
-	bnum.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bnum.text = TranslationServer.translate("Lv%d") % lvl
-	bnum.add_theme_font_size_override("font_size", int(maxf(13.0, csz * 0.26)))
-	bnum.add_theme_color_override("font_color", Pal.INK)
-	bnum.add_theme_color_override("font_outline_color", Color(1, 1, 1, 0.85))
-	bnum.add_theme_constant_override("outline_size", 5)
-	bnum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return bnum
-
-const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the styled number)
-
 ## The board art kit's painted locked-slot tile (cream + a wood padlock); "" when absent.
 static func _locked_art() -> String:
 	return Game.art("ui/board/slot_locked.png")
@@ -393,59 +376,6 @@ static func _locked_style(csz: float, ring: int = 1) -> StyleBox:
 	sb.shadow_color = Color(0, 0, 0, 0)                          # Sunk plane — floats nothing
 	sb.shadow_size = 0
 	return sb
-
-# A QUIET level-gate mark (UI redesign): a small low-contrast code-drawn padlock in LOCKED_GLYPH,
-# with the "Lv N" number — muted ink, NO chip — only on the FRONTIER (deeper cells get the bare
-# lock). No dark cream-on-bark sticker: the lock must RECEDE on the light Sunk cell, not shout.
-# A code-drawn glyph (not the painterly kit icon) keeps ~30 locked cells whisper-quiet.
-static func _lv_gate_badge(lvl: int, csz: float, with_num: bool) -> Control:
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.add_theme_constant_override("separation", int(maxf(1.0, csz * 0.02)))
-	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var gpx := csz * (0.30 if with_num else 0.34)
-	var glyph := _LockGlyph.new()
-	glyph.body_col = Pal.LOCKED_GLYPH                       # whisper-quiet, recedes
-	glyph.key_col = Pal.LOCKED_GLYPH.darkened(0.22)
-	glyph.custom_minimum_size = Vector2(gpx, gpx)
-	box.add_child(glyph)
-	if with_num:
-		var bnum := Label.new()
-		bnum.text = TranslationServer.translate("Lv%d") % lvl
-		bnum.add_theme_font_size_override("font_size", int(maxf(11.0, csz * 0.20)))
-		bnum.add_theme_color_override("font_color", Pal.INK_MUTED)   # muted ink, no chip
-		bnum.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(bnum)
-	center.add_child(box)
-	return center
-
-# A tiny painted padlock (shackle arc + rounded body + keyhole) — the bulletproof fallback so a
-# missing kit icon never prints "Lv" on a locked cell.
-class _LockGlyph extends Control:
-	var body_col: Color = Color(1, 1, 1)
-	var key_col: Color = Color(0, 0, 0, 0.5)
-	func _ready() -> void:
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		resized.connect(queue_redraw)
-	func _draw() -> void:
-		var u := minf(size.x, size.y)
-		if u <= 0.0:
-			return
-		var cx := size.x * 0.5
-		var by := size.y * 0.5 - u * 0.04          # body top edge
-		draw_arc(Vector2(cx, by), u * 0.20, PI, TAU, 24, body_col, maxf(2.0, u * 0.11), true)  # shackle
-		var bw := u * 0.60
-		var bh := u * 0.46
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = body_col
-		sb.set_corner_radius_all(int(maxf(2.0, u * 0.12)))
-		draw_style_box(sb, Rect2(cx - bw * 0.5, by, bw, bh))   # body
-		draw_circle(Vector2(cx, by + bh * 0.45), maxf(1.0, u * 0.07), key_col)   # keyhole
 
 static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)

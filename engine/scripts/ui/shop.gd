@@ -893,7 +893,8 @@ static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 	if target != null:
 		FX.fly_to_wallet(host, b.get_global_rect().get_center(), Look.icon(fly_id, Tune.FLY_ICON), target,
 			func() -> void: _settle(host, refs))
-	_settle(host, refs)
+	else:
+		_settle(host, refs)
 
 # The item-shortcut buy: pays in `currency` ("coins"|"diamonds"), wiggling the
 # right wallet chip + a "Need N more" floater when short (never blocking, §13). On success

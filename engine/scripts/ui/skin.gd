@@ -31,52 +31,6 @@ static func safe_bottom(ctrl: Control) -> float:
 	var inset := win.y - (safe.position.y + safe.size.y)
 	return ctrl.get_viewport_rect().size.y * float(maxi(inset, 0)) / float(win.y)
 
-## Cozy room background + a dark scrim (so foreground UI/tiles pop). Optional art
-## override (e.g. a district backdrop); falls back to the bedroom, then flat color.
-## Returns the TextureRect (null on the flat fallback) so callers can swap it later.
-static func background(host: Control, scrim_alpha: float = Tune.BG_SCRIM_ALPHA, art_path: String = "") -> TextureRect:
-	var path := art_path if (art_path != "" and ResourceLoader.exists(art_path)) else ""
-	if ResourceLoader.exists(path):
-		var bg := TextureRect.new()
-		bg.texture = load(path)
-		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		host.add_child(bg)
-		var scrim := ColorRect.new()
-		scrim.color = Color(Pal.BG_DEEP, scrim_alpha)
-		scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
-		scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		host.add_child(scrim)
-		return bg
-	var c := ColorRect.new()
-	c.color = Pal.BG
-	c.set_anchors_preset(Control.PRESET_FULL_RECT)
-	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(c)
-	return null
-
-## The coin marker: generated coin art when present, else the classic gold disc.
-static func coin_icon(px: float = Tune.COIN_PX) -> Control:
-	if ResourceLoader.exists(kit("currency/coin.png")):
-		var t := TextureRect.new()
-		t.texture = load(kit("currency/coin.png"))
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var coin := Panel.new()
-	coin.custom_minimum_size = Vector2(px, px)
-	var cstyle := StyleBoxFlat.new()
-	cstyle.bg_color = Pal.GOLD
-	cstyle.set_corner_radius_all(int(px / 2.0))
-	cstyle.border_color = Pal.COIN_EDGE
-	cstyle.set_border_width_all(Tune.COIN_BORDER_W)
-	coin.add_theme_stylebox_override("panel", cstyle)
-	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return coin
-
 ## --- THE KIT — one source for panels, icons, chips. ------------------------------
 ## Everything ships twice: kit art when generated, code-drawn fallback with the
 ## SAME metrics until then. No component invents its own StyleBox again.

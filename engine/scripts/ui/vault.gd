@@ -11,7 +11,6 @@ extends RefCounted
 ## else (the grant + reset) is core/vault.gd. Self-contained confirm so this never
 ## reaches into shop.gd. Reuses the Look kit + FX vocabulary exactly like the shop.
 
-const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -21,7 +20,6 @@ const Pal = Game.PALETTE
 
 const INK := Pal.INK
 const CREAM := Pal.CREAM
-const STRAW := Pal.STRAW
 const BARK := Pal.BARK
 const GOLD := Pal.GOLD
 

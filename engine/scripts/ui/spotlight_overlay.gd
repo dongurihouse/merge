@@ -15,7 +15,6 @@ extends Control
 ## FX vocabulary (breathe/pop_in). ui/ layer: imports core + ui only, never scenes/.
 
 const FX = preload("res://engine/scripts/ui/fx.gd")
-const Spotlight = preload("res://engine/scripts/core/spotlight.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE

@@ -34,7 +34,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const Pal = Game.PALETTE
 
-const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
@@ -129,7 +128,6 @@ var _weather: Control = null     # ambient weather layer — belongs to a MAP; h
 var _shop_btn: Button            # the Store nav button — kept as the anchor for the Store "new offer" badge
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
-var level_prog_label: Label
 var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
@@ -510,12 +508,6 @@ func _home_owned_item(z: int, k: int, b) -> Control:
 	item.pivot_offset = Vector2(90, 50)
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return item
-
-func _spot_index(z: int, id: String) -> int:
-	for k in G.MAPS[z].spots.size():
-		if String(G.MAPS[z].spots[k].id) == id:
-			return k
-	return -1
 
 func _read_json_file(path: String):
 	if path == "" or not FileAccess.file_exists(path):
@@ -1337,7 +1329,6 @@ func _build_hud() -> void:
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
-	level_prog_label = hud.level_prog
 	_hud_refresh = hud.refresh
 	_open_shop = hud.open_shop
 	_hud_panels = [hud.wallet, hud.lv_panel]

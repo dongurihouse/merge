@@ -224,15 +224,6 @@ static func _ask_met_check(px: float) -> Panel:
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return mark
 
-# keep the check pinned to the (content-sized, centered) pill's top-left corner
-static func _dock_check(check: Control, pill: Control, stand: Control) -> void:
-	var dock := func() -> void:
-		if not (is_instance_valid(check) and is_instance_valid(pill) and is_instance_valid(stand)):
-			return
-		check.position = pill.get_global_rect().position - stand.get_global_rect().position - Vector2(14.0, 14.0)
-	pill.resized.connect(dock)
-	dock.call_deferred()
-
 # AB1: slow ±4px sine bob (~3s) on a bust. Tier 2 §2: the bob now carries "ready"
 # information — only a DELIVERABLE giver bobs, so callers gate it with `active`
 # (driven by _giver_is_payable in _refresh_giver_lights). The merchant, which is not

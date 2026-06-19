@@ -26,10 +26,6 @@ const Save = preload("res://engine/scripts/core/save.gd")
 
 const D = Game.DATA
 
-# The known ad surfaces (also the keys of DATA.ADS). Exposed so callers/tests can
-# enumerate without reaching into the data module.
-const TYPES := ["refill_water", "collect_2x", "shop_reroll", "event_topup", "free_gems"]
-
 # This ad type's tuning row from the active game's DATA (cap / cooldown / reward).
 # Unknown id → an empty row (cap 0 / cooldown 0 → treated as "no such ad": can_show false).
 static func _def(ad_type: String) -> Dictionary:
@@ -51,11 +47,6 @@ static func can_show(ad_type: String) -> bool:
 # How many watches of this type remain today (cap − used, floored at 0).
 static func remaining_today(ad_type: String) -> int:
 	return maxi(0, cap(ad_type) - Save.ad_used_today(ad_type))
-
-# Seconds until this type is watchable again (0 if ready now). For a gentle "ready
-# soon" read — never a punitive countdown.
-static func cooldown_left(ad_type: String) -> float:
-	return Save.ad_cooldown_left(ad_type, cooldown(ad_type))
 
 # Claim a rewarded ad (called AFTER the stub/SDK reports the reward earned). Re-checks
 # the gate (so a stale UI press can't over-grant), records the watch, applies the pure

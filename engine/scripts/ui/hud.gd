@@ -125,23 +125,15 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 			if click:
 				(on_level as Callable).call())
 	lrow.add_child(avatar)
-	var level_prog := Label.new()
-	level_prog.add_theme_font_size_override("font_size", Tune.LVL_PROG_SIZE)   # readable (was 20), to the RIGHT of the avatar
-	level_prog.add_theme_color_override("font_color", Color(INK, Tune.LVL_PROG_INK_ALPHA))
-	level_prog.add_theme_constant_override("outline_size", 0)
-	level_prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	# the "n/m" progress fraction is retired from the badge (reference shows the ring + number
-	# only). level_prog stays constructed (the map still reads the dict key) but is never shown.
 	left.add_child(lv_panel)
 
 	# the standalone HOME chip, to the RIGHT of the Lv chip when requested.
-	var home_btn := _build_home_chip(left, opts)
+	_build_home_chip(left, opts)
 	host.add_child(left)
 
 	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
 	var out := {"stars": stars, "coins": coins, "diamonds": gems, "water": water_lbl, "water_icon": water_icon,
-		"level": level, "level_prog": level_prog,
-		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
+		"level": level, "wallet": panel, "lv_panel": lv_panel}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
@@ -152,7 +144,6 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
 		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
-		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
 		# Upgrade the frame when leveling crosses a badge tier.
 		if frame != null:
 			var tier := Look.level_badge_index(lvl)

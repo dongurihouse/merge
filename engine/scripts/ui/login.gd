@@ -9,7 +9,6 @@ extends RefCounted
 ## the shop. Reward cells are emoji-FREE (§13): every reward is an icon SPRITE beside a
 ## number Label, never an emoji glyph baked into text.
 
-const Save = preload("res://engine/scripts/core/save.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
