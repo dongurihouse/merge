@@ -334,6 +334,12 @@ func _initialize() -> void:
 	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip if carrier_qi < sg.giver_chips.size() else Control.new())
 	ok(sg.board.gens.size() == gens_count_before and sg.board.gen_bag.size() == gen_bag_size_before, \
 		"delivering an already-owned generator is a no-op (idempotent)")
+	# SEAM-BRIDGING PROBE: after the grant, gen_live_lines must include every map-1 line (5,6,7,8)
+	# so that a fence entering map 1 can be satisfied — confirming the new-map seam is bridged.
+	var live_lines_after: Array = G.gen_live_lines(sg.board.gens, G.GENERATORS)
+	ok(live_lines_after.has(5) and live_lines_after.has(6) and live_lines_after.has(7) and live_lines_after.has(8), \
+		"after grant, gen_live_lines includes map-1 lines 5–8 (fence is producible on map-1 entry; seam bridged)")
+	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;
 	# the board-model-level assertion is the right place for this invariant.)
