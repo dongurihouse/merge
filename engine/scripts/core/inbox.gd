@@ -42,14 +42,14 @@ static func _seed(list: Array) -> void:
 		"id": "welcome",
 		"title": "Welcome to the grove",
 		"body": "We're so glad you're here. Tend it gently — the grove grows with you.",
-		"icon": "star",
+		"icon": "leaf",
 		"reward": {},
 	})
 	_append(list, {
 		"id": "starter_gift",
 		"title": "A little something",
 		"body": "A handful of coins to get you started. Enjoy!",
-		"icon": "coin",
+		"icon": "gift",
 		"reward": {"coins": 100},
 	})
 

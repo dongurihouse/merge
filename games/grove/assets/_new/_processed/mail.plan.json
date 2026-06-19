@@ -1,0 +1,17 @@
+{
+  "source": "_new/mail.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "val_min": 0.9, "sat_max": 0.1, "min_area": 3000, "pad": 4 },
+  "outputs": [
+    { "island": 1,  "name": "mail_banner", "path": "ui/mail/mail_banner.png" },
+    { "island": 2,  "name": "icon_mail",   "path": "ui/shared/icon_mail.png" },
+    { "island": 3,  "name": "mail_close",  "path": "ui/kit/mail_close.png" },
+    { "island": 4,  "name": "mail_card",   "path": "ui/kit/mail_card.png" },
+    { "island": 9,  "name": "icon_gift",   "path": "ui/shared/icon_gift.png" },
+    { "island": 10, "name": "icon_leaf",   "path": "ui/shared/icon_leaf.png" },
+    { "island": 11, "name": "icon_news",   "path": "ui/shared/icon_news.png" },
+    { "island": 26, "name": "mail_pill",   "path": "ui/kit/mail_pill.png" }
+  ],
+  "archive": "_originals/ui/mail.png"
+}

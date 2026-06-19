@@ -5,11 +5,14 @@ extends RefCounted
 ## message carries an unclaimed gift. Claiming pays the reward (core/inbox.gd), plays a small
 ## reward shout, and refreshes the row in place. Opening marks everything read.
 ##
-## The list + the claim/grant live in core/inbox.gd; this is only its face. Reuses the Look
-## kit + the FX vocabulary exactly like ui/login.gd / ui/vault.gd (the modal idiom: a veil
-## that taps away to dismiss, a centered parchment card, FX.pop_in, every node
-## MOUSE_FILTER_IGNORE except the veil + the buttons). Rewards are icon SPRITES beside a
-## number (emoji-purge §13), never a glyph baked into text.
+## The list + the claim/grant live in core/inbox.gd; this is only its face. Skinned from the
+## sliced MAIL KIT (mail.png → ui/mail + ui/kit) over the SHARED popup components (skin.gd), the
+## same component language the shop + bag speak: the parchment panel (Look.kit_panel), the gold
+## ribbon header (Look.banner_title, here the mail banner + the envelope motif), the round ✕ disc
+## (Look.close_button, here the mail close), and the kit nine-patch box (Look.kit_box) for the
+## message-row card + the green Claim / reward pills. The modal idiom matches login/vault: a veil
+## that taps away to dismiss, a centered card, FX.pop_in, every node MOUSE_FILTER_IGNORE except the
+## veil + the buttons. Rewards are icon SPRITES beside a number (emoji-purge §13), never a glyph.
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
@@ -28,6 +31,11 @@ const LEAF := Pal.LEAF
 const CARD_MAX_W := 460.0
 const CARD_VW_FRAC := 0.92
 const LIST_MAX_H := 480.0          # the scroll area's ceiling — a long inbox scrolls, never grows the card
+const BANNER_H := 92.0             # the mail-ribbon header band
+const MSG_ICON := 48.0             # a message's plated icon (gift / leaf / news / coin)
+const CLOSE_MARGIN := 12.0         # the ✕ disc's inset from the card's top-right corner
+const ROW_TEX_MARGIN := Vector2(30, 30)   # the mail_card nine-patch border (448×105 source)
+const PILL_TEX := Vector2(46, 34)         # the mail_pill capsule nine-patch (220×77 source — wide caps)
 
 # --- the mailbox popup --------------------------------------------------------------
 
@@ -55,14 +63,24 @@ static func open(host: Control) -> void:
 	card.custom_minimum_size = Vector2(card_w, 0)
 	cc.add_child(card)
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.add_child(col)
 
-	# title — engine text on a kit ribbon (images never carry words, §13.3)
-	var ribbon := Look.title_ribbon(host.tr("Mailbox"), 30)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
+	# header — the mail ribbon with engine "Mail" riding it (images never carry words, §13.3) and
+	# the envelope motif perched on its left. Both ride the SHARED banner builder; the envelope is
+	# overlaid only when the real ribbon art is present (the text-chip fallback has no band to perch on).
+	var header := Look.banner_title(host.tr("Mail"), 32, BANNER_H, "mail/mail_banner.png")
+	header.size_flags_horizontal = Control.SIZE_FILL
+	col.add_child(header)
+	if ResourceLoader.exists(Look.kit("mail/mail_banner.png")):
+		var env := Look.icon("mail", 54)
+		env.anchor_left = 0.30; env.anchor_right = 0.30
+		env.anchor_top = 0.5; env.anchor_bottom = 0.5
+		env.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		env.grow_vertical = Control.GROW_DIRECTION_BOTH
+		env.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		header.add_child(env)
 
 	# the message list, in a scroll so a long inbox never grows the card past LIST_MAX_H
 	var scroll := ScrollContainer.new()
@@ -77,10 +95,19 @@ static func open(host: Control) -> void:
 
 	_fill_rows(host, rows, scroll, card_w)
 
-	# the Close CTA
-	var close := Look.button(host.tr("Close"), func() -> void: overlay.queue_free(), false)
-	close.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(close)
+	# the round ✕ disc (the mail close) docks inside the card's top-right corner after layout —
+	# the shared bag/shop place-deferred pattern; the veil tap dismisses too.
+	var close := Look.close_button(func() -> void: overlay.queue_free(), "kit/mail_close.png")
+	overlay.add_child(close)
+	var place := func() -> void:
+		if not is_instance_valid(card) or not is_instance_valid(close):
+			return
+		var r := card.get_global_rect()
+		var cw: float = close.custom_minimum_size.x
+		close.global_position = Vector2(
+			r.position.x + r.size.x - cw - CLOSE_MARGIN, r.position.y + CLOSE_MARGIN)
+	card.resized.connect(place)
+	place.call_deferred()
 
 	# opening the mailbox reads everything (the badge then rests on unclaimed gifts only)
 	Inbox.mark_all_read()
@@ -106,26 +133,31 @@ static func _fill_rows(host: Control, rows: VBoxContainer, scroll: ScrollContain
 	if is_instance_valid(scroll):
 		scroll.custom_minimum_size.y = minf(LIST_MAX_H, rows.size.y)
 
-# One message: an icon, the title + body text, and (when there's an unclaimed gift) a reward
-# chip + a Claim button. A claimed gift shows a quiet "Claimed" tag instead.
+# One message: a plated icon, the title + body text, and (when there's an unclaimed gift) a reward
+# chip + a Claim button. A claimed gift shows a quiet "Claimed" tag instead. The row rides the
+# sliced mail_card nine-patch (cream parchment tile), with a code-drawn card box as the fallback.
 static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scroll: ScrollContainer, card_w: float) -> Control:
 	var panel := PanelContainer.new()
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(CREAM, 0.5)
-	s.set_corner_radius_all(14)
-	s.set_border_width_all(1)
-	s.border_color = Color(BARK, 0.4)
-	s.content_margin_left = 12; s.content_margin_right = 12
-	s.content_margin_top = 10; s.content_margin_bottom = 10
-	panel.add_theme_stylebox_override("panel", s)
+	var box := Look.kit_box("kit/mail_card.png", ROW_TEX_MARGIN, Vector4(18, 12, 18, 12))
+	if box != null:
+		panel.add_theme_stylebox_override("panel", box)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Color(CREAM, 0.5)
+		s.set_corner_radius_all(14)
+		s.set_border_width_all(1)
+		s.border_color = Color(BARK, 0.4)
+		s.content_margin_left = 12; s.content_margin_right = 12
+		s.content_margin_top = 10; s.content_margin_bottom = 10
+		panel.add_theme_stylebox_override("panel", s)
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	panel.add_child(row)
 
-	# the message icon (sprite when generated, else its glyph)
-	var ic := Look.icon(String(m.get("icon", "star")), 40)
+	# the message icon (plated mail-kit sprite when generated, else its glyph)
+	var ic := Look.icon(String(m.get("icon", "star")), MSG_ICON)
 	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(ic)
 
@@ -144,7 +176,7 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 	var body := Label.new()
 	body.text = host.tr(String(m.get("body", "")))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(card_w - 200.0, 0)
+	body.custom_minimum_size = Vector2(card_w - 220.0, 0)
 	body.add_theme_font_size_override("font_size", 15)
 	body.add_theme_color_override("font_color", Color(BARK, 0.95))
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -156,19 +188,18 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 	if _reward_total(rew) > 0:
 		var side := VBoxContainer.new()
 		side.alignment = BoxContainer.ALIGNMENT_CENTER
-		side.add_theme_constant_override("separation", 4)
+		side.add_theme_constant_override("separation", 5)
 		side.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(side)
 		side.add_child(_reward_chip(host, rew))
 		if not bool(m.get("claimed", false)):
 			var id := String(m.get("id", ""))
-			var claim := Look.button(host.tr("Claim"), func() -> void:
+			var claim := _claim_button(host, func() -> void:
 				var at := panel.get_global_rect().get_center()
 				var granted := Inbox.claim(id)
 				if not granted.is_empty():
 					_celebrate(host, at, granted)
-				_fill_rows(host, rows, scroll, card_w), true)
-			claim.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+				_fill_rows(host, rows, scroll, card_w))
 			side.add_child(claim)
 		else:
 			var done := Label.new()
@@ -180,13 +211,40 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 			panel.modulate = Color(1, 1, 1, 0.7)
 	return panel
 
-# A reward's components as icon sprites + numbers (emoji-purge §13) — shows every non-zero
-# part (coins / 💎 / water) so the player sees exactly what the Claim grants.
+# The green "Claim" button — the sliced mail_pill capsule nine-patch carrying engine text, with the
+# shared press juice. Falls back to the shared green primary pill (Look.button) when the art is absent.
+static func _claim_button(host: Control, cb: Callable) -> Button:
+	var box := Look.kit_box("kit/mail_pill.png", PILL_TEX, Vector4(24, 8, 24, 8))
+	if box == null:
+		return Look.button(host.tr("Claim"), cb, true)
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.text = host.tr("Claim")
+	b.add_theme_font_size_override("font_size", 16)
+	b.add_theme_color_override("font_color", CREAM)
+	b.add_theme_color_override("font_hover_color", CREAM)
+	b.add_theme_color_override("font_pressed_color", CREAM)
+	b.add_theme_constant_override("outline_size", 0)
+	b.add_theme_stylebox_override("normal", box)
+	b.add_theme_stylebox_override("hover", box)
+	var bp: StyleBoxTexture = box.duplicate()
+	bp.modulate_color = Color(0.88, 0.88, 0.88)
+	b.add_theme_stylebox_override("pressed", bp)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	Look.add_press_juice(b)
+	b.pressed.connect(func() -> void: cb.call())
+	return b
+
+# A reward's components as icon sprites + numbers (emoji-purge §13) — shows every non-zero part
+# (coins / 💎 / water) so the player sees exactly what the Claim grants. The cluster rides the
+# sliced mail_pill green capsule (CREAM numbers for contrast); a bare row when the art is absent.
 static func _reward_chip(host: Control, rew: Dictionary) -> Control:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 6)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := Look.kit_box("kit/mail_pill.png", PILL_TEX, Vector4(16, 5, 16, 5))
+	var num_color := CREAM if box != null else INK
 	for pair in [["coin", int(rew.get("coins", 0))], ["gem", int(rew.get("gems", 0))], ["water", int(rew.get("water", 0))]]:
 		if int(pair[1]) <= 0:
 			continue
@@ -197,12 +255,19 @@ static func _reward_chip(host: Control, rew: Dictionary) -> Control:
 		var l := Label.new()
 		l.text = str(int(pair[1]))
 		l.add_theme_font_size_override("font_size", 14)
-		l.add_theme_color_override("font_color", INK)
+		l.add_theme_color_override("font_color", num_color)
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
 		row.add_child(cell)
-	return row
+	if box == null:
+		return row
+	var pill := PanelContainer.new()
+	pill.add_theme_stylebox_override("panel", box)
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(row)
+	return pill
 
 # Play the claimed gift's juice — a small reward shout per granted component (mirrors the
 # login calendar's _celebrate, kept simple).
