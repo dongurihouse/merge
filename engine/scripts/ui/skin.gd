@@ -686,3 +686,76 @@ static func attach_badge(host: Control, b: Control) -> Control:
 	b.offset_top = -over.y                            # top edge: over.y above host top
 	b.offset_bottom = b.offset_top + sz.y
 	return b
+
+## --- toggle switch ---------------------------------------------------------------------
+## A SWITCH (the settings music / sounds / calm rows): a press surface wearing the sliced
+## switch art (kit/switch_on.png · switch_off.png — the green/tan pill with the knob baked
+## in), or a code-drawn track + sliding knob when the art is absent (the kit invariant —
+## same metrics either way). Tapping flips the state, repaints the look, and fires
+## `on_changed(new_state)`. `px_h` sizes it; width follows the sliced pill's aspect. Stateless
+## otherwise — the caller owns persistence and reads back the live value via the callback.
+static func toggle_switch(is_on: bool, on_changed: Callable, px_h: float = Tune.SWITCH_H) -> Button:
+	var w := px_h * Tune.SWITCH_ASPECT
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(w, px_h)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# the art / capsule IS the surface — the button itself draws no chrome
+	var empty := StyleBoxEmpty.new()
+	b.add_theme_stylebox_override("normal", empty)
+	b.add_theme_stylebox_override("hover", empty)
+	b.add_theme_stylebox_override("pressed", empty)
+	b.set_meta("on", is_on)
+	if ResourceLoader.exists(kit("kit/switch_on.png")) and ResourceLoader.exists(kit("kit/switch_off.png")):
+		var art := TextureRect.new()
+		art.name = "sw_art"
+		art.set_anchors_preset(Control.PRESET_FULL_RECT)
+		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(art)
+	else:
+		var track := Panel.new()                       # the rounded capsule (recoloured per state)
+		track.name = "sw_track"
+		track.set_anchors_preset(Control.PRESET_FULL_RECT)
+		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(track)
+		var knob := Panel.new()                        # the cream knob (slid left/right per state)
+		knob.name = "sw_knob"
+		var ks := StyleBoxFlat.new()
+		ks.bg_color = Pal.CREAM
+		ks.set_corner_radius_all(int(px_h))
+		ks.set_border_width_all(2)
+		ks.border_color = Color(Pal.BARK, 0.5)
+		knob.add_theme_stylebox_override("panel", ks)
+		knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(knob)
+	_switch_paint(b, is_on, px_h)
+	add_press_juice(b)
+	b.pressed.connect(func() -> void:
+		var now := not bool(b.get_meta("on"))
+		b.set_meta("on", now)
+		_switch_paint(b, now, px_h)
+		on_changed.call(now))
+	return b
+
+## Repaint a toggle_switch for `is_on`: swap the sliced sprite, or (fallback) recolour the
+## track + slide the knob to the on/off end.
+static func _switch_paint(b: Button, is_on: bool, px_h: float) -> void:
+	var art := b.get_node_or_null("sw_art") as TextureRect
+	if art != null:
+		art.texture = load(kit("kit/switch_%s.png" % ("on" if is_on else "off")))
+		return
+	var track := b.get_node_or_null("sw_track") as Panel
+	var knob := b.get_node_or_null("sw_knob") as Panel
+	if track == null or knob == null:
+		return
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Pal.BTN_PRIMARY if is_on else Color(Pal.BARK, Tune.SWITCH_OFF_ALPHA)
+	ts.set_corner_radius_all(int(px_h))
+	track.add_theme_stylebox_override("panel", ts)
+	var inset := Tune.SWITCH_KNOB_INSET
+	var d := px_h - inset * 2.0
+	knob.size = Vector2(d, d)
+	var w := px_h * Tune.SWITCH_ASPECT
+	knob.position = Vector2((w - d - inset) if is_on else inset, inset)
