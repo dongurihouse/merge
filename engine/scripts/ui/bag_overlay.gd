@@ -30,6 +30,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 const Pal = Game.PALETTE
 
 const INK = Pal.INK
@@ -89,6 +90,8 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var on_retrieve: Callable = cfg.get("on_retrieve", Callable())
 	var on_buy_slot: Callable = cfg.get("on_buy_slot", Callable())
 	var on_close: Callable = cfg.get("on_close", Callable())
+	var gen_bag: Array = cfg.get("gen_bag", [])
+	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -149,7 +152,51 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	for e in slot_plan(owned, max_slots, bag.size(), prices, start_slots):
 		grid.add_child(_slot_cell(e, bag, on_retrieve, on_buy_slot, dismiss))
 
-	# the footer caption (the preview's "Open a slot with acorns."), flanked by the shared leaf sprig.
+	# the generator section: a "Generators" label + a row of generator tiles (tap to place on board).
+	# Only shown when there are stored generators.
+	if not gen_bag.is_empty():
+		var gen_label := Label.new()
+		gen_label.text = host.tr("Generators")
+		gen_label.add_theme_font_size_override("font_size", 26)
+		gen_label.add_theme_color_override("font_color", Color(INK, 0.75))
+		gen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(gen_label)
+		var gen_row := HBoxContainer.new()
+		gen_row.alignment = BoxContainer.ALIGNMENT_CENTER
+		gen_row.add_theme_constant_override("separation", int(H_SEP))
+		col.add_child(gen_row)
+		for gid in gen_bag:
+			var gid_str := String(gid)
+			var tile := Look.card_button(Vector2(CELL_W, CELL_H))
+			var center := CenterContainer.new()
+			center.set_anchors_preset(Control.PRESET_FULL_RECT)
+			center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tile.add_child(center)
+			var gdef: Dictionary = G.gen_def(G.GENERATORS, gid_str)
+			var gtex_path: String = Game.art(String(gdef.get("tex", "")))
+			if ResourceLoader.exists(gtex_path):
+				var gicon := TextureRect.new()
+				gicon.texture = load(gtex_path)
+				gicon.custom_minimum_size = Vector2(CELL_W * PIECE_FRAC, CELL_W * PIECE_FRAC)
+				gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				center.add_child(gicon)
+			else:
+				var fallback_lbl := Label.new()
+				fallback_lbl.text = gid_str
+				fallback_lbl.add_theme_font_size_override("font_size", 18)
+				fallback_lbl.add_theme_color_override("font_color", INK)
+				fallback_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				fallback_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				center.add_child(fallback_lbl)
+			tile.pressed.connect(func() -> void:
+				if on_place_gen.is_valid():
+					on_place_gen.call(gid_str)
+				dismiss.call())
+			gen_row.add_child(tile)
+
+	# the footer caption (the preview's "Open a slot with acorns."), flanked by the kit leaf sprigs.
 	col.add_child(_caption(host.tr("Open a slot with acorns.")))
 
 	# the shared red ✕ disc (Look.close_button), docked inside the card's top-right corner after

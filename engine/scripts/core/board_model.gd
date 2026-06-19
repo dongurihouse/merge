@@ -10,8 +10,9 @@ const G = preload("res://engine/scripts/core/content.gd")
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
-                                          # STATEFUL + persisted (movable; granted via hand-in, §6/§7).
+                                          # STATEFUL + persisted (movable; stored/placed via gen_bag, §6).
                                           # Seeded by seed_gens / restored by from_dict.
+var gen_bag: Array = []                   # stored generator ids (the bag's generator section, soft cap 100)
 
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
@@ -49,8 +50,9 @@ func gen_id_at(cell: Vector2i) -> String:
 
 ## Seed the live generator set to a map's roster (§6) — used on a fresh game (map 0) and
 ## by the save migration (an existing player's current map). NOT the in-play path: once
-## seeded, the set changes only by move_gen / grant_gen. Each gen cell sheds its bramble,
-## and any player item caught on it hops to free ground (never destroyed).
+## seeded, the set changes only by move_gen / store_gen / place_gen_from_bag / grow_gens.
+## Each gen cell sheds its bramble, and any player item caught on it hops to free ground
+## (never destroyed).
 func seed_gens(map: int, level: int = G.APPEAR_ALL) -> void:
 	gens = G.live_gen_state(G.GENERATORS, map, level)
 	_claim_gen_cells()
@@ -66,6 +68,23 @@ func _claim_gen_cells() -> void:
 				items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
 			items[idx(cell)] = 0
 
+## Move a board generator into the bag's generator section (frees its cell). No-op on a bad cell.
+func store_gen(cell: Vector2i) -> bool:
+	if not gens.has(cell):
+		return false
+	gen_bag.append(String(gens[cell]))
+	gens.erase(cell)
+	return true
+
+## Place a stored generator from the bag onto an open, empty, non-generator cell.
+func place_gen_from_bag(id: String, cell: Vector2i) -> bool:
+	# is_open already guarantees terrain == 0 (an open, empty cell)
+	if not gen_bag.has(id) or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
+		return false
+	gen_bag.erase(id)
+	gens[cell] = id
+	return true
+
 ## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator
 ## cell. Refuses an occupied cell, a bramble, or another generator's cell. Persisted via `gens`.
 func move_gen(from: Vector2i, to: Vector2i) -> bool:
@@ -75,21 +94,9 @@ func move_gen(from: Vector2i, to: Vector2i) -> bool:
 	gens.erase(from)
 	return true
 
-## #2 — the generator-grant hand-in (§6): a generator-grant quest hands the predecessor
-## of `grant_id` in (wherever it sits on the board) and installs `grant_id` in its place —
-## old consumed, old lines retire (they drop out of gen_live_lines). Validated against the
-## lineage. Generators never merge to evolve (that mechanic is retired).
-func grant_gen(grant_id: String) -> bool:
-	if not G.gen_can_grant(gens, G.GENERATORS, grant_id):
-		return false
-	gens = G.gen_grant(gens, G.GENERATORS, grant_id)
-	return true
-
-## Place a single granted-OUTRIGHT (surplus) generator at `cell` (§6) — used when a new map
-## opens: its surplus generators appear directly, while its hand-in generators arrive by grant
-## quest. Claims the cell (sheds bramble / hops any item to safety), like seed_gens. No-op if a
-## generator already sits there.
-func place_surplus_gen(id: String, cell: Vector2i) -> void:
+## Place a single generator at `cell` — claims the cell (sheds bramble / hops any item to
+## safety), like seed_gens. No-op if a generator already sits there.
+func place_gen(id: String, cell: Vector2i) -> void:
 	if gens.has(cell):
 		return
 	gens[cell] = id
@@ -104,22 +111,26 @@ func place_surplus_gen(id: String, cell: Vector2i) -> void:
 
 ## Compat shim for the fresh-run tools (sim / shot) that still ask for a spot-count's
 ## generators: re-seed to the map that many home spots reaches. NOT used by the live board
-## (which restores `gens` from save and only mutates it via move/grant). Returns the live gen cells.
+## (which restores `gens` from save and only mutates it via move/store/place/grow). Returns the live gen cells.
 func set_active_gens(spots: int, level: int = G.APPEAR_ALL) -> Array:
 	seed_gens(G.map_for_spots(spots), level)
 	return gens.keys()
 
-## Install any of `map`'s surplus generators that have GROWN IN by `level` (appear_level
-## reached) but are not yet on the board — the staged-second-generator path (§ owner: don't
-## open with two generators). Idempotent: a generator already present is skipped, so this is
-## safe to call on every board open / level-up. Returns the ids newly installed (for a beat).
-func grow_surplus_gens(map: int, level: int) -> Array:
+## Install any of `map`'s OWN generators that have GROWN IN by `level` (appear_level reached)
+## but are not yet on the board AND are not stored in gen_bag — the staged-second-generator
+## path (§ owner: don't open with two generators; e.g. pantry_crock at appear_level 5).
+## Idempotent: a generator already on the board or deliberately stored in gen_bag is skipped,
+## so this is safe to call on every board open / level-up. Returns the ids newly installed
+## (for a beat). Does NOT install the next map's generators (those arrive via gen_bag).
+func grow_gens(map: int, level: int) -> Array:
 	var added: Array = []
-	for id in G.surplus_gen_ids(G.GENERATORS, map):
-		var gdef := G.gen_def(G.GENERATORS, id)
-		if int(gdef.get("appear_level", 0)) > level or gens.values().has(id):
+	for g in G.generators_for_map(G.GENERATORS, map, level):
+		var id := String(g.id)
+		if gens.values().has(id):
 			continue
-		place_surplus_gen(id, G.gen_cell_of(G.GENERATORS, id))
+		if gen_bag.has(id):
+			continue
+		place_gen(id, G.gen_cell_of(G.GENERATORS, id))
 		added.append(id)
 	return added
 
@@ -235,7 +246,7 @@ func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
 		gl.append([c.x, c.y, gens[c]])       # [row, col, id] — JSON-safe (no Vector2i keys)
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl}
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate()}
 
 func from_dict(d: Dictionary) -> void:
 	var t: Array = d.get("terrain", [])
@@ -247,3 +258,4 @@ func from_dict(d: Dictionary) -> void:
 	gens = {}
 	for e in d.get("gens", []):
 		gens[Vector2i(int(e[0]), int(e[1]))] = String(e[2])
+	gen_bag = Array(d.get("gen_bag", []))

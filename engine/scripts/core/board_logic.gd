@@ -66,9 +66,11 @@ static func bag_capacity(owned: int) -> int:
 static func wanted_lines(pool: Array, quests: Array) -> Array:
 	var wanted: Array = []
 	for q in quests:
-		for ask in G.quest_asks(q):
-			if pool.has(int(ask.line)) and not wanted.has(int(ask.line)):
-				wanted.append(int(ask.line))
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		if pool.has(int(it.line)) and not wanted.has(int(it.line)):
+			wanted.append(int(it.line))
 	return wanted
 
 # §6: the POPPABLE asked tiers per pool line — {line -> [tiers]} that some active quest wants AND
@@ -78,14 +80,16 @@ static func wanted_lines(pool: Array, quests: Array) -> Array:
 static func wanted_tiers(pool: Array, quests: Array) -> Dictionary:
 	var out: Dictionary = {}
 	for q in quests:
-		for ask in G.quest_asks(q):
-			var li := int(ask.line)
-			var t := int(ask.tier)
-			if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
-				if not out.has(li):
-					out[li] = []
-				if not out[li].has(t):
-					out[li].append(t)
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var li := int(it.line)
+		var t := int(it.tier)
+		if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
+			if not out.has(li):
+				out[li] = []
+			if not out[li].has(t):
+				out[li].append(t)
 	return out
 
 # The spawn roll: a landing cell (one of the few nearest the generator, then random) and a code
@@ -132,9 +136,9 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 static func rolls_coin_drop(produced: int, rng: RandomNumberGenerator) -> bool:
 	return not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE
 
-# A quest delivers all-or-nothing: every ask must be fully present on the board.
-static func quest_payable(board: BoardModel, asks: Array) -> bool:
-	for ask in asks:
-		if board.count_of(int(ask.line) * 100 + int(ask.tier)) < int(ask.count):
-			return false
-	return true
+# A quest delivers all-or-nothing: the single asked item must be present on the board.
+static func quest_payable(board: BoardModel, q: Dictionary) -> bool:
+	var it := G.quest_item(q)
+	if it.is_empty():
+		return true
+	return board.count_of(int(it.line) * 100 + int(it.tier)) >= 1

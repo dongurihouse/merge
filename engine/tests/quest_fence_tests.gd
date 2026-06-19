@@ -1,8 +1,8 @@
 extends SceneTree
 ## Headless tests for core/quests.gd — the §7 fence-COMPOSITION layer that sits above
-## the quest engine in content.gd (G.gen_quest / gate_quest / active_giver_count). board.gd's
-## instance methods (_quest_map/_refill_quests/_gate_pending/…) are thin Save-reading wrappers
-## over these pure statics, so the fence decision is testable with no scene/window/Save.
+## the quest engine in content.gd (G.gen_quest / active_giver_count). board.gd's instance
+## methods (_quest_map/_refill_quests/…) are thin Save-reading wrappers over these pure
+## statics, so the fence decision is testable with no scene/window/Save.
 ##   godot --headless --path . -s res://engine/tests/quest_fence_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -34,9 +34,6 @@ func _initialize() -> void:
 	ok(Quests.current_map({}, []) == 0, "a fresh game's frontier is map 0")
 	ok(not Quests.map_done({}, []), "a fresh game is not map-done (a frontier exists)")
 
-	# --- gate_pending: map 0 is not spot-complete on a fresh game → no gate yet ---
-	ok(not Quests.gate_pending(0, {}, []), "map 0's gate is not pending until its spots are restored")
-
 	# --- gate_ready: 0★ can't afford the next spot; a huge bank can (stars are the only gate) ---
 	ok(not Quests.gate_ready(0, 0, {}), "0★ → the next unlock is not affordable (not ready)")
 	ok(Quests.gate_ready(0, 999999, {}), "a huge ★ bank can afford the next spot (ready)")
@@ -46,31 +43,36 @@ func _initialize() -> void:
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
 	ok(Quests.meter_target(0, 0, {}) >= Quests.meter_target(0, 100000, {}), "the fence shrinks monotonically as ★ bank toward the unlock")
 
-	# --- pending_grant_quests: map 0 (first map) has no predecessor generators to hand in ---
-	ok(Quests.pending_grant_quests(0, {}).is_empty(), "the first map has no pending generator-grant hand-ins")
+	# --- owned_gens: the union of board generators and gen_bag ids ---
+	ok(str(Quests.owned_gens({Vector2i(0, 0): "a", Vector2i(1, 1): "b"}, ["c"])) == str(["a", "b", "c"]), "owned_gens unions board generators and the gen_bag")
 
-	# --- refill: the normal stream fills to the metered target with non-gate quests ---
+	# --- stars_remaining: the unowned spot costs minus the banked stars, floored at 0 ---
+	var z0_left := G.map_stars_left(0, {})
+	ok(Quests.stars_remaining(0, {}, 0) == z0_left, "stars_remaining with 0 banked = the map's total unowned spot cost")
+	ok(Quests.stars_remaining(0, {}, 999999) == 0, "stars_remaining floors at 0 once banked covers the spots")
+
+	# --- refill: the normal stream fills to the metered target with non-gate/grant quests ---
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
-	var r := Quests.refill([], 0, {}, [], {}, 0, 1, rng)
+	var r := Quests.refill([], 0, {}, [], {}, [], 0, 1, rng)
 	ok(r.size() == tgt, "refill fills an empty fence to exactly the metered target (%d)" % tgt)
-	var no_gate := true
+	var no_special := true
 	for q in r:
-		if bool(q.get("gate", false)):
-			no_gate = false
-	ok(no_gate, "the normal stream carries no gate quest")
+		if bool(q.get("gate", false)) or q.has("grant"):
+			no_special = false
+	ok(no_special, "the normal stream carries no gate or grant quest")
 
 	# --- refill is deterministic for a given seed (the rng is seeded + persisted; order is load-bearing) ---
 	var rA := RandomNumberGenerator.new(); rA.seed = 7
 	var rB := RandomNumberGenerator.new(); rB.seed = 7
-	ok(str(Quests.refill([], 0, {}, [], {}, 0, 1, rA)) == str(Quests.refill([], 0, {}, [], {}, 0, 1, rB)), "refill is deterministic for a given seed")
+	ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 1, rA)) == str(Quests.refill([], 0, {}, [], {}, [], 0, 1, rB)), "refill is deterministic for a given seed")
 
 	# --- refill trims an over-full fence back down to the target ---
 	var over: Array = []
 	for _i in tgt + 3:
-		over.append({"asks": [], "reward": {"stars": 1, "coins": 0}})
+		over.append({"line": 1, "tier": 1, "reward": {"stars": 1, "coins": 0}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
-	ok(Quests.refill(over, 0, {}, [], {}, 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
+	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
 
 	# --- ladder_entries: one row per tier, code = line*100+tier, seen flagged from the save's `seen` set ---
 	var lad := Quests.ladder_entries({}, 1)
@@ -80,24 +82,42 @@ func _initialize() -> void:
 	ok(bool(Quests.ladder_entries({"101": true}, 1)[0].seen), "a code in the `seen` set marks that tier seen")
 	ok(not bool(Quests.ladder_entries({"101": true}, 1)[1].seen), "an unseen tier stays unseen")
 
-	# --- §6/§7 generator-grant SCHEDULING: a new map opens with its hand-in and surfaces extra
-	# --- grants ONE AT A TIME (spread through the map), the regular stream filling the slots
-	# --- between — NOT all grants at once. Map index 2 (Pond) has two hand-ins in the live roster
-	# --- (reed_bed←hen_coop, creel←dairy_stall). ---
-	var z2_gens := {Vector2i(2, 1): "hen_coop", Vector2i(6, 5): "dairy_stall"}
-	ok(Quests.pending_grant_quests(2, z2_gens).size() == 2, "fixture: map 2 has two pending generator-grant hand-ins")
+	# --- the NEAR-END generator grant: while finishing map z, when the stars still needed to restore
+	# --- its remaining spots ≤ GEN_GRANT_REMAINING_STARS AND map z+1's generators aren't yet owned,
+	# --- EXACTLY ONE ordinary quest carries reward.generators (the next map's unowned tools → gen_bag).
+	# --- No gate/grant quest type — it rides an ordinary quest. Scenario: all of map 0's spots bought
+	# --- except the last (cost 5), so one spot remains and a non-empty metered fence still exists.
+	var ne_ul := {}
+	for i in G.MAPS[0].spots.size() - 1:
+		ne_ul[String(G.MAPS[0].spots[i].id)] = true
 	var rngz := RandomNumberGenerator.new(); rngz.seed = 11
-	var fence2 := Quests.refill([], 2, {}, [], z2_gens, 0, 99, rngz)
-	ok(fence2.filter(func(q): return q.has("grant")).size() == 1, "only ONE generator-grant shows at a time (the rest spread through the map)")
-	ok(fence2.size() >= 1 and bool(fence2[0].has("grant")), "the map's first stand is the generator-grant hand-in")
-	var tgt2 := Quests.meter_target(2, 0, {})
-	if tgt2 >= 2:
-		ok(fence2.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))).size() >= 1, "the regular generated stream fills the slots between hand-ins")
-		ok(fence2.size() == tgt2, "the fence still meters to the soft-gate target (lead grant + regular = target)")
-	# handing the lead grant in (hen_coop → reed_bed) surfaces the NEXT grant (creel) — spread.
-	var z2_after := {Vector2i(2, 1): "reed_bed", Vector2i(6, 5): "dairy_stall"}
-	var lead_after := Quests.refill([], 2, {}, [], z2_after, 0, 99, RandomNumberGenerator.new()).filter(func(q): return q.has("grant"))
-	ok(lead_after.size() == 1 and String(lead_after[0].grant.grants) == "creel", "after the first hand-in, the NEXT grant (creel) surfaces")
+	var nfence := Quests.refill([], 0, ne_ul, [], {}, [], 1, 6, rngz)
+	ok(Quests.stars_remaining(0, ne_ul, 1) <= int(G.GEN_GRANT_REMAINING_STARS), "the scenario is near-end (stars_remaining ≤ GEN_GRANT_REMAINING_STARS)")
+	ok(not nfence.is_empty(), "the metered fence is still non-empty near the end (a quest can carry the grant)")
+	var carriers := nfence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators"))
+	ok(carriers.size() == 1, "EXACTLY one quest carries reward.generators near the end of the map")
+	ok(str(carriers[0].reward.generators) == str(G.gens_to_grant(G.GENERATORS, 0, [])), "the carried generators are map 1's unowned ids (hen_coop + dairy_stall)")
+	var no_special2 := true
+	for q in nfence:
+		if bool(q.get("gate", false)) or q.has("grant"):
+			no_special2 = false
+	ok(no_special2, "the near-end fence is ordinary quests — no gate/grant quest type")
+
+	# --- idempotent: a later refill with the carrier already present never duplicates onto a second quest ---
+	var refilled := Quests.refill(nfence, 0, ne_ul, [], {}, [], 1, 6, RandomNumberGenerator.new())
+	ok(refilled.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).size() == 1, "a later refill keeps exactly one generator-carrying quest (no duplication)")
+
+	# --- once owned (in the gen_bag), the grant stops surfacing ---
+	var owned_fence := Quests.refill([], 0, ne_ul, [], {}, ["hen_coop", "dairy_stall"], 1, 6, RandomNumberGenerator.new())
+	ok(owned_fence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "no quest carries the grant once both next-map generators are owned (in gen_bag)")
+
+	# --- the final map grants nothing (no next map) ---
+	var last := G.MAPS.size() - 1
+	var last_ul := {}
+	for i in G.MAPS[last].spots.size() - 1:
+		last_ul[String(G.MAPS[last].spots[i].id)] = true
+	var last_fence := Quests.refill([], last, last_ul, [], {}, [], 1, 6, RandomNumberGenerator.new())
+	ok(last_fence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the final map's near-end quests carry no generator grant (nothing to grant)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

@@ -17,8 +17,10 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/grove/tools/grove_sim.gd -- [days] [seed]
 ##
 ## Quests are GENERATED (G.gen_quest), metered to the next unlock (G.active_giver_count),
-## paying G.quest_reward (stars-first, coins-overflow). A map ends with the authored
-## great-spirit GATE quest (G.gate_quest, top-tier) → unlock the next map + grant its lines.
+## a FLAT single item paying G.quest_reward (capped ★, coin overflow, premium 💎 at high
+## level). There is NO gate quest: a map completes when all its SPOTS are bought (spots-done),
+## which unlocks the next map + seeds its generators (the next map's tool rides on a near-end
+## quest's reward.generators in real play; the sim seeds gens on advance for the economy flow).
 ##
 ## §1 POPULATION (the new post-hub economy): a COMPLETED map opens its resident roster. The
 ## bot WELCOMES residents — coins (RESIDENT_BASE_COST) buy core/non-premium, diamonds
@@ -35,8 +37,8 @@ var rng := RandomNumberGenerator.new()
 var board: BoardModel
 var unlocks := {}              # spot id -> true (bought)
 var map := 0                  # the map currently being restored
-var gates_done := {}           # map -> true (its great-spirit gate quest delivered)
-var live_quests: Array = []    # the active fence — generated regular quests, or the lone gate quest
+var gates_done := {}           # map -> true (its spots fully bought → map completed, roster open)
+var live_quests: Array = []    # the active fence — generated flat regular quests, metered to the next unlock
 
 var stars := 0                 # spendable ★ balance
 var stars_earned := 0          # cumulative ★ EARNED — drives the uncapped Level
@@ -62,6 +64,7 @@ var diamonds := 0              # spendable 💎 balance (faucet minus the premiu
 var gems_from_levels := 0      # 💎 from level-ups (LEVEL_DIAMONDS each)
 var gems_from_maps := 0        # 💎 from fully restoring a map (MAP_DIAMONDS each)
 var gems_from_sells := 0       # 💎 from selling t8 pinnacles (the flat 1💎 each)
+var gems_from_quests := 0      # 💎 from premium/featured quest rewards (reward.gems)
 # the coin faucet measured ONCE the FIRST map completes (drives the P1 late-game no-pile check) —
 # coins earned AFTER population opens must have somewhere to go.
 var coins_at_first_complete := -1   # cumulative coin INTAKE the moment the first map completed (-1 = not yet)
@@ -104,14 +107,14 @@ func _initialize() -> void:
 			d_water += r.water
 		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
-		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · gates %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
+		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · maps-done %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
 			[day + 1, d_water, d_stars, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
 
 	maps_done = mini(map, G.MAPS.size())
 	print("\n== results ==")
 	print("  maps restored: %d/%d%s" % [maps_done, G.MAPS.size(),
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
-	print("  spots bought: %d/40 · gates delivered: %d · level %d (★ earned %d)" % \
+	print("  spots bought: %d/40 · maps completed: %d · level %d (★ earned %d)" % \
 		[unlocks.size(), gates_reached, G.level_for_stars(stars_earned), stars_earned])
 	print("  merchant sells: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
@@ -126,12 +129,14 @@ func _initialize() -> void:
 		print("  PASS I1: zero jams")
 
 	# --- no-strand: gen_quest only ever asks LIVE lines (producible) and the board never jams,
-	# so the bot can always earn ★ → level → unlock. A gate still pending at run end is a RUNWAY
-	# signal (the top-tier grind is long), not a strand. ---
+	# so the bot can always earn ★ → level → unlock → buy spots. A map left partly bought at run
+	# end is a RUNWAY signal (the restoration grind is long), not a strand. ---
 	if jams == 0:
 		print("  PASS no-strand: producible asks + a never-jammed board — the bot can always progress")
-	if map < G.MAPS.size() and _gate_pending():
-		print("  -- note: map %d's gate was still pending at run end (top-tier grind unfinished in the window) --" % (map + 1))
+	if map < G.MAPS.size():
+		var rem := _map_next_spot(map)
+		if int(rem[0]) > 0:
+			print("  -- note: map %d still had spots to buy at run end (restoration unfinished in the window) --" % (map + 1))
 
 	# --- I2: per-map level-up water gift < ratio of that map's spend. The <30% anti-self-sustain
 	# rule is a STEADY-STATE / late-game guardrail. Early maps (1-2) intentionally front-load water
@@ -165,7 +170,7 @@ func _initialize() -> void:
 		print("  -- I3 runway: %d/%d maps in %d days (full restoration is a long arc, §3) --" % [maps_done, G.MAPS.size(), days])
 
 	# --- Y: selling is cleanup, never income (sell-coins only) + the water↔💎 round trip ---
-	var gems_earned := gems_from_levels + gems_from_maps + gems_from_sells
+	var gems_earned := gems_from_levels + gems_from_maps + gems_from_sells + gems_from_quests
 	var total_water := 0
 	for z in map_spend:
 		total_water += int(map_spend[z])
@@ -196,8 +201,8 @@ func _initialize() -> void:
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
 	# (RESIDENT_PREMIUM_COST each). REPORTED as a ledger — the premium sink is gated behind completing
 	# a map, so an early/short run may show 0 spend (the faucet leads the sink, by design). ---
-	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
-		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, resident_gems_spent, residents_premium, diamonds])
+	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
+		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
 
 	# --- P: the POPULATION invariants (NEW — the old §8 hub keystone is deleted, not re-runnable).
 	# The residents loop is the post-completion economy, so the two failure modes it must avoid are:
@@ -366,28 +371,25 @@ func _map_next_spot(z: int) -> Array:
 func _map_all_bought(z: int) -> bool:
 	return _map_next_spot(z)[0] == -1
 
-func _gate_pending() -> bool:
+# The current map's spots are all bought but it hasn't yet been marked completed — the
+# spots-done trigger that fires map completion (diamond gift + advance) in the main loop.
+func _spots_done_pending() -> bool:
 	return map < G.MAPS.size() and _map_all_bought(map) and not gates_done.has(map)
 
-# Refill the fence: the lone gate quest when the map is complete, else generated regulars
-# metered to the next unlock.
+# Refill the fence: flat generated regular quests metered to the next unlock (no gate quest).
 func _refill_quests() -> void:
 	if map >= G.MAPS.size():
 		live_quests = []
 		return
-	if _gate_pending():
-		if live_quests.size() != 1 or not bool(live_quests[0].get("gate", false)):
-			live_quests = [G.gate_quest(G.GENERATORS, map, rng)]
-		return
-	live_quests = live_quests.filter(func(q): return not bool(q.get("gate", false)))
 	var want := G.active_giver_count(stars, _map_next_spot(map)[0])
 	while live_quests.size() < want:
-		# mirror quests.gd refill: steer each new single-ask stand off the lines already on the
+		# mirror quests.gd refill: steer each new single-item stand off the lines already on the
 		# fence so the sim validates the real anti-monotony line-diversity behaviour.
 		var avoid: Array = []
 		for q in live_quests:
-			for a in q.asks:
-				avoid.append(int(a.line))
+			var it := G.quest_item(q)
+			if not it.is_empty():
+				avoid.append(int(it.line))
 		live_quests.append(G.gen_quest(_level(), _live_lines(), rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()
@@ -395,9 +397,9 @@ func _refill_quests() -> void:
 func _wanted_lines() -> Array:
 	var out: Array = []
 	for q in live_quests:
-		for a in q.asks:
-			if not out.has(int(a.line)):
-				out.append(int(a.line))
+		var it := G.quest_item(q)
+		if not it.is_empty() and not out.has(int(it.line)):
+			out.append(int(it.line))
 	return out
 
 # §6 mirror of BoardLogic.wanted_tiers: the poppable asked tiers per pool line — so the sim's
@@ -405,21 +407,21 @@ func _wanted_lines() -> Array:
 func _wanted_tiers(pool: Array) -> Dictionary:
 	var out: Dictionary = {}
 	for q in live_quests:
-		for a in q.asks:
-			var li := int(a.line)
-			var t := int(a.tier)
-			if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
-				if not out.has(li):
-					out[li] = []
-				if not out[li].has(t):
-					out[li].append(t)
+		var it := G.quest_item(q)
+		if it.is_empty():
+			continue
+		var li := int(it.line)
+		var t := int(it.tier)
+		if pool.has(li) and t >= 1 and t <= G.TIER_ODDS.size():
+			if not out.has(li):
+				out[li] = []
+			if not out[li].has(t):
+				out[li].append(t)
 	return out
 
 func _payable(q: Dictionary) -> bool:
-	for a in q.asks:
-		if board.count_of(int(a.line) * 100 + int(a.tier)) < int(a.count):
-			return false
-	return true
+	var it := G.quest_item(q)
+	return board.count_of(int(it.line) * 100 + int(it.tier)) >= 1
 
 func _play_session() -> Dictionary:
 	var s_stars := 0
@@ -430,15 +432,33 @@ func _play_session() -> Dictionary:
 		open_low_mark = mini(open_low_mark, board.empty_ground_cells().size())
 		_refill_quests()
 
-		# 1. deliver any payable quest (regular or the gate); the gate advances the map
+		# 0. SPOTS-DONE map completion: a map ends when all its spots are bought (no gate quest).
+		# This is the diamond-gift + advance trigger the old gate-quest delivery used to fire.
+		if _spots_done_pending():
+			gates_done[map] = true
+			gates_reached += 1
+			# §1 diamond FAUCET: fully restoring a map gifts MAP_DIAMONDS.
+			diamonds += G.MAP_DIAMONDS
+			gems_from_maps += G.MAP_DIAMONDS
+			# P1/P2 seam: the FIRST completion is where population OPENS — snapshot the coin
+			# faucet/sink so the late-game no-pile (P1) check measures the post-population window.
+			if first_complete_day < 0:
+				first_complete_day = _cur_day + 1
+				coins_at_first_complete = coins_earned       # cumulative INTAKE, not the drained balance
+				balance_at_first_complete = coins            # the held pile pre-population (for P2)
+				resident_spend_at_first_complete = resident_coins_spent
+			map += 1                              # unlock + grant the next map's generators
+			if map < G.MAPS.size():
+				board.seed_gens(map)
+			continue
+
+		# 1. deliver any payable regular quest — pay its reward, then erase it from the fence.
 		var delivered := false
 		for q in live_quests:
 			if not _payable(q):
 				continue
-			for a in q.asks:
-				var code := int(a.line) * 100 + int(a.tier)
-				for _k in int(a.count):
-					board.take(board.first_item_of(code))
+			var it := G.quest_item(q)
+			board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
 			var rw: Dictionary = q.reward
 			var sp_stars := int(rw.stars)
 			stars += sp_stars
@@ -446,6 +466,11 @@ func _play_session() -> Dictionary:
 			coins += int(rw.coins)
 			coins_earned += int(rw.coins)
 			quest_coins += int(rw.coins)
+			# §7 premium: a high-level / featured quest may also pay 💎 (faucet).
+			var sp_gems := int(rw.get("gems", 0))
+			if sp_gems > 0:
+				diamonds += sp_gems
+				gems_from_quests += sp_gems
 			var lvl_b := _level()
 			stars_earned += sp_stars
 			if _level() > lvl_b:
@@ -456,24 +481,7 @@ func _play_session() -> Dictionary:
 				# §1 diamond FAUCET: each level gained gifts LEVEL_DIAMONDS (mirrors earn_stars).
 				diamonds += G.LEVEL_DIAMONDS * up
 				gems_from_levels += G.LEVEL_DIAMONDS * up
-			if bool(q.get("gate", false)):
-				gates_done[map] = true
-				gates_reached += 1
-				# §1 diamond FAUCET: fully restoring a map (its gate delivered) gifts MAP_DIAMONDS.
-				diamonds += G.MAP_DIAMONDS
-				gems_from_maps += G.MAP_DIAMONDS
-				# P1/P2 seam: the FIRST completion is where population OPENS — snapshot the coin
-				# faucet/sink so the late-game no-pile (P1) check measures the post-population window.
-				if first_complete_day < 0:
-					first_complete_day = _cur_day + 1
-					coins_at_first_complete = coins_earned       # cumulative INTAKE, not the drained balance
-					balance_at_first_complete = coins            # the held pile pre-population (for P2)
-					resident_spend_at_first_complete = resident_coins_spent
-				map += 1                              # unlock + grant the next map's generators
-				if map < G.MAPS.size():
-					board.seed_gens(map)
-			else:
-				live_quests.erase(q)
+			live_quests.erase(q)
 			delivered = true
 			break
 		if delivered:
@@ -507,27 +515,27 @@ func _play_session() -> Dictionary:
 				_welcome(int(pw.z), pw.def)
 				continue
 
-		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied)
-		if map < G.MAPS.size() and not _gate_pending():
+		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied).
+		# Buying the LAST spot makes the map spots-done — step 0 fires completion next iteration.
+		if map < G.MAPS.size():
 			var ns := _map_next_spot(map)
 			if int(ns[0]) > 0 and stars >= int(ns[0]):
 				stars -= int(ns[0])
 				unlocks[String(ns[1])] = true
 				continue
 
-		# 3. sell tops for coins — but HOLD them when the gate is pending (save top-tier for the gate)
-		if not _gate_pending():
-			var tops := board.top_tier_cells()
-			if not tops.is_empty():
-				var rw := G.sell_reward(board.item_at(tops[0]))
-				board.take(tops[0])
-				coins += rw.x
-				coins_earned += rw.x
-				sell_coins += rw.x
-				diamonds += rw.y                  # t8 pinnacle pays a flat 1💎 (the §1 diamond faucet)
-				gems_from_sells += rw.y
-				merchant_sells += 1
-				continue
+		# 3. sell tops for coins (no gate to hoard top-tier for now — selling is pure cleanup/coins)
+		var tops := board.top_tier_cells()
+		if not tops.is_empty():
+			var rw := G.sell_reward(board.item_at(tops[0]))
+			board.take(tops[0])
+			coins += rw.x
+			coins_earned += rw.x
+			sell_coins += rw.x
+			diamonds += rw.y                  # t8 pinnacle pays a flat 1💎 (the §1 diamond faucet)
+			gems_from_sells += rw.y
+			merchant_sells += 1
+			continue
 
 		# 4. collect coins
 		var coin_cell := _first_coin()

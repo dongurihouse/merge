@@ -15,6 +15,7 @@ const D = Game.DATA
 const COLS = D.COLS
 const ROWS = D.ROWS
 const TOP_TIER = D.TOP_TIER
+const PREMIUM_TIER = D.PREMIUM_TIER
 const LINES = D.LINES
 const GENERATORS = D.GENERATORS
 const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator regardless of appear_level"
@@ -24,10 +25,10 @@ const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const STAR_CAP = D.STAR_CAP
-const CLICK_TO_VALUE = D.CLICK_TO_VALUE
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
-const QUEST_2COUNT_RATE = D.QUEST_2COUNT_RATE
+const QUEST_PREMIUM_MIN_LEVEL = D.QUEST_PREMIUM_MIN_LEVEL
+const QUEST_PREMIUM_GEMS = D.QUEST_PREMIUM_GEMS
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_REPEAT_PENALTY = D.QUEST_REPEAT_PENALTY
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
@@ -37,10 +38,7 @@ const QUEST_FEATURED_GEM_BONUS = D.QUEST_FEATURED_GEM_BONUS
 const QUEST_DEBUT_TIER_CAP = D.QUEST_DEBUT_TIER_CAP
 const MAX_GIVERS = D.MAX_GIVERS
 const STARS_PER_QUEST_EST = D.STARS_PER_QUEST_EST
-const GATE_ASK_COUNT = D.GATE_ASK_COUNT
-const GATE_STARS = D.GATE_STARS
-const GATE_COIN_BONUS = D.GATE_COIN_BONUS
-const GATE_TIER_BASE = D.GATE_TIER_BASE
+const GEN_GRANT_REMAINING_STARS = D.GEN_GRANT_REMAINING_STARS
 const BURST_ODDS = D.BURST_ODDS
 const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
@@ -92,12 +90,13 @@ static func next_bag_slot_price(owned: int) -> int:
 	return int(BAG_SLOT_PRICES[bought])
 
 # --- generators ------------------------------------------------------------------
-# --- per-map generator roster (the generator-grant hand-in model, §6) ------------
-# A roster is an Array of {id, map, lines:[a,b], grant_from}. grant_from = the id of
-# the previous-map generator you HAND IN (to a generator-grant quest) to receive this
-# one — old lines retire; "" = granted outright (a map's surplus, or map 0's starters).
-# Generators never merge to evolve (that mechanic is retired). Pure derivation — the
-# live code passes GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
+# --- per-map generator roster (§6) -----------------------------------------------
+# A roster is an Array of {id, map, lines:[a,b], cell}. Each generator persists at its
+# own authored cell; the next map's generator is granted by a near-end quest (its
+# `reward.generators`) into the gen_bag, never handed in. (`grant_from` is now inert
+# legacy data, retained on the defs for the deferred roster re-author.) Generators never
+# merge to evolve (that mechanic is retired). Pure derivation — the live code passes
+# GENERATORS; tests pass a fixture. Replaces appears_at accumulation.
 # `level` gates generators that GROW IN later (a def's `appear_level`, default 0 = live at
 # start): a generator whose appear_level exceeds the player's Level is not yet on the map, so
 # it is excluded from placement (live_gen_state) AND from the askable lines (askable_lines) —
@@ -111,7 +110,7 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 	return out
 
 ## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
-## lines have retired, §6). The current map's quests + gate draw only from these.
+## lines have retired, §6). The current map's quests draw only from these.
 static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
 	for g in generators_for_map(roster, map, level):
@@ -120,31 +119,13 @@ static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> A
 				out.append(int(l))
 	return out
 
-## The ANCHOR lines (§6's anchor-line exemption): the union of the lines of every generator
-## flagged `anchor: true`, from any map. An anchor generator is NEVER handed in — it
-## permanently holds one of the live slots — so its lines stay LIVE and ASKABLE for the life
-## of the save, even past the map they debuted in. Game-agnostic: the flag is read off the
-## roster def (a game designates at most one anchor; this unions all that are flagged). Sorted.
-static func anchor_lines(roster: Array) -> Array:
-	var out: Array = []
-	for g in roster:
-		if bool(g.get("anchor", false)):
-			for l in g.get("lines", []):
-				if not out.has(int(l)):
-					out.append(int(l))
-	out.sort()
-	return out
-
-## The lines a regular quest may ASK while the player is in `map` (§6/§7): the current map's
-## live lines (`lines_for_map`) UNIONED with the anchor lines, deduped. Non-anchor earlier-map
-## lines stay EXCLUDED (they retired) — only the anchor is exempt, so its lines remain askable
-## past their debut map (fixing the dead-anchor bug). At map 0 the anchor is already in the
-## roster, so the union is a no-op there. Sorted.
+## The lines a regular quest may ASK while the player is in `map`: the current map's live lines
+## only (`lines_for_map`), sorted. Old-map lines aren't quested — the newest-line bias keeps the
+## fence on recent content; old generators stay usable for selling + the collection ladder.
+## `level` gates a not-yet-grown generator's lines out (so the fence never asks for what nothing
+## can produce yet).
 static func askable_lines(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = lines_for_map(roster, map, level)
-	for l in anchor_lines(roster):
-		if not out.has(int(l)):
-			out.append(int(l))
 	out.sort()
 	return out
 
@@ -159,33 +140,17 @@ static func retired_lines(roster: Array, map: int) -> Array:
 				out.append(int(l))
 	return out
 
-## The grant lineage: {grant_id -> handed_in_predecessor_id} for every generator that
-## arrives by handing an older one in. Surplus (granted-outright) generators are absent.
-static func grant_map(roster: Array) -> Dictionary:
-	var out: Dictionary = {}
-	for g in roster:
-		if String(g.grant_from) != "":
-			out[String(g.id)] = String(g.grant_from)
-	return out
-
-## The ids of a map's generators that are granted OUTRIGHT (no predecessor to hand in).
-static func surplus_gen_ids(roster: Array, map: int) -> Array:
+## The generator ids that map `map`'s near-end quest should grant: the NEXT map's generators not
+## already owned (on the board or in the gen_bag). Empty on the final map or once all are owned.
+## Generators now PERSIST (never handed in) — the next map's tool rides on an ordinary near-end
+## quest's `reward.generators` and lands in the gen_bag; the player drags it out on the next map.
+static func gens_to_grant(roster: Array, map: int, owned: Array) -> Array:
 	var out: Array = []
-	for g in generators_for_map(roster, map):
-		if String(g.grant_from) == "":
+	if map + 1 >= MAPS.size():
+		return out
+	for g in generators_for_map(roster, map + 1):
+		if not owned.has(String(g.id)):
 			out.append(String(g.id))
-	return out
-
-## The authored generator-grant quests that open `map` (§6/§7): one per hand-in
-## generator (those with a predecessor). Each `{asks:[], grant:{hand_in, grants}, stars}`
-## asks for no items — it hands the predecessor generator in and grants the new one.
-## Surpluses are granted outright (absent here). §7 schedules these into the live quest
-## script; the interim path still auto-seeds the full set on map entry (live_gen_state).
-static func grant_quests_for_map(roster: Array, map: int) -> Array:
-	var out: Array = []
-	for g in generators_for_map(roster, map):
-		if String(g.grant_from) != "":
-			out.append({"asks": [], "grant": {"hand_in": String(g.grant_from), "grants": String(g.id)}, "stars": 1})
 	return out
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
@@ -210,8 +175,7 @@ static func map_for_code(code: int) -> int:
 	return map_for_line(int(code / 100.0))
 
 ## The lines currently LIVE = the union of the lines of every generator on the board.
-## `gen_state` maps cell (Vector2i) -> generator id. Sorted, deduped. A line drops out
-## of this set the moment its generator is handed in for a grant — that IS retirement.
+## `gen_state` maps cell (Vector2i) -> generator id. Sorted, deduped.
 static func gen_live_lines(gen_state: Dictionary, roster: Array) -> Array:
 	var out: Array = []
 	for cell in gen_state:
@@ -221,41 +185,13 @@ static func gen_live_lines(gen_state: Dictionary, roster: Array) -> Array:
 	out.sort()
 	return out
 
-## A generator may be GRANTED iff its handed-in predecessor (`grant_from`) is currently
-## live somewhere in `gen_state`. A surplus grant ("") is never a hand-in — it is placed
-## outright instead (live_gen_state / seed).
-static func gen_can_grant(gen_state: Dictionary, roster: Array, grant_id: String) -> bool:
-	var grant := gen_def(roster, grant_id)
-	if grant.is_empty() or String(grant.grant_from) == "":
-		return false
-	return gen_state.values().has(String(grant.grant_from))
-
-## Grant the hand-in: the new generator takes the cell of the predecessor it is handed in
-## for — old consumed, new installed at its CURRENT cell (so a moved generator is handled),
-## old lines retire, the grant's go live (§6). Returns a NEW state (the input is left
-## untouched); an invalid grant is a no-op. The caller flags the retired lines for the
-## Collection (a separate task).
-static func gen_grant(gen_state: Dictionary, roster: Array, grant_id: String) -> Dictionary:
-	var out: Dictionary = gen_state.duplicate(true)
-	if gen_can_grant(gen_state, roster, grant_id):
-		var pred := String(gen_def(roster, grant_id).grant_from)
-		for cell in out.keys():
-			if String(out[cell]) == pred:
-				out[cell] = grant_id
-				break
-	return out
-
-## The cell a generator occupies — its own `cell` if granted outright, else (a hand-in
-## grant) the cell of the predecessor it is granted for, walked up the lineage to the root.
+## The cell a generator occupies — its own authored `cell`. Generators persist (no hand-in
+## lineage), so each def carries the cell it lives on.
 static func gen_cell_of(roster: Array, id: String) -> Vector2i:
-	var g := gen_def(roster, id)
-	while not g.is_empty() and String(g.grant_from) != "":
-		g = gen_def(roster, String(g.grant_from))
-	return g.get("cell", Vector2i(-1, -1))
+	return gen_def(roster, id).get("cell", Vector2i(-1, -1))
 
-## The live generator set for a map: {cell -> id} for each of the map's generators,
-## hand-in grants inheriting their lineage cell. The interim "grant on map entry" resolver
-## — §7's grant quests will drive the same end state one hand-in at a time.
+## The live generator set for a map: {cell -> id} for each of the map's generators at their
+## own authored cells. Seeds the board's generators (seed_gens) and backs the sim/shot tools.
 static func live_gen_state(roster: Array, map: int, level: int = APPEAR_ALL) -> Dictionary:
 	var out: Dictionary = {}
 	for g in generators_for_map(roster, map, level):
@@ -287,35 +223,20 @@ static func bramble_contents(cell: Vector2i) -> int:
 	var tier := 1 + (cell.x * 3 + cell.y) % 2     # t1 or t2
 	return line * 100 + tier
 
-static func quest_asks(q: Dictionary) -> Array:
-	if q.has("asks"):
-		return q.asks
-	return [{"line": int(q.line), "tier": int(q.tier), "count": int(q.get("count", 1))}]
+static func quest_item(q: Dictionary) -> Dictionary:
+	if q.has("line"):
+		return {"line": int(q.line), "tier": int(q.tier)}
+	if q.has("asks") and not q.asks.is_empty():   # tolerate a stale pre-change save
+		return {"line": int(q.asks[0].line), "tier": int(q.asks[0].tier)}
+	return {}
 
-# --- §7 generated-quest reward: stars-first (capped), coins absorb the overflow ----
-## The avg t1-equivalent VALUE one generator pop yields, given the tier-decay pop odds:
-## a pop lands at tier i+1 (worth 2^i t1-equivalents) with TIER_ODDS[i]. ≈1.59 today.
-static func avg_pop_value() -> float:
-	var v := 0.0
-	for i in TIER_ODDS.size():
-		v += float(TIER_ODDS[i]) * pow(2.0, i)
-	return v
-
-## Expected generator-clicks (pops) to PRODUCE a quest's asks (§7): the asks' total worth in
-## t1-equivalents (Σ count × 2^(tier-1)) over the avg value a pop yields (TIER_ODDS-adjusted).
-static func quest_expected_clicks(asks: Array) -> float:
-	var raw := 0.0
-	for a in asks:
-		raw += float(int(a.count)) * pow(2.0, int(a.tier) - 1)
-	return raw / avg_pop_value()
-
-## The §7 reward {stars, coins}: value = expected_clicks × CLICK_TO_VALUE, paid STARS-FIRST
-## (floored at 1, capped at STAR_CAP so level ∝ quest COUNT, §3) then COINS take the overflow —
-## a deeper ask pays the same ★ but more 🪙, absorbing click-variance. STAR_CAP + CLICK_TO_VALUE
-## are PROVISIONAL game tunables (set by the Monte-Carlo balance pass).
-static func quest_reward(asks: Array) -> Dictionary:
-	var value: int = int(round(quest_expected_clicks(asks) * CLICK_TO_VALUE))
-	return {"stars": clampi(value, 1, STAR_CAP), "coins": maxi(0, value - STAR_CAP)}
+## The level-based reward: capped stars (§3 pacing), the surplus in coins, premium 💎 at high levels.
+## All numbers PROVISIONAL (sim-tuned).
+static func quest_reward(level: int) -> Dictionary:
+	var r := {"stars": clampi(level, 1, STAR_CAP), "coins": maxi(0, level - STAR_CAP)}
+	if level >= QUEST_PREMIUM_MIN_LEVEL:
+		r["gems"] = QUEST_PREMIUM_GEMS
+	return r
 
 ## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
 ## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
@@ -339,26 +260,26 @@ static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator,
 			return int(sorted_lines[i])
 	return int(sorted_lines[sorted_lines.size() - 1])
 
-## Generate a regular quest for a player at `level` from the live lines (§7). A regular quest is a
-## SINGLE ask (one item type, count≥1) — difficulty rises by higher TIER + more FREQUENT quests
-## (level ∝ quest count, §3), not by adding asks; the multi-line "juggle" beat lives on the fence
-## (several distinct single-line stands at once) and in the authored gate quest. The ask is drawn
-## weighted toward the NEWEST/highest-value live line, steered off the lines in `avoid` (those
-## already on the fence) so concurrent stands stay distinct; the map's top tier (t8) is never asked
-## (gate-quest only), and a freshly-debuted line eases in at ≤ QUEST_DEBUT_TIER_CAP. Deterministic
-## given `rng`. Returns {asks, reward, featured}. All numbers are PROVISIONAL (Monte-Carlo pass).
+## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
+## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
+## Picks a line weighted toward the newest/highest-value live line, steered off `avoid` (lines
+## already on the fence) so concurrent stands stay distinct. Tier is sampled in
+## [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
+## TOP_TIER) — so the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling).
+## A freshly-debuted (newest) line eases in at ≤ QUEST_DEBUT_TIER_CAP. Reward is level-based:
+## stars=min(level,3), coins=max(0,level-3), gems at level≥QUEST_PREMIUM_MIN_LEVEL.
+## Deterministic given `rng`. Returns {line, tier, reward, featured}.
+## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
-	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER - 1)
+	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER)
 	var newest: int = int(lines[lines.size() - 1])
 	var li := _weighted_line_pick(lines, rng, avoid)
 	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
 	if li == newest:                                    # the freshest line eases in low
 		tier = mini(tier, QUEST_DEBUT_TIER_CAP)
-	var count := 2 if rng.randf() < QUEST_2COUNT_RATE else 1
-	var asks: Array = [{"line": li, "tier": tier, "count": count}]
-	var reward: Dictionary = quest_reward(asks)
+	var reward: Dictionary = quest_reward(tier)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
 		# the featured bonus is coins/premium, NEVER extra ★ (§7): reward.stars is left untouched
@@ -366,9 +287,9 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
 		if rng.randf() < QUEST_FEATURED_GEM_ODDS:
 			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
-	return {"asks": asks, "reward": reward, "featured": featured}
+	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 soft gate (gate_pause): how many giver stands are active, metered to the NEXT unlock —
+## §7 giver meter: how many giver stands are active, metered to the NEXT unlock —
 ## ≈ ceil((next_cost − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
 ## next unlock is affordable (the fence empties → wordless "go restore"). next_cost == -1
 ## (all spots owned) → 0.
@@ -379,29 +300,6 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 	if need <= 0:
 		return 0
 	return clampi(int(ceil(need / float(STARS_PER_QUEST_EST))), 1, max_givers)
-
-## The authored great-spirit GATE quest that ends map `map` (§6/§7): asks a randomized handful
-## of the map's deep harvest (its richest/newest lines at the gate ceiling = min(GATE_TIER_BASE+map,
-## TOP_TIER)) and, delivered, unlocks the next map for a large authored reward. Deterministic given
-## `rng`. The one quest that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
-static func gate_quest(roster: Array, map: int, rng: RandomNumberGenerator = null) -> Dictionary:
-	var lines: Array = lines_for_map(roster, map)
-	lines.sort()                                       # the richest (newest) lines sit last
-	var n: int = mini(GATE_ASK_COUNT, lines.size())
-	var pick: Array
-	if rng == null:
-		pick = lines.slice(lines.size() - n, lines.size())          # no rng → deterministic richest n
-	else:
-		var pool: Array = lines.duplicate()                         # §7: a RANDOMIZED handful — sample
-		pick = []                                                   # n distinct lines from the map's roster
-		for _i in n:
-			pick.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t9 (map 5), clamps at TOP_TIER
-	var asks: Array = []
-	for li in pick:
-		asks.append({"line": int(li), "tier": gate_t, "count": 1})
-	var coins: int = int(quest_reward(asks).coins) + GATE_COIN_BONUS
-	return {"asks": asks, "gate": true, "stars": GATE_STARS, "reward": {"stars": GATE_STARS, "coins": coins}}
 
 ## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
 ## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every
@@ -441,8 +339,8 @@ static func burst_upgrade_max() -> int:
 # display rebuilds from it (stateless), with NO cap. A map is addressed by int `z`; the data
 # layer keys by map_id (MAPS[z].id). Cost: coins for core/non-premium, diamonds for premium.
 
-## Can the player welcome residents on map `z`? Only on a fully-completed map (spots done +
-## gate delivered) — the same bar as `map_complete`. (Welcoming lives on the finished map.)
+## Can the player welcome residents on map `z`? Only on a fully-completed map (its spots done,
+## recorded in `gates`) — the same bar as `map_complete`. (Welcoming lives on the finished map.)
 static func can_populate(z: int, unlocks: Dictionary, gates: Array) -> bool:
 	return map_complete(z, unlocks, gates)
 
@@ -560,9 +458,9 @@ static func hub_map() -> int:
 			return z
 	return 0
 
-## A map is fully complete when all its spots are restored AND its great-spirit gate quest
-## is delivered (§7) — gate-delivery is tracked in `gates` (map indices). The NEXT map
-## unlocks only on it (the completion chain), not merely on spot-completion.
+## A map is fully complete when all its spots are restored AND that completion is recorded in
+## `gates` (map indices) — the record now sets automatically the moment the map's spots are done
+## (the gate QUEST is retired). The NEXT map unlocks on it (the completion chain).
 static func map_complete(z: int, unlocks: Dictionary, gates: Array) -> bool:
 	return map_spots_done(z, unlocks) and gates.has(z)
 
@@ -634,7 +532,7 @@ static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
 
 # --- sell / economy formulas ------------------------------------------------------
 static func sell_value(code: int) -> int:
-	return maxi(1, code % 100)            # t1=1 … t8=8 coins
+	return maxi(1, code % 100)            # t1=1 … tN=N coins
 
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Every tier below TOP_TIER
 ## pays its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); TOP_TIER
@@ -642,8 +540,8 @@ static func sell_value(code: int) -> int:
 ## reward bands up, never the pinnacle→premium). The band is read off SELL_MAP_BAND by the item's map.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
-	if tier >= TOP_TIER:
-		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded
+	if tier == PREMIUM_TIER:
+		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 
@@ -655,7 +553,7 @@ static func sell_map_band(map: int) -> float:
 	return float(SELL_MAP_BAND[clampi(map, 0, SELL_MAP_BAND.size() - 1)])
 
 static func water_to_earn_diamond() -> int:
-	return int(pow(2, TOP_TIER - 1))
+	return int(pow(2, PREMIUM_TIER - 1))
 static func water_a_diamond_buys() -> int:
 	return int(WATER_CAP / float(REFILL_DIAMOND_COST))
 

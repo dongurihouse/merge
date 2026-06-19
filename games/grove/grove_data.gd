@@ -7,6 +7,7 @@ extends RefCounted
 const COLS := 7
 const ROWS := 9
 const TOP_TIER := 12
+const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled from TOP_TIER
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
 # §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
@@ -119,11 +120,11 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 
 # §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
-const CLICK_TO_VALUE := 1.0               # reward value per expected generator-click (the click→value rate)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 2                # floor of the asked-tier band
-const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
-const QUEST_2COUNT_RATE := 0.2            # chance the single ask wants 2 of the item (vs 1) — the ×N badge
+const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels, up to TOP_TIER
+const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
+const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
 const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
 const QUEST_REPEAT_PENALTY := 0.15        # weight ×factor for a line already on the fence → distinct concurrent stands (anti-monotony, §7)
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
@@ -131,13 +132,10 @@ const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
 const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that ALSO carry a premium (≈3% of all quests)
 const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those — never extra ★ (§7); buys speed, not possibility
 const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
-# §7 soft gate + authored gate quest — PROVISIONAL, sim-tuned.
+# §7 soft gate — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
-const STARS_PER_QUEST_EST := 2            # gate_pause sizing: representative ★/quest for the meter
-const GATE_ASK_COUNT := 3                 # distinct top-tier lines the great-spirit's gate asks
-const GATE_STARS := 5                     # the gate's authored ★ (map-completion beat; off the regular cap)
-const GATE_COIN_BONUS := 100              # plus a large coin bonus over the computed overflow
-const GATE_TIER_BASE := 5                 # gate ceiling = min(GATE_TIER_BASE + map_index, TOP_TIER): t5→t8 over the 5 maps
+const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
+const GEN_GRANT_REMAINING_STARS := 4      # surface the next-generator quest when this few ★ remain to finish the map
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
 # taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,
 # capped on its own at BURST_FREE_MAX) PLUS the player's paid burst-upgrade level added on top — so each

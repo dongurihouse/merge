@@ -365,32 +365,6 @@ static func buy_bag_slot(price: int) -> bool:
 	set_bag_slots(bag_slots() + 1)
 	return true
 
-# --- the gate-unveil pointer (Core §8 — the wordless map→board handoff) ----------
-# Completing a map's spots unveils its great-spirit GATE quest, which now waits on the
-# BOARD as the lone fence stand (§7). That handoff is silent across screens, so the map
-# ARMS this pointer (the just-completed map index) on completion; the board CONSUMES it
-# on its next open — playing a wordless cue toward the gate stand — and clears it. -1 =
-# nothing pending. Persisted in the grove blob so it survives the map→board scene change.
-static func gate_pointer() -> int:
-	return int(grove().get("gate_pointer", -1))
-
-static func set_gate_pointer(map: int) -> void:
-	grove()["gate_pointer"] = map
-	grove_write()
-
-static func clear_gate_pointer() -> void:
-	if grove().has("gate_pointer"):
-		grove().erase("gate_pointer")
-		grove_write()
-
-# Consume the pointer: return the pending map (or -1) and clear it in the same step, so
-# the board's wordless cue fires exactly once per unveil.
-static func take_gate_pointer() -> int:
-	var z := gate_pointer()
-	if z >= 0:
-		clear_gate_pointer()
-	return z
-
 # --- FTUE feature-spotlight seen-state (Core §14 / T28) -------------------------
 # Which staged features have already been spotlit (so a feature is announced exactly
 # ONCE, ever). Lives in the grove blob keyed by feature id; absent on old saves and
