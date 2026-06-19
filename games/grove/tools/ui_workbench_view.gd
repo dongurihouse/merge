@@ -12,11 +12,13 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
+const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["buy", "pill", "card", "dialog"]
+const IDS := ["buy", "pill", "button", "card", "dialog"]
 const CAPTIONS := {
 	"buy": "Buy button — green CTA",
 	"pill": "Cost pill — cream atom",
+	"button": "Button — shared (bg · icon · state)",
 	"card": "Mail card — pill + Claim",
 	"dialog": "Mail dialog — cards",
 }
@@ -24,6 +26,7 @@ const CAPTIONS := {
 const SCHEMA := {
 	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
+	"button": [["font", 12, 40]],                           # bg / icon / enabled are toggles, added below
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
 	"dialog": [                                             # pill size inherits from the Cost pill
 		["width", 360, 720],
@@ -31,17 +34,20 @@ const SCHEMA := {
 		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
 		["close_size", 30, 96], ["close_x", -100, 100], ["close_y", -100, 100],
 		["snap", 1, 40],
+		["entries", 1, 12], ["list_max_h", 0, 900],          # scroll test: rows count + height cap (0 = no cap)
 	],
 }
 
 var _params := {
 	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7},
 	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
+	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
 		"width": 560, "banner_font": 32, "banner_h": 92, "banner_icon": 54,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
+		"entries": 4, "list_max_h": 0,
 	},
 }
 var _selected := "buy"
@@ -56,6 +62,7 @@ var _drag_grab := Vector2.ZERO
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		theme = UiFont.make()
+	_load_settings()
 	_build()
 
 func _build() -> void:
@@ -123,6 +130,13 @@ func _make_element(id: String) -> Control:
 			return Kit.buy_pill(String(p.text), "gem", int(p.font), float(p.icon), float(p.pad_x), float(p.pad_top), float(p.pad_bottom))
 		"pill":
 			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
+		"button":
+			return Kit.pill_button(String(p.text), {
+				"bg": String(p.bg),
+				"icon": ("gem" if bool(p.show_icon) else ""),
+				"enabled": bool(p.enabled),
+				"font": int(p.font),
+			})
 		"card":
 			# pill font/icon INHERIT from the canonical Cost pill — not the card's own knobs
 			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body))
@@ -134,6 +148,8 @@ func _make_element(id: String) -> Control:
 				"banner_icon_pos": Vector2(float(p.banner_icon_x), float(p.banner_icon_y)),
 				"close_size": float(p.close_size),
 				"close_poke": Vector2(float(p.close_x), float(p.close_y)),
+				"entries_count": int(p.entries),
+				"list_max_h": float(p.list_max_h),
 			}
 			var d := Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width), opts)
 			_attach_dialog_drag(d)
@@ -287,6 +303,10 @@ func _rebuild_sidebar() -> void:
 	head.text = "Options"
 	head.add_theme_font_size_override("font_size", 26)
 	_sidebar_body.add_child(head)
+	var save := Button.new()
+	save.text = "Save settings"
+	save.pressed.connect(_save_settings)
+	_sidebar_body.add_child(save)
 	var sub := Label.new()
 	sub.text = String(CAPTIONS[_selected])
 	sub.add_theme_font_size_override("font_size", 14)
@@ -304,6 +324,11 @@ func _rebuild_sidebar() -> void:
 
 	if _selected == "buy":
 		_sidebar_body.add_child(_text_row("Price text", "text"))
+	elif _selected == "button":
+		_sidebar_body.add_child(_text_row("Text", "text"))
+		_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
+		_sidebar_body.add_child(_toggle_row("Show icon", "show_icon"))
+		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
 	for spec in SCHEMA[_selected]:
 		_sidebar_body.add_child(_slider_row(spec))
 
@@ -356,3 +381,68 @@ func _text_row(label: String, key: String) -> Control:
 		_rebuild_gallery())
 	row.add_child(le)
 	return row
+
+func _toggle_row(label: String, key: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = label
+	lbl.custom_minimum_size = Vector2(118, 0)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	var cb := CheckButton.new()
+	cb.button_pressed = bool(_params[_selected].get(key, false))
+	cb.toggled.connect(func(on: bool) -> void:
+		_params[_selected][key] = on
+		_rebuild_gallery())
+	row.add_child(cb)
+	return row
+
+func _option_row(label: String, key: String, options: Array) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = label
+	lbl.custom_minimum_size = Vector2(118, 0)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	var ob := OptionButton.new()
+	var cur := String(_params[_selected].get(key, options[0]))
+	for i in options.size():
+		ob.add_item(String(options[i]).capitalize(), i)
+		if String(options[i]) == cur:
+			ob.select(i)
+	ob.item_selected.connect(func(idx: int) -> void:
+		_params[_selected][key] = String(options[idx])
+		_rebuild_gallery())
+	row.add_child(ob)
+	return row
+
+## --- persistence -------------------------------------------------------------------------------
+
+func _save_settings() -> void:
+	var f := FileAccess.open(SETTINGS, FileAccess.WRITE)
+	if f == null:
+		push_warning("UI Workbench: could not write %s" % SETTINGS)
+		return
+	f.store_string(JSON.stringify(_params, "\t"))
+	f.close()
+	print("WORKBENCH: settings saved -> %s" % SETTINGS)
+
+## Merge the saved file over the defaults, copying ONLY keys present in both — so an older or newer
+## settings file can never corrupt the live schema.
+func _load_settings() -> void:
+	if not FileAccess.file_exists(SETTINGS):
+		return
+	var f := FileAccess.open(SETTINGS, FileAccess.READ)
+	if f == null:
+		return
+	var data = JSON.parse_string(f.get_as_text())
+	f.close()
+	if not (data is Dictionary):
+		return
+	for id in _params.keys():
+		if data.has(id) and data[id] is Dictionary:
+			for k in (_params[id] as Dictionary).keys():
+				if (data[id] as Dictionary).has(k):
+					_params[id][k] = data[id][k]

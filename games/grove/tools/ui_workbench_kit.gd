@@ -105,6 +105,57 @@ static func claim_button(text: String = "Claim", on_press: Callable = Callable()
 		if on_press.is_valid(): on_press.call())
 	return b
 
+## A unified pill BUTTON — ONE component, parameterised by state. opts:
+##   bg      "green" | "cream"     (the same button, two backgrounds — Claim vs a cream chip)
+##   icon    currency id | ""      (drawn to the LEFT of the text; "" = none — the icon toggle)
+##   enabled bool                  (false → greyed, non-pressable)
+##   font    px
+## The mail screen's green Claim and a cream icon button are this one component with different opts.
+static func pill_button(text: String, opts: Dictionary = {}) -> Button:
+	var bg := String(opts.get("bg", "green"))
+	var icon_id := String(opts.get("icon", ""))
+	var enabled: bool = bool(opts.get("enabled", true))
+	var font_px := int(opts.get("font", 22))
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.text = text
+	b.disabled = not enabled
+	b.add_theme_font_size_override("font_size", font_px)
+	b.add_theme_constant_override("outline_size", 0)
+	if icon_id != "":
+		var ip := Game.art("ui/currency/icon_%s.png" % icon_id)
+		if ResourceLoader.exists(ip):
+			b.icon = load(ip)
+			b.add_theme_constant_override("icon_max_width", font_px + 8)
+			b.add_theme_constant_override("h_separation", 7)
+	var fill: Color = Pal.BTN_PRIMARY if bg == "green" else Pal.CREAM
+	var edge: Color = Pal.BTN_PRIMARY_EDGE if bg == "green" else Pal.STRAW
+	var ink: Color = Pal.CREAM if bg == "green" else Pal.INK
+	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
+		b.add_theme_color_override(st, ink)
+	b.add_theme_color_override("font_disabled_color", Color(ink, 0.55))
+	var s := StyleBoxFlat.new()
+	s.bg_color = fill
+	s.border_color = edge
+	s.set_corner_radius_all(999)              # clamped to height/2 → clean capsule at any size
+	s.set_border_width_all(2)
+	s.shadow_color = Color(0, 0, 0, 0.22)
+	s.shadow_size = 5
+	s.shadow_offset = Vector2(0, 3)
+	s.content_margin_left = 18; s.content_margin_right = 18
+	s.content_margin_top = 7; s.content_margin_bottom = 8
+	b.add_theme_stylebox_override("normal", s)
+	b.add_theme_stylebox_override("hover", s)
+	var sp: StyleBoxFlat = s.duplicate()
+	sp.bg_color = fill.darkened(0.08)
+	b.add_theme_stylebox_override("pressed", sp)
+	var sd: StyleBoxFlat = s.duplicate()
+	sd.bg_color = fill.lerp(Color(0.55, 0.55, 0.55), 0.55)
+	sd.shadow_size = 0
+	b.add_theme_stylebox_override("disabled", sd)
+	b.add_child(Look.rim_overlay(999, 2))
+	return b
+
 ## The green shop BUY pill (mockup-adjacent green CTA): background art + acorn icon + price.
 static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int = 26, icon_px: float = 28.0,
 		pad_x: float = 16.0, pad_top: float = 6.0, pad_bottom: float = 7.0) -> Button:
@@ -264,12 +315,26 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 			header.resized.connect(place)
 			header.ready.connect(place)
 
+	var entries_count: int = int(opts.get("entries_count", entries.size()))
+	var list_max_h: float = float(opts.get("list_max_h", 0.0))   # 0 = uncapped (grows freely, no scroll)
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 10)
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for e in entries:
-		rows.add_child(mail_card(e, pill_font, pill_icon))
-	col.add_child(rows)
+	for i in maxi(0, entries_count):
+		rows.add_child(mail_card(entries[i % entries.size()], pill_font, pill_icon))
+	if list_max_h > 0.0:
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(rows)
+		var cap := func() -> void:                # cap the height so content beyond it scrolls
+			if is_instance_valid(scroll) and is_instance_valid(rows):
+				scroll.custom_minimum_size.y = minf(list_max_h, rows.size.y)
+		rows.resized.connect(cap)
+		rows.ready.connect(cap)
+		col.add_child(scroll)
+	else:
+		col.add_child(rows)
 
 	# the ✕ disc poles past the card's top-right corner once the card has laid out + sized.
 	var close := Look.close_button(func() -> void: print("WORKBENCH: mail closed"), "kit/mail_close.png")
