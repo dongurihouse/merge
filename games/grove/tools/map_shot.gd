@@ -40,6 +40,23 @@ func _initialize() -> void:
 	match mode:
 		"select":
 			Save.mark_spotlight_seen("shop")   # the place-picker capture shouldn't be dimmed by the FTUE shop spotlight
+		"hub":
+			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
+			# no overlays. Unlock the hub spots, seed the reference wallet (★256 🪙132 💧87) and a
+			# mid level, pre-see the shop spotlight (no FTUE dim), and mark today claimed so the
+			# daily-login popup never covers the screen.
+			var gh := Save.grove()
+			var fh := {}
+			for sp in G.MAPS[G.hub_map()].spots:
+				fh[String(sp.id)] = true
+			gh["unlocks"] = fh
+			gh["stars_earned"] = 200
+			Save.grove_write()
+			Save.add_stars(256)
+			Save.add_coins(132)
+			Save.add_diamonds(87)
+			Save.mark_spotlight_seen("shop")
+			load("res://engine/scripts/core/login.gd").claim_today()
 		"spirits":
 			var gs := Save.grove()
 			var ful := {}
