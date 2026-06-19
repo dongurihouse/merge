@@ -1383,6 +1383,7 @@ func _on_press(pos: Vector2) -> void:
 		if _drag_node != null:
 			_drag_node.z_index = 20
 			_drag_node.scale = Vector2(1.12, 1.12)
+			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the generator lifts off
 			Audio.play("item_pickup", -6.0)
 		return
 	if board.item_at(cell) > 0:
@@ -1391,6 +1392,7 @@ func _on_press(pos: Vector2) -> void:
 		if _drag_node != null:
 			_drag_node.z_index = 20
 			_drag_node.scale = Vector2(1.12, 1.12)
+			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the item lifts off
 			Audio.play("item_pickup", -6.0)
 			_show_sell_affordance(board.item_at(cell))   # W3: the stall brightens + shoulder tag
 
@@ -1407,6 +1409,7 @@ func _on_release(pos: Vector2) -> void:
 	_drag_from = Vector2i(-1, -1)
 	node.z_index = 0
 	node.scale = Vector2.ONE
+	PieceView.set_lifted(node, false)   # back to the tight resting shadow
 	_hide_sell_affordance()   # W3: drag ended — drop the tag, restore the stall's modulate
 	# the bag and the merchant's cart are drop targets too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
@@ -1446,6 +1449,7 @@ func _release_gen(pos: Vector2) -> void:
 	if node != null:
 		node.z_index = 0
 		node.scale = Vector2.ONE
+		PieceView.set_lifted(node, false)   # back to the tight resting shadow
 	if target == from and pos.distance_to(_press_pos) <= 18.0:
 		if node != null:
 			node.position = _cell_pos(from)

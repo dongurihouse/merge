@@ -239,6 +239,23 @@ func _initialize() -> void:
 	ok(gen_off.get_child(0).modulate.a > 0.9, "item_backing OFF: the generator is bare (no backing)")
 	Features.FLAGS["item_backing"] = true
 
+	# 22c. Resting vs picked-up shadow: idle is a TIGHT shadow hugging the item; picking it up
+	# (set_lifted true) swaps to the larger spread shadow that reads as the item floating;
+	# dropping it (set_lifted false) restores the tight resting shadow. Generators flip too.
+	Features.FLAGS["item_backing"] = true
+	var lift_pc: Control = sb4._make_piece(101, 100.0)
+	var lift_shadow: TextureRect = lift_pc.get_child(0)
+	var idle_w := lift_shadow.size.x
+	PieceViewScript.set_lifted(lift_pc, true)
+	ok(lift_shadow.size.x > idle_w, "picking the item up grows the shadow (it lifts off the board)")
+	PieceViewScript.set_lifted(lift_pc, false)
+	ok(is_equal_approx(lift_shadow.size.x, idle_w), "dropping the item restores the tight resting shadow")
+	var lift_gen: Control = PieceViewScript.make_generator("seed_satchel", 100.0)
+	var gen_idle_w: float = lift_gen.get_child(0).size.x
+	PieceViewScript.set_lifted(lift_gen, true)
+	ok(lift_gen.get_child(0).size.x > gen_idle_w, "a generator lifts the same way (shared pipeline)")
+	PieceViewScript.set_lifted(lift_gen, false)
+
 	# 23. P — drag-to-swap two unlocked items (flag drag_swap)
 	# P1: the model — swap trades codes, a coin swaps like anything, it persists
 	var pb := BoardModel.new()

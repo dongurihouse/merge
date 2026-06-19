@@ -71,23 +71,42 @@ static func _make_holder(size: float) -> Control:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return holder
 
-# AF3: a soft warm CONTACT SHADOW under the item (first child = bottom) — tight and LOW (it
-# grounds the piece on the light mat), not a centered dark ellipse that vanishes on a light
-# surface. Warm-grey, ~30% alpha, never eats input. No-op when item_backing is off.
+# AF3: a soft warm CONTACT SHADOW under the item (first child = bottom). It has TWO states:
+# RESTING (idle) — a tight ellipse hugging the item's lower border, just grounding it; and
+# LIFTED (picked up) — the larger, spread ellipse that reads as the item floating above the
+# board. make_* builds the resting shadow; the board flips it via set_lifted() on drag/drop.
+# Warm-grey, soft, never eats input. No-op when item_backing is off.
+const SHADOW_NAME := "ContactShadow"
+const SHADOW_RESTING := {"w": 0.40, "h": 0.10, "y": 0.62, "a": 0.30}   # tight — hugs the item's lower border
+const SHADOW_LIFTED := {"w": 0.54, "h": 0.15, "y": 0.60, "a": 0.30}    # spread — the item floats off the board
+
 static func _add_contact_shadow(holder: Control, size: float) -> void:
 	if not Features.on("item_backing"):
 		return
 	var back := TextureRect.new()
+	back.name = SHADOW_NAME
 	back.texture = backing_tex()
-	var bw := size * 0.62
-	var bh := size * 0.22
-	back.position = Vector2((size - bw) / 2.0, size * 0.70)   # low — a contact shadow
-	back.size = Vector2(bw, bh)
 	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	back.stretch_mode = TextureRect.STRETCH_SCALE
-	back.modulate = Color("#3E342A", 0.30)                    # warm-grey, soft
 	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_apply_shadow(back, size, SHADOW_RESTING)
 	holder.add_child(back)
+
+# Place + size + tint the contact shadow from a state preset (resting / lifted), relative to the
+# cell `size`. Centered horizontally; `y` is the ellipse's top as a fraction of the cell height.
+static func _apply_shadow(back: TextureRect, size: float, p: Dictionary) -> void:
+	var w := size * float(p["w"])
+	var h := size * float(p["h"])
+	back.position = Vector2((size - w) / 2.0, size * float(p["y"]))
+	back.size = Vector2(w, h)
+	back.modulate = Color("#3E342A", float(p["a"]))
+
+# Flip a built piece / generator between its RESTING and LIFTED shadow. The board calls this on
+# pickup (lifted = true) and on drop (lifted = false). No-op if the item has no shadow.
+static func set_lifted(holder: Control, lifted: bool) -> void:
+	var back := holder.get_node_or_null(NodePath(SHADOW_NAME))
+	if back is TextureRect:
+		_apply_shadow(back, holder.size.x, SHADOW_LIFTED if lifted else SHADOW_RESTING)
 
 # The sprite over the shadow: cropped to its opaque content so it CENTERS in the cell (raw art
 # padding varies), inset a little so it sits INSIDE the cell, aspect-preserving. Never eats input.
