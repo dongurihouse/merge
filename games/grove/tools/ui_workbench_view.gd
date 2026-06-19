@@ -24,15 +24,15 @@ const CAPTIONS := {
 const SCHEMA := {
 	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
-	"card": [["pill_font", 10, 36], ["pill_icon", 12, 48], ["title", 12, 30], ["body", 10, 24]],
-	"dialog": [["pill_font", 10, 36], ["pill_icon", 12, 48], ["width", 360, 720]],
+	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
+	"dialog": [["width", 360, 720]],                        # pill size inherits from the Cost pill
 }
 
 var _params := {
 	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7},
-	"pill": {"font": 18, "icon": 24},
-	"card": {"pill_font": 18, "pill_icon": 24, "title": 20, "body": 15},
-	"dialog": {"pill_font": 18, "pill_icon": 24, "width": 560},
+	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
+	"card": {"title": 20, "body": 15},
+	"dialog": {"width": 560},
 }
 var _selected := "buy"
 var _gallery: VBoxContainer = null
@@ -109,9 +109,10 @@ func _make_element(id: String) -> Control:
 		"pill":
 			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
 		"card":
-			return Kit.mail_card(Kit.DEMO_MAIL[0], int(p.pill_font), float(p.pill_icon), int(p.title), int(p.body))
+			# pill font/icon INHERIT from the canonical Cost pill — not the card's own knobs
+			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body))
 		"dialog":
-			return Kit.mail_dialog(Kit.DEMO_MAIL, int(p.pill_font), float(p.pill_icon), float(p.width))
+			return Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width))
 	return Control.new()
 
 ## --- gallery (left) ------------------------------------------------------------------------------
@@ -208,6 +209,13 @@ func _rebuild_sidebar() -> void:
 	sub.add_theme_color_override("font_color", Color(Pal.CREAM, 0.65))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_sidebar_body.add_child(sub)
+	if _selected == "card" or _selected == "dialog":
+		var note := Label.new()
+		note.text = "Pill size inherits from the Cost pill — edit it there."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
 	if _selected == "buy":
