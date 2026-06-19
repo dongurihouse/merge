@@ -32,9 +32,9 @@ func _initialize() -> void:
 	var produced := b.merge(Vector2i(3, 2), Vector2i(3, 4))
 	ok(produced == 102 and b.item_at(Vector2i(3, 2)) == 0 and b.item_at(Vector2i(3, 4)) == 102, \
 		"merge consumes src and bumps dst")
-	b.place(Vector2i(3, 2), 108)
-	b.place(Vector2i(4, 2), 108)
-	ok(not b.can_merge(Vector2i(3, 2), Vector2i(4, 2)), "top tier (t8) never merges")
+	b.place(Vector2i(3, 2), 100 + G.TOP_TIER)
+	b.place(Vector2i(4, 2), 100 + G.TOP_TIER)
+	ok(not b.can_merge(Vector2i(3, 2), Vector2i(4, 2)), "top tier (t%d) never merges" % G.TOP_TIER)
 	ok(b.top_tier_cells().size() == 2, "top tiers visible to the merchant")
 
 	# 3. move / the §4 level gate (merge-openable once the player's Level reaches the cell's min)

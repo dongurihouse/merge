@@ -45,8 +45,9 @@ const CLOSE_PX := 92.0           # the ✕ disc, docked at the frame's top-right
 const VINE_H_THICK := 64.0       # the horizontal vine strip's rendered height
 const VINE_V_THICK := 60.0       # the vertical connector's rendered width (a rotated vine strip)
 const VINE_TUCK := 28.0          # how far a vine runs UNDER the cells (so it reads as continuous, not floating)
-const FLOWER_PX := 150.0         # the pink flower spray that fills the empty top slot
-const SPARKLE_PX := 62.0         # the sparkle stars dotted at the snake's turns
+const FLOWER_PX := 150.0         # the pink flower spray that fills any empty trailing slot
+const FLOWER_TURN_PX := 92.0     # the smaller blooms dotting the snake's turns
+const SPARKLE_PX := 58.0         # the sparkle stars dotted at the snake's turns
 
 static func open(host: Control, opts: Dictionary) -> void:
 	var title: String = opts.title
@@ -254,7 +255,9 @@ static func _weave(layer: Control, order: Array, rows: int, cell_at: Dictionary)
 		var lo: Vector2 = ctr.call(turn_c, gr_lo)
 		var hi: Vector2 = ctr.call(turn_c, gr_lo - 1)
 		_vine_v(layer, lo.x, hi.y, lo.y)
-		_sparkle(layer, Vector2(lo.x, (hi.y + lo.y) / 2.0), SPARKLE_PX)   # a star dots the turn
+		# a small bloom + a sparkle dot the turn (flip the spray to nestle into the right-side bends).
+		_flower(layer, Vector2(lo.x, (hi.y + lo.y) / 2.0), FLOWER_TURN_PX, turn_c >= COLS - 1)
+		_sparkle(layer, Vector2(lo.x + (24.0 if turn_c == 0 else -24.0), (hi.y + lo.y) / 2.0 - 30.0), SPARKLE_PX)
 
 	# 3) the pink flower spray fills the empty trailing slot in the (short) top row, pointing inward.
 	for c in range(COLS):

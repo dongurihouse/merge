@@ -381,9 +381,9 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 	return clampi(int(ceil(need / float(STARS_PER_QUEST_EST))), 1, max_givers)
 
 ## The authored great-spirit GATE quest that ends map `map` (§6/§7): asks a randomized handful
-## of the map's TOP-TIER harvest (its richest/newest lines at t8 = TOP_TIER) and, delivered,
-## unlocks the next map for a large authored reward. Deterministic given `rng`. The one quest
-## that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
+## of the map's deep harvest (its richest/newest lines at the gate ceiling = min(GATE_TIER_BASE+map,
+## TOP_TIER)) and, delivered, unlocks the next map for a large authored reward. Deterministic given
+## `rng`. The one quest that asks the ceiling tier (regular quests never do). {asks, gate:true, stars, reward}.
 static func gate_quest(roster: Array, map: int, rng: RandomNumberGenerator = null) -> Dictionary:
 	var lines: Array = lines_for_map(roster, map)
 	lines.sort()                                       # the richest (newest) lines sit last
@@ -396,7 +396,7 @@ static func gate_quest(roster: Array, map: int, rng: RandomNumberGenerator = nul
 		pick = []                                                   # n distinct lines from the map's roster
 		for _i in n:
 			pick.append(pool.pop_at(rng.randi_range(0, pool.size() - 1)))
-	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t8 (map 4+)
+	var gate_t: int = mini(GATE_TIER_BASE + map, TOP_TIER)         # the map's ceiling: t5 (map 1) → t9 (map 5), clamps at TOP_TIER
 	var asks: Array = []
 	for li in pick:
 		asks.append({"line": int(li), "tier": gate_t, "count": 1})
@@ -636,14 +636,14 @@ static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
 static func sell_value(code: int) -> int:
 	return maxi(1, code % 100)            # t1=1 … t8=8 coins
 
-## What an item sells for at the merchant (§9): Vector2i(coins, premium). t1–t7 pay their
-## tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); t8 stays
-## the FLAT 1💎 pinnacle on every map (the 32× anti-arbitrage invariant — only the t1–t7 coin
-## reward bands up, never t8→premium). The band is read off SELL_MAP_BAND by the item's map.
+## What an item sells for at the merchant (§9): Vector2i(coins, premium). Every tier below TOP_TIER
+## pays its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); TOP_TIER
+## stays the FLAT 1💎 pinnacle on every map (the anti-arbitrage invariant — only the sub-pinnacle coin
+## reward bands up, never the pinnacle→premium). The band is read off SELL_MAP_BAND by the item's map.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
 	if tier >= TOP_TIER:
-		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
+		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 

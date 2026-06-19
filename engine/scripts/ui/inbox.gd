@@ -28,14 +28,14 @@ const STRAW := Pal.STRAW
 const BARK := Pal.BARK
 const LEAF := Pal.LEAF
 
-const CARD_MAX_W := 460.0
+const CARD_MAX_W := 520.0          # wide enough to seat icon + title/body + reward pill + Claim in one row
 const CARD_VW_FRAC := 0.92
 const LIST_MAX_H := 480.0          # the scroll area's ceiling — a long inbox scrolls, never grows the card
 const BANNER_H := 92.0             # the mail-ribbon header band
-const MSG_ICON := 48.0             # a message's plated icon (gift / leaf / news / coin)
+const MSG_ICON := 60.0             # a message's plated icon (gift / leaf / news / coin)
 const CLOSE_MARGIN := 12.0         # the ✕ disc's inset from the card's top-right corner
 const ROW_TEX_MARGIN := Vector2(30, 30)   # the mail_card nine-patch border (448×105 source)
-const PILL_TEX := Vector2(46, 34)         # the mail_pill capsule nine-patch (220×77 source — wide caps)
+const PILL_TEX := Vector2(46, 34)         # the mail_pill capsule nine-patch (cap-preserving — 220×77 / 180×76 source)
 
 # --- the mailbox popup --------------------------------------------------------------
 
@@ -169,14 +169,14 @@ static func _message_row(host: Control, m: Dictionary, rows: VBoxContainer, scro
 	row.add_child(text)
 	var title := Label.new()
 	title.text = host.tr(String(m.get("title", "")))
-	title.add_theme_font_size_override("font_size", 18)
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART   # wrap (never overflow) so the reward + Claim stay seated on the row
+	title.add_theme_font_size_override("font_size", 19)
 	title.add_theme_color_override("font_color", INK)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_child(title)
 	var body := Label.new()
 	body.text = host.tr(String(m.get("body", "")))
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.custom_minimum_size = Vector2(card_w - 220.0, 0)
 	body.add_theme_font_size_override("font_size", 15)
 	body.add_theme_color_override("font_color", Color(BARK, 0.95))
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE

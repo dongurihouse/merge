@@ -139,11 +139,12 @@ func _initialize() -> void:
 	ok(gq.asks.size() == mini(int(G.GATE_ASK_COUNT), G.lines_for_map(G.GENERATORS, 0).size()), "the gate asks GATE_ASK_COUNT of the map's lines")
 	ok(int(gq.reward.stars) == int(G.GATE_STARS) and int(gq.reward.coins) > int(G.GATE_COIN_BONUS), "the gate pays its large authored reward (★ + big coins)")
 	var gq_last := G.gate_quest(G.GENERATORS, G.MAPS.size() - 1, rng)
+	var last_ceiling := mini(int(G.GATE_TIER_BASE) + (G.MAPS.size() - 1), int(G.TOP_TIER))
 	var last_is_top := true
 	for a in gq_last.asks:
-		if int(a.tier) != int(G.TOP_TIER):
+		if int(a.tier) != last_ceiling:
 			last_is_top = false
-	ok(last_is_top, "the final map's gate climbs to the engine top tier (t%d)" % int(G.TOP_TIER))
+	ok(last_is_top, "the final map's gate asks its ceiling tier t%d = min(base+map, TOP_TIER)" % last_ceiling)
 
 	# --- §7: the gate asks a RANDOMIZED handful — the rng is wired, not ignored. WHICH lines
 	# --- vary across seeds (map 0 has more lines than GATE_ASK_COUNT), reproducible per seed,
