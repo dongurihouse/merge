@@ -43,10 +43,10 @@ func _initialize() -> void:
 		var q := G.gen_quest(20, hi_lines, rng)
 		if not hi_lines.has(int(q.line)):
 			all_in_lines = false
-		if int(q.tier) >= G.TOP_TIER or int(q.tier) < 1:
+		if int(q.tier) > G.TOP_TIER or int(q.tier) < 1:
 			tier_ok = false
 	ok(all_in_lines, "every quest draws a live line")
-	ok(tier_ok, "every regular quest's tier is 1..TOP_TIER-1 (top tier is gate-only)")
+	ok(tier_ok, "every regular quest's tier is within 1..TOP_TIER")
 	var rA := RandomNumberGenerator.new(); rA.seed = 42
 	var rB := RandomNumberGenerator.new(); rB.seed = 42
 	ok(str(G.gen_quest(10, hi_lines, rA)) == str(G.gen_quest(10, hi_lines, rB)), "gen_quest is deterministic for a seed")
@@ -76,7 +76,8 @@ func _initialize() -> void:
 	ok(int(gq.tier) == map1_ceiling, "map 1's gate asks its ceiling tier t%d" % map1_ceiling)
 	ok(int(gq.reward.stars) == int(G.GATE_STARS) and int(gq.reward.coins) > int(G.GATE_COIN_BONUS), "the gate pays its large authored reward (★ + big coins)")
 	var gq_last := G.gate_quest(G.GENERATORS, G.MAPS.size() - 1, rng)
-	ok(int(gq_last.tier) == int(G.TOP_TIER), "the final map's gate climbs to the engine top tier (t%d)" % int(G.TOP_TIER))
+	var last_map_ceiling := mini(int(G.GATE_TIER_BASE) + G.MAPS.size() - 1, int(G.TOP_TIER))
+	ok(int(gq_last.tier) == last_map_ceiling, "the final map's gate climbs to its ceiling tier t%d (capped at TOP_TIER t%d)" % [last_map_ceiling, int(G.TOP_TIER)])
 
 	# --- §7: the gate's line is randomized — varies across seeds ---
 	var z0_lines := G.lines_for_map(G.GENERATORS, 0)
@@ -92,6 +93,18 @@ func _initialize() -> void:
 	var det_gq := G.gate_quest(G.GENERATORS, 0)    # rng omitted → deterministic fallback: richest line
 	var rich := G.lines_for_map(G.GENERATORS, 0); rich.sort()
 	ok(int(det_gq.line) == int(rich[rich.size() - 1]), "rng==null falls back to the deterministic richest line")
+
+	# --- economy ceiling + PREMIUM_TIER pinning ---
+	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")
+	ok(G.water_to_earn_diamond() == int(pow(2, int(G.PREMIUM_TIER) - 1)), "diamond-earn rate pins to PREMIUM_TIER, not TOP_TIER")
+	ok(G.sell_reward(int(G.PREMIUM_TIER)) == Vector2i(0, 1), "the flat-1💎 pinnacle is PREMIUM_TIER")
+	ok(int(G.sell_reward(int(G.PREMIUM_TIER) + 1).y) == 0, "a tier above PREMIUM_TIER still sells for coins (not premium)")
+	var rngc := RandomNumberGenerator.new(); rngc.seed = 5
+	var saw_high := false
+	for _i in 800:
+		if int(G.gen_quest(40, [1,2,3,4,5,6], rngc).tier) >= int(G.PREMIUM_TIER):
+			saw_high = true
+	ok(saw_high, "a high-level player can be asked at or above the old ceiling")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

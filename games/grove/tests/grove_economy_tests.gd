@@ -463,23 +463,23 @@ func _initialize() -> void:
 	ok(G.map_for_line(12) == 2, "T39: a map-3 line (Fish) resolves to map 2")
 	ok(G.map_for_line(16) == 3 and G.map_for_line(24) == 4, "T39: map-4/5 lines (Plum/Poppy) resolve to maps 3/4")
 	ok(G.map_for_code(1205) == 2, "T39: map_for_code derives the line then the map (Fish t5 → map 2)")
-	# t1–t7 reward == round(tier_coins × band[map]); checked across every line, every sub-top tier.
+	# t1..(PREMIUM_TIER-1) reward == round(tier_coins × band[map]); checked across every line, every sub-pinnacle tier.
 	var band_ok := true
 	var t8_flat := true
 	for line in G.LINES:
 		var lm: int = G.map_for_line(int(line))
 		var lb: float = float(band[lm])
-		for tier in range(1, G.TOP_TIER):
+		for tier in range(1, G.PREMIUM_TIER):
 			var code: int = int(line) * 100 + tier
 			var want_coins: int = int(round(maxi(1, tier) * lb))
 			var rw: Vector2i = G.sell_reward(code)
 			if rw != Vector2i(want_coins, 0):
 				band_ok = false
-		var top_rw: Vector2i = G.sell_reward(int(line) * 100 + G.TOP_TIER)
+		var top_rw: Vector2i = G.sell_reward(int(line) * 100 + G.PREMIUM_TIER)
 		if top_rw != Vector2i(0, 1):
 			t8_flat = false
-	ok(band_ok, "T39: every t1–t7 reward == round(tier coins × the line's map band)")
-	ok(t8_flat, "T39: a t8 sells for EXACTLY 1💎 (no coins) on every line/map — the flat pinnacle (32× proof)")
+	ok(band_ok, "T39: every t1–(PREMIUM_TIER-1) reward == round(tier coins × the line's map band)")
+	ok(t8_flat, "T39: a t8 (PREMIUM_TIER) sells for EXACTLY 1💎 (no coins) on every line/map — the flat pinnacle (32× proof)")
 	# concrete worked examples (map 0 band == 1.0 keeps the FTUE-era proofs exact)
 	ok(G.sell_reward(103) == Vector2i(3, 0), "T39: a map-1 t3 (band 1.0) still sells for exactly 3🪙")
 	ok(G.sell_reward(105) == Vector2i(5, 0), "T39: a map-1 t5 (band 1.0) still sells for exactly 5🪙")

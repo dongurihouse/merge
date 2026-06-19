@@ -88,12 +88,12 @@ func _initialize() -> void:
 			nonanchor_z0_asks += 1
 		if not askable.has(li):
 			all_in_askable = false
-		if int(aq.tier) >= G.TOP_TIER or int(aq.tier) < 1:
+		if int(aq.tier) > G.TOP_TIER or int(aq.tier) < 1:
 			never_t8 = false
 	ok(anchor_asks > 0, "at a later map gen_quest CAN ask an anchor line (anchor is live output again — %d hits across seeds)" % anchor_asks)
 	ok(nonanchor_z0_asks == 0, "at a later map gen_quest NEVER asks a retired non-anchor map-0 line (%d hits)" % nonanchor_z0_asks)
 	ok(all_in_askable, "every generated ask draws from the askable set (producible on the live board)")
-	ok(never_t8, "a regular quest still never asks t8 / an out-of-range tier (gate-only) even with the anchor in the pool")
+	ok(never_t8, "a regular quest tier is within 1..TOP_TIER even with the anchor in the pool")
 
 	# --- the anchor must NOT dominate: the fresh current-map lines still lead (§7 newest-weighting) ---
 	# The anchor is the OLDEST in the sorted askable list, so it should be asked LESS than the newest.

@@ -229,8 +229,8 @@ func _initialize() -> void:
 	ys._rebuild_givers()
 	await create_timer(0.05).timeout
 	ok(ys.basket != null and ys.basket.is_empty(), "Y2: the sell basket starts empty (buy-back parked; no fence chip)")
-	# Y1: a t8 sells for exactly 1💎 (no coins); a t5 for 5🪙
-	var yt8 := 100 + G.TOP_TIER
+	# Y1: a t8 (PREMIUM_TIER) sells for exactly 1💎 (no coins); a t5 for 5🪙
+	var yt8 := 100 + G.PREMIUM_TIER
 	var yd0: int = Save.diamonds()
 	var yc0: int = Save.coins()
 	ys._grant_sale(yt8, null)

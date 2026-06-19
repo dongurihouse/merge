@@ -6,7 +6,8 @@ extends RefCounted
 
 const COLS := 7
 const ROWS := 9
-const TOP_TIER := 8
+const TOP_TIER := 12
+const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled from TOP_TIER
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
 # §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove

@@ -15,6 +15,7 @@ const D = Game.DATA
 const COLS = D.COLS
 const ROWS = D.ROWS
 const TOP_TIER = D.TOP_TIER
+const PREMIUM_TIER = D.PREMIUM_TIER
 const LINES = D.LINES
 const GENERATORS = D.GENERATORS
 const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator regardless of appear_level"
@@ -333,7 +334,7 @@ static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator,
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
-	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER - 1)
+	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER)
 	var newest: int = int(lines[lines.size() - 1])
 	var li := _weighted_line_pick(lines, rng, avoid)
 	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
@@ -616,7 +617,7 @@ static func sell_value(code: int) -> int:
 ## reward bands up, never t8→premium). The band is read off SELL_MAP_BAND by the item's map.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
-	if tier >= TOP_TIER:
+	if tier == PREMIUM_TIER:
 		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
@@ -629,7 +630,7 @@ static func sell_map_band(map: int) -> float:
 	return float(SELL_MAP_BAND[clampi(map, 0, SELL_MAP_BAND.size() - 1)])
 
 static func water_to_earn_diamond() -> int:
-	return int(pow(2, TOP_TIER - 1))
+	return int(pow(2, PREMIUM_TIER - 1))
 static func water_a_diamond_buys() -> int:
 	return int(WATER_CAP / float(REFILL_DIAMOND_COST))
 
