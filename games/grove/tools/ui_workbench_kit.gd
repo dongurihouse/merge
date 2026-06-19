@@ -221,7 +221,19 @@ static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float =
 
 ## The whole Mail dialog (mockup image 3): a parchment card with the gold banner + envelope, a
 ## docked ✕, and a column of mail_cards. COMPOSES mail_card for every entry.
-static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 24.0, width: float = 560.0) -> Control:
+## opts (all optional): banner_font, banner_h, banner_icon (px), banner_icon_pos (Vector2 in the
+## banner band, or absent = ~30% across, centred), close_size (px), close_poke (Vector2 — how far the
+## ✕ poles past the card's top-right corner). The banner icon ("DialogBannerIcon") and the ✕
+## ("DialogClose") are NAMED so the workbench can make them mouse-draggable.
+static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 24.0, width: float = 560.0,
+		opts: Dictionary = {}) -> Control:
+	var banner_font: int = int(opts.get("banner_font", 32))
+	var banner_h: float = float(opts.get("banner_h", BANNER_H))
+	var banner_icon: float = float(opts.get("banner_icon", 54.0))
+	var banner_icon_pos = opts.get("banner_icon_pos", null)        # Vector2 (px in the band) or null = auto
+	var close_size: float = float(opts.get("close_size", 64.0))
+	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
+
 	var wrap := Control.new()
 
 	var card := PanelContainer.new()
@@ -235,17 +247,22 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.add_child(col)
 
-	var header := Look.banner_title("Mail", 32, BANNER_H, "mail/mail_banner.png")
+	var header := Look.banner_title("Mail", banner_font, banner_h, "mail/mail_banner.png")
 	header.size_flags_horizontal = Control.SIZE_FILL
 	col.add_child(header)
 	if ResourceLoader.exists(Look.kit("mail/mail_banner.png")):
-		var env := Look.icon("mail", 54)
-		env.anchor_left = 0.30; env.anchor_right = 0.30
-		env.anchor_top = 0.5; env.anchor_bottom = 0.5
-		env.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		env.grow_vertical = Control.GROW_DIRECTION_BOTH
-		env.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var env := Look.icon("mail", banner_icon)
+		env.name = "DialogBannerIcon"
+		env.mouse_filter = Control.MOUSE_FILTER_IGNORE          # the workbench re-enables this to drag it
 		header.add_child(env)
+		if banner_icon_pos != null:
+			env.position = banner_icon_pos
+		else:
+			var place := func() -> void:                       # default: ~30% across, vertically centred
+				if is_instance_valid(env) and is_instance_valid(header):
+					env.position = Vector2(header.size.x * 0.30 - banner_icon / 2.0, header.size.y / 2.0 - banner_icon / 2.0)
+			header.resized.connect(place)
+			header.ready.connect(place)
 
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 10)
@@ -254,15 +271,16 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 		rows.add_child(mail_card(e, pill_font, pill_icon))
 	col.add_child(rows)
 
-	# the ✕ disc docks at the card's top-right corner once the card has laid out + sized.
+	# the ✕ disc poles past the card's top-right corner once the card has laid out + sized.
 	var close := Look.close_button(func() -> void: print("WORKBENCH: mail closed"), "kit/mail_close.png")
+	close.name = "DialogClose"
+	close.custom_minimum_size = Vector2(close_size, close_size)
 	wrap.add_child(close)
 	var dock := func() -> void:
 		if not is_instance_valid(card) or not is_instance_valid(close):
 			return
 		wrap.custom_minimum_size = card.size
-		var xs: float = close.custom_minimum_size.x
-		close.position = Vector2(card.size.x - xs + 12.0, -12.0)
+		close.position = Vector2(card.size.x - close_size + close_poke.x, -close_poke.y)
 	card.resized.connect(dock)
 	card.ready.connect(dock)
 	return wrap

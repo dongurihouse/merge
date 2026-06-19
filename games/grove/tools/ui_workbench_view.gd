@@ -25,18 +25,33 @@ const SCHEMA := {
 	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
-	"dialog": [["width", 360, 720]],                        # pill size inherits from the Cost pill
+	"dialog": [                                             # pill size inherits from the Cost pill
+		["width", 360, 720],
+		["banner_font", 16, 56], ["banner_h", 50, 160], ["banner_icon", 24, 110],
+		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
+		["close_size", 30, 96], ["close_x", -100, 100], ["close_y", -100, 100],
+		["snap", 1, 40],
+	],
 }
 
 var _params := {
 	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7},
 	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
 	"card": {"title": 20, "body": 15},
-	"dialog": {"width": 560},
+	"dialog": {
+		"width": 560, "banner_font": 32, "banner_h": 92, "banner_icon": 54,
+		"banner_icon_x": 130, "banner_icon_y": 19,
+		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
+	},
 }
 var _selected := "buy"
 var _gallery: VBoxContainer = null
 var _sidebar_body: VBoxContainer = null
+
+# drag-to-move (banner icon / ✕), with snap-to-grid
+var _drag_kind := ""
+var _drag_node: Control = null
+var _drag_grab := Vector2.ZERO
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
@@ -112,7 +127,17 @@ func _make_element(id: String) -> Control:
 			# pill font/icon INHERIT from the canonical Cost pill — not the card's own knobs
 			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body))
 		"dialog":
-			return Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width))
+			var opts := {
+				"banner_font": int(p.banner_font),
+				"banner_h": float(p.banner_h),
+				"banner_icon": float(p.banner_icon),
+				"banner_icon_pos": Vector2(float(p.banner_icon_x), float(p.banner_icon_y)),
+				"close_size": float(p.close_size),
+				"close_poke": Vector2(float(p.close_x), float(p.close_y)),
+			}
+			var d := Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width), opts)
+			_attach_dialog_drag(d)
+			return d
 	return Control.new()
 
 ## --- gallery (left) ------------------------------------------------------------------------------
@@ -157,9 +182,68 @@ func _section(id: String) -> Control:
 ## inner buttons (Claim / ✕ / the buy pill) falls through to the section and selects it.
 func _ignore_nonbuttons(n: Node) -> void:
 	for c in n.get_children():
-		if c is Control and not (c is BaseButton):
+		# keep the draggable banner icon mouse-active so it can be grabbed
+		if c is Control and not (c is BaseButton) and String(c.name) != "DialogBannerIcon":
 			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_ignore_nonbuttons(c)
+
+## --- drag-to-move with snap (dialog banner icon + ✕) ---------------------------------------------
+
+## Make the dialog's named handles draggable. Re-run on every dialog rebuild (new nodes each time).
+func _attach_dialog_drag(d: Control) -> void:
+	var env: Control = d.find_child("DialogBannerIcon", true, false)
+	if env != null:
+		env.mouse_filter = Control.MOUSE_FILTER_STOP
+		_make_draggable(env, "banner_icon")
+	var close: Control = d.find_child("DialogClose", true, false)
+	if close != null:
+		_make_draggable(close, "close")
+
+func _make_draggable(node: Control, kind: String) -> void:
+	node.mouse_default_cursor_shape = Control.CURSOR_MOVE
+	node.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT and (ev as InputEventMouseButton).pressed:
+			_drag_kind = kind
+			_drag_node = node
+			_drag_grab = (ev as InputEventMouseButton).global_position - node.global_position
+			get_viewport().set_input_as_handled())
+
+# Global so the drag keeps following the cursor even when it leaves the small handle.
+func _input(ev: InputEvent) -> void:
+	if _drag_kind == "" or _drag_node == null or not is_instance_valid(_drag_node):
+		return
+	if ev is InputEventMouseMotion:
+		var parent := _drag_node.get_parent() as Control
+		if parent == null:
+			return
+		var target: Vector2 = (ev as InputEventMouseMotion).global_position - _drag_grab
+		var local: Vector2 = parent.get_global_transform().affine_inverse() * target
+		local = _snap_vec(local)
+		_drag_node.position = local
+		_store_drag(_drag_kind, local)
+		get_viewport().set_input_as_handled()
+	elif ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
+		_drag_kind = ""
+		_drag_node = null
+		_rebuild_sidebar()      # reflect the dragged position in the sliders (and clamp it)
+		_rebuild_gallery()      # re-apply the (possibly clamped) params consistently
+
+func _snap_vec(v: Vector2) -> Vector2:
+	var g: float = float(int(_params["dialog"]["snap"]))
+	if g < 1.0:
+		return v
+	return Vector2(roundf(v.x / g) * g, roundf(v.y / g) * g)
+
+func _store_drag(kind: String, local: Vector2) -> void:
+	var p: Dictionary = _params["dialog"]
+	if kind == "banner_icon":
+		p["banner_icon_x"] = local.x
+		p["banner_icon_y"] = local.y
+	elif kind == "close":
+		var card := _drag_node.get_parent().get_child(0) as Control   # wrap's first child is the card
+		var cw: float = (card.size.x if card != null else float(p["width"]))
+		p["close_x"] = local.x - (cw - _drag_node.size.x)             # inverse of the kit's dock() formula
+		p["close_y"] = -local.y
 
 func _on_section_input(ev: InputEvent, id: String) -> void:
 	var hit: bool = (ev is InputEventMouseButton and (ev as InputEventMouseButton).pressed and (ev as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT)
@@ -240,6 +324,7 @@ func _slider_row(spec: Array) -> Control:
 	s.max_value = hi
 	s.step = 1
 	s.value = float(params[key])
+	params[key] = s.value          # keep the param in sync if the value was out of range (clamped)
 	s.custom_minimum_size = Vector2(0, 28)
 	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
