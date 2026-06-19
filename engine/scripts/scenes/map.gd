@@ -80,6 +80,8 @@ const CARD_ACTIVE := "map/card_active.png"
 const CARD_LOCKED := "map/card_locked.png"
 const CARD_PILL := "map/pill_left.png"
 const CARD_BACK := "map/back_arrow.png"
+const CARD_BACK_FRAME := "map/back_frame.png"   # the round gold ring + cream face + corner flower (map.png back button)
+const CARD_BACK_FRAME_ASPECT := 141.0 / 144.0
 const CARD_ASPECT := 1027.0 / 352.0       # card_active's aspect — cards size to it so the gold frame never distorts
 const CARD_PILL_ASPECT := 293.0 / 102.0   # pill_left's aspect
 # the locale art insets this fraction of card WIDTH inside the gold frame. Pixel-measured from
@@ -829,8 +831,6 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
 		_dress_open_card(z, card, card_w, card_h, done)
 	else:
 		_dress_locked_card(z, card, card_w, card_h)
-	if open and not done and z == _frontier_map():
-		FX.breathe_once(card)               # the frontier place breathes — the way forward
 	return card
 
 # An OPEN place: the locale art (its painted thumbnail, or the §16 home clean art, or a meadow
@@ -934,11 +934,13 @@ func _art_clip_material(inner_size: Vector2) -> ShaderMaterial:
 # sprite + "N left" (panel-text law: dark INK, no halo), or "✿ restored" on a finished place. An
 # IGNORE visual; the card is the hit target.
 func _add_count_pill(z: int, card: Control, card_w: float, card_h: float, done: bool) -> void:
-	var pw := clampf(card_w * 0.40, 200.0, 360.0)
+	var pw := clampf(card_w * 0.30, 170.0, 290.0)
 	var ph := pw / CARD_PILL_ASPECT
 	var node := Control.new()
 	node.size = Vector2(pw, ph)
-	node.position = Vector2((card_w - pw) * 0.5, card_h - ph - card_h * 0.05)
+	# sit in the lower body, ABOVE the frame's bottom gold band (~10% of height) so the pill never
+	# overlaps the border.
+	node.position = Vector2((card_w - pw) * 0.5, card_h - ph - card_h * 0.13)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(node)
 	var pill_path := Look.kit(CARD_PILL)
@@ -1381,20 +1383,31 @@ func _build_chrome() -> void:
 	add_child(_select_back)
 	_select_back.visible = false
 
-# The round back-arrow button for the place-picker (back_arrow.png on the shared round chrome bg, an
-# INK-disc + glyph fallback). Pinned bottom-left; its press returns to the last-viewed map.
+# The round back button for the place-picker (map.png reference): the brown arrow (back_arrow) centred
+# on the gold-ring + cream-face disc (back_frame, its corner flower baked in). Falls back to the
+# shared round chrome / an INK disc when the framed art is absent. Pinned bottom-left; its press
+# returns to the last-viewed map.
 func _make_back_button(sb: float) -> Button:
-	var px := 84.0
+	var px := 128.0
+	var bh := px / CARD_BACK_FRAME_ASPECT
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	if ResourceLoader.exists(Look.kit("shared/btn_round.png")):
+	b.custom_minimum_size = Vector2(px, bh)
+	var frame_path := Look.kit(CARD_BACK_FRAME)
+	if ResourceLoader.exists(frame_path):
+		# a round disc, NOT a 9-slice — no texture margins, so the ring scales whole (no corner stretch).
 		var st := StyleBoxTexture.new()
-		st.texture = load(Look.kit("shared/btn_round.png"))
-		st.set_texture_margin_all(24.0)
+		st.texture = load(frame_path)
 		b.add_theme_stylebox_override("normal", st)
 		b.add_theme_stylebox_override("hover", st)
 		b.add_theme_stylebox_override("pressed", st)
+	elif ResourceLoader.exists(Look.kit("shared/btn_round.png")):
+		var st2 := StyleBoxTexture.new()
+		st2.texture = load(Look.kit("shared/btn_round.png"))
+		st2.set_texture_margin_all(24.0)
+		b.add_theme_stylebox_override("normal", st2)
+		b.add_theme_stylebox_override("hover", st2)
+		b.add_theme_stylebox_override("pressed", st2)
 	else:
 		var s := StyleBoxFlat.new()
 		s.bg_color = Color(INK, 0.6)
@@ -1406,11 +1419,12 @@ func _make_back_button(sb: float) -> Button:
 	if ResourceLoader.exists(arrow_path):
 		var ar := TextureRect.new()
 		ar.texture = load(arrow_path)
-		ar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		ar.offset_left = 18.0
-		ar.offset_top = 18.0
-		ar.offset_right = -18.0
-		ar.offset_bottom = -18.0
+		# centre the arrow on the cream FACE — the gold ring's circle centre is ~(0.46, 0.45) of the
+		# bbox (just up-left of centre because the baked flower bumps the bottom-right). A fixed box there.
+		var aw := px * 0.42
+		var ah := bh * 0.42
+		ar.position = Vector2(px * 0.46 - aw * 0.5, bh * 0.45 - ah * 0.5)
+		ar.size = Vector2(aw, ah)
 		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1419,7 +1433,7 @@ func _make_back_button(sb: float) -> Button:
 		var g := Label.new()
 		g.text = "◀"
 		g.add_theme_font_size_override("font_size", 34)
-		g.add_theme_color_override("font_color", CREAM)
+		g.add_theme_color_override("font_color", BARK)
 		g.set_anchors_preset(Control.PRESET_FULL_RECT)
 		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1429,10 +1443,10 @@ func _make_back_button(sb: float) -> Button:
 	b.anchor_right = 0.0
 	b.anchor_top = 1.0
 	b.anchor_bottom = 1.0
-	b.offset_left = 24.0
-	b.offset_right = 24.0 + px
-	b.offset_bottom = -(sb + 34.0)
-	b.offset_top = b.offset_bottom - px
+	b.offset_left = 22.0
+	b.offset_right = 22.0 + px
+	b.offset_bottom = -(sb + 30.0)
+	b.offset_top = b.offset_bottom - bh
 	Look.add_press_juice(b)
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -4.0)
