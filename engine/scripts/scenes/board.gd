@@ -455,6 +455,7 @@ func _persist() -> void:
 	g["quests"] = quests
 	g["quests_map"] = quests_map
 	g["bag"] = bag
+	g["gen_bag"] = board.gen_bag
 	g["rng_state"] = rng.state
 	g["water"] = water
 	g["refills_used"] = refills_used
@@ -1252,6 +1253,14 @@ func _open_bag_overlay() -> void:
 		"prices": G.BAG_SLOT_PRICES,              # the per-expansion 💎 price ladder
 		"on_retrieve": func(i: int) -> void: _retrieve_to_first_empty(i),
 		"on_buy_slot": _buy_bag_slot,
+		"gen_bag": board.gen_bag,
+		"on_place_gen": func(id: String) -> void:
+			var cells := board.empty_ground_cells()
+			if cells.is_empty():
+				return
+			board.place_gen_from_bag(id, cells[0])
+			_persist()
+			_rebuild_all(),
 	})
 
 # Return bagged item `i` to the first empty board cell (the overlay's click-to-retrieve path).
@@ -1440,6 +1449,14 @@ func _release_gen(pos: Vector2) -> void:
 		_pop_seed(from)                       # a still tap pops the generator (merge fuel)
 		return
 	var gp: Vector2 = board_area.get_global_transform() * pos
+	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
+		if board.store_gen(from):
+			_persist()
+			_rebuild_all()
+			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), tr("Stored!"), STRAW)
+		elif node != null:
+			_snap_back(from, node)
+		return
 	if merchant_btn != null and is_instance_valid(merchant_btn) \
 			and merchant_btn.get_global_rect().has_point(gp):
 		if node != null:

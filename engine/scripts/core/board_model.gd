@@ -12,6 +12,7 @@ var items := PackedInt32Array()
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
                                           # STATEFUL + persisted (movable; granted via hand-in, §6/§7).
                                           # Seeded by seed_gens / restored by from_dict.
+var gen_bag: Array = []                   # stored generator ids (the bag's generator section, soft cap 100)
 
 func _init() -> void:
 	terrain.resize(G.ROWS * G.COLS)
@@ -65,6 +66,25 @@ func _claim_gen_cells() -> void:
 			if not refuge.is_empty():
 				items[idx(Vector2i(refuge[0]))] = items[idx(cell)]
 			items[idx(cell)] = 0
+
+## Move a board generator into the bag's generator section (frees its cell). No-op on a bad cell.
+func store_gen(cell: Vector2i) -> bool:
+	if not gens.has(cell):
+		return false
+	gen_bag.append(String(gens[cell]))
+	gens.erase(cell)
+	return true
+
+## Place a stored generator from the bag onto an open, empty, non-generator cell.
+func place_gen_from_bag(id: String, cell: Vector2i) -> bool:
+	if not gen_bag.has(id) or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
+		return false
+	gen_bag.erase(id)
+	gens[cell] = id
+	if terrain[idx(cell)] > 0:
+		terrain[idx(cell)] = 0
+		items[idx(cell)] = 0
+	return true
 
 ## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator
 ## cell. Refuses an occupied cell, a bramble, or another generator's cell. Persisted via `gens`.
@@ -235,7 +255,7 @@ func to_dict() -> Dictionary:
 	var gl: Array = []
 	for c in gens:
 		gl.append([c.x, c.y, gens[c]])       # [row, col, id] — JSON-safe (no Vector2i keys)
-	return {"terrain": Array(terrain), "items": Array(items), "gens": gl}
+	return {"terrain": Array(terrain), "items": Array(items), "gens": gl, "gen_bag": gen_bag.duplicate()}
 
 func from_dict(d: Dictionary) -> void:
 	var t: Array = d.get("terrain", [])
@@ -247,3 +267,4 @@ func from_dict(d: Dictionary) -> void:
 	gens = {}
 	for e in d.get("gens", []):
 		gens[Vector2i(int(e[0]), int(e[1]))] = String(e[2])
+	gen_bag = Array(d.get("gen_bag", []))

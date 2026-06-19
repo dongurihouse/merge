@@ -122,6 +122,17 @@ func _initialize() -> void:
 	ok(grown.has("pantry_crock") and bs.is_gen(pantry_cell), "reaching the level grows the pantry in at its cell")
 	ok(bs.grow_surplus_gens(0, pantry_lvl).is_empty(), "growing is idempotent (no duplicate install)")
 
+	# 6f. gen_bag: store a board generator and place it back
+	var bm := BoardModel.new()
+	bm.seed_gens(0)
+	var first_cell: Vector2i = bm.gens.keys()[0]
+	var gid := String(bm.gens[first_cell])
+	ok(bm.store_gen(first_cell) and not bm.gens.has(first_cell) and bm.gen_bag.has(gid), "store_gen moves a generator board→gen_bag")
+	var open_cell: Vector2i = bm.empty_ground_cells()[0]
+	ok(bm.place_gen_from_bag(gid, open_cell) and bm.gens.values().has(gid) and not bm.gen_bag.has(gid), "place_gen_from_bag moves it gen_bag→board")
+	var bm_round := BoardModel.new(); bm_round.from_dict(bm.to_dict())
+	ok(str(bm_round.gen_bag) == str(bm.gen_bag), "gen_bag survives to_dict/from_dict")
+
 	# 7. dispenser odds well-formed
 	var total := 0.0
 	for p in G.TIER_ODDS:
