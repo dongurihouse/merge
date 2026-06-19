@@ -433,7 +433,7 @@ func _gate_ready() -> bool:
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module, currencies in the same place everywhere)
-	var hud := Hud.build(self, {"water_grant": func() -> void:
+	var hud := Hud.build(self, {"water": true, "water_grant": func() -> void:
 		water = G.WATER_CAP
 		_update_water_hud()
 		_persist(),
@@ -447,7 +447,9 @@ func _build_hud() -> void:
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; level is static here)
-	_wallet_panel = hud.wallet       # water joins this cluster (see _build_water_hud)
+	_wallet_panel = hud.wallet       # the shared cluster
+	water_label = hud.water          # water pair is built by the shared HUD now (one path with the map)
+	_water_icon = hud.water_icon     # the icon node, so FTUE can hide the water icon + label together
 	_open_shop = hud.open_shop       # the bottom-bar shop button opens it
 	_update_hud()
 
@@ -455,17 +457,9 @@ func _build_hud() -> void:
 # currencies — no second row (owner 2026-06-13). The refill OFFER stays a separate
 # button, shown only when empty.
 func _build_water_hud() -> void:
-	var row: HBoxContainer = _wallet_panel.get_child(0)
-	_water_icon = Look.icon("water", 40.0)
-	_water_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(_water_icon)
-	water_label = Label.new()
-	water_label.add_theme_font_size_override("font_size", 34)
-	water_label.add_theme_color_override("font_color", Color("#33402F"))   # dark, like the other currency labels
-	water_label.add_theme_constant_override("outline_size", 0)
-	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	water_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(water_label)
+	# The water icon + count live in the shared currency cluster now (built by Hud.build via opts.water
+	# — ONE path with the map; the refs come back as hud.water / hud.water_icon, bound in _build_hud).
+	# This builds only the board-specific empty-water REFILL stack.
 	# T43: the empty-water surfaces live in a vertical stack under the Lv chip, shown only
 	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded
 	# WATCH-AD refill (capped) and the cozy out-of-water OFFER, each shown only when live.

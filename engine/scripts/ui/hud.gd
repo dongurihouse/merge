@@ -62,13 +62,16 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store)
 	_spacer(row)
 	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store)
-	# Optional WATER pair (opts.water) — the map/hub surfaces the board's water energy in the same
-	# top-right bar. The board adds its OWN water entry via _build_water_hud (with the refill stack),
-	# so the board does NOT opt in here; only the map does.
+	# Optional WATER pair (opts.water) — the top-right water readout. BOTH the map and the board opt
+	# in, so the wallet is built through ONE path; the board additionally owns the refill stack (its
+	# water is live) and binds it to the `water` / `water_icon` refs returned below. Returns the icon
+	# node too so the board's FTUE can hide the water icon+label together until the intro pops are spent.
 	var water_lbl: Label = null
+	var water_icon: Control = null
 	if bool(opts.get("water", false)):
 		_spacer(row)
 		water_lbl = _pair(row, "water", Tune.GEM_ICON, 1.0, Color.WHITE, false, open_store)
+		water_icon = row.get_child(row.get_child_count() - 2)   # the _icon_box _pair added just before the label
 	# the whole currency pill is the acquire affordance now — a tap anywhere on it opens the
 	# store (the per-currency "+" buttons are retired; they bloated the pill + skewed its padding).
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -136,7 +139,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	host.add_child(left)
 
 	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
-	var out := {"stars": stars, "coins": coins, "diamonds": gems, "water": water_lbl, "level": level, "level_prog": level_prog,
+	var out := {"stars": stars, "coins": coins, "diamonds": gems, "water": water_lbl, "water_icon": water_icon,
+		"level": level, "level_prog": level_prog,
 		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
