@@ -211,6 +211,28 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	for st in ["font_color", "font_hover_color", "font_pressed_color"]:
 		b.add_theme_color_override(st, ink)
 	b.add_theme_color_override("font_disabled_color", Color(ink, 0.55))
+	# --- background: the sprite NINE-PATCH (nice baked borders) when "art" is on, else code-drawn ---
+	if bool(opts.get("art", false)):
+		var art_rel := "kit/mail_pill.png" if bg == "green" else "kit/mail_pill_cream.png"
+		var ap := Look.kit(art_rel)
+		if ResourceLoader.exists(ap):
+			var stx := StyleBoxTexture.new()
+			stx.texture = load(ap)
+			stx.set_texture_margin(SIDE_LEFT, float(opts.get("slice_l", 46.0)))
+			stx.set_texture_margin(SIDE_TOP, float(opts.get("slice_t", 34.0)))
+			stx.set_texture_margin(SIDE_RIGHT, float(opts.get("slice_r", 46.0)))
+			stx.set_texture_margin(SIDE_BOTTOM, float(opts.get("slice_b", 34.0)))
+			stx.axis_stretch_horizontal = int(opts.get("h_stretch", 0))
+			stx.axis_stretch_vertical = int(opts.get("v_stretch", 0))
+			stx.content_margin_left = 22; stx.content_margin_right = 22
+			stx.content_margin_top = 8; stx.content_margin_bottom = 9
+			b.add_theme_stylebox_override("normal", stx)
+			b.add_theme_stylebox_override("hover", stx)
+			var sp_t: StyleBoxTexture = stx.duplicate(); sp_t.modulate_color = Color(0.88, 0.88, 0.88)
+			b.add_theme_stylebox_override("pressed", sp_t)
+			var sd_t: StyleBoxTexture = stx.duplicate(); sd_t.modulate_color = Color(0.62, 0.62, 0.62)
+			b.add_theme_stylebox_override("disabled", sd_t)
+			return b
 	var s := StyleBoxFlat.new()
 	s.bg_color = fill
 	s.border_color = edge
