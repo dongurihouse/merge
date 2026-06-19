@@ -119,7 +119,6 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 
 # §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
-const CLICK_TO_VALUE := 1.0               # reward value per expected generator-click (the click→value rate)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 2                # floor of the asked-tier band
 const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels (never reaches t8)
@@ -135,7 +134,6 @@ const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line ease
 # §7 soft gate + authored gate quest — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
 const STARS_PER_QUEST_EST := 2            # gate_pause sizing: representative ★/quest for the meter
-const GATE_ASK_COUNT := 3                 # distinct top-tier lines the great-spirit's gate asks
 const GATE_STARS := 5                     # the gate's authored ★ (map-completion beat; off the regular cap)
 const GATE_COIN_BONUS := 100              # plus a large coin bonus over the computed overflow
 const GATE_TIER_BASE := 5                 # gate ceiling = min(GATE_TIER_BASE + map_index, TOP_TIER): t5→t8 over the 5 maps

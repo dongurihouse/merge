@@ -1,7 +1,5 @@
 extends SceneTree
-## Headless tests for the §7 generated-quest engine. Today: the reward — expected
-## generator-clicks → stars-first (capped) + coins-overflow. (The ask-GENERATOR's
-## level→asks/tier curve + line weighting land once their tunables are set.)
+## Headless tests for the §7 quest engine: level-based reward, gen_quest shape, gate quest, and the soft gate.
 ##   godot --headless --path . -s res://engine/tests/quest_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -16,9 +14,6 @@ func ok(cond: bool, label: String) -> void:
 	else:
 		_fail += 1
 		print("  FAIL  ", label)
-
-func near(a: float, b: float) -> bool:
-	return abs(a - b) < 0.01
 
 func _initialize() -> void:
 	# --- level-based reward: stars=min(level,CAP), coins=max(0,level-CAP), +gems at >=10 ---
@@ -48,10 +43,10 @@ func _initialize() -> void:
 		var q := G.gen_quest(20, hi_lines, rng)
 		if not hi_lines.has(int(q.line)):
 			all_in_lines = false
-		if int(q.tier) < 1 or int(q.tier) > G.TOP_TIER:
+		if int(q.tier) >= G.TOP_TIER or int(q.tier) < 1:
 			tier_ok = false
 	ok(all_in_lines, "every quest draws a live line")
-	ok(tier_ok, "every quest's tier is within 1..TOP_TIER")
+	ok(tier_ok, "every regular quest's tier is 1..TOP_TIER-1 (top tier is gate-only)")
 	var rA := RandomNumberGenerator.new(); rA.seed = 42
 	var rB := RandomNumberGenerator.new(); rB.seed = 42
 	ok(str(G.gen_quest(10, hi_lines, rA)) == str(G.gen_quest(10, hi_lines, rB)), "gen_quest is deterministic for a seed")

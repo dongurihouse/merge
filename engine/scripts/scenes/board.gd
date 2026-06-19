@@ -2009,8 +2009,8 @@ func _deliver_gate(qi: int, q: Dictionary, chip: Control) -> void:
 		FX.wobble(chip)
 		Audio.play("invalid_soft", -6.0)
 		return
-	var git: Dictionary = G.quest_item(q)
-	board.take(board.first_item_of(int(git.line) * 100 + int(git.tier)))
+	var it: Dictionary = G.quest_item(q)
+	board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
 	var z := _quest_map()
 	var g := Save.grove()
 	var gates: Array = g.get("gates", [])
