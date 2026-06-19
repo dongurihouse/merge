@@ -78,14 +78,12 @@ func _initialize() -> void:
 	ok(scn.board.empty_ground_cells().is_empty(), "fixture: the board is FULL (no free cell)")
 	scn._refresh_generator_dim()
 	ok(_all_gens_modulate(scn, Board.GEN_DIM), "FULL board → every generator (and the primary) modulates to GEN_DIM")
-	ok(scn.gen_node.modulate.a < 1.0, "FULL board → the primary generator alpha is dimmed (< 1)")
 
 	# --- a cell frees → every generator restores to full -----------------------
 	scn.board.take(freed_cell)
 	ok(not scn.board.empty_ground_cells().is_empty(), "fixture: one cell is now free")
 	scn._refresh_generator_dim()
 	ok(_all_gens_modulate(scn, Board.GEN_LIT), "free cell → every generator restores to GEN_LIT (full modulate)")
-	ok(scn.gen_node.modulate.a == 1.0, "free cell → the primary generator alpha is full (== 1)")
 
 	# --- it is a STANDING state: re-fill dims again (not a one-shot flash) ------
 	_fill_board(scn.board)

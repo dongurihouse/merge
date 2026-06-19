@@ -57,7 +57,6 @@ func _initialize() -> void:
 		"the outer cell (1,3) opens once the player reaches its gate (L%d)" % g_next)
 
 	# 4. pigeonhole helper
-	ok(b.any_pair_exists() == false or b.any_pair_exists(), "pair query runs")
 	var b2: BoardModel = BoardModel.new()
 	ok(b2.any_pair_exists(), "fresh board has mergeable pairs")
 
@@ -102,11 +101,11 @@ func _initialize() -> void:
 	ok(after_count == before_count and bh.item_at(hen_cell) == 0, \
 		"an item on the revealing generator's cell relocates, never vanishes")
 
-	# 6e. the appear_level STAGING gate is a live ENGINE feature (a generator grows in only once the
-	# player's Level reaches its appear_level) — the gate covers BOTH placement (live_gen_state) AND
-	# askable lines (so the fence never asks for a line nothing on the board can produce yet). The
-	# shipped roster is ONE generator per map (no staged gen — pantry_crock was retired, §content),
+	# 6e. the appear_level STAGING gate is a live ENGINE feature: a generator grows into the live set
+	# only once the player's Level reaches its appear_level (the PLACEMENT axis, via live_gen_state).
+	# The shipped roster is ONE generator per map (no staged gen — pantry_crock was retired, §content),
 	# so this drives the gate on a SYNTHETIC roster: map 0 = a live anchor (L0) + a staged gen (L5).
+	# (The askable-lines side of the same gate is covered in anchor_tests.)
 	var staged := [
 		{"id": "fix_anchor", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "anchor": true},
 		{"id": "fix_staged", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "appear_level": 5},
@@ -115,9 +114,6 @@ func _initialize() -> void:
 		"below its level, only the anchor is live (the staged gen is held back)")
 	ok(G.live_gen_state(staged, 0, 5).size() == 2 and G.live_gen_state(staged, 0, 5).has(Vector2i(2, 1)), \
 		"at its appear_level the staged gen joins the live set at its cell")
-	ok(not G.askable_lines(staged, 0, 4).has(3), "the staged gen's lines are NOT askable before it appears")
-	ok(G.askable_lines(staged, 0, 5).has(3) and G.askable_lines(staged, 0, 5).has(4), \
-		"the staged gen's lines (3,4) become askable when it appears")
 
 	# 6e-bis: grow_gens(0, ...) must NEVER place another map's generators. Regression for the bug
 	# where map_for_spots(_spots_bought()) returned 1 once all map-0 spots were bought, auto-placing
