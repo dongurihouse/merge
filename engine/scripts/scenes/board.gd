@@ -427,8 +427,8 @@ func _map_done() -> bool:                     # every map fully complete (spots 
 	return Quests.map_done(Save.grove().get("unlocks", {}), _gates())
 
 # the restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
-# Scoped to the frontier map (gate-aware), so a fully-restored map (gate pending) is NOT
-# "ready to restore" — the move there is delivering the gate quest, not buying a spot.
+# Scoped to the frontier map; a fully-restored map auto-unlocks the next one (spots-done),
+# so a map with no remaining spots is NOT "ready to restore" — there is nothing left to buy.
 func _gate_ready() -> bool:
 	return Quests.gate_ready(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
@@ -851,10 +851,11 @@ func _refresh_giver_lights() -> void:
 # merge, sell, deliver, coin collect/drop, buy-back, refill, rebuild). Mirrors the
 # giver-lights refresh: read board state, write modulate — no scattered ad-hoc writes.
 # Safe alongside FX.breathe (that tweens scale, not modulate).
-# A staged second generator (appear_level) grows in once the player's Level reaches it — the
+# A staged generator (appear_level) grows in once the player's Level reaches it — the
 # board no longer opens with two generators (owner). Self-healing: called at the top of every
-# _rebuild_all, it installs any now-eligible surplus generator missing from the board, makes its
-# lines askable (refill), and persists. Records the new cell(s) so the rebuild can pop them in.
+# _rebuild_all, it installs map-1 generators (e.g. pantry_crock at L5) that have grown in,
+# makes their lines askable (refill), and persists. Records new cell(s) so the rebuild can pop them in.
+# Later maps' generators never grow in here — they arrive via gen_bag, placed by the player.
 func _grow_generators() -> void:
 	if board == null:
 		return
@@ -919,7 +920,7 @@ func _rebuild_all() -> void:
 		FX.breathe(gn)
 		if _grown_cells.has(cell):            # a just-grown second generator — pop it in
 			FX.pop(gn)
-		gen_nodes[cell] = gn                  # keyed by CELL now (a gen can move, or be replaced by a hand-in grant)
+		gen_nodes[cell] = gn                  # keyed by CELL now (a gen persists; new ones arrive via gen_bag, §6)
 	if not _grown_cells.is_empty():
 		Audio.play("level_complete", -6.0, 1.1)
 		_grown_cells = []
@@ -1430,7 +1431,7 @@ func _release_gen(pos: Vector2) -> void:
 	if target != from and board.is_empty_ground(target) and board.move_gen(from, target):
 		Audio.play("item_drop", -3.0)
 		_persist()
-		_rebuild_all()                        # #1 move (generators are movable-only; grants arrive by hand-in quest)
+		_rebuild_all()                        # #1 move (generators are movable-only; new ones arrive via near-end reward → gen_bag)
 		return
 	if node != null:
 		_snap_back(from, node)                # occupied / bramble / dropped on another gen — refuse

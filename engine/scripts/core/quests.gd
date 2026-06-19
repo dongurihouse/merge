@@ -71,6 +71,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	for q in out:
 		if q.has("reward") and q.reward.has("generators"):
 			already = true
+			break
 	var grant := G.gens_to_grant(G.GENERATORS, z, owned_gens(board_gens, gen_bag))
 	if not already and not grant.is_empty() and stars_remaining(z, unlocks, banked_stars) <= G.GEN_GRANT_REMAINING_STARS and not out.is_empty():
 		var q0: Dictionary = out[0].duplicate(true)

@@ -110,7 +110,7 @@ static func generators_for_map(roster: Array, map: int, level: int = APPEAR_ALL)
 	return out
 
 ## The lines LIVE while the player is in `map` — its generators' lines only (older maps'
-## lines have retired, §6). The current map's quests + gate draw only from these.
+## lines have retired, §6). The current map's quests draw only from these.
 static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
 	for g in generators_for_map(roster, map, level):

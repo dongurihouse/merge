@@ -10,7 +10,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 var terrain := PackedInt32Array()
 var items := PackedInt32Array()
 var gens: Dictionary = {}                 # cell -> generator id; the LIVE generators (§6),
-                                          # STATEFUL + persisted (movable; granted via hand-in, §6/§7).
+                                          # STATEFUL + persisted (movable; stored/placed via gen_bag, §6).
                                           # Seeded by seed_gens / restored by from_dict.
 var gen_bag: Array = []                   # stored generator ids (the bag's generator section, soft cap 100)
 
