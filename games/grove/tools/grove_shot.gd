@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
-## modes: fresh | played | gate | compost | ladder | hive | bag
+## modes: fresh | played | gate | compost | ladder | hive | bag | level
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -83,6 +83,16 @@ func _initialize() -> void:
 			scn._update_hud()
 			scn._update_water_hud()
 			scn._rebuild_givers()
+			await create_timer(0.5).timeout
+		"level":
+			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
+			# next level so the tally + progress bar show a real fraction.
+			var glv := Save.grove()
+			glv["stars_earned"] = 24
+			Save.grove_write()
+			Save.add_stars(8)
+			scn._update_hud()
+			load("res://engine/scripts/ui/level_popup.gd").open(scn)
 			await create_timer(0.5).timeout
 		"swap":
 			# P3 proof: place two distinct items, drag one onto the other → they
