@@ -24,9 +24,9 @@ const CAPTIONS := {
 }
 # Per-element knob schema: [key, min, max]. The sidebar renders one slider per entry.
 const SCHEMA := {
-	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40]],
+	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40], ["corner", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
-	"button": [["font", 12, 40]],                           # bg / icon / enabled are toggles, added below
+	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
 	"dialog": [                                             # pill size inherits from the Cost pill
 		["width", 360, 720],
@@ -40,9 +40,9 @@ const SCHEMA := {
 }
 
 var _params := {
-	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7},
+	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7, "corner": 16},
 	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
-	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22},
+	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
 		"width": 560, "banner_font": 32, "banner_h": 92, "banner_icon": 54,
@@ -129,19 +129,14 @@ func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
 		"buy":
-			return Kit.buy_pill(String(p.text), "gem", int(p.font), float(p.icon), float(p.pad_x), float(p.pad_top), float(p.pad_bottom))
+			return Kit.buy_pill(String(p.text), "gem", int(p.font), float(p.icon), float(p.pad_x), float(p.pad_top), float(p.pad_bottom), float(p.corner))
 		"pill":
 			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
 		"button":
-			return Kit.pill_button(String(p.text), {
-				"bg": String(p.bg),
-				"icon": ("gem" if bool(p.show_icon) else ""),
-				"enabled": bool(p.enabled),
-				"font": int(p.font),
-			})
+			return Kit.pill_button(String(p.text), _btn_opts())
 		"card":
-			# pill font/icon INHERIT from the canonical Cost pill — not the card's own knobs
-			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body))
+			# pill font/icon INHERIT from the Cost pill; the Claim INHERITS from the shared Button
+			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body), _btn_opts())
 		"dialog":
 			var opts := {
 				"banner_font": int(p.banner_font),
@@ -153,11 +148,25 @@ func _make_element(id: String) -> Control:
 				"close_poke": Vector2(float(p.close_x), float(p.close_y)),
 				"entries_count": int(p.entries),
 				"list_max_h": float(p.list_max_h),
+				"btn": _btn_opts(),                        # the shared Button drives every Claim
 			}
 			var d := Kit.mail_dialog(Kit.DEMO_MAIL, int(_params.pill.font), float(_params.pill.icon), float(p.width), opts)
 			_attach_dialog_drag(d)
 			return d
 	return Control.new()
+
+## The shared Button's params as a kit opts dict. The card + dialog Claim are built ENTIRELY from
+## this (no styling of their own), so editing the Button item updates every Claim automatically.
+func _btn_opts() -> Dictionary:
+	var b: Dictionary = _params["button"]
+	return {
+		"text": String(b.text),
+		"bg": String(b.bg),
+		"icon": ("gem" if bool(b.show_icon) else ""),
+		"enabled": bool(b.enabled),
+		"font": int(b.font),
+		"corner": int(b.corner),
+	}
 
 ## --- gallery (left) ------------------------------------------------------------------------------
 
@@ -325,7 +334,7 @@ func _rebuild_sidebar() -> void:
 	_sidebar_body.add_child(sub)
 	if _selected == "card" or _selected == "dialog":
 		var note := Label.new()
-		note.text = "Pill size inherits from the Cost pill — edit it there."
+		note.text = "Pill size inherits from the Cost pill; the Claim inherits from the shared Button — edit those."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

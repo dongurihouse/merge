@@ -80,29 +80,8 @@ static func cost_pill(rew_id: String, n: int, font_px: int = 18, icon_px: float 
 	row.add_child(l)
 	return pill
 
-## The green Claim button: the sliced green capsule carrying engine text; falls back to the shared
-## primary pill when the art is absent.
-static func claim_button(text: String = "Claim", on_press: Callable = Callable(), font_px: int = 18) -> Button:
-	var box := Look.kit_box("kit/mail_pill.png", PILL_TEX, CLAIM_PAD)
-	if box == null:
-		return Look.button(text, on_press if on_press.is_valid() else func() -> void: pass, true)
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.text = text
-	b.add_theme_font_size_override("font_size", font_px)
-	b.add_theme_color_override("font_color", Pal.CREAM)
-	b.add_theme_color_override("font_hover_color", Pal.CREAM)
-	b.add_theme_color_override("font_pressed_color", Pal.CREAM)
-	b.add_theme_constant_override("outline_size", 0)
-	b.add_theme_stylebox_override("normal", box)
-	b.add_theme_stylebox_override("hover", box)
-	var bp: StyleBoxTexture = box.duplicate()
-	bp.modulate_color = Color(0.88, 0.88, 0.88)
-	b.add_theme_stylebox_override("pressed", bp)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	b.pressed.connect(func() -> void:
-		if on_press.is_valid(): on_press.call())
-	return b
+## (The old nine-patch claim_button was REMOVED — the mail Claim is now the shared pill_button below,
+## so there is one button component. The mail card/dialog drive their Claim entirely from it.)
 
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
 ##   bg      "green" | "cream"     (the same button, two backgrounds — Claim vs a cream chip)
@@ -115,6 +94,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var icon_id := String(opts.get("icon", ""))
 	var enabled: bool = bool(opts.get("enabled", true))
 	var font_px := int(opts.get("font", 22))
+	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = text
@@ -136,7 +116,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var s := StyleBoxFlat.new()
 	s.bg_color = fill
 	s.border_color = edge
-	s.set_corner_radius_all(999)              # clamped to height/2 → clean capsule at any size
+	s.set_corner_radius_all(int(corner))      # rectangular at low values; capsule near/above height/2
 	s.set_border_width_all(2)
 	s.shadow_color = Color(0, 0, 0, 0.22)
 	s.shadow_size = 5
@@ -152,12 +132,12 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	sd.bg_color = fill.lerp(Color(0.55, 0.55, 0.55), 0.55)
 	sd.shadow_size = 0
 	b.add_theme_stylebox_override("disabled", sd)
-	b.add_child(Look.rim_overlay(999, 2))
+	b.add_child(Look.rim_overlay(corner, 2))
 	return b
 
 ## The green shop BUY pill (mockup-adjacent green CTA): background art + acorn icon + price.
 static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int = 26, icon_px: float = 28.0,
-		pad_x: float = 16.0, pad_top: float = 6.0, pad_bottom: float = 7.0) -> Button:
+		pad_x: float = 16.0, pad_top: float = 6.0, pad_bottom: float = 7.0, corner: float = 16.0) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = price
@@ -179,7 +159,7 @@ static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int
 	var s := StyleBoxFlat.new()
 	s.bg_color = Pal.BTN_PRIMARY
 	s.border_color = Pal.BTN_PRIMARY_EDGE
-	s.set_corner_radius_all(999)                 # clamped to height/2 → always a clean capsule
+	s.set_corner_radius_all(int(corner))         # rectangular at low values; capsule near/above height/2
 	s.set_border_width_all(2)
 	s.shadow_color = Color(0, 0, 0, 0.22)
 	s.shadow_size = 5
@@ -193,7 +173,7 @@ static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int
 	var sp: StyleBoxFlat = s.duplicate()
 	sp.bg_color = s.bg_color.darkened(0.08)
 	b.add_theme_stylebox_override("pressed", sp)
-	b.add_child(Look.rim_overlay(999, 2))        # light inner rim — the sticker two-tone, clamped to the capsule
+	b.add_child(Look.rim_overlay(corner, 2))     # light inner rim — the sticker two-tone
 	return b
 
 ## A plated message icon — the icon seated on a pale cream disc (mockup's left-of-row motif).
@@ -216,7 +196,7 @@ static func plated_icon(id: String, px: float = 56.0) -> Control:
 ## A mail card (mockup image 2): plated icon + title/body + a cost_pill + a claim_button.
 ## COMPOSES the two atoms — pill size flows in from the caller so a knob change propagates here.
 static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float = 24.0,
-		title_font: int = 20, body_font: int = 15) -> Control:
+		title_font: int = 20, body_font: int = 15, btn_opts: Dictionary = {}) -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
 	if box != null:
@@ -264,7 +244,10 @@ static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float =
 	var chip := cost_pill(String(entry.get("rew", "gem")), int(entry.get("n", 0)), pill_font, pill_icon)
 	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(chip)
-	var claim := claim_button("Claim", func() -> void: print("WORKBENCH: claim %s" % entry.get("title", "")), pill_font)
+	# the Claim is the SHARED pill_button — it has no styling of its own, it's driven entirely by the
+	# button opts passed down (text/bg/icon/enabled/font/corner), so editing the shared Button updates
+	# every Claim in the card + dialog automatically.
+	var claim := pill_button(String(btn_opts.get("text", "Claim")), btn_opts)
 	claim.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(claim)
 	return panel
@@ -283,6 +266,7 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	var banner_icon_pos = opts.get("banner_icon_pos", null)        # Vector2 (px in the band) or null = auto
 	var close_size: float = float(opts.get("close_size", 64.0))
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
+	var btn_opts: Dictionary = opts.get("btn", {})       # the shared Button drives every row's Claim
 
 	var wrap := Control.new()
 
@@ -330,7 +314,7 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	rows.add_theme_constant_override("separation", 10)
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for i in maxi(0, entries_count):
-		rows.add_child(mail_card(entries[i % entries.size()], pill_font, pill_icon))
+		rows.add_child(mail_card(entries[i % entries.size()], pill_font, pill_icon, 20, 15, btn_opts))
 	if list_max_h > 0.0:
 		var scroll := ScrollContainer.new()
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
