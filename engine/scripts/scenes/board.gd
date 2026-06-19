@@ -45,6 +45,7 @@ const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water of
 
 const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
+const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 196.0           # the quest fence band above the grid (horizontal cards)
 const DIVIDER_H := 54.0          # the wood-branch divider band between the fence and the grid
 const STAND_W := 270.0           # one giver card's width — ~4 fit across like the reference (row scrolls beyond)
@@ -773,7 +774,7 @@ func _buy_treat() -> void:
 func _show_sell_affordance(code: int) -> void:
 	if not Features.on("sell_hints") or merchant_btn == null or not is_instance_valid(merchant_btn):
 		return
-	merchant_btn.modulate = Color(1, 1, 1, 1.0)
+	merchant_btn.modulate = DRAG_HILITE
 	FX.breathe_once(merchant_btn)
 	# preview the payout on the well so the player sees what they'll get before dropping
 	if G.is_coin(code) or merchant_pay == null or not is_instance_valid(merchant_pay):
@@ -797,7 +798,32 @@ func _hide_sell_affordance() -> void:
 	if merchant_rest != null and is_instance_valid(merchant_rest):
 		merchant_rest.visible = true
 	if merchant_btn != null and is_instance_valid(merchant_btn):
+		FX.breathe_stop(merchant_btn)        # end the drag pulse (it otherwise loops forever after the 1st drag)
 		merchant_btn.modulate = Color(1, 1, 1, 1.0)
+
+# Drag drop-target affordance (the §-bottom-nav wells). A stashable piece picked up lights BOTH its
+# drop targets for the drag's duration — the Bag (stash) and the merchant's cart (sell) — each with
+# a gentle pulse + brighten. NEITHER pulses at idle. The Bag is SKIPPED when full (no room to stash).
+func _show_drag_targets(code: int) -> void:
+	_show_sell_affordance(code)              # the merchant cart (sell) — pulse + brighten + payout preview
+	_highlight_bag_target()
+
+func _hide_drag_targets() -> void:
+	_hide_sell_affordance()                  # settle the cart back to rest
+	_unhighlight_bag_target()
+
+func _highlight_bag_target() -> void:
+	if bag_btn == null or not is_instance_valid(bag_btn):
+		return
+	if bag.size() >= _bag_capacity():        # full → no room; don't invite a stash that can't land
+		return
+	bag_btn.modulate = DRAG_HILITE
+	FX.breathe_once(bag_btn)
+
+func _unhighlight_bag_target() -> void:
+	if bag_btn != null and is_instance_valid(bag_btn):
+		FX.breathe_stop(bag_btn)
+		bag_btn.modulate = Color(1, 1, 1, 1.0)
 
 # W3: the first time a MAX-TIER item lands on the board, a one-time floater points
 # the player at the stall (persisted seen-flag — never nags twice).
@@ -1340,7 +1366,7 @@ func _on_press(pos: Vector2) -> void:
 			_drag_node.scale = Vector2(1.12, 1.12)
 			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the item lifts off
 			Audio.play("item_pickup", -6.0)
-			_show_sell_affordance(board.item_at(cell))   # W3: the stall brightens + shoulder tag
+			_show_drag_targets(board.item_at(cell))   # light the drop targets: Bag (stash) + cart (sell)
 
 func _on_release(pos: Vector2) -> void:
 	if _drag_is_gen:
@@ -1359,7 +1385,7 @@ func _on_release(pos: Vector2) -> void:
 	node.z_index = 0
 	node.scale = Vector2.ONE
 	PieceView.set_lifted(node, false)   # back to the tight resting shadow
-	_hide_sell_affordance()   # W3: drag ended — drop the tag, restore the stall's modulate
+	_hide_drag_targets()   # drag ended — settle the Bag + cart back to rest (stop the pulse)
 	# the bag and the merchant's cart are drop targets too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):

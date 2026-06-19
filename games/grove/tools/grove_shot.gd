@@ -130,6 +130,20 @@ func _initialize() -> void:
 			scn.bag = [101, 201]
 			scn._rebuild_bag()
 			await create_timer(0.4).timeout
+		"dragwell", "dragwellfull":
+			# mid-DRAG: pick up a board piece so the drop-target wells (Bag + merchant cart) light
+			# up. "dragwellfull" pre-fills the bag to capacity → the Bag must NOT highlight.
+			if mode == "dragwellfull":
+				scn.bag = [101, 201, 301, 401, 501, 102]   # 6 = the starting capacity (full)
+				scn._rebuild_bag()
+			var des: Array = scn.board.empty_ground_cells()
+			var dc := Vector2i(des[0])
+			scn.board.place(dc, 101)
+			scn._rebuild_pieces()
+			await create_timer(0.3).timeout
+			var dhalf: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
+			scn._on_press(scn._cell_pos(dc) + dhalf)        # pick up → lights the drop targets
+			await create_timer(0.5).timeout
 		"compost", "hive":
 			var g := Save.grove()
 			var ul := {}
