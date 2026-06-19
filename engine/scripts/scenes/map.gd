@@ -69,6 +69,44 @@ const VEIL_MARK_ALPHA := 0.16                   # the teasing ✿ ghost in the m
 const VEIL_MARK_SIZE := 64                      # ✿ glyph size, px
 const VEIL_ART := "map/veil.png"                # generic painted-veil seam (per-map: veil_<id>.png)
 
+# --- map-select cards — the painted place-picker kit (map_asset.png, §8 / map.png preview) ---------
+# The shipped frames REPLACE the code-drawn card look: an OPEN place wears a glowing gold frame
+# (card_active) over its locale art; a LOCKED place is the dark baked panel (card_locked — its
+# scene + flower-lock medallion baked in) under an "after <prev>" line; the restore count rides a
+# cream pill (pill_left) on the open card's lower edge; a round back arrow (back_arrow) returns to
+# the map you were viewing. All are sliced kit (ui/map/*) with code-drawn fallbacks (the §8 fog
+# veil among them) so the picker never blanks when an asset is missing.
+const CARD_ACTIVE := "map/card_active.png"
+const CARD_LOCKED := "map/card_locked.png"
+const CARD_PILL := "map/pill_left.png"
+const CARD_BACK := "map/back_arrow.png"
+const CARD_ASPECT := 1027.0 / 352.0       # card_active's aspect — cards size to it so the gold frame never distorts
+const CARD_PILL_ASPECT := 293.0 / 102.0   # pill_left's aspect
+# the locale art insets this fraction of card WIDTH inside the gold frame. Pixel-measured from
+# card_active.png: the gold band's straight inner edge is ~0.054w and its outer edge ~0.031w, so the
+# art edge must sit INSIDE the band (≤0.054w) to tuck under the gold with no sky gap — 0.045w lands
+# mid-band. Its corners are ROUNDED to CARD_ART_RADIUS so they follow the frame's rounded corner
+# (a square corner at this inset would poke past the gold arc into the transparent corner).
+const CARD_FRAME_INSET := 0.045
+const CARD_ART_RADIUS := 0.058            # the art's rounded-corner radius, as a fraction of the art rect's WIDTH
+# Rounds the locale art's 4 corners so they nest inside the gold frame's rounded interior (the frame
+# is alpha-0 in its corners, so a square art corner would show as a nub there). UV-space rounded-rect
+# alpha mask; `rx` is the corner radius in UV.x, `aspect` the art rect's width/height (so corners stay
+# circular in pixels). A soft 1-step falloff keeps the edge clean.
+const _ART_CLIP_SHADER := "shader_type canvas_item;
+uniform float rx = 0.06;
+uniform float aspect = 3.0;
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	float ry = rx * aspect;
+	float dx = max(rx - min(UV.x, 1.0 - UV.x), 0.0);
+	float dy = max(ry - min(UV.y, 1.0 - UV.y), 0.0);
+	float d = length(vec2(dx, dy / aspect));
+	col.a *= 1.0 - smoothstep(rx - 0.006, rx, d);
+	COLOR = col;
+}"
+var _art_clip: Shader
+
 var unlocks := {}
 
 # THE one input surface. Rebuilding a view clears + repopulates it; every visual
@@ -86,6 +124,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Button            # the Store nav button — kept as the anchor for the Store "new offer" badge
+var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var level_prog_label: Label
 var stars_label: Label
@@ -223,6 +262,8 @@ func _open_map(z: int) -> void:
 	_view = "map"
 	_map_idx = z
 	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
+	if _select_back != null and is_instance_valid(_select_back):
+		_select_back.visible = false      # the back arrow belongs to the place-picker, not a map
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
 	g["last_map"] = String(G.MAPS[z].id)
@@ -586,7 +627,9 @@ func _map_title_plank(z: int) -> Control:
 	var lbl := Label.new()
 	lbl.text = tr("restored ✿ 🎁") if map_spots_done(z) else tr("%d to restore this place") % left
 	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
-	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
+	# match the currency pill: dark INK + NO halo (panel-text law — the pill is a solid painted capsule).
+	lbl.add_theme_color_override("font_color", INK)
+	lbl.add_theme_constant_override("outline_size", 0)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -739,146 +782,249 @@ func _build_select() -> void:
 	resident_hits.clear()
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
-	# the header — the grove's name, an invitation to choose
-	var header := _lbl(tr("Choose a place ✿"), 40, CREAM)
-	header.position = Vector2(0, top + 8.0)
-	header.size = Vector2(view.x, 56.0)
-	header.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	content.add_child(header)
-	# ONE wide card per row — a vista per place, floating in the grove SKY. Cards split the band
-	# between the header and the safe bottom (no pool of dead space), but card height is capped so a
-	# modest sky margin frames the stack top/bottom + sides so the cards read as floating in the
-	# grove sky. The stack centers in the band. No ScrollContainer (the single-
-	# input-surface model has none, every map fits one screen); cards are positioned + hit-tested directly.
+	# ONE wide painted card per row — a vista per place (map.png place-picker). No header: the HUD
+	# wallet + the framed cards carry the read. Cards size to the gold frame's ASPECT (so the frame
+	# never distorts) and the stack centers in the band between the HUD and the floor back-arrow; if
+	# the natural height overflows the band, every card shrinks uniformly to fit. No ScrollContainer
+	# (the single-input-surface model has none); cards are positioned + hit-tested directly.
 	var n := G.MAPS.size()
-	var side := 52.0
+	var side := 46.0
 	var card_w := view.x - side * 2.0
-	var sep := 20.0
-	var band_top := top + 72.0
-	var band_bot := view.y - (Look.safe_bottom(self) + 40.0)
+	var sep := 18.0
+	var band_top := top + 16.0
+	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
-	var card_h := clampf((band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1)), 168.0, 288.0)
+	var card_h := card_w / CARD_ASPECT
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
+	if total_h > band_h:                                        # shrink uniformly so all cards fit the band
+		card_h *= band_h / total_h
+		card_w = card_h * CARD_ASPECT
+		total_h = card_h * float(n) + sep * float(maxi(n - 1, 0))
+	var x := (view.x - card_w) * 0.5
 	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
 	for z in n:
 		var card := _make_card(z, card_w, card_h)
-		card.position = Vector2(side, y)
+		card.position = Vector2(x, y)
 		card.size = Vector2(card_w, card_h)
 		content.add_child(card)
 		select_hits.append({"node": card, "z": z})
 		y += card_h + sep
+	if _select_back != null and is_instance_valid(_select_back):
+		_select_back.visible = true
 	FX.pop_in(content)
 
-# One map card: thumbnail + name + state line. Three states drive the line and the
-# greying — locked ("after <prev>"), unlocked-incomplete (★ N left), restored.
-# `card_h` > 0 makes the thumbnail a BANNER that expands to fill the card (the one-per-row
-# place-picker); 0 keeps the legacy fixed-aspect thumb.
+# One map card (the painted place-picker, map.png). OPEN → the locale art inside the glowing gold
+# frame (card_active) + a "★ N left"/"restored" pill on its lower edge; LOCKED → the dark baked
+# panel (card_locked, its flower-lock medallion + scene baked in) under an "after <prev>" line. The
+# card is a plain Control sized to the gold frame's aspect, so the frame fills it without distortion.
+# `card_h` is always > 0 from _build_select (the one-per-row banner). Every node IGNOREs the mouse.
 func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
-	var map_data: Dictionary = G.MAPS[z]
 	var open := map_unlocked(z)
 	var done := map_spots_done(z)
-	var banner := card_h > 0.0
-	var card := PanelContainer.new()
+	var card := Control.new()
 	card.custom_minimum_size = Vector2(card_w, card_h)
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color("#3D2A1B", 0.9) if open else Color("#2A2620", 0.85)
-	cs.set_corner_radius_all(20)
-	cs.set_border_width_all(3)
-	cs.border_color = STRAW if (open and not done) else (Color("#E8C84A") if done else Color(CREAM, 0.25))
-	cs.shadow_color = Color(0, 0, 0, 0.28)
-	cs.shadow_size = 6
-	cs.shadow_offset = Vector2(0, 4)
-	cs.content_margin_left = 12.0
-	cs.content_margin_right = 12.0
-	cs.content_margin_top = 12.0
-	cs.content_margin_bottom = 12.0
-	card.add_theme_stylebox_override("panel", cs)
+	card.size = Vector2(card_w, card_h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 8)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(col)
-	# thumbnail — the map image (or a meadow-toned fallback). Captured so a LOCKED
-	# card can wear its fog veil over exactly the thumb rect (text stays clear below).
-	var thumb_h := card_w * 0.62
-	var thumb_w := card_w - 24.0
-	var thumb_min_h := 0.0 if banner else thumb_h   # banner thumbs EXPAND to fill the card height
-	var thumb: Control
-	# prefer the map's own painted thumbnail (map_<id>.png); else a meadow-toned panel
-	# carrying a code-drawn ✿ "place" mark (the generated icon — no per-map art needed).
-	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
-	if ResourceLoader.exists(thumb_path):
+	if open:
+		_dress_open_card(z, card, card_w, card_h, done)
+	else:
+		_dress_locked_card(z, card, card_w, card_h)
+	if open and not done and z == _frontier_map():
+		FX.breathe_once(card)               # the frontier place breathes — the way forward
+	return card
+
+# An OPEN place: the locale art (its painted thumbnail, or the §16 home clean art, or a meadow
+# fallback) fills the hollow of the gold frame (card_active), drawn OVER it so the frame's
+# transparent centre lets the art show and its border frames it. The restore count rides a pill on
+# the lower edge.
+func _dress_open_card(z: int, card: Control, card_w: float, card_h: float, done: bool) -> void:
+	var inset := card_w * CARD_FRAME_INSET
+	var inner := Control.new()
+	inner.position = Vector2(inset, inset)
+	inner.size = Vector2(card_w - inset * 2.0, card_h - inset * 2.0)
+	inner.clip_contents = true
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(inner)
+	var art_path := _card_art_path(z)
+	if art_path != "":
 		var t := TextureRect.new()
-		t.texture = load(thumb_path)
-		t.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
-		if banner:
-			t.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		t.texture = load(art_path)
+		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.clip_contents = true
-		if not open:
-			t.modulate = Color(0.72, 0.74, 0.72, 0.85)
+		t.material = _art_clip_material(inner.size)   # round the art's corners to nest in the gold frame
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(t)
-		thumb = t
+		inner.add_child(t)
 	else:
-		var ph := Panel.new()
-		ph.custom_minimum_size = Vector2(thumb_w, thumb_min_h)
-		if banner:
-			ph.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		ph.clip_contents = true
+		inner.add_child(_meadow_fill(true))
+	# the gold frame OVER the art — card sized to its aspect, so a plain SCALE keeps the border crisp.
+	var frame_path := Look.kit(CARD_ACTIVE)
+	if ResourceLoader.exists(frame_path):
+		var fr := TextureRect.new()
+		fr.texture = load(frame_path)
+		fr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(fr)
+	else:
+		card.add_child(_code_card_border(card_w, card_h))
+	_add_count_pill(z, card, card_w, card_h, done)
+
+# A LOCKED place: the dark baked panel (card_locked — scene + flower-lock medallion baked in) fills
+# the card, with the "after <prev>" prerequisite line low over it. When the art is missing, fall
+# back to a meadow panel under the code-drawn §8 fog veil so the horizon still reads as veiled.
+func _dress_locked_card(z: int, card: Control, card_w: float, card_h: float) -> void:
+	var panel_path := Look.kit(CARD_LOCKED)
+	if ResourceLoader.exists(panel_path):
+		var p := TextureRect.new()
+		p.texture = load(panel_path)
+		p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		p.stretch_mode = TextureRect.STRETCH_SCALE
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(p)
+	else:
+		var inner := _meadow_fill(false)
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		card.add_child(inner)
+		_veil_thumb(inner, String(G.MAPS[z].id))     # the §8 code-drawn fog, only when the painted panel is absent
+	# the prerequisite line, low on the panel (the baked medallion is the centre mark).
+	var state_l := Label.new()
+	state_l.text = tr("✿ after %s") % tr(G.MAPS[maxi(z - 1, 0)].name)
+	state_l.add_theme_font_size_override("font_size", int(clampf(card_h * 0.135, 18.0, 30.0)))
+	state_l.add_theme_color_override("font_color", Color(CREAM, 0.88))
+	state_l.add_theme_color_override("font_outline_color", INK)
+	state_l.add_theme_constant_override("outline_size", 5)
+	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	state_l.position = Vector2(card_w * 0.12, card_h - card_h * 0.30)
+	state_l.size = Vector2(card_w * 0.76, card_h * 0.24)
+	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(state_l)
+
+# The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home
+# clean art (the hub's restored cottage), else "" → a code-drawn meadow fill.
+func _card_art_path(z: int) -> String:
+	var map_data: Dictionary = G.MAPS[z]
+	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
+	if ResourceLoader.exists(thumb_path):
+		return thumb_path
+	var home = map_data.get("home", null)
+	if typeof(home) == TYPE_DICTIONARY:
+		var clean := String(home.get("clean", ""))
+		if clean != "" and ResourceLoader.exists(clean):
+			return clean
+	return ""
+
+# The rounded-corner alpha-mask material for an open card's locale art, sized to the inner rect so
+# the corner radius is CARD_ART_RADIUS of the card width and stays circular at the rect's aspect.
+func _art_clip_material(inner_size: Vector2) -> ShaderMaterial:
+	if _art_clip == null:
+		_art_clip = Shader.new()
+		_art_clip.code = _ART_CLIP_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _art_clip
+	mat.set_shader_parameter("rx", CARD_ART_RADIUS / (1.0 - 2.0 * CARD_FRAME_INSET))
+	mat.set_shader_parameter("aspect", inner_size.x / maxf(inner_size.y, 1.0))
+	return mat
+
+# The restore count on an open card's lower edge: a cream pill (pill_left) carrying the GOLD star
+# sprite + "N left" (panel-text law: dark INK, no halo), or "✿ restored" on a finished place. An
+# IGNORE visual; the card is the hit target.
+func _add_count_pill(z: int, card: Control, card_w: float, card_h: float, done: bool) -> void:
+	var pw := clampf(card_w * 0.40, 200.0, 360.0)
+	var ph := pw / CARD_PILL_ASPECT
+	var node := Control.new()
+	node.size = Vector2(pw, ph)
+	node.position = Vector2((card_w - pw) * 0.5, card_h - ph - card_h * 0.05)
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(node)
+	var pill_path := Look.kit(CARD_PILL)
+	if ResourceLoader.exists(pill_path):
+		var bg := TextureRect.new()
+		bg.texture = load(pill_path)
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_SCALE
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(bg)
+	else:
+		var pnl := Panel.new()
+		pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		var ps := StyleBoxFlat.new()
-		ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
-		ps.set_corner_radius_all(14)
-		ph.add_theme_stylebox_override("panel", ps)
-		ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		# the generated icon: a code-drawn ✿ "place" mark, centered — stands in for an
-		# unpainted map. Sized to the veil ghost so a LOCKED card's fog (which layers its
-		# own faint ✿ over this) reads as one mark, not two.
-		var mark := Label.new()
-		mark.name = "PlaceMark"
-		mark.text = "✿"
-		mark.add_theme_font_size_override("font_size", VEIL_MARK_SIZE)
-		mark.add_theme_color_override("font_color", Color(CREAM, 0.5))
-		mark.set_anchors_preset(Control.PRESET_FULL_RECT)
-		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ph.add_child(mark)
-		col.add_child(ph)
-		thumb = ph
-	# LOCKED → veil it (the §8 horizon: visible AND not-yet-revealed). One place.
-	if not open:
-		_veil_thumb(thumb, String(map_data.id))
-	var name_l := Label.new()
-	name_l.text = tr(map_data.name)
-	name_l.add_theme_font_size_override("font_size", 26)
-	name_l.add_theme_color_override("font_color", CREAM if open else Color(CREAM, 0.6))
-	name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(name_l)
-	if open and not done:
-		# §13: the star count is the GOLD sprite + a number — not a baked ★ glyph — so it reads as
-		# the same currency as the HUD wallet and the in-map spot pins (a centered icon+number row).
-		col.add_child(_stars_left_row(map_stars_left(z), CREAM, 21))
+		ps.bg_color = CREAM
+		ps.set_corner_radius_all(int(ph * 0.5))
+		ps.set_border_width_all(3)
+		ps.border_color = STRAW
+		pnl.add_theme_stylebox_override("panel", ps)
+		pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(pnl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(row)
+	if done:
+		var lbl := Label.new()
+		lbl.text = tr("✿ restored")
+		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
+		lbl.add_theme_color_override("font_color", INK)
+		lbl.add_theme_constant_override("outline_size", 0)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
 	else:
-		var stxt: String
-		var scol: Color
-		if done:
-			stxt = tr("✿ restored"); scol = STRAW
-		else:
-			stxt = tr("✿ after %s") % tr(G.MAPS[z - 1].name); scol = Color(CREAM, 0.6)
-		var state_l := Label.new()
-		state_l.text = stxt
-		state_l.add_theme_font_size_override("font_size", 21)
-		state_l.add_theme_color_override("font_color", scol)
-		state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
-		state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(state_l)
-	if open and not done and z == _frontier_map():
-		FX.breathe_once(card)
-	return card
+		var ic := Look.icon("star", ph * 0.50)
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(ic)
+		var lbl := Label.new()
+		lbl.text = tr("%d left") % map_stars_left(z)
+		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
+		lbl.add_theme_color_override("font_color", INK)
+		lbl.add_theme_constant_override("outline_size", 0)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
+
+# A code-drawn meadow fill for a card whose locale art hasn't shipped — a flat panel + a centered ✿
+# "place" mark. `open` brightens it; a locked fallback dims (the fog veil layers over this).
+func _meadow_fill(open: bool) -> Control:
+	var ph := Panel.new()
+	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ph.clip_contents = true
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = MEADOW if open else MEADOW.lerp(INK, 0.45)
+	ps.set_corner_radius_all(14)
+	ph.add_theme_stylebox_override("panel", ps)
+	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mark := Label.new()
+	mark.name = "PlaceMark"
+	mark.text = "✿"
+	mark.add_theme_font_size_override("font_size", VEIL_MARK_SIZE)
+	mark.add_theme_color_override("font_color", Color(CREAM, 0.5))
+	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ph.add_child(mark)
+	return ph
+
+# A code-drawn gold border, the fallback when card_active.png is absent (so an open card still reads
+# as framed). A borderless rounded panel that draws only the rim — mouse-ignored, self-sizing.
+func _code_card_border(_card_w: float, _card_h: float) -> Control:
+	var pnl := Panel.new()
+	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0, 0, 0, 0)
+	ps.set_corner_radius_all(22)
+	ps.set_border_width_all(5)
+	ps.border_color = STRAW
+	pnl.add_theme_stylebox_override("panel", ps)
+	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return pnl
 
 # A centered "★ N left" status row: the GOLD star SPRITE (Look.icon) + a number-only label, so
 # every star reads as the same currency as the HUD wallet. Used by the map cards and the map title
@@ -1229,6 +1375,69 @@ func _build_chrome() -> void:
 	# completion gift) rides the top progress pill, so there is no separate above-CTA strip.
 	# The piggy bank now lives on the rail (its claimable ready-pip is attached there).
 	_build_liveops_rail(sb)
+	# the place-picker's bottom-left BACK arrow (map.png) — returns to the map you were viewing. A real
+	# Button on `self` (chrome), NOT under the content input surface; hidden on a map, shown in select.
+	_select_back = _make_back_button(sb)
+	add_child(_select_back)
+	_select_back.visible = false
+
+# The round back-arrow button for the place-picker (back_arrow.png on the shared round chrome bg, an
+# INK-disc + glyph fallback). Pinned bottom-left; its press returns to the last-viewed map.
+func _make_back_button(sb: float) -> Button:
+	var px := 84.0
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	if ResourceLoader.exists(Look.kit("shared/btn_round.png")):
+		var st := StyleBoxTexture.new()
+		st.texture = load(Look.kit("shared/btn_round.png"))
+		st.set_texture_margin_all(24.0)
+		b.add_theme_stylebox_override("normal", st)
+		b.add_theme_stylebox_override("hover", st)
+		b.add_theme_stylebox_override("pressed", st)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Color(INK, 0.6)
+		s.set_corner_radius_all(int(px * 0.5))
+		b.add_theme_stylebox_override("normal", s)
+		b.add_theme_stylebox_override("hover", s)
+		b.add_theme_stylebox_override("pressed", s)
+	var arrow_path := Look.kit(CARD_BACK)
+	if ResourceLoader.exists(arrow_path):
+		var ar := TextureRect.new()
+		ar.texture = load(arrow_path)
+		ar.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		ar.offset_left = 18.0
+		ar.offset_top = 18.0
+		ar.offset_right = -18.0
+		ar.offset_bottom = -18.0
+		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(ar)
+	else:
+		var g := Label.new()
+		g.text = "◀"
+		g.add_theme_font_size_override("font_size", 34)
+		g.add_theme_color_override("font_color", CREAM)
+		g.set_anchors_preset(Control.PRESET_FULL_RECT)
+		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(g)
+	b.anchor_left = 0.0
+	b.anchor_right = 0.0
+	b.anchor_top = 1.0
+	b.anchor_bottom = 1.0
+	b.offset_left = 24.0
+	b.offset_right = 24.0 + px
+	b.offset_bottom = -(sb + 34.0)
+	b.offset_top = b.offset_bottom - px
+	Look.add_press_juice(b)
+	b.pressed.connect(func() -> void:
+		Audio.play("button_tap", -4.0)
+		_open_map(_map_idx))
+	return b
 
 # The LIVE-OPS RAIL (backlog "LiveOps buttons") — a CALM vertical column of round buttons on the
 # right edge, ABOVE the bottom corner cluster: Daily, Free, and (guarded) Inbox. Each is a quiet

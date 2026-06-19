@@ -1,0 +1,15 @@
+{
+  "source": "_new/map_asset.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#06CAFE", "tol": 0.22, "min_area": 600, "pad": 3 },
+  "_note": "card_active (island 5) is a HOLLOW gold frame; slice_islands re-fills its enclosed cyan interior opaque, so after intake the caller re-keys ui/map/card_active.png ONCE with chroma_key (key=#06CAFE tol=0.46) — this knocks the interior transparent AND clears the cyan glow/fringe bleeding through the frame's soft edge (chroma_key only zeroes alpha + keeps RGB, so the result is identical to keying a fresh slice at tol 0.46). Deterministic from this source + that documented command. card_locked (island 6) bakes its own dark scene + flower-lock medallion. lock_flower (island 11) is the standalone blue medallion; back_arrow (island 13) is the brown left arrow for the place-picker's back button.",
+  "outputs": [
+    { "island": 5,  "name": "card_active", "path": "ui/map/card_active.png" },
+    { "island": 6,  "name": "card_locked", "path": "ui/map/card_locked.png" },
+    { "island": 7,  "name": "pill_left",   "path": "ui/map/pill_left.png" },
+    { "island": 11, "name": "lock_flower", "path": "ui/map/lock_flower.png" },
+    { "island": 13, "name": "back_arrow",  "path": "ui/map/back_arrow.png" }
+  ],
+  "archive": "_originals/ui/map_asset.png"
+}

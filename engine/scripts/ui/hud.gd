@@ -96,54 +96,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
 	var lv_px := 88.0   # standalone top-left badge size (badge art is tight-cropped so it fills this)
-	var avatar := Panel.new()
-	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
-	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the level badge FRAME — an EVOLVING gold ring that upgrades with Level (ui/lvl/
-	# badge_NN.png, sliced from lvls.png, mapped by data/level_badges.json). When the badge
-	# art is absent the chip falls back to a honey token (de-greened: green is the CTA), so it
-	# still reads on any build. The texture is swapped on level-up in `refresh` below; the INK
-	# number sits centred in its open middle.
+	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
+	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
+	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
 	var lvl0 := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	var frame_tex := _frame_tex(lvl0)   # the badge for this Level, or null when no art loads
-	var frame: TextureRect = null
-	if frame_tex != null:
-		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no default dark Panel bg behind the ring
-		# a cream disc fills the ring's open centre (reference: the number reads on cream, not sky)
-		var disc := Panel.new()
-		var dpad := lv_px * 0.16
-		disc.position = Vector2(dpad, dpad)
-		disc.size = Vector2(lv_px - dpad * 2.0, lv_px - dpad * 2.0)
-		var dsb := StyleBoxFlat.new()
-		dsb.bg_color = Color("#FBF3E2")
-		dsb.set_corner_radius_all(int(lv_px))
-		disc.add_theme_stylebox_override("panel", dsb)
-		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		avatar.add_child(disc)
-		frame = TextureRect.new()
-		frame.texture = frame_tex
-		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		avatar.add_child(frame)
-	else:
-		var coin := StyleBoxFlat.new()
-		coin.bg_color = Tune.LV_TOKEN_BG            # honey token — warm, not the CTA green
-		coin.set_corner_radius_all(int(lv_px / 2.0))
-		coin.set_border_width_all(Tune.PILL_BORDER_W)
-		coin.border_color = Tune.LV_TOKEN_BORDER    # warm gold ring (matches the pill border)
-		avatar.add_theme_stylebox_override("panel", coin)
-	var level := Label.new()
-	level.add_theme_font_size_override("font_size", _lv_font_size(lvl0))   # fits the badge opening (steps down for 2-3 digits)
-	level.add_theme_color_override("font_color", INK)
-	level.add_theme_constant_override("outline_size", 0)   # same clean read as the wallet numbers — no theme dark halo (it sits on the cream disc)
-	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	level.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	level.set_anchors_preset(Control.PRESET_FULL_RECT)
-	avatar.add_child(level)
+	var avatar := Look.make_level_badge(lvl0, lv_px, _lv_font_size(lvl0))
+	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var frame := avatar.get_node_or_null("lv_frame") as TextureRect   # null when on the honey-token fallback
+	var level := avatar.get_node_or_null("lv_num") as Label
 	lrow.add_child(avatar)
 	var level_prog := Label.new()
 	level_prog.add_theme_font_size_override("font_size", Tune.LVL_PROG_SIZE)   # readable (was 20), to the RIGHT of the avatar

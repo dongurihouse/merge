@@ -209,10 +209,15 @@ func _initialize() -> void:
 	else:
 		ok(lock_sb is StyleBoxTexture, "locked cell well uses the painted slot_locked art when the kit is present")
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
-	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the numbered art")
+	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the gate marker")
 	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \
 		"frontier locked cell background is a solid fill, not transparent art that exposes the board gutter")
-	ok(not _tree_has(bramble_node, "TextureRect"), "frontier locked cell does not use the checkerboard-backed numbered atlas")
+	# the gate marker is the SHARED level-badge medal (Look.make_level_badge) carrying this cell's
+	# required Level — same component as the HUD chip, different number (not the old numbered atlas).
+	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
+	ok(lv_num != null, "frontier locked cell shows the shared level-badge marker (medal + number)")
+	ok(lv_num != null and lv_num.text == str(clampi(G.cell_min_level(Vector2i(0, 0)), 1, 25)), \
+		"the level-badge marker carries this cell's gate Level number")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	bramble_node.free()
 	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")

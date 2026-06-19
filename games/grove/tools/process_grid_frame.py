@@ -12,16 +12,16 @@ grow off it), so the corner margins can be set large enough to hold the leaf clu
 the plain bamboo poles stretch. Implements the spec's `process_grid_frame` step
 (docs/superpowers/specs/2026-06-17-board-art-reskin-design.md).
 
-Deterministic. The pre-process slice is archived next to it as panel_grid.raw.png (kept, not
-deleted) so a re-slice can be re-run through here. Prints the per-side decoration extents so the
-nine-patch margins in board.gd (_make_board_mat) can be matched to the art.
+Deterministic. The pre-process slice is archived to _originals/board/panel_grid.raw.png (kept,
+not deleted) so a re-slice can be re-run through here. Prints the per-side decoration extents so
+the nine-patch margins in board.gd (_make_board_mat) can be matched to the art.
 """
 import os, sys
 from PIL import Image
 
 HERE = os.path.dirname(__file__)
 SRC  = os.path.normpath(os.path.join(HERE, "..", "assets", "ui", "board", "panel_grid.png"))
-RAW  = os.path.normpath(os.path.join(HERE, "..", "assets", "ui", "board", "panel_grid.raw.png"))
+RAW  = os.path.normpath(os.path.join(HERE, "..", "assets", "_originals", "board", "panel_grid.raw.png"))
 
 
 def kind(p):
@@ -57,15 +57,21 @@ def inner_edge(seq, lo, hi, step):
 def main():
     if not os.path.exists(SRC):
         print("missing", SRC); return 1
-    im = Image.open(SRC).convert("RGBA")
+
+    # Reprocess from the archived raw slice when present so this is idempotent (re-running never
+    # processes an already-processed image); archive on the first run.
+    if os.path.exists(RAW):
+        im = Image.open(RAW).convert("RGBA")
+    else:
+        im = Image.open(SRC).convert("RGBA")
+        im.save(RAW)
+        print("archived raw ->", os.path.basename(RAW))
     W, H = im.size
     px = im.load()
 
-    if not os.path.exists(RAW):          # archive the pre-process slice once
-        im.save(RAW)
-        print("archived raw ->", os.path.basename(RAW))
-
     out = im.copy(); opx = out.load()
+
+    # (a) clear the painted parchment interior to transparent — keep only the bamboo ring + leaves.
     cleared = 0
     for y in range(H):
         seq = [kind(px[x, y]) for x in range(W)]
@@ -76,28 +82,44 @@ def main():
         for x in range(li + 1, ri):
             if opx[x, y][3]:
                 opx[x, y] = (0, 0, 0, 0); cleared += 1
-    out.save(SRC)
     print("cleared interior pixels:", cleared)
 
-    # measure how far opaque content reaches in from each side WITHIN the corner bands,
-    # so the nine-patch corner margins can hold the leaf clusters.
-    BAND = 150
-    npx = out.load()
-    def op(x, y): return npx[x, y][3] > 25
-    left = top = right = bottom = 0
-    for y in list(range(BAND)) + list(range(H - BAND, H)):
-        for x in range(BAND):
-            if op(x, y): left = max(left, x + 1)
-        for x in range(W - 1, W - BAND - 1, -1):
-            if op(x, y): right = max(right, W - x)
-    for x in list(range(BAND)) + list(range(W - BAND, W)):
-        for y in range(BAND):
-            if op(x, y): top = max(top, y + 1)
-        for y in range(H - 1, H - BAND - 1, -1):
-            if op(x, y): bottom = max(bottom, H - y)
-    print("decoration extent (px) from edge:  left=%d top=%d right=%d bottom=%d" %
-          (left, top, right, bottom))
-    print("=> suggested patch margins (board.gd _make_board_mat)")
+    # (b) tone down the bamboo's bright OUTER rim. The art paints a near-white highlight a few px in
+    # from the outer edge; against the backdrop it reads as an ugly white border. Find pixels within
+    # RIM px of the OUTSIDE (transparent region connected to the image border) and pull the brightest
+    # ones down toward a normal bamboo tone. Interior-facing edges (against the cream field) are left
+    # alone — only the outward rim is toned.
+    import collections
+    RIM, BRIGHT, SCALE = 5, 198, 0.74
+    dist = [[-1] * W for _ in range(H)]          # BFS distance from outside, capped at RIM
+    q = collections.deque()
+    for x in range(W):
+        for yy in (0, H - 1):
+            if opx[x, yy][3] <= 25 and dist[yy][x] < 0:
+                dist[yy][x] = 0; q.append((x, yy))
+    for y in range(H):
+        for xx in (0, W - 1):
+            if opx[xx, y][3] <= 25 and dist[y][xx] < 0:
+                dist[y][xx] = 0; q.append((xx, y))
+    toned = 0
+    while q:
+        x, y = q.popleft(); d = dist[y][x]
+        for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+            nx, ny = x + dx, y + dy
+            if not (0 <= nx < W and 0 <= ny < H) or dist[ny][nx] >= 0:
+                continue
+            p = opx[nx, ny]
+            if p[3] <= 25:                       # keep flooding through outside transparency
+                dist[ny][nx] = 0; q.append((nx, ny))
+            elif d < RIM:                        # an opaque pixel within RIM of the outside = rim
+                dist[ny][nx] = d + 1; q.append((nx, ny))
+                lum = 0.3 * p[0] + 0.59 * p[1] + 0.11 * p[2]
+                if lum > BRIGHT:
+                    opx[nx, ny] = (int(p[0] * SCALE), int(p[1] * SCALE), int(p[2] * SCALE), p[3])
+                    toned += 1
+    print("toned bright rim pixels:", toned)
+
+    out.save(SRC)
     return 0
 
 
