@@ -32,12 +32,12 @@ func _initialize() -> void:
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
 	var bb_shop: Control = ss.shop_btn
 	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
-	var bag_bg: Panel = ss.bag_btn.get_child(0)
-	ok(bag_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
-		"S1: the empty bag target uses the same slot-tile background as board drop cells")
-	var merchant_bg: Panel = ss.merchant_btn.get_child(0)
-	ok(merchant_bg.get_theme_stylebox("panel") is StyleBoxTexture, \
-		"S1: the merchant target uses the same slot-tile background as board drop cells")
+	var bag_bg: TextureRect = ss.bag_btn.get_child(0)
+	ok(bag_bg.texture != null, \
+		"S1: the empty bag target is the round satchel nav button (board.png reskin)")
+	var merchant_bg: TextureRect = ss.merchant_btn.get_child(0)
+	ok(merchant_bg.texture != null, \
+		"S1: the merchant target is the round coin-sack nav button (board.png reskin)")
 	ok(ss.merchant_rest == null or not is_instance_valid(ss.merchant_rest) \
 		or ss.merchant_rest.get_parent() != ss.merchant_btn or not ss.merchant_rest.visible, \
 		"S1: the merchant drop target has no centered shop/cart icon")
