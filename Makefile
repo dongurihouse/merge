@@ -104,3 +104,6 @@ commit:
 	git add .
 	git commit -m "changes"
 	git push
+
+list:
+	git worktree list
