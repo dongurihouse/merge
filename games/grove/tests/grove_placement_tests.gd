@@ -23,6 +23,13 @@ func _initialize() -> void:
 		"S1: the board frame reserves its full height and stays clear of the bottom nav")
 	var bb_home: Control = nav_btns[0]
 	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
+	# Home → the map you were last on (NOT hard-wired to the hub): the nav Home button and the
+	# Decorate/gate handoff share ONE target = the persisted last_map (empty on a fresh save, so
+	# the Map boot falls through to the frontier).
+	Save.grove()["last_map"] = "barn"
+	ok(ss._decorate_target() == "barn", "Home/Decorate target the LAST played map, not the hub")
+	Save.grove().erase("last_map")
+	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
 	var bb_shop: Control = ss.shop_btn
 	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
 	var bag_bg: Panel = ss.bag_btn.get_child(0)

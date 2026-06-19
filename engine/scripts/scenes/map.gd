@@ -6,8 +6,9 @@ extends Control
 ## (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
 ## home. Buying advances your level; level-ups gift water+diamonds. A pinned garden button
-## leads to the board. The map background auto-wires: assets/map/map_<id>.png. A spot with
-## no shipped cutout (`art`) draws a code-generated placeholder tile (see _placeholder_tile).
+## leads to the board. Every map renders through ONE path (_build_map → _build_map_base + _seat_spots):
+## a map that ships §16 home art (clean/broken + per-building masks) reveals the clean art per restored
+## building (_build_home_spot); any other map draws cutout sprites / placeholder tiles via _make_spot.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -20,14 +21,12 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T45: the diegetic piggy-bank jar (chrome entry point)
 const Ads = preload("res://engine/scripts/core/ads.gd")                      # rewarded ads — the free-gem rail (T43); the 2× coin doubler moved to board.gd (quest reward)
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const Shop = preload("res://engine/scripts/ui/shop.gd")                      # chrome: the Store-badge query (starter_available)
-const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # the shared Settings card (gear + board bottom bar)
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -37,20 +36,14 @@ const Pal = Game.PALETTE
 const TAP_SLOP := 14.0       # drag farther than this and the release is a drag, not a tap
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
-# §8 ghost-preview: an UNOWNED spot may show a faint cut-out of the buildable that
-# will fill it (behind the price-pin + name, which stay legible). Gated by Features
-# "spot_ghost". The treatment is a low-alpha desaturating MULTIPLY — the same grey
-# wash the map-select uses to grey incomplete maps (a true desaturate needs a shader;
-# a neutral multiply reads as "not real yet" and costs no material). GHOST_ALPHA is
-# the opacity; GHOST_TINT is the grey it multiplies by (the lower the channels, the
-# more it cools/dims). Owned/built spots draw the REAL sprite — never a ghost.
-const GHOST_ALPHA := 0.34
-const GHOST_TINT := Color(0.72, 0.74, 0.72)
-
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
 # Process-scoped on purpose: a fresh app boot always lands on the frontier.
 static var decorate_map := ""
+# item 3 (§18): the daily-login calendar auto-pops once per APP LAUNCH, not once per Map open. This
+# static arms on the first show and survives Board→Map scene changes within a launch (a new process
+# resets it), so a return to the map never re-pops the calendar.
+static var _login_shown_launch := false
 
 const SKY = Pal.SKY
 const MEADOW = Pal.MEADOW
@@ -94,8 +87,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
-var _backdrop: Control = null    # the place-picker's sky backdrop (gradient + clouds); hidden on a MAP
-var _shop_btn: Button            # T28: kept so the §14 shop spotlight can target it
+var _shop_btn: Button            # the Store nav button — kept as the anchor for the Store "new offer" badge
 var level_label: Label
 var level_prog_label: Label
 var stars_label: Label
@@ -126,12 +118,6 @@ func _ready() -> void:
 	sky.color = SKY
 	sky.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(sky)
-
-	# the place-picker's richer sky (gradient + drifting-free clouds) sits BEHIND content; shown
-	# only on the chooser (a map has its own painted backdrop). Built hidden; the nav toggles it.
-	_backdrop = _build_backdrop()
-	_backdrop.visible = false
-	add_child(_backdrop)
 
 	# the single view host — full-rect, the ONE input surface; views repopulate it
 	content = Control.new()
@@ -166,16 +152,11 @@ func _ready() -> void:
 			start = G.hub_map()
 	_open_map(start)
 
-	# T28 (§14): if the player lands on the map first, announce the shop on its first
-	# appearance (a tap guide). Shared seen-state with the board, so whichever scene shows
-	# it first wins and it never double-announces. Deferred so the button has a real rect.
-	if Spotlight.should_spotlight("shop"):
-		_spotlight_shop_deferred.call_deferred()
-
 	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
 	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
-	# is open yet — and the board's Home button returns here). Gated + deferred so it never collides
-	# with the FTUE shop spotlight or fires on a cold first launch (see _maybe_login_popup).
+	# is open yet — and the board's Home button returns here). Gated + deferred so it never fires on a
+	# cold first launch (see _maybe_login_popup). (The §14 shop spotlight that used to share this
+	# first-hub-open beat was removed 2026-06-18 — docs/BACKLOG.md "Restore the shop FTUE".)
 	_maybe_login_popup_deferred.call_deferred()
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
@@ -275,56 +256,6 @@ func _set_map_chrome_visible(on: bool) -> void:
 			(n as CanvasItem).visible = on
 	if _weather != null and is_instance_valid(_weather):
 		_weather.visible = on
-	if _backdrop != null and is_instance_valid(_backdrop):
-		_backdrop.visible = not on        # the sky backdrop is the chooser's, not the map's
-
-# The place-picker's backdrop: a soft daytime sky (a vertical gradient — deeper up top, warm
-# toward the horizon) with a few painted clouds peeking in. Replaces the flat-blue fill so the
-# chooser reads as "your grove's sky" without weather motion. The cloud art is a grove seam
-# (ui/cloud.png) — absent, it degrades to the gradient alone. Every node IGNOREs the mouse.
-func _build_backdrop() -> Control:
-	var layer := Control.new()
-	layer.name = "SelectBackdrop"
-	layer.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layer.clip_contents = true
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the sky gradient
-	var grad := Gradient.new()
-	grad.set_color(0, SKY.darkened(0.12))          # top — a touch deeper
-	grad.set_color(1, SKY.lerp(CREAM, 0.34))       # horizon — warm, hazy, bright
-	var gtex := GradientTexture2D.new()
-	gtex.gradient = grad
-	gtex.fill_from = Vector2(0.5, 0.0)
-	gtex.fill_to = Vector2(0.5, 1.0)
-	gtex.width = 8
-	gtex.height = 128
-	var sky_rect := TextureRect.new()
-	sky_rect.texture = gtex
-	sky_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sky_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sky_rect.stretch_mode = TextureRect.STRETCH_SCALE
-	sky_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	layer.add_child(sky_rect)
-	# painted clouds — a few soft, static drifts high in the sky (grove art seam)
-	var cloud_path := Game.art("ui/cloud.png")
-	if ResourceLoader.exists(cloud_path):
-		var view := get_viewport_rect().size
-		var tex := load(cloud_path)
-		var spots := [Vector2(0.18, 0.015), Vector2(0.70, 0.0), Vector2(0.46, 0.075), Vector2(0.52, 0.90), Vector2(0.90, 0.55)]
-		var sizes := [0.50, 0.60, 0.34, 0.42, 0.40]
-		var alphas := [0.92, 0.88, 0.75, 0.82, 0.70]
-		for i in spots.size():
-			var c := TextureRect.new()
-			c.texture = tex
-			c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
-			var cw := view.x * float(sizes[i])
-			c.size = Vector2(cw, cw)
-			c.position = Vector2(spots[i].x * view.x - cw * 0.5, spots[i].y * view.y)
-			c.modulate = Color(1.0, 1.0, 1.0, alphas[i])
-			c.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			layer.add_child(c)
-	return layer
 
 # (The 2× rewarded-ad DOUBLER lived here, triggered by the now-removed hub yield-collect. It was
 # RE-HOMED to the quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map
@@ -349,35 +280,20 @@ func _build_map() -> void:
 	# buildings stay locked together on any window aspect.
 	_map_rect = _map_image_rect()
 	_map_art_rect = _map_placed_rect(z, _map_rect)
-	var home = G.MAPS[z].get("home", null)   # §16 mask-reveal home (the hub) — overrides cutout rendering
-	if typeof(home) == TYPE_DICTIONARY:
-		_build_home(z, home)                 # overgrown base + per-building reveal/badge (→ spot_hits)
-	else:
-		# background: a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
-		var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
-		if ResourceLoader.exists(art_path):
-			# A clipped frame AT the map rect; layers fill it via full-rect anchors (cover-fit).
-			var frame := Control.new()
-			frame.position = _map_art_rect.position
-			frame.size = _map_art_rect.size
-			frame.clip_contents = true
-			frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			content.add_child(frame)
-			_add_cover_layer(frame, art_path)
-		else:
-			var fallback := Panel.new()
-			fallback.position = _map_art_rect.position
-			fallback.size = _map_art_rect.size
-			var fs := StyleBoxFlat.new()
-			fs.bg_color = MEADOW
-			fs.set_corner_radius_all(28)
-			fs.set_border_width_all(5)
-			fs.border_color = MEADOW.lerp(LEAF, 0.4)
-			fallback.add_theme_stylebox_override("panel", fs)
-			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			content.add_child(fallback)
-	# ambient life + title — both render paths. On a COMPLETED map the wanderers ARE its residents
-	# (the §1 population sub-game); an in-progress map keeps the baseline generic ambient.
+	# ONE rendering path for EVERY map (item 1 — no hub special-case): a unified base layer, then one
+	# spot per G.MAPS[z].spots index-aligned into spot_hits via _seat_spots. A map that ships §16 home
+	# art (clean/broken + per-building masks) reveals the clean art per RESTORED building; any other map
+	# renders its cutout sprites / ghost badges through _make_spot. Both share this base + seat + ambient.
+	var home = G.MAPS[z].get("home", null)
+	var has_home := typeof(home) == TYPE_DICTIONARY
+	var home_dict: Dictionary = home if has_home else {}
+	var frame := _build_map_base(z, home_dict)   # §16 overgrown home base · the map's bg · or flat fallback
+	# z-order parity with the pre-unify renderer (so the look is unchanged): a §16 home seats its reveals
+	# /badges UNDER the ambient wanderers + title plank; a cutout map seats its sprites OVER them.
+	if has_home:
+		_seat_spots(z, home_dict, frame)
+	# ambient life + title — every map. On a COMPLETED map the wanderers ARE its residents (the §1
+	# population sub-game); an in-progress map keeps the baseline generic ambient.
 	var amb: Control
 	if G.can_populate(z, unlocks, _gates()):
 		amb = Ambient.build_population_layer(_map_rect.size, G.resident_members(z))
@@ -387,17 +303,25 @@ func _build_map() -> void:
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
 	content.add_child(_map_title_plank(z))
-	if typeof(home) != TYPE_DICTIONARY:
-		for k in G.MAPS[z].spots.size():
-			var spot := _make_spot(z, k, _map_rect)
-			content.add_child(spot)
-			spot_hits.append({"node": spot, "z": z, "k": k})
+	if not has_home:
+		_seat_spots(z, home_dict, frame)
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
 	if G.can_populate(z, unlocks, _gates()):
 		_add_welcome_panel(z)
 	FX.pop_in(content)
 
-# --- §16 mask-reveal home (the hub) ------------------------------------------------------
+# Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
+# A §16 home (home != {}) renders the per-building reveal/badge into `frame`; any other map renders the
+# cutout sprite/ghost via _make_spot. Either way the hit lands in content + spot_hits.
+func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
+	var has_home := not home.is_empty()
+	var by_id := _home_buildings(home) if has_home else {}
+	for k in G.MAPS[z].spots.size():
+		var hit: Control = _build_home_spot(z, k, home, frame, by_id) if has_home else _make_spot(z, k, _map_rect)
+		content.add_child(hit)
+		spot_hits.append({"node": hit, "z": z, "k": k})
+
+# --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 
 const _HOME_MASK_SHADER := "shader_type canvas_item;
 uniform sampler2D mask;
@@ -407,48 +331,79 @@ void fragment() {
 }"
 var _home_mask: Shader
 
-# The hub home screen: an overgrown base (farm_brokenv2). Each RESTORED building reveals the clean farm
-# through its baked mask; each UNRESTORED building shows a ✿cost badge that taps into the normal buy flow.
-func _build_home(z: int, home: Dictionary) -> void:
+# The unified base layer for ANY map: a §16 overgrown-home base (broken art, clipped — the per-building
+# mask reveals stack into the returned frame), else the map's own `bg`/convention art (cover-fit), else a
+# flat fallback panel. Returns the clipped frame the §16 reveals attach to (null for the panel — only a
+# §16 home needs it). `home` is {} for a map that ships no §16 home art.
+func _build_map_base(z: int, home: Dictionary) -> Control:
+	var broken := String(home.get("broken", ""))
+	if broken != "":
+		var frame := _clip_frame()
+		_add_fill_layer(frame, broken)                              # overgrown base
+		return frame
+	# a map may name its own `bg` (e.g. map1v2 base_empty); else the convention path.
+	var art_path := String(G.MAPS[z].get("bg", Game.art("map/map_%s.png" % String(G.MAPS[z].id))))
+	if ResourceLoader.exists(art_path):
+		var frame := _clip_frame()
+		_add_cover_layer(frame, art_path)
+		return frame
+	var fallback := Panel.new()
+	fallback.position = _map_art_rect.position
+	fallback.size = _map_art_rect.size
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = MEADOW
+	fs.set_corner_radius_all(28)
+	fs.set_border_width_all(5)
+	fs.border_color = MEADOW.lerp(LEAF, 0.4)
+	fallback.add_theme_stylebox_override("panel", fs)
+	fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(fallback)
+	return null
+
+# A clipped frame AT the map-art rect; layers fill it via full-rect anchors (cover/scale fit) so the
+# painting + buildings stay locked together on any window aspect.
+func _clip_frame() -> Control:
 	var frame := Control.new()
 	frame.position = _map_art_rect.position
 	frame.size = _map_art_rect.size
 	frame.clip_contents = true
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(frame)
-	_add_fill_layer(frame, String(home.get("broken", "")))          # overgrown base
+	return frame
+
+# The per-building mask data a §16 home ships (farm_home.json → {spot_id: {mask, pos, …}}); {} if absent.
+func _home_buildings(home: Dictionary) -> Dictionary:
 	var data = _read_json_file(String(home.get("data", "")))
 	var by_id := {}
 	if typeof(data) == TYPE_DICTIONARY:
 		for b in data.get("buildings", []):
 			by_id[String(b.get("spot", ""))] = b
-	# ONE spot_hit per spot, index-aligned with G.MAPS[z].spots — the buy flow + tests rely on this:
-	# owned → reveal the clean farm through its mask + an invisible tap marker; unowned → the ✿cost badge.
-	for k in G.MAPS[z].spots.size():
-		var sid := String(G.MAPS[z].spots[k].id)
-		var b = by_id.get(sid, null)
-		var hit: Control
-		if spot_owned(sid):
-			var mtex: Texture2D = load(Game.art("farm/" + String(b.get("mask", "")))) if b != null else null
-			if mtex != null:
-				# clean farm, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout
-				# that hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that
-				# would clean the WHOLE farm off one restore. No mask → skip the reveal (stays overgrown).
-				var rev := _add_fill_layer(frame, String(home.get("clean", "")))
-				var mat := ShaderMaterial.new()
-				mat.shader = _home_mask_shader()
-				mat.set_shader_parameter("mask", mtex)
-				rev.material = mat
-				var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
-				if String(vcur.id) != "base":
-					rev.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28)
-			hit = _home_owned_item(z, k, b)               # carries the inline customize strip
-			if _customize_spot == sid:
-				_add_variant_strip(hit, z, k)
-		else:
-			hit = _home_badge(z, k, b)
-		content.add_child(hit)
-		spot_hits.append({"node": hit, "z": z, "k": k})
+	return by_id
+
+# ONE §16 home spot at index k: owned → reveal the clean art through its baked mask (into `frame`) + an
+# invisible tap marker carrying the inline customize strip; unowned → the ✿cost badge into the buy flow.
+func _build_home_spot(z: int, k: int, home: Dictionary, frame: Control, by_id: Dictionary) -> Control:
+	var sid := String(G.MAPS[z].spots[k].id)
+	var b = by_id.get(sid, null)
+	if not spot_owned(sid):
+		return _home_badge(z, k, b)
+	var mtex: Texture2D = load(Game.art("farm/" + String(b.get("mask", "")))) if b != null else null
+	if mtex != null:
+		# clean art, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout that
+		# hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that would clean
+		# the WHOLE image off one restore. No mask → skip the reveal (stays overgrown).
+		var rev := _add_fill_layer(frame, String(home.get("clean", "")))
+		var mat := ShaderMaterial.new()
+		mat.shader = _home_mask_shader()
+		mat.set_shader_parameter("mask", mtex)
+		rev.material = mat
+		var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
+		if String(vcur.id) != "base":
+			rev.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28)
+	var hit := _home_owned_item(z, k, b)           # carries the inline customize strip
+	if _customize_spot == sid:
+		_add_variant_strip(hit, z, k)
+	return hit
 
 func _home_mask_shader() -> Shader:
 	if _home_mask == null:
@@ -691,28 +646,6 @@ func _map_title_plank_fallback(z: int) -> Control:
 		plank.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
 	return plank
 
-# §8: the optional ghost-preview of an UNOWNED spot's buildable. Only spots that ship
-# a cutout (`art`) can ghost; the caller passes that spot's `art_path`. Returns null
-# when the flag is off or this spot has no art — the caller then draws only the pin.
-# A faint, desaturated cut-out: low alpha + colour leaned toward neutral grey, sized
-# and centered exactly like the real sprite so the build "settles into" its outline.
-func _ghost_sprite(art_path: String, fs: float) -> TextureRect:
-	if not Features.on("spot_ghost"):
-		return null
-	if art_path == "" or not ResourceLoader.exists(art_path):
-		return null
-	var g := TextureRect.new()
-	# Same ORDER-MATTERS dance as the real sprite (expand_mode before size).
-	g.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	g.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	g.texture = load(art_path)
-	g.size = Vector2(fs, fs)
-	g.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real one
-	g.modulate = Color(GHOST_TINT.r, GHOST_TINT.g, GHOST_TINT.b, GHOST_ALPHA)
-	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	g.set_meta("ghost", true)
-	return g
-
 # A code-drawn stand-in for an owned spot that ships no cutout art (the non-hub maps):
 # a footprint-sized rounded tile in the map palette, centered on the plot exactly like
 # the real sprite, with the spot's name. Honours the chosen variant wash + gem accent.
@@ -746,65 +679,25 @@ func _placeholder_tile(spot: Dictionary, vcur: Dictionary, fs: float) -> Control
 	tile.add_child(lbl)
 	return tile
 
-# One spot ON the map image: the cutout sprite when owned AND a cutout ships, a
-# code-generated placeholder tile when owned with no cutout, else the 3-state pin +
-# name. The customize strip rides directly beneath when open.
+# One spot ON the map image: a code-generated placeholder tile when owned, else the
+# price-pin + name. The customize strip rides directly beneath when open.
 func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
-	# pos + fsize come from grove_data.MAPS (authored per spot). `art` is a res:// cutout; a spot
-	# without one ships no art and renders the placeholder tile below (no image fallback).
+	# `pos` (center fraction of the map canvas) comes from grove_data.MAPS. No spot ships a
+	# cutout: an owned spot draws a code-generated placeholder tile, an empty one the price-pin.
 	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
-	var art_scale := rect.size.x / Design.size().x   # footprints are authored at the design-width canvas
-	var fs_eff := float(spot.get("fsize", 240.0)) * art_scale
-	var art_path := String(spot.get("art", ""))
+	var fs_eff := 240.0 * (rect.size.x / Design.size().x)   # placeholder footprint, scaled from the design-width canvas
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
 	item.pivot_offset = Vector2(90, 50)
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var owned := spot_owned(String(spot.id))
-	# an owned spot draws its cutout sprite when one ships
-	if owned and art_path != "" and ResourceLoader.exists(art_path):
-		var f := TextureRect.new()
-		# ORDER MATTERS: expand_mode must precede size — with the default
-		# EXPAND_KEEP_SIZE the texture's 512px min CLAMPS size up and a later
-		# expand_mode never shrinks it back (every sprite rendered 512px; the
-		# Q3 probe caught it). Footprint is per-spot data (fsize, px on the image).
-		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		f.texture = load(art_path)
-		var fs: float = fs_eff
-		f.size = Vector2(fs, fs)
-		f.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot
-		# S8: the variant is a SUBTLE wash (was a full multiply — green wood read
-		# as a bug) + a swatch dot so the chosen look still reads at a glance
-		var vcur := _spot_variant(z, k)
-		f.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28) if String(vcur.id) != "base" else Color.WHITE
-		f.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		item.add_child(f)
-		if String(vcur.id) != "base":
-			var dot := Panel.new()
-			dot.size = Vector2(18, 18)
-			dot.position = Vector2(140, 14)
-			var ds := StyleBoxFlat.new()
-			ds.bg_color = Color(vcur.tint)
-			ds.set_corner_radius_all(9)
-			ds.set_border_width_all(2)
-			ds.border_color = Color(CREAM, 0.9)
-			dot.add_theme_stylebox_override("panel", ds)
-			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			item.add_child(dot)
-	elif owned:
-		# No cutout ships for this spot (the non-hub maps): draw a code-generated
-		# placeholder so the restored plot still reads as filled.
+	if owned:
+		# Owned spots draw a code-generated placeholder so the restored plot reads as filled.
 		item.add_child(_placeholder_tile(spot, _spot_variant(z, k), fs_eff))
 	else:
-		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
-		# empty plot teases what will fill it. Owned spots took the branches above —
-		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
-		var ghost := _ghost_sprite(art_path, fs_eff)
-		if ghost != null:
-			item.add_child(ghost)
+		# Only unowned (gated or buyable) spots reach here — the price-pin + name.
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
 		# point, ≥28px chip text, never covering the plot the furniture will fill
 		var stack := VBoxContainer.new()
@@ -859,6 +752,14 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 func _add_variant_strip(item: Control, z: int, k: int) -> void:
 	var current := String(_spot_variant(z, k).id)
 	var variants: Array = G.spot_variants(z, k)
+	# the chips ride a left-anchored HBox so each one takes its OWN content width and the row
+	# spaces them — a fixed pitch overlapped the wider "Classic" chip into its neighbour (the
+	# strip's content varies: a check sprite, a coin/gem cost, or the wide "Classic" text).
+	var strip := HBoxContainer.new()
+	strip.position = Vector2(2.0, 110.0)
+	strip.add_theme_constant_override("separation", 8)
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item.add_child(strip)
 	for i in variants.size():
 		var v: Dictionary = variants[i]
 		var chip := PanelContainer.new()
@@ -901,8 +802,7 @@ func _add_variant_strip(item: Control, z: int, k: int) -> void:
 		price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(price)
-		chip.position = Vector2(2.0 + i * 60.0, 110.0)
-		item.add_child(chip)
+		strip.add_child(chip)
 		variant_hits.append({"node": chip, "z": z, "k": k, "vid": String(v.id)})
 
 # --- THE MAP-SELECT VIEW (grove_spec §3) ------------------------------------------------
@@ -927,8 +827,8 @@ func _build_select() -> void:
 	content.add_child(header)
 	# ONE wide card per row — a vista per place, floating in the grove SKY. Cards split the band
 	# between the header and the safe bottom (no pool of dead space), but card height is capped so a
-	# modest sky margin frames the stack top/bottom + sides — the backdrop's gradient + clouds read
-	# as a real sky, not flat blue. The stack centers in the band. No ScrollContainer (the single-
+	# modest sky margin frames the stack top/bottom + sides so the cards read as floating in the
+	# grove sky. The stack centers in the band. No ScrollContainer (the single-
 	# input-surface model has none, every map fits one screen); cards are positioned + hit-tested directly.
 	var n := G.MAPS.size()
 	var side := 52.0
@@ -984,13 +884,9 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
 	var thumb_w := card_w - 24.0
 	var thumb_min_h := 0.0 if banner else thumb_h   # banner thumbs EXPAND to fill the card height
 	var thumb: Control
-	# prefer the map's own thumbnail; else fall back to its `poi_<id>` teaser so every LOCKED place
-	# shows ITS scenery under the fog instead of an identical blank tile; else a meadow-toned panel.
+	# prefer the map's own painted thumbnail (map_<id>.png); else a meadow-toned panel
+	# carrying a code-drawn ✿ "place" mark (the generated icon — no per-map art needed).
 	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
-	if not ResourceLoader.exists(thumb_path):
-		var poi := Game.art("map/poi_%s.png" % String(map_data.id))
-		if ResourceLoader.exists(poi):
-			thumb_path = poi
 	if ResourceLoader.exists(thumb_path):
 		var t := TextureRect.new()
 		t.texture = load(thumb_path)
@@ -1016,6 +912,19 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0) -> Control:
 		ps.set_corner_radius_all(14)
 		ph.add_theme_stylebox_override("panel", ps)
 		ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# the generated icon: a code-drawn ✿ "place" mark, centered — stands in for an
+		# unpainted map. Sized to the veil ghost so a LOCKED card's fog (which layers its
+		# own faint ✿ over this) reads as one mark, not two.
+		var mark := Label.new()
+		mark.name = "PlaceMark"
+		mark.text = "✿"
+		mark.add_theme_font_size_override("font_size", VEIL_MARK_SIZE)
+		mark.add_theme_color_override("font_color", Color(CREAM, 0.5))
+		mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+		mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ph.add_child(mark)
 		col.add_child(ph)
 		thumb = ph
 	# LOCKED → veil it (the §8 horizon: visible AND not-yet-revealed). One place.
@@ -1409,7 +1318,7 @@ func _build_chrome() -> void:
 	# specs: Settings · [Play] (centre, prominent) · Shop · Map. PLAY is the way into the garden/board —
 	# the prominent leaf that replaces the old wide "Enter Garden ▶" text CTA. The Store "new offer" badge
 	# rides the Shop button; the piggy bank moved to the LiveOps rail (its ready-pip rides it there).
-	# _shop_btn stays the §14 spotlight target.
+	# _shop_btn is kept as the Store-badge anchor.
 	var sb := Look.safe_bottom(self)
 	var nav := NavBar.build(self, [
 		# Settings — the shared music/sounds/calm card (ui/settings.gd).
@@ -1430,7 +1339,7 @@ func _build_chrome() -> void:
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	# §14 spotlight target = the Shop button (index 2, after Settings and Play).
+	# the Store-badge anchor = the Shop button (index 2, after Settings and Play).
 	_shop_btn = nav.buttons[2]
 	# the Play leaf breathes so the way to the board reads as the primary action.
 	FX.breathe_once(nav.buttons[1])
@@ -1645,57 +1554,33 @@ func _refresh_piggy_pip() -> void:
 	if _piggy_pip != null and is_instance_valid(_piggy_pip):
 		_piggy_pip.visible = Vault.claimable()
 
-# T28 (§14): present the shop spotlight over the chrome's shop button on first appearance,
-# then mark it spotlit. The gesture/caption come from the game's registry; the overlay
-# honours the §11 flag itself.
-func _spotlight_shop_deferred() -> void:
-	await get_tree().process_frame              # let the shop button get a real global rect
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	if _shop_btn == null or not is_instance_valid(_shop_btn) or not Spotlight.should_spotlight("shop"):
-		return
-	Spotlight.mark_spotlit("shop")
-	SpotlightOverlay.present(self, _shop_btn, Spotlight.gesture_for("shop"), tr(Spotlight.label_for("shop")))
-
-# T45 (§18): auto-show the daily-login calendar on the day's first hub open — ONCE, and only after a
-# rewarding moment, never on a cold first launch. The §18 spirit is "prompt after a reward, not a
+# T45 (§18): auto-show the daily-login calendar once per APP LAUNCH (item 3 — the `_login_shown_launch`
+# guard, NOT once per Map open; a Board→Map return never re-pops it), and only after a rewarding
+# moment, never on a cold first launch. The §18 spirit is "prompt after a reward, not a
 # cold open", so all of these must hold:
 #   • the flag is on (daily_login_popup),
 #   • today is genuinely unclaimed (not Login.claimed_today() — the day's first open),
-#   • this is NOT the very-first FTUE session (unlocks.size() > 0 — at least one spot restored, so a
-#     rewarding beat has already happened; a brand-new save sees the FTUE, not a money-ish calendar),
-#   • no FTUE shop spotlight is owed (not Spotlight.should_spotlight("shop")) — never two overlays at once.
-# Deferred TWO frames: one so the scene/chrome is built, one more so the same-frame shop-spotlight
-# defer resolves first (it marks itself seen), so the should_spotlight gate reads settled state.
+#   • this is NOT a brand-new save (unlocks.size() > 0 — at least one spot restored, so a rewarding
+#     beat has already happened; a fresh save doesn't open on a money-ish calendar).
+# (The §14 shop spotlight used to share this first-hub-open beat and gated the popup so the two never
+# stacked — removed 2026-06-18, docs/BACKLOG.md "Restore the shop FTUE". With no spotlight to collide
+# with, the extra defer + overlay-live check are gone; restore the don't-collide guard if a chrome
+# spotlight is re-added here.)
+# The synchronous gate for the auto-popup: shown-this-launch (item 3) · flag · today unclaimed ·
+# past the cold-FTUE. Pulled out so a test can assert the once-per-launch guard without the UI.
+func _login_popup_blocked() -> bool:
+	return _login_shown_launch \
+		or not Features.on("daily_login_popup") \
+		or Login.claimed_today() \
+		or unlocks.size() <= 0                     # brand-new save — no calendar before the first restore
+
 func _maybe_login_popup_deferred() -> void:
-	if not Features.on("daily_login_popup"):
+	if _login_popup_blocked():
 		return
-	if Login.claimed_today():
-		return
-	if unlocks.size() <= 0:                       # cold first FTUE session — show the FTUE, not the calendar
-		return
-	if Spotlight.should_spotlight("shop"):        # an FTUE shop spotlight is owed → don't collide; skip today
-		return
-	await get_tree().process_frame                # let the shop-spotlight defer (same frame) settle first
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	# re-check after the await — a spotlight may have just been raised, or today claimed elsewhere
-	if Login.claimed_today():
-		return
-	if _spotlight_overlay_live():                 # an FTUE spotlight is on screen → never stack a second overlay
-		return
+	_login_shown_launch = true                    # item 3: arm the per-launch guard (a Map re-open won't re-pop)
 	LoginUI.open(self, {"refresh": func() -> void:
 		_update_hud()
 		_refresh_piggy_pip()})
-
-# True if a feature-spotlight overlay is currently on screen (SpotlightOverlay.present roots a
-# full-rect Control at z_index 4096 — its signature). Used to keep the login popup from stacking
-# on top of an FTUE spotlight on a borderline frame.
-func _spotlight_overlay_live() -> bool:
-	for c in get_children():
-		if c is Control and (c as Control).z_index == 4096:
-			return true
-	return false
 
 func _open_settings() -> void:
 	SettingsUI.open(self)               # the shared card (music/sounds/calm) — also on the board's bottom bar

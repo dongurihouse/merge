@@ -252,23 +252,20 @@ static var MAPS: Array = _build_maps()
 
 static func _build_maps() -> Array:
 	var maps: Array = [
-	# Map 1 — the home hub. Each spot carries gameplay (id/cost/kind), its `art` cutout
-	# (assets/map1v2/items/<name>.png), and the `pos` (center fraction) + `fsize` (footprint px) that place
-	# that cutout on the map. Authored directly in this literal — no external layout file, no merge step.
+	# Map 1 — the home hub. Spots carry gameplay only (id/name/kind/cost/pos); the hub renders
+	# via the §16 mask-reveal `home` below (not per-spot cutouts), so spots need no `art`/`fsize`.
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
-		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
-		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
+		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home_spot).
 		"home": {"clean": "res://games/grove/assets/farm/farm.png", "broken": "res://games/grove/assets/farm/farm_brokenv2.png", "data": "res://games/grove/assets/farm/farm_home.json"},
 		"spots": [
-		# `art` points each spot at its map1v2 item cutout; pos/fsize position that cutout on the map.
-		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/cottage.png"},
-		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/garden.png"},
-		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778), "fsize": 370, "art": "res://games/grove/assets/map1v2/items/well.png"},
-		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.7454, 0.5065), "fsize": 450, "art": "res://games/grove/assets/map1v2/items/shed.png"},
-		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56), "fsize": 170, "art": "res://games/grove/assets/map1v2/items/doghouse.png"},
-		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305), "fsize": 320, "art": "res://games/grove/assets/map1v2/items/flowerbox.png"},
-		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182), "fsize": 353, "art": "res://games/grove/assets/map1v2/items/lantern.png"},
+		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
+		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379)},
+		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778)},
+		{"id": "fh_larder", "name": "Larder", "kind": "yield", "cost": 4, "pos": Vector2(0.7454, 0.5065)},
+		{"id": "fh_porch", "name": "Porch", "kind": "decor", "cost": 4, "pos": Vector2(0.84, 0.56)},
+		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305)},
+		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
 	{"id": "barn", "name": "The Barn", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
@@ -341,6 +338,10 @@ const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin
 # scale-pulse at the target; "drag" = a finger gliding along a short path (sell/stow).
 # `label` is the wordless-friendly one-liner the overlay may caption (all via tr()).
 const SPOTLIGHTS := [
+	# NOTE: NONE of these spotlights are presented right now — merchant/sell + bag + shop
+	# were all removed for now (2026-06-18; board.gd + map.gd skip them — see docs/BACKLOG.md
+	# "Restore the sell + bag FTUEs" and "Restore the shop FTUE"). The entries stay as the
+	# gesture/label source + test fixtures for when they are re-wired.
 	{"id": "merchant", "gesture": "drag", "label": "Drag a top item here to sell"},
 	{"id": "bag", "gesture": "drag", "label": "Drag a piece here to tuck it away"},
 	{"id": "shop", "gesture": "tap", "label": "Tap to visit the shop"},
@@ -430,9 +431,9 @@ const FIRST_BUY_MULT := 2
 # ad itself is a STUB in this build (an honest confirm — "no ad network"); the real SDK call
 # replaces only the play middle. `reward`/`gems`/`water` describe the grant the engine applies:
 #   refill_water — at the wall: watch → a FULL can (a free, daily-capped alt to the 💎 refill).
-#   collect_2x   — double ONE home-hub yield collect (§8); a persisted ARMED flag the hub-collect
-#                  reads (engine/scripts/core/ads.gd Ads.collect_2x_armed / consume_2x) — the ad
-#                  grants no currency directly, it arms the next collect.
+#   collect_2x   — the board quest-reward 2× doubler's faucet: watch → the reward is doubled by
+#                  scenes/board.gd (which grants the extra coins itself). The ad grants no currency
+#                  directly. (The old hub-yield collect that this once armed was removed.)
 #   shop_reroll  — refresh the rotating Shop offers (advances the `shop_reroll` rotation seed).
 #   event_topup  — a small event-currency boost (§17); stubbed as a small 💎 grant for now.
 const ADS := {

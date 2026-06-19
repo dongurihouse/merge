@@ -130,32 +130,7 @@ func _initialize() -> void:
 	ok(not Save.grove().has("exp") and int(Save.grove().get("stars_earned", -1)) == 24, \
 		"exp→stars_earned migration carries the old level and drops exp")
 
-	# 15. hub buildables (Core §8 keystone, Part A): per-spot upgrade level + the hub
-	# yield-collect timestamp. Level defaults to 0 (un-leveled); both store + persist.
-	fresh("hub_levels")
-	ok(Save.spot_level("fh_well") == 0, "unset spot level defaults to 0")
-	Save.set_spot_level("fh_well", 1)
-	Save.set_spot_level("fh_well", 3)         # an upgrade overwrites in place
-	Save._loaded = false                      # force a reload from disk
-	ok(Save.spot_level("fh_well") == 3, "spot level stores + persists across reload")
-	ok(Save.spot_level("fh_kitchen") == 0, "an unrelated spot stays at 0")
-
-	fresh("hub_collect")
-	ok(Save.hub_collected_at() == 0.0, "hub collect stamp defaults to 0.0")
-	Save.set_hub_collected_at(1234.5)
-	Save._loaded = false
-	ok(Save.hub_collected_at() == 1234.5, "hub collect stamp persists across reload")
-
-	# 16. the spot-id rename migration also carries `levels` (with unlocks/custom), so a
-	# renamed spot keeps its upgrade level. fh_chest→fh_hearth is a known _SPOT_ID_RENAMES pair.
-	fresh("levels_rename")
-	var gl := Save.grove()
-	gl["levels"] = {"fh_chest": 4}
-	Save._migrate_spot_ids(gl)
-	ok(not gl["levels"].has("fh_chest") and int(gl["levels"].get("fh_hearth", -1)) == 4, \
-		"spot-id rename carries levels like unlocks/custom")
-
-	# 17. T38 zone→map sweep: the two persisted grove keys migrate (value carried, old key dropped).
+	# 16. T38 zone→map sweep: the two persisted grove keys migrate (value carried, old key dropped).
 	fresh("map_keys_rename")
 	var gm := Save.grove()
 	gm["last_zone"] = "farmhouse"

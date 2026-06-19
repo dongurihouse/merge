@@ -48,18 +48,15 @@ func _initialize() -> void:
 			gs["unlocks"] = ful
 			Save.grove_write()
 		"vault2x":
-			# T45: the hub with the piggy-VAULT button (pip lit) + a 2×-collect DOUBLER offer.
-			# Restore every hub yield building to L1, back-date the collect clock so the open
-			# sweeps a real yield (→ the offer fires), and fill the jar past claimable (→ the pip).
+			# T45: the hub with the piggy-VAULT button (pip lit); the jar fills past claimable (the pip).
+			# (The old hub-collect 2x doubler is gone — it now lives on the board quest reward.)
 			var gv := Save.grove()
 			var fv := {}
 			for sp in G.MAPS[G.hub_map()].spots:
 				fv[String(sp.id)] = true
-				Save.set_spot_level(String(sp.id), 1)
 			gv["unlocks"] = fv
 			gv["stars_earned"] = 20
 			Save.grove_write()
-			Save.set_hub_collected_at(0.0)                # long-ago → the open collects a real N (→ the 2× offer)
 			Save.mark_spotlight_seen("shop")             # don't let the FTUE shop spotlight dim this composite
 			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
 		"login":

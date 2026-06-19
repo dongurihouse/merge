@@ -157,8 +157,8 @@ func _ready() -> void:
 	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
 	# A flat neutral field needs no veil.
 	add_child(_field_backdrop())
-	# (drifting clouds + wandering spirits removed — the painted backdrop already carries sky +
-	# clouds; the extra animated layers cluttered the top. _amb_layer stays null; _buy_treat guards it.)
+	# (the ambient drift + wandering-spirit layers were removed — they cluttered the top.
+	# _amb_layer stays null; _buy_treat guards it.)
 	_load_state()
 
 	var root := VBoxContainer.new()
@@ -284,10 +284,11 @@ func _ready() -> void:
 		{"icon": "nav_gear.png", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			SettingsUI.open(self)},
-		# Home — the centre, prominent button; the single home affordance back to the Map/decorate hub
+		# Home — the centre, prominent button; the single affordance back to the Map. Lands on the
+		# map you were LAST decorating (last_map), NOT the hub — empty on a fresh save → frontier.
 		{"icon": "nav_home.png", "px": 184.0, "label": tr("Home"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
-			HomeScene.decorate_map = String(G.MAPS[G.hub_map()].id)   # land on the HUB map
+			HomeScene.decorate_map = _decorate_target()
 			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")},
 		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
 		{"make": func() -> Control: return _make_bag_button(140.0)},
@@ -1054,26 +1055,23 @@ func _rebuild_all() -> void:
 # spotlight + pulse over it and a mimed tap/drag guide. Driven from _rebuild_all (which
 # runs on every state change), but the first-appearance GATE (Spotlight.should_spotlight)
 # fires each only once, ever. Target rects must be laid out, so resolve on the next frame.
-# Only the chrome that is currently VISIBLE is eligible (merchant ch1+, bag ch2+, §14).
 func _maybe_spotlight_chrome() -> void:
-	if not Features.on("ftue_feature_spotlight"):
-		return
-	# nothing eligible? skip the deferred work entirely.
-	if Spotlight.should_spotlight("merchant") or Spotlight.should_spotlight("bag") \
-			or Spotlight.should_spotlight("shop"):
-		_spotlight_chrome_deferred.call_deferred()
+	# ALL §14 board chrome spotlights (merchant/sell, bag, shop) are removed for now — each
+	# fired before its action was meaningful (removed 2026-06-18; see docs/BACKLOG.md "Restore
+	# the sell + bag FTUEs" and "Restore the shop FTUE"). Nothing is eligible, so never defer.
+	# The presenter helpers below (_spotlight_chrome_deferred / _show_spotlight) are kept as the
+	# re-add surface — restore the flag check + a should_spotlight(id) → call_deferred here, plus
+	# the matching branch in _spotlight_chrome_deferred, to bring one back. The §14 mechanism +
+	# registry are unchanged.
+	return
 
+# Dormant re-add template (not called while _maybe_spotlight_chrome is neutered above). When a
+# chrome spotlight is restored, this dispatches them one at a time in staged order so overlays
+# never stack: add `if <btn> != null and is_instance_valid(<btn>) and Spotlight.should_spotlight(id):
+# _show_spotlight(id, <btn>); return` per feature.
 func _spotlight_chrome_deferred() -> void:
 	await get_tree().process_frame              # let busts/slots get real global rects
 	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	# one at a time, in the staged order, so we never stack overlays. Merchant first
-	# (appears earliest), then the bag, then the shop.
-	if merchant_btn != null and is_instance_valid(merchant_btn) and Spotlight.should_spotlight("merchant"):
-		_show_spotlight("merchant", merchant_btn)
-		return
-	if bag_btn != null and is_instance_valid(bag_btn) and Spotlight.should_spotlight("bag"):
-		_show_spotlight("bag", bag_btn)
 		return
 	if shop_btn != null and is_instance_valid(shop_btn) and Spotlight.should_spotlight("shop"):
 		_show_spotlight("shop", shop_btn)
@@ -2025,7 +2023,6 @@ func _accept_2x_offer(got: int) -> void:
 		Audio.play("invalid_soft", -4.0)
 		return
 	Save.add_coins(got)                              # the doubled half — the same amount again
-	Ads.consume_2x()                                 # spend the arm (bookkeeping; the bonus is applied)
 	Audio.play("level_complete", -3.0, 1.2)
 	FX.celebrate_reward(self, at, "coin", got, Color("#E3B23C"))
 	FX.fly_to_wallet(self, at, Look.icon("coin", 40.0), coins_label, func() -> void: _update_hud())
@@ -2265,6 +2262,12 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 		"mark_tier": mark_tier,
 	})
 
+# The map→Map handoff target: the map the player was LAST on (persisted last_map). Empty on a
+# fresh save → the Map boot falls through to the frontier. Shared by the nav Home button and the
+# Decorate/gate jump — Home is no longer hard-wired to the hub; both return you where you were.
+func _decorate_target() -> String:
+	return String(Save.grove().get("last_map", ""))
+
 func _on_gate() -> void:
 	if not _gate_ready():
 		return
@@ -2272,7 +2275,7 @@ func _on_gate() -> void:
 	_persist()
 	# T2: Decorate jumps straight INTO the room you were decorating — the map is
 	# the atlas you visit on purpose. Fresh save (no last_map) → the map, as ever.
-	HomeScene.decorate_map = String(Save.grove().get("last_map", ""))
+	HomeScene.decorate_map = _decorate_target()
 	get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")
 
 # --- misc -------------------------------------------------------------------------

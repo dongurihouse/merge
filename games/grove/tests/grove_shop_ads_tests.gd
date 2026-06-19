@@ -79,15 +79,13 @@ func _initialize() -> void:
 	Save.grove()["ad_ledger"]["refill_water"]["last"] = 0.0
 	ok(Ads.can_show("refill_water") and Save.ad_used_today("refill_water") == 0, "a new day resets the daily cap")
 
-	# T-F: the 2×-collection ad ARMS a flag the hub-collect (T42) reads, capped+cooled,
-	# and consume_2x() spends it. The ad grants no currency directly.
+	# T-F: the 2×-collection ad is the board quest-reward doubler's faucet — it still claims
+	# (capped+cooled, no currency granted here), but the hub-yield "arm a flag the hub-collect
+	# reads" machinery is gone (the hub-collect was removed; residents replace the hub yield).
 	fresh("ads_2x")
-	ok(Ads.collect_multiplier() == 1, "no bonus collect by default (×1)")
 	var x2: Dictionary = Ads.claim("collect_2x")
-	ok(bool(x2.ok) and Ads.collect_2x_armed(), "watching the 2× ad arms the next collect")
-	ok(Ads.collect_multiplier() == int(Data.ADS.collect_2x.mult), "...so the next collect reads ×%d" % int(Data.ADS.collect_2x.mult))
-	Ads.consume_2x()
-	ok(not Ads.collect_2x_armed() and Ads.collect_multiplier() == 1, "consuming the bonus returns to ×1")
+	ok(bool(x2.ok), "the 2× quest ad still claims (capped+cooled)")
+	ok(not Save.grove().has("collect_2x_armed"), "claiming no longer arms a hub-collect flag (hub yield removed)")
 
 	# T-G: the free-reroll ad advances the Shop rotation seed (reuses the T40 shop_reroll hook).
 	fresh("ads_reroll")

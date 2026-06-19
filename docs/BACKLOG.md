@@ -107,6 +107,43 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
 
 ## Open — core loop
 
+- **Restore the sell + bag FTUEs — re-wire the §14 merchant + bag spotlights (engine · grove).** The
+  "Drag a top item here to sell" and "Drag a piece here to tuck it away" feature-spotlights were both
+  **removed for now** (2026-06-18) — they presented poorly (mistargeted / fired before the action was
+  meaningful: before the player had a top-tier spare to sell, or a piece worth stowing). The §14 spotlight
+  MECHANISM is fully intact (engine readers `core/spotlight.gd` + tests `engine/tests/spotlight_tests.gd`
+  still cover all features); only the **merchant** and **bag** presentation branches were pulled from the
+  board's flow (`board.gd` `_maybe_spotlight_chrome` + `_spotlight_chrome_deferred`). *(The **shop**
+  spotlight was also removed — see the next item; right now NO spotlight presents.)* The registry entries
+  are left in place as the gesture/label source (`grove_data.gd` `SPOTLIGHTS` → the `merchant` and `bag`
+  rows). **Build:** re-add each branch (a `Spotlight.should_spotlight("merchant")` / `("bag")` guard in
+  board.gd's `_spotlight_chrome_deferred`, staged merchant→bag, plus restoring the gate in
+  `_maybe_spotlight_chrome`), but only after fixing the **trigger condition** so each announces when its
+  well is actually actionable — merchant when a top-tier spare exists to sell (gate on the has-spares state
+  that brightens the well, `board.gd` `_show_sell_affordance` / the merchant `SHADE_LIT` rule); bag when the
+  player has a piece worth stowing (and free bag space). Confirm the overlays target the new bottom-bar
+  merchant + bag circles (board-UI overhaul items 6/7) and mime the drag onto them. Spec: `merge_spec §14`.
+  *(Surfaced 2026-06-18 — owner: the sell + bag FTUEs were broken; removed for now, restore once the
+  triggers are right.)*
+
+- **Restore the shop FTUE — re-wire the §14 shop spotlight on the home screen (engine · grove).** The
+  "Tap to visit the shop" feature-spotlight over the home-screen Store button was **removed for now**
+  (2026-06-18, with the sell + bag FTUEs above). The §14 MECHANISM + the `shop` registry entry
+  (`grove_data.gd` `SPOTLIGHTS`) + the engine tests are untouched; what was pulled is the **presentation**
+  on both surfaces — `map.gd`'s `_spotlight_shop_deferred` (the home-screen presenter; the trigger in
+  `_open` and the function itself are deleted) and the `shop` branch in `board.gd`'s
+  `_spotlight_chrome_deferred`. **Load-bearing side effect handled:** `map.gd` `_maybe_login_popup_deferred`
+  used to skip the daily-login calendar while `should_spotlight("shop")` was true (never stack two
+  overlays) and used a `_spotlight_overlay_live()` check + an extra defer frame to coordinate; with no shop
+  spotlight that guard would have **permanently suppressed the login popup** (shop stays unseen forever), so
+  it was removed along with `_spotlight_overlay_live` and the now-unused `Spotlight`/`SpotlightOverlay`
+  imports in map.gd. **Build:** re-add the shop spotlight presenter (map.gd, and/or the board branch),
+  staged after merchant/bag, AND **restore the login-popup don't-collide guard** so the calendar and the
+  shop spotlight never stack on the same first-hub-open frame (the removed code is the reference). Decide
+  whether the shop FTUE lives on the map, the board, or both (it is shared seen-state — whichever shows
+  first marks it seen). Spec: `merge_spec §14` + §18 (login-popup coordination). *(Surfaced 2026-06-18 —
+  owner: remove the home-screen shop FTUE for now.)*
+
 - **Shop backdrop — a dedicated stall-interior scene (art lane · owner).** The Shop currently renders over an **interim engine backdrop** (a blurred + warm-tinted + vignetted copy of the live scene — `engine/scripts/ui/shop.gd` `_backdrop_material`, dials in `tuning.gd` `Shop.BACKDROP_*`) because the flat dim read as dead space. Replace with **generated art**: the squirrel merchant's **market-stall interior** (warm wood, shelves, hanging goods, soft light), `ui/kit/bg_shop.png`, same §16 pipeline as the board backdrop. On arrival the shop should draw it behind the parchment (a small engine hookup in `Shop.open` — load `bg_shop.png` when present, else keep the blur). Spec: `merge_spec §10` (presentation) + `grove_art_pipeline §1` table row. *(Surfaced 2026-06-16 — shop polish pass.)*
 
 - **Map model — real §16 map images + on-image spot placement (art lane · owner).** The tail of the single-image-map rework (model T21; the `zone`→`map` rename + orphan-sprite cleanup shipped T38). **No engine gap** — the map view auto-wires `assets/map/map_<id>.png` (`map.gd` `_open_map`) and the Layout editor places spots on the image; this is **art + owner action**: generate the §16 per-map backgrounds (same pipeline as *Grove v1 art*, below), then re-place each map's spots via the Layout editor. `data/placements.json` was wiped to a clean slate (T38, owner call — `layout.gd` falls back to `grove_data` defaults), so re-placement starts fresh for **every** map. *(Pairs with the KEYSTONE hub loop below.)* *(T21 parked tail; (a)+(c) shipped T38.)*

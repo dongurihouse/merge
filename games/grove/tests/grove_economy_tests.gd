@@ -281,6 +281,14 @@ func _initialize() -> void:
 	ok(_all_ignore(h.content), "every content descendant IGNOREs mouse (single input surface)")
 	ok(h.map_unlocked(0) and not h.map_unlocked(1), "farmhouse open, barn locked, on a fresh save")
 
+	# item-1 (unified renderer): a NON-hub map (no §16 home art) renders through the SAME path as the
+	# hub — every spot seated as a hit via the cutout renderer, single-input-surface intact. Open barn
+	# directly (nav doesn't gate _open_map), then restore the hub for the buy assertions below.
+	h._open_map(1)
+	ok(h.spot_hits.size() == G.MAPS[1].spots.size(), "a non-hub map seats every spot as a hit (unified render)")
+	ok(_all_ignore(h.content), "a non-hub map keeps the single-input-surface rule (unified render)")
+	h._open_map(G.hub_map())
+
 	# a spot BUY, driven through the REAL spot node: give stars, tap an affordable
 	# spot (k=0 fh_hearth, 3★) → owned, stars debited, the view stays a map (no
 	# takeover/scene change). Stars are the ONLY unlock gate now — no level gate.
@@ -302,6 +310,27 @@ func _initialize() -> void:
 	ok(h.variant_hits.size() == 3, "the owned spot's inline strip exposes all 3 variants as chips")
 	ok(_all_ignore(h.content), "the strip keeps the single-input-surface rule")
 	ok(h._view == "map", "customizing keeps you on the map")
+	# every chip must RENDER (nonzero size, visible) AND lay out by its real width — the
+	# "Classic" chip is wider than the old fixed 60px pitch, so a fixed pitch overlapped it
+	# into its neighbour. The size check is load-bearing: a non-overlap-only assert passes
+	# VACUOUSLY on zero-size rects, which would silently allow a "strip vanished" regression.
+	# (await a frame so the container's global rects are real.)
+	await create_timer(0.05).timeout
+	var chips := []
+	var all_drawn := true
+	for hit in h.variant_hits:
+		var cn := hit.node as Control
+		var cr := cn.get_global_rect()
+		if cr.size.x < 1.0 or cr.size.y < 1.0 or not cn.visible:
+			all_drawn = false
+		chips.append(cr)
+	ok(all_drawn, "every variant chip renders with a real size (the strip is visible, not collapsed)")
+	chips.sort_custom(func(a, b): return a.position.x < b.position.x)
+	var no_overlap := true
+	for i in range(1, chips.size()):
+		if chips[i].position.x < chips[i - 1].end.x - 0.5:
+			no_overlap = false
+	ok(no_overlap, "the variant chips lay out side-by-side without overlapping")
 	h._customize_spot = ""
 	h._build_map()
 

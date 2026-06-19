@@ -141,7 +141,7 @@ func _initialize() -> void:
 	if s8.board == null:
 		s8._ready()
 	ok(s8.get_node_or_null("WeatherLayer") != null, \
-		"the board carries the weather layer (the drifting-cloud/spirit band was removed in the art reskin)")
+		"the board carries the weather layer (the ambient drift/spirit band was removed in the art reskin)")
 
 	# 20. order N — feature flags: all-ON is proven by the whole sweep (zero
 	# behavior change); two flip smokes prove the guards actually disconnect
@@ -326,6 +326,22 @@ func _initialize() -> void:
 	if ht4.content == null:
 		ht4._ready()
 	ok(ht4._view == "map", "T2: an unknown jump request falls through to the frontier map")
+
+	# 24b. item-3: the daily-login calendar fires once per APP LAUNCH, not once per Map open. A
+	# Board→Map return re-runs Map._ready, but a per-launch guard means it never re-pops the calendar.
+	# _login_popup_blocked() is the synchronous gate (launch guard · feature · claimed · cold-FTUE);
+	# when nothing blocks, the deferred popup shows ONCE and arms the guard.
+	fresh("login_launch")
+	Feat.FLAGS["daily_login_popup"] = true
+	Save.grove()["unlocks"] = {"fh_well": true}     # past the cold-FTUE gate (a rewarding beat happened)
+	var hm = load("res://engine/scenes/Map.tscn").instantiate()
+	hm.unlocks = {"fh_well": true}
+	HomeScript._login_shown_launch = false
+	ok(not hm._login_popup_blocked(), "item 3: first open this launch → the login calendar is due")
+	HomeScript._login_shown_launch = true
+	ok(hm._login_popup_blocked(), "item 3: after it shows once this launch, a Map re-open never re-pops it")
+	hm.free()
+	HomeScript._login_shown_launch = false          # leave the static clean for any later section
 
 	# 25. order O — music degrades SILENTLY on a BARE engine. Audio is skin and the
 	# real takes are archived, so ensure() must be a quiet no-op (never create a

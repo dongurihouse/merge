@@ -95,7 +95,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
-	var lv_px := 72.0   # standalone top-left badge size
+	var lv_px := 88.0   # standalone top-left badge size (badge art is tight-cropped so it fills this)
 	var avatar := Panel.new()
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -138,6 +138,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var level := Label.new()
 	level.add_theme_font_size_override("font_size", _lv_font_size(lvl0))   # fits the badge opening (steps down for 2-3 digits)
 	level.add_theme_color_override("font_color", INK)
+	level.add_theme_constant_override("outline_size", 0)   # same clean read as the wallet numbers — no theme dark halo (it sits on the cream disc)
 	level.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	level.mouse_filter = Control.MOUSE_FILTER_IGNORE

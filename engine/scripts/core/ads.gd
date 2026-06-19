@@ -17,10 +17,9 @@ extends RefCounted
 ##
 ## LAYERING: this is a core/ leaf — it imports ONLY core/ (Save, Game). It must never
 ## reach up into ui/ or scenes/ (the layering guard asserts this). So claim() applies the
-## effects it can do PURELY (grant 💎 via Save, advance the shop rotation seed, ARM the
-## collect-2× flag) and RETURNS a result dict for the effects the caller must apply in its
-## own layer — chiefly the water refill (board state lives in scenes/board.gd) and the
-## doubled hub-yield collect (T42's map/hub code reads collect_2x_armed()).
+## effects it can do PURELY (grant 💎 via Save, advance the shop rotation seed) and RETURNS
+## a result dict for the effects the caller must apply in its own layer — chiefly the water
+## refill (board state lives in scenes/board.gd) and the board quest-reward 2× doubler.
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -64,9 +63,9 @@ static func cooldown_left(ad_type: String) -> float:
 #   {"ok": false}                              — refused (capped / cooling / unknown)
 #   {"ok": true, "kind": "refill_water", "water": N}
 #        → the CALLER sets its water to N (board state; this layer can't touch it).
-#   {"ok": true, "kind": "collect_2x", "mult": M}
-#        → the next hub-yield collect is now ARMED ×M (Save.collect_2x_armed); T42's
-#          hub-collect reads/consumes it. No currency granted here.
+#   {"ok": true, "kind": "collect_2x"}
+#        → the watch is recorded (capped/cooled); the board quest-reward doubler grants the
+#          doubled coins itself. No currency granted here, no hub-yield flag armed.
 #   {"ok": true, "kind": "shop_reroll"}        → the Shop rotation seed was advanced.
 #   {"ok": true, "kind": "event_topup", "gems": N}  → +N 💎 already granted via Save.
 static func claim(ad_type: String) -> Dictionary:
@@ -79,9 +78,10 @@ static func claim(ad_type: String) -> Dictionary:
 			# Water lives on the board (scenes/), not in Save — hand the target back up.
 			return {"ok": true, "kind": ad_type, "water": int(def.get("water", 0))}
 		"collect_2x":
-			# Arm the next collect; the hub-collect (T42) reads + consumes the flag.
-			Save.set_collect_2x_armed(true)
-			return {"ok": true, "kind": ad_type, "mult": int(def.get("mult", 2))}
+			# The board quest-reward doubler's faucet — it only needs the watch recorded + an ok
+			# (it doubles the reward itself). No hub-yield arming: the hub-collect that read the
+			# flag was removed (residents replace the hub yield), so nothing consumes a flag now.
+			return {"ok": true, "kind": ad_type}
 		"shop_reroll":
 			# Advance the deterministic Shop rotation (same seam T40's `shop_reroll` uses).
 			bump_shop_reroll()
@@ -101,21 +101,6 @@ static func claim(ad_type: String) -> Dictionary:
 			return {"ok": true, "kind": ad_type, "gems": fg}
 		_:
 			return {"ok": false}
-
-# --- the collect-2× hook (§8 / T42) -----------------------------------------------
-# T42's home-hub collect calls these: armed() to decide the yield multiplier for THIS
-# collect, then consume() once it has applied it (so the bonus is spent, never sticky).
-static func collect_2x_armed() -> bool:
-	return Save.collect_2x_armed()
-
-# The multiplier a collect should use right now: the armed ad bonus, or 1 (no bonus).
-static func collect_multiplier() -> int:
-	return int(_def("collect_2x").get("mult", 2)) if Save.collect_2x_armed() else 1
-
-# Spend the armed 2× (call after applying it to one collect). Idempotent when unarmed.
-static func consume_2x() -> void:
-	if Save.collect_2x_armed():
-		Save.set_collect_2x_armed(false)
 
 # --- the shop-reroll seam ---------------------------------------------------------
 # Advance the saved rotation counter the Shop's rotation_seed() adds on top of the day
