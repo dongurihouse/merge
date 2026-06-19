@@ -1,0 +1,23 @@
+{
+  "source": "_new/coins.png",
+  "category": "grid",
+  "outputs": [
+    { "tile": 0,  "name": "acorn_t1", "path": "_new/coins_out/acorn_t1.png", "post": "icon:512" },
+    { "tile": 1,  "name": "acorn_t2", "path": "_new/coins_out/acorn_t2.png", "post": "icon:512" },
+    { "tile": 2,  "name": "acorn_t3", "path": "_new/coins_out/acorn_t3.png", "post": "icon:512" },
+    { "tile": 3,  "name": "acorn_t4", "path": "_new/coins_out/acorn_t4.png", "post": "icon:512" },
+    { "tile": 4,  "name": "acorn_t5", "path": "_new/coins_out/acorn_t5.png", "post": "icon:512" },
+    { "tile": 5,  "name": "acorn_t6", "path": "_new/coins_out/acorn_t6.png", "post": "icon:512" },
+    { "tile": 6,  "name": "acorn_t7", "path": "_new/coins_out/acorn_t7.png", "post": "icon:512" },
+    { "tile": 7,  "name": "acorn_t8", "path": "_new/coins_out/acorn_t8.png", "post": "icon:512" },
+    { "tile": 8,  "name": "gem_t1",   "path": "_new/coins_out/gem_t1.png",   "post": "icon:512" },
+    { "tile": 9,  "name": "gem_t2",   "path": "_new/coins_out/gem_t2.png",   "post": "icon:512" },
+    { "tile": 10, "name": "gem_t3",   "path": "_new/coins_out/gem_t3.png",   "post": "icon:512" },
+    { "tile": 11, "name": "gem_t4",   "path": "_new/coins_out/gem_t4.png",   "post": "icon:512" },
+    { "tile": 12, "name": "gem_t5",   "path": "_new/coins_out/gem_t5.png",   "post": "icon:512" },
+    { "tile": 13, "name": "gem_t6",   "path": "_new/coins_out/gem_t6.png",   "post": "icon:512" },
+    { "tile": 14, "name": "gem_t7",   "path": "_new/coins_out/gem_t7.png",   "post": "icon:512" },
+    { "tile": 15, "name": "gem_t8",   "path": "_new/coins_out/gem_t8.png",   "post": "icon:512" }
+  ],
+  "archive": "_originals/icons/coins.png"
+}

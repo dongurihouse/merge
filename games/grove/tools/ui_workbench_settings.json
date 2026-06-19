@@ -1,0 +1,41 @@
+{
+	"button": {
+		"bg": "green",
+		"enabled": true,
+		"font": 22,
+		"show_icon": false,
+		"text": "Claim"
+	},
+	"buy": {
+		"font": 26.0,
+		"icon": 28.0,
+		"pad_bottom": 7.0,
+		"pad_top": 6.0,
+		"pad_x": 16.0,
+		"text": "250"
+	},
+	"card": {
+		"body": 15,
+		"title": 20
+	},
+	"dialog": {
+		"banner_font": 32,
+		"banner_h": 92,
+		"banner_icon": 54,
+		"banner_icon_x": 184.0,
+		"banner_icon_y": 16.0,
+		"banner_x": -24.0,
+		"banner_y": -64.0,
+		"close_size": 64,
+		"close_x": 12,
+		"close_y": 12,
+		"entries": 4,
+		"list_max_h": 0,
+		"snap": 8,
+		"width": 560
+	},
+	"pill": {
+		"font": 18,
+		"icon": 24
+	}
+}

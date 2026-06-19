@@ -26,6 +26,26 @@ func _is_bg(c: Color) -> bool:
 	var sat: float = 0.0 if mx <= 0.0 else (mx - mn) / mx
 	return mx > BG_MAX_VAL and sat < BG_MAX_SAT
 
+func _premultiply(im: Image) -> void:
+	# RGB *= A, so a coverage-weighted resize can't pull in the cleared black background.
+	for y in im.get_height():
+		for x in im.get_width():
+			var c := im.get_pixel(x, y)
+			im.set_pixel(x, y, Color(c.r * c.a, c.g * c.a, c.b * c.a, c.a))
+
+func _unpremultiply(im: Image) -> void:
+	# RGB /= A back to straight alpha; clamp absorbs Lanczos overshoot, near-zero alpha -> clear.
+	for y in im.get_height():
+		for x in im.get_width():
+			var c := im.get_pixel(x, y)
+			if c.a > 0.0039:                       # ~1/255: below this, colour is irrelevant
+				im.set_pixel(x, y, Color(
+					clampf(c.r / c.a, 0.0, 1.0),
+					clampf(c.g / c.a, 0.0, 1.0),
+					clampf(c.b / c.a, 0.0, 1.0), c.a))
+			else:
+				im.set_pixel(x, y, Color(0, 0, 0, 0))
+
 func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	if args.size() < 2:
@@ -101,10 +121,15 @@ func _initialize() -> void:
 	# crop to the trimmed subject, then fit (preserving aspect) into the target canvas, centered
 	var crop := Image.create(cw, ch, false, Image.FORMAT_RGBA8)
 	crop.blit_rect(img, Rect2i(minx, miny, cw, ch), Vector2i.ZERO)
+	# Premultiply alpha before the resize: a straight-RGBA Lanczos blends the cleared
+	# background (transparent BLACK, 0,0,0,0) into edge pixels, leaving a dark halo.
+	# Weighting colour by coverage and un-premultiplying after kills that fringe.
+	_premultiply(crop)
 	var scale: float = minf(float(tw) / float(cw), float(th) / float(ch)) * 0.96
 	var nw: int = maxi(1, int(round(cw * scale)))
 	var nh: int = maxi(1, int(round(ch * scale)))
 	crop.resize(nw, nh, Image.INTERPOLATE_LANCZOS)
+	_unpremultiply(crop)
 	var canvas := Image.create(tw, th, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color(0, 0, 0, 0))
 	canvas.blit_rect(crop, Rect2i(0, 0, nw, nh), Vector2i((tw - nw) / 2, (th - nh) / 2))
