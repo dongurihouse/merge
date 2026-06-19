@@ -404,7 +404,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	# The card background: the parchment NINE-PATCH (with a tunable slice margin) when card art is on,
 	# else CODE-DRAWN with a configurable corner. (The parchment's corners are baked into the art, so the
 	# Card corner slider only applies in code mode — that's why the workbench shows just one or the other.)
-	var pp := Look.kit("shared/panel_parchment.png")
+	var pp := Look.kit("kit/panel_parchment_v2.png")     # the v2 shop panel — much smaller rounded corners
 	if card_art and ResourceLoader.exists(pp):
 		var st := StyleBoxTexture.new()
 		st.texture = load(pp)
@@ -414,8 +414,8 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		st.set_texture_margin(SIDE_BOTTOM, sl_b)
 		st.axis_stretch_horizontal = hstr
 		st.axis_stretch_vertical = vstr
-		st.content_margin_left = 18; st.content_margin_right = 18
-		st.content_margin_top = 18; st.content_margin_bottom = 18
+		st.content_margin_left = 26; st.content_margin_right = 26
+		st.content_margin_top = 24; st.content_margin_bottom = 24
 		card.add_theme_stylebox_override("panel", st)
 	else:
 		var cf := StyleBoxFlat.new()

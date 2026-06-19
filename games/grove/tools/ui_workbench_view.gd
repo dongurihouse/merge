@@ -43,8 +43,8 @@ var _params := {
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
-		"width": 560, "card_corner": 22, "card_art": false,
-		"card_slice_l": 48, "card_slice_t": 48, "card_slice_r": 48, "card_slice_b": 48,
+		"width": 560, "card_corner": 22, "card_art": true,
+		"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
 		"banner_x": 0, "banner_y": 0,
