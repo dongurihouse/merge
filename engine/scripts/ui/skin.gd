@@ -511,12 +511,13 @@ static func card_button(min_size: Vector2, art: String = "kit/shop_card.png") ->
 
 ## The shared popup CLOSE ✕: a Button wearing the sliced red disc (kit/shop_close.png, the ✕ baked
 ## in) full-stretched, else a code-drawn RED disc with a ✕ glyph. `cb` fires on press. The caller
-## sizes/positions it (modals dock it inside the card's top-right corner after layout).
-static func close_button(cb: Callable) -> Button:
+## sizes/positions it (modals dock it inside the card's top-right corner after layout). `art_rel`
+## overrides the disc sprite so a themed modal (the mailbox → kit/mail_close.png) passes its own.
+static func close_button(cb: Callable, art_rel: String = "kit/shop_close.png") -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(TuneShop.X_BTN, TuneShop.X_BTN)
-	var box := kit_box("kit/shop_close.png", Vector2.ZERO)
+	var box := kit_box(art_rel, Vector2.ZERO)
 	if box != null:
 		b.add_theme_stylebox_override("normal", box)
 		b.add_theme_stylebox_override("hover", box)
@@ -544,6 +545,7 @@ static func close_button(cb: Callable) -> Button:
 ## The shared popup BANNER title: the gold ribbon (ui/shop/shop_banner.png) with the title as ENGINE
 ## text riding it centered (images never carry words — §0.3); a solid title chip when the art is
 ## absent. Returns a Control sized to a header band, FILL-width so the ribbon centers across the card.
+## `art_rel` overrides the ribbon sprite so a themed modal (the mailbox → mail/mail_banner.png) passes its own.
 static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: float = 120.0, art_rel: String = "shop/shop_banner.png") -> Control:
 	var p := kit(art_rel)
 	if not ResourceLoader.exists(p):
