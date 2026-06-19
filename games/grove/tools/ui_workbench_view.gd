@@ -42,7 +42,9 @@ var _params := {
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
-		"width": 560, "card_corner": 22, "card_art": false, "card_slice": 48,
+		"width": 560, "card_corner": 22, "card_art": false,
+		"card_slice_l": 48, "card_slice_t": 48, "card_slice_r": 48, "card_slice_b": 48,
+		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
@@ -151,7 +153,12 @@ func _make_element(id: String) -> Control:
 			var opts := {
 				"card_corner": float(p.card_corner),
 				"card_art": bool(p.card_art),
-				"card_slice": float(p.card_slice),
+				"card_slice_l": float(p.card_slice_l),
+				"card_slice_t": float(p.card_slice_t),
+				"card_slice_r": float(p.card_slice_r),
+				"card_slice_b": float(p.card_slice_b),
+				"card_h_stretch": {"stretch": 0, "tile": 1, "tile_fit": 2}.get(String(p.card_h_stretch), 0),
+				"card_v_stretch": {"stretch": 0, "tile": 1, "tile_fit": 2}.get(String(p.card_v_stretch), 0),
 				"banner_font": int(p.banner_font),
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
@@ -385,7 +392,10 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
 		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art", true))   # rebuilds the sidebar
 		if bool(_params["dialog"]["card_art"]):
-			_sidebar_body.add_child(_slider_row(["card_slice", 8, 120]))   # art mode: tune the 9-slice margin
+			for k in ["card_slice_l", "card_slice_t", "card_slice_r", "card_slice_b"]:   # the 4 slice margins
+				_sidebar_body.add_child(_slider_row([k, 0, 200]))
+			_sidebar_body.add_child(_option_row("Card h stretch", "card_h_stretch", ["stretch", "tile", "tile_fit"]))
+			_sidebar_body.add_child(_option_row("Card v stretch", "card_v_stretch", ["stretch", "tile", "tile_fit"]))
 		else:
 			_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))   # code mode: tune the corner
 	elif _selected == "icon":

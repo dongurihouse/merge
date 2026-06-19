@@ -369,7 +369,12 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	var btn_opts: Dictionary = opts.get("btn", {})       # the shared Button drives the cost pills + Claims
 	var card_corner: float = float(opts.get("card_corner", 22.0))
 	var card_art: bool = bool(opts.get("card_art", false))       # true = the parchment nine-patch
-	var card_slice: float = float(opts.get("card_slice", 48.0))  # the 9-slice texture margin (art mode)
+	var sl_l: float = float(opts.get("card_slice_l", 48.0))      # the 4 per-side 9-slice texture margins
+	var sl_t: float = float(opts.get("card_slice_t", 48.0))
+	var sl_r: float = float(opts.get("card_slice_r", 48.0))
+	var sl_b: float = float(opts.get("card_slice_b", 48.0))
+	var hstr: int = int(opts.get("card_h_stretch", 0))           # axis stretch: 0 stretch · 1 tile · 2 tile-fit
+	var vstr: int = int(opts.get("card_v_stretch", 0))
 
 	var wrap := Control.new()
 
@@ -381,7 +386,12 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	if card_art and ResourceLoader.exists(pp):
 		var st := StyleBoxTexture.new()
 		st.texture = load(pp)
-		st.set_texture_margin_all(card_slice)
+		st.set_texture_margin(SIDE_LEFT, sl_l)
+		st.set_texture_margin(SIDE_TOP, sl_t)
+		st.set_texture_margin(SIDE_RIGHT, sl_r)
+		st.set_texture_margin(SIDE_BOTTOM, sl_b)
+		st.axis_stretch_horizontal = hstr
+		st.axis_stretch_vertical = vstr
 		st.content_margin_left = 18; st.content_margin_right = 18
 		st.content_margin_top = 18; st.content_margin_bottom = 18
 		card.add_theme_stylebox_override("panel", st)
