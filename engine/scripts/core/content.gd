@@ -328,7 +328,7 @@ static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator,
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
 ## The ask is drawn weighted toward the NEWEST/highest-value live line, steered off the lines in
 ## `avoid` (those already on the fence) so concurrent stands stay distinct; the map's top tier
-## (t8) is never asked (gate-quest only), and a freshly-debuted line eases in at ≤
+## the top tier is never asked as a regular quest (gate-quest only), and a freshly-debuted line eases in at ≤
 ## QUEST_DEBUT_TIER_CAP. Deterministic given `rng`. Returns {line, tier, reward, featured}.
 ## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
@@ -609,7 +609,7 @@ static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
 
 # --- sell / economy formulas ------------------------------------------------------
 static func sell_value(code: int) -> int:
-	return maxi(1, code % 100)            # t1=1 … t8=8 coins
+	return maxi(1, code % 100)            # t1=1 … tN=N coins
 
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). t1–t7 pay their
 ## tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); t8 stays

@@ -447,8 +447,9 @@ func _initialize() -> void:
 		"selling a t3 pays 3 coins and clears the cell")
 	ok(G.sell_value(108) == 8 and G.sell_value(201) == 1, "sell value scales with tier")
 
-	# T39: per-map sell COIN band (§6/§9) — later maps sell t1–t7 for more coins; t8 stays a
-	# flat 1💎 on EVERY map (the 32× anti-arbitrage pinnacle). Only the t1–t7 coin reward scales.
+	# T39: per-map sell COIN band (§6/§9) — later maps sell t1..(PREMIUM_TIER-1) for more coins;
+	# PREMIUM_TIER (t8) is the flat-1💎 pinnacle on every map; t9..TOP_TIER sell for coins again.
+	# Only the t1..(PREMIUM_TIER-1) coin reward scales with the map band.
 	# The band is a grove number (owner/sim-tuned), keyed by the item's map (0-indexed maps 1–5).
 	var band := G.SELL_MAP_BAND
 	ok(band.size() == G.MAPS.size(), "T39: the sell band has one entry per map (%d)" % G.MAPS.size())
