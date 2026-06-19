@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://boxd48hvt25rf"
-path="res://.godot/imported/lock_flower.png-d69b9535271891913a5b96a9305757a6.ctex"
+uid="uid://0vbgm0ktnp0n"
+path="res://.godot/imported/back_frame.png-04e1944c43c1adcf2af0cd6c98f41443.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/map/lock_flower.png"
-dest_files=["res://.godot/imported/lock_flower.png-d69b9535271891913a5b96a9305757a6.ctex"]
+source_file="res://games/grove/assets/ui/map/back_frame.png"
+dest_files=["res://.godot/imported/back_frame.png-04e1944c43c1adcf2af0cd6c98f41443.ctex"]
 
 [params]
 
