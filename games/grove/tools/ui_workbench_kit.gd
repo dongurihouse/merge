@@ -267,11 +267,32 @@ static func mail_dialog(entries: Array, pill_font: int = 18, pill_icon: float = 
 	var close_size: float = float(opts.get("close_size", 64.0))
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
 	var btn_opts: Dictionary = opts.get("btn", {})       # the shared Button drives every row's Claim
+	var card_art: bool = bool(opts.get("card_art", false))     # true = parchment nine-patch; false = code-drawn
+	var card_corner: float = float(opts.get("card_corner", 22.0))
+	var card_slice: float = float(opts.get("card_slice", 48.0)) # the 9-slice texture margin (art mode)
 
 	var wrap := Control.new()
 
 	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	# The card background: code-drawn (configurable CORNER — the parchment art's corners are baked and
+	# can't be un-rounded by a 9-slice) OR the parchment nine-patch with a tunable SLICE margin.
+	var pp := Look.kit("shared/panel_parchment.png")
+	if card_art and ResourceLoader.exists(pp):
+		var st := StyleBoxTexture.new()
+		st.texture = load(pp)
+		st.set_texture_margin_all(card_slice)
+		st.content_margin_left = 18; st.content_margin_right = 18
+		st.content_margin_top = 18; st.content_margin_bottom = 18
+		card.add_theme_stylebox_override("panel", st)
+	else:
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Pal.CREAM
+		cf.border_color = Pal.BARK
+		cf.set_corner_radius_all(int(card_corner))
+		cf.set_border_width_all(3)
+		cf.content_margin_left = 18; cf.content_margin_right = 18
+		cf.content_margin_top = 18; cf.content_margin_bottom = 18
+		card.add_theme_stylebox_override("panel", cf)
 	card.custom_minimum_size = Vector2(width, 0)
 	card.position = Vector2.ZERO
 	wrap.add_child(card)

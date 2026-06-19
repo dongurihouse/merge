@@ -29,7 +29,7 @@ const SCHEMA := {
 	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
 	"card": [["title", 12, 30], ["body", 10, 24]],          # pill size inherits from the Cost pill
 	"dialog": [                                             # pill size inherits from the Cost pill
-		["width", 360, 720],
+		["width", 360, 720], ["card_corner", 0, 60], ["card_slice", 8, 120],
 		["banner_font", 16, 56], ["banner_h", 50, 160], ["banner_icon", 24, 110],
 		["banner_x", -200, 200], ["banner_y", -120, 120],
 		["banner_icon_x", 0, 700], ["banner_icon_y", 0, 160],
@@ -45,7 +45,8 @@ var _params := {
 	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
 	"card": {"title": 20, "body": 15},
 	"dialog": {
-		"width": 560, "banner_font": 32, "banner_h": 92, "banner_icon": 54,
+		"width": 560, "card_art": false, "card_corner": 22, "card_slice": 48,
+		"banner_font": 32, "banner_h": 92, "banner_icon": 54,
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
@@ -139,6 +140,9 @@ func _make_element(id: String) -> Control:
 			return Kit.mail_card(Kit.DEMO_MAIL[0], int(_params.pill.font), float(_params.pill.icon), int(p.title), int(p.body), _btn_opts())
 		"dialog":
 			var opts := {
+				"card_art": bool(p.card_art),
+				"card_corner": float(p.card_corner),
+				"card_slice": float(p.card_slice),
 				"banner_font": int(p.banner_font),
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
@@ -348,6 +352,8 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
 		_sidebar_body.add_child(_toggle_row("Show icon", "show_icon"))
 		_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
+	elif _selected == "dialog":
+		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art"))
 	for spec in SCHEMA[_selected]:
 		_sidebar_body.add_child(_slider_row(spec))
 
