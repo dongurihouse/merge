@@ -134,6 +134,83 @@ static func level_badge_path(level: int) -> String:
 	var p := Game.art("ui/%s/%s%02d.png" % [dir, prefix, idx])
 	return p if ResourceLoader.exists(p) else ""
 
+## A level-status badge: the evolving gold medal (level_badge_path) with a cream disc behind the
+## centred level NUMBER. Falls back to a warm honey token when the medal art is absent. Shared by
+## the top-left HUD chip and the locked-cell gate marker — same look, just a different number. `px`
+## is the square size; `num_font` overrides the number's font size (auto-scaled from px when < 0).
+## The medal TextureRect is named "lv_frame" and the number Label "lv_num" so callers that update
+## live (the HUD level-up) can fetch and re-skin them.
+static func make_level_badge(level: int, px: float, num_font: int = -1) -> Control:
+	var avatar := Panel.new()
+	avatar.custom_minimum_size = Vector2(px, px)
+	avatar.size = Vector2(px, px)
+	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tex := _safe_tex(level_badge_path(level))
+	if tex != null:
+		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no dark panel behind the ring
+		var disc := Panel.new()                                            # cream centre so the number reads on warm, not sky
+		var dpad := px * 0.16
+		disc.position = Vector2(dpad, dpad)
+		disc.size = Vector2(px - dpad * 2.0, px - dpad * 2.0)
+		var dsb := StyleBoxFlat.new()
+		dsb.bg_color = Color("#FBF3E2")
+		dsb.set_corner_radius_all(int(px))
+		disc.add_theme_stylebox_override("panel", dsb)
+		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		avatar.add_child(disc)
+		var frame := TextureRect.new()
+		frame.name = "lv_frame"
+		frame.texture = tex
+		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		avatar.add_child(frame)
+	else:
+		var coin := StyleBoxFlat.new()                                     # no-art fallback: a warm honey token
+		coin.bg_color = Color("#F4CF82")
+		coin.set_corner_radius_all(int(px / 2.0))
+		coin.set_border_width_all(2)
+		coin.border_color = Color("#8D6B35")
+		avatar.add_theme_stylebox_override("panel", coin)
+	var num := Label.new()
+	num.name = "lv_num"
+	num.set_anchors_preset(Control.PRESET_FULL_RECT)
+	num.text = str(level)
+	num.add_theme_font_size_override("font_size", num_font if num_font > 0 else _lv_badge_font(level, px))
+	num.add_theme_color_override("font_color", Pal.INK)
+	num.add_theme_constant_override("outline_size", 0)
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	avatar.add_child(num)
+	return avatar
+
+## The level NUMBER size for a `px`-tall badge — steps down as digits grow so it stays inside the
+## medal's open centre.
+static func _lv_badge_font(level: int, px: float) -> int:
+	var digits := str(maxi(0, level)).length()
+	var f := px * 0.42
+	if digits >= 3:
+		f = px * 0.28
+	elif digits == 2:
+		f = px * 0.34
+	return int(maxf(11.0, f))
+
+## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty
+## imports), or null — so an absent/stale badge falls back to the honey token, never a blank rect.
+static func _safe_tex(path: String) -> Texture2D:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var res := load(path)
+	var real := res is CompressedTexture2D or res is ImageTexture or res is PortableCompressedTexture2D
+	if not real:
+		return null
+	var tex := res as Texture2D
+	if tex == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+		return null
+	return tex
+
 ## --- the sticker recipe --------------------------------------------------------------
 ## A StyleBoxFlat has exactly ONE border colour, so the two-tone rim (a darker OUTER
 ## edge + a lighter INNER highlight) can't live in a single box. We keep the dark outer

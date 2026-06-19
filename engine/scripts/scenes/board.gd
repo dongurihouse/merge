@@ -106,8 +106,7 @@ var basket_chip: Control             # the wicker basket beside the merchant sta
 var _porter_timer := 0.0             # Y3: counts up while the basket has anything
 var _porter_running := false
 var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
-var home_btn: Button                 # the centre nav Home button — IS the decorate jump; lights up when a spot is affordable
-var home_ready_dot: Control          # the gold "ready to restore" marker pinned to Home (the old standalone Decorate CTA is retired)
+var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
 # the bottom-nav bag + merchant are circular wells (the always-present bag row is retired).
 # bag_btn: tap → full bag, drag a board item onto it → stash; bag_content shows the most-recent
 # stashed item; bag_count_badge shows the count when >1. merchant_btn: drag a spare onto it →
@@ -671,20 +670,10 @@ func _update_hud() -> void:
 	_set_home_ready(not _map_done() and _gate_ready())
 
 # The Home button is the way back to the decorate hub, so the "you can afford a spot" cue lives
-# ON it now: a gold ready-dot pinned to its corner (always visible — the calm-mode-safe signal)
-# plus a gentle breathe (suppressed in calm, like every attention pulse). On the board stars only
-# rise, so this flips off→on once and never back; the dot toggles for the map-done rest case.
+# ON it now: a gentle breathe (suppressed in calm, like every attention pulse). On the board stars
+# only rise, so this flips off→on once and never back; breathe_once self-guards re-entry.
 func _set_home_ready(on: bool) -> void:
-	if home_btn == null or not is_instance_valid(home_btn):
-		return
-	if home_ready_dot == null:
-		home_ready_dot = Look.attach_badge(home_btn, Look.badge("dot"))
-		home_ready_dot.z_index = 20
-		home_ready_dot.visible = false
-	if on == home_ready_dot.visible:
-		return                                   # no change — don't re-trigger the breathe
-	home_ready_dot.visible = on
-	if on:
+	if on and home_btn != null and is_instance_valid(home_btn):
 		FX.breathe_once(home_btn)
 
 # --- givers + merchant ------------------------------------------------------------
@@ -995,6 +984,9 @@ func _rebuild_all() -> void:
 	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
 	gen_preview_cells.clear()
 	_rebuild_pieces()
+	var frame := _make_board_frame()   # bamboo ring ABOVE the cells — corner leaves overlap, not hidden under them
+	if frame != null:
+		board_area.add_child(frame)
 	_rebuild_givers()
 	_rebuild_bag()
 	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
@@ -1072,8 +1064,14 @@ func _make_piece(code: int, size: float) -> Control:
 # plain bamboo poles between corners stretch. Falls back to the code-drawn planter when absent.
 const FRAME_OUT := 56.0      # how far the bamboo frame extends OUTSIDE the cell grid
 const FRAME_MARGIN := 72.0   # nine-patch corner size — large enough to keep the corner leaf clusters un-stretched
-const FRAME_POLE := 30.0     # bamboo pole thickness; the cream field tucks just under the pole's inner edge
+const FIELD_INSET := 14.0    # cream field tucks this far under the bamboo poles — out past even the THIN
+                             # top pole's inner edge, so no backdrop shows in the gutter
+const FIELD_RADIUS := 44     # field corner radius — rounds with the board so cream stays under the bamboo joints
 const FIELD_CREAM := Color("#FADBA7")   # sampled parchment — the gutter colour behind cells
+
+# The cream parchment bed the cells sit on — the BOTTOM layer of the board. The bamboo ring is a
+# separate node (_make_board_frame) drawn ABOVE the cells. Falls back to the code-drawn planter
+# (which carries its own frame) when the kit art is absent.
 func _make_board_mat() -> Control:
 	var fp := Look.kit("board/panel_grid.png")
 	if not ResourceLoader.exists(fp):
@@ -1084,30 +1082,40 @@ func _make_board_mat() -> Control:
 	mat.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	mat.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
 	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# parchment field — fills the inner opening so the cells sit on cream. Tucked just under the
-	# bamboo pole's inner edge (FRAME_POLE in) so there is no meadow gap and no cream behind the
-	# corner leaves (which sit further out, beyond the field's rounded corners).
+	# parchment field, tucked out under the poles (FIELD_INSET) so the whole gutter reads cream with
+	# no backdrop sliver, and rounded (FIELD_RADIUS) so the cream stays under the bamboo at the corners.
 	var field := Panel.new()
-	field.position = Vector2(FRAME_POLE, FRAME_POLE)
-	field.size = mat.size - Vector2(FRAME_POLE, FRAME_POLE) * 2.0
+	field.position = Vector2(FIELD_INSET, FIELD_INSET)
+	field.size = mat.size - Vector2(FIELD_INSET, FIELD_INSET) * 2.0
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = FIELD_CREAM
-	fs.set_corner_radius_all(16)
+	fs.set_corner_radius_all(FIELD_RADIUS)
 	field.add_theme_stylebox_override("panel", fs)
 	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mat.add_child(field)
-	# the bamboo ring on top of the field's edges (its transparent interior reveals the cream field)
+	return mat
+
+# The bamboo ring — a nine-patch, drawn ABOVE the cells so its corner leaf clusters overlap the
+# board (instead of being hidden under the corner cell). The poles sit OUTSIDE the grid so they
+# never cover a cell; only the inward-reaching corner leaves overlap. Null when the kit art is
+# absent (the planter fallback in _make_board_mat already carries a frame).
+func _make_board_frame() -> Control:
+	var fp := Look.kit("board/panel_grid.png")
+	if not ResourceLoader.exists(fp):
+		return null
+	var bw := _board_w()
+	var bh := _board_h()
 	var frame := NinePatchRect.new()
 	frame.texture = load(fp)
-	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.position = Vector2(-FRAME_OUT, -FRAME_OUT)
+	frame.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
 	frame.patch_margin_left = int(FRAME_MARGIN)
 	frame.patch_margin_top = int(FRAME_MARGIN)
 	frame.patch_margin_right = int(FRAME_MARGIN)
 	frame.patch_margin_bottom = int(FRAME_MARGIN)
 	frame.draw_center = false   # interior is transparent (pre-cleared); the cream field shows through
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mat.add_child(frame)
-	return mat
+	return frame
 
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
@@ -1254,8 +1262,10 @@ func _open_bag_overlay() -> void:
 	BagOverlay.open(self, {
 		"bag": bag,
 		"owned": owned,
-		"has_buy": _bag_has_buy_slot(),
-		"slot_price": G.next_bag_slot_price(owned),
+		"balance": Save.diamonds(),               # the acorn counter (💎, drawn as the grove's acorn)
+		"max_slots": G.BAG_MAX_SLOTS,             # the ladder length (locked future slots show below)
+		"start_slots": G.BAG_START_SLOTS,         # prices index from the first purchasable slot
+		"prices": G.BAG_SLOT_PRICES,              # the per-expansion 💎 price ladder
 		"on_retrieve": func(i: int) -> void: _retrieve_to_first_empty(i),
 		"on_buy_slot": _buy_bag_slot,
 	})

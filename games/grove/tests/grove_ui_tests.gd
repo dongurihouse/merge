@@ -226,6 +226,19 @@ func _initialize() -> void:
 	ok(pc_off.get_child(0).modulate.a > 0.9, "item_backing OFF: the item is bare (no backing)")
 	Features.FLAGS["item_backing"] = true   # AF3: ON is the default (now a contact shadow)
 
+	# 22b. Shared pipeline: a GENERATOR renders through the same path as a piece, so it gets
+	# the same contact-shadow ellipse under it (child 0, low-alpha) when item_backing is ON,
+	# and never eats input. (Was: only make_piece added the shadow — the seed satchel had none.)
+	Features.FLAGS["item_backing"] = true
+	var gen_on: Control = PieceViewScript.make_generator("seed_satchel", 100.0)
+	ok(gen_on.get_child(0) is TextureRect and gen_on.get_child(0).modulate.a < 0.5, \
+		"a generator gets the same contact shadow as a piece (child 0)")
+	ok(_all_ignore(gen_on), "U1: the generator backing never eats input")
+	Features.FLAGS["item_backing"] = false
+	var gen_off: Control = PieceViewScript.make_generator("seed_satchel", 100.0)
+	ok(gen_off.get_child(0).modulate.a > 0.9, "item_backing OFF: the generator is bare (no backing)")
+	Features.FLAGS["item_backing"] = true
+
 	# 23. P — drag-to-swap two unlocked items (flag drag_swap)
 	# P1: the model — swap trades codes, a coin swaps like anything, it persists
 	var pb := BoardModel.new()

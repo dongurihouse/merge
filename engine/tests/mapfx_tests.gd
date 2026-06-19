@@ -1,13 +1,15 @@
 extends SceneTree
-## Headless tests for the map-SELECT fog veil (spec §8 "the horizon — visible AND
-## veiled"): a LOCKED map card sits behind fog (a teasing, not-yet-revealed scrim
-## over its thumbnail); an UNLOCKED/available card does NOT. This is a PERCEPTUAL
-## item, so these asserts stand in for the eye — they prove the veil node exists on
-## locked cards (and NOT on open ones), carries the expected dimming/alpha, and
-## IGNOREs the mouse (the single-input-surface rule the whole map relies on).
+## Headless tests for the map-SELECT place-picker cards (spec §8 "the horizon — visible AND veiled",
+## now PAINTED — map_asset.png / the map.png preview). An OPEN place wears the glowing gold frame
+## (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill; a LOCKED place is the
+## dark baked panel (ui/map/card_locked.png — its flower-lock medallion + scene baked in) under an
+## "after <prev>" prerequisite line. These asserts stand in for the eye (a perceptual item): they
+## prove the right frame is on the right card, the prerequisite/count reads are present, and every
+## node IGNOREs the mouse (the single-input-surface rule the whole map relies on). The code-drawn fog
+## veil survives ONLY as the fallback when the painted panel is missing (asserted last).
 ##   godot --headless --path . -s res://engine/tests/mapfx_tests.gd
-## NOTE: headless dummy renderer can't capture images — that's why this logic check
-## (not a screenshot) is the primary evidence. A visual capture is a bonus only.
+## NOTE: the headless dummy renderer can't capture images — this logic check (not a screenshot) is
+## the primary evidence; a visual capture (make shot-map MODE=select) is a bonus only.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -44,13 +46,26 @@ func _find(node: Node, n: String) -> Node:
 			return hit
 	return null
 
-# The veil's flat ink haze: the first ColorRect under `veil` whose alpha is high
-# enough to actually dim. Returns null if none (→ the veil isn't really dimming).
-func _haze(veil: Node) -> ColorRect:
-	for c in veil.get_children():
-		if c is ColorRect and (c as ColorRect).color.a >= 0.2:
-			return c as ColorRect
-	return null
+# True iff any TextureRect in `node`'s subtree carries a texture whose path ends with `suffix`
+# (so we can name the shipped frame by its kit file without depending on node names).
+func _has_tex(node: Node, suffix: String) -> bool:
+	if node is TextureRect:
+		var tex := (node as TextureRect).texture
+		if tex != null and String(tex.resource_path).ends_with(suffix):
+			return true
+	for c in node.get_children():
+		if _has_tex(c, suffix):
+			return true
+	return false
+
+# True iff any Label in `node`'s subtree contains `frag` (case-sensitive substring).
+func _has_label(node: Node, frag: String) -> bool:
+	if node is Label and frag in (node as Label).text:
+		return true
+	for c in node.get_children():
+		if _has_label(c, frag):
+			return true
+	return false
 
 # Every Control in `node`'s subtree (inclusive) IGNOREs the mouse.
 func _all_ignore(node: Node) -> bool:
@@ -69,12 +84,11 @@ func _card_for(h, z: int) -> Control:
 	return null
 
 func _initialize() -> void:
-	print("== Map FX (locked-card fog veil §8) tests ==")
-	fresh("veil")
+	print("== Map FX (painted place-picker cards §8) tests ==")
+	fresh("cards")
 
-	# instantiate the real map scene and drive it into the map-SELECT view, exactly
-	# as a player reaches it (atlas button → _open_select). Fresh save: map 0 open,
-	# every later map locked.
+	# instantiate the real map scene and drive it into the map-SELECT view, exactly as a player
+	# reaches it (atlas button → _open_select). Fresh save: map 0 open, every later map locked.
 	var h = load(MAP_SCENE).instantiate()
 	get_root().add_child(h)
 	if h.content == null:
@@ -86,63 +100,52 @@ func _initialize() -> void:
 	ok(h.select_hits.size() == G.MAPS.size(), "one card per map")
 	ok(h.map_unlocked(0) and not h.map_unlocked(1), "fresh save: map 0 open, map 1 locked (the fixture)")
 
-	# the locked card (z=1) wears the fog veil; the open card (z=0) does not.
-	var locked: Control = _card_for(h, 1)
 	var open_card: Control = _card_for(h, 0)
-	ok(locked != null and open_card != null, "found a locked card and an open card")
-
-	var open_veil := _find(open_card, Map.VEIL_NODE)
-	ok(open_veil == null, "an UNLOCKED card has NO veil (it reads as available)")
-
-	var veil := _find(locked, Map.VEIL_NODE)
-	ok(veil != null, "a LOCKED card HAS the fog veil overlay node")
-	if veil == null:
+	var locked: Control = _card_for(h, 1)
+	ok(open_card != null and locked != null, "found an open card and a locked card")
+	if open_card == null or locked == null:
 		_done()
 		return
-	ok(veil is Control, "the veil is a Control overlay")
 
-	# it really DIMS — a flat ink haze at the tuned alpha (perceptual: not a no-op).
-	var haze := _haze(veil)
-	ok(haze != null, "the veil carries a dimming ink haze ColorRect")
-	if haze != null:
-		ok(absf(haze.color.a - Map.VEIL_SCRIM_ALPHA) < 0.001,
-			"the haze alpha matches VEIL_SCRIM_ALPHA (%.2f)" % Map.VEIL_SCRIM_ALPHA)
-		ok(haze.color.r == Map.VEIL_TINT.r and haze.color.g == Map.VEIL_TINT.g and haze.color.b == Map.VEIL_TINT.b,
-			"the haze is tinted with VEIL_TINT (the fog colour)")
+	# OPEN card: the glowing gold frame over its art + the restore-count pill ("N left"); no dark
+	# locked panel, no fog veil (it reads as available, not veiled).
+	ok(_has_tex(open_card, "card_active.png"), "an OPEN card wears the gold frame (card_active)")
+	ok(_has_label(open_card, "left"), "an OPEN+incomplete card shows the 'N left' restore pill")
+	ok(not _has_tex(open_card, "card_locked.png"), "an OPEN card has NO dark locked panel")
+	ok(_find(open_card, Map.VEIL_NODE) == null, "an OPEN card has NO fog veil (painted art present)")
 
-	# fog settling (the bottom-deepening gradient) + the teasing ✿ ghost are present,
-	# so it reads as mist, not flat grey.
-	var has_gradient := false
-	for c in veil.get_children():
-		if c is TextureRect and (c as TextureRect).texture is GradientTexture2D:
-			has_gradient = true
-	ok(has_gradient, "the veil has the bottom-deepening fog gradient (mist, not flat grey)")
-	var mark := _find(veil, "VeilMark")
-	ok(mark is Label and (mark as Label).text == "✿", "the veil shows the teasing ✿ ghost in the mist")
-	if mark is Label:
-		ok((mark as Label).get_theme_color("font_color").a <= 0.3,
-			"the ✿ ghost is faint (a tease, not a label)")
+	# LOCKED card: the dark baked panel + the "after <prev>" prerequisite line; no gold frame.
+	ok(_has_tex(locked, "card_locked.png"), "a LOCKED card wears the dark panel (card_locked)")
+	ok(_has_label(locked, "after"), "a LOCKED card shows the 'after <prev>' prerequisite line")
+	ok(not _has_tex(locked, "card_active.png"), "a LOCKED card has NO gold frame")
 
-	# the veil must not break the single-input-surface rule — every node IGNOREs.
-	ok(_all_ignore(veil), "every veil node IGNOREs the mouse (single-input-surface safe)")
+	# the single-input-surface rule — every node in either card IGNOREs the mouse (taps resolve on
+	# `content`, never a child).
+	ok(_all_ignore(open_card), "every OPEN-card node IGNOREs the mouse (single-input-surface safe)")
+	ok(_all_ignore(locked), "every LOCKED-card node IGNOREs the mouse (single-input-surface safe)")
 
-	# sweep: EVERY locked map gets a veil; NO unlocked map does. (Guards future
-	# maps + the open/locked branch staying in one place.)
-	var all_locked_veiled := true
-	var any_open_veiled := false
+	# sweep: EVERY locked map gets the dark panel + no gold frame; EVERY open map the reverse.
+	# (Guards future maps + the open/locked branch staying in one place.)
+	var all_ok := true
 	for z in G.MAPS.size():
 		var card := _card_for(h, z)
 		if card == null:
 			continue
-		var v := _find(card, Map.VEIL_NODE)
 		if h.map_unlocked(z):
-			if v != null:
-				any_open_veiled = true
+			if not _has_tex(card, "card_active.png") or _has_tex(card, "card_locked.png"):
+				all_ok = false
 		else:
-			if v == null:
-				all_locked_veiled = false
-	ok(all_locked_veiled, "every LOCKED map card is veiled")
-	ok(not any_open_veiled, "no UNLOCKED map card is veiled")
+			if not _has_tex(card, "card_locked.png") or _has_tex(card, "card_active.png"):
+				all_ok = false
+	ok(all_ok, "every map card wears the frame for its state (open=gold, locked=dark)")
+
+	# the bottom-left BACK arrow belongs to the picker: shown in select, gone on a map.
+	ok(h._select_back != null and h._select_back.visible, "the place-picker shows its back arrow")
+	h._open_map(0)
+	await create_timer(0.05).timeout
+	ok(h._select_back != null and not h._select_back.visible, "opening a map hides the back arrow")
+	# (The code-drawn §8 fog veil survives only as _dress_locked_card's fallback when card_locked.png
+	# is absent; with the painted panel shipped it is correctly absent — asserted above.)
 
 	_done()
 

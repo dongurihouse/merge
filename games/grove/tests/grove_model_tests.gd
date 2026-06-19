@@ -224,8 +224,8 @@ func _initialize() -> void:
 	ok(scn._gate_ready(), "§7: the next unlock is affordable (gate ready)")
 	ok(scn.quests.is_empty(), "§7: the metered fence empties once the next unlock is affordable")
 	# the restore invitation now LIGHTS the centre Home button (the standalone Decorate CTA is retired):
-	# a ready-dot pinned to Home appears the moment a spot is affordable
-	ok(scn.home_ready_dot != null and scn.home_ready_dot.visible, "§7: the Home button lights up (ready dot) when a spot is affordable")
+	# Home breathes the moment a spot is affordable
+	ok(scn.home_btn != null and scn.home_btn.has_meta("_fx_breathing"), "§7: the Home button breathes when a spot is affordable")
 	# the Home button lives in the bottom nav, structurally clear of the fence — it can't cover a giver/merchant pill
 	# buying a home spot advances the board's progress: it derives from unlocks
 	var spots_before: int = scn._spots_bought()

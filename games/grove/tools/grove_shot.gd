@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
-## modes: fresh | played | gate | compost | ladder | hive
+## modes: fresh | played | gate | compost | ladder | hive | bag
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -105,6 +105,15 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"bag":
+			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
+			# balance for the acorn counter, then open the modal so the whole ladder shows
+			# (filled · empty · the gold next slot · the locked future slots with prices).
+			Save.add_diamonds(132)
+			scn.bag = [101, 201, 301, 401, 501]    # five distinct tier-1 pieces fill the first row
+			scn._rebuild_bag()
+			scn._open_bag_overlay()
+			await create_timer(0.6).timeout
 		"compost", "hive":
 			var g := Save.grove()
 			var ul := {}

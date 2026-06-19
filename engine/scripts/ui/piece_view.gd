@@ -9,6 +9,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")   # shared level-badge medal for locked-cell gates
 const Pal = Game.PALETTE
 
 const CREAM = Pal.CREAM
@@ -56,41 +57,60 @@ static func _content_tex(path: String) -> Texture2D:
 	_content_cache[path] = result
 	return result
 
-static func make_piece(code: int, size: float) -> Control:
+const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to its edge
+
+# THE shared board-item pipeline. Every board item — piece, coin, or generator — is a cell-sized
+# holder built the SAME way: a soft contact shadow underneath (when item_backing is on), then the
+# centered sprite on top. make_piece / make_generator only choose WHICH art goes through it.
+# (Per-item customization can branch here later; today nothing does — one look for everything.)
+static func _make_holder(size: float) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(size, size)
 	holder.size = Vector2(size, size)
 	holder.pivot_offset = Vector2(size, size) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# AF3: a soft warm CONTACT SHADOW under the item (first child = bottom) — tight
-	# and LOW (it grounds the piece on the light mat), not the old centered dark
-	# ellipse that vanished on a light surface. Warm-grey, ~28% alpha, never eats input.
-	if Features.on("item_backing"):
-		var back := TextureRect.new()
-		back.texture = backing_tex()
-		var bw := size * 0.62
-		var bh := size * 0.22
-		back.position = Vector2((size - bw) / 2.0, size * 0.70)   # low — a contact shadow
-		back.size = Vector2(bw, bh)
-		back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		back.stretch_mode = TextureRect.STRETCH_SCALE
-		back.modulate = Color("#3E342A", 0.30)                    # warm-grey, soft
-		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(back)
+	return holder
+
+# AF3: a soft warm CONTACT SHADOW under the item (first child = bottom) — tight and LOW (it
+# grounds the piece on the light mat), not a centered dark ellipse that vanishes on a light
+# surface. Warm-grey, ~30% alpha, never eats input. No-op when item_backing is off.
+static func _add_contact_shadow(holder: Control, size: float) -> void:
+	if not Features.on("item_backing"):
+		return
+	var back := TextureRect.new()
+	back.texture = backing_tex()
+	var bw := size * 0.62
+	var bh := size * 0.22
+	back.position = Vector2((size - bw) / 2.0, size * 0.70)   # low — a contact shadow
+	back.size = Vector2(bw, bh)
+	back.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	back.stretch_mode = TextureRect.STRETCH_SCALE
+	back.modulate = Color("#3E342A", 0.30)                    # warm-grey, soft
+	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(back)
+
+# The sprite over the shadow: cropped to its opaque content so it CENTERS in the cell (raw art
+# padding varies), inset a little so it sits INSIDE the cell, aspect-preserving. Never eats input.
+static func _add_sprite(holder: Control, tex: Texture2D, size: float, inset_frac: float) -> void:
+	var t := TextureRect.new()
+	t.texture = tex
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := size * inset_frac
+	t.offset_left = inset
+	t.offset_top = inset
+	t.offset_right = -inset
+	t.offset_bottom = -inset
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(t)
+
+static func make_piece(code: int, size: float) -> Control:
+	var holder := _make_holder(size)
+	_add_contact_shadow(holder, size)
 	var path := G.item_tex_path(code)
 	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = _content_tex(path)   # cropped to opaque content so it CENTERS in the cell (art padding varies)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var inset := size * 0.16   # a little margin so the item sits INSIDE the cell, not bleeding to its edge
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
+		_add_sprite(holder, _content_tex(path), size, ITEM_INSET)   # cropped to opaque content so it CENTERS (art padding varies)
 		return holder
 	# coins: painted acorn art by tier (tap to pocket). Tier alone reads the value —
 	# no numeral is drawn over the sprite. Falls back to the code-drawn gold disc when
@@ -99,18 +119,7 @@ static func make_piece(code: int, size: float) -> Control:
 		var ctier := BoardModel.tier_of(code)
 		var cpath := Game.art("items/coin/coin_%d.png" % ctier)
 		if cpath != "" and ResourceLoader.exists(cpath):
-			var ct := TextureRect.new()
-			ct.texture = _content_tex(cpath)
-			ct.set_anchors_preset(Control.PRESET_FULL_RECT)
-			var cinset := size * 0.06
-			ct.offset_left = cinset
-			ct.offset_top = cinset
-			ct.offset_right = -cinset
-			ct.offset_bottom = -cinset
-			ct.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			ct.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			ct.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			holder.add_child(ct)
+			_add_sprite(holder, _content_tex(cpath), size, 0.06)   # coins sit tighter in the cell
 		else:
 			var cdisc := Panel.new()
 			var cd := size * (0.5 + 0.1 * ctier)
@@ -295,46 +304,20 @@ static func _locked_fill(csz: float, ring: int) -> Panel:
 	return base
 
 static func _frontier_number_badge(n: int, csz: float) -> Control:
-	var holder := Control.new()
-	var d := maxf(28.0, csz * 0.34)
-	holder.custom_minimum_size = Vector2(d, d)
-	holder.size = Vector2(d, d)
-	holder.anchor_left = 1.0
-	holder.anchor_top = 1.0
-	holder.anchor_right = 1.0
-	holder.anchor_bottom = 1.0
-	holder.offset_left = -d - csz * 0.06
-	holder.offset_top = -d - csz * 0.06
-	holder.offset_right = -csz * 0.06
-	holder.offset_bottom = -csz * 0.06
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var coin := Panel.new()
-	coin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color("#F4CF82")
-	cs.set_corner_radius_all(int(d * 0.5))
-	cs.set_border_width_all(2)
-	cs.border_color = Color("#8D6B35")
-	cs.shadow_color = Color(0, 0, 0, 0.20)
-	cs.shadow_size = 3
-	cs.shadow_offset = Vector2(0, 1)
-	coin.add_theme_stylebox_override("panel", cs)
-	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(coin)
-
-	var lbl := Label.new()
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.text = str(n)
-	lbl.add_theme_font_size_override("font_size", int(maxf(14.0, csz * 0.23)))
-	lbl.add_theme_color_override("font_color", Color("#61441E"))
-	lbl.add_theme_color_override("font_outline_color", Color("#FCE8B8", 0.86))
-	lbl.add_theme_constant_override("outline_size", 3)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(lbl)
-	return holder
+	# The level-gate marker on the cell's lower-right, NEXT TO the baked-in padlock: the SAME evolving
+	# level-badge medal the HUD shows (Look.make_level_badge), but carrying this cell's required Level
+	# instead of the player's — so a locked cell reads "opens at this level" in one glance.
+	var d := maxf(30.0, csz * 0.44)
+	var badge := Look.make_level_badge(n, d)
+	badge.anchor_left = 1.0
+	badge.anchor_top = 1.0
+	badge.anchor_right = 1.0
+	badge.anchor_bottom = 1.0
+	badge.offset_left = -d - csz * 0.04
+	badge.offset_top = -d - csz * 0.04
+	badge.offset_right = -csz * 0.04
+	badge.offset_bottom = -csz * 0.04
+	return badge
 
 # The "Lv N" teach-number for a FRONTIER locked cell — centered INSIDE the tile (over the faint
 # padlock), bold INK with a light outline so it reads on the receded cell.
@@ -433,25 +416,11 @@ class _LockGlyph extends Control:
 
 static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(csz, csz)
-	holder.size = Vector2(csz, csz)
-	holder.pivot_offset = Vector2(csz, csz) / 2.0
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var holder := _make_holder(csz)
+	_add_contact_shadow(holder, csz)   # same contact shadow as a piece — generators ground identically
 	var path: String = Game.art(String(gdef.get("tex", "")))
 	if ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var inset := csz * 0.14   # margin so generator art sits INSIDE the cell, not bleeding to its edge
-		t.offset_left = inset
-		t.offset_top = inset
-		t.offset_right = -inset
-		t.offset_bottom = -inset
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
+		_add_sprite(holder, _content_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece
 		return holder
 	var p := Panel.new()
 	p.set_anchors_preset(Control.PRESET_FULL_RECT)
