@@ -455,7 +455,6 @@ func _persist() -> void:
 	g["quests"] = quests
 	g["quests_map"] = quests_map
 	g["bag"] = bag
-	g["gen_bag"] = board.gen_bag
 	g["rng_state"] = rng.state
 	g["water"] = water
 	g["refills_used"] = refills_used
@@ -1257,8 +1256,10 @@ func _open_bag_overlay() -> void:
 		"on_place_gen": func(id: String) -> void:
 			var cells := board.empty_ground_cells()
 			if cells.is_empty():
+				Audio.play("invalid_soft", -6.0)
 				return
-			board.place_gen_from_bag(id, cells[0])
+			if not board.place_gen_from_bag(id, Vector2i(cells[0])):
+				return
 			_persist()
 			_rebuild_all(),
 	})

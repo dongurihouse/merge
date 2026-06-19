@@ -77,13 +77,11 @@ func store_gen(cell: Vector2i) -> bool:
 
 ## Place a stored generator from the bag onto an open, empty, non-generator cell.
 func place_gen_from_bag(id: String, cell: Vector2i) -> bool:
+	# is_open already guarantees terrain == 0 (an open, empty cell)
 	if not gen_bag.has(id) or gens.has(cell) or not is_open(cell) or item_at(cell) != 0:
 		return false
 	gen_bag.erase(id)
 	gens[cell] = id
-	if terrain[idx(cell)] > 0:
-		terrain[idx(cell)] = 0
-		items[idx(cell)] = 0
 	return true
 
 ## #1 — a generator is a movable piece (§2): relocate it to an empty, open, non-generator

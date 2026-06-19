@@ -184,13 +184,13 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 				gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				center.add_child(gicon)
 			else:
-				var lbl2 := Label.new()
-				lbl2.text = gid_str
-				lbl2.add_theme_font_size_override("font_size", 18)
-				lbl2.add_theme_color_override("font_color", INK)
-				lbl2.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				lbl2.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				center.add_child(lbl2)
+				var fallback_lbl := Label.new()
+				fallback_lbl.text = gid_str
+				fallback_lbl.add_theme_font_size_override("font_size", 18)
+				fallback_lbl.add_theme_color_override("font_color", INK)
+				fallback_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				fallback_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				center.add_child(fallback_lbl)
 			_wire_tap(box, func() -> void:
 				if on_place_gen.is_valid():
 					on_place_gen.call(gid_str)
