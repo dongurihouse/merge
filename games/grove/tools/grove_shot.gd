@@ -124,6 +124,12 @@ func _initialize() -> void:
 			scn._rebuild_bag()
 			scn._open_bag_overlay()
 			await create_timer(0.6).timeout
+		"bagwell":
+			# the bottom-nav Bag WELL with items stashed (overlay CLOSED): proves the in-well
+			# item preview size + the count badge.
+			scn.bag = [101, 201]
+			scn._rebuild_bag()
+			await create_timer(0.4).timeout
 		"compost", "hive":
 			var g := Save.grove()
 			var ul := {}

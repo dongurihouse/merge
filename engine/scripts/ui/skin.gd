@@ -544,8 +544,8 @@ static func close_button(cb: Callable) -> Button:
 ## The shared popup BANNER title: the gold ribbon (ui/shop/shop_banner.png) with the title as ENGINE
 ## text riding it centered (images never carry words — §0.3); a solid title chip when the art is
 ## absent. Returns a Control sized to a header band, FILL-width so the ribbon centers across the card.
-static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: float = 120.0) -> Control:
-	var p := kit("shop/shop_banner.png")
+static func banner_title(text: String, font_px: int = Tune.TITLE_SIZE, band_h: float = 120.0, art_rel: String = "shop/shop_banner.png") -> Control:
+	var p := kit(art_rel)
 	if not ResourceLoader.exists(p):
 		var ribbon := title_ribbon(text, font_px)
 		ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

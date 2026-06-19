@@ -109,12 +109,12 @@ var _porter_running := false
 var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
 var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
 # the bottom-nav bag + merchant are circular wells (the always-present bag row is retired).
-# bag_btn: tap → full bag, drag a board item onto it → stash; bag_content shows the most-recent
-# stashed item; bag_count_badge shows the count when >1. merchant_btn: drag a spare onto it →
-# sell; merchant_pay previews the payout (+N coin/acorn) while a spare is dragged over it.
+# bag_btn: tap → full bag, drag a board item onto it → stash; bag_content (a CenterContainer)
+# shows the most-recent stashed item, centered at bag_piece_px. merchant_btn: drag a spare onto
+# it → sell; merchant_pay previews the payout (+N coin/acorn) while a spare is dragged over it.
 var bag_btn: Button
 var bag_content: Control
-var bag_count_badge: Control
+var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
 var merchant_btn: Button
 var merchant_rest: Control
 var merchant_pay: Control
@@ -1180,34 +1180,12 @@ func _corner_badge(kit_name: String, px: float) -> Control:
 		holder.add_child(t)
 	return holder
 
-# A small count pill for the bag well's corner (shows the stashed total when >1). child(0) = Label.
-func _count_pill() -> Control:
-	var pill := PanelContainer.new()
-	var cs := StyleBoxFlat.new()
-	cs.bg_color = Color("#4E7C46")
-	cs.set_corner_radius_all(11)
-	cs.set_border_width_all(2)
-	cs.border_color = CREAM
-	cs.content_margin_left = 6.0
-	cs.content_margin_right = 6.0
-	pill.add_theme_stylebox_override("panel", cs)
-	pill.anchor_left = 0.0; pill.anchor_top = 0.0; pill.anchor_right = 0.0; pill.anchor_bottom = 0.0
-	pill.offset_left = -4.0; pill.offset_top = -4.0
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var l := Label.new()
-	l.add_theme_font_size_override("font_size", 18)
-	l.add_theme_color_override("font_color", CREAM)
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(l)
-	return pill
-
 # The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
-# item; bag_count_badge shows the total when >1.
+# item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
 	var b := _tray_well(px)
-	bag_content = Control.new()
+	bag_content = CenterContainer.new()       # CENTERS the preview at its natural size (never stretches it)
 	bag_content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var pad := px * 0.20
 	bag_content.offset_left = pad
@@ -1215,11 +1193,9 @@ func _make_bag_button(px: float) -> Button:
 	bag_content.offset_right = -pad
 	bag_content.offset_bottom = -pad
 	bag_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bag_piece_px = px * 0.52                   # the preview fits inside the inset content box
 	b.add_child(bag_content)
 	b.add_child(_corner_badge("nav_bag.png", px * 0.46))
-	bag_count_badge = _count_pill()
-	bag_count_badge.visible = false
-	b.add_child(bag_count_badge)
 	b.pressed.connect(_open_bag_overlay)
 	return b
 
@@ -1789,15 +1765,9 @@ func _rebuild_bag() -> void:
 	for c in bag_content.get_children():
 		c.queue_free()
 	if not bag.is_empty():
-		var top := _make_piece(int(bag[bag.size() - 1]), 80.0)
-		top.set_anchors_preset(Control.PRESET_FULL_RECT)
-		bag_content.add_child(top)
-	if bag_count_badge != null and is_instance_valid(bag_count_badge):
-		bag_count_badge.visible = bag.size() > 1
-		if bag.size() > 1:
-			var lbl: Label = bag_count_badge.get_child(0)
-			if lbl != null:
-				lbl.text = str(bag.size())
+		# the most-recent stashed item, sized to fit the well and CENTERED (bag_content is a
+		# CenterContainer) — never stretched to fill, which over-scaled the art past the slot.
+		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
 # over an empty board cell places it (else it snaps back to the bag). Reuses the board's _drag_node
