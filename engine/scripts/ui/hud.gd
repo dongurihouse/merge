@@ -95,7 +95,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
-	var lv_px := 88.0   # standalone top-left badge size (badge art is tight-cropped so it fills this)
+	var lv_px := 100.0   # standalone top-left badge size (~15% larger; badge art is tight-cropped so it fills this)
 	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
 	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
 	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
@@ -349,8 +349,9 @@ static func _frame_tex(level: int) -> Texture2D:
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
 # ring (and clear the crown/laurel on the high badges) instead of crowding it.
 static func _lv_font_size(level: int) -> int:
+	# scaled ~15% with the larger lv_px badge so digits stay centred in the medal.
 	if level >= 100:
-		return 22
+		return 25
 	if level >= 10:
-		return 28
-	return 36
+		return 32
+	return 41
