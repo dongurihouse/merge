@@ -1321,6 +1321,9 @@ func _build_hud() -> void:
 	# redundant here and the level ring stands alone (item 2; the board still passes
 	# `home` since its nav legitimately returns to the map).
 	var hud := Hud.build(self, {
+		# the hub surfaces the board's water energy in the top-right currency bar (the board adds its
+		# own water entry, so only the map opts in here).
+		"water": true,
 		"water_grant": func() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP

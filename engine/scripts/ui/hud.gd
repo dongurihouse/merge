@@ -62,6 +62,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store)
 	_spacer(row)
 	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store)
+	# Optional WATER pair (opts.water) — the map/hub surfaces the board's water energy in the same
+	# top-right bar. The board adds its OWN water entry via _build_water_hud (with the refill stack),
+	# so the board does NOT opt in here; only the map does.
+	var water_lbl: Label = null
+	if bool(opts.get("water", false)):
+		_spacer(row)
+		water_lbl = _pair(row, "water", Tune.GEM_ICON, 1.0, Color.WHITE, false, open_store)
 	# the whole currency pill is the acquire affordance now — a tap anywhere on it opens the
 	# store (the per-currency "+" buttons are retired; they bloated the pill + skewed its padding).
 	panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -129,12 +136,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	host.add_child(left)
 
 	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
-	var out := {"stars": stars, "coins": coins, "diamonds": gems, "level": level, "level_prog": level_prog,
+	var out := {"stars": stars, "coins": coins, "diamonds": gems, "water": water_lbl, "level": level, "level_prog": level_prog,
 		"level_frame": frame, "wallet": panel, "lv_panel": lv_panel, "home": home_btn}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
+		if water_lbl != null:
+			_set_or_tick(water_lbl, int(Save.grove().get("water", G.WATER_CAP)))
 		var earned := int(Save.grove().get("stars_earned", 0))
 		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
