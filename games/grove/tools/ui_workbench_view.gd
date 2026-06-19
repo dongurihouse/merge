@@ -61,7 +61,7 @@ func _build() -> void:
 	hb.add_theme_constant_override("separation", 0)
 	add_child(hb)
 
-	# left — the gallery (scrolls; the dialog is tall)
+	# right — the gallery (scrolls; the dialog is tall)
 	var gal_scroll := ScrollContainer.new()
 	gal_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	gal_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -77,17 +77,18 @@ func _build() -> void:
 	_gallery.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gal_margin.add_child(_gallery)
 
-	# right — the options sidebar (fixed width)
+	# left — the options sidebar (fixed width)
 	var side := PanelContainer.new()
 	side.custom_minimum_size = Vector2(380, 0)
 	side.size_flags_vertical = Control.SIZE_FILL
 	var ssb := StyleBoxFlat.new()
 	ssb.bg_color = Color(0, 0, 0, 0.42)
-	ssb.border_width_left = 2
+	ssb.border_width_right = 2
 	ssb.border_color = Color(Pal.CREAM, 0.12)
 	ssb.set_content_margin_all(18)
 	side.add_theme_stylebox_override("panel", ssb)
 	hb.add_child(side)
+	hb.move_child(side, 0)   # sidebar on the LEFT, gallery to its right
 	var side_scroll := ScrollContainer.new()
 	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	side.add_child(side_scroll)
