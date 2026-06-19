@@ -121,7 +121,12 @@ static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int
 	var ip := Game.art("ui/currency/icon_%s.png" % rew_id)
 	if ResourceLoader.exists(ip):
 		b.icon = load(ip)
-	var box := Look.kit_box("kit/shop_buy.png", Vector2(46, 22), Vector4(pad_x, pad_top, pad_x, pad_bottom))
+	# Floor the pill at 2× the nine-patch border. Below that the rounded caps overlap and the capsule
+	# deforms into a lens at small fonts; at/above it the pill keeps its clean rounded-rectangle shape
+	# and only the text shrinks. Above the floor it still auto-sizes to the content as before.
+	var tex := Vector2(46, 22)
+	b.custom_minimum_size = tex * 2.0
+	var box := Look.kit_box("kit/shop_buy.png", tex, Vector4(pad_x, pad_top, pad_x, pad_bottom))
 	if box != null:
 		b.add_theme_stylebox_override("normal", box)
 		b.add_theme_stylebox_override("hover", box)

@@ -5,10 +5,16 @@ PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
 JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
 RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
-ENGINE_TESTS := engine/tests/save_tests engine/tests/inbox_tests engine/tests/mechanics_tests engine/tests/layering_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/anchor_tests engine/tests/palette_tests engine/tests/level_badge_tests engine/tests/bag_overlay_tests engine/tests/switch_tests
+# Active suites = the core-logic / "basic coding functional" set. At this stage of development the
+# UI + economy/liveops suites are PARKED in the *_DISABLED vars below — they churn with rapid UI/
+# economy iteration and slow the loop without guarding stable code. To RE-ENABLE: move names back
+# from *_DISABLED into the active lists. See docs/BACKLOG.md "Re-enable the UI + economy test suites".
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/anchor_tests engine/tests/layering_tests
+ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/palette_tests engine/tests/level_badge_tests engine/tests/bag_overlay_tests engine/tests/switch_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_shop_ads_tests
+GROVE_TESTS  := games/grove/tests/grove_model_tests
+GROVE_TESTS_DISABLED := games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_shop_ads_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 

@@ -11,7 +11,7 @@ extends RefCounted
 ## the resolved streak and maps it to the ladder, so the decay is single-sourced.
 ##
 ## PURE engine (core/ layer — no ui/, no scenes/): the ladder MATH + the claim live
-## here; the streak/claim state persists via Save.daily()/claim_daily(); the OWNER-
+## here; the streak/claim state persists via Save.daily(); the OWNER-
 ## TUNABLE ladder + milestones live in the active game's data (games/grove/grove_data.gd
 ## · LOGIN_*). The diegetic calendar popup is ui/login.gd.
 ##
@@ -66,8 +66,8 @@ static func is_milestone(day: int) -> bool:
 # --- the claim ----------------------------------------------------------------------
 
 ## Grant today's reward (once per day) and bump the streak. Refuses a second claim the
-## same day (returns false, grants nothing). Mirrors Save.claim_daily but pays the full
-## REWARD DICT (coins / water / gems / cosmetic), not just a flat coin number. The claim
+## same day (returns false, grants nothing). Pays the full REWARD DICT
+## (coins / water / gems / cosmetic), not just a flat coin number. The claim
 ## + streak-bump persist in one write (via Save). Returns whether a reward was granted.
 static func claim_today() -> bool:
 	var d := Save.daily()

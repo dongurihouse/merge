@@ -33,10 +33,6 @@ static func _default() -> Dictionary:
 		"schema_version": SCHEMA_VERSION,
 		"migrated_v2": false,
 		"currencies": {"coins": 0, "diamonds": NEW_SAVE_GEMS},
-		"jobs": {},                       # job_id -> {best_stars, best_drags, completed, plays, first_clear_paid}
-		"rooms": {},                      # room_id -> {decor: {slot_id: item_id}}
-		"clients": {},                    # client_id -> {lump_paid}
-		"stats": {"boards_cleared": 0},
 		"settings": {},
 	}
 
@@ -62,7 +58,6 @@ static func _migrate_legacy() -> void:
 	var cleared := 0
 	if c.load(legacy) == OK:
 		cleared = int(c.get_value("progress", "cleared", 0))
-	data["stats"]["boards_cleared"] = cleared
 	data["currencies"]["coins"] = coins_raw() + cleared * COINS_PER_CLEAR_SEED
 	data["migrated_v2"] = true
 
@@ -130,66 +125,6 @@ static func spend(n: int, _reason := "") -> bool:
 	if coins() < n:
 		return false
 	data["currencies"]["coins"] = coins() - n
-	save_now()
-	return true
-
-static func boards_cleared() -> int:
-	_ensure_loaded()
-	return int(data["stats"]["boards_cleared"])
-
-static func record_board_clear(n := 1) -> void:
-	_ensure_loaded()
-	data["stats"]["boards_cleared"] = boards_cleared() + n
-	save_now()
-
-static func record_job(id: String, stars: int, drags: int) -> void:
-	_ensure_loaded()
-	var jobs: Dictionary = data["jobs"]
-	var j: Dictionary = jobs.get(id, {
-		"best_stars": 0, "best_drags": -1, "completed": false, "plays": 0, "first_clear_paid": false,
-	})
-	j["plays"] = int(j["plays"]) + 1
-	j["completed"] = true
-	j["best_stars"] = maxi(int(j["best_stars"]), stars)
-	var bd := int(j["best_drags"])
-	j["best_drags"] = drags if bd < 0 else mini(bd, drags)
-	j["first_clear_paid"] = true
-	jobs[id] = j
-	save_now()
-
-static func job(id: String) -> Dictionary:
-	_ensure_loaded()
-	return data["jobs"].get(id, {})
-
-static func clear_paid(id: String) -> bool:
-	_ensure_loaded()
-	return bool(data["jobs"].get(id, {}).get("first_clear_paid", false))
-
-# --- rooms / decor -----------------------------------------------------------
-# Shape per spec: rooms = {room_id: {decor: {slot_id: item_id}}}. v1 has one item
-# per slot, stored as "default", so future style variants stay representable.
-
-static func room_decor(room_id: String) -> Dictionary:
-	_ensure_loaded()
-	var r: Dictionary = data["rooms"].get(room_id, {})
-	return r.get("decor", {})
-
-static func decor_owned(room_id: String, slot_id: String) -> bool:
-	return room_decor(room_id).has(slot_id)
-
-static func decor_count(room_id: String) -> int:
-	return room_decor(room_id).size()
-
-# Spend + grant in ONE write so a crash can never take the coins without the decor.
-static func buy_decor(room_id: String, slot_id: String, cost: int) -> bool:
-	_ensure_loaded()
-	if decor_owned(room_id, slot_id) or coins() < cost:
-		return false
-	data["currencies"]["coins"] = coins() - cost
-	var rooms: Dictionary = data["rooms"]
-	var r: Dictionary = rooms.get(room_id, {"decor": {}})
-	r["decor"][slot_id] = "default"
-	rooms[room_id] = r
 	save_now()
 	return true
 
@@ -417,20 +352,6 @@ static func daily() -> Dictionary:
 		d = {"day": today, "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": streak}
 		data["daily"] = d
 	return d
-
-static func bump_daily(key: String, n: int = 1) -> void:
-	var d := daily()
-	d[key] = int(d.get(key, 0)) + n      # in-memory; persisted with the next save_now
-
-static func claim_daily(reward: int) -> bool:
-	var d := daily()
-	if bool(d.get("claimed", false)):
-		return false
-	d["claimed"] = true
-	d["streak"] = int(d.get("streak", 0)) + 1
-	data["currencies"]["coins"] = coins() + reward
-	save_now()
-	return true
 
 # ════════════════════════════════════════════════════════════════════════════
 # T43 — STORE / REWARDED-ADS / OUT-OF-WATER state (ADDITIVE accessor block)

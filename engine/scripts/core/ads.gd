@@ -62,36 +62,40 @@ static func remaining_today(ad_type: String) -> int:
 static func claim(ad_type: String) -> Dictionary:
 	if not can_show(ad_type):
 		return {"ok": false}
-	Save.ad_record(ad_type)
 	var def := _def(ad_type)
+	# Resolve the reward FIRST, then record the watch. Recording before the match would burn a
+	# daily-cap slot for an in-DATA-but-unhandled type (the `_:` arm) without granting anything.
+	var result: Dictionary
 	match ad_type:
 		"refill_water":
 			# Water lives on the board (scenes/), not in Save — hand the target back up.
-			return {"ok": true, "kind": ad_type, "water": int(def.get("water", 0))}
+			result = {"ok": true, "kind": ad_type, "water": int(def.get("water", 0))}
 		"collect_2x":
 			# The board quest-reward doubler's faucet — it only needs the watch recorded + an ok
 			# (it doubles the reward itself). No hub-yield arming: the hub-collect that read the
 			# flag was removed (residents replace the hub yield), so nothing consumes a flag now.
-			return {"ok": true, "kind": ad_type}
+			result = {"ok": true, "kind": ad_type}
 		"shop_reroll":
 			# Advance the deterministic Shop rotation (same seam T40's `shop_reroll` uses).
 			bump_shop_reroll()
-			return {"ok": true, "kind": ad_type}
+			result = {"ok": true, "kind": ad_type}
 		"event_topup":
 			# A small premium grant (the "event" context is stubbed for now, §17).
 			var gems := int(def.get("gems", 0))
 			if gems > 0:
 				Save.add_diamonds(gems)
-			return {"ok": true, "kind": ad_type, "gems": gems}
+			result = {"ok": true, "kind": ad_type, "gems": gems}
 		"free_gems":
 			# The persistent "Free" rail faucet (§4/§10): watch → a small 💎 grant, capped + cooled.
 			# Granted PURELY here (premium lives in Save); the caller plays the reward FX.
 			var fg := int(def.get("gems", 0))
 			if fg > 0:
 				Save.add_diamonds(fg)
-			return {"ok": true, "kind": ad_type, "gems": fg}
+			result = {"ok": true, "kind": ad_type, "gems": fg}
 		_:
 			return {"ok": false}
+	Save.ad_record(ad_type)
+	return result
 
 # --- the shop-reroll seam ---------------------------------------------------------
 # Advance the saved rotation counter the Shop's rotation_seed() adds on top of the day

@@ -37,11 +37,13 @@ static func build(cfg: Dictionary) -> Dictionary:
 	GiverStand.bob(bust)
 	var pill := GiverStand.ask_pill()        # the trade rides the same pill (W3 brightens it)
 	pill.offset_top = 130.0
-	# T39 sell pill: the pill advertises the TOP-tier reward -- t8 sells for a flat 1 premium (the
-	# pinnacle), NOT a stale flat coin count. Per the chrome rule the number is pure ASCII ("+1")
-	# and the currency is a Look.icon sprite (gem), never an emoji baked into the text. The figure
-	# tracks sell_reward so the invariant (t8 -> 1 premium) can never drift from what the merchant pays.
-	var top_rw := G.sell_reward(100 + G.TOP_TIER)   # the premium pinnacle -> Vector2i(0, 1)
+	# T39 sell pill: the pill advertises the SELL PINNACLE -- a PREMIUM_TIER (t8) item sells for a
+	# flat 1 premium (the gem pinnacle). PREMIUM_TIER is decoupled from TOP_TIER (grove_data.gd), so
+	# the pinnacle must be read off PREMIUM_TIER, not TOP_TIER (which now pays banded coins). Per the
+	# chrome rule the number is pure ASCII ("+1") and the currency is a Look.icon sprite (gem), never
+	# an emoji baked into the text. The figure tracks sell_reward so the invariant (t8 -> 1 premium)
+	# can never drift from what the merchant pays.
+	var top_rw := G.sell_reward(100 + G.PREMIUM_TIER)   # the premium pinnacle -> Vector2i(0, 1)
 	var prow := HBoxContainer.new()
 	prow.add_theme_constant_override("separation", 4)
 	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
