@@ -106,7 +106,8 @@ static func claim_button(text: String = "Claim", on_press: Callable = Callable()
 	return b
 
 ## The green shop BUY pill (mockup-adjacent green CTA): background art + acorn icon + price.
-static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int = 26, icon_px: float = 28.0) -> Button:
+static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int = 26, icon_px: float = 28.0,
+		pad_x: float = 16.0, pad_top: float = 6.0, pad_bottom: float = 7.0) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = price
@@ -120,7 +121,7 @@ static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int
 	var ip := Game.art("ui/currency/icon_%s.png" % rew_id)
 	if ResourceLoader.exists(ip):
 		b.icon = load(ip)
-	var box := Look.kit_box("kit/shop_buy.png", Vector2(46, 22), Vector4(16, 6, 16, 7))
+	var box := Look.kit_box("kit/shop_buy.png", Vector2(46, 22), Vector4(pad_x, pad_top, pad_x, pad_bottom))
 	if box != null:
 		b.add_theme_stylebox_override("normal", box)
 		b.add_theme_stylebox_override("hover", box)
@@ -148,7 +149,8 @@ static func plated_icon(id: String, px: float = 56.0) -> Control:
 
 ## A mail card (mockup image 2): plated icon + title/body + a cost_pill + a claim_button.
 ## COMPOSES the two atoms — pill size flows in from the caller so a knob change propagates here.
-static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float = 24.0) -> Control:
+static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float = 24.0,
+		title_font: int = 20, body_font: int = 15) -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
 	if box != null:
@@ -180,14 +182,14 @@ static func mail_card(entry: Dictionary, pill_font: int = 18, pill_icon: float =
 	row.add_child(text)
 	var title := Label.new()
 	title.text = String(entry.get("title", ""))
-	title.add_theme_font_size_override("font_size", 20)
+	title.add_theme_font_size_override("font_size", title_font)
 	title.add_theme_color_override("font_color", Pal.INK)
 	title.add_theme_constant_override("outline_size", 0)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text.add_child(title)
 	var body := Label.new()
 	body.text = String(entry.get("body", ""))
-	body.add_theme_font_size_override("font_size", 15)
+	body.add_theme_font_size_override("font_size", body_font)
 	body.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	body.add_theme_constant_override("outline_size", 0)
 	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
