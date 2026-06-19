@@ -14,18 +14,16 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["buy", "pill", "button", "icon", "card", "dialog"]
+const IDS := ["button", "pill", "icon", "card", "dialog"]
 const CAPTIONS := {
-	"buy": "Buy button — green CTA",
-	"pill": "Cost pill — cream atom",
 	"button": "Button — shared (bg · icon · state)",
+	"pill": "Cost pill — the cream button variant",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"card": "Mail card — pill + Claim",
 	"dialog": "Mail dialog — cards",
 }
 # Per-element knob schema: [key, min, max]. The sidebar renders one slider per entry.
 const SCHEMA := {
-	"buy": [["font", 10, 60], ["icon", 12, 60], ["pad_x", 0, 60], ["pad_top", 0, 40], ["pad_bottom", 0, 40], ["corner", 0, 40]],
 	"pill": [["font", 10, 36], ["icon", 12, 48]],
 	"button": [["font", 12, 40], ["corner", 0, 40]],        # bg / icon / enabled are toggles, added below
 	"icon": [["feather", 0, 4], ["supersample", 1, 4]],     # defringe is a toggle, added below
@@ -42,7 +40,6 @@ const SCHEMA := {
 }
 
 var _params := {
-	"buy": {"text": "250", "font": 26, "icon": 28, "pad_x": 16, "pad_top": 6, "pad_bottom": 7, "corner": 16},
 	"pill": {"font": 18, "icon": 24},                       # the canonical cost pill — card + dialog read this
 	"button": {"text": "Claim", "bg": "green", "show_icon": false, "enabled": true, "font": 22, "corner": 16},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1},
@@ -56,7 +53,7 @@ var _params := {
 		"entries": 4, "list_max_h": 0,
 	},
 }
-var _selected := "buy"
+var _selected := "button"
 var _gallery: VBoxContainer = null
 var _sidebar_body: VBoxContainer = null
 
@@ -135,8 +132,6 @@ func _build() -> void:
 func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
-		"buy":
-			return Kit.buy_pill(String(p.text), "gem", int(p.font), float(p.icon), float(p.pad_x), float(p.pad_top), float(p.pad_bottom), float(p.corner))
 		"pill":
 			return Kit.cost_pill("gem", 50, int(p.font), float(p.icon))
 		"button":
@@ -378,9 +373,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
-	if _selected == "buy":
-		_sidebar_body.add_child(_text_row("Price text", "text"))
-	elif _selected == "button":
+	if _selected == "button":
 		_sidebar_body.add_child(_text_row("Text", "text"))
 		_sidebar_body.add_child(_option_row("Background", "bg", ["green", "cream"]))
 		_sidebar_body.add_child(_toggle_row("Show icon", "show_icon"))

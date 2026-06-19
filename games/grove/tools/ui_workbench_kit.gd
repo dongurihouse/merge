@@ -129,40 +129,31 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 
 ## A cream cost/reward pill: the sliced cream capsule + an icon + a number (mockup image 1).
 static func cost_pill(rew_id: String, n: int, font_px: int = 18, icon_px: float = 24.0) -> Control:
-	var pill := PanelContainer.new()
-	# Code-drawn cream capsule — NOT the mail_pill_cream nine-patch. The corner radius clamps to
-	# height/2 → a clean pill at ANY size, matching the buy button's fix. The card + dialog inherit
-	# this same builder, so their pills are no longer 9-cut and no longer deform when shrunk.
-	var s := StyleBoxFlat.new()
-	s.bg_color = Pal.CREAM
-	s.border_color = Pal.STRAW
-	s.set_corner_radius_all(999)
-	s.set_border_width_all(2)
-	s.content_margin_left = 14; s.content_margin_right = 14
-	s.content_margin_top = 5; s.content_margin_bottom = 6
-	pill.add_theme_stylebox_override("panel", s)
-	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 5)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(row)
-	var ic := make_icon(rew_id, icon_px)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ic)
-	var l := Label.new()
-	l.text = str(n)
-	l.add_theme_font_size_override("font_size", font_px)
-	l.add_theme_color_override("font_color", Pal.INK)
-	l.add_theme_constant_override("outline_size", 0)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(l)
-	return pill
+	# The cost pill IS the shared pill_button — the cream variant, with the reward icon, carrying the
+	# number, marked static (a display chip, not pressable). One button component, two backgrounds.
+	return pill_button(str(n), {
+		"bg": "cream", "icon": rew_id, "font": font_px, "icon_size": int(icon_px),
+		"corner": 999, "static": true,
+	})
 
 ## (The old nine-patch claim_button was REMOVED — the mail Claim is now the shared pill_button below,
 ## so there is one button component. The mail card/dialog drive their Claim entirely from it.)
+
+## Resolve any icon id to a Texture2D (so the shared button can show coin/water/gem/blue-gem, not
+## just the currency folder). Mirrors make_icon's id rules.
+static func _icon_tex(id: String) -> Texture2D:
+	var rels: Array = []
+	if id == "bluegem":
+		rels = ["ui/currency/icon_gem_t3.png"]
+	elif id.begins_with("coin") or id.begins_with("gem"):
+		rels = ["ui/currency/icon_%s.png" % id]
+	else:
+		rels = ["ui/shared/icon_%s.png" % id, "ui/currency/icon_%s.png" % id]
+	for rel in rels:
+		var p := Game.art(rel)
+		if ResourceLoader.exists(p):
+			return load(p)
+	return null
 
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
 ##   bg      "green" | "cream"     (the same button, two backgrounds — Claim vs a cream chip)
@@ -183,11 +174,13 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	b.add_theme_font_size_override("font_size", font_px)
 	b.add_theme_constant_override("outline_size", 0)
 	if icon_id != "":
-		var ip := Game.art("ui/currency/icon_%s.png" % icon_id)
-		if ResourceLoader.exists(ip):
-			b.icon = load(ip)
-			b.add_theme_constant_override("icon_max_width", font_px + 8)
+		var tex := _icon_tex(icon_id)
+		if tex != null:
+			b.icon = tex
+			b.add_theme_constant_override("icon_max_width", int(opts.get("icon_size", font_px + 8)))
 			b.add_theme_constant_override("h_separation", 7)
+	if bool(opts.get("static", false)):
+		b.mouse_filter = Control.MOUSE_FILTER_IGNORE      # a display chip (the cost pill): looks like the button, not pressable
 	var fill: Color = Pal.BTN_PRIMARY if bg == "green" else Pal.CREAM
 	var edge: Color = Pal.BTN_PRIMARY_EDGE if bg == "green" else Pal.STRAW
 	var ink: Color = Pal.CREAM if bg == "green" else Pal.INK
@@ -216,46 +209,8 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	b.add_child(Look.rim_overlay(corner, 2))
 	return b
 
-## The green shop BUY pill (mockup-adjacent green CTA): background art + acorn icon + price.
-static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int = 26, icon_px: float = 28.0,
-		pad_x: float = 16.0, pad_top: float = 6.0, pad_bottom: float = 7.0, corner: float = 16.0) -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.text = price
-	b.add_theme_font_size_override("font_size", font_px)
-	b.add_theme_color_override("font_color", Pal.CREAM)
-	b.add_theme_color_override("font_hover_color", Pal.CREAM)
-	b.add_theme_color_override("font_pressed_color", Pal.CREAM)
-	b.add_theme_constant_override("outline_size", 0)
-	b.add_theme_constant_override("icon_max_width", int(icon_px))
-	b.add_theme_constant_override("h_separation", 6)
-	var ip := Game.art("ui/currency/icon_%s.png" % rew_id)
-	if ResourceLoader.exists(ip):
-		b.icon = load(ip)
-	# A CODE-DRAWN green capsule, NOT the shop_buy nine-patch. That capsule's rounded ends span its
-	# full source height, so the nine-patch pinches them into a lens whenever the button is shorter
-	# than the art — which is what happens as the font shrinks. A StyleBoxFlat corner radius is clamped
-	# by Godot to height/2, so it stays a clean rounded capsule at ANY size. (skin.gd's primary button
-	# is code-drawn for this same nine-patch-collapse reason.)
-	var s := StyleBoxFlat.new()
-	s.bg_color = Pal.BTN_PRIMARY
-	s.border_color = Pal.BTN_PRIMARY_EDGE
-	s.set_corner_radius_all(int(corner))         # rectangular at low values; capsule near/above height/2
-	s.set_border_width_all(2)
-	s.shadow_color = Color(0, 0, 0, 0.22)
-	s.shadow_size = 5
-	s.shadow_offset = Vector2(0, 3)
-	s.content_margin_left = pad_x
-	s.content_margin_right = pad_x
-	s.content_margin_top = pad_top
-	s.content_margin_bottom = pad_bottom
-	b.add_theme_stylebox_override("normal", s)
-	b.add_theme_stylebox_override("hover", s)
-	var sp: StyleBoxFlat = s.duplicate()
-	sp.bg_color = s.bg_color.darkened(0.08)
-	b.add_theme_stylebox_override("pressed", sp)
-	b.add_child(Look.rim_overlay(corner, 2))     # light inner rim — the sticker two-tone
-	return b
+## (The standalone buy_pill / green-CTA builder was REMOVED — it was the original spike component and
+## is fully covered by pill_button(green, icon). The CTA is now the shared button's green variant.)
 
 ## A plated message icon — the icon seated on a pale cream disc (mockup's left-of-row motif).
 static func plated_icon(id: String, px: float = 56.0) -> Control:
