@@ -54,7 +54,12 @@ func _initialize() -> void:
 			scn._on_release(scn._cell_pos(Vector2i(5, 4)) + half)
 			await create_timer(0.5).timeout
 		"gate":
-			Save.add_stars(5)
+			# bank enough stars to make the frontier map's cheapest spot affordable, so the
+			# board reaches the gate-ready state it is meant to showcase (the lit Home button)
+			var gz := Save.grove()
+			gz["stars_earned"] = 300
+			Save.grove_write()
+			Save.add_stars(300)
 			scn._rebuild_givers()
 			scn._update_hud()
 			await create_timer(0.6).timeout

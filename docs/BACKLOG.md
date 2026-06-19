@@ -196,11 +196,20 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
   the card a treat, not a nag (observe / sim the offer rate vs. the cap). Was flagged as T45 "perceptual placement."
   Spec: `merge_spec §10/§18`, `grove_spec §10`. *(Surfaced 2026-06-18 — re-home shipped (`6ff5b01`); this is the maturation tail.)*
 
-- **Shop cosmetic LOOKS — apply the owned look to the board/map render (small follow-up · T40).** The
-  Shop now sells cosmetic looks (T40 — `SHOP_COSMETICS` in `grove_data.gd`, unlock stored in
-  `grove()["cosmetics"]`), but the chosen theme is **granted-and-owned only — not yet applied** to the
-  board background / map render. **Build:** read the owned cosmetic in the board/map view and swap the
-  look. *(Surfaced 2026-06-15 — T40 parked tail.)*
+- **Item & map customization feature (DEFERRED — all code removed 2026-06-18, owner call).** Customization
+  is **cut from v1 and parked here as a whole future feature** — owner decision (2026-06-18): no
+  customization ships now, but keep the design + a backlog hook. **Removed code** (so a rebuild starts
+  clean, not from half-wired stubs): the per-spot **look-picker strip** on owned map buildings
+  (`customize_variants` flag, `_add_variant_strip`/`_apply_variant`/`_spot_variant` in `scenes/map.gd`,
+  `spot_variants`/`variant_by_id`/`VARIANT_*` in `core/content.gd`+`grove_data.gd`, the `grove()["custom"]`
+  blob); and the Shop **"grove theme" cosmetic looks** (`SHOP_COSMETICS`, `buy_cosmetic`/`cosmetic_owned`/
+  `_cosmetic_card` in `ui/shop.gd`, the `grove()["cosmetics"]` blob, the day-30 login cosmetic grant). The
+  shop looks were never applied to render — a granted-and-owned-only stub. **Future build (when un-deferred):**
+  decide the two axes — **(a) item customization** (re-skin/tint board pieces) and **(b) map customization**
+  (building looks + a board/grove theme), composited per `merge_spec §16` (swap/tint cut-outs, never
+  re-render); a coins/💎 sink that **buys looks, not power** (§4); and the render application both stubs
+  lacked. Spec hooks: `grove_spec §5/§6` (the removed sink + flag rows), `merge_spec §10` (cosmetics as a
+  revenue surface). *(Surfaced 2026-06-18 — owner cut; supersedes the old "apply the owned look" T40 tail.)*
 
 ## Open — meta, content-cadence & infra
 

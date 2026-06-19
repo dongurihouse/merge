@@ -61,7 +61,6 @@ Paths in **Lives-in** are relative to the repo root; `file.gd:func()` is the rea
 
 | Flag | What it does | Lives-in | Eval |
 |---|---|---|---|
-| `customize_variants` | owned spots offer coin/gem looks | `engine/scripts/scenes/map.gd` `_on_spot_tap()` (L657) | keep — default ON, owner review pending |
 | `item_backing` | AF3: ON — re-purposed as a soft warm contact shadow under each piece | `engine/scripts/scenes/board.gd` `_make_piece()` (L1219) | keep — default ON, owner review pending |
 | `drag_swap` | drop an item on another occupied cell → swap (P) | `engine/scripts/scenes/board.gd` `_on_release()` (L1554) | keep — default ON, owner review pending |
 

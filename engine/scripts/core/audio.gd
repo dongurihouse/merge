@@ -26,7 +26,7 @@ static func _ensure() -> void:
 	_ready = true
 	var root = Engine.get_main_loop().root
 	for n in FILES:
-		var p := Game.sound("sfx/%s.wav" % n)
+		var p := Game.sound("music/sfx/%s.wav" % n)
 		if ResourceLoader.exists(p):
 			_sounds[n] = load(p)
 	for i in Tune.VOICES:

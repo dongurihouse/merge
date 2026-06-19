@@ -165,7 +165,7 @@ anchor for the whole batch + the §16 starting render everything else harvests f
   hero** for each of the 4 yield buildings (4 extra cutouts) — shows the ceiling without the full
   ladder. **L2–L4 in-betweens are deferred** to the keystone Part-A build (not built — only the
   `spot_level`/`hub_collected_at` save schema shipped, T22; level progression + rates untuned). The
-  4 **décor** spots restore once + take `customize_variants` tints (no upgrade art).
+  4 **décor** spots restore once (no upgrade art).
 - **Maps 2–5 are finish-once** (Barn/Pond/Orchard/Meadow — §3; owner "hub-concentrated", 2026-06-15;
   their spots carry **no `kind`/yield** in data): **one restored cutout per spot** (8 each = 32) +
   the empty-yard bg, **no upgrade ladders, no L5 heroes**. Only the Farmhouse hub upgrades.

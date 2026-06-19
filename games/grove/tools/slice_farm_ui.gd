@@ -1,16 +1,16 @@
 extends SceneTree
 ## Dev tool (one-off): slice the home-screen mockup component sheet
-## (games/grove/assets/farm/farm_icons.png) into individual kit PNGs.
+## (games/grove/assets/map/farm/farm_icons.png) into individual kit PNGs.
 ##
 ##   godot --headless --path . -s res://games/grove/tools/slice_farm_ui.gd
 ##
 ## The sheet has a SOLID cyan background (no alpha). For each named region we crop the
 ## bbox, then knock out the cyan by flooding inward from the crop border (so the piece's
-## own light interior survives), trim transparent margins, and save to ui/kit/.
+## own light interior survives), trim transparent margins, and save to ui/<category>/.
 ## Regions were measured by alpha-island detection on the sheet (see the table below).
 
-const SRC := "res://games/grove/assets/farm/farm_icons.png"
-const OUT := "res://games/grove/assets/ui/kit/"
+const SRC := "res://games/grove/assets/map/farm/farm_icons.png"
+const OUT := "res://games/grove/assets/ui/"
 
 # name -> Rect2i(x, y, w, h) on the source sheet (tight bbox from island detection).
 # A small pad is added per-region so soft gold edges aren't clipped before knockout.
@@ -99,7 +99,10 @@ func _initialize() -> void:
 		var th := ty1 - ty0 + 1
 		var trimmed := Image.create(tw, th, false, Image.FORMAT_RGBA8)
 		trimmed.blit_rect(cut, Rect2i(tx0, ty0, tw, th), Vector2i.ZERO)
-		var path: String = OUT + name + ".png"
+		# kit sprites are filed by placement: badges/pills are cross-screen map overlays, nav_* the nav bar
+		var sub := ("map/" if (name.begins_with("badge_") or name.begins_with("pill_")) else ("nav/" if name.begins_with("nav_") else ""))
+		DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT + sub))
+		var path: String = OUT + sub + name + ".png"
 		trimmed.save_png(ProjectSettings.globalize_path(path))
 		print("%s -> %dx%d  (src %d,%d %dx%d)" % [name, tw, th, r.x, r.y, r.z, r.w])
 	print("DONE")

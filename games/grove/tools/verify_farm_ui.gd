@@ -20,7 +20,8 @@ func _initialize() -> void:
 	var fails := 0
 	for key in EXPECT:
 		var name := String(key)
-		var path: String = "res://games/grove/assets/ui/kit/" + name + ".png"
+		var sub := ("map/" if (name.begins_with("badge_") or name.begins_with("pill_")) else ("nav/" if name.begins_with("nav_") else ""))
+		var path: String = "res://games/grove/assets/ui/" + sub + name + ".png"
 		var tex: Texture2D = load(path)
 		if tex == null:
 			print("FAIL %s -> null" % name); fails += 1; continue

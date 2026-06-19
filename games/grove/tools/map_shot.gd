@@ -78,10 +78,9 @@ func _initialize() -> void:
 			var g := Save.grove()
 			if mode == "progress":
 				g["unlocks"] = {"fh_hearth": true, "fh_kitchen": true, "fh_well": true}
-				g["custom"] = {"fh_kitchen": "gem", "fh_well": "coin"}
 				g["stars_earned"] = 9
 			else:
-				g["unlocks"] = {"fh_hearth": true}   # owned → its customize strip opens
+				g["unlocks"] = {"fh_hearth": true}   # one restored spot
 				g["stars_earned"] = 3
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
@@ -115,10 +114,6 @@ func _initialize() -> void:
 	elif mode == "closeup" or mode == "progress" or mode == "owned":
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
-		if mode == "progress":            # + the inline customize strip, open
-			scn._customize_spot = "fh_hearth"
-			scn._build_map()
-			await create_timer(0.3).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)
 		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed

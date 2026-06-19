@@ -117,7 +117,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 static func _slot_tile() -> Panel:
 	var tile := Panel.new()
 	tile.custom_minimum_size = Vector2(SLOT_PX, SLOT_PX)
-	var p := Look.kit("slot_tile.png")
+	var p := Look.kit("board/slot_tile.png")
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)

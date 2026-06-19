@@ -26,7 +26,7 @@ static func id() -> String:
 	return active()
 
 ## res:// path for an art asset (rel = path under a game's art root, e.g.
-## "items/flower_1.png"), or "" when this game has no clothes for it — the caller's
+## "items/flower/flower_1.png"), or "" when this game has no clothes for it — the caller's
 ## ResourceLoader.exists() then fails and the engine draws its built-in placeholder.
 static func art(rel: String) -> String:
 	var root: String = _m().ART_ROOT

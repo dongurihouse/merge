@@ -97,7 +97,7 @@ static func make_piece(code: int, size: float) -> Control:
 	# the tier sprite is absent.
 	if G.is_coin(code):
 		var ctier := BoardModel.tier_of(code)
-		var cpath := Game.art("ui/kit/icon_coin_t%d.png" % ctier)
+		var cpath := Game.art("items/coin/coin_%d.png" % ctier)
 		if cpath != "" and ResourceLoader.exists(cpath):
 			var ct := TextureRect.new()
 			ct.texture = _content_tex(cpath)
@@ -154,22 +154,6 @@ static func make_piece(code: int, size: float) -> Control:
 	holder.add_child(lbl)
 	return holder
 
-# Rounded-corner mask in PIXELS (owner: rounded corners + pop are back; the
-# previous UV feather read as a flat square). Soft 8px melt at the rim only.
-const MAT_MASK_SHADER := "
-shader_type canvas_item;
-uniform vec2 rect_size = vec2(1080.0, 1400.0);
-uniform float radius_px = 28.0;
-uniform float feather_px = 8.0;
-void fragment() {
-	vec2 p = (UV - vec2(0.5)) * rect_size;
-	vec2 b = rect_size * 0.5 - vec2(radius_px);
-	vec2 q = abs(p) - b;
-	float d = length(max(q, vec2(0.0))) - radius_px;
-	COLOR = texture(TEXTURE, UV);
-	COLOR.a *= 1.0 - smoothstep(-feather_px, 0.0, d);
-}"
-
 # The garden bed: a RAISED WOODEN PLANTER (warm wood walls + a soft drop shadow)
 # holding a tilled-soil interior with a mossy grain on top. The wood rim IS the board
 # edge — it replaces the old see-through mat whose translucent top margin read as a
@@ -223,59 +207,19 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 	soil.add_theme_stylebox_override("panel", ss)
 	soil.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mat.add_child(soil)
-	# a mossy grain on the soil, masked to the bed's rounded corners (tactile texture,
-	# not a flat fill). Higher alpha than the old see-through wash so it reads as soil.
-	var sm := ShaderMaterial.new()
-	var sh := Shader.new()
-	sh.code = MAT_MASK_SHADER
-	sm.shader = sh
-	sm.set_shader_parameter("rect_size", soil.size)
-	sm.set_shader_parameter("radius_px", 20.0)
-	sm.set_shader_parameter("feather_px", 4.0)
-	var moss: Texture2D = null
-	for pth in [Game.art("ui/tray_grove_tall.png"), Game.art("ui/tray_grove.png")]:
-		if ResourceLoader.exists(pth):
-			var base: Texture2D = load(pth)
-			var at := AtlasTexture.new()
-			at.atlas = base
-			var sz := Vector2(base.get_size())
-			at.region = Rect2(sz * 0.13, sz * 0.74)   # the calm moss interior only
-			moss = at
-			break
-	if moss != null:
-		var grain := TextureRect.new()
-		grain.texture = moss
-		grain.position = soil.position
-		grain.size = soil.size
-		grain.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		grain.stretch_mode = TextureRect.STRETCH_SCALE
-		grain.material = sm
-		grain.modulate = Color("#CDBB90", 0.14)   # barely-there warm grain on the light bed (was a dark muddy wash)
-		grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		mat.add_child(grain)
+	# a faint warm tint over the soil bed (was a moss-texture grain sliced from tray_grove
+	# art; now a flat color, no texture dependency), rounded to match the bed's corners.
+	var grain := Panel.new()
+	grain.position = soil.position
+	grain.size = soil.size
+	grain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gs := StyleBoxFlat.new()
+	gs.bg_color = Color("#CDBB90", 0.14)          # barely-there warm grain on the light bed
+	gs.set_corner_radius_all(20)
+	grain.add_theme_stylebox_override("panel", gs)
+	mat.add_child(grain)
 	return mat
 
-
-# The numbered-padlock atlas: 5×5 grid of 25 cream lock tiles, each baked with a number 1..25
-# (left-to-right then top-to-bottom — tile N is at col (N-1)%5, row (N-1)/5). Sliced per number
-# into an AtlasTexture, cached so repeated cells don't re-slice (mirrors _content_cache).
-const _LOCKED_CELLS_ART := "ui/kit/locked_cells.png"
-static var _locked_cells_cache: Dictionary = {}
-static func _locked_cell_tex(n: int) -> Texture2D:
-	if _locked_cells_cache.has(n):
-		return _locked_cells_cache[n]
-	var atlas: Texture2D = load(Game.art(_LOCKED_CELLS_ART))
-	var result: Texture2D = null
-	if atlas != null:
-		var tile_size := atlas.get_size() / 5.0
-		var col := (n - 1) % 5
-		var row := (n - 1) / 5
-		var at := AtlasTexture.new()
-		at.atlas = atlas
-		at.region = Rect2(Vector2(float(col), float(row)) * tile_size, tile_size)
-		result = at
-	_locked_cells_cache[n] = result
-	return result
 
 # A sealed cell. The look is now FLAG-DRIVEN by the scene (no internal level gating):
 #   frontier   → the cell sits on the live border the player is reaching; render the NUMBERED
@@ -411,7 +355,7 @@ const FRONTIER_LV := 3   # gate levels ≤ this are the inner frontier (show the
 
 ## The board art kit's painted locked-slot tile (cream + a wood padlock); "" when absent.
 static func _locked_art() -> String:
-	return Game.art("ui/kit/slot_locked.png")
+	return Game.art("ui/board/slot_locked.png")
 
 # The locked/sealed cell well. With the board art kit present this IS the painted slot_locked
 # tile (cream + baked padlock) so locked cells read warm, matching the open slots + frame.

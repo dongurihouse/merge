@@ -163,14 +163,6 @@
       "pick": "chatgpt"
     },
     {
-      "name": "tray_grove",
-      "out": "res://assets/ui/tray_grove.png",
-      "status": "done",
-      "process": "decor 1024 1024 --opaque",
-      "prompt": "Top-down square mossy garden bed mat: soft green moss with tiny clover, a subtle rounded earthen border, completely calm flat and even in the center (game pieces sit on top), no objects, no pockets, flat top-down view, even soft light. Square. ⊕CORE",
-      "pick": "chatgpt"
-    },
-    {
       "name": "giver_fox",
       "out": "res://assets/map/giver_fox.png",
       "status": "done",
@@ -449,15 +441,6 @@
       "out": "res://assets/ui/gen_beehive.png",
       "process": "icon 512",
       "prompt": "A friendly wooden bee hive box with a peaked little roof and a round entrance hole, a few painted bees hovering nearby and wildflowers at its base, well-loved garden object, slight three-quarter angle, chunky game-object silhouette, soft painterly shading, single warm rim light, centered on plain solid white background, generous margin. Square. ⊕CORE",
-      "status": "done",
-      "pick": "codex_image_gen",
-      "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool"
-    },
-    {
-      "name": "tray_grove_tall",
-      "out": "res://assets/ui/tray_grove_tall.png",
-      "process": "decor 1080 1440 --opaque",
-      "prompt": "Top-down TALL mossy garden bed mat (the board now fills the phone edge to edge): soft green moss with tiny clover, completely calm flat and even EDGE TO EDGE — NO border, NO rim, NO frame baked in (owner killed the solid edge; the engine feathers the rim itself), no objects, no pockets, no paths, flat top-down view, even soft light. Tall portrait, 3:4. ⊕CORE",
       "status": "done",
       "pick": "codex_image_gen",
       "note": "fixed ChatGPT browser tool unavailable in this thread; generated with Codex built-in image tool"

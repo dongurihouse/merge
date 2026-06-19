@@ -260,7 +260,7 @@ static func _pick_tex(color: Color) -> Texture2D:
 		else ("p_leaf" if color.g > color.r else "p_petal")
 	if _grove_tex.has(id):
 		return _grove_tex[id]
-	var path := Game.art("fx/%s.png" % id)
+	var path := Game.art("ui/fx/%s.png" % id)
 	if ResourceLoader.exists(path):
 		_grove_tex[id] = load(path)
 		return _grove_tex[id]

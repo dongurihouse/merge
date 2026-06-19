@@ -266,8 +266,8 @@ static func spend_stars(n: int) -> bool:
 # roster — chest/bed/table… → hearth/kitchen/well/larder/porch/boxes/lantern/fence). This
 # is the ONE permitted code mention of the retired ids — every reader shares grove(), so the
 # rename runs here, once a save touches it, and is naturally idempotent (key and value id
-# sets are disjoint; after the rename the old keys are gone). Migrates unlocks (ownership),
-# custom (chosen variant) so counts/stars/looks survive.
+# sets are disjoint; after the rename the old keys are gone). Migrates unlocks (ownership)
+# so counts/stars survive.
 # (A save from a naming TWO renames back isn't chained — pre-launch, disposable; the live model is what matters.)
 const _SPOT_ID_RENAMES := {
 	"fh_chest": "fh_hearth", "fh_bed": "fh_kitchen", "fh_table": "fh_well", "fh_rug": "fh_larder",
@@ -294,7 +294,7 @@ static func _migrate_exp_to_stars(g: Dictionary) -> void:
 		g.erase("exp")
 
 static func _migrate_spot_ids(g: Dictionary) -> void:
-	for blob_key in ["unlocks", "custom"]:
+	for blob_key in ["unlocks"]:
 		var blob: Dictionary = g.get(blob_key, {})
 		for old in _SPOT_ID_RENAMES:
 			if blob.has(old):

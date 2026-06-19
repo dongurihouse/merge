@@ -4,7 +4,7 @@ extends SceneTree
 ## plainest ring (badge_00) to the crown+ribbon (badge_15).
 ##
 ##   godot --headless --path . -s res://games/tools/slice_badges.gd -- <in.png> <out_dir> [cols rows]
-##   (defaults: cols=4 rows=4, out_dir=res://games/grove/assets/ui/kit/badges)
+##   (defaults: cols=4 rows=4, out_dir=res://games/grove/assets/ui/lvl)
 ##
 ## The sheet is a UNIFORM grid, so cells are cut on float-accurate boundaries. To keep
 ## every badge at the SAME scale and registration (the ring must be the same size in
@@ -21,7 +21,7 @@ func _globalize(p: String) -> String:
 func _initialize() -> void:
 	var a := OS.get_cmdline_user_args()
 	var src := String(a[0]) if a.size() > 0 else "res://games/grove/assets/_originals/board/lvls.png"
-	var out_dir := String(a[1]) if a.size() > 1 else "res://games/grove/assets/ui/kit/badges"
+	var out_dir := String(a[1]) if a.size() > 1 else "res://games/grove/assets/ui/lvl"
 	var cols := int(a[2]) if a.size() > 2 else 4
 	var rows := int(a[3]) if a.size() > 3 else 4
 

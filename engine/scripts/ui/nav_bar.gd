@@ -93,7 +93,7 @@ static func _spacer() -> Control:
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return sp
 
-# One BIG painted nav button: the kit art (Look.kit(kit_name)) centered full-rect, or a glyph icon
+# One BIG painted nav button: the kit art (Look.kit("nav/" + kit_name)) centered full-rect, or a glyph icon
 # fallback when the kit png is missing. Carries the press juice. The icon IGNOREs the mouse so the
 # Button is the only hit surface (single-input-surface rule).
 static func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Button:
@@ -102,7 +102,7 @@ static func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Butto
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var p := Look.kit(kit_name)
+	var p := Look.kit("nav/" + kit_name)
 	var mark: Control
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()

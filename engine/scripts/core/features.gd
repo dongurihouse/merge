@@ -34,7 +34,6 @@ static var FLAGS := {
 	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
 	# feature
-	"customize_variants": true,   # owned spots offer coin/gem looks
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
 	# ftue

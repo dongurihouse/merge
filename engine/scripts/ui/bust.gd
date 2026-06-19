@@ -13,7 +13,7 @@ static func make(which: int, px: float = 124.0) -> Control:
 	face.custom_minimum_size = Vector2(px, px)
 	face.size = Vector2(px, px)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := Game.art("map/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which]))
+	var path := Game.art("characters/giver_%s.png" % (["fox", "hedgehog", "squirrel"][which]))
 	if ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		# owner 2026-06-13: the frameless cutout blended into the painted scene.

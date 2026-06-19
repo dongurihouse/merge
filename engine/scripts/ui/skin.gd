@@ -57,9 +57,9 @@ static func background(host: Control, scrim_alpha: float = Tune.BG_SCRIM_ALPHA, 
 
 ## The coin marker: generated coin art when present, else the classic gold disc.
 static func coin_icon(px: float = Tune.COIN_PX) -> Control:
-	if ResourceLoader.exists(Game.art("ui/coin.png")):
+	if ResourceLoader.exists(kit("currency/coin.png")):
 		var t := TextureRect.new()
-		t.texture = load(Game.art("ui/coin.png"))
+		t.texture = load(kit("currency/coin.png"))
 		t.custom_minimum_size = Vector2(px, px)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -81,7 +81,7 @@ static func coin_icon(px: float = Tune.COIN_PX) -> Control:
 ## SAME metrics until then. No component invents its own StyleBox again.
 
 static func kit(rel: String) -> String:
-	return Game.art("ui/kit/" + rel)
+	return Game.art("ui/" + rel)
 
 # Glyph fallbacks (shown only when a sprite is absent). NOTE: "coin" = the SOFT currency
 # (a gold coin) and "gem" = the PREMIUM currency (the grove's golden acorn 🌰) — the icons
@@ -95,10 +95,10 @@ const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
 ## --- the level chip's evolving frame -------------------------------------------------
 ## The HUD level badge swaps to a fancier gold frame as the player levels up (plainest
-## ring 00 -> crown 15, sliced from assets/board/lvls.png into kit/badges/). Which badge
+## ring 00 -> crown 15, sliced from assets/board/lvls.png into ui/lvl/). Which badge
 ## a Level shows is DATA: res://data/level_badges.json maps Level -> badge index by an
-## even-tier rule. level_badge_path() returns the resolved kit path, or "" when the
-## config/art is absent so the HUD keeps its ring_level.png fallback. Parsed once.
+## even-tier rule. level_badge_path() returns the resolved art path, or "" when the
+## config/art is absent (the HUD then shows the honey-token coin). Parsed once.
 const LEVEL_BADGE_CFG := "res://data/level_badges.json"
 static var _badge_cfg: Dictionary = {}
 
@@ -129,9 +129,9 @@ static func level_badge_path(level: int) -> String:
 	var idx := level_badge_index(level)
 	if idx < 0:
 		return ""
-	var dir := String(cfg.get("dir", "badges"))
+	var dir := String(cfg.get("dir", "lvl"))
 	var prefix := String(cfg.get("prefix", "badge_"))
-	var p := kit("%s/%s%02d.png" % [dir, prefix, idx])
+	var p := Game.art("ui/%s/%s%02d.png" % [dir, prefix, idx])
 	return p if ResourceLoader.exists(p) else ""
 
 ## --- the sticker recipe --------------------------------------------------------------
@@ -186,7 +186,7 @@ static func rim_overlay(radius: float, outer_w: float = 0.0) -> Control:
 
 ## The three surfaces: plank (ground band) · parchment (card) · chip.
 static func kit_panel(kind: String) -> StyleBox:
-	var p := kit("panel_%s.png" % kind)
+	var p := kit("shared/panel_%s.png" % kind)
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)
@@ -241,7 +241,9 @@ static func kit_panel(kind: String) -> StyleBox:
 ## consistently next to a number (the glyph font's own ascent/descent no longer
 ## nudges it off-center vs a sprite — the box + center alignment normalize it).
 static func icon(id: String, px: float = Tune.ICON_PX) -> Control:
-	var p := kit("icon_%s.png" % id)
+	# icons split by placement: coin/gem are the currency cluster, the rest are shared chrome
+	var dir := "currency" if (id.begins_with("coin") or id.begins_with("gem")) else "shared"
+	var p := kit("%s/icon_%s.png" % [dir, id])
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()
 		t.texture = load(p)
@@ -386,7 +388,7 @@ static func round_button(icon_id: String, cb: Callable, opts: Dictionary = {}) -
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(px, px)
-	var p := kit("btn_round.png")
+	var p := kit("shared/btn_round.png")
 	if ResourceLoader.exists(p):
 		var st := StyleBoxTexture.new()
 		st.texture = load(p)

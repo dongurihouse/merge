@@ -139,10 +139,10 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
 	return {"chip": stand, "qi": qi, "asks": ask_uis, "check": null, "bust": bust}
 
-# The quest card surface: the painted `ui/kit/card_quest.png` (horizontal speech-bubble card)
+# The quest card surface: the painted `ui/quest/card_quest.png` (horizontal speech-bubble card)
 # stretched to the card rect; a flat parchment card when the art is absent.
 static func _quest_card(w: float, h: float) -> Control:
-	var p := Look.kit("card_quest.png")
+	var p := Look.kit("quest/card_quest.png")
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()
 		t.texture = load(p)

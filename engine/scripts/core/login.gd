@@ -80,7 +80,7 @@ static func claim_today() -> bool:
 	return true
 
 # Pay out a reward dict. Coins/gems go to the wallet; water tops up the grove can (capped,
-# never over the cap); a cosmetic unlocks a look (own-once). Each grant persists via Save.
+# never over the cap). Each grant persists via Save.
 static func _grant(rew: Dictionary) -> void:
 	if int(rew.get("coins", 0)) > 0:
 		Save.add_coins(int(rew.coins))       # persists
@@ -88,21 +88,12 @@ static func _grant(rew: Dictionary) -> void:
 		Save.add_diamonds(int(rew.gems))     # persists
 	if int(rew.get("water", 0)) > 0:
 		_grant_water(int(rew.water))
-	if String(rew.get("cosmetic", "")) != "":
-		_grant_cosmetic(String(rew.cosmetic))
 	Save.grove_write()                       # one final flush for the in-grove grants
 
 # Water lives in the grove blob, capped at WATER_CAP (a modest top-up, never self-sustaining).
 static func _grant_water(n: int) -> void:
 	var g := Save.grove()
 	g["water"] = mini(int(D.WATER_CAP), int(g.get("water", 0)) + n)
-
-# A cosmetic milestone unlocks a board look (own-once), the same blob the shop's looks use.
-static func _grant_cosmetic(id: String) -> void:
-	var g := Save.grove()
-	var owned: Dictionary = g.get("cosmetics", {})
-	owned[id] = true
-	g["cosmetics"] = owned
 
 # --- faucet-discipline + test helpers ----------------------------------------------
 

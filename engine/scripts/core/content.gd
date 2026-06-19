@@ -52,10 +52,6 @@ const RESIDENT_ART = D.RESIDENT_ART
 const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
 const STARTER_ITEMS = D.STARTER_ITEMS
-const VARIANT_NAMES_COIN = D.VARIANT_NAMES_COIN
-const VARIANT_NAMES_GEM = D.VARIANT_NAMES_GEM
-const VARIANT_TINTS_COIN = D.VARIANT_TINTS_COIN
-const VARIANT_TINTS_GEM = D.VARIANT_TINTS_GEM
 const SELL_MAP_BAND = D.SELL_MAP_BAND
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const MAP_DIAMONDS = D.MAP_DIAMONDS
@@ -636,28 +632,6 @@ static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
 			return j == k
 	return true
 
-# --- spot customizations ----------------------------------------------------------
-# The variant dict for an id (or {} if none) — the swatch the player tapped.
-static func variant_by_id(z: int, k: int, vid: String) -> Dictionary:
-	for v in spot_variants(z, k):
-		if String(v.id) == vid:
-			return v
-	return {}
-
-static func spot_variants(z: int, k: int) -> Array:
-	var rank := k
-	for i in z:
-		rank += MAPS[i].spots.size()
-	var coin_cost := 25 + z * 15 + (k % 3) * 5
-	var gem_cost := 2 + int(z / 2.0)
-	return [
-		{"id": "base", "name": "Classic", "currency": "", "cost": 0, "tint": Color.WHITE},
-		{"id": "coin", "name": VARIANT_NAMES_COIN[rank % VARIANT_NAMES_COIN.size()],
-			"currency": "coins", "cost": coin_cost, "tint": VARIANT_TINTS_COIN[rank % VARIANT_TINTS_COIN.size()]},
-		{"id": "gem", "name": VARIANT_NAMES_GEM[rank % VARIANT_NAMES_GEM.size()],
-			"currency": "diamonds", "cost": gem_cost, "tint": VARIANT_TINTS_GEM[rank % VARIANT_TINTS_GEM.size()]},
-	]
-
 # --- sell / economy formulas ------------------------------------------------------
 static func sell_value(code: int) -> int:
 	return maxi(1, code % 100)            # t1=1 … t8=8 coins
@@ -741,4 +715,4 @@ static func item_tex_path(code: int) -> String:
 	var tier := code % 100
 	if not LINES.has(line):
 		return ""
-	return Game.art("items/%s_%d.png" % [LINES[line].base, tier])
+	return Game.art("items/%s/%s_%d.png" % [LINES[line].base, LINES[line].base, tier])

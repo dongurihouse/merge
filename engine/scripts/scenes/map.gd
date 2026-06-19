@@ -80,9 +80,7 @@ var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS 
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z}] — the map-select cards
-var variant_hits: Array = []     # [{node, z, k, vid}] — the inline strip's swatch chips
 var resident_hits: Array = []    # [{node, z, type}] — the "welcome a spirit" panel's kind rows (residents §1)
-var _customize_spot := ""        # spot id whose inline variant strip is open
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
@@ -219,19 +217,11 @@ func _frontier_map() -> int:
 func _is_cheapest_open(z: int, k: int) -> bool:
 	return G.is_cheapest_open(z, k, unlocks)
 
-func _spot_variant(z: int, k: int) -> Dictionary:
-	var chosen := String(Save.grove().get("custom", {}).get(String(G.MAPS[z].spots[k].id), "base"))
-	for v in G.spot_variants(z, k):
-		if String(v.id) == chosen:
-			return v
-	return G.spot_variants(z, k)[0]
-
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
 func _open_map(z: int) -> void:
 	_view = "map"
 	_map_idx = z
-	_customize_spot = ""
 	_set_map_chrome_visible(true)         # a map wears its bottom chrome + drifting weather
 	# T1: remember WHICH map you were on — the board's Decorate jumps back here
 	var g := Save.grove()
@@ -242,7 +232,6 @@ func _open_map(z: int) -> void:
 
 func _open_select() -> void:
 	_view = "select"
-	_customize_spot = ""
 	_set_map_chrome_visible(false)        # the place-picker is a calm chooser — no map chrome, no weather
 	Audio.play("button_tap", -4.0)
 	_build_select()
@@ -264,15 +253,14 @@ func _set_map_chrome_visible(on: bool) -> void:
 # --- THE MAP VIEW (grove_spec §3) -------------------------------------------------------
 # One self-contained image fills the area below the HUD; the spots sit directly on
 # it at spot.pos (a fraction of the fitted image rect). Owned spots draw furniture
-# sprites; the customize strip rides directly beneath an owned spot when open. The
-# whole view lives under `content` — every child IGNOREs (single input surface).
+# sprites. The whole view lives under `content` — every child IGNOREs (single input
+# surface).
 
 func _build_map() -> void:
 	for c in content.get_children():
 		c.queue_free()
 	spot_hits.clear()
 	select_hits.clear()
-	variant_hits.clear()
 	resident_hits.clear()
 	var z := _map_idx
 	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
@@ -387,7 +375,7 @@ func _build_home_spot(z: int, k: int, home: Dictionary, frame: Control, by_id: D
 	var b = by_id.get(sid, null)
 	if not spot_owned(sid):
 		return _home_badge(z, k, b)
-	var mtex: Texture2D = load(Game.art("farm/" + String(b.get("mask", "")))) if b != null else null
+	var mtex: Texture2D = load(Game.art("map/farm/" + String(b.get("mask", "")))) if b != null else null
 	if mtex != null:
 		# clean art, masked to THIS building. Guard the mask load: a null mask (e.g. a checkout that
 		# hasn't re-imported the assets) must NOT fall back to a full-opaque reveal — that would clean
@@ -397,13 +385,7 @@ func _build_home_spot(z: int, k: int, home: Dictionary, frame: Control, by_id: D
 		mat.shader = _home_mask_shader()
 		mat.set_shader_parameter("mask", mtex)
 		rev.material = mat
-		var vcur := _spot_variant(z, k)            # a chosen variant tints the revealed building
-		if String(vcur.id) != "base":
-			rev.modulate = Color.WHITE.lerp(Color(vcur.tint), 0.28)
-	var hit := _home_owned_item(z, k, b)           # carries the inline customize strip
-	if _customize_spot == sid:
-		_add_variant_strip(hit, z, k)
-	return hit
+	return _home_owned_item(z, k, b)
 
 func _home_mask_shader() -> Shader:
 	if _home_mask == null:
@@ -432,13 +414,13 @@ func _home_badge(z: int, k: int, b) -> Control:
 	node.size = Vector2(d, d)
 	node.position = ctr - Vector2(d, d) * 0.5
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the disc — the sliced round cost badge. Falls back to the legacy farm/badge.png disc.
-	var disc_kit := Look.kit("badge_cost.png")
+	# the disc — the sliced round cost badge. Falls back to the legacy badge.png disc (ui/map/).
+	var disc_kit := Look.kit("map/badge_cost.png")
 	var bg := TextureRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	bg.texture = load(disc_kit) if ResourceLoader.exists(disc_kit) else load(Game.art("farm/badge.png"))
+	bg.texture = load(disc_kit) if ResourceLoader.exists(disc_kit) else load(Look.kit("map/badge.png"))
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(bg)
 	# the buyable disc stacks a "+" over the star cost "★ N", centered on the disc.
@@ -548,7 +530,7 @@ func _map_title_plank(z: int) -> Control:
 	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays).
 	if map_spots_done(z):
 		_grant_map_task_reward(z)
-	var pill_path := Look.kit("pill_progress.png")
+	var pill_path := Look.kit("map/pill_progress.png")
 	if not ResourceLoader.exists(pill_path):
 		return _map_title_plank_fallback(z)
 	# size the pill relative to the map width (clamped), keeping the source aspect.
@@ -574,7 +556,7 @@ func _map_title_plank(z: int) -> Control:
 	var frac := 1.0 if total <= 0 else clampf(float(total - left) / float(total), 0.0, 1.0)
 	if map_spots_done(z):
 		frac = 1.0
-	var fill_path := Look.kit("pill_progress_fill.png")
+	var fill_path := Look.kit("map/pill_progress_fill.png")
 	if ResourceLoader.exists(fill_path) and frac > 0.0:
 		var groove_x := _PILL_GROOVE_X * pw
 		var groove_w := _PILL_GROOVE_W * pw
@@ -650,14 +632,13 @@ func _map_title_plank_fallback(z: int) -> Control:
 # a footprint-sized rounded tile in the map palette, centered on the plot exactly like
 # the real sprite, with the spot's name. Honours the chosen variant wash + gem accent.
 # Carries the "placeholder" meta so tests/tools can tell it from a real sprite.
-func _placeholder_tile(spot: Dictionary, vcur: Dictionary, fs: float) -> Control:
+func _placeholder_tile(spot: Dictionary, fs: float) -> Control:
 	var tile := Panel.new()
 	var sb := StyleBoxFlat.new()
-	var base := CLAY.lerp(Color.WHITE, 0.18)
-	sb.bg_color = base.lerp(Color(vcur.tint), 0.45) if String(vcur.id) != "base" else base
+	sb.bg_color = CLAY.lerp(Color.WHITE, 0.18)
 	sb.set_corner_radius_all(int(clampf(fs * 0.14, 12.0, 30.0)))
 	sb.set_border_width_all(3)
-	sb.border_color = Color("#E8C84A") if String(vcur.id) == "gem" else BARK
+	sb.border_color = BARK
 	tile.add_theme_stylebox_override("panel", sb)
 	tile.size = Vector2(fs, fs)
 	tile.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real sprite
@@ -680,7 +661,7 @@ func _placeholder_tile(spot: Dictionary, vcur: Dictionary, fs: float) -> Control
 	return tile
 
 # One spot ON the map image: a code-generated placeholder tile when owned, else the
-# price-pin + name. The customize strip rides directly beneath when open.
+# price-pin + name.
 func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	# `pos` (center fraction of the map canvas) comes from grove_data.MAPS. No spot ships a
@@ -695,7 +676,7 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 	var owned := spot_owned(String(spot.id))
 	if owned:
 		# Owned spots draw a code-generated placeholder so the restored plot reads as filled.
-		item.add_child(_placeholder_tile(spot, _spot_variant(z, k), fs_eff))
+		item.add_child(_placeholder_tile(spot, fs_eff))
 	else:
 		# Only unowned (gated or buyable) spots reach here — the price-pin + name.
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
@@ -743,67 +724,7 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 		item.add_child(stack)
 		if z == _frontier_map() and _is_cheapest_open(z, k):
 			FX.breathe_once(item)
-	if owned and _customize_spot == String(spot.id):
-		_add_variant_strip(item, z, k)
 	return item
-
-# The inline customize strip (chips are IGNORE visuals resolved by content's
-# input surface via variant_hits).
-func _add_variant_strip(item: Control, z: int, k: int) -> void:
-	var current := String(_spot_variant(z, k).id)
-	var variants: Array = G.spot_variants(z, k)
-	# the chips ride a left-anchored HBox so each one takes its OWN content width and the row
-	# spaces them — a fixed pitch overlapped the wider "Classic" chip into its neighbour (the
-	# strip's content varies: a check sprite, a coin/gem cost, or the wide "Classic" text).
-	var strip := HBoxContainer.new()
-	strip.position = Vector2(2.0, 110.0)
-	strip.add_theme_constant_override("separation", 8)
-	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	item.add_child(strip)
-	for i in variants.size():
-		var v: Dictionary = variants[i]
-		var chip := PanelContainer.new()
-		var cs := StyleBoxFlat.new()
-		cs.bg_color = Color(INK, 0.82)
-		cs.set_corner_radius_all(14)
-		cs.set_border_width_all(3 if String(v.id) == current else 1)
-		cs.border_color = STRAW if String(v.id) == current else Color(CREAM, 0.35)
-		cs.content_margin_left = 8.0
-		cs.content_margin_right = 10.0
-		cs.content_margin_top = 5.0
-		cs.content_margin_bottom = 5.0
-		chip.add_theme_stylebox_override("panel", cs)
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 5)
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		chip.add_child(row)
-		var sw := ColorRect.new()
-		sw.color = Color(v.tint) if String(v.id) != "base" else Color(CLAY.lerp(Color.WHITE, 0.18))
-		sw.custom_minimum_size = Vector2(22, 22)
-		sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(sw)
-		# §13: currency variants show a Look.icon SPRITE (coin/gem) + a number-only
-		# label — never an emoji baked into the price text. The owned variant shows a
-		# check sprite; the free "Classic" stays plain text.
-		var price := Label.new()
-		if String(v.id) == current:
-			row.add_child(Look.icon("check", 20.0))
-		elif String(v.currency) == "coins":
-			row.add_child(Look.icon("coin", 20.0))
-			price.text = "%d" % int(v.cost)
-		elif String(v.currency) == "diamonds":
-			row.add_child(Look.icon("gem", 20.0))
-			price.text = "%d" % int(v.cost)
-		else:
-			price.text = tr("Classic")
-		price.add_theme_font_size_override("font_size", 19)
-		price.add_theme_color_override("font_color", CREAM)
-		price.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(price)
-		strip.add_child(chip)
-		variant_hits.append({"node": chip, "z": z, "k": k, "vid": String(v.id)})
 
 # --- THE MAP-SELECT VIEW (grove_spec §3) ------------------------------------------------
 # A clean atlas of every map as a card: thumbnail + name + state line. Tapping an
@@ -815,7 +736,6 @@ func _build_select() -> void:
 		c.queue_free()
 	spot_hits.clear()
 	select_hits.clear()
-	variant_hits.clear()
 	resident_hits.clear()
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
@@ -1078,11 +998,6 @@ func _select_tap(gpos: Vector2) -> void:
 		return
 
 func _map_tap(gpos: Vector2) -> void:
-	for hit in variant_hits:
-		var vn: Control = hit.node
-		if vn.get_global_rect().grow(6.0).has_point(gpos):
-			_apply_variant(int(hit.z), int(hit.k), String(hit.vid), gpos)
-			return
 	# §1 residents: the "welcome a spirit" panel's kind rows float over the map — resolve them
 	# before the spots so a tap on the panel never falls through to a spot behind it.
 	for hit in resident_hits:
@@ -1095,10 +1010,6 @@ func _map_tap(gpos: Vector2) -> void:
 		if n.get_global_rect().grow(8.0).has_point(gpos):
 			_on_spot_tap(int(hit.z), int(hit.k), n, gpos)
 			return
-	if _customize_spot != "":
-		_customize_spot = ""
-		_build_map()
-		return
 	# a wandering spirit? a tap earns a hop (pure charm, v1)
 	var amb: Control = content.get_node_or_null("AmbientLayer")
 	if amb != null:
@@ -1109,17 +1020,12 @@ func _map_tap(gpos: Vector2) -> void:
 					Audio.play("button_tap", -8.0)
 				return
 
-# --- buying & customizing, right on the map image ---------------------------------------
+# --- buying a spot, right on the map image -----------------------------------------------
 
 func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	if spot_owned(String(spot.id)):
-		if not Features.on("customize_variants"):
-			return
-		Audio.play("button_tap", -2.0)
-		_customize_spot = "" if _customize_spot == String(spot.id) else String(spot.id)
-		_build_map()
-		return
+		return                                # an already-restored spot is inert (no customization)
 	var cost := int(spot.cost)
 	if not Save.spend_stars(cost):
 		Audio.play("invalid_soft", -4.0)
@@ -1148,34 +1054,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		# Only when the gate is genuinely still pending (not already delivered for this map).
 		if not _gates().has(z):
 			Save.set_gate_pointer(z)
-
-# A swatch chip was tapped: pay (if needed) and dress the item — all on the map.
-func _apply_variant(z: int, k: int, vid: String, at: Vector2) -> void:
-	var spot_id := String(G.MAPS[z].spots[k].id)
-	if String(_spot_variant(z, k).id) == vid:
-		_customize_spot = ""
-		_build_map()
-		return
-	var chosen: Dictionary = G.variant_by_id(z, k, vid)
-	var paid := true
-	if String(chosen.currency) == "coins":
-		paid = Save.spend(int(chosen.cost), "decor_variant")
-	elif String(chosen.currency) == "diamonds":
-		paid = Save.spend_diamonds(int(chosen.cost))
-	if not paid:
-		Audio.play("invalid_soft", -4.0)
-		FX.floating_text(self, at - Vector2(100, 60), tr("Need %d more") % int(chosen.cost), Color(CREAM, 0.9), 28)
-		return
-	var g := Save.grove()
-	if not g.has("custom"):
-		g["custom"] = {}
-	g["custom"][spot_id] = vid
-	Save.grove_write()
-	Audio.play("tidy_poof", -2.0, 1.1)
-	FX.burst(self, at, Color(chosen.tint), 12)
-	_customize_spot = ""
-	_build_map()
-	_update_hud()
 
 # --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
 # On a COMPLETED map the player WELCOMES wandering spirits. A cozy panel lists each welcomable
@@ -1395,9 +1273,9 @@ func _rail_button(glyph: String, cb: Callable) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(72, 72)
-	if ResourceLoader.exists(Look.kit("btn_round.png")):
+	if ResourceLoader.exists(Look.kit("shared/btn_round.png")):
 		var st := StyleBoxTexture.new()
-		st.texture = load(Look.kit("btn_round.png"))
+		st.texture = load(Look.kit("shared/btn_round.png"))
 		st.set_texture_margin_all(24.0)
 		b.add_theme_stylebox_override("normal", st)
 		b.add_theme_stylebox_override("hover", st)

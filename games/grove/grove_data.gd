@@ -8,7 +8,7 @@ const COLS := 7
 const ROWS := 9
 const TOP_TIER := 8
 
-# Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>_<tier>.png; until the
+# Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
 # §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
 # (Acorn & Bloom, grove_spec §2): 24 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
 # 3 Pond · 4 Orchard · 5 Meadow (the 15-map arc ≈104 lines is post-launch). Wildflower (1) is the
@@ -60,33 +60,33 @@ const GENERATORS := [
 	# gates BOTH its placement and its lines becoming askable; absent = 0 (live at start). 5 matches
 	# the pantry cell's own §4 unseal level, so the tool arrives just as its plot would clear.
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
-		"tex": "ui/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
+		"tex": "items/generator/gen_satchel.png", "label": "seeds"},          # the ANCHOR — Wildflower + Berry, never handed in (Core §6); its lines stay live + askable for the life of the save
 	{"id": "pantry_crock", "map": 0, "cell": Vector2i(2, 1), "lines": [3, 4], "grant_from": "", "appear_level": 5,
-		"tex": "ui/gen_jar.png", "label": "pantry"},
+		"tex": "items/generator/gen_jar.png", "label": "pantry"},
 	# map 2 — Barn (Carrot): hand the pantry crock in → hen coop; the dairy stall is the surplus
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "pantry_crock",
-		"tex": "ui/gen_hen_coop.png", "label": "coop"},
+		"tex": "items/generator/gen_hen_coop.png", "label": "coop"},
 	{"id": "dairy_stall", "map": 1, "cell": Vector2i(6, 5), "lines": [7, 8], "grant_from": "",
-		"tex": "ui/gen_dairy_stall.png", "label": "dairy"},
+		"tex": "items/generator/gen_dairy_stall.png", "label": "dairy"},
 	# map 3 — Pond (Frog): two hand-in grants
 	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "hen_coop",
-		"tex": "ui/gen_reed_bed.png", "label": "reeds"},
+		"tex": "items/generator/gen_reed_bed.png", "label": "reeds"},
 	{"id": "creel", "map": 2, "cell": Vector2i(6, 5), "lines": [12, 13], "grant_from": "dairy_stall",
-		"tex": "ui/gen_creel.png", "label": "creel"},
+		"tex": "items/generator/gen_creel.png", "label": "creel"},
 	# map 4 — Orchard (Bee): two hand-in grants + one surplus
 	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "reed_bed",
-		"tex": "ui/gen_orchard_basket.png", "label": "orchard"},
+		"tex": "items/generator/gen_orchard_basket.png", "label": "orchard"},
 	{"id": "stone_fruit_bough", "map": 3, "cell": Vector2i(6, 5), "lines": [16, 17], "grant_from": "creel",
-		"tex": "ui/gen_stone_fruit_bough.png", "label": "stonefruit"},
+		"tex": "items/generator/gen_stone_fruit_bough.png", "label": "stonefruit"},
 	{"id": "nut_blossom", "map": 3, "cell": Vector2i(4, 5), "lines": [18, 19], "grant_from": "",
-		"tex": "ui/gen_nut_blossom.png", "label": "nuts"},
+		"tex": "items/generator/gen_nut_blossom.png", "label": "nuts"},
 	# map 5 — Meadow (Morel): three hand-in grants
 	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "orchard_basket",
-		"tex": "ui/gen_glowcap_ring.png", "label": "glowcap"},
+		"tex": "items/generator/gen_glowcap_ring.png", "label": "glowcap"},
 	{"id": "meadow_tuft", "map": 4, "cell": Vector2i(6, 5), "lines": [22, 23], "grant_from": "stone_fruit_bough",
-		"tex": "ui/gen_meadow_tuft.png", "label": "tuft"},
+		"tex": "items/generator/gen_meadow_tuft.png", "label": "tuft"},
 	{"id": "lantern_bloom", "map": 4, "cell": Vector2i(4, 5), "lines": [24, 25], "grant_from": "nut_blossom",
-		"tex": "ui/gen_satchel.png", "label": "lantern"},
+		"tex": "items/generator/gen_satchel.png", "label": "lantern"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
@@ -157,7 +157,7 @@ const BURST_UPGRADE_COSTS := [120, 360, 840, 1800]   # coin cost L0→1…3→4 
 # SIGNATURE residents (one premium 💎). Art reuses the CHARACTER_ART convention. The
 # ENGINE math (welcome / merge / members) lives in content.gd and reads these tables.
 const RESIDENT_MAX_TIER := 3              # t1 welcomed → merges up to this tier (cascading)
-const RESIDENT_ART := "map/spirit_%s.png"   # type → clothes asset (reuse the CHARACTER_ART convention)
+const RESIDENT_ART := "characters/spirit_%s.png"   # type → clothes asset (reuse the CHARACTER_ART convention)
 # The SHARED core residents — offered on every map, recolorable. Each {id, name}.
 const RESIDENT_CORE := [
 	{"id": "moss", "name": "Moss sprite"},
@@ -194,12 +194,6 @@ const STARTER_ITEMS := {
 	Vector2i(4, 2): 101, Vector2i(4, 4): 201,
 }
 
-
-# Spot customizations — coin/gem variants per owned spot (deterministic).
-const VARIANT_NAMES_COIN := ["Rosewood", "Whitewash", "Mossy", "Sunbaked", "Riverstone"]
-const VARIANT_NAMES_GEM := ["Gilded", "Moonlit", "Blossom", "Starlit", "Amber"]
-const VARIANT_TINTS_COIN := [Color("#C96F4A"), Color("#EDE3D2"), Color("#7FA65A"), Color("#E3B23C"), Color("#9CB8C9")]
-const VARIANT_TINTS_GEM := [Color("#E8C84A"), Color("#BFD9F2"), Color("#E8A8C0"), Color("#D9C9F2"), Color("#E8B06A")]
 
 # §6/§9 per-map SELL COIN band — later maps' items sell for MORE coins (each map a real
 # economic step-up, not just new art). Indexed by the item's map (0-indexed, maps 1–5). A
@@ -257,7 +251,7 @@ static func _build_maps() -> Array:
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home_spot).
-		"home": {"clean": "res://games/grove/assets/farm/farm.png", "broken": "res://games/grove/assets/farm/farm_brokenv2.png", "data": "res://games/grove/assets/farm/farm_home.json"},
+		"home": {"clean": "res://games/grove/assets/map/farm/farm.png", "broken": "res://games/grove/assets/map/farm/farm_brokenv2.png", "data": "res://games/grove/assets/map/farm/farm_home.json"},
 		"spots": [
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265)},
 		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379)},
@@ -324,7 +318,7 @@ const LEVEL_STARS_TAIL := 22       # stars per level past the table (flat tail)
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
 const CHARACTER_CAP := 5
-const CHARACTER_ART := "map/spirit_%s.png"              # type → clothes asset (assets keep their names)
+const CHARACTER_ART := "characters/spirit_%s.png"              # type → clothes asset (assets keep their names)
 const BASKET_CAP := 3            # the merchant's buy-back basket size
 const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
 const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)
@@ -372,20 +366,12 @@ const SHOP_ITEM_OFFERS := [
 	{"id": "skip_egg5",    "code": 505, "currency": "diamonds", "cost": 14,   "icon": "egg",      "label": "Egg"},          # t5 — a map-2 line, premium
 ]
 
-# Cosmetic offers (§10 "cosmetics / looks"): a GROVE THEME — a board look the player owns
-# once, distinct from the per-spot map variants (VARIANT_* above, applied on the map). Base
-# looks are COINS; exclusive looks are PREMIUM (💎). Pure look — owning one changes nothing
-# about possibility (§4). `tint` is the swatch the card previews / the look applies.
-const SHOP_COSMETICS := [
-	{"id": "look_meadow_dawn",   "currency": "coins",    "cost": 500,  "name": "Meadow Dawn",   "tint": Color("#EAD9A8")},
-	{"id": "look_harvest_gold",  "currency": "coins",    "cost": 500,  "name": "Harvest Gold",  "tint": Color("#E3B23C")},
-	{"id": "look_twilight",      "currency": "diamonds", "cost": 12,   "name": "Twilight",      "tint": Color("#8E7CC3")},
-	{"id": "look_blossom_drift", "currency": "diamonds", "cost": 12,   "name": "Blossom Drift", "tint": Color("#E8A8C0")},
-]
+# (Cosmetic "grove theme" looks — SHOP_COSMETICS — were removed with the customization
+# feature; the deferred "item & map customization" feature is parked in docs/BACKLOG.md.)
 
 # How many offers the featured band shows at once — a FEW (§10 "rotate, a few at a time"),
-# drawn deterministically from SHOP_ITEM_OFFERS + SHOP_COSMETICS by a day/refresh seed so
-# the spread feels fresh without ever overwhelming. Pool = 5 items + 4 looks = 9.
+# drawn deterministically from SHOP_ITEM_OFFERS by a day/refresh seed so the spread feels
+# fresh without ever overwhelming.
 const SHOP_ROTATION_COUNT := 3
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -493,7 +479,7 @@ const LOGIN_LADDER := [
 # overrides the week slot when the streak lands here (§18 "bigger milestones, day 7/30").
 const LOGIN_MILESTONES := {
 	7:  {"gems": 3, "coins": 150},                          # the first-week cap — a real premium beat
-	30: {"gems": 15, "coins": 300, "cosmetic": "look_twilight"},  # the month cap — leans premium + a cosmetic unlock
+	30: {"gems": 15, "coins": 300},                         # the month cap — leans premium (the cosmetic unlock was removed with customization)
 }
 const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)
 

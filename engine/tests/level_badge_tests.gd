@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless guard for the evolving level-chip badge (the HUD level frame that upgrades
-## with Level, sliced from assets/board/lvls.png into kit/badges/ and mapped by
+## with Level, sliced from assets/board/lvls.png into ui/lvl/ and mapped by
 ## data/level_badges.json).
 ##   godot --headless --path . -s res://engine/tests/level_badge_tests.gd
 ## Proves: the config parses, the even-tier Level->badge index is correct & clamped, and
@@ -8,6 +8,7 @@ extends SceneTree
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 
 var _pass := 0
 var _fail := 0
@@ -57,7 +58,7 @@ func _initialize() -> void:
 	# --- all 16 frames exist as resolvable art ----------------------------------
 	var missing := 0
 	for i in count:
-		if not ResourceLoader.exists(Look.kit("badges/badge_%02d.png" % i)):
+		if not ResourceLoader.exists(Game.art("ui/lvl/badge_%02d.png" % i)):
 			missing += 1
 	ok(missing == 0, "all %d badge frames resolve (missing=%d)" % [count, missing])
 
@@ -68,20 +69,30 @@ func _initialize() -> void:
 	ok(p_crown.ends_with("badge_15.png") and ResourceLoader.exists(p_crown), "L46 resolves to badge_15 art")
 	ok(p1 != p_crown, "the frame changes between low and high level")
 
-	# --- the chip never renders a BLANK frame (regression: trusting exists() over load()) ---
+	# --- _safe_tex catches degenerate imports (exists() true but load() null) ---------
 	# A committed .import can make exists() true while load() returns null (art not yet
-	# reimported in this checkout) — the frame must fall back to a VISIBLE ring, never null.
+	# reimported in this checkout) — _safe_tex must catch that and return null.
 	ok(Hud._safe_tex("") == null, "_safe_tex('') is null")
 	ok(Hud._safe_tex("res://does/not/exist.png") == null, "_safe_tex(missing) is null")
 	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "badge_00 actually LOADS (not just exists)")
-	ok(Hud._frame_tex(2) != null, "L2 frame texture is non-null (a ring is shown)")
-	ok(_has_transparent_corner(Hud._frame_tex(2)), "HUD level frame has transparent corners (no square backing)")
-	# simulate the user's case: badges unavailable -> still a visible ring (rope-ring fallback)
+	ok(Hud._frame_tex(2) != null, "L2 frame texture loads (the evolving badge)")
+
+	# --- no ring fallback: every shipped badge MUST be alpha-cut --------------------------
+	# The HUD draws the badge directly now, so an opaque (checker/white-backed) slice would
+	# render a square backing in the compact chip. Enforce transparent corners at build time.
+	var opaque := 0
+	for i in count:
+		var tex := Hud._safe_tex(Game.art("ui/lvl/badge_%02d.png" % i))
+		if tex == null or not _has_transparent_corner(tex):
+			opaque += 1
+	ok(opaque == 0, "all %d badges are alpha-cut (transparent corners, no square backing)" % count)
+
+	# Badges absent -> the frame is null and the HUD shows the honey-token coin; no ring.
 	Look._badge_cfg = {"badge_count": 16, "levels_per_tier": 3, "dir": "no_such_dir", "prefix": "x_"}
 	ok(Look.level_badge_path(2) == "", "missing badge art -> empty path")
-	ok(Hud._frame_tex(2) != null, "badges absent -> frame falls back to a visible ring (NOT blank)")
+	ok(Hud._frame_tex(2) == null, "badges absent -> frame is null (honey-token coin, no ring fallback)")
 
-	print("== level_badge: %d passed, %d failed ==" % [_pass, _fail])
+	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
 
 func _has_transparent_corner(tex: Texture2D) -> bool:

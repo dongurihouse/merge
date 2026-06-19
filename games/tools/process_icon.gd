@@ -5,7 +5,7 @@ extends SceneTree
 ##
 ## Examples:
 ##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://games/grove/assets/ui/drawer_books.png
-##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://games/grove/assets/ui/coin.png 256
+##   godot --headless --path . -s res://games/tools/process_icon.gd -- /tmp/raw.png res://games/grove/assets/ui/currency/coin.png 256
 ##
 ## Handles both:
 ##   1) Truly transparent PNGs (no-op on the background; just trim + center + resize)

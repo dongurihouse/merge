@@ -19,7 +19,7 @@ const INK = Pal.INK
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
-# The currency pill's painted background (ui/kit/panel_pill.png) is a CAPSULE — its rounded
+# The currency pill's painted background (ui/shared/panel_pill.png) is a CAPSULE — its rounded
 # gold caps are as tall as the whole pill. A nine-patch keeps those caps a fixed size while
 # only the flat middle stretches to the counts, BUT a nine-patch corner draws 1:1 (no scale),
 # so the source must be exported at the rendered slot height or the caps crush into a thin
@@ -100,13 +100,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	avatar.custom_minimum_size = Vector2(lv_px, lv_px)
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the level badge FRAME — an EVOLVING gold ring that upgrades with Level (kit/badges/
-	# badge_NN.png, sliced from lvls.png, mapped by data/level_badges.json). Falls back to
-	# the single rope ring (`ring_level.png`), then a honey token (de-greened: green is the
-	# CTA), so the chip still reads on any build. The texture is swapped on level-up in
-	# `refresh` below; the INK number sits centred in its open middle.
+	# the level badge FRAME — an EVOLVING gold ring that upgrades with Level (ui/lvl/
+	# badge_NN.png, sliced from lvls.png, mapped by data/level_badges.json). When the badge
+	# art is absent the chip falls back to a honey token (de-greened: green is the CTA), so it
+	# still reads on any build. The texture is swapped on level-up in `refresh` below; the INK
+	# number sits centred in its open middle.
 	var lvl0 := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	var frame_tex := _frame_tex(lvl0)   # badge -> rope ring -> null; null only if NO art loads
+	var frame_tex := _frame_tex(lvl0)   # the badge for this Level, or null when no art loads
 	var frame: TextureRect = null
 	if frame_tex != null:
 		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no default dark Panel bg behind the ring
@@ -170,8 +170,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(level, lvl)
 		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
 		level_prog.text = "%d/%d" % [earned, G.stars_at_level(lvl + 1)]   # uncapped — always a next level
-		# Upgrade the frame when leveling crosses a badge tier, but still route through
-		# _frame_tex so opaque-corner badge slices cannot bring back a square backing.
+		# Upgrade the frame when leveling crosses a badge tier.
 		if frame != null:
 			var tier := Look.level_badge_index(lvl)
 			if tier != int(frame_state["tier"]):
@@ -196,13 +195,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	refresh.call()
 	return out
 
-# The currency-cluster background: prefer the painted capsule (ui/kit/panel_pill.png),
+# The currency-cluster background: prefer the painted capsule (ui/shared/panel_pill.png),
 # nine-sliced so the rounded gold caps keep a FIXED size while only the flat middle stretches
 # to the three counts; fall back to the code-drawn cream pill when the art is absent. The
 # content margins (text inset) are identical on both paths, so the layout rect — and the R1
 # even-wrap contract (grove_tests) — is unchanged regardless of which background draws.
 static func _pill_style() -> StyleBox:
-	var p := Look.kit("panel_pill.png")
+	var p := Look.kit("shared/panel_pill.png")
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)
@@ -369,30 +368,12 @@ static func _safe_tex(path: String) -> Texture2D:
 		return null
 	return tex
 
-# The level-chip frame texture: use tier art only when its corners are really transparent.
-# Some sliced badge PNGs currently carry an opaque checker/white backing; those must not
-# appear in the compact HUD, so they fall back to the clean rope ring.
+# The level-chip frame texture: the evolving gold badge for this Level (ui/lvl/badge_NN.png,
+# mapped by data/level_badges.json), or null when the art is missing or a degenerate import —
+# the HUD then shows the honey-token coin. There is no ring fallback; every shipped badge must
+# be alpha-cut (transparent corners), enforced by engine/tests/level_badge_tests.gd.
 static func _frame_tex(level: int) -> Texture2D:
-	var badge := _safe_tex(Look.level_badge_path(level))
-	if badge != null and _tex_has_transparent_corner(badge):
-		return badge
-	var ring := _safe_tex(Look.kit("ring_level.png"))
-	if ring != null:
-		return ring
-	return badge
-
-static func _tex_has_transparent_corner(tex: Texture2D) -> bool:
-	if tex == null:
-		return false
-	var img := tex.get_image()
-	if img == null or img.get_width() <= 0 or img.get_height() <= 0:
-		return false
-	var x := img.get_width() - 1
-	var y := img.get_height() - 1
-	return img.get_pixel(0, 0).a < 0.2 \
-		or img.get_pixel(x, 0).a < 0.2 \
-		or img.get_pixel(0, y).a < 0.2 \
-		or img.get_pixel(x, y).a < 0.2
+	return _safe_tex(Look.level_badge_path(level))
 
 # The level number sits in the badge's open centre, which is tighter than the plain
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold

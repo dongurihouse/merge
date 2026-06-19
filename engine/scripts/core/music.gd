@@ -17,7 +17,7 @@ static var take_dir := ""   # "" → resolve from the active game; tests may poi
 ## Start the playlist if it isn't already playing. Safe to call from every
 ## scene's _ready — a playing stream is left untouched.
 static func ensure() -> void:
-	if not bool(Save.get_setting("music", true)):
+	if not bool(Save.get_setting("music", false)):
 		return
 	if _player != null and _player.playing:
 		return                      # never interrupt the bed
@@ -33,7 +33,7 @@ static func stop() -> void:
 
 ## Re-apply after the music setting changes (Off → stop, On → ensure).
 static func refresh() -> void:
-	if bool(Save.get_setting("music", true)):
+	if bool(Save.get_setting("music", false)):
 		ensure()
 	else:
 		stop()

@@ -302,37 +302,9 @@ func _initialize() -> void:
 	ok(G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 1, \
 		"buying a spot does NOT raise Level (Level rides stars EARNED, not spent)")
 	ok(h._view == "map", "the view stays a map across a purchase (no takeover)")
-
-	# the customize strip: opening the inline variant strip on an OWNED spot keeps
-	# the single-input-surface rule and stays in map view (no modal, no veil)
-	h._customize_spot = hearth_id
-	h._build_map()
-	ok(h.variant_hits.size() == 3, "the owned spot's inline strip exposes all 3 variants as chips")
-	ok(_all_ignore(h.content), "the strip keeps the single-input-surface rule")
-	ok(h._view == "map", "customizing keeps you on the map")
-	# every chip must RENDER (nonzero size, visible) AND lay out by its real width — the
-	# "Classic" chip is wider than the old fixed 60px pitch, so a fixed pitch overlapped it
-	# into its neighbour. The size check is load-bearing: a non-overlap-only assert passes
-	# VACUOUSLY on zero-size rects, which would silently allow a "strip vanished" regression.
-	# (await a frame so the container's global rects are real.)
-	await create_timer(0.05).timeout
-	var chips := []
-	var all_drawn := true
-	for hit in h.variant_hits:
-		var cn := hit.node as Control
-		var cr := cn.get_global_rect()
-		if cr.size.x < 1.0 or cr.size.y < 1.0 or not cn.visible:
-			all_drawn = false
-		chips.append(cr)
-	ok(all_drawn, "every variant chip renders with a real size (the strip is visible, not collapsed)")
-	chips.sort_custom(func(a, b): return a.position.x < b.position.x)
-	var no_overlap := true
-	for i in range(1, chips.size()):
-		if chips[i].position.x < chips[i - 1].end.x - 0.5:
-			no_overlap = false
-	ok(no_overlap, "the variant chips lay out side-by-side without overlapping")
-	h._customize_spot = ""
-	h._build_map()
+	# an already-restored spot is now INERT — tapping it does nothing (customization removed).
+	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
+	ok(h._view == "map", "tapping an owned spot is a no-op (no customization surface)")
 
 	# the MAP-SELECT view: every map is a card. an UNLOCKED card opens that map; a
 	# LOCKED card stays put (wobble). drive taps through the real input surface.
@@ -374,29 +346,8 @@ func _initialize() -> void:
 	ok(h.map_unlocked(1), "§7: delivering the map's gate opens the next (the completion chain)")
 	h._persist()
 
-	# 14a2. customization values: each owned spot offers a coin + a diamond look, and
-	# a chosen variant persists + resolves; applying it pays and stays on the map.
-	var vars0: Array = G.spot_variants(0, 0)
-	ok(vars0.size() == 3 and String(vars0[1].currency) == "coins" and String(vars0[2].currency) == "diamonds" \
-		and int(vars0[1].cost) > 0 and int(vars0[2].cost) > 0, "each spot offers a coin and a diamond variant")
-	Save.grove()["custom"] = {hearth_id: "gem"}
-	ok(String(h._spot_variant(0, 0).id) == "gem", "the chosen variant persists and resolves")
-	Save.add_coins(100)
-	var coins_v0 := Save.coins()
-	var coin_vid := ""
-	var coin_cost := 0
-	for v in G.spot_variants(0, 0):
-		if String(v.currency) == "coins":
-			coin_vid = String(v.id)
-			coin_cost = int(v.cost)
-	h._apply_variant(0, 0, coin_vid, Vector2(300, 300))
-	ok(String(h._spot_variant(0, 0).id) == coin_vid and Save.coins() == coins_v0 - coin_cost, \
-		"a swatch tap pays coins and dresses the item in place")
-	ok(h.variant_hits.is_empty() and h._customize_spot == "", "the strip tucks away after applying")
-	ok(h._view == "map", "customizing keeps you on the map")
-
 	# 14a3. Q save migration: a pre-Q save (old spot ids) renames in place on the
-	# shared grove() accessor — ownership AND chosen variant survive, counts intact.
+	# shared grove() accessor — ownership survives, counts intact.
 	# Old ids are sourced from the rename map itself (no stale literals in tests).
 	fresh("qmig")
 	var ren: Dictionary = Save._SPOT_ID_RENAMES
@@ -406,18 +357,14 @@ func _initialize() -> void:
 	for old in ren:
 		u_seed[old] = true
 	gm["unlocks"] = u_seed
-	gm["custom"] = {first_old: "gem"}
 	Save.grove()                              # the accessor migrates on read
 	var um: Dictionary = Save.grove().get("unlocks", {})
-	var cm: Dictionary = Save.grove().get("custom", {})
 	var all_renamed := true
 	for old in ren:
 		if um.has(old) or not um.has(String(ren[old])):
 			all_renamed = false
 	ok(all_renamed, "Q migration renames ALL unlock ids old→new (ownership survives)")
 	ok(um.size() == ren.size(), "migration preserves the unlock COUNT (spots/stars intact)")
-	ok(String(cm.get(String(ren[first_old]), "")) == "gem" and not cm.has(first_old), \
-		"Q migration renames custom old→new (chosen look survives)")
 	Save.grove()                              # idempotent: a second pass changes nothing
 	ok(Save.grove().get("unlocks", {}).size() == ren.size() and not Save.grove().get("unlocks", {}).has(first_old), \
 		"Q migration is idempotent")

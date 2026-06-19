@@ -1,8 +1,8 @@
 extends SceneTree
-## Bake the mask-reveal home-screen data: clean/broken bases from assets/farm/, source
+## Bake the mask-reveal home-screen data: clean/broken bases from assets/map/farm/, source
 ## sheets (farm_vinesv2, farm_icons) from assets/_originals/farm/.
-## Outputs (committed): assets/farm/badge.png, assets/farm/mask_<spot>.png (per building),
-## assets/farm/farm_home.json [{spot,cost,pos:[fx,fy],mask}]. Proof: /tmp/fh_one.png (one building cleaned).
+## Outputs (committed): assets/ui/map/badge.png (the cost-disc sprite), assets/map/farm/mask_<spot>.png (per building),
+## assets/map/farm/farm_home.json [{spot,cost,pos:[fx,fy],mask}]. Proof: /tmp/fh_one.png (one building cleaned).
 ##   godot --headless --path . -s res://games/grove/tools/farm_home_bake.gd
 
 const MIN_AREA := 60
@@ -21,8 +21,8 @@ const BUILDINGS := [
 ]
 
 func _initialize() -> void:
-	var farm := _img("res://games/grove/assets/farm/farm.png")
-	var broken := _img("res://games/grove/assets/farm/farm_brokenv2.png")
+	var farm := _img("res://games/grove/assets/map/farm/farm.png")
+	var broken := _img("res://games/grove/assets/map/farm/farm_brokenv2.png")
 	var vines := _img("res://games/grove/assets/_originals/farm/farm_vinesv2.png")
 	var icons := _img("res://games/grove/assets/_originals/farm/farm_icons.png")
 	if farm == null or broken == null or vines == null or icons == null:
@@ -41,7 +41,7 @@ func _initialize() -> void:
 				badge.set_pixel(x, y, Color(0, 0, 0, 0))
 			else:
 				badge.set_pixel(x, y, px)
-	badge.save_png(ProjectSettings.globalize_path("res://games/grove/assets/farm/badge.png"))
+	badge.save_png(ProjectSettings.globalize_path("res://games/grove/assets/ui/map/badge.png"))
 
 	# --- vine coverage + connected-component clumps ---
 	var vd := vines.get_data(); var kr := vd[0]; var kg := vd[1]; var kb := vd[2]
@@ -97,7 +97,7 @@ func _initialize() -> void:
 		for i in w * h:
 			mask.set_pixel(i % w, i / w, Color(1, 1, 1, 1) if m[i] == 1 else Color(0, 0, 0, 0))
 		var spot := String(BUILDINGS[bi]["spot"])
-		mask.save_png(ProjectSettings.globalize_path("res://games/grove/assets/farm/mask_%s.png" % spot))
+		mask.save_png(ProjectSettings.globalize_path("res://games/grove/assets/map/farm/mask_%s.png" % spot))
 		data["buildings"].append({
 			"spot": spot, "cost": BUILDINGS[bi]["cost"],
 			"pos": [p["sx"] / p["n"] / w, p["sy"] / p["n"] / h],
@@ -105,7 +105,7 @@ func _initialize() -> void:
 		})
 		print("  %s  cost %d  pos (%.3f,%.3f)  vine_px %d" % [spot, BUILDINGS[bi]["cost"], p["sx"]/p["n"]/w, p["sy"]/p["n"]/h, p["n"]])
 
-	var jf := FileAccess.open(ProjectSettings.globalize_path("res://games/grove/assets/farm/farm_home.json"), FileAccess.WRITE)
+	var jf := FileAccess.open(ProjectSettings.globalize_path("res://games/grove/assets/map/farm/farm_home.json"), FileAccess.WRITE)
 	jf.store_string(JSON.stringify(data, "\t")); jf.close()
 
 	# --- proof: clean just the WELL (fh_well) over the broken base ---

@@ -2,15 +2,15 @@ extends RefCounted
 ## The Shop as the squirrel merchant's MARKET STALL (the §10 buy-side sink; owner:
 ## "the store menu shouldn't just be a list of buttons"). It sells, all behind an
 ## honest confirm where money is involved: water + a coin pouch (quick help), a few
-## item-SHORTCUTS (buy a mid-tier piece to skip the grind) and cosmetic LOOKS in a
-## DETERMINISTICALLY-ROTATING featured band (a few at a time, §10), and the cash →
-## premium acorn pouches. The cash packs are LIVE: confirming grants the diamonds
-## directly (an honest "test build — nothing is charged"); a real store SDK replaces
-## ONLY the middle of `_confirm_cash` — nothing else changes. §4 law: premium buys
-## SPEED + LOOKS, never POSSIBILITY — a shortcut is a grind-skip to a piece you can
-## already merge to, a cosmetic only re-dresses. The grove's stock/prices/rotation
-## count are owner-tunable in games/grove/grove_data.gd (§10 SHOP STOCK). Pure grant
-## + rotation funcs are static and test-covered.
+## item-SHORTCUTS (buy a mid-tier piece to skip the grind) in a DETERMINISTICALLY-ROTATING
+## featured band (a few at a time, §10), and the cash → premium acorn pouches. The cash
+## packs are LIVE: confirming grants the diamonds directly (an honest "test build — nothing
+## is charged"); a real store SDK replaces ONLY the middle of `_confirm_cash` — nothing else
+## changes. §4 law: premium buys SPEED, never POSSIBILITY — a shortcut is a grind-skip to a
+## piece you can already merge to. The grove's stock/prices/rotation count are owner-tunable
+## in games/grove/grove_data.gd (§10 SHOP STOCK). Pure grant + rotation funcs are static and
+## test-covered. (Cosmetic LOOKS were removed with the customization feature — parked in
+## BACKLOG as the deferred "item & map customization" feature.)
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Shop).
 
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -123,32 +123,6 @@ static func drain_pending(bag: Array, capacity: int) -> int:
 		Save.grove_write()
 	return moved
 
-# --- cosmetics (§10): buy a LOOK (own-once) ----------------------------------------
-# Spends the cosmetic's currency and unlocks the look in the grove blob. Owning a look
-# changes nothing about possibility (§4 — buys looks, not power). Refuses a second buy of
-# an already-owned look (no double-charge) and refuses when broke.
-static func cosmetic_owned(id: String) -> bool:
-	return bool(Save.grove().get("cosmetics", {}).get(id, false))
-
-static func cosmetic_def(id: String) -> Dictionary:
-	for c in D.SHOP_COSMETICS:
-		if String(c.id) == id:
-			return c
-	return {}
-
-static func buy_cosmetic(id: String) -> bool:
-	var c := cosmetic_def(id)
-	if c.is_empty() or cosmetic_owned(id):
-		return false
-	if not _spend(String(c.currency), int(c.cost)):
-		return false
-	var g := Save.grove()
-	var owned: Dictionary = g.get("cosmetics", {})
-	owned[id] = true
-	g["cosmetics"] = owned
-	Save.grove_write()
-	return true
-
 # Spend a cost in the named currency ("coins" | "diamonds"). One seam for both shop sinks.
 static func _spend(currency: String, cost: int) -> bool:
 	if currency == "diamonds":
@@ -156,18 +130,15 @@ static func _spend(currency: String, cost: int) -> bool:
 	return Save.spend(cost, "shop")
 
 # --- rotating offers (§10): a FEW featured offers, deterministically ---------------
-# The featured band shows SHOP_ROTATION_COUNT offers drawn from the combined item +
-# cosmetic pool, selected by a SEED (the day index, or a future refresh counter) — NEVER
-# randi(), so the spread is testable and stable within a refresh window. The seed picks a
-# rotating START into a fixed shuffle order, so the same seed always yields the same set
-# and advancing the seed slides the window. Owned cosmetics still appear (greyed in the
-# UI) — owning one is harmless; the featured band is about discovery, not inventory.
+# The featured band shows SHOP_ROTATION_COUNT offers drawn from the item-shortcut pool,
+# selected by a SEED (the day index, or a future refresh counter) — NEVER randi(), so the
+# spread is testable and stable within a refresh window. The seed picks a rotating START
+# into a fixed shuffle order, so the same seed always yields the same set and advancing the
+# seed slides the window.
 static func shop_pool() -> Array:
 	var pool: Array = []
 	for off in D.SHOP_ITEM_OFFERS:
 		pool.append({"kind": "item", "id": String(off.id), "def": off})
-	for cos in D.SHOP_COSMETICS:
-		pool.append({"kind": "cosmetic", "id": String(cos.id), "def": cos})
 	return pool
 
 # The current rotation seed: the day index (offline-stable, advances once per day). A
@@ -243,9 +214,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	header.custom_minimum_size = Vector2(0, Tune.HEADER_H)
 	header.clip_contents = true
 	col.add_child(header)
-	if ResourceLoader.exists(Look.kit("shop_stall.png")):
+	if ResourceLoader.exists(Look.kit("shop/shop_stall.png")):
 		var art := TextureRect.new()
-		art.texture = load(Look.kit("shop_stall.png"))
+		art.texture = load(Look.kit("shop/shop_stall.png"))
 		art.set_anchors_preset(Control.PRESET_FULL_RECT)
 		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
@@ -307,18 +278,15 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		host.tr("+%d coins") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
 		host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
 
-	# — Featured (§10): a FEW deterministically-rotating offers (item-shortcuts + looks),
-	# the fresh "always something new" band — NOT the whole static pool.
+	# — Featured (§10): a FEW deterministically-rotating item-shortcut offers, the fresh
+	# "always something new" band — NOT the whole static pool.
 	_divider(col, host.tr("Featured"), _clock_chip(_rotation_left_text()))
 	var offer_row := HBoxContainer.new()
 	offer_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	offer_row.add_theme_constant_override("separation", Tune.ROW_SEP)
 	col.add_child(offer_row)
 	for offer in rotation_offers(rotation_seed()):
-		if String(offer.kind) == "item":
-			offer_row.add_child(_item_card(host, refs, offer.def))
-		else:
-			offer_row.add_child(_cosmetic_card(host, refs, offer.def))
+		offer_row.add_child(_item_card(host, refs, offer.def))
 	# §10 rewarded "free shop reroll": a player-initiated watch-for-bonus that slides the band to a
 	# fresh window (Ads gates the cap + cooldown; rotation_seed folds the bump in). Shown only when
 	# a watch is available; pressing claims the ad and rebuilds the storefront with the new offers.
@@ -424,9 +392,9 @@ static func _divider(col: VBoxContainer, caption: String, trailing: Control = nu
 	if trailing != null:
 		trailing.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(trailing)               # a chip riding between the caption tab and the vine (e.g. the Featured countdown)
-	if ResourceLoader.exists(Look.kit("divider_vine.png")):
+	if ResourceLoader.exists(Look.kit("shop/divider_vine.png")):
 		var vine := TextureRect.new()
-		vine.texture = load(Look.kit("divider_vine.png"))
+		vine.texture = load(Look.kit("shop/divider_vine.png"))
 		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		# the vine art is a 768×64 leafy STRIP (12:1) made to span. Shown KEEP_ASPECT_CENTERED in a
 		# row tall enough (VINE_H) that the strip is always WIDTH-limited, so the WHOLE leafy vine
@@ -525,65 +493,6 @@ static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Butt
 	_apply_afford(b)
 	return b
 
-# One cosmetic card (§10): a tint SWATCH, the look name, the price chip. Whole card
-# presses → buy: spend + unlock the look (own-once). An already-owned look shows an
-# "Owned" badge and a no-op press (no double-charge).
-static func _cosmetic_card(host: Control, refs: Dictionary, cos: Dictionary) -> Button:
-	var b := _card_button(Tune.FEATURED_CARD)
-	var inner := VBoxContainer.new()
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(inner)
-	var id := String(cos.id)
-	var owned := cosmetic_owned(id)
-	# the swatch — a rounded chip in the look's tint (the look preview)
-	var sw := PanelContainer.new()
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color(cos.tint)
-	ss.set_corner_radius_all(Tune.SWATCH_RADIUS)
-	ss.set_border_width_all(Tune.SWATCH_BORDER_W)
-	ss.border_color = Color(BARK, Tune.CARD_EDGE_ALPHA)
-	sw.add_theme_stylebox_override("panel", ss)
-	sw.custom_minimum_size = Vector2(Tune.SWATCH_SIZE, Tune.SWATCH_SIZE)
-	sw.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	sw.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(sw)
-	var t := Label.new()
-	t.text = String(cos.name)
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_font_size_override("font_size", Tune.HELP_TITLE_SIZE)
-	t.add_theme_color_override("font_color", INK)
-	inner.add_child(t)
-	var c := Label.new()
-	c.text = host.tr("Owned") if owned else host.tr("a grove look")
-	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
-	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
-	inner.add_child(c)
-	var cur := String(cos.currency)
-	var cost := int(cos.cost)
-	if owned:
-		var got := Look.icon("check", Tune.HELP_PRICE_SIZE)
-		got.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		inner.add_child(got)
-		b.set_meta("owned", true)
-	else:
-		inner.add_child(_price_pill(str(cost), "gem" if cur == "diamonds" else "coin"))
-		b.set_meta("shop_buy", true)
-		b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
-	b.pressed.connect(func() -> void:
-		if cosmetic_owned(id):
-			Audio.play("invalid_soft", -6.0)
-			return
-		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
-			return buy_cosmetic(id), host.tr("Unlocked!")))
-	_overlay_corner(b, _info_badge(host, String(cos.name),
-		host.tr("A new look for your grove board. Yours to keep once unlocked.")), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
-	_apply_afford(b)
-	return b
-
 # The index of an item offer by id (the stable handle the pure grant func takes).
 static func _offer_index(id: String) -> int:
 	for i in D.SHOP_ITEM_OFFERS.size():
@@ -622,7 +531,7 @@ static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
 	# LOOKS bigger — the value ladder reads at a glance. All render at the FIXED box (= GEM_ICON_MAX)
 	# centred, so the art carries the ladder without shoving a card's count/price out of row-align.
 	var gem_art := "gem_t%d" % (i + 1)
-	if not ResourceLoader.exists(Look.kit("icon_%s.png" % gem_art)):
+	if not ResourceLoader.exists(Look.kit("currency/icon_%s.png" % gem_art)):
 		gem_art = "gem"                          # safety: more packs than tier sprites → the plain glyph
 	var icon_slot := CenterContainer.new()
 	icon_slot.custom_minimum_size = Vector2(0, Tune.GEM_ICON_MAX)
@@ -703,7 +612,7 @@ static func _badge(text: String) -> PanelContainer:
 	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	return pop
 
-# The BUY pill — ONE source for every price on a card (help / featured / cosmetic / cash / starter).
+# The BUY pill — ONE source for every price on a card (help / featured / cash / starter).
 # White text on leaf-GREEN (Pal.BTN_PRIMARY, the game's primary-CTA colour), fully rounded with a
 # raised shadow, optionally led by a currency glyph, so the price reads as the tappable buy button
 # (the whole card presses; this pill is its visual CTA). Named "BuyPill" so _apply_afford can dim
@@ -985,7 +894,7 @@ static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
 			func() -> void: _settle(host, refs))
 	_settle(host, refs)
 
-# The item-shortcut / cosmetic buy: pays in `currency` ("coins"|"diamonds"), wiggling the
+# The item-shortcut buy: pays in `currency` ("coins"|"diamonds"), wiggling the
 # right wallet chip + a "Need N more" floater when short (never blocking, §13). On success
 # the `grant` callable does the spend+grant (it owns the price), then a celebratory floater
 # and the wallet settle. `grant` returns false to abort cleanly (e.g. a race).

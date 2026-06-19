@@ -39,7 +39,7 @@ static func open(host: Control) -> void:
 	col.add_theme_constant_override("separation", 20)
 	pad.add_child(col)
 	col.add_child(_lbl(TranslationServer.translate("Settings"), 44))
-	col.add_child(_toggle("music", TranslationServer.translate("Music: On"), TranslationServer.translate("Music: Off"), true, func() -> void: Music.refresh()))
+	col.add_child(_toggle("music", TranslationServer.translate("Music: On"), TranslationServer.translate("Music: Off"), false, func() -> void: Music.refresh()))
 	col.add_child(_toggle("sfx", TranslationServer.translate("Sounds: On"), TranslationServer.translate("Sounds: Off"), true, Callable()))
 	col.add_child(_toggle("calm", TranslationServer.translate("Calm mode: On"), TranslationServer.translate("Calm mode: Off"), false, Callable()))
 	col.add_child(Look.button(TranslationServer.translate("Close"), func() -> void:

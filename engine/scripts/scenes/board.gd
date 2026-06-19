@@ -106,7 +106,8 @@ var basket_chip: Control             # the wicker basket beside the merchant sta
 var _porter_timer := 0.0             # Y3: counts up while the basket has anything
 var _porter_running := false
 var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
-var gate_btn: Button
+var home_btn: Button                 # the centre nav Home button — IS the decorate jump; lights up when a spot is affordable
+var home_ready_dot: Control          # the gold "ready to restore" marker pinned to Home (the old standalone Decorate CTA is retired)
 # the bottom-nav bag + merchant are circular wells (the always-present bag row is retired).
 # bag_btn: tap → full bag, drag a board item onto it → stash; bag_content shows the most-recent
 # stashed item; bag_count_badge shows the count when >1. merchant_btn: drag a spare onto it →
@@ -183,66 +184,8 @@ func _ready() -> void:
 	giver_bar.size_flags_horizontal = Control.SIZE_FILL
 	root.add_child(giver_bar)
 
-	# the Decorate gate rides ON the fence — when it's ready the asks pause,
-	# so the wall is exactly where the player's eye already is
-	gate_btn = Look.button("", _on_gate, true)
-	gate_btn.custom_minimum_size = Vector2(420, 88)
-	# the CTA rides ON the busy fence — the kit btn_leaf nine-patch is a pill with
-	# transparent ends, so the fence showed through and the button "lost" its
-	# background (owner report). A SOLID StyleBoxFlat pill reads clearly on the wall.
-	var gate_sb := StyleBoxFlat.new()
-	gate_sb.bg_color = Color("#4E7C46")
-	gate_sb.set_corner_radius_all(26)
-	gate_sb.set_border_width_all(3)
-	gate_sb.border_color = Color("#FBF3EA", 0.92)
-	gate_sb.shadow_color = Color(0, 0, 0, 0.42)
-	gate_sb.shadow_size = 8
-	gate_sb.shadow_offset = Vector2(0, 4)
-	gate_sb.content_margin_left = 24.0
-	gate_sb.content_margin_right = 24.0
-	gate_sb.content_margin_top = 12.0
-	gate_sb.content_margin_bottom = 12.0
-	gate_btn.add_theme_stylebox_override("normal", gate_sb)
-	gate_btn.add_theme_stylebox_override("hover", gate_sb)
-	gate_btn.add_theme_stylebox_override("disabled", gate_sb)
-	var gate_sp := gate_sb.duplicate()
-	gate_sp.bg_color = Color("#3F6B43")
-	gate_btn.add_theme_stylebox_override("pressed", gate_sp)
-	gate_btn.add_theme_color_override("font_color", Color("#FBF3EA"))
-	gate_btn.add_theme_color_override("font_hover_color", Color("#FBF3EA"))
-	gate_btn.add_theme_color_override("font_pressed_color", Color("#FBF3EA"))
-	gate_btn.add_theme_color_override("font_disabled_color", Color("#FBF3EA", 0.6))
-	# kit art: the painted green pill (`ui/kit/btn_pill_green.png`) replaces the flat
-	# normal/hover/disabled fill when present (the darker flat `pressed` stays as the push
-	# state); the flat boxes above are the fallback. Text padding is kept generous.
-	var gate_tex := Look.kit("btn_pill_green.png")
-	if ResourceLoader.exists(gate_tex):
-		var gst := StyleBoxTexture.new()
-		gst.texture = load(gate_tex)
-		gst.set_texture_margin_all(56.0)
-		gst.content_margin_left = 40.0
-		gst.content_margin_right = 40.0
-		gst.content_margin_top = 16.0
-		gst.content_margin_bottom = 20.0
-		gate_btn.add_theme_stylebox_override("normal", gst)
-		gate_btn.add_theme_stylebox_override("hover", gst)
-		gate_btn.add_theme_stylebox_override("disabled", gst)
-	# AA2: the Decorate CTA gets a RESERVED slot — pinned bottom-center of the BOARD,
-	# above the Home/hint bar and clear of the fence band, so it never covers a giver
-	# or the merchant (the owner's screenshot bug) at any fence population.
-	gate_btn.anchor_left = 0.5
-	gate_btn.anchor_right = 0.5
-	gate_btn.anchor_top = 1.0
-	gate_btn.anchor_bottom = 1.0
-	gate_btn.offset_left = -210
-	gate_btn.offset_right = 210
-	var gate_inset := Look.safe_bottom(self)
-	# sits just ABOVE the full-width nav row (its big buttons reach ~194px up from the bottom) —
-	# the reserved slot rides clear of the nav so the CTA never covers a button.
-	gate_btn.offset_top = -300 - gate_inset
-	gate_btn.offset_bottom = -212 - gate_inset
-	gate_btn.z_index = 10
-	add_child(gate_btn)
+	# The standalone "✿ Decorate!" pill is retired — the centre Home button below IS the decorate
+	# jump, and it lights up (a gold ready-dot + a gentle breathe) the moment a spot is affordable.
 
 	var center := CenterContainer.new()
 	# the grid pins DIRECTLY under the quest fence (no vertical centring) — quests sit right
@@ -288,6 +231,7 @@ func _ready() -> void:
 		# map you were LAST decorating (last_map), NOT the hub — empty on a fresh save → frontier.
 		{"icon": "nav_home.png", "px": 184.0, "label": tr("Home"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
+			_persist()
 			HomeScene.decorate_map = _decorate_target()
 			get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")},
 		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
@@ -296,6 +240,7 @@ func _ready() -> void:
 		{"make": func() -> Control: return _make_merchant_button(140.0)}])
 	bottom_bar = nav.row
 	shop_btn = nav.buttons[0] as Button       # §14 spotlight target
+	home_btn = nav.buttons[2] as Button       # lit when a spot is affordable (replaces the Decorate CTA)
 	bag_btn = nav.buttons[3] as Button
 	merchant_btn = nav.buttons[4] as Button
 
@@ -720,21 +665,27 @@ func _update_hud() -> void:
 	coins_label.text = str(Save.coins())
 	if diamonds_label != null:
 		diamonds_label.text = str(Save.diamonds())
-	if _map_done():
-		gate_btn.visible = false
+	# The decorate invitation now rides on the centre Home button (the standalone CTA is gone):
+	# light it up the moment the frontier map has a spot the player can afford; a fully-done
+	# game (no frontier left) leaves it resting.
+	_set_home_ready(not _map_done() and _gate_ready())
+
+# The Home button is the way back to the decorate hub, so the "you can afford a spot" cue lives
+# ON it now: a gold ready-dot pinned to its corner (always visible — the calm-mode-safe signal)
+# plus a gentle breathe (suppressed in calm, like every attention pulse). On the board stars only
+# rise, so this flips off→on once and never back; the dot toggles for the map-done rest case.
+func _set_home_ready(on: bool) -> void:
+	if home_btn == null or not is_instance_valid(home_btn):
 		return
-	var ready := _gate_ready()
-	gate_btn.text = tr("✿ Decorate!")
-	gate_btn.visible = ready
-	gate_btn.disabled = not ready
-	gate_btn.modulate = Color(1, 1, 1, 1.0 if ready else 0.55)
-	if ready:
-		# AA2: at gate-ready the CTA breathes; once the map's quest pool runs DRY
-		# (nothing left to earn) it ESCALATES to a hop — the soft nudge to advance.
-		if _active_quest_idx().is_empty():
-			FX.pop(gate_btn)
-		else:
-			FX.breathe_once(gate_btn)
+	if home_ready_dot == null:
+		home_ready_dot = Look.attach_badge(home_btn, Look.badge("dot"))
+		home_ready_dot.z_index = 20
+		home_ready_dot.visible = false
+	if on == home_ready_dot.visible:
+		return                                   # no change — don't re-trigger the breathe
+	home_ready_dot.visible = on
+	if on:
+		FX.breathe_once(home_btn)
 
 # --- givers + merchant ------------------------------------------------------------
 
@@ -748,8 +699,7 @@ func _active_quest_idx() -> Array:
 
 func _rebuild_givers() -> void:
 	for c in giver_bar.get_children():
-		if c != gate_btn:
-			c.queue_free()
+		c.queue_free()
 	giver_chips.clear()
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
 	var qidx := _active_quest_idx()
@@ -1114,15 +1064,18 @@ func _rebuild_pieces() -> void:
 func _make_piece(code: int, size: float) -> Control:
 	return PieceView.make_piece(code, size)
 
-# The garden bed under the grid — the bamboo grid FRAME (`ui/kit/panel_grid.png`) as a
+# The garden bed under the grid — the bamboo grid FRAME (`ui/board/panel_grid.png`) as a
 # nine-patch, sized to the 7×9 grid, with a flat parchment field behind the cells so the
-# gutters read cream (and the frame's own stretched interior + mismatched gridlines stay
-# hidden). Falls back to the code-drawn planter when the kit art is absent.
+# gutters read cream. The art is pre-processed (interior cleared to transparent — see
+# games/grove/tools/process_grid_frame.py) so ONLY the bamboo ring + its corner leaf clusters
+# are opaque. The nine-patch margin is sized to hold those corner clusters rigid; only the
+# plain bamboo poles between corners stretch. Falls back to the code-drawn planter when absent.
 const FRAME_OUT := 56.0      # how far the bamboo frame extends OUTSIDE the cell grid
-const FRAME_PATCH := 48.0    # rendered bamboo border thickness (nine-patch margin)
+const FRAME_MARGIN := 72.0   # nine-patch corner size — large enough to keep the corner leaf clusters un-stretched
+const FRAME_POLE := 30.0     # bamboo pole thickness; the cream field tucks just under the pole's inner edge
 const FIELD_CREAM := Color("#FADBA7")   # sampled parchment — the gutter colour behind cells
 func _make_board_mat() -> Control:
-	var fp := Look.kit("panel_grid.png")
+	var fp := Look.kit("board/panel_grid.png")
 	if not ResourceLoader.exists(fp):
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var bw := _board_w()
@@ -1131,26 +1084,27 @@ func _make_board_mat() -> Control:
 	mat.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	mat.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
 	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# parchment field — covers the whole inner opening so the cells sit on cream, not on the
-	# frame's stretched interior. Placed at the frame's inner edge (FRAME_PATCH in from each side).
+	# parchment field — fills the inner opening so the cells sit on cream. Tucked just under the
+	# bamboo pole's inner edge (FRAME_POLE in) so there is no meadow gap and no cream behind the
+	# corner leaves (which sit further out, beyond the field's rounded corners).
 	var field := Panel.new()
-	field.position = Vector2(FRAME_PATCH, FRAME_PATCH)
-	field.size = mat.size - Vector2(FRAME_PATCH, FRAME_PATCH) * 2.0
+	field.position = Vector2(FRAME_POLE, FRAME_POLE)
+	field.size = mat.size - Vector2(FRAME_POLE, FRAME_POLE) * 2.0
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = FIELD_CREAM
 	fs.set_corner_radius_all(16)
 	field.add_theme_stylebox_override("panel", fs)
 	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mat.add_child(field)
-	# the bamboo frame on top of the field's edges (its inner opening reveals the cream field)
+	# the bamboo ring on top of the field's edges (its transparent interior reveals the cream field)
 	var frame := NinePatchRect.new()
 	frame.texture = load(fp)
 	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	frame.patch_margin_left = int(FRAME_PATCH)
-	frame.patch_margin_top = int(FRAME_PATCH)
-	frame.patch_margin_right = int(FRAME_PATCH)
-	frame.patch_margin_bottom = int(FRAME_PATCH)
-	frame.draw_center = false   # the painted interior (with its own gridlines) is dropped; cream field shows
+	frame.patch_margin_left = int(FRAME_MARGIN)
+	frame.patch_margin_top = int(FRAME_MARGIN)
+	frame.patch_margin_right = int(FRAME_MARGIN)
+	frame.patch_margin_bottom = int(FRAME_MARGIN)
+	frame.draw_center = false   # interior is transparent (pre-cleared); the cream field shows through
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	mat.add_child(frame)
 	return mat
@@ -1168,10 +1122,10 @@ func _make_slot(cell: Vector2i) -> Panel:
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
 
-# The per-cell empty well: the kit tile-slot sprite (`ui/kit/slot_tile.png`) as a nine-patch,
+# The per-cell empty well: the kit tile-slot sprite (`ui/board/slot_tile.png`) as a nine-patch,
 # falling back to the code-drawn `_cell_style()` well when the art is absent.
 static func _slot_style() -> StyleBox:
-	var p := Look.kit("slot_tile.png")
+	var p := Look.kit("board/slot_tile.png")
 	if ResourceLoader.exists(p):
 		var sbt := StyleBoxTexture.new()
 		sbt.texture = load(p)
@@ -1179,7 +1133,7 @@ static func _slot_style() -> StyleBox:
 		return sbt
 	return _cell_style()
 
-# One painted nav button: a flat Button hosting the kit sprite (`ui/kit/<kit_name>`),
+# One painted nav button: a flat Button hosting the kit sprite (`ui/nav/<kit_name>`),
 # centered + aspect-kept in a px×px box, with the shared press juice. Falls back to a glyph
 # Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
 # An expanding gap between two nav buttons — the full-width row distributes its leftover
@@ -1286,7 +1240,7 @@ func _make_merchant_button(px: float) -> Button:
 	merchant_pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	merchant_pay.add_child(merchant_pay_icon)
 	b.add_child(merchant_pay)
-	b.add_child(_corner_badge("icon_cart.png", px * 0.40))
+	b.add_child(_corner_badge("shared/icon_cart.png", px * 0.40))
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), tr("drag a spare here to sell"), CREAM, 26))
@@ -1947,8 +1901,8 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	# hub-collect 2× doubler. Offer to double it via a rewarded ad (opt-in, capped by Ads.can_show).
 	if sp_coins > 0:
 		_maybe_offer_2x(sp_coins, chip.get_global_rect().get_center())
-	if _gate_ready():
-		FX.floating_text(self, gate_btn.get_global_rect().get_center() - Vector2(140, 70), tr("Ready to restore!"), STRAW, 40)
+	if _gate_ready() and home_btn != null and is_instance_valid(home_btn):
+		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), tr("Ready to restore!"), STRAW, 40)
 
 # The cozy, optional 2× DOUBLER card — re-homed from the removed hub yield-collect to the quest
 # COIN reward (the surviving lump coin faucet, §7/§10). Shown after a quest pays `got` coins when
@@ -2225,11 +2179,11 @@ func _porter_tick(delta: float) -> void:
 func _play_porter() -> void:
 	if merchant_chip == null or not is_instance_valid(merchant_chip):
 		return
-	if not ResourceLoader.exists(Game.art("map/spirit_porter.png")):
+	if not ResourceLoader.exists(Game.art("characters/spirit_porter.png")):
 		return
 	_porter_running = true
 	var sp := TextureRect.new()
-	sp.texture = load(Game.art("map/spirit_porter.png"))
+	sp.texture = load(Game.art("characters/spirit_porter.png"))
 	sp.custom_minimum_size = Vector2(96, 96)
 	sp.size = Vector2(96, 96)
 	sp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -2267,16 +2221,6 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 # Decorate/gate jump — Home is no longer hard-wired to the hub; both return you where you were.
 func _decorate_target() -> String:
 	return String(Save.grove().get("last_map", ""))
-
-func _on_gate() -> void:
-	if not _gate_ready():
-		return
-	Audio.play("button_tap", -2.0)
-	_persist()
-	# T2: Decorate jumps straight INTO the room you were decorating — the map is
-	# the atlas you visit on purpose. Fresh save (no last_map) → the map, as ever.
-	HomeScene.decorate_map = _decorate_target()
-	get_tree().change_scene_to_file("res://engine/scenes/Map.tscn")
 
 # --- misc -------------------------------------------------------------------------
 

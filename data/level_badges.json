@@ -1,7 +1,7 @@
 {
-  "_doc": "Which level-frame badge the HUD level chip shows, by player Level. Badges are games/grove/assets/ui/kit/<dir>/<prefix>NN.png, sliced from assets/board/lvls.png (plainest ring 00 -> crown 15). Even-tier mapping: idx = clamp(floor((level-1)/levels_per_tier), 0, badge_count-1). levels_per_tier is the one dial to retune pacing.",
+  "_doc": "Which level-frame badge the HUD level chip shows, by player Level. Badges are games/grove/assets/ui/<dir>/<prefix>NN.png, sliced from assets/board/lvls.png (plainest ring 00 -> crown 15). Even-tier mapping: idx = clamp(floor((level-1)/levels_per_tier), 0, badge_count-1). levels_per_tier is the one dial to retune pacing.",
   "levels_per_tier": 3,
   "badge_count": 16,
-  "dir": "badges",
+  "dir": "lvl",
   "prefix": "badge_"
 }

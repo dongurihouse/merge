@@ -446,15 +446,11 @@ class Shop:
 	const HELP_CAP_BARK_ALPHA := 0.8      # caption = Color(BARK, this)
 	const HELP_PRICE_SIZE := 26           # gem price chip number
 
-	# --- featured offer cards (T40: item-shortcuts + cosmetics) -------------------------
+	# --- featured offer cards (T40: item-shortcuts) ------------------------------------
 	# Narrower than the help card so SHOP_ROTATION_COUNT (3) fit ACROSS the parchment's inner
 	# width without overflowing it (3*276 + 2*ROW_SEP = 856 < card inner ≈ 868); the help row
-	# only has two cards so it keeps the wider HELP_CARD. Reuses the HELP_* fonts; the cosmetic
-	# swatch is a tint chip.
+	# only has two cards so it keeps the wider HELP_CARD. Reuses the HELP_* fonts.
 	const FEATURED_CARD := Vector2(276, 232)
-	const SWATCH_SIZE := 56.0             # the cosmetic look-preview swatch
-	const SWATCH_RADIUS := 14
-	const SWATCH_BORDER_W := 2
 
 	# --- gem (cash pack) card ----------------------------------------------------------
 	# The full $0.99…$99.99 ladder shows in a 3-wide GRID (2 rows of 3) so every tier — including

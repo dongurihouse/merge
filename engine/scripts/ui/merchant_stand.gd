@@ -98,9 +98,9 @@ static func build(cfg: Dictionary) -> Dictionary:
 		trow.add_theme_constant_override("separation", 3)
 		trow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		treat.add_child(trow)
-		if ResourceLoader.exists(Game.art("map/spirit_acorn.png")):
+		if ResourceLoader.exists(Game.art("characters/spirit_acorn.png")):
 			var ac := TextureRect.new()
-			ac.texture = load(Game.art("map/spirit_acorn.png"))
+			ac.texture = load(Game.art("characters/spirit_acorn.png"))
 			ac.custom_minimum_size = Vector2(30, 30)
 			ac.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			ac.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

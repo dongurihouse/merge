@@ -301,17 +301,17 @@ func _initialize() -> void:
 	ok(Save.coins() == 0, "Z3: no treat without coins (no overspend)")
 	z3.queue_free()
 
-	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, cosmetics, rotation ---
-	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind),
-	# cosmetics (looks), behind a FEW deterministically-rotating offers. Pure grant
-	# funcs spend correctly, grant, and refuse when broke; rotation is seeded (testable).
+	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, rotation ---
+	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind) behind a
+	# FEW deterministically-rotating offers. Pure grant funcs spend correctly, grant, and
+	# refuse when broke; rotation is seeded (testable). (Cosmetic looks were removed with
+	# the customization feature — see docs/BACKLOG.md.)
 
 	# S-A: the stock tables exist and are well-formed (owner-tunable grove numbers).
 	fresh("shop_stock")
 	ok(Data.SHOP_ITEM_OFFERS.size() >= 2, "the shop stocks item-shortcut offers")
-	ok(Data.SHOP_COSMETICS.size() >= 2, "the shop stocks a cosmetic catalogue")
 	ok(Data.SHOP_ROTATION_COUNT >= 1 and Data.SHOP_ROTATION_COUNT <= \
-		Data.SHOP_ITEM_OFFERS.size() + Data.SHOP_COSMETICS.size(), \
+		Data.SHOP_ITEM_OFFERS.size(), \
 		"the rotation shows a FEW offers (1..pool size)")
 	for off in Data.SHOP_ITEM_OFFERS:
 		var t := int(off.code) % 100
@@ -320,10 +320,6 @@ func _initialize() -> void:
 		var cur := String(off.currency)
 		ok((cur == "coins" or cur == "diamonds") and int(off.cost) > 0, \
 			"item offer %s costs %d %s" % [off.id, int(off.cost), cur])
-	for cos in Data.SHOP_COSMETICS:
-		ok(String(cos.id) != "" and int(cos.cost) > 0 and \
-			(String(cos.currency) == "coins" or String(cos.currency) == "diamonds"), \
-			"cosmetic %s costs %d %s" % [cos.id, int(cos.cost), cos.currency])
 
 	# S-B: item-shortcut grant — spends the right currency, drops the piece into the
 	# bag blob (the board drains it on open), and refuses when the wallet is short.
@@ -372,36 +368,13 @@ func _initialize() -> void:
 	ok(ShopS.pending_pieces().is_empty(), "...and the pending queue is drained")
 	sb.queue_free()
 
-	# S-C: cosmetic grant — spends, unlocks the look, and refuses a second buy (own-once).
-	fresh("shop_cosmetic")
-	var cos0: Dictionary = Data.SHOP_COSMETICS[0]
-	var cid := String(cos0.id)
-	ok(not ShopS.cosmetic_owned(cid), "a cosmetic starts unowned")
-	ok(not ShopS.buy_cosmetic(cid), "the cosmetic refuses when broke")
-	if String(cos0.currency) == "coins":
-		Save.add_coins(int(cos0.cost) + 5)
-	else:
-		Save.add_diamonds(int(cos0.cost) + 5)
-	var cwc := Save.coins()
-	var cwg := Save.diamonds()
-	ok(ShopS.buy_cosmetic(cid), "the cosmetic sells once affordable")
-	var spent_c := cwc - Save.coins()
-	var spent_g := cwg - Save.diamonds()
-	ok((spent_c == int(cos0.cost) and spent_g == 0) if String(cos0.currency) == "coins" \
-		else (spent_g == int(cos0.cost) and spent_c == 0), "...spending exactly its price in its currency")
-	ok(ShopS.cosmetic_owned(cid), "...and the look is now unlocked (persisted in grove)")
-	var afterc := Save.coins()
-	var afterg := Save.diamonds()
-	ok(not ShopS.buy_cosmetic(cid), "buying an owned cosmetic is refused (own-once, no double-charge)")
-	ok(Save.coins() == afterc and Save.diamonds() == afterg, "...and charges nothing the second time")
-
 	# S-D: rotation determinism — same seed → same offers; advancing rotates them.
 	fresh("shop_rotation")
 	var r_a: Array = ShopS.rotation_offers(7)
 	var r_a2: Array = ShopS.rotation_offers(7)
 	ok(r_a.size() == Data.SHOP_ROTATION_COUNT, "the rotation surfaces exactly SHOP_ROTATION_COUNT offers")
 	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the same seed yields the SAME offers (deterministic, no randi)")
-	# every rotated offer is a real stock entry (item or cosmetic), no duplicates.
+	# every rotated offer is a real item-shortcut stock entry, no duplicates.
 	var ids_a := _offer_ids(r_a)
 	ok(ids_a.size() == _uniq(ids_a).size(), "a rotation has no duplicate offers")
 	# advancing the seed across a window of days rotates the featured set at least once.
