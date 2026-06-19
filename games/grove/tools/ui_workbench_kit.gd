@@ -121,18 +121,29 @@ static func buy_pill(price: String = "250", rew_id: String = "gem", font_px: int
 	var ip := Game.art("ui/currency/icon_%s.png" % rew_id)
 	if ResourceLoader.exists(ip):
 		b.icon = load(ip)
-	# Floor the pill at 2× the nine-patch border. Below that the rounded caps overlap and the capsule
-	# deforms into a lens at small fonts; at/above it the pill keeps its clean rounded-rectangle shape
-	# and only the text shrinks. Above the floor it still auto-sizes to the content as before.
-	var tex := Vector2(46, 22)
-	b.custom_minimum_size = tex * 2.0
-	var box := Look.kit_box("kit/shop_buy.png", tex, Vector4(pad_x, pad_top, pad_x, pad_bottom))
-	if box != null:
-		b.add_theme_stylebox_override("normal", box)
-		b.add_theme_stylebox_override("hover", box)
-		var bp: StyleBoxTexture = box.duplicate()
-		bp.modulate_color = Color(0.92, 0.92, 0.92)
-		b.add_theme_stylebox_override("pressed", bp)
+	# A CODE-DRAWN green capsule, NOT the shop_buy nine-patch. That capsule's rounded ends span its
+	# full source height, so the nine-patch pinches them into a lens whenever the button is shorter
+	# than the art — which is what happens as the font shrinks. A StyleBoxFlat corner radius is clamped
+	# by Godot to height/2, so it stays a clean rounded capsule at ANY size. (skin.gd's primary button
+	# is code-drawn for this same nine-patch-collapse reason.)
+	var s := StyleBoxFlat.new()
+	s.bg_color = Pal.BTN_PRIMARY
+	s.border_color = Pal.BTN_PRIMARY_EDGE
+	s.set_corner_radius_all(999)                 # clamped to height/2 → always a clean capsule
+	s.set_border_width_all(2)
+	s.shadow_color = Color(0, 0, 0, 0.22)
+	s.shadow_size = 5
+	s.shadow_offset = Vector2(0, 3)
+	s.content_margin_left = pad_x
+	s.content_margin_right = pad_x
+	s.content_margin_top = pad_top
+	s.content_margin_bottom = pad_bottom
+	b.add_theme_stylebox_override("normal", s)
+	b.add_theme_stylebox_override("hover", s)
+	var sp: StyleBoxFlat = s.duplicate()
+	sp.bg_color = s.bg_color.darkened(0.08)
+	b.add_theme_stylebox_override("pressed", sp)
+	b.add_child(Look.rim_overlay(999, 2))        # light inner rim — the sticker two-tone, clamped to the capsule
 	return b
 
 ## A plated message icon — the icon seated on a pale cream disc (mockup's left-of-row motif).
