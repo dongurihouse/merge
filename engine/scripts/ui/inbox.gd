@@ -93,10 +93,10 @@ static func open(host: Control) -> void:
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(rows)
 
-	_fill_rows(host, rows, scroll, card_w)
-
-	# the round ✕ disc (the mail close) docks inside the card's top-right corner after layout —
-	# the shared bag/shop place-deferred pattern; the veil tap dismisses too.
+	# the round ✕ disc (the mail close) docks inside the card's top-right corner. The async fill
+	# below GROWS the card, so placing on open would freeze the ✕ at the short card's centred
+	# position — instead it is placed once the rows have filled and the card settles, and resized
+	# keeps it pinned through any later relayout (a claim rebuild). The veil tap dismisses too.
 	var close := Look.close_button(func() -> void: overlay.queue_free(), "kit/mail_close.png")
 	overlay.add_child(close)
 	var place := func() -> void:
@@ -107,11 +107,15 @@ static func open(host: Control) -> void:
 		close.global_position = Vector2(
 			r.position.x + r.size.x - cw - CLOSE_MARGIN, r.position.y + CLOSE_MARGIN)
 	card.resized.connect(place)
-	place.call_deferred()
 
 	# opening the mailbox reads everything (the badge then rests on unclaimed gifts only)
 	Inbox.mark_all_read()
 	FX.pop_in(card)
+
+	# fill the rows, then pin the ✕ once the card has reached its final size + centred position
+	await _fill_rows(host, rows, scroll, card_w)
+	await host.get_tree().process_frame
+	place.call()
 
 # (Re)build every message row. Called on open and after each claim so a grabbed gift's Claim
 # button collapses to a "Claimed" tag in place without rebuilding the whole modal.
