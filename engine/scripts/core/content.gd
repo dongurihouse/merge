@@ -374,14 +374,11 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 
 ## §7 soft gate (gate_pause): how many giver stands are active, metered to the NEXT unlock —
 ## ≈ ceil((next_cost − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
-## next unlock is affordable (the fence empties → wordless "go restore"). The sentinels from
-## cheapest_spot_cost: −1 (all spots owned) → 0; −2 (whole frontier level-locked) → full fence
-## (pump ★ to level up — the no-strand rule keeps a level-locked spot off the affordable frontier).
+## next unlock is affordable (the fence empties → wordless "go restore"). next_cost == -1
+## (all spots owned) → 0.
 static func active_giver_count(banked_stars: int, next_cost: int, max_givers: int = MAX_GIVERS) -> int:
 	if next_cost == -1:
 		return 0
-	if next_cost == -2:
-		return max_givers
 	var need := next_cost - banked_stars
 	if need <= 0:
 		return 0
@@ -538,13 +535,6 @@ static func map_for_spots(i: int) -> int:
 			return z
 	return MAPS.size() - 1
 
-# --- spot level gates -------------------------------------------------------------
-static func spot_level_req(z: int, k: int) -> int:
-	var rank := k
-	for i in z:
-		rank += MAPS[i].spots.size()
-	return level_for_stars(3 * rank)   # == the old level_for_exp(30·rank); preserves the gates
-
 static func map_spots_done(z: int, unlocks: Dictionary) -> bool:
 	for sp in MAPS[z].spots:
 		if not unlocks.has(String(sp.id)):
@@ -603,30 +593,24 @@ static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 			return z
 	return -1
 
-## The cheapest unowned, level-affordable spot IN map `z` (the frontier's next restore) — the
-## §7 meter sizes the fence to it. Returns the cost, -1 (all of z owned → gate time), or -2
-## (all remaining level-locked → keep questing to level up). Map-scoped, so gate-locked later
-## maps are never the meter target.
-static func map_cheapest_spot(z: int, unlocks: Dictionary, level: int = 99) -> int:
+## The cheapest unowned spot IN map `z` (the frontier's next restore) — the §7 meter sizes the
+## fence to it. Returns the cost, or -1 (all of z owned → gate time). Map-scoped, so gate-locked
+## later maps are never the meter target.
+static func map_cheapest_spot(z: int, unlocks: Dictionary) -> int:
 	var cheapest := 99
-	var missing := false
 	for k in MAPS[z].spots.size():
 		var sp: Dictionary = MAPS[z].spots[k]
 		if unlocks.has(String(sp.id)):
 			continue
-		missing = true
-		if spot_level_req(z, k) <= level:
-			cheapest = mini(cheapest, int(sp.cost))
-	if not missing:
-		return -1
-	return cheapest if cheapest < 99 else -2
+		cheapest = mini(cheapest, int(sp.cost))
+	return cheapest if cheapest < 99 else -1
 
 ## How many ambient characters wander: 1 + completed maps, capped. The host
 ## passes this to Ambient.build_layer (progression stays a game rule, not engine).
 static func character_count(unlocks: Dictionary) -> int:
 	return mini(1 + completed_maps(unlocks), CHARACTER_CAP)
 
-static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
+static func cheapest_spot_cost(unlocks: Dictionary) -> int:
 	for z in MAPS.size():
 		var cheapest := 99
 		var missing := false
@@ -635,19 +619,18 @@ static func cheapest_spot_cost(unlocks: Dictionary, level: int = 99) -> int:
 			if unlocks.has(String(s.id)):
 				continue
 			missing = true
-			if spot_level_req(z, k) <= level:
-				cheapest = mini(cheapest, int(s.cost))
+			cheapest = mini(cheapest, int(s.cost))
 		if missing:
-			return cheapest if cheapest < 99 else -2   # -2 = all remaining level-locked
+			return cheapest
 	return -1
 
-# Of the open (unowned, level-affordable) spots in a map, is k the one to buy next?
+# Of the open (unowned) spots in a map, is k the one to buy next?
 # Cheapest wins; ties break to the lower index. (Powers the "buy me next" affordance.)
-static func is_cheapest_open(z: int, k: int, lvl: int, unlocks: Dictionary) -> bool:
+static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
 	var my_cost := int(MAPS[z].spots[k].cost)
 	for j in MAPS[z].spots.size():
 		var s: Dictionary = MAPS[z].spots[j]
-		if unlocks.has(String(s.id)) or spot_level_req(z, j) > lvl:
+		if unlocks.has(String(s.id)):
 			continue
 		if int(s.cost) < my_cost or (int(s.cost) == my_cost and j < k):
 			return j == k

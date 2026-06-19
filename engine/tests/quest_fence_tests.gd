@@ -37,14 +37,14 @@ func _initialize() -> void:
 	# --- gate_pending: map 0 is not spot-complete on a fresh game → no gate yet ---
 	ok(not Quests.gate_pending(0, {}, []), "map 0's gate is not pending until its spots are restored")
 
-	# --- gate_ready: 0★ can't afford the next spot; a huge bank at max level can ---
-	ok(not Quests.gate_ready(0, 0, {}, 1), "0★ → the next unlock is not affordable (not ready)")
-	ok(Quests.gate_ready(0, 999999, {}, 99), "a huge ★ bank at max level can afford the next spot (ready)")
+	# --- gate_ready: 0★ can't afford the next spot; a huge bank can (stars are the only gate) ---
+	ok(not Quests.gate_ready(0, 0, {}), "0★ → the next unlock is not affordable (not ready)")
+	ok(Quests.gate_ready(0, 999999, {}), "a huge ★ bank can afford the next spot (ready)")
 
 	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as ★ bank toward the unlock (§7 soft gate) ---
-	var tgt := Quests.meter_target(0, 0, {}, 1)
+	var tgt := Quests.meter_target(0, 0, {})
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
-	ok(Quests.meter_target(0, 0, {}, 99) >= Quests.meter_target(0, 100000, {}, 99), "the fence shrinks monotonically as ★ bank toward the unlock")
+	ok(Quests.meter_target(0, 0, {}) >= Quests.meter_target(0, 100000, {}), "the fence shrinks monotonically as ★ bank toward the unlock")
 
 	# --- pending_grant_quests: map 0 (first map) has no predecessor generators to hand in ---
 	ok(Quests.pending_grant_quests(0, {}).is_empty(), "the first map has no pending generator-grant hand-ins")
@@ -90,7 +90,7 @@ func _initialize() -> void:
 	var fence2 := Quests.refill([], 2, {}, [], z2_gens, 0, 99, rngz)
 	ok(fence2.filter(func(q): return q.has("grant")).size() == 1, "only ONE generator-grant shows at a time (the rest spread through the map)")
 	ok(fence2.size() >= 1 and bool(fence2[0].has("grant")), "the map's first stand is the generator-grant hand-in")
-	var tgt2 := Quests.meter_target(2, 0, {}, 99)
+	var tgt2 := Quests.meter_target(2, 0, {})
 	if tgt2 >= 2:
 		ok(fence2.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false))).size() >= 1, "the regular generated stream fills the slots between hand-ins")
 		ok(fence2.size() == tgt2, "the fence still meters to the soft-gate target (lead grant + regular = target)")

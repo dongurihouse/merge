@@ -4,11 +4,12 @@ extends SceneTree
 ## Perceptual item, asserted deterministically (no window, no image capture):
 ##   - the buildable ghost is gated by the Features "spot_ghost" flag,
 ##   - its cut-out has REDUCED alpha (it is a ghost, not the real sprite),
-##   - an UNOWNED spot WITH art gets a ghost node behind its price-pin,
-##   - an OWNED/built spot draws the REAL sprite and gets NO ghost.
-## The ghost reuses Map's `furn_path` (Game.art("rooms/furn_<id>.png")) — the SAME
-## buildable-sprite lookup the Layout editor draws from. Art only exists under the
-## grove clothes, so this suite forces GAME=grove before any Game.art() call.
+##   - an UNOWNED spot WITH a cutout gets a ghost node behind its price-pin,
+##   - an OWNED/built spot draws the REAL sprite and gets NO ghost,
+##   - an OWNED spot with NO cutout draws the code-generated placeholder tile.
+## The ghost reuses Map's `art_path` (the spot's `art` cutout) — only spots that ship
+## a cutout can ghost. Cutout art only exists under the grove clothes, so this suite
+## forces GAME=grove before any Game.art() call.
 
 const Features = preload("res://engine/scripts/core/features.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -25,28 +26,39 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# Depth-first: the FIRST descendant of `node` carrying the "ghost" meta, or null.
-func _find_ghost(node: Node) -> Node:
-	if node.has_meta("ghost"):
+# Depth-first: the FIRST descendant of `node` carrying meta `key`, or null.
+func _find_meta(node: Node, key: String) -> Node:
+	if node.has_meta(key):
 		return node
 	for c in node.get_children():
-		var hit := _find_ghost(c)
+		var hit := _find_meta(c, key)
 		if hit != null:
 			return hit
 	return null
 
-# First (z, k) whose buildable sprite actually exists on disk, else [-1, -1].
+func _find_ghost(node: Node) -> Node:
+	return _find_meta(node, "ghost")
+
+# First (z, k) whose spot ships a cutout (`art`) that exists on disk, else [-1, -1].
 func _first_spot_with_art() -> Array:
 	for z in G.MAPS.size():
 		for k in G.MAPS[z].spots.size():
-			var p := Game.art("rooms/furn_%s.png" % String(G.MAPS[z].spots[k].id))
+			var p := String(G.MAPS[z].spots[k].get("art", ""))
 			if p != "" and ResourceLoader.exists(p):
 				return [z, k]
 	return [-1, -1]
 
+# First (z, k) whose spot ships NO cutout (the placeholder path), else [-1, -1].
+func _first_spot_without_art() -> Array:
+	for z in G.MAPS.size():
+		for k in G.MAPS[z].spots.size():
+			if String(G.MAPS[z].spots[k].get("art", "")) == "":
+				return [z, k]
+	return [-1, -1]
+
 func _initialize() -> void:
-	# Force the grove clothes so furn_*.png art exists (the engine default is the
-	# art-less placeholder). Game.active() reads this env at call time.
+	# Force the grove clothes so the spot cutouts (the hub's map1v2 items) resolve;
+	# the engine default is the art-less placeholder. Game.active() reads this env at call time.
 	OS.set_environment("GAME", "grove")
 	print("== Ghost-preview (§8) tests ==  clothes=%s" % Game.id())
 
@@ -85,19 +97,18 @@ func _initialize() -> void:
 		ok(g.mouse_filter == Control.MOUSE_FILTER_IGNORE, "ghost ignores input (single-input-surface rule)")
 		g.free()
 
-	# --- 3. end-to-end: UNOWNED spot gets a ghost, OWNED spot does NOT ----------
+	# --- 3. end-to-end: UNOWNED spot WITH a cutout gets a ghost, OWNED does NOT --
+	var rect := Rect2(Vector2.ZERO, Vector2(1000, 1000))
 	var sa := _first_spot_with_art()
-	ok(sa[0] >= 0, "found a spot with buildable art under grove (z=%d k=%d)" % [sa[0], sa[1]])
+	ok(sa[0] >= 0, "found a spot with a cutout under grove (z=%d k=%d)" % [sa[0], sa[1]])
 	if sa[0] >= 0:
 		var z: int = sa[0]
 		var k: int = sa[1]
 		var sid := String(G.MAPS[z].spots[k].id)
-		var lvl := 99   # high enough that the spot is buyable, not level-gated
-		var rect := Rect2(Vector2.ZERO, Vector2(1000, 1000))
 
 		# UNOWNED: nothing in unlocks -> the price-pin branch, ghost behind it.
 		map.unlocks = {}
-		var unowned: Control = map._make_spot(z, k, lvl, rect)
+		var unowned: Control = map._make_spot(z, k, rect)
 		ok(_find_ghost(unowned) != null, "UNOWNED spot '%s' renders a ghost-preview node" % sid)
 		var ug := _find_ghost(unowned)
 		if ug != null:
@@ -107,9 +118,23 @@ func _initialize() -> void:
 		# OWNED: in unlocks -> the real sprite branch, NO ghost.
 		map.unlocks = {sid: true}
 		ok(map.spot_owned(sid), "spot_owned('%s') true once in unlocks" % sid)
-		var owned: Control = map._make_spot(z, k, lvl, rect)
+		var owned: Control = map._make_spot(z, k, rect)
 		ok(_find_ghost(owned) == null, "OWNED spot '%s' draws the real sprite, NO ghost" % sid)
 		owned.free()
+
+	# --- 4. a spot with NO cutout draws the code-generated placeholder tile ------
+	var sb := _first_spot_without_art()
+	ok(sb[0] >= 0, "found a spot with no cutout (placeholder path) (z=%d k=%d)" % [sb[0], sb[1]])
+	if sb[0] >= 0:
+		var z2: int = sb[0]
+		var k2: int = sb[1]
+		var sid2 := String(G.MAPS[z2].spots[k2].id)
+		map.unlocks = {sid2: true}
+		var ph: Control = map._make_spot(z2, k2, rect)
+		ok(_find_meta(ph, "placeholder") != null,
+			"OWNED no-cutout spot '%s' draws a code-generated placeholder tile" % sid2)
+		ok(_find_ghost(ph) == null, "placeholder spot draws no ghost")
+		ph.free()
 
 	map.queue_free()
 	await process_frame

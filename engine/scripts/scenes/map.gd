@@ -1,12 +1,13 @@
 extends Control
 ## HOME: the game's hub IS the homestead (Core §8 / grove_spec §3). A map IS one
 ## self-contained image — an open space (the Farmhouse, the Barn, …) with the
-## restoration SPOTS sitting directly on that image. Level-gated spots sit greyed
-## ("Lv N"), available ones price themselves ("✿ N★" — tap to buy with stars), and
-## OWNED ones open their own customization list (variants priced in coins/diamonds).
+## restoration SPOTS sitting directly on that image. Unowned spots price themselves
+## ("✿ N★" — tap to buy with stars), and OWNED ones open their own customization list
+## (variants priced in coins/diamonds).
 ## Discrete maps are reached via a map-SELECT screen; the first map (the hub) is the
 ## home. Buying advances your level; level-ups gift water+diamonds. A pinned garden button
-## leads to the board. Art auto-wires: assets/map/map_<id>.png + assets/rooms/furn_<id>.png.
+## leads to the board. The map background auto-wires: assets/map/map_<id>.png. A spot with
+## no shipped cutout (`art`) draws a code-generated placeholder tile (see _placeholder_tile).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -108,8 +109,6 @@ var _store_badge: Control = null  # Store "new offer" badge — lit while the st
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _free_badge: Control = null   # Free rail badge — lit when the rewarded gem faucet is offerable
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
-var _task_strip: Control = null   # the above-CTA task strip (rebuilt when frontier progress changes)
-var _task_strip_sb := 0.0         # cached safe-bottom so a rebuild keeps the strip's pin
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
@@ -236,8 +235,8 @@ func map_stars_left(z: int) -> int:
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
 
-func _is_cheapest_open(z: int, k: int, lvl: int) -> bool:
-	return G.is_cheapest_open(z, k, lvl, unlocks)
+func _is_cheapest_open(z: int, k: int) -> bool:
+	return G.is_cheapest_open(z, k, unlocks)
 
 func _spot_variant(z: int, k: int) -> Dictionary:
 	var chosen := String(Save.grove().get("custom", {}).get(String(G.MAPS[z].spots[k].id), "base"))
@@ -389,9 +388,8 @@ func _build_map() -> void:
 	content.add_child(amb)
 	content.add_child(_map_title_plank(z))
 	if typeof(home) != TYPE_DICTIONARY:
-		var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 		for k in G.MAPS[z].spots.size():
-			var spot := _make_spot(z, k, lvl, _map_rect)
+			var spot := _make_spot(z, k, _map_rect)
 			content.add_child(spot)
 			spot_hits.append({"node": spot, "z": z, "k": k})
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
@@ -468,25 +466,19 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 	return t
 
 # An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on
-# the building. Two variants picked from the spot's GATE state (the same signal _make_spot uses —
-# spot_level_req(z,k) vs the player's level): a still-GATED spot shows badge_locked.png (lock + sprout,
-# no price — you can't buy it yet); an unlockable/buyable spot shows badge_cost.png with a "+" stacked
-# over the star cost "★ N". Decoration only (mouse-ignored); the spot's tap hit-area is the spot_hit node.
+# the building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N".
+# Decoration only (mouse-ignored); the spot's tap hit-area is the spot_hit node.
 func _home_badge(z: int, k: int, b) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
 	var d := _map_rect.size.x * 0.16                  # badge diameter relative to the map
-	# the gate signal: a spot whose level requirement exceeds the player's level is still LOCKED
-	# (the lock disc, no price); otherwise it prices itself (the cost disc).
-	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	var gated := G.spot_level_req(z, k) > lvl
 	var node := Control.new()
 	node.size = Vector2(d, d)
 	node.position = ctr - Vector2(d, d) * 0.5
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the disc — the sliced round badge (cost vs locked). Falls back to the legacy farm/badge.png disc.
-	var disc_kit := Look.kit("badge_locked.png" if gated else "badge_cost.png")
+	# the disc — the sliced round cost badge. Falls back to the legacy farm/badge.png disc.
+	var disc_kit := Look.kit("badge_cost.png")
 	var bg := TextureRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -494,9 +486,6 @@ func _home_badge(z: int, k: int, b) -> Control:
 	bg.texture = load(disc_kit) if ResourceLoader.exists(disc_kit) else load(Game.art("farm/badge.png"))
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(bg)
-	# a still-gated spot shows ONLY the locked disc (the lock + sprout art carries the meaning — no price).
-	if gated:
-		return node
 	# the buyable disc stacks a "+" over the star cost "★ N", centered on the disc.
 	var col := VBoxContainer.new()
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -573,7 +562,7 @@ func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
 	return base
 
 # Add a full-rect, cover-fit, click-through TextureRect under `parent` (a map-rect frame). Used for the
-# base background and for fixed overlay layers (fence) so they share the exact same fit.
+# base background so layers share the exact same fit.
 func _add_cover_layer(parent: Control, path: String) -> void:
 	var t := TextureRect.new()
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -585,19 +574,25 @@ func _add_cover_layer(parent: Control, path: String) -> void:
 
 # Item 5 — the map's progress PILL (the farm_ui mockup), centered near the top of the map image
 # (an IGNORE visual; never eats a press). The cream pill (pill_progress.png — green groove + flower +
-# sprout baked in) carries "N to the next place" text in its upper body (NO inline icon — the pill art's
-# baked flower is the single left mark) and a GREEN fill bar (pill_progress_fill.png) inside its lower
-# groove, sized to restore-progress. The map NAME is
-# dropped entirely. A fully-restored map shows the "restored" state. If the pill art is missing it
-# degrades to the old dark plank look so the read never blanks.
+# sprout baked in) carries "N to restore this place" text in its upper body (NO inline icon — the pill
+# art's baked flower is the single left mark) and a GREEN fill bar (pill_progress_fill.png) inside its
+# lower groove, sized to restore-progress. The map NAME is dropped entirely. A fully-restored map shows
+# the "restored ✿ 🎁" state and pays MAP_TASK_REWARD once. If the pill art is missing it degrades to the
+# old dark plank look so the read never blanks.
 const _PILL_ASPECT := 603.0 / 109.0
-# the green groove rect inside pill_progress.png, as fractions of the pill size (measured from the art).
-const _PILL_GROOVE_X := 0.085
-const _PILL_GROOVE_W := 0.78
-const _PILL_GROOVE_Y := 0.66
-const _PILL_GROOVE_H := 0.22
+# the green groove rect inside pill_progress.png, as fractions of the pill size. Pixel-measured from the
+# 603×109 art: the recessed channel's flat tan interior is x=37..500, y=74..86 (between the dark rim
+# walls). The fill bar is sized to exactly this so it sits flush in the empty track.
+const _PILL_GROOVE_X := 0.0614   # 37 / 603
+const _PILL_GROOVE_W := 0.7695   # 464 / 603
+const _PILL_GROOVE_Y := 0.6789   # 74 / 109
+const _PILL_GROOVE_H := 0.1193   # 13 / 109
 
 func _map_title_plank(z: int) -> Control:
+	# the pill IS the restore read; a fully-restored map pays MAP_TASK_REWARD once — the gift rides the
+	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays).
+	if map_spots_done(z):
+		_grant_map_task_reward(z)
 	var pill_path := Look.kit("pill_progress.png")
 	if not ResourceLoader.exists(pill_path):
 		return _map_title_plank_fallback(z)
@@ -646,12 +641,13 @@ func _map_title_plank(z: int) -> Control:
 		fill.texture = load(fill_path)
 		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		clip.add_child(fill)
-	# the text — just "N to the next place" (or "restored ✿"), in the pill's UPPER body. pill_progress.png
+	# the text — "N to restore this place" (or "restored ✿ 🎁"), in the pill's UPPER body. pill_progress.png
 	# already bakes a flower into its top-left, so we DON'T add an icon here — that flower IS the single
-	# left mark (mockup: one flower + text). The label fills the area to the RIGHT of the baked flower and
-	# centers itself in that remaining span, so the text never overlaps the flower.
+	# left mark (mockup: one flower + text). The number is the map's TOTAL remaining star cost (every
+	# unowned spot), not just the next one — see map_stars_left. The label fills the area to the RIGHT of
+	# the baked flower and centers itself in that remaining span, so the text never overlaps the flower.
 	var lbl := Label.new()
-	lbl.text = tr("restored ✿") if map_spots_done(z) else tr("%d to the next place") % left
+	lbl.text = tr("restored ✿ 🎁") if map_spots_done(z) else tr("%d to restore this place") % left
 	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
 	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -685,7 +681,7 @@ func _map_title_plank_fallback(z: int) -> Control:
 	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if map_spots_done(z):
 		var lbl := Label.new()
-		lbl.text = tr("✿ restored")
+		lbl.text = tr("✿ restored 🎁")
 		lbl.add_theme_font_size_override("font_size", 22)
 		lbl.add_theme_color_override("font_color", STRAW)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -695,22 +691,21 @@ func _map_title_plank_fallback(z: int) -> Control:
 		plank.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
 	return plank
 
-# §8: the optional ghost-preview of an UNOWNED spot's buildable. Reuses the SAME
-# buildable-sprite lookup the Layout editor draws from (the caller's `furn_path` =
-# Game.art("rooms/furn_<id>.png")), so there is ONE asset-path source. Returns null
+# §8: the optional ghost-preview of an UNOWNED spot's buildable. Only spots that ship
+# a cutout (`art`) can ghost; the caller passes that spot's `art_path`. Returns null
 # when the flag is off or this spot has no art — the caller then draws only the pin.
 # A faint, desaturated cut-out: low alpha + colour leaned toward neutral grey, sized
 # and centered exactly like the real sprite so the build "settles into" its outline.
-func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
+func _ghost_sprite(art_path: String, fs: float) -> TextureRect:
 	if not Features.on("spot_ghost"):
 		return null
-	if furn_path == "" or not ResourceLoader.exists(furn_path):
+	if art_path == "" or not ResourceLoader.exists(art_path):
 		return null
 	var g := TextureRect.new()
 	# Same ORDER-MATTERS dance as the real sprite (expand_mode before size).
 	g.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	g.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	g.texture = load(furn_path)
+	g.texture = load(art_path)
 	g.size = Vector2(fs, fs)
 	g.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real one
 	g.modulate = Color(GHOST_TINT.r, GHOST_TINT.g, GHOST_TINT.b, GHOST_ALPHA)
@@ -718,25 +713,58 @@ func _ghost_sprite(furn_path: String, fs: float) -> TextureRect:
 	g.set_meta("ghost", true)
 	return g
 
-# One spot ON the map image: furniture art when owned (and generated), else the
-# 3-state pin + name. The customize strip rides directly beneath when open.
-func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
+# A code-drawn stand-in for an owned spot that ships no cutout art (the non-hub maps):
+# a footprint-sized rounded tile in the map palette, centered on the plot exactly like
+# the real sprite, with the spot's name. Honours the chosen variant wash + gem accent.
+# Carries the "placeholder" meta so tests/tools can tell it from a real sprite.
+func _placeholder_tile(spot: Dictionary, vcur: Dictionary, fs: float) -> Control:
+	var tile := Panel.new()
+	var sb := StyleBoxFlat.new()
+	var base := CLAY.lerp(Color.WHITE, 0.18)
+	sb.bg_color = base.lerp(Color(vcur.tint), 0.45) if String(vcur.id) != "base" else base
+	sb.set_corner_radius_all(int(clampf(fs * 0.14, 12.0, 30.0)))
+	sb.set_border_width_all(3)
+	sb.border_color = Color("#E8C84A") if String(vcur.id) == "gem" else BARK
+	tile.add_theme_stylebox_override("panel", sb)
+	tile.size = Vector2(fs, fs)
+	tile.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot, like the real sprite
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.set_meta("placeholder", true)
+	var lbl := Label.new()
+	lbl.text = tr(spot.name)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	lbl.add_theme_font_size_override("font_size", 23)
+	lbl.add_theme_color_override("font_color", INK)
+	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.offset_left = 12.0
+	lbl.offset_top = 12.0
+	lbl.offset_right = -12.0
+	lbl.offset_bottom = -12.0
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(lbl)
+	return tile
+
+# One spot ON the map image: the cutout sprite when owned AND a cutout ships, a
+# code-generated placeholder tile when owned with no cutout, else the 3-state pin +
+# name. The customize strip rides directly beneath when open.
+func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
-	# pos + fsize come from grove_data.MAPS, which merges assets/map1v2/items_layout.json once at load
-	# (see grove_data._merge_map1_placements). `art` (a res:// cutout) overrides the default furn art.
+	# pos + fsize come from grove_data.MAPS (authored per spot). `art` is a res:// cutout; a spot
+	# without one ships no art and renders the placeholder tile below (no image fallback).
 	var pos: Vector2 = rect.position + Vector2(spot.pos) * rect.size
 	var art_scale := rect.size.x / Design.size().x   # footprints are authored at the design-width canvas
 	var fs_eff := float(spot.get("fsize", 240.0)) * art_scale
-	var furn_path := String(spot.get("art", Game.art("rooms/furn_%s.png" % String(spot.id))))
+	var art_path := String(spot.get("art", ""))
 	var item := Control.new()
 	item.size = Vector2(180, 150)
 	item.position = pos - Vector2(90, 40)
 	item.pivot_offset = Vector2(90, 50)
 	item.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var owned := spot_owned(String(spot.id))
-	var gated := G.spot_level_req(z, k) > lvl
-	# an owned spot draws its furniture sprite (when the art exists)
-	if owned and ResourceLoader.exists(furn_path):
+	# an owned spot draws its cutout sprite when one ships
+	if owned and art_path != "" and ResourceLoader.exists(art_path):
 		var f := TextureRect.new()
 		# ORDER MATTERS: expand_mode must precede size — with the default
 		# EXPAND_KEEP_SIZE the texture's 512px min CLAMPS size up and a later
@@ -744,7 +772,7 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		# Q3 probe caught it). Footprint is per-spot data (fsize, px on the image).
 		f.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		f.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		f.texture = load(furn_path)
+		f.texture = load(art_path)
 		var fs: float = fs_eff
 		f.size = Vector2(fs, fs)
 		f.position = Vector2(90.0 - fs / 2.0, 60.0 - fs / 2.0)   # centered on the plot
@@ -767,31 +795,14 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 			dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			item.add_child(dot)
 	elif owned:
-		var chip := PanelContainer.new()
-		var fs := StyleBoxFlat.new()
-		var cur := _spot_variant(z, k)
-		fs.bg_color = CLAY.lerp(Color.WHITE, 0.18).lerp(Color(cur.tint), 0.45 if String(cur.id) != "base" else 0.0)
-		fs.set_corner_radius_all(16)
-		fs.set_border_width_all(3)
-		fs.border_color = Color("#E8C84A") if String(cur.id) == "gem" else BARK
-		fs.content_margin_left = 12.0
-		fs.content_margin_right = 12.0
-		fs.content_margin_top = 8.0
-		fs.content_margin_bottom = 8.0
-		chip.add_theme_stylebox_override("panel", fs)
-		var cl := Label.new()
-		cl.text = tr(spot.name)
-		cl.add_theme_font_size_override("font_size", 23)
-		cl.add_theme_color_override("font_color", INK)
-		chip.add_child(cl)
-		chip.position = Vector2(28, 30)
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		item.add_child(chip)
+		# No cutout ships for this spot (the non-hub maps): draw a code-generated
+		# placeholder so the restored plot still reads as filled.
+		item.add_child(_placeholder_tile(spot, _spot_variant(z, k), fs_eff))
 	else:
 		# §8: a faint ghost of the buildable sits BEHIND the pin (added first), so an
 		# empty plot teases what will fill it. Owned spots took the branches above —
 		# only unowned (gated or buyable) spots reach here, so the ghost is correct.
-		var ghost := _ghost_sprite(furn_path, fs_eff)
+		var ghost := _ghost_sprite(art_path, fs_eff)
 		if ghost != null:
 			item.add_child(ghost)
 		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
@@ -818,36 +829,26 @@ func _make_spot(z: int, k: int, lvl: int, rect: Rect2) -> Control:
 		prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var ptxt := Label.new()
 		ptxt.add_theme_font_size_override("font_size", 28)
-		var kit_icons := ResourceLoader.exists(Look.kit("icon_star.png"))
-		if gated:
-			ps.bg_color = Color("#4A4F46", 0.72)
-			if kit_icons and ResourceLoader.exists(Look.kit("icon_lock.png")):
-				prow.add_child(Look.icon("lock", 24.0))
-				ptxt.text = str(G.spot_level_req(z, k))
-			else:
-				ptxt.text = tr("Lv %d") % G.spot_level_req(z, k)
-			ptxt.add_theme_color_override("font_color", Color(CREAM, 0.55))
-		else:
-			ps.bg_color = Color(INK, 0.85)
-			ps.set_border_width_all(2)
-			ps.border_color = STRAW
-			# §13: the star price is ALWAYS a Look.icon sprite + a number-only label
-			# (Look.icon ships the ★ glyph as its own fallback) — no emoji baked in.
-			prow.add_child(Look.icon("star", 26.0))
-			ptxt.text = str(int(spot.cost))
-			ptxt.add_theme_color_override("font_color", CREAM)
+		ps.bg_color = Color(INK, 0.85)
+		ps.set_border_width_all(2)
+		ps.border_color = STRAW
+		# §13: the star price is ALWAYS a Look.icon sprite + a number-only label
+		# (Look.icon ships the ★ glyph as its own fallback) — no emoji baked in.
+		prow.add_child(Look.icon("star", 26.0))
+		ptxt.text = str(int(spot.cost))
+		ptxt.add_theme_color_override("font_color", CREAM)
 		prow.add_child(ptxt)
 		pin.add_theme_stylebox_override("panel", ps)
 		pin.add_child(prow)
 		pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(pin)
-		var name_l := _lbl(tr(spot.name), 24, CREAM if not gated else Color(CREAM, 0.55))
+		var name_l := _lbl(tr(spot.name), 24, CREAM)
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(name_l)
 		item.add_child(stack)
-		if not gated and z == _frontier_map() and _is_cheapest_open(z, k, lvl):
+		if z == _frontier_map() and _is_cheapest_open(z, k):
 			FX.breathe_once(item)
 	if owned and _customize_spot == String(spot.id):
 		_add_variant_strip(item, z, k)
@@ -1210,12 +1211,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 		_customize_spot = "" if _customize_spot == String(spot.id) else String(spot.id)
 		_build_map()
 		return
-	var lvl := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-	if G.spot_level_req(z, k) > lvl:
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(120, 64), tr("Reach Lv %d ❀") % G.spot_level_req(z, k), Color(CREAM, 0.9), 30)
-		return
 	var cost := int(spot.cost)
 	if not Save.spend_stars(cost):
 		Audio.play("invalid_soft", -4.0)
@@ -1231,8 +1226,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	_persist()
 	_build_map()                          # the map (spot art + stars-left) refreshes
 	_update_hud()
-	if _task_strip != null:               # the chrome task strip tracks the frontier — rebuild it
-		_build_task_strip(_task_strip_sb)
 	if map_spots_done(z):
 		Save.add_diamonds(G.MAP_DIAMONDS)
 		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
@@ -1418,7 +1411,6 @@ func _build_chrome() -> void:
 	# rides the Shop button; the piggy bank moved to the LiveOps rail (its ready-pip rides it there).
 	# _shop_btn stays the §14 spotlight target.
 	var sb := Look.safe_bottom(self)
-	var sb_cta := sb
 	var nav := NavBar.build(self, [
 		# Settings — the shared music/sounds/calm card (ui/settings.gd).
 		{"icon": "nav_gear.png", "px": 96.0, "label": tr("Settings"), "action": func() -> void:
@@ -1446,10 +1438,10 @@ func _build_chrome() -> void:
 	_store_badge = Look.badge("dot")
 	Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the LiveOps rail (right edge) + the task strip (above the nav row) — the two kept chrome slices.
+	# the LiveOps rail (right edge) — the kept chrome slice. The map's restore progress (and its
+	# completion gift) rides the top progress pill, so there is no separate above-CTA strip.
 	# The piggy bank now lives on the rail (its claimable ready-pip is attached there).
 	_build_liveops_rail(sb)
-	_build_task_strip(sb_cta)
 
 # The LIVE-OPS RAIL (backlog "LiveOps buttons") — a CALM vertical column of round buttons on the
 # right edge, ABOVE the bottom corner cluster: Daily, Free, and (guarded) Inbox. Each is a quiet
@@ -1591,86 +1583,10 @@ func _open_inbox() -> void:
 	# refresh deferred so a modal that grants on open settles before we re-read the count
 	_refresh_liveops_badges.call_deferred()
 
-# The TASK STRIP (backlog "Task strip") — a slim cozy band JUST ABOVE the garden CTA showing the
-# next short-term goal: "Today  ✿ N/M  → 🎁", chained off the EXISTING restore-the-next-spot goal
-# (no bolted-on quest — the cozy spine IS the task). On a fully-restored frontier it celebrates
-# "✿ restored → 🎁" and, once, pays MAP_TASK_REWARD. Decorative + informative; never blocks play.
-# Appended to _chrome_nodes so it follows the place-picker hide.
-func _build_task_strip(sb_cta: float) -> void:
-	_task_strip_sb = sb_cta
-	if _task_strip != null and is_instance_valid(_task_strip):
-		_task_strip.queue_free()
-		_chrome_nodes.erase(_task_strip)
-		_task_strip = null
-	var z := _frontier_map()
-	if z < 0:
-		z = G.hub_map()
-	var total: int = G.MAPS[z].spots.size()
-	var done: int = owned_count(z)
-	var card := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#3D2A1B", 0.84)
-	sb.set_corner_radius_all(14)                  # small chip radius (matches UiSkin.RADIUS_CHIP)
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#2A1C11", 0.9)
-	sb.content_margin_left = 16.0
-	sb.content_margin_right = 16.0
-	sb.content_margin_top = 6.0
-	sb.content_margin_bottom = 6.0
-	card.add_theme_stylebox_override("panel", sb)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(row)
-	var head := Label.new()
-	head.text = tr("Today")
-	head.add_theme_font_size_override("font_size", 20)
-	head.add_theme_color_override("font_color", STRAW)
-	head.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(head)
-	row.add_child(Look.icon("star", 22.0))
-	var prog := Label.new()
-	prog.text = ("%d/%d" % [done, total]) if done < total else tr("restored")
-	prog.add_theme_font_size_override("font_size", 20)
-	prog.add_theme_color_override("font_color", CREAM)
-	prog.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	prog.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(prog)
-	var arrow := Label.new()
-	arrow.text = "→"
-	arrow.add_theme_font_size_override("font_size", 20)
-	arrow.add_theme_color_override("font_color", Color(CREAM, 0.8))
-	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(arrow)
-	var gift := Label.new()
-	gift.text = "🎁"
-	gift.add_theme_font_size_override("font_size", 22)
-	gift.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	gift.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(gift)
-	# pinned centered, just ABOVE the nav row (item 4 moved the bottom chrome into one full-width row
-	# ~132px tall — its prominent center CTA; the strip clears it).
-	card.anchor_left = 0.5
-	card.anchor_right = 0.5
-	card.anchor_top = 1.0
-	card.anchor_bottom = 1.0
-	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	card.offset_top = -208 - sb_cta
-	card.offset_bottom = -170 - sb_cta
-	add_child(card)
-	_chrome_nodes.append(card)
-	_task_strip = card
-	card.visible = (_view == "map")          # a rebuild mid-place-picker stays hidden (follows the chrome toggle)
-	# pay the milestone ONCE: the frontier map is fully restored and we haven't granted yet.
-	if done >= total and total > 0:
-		_grant_map_task_reward(z)
-
-# Grant the slim task-strip milestone reward ONCE per map (persisted by a per-map flag) when its
-# spots are all restored. Celebrates the beat the player already reached (§4: no possibility gate).
+# Grant the map's milestone reward ONCE per map (persisted by a per-map flag) when its spots are all
+# restored. Driven from the progress pill's "restored" end-state (see _map_title_plank), so the gift
+# rides the top progress read — no separate strip. Celebrates the beat the player already reached
+# (§4: no possibility gate).
 func _grant_map_task_reward(z: int) -> void:
 	var g := Save.grove()
 	var claimed: Dictionary = g.get("task_reward", {})
@@ -1704,7 +1620,7 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 		FX.celebrate_reward(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8")); dy += 34
 	if coins > 0:
 		FX.celebrate_reward(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"))
-	FX.floating_text(self, at - Vector2(0, 40), tr("Today's task complete ✿"), CREAM, 24)
+	FX.floating_text(self, at - Vector2(0, 40), tr("Place restored ✿ 🎁"), CREAM, 24)
 	_update_hud()
 
 # Refresh the Store "new offer" badge — lit while the one-time starter pack is unclaimed (the

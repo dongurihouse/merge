@@ -224,7 +224,7 @@ func _initialize() -> void:
 
 	# 12d. §7: the fence is METERED to the next unlock — it seats exactly active_giver_count
 	# stands (shrinking as stars bank, capped at MAX_GIVERS), not a fixed pool.
-	var s3_nxt: int = G.cheapest_spot_cost(Save.grove().get("unlocks", {}), G.level_for_stars(int(Save.grove().get("stars_earned", 0))))
+	var s3_nxt: int = G.cheapest_spot_cost(Save.grove().get("unlocks", {}))
 	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_nxt), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
 	ok(s3.giver_chips.size() <= int(G.MAX_GIVERS), "§7: the fence never exceeds MAX_GIVERS stands")
 
@@ -281,17 +281,11 @@ func _initialize() -> void:
 	ok(_all_ignore(h.content), "every content descendant IGNOREs mouse (single input surface)")
 	ok(h.map_unlocked(0) and not h.map_unlocked(1), "farmhouse open, barn locked, on a fresh save")
 
-	# a spot BUY, driven through the REAL spot node: give stars, tap an
-	# affordable + level-ok spot (k=0 fh_hearth, L1, 3★) → owned, stars debited,
-	# the view stays a map (no takeover/scene change).
+	# a spot BUY, driven through the REAL spot node: give stars, tap an affordable
+	# spot (k=0 fh_hearth, 3★) → owned, stars debited, the view stays a map (no
+	# takeover/scene change). Stars are the ONLY unlock gate now — no level gate.
 	Save.add_stars(100)
-	# level gates derive from rank: k=0 is L1 (buyable now), k=2 wants L2 (greyed)
-	ok(G.spot_level_req(0, 0) == 1 and G.spot_level_req(0, 2) == 2, "spot gates derive from rank")
 	var stars0 := Save.stars()
-	var locked_node: Control = h.spot_hits[2].node
-	h._on_spot_tap(0, 2, locked_node, _hit_center(locked_node))
-	ok(not h.spot_owned(String(G.MAPS[0].spots[2].id)) and Save.stars() == stars0, \
-		"a level-locked spot refuses the purchase (greyed, no stars move)")
 	var hearth_id: String = G.MAPS[0].spots[0].id
 	var buy_node: Control = h.spot_hits[0].node
 	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
@@ -409,43 +403,21 @@ func _initialize() -> void:
 	gw2["unlocks"] = ul24
 	h.unlocks = ul24
 	gw2["water"] = 50
-	gw2["stars_earned"] = 200                # high Level clears the orchard gates
+	gw2["stars_earned"] = 200                # Level rides earned stars (no longer gates spots)
 	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → map 4 spots are buyable
 	Save.add_stars(10)
 	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))
 	ok(int(Save.grove().get("water", 0)) == 50, "§7: a home purchase grants no per-spot water (water is level-ups only)")
 
-	# 14c. the pigeonhole proof in motion: worst-case cheapest-first buying is
-	# NEVER stranded by a level gate, all the way to the end of the map
-	var sim_ul := {}
-	var sim_earned := 0
-	var strand := false
-	var all_spots := 0
+	# 14c. unlocks are gated by STARS ALONE (no level gate): map_cheapest_spot returns the
+	# literal cheapest unowned spot — never a level-locked sentinel — so a stocked bank can
+	# clear any open map's spots in any order, on cost alone.
 	for zc in G.MAPS.size():
-		all_spots += G.MAPS[zc].spots.size()
-	while sim_ul.size() < all_spots:
-		var lvl_now := G.level_for_stars(sim_earned)
-		var pick_z := -1
-		var pick_k := -1
-		var pick_cost := 99
-		for z5 in G.MAPS.size():
-			var map_missing := false
-			for k5 in G.MAPS[z5].spots.size():
-				if sim_ul.has(String(G.MAPS[z5].spots[k5].id)):
-					continue
-				map_missing = true
-				if G.spot_level_req(z5, k5) <= lvl_now and int(G.MAPS[z5].spots[k5].cost) < pick_cost:
-					pick_cost = int(G.MAPS[z5].spots[k5].cost)
-					pick_z = z5
-					pick_k = k5
-			if map_missing:
-				break                          # maps open sequentially
-		if pick_z < 0:
-			strand = true
-			break
-		sim_ul[String(G.MAPS[pick_z].spots[pick_k].id)] = true
-		sim_earned += pick_cost                  # worst case: earn exactly what you spend
-	ok(not strand, "level gates never strand the map (worst-case order, earn==spend, all 40 spots)")
+		var min_cost := 99
+		for sp in G.MAPS[zc].spots:
+			min_cost = mini(min_cost, int(sp.cost))
+		ok(G.map_cheapest_spot(zc, {}) == min_cost, \
+			"map %d's next unlock is its literal cheapest spot, no level exclusion" % zc)
 
 	# a fresh Home resumes the same progress
 	var h2 = load("res://engine/scenes/Map.tscn").instantiate()

@@ -445,7 +445,7 @@ func _quest_level() -> int:
 
 # The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
 func _meter_target() -> int:
-	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
+	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
 # Current map fully spot-restored but its great-spirit GATE not yet delivered? Then the gate
 # quest is the lone fence stand (§7) — delivering it unlocks the next map.
@@ -527,7 +527,7 @@ func _map_done() -> bool:                     # every map fully complete (spots 
 # Scoped to the frontier map (gate-aware), so a fully-restored map (gate pending) is NOT
 # "ready to restore" — the move there is delivering the gate quest, not buying a spot.
 func _gate_ready() -> bool:
-	return Quests.gate_ready(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _quest_level())
+	return Quests.gate_ready(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
 # --- HUD ------------------------------------------------------------------------
 

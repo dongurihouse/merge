@@ -18,8 +18,13 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 
 static var force := false
+
+## Whether the action column is expanded. Persists across the scene reload an
+## action triggers, so the panel stays open and you can tap actions repeatedly.
+static var _menu_open := false
 
 ## The state-jump debug PANEL: on only when explicitly authoring(). Never in
 ## headless suites or quiet captures — the quiet guard here also keeps the panel
@@ -57,15 +62,18 @@ static func mount(host: Control) -> void:
 	layer.name = "DebugOverlay"
 	layer.layer = 128                      # above every game chrome layer
 	var col := VBoxContainer.new()
-	col.position = Vector2(12, 64)         # top-left, clear of the notch + HUD
+	# Below the level badge (top EDGE_MARGIN + safe_top, 72 tall) so it never overlaps.
+	col.position = Vector2(12, 96 + Look.safe_top(host))
 	col.add_theme_constant_override("separation", 4)
 	layer.add_child(col)
 
 	var menu := VBoxContainer.new()
-	menu.visible = false
+	menu.visible = _menu_open               # reopen after an action's scene reload
 	menu.add_theme_constant_override("separation", 4)
 	var toggle := _dbg_button("DEBUG", Color("#C0392B"))
-	toggle.pressed.connect(func() -> void: menu.visible = not menu.visible)
+	toggle.pressed.connect(func() -> void:
+		_menu_open = not _menu_open
+		menu.visible = _menu_open)
 	col.add_child(toggle)
 	col.add_child(menu)
 

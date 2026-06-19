@@ -23,12 +23,12 @@ static func gate_pending(z: int, unlocks: Dictionary, gates: Array) -> bool:
 	return G.map_spots_done(z, unlocks) and not gates.has(z)
 
 # The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
-static func meter_target(z: int, banked_stars: int, unlocks: Dictionary, level: int) -> int:
-	return G.active_giver_count(banked_stars, G.map_cheapest_spot(z, unlocks, level))
+static func meter_target(z: int, banked_stars: int, unlocks: Dictionary) -> int:
+	return G.active_giver_count(banked_stars, G.map_cheapest_spot(z, unlocks))
 
-# The restore CTA: ready once the CURRENT map's cheapest level-affordable spot is affordable.
-static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary, level: int) -> bool:
-	var cost := G.map_cheapest_spot(z, unlocks, level)
+# The restore CTA: ready once the CURRENT map's cheapest spot is affordable.
+static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
+	var cost := G.map_cheapest_spot(z, unlocks)
 	return cost > 0 and banked_stars >= cost
 
 # §6: the current map's generator-grant hand-ins not yet claimed — each asks for a previous-map
@@ -59,7 +59,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	# `level` also gates a not-yet-grown generator's lines out (a delayed second generator's lines
 	# stay un-askable until it appears, so the fence never asks for what nothing can produce).
 	var lines := G.askable_lines(G.GENERATORS, z, level)
-	var target := meter_target(z, banked_stars, unlocks, level)
+	var target := meter_target(z, banked_stars, unlocks)
 	# §6/§7: a new map opens with a generator-grant hand-in, and extra grants surface ONE AT A
 	# TIME (spread through the map, not all upfront) — the regular generated stream fills the slots
 	# between. The lead grant always shows while pending (it is how the new line arrives — it leads

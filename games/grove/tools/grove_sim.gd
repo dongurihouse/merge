@@ -347,7 +347,7 @@ func _next_premium_welcome() -> Dictionary:
 	return {}
 
 # Cheapest unowned, level-affordable spot in `z`: [cost, id]; [-1,""] all owned; [-2,""] all level-locked.
-func _map_next_spot(z: int, lvl: int) -> Array:
+func _map_next_spot(z: int) -> Array:
 	var cheapest := 99
 	var cid := ""
 	var missing := false
@@ -356,19 +356,15 @@ func _map_next_spot(z: int, lvl: int) -> Array:
 		if unlocks.has(String(sp.id)):
 			continue
 		missing = true
-		if G.spot_level_req(z, k) > lvl:
-			continue
 		if int(sp.cost) < cheapest:
 			cheapest = int(sp.cost)
 			cid = String(sp.id)
 	if not missing:
 		return [-1, ""]
-	if cid == "":
-		return [-2, ""]
 	return [cheapest, cid]
 
 func _map_all_bought(z: int) -> bool:
-	return _map_next_spot(z, 9999)[0] == -1
+	return _map_next_spot(z)[0] == -1
 
 func _gate_pending() -> bool:
 	return map < G.MAPS.size() and _map_all_bought(map) and not gates_done.has(map)
@@ -384,7 +380,7 @@ func _refill_quests() -> void:
 			live_quests = [G.gate_quest(G.GENERATORS, map, rng)]
 		return
 	live_quests = live_quests.filter(func(q): return not bool(q.get("gate", false)))
-	var want := G.active_giver_count(stars, _map_next_spot(map, _level())[0])
+	var want := G.active_giver_count(stars, _map_next_spot(map)[0])
 	while live_quests.size() < want:
 		# mirror quests.gd refill: steer each new single-ask stand off the lines already on the
 		# fence so the sim validates the real anti-monotony line-diversity behaviour.
@@ -513,7 +509,7 @@ func _play_session() -> Dictionary:
 
 		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied)
 		if map < G.MAPS.size() and not _gate_pending():
-			var ns := _map_next_spot(map, _level())
+			var ns := _map_next_spot(map)
 			if int(ns[0]) > 0 and stars >= int(ns[0]):
 				stars -= int(ns[0])
 				unlocks[String(ns[1])] = true

@@ -118,7 +118,6 @@ func _initialize() -> void:
 
 	# --- the soft gate (gate_pause): active giver count metered to the next unlock (§7) ---
 	ok(G.active_giver_count(0, -1) == 0, "no active givers when every spot is owned (next_cost -1)")
-	ok(G.active_giver_count(0, -2) == int(G.MAX_GIVERS), "the whole frontier level-locked → full fence (pump ★ to level up)")
 	ok(G.active_giver_count(10, 5) == 0, "the fence empties once the next unlock is affordable (banked ≥ cost)")
 	ok(G.active_giver_count(0, 100) == int(G.MAX_GIVERS), "a far-off unlock caps the fence at MAX_GIVERS")
 	ok(G.active_giver_count(3, 4) == 1, "one ★ short → a single giver (ceil(1 / stars-per-quest))")

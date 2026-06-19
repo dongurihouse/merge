@@ -252,19 +252,16 @@ static var MAPS: Array = _build_maps()
 
 static func _build_maps() -> Array:
 	var maps: Array = [
-	# Map 1 — the home hub. pos + fsize + `art` (the cutout image) are the hub layout. The pos/fsize come
-	# from assets/map1v2/items_layout.json (produced by the intake pipeline, games/tools/process_map1v2.py)
-	# and are MERGED in at load by _merge_map1_placements via the `art` binding (the cutout's basename is
-	# the JSON key). The values below are gameplay (id/cost/kind) + the `art` binding + FALLBACK pos/fsize
-	# (used only when the JSON has no entry). No bake step — the game reads the layout file directly.
+	# Map 1 — the home hub. Each spot carries gameplay (id/cost/kind), its `art` cutout
+	# (assets/map1v2/items/<name>.png), and the `pos` (center fraction) + `fsize` (footprint px) that place
+	# that cutout on the map. Authored directly in this literal — no external layout file, no merge step.
 	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
 		"full": "res://games/grove/assets/map1v2/base_full.png",      # reference image, toggleable for testing
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home).
 		"home": {"clean": "res://games/grove/assets/farm/farm.png", "broken": "res://games/grove/assets/farm/farm_brokenv2.png", "data": "res://games/grove/assets/farm/farm_home.json"},
 		"spots": [
-		# `art` points each spot at its map1v2 item cutout; pos/fsize are AUTO-DERIVED from base_items
-		# (assets/map1v2/items_layout.json, merged at load by item name = the art's basename).
+		# `art` points each spot at its map1v2 item cutout; pos/fsize position that cutout on the map.
 		{"id": "fh_hearth", "name": "Hearth", "kind": "yield", "cost": 3, "pos": Vector2(0.4194, 0.4265), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/cottage.png"},
 		{"id": "fh_kitchen", "name": "Kitchen garden", "kind": "yield", "cost": 3, "pos": Vector2(0.5481, 0.7379), "fsize": 808, "art": "res://games/grove/assets/map1v2/items/garden.png"},
 		{"id": "fh_well", "name": "Well", "kind": "yield", "cost": 3, "pos": Vector2(0.1574, 0.8778), "fsize": 370, "art": "res://games/grove/assets/map1v2/items/well.png"},
@@ -314,42 +311,7 @@ static func _build_maps() -> Array:
 		{"id": "md_arch", "name": "Rose arch", "cost": 5, "pos": Vector2(0.45, 0.85)},
 	]},
 	]
-	_merge_map1_placements(maps)
 	return maps
-
-
-# Merge the saved hub layout (assets/map1v2/items_layout.json, produced by games/tools/process_map1v2.py)
-# into the hub map's spots: each spot whose `art` cutout has an entry takes that entry's `pos` (center
-# fraction) and `fsize` (footprint px, in design-canvas units). Both come straight from the JSON — NO
-# texture loads here, so boot stays cheap. Read via res:// so it works the same in the editor and in an
-# exported build — the .json must be in the export preset's include_filter to ship. No file / no entry →
-# the literal's fallback pos/fsize stay.
-static func _merge_map1_placements(maps: Array) -> void:
-	var f := FileAccess.open("res://games/grove/assets/map1v2/items_layout.json", FileAccess.READ)
-	if f == null:
-		return
-	var data = JSON.parse_string(f.get_as_text())
-	f.close()
-	if typeof(data) != TYPE_DICTIONARY or not data.has("items"):
-		return
-	var place := {}
-	for rec in data["items"]:
-		var nm := String(rec.get("item", ""))
-		if nm != "":
-			place[nm] = rec
-	for m in maps:
-		if not bool(m.get("hub", false)):
-			continue
-		for spot in m["spots"]:
-			if not spot.has("art"):
-				continue
-			var cut := String(spot["art"]).get_file().get_basename()
-			if not place.has(cut):
-				continue
-			var rec: Dictionary = place[cut]
-			var ps = rec.get("pos", [0.5, 0.5])
-			spot["pos"] = Vector2(float(ps[0]), float(ps[1]))
-			spot["fsize"] = int(rec.get("fsize", spot.get("fsize", 240)))
 
 
 const LEVEL_WATER_GIFT := 20
