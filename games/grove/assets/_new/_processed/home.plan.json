@@ -1,0 +1,20 @@
+{
+  "source": "_new/home_asset.png",
+  "category": "sheet",
+  "params": { "val_min": 0.9, "sat_max": 0.1, "min_area": 600, "pad": 3 },
+  "outputs": [
+    { "island": 29, "name": "icon_star",   "path": "ui/shared/icon_star.png" },
+    { "island": 23, "name": "icon_coin",   "path": "ui/currency/icon_coin.png" },
+    { "island": 30, "name": "icon_gem",    "path": "ui/currency/icon_gem.png" },
+    { "island": 24, "name": "icon_gift",   "path": "ui/shared/icon_gift.png" },
+    { "island": 37, "name": "icon_faucet", "path": "ui/shared/icon_faucet.png" },
+    { "island": 38, "name": "icon_mail",   "path": "ui/shared/icon_mail.png" },
+    { "island": 47, "name": "icon_piggy",  "path": "ui/shared/icon_piggy.png" },
+    { "island": 39, "name": "icon_plus",   "path": "ui/shared/icon_plus.png" },
+    { "island": 40, "name": "icon_lock",   "path": "ui/shared/icon_lock.png" },
+    { "island": 52, "name": "icon_sprout", "path": "ui/shared/icon_sprout.png" },
+    { "island": 53, "name": "icon_daisy",  "path": "ui/shared/icon_daisy.png" },
+    { "island": 4,  "name": "disc_round",  "path": "ui/shared/disc_round.png" }
+  ],
+  "archive": "_originals/ui/home_asset.png"
+}
