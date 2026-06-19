@@ -46,6 +46,7 @@ const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water of
 const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
 const FENCE_H := 196.0           # the quest fence band above the grid (horizontal cards)
+const DIVIDER_H := 54.0          # the wood-branch divider band between the fence and the grid
 const STAND_W := 270.0           # one giver card's width — ~4 fit across like the reference (row scrolls beyond)
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -199,7 +200,9 @@ func _ready() -> void:
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the
 	# frame + last column never run off-screen (the prior calc sized only the cells → overflow).
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
-	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	# +DIVIDER_H (+ one VBox gap) reserves the branch divider's band so the grid+frame still
+	# clear the bottom nav (the divider now sits between the fence and the grid).
+	var h_csz := (view.y - 520.0 - (DIVIDER_H + 10.0) - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	csz = minf(w_csz, h_csz)
 	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
 	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
@@ -207,6 +210,13 @@ func _ready() -> void:
 	board_area.custom_minimum_size = Vector2(_board_w(), _board_h())
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
+
+	# the wood-branch divider between the quest fence and the board grid (the "transition" from
+	# quests to the board). Sits in the stack right above the grid; null when the art is absent.
+	var divider := _make_branch_divider()
+	if divider != null:
+		root.add_child(divider)
+		root.move_child(divider, center.get_index())   # slot it just ABOVE the grid (below the fence)
 
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
@@ -999,18 +1009,17 @@ func _rebuild_pieces() -> void:
 func _make_piece(code: int, size: float) -> Control:
 	return PieceView.make_piece(code, size)
 
-# The garden bed under the grid — the bamboo grid FRAME (`ui/board/panel_grid.png`) as a
+# The garden bed under the grid — the wood-plank grid FRAME (`ui/board/panel_grid.png`) as a
 # nine-patch, sized to the 7×9 grid, with a flat parchment field behind the cells so the
-# gutters read cream. The art is pre-processed (interior cleared to transparent — see
-# games/grove/tools/process_grid_frame.py) so ONLY the bamboo ring + its corner leaf clusters
-# are opaque. The nine-patch margin is sized to hold those corner clusters rigid; only the
-# plain bamboo poles between corners stretch. Falls back to the code-drawn planter when absent.
-const FRAME_OUT := 56.0      # how far the bamboo frame extends OUTSIDE the cell grid
-const FRAME_MARGIN := 72.0   # nine-patch corner size — large enough to keep the corner leaf clusters un-stretched
-const FIELD_INSET := 14.0    # cream field tucks this far under the bamboo poles — out past even the THIN
-                             # top pole's inner edge, so no backdrop shows in the gutter
-const FIELD_RADIUS := 44     # field corner radius — rounds with the board so cream stays under the bamboo joints
-const FIELD_CREAM := Color("#FADBA7")   # sampled parchment — the gutter colour behind cells
+# gutters read cream. The frame art is composited from the kit's corner + plank parts into one
+# 306px ring with a transparent center (games/grove/tools/build_board_frame.py), so ONLY the
+# wood ring + its corner leaf clusters are opaque. The nine-patch margin (108) holds those
+# corner clusters rigid; only the plain planks between corners stretch. Code-drawn planter fallback.
+const FRAME_OUT := 60.0      # how far the wood frame extends OUTSIDE the cell grid
+const FRAME_MARGIN := 108.0  # nine-patch corner size — matches the composited frame's 108px corners
+const FIELD_INSET := 16.0    # cream field tucks this far under the planks so no backdrop shows in the gutter
+const FIELD_RADIUS := 44     # field corner radius — rounds with the board so cream stays under the wood joints
+const FIELD_CREAM := Color("#FEE2B1")   # sampled new parchment — the gutter colour behind cells
 
 # The cream parchment bed the cells sit on — the BOTTOM layer of the board. The bamboo ring is a
 # separate node (_make_board_frame) drawn ABOVE the cells. Falls back to the code-drawn planter
@@ -1060,6 +1069,22 @@ func _make_board_frame() -> Control:
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return frame
 
+# The wood-branch divider between the quest fence and the board grid — the "transition" from
+# quests to the board. A NinePatchRect: the leafy cut ends stay fixed while the middle log
+# stretches to the board width. Null when the art is absent (the stack just omits it).
+func _make_branch_divider() -> Control:
+	var p := Look.kit("board/branch_divider.png")
+	if not ResourceLoader.exists(p):
+		return null
+	var np := NinePatchRect.new()
+	np.texture = load(p)
+	np.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, DIVIDER_H)
+	np.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	np.patch_margin_left = 80
+	np.patch_margin_right = 80
+	np.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return np
+
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
 # (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
@@ -1089,57 +1114,49 @@ static func _slot_style() -> StyleBox:
 # Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
 # An expanding gap between two nav buttons — the full-width row distributes its leftover
 # space equally across these so the 5 buttons spread evenly edge to edge.
-# A board-matching drop well for the bottom nav (Bag + Merchant): empty by default,
-# using the same slot tile language as board cells so it reads as a droppable target.
-func _tray_well(px: float) -> Button:
+# A round painted button for the bottom nav (Bag + Merchant): hosts the round wood `nav/<art>`
+# sprite (matching board.png), with the stash/sell preview riding on top. A drop is resolved by
+# global-rect in _on_release, so a round button is as good a target as the old square well. Falls
+# back to the slot-tile well when the sprite is absent.
+func _tray_well(px: float, art: String = "") -> Button:
 	var b := Button.new()
 	b.flat = true
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var bg := Panel.new()
-	bg.add_theme_stylebox_override("panel", _slot_style())
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(bg)
-	Look.add_press_juice(b)
-	return b
-
-# A small painted kit icon pinned to a tray well's lower-right corner (the bag/cart badge naming it).
-func _corner_badge(kit_name: String, px: float) -> Control:
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(px, px)
-	holder.size = Vector2(px, px)
-	holder.anchor_left = 1.0; holder.anchor_top = 1.0; holder.anchor_right = 1.0; holder.anchor_bottom = 1.0
-	holder.offset_left = -px + 6.0; holder.offset_top = -px + 6.0; holder.offset_right = 6.0; holder.offset_bottom = 6.0
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var p := Look.kit(kit_name)
-	if ResourceLoader.exists(p):
+	var p := Look.kit("nav/" + art) if art != "" else ""
+	if art != "" and ResourceLoader.exists(p):
 		var t := TextureRect.new()
 		t.texture = load(p)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
-	return holder
+		b.add_child(t)
+	else:
+		var bg := Panel.new()
+		bg.add_theme_stylebox_override("panel", _slot_style())
+		bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(bg)
+	Look.add_press_juice(b)
+	return b
 
 # The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
-	var b := _tray_well(px)
-	bag_content = CenterContainer.new()       # CENTERS the preview at its natural size (never stretches it)
+	var b := _tray_well(px, "nav_bag.png")     # the round satchel button IS the bag icon
+	bag_content = CenterContainer.new()        # CENTERS the most-recent stashed item over the satchel
 	bag_content.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var pad := px * 0.20
+	var pad := px * 0.30
 	bag_content.offset_left = pad
 	bag_content.offset_top = pad
 	bag_content.offset_right = -pad
 	bag_content.offset_bottom = -pad
 	bag_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bag_piece_px = px * 0.52                   # the preview fits inside the inset content box
+	bag_piece_px = px * 0.40                    # small preview that rides on the satchel body
 	b.add_child(bag_content)
-	b.add_child(_corner_badge("nav_bag.png", px * 0.46))
 	b.pressed.connect(_open_bag_overlay)
 	return b
 
@@ -1147,7 +1164,7 @@ func _make_bag_button(px: float) -> Button:
 # While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);
 # a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
 func _make_merchant_button(px: float) -> Button:
-	var b := _tray_well(px)
+	var b := _tray_well(px, "nav_merchant.png")   # the round coin-sack button IS the merchant icon
 	merchant_rest = null
 	merchant_pay = HBoxContainer.new()
 	merchant_pay.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1167,7 +1184,6 @@ func _make_merchant_button(px: float) -> Button:
 	merchant_pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	merchant_pay.add_child(merchant_pay_icon)
 	b.add_child(merchant_pay)
-	b.add_child(_corner_badge("shared/icon_cart.png", px * 0.40))
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), tr("drag a spare here to sell"), CREAM, 26))

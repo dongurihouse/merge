@@ -40,21 +40,23 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
-	# A HORIZONTAL quest card (reference layout): the character PORTRAIT on the left, the
-	# requested item LARGE in the speech bubble on the right. The painted `card_quest.png`
-	# IS the card (its bubble sits upper-right); a flat parchment card is the fallback.
-	var cardW := sw - 14.0
-	var cardH := minf(fh - 24.0, cardW * 0.60)
+	# A framed quest card (board.png reskin): a round PORTRAIT in the left oval socket, the
+	# requested item in the top-right panel, the +N reward in the bottom-right pill. The painted
+	# `card_quest.png` (354×285 ≈ 1.24:1) IS the card; a flat parchment card is the fallback.
+	var artR := 354.0 / 285.0
+	var availW := sw - 14.0
+	var cardH := minf(fh - 24.0, availW / artR)   # height-bound by the fence band; width from the ratio so the art never stretches
+	var cardW := cardH * artR
 	var cx := (sw - cardW) / 2.0
 	var cy := (fh - cardH) / 2.0
 	var card := _quest_card(cardW, cardH)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
-	# the character portrait — left ~40% of the card, vertically centered
-	var bsz := cardH * 0.82
-	var bust := Bust.make(qi % 2, bsz)
-	bust.position = Vector2(cx + cardW * 0.04, cy + (cardH - bsz) / 2.0)
+	# the character portrait — a round framed disc seated in the card's LEFT oval socket
+	var bsz := cardH * 0.60
+	var bust := Bust.make(qi % 3, bsz)
+	bust.position = Vector2(cx + cardW * 0.295 - bsz / 2.0, cy + cardH * 0.49 - bsz / 2.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
 	bust.tree_entered.connect(func() -> void:
@@ -63,11 +65,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# the requested item — large, inside the speech bubble (right portion of the card)
 	var it: Dictionary = G.quest_item(q)
 	var item_ui: Dictionary = {}
-	# the painted bubble sits in the card's RIGHT third (centre ~0.82w, 0.41h of card_quest.png);
-	# the item is centred on it so it reads as "spoken" from the bubble, not floating mid-card.
-	var bub := Vector2(cx + cardW * 0.82, cy + cardH * 0.41)   # bubble centre (matches the art)
+	# the painted item panel sits in the card's TOP-RIGHT (centre ~0.685w, 0.34h of card_quest.png);
+	# the item is centred on it so it reads as seated in the panel, not floating mid-card.
+	var bub := Vector2(cx + cardW * 0.685, cy + cardH * 0.34)   # item-panel centre (matches the art)
 	if not it.is_empty():
-		var isz := cardH * 0.46
+		var isz := cardH * 0.44
 		var acode := int(it.line) * 100 + int(it.tier)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
@@ -101,20 +103,23 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			gicon.size = Vector2(gs, gs)
 			gicon.position = Vector2(bub.x + cardH * 0.18, bub.y + cardH * 0.10)
 			stand.add_child(gicon)
-	# the +N★ reward — a small bare star + count, tucked in the card's TOP-RIGHT corner
+	# the +N reward — a small flower/star + count, centred in the card's BOTTOM-RIGHT pill
 	var pay := HBoxContainer.new()
-	pay.add_theme_constant_override("separation", 1)
+	pay.add_theme_constant_override("separation", 2)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pay.add_child(Look.icon("star", 26.0))
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.stars(q)
-	pay_lbl.add_theme_font_size_override("font_size", 22)
-	pay_lbl.add_theme_color_override("font_color", STRAW)
-	pay_lbl.add_theme_color_override("font_outline_color", Color("#33402F"))
-	pay_lbl.add_theme_constant_override("outline_size", 5)
+	pay_lbl.add_theme_font_size_override("font_size", 24)
+	pay_lbl.add_theme_color_override("font_color", Color("#4E7C46"))   # leaf-green count (matches the painted pill)
+	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
-	pay.position = Vector2(cx + cardW - 78.0, cy + 6.0)
+	# centre the pair on the painted pill (~0.715w, 0.79h); resized() recenters once it has a width
+	var place_pay := func() -> void:
+		pay.position = Vector2(cx + cardW * 0.715 - pay.size.x / 2.0, cy + cardH * 0.79 - pay.size.y / 2.0)
+	pay.resized.connect(place_pay)
+	place_pay.call_deferred()
 	stand.add_child(pay)
 	# §7 FEATURED is intentionally NOT surfaced on the board: quests aren't skippable, so a
 	# "this one's special" highlight (or a +N💎 shoulder) is noise the player can't act on. The
