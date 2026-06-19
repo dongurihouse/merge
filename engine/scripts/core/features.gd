@@ -37,7 +37,7 @@ static var FLAGS := {
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
 	# ftue
-	"ftue_free_pops": true,       # first 10 pops cost no water
+	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
 	"ftue_staged_chrome": true,   # merchant ch1+, bag ch2+ (the water meter is always shown now)
 	"ftue_feature_spotlight": true,  # T28: a feature's FIRST appearance → spotlight + pulse + a mimed tap/drag guide (§14)
 	"daily_login_popup": true,    # T45: the day's first hub open auto-shows the login calendar once (§18 — after a rewarding moment, skips the cold first FTUE session)
