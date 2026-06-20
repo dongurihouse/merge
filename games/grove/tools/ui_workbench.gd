@@ -22,9 +22,9 @@ func _initialize() -> void:
 	# a fixed 1040 that wasted vertical space. In the quiet/screenshot path screen_get_size() is (0,0), so
 	# we keep the deterministic 1760×1040 capture size.
 	var screen := DisplayServer.screen_get_size()
-	var win := Vector2i(1760, 1040)
+	var win := Vector2i(1980, 1040)         # wide enough for BOTH columns (building blocks + the dialogs) side by side
 	if screen.x > 0 and screen.y > 0:
-		win.x = mini(1760, screen.x - 80)
+		win.x = mini(1980, screen.x - 80)
 		win.y = clampi(screen.y - 130, 760, 1400)
 	DisplayServer.window_set_size(win)
 	DisplayServer.window_set_position((screen - win) / 2)
