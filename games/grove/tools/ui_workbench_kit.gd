@@ -385,6 +385,69 @@ static func _clean_image(src: Image, max_dim: int) -> Image:
 	_feather_alpha(img, 2.0)
 	return img
 
+## --- async (worker-thread) polish -----------------------------------------------------------------
+## The defringe / feather / drop-shadow / Lanczos work is pure Image math (no scene-tree access), so it
+## runs on a WorkerThreadPool thread — the workbench's polish sliders (icon / badge) stay responsive
+## while a tweaked value bakes off the main thread. The caller loads the RAW source Image on the main
+## thread (ResourceLoader isn't threaded here) and passes it in; results are cached by key.
+## Texture creation (ImageTexture.create_from_image) stays on the main thread, in _async_poll.
+static var _async_cache: Dictionary = {}    # key -> finished Texture2D
+static var _async_tasks: Dictionary = {}    # key -> {task:int, holder:{img:Image}}
+
+## Polished texture for `key`: cached -> return it; first call with a source -> dispatch the polish to a
+## worker and return null (not ready). `aspect`=true keeps proportions (shell), false squares it (icon).
+static func polish_async(key: String, src: Image, opts: Dictionary, aspect := false) -> Texture2D:
+	if _async_cache.has(key):
+		return _async_cache[key]
+	if src == null:
+		return null
+	if not _async_tasks.has(key):
+		var holder := {"img": null}
+		var o: Dictionary = opts.duplicate()
+		var feed: Image = src.duplicate()   # the worker owns its copy (aspect polish resizes in place)
+		var task := WorkerThreadPool.add_task(func() -> void:
+			holder["img"] = (_polish_icon_aspect(feed, o) if aspect else polish_image(feed, o)))
+		_async_tasks[key] = {"task": task, "holder": holder}
+	return _async_poll(key)
+
+## Promote one finished task into the cache (main thread — creates the texture). Returns it or null.
+static func _async_poll(key: String) -> Texture2D:
+	if _async_cache.has(key):
+		return _async_cache[key]
+	var t = _async_tasks.get(key)
+	if t == null or not WorkerThreadPool.is_task_completed(int(t["task"])):
+		return null
+	WorkerThreadPool.wait_for_task_completion(int(t["task"]))
+	_async_tasks.erase(key)
+	var img = (t["holder"] as Dictionary)["img"]
+	if img is Image:
+		var tex := ImageTexture.create_from_image(img)
+		_async_cache[key] = tex
+		return tex
+	return null
+
+## Drain every finished task into the cache; returns how many are still running. Call each frame while
+## awaiting (a completed task that nobody polls would never leave _async_tasks).
+static func pump_polish() -> int:
+	for k in _async_tasks.keys():
+		_async_poll(k)
+	return _async_tasks.size()
+
+static func polish_pending() -> int:
+	return _async_tasks.size()
+
+## The finished polished texture for `key`, or null if not cached yet — a cheap peek so a caller can skip
+## loading the source image on a cache hit.
+static func polished_cached(key: String) -> Texture2D:
+	return _async_cache.get(key)
+
+## Test/teardown — wait out in-flight tasks, then drop the cache.
+static func clear_async_cache() -> void:
+	for k in _async_tasks.keys():
+		WorkerThreadPool.wait_for_task_completion(int(_async_tasks[k]["task"]))
+	_async_tasks.clear()
+	_async_cache.clear()
+
 ## (cost_pill was ABANDONED — a reward pill is just the SHARED pill_button in its cream/static variant,
 ## built inline in reward_chip below. There is no separate cost-pill component; one button drives all.)
 

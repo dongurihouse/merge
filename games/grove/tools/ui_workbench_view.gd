@@ -11,6 +11,7 @@ extends Control
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
@@ -173,9 +174,8 @@ var _columns: Array = []          # one content VBox per gallery column (each in
 var _sidebar_body: VBoxContainer = null
 var _sections: Dictionary = {}    # id -> the element's gallery section (PanelContainer), for in-place rebuilds
 var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
-
-# polished-icon textures, cached by their opts so an unrelated rebuild doesn't re-run the (slow) polish
-var _icon_cache: Dictionary = {}
+var _awaiting: Dictionary = {}    # id -> true: elements showing a raw placeholder until a worker polish lands
+var _building := ""               # the id whose section is mid-build (so the polish previews know who to await)
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -445,10 +445,8 @@ func _icon_preview(label: String, opts: Dictionary) -> Control:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	opts["size"] = 160
-	var key := "%s|%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1), opts.get("shadow", false)]
-	if not _icon_cache.has(key):
-		_icon_cache[key] = Kit.polish_icon_tex("gem", opts)
-	tr.texture = _icon_cache[key]
+	var key := "icon|%s|%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1), opts.get("shadow", false)]
+	_set_polished(tr, key, Game.art("ui/currency/icon_gem.png"), opts, false)
 	v.add_child(tr)
 	return v
 
@@ -466,9 +464,45 @@ func _badge_preview(label: String, polish: Dictionary) -> Control:
 	tr.custom_minimum_size = Vector2(170, 170)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
+	# the untouched "Raw" shell is an instant plain load; the "Polished" one bakes on a worker thread
+	var defr := bool(polish.get("defringe", false))
+	var feat := float(polish.get("feather", 0.0))
+	var shad := bool(polish.get("shadow", false))
+	if not defr and feat <= 0.0 and not shad:
+		tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
+	else:
+		var key := "badge|%s|%s|%s" % [defr, feat, shad]
+		_set_polished(tr, key, Look.kit(Kit.HOME_SHELL), polish, true)
 	v.add_child(tr)
 	return v
+
+## Drive a preview TextureRect from the worker-thread polish cache: show the finished texture if it's
+## ready, else show the RAW sprite now and mark this element awaiting — the pump rebuilds it (picking up
+## the cached polish) once the worker lands. Keeps the polish sliders responsive (no per-tick main-thread bake).
+func _set_polished(tr: TextureRect, key: String, path: String, opts: Dictionary, aspect: bool) -> void:
+	var tex := Kit.polished_cached(key)            # cheap peek — skip the source decode on a cache hit
+	if tex != null:
+		tr.texture = tex
+		return
+	var src := _src_image(path)
+	if src == null:
+		tr.texture = null                          # art absent: nothing to bake, and DON'T await (no rebuild loop)
+		return
+	tex = Kit.polish_async(key, src, opts, aspect)
+	if tex != null:
+		tr.texture = tex
+	else:
+		tr.texture = load(path)                    # raw placeholder while the worker bakes
+		if _building != "":
+			_awaiting[_building] = true
+			set_process(true)
+
+## Load a sprite's RAW Image on the MAIN thread (ResourceLoader isn't threaded here), null-tolerant.
+func _src_image(path: String) -> Image:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var t := load(path) as Texture2D
+	return t.get_image() if t != null else null
 
 ## The shared Button's params as a kit opts dict. The card + dialog Claim are built ENTIRELY from
 ## this (no styling of their own), so editing the Button item updates every Claim automatically.
@@ -553,7 +587,9 @@ func _section(id: String) -> Control:
 	var holder := CenterContainer.new()
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_building = id                          # so the polish previews know which element to mark awaiting
 	var el := _make_element(id)
+	_building = ""
 	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
@@ -574,15 +610,21 @@ func _mark_dirty(ids: Array) -> void:
 	if not _dirty.is_empty():
 		set_process(true)
 
-# Drain the dirty queue ONE element per frame, so the screen keeps repainting between linked rebuilds
-# (a dialog rebuild is heavy) instead of freezing through all of them in a single synchronous burst.
+# Drain the dirty queue ONE element per frame (so the screen keeps repainting between heavy linked
+# rebuilds instead of freezing through all of them), then settle elements waiting on a worker polish:
+# once their off-thread bake lands, rebuild them so the raw placeholder swaps to the polished texture.
 func _process(_delta: float) -> void:
-	if _dirty.is_empty():
+	if not _dirty.is_empty():
+		var id: String = String(_dirty.keys()[0])
+		_dirty.erase(id)
+		_rebuild_element(id)
+	elif not _awaiting.is_empty() and Kit.pump_polish() == 0:
+		var ids: Array = _awaiting.keys()
+		_awaiting.clear()
+		for id in ids:
+			_rebuild_element(id)
+	if _dirty.is_empty() and _awaiting.is_empty():
 		set_process(false)
-		return
-	var id: String = String(_dirty.keys()[0])
-	_dirty.erase(id)
-	_rebuild_element(id)
 
 ## Rebuild a single element's section in place (swap the node at its position in the row), leaving every
 ## OTHER section untouched. No-op if the gallery hasn't been built yet (the initial _rebuild_gallery does).
