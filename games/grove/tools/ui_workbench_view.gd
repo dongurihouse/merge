@@ -25,6 +25,20 @@ const COLUMNS := [
 	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
+# Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
+# opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
+# cards flow into the dialogs; the Badge's polish flows into the Home button. Editing anything else
+# (a dialog's own width, the icon sandbox, the pill, …) touches only itself. Used to rebuild just the
+# edited element + its dependents instead of the whole gallery.
+const DEPENDENTS := {
+	"button": ["card", "dialog", "daily", "shop", "settings"],
+	"card": ["dialog", "daily", "shop", "settings"],
+	"frame": ["dialog", "daily", "shop", "settings"],
+	"daily_card": ["daily", "shop"],
+	"toggle_card": ["settings"],
+	"tiers_card": ["tiers"],
+	"badge": ["home_button"],
+}
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
@@ -157,6 +171,8 @@ var _params := {
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
 var _sidebar_body: VBoxContainer = null
+var _sections: Dictionary = {}    # id -> the element's gallery section (PanelContainer), for in-place rebuilds
+var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
 
 # polished-icon textures, cached by their opts so an unrelated rebuild doesn't re-run the (slow) polish
 var _icon_cache: Dictionary = {}
@@ -541,7 +557,47 @@ func _section(id: String) -> Control:
 	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
+	_sections[id] = sec
 	return sec
+
+## Apply an edit to the SELECTED element: rebuild it NOW (live feedback on the control you're dragging),
+## then queue its dependents to rebuild one-per-frame (post-change, so the sliders never freeze). The
+## queue is a Set, so a fast drag that fires many times just re-marks the same ids — no rebuild backlog.
+func _apply_edit() -> void:
+	_rebuild_element(_selected)
+	_mark_dirty(DEPENDENTS.get(_selected, []))
+
+## Queue ids to rebuild on the staggered pump (see _process). Coalesced via the _dirty Set.
+func _mark_dirty(ids: Array) -> void:
+	for id in ids:
+		_dirty[id] = true
+	if not _dirty.is_empty():
+		set_process(true)
+
+# Drain the dirty queue ONE element per frame, so the screen keeps repainting between linked rebuilds
+# (a dialog rebuild is heavy) instead of freezing through all of them in a single synchronous burst.
+func _process(_delta: float) -> void:
+	if _dirty.is_empty():
+		set_process(false)
+		return
+	var id: String = String(_dirty.keys()[0])
+	_dirty.erase(id)
+	_rebuild_element(id)
+
+## Rebuild a single element's section in place (swap the node at its position in the row), leaving every
+## OTHER section untouched. No-op if the gallery hasn't been built yet (the initial _rebuild_gallery does).
+func _rebuild_element(id: String) -> void:
+	var old: Node = _sections.get(id)
+	if old == null or not is_instance_valid(old):
+		return
+	var parent := (old as Control).get_parent()
+	if parent == null:
+		return
+	var idx := (old as Control).get_index()
+	var fresh := _section(id)          # also re-registers _sections[id] = fresh
+	parent.add_child(fresh)
+	parent.move_child(fresh, idx)
+	old.queue_free()
 
 ## Make EVERYTHING in the section mouse-transparent, so a click ANYWHERE — even on top of the component
 ## itself (a card, a button, the banner) — falls through to the section and selects it. The ONE
@@ -598,7 +654,9 @@ func _input(ev: InputEvent) -> void:
 		_drag_kind = ""
 		_drag_node = null
 		_rebuild_sidebar()      # reflect the dragged position in the sliders (and clamp it)
-		_rebuild_gallery()      # re-apply the (possibly clamped) params consistently
+		# the dragged handles are FRAME config (shared) — rebuild the frame + every dialog that reuses it
+		_rebuild_element("frame")
+		_mark_dirty(DEPENDENTS["frame"])
 
 func _snap_vec(v: Vector2) -> Vector2:
 	var g: float = float(int(_params["frame"]["snap"]))
@@ -629,11 +687,14 @@ func _on_section_input(ev: InputEvent, id: String) -> void:
 func select(id: String) -> void:
 	if id == _selected:
 		return
+	var prev := _selected
 	_selected = id
 	# DEFER: select() runs inside a section's gui_input dispatch — rebuilding (freeing the very
 	# section that is mid-emit) here would hit "Object is locked and can't be freed". Defer so the
-	# tree is mutated only after the input dispatch returns.
-	_rebuild_gallery.call_deferred()      # refresh the selection highlight
+	# tree is mutated only after the input dispatch returns. Refresh ONLY the two sections whose
+	# highlight changed (the old + the new selection), not the whole gallery.
+	_rebuild_element.call_deferred(prev)
+	_rebuild_element.call_deferred(id)
 	_rebuild_sidebar.call_deferred()      # swap in this element's options
 
 func _section_style(selected: bool) -> StyleBox:
@@ -985,7 +1046,7 @@ func _slider_row(spec: Array) -> Control:
 	s.value_changed.connect(func(x: float) -> void:
 		params[key] = x
 		val.text = "%d" % int(x)
-		_rebuild_gallery())
+		_apply_edit())
 	return row
 
 func _text_row(label: String, key: String) -> Control:
@@ -1001,7 +1062,7 @@ func _text_row(label: String, key: String) -> Control:
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_changed.connect(func(t: String) -> void:
 		_params[_selected][key] = t
-		_rebuild_gallery())
+		_apply_edit())
 	row.add_child(le)
 	return row
 
@@ -1017,7 +1078,7 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false) -> Contro
 	cb.button_pressed = bool(_params[_selected].get(key, false))
 	cb.toggled.connect(func(on: bool) -> void:
 		_params[_selected][key] = on
-		_rebuild_gallery()
+		_apply_edit()
 		if rebuild_sidebar:
 			_rebuild_sidebar.call_deferred())   # defer — we're inside this toggle's own signal
 	row.add_child(cb)
@@ -1039,7 +1100,7 @@ func _option_row(label: String, key: String, options: Array) -> Control:
 			ob.select(i)
 	ob.item_selected.connect(func(idx: int) -> void:
 		_params[_selected][key] = String(options[idx])
-		_rebuild_gallery())
+		_apply_edit())
 	row.add_child(ob)
 	return row
 
