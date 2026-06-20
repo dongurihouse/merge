@@ -214,6 +214,8 @@ static func _icon_rect(tex: Texture2D, px: float) -> Control:
 ## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
 ## badge tweak flows to the rail + nav automatically. No polish → the raw (already-clean) shell sprite.
 ## `polish` keys: defringe (bool), feather (px), shadow (bool) + the add_drop_shadow knobs.
+static var _shell_cache: Dictionary = {}    # "rel@<polish-json>" -> polished disc texture (per session)
+
 static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var path := Look.kit(rel)
 	if rel == "" or not ResourceLoader.exists(path):
@@ -223,12 +225,22 @@ static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var shad := bool(polish.get("shadow", false))
 	if not defr and feat <= 0.0 and not shad:
 		return load(path)                       # untouched → the raw shell (already cleaned at intake)
+	# The polished disc is IDENTICAL for every button sharing this (rel, polish) — the bottom nav + rail
+	# build 5-8 of them per scene, and a map<->board swap rebuilds the whole row. The polish is a ~190ms
+	# CPU pass (Lanczos resize + defringe + feather), so an uncached call multiplied that by every button
+	# on every navigation (the swap freeze). Memoize it: only the FIRST build pays; the rest reuse the
+	# texture (a Texture2D is meant to be shared). Cleared on a workbench Save (see clear_config_cache).
+	var key := rel + "@" + JSON.stringify(polish)
+	if _shell_cache.has(key):
+		return _shell_cache[key]
 	var img := (load(path) as Texture2D).get_image()
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
 	var o := polish.duplicate()
 	o["defringe"] = defr; o["feather"] = feat; o["shadow"] = shad; o["supersample"] = 1
-	return ImageTexture.create_from_image(_polish_icon_aspect(img, o))
+	var tex := ImageTexture.create_from_image(_polish_icon_aspect(img, o))
+	_shell_cache[key] = tex
+	return tex
 
 ## Aspect-preserving icon polish (vs polish_image, which forces a SQUARE canvas): cap the working
 ## resolution keeping aspect, then defringe / feather / optional drop-shadow. Lets a tall or wide icon
@@ -2427,6 +2439,7 @@ static func load_config(path: String) -> Dictionary:
 ## Drop the cached config so the next load_config re-reads from disk. Pass a path to clear just that
 ## file, or nothing to clear all. The workbench calls this after writing the settings file.
 static func clear_config_cache(path := "") -> void:
+	_shell_cache.clear()   # the polished disc shell derives from the badge config — drop it so a saved edit re-polishes
 	if path == "":
 		_config_cache.clear()
 	else:
@@ -3082,6 +3095,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"use_art":         bool(c.get("use_art", true)),
 		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art horizontal inset (fraction of card WIDTH)
 		"frame_inset_v":   float(c.get("frame_inset_v", 100)) / 1000.0, # locale-art vertical inset (fraction of card HEIGHT) — the wide card needs its own so the art tucks under the top/bottom gold band
+		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
+		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())
 		"art_radius":      float(c.get("art_radius", 58)) / 1000.0,     # art corner radius (fraction of art width)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
 		"pill_min":        float(c.get("pill_min", 170)),
