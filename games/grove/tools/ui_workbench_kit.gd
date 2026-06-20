@@ -52,22 +52,30 @@ const MAP_CARD_ASPECT := 1027.0 / 352.0            # card_active's aspect — ca
 const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
 const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
 const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
-# Rounds the locale art's 4 corners so they nest inside the gold frame's rounded interior (the frame is
-# alpha-0 in its corners, so a square art corner would show as a nub). UV-space rounded-rect alpha mask;
-# `rx` is the corner radius in UV.x, `aspect` the art rect's width/height (so corners stay circular).
+# Draws the locale art COVER-fitted to fill the card, masked to the gold frame's EXACT silhouette so it
+# never leaks past the rounded corners. The mask (`_map_silhouette_tex`) is the frame flood-filled from its
+# borders, so the art shows only inside the gold body + the enclosed hole — never in the transparent corner
+# gaps, edge margin, or glow. Runs on a ColorRect whose UV spans the card [0,1], the same space as the
+# frame TextureRect, so the mask lines up 1:1. (The old shader rounded corners with a guessed radius — it
+# could never match the frame's real, sparkle-decorated corner, so the art leaked.) `art` is the locale
+# texture, `tex_px` drives the COVER crop over `rect_px`, `mask` is the frame silhouette.
 const MAP_ART_CLIP_SHADER := "shader_type canvas_item;
-uniform float rx = 0.06;
-uniform float aspect = 3.0;
+uniform sampler2D art : filter_linear;
+uniform sampler2D mask : filter_linear;
+uniform vec2 tex_px = vec2(1.0);
+uniform vec2 rect_px = vec2(1.0);
 void fragment() {
-	vec4 col = texture(TEXTURE, UV);
-	float ry = rx * aspect;
-	float dx = max(rx - min(UV.x, 1.0 - UV.x), 0.0);
-	float dy = max(ry - min(UV.y, 1.0 - UV.y), 0.0);
-	float d = length(vec2(dx, dy / aspect));
-	col.a *= 1.0 - smoothstep(rx - 0.006, rx, d);
+	float cover = max(rect_px.x / tex_px.x, rect_px.y / tex_px.y);
+	vec2 disp = tex_px * cover;                 // art scaled to COVER the card
+	vec2 off = (disp - rect_px) * 0.5;          // centred crop
+	vec2 p = UV * rect_px;                       // pixel position within the card
+	vec4 col = texture(art, (p + off) / disp);   // COVER sample
+	col.a *= texture(mask, UV).a;                // clip to the gold frame's exact silhouette
 	COLOR = col;
 }"
 static var _map_art_clip: Shader
+static var _map_sil_tex: Texture2D = null         # cached gold-frame silhouette mask (flood-filled)
+static var _map_meadow_tex: Texture2D = null      # cached 1x1 MEADOW texture for the art-less fallback
 
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
 # game reads the same map via the saved config. "auto" = the bg-default sprite (green/cream).
@@ -2844,30 +2852,19 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 # so the frame's transparent centre lets the art show and its border frames it; the restore count rides a
 # pill on the lower edge.
 static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	# Per-axis inset. The gold frame is a WIDE card (aspect ~2.9), so a SINGLE inset taken from the
-	# width over-insets the short vertical axis: the art then stops short of the bottom gold band and
-	# the map shows through as empty space. frame_inset insets the width; frame_inset_v insets the
-	# height — each tuned to tuck the art just under its border so the locale art fills the whole window.
-	var inset_x := card_w * float(opts.get("frame_inset", 0.045))
-	var inset_y := card_h * float(opts.get("frame_inset_v", 0.10))
-	var inner := Control.new()
-	inner.position = Vector2(inset_x, inset_y)
-	inner.size = Vector2(card_w - inset_x * 2.0, card_h - inset_y * 2.0)
-	inner.clip_contents = true
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(inner)
+	# The locale art FILLS THE CARD, masked to the gold frame's exact silhouette (see MAP_ART_CLIP_SHADER),
+	# so it nests under the gold border and never leaks past the rounded corners. A ColorRect carries the
+	# COVER-sample + mask shader; its UV spans the card, the same space as the frame, so the mask lines up.
+	var card_size := Vector2(card_w, card_h)
 	var art_path := String(d.get("art", ""))
-	if art_path != "" and ResourceLoader.exists(art_path):
-		var t := TextureRect.new()
-		t.texture = load(art_path)
-		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.material = _map_art_clip_material(inner.size, opts)   # round the art's corners to nest in the gold frame
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		inner.add_child(t)
-	else:
-		inner.add_child(_map_meadow_fill(true, opts))
+	var fill_tex: Texture2D = load(art_path) if art_path != "" and ResourceLoader.exists(art_path) else _map_meadow_texture()
+	var t := ColorRect.new()
+	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	t.material = _map_art_material(fill_tex, card_size)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(t)
+	if fill_tex == _map_meadow_texture():
+		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
 	# the gold frame OVER the art — card sized to its aspect, so a plain SCALE keeps the border crisp.
 	var frame_path := Look.kit(MAP_CARD_ACTIVE)
 	if bool(opts.get("use_art", true)) and ResourceLoader.exists(frame_path):
@@ -2992,7 +2989,7 @@ static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float, 
 	if amount <= 0.0:
 		return root
 	# the band centre-line rect (half the gold border in on each axis) so twinkles sit ON the gold, not
-	# floating in the locale art. The card is wide, so the bands differ per axis (see frame_inset notes).
+	# floating in the locale art. The card is wide, so the bands differ per axis.
 	var band_x := card_w * 0.025
 	var band_y := card_h * 0.06
 	var rect := Rect2(band_x, band_y, card_w - band_x * 2.0, card_h - band_y * 2.0)
@@ -3057,17 +3054,8 @@ static func _pulse_twinkle(s: TextureRect, stagger: float) -> void:
 		t0.tween_interval(maxf(stagger, 0.001))
 		t0.tween_callback(begin))
 
-# A code-drawn meadow fill for a card whose locale art hasn't shipped — a flat panel + a centered ✿
-# "place" mark. `open` brightens it; a locked fallback dims (the fog veil layers over this).
-static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
-	var ph := Panel.new()
-	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ph.clip_contents = true
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Pal.MEADOW if open else Pal.MEADOW.lerp(Pal.INK, 0.45)
-	ps.set_corner_radius_all(14)
-	ph.add_theme_stylebox_override("panel", ps)
-	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+# The centered ✿ "place" mark drawn over a bare meadow fill (no locale art yet). Mouse-transparent.
+static func _map_place_mark(opts: Dictionary) -> Control:
 	var mark := Label.new()
 	mark.name = "PlaceMark"
 	mark.text = "✿"
@@ -3077,7 +3065,20 @@ static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
 	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ph.add_child(mark)
+	return mark
+
+# A code-drawn meadow fill for a LOCKED card whose painted panel is absent — a flat panel + a centered ✿
+# "place" mark, dimmed; the fog veil layers over this. (Open cards use the silhouette-masked fill instead.)
+static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
+	var ph := Panel.new()
+	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ph.clip_contents = true
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Pal.MEADOW if open else Pal.MEADOW.lerp(Pal.INK, 0.45)
+	ps.set_corner_radius_all(14)
+	ph.add_theme_stylebox_override("panel", ps)
+	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ph.add_child(_map_place_mark(opts))
 	return ph
 
 # A code-drawn gold border, the fallback when card_active.png is absent (so an open card still reads as
@@ -3153,19 +3154,83 @@ static func _map_veil(thumb: Control, map_id: String, opts: Dictionary) -> void:
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	veil.add_child(ghost)
 
-# The rounded-corner alpha-mask material for an open card's locale art, sized to the inner rect so the
-# corner radius is `art_radius` of the card width and stays circular at the rect's aspect.
-static func _map_art_clip_material(inner_size: Vector2, opts: Dictionary) -> ShaderMaterial:
+# Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to the gold frame's
+# exact silhouette mask. See MAP_ART_CLIP_SHADER.
+static func _map_art_material(tex: Texture2D, rect_size: Vector2) -> ShaderMaterial:
 	if _map_art_clip == null:
 		_map_art_clip = Shader.new()
 		_map_art_clip.code = MAP_ART_CLIP_SHADER
 	var mat := ShaderMaterial.new()
 	mat.shader = _map_art_clip
-	var inset := float(opts.get("frame_inset", 0.045))
-	var rad := float(opts.get("art_radius", 0.058))
-	mat.set_shader_parameter("rx", rad / (1.0 - 2.0 * inset))
-	mat.set_shader_parameter("aspect", inner_size.x / maxf(inner_size.y, 1.0))
+	mat.set_shader_parameter("art", tex)
+	mat.set_shader_parameter("tex_px", tex.get_size())
+	mat.set_shader_parameter("rect_px", rect_size)
+	mat.set_shader_parameter("mask", _map_silhouette_tex())
 	return mat
+
+# The gold frame's silhouette as an alpha mask: 1 inside the frame body + its enclosed hole, 0 in the
+# transparent corner gaps / edge margin / glow. Computed by flood-filling the frame's TRANSPARENT pixels
+# inward from the 4 borders (so the enclosed centre hole stays "inside"). Cached — built once.
+static func _map_silhouette_tex() -> Texture2D:
+	if _map_sil_tex != null:
+		return _map_sil_tex
+	var ft: Texture2D = load(Look.kit(MAP_CARD_ACTIVE))
+	if ft == null:
+		return null
+	var img := ft.get_image()
+	img.convert(Image.FORMAT_RGBA8)
+	var w := img.get_width()
+	var h := img.get_height()
+	var n := w * h
+	# 1 = opaque (alpha >= 0.5), 0 = transparent
+	var opaque := PackedByteArray()
+	opaque.resize(n)
+	for y in h:
+		for x in w:
+			opaque[y * w + x] = 1 if img.get_pixel(x, y).a >= 0.5 else 0
+	# flood-fill "outside" = transparent pixels reachable from the border
+	var outside := PackedByteArray()
+	outside.resize(n)
+	var stack := PackedInt32Array()
+	for x in w:
+		if opaque[x] == 0: outside[x] = 1; stack.push_back(x)
+		var b := (h - 1) * w + x
+		if opaque[b] == 0 and outside[b] == 0: outside[b] = 1; stack.push_back(b)
+	for y in h:
+		var l := y * w
+		if opaque[l] == 0 and outside[l] == 0: outside[l] = 1; stack.push_back(l)
+		var r := y * w + (w - 1)
+		if opaque[r] == 0 and outside[r] == 0: outside[r] = 1; stack.push_back(r)
+	while stack.size() > 0:
+		var i := stack[stack.size() - 1]
+		stack.remove_at(stack.size() - 1)
+		var x := i % w
+		var y := i / w
+		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+			var nx := x + int(d.x)
+			var ny := y + int(d.y)
+			if nx < 0 or nx >= w or ny < 0 or ny >= h:
+				continue
+			var j := ny * w + nx
+			if outside[j] == 0 and opaque[j] == 0:
+				outside[j] = 1
+				stack.push_back(j)
+	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		for x in w:
+			var inside: bool = outside[y * w + x] == 0
+			mask.set_pixel(x, y, Color(1, 1, 1, 1.0 if inside else 0.0))
+	_map_sil_tex = ImageTexture.create_from_image(mask)
+	return _map_sil_tex
+
+# A cached 1x1 MEADOW-colour texture — the COVER-sampled fill for an open card whose locale art is absent.
+static func _map_meadow_texture() -> Texture2D:
+	if _map_meadow_tex != null:
+		return _map_meadow_tex
+	var im := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	im.set_pixel(0, 0, Pal.MEADOW)
+	_map_meadow_tex = ImageTexture.create_from_image(im)
+	return _map_meadow_tex
 
 ## The map-card presentation opts from config (use-art · frame inset · art radius · count-pill metrics ·
 ## §8 fog-veil look). DEFAULTS equal the shipped §8 constants, so an absent/empty config renders the
@@ -3175,11 +3240,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
-		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art horizontal inset (fraction of card WIDTH)
-		"frame_inset_v":   float(c.get("frame_inset_v", 100)) / 1000.0, # locale-art vertical inset (fraction of card HEIGHT) — the wide card needs its own so the art tucks under the top/bottom gold band
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
 		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())
-		"art_radius":      float(c.get("art_radius", 58)) / 1000.0,     # art corner radius (fraction of art width)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),
