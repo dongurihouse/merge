@@ -81,7 +81,10 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 		if day < today:
 			st = "done"
 		elif day == today:
-			st = "done" if Login.claimed_today() else "today"
+			# today_day() is streak+1, so the MOMENT today is claimed it advances to point
+			# at TOMORROW'S rung. Once claimed, this slot is that next (locked) day — a future
+			# card, NOT a second "done" today. (Reading it as "done" marked day+1 as claimed.)
+			st = "future" if Login.claimed_today() else "today"
 		var d := {
 			"day": day,
 			"label": host.tr("Day %d") % day,

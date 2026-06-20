@@ -1,0 +1,14 @@
+{
+  "maps": [
+    {
+      "id": "map1_farm",
+      "name": "Map 1 - Farm",
+      "base": "res://games/grove/assets/map/farm/farm_brokenv2.png",
+      "clean": "res://games/grove/assets/map/farm/farm.png",
+      "mask_mode": "purple_difference",
+      "difference_threshold": 0.16,
+      "region_count": 8,
+      "regions_path": "res://games/tools/vine_mask_tool/maps/map1_farm_regions.json"
+    }
+  ]
+}

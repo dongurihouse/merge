@@ -71,7 +71,7 @@ var _params := {
 	"dialog": {"width": 560, "entries": 4},
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
-	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 132, "cell_slice": 28,
+	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 264, "cell_slice": 28,
 		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow"},
 	# …the daily DIALOG reuses the shared frame + that card, adding only the grid knobs (3-per-row)…
 	"daily": {"width": 460, "cols": 3},
@@ -477,9 +477,10 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "daily" or _selected == "shop":
+	if _selected == "dialog" or _selected == "daily" or _selected == "shop":
 		var note := Label.new()
-		note.text = "The frame is SHARED — edit it on the Dialog item; the card is on the Daily card item. Here: only the grid."
+		var card_src := "" if _selected == "dialog" else " the card is on the Daily card item;"
+		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -538,8 +539,8 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
-			_sidebar_body.add_child(_slider_row(["cell_w", 60, 140]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 70, 170]))
+			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
+			_sidebar_body.add_child(_slider_row(["cell_h", 70, 300]))
 			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_group_header("Test only — not saved", false)
@@ -736,6 +737,15 @@ func _load_settings() -> void:
 	f.close()
 	if not (data is Dictionary):
 		return
+	# MIGRATION: the shared frame's keys used to live under "dialog"; they're a standalone "frame" now.
+	# An older file has them under "dialog" — lift those into "frame" so prior tuning isn't lost.
+	if data.has("dialog") and data["dialog"] is Dictionary and not data.has("frame"):
+		var fr := {}
+		for k in (_params["frame"] as Dictionary).keys():
+			if (data["dialog"] as Dictionary).has(k):
+				fr[k] = data["dialog"][k]
+		if not fr.is_empty():
+			data["frame"] = fr
 	for id in _params.keys():
 		if data.has(id) and data[id] is Dictionary:
 			for k in (_params[id] as Dictionary).keys():

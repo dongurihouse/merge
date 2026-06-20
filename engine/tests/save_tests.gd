@@ -5,6 +5,7 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy-bank accrual vault
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
+const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
 
 var _pass := 0
 var _fail := 0
@@ -283,6 +284,21 @@ func _initialize() -> void:
 	var sp := Login.streak()
 	Save._loaded = false
 	ok(Login.streak() == sp, "the streak persists across a reload")
+
+	# 20i. CALENDAR FACE mapping (regression): claiming TODAY must not also mark TOMORROW
+	#   as claimed. today_day() advances to streak+1 on claim while the per-day `claimed`
+	#   flag is still set, so the day-after card used to render "done" off a stale read.
+	fresh("login_ui_claim_mapping")
+	var ui_host := Control.new()
+	var ui_rb := {"fn": Callable()}
+	var ui_before: Array = UILogin._days(ui_host, ui_rb, {})
+	ok(String(ui_before[0].get("state", "")) == "today", "before claiming: day 1 is the claimable 'today' card")
+	ok(String(ui_before[1].get("state", "")) == "future", "before claiming: day 2 is a future card")
+	Login.claim_today()
+	var ui_after: Array = UILogin._days(ui_host, ui_rb, {})
+	ok(String(ui_after[0].get("state", "")) == "done", "after claiming day 1: day 1 is 'done'")
+	ok(String(ui_after[1].get("state", "")) == "future", "after claiming day 1: day 2 is STILL future (not auto-claimed)")
+	ui_host.free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

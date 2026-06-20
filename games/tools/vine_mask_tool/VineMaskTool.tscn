@@ -1,0 +1,119 @@
+[gd_scene load_steps=8 format=3 uid="uid://vine_mask_tool"]
+
+[ext_resource type="Texture2D" path="res://games/grove/assets/map/farm/farm_brokenv2.png" id="1_base"]
+[ext_resource type="Texture2D" path="res://games/grove/assets/map/farm/mask_fh_hearth.png" id="2_mask"]
+[ext_resource type="Shader" path="res://games/tools/vine_mask_tool/shaders/ominous_vines.gdshader" id="3_shader"]
+[ext_resource type="Script" path="res://games/tools/vine_mask_tool/scripts/vine_mask_tool.gd" id="4_controls"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_glow"]
+shader = ExtResource("3_shader")
+shader_parameter/vine_color = Color(0.44, 0.02, 0.95, 1)
+shader_parameter/core_color = Color(0.88, 0.42, 1, 1)
+shader_parameter/opacity = 0.28
+shader_parameter/glow_radius = 0.012
+shader_parameter/glow_strength = 1.15
+shader_parameter/pulse_speed = 1.35
+shader_parameter/flow_speed = 0.65
+shader_parameter/edge_power = 1.15
+shader_parameter/breath_strength = 0.25
+shader_parameter/heartbeat_strength = 0.25
+shader_parameter/lightning_strength = 0.28
+shader_parameter/shimmer_strength = 0.003
+shader_parameter/energy_crawl_strength = 0.45
+shader_parameter/mask_texture = ExtResource("2_mask")
+shader_parameter/mask_pixel_size = Vector2(0.001062699, 0.000598086)
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vines"]
+shader = ExtResource("3_shader")
+shader_parameter/vine_color = Color(0.58, 0.04, 1, 1)
+shader_parameter/core_color = Color(1, 0.76, 1, 1)
+shader_parameter/opacity = 0.48
+shader_parameter/glow_radius = 0.004
+shader_parameter/glow_strength = 0.42
+shader_parameter/pulse_speed = 2.4
+shader_parameter/flow_speed = 1.35
+shader_parameter/edge_power = 2.8
+shader_parameter/breath_strength = 0.35
+shader_parameter/heartbeat_strength = 0.45
+shader_parameter/lightning_strength = 0.65
+shader_parameter/shimmer_strength = 0.004
+shader_parameter/energy_crawl_strength = 0.75
+shader_parameter/mask_texture = ExtResource("2_mask")
+shader_parameter/mask_pixel_size = Vector2(0.001062699, 0.000598086)
+
+[sub_resource type="Gradient" id="Gradient_vignette"]
+offsets = PackedFloat32Array(0, 0.68, 1)
+colors = PackedColorArray(0, 0, 0, 0.12, 0.07, 0, 0.12, 0.04, 0.2, 0.02, 0.28, 0.1)
+
+[sub_resource type="GradientTexture2D" id="GradientTexture2D_vignette"]
+gradient = SubResource("Gradient_vignette")
+width = 941
+height = 1672
+fill = 1
+fill_from = Vector2(0.5, 0.42)
+fill_to = Vector2(0.5, 1.05)
+
+[node name="VineMaskTool" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("4_controls")
+
+[node name="Workspace" type="Control" parent="."]
+layout_mode = 1
+anchors_preset = 0
+offset_right = 1380.0
+offset_bottom = 1672.0
+
+[node name="ArtworkFrame" type="Control" parent="Workspace"]
+custom_minimum_size = Vector2(941, 1672)
+layout_mode = 1
+anchors_preset = 0
+offset_right = 941.0
+offset_bottom = 1672.0
+
+[node name="Base" type="TextureRect" parent="Workspace/ArtworkFrame"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("1_base")
+stretch_mode = 5
+
+[node name="OminousVignette" type="TextureRect" parent="Workspace/ArtworkFrame"]
+self_modulate = Color(0.72, 0.2, 1, 0.55)
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = SubResource("GradientTexture2D_vignette")
+stretch_mode = 5
+
+[node name="PurpleGlow" type="TextureRect" parent="Workspace/ArtworkFrame"]
+material = SubResource("ShaderMaterial_glow")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_mask")
+stretch_mode = 5
+
+[node name="LivingVines" type="TextureRect" parent="Workspace/ArtworkFrame"]
+material = SubResource("ShaderMaterial_vines")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+texture = ExtResource("2_mask")
+stretch_mode = 5
