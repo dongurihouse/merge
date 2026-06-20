@@ -179,11 +179,12 @@ var _params := {
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "stars_left": 3},
-	# the QUEST-GIVER card (giver_stand.gd) — the painted vertical card + the live portrait / ask-bubble /
-	# plaque reward the board draws on it. Nothing is saved: bust picks which of giver_0..2 sits in the
-	# field; tier is the asked item's tier (the demo item is always the Wildflower line); stars is the
-	# reward on the plaque; stand_w/fence_h preview the size the board hands it; met toggles the ready ✓.
-	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 240, "fence_h": 360, "met": false},
+	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
+	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. Nothing
+	# is saved: bust picks which of giver_0..2 sits on the left; tier is the asked item's tier (the demo
+	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
+	# toggles the ready ✓.
+	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 360, "fence_h": 240, "met": false},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},

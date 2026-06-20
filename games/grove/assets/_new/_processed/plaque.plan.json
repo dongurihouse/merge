@@ -1,0 +1,9 @@
+{
+  "source": "_new/board1_asset2.png",
+  "category": "sheet",
+  "params": { "min_area": 600 },
+  "outputs": [
+    { "island": 6, "name": "plaque", "path": "ui/quest/plaque.png" }
+  ],
+  "archive": "_originals/board/board1_asset2.png"
+}
