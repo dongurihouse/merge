@@ -36,7 +36,6 @@ const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
-const SceneFade = preload("res://engine/scripts/ui/scene_fade.gd")     # fade-cover the swap so its build hitch is hidden
 const Game = preload("res://engine/scripts/core/game.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
@@ -165,7 +164,6 @@ func _ready() -> void:
 	# _amb_layer stays null; _buy_treat guards it.)
 	_load_state()
 	SceneWarm.prewarm("res://engine/scenes/Map.tscn")   # warm the Home target off-thread while we build
-	SceneFade.fade_in(self)                              # reveal from the transition cover
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -251,7 +249,7 @@ func _ready() -> void:
 			Audio.play("button_tap", -2.0)
 			_persist()
 			HomeScene.decorate_map = _decorate_target()
-			SceneFade.to(self, get_tree(), "res://engine/scenes/Map.tscn")},
+			SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")},
 		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
 		{"make": func() -> Control: return _make_bag_button(140.0)},
 		# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)

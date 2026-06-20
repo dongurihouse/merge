@@ -2,7 +2,7 @@ extends Control
 ## BOOT SPLASH: the app's cold-launch loading screen (the new main_scene). It paints the
 ## brand (logo on the cream chrome) + a progress bar immediately, kicks the heavy Map scene
 ## load onto a worker thread (SceneWarm), animates the bar from real load progress while the
-## thread works, then hands off to the home map through the existing SceneFade+SceneWarm path.
+## thread works, then hands off to the home map via SceneWarm's prewarmed packed swap.
 ##
 ## It also opens the boot trace (BootTrace.start): every cold-boot phase here AND inside
 ## map.gd's _ready is timed and printed as a table to the log — the "what's taking long"
@@ -14,7 +14,6 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
-const SceneFade = preload("res://engine/scripts/ui/scene_fade.gd")
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")
 const Pal = Game.PALETTE
 
@@ -124,9 +123,8 @@ func _process(delta: float) -> void:
 	if boot_ready(_elapsed, MIN_DURATION, warm):
 		_done = true
 		set_process(false)
-		SceneFade.to(self, get_tree(), MAP_PATH)   # cover -> warm packed swap -> map's own fade_in
-		# map.gd closes the trace (BootTrace.done) after its build spans — the fade between is
-		# deliberate, so no span covers it.
+		SceneWarm.go(get_tree(), MAP_PATH)   # swap to the prewarmed home map (same path board<->map uses)
+		# map.gd closes the trace (BootTrace.done) after its build spans.
 
 # --- pure progress math (unit-tested in engine/tests/boot_trace_tests.gd) ----------------
 

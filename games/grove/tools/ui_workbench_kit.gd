@@ -214,6 +214,8 @@ static func _icon_rect(tex: Texture2D, px: float) -> Control:
 ## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
 ## badge tweak flows to the rail + nav automatically. No polish → the raw (already-clean) shell sprite.
 ## `polish` keys: defringe (bool), feather (px), shadow (bool) + the add_drop_shadow knobs.
+static var _shell_cache: Dictionary = {}    # "rel@<polish-json>" -> polished disc texture (per session)
+
 static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var path := Look.kit(rel)
 	if rel == "" or not ResourceLoader.exists(path):
@@ -223,12 +225,22 @@ static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var shad := bool(polish.get("shadow", false))
 	if not defr and feat <= 0.0 and not shad:
 		return load(path)                       # untouched → the raw shell (already cleaned at intake)
+	# The polished disc is IDENTICAL for every button sharing this (rel, polish) — the bottom nav + rail
+	# build 5-8 of them per scene, and a map<->board swap rebuilds the whole row. The polish is a ~190ms
+	# CPU pass (Lanczos resize + defringe + feather), so an uncached call multiplied that by every button
+	# on every navigation (the swap freeze). Memoize it: only the FIRST build pays; the rest reuse the
+	# texture (a Texture2D is meant to be shared). Cleared on a workbench Save (see clear_config_cache).
+	var key := rel + "@" + JSON.stringify(polish)
+	if _shell_cache.has(key):
+		return _shell_cache[key]
 	var img := (load(path) as Texture2D).get_image()
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
 	var o := polish.duplicate()
 	o["defringe"] = defr; o["feather"] = feat; o["shadow"] = shad; o["supersample"] = 1
-	return ImageTexture.create_from_image(_polish_icon_aspect(img, o))
+	var tex := ImageTexture.create_from_image(_polish_icon_aspect(img, o))
+	_shell_cache[key] = tex
+	return tex
 
 ## Aspect-preserving icon polish (vs polish_image, which forces a SQUARE canvas): cap the working
 ## resolution keeping aspect, then defringe / feather / optional drop-shadow. Lets a tall or wide icon
@@ -391,19 +403,48 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 		out[i * 4 + 3] = al[i]
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
-## --- baked asset cleanup: defringe + feather 2, cached per asset (applied to every workbench sprite) ---
+## --- baked asset cleanup: defringe + feather 2, cached per (path, max_dim) ----------------------
+## The defringe/feather is a per-pixel GDScript pass; running it live on first use is what hitches a
+## dialog open (≈0.8s for the level screen's chrome). `make bake-textures` pre-runs the EXACT same
+## _clean_image() offline into a `baked/<subpath>@<max>.png` mirror; clean_tex_path loads that when
+## present, so the runtime pays only a plain texture load. A missing bake silently degrades to the
+## live polish below — correct, just slower on first open.
 static var _clean_cache: Dictionary = {}
 
+## The baked-mirror path for a source sprite at a given cap: `baked/<subpath under the assets root>`
+## with the cap tagged in the name (so one source baked at two caps stays two distinct files). A
+## source outside the assets root flattens to just its filename. Used by BOTH the runtime lookup
+## here and the bake tool, so the two always agree on where a baked file lives.
+static func baked_path(src: String, max_dim: int) -> String:
+	var root: String = Game.art("")
+	var rel := src.substr(root.length()) if root != "" and src.begins_with(root) else src.get_file()
+	var dir := rel.get_base_dir()
+	var tail := "%s@%d.png" % [rel.get_file().get_basename(), max_dim]
+	return Game.art("baked/" + (tail if dir == "" else dir + "/" + tail))
+
+## Drop the cleaned-texture cache (tests / teardown). Mirrors clear_async_cache / clear_config_cache.
+static func clear_clean_cache() -> void:
+	_clean_cache.clear()
+
 ## A cleaned version of a sprite: defringe (kill the rough-cut colour fringe) + feather 2 (smooth the
-## jagged edge). Cached by path so it runs once per asset. max_dim caps the working resolution.
+## jagged edge). Cached by (path, max_dim) so it runs once per asset+cap. max_dim caps the working res.
 static func clean_tex_path(path: String, max_dim: int = 256) -> Texture2D:
 	if path == "" or not ResourceLoader.exists(path):
 		return null
-	if _clean_cache.has(path):
-		return _clean_cache[path]
+	var key := "%s@%d" % [path, max_dim]
+	if _clean_cache.has(key):
+		return _clean_cache[key]
+	# pre-baked (make bake-textures): load the polished mirror directly — no per-pixel work.
+	var bp := baked_path(path, max_dim)
+	if ResourceLoader.exists(bp):
+		var baked := load(bp) as Texture2D
+		if baked != null:
+			_clean_cache[key] = baked
+			return baked
+	# live fallback: defringe + feather on the main thread (the first-open cost the bake removes).
 	var img := (load(path) as Texture2D).get_image()
 	var t := ImageTexture.create_from_image(_clean_image(img, max_dim))
-	_clean_cache[path] = t
+	_clean_cache[key] = t
 	return t
 
 static func _clean_image(src: Image, max_dim: int) -> Image:
@@ -2427,6 +2468,7 @@ static func load_config(path: String) -> Dictionary:
 ## Drop the cached config so the next load_config re-reads from disk. Pass a path to clear just that
 ## file, or nothing to clear all. The workbench calls this after writing the settings file.
 static func clear_config_cache(path := "") -> void:
+	_shell_cache.clear()   # the polished disc shell derives from the badge config — drop it so a saved edit re-polishes
 	if path == "":
 		_config_cache.clear()
 	else:
@@ -2868,6 +2910,12 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	else:
 		card.add_child(_map_code_border())
 	_map_count_pill(d, opts, card, card_w, card_h)
+	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
+	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
+	if not bool(d.get("done", false)):
+		var spark := float(opts.get("edge_sparkle", 0.6))
+		if spark > 0.0:
+			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
 
 # A LOCKED place: the dark baked panel fills the card, with the "after <prev>" prerequisite line low over
 # it. When the panel art is off/missing, fall back to a meadow panel under the §8 fog veil so the horizon
@@ -2961,6 +3009,82 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(lbl)
+
+# Twinkles spaced AROUND the card's edges — each rides the gold frame band and pulses (fade + scale) on
+# a staggered loop, so an active place's border shimmers and draws the eye. Reuses the twinkle sprite
+# (_star_texture) + warm-gold tint from the button sparkle. `amount` 0..1 scales how many ring the card;
+# `calm` (reduced-motion) drops the motion and shows a faint static scatter instead. Mouse-transparent.
+static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float, calm: bool) -> Control:
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if amount <= 0.0:
+		return root
+	# the band centre-line rect (half the gold border in on each axis) so twinkles sit ON the gold, not
+	# floating in the locale art. The card is wide, so the bands differ per axis (see frame_inset notes).
+	var band_x := card_w * 0.025
+	var band_y := card_h * 0.06
+	var rect := Rect2(band_x, band_y, card_w - band_x * 2.0, card_h - band_y * 2.0)
+	var count := clampi(int(round(amount * 22.0)), 3, 40)
+	var px := clampf(card_h * 0.16, 14.0, 40.0)
+	var tex := _star_texture()
+	var cycle := 1.8                                   # one fade-in→hold→fade-out→idle loop
+	for i in count:
+		var t := (float(i) + 0.5) / float(count)       # even spacing around the perimeter
+		var pos := _rect_perimeter_point(t, rect)
+		var s := TextureRect.new()
+		s.texture = tex
+		s.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		s.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		s.custom_minimum_size = Vector2(px, px)
+		s.size = Vector2(px, px)
+		s.position = pos - Vector2(px, px) * 0.5
+		s.pivot_offset = Vector2(px, px) * 0.5
+		s.modulate = Color(1.0, 0.84, 0.42, 1.0)       # warm gold (same tint as the button twinkles)
+		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(s)
+		if calm:
+			s.modulate.a = 0.45
+			s.scale = Vector2(0.85, 0.85)
+		else:
+			_pulse_twinkle(s, (float(i) / float(count)) * cycle)   # stagger so the ring shimmers, not blinks in unison
+	return root
+
+# A point on a rectangle's perimeter at parameter t∈[0,1) (top L→R, right T→B, bottom R→L, left B→T).
+static func _rect_perimeter_point(t: float, rect: Rect2) -> Vector2:
+	var w := rect.size.x
+	var h := rect.size.y
+	var d := fposmod(t, 1.0) * (2.0 * (w + h))
+	var p := rect.position
+	if d < w:
+		return p + Vector2(d, 0.0)
+	d -= w
+	if d < h:
+		return p + Vector2(w, d)
+	d -= h
+	if d < w:
+		return p + Vector2(w - d, h)
+	d -= w
+	return p + Vector2(0.0, h - d)
+
+# Loops one twinkle: a one-time `stagger` delay (so the ring desyncs), then fade-in + grow, fade-out +
+# shrink, and a short idle gap — repeating. Tweens need the node in-tree, so it arms on tree_entered.
+static func _pulse_twinkle(s: TextureRect, stagger: float) -> void:
+	s.modulate.a = 0.0
+	s.scale = Vector2(0.6, 0.6)
+	var begin := func() -> void:
+		if not is_instance_valid(s) or not s.is_inside_tree():
+			return
+		var loop := s.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+		loop.tween_property(s, "modulate:a", 1.0, 0.6)
+		loop.parallel().tween_property(s, "scale", Vector2(1.05, 1.05), 0.6)
+		loop.tween_property(s, "modulate:a", 0.0, 0.7)
+		loop.parallel().tween_property(s, "scale", Vector2(0.6, 0.6), 0.7)
+		loop.tween_interval(0.5)
+	s.tree_entered.connect(func() -> void:
+		var t0 := s.create_tween()
+		t0.tween_interval(maxf(stagger, 0.001))
+		t0.tween_callback(begin))
 
 # A code-drawn meadow fill for a card whose locale art hasn't shipped — a flat panel + a centered ✿
 # "place" mark. `open` brightens it; a locked fallback dims (the fog veil layers over this).
@@ -3082,6 +3206,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"use_art":         bool(c.get("use_art", true)),
 		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art horizontal inset (fraction of card WIDTH)
 		"frame_inset_v":   float(c.get("frame_inset_v", 100)) / 1000.0, # locale-art vertical inset (fraction of card HEIGHT) — the wide card needs its own so the art tucks under the top/bottom gold band
+		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
+		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())
 		"art_radius":      float(c.get("art_radius", 58)) / 1000.0,     # art corner radius (fraction of art width)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
 		"pill_min":        float(c.get("pill_min", 170)),

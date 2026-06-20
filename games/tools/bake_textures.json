@@ -1,0 +1,6 @@
+[
+  { "path": "res://games/grove/assets/ui/kit/level_wreath.png", "max": 512 },
+  { "path": "res://games/grove/assets/ui/kit/level_ring.png",   "max": 512 },
+  { "path": "res://games/grove/assets/ui/kit/level_title.png",  "max": 480 },
+  { "path": "res://games/grove/assets/ui/kit/level_btn.png",    "max": 256 }
+]

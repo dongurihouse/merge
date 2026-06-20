@@ -2,7 +2,16 @@
 
 **Date:** 2026-06-20
 **Branch:** `worktree-loading-screen`
-**Status:** approved direction, pending spec review
+**Status:** implemented; merged with `main`
+
+> **Post-merge note.** While this branch was in flight, `main` deleted the `SceneFade`
+> module (the dialog-freeze perf work) and switched scene transitions to a direct
+> prewarmed `SceneWarm.go()` swap with no fade cover. The implementation follows suit: the
+> splash hands off via `SceneWarm.go(get_tree(), MAP_PATH)` (not `SceneFade.to`), and
+> `map._ready` no longer calls `SceneFade.fade_in`. The frozen splash itself covers the
+> synchronous Map build (it stays on screen as the last drawn frame until Map's first
+> frame), so dropping the fade costs no visible hitch. References to `SceneFade` below
+> describe the original design; read them as `SceneWarm.go`.
 
 ## Goal
 

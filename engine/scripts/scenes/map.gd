@@ -33,7 +33,6 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Board off-thread so the garden CTA is snappy
-const SceneFade = preload("res://engine/scripts/ui/scene_fade.gd")     # fade-cover the swap so its build hitch is hidden
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-boot phase timer — no-ops unless the Boot splash opened a trace
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
@@ -116,7 +115,6 @@ func _ready() -> void:
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
 		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
 	BootTrace.begin("map.load_state"); _load_state(); BootTrace.end("map.load_state")
-	SceneFade.fade_in(self)               # reveal from the transition cover (also a gentle fade-in on cold launch)
 
 	var sky := ColorRect.new()
 	sky.color = SKY
@@ -812,6 +810,7 @@ func _build_select() -> void:
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
 	var card_aspect: float = float(Kit.MAP_CARD_ASPECT) if Kit != null else 1027.0 / 352.0
 	var side := 46.0
 	var card_w := view.x - side * 2.0
@@ -1453,7 +1452,7 @@ func _open_settings() -> void:
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)
 	get_tree().quit_on_go_back = true    # other scenes keep the platform default
-	SceneFade.to(self, get_tree(), "res://engine/scenes/Board.tscn")
+	SceneWarm.go(get_tree(), "res://engine/scenes/Board.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Esc steps back: a map → the place-picker; the picker → quit (desktop has no
