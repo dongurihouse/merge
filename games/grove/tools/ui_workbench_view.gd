@@ -16,13 +16,13 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"]],   # the building blocks
+	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -30,6 +30,8 @@ const COLUMNS := [
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
 # Icons the HOME button can show (the home page's rail + nav set; all resolve via the kit's _icon_tex).
 const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "daisy", "leaf"]
+# Currencies the HOME-UNLOCK disc can show as its cost (the spend the spot wants; the game passes "star").
+const UNLOCK_ICONS := ["star", "coin", "gem", "daisy", "leaf", "water"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
@@ -43,6 +45,9 @@ const TEST_KEYS := {
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / SPARKLE amount persist.
 	# The previewed icon, caption text + sparkle toggle are test props — each call site sets its own.
 	"home_button": ["icon", "caption", "sparkle"],
+	# the HOME-UNLOCK disc is a shared-STYLE sandbox: disc size + the inner proportions persist. The
+	# previewed cost number + currency icon are test props — the map sets each spot's real cost + "star".
+	"home_unlock_button": ["cost", "icon"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
@@ -62,6 +67,7 @@ const TEST_KEYS := {
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
+	"home_unlock_button": "Home unlock — restore-cost disc (+ · ★ N)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"badge": "Badge — disc shell (raw vs polished)",
 	"card": "Mail card — pill + Claim",
@@ -83,6 +89,12 @@ var _params := {
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "glow": 45, "twinkle": 55,
 		"icon": "gift", "caption": "Daily", "sparkle": true},
+	# the HOME-UNLOCK disc — the restore-cost badge on an unowned home spot. disc_pct is the diameter as a
+	# % of the MAP width (the game multiplies it by the live map width; the preview uses the 1080 base, so
+	# it shows the EXACT in-game size). plus/icon/cost + the two gaps are % of the disc, so all scales with
+	# it. cost + icon are preview-only — the map passes each spot's real cost + the "star" spend currency.
+	"home_unlock_button": {"disc_pct": 16, "plus_scale": 30, "icon_scale": 26, "cost_font": 26, "stack_gap": -1, "icon_gap": 2,
+		"cost": 4, "icon": "star"},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -271,6 +283,13 @@ func _make_element(id: String) -> Control:
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
 			return mc
+		"home_unlock_button":
+			# the restore-cost disc as the map builds it, from the SAME kit transform the game reads. The
+			# preview diameter = PHONE_W × disc_pct (the in-game d on the design phone), so the workbench
+			# shows the exact size + proportions the map will. cost + icon are the preview-only content.
+			var uo := Kit.home_unlock_opts_from_config({"home_unlock_button": p})
+			uo["px"] = PHONE_W * float(p.disc_pct) / 100.0
+			return Kit.home_unlock_button({"cost": int(p.cost), "icon": String(p.icon)}, uo)
 		"icon":
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
@@ -733,6 +752,17 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
+		"home_unlock_button":
+			_group_header("Saved to config", true)              # disc size + the inner proportions
+			_sidebar_body.add_child(_slider_row(["disc_pct", 8, 30]))      # disc diameter as % of the MAP width
+			_sidebar_body.add_child(_slider_row(["plus_scale", 10, 60]))   # the "+" as % of the disc
+			_sidebar_body.add_child(_slider_row(["icon_scale", 10, 60]))   # the cost icon as % of the disc
+			_sidebar_body.add_child(_slider_row(["cost_font", 10, 60]))    # the cost number as % of the disc
+			_sidebar_body.add_child(_slider_row(["stack_gap", -10, 20]))   # gap "+"↔cost row, % of disc (neg tucks up)
+			_sidebar_body.add_child(_slider_row(["icon_gap", 0, 15]))      # gap icon↔number, % of disc
+			_group_header("Test only — not saved", false)        # the map sets each spot's real cost + "star"
+			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))
+			_sidebar_body.add_child(_option_row("Icon", "icon", UNLOCK_ICONS))
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
