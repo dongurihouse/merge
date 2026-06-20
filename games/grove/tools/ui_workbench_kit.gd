@@ -2831,10 +2831,15 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 # so the frame's transparent centre lets the art show and its border frames it; the restore count rides a
 # pill on the lower edge.
 static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	var inset := card_w * float(opts.get("frame_inset", 0.045))
+	# Per-axis inset. The gold frame is a WIDE card (aspect ~2.9), so a SINGLE inset taken from the
+	# width over-insets the short vertical axis: the art then stops short of the bottom gold band and
+	# the map shows through as empty space. frame_inset insets the width; frame_inset_v insets the
+	# height — each tuned to tuck the art just under its border so the locale art fills the whole window.
+	var inset_x := card_w * float(opts.get("frame_inset", 0.045))
+	var inset_y := card_h * float(opts.get("frame_inset_v", 0.10))
 	var inner := Control.new()
-	inner.position = Vector2(inset, inset)
-	inner.size = Vector2(card_w - inset * 2.0, card_h - inset * 2.0)
+	inner.position = Vector2(inset_x, inset_y)
+	inner.size = Vector2(card_w - inset_x * 2.0, card_h - inset_y * 2.0)
 	inner.clip_contents = true
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(inner)
@@ -3075,7 +3080,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
-		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art inset (fraction of card width)
+		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art horizontal inset (fraction of card WIDTH)
+		"frame_inset_v":   float(c.get("frame_inset_v", 100)) / 1000.0, # locale-art vertical inset (fraction of card HEIGHT) — the wide card needs its own so the art tucks under the top/bottom gold band
 		"art_radius":      float(c.get("art_radius", 58)) / 1000.0,     # art corner radius (fraction of art width)
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
 		"pill_min":        float(c.get("pill_min", 170)),
