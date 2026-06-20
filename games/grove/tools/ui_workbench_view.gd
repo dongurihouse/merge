@@ -16,14 +16,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
+const IDS := ["button", "home_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"], ["progress_bar"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -53,6 +53,7 @@ const TEST_KEYS := {
 	"dialog": ["entries"],
 	"daily": [],
 	"shop": [],
+	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
 	"tiers": [],
 	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
 	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
@@ -74,6 +75,7 @@ const CAPTIONS := {
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
+	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (twig border, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
@@ -126,6 +128,13 @@ var _params := {
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
+	# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
+	# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
+	"level": {"width_pct": 80, "banner_text": "Level", "title_font": 30,
+		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
+		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "gap": 14,
+		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
 	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
@@ -347,6 +356,18 @@ func _make_element(id: String) -> Control:
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+		"level":
+			# the dedicated level dialog, from the SAME config transform the game (level_popup) reads
+			var lo := Kit.level_opts_from_config(_params)
+			lo["banner_text"] = TranslationServer.translate("Level %d") % int(p.preview_level)
+			var lv_into: int = int(p.into)
+			var lv_span: int = maxi(1, int(p.span))
+			var lv_data := {
+				"level": int(p.preview_level), "earned": lv_into, "next": lv_span,
+				"into": lv_into, "span": lv_span, "remaining": maxi(0, lv_span - lv_into),
+				"mode": String(p.mode), "gift": {"water": 30, "gems": 1},
+			}
+			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
 		"tiers_card":
 			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit
 			var tco := Kit.tiers_card_opts_from_config(_params)
@@ -811,6 +832,24 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
 			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+		"level":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			_sidebar_body.add_child(_text_row("Banner text", "banner_text"))
+			_sidebar_body.add_child(_slider_row(["title_font", 16, 48]))
+			_sidebar_body.add_child(_slider_row(["medallion_px", 80, 180]))
+			_sidebar_body.add_child(_slider_row(["ring_dy", -60, 60]))     # nudge the ring within the wreath
+			_sidebar_body.add_child(_slider_row(["tally_font", 16, 40]))
+			_sidebar_body.add_child(_slider_row(["hint_font", 12, 32]))
+			_sidebar_body.add_child(_slider_row(["frame_slice", 0, 160]))   # nine-patch corner slice
+			_sidebar_body.add_child(_slider_row(["frame_pad", 8, 60]))
+			_sidebar_body.add_child(_slider_row(["frame_top_pad", 20, 140]))   # room under the title pill
+			_sidebar_body.add_child(_slider_row(["gap", 4, 40]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Mode", "mode", ["info", "levelup"]))
+			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
+			_sidebar_body.add_child(_slider_row(["into", 0, 30]))
+			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"tiers_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
