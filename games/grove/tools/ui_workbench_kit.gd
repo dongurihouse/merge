@@ -527,6 +527,180 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 	plate.add_child(make_icon(id, icon_px))
 	return plate
 
+## --- the HOME BUTTON: the round icon button shared by the home page's side rail + bottom bar -------
+## ONE configurable atom: a cream/gold disc shell (shared/disc_round.png) carrying a CENTRED icon, an
+## OPTIONAL caption tab beneath, and an OPTIONAL engine-drawn SPARKLE (a soft pulsing glow + drifting
+## twinkles — no baked FX). Badges are attached by the caller (Look.attach_badge) since their visibility
+## is game-state driven. The side rail AND the bottom nav both build through this, so a workbench tweak
+## (size · icon scale · caption · sparkle amount) flows to both.
+##   spec (per-instance content): icon (id) · caption (visible tab text, "" = none) · action (Callable) ·
+##     sparkle (bool) · enabled (bool).
+##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
+##     caption_font · caption_gap · glow (0..1) · twinkle (0..1) · calm (bool).
+const HOME_SHELL := "shared/disc_round.png"
+
+static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
+	var px: float = float(opts.get("px", 140.0))
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = not bool(spec.get("enabled", true))
+	# the disc shell: the cream/gold sprite scaled WHOLE (a round disc 9-slices badly at its corners),
+	# or a flat code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
+	var shell_rel := String(opts.get("shell", HOME_SHELL))
+	var shell_path := Look.kit(shell_rel)
+	var shell: Texture2D = load(shell_path) if (shell_rel != "" and ResourceLoader.exists(shell_path)) else null
+	for st_name in ["normal", "hover", "pressed", "disabled"]:
+		if shell != null:
+			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
+			stx.texture = shell
+			if st_name == "pressed":
+				stx.modulate_color = Color(0.9, 0.9, 0.9)
+			elif st_name == "disabled":
+				stx.modulate_color = Color(0.72, 0.72, 0.72)
+			b.add_theme_stylebox_override(st_name, stx)
+		else:
+			var s := StyleBoxFlat.new()
+			s.bg_color = Color(Pal.CREAM, 0.95)
+			s.set_corner_radius_all(int(px * 0.5))
+			s.set_border_width_all(3)
+			s.border_color = Pal.STRAW
+			b.add_theme_stylebox_override(st_name, s)
+	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
+	if bool(spec.get("sparkle", false)):
+		var glow: float = float(opts.get("glow", 0.0))
+		var tw: float = float(opts.get("twinkle", 0.0))
+		if glow > 0.0 or tw > 0.0:
+			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
+	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface)
+	var icwrap := CenterContainer.new()
+	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icwrap.add_child(make_icon(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5))))
+	b.add_child(icwrap)
+	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
+	var caption := String(spec.get("caption", ""))
+	if caption != "":
+		var cap_font := int(opts.get("caption_font", 22))
+		var capwrap := CenterContainer.new()
+		capwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		capwrap.anchor_left = 0.0; capwrap.anchor_right = 1.0
+		capwrap.anchor_top = 1.0; capwrap.anchor_bottom = 1.0
+		capwrap.offset_top = float(opts.get("caption_gap", 4.0))
+		capwrap.offset_bottom = capwrap.offset_top + cap_font + 22.0
+		var cap := Look.title_ribbon(caption, cap_font)
+		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if cap.get_child_count() > 0:
+			(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		capwrap.add_child(cap)
+		b.add_child(capwrap)
+	Look.add_press_juice(b)
+	if spec.has("action") and (spec.get("action") as Callable).is_valid():
+		b.pressed.connect(spec.get("action"))
+	return b
+
+## The engine-drawn SPARKLE overlay: a soft additive GLOW that gently breathes + drifting 4-point
+## TWINKLES (a continuous GPUParticles2D), both code-generated (no baked art). glow / twinkle are 0..1
+## amounts (the workbench sliders); calm freezes it to a static glow with no twinkles (reduced-motion).
+static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool) -> Control:
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if glow > 0.0:
+		var hsz := px * 1.7
+		var halo := TextureRect.new()
+		halo.texture = _glow_texture()
+		halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		halo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		halo.custom_minimum_size = Vector2(hsz, hsz)
+		halo.size = Vector2(hsz, hsz)
+		halo.position = Vector2((px - hsz) / 2.0, (px - hsz) / 2.0)
+		var mat := CanvasItemMaterial.new()
+		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD       # additive → it BLOOMS, doesn't flatten the disc
+		halo.material = mat
+		halo.modulate = Color(1, 1, 1, clampf(glow, 0.0, 1.0))
+		root.add_child(halo)
+		if not calm:
+			halo.pivot_offset = Vector2(hsz, hsz) / 2.0
+			halo.tree_entered.connect(func() -> void:
+				var tw := halo.create_tween().set_loops()
+				tw.tween_property(halo, "scale", Vector2(1.08, 1.08), 1.1).set_trans(Tween.TRANS_SINE)
+				tw.tween_property(halo, "scale", Vector2(0.93, 0.93), 1.1).set_trans(Tween.TRANS_SINE))
+	if twinkle > 0.0 and not calm:
+		var p := GPUParticles2D.new()
+		p.position = Vector2(px / 2.0, px / 2.0)
+		p.texture = _star_texture()
+		p.amount = maxi(3, int(round(twinkle * 16.0)))     # the slider sets the twinkle DENSITY
+		p.lifetime = 1.6
+		p.preprocess = 1.2                                  # start mid-cycle so the first frame already twinkles
+		p.randomness = 1.0
+		p.local_coords = false
+		var mat := ParticleProcessMaterial.new()
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
+		mat.emission_ring_axis = Vector3(0, 0, 1)           # ring lies in the screen plane
+		mat.emission_ring_radius = px * 0.52
+		mat.emission_ring_inner_radius = px * 0.34
+		mat.emission_ring_height = 0.0
+		mat.direction = Vector3(0, 0, 0)
+		mat.spread = 0.0
+		mat.gravity = Vector3.ZERO
+		mat.initial_velocity_min = 2.0
+		mat.initial_velocity_max = 12.0                     # a gentle outward drift
+		mat.angular_velocity_min = -40.0
+		mat.angular_velocity_max = 40.0
+		mat.scale_min = px * 0.0016
+		mat.scale_max = px * 0.0036
+		var ramp := Gradient.new()                          # twinkle in → out: a 0→1→0 alpha ramp over life
+		ramp.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+		ramp.colors = PackedColorArray([Color(1, 0.95, 0.7, 0.0), Color(1, 0.93, 0.62, 1.0), Color(1, 0.95, 0.7, 0.0)])
+		var gt := GradientTexture1D.new()
+		gt.gradient = ramp
+		mat.color_ramp = gt
+		p.process_material = mat
+		root.add_child(p)
+		p.emitting = true
+	return root
+
+## A code-generated 4-point sparkle star (white, soft falloff) — the twinkle sprite. Cached.
+static var _star_tex: Texture2D = null
+static func _star_texture() -> Texture2D:
+	if _star_tex != null:
+		return _star_tex
+	var n := 48
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := n / 2.0
+	for y in n:
+		for x in n:
+			var dx: float = (x - c + 0.5) / c
+			var dy: float = (y - c + 0.5) / c
+			var hx: float = clampf(1.0 - absf(dx), 0.0, 1.0) * clampf(1.0 - absf(dy) * 7.0, 0.0, 1.0)
+			var vy: float = clampf(1.0 - absf(dy), 0.0, 1.0) * clampf(1.0 - absf(dx) * 7.0, 0.0, 1.0)
+			var core: float = clampf(1.0 - sqrt(dx * dx + dy * dy) * 2.2, 0.0, 1.0)
+			var a: float = clampf(maxf(maxf(hx, vy), core * core), 0.0, 1.0)
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_star_tex = ImageTexture.create_from_image(img)
+	return _star_tex
+
+## A code-generated radial gold bloom (long soft falloff) — the glow halo. Cached.
+static var _glow_tex: Texture2D = null
+static func _glow_texture() -> Texture2D:
+	if _glow_tex != null:
+		return _glow_tex
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := n / 2.0
+	var gold: Color = Pal.STRAW
+	for y in n:
+		for x in n:
+			var d: float = Vector2((x - c + 0.5) / c, (y - c + 0.5) / c).length()
+			var a: float = clampf(1.0 - d, 0.0, 1.0)
+			a = a * a * a                                    # tight core, long feathered falloff
+			img.set_pixel(x, y, Color(gold.r, gold.g, gold.b, a))
+	_glow_tex = ImageTexture.create_from_image(img)
+	return _glow_tex
+
 ## A mail card (mockup image 2): a plated icon + title/body + a reward pill + a Claim — the reward pill
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
 ## the circular badge sprite behind the left icon (see ICON_BADGES).
@@ -1225,6 +1399,21 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cell_h"] = float(sh.get("cell_h", 150))
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
+
+## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
+## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here
+## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
+static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var h: Dictionary = cfg.get("home_button", {})
+	return {
+		"px": float(h.get("px", 140)),
+		"shell": HOME_SHELL,
+		"icon_scale": float(h.get("icon_scale", 50)) / 100.0,
+		"caption_font": int(h.get("caption_font", 22)),
+		"caption_gap": float(h.get("caption_gap", 4)),
+		"glow": float(h.get("glow", 0)) / 100.0,
+		"twinkle": float(h.get("twinkle", 0)) / 100.0,
+	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).
 const CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"

@@ -14,13 +14,15 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
+const IDS := ["button", "home_button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
 # Gallery layout: each inner list is a ROW of side-by-side elements. The shared FRAME stands alone above
 # the dialogs that reuse it, so the shared-frame-vs-specific-content structure reads at a glance.
-const ROWS := [["button", "icon"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
+const ROWS := [["button", "icon"], ["home_button"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
+# Icons the HOME button can show (the home page's rail + nav set; all resolve via the kit's _icon_tex).
+const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "daisy", "leaf"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
@@ -31,6 +33,9 @@ const TEST_KEYS := {
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
+	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / SPARKLE amount persist.
+	# The previewed icon, caption text + sparkle toggle are test props — each call site sets its own.
+	"home_button": ["icon", "caption", "sparkle"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"card": [],
 	"daily_card": ["preview", "ribbon"],   # preview state + ribbon are workbench-only viewing toggles
@@ -41,6 +46,7 @@ const TEST_KEYS := {
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
+	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
@@ -51,6 +57,10 @@ const CAPTIONS := {
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
+	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
+	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
+	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "glow": 45, "twinkle": 55,
+		"icon": "gift", "caption": "Daily", "sparkle": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
 	# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
@@ -168,6 +178,20 @@ func _make_element(id: String) -> Control:
 	match id:
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
+		"home_button":
+			# the round icon button as the rail + nav build it, from the SAME kit transform the game reads.
+			# Two variants side by side: nav-style (no caption / no sparkle) and rail-style (caption + the
+			# tuned sparkle), so the configurable parts read at a glance. A bottom margin gives the caption
+			# tab room (it overflows below the disc, exactly as it does on the rail).
+			var ho := Kit.home_button_opts_from_config({"home_button": p})
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 30)
+			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false}, ho))
+			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho))
+			var mc := MarginContainer.new()
+			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
+			mc.add_child(row)
+			return mc
 		"icon":
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
@@ -519,6 +543,19 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", ICONS))
 			_sidebar_body.add_child(_slider_row(["icon_size", 8, 60]))
 			_sidebar_body.add_child(_toggle_row("Enabled", "enabled"))
+		"home_button":
+			_group_header("Saved to config", true)              # the shared shell / icon / caption / sparkle style
+			_sidebar_body.add_child(_slider_row(["px", 90, 200]))
+			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # icon as % of the disc
+			_sidebar_body.add_child(_slider_row(["caption_font", 14, 34]))
+			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
+			_section_header("Sparkle (engine FX — no baked art)")
+			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
+			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
+			_group_header("Test only — not saved", false)        # the rail/nav each set their own icon + caption
+			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
+			_sidebar_body.add_child(_text_row("Caption", "caption"))
+			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
