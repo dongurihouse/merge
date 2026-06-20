@@ -78,6 +78,15 @@ const DEMO_DAILY := [
 	{"day": 7, "reward": {"gems": 30}, "state": "future", "mystery": true},
 ]
 
+# Demo settings rows for the workbench preview — the SAME shape the game builds from save.gd's
+# persisted flags (engine/scripts/ui/settings.gd): a label + an on/off value. on_toggle is supplied
+# by the caller (the game persists; the workbench just previews the flip).
+const DEMO_SETTINGS := [
+	{"label": "Music", "value": false},
+	{"label": "Sounds", "value": true},
+	{"label": "Calm mode", "value": false},
+]
+
 ## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
 ## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
 ## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
@@ -836,6 +845,56 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 			row.add_child(claim)
 	return panel
 
+## A TOGGLE CARD — a NEW card type (sibling of mail_card / daily_card): one persisted setting as a row,
+## its name on the LEFT and the shared Look.toggle_switch on the RIGHT, riding the SAME kit/mail_card.png
+## parchment surface the mail rows use (a flat cream pill when card_art is off). The settings dialog
+## stacks one per flag. Game-state-agnostic: `entry` carries label + value + on_toggle, so the workbench
+## previews it (a local flip) and the GAME drives it from Save — the kit never reads game state itself.
+##   entry: label (String) · value (bool, current state) · on_toggle (Callable(on: bool)).
+##   opts:  label_font (px) · switch_h (px, the switch height) · card_art (bool, parchment vs pill).
+static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
+	var label_font := int(opts.get("label_font", 28))
+	var switch_h := float(opts.get("switch_h", 44.0))
+	var card_art := bool(opts.get("card_art", true))
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box: StyleBox = Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD) if card_art else null
+	if box != null:
+		panel.add_theme_stylebox_override("panel", box)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Color(Pal.CREAM, 0.6)
+		s.set_corner_radius_all(18)
+		s.set_border_width_all(1)
+		s.border_color = Color(Pal.BARK, 0.4)
+		s.content_margin_left = 22; s.content_margin_right = 18
+		s.content_margin_top = 12; s.content_margin_bottom = 12
+		panel.add_theme_stylebox_override("panel", s)
+
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 18)
+	panel.add_child(row)
+	var name_l := Label.new()
+	name_l.text = String(entry.get("label", ""))
+	name_l.add_theme_font_size_override("font_size", label_font)
+	name_l.add_theme_color_override("font_color", Pal.INK)
+	name_l.add_theme_constant_override("outline_size", 0)
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(name_l)
+
+	# the switch is the SHARED Look.toggle_switch (the sliced kit/switch_on·off art) — the same one the
+	# settings rows have always used. The callback fires the entry's on_toggle (game persists; preview no-ops).
+	var on_toggle: Callable = entry.get("on_toggle", Callable())
+	var fire := func(on: bool) -> void:
+		if on_toggle.is_valid():
+			on_toggle.call(on)
+	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(sw)
+	return panel
+
 ## The dialog banner band: ribbon art + the "Mail" text drawn FULL-RECT and vertically CENTRED, so it
 ## auto-aligns whatever the font size; plus an optional envelope icon (toggle). Named DialogBanner /
 ## DialogBannerIcon so the workbench can drag them.
@@ -1059,6 +1118,18 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		var icon_badge: String = String(opts.get("icon_badge", "shared/disc_round.png"))
 		for i in maxi(0, entries_count):
 			content.add_child(mail_card(entries[i % entries.size()], card_title, card_body, btn_opts, icon_badge))
+	return dialog_frame(content, width, opts)
+
+## The SETTINGS dialog — the SHARED frame with a column of toggle_cards, one per persisted flag. The
+## direct sibling of mail_dialog: same chrome, a new card. `entries` is [{label, value, on_toggle}, …];
+## the toggle-card style rides opts["toggle"] (label_font / switch_h / card_art). Used by BOTH the
+## workbench preview and the game (engine/scripts/ui/settings.gd) — one builder, no duplicated face.
+static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictionary = {}) -> Control:
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", int(opts.get("row_gap", 12)))
+	var to: Dictionary = opts.get("toggle", {})
+	for e in entries:
+		content.add_child(toggle_card(e, to))
 	return dialog_frame(content, width, opts)
 
 ## A small kit sprite (the ✓ check, the mystery chest, …) cleaned + fit into a px box.
@@ -1611,6 +1682,25 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cell_h"] = float(sh.get("cell_h", 150))
 	o["row_gap"] = float(sh.get("row_gap", 22))        # spacing between rows + sections (the dividers)
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
+	return o
+
+## The TOGGLE-CARD style opts from config (label font · switch size · parchment vs pill). The toggle card
+## is its OWN component, so both the workbench card preview AND the settings dialog read it from here.
+static func toggle_card_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var tc: Dictionary = cfg.get("toggle_card", {})
+	return {
+		"label_font": int(tc.get("label_font", 28)),
+		"switch_h": float(tc.get("switch_h", 44)),
+		"card_art": bool(tc.get("card_art", true)),
+	}
+
+## The full SETTINGS-dialog opts: the SHARED frame + the toggle-card style (under opts["toggle"]) + the
+## settings dialog's OWN width / row spacing. Used by the workbench preview AND the game settings card.
+static func settings_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var o := dialog_opts_from_config(cfg)
+	o["toggle"] = toggle_card_opts_from_config(cfg)
+	var st: Dictionary = cfg.get("settings", {})
+	o["row_gap"] = float(st.get("row_gap", 12))   # gap between toggle rows
 	return o
 
 ## The badge (disc-shell) edge polish from config — the standalone Badge item's defringe / feather /

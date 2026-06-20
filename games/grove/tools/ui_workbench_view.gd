@@ -16,14 +16,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "frame", "dialog", "daily", "shop"]
+const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "toggle_card", "frame", "dialog", "daily", "shop", "settings"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["frame"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"]],                                            # every dialog, one column
+	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["toggle_card"], ["frame"]],   # the building blocks
+	[["dialog"], ["daily"], ["shop"], ["settings"]],                              # every dialog, one column
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -51,6 +51,8 @@ const TEST_KEYS := {
 	"dialog": ["entries"],
 	"daily": [],
 	"shop": [],
+	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
+	"settings": [],
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
@@ -59,10 +61,12 @@ const CAPTIONS := {
 	"badge": "Badge — disc shell (raw vs polished)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
+	"toggle_card": "Toggle card — label + switch",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
+	"settings": "Settings — toggles (shared frame)",
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
@@ -100,12 +104,18 @@ var _params := {
 		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
 		"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
 		"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
+	# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
+	# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
+	"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
+	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
+	"settings": {"width_pct": 80, "row_gap": 12},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -291,6 +301,13 @@ func _make_element(id: String) -> Control:
 			if String(p.ribbon) != "":
 				day["ribbon"] = String(p.ribbon)
 			return Kit.daily_card(day, co)
+		"toggle_card":
+			# one settings ROW, standalone — a label + the shared switch, at a representative width (it always
+			# lives width-constrained in the Settings dialog). label_font / switch_h / card_art are saved.
+			var tco := Kit.toggle_card_opts_from_config(_params)
+			var tcard := Kit.toggle_card({"label": String(p.label), "value": bool(p.value)}, tco)
+			tcard.custom_minimum_size.x = 460
+			return tcard
 		"daily":
 			# SHARED frame config (from the Dialog item) + the separately-defined day card + grid knobs
 			var dopts := Kit.daily_opts_from_config(_params)
@@ -301,6 +318,11 @@ func _make_element(id: String) -> Control:
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+		"settings":
+			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
+			var setopts := Kit.settings_opts_from_config(_params)
+			setopts["banner_text"] = "Settings"
+			return Kit.settings_dialog(Kit.DEMO_SETTINGS, _dlg_px("settings"), setopts)
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -594,9 +616,20 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "dialog" or _selected == "daily" or _selected == "shop":
+	if _selected == "toggle_card":
 		var note := Label.new()
-		var card_src := "" if _selected == "dialog" else " the card is on the Daily card item;"
+		note.text = "This single setting row is reused by the Settings dialog. (The switch is the shared kit switch.) Label + value below just preview the row."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
+	if _selected == "dialog" or _selected == "daily" or _selected == "shop" or _selected == "settings":
+		var note := Label.new()
+		var card_src := ""
+		if _selected == "daily" or _selected == "shop":
+			card_src = " the card is on the Daily card item;"
+		elif _selected == "settings":
+			card_src = " the card is on the Toggle card item;"
 		note.text = "The frame (banner · border · ✕ · scroll · padding) is SHARED — edit it on the Frame item.%s Here: this dialog's content." % card_src
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
@@ -702,6 +735,18 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
 			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+		"toggle_card":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_toggle_row("Card art (parchment)", "card_art"))
+			_sidebar_body.add_child(_slider_row(["label_font", 16, 44]))
+			_sidebar_body.add_child(_slider_row(["switch_h", 28, 72]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_text_row("Label", "label"))
+			_sidebar_body.add_child(_toggle_row("Value (on)", "value"))
+		"settings":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:
