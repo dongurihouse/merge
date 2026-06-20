@@ -2799,15 +2799,18 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 	var box := float(opts.get("icon_box", 40.0))
 	var pair_sep := int(opts.get("pair_sep", 14))
 	var demo := {"star": 1280, "coin": 540, "gem": 36}
-	for i in CUR_PILL_ICONS.size():
+	# the icon set is the 3-currency wallet by default; a caller (e.g. the bag's acorn balance) can pass
+	# opts["icons"] = [[id, px], …] to render a SUBSET (or a single currency) in the same capsule.
+	var icons: Array = opts.get("icons", CUR_PILL_ICONS)
+	for i in icons.size():
 		if i > 0:
 			# the WIDER gap between pairs is an explicit spacer (matches hud.gd's _spacer)
 			var s := Control.new()
 			s.custom_minimum_size = Vector2(float(pair_sep - row_sep), 0)
 			s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			row.add_child(s)
-		var id := String(CUR_PILL_ICONS[i][0])
-		var icon_px := float(CUR_PILL_ICONS[i][1])
+		var id := String(icons[i][0])
+		var icon_px := float(icons[i][1])
 		var cc := CenterContainer.new()
 		cc.custom_minimum_size = Vector2(box, box)
 		cc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -2815,7 +2818,7 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		cc.add_child(make_icon(id, icon_px))
 		row.add_child(cc)
 		var lbl := Label.new()
-		lbl.text = str(int(counts.get(id, demo[id])))
+		lbl.text = str(int(counts.get(id, demo.get(id, 0))))
 		lbl.add_theme_font_size_override("font_size", num)
 		lbl.add_theme_color_override("font_color", Pal.INK)
 		lbl.add_theme_constant_override("outline_size", 0)   # panel-text law: no halo on a solid pill
@@ -2823,6 +2826,278 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(lbl)
 	return panel
+
+## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
+## Per-state cell art (the bag screen's tiles). A locked slot reuses the cream card, dimmed.
+const BAG_CARD_ART := {
+	"filled": "kit/bag_card.png", "empty": "kit/bag_card_empty.png",
+	"next": "kit/bag_card_gold.png", "locked": "kit/bag_card.png",
+}
+const BAG_LOCKED_TINT := Color(0.82, 0.80, 0.76)   # a locked tile reads dimmed
+
+## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
+## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
+## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
+static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var bc: Dictionary = cfg.get("bag_card", {})
+	return {
+		"cell_w": float(bc.get("cell_w", 116)),
+		"cell_h": float(bc.get("cell_h", 120)),
+		"cell_slice": float(bc.get("cell_slice", 36)),
+		"cell_art": bool(bc.get("cell_art", true)),
+		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a bagged piece, % of the cell
+		"lock_frac": float(bc.get("lock_frac", 46)) / 100.0,         # the padlock, % of the cell
+		"cost_font": int(bc.get("cost_font", 26)),                   # the acorn-cost number
+		"cost_icon": float(bc.get("cost_icon", 30)),                 # the acorn icon px in a cost row
+	}
+
+## One BAG SLOT TILE — the bag screen's cell, its own component (the bag dialog reuses it). `kind` picks
+## the look + behaviour:
+##   filled — a bagged piece on the cream card (bag_card.png); a tap fires d.on_tap (retrieve)
+##   empty  — an owned-but-vacant card (bag_card_empty.png), inert
+##   next   — the single buyable slot, the gold card (bag_card_gold.png); its acorn cost rides the
+##            centre; a tap fires d.on_tap (buy the slot)
+##   locked — a dimmed cream card with the padlock (bag_lock.png) + its acorn cost BELOW the tile
+## The filled piece is content-agnostic so the kit stays free of game deps: d.make_content(size) (a
+## Callable that builds the game's piece view at the FITTED cell size) wins, else a pre-built d.content
+## node, else d.icon (a kit icon id, the workbench preview), else nothing. The acorn = the gem currency
+## icon (Grove renders 💎 as a golden acorn). A code-drawn cream card backs every state when the art is
+## off/absent (the kit fallback law).
+## d keys: kind, make_content|content|icon, cost, on_tap. opts: bag_card_opts_from_config(...).
+static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
+	var kind := String(d.get("kind", "empty"))
+	var cw: float = float(opts.get("cell_w", 116.0))
+	var ch: float = float(opts.get("cell_h", 120.0))
+	var cost_font := int(opts.get("cost_font", 26))
+	var cost_icon := float(opts.get("cost_icon", 30.0))
+	var on_tap: Callable = d.get("on_tap", Callable())
+	var tappable := on_tap.is_valid() and (kind == "filled" or kind == "next")
+
+	# the cell column: the tile, then a reserved strip below (a locked tile shows its acorn cost there;
+	# every other tile reserves the same height so a grid's rows stay aligned — like bag_overlay).
+	var cell := VBoxContainer.new()
+	cell.add_theme_constant_override("separation", 2)
+	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+
+	# the tile: a Button when tappable (fires on_tap), else a plain holder (empty/locked are inert).
+	var tile: Control = (Button.new() if tappable else Control.new())
+	tile.custom_minimum_size = Vector2(cw, ch)
+	if tile is Button:
+		var b := tile as Button
+		b.focus_mode = Control.FOCUS_NONE
+		b.flat = true
+		b.pressed.connect(func() -> void:
+			if on_tap.is_valid(): on_tap.call())
+
+	# the card FACE — the bag art scaled WHOLE (so bag_card_gold's sparkles read), or a code-drawn cream
+	# card when art is off/absent.
+	var art := String(BAG_CARD_ART.get(kind, BAG_CARD_ART["empty"]))
+	var use_art := bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
+	if use_art:
+		var face := TextureRect.new()
+		face.texture = clean_tex_path(Look.kit(art), 256)
+		face.set_anchors_preset(Control.PRESET_FULL_RECT)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if kind == "locked":
+			face.modulate = BAG_LOCKED_TINT
+		tile.add_child(face)
+	else:
+		var p := Panel.new()
+		p.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var ss := StyleBoxFlat.new()
+		ss.bg_color = (Color(Pal.CREAM, 0.5) if kind == "empty" else Color(Pal.CREAM, 0.92))
+		ss.set_corner_radius_all(16)
+		ss.set_border_width_all(3 if kind == "next" else 2)
+		ss.border_color = (Pal.STRAW if kind == "next" else Color(Pal.GROUND_EDGE, 0.4))
+		p.add_theme_stylebox_override("panel", ss)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if kind == "locked":
+			p.modulate = BAG_LOCKED_TINT
+		tile.add_child(p)
+
+	# the centred content: filled → the piece; next → the acorn cost; locked → the padlock.
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tile.add_child(center)
+	match kind:
+		"filled":
+			# the piece is built at the FITTED cell size: d.make_content(size) (the game's piece view, sized
+			# to the kit-computed cell so the game stays out of layout) wins, else a pre-built d.content node,
+			# else d.icon (the workbench preview), else nothing.
+			var piece_px := cw * float(opts.get("content_frac", 0.62))
+			var piece: Control = null
+			var mk: Callable = d.get("make_content", Callable())
+			if mk.is_valid():
+				piece = mk.call(piece_px)
+			elif d.get("content") is Control:
+				piece = d.get("content")
+			elif String(d.get("icon", "")) != "":
+				piece = make_icon(String(d.icon), piece_px)
+			if piece != null:
+				piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				center.add_child(piece)
+		"next":
+			center.add_child(_bag_cost_row(int(d.get("cost", 0)), cost_icon, cost_font))
+		"locked":
+			center.add_child(_bag_lock(cw * float(opts.get("lock_frac", 0.46))))
+	cell.add_child(tile)
+
+	# the below-tile strip: a locked tile's acorn cost sits here; others reserve the same height.
+	var below := CenterContainer.new()
+	below.custom_minimum_size = Vector2(cw, float(cost_font) + 8.0)
+	below.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if kind == "locked":
+		below.add_child(_bag_cost_row(int(d.get("cost", 0)), cost_icon * 0.8, int(cost_font * 0.85)))
+	cell.add_child(below)
+	return cell
+
+# An "N 🌰" acorn-cost cluster (the gem currency icon = the golden acorn) — inside the next tile and
+# under a lock. Mouse-transparent so the tile keeps the tap.
+static func _bag_cost_row(cost: int, icon_px: float, font: int) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 3)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lbl := Label.new()
+	lbl.text = str(cost)
+	lbl.add_theme_font_size_override("font_size", font)
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	row.add_child(make_icon("gem", icon_px))
+	return row
+
+# The padlock on a locked tile — the bag_lock sprite (polished), or a glyph when the art is absent.
+static func _bag_lock(px: float) -> Control:
+	var p := Look.kit("kit/bag_lock.png")
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = clean_tex_path(p, 128)
+		t.custom_minimum_size = Vector2(px, px)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var l := Label.new()
+	l.text = "🔒"
+	l.add_theme_font_size_override("font_size", int(px))
+	l.add_theme_color_override("font_color", Color(Pal.INK, 0.55))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+## The full BAG-dialog opts: the SHARED frame + the bag-cell style + the reused currency-pill style +
+## the dialog's own grid (cols, default 6 — the reference's six-wide ladder). Same construction as the
+## daily/settings dialogs. Used by the workbench preview AND the game (engine/scripts/ui/bag_overlay.gd).
+static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var o := dialog_opts_from_config(cfg)
+	o.merge(bag_card_opts_from_config(cfg), true)
+	o["pill"] = currency_pill_opts_from_config(cfg)   # the reused pill's style (single-acorn at build time)
+	var bg: Dictionary = cfg.get("bag", {})
+	o["cols"] = int(bg.get("cols", 6))
+	o["cell_gap"] = int(bg.get("cell_gap", 12))
+	o["grid_inset"] = float(bg.get("grid_inset", 70))  # how much the parchment border/padding eats the grid width
+	o["row_gap"] = float(bg.get("row_gap", 14))        # gap between the pill / grid / footer rows
+	o["list_max_h"] = float(bg.get("list_max_h", 0))   # the bag's OWN scroll cap (0 = no scroll, 18 slots fit)
+	o["caption"] = String(bg.get("caption", "Open a slot with acorns."))
+	o["banner_text"] = String(bg.get("banner_text", "Bag"))
+	o["banner_icon_on"] = false                        # the reference's "Bag" ribbon is text-only (no envelope)
+	return o
+
+## The BAG dialog — the SHARED frame wrapping the bag screen: the reused currency pill (the single-acorn
+## balance, docked top-right), a grid of bag cells (the slot ladder), and a leaf-flanked footer caption.
+## The direct sibling of daily_dialog: same chrome, the bag's content. `entries` is an Array of bag_card
+## data dicts (already classified by the caller — the game's slot_plan, or the workbench's DEMO_BAG);
+## `balance` is the acorn count. opts["extra"] (optional) is a game-only section (the generators row)
+## inserted below the grid. Used by BOTH the workbench preview and the game (ui/bag_overlay.gd).
+static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts: Dictionary = {}) -> Control:
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", int(opts.get("row_gap", 14)))
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	# the acorn-balance pill, docked top-right — the REUSED currency pill in single-currency (acorn) mode.
+	var top := HBoxContainer.new()
+	top.alignment = BoxContainer.ALIGNMENT_END
+	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var pill_opts: Dictionary = (opts.get("pill", {}) as Dictionary).duplicate()
+	pill_opts["icons"] = [["gem", float(opts.get("balance_icon", 38.0))]]
+	top.add_child(currency_pill(pill_opts, {"gem": balance}))
+	content.add_child(top)
+
+	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width
+	# (width − the border/padding inset − the gaps), so the grid never overflows the parchment (like the
+	# tiers/daily grids); every cell metric scales from that fitted cell_w. A partial last row centres.
+	var cols := maxi(1, int(opts.get("cols", 6)))
+	var gap := int(opts.get("cell_gap", 12))
+	var inset := float(opts.get("grid_inset", 70.0))
+	var base_w := float(opts.get("cell_w", 116.0))
+	var aspect := float(opts.get("cell_h", 120.0)) / maxf(1.0, base_w)
+	var cw := maxf(40.0, (width - inset - float(cols - 1) * float(gap)) / float(cols))
+	var fit_scale := cw / maxf(1.0, base_w)
+	var cell_opts := opts.duplicate()
+	cell_opts["cell_w"] = cw
+	cell_opts["cell_h"] = cw * aspect
+	cell_opts["cost_font"] = int(float(opts.get("cost_font", 26)) * fit_scale)
+	cell_opts["cost_icon"] = float(opts.get("cost_icon", 30.0)) * fit_scale
+	var grid := GridContainer.new()
+	grid.columns = cols
+	grid.add_theme_constant_override("h_separation", gap)
+	grid.add_theme_constant_override("v_separation", gap)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for e in entries:
+		grid.add_child(bag_card(e, cell_opts))
+	var grid_wrap := CenterContainer.new()
+	grid_wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid_wrap.add_child(grid)
+	content.add_child(grid_wrap)
+
+	# an optional game-only section (the stored-generators row) below the grid
+	if opts.get("extra") is Control:
+		content.add_child(opts.get("extra"))
+
+	content.add_child(_bag_footer(String(opts.get("caption", "Open a slot with acorns."))))
+	return dialog_frame(content, width, opts)
+
+# The bag footer caption flanked by the bag leaf sprigs (bag_leaf_l/r.png), or text alone when absent.
+static func _bag_footer(text: String) -> Control:
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ll := _bag_leaf("kit/bag_leaf_l.png", false)
+	if ll != null:
+		row.add_child(ll)
+	var lbl := Label.new()
+	lbl.text = text
+	lbl.add_theme_font_size_override("font_size", 24)
+	lbl.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	var lr := _bag_leaf("kit/bag_leaf_r.png", true)
+	if lr != null:
+		row.add_child(lr)
+	return row
+
+static func _bag_leaf(rel: String, flip: bool) -> Control:
+	var p := Look.kit(rel)
+	if not ResourceLoader.exists(p):
+		return null
+	var t := TextureRect.new()
+	t.texture = clean_tex_path(p, 96)
+	t.flip_h = flip
+	t.custom_minimum_size = Vector2(40, 34)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 ## The map-SELECT place-picker CARD, built from game-resolved DATA + workbench-tuned presentation.
 ## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill), stars_left:int,

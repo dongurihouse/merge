@@ -21,6 +21,18 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
+# The slot-tile count in the overlay's grid (the kit lays the ladder out as one GridContainer).
+func _grid_cells(overlay: Control) -> int:
+	var grids := overlay.find_children("*", "GridContainer", true, false)
+	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
+
+# True if any Label in `overlay`'s subtree has exactly `text`.
+func _has_label(overlay: Control, text: String) -> bool:
+	for l in overlay.find_children("*", "Label", true, false):
+		if String((l as Label).text) == text:
+			return true
+	return false
+
 # Pull every slot of a given kind out of a plan, in order.
 func _of_kind(plan: Array, kind: String) -> Array:
 	var out: Array = []
@@ -78,9 +90,10 @@ func _initialize() -> void:
 			price_ok = false
 	ok(price_ok, "the gold tile's price matches G.next_bag_slot_price at every owned count")
 
-	# 6. build-smoke: open() assembles the modal under a host and the root is a live Control with the
-	#    backdrop, the centered body, and the close ✕ docked on it (>= 3 children; the banner rides
-	#    INSIDE the card now, the shared shop chrome). Then it frees without erroring.
+	# 6. build-smoke: open() assembles the modal under a host, built on the SHARED kit frame
+	#    (engine ↔ workbench parity): the named DialogBanner + DialogClose ride INSIDE the card, the
+	#    slot ladder is a grid of one tile per slot (the cap), and the reused acorn pill shows the
+	#    balance. Then it frees without erroring.
 	var host := Control.new()
 	host.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_child(host)
@@ -91,7 +104,10 @@ func _initialize() -> void:
 		"on_buy_slot": func() -> void: pass,
 	})
 	ok(is_instance_valid(overlay) and overlay is Control, "open() returns a live Control overlay")
-	ok(overlay.get_child_count() >= 3, "the overlay carries the veil, body, and close")
+	ok(overlay.find_child("DialogBanner", true, false) != null, "the bag overlay rides the SHARED kit frame banner")
+	ok(overlay.find_child("DialogClose", true, false) != null, "the shared frame's ✕ disc is docked on the bag card")
+	ok(_grid_cells(overlay) == cap, "the slot ladder is a grid of one tile per slot (%d)" % cap)
+	ok(_has_label(overlay, "132"), "the reused acorn pill shows the balance (132)")
 	overlay.queue_free()
 	host.queue_free()
 

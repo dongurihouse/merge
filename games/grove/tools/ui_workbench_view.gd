@@ -17,14 +17,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault"]
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "bag_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"], ["vault"]],   # dialogs, the HUD wallet pill, settings, vault
+	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["bag_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"], ["vault"], ["bag"]],   # dialogs, the HUD wallet pill, settings, vault, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -34,11 +34,14 @@ const COLUMNS := [
 const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings"],
 	"card": ["dialog", "daily", "shop", "settings"],
-	"frame": ["dialog", "daily", "shop", "settings"],
+	"frame": ["dialog", "daily", "shop", "settings", "bag"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"tiers_card": ["tiers"],
 	"badge": ["home_button"],
+	# the bag dialog reuses the shared frame, the bag cell, AND the currency pill — editing any rebuilds it
+	"bag_card": ["bag"],
+	"currency_pill": ["bag"],
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -84,6 +87,11 @@ const TEST_KEYS := {
 	"map_card": ["open", "done", "stars_left"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
+	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
+	"bag_card": ["preview"],
+	# the bag DIALOG — grid/caption persist; balance/owned/filled just preview the slot ladder (the game
+	# sets each from save: the 💎 balance, how many slots owned, how many hold a piece).
+	"bag": ["balance", "owned", "filled"],
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
@@ -95,6 +103,7 @@ const CAPTIONS := {
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
+	"bag_card": "Bag cell — slot tile (filled · empty · next · locked)",
 	"toggle_card": "Toggle card — label + switch",
 	"map_card": "Map card — place-picker (gold frame / locked panel)",
 	"frame": "Dialog frame — shared chrome",
@@ -106,6 +115,7 @@ const CAPTIONS := {
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
+	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
@@ -202,6 +212,15 @@ var _params := {
 	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
 		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
 		"balance": 320, "claimable": true},
+	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
+	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
+	"bag_card": {"preview": "next", "cell_w": 116, "cell_h": 120, "cell_slice": 36, "cell_art": true,
+		"content_frac": 62, "lock_frac": 46, "cost_font": 26, "cost_icon": 30},
+	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
+	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
+	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
+	"bag": {"width_pct": 85, "cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0,
+		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -251,7 +270,7 @@ func _build() -> void:
 	# the DIALOG column is sized to the WIDEST dialog (mail/daily/shop carry their own width) + chrome, so
 	# no dialog is clipped inside its column; the building-blocks column takes the remaining width.
 	var dlg_w := 0.0
-	for did in ["dialog", "daily", "shop", "tiers"]:
+	for did in ["dialog", "daily", "shop", "tiers", "bag"]:
 		dlg_w = maxf(dlg_w, _dlg_px(did))
 	var dlg_col_w: float = dlg_w + 96.0
 	_columns.clear()
@@ -464,7 +483,58 @@ func _make_element(id: String) -> Control:
 			p_st["balance"] = int(p.balance)
 			p_st["claimable"] = bool(p.claimable)
 			return Kit.vault_dialog(p_st, _dlg_px("vault"), vopts)
+		"bag_card":
+			# the bag slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit
+			# (like tiers_card): only the SIZE scales — every metric is taken from the cell, so the zoom
+			# shows the EXACT proportions the dialog will.
+			var bco := Kit.bag_card_opts_from_config(_params)
+			var z := 2.0
+			bco["cell_w"] = float(bco["cell_w"]) * z
+			bco["cell_h"] = float(bco["cell_h"]) * z
+			bco["cost_font"] = int(float(bco["cost_font"]) * z)
+			bco["cost_icon"] = float(bco["cost_icon"]) * z
+			return Kit.bag_card(_bag_preview_cell(String(p.preview)), bco)
+		"bag":
+			# the SHARED frame + the reused currency pill + a grid of bag cells (the SAME builder the game's
+			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
+			var bopts := Kit.bag_opts_from_config(_params)
+			bopts["banner_text"] = "Bag"
+			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
+
+## A demo bag CELL for the standalone Bag-cell preview, in the chosen state.
+func _bag_preview_cell(state: String) -> Dictionary:
+	match state:
+		"filled": return {"kind": "filled", "icon": "leaf"}
+		"empty":  return {"kind": "empty"}
+		"locked": return {"kind": "locked", "cost": 25}
+		_:        return {"kind": "next", "cost": 10}
+
+## The demo slot ladder for the Bag dialog preview — classified exactly like the game's slot_plan: the
+## first `filled` slots hold a piece, the rest of the `owned` slots are empty, slot owned+1 is the gold
+## "next" buy, the remainder are locked. Demo costs mirror G.BAG_SLOT_PRICES; the cap is 18 slots.
+func _bag_demo_entries(owned: int, filled: int) -> Array:
+	const CAP := 18
+	const START := 6
+	const PRICES := [10, 10, 10, 15, 15, 15, 20, 20, 20, 25, 25, 25]
+	const ICONS_ := ["leaf", "gift", "daisy", "water", "star"]
+	var out: Array = []
+	for k in range(1, CAP + 1):
+		if k <= owned:
+			if k <= filled:
+				out.append({"kind": "filled", "icon": ICONS_[(k - 1) % ICONS_.size()]})
+			else:
+				out.append({"kind": "empty"})
+		elif k == owned + 1:
+			out.append({"kind": "next", "cost": _bag_price(k, PRICES, START)})
+		else:
+			out.append({"kind": "locked", "cost": _bag_price(k, PRICES, START)})
+	return out
+
+## The acorn price to unlock 1-based slot `k` (0 for a starting/past slot) — mirrors BagOverlay._price_at.
+func _bag_price(k: int, prices: Array, start: int) -> int:
+	var idx := (k - 1) - start
+	return int(prices[idx]) if idx >= 0 and idx < prices.size() else 0
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
 ## mystery shows the milestone badge + chest).
@@ -892,6 +962,20 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
+	if _selected == "bag_card":
+		var note := Label.new()
+		note.text = "The bag screen's slot tile, reused by the Bag dialog. State picks the cell art: filled (a piece), empty, gold next (buyable), locked (padlock). Preview a state below."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
+	if _selected == "bag":
+		var note := Label.new()
+		note.text = "Reuses the SHARED frame (banner · border · ✕ — edit on the Frame item) + the REUSED currency pill (the acorn balance — edit on the Currency pill item). The tile is the Bag cell item. Here: the grid + the preview ladder."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
@@ -1119,6 +1203,31 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
+		"bag_card":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
+			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
+			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
+			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))      # nine-patch corner (code-drawn fallback)
+			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
+			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 80]))      # the padlock size (% of cell)
+			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
+			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["next", "filled", "empty", "locked"]))
+		"bag":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			_sidebar_body.add_child(_slider_row(["cols", 1, 8]))
+			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 40]))
+			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 200]))    # how far the parchment border eats the grid width
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between pill / grid / footer
+			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1200]))   # height cap; 0 = no scroll
+			_sidebar_body.add_child(_text_row("Caption", "caption"))
+			_group_header("Test only — not saved", false)                  # the game sets each from save
+			_sidebar_body.add_child(_slider_row(["balance", 0, 9999]))      # the 💎 acorn balance the pill shows
+			_sidebar_body.add_child(_slider_row(["owned", 0, 18]))          # how many slots are owned
+			_sidebar_body.add_child(_slider_row(["filled", 0, 18]))         # how many owned slots hold a piece
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:

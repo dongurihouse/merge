@@ -1,17 +1,18 @@
 extends RefCounted
 ## The full-bag OVERLAY builder — the modal that replaces the always-on inline bag row (BagView):
-## the bottom-bar bag icon opens THIS, a dimmed-backdrop parchment modal showing the WHOLE slot
-## ladder (§5) as a grid of tiles — every owned slot (filled = a bagged piece, empty = an owned
-## vacancy), the next purchasable slot (warm-tinted, its 💎 price shown inside), and every locked
-## future slot beyond it (a padlock + its 💎 price below). Built entirely from the SHARED popup
-## components (skin.gd) so every modal — shop, bag, … — speaks one language: the parchment panel
-## (Look.kit_panel), the gold ribbon banner (Look.banner_title), the red ✕ disc (Look.close_button),
-## the storefront card (Look.card_button → shop_card / shop_card_b), and the shared 💎 currency icon
-## (Look.icon("gem")). No bag-specific art. Stateless pure VIEW: the board owns the bag array, the
-## slot count, the 💎 balance, and the retrieve / buy-slot transactions; this only assembles the view
-## and fires injected Callables. Tap behaviour uses the still-release pattern (a small move threshold
-## so a scroll/drag doesn't mis-fire). ui/ never imports scenes/ (the §15 layering invariant) — every
-## action AND every read (the balance, the price ladder) is injected through `cfg`.
+## the bottom-bar bag icon opens THIS, a dimmed-backdrop modal showing the WHOLE slot ladder (§5) as a
+## grid of tiles — every owned slot (filled = a bagged piece, empty = an owned vacancy), the next
+## purchasable slot (gold-tinted, its 💎 price shown inside), and every locked future slot beyond it
+## (a padlock + its 💎 price below). Built on the SHARED ui kit (games/grove/tools/ui_workbench_kit.gd),
+## the SAME builder the workbench previews and the game's vault/settings/hud read: the parchment frame
+## (Kit.dialog_frame — banner · border · ✕ · scroll), the slot tile (Kit.bag_card), and the reused
+## wallet pill (Kit.currency_pill in single-acorn mode). So the engine and the design tool render one
+## bag, from one transform — tweak the bag in the workbench and the game follows.
+##
+## Stateless pure VIEW: the board owns the bag array, the slot count, the 💎 balance, and the retrieve /
+## buy-slot transactions; this only assembles the view and fires injected Callables. ui/ never imports
+## scenes/ (the §15 layering invariant) — every action AND every read (the balance, the price ladder) is
+## injected through `cfg`.
 ##
 ## Usage:
 ##   BagOverlay.open(host, {
@@ -22,33 +23,20 @@ extends RefCounted
 ##     start_slots: int,      # the starting slot count (G.BAG_START_SLOTS) — prices index from here
 ##     prices: Array,         # the per-expansion 💎 price ladder (G.BAG_SLOT_PRICES)
 ##     on_retrieve: Callable, # (index: int) -> a filled slot was tapped: pull the piece back out
-##     on_buy_slot: Callable, # () -> the next (tinted) tile was tapped: buy the next slot
+##     on_buy_slot: Callable, # () -> the next (gold) tile was tapped: buy the next slot
+##     gen_bag: Array,        # (optional) stored generator ids — a row below the grid (game-only)
+##     on_place_gen: Callable,# (optional) (id: String) -> a generator tile was tapped: place it
 ##     on_close: Callable })  # (optional) () -> the overlay was dismissed (any path)
 ## Returns the overlay root Control (already added to host).
 
-const Look = preload("res://engine/scripts/ui/skin.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Pal = Game.PALETTE
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
 
 const INK = Pal.INK
-const CREAM = Pal.CREAM
-const GROUND_EDGE = Pal.GROUND_EDGE
-
-const GRID_COLS := 6              # the six-wide ladder (3 rows reach the 18-slot cap)
-const CELL_W := 116.0            # a slot tile's width (the shared shop_card rides this)
-const CELL_H := 120.0            # a slot tile's height (≈ shop_card's square aspect)
-const H_SEP := 12.0
-const V_SEP := 12.0
-const PRICE_ROW_H := 30.0        # the reserved strip UNDER each tile (a locked slot's price sits here)
-const PIECE_FRAC := 0.62         # a bagged piece's size as a fraction of CELL_W
-const LOCK_FRAC := 0.40          # the padlock glyph's size as a fraction of CELL_W
-const CLOSE_MARGIN := 10.0       # the ✕ disc's inset from the card's top-right corner
-const NEXT_TINT := Color(1.0, 0.88, 0.55)   # the next-buyable tile: a warm gold wash on shop_card
-const LOCKED_TINT := Color(0.82, 0.80, 0.76) # a locked tile: shop_card_b, dimmed
-const TAP_MOVE_THRESH := 24.0    # a release within this many px of the press is a TAP (not a drag/scroll)
 
 # --- the slot ladder (pure, headless-testable) ------------------------------------
 # The 💎 price to UNLOCK 1-based slot `k`: index the ladder by how many expansions precede it.
@@ -63,7 +51,7 @@ static func _price_at(k: int, prices: Array, start_slots: int) -> int:
 # each entry to a tile; tests assert the classification + prices without building any nodes.
 #   {kind:"filled", index:i}  an owned slot holding bag[i]
 #   {kind:"empty"}            an owned but vacant slot
-#   {kind:"next",  price:p}   the single purchasable slot (tinted), p = its 💎 price
+#   {kind:"next",  price:p}   the single purchasable slot (gold), p = its 💎 price
 #   {kind:"locked",price:p}   a future slot beyond the next one, p = its 💎 price
 static func slot_plan(owned: int, max_slots: int, bag_size: int, prices: Array, start_slots: int) -> Array:
 	var out: Array = []
@@ -122,232 +110,99 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	# the shared parchment card (Look.kit_panel) — the same surface every modal uses.
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	cc.add_child(card)
+	# build the bag card from the SHARED kit — the same dialog the workbench previews. A missing kit
+	# would only happen if the tools script were stripped from a build; bail to a bare veil if so.
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		push_warning("BagOverlay: ui kit missing at %s" % KIT_PATH)
+		return overlay
+	var kcfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var opts: Dictionary = Kit.bag_opts_from_config(kcfg)
+	opts["banner_text"] = host.tr("Bag")
+	opts["caption"] = host.tr("Open a slot with acorns.")
+	opts["on_close"] = dismiss
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
-	card.add_child(col)
+	# the responsive width: the saved bag width_pct × the live viewport (matching the other overlays)
+	var width_pct: float = float((kcfg.get("bag", {}) as Dictionary).get("width_pct", 85))
+	var width: float = host.get_viewport_rect().size.x * clampf(width_pct, 30.0, 100.0) / 100.0
 
-	# the shared gold ribbon banner with engine "Bag" text riding it (Look.banner_title).
-	var banner := Look.banner_title(host.tr("Bag"), 40, 108.0)
-	banner.size_flags_horizontal = Control.SIZE_FILL
-	col.add_child(banner)
-
-	# the acorn-balance chip, docked top-right under the banner (the shared 💎 currency icon).
-	var top := HBoxContainer.new()
-	top.alignment = BoxContainer.ALIGNMENT_END
-	col.add_child(top)
-	top.add_child(_counter_chip(balance))
-
-	# the slot ladder: every owned slot (filled/empty), the tinted next slot, then the locked future.
-	var grid := GridContainer.new()
-	grid.columns = GRID_COLS
-	grid.add_theme_constant_override("h_separation", int(H_SEP))
-	grid.add_theme_constant_override("v_separation", int(V_SEP))
-	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(grid)
+	# the slot ladder → bag_card entries. A filled slot builds its real piece view at the kit-FITTED cell
+	# size (make_content); the next/filled tiles tap (buy / retrieve) and dismiss; empty/locked are inert.
+	var entries: Array = []
 	for e in slot_plan(owned, max_slots, bag.size(), prices, start_slots):
-		grid.add_child(_slot_cell(e, bag, on_retrieve, on_buy_slot, dismiss))
+		var kind := String(e.kind)
+		var d := {"kind": kind}
+		match kind:
+			"filled":
+				var idx: int = int(e.index)
+				var code: int = int(bag[idx])
+				d["make_content"] = func(sz: float) -> Control:
+					var piece := PieceView.make_piece(code, sz)
+					piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+					return piece
+				d["on_tap"] = func() -> void:
+					if on_retrieve.is_valid():
+						on_retrieve.call(idx)
+					dismiss.call()
+			"next":
+				d["cost"] = int(e.price)
+				d["on_tap"] = func() -> void:
+					if on_buy_slot.is_valid():
+						on_buy_slot.call()
+					dismiss.call()
+			"locked":
+				d["cost"] = int(e.price)
+		entries.append(d)
 
-	# the generator section: a "Generators" label + a row of generator tiles (tap to place on board).
-	# Only shown when there are stored generators.
+	# the generators section (game-only — no analogue in bag.png), inserted below the grid by the kit.
 	if not gen_bag.is_empty():
-		var gen_label := Label.new()
-		gen_label.text = host.tr("Generators")
-		gen_label.add_theme_font_size_override("font_size", 26)
-		gen_label.add_theme_color_override("font_color", Color(INK, 0.75))
-		gen_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		col.add_child(gen_label)
-		var gen_row := HBoxContainer.new()
-		gen_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		gen_row.add_theme_constant_override("separation", int(H_SEP))
-		col.add_child(gen_row)
-		for gid in gen_bag:
-			var gid_str := String(gid)
-			var tile := Look.card_button(Vector2(CELL_W, CELL_H))
-			var center := CenterContainer.new()
-			center.set_anchors_preset(Control.PRESET_FULL_RECT)
-			center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			tile.add_child(center)
-			var gdef: Dictionary = G.gen_def(G.GENERATORS, gid_str)
-			var gtex_path: String = Game.art(String(gdef.get("tex", "")))
-			if ResourceLoader.exists(gtex_path):
-				var gicon := TextureRect.new()
-				gicon.texture = load(gtex_path)
-				gicon.custom_minimum_size = Vector2(CELL_W * PIECE_FRAC, CELL_W * PIECE_FRAC)
-				gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-				gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-				gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				center.add_child(gicon)
-			else:
-				var fallback_lbl := Label.new()
-				fallback_lbl.text = gid_str
-				fallback_lbl.add_theme_font_size_override("font_size", 18)
-				fallback_lbl.add_theme_color_override("font_color", INK)
-				fallback_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				fallback_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				center.add_child(fallback_lbl)
-			tile.pressed.connect(func() -> void:
-				if on_place_gen.is_valid():
-					on_place_gen.call(gid_str)
-				dismiss.call())
-			gen_row.add_child(tile)
+		opts["extra"] = _gen_section(host, Kit, gen_bag, on_place_gen, dismiss)
 
-	# the footer caption (the preview's "Open a slot with acorns."), flanked by the kit leaf sprigs.
-	col.add_child(_caption(host.tr("Open a slot with acorns.")))
-
-	# the shared red ✕ disc (Look.close_button), docked inside the card's top-right corner after
-	# layout (the shop.gd place-deferred pattern), reconnected on resize.
-	var close := Look.close_button(dismiss)
-	overlay.add_child(close)
-	var place := func() -> void:
-		if not is_instance_valid(card) or not is_instance_valid(close):
-			return
-		var r := card.get_global_rect()
-		var cw: float = close.custom_minimum_size.x
-		close.global_position = Vector2(
-			r.position.x + r.size.x - cw - CLOSE_MARGIN, r.position.y + CLOSE_MARGIN)
-	card.resized.connect(place)
-	place.call_deferred()
-
-	FX.pop_in(card)
+	var dialog: Control = Kit.bag_dialog(entries, balance, width, opts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
 	return overlay
 
-# The acorn-balance chip (a cream HUD pill): the shared 💎 currency icon + the live balance.
-static func _counter_chip(balance: int) -> Control:
-	var chip := PanelContainer.new()
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(CREAM, 0.92)
-	sb.set_corner_radius_all(22)
-	sb.set_border_width_all(3)
-	sb.border_color = Color(GROUND_EDGE, 0.45)
-	sb.content_margin_left = 18.0
-	sb.content_margin_right = 18.0
-	sb.content_margin_top = 6.0
-	sb.content_margin_bottom = 6.0
-	chip.add_theme_stylebox_override("panel", sb)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	chip.add_child(row)
-	row.add_child(Look.icon("gem", 30.0))
-	var lbl := Label.new()
-	lbl.text = str(balance)
-	lbl.add_theme_font_size_override("font_size", 30)
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(lbl)
-	return chip
-
-# A "💎 price" cluster — a number + the shared 💎 icon; used inside the next tile and under a lock.
-static func _price_row(price: int, px: float, font: int) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lbl := Label.new()
-	lbl.text = str(price)
-	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", INK)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(lbl)
-	row.add_child(Look.icon("gem", px))
-	return row
-
-# A single ladder tile, built on the SHARED card (Look.card_button): the storefront parchment card +
-# its centred content + a price strip below. `e` is one slot_plan entry; filled/next tiles tap
-# (retrieve / buy), empty/locked tiles are inert (the card still press-juices, like every shop card).
-static func _slot_cell(e: Dictionary, bag: Array, on_retrieve: Callable, on_buy_slot: Callable, dismiss: Callable) -> Control:
-	var cell := VBoxContainer.new()
-	cell.add_theme_constant_override("separation", 2)
-	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-
-	var kind: String = e.kind
-	var art := "kit/shop_card.png"
-	if kind == "locked":
-		art = "kit/shop_card_b.png"
-	var tile := Look.card_button(Vector2(CELL_W, CELL_H), art)
-	if kind == "next":
-		tile.self_modulate = NEXT_TINT          # a warm gold wash marks the buyable slot
-	elif kind == "locked":
-		tile.self_modulate = LOCKED_TINT        # a greyed card reads as locked (self_modulate spares the glyph)
-
-	# centred content rides ON the card (a full-rect CenterContainer; the card keeps the tap)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(center)
-	match kind:
-		"filled":
-			var piece := PieceView.make_piece(int(bag[int(e.index)]), CELL_W * PIECE_FRAC)
-			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			center.add_child(piece)
-			tile.pressed.connect(func() -> void:
-				if on_retrieve.is_valid():
-					on_retrieve.call(int(e.index))
-				dismiss.call())
-		"next":
-			center.add_child(_price_row(int(e.price), 28.0, 28))
-			tile.pressed.connect(func() -> void:
-				if on_buy_slot.is_valid():
-					on_buy_slot.call()
-				dismiss.call())
-		"locked":
-			center.add_child(_lock_glyph(CELL_W * LOCK_FRAC))
-	cell.add_child(tile)
-
-	# the price strip under the tile: a locked slot shows its 💎 price here; every other tile
-	# reserves the same height so the grid rows stay aligned.
-	var below := CenterContainer.new()
-	below.custom_minimum_size = Vector2(CELL_W, PRICE_ROW_H)
-	below.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if kind == "locked":
-		below.add_child(_price_row(int(e.price), 22.0, 22))
-	cell.add_child(below)
-	return cell
-
-# The padlock glyph (a font character — no separate asset), tinted to read as a closed lock.
-static func _lock_glyph(px: float) -> Control:
-	var l := Label.new()
-	l.text = "🔒"
-	l.add_theme_font_size_override("font_size", int(px))
-	l.add_theme_color_override("font_color", Color(INK, 0.55))
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
-
-# The footer caption flanked by the SHARED leaf sprig (kit/shop_leaf.png), or text alone when absent.
-static func _caption(text: String) -> Control:
+# The stored-generators row (a "Generators" label + a row of generator tiles) — built on the SAME
+# bag_card surface as the slots: each tile carries the generator's sprite (sized to the fitted cell via
+# make_content) and taps to place it.
+static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, on_place_gen: Callable, dismiss: Callable) -> Control:
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 8)
+	var label := Label.new()
+	label.text = host.tr("Generators")
+	label.add_theme_font_size_override("font_size", 24)
+	label.add_theme_color_override("font_color", Color(INK, 0.75))
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(label)
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var leaf_l := _leaf(false)
-	if leaf_l != null:
-		row.add_child(leaf_l)
-	var lbl := Label.new()
-	lbl.text = text
-	lbl.add_theme_font_size_override("font_size", 26)
-	lbl.add_theme_color_override("font_color", Color(INK, 0.7))
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(lbl)
-	var leaf_r := _leaf(true)
-	if leaf_r != null:
-		row.add_child(leaf_r)
-	return row
-
-# The shared leaf sprig at caption height (flipped for the right side), or null when the art is absent.
-static func _leaf(flip: bool) -> Control:
-	var p := Look.kit("kit/shop_leaf.png")
-	if not ResourceLoader.exists(p):
-		return null
-	var t := TextureRect.new()
-	t.texture = load(p)
-	t.flip_h = flip
-	t.custom_minimum_size = Vector2(40, 36)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
+	col.add_child(row)
+	var co: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	for gid in gen_bag:
+		var gid_str := String(gid)
+		var gdef: Dictionary = G.gen_def(G.GENERATORS, gid_str)
+		var gtex_path: String = Game.art(String(gdef.get("tex", "")))
+		var make_gen := func(sz: float) -> Control:
+			if ResourceLoader.exists(gtex_path):
+				var gicon := TextureRect.new()
+				gicon.texture = load(gtex_path)
+				gicon.custom_minimum_size = Vector2(sz, sz)
+				gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+				return gicon
+			var fallback := Label.new()    # no art → the generator id, like the pre-kit overlay
+			fallback.text = gid_str
+			fallback.add_theme_font_size_override("font_size", 18)
+			fallback.add_theme_color_override("font_color", INK)
+			fallback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			fallback.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			return fallback
+		row.add_child(Kit.bag_card({"kind": "filled", "make_content": make_gen, "icon": gid_str,
+			"on_tap": func() -> void:
+				if on_place_gen.is_valid():
+					on_place_gen.call(gid_str)
+				dismiss.call()}, co))
+	return col
