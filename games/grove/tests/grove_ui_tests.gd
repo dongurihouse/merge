@@ -465,6 +465,26 @@ func _initialize() -> void:
 	ok(du != null, "level_dialog builds in levelup mode")
 	ok(_find_button_text(du, "Collect") != null, "levelup mode shows the Collect button")
 	du.queue_free()
+
+	# 30. level_popup — info + levelup modes; Collect grants the gift exactly once
+	var LevelPopupS = load("res://engine/scripts/ui/level_popup.gd")
+	var lp_host := Control.new()
+	lp_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(lp_host)
+	await create_timer(0.02).timeout
+	var ov: Control = LevelPopupS.open(lp_host)
+	ok(ov != null and is_instance_valid(ov), "LevelPopup.open builds the info overlay")
+	ok(_find_button_text(ov, "Got it") != null, "info overlay shows Got it")
+	ov.queue_free()
+	await create_timer(0.02).timeout
+	var dia0 := Save.diamonds()
+	var ov2: Control = LevelPopupS.open_levelup(lp_host, 1)
+	var collect := _find_button_text(ov2, "Collect")
+	ok(collect != null, "levelup overlay shows Collect (not Got it)")
+	if collect != null:
+		collect.emit_signal("pressed")
+	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
+	lp_host.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
