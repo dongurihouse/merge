@@ -33,6 +33,9 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const Pal = Game.PALETTE
+# The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
+# home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
@@ -461,10 +464,38 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 	frame.add_child(t)
 	return t
 
-# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on
-# the building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N".
-# Decoration only (mouse-ignored); the spot's tap hit-area is the spot_hit node.
+# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on the
+# building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N". Built through
+# the grove kit from the workbench-saved style (disc size + proportions), so a tweak there flows here.
+# Rendered mouse-IGNORE to keep the map's single-input-surface invariant: the tap routes centrally via
+# _map_tap → spot_hits → _on_spot_tap (the buy), exactly as the baked badge did. Kit missing → that fallback.
 func _home_badge(z: int, k: int, b) -> Control:
+	var spot: Dictionary = G.MAPS[z].spots[k]
+	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
+	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return _home_badge_baked(z, k, b)             # engine fallback: the central spot-routing buys it
+	var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var d := _map_rect.size.x * float(opts.get("disc_pct", 16.0)) / 100.0   # diameter as a % of the map width
+	opts["px"] = d
+	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star"}, opts)
+	btn.size = Vector2(d, d)
+	btn.position = ctr - Vector2(d, d) * 0.5
+	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
+	return btn
+
+# Force a control subtree mouse-transparent — the map routes every spot tap through its single input
+# surface, so any seated affordance (the kit unlock disc) must not eat the press before _map_tap.
+func _force_ignore(n: Control) -> void:
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in n.get_children():
+		if c is Control:
+			_force_ignore(c)
+
+# The baked code-drawn restore badge — the engine fallback when the grove kit can't load. Decoration only
+# (mouse-ignored); the spot's tap is then routed centrally via _map_tap → spot_hits → _on_spot_tap.
+func _home_badge_baked(z: int, k: int, b) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size

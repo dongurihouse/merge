@@ -692,6 +692,78 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		b.pressed.connect(spec.get("action"))
 	return b
 
+## --- the HOME UNLOCK BUTTON: the round restore-cost disc on an unowned home spot -----------------
+## A sibling of the home button: the dashed cream cost disc (map/badge_cost.png) carrying a centred "+"
+## stacked over the cost row (a currency icon + the number). The map's unowned spots build through this,
+## so a workbench tweak (disc size · "+" scale · icon scale · cost font · gaps) flows to the live map.
+##   spec (per-instance content): cost (int) · icon (currency id; "star") · action (Callable) · enabled.
+##   opts (shared STYLE — see home_unlock_opts_from_config): px (diameter, set by the caller) ·
+##     plus_scale / icon_scale / cost_font / stack_gap / icon_gap (all 0..1 fractions of the disc).
+const HOME_UNLOCK_SHELL := "map/badge_cost.png"
+const HOME_UNLOCK_INK := Color("#6E4E25")   # the engraved brown of the "+" and the cost number
+
+static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
+	var px: float = float(opts.get("px", 173.0))
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = not bool(spec.get("enabled", true))
+	# the cost disc: the sliced round badge sprite scaled WHOLE (a round disc 9-slices badly), or a flat
+	# code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
+	var shell_path := Look.kit(HOME_UNLOCK_SHELL)
+	var shell: Texture2D = load(shell_path) if ResourceLoader.exists(shell_path) else null
+	for st_name in ["normal", "hover", "pressed", "disabled"]:
+		if shell != null:
+			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
+			stx.texture = shell
+			if st_name == "pressed":
+				stx.modulate_color = Color(0.9, 0.9, 0.9)
+			elif st_name == "disabled":
+				stx.modulate_color = Color(0.72, 0.72, 0.72)
+			b.add_theme_stylebox_override(st_name, stx)
+		else:
+			var s := StyleBoxFlat.new()
+			s.bg_color = Color(Pal.CREAM, 0.95)
+			s.set_corner_radius_all(int(px * 0.5))
+			s.set_border_width_all(3)
+			s.border_color = Pal.STRAW
+			b.add_theme_stylebox_override(st_name, s)
+	# the "+" stacked over the cost row, centred on the disc (mouse-transparent so the Button is the only
+	# hit surface). All metrics are fractions of the disc, so the stack scales with px.
+	var col := VBoxContainer.new()
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(round(px * float(opts.get("stack_gap", -0.01)))))
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	var plus := Label.new()
+	plus.text = "+"
+	plus.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("plus_scale", 0.30)))))
+	plus.add_theme_color_override("font_color", HOME_UNLOCK_INK)
+	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(plus)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", maxi(0, int(round(px * float(opts.get("icon_gap", 0.02))))))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	var ic := Look.icon(String(spec.get("icon", "star")), px * float(opts.get("icon_scale", 0.26)))
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = "%d" % int(spec.get("cost", 0))
+	lbl.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("cost_font", 0.26)))))
+	lbl.add_theme_color_override("font_color", HOME_UNLOCK_INK)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
+	Look.add_press_juice(b)
+	if spec.has("action") and (spec.get("action") as Callable).is_valid():
+		b.pressed.connect(spec.get("action"))
+	return b
+
 ## The engine-drawn SPARKLE overlay: a soft additive GLOW that gently breathes + drifting 4-point
 ## TWINKLES (a continuous GPUParticles2D), both code-generated (no baked art). glow / twinkle are 0..1
 ## amounts (the workbench sliders); calm freezes it to a static glow with no twinkles (reduced-motion).
@@ -1961,6 +2033,21 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
+	}
+
+## The HOME-UNLOCK style opts from a saved config — the restore-cost disc on an unowned home spot.
+## disc_pct is the disc diameter as a % of the MAP width (the caller multiplies it by its own width and
+## sets opts.px); plus_scale / icon_scale / cost_font / stack_gap / icon_gap are stored 0..100 and divided
+## here to the 0..1 fractions of the disc the builder wants (stack_gap may be negative — a tuck-up).
+static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var u: Dictionary = cfg.get("home_unlock_button", {}) if cfg is Dictionary else {}
+	return {
+		"disc_pct": float(u.get("disc_pct", 16)),
+		"plus_scale": float(u.get("plus_scale", 30)) / 100.0,
+		"icon_scale": float(u.get("icon_scale", 26)) / 100.0,
+		"cost_font": float(u.get("cost_font", 26)) / 100.0,
+		"stack_gap": float(u.get("stack_gap", -1)) / 100.0,
+		"icon_gap": float(u.get("icon_gap", 2)) / 100.0,
 	}
 
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
