@@ -18,7 +18,8 @@ const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")
 const Pal = Game.PALETTE
 
 const MAP_PATH := "res://engine/scenes/Map.tscn"
-const LOGO_PATH := "res://games/grove/assets/ui/boot/logo.png"
+const BG_PATH := "res://games/grove/assets/ui/boot/splash_background.png"   # the painted grove scene
+const ICON_PATH := "res://games/grove/assets/ui/boot/splash_icon.png"      # the carved "Acorn Forest" title
 const MIN_DURATION := 1.0     # min seconds the splash shows, so a fast load never just flashes
 
 var _bar: ProgressBar
@@ -56,27 +57,39 @@ func _ready() -> void:
 func _build_splash() -> void:
 	var vp := get_viewport_rect().size    # design space (1080 x 1920) under canvas_items stretch
 
-	var bg := ColorRect.new()
-	bg.color = Pal.SCREEN_BG
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
+	# cream fallback behind the scene (shown only if the art fails to load / while it streams)
+	var fill := ColorRect.new()
+	fill.color = Pal.SCREEN_BG
+	fill.set_anchors_preset(Control.PRESET_FULL_RECT)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(fill)
 
-	var logo := TextureRect.new()
-	if ResourceLoader.exists(LOGO_PATH):
-		logo.texture = load(LOGO_PATH)
-	logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	var logo_w := vp.x * 0.62
-	var logo_h := logo_w * 0.75           # 512x384 source ratio (KEEP_ASPECT_CENTERED letterboxes anyway)
-	logo.size = Vector2(logo_w, logo_h)
-	logo.position = Vector2((vp.x - logo_w) * 0.5, vp.y * 0.28)
-	logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(logo)
+	# the painted grove scene, covering the whole screen (9:16 source ≈ the design aspect, so ~no crop)
+	var scene := TextureRect.new()
+	if ResourceLoader.exists(BG_PATH):
+		scene.texture = load(BG_PATH)
+	scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	scene.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(scene)
+
+	# the carved "Acorn Forest: Merge!" title, upper-centre over the scene
+	var title := TextureRect.new()
+	if ResourceLoader.exists(ICON_PATH):
+		title.texture = load(ICON_PATH)
+	title.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	title.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	var title_w := vp.x * 0.82
+	var title_h := title_w * 0.78          # ~1183x921 source ratio (KEEP_ASPECT_CENTERED letterboxes anyway)
+	title.size = Vector2(title_w, title_h)
+	title.position = Vector2((vp.x - title_w) * 0.5, vp.y * 0.05)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(title)
 
 	var bar_w := vp.x * 0.56
 	var bar_h := 24.0
-	var bar_y := vp.y * 0.66
+	var bar_y := vp.y * 0.86
 	_bar = ProgressBar.new()
 	_bar.min_value = 0.0
 	_bar.max_value = 1.0
@@ -86,14 +99,16 @@ func _build_splash() -> void:
 	_bar.size = Vector2(bar_w, bar_h)
 	_bar.position = Vector2((vp.x - bar_w) * 0.5, bar_y)
 	_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_bar.add_theme_stylebox_override("background", _bar_box(Pal.PILL_EDGE, bar_h))   # track
-	_bar.add_theme_stylebox_override("fill", _bar_box(Pal.STRAW, bar_h))             # fill
+	_bar.add_theme_stylebox_override("background", _bar_box(Pal.CREAM, bar_h))    # track
+	_bar.add_theme_stylebox_override("fill", _bar_box(Pal.STRAW, bar_h))          # fill
 	add_child(_bar)
 
 	_label = Label.new()
 	_label.text = "Loading…"
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_label.add_theme_color_override("font_color", Pal.INK_MUTED)
+	_label.add_theme_color_override("font_color", Pal.CREAM)
+	_label.add_theme_color_override("font_outline_color", Pal.INK)   # dark outline so it reads over the grass
+	_label.add_theme_constant_override("outline_size", 8)
 	_label.size = Vector2(bar_w, 40)
 	_label.position = Vector2((vp.x - bar_w) * 0.5, bar_y + bar_h + 18)
 	_label.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -16,8 +16,8 @@ run/main_scene="res://engine/scenes/Boot.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.png"
 boot_splash/bg_color=Color(0.956, 0.933, 0.874, 1)
-boot_splash/image="res://games/grove/assets/ui/boot/logo.png"
-boot_splash/fullsize=false
+boot_splash/image="res://games/grove/assets/ui/boot/splash_background.png"
+boot_splash/fullsize=true
 
 [display]
 
