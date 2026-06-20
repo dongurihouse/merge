@@ -14,21 +14,26 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
+# The currency pill's look (padding / border / font / icon box / gaps) is tuned in the UI Workbench and
+# saved to the shared kit config; the kit resolves it with Tune.Hud as the defaults, so an absent config
+# renders exactly the values above. Loaded at runtime (matches nav_bar / inbox) to avoid a preload cycle.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
 # The currency pill's painted background (ui/shared/panel_pill.png) is a CAPSULE — its rounded
-# gold caps are as tall as the whole pill. A nine-patch keeps those caps a fixed size while
-# only the flat middle stretches to the counts, BUT a nine-patch corner draws 1:1 (no scale),
-# so the source must be exported at the rendered slot height or the caps crush into a thin
-# border (the exact failure that retired the old chip nine-patch, T48). The slot is 346×65
-# (probe); the asset is 292×65, cap radius ≈ 32 → that is the nine-patch margin.
+# gold caps are as tall as the whole pill. A nine-patch keeps those caps a fixed size while only
+# the flat middle stretches to the counts (the style is built by Kit.currency_pill_style now, so
+# both the live pill and the UI Workbench preview share one recipe). The slot is pinned ≥ the cap
+# height so the rounded ends always draw 1:1 and never crush into a thin border (T48 failure mode).
 const PILL_SLOT_H := 65.0
-const PILL_CAP_PX := 32
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
+	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
+	var Kit = load(KIT_PATH)
+	var pill: Dictionary = Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var panel := PanelContainer.new()
 	panel.anchor_left = 1.0
 	panel.anchor_right = 1.0
@@ -41,7 +46,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# past the opaque band; that widget is now retired entirely, T48.) A clean wood-tone
 	# pill makes layout padding == visual padding (so the rect asserts below match what the
 	# eye sees), and fully contains the row.
-	panel.add_theme_stylebox_override("panel", _pill_style())
+	panel.add_theme_stylebox_override("panel", Kit.currency_pill_style(pill))
 	# pin the slot ≥ the nine-patch cap height so the painted capsule's rounded gold ends
 	# always draw 1:1 and never crush into a thin border (T48 failure mode).
 	panel.custom_minimum_size.y = PILL_SLOT_H
@@ -50,18 +55,21 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# currencies comes from explicit spacer Controls (so every pair shares one centerline
 	# and the numbers align). Keeping every icon/number/+ a DIRECT child of `row` is also a
 	# contract: scenes resolve the wallet panel as stars_label.get_parent().get_parent().
-	row.add_theme_constant_override("separation", Tune.CHIP_ROW_SEP)
+	row.add_theme_constant_override("separation", int(pill.row_sep))
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
 	# The wallet cluster owns currencies only. Lv stays in the standalone top-left HUD row;
 	# HOME joins that row only when a scene passes it as navigation chrome.
 	var shop_opts := opts.duplicate()
 	var open_store := func() -> void: Shop.open(host, shop_opts)
-	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store)
-	_spacer(row)
-	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store)
-	_spacer(row)
-	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store)
+	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
+	var icon_box := float(pill.icon_box)             # the workbench-tuned shared square icon box
+	var pair_gap := float(pill.pair_sep) - float(pill.row_sep)   # spacer width = pair gap minus the row's own sep
+	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store, num_size, icon_box)
+	_spacer(row, pair_gap)
+	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store, num_size, icon_box)
+	_spacer(row, pair_gap)
+	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store, num_size, icon_box)
 	# Optional WATER pair (opts.water) — the top-right water readout. BOTH the map and the board opt
 	# in, so the wallet is built through ONE path; the board additionally owns the refill stack (its
 	# water is live) and binds it to the `water` / `water_icon` refs returned below. Returns the icon
@@ -69,8 +77,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var water_lbl: Label = null
 	var water_icon: Control = null
 	if bool(opts.get("water", false)):
-		_spacer(row)
-		water_lbl = _pair(row, "water", Tune.GEM_ICON, 1.0, Color.WHITE, false, open_store)
+		_spacer(row, pair_gap)
+		water_lbl = _pair(row, "water", Tune.GEM_ICON, 1.0, Color.WHITE, false, open_store, num_size, icon_box)
 		water_icon = row.get_child(row.get_child_count() - 2)   # the _icon_box _pair added just before the label
 	# the whole currency pill is the acquire affordance now — a tap anywhere on it opens the
 	# store (the per-currency "+" buttons are retired; they bloated the pill + skewed its padding).
@@ -169,44 +177,15 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	refresh.call()
 	return out
 
-# The currency-cluster background: prefer the painted capsule (ui/shared/panel_pill.png),
-# nine-sliced so the rounded gold caps keep a FIXED size while only the flat middle stretches
-# to the three counts; fall back to the code-drawn cream pill when the art is absent. The
-# content margins (text inset) are identical on both paths, so the layout rect — and the R1
-# even-wrap contract (grove_tests) — is unchanged regardless of which background draws.
-static func _pill_style() -> StyleBox:
-	var p := Look.kit("shared/panel_pill.png")
-	if ResourceLoader.exists(p):
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(p)
-		sbt.set_texture_margin_all(PILL_CAP_PX)   # = cap radius: round ends never squash
-		sbt.content_margin_left = Tune.CLUSTER_PAD_X
-		sbt.content_margin_right = Tune.CLUSTER_PAD_X
-		sbt.content_margin_top = Tune.PILL_PAD_Y
-		sbt.content_margin_bottom = Tune.PILL_PAD_Y
-		return sbt
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Tune.PILL_BG             # AC4: soft cream pill (was dark wood)
-	sb.set_corner_radius_all(Tune.PILL_RADIUS)
-	sb.set_border_width_all(Tune.PILL_BORDER_W)
-	sb.border_color = Tune.PILL_BORDER     # warm border (matches the AB ask pills)
-	sb.shadow_color = Tune.PILL_SHADOW
-	sb.shadow_size = Tune.PILL_SHADOW_SIZE
-	sb.content_margin_left = Tune.CLUSTER_PAD_X
-	sb.content_margin_right = Tune.CLUSTER_PAD_X
-	sb.content_margin_top = Tune.PILL_PAD_Y
-	sb.content_margin_bottom = Tune.PILL_PAD_Y
-	return sb
-
 # One currency pair: a fixed icon BOX (so all three share a centerline) + the number, and
 # optionally a small "+" acquire button that opens the store. The icon, number, and + are all
 # DIRECT children of `row` (the wallet-resolution contract: stars_label.get_parent() == row),
 # so the wider gap BETWEEN currencies comes from _spacer, never an inner container.
 static func _pair(row: HBoxContainer, icon_id: String, gsize: int, optical: float,
-		tint: Color, plus: bool, open_store: Callable) -> Label:
-	row.add_child(_icon_box(icon_id, gsize, optical, tint))
+		tint: Color, plus: bool, open_store: Callable, num_size: int, box: float) -> Label:
+	row.add_child(_icon_box(icon_id, gsize, optical, tint, box))
 	var lbl := Label.new()
-	lbl.add_theme_font_size_override("font_size", Tune.NUM_SIZE)
+	lbl.add_theme_font_size_override("font_size", num_size)
 	lbl.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
 	lbl.add_theme_constant_override("outline_size", 0)   # AF6: no dark halo on a solid pill (panel-text law)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -219,9 +198,9 @@ static func _pair(row: HBoxContainer, icon_id: String, gsize: int, optical: floa
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
 # sprite to reinforce each currency's hue (star=gold, acorn=brown, gem=teal — gem ≠ water).
-static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color) -> Control:
+static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, box_px: float) -> Control:
 	var box := CenterContainer.new()
-	box.custom_minimum_size = Vector2(Tune.CHIP_ICON_BOX, Tune.CHIP_ICON_BOX)
+	box.custom_minimum_size = Vector2(box_px, box_px)
 	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ic := Look.icon(icon_id, float(gsize) * optical)
@@ -264,9 +243,9 @@ static func _plus_button(open_store: Callable) -> Button:
 
 # A fixed-width invisible gap BETWEEN currency pairs (the row's own separation is the tight
 # icon↔number gap; this widens only pair↔pair while every node stays a direct row child).
-static func _spacer(row: HBoxContainer) -> void:
+static func _spacer(row: HBoxContainer, gap: float) -> void:
 	var s := Control.new()
-	s.custom_minimum_size = Vector2(Tune.PAIR_SEP - Tune.CHIP_ROW_SEP, 0)
+	s.custom_minimum_size = Vector2(gap, 0)
 	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(s)
 

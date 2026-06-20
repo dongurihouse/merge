@@ -16,14 +16,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "tiers_card", "frame", "dialog", "daily", "shop", "tiers"]
+const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "tiers_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card"], ["frame"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["tiers"]],                                 # every dialog, one column
+	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"]],              # dialogs, then the HUD wallet pill
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -53,6 +53,9 @@ const TEST_KEYS := {
 	"daily": [],
 	"shop": [],
 	"tiers": [],
+	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
+	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
+	"currency_pill": ["star", "coin", "gem"],
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
@@ -67,6 +70,7 @@ const CAPTIONS := {
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
 	"tiers": "Discovery — tier ladder (twig border, no vines)",
+	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
@@ -122,6 +126,11 @@ var _params := {
 		"banner_font": 50, "banner_h": 168, "banner_x": 0, "banner_y": -66, "banner_text_x": 0, "banner_text_y": -2,
 		"banner_burn": 55, "close_size": 84, "close_x": 4, "close_y": 16,
 		"cell_gap": 16, "grid_inset": 56, "list_top_pad": 8, "list_max_h": 0},
+	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
+	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
+	"currency_pill": {"use_art": true, "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
+		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14,
+		"star": 1280, "coin": 540, "gem": 36},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -323,6 +332,11 @@ func _make_element(id: String) -> Control:
 			var topts := Kit.tiers_opts_from_config(_params)
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
+		"currency_pill":
+			# the live top-bar wallet, built from the SAME kit resolver the HUD reads (so the preview is
+			# exactly what the game will render); the ★/🪙/💎 counts are preview-only sample values.
+			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
+			return Kit.currency_pill(co, {"star": int(p.star), "coin": int(p.coin), "gem": int(p.gem)})
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -785,6 +799,25 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["close_size", 40, 130]))
 			_sidebar_body.add_child(_slider_row(["close_x", -120, 120]))
 			_sidebar_body.add_child(_slider_row(["close_y", -120, 120]))
+		"currency_pill":
+			_group_header("Saved to config", true)
+			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. Border / radius / shadow
+			# only shape the code-drawn pill (the art bakes its own rim), so they show only when art is off.
+			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
+			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding
+			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
+			if not bool(_params["currency_pill"]["use_art"]):
+				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius
+				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width
+				_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))   # drop shadow (0 = off)
+			_sidebar_body.add_child(_slider_row(["num_size", 16, 56]))      # the currency number font
+			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square icon box
+			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
+			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies
+			_group_header("Test only — not saved", false)                  # preview counts; the wallet shows live balances
+			_sidebar_body.add_child(_slider_row(["star", 0, 9999]))
+			_sidebar_body.add_child(_slider_row(["coin", 0, 9999]))
+			_sidebar_body.add_child(_slider_row(["gem", 0, 9999]))
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:

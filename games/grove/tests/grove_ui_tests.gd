@@ -400,5 +400,42 @@ func _initialize() -> void:
 	Music.take_dir = "res://games/grove/assets/music_archived/"   # archived: the dir is gone → no takes resolve
 	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
 
+	# 27. the currency pill is now CONFIG-DRIVEN through the shared kit: the workbench saves a
+	# "currency_pill" block, Kit.currency_pill_opts_from_config resolves it (Tune.Hud values as the
+	# defaults), and the HUD reads it. The DEFAULTS must equal Tune so an absent/empty config renders
+	# the SHIPPED pill byte-for-byte — the R1 even-wrap contract above relies on that.
+	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Hud = load("res://engine/scripts/core/tuning.gd").Hud
+	var dflt: Dictionary = Kit.currency_pill_opts_from_config({})
+	ok(is_equal_approx(float(dflt.pad_x), Hud.CLUSTER_PAD_X) and is_equal_approx(float(dflt.pad_y), Hud.PILL_PAD_Y), \
+		"currency_pill default padding == Tune (CLUSTER_PAD_X / PILL_PAD_Y)")
+	ok(int(dflt.radius) == Hud.PILL_RADIUS and int(dflt.border_w) == Hud.PILL_BORDER_W, \
+		"currency_pill default border == Tune (radius / border width)")
+	ok(int(dflt.num_size) == Hud.NUM_SIZE, "currency_pill default font == Tune.NUM_SIZE")
+	ok(is_equal_approx(float(dflt.icon_box), Hud.CHIP_ICON_BOX) and int(dflt.row_sep) == Hud.CHIP_ROW_SEP \
+		and int(dflt.pair_sep) == Hud.PAIR_SEP, "currency_pill default icon box / separations == Tune")
+	ok(int(dflt.shadow_size) == Hud.PILL_SHADOW_SIZE, "currency_pill default shadow size == Tune")
+	# a saved block overrides ONLY the named keys; every other key stays at its Tune default
+	var over: Dictionary = Kit.currency_pill_opts_from_config({"currency_pill": {"pad_x": 5, "num_size": 99}})
+	ok(is_equal_approx(float(over.pad_x), 5.0) and int(over.num_size) == 99, "currency_pill config overrides the named keys")
+	ok(int(over.border_w) == Hud.PILL_BORDER_W, "currency_pill config leaves un-named keys at the Tune default")
+	# the standalone preview builds a panel whose row carries every currency count
+	var pill: Control = Kit.currency_pill(dflt, {"star": 12, "coin": 345, "gem": 6})
+	get_root().add_child(pill)
+	await create_timer(0.05).timeout
+	var texts := _all_label_texts(pill)
+	ok("12" in texts and "345" in texts and "6" in texts, "currency_pill preview renders the sample counts")
+	pill.queue_free()
+
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
 	finish()
+
+## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
+## actually rendered the values it was handed.
+func _all_label_texts(n: Node) -> Array:
+	var out: Array = []
+	if n is Label:
+		out.append((n as Label).text)
+	for c in n.get_children():
+		out.append_array(_all_label_texts(c))
+	return out

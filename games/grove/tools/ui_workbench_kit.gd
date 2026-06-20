@@ -25,6 +25,19 @@ const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
 
+# The top-bar CURRENCY PILL (the ★ 🪙 💎 wallet cluster). The painted background is a nine-patch
+# CAPSULE; CUR_PILL_CAP is the cap radius the corners draw 1:1 at. The colours mirror the code-drawn
+# fallback in hud.gd (Tune.Hud.PILL_*) so "use art = off" matches the shipped pill. The per-currency
+# optical scales mirror Tune so the preview reads at the same weight as the live HUD.
+const CUR_PILL_ART := "shared/panel_pill.png"
+const CUR_PILL_CAP := 32
+const CUR_PILL_BG := Color("#FBF6EC", 0.95)
+const CUR_PILL_BORDER := Color("#C9A66B", 0.9)
+const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
+# id → the rendered sprite px (Tune.Hud gsize × optical: star 44×0.86, coin/gem 40×1.0). The sprite is
+# centered in the `icon_box`-sized square, exactly as hud.gd's _icon_box does, so the preview matches.
+const CUR_PILL_ICONS := [["star", 38.0], ["coin", 40.0], ["gem", 40.0]]
+
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
 # game reads the same map via the saved config. "auto" = the bg-default sprite (green/cream).
 const BADGES := {
@@ -1859,6 +1872,98 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
+
+## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
+## the top-bar wallet. EVERY default mirrors Tune.Hud (engine/scripts/core/tuning.gd → class Hud), so an
+## absent or empty "currency_pill" block resolves to the SHIPPED pill and the live HUD is unchanged.
+## grove_ui_tests pins these defaults to Tune (the R1 even-wrap contract depends on it).
+static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var c: Dictionary = cfg.get("currency_pill", {}) if cfg is Dictionary else {}
+	return {
+		"use_art":     bool(c.get("use_art", true)),       # painted capsule (panel_pill.png) vs code-drawn pill
+		"pad_x":       float(c.get("pad_x", 18.0)),        # Tune.CLUSTER_PAD_X — horizontal content margin
+		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
+		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
+		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
+		"shadow_size": int(c.get("shadow_size", 5)),       # Tune.PILL_SHADOW_SIZE (0 = no shadow; code-drawn only)
+		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
+		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square icon box
+		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
+		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
+	}
+
+## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
+## fixed, middle stretches); the border / radius / shadow knobs drive the code-drawn fallback (use_art
+## off, or the art missing). Padding (content margins) applies on BOTH paths. hud.gd and the workbench
+## preview both call this, so the pill's look lives in exactly one place.
+static func currency_pill_style(opts: Dictionary) -> StyleBox:
+	var pad_x := float(opts.get("pad_x", 18.0))
+	var pad_y := float(opts.get("pad_y", 12.0))
+	if bool(opts.get("use_art", true)):
+		var p := Look.kit(CUR_PILL_ART)
+		if ResourceLoader.exists(p):
+			var sbt := StyleBoxTexture.new()
+			sbt.texture = load(p)
+			sbt.set_texture_margin_all(CUR_PILL_CAP)   # cap radius: the rounded ends never squash
+			sbt.content_margin_left = pad_x
+			sbt.content_margin_right = pad_x
+			sbt.content_margin_top = pad_y
+			sbt.content_margin_bottom = pad_y
+			return sbt
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = CUR_PILL_BG
+	sb.set_corner_radius_all(int(opts.get("radius", 40)))
+	sb.set_border_width_all(int(opts.get("border_w", 3)))
+	sb.border_color = CUR_PILL_BORDER
+	sb.shadow_color = CUR_PILL_SHADOW
+	sb.shadow_size = int(opts.get("shadow_size", 5))
+	sb.content_margin_left = pad_x
+	sb.content_margin_right = pad_x
+	sb.content_margin_top = pad_y
+	sb.content_margin_bottom = pad_y
+	return sb
+
+## A standalone, faithful currency pill for the workbench gallery: the styled panel wrapping the
+## ★ 🪙 💎 row, sized from the same opts the live HUD reads. `counts` supplies the sample numbers
+## (the wallet shows live values in-game; here they are preview-only). Self-contained — no game state.
+static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", currency_pill_style(opts))
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := HBoxContainer.new()
+	var row_sep := int(opts.get("row_sep", 4))
+	row.add_theme_constant_override("separation", row_sep)   # the tight icon↔number gap
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(row)
+	var num := int(opts.get("num_size", 34))
+	var box := float(opts.get("icon_box", 40.0))
+	var pair_sep := int(opts.get("pair_sep", 14))
+	var demo := {"star": 1280, "coin": 540, "gem": 36}
+	for i in CUR_PILL_ICONS.size():
+		if i > 0:
+			# the WIDER gap between pairs is an explicit spacer (matches hud.gd's _spacer)
+			var s := Control.new()
+			s.custom_minimum_size = Vector2(float(pair_sep - row_sep), 0)
+			s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(s)
+		var id := String(CUR_PILL_ICONS[i][0])
+		var icon_px := float(CUR_PILL_ICONS[i][1])
+		var cc := CenterContainer.new()
+		cc.custom_minimum_size = Vector2(box, box)
+		cc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cc.add_child(make_icon(id, icon_px))
+		row.add_child(cc)
+		var lbl := Label.new()
+		lbl.text = str(int(counts.get(id, demo[id])))
+		lbl.add_theme_font_size_override("font_size", num)
+		lbl.add_theme_color_override("font_color", Pal.INK)
+		lbl.add_theme_constant_override("outline_size", 0)   # panel-text law: no halo on a solid pill
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(lbl)
+	return panel
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).
 const CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"
