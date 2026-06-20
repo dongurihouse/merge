@@ -427,7 +427,52 @@ func _initialize() -> void:
 	ok("12" in texts and "345" in texts and "6" in texts, "currency_pill preview renders the sample counts")
 	pill.queue_free()
 
-	# 28. the unowned-spot restore disc is CONFIG-DRIVEN through the same kit: the workbench saves a
+	# 28. the map-SELECT place-picker CARD (spec §8) is now CONFIG-DRIVEN through the shared kit: the
+	# workbench saves a "map_card" block, Kit.map_card_opts_from_config resolves it (the shipped §8
+	# constants as defaults), and map.gd builds EVERY place-picker card from Kit.map_card. The DEFAULTS
+	# must equal the shipped constants so an absent/empty config renders the SHIPPED card byte-for-byte.
+	var md: Dictionary = Kit.map_card_opts_from_config({})
+	ok(is_equal_approx(float(md.frame_inset), 0.045) and is_equal_approx(float(md.art_radius), 0.058), \
+		"map_card default frame inset / art radius == shipped (0.045 / 0.058)")
+	ok(is_equal_approx(float(md.pill_w_frac), 0.30) and is_equal_approx(float(md.pill_min), 170.0) \
+		and is_equal_approx(float(md.pill_max), 290.0) and is_equal_approx(float(md.pill_y_frac), 0.13), \
+		"map_card default count-pill metrics == shipped")
+	ok(is_equal_approx(float(md.veil_scrim), 0.42) and is_equal_approx(float(md.veil_deep), 0.66) \
+		and is_equal_approx(float(md.veil_mark_alpha), 0.16) and is_equal_approx(float(md.veil_mark_size), 64.0), \
+		"map_card default fog-veil look == shipped (§8)")
+	ok(bool(md.use_art), "map_card defaults to the painted art (use_art)")
+	# a saved block overrides ONLY the named keys; every other key stays at its shipped default
+	var mover: Dictionary = Kit.map_card_opts_from_config({"map_card": {"frame_inset": 80, "pill_min": 99}})
+	ok(is_equal_approx(float(mover.frame_inset), 0.080) and is_equal_approx(float(mover.pill_min), 99.0), \
+		"map_card config overrides the named keys")
+	ok(is_equal_approx(float(mover.art_radius), 0.058), "map_card config leaves un-named keys at the shipped default")
+	# the standalone OPEN card wears the gold frame + the 'N left' pill and has NO fog veil…
+	var mh: float = 460.0 / Kit.MAP_CARD_ASPECT
+	var open_card: Control = Kit.map_card({"open": true, "done": false, "art": "", "stars_left": 4, "map_id": ""}, md, 460.0, mh)
+	get_root().add_child(open_card)
+	await create_timer(0.05).timeout
+	ok(_has_tex_suffix(open_card, "card_active.png"), "map_card OPEN wears the gold frame (card_active)")
+	ok("4 left" in str(_all_label_texts(open_card)), "map_card OPEN shows the 'N left' restore pill")
+	ok(open_card.find_child("Veil", true, false) == null, "map_card OPEN has NO fog veil")
+	open_card.queue_free()
+	# …and the LOCKED card wears the dark panel + the 'after <prev>' line, no gold frame.
+	var locked_card: Control = Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after Meadow", "map_id": ""}, md, 460.0, mh)
+	get_root().add_child(locked_card)
+	await create_timer(0.05).timeout
+	ok(_has_tex_suffix(locked_card, "card_locked.png"), "map_card LOCKED wears the dark panel (card_locked)")
+	ok("after" in str(_all_label_texts(locked_card)), "map_card LOCKED shows the 'after <prev>' line")
+	ok(not _has_tex_suffix(locked_card, "card_active.png"), "map_card LOCKED has NO gold frame")
+	locked_card.queue_free()
+	# with the painted art OFF, the locked card falls back to the §8 code-drawn fog veil (the moved kit code)
+	var mcode: Dictionary = md.duplicate()
+	mcode["use_art"] = false
+	var locked_code: Control = Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": "meadow"}, mcode, 460.0, mh)
+	get_root().add_child(locked_code)
+	await create_timer(0.05).timeout
+	ok(locked_code.find_child("Veil", true, false) != null, "map_card LOCKED w/o art falls back to the §8 fog veil")
+	locked_code.queue_free()
+
+	# 29. the unowned-spot restore disc is CONFIG-DRIVEN through the same kit: the workbench saves a
 	# "home_unlock_button" block, Kit.home_unlock_opts_from_config resolves it (scales stored 0..100,
 	# divided to 0..1 fractions of the disc), and map.gd reads it. The DEFAULTS reproduce the baked
 	# badge (disc 16% of the map; "+" 30% / icon 26% / cost font 26% of the disc).
@@ -462,6 +507,63 @@ func _initialize() -> void:
 	spk.queue_free()
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
+
+	# 27. progress_bar — the reusable kit bar (track + fill, optional centered label)
+	var KitP = load("res://games/grove/tools/ui_workbench_kit.gd")
+	for frac in [0.0, 0.5, 1.0]:
+		var bar: Control = KitP.progress_bar(float(frac), {"height": 20.0, "art": false})
+		ok(bar != null and bar is Control, "progress_bar builds at frac=%.1f" % float(frac))
+		bar.queue_free()
+	var labelled: Control = KitP.progress_bar(0.75, {"height": 22.0, "art": false, "label": "75%"})
+	get_root().add_child(labelled)
+	await create_timer(0.02).timeout
+	ok("75%" in _all_label_texts(labelled), "progress_bar shows its centered label")
+	labelled.queue_free()
+
+	# 28. level_medallion — wreath + ring + centered number
+	var med: Control = KitP.level_medallion(7, 120.0, {})
+	get_root().add_child(med)
+	await create_timer(0.02).timeout
+	ok(med != null and med is Control, "level_medallion builds")
+	ok("7" in _all_label_texts(med), "level_medallion shows the level number")
+	med.queue_free()
+
+	# 29. level_dialog — builds in both modes; info shows Got it, levelup shows Collect
+	var info_data := {"level": 1, "earned": 0, "next": 6, "into": 0, "span": 6, "remaining": 6, "mode": "info"}
+	var di: Control = KitP.level_dialog(info_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(di)
+	await create_timer(0.02).timeout
+	ok(di != null and di is Control, "level_dialog builds in info mode")
+	ok(_find_button_text(di, "Got it") != null, "info mode shows the Got it button")
+	di.queue_free()
+	var up_data := {"level": 2, "earned": 6, "next": 18, "into": 0, "span": 12, "remaining": 12,
+		"mode": "levelup", "gift": {"water": 30, "gems": 1}}
+	var du: Control = KitP.level_dialog(up_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(du)
+	await create_timer(0.02).timeout
+	ok(du != null, "level_dialog builds in levelup mode")
+	ok(_find_button_text(du, "Collect") != null, "levelup mode shows the Collect button")
+	du.queue_free()
+
+	# 30. level_popup — info + levelup modes; Collect grants the gift exactly once
+	var LevelPopupS = load("res://engine/scripts/ui/level_popup.gd")
+	var lp_host := Control.new()
+	lp_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(lp_host)
+	await create_timer(0.02).timeout
+	var ov: Control = LevelPopupS.open(lp_host)
+	ok(ov != null and is_instance_valid(ov), "LevelPopup.open builds the info overlay")
+	ok(_find_button_text(ov, "Got it") != null, "info overlay shows Got it")
+	ov.queue_free()
+	await create_timer(0.02).timeout
+	var dia0 := Save.diamonds()
+	var ov2: Control = LevelPopupS.open_levelup(lp_host, 1)
+	var collect := _find_button_text(ov2, "Collect")
+	ok(collect != null, "levelup overlay shows Collect (not Got it)")
+	if collect != null:
+		collect.emit_signal("pressed")
+	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
+	lp_host.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
@@ -473,3 +575,26 @@ func _all_label_texts(n: Node) -> Array:
 	for c in n.get_children():
 		out.append_array(_all_label_texts(c))
 	return out
+
+## The first Button under `n` whose text contains `needle` (depth-first), or null. Button.text is not a
+## child Label, so _all_label_texts can't see it — this finds the button itself (to assert / press it).
+func _find_button_text(n: Node, needle: String) -> Button:
+	if n is Button and String((n as Button).text).find(needle) != -1:
+		return n as Button
+	for c in n.get_children():
+		var f := _find_button_text(c, needle)
+		if f != null:
+			return f
+	return null
+
+## True iff any TextureRect under `n` (depth-first) carries a texture whose path ends with `suffix` —
+## names a shipped frame by its kit file without depending on node names (mirrors mapfx_tests._has_tex).
+func _has_tex_suffix(n: Node, suffix: String) -> bool:
+	if n is TextureRect:
+		var t := (n as TextureRect).texture
+		if t != null and String(t.resource_path).ends_with(suffix):
+			return true
+	for c in n.get_children():
+		if _has_tex_suffix(c, suffix):
+			return true
+	return false

@@ -17,14 +17,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
+	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -64,6 +64,7 @@ const TEST_KEYS := {
 	# previewed cost number + currency icon are test props — the map sets each spot's real cost + "star".
 	"home_unlock_button": ["cost", "icon", "sparkle"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
+	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
@@ -72,11 +73,15 @@ const TEST_KEYS := {
 	"dialog": ["entries"],
 	"daily": [],
 	"shop": [],
+	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
 	"tiers": [],
 	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
 	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
 	"currency_pill": ["star", "coin", "gem"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
+	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
+	# veil look) persists; open/done/stars_left just preview the card (the game sets each from map state).
+	"map_card": ["open", "done", "stars_left"],
 	"settings": [],
 }
 const CAPTIONS := {
@@ -85,14 +90,17 @@ const CAPTIONS := {
 	"home_unlock_button": "Home unlock — restore-cost disc (+ · ★ N)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"badge": "Badge — disc shell (raw vs polished)",
+	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
 	"toggle_card": "Toggle card — label + switch",
+	"map_card": "Map card — place-picker (gold frame / locked panel)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
+	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (twig border, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
@@ -114,6 +122,9 @@ var _params := {
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
+	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
+	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
+	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
 	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
 	# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
 	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
@@ -142,12 +153,27 @@ var _params := {
 	# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
 	# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
 	"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
+	# the MAP-SELECT place-picker card (spec §8). Defaults mirror the shipped §8 constants, so the saved
+	# block the game's map.gd reads renders the SHIPPED card until you change it. Insets/fracs are scaled
+	# integers for the sliders (inset/radius in thousandths, fracs + veil alphas in percent — see
+	# Kit.map_card_opts_from_config). open/done/stars_left are preview-only (the game sets each per map).
+	"map_card": {"use_art": true, "frame_inset": 45, "art_radius": 58,
+		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
+		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
+		"open": true, "done": false, "stars_left": 3},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	# the LEVEL dialog — its OWN dedicated frame (title pill · ornate border, NOT the shared frame),
+	# the medallion (wreath + ring + number), the reusable progress bar, and the Collect/Got-it button.
+	# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
+	"level": {"width_pct": 80, "banner_text": "Level", "title_font": 30,
+		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
+		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "gap": 14,
+		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
 	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
@@ -320,6 +346,12 @@ func _make_element(id: String) -> Control:
 			box.add_child(_badge_preview("Raw", {}))
 			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "shadow": bool(p.shadow)}))
 			return box
+		"progress_bar":
+			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
+			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
+			var bar := Kit.progress_bar(float(p.frac) / 100.0, po)
+			bar.custom_minimum_size.x = 320
+			return bar
 		"card":
 			# the Claim inherits the shared Button's STYLE, but the card picks its OWN (saved) badge
 			# background + icon for it. Give the standalone preview a representative width — a real card
@@ -371,6 +403,18 @@ func _make_element(id: String) -> Control:
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+		"level":
+			# the dedicated level dialog, from the SAME config transform the game (level_popup) reads
+			var lo := Kit.level_opts_from_config(_params)
+			lo["banner_text"] = TranslationServer.translate("Level %d") % int(p.preview_level)
+			var lv_into: int = int(p.into)
+			var lv_span: int = maxi(1, int(p.span))
+			var lv_data := {
+				"level": int(p.preview_level), "earned": lv_into, "next": lv_span,
+				"into": lv_into, "span": lv_span, "remaining": maxi(0, lv_span - lv_into),
+				"mode": String(p.mode), "gift": {"water": 30, "gems": 1},
+			}
+			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
 		"tiers_card":
 			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit
 			var tco := Kit.tiers_card_opts_from_config(_params)
@@ -379,6 +423,16 @@ func _make_element(id: String) -> Control:
 			tco["cell_h"] = float(tco["cell_h"]) * z
 			tco["num_font"] = int(float(tco["num_font"]) * z)
 			return Kit.tiers_card(_tiers_preview_cell(String(p.preview)), tco)
+		"map_card":
+			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
+			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
+			# gold frame / dark panel + the §8 veil read on their own; open/done/stars_left preview the state.
+			var mco := Kit.map_card_opts_from_config({"map_card": p})
+			var mw := 460.0
+			var mh := mw / Kit.MAP_CARD_ASPECT
+			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "stars_left": int(p.stars_left),
+				"prereq": "✿ after Meadow", "map_id": ""}
+			return Kit.map_card(mdata, mco, mw, mh)
 		"tiers":
 			# the SHARED frame in TIERS chrome (twig border + ladder ribbon, NO vines) + the tier-cell grid
 			var topts := Kit.tiers_opts_from_config(_params)
@@ -891,6 +945,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
+		"progress_bar":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
+			_sidebar_body.add_child(_toggle_row("Use art", "art"))
+			_sidebar_body.add_child(_toggle_row("Star knob", "star_knob"))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["frac", 0, 100]))   # preview the fill amount
 		"frame":
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":
@@ -930,6 +991,24 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
 			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+		"level":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			_sidebar_body.add_child(_text_row("Banner text", "banner_text"))
+			_sidebar_body.add_child(_slider_row(["title_font", 16, 48]))
+			_sidebar_body.add_child(_slider_row(["medallion_px", 80, 180]))
+			_sidebar_body.add_child(_slider_row(["ring_dy", -60, 60]))     # nudge the ring within the wreath
+			_sidebar_body.add_child(_slider_row(["tally_font", 16, 40]))
+			_sidebar_body.add_child(_slider_row(["hint_font", 12, 32]))
+			_sidebar_body.add_child(_slider_row(["frame_slice", 0, 160]))   # nine-patch corner slice
+			_sidebar_body.add_child(_slider_row(["frame_pad", 8, 60]))
+			_sidebar_body.add_child(_slider_row(["frame_top_pad", 20, 140]))   # room under the title pill
+			_sidebar_body.add_child(_slider_row(["gap", 4, 40]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Mode", "mode", ["info", "levelup"]))
+			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
+			_sidebar_body.add_child(_slider_row(["into", 0, 30]))
+			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"tiers_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
@@ -944,6 +1023,26 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["sel_overflow", 100, 140]))  # marked ring spill (%)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["marked", "seen", "unseen"]))
+		"map_card":
+			_group_header("Saved to config", true)
+			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
+			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
+			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
+			_sidebar_body.add_child(_slider_row(["frame_inset", 0, 120]))     # locale-art inset under the gold band (‰ of width)
+			_sidebar_body.add_child(_slider_row(["art_radius", 0, 150]))      # art corner radius (‰ of width)
+			_sidebar_body.add_child(_slider_row(["pill_w_frac", 10, 60]))     # count-pill width (% of card width)
+			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
+			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
+			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
+			if not bool(_params["map_card"]["use_art"]):
+				_sidebar_body.add_child(_slider_row(["veil_scrim", 0, 100]))       # §8 fog haze over the locked thumb
+				_sidebar_body.add_child(_slider_row(["veil_deep", 0, 100]))        # …pooled deeper at the base
+				_sidebar_body.add_child(_slider_row(["veil_mark_alpha", 0, 100]))  # the ✿ ghost in the mist
+				_sidebar_body.add_child(_slider_row(["veil_mark_size", 16, 120]))  # ✿ glyph px (also the meadow-fill mark)
+			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
+			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
+			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
+			_sidebar_body.add_child(_slider_row(["stars_left", 0, 99]))
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")

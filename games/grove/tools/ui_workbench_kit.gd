@@ -38,6 +38,37 @@ const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
 # centered in the `icon_box`-sized square, exactly as hud.gd's _icon_box does, so the preview matches.
 const CUR_PILL_ICONS := [["star", 38.0], ["coin", 40.0], ["gem", 40.0]]
 
+# The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
+# the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
+# a LOCKED place is the dark baked panel (ui/map/card_locked.png) under an "after <prev>" line. Code-
+# drawn fallbacks (gold rim · meadow fill · §8 fog veil) keep the picker from blanking when an asset is
+# missing. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq) and
+# passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
+# tunes it and the game reads the SAME recipe — the single-source-of-truth pattern the currency pill uses.
+const MAP_CARD_ACTIVE := "map/card_active.png"     # unlocked card's glowing gold frame
+const MAP_CARD_LOCKED := "map/card_locked.png"     # locked card's dark baked panel (lock medallion baked in)
+const MAP_CARD_PILL := "map/pill_left.png"         # the cream count pill on an open card's lower edge
+const MAP_CARD_ASPECT := 1027.0 / 352.0            # card_active's aspect — cards size to it so the frame never distorts
+const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
+const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
+const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
+# Rounds the locale art's 4 corners so they nest inside the gold frame's rounded interior (the frame is
+# alpha-0 in its corners, so a square art corner would show as a nub). UV-space rounded-rect alpha mask;
+# `rx` is the corner radius in UV.x, `aspect` the art rect's width/height (so corners stay circular).
+const MAP_ART_CLIP_SHADER := "shader_type canvas_item;
+uniform float rx = 0.06;
+uniform float aspect = 3.0;
+void fragment() {
+	vec4 col = texture(TEXTURE, UV);
+	float ry = rx * aspect;
+	float dx = max(rx - min(UV.x, 1.0 - UV.x), 0.0);
+	float dy = max(ry - min(UV.y, 1.0 - UV.y), 0.0);
+	float d = length(vec2(dx, dy / aspect));
+	col.a *= 1.0 - smoothstep(rx - 0.006, rx, d);
+	COLOR = col;
+}"
+static var _map_art_clip: Shader
+
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
 # game reads the same map via the saved config. "auto" = the bg-default sprite (green/cream).
 const BADGES := {
@@ -1586,6 +1617,281 @@ static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
 	pop.add_child(l)
 	return pop
 
+## A reusable PROGRESS BAR — a rounded track with a honey fill clipped to `frac` (0..1). Art mode uses
+## the kit's prog_track / prog_fill capsules (scaled whole); else a code-drawn StyleBoxFlat track + fill
+## (the legacy look). opts: height (px), width (px), art (bool), label ("" = none; centered, e.g. "75%"),
+## star_knob (bool — a star sprite riding the fill head). Standalone so improving it lifts every site
+## (the Level dialog now; the home-screen unlock % later).
+static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
+	var h: float = float(opts.get("height", 20.0))
+	var f: float = clampf(frac, 0.0, 1.0)
+	var use_art: bool = bool(opts.get("art", true))
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# --- track (whole-scaled capsule, or a code-drawn rounded panel) ---
+	var track_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_track.png"), 256) if use_art else null
+	if track_tex != null:
+		var t := TextureRect.new()
+		t.texture = track_tex
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(t)
+	else:
+		var track := Panel.new()
+		track.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var tsb := StyleBoxFlat.new()
+		tsb.bg_color = Color(Pal.INK, 0.12)
+		tsb.set_corner_radius_all(int(h * 0.5))
+		track.add_theme_stylebox_override("panel", tsb)
+		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(track)
+	# --- fill: full-width sprite/panel revealed by a clip sized to `frac` (keeps the right cap rounded) ---
+	var fill_clip := Control.new()
+	fill_clip.clip_contents = true
+	fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(fill_clip)
+	var fill_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_fill.png"), 256) if use_art else null
+	var fill: Control
+	if fill_tex != null:
+		var fr := TextureRect.new()
+		fr.texture = fill_tex
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill = fr
+	else:
+		var fp := Panel.new()
+		var fsb := StyleBoxFlat.new()
+		fsb.bg_color = Pal.STRAW
+		fsb.set_corner_radius_all(int(h * 0.5))
+		fp.add_theme_stylebox_override("panel", fsb)
+		fp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill = fp
+	fill_clip.add_child(fill)
+	var lay := func() -> void:
+		if not (is_instance_valid(holder) and is_instance_valid(fill_clip) and is_instance_valid(fill)):
+			return
+		var w := holder.size.x
+		var fw := maxf(h, w * f)             # at least a rounded nub so 0% still reads as a bar
+		fill_clip.position = Vector2.ZERO
+		fill_clip.size = Vector2(fw, h)
+		fill.position = Vector2.ZERO
+		fill.size = Vector2(w, h)            # fill keeps FULL width; the clip reveals only `frac` of it
+	# Layout is driven by ready/resized (which only fire once the bar is IN a tree) — NOT a bare
+	# call_deferred, so a bar built-and-freed before any layout (a discarded preview) can't fire a
+	# lambda over freed captures.
+	holder.resized.connect(lay)
+	holder.ready.connect(lay)
+	# --- optional star knob riding the fill head ---
+	if bool(opts.get("star_knob", false)):
+		var knob := make_icon("star", h * 1.4)
+		knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(knob)
+		var place := func() -> void:
+			if is_instance_valid(knob) and is_instance_valid(holder):
+				knob.position = Vector2(maxf(0.0, holder.size.x * f - h * 0.7), -h * 0.2)
+		holder.resized.connect(place)
+	# --- optional centered label (e.g. "75%") ---
+	var label := String(opts.get("label", ""))
+	if label != "":
+		var l := Label.new()
+		l.text = label
+		l.set_anchors_preset(Control.PRESET_FULL_RECT)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", int(h * 0.7))
+		l.add_theme_color_override("font_color", Pal.INK)
+		l.add_theme_constant_override("outline_size", 0)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(l)
+	return holder
+
+## The Level MEDALLION — the laurel wreath behind the gold ring, with the level NUMBER centered on the
+## ring's cream face. The ring sprite (level_ring.png) already carries its own cream inner face (verified
+## at intake), so NO separate badge disc is layered. `px` is the ring diameter; the wreath frames it a
+## touch larger. opts: number_font, ink (Color), ring_dy (px — nudge the ring up/down within the wreath).
+static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}) -> Control:
+	var root := Control.new()
+	var wreath_px := px * 1.55
+	root.custom_minimum_size = Vector2(wreath_px, wreath_px)
+	root.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# the wreath sits BEHIND (added first), centered, a touch larger than the ring
+	var wreath := clean_tex_path(Look.kit("kit/level_wreath.png"), 512)
+	if wreath != null:
+		var wr := TextureRect.new()
+		wr.texture = wreath
+		wr.set_anchors_preset(Control.PRESET_FULL_RECT)
+		wr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		wr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		wr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(wr)
+	# the ring centered at px (a touch above centre by ring_dy so the wreath frames its lower half)
+	var ring_dy := float(opts.get("ring_dy", 0.0))
+	var ring := Control.new()
+	ring.custom_minimum_size = Vector2(px, px)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.anchor_left = 0.5; ring.anchor_right = 0.5
+	ring.anchor_top = 0.5; ring.anchor_bottom = 0.5
+	ring.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	ring.grow_vertical = Control.GROW_DIRECTION_BOTH
+	ring.offset_left = -px * 0.5; ring.offset_right = px * 0.5
+	ring.offset_top = -px * 0.5 + ring_dy; ring.offset_bottom = px * 0.5 + ring_dy
+	root.add_child(ring)
+	var ring_tex := clean_tex_path(Look.kit("kit/level_ring.png"), 512)
+	if ring_tex != null:
+		var rt := TextureRect.new()
+		rt.texture = ring_tex
+		rt.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ring.add_child(rt)
+	# the level number, centered on the ring face
+	var num := Label.new()
+	num.text = str(level)
+	num.set_anchors_preset(Control.PRESET_FULL_RECT)
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	num.add_theme_font_size_override("font_size", int(opts.get("number_font", px * 0.42)))
+	num.add_theme_color_override("font_color", opts.get("ink", Pal.INK))
+	num.add_theme_constant_override("outline_size", 0)
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.add_child(num)
+	return root
+
+## A dedicated FRAME for the Level dialog (NOT the shared dialog_frame): the level_frame parchment border
+## (nine-patch), the gold level_title pill banner centered over the top edge, inner padding, and NO scroll
+## / NO ✕ (the reference has none). `content` is laid out statically (the dialog is short). opts:
+## banner_text, title_font, slice (nine-patch), pad, top_pad (room under the title pill).
+static func level_frame(content: Control, width: float = 460.0, opts: Dictionary = {}) -> Control:
+	var banner_text := String(opts.get("banner_text", "Level"))
+	var title_font := int(opts.get("title_font", 30))
+	var sl := float(opts.get("slice", 56.0))
+	var pad := float(opts.get("pad", 26.0))
+	var top_pad := float(opts.get("top_pad", 70.0))
+	var card := PanelContainer.new()
+	var fp := Look.kit("kit/level_frame.png")
+	if ResourceLoader.exists(fp):
+		var st := StyleBoxTexture.new()
+		st.texture = load(fp)
+		st.set_texture_margin(SIDE_LEFT, sl); st.set_texture_margin(SIDE_TOP, sl)
+		st.set_texture_margin(SIDE_RIGHT, sl); st.set_texture_margin(SIDE_BOTTOM, sl)
+		st.content_margin_left = pad; st.content_margin_right = pad
+		st.content_margin_top = top_pad; st.content_margin_bottom = pad
+		card.add_theme_stylebox_override("panel", st)
+	else:
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Pal.CREAM; cf.border_color = Pal.BARK
+		cf.set_corner_radius_all(28); cf.set_border_width_all(3)
+		cf.content_margin_left = pad; cf.content_margin_right = pad
+		cf.content_margin_top = top_pad; cf.content_margin_bottom = pad
+		card.add_theme_stylebox_override("panel", cf)
+	card.custom_minimum_size = Vector2(width, 0)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.add_child(content)
+	# the title pill overlays the top edge, centered (added after the card → drawn on top)
+	var wrap := Control.new()
+	wrap.custom_minimum_size.x = width
+	wrap.add_child(card)
+	var title := _level_title_pill(banner_text, title_font)
+	wrap.add_child(title)
+	var dock := func() -> void:
+		if is_instance_valid(title) and is_instance_valid(card) and is_instance_valid(wrap):
+			title.position = Vector2((card.size.x - title.size.x) * 0.5, -title.size.y * 0.5)
+			wrap.custom_minimum_size = card.size
+	card.resized.connect(dock)
+	title.resized.connect(dock)
+	wrap.ready.connect(dock)
+	return wrap
+
+## The gold "Level N" title pill (the level_title sprite scaled whole, text centered). Code STRAW fallback.
+static func _level_title_pill(text: String, font: int) -> Control:
+	var pill := PanelContainer.new()
+	pill.name = "LevelTitle"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tp := clean_tex_path(Look.kit("kit/level_title.png"), 480)
+	if tp != null:
+		var stx := StyleBoxTexture.new()
+		stx.texture = tp
+		stx.content_margin_left = 44; stx.content_margin_right = 44
+		stx.content_margin_top = 12; stx.content_margin_bottom = 16
+		pill.add_theme_stylebox_override("panel", stx)
+	else:
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Pal.STRAW; ps.set_corner_radius_all(18)
+		ps.content_margin_left = 28; ps.content_margin_right = 28
+		ps.content_margin_top = 6; ps.content_margin_bottom = 8
+		pill.add_theme_stylebox_override("panel", ps)
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", font)
+	l.add_theme_color_override("font_color", Color("#4A2E14"))
+	l.add_theme_constant_override("outline_size", 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(l)
+	return pill
+
+## The whole LEVEL dialog: the dedicated frame + medallion + "X / Y ★ earned" + progress_bar + the
+## "N more ★ to reach Level N+1" line (info) OR a reward chip row (levelup) + the bottom button (the
+## shared pill_button with the green level_btn bg). `data` keys: level, earned, next, into, span,
+## remaining, mode ("info"|"levelup"), gift ({water,gems}), on_button (Callable). opts: see
+## level_opts_from_config (frame + progress + btn style). Used by BOTH the workbench preview and the game.
+static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionary = {}) -> Control:
+	var mode := String(data.get("mode", "info"))
+	var lvl := int(data.get("level", 1))
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(opts.get("gap", 14)))
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	# medallion
+	var med := level_medallion(lvl, float(opts.get("medallion_px", 120.0)), opts)
+	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(med)
+	# "X / Y ★ earned"
+	var tally := Label.new()
+	tally.text = TranslationServer.translate("%d / %d ★ earned") % [int(data.get("earned", 0)), int(data.get("next", 0))]
+	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tally.add_theme_font_size_override("font_size", int(opts.get("tally_font", 28)))
+	tally.add_theme_color_override("font_color", Pal.INK)
+	tally.add_theme_constant_override("outline_size", 0)
+	col.add_child(tally)
+	# the progress bar (reusable component, fraction of the way through this level)
+	var span: int = maxi(1, int(data.get("span", 1)))
+	var frac: float = clampf(float(int(data.get("into", 0))) / float(span), 0.0, 1.0)
+	var bar := progress_bar(frac, opts.get("progress", {}))
+	bar.custom_minimum_size.x = width * 0.78
+	col.add_child(bar)
+	# levelup → the earned reward row (cream chips); info → the "N more ★" hint line
+	if mode == "levelup":
+		var gift: Dictionary = data.get("gift", {})
+		var reward := {"water": int(gift.get("water", 0)), "gems": int(gift.get("gems", 0))}
+		if _reward_total(reward) > 0:
+			var rrow := reward_chip(reward, opts.get("btn", {}))
+			rrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			col.add_child(rrow)
+	else:
+		var nxt := Label.new()
+		nxt.text = TranslationServer.translate("%d more ★ to reach Level %d") % [int(data.get("remaining", 0)), lvl + 1]
+		nxt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nxt.add_theme_font_size_override("font_size", int(opts.get("hint_font", 22)))
+		nxt.add_theme_color_override("font_color", Pal.BARK)
+		nxt.add_theme_constant_override("outline_size", 0)
+		col.add_child(nxt)
+	# the bottom button — the shared pill_button with the green level_btn background
+	var bo: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = "kit/level_btn.png"; bo["icon"] = ""
+	var btn_text := TranslationServer.translate("Collect") if mode == "levelup" else TranslationServer.translate("Got it")
+	var btn := pill_button(btn_text, bo)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var cb: Callable = data.get("on_button", Callable())
+	if cb.is_valid():
+		btn.pressed.connect(func() -> void: cb.call())
+	col.add_child(btn)
+	return level_frame(col, width, opts)
+
 ## Draw a highlight rim/glow over a day card (see DAY_BADGES). A code-drawn border-only overlay (plus a
 ## coloured shadow for the "glow" styles) so it's a SAVED setting the workbench can switch, not baked art.
 static func _apply_day_badge(panel: Control, key: String) -> void:
@@ -2140,6 +2446,36 @@ static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
 		"shadow": bool(b.get("shadow", false)),
 	}
 
+## The reusable PROGRESS BAR's saved STYLE from config (height / art / star knob). The Level dialog and
+## the standalone workbench preview both read it from here.
+static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var p: Dictionary = cfg.get("progress_bar", {})
+	return {
+		"height": float(p.get("height", 20)),
+		"art": bool(p.get("art", true)),
+		"star_knob": bool(p.get("star_knob", false)),
+	}
+
+## The LEVEL dialog's saved STYLE from config — the dedicated frame chrome + the medallion size + the
+## reusable progress-bar style + the shared button style. Read by BOTH the workbench preview and the
+## game's level_popup.gd, so the transform lives in one place.
+static func level_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var lv: Dictionary = cfg.get("level", {})
+	return {
+		"banner_text": String(lv.get("banner_text", "Level")),
+		"title_font": int(lv.get("title_font", 30)),
+		"slice": float(lv.get("frame_slice", 56)),
+		"pad": float(lv.get("frame_pad", 26)),
+		"top_pad": float(lv.get("frame_top_pad", 70)),
+		"medallion_px": float(lv.get("medallion_px", 120)),
+		"ring_dy": float(lv.get("ring_dy", 0)),
+		"tally_font": int(lv.get("tally_font", 28)),
+		"hint_font": int(lv.get("hint_font", 22)),
+		"gap": int(lv.get("gap", 14)),
+		"progress": progress_bar_opts_from_config(cfg),
+		"btn": card_btn_opts(cfg),
+	}
+
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
 ## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here
 ## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
@@ -2266,6 +2602,282 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(lbl)
 	return panel
+
+## The map-SELECT place-picker CARD, built from game-resolved DATA + workbench-tuned presentation.
+## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill), stars_left:int,
+##        prereq:String (the locked "✿ after <prev>" line), map_id:String (the veil-art seam) }.
+## `opts`: map_card_opts_from_config(...). The CALLER sizes the card (card_w × card_h); the kit lays the
+## frame / art / pill out inside it. Every node IGNOREs the mouse (the map's single-input-surface rule).
+static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var card := Control.new()
+	card.custom_minimum_size = Vector2(card_w, card_h)
+	card.size = Vector2(card_w, card_h)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if bool(d.get("open", true)):
+		_map_card_open(d, opts, card, card_w, card_h)
+	else:
+		_map_card_locked(d, opts, card, card_w, card_h)
+	return card
+
+# An OPEN place: the locale art (or a meadow fallback) fills the hollow of the gold frame, drawn OVER it
+# so the frame's transparent centre lets the art show and its border frames it; the restore count rides a
+# pill on the lower edge.
+static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
+	var inset := card_w * float(opts.get("frame_inset", 0.045))
+	var inner := Control.new()
+	inner.position = Vector2(inset, inset)
+	inner.size = Vector2(card_w - inset * 2.0, card_h - inset * 2.0)
+	inner.clip_contents = true
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(inner)
+	var art_path := String(d.get("art", ""))
+	if art_path != "" and ResourceLoader.exists(art_path):
+		var t := TextureRect.new()
+		t.texture = load(art_path)
+		t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		t.material = _map_art_clip_material(inner.size, opts)   # round the art's corners to nest in the gold frame
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(t)
+	else:
+		inner.add_child(_map_meadow_fill(true, opts))
+	# the gold frame OVER the art — card sized to its aspect, so a plain SCALE keeps the border crisp.
+	var frame_path := Look.kit(MAP_CARD_ACTIVE)
+	if bool(opts.get("use_art", true)) and ResourceLoader.exists(frame_path):
+		var fr := TextureRect.new()
+		fr.texture = load(frame_path)
+		fr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(fr)
+	else:
+		card.add_child(_map_code_border())
+	_map_count_pill(d, opts, card, card_w, card_h)
+
+# A LOCKED place: the dark baked panel fills the card, with the "after <prev>" prerequisite line low over
+# it. When the panel art is off/missing, fall back to a meadow panel under the §8 fog veil so the horizon
+# still reads as veiled.
+static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
+	var panel_path := Look.kit(MAP_CARD_LOCKED)
+	if bool(opts.get("use_art", true)) and ResourceLoader.exists(panel_path):
+		var p := TextureRect.new()
+		p.texture = load(panel_path)
+		p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		p.stretch_mode = TextureRect.STRETCH_SCALE
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(p)
+	else:
+		var inner := _map_meadow_fill(false, opts)
+		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		card.add_child(inner)
+		_map_veil(inner, String(d.get("map_id", "")), opts)   # the §8 code-drawn fog when the painted panel is absent
+	# the prerequisite line, low on the panel (the baked medallion is the centre mark).
+	var state_l := Label.new()
+	state_l.text = String(d.get("prereq", ""))
+	state_l.add_theme_font_size_override("font_size", int(clampf(card_h * 0.135, 18.0, 30.0)))
+	state_l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.88))
+	state_l.add_theme_color_override("font_outline_color", Pal.INK)
+	state_l.add_theme_constant_override("outline_size", 5)
+	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	state_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
+	state_l.position = Vector2(card_w * 0.12, card_h - card_h * 0.30)
+	state_l.size = Vector2(card_w * 0.76, card_h * 0.24)
+	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(state_l)
+
+# The restore count on an open card's lower edge: a cream pill (pill_left) carrying the GOLD star sprite
+# + "N left" (panel-text law: dark INK, no halo), or "✿ restored" on a finished place.
+static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
+	var done := bool(d.get("done", false))
+	var pw := clampf(card_w * float(opts.get("pill_w_frac", 0.30)), float(opts.get("pill_min", 170.0)), float(opts.get("pill_max", 290.0)))
+	var ph := pw / MAP_CARD_PILL_ASPECT
+	var node := Control.new()
+	node.size = Vector2(pw, ph)
+	# sit in the lower body, ABOVE the frame's bottom gold band so the pill never overlaps the border.
+	node.position = Vector2((card_w - pw) * 0.5, card_h - ph - card_h * float(opts.get("pill_y_frac", 0.13)))
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(node)
+	var pill_path := Look.kit(MAP_CARD_PILL)
+	if bool(opts.get("use_art", true)) and ResourceLoader.exists(pill_path):
+		var bg := TextureRect.new()
+		bg.texture = load(pill_path)
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_SCALE
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(bg)
+	else:
+		var pnl := Panel.new()
+		pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Pal.CREAM
+		ps.set_corner_radius_all(int(ph * 0.5))
+		ps.set_border_width_all(3)
+		ps.border_color = Pal.STRAW
+		pnl.add_theme_stylebox_override("panel", ps)
+		pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(pnl)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 6)
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	node.add_child(row)
+	if done:
+		var lbl := Label.new()
+		lbl.text = String(TranslationServer.translate("✿ restored"))   # static ctx: tr() is instance-only
+		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
+		lbl.add_theme_color_override("font_color", Pal.INK)
+		lbl.add_theme_constant_override("outline_size", 0)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
+	else:
+		var ic := Look.icon("star", ph * 0.50)
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(ic)
+		var lbl := Label.new()
+		lbl.text = String(TranslationServer.translate("%d left")) % int(d.get("stars_left", 0))
+		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
+		lbl.add_theme_color_override("font_color", Pal.INK)
+		lbl.add_theme_constant_override("outline_size", 0)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
+
+# A code-drawn meadow fill for a card whose locale art hasn't shipped — a flat panel + a centered ✿
+# "place" mark. `open` brightens it; a locked fallback dims (the fog veil layers over this).
+static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
+	var ph := Panel.new()
+	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ph.clip_contents = true
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Pal.MEADOW if open else Pal.MEADOW.lerp(Pal.INK, 0.45)
+	ps.set_corner_radius_all(14)
+	ph.add_theme_stylebox_override("panel", ps)
+	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var mark := Label.new()
+	mark.name = "PlaceMark"
+	mark.text = "✿"
+	mark.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", 64.0)))
+	mark.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
+	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mark.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	mark.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ph.add_child(mark)
+	return ph
+
+# A code-drawn gold border, the fallback when card_active.png is absent (so an open card still reads as
+# framed). A borderless rounded panel that draws only the rim — mouse-ignored, self-sizing.
+static func _map_code_border() -> Control:
+	var pnl := Panel.new()
+	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0, 0, 0, 0)
+	ps.set_corner_radius_all(22)
+	ps.set_border_width_all(5)
+	ps.border_color = Pal.STRAW
+	pnl.add_theme_stylebox_override("panel", ps)
+	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return pnl
+
+# The fog veil for a LOCKED map card (§8): a translucent ink scrim + a gradient that pools fog at the
+# bottom + a faint ✿ ghost. Overlays exactly `thumb` (full-rect child), named MAP_VEIL_NODE so a test can
+# assert it. ART SEAM: map/veil_<id>.png (per-map) or map/veil.png (generic) REPLACES the code fog.
+static func _map_veil(thumb: Control, map_id: String, opts: Dictionary) -> void:
+	thumb.clip_contents = true
+	var veil := Control.new()
+	veil.name = MAP_VEIL_NODE
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	thumb.add_child(veil)
+	var art := Game.art("map/veil_%s.png" % map_id)
+	if not ResourceLoader.exists(art):
+		art = Game.art(MAP_VEIL_ART)
+	if ResourceLoader.exists(art):
+		var sprite := TextureRect.new()
+		sprite.texture = load(art)
+		sprite.set_anchors_preset(Control.PRESET_FULL_RECT)
+		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		veil.add_child(sprite)
+		return
+	var scrim := float(opts.get("veil_scrim", 0.42))
+	var deep := float(opts.get("veil_deep", 0.66))
+	# 1. a flat haze over the whole thumb.
+	var haze := ColorRect.new()
+	haze.color = Color(Pal.INK, scrim)
+	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
+	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(haze)
+	# 2. fog settling — a top→bottom gradient deepening to `deep` at the base.
+	var grad := Gradient.new()
+	grad.set_color(0, Color(Pal.INK, 0.0))
+	grad.set_color(1, Color(Pal.INK, deep - scrim))
+	var gtex := GradientTexture2D.new()
+	gtex.gradient = grad
+	gtex.fill_from = Vector2(0.5, 0.0)
+	gtex.fill_to = Vector2(0.5, 1.0)
+	gtex.width = 4
+	gtex.height = 64
+	var settle := TextureRect.new()
+	settle.texture = gtex
+	settle.set_anchors_preset(Control.PRESET_FULL_RECT)
+	settle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	settle.stretch_mode = TextureRect.STRETCH_SCALE
+	settle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(settle)
+	# 3. the teasing ✿ ghost — a faint mark in the mist.
+	var ghost := Label.new()
+	ghost.name = "VeilMark"
+	ghost.text = "✿"
+	ghost.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", 64.0)))
+	ghost.add_theme_color_override("font_color", Color(Pal.CREAM, float(opts.get("veil_mark_alpha", 0.16))))
+	ghost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	ghost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	veil.add_child(ghost)
+
+# The rounded-corner alpha-mask material for an open card's locale art, sized to the inner rect so the
+# corner radius is `art_radius` of the card width and stays circular at the rect's aspect.
+static func _map_art_clip_material(inner_size: Vector2, opts: Dictionary) -> ShaderMaterial:
+	if _map_art_clip == null:
+		_map_art_clip = Shader.new()
+		_map_art_clip.code = MAP_ART_CLIP_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _map_art_clip
+	var inset := float(opts.get("frame_inset", 0.045))
+	var rad := float(opts.get("art_radius", 0.058))
+	mat.set_shader_parameter("rx", rad / (1.0 - 2.0 * inset))
+	mat.set_shader_parameter("aspect", inner_size.x / maxf(inner_size.y, 1.0))
+	return mat
+
+## The map-card presentation opts from config (use-art · frame inset · art radius · count-pill metrics ·
+## §8 fog-veil look). DEFAULTS equal the shipped §8 constants, so an absent/empty config renders the
+## SHIPPED card byte-for-byte. Insets/fracs are stored as scaled integers for the workbench's integer
+## sliders (inset/radius in thousandths, fracs + veil alphas in percent) and resolved to fractions here.
+static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
+	return {
+		"use_art":         bool(c.get("use_art", true)),
+		"frame_inset":     float(c.get("frame_inset", 45)) / 1000.0,    # locale-art inset (fraction of card width)
+		"art_radius":      float(c.get("art_radius", 58)) / 1000.0,     # art corner radius (fraction of art width)
+		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)
+		"pill_min":        float(c.get("pill_min", 170)),
+		"pill_max":        float(c.get("pill_max", 290)),
+		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
+		"veil_scrim":      float(c.get("veil_scrim", 42)) / 100.0,
+		"veil_deep":       float(c.get("veil_deep", 66)) / 100.0,
+		"veil_mark_alpha": float(c.get("veil_mark_alpha", 16)) / 100.0,
+		"veil_mark_size":  float(c.get("veil_mark_size", 64)),
+	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).
 const CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"

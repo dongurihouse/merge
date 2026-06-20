@@ -1903,16 +1903,18 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		FX.celebrate_at(self, chip.get_global_rect().get_center() - Vector2(0, 60), tr("A new tool arrived!"), STRAW)
 		Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
 	if levels_up > 0:
-		water = int(Save.grove().get("water", water))   # re-sync the local after the level-up gift
-		_update_water_hud()
 		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now
-		var lv := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
-		FX.celebrate_at(self, Vector2(get_global_rect().get_center().x, 240), tr("Level %d!") % lv, STRAW)
-		FX.floating_reward(self, Vector2(get_global_rect().get_center().x - 130, 320),
-			"water", G.LEVEL_WATER_GIFT * levels_up, Color("#9CCDE8"), 36)
-		FX.floating_reward(self, Vector2(get_global_rect().get_center().x + 40, 320),
-			"gem", G.LEVEL_DIAMONDS * levels_up, Color("#BFE6F2"), 36)
 		Audio.play("level_complete", -1.0)
+		# the Level dialog IS the celebration now — it shows the new level + the earned gift and pays the
+		# gift out on Collect (the deferred grant). Re-sync the water + HUD when it closes (post-Collect).
+		var lvlup_ov := LevelPopup.open_levelup(self, levels_up)
+		if lvlup_ov != null:
+			lvlup_ov.tree_exited.connect(func() -> void:
+				if not is_instance_valid(self):
+					return
+				water = int(Save.grove().get("water", water))   # re-sync the local after Collect granted the gift
+				_update_water_hud()
+				_update_hud())
 	_persist()
 	_rebuild_givers()
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
