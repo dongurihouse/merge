@@ -117,7 +117,7 @@ const CAPTIONS := {
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
-	"tiers": "Discovery — tier ladder (twig border, no vines)",
+	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
@@ -200,15 +200,16 @@ var _params := {
 	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
 	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
-	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_slice": 40, "cell_art": true,
-		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "piece_frac": 62, "sel_overflow": 100},
-	# the DISCOVERY dialog — the shared frame dressed in the TIERS chrome (twig border + ladder ribbon + its
-	# own ✕), wrapping a plain grid of tier cells with NO vines. It carries its OWN frame chrome (the bark
-	# panel wants different banner/padding than the parchment frame), so these knobs are independent.
-	"tiers": {"width_pct": 85, "cols": 3, "card_slice": 72, "panel_pad_x": 44, "panel_pad_y": 30,
+	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_art": true,
+		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "num_badge": true, "num_badge_scale": 200,
+		"piece_frac": 62, "mark_glow": 60, "mark_twinkle": 50},
+	# the DISCOVERY dialog — the SAME shared frame as every other dialog, with a selectable Border (default
+	# the twig board; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
+	# chrome. The panel padding follows the chosen border, and the grid fills that inner width.
+	"tiers": {"width_pct": 85, "cols": 3, "border": "twig board",
 		"banner_font": 50, "banner_h": 168, "banner_x": 0, "banner_y": -66, "banner_text_x": 0, "banner_text_y": -2,
 		"banner_burn": 55, "close_size": 84, "close_x": 4, "close_y": 16,
-		"cell_gap": 16, "grid_inset": 56, "list_top_pad": 8, "list_max_h": 0},
+		"cell_gap": 16, "list_top_pad": 8, "list_max_h": 0},
 	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
 	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
 	"currency_pill": {"use_art": true, "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
@@ -987,7 +988,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the SHARED frame but dressed in its OWN twig border + ladder ribbon + ✕ (so its chrome is tuned HERE, not on the Frame item). The tile is the Tier cell item. A plain grid — no vines."
+		note.text = "Uses the SHARED frame on a selectable Border (default the twig board), with the ladder ribbon + ✕ on top (tuned HERE). The tile is the Tier cell item. A plain grid — no vines."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1149,15 +1150,18 @@ func _rebuild_sidebar() -> void:
 		"tiers_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
-			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 120]))    # the cell's nine-patch margin
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
 			_sidebar_body.add_child(_toggle_row("Show number", "show_num"))
+			_sidebar_body.add_child(_toggle_row("Number badge", "num_badge"))   # the cost-disc plate behind the numeral
 			_sidebar_body.add_child(_slider_row(["num_font", 12, 56]))
+			_sidebar_body.add_child(_slider_row(["num_badge_scale", 130, 300]))  # disc diameter (% of font)
 			_sidebar_body.add_child(_slider_row(["num_x", 0, 50]))          # number inset from left (% of cell)
 			_sidebar_body.add_child(_slider_row(["num_y", 0, 50]))          # ...and from top
 			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # content size (% of cell)
-			_sidebar_body.add_child(_slider_row(["sel_overflow", 100, 140]))  # marked ring spill (%)
+			_section_header("Marked tier (sparkle)")
+			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
+			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["marked", "seen", "unseen"]))
 		"map_card":
@@ -1185,13 +1189,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))    # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
-			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 160]))    # how far the twig border eats the width
 			_sidebar_body.add_child(_slider_row(["list_top_pad", -40, 200]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
-			_section_header("Border (twig panel)")
-			_sidebar_body.add_child(_slider_row(["card_slice", 0, 160]))
-			_sidebar_body.add_child(_slider_row(["panel_pad_x", 0, 140]))
-			_sidebar_body.add_child(_slider_row(["panel_pad_y", 0, 140]))
+			_section_header("Border (shared frame)")
+			# the SAME border registry the Frame item uses — the grid padding follows the chosen border, so
+			# the right column never spills (the old per-dialog slice/pad/grid_inset knobs are retired).
+			_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))
 			_section_header("Banner (ladder ribbon)")
 			_sidebar_body.add_child(_slider_row(["banner_font", 20, 72]))
 			_sidebar_body.add_child(_slider_row(["banner_h", 60, 200]))
