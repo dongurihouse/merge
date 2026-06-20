@@ -2881,6 +2881,12 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	else:
 		card.add_child(_map_code_border())
 	_map_count_pill(d, opts, card, card_w, card_h)
+	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
+	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
+	if not bool(d.get("done", false)):
+		var spark := float(opts.get("edge_sparkle", 0.6))
+		if spark > 0.0:
+			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
 
 # A LOCKED place: the dark baked panel fills the card, with the "after <prev>" prerequisite line low over
 # it. When the panel art is off/missing, fall back to a meadow panel under the §8 fog veil so the horizon
@@ -2974,6 +2980,82 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(lbl)
+
+# Twinkles spaced AROUND the card's edges — each rides the gold frame band and pulses (fade + scale) on
+# a staggered loop, so an active place's border shimmers and draws the eye. Reuses the twinkle sprite
+# (_star_texture) + warm-gold tint from the button sparkle. `amount` 0..1 scales how many ring the card;
+# `calm` (reduced-motion) drops the motion and shows a faint static scatter instead. Mouse-transparent.
+static func _map_card_edge_sparkle(card_w: float, card_h: float, amount: float, calm: bool) -> Control:
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if amount <= 0.0:
+		return root
+	# the band centre-line rect (half the gold border in on each axis) so twinkles sit ON the gold, not
+	# floating in the locale art. The card is wide, so the bands differ per axis (see frame_inset notes).
+	var band_x := card_w * 0.025
+	var band_y := card_h * 0.06
+	var rect := Rect2(band_x, band_y, card_w - band_x * 2.0, card_h - band_y * 2.0)
+	var count := clampi(int(round(amount * 22.0)), 3, 40)
+	var px := clampf(card_h * 0.16, 14.0, 40.0)
+	var tex := _star_texture()
+	var cycle := 1.8                                   # one fade-in→hold→fade-out→idle loop
+	for i in count:
+		var t := (float(i) + 0.5) / float(count)       # even spacing around the perimeter
+		var pos := _rect_perimeter_point(t, rect)
+		var s := TextureRect.new()
+		s.texture = tex
+		s.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		s.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		s.custom_minimum_size = Vector2(px, px)
+		s.size = Vector2(px, px)
+		s.position = pos - Vector2(px, px) * 0.5
+		s.pivot_offset = Vector2(px, px) * 0.5
+		s.modulate = Color(1.0, 0.84, 0.42, 1.0)       # warm gold (same tint as the button twinkles)
+		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(s)
+		if calm:
+			s.modulate.a = 0.45
+			s.scale = Vector2(0.85, 0.85)
+		else:
+			_pulse_twinkle(s, (float(i) / float(count)) * cycle)   # stagger so the ring shimmers, not blinks in unison
+	return root
+
+# A point on a rectangle's perimeter at parameter t∈[0,1) (top L→R, right T→B, bottom R→L, left B→T).
+static func _rect_perimeter_point(t: float, rect: Rect2) -> Vector2:
+	var w := rect.size.x
+	var h := rect.size.y
+	var d := fposmod(t, 1.0) * (2.0 * (w + h))
+	var p := rect.position
+	if d < w:
+		return p + Vector2(d, 0.0)
+	d -= w
+	if d < h:
+		return p + Vector2(w, d)
+	d -= h
+	if d < w:
+		return p + Vector2(w - d, h)
+	d -= w
+	return p + Vector2(0.0, h - d)
+
+# Loops one twinkle: a one-time `stagger` delay (so the ring desyncs), then fade-in + grow, fade-out +
+# shrink, and a short idle gap — repeating. Tweens need the node in-tree, so it arms on tree_entered.
+static func _pulse_twinkle(s: TextureRect, stagger: float) -> void:
+	s.modulate.a = 0.0
+	s.scale = Vector2(0.6, 0.6)
+	var begin := func() -> void:
+		if not is_instance_valid(s) or not s.is_inside_tree():
+			return
+		var loop := s.create_tween().set_loops().set_trans(Tween.TRANS_SINE)
+		loop.tween_property(s, "modulate:a", 1.0, 0.6)
+		loop.parallel().tween_property(s, "scale", Vector2(1.05, 1.05), 0.6)
+		loop.tween_property(s, "modulate:a", 0.0, 0.7)
+		loop.parallel().tween_property(s, "scale", Vector2(0.6, 0.6), 0.7)
+		loop.tween_interval(0.5)
+	s.tree_entered.connect(func() -> void:
+		var t0 := s.create_tween()
+		t0.tween_interval(maxf(stagger, 0.001))
+		t0.tween_callback(begin))
 
 # A code-drawn meadow fill for a card whose locale art hasn't shipped — a flat panel + a centered ✿
 # "place" mark. `open` brightens it; a locked fallback dims (the fog veil layers over this).
