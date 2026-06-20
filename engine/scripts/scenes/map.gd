@@ -197,13 +197,22 @@ func _ready() -> void:
 	# first-hub-open beat was removed 2026-06-18 — docs/BACKLOG.md "Restore the shop FTUE".)
 	_maybe_login_popup_deferred.call_deferred()
 
-	# Server-driven mail: pull the remote operator feed and fold any NEW gifts/news into the mailbox,
-	# then relight the inbox badge if something arrived. Guarded + flag-gated + fully non-blocking — a
-	# dead network (or the placeholder endpoint) is a silent no-op. (core/inbox_sync.gd owns the contract.)
-	if _has_inbox and Features.on("mail_sync") and ResourceLoader.exists("res://engine/scripts/core/inbox_sync.gd"):
-		load("res://engine/scripts/core/inbox_sync.gd").sync(self, func(added: int) -> void:
-			if added > 0:
-				_refresh_liveops_badges())
+	# Apple Game Center sign-in → a pseudonymous player id for targeted mail (and later more). Flag-gated
+	# + iOS-only (the provider no-ops without the GameCenter plugin singleton), so this is inert in the
+	# editor / on desktop / in tests. Idempotent — safe to call on every home open.
+	if Features.on("game_center") and ResourceLoader.exists("res://engine/scripts/core/identity.gd"):
+		load("res://engine/scripts/core/identity.gd").boot(self)
+
+	# Server-driven mail: top the mailbox up from the remote feed on every home open, and again on a
+	# light timer while the player lingers. Guarded + flag-gated + non-blocking (a dead network or the
+	# placeholder endpoint is a silent no-op; sync() also skips when the box is full). See core/inbox_sync.gd.
+	_sync_mail.call_deferred()
+	if _has_inbox and Features.on("mail_sync"):
+		var mail_timer := Timer.new()
+		mail_timer.wait_time = MAIL_SYNC_EVERY
+		mail_timer.autostart = true
+		mail_timer.timeout.connect(_sync_mail)
+		add_child(mail_timer)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
@@ -1613,6 +1622,19 @@ func _claim_free_gems() -> void:
 # Inbox rail tap (GUARDED): open the parallel mailbox modal via load() so this worktree never hard-
 # depends on a system it doesn't own. A claim's refresh hook re-reads the wallet + unread badge (Save
 # has no change signal — the HUD is pull-based), mirroring the daily calendar's refresh.
+# Server-driven mail: top up the mailbox from the remote feed (core/inbox_sync.gd), relighting the
+# inbox badge if anything new arrived. Flag-gated + guarded + non-blocking; sync() itself skips the
+# network when the box is already full ("clear old ones first"). Fires on home open + every MAIL_SYNC_EVERY.
+const MAIL_SYNC_EVERY := 600.0          # 10 min — the in-session mail poll cadence
+func _sync_mail() -> void:
+	if not (_has_inbox and Features.on("mail_sync")):
+		return
+	if not ResourceLoader.exists("res://engine/scripts/core/inbox_sync.gd"):
+		return
+	load("res://engine/scripts/core/inbox_sync.gd").sync(self, func(added: int) -> void:
+		if added > 0:
+			_refresh_liveops_badges())
+
 func _open_inbox() -> void:
 	if not _has_inbox:
 		return

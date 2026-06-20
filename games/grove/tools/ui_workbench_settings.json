@@ -14,15 +14,16 @@
 		"title": 25.0
 	},
 	"daily": {
-		"cols": 3,
-		"width": 460
+		"cols": 3.0,
+		"width": 460.0
 	},
 	"daily_card": {
 		"cell_art": true,
-		"cell_h": 264,
-		"cell_slice": 28,
-		"cell_w": 96,
+		"cell_h": 180.0,
+		"cell_slice": 28.0,
+		"cell_w": 160.0,
 		"milestone_badge": "amber glow",
+		"sparkle": true,
 		"today_badge": "gold glow"
 	},
 	"dialog": {
@@ -59,9 +60,9 @@
 
 	},
 	"shop": {
-		"cell_h": 150,
-		"cell_w": 112,
-		"cols": 3,
-		"width": 520
+		"cell_h": 150.0,
+		"cell_w": 112.0,
+		"cols": 3.0,
+		"width": 520.0
 	}
 }

@@ -20,6 +20,11 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const D = Game.DATA                                  # the active game's data (WATER_CAP)
 
+# The mailbox is a small, capped to-do list — NOT a growing archive. It holds at most MAIL_CAP
+# messages; the server-driven sync only pulls enough to top it up to the cap (remaining_slots), and
+# "dealt-with" mail (claimed gifts / read notes) is pruned so room frees up over time. One config knob.
+const MAIL_CAP := 10
+
 # --- the stored list ----------------------------------------------------------------
 
 ## The persisted message list (a live ref in the grove blob). Lazy-inits to [] and SEEDS a
@@ -94,6 +99,47 @@ static func _is_unclaimed_gift(m: Dictionary) -> bool:
 
 static func _reward_total(rew: Dictionary) -> int:
 	return int(rew.get("coins", 0)) + int(rew.get("gems", 0)) + int(rew.get("water", 0))
+
+# --- server-sync state: the cap + the cursor ----------------------------------------
+
+## How many MORE messages the box can hold right now (MAIL_CAP minus the current count, clamped at 0).
+## The sync asks for exactly this many; when it's 0 the box is full and we don't fetch at all.
+static func remaining_slots() -> int:
+	return maxi(0, MAIL_CAP - messages().size())
+
+## The high-watermark of server mail already folded in ("last mail gotten"). 0 on a fresh save, so the
+## first fetch asks for everything since 0. apply_feed advances it; the request sends it as `since`.
+static func cursor() -> int:
+	return int(Save.grove().get("inbox_cursor", 0))
+
+static func set_cursor(seq: int) -> void:
+	var g := Save.grove()
+	if int(g.get("inbox_cursor", 0)) != seq:
+		g["inbox_cursor"] = seq
+		Save.grove_write()
+
+## Clear "dealt-with" mail so the capped box frees room over time: drop claimed gifts and read plain
+## notes, KEEP every unclaimed gift and unread message. Persists; returns the removed count. Run before
+## a fetch (so remaining_slots reflects the live load) and when the mailbox opens.
+static func prune() -> int:
+	var list := messages()
+	var keep: Array = []
+	for m in list:
+		if not _resolved(m):
+			keep.append(m)
+	var removed := list.size() - keep.size()
+	if removed > 0:
+		list.clear()
+		list.append_array(keep)
+		Save.grove_write()
+	return removed
+
+# "dealt with": a gift the player has claimed, or a plain note (no reward) they have read. Unclaimed
+# gifts and unread messages are never pruned — the player hasn't acted on them yet.
+static func _resolved(m: Dictionary) -> bool:
+	if _reward_total(m.get("reward", {})) > 0:
+		return bool(m.get("claimed", false))
+	return bool(m.get("read", false))
 
 # --- mutations ----------------------------------------------------------------------
 

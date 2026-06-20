@@ -15,6 +15,7 @@ extends RefCounted
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
+const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
 const CARD_TEX := Vector2(30, 30)
@@ -77,15 +78,28 @@ const DEMO_DAILY := [
 	{"day": 7, "reward": {"gems": 30}, "state": "future", "mystery": true},
 ]
 
-## Shop packs for the workbench preview — the SAME items the GAME sells (Game.DATA: the starter bundle +
-## the CASH_PACKS gem ladder), so testing matches production. Only the ITEMS (gem count + price + the
-## Popular / Best-value / Welcome ribbons); the card STYLING is the shared small card, not the game's.
+## EVERY item the GAME shop sells, faithfully from Game.DATA (so testing matches production): Quick help
+## (refill water + coin pouch, paid in 💎), the Featured item-shortcut offers, the Welcome starter, and
+## the gem ladder. Only the ITEMS (icon / amount / price / ribbon); the card STYLING is the shared card.
 static func demo_shop() -> Array:
+	var D := Game.DATA
 	var out: Array = []
-	var sp: Dictionary = Game.DATA.STARTER_PACK
-	if not sp.is_empty():
-		out.append({"icon": "gem", "count": int(sp.get("gems", 0)), "price": String(sp.get("usd", "")), "ribbon": "Welcome"})
-	var packs: Array = Game.DATA.CASH_PACKS
+	# Quick help — refill water + a coin pouch, both paid in gems
+	out.append({"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"})
+	out.append({"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"})
+	# Featured — the rotating item-shortcut offers (coins or 💎)
+	for off in D.SHOP_ITEM_OFFERS:
+		out.append({
+			"icon": String(off.get("icon", "star")),
+			"label": String(off.get("label", "")),
+			"price": str(int(off.get("cost", 0))),
+			"price_icon": ("gem" if String(off.get("currency", "coins")) == "diamonds" else "coin"),
+		})
+	# Welcome — the one-time starter bundle
+	var sp: Dictionary = D.STARTER_PACK
+	out.append({"icon": "gem", "count": int(sp.get("gems", 0)), "price": String(sp.get("usd", "")), "ribbon": "Welcome"})
+	# Acorn pouches — the cash → gems ladder
+	var packs: Array = D.CASH_PACKS
 	for i in packs.size():
 		var pk: Dictionary = packs[i]
 		var card := {"icon": "gem", "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
@@ -891,11 +905,18 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if state == "done":
 		panel.modulate = Color(1, 1, 1, 0.6)
 
+	# Content lives in a Control so the bottom action can be ABSOLUTELY positioned: the top block keeps a
+	# FIXED position whether or not a Claim is shown, so today / done / future cards align across the row.
+	var inner := Control.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(inner)
+
+	# TOP block — ribbon + label + main content, pinned to the TOP (the action below never shifts it)
 	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	v.add_theme_constant_override("separation", 4)
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(v)
+	inner.add_child(v)
 
 	# the POPULAR ribbon (a merchandising tag) — used by shop packs, available to any card
 	if ribbon != "":
@@ -931,26 +952,40 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 			cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			v.add_child(cn)
 
-	# the action — a price (shop) or a Claim (today) is the GREEN shared button; a done day shows ✓
+	# BOTTOM action — a price (shop) / Claim (today) is the GREEN shared button, a done day a ✓ — pinned
+	# to the BOTTOM (absolute, via a bottom-anchored wrap) so it never pushes the top block up.
 	var act_text := ""
 	var act_cb := Callable()
+	var act_icon := ""
 	if d.has("price"):
 		act_text = String(d.price); act_cb = d.get("on_buy", Callable())
+		act_icon = String(d.get("price_icon", ""))     # a currency glyph on the price (gem/coin); "" = USD
 	elif state == "today":
 		act_text = String(d.get("claim_text", "Claim")); act_cb = d.get("on_claim", Callable())
+	var act_node: Control = null
 	if act_text != "":
 		var co := btn_opts.duplicate()
-		co["bg"] = "green"; co["text"] = act_text; co["icon"] = ""
+		co["bg"] = "green"; co["text"] = act_text; co["icon"] = act_icon
 		co["font"] = int(opts.get("claim_font", 15))
 		var btn := pill_button(act_text, co)
-		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		if act_cb.is_valid():
 			btn.pressed.connect(func() -> void: act_cb.call())
-		v.add_child(btn)
+		act_node = btn
 	elif state == "done":
-		v.add_child(_kit_sprite("kit/daily_check.png", cw * 0.34))
+		act_node = _kit_sprite("kit/daily_check.png", cw * 0.34)
+	if act_node != null:
+		var act_wrap := CenterContainer.new()
+		act_wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		act_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		act_wrap.add_child(act_node)
+		inner.add_child(act_wrap)
 
 	_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards
+	# the generated SPARKLE marks the claimable (today) rung — animated twinkles around the reward
+	if state == "today" and bool(opts.get("sparkle", true)):
+		var sp := Sparkle.new()
+		sp.set_anchors_preset(Control.PRESET_FULL_RECT)
+		panel.add_child(sp)
 	return panel
 
 ## The POPULAR ribbon — a small merchandising tag ("Popular" / "Best value" / …). The red shop_tag art
@@ -1015,11 +1050,21 @@ static func _apply_day_badge(panel: Control, key: String) -> void:
 	panel.add_child(hi)
 
 ## A GRID of the shared small cards, EXACTLY `cols` per row filling the width — the content for the
-## daily + shop dialogs. Each card is sized to 1/cols of the row (minus gaps) by a relayout, so the
-## grid always fits cols across regardless of the dialog width; a partial last row (e.g. Day 7) centres.
-static func _card_grid(cards: Array, opts: Dictionary) -> Control:
+## daily + shop dialogs. The cell width is computed from the dialog `width` and the card CONTENT
+## (fonts / icon / Claim) is BUILT at that width, so the cards actually shrink to fit cols across at ANY
+## width (a fixed-min Claim button used to force the dialog wider). A relayout makes the fit pixel-exact;
+## a partial last row (e.g. Day 7) centres.
+static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 	var cols: int = maxi(1, int(opts.get("cols", 3)))
 	var gap: int = int(opts.get("cell_h_gap", 12))
+	# the cell width that fits `cols` across the frame's content area (~width − card margins). Build the
+	# content scaled to it (fonts + icon) so a card's min never exceeds 1/cols and the row can't overflow.
+	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+	var co := opts.duplicate()
+	co["cell_w"] = cw
+	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
+	co["claim_font"] = clampi(int(cw * 0.15), 9, 20)
+	co["count_font"] = clampi(int(cw * 0.18), 10, 24)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1032,31 +1077,31 @@ static func _card_grid(cards: Array, opts: Dictionary) -> Control:
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for j in cols:
 			if i + j < cards.size():
-				var c := daily_card(cards[i + j], opts)
+				var c := daily_card(cards[i + j], co)
 				r.add_child(c)
 				made.append(c)
 		content.add_child(r)
 		i += cols
-	# size each card to 1/cols of the actual content width so exactly cols fit across, any width
+	# pixel-exact: size each card to 1/cols of the ACTUAL content width (handles the real margins)
 	var fit := func() -> void:
 		if not is_instance_valid(content):
 			return
-		var cw := (content.size.x - (cols - 1) * gap) / float(cols)
+		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
 		for c in made:
 			if is_instance_valid(c):
-				(c as Control).custom_minimum_size.x = maxf(40.0, cw)
+				(c as Control).custom_minimum_size.x = maxf(40.0, cwf)
 	content.resized.connect(fit)
 	fit.call_deferred()
 	return content
 
-## The DAILY-GIFTS dialog — the shared frame with a grid of day cards.
+## The DAILY dialog — the shared frame with a grid of day cards.
 static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {}) -> Control:
-	return dialog_frame(_card_grid(days, opts), width, opts)
+	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
 ## The SHOP dialog — the SAME shared frame with a grid of the SAME small card, here carrying an
 ## icon + count + a price button and Popular ribbons (no day label, no claim). Shared frame, new content.
 static func shop_dialog(items: Array, width: float = 520.0, opts: Dictionary = {}) -> Control:
-	return dialog_frame(_card_grid(items, opts), width, opts)
+	return dialog_frame(_card_grid(items, width, opts), width, opts)
 
 ## --- config → opts (the SINGLE source of the params→opts transform) ------------------------------
 ## The workbench saves design settings to a JSON of {button, card, dialog, icon} param dicts. Both the
@@ -1154,6 +1199,7 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_art": bool(dc.get("cell_art", true)),
 		"today_badge": String(dc.get("today_badge", "gold glow")),
 		"milestone_badge": String(dc.get("milestone_badge", "amber glow")),
+		"sparkle": bool(dc.get("sparkle", true)),
 		"btn": card_btn_opts(cfg),
 	}
 
@@ -1162,7 +1208,10 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 static func daily_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
 	o.merge(daily_card_opts_from_config(cfg), true)
-	o["cols"] = int((cfg.get("daily", {}) as Dictionary).get("cols", 3))
+	var dl: Dictionary = cfg.get("daily", {})
+	o["cols"] = int(dl.get("cols", 3))
+	# the daily's OWN scroll cap (0 = no scroll, grows to fit all days) — NOT the frame's mail-list cap
+	o["list_max_h"] = float(dl.get("list_max_h", 0))
 	return o
 
 ## The SHOP-dialog opts: the SHARED frame + the SAME small card + the shop grid (cols, larger cells for
@@ -1174,6 +1223,7 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cols"] = int(sh.get("cols", 3))
 	o["cell_w"] = float(sh.get("cell_w", 112))
 	o["cell_h"] = float(sh.get("cell_h", 150))
+	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

@@ -72,11 +72,13 @@ var _params := {
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
-		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow"},
-	# …the daily DIALOG reuses the shared frame + that card, adding only the grid knobs (3-per-row)…
-	"daily": {"width": 460, "cols": 3},
-	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells for icon+count+price.
-	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150},
+		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true},
+	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
+	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
+	"daily": {"width": 460, "cols": 3, "list_max_h": 0},
+	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
+	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
+	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150, "list_max_h": 0},
 }
 var _selected := "button"
 var _gallery: VBoxContainer = null
@@ -544,6 +546,7 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
+			_sidebar_body.add_child(_toggle_row("Sparkle (today)", "sparkle"))   # animated twinkles on the claimable card
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 70, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
@@ -555,12 +558,14 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width", 320, 720]))
 			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
+			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"shop":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width", 360, 720]))
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
+			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:

@@ -82,6 +82,8 @@ Map-count **agnostic** — it scales to any amount of shipped content (the singl
 
 **The home grove, map-by-map** (the current five-map scaffold, §3 — the beats re-spread if the map count is tuned; **Map 1 / the Farmhouse is the home hub**, Core §8):
 
+> ⚠ **Place set REWORKED (§3 "The reworked journey").** The **Barn is cut** and the home grove is now **Act I (the Vale)** — Farmhouse · Orchard · Old Mill & Brook · Wildflower Meadow · Vale Gate — of a **20-place, 4-act journey**; the **Pond turning-point reveal** and the **heart-tree climax** re-spread to later acts. The emotional-beat rows **below still describe the OLD 5-map set** and need a re-pass to the new arc.
+
 | Map | Lead + their wish | The wordless beat | Parents |
 |---|---|---|---|
 | **1 · Farmhouse** | **Radish** — warmth back in the cold, dark house | The crossing lands here: lost and alone, the child is taken in at the hearth by the big serene Radish; the parents appear **transformed** and wordlessly teach the first **pop → merge → deliver**. Restoring the farmhouse **warms it**. | first ease — a hairline crack in Dad's shell, a first petal-stir on Mom |
@@ -193,17 +195,40 @@ All board, water, FTUE-free-pop, and pop-odds constants are **core defaults** (b
 
 > **Build vs the design target.** The *current* grove implements only the **build** half (unlock fixed spots with ★). The core §8 **population/residents** loop is now **v1 — the keystone**, specified concretely below (*The population loop*): restoration spots are **unlock-once** (Stars + level, ruined→restored, no coin-upgrade axis), and a **completed** map opens a population layer where the player welcomes residents (Coins / Diamonds) that wander and **auto-merge**. The population loop is what turns a finished homestead from a static decorate-surface into the **retention engine** — wiring it is the economy pass the bare-skeleton rebuild enables. *(This **replaces** the previously-planned home-hub Coins-upgrade→passive-yield loop, now cut — §1 Scope.)*
 
-The five maps below are **the home grove** — the first maps in the §1 story (**the only structural unit is the map**, Core §8 — no episode/chapter tier). The **count is a tuning call**, not canon — more maps, and further places, are expected (§1). Current scaffold — **five maps, 8 spots each, each spot 3–5★** (all spots **unlock-once**: Stars only, ruined→restored, no level gate and no second coin-upgrade axis):
+The five maps below are **the home grove** — now **Act I (the Vale)** of the reworked 20-place journey (see *The reworked journey*, below) and the first maps in the §1 story (**the only structural unit is the map**, Core §8 — no episode/chapter tier). The **count is a tuning call**, not canon — more maps, and further places, are expected (§1). Current scaffold — **five maps, 8 distinct spots each, each spot 3–5★** (all spots **unlock-once**: Stars only, ruined→restored, no level gate and no second coin-upgrade axis):
 
-| Map | Map id | Spots | ★ total (TBD) | Restoration spots (examples) |
-|---|---|---|---|---|
-| 1 Farmhouse | `farmhouse` | 8 | re-derived | Hearth · Kitchen garden · Well · Larder · Porch · Flower boxes · Lantern post · Garden fence (all unlock-once, décor variants per §5) |
-| 2 Barn | `barn` | 8 | re-derived | Hay bales, Milk churns, Hen coop, Old plow |
-| 3 Pond | `pond` | 8 | re-derived | Little dock, Lily pads, Rowboat, Willow, Firefly jar |
-| 4 Orchard | `orchard` | 8 | re-derived | Apple rows, Cider press, Beehives, Scarecrow |
-| 5 Meadow | `meadow` | 8 | re-derived | Wildflower path, Kite, Brook bridge, Stargazer, Rose arch |
+| Map | Map id | Spots | The 8 unlock spots (all distinct) |
+|---|---|---|---|
+| 1 Farmhouse | `farmhouse` | 8 | Hearth · Kitchen garden · Well · Larder · Porch · Flower boxes · Lantern post · Garden fence |
+| 2 Orchard | `orchard` | 8 | Apple rows · Picker's ladder · Fruit baskets · Cider press · Beehives · Tree swing · Scarecrow · Apple wagon |
+| 3 Old Mill & Brook | `mill` | 8 | Water wheel · Millstone · Flour sacks · Mill bridge · Otter holt · Fishing jetty · Lily eddy · Miller's cart |
+| 4 Wildflower Meadow | `meadow` | 8 | Wildflower path · Picnic blanket · Kite · Lemonade stand · Secret garden · Maypole · Hammock · Rose arch |
+| 5 Vale Gate | `vale_gate` | 8 | Hedge arch · Wisp shrine · Cobbled lane · Signpost · Lantern gateposts · Stone wall & stile · Welcome bell · Flower urns |
 
 *(The per-map ★ totals are **incidental** — 8 spots × ~3–5★ — not a designed economic ramp; the real per-map effort ramp is the difficulty band (§4) + generator count (§2), rising steeply, so later maps take **multiples longer per ★**. **The old yield/décor split and the 31★ / 176★ figures are RETIRED** with the hub-yield cut: every spot is now a single unlock-once restore, so the per-map and grand ★ totals **change and are TBD / sim-tuned** — re-derive them in the §10 economy re-author. Scaffold numbers — sim-validate the cadence isn't a grind wall.)*
+
+#### The reworked journey — 20 places in 4 acts (supersedes the Barn/Pond/Orchard/Meadow set)
+
+**Why:** the old map-2 **Barn** read as a near-repeat of the **Farmhouse** (another building-in-a-yard). The world now moves through **four regions**, the biome changing each act, as the player journeys **outward from home, then inward and downward toward the sleeping heart-tree** — each map **frees one bound spirit** (who stays on as that map's giver) and **reseeds the place with residents**, and each **act of 5 crosses one big threshold in the parents' release** until the heart-tree wakes and the family is reunited. Two wordless signals build across the whole arc: the **parents easing** (one big stage per act) and the **residents filling in** (every map). **v1 scope cut = TBD** (Act I, or Acts I–II); the rest is the post-launch roadmap.
+
+| Act (region) | Maps | Story threshold |
+|---|---|---|
+| **I — The Homestead Vale** (lowland) | 1 Farmhouse · 2 Orchard · 3 Old Mill & Brook · 4 Wildflower Meadow · 5 Vale Gate | the wisp returns; **Mom's bloom parts** (first big ease) |
+| **II — The Deep Forest** | 6 Woodland Glade · 7 Fern Dell · 8 Lantern Path · 9 Mirror Lake · 10 Great Hollow Tree | the **Pond-style reveal** (the wisp is the heart-tree's dream) lands at the Mirror Lake; **Dad's shell cracks** |
+| **III — The High Reaches** (mountain) | 11 Stone Steps · 12 Cliffside Falls · 13 Cloud Bridge · 14 Snowline Tarn · 15 Star Peak Shrine | the ascent; **both parents nearly whole — faces clear** |
+| **IV — The Hidden Heart** (cave → eden) | 16 Crystal Cavern · 17 Root Halls · 18 Memory Springs · 19 Heart-Tree Clearing · 20 Secret Eden | descent into the dream; the **heart-tree wakes**, parents freed, family reunited; the Secret Eden bloom + onward hook |
+
+**Act I — the home grove, the 8 unlock spots per map** (all distinct, all unlock-once, Stars only; ★ provisional 3–5★ band, sim-tuned in the §10 economy pass):
+
+| Map | id | Lead freed | The 8 spots (★) |
+|---|---|---|---|
+| 1 Farmhouse | `farmhouse` | Radish | Hearth 3 · Kitchen garden 3 · Well 3 · Larder 4 · Porch 4 · Flower boxes 4 · Lantern post 5 · Garden fence 5 |
+| 2 Orchard | `orchard` | Bee | Apple rows 3 · Picker's ladder 4 · Fruit baskets 4 · Cider press 5 · Beehives 5 · Tree swing 4 · Scarecrow 5 · Apple wagon 5 |
+| 3 Old Mill & Brook | `mill` | river-otter spirit | Water wheel 3 · Millstone 4 · Flour sacks 4 · Mill bridge 5 · Otter holt 5 · Fishing jetty 4 · Lily eddy 5 · Miller's cart 5 |
+| 4 Wildflower Meadow | `meadow` | Carrot | Wildflower path 3 · Picnic blanket 4 · Kite 4 · Lemonade stand 5 · Secret garden 5 · Maypole 4 · Hammock 5 · Rose arch 5 |
+| 5 Vale Gate | `vale_gate` | gatekeeper lantern-spirit | Hedge arch 4 · Wisp shrine 5 · Cobbled lane 4 · Signpost 4 · Lantern gateposts 5 · Stone wall & stile 5 · Welcome bell 5 · Flower urns 5 |
+
+Map-art generation prompts (top-down, restored hero) for maps 2–5 are authored to this list; each map renders as a full-bleed 9:16 painted scene with the 8 spots placed, plus a **broken/overgrown pass + per-spot reveal masks** (§9 / §16), output to `games/grove/assets/map/<id>/map_<id>.png`. **Code delta (not yet applied):** `grove_data.gd` `MAPS` still holds the old Barn/Pond/Orchard/Meadow rows — re-point it to this set when the rework lands.
 
 **The completion chain (Core §7/§8 — the pacing spine).** A map is **complete** when all its spots are restored; that **unveils the great-spirit's gate** (its **last quest** — an offering of a randomized handful of the map's **top-tier harvest**), and delivering it **unlocks the next map** for a large reward. The next map opens with a **generator-grant quest** (hand an old generator in → a new line, §2). Completing a map also grants **+10💎** (`ZONE_DIAMONDS`) with a celebration and unlocks that map's **wayside plots** (§5).
 

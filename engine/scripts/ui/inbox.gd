@@ -47,7 +47,9 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	# opening the mailbox reads everything (the badge then rests on unclaimed gifts only)
+	# opening the mailbox first CLEARS dealt-with mail (claimed gifts / already-read notes) so the capped
+	# box frees room, then marks the rest read (the badge then rests on unclaimed gifts only).
+	Inbox.prune()
 	Inbox.mark_all_read()
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
