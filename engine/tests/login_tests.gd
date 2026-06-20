@@ -6,6 +6,7 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginUI = preload("res://engine/scripts/ui/login.gd")
+const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 
 var _pass := 0
@@ -91,6 +92,51 @@ func _initialize() -> void:
 	ok(floater != null and overlay != null and _is_descendant(floater, overlay),
 		"the daily celebration renders inside the z=100 overlay (above the veil), not behind it")
 	host.queue_free()
+	await process_frame
+
+	# T46: a MYSTERY day (slot 4/7) wears the "?" chest and its today rung opens the SPIN reveal
+	# (not the instant grant). Plant a streak of 3 so today_day() == 4 (a mystery slot).
+	fresh("mystery_days_map")
+	var gmd := Save.data
+	gmd["daily"] = {"day": int(Time.get_unix_time_from_system() / 86400.0), "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": 3}
+	Save.save_now()
+	Save._loaded = false
+	var host2 := Control.new()
+	host2.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host2)
+	await process_frame
+	var rb2 := {"fn": Callable()}
+	var days: Array = LoginUI._days(host2, rb2, {})
+	var t_entry := {}
+	for d in days:
+		if int(d.get("day", 0)) == 4:
+			t_entry = d
+	ok(int(t_entry.get("day", 0)) == 4 and String(t_entry.get("state", "")) == "today", "day 4 is the claimable 'today' rung")
+	ok(bool(t_entry.get("mystery", false)), "a mystery day wears the '?' chest")
+	ok((t_entry.get("on_claim", Callable()) as Callable).is_valid(), "the mystery 'today' rung wires an on_claim (opens the spin)")
+	host2.queue_free()
+	await process_frame
+
+	# T46: the spin reveal (instant) grants EXACTLY the rolled winners and fires on_done. Plant a
+	# streak of 6 so today_day() == 7 (the 2-winner mystery).
+	fresh("mystery_reveal")
+	var gmr := Save.data
+	gmr["daily"] = {"day": int(Time.get_unix_time_from_system() / 86400.0), "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": 6}
+	Save.save_now()
+	Save._loaded = false
+	ok(Login.today_day() == 7 and Login.is_mystery(7), "the streak reaches the day-7 mystery (2 winners)")
+	var host3 := Control.new()
+	host3.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host3)
+	await process_frame
+	var s_pre := Login.streak()
+	var done_fired := {"v": false}
+	LoginMystery.open(host3, 7, {"instant": true, "on_done": func() -> void: done_fired.v = true})
+	await process_frame
+	ok(Login.claimed_today(), "the reveal claims the day")
+	ok(Login.streak() == s_pre + 1, "the reveal bumps the streak by one")
+	ok(bool(done_fired.v), "the reveal fires on_done (rebuilds the calendar)")
+	host3.queue_free()
 	await process_frame
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

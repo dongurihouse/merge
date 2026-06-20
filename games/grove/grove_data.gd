@@ -460,10 +460,32 @@ const LOGIN_LADDER := [
 	{"coins": 200, "gems": 1},            # day 7 slot for NON-milestone weeks (14/21/28 — day-7 absolute is the milestone below)
 ]
 # Milestones keyed by ABSOLUTE streak day — a bigger, premium/cosmetic payout that
-# overrides the week slot when the streak lands here (§18 "bigger milestones, day 7/30").
+# overrides the week slot when the streak lands here (§18 "bigger milestones"). The old
+# day-7 milestone is gone: slot 7 is now a MYSTERY day (LOGIN_MYSTERY below).
 const LOGIN_MILESTONES := {
-	7:  {"gems": 3, "coins": 150},                          # the first-week cap — a real premium beat
 	30: {"gems": 15, "coins": 300},                         # the month cap — leans premium (the cosmetic unlock was removed with customization)
+}
+# MYSTERY gift slots (§18 · T46) — keyed by WEEKLY slot (((day-1) % 7) + 1), so they recur
+# every week (days 4/7/11/14/…). On these days the calendar opens an AUTO-SPIN reveal instead
+# of a fixed grant: it draws `show` DISTINCT rewards from the pool and the spin lands on `win`
+# of them. Slot 7 supersedes the old day-7 milestone — its pool is milestone-tier (richer, 2
+# wins). Pools are OWNER-TUNABLE; every `water` entry stays ≤ LOGIN_WATER_SAFE_MAX (faucet guard).
+const LOGIN_MYSTERY := {
+	4: {"show": 3, "win": 1, "pool": [
+		{"coins": 120},
+		{"water": 12},
+		{"coins": 60, "water": 6},
+		{"gems": 1},
+		{"coins": 150},
+	]},
+	7: {"show": 5, "win": 2, "pool": [
+		{"coins": 200},
+		{"gems": 2},
+		{"coins": 100, "gems": 1},
+		{"water": 14},
+		{"coins": 300},
+		{"gems": 3},
+	]},
 }
 const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)
 

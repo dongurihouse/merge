@@ -10,6 +10,8 @@ extends RefCounted
 ## rebuild, dismiss, the per-day mapping).
 
 const Login = preload("res://engine/scripts/core/login.gd")
+const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -69,6 +71,35 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			rb.first = false
 	rb.fn.call()
 
+	# DEBUG fast-forward — never in a release build (OS.is_debug_build gate). Jumps to the next day so
+	# a tester can keep claiming and hit the mystery days repeatedly. Added to the overlay (not cc) so
+	# it survives the rebuild; gated behind the daily_debug flag for an easy off-switch.
+	if OS.is_debug_build() and Features.on("daily_debug"):
+		var ff := Button.new()
+		ff.text = "⏭ Next day (debug)"
+		ff.focus_mode = Control.FOCUS_NONE
+		ff.add_theme_font_size_override("font_size", 16)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(Pal.INK, 0.82)
+		sb.set_corner_radius_all(14)
+		sb.content_margin_left = 16; sb.content_margin_right = 16
+		sb.content_margin_top = 8; sb.content_margin_bottom = 8
+		ff.add_theme_stylebox_override("normal", sb)
+		ff.add_theme_stylebox_override("hover", sb)
+		ff.add_theme_stylebox_override("pressed", sb)
+		ff.add_theme_color_override("font_color", Pal.CREAM)
+		ff.pressed.connect(func() -> void:
+			Login.debug_advance_day()
+			if rb.fn.is_valid():
+				rb.fn.call())
+		var ff_wrap := CenterContainer.new()
+		ff_wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		ff_wrap.offset_top = -84
+		ff_wrap.offset_bottom = -24
+		ff_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		overlay.add_child(ff_wrap)
+		ff_wrap.add_child(ff)
+
 # Map the forgiving streak → the current 7-day window of kit day cards. today's rung is claimable
 # (a green Claim wired to claim_today → grant → celebrate → rebuild); earlier rungs are done (✓); a
 # future milestone shows the mystery chest. Days roll by absolute streak so today sits in its real slot.
@@ -92,19 +123,33 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 			"reward": Login.reward_for(day),
 			"state": st,
 		}
-		if Login.is_milestone(day) and st == "future":
+		# the "?" chest marks a MYSTERY day (slots 4 & 7, any state) or a still-locked future milestone.
+		if Login.is_mystery(day):
+			d["mystery"] = true
+		elif Login.is_milestone(day) and st == "future":
 			d["mystery"] = true
 		if st == "today":
-			d["on_claim"] = func() -> void:
-				var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
-				if Login.claim_today():
-					_celebrate(fx_host, at, Login.reward_for(day))
-				else:
-					Audio.play("invalid_soft", -6.0)
-				if opts.has("refresh"):
-					(opts.refresh as Callable).call()
-				if rb.fn.is_valid():
-					rb.fn.call()
+			if Login.is_mystery(day):
+				# a mystery day opens the AUTO-SPIN reveal; claim_mystery grants the winners there.
+				d["on_claim"] = func() -> void:
+					var fx_host: Control = rb.get("fx_host", host)
+					var done := func() -> void:
+						if opts.has("refresh"):
+							(opts.refresh as Callable).call()
+						if rb.fn.is_valid():
+							rb.fn.call()
+					LoginMystery.open(fx_host, day, {"on_done": done})
+			else:
+				d["on_claim"] = func() -> void:
+					var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
+					if Login.claim_today():
+						_celebrate(fx_host, at, Login.reward_for(day))
+					else:
+						Audio.play("invalid_soft", -6.0)
+					if opts.has("refresh"):
+						(opts.refresh as Callable).call()
+					if rb.fn.is_valid():
+						rb.fn.call()
 		out.append(d)
 	return out
 

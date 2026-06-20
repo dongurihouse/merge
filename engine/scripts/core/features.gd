@@ -43,6 +43,7 @@ static var FLAGS := {
 	"ftue_staged_chrome": true,   # merchant ch1+, bag ch2+ (the water meter is always shown now)
 	"ftue_feature_spotlight": true,  # T28: a feature's FIRST appearance → spotlight + pulse + a mimed tap/drag guide (§14)
 	"daily_login_popup": true,    # T45: the day's first hub open auto-shows the login calendar once (§18 — after a rewarding moment, skips the cold first FTUE session)
+	"daily_debug": true,          # T46: the calendar's "⏭ Next day" debug fast-forward (ALSO gated by OS.is_debug_build — never reachable in a release build)
 }
 
 static func on(id: String) -> bool:
