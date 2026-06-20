@@ -90,6 +90,7 @@ const BADGES := {
 	"shop buy": "kit/shop_buy.png",
 	"shop tag": "kit/shop_tag.png",
 	"shop oval": "kit/shop_oval.png",
+	"level green": "kit/level_btn.png",
 }
 
 # Circle/plate sprites for the Card's LEFT icon badge (the disc behind the message icon). "" = a flat
@@ -2017,9 +2018,13 @@ static func level_frame(content: Control, width: float = 460.0, opts: Dictionary
 	var top_pad := float(opts.get("top_pad", 70.0))
 	var card := PanelContainer.new()
 	var fp := Look.kit("kit/level_frame.png")
-	if ResourceLoader.exists(fp):
+	# the parchment border, polished like every other sprite (defringe + alpha-feather) so its outer edge
+	# reads SOFT, not roughly-cut. max_dim 1024 ≥ the source's longest side → no resize, so the nine-patch
+	# slice margins (sl) stay exact in texture pixels. clean_tex_path returns null when the art is missing.
+	var ftex := clean_tex_path(fp, 1024)
+	if ftex != null:
 		var st := StyleBoxTexture.new()
-		st.texture = load(fp)
+		st.texture = ftex
 		st.set_texture_margin(SIDE_LEFT, sl); st.set_texture_margin(SIDE_TOP, sl)
 		st.set_texture_margin(SIDE_RIGHT, sl); st.set_texture_margin(SIDE_BOTTOM, sl)
 		st.content_margin_left = pad; st.content_margin_right = pad
@@ -2123,9 +2128,10 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 		nxt.add_theme_color_override("font_color", Pal.BARK)
 		nxt.add_theme_constant_override("outline_size", 0)
 		col.add_child(nxt)
-	# the bottom button — the shared pill_button with the green level_btn background
+	# the bottom button — the SHARED pill_button wearing the registered "level green" badge background
+	# (Kit.BADGES), so it's the same atom every dialog uses and the bg is a selectable shared-button option.
 	var bo: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
-	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = "kit/level_btn.png"; bo["icon"] = ""
+	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = String(BADGES["level green"]); bo["icon"] = ""
 	var btn_text := TranslationServer.translate("Collect") if mode == "levelup" else TranslationServer.translate("Got it")
 	var btn := pill_button(btn_text, bo)
 	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
