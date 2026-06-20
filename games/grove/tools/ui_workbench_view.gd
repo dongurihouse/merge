@@ -255,6 +255,13 @@ func _ready() -> void:
 func _build() -> void:
 	if not is_inside_tree():
 		return
+	# Headless editor (`godot --import` / `--export`) instantiates this @tool scene but has no UI to
+	# show. Building the gallery there is pointless AND fatal: it kicks off polish_async
+	# WorkerThreadPool tasks whose GDScript lambdas are still pending when the import process exits,
+	# crashing the pool's destructor at shutdown (SIGSEGV). The interactive workbench, the in-editor
+	# @tool, and the headless `-s` tests are NOT editor-hint+headless, so they still build.
+	if Engine.is_editor_hint() and DisplayServer.get_name() == "headless":
+		return
 	for c in get_children():
 		remove_child(c)
 		c.queue_free()

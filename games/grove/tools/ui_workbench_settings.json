@@ -4,10 +4,24 @@
 		"feather": 2.0,
 		"shadow": false
 	},
-	"progress_bar": {
-		"height": 30,
-		"art": true,
-		"star_knob": false
+	"bag": {
+		"caption": "Open a slot with acorns.",
+		"cell_gap": 12,
+		"cols": 6,
+		"grid_inset": 70,
+		"list_max_h": 0,
+		"row_gap": 14,
+		"width_pct": 85
+	},
+	"bag_card": {
+		"cell_art": true,
+		"cell_h": 120,
+		"cell_slice": 36,
+		"cell_w": 116,
+		"content_frac": 62,
+		"cost_font": 26,
+		"cost_icon": 30,
+		"lock_frac": 46
 	},
 	"button": {
 		"art": true,
@@ -70,6 +84,7 @@
 		"banner_text_y": -10.0,
 		"banner_x": -24.0,
 		"banner_y": -64.0,
+		"border": "parchment",
 		"card_art": true,
 		"card_corner": 22.0,
 		"card_h_stretch": "stretch",
@@ -106,6 +121,39 @@
 	"icon": {
 
 	},
+	"level": {
+		"banner_text": "Level",
+		"frame_pad": 26.0,
+		"frame_slice": 56.0,
+		"frame_top_pad": 70.0,
+		"gap": 14.0,
+		"hint_font": 22.0,
+		"medallion_px": 150.0,
+		"ring_dy": -6.0,
+		"tally_font": 28.0,
+		"title_font": 30.0,
+		"width_pct": 50.0
+	},
+	"map_card": {
+		"edge_sparkle": 60,
+		"pill_max": 290,
+		"pill_min": 170,
+		"pill_w_frac": 30,
+		"pill_y_frac": 13,
+		"use_art": true,
+		"veil_deep": 66,
+		"veil_mark_alpha": 16,
+		"veil_mark_size": 64,
+		"veil_scrim": 42
+	},
+	"progress_bar": {
+		"art": true,
+		"height": 30.0,
+		"star_knob": false
+	},
+	"quest_card": {
+
+	},
 	"settings": {
 		"row_gap": 12.0,
 		"width_pct": 80.0
@@ -117,19 +165,6 @@
 		"list_max_h": 0.0,
 		"row_gap": 22.0,
 		"width_pct": 85.0
-	},
-	"level": {
-		"width_pct": 80,
-		"banner_text": "Level",
-		"title_font": 30,
-		"frame_slice": 56,
-		"frame_pad": 26,
-		"frame_top_pad": 70,
-		"medallion_px": 150,
-		"ring_dy": -6,
-		"tally_font": 28,
-		"hint_font": 22,
-		"gap": 14
 	},
 	"tiers": {
 		"banner_burn": 55.0,
@@ -168,5 +203,15 @@
 		"card_art": true,
 		"label_font": 28.0,
 		"switch_h": 44.0
+	},
+	"vault": {
+		"balance_font": 34,
+		"card_slice": 64,
+		"jar_px": 200,
+		"panel_pad_x": 40,
+		"panel_pad_y": 34,
+		"plate_px": 250,
+		"row_gap": 12,
+		"width_pct": 80
 	}
 }
