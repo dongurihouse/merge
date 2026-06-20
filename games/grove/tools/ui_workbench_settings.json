@@ -20,26 +20,26 @@
 	},
 	"daily": {
 		"cols": 3.0,
-		"list_max_h": 0,
-		"width_pct": 85
+		"list_max_h": 0.0,
+		"width_pct": 85.0
 	},
 	"daily_card": {
 		"cell_art": true,
 		"cell_h": 180.0,
 		"cell_slice": 28.0,
 		"cell_w": 160.0,
-		"claim_y": 14,
+		"claim_y": 14.0,
 		"info_icon": false,
-		"label_x": 0,
-		"label_y": 12,
+		"label_x": 0.0,
+		"label_y": 21.0,
 		"milestone_badge": "amber glow",
-		"ribbon_scale": 100,
-		"ribbon_x": 0,
-		"ribbon_y": -10,
+		"ribbon_scale": 100.0,
+		"ribbon_x": 0.0,
+		"ribbon_y": 16.0,
 		"today_badge": "gold glow"
 	},
 	"dialog": {
-		"width_pct": 85
+		"width_pct": 85.0
 	},
 	"frame": {
 		"banner_burn": 62.0,
@@ -83,8 +83,8 @@
 		"cell_h": 150.0,
 		"cell_w": 112.0,
 		"cols": 3.0,
-		"list_max_h": 0,
-		"row_gap": 22,
-		"width_pct": 85
+		"list_max_h": 0.0,
+		"row_gap": 22.0,
+		"width_pct": 85.0
 	}
 }
