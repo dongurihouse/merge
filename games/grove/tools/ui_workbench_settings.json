@@ -62,7 +62,10 @@
 		"caption_font": 22,
 		"caption_gap": 4,
 		"glow": 45,
-		"twinkle": 55
+		"twinkle": 55,
+		"defringe": true,
+		"shadow": false,
+		"feather": 2
 	},
 	"icon": {
 

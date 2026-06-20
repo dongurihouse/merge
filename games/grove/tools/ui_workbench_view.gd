@@ -99,7 +99,7 @@ var _params := {
 	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
 }
 var _selected := "button"
-var _gallery: VBoxContainer = null
+var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
 var _sidebar_body: VBoxContainer = null
 
 # polished-icon textures, cached by their opts so an unrelated rebuild doesn't re-run the (slow) polish
@@ -134,21 +134,41 @@ func _build() -> void:
 	hb.add_theme_constant_override("separation", 0)
 	add_child(hb)
 
-	# right — the gallery (scrolls; the dialog is tall)
-	var gal_scroll := ScrollContainer.new()
-	gal_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO   # wide rows (two dialogs) scroll
-	gal_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gal_scroll.size_flags_vertical = Control.SIZE_FILL
-	hb.add_child(gal_scroll)
-	var gal_margin := MarginContainer.new()
-	gal_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	for side in ["left", "right", "top", "bottom"]:
-		gal_margin.add_theme_constant_override("margin_" + side, 24)
-	gal_scroll.add_child(gal_margin)
-	_gallery = VBoxContainer.new()
-	_gallery.add_theme_constant_override("separation", 18)
-	_gallery.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	gal_margin.add_child(_gallery)
+	# right — the gallery: each COLUMN gets its OWN vertical scroll (both fill the window height), so the
+	# tall dialogs column scrolls INDEPENDENTLY of the building-blocks column. The dialog column is a
+	# fixed-width panel on the right; the building blocks take the remaining width.
+	var gal_row := HBoxContainer.new()
+	gal_row.add_theme_constant_override("separation", 0)
+	gal_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	gal_row.size_flags_vertical = Control.SIZE_FILL
+	hb.add_child(gal_row)
+	# the DIALOG column is sized to the WIDEST dialog (mail/daily/shop carry their own width) + chrome, so
+	# no dialog is clipped inside its column; the building-blocks column takes the remaining width.
+	var dlg_w := 0.0
+	for did in ["dialog", "daily", "shop"]:
+		dlg_w = maxf(dlg_w, float((_params[did] as Dictionary).get("width", 520)))
+	var dlg_col_w: float = dlg_w + 96.0
+	_columns.clear()
+	for ci in COLUMNS.size():
+		var col_scroll := ScrollContainer.new()
+		col_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO   # a too-wide column scrolls sideways
+		col_scroll.size_flags_vertical = Control.SIZE_FILL                      # window-height → its own vertical scroll
+		if ci == COLUMNS.size() - 1:
+			col_scroll.custom_minimum_size = Vector2(dlg_col_w, 0)              # the DIALOG column: fits the widest dialog
+			col_scroll.size_flags_horizontal = Control.SIZE_FILL
+		else:
+			col_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL         # building blocks take the rest
+		gal_row.add_child(col_scroll)
+		var col_margin := MarginContainer.new()
+		col_margin.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for side in ["left", "right", "top", "bottom"]:
+			col_margin.add_theme_constant_override("margin_" + side, 24)
+		col_scroll.add_child(col_margin)
+		var colbox := VBoxContainer.new()
+		colbox.add_theme_constant_override("separation", 18)
+		colbox.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		col_margin.add_child(colbox)
+		_columns.append(colbox)
 
 	# left — the options sidebar (fixed width)
 	var side := PanelContainer.new()
@@ -340,35 +360,28 @@ func _card_btn_opts() -> Dictionary:
 ## --- gallery (left) ------------------------------------------------------------------------------
 
 func _rebuild_gallery() -> void:
-	if _gallery == null or not is_instance_valid(_gallery):
+	if _columns.is_empty():
 		return
-	for c in _gallery.get_children():
-		_gallery.remove_child(c)
-		c.queue_free()
-	# two top-level COLUMNS side by side; each column stacks its rows vertically
-	var cols_row := HBoxContainer.new()
-	cols_row.add_theme_constant_override("separation", 28)
-	cols_row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	for column in COLUMNS:
-		var colbox := VBoxContainer.new()
-		colbox.add_theme_constant_override("separation", 18)
-		colbox.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		colbox.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # top-align each column
-		for row in column:                    # each ROW is a line of side-by-side element sections
+	for ci in COLUMNS.size():
+		var colbox := _columns[ci] as VBoxContainer
+		if not is_instance_valid(colbox):
+			continue
+		for c in colbox.get_children():
+			colbox.remove_child(c)
+			c.queue_free()
+		for row in COLUMNS[ci]:                # each ROW is a line of side-by-side element sections
 			var line := HBoxContainer.new()
 			line.add_theme_constant_override("separation", 18)
 			line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 			for id in row:
 				line.add_child(_section(id))
 			colbox.add_child(line)
-		cols_row.add_child(colbox)
-	_gallery.add_child(cols_row)
-	# scroll-past room below the columns, so the tallest one's bottom never sits flush against the window
-	# edge — you can scroll a little past it to see its full base.
-	var tail := Control.new()
-	tail.custom_minimum_size = Vector2(0, 220)
-	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_gallery.add_child(tail)
+		# scroll-past room at the bottom of EACH column, so the last element never sits flush against the
+		# window edge — you can scroll a little past it to see its full base.
+		var tail := Control.new()
+		tail.custom_minimum_size = Vector2(0, 200)
+		tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		colbox.add_child(tail)
 
 func _section(id: String) -> Control:
 	var sec := PanelContainer.new()
