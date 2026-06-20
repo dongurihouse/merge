@@ -581,8 +581,9 @@ static func stars_at_level(level: int) -> int:
 	return int(LEVEL_STARS[LEVEL_STARS.size() - 1]) + LEVEL_STARS_TAIL * (level - LEVEL_STARS.size())
 
 # Earn stars: credit BOTH the spendable balance and the cumulative EARNED clock that
-# drives Level; on a level-up, gift water + diamonds (once per level gained). Returns
-# the levels gained so the caller can play the juice. The sole way Level advances.
+# drives Level. Returns the levels gained so the caller can show the Level dialog. The
+# level-up GIFT is no longer granted here — it's DEFERRED to the dialog's Collect (see
+# level_gift / grant_level_gift below), so the interruption pays out. The sole way Level advances.
 static func earn_stars(n: int) -> int:
 	Save.add_stars(n)
 	var g := Save.grove()
@@ -591,13 +592,28 @@ static func earn_stars(n: int) -> int:
 	earned += n
 	g["stars_earned"] = earned
 	var gained := level_for_stars(earned) - before
-	if gained > 0:
-		g["water"] = mini(WATER_CAP, int(g.get("water", WATER_CAP)) + LEVEL_WATER_GIFT * gained)
-		var lvl_gems := LEVEL_DIAMONDS * gained
-		Save.add_diamonds(lvl_gems)
-		Vault.skim(lvl_gems)                  # T44 SKIM-SITE 1/3 (level-up): the piggy bank skims a slice of the level-up premium (§10)
 	Save.grove_write()
 	return gained
+
+# The water + diamond gift for `levels` levels gained (PURE — no side effects). The Level dialog shows
+# it; the player collects it. Split out of earn_stars so the level-up interruption pays out on Collect.
+static func level_gift(levels: int) -> Dictionary:
+	var n := maxi(0, levels)
+	return {"water": LEVEL_WATER_GIFT * n, "gems": LEVEL_DIAMONDS * n}
+
+# Apply a level_gift: water (capped), diamonds, and the piggy-bank skim. Called by the Level dialog's
+# Collect button (the deferred grant — what earn_stars used to do inline).
+static func grant_level_gift(gift: Dictionary) -> void:
+	var water := int(gift.get("water", 0))
+	var gems := int(gift.get("gems", 0))
+	if water <= 0 and gems <= 0:
+		return
+	var g := Save.grove()
+	g["water"] = mini(WATER_CAP, int(g.get("water", WATER_CAP)) + water)
+	Save.grove_write()
+	if gems > 0:
+		Save.add_diamonds(gems)
+		Vault.skim(gems)                      # T44 SKIM-SITE 1/3 (level-up): the piggy bank skims a slice of the level-up premium (§10)
 
 static func item_tex_path(code: int) -> String:
 	var line := int(code / 100.0)
