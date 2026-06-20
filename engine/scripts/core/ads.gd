@@ -57,7 +57,6 @@ static func remaining_today(ad_type: String) -> int:
 #   {"ok": true, "kind": "collect_2x"}
 #        → the watch is recorded (capped/cooled); the board quest-reward doubler grants the
 #          doubled coins itself. No currency granted here, no hub-yield flag armed.
-#   {"ok": true, "kind": "shop_reroll"}        → the Shop rotation seed was advanced.
 #   {"ok": true, "kind": "event_topup", "gems": N}  → +N 💎 already granted via Save.
 static func claim(ad_type: String) -> Dictionary:
 	if not can_show(ad_type):
@@ -74,10 +73,6 @@ static func claim(ad_type: String) -> Dictionary:
 			# The board quest-reward doubler's faucet — it only needs the watch recorded + an ok
 			# (it doubles the reward itself). No hub-yield arming: the hub-collect that read the
 			# flag was removed (residents replace the hub yield), so nothing consumes a flag now.
-			result = {"ok": true, "kind": ad_type}
-		"shop_reroll":
-			# Advance the deterministic Shop rotation (same seam T40's `shop_reroll` uses).
-			bump_shop_reroll()
 			result = {"ok": true, "kind": ad_type}
 		"event_topup":
 			# A small premium grant (the "event" context is stubbed for now, §17).
@@ -96,12 +91,3 @@ static func claim(ad_type: String) -> Dictionary:
 			return {"ok": false}
 	Save.ad_record(ad_type)
 	return result
-
-# --- the shop-reroll seam ---------------------------------------------------------
-# Advance the saved rotation counter the Shop's rotation_seed() adds on top of the day
-# index (T40 added the `shop_reroll` key) — so a free reroll slides the featured band
-# to a fresh window. Kept here so the ad path and any future "reroll" button share it.
-static func bump_shop_reroll() -> void:
-	var g := Save.grove()
-	g["shop_reroll"] = int(g.get("shop_reroll", 0)) + 1
-	Save.grove_write()

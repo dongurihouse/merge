@@ -19,7 +19,6 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # real piec
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
-const Ads = preload("res://engine/scripts/core/ads.gd")            # §10 rewarded "free shop reroll" faucet
 const Game = preload("res://engine/scripts/core/game.gd")
 const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
@@ -129,52 +128,17 @@ static func _spend(currency: String, cost: int) -> bool:
 		return Save.spend_diamonds(cost)
 	return Save.spend(cost, "shop")
 
-# --- rotating offers (§10): a FEW featured offers, deterministically ---------------
-# The featured band shows SHOP_ROTATION_COUNT offers drawn from the item-shortcut pool,
-# selected by a SEED (the day index, or a future refresh counter) — NEVER randi(), so the
-# spread is testable and stable within a refresh window. The seed picks a rotating START
-# into a fixed shuffle order, so the same seed always yields the same set and advancing the
-# seed slides the window.
-static func shop_pool() -> Array:
-	var pool: Array = []
-	for off in D.SHOP_ITEM_OFFERS:
-		pool.append({"kind": "item", "id": String(off.id), "def": off})
-	return pool
-
-# The current rotation seed: the day index (offline-stable, advances once per day). A
-# future "free reroll" (§17 ads) would bump a saved counter added on top of this.
-static func rotation_seed() -> int:
-	return int(Time.get_unix_time_from_system() / 86400.0) + int(Save.grove().get("shop_reroll", 0))
-
-# Deterministically pick SHOP_ROTATION_COUNT offers for `seed`. A fixed seeded shuffle of
-# the pool gives a stable order; the seed rotates the window start over it, so each step
-# slides to a fresh (wrapping) slice — same seed → same offers, seed+1 → rotated.
-static func rotation_offers(seed: int) -> Array:
-	var pool := shop_pool()
-	var n: int = mini(int(D.SHOP_ROTATION_COUNT), pool.size())
-	if n <= 0:
-		return []
-	var order := _seeded_order(pool.size())
-	var start: int = ((seed % pool.size()) + pool.size()) % pool.size()
+# --- featured offers (§10): a FEW item-shortcut offers, a FIXED set -----------------
+# The featured band shows a FIXED slice — the first SHOP_FEATURED_COUNT of SHOP_ITEM_OFFERS,
+# the same set on every open. No daily rotation, no time-based refresh, no reroll: the
+# storefront's shelf is stable (the cozy-bed call — no FOMO timer, no "watch an ad for new
+# offers" loop). The set is owner-curated via the order of SHOP_ITEM_OFFERS in grove_data.gd.
+static func featured_offers() -> Array:
+	var n: int = mini(int(D.SHOP_FEATURED_COUNT), D.SHOP_ITEM_OFFERS.size())
 	var out: Array = []
-	for k in n:
-		out.append(pool[order[(start + k) % pool.size()]])
+	for i in n:
+		out.append(D.SHOP_ITEM_OFFERS[i])
 	return out
-
-# A fixed permutation of [0..size) from a fixed seed (a tiny LCG Fisher–Yates) — the
-# stable "shelf order" the rotation window slides over. Same `size` → same order always.
-static func _seeded_order(size: int) -> Array:
-	var idx: Array = []
-	for k in size:
-		idx.append(k)
-	var s := 2654435761                       # a fixed mixing constant (Knuth) — order is deterministic
-	for k in range(size - 1, 0, -1):
-		s = (s * 1103515245 + 12345) & 0x7fffffff
-		var j: int = s % (k + 1)
-		var tmp = idx[k]
-		idx[k] = idx[j]
-		idx[j] = tmp
-	return idx
 
 # --- the storefront ----------------------------------------------------------------
 
@@ -299,30 +263,14 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		host.tr("+%d coins") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
 		host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
 
-	# — Featured (§10): a FEW deterministically-rotating item-shortcut offers, the fresh
-	# "always something new" band — NOT the whole static pool.
-	_divider(col, host.tr("Featured"), _clock_chip(_rotation_left_text()))
+	# — Featured (§10): a FEW item-shortcut offers, a FIXED curated band (no rotation, no refresh).
+	_divider(col, host.tr("Featured"))
 	var offer_row := HBoxContainer.new()
 	offer_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	offer_row.add_theme_constant_override("separation", Tune.ROW_SEP)
 	col.add_child(offer_row)
-	for offer in rotation_offers(rotation_seed()):
-		offer_row.add_child(_item_card(host, refs, offer.def))
-	# §10 rewarded "free shop reroll": a player-initiated watch-for-bonus that slides the band to a
-	# fresh window (Ads gates the cap + cooldown; rotation_seed folds the bump in). Shown only when
-	# a watch is available; pressing claims the ad and rebuilds the storefront with the new offers.
-	if Ads.can_show("shop_reroll"):
-		var reroll_row := HBoxContainer.new()
-		reroll_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		col.add_child(reroll_row)
-		var reroll := Look.button(host.tr("Watch ☁ → fresh offers"), func() -> void:
-			if bool(Ads.claim("shop_reroll").get("ok", false)):
-				overlay.queue_free()
-				open(host, opts)
-			, false)
-		reroll.name = "RerollFeatured"
-		reroll_row.add_child(reroll)
-		Look.attach_badge(reroll, Look.badge("dot"))   # a ready free reroll is actionable (shared sticker badge)
+	for offer in featured_offers():
+		offer_row.add_child(_item_card(host, refs, offer))
 
 	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
 	# only (until claimed). The single highest-converting IAP in mobile.
@@ -370,7 +318,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 # A thin sprig divider with a caption (divider_vine art when generated).
 # S13: the caption is a parchment TAB chip, baseline-aligned with its vine —
 # not bare text floating at the parchment edge.
-static func _divider(col: VBoxContainer, caption: String, trailing: Control = null) -> void:
+static func _divider(col: VBoxContainer, caption: String) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", Tune.DIV_SEP)
 	col.add_child(row)
@@ -392,9 +340,6 @@ static func _divider(col: VBoxContainer, caption: String, trailing: Control = nu
 	cap.add_theme_color_override("font_color", Color(INK, Tune.DIV_CAP_INK_ALPHA))
 	tab.add_child(cap)
 	row.add_child(tab)
-	if trailing != null:
-		trailing.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(trailing)               # a chip riding between the caption tab and the vine (e.g. the Featured countdown)
 	if ResourceLoader.exists(Look.kit("shop/divider_vine.png")):
 		var vine := TextureRect.new()
 		vine.texture = load(Look.kit("shop/divider_vine.png"))
@@ -759,32 +704,6 @@ static func _info_sheet(host: Control, title: String, body: String) -> void:
 	col.add_child(btns)
 	btns.add_child(Look.button(host.tr("Got it"), func() -> void: overlay.queue_free(), true))
 	FX.pop_in(card)
-
-# A small ink countdown chip ("↻ 5h 12m") for the Featured band — the offers rotate once per day
-# (rotation_seed = day index), so this is the real time to the next UTC-midnight refresh.
-static func _clock_chip(text: String) -> Control:
-	var p := PanelContainer.new()
-	var s := StyleBoxFlat.new()
-	s.bg_color = Tune.CLOCK_BG
-	s.set_corner_radius_all(Tune.CLOCK_RADIUS)
-	s.content_margin_left = Tune.CLOCK_PAD_X
-	s.content_margin_right = Tune.CLOCK_PAD_X
-	s.content_margin_top = Tune.CLOCK_PAD_Y
-	s.content_margin_bottom = Tune.CLOCK_PAD_Y
-	p.add_theme_stylebox_override("panel", s)
-	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", Tune.CLOCK_SIZE)
-	l.add_theme_color_override("font_color", CREAM)
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	p.add_child(l)
-	return p
-
-# Time until the daily Featured rotation refreshes (next UTC midnight), as "↻ Hh Mm".
-static func _rotation_left_text() -> String:
-	var secs := 86400 - (int(Time.get_unix_time_from_system()) % 86400)
-	return "↻ %dh %dm" % [secs / 3600, (secs % 3600) / 60]
 
 # Pin a small node at a card/button corner. Decorative overlays are input-transparent (the press
 # surface shows through); an `interactive` node (the "i" button) keeps its own input so it can be

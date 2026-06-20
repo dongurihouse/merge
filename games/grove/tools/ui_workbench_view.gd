@@ -15,9 +15,14 @@ const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
 const IDS := ["button", "home_button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
-# Gallery layout: each inner list is a ROW of side-by-side elements. The shared FRAME stands alone above
-# the dialogs that reuse it, so the shared-frame-vs-specific-content structure reads at a glance.
-const ROWS := [["home_button"], ["button", "icon"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
+# Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
+# column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
+# elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
+# the gallery's height (the tall dialogs no longer each span a full-width row).
+const COLUMNS := [
+	[["home_button"], ["button", "icon"], ["card"], ["daily_card"], ["frame"]],   # the building blocks
+	[["dialog"], ["daily"], ["shop"]],                                            # every dialog, one column
+]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
@@ -58,8 +63,10 @@ const CAPTIONS := {
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
-	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
+	# caption_font / caption_gap / glow / twinkle + the icon polish (defringe/shadow/feather) are the saved
+	# STYLE; icon / caption / sparkle preview it.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "glow": 45, "twinkle": 55,
+		"defringe": true, "shadow": false, "feather": 2,
 		"icon": "gift", "caption": "Daily", "sparkle": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
@@ -82,13 +89,14 @@ var _params := {
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
-		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true},
+		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
+		"label_y": 12, "claim_y": 14, "info_icon": false},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width": 460, "cols": 3, "list_max_h": 0},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150, "list_max_h": 0},
+	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
 }
 var _selected := "button"
 var _gallery: VBoxContainer = null
@@ -229,6 +237,8 @@ func _make_element(id: String) -> Control:
 			co["cell_font"] = int(15 * z)
 			co["claim_font"] = int(15 * z)
 			co["count_font"] = int(17 * z)
+			co["label_y"] = float(co.get("label_y", 12)) * z   # the position knobs scale with the zoom too
+			co["claim_y"] = float(co.get("claim_y", 14)) * z
 			var day := _daily_preview_day(String(p.preview))
 			if String(p.ribbon) != "":
 				day["ribbon"] = String(p.ribbon)
@@ -335,13 +345,30 @@ func _rebuild_gallery() -> void:
 	for c in _gallery.get_children():
 		_gallery.remove_child(c)
 		c.queue_free()
-	for row in ROWS:                          # each ROW is a line of side-by-side element sections
-		var line := HBoxContainer.new()
-		line.add_theme_constant_override("separation", 18)
-		line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-		for id in row:
-			line.add_child(_section(id))
-		_gallery.add_child(line)
+	# two top-level COLUMNS side by side; each column stacks its rows vertically
+	var cols_row := HBoxContainer.new()
+	cols_row.add_theme_constant_override("separation", 28)
+	cols_row.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	for column in COLUMNS:
+		var colbox := VBoxContainer.new()
+		colbox.add_theme_constant_override("separation", 18)
+		colbox.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		colbox.size_flags_vertical = Control.SIZE_SHRINK_BEGIN   # top-align each column
+		for row in column:                    # each ROW is a line of side-by-side element sections
+			var line := HBoxContainer.new()
+			line.add_theme_constant_override("separation", 18)
+			line.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			for id in row:
+				line.add_child(_section(id))
+			colbox.add_child(line)
+		cols_row.add_child(colbox)
+	_gallery.add_child(cols_row)
+	# scroll-past room below the columns, so the tallest one's bottom never sits flush against the window
+	# edge — you can scroll a little past it to see its full base.
+	var tail := Control.new()
+	tail.custom_minimum_size = Vector2(0, 220)
+	tail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_gallery.add_child(tail)
 
 func _section(id: String) -> Control:
 	var sec := PanelContainer.new()
@@ -549,6 +576,10 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # icon as % of the disc
 			_sidebar_body.add_child(_slider_row(["caption_font", 14, 34]))
 			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
+			_section_header("Icon polish (like the Icon sandbox)")
+			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
+			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
+			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
@@ -584,6 +615,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_toggle_row("Sparkle (today)", "sparkle"))   # animated twinkles on the claimable card
+			_sidebar_body.add_child(_toggle_row("Info icon (top-right)", "info_icon"))
+			_sidebar_body.add_child(_slider_row(["label_y", 0, 90]))     # the "Day N" text drop from the top
+			_sidebar_body.add_child(_slider_row(["claim_y", 0, 90]))     # how far the action lifts in from the base
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 70, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
@@ -602,6 +636,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
+			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.

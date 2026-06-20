@@ -295,18 +295,18 @@ func _initialize() -> void:
 	ok(Save.coins() == 0, "Z3: no treat without coins (no overspend)")
 	z3.queue_free()
 
-	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, rotation ---
-	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind) behind a
-	# FEW deterministically-rotating offers. Pure grant funcs spend correctly, grant, and
-	# refuse when broke; rotation is seeded (testable). (Cosmetic looks were removed with
-	# the customization feature — see docs/BACKLOG.md.)
+	# --- order S (T40): the Shop buy-side sinks — item-shortcuts, fixed featured band ---
+	# §10: the Shop sells item-shortcuts (buy a mid-tier piece to skip the grind) in a FEW
+	# featured offers — a FIXED curated set (no rotation/refresh). Pure grant funcs spend
+	# correctly, grant, and refuse when broke. (Cosmetic looks were removed with the
+	# customization feature — see docs/BACKLOG.md.)
 
 	# S-A: the stock tables exist and are well-formed (owner-tunable grove numbers).
 	fresh("shop_stock")
 	ok(Data.SHOP_ITEM_OFFERS.size() >= 2, "the shop stocks item-shortcut offers")
-	ok(Data.SHOP_ROTATION_COUNT >= 1 and Data.SHOP_ROTATION_COUNT <= \
+	ok(Data.SHOP_FEATURED_COUNT >= 1 and Data.SHOP_FEATURED_COUNT <= \
 		Data.SHOP_ITEM_OFFERS.size(), \
-		"the rotation shows a FEW offers (1..pool size)")
+		"the featured band shows a FEW offers (1..pool size)")
 	for off in Data.SHOP_ITEM_OFFERS:
 		var t := int(off.code) % 100
 		ok(int(off.code) > 0 and t >= 2 and t < Data.TOP_TIER, \
@@ -362,25 +362,20 @@ func _initialize() -> void:
 	ok(ShopS.pending_pieces().is_empty(), "...and the pending queue is drained")
 	sb.queue_free()
 
-	# S-D: rotation determinism — same seed → same offers; advancing rotates them.
-	fresh("shop_rotation")
-	var r_a: Array = ShopS.rotation_offers(7)
-	var r_a2: Array = ShopS.rotation_offers(7)
-	ok(r_a.size() == Data.SHOP_ROTATION_COUNT, "the rotation surfaces exactly SHOP_ROTATION_COUNT offers")
-	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the same seed yields the SAME offers (deterministic, no randi)")
-	# every rotated offer is a real item-shortcut stock entry, no duplicates.
+	# S-D: the Featured band is a FIXED set — the first SHOP_FEATURED_COUNT offers, the same
+	# on every open (no rotation, no time-based refresh), real stock entries, no duplicates.
+	fresh("shop_featured")
+	var r_a: Array = ShopS.featured_offers()
+	var r_a2: Array = ShopS.featured_offers()
+	ok(r_a.size() == Data.SHOP_FEATURED_COUNT, "the featured band surfaces exactly SHOP_FEATURED_COUNT offers")
+	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the featured set is STABLE — the same offers every open")
 	var ids_a := _offer_ids(r_a)
-	ok(ids_a.size() == _uniq(ids_a).size(), "a rotation has no duplicate offers")
-	# advancing the seed across a window of days rotates the featured set at least once.
-	var changed := false
-	for day in range(8, 40):
-		if _offer_ids(ShopS.rotation_offers(day)) != ids_a:
-			changed = true
-			break
-	ok(changed, "advancing the seed (day/refresh) rotates the featured offers")
-	# the live storefront wires the rotation in (a new featured band of pressable cards).
-	var s_seed: int = ShopS.rotation_seed()
-	ok(s_seed >= 0, "the rotation seed is a non-negative day/refresh index")
+	ok(ids_a.size() == _uniq(ids_a).size(), "the featured set has no duplicate offers")
+	# it is the first N of the stock table, in order (an owner-curated fixed slice).
+	var head: Array = []
+	for i in Data.SHOP_FEATURED_COUNT:
+		head.append(String(Data.SHOP_ITEM_OFFERS[i].id))
+	ok(ids_a == head, "the featured set is the first SHOP_FEATURED_COUNT of SHOP_ITEM_OFFERS, in order")
 
 	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
 	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.

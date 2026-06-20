@@ -78,37 +78,41 @@ const DEMO_DAILY := [
 	{"day": 7, "reward": {"gems": 30}, "state": "future", "mystery": true},
 ]
 
-## EVERY item the GAME shop sells, faithfully from Game.DATA (so testing matches production): Quick help
-## (refill water + coin pouch, paid in 💎), the Featured item-shortcut offers, the Welcome starter, and
-## the gem ladder. Only the ITEMS (icon / amount / price / ribbon); the card STYLING is the shared card.
+## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
+## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
+## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
+## Only the ITEMS (icon / amount / price / ribbon); the card STYLING is the shared small card.
 static func demo_shop() -> Array:
 	var D := Game.DATA
-	var out: Array = []
-	# Quick help — refill water + a coin pouch, both paid in gems
-	out.append({"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"})
-	out.append({"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"})
-	# Featured — the rotating item-shortcut offers (coins or 💎)
+	# Quick help — refill water + a coin pouch (a row of just TWO), both paid in gems
+	var help: Array = [
+		{"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"},
+		{"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"},
+	]
+	# Featured — the item-shortcut offers (coins or 💎)
+	var featured: Array = []
 	for off in D.SHOP_ITEM_OFFERS:
-		out.append({
+		featured.append({
 			"icon": String(off.get("icon", "star")),
 			"label": String(off.get("label", "")),
 			"price": str(int(off.get("cost", 0))),
 			"price_icon": ("gem" if String(off.get("currency", "coins")) == "diamonds" else "coin"),
 		})
-	# Welcome — the one-time starter bundle
-	var sp: Dictionary = D.STARTER_PACK
-	out.append({"icon": "gem", "count": int(sp.get("gems", 0)), "price": String(sp.get("usd", "")), "ribbon": "Welcome"})
-	# Acorn pouches — the cash → gems ladder
-	var packs: Array = D.CASH_PACKS
-	for i in packs.size():
-		var pk: Dictionary = packs[i]
+	# Acorn pouches — the cash → gems ladder (a 3-wide grid; the merchandised packs wear ribbons)
+	var packs: Array = []
+	for i in (D.CASH_PACKS as Array).size():
+		var pk: Dictionary = D.CASH_PACKS[i]
 		var card := {"icon": "gem", "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
 		if bool(pk.get("pop", false)):
 			card["ribbon"] = "Popular"               # the merchandised mid anchor
-		elif i == packs.size() - 1:
+		elif i == (D.CASH_PACKS as Array).size() - 1:
 			card["ribbon"] = "Best value"            # the whale tier (best rate)
-		out.append(card)
-	return out
+		packs.append(card)
+	return [
+		{"caption": "Quick help", "cards": help},
+		{"caption": "Featured", "cards": featured},
+		{"caption": "Acorn pouches", "cards": packs},
+	]
 
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
@@ -123,6 +127,47 @@ static func make_icon(id: String, px: float) -> Control:
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return t
 	return Look.icon(id, px)               # glyph fallback when no sprite
+
+## make_icon, but with explicit, aspect-PRESERVING edge polish (defringe / feather / shadow / supersample)
+## — so the home button can tune its icon's polish the way the Icon sandbox does, WITHOUT distorting a
+## non-square icon (a tall faucet, a wide mail). Falls back to the default make_icon when the sprite is
+## a currency/glyph id the resolver can't path. opts keys: defringe (bool), feather (px), shadow (bool),
+## supersample (1-4) + the add_drop_shadow knobs.
+static func make_icon_ex(id: String, px: float, opts: Dictionary = {}) -> Control:
+	var p := _icon_path(id)
+	if p == "":
+		return make_icon(id, px)
+	var img := (load(p) as Texture2D).get_image()
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var t := TextureRect.new()
+	t.texture = ImageTexture.create_from_image(_polish_icon_aspect(img, opts))
+	t.custom_minimum_size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+## Aspect-preserving icon polish (vs polish_image, which forces a SQUARE canvas): cap the working
+## resolution keeping aspect, then defringe / feather / optional drop-shadow. Lets a tall or wide icon
+## keep its proportions while still getting the edge cleanup the square polish_image gives gem.
+static func _polish_icon_aspect(img: Image, opts: Dictionary) -> Image:
+	var ss: int = clampi(int(opts.get("supersample", 2)), 1, 4)
+	var w := img.get_width()
+	var h := img.get_height()
+	var m := maxi(w, h)
+	var cap := mini(320, maxi(8, m * ss))
+	if m != cap:
+		var s := float(cap) / float(m)
+		img.resize(maxi(1, int(w * s)), maxi(1, int(h * s)), Image.INTERPOLATE_LANCZOS)
+	if bool(opts.get("defringe", false)):
+		_defringe(img)
+	var feather := float(opts.get("feather", 0.0))
+	if feather > 0.0:
+		_feather_alpha(img, feather)
+	if bool(opts.get("shadow", false)):
+		img = add_drop_shadow(img, opts)
+	return img
 
 ## --- icon edge polish (defringe / feather / supersample) -----------------------------------------
 ## Clean up a generated icon's rough alpha edge. opts: defringe (bool), feather (px), supersample
@@ -366,7 +411,9 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 
 ## Resolve any icon id to a Texture2D (so the shared button can show coin/water/gem/blue-gem, not
 ## just the currency folder). Mirrors make_icon's id rules.
-static func _icon_tex(id: String) -> Texture2D:
+## Resolve an icon id to its raw sprite path ("" if none). "bluegem" is the faceted premium gem;
+## coin*/gem* live in currency/, everything else in shared/ (with a currency/ fallback).
+static func _icon_path(id: String) -> String:
 	var rels: Array = []
 	if id == "bluegem":
 		rels = ["ui/currency/icon_gem_t3.png"]
@@ -377,8 +424,12 @@ static func _icon_tex(id: String) -> Texture2D:
 	for rel in rels:
 		var p := Game.art(rel)
 		if ResourceLoader.exists(p):
-			return clean_tex_path(p, 192)      # defringe + feather the rough-cut icon
-	return null
+			return p
+	return ""
+
+static func _icon_tex(id: String) -> Texture2D:
+	var p := _icon_path(id)
+	return clean_tex_path(p, 192) if p != "" else null      # defringe + feather the rough-cut icon
 
 ## The icon, padded to a SQUARE canvas (centred), so its bounding box is identical for every icon id.
 ## A button using this with a fixed icon_max_width then keeps a CONSTANT layout whatever icon is shown —
@@ -573,11 +624,16 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		var tw: float = float(opts.get("twinkle", 0.0))
 		if glow > 0.0 or tw > 0.0:
 			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
-	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface)
+	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface), with
+	# the tunable edge polish (defringe / feather / shadow — same recipe as the Icon sandbox).
 	var icwrap := CenterContainer.new()
 	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icwrap.add_child(make_icon(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5))))
+	icwrap.add_child(make_icon_ex(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5)), {
+		"defringe": bool(opts.get("defringe", true)),
+		"feather": float(opts.get("feather", 2.0)),
+		"shadow": bool(opts.get("shadow", false)),
+	}))
 	b.add_child(icwrap)
 	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 	var caption := String(spec.get("caption", ""))
@@ -1079,43 +1135,32 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if state == "done":
 		panel.modulate = Color(1, 1, 1, 0.6)
 
-	# Content lives in a Control so the bottom action can be ABSOLUTELY positioned: the top block keeps a
-	# FIXED position whether or not a Claim is shown, so today / done / future cards align across the row.
+	# Content is ABSOLUTELY positioned inside `inner` so each region sits independently and none shifts the
+	# others: the reward icon DEAD-CENTRE of the card, the label pinned near the top (tunable Y), the
+	# action near the bottom (tunable Y, kept INSIDE), and the ribbon floating as a banner OVER the top.
 	var inner := Control.new()
+	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(inner)
+	var label_y: float = float(opts.get("label_y", 12.0))
+	var claim_y: float = float(opts.get("claim_y", 14.0))
 
-	# TOP block — ribbon + label + main content, pinned to the TOP (the action below never shifts it)
-	var v := VBoxContainer.new()
-	v.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	v.add_theme_constant_override("separation", 4)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(v)
-
-	# the POPULAR ribbon (a merchandising tag) — used by shop packs, available to any card
-	if ribbon != "":
-		var rb := _ribbon_badge(ribbon)
-		rb.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		v.add_child(rb)
-
-	# the label ("Day N") when present (daily); shop packs omit it
-	if d.has("label") or d.has("day"):
-		var dl := Label.new()
-		dl.text = String(d.get("label", "Day %d" % int(d.get("day", 1))))
-		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		dl.add_theme_font_size_override("font_size", int(opts.get("cell_font", 15)))
-		dl.add_theme_color_override("font_color", Pal.INK if state != "today" else Pal.LEAF.darkened(0.15))
-		dl.add_theme_constant_override("outline_size", 0)
-		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		v.add_child(dl)
-
-	# the main content — the mystery chest · a reward dict (daily) · or a big icon + count (shop)
+	# the main content — the mystery chest · a reward icon (daily) · or a big icon(+count) (shop) — sits
+	# DEAD CENTRE of the card (a full-rect CenterContainer), independent of the label/action positions.
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.add_child(center)
 	if milestone:
-		v.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.52))
+		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.52))
 	elif d.has("reward"):
-		v.add_child(_daily_reward(d.get("reward", {}), cw * 0.52))   # icon a touch bigger (no number)
+		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.52))   # icon a touch bigger (no number)
 	elif d.has("icon"):
-		v.add_child(make_icon(String(d.icon), cw * 0.48))
+		var ic_col := VBoxContainer.new()
+		ic_col.alignment = BoxContainer.ALIGNMENT_CENTER
+		ic_col.add_theme_constant_override("separation", 2)
+		ic_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ic_col.add_child(make_icon(String(d.icon), cw * 0.48))
 		if int(d.get("count", 0)) > 0:
 			var cn := Label.new()
 			cn.text = str(int(d.count))
@@ -1124,10 +1169,27 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 			cn.add_theme_color_override("font_color", Pal.INK)
 			cn.add_theme_constant_override("outline_size", 0)
 			cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			v.add_child(cn)
+			ic_col.add_child(cn)
+		center.add_child(ic_col)
 
-	# BOTTOM action — a price (shop) / Claim (today) is the GREEN shared button, a done day a ✓ — pinned
-	# to the BOTTOM (absolute, via a bottom-anchored wrap) so it never pushes the top block up.
+	# the label ("Day N") — pinned near the TOP, shifted down by label_y (tunable). shop packs omit it.
+	if d.has("label") or d.has("day"):
+		var dl := Label.new()
+		dl.text = String(d.get("label", "Day %d" % int(d.get("day", 1))))
+		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		dl.anchor_left = 0.0; dl.anchor_right = 1.0
+		dl.anchor_top = 0.0; dl.anchor_bottom = 0.0
+		dl.offset_left = 0.0; dl.offset_right = 0.0
+		dl.offset_top = label_y; dl.offset_bottom = label_y
+		dl.grow_vertical = Control.GROW_DIRECTION_END
+		dl.add_theme_font_size_override("font_size", int(opts.get("cell_font", 15)))
+		dl.add_theme_color_override("font_color", Pal.INK if state != "today" else Pal.LEAF.darkened(0.15))
+		dl.add_theme_constant_override("outline_size", 0)
+		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		inner.add_child(dl)
+
+	# BOTTOM action — a price (shop) / Claim (today) is the SHARED green pill_button, a done day a ✓.
+	# Anchored to the bottom and LIFTED up by claim_y so it sits INSIDE the card (was overflowing below).
 	var act_text := ""
 	var act_cb := Callable()
 	var act_icon := ""
@@ -1149,10 +1211,36 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		act_node = _kit_sprite("kit/daily_check.png", cw * 0.34)
 	if act_node != null:
 		var act_wrap := CenterContainer.new()
-		act_wrap.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		act_wrap.anchor_left = 0.0; act_wrap.anchor_right = 1.0
+		act_wrap.anchor_top = 1.0; act_wrap.anchor_bottom = 1.0
+		act_wrap.offset_left = 0.0; act_wrap.offset_right = 0.0
+		act_wrap.offset_top = -claim_y; act_wrap.offset_bottom = -claim_y
+		act_wrap.grow_vertical = Control.GROW_DIRECTION_BEGIN   # grows UPWARD from the lifted bottom edge
 		act_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		act_wrap.add_child(act_node)
 		inner.add_child(act_wrap)
+
+	# the POPULAR ribbon (a merchandising tag) — a BANNER floating OVER the top edge (absolute), so it
+	# never shifts the label/content below it. Centred on the top edge, added last so it draws on top.
+	if ribbon != "":
+		var rb := _ribbon_badge(ribbon)
+		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rb.anchor_left = 0.5; rb.anchor_right = 0.5
+		rb.anchor_top = 0.0; rb.anchor_bottom = 0.0
+		rb.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		rb.grow_vertical = Control.GROW_DIRECTION_BOTH
+		rb.offset_top = -3.0          # rides across the very top, like a banner
+		inner.add_child(rb)
+
+	# the optional INFO icon — a small "i" disc pinned to the TOP-RIGHT corner (a togglable design knob)
+	if bool(opts.get("info_icon", false)):
+		var ip: float = maxf(14.0, cw * 0.2)
+		var info := _kit_sprite("shared/icon_question.png", ip)
+		info.anchor_left = 1.0; info.anchor_right = 1.0
+		info.anchor_top = 0.0; info.anchor_bottom = 0.0
+		info.offset_left = -(ip + 6.0); info.offset_right = -6.0
+		info.offset_top = 6.0; info.offset_bottom = 6.0 + ip
+		inner.add_child(info)
 
 	_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards
 	# the generated SPARKLE marks the claimable (today) rung — animated twinkles around the reward
@@ -1237,7 +1325,11 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 	var co := opts.duplicate()
 	co["cell_w"] = cw
 	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
-	co["claim_font"] = clampi(int(cw * 0.15), 9, 20)
+	# The action button (Claim / buy price) is the SAME shared pill_button as the mail Claim, driven by
+	# the SAME saved btn opts (art / shadow / font). Its font is the SAVED button font — only capped DOWN
+	# to fit the narrow cell, so the saved style flows here too and never overflows the 1/cols column.
+	var btn_font := int((opts.get("btn", {}) as Dictionary).get("font", 22))
+	co["claim_font"] = clampi(mini(btn_font, int(cw * 0.16)), 9, 22)
 	co["count_font"] = clampi(int(cw * 0.18), 10, 24)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
@@ -1272,10 +1364,105 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {}) -> Control:
 	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
-## The SHOP dialog — the SAME shared frame with a grid of the SAME small card, here carrying an
-## icon + count + a price button and Popular ribbons (no day label, no claim). Shared frame, new content.
-static func shop_dialog(items: Array, width: float = 520.0, opts: Dictionary = {}) -> Control:
-	return dialog_frame(_card_grid(items, width, opts), width, opts)
+## The SHOP dialog — the SAME shared frame, here filled with SECTIONS (each a vine divider + a centered
+## row/grid of the SAME small card) rather than one flat grid. `sections` is [{caption, cards}, …] from
+## demo_shop. Shared frame, sectioned shop content.
+static func shop_dialog(sections: Array, width: float = 520.0, opts: Dictionary = {}) -> Control:
+	return dialog_frame(_shop_sections(sections, width, opts), width, opts)
+
+## A section divider — a honey caption TAB + the leafy vine strip filling to the card's right edge
+## (mirrors the game shop's _divider). Falls back to a thin bark rule when the vine art is missing.
+static func _kit_divider(caption: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tab := PanelContainer.new()
+	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color("#F0DCA8")                     # warm honey banner — sections read as headers
+	ts.set_corner_radius_all(12); ts.set_border_width_all(2)
+	ts.border_color = Color(Pal.BARK, 0.5)
+	ts.content_margin_left = 14; ts.content_margin_right = 14
+	ts.content_margin_top = 4; ts.content_margin_bottom = 5
+	tab.add_theme_stylebox_override("panel", ts)
+	var cap := Label.new()
+	cap.text = caption
+	cap.add_theme_font_size_override("font_size", 20)
+	cap.add_theme_color_override("font_color", Color(Pal.INK, 0.95))
+	cap.add_theme_constant_override("outline_size", 0)
+	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tab.add_child(cap)
+	row.add_child(tab)
+	var vp := Look.kit("shop/divider_vine.png")
+	if ResourceLoader.exists(vp):
+		var vine := TextureRect.new()
+		vine.texture = clean_tex_path(vp, 768)         # the 768×64 leafy strip, spanning the gap
+		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		vine.clip_contents = true
+		vine.custom_minimum_size = Vector2(0, 36)
+		vine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		vine.size_flags_vertical = Control.SIZE_FILL
+		vine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.custom_minimum_size = Vector2(0, 36)
+		row.add_child(vine)
+	else:
+		var line := ColorRect.new()
+		line.color = Color(Pal.BARK, 0.35)
+		line.custom_minimum_size = Vector2(0, 3)
+		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(line)
+	return row
+
+## The SHOP content: each section's vine divider + its cards laid into centered rows of `cols` (a 2-card
+## section is a single centered row of two). Cards are built at the column width (like _card_grid) so they
+## fit exactly, and `row_gap` adds generous breathing room BETWEEN rows + sections.
+static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> Control:
+	var cols: int = maxi(1, int(opts.get("cols", 3)))
+	var gap: int = int(opts.get("cell_h_gap", 12))
+	var row_gap: int = int(opts.get("row_gap", 22))
+	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+	var co := opts.duplicate()
+	co["cell_w"] = cw
+	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
+	var btn_font := int((opts.get("btn", {}) as Dictionary).get("font", 22))
+	co["claim_font"] = clampi(mini(btn_font, int(cw * 0.16)), 9, 22)
+	co["count_font"] = clampi(int(cw * 0.18), 10, 24)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", row_gap)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var made: Array = []
+	for sec in sections:
+		var s := sec as Dictionary
+		content.add_child(_kit_divider(String(s.get("caption", ""))))
+		var cards: Array = s.get("cards", [])
+		var i := 0
+		while i < cards.size():
+			var r := HBoxContainer.new()
+			r.alignment = BoxContainer.ALIGNMENT_CENTER
+			r.add_theme_constant_override("separation", gap)
+			r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			for j in cols:
+				if i + j < cards.size():
+					var c := daily_card(cards[i + j], co)
+					r.add_child(c)
+					made.append(c)
+			content.add_child(r)
+			i += cols
+	# pixel-exact: every card is 1/cols of the content width (so a 2-card row keeps the SAME card size)
+	var fit := func() -> void:
+		if not is_instance_valid(content):
+			return
+		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
+		for c in made:
+			if is_instance_valid(c):
+				(c as Control).custom_minimum_size.x = maxf(40.0, cwf)
+	content.resized.connect(fit)
+	fit.call_deferred()
+	return content
 
 ## --- config → opts (the SINGLE source of the params→opts transform) ------------------------------
 ## The workbench saves design settings to a JSON of {button, card, dialog, icon} param dicts. Both the
@@ -1374,6 +1561,9 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"today_badge": String(dc.get("today_badge", "gold glow")),
 		"milestone_badge": String(dc.get("milestone_badge", "amber glow")),
 		"sparkle": bool(dc.get("sparkle", true)),
+		"label_y": float(dc.get("label_y", 12)),     # the "Day N" label's drop from the top edge
+		"claim_y": float(dc.get("claim_y", 14)),     # how far the bottom action is lifted in from the base
+		"info_icon": bool(dc.get("info_icon", false)),  # the top-right "i" disc toggle
 		"btn": card_btn_opts(cfg),
 	}
 
@@ -1397,6 +1587,7 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cols"] = int(sh.get("cols", 3))
 	o["cell_w"] = float(sh.get("cell_w", 112))
 	o["cell_h"] = float(sh.get("cell_h", 150))
+	o["row_gap"] = float(sh.get("row_gap", 22))        # spacing between rows + sections (the dividers)
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
@@ -1413,6 +1604,10 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"caption_gap": float(h.get("caption_gap", 4)),
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
+		# the icon's edge polish (same recipe as the Icon sandbox), defaulting to the old clean look
+		"defringe": bool(h.get("defringe", true)),
+		"shadow": bool(h.get("shadow", false)),
+		"feather": float(h.get("feather", 2)),
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

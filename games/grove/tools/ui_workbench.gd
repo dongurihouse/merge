@@ -16,9 +16,18 @@ func _initialize() -> void:
 	# content scaling for the tool — it renders 1:1 and the extra window width becomes real room.
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_EXPAND
-	DisplayServer.window_set_size(Vector2i(1760, 1040))
+	# Fill the screen: a WIDE window so dialog rows pair without horizontal scroll, and a TALL window so
+	# the tallest dialog (the full shop) is reachable + visible without the bottom flushing against the
+	# window edge. Grow the height to most of the screen (leaving room for the menu bar + dock) instead of
+	# a fixed 1040 that wasted vertical space. In the quiet/screenshot path screen_get_size() is (0,0), so
+	# we keep the deterministic 1760×1040 capture size.
 	var screen := DisplayServer.screen_get_size()
-	DisplayServer.window_set_position((screen - Vector2i(1760, 1040)) / 2)
+	var win := Vector2i(1760, 1040)
+	if screen.x > 0 and screen.y > 0:
+		win.x = mini(1760, screen.x - 80)
+		win.y = clampi(screen.y - 130, 760, 1400)
+	DisplayServer.window_set_size(win)
+	DisplayServer.window_set_position((screen - win) / 2)
 	if quiet:
 		DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
 		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)

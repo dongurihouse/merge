@@ -455,7 +455,7 @@ class Shop:
 	const HELP_PRICE_SIZE := 26           # gem price chip number
 
 	# --- featured offer cards (T40: item-shortcuts) ------------------------------------
-	# Narrower than the help card so SHOP_ROTATION_COUNT (3) fit ACROSS the parchment's inner
+	# Narrower than the help card so SHOP_FEATURED_COUNT (3) fit ACROSS the parchment's inner
 	# width without overflowing it (3*276 + 2*ROW_SEP = 856 < card inner ≈ 868); the help row
 	# only has two cards so it keeps the wider HELP_CARD. Reuses the HELP_* fonts.
 	const FEATURED_CARD := Vector2(276, 232)
@@ -526,13 +526,7 @@ class Shop:
 
 	# --- urgency + info chrome (countdown chip · the "i" info badge + its sheet) ---------
 	# The claimable RED DOT is the shared `Look.badge("dot")` (UiSkin.BADGE_*) — no local dot here.
-	# Local to the shop: a small ink countdown chip on the daily-rotating Featured band, and the
-	# per-card "i" badge (a real button) that opens an item-detail sheet.
-	const CLOCK_BG := Color("#33402F", 0.55)  # soft ink-tint chip behind the countdown (lightened for the new airy language)
-	const CLOCK_RADIUS := 11
-	const CLOCK_PAD_X := 10.0
-	const CLOCK_PAD_Y := 3.0
-	const CLOCK_SIZE := 17
+	# Local to the shop: the per-card "i" badge (a real button) that opens an item-detail sheet.
 	const INFO_SIZE := 26.0               # the per-card "i" info badge disc (a real tap target)
 	const INFO_BG := Color("#5FA8D8")     # soft blue (the reference info-badge language)
 	const INFO_EDGE := Color("#3E83AD")

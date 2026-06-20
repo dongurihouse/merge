@@ -53,13 +53,13 @@ func _initialize() -> void:
 	Shop.open(s7, {"water_grant": func() -> void: pass})
 	var rows_water := _shop_rows(s7)
 	ok(rows_water == rows_plain + 1, "the water row appears only with a water_grant (%d -> %d)" % [rows_plain, rows_water])
-	# T40: the storefront now carries the Featured rotation band — its pressable offer
-	# cards are part of the buy-card count (coin pouch + SHOP_ROTATION_COUNT featured +
-	# the cash packs), so the storefront is no longer a fixed water+coin+cash layout.
+	# T40: the storefront carries the Featured band — its pressable offer cards are part of
+	# the buy-card count (coin pouch + SHOP_FEATURED_COUNT featured + the cash packs), so the
+	# storefront is no longer a fixed water+coin+cash layout. (Fixed set — no rotation/refresh.)
 	var DataUi = load("res://games/active.gd").DATA
-	ok(rows_plain >= int(DataUi.SHOP_ROTATION_COUNT) + 1, \
-		"the storefront features the rotating offers band (%d cards ≥ %d featured + pouch)" % \
-		[rows_plain, int(DataUi.SHOP_ROTATION_COUNT)])
+	ok(rows_plain >= int(DataUi.SHOP_FEATURED_COUNT) + 1, \
+		"the storefront features the offers band (%d cards ≥ %d featured + pouch)" % \
+		[rows_plain, int(DataUi.SHOP_FEATURED_COUNT)])
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()

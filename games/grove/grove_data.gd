@@ -353,10 +353,9 @@ const SHOP_ITEM_OFFERS := [
 # (Cosmetic "grove theme" looks — SHOP_COSMETICS — were removed with the customization
 # feature; the deferred "item & map customization" feature is parked in docs/BACKLOG.md.)
 
-# How many offers the featured band shows at once — a FEW (§10 "rotate, a few at a time"),
-# drawn deterministically from SHOP_ITEM_OFFERS by a day/refresh seed so the spread feels
-# fresh without ever overwhelming.
-const SHOP_ROTATION_COUNT := 3
+# How many offers the featured band shows — a FEW (§10), a FIXED slice of SHOP_ITEM_OFFERS
+# (the first N, in table order). No rotation, no time-based refresh: the shelf is stable.
+const SHOP_FEATURED_COUNT := 3
 
 # ─────────────────────────────────────────────────────────────────────────────
 # §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's
@@ -404,12 +403,10 @@ const FIRST_BUY_MULT := 2
 #   collect_2x   — the board quest-reward 2× doubler's faucet: watch → the reward is doubled by
 #                  scenes/board.gd (which grants the extra coins itself). The ad grants no currency
 #                  directly. (The old hub-yield collect that this once armed was removed.)
-#   shop_reroll  — refresh the rotating Shop offers (advances the `shop_reroll` rotation seed).
 #   event_topup  — a small event-currency boost (§17); stubbed as a small 💎 grant for now.
 const ADS := {
 	"refill_water": {"cap": 3, "cooldown": 1800,  "water": WATER_CAP},  # 3/day, 30 min apart — a full can
 	"collect_2x":   {"cap": 2, "cooldown": 3600,  "mult": 2},           # 2/day, 1 h apart — arms the next collect
-	"shop_reroll":  {"cap": 2, "cooldown": 7200},                       # 2/day, 2 h apart — fresh featured band
 	"event_topup":  {"cap": 1, "cooldown": 86400, "gems": 8},           # 1/day — a small event boost (stub)
 	"free_gems":    {"cap": 3, "cooldown": 1800,  "gems": 5},           # 3/day, 30 min apart — the persistent LiveOps gem faucet ("Free")
 }

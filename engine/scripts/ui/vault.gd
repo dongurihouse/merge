@@ -29,6 +29,11 @@ const CARD_VW_FRAC := 0.86
 const JAR_W := 200.0
 const JAR_H := 200.0
 
+# IAP: the piggy-bank product. The crack routes through StoreKit (core/store.gd) when the plugin is in
+# the build; without it, the honest non-charging test path. Register this id in App Store Connect.
+const STORE_PATH := "res://engine/scripts/core/store.gd"
+const PIGGY_PRODUCT := "com.tidyup.piggybank"
+
 # --- the storefront jar -------------------------------------------------------------
 
 static func open(host: Control, opts: Dictionary = {}) -> void:
@@ -207,8 +212,12 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	amount.add_theme_color_override("font_color", INK)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	what.add_child(amount)
+	# A real charge happens ONLY when StoreKit is in the build (the plugin is present); otherwise this
+	# stays the honest non-charging test path, and the caption says so. The grant is identical either way.
+	var Store: Variant = load(STORE_PATH) if ResourceLoader.exists(STORE_PATH) else null
+	var charged: bool = Store != null and Store.available()
 	var note := Label.new()
-	note.text = host.tr("(test build — nothing is charged)")
+	note.text = (host.tr("You'll be charged %s.") % Vault.price_usd()) if charged else host.tr("(test build — nothing is charged)")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", 15)
 	note.add_theme_color_override("font_color", BARK)
@@ -220,14 +229,25 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	btns.add_child(Look.button(host.tr("Cancel"), func() -> void: overlay.queue_free(), false))
 	btns.add_child(Look.button(host.tr("Confirm"), func() -> void:
 		var at := card.get_global_rect().get_center()
-		var got := Vault.crack()                 # grant the banked 💎 + reset the jar (core/vault.gd)
+		# grant the banked 💎 + reset the jar, celebrate, close the vault, refresh — IDENTICAL whether the
+		# purchase was real or the test path; only the "did money move?" gate differs.
+		var grant := func() -> void:
+			var got := Vault.crack()             # core/vault.gd
+			Audio.play("merge_success", -3.0, 1.2)
+			if got > 0:
+				FX.celebrate_reward(host, at, "gem", got, Color("#A9C7E8"))
+			if is_instance_valid(parent_overlay):
+				parent_overlay.queue_free()
+			if opts.has("refresh"):
+				(opts.refresh as Callable).call()
 		overlay.queue_free()
-		Audio.play("merge_success", -3.0, 1.2)
-		if got > 0:
-			FX.celebrate_reward(host, at, "gem", got, Color("#A9C7E8"))
-		# the jar emptied — close the vault surface too and refresh whoever opened us
-		if is_instance_valid(parent_overlay):
-			parent_overlay.queue_free()
-		if opts.has("refresh"):
-			(opts.refresh as Callable).call(), true))
+		if charged:
+			# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase, just refresh on cancel.
+			Store.purchase(PIGGY_PRODUCT, func(okay: bool) -> void:
+				if okay:
+					grant.call()
+				elif opts.has("refresh"):
+					(opts.refresh as Callable).call())
+		else:
+			grant.call(), true))
 	FX.pop_in(card)
