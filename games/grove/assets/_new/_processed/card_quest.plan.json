@@ -1,9 +1,9 @@
 {
-  "source": "_new/board1_asset2.png",
+  "source": "_new/board_asset.png",
   "category": "sheet",
   "params": { "min_area": 600 },
   "outputs": [
-    { "island": 4, "name": "card_quest", "path": "ui/quest/card_quest.png" }
+    { "island": 5, "name": "card_quest", "path": "ui/quest/card_quest.png" }
   ],
-  "archive": "_originals/board/board1_asset2.png"
+  "archive": "_originals/board/board_asset.png"
 }
