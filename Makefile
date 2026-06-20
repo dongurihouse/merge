@@ -76,7 +76,7 @@ smoke: ## scene smoke test (instantiates the UI + board)
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
 
-bake: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
+bake-textures: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_textures.gd
 	$(GODOT) --headless --path $(PROJECT) --import
 
