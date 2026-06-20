@@ -344,6 +344,15 @@ func _welcome_kind(hx, z: int, cid: String) -> void:
 # Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,
 # a zero reward never offers. The one-line wiring (`if sp_coins > 0: _maybe_offer_2x(...)` in
 # _on_giver_tap) rides on this; the risk is the moved card, which this drives directly.
+# Every Label.text in `node`'s subtree (depth-first) — for asserting composited card copy.
+func _label_texts(node: Node) -> Array:
+	var out: Array = []
+	if node is Label:
+		out.append((node as Label).text)
+	for c in node.get_children():
+		out.append_array(_label_texts(c))
+	return out
+
 func _test_2x_doubler_rehome() -> void:
 	fresh("rehome_2x")
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()
@@ -353,6 +362,11 @@ func _test_2x_doubler_rehome() -> void:
 	ok(Ads.can_show("collect_2x"), "the 2× ad is offerable on a fresh save")
 	scn._maybe_offer_2x(50, scn.get_global_rect().get_center())
 	ok(scn._2x_offer != null and is_instance_valid(scn._2x_offer), "a quest coin reward surfaces the 2× doubler on the board")
+	# The card must SPELL OUT the doubling (legibility, not a bare "+50"): the ORIGINAL amount and the
+	# DOUBLED total both appear, so the player sees 50 → 100, not one ambiguous number.
+	var card_labels := _label_texts(scn._2x_offer)
+	ok("50" in card_labels, "the 2× card shows the original amount (50)")
+	ok("100" in card_labels, "the 2× card shows the DOUBLED total (100)")
 	var coins_b := Save.coins()
 	scn._accept_2x_offer(50)
 	ok(Save.coins() == coins_b + 50, "accepting the 2× credits a SECOND N coins (the doubled half)")
@@ -416,7 +430,7 @@ func _test_t45_wiring() -> void:
 	await create_timer(0.2).timeout                   # the popup is deferred two frames; the timer spans them
 	var login_up := _find_calendar_overlay(hl)
 	ok(login_up != null, "the daily-login calendar AUTO-POPS on the day's first hub open (past the FTUE)")
-	ok(_press_label(login_up, "Collect"), "the auto-popped calendar shows a Collect button")
+	ok(_press_label(login_up, "Claim"), "the auto-popped calendar shows a Claim button")
 	hl.queue_free()
 
 	# 3b. ALREADY CLAIMED today → no auto-popup (it fired its once; never nags).
@@ -447,14 +461,13 @@ func _test_t45_wiring() -> void:
 	hf.queue_free()
 
 # Find a live login-calendar overlay on `host`: the LoginUI roots a full-rect Control whose
-# subtree carries a "Daily visit" title and a "Collect"/"Come back" CTA. Returns it or null.
+# subtree carries the day grid and today's green "Claim" CTA (ui/login.gd). Returns it or null.
 func _find_calendar_overlay(host: Control) -> Control:
 	for c in host.get_children():
 		if not (c is Control):
 			continue
 		for b in (c as Control).find_children("*", "Button", true, false):
-			var t := String((b as Button).text)
-			if t.findn("Collect") != -1 or t.findn("tomorrow") != -1:
+			if String((b as Button).text).findn("Claim") != -1:
 				return c as Control
 	return null
 # T44: press the first Button whose text contains `frag` inside `overlay`. Returns whether

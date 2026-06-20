@@ -1955,28 +1955,39 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	pitch.add_theme_constant_override("separation", 6)
 	col.add_child(pitch)
 	var pl := Label.new()
-	pl.text = tr("Watch a cloud → double it!")
+	pl.text = tr("Watch a cloud to double it!")
 	pl.add_theme_font_size_override("font_size", 24)
 	pl.add_theme_color_override("font_color", Pal.INK)
 	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pitch.add_child(pl)
+	# The value row SPELLS OUT the doubling — the ORIGINAL reward, an arrow, then the DOUBLED total —
+	# so the player plainly sees their `got` become `got × 2` (legibility, §10). The bonus half (the
+	# same amount again) is what _accept_2x_offer actually grants; here we just make it readable.
+	# Before: muted + small. After: gold + big — the payoff the eye lands on.
 	var sub := HBoxContainer.new()
 	sub.alignment = BoxContainer.ALIGNMENT_CENTER
-	sub.add_theme_constant_override("separation", 4)
+	sub.add_theme_constant_override("separation", 8)
 	col.add_child(sub)
-	var sl := Label.new()
-	sl.text = tr("+")
-	sl.add_theme_font_size_override("font_size", 22)
-	sl.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-	sl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	sub.add_child(sl)
 	sub.add_child(Look.icon("coin", 22.0))
-	var sn := Label.new()
-	sn.text = str(got)
-	sn.add_theme_font_size_override("font_size", 22)
-	sn.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
-	sn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	sub.add_child(sn)
+	var sn0 := Label.new()
+	sn0.text = str(got)                                  # the "before" — the reward as it stands now
+	sn0.add_theme_font_size_override("font_size", 22)
+	sn0.add_theme_color_override("font_color", Color(Pal.INK, 0.5))
+	sn0.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sn0)
+	var arrow := Label.new()
+	arrow.text = "→"                                     # the "becomes"
+	arrow.add_theme_font_size_override("font_size", 24)
+	arrow.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(arrow)
+	sub.add_child(Look.icon("coin", 32.0))
+	var sn1 := Label.new()
+	sn1.text = str(got * 2)                              # the "after" — the doubled total
+	sn1.add_theme_font_size_override("font_size", 34)
+	sn1.add_theme_color_override("font_color", STRAW)
+	sn1.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sub.add_child(sn1)
 	# the two ways out — a primary "Double" and a quiet "No thanks" (decline keeps the coins)
 	var btns := HBoxContainer.new()
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER

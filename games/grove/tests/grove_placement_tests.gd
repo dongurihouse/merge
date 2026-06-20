@@ -32,12 +32,15 @@ func _initialize() -> void:
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
 	var bb_shop: Control = ss.shop_btn
 	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
-	var bag_bg: TextureRect = ss.bag_btn.get_child(0)
-	ok(bag_bg.texture != null, \
-		"S1: the empty bag target is the round satchel nav button (board.png reskin)")
-	var merchant_bg: TextureRect = ss.merchant_btn.get_child(0)
-	ok(merchant_bg.texture != null, \
-		"S1: the merchant target is the round coin-sack nav button (board.png reskin)")
+	# Bag + Merchant are now the SHARED home-button disc (Home·Bag·Merchant on one disc): the round
+	# target is painted by the button's `normal` StyleBox — a textured disc, or the kit's flat
+	# cream-disc fallback (same metrics either way) — with the satchel/coin-sack centred as the icon.
+	var bag_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal")
+	ok(bag_sb is StyleBoxTexture or bag_sb is StyleBoxFlat, \
+		"S1: the empty bag target paints the round satchel disc (shared home-button disc)")
+	var merchant_sb: StyleBox = ss.merchant_btn.get_theme_stylebox("normal")
+	ok(merchant_sb is StyleBoxTexture or merchant_sb is StyleBoxFlat, \
+		"S1: the merchant target paints the round coin-sack disc (shared home-button disc)")
 	ok(ss.merchant_rest == null or not is_instance_valid(ss.merchant_rest) \
 		or ss.merchant_rest.get_parent() != ss.merchant_btn or not ss.merchant_rest.visible, \
 		"S1: the merchant drop target has no centered shop/cart icon")
