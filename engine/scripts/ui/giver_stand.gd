@@ -40,6 +40,17 @@ const CARD_ART_H := 239.0
 const PLAQUE_PATH := "quest/plaque.png"   # the reusable wooden reward sign (island 6 of board1_asset2.png)
 const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stretches
 
+# Tunable layout — ALL fractions. card_w/card_h are the box size as a fraction of the stand (the box is
+# 9-sliced, so any W/H is fine; keep ~the art's 1.74:1 or the baked bubble stretches). The rest are a
+# size (×cardH) and a centre x/y (×cardW, ×cardH) for the bust, the asked item, and the plaque. The
+# board renders with these defaults; the UI workbench overrides them live via cfg.lay to dial it in.
+const LAY := {
+	"card_w": 0.96, "card_h": 0.78,
+	"bust_size": 1.00, "bust_x": 0.28, "bust_y": 0.46,
+	"item_size": 0.36, "item_x": 0.73, "item_y": 0.39,
+	"plaque_w": 0.44, "plaque_x": 0.50, "plaque_y": 0.78,
+}
+
 # A wide quest BOX (board_asset reskin): the 9-sliced painted box fills the stand. The character
 # bust sits LARGE on the LEFT (filling top↔bottom, free to overflow the box), the requested item
 # rides a CLEAR drawn speech bubble on the RIGHT (one big item — every quest needs exactly one), and
@@ -51,61 +62,53 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var ask_tap: Callable = cfg.ask_tap
 	var stand_tap: Callable = cfg.stand_tap
 	var wire_tap: Callable = cfg.wire_tap
+	var L := LAY.duplicate()                       # layout fractions; cfg.lay overrides (the workbench tunes these)
+	for k in (cfg.get("lay", {}) as Dictionary):
+		L[k] = (cfg.lay as Dictionary)[k]
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
-	# the box: width follows the art ratio off the fence-bound height, but never overflows the stand
-	# width (the wide box is usually width-bound). A little headroom is left below for the hung plaque.
-	var artR := CARD_ART_W / CARD_ART_H
-	var cardH := (fh - 16.0) * 0.86            # leave room under the box for the overhanging plaque
-	var cardW := cardH * artR
-	if cardW > sw - 8.0:                        # never overflow the stand width
-		cardW = sw - 8.0
-		cardH = cardW / artR
+	# the box: a free W×H fraction of the stand (9-sliced, so the gold border never stretches), centred.
+	var cardW: float = sw * float(L.card_w)
+	var cardH: float = fh * float(L.card_h)
 	var cx := (sw - cardW) / 2.0
-	var cy := (fh - cardH) / 2.0 - cardH * 0.07   # nudge the box up so the plaque hangs in-band
+	var cy := (fh - cardH) / 2.0
 	var card := _quest_card(cardW, cardH)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
 	# the character portrait — LARGE on the LEFT, filling the box top↔bottom and free to overflow its
-	# edges. Drawn before the plaque so the plaque hangs in FRONT of it. Its FACE is keyed off the
-	# quest's asked line, so the fence draws a varied cast from the 16-strong giver pool
-	# (characters/giver_0..15) — stable for the life of the quest, and (with the §7 anti-monotony that
-	# steers concurrent stands onto distinct lines) distinct across the on-screen givers. Falls back to
-	# the slot index for an item-less quest.
+	# edges. Drawn before the plaque so the plaque sits in FRONT of it. Its FACE is keyed off the quest's
+	# asked line, so the fence draws a varied frameless cast from the giver pool (characters/giver_0..15)
+	# — stable for the life of the quest. Falls back to the slot index for an item-less quest.
 	var it: Dictionary = G.quest_item(q)
-	var bsz := cardH * 1.08
+	var bsz := cardH * float(L.bust_size)
 	var bust := Bust.make(int(it.line) if not it.is_empty() else qi, bsz)
-	bust.position = Vector2(cx + cardW * 0.275 - bsz / 2.0, cy + cardH * 0.50 - bsz / 2.0)
+	bust.position = Vector2(cx + cardW * float(L.bust_x) - bsz / 2.0, cy + cardH * float(L.bust_y) - bsz / 2.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the requested item — one big icon in a CLEAR drawn speech bubble on the box's right (~0.73w,
-	# 0.40h). The bubble's tail points back toward the character; the ✓ overtakes the item when ready.
+	# the requested item — one big icon seated on the box's BAKED speech bubble (cell_5, ~0.73w, 0.39h).
+	# The ✓ overtakes the item when the quest is ready. (No drawn bubble — the box paints its own.)
 	var item_ui: Dictionary = {}
 	if not it.is_empty():
 		var acode := int(it.line) * 100 + int(it.tier)
-		var bd := cardH * 0.62                       # bubble diameter
-		var bubble := _speech_bubble(bd)
-		bubble.position = Vector2(cx + cardW * 0.735 - bd / 2.0, cy + cardH * 0.40 - bd / 2.0)
-		var isz := bd * 0.70                          # the big item fills the bubble
+		var isz := cardH * float(L.item_size)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
 		icon.size = Vector2(isz, isz)
-		icon.position = Vector2((bd - isz) / 2.0, (bd - isz) / 2.0)
-		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		icon.position = Vector2(cx + cardW * float(L.item_x) - isz / 2.0, cy + cardH * float(L.item_y) - isz / 2.0)
+		icon.mouse_filter = Control.MOUSE_FILTER_STOP
 		var piece := PieceView.make_piece(acode, isz)
 		icon.add_child(piece)
 		var mpx := isz * 0.88
 		var met := _ask_met_check(mpx)
 		met.position = Vector2((isz - mpx) / 2.0, (isz - mpx) / 2.0)
 		icon.add_child(met)
-		bubble.add_child(icon)
-		stand.add_child(bubble)
-		wire_tap.call(bubble, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
+		stand.add_child(icon)
+		wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
 		item_ui = {"code": acode, "piece": piece, "met": met}
 	# the near-end map quest ALSO rewards the next map's generator — preview its tool icon as a small
 	# badge tucked at the box's top-right, so the player sees the bonus they'll earn.
@@ -122,16 +125,15 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			gicon.size = Vector2(gs, gs)
 			gicon.position = Vector2(cx + cardW * 0.92 - gs, cy + cardH * 0.04)
 			stand.add_child(gicon)
-	# the reusable wooden PLAQUE — hung at the bottom-centre, overhanging the box's lower edge, in
-	# FRONT of the bust, with the +N reward (flower/star + WHITE count) centred on its wooden face.
-	var plw := cardW * 0.46
+	# the reusable wooden PLAQUE — seated INSIDE the box at the bottom-centre, in FRONT of the bust, with
+	# the +N reward (flower/star + WHITE count) centred on its wooden face.
+	var plw := cardW * float(L.plaque_w)
 	var plh := plw / PLAQUE_AR
-	var ptop := cy + cardH - plh * 0.62          # ~38% of the plaque overhangs below the box edge
+	var pcx := cx + cardW * float(L.plaque_x)
+	var pcy := cy + cardH * float(L.plaque_y)        # the plaque sprite (= wood face) centre
 	var plaque := _reward_plaque(plw, plh)
-	plaque.position = Vector2(cx + cardW * 0.50 - plw / 2.0, ptop)
+	plaque.position = Vector2(pcx - plw / 2.0, pcy - plh / 2.0)
 	stand.add_child(plaque)
-	var pcx := cx + cardW * 0.50
-	var pcy := ptop + plh * 0.50                  # the plaque sprite (= wood face) centre
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 3)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -215,34 +217,6 @@ static func _reward_plaque(w: float, h: float) -> Control:
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return panel
-
-# A CLEAR drawn speech bubble — a near-white round body (StyleBox, soft warm border + shadow) with a
-# tail off the lower-left pointing back at the character. The painted box's own bubble reads too faint
-# at board size, so the giver draws this on top of it; the caller drops the big item inside.
-static func _speech_bubble(d: float) -> Control:
-	var bubble := Control.new()
-	bubble.custom_minimum_size = Vector2(d, d)
-	bubble.size = Vector2(d, d)
-	bubble.mouse_filter = Control.MOUSE_FILTER_STOP
-	var body := Panel.new()
-	body.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FFFDF6")
-	sb.set_corner_radius_all(int(d * 0.46))
-	sb.set_border_width_all(maxi(2, int(d * 0.03)))
-	sb.border_color = Color("#C9A66B")
-	sb.shadow_color = Color(0, 0, 0, 0.20)
-	sb.shadow_size = 4
-	sb.shadow_offset = Vector2(0, 2)
-	body.add_theme_stylebox_override("panel", sb)
-	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bubble.add_child(body)
-	# the tail — drawn ON TOP of the body so it bridges the bottom border, tip extending toward the giver
-	var tail := Polygon2D.new()
-	tail.polygon = PackedVector2Array([Vector2(d * 0.18, d * 0.78), Vector2(d * 0.46, d * 0.80), Vector2(d * 0.02, d * 1.06)])
-	tail.color = Color("#FFFDF6")
-	bubble.add_child(tail)
-	return bubble
 
 # AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
 # border + shadow), anchored to center on its parent's x and grow both ways.
