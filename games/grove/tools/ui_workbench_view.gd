@@ -274,19 +274,12 @@ func _make_element(id: String) -> Control:
 			# the shared small card in a chosen preview state (incl. a shop pack). Rendered at 2× (bigger
 			# cell + fonts; the icons scale with cell_w) — a preview ZOOM so the small card is comfortable
 			# to edit. The real daily/shop dialogs still use the saved (smaller) size.
+			# a preview ZOOM: only the cell SIZE is enlarged — every content size + offset scales from cell_w
+			# inside daily_card, so the zoomed preview shows the EXACT proportions the dialog will.
 			var co := Kit.daily_card_opts_from_config(_params)
 			var z := 2.0
 			co["cell_w"] = float(co["cell_w"]) * z
 			co["cell_h"] = float(co["cell_h"]) * z
-			co["cell_font"] = int(15 * z)
-			co["claim_font"] = int(15 * z)
-			co["count_font"] = int(17 * z)
-			co["label_y"] = float(co.get("label_y", 12)) * z   # the position knobs scale with the zoom too
-			co["claim_y"] = float(co.get("claim_y", 14)) * z
-			co["label_x"] = float(co.get("label_x", 0)) * z
-			co["ribbon_x"] = float(co.get("ribbon_x", 0)) * z
-			co["ribbon_y"] = float(co.get("ribbon_y", -10)) * z
-			co["ribbon_scale"] = float(co.get("ribbon_scale", 1.0)) * z   # ribbon matches the 2× card zoom
 			var day := _daily_preview_day(String(p.preview))
 			if String(p.ribbon) != "":
 				day["ribbon"] = String(p.ribbon)

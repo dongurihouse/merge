@@ -1137,8 +1137,15 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(inner)
-	var label_y: float = float(opts.get("label_y", 12.0))
-	var claim_y: float = float(opts.get("claim_y", 14.0))
+	# ONE uniform content scale (design reference = 160px wide): the icon, every font, the ribbon, the
+	# button AND the position offsets all scale TOGETHER with the card, so the proportions stay CONSTANT as
+	# the dialog grows — no more small text/icon stranded in a big card (everything was capped before).
+	var s: float = cw / 160.0
+	var label_font := maxi(8, int(18.0 * s))
+	var count_font := maxi(8, int(21.0 * s))
+	var claim_font := maxi(8, int(18.0 * s))
+	var label_y: float = float(opts.get("label_y", 12.0)) * s
+	var claim_y: float = float(opts.get("claim_y", 14.0)) * s
 
 	# the main content — the mystery chest · a reward icon (daily) · or a big icon(+count) (shop) — sits
 	# DEAD CENTRE of the card (a full-rect CenterContainer), independent of the label/action positions.
@@ -1147,20 +1154,20 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(center)
 	if milestone:
-		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.52))
+		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.56))
 	elif d.has("reward"):
-		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.52))   # icon a touch bigger (no number)
+		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56))   # icon a touch bigger (no number)
 	elif d.has("icon"):
 		var ic_col := VBoxContainer.new()
 		ic_col.alignment = BoxContainer.ALIGNMENT_CENTER
-		ic_col.add_theme_constant_override("separation", 2)
+		ic_col.add_theme_constant_override("separation", int(2.0 * s))
 		ic_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ic_col.add_child(make_icon(String(d.icon), cw * 0.48))
+		ic_col.add_child(make_icon(String(d.icon), cw * 0.52))
 		if int(d.get("count", 0)) > 0:
 			var cn := Label.new()
 			cn.text = str(int(d.count))
 			cn.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			cn.add_theme_font_size_override("font_size", int(opts.get("count_font", 17)))
+			cn.add_theme_font_size_override("font_size", count_font)
 			cn.add_theme_color_override("font_color", Pal.INK)
 			cn.add_theme_constant_override("outline_size", 0)
 			cn.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1172,13 +1179,13 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var dl := Label.new()
 		dl.text = String(d.get("label", "Day %d" % int(d.get("day", 1))))
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		var label_x: float = float(opts.get("label_x", 0.0))   # text H nudge (slider)
+		var label_x: float = float(opts.get("label_x", 0.0)) * s   # text H nudge (slider), scaled with the card
 		dl.anchor_left = 0.0; dl.anchor_right = 1.0
 		dl.anchor_top = 0.0; dl.anchor_bottom = 0.0
 		dl.offset_left = label_x; dl.offset_right = label_x
 		dl.offset_top = label_y; dl.offset_bottom = label_y
 		dl.grow_vertical = Control.GROW_DIRECTION_END
-		dl.add_theme_font_size_override("font_size", int(opts.get("cell_font", 15)))
+		dl.add_theme_font_size_override("font_size", label_font)
 		dl.add_theme_color_override("font_color", Pal.INK if state != "today" else Pal.LEAF.darkened(0.15))
 		dl.add_theme_constant_override("outline_size", 0)
 		dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1198,7 +1205,8 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if act_text != "":
 		var co := btn_opts.duplicate()
 		co["bg"] = "green"; co["text"] = act_text; co["icon"] = act_icon
-		co["font"] = int(opts.get("claim_font", 15))
+		co["font"] = claim_font
+		co["icon_size"] = int(claim_font + 8 * s)   # the currency glyph scales with the button font too
 		var btn := pill_button(act_text, co)
 		if act_cb.is_valid():
 			btn.pressed.connect(func() -> void: act_cb.call())
@@ -1219,11 +1227,12 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# the optional INFO icon — a small "i" disc pinned to the TOP-RIGHT corner (a togglable design knob)
 	if bool(opts.get("info_icon", false)):
 		var ip: float = maxf(14.0, cw * 0.2)
+		var im: float = 6.0 * s                       # corner margin scales with the card too
 		var info := _kit_sprite("shared/icon_question.png", ip)
 		info.anchor_left = 1.0; info.anchor_right = 1.0
 		info.anchor_top = 0.0; info.anchor_bottom = 0.0
-		info.offset_left = -(ip + 6.0); info.offset_right = -6.0
-		info.offset_top = 6.0; info.offset_bottom = 6.0 + ip
+		info.offset_left = -(ip + im); info.offset_right = -im
+		info.offset_top = im; info.offset_bottom = im + ip
 		inner.add_child(info)
 
 	_apply_day_badge(panel, badge)   # the configurable rim/glow on today + milestone cards
@@ -1244,16 +1253,17 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
 	outer.add_child(panel)
 	if ribbon != "":
-		var rb := _ribbon_badge(ribbon, float(opts.get("ribbon_scale", 1.0)))
+		# the ribbon scales with the card too (× s), so it keeps the SAME proportion to the text/icon/button
+		var rb := _ribbon_badge(ribbon, s * float(opts.get("ribbon_scale", 1.0)))
 		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		rb.anchor_left = 0.5; rb.anchor_right = 0.5
 		rb.anchor_top = 0.0; rb.anchor_bottom = 0.0
 		rb.grow_horizontal = Control.GROW_DIRECTION_BOTH
 		rb.grow_vertical = Control.GROW_DIRECTION_BOTH
-		rb.offset_left = float(opts.get("ribbon_x", 0.0))    # H nudge (slider)
-		rb.offset_right = float(opts.get("ribbon_x", 0.0))
-		rb.offset_top = float(opts.get("ribbon_y", -10.0))   # rides over the top edge, ON TOP of the border
-		outer.add_child(rb)                                  # added AFTER the panel → drawn on top
+		rb.offset_left = float(opts.get("ribbon_x", 0.0)) * s    # H nudge (slider), scaled with the card
+		rb.offset_right = float(opts.get("ribbon_x", 0.0)) * s
+		rb.offset_top = float(opts.get("ribbon_y", -10.0)) * s   # rides over the top edge, ON TOP of the border
+		outer.add_child(rb)                                      # added AFTER the panel → drawn on top
 	return outer
 
 ## The POPULAR ribbon — a small merchandising tag ("Popular" / "Best value" / …). The red shop_tag art
@@ -1335,13 +1345,7 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 	var co := opts.duplicate()
 	co["cell_w"] = cw
 	co["cell_h"] = cw * aspect
-	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
-	# The action button (Claim / buy price) is the SAME shared pill_button as the mail Claim, driven by
-	# the SAME saved btn opts (art / shadow / font). Its font is the SAVED button font — only capped DOWN
-	# to fit the narrow cell, so the saved style flows here too and never overflows the 1/cols column.
-	var btn_font := int((opts.get("btn", {}) as Dictionary).get("font", 22))
-	co["claim_font"] = clampi(mini(btn_font, int(cw * 0.16)), 9, 22)
-	co["count_font"] = clampi(int(cw * 0.18), 10, 24)
+	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1444,10 +1448,7 @@ static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> C
 	var co := opts.duplicate()
 	co["cell_w"] = cw
 	co["cell_h"] = cw * aspect      # keep the card's aspect ratio when it shrinks to fit cols across
-	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
-	var btn_font := int((opts.get("btn", {}) as Dictionary).get("font", 22))
-	co["claim_font"] = clampi(mini(btn_font, int(cw * 0.16)), 9, 22)
-	co["count_font"] = clampi(int(cw * 0.18), 10, 24)
+	# (the card's fonts / icon / ribbon all scale from cell_w inside daily_card — uniform proportions)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", row_gap)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
