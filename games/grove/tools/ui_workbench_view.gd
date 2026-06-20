@@ -14,13 +14,13 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 
-const IDS := ["button", "home_button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
+const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "frame", "dialog", "daily", "shop"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["button", "icon"], ["card"], ["daily_card"], ["frame"]],   # the building blocks
+	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["frame"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"]],                                            # every dialog, one column
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -42,6 +42,7 @@ const TEST_KEYS := {
 	# The previewed icon, caption text + sparkle toggle are test props — each call site sets its own.
 	"home_button": ["icon", "caption", "sparkle"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
+	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon"],   # preview state + ribbon are workbench-only viewing toggles
 	"frame": ["snap"],                     # snap is the drag-grid helper, not a saved design value
@@ -53,6 +54,7 @@ const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
+	"badge": "Badge — disc shell (raw vs polished)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"frame": "Dialog frame — shared chrome",
@@ -63,12 +65,14 @@ const CAPTIONS := {
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
-	# caption_font / caption_gap / glow / twinkle + the icon polish (defringe/shadow/feather) are the saved
-	# STYLE; icon / caption / sparkle preview it.
+	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
+	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "glow": 45, "twinkle": 55,
-		"defringe": true, "shadow": false, "feather": 2,
 		"icon": "gift", "caption": "Daily", "sparkle": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
+	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
+	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
+	"badge": {"defringe": false, "shadow": false, "feather": 0},
 	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
 	# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
 	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
@@ -211,7 +215,8 @@ func _make_element(id: String) -> Control:
 			# Two variants side by side: nav-style (no caption / no sparkle) and rail-style (caption + the
 			# tuned sparkle), so the configurable parts read at a glance. A bottom margin gives the caption
 			# tab room (it overflows below the disc, exactly as it does on the rail).
-			var ho := Kit.home_button_opts_from_config({"home_button": p})
+			# include the BADGE item's polish so the home button reflects it LIVE (the same link the game uses)
+			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"]})
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false}, ho))
@@ -225,6 +230,14 @@ func _make_element(id: String) -> Control:
 			box.add_theme_constant_override("separation", 28)
 			box.add_child(_icon_preview("Raw", {"defringe": false, "feather": 0.0, "supersample": 1}))
 			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample), "shadow": bool(p.shadow)}))
+			return box
+		"badge":
+			# the home button's disc shell as its own polish sandbox — raw vs the tuned defringe/feather/shadow.
+			# The home button reads these same params, so editing here updates the home button live.
+			var box := HBoxContainer.new()
+			box.add_theme_constant_override("separation", 28)
+			box.add_child(_badge_preview("Raw", {}))
+			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "shadow": bool(p.shadow)}))
 			return box
 		"card":
 			# the Claim inherits the shared Button's STYLE, but the card picks its OWN (saved) badge
@@ -320,6 +333,24 @@ func _icon_preview(label: String, opts: Dictionary) -> Control:
 	if not _icon_cache.has(key):
 		_icon_cache[key] = Kit.polish_icon_tex("gem", opts)
 	tr.texture = _icon_cache[key]
+	v.add_child(tr)
+	return v
+
+## One labelled badge (disc-shell) preview (raw or polished) for the Badge element — the SAME shell the
+## home button uses, polished by the SAME kit transform, so what you see here is what the rail/nav get.
+func _badge_preview(label: String, polish: Dictionary) -> Control:
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 6)
+	var l := Label.new()
+	l.text = label
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.8))
+	v.add_child(l)
+	var tr := TextureRect.new()
+	tr.custom_minimum_size = Vector2(170, 170)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
 	v.add_child(tr)
 	return v
 
@@ -589,10 +620,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # icon as % of the disc
 			_sidebar_body.add_child(_slider_row(["caption_font", 14, 34]))
 			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
-			_section_header("Icon polish (like the Icon sandbox)")
-			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
-			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
-			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
@@ -616,6 +643,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 			_sidebar_body.add_child(_slider_row(["supersample", 1, 4]))
+		"badge":
+			_group_header("Saved to config", true)           # the disc-shell polish; the home button reads it live
+			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
+			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
+			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 		"frame":
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":

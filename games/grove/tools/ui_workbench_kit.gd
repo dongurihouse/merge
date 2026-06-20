@@ -128,25 +128,25 @@ static func make_icon(id: String, px: float) -> Control:
 		return t
 	return Look.icon(id, px)               # glyph fallback when no sprite
 
-## make_icon, but with explicit, aspect-PRESERVING edge polish (defringe / feather / shadow / supersample)
-## — so the home button can tune its icon's polish the way the Icon sandbox does, WITHOUT distorting a
-## non-square icon (a tall faucet, a wide mail). Falls back to the default make_icon when the sprite is
-## a currency/glyph id the resolver can't path. opts keys: defringe (bool), feather (px), shadow (bool),
-## supersample (1-4) + the add_drop_shadow knobs.
-static func make_icon_ex(id: String, px: float, opts: Dictionary = {}) -> Control:
-	var p := _icon_path(id)
-	if p == "":
-		return make_icon(id, px)
-	var img := (load(p) as Texture2D).get_image()
+## The home button's BADGE (disc shell) as a texture, with its own tunable edge polish — the standalone
+## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
+## badge tweak flows to the rail + nav automatically. No polish → the raw (already-clean) shell sprite.
+## `polish` keys: defringe (bool), feather (px), shadow (bool) + the add_drop_shadow knobs.
+static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
+	var path := Look.kit(rel)
+	if rel == "" or not ResourceLoader.exists(path):
+		return null
+	var defr := bool(polish.get("defringe", false))
+	var feat := float(polish.get("feather", 0.0))
+	var shad := bool(polish.get("shadow", false))
+	if not defr and feat <= 0.0 and not shad:
+		return load(path)                       # untouched → the raw shell (already cleaned at intake)
+	var img := (load(path) as Texture2D).get_image()
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
-	var t := TextureRect.new()
-	t.texture = ImageTexture.create_from_image(_polish_icon_aspect(img, opts))
-	t.custom_minimum_size = Vector2(px, px)
-	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return t
+	var o := polish.duplicate()
+	o["defringe"] = defr; o["feather"] = feat; o["shadow"] = shad; o["supersample"] = 1
+	return ImageTexture.create_from_image(_polish_icon_aspect(img, o))
 
 ## Aspect-preserving icon polish (vs polish_image, which forces a SQUARE canvas): cap the working
 ## resolution keeping aspect, then defringe / feather / optional drop-shadow. Lets a tall or wide icon
@@ -600,8 +600,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	# the disc shell: the cream/gold sprite scaled WHOLE (a round disc 9-slices badly at its corners),
 	# or a flat code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
 	var shell_rel := String(opts.get("shell", HOME_SHELL))
-	var shell_path := Look.kit(shell_rel)
-	var shell: Texture2D = load(shell_path) if (shell_rel != "" and ResourceLoader.exists(shell_path)) else null
+	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
 	for st_name in ["normal", "hover", "pressed", "disabled"]:
 		if shell != null:
 			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
@@ -624,16 +623,12 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		var tw: float = float(opts.get("twinkle", 0.0))
 		if glow > 0.0 or tw > 0.0:
 			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
-	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface), with
-	# the tunable edge polish (defringe / feather / shadow — same recipe as the Icon sandbox).
+	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface). The icon
+	# gets the SHARED global polish (make_icon → _icon_tex's defringe + feather) — its own clean recipe.
 	var icwrap := CenterContainer.new()
 	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icwrap.add_child(make_icon_ex(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5)), {
-		"defringe": bool(opts.get("defringe", true)),
-		"feather": float(opts.get("feather", 2.0)),
-		"shadow": bool(opts.get("shadow", false)),
-	}))
+	icwrap.add_child(make_icon(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5))))
 	b.add_child(icwrap)
 	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 	var caption := String(spec.get("caption", ""))
@@ -1177,9 +1172,10 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var dl := Label.new()
 		dl.text = String(d.get("label", "Day %d" % int(d.get("day", 1))))
 		dl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var label_x: float = float(opts.get("label_x", 0.0))   # text H nudge (slider)
 		dl.anchor_left = 0.0; dl.anchor_right = 1.0
 		dl.anchor_top = 0.0; dl.anchor_bottom = 0.0
-		dl.offset_left = 0.0; dl.offset_right = 0.0
+		dl.offset_left = label_x; dl.offset_right = label_x
 		dl.offset_top = label_y; dl.offset_bottom = label_y
 		dl.grow_vertical = Control.GROW_DIRECTION_END
 		dl.add_theme_font_size_override("font_size", int(opts.get("cell_font", 15)))
@@ -1591,6 +1587,16 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
+## The badge (disc-shell) edge polish from config — the standalone Badge item's defringe / feather /
+## shadow. The home button's shell reads this, so a Badge tweak flows to the rail + nav automatically.
+static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
+	var b: Dictionary = cfg.get("badge", {})
+	return {
+		"defringe": bool(b.get("defringe", false)),
+		"feather": float(b.get("feather", 0)),
+		"shadow": bool(b.get("shadow", false)),
+	}
+
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
 ## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here
 ## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
@@ -1604,10 +1610,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"caption_gap": float(h.get("caption_gap", 4)),
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
-		# the icon's edge polish (same recipe as the Icon sandbox), defaulting to the old clean look
-		"defringe": bool(h.get("defringe", true)),
-		"shadow": bool(h.get("shadow", false)),
-		"feather": float(h.get("feather", 2)),
+		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

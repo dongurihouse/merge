@@ -56,16 +56,18 @@
 		"list_top_pad": 0.0,
 		"width": 720.0
 	},
+	"badge": {
+		"defringe": false,
+		"shadow": false,
+		"feather": 0
+	},
 	"home_button": {
 		"px": 140,
 		"icon_scale": 50,
 		"caption_font": 22,
 		"caption_gap": 4,
 		"glow": 45,
-		"twinkle": 55,
-		"defringe": true,
-		"shadow": false,
-		"feather": 2
+		"twinkle": 55
 	},
 	"icon": {
 
