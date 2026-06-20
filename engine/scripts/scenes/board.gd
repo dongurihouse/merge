@@ -850,6 +850,11 @@ func _giver_is_payable(e: Dictionary) -> bool:
 	var met: Control = item.get("met")
 	if met != null and is_instance_valid(met):
 		met.visible = met_ok
+	# the ask-bubble's "N/1" count tracks the same single source of truth as the ✓.
+	var count: Label = item.get("count")
+	if count != null and is_instance_valid(count):
+		count.text = "1/1" if met_ok else "0/1"
+		count.add_theme_color_override("font_color", Color("#4E7C46") if met_ok else Pal.INK)
 	return met_ok
 
 func _refresh_giver_lights() -> void:

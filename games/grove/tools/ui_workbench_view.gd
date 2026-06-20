@@ -12,18 +12,19 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
+const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault"]
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
+	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["quest_card"], ["frame"], ["progress_bar"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"], ["vault"]],   # dialogs, the HUD wallet pill, settings, vault
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
@@ -82,6 +83,10 @@ const TEST_KEYS := {
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/stars_left just preview the card (the game sets each from map state).
 	"map_card": ["open", "done", "stars_left"],
+	# the quest-giver card — its LOOK is the painted card art + the layout fractions baked in
+	# giver_stand.gd, so NOTHING here is saved config: every knob just previews the live card
+	# (which bust, the asked tier, the reward, the size the board gives it, and the ready state).
+	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 }
@@ -97,6 +102,7 @@ const CAPTIONS := {
 	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
 	"toggle_card": "Toggle card — label + switch",
 	"map_card": "Map card — place-picker (gold frame / locked panel)",
+	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
@@ -163,6 +169,11 @@ var _params := {
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "stars_left": 3},
+	# the QUEST-GIVER card (giver_stand.gd) — the painted vertical card + the live portrait / ask-bubble /
+	# plaque reward the board draws on it. Nothing is saved: bust picks which of giver_0..2 sits in the
+	# field; tier is the asked item's tier (the demo item is always the Wildflower line); stars is the
+	# reward on the plaque; stand_w/fence_h preview the size the board hands it; met toggles the ready ✓.
+	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 240, "fence_h": 360, "met": false},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -441,6 +452,32 @@ func _make_element(id: String) -> Control:
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "stars_left": int(p.stars_left),
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
+		"quest_card":
+			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls.
+			# Demo data: the Wildflower line at the chosen tier + a flat star reward. The taps are no-ops
+			# here (no board to deliver to); stand_w/fence_h preview the size the fence hands each card.
+			var demo_q := {"line": 1, "tier": int(p.tier), "reward": {"stars": int(p.stars)}}
+			var noop2 := func(_a: Variant, _b: Variant) -> void: pass
+			var qcfg := {
+				"ask_tap": noop2, "stand_tap": noop2,
+				"wire_tap": func(node: Control, action: Callable) -> void:
+					node.gui_input.connect(func(ev: InputEvent) -> void:
+						if ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
+							action.call()),
+				"stand_w": float(p.stand_w), "fence_h": float(p.fence_h),
+			}
+			var made := GiverStand.make(int(p.bust), demo_q, qcfg)
+			var stand: Control = made.chip
+			if bool(p.met):                       # preview the ready state (the board drives this live)
+				var item: Dictionary = made.item
+				var met: Control = item.get("met")
+				if met != null and is_instance_valid(met):
+					met.visible = true
+				var cnt: Label = item.get("count")
+				if cnt != null and is_instance_valid(cnt):
+					cnt.text = "1/1"
+					cnt.add_theme_color_override("font_color", Color("#4E7C46"))
+			return stand
 		"tiers":
 			# the SHARED frame in TIERS chrome (twig border + ladder ribbon, NO vines) + the tier-cell grid
 			var topts := Kit.tiers_opts_from_config(_params)
@@ -1116,6 +1153,17 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
+		"quest_card":
+			# nothing here is saved — the card's look is the painted art + giver_stand's baked layout.
+			# These knobs only preview the live card: which bust, the asked tier, the reward, the size the
+			# board hands it, and the ready ✓ (the board drives that from the player's board live).
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["bust", 0, 2]))           # which of giver_0..2 sits in the field
+			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier (Wildflower line)
+			_sidebar_body.add_child(_slider_row(["stars", 1, 99]))         # the +N reward on the plaque
+			_sidebar_body.add_child(_slider_row(["stand_w", 120, 360]))    # the stand width the fence gives each card
+			_sidebar_body.add_child(_slider_row(["fence_h", 180, 460]))    # the fence band height (card is height-bound)
+			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:
