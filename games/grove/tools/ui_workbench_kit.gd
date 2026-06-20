@@ -134,7 +134,7 @@ const DEMO_DAILY := [
 # Demo discovery ladder (12 tiers) for the workbench preview — same shape the game builds from a line's
 # Quests.ladder_entries: {tier, seen, marked, icon|node}. A SEEN tier shows its content (here a stand-in
 # icon; the game passes a real merge-piece node), an UNSEEN tier the baked "?" cell, one tier is marked
-# (the tapped/asked tier, gold-ring cell). Discovered up to tier 6, the rest still "?", mirroring tiers.png.
+# (the tapped/asked tier — flagged by the sparkle, not a bigger cell). Discovered up to tier 6, mirroring tiers.png.
 const DEMO_TIERS := [
 	{"tier": 1, "seen": true, "icon": "leaf"},
 	{"tier": 2, "seen": true, "icon": "leaf"},
@@ -1308,6 +1308,7 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 const FRAME_BORDERS := {
 	"parchment":  {"art": "kit/panel_parchment_v2.png", "slice": 48.0, "pad_x": 26.0, "pad_y": 24.0},
 	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
+	"twig board": {"art": "kit/tiers_panel.png",        "slice": 72.0, "pad_x": 44.0, "pad_y": 30.0},
 }
 
 ## Resolve a border NAME to its {art, slice, pad_x, pad_y} record (unknown → parchment, so a stale
@@ -2224,12 +2225,14 @@ static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {
 	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
 ## --- the discovery (tier-ladder) card + dialog ------------------------------------------------------
-## One TIER CELL — the discovery board's tile. State picks the baked cell art: marked → the gold-ring
-## cell, seen → the filled cell, unseen → the "?" cell (which bakes its own glyph). A seen tier shows its
-## content (a pre-built `node` Control from the game's piece view, or a stand-in `icon` for the preview);
-## the tier number sits top-left. Square by default, code-drawn fallback when the cell art is absent.
-## d keys: tier, seen, marked, icon|node. opts: cell_w/h, cell_slice, cell_art, num_font, num_x, num_y,
-## piece_frac, sel_overflow.
+## One TIER CELL — the discovery board's tile. The face is the SAME baked cell for every state, so the
+## three states share an identical footprint (seen → the filled cell, unseen → the "?" cell which bakes
+## its own glyph; a MARKED tier reuses the filled cell + the engine-drawn SPARKLE the home buttons use —
+## NO bespoke gold-ring sprite, which cut badly and rendered larger than the rest). A seen tier shows its
+## content (a pre-built `node` from the game's piece view, or a stand-in `icon` for the preview); the tier
+## number rides a small badge top-left. Square by default, code-drawn fallback when the cell art is absent.
+## d keys: tier, seen, marked, icon|node. opts: cell_w/h, cell_art, num_font, num_x, num_y, piece_frac,
+## mark_glow, mark_twinkle, num_badge, num_badge_scale.
 static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cw: float = float(opts.get("cell_w", 150.0))
 	var ch: float = float(opts.get("cell_h", 150.0))
@@ -2242,19 +2245,18 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.clip_contents = false
 
-	# the tile face: marked → gold-ring cell · discovered → filled cell · unseen → the baked "?" cell.
-	var art := "kit/tiers_cell_sel.png" if marked else ("kit/tiers_cell_filled.png" if seen else "kit/tiers_cell_q.png")
+	# the tile face — the SAME baked cell whether or not the tier is marked: filled when discovered, else
+	# the "?" cell (which bakes its own glyph). Marked is a pure overlay (the sparkle below), so it never
+	# swaps the art or changes the footprint. Drawn to FILL the exact rect so every state shares a footprint.
+	var art := "kit/tiers_cell_filled.png" if seen else "kit/tiers_cell_q.png"
 	var use_art: bool = bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
 	if use_art:
 		var face := TextureRect.new()
 		face.texture = clean_tex_path(Look.kit(art), 256)
 		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		face.stretch_mode = TextureRect.STRETCH_SCALE      # fill the rect 1:1 → identical footprint every state
 		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var over: float = float(opts.get("sel_overflow", 1.0)) if marked else 1.0   # let the gold ring spill if asked
-		var pad := cw * (over - 1.0) / 2.0
-		face.position = Vector2(-pad, -pad)
-		face.size = Vector2(cw * over, ch * over)
+		face.set_anchors_preset(Control.PRESET_FULL_RECT)  # follow the holder so a later grid resize never desyncs
 		holder.add_child(face)
 	else:                                              # code-drawn fallback (same metrics)
 		var p := Panel.new()
@@ -2262,16 +2264,25 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var ss := StyleBoxFlat.new()
 		ss.bg_color = Color(Pal.GROUND, 0.18) if seen else Color(Pal.GROUND_EDGE, 0.16)
 		ss.set_corner_radius_all(22)
-		ss.set_border_width_all(5 if marked else 2)
-		ss.border_color = Pal.STRAW if marked else Color(Pal.GROUND_EDGE, 0.35)
+		ss.set_border_width_all(2)
+		ss.border_color = Color(Pal.GROUND_EDGE, 0.35)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		p.add_theme_stylebox_override("panel", ss)
 		holder.add_child(p)
 
+	# the MARKED tier's flag — the SAME engine-drawn sparkle the home / home-unlock buttons use (a soft
+	# breathing glow + drifting twinkles, no baked FX), sitting over the cell and under the piece. It never
+	# changes the cell's footprint (it's an overlay), so marked stays the same size as every other state.
+	if marked:
+		var glow: float = float(opts.get("mark_glow", 0.6))
+		var twinkle: float = float(opts.get("mark_twinkle", 0.5))
+		if glow > 0.0 or twinkle > 0.0:
+			holder.add_child(_sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false))))
+
 	# the content: a discovered piece, centred. A SEEN tile shows (in priority) a kit-built node from the
 	# game's `make_content` callable (sized to the kit-computed cell, so the game stays out of layout), or a
 	# pre-built `node` Control, or a stand-in `icon` (the workbench preview). An unseen "?" cell bakes its
-	# own glyph, so only a marked-yet-unseen tile (the gold ring on an undiscovered tier) draws a "?".
+	# own glyph (the cell art), so an undiscovered tier — marked or not — draws no content of its own.
 	var frac: float = float(opts.get("piece_frac", 0.62))
 	var mk: Callable = opts.get("make_content", Callable())
 	var content: Control = null
@@ -2281,13 +2292,6 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		content = d.get("node")
 	elif seen and String(d.get("icon", "")) != "":
 		content = make_icon(String(d.icon), cw * frac)
-	elif marked and not seen:
-		var q := Label.new()
-		q.text = "?"
-		q.add_theme_font_size_override("font_size", int(cw * 0.42))
-		q.add_theme_color_override("font_color", Color(Pal.BARK, 0.7))
-		q.add_theme_constant_override("outline_size", 0)
-		content = q
 	if content != null:
 		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var cwrap := CenterContainer.new()
@@ -2296,17 +2300,47 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		cwrap.add_child(content)
 		holder.add_child(cwrap)
 
-	# the tier number, top-left (a dark numeral with a thin cream halo so it reads on the warm tile).
+	# the tier number, top-left. By default it rides a small cost-disc BADGE (the home-unlock shell sprite,
+	# reused as a plate — not the button) so the numeral reads as a deliberate medallion; the engraved brown
+	# ink matches that disc. num_badge off → the old bare numeral with a thin cream halo.
 	if bool(opts.get("show_num", true)):
 		var num := Label.new()
 		num.text = str(int(d.get("tier", 0)))
-		num.position = Vector2(cw * float(opts.get("num_x", 0.11)), ch * float(opts.get("num_y", 0.05)))
 		num.add_theme_font_size_override("font_size", int(opts.get("num_font", 26)))
-		num.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
-		num.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.9))
-		num.add_theme_constant_override("outline_size", 5)
+		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(num)
+		var nx: float = cw * float(opts.get("num_x", 0.11))
+		var ny: float = ch * float(opts.get("num_y", 0.05))
+		# raw load (NOT clean_tex_path) — the cost disc is already clean art and the round shell 9-slices/
+		# polishes no better baked, matching home_unlock_button. Keeps it out of the dialogs' bake set.
+		var badge_path := Look.kit(HOME_UNLOCK_SHELL)
+		var badge_tex: Texture2D = load(badge_path) if (bool(opts.get("num_badge", true)) and ResourceLoader.exists(badge_path)) else null
+		if badge_tex != null:
+			var bd: float = float(opts.get("num_font", 26)) * float(opts.get("num_badge_scale", 2.0))
+			var medal := Control.new()
+			medal.custom_minimum_size = Vector2(bd, bd)
+			medal.size = Vector2(bd, bd)
+			medal.position = Vector2(nx, ny)
+			medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var disc := TextureRect.new()
+			disc.texture = badge_tex
+			disc.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			disc.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			disc.set_anchors_preset(Control.PRESET_FULL_RECT)
+			disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			medal.add_child(disc)
+			num.add_theme_color_override("font_color", HOME_UNLOCK_INK)   # the disc's engraved brown
+			num.add_theme_constant_override("outline_size", 0)
+			num.set_anchors_preset(Control.PRESET_FULL_RECT)
+			medal.add_child(num)
+			holder.add_child(medal)
+		else:
+			num.position = Vector2(nx, ny)
+			num.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+			num.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.9))
+			num.add_theme_constant_override("outline_size", 5)
+			holder.add_child(num)
 	return holder
 
 ## A GRID of tier cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
@@ -2315,8 +2349,12 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Control:
 	var cols: int = maxi(1, int(opts.get("cols", 3)))
 	var gap: int = int(opts.get("cell_gap", 16))
-	var inset: float = float(opts.get("grid_inset", 56.0))     # the bark border eats into the content width
-	var cw: float = maxf(48.0, (width - inset - (cols - 1) * gap) / float(cols))
+	# the cells fill the panel's INNER width — the card width minus the border's content padding on BOTH
+	# sides. Deriving it from the REAL padding (not a separate `grid_inset` guess that drifted from it) is
+	# what keeps the right column from spilling past the border when cols / cell size / padding change.
+	var pad: float = float(opts.get("panel_pad_x", 44.0))
+	var avail: float = maxf(48.0, width - 2.0 * pad)
+	var cw: float = maxf(40.0, (avail - (cols - 1) * gap) / float(cols))
 	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 150.0)))
 	var co := opts.duplicate()
 	co["cell_w"] = cw
@@ -2339,20 +2377,23 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 				made.append(c)
 		content.add_child(r)
 		i += cols
+	# re-derive from the ACTUAL laid-out width (covers the responsive width_pct), with a sub-pixel safety so
+	# rounding never pushes the right column past the border. The face follows (it fills the holder), so the
+	# cell art tracks this too.
 	var fit := func() -> void:
 		if not is_instance_valid(content):
 			return
-		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
+		var cwf := maxf(40.0, (content.size.x - (cols - 1) * gap) / float(cols) - 0.5)
 		for c in made:
 			if is_instance_valid(c):
-				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
+				(c as Control).custom_minimum_size = Vector2(cwf, cwf * aspect)
 	content.resized.connect(fit)
 	fit.call_deferred()
 	return content
 
-## The DISCOVERY dialog — the shared frame dressed in the TIERS chrome (twig border, gold ladder ribbon,
-## its own ✕ disc) wrapping a plain grid of tier cells. Same frame mechanics as mail/daily/shop; only the
-## border art + the card differ, and there are NO vines (just the cards).
+## The DISCOVERY dialog — the SAME shared frame as mail/daily/shop, on a SELECTABLE border (opts.border,
+## default the twig board), with the gold ladder ribbon + its own ✕ riding on top, wrapping a plain grid
+## of tier cells. Only the border + banner/✕ chrome + the card differ; there are NO vines (just the cards).
 static func tiers_dialog(entries: Array, width: float = 620.0, opts: Dictionary = {}) -> Control:
 	return dialog_frame(_tiers_grid(entries, width, opts), width, opts)
 
@@ -2612,39 +2653,44 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return o
 
 ## The TIER-CELL opts from config — its own component (the discovery board's tile), read by both the card
-## preview and the discovery dialog. Fractional knobs (number position, content size, marked overflow) are
-## stored as PERCENTS for the integer sliders and divided here, mirroring ribbon_scale.
+## preview and the discovery dialog. Fractional knobs (number position, content size, sparkle amounts) are
+## stored as PERCENTS for the integer sliders and divided here, mirroring ribbon_scale. The MARKED tier is
+## flagged by the shared engine sparkle (mark_glow / mark_twinkle), not a bespoke cell — so every state
+## shares one footprint. The tier number rides the home-unlock cost disc as a badge (num_badge).
 static func tiers_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var tc: Dictionary = cfg.get("tiers_card", {})
 	return {
 		"cell_w": float(tc.get("cell_w", 150)),
 		"cell_h": float(tc.get("cell_h", 150)),
-		"cell_slice": float(tc.get("cell_slice", 40)),
 		"cell_art": bool(tc.get("cell_art", true)),
 		"show_num": bool(tc.get("show_num", true)),
 		"num_font": int(tc.get("num_font", 26)),
 		"num_x": float(tc.get("num_x", 11)) / 100.0,         # number inset from the tile's left (% of cell)
 		"num_y": float(tc.get("num_y", 5)) / 100.0,          # ...and from its top
+		"num_badge": bool(tc.get("num_badge", true)),        # the number rides the cost-disc badge
+		"num_badge_scale": float(tc.get("num_badge_scale", 200)) / 100.0,  # disc diameter as a multiple of the font
 		"piece_frac": float(tc.get("piece_frac", 62)) / 100.0,   # the content's size as a fraction of the cell
-		"sel_overflow": float(tc.get("sel_overflow", 100)) / 100.0,  # how far the marked cell's ring spills (100 = none)
+		"mark_glow": float(tc.get("mark_glow", 60)) / 100.0,     # the marked tier's sparkle glow (0 = off)
+		"mark_twinkle": float(tc.get("mark_twinkle", 50)) / 100.0,  # ...and its drifting twinkles (0 = off)
 	}
 
-## The full DISCOVERY-dialog opts: the shared frame dressed in the TIERS chrome (twig border + ladder
-## ribbon + its own ✕) built straight from the "tiers" config (NOT the parchment "frame" section — the bark
-## panel wants its own banner/padding), plus the tier card + the grid (cols, default 3). No vine knobs.
+## The full DISCOVERY-dialog opts: the SAME shared frame as every other dialog, with a selectable BORDER
+## (the `border` key drives panel_art + slice + padding through the FRAME_BORDERS registry — default the
+## "twig board"; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
+## chrome. The grid derives its width from the resolved border padding (so the right column never spills).
 static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var t: Dictionary = cfg.get("tiers", {})
+	var border_name: String = String(t.get("border", "twig board"))
+	var b: Dictionary = frame_border(border_name)
 	var o := {
-		# the TIERS chrome art — the only place the shared frame is dressed differently
-		"panel_art": "kit/tiers_panel.png",
+		# the BORDER is the shared registry choice — panel_art / slice / padding all resolve from it
+		"border": border_name,
+		"card_art": true,
+		"panel_pad_x": float(b.get("pad_x", 44)),   # passed through so the grid fills the SAME inner width
+		"panel_pad_y": float(b.get("pad_y", 30)),
+		# the ladder ribbon + ✕ disc stay the tiers chrome regardless of border
 		"banner_art": "kit/tiers_banner.png",
 		"close_art": "kit/tiers_close.png",
-		"card_art": true,
-		"card_slice_l": float(t.get("card_slice", 72)), "card_slice_t": float(t.get("card_slice", 72)),
-		"card_slice_r": float(t.get("card_slice", 72)), "card_slice_b": float(t.get("card_slice", 72)),
-		"card_h_stretch": 0, "card_v_stretch": 0,
-		"panel_pad_x": float(t.get("panel_pad_x", 44)),
-		"panel_pad_y": float(t.get("panel_pad_y", 30)),
 		# the gold ladder ribbon straddling the top edge (no separate banner icon — the reference is text-only).
 		# banner_h ≈ panel width × ribbon-aspect makes the aspect-locked ribbon span the panel with overhanging
 		# tails (like tiers.png), and banner_y lifts ~40% of it above the top edge.
@@ -2658,10 +2704,9 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# the ✕ disc docked past the top-right corner
 		"close_size": float(t.get("close_size", 84)),
 		"close_poke": Vector2(float(t.get("close_x", 4)), float(t.get("close_y", 16))),
-		# the grid (no vines): cols + the content cap / inset
+		# the grid (no vines): cols + the content cap
 		"cols": int(t.get("cols", 3)),
 		"cell_gap": int(t.get("cell_gap", 16)),
-		"grid_inset": float(t.get("grid_inset", 56)),
 		"list_top_pad": float(t.get("list_top_pad", 8)),
 		"list_max_h": float(t.get("list_max_h", 0)),
 	}
