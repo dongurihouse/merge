@@ -1,4 +1,4 @@
-// Tidy Up — browser-side generation helpers (CHATGPT-ONLY, user directive 2026-06-10).
+// Acorn Forest: Merge! — browser-side generation helpers (CHATGPT-ONLY, user directive 2026-06-10).
 //
 // USAGE (the agent must NOT hand-write inline JS for these steps — install this file, then one-liners):
 //   1. INSTALL once per page load:  Bash `cat games/tools/icon_gen_browser.js` → paste whole file into

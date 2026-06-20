@@ -33,6 +33,7 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Board off-thread so the garden CTA is snappy
+const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-boot phase timer — no-ops unless the Boot splash opened a trace
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
@@ -103,13 +104,17 @@ var _inbox_badge: Control = null  # Inbox rail badge — unread count (only buil
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
 
 func _ready() -> void:
+	# Boot trace (cold launch only): every begin/end here no-ops unless the Boot splash opened a
+	# trace, so a warm Board->Map open pays nothing and prints nothing. Supersedes the old [prof] prints.
+	BootTrace.begin("map.heal+fit")
 	_heal_capture_flags()
 	Design.fit_desktop_window()          # desktop: open at the design portrait aspect, monitor height
-	UiFont.apply()
-	Music.ensure()
+	BootTrace.end("map.heal+fit")
+	BootTrace.begin("map.font"); UiFont.apply(); BootTrace.end("map.font")
+	BootTrace.begin("map.music"); Music.ensure(); BootTrace.end("map.music")
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
 		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
-	_load_state()
+	BootTrace.begin("map.load_state"); _load_state(); BootTrace.end("map.load_state")
 
 	var sky := ColorRect.new()
 	sky.color = SKY
@@ -125,14 +130,16 @@ func _ready() -> void:
 
 	# the day's weather drifts over the MAP (calm mode wins inside); kept as a member so the
 	# place-picker can hide it — drifting leaves over a static chooser read as stray sprites.
+	BootTrace.begin("map.weather")
 	var g0 := Save.grove()
 	Ambient.check_winback(g0, Time.get_unix_time_from_system())
 	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
 	add_child(_weather)
+	BootTrace.end("map.weather")
 
-	_build_hud()
-	_build_chrome()
-	_update_hud()
+	BootTrace.begin("map.build_hud"); _build_hud(); BootTrace.end("map.build_hud")
+	BootTrace.begin("map.build_chrome"); _build_chrome(); BootTrace.end("map.build_chrome")
+	BootTrace.begin("map.update_hud"); _update_hud(); BootTrace.end("map.update_hud")
 
 	# Choose the initial view (still inside _ready = before the first draw):
 	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
@@ -176,6 +183,8 @@ func _ready() -> void:
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
 	SceneWarm.prewarm("res://engine/scenes/Board.tscn")   # warm the board off-thread while the player lingers on the map
+
+	BootTrace.done()                     # cold boot only: print the boot-phase timing table, then close the trace
 
 # The dev capture harness births its windows minimized + focusless via a
 # transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever inherits
@@ -295,11 +304,16 @@ func _build_map() -> void:
 	var home = G.MAPS[z].get("home", null)
 	var has_home := typeof(home) == TYPE_DICTIONARY
 	var home_dict: Dictionary = home if has_home else {}
+	BootTrace.begin("map.open.base")
 	var frame := _build_map_base(z, home_dict)   # §16 overgrown home base · the map's bg · or flat fallback
+	BootTrace.end("map.open.base")
 	# z-order parity with the pre-unify renderer (so the look is unchanged): a §16 home seats its reveals
 	# /badges UNDER the ambient wanderers + title plank; a cutout map seats its sprites OVER them.
+	BootTrace.begin("map.open.seat")
 	if has_home:
 		_seat_spots(z, home_dict, frame)
+	BootTrace.end("map.open.seat")
+	BootTrace.begin("map.open.ambient")
 	# ambient life + title — every map. On a COMPLETED map the wanderers ARE its residents (the §1
 	# population sub-game); an in-progress map keeps the baseline generic ambient.
 	var amb: Control
@@ -316,6 +330,7 @@ func _build_map() -> void:
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
 	if G.can_populate(z, unlocks, _gates()):
 		_add_welcome_panel(z)
+	BootTrace.end("map.open.ambient")
 	FX.pop_in(content)
 
 # Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).

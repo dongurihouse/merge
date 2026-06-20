@@ -1,4 +1,4 @@
-# Tidy Up (Donguri Merge) — common commands.
+# Acorn Forest: Merge! (Donguri Merge) — common commands.
 # Override the Godot binary if it isn't on PATH:  make test GODOT=/opt/homebrew/bin/godot
 GODOT   ?= godot
 PROJECT := .
@@ -9,7 +9,7 @@ RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timi
 # UI + economy/liveops suites are PARKED in the *_DISABLED vars below — they churn with rapid UI/
 # economy iteration and slow the loop without guarding stable code. To RE-ENABLE: move names back
 # from *_DISABLED into the active lists. See docs/BACKLOG.md "Re-enable the UI + economy test suites".
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/anchor_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/store_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/kit_polish_async_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/anchor_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/store_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/kit_polish_async_tests engine/tests/kit_bake_tests engine/tests/boot_trace_tests
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/spotlight_tests engine/tests/featured_tests engine/tests/palette_tests engine/tests/level_badge_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
@@ -20,7 +20,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench test test-fast test-engine test-grove test-one smoke import \
+.PHONY: help run run_debug run_grove editor workbench test test-fast test-engine test-grove test-one smoke import bake-textures \
         shot-map shot-grove shot shot-workbench \
         decor icon ios clean clean-cache intake intake-test
 
@@ -74,6 +74,10 @@ smoke: ## scene smoke test (instantiates the UI + board)
 
 ## --- assets ----------------------------------------------------------------
 import: ## (re)import assets after adding or changing art
+	$(GODOT) --headless --path $(PROJECT) --import
+
+bake-textures: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
+	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_textures.gd
 	$(GODOT) --headless --path $(PROJECT) --import
 
 intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): make intake [PLAN=path]

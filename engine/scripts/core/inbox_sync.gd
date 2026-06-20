@@ -26,7 +26,7 @@ const Inbox = preload("res://engine/scripts/core/inbox.gd")
 
 # TODO(server): point at the real endpoint once the backend is running. A plain HTTPS GET returning the
 # feed above — a static file on a CDN/bucket, or a dynamic Worker; the client contract is identical.
-const FEED_URL := "https://example.invalid/tidyup/mail/feed.json"
+const FEED_URL := "https://example.invalid/acornforest/mail/feed.json"
 const IDENTITY_PATH := "res://engine/scripts/core/identity.gd"
 const SYNC_TIMEOUT := 8.0
 

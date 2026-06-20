@@ -150,5 +150,8 @@ func _initialize() -> void:
 	_done()
 
 func _done() -> void:
+	# The Map scene prewarmed Board off-thread; we never navigated, so flush that load (else it
+	# leaks / crashes WorkerThreadPool teardown at exit — see scene_warm.gd::drain).
+	preload("res://engine/scripts/core/scene_warm.gd").drain()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

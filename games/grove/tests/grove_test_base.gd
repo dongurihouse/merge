@@ -13,6 +13,7 @@ const LoginUI = preload("res://engine/scripts/ui/login.gd")   # T44 — the dieg
 const Pal = preload("res://games/grove/grove_palette.gd")      # UI redesign — role tiers
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # UI redesign — board component builders
 const PieceViewScript = preload("res://engine/scripts/ui/piece_view.gd")  # UI redesign — locked-cell builder
+const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")  # flush prewarmed loads at teardown
 
 # Script handles shared across the split suites (were per-section locals).
 const Shop = preload("res://engine/scripts/ui/shop.gd")
@@ -151,6 +152,10 @@ func begin(title: String) -> void:
 	print("== %s ==" % title)
 
 func finish() -> void:
+	# Subtests that instantiate the Map/Board scenes prewarm the OTHER scene off-thread; we never
+	# navigate, so flush those loads (else they leak / crash WorkerThreadPool teardown at exit —
+	# see scene_warm.gd::drain). Harmless when nothing was prewarmed.
+	SceneWarm._clear()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
 

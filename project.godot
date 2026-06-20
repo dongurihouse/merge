@@ -10,11 +10,14 @@ config_version=5
 
 [application]
 
-config/name="Tidy Up"
-config/description="Cozy merge-and-tidy: combine clutter, clear the room, relax."
-run/main_scene="res://engine/scenes/Map.tscn"
+config/name="Acorn Forest: Merge!"
+config/description="A cozy merge-to-grow game: restore a fading spirit-forest, one acorn at a time."
+run/main_scene="res://engine/scenes/Boot.tscn"
 config/features=PackedStringArray("4.6", "Mobile")
 config/icon="res://icon.png"
+boot_splash/bg_color=Color(0.956, 0.933, 0.874, 1)
+boot_splash/image="res://games/grove/assets/ui/boot/logo.png"
+boot_splash/fullsize=false
 
 [display]
 

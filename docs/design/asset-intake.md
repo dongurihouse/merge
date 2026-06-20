@@ -82,3 +82,30 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
   that belongs in the plan — author it there.
 - Raws are archived, never deleted.
 - Map scenes stay with the §16 pipeline; don't try to automate the share-gate.
+
+## Pre-baked texture polish (`make bake-textures`)
+
+Separate from intake. At runtime the UI kit's `clean_tex_path()` (in `games/grove/tools/ui_workbench_kit.gd`)
+polishes a sprite — defringe + alpha-feather — the first time it's drawn. That's a per-pixel GDScript pass:
+cheap per icon, but a dialog draws a dozen at once and froze its open for ~0.7s. The bake runs the **exact
+same** `_clean_image()` offline and ships the polished result, so the runtime just `load()`s it.
+
+**Auto-discovery — no manifest.** `make bake-textures` builds every kit dialog headless (via
+`BakeTargets.build_all` in `games/tools/bake_targets.gd`, with demo data + the real config opts), which
+drives `clean_tex_path` for each sprite the dialogs draw. The cache then holds the exact `(path, max_dim)`
+set, and the bake writes each to a `baked/<subpath>@<cap>.png` mirror under `assets/`. `clean_tex_path` loads
+that mirror when present; if absent it falls back to the live polish (correct, just the old hitch).
+
+- **The baked PNGs are committed**, alongside their `.import` sidecars, like any other shipped art. The source
+  PNGs stay un-polished, so the bake is idempotent (always re-bakes from source).
+- **A guard test** (`engine/tests/kit_bake_tests`) builds every dialog and fails if any sprite it polishes
+  is un-baked — so a new or changed dialog can't silently re-introduce the first-open freeze.
+
+**When you add or change a sprite, or add a dialog:**
+
+1. Land the source PNG (the normal intake loop for new art, or just replace the file).
+2. If you added a **new top-level dialog**, add one line for it to `BakeTargets.build_all`. Existing dialogs
+   and the sprites they already draw need nothing — discovery finds them.
+3. Run `make bake-textures`, then commit the regenerated `baked/*.png` (+ `.import`).
+4. Forget step 3? `make test` fails the guard and names the un-baked sprites. Until you bake, the sprite still
+   renders correctly — it just live-polishes on first open. It's a performance bake, never a correctness gate.
