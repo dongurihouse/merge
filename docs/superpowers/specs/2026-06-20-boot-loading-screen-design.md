@@ -63,7 +63,7 @@ app launch
 | `engine/scripts/core/boot_trace.gd` | **New.** Static phase timer + table formatter. |
 | `engine/scenes/Boot.tscn` | **New.** Root `Control`, full-rect, `boot.gd`. |
 | `engine/scripts/scenes/boot.gd` | **New.** Splash UI + load polling + handoff. |
-| `engine/scripts/scenes/map.gd` | Add `BootTrace.phase(...)` markers + `BootTrace.done()` (no-op when no trace is active, so Board→Map returns are unaffected). |
+| `engine/scripts/scenes/map.gd` | Replace the ad-hoc `[prof]` prints with `BootTrace.begin/end` spans + `BootTrace.done()` (no-op when no trace is active, so Board→Map returns are unaffected). |
 | `project.godot` | `run/main_scene` → `Boot.tscn`; optional matching engine `boot_splash` (bg color + logo) for a seamless first frame. |
 | `games/grove/assets/ui/boot/logo_tidyup.png` | **New.** Copied out of `_concepts/tidyup/` so the shipped splash does not depend on a scratch folder. Re-imported via `make import`. |
 | `engine/tests/boot_trace_tests.gd` | **New.** Headless suite (added to `ENGINE_TESTS`). |
@@ -73,16 +73,20 @@ app launch
 
 `extends RefCounted`, static-only (never instantiated), mirroring the `SceneWarm` style.
 
-Boot phases are **sequential and non-overlapping**, so the API is a moving cursor:
+**Span model (refined during implementation):** rather than a moving cursor over wall-clock
+(which would attribute the deliberate min-duration wait and the fade to whatever phase was
+open), `BootTrace` times explicit **begin/end work spans**. Time spent *between* spans — the
+padding and the fade — is timed by nothing, so it never pollutes the "what's slow" table.
 
-- `start()` — begin a trace: clear phases, record `boot_t0`, set `active = true`.
-- `phase(name: String)` — stamp the previous phase's duration, open `name`. No-op unless
-  a trace is active.
-- `done()` — close the final phase, print the table, set `active = false`. No-op if inactive.
-- `active() -> bool` — is a trace running? (Lets `map.gd` call `phase`/`done`
+- `start()` — begin a trace: clear spans, set `active = true`.
+- `begin(name)` / `end(name)` — open / close a work span. Spans may nest; they record in
+  close order. No-ops unless a trace is active.
+- `done()` — close any still-open spans, print the table, set `active = false`. No-op if inactive.
+- `active() -> bool` — is a trace running? (Lets `map.gd` call begin/end/done
   unconditionally; they no-op on normal Board→Map opens because only `Boot` calls `start()`.)
-- `format_table(phases, total_us) -> String` — **pure** function: an aligned table with
-  phase name, ms, and a share-of-total bar. This is the unit-tested core.
+- `format_table(spans, total_us) -> String` — **pure** function: an aligned table with
+  span name, ms, and a share-of-total bar. The `total` is the **sum of work spans**, so it
+  excludes the deliberate waits. This is the unit-tested core.
 
 Timing source: `Time.get_ticks_usec()`. Output via `print()` so it shows in both the
 headless log and the running game's stdout. Example shape:
@@ -141,10 +145,22 @@ can render a frozen splash without running the auto-handoff.
 
 ## Component 3 — `map.gd` instrumentation
 
-Add `BootTrace.phase("map.<step>")` markers around the existing `_ready` build steps and
-`BootTrace.done()` at the end of the synchronous `_ready`. Because `BootTrace` is only
-`active()` during the cold boot (Boot calls `start()`), these calls **no-op on every later
-Board→Map open** — no behavior change, no per-open overhead, nothing printed.
+`map.gd._ready` already carried ad-hoc `[prof] <step>=Nms` prints at exactly the build-step
+boundaries — a per-open instrument nothing depends on. **Replace** them (not duplicate) with
+`BootTrace.begin/end("map.<step>")` spans, and call `BootTrace.done()` at the end of the
+synchronous `_ready`. Spans: `map.heal+fit`, `map.font`, `map.music`, `map.load_state`,
+`map.weather`, `map.build_hud`, `map.build_chrome`, `map.update_hud`, and inside `_open_map`:
+`map.open.base`, `map.open.seat`, `map.open.ambient`.
+
+Because `BootTrace` is only `active()` during the cold boot (Boot calls `start()`), these
+calls **no-op on every later Board→Map open** — no behavior change, no per-open overhead,
+nothing printed. This also removes the old per-open `[prof]` spam; the cold boot now prints
+one consolidated table instead.
+
+**First finding (validates the instrument):** a real cold boot reports
+`map.build_chrome ≈ 2027 ms` — ~85% of boot — dwarfing `scene.load` (~248 ms). A single cold
+sample can fold in one-time shader/resource compilation, but this is exactly the kind of
+hotspot the table exists to surface. Left as a flagged follow-up, not fixed here.
 
 ## Asset
 
