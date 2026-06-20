@@ -1,41 +1,47 @@
 {
 	"button": {
+		"art": true,
 		"bg": "green",
+		"corner": 16.0,
 		"enabled": true,
-		"font": 22,
+		"font": 27.0,
 		"show_icon": false,
 		"text": "Claim"
 	},
-	"buy": {
-		"font": 26.0,
-		"icon": 28.0,
-		"pad_bottom": 7.0,
-		"pad_top": 6.0,
-		"pad_x": 16.0,
-		"text": "250"
-	},
 	"card": {
-		"body": 15,
-		"title": 20
+		"body": 24.0,
+		"title": 25.0
 	},
 	"dialog": {
-		"banner_font": 32,
-		"banner_h": 92,
-		"banner_icon": 54,
+		"banner_burn": false,
+		"banner_font": 32.0,
+		"banner_h": 92.0,
+		"banner_icon": 54.0,
+		"banner_icon_on": false,
 		"banner_icon_x": 184.0,
 		"banner_icon_y": 16.0,
-		"banner_x": -24.0,
-		"banner_y": -64.0,
-		"close_size": 64,
-		"close_x": 12,
-		"close_y": 12,
-		"entries": 4,
-		"list_max_h": 0,
-		"snap": 8,
-		"width": 560
+		"banner_text_x": -3.0,
+		"banner_x": -17.0,
+		"banner_y": -68.0,
+		"card_art": true,
+		"card_corner": 22.0,
+		"card_h_stretch": "stretch",
+		"card_slice_b": 48.0,
+		"card_slice_l": 48.0,
+		"card_slice_r": 48.0,
+		"card_slice_t": 48.0,
+		"card_v_stretch": "stretch",
+		"close_size": 72.0,
+		"close_x": -2.0,
+		"close_y": 0.0,
+		"entries": 10.0,
+		"list_max_h": 425.0,
+		"snap": 17.0,
+		"width": 720.0
 	},
-	"pill": {
-		"font": 18,
-		"icon": 24
+	"icon": {
+		"defringe": true,
+		"feather": 3.0,
+		"supersample": 1.0
 	}
 }

@@ -320,9 +320,14 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 	row.add_theme_constant_override("separation", 12)
 	panel.add_child(row)
 
-	var ic := plated_icon(String(entry.get("icon", "star")), 56.0)
-	ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ic)
+	# the left icon gets vertical breathing room (margin top/bottom) so it isn't cramped against the row edges
+	var ic_wrap := MarginContainer.new()
+	ic_wrap.add_theme_constant_override("margin_top", 10)
+	ic_wrap.add_theme_constant_override("margin_bottom", 10)
+	ic_wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ic_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ic_wrap.add_child(plated_icon(String(entry.get("icon", "star")), 56.0))
+	row.add_child(ic_wrap)
 
 	var text := VBoxContainer.new()
 	text.add_theme_constant_override("separation", 2)
@@ -359,7 +364,7 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 ## auto-aligns whatever the font size; plus an optional envelope icon (toggle). Named DialogBanner /
 ## DialogBannerIcon so the workbench can drag them.
 static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
-		icon_px: float, icon_pos) -> Control:
+		icon_px: float, icon_pos, text_x: float = 0.0, burn: bool = false) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
@@ -375,12 +380,22 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	lbl.offset_left = text_x; lbl.offset_right = text_x      # shift the centred text horizontally
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER       # auto-vcentre on any font size
 	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", Pal.INK)
-	lbl.add_theme_constant_override("outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	if burn:
+		# "burned into the ribbon": dark engraved text + a light lower emboss highlight + a soft dark halo
+		lbl.add_theme_color_override("font_color", Color("#4A2E14"))
+		lbl.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.35))
+		lbl.add_theme_constant_override("shadow_offset_x", 1)
+		lbl.add_theme_constant_override("shadow_offset_y", 2)
+		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.22))
+		lbl.add_theme_constant_override("outline_size", 3)
+	else:
+		lbl.add_theme_color_override("font_color", Pal.INK)
+		lbl.add_theme_constant_override("outline_size", 0)
 	header.add_child(lbl)
 	if icon_on and ResourceLoader.exists(bp):
 		var env := make_icon("mail", icon_px)   # polished envelope
@@ -415,6 +430,22 @@ static func _close_button(size: float, cb: Callable) -> Button:
 	b.pressed.connect(func() -> void:
 		if cb.is_valid(): cb.call())
 	return b
+
+## A tidier scrollbar: a rounded bark grabber on a faint track (vs the default chunky bar).
+static func _style_scrollbar(scroll: ScrollContainer) -> void:
+	var vb := scroll.get_v_scroll_bar()
+	vb.custom_minimum_size.x = 10
+	var grab := StyleBoxFlat.new()
+	grab.bg_color = Color(Pal.BARK, 0.55)
+	grab.set_corner_radius_all(5)
+	grab.content_margin_left = 3
+	grab.content_margin_right = 3
+	for s in ["grabber", "grabber_highlight", "grabber_pressed"]:
+		vb.add_theme_stylebox_override(s, grab)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(Pal.BARK, 0.1)
+	track.set_corner_radius_all(5)
+	vb.add_theme_stylebox_override("scroll", track)
 
 ## The whole Mail dialog (mockup image 3): a parchment card with the gold banner + envelope, a
 ## docked ✕, and a column of mail_cards. COMPOSES mail_card for every entry.
@@ -470,54 +501,59 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		card.add_theme_stylebox_override("panel", cf)
 	card.custom_minimum_size = Vector2(width, 0)
 	card.position = Vector2.ZERO
+	wrap.custom_minimum_size.x = width      # robust horizontal centring even before relayout runs
 	wrap.add_child(card)
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	card.add_child(col)
-
-	# the banner band lives in a SLOT that reserves its height in the column, but is a FREE child of
-	# that slot so the workbench can DRAG it (offset banner_pos — e.g. pull it up to overhang the card).
 	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
-	var banner_slot := Control.new()
-	banner_slot.custom_minimum_size = Vector2(0, banner_h)
-	banner_slot.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	banner_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(banner_slot)
-	var header := _banner("Mail", banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos)
-	header.position = banner_pos
-	banner_slot.add_child(header)
-
+	var banner_text_x: float = float(opts.get("banner_text_x", 0.0))
+	var banner_burn: bool = bool(opts.get("banner_burn", false))
 	var entries_count: int = int(opts.get("entries_count", entries.size()))
-	var list_max_h: float = float(opts.get("list_max_h", 0.0))   # 0 = uncapped (grows freely, no scroll)
+	var list_max_h: float = float(opts.get("list_max_h", 0.0))   # 0 = uncapped (grows; no scroll)
+
+	# inner = the card's single content child; it hosts the scrolling list AND the banner overlay
+	var inner := Control.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.clip_contents = false                  # the banner may overhang the top
+	card.add_child(inner)
+
+	# the list scrolls and FILLS the card (its top sits right below the card border). It clips, so a row
+	# slides up and hides BEHIND the banner; a top spacer keeps row 1 below the banner to begin with.
+	var scroll := ScrollContainer.new()
+	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.clip_contents = true
+	_style_scrollbar(scroll)
+	inner.add_child(scroll)
 	var rows := VBoxContainer.new()
 	rows.add_theme_constant_override("separation", 10)
 	rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var spacer := Control.new()
+	spacer.custom_minimum_size = Vector2(0, banner_h)
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rows.add_child(spacer)
 	for i in maxi(0, entries_count):
 		rows.add_child(mail_card(entries[i % entries.size()], 20, 15, btn_opts))
-	if list_max_h > 0.0:
-		var scroll := ScrollContainer.new()
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(rows)
-		var cap := func() -> void:                # cap the height so content beyond it scrolls
-			if is_instance_valid(scroll) and is_instance_valid(rows):
-				scroll.custom_minimum_size.y = minf(list_max_h, rows.size.y)
-		rows.resized.connect(cap)
-		rows.ready.connect(cap)
-		col.add_child(scroll)
-	else:
-		col.add_child(rows)
+	scroll.add_child(rows)
+	# the banner overlays the TOP of the list (added after the scroll → drawn on top), draggable
+	var header := _banner("Mail", banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_burn)
+	header.position = banner_pos
+	inner.add_child(header)
 
-	# the ✕ disc poles past the card's top-right corner once the card has laid out + sized.
+	# the ✕ disc poles past the card's top-right corner.
 	var close := _close_button(close_size, func() -> void: print("WORKBENCH: mail closed"))
 	wrap.add_child(close)
-	var dock := func() -> void:
-		if not is_instance_valid(card) or not is_instance_valid(close):
+
+	# ONE relayout: cap the list height (so rows scroll behind the banner), size the wrap to the card so
+	# the gallery centres it, and dock the ✕. Connected to both the rows' and the card's resize so the
+	# inner-height → card-grows → wrap-sizes chain converges.
+	var relayout := func() -> void:
+		if not (is_instance_valid(inner) and is_instance_valid(rows) and is_instance_valid(card) and is_instance_valid(close)):
 			return
+		inner.custom_minimum_size.y = (minf(rows.size.y, banner_h + list_max_h) if list_max_h > 0.0 else rows.size.y)
 		wrap.custom_minimum_size = card.size
 		close.position = Vector2(card.size.x - close_size + close_poke.x, -close_poke.y)
-	card.resized.connect(dock)
-	card.ready.connect(dock)
+	rows.resized.connect(relayout)
+	rows.ready.connect(relayout)
+	card.resized.connect(relayout)
+	relayout.call_deferred()
 	return wrap

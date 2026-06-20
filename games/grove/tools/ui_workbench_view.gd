@@ -46,6 +46,7 @@ var _params := {
 		"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
+		"banner_text_x": 0, "banner_burn": false,
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
@@ -163,6 +164,8 @@ func _make_element(id: String) -> Control:
 				"banner_h": float(p.banner_h),
 				"banner_icon": float(p.banner_icon),
 				"banner_icon_on": bool(p.banner_icon_on),
+				"banner_text_x": float(p.banner_text_x),
+				"banner_burn": bool(p.banner_burn),
 				"banner_pos": Vector2(float(p.banner_x), float(p.banner_y)),
 				"banner_icon_pos": Vector2(float(p.banner_icon_x), float(p.banner_icon_y)),
 				"close_size": float(p.close_size),
@@ -393,19 +396,56 @@ func _rebuild_sidebar() -> void:
 		if not bool(_params["button"]["art"]):
 			_sidebar_body.add_child(_slider_row(["corner", 0, 40]))
 	elif _selected == "dialog":
-		_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
-		_sidebar_body.add_child(_toggle_row("Card art (9-slice)", "card_art", true))   # rebuilds the sidebar
-		if bool(_params["dialog"]["card_art"]):
-			for k in ["card_slice_l", "card_slice_t", "card_slice_r", "card_slice_b"]:   # the 4 slice margins
-				_sidebar_body.add_child(_slider_row([k, 0, 200]))
-			_sidebar_body.add_child(_option_row("Card h stretch", "card_h_stretch", ["stretch", "tile", "tile_fit"]))
-			_sidebar_body.add_child(_option_row("Card v stretch", "card_v_stretch", ["stretch", "tile", "tile_fit"]))
-		else:
-			_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))   # code mode: tune the corner
+		_dialog_sidebar()        # grouped by function (Card / Banner / Close / List)
+		return
 	elif _selected == "icon":
 		_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 	for spec in SCHEMA[_selected]:
 		_sidebar_body.add_child(_slider_row(spec))
+
+## A small section header in the sidebar (a separator + an accent label), to group settings.
+func _section_header(title: String) -> void:
+	_sidebar_body.add_child(HSeparator.new())
+	var l := Label.new()
+	l.text = title
+	l.add_theme_font_size_override("font_size", 17)
+	l.add_theme_color_override("font_color", Pal.STRAW)
+	_sidebar_body.add_child(l)
+
+## The dialog's options, grouped by function.
+func _dialog_sidebar() -> void:
+	_section_header("Card")
+	_sidebar_body.add_child(_slider_row(["width", 360, 720]))
+	_sidebar_body.add_child(_toggle_row("9-slice art", "card_art", true))   # rebuilds the sidebar to swap the slider
+	if bool(_params["dialog"]["card_art"]):
+		for k in ["card_slice_l", "card_slice_t", "card_slice_r", "card_slice_b"]:
+			_sidebar_body.add_child(_slider_row([k, 0, 200]))
+		_sidebar_body.add_child(_option_row("H stretch", "card_h_stretch", ["stretch", "tile", "tile_fit"]))
+		_sidebar_body.add_child(_option_row("V stretch", "card_v_stretch", ["stretch", "tile", "tile_fit"]))
+	else:
+		_sidebar_body.add_child(_slider_row(["card_corner", 0, 60]))
+
+	_section_header("Banner")
+	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))
+	_sidebar_body.add_child(_slider_row(["banner_h", 50, 160]))
+	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))
+	_sidebar_body.add_child(_toggle_row("Burn-in", "banner_burn"))
+	_sidebar_body.add_child(_toggle_row("Banner icon", "banner_icon_on"))
+	_sidebar_body.add_child(_slider_row(["banner_icon", 24, 110]))
+	_sidebar_body.add_child(_slider_row(["banner_x", -200, 200]))
+	_sidebar_body.add_child(_slider_row(["banner_y", -120, 120]))
+	_sidebar_body.add_child(_slider_row(["banner_icon_x", 0, 700]))
+	_sidebar_body.add_child(_slider_row(["banner_icon_y", 0, 160]))
+
+	_section_header("Close")
+	_sidebar_body.add_child(_slider_row(["close_size", 30, 96]))
+	_sidebar_body.add_child(_slider_row(["close_x", -100, 100]))
+	_sidebar_body.add_child(_slider_row(["close_y", -100, 100]))
+
+	_section_header("List")
+	_sidebar_body.add_child(_slider_row(["entries", 1, 12]))
+	_sidebar_body.add_child(_slider_row(["list_max_h", 0, 900]))
+	_sidebar_body.add_child(_slider_row(["snap", 1, 40]))
 
 func _slider_row(spec: Array) -> Control:
 	var key: String = spec[0]
