@@ -18,7 +18,7 @@ const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")
 const Pal = Game.PALETTE
 
 const MAP_PATH := "res://engine/scenes/Map.tscn"
-const LOGO_PATH := "res://games/grove/assets/ui/boot/logo_tidyup.png"
+const LOGO_PATH := "res://games/grove/assets/ui/boot/logo.png"
 const MIN_DURATION := 1.0     # min seconds the splash shows, so a fast load never just flashes
 
 var _bar: ProgressBar

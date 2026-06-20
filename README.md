@@ -1,8 +1,9 @@
-# Tidy Up — Godot project
+# Acorn Forest: Merge! — Godot project
 
-**Tidy Up** is a cozy *merge-and-tidy* game: combine clutter, clear the room, relax.
-Drag any two matching items together to merge them up a tier ladder, complete jobs for
-the neighbourhood, and restore a hand-painted "Ghibli Grove" homestead.
+**Acorn Forest: Merge!** is a cozy *merge-to-grow* game: a child crosses into a fading
+spirit-forest and tends one persistent merge board. Drag any two matching items together
+to merge them up a tier ladder, deliver harvests to the grove's spirit-folk for Stars,
+and restore a hand-painted "Ghibli Grove" homestead.
 
 The canonical design — spec **and** feature index — lives in
 [`docs/design/merge_spec.md`](docs/design/merge_spec.md). (This project began as

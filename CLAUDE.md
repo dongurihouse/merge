@@ -1,4 +1,4 @@
-# Tidy Up (Donguri Merge) — project notes
+# Acorn Forest: Merge! (Donguri Merge) — project notes
 
 ## Asset intake
 

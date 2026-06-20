@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bwfmt8k0st5w5"
-path="res://.godot/imported/logo_tidyup.png-605c6c99b18c581cb4d7ac7af59c3a8f.ctex"
+uid="uid://cyeslv1eg2uki"
+path="res://.godot/imported/logo.png-a434116ca2e42a1d22900fb5618c303c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/boot/logo_tidyup.png"
-dest_files=["res://.godot/imported/logo_tidyup.png-605c6c99b18c581cb4d7ac7af59c3a8f.ctex"]
+source_file="res://games/grove/assets/ui/boot/logo.png"
+dest_files=["res://.godot/imported/logo.png-a434116ca2e42a1d22900fb5618c303c.ctex"]
 
 [params]
 

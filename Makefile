@@ -1,4 +1,4 @@
-# Tidy Up (Donguri Merge) — common commands.
+# Acorn Forest: Merge! (Donguri Merge) — common commands.
 # Override the Godot binary if it isn't on PATH:  make test GODOT=/opt/homebrew/bin/godot
 GODOT   ?= godot
 PROJECT := .
