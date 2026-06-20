@@ -159,7 +159,7 @@ var _params := {
 	# block the game's map.gd reads renders the SHIPPED card until you change it. Insets/fracs are scaled
 	# integers for the sliders (inset/radius in thousandths, fracs + veil alphas in percent — see
 	# Kit.map_card_opts_from_config). open/done/stars_left are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "frame_inset": 45, "frame_inset_v": 100, "art_radius": 58, "edge_sparkle": 60,
+	"map_card": {"use_art": true, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "stars_left": 3},
@@ -1044,9 +1044,6 @@ func _rebuild_sidebar() -> void:
 			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
 			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
-			_sidebar_body.add_child(_slider_row(["frame_inset", 0, 120]))     # locale-art horizontal inset under the gold band (‰ of width)
-			_sidebar_body.add_child(_slider_row(["frame_inset_v", 0, 200]))   # locale-art vertical inset (‰ of height) — wide card needs its own or the art gaps at top/bottom
-			_sidebar_body.add_child(_slider_row(["art_radius", 0, 150]))      # art corner radius (‰ of width)
 			_sidebar_body.add_child(_slider_row(["edge_sparkle", 0, 100]))    # twinkles ringing an ACTIVE open card's gold band (% — 0 = off)
 			_sidebar_body.add_child(_slider_row(["pill_w_frac", 10, 60]))     # count-pill width (% of card width)
 			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
