@@ -37,6 +37,11 @@ extends RefCounted
 ## ui/ so scenes/ may import it; it must NOT reach up into scenes/ (the layering guard enforces this).
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")              # calm() gate for the home-button sparkle
+
+# The shared configurable HOME button lives in the grove kit (the workbench tunes it); soft-loaded by
+# path so this engine module keeps NO compile-time dependency on the game (same bridge inbox/login use).
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const DEFAULT_PX := 150.0
 const SIDE_INSET := 32.0
@@ -63,13 +68,16 @@ static func build(host: Control, specs: Array, opts: Dictionary = {}) -> Diction
 	var buttons: Array = []
 	for i in specs.size():
 		var spec: Dictionary = specs[i]
-		# Three shapes: a custom `make` Callable, a PRIMARY TEXT pill (`text`), or the default round icon.
+		# Shapes: a custom `make` Callable, a PRIMARY TEXT pill (`text`), the shared configurable HOME
+		# button (`home_icon` — disc shell + icon, tuned in the workbench), or the default baked round icon.
 		var b: Control
 		if spec.has("make") and (spec.make as Callable).is_valid():
 			b = (spec.make as Callable).call()
 		elif spec.has("text"):
 			# the wide green CTA — the same solid grove primary pill the old "Tend the garden ▶" used.
 			b = Look.button(String(spec.text), spec.get("action", Callable()), bool(spec.get("primary", true)))
+		elif spec.has("home_icon"):
+			b = _make_home_button(String(spec.home_icon), float(spec.get("px", def_px)), spec.get("action", Callable()), spec)
 		else:
 			var px: float = float(spec.get("px", def_px))
 			b = _make_nav_button(String(spec.get("icon", "")), px, spec.get("action", Callable()))
@@ -119,3 +127,15 @@ static func _make_nav_button(kit_name: String, px: float, cb: Callable) -> Butto
 	if cb.is_valid():
 		b.pressed.connect(cb)
 	return b
+
+# The shared CONFIGURABLE home button: a cream/gold disc shell + a centred icon, built through the kit
+# from the workbench-saved style (so the bottom nav and the side rail share ONE button). Captionless on
+# the nav (its label rides tooltip_text). Falls back to the baked nav button if the kit can't load.
+static func _make_home_button(icon_id: String, px: float, cb: Callable, spec: Dictionary) -> Button:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return _make_nav_button(icon_id + ".png", px, cb)
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["px"] = px                                  # the nav row fixes its own button size per spec
+	opts["calm"] = FX.calm()
+	return Kit.home_button({"icon": icon_id, "caption": "", "action": cb, "sparkle": bool(spec.get("sparkle", false))}, opts)

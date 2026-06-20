@@ -1,0 +1,11 @@
+{
+  "source": "_new/home_asset.png",
+  "category": "sheet",
+  "params": { "val_min": 0.9, "sat_max": 0.1, "min_area": 600, "pad": 3 },
+  "outputs": [
+    { "island": 44, "name": "icon_gear", "path": "ui/shared/icon_gear.png" },
+    { "island": 45, "name": "icon_shop", "path": "ui/shared/icon_shop.png" },
+    { "island": 46, "name": "icon_map",  "path": "ui/shared/icon_map.png" }
+  ],
+  "archive": "_originals/ui/home_asset.png"
+}
