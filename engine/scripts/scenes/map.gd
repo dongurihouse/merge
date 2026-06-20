@@ -32,6 +32,8 @@ const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # t
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
+const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Board off-thread so the garden CTA is snappy
+const SceneFade = preload("res://engine/scripts/ui/scene_fade.gd")     # fade-cover the swap so its build hitch is hidden
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
@@ -109,6 +111,7 @@ func _ready() -> void:
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
 		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
 	_load_state()
+	SceneFade.fade_in(self)               # reveal from the transition cover (also a gentle fade-in on cold launch)
 
 	var sky := ColorRect.new()
 	sky.color = SKY
@@ -173,6 +176,8 @@ func _ready() -> void:
 		add_child(mail_timer)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
+
+	SceneWarm.prewarm("res://engine/scenes/Board.tscn")   # warm the board off-thread while the player lingers on the map
 
 # The dev capture harness births its windows minimized + focusless via a
 # transient override.cfg (engine/tools/quiet_godot.sh). If a REAL launch ever inherits
@@ -1433,7 +1438,7 @@ func _open_settings() -> void:
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)
 	get_tree().quit_on_go_back = true    # other scenes keep the platform default
-	get_tree().change_scene_to_file("res://engine/scenes/Board.tscn")
+	SceneFade.to(self, get_tree(), "res://engine/scenes/Board.tscn")
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Esc steps back: a map → the place-picker; the picker → quit (desktop has no

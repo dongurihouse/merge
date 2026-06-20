@@ -11,6 +11,7 @@ extends Control
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
@@ -25,6 +26,20 @@ const COLUMNS := [
 	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
+# Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
+# opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
+# cards flow into the dialogs; the Badge's polish flows into the Home button. Editing anything else
+# (a dialog's own width, the icon sandbox, the pill, …) touches only itself. Used to rebuild just the
+# edited element + its dependents instead of the whole gallery.
+const DEPENDENTS := {
+	"button": ["card", "dialog", "daily", "shop", "settings"],
+	"card": ["dialog", "daily", "shop", "settings"],
+	"frame": ["dialog", "daily", "shop", "settings"],
+	"daily_card": ["daily", "shop"],
+	"toggle_card": ["settings"],
+	"tiers_card": ["tiers"],
+	"badge": ["home_button"],
+}
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
@@ -183,9 +198,10 @@ var _params := {
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
 var _sidebar_body: VBoxContainer = null
-
-# polished-icon textures, cached by their opts so an unrelated rebuild doesn't re-run the (slow) polish
-var _icon_cache: Dictionary = {}
+var _sections: Dictionary = {}    # id -> the element's gallery section (PanelContainer), for in-place rebuilds
+var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
+var _awaiting: Dictionary = {}    # id -> true: elements showing a raw placeholder until a worker polish lands
+var _building := ""               # the id whose section is mid-build (so the polish previews know who to await)
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -483,10 +499,8 @@ func _icon_preview(label: String, opts: Dictionary) -> Control:
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	opts["size"] = 160
-	var key := "%s|%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1), opts.get("shadow", false)]
-	if not _icon_cache.has(key):
-		_icon_cache[key] = Kit.polish_icon_tex("gem", opts)
-	tr.texture = _icon_cache[key]
+	var key := "icon|%s|%s|%s|%s" % [opts.get("defringe", false), opts.get("feather", 0.0), opts.get("supersample", 1), opts.get("shadow", false)]
+	_set_polished(tr, key, Game.art("ui/currency/icon_gem.png"), opts, false)
 	v.add_child(tr)
 	return v
 
@@ -504,9 +518,45 @@ func _badge_preview(label: String, polish: Dictionary) -> Control:
 	tr.custom_minimum_size = Vector2(170, 170)
 	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
+	# the untouched "Raw" shell is an instant plain load; the "Polished" one bakes on a worker thread
+	var defr := bool(polish.get("defringe", false))
+	var feat := float(polish.get("feather", 0.0))
+	var shad := bool(polish.get("shadow", false))
+	if not defr and feat <= 0.0 and not shad:
+		tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
+	else:
+		var key := "badge|%s|%s|%s" % [defr, feat, shad]
+		_set_polished(tr, key, Look.kit(Kit.HOME_SHELL), polish, true)
 	v.add_child(tr)
 	return v
+
+## Drive a preview TextureRect from the worker-thread polish cache: show the finished texture if it's
+## ready, else show the RAW sprite now and mark this element awaiting — the pump rebuilds it (picking up
+## the cached polish) once the worker lands. Keeps the polish sliders responsive (no per-tick main-thread bake).
+func _set_polished(tr: TextureRect, key: String, path: String, opts: Dictionary, aspect: bool) -> void:
+	var tex := Kit.polished_cached(key)            # cheap peek — skip the source decode on a cache hit
+	if tex != null:
+		tr.texture = tex
+		return
+	var src := _src_image(path)
+	if src == null:
+		tr.texture = null                          # art absent: nothing to bake, and DON'T await (no rebuild loop)
+		return
+	tex = Kit.polish_async(key, src, opts, aspect)
+	if tex != null:
+		tr.texture = tex
+	else:
+		tr.texture = load(path)                    # raw placeholder while the worker bakes
+		if _building != "":
+			_awaiting[_building] = true
+			set_process(true)
+
+## Load a sprite's RAW Image on the MAIN thread (ResourceLoader isn't threaded here), null-tolerant.
+func _src_image(path: String) -> Image:
+	if path == "" or not ResourceLoader.exists(path):
+		return null
+	var t := load(path) as Texture2D
+	return t.get_image() if t != null else null
 
 ## The shared Button's params as a kit opts dict. The card + dialog Claim are built ENTIRELY from
 ## this (no styling of their own), so editing the Button item updates every Claim automatically.
@@ -591,11 +641,59 @@ func _section(id: String) -> Control:
 	var holder := CenterContainer.new()
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_building = id                          # so the polish previews know which element to mark awaiting
 	var el := _make_element(id)
+	_building = ""
 	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
+	_sections[id] = sec
 	return sec
+
+## Apply an edit to the SELECTED element: rebuild it NOW (live feedback on the control you're dragging),
+## then queue its dependents to rebuild one-per-frame (post-change, so the sliders never freeze). The
+## queue is a Set, so a fast drag that fires many times just re-marks the same ids — no rebuild backlog.
+func _apply_edit() -> void:
+	_rebuild_element(_selected)
+	_mark_dirty(DEPENDENTS.get(_selected, []))
+
+## Queue ids to rebuild on the staggered pump (see _process). Coalesced via the _dirty Set.
+func _mark_dirty(ids: Array) -> void:
+	for id in ids:
+		_dirty[id] = true
+	if not _dirty.is_empty():
+		set_process(true)
+
+# Drain the dirty queue ONE element per frame (so the screen keeps repainting between heavy linked
+# rebuilds instead of freezing through all of them), then settle elements waiting on a worker polish:
+# once their off-thread bake lands, rebuild them so the raw placeholder swaps to the polished texture.
+func _process(_delta: float) -> void:
+	if not _dirty.is_empty():
+		var id: String = String(_dirty.keys()[0])
+		_dirty.erase(id)
+		_rebuild_element(id)
+	elif not _awaiting.is_empty() and Kit.pump_polish() == 0:
+		var ids: Array = _awaiting.keys()
+		_awaiting.clear()
+		for id in ids:
+			_rebuild_element(id)
+	if _dirty.is_empty() and _awaiting.is_empty():
+		set_process(false)
+
+## Rebuild a single element's section in place (swap the node at its position in the row), leaving every
+## OTHER section untouched. No-op if the gallery hasn't been built yet (the initial _rebuild_gallery does).
+func _rebuild_element(id: String) -> void:
+	var old: Node = _sections.get(id)
+	if old == null or not is_instance_valid(old):
+		return
+	var parent := (old as Control).get_parent()
+	if parent == null:
+		return
+	var idx := (old as Control).get_index()
+	var fresh := _section(id)          # also re-registers _sections[id] = fresh
+	parent.add_child(fresh)
+	parent.move_child(fresh, idx)
+	old.queue_free()
 
 ## Make EVERYTHING in the section mouse-transparent, so a click ANYWHERE — even on top of the component
 ## itself (a card, a button, the banner) — falls through to the section and selects it. The ONE
@@ -652,7 +750,9 @@ func _input(ev: InputEvent) -> void:
 		_drag_kind = ""
 		_drag_node = null
 		_rebuild_sidebar()      # reflect the dragged position in the sliders (and clamp it)
-		_rebuild_gallery()      # re-apply the (possibly clamped) params consistently
+		# the dragged handles are FRAME config (shared) — rebuild the frame + every dialog that reuses it
+		_rebuild_element("frame")
+		_mark_dirty(DEPENDENTS["frame"])
 
 func _snap_vec(v: Vector2) -> Vector2:
 	var g: float = float(int(_params["frame"]["snap"]))
@@ -683,11 +783,14 @@ func _on_section_input(ev: InputEvent, id: String) -> void:
 func select(id: String) -> void:
 	if id == _selected:
 		return
+	var prev := _selected
 	_selected = id
 	# DEFER: select() runs inside a section's gui_input dispatch — rebuilding (freeing the very
 	# section that is mid-emit) here would hit "Object is locked and can't be freed". Defer so the
-	# tree is mutated only after the input dispatch returns.
-	_rebuild_gallery.call_deferred()      # refresh the selection highlight
+	# tree is mutated only after the input dispatch returns. Refresh ONLY the two sections whose
+	# highlight changed (the old + the new selection), not the whole gallery.
+	_rebuild_element.call_deferred(prev)
+	_rebuild_element.call_deferred(id)
 	_rebuild_sidebar.call_deferred()      # swap in this element's options
 
 func _section_style(selected: bool) -> StyleBox:
@@ -1084,7 +1187,7 @@ func _slider_row(spec: Array) -> Control:
 	s.value_changed.connect(func(x: float) -> void:
 		params[key] = x
 		val.text = "%d" % int(x)
-		_rebuild_gallery())
+		_apply_edit())
 	return row
 
 func _text_row(label: String, key: String) -> Control:
@@ -1100,7 +1203,7 @@ func _text_row(label: String, key: String) -> Control:
 	le.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	le.text_changed.connect(func(t: String) -> void:
 		_params[_selected][key] = t
-		_rebuild_gallery())
+		_apply_edit())
 	row.add_child(le)
 	return row
 
@@ -1116,7 +1219,7 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false) -> Contro
 	cb.button_pressed = bool(_params[_selected].get(key, false))
 	cb.toggled.connect(func(on: bool) -> void:
 		_params[_selected][key] = on
-		_rebuild_gallery()
+		_apply_edit()
 		if rebuild_sidebar:
 			_rebuild_sidebar.call_deferred())   # defer — we're inside this toggle's own signal
 	row.add_child(cb)
@@ -1138,7 +1241,7 @@ func _option_row(label: String, key: String, options: Array) -> Control:
 			ob.select(i)
 	ob.item_selected.connect(func(idx: int) -> void:
 		_params[_selected][key] = String(options[idx])
-		_rebuild_gallery())
+		_apply_edit())
 	row.add_child(ob)
 	return row
 
@@ -1163,6 +1266,7 @@ func _save_settings() -> void:
 		return
 	f.store_string(JSON.stringify(out, "\t"))
 	f.close()
+	Kit.clear_config_cache(SETTINGS)   # so any live Kit reader picks up the new file (not the stale cache)
 	print("WORKBENCH: settings saved -> %s" % SETTINGS)
 
 ## Merge the saved file over the defaults, copying ONLY config keys present in both — so test
