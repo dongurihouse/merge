@@ -29,6 +29,11 @@ const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 
+# The storefront FACE is built from the shared kit (the UI workbench), like the mailbox + daily login —
+# so the shop's look is authored once in the workbench and never duplicated here. The buy LOGIC stays.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const SHOP_WIDTH_PCT := 85.0       # default shop-dialog width as a % of the screen (overridable in config)
+
 # water price = G.REFILL_DIAMOND_COST — ONE source of truth with the paid rain
 const COIN_PACK := 150
 const COIN_PACK_GEM_COST := 5
@@ -143,12 +148,15 @@ static func featured_offers() -> Array:
 # --- the storefront ----------------------------------------------------------------
 
 static func open(host: Control, opts: Dictionary = {}) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		push_warning("Shop: kit missing at %s" % KIT_PATH)
+		return
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
-	# flat dim becomes a cozy frosted backdrop that focuses the parchment (interim until a
-	# dedicated shop backdrop is generated — BACKLOG / merge_spec §10). Falls back to a flat
+	# flat dim becomes a cozy frosted backdrop that focuses the parchment. Falls back to a flat
 	# dim if the screen-read shader can't compile.
 	var veil := ColorRect.new()
 	veil.color = Color(INK, Tune.VEIL_ALPHA)
@@ -163,283 +171,235 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	var vw: float = host.get_viewport_rect().size.x
-	card.custom_minimum_size = Vector2(minf(Tune.CARD_MAX_W, vw * Tune.CARD_VW_FRAC), 0)
-	cc.add_child(card)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", Tune.COL_SEP)
-	card.add_child(col)
-
-	# the stall header. Priority: the sliced GOLD RIBBON BANNER (the mockup header — engine
-	# "Shop" text rides it centered), then the older stall art (COVER) + floating title chip,
-	# then a plank band + chip. Images never carry words (§0.3), so the title is always
-	# engine text laid over the art.
-	var header := Control.new()
-	header.custom_minimum_size = Vector2(0, Tune.HEADER_H)
-	header.clip_contents = true
-	col.add_child(header)
-	if ResourceLoader.exists(Look.kit("shop/shop_banner.png")):
-		var banner := TextureRect.new()
-		banner.texture = load(Look.kit("shop/shop_banner.png"))
-		banner.set_anchors_preset(Control.PRESET_FULL_RECT)
-		banner.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		banner.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(banner)
-		var title := Label.new()
-		title.text = host.tr("Shop")
-		title.set_anchors_preset(Control.PRESET_FULL_RECT)
-		title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		title.add_theme_font_size_override("font_size", Tune.TITLE_SIZE)
-		title.add_theme_color_override("font_color", INK)
-		title.add_theme_constant_override("outline_size", 0)   # panel-text law: the ribbon is the contrast
-		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		header.add_child(title)
-	else:
-		if ResourceLoader.exists(Look.kit("shop/shop_stall.png")):
-			var art := TextureRect.new()
-			art.texture = load(Look.kit("shop/shop_stall.png"))
-			art.set_anchors_preset(Control.PRESET_FULL_RECT)
-			art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-			art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			header.add_child(art)
-		else:
-			var band := Panel.new()
-			band.set_anchors_preset(Control.PRESET_FULL_RECT)
-			band.add_theme_stylebox_override("panel", Look.kit_panel("plank"))
-			band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			header.add_child(band)
-		# S11: the title rides a solid chip on the AWNING (Look.title_ribbon — the kit
-		# ribbon_title nine-patch collapsed invisibly, so "Shop" used to float on the
-		# squirrel's face). The chip sits at the top band — the mascot is never covered.
-		var ribbon := Look.title_ribbon(host.tr("Shop"), Tune.TITLE_SIZE)
-		ribbon.anchor_left = 0.5
-		ribbon.anchor_right = 0.5
-		ribbon.anchor_top = 0.0
-		ribbon.anchor_bottom = 0.0
-		ribbon.offset_top = Tune.RIBBON_TOP
-		ribbon.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		ribbon.grow_vertical = Control.GROW_DIRECTION_END
-		header.add_child(ribbon)
-
-	# breathing room below the stall art
-	var wpad := Control.new()
-	wpad.custom_minimum_size = Vector2(0, Tune.SECTION_PAD)
-	col.add_child(wpad)
-	# The shop no longer draws its own currency strip — the HUD bar IS the wallet (one source,
-	# no redundancy). The opener (hud.open_shop) passes the HUD's wallet refs so buy feedback
-	# (fly-home / tick / "need more" wobble) targets it, and its panels so we can RAISE them
-	# above the blurred backdrop (kept crisp + readable). When opened without them (a capture
-	# tool), the feedback simply no-ops and nothing is raised.
+	# The HUD bar IS the wallet (one source) — raise its panels above the blurred backdrop (kept crisp),
+	# and capture its refs so buy feedback (fly-home / wiggle) targets it. Absent (a capture tool) → no-ops.
 	var hud_wallet: Dictionary = opts.get("wallet", {})
 	for p in hud_wallet.get("panels", []):
 		if p != null and is_instance_valid(p) and (p as Node).get_parent() == host:
 			host.move_child(p, host.get_child_count() - 1)
+
+	# The storefront FACE is the SHARED kit shop_dialog (frame + centred-title dividers + cells), authored
+	# in the workbench — same chrome as the mail + daily dialogs. Width is a % of the SCREEN (responsive).
+	var vw: float = host.get_viewport_rect().size.x
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var shop_cfg: Dictionary = cfg.get("shop", {})
+	var pct: float = float(shop_cfg.get("width_pct", SHOP_WIDTH_PCT))
+	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
+	# the hero size for the game-injected previews (piece art / the welcome bundle): matches the kit's own
+	# icon ratio at the computed cell width, so the injected art reads the same size as the kit's gem icons.
+	var cols: int = maxi(1, int(shop_cfg.get("cols", 3)))
+	var hero_px: float = maxf(40.0, (width - 56.0 - float(cols - 1) * 12.0) / float(cols) * 0.52)
+
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
-		"overlay": overlay, "opts": opts}
+		"overlay": overlay, "opts": opts, "host": host, "hero_px": hero_px}
 
-	# — Quick help —
-	_divider(col, host.tr("Quick help"))
-	var help_row := HBoxContainer.new()
-	help_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	help_row.add_theme_constant_override("separation", Tune.ROW_SEP)
-	col.add_child(help_row)
+	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
+	# affordability, the first-buy ribbon, and the starter's one-time availability (the login.gd pattern).
+	var rb := {"fn": Callable(), "first": true}
+	refs["rb"] = rb
+	rb.fn = func() -> void:
+		if not is_instance_valid(cc):
+			return
+		for c in cc.get_children():
+			c.queue_free()
+		var sopts: Dictionary = Kit.shop_opts_from_config(cfg)
+		sopts["banner_text"] = host.tr("Shop")
+		sopts["on_close"] = func() -> void: overlay.queue_free()
+		# the workbench leaves list_max_h 0 (grow to fit, the gallery scrolls); on a PHONE the full ladder
+		# is taller than the screen, so cap the inner height to the viewport — the shop then scrolls inside.
+		if float(sopts.get("list_max_h", 0)) <= 0.0:
+			sopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
+		var dialog: Control = Kit.shop_dialog(_sections(refs), width, sopts)
+		cc.add_child(dialog)
+		if rb.first:
+			FX.pop_in(dialog)
+			rb.first = false
+	rb.fn.call()
+
+# Build the live shop SECTIONS for the kit dialog — Quick help, Featured (real piece previews), the
+# one-time Welcome bundle, and the Acorn-pouch ladder. Each card carries its data + buy/info callbacks +
+# a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
+static func _sections(refs: Dictionary) -> Array:
+	var host: Control = refs.host
+	var opts: Dictionary = refs.opts
+	var hero_px: float = float(refs.hero_px)
+	var coins := Save.coins()
+	var gems := Save.diamonds()
+	var secs: Array = []
+
+	# Quick help — water (if offered) + a coin pouch, both paid in 💎
+	var help: Array = []
 	if opts.has("water_grant"):
-		var water_action := func() -> bool:
-			if not buy_water():
-				return false
-			(opts.water_grant as Callable).call()
-			return true
-		help_row.add_child(_help_card(host, refs, "rain", host.tr("Fill your water"),
-			host.tr("top up the can"), G.REFILL_DIAMOND_COST, water_action, "water",
-			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own.")))
-	help_row.add_child(_help_card(host, refs, "coin_sack", host.tr("Coin pouch"),
-		host.tr("+%d coins") % COIN_PACK, COIN_PACK_GEM_COST, buy_coin_pack, "coin",
-		host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK))
+		help.append({
+			"icon": "water", "label": host.tr("Fill water"),
+			"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
+			"affordable": gems >= int(G.REFILL_DIAMOND_COST),
+			"on_buy": func() -> void: _flow_water(refs),
+			"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"),
+				host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own."))})
+	help.append({
+		"icon": "coin", "label": host.tr("Coin pouch"), "count": COIN_PACK,
+		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
+		"affordable": gems >= COIN_PACK_GEM_COST,
+		"on_buy": func() -> void: _flow_coins(refs),
+		"on_info": func() -> void: _info_sheet(host, host.tr("Coin pouch"),
+			host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK)})
+	secs.append({"caption": host.tr("Quick help"), "cards": help})
 
-	# — Featured (§10): a FEW item-shortcut offers, a FIXED curated band (no rotation, no refresh).
-	_divider(col, host.tr("Featured"))
-	var offer_row := HBoxContainer.new()
-	offer_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	offer_row.add_theme_constant_override("separation", Tune.ROW_SEP)
-	col.add_child(offer_row)
+	# Featured — item shortcuts, each a REAL piece preview (the game-injected hero node), coins or 💎
+	var feat: Array = []
 	for offer in featured_offers():
-		offer_row.add_child(_item_card(host, refs, offer))
+		var code := int(offer.code)
+		var cur := String(offer.currency)
+		var cost := int(offer.cost)
+		var idx := _offer_index(String(offer.id))
+		var label := String(offer.get("label", ""))
+		feat.append({
+			"node": PieceView.make_piece(code, hero_px),
+			"label": label,
+			"price": str(cost), "price_icon": ("gem" if cur == "diamonds" else "coin"),
+			"affordable": (gems if cur == "diamonds" else coins) >= cost,
+			"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
+			"on_info": func() -> void: _info_sheet(host, label,
+				host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, label])})
+	secs.append({"caption": host.tr("Featured"), "cards": feat})
 
-	# — Starter gift (§10): a one-time, high-value welcome bundle, shown to new players
-	# only (until claimed). The single highest-converting IAP in mobile.
+	# Welcome — the one-time, high-value starter bundle (new players only, until claimed)
 	if starter_available():
-		_divider(col, host.tr("Welcome gift"))
-		var starter_row := HBoxContainer.new()
-		starter_row.alignment = BoxContainer.ALIGNMENT_CENTER
-		starter_row.add_theme_constant_override("separation", Tune.ROW_SEP)
-		col.add_child(starter_row)
-		starter_row.add_child(_starter_card(host, refs))
+		secs.append({"caption": host.tr("Welcome gift"), "cards": [{
+			"node": _starter_node(host, hero_px),
+			"ribbon": host.tr("Welcome"),
+			"price": String(STARTER_PACK.get("usd", "")),
+			"on_buy": func() -> void: _confirm_starter(host, refs)}]})
 
-	# — Acorn pouches (cash → diamonds; confirm-only) — the full $0.99…$99.99 ladder shows in
-	# a 3-wide GRID (2 rows) so EVERY tier — including the whale $49.99/$99.99 — is visible at
-	# once, no hidden scroll. 3*GEM_CARD.x + 2*HSEP stays inside the parchment inner width.
-	# (Premium currency is "diamonds" in code; it is DISPLAYED as a golden acorn — the grove's premium.)
-	_divider(col, host.tr("Acorn pouches"))
-	var gem_grid := GridContainer.new()
-	gem_grid.columns = Tune.GEM_GRID_COLS
-	gem_grid.add_theme_constant_override("h_separation", Tune.GEM_GRID_HSEP)
-	gem_grid.add_theme_constant_override("v_separation", Tune.GEM_GRID_VSEP)
-	gem_grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(gem_grid)
+	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbon)
+	var packs: Array = []
 	for i in CASH_PACKS.size():
-		gem_grid.add_child(_gem_card(host, refs, i))
-	var foot := Control.new()
-	foot.custom_minimum_size = Vector2(0, Tune.SECTION_PAD)
-	col.add_child(foot)
+		var pack: Dictionary = CASH_PACKS[i]
+		var card := {
+			"icon": _gem_icon_id(i), "count": int(pack.gems),
+			"price": String(pack.usd),
+			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
+		if first_buy_doubled():
+			card["ribbon"] = host.tr("First buy x2")
+		elif bool(pack.get("pop", false)):
+			card["ribbon"] = host.tr("Popular")
+		elif i == CASH_PACKS.size() - 1:
+			card["ribbon"] = host.tr("Best value")
+		packs.append(card)
+	secs.append({"caption": host.tr("Acorn pouches"), "cards": packs})
+	return secs
 
-	# the round ✕ rides the card's top-right corner (placed after layout)
-	var x_btn := Look.close_button(func() -> void: overlay.queue_free())
-	overlay.add_child(x_btn)
-	# S15: the ✕ docks INSIDE the parchment's top-right (same close treatment
-	# as the interior's round button) — it no longer floats on the awning corner
-	var place_x := func() -> void:
-		if not is_instance_valid(card) or not is_instance_valid(x_btn):
-			return                              # the overlay was closed before this deferred call ran (e.g. a reroll rebuild)
-		var r := card.get_global_rect()
-		x_btn.global_position = Vector2(r.position.x + r.size.x - Tune.X_BTN - Tune.X_MARGIN, r.position.y + Tune.X_MARGIN)
-	card.resized.connect(place_x)
-	place_x.call_deferred()
+# The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
+# has more packs than tier sprites — mirrors the old _gem_card art ladder.
+static func _gem_icon_id(i: int) -> String:
+	var art := "gem_t%d" % (i + 1)
+	return art if ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % art)) else "gem"
 
-	FX.pop_in(card)
-	FX.scatter_in([help_row, offer_row, gem_grid], Tune.SCATTER_DELAY)
-
-# A thin sprig divider with a caption (divider_vine art when generated).
-# S13: the caption is a parchment TAB chip, baseline-aligned with its vine —
-# not bare text floating at the parchment edge.
-static func _divider(col: VBoxContainer, caption: String) -> void:
+# The Welcome bundle's hero — the 💎 count beside its water bonus (two currencies in one compact node),
+# injected into the kit card's centre.
+static func _starter_node(host: Control, px: float) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", Tune.DIV_SEP)
-	col.add_child(row)
-	var tab := PanelContainer.new()
-	var ts := StyleBoxFlat.new()
-	ts.bg_color = Tune.TAB_BG
-	ts.set_corner_radius_all(Tune.TAB_RADIUS)
-	ts.set_border_width_all(Tune.TAB_BORDER_W)
-	ts.border_color = Color(BARK, Tune.TAB_EDGE_ALPHA)
-	ts.content_margin_left = Tune.TAB_PAD_X
-	ts.content_margin_right = Tune.TAB_PAD_X
-	ts.content_margin_top = Tune.TAB_PAD_T
-	ts.content_margin_bottom = Tune.TAB_PAD_B
-	tab.add_theme_stylebox_override("panel", ts)
-	tab.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var cap := Label.new()
-	cap.text = caption
-	cap.add_theme_font_size_override("font_size", Tune.DIV_CAP_SIZE)
-	cap.add_theme_color_override("font_color", Color(INK, Tune.DIV_CAP_INK_ALPHA))
-	tab.add_child(cap)
-	row.add_child(tab)
-	if ResourceLoader.exists(Look.kit("shop/divider_vine.png")):
-		var vine := TextureRect.new()
-		vine.texture = load(Look.kit("shop/divider_vine.png"))
-		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		# the vine art is a 768×64 leafy STRIP (12:1) made to span. Shown KEEP_ASPECT_CENTERED in a
-		# row tall enough (VINE_H) that the strip is always WIDTH-limited, so the WHOLE leafy vine
-		# scales to fill the gap from the tab to the card's right edge — consistent across rows.
-		# (At a short VINE_H it floated a sprig mid-gap; SCALE flattened it; COVERED cropped the
-		# leaves to a bare stem.)
-		# COVER the gap with the leafy strip, keeping its horizontal proportions (only outer leaf
-		# tips crop) so the WHOLE vine spans from the tab to the card's right edge on every row.
-		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		vine.clip_contents = true
-		vine.custom_minimum_size = Vector2(0, Tune.VINE_H)
-		vine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vine.size_flags_vertical = Control.SIZE_FILL
-		row.custom_minimum_size = Vector2(0, Tune.VINE_H)     # only force the row tall when the real vine is present (fallback stays a thin rule)
-		row.add_child(vine)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", int(px * 0.12))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(Look.icon("gem", px * 0.62))
+	var gn := Label.new()
+	gn.text = str(int(STARTER_PACK.get("gems", 0)))
+	gn.add_theme_font_size_override("font_size", int(px * 0.34))
+	gn.add_theme_color_override("font_color", INK)
+	gn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	gn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(gn)
+	var water_amt := int(STARTER_PACK.get("water", 0))
+	if water_amt > 0:
+		row.add_child(Look.icon("water", px * 0.5))
+		var wn := Label.new()
+		wn.text = "+%d" % water_amt
+		wn.add_theme_font_size_override("font_size", int(px * 0.26))
+		wn.add_theme_color_override("font_color", INK)
+		wn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		wn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(wn)
+	return row
+
+# --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
+# A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
+# grant home to the HUD wallet, and rebuild the storefront so affordability re-reads.
+static func _flow_water(refs: Dictionary) -> void:
+	var opts: Dictionary = refs.opts
+	var act := func() -> bool:
+		if not buy_water():
+			return false
+		(opts.water_grant as Callable).call()
+		return true
+	_buy(refs, "gem", int(G.REFILL_DIAMOND_COST), act, "water")
+
+static func _flow_coins(refs: Dictionary) -> void:
+	_buy(refs, "gem", COIN_PACK_GEM_COST, buy_coin_pack, "coin")
+
+# An item-shortcut buy (coins or 💎): spend, queue the piece, drain to the live board if present.
+static func _flow_item(refs: Dictionary, idx: int, currency: String, cost: int) -> void:
+	var opts: Dictionary = refs.opts
+	var grant := func() -> bool:
+		if not buy_item_offer(idx):
+			return false
+		if opts.has("piece_grant"):
+			(opts.piece_grant as Callable).call()
+		return true
+	_buy_currency(refs, ("gem" if currency == "diamonds" else "coin"), cost, grant, (refs.host as Control).tr("Into your bag"))
+
+static func _buy(refs: Dictionary, currency: String, cost: int, action: Callable, fly_id: String) -> void:
+	var host: Control = refs.host
+	var have: int = Save.diamonds() if currency == "gem" else Save.coins()
+	if have < cost:
+		_need_more(refs, currency, cost - have)
+		return
+	if not bool(action.call()):
+		return
+	Audio.play("merge_success", -3.0, 1.2)
+	var target := _wallet_node(refs, "coin" if fly_id == "coin" else "gem")
+	if target != null:
+		FX.fly_to_wallet(host, _fb_at(host), Look.icon(fly_id, Tune.FLY_ICON), target, func() -> void: _after_buy(refs))
 	else:
-		var line := ColorRect.new()
-		line.color = Color(BARK, Tune.LINE_ALPHA)
-		line.custom_minimum_size = Vector2(0, Tune.LINE_H)
-		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(line)
+		_after_buy(refs)
 
-# One "Quick help" card: icon, title, caption, gem price chip. Whole card presses.
-static func _help_card(host: Control, refs: Dictionary, icon_id: String, title: String,
-		caption: String, cost: int, action: Callable, fly_id: String, info: String) -> Button:
-	var b := Look.card_button(Tune.HELP_CARD)
-	var inner := VBoxContainer.new()
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(inner)
-	inner.add_child(_on_plate(Look.icon(icon_id, Tune.HERO_ICON)))
-	var t := Label.new()
-	t.text = title
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_font_size_override("font_size", Tune.HELP_TITLE_SIZE)
-	t.add_theme_color_override("font_color", INK)
-	inner.add_child(t)
-	var c := Label.new()
-	c.text = caption
-	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
-	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
-	inner.add_child(c)
-	inner.add_child(_price_pill(str(cost), "gem"))
-	b.set_meta("shop_buy", true)
-	b.set_meta("gem_cost", cost)
-	b.pressed.connect(func() -> void:
-		_try_buy(host, refs, b, cost, action, fly_id))
-	_overlay_corner(b, _info_badge(host, title, info), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
-	_apply_afford(b)
-	return b
+static func _buy_currency(refs: Dictionary, currency: String, cost: int, grant: Callable, ok_text: String) -> void:
+	var host: Control = refs.host
+	var have: int = Save.diamonds() if currency == "gem" else Save.coins()
+	if have < cost:
+		_need_more(refs, currency, cost - have)
+		return
+	if not bool(grant.call()):
+		return
+	Audio.play("merge_success", -3.0, 1.2)
+	FX.floating_text(host, _fb_at(host), ok_text, STRAW, Tune.NEED_SIZE)
+	_after_buy(refs)
 
-# One item-shortcut card (§10): a real PIECE preview, the line name + tier, the price
-# chip (coins or 💎). Whole card presses → buy: spend, queue the piece into the bag, and —
-# if the host is the live board (opts.piece_grant) — drain it onto the board now.
-static func _item_card(host: Control, refs: Dictionary, off: Dictionary) -> Button:
-	var b := Look.card_button(Tune.FEATURED_CARD)
-	var inner := VBoxContainer.new()
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(inner)
-	var code := int(off.code)
-	inner.add_child(_on_plate(PieceView.make_piece(code, Tune.HERO_ICON)))
-	var t := Label.new()
-	t.text = String(off.get("label", ""))
-	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	t.add_theme_font_size_override("font_size", Tune.HELP_TITLE_SIZE)
-	t.add_theme_color_override("font_color", INK)
-	inner.add_child(t)
-	var c := Label.new()
-	c.text = host.tr("skip to tier %d") % (code % 100)
-	c.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	c.add_theme_font_size_override("font_size", Tune.HELP_CAP_SIZE)
-	c.add_theme_color_override("font_color", Color(BARK, Tune.HELP_CAP_BARK_ALPHA))
-	inner.add_child(c)
-	var cur := String(off.currency)
-	var cost := int(off.cost)
-	inner.add_child(_price_pill(str(cost), "gem" if cur == "diamonds" else "coin"))
-	b.set_meta("shop_buy", true)
-	b.set_meta("coin_cost" if cur == "coins" else "gem_cost", cost)
-	var idx := _offer_index(String(off.id))
-	b.pressed.connect(func() -> void:
-		_try_buy_currency(host, refs, b, cur, cost, func() -> bool:
-			if not buy_item_offer(idx):
-				return false
-			if (refs.opts as Dictionary).has("piece_grant"):
-				((refs.opts as Dictionary).piece_grant as Callable).call()
-			return true, host.tr("Into your bag")))
-	var info := host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, String(off.get("label", host.tr("this line")))]
-	_overlay_corner(b, _info_badge(host, String(off.get("label", "")), info), Tune.INFO_SIZE, Tune.INFO_MARGIN, false, true)
-	_apply_afford(b)
-	return b
+static func _need_more(refs: Dictionary, currency: String, short: int) -> void:
+	var host: Control = refs.host
+	Audio.play("invalid_soft", -4.0)
+	var chip := _wallet_node(refs, currency)
+	if chip != null:
+		FX.wobble(chip)
+	FX.floating_text(host, _fb_at(host), host.tr("Need %d more") % short, CREAM, Tune.NEED_SIZE)
+
+# A feedback anchor (floaters / fly-home start) — just above the screen centre, since the kit cards
+# don't hand us a per-card button rect like the old card-buttons did.
+static func _fb_at(host: Control) -> Vector2:
+	return host.get_viewport_rect().size * Vector2(0.5, 0.42)
+
+# After a successful buy: the HUD wallet refreshes (ticks to the new balances) and the storefront
+# rebuilds so affordability, the first-buy ribbon and the starter's availability all re-read.
+static func _after_buy(refs: Dictionary) -> void:
+	var opts: Dictionary = refs.opts
+	if opts.has("refresh"):
+		(opts.refresh as Callable).call()
+	var rb: Dictionary = refs.get("rb", {})
+	if rb.has("fn") and (rb.fn as Callable).is_valid():
+		(rb.fn as Callable).call()
 
 # The index of an item offer by id (the stable handle the pure grant func takes).
 static func _offer_index(id: String) -> int:
@@ -447,222 +407,6 @@ static func _offer_index(id: String) -> int:
 		if String(D.SHOP_ITEM_OFFERS[i].id) == id:
 			return i
 	return -1
-
-# One cash pack card: gem art/icon, the count, the $ price. Middle = "Popular".
-static func _gem_card(host: Control, refs: Dictionary, i: int) -> Button:
-	var pack: Dictionary = CASH_PACKS[i]
-	var b := Look.card_button(Tune.GEM_CARD)
-	var inner := VBoxContainer.new()
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(inner)
-	# The badge rides a FIXED-height slot (empty when un-badged) so a "Popular"/"2×" tag never
-	# shoves this card's icon/count/price below its un-tagged row-mates (the §4 alignment fix).
-	# The first-ever pack shows "2×" (the §10 first-purchase doubler); otherwise the
-	# merchandised pack shows "Popular".
-	var slot := CenterContainer.new()
-	slot.custom_minimum_size = Vector2(0, Tune.BADGE_SLOT_H)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(slot)
-	var badge_text := ""
-	if first_buy_doubled():
-		badge_text = host.tr("First buy x2")
-	elif bool(pack.get("pop", false)):
-		badge_text = host.tr("Popular")
-	elif i == CASH_PACKS.size() - 1:
-		badge_text = host.tr("Best value")     # the whale pack (best 💎/$ rate) — crown it
-	if badge_text != "":
-		slot.add_child(_badge(badge_text))
-	# the hoard art escalates per pack (a single dewdrop → a brimming chest) so a bigger pack
-	# LOOKS bigger — the value ladder reads at a glance. All render at the FIXED box (= GEM_ICON_MAX)
-	# centred, so the art carries the ladder without shoving a card's count/price out of row-align.
-	var gem_art := "gem_t%d" % (i + 1)
-	if not ResourceLoader.exists(Look.kit("currency/icon_%s.png" % gem_art)):
-		gem_art = "gem"                          # safety: more packs than tier sprites → the plain glyph
-	var icon_slot := CenterContainer.new()
-	icon_slot.custom_minimum_size = Vector2(0, Tune.GEM_ICON_MAX)
-	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(icon_slot)
-	icon_slot.add_child(Look.icon(gem_art, Tune.GEM_ICON_MAX))
-	var n := Label.new()
-	n.text = str(int(pack.gems))
-	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	n.add_theme_font_size_override("font_size", Tune.GEM_COUNT_SIZE)
-	n.add_theme_color_override("font_color", INK)
-	inner.add_child(n)
-	inner.add_child(_price_pill(String(pack.usd)))
-	b.set_meta("shop_buy", true)
-	b.set_meta("shop_cash", i)
-	b.pressed.connect(func() -> void:
-		_confirm_cash(host, refs, i))
-	return b
-
-# The starter-pack card (§10): a wide welcome card — a "Welcome" badge, the 💎 count +
-# its water bonus, the low price. Whole card presses → the confirm grants directly.
-static func _starter_card(host: Control, refs: Dictionary) -> Button:
-	var b := Look.card_button(Tune.STARTER_CARD, "kit/shop_card_wide.png")   # a wide welcome BANNER (not a narrow pouch) so the two-currency bundle fits one row
-	var inner := VBoxContainer.new()
-	inner.alignment = BoxContainer.ALIGNMENT_CENTER
-	inner.add_theme_constant_override("separation", Tune.CARD_INNER_SEP)
-	inner.set_anchors_preset(Control.PRESET_FULL_RECT)
-	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(inner)
-	inner.add_child(_badge(host.tr("Welcome")))
-	var what := HBoxContainer.new()
-	what.alignment = BoxContainer.ALIGNMENT_CENTER
-	what.add_theme_constant_override("separation", Tune.WHAT_SEP)
-	what.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	inner.add_child(what)
-	what.add_child(Look.icon("gem", Tune.GEM_ICON))
-	var n := Label.new()
-	n.text = str(int(STARTER_PACK.get("gems", 0)))
-	n.add_theme_font_size_override("font_size", Tune.GEM_COUNT_SIZE)
-	n.add_theme_color_override("font_color", INK)
-	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	what.add_child(n)
-	var water_amt := int(STARTER_PACK.get("water", 0))
-	if water_amt > 0:
-		var wic := Look.icon("water", Tune.HELP_ICON)
-		wic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		what.add_child(wic)
-		var wn := Label.new()
-		wn.text = "+%d" % water_amt
-		wn.add_theme_font_size_override("font_size", Tune.HELP_PRICE_SIZE)
-		wn.add_theme_color_override("font_color", INK)
-		wn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		what.add_child(wn)
-	inner.add_child(_price_pill(String(STARTER_PACK.get("usd", ""))))
-	b.set_meta("shop_buy", true)
-	b.set_meta("shop_starter", true)
-	b.pressed.connect(func() -> void:
-		_confirm_starter(host, refs))
-	Look.attach_badge(b, Look.badge("dot"))   # an unclaimed welcome gift is always actionable (shared sticker badge)
-	return b
-
-# A small STRAW pill badge ("Popular" / "2× first buy" / "Best value") for a cash card.
-static func _badge(text: String) -> PanelContainer:
-	var pop := PanelContainer.new()
-	# the red ribbon tag art when sliced (CREAM text on red), else the code-drawn STRAW pill
-	# (INK text). The ribbon is a horizontal banner → wide H / small V nine-patch margin.
-	var box := Look.kit_box("kit/shop_tag.png", Tune.TAG_TEX_MARGIN,
-		Vector4(Tune.POP_PAD_X, Tune.POP_PAD_Y, Tune.POP_PAD_X, Tune.POP_PAD_Y))
-	var fg := CREAM
-	if box != null:
-		pop.add_theme_stylebox_override("panel", box)
-	else:
-		var pp := StyleBoxFlat.new()
-		pp.bg_color = STRAW
-		pp.set_corner_radius_all(Tune.POP_RADIUS)
-		pp.content_margin_left = Tune.POP_PAD_X
-		pp.content_margin_right = Tune.POP_PAD_X
-		pp.content_margin_top = Tune.POP_PAD_Y
-		pp.content_margin_bottom = Tune.POP_PAD_Y
-		pop.add_theme_stylebox_override("panel", pp)
-		fg = INK
-	var pl := Label.new()
-	pl.text = text
-	pl.add_theme_font_size_override("font_size", Tune.POP_SIZE)
-	pl.add_theme_color_override("font_color", fg)
-	pop.add_child(pl)
-	pop.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return pop
-
-# The BUY pill — ONE source for every price on a card (help / featured / cash / starter).
-# White text on leaf-GREEN (Pal.BTN_PRIMARY, the game's primary-CTA colour), fully rounded with a
-# raised shadow, optionally led by a currency glyph, so the price reads as the tappable buy button
-# (the whole card presses; this pill is its visual CTA). Named "BuyPill" so _apply_afford can dim
-# THIS, not the whole card. `icon_id` "" = a plain $ price (no glyph). (Was a brown #5A3F28 pebble.)
-static func _price_pill(text: String, icon_id: String = "") -> PanelContainer:
-	var pill := PanelContainer.new()
-	pill.name = "BuyPill"
-	# the green buy-button art when sliced, else the solid leaf-green capsule (same pads, so
-	# the icon+number sit identically either way). A horizontal capsule → wide H / small V
-	# nine-patch margin (BUY_TEX_MARGIN) so short pills don't collapse the box.
-	var box := Look.kit_box("kit/shop_buy.png", Tune.BUY_TEX_MARGIN,
-		Vector4(Tune.BUY_PAD_X, Tune.BUY_PAD_T, Tune.BUY_PAD_X, Tune.BUY_PAD_B))
-	if box != null:
-		pill.add_theme_stylebox_override("panel", box)
-	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Pal.BTN_PRIMARY
-		s.set_corner_radius_all(Tune.BUY_RADIUS)
-		s.set_border_width_all(Tune.BUY_BORDER_W)
-		s.border_color = Pal.BTN_PRIMARY_EDGE
-		s.shadow_color = Tune.BUY_SHADOW
-		s.shadow_size = Tune.BUY_SHADOW_SIZE
-		s.shadow_offset = Tune.BUY_SHADOW_OFFSET
-		s.content_margin_left = Tune.BUY_PAD_X
-		s.content_margin_right = Tune.BUY_PAD_X
-		s.content_margin_top = Tune.BUY_PAD_T
-		s.content_margin_bottom = Tune.BUY_PAD_B
-		pill.add_theme_stylebox_override("panel", s)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", Tune.PRICE_ROW_SEP)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pill.add_child(row)
-	if icon_id != "":
-		var ic := Look.icon(icon_id, Tune.PRICE_ICON)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(ic)
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", Tune.BUY_SIZE)
-	l.add_theme_color_override("font_color", CREAM)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(l)
-	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	return pill
-
-# A product icon / piece preview seated on a soft honey disc — the HERO of a help/featured card,
-# so the art pops off the cream parchment instead of floating tiny + faint.
-static func _on_plate(art: Control) -> Control:
-	var plate := PanelContainer.new()
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Tune.ICON_PLATE_BG
-	ps.set_corner_radius_all(int(Tune.ICON_PLATE / 2.0))
-	ps.set_border_width_all(2)
-	ps.border_color = Color(BARK, Tune.ICON_PLATE_EDGE_ALPHA)
-	plate.add_theme_stylebox_override("panel", ps)
-	plate.custom_minimum_size = Vector2(Tune.ICON_PLATE, Tune.ICON_PLATE)
-	plate.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plate.add_child(cc)
-	cc.add_child(art)
-	return plate
-
-# The per-card "i" info badge — a small blue disc that opens the item's detail sheet. It is a REAL
-# button stacked above the card's buy press (MOUSE_FILTER STOP), so tapping the "i" opens the sheet
-# and does NOT trigger a purchase; tapping anywhere else on the card still buys.
-static func _info_badge(host: Control, title: String, body: String) -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(Tune.INFO_SIZE, Tune.INFO_SIZE)
-	b.text = "i"
-	b.add_theme_font_size_override("font_size", Tune.INFO_FONT)
-	b.add_theme_color_override("font_color", CREAM)
-	b.add_theme_color_override("font_hover_color", CREAM)
-	b.add_theme_color_override("font_pressed_color", CREAM)
-	b.add_theme_constant_override("outline_size", 0)
-	var s := StyleBoxFlat.new()
-	s.bg_color = Tune.INFO_BG
-	s.set_corner_radius_all(int(Tune.INFO_SIZE / 2.0))
-	s.set_border_width_all(Tune.INFO_BORDER_W)
-	s.border_color = Tune.INFO_EDGE
-	b.add_theme_stylebox_override("normal", s)
-	b.add_theme_stylebox_override("hover", s)
-	var sp: StyleBoxFlat = s.duplicate()
-	sp.bg_color = Tune.INFO_EDGE
-	b.add_theme_stylebox_override("pressed", sp)
-	b.add_child(Look.rim_overlay(Tune.INFO_SIZE / 2.0, Tune.INFO_BORDER_W))   # shared two-tone sticker rim
-	Look.add_press_juice(b)
-	b.pressed.connect(func() -> void: _info_sheet(host, title, body))
-	return b
 
 # The item-detail sheet the "i" opens (§10 product info) — a parchment modal in the confirm
 # language: ribbon title + a body paragraph + a "Got it" close; tap the veil to dismiss. Read-only,
@@ -705,28 +449,6 @@ static func _info_sheet(host: Control, title: String, body: String) -> void:
 	btns.add_child(Look.button(host.tr("Got it"), func() -> void: overlay.queue_free(), true))
 	FX.pop_in(card)
 
-# Pin a small node at a card/button corner. Decorative overlays are input-transparent (the press
-# surface shows through); an `interactive` node (the "i" button) keeps its own input so it can be
-# tapped without triggering the card's buy press.
-static func _overlay_corner(host_btn: Button, node: Control, size: float, margin: float, left: bool, interactive: bool = false) -> void:
-	host_btn.add_child(node)
-	if not interactive:
-		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.anchor_top = 0.0
-	node.anchor_bottom = 0.0
-	node.offset_top = margin
-	node.offset_bottom = margin + size
-	if left:
-		node.anchor_left = 0.0
-		node.anchor_right = 0.0
-		node.offset_left = margin
-		node.offset_right = margin + size
-	else:
-		node.anchor_left = 1.0
-		node.anchor_right = 1.0
-		node.offset_left = -(size + margin)
-		node.offset_right = -margin
-
 # The blurred + warm-tinted + vignetted backdrop material (the §1 interim shop backdrop). A
 # screen-read canvas shader: 9-tap box blur of the live scene, mixed toward a warm dark, with a
 # radial vignette to focus the parchment. Returns a ShaderMaterial applied to the full-rect veil.
@@ -764,87 +486,11 @@ static func _backdrop_material() -> ShaderMaterial:
 	m.set_shader_parameter("vignette", Tune.BACKDROP_VIGNETTE)
 	return m
 
-
-# Affordability is shown, never blocking: a can't-afford card still presses (wallet wiggles).
-# The CARD stays bright always (a whole-card dim read as disabled/sold-out — the storefront's
-# worst signal); only the BUY pill takes the muted "need more" state. Reads whichever price meta
-# the card carries — gem_cost (💎), coin_cost (🪙), or an `owned` flag (no pill, nothing to dim).
-static func _apply_afford(b: Button) -> void:
-	if b.has_meta("owned") and bool(b.get_meta("owned")):
-		return
-	var ok := true
-	if b.has_meta("gem_cost"):
-		ok = Save.diamonds() >= int(b.get_meta("gem_cost"))
-	elif b.has_meta("coin_cost"):
-		ok = Save.coins() >= int(b.get_meta("coin_cost"))
-	else:
-		return
-	var pill := b.find_child("BuyPill", true, false)
-	if pill != null:
-		(pill as Control).modulate = Color(1, 1, 1, 1.0) if ok else Tune.BUY_NEED_MODULATE
-
-static func _refresh_afford(overlay: Control) -> void:
-	for b in overlay.find_children("*", "Button", true, false):
-		_apply_afford(b)
-
 # The HUD wallet node for a currency ("coin"|"gem"), or null when the opener passed no wallet
 # (e.g. a capture tool) — feedback then no-ops gracefully instead of touching a missing chip.
 static func _wallet_node(refs: Dictionary, key: String) -> Control:
 	var n: Variant = (refs.get(key, {}) as Dictionary).get("node")
 	return n if (n != null and is_instance_valid(n)) else null
-
-static func _try_buy(host: Control, refs: Dictionary, b: Button, cost: int,
-		action: Callable, fly_id: String) -> void:
-	if Save.diamonds() < cost:
-		Audio.play("invalid_soft", -4.0)
-		var gem_n := _wallet_node(refs, "gem")
-		if gem_n != null:
-			FX.wobble(gem_n)
-		FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET,
-			host.tr("Need %d more") % (cost - Save.diamonds()), CREAM, Tune.NEED_SIZE)
-		return
-	if not bool(action.call()):
-		return
-	Audio.play("merge_success", -3.0, 1.2)
-	FX.pop(b)
-	# the grant flies home to the HUD wallet and it ticks — no rebuild flash
-	var target := _wallet_node(refs, "coin" if fly_id == "coin" else "gem")
-	if target != null:
-		FX.fly_to_wallet(host, b.get_global_rect().get_center(), Look.icon(fly_id, Tune.FLY_ICON), target,
-			func() -> void: _settle(host, refs))
-	else:
-		_settle(host, refs)
-
-# The item-shortcut buy: pays in `currency` ("coins"|"diamonds"), wiggling the
-# right wallet chip + a "Need N more" floater when short (never blocking, §13). On success
-# the `grant` callable does the spend+grant (it owns the price), then a celebratory floater
-# and the wallet settle. `grant` returns false to abort cleanly (e.g. a race).
-static func _try_buy_currency(host: Control, refs: Dictionary, b: Button, currency: String,
-		cost: int, grant: Callable, ok_text: String) -> void:
-	var have: int = Save.diamonds() if currency == "diamonds" else Save.coins()
-	var chip := _wallet_node(refs, "gem" if currency == "diamonds" else "coin")
-	if have < cost:
-		Audio.play("invalid_soft", -4.0)
-		if chip != null:
-			FX.wobble(chip)
-		FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET,
-			host.tr("Need %d more") % (cost - have), CREAM, Tune.NEED_SIZE)
-		return
-	if not bool(grant.call()):
-		return
-	Audio.play("merge_success", -3.0, 1.2)
-	FX.pop(b)
-	FX.floating_text(host, b.get_global_rect().get_center() - Tune.NEED_OFFSET, ok_text, STRAW, Tune.NEED_SIZE)
-	_settle(host, refs)
-
-# The HUD wallet ticks to the new balances (via its own refresh — the shop no longer owns a
-# wallet); affordability re-tints across the storefront.
-static func _settle(host: Control, refs: Dictionary) -> void:
-	var opts: Dictionary = refs.opts
-	if opts.has("refresh"):
-		(opts.refresh as Callable).call()
-	if is_instance_valid(refs.overlay):
-		_refresh_afford(refs.overlay)
 
 # The cash confirm: parchment, pop_in, the honest caption — confirming grants the
 # diamonds directly (the future IAP hookup replaces exactly this middle).
@@ -936,5 +582,5 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		var gem_n := _wallet_node(refs, "gem")
 		if gem_n != null:
 			FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), gem_n)
-		_settle(host, refs), true))
+		_after_buy(refs), true))
 	FX.pop_in(card)
