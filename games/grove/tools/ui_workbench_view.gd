@@ -89,7 +89,8 @@ const TEST_KEYS := {
 	# the quest-giver card — its LOOK is the painted card art + the layout fractions baked in
 	# giver_stand.gd, so NOTHING here is saved config: every knob just previews the live card
 	# (which bust, the asked tier, the reward, the size the board gives it, and the ready state).
-	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
+	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met", "card_w", "card_h",
+		"bust_size", "bust_x", "bust_y", "item_size", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
@@ -117,7 +118,7 @@ const CAPTIONS := {
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
-	"tiers": "Discovery — tier ladder (twig border, no vines)",
+	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
@@ -181,10 +182,12 @@ var _params := {
 		"open": true, "done": false, "stars_left": 3},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. Nothing
-	# is saved: bust picks which of giver_0..2 sits on the left; tier is the asked item's tier (the demo
+	# is saved: bust picks which of giver_0..15 sits on the left; tier is the asked item's tier (the demo
 	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
 	# toggles the ready ✓.
-	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 360, "fence_h": 240, "met": false},
+	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,
+		"card_w": 96, "card_h": 78, "bust_size": 100, "bust_x": 28, "bust_y": 46,
+		"item_size": 36, "item_x": 73, "item_y": 39, "plaque_w": 44, "plaque_x": 50, "plaque_y": 78},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -201,15 +204,16 @@ var _params := {
 	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
 	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
-	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_slice": 40, "cell_art": true,
-		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "piece_frac": 62, "sel_overflow": 100},
-	# the DISCOVERY dialog — the shared frame dressed in the TIERS chrome (twig border + ladder ribbon + its
-	# own ✕), wrapping a plain grid of tier cells with NO vines. It carries its OWN frame chrome (the bark
-	# panel wants different banner/padding than the parchment frame), so these knobs are independent.
-	"tiers": {"width_pct": 85, "cols": 3, "card_slice": 72, "panel_pad_x": 44, "panel_pad_y": 30,
+	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_art": true,
+		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "num_badge": true, "num_badge_scale": 200,
+		"piece_frac": 62, "mark_glow": 60, "mark_twinkle": 50},
+	# the DISCOVERY dialog — the SAME shared frame as every other dialog, with a selectable Border (default
+	# the twig board; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
+	# chrome. The panel padding follows the chosen border, and the grid fills that inner width.
+	"tiers": {"width_pct": 85, "cols": 3, "border": "twig board",
 		"banner_font": 50, "banner_h": 168, "banner_x": 0, "banner_y": -66, "banner_text_x": 0, "banner_text_y": -2,
 		"banner_burn": 55, "close_size": 84, "close_x": 4, "close_y": 16,
-		"cell_gap": 16, "grid_inset": 56, "list_top_pad": 8, "list_max_h": 0},
+		"cell_gap": 16, "list_top_pad": 8, "list_max_h": 0},
 	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
 	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
 	"currency_pill": {"use_art": true, "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
@@ -482,9 +486,9 @@ func _make_element(id: String) -> Control:
 			return Kit.map_card(mdata, mco, mw, mh)
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls.
-			# Demo data: the Wildflower line at the chosen tier + a flat star reward. The taps are no-ops
-			# here (no board to deliver to); stand_w/fence_h preview the size the fence hands each card.
-			var demo_q := {"line": 1, "tier": int(p.tier), "reward": {"stars": int(p.stars)}}
+			# `bust` IS the asked line (the bust face is keyed off it), so it drives both the giver and the
+			# item art; tier + stars round out the demo. The layout knobs feed cfg.lay (the board's defaults).
+			var demo_q := {"line": maxi(1, int(p.bust)), "tier": int(p.tier), "reward": {"stars": int(p.stars)}}
 			var noop2 := func(_a: Variant, _b: Variant) -> void: pass
 			var qcfg := {
 				"ask_tap": noop2, "stand_tap": noop2,
@@ -493,18 +497,19 @@ func _make_element(id: String) -> Control:
 						if ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
 							action.call()),
 				"stand_w": float(p.stand_w), "fence_h": float(p.fence_h),
+				"lay": {
+					"card_w": float(p.card_w) / 100.0, "card_h": float(p.card_h) / 100.0,
+					"bust_size": float(p.bust_size) / 100.0, "bust_x": float(p.bust_x) / 100.0, "bust_y": float(p.bust_y) / 100.0,
+					"item_size": float(p.item_size) / 100.0, "item_x": float(p.item_x) / 100.0, "item_y": float(p.item_y) / 100.0,
+					"plaque_w": float(p.plaque_w) / 100.0, "plaque_x": float(p.plaque_x) / 100.0, "plaque_y": float(p.plaque_y) / 100.0,
+				},
 			}
-			var made := GiverStand.make(int(p.bust), demo_q, qcfg)
+			var made := GiverStand.make(maxi(1, int(p.bust)), demo_q, qcfg)
 			var stand: Control = made.chip
 			if bool(p.met):                       # preview the ready state (the board drives this live)
-				var item: Dictionary = made.item
-				var met: Control = item.get("met")
+				var met: Control = (made.item as Dictionary).get("met")
 				if met != null and is_instance_valid(met):
 					met.visible = true
-				var cnt: Label = item.get("count")
-				if cnt != null and is_instance_valid(cnt):
-					cnt.text = "1/1"
-					cnt.add_theme_color_override("font_color", Color("#4E7C46"))
 			return stand
 		"tiers":
 			# the SHARED frame in TIERS chrome (twig border + ladder ribbon, NO vines) + the tier-cell grid
@@ -1001,7 +1006,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the SHARED frame but dressed in its OWN twig border + ladder ribbon + ✕ (so its chrome is tuned HERE, not on the Frame item). The tile is the Tier cell item. A plain grid — no vines."
+		note.text = "Uses the SHARED frame on a selectable Border (default the twig board), with the ladder ribbon + ✕ on top (tuned HERE). The tile is the Tier cell item. A plain grid — no vines."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1163,15 +1168,18 @@ func _rebuild_sidebar() -> void:
 		"tiers_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
-			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 120]))    # the cell's nine-patch margin
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
 			_sidebar_body.add_child(_toggle_row("Show number", "show_num"))
+			_sidebar_body.add_child(_toggle_row("Number badge", "num_badge"))   # the cost-disc plate behind the numeral
 			_sidebar_body.add_child(_slider_row(["num_font", 12, 56]))
+			_sidebar_body.add_child(_slider_row(["num_badge_scale", 130, 300]))  # disc diameter (% of font)
 			_sidebar_body.add_child(_slider_row(["num_x", 0, 50]))          # number inset from left (% of cell)
 			_sidebar_body.add_child(_slider_row(["num_y", 0, 50]))          # ...and from top
 			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # content size (% of cell)
-			_sidebar_body.add_child(_slider_row(["sel_overflow", 100, 140]))  # marked ring spill (%)
+			_section_header("Marked tier (sparkle)")
+			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
+			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["marked", "seen", "unseen"]))
 		"map_card":
@@ -1199,13 +1207,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))    # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
-			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 160]))    # how far the twig border eats the width
 			_sidebar_body.add_child(_slider_row(["list_top_pad", -40, 200]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
-			_section_header("Border (twig panel)")
-			_sidebar_body.add_child(_slider_row(["card_slice", 0, 160]))
-			_sidebar_body.add_child(_slider_row(["panel_pad_x", 0, 140]))
-			_sidebar_body.add_child(_slider_row(["panel_pad_y", 0, 140]))
+			_section_header("Border (shared frame)")
+			# the SAME border registry the Frame item uses — the grid padding follows the chosen border, so
+			# the right column never spills (the old per-dialog slice/pad/grid_inset knobs are retired).
+			_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))
 			_section_header("Banner (ladder ribbon)")
 			_sidebar_body.add_child(_slider_row(["banner_font", 20, 72]))
 			_sidebar_body.add_child(_slider_row(["banner_h", 60, 200]))
@@ -1282,15 +1289,30 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["owned", 0, 18]))          # how many slots are owned
 			_sidebar_body.add_child(_slider_row(["filled", 0, 18]))         # how many owned slots hold a piece
 		"quest_card":
-			# nothing here is saved — the card's look is the painted art + giver_stand's baked layout.
-			# These knobs only preview the live card: which bust, the asked tier, the reward, the size the
-			# board hands it, and the ready ✓ (the board drives that from the player's board live).
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["bust", 0, 2]))           # which of giver_0..2 sits in the field
-			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier (Wildflower line)
+			# The LAYOUT block (card_w..plaque_y) are the giver_stand.LAY fractions, in PERCENT — tune them
+			# here, then copy the values into giver_stand.LAY to ship. The demo block just feeds the preview.
+			# Nothing here writes to the config file.
+			_group_header("Layout (percent → copy into giver_stand.LAY)", false)
+			_sidebar_body.add_child(_slider_row(["card_w", 40, 100]))      # box width  (% of stand)
+			_sidebar_body.add_child(_slider_row(["card_h", 40, 100]))      # box height (% of stand) — ~card_w×0.57 keeps the art's 1.74:1
+			_section_header("Quest giver")
+			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
+			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)
+			_sidebar_body.add_child(_slider_row(["bust_y", 0, 100]))       # centre y (% of box height)
+			_section_header("Item icon")
+			_sidebar_body.add_child(_slider_row(["item_size", 10, 80]))    # size (% of box height)
+			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
+			_sidebar_body.add_child(_slider_row(["item_y", 0, 100]))       # centre y (% of box height)
+			_section_header("Plaque")
+			_sidebar_body.add_child(_slider_row(["plaque_w", 20, 90]))     # width (% of box width)
+			_sidebar_body.add_child(_slider_row(["plaque_x", 0, 100]))     # centre x (% of box width)
+			_sidebar_body.add_child(_slider_row(["plaque_y", 0, 100]))     # centre y (% of box height)
+			_group_header("Demo (preview only)", false)
+			_sidebar_body.add_child(_slider_row(["bust", 0, 15]))          # which giver (0..15) — also the asked line
+			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))          # the asked item's tier
 			_sidebar_body.add_child(_slider_row(["stars", 1, 99]))         # the +N reward on the plaque
-			_sidebar_body.add_child(_slider_row(["stand_w", 120, 360]))    # the stand width the fence gives each card
-			_sidebar_body.add_child(_slider_row(["fence_h", 180, 460]))    # the fence band height (card is height-bound)
+			_sidebar_body.add_child(_slider_row(["stand_w", 200, 640]))    # preview stand width
+			_sidebar_body.add_child(_slider_row(["fence_h", 160, 460]))    # preview stand height
 			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
