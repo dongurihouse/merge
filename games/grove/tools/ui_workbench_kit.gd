@@ -2882,9 +2882,8 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 ## piece sits on it); empty / next / locked SHARE the flat empty-slot card (bag_card_empty.png) so they
 ## read as one component at one size — the state (lock + cost, the buyable sparkle, the locked dim) is an
 ## overlay, not a different sprite. The old gold sparkle card is gone; `next` gets a DYNAMIC sparkle FX.
-const BAG_FILLED_ART := "kit/bag_card.png"     # the raised card for a held piece
-const BAG_SLOT_ART := "kit/bag_card_empty.png" # the flat empty-slot card — empty / next / locked share it
-const BAG_LOCKED_TINT := Color(0.82, 0.80, 0.76)   # a locked tile reads dimmed (same card, dimmed)
+const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
+const SLOT_LOCKED_ART := "board/slot_locked.png" # the same well + the baked gold padlock — locked / unlockable
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
@@ -2894,43 +2893,46 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
-		"cell_slice": float(bc.get("cell_slice", 36)),
+		"cell_slice": float(bc.get("cell_slice", 28)),               # the well's nine-patch corner margin
 		"cell_art": bool(bc.get("cell_art", true)),
-		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a bagged piece, % of the cell
-		"lock_frac": float(bc.get("lock_frac", 40)) / 100.0,         # the padlock, % of the cell
+		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
 		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
-		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the next cell's sparkle halo amount
+		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
+		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
 	}
 
-## One BAG SLOT TILE — the bag screen's cell, ONE component card with four states. `kind` picks the
-## look + behaviour:
-##   filled — a bagged piece on the raised card (bag_card.png); a tap fires d.on_tap (retrieve)
-##   empty  — the flat empty-slot card (bag_card_empty.png), nothing on it, inert
-##   locked — the SAME empty-slot card, dimmed, with the padlock (bag_lock.png) + its acorn cost stacked
-##            INSIDE the card, below the lock; inert
-##   next   — the single buyable slot: identical to `locked` (same card · lock · cost inside) but NOT
-##            dimmed and ringed by a DYNAMIC sparkle FX (engine-drawn glow + twinkles); a tap buys it
-## Every state returns a tile of exactly cell_w × cell_h, so the grid is uniform. The filled piece is
-## content-agnostic so the kit stays free of game deps: d.make_content(size) (a Callable that builds the
-## game's piece view at the FITTED cell size) wins, else a pre-built d.content node, else d.icon (a kit
-## icon id, the workbench preview), else nothing. The acorn = the gem currency icon (Grove renders 💎 as
-## a golden acorn). A code-drawn card backs every state when the art is off/absent (the kit fallback law).
-## d keys: kind, make_content|content|icon, cost, on_tap. opts: bag_card_opts_from_config(...).
-static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
-	var kind := String(d.get("kind", "empty"))
-	var cw: float = float(opts.get("cell_w", 116.0))
-	var ch: float = float(opts.get("cell_h", 120.0))
+## One SLOT CELL — the shared bag + board cell, on the board's cream-well art. `d.state` (or the legacy
+## `d.kind`) picks the look + behaviour:
+##   empty      — the open cream well (seen / unlocked / owned-empty), inert
+##   filled     — the open well + a piece on top; a tap fires d.on_tap (retrieve)
+##   locked     — the well with the BAKED gold padlock (unseen / gated), inert
+##   unlockable — the locked well, HIGHLIGHTED (gold border + glow + dynamic sparkle), full opacity; a
+##                tap fires d.on_tap (buy / open). The bag's "next" maps here.
+## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge,
+## under the baked lock (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
+## level badge (board); d.dim (0..1) sets the cell's modulate alpha (the board's receded deep locks).
+## The piece is content-agnostic so the kit stays free of game deps: d.make_content(size) (a Callable
+## that builds the game's piece view at the FITTED size) wins, else d.content (a node), else d.icon (a
+## kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h. A code-drawn well
+## backs every state when the art is off/absent (the kit fallback law).
+## d keys: state|kind, make_content|content|icon, cost, level, dim, on_tap. opts: bag_card_opts_from_config(...).
+static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
+	var state := String(d.get("state", d.get("kind", "empty")))
+	if state == "next":
+		state = "unlockable"          # the bag's "next" == the board's highlighted openable
+	var cw := float(opts.get("cell_w", 116.0))
+	var ch := float(opts.get("cell_h", 120.0))
 	var cost_font := int(opts.get("cost_font", 24))
 	var cost_icon := float(opts.get("cost_icon", 26.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
-	var tappable := on_tap.is_valid() and (kind == "filled" or kind == "next")
+	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
+	var lockedwell := (state == "locked" or state == "unlockable")   # both show the baked-lock well
 
-	# the tile: a Button when tappable (fires on_tap), else a plain holder (empty/locked are inert). It is
-	# the whole cell now — exactly cell_w × cell_h, the cost rides INSIDE it (no strip below).
 	var tile: Control = (Button.new() if tappable else Control.new())
 	tile.custom_minimum_size = Vector2(cw, ch)
+	tile.size = Vector2(cw, ch)            # explicit, so the board (absolute layout) sizes it; a grid overrides
 	tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if tile is Button:
 		var b := tile as Button
@@ -2939,68 +2941,106 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		b.pressed.connect(func() -> void:
 			if on_tap.is_valid(): on_tap.call())
 
-	# the card FACE — filled uses the raised card; empty / next / locked SHARE the flat empty-slot card.
-	var art := (BAG_FILLED_ART if kind == "filled" else BAG_SLOT_ART)
-	var use_art := bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
-	if use_art:
-		var face := TextureRect.new()
-		face.texture = clean_tex_path(Look.kit(art), 256)
+	# the cell FACE — the board's cream well as a NINE-PATCH (crisp corners at any cell size): slot_tile
+	# (empty / filled) or slot_locked (locked / unlockable — the well with the baked padlock).
+	var art := (SLOT_LOCKED_ART if lockedwell else SLOT_EMPTY_ART)
+	if bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art)):
+		var face := Panel.new()
 		face.set_anchors_preset(Control.PRESET_FULL_RECT)
-		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var sbt := StyleBoxTexture.new()
+		sbt.texture = load(Look.kit(art))
+		sbt.set_texture_margin_all(float(opts.get("cell_slice", 28.0)))
+		face.add_theme_stylebox_override("panel", sbt)
 		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if kind == "locked":
-			face.modulate = BAG_LOCKED_TINT
 		tile.add_child(face)
 	else:
 		var p := Panel.new()
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ss := StyleBoxFlat.new()
-		ss.bg_color = (Color(Pal.CREAM, 0.5) if kind == "empty" or kind == "locked" else Color(Pal.CREAM, 0.92))
-		ss.set_corner_radius_all(16)
+		ss.bg_color = (Color(Pal.CREAM, 0.55) if lockedwell else Color(Pal.CREAM, 0.92))
+		ss.set_corner_radius_all(int(maxf(10.0, cw * 0.16)))
 		ss.set_border_width_all(2)
 		ss.border_color = Color(Pal.GROUND_EDGE, 0.4)
 		p.add_theme_stylebox_override("panel", ss)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if kind == "locked":
-			p.modulate = BAG_LOCKED_TINT
 		tile.add_child(p)
 
-	# the centred content: filled → the piece; next / locked → the lock + its acorn cost stacked inside.
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(center)
-	match kind:
-		"filled":
-			# the piece is built at the FITTED cell size: d.make_content(size) (the game's piece view, sized
-			# to the kit-computed cell so the game stays out of layout) wins, else a pre-built d.content node,
-			# else d.icon (the workbench preview), else nothing.
-			var piece_px := cw * float(opts.get("content_frac", 0.62))
-			var piece: Control = null
-			var mk: Callable = d.get("make_content", Callable())
-			if mk.is_valid():
-				piece = mk.call(piece_px)
-			elif d.get("content") is Control:
-				piece = d.get("content")
-			elif String(d.get("icon", "")) != "":
-				piece = make_icon(String(d.icon), piece_px)
-			if piece != null:
-				piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
-				center.add_child(piece)
-		"next", "locked":
-			center.add_child(_bag_lock_cost(int(d.get("cost", 0)), cw * float(opts.get("lock_frac", 0.40)), cost_icon, cost_font))
+	# filled — the piece, centred, built at the FITTED cell size (content-agnostic).
+	if state == "filled":
+		var piece_px := cw * float(opts.get("content_frac", 0.62))
+		var piece: Control = null
+		var mk: Callable = d.get("make_content", Callable())
+		if mk.is_valid():
+			piece = mk.call(piece_px)
+		elif d.get("content") is Control:
+			piece = d.get("content")
+		elif String(d.get("icon", "")) != "":
+			piece = make_icon(String(d.icon), piece_px)
+		if piece != null:
+			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var pc := CenterContainer.new()
+			pc.set_anchors_preset(Control.PRESET_FULL_RECT)
+			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			pc.add_child(piece)
+			tile.add_child(pc)
 
-	# the next (buyable) slot is ringed by a DYNAMIC sparkle FX (engine-drawn — the SAME glow+twinkle the
-	# home/unlock buttons use), drawn OVER the card so it reads as the live, tappable one.
-	if kind == "next":
+	# the acorn cost (bag) — under the baked lock, near the lower edge.
+	var cost := int(d.get("cost", 0))
+	if cost > 0 and lockedwell:
+		var cwrap := CenterContainer.new()
+		cwrap.anchor_left = 0.0; cwrap.anchor_right = 1.0
+		cwrap.anchor_top = 1.0; cwrap.anchor_bottom = 1.0
+		cwrap.offset_top = -float(cost_font) - ch * 0.12
+		cwrap.offset_bottom = -ch * 0.06
+		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cwrap.add_child(_bag_cost_row(cost, cost_icon, cost_font))
+		tile.add_child(cwrap)
+
+	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
+	var level := int(d.get("level", 0))
+	if level > 0:
+		var lvpx := maxf(28.0, cw * float(opts.get("level_frac", 0.44)))
+		var badge := Look.make_level_badge(level, lvpx)
+		badge.anchor_left = 1.0; badge.anchor_top = 1.0; badge.anchor_right = 1.0; badge.anchor_bottom = 1.0
+		badge.offset_left = -lvpx - cw * 0.04
+		badge.offset_top = -lvpx - cw * 0.04
+		badge.offset_right = -cw * 0.04
+		badge.offset_bottom = -cw * 0.04
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(badge)
+
+	# unlockable — the shared HIGHLIGHT: a warm-gold border + glow (the board's "pop") AND the dynamic
+	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
+	if state == "unlockable":
+		var pop := Panel.new()
+		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Color(0, 0, 0, 0)
+		ps.set_border_width_all(4)
+		ps.border_color = Pal.STRAW
+		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
+		ps.shadow_color = Color(Pal.STRAW, 0.55)
+		ps.shadow_size = int(maxf(4.0, cw * 0.10))
+		pop.add_theme_stylebox_override("panel", ps)
+		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tile.add_child(pop)
 		var glow := float(opts.get("next_glow", 0.45))
 		var twinkle := float(opts.get("next_twinkle", 0.55))
 		if glow > 0.0 or twinkle > 0.0:
 			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)))
 			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			tile.add_child(spk)
+
+	# the board's deep (non-frontier) locks recede — the caller passes d.dim (1.0 = full opacity).
+	var dim := float(d.get("dim", 1.0))
+	if dim < 1.0:
+		tile.modulate = Color(1, 1, 1, dim)
 	return tile
+
+## Backward-compat alias: the bag screen + its tests/config call bag_card (kind=…); the board calls
+## slot_cell (state=…). ONE builder.
+static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
+	return slot_cell(d, opts)
 
 # An "N 🌰" acorn-cost cluster (the gem currency icon = the golden acorn) — inside the next tile and
 # under a lock. Mouse-transparent so the tile keeps the tap.
@@ -3019,40 +3059,6 @@ static func _bag_cost_row(cost: int, icon_px: float, font: int) -> Control:
 	row.add_child(lbl)
 	row.add_child(make_icon("gem", icon_px))
 	return row
-
-# The lock + its acorn cost, stacked and centred INSIDE the card (the lock on top, the cost just below
-# it) — shared by the next and locked states. Mouse-transparent so the tile keeps the tap.
-static func _bag_lock_cost(cost: int, lock_px: float, icon_px: float, font: int) -> Control:
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", int(maxf(2.0, lock_px * 0.08)))
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.add_child(_bag_lock(lock_px))
-	var cost_wrap := CenterContainer.new()
-	cost_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cost_wrap.add_child(_bag_cost_row(cost, icon_px, font))
-	v.add_child(cost_wrap)
-	return v
-
-# The padlock on a locked/next tile — the bag_lock sprite (polished), or a glyph when the art is absent.
-static func _bag_lock(px: float) -> Control:
-	var p := Look.kit("kit/bag_lock.png")
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.name = "BagLock"
-		t.texture = clean_tex_path(p, 128)
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var l := Label.new()
-	l.name = "BagLock"
-	l.text = "🔒"
-	l.add_theme_font_size_override("font_size", int(px))
-	l.add_theme_color_override("font_color", Color(Pal.INK, 0.55))
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return l
 
 ## The full BAG-dialog opts: the SHARED frame + the bag-cell style + the reused currency-pill style +
 ## the dialog's own grid (cols, default 6 — the reference's six-wide ladder). Same construction as the

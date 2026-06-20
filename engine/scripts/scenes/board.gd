@@ -1124,11 +1124,15 @@ func _make_branch_divider() -> Control:
 # (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
 # low-alpha rounded outline (reads as an outline, not a hard line) and little
 # inner padding, plus a faint shadow for depth.
-func _make_slot(cell: Vector2i) -> Panel:
-	var slot := Panel.new()
+func _make_slot(cell: Vector2i) -> Control:
+	# the open empty well, built on the SHARED slot cell (Kit.slot_cell) — the SAME component the bag
+	# uses, reading the SAME workbench "bag_card" style, so the board + bag wells stay in lockstep.
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["cell_w"] = csz
+	opts["cell_h"] = csz
+	var slot: Control = Kit.slot_cell({"state": "empty"}, opts)
 	slot.position = _cell_pos(cell)
-	slot.size = Vector2(csz, csz)
-	slot.add_theme_stylebox_override("panel", _slot_style())
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return slot
 

@@ -93,7 +93,7 @@ const TEST_KEYS := {
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
-	"bag_card": ["preview"],
+	"bag_card": ["preview", "level", "cost"],
 	# the bag DIALOG — grid/caption persist; balance/owned/filled just preview the slot ladder (the game
 	# sets each from save: the 💎 balance, how many slots owned, how many hold a piece).
 	"bag": ["balance", "owned", "filled"],
@@ -108,7 +108,7 @@ const CAPTIONS := {
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
-	"bag_card": "Bag cell — slot tile (filled · empty · next · locked)",
+	"bag_card": "Slot cell — bag + board (empty · filled · unlockable · locked)",
 	"toggle_card": "Toggle card — label + switch",
 	"map_card": "Map card — place-picker (gold frame / locked panel)",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
@@ -226,9 +226,9 @@ var _params := {
 		"balance": 320, "claimable": true},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
-	"bag_card": {"preview": "next", "cell_w": 116, "cell_h": 120, "cell_slice": 36, "cell_art": true,
-		"content_frac": 62, "lock_frac": 40, "cost_font": 24, "cost_icon": 26,
-		"next_glow": 45, "next_twinkle": 55},
+	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
+		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "level_frac": 44,
+		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 0},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -539,7 +539,7 @@ func _make_element(id: String) -> Control:
 			bco["cell_h"] = float(bco["cell_h"]) * z
 			bco["cost_font"] = int(float(bco["cost_font"]) * z)
 			bco["cost_icon"] = float(bco["cost_icon"]) * z
-			return Kit.bag_card(_bag_preview_cell(String(p.preview)), bco)
+			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
 			# the SHARED frame + the reused currency pill + a grid of bag cells (the SAME builder the game's
 			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
@@ -548,13 +548,18 @@ func _make_element(id: String) -> Control:
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
 
-## A demo bag CELL for the standalone Bag-cell preview, in the chosen state.
-func _bag_preview_cell(state: String) -> Dictionary:
-	match state:
-		"filled": return {"kind": "filled", "icon": "leaf"}
-		"empty":  return {"kind": "empty"}
-		"locked": return {"kind": "locked", "cost": 25}
-		_:        return {"kind": "next", "cost": 10}
+## A demo slot CELL for the standalone Slot-cell preview, in the chosen state. `level`>0 docks the board
+## level badge (lower-right); `cost`>0 shows the bag acorn cost — either applies only to locked/unlockable.
+func _bag_preview_cell(state: String, level: int, cost: int) -> Dictionary:
+	var d := {"state": state}
+	if state == "filled":
+		d["icon"] = "leaf"
+	if state == "locked" or state == "unlockable":
+		if level > 0:
+			d["level"] = level
+		if cost > 0:
+			d["cost"] = cost
+	return d
 
 ## The demo slot ladder for the Bag dialog preview — classified exactly like the game's slot_plan: the
 ## first `filled` slots hold a piece, the rest of the `owned` slots are empty, slot owned+1 is the gold
@@ -1010,7 +1015,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "ONE card, four states (reused by the Bag dialog): filled (a piece on the raised card); empty / locked / next SHARE the flat empty-slot card. Locked = lock + cost inside; next = the same + a dynamic sparkle. Preview a state below."
+		note.text = "ONE cell shared by the Bag dialog AND the board, on the board's cream well: empty / filled (slot_tile); locked / unlockable (slot_locked, baked lock). Unlockable = the highlight (gold border + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1251,16 +1256,18 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
-			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))      # nine-patch corner (code-drawn fallback)
+			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))      # the well's nine-patch corner margin
 			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
-			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 80]))      # the padlock size (% of cell)
+			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
-			_section_header("Next-slot sparkle (engine FX — no baked art)")
-			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the buyable cell's glow halo
+			_section_header("Unlockable highlight (engine FX — no baked art)")
+			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the unlockable cell's glow halo
 			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
 			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["next", "filled", "empty", "locked"]))
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
+			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)
+			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))           # 0 = no cost; >0 shows the acorn cost (bag)
 		"bag":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)

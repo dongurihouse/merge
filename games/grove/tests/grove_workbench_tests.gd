@@ -62,6 +62,14 @@ func _initialize() -> void:
 
 	ok(view._sections.size() >= 16, "gallery built: every element section registered (%d)" % view._sections.size())
 
+	# Let the INITIAL async-polish settle before snapshotting: an element showing a raw placeholder
+	# rebuilds itself once its off-thread polish lands (the _awaiting pump). If that lands mid-test it
+	# would change an "unrelated" element's id for reasons unrelated to the edit under test, so drain it.
+	for _i in 60:
+		await process_frame
+		if view._awaiting.is_empty() and view._dirty.is_empty():
+			break
+
 	# Baseline instance ids for an edited element, a dependent, and two unrelated elements.
 	var before := {}
 	for k in ["button", "card", "dialog", "icon", "currency_pill"]:
@@ -147,6 +155,19 @@ func _test_bag_components() -> void:
 	# the NEXT (buyable) cell carries a DYNAMIC sparkle FX (engine-drawn particles); locked does not.
 	ok(_has_class(Kit.bag_card({"kind": "next", "cost": 10}, co), "GPUParticles2D"), "the next cell has a dynamic sparkle FX")
 	ok(not _has_class(Kit.bag_card({"kind": "locked", "cost": 25}, co), "GPUParticles2D"), "a locked cell has no sparkle FX")
+
+	# --- the shared slot cell (bag + board): slot_cell is the unified name, bag_card a thin alias ---
+	ok(Kit.slot_cell({"state": "empty"}, co) is Control, "slot_cell builds an empty cell")
+	ok(Kit.bag_card({"kind": "next", "cost": 10}, co) is Control, "bag_card alias still builds")
+	# a board-style LEVEL BADGE docks lower-right when d.level is set (the SAME HUD level-badge medal)
+	ok(_has_label_text(Kit.slot_cell({"state": "locked", "level": 7}, co), "7"), "a cell with d.level shows the level-badge number")
+	# the board's UNLOCKABLE state: highlighted (the shared sparkle), tappable, and NO cost when none given
+	var unl := Kit.slot_cell({"state": "unlockable", "on_tap": func() -> void: pass}, co)
+	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
+	ok(_first_button(unl) != null, "an unlockable cell is tappable")
+	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	# the locked cell's lock is now the board's BAKED padlock (slot_locked) — no separate lock overlay
+	ok(Kit.slot_cell({"state": "locked", "cost": 5}, co).find_child("BagLock", true, false) == null, "the locked cell uses the baked board lock (no overlay node)")
 
 	# the BAG DIALOG — the shared frame + the reused pill + a grid of the slot cells.
 	var entries := [

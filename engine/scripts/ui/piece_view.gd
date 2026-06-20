@@ -11,6 +11,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # shared level-badge medal for locked-cell gates
 const Pal = Game.PALETTE
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the SHARED slot cell (bag + board)
 
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
@@ -272,56 +273,34 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 #   unlockable → this cell can be opened by a merge RIGHT NOW: it gets a bright highlight border
 #                and full (un-faded) modulate so it POPS as the actionable next move.
 # Defaults keep existing callers (board.gd, tools, tests) compiling unchanged.
+# A sealed/gated board cell, built on the SHARED slot cell (Kit.slot_cell — the same component the bag
+# uses): the slot_locked well (baked padlock); a FRONTIER gate carries its required-Level badge
+# (lower-right); an UNLOCKABLE cell (openable by a merge right now) is the highlighted state (gold border
+# + glow + dynamic sparkle). The board reads the SAME workbench "bag_card" style the bag does, so tuning
+# the cell in the workbench flows to both. A `_locked_fill` base backs the well's rounded corners; the
+# whole holder recedes (deeper rings fade a hair more) so the actionable cells pop against the quiet ones.
 static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlockable: bool = false) -> Control:
 	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
-	var n := clampi(lvl, 1, 25)                 # the numbered atlas tile (1..25) for this gate
+	var n := clampi(lvl, 1, 25)                 # this gate's required Level (the badge number)
+	var ring := clampi(lvl / 4 + 1, 1, 3)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ring := clampi(lvl / 4 + 1, 1, 3)
+	holder.add_child(_locked_fill(csz, ring))   # the recessive base under the well's rounded corners
+	var Kit: GDScript = load(KIT_PATH)
+	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["cell_w"] = csz
+	opts["cell_h"] = csz
+	var d := {"state": ("unlockable" if unlockable else "locked")}
 	if frontier:
-		holder.add_child(_locked_fill(csz, ring))
-		var tile := Panel.new()
-		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-		tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
-		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(tile)
-		holder.add_child(_frontier_number_badge(n, csz))
-		if not unlockable:
-			holder.modulate = Color(1.0, 1.0, 1.0, 0.86)
-	else:
-		# NOT frontier (or atlas absent): the calm NUMBERLESS slot_locked look, faded so deeper
-		# rings recede. No number badge — non-frontier locks stay quiet and recessive.
-		holder.add_child(_locked_fill(csz, ring))
-		var tile := Panel.new()
-		tile.set_anchors_preset(Control.PRESET_FULL_RECT)
-		tile.add_theme_stylebox_override("panel", _locked_style(csz, ring))
-		tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(tile)
-		# RECEDE: locked cells read as "not yet" — fade them back (deeper rings fade a hair more).
-		# An unlockable cell is the exception (handled below) — it keeps full modulate to POP.
-		if not unlockable:
-			holder.modulate = Color(1.0, 1.0, 1.0, 0.66 - 0.06 * float(ring - 1))
-	if unlockable:
-		# This cell can be opened by a merge RIGHT NOW — make it POP: full modulate (don't fade)
-		# plus a bright warm-gold highlight border with a soft glow, so it reads as the inviting,
-		# actionable next move against the receded locks.
-		holder.modulate = Color(1.0, 1.0, 1.0, 1.0)
-		var pop := Panel.new()
-		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var radius := int(maxf(10.0, csz * 0.18))
-		var ps := StyleBoxFlat.new()
-		ps.bg_color = Color(0, 0, 0, 0)                 # transparent fill — only the border + glow show
-		ps.set_border_width_all(4)
-		ps.border_color = STRAW                          # warm gold == "inviting / actionable"
-		ps.set_corner_radius_all(radius)
-		ps.shadow_color = Color(STRAW, 0.55)             # a soft warm glow around the highlight
-		ps.shadow_size = int(maxf(4.0, csz * 0.10))
-		pop.add_theme_stylebox_override("panel", ps)
-		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(pop)
+		d["level"] = n                          # only a frontier gate shows its required-Level badge
+	holder.add_child(Kit.slot_cell(d, opts))
+	# RECEDE: non-unlockable locks fade back (a frontier gate a little, deeper non-frontier rings more);
+	# an unlockable cell keeps full opacity so it POPS as the actionable next move.
+	if not unlockable:
+		holder.modulate = Color(1.0, 1.0, 1.0, (0.86 if frontier else 0.66 - 0.06 * float(ring - 1)))
 	return holder
 
 static func _locked_fill(csz: float, ring: int) -> Panel:
@@ -336,46 +315,6 @@ static func _locked_fill(csz: float, ring: int) -> Panel:
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return base
 
-static func _frontier_number_badge(n: int, csz: float) -> Control:
-	# The level-gate marker on the cell's lower-right, NEXT TO the baked-in padlock: the SAME evolving
-	# level-badge medal the HUD shows (Look.make_level_badge), but carrying this cell's required Level
-	# instead of the player's — so a locked cell reads "opens at this level" in one glance.
-	var d := maxf(30.0, csz * 0.44)
-	var badge := Look.make_level_badge(n, d)
-	badge.anchor_left = 1.0
-	badge.anchor_top = 1.0
-	badge.anchor_right = 1.0
-	badge.anchor_bottom = 1.0
-	badge.offset_left = -d - csz * 0.04
-	badge.offset_top = -d - csz * 0.04
-	badge.offset_right = -csz * 0.04
-	badge.offset_bottom = -csz * 0.04
-	return badge
-
-## The board art kit's painted locked-slot tile (cream + a wood padlock); "" when absent.
-static func _locked_art() -> String:
-	return Game.art("ui/board/slot_locked.png")
-
-# The locked/sealed cell well. With the board art kit present this IS the painted slot_locked
-# tile (cream + baked padlock) so locked cells read warm, matching the open slots + frame.
-# Fallback (no art): a LIGHT recessive Sunk surface (Pal.LOCKED) with a quiet rim, deeper rings
-# barely shaded for depth. Static so it stays unit-testable.
-static func _locked_style(csz: float, ring: int = 1) -> StyleBox:
-	var p := _locked_art()
-	if ResourceLoader.exists(p):
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(p)
-		sbt.set_texture_margin_all(28.0)                          # ~180px source corners → crisp at cell size
-		sbt.modulate_color = Color(1, 1, 1).darkened(0.05 * float(ring - 1))   # deeper rings recede a hair
-		return sbt
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Pal.LOCKED.darkened(0.018 * float(ring - 1))   # ring 1 == Pal.LOCKED exactly
-	sb.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
-	sb.set_border_width_all(2)
-	sb.border_color = Color(Pal.LOCKED_GLYPH, 0.30)              # quiet recessive rim
-	sb.shadow_color = Color(0, 0, 0, 0)                          # Sunk plane — floats nothing
-	sb.shadow_size = 0
-	return sb
 
 static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
