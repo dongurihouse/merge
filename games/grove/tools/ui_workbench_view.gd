@@ -17,7 +17,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const IDS := ["button", "home_button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
 # Gallery layout: each inner list is a ROW of side-by-side elements. The shared FRAME stands alone above
 # the dialogs that reuse it, so the shared-frame-vs-specific-content structure reads at a glance.
-const ROWS := [["button", "icon"], ["home_button"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
+const ROWS := [["home_button"], ["button", "icon"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
