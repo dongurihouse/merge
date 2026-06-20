@@ -104,10 +104,14 @@ var _inbox_badge: Control = null  # Inbox rail badge — unread count (only buil
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
 
 func _ready() -> void:
+	var _p := Time.get_ticks_msec()
 	_heal_capture_flags()
 	Design.fit_desktop_window()          # desktop: open at the design portrait aspect, monitor height
+	print("    [prof] heal+fit=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 	UiFont.apply()
+	print("    [prof] UiFont.apply=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 	Music.ensure()
+	print("    [prof] Music.ensure=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
 		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
 	_load_state()
@@ -131,10 +135,14 @@ func _ready() -> void:
 	Ambient.check_winback(g0, Time.get_unix_time_from_system())
 	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
 	add_child(_weather)
+	print("    [prof] weather=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 
 	_build_hud()
+	print("    [prof] _build_hud=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 	_build_chrome()
+	print("    [prof] _build_chrome=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 	_update_hud()
+	print("    [prof] _update_hud=%dms" % (Time.get_ticks_msec()-_p)); _p = Time.get_ticks_msec()
 
 	# Choose the initial view (still inside _ready = before the first draw):
 	# T2 the board's Decorate jumps straight to a known, unlocked map; otherwise
@@ -297,11 +305,14 @@ func _build_map() -> void:
 	var home = G.MAPS[z].get("home", null)
 	var has_home := typeof(home) == TYPE_DICTIONARY
 	var home_dict: Dictionary = home if has_home else {}
+	var _pt0 := Time.get_ticks_msec()
 	var frame := _build_map_base(z, home_dict)   # §16 overgrown home base · the map's bg · or flat fallback
+	var _pt_base := Time.get_ticks_msec(); print("    [prof] base=%dms" % (_pt_base - _pt0))
 	# z-order parity with the pre-unify renderer (so the look is unchanged): a §16 home seats its reveals
 	# /badges UNDER the ambient wanderers + title plank; a cutout map seats its sprites OVER them.
 	if has_home:
 		_seat_spots(z, home_dict, frame)
+	print("    [prof] seat=%dms" % (Time.get_ticks_msec() - _pt_base)); var _pt_seat := Time.get_ticks_msec()
 	# ambient life + title — every map. On a COMPLETED map the wanderers ARE its residents (the §1
 	# population sub-game); an in-progress map keeps the baseline generic ambient.
 	var amb: Control
@@ -318,6 +329,7 @@ func _build_map() -> void:
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
 	if G.can_populate(z, unlocks, _gates()):
 		_add_welcome_panel(z)
+	print("    [prof] ambient+welcome=%dms" % (Time.get_ticks_msec() - _pt_seat))
 	FX.pop_in(content)
 
 # Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
