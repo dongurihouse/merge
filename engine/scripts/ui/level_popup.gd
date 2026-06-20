@@ -1,23 +1,33 @@
 extends RefCounted
-## Level info popup — opened by tapping the HUD level badge or a locked board cell. Shows the
-## player's current Level (the same evolving medal as the HUD/locked cells), the stars earned so
-## far, and how many more stars reach the next Level. Self-contained (like ui/oow_offer.gd): builds
-## into `host`, dismisses on a veil tap or the Got-it button.
-##   LevelPopup.open(host)
+## Level dialog — the kit-built parchment dialog (ref lvl.png). Two modes, one dialog:
+##   LevelPopup.open(host)              — INFO: tap-to-view (HUD level badge / locked cell). "Got it",
+##                                        veil-dismissable, no reward.
+##   LevelPopup.open_levelup(host, n)   — LEVELUP: auto on a level gain. Shows the earned gift; the
+##                                        "Collect" button GRANTS it (grant_level_gift) then closes.
+##                                        NOT veil-dismissable (only Collect closes) so the reward
+##                                        can't be lost.
+## Self-contained (like the old popup): builds into `host`. Renders via the shared kit (Kit.level_dialog),
+## so the workbench tunes its look and the game reads the same config.
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Pal = Game.PALETTE
 const OVERLAY_NAME = "LevelPopupOverlay"
+const DEFAULT_WIDTH_PCT := 80.0
 
 static func open(host: Control) -> Control:
-	# Idempotent: keep exactly one popup per host. emulate_touch_from_mouse makes a single tap
-	# deliver both a mouse AND a touch event, so the badge's gui_input fires open() twice in one
-	# frame — without this guard that stacks two identical overlays and the dialog needs two taps
-	# to dismiss. add_child is synchronous, so the duplicate event finds the first overlay here.
+	return _build(host, "info", 0)
+
+static func open_levelup(host: Control, levels_up: int) -> Control:
+	return _build(host, "levelup", maxi(1, levels_up))
+
+static func _build(host: Control, mode: String, levels_up: int) -> Control:
+	# Idempotent: keep exactly one popup per host. emulate_touch_from_mouse delivers a tap as BOTH a
+	# mouse AND a touch event, so a trigger's gui_input can fire open() twice in one frame — without this
+	# guard that stacks two overlays. add_child is synchronous, so the duplicate event finds the first here.
 	var live := host.get_node_or_null(NodePath(OVERLAY_NAME))
 	if live is Control and not (live as Node).is_queued_for_deletion():
 		return live as Control
@@ -38,75 +48,35 @@ static func open(host: Control) -> Control:
 	veil.color = Color(Pal.INK, 0.5)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
+	# INFO dismisses on a veil tap; LEVELUP does NOT (only Collect closes, so the reward can't be lost).
+	if mode == "info":
+		veil.gui_input.connect(func(ev: InputEvent) -> void:
+			if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+				overlay.queue_free())
 
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	cc.add_child(card)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
-	card.add_child(col)
 
-	var title := Look.title_ribbon(TranslationServer.translate("Level %d") % lvl, 32)
-	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(title)
+	var cfg := Kit.load_config(Kit.CONFIG_PATH)
+	var opts := Kit.level_opts_from_config(cfg)
+	opts["banner_text"] = TranslationServer.translate("Level %d") % lvl
+	# responsive: a % of the LIVE screen width (mirrors inbox.gd), so the dialog fits every phone size
+	var vw: float = host.get_viewport_rect().size.x
+	var pct: float = float((cfg.get("level", {}) as Dictionary).get("width_pct", DEFAULT_WIDTH_PCT))
+	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
 
-	var badge := Look.make_level_badge(lvl, 120.0)   # the same evolving medal, large
-	badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(badge)
-
-	var tally := Label.new()
-	tally.text = TranslationServer.translate("%d / %d ★ earned") % [earned, nxt]
-	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	tally.add_theme_font_size_override("font_size", 28)
-	tally.add_theme_color_override("font_color", Pal.INK)
-	col.add_child(tally)
-
-	col.add_child(_progress_bar(into, span))
-
-	var nxt_l := Label.new()
-	nxt_l.text = TranslationServer.translate("%d more ★ to reach Level %d") % [remaining, lvl + 1]
-	nxt_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	nxt_l.add_theme_font_size_override("font_size", 22)
-	nxt_l.add_theme_color_override("font_color", Pal.BARK)
-	col.add_child(nxt_l)
-
-	var ok := Look.button(TranslationServer.translate("Got it"), func() -> void: overlay.queue_free(), true)
-	ok.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ok)
-
-	FX.pop_in(card)
+	var gift: Dictionary = G.level_gift(levels_up) if mode == "levelup" else {}
+	var data := {
+		"level": lvl, "earned": earned, "next": nxt, "into": into, "span": span,
+		"remaining": remaining, "mode": mode, "gift": gift,
+		"on_button": func() -> void:
+			if mode == "levelup":
+				G.grant_level_gift(gift)        # the deferred grant — Collect pays out the level-up reward
+			overlay.queue_free(),
+	}
+	var dialog := Kit.level_dialog(data, width, opts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
 	return overlay
-
-# A simple rounded track + honey-gold fill showing progress WITHIN the current level.
-static func _progress_bar(into: int, span: int) -> Control:
-	var w := 280.0
-	var h := 20.0
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(w, h)
-	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	var track := Panel.new()
-	track.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var tsb := StyleBoxFlat.new()
-	tsb.bg_color = Color(Pal.INK, 0.12)
-	tsb.set_corner_radius_all(int(h * 0.5))
-	track.add_theme_stylebox_override("panel", tsb)
-	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(track)
-	var frac := clampf(float(into) / float(span), 0.0, 1.0)
-	var fill := Panel.new()
-	fill.position = Vector2.ZERO
-	fill.size = Vector2(maxf(h, w * frac), h)   # at least a rounded nub so 0% still reads as a bar
-	var fsb := StyleBoxFlat.new()
-	fsb.bg_color = Pal.STRAW
-	fsb.set_corner_radius_all(int(h * 0.5))
-	fill.add_theme_stylebox_override("panel", fsb)
-	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(fill)
-	return holder

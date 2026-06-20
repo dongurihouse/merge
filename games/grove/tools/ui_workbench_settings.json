@@ -4,6 +4,11 @@
 		"feather": 2.0,
 		"shadow": false
 	},
+	"progress_bar": {
+		"height": 30,
+		"art": true,
+		"star_knob": false
+	},
 	"button": {
 		"art": true,
 		"font": 27.0,
@@ -102,6 +107,19 @@
 		"list_max_h": 0.0,
 		"row_gap": 22.0,
 		"width_pct": 85.0
+	},
+	"level": {
+		"width_pct": 80,
+		"banner_text": "Level",
+		"title_font": 30,
+		"frame_slice": 56,
+		"frame_pad": 26,
+		"frame_top_pad": 70,
+		"medallion_px": 150,
+		"ring_dy": -6,
+		"tally_font": 28,
+		"hint_font": 22,
+		"gap": 14
 	},
 	"tiers": {
 		"banner_burn": 55,

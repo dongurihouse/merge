@@ -252,7 +252,8 @@ func _initialize() -> void:
 		"the level clock is UNCAPPED — a flat tail past the table")
 	ok(G.stars_at_level(1) == 0 and G.stars_at_level(2) == 6 and G.stars_at_level(10) == 126 \
 		and G.stars_at_level(11) == 126 + G.LEVEL_STARS_TAIL, "stars_at_level inverts the curve")
-	# earn_stars bumps the spendable balance AND the earned clock; a level-up gifts water+gems
+	# earn_stars bumps the spendable balance AND the earned clock; the level-up gift is DEFERRED to the
+	# dialog's Collect (level_gift + grant_level_gift), so earn_stars itself grants nothing.
 	fresh("earn")
 	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → the gift below is exact
 	var ge := Save.grove()
@@ -262,8 +263,14 @@ func _initialize() -> void:
 	ok(gained == 1, "earn_stars returns the number of levels gained")
 	ok(int(Save.grove()["stars_earned"]) == 7 and Save.stars() == 2, \
 		"earn_stars accrues BOTH the earned clock and the spendable balance")
+	ok(int(Save.grove()["water"]) == 10 and Save.diamonds() == 0, \
+		"earn_stars does NOT grant the level-up gift (deferred to the dialog's Collect)")
+	var gift := G.level_gift(gained)
+	ok(int(gift.get("water", 0)) == G.LEVEL_WATER_GIFT and int(gift.get("gems", 0)) == G.LEVEL_DIAMONDS, \
+		"level_gift returns water + diamonds per level gained")
+	G.grant_level_gift(gift)
 	ok(int(Save.grove()["water"]) == 10 + G.LEVEL_WATER_GIFT and Save.diamonds() == G.LEVEL_DIAMONDS, \
-		"a level-up gifts water + diamonds, once per level")
+		"grant_level_gift applies the water + diamonds (what Collect does)")
 	ok(G.earn_stars(1) == 0, "earning within a level gains no level (no extra gift)")
 
 	# 14. P3 — the HOME scene (NEW map model): a map IS one image with restoration
@@ -542,12 +549,13 @@ func _initialize() -> void:
 	var d0 := Save.diamonds()
 	var vault0 := Vault.balance() * Vault.skim_den() + Save.vault_carry()   # total skimmed-units before
 	Save.grove()["stars_earned"] = G.stars_at_level(2) - 1     # one star short of L2
-	G.earn_stars(1)                                            # crosses into L2
-	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "a level-up pays diamonds")
-	# T44 SKIM-SITE wiring (content.earn_stars): the piggy bank skimmed a slice of the
+	var lvg := G.earn_stars(1)                                 # crosses into L2 (no grant yet)
+	G.grant_level_gift(G.level_gift(lvg))                      # Collect grants the gift + skims
+	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "a level-up pays diamonds on Collect")
+	# T44 SKIM-SITE wiring (content.grant_level_gift): the piggy bank skimmed a slice of the
 	# level-up premium — the banked-units pool advanced by exactly LEVEL_DIAMONDS × num.
 	var vault1 := Vault.balance() * Vault.skim_den() + Save.vault_carry()
-	ok(vault1 - vault0 == G.LEVEL_DIAMONDS * Vault.skim_num(), "a level-up SKIMS its premium into the piggy bank (§10)")
+	ok(vault1 - vault0 == G.LEVEL_DIAMONDS * Vault.skim_num(), "granting the gift SKIMS its premium into the piggy bank (§10)")
 
 	# 16. the discovery log + the upgrade-path card (tap an item → its ladder;
 	# unseen tiers stay "?")

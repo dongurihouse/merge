@@ -507,6 +507,63 @@ func _initialize() -> void:
 	spk.queue_free()
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
+
+	# 27. progress_bar — the reusable kit bar (track + fill, optional centered label)
+	var KitP = load("res://games/grove/tools/ui_workbench_kit.gd")
+	for frac in [0.0, 0.5, 1.0]:
+		var bar: Control = KitP.progress_bar(float(frac), {"height": 20.0, "art": false})
+		ok(bar != null and bar is Control, "progress_bar builds at frac=%.1f" % float(frac))
+		bar.queue_free()
+	var labelled: Control = KitP.progress_bar(0.75, {"height": 22.0, "art": false, "label": "75%"})
+	get_root().add_child(labelled)
+	await create_timer(0.02).timeout
+	ok("75%" in _all_label_texts(labelled), "progress_bar shows its centered label")
+	labelled.queue_free()
+
+	# 28. level_medallion — wreath + ring + centered number
+	var med: Control = KitP.level_medallion(7, 120.0, {})
+	get_root().add_child(med)
+	await create_timer(0.02).timeout
+	ok(med != null and med is Control, "level_medallion builds")
+	ok("7" in _all_label_texts(med), "level_medallion shows the level number")
+	med.queue_free()
+
+	# 29. level_dialog — builds in both modes; info shows Got it, levelup shows Collect
+	var info_data := {"level": 1, "earned": 0, "next": 6, "into": 0, "span": 6, "remaining": 6, "mode": "info"}
+	var di: Control = KitP.level_dialog(info_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(di)
+	await create_timer(0.02).timeout
+	ok(di != null and di is Control, "level_dialog builds in info mode")
+	ok(_find_button_text(di, "Got it") != null, "info mode shows the Got it button")
+	di.queue_free()
+	var up_data := {"level": 2, "earned": 6, "next": 18, "into": 0, "span": 12, "remaining": 12,
+		"mode": "levelup", "gift": {"water": 30, "gems": 1}}
+	var du: Control = KitP.level_dialog(up_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(du)
+	await create_timer(0.02).timeout
+	ok(du != null, "level_dialog builds in levelup mode")
+	ok(_find_button_text(du, "Collect") != null, "levelup mode shows the Collect button")
+	du.queue_free()
+
+	# 30. level_popup — info + levelup modes; Collect grants the gift exactly once
+	var LevelPopupS = load("res://engine/scripts/ui/level_popup.gd")
+	var lp_host := Control.new()
+	lp_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(lp_host)
+	await create_timer(0.02).timeout
+	var ov: Control = LevelPopupS.open(lp_host)
+	ok(ov != null and is_instance_valid(ov), "LevelPopup.open builds the info overlay")
+	ok(_find_button_text(ov, "Got it") != null, "info overlay shows Got it")
+	ov.queue_free()
+	await create_timer(0.02).timeout
+	var dia0 := Save.diamonds()
+	var ov2: Control = LevelPopupS.open_levelup(lp_host, 1)
+	var collect := _find_button_text(ov2, "Collect")
+	ok(collect != null, "levelup overlay shows Collect (not Got it)")
+	if collect != null:
+		collect.emit_signal("pressed")
+	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
+	lp_host.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
@@ -518,6 +575,17 @@ func _all_label_texts(n: Node) -> Array:
 	for c in n.get_children():
 		out.append_array(_all_label_texts(c))
 	return out
+
+## The first Button under `n` whose text contains `needle` (depth-first), or null. Button.text is not a
+## child Label, so _all_label_texts can't see it — this finds the button itself (to assert / press it).
+func _find_button_text(n: Node, needle: String) -> Button:
+	if n is Button and String((n as Button).text).find(needle) != -1:
+		return n as Button
+	for c in n.get_children():
+		var f := _find_button_text(c, needle)
+		if f != null:
+			return f
+	return null
 
 ## True iff any TextureRect under `n` (depth-first) carries a texture whose path ends with `suffix` —
 ## names a shipped frame by its kit file without depending on node names (mirrors mapfx_tests._has_tex).

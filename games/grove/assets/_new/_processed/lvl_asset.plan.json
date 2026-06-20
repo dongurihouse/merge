@@ -1,0 +1,14 @@
+{
+  "source": "_new/lvl_asset.png",
+  "category": "sheet",
+  "outputs": [
+    { "island": 0,  "name": "level_frame",  "path": "ui/kit/level_frame.png" },
+    { "island": 1,  "name": "level_title",  "path": "ui/kit/level_title.png" },
+    { "island": 4,  "name": "level_ring",   "path": "ui/kit/level_ring.png" },
+    { "island": 11, "name": "level_wreath", "path": "ui/kit/level_wreath.png" },
+    { "island": 13, "name": "level_btn",    "path": "ui/kit/level_btn.png" },
+    { "island": 9,  "name": "prog_track",   "path": "ui/kit/prog_track.png" },
+    { "island": 10, "name": "prog_fill",    "path": "ui/kit/prog_fill.png" }
+  ],
+  "archive": "_originals/ui/lvl_asset.png"
+}
