@@ -39,14 +39,14 @@ debug: ## play the active game (default grove) WITH the debug panel + toggles
 	rm -f games/grove/assets/.gdignore
 	GAME=$${GAME:-grove} $(GODOT) --path $(PROJECT) -- debug
 
-grove: ## play the GROVE game (full art; first run imports grove art)
+g: ## play the GROVE game (full art; first run imports grove art)
 	rm -f games/grove/assets/.gdignore
 	GAME=grove $(GODOT) --path $(PROJECT)
 
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)
 
-workbench: ## see + test the UI workbench live (a real window you can click)
+w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
@@ -76,7 +76,7 @@ smoke: ## scene smoke test (instantiates the UI + board)
 import: ## (re)import assets after adding or changing art
 	$(GODOT) --headless --path $(PROJECT) --import
 
-bake-textures: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
+bake: ## pre-bake the runtime defringe/feather polish (auto-discovered from every kit dialog) so dialogs open without the first-use hitch
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/bake_textures.gd
 	$(GODOT) --headless --path $(PROJECT) --import
 
@@ -116,10 +116,10 @@ clean: ## remove the gitignored build/ output
 clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 	rm -rf .godot
 
-commit:
+c:
 	git add .
 	git commit -m "changes"
 	git push
 
-list:
+l:
 	git worktree list

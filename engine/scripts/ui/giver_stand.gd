@@ -1,19 +1,23 @@
 extends RefCounted
 ## The giver-stand BUILDER (Wave 3, fence slice 1) — pure construction of one quest-giver
-## stand on the §7 fence: the chest-up bust over the rail, a single-item ask pill showing the
-## piece icon + level badge, the +N★ shoulder reward, and the ready-check that docks on the pill.
+## card on the §7 fence. Reskinned to the painted `ui/quest/card_quest.png` (board1 art): a
+## VERTICAL parchment card with a gold frame and a wooden reward plaque baked into the bottom.
+## The engine draws the live content ON TOP: the character portrait in the card field, the
+## requested item in a cream ask-bubble (item over an "N/1" count) at the top-right, and the
+## +N reward centred on the painted plaque. The per-item green ✓ overtakes the item when payable.
 ## (Featured-ness is NOT surfaced here — the flag/bonus pay out silently; see the note in make().)
 ## Stateless: state (the quests array, payability) stays in the board coordinator; this only
 ## assembles nodes and returns their refs. Tap behaviour is injected as `Callable`s so this
 ## never reaches up into scenes/ (the §15 layering invariant).
 ##
 ## Usage:  GiverStand.make(qi, q, {
-##           "ask_tap": Callable(line, tier),   # the ask pill was tapped → open its ladder
+##           "ask_tap": Callable(line, tier),   # the ask bubble was tapped → open its ladder
 ##           "stand_tap": Callable(qi, chip),   # the stand was tapped → try to deliver
 ##           "wire_tap": Callable(node, action),# the coordinator's still-release tap wirer
 ##           "stand_w": float, "fence_h": float})
-## Returns {chip, qi, item:{code, piece, met}, check, bust} — the same entry board.gd's
-## giver_chips holds, so _refresh_giver_lights / _giver_is_payable read it unchanged.
+## Returns {chip, qi, item:{code, piece, met, count}, check, bust} — the same entry board.gd's
+## giver_chips holds, so _refresh_giver_lights / _giver_is_payable read it (the new `count` label
+## is flipped 0/1 ↔ 1/1 there alongside the ✓).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -28,9 +32,16 @@ const CREAM = Game.PALETTE.CREAM
 const BARK = Game.PALETTE.BARK
 const INK = Game.PALETTE.INK
 
-# AB: the giver pops over the fence UNFRAMED — the chest-up cutout IS the UI. The ask rides a
-# small content-sized cream pill UNDER them; the +N★ reward floats at the shoulder; a green
-# check docks on the pill's corner when payable. No card, no border ring — the fence breathes.
+# the painted card's native size (ui/quest/card_quest.png, sliced from board1_asset2.png) —
+# a tall portrait card. Width follows this ratio off the fence-bound height so the art never stretches.
+const CARD_ART_W := 255.0
+const CARD_ART_H := 423.0
+const REWARD_GREEN := Color("#4E7C46")   # leaf-green reward count (matches the painted plaque)
+
+# A framed VERTICAL quest card (board1 reskin): the gold-framed parchment card fills the stand;
+# the round PORTRAIT sits in the card field, the requested item rides a cream ask-bubble at the
+# top-right (item over an N/1 count), and the +N reward centres on the wooden plaque baked into
+# the card's bottom. No separate stand-level check — the per-item ✓ is the ready signal.
 static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var sw: float = cfg.stand_w
 	var fh: float = cfg.fence_h
@@ -40,86 +51,103 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
-	# A framed quest card (board.png reskin): a round PORTRAIT in the left oval socket, the
-	# requested item in the top-right panel, the +N reward in the bottom-right pill. The painted
-	# `card_quest.png` (354×285 ≈ 1.24:1) IS the card; a flat parchment card is the fallback.
-	var artR := 354.0 / 285.0
-	var availW := sw - 14.0
-	var cardH := minf(fh - 24.0, availW / artR)   # height-bound by the fence band; width from the ratio so the art never stretches
+	# the card: height-bound by the fence band, width from the art ratio so it never stretches.
+	var artR := CARD_ART_W / CARD_ART_H
+	var cardH := fh - 16.0
 	var cardW := cardH * artR
+	if cardW > sw - 8.0:                       # never overflow the stand width
+		cardW = sw - 8.0
+		cardH = cardW / artR
 	var cx := (sw - cardW) / 2.0
 	var cy := (fh - cardH) / 2.0
 	var card := _quest_card(cardW, cardH)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
-	# the character portrait — a round framed disc seated in the card's LEFT oval socket
-	var bsz := cardH * 0.60
+	# the character portrait — seated in the card field, above the plaque, biased slightly left so
+	# the ask-bubble has room at the top-right (matches board1_asset2.png).
+	var bsz := cardH * 0.50
 	var bust := Bust.make(qi % 3, bsz)
-	bust.position = Vector2(cx + cardW * 0.295 - bsz / 2.0, cy + cardH * 0.49 - bsz / 2.0)
+	bust.position = Vector2(cx + cardW * 0.44 - bsz / 2.0, cy + cardH * 0.43 - bsz / 2.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the requested item — large, inside the speech bubble (right portion of the card)
+	# the requested item — inside the cream ask-bubble at the card's top-right: the item icon over
+	# an "N/1" count. The bubble overhangs the card edge a touch, like the painted reference.
 	var it: Dictionary = G.quest_item(q)
 	var item_ui: Dictionary = {}
-	# the painted item panel sits in the card's TOP-RIGHT (centre ~0.685w, 0.34h of card_quest.png);
-	# the item is centred on it so it reads as seated in the panel, not floating mid-card.
-	var bub := Vector2(cx + cardW * 0.685, cy + cardH * 0.34)   # item-panel centre (matches the art)
 	if not it.is_empty():
-		var isz := cardH * 0.44
 		var acode := int(it.line) * 100 + int(it.tier)
+		var isz := cardH * 0.24
+		var bubble := _ask_bubble()
+		var vb := VBoxContainer.new()
+		vb.add_theme_constant_override("separation", 1)
+		vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bubble.add_child(vb)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
 		icon.size = Vector2(isz, isz)
-		icon.mouse_filter = Control.MOUSE_FILTER_STOP
-		icon.position = Vector2(bub.x - isz / 2.0, bub.y - isz / 2.0)
+		icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var piece := PieceView.make_piece(acode, isz)
 		icon.add_child(piece)
 		var mpx := isz * 0.85
 		var met := _ask_met_check(mpx)
 		met.position = Vector2((isz - mpx) / 2.0, (isz - mpx) / 2.0)
 		icon.add_child(met)
-		wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
-		stand.add_child(icon)
-		item_ui = {"code": acode, "piece": piece, "met": met}
+		vb.add_child(icon)
+		var count := Label.new()
+		count.text = "0/1"
+		count.add_theme_font_size_override("font_size", int(isz * 0.46))
+		count.add_theme_color_override("font_color", INK)
+		count.add_theme_constant_override("outline_size", 0)
+		count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vb.add_child(count)
+		stand.add_child(bubble)
+		# centre the bubble on the card's top-right (~0.70w, 0.22h). Driven by `resized` (fires only
+		# while the bubble is alive + in-tree) — not a bare call_deferred (§120 freed-capture safety).
+		var place_bub := func() -> void:
+			bubble.position = Vector2(cx + cardW * 0.70 - bubble.size.x / 2.0, cy + cardH * 0.22 - bubble.size.y / 2.0)
+		bubble.resized.connect(place_bub)
+		wire_tap.call(bubble, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
+		item_ui = {"code": acode, "piece": piece, "met": met, "count": count}
 		var lvl := _level_badge(int(it.tier))
-		lvl.position = Vector2(cx + 8.0, cy + cardH - 34.0)
+		lvl.position = Vector2(cx + cardW * 0.05, cy + cardH * 0.04)
 		stand.add_child(lvl)
 	# the near-end map quest ALSO rewards the next map's generator — preview its tool icon as a
-	# small badge tucked in the bubble's lower-right, so the player sees the bonus they'll earn.
+	# small badge tucked in the card field's lower-right, so the player sees the bonus they'll earn.
 	if q.has("reward") and (q.reward as Dictionary).has("generators") and not (q.reward.generators as Array).is_empty():
 		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.reward.generators[0]))
 		var gtex := Game.art(String(gdef.get("tex", "")))
 		if ResourceLoader.exists(gtex):
-			var gs := cardH * 0.34
+			var gs := cardH * 0.22
 			var gicon := TextureRect.new()
 			gicon.texture = load(gtex)
 			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			gicon.size = Vector2(gs, gs)
-			gicon.position = Vector2(bub.x + cardH * 0.18, bub.y + cardH * 0.10)
+			gicon.position = Vector2(cx + cardW * 0.66, cy + cardH * 0.50)
 			stand.add_child(gicon)
-	# the +N reward — a small flower/star + count, centred in the card's BOTTOM-RIGHT pill
+	# the +N reward — a flower/star + count, centred on the painted wooden plaque (~0.50w, 0.87h).
 	var pay := HBoxContainer.new()
 	pay.add_theme_constant_override("separation", 2)
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pay.add_child(Look.icon("star", 26.0))
+	pay.add_child(Look.icon("star", cardH * 0.10))
 	var pay_lbl := Label.new()
 	pay_lbl.text = "+%d" % Quests.stars(q)
-	pay_lbl.add_theme_font_size_override("font_size", 24)
-	pay_lbl.add_theme_color_override("font_color", Color("#4E7C46"))   # leaf-green count (matches the painted pill)
-	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
+	pay_lbl.add_theme_font_size_override("font_size", int(cardH * 0.085))
+	pay_lbl.add_theme_color_override("font_color", REWARD_GREEN)
+	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid plaque behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
-	# centre the pair on the painted pill (~0.715w, 0.79h). Driven by resized — which only fires while
-	# `pay` is alive + in-tree — NOT a bare call_deferred: a stand freed before idle (a giver rebuild)
-	# would otherwise fire this lambda over a freed `pay`, crashing on `pay.size` (the §120 freed-capture).
+	# centre the pair on the painted plaque. Driven by resized — which only fires while `pay` is alive
+	# + in-tree — NOT a bare call_deferred: a stand freed before idle (a giver rebuild) would otherwise
+	# fire this lambda over a freed `pay`, crashing on `pay.size` (the §120 freed-capture).
 	var place_pay := func() -> void:
-		pay.position = Vector2(cx + cardW * 0.715 - pay.size.x / 2.0, cy + cardH * 0.79 - pay.size.y / 2.0)
+		pay.position = Vector2(cx + cardW * 0.50 - pay.size.x / 2.0, cy + cardH * 0.87 - pay.size.y / 2.0)
 	pay.resized.connect(place_pay)
 	stand.add_child(pay)
 	# §7 FEATURED is intentionally NOT surfaced on the board: quests aren't skippable, so a
@@ -127,14 +155,15 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# `featured` flag + its coins/premium bonus still ride in the quest data and pay out silently
 	# on hand-in (board.gd). A real surface — where featured-ness DOES drive a choice (a daily/
 	# event "do a featured quest" hook, §17/§18) — is parked in the backlog.
-	# the ready check is per-item (the big centered ✓ over the item), so there is no
-	# separate stand-level check. The "check" key stays in the result for board.gd, set to
-	# null (the board already guards it with `if check != null and is_instance_valid(check)`).
+	# the ready check is per-item (the big centered ✓ over the item), so there is no separate
+	# stand-level check. The "check" key stays in the result for board.gd, set to null (the board
+	# already guards it with `if check != null and is_instance_valid(check)`).
 	wire_tap.call(stand, func() -> void: stand_tap.call(qi, stand))
 	return {"chip": stand, "qi": qi, "item": item_ui, "check": null, "bust": bust}
 
-# The quest card surface: the painted `ui/quest/card_quest.png` (horizontal speech-bubble card)
-# stretched to the card rect; a flat parchment card when the art is absent.
+# The quest card surface: the painted `ui/quest/card_quest.png` (vertical gold-framed parchment
+# card with the reward plaque baked into the bottom) stretched to the card rect; a flat parchment
+# card when the art is absent.
 static func _quest_card(w: float, h: float) -> Control:
 	var p := Look.kit("quest/card_quest.png")
 	if ResourceLoader.exists(p):
@@ -156,6 +185,27 @@ static func _quest_card(w: float, h: float) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return card
+
+# The item-ask speech bubble: a cream rounded tray (StyleBoxFlat, soft warm border + shadow) that
+# holds the requested item over its "N/1" count. The board1 reference floats this at the card's
+# top-right. Content-sized — the caller centres it on the card once `resized` reports its size.
+static func _ask_bubble() -> PanelContainer:
+	var bubble := PanelContainer.new()
+	var bs := StyleBoxFlat.new()
+	bs.bg_color = Color("#FBF6EC", 0.98)
+	bs.set_corner_radius_all(18)
+	bs.set_border_width_all(2)
+	bs.border_color = Color("#C9A66B", 0.9)
+	bs.shadow_color = Color(0, 0, 0, 0.22)
+	bs.shadow_size = 4
+	bs.shadow_offset = Vector2(0, 2)
+	bs.content_margin_left = 8.0
+	bs.content_margin_right = 8.0
+	bs.content_margin_top = 6.0
+	bs.content_margin_bottom = 4.0
+	bubble.add_theme_stylebox_override("panel", bs)
+	bubble.mouse_filter = Control.MOUSE_FILTER_STOP
+	return bubble
 
 # AB2: the shared ask pill — content-sized cream tray (StyleBoxFlat, soft warm
 # border + shadow), anchored to center on its parent's x and grow both ways.
