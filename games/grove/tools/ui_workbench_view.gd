@@ -147,7 +147,7 @@ var _params := {
 	# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
 	# styling is inherited from the Frame item (like the other dialogs).
 	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
-		"jar_px": 200, "plate_px": 220, "balance_font": 34, "row_gap": 12,
+		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
 		"balance": 320, "claimable": true},
 }
 var _selected := "button"

@@ -1277,7 +1277,12 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -> Control:
 	var box := Control.new()
 	var box_w: float = maxf(jar_px, plate_px)
-	box.custom_minimum_size = Vector2(box_w, jar_px * 1.16)
+	# the oval plate sits UNDER the jar: the jar's base sinks into the plate's top third (overlap), so the
+	# jar reads as resting on it (the reference). plate_h follows the sprite's wide aspect (~139/550).
+	var plate_h: float = plate_px * 0.255
+	var overlap: float = plate_h * 0.55
+	var box_h: float = jar_px + plate_h - overlap
+	box.custom_minimum_size = Vector2(box_w, box_h)
 	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var plate_tex := clean_tex_path(Look.kit("kit/vault_plate.png"), 256)
@@ -1286,12 +1291,11 @@ static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -
 		pl.texture = plate_tex
 		pl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		pl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		var ph: float = plate_px * 0.42
-		pl.custom_minimum_size = Vector2(plate_px, ph)
+		pl.custom_minimum_size = Vector2(plate_px, plate_h)
 		pl.size = pl.custom_minimum_size
-		pl.position = Vector2((box_w - plate_px) / 2.0, box.custom_minimum_size.y - ph)
+		pl.position = Vector2((box_w - plate_px) / 2.0, box_h - plate_h)   # plate's bottom = box bottom
 		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		box.add_child(pl)
+		box.add_child(pl)                                                  # added FIRST → drawn under the jar
 	var jar_tex := clean_tex_path(Look.kit("kit/vault_jar.png"), 384)
 	if jar_tex != null:
 		var jr := TextureRect.new()
@@ -1300,7 +1304,7 @@ static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -
 		jr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		jr.custom_minimum_size = Vector2(jar_px, jar_px)
 		jr.size = jr.custom_minimum_size
-		jr.position = Vector2((box_w - jar_px) / 2.0, 0)
+		jr.position = Vector2((box_w - jar_px) / 2.0, 0)                   # jar base at y=jar_px, over the plate
 		jr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		box.add_child(jr)
 		return box
@@ -2107,7 +2111,7 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["card_art"] = true
 	o["banner_icon_id"] = "piggy"                         # reuse the existing icon_piggy sprite
 	o["jar_px"] = float(v.get("jar_px", 200))
-	o["plate_px"] = float(v.get("plate_px", 220))
+	o["plate_px"] = float(v.get("plate_px", 250))
 	o["balance_font"] = int(v.get("balance_font", 34))
 	o["row_gap"] = float(v.get("row_gap", 12))
 	return o
