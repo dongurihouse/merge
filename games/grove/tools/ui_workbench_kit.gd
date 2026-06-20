@@ -1862,29 +1862,70 @@ static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
 	pop.add_child(l)
 	return pop
 
-## A reusable PROGRESS BAR — a rounded track with a honey fill clipped to `frac` (0..1). Art mode uses
-## the kit's prog_track / prog_fill capsules (scaled whole); else a code-drawn StyleBoxFlat track + fill
-## (the legacy look). opts: height (px), width (px), art (bool), label ("" = none; centered, e.g. "75%"),
-## star_knob (bool — a star sprite riding the fill head). Standalone so improving it lifts every site
-## (the Level dialog now; the home-screen unlock % later).
+## A reusable PROGRESS BAR — a rounded track with a honey fill clipped to `frac` (0..1). Art mode draws
+## the kit's prog_track / prog_fill capsules as NINE-SLICE pills (rendered at native height, then the whole
+## bar uniformly scaled to its display box so the caps stay round at any size — see progress_bar's note);
+## else a code-drawn StyleBoxFlat track + fill (the legacy look). opts: height (px — the display height),
+## width (px), art (bool), label ("" = none; centered, e.g. "75%"), star_knob (bool — a star sprite riding
+## the fill head). Standalone so improving it lifts every site (the Level dialog now; the home unlock % later).
 static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
-	var h: float = float(opts.get("height", 20.0))
+	var h: float = float(opts.get("height", 20.0))     # the DISPLAY height the bar shrinks to fit
 	var f: float = clampf(frac, 0.0, 1.0)
 	var use_art: bool = bool(opts.get("art", true))
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# --- track (whole-scaled capsule, or a code-drawn rounded panel) ---
-	var track_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_track.png"), 256) if use_art else null
-	if track_tex != null:
-		var t := TextureRect.new()
-		t.texture = track_tex
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		holder.add_child(t)
+	var track_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_track.png"), 512) if use_art else null
+	var fill_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_fill.png"), 512) if use_art else null
+	if track_tex != null and fill_tex != null:
+		# ART mode — track & fill are NINE-SLICE capsules. A 9-slice pill's rounded caps only stay round
+		# when the node is drawn at least as tall as the cap (margin = radius); squashing it shorter ovals
+		# them out. So we draw the caps at their NATIVE texture height on an inner "stage", then uniformly
+		# SCALE the whole stage down to the bar's display box — the caps shrink but keep their shape. Because
+		# the stage is always at native height (no vertical scaling), only the HORIZONTAL centre stretches.
+		var nat_h: float = float(track_tex.get_height())
+		var t_margin: int = int(round(nat_h * 0.5))                 # capsule radius = half the height
+		var fill_h: float = float(fill_tex.get_height())
+		var f_margin: int = int(round(fill_h * 0.5))
+		var inset: float = (nat_h - fill_h) * 0.5                   # the fill sits inside the track rim
+		var stage := Control.new()
+		stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(stage)
+		var track := NinePatchRect.new()
+		track.texture = track_tex
+		track.patch_margin_left = t_margin; track.patch_margin_right = t_margin
+		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.add_child(track)
+		var fill_clip := Control.new()
+		fill_clip.clip_contents = true
+		fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		stage.add_child(fill_clip)
+		var fill := NinePatchRect.new()
+		fill.texture = fill_tex
+		fill.patch_margin_left = f_margin; fill.patch_margin_right = f_margin
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill_clip.add_child(fill)
+		var lay_art := func() -> void:
+			if not (is_instance_valid(holder) and is_instance_valid(stage)):
+				return
+			var disp := holder.size
+			if disp.x <= 0.0 or disp.y <= 0.0:
+				return
+			var s: float = disp.y / nat_h                           # uniform shrink: native → display height
+			var stage_w: float = disp.x / s                         # …so the scaled stage spans the full width
+			stage.scale = Vector2(s, s)
+			stage.size = Vector2(stage_w, nat_h)
+			track.size = Vector2(stage_w, nat_h)
+			var fill_w: float = stage_w - inset * 2.0               # the inner fill track, inset within the rim
+			var clip_w: float = maxf(fill_h, fill_w * f)            # ≥ a round nub so 0% still reads as a bar
+			fill_clip.position = Vector2(inset, inset)
+			fill_clip.size = Vector2(clip_w, fill_h)
+			fill.position = Vector2.ZERO
+			fill.size = Vector2(fill_w, fill_h)                     # full width; the clip reveals only `frac`
+		holder.resized.connect(lay_art)
+		holder.ready.connect(lay_art)
 	else:
+		# code-drawn fallback (legacy look) — a rounded track with a clip-revealed straw fill
 		var track := Panel.new()
 		track.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var tsb := StyleBoxFlat.new()
@@ -1893,43 +1934,31 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		track.add_theme_stylebox_override("panel", tsb)
 		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(track)
-	# --- fill: full-width sprite/panel revealed by a clip sized to `frac` (keeps the right cap rounded) ---
-	var fill_clip := Control.new()
-	fill_clip.clip_contents = true
-	fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(fill_clip)
-	var fill_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_fill.png"), 256) if use_art else null
-	var fill: Control
-	if fill_tex != null:
-		var fr := TextureRect.new()
-		fr.texture = fill_tex
-		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fr.stretch_mode = TextureRect.STRETCH_SCALE
-		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fill = fr
-	else:
-		var fp := Panel.new()
+		var fill_clip := Control.new()
+		fill_clip.clip_contents = true
+		fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(fill_clip)
+		var fill := Panel.new()
 		var fsb := StyleBoxFlat.new()
 		fsb.bg_color = Pal.STRAW
 		fsb.set_corner_radius_all(int(h * 0.5))
-		fp.add_theme_stylebox_override("panel", fsb)
-		fp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		fill = fp
-	fill_clip.add_child(fill)
-	var lay := func() -> void:
-		if not (is_instance_valid(holder) and is_instance_valid(fill_clip) and is_instance_valid(fill)):
-			return
-		var w := holder.size.x
-		var fw := maxf(h, w * f)             # at least a rounded nub so 0% still reads as a bar
-		fill_clip.position = Vector2.ZERO
-		fill_clip.size = Vector2(fw, h)
-		fill.position = Vector2.ZERO
-		fill.size = Vector2(w, h)            # fill keeps FULL width; the clip reveals only `frac` of it
-	# Layout is driven by ready/resized (which only fire once the bar is IN a tree) — NOT a bare
-	# call_deferred, so a bar built-and-freed before any layout (a discarded preview) can't fire a
-	# lambda over freed captures.
-	holder.resized.connect(lay)
-	holder.ready.connect(lay)
+		fill.add_theme_stylebox_override("panel", fsb)
+		fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill_clip.add_child(fill)
+		var lay := func() -> void:
+			if not (is_instance_valid(holder) and is_instance_valid(fill_clip) and is_instance_valid(fill)):
+				return
+			var w := holder.size.x
+			var fw := maxf(h, w * f)             # at least a rounded nub so 0% still reads as a bar
+			fill_clip.position = Vector2.ZERO
+			fill_clip.size = Vector2(fw, h)
+			fill.position = Vector2.ZERO
+			fill.size = Vector2(w, h)            # fill keeps FULL width; the clip reveals only `frac` of it
+		# Layout is driven by ready/resized (which only fire once the bar is IN a tree) — NOT a bare
+		# call_deferred, so a bar built-and-freed before any layout (a discarded preview) can't fire a
+		# lambda over freed captures.
+		holder.resized.connect(lay)
+		holder.ready.connect(lay)
 	# --- optional star knob riding the fill head ---
 	if bool(opts.get("star_knob", false)):
 		var knob := make_icon("star", h * 1.4)
@@ -2789,8 +2818,17 @@ static func level_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"hint_font": int(lv.get("hint_font", 22)),
 		"gap": int(lv.get("gap", 14)),
 		"progress": progress_bar_opts_from_config(cfg),
-		"btn": card_btn_opts(cfg),
+		"btn": _level_btn_opts(cfg),
 	}
+
+## The Level dialog's button STYLE — the shared Button opts, but with the font overridable PER LEVEL
+## DIALOG (lv.btn_font), so the Got-it / Collect label can be sized up here without touching every other
+## button. Falls back to the shared button's font when the level hasn't set its own.
+static func _level_btn_opts(cfg: Dictionary) -> Dictionary:
+	var lv: Dictionary = cfg.get("level", {})
+	var btn: Dictionary = card_btn_opts(cfg)
+	btn["font"] = int(lv.get("btn_font", int(btn.get("font", 22))))
+	return btn
 
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
 ## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here

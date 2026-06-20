@@ -199,7 +199,7 @@ var _params := {
 	# preview_level / into / span / mode are workbench-only preview state; the game sets them from save.
 	"level": {"width_pct": 80, "banner_text": "Level", "title_font": 30,
 		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
-		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "gap": 14,
+		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
 		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
@@ -1156,6 +1156,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["ring_dy", -60, 60]))     # nudge the ring within the wreath
 			_sidebar_body.add_child(_slider_row(["tally_font", 16, 40]))
 			_sidebar_body.add_child(_slider_row(["hint_font", 12, 32]))
+			_sidebar_body.add_child(_slider_row(["btn_font", 16, 48]))    # the Got-it / Collect button label size
 			_sidebar_body.add_child(_slider_row(["frame_slice", 0, 160]))   # nine-patch corner slice
 			_sidebar_body.add_child(_slider_row(["frame_pad", 8, 60]))
 			_sidebar_body.add_child(_slider_row(["frame_top_pad", 20, 140]))   # room under the title pill

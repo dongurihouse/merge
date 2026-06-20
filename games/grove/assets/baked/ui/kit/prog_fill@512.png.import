@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bq2c7unm57r6j"
-path="res://.godot/imported/prog_track@256.png-3b2f23f5896e11fe367640e50953b018.ctex"
+uid="uid://dxbyal7q5d0cn"
+path="res://.godot/imported/prog_fill@512.png-7fc639fe5d504c19fabc5a5379159eab.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/baked/ui/kit/prog_track@256.png"
-dest_files=["res://.godot/imported/prog_track@256.png-3b2f23f5896e11fe367640e50953b018.ctex"]
+source_file="res://games/grove/assets/baked/ui/kit/prog_fill@512.png"
+dest_files=["res://.godot/imported/prog_fill@512.png-7fc639fe5d504c19fabc5a5379159eab.ctex"]
 
 [params]
 
