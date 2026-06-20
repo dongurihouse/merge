@@ -227,11 +227,13 @@ func _initialize() -> void:
 	var v_mid := Login.day_value(5)
 	ok(v_mid > v_lo, "the ladder reward escalates by streak (day 5 > day 1)")
 
-	# 20b. a milestone day pays its bigger reward (day 7 carries premium 💎).
+	# 20b. a milestone day pays its bigger reward (day 30 carries premium 💎).
+	#   day 7 is no longer a FIXED milestone — it is now a mystery day (T46 below).
 	fresh("login_milestone")
-	ok(Login.is_milestone(7), "day 7 is a milestone")
-	ok(int(Login.reward_for(7).get("gems", 0)) > 0, "the day-7 milestone pays premium diamonds")
-	ok(Login.day_value(7) > Login.day_value(6), "the milestone day pays more than the day before it")
+	ok(Login.is_milestone(30), "day 30 is a milestone")
+	ok(int(Login.reward_for(30).get("gems", 0)) > 0, "the day-30 milestone pays premium diamonds")
+	ok(Login.day_value(30) > Login.day_value(29), "the milestone day pays more than the day before it")
+	ok(not Login.is_milestone(7), "day 7 is no longer a fixed milestone (it is now a mystery day)")
 
 	# 20c. energy (water) stays modest — under the self-sustain invariant (§4/§10).
 	#   the largest single-day water gift must stay well under a day's natural regen.
@@ -299,6 +301,86 @@ func _initialize() -> void:
 	ok(String(ui_after[0].get("state", "")) == "done", "after claiming day 1: day 1 is 'done'")
 	ok(String(ui_after[1].get("state", "")) == "future", "after claiming day 1: day 2 is STILL future (not auto-claimed)")
 	ui_host.free()
+
+	# ── T46 · mystery daily gifts (slots 4 & 7) — the auto-spin reveal ──────────
+	# Slots 4 and 7 of every weekly cycle are MYSTERY days: roll_mystery() reveals
+	# `show` DISTINCT rewards and picks `win` winners; claim_mystery() grants ONLY the
+	# winners and bumps the streak once. This replaces the old fixed day-7 milestone.
+
+	# 21a. the mystery slots recur every week (days 4/7/11/14 are mystery; 1/3/5 are not).
+	fresh("login_mystery_slots")
+	ok(Login.is_mystery(4), "day 4 is a mystery day")
+	ok(Login.is_mystery(7), "day 7 is a mystery day")
+	ok(Login.is_mystery(11) and Login.is_mystery(14), "the mystery slots recur next week (days 11 & 14)")
+	ok(not Login.is_mystery(1) and not Login.is_mystery(5), "ordinary ladder days are not mystery")
+
+	# 21b. a roll reveals `show` distinct options and picks `win` distinct winners in range.
+	fresh("login_mystery_roll")
+	var roll4 := Login.roll_mystery(4)
+	ok(int(roll4.get("show", 0)) == 3 and int(roll4.get("win", 0)) == 1, "day-4 mystery shows 3, wins 1")
+	ok((roll4.get("options", []) as Array).size() == 3, "day-4 roll reveals 3 option cards")
+	var w4: Array = roll4.get("winners", [])
+	ok(w4.size() == 1 and int(w4[0]) >= 0 and int(w4[0]) < 3, "day-4 roll picks exactly one winner in range")
+	var roll7 := Login.roll_mystery(7)
+	var w7: Array = roll7.get("winners", [])
+	ok(int(roll7.get("show", 0)) == 5 and w7.size() == 2, "day-7 mystery shows 5, wins 2")
+	ok(int(w7[0]) != int(w7[1]), "day-7 winners are two DISTINCT cards")
+
+	# 21c. the revealed options are distinct draws from the slot's pool.
+	fresh("login_mystery_distinct")
+	var opts7: Array = Login.roll_mystery(7).get("options", [])
+	var seen_opts: Array = []
+	var all_distinct := true
+	for o in opts7:
+		if seen_opts.has(o):
+			all_distinct = false
+		seen_opts.append(o)
+	ok(all_distinct, "a day-7 roll reveals distinct (non-duplicated) reward cards")
+
+	# 21d. claim_mystery grants EXACTLY the won rewards, once, and bumps the streak.
+	fresh("login_mystery_claim")
+	var roll := Login.roll_mystery(4)
+	var won: Array = Login.won_rewards(roll)
+	var want_coins := 0
+	var want_gems := 0
+	for r in won:
+		want_coins += int(r.get("coins", 0))
+		want_gems += int(r.get("gems", 0))
+	var c_before := Save.coins()
+	var g_before := Save.diamonds()
+	var s_before := Login.streak()
+	ok(Login.claim_mystery(won), "the first mystery claim succeeds")
+	ok(Save.coins() - c_before == want_coins, "a mystery claim grants exactly the won coins")
+	ok(Save.diamonds() - g_before == want_gems, "a mystery claim grants exactly the won gems")
+	ok(Login.streak() == s_before + 1, "a mystery claim bumps the streak by one")
+	ok(not Login.claim_mystery(won), "a second mystery claim the same day is refused")
+
+	# 21e. claim_today() on a mystery day still pays + advances (the headless fallback).
+	fresh("login_mystery_today")
+	var gd46 := Save.data
+	gd46["daily"] = {"day": int(Time.get_unix_time_from_system() / 86400.0), "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": 3}
+	Save.save_now()
+	Save._loaded = false
+	ok(Login.today_day() == 4 and Login.is_mystery(Login.today_day()), "the streak reaches a mystery day (day 4)")
+	ok(Login.claim_today(), "claim_today resolves a mystery day headlessly")
+	ok(Login.claimed_today() and Login.streak() == 4, "the headless mystery claim advances the ladder (streak 3 → 4)")
+
+	# 21f. mystery pool water gifts also obey the §4/§10 faucet guard.
+	fresh("login_mystery_faucet")
+	var max_pool_water := 0
+	for slot in [4, 7]:
+		for r in Login.mystery_pool(slot):
+			max_pool_water = maxi(max_pool_water, int(r.get("water", 0)))
+	ok(max_pool_water <= Login.water_safe_max(), "mystery water gifts stay under the self-sustain cap")
+
+	# 21g. debug fast-forward: today is claimable again with the streak advanced (no decay).
+	fresh("login_debug_ff")
+	Login.claim_today()
+	var s_ff := Login.streak()
+	Login.debug_advance_day()
+	ok(not Login.claimed_today(), "debug fast-forward reopens today's claim")
+	ok(Login.streak() == s_ff, "debug fast-forward keeps the advanced streak (no decay)")
+	ok(Login.today_day() == s_ff + 1, "debug fast-forward lands on the next ladder day")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

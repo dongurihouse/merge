@@ -63,16 +63,86 @@ static func today_reward() -> Dictionary:
 static func is_milestone(day: int) -> bool:
 	return (D.LOGIN_MILESTONES as Dictionary).has(day)
 
+# --- mystery gift days (§18 · T46) --------------------------------------------------
+# Slots 4 and 7 of the repeating week are MYSTERY days: instead of a fixed grant the calendar
+# opens an AUTO-SPIN reveal that draws `show` DISTINCT rewards from a pool and lands on `win`
+# of them. The roll is pure (no grant); claim_mystery() pays the winners + bumps the streak.
+
+## The 1-based slot a day falls on within the repeating week — (((day-1) % 7) + 1).
+static func slot_of(day: int) -> int:
+	return ((day - 1) % 7) + 1
+
+## Whether `day` is a mystery day (its weekly slot has a mystery pool). Recurs every week.
+static func is_mystery(day: int) -> bool:
+	if day < 1:
+		return false
+	return (D.LOGIN_MYSTERY as Dictionary).has(slot_of(day))
+
+## The reward pool for a weekly slot (empty if the slot is not a mystery slot). Tuning/test aid.
+static func mystery_pool(slot: int) -> Array:
+	var cfg: Dictionary = (D.LOGIN_MYSTERY as Dictionary).get(slot, {})
+	return cfg.get("pool", [])
+
+## Roll a mystery day's reveal: draw `show` DISTINCT rewards from the slot's pool, then pick
+## `win` winners uniformly. Returns {show, win, options:[reward…], winners:[idx…]}. Grants
+## NOTHING (pure). The UI animates the spin landing on `winners`; claim_mystery() pays them.
+static func roll_mystery(day: int) -> Dictionary:
+	var slot := slot_of(day)
+	var cfg: Dictionary = (D.LOGIN_MYSTERY as Dictionary).get(slot, {})
+	var pool: Array = cfg.get("pool", [])
+	var show := mini(int(cfg.get("show", 0)), pool.size())
+	var win := mini(int(cfg.get("win", 0)), show)
+	# distinct options: shuffle the pool's indices, take the first `show`.
+	var pool_idx: Array = range(pool.size())
+	pool_idx.shuffle()
+	var options: Array = []
+	for i in range(show):
+		options.append(pool[pool_idx[i]])
+	# winners: shuffle the shown positions, take the first `win` (sorted for a stable display).
+	var pos: Array = range(show)
+	pos.shuffle()
+	var winners: Array = []
+	for i in range(win):
+		winners.append(pos[i])
+	winners.sort()
+	return {"show": show, "win": win, "options": options, "winners": winners}
+
+## The reward dicts a roll landed on (the `options` at the winner indices).
+static func won_rewards(roll: Dictionary) -> Array:
+	var options: Array = roll.get("options", [])
+	var out: Array = []
+	for i in roll.get("winners", []):
+		out.append(options[int(i)])
+	return out
+
+## Grant a mystery day's WON rewards (once per day) and bump the streak. The single grant path
+## for mystery days — both claim_today() and the spin dialog land here. Refuses a second claim.
+static func claim_mystery(won: Array) -> bool:
+	var d := Save.daily()
+	if bool(d.get("claimed", false)):
+		return false
+	d["claimed"] = true
+	d["streak"] = int(d.get("streak", 0)) + 1
+	for rew in won:
+		_grant(rew)                          # each grant persists (save_now writes data["daily"] too)
+	Save.save_now()                          # persist the claim/streak bump even if `won` paid no currency
+	return true
+
 # --- the claim ----------------------------------------------------------------------
 
 ## Grant today's reward (once per day) and bump the streak. Refuses a second claim the
 ## same day (returns false, grants nothing). Pays the full REWARD DICT
 ## (coins / water / gems / cosmetic), not just a flat coin number. The claim
 ## + streak-bump persist in one write (via Save). Returns whether a reward was granted.
+## A MYSTERY day (slot 4/7) resolves to its won rewards — the spin dialog drives the UI,
+## but headless callers (and tests) auto-resolve through the same claim_mystery() path.
 static func claim_today() -> bool:
 	var d := Save.daily()
 	if bool(d.get("claimed", false)):
 		return false
+	var day := today_day()
+	if is_mystery(day):
+		return claim_mystery(won_rewards(roll_mystery(day)))
 	var rew := today_reward()                # the rung for streak+1 (today's day)
 	d["claimed"] = true
 	d["streak"] = int(d.get("streak", 0)) + 1
@@ -110,3 +180,17 @@ static func day_value(day: int) -> int:
 		+ int(r.get("water", 0)) * 10 \
 		+ int(r.get("gems", 0)) * 100 \
 		+ (200 if String(r.get("cosmetic", "")) != "" else 0)
+
+# --- debug -------------------------------------------------------------------------
+
+## DEBUG-ONLY: fast-forward to the next day so a tester can keep claiming. Claims today (if
+## still unclaimed) to advance the streak, then reopens the claim for the next day — the streak
+## is kept intact (no soft-decay). Lets a tester walk the whole ladder, hitting mystery days
+## repeatedly. The calendar gates the button behind OS.is_debug_build(); never ships in release.
+static func debug_advance_day() -> void:
+	var d := Save.daily()
+	if not bool(d.get("claimed", false)):
+		claim_today()                        # advance the streak by claiming the current day
+		d = Save.daily()
+	d["claimed"] = false                     # reopen: simulate the next day, streak intact
+	Save.save_now()
