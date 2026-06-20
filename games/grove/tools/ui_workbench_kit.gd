@@ -3199,7 +3199,9 @@ static func _map_art_material(tex: Texture2D, rect_size: Vector2) -> ShaderMater
 
 # The gold frame's silhouette as an alpha mask: 1 inside the frame body + its enclosed hole, 0 in the
 # transparent corner gaps / edge margin / glow. Computed by flood-filling the frame's TRANSPARENT pixels
-# inward from the 4 borders (so the enclosed centre hole stays "inside"). Cached — built once.
+# inward from the 4 borders (so the enclosed centre hole stays "inside"). Built on a DOWN-SCALED copy so
+# the flood-fill is cheap (no first-open freeze); the mask is linear-filtered, so it upsamples smoothly to
+# the card. Cached — built once.
 static func _map_silhouette_tex() -> Texture2D:
 	if _map_sil_tex != null:
 		return _map_sil_tex
@@ -3208,6 +3210,8 @@ static func _map_silhouette_tex() -> Texture2D:
 		return null
 	var img := ft.get_image()
 	img.convert(Image.FORMAT_RGBA8)
+	var sw := 256                                       # downsample width — plenty for a soft clip mask
+	img.resize(sw, maxi(1, int(round(sw * float(img.get_height()) / float(img.get_width())))), Image.INTERPOLATE_BILINEAR)
 	var w := img.get_width()
 	var h := img.get_height()
 	var n := w * h
