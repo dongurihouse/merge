@@ -213,10 +213,20 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			sopts["list_max_h"] = host.get_viewport_rect().size.y * 0.72
 		var dialog: Control = Kit.shop_dialog(_sections(refs), width, sopts)
 		cc.add_child(dialog)
+		_tag_buy_buttons(dialog)
 		if rb.first:
 			FX.pop_in(dialog)
 			rb.first = false
 	rb.fn.call()
+
+# Tag the storefront's buy CTAs with the `shop_buy` meta the UI-shape smoke (_shop_rows) counts. The kit
+# builds the buttons (no Button handed back), so we mark them here: a buy CTA is the only Button carrying
+# TEXT (its price) — the info "i" is a textless icon Button, the ✕ is the textless DialogClose. This keeps
+# the "survives storefront restyles" contract after the kit restyle moved button construction.
+static func _tag_buy_buttons(dialog: Control) -> void:
+	for b in dialog.find_children("*", "Button", true, false):
+		if b is Button and String((b as Button).text) != "":
+			b.set_meta("shop_buy", true)
 
 # Build the live shop SECTIONS for the kit dialog — Quick help, Featured (real piece previews), the
 # one-time Welcome bundle, and the Acorn-pouch ladder. Each card carries its data + buy/info callbacks +
