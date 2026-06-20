@@ -21,7 +21,7 @@
 	"daily": {
 		"cols": 3.0,
 		"list_max_h": 0,
-		"width": 460.0
+		"width_pct": 85
 	},
 	"daily_card": {
 		"cell_art": true,
@@ -39,7 +39,7 @@
 		"today_badge": "gold glow"
 	},
 	"dialog": {
-		"width": 720.0
+		"width_pct": 85
 	},
 	"frame": {
 		"banner_burn": 62.0,
@@ -85,6 +85,6 @@
 		"cols": 3.0,
 		"list_max_h": 0,
 		"row_gap": 22,
-		"width": 520.0
+		"width_pct": 85
 	}
 }
