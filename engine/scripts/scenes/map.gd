@@ -197,6 +197,14 @@ func _ready() -> void:
 	# first-hub-open beat was removed 2026-06-18 — docs/BACKLOG.md "Restore the shop FTUE".)
 	_maybe_login_popup_deferred.call_deferred()
 
+	# Server-driven mail: pull the remote operator feed and fold any NEW gifts/news into the mailbox,
+	# then relight the inbox badge if something arrived. Guarded + flag-gated + fully non-blocking — a
+	# dead network (or the placeholder endpoint) is a silent no-op. (core/inbox_sync.gd owns the contract.)
+	if _has_inbox and Features.on("mail_sync") and ResourceLoader.exists("res://engine/scripts/core/inbox_sync.gd"):
+		load("res://engine/scripts/core/inbox_sync.gd").sync(self, func(added: int) -> void:
+			if added > 0:
+				_refresh_liveops_badges())
+
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
 
 # The dev capture harness births its windows minimized + focusless via a

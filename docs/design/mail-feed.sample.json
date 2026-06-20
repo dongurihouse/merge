@@ -1,0 +1,27 @@
+{
+  "version": 3,
+  "messages": [
+    {
+      "id": "news_2026_06_20",
+      "title": "Spring is here",
+      "body": "New seeds have come to the grove. Tend them well!",
+      "icon": "news"
+    },
+    {
+      "id": "comp_2026_06_outage",
+      "title": "Sorry for the hiccup",
+      "body": "Thanks for your patience during yesterday's downtime — please enjoy these.",
+      "icon": "gift",
+      "reward": { "coins": 250, "gems": 10, "water": 20 },
+      "start": 1700000000,
+      "end": 1800000000
+    },
+    {
+      "id": "gift_welcome_back",
+      "title": "We missed you",
+      "body": "A little something to pick up where you left off.",
+      "icon": "gift",
+      "reward": { "coins": 100 }
+    }
+  ]
+}

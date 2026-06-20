@@ -34,6 +34,7 @@ static var FLAGS := {
 	"ambient_characters": true,   # characters wander the scenes
 	"ambient_weather": true,      # breeze/rain/snow schedule
 	# feature
+	"mail_sync": false,           # server-driven mail: pull the remote operator feed on map open (OFF until core/inbox_sync.gd::FEED_URL points at a real endpoint)
 	"item_backing": true,         # AF3: ON — re-purposed as a soft warm contact shadow under each piece
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
 	# ftue

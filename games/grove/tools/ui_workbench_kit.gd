@@ -832,32 +832,20 @@ static func _kit_sprite(rel: String, px: float) -> TextureRect:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
 
-## A day's headline reward: the most premium currency icon + its number (gems > coins > water).
+## A day's reward as the ICON ONLY — the daily card shows the reward TYPE, never a number (the amount
+## is a claim-time surprise and keeps the small card uncluttered). Picks the premium currency (gems >
+## coins > water). Shop cards show their count separately; this is daily-only.
 static func _daily_reward(reward: Dictionary, px: float = 40.0) -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 2)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon_id := "coin"
-	var n := 0
 	if int(reward.get("gems", 0)) > 0:
-		icon_id = "gem"; n = int(reward.gems)
+		icon_id = "gem"
 	elif int(reward.get("coins", 0)) > 0:
-		icon_id = "coin"; n = int(reward.coins)
+		icon_id = "coin"
 	elif int(reward.get("water", 0)) > 0:
-		icon_id = "water"; n = int(reward.water)
+		icon_id = "water"
 	elif String(reward.get("cosmetic", "")) != "":
 		icon_id = "star"
-	row.add_child(make_icon(icon_id, px))
-	if n > 0:
-		var l := Label.new()
-		l.text = str(n)
-		l.add_theme_font_size_override("font_size", int(px * 0.42))
-		l.add_theme_color_override("font_color", Pal.INK)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(l)
-	return row
+	return make_icon(icon_id, px)
 
 ## The shared SMALL CARD — one tile used by BOTH the Daily grid and the Shop grid (improve once, both
 ## benefit). Top→bottom: an optional POPULAR ribbon ("Popular"/"Best value"/…), an optional label
@@ -930,7 +918,7 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if milestone:
 		v.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.52))
 	elif d.has("reward"):
-		v.add_child(_daily_reward(d.get("reward", {}), cw * 0.42))
+		v.add_child(_daily_reward(d.get("reward", {}), cw * 0.52))   # icon a touch bigger (no number)
 	elif d.has("icon"):
 		v.add_child(make_icon(String(d.icon), cw * 0.48))
 		if int(d.get("count", 0)) > 0:
@@ -1026,23 +1014,39 @@ static func _apply_day_badge(panel: Control, key: String) -> void:
 	hi.add_theme_stylebox_override("panel", s)
 	panel.add_child(hi)
 
-## A centred GRID of the shared small cards (cols per row) — the content for the daily + shop dialogs.
+## A GRID of the shared small cards, EXACTLY `cols` per row filling the width — the content for the
+## daily + shop dialogs. Each card is sized to 1/cols of the row (minus gaps) by a relayout, so the
+## grid always fits cols across regardless of the dialog width; a partial last row (e.g. Day 7) centres.
 static func _card_grid(cards: Array, opts: Dictionary) -> Control:
 	var cols: int = maxi(1, int(opts.get("cols", 3)))
+	var gap: int = int(opts.get("cell_h_gap", 12))
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", int(opts.get("cell_v_gap", 12)))
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var made: Array = []
 	var i := 0
 	while i < cards.size():
 		var r := HBoxContainer.new()
-		r.alignment = BoxContainer.ALIGNMENT_CENTER          # a partial last row (e.g. Day 7) centres
-		r.add_theme_constant_override("separation", int(opts.get("cell_h_gap", 12)))
+		r.alignment = BoxContainer.ALIGNMENT_CENTER
+		r.add_theme_constant_override("separation", gap)
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for j in cols:
 			if i + j < cards.size():
-				r.add_child(daily_card(cards[i + j], opts))
+				var c := daily_card(cards[i + j], opts)
+				r.add_child(c)
+				made.append(c)
 		content.add_child(r)
 		i += cols
+	# size each card to 1/cols of the actual content width so exactly cols fit across, any width
+	var fit := func() -> void:
+		if not is_instance_valid(content):
+			return
+		var cw := (content.size.x - (cols - 1) * gap) / float(cols)
+		for c in made:
+			if is_instance_valid(c):
+				(c as Control).custom_minimum_size.x = maxf(40.0, cw)
+	content.resized.connect(fit)
+	fit.call_deferred()
 	return content
 
 ## The DAILY-GIFTS dialog — the shared frame with a grid of day cards.
