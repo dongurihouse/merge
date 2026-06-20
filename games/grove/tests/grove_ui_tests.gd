@@ -448,6 +448,23 @@ func _initialize() -> void:
 	ok(med != null and med is Control, "level_medallion builds")
 	ok("7" in _all_label_texts(med), "level_medallion shows the level number")
 	med.queue_free()
+
+	# 29. level_dialog — builds in both modes; info shows Got it, levelup shows Collect
+	var info_data := {"level": 1, "earned": 0, "next": 6, "into": 0, "span": 6, "remaining": 6, "mode": "info"}
+	var di: Control = KitP.level_dialog(info_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(di)
+	await create_timer(0.02).timeout
+	ok(di != null and di is Control, "level_dialog builds in info mode")
+	ok(_find_button_text(di, "Got it") != null, "info mode shows the Got it button")
+	di.queue_free()
+	var up_data := {"level": 2, "earned": 6, "next": 18, "into": 0, "span": 12, "remaining": 12,
+		"mode": "levelup", "gift": {"water": 30, "gems": 1}}
+	var du: Control = KitP.level_dialog(up_data, 460.0, KitP.level_opts_from_config({}))
+	get_root().add_child(du)
+	await create_timer(0.02).timeout
+	ok(du != null, "level_dialog builds in levelup mode")
+	ok(_find_button_text(du, "Collect") != null, "levelup mode shows the Collect button")
+	du.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
@@ -459,3 +476,14 @@ func _all_label_texts(n: Node) -> Array:
 	for c in n.get_children():
 		out.append_array(_all_label_texts(c))
 	return out
+
+## The first Button under `n` whose text contains `needle` (depth-first), or null. Button.text is not a
+## child Label, so _all_label_texts can't see it — this finds the button itself (to assert / press it).
+func _find_button_text(n: Node, needle: String) -> Button:
+	if n is Button and String((n as Button).text).find(needle) != -1:
+		return n as Button
+	for c in n.get_children():
+		var f := _find_button_text(c, needle)
+		if f != null:
+			return f
+	return null

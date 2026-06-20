@@ -1556,6 +1556,136 @@ static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}
 	ring.add_child(num)
 	return root
 
+## A dedicated FRAME for the Level dialog (NOT the shared dialog_frame): the level_frame parchment border
+## (nine-patch), the gold level_title pill banner centered over the top edge, inner padding, and NO scroll
+## / NO ✕ (the reference has none). `content` is laid out statically (the dialog is short). opts:
+## banner_text, title_font, slice (nine-patch), pad, top_pad (room under the title pill).
+static func level_frame(content: Control, width: float = 460.0, opts: Dictionary = {}) -> Control:
+	var banner_text := String(opts.get("banner_text", "Level"))
+	var title_font := int(opts.get("title_font", 30))
+	var sl := float(opts.get("slice", 56.0))
+	var pad := float(opts.get("pad", 26.0))
+	var top_pad := float(opts.get("top_pad", 70.0))
+	var card := PanelContainer.new()
+	var fp := Look.kit("kit/level_frame.png")
+	if ResourceLoader.exists(fp):
+		var st := StyleBoxTexture.new()
+		st.texture = load(fp)
+		st.set_texture_margin(SIDE_LEFT, sl); st.set_texture_margin(SIDE_TOP, sl)
+		st.set_texture_margin(SIDE_RIGHT, sl); st.set_texture_margin(SIDE_BOTTOM, sl)
+		st.content_margin_left = pad; st.content_margin_right = pad
+		st.content_margin_top = top_pad; st.content_margin_bottom = pad
+		card.add_theme_stylebox_override("panel", st)
+	else:
+		var cf := StyleBoxFlat.new()
+		cf.bg_color = Pal.CREAM; cf.border_color = Pal.BARK
+		cf.set_corner_radius_all(28); cf.set_border_width_all(3)
+		cf.content_margin_left = pad; cf.content_margin_right = pad
+		cf.content_margin_top = top_pad; cf.content_margin_bottom = pad
+		card.add_theme_stylebox_override("panel", cf)
+	card.custom_minimum_size = Vector2(width, 0)
+	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	card.add_child(content)
+	# the title pill overlays the top edge, centered (added after the card → drawn on top)
+	var wrap := Control.new()
+	wrap.custom_minimum_size.x = width
+	wrap.add_child(card)
+	var title := _level_title_pill(banner_text, title_font)
+	wrap.add_child(title)
+	var dock := func() -> void:
+		if is_instance_valid(title) and is_instance_valid(card) and is_instance_valid(wrap):
+			title.position = Vector2((card.size.x - title.size.x) * 0.5, -title.size.y * 0.5)
+			wrap.custom_minimum_size = card.size
+	card.resized.connect(dock)
+	title.resized.connect(dock)
+	wrap.ready.connect(dock)
+	return wrap
+
+## The gold "Level N" title pill (the level_title sprite scaled whole, text centered). Code STRAW fallback.
+static func _level_title_pill(text: String, font: int) -> Control:
+	var pill := PanelContainer.new()
+	pill.name = "LevelTitle"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tp := clean_tex_path(Look.kit("kit/level_title.png"), 480)
+	if tp != null:
+		var stx := StyleBoxTexture.new()
+		stx.texture = tp
+		stx.content_margin_left = 44; stx.content_margin_right = 44
+		stx.content_margin_top = 12; stx.content_margin_bottom = 16
+		pill.add_theme_stylebox_override("panel", stx)
+	else:
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Pal.STRAW; ps.set_corner_radius_all(18)
+		ps.content_margin_left = 28; ps.content_margin_right = 28
+		ps.content_margin_top = 6; ps.content_margin_bottom = 8
+		pill.add_theme_stylebox_override("panel", ps)
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", font)
+	l.add_theme_color_override("font_color", Color("#4A2E14"))
+	l.add_theme_constant_override("outline_size", 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.add_child(l)
+	return pill
+
+## The whole LEVEL dialog: the dedicated frame + medallion + "X / Y ★ earned" + progress_bar + the
+## "N more ★ to reach Level N+1" line (info) OR a reward chip row (levelup) + the bottom button (the
+## shared pill_button with the green level_btn bg). `data` keys: level, earned, next, into, span,
+## remaining, mode ("info"|"levelup"), gift ({water,gems}), on_button (Callable). opts: see
+## level_opts_from_config (frame + progress + btn style). Used by BOTH the workbench preview and the game.
+static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionary = {}) -> Control:
+	var mode := String(data.get("mode", "info"))
+	var lvl := int(data.get("level", 1))
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(opts.get("gap", 14)))
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	# medallion
+	var med := level_medallion(lvl, float(opts.get("medallion_px", 120.0)), opts)
+	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(med)
+	# "X / Y ★ earned"
+	var tally := Label.new()
+	tally.text = TranslationServer.translate("%d / %d ★ earned") % [int(data.get("earned", 0)), int(data.get("next", 0))]
+	tally.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tally.add_theme_font_size_override("font_size", int(opts.get("tally_font", 28)))
+	tally.add_theme_color_override("font_color", Pal.INK)
+	tally.add_theme_constant_override("outline_size", 0)
+	col.add_child(tally)
+	# the progress bar (reusable component, fraction of the way through this level)
+	var span: int = maxi(1, int(data.get("span", 1)))
+	var frac: float = clampf(float(int(data.get("into", 0))) / float(span), 0.0, 1.0)
+	var bar := progress_bar(frac, opts.get("progress", {}))
+	bar.custom_minimum_size.x = width * 0.66
+	col.add_child(bar)
+	# levelup → the earned reward row (cream chips); info → the "N more ★" hint line
+	if mode == "levelup":
+		var gift: Dictionary = data.get("gift", {})
+		var reward := {"water": int(gift.get("water", 0)), "gems": int(gift.get("gems", 0))}
+		if _reward_total(reward) > 0:
+			var rrow := reward_chip(reward, opts.get("btn", {}))
+			rrow.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+			col.add_child(rrow)
+	else:
+		var nxt := Label.new()
+		nxt.text = TranslationServer.translate("%d more ★ to reach Level %d") % [int(data.get("remaining", 0)), lvl + 1]
+		nxt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nxt.add_theme_font_size_override("font_size", int(opts.get("hint_font", 22)))
+		nxt.add_theme_color_override("font_color", Pal.BARK)
+		nxt.add_theme_constant_override("outline_size", 0)
+		col.add_child(nxt)
+	# the bottom button — the shared pill_button with the green level_btn background
+	var bo: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = "kit/level_btn.png"; bo["icon"] = ""
+	var btn_text := TranslationServer.translate("Collect") if mode == "levelup" else TranslationServer.translate("Got it")
+	var btn := pill_button(btn_text, bo)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var cb: Callable = data.get("on_button", Callable())
+	if cb.is_valid():
+		btn.pressed.connect(func() -> void: cb.call())
+	col.add_child(btn)
+	return level_frame(col, width, opts)
+
 ## Draw a highlight rim/glow over a day card (see DAY_BADGES). A code-drawn border-only overlay (plus a
 ## coloured shadow for the "glow" styles) so it's a SAVED setting the workbench can switch, not baked art.
 static func _apply_day_badge(panel: Control, key: String) -> void:
@@ -2100,6 +2230,26 @@ static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"height": float(p.get("height", 20)),
 		"art": bool(p.get("art", true)),
 		"star_knob": bool(p.get("star_knob", false)),
+	}
+
+## The LEVEL dialog's saved STYLE from config — the dedicated frame chrome + the medallion size + the
+## reusable progress-bar style + the shared button style. Read by BOTH the workbench preview and the
+## game's level_popup.gd, so the transform lives in one place.
+static func level_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var lv: Dictionary = cfg.get("level", {})
+	return {
+		"banner_text": String(lv.get("banner_text", "Level")),
+		"title_font": int(lv.get("title_font", 30)),
+		"slice": float(lv.get("frame_slice", 56)),
+		"pad": float(lv.get("frame_pad", 26)),
+		"top_pad": float(lv.get("frame_top_pad", 70)),
+		"medallion_px": float(lv.get("medallion_px", 120)),
+		"ring_dy": float(lv.get("ring_dy", 0)),
+		"tally_font": int(lv.get("tally_font", 28)),
+		"hint_font": int(lv.get("hint_font", 22)),
+		"gap": int(lv.get("gap", 14)),
+		"progress": progress_bar_opts_from_config(cfg),
+		"btn": card_btn_opts(cfg),
 	}
 
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
