@@ -138,7 +138,7 @@ func _initialize() -> void:
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
 	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons
-	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Collect claims.
+	# end-to-end: the piggy-bank Claim→Confirm cracks the jar; the calendar Claim claims today's rung.
 	fresh("vault_surface")
 	var vhost = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(vhost)
@@ -171,7 +171,7 @@ func _initialize() -> void:
 	var l_overlay: Control = lhost.get_child(lhost.get_child_count() - 1)
 	ok(l_overlay.find_children("*", "PanelContainer", true, false).size() >= 8, \
 		"the calendar opens as a framed card with a week of reward cells (diegetic, §13)")
-	ok(_press_label(l_overlay, "Collect"), "the calendar shows a Collect button")
+	ok(_press_label(l_overlay, "Claim"), "the calendar shows a Claim button")
 	ok(Login.streak() == l_streak + 1 and Save.coins() >= l_coins, \
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
