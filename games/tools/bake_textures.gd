@@ -5,53 +5,48 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/tools/bake_textures.gd
 ##   (or `make bake-textures`, which also runs the follow-up --import pass)
 ##
-## Reads games/tools/bake_textures.json — a list of { "path": "res://…png", "max": <cap> } — and for
-## each entry runs the SAME Kit._clean_image() the runtime uses, writing the result to the baked
-## mirror (Kit.baked_path). The runtime then loads that mirror directly instead of polishing.
+## AUTO-DISCOVERY (no manifest): builds every kit dialog via BakeTargets.build_all(), which drives
+## clean_tex_path for each sprite the dialogs draw. Kit._clean_cache then holds the exact
+## (path, max_dim) set to bake; for each we run the SAME Kit._clean_image() the runtime uses and write
+## the result to the baked mirror (Kit.baked_path). The runtime loads that mirror directly instead of
+## polishing. Add a new dialog to bake_targets.gd and it is covered automatically.
 ##
-## Idempotent: always re-bakes FROM the (un-polished) source, so re-running just overwrites. To add a
-## sprite, add a line to the manifest with the cap used at its clean_tex_path() call site, then re-run.
+## Idempotent: always re-bakes FROM the (un-polished) source, so re-running just overwrites.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
-const MANIFEST := "res://games/tools/bake_textures.json"
+const BakeTargets = preload("res://games/tools/bake_targets.gd")
 
 func _initialize() -> void:
-	var f := FileAccess.open(MANIFEST, FileAccess.READ)
-	if f == null:
-		push_error("bake_textures: cannot open manifest %s" % MANIFEST)
-		quit(1); return
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	f.close()
-	if not (parsed is Array):
-		push_error("bake_textures: manifest is not a JSON array")
-		quit(1); return
+	var cfg := Kit.load_config(Kit.CONFIG_PATH)
+	Kit.clear_clean_cache()
+	var nodes := BakeTargets.build_all(cfg)        # drives clean_tex_path → populates _clean_cache
+	var keys: Array = Kit._clean_cache.keys()
 
 	var ok := 0
 	var failed := 0
-	for entry in parsed:
-		var src := String((entry as Dictionary).get("path", ""))
-		var cap := int((entry as Dictionary).get("max", 256))
+	for k in keys:
+		var at := String(k).rfind("@")
+		var src := String(k).substr(0, at)
+		var cap := int(String(k).substr(at + 1))
 		if not ResourceLoader.exists(src):
-			print("  SKIP  %s  (source missing)" % src)
-			failed += 1
-			continue
+			print("  SKIP  %s  (source missing)" % src); failed += 1; continue
 		var tex := load(src) as Texture2D
 		if tex == null:
-			print("  SKIP  %s  (not a Texture2D)" % src)
-			failed += 1
-			continue
-		var clean: Image = Kit._clean_image(tex.get_image(), cap)
+			print("  SKIP  %s  (not a Texture2D)" % src); failed += 1; continue
+		var clean: Image = Kit._clean_image(tex.get_image(), cap)   # SAME polish the runtime would do
 		var out_res := Kit.baked_path(src, cap)
 		var out_abs := ProjectSettings.globalize_path(out_res)
 		DirAccess.make_dir_recursive_absolute(out_abs.get_base_dir())
 		var err := clean.save_png(out_abs)
 		if err != OK:
-			print("  FAIL  %s  (save_png err %d)" % [out_res, err])
-			failed += 1
-			continue
-		print("  BAKE  %-46s -> %s  (%dx%d)" % [src.get_file(), out_res.replace("res://", ""), clean.get_width(), clean.get_height()])
+			print("  FAIL  %s  (save_png err %d)" % [out_res, err]); failed += 1; continue
+		print("  BAKE  %-44s @%-4d -> %s" % [src.replace("res://games/grove/assets/", ""), cap, out_res.replace("res://games/grove/assets/baked/", "")])
 		ok += 1
 
-	print("== baked %d, failed %d ==" % [ok, failed])
+	for n in nodes:
+		if n is Node:
+			(n as Node).queue_free()
+
+	print("== %d dialogs → %d sprites discovered; baked %d, failed %d ==" % [nodes.size(), keys.size(), ok, failed])
 	print("   next: run `godot --headless --path . --import` so the baked PNGs get .import sidecars")
 	quit(1 if failed > 0 else 0)

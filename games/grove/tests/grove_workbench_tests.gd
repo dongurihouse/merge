@@ -4,6 +4,7 @@ extends SceneTree
 ##   godot --headless -s res://games/grove/tests/grove_workbench_tests.gd
 
 const View = preload("res://games/grove/tools/ui_workbench_view.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 
 var _pass := 0
 var _fail := 0
@@ -55,5 +56,11 @@ func _initialize() -> void:
 
 	view.queue_free()
 	await process_frame
+	# Drain the workbench's async-polish WorkerThreadPool tasks before exit. The icon/badge gallery
+	# kicks off polish_async tasks; if one is still running at quit(), the pool's destructor tears down
+	# a live GDScript lambda and crashes (signal 11 at shutdown). Baking the dialog sprites made the
+	# build fast enough to reach quit() before a task finished, exposing this — so wait them out, the
+	# same way kit_polish_async_tests does.
+	Kit.clear_async_cache()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
