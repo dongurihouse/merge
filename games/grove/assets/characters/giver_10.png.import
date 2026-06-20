@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cxaufsfrdb5gj"
-path="res://.godot/imported/giver_squirrel.png-1ba59e020af04040b6c469b442aaf832.ctex"
+uid="uid://dq8vjon11fu5"
+path="res://.godot/imported/giver_10.png-f66e4e0c5c8e8d88646dbe18529d3d29.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/characters/giver_squirrel.png"
-dest_files=["res://.godot/imported/giver_squirrel.png-1ba59e020af04040b6c469b442aaf832.ctex"]
+source_file="res://games/grove/assets/characters/giver_10.png"
+dest_files=["res://.godot/imported/giver_10.png-f66e4e0c5c8e8d88646dbe18529d3d29.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b6173a6gi0bri"
-path="res://.godot/imported/giver_hedgehog.png-6bbd2fa3f1c42f4bc7d3d688abd6373e.ctex"
+uid="uid://cgicpj2c8ainq"
+path="res://.godot/imported/giver_9.png-c81c4b770815380807f4c7a8844fb3cd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/characters/giver_hedgehog.png"
-dest_files=["res://.godot/imported/giver_hedgehog.png-6bbd2fa3f1c42f4bc7d3d688abd6373e.ctex"]
+source_file="res://games/grove/assets/characters/giver_9.png"
+dest_files=["res://.godot/imported/giver_9.png-c81c4b770815380807f4c7a8844fb3cd.ctex"]
 
 [params]
 

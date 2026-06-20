@@ -68,9 +68,15 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
+	# the requested item identifies the quest; its `line` also keys the giver PORTRAIT, so the fence
+	# shows a varied cast drawn from the 16-strong giver pool (characters/giver_0..15) rather than the
+	# three slots cycling. Keying on the line (not the slot `qi`) keeps a giver's face stable for the
+	# life of its quest and, with the §7 anti-monotony that steers concurrent stands onto distinct
+	# lines, keeps the on-screen givers distinct. (Falls back to the slot index for an item-less quest.)
+	var it: Dictionary = G.quest_item(q)
 	# the character portrait — sits directly on the LEFT of the box (the bubble owns the right).
 	var bsz := cardH * 0.72
-	var bust := Bust.make(qi % 3, bsz)
+	var bust := Bust.make(int(it.line) if not it.is_empty() else qi, bsz)
 	bust.position = Vector2(cx + cardW * 0.255 - bsz / 2.0, cy + cardH * 0.46 - bsz / 2.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").
@@ -79,7 +85,6 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
 	# the requested item — inside the BAKED bubble on the box's right (~0.73w, 0.42h): the item icon
 	# over an "N/1" count. No drawn pill — the bubble is painted into card_quest.png.
-	var it: Dictionary = G.quest_item(q)
 	var item_ui: Dictionary = {}
 	if not it.is_empty():
 		var acode := int(it.line) * 100 + int(it.tier)

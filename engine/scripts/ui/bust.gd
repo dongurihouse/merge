@@ -8,12 +8,17 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const CREAM = Pal.CREAM
 
+# The giver-portrait pool: characters/giver_0.png .. giver_<GIVER_COUNT-1>.png (the forest cast
+# sliced from characters_1.png). `which` is any selector (a quest line, a slot index) — it is
+# folded into the pool here, so callers don't need to know the count.
+const GIVER_COUNT := 16
+
 static func make(which: int, px: float = 124.0) -> Control:
 	var face := Control.new()
 	face.custom_minimum_size = Vector2(px, px)
 	face.size = Vector2(px, px)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := Game.art("characters/giver_%d.png" % (which % 3))
+	var path := Game.art("characters/giver_%d.png" % (which % GIVER_COUNT))
 	if ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		# owner 2026-06-13: the frameless cutout blended into the painted scene.
