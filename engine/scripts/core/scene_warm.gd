@@ -56,7 +56,20 @@ static func go(tree: SceneTree, path: String) -> int:
 		return tree.change_scene_to_packed(ps)
 	return tree.change_scene_to_file(path)
 
-## Test/teardown helper — drop the cache (and forget any in-flight requests).
-static func _clear() -> void:
-	_packed.clear()
+## Flush every outstanding background request: retrieve (consume) each in-flight threaded load so none
+## is left queued in the WorkerThreadPool at process exit. A prewarm()ed-but-never-take()n request leaks
+## its resource at exit ("ObjectDB instances leaked at exit") and — in the wrong teardown order — crashes
+## WorkerThreadPool::finish() as it tears down the orphaned task's GDScript Callable. Retrieved scenes are
+## kept warm (cheap, and useful if we end up navigating there). Call before quitting any headless harness
+## (or scene) that prewarmed a scene it never navigated to.
+static func drain() -> void:
+	for path in _inflight.keys():
+		var res := ResourceLoader.load_threaded_get(path)   # blocks for the remainder, consumes the request
+		if res is PackedScene:
+			_packed[path] = res
 	_inflight.clear()
+
+## Test/teardown helper — flush pending loads (so they don't leak/crash at exit) then drop the cache.
+static func _clear() -> void:
+	drain()
+	_packed.clear()
