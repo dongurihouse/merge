@@ -182,7 +182,7 @@ var _params := {
 		"open": true, "done": false, "stars_left": 3},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. Nothing
-	# is saved: bust picks which of giver_0..2 sits on the left; tier is the asked item's tier (the demo
+	# is saved: bust picks which of giver_0..15 sits on the left; tier is the asked item's tier (the demo
 	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
 	# toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,

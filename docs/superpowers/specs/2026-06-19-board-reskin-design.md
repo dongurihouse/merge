@@ -1,5 +1,10 @@
 # Board scene reskin — design
 
+> **Superseded (2026-06-20):** the girl / farmer / dog giver portraits (`board_asset.png`
+> islands 48/49/50) were retired. Quest givers now draw from a 16-creature pool
+> `characters/giver_0..15.png` (sliced from `characters_1.png`), keyed off the quest line —
+> see `giver_stand.gd` / `bust.gd`. The giver references below are historical.
+
 **Date:** 2026-06-19 · **Worktree:** `worktree-board-reskin` · **Source art:** `_new/board.png`
 (composed reference, not shipped) + `_new/board_asset.png` (1448×1086, baked near-white
 `#F4F5F6` background — the sliceable sheet).

@@ -9,9 +9,6 @@
     { "island": 38, "name": "nav_home",       "path": "ui/nav/nav_home.png" },
     { "island": 39, "name": "nav_bag",        "path": "ui/nav/nav_bag.png" },
     { "island": 40, "name": "nav_merchant",   "path": "ui/nav/nav_merchant.png" },
-    { "island": 48, "name": "giver_0",        "path": "characters/giver_0.png" },
-    { "island": 49, "name": "giver_1",        "path": "characters/giver_1.png" },
-    { "island": 50, "name": "giver_2",        "path": "characters/giver_2.png" },
     { "island": 24, "name": "slot_tile",      "path": "ui/board/slot_tile.png" },
     { "island": 25, "name": "slot_locked",    "path": "ui/board/slot_locked.png" },
     { "island": 26, "name": "slot_active",    "path": "ui/board/slot_active.png" }
