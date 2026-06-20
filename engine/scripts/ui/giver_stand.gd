@@ -115,11 +115,12 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid pill behind — no halo
 	pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	pay.add_child(pay_lbl)
-	# centre the pair on the painted pill (~0.715w, 0.79h); resized() recenters once it has a width
+	# centre the pair on the painted pill (~0.715w, 0.79h). Driven by resized — which only fires while
+	# `pay` is alive + in-tree — NOT a bare call_deferred: a stand freed before idle (a giver rebuild)
+	# would otherwise fire this lambda over a freed `pay`, crashing on `pay.size` (the §120 freed-capture).
 	var place_pay := func() -> void:
 		pay.position = Vector2(cx + cardW * 0.715 - pay.size.x / 2.0, cy + cardH * 0.79 - pay.size.y / 2.0)
 	pay.resized.connect(place_pay)
-	place_pay.call_deferred()
 	stand.add_child(pay)
 	# §7 FEATURED is intentionally NOT surfaced on the board: quests aren't skippable, so a
 	# "this one's special" highlight (or a +N💎 shoulder) is noise the player can't act on. The
