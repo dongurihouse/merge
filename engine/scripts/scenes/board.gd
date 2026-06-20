@@ -227,14 +227,17 @@ func _ready() -> void:
 	# drag-to-sell drop target (the fence stall is gone). shop_btn stays a member (§14 spotlight).
 	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the
 	# home/map screen uses, just fed different specs; the per-scene builder it used to duplicate is gone.
+	# Shop + Settings are the SHARED configurable home button (disc shell + icon — `home_icon`), exactly as
+	# the map's bottom bar; the prominent centre Home stays the baked button (mirrors the map's baked Play
+	# centre). The Bag + Merchant remain custom drag-drop wells (their drop-target role + overlays).
 	var nav := NavBar.build(self, [
 		# Shop — the currency store (unchanged action)
-		{"icon": "nav_shop.png", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
+		{"home_icon": "shop", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			if _open_shop.is_valid():
 				_open_shop.call()},
 		# Settings — the shared card the map's gear opens (ui/settings.gd)
-		{"icon": "nav_gear.png", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
+		{"home_icon": "gear", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			SettingsUI.open(self)},
 		# Home — the centre, prominent button; the single affordance back to the Map. Lands on the
