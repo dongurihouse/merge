@@ -440,6 +440,14 @@ func _initialize() -> void:
 	await create_timer(0.02).timeout
 	ok("75%" in _all_label_texts(labelled), "progress_bar shows its centered label")
 	labelled.queue_free()
+
+	# 28. level_medallion — wreath + ring + centered number
+	var med: Control = KitP.level_medallion(7, 120.0, {})
+	get_root().add_child(med)
+	await create_timer(0.02).timeout
+	ok(med != null and med is Control, "level_medallion builds")
+	ok("7" in _all_label_texts(med), "level_medallion shows the level number")
+	med.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget

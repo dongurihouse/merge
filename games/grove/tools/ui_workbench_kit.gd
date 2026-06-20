@@ -1503,6 +1503,59 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		holder.add_child(l)
 	return holder
 
+## The Level MEDALLION — the laurel wreath behind the gold ring, with the level NUMBER centered on the
+## ring's cream face. The ring sprite (level_ring.png) already carries its own cream inner face (verified
+## at intake), so NO separate badge disc is layered. `px` is the ring diameter; the wreath frames it a
+## touch larger. opts: number_font, ink (Color), ring_dy (px — nudge the ring up/down within the wreath).
+static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}) -> Control:
+	var root := Control.new()
+	var wreath_px := px * 1.55
+	root.custom_minimum_size = Vector2(wreath_px, wreath_px)
+	root.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# the wreath sits BEHIND (added first), centered, a touch larger than the ring
+	var wreath := clean_tex_path(Look.kit("kit/level_wreath.png"), 512)
+	if wreath != null:
+		var wr := TextureRect.new()
+		wr.texture = wreath
+		wr.set_anchors_preset(Control.PRESET_FULL_RECT)
+		wr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		wr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		wr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(wr)
+	# the ring centered at px (a touch above centre by ring_dy so the wreath frames its lower half)
+	var ring_dy := float(opts.get("ring_dy", 0.0))
+	var ring := Control.new()
+	ring.custom_minimum_size = Vector2(px, px)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.anchor_left = 0.5; ring.anchor_right = 0.5
+	ring.anchor_top = 0.5; ring.anchor_bottom = 0.5
+	ring.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	ring.grow_vertical = Control.GROW_DIRECTION_BOTH
+	ring.offset_left = -px * 0.5; ring.offset_right = px * 0.5
+	ring.offset_top = -px * 0.5 + ring_dy; ring.offset_bottom = px * 0.5 + ring_dy
+	root.add_child(ring)
+	var ring_tex := clean_tex_path(Look.kit("kit/level_ring.png"), 512)
+	if ring_tex != null:
+		var rt := TextureRect.new()
+		rt.texture = ring_tex
+		rt.set_anchors_preset(Control.PRESET_FULL_RECT)
+		rt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		rt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ring.add_child(rt)
+	# the level number, centered on the ring face
+	var num := Label.new()
+	num.text = str(level)
+	num.set_anchors_preset(Control.PRESET_FULL_RECT)
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	num.add_theme_font_size_override("font_size", int(opts.get("number_font", px * 0.42)))
+	num.add_theme_color_override("font_color", opts.get("ink", Pal.INK))
+	num.add_theme_constant_override("outline_size", 0)
+	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.add_child(num)
+	return root
+
 ## Draw a highlight rim/glow over a day card (see DAY_BADGES). A code-drawn border-only overlay (plus a
 ## coloured shadow for the "glow" styles) so it's a SAVED setting the workbench can switch, not baked art.
 static func _apply_day_badge(panel: Control, key: String) -> void:
