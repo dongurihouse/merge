@@ -28,8 +28,10 @@ func _has_label_text(node: Control, text: String) -> bool:
 			return true
 	return false
 
-# The first Button anywhere under `node` (the tappable surface), or null.
+# The first Button at or under `node` (the tappable surface), or null.
 func _first_button(node: Control) -> Button:
+	if node is Button:
+		return node as Button
 	var bs := node.find_children("*", "Button", true, false)
 	return bs[0] if not bs.is_empty() else null
 
@@ -37,6 +39,15 @@ func _first_button(node: Control) -> Button:
 func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
 	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
+
+# True if `node` or any descendant is of the given built-in class.
+func _has_class(node: Node, klass: String) -> bool:
+	if node.is_class(klass):
+		return true
+	for c in node.get_children():
+		if _has_class(c, klass):
+			return true
+	return false
 
 func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
@@ -124,6 +135,18 @@ func _test_bag_components() -> void:
 		btn.pressed.emit()
 	ok(tapped[0], "tapping a filled tile fires on_tap (retrieve)")
 	ok(_first_button(Kit.bag_card({"kind": "empty"}, co)) == null, "an empty tile is inert (no button)")
+
+	# the four states share ONE card component: every cell is exactly cell_w × cell_h (the cost rides
+	# INSIDE the card now — no extra strip below the tile), so all states are the same size.
+	var cwh := Vector2(float(co.cell_w), float(co.cell_h))
+	var same := true
+	for kind in ["filled", "empty", "next", "locked"]:
+		if Kit.bag_card({"kind": kind, "icon": "leaf", "cost": 15}, co).custom_minimum_size != cwh:
+			same = false
+	ok(same, "every bag-cell state is exactly cell_w × cell_h (one shared card, cost inside)")
+	# the NEXT (buyable) cell carries a DYNAMIC sparkle FX (engine-drawn particles); locked does not.
+	ok(_has_class(Kit.bag_card({"kind": "next", "cost": 10}, co), "GPUParticles2D"), "the next cell has a dynamic sparkle FX")
+	ok(not _has_class(Kit.bag_card({"kind": "locked", "cost": 25}, co), "GPUParticles2D"), "a locked cell has no sparkle FX")
 
 	# the BAG DIALOG — the shared frame + the reused pill + a grid of the slot cells.
 	var entries := [

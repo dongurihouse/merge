@@ -2865,12 +2865,13 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 	return panel
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
-## Per-state cell art (the bag screen's tiles). A locked slot reuses the cream card, dimmed.
-const BAG_CARD_ART := {
-	"filled": "kit/bag_card.png", "empty": "kit/bag_card_empty.png",
-	"next": "kit/bag_card_gold.png", "locked": "kit/bag_card.png",
-}
-const BAG_LOCKED_TINT := Color(0.82, 0.80, 0.76)   # a locked tile reads dimmed
+## The slot cell is ONE component card with four states. A filled slot uses the raised card (a held
+## piece sits on it); empty / next / locked SHARE the flat empty-slot card (bag_card_empty.png) so they
+## read as one component at one size — the state (lock + cost, the buyable sparkle, the locked dim) is an
+## overlay, not a different sprite. The old gold sparkle card is gone; `next` gets a DYNAMIC sparkle FX.
+const BAG_FILLED_ART := "kit/bag_card.png"     # the raised card for a held piece
+const BAG_SLOT_ART := "kit/bag_card_empty.png" # the flat empty-slot card — empty / next / locked share it
+const BAG_LOCKED_TINT := Color(0.82, 0.80, 0.76)   # a locked tile reads dimmed (same card, dimmed)
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
@@ -2883,42 +2884,41 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cell_slice": float(bc.get("cell_slice", 36)),
 		"cell_art": bool(bc.get("cell_art", true)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a bagged piece, % of the cell
-		"lock_frac": float(bc.get("lock_frac", 46)) / 100.0,         # the padlock, % of the cell
-		"cost_font": int(bc.get("cost_font", 26)),                   # the acorn-cost number
-		"cost_icon": float(bc.get("cost_icon", 30)),                 # the acorn icon px in a cost row
+		"lock_frac": float(bc.get("lock_frac", 40)) / 100.0,         # the padlock, % of the cell
+		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
+		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
+		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the next cell's sparkle halo amount
+		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
 	}
 
-## One BAG SLOT TILE — the bag screen's cell, its own component (the bag dialog reuses it). `kind` picks
-## the look + behaviour:
-##   filled — a bagged piece on the cream card (bag_card.png); a tap fires d.on_tap (retrieve)
-##   empty  — an owned-but-vacant card (bag_card_empty.png), inert
-##   next   — the single buyable slot, the gold card (bag_card_gold.png); its acorn cost rides the
-##            centre; a tap fires d.on_tap (buy the slot)
-##   locked — a dimmed cream card with the padlock (bag_lock.png) + its acorn cost BELOW the tile
-## The filled piece is content-agnostic so the kit stays free of game deps: d.make_content(size) (a
-## Callable that builds the game's piece view at the FITTED cell size) wins, else a pre-built d.content
-## node, else d.icon (a kit icon id, the workbench preview), else nothing. The acorn = the gem currency
-## icon (Grove renders 💎 as a golden acorn). A code-drawn cream card backs every state when the art is
-## off/absent (the kit fallback law).
+## One BAG SLOT TILE — the bag screen's cell, ONE component card with four states. `kind` picks the
+## look + behaviour:
+##   filled — a bagged piece on the raised card (bag_card.png); a tap fires d.on_tap (retrieve)
+##   empty  — the flat empty-slot card (bag_card_empty.png), nothing on it, inert
+##   locked — the SAME empty-slot card, dimmed, with the padlock (bag_lock.png) + its acorn cost stacked
+##            INSIDE the card, below the lock; inert
+##   next   — the single buyable slot: identical to `locked` (same card · lock · cost inside) but NOT
+##            dimmed and ringed by a DYNAMIC sparkle FX (engine-drawn glow + twinkles); a tap buys it
+## Every state returns a tile of exactly cell_w × cell_h, so the grid is uniform. The filled piece is
+## content-agnostic so the kit stays free of game deps: d.make_content(size) (a Callable that builds the
+## game's piece view at the FITTED cell size) wins, else a pre-built d.content node, else d.icon (a kit
+## icon id, the workbench preview), else nothing. The acorn = the gem currency icon (Grove renders 💎 as
+## a golden acorn). A code-drawn card backs every state when the art is off/absent (the kit fallback law).
 ## d keys: kind, make_content|content|icon, cost, on_tap. opts: bag_card_opts_from_config(...).
 static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var kind := String(d.get("kind", "empty"))
 	var cw: float = float(opts.get("cell_w", 116.0))
 	var ch: float = float(opts.get("cell_h", 120.0))
-	var cost_font := int(opts.get("cost_font", 26))
-	var cost_icon := float(opts.get("cost_icon", 30.0))
+	var cost_font := int(opts.get("cost_font", 24))
+	var cost_icon := float(opts.get("cost_icon", 26.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (kind == "filled" or kind == "next")
 
-	# the cell column: the tile, then a reserved strip below (a locked tile shows its acorn cost there;
-	# every other tile reserves the same height so a grid's rows stay aligned — like bag_overlay).
-	var cell := VBoxContainer.new()
-	cell.add_theme_constant_override("separation", 2)
-	cell.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-
-	# the tile: a Button when tappable (fires on_tap), else a plain holder (empty/locked are inert).
+	# the tile: a Button when tappable (fires on_tap), else a plain holder (empty/locked are inert). It is
+	# the whole cell now — exactly cell_w × cell_h, the cost rides INSIDE it (no strip below).
 	var tile: Control = (Button.new() if tappable else Control.new())
 	tile.custom_minimum_size = Vector2(cw, ch)
+	tile.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	if tile is Button:
 		var b := tile as Button
 		b.focus_mode = Control.FOCUS_NONE
@@ -2926,9 +2926,8 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		b.pressed.connect(func() -> void:
 			if on_tap.is_valid(): on_tap.call())
 
-	# the card FACE — the bag art scaled WHOLE (so bag_card_gold's sparkles read), or a code-drawn cream
-	# card when art is off/absent.
-	var art := String(BAG_CARD_ART.get(kind, BAG_CARD_ART["empty"]))
+	# the card FACE — filled uses the raised card; empty / next / locked SHARE the flat empty-slot card.
+	var art := (BAG_FILLED_ART if kind == "filled" else BAG_SLOT_ART)
 	var use_art := bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
 	if use_art:
 		var face := TextureRect.new()
@@ -2944,17 +2943,17 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var p := Panel.new()
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ss := StyleBoxFlat.new()
-		ss.bg_color = (Color(Pal.CREAM, 0.5) if kind == "empty" else Color(Pal.CREAM, 0.92))
+		ss.bg_color = (Color(Pal.CREAM, 0.5) if kind == "empty" or kind == "locked" else Color(Pal.CREAM, 0.92))
 		ss.set_corner_radius_all(16)
-		ss.set_border_width_all(3 if kind == "next" else 2)
-		ss.border_color = (Pal.STRAW if kind == "next" else Color(Pal.GROUND_EDGE, 0.4))
+		ss.set_border_width_all(2)
+		ss.border_color = Color(Pal.GROUND_EDGE, 0.4)
 		p.add_theme_stylebox_override("panel", ss)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if kind == "locked":
 			p.modulate = BAG_LOCKED_TINT
 		tile.add_child(p)
 
-	# the centred content: filled → the piece; next → the acorn cost; locked → the padlock.
+	# the centred content: filled → the piece; next / locked → the lock + its acorn cost stacked inside.
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2976,20 +2975,19 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 			if piece != null:
 				piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				center.add_child(piece)
-		"next":
-			center.add_child(_bag_cost_row(int(d.get("cost", 0)), cost_icon, cost_font))
-		"locked":
-			center.add_child(_bag_lock(cw * float(opts.get("lock_frac", 0.46))))
-	cell.add_child(tile)
+		"next", "locked":
+			center.add_child(_bag_lock_cost(int(d.get("cost", 0)), cw * float(opts.get("lock_frac", 0.40)), cost_icon, cost_font))
 
-	# the below-tile strip: a locked tile's acorn cost sits here; others reserve the same height.
-	var below := CenterContainer.new()
-	below.custom_minimum_size = Vector2(cw, float(cost_font) + 8.0)
-	below.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if kind == "locked":
-		below.add_child(_bag_cost_row(int(d.get("cost", 0)), cost_icon * 0.8, int(cost_font * 0.85)))
-	cell.add_child(below)
-	return cell
+	# the next (buyable) slot is ringed by a DYNAMIC sparkle FX (engine-drawn — the SAME glow+twinkle the
+	# home/unlock buttons use), drawn OVER the card so it reads as the live, tappable one.
+	if kind == "next":
+		var glow := float(opts.get("next_glow", 0.45))
+		var twinkle := float(opts.get("next_twinkle", 0.55))
+		if glow > 0.0 or twinkle > 0.0:
+			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)))
+			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tile.add_child(spk)
+	return tile
 
 # An "N 🌰" acorn-cost cluster (the gem currency icon = the golden acorn) — inside the next tile and
 # under a lock. Mouse-transparent so the tile keeps the tap.
@@ -3009,11 +3007,26 @@ static func _bag_cost_row(cost: int, icon_px: float, font: int) -> Control:
 	row.add_child(make_icon("gem", icon_px))
 	return row
 
-# The padlock on a locked tile — the bag_lock sprite (polished), or a glyph when the art is absent.
+# The lock + its acorn cost, stacked and centred INSIDE the card (the lock on top, the cost just below
+# it) — shared by the next and locked states. Mouse-transparent so the tile keeps the tap.
+static func _bag_lock_cost(cost: int, lock_px: float, icon_px: float, font: int) -> Control:
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", int(maxf(2.0, lock_px * 0.08)))
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(_bag_lock(lock_px))
+	var cost_wrap := CenterContainer.new()
+	cost_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cost_wrap.add_child(_bag_cost_row(cost, icon_px, font))
+	v.add_child(cost_wrap)
+	return v
+
+# The padlock on a locked/next tile — the bag_lock sprite (polished), or a glyph when the art is absent.
 static func _bag_lock(px: float) -> Control:
 	var p := Look.kit("kit/bag_lock.png")
 	if ResourceLoader.exists(p):
 		var t := TextureRect.new()
+		t.name = "BagLock"
 		t.texture = clean_tex_path(p, 128)
 		t.custom_minimum_size = Vector2(px, px)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -3021,6 +3034,7 @@ static func _bag_lock(px: float) -> Control:
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return t
 	var l := Label.new()
+	l.name = "BagLock"
 	l.text = "🔒"
 	l.add_theme_font_size_override("font_size", int(px))
 	l.add_theme_color_override("font_color", Color(Pal.INK, 0.55))

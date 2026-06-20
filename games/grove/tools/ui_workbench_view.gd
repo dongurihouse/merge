@@ -215,7 +215,8 @@ var _params := {
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "next", "cell_w": 116, "cell_h": 120, "cell_slice": 36, "cell_art": true,
-		"content_frac": 62, "lock_frac": 46, "cost_font": 26, "cost_icon": 30},
+		"content_frac": 62, "lock_frac": 40, "cost_font": 24, "cost_icon": 26,
+		"next_glow": 45, "next_twinkle": 55},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -964,7 +965,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "The bag screen's slot tile, reused by the Bag dialog. State picks the cell art: filled (a piece), empty, gold next (buyable), locked (padlock). Preview a state below."
+		note.text = "ONE card, four states (reused by the Bag dialog): filled (a piece on the raised card); empty / locked / next SHARE the flat empty-slot card. Locked = lock + cost inside; next = the same + a dynamic sparkle. Preview a state below."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1210,6 +1211,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 80]))      # the padlock size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
+			_section_header("Next-slot sparkle (engine FX — no baked art)")
+			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the buyable cell's glow halo
+			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["next", "filled", "empty", "locked"]))
 		"bag":
