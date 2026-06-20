@@ -179,11 +179,12 @@ var _params := {
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "stars_left": 3},
-	# the QUEST-GIVER card (giver_stand.gd) — the painted vertical card + the live portrait / ask-bubble /
-	# plaque reward the board draws on it. Nothing is saved: bust picks which of giver_0..2 sits in the
-	# field; tier is the asked item's tier (the demo item is always the Wildflower line); stars is the
-	# reward on the plaque; stand_w/fence_h preview the size the board hands it; met toggles the ready ✓.
-	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 240, "fence_h": 360, "met": false},
+	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
+	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. Nothing
+	# is saved: bust picks which of giver_0..2 sits on the left; tier is the asked item's tier (the demo
+	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
+	# toggles the ready ✓.
+	"quest_card": {"bust": 0, "tier": 3, "stars": 25, "stand_w": 360, "fence_h": 240, "met": false},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -227,7 +228,8 @@ var _params := {
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "next", "cell_w": 116, "cell_h": 120, "cell_slice": 36, "cell_art": true,
-		"content_frac": 62, "lock_frac": 46, "cost_font": 26, "cost_icon": 30},
+		"content_frac": 62, "lock_frac": 40, "cost_font": 24, "cost_icon": 26,
+		"next_glow": 45, "next_twinkle": 55},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -255,6 +257,13 @@ func _ready() -> void:
 
 func _build() -> void:
 	if not is_inside_tree():
+		return
+	# Headless editor (`godot --import` / `--export`) instantiates this @tool scene but has no UI to
+	# show. Building the gallery there is pointless AND fatal: it kicks off polish_async
+	# WorkerThreadPool tasks whose GDScript lambdas are still pending when the import process exits,
+	# crashing the pool's destructor at shutdown (SIGSEGV). The interactive workbench, the in-editor
+	# @tool, and the headless `-s` tests are NOT editor-hint+headless, so they still build.
+	if Engine.is_editor_hint() and DisplayServer.get_name() == "headless":
 		return
 	for c in get_children():
 		remove_child(c)
@@ -1002,7 +1011,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "The bag screen's slot tile, reused by the Bag dialog. State picks the cell art: filled (a piece), empty, gold next (buyable), locked (padlock). Preview a state below."
+		note.text = "ONE card, four states (reused by the Bag dialog): filled (a piece on the raised card); empty / locked / next SHARE the flat empty-slot card. Locked = lock + cost inside; next = the same + a dynamic sparkle. Preview a state below."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1250,6 +1259,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["lock_frac", 20, 80]))      # the padlock size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
+			_section_header("Next-slot sparkle (engine FX — no baked art)")
+			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the buyable cell's glow halo
+			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["next", "filled", "empty", "locked"]))
 		"bag":

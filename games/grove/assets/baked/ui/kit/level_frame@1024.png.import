@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://csgl1ejpyhsed"
-path="res://.godot/imported/giver_fox.png-95df96520ee5be5dc1f6cee0c3b370c8.ctex"
+uid="uid://bwlm1hn0uo5bc"
+path="res://.godot/imported/level_frame@1024.png-7b5d087e2304979bcfca642786df18a6.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/characters/giver_fox.png"
-dest_files=["res://.godot/imported/giver_fox.png-95df96520ee5be5dc1f6cee0c3b370c8.ctex"]
+source_file="res://games/grove/assets/baked/ui/kit/level_frame@1024.png"
+dest_files=["res://.godot/imported/level_frame@1024.png-7b5d087e2304979bcfca642786df18a6.ctex"]
 
 [params]
 

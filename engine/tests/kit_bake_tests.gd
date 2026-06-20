@@ -54,6 +54,15 @@ func _initialize() -> void:
 	if not missing.is_empty():
 		print("        UN-BAKED (run `make bake-textures`): ", ", ".join(missing))
 	ok(missing.is_empty(), "every sprite the dialogs polish is baked (%d un-baked)" % missing.size())
+
+	# 4b. CHROME coverage: the bottom-nav + live-ops discs/icons (the cold-boot _build_chrome cost) are
+	#     driven by build_all too, so the disc shell AND every nav/rail icon land in the bake set.
+	var srcs: Array = []
+	for k in keys:
+		srcs.append(_split(String(k))[0])
+	ok(srcs.has(Look.kit("shared/disc_round.png")), "the home-button disc shell is in the bake set")
+	ok(srcs.has(Game.art("ui/shared/icon_gear.png")), "a nav icon (gear) is in the bake set")
+	ok(srcs.has(Game.art("ui/shared/icon_mail.png")), "a rail icon (mail) is in the bake set")
 	for n in nodes:
 		if n is Node:
 			(n as Node).queue_free()

@@ -1,0 +1,24 @@
+{
+  "source": "_new/characters_1.png",
+  "category": "sheet",
+  "params": { "val_min": 0.90, "sat_max": 0.10, "min_area": 3000, "pad": 6 },
+  "outputs": [
+    { "island": 0,  "name": "giver_0",  "path": "characters/giver_0.png",  "post": "icon:256" },
+    { "island": 1,  "name": "giver_1",  "path": "characters/giver_1.png",  "post": "icon:256" },
+    { "island": 2,  "name": "giver_2",  "path": "characters/giver_2.png",  "post": "icon:256" },
+    { "island": 3,  "name": "giver_3",  "path": "characters/giver_3.png",  "post": "icon:256" },
+    { "island": 4,  "name": "giver_4",  "path": "characters/giver_4.png",  "post": "icon:256" },
+    { "island": 5,  "name": "giver_5",  "path": "characters/giver_5.png",  "post": "icon:256" },
+    { "island": 6,  "name": "giver_6",  "path": "characters/giver_6.png",  "post": "icon:256" },
+    { "island": 7,  "name": "giver_7",  "path": "characters/giver_7.png",  "post": "icon:256" },
+    { "island": 8,  "name": "giver_8",  "path": "characters/giver_8.png",  "post": "icon:256" },
+    { "island": 9,  "name": "giver_9",  "path": "characters/giver_9.png",  "post": "icon:256" },
+    { "island": 10, "name": "giver_10", "path": "characters/giver_10.png", "post": "icon:256" },
+    { "island": 11, "name": "giver_11", "path": "characters/giver_11.png", "post": "icon:256" },
+    { "island": 12, "name": "giver_12", "path": "characters/giver_12.png", "post": "icon:256" },
+    { "island": 13, "name": "giver_13", "path": "characters/giver_13.png", "post": "icon:256" },
+    { "island": 14, "name": "giver_14", "path": "characters/giver_14.png", "post": "icon:256" },
+    { "island": 15, "name": "giver_15", "path": "characters/giver_15.png", "post": "icon:256" }
+  ],
+  "archive": "_originals/characters/characters_1.png"
+}
