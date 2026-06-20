@@ -19,6 +19,32 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
+## Open — daily mystery gifts (follow-ups · 2026-06-20)
+
+Shipped: mystery gift days on week slots 4 & 7 — an auto-spin reveal dialog
+(`engine/scripts/ui/login_mystery.gd`) over the forgiving login calendar, plus a
+debug "⏭ Next day" fast-forward. Engine roll/grant in `engine/scripts/core/login.gd`
+(`roll_mystery`/`claim_mystery`), owner-tunable pools in `grove_data.gd:LOGIN_MYSTERY`.
+Follow-ups parked:
+
+- **Tune the mystery reward pools.** `grove_data.gd:LOGIN_MYSTERY` (slot 4 = 3 shown / 1 won,
+  slot 7 = 5 shown / 2 won) holds sensible *defaults*, not balanced numbers. Re-tune day-4 to
+  mid-week tier and day-7 to milestone tier against the wider coin/gem economy; keep every `water`
+  entry ≤ `LOGIN_WATER_SAFE_MAX` (§4/§10 faucet guard, asserted by `save_tests` T46).
+- **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` covers the spin wiring,
+  the instant-grant path, and the reveal-amount cards — it passes today (run directly: 15/15) but
+  sits in the Makefile's `ENGINE_TESTS_DISABLED`. Fold it back into `ENGINE_TESTS` with the broader
+  "re-enable the UI + economy suites" pass.
+- **Live end-to-end check of the spin animation.** The animated landing (sweep → land on winner(s)
+  → "You won!" → celebrate → auto-dismiss) is verified only mid-spin (still) + by the instant-grant
+  test. Watch a real run; tune the `_spin` step counts/delays in `login_mystery.gd` if the
+  deceleration reads too fast/slow.
+- **(Optional) Promote the capture tool.** `.scratch/mystery_amounts_shot.gd` is a throwaway visual
+  aid; fold into a committed `games/grove/tools/*_shot.gd` if the calendar needs ongoing visual
+  regression.
+
+---
+
 ## Open — board screen UI overhaul (owner pass · 2026-06-18)
 
 A focused **board-screen-only** redesign (the merge grid scene, `engine/scripts/scenes/board.gd` +
@@ -275,6 +301,43 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
   revenue surface). *(Surfaced 2026-06-18 — owner cut; supersedes the old "apply the owned look" T40 tail.)*
 
 ## Open — meta, content-cadence & infra
+
+- **Server-driven mail + Apple identity/IAP (Game Center · StoreKit) — remaining hookup (client foundation shipped 2026-06-19/20).**
+  The CLIENT side is built, guarded, and **inert until switched on** (placeholder endpoint + flags off; native
+  classes reached via `ClassDB` so everything degrades to broadcast/no-charge off iOS). Anchors are `file:symbol`.
+  **Shipped (client):** capped server-driven mailbox — cursor + cap + prune (`core/inbox.gd` `MAIL_CAP=10`,
+  `cursor`/`set_cursor`/`remaining_slots`/`prune`) and the fold/contract (`core/inbox_sync.gd` `apply_feed`,
+  `sync` = prune→`?since=&limit=`→fold; sends `X-Player-Id` when present); Game Center provider
+  (`core/identity.gd` via GodotApplePlugins `GameCenterManager`); StoreKit provider (`core/store.gd` via
+  `StoreKitManager`); the piggy crack routed through it (`ui/vault.gd` `PIGGY_PRODUCT`); map wiring
+  (`map.gd` `_sync_mail` on home-open + 10-min timer; `Identity.boot`). Flags `mail_sync` + `game_center`
+  (both OFF, `core/features.gd`). Pure-logic suites ACTIVE (`inbox_sync_tests`, `identity_tests`,
+  `store_tests`); contract + native steps in
+  [`docs/design/apple-services-setup.md`](design/apple-services-setup.md) +
+  [`docs/design/mail-feed.sample.json`](design/mail-feed.sample.json). **Remaining:**
+  - **Backend — the mail feed server (not started).** Implement `GET <url>?since=<cursor>&limit=<n>` →
+    `{messages:[{seq,id,title,body,icon,reward}]}` (live-only, ascending, ≤ limit; contract in the
+    `inbox_sync.gd` header). A Cloudflare Worker + KV fits. Then set `FEED_URL` (`inbox_sync.gd:29`, today
+    `https://example.invalid/...`) + flip `mail_sync` on.
+  - **Backend — Game Center identity verification (required before ANY targeting).** Server verifies
+    `Identity.verification()` (Apple GKLocalPlayer signature: reject non-Apple key host → fetch key → rebuild
+    `playerID+bundleID+timestamp+salt` → verify) before trusting `X-Player-Id`, then issues a short-lived
+    session token the mail GET sends instead of re-signing each poll. Until then ship broadcast (no id).
+  - **Backend — StoreKit 2 receipt/transaction verification.** Same external remainder already tracked in the
+    **economy → Vault IAP item (c)**; applies to every SKU, not just the vault.
+  - **Apple / native (needs Xcode + Apple account — can't be done in-repo).** Install **GodotApplePlugins** into
+    the iOS export; App Store Connect: enable Game Center, register IAP products (`com.tidyup.piggybank` + the
+    shop gem-pack/starter SKUs), add entitlements; **confirm the two undocumented StoreKit specifics**
+    (`STATUS_OK`, the `StoreProduct` id property — isolated at `store.gd:13`) with one sandbox buy. Then flip
+    `game_center` on. ⚠️ shipping the plugin makes `store.available()` true → **real charges**.
+  - **Client — wire the shop's real-money SKUs through StoreKit.** The vault crack is wired; the shop
+    **gem packs / starter pack** (`ui/shop.gd:66-69`, `add_diamonds(base*mult)`) still grant directly — apply the
+    same `store.purchase(id, func(okay): if okay: <grant>)` pattern (the gems→coins pack `:53-55` is soft
+    currency, no IAP). I can do this in-repo now.
+  - **On-device verification.** Sign-in / purchase / restore can't run in this environment — test on a real device.
+  *(Surfaced 2026-06-20. The net-new inbox SYSTEM itself is the LiveOps→Inbox item under "HUD/currencies"; this
+  item is the server-driven SYNC + Apple identity/IAP hookup layered on top. The parked `inbox`/`login` UI suites —
+  which hold the claim z-order + wallet-refresh regression tests — re-enable via the test-suites item below.)*
 
 - **Re-enable the UI + economy test suites (parked 2026-06-19; grove_model added 2026-06-20).** At this dev stage the UI and economy/liveops suites churn with every rapid iteration and slow the inner loop without guarding stable code, so they were parked: the `Makefile` keeps only the core-logic / "basic coding functional" suites active (`save`, `mechanics`, `quest`, `quest_fence`, `anchor`, `layering`) and moved the rest into `ENGINE_TESTS_DISABLED` / `GROVE_TESTS_DISABLED`. **Parked — UI:** `mapfx`, `palette`, `level_badge`, `bag_overlay`, `switch`, `calm`, `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. **Parked — economy/liveops:** `inbox`, `featured`, `grove_economy`, `grove_shop_ads`. **Parked — grove model (2026-06-20):** `grove_model` — pulled too; it stands up the real `Board.tscn`/`Map.tscn` and runs real-time `await` waits, so it's the slowest grove slice, and with board/economy behavior in constant flux it churns without guarding settled code. (`grove_workbench` stays active.) The suite *files* are untouched — re-enabling is purely moving names from the `*_DISABLED` vars back into `ENGINE_TESTS` / `GROVE_TESTS`. **Do this once the board/UI + economy systems stabilise** (pre-launch hardening), and expect some to need updating to match by-then-current behavior. *(Surfaced 2026-06-19 — owner call: trim tests to the core-logic set during heavy UI/economy churn; grove_model added 2026-06-20 on the same rationale.)*
 

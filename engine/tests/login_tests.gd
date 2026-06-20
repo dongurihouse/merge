@@ -139,5 +139,24 @@ func _initialize() -> void:
 	host3.queue_free()
 	await process_frame
 
+	# T46: the reveal cards show the reward AMOUNTS (not icon-only) so the prizes are concrete.
+	var rc := LoginMystery._reveal_card({"coins": 120, "gems": 1}, 96.0, 100.0)
+	get_root().add_child(rc)
+	await process_frame
+	var amt_texts := _collect_label_texts(rc)
+	ok(amt_texts.has("120"), "a reveal card shows the coin amount (120)")
+	ok(amt_texts.has("1"), "a reveal card shows the secondary gem amount (1)")
+	rc.free()
+	await process_frame
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# Gather every Label's text under a node (for asserting on-card amount text).
+func _collect_label_texts(n: Node) -> Array:
+	var out: Array = []
+	if n is Label:
+		out.append((n as Label).text)
+	for c in n.get_children():
+		out.append_array(_collect_label_texts(c))
+	return out
