@@ -50,15 +50,16 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var cfg_w: float = float((cfg.get("daily", {}) as Dictionary).get("width", CARD_MAX_W))
 	var width: float = minf(cfg_w, vw * CARD_VW_FRAC)
 
-	# (re)build the kit daily dialog from the live ladder; a claim rebuilds it in place
-	var rb := {"fn": Callable(), "first": true}
+	# (re)build the kit daily dialog from the live ladder; a claim rebuilds it in place. fx_host = the
+	# z=100 overlay so a claim's reward celebration renders ABOVE the veil (the map host buries it).
+	var rb := {"fn": Callable(), "first": true, "fx_host": overlay}
 	rb.fn = func() -> void:
 		if not is_instance_valid(cc):
 			return
 		for c in cc.get_children():
 			c.queue_free()
 		var fo: Dictionary = Kit.daily_opts_from_config(cfg)
-		fo["banner_text"] = host.tr("Daily gifts")
+		fo["banner_text"] = host.tr("Daily")
 		(fo["btn"] as Dictionary)["text"] = host.tr("Claim")
 		fo["on_close"] = func() -> void: _dismiss(overlay, opts)
 		var dialog: Control = Kit.daily_dialog(_days(host, rb, opts), width, fo)
@@ -95,9 +96,9 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 			d["mystery"] = true
 		if st == "today":
 			d["on_claim"] = func() -> void:
-				var at := host.get_viewport_rect().size * 0.5
+				var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
 				if Login.claim_today():
-					_celebrate(host, at, Login.reward_for(day))
+					_celebrate(fx_host, at, Login.reward_for(day))
 				else:
 					Audio.play("invalid_soft", -6.0)
 				if opts.has("refresh"):

@@ -1670,7 +1670,11 @@ func _refresh_chrome_badges() -> void:
 # the ready-pip so a just-cracked (now empty) jar drops its cue immediately.
 func _open_vault() -> void:
 	Audio.play("button_tap", -2.0)
-	VaultUI.open(self, {"refresh": func() -> void: _refresh_piggy_pip()})
+	# cracking grants gems (Vault.crack → Save.add_diamonds) — re-read the wallet too, not just the
+	# ready-pip (Save has no change signal; the HUD is pull-based), mirroring _open_daily.
+	VaultUI.open(self, {"refresh": func() -> void:
+		_update_hud()
+		_refresh_piggy_pip()})
 
 # Light the piggy ready-pip iff the jar has banked past the claim threshold (Vault.claimable()).
 func _refresh_piggy_pip() -> void:

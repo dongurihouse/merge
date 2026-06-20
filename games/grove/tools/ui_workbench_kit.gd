@@ -77,16 +77,24 @@ const DEMO_DAILY := [
 	{"day": 7, "reward": {"gems": 30}, "state": "future", "mystery": true},
 ]
 
-# Demo shop packs for the workbench preview — the SAME small card (daily_card) as the daily grid, here
-# with an icon + count + a price button and an optional Popular ribbon (no day label, no claim).
-const DEMO_SHOP := [
-	{"icon": "gem", "count": 80, "price": "$0.99"},
-	{"icon": "gem", "count": 500, "price": "$4.99", "ribbon": "Popular"},
-	{"icon": "bluegem", "count": 1200, "price": "$9.99", "ribbon": "Best value"},
-	{"icon": "coin", "count": 5000, "price": "$1.99"},
-	{"icon": "water", "count": 60, "price": "$0.99"},
-	{"icon": "bluegem", "count": 3000, "price": "$19.99", "ribbon": "2× bonus"},
-]
+## Shop packs for the workbench preview — the SAME items the GAME sells (Game.DATA: the starter bundle +
+## the CASH_PACKS gem ladder), so testing matches production. Only the ITEMS (gem count + price + the
+## Popular / Best-value / Welcome ribbons); the card STYLING is the shared small card, not the game's.
+static func demo_shop() -> Array:
+	var out: Array = []
+	var sp: Dictionary = Game.DATA.STARTER_PACK
+	if not sp.is_empty():
+		out.append({"icon": "gem", "count": int(sp.get("gems", 0)), "price": String(sp.get("usd", "")), "ribbon": "Welcome"})
+	var packs: Array = Game.DATA.CASH_PACKS
+	for i in packs.size():
+		var pk: Dictionary = packs[i]
+		var card := {"icon": "gem", "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
+		if bool(pk.get("pop", false)):
+			card["ribbon"] = "Popular"               # the merchandised mid anchor
+		elif i == packs.size() - 1:
+			card["ribbon"] = "Best value"            # the whale tier (best rate)
+		out.append(card)
+	return out
 
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.

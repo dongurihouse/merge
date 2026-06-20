@@ -17,7 +17,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const IDS := ["button", "icon", "card", "daily_card", "frame", "dialog", "daily", "shop"]
 # Gallery layout: each inner list is a ROW of side-by-side elements. The shared FRAME stands alone above
 # the dialogs that reuse it, so the shared-frame-vs-specific-content structure reads at a glance.
-const ROWS := [["button", "icon"], ["card", "daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
+const ROWS := [["button", "icon"], ["card"], ["daily_card"], ["frame"], ["dialog", "daily"], ["shop"]]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
@@ -46,7 +46,7 @@ const CAPTIONS := {
 	"daily_card": "Daily card — one day (badges)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
-	"daily": "Daily gifts — day grid (shared frame)",
+	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
 }
 var _params := {
@@ -71,7 +71,7 @@ var _params := {
 	"dialog": {"width": 560, "entries": 4},
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
-	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 264, "cell_slice": 28,
+	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
 		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow"},
 	# …the daily DIALOG reuses the shared frame + that card, adding only the grid knobs (3-per-row)…
 	"daily": {"width": 460, "cols": 3},
@@ -190,13 +190,19 @@ func _make_element(id: String) -> Control:
 			# build from the SHARED kit transform (same one the game uses) + the test-only preview count
 			var opts := Kit.dialog_opts_from_config(_params)
 			opts["entries_count"] = int(p.entries)
-			var d := Kit.mail_dialog(Kit.DEMO_MAIL, float(p.width), opts)
-			_attach_dialog_drag(d)
-			return d
+			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
+			return Kit.mail_dialog(Kit.DEMO_MAIL, float(p.width), opts)
 		"daily_card":
-			# the shared small card in a chosen preview state (incl. a shop pack), so the cell + badge +
-			# ribbon edits are visible up close
+			# the shared small card in a chosen preview state (incl. a shop pack). Rendered at 2× (bigger
+			# cell + fonts; the icons scale with cell_w) — a preview ZOOM so the small card is comfortable
+			# to edit. The real daily/shop dialogs still use the saved (smaller) size.
 			var co := Kit.daily_card_opts_from_config(_params)
+			var z := 2.0
+			co["cell_w"] = float(co["cell_w"]) * z
+			co["cell_h"] = float(co["cell_h"]) * z
+			co["cell_font"] = int(15 * z)
+			co["claim_font"] = int(15 * z)
+			co["count_font"] = int(17 * z)
 			var day := _daily_preview_day(String(p.preview))
 			if String(p.ribbon) != "":
 				day["ribbon"] = String(p.ribbon)
@@ -204,17 +210,13 @@ func _make_element(id: String) -> Control:
 		"daily":
 			# SHARED frame config (from the Dialog item) + the separately-defined day card + grid knobs
 			var dopts := Kit.daily_opts_from_config(_params)
-			dopts["banner_text"] = "Daily gifts"
-			var dd := Kit.daily_dialog(Kit.DEMO_DAILY, float(p.width), dopts)
-			_attach_dialog_drag(dd)
-			return dd
+			dopts["banner_text"] = "Daily"
+			return Kit.daily_dialog(Kit.DEMO_DAILY, float(p.width), dopts)   # frame edited on the Frame item
 		"shop":
 			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
-			var sd := Kit.shop_dialog(Kit.DEMO_SHOP, float(p.width), sopts)
-			_attach_dialog_drag(sd)
-			return sd
+			return Kit.shop_dialog(Kit.demo_shop(), float(p.width), sopts)   # the GAME's real items
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -339,19 +341,22 @@ func _section(id: String) -> Control:
 	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var el := _make_element(id)
-	_ignore_nonbuttons(el)
+	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
 	return sec
 
-## Make every non-button Control mouse-transparent, so a click anywhere on the section EXCEPT the
-## inner buttons (Claim / ✕ / the buy pill) falls through to the section and selects it.
-func _ignore_nonbuttons(n: Node) -> void:
+## Make EVERYTHING in the section mouse-transparent, so a click ANYWHERE — even on top of the component
+## itself (a card, a button, the banner) — falls through to the section and selects it. The ONE
+## exception: the FRAME element keeps its banner / banner-icon / ✕ active so those handles stay
+## draggable there (the other dialogs reuse the frame read-only, so their banner is NOT draggable).
+func _make_clickthrough(n: Node, keep_handles: bool) -> void:
 	for c in n.get_children():
-		# keep the draggable banner + banner icon mouse-active so they can be grabbed
-		if c is Control and not (c is BaseButton) and String(c.name) != "DialogBannerIcon" and String(c.name) != "DialogBanner":
-			(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_ignore_nonbuttons(c)
+		if c is Control:
+			var is_handle: bool = String(c.name) in ["DialogBanner", "DialogBannerIcon", "DialogClose"]
+			if not (keep_handles and is_handle):
+				(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_make_clickthrough(c, keep_handles)
 
 ## --- drag-to-move with snap (dialog banner icon + ✕) ---------------------------------------------
 
@@ -540,7 +545,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 70, 300]))
+			_sidebar_body.add_child(_slider_row(["cell_h", 70, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_group_header("Test only — not saved", false)
