@@ -234,6 +234,18 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
   (`board.gd` `_on_giver_tap` → `_maybe_offer_2x(sp_coins, …)` after `Save.add_coins`; card + `_accept_2x_offer`/
   `_dismiss_2x_offer` now live in `board.gd`; the ad id is still `collect_2x`). It works end-to-end against the
   honest stub (`grove_tests` `_test_2x_doubler_rehome`), but the workflow is **not finished**:
+  • **Owner directive — surface it MORE often, and make the bonus WORTH more (2026-06-20).** The owner recalls
+  the doubler was specced to appear **only on a top-tier quest**; the call now is to flip that — show the offer
+  **more commonly** (not gated to top-tier hand-ins) but make each accept **worth more — a bigger coin payout, or
+  a premium-currency (💎) bonus** — rather than a flat coin-for-coin double, so watching the ad clearly pays off.
+  *Current reality to reconcile:* `_maybe_offer_2x(sp_coins, …)` already fires on **every** regular quest delivery
+  with `sp_coins > 0`, gated only by the `collect_2x` ad cap/cooldown, and `_accept_2x_offer` credits exactly a
+  second `got` coins (`Save.add_coins(got)`) — so it is *not* top-tier-gated today, and the reward is a plain ×2.
+  **Build:** (a) keep/raise the offer frequency and drop any implicit top-tier gating, re-validating against the
+  ad cap so it stays a treat, not a nag (pairs with the Owner-tuning bullet below); (b) make the payout > 1× —
+  a larger coin multiplier and/or a 💎 (or vault-skim) bonus on accept — and update the card copy + reward icon
+  (the value tag is hard-coded coin via `Look.icon("coin", …)`). Sim the new offer rate + payout on `grove_sim`
+  (it's a faucet). Spec to reconcile: `merge_spec §10/§18`.
   • **Real ad SDK.** `ads.gd` `can_show`/`claim`/`consume_2x` are stubs (instant "watch"); the load→show→reward
   callback behind the geo build-flag is the **external remainder** (shared with the T43 ads tail above) — until it
   lands, accepting credits the bonus on a confirm-stub, no actual video.
@@ -264,7 +276,7 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
 
 ## Open — meta, content-cadence & infra
 
-- **Re-enable the UI + economy test suites (parked 2026-06-19).** At this dev stage the UI and economy/liveops suites churn with every rapid iteration and slow the inner loop without guarding stable code, so they were parked: the `Makefile` keeps only the core-logic / "basic coding functional" suites active (`save`, `mechanics`, `quest`, `quest_fence`, `anchor`, `layering`, `grove_model`) and moved the rest into `ENGINE_TESTS_DISABLED` / `GROVE_TESTS_DISABLED`. **Parked — UI:** `mapfx`, `palette`, `level_badge`, `bag_overlay`, `switch`, `calm`, `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. **Parked — economy/liveops:** `inbox`, `featured`, `grove_economy`, `grove_shop_ads`. The suite *files* are untouched — re-enabling is purely moving names from the `*_DISABLED` vars back into `ENGINE_TESTS` / `GROVE_TESTS`. **Do this once the UI + economy systems stabilise** (pre-launch hardening), and expect some to need updating to match by-then-current behavior. *(Surfaced 2026-06-19 — owner call: trim tests to the core-logic set during heavy UI/economy churn.)*
+- **Re-enable the UI + economy test suites (parked 2026-06-19; grove_model added 2026-06-20).** At this dev stage the UI and economy/liveops suites churn with every rapid iteration and slow the inner loop without guarding stable code, so they were parked: the `Makefile` keeps only the core-logic / "basic coding functional" suites active (`save`, `mechanics`, `quest`, `quest_fence`, `anchor`, `layering`) and moved the rest into `ENGINE_TESTS_DISABLED` / `GROVE_TESTS_DISABLED`. **Parked — UI:** `mapfx`, `palette`, `level_badge`, `bag_overlay`, `switch`, `calm`, `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. **Parked — economy/liveops:** `inbox`, `featured`, `grove_economy`, `grove_shop_ads`. **Parked — grove model (2026-06-20):** `grove_model` — pulled too; it stands up the real `Board.tscn`/`Map.tscn` and runs real-time `await` waits, so it's the slowest grove slice, and with board/economy behavior in constant flux it churns without guarding settled code. (`grove_workbench` stays active.) The suite *files* are untouched — re-enabling is purely moving names from the `*_DISABLED` vars back into `ENGINE_TESTS` / `GROVE_TESTS`. **Do this once the board/UI + economy systems stabilise** (pre-launch hardening), and expect some to need updating to match by-then-current behavior. *(Surfaced 2026-06-19 — owner call: trim tests to the core-logic set during heavy UI/economy churn; grove_model added 2026-06-20 on the same rationale.)*
 
 - **Push notifications + re-engagement (spec done · engine code · grove — UN-DEFERRED to launch).** §18: local + remote pushes (energy-full · yield-ready · event beat · win-back), opt-in, calm-toned, capped, prompted **after a rewarding moment** (never cold launch), per-type Settings toggle. The grove skeleton **deferred** notifications (`grove_spec §1`) — now **launch scope** (a silent energy return-hook with no prompt is the costliest omission, per the director review). **Absent** (no notification code). **Build (engine):** local-notification scheduling + a remote-push hook + opt-in / quiet-hours / caps. **Build (grove):** copy, cadence, reward sizes. *(Surfaced 2026-06-14 — director review.)*
 
