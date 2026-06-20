@@ -13,6 +13,8 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
+const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
+                          # screen in-game), so the workbench previews the same responsive width the game uses
 
 const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "frame", "dialog", "daily", "shop"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
@@ -44,7 +46,7 @@ const TEST_KEYS := {
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
-	"daily_card": ["preview", "ribbon"],   # preview state + ribbon are workbench-only viewing toggles
+	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
 	"frame": ["snap"],                     # snap is the drag-grid helper, not a saved design value
 	"dialog": ["entries"],
 	"daily": [],
@@ -88,19 +90,22 @@ var _params := {
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
 		"list_max_h": 0, "list_top_pad": 0,
 	},
-	# the mail DIALOG = the shared frame + the mail cards; only width + the preview count are its own.
-	"dialog": {"width": 560, "entries": 4},
+	# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
+	# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
+	# 1080 portrait base). entries = the preview count.
+	"dialog": {"width_pct": 85, "entries": 4},
 	# the small CARD is its own component, shared by daily + shop (cell size, highlight badges, and a
 	# preview state/ribbon for trying it as a shop pack). preview + ribbon are workbench-only view toggles.
 	"daily_card": {"preview": "today", "ribbon": "", "cell_w": 96, "cell_h": 116, "cell_slice": 28,
 		"cell_art": true, "today_badge": "gold glow", "milestone_badge": "amber glow", "sparkle": true,
-		"label_y": 12, "claim_y": 14, "info_icon": false},
+		"label_y": 12, "label_x": 0, "claim_y": 14, "info_icon": false,
+		"ribbon_scale": 100, "ribbon_x": 0, "ribbon_y": -10},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
-	"daily": {"width": 460, "cols": 3, "list_max_h": 0},
+	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
-	"shop": {"width": 520, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -150,7 +155,7 @@ func _build() -> void:
 	# no dialog is clipped inside its column; the building-blocks column takes the remaining width.
 	var dlg_w := 0.0
 	for did in ["dialog", "daily", "shop"]:
-		dlg_w = maxf(dlg_w, float((_params[did] as Dictionary).get("width", 520)))
+		dlg_w = maxf(dlg_w, _dlg_px(did))
 	var dlg_col_w: float = dlg_w + 96.0
 	_columns.clear()
 	for ci in COLUMNS.size():
@@ -203,6 +208,12 @@ func _build() -> void:
 
 	_rebuild_gallery()
 	_rebuild_sidebar()
+
+## A dialog's preview width in PIXELS, from its saved width_pct (% of the screen). The workbench previews
+## against the 1080 portrait base; in-game the SAME pct multiplies the live viewport width (see login.gd /
+## inbox.gd) — so the dialog is responsive, never a fixed pixel width.
+func _dlg_px(id: String) -> float:
+	return PHONE_W * float((_params[id] as Dictionary).get("width_pct", 85)) / 100.0
 
 ## Build the live element for an id from its current params.
 func _make_element(id: String) -> Control:
@@ -258,7 +269,7 @@ func _make_element(id: String) -> Control:
 			var opts := Kit.dialog_opts_from_config(_params)
 			opts["entries_count"] = int(p.entries)
 			# NOT draggable — the frame (banner / ✕ positions) is edited on the Frame item, not here
-			return Kit.mail_dialog(Kit.DEMO_MAIL, float(p.width), opts)
+			return Kit.mail_dialog(Kit.DEMO_MAIL, _dlg_px("dialog"), opts)
 		"daily_card":
 			# the shared small card in a chosen preview state (incl. a shop pack). Rendered at 2× (bigger
 			# cell + fonts; the icons scale with cell_w) — a preview ZOOM so the small card is comfortable
@@ -272,6 +283,10 @@ func _make_element(id: String) -> Control:
 			co["count_font"] = int(17 * z)
 			co["label_y"] = float(co.get("label_y", 12)) * z   # the position knobs scale with the zoom too
 			co["claim_y"] = float(co.get("claim_y", 14)) * z
+			co["label_x"] = float(co.get("label_x", 0)) * z
+			co["ribbon_x"] = float(co.get("ribbon_x", 0)) * z
+			co["ribbon_y"] = float(co.get("ribbon_y", -10)) * z
+			co["ribbon_scale"] = float(co.get("ribbon_scale", 1.0)) * z   # ribbon matches the 2× card zoom
 			var day := _daily_preview_day(String(p.preview))
 			if String(p.ribbon) != "":
 				day["ribbon"] = String(p.ribbon)
@@ -280,12 +295,12 @@ func _make_element(id: String) -> Control:
 			# SHARED frame config (from the Dialog item) + the separately-defined day card + grid knobs
 			var dopts := Kit.daily_opts_from_config(_params)
 			dopts["banner_text"] = "Daily"
-			return Kit.daily_dialog(Kit.DEMO_DAILY, float(p.width), dopts)   # frame edited on the Frame item
+			return Kit.daily_dialog(Kit.DEMO_DAILY, _dlg_px("daily"), dopts)   # frame edited on the Frame item
 		"shop":
 			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
-			return Kit.shop_dialog(Kit.demo_shop(), float(p.width), sopts)   # the GAME's real items
+			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -652,32 +667,36 @@ func _rebuild_sidebar() -> void:
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width", 360, 720]))
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["entries", 1, 12]))   # how many rows to preview
 		"daily_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Today badge", "today_badge", Kit.DAY_BADGES))
 			_sidebar_body.add_child(_option_row("Milestone badge", "milestone_badge", Kit.DAY_BADGES))
-			_sidebar_body.add_child(_toggle_row("Sparkle (today)", "sparkle"))   # animated twinkles on the claimable card
 			_sidebar_body.add_child(_toggle_row("Info icon (top-right)", "info_icon"))
-			_sidebar_body.add_child(_slider_row(["label_y", 0, 90]))     # the "Day N" text drop from the top
-			_sidebar_body.add_child(_slider_row(["claim_y", 0, 90]))     # how far the action lifts in from the base
+			_sidebar_body.add_child(_slider_row(["label_y", 0, 90]))      # the "Day N" text drop from the top
+			_sidebar_body.add_child(_slider_row(["label_x", -80, 80]))    # the text horizontal position
+			_sidebar_body.add_child(_slider_row(["claim_y", 0, 90]))      # how far the action lifts in from the base
+			_sidebar_body.add_child(_slider_row(["ribbon_scale", 50, 220]))  # the ribbon SIZE (%)
+			_sidebar_body.add_child(_slider_row(["ribbon_x", -150, 150]))    # the ribbon horizontal position
+			_sidebar_body.add_child(_slider_row(["ribbon_y", -40, 40]))      # the ribbon vertical position (over the top)
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 70, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_toggle_row("Sparkle (today)", "sparkle"))   # preview only — always on in-game
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["today", "mystery", "done", "future", "shop"]))
 			_sidebar_body.add_child(_option_row("Ribbon", "ribbon", Kit.POPULAR_BADGES))   # the popular badge
 		"daily":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width", 320, 720]))
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"shop":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_slider_row(["width", 360, 720]))
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 160]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))

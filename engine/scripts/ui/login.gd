@@ -17,8 +17,7 @@ const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_MAX_W := 470.0          # the 3-per-row day grid; clamped to the viewport
-const CARD_VW_FRAC := 0.94
+const CARD_WIDTH_PCT := 85.0       # default daily-dialog width as a % of the screen (overridable in config)
 const WEEK := 7
 
 # --- the calendar popup -------------------------------------------------------------
@@ -46,9 +45,11 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	overlay.add_child(cc)
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	# the daily dialog fills a % of the SCREEN width (the workbench saves width_pct), so it's responsive
+	# across phone sizes instead of a fixed pixel width — wide enough to read on a phone.
 	var vw: float = host.get_viewport_rect().size.x
-	var cfg_w: float = float((cfg.get("daily", {}) as Dictionary).get("width", CARD_MAX_W))
-	var width: float = minf(cfg_w, vw * CARD_VW_FRAC)
+	var pct: float = float((cfg.get("daily", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
+	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
 
 	# (re)build the kit daily dialog from the live ladder; a claim rebuilds it in place. fx_host = the
 	# z=100 overlay so a claim's reward celebration renders ABOVE the veil (the map host buries it).

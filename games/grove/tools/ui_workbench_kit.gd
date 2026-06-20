@@ -1216,18 +1216,6 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		act_wrap.add_child(act_node)
 		inner.add_child(act_wrap)
 
-	# the POPULAR ribbon (a merchandising tag) — a BANNER floating OVER the top edge (absolute), so it
-	# never shifts the label/content below it. Centred on the top edge, added last so it draws on top.
-	if ribbon != "":
-		var rb := _ribbon_badge(ribbon)
-		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		rb.anchor_left = 0.5; rb.anchor_right = 0.5
-		rb.anchor_top = 0.0; rb.anchor_bottom = 0.0
-		rb.grow_horizontal = Control.GROW_DIRECTION_BOTH
-		rb.grow_vertical = Control.GROW_DIRECTION_BOTH
-		rb.offset_top = -3.0          # rides across the very top, like a banner
-		inner.add_child(rb)
-
 	# the optional INFO icon — a small "i" disc pinned to the TOP-RIGHT corner (a togglable design knob)
 	if bool(opts.get("info_icon", false)):
 		var ip: float = maxf(14.0, cw * 0.2)
@@ -1244,11 +1232,34 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var sp := Sparkle.new()
 		sp.set_anchors_preset(Control.PRESET_FULL_RECT)
 		panel.add_child(sp)
-	return panel
+
+	# Wrap the card so the ribbon draws ON TOP of the card BORDER — inside the panel it was hidden behind
+	# the nine-patch lip + the day-badge rim. The ribbon is a BANNER over the top edge, with a tunable SIZE
+	# and H position, so it reads clearly and never shifts the content below. The panel holds everything else.
+	var outer := Control.new()
+	outer.custom_minimum_size = Vector2(cw, ch)
+	outer.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	outer.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	outer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	outer.add_child(panel)
+	if ribbon != "":
+		var rb := _ribbon_badge(ribbon, float(opts.get("ribbon_scale", 1.0)))
+		rb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rb.anchor_left = 0.5; rb.anchor_right = 0.5
+		rb.anchor_top = 0.0; rb.anchor_bottom = 0.0
+		rb.grow_horizontal = Control.GROW_DIRECTION_BOTH
+		rb.grow_vertical = Control.GROW_DIRECTION_BOTH
+		rb.offset_left = float(opts.get("ribbon_x", 0.0))    # H nudge (slider)
+		rb.offset_right = float(opts.get("ribbon_x", 0.0))
+		rb.offset_top = float(opts.get("ribbon_y", -10.0))   # rides over the top edge, ON TOP of the border
+		outer.add_child(rb)                                  # added AFTER the panel → drawn on top
+	return outer
 
 ## The POPULAR ribbon — a small merchandising tag ("Popular" / "Best value" / …). The red shop_tag art
 ## (cream text) when present, else a code STRAW pill (ink text). Mirrors the game shop's _badge.
-static func _ribbon_badge(text: String) -> Control:
+static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
+	var s := maxf(0.4, scale)             # the SIZE knob — scales the pads + the font together
 	var pop := PanelContainer.new()
 	pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var fg := Pal.CREAM
@@ -1256,20 +1267,20 @@ static func _ribbon_badge(text: String) -> Control:
 	if tex != null:
 		var stx := StyleBoxTexture.new()
 		stx.texture = tex
-		stx.content_margin_left = 15; stx.content_margin_right = 15
-		stx.content_margin_top = 5; stx.content_margin_bottom = 8
+		stx.content_margin_left = 15 * s; stx.content_margin_right = 15 * s
+		stx.content_margin_top = 5 * s; stx.content_margin_bottom = 8 * s
 		pop.add_theme_stylebox_override("panel", stx)
 	else:
 		var pp := StyleBoxFlat.new()
 		pp.bg_color = Pal.STRAW
-		pp.set_corner_radius_all(8)
-		pp.content_margin_left = 10; pp.content_margin_right = 10
-		pp.content_margin_top = 3; pp.content_margin_bottom = 4
+		pp.set_corner_radius_all(int(8 * s))
+		pp.content_margin_left = 10 * s; pp.content_margin_right = 10 * s
+		pp.content_margin_top = 3 * s; pp.content_margin_bottom = 4 * s
 		pop.add_theme_stylebox_override("panel", pp)
 		fg = Pal.INK
 	var l := Label.new()
 	l.text = text
-	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_font_size_override("font_size", maxi(8, int(13 * s)))
 	l.add_theme_color_override("font_color", fg)
 	l.add_theme_constant_override("outline_size", 0)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1318,8 +1329,12 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 	# the cell width that fits `cols` across the frame's content area (~width − card margins). Build the
 	# content scaled to it (fonts + icon) so a card's min never exceeds 1/cols and the row can't overflow.
 	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+	# Preserve the EDITED card's ASPECT RATIO when the cells shrink to fit `cols` across — forcing 3 per row
+	# must not squash the card tall-and-thin; derive the cell HEIGHT from the original cell_w:cell_h ratio.
+	var aspect: float = float(opts.get("cell_h", 116.0)) / maxf(1.0, float(opts.get("cell_w", 96.0)))
 	var co := opts.duplicate()
 	co["cell_w"] = cw
+	co["cell_h"] = cw * aspect
 	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
 	# The action button (Claim / buy price) is the SAME shared pill_button as the mail Claim, driven by
 	# the SAME saved btn opts (art / shadow / font). Its font is the SAVED button font — only capped DOWN
@@ -1344,14 +1359,14 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 				made.append(c)
 		content.add_child(r)
 		i += cols
-	# pixel-exact: size each card to 1/cols of the ACTUAL content width (handles the real margins)
+	# pixel-exact: size each card to 1/cols of the ACTUAL content width, with the aspect-correct height
 	var fit := func() -> void:
 		if not is_instance_valid(content):
 			return
 		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
 		for c in made:
 			if is_instance_valid(c):
-				(c as Control).custom_minimum_size.x = maxf(40.0, cwf)
+				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
 	content.resized.connect(fit)
 	fit.call_deferred()
 	return content
@@ -1366,52 +1381,56 @@ static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {
 static func shop_dialog(sections: Array, width: float = 520.0, opts: Dictionary = {}) -> Control:
 	return dialog_frame(_shop_sections(sections, width, opts), width, opts)
 
-## A section divider — a honey caption TAB + the leafy vine strip filling to the card's right edge
-## (mirrors the game shop's _divider). Falls back to a thin bark rule when the vine art is missing.
+## A section divider — the section TITLE CENTRED (per the shop reference), flanked by leaf-sprig
+## ornaments (kit/shop_sprig.png, cut from shop_asset.png; one mirrored) and a thin rule reaching each
+## edge. (Replaces the old left-tab + vine strip.) Falls back to a plain centred title + rules if the
+## sprig art is missing.
 static func _kit_divider(caption: String) -> Control:
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 12)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tab := PanelContainer.new()
-	tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tab.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var ts := StyleBoxFlat.new()
-	ts.bg_color = Color("#F0DCA8")                     # warm honey banner — sections read as headers
-	ts.set_corner_radius_all(12); ts.set_border_width_all(2)
-	ts.border_color = Color(Pal.BARK, 0.5)
-	ts.content_margin_left = 14; ts.content_margin_right = 14
-	ts.content_margin_top = 4; ts.content_margin_bottom = 5
-	tab.add_theme_stylebox_override("panel", ts)
+	row.custom_minimum_size = Vector2(0, 40)
+	var sp := Look.kit("kit/shop_sprig.png")
+	var has_sprig := ResourceLoader.exists(sp)
+	row.add_child(_div_rule())                         # left rule fills to the edge
+	if has_sprig:
+		row.add_child(_div_sprig(sp, false))           # leaves point INWARD, toward the title
 	var cap := Label.new()
 	cap.text = caption
-	cap.add_theme_font_size_override("font_size", 20)
+	cap.add_theme_font_size_override("font_size", 23)
 	cap.add_theme_color_override("font_color", Color(Pal.INK, 0.95))
 	cap.add_theme_constant_override("outline_size", 0)
+	cap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	cap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tab.add_child(cap)
-	row.add_child(tab)
-	var vp := Look.kit("shop/divider_vine.png")
-	if ResourceLoader.exists(vp):
-		var vine := TextureRect.new()
-		vine.texture = clean_tex_path(vp, 768)         # the 768×64 leafy strip, spanning the gap
-		vine.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		vine.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		vine.clip_contents = true
-		vine.custom_minimum_size = Vector2(0, 36)
-		vine.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		vine.size_flags_vertical = Control.SIZE_FILL
-		vine.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.custom_minimum_size = Vector2(0, 36)
-		row.add_child(vine)
-	else:
-		var line := ColorRect.new()
-		line.color = Color(Pal.BARK, 0.35)
-		line.custom_minimum_size = Vector2(0, 3)
-		line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(line)
+	row.add_child(cap)
+	if has_sprig:
+		row.add_child(_div_sprig(sp, true))            # mirrored on the right
+	row.add_child(_div_rule())                         # right rule fills to the edge
 	return row
+
+## A thin horizontal rule that fills the remaining width on a divider side.
+static func _div_rule() -> Control:
+	var line := ColorRect.new()
+	line.color = Color(Pal.BARK, 0.30)
+	line.custom_minimum_size = Vector2(0, 2)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+## One leaf-sprig ornament flanking a divider title (optionally mirrored for the other side).
+static func _div_sprig(path: String, flip: bool) -> Control:
+	var t := TextureRect.new()
+	t.texture = clean_tex_path(path, 256)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.custom_minimum_size = Vector2(46, 26)
+	t.flip_h = flip
+	t.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 ## The SHOP content: each section's vine divider + its cards laid into centered rows of `cols` (a 2-card
 ## section is a single centered row of two). Cards are built at the column width (like _card_grid) so they
@@ -1421,8 +1440,10 @@ static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> C
 	var gap: int = int(opts.get("cell_h_gap", 12))
 	var row_gap: int = int(opts.get("row_gap", 22))
 	var cw: float = maxf(48.0, (width - 56.0 - (cols - 1) * gap) / float(cols))
+	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 112.0)))
 	var co := opts.duplicate()
 	co["cell_w"] = cw
+	co["cell_h"] = cw * aspect      # keep the card's aspect ratio when it shrinks to fit cols across
 	co["cell_font"] = clampi(int(cw * 0.17), 9, 22)
 	var btn_font := int((opts.get("btn", {}) as Dictionary).get("font", 22))
 	co["claim_font"] = clampi(mini(btn_font, int(cw * 0.16)), 9, 22)
@@ -1448,14 +1469,15 @@ static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> C
 					made.append(c)
 			content.add_child(r)
 			i += cols
-	# pixel-exact: every card is 1/cols of the content width (so a 2-card row keeps the SAME card size)
+	# pixel-exact: every card is 1/cols of the content width (so a 2-card row keeps the SAME card size),
+	# with the aspect-correct height
 	var fit := func() -> void:
 		if not is_instance_valid(content):
 			return
 		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
 		for c in made:
 			if is_instance_valid(c):
-				(c as Control).custom_minimum_size.x = maxf(40.0, cwf)
+				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
 	content.resized.connect(fit)
 	fit.call_deferred()
 	return content
@@ -1558,8 +1580,12 @@ static func daily_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"milestone_badge": String(dc.get("milestone_badge", "amber glow")),
 		"sparkle": bool(dc.get("sparkle", true)),
 		"label_y": float(dc.get("label_y", 12)),     # the "Day N" label's drop from the top edge
+		"label_x": float(dc.get("label_x", 0)),      # the label's horizontal nudge
 		"claim_y": float(dc.get("claim_y", 14)),     # how far the bottom action is lifted in from the base
 		"info_icon": bool(dc.get("info_icon", false)),  # the top-right "i" disc toggle
+		"ribbon_scale": float(dc.get("ribbon_scale", 100)) / 100.0,  # ribbon SIZE (stored as %, 100 = 1×)
+		"ribbon_x": float(dc.get("ribbon_x", 0)),    # ribbon horizontal position
+		"ribbon_y": float(dc.get("ribbon_y", -10)),  # ribbon vertical position (over the top edge)
 		"btn": card_btn_opts(cfg),
 	}
 

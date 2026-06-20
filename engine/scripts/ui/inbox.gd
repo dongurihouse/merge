@@ -20,8 +20,7 @@ const STRAW := Pal.STRAW
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox's own guarded-system idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
-const CARD_MAX_W := 560.0          # design ceiling; clamped to the viewport on small screens
-const CARD_VW_FRAC := 0.94
+const CARD_WIDTH_PCT := 85.0       # default mail-dialog width as a % of the screen (overridable in config)
 
 # --- the mailbox popup --------------------------------------------------------------
 
@@ -53,9 +52,11 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 	Inbox.mark_all_read()
 
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	# the mail dialog fills a % of the SCREEN width (the workbench saves width_pct), so it's responsive
+	# across phone sizes instead of a fixed pixel width.
 	var vw: float = host.get_viewport_rect().size.x
-	var cfg_w: float = float((cfg.get("dialog", {}) as Dictionary).get("width", CARD_MAX_W))
-	var width: float = minf(cfg_w, vw * CARD_VW_FRAC)
+	var pct: float = float((cfg.get("dialog", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
+	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
 
 	# (re)build the whole kit dialog from the live message list. Held in a dict so a claim's callback can
 	# call back into it (GDScript lambdas capture by value — a dict lets the closure see the live fn).

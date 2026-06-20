@@ -1,4 +1,9 @@
 {
+	"badge": {
+		"defringe": true,
+		"feather": 2.0,
+		"shadow": false
+	},
 	"button": {
 		"art": true,
 		"font": 27.0,
@@ -15,6 +20,7 @@
 	},
 	"daily": {
 		"cols": 3.0,
+		"list_max_h": 0,
 		"width": 460.0
 	},
 	"daily_card": {
@@ -22,8 +28,14 @@
 		"cell_h": 180.0,
 		"cell_slice": 28.0,
 		"cell_w": 160.0,
+		"claim_y": 14,
+		"info_icon": false,
+		"label_x": 0,
+		"label_y": 12,
 		"milestone_badge": "amber glow",
-		"sparkle": true,
+		"ribbon_scale": 100,
+		"ribbon_x": 0,
+		"ribbon_y": -10,
 		"today_badge": "gold glow"
 	},
 	"dialog": {
@@ -56,18 +68,13 @@
 		"list_top_pad": 0.0,
 		"width": 720.0
 	},
-	"badge": {
-		"defringe": false,
-		"shadow": false,
-		"feather": 0
-	},
 	"home_button": {
-		"px": 140,
-		"icon_scale": 50,
-		"caption_font": 22,
-		"caption_gap": 4,
-		"glow": 45,
-		"twinkle": 55
+		"caption_font": 22.0,
+		"caption_gap": 4.0,
+		"glow": 45.0,
+		"icon_scale": 50.0,
+		"px": 140.0,
+		"twinkle": 55.0
 	},
 	"icon": {
 
@@ -76,6 +83,8 @@
 		"cell_h": 150.0,
 		"cell_w": 112.0,
 		"cols": 3.0,
+		"list_max_h": 0,
+		"row_gap": 22,
 		"width": 520.0
 	}
 }
