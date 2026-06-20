@@ -17,14 +17,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings"]
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "map_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["map_card"], ["frame"], ["progress_bar"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"], ["vault"]],   # dialogs, the HUD wallet pill, settings, vault
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -83,6 +83,7 @@ const TEST_KEYS := {
 	# veil look) persists; open/done/stars_left just preview the card (the game sets each from map state).
 	"map_card": ["open", "done", "stars_left"],
 	"settings": [],
+	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
@@ -104,6 +105,7 @@ const CAPTIONS := {
 	"tiers": "Discovery — tier ladder (twig border, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"settings": "Settings — toggles (shared frame)",
+	"vault": "Vault — piggy bank (twig border)",
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
@@ -130,7 +132,7 @@ var _params := {
 	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
 	# carries its own width. snap is the drag-grid for the banner/✕ handles.
 	"frame": {
-		"width": 560, "card_corner": 22, "card_art": true,
+		"width": 560, "border": "parchment", "card_corner": 22, "card_art": true,
 		"card_slice_l": 40, "card_slice_t": 40, "card_slice_r": 40, "card_slice_b": 40,
 		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
@@ -194,6 +196,12 @@ var _params := {
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
+	# the VAULT dialog — the shared frame in the NEW twig border + the jar hero. width_pct + the twig
+	# slice/pad + the jar/plate sizes are saved; balance/claimable just preview the read. The banner / ✕
+	# styling is inherited from the Frame item (like the other dialogs).
+	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
+		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
+		"balance": 320, "claimable": true},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -448,6 +456,14 @@ func _make_element(id: String) -> Control:
 			var setopts := Kit.settings_opts_from_config(_params)
 			setopts["banner_text"] = "Settings"
 			return Kit.settings_dialog(Kit.DEMO_SETTINGS, _dlg_px("settings"), setopts)
+		"vault":
+			# the SHARED frame in the NEW twig border + the jar hero (the SAME builder ui/vault.gd uses)
+			var vopts := Kit.vault_opts_from_config(_params)
+			vopts["banner_text"] = "Vault"
+			var p_st := Kit.DEMO_VAULT.duplicate()
+			p_st["balance"] = int(p.balance)
+			p_st["claimable"] = bool(p.claimable)
+			return Kit.vault_dialog(p_st, _dlg_px("vault"), vopts)
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -1099,6 +1115,8 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
+		"vault":
+			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:
@@ -1123,6 +1141,7 @@ func _frame_sidebar() -> void:
 	_group_header("Saved to config", true)
 	_section_header("Card")
 	_sidebar_body.add_child(_slider_row(["width", 360, 720]))
+	_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))   # parchment / vault twig
 	_sidebar_body.add_child(_toggle_row("9-slice art", "card_art", true))   # rebuilds the sidebar to swap the slider
 	if bool(_params["frame"]["card_art"]):
 		for k in ["card_slice_l", "card_slice_t", "card_slice_r", "card_slice_b"]:
@@ -1156,6 +1175,24 @@ func _frame_sidebar() -> void:
 
 	_group_header("Test only — not saved", false)
 	_sidebar_body.add_child(_slider_row(["snap", 1, 40]))            # the drag-to-move grid
+
+## The VAULT dialog's own knobs — layout + the twig-border slice/pad. The banner / ✕ styling is
+## inherited from the Frame item (like every dialog), so it isn't repeated here.
+func _vault_sidebar() -> void:
+	_group_header("Saved to config", true)
+	_section_header("Layout")
+	_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+	_sidebar_body.add_child(_slider_row(["jar_px", 120, 320]))
+	_sidebar_body.add_child(_slider_row(["plate_px", 120, 340]))
+	_sidebar_body.add_child(_slider_row(["balance_font", 18, 56]))
+	_sidebar_body.add_child(_slider_row(["row_gap", 4, 40]))
+	_section_header("Border (twig panel)")
+	_sidebar_body.add_child(_slider_row(["card_slice", 0, 160]))
+	_sidebar_body.add_child(_slider_row(["panel_pad_x", 0, 140]))
+	_sidebar_body.add_child(_slider_row(["panel_pad_y", 0, 140]))
+	_group_header("Test only — not saved", false)
+	_sidebar_body.add_child(_slider_row(["balance", 0, 999]))       # the previewed gem read
+	_sidebar_body.add_child(_toggle_row("Claimable", "claimable"))  # toggles the CTA dim + hint
 
 func _slider_row(spec: Array) -> Control:
 	var key: String = spec[0]

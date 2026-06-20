@@ -1,7 +1,7 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot the Map scene (home map) in a state.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/map_shot.gd -- <mode> <out.png>
-## modes: fresh | select | closeup | progress | owned | shop | settings | spirits
+## modes: fresh | select | closeup | progress | owned | shop | settings | spirits | vault
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -151,6 +151,10 @@ func _initialize() -> void:
 	elif mode == "settings":
 		scn._open_settings()
 		await create_timer(0.4).timeout
+	elif mode == "vault":
+		load("res://engine/scripts/core/vault.gd").skim(100000)   # seed a claimable jar for a representative capture
+		scn._open_vault()
+		await create_timer(0.5).timeout
 
 	# minimized windows occasionally serve a STALE frame (the capture then shows
 	# the previous screen) — force a fresh draw right before reading the texture

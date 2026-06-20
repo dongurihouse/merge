@@ -150,6 +150,57 @@ owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
 
 ## Open — economy
 
+- **Vault (piggy bank) — preserved systems behind the kit-screen rebuild (math · skim faucet · IAP · map chrome+pip).**
+  The vault **FACE** is being rebuilt on the shared workbench kit + config (spec:
+  [`superpowers/specs/2026-06-20-vault-screen-kit-design.md`](superpowers/specs/2026-06-20-vault-screen-kit-design.md);
+  new twig-border frame option + reused banner/button). That rebuild deliberately **does NOT touch** the four
+  systems below — they are the vault's *behaviour*, correct and tested, and folding them into a face-only change
+  would balloon scope and risk a working economy surface. Parked here so the follow-up tails aren't lost and so a
+  tester re-verifies each still works **after** the face swap. Anchors are `file:symbol` (line numbers drift).
+  - **(a) Vault MATH — keep `core/vault.gd` the single source of truth (don't leak it into the kit).** The accrual
+    model — `balance` / `cap` / `claimable` / `claim_min` / `price_usd` / `crack` / `skim` — stays in
+    `engine/scripts/core/vault.gd`; the new `vault_dialog` is **game-state-agnostic** and receives a `state` dict
+    built from these getters (mirrors how `settings_dialog` takes entries). **Why:** if the UI ever computes a vault
+    number itself (e.g. a progress-to-claim fraction), that logic forks from the tested core and the two drift.
+    **Instruction:** any new read the screen needs → add a getter to `core/vault.gd` (+ a unit test in
+    `engine/tests/save_tests.gd` `§10`), never compute it in `ui/vault.gd` or the kit. Owner sign-off on the pig
+    **price** + **claim threshold** is a pacing call already parked in the T42–T45 economy item below — don't
+    re-decide it here.
+  - **(b) SKIM faucet — the three sites that FILL the jar are untouched; re-validate fill pace after the rebuild.**
+    `Vault.skim(...)` is called from exactly three premium-grant moments: **level-up**
+    (`engine/scripts/core/content.gd:598`, SKIM-SITE 1/3), **map-restore** (`engine/scripts/scenes/map.gd:1204`,
+    2/3), and **t8 spare-sell** (`engine/scripts/scenes/board.gd:2033`, 3/3). **Why:** these are the faucet; the
+    screen only *reads* `balance`, so the rebuild can't change fill rate — but a tester must confirm the jar still
+    visibly fills (the balance read now comes through the kit `state`, a new path). **Instruction:** after the
+    rebuild, play/sim a level-up + a restore + a t8 sell and confirm `balance` climbs and the screen reflects it;
+    the skim *rate* (what fraction of each premium event is skimmed) is an owner-tunable in `grove_data.gd` →
+    re-validate on `grove_sim` if touched. If a **new** premium faucet is added later, add a 4th skim site there
+    (and a comment tagging it SKIM-SITE n/N) — the jar should skim every premium grant.
+  - **(c) IAP / StoreKit — `_confirm_crack` is kept verbatim; the real purchase is the external remainder.** The
+    crack routes through `engine/scripts/core/store.gd` when the StoreKit plugin is in the build (product
+    `com.tidyup.piggybank`), else the **honest non-charging test path** ("test build — nothing is charged"); both
+    arms call `Vault.crack()` to grant + reset, identically. The rebuilt `ui/vault.gd` reuses this confirm flow
+    unchanged. **Why:** the load→purchase→**receipt-validate**→grant chain can't ship in-engine — everything
+    game-side already sits behind the confirm-stub, and the rebuild must not regress the "grant only on a confirmed
+    purchase" gate. **Instruction:** register the product id in App Store Connect; implement receipt validation
+    behind the geo build-flag; grant ONLY on `purchase(..., okay==true)` (the code already does this — keep it).
+    This is the **same external remainder** tracked in the T42–T45 item's "External remainder" bullet below —
+    treat that as the canonical IAP-SDK task; this sub-point just flags "don't break the confirm flow in the face
+    rebuild." Coverage today: `engine/tests/store_tests.gd:26`.
+  - **(d) `map.gd` chrome + ready-pip — the entry button and claimable glow are unchanged; verify pip sync.** The
+    bottom-bar **piggy button** (`engine/scripts/scenes/map.gd:1388`, `home_icon:"piggy"`, index 4) and its
+    **claimable ready-pip** (`_piggy_pip`, `map.gd:134`; `Look.attach_badge` `:1402`; `_refresh_piggy_pip` `:1691`
+    → `Vault.claimable()`, refreshed on open-close `:1688` and elsewhere `:1577`) are untouched — the rebuild only
+    swaps **what `_open_vault` (`map.gd:1682`) opens**. **Why:** the pip is the attention-driver telling the player
+    the vault is ready; it and the screen both read `Vault.claimable()`, so they must agree before/after a crack.
+    **Instruction:** after the rebuild, confirm the pip lights when `claimable()` is true, the screen opens, and the
+    pip clears after a successful crack (the on-close `_refresh_piggy_pip` + post-crack refresh handle this — verify
+    they still fire through the new dialog's `opts.refresh`). **Coordinate:** the "Bottom row — extract ONE reusable
+    nav component" item (Home-screen chrome §4) will re-home this button into a shared `nav_bar.gd`, and the "Badge
+    system" item will replace the bespoke `_piggy_pip` with the shared badge — when either lands, the pip must ride
+    the new piggy button. *(Surfaced 2026-06-20 — parked alongside the vault-screen kit rebuild; these four are the
+    preserved behaviour behind that face-only change.)*
+
 - **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).**
   ⚠️ **SUPERSEDED IN PART by the population/residents design change (2026-06-17):** the **hub-yield +
   upgrade-levels loop (T42)** is being **REMOVED** — the §8 keystone is now the **population/residents loop**

@@ -1,0 +1,12 @@
+{
+  "source": "_new/vault_asset.png",
+  "category": "matte",
+  "inner": "sheet",
+  "params": { "key": "#03CBFE", "tol": 0.22, "min_area": 3000, "pad": 4 },
+  "outputs": [
+    { "island": 0,  "name": "vault_panel", "path": "ui/kit/vault_panel.png" },
+    { "island": 6,  "name": "vault_jar",   "path": "ui/kit/vault_jar.png" },
+    { "island": 10, "name": "vault_plate", "path": "ui/kit/vault_plate.png" }
+  ],
+  "archive": "_originals/ui/vault_asset.png"
+}
