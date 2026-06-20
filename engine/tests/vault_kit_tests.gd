@@ -50,5 +50,42 @@ func _initialize() -> void:
 	ok(_panel_tex_path(twig).ends_with("vault_panel.png"),
 		"border 'vault twig' swaps the panel to the twig art")
 
+	# --- vault_dialog: shared frame + gem read + jar + green CTA, claimable-gated --
+	var fired: Array = [false]
+	var st := {"balance": 320, "cap": 500, "price": "$4.99", "claimable": true, "claim_min": 100,
+		"on_claim": func() -> void: fired[0] = true}
+	var vd := Kit.vault_dialog(st, 460.0, {"banner_text": "Vault", "border": "vault twig"})
+	ok(vd.find_child("DialogBanner", true, false) != null, "vault_dialog wraps the SHARED frame (banner present)")
+	var has_320 := false
+	for l in vd.find_children("", "Label", true, false):
+		if (l as Label).text == "320":
+			has_320 = true
+	ok(has_320, "vault_dialog shows the gem balance read (320)")
+	var green: Button = null                            # the green price CTA = a Button reading the price
+	for b in vd.find_children("", "Button", true, false):
+		if (b as Button).text == "$4.99":
+			green = b
+	ok(green != null, "vault_dialog shows the green price CTA ($4.99)")
+	if green != null:
+		green.pressed.emit()
+	ok(fired[0] == true, "pressing the CTA fires state.on_claim")
+
+	# claimable=false dims the CTA + shows the keep-playing hint
+	var dim := Kit.vault_dialog({"balance": 10, "cap": 500, "price": "$4.99", "claimable": false, "claim_min": 100},
+		460.0, {"border": "vault twig"})
+	var dim_cta: Button = null
+	for b in dim.find_children("", "Button", true, false):
+		if (b as Button).text == "$4.99":
+			dim_cta = b
+	ok(dim_cta != null and dim_cta.modulate.a < 1.0, "not-claimable dims the CTA")
+
+	# --- vault_opts_from_config: forces the twig border + reads its block ----------
+	var vo := Kit.vault_opts_from_config({})
+	ok(String(vo.get("border", "")) == "vault twig", "vault_opts forces the twig border")
+	ok(vo.has("banner_font") and vo.has("close_size"), "vault_opts inherits the shared frame chrome")
+	var vo2 := Kit.vault_opts_from_config({"vault": {"jar_px": 240, "panel_pad_x": 50}})
+	ok(float(vo2.get("jar_px", 0)) == 240.0 and float(vo2.get("panel_pad_x", 0)) == 50.0,
+		"vault_opts reads saved overrides (jar_px · panel_pad_x)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

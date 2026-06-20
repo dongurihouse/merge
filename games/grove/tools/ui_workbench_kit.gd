@@ -119,6 +119,10 @@ const DEMO_SETTINGS := [
 	{"label": "Calm mode", "value": false},
 ]
 
+# Demo vault state for the workbench preview — same shape the game builds from core/vault.gd (the
+# accrual jar's balance/cap + the fixed price + the claim gate). balance/claimable are preview-only.
+const DEMO_VAULT := {"balance": 320, "cap": 500, "price": "$4.99", "claimable": true, "claim_min": 100}
+
 ## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
 ## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
 ## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
@@ -1193,6 +1197,138 @@ static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictiona
 		content.add_child(toggle_card(e, to))
 	return dialog_frame(content, width, opts)
 
+## The VAULT (piggy-bank) dialog — the shared frame dressed in the twig border, wrapping the jar hero +
+## a gem-balance read + the reused green price CTA. Game-state-agnostic (like settings_dialog): `state`
+## carries the numbers + the claim callback, so BOTH the workbench preview and the game (ui/vault.gd)
+## build the SAME face. state: { balance:int, cap:int, price:String, claimable:bool, claim_min:int,
+## on_claim:Callable }.
+static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictionary = {}) -> Control:
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", int(opts.get("row_gap", 12)))
+	content.alignment = BoxContainer.ALIGNMENT_CENTER
+
+	# the gem-balance read (icon + number) — the reference's "gem 320"
+	var bal := HBoxContainer.new()
+	bal.alignment = BoxContainer.ALIGNMENT_CENTER
+	bal.add_theme_constant_override("separation", 8)
+	bal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bal.add_child(make_icon("gem", float(opts.get("balance_icon", 34))))
+	var bnum := Label.new()
+	bnum.text = str(int(state.get("balance", 0)))
+	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 34)))
+	bnum.add_theme_color_override("font_color", Pal.INK)
+	bnum.add_theme_constant_override("outline_size", 0)
+	bnum.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	bnum.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bal.add_child(bnum)
+	content.add_child(bal)
+
+	# the jar on its plate (sliced art when present, else a code-drawn vessel with the same metrics)
+	content.add_child(_vault_jar(int(state.get("balance", 0)), int(state.get("cap", 1)),
+		float(opts.get("jar_px", 200)), float(opts.get("plate_px", 220))))
+
+	# the pitch line — the longer you play, the better the deal
+	var pitch := Label.new()
+	pitch.text = String(opts.get("pitch", "Premium you've earned, saved up — claim it all."))
+	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 16)))
+	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(pitch)
+
+	# the green price CTA — the SHARED pill_button (reused), claimable-gated (dim + a hint below)
+	var claimable: bool = bool(state.get("claimable", true))
+	var cta := pill_button(String(state.get("price", "")), {"bg": "green", "icon": "gem",
+		"font": int(opts.get("cta_font", 24)), "enabled": true, "shadow": true, "corner": 22.0})
+	cta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cta.modulate = Color(1, 1, 1, 1.0 if claimable else 0.55)
+	var on_claim: Callable = state.get("on_claim", Callable())
+	if on_claim.is_valid():
+		cta.pressed.connect(func() -> void: on_claim.call())
+	content.add_child(cta)
+	if not claimable:
+		var hint := HBoxContainer.new()
+		hint.alignment = BoxContainer.ALIGNMENT_CENTER
+		hint.add_theme_constant_override("separation", 4)
+		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var hl := Label.new()
+		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
+		hl.add_theme_font_size_override("font_size", 15)
+		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint.add_child(hl)
+		hint.add_child(make_icon("gem", 16))
+		var hn := Label.new()
+		hn.text = str(int(state.get("claim_min", 0)))
+		hn.add_theme_font_size_override("font_size", 15)
+		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		hn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hint.add_child(hn)
+		content.add_child(hint)
+
+	return dialog_frame(content, width, opts)
+
+## The jar hero seated on its base plate: vault_plate.png behind + vault_jar.png over (cleaned), when
+## present; else a code-drawn vessel with a GOLD fill rising to balance/cap — the fallback lifted from
+## the old ui/vault.gd `_make_jar`, so the read survives until the art lands (the kit invariant).
+static func _vault_jar(balance: int, cap: int, jar_px: float, plate_px: float) -> Control:
+	var box := Control.new()
+	var box_w: float = maxf(jar_px, plate_px)
+	box.custom_minimum_size = Vector2(box_w, jar_px * 1.16)
+	box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plate_tex := clean_tex_path(Look.kit("kit/vault_plate.png"), 256)
+	if plate_tex != null:
+		var pl := TextureRect.new()
+		pl.texture = plate_tex
+		pl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pl.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var ph: float = plate_px * 0.42
+		pl.custom_minimum_size = Vector2(plate_px, ph)
+		pl.size = pl.custom_minimum_size
+		pl.position = Vector2((box_w - plate_px) / 2.0, box.custom_minimum_size.y - ph)
+		pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(pl)
+	var jar_tex := clean_tex_path(Look.kit("kit/vault_jar.png"), 384)
+	if jar_tex != null:
+		var jr := TextureRect.new()
+		jr.texture = jar_tex
+		jr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		jr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		jr.custom_minimum_size = Vector2(jar_px, jar_px)
+		jr.size = jr.custom_minimum_size
+		jr.position = Vector2((box_w - jar_px) / 2.0, 0)
+		jr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		box.add_child(jr)
+		return box
+	# --- code-drawn fallback (no jar art) — vessel + gold fill, adapted from the old _make_jar -------
+	var frac := clampf(float(balance) / float(maxi(1, cap)), 0.0, 1.0)
+	var jx := (box_w - jar_px) / 2.0
+	var body := Panel.new()
+	body.position = Vector2(jx, 0); body.size = Vector2(jar_px, jar_px)
+	var bs := StyleBoxFlat.new()
+	bs.bg_color = Color(Pal.CREAM, 0.65)
+	bs.set_corner_radius_all(int(jar_px * 0.28))
+	bs.set_border_width_all(5); bs.border_color = Pal.BARK
+	body.add_theme_stylebox_override("panel", bs)
+	body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(body)
+	var inset := 8.0
+	var fill := Panel.new()
+	var fh: float = maxf(6.0, (jar_px - inset * 2.0) * frac)
+	fill.position = Vector2(jx + inset, jar_px - inset - fh)
+	fill.size = Vector2(jar_px - inset * 2.0, fh)
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color(Pal.GOLD, 0.92) if frac > 0.0 else Color(Pal.GOLD, 0.0)
+	fs.set_corner_radius_all(int(jar_px * 0.22))
+	fill.add_theme_stylebox_override("panel", fs)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(fill)
+	return box
+
 ## A small kit sprite (the ✓ check, the mystery chest, …) cleaned + fit into a px box.
 static func _kit_sprite(rel: String, px: float) -> TextureRect:
 	var t := TextureRect.new()
@@ -1953,6 +2089,26 @@ static func settings_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["toggle"] = toggle_card_opts_from_config(cfg)
 	var st: Dictionary = cfg.get("settings", {})
 	o["row_gap"] = float(st.get("row_gap", 12))   # gap between toggle rows
+	return o
+
+## The full VAULT-dialog opts: the SHARED frame (banner / close styling inherited from the Frame item)
+## + the new TWIG border forced on + the vault's own tuned slice / pad / jar size from its config block.
+## Used by BOTH the workbench preview and the game (engine/scripts/ui/vault.gd) — one builder, no
+## duplicated face.
+static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var o := dialog_opts_from_config(cfg)
+	var v: Dictionary = cfg.get("vault", {})
+	o["border"] = "vault twig"                            # the new frame option (forced for the vault)
+	var sl: float = float(v.get("card_slice", 64))
+	o["card_slice_l"] = sl; o["card_slice_t"] = sl; o["card_slice_r"] = sl; o["card_slice_b"] = sl
+	o["panel_pad_x"] = float(v.get("panel_pad_x", 40))
+	o["panel_pad_y"] = float(v.get("panel_pad_y", 34))
+	o["card_art"] = true
+	o["banner_icon_id"] = "piggy"                         # reuse the existing icon_piggy sprite
+	o["jar_px"] = float(v.get("jar_px", 200))
+	o["plate_px"] = float(v.get("plate_px", 220))
+	o["balance_font"] = int(v.get("balance_font", 34))
+	o["row_gap"] = float(v.get("row_gap", 12))
 	return o
 
 ## The badge (disc-shell) edge polish from config — the standalone Badge item's defringe / feather /
