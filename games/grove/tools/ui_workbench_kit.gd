@@ -158,16 +158,22 @@ static func demo_shop() -> Array:
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
 static func make_icon(id: String, px: float) -> Control:
-	var tex := _icon_tex(id)               # polished (defringe + feather), via the shared resolver
-	if tex != null:
-		var t := TextureRect.new()
-		t.texture = tex
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	return Look.icon(id, px)               # glyph fallback when no sprite
+	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
+	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
+
+## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
+## box by its own aspect. Returns null when the texture is absent (the caller supplies the glyph fallback).
+## make_icon (id lookup) and home_button's icon_rel (direct kit path) both build through this one layout.
+static func _icon_rect(tex: Texture2D, px: float) -> Control:
+	if tex == null:
+		return null
+	var t := TextureRect.new()
+	t.texture = tex
+	t.custom_minimum_size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 ## The home button's BADGE (disc shell) as a texture, with its own tunable edge polish — the standalone
 ## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
@@ -625,8 +631,9 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 ## twinkles — no baked FX). Badges are attached by the caller (Look.attach_badge) since their visibility
 ## is game-state driven. The side rail AND the bottom nav both build through this, so a workbench tweak
 ## (size · icon scale · caption · sparkle amount) flows to both.
-##   spec (per-instance content): icon (id) · caption (visible tab text, "" = none) · action (Callable) ·
-##     sparkle (bool) · enabled (bool).
+##   spec (per-instance content): icon (id) OR icon_rel (a direct kit-relative png, for a mark outside the
+##     icon_<id> convention — e.g. the map back arrow) · caption (visible tab text, "" = none) ·
+##     action (Callable) · sparkle (bool) · enabled (bool).
 ##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
 ##     caption_font · caption_gap · glow (0..1) · twinkle (0..1) · calm (bool).
 const HOME_SHELL := "shared/disc_round.png"
@@ -669,7 +676,12 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var icwrap := CenterContainer.new()
 	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icwrap.add_child(make_icon(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5))))
+	var icon_px := px * float(opts.get("icon_scale", 0.5))
+	# icon_rel (a direct kit-relative png) wins over the icon id — same polish + square layout either way.
+	var icon_rel := String(spec.get("icon_rel", ""))
+	var icon_node: Control = _icon_rect(clean_tex_path(Look.kit(icon_rel), 192), icon_px) if icon_rel != "" else make_icon(String(spec.get("icon", "")), icon_px)
+	if icon_node != null:
+		icwrap.add_child(icon_node)
 	b.add_child(icwrap)
 	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 	var caption := String(spec.get("caption", ""))
