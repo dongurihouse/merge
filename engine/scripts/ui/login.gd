@@ -1,187 +1,114 @@
 extends RefCounted
-## THE DAILY LOGIN CALENDAR surface — the diegetic forgiving-streak popup (Core §18 +
-## §13). A world object, not bare calendar chrome (§13.1): a parchment card framing a
-## week-strip of reward cells, today's claimable rung lifted and breathing, the running
-## streak, and a Claim button. Shown on the day's first open; pairs with the piggy bank.
+## THE DAILY LOGIN CALENDAR surface — the diegetic forgiving-streak popup (Core §18 + §13): a
+## parchment card framing a grid of day cards (claimed ✓ · today's claimable rung with a green Claim ·
+## future days · a milestone shown as a mystery chest), shown on the day's first open.
 ##
-## The ladder MATH + the claim live in core/login.gd (which reads the forgiving streak
-## from Save.daily()); this is only its face. Reuses the Look kit + FX vocabulary like
-## the shop. Reward cells are emoji-FREE (§13): every reward is an icon SPRITE beside a
-## number Label, never an emoji glyph baked into text.
+## The FACE is BUILT from the shared MAIL KIT (games/grove/tools/ui_workbench_kit.gd) — the SAME dialog
+## frame the mailbox uses (banner, card, ✕, scroll) plus the kit's day cards — using the design config
+## the UI WORKBENCH saves, so the look is authored once in the workbench and never duplicated here. The
+## ladder MATH + the claim live in core/login.gd; this is only its face (claim → grant → celebrate →
+## rebuild, dismiss, the per-day mapping).
 
 const Login = preload("res://engine/scripts/core/login.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-
-const INK := Pal.INK
-const CREAM := Pal.CREAM
 const STRAW := Pal.STRAW
-const BARK := Pal.BARK
-const LEAF := Pal.LEAF
 
-const CARD_MAX_W := 460.0
-const CARD_VW_FRAC := 0.92
-const WEEK := 7                          # the strip shows the current 7-day week window
-const CELL_W := 54.0
-const CELL_H := 72.0
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const CARD_MAX_W := 470.0          # the 3-per-row day grid; clamped to the viewport
+const CARD_VW_FRAC := 0.94
+const WEEK := 7
 
 # --- the calendar popup -------------------------------------------------------------
 
 static func open(host: Control, opts: Dictionary = {}) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		push_warning("Daily: mail kit missing at %s" % KIT_PATH)
+		return
+
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
 	host.add_child(overlay)
 	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.55)
+	veil.color = Color(Pal.INK, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(veil)
 	veil.gui_input.connect(func(ev: InputEvent) -> void:
 		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
+			_dismiss(overlay, opts))
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = host.get_viewport_rect().size.x
-	card.custom_minimum_size = Vector2(minf(CARD_MAX_W, vw * CARD_VW_FRAC), 0)
-	cc.add_child(card)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	card.add_child(col)
+	var cfg_w: float = float((cfg.get("daily", {}) as Dictionary).get("width", CARD_MAX_W))
+	var width: float = minf(cfg_w, vw * CARD_VW_FRAC)
 
-	var ribbon := Look.title_ribbon(host.tr("Daily visit"), 30)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
+	# (re)build the kit daily dialog from the live ladder; a claim rebuilds it in place
+	var rb := {"fn": Callable(), "first": true}
+	rb.fn = func() -> void:
+		if not is_instance_valid(cc):
+			return
+		for c in cc.get_children():
+			c.queue_free()
+		var fo: Dictionary = Kit.daily_opts_from_config(cfg)
+		fo["banner_text"] = host.tr("Daily gifts")
+		(fo["btn"] as Dictionary)["text"] = host.tr("Claim")
+		fo["on_close"] = func() -> void: _dismiss(overlay, opts)
+		var dialog: Control = Kit.daily_dialog(_days(host, rb, opts), width, fo)
+		cc.add_child(dialog)
+		if rb.first:
+			FX.pop_in(dialog)
+			rb.first = false
+	rb.fn.call()
 
-	# the streak line — "Day N in a row" (the running, forgiving streak)
+# Map the forgiving streak → the current 7-day window of kit day cards. today's rung is claimable
+# (a green Claim wired to claim_today → grant → celebrate → rebuild); earlier rungs are done (✓); a
+# future milestone shows the mystery chest. Days roll by absolute streak so today sits in its real slot.
+static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 	var today := Login.today_day()
-	var streak_lbl := Label.new()
-	streak_lbl.text = host.tr("Day %d") % today
-	streak_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	streak_lbl.add_theme_font_size_override("font_size", 18)
-	streak_lbl.add_theme_color_override("font_color", Color(BARK, 0.95))
-	col.add_child(streak_lbl)
-
-	# the week strip — the current 7-day window; today's rung is lifted + breathing.
-	# The window starts at the week's first day (so today sits in its real weekday slot).
-	var start := ((today - 1) / WEEK) * WEEK + 1     # first day of the week `today` is in
-	var strip := HBoxContainer.new()
-	strip.alignment = BoxContainer.ALIGNMENT_CENTER
-	strip.add_theme_constant_override("separation", 6)
-	col.add_child(strip)
-	var today_cell: Control = null
+	var start := ((today - 1) / WEEK) * WEEK + 1
+	var out: Array = []
 	for i in WEEK:
 		var day := start + i
-		var is_today := day == today and not Login.claimed_today()
-		var is_done := day < today                # already claimed earlier this run
-		var cell := _day_cell(host, day, is_today, is_done)
-		strip.add_child(cell)
-		if is_today:
-			today_cell = cell
+		var st := "future"
+		if day < today:
+			st = "done"
+		elif day == today:
+			st = "done" if Login.claimed_today() else "today"
+		var d := {
+			"day": day,
+			"label": host.tr("Day %d") % day,
+			"reward": Login.reward_for(day),
+			"state": st,
+		}
+		if Login.is_milestone(day) and st == "future":
+			d["mystery"] = true
+		if st == "today":
+			d["on_claim"] = func() -> void:
+				var at := host.get_viewport_rect().size * 0.5
+				if Login.claim_today():
+					_celebrate(host, at, Login.reward_for(day))
+				else:
+					Audio.play("invalid_soft", -6.0)
+				if opts.has("refresh"):
+					(opts.refresh as Callable).call()
+				if rb.fn.is_valid():
+					rb.fn.call()
+		out.append(d)
+	return out
 
-	# the Claim CTA — grants today's rung once per day; refused (and explained) if already done.
-	var already := Login.claimed_today()
-	var cta := Look.button(host.tr("Collect today") if not already else host.tr("Come back tomorrow"),
-		func() -> void:
-			if not Login.claim_today():
-				Audio.play("invalid_soft", -6.0)
-				FX.wobble(card)
-				FX.floating_text(host, card.get_global_rect().get_center() + Vector2(0, 40),
-					host.tr("Already collected — see you tomorrow"), CREAM, 22)
-				return
-			# pay the rung's juice from the card center, then close + refresh
-			var at := card.get_global_rect().get_center()
-			_celebrate(host, at, Login.reward_for(today))
-			overlay.queue_free()
-			if opts.has("refresh"):
-				(opts.refresh as Callable).call(),
-		not already)
-	cta.modulate = Color(1, 1, 1, 1.0) if not already else Color(1, 1, 1, 0.6)
-	col.add_child(cta)
-
-	FX.pop_in(card)
-	if today_cell != null:
-		FX.breathe_once(today_cell)          # the ONE suggested action gently pulses (§12)
-
-# One day cell: a small card with the day number and its reward (icon sprite + number).
-# Today's rung gets a leaf-green lift; a milestone day gets a STAR accent; done days dim.
-static func _day_cell(host: Control, day: int, is_today: bool, is_done: bool) -> Control:
-	var cell := PanelContainer.new()
-	cell.custom_minimum_size = Vector2(CELL_W, CELL_H)
-	var s := StyleBoxFlat.new()
-	if is_today:
-		s.bg_color = Color(LEAF, 0.22)
-		s.border_color = Color(LEAF, 0.9)
-		s.set_border_width_all(3)
-	else:
-		s.bg_color = Color(CREAM, 0.45)
-		s.border_color = Color(BARK, 0.45)
-		s.set_border_width_all(1)
-	s.set_corner_radius_all(10)
-	s.content_margin_left = 4; s.content_margin_right = 4
-	s.content_margin_top = 5; s.content_margin_bottom = 5
-	cell.add_theme_stylebox_override("panel", s)
-	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if is_done:
-		cell.modulate = Color(1, 1, 1, 0.5)
-
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 2)
-	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	cell.add_child(v)
-	# the day label (a milestone wears a star, drawn as the star icon — no emoji glyph)
-	var head := HBoxContainer.new()
-	head.alignment = BoxContainer.ALIGNMENT_CENTER
-	head.add_theme_constant_override("separation", 1)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var dl := Label.new()
-	dl.text = str(day)
-	dl.add_theme_font_size_override("font_size", 14)
-	dl.add_theme_color_override("font_color", INK if not is_today else LEAF.darkened(0.1))
-	dl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head.add_child(dl)
-	if Login.is_milestone(day):
-		head.add_child(Look.icon("star", 13))
-	v.add_child(head)
-	# the reward — an icon sprite + a number (the headline reward of the rung)
-	v.add_child(_reward_badge(host, Login.reward_for(day)))
-	return cell
-
-# A reward's headline as an icon sprite + number (emoji-purge §13). Picks the most
-# "premium-feeling" component to show on the small cell: gems > cosmetic > coins > water.
-static func _reward_badge(host: Control, rew: Dictionary) -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 2)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon_id := "coin"
-	var n := 0
-	if int(rew.get("gems", 0)) > 0:
-		icon_id = "gem"; n = int(rew.gems)
-	elif String(rew.get("cosmetic", "")) != "":
-		icon_id = "star"; n = 0
-	elif int(rew.get("coins", 0)) > 0:
-		icon_id = "coin"; n = int(rew.coins)
-	elif int(rew.get("water", 0)) > 0:
-		icon_id = "water"; n = int(rew.water)
-	row.add_child(Look.icon(icon_id, 20))
-	if n > 0:
-		var l := Label.new()
-		l.text = str(n)
-		l.add_theme_font_size_override("font_size", 13)
-		l.add_theme_color_override("font_color", INK)
-		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(l)
-	return row
+static func _dismiss(overlay: Control, opts: Dictionary) -> void:
+	if is_instance_valid(overlay):
+		overlay.queue_free()
+	if opts.has("refresh"):
+		(opts.refresh as Callable).call()
 
 # Play the collected rung's juice — a celebratory reward shout per granted component.
 static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:

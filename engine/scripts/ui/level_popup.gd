@@ -11,8 +11,17 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Pal = Game.PALETTE
+const OVERLAY_NAME = "LevelPopupOverlay"
 
 static func open(host: Control) -> Control:
+	# Idempotent: keep exactly one popup per host. emulate_touch_from_mouse makes a single tap
+	# deliver both a mouse AND a touch event, so the badge's gui_input fires open() twice in one
+	# frame — without this guard that stacks two identical overlays and the dialog needs two taps
+	# to dismiss. add_child is synchronous, so the duplicate event finds the first overlay here.
+	var live := host.get_node_or_null(NodePath(OVERLAY_NAME))
+	if live is Control and not (live as Node).is_queued_for_deletion():
+		return live as Control
+
 	var earned := int(Save.grove().get("stars_earned", 0))
 	var lvl := G.level_for_stars(earned)
 	var base := G.stars_at_level(lvl)            # stars to BE at this level
@@ -22,6 +31,7 @@ static func open(host: Control) -> Control:
 	var remaining := maxi(0, nxt - earned)
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
 	var veil := ColorRect.new()

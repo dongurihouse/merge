@@ -4,6 +4,8 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
+const InboxUI = preload("res://engine/scripts/ui/inbox.gd")
+const Features = preload("res://engine/scripts/core/features.gd")
 
 var _pass := 0
 var _fail := 0
@@ -25,6 +27,34 @@ func fresh(name: String) -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+
+# --- tree-walk helpers for the UI feedback test --------------------------------
+func _find_claim(n: Node) -> Button:
+	if n is Button and (n as Button).text.to_lower().contains("claim"):
+		return n
+	for c in n.get_children():
+		var r := _find_claim(c)
+		if r != null:
+			return r
+	return null
+
+# the floating reward built by FX.floating_reward is the one HBox carrying z_index == FLOAT_Z (60).
+func _find_floater(n: Node) -> Control:
+	if n is HBoxContainer and (n as Control).z_index == 60:
+		return n
+	for c in n.get_children():
+		var r := _find_floater(c)
+		if r != null:
+			return r
+	return null
+
+func _is_descendant(node: Node, ancestor: Node) -> bool:
+	var p := node.get_parent()
+	while p != null:
+		if p == ancestor:
+			return true
+		p = p.get_parent()
+	return false
 
 func _initialize() -> void:
 	print("== Inbox tests ==")
@@ -128,6 +158,62 @@ func _initialize() -> void:
 		if String(m.get("id", "")) == "welcome":
 			after = String(m.get("icon", ""))
 	ok(after == "news", "migration runs once — a later icon change is not reverted")
+
+	# 8. CLAIM FEEDBACK (UI): claiming a gift plays its reward celebration ABOVE the modal — the
+	#    floating-reward node must live inside the z=100 mailbox overlay, not behind it. Regression:
+	#    the celebration was attached to the map host at z=60, hidden under the veil, so a real claim
+	#    granted the coins but looked like a dead button.
+	fresh("uifx")
+	Features.FLAGS["celebrate_bursts"] = true
+	Features.FLAGS["floaters"] = true
+	Inbox.messages()                               # seed welcome + starter_gift (100 coins)
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	await process_frame
+	InboxUI.open(host)
+	for _i in 4:
+		await process_frame
+	var overlay: Control = null
+	for c in host.get_children():
+		if c is Control and (c as Control).z_index == 100:
+			overlay = c
+	ok(overlay != null, "opening the mailbox adds a z=100 modal overlay")
+	var claim := _find_claim(host)
+	ok(claim != null, "the unclaimed 100-coin gift renders a Claim button")
+	if claim != null:
+		claim.pressed.emit()
+	for _i in 4:
+		await process_frame
+	var floater := _find_floater(host)
+	ok(floater != null, "claiming plays a floating reward celebration")
+	ok(floater != null and overlay != null and _is_descendant(floater, overlay),
+		"the claim celebration renders inside the z=100 overlay (above the veil), not behind it")
+	host.queue_free()
+	await process_frame
+
+	# 9. CLAIM REFRESH (UI): Save has no change signal — the HUD wallet is pull-based — so a claim must
+	#    fire the host's refresh hook to re-read the currency bar. Regression: the inbox ignored any
+	#    refresh callback, so granted coins never showed on the bar until an unrelated HUD rebuild.
+	fresh("uirefresh")
+	Inbox.messages()                               # seed welcome + starter_gift (100 coins)
+	var rhost := Control.new()
+	rhost.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(rhost)
+	await process_frame
+	var refreshed := [0]
+	InboxUI.open(rhost, {"refresh": func() -> void: refreshed[0] += 1})
+	for _i in 4:
+		await process_frame
+	var rclaim := _find_claim(rhost)
+	ok(rclaim != null, "the gift renders a Claim button (refresh test)")
+	if rclaim != null:
+		rclaim.pressed.emit()
+	for _i in 4:
+		await process_frame
+	ok(refreshed[0] > 0, "claiming fires the host refresh hook so the currency bar re-reads the wallet")
+	rhost.queue_free()
+	await process_frame
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

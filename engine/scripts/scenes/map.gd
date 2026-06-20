@@ -1603,12 +1603,15 @@ func _claim_free_gems() -> void:
 	_refresh_liveops_badges()
 
 # Inbox rail tap (GUARDED): open the parallel mailbox modal via load() so this worktree never hard-
-# depends on a system it doesn't own. Refreshes the unread badge on close.
+# depends on a system it doesn't own. A claim's refresh hook re-reads the wallet + unread badge (Save
+# has no change signal — the HUD is pull-based), mirroring the daily calendar's refresh.
 func _open_inbox() -> void:
 	if not _has_inbox:
 		return
 	Audio.play("button_tap", -2.0)
-	load("res://engine/scripts/ui/inbox.gd").open(self)
+	load("res://engine/scripts/ui/inbox.gd").open(self, {"refresh": func() -> void:
+		_update_hud()
+		_refresh_liveops_badges()})
 	# refresh deferred so a modal that grants on open settles before we re-read the count
 	_refresh_liveops_badges.call_deferred()
 

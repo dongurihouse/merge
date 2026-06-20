@@ -9,6 +9,7 @@ extends SceneTree
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
 
 var _pass := 0
 var _fail := 0
@@ -86,6 +87,19 @@ func _initialize() -> void:
 		if tex == null or not _has_transparent_corner(tex):
 			opaque += 1
 	ok(opaque == 0, "all %d badges are alpha-cut (transparent corners, no square backing)" % count)
+
+	# --- the level popup is idempotent: one overlay per host -------------------------
+	# emulate_touch_from_mouse (project.godot) makes a single tap deliver BOTH a mouse and a
+	# touch event, so the HUD badge's gui_input fires on_level TWICE in one frame. Two stacked,
+	# identical overlays look like the dialog "won't close" — you must dismiss it twice. open()
+	# must guard against that and keep exactly one overlay alive per host.
+	var host := Control.new()
+	get_root().add_child(host)
+	var ov1 := LevelPopup.open(host)
+	var ov2 := LevelPopup.open(host)   # the duplicate emulated event, same frame
+	ok(host.get_child_count() == 1, "double-fire opens ONE overlay, not two (got %d)" % host.get_child_count())
+	ok(ov1 == ov2, "the second open returns the existing overlay")
+	host.free()
 
 	# Badges absent -> the frame is null and the HUD shows the honey-token coin; no ring.
 	Look._badge_cfg = {"badge_count": 16, "levels_per_tier": 3, "dir": "no_such_dir", "prefix": "x_"}
