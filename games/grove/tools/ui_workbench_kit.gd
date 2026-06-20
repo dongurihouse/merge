@@ -953,9 +953,13 @@ static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool)
 		p.emitting = true
 	return root
 
-## A code-generated 4-point sparkle star (warm-white core + a soft DARK rim) — the twinkle sprite. The
-## rim is what lets a twinkle read on LIGHT backgrounds (a bare bright star washes out on the cream disc /
-## bright map); on dark backgrounds the rim is invisible and the bright core pops. Cached.
+## A code-generated SPARKLE sprite — a hot round core, 4 main points, and 4 short diagonal rays, all
+## warm-white so the gold color-ramp tints it (see _sparkle_overlay). There is NO dark outline: the old
+## dark contrast-rim read as a "hollow plus" on the light cream unlock disc — the warm fill washed into
+## the cream, leaving only the dark rim visible (a plus-shaped outline). Light-background contrast now
+## comes from the gold GLOW halo drawn behind the twinkles (the disc runs glow≈0.8) plus the saturated
+## ramp; on dark backgrounds the bright core simply pops. The diagonal rays make it read as a twinkle,
+## not a bare plus. Cached.
 static var _star_tex: Texture2D = null
 static func _star_texture() -> Texture2D:
 	if _star_tex != null:
@@ -963,23 +967,29 @@ static func _star_texture() -> Texture2D:
 	var n := 48
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	var c := n / 2.0
+	const SQ := 0.7071068                                       # 1/sqrt(2): rotate into the diagonal frame
 	for y in n:
 		for x in n:
 			var dx: float = (x - c + 0.5) / c
 			var dy: float = (y - c + 0.5) / c
+			var ax: float = absf(dx)
+			var ay: float = absf(dy)
 			var dist: float = sqrt(dx * dx + dy * dy)
-			var hx: float = clampf(1.0 - absf(dx), 0.0, 1.0) * clampf(1.0 - absf(dy) * 7.0, 0.0, 1.0)
-			var vy: float = clampf(1.0 - absf(dy), 0.0, 1.0) * clampf(1.0 - absf(dx) * 7.0, 0.0, 1.0)
-			var core: float = clampf(1.0 - dist * 2.2, 0.0, 1.0)
-			var a: float = clampf(maxf(maxf(hx, vy), core * core), 0.0, 1.0)
-			# a soft round backing just larger than the star; the part OUTSIDE the star is a dark rim that
-			# gives the twinkle contrast on light backgrounds (over dark, its low alpha simply disappears).
-			var disc: float = clampf(1.0 - dist * 1.15, 0.0, 1.0)
-			var rim: float = clampf(disc * disc - a, 0.0, 1.0) * 0.55
-			if a >= rim:
-				img.set_pixel(x, y, Color(1.0, 0.98, 0.88, a))      # warm-white star
-			else:
-				img.set_pixel(x, y, Color(0.16, 0.10, 0.03, rim))   # soft dark rim (contrast on light bg)
+			# the 4 main points (axis-aligned) — a touch wider than before (taper 6, was 7) so the fill
+			# reads as a body, not just a hairline edge that vanishes on cream.
+			var hx: float = clampf(1.0 - ax, 0.0, 1.0) * clampf(1.0 - ay * 6.0, 0.0, 1.0)
+			var vy: float = clampf(1.0 - ay, 0.0, 1.0) * clampf(1.0 - ax * 6.0, 0.0, 1.0)
+			# 4 short diagonal rays (the axis frame rotated 45°) — shorter + fainter, so the whole thing
+			# reads as a SPARKLE/twinkle rather than a plus sign.
+			var ux: float = (dx + dy) * SQ
+			var uy: float = (dx - dy) * SQ
+			var d1: float = clampf(1.0 - absf(ux) * 1.8, 0.0, 1.0) * clampf(1.0 - absf(uy) * 12.0, 0.0, 1.0)
+			var d2: float = clampf(1.0 - absf(uy) * 1.8, 0.0, 1.0) * clampf(1.0 - absf(ux) * 12.0, 0.0, 1.0)
+			var diag: float = maxf(d1, d2) * 0.5
+			# a hot round core where the rays meet — a solid bright centre reads as a shine, never hollow.
+			var core: float = clampf(1.0 - dist * 2.0, 0.0, 1.0)
+			var a: float = clampf(maxf(maxf(maxf(hx, vy), diag), core * core), 0.0, 1.0)
+			img.set_pixel(x, y, Color(1.0, 0.97, 0.86, a))      # warm-white; gold ramp tints, glow halo carries it on light bg
 	_star_tex = ImageTexture.create_from_image(img)
 	return _star_tex
 
