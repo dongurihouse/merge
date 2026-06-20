@@ -1025,6 +1025,21 @@ static func _style_scrollbar(scroll: ScrollContainer) -> void:
 ## banner band, or absent = ~30% across, centred), close_size (px), close_poke (Vector2 — how far the
 ## ✕ poles past the card's top-right corner). The banner icon ("DialogBannerIcon") and the ✕
 ## ("DialogClose") are NAMED so the workbench can make them mouse-draggable.
+## The shared frame's selectable BORDER art — a reusable registry so a dialog (or the Frame item's
+## Border picker) dresses the SAME frame mechanics in a different border. Each entry carries the
+## nine-patch art + its natural slice + content padding. dialog_frame resolves the chosen name into
+## panel_art / slice / pad DEFAULTS; explicit panel_art / card_slice_* / panel_pad_* opts still win,
+## so every existing caller (mail/daily/shop/settings on parchment; tiers on its own art) is unchanged.
+const FRAME_BORDERS := {
+	"parchment":  {"art": "kit/panel_parchment_v2.png", "slice": 48.0, "pad_x": 26.0, "pad_y": 24.0},
+	"vault twig": {"art": "kit/vault_panel.png",        "slice": 64.0, "pad_x": 40.0, "pad_y": 34.0},
+}
+
+## Resolve a border NAME to its {art, slice, pad_x, pad_y} record (unknown → parchment, so a stale
+## saved value never blanks the frame).
+static func frame_border(name: String) -> Dictionary:
+	return FRAME_BORDERS.get(name, FRAME_BORDERS["parchment"])
+
 ## The SHARED dialog frame — built ONCE and reused by every dialog (mail, daily, …). It draws the
 ## parchment card, the gold banner overlay (on top, draggable), the docked ✕, and the clipping scroll
 ## with a top spacer so `content` tucks behind the banner; one relayout caps the height, centres the
@@ -1040,10 +1055,13 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
 	var card_corner: float = float(opts.get("card_corner", 22.0))
 	var card_art: bool = bool(opts.get("card_art", false))
-	var sl_l: float = float(opts.get("card_slice_l", 48.0))
-	var sl_t: float = float(opts.get("card_slice_t", 48.0))
-	var sl_r: float = float(opts.get("card_slice_r", 48.0))
-	var sl_b: float = float(opts.get("card_slice_b", 48.0))
+	# the BORDER option supplies panel_art / slice / pad DEFAULTS; explicit opts still override (so
+	# mail/daily/shop/settings — which pass no border — stay byte-identical on parchment).
+	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
+	var sl_l: float = float(opts.get("card_slice_l", border["slice"]))
+	var sl_t: float = float(opts.get("card_slice_t", border["slice"]))
+	var sl_r: float = float(opts.get("card_slice_r", border["slice"]))
+	var sl_b: float = float(opts.get("card_slice_b", border["slice"]))
 	var hstr: int = int(opts.get("card_h_stretch", 0))
 	var vstr: int = int(opts.get("card_v_stretch", 0))
 	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
@@ -1057,9 +1075,9 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	# the frame's CHROME ART — defaults are the parchment border + mail ribbon + mail ✕ (mail/daily/shop
 	# pass nothing). A different dialog (e.g. tiers/discovery) overrides these to swap in its own border,
 	# banner ribbon and close disc, while reusing all the SAME frame mechanics (banner overlay, scroll, ✕).
-	var panel_art: String = String(opts.get("panel_art", "kit/panel_parchment_v2.png"))
-	var panel_pad_x: float = float(opts.get("panel_pad_x", 26.0))   # content inset from the border (L/R)
-	var panel_pad_y: float = float(opts.get("panel_pad_y", 24.0))   # content inset from the border (T/B)
+	var panel_art: String = String(opts.get("panel_art", border["art"]))
+	var panel_pad_x: float = float(opts.get("panel_pad_x", border["pad_x"]))   # content inset from the border (L/R)
+	var panel_pad_y: float = float(opts.get("panel_pad_y", border["pad_y"]))   # content inset from the border (T/B)
 	var banner_art: String = String(opts.get("banner_art", "mail/mail_banner.png"))
 	var banner_icon_id: String = String(opts.get("banner_icon_id", "mail"))
 	var close_art: String = String(opts.get("close_art", "kit/mail_close.png"))
