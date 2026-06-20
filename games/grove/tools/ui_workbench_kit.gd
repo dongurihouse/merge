@@ -886,19 +886,28 @@ static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if glow > 0.0:
 		var hsz := px * 1.7
-		var halo := TextureRect.new()
-		halo.texture = _glow_texture()
-		halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		halo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		halo.custom_minimum_size = Vector2(hsz, hsz)
-		halo.size = Vector2(hsz, hsz)
-		halo.position = Vector2((px - hsz) / 2.0, (px - hsz) / 2.0)
-		var mat := CanvasItemMaterial.new()
-		mat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD       # additive → it BLOOMS, doesn't flatten the disc
-		halo.material = mat
-		halo.modulate = Color(1, 1, 1, clampf(glow, 0.0, 1.0))
-		root.add_child(halo)
+		var gtex := _glow_texture()
+		# one soft radial halo, twice: a NORMAL-blend warm tint first (so the glow reads on LIGHT
+		# backgrounds — additive has no headroom on the near-white disc / bright map), then the ADDITIVE
+		# bloom on top (which pops on DARK backgrounds: the workbench panel, dusk maps). g is 0..1.
+		var make_halo := func(additive: bool, alpha: float) -> TextureRect:
+			var h := TextureRect.new()
+			h.texture = gtex
+			h.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			h.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			h.custom_minimum_size = Vector2(hsz, hsz)
+			h.size = Vector2(hsz, hsz)
+			h.position = Vector2((px - hsz) / 2.0, (px - hsz) / 2.0)
+			if additive:
+				var m := CanvasItemMaterial.new()
+				m.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+				h.material = m
+			h.modulate = Color(1, 1, 1, clampf(glow, 0.0, 1.0) * alpha)
+			root.add_child(h)
+			return h
+		make_halo.call(false, 0.45)                              # warm tint (light-bg readable)
+		var halo: TextureRect = make_halo.call(true, 1.0)        # additive bloom (dark-bg pop)
 		if not calm:
 			halo.pivot_offset = Vector2(hsz, hsz) / 2.0
 			halo.tree_entered.connect(func() -> void:
@@ -927,11 +936,11 @@ static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool)
 		mat.initial_velocity_max = 12.0                     # a gentle outward drift
 		mat.angular_velocity_min = -40.0
 		mat.angular_velocity_max = 40.0
-		mat.scale_min = px * 0.0016
-		mat.scale_max = px * 0.0036
+		mat.scale_min = px * 0.0024
+		mat.scale_max = px * 0.0052
 		var ramp := Gradient.new()                          # twinkle in → out: a 0→1→0 alpha ramp over life
 		ramp.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
-		ramp.colors = PackedColorArray([Color(1, 0.95, 0.7, 0.0), Color(1, 0.93, 0.62, 1.0), Color(1, 0.95, 0.7, 0.0)])
+		ramp.colors = PackedColorArray([Color(1, 0.86, 0.5, 0.0), Color(1, 0.84, 0.42, 1.0), Color(1, 0.86, 0.5, 0.0)])
 		var gt := GradientTexture1D.new()
 		gt.gradient = ramp
 		mat.color_ramp = gt
@@ -940,7 +949,9 @@ static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool)
 		p.emitting = true
 	return root
 
-## A code-generated 4-point sparkle star (white, soft falloff) — the twinkle sprite. Cached.
+## A code-generated 4-point sparkle star (warm-white core + a soft DARK rim) — the twinkle sprite. The
+## rim is what lets a twinkle read on LIGHT backgrounds (a bare bright star washes out on the cream disc /
+## bright map); on dark backgrounds the rim is invisible and the bright core pops. Cached.
 static var _star_tex: Texture2D = null
 static func _star_texture() -> Texture2D:
 	if _star_tex != null:
@@ -952,11 +963,19 @@ static func _star_texture() -> Texture2D:
 		for x in n:
 			var dx: float = (x - c + 0.5) / c
 			var dy: float = (y - c + 0.5) / c
+			var dist: float = sqrt(dx * dx + dy * dy)
 			var hx: float = clampf(1.0 - absf(dx), 0.0, 1.0) * clampf(1.0 - absf(dy) * 7.0, 0.0, 1.0)
 			var vy: float = clampf(1.0 - absf(dy), 0.0, 1.0) * clampf(1.0 - absf(dx) * 7.0, 0.0, 1.0)
-			var core: float = clampf(1.0 - sqrt(dx * dx + dy * dy) * 2.2, 0.0, 1.0)
+			var core: float = clampf(1.0 - dist * 2.2, 0.0, 1.0)
 			var a: float = clampf(maxf(maxf(hx, vy), core * core), 0.0, 1.0)
-			img.set_pixel(x, y, Color(1, 1, 1, a))
+			# a soft round backing just larger than the star; the part OUTSIDE the star is a dark rim that
+			# gives the twinkle contrast on light backgrounds (over dark, its low alpha simply disappears).
+			var disc: float = clampf(1.0 - dist * 1.15, 0.0, 1.0)
+			var rim: float = clampf(disc * disc - a, 0.0, 1.0) * 0.55
+			if a >= rim:
+				img.set_pixel(x, y, Color(1.0, 0.98, 0.88, a))      # warm-white star
+			else:
+				img.set_pixel(x, y, Color(0.16, 0.10, 0.03, rim))   # soft dark rim (contrast on light bg)
 	_star_tex = ImageTexture.create_from_image(img)
 	return _star_tex
 
