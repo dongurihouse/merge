@@ -33,6 +33,9 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const Pal = Game.PALETTE
+# The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
+# home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
@@ -79,9 +82,7 @@ const VEIL_ART := "map/veil.png"                # generic painted-veil seam (per
 const CARD_ACTIVE := "map/card_active.png"
 const CARD_LOCKED := "map/card_locked.png"
 const CARD_PILL := "map/pill_left.png"
-const CARD_BACK := "map/back_arrow.png"
-const CARD_BACK_FRAME := "map/back_frame.png"   # the round gold ring + cream face + corner flower (map.png back button)
-const CARD_BACK_FRAME_ASPECT := 141.0 / 144.0
+const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
 const CARD_ASPECT := 1027.0 / 352.0       # card_active's aspect — cards size to it so the gold frame never distorts
 const CARD_PILL_ASPECT := 293.0 / 102.0   # pill_left's aspect
 # the locale art insets this fraction of card WIDTH inside the gold frame. Pixel-measured from
@@ -461,10 +462,41 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 	frame.add_child(t)
 	return t
 
-# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on
-# the building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N".
-# Decoration only (mouse-ignored); the spot's tap hit-area is the spot_hit node.
+# An unlock-cost restore badge (item 3 — the farm_ui mockup's round dashed cream disc), centered on the
+# building. An unowned spot shows badge_cost.png with a "+" stacked over the star cost "★ N". Built through
+# the grove kit from the workbench-saved style (disc size + proportions), so a tweak there flows here.
+# Rendered mouse-IGNORE to keep the map's single-input-surface invariant: the tap routes centrally via
+# _map_tap → spot_hits → _on_spot_tap (the buy), exactly as the baked badge did. Kit missing → that fallback.
 func _home_badge(z: int, k: int, b) -> Control:
+	var spot: Dictionary = G.MAPS[z].spots[k]
+	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
+	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return _home_badge_baked(z, k, b)             # engine fallback: the central spot-routing buys it
+	var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var d := _map_rect.size.x * float(opts.get("disc_pct", 16.0)) / 100.0   # diameter as a % of the map width
+	opts["px"] = d
+	opts["calm"] = FX.calm()                          # reduced-motion: freeze the sparkle to a static glow
+	# sparkle is opt-in via the workbench (glow/twinkle default 0 → no sparkle); when tuned up it draws the
+	# eye to a restorable spot. The overlay is mouse-ignored (and _force_ignore below seals the invariant).
+	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": true}, opts)
+	btn.size = Vector2(d, d)
+	btn.position = ctr - Vector2(d, d) * 0.5
+	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
+	return btn
+
+# Force a control subtree mouse-transparent — the map routes every spot tap through its single input
+# surface, so any seated affordance (the kit unlock disc) must not eat the press before _map_tap.
+func _force_ignore(n: Control) -> void:
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for c in n.get_children():
+		if c is Control:
+			_force_ignore(c)
+
+# The baked code-drawn restore badge — the engine fallback when the grove kit can't load. Decoration only
+# (mouse-ignored); the spot's tap is then routed centrally via _map_tap → spot_hits → _on_spot_tap.
+func _home_badge_baked(z: int, k: int, b) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
@@ -1410,62 +1442,26 @@ func _build_chrome() -> void:
 	add_child(_select_back)
 	_select_back.visible = false
 
-# The round back button for the place-picker (map.png reference): the brown arrow (back_arrow) centred
-# on the gold-ring + cream-face disc (back_frame, its corner flower baked in). Falls back to the
-# shared round chrome / an INK disc when the framed art is absent. Pinned bottom-left; its press
-# returns to the last-viewed map.
+# The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
+# bottom nav + the live-ops rail build from — the cream/gold disc tuned in the workbench — so a button
+# tweak (size · shell · icon scale · polish) flows here too. It just carries the back-arrow icon
+# (CARD_BACK, outside the icon_<id> convention → passed as icon_rel) and no caption. Pinned bottom-left;
+# its press returns to the last-viewed map. Falls back to a bare disc when the kit can't load.
 func _make_back_button(sb: float) -> Button:
-	var px := 128.0
-	var bh := px / CARD_BACK_FRAME_ASPECT
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, bh)
-	var frame_path := Look.kit(CARD_BACK_FRAME)
-	if ResourceLoader.exists(frame_path):
-		# a round disc, NOT a 9-slice — no texture margins, so the ring scales whole (no corner stretch).
-		var st := StyleBoxTexture.new()
-		st.texture = load(frame_path)
-		b.add_theme_stylebox_override("normal", st)
-		b.add_theme_stylebox_override("hover", st)
-		b.add_theme_stylebox_override("pressed", st)
-	elif ResourceLoader.exists(Look.kit("shared/btn_round.png")):
-		var st2 := StyleBoxTexture.new()
-		st2.texture = load(Look.kit("shared/btn_round.png"))
-		st2.set_texture_margin_all(24.0)
-		b.add_theme_stylebox_override("normal", st2)
-		b.add_theme_stylebox_override("hover", st2)
-		b.add_theme_stylebox_override("pressed", st2)
+	var px := _rail_px                       # the workbench-saved disc size (shared with the rail + nav)
+	var back := func() -> void:
+		Audio.play("button_tap", -4.0)
+		_open_map(_map_idx)
+	var Kit: GDScript = load(RAIL_KIT_PATH)
+	var b: Button
+	if Kit != null:
+		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, _home_opts)
 	else:
-		var s := StyleBoxFlat.new()
-		s.bg_color = Color(INK, 0.6)
-		s.set_corner_radius_all(int(px * 0.5))
-		b.add_theme_stylebox_override("normal", s)
-		b.add_theme_stylebox_override("hover", s)
-		b.add_theme_stylebox_override("pressed", s)
-	var arrow_path := Look.kit(CARD_BACK)
-	if ResourceLoader.exists(arrow_path):
-		var ar := TextureRect.new()
-		ar.texture = load(arrow_path)
-		# centre the arrow on the cream FACE — the gold ring's circle centre is ~(0.46, 0.45) of the
-		# bbox (just up-left of centre because the baked flower bumps the bottom-right). A fixed box there.
-		var aw := px * 0.42
-		var ah := bh * 0.42
-		ar.position = Vector2(px * 0.46 - aw * 0.5, bh * 0.45 - ah * 0.5)
-		ar.size = Vector2(aw, ah)
-		ar.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ar.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(ar)
-	else:
-		var g := Label.new()
-		g.text = "◀"
-		g.add_theme_font_size_override("font_size", 34)
-		g.add_theme_color_override("font_color", BARK)
-		g.set_anchors_preset(Control.PRESET_FULL_RECT)
-		g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(g)
+		b = Button.new()                     # defensive fallback (kit absent): a bare disc
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(px, px)
+		Look.add_press_juice(b)
+		b.pressed.connect(back)
 	b.anchor_left = 0.0
 	b.anchor_right = 0.0
 	b.anchor_top = 1.0
@@ -1473,11 +1469,7 @@ func _make_back_button(sb: float) -> Button:
 	b.offset_left = 22.0
 	b.offset_right = 22.0 + px
 	b.offset_bottom = -(sb + 30.0)
-	b.offset_top = b.offset_bottom - bh
-	Look.add_press_juice(b)
-	b.pressed.connect(func() -> void:
-		Audio.play("button_tap", -4.0)
-		_open_map(_map_idx))
+	b.offset_top = b.offset_bottom - px
 	return b
 
 # The LIVE-OPS RAIL — a CALM vertical column of round badge-buttons pinned TOP-RIGHT, below the
