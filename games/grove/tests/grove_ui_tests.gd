@@ -427,6 +427,51 @@ func _initialize() -> void:
 	ok("12" in texts and "345" in texts and "6" in texts, "currency_pill preview renders the sample counts")
 	pill.queue_free()
 
+	# 28. the map-SELECT place-picker CARD (spec §8) is now CONFIG-DRIVEN through the shared kit: the
+	# workbench saves a "map_card" block, Kit.map_card_opts_from_config resolves it (the shipped §8
+	# constants as defaults), and map.gd builds EVERY place-picker card from Kit.map_card. The DEFAULTS
+	# must equal the shipped constants so an absent/empty config renders the SHIPPED card byte-for-byte.
+	var md: Dictionary = Kit.map_card_opts_from_config({})
+	ok(is_equal_approx(float(md.frame_inset), 0.045) and is_equal_approx(float(md.art_radius), 0.058), \
+		"map_card default frame inset / art radius == shipped (0.045 / 0.058)")
+	ok(is_equal_approx(float(md.pill_w_frac), 0.30) and is_equal_approx(float(md.pill_min), 170.0) \
+		and is_equal_approx(float(md.pill_max), 290.0) and is_equal_approx(float(md.pill_y_frac), 0.13), \
+		"map_card default count-pill metrics == shipped")
+	ok(is_equal_approx(float(md.veil_scrim), 0.42) and is_equal_approx(float(md.veil_deep), 0.66) \
+		and is_equal_approx(float(md.veil_mark_alpha), 0.16) and is_equal_approx(float(md.veil_mark_size), 64.0), \
+		"map_card default fog-veil look == shipped (§8)")
+	ok(bool(md.use_art), "map_card defaults to the painted art (use_art)")
+	# a saved block overrides ONLY the named keys; every other key stays at its shipped default
+	var mover: Dictionary = Kit.map_card_opts_from_config({"map_card": {"frame_inset": 80, "pill_min": 99}})
+	ok(is_equal_approx(float(mover.frame_inset), 0.080) and is_equal_approx(float(mover.pill_min), 99.0), \
+		"map_card config overrides the named keys")
+	ok(is_equal_approx(float(mover.art_radius), 0.058), "map_card config leaves un-named keys at the shipped default")
+	# the standalone OPEN card wears the gold frame + the 'N left' pill and has NO fog veil…
+	var mh: float = 460.0 / Kit.MAP_CARD_ASPECT
+	var open_card: Control = Kit.map_card({"open": true, "done": false, "art": "", "stars_left": 4, "map_id": ""}, md, 460.0, mh)
+	get_root().add_child(open_card)
+	await create_timer(0.05).timeout
+	ok(_has_tex_suffix(open_card, "card_active.png"), "map_card OPEN wears the gold frame (card_active)")
+	ok("4 left" in str(_all_label_texts(open_card)), "map_card OPEN shows the 'N left' restore pill")
+	ok(open_card.find_child("Veil", true, false) == null, "map_card OPEN has NO fog veil")
+	open_card.queue_free()
+	# …and the LOCKED card wears the dark panel + the 'after <prev>' line, no gold frame.
+	var locked_card: Control = Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after Meadow", "map_id": ""}, md, 460.0, mh)
+	get_root().add_child(locked_card)
+	await create_timer(0.05).timeout
+	ok(_has_tex_suffix(locked_card, "card_locked.png"), "map_card LOCKED wears the dark panel (card_locked)")
+	ok("after" in str(_all_label_texts(locked_card)), "map_card LOCKED shows the 'after <prev>' line")
+	ok(not _has_tex_suffix(locked_card, "card_active.png"), "map_card LOCKED has NO gold frame")
+	locked_card.queue_free()
+	# with the painted art OFF, the locked card falls back to the §8 code-drawn fog veil (the moved kit code)
+	var mcode: Dictionary = md.duplicate()
+	mcode["use_art"] = false
+	var locked_code: Control = Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": "meadow"}, mcode, 460.0, mh)
+	get_root().add_child(locked_code)
+	await create_timer(0.05).timeout
+	ok(locked_code.find_child("Veil", true, false) != null, "map_card LOCKED w/o art falls back to the §8 fog veil")
+	locked_code.queue_free()
+
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
 	finish()
 
@@ -439,3 +484,15 @@ func _all_label_texts(n: Node) -> Array:
 	for c in n.get_children():
 		out.append_array(_all_label_texts(c))
 	return out
+
+## True iff any TextureRect under `n` (depth-first) carries a texture whose path ends with `suffix` —
+## names a shipped frame by its kit file without depending on node names (mirrors mapfx_tests._has_tex).
+func _has_tex_suffix(n: Node, suffix: String) -> bool:
+	if n is TextureRect:
+		var t := (n as TextureRect).texture
+		if t != null and String(t.resource_path).ends_with(suffix):
+			return true
+	for c in n.get_children():
+		if _has_tex_suffix(c, suffix):
+			return true
+	return false
