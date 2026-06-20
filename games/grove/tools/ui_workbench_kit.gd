@@ -189,16 +189,22 @@ static func demo_shop() -> Array:
 ## Resolve an icon id to a real sprite Control. Most ids ride the shared Look.icon; "bluegem" is the
 ## faceted premium gem (not the grove's acorn), loaded directly.
 static func make_icon(id: String, px: float) -> Control:
-	var tex := _icon_tex(id)               # polished (defringe + feather), via the shared resolver
-	if tex != null:
-		var t := TextureRect.new()
-		t.texture = tex
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	return Look.icon(id, px)               # glyph fallback when no sprite
+	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
+	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
+
+## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
+## box by its own aspect. Returns null when the texture is absent (the caller supplies the glyph fallback).
+## make_icon (id lookup) and home_button's icon_rel (direct kit path) both build through this one layout.
+static func _icon_rect(tex: Texture2D, px: float) -> Control:
+	if tex == null:
+		return null
+	var t := TextureRect.new()
+	t.texture = tex
+	t.custom_minimum_size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 ## The home button's BADGE (disc shell) as a texture, with its own tunable edge polish — the standalone
 ## Badge workbench item edits `polish` (defringe / feather / shadow) and the home button reads it, so a
@@ -656,8 +662,9 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 ## twinkles — no baked FX). Badges are attached by the caller (Look.attach_badge) since their visibility
 ## is game-state driven. The side rail AND the bottom nav both build through this, so a workbench tweak
 ## (size · icon scale · caption · sparkle amount) flows to both.
-##   spec (per-instance content): icon (id) · caption (visible tab text, "" = none) · action (Callable) ·
-##     sparkle (bool) · enabled (bool).
+##   spec (per-instance content): icon (id) OR icon_rel (a direct kit-relative png, for a mark outside the
+##     icon_<id> convention — e.g. the map back arrow) · caption (visible tab text, "" = none) ·
+##     action (Callable) · sparkle (bool) · enabled (bool).
 ##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
 ##     caption_font · caption_gap · glow (0..1) · twinkle (0..1) · calm (bool).
 const HOME_SHELL := "shared/disc_round.png"
@@ -700,7 +707,12 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var icwrap := CenterContainer.new()
 	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icwrap.add_child(make_icon(String(spec.get("icon", "")), px * float(opts.get("icon_scale", 0.5))))
+	var icon_px := px * float(opts.get("icon_scale", 0.5))
+	# icon_rel (a direct kit-relative png) wins over the icon id — same polish + square layout either way.
+	var icon_rel := String(spec.get("icon_rel", ""))
+	var icon_node: Control = _icon_rect(clean_tex_path(Look.kit(icon_rel), 192), icon_px) if icon_rel != "" else make_icon(String(spec.get("icon", "")), icon_px)
+	if icon_node != null:
+		icwrap.add_child(icon_node)
 	b.add_child(icwrap)
 	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 	var caption := String(spec.get("caption", ""))
@@ -718,6 +730,85 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		capwrap.add_child(cap)
 		b.add_child(capwrap)
+	Look.add_press_juice(b)
+	if spec.has("action") and (spec.get("action") as Callable).is_valid():
+		b.pressed.connect(spec.get("action"))
+	return b
+
+## --- the HOME UNLOCK BUTTON: the round restore-cost disc on an unowned home spot -----------------
+## A sibling of the home button: the dashed cream cost disc (map/badge_cost.png) carrying a centred "+"
+## stacked over the cost row (a currency icon + the number). The map's unowned spots build through this,
+## so a workbench tweak (disc size · "+" scale · icon scale · cost font · gaps) flows to the live map.
+##   spec (per-instance content): cost (int) · icon (currency id; "star") · action (Callable) · enabled.
+##   opts (shared STYLE — see home_unlock_opts_from_config): px (diameter, set by the caller) ·
+##     plus_scale / icon_scale / cost_font / stack_gap / icon_gap (all 0..1 fractions of the disc).
+const HOME_UNLOCK_SHELL := "map/badge_cost.png"
+const HOME_UNLOCK_INK := Color("#6E4E25")   # the engraved brown of the "+" and the cost number
+
+static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
+	var px: float = float(opts.get("px", 173.0))
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.disabled = not bool(spec.get("enabled", true))
+	# the cost disc: the sliced round badge sprite scaled WHOLE (a round disc 9-slices badly), or a flat
+	# code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
+	var shell_path := Look.kit(HOME_UNLOCK_SHELL)
+	var shell: Texture2D = load(shell_path) if ResourceLoader.exists(shell_path) else null
+	for st_name in ["normal", "hover", "pressed", "disabled"]:
+		if shell != null:
+			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
+			stx.texture = shell
+			if st_name == "pressed":
+				stx.modulate_color = Color(0.9, 0.9, 0.9)
+			elif st_name == "disabled":
+				stx.modulate_color = Color(0.72, 0.72, 0.72)
+			b.add_theme_stylebox_override(st_name, stx)
+		else:
+			var s := StyleBoxFlat.new()
+			s.bg_color = Color(Pal.CREAM, 0.95)
+			s.set_corner_radius_all(int(px * 0.5))
+			s.set_border_width_all(3)
+			s.border_color = Pal.STRAW
+			b.add_theme_stylebox_override(st_name, s)
+	# the SPARKLE sits BEHIND the +/cost (added first → drawn under), only if asked AND tuned > 0 — the
+	# same engine-drawn glow + twinkles the home button uses (no baked art). calm freezes it.
+	if bool(spec.get("sparkle", false)):
+		var glow: float = float(opts.get("glow", 0.0))
+		var tw: float = float(opts.get("twinkle", 0.0))
+		if glow > 0.0 or tw > 0.0:
+			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
+	# the "+" stacked over the cost row, centred on the disc (mouse-transparent so the Button is the only
+	# hit surface). All metrics are fractions of the disc, so the stack scales with px.
+	var col := VBoxContainer.new()
+	col.set_anchors_preset(Control.PRESET_FULL_RECT)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(round(px * float(opts.get("stack_gap", -0.01)))))
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(col)
+	var plus := Label.new()
+	plus.text = "+"
+	plus.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("plus_scale", 0.30)))))
+	plus.add_theme_color_override("font_color", HOME_UNLOCK_INK)
+	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(plus)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", maxi(0, int(round(px * float(opts.get("icon_gap", 0.02))))))
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(row)
+	var ic := Look.icon(String(spec.get("icon", "star")), px * float(opts.get("icon_scale", 0.26)))
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(ic)
+	var lbl := Label.new()
+	lbl.text = "%d" % int(spec.get("cost", 0))
+	lbl.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("cost_font", 0.26)))))
+	lbl.add_theme_color_override("font_color", HOME_UNLOCK_INK)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
 	Look.add_press_juice(b)
 	if spec.has("action") and (spec.get("action") as Callable).is_valid():
 		b.pressed.connect(spec.get("action"))
@@ -1298,7 +1389,9 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(center)
-	if milestone:
+	if d.has("node") and d.node != null:
+		center.add_child(d.node as Control)   # a GAME-injected hero (real piece preview, a 2-currency bundle, …)
+	elif milestone:
 		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.56))
 	elif d.has("reward"):
 		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56))   # icon a touch bigger (no number)
@@ -1353,6 +1446,8 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		co["font"] = claim_font
 		co["icon_size"] = int(claim_font + 8 * s)   # the currency glyph scales with the button font too
 		var btn := pill_button(act_text, co)
+		if d.has("affordable") and not bool(d.get("affordable", true)):
+			btn.modulate = Color(1, 1, 1, 0.45)   # can't afford → the buy CTA greys (still pressable: wallet wiggles)
 		if act_cb.is_valid():
 			btn.pressed.connect(func() -> void: act_cb.call())
 		act_node = btn
@@ -1369,11 +1464,28 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		act_wrap.add_child(act_node)
 		inner.add_child(act_wrap)
 
-	# the optional INFO icon — a small "i" disc pinned to the TOP-RIGHT corner (a togglable design knob)
-	if bool(opts.get("info_icon", false)):
+	# the optional INFO badge — top-right. A card's `on_info` Callable makes it an INTERACTIVE "i" button
+	# (a tap opens the game's detail sheet, without buying); otherwise the design-time `info_icon` toggle
+	# shows a static disc. The icon scales/positions with the card like everything else.
+	var on_info: Callable = d.get("on_info", Callable())
+	if on_info.is_valid() or bool(opts.get("info_icon", false)):
 		var ip: float = maxf(14.0, cw * 0.2)
 		var im: float = 6.0 * s                       # corner margin scales with the card too
-		var info := _kit_sprite("shared/icon_question.png", ip)
+		var info: Control
+		if on_info.is_valid():
+			var ib := Button.new()
+			ib.focus_mode = Control.FOCUS_NONE
+			var itex := clean_tex_path(Look.kit("shared/icon_question.png"), 192)
+			if itex != null:
+				var ist := StyleBoxTexture.new(); ist.texture = itex
+				ib.add_theme_stylebox_override("normal", ist)
+				ib.add_theme_stylebox_override("hover", ist)
+				var isp: StyleBoxTexture = ist.duplicate(); isp.modulate_color = Color(0.85, 0.85, 0.85)
+				ib.add_theme_stylebox_override("pressed", isp)
+			ib.pressed.connect(func() -> void: on_info.call())
+			info = ib
+		else:
+			info = _kit_sprite("shared/icon_question.png", ip)
 		info.anchor_left = 1.0; info.anchor_right = 1.0
 		info.anchor_top = 0.0; info.anchor_bottom = 0.0
 		info.offset_left = -(ip + im); info.offset_right = -im
@@ -1992,6 +2104,25 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
+	}
+
+## The HOME-UNLOCK style opts from a saved config — the restore-cost disc on an unowned home spot.
+## disc_pct is the disc diameter as a % of the MAP width (the caller multiplies it by its own width and
+## sets opts.px); plus_scale / icon_scale / cost_font / stack_gap / icon_gap are stored 0..100 and divided
+## here to the 0..1 fractions of the disc the builder wants (stack_gap may be negative — a tuck-up).
+static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var u: Dictionary = cfg.get("home_unlock_button", {}) if cfg is Dictionary else {}
+	return {
+		"disc_pct": float(u.get("disc_pct", 16)),
+		"plus_scale": float(u.get("plus_scale", 30)) / 100.0,
+		"icon_scale": float(u.get("icon_scale", 26)) / 100.0,
+		"cost_font": float(u.get("cost_font", 26)) / 100.0,
+		"stack_gap": float(u.get("stack_gap", -1)) / 100.0,
+		"icon_gap": float(u.get("icon_gap", 2)) / 100.0,
+		# the optional engine-drawn sparkle (glow halo + drifting twinkles), like the home button. Default 0
+		# → no sparkle, so the in-game disc is unchanged until a designer dials it up. calm added by caller.
+		"glow": float(u.get("glow", 0)) / 100.0,
+		"twinkle": float(u.get("twinkle", 0)) / 100.0,
 	}
 
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
