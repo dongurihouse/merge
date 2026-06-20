@@ -1942,6 +1942,7 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("card", {})
 	var strmap := {"stretch": 0, "tile": 1, "tile_fit": 2}
 	return {
+		"border": String(d.get("border", "parchment")),   # the shared Frame item's Border picker (default parchment)
 		"card_corner": float(d.get("card_corner", 22)),
 		"card_art": bool(d.get("card_art", true)),
 		"card_slice_l": float(d.get("card_slice_l", 40)),
