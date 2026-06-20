@@ -227,9 +227,10 @@ func _ready() -> void:
 	# drag-to-sell drop target (the fence stall is gone). shop_btn stays a member (§14 spotlight).
 	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the
 	# home/map screen uses, just fed different specs; the per-scene builder it used to duplicate is gone.
-	# Shop + Settings are the SHARED configurable home button (disc shell + icon — `home_icon`), exactly as
-	# the map's bottom bar; the prominent centre Home stays the baked button (mirrors the map's baked Play
-	# centre). The Bag + Merchant remain custom drag-drop wells (their drop-target role + overlays).
+	# Every button is the SHARED configurable home button (disc shell + icon). Shop/Settings/Home go through
+	# `home_icon`; the Bag + Merchant are still custom `make` wells (their drop-target role + live overlays),
+	# now built on the SAME home-button shell (_home_well) — house/bag/coin-sack icons lifted off the old
+	# baked nav buttons (extract_nav_icons.py) so they sit on the shared disc like the map's icons.
 	var nav := NavBar.build(self, [
 		# Shop — the currency store (unchanged action)
 		{"home_icon": "shop", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
@@ -242,7 +243,7 @@ func _ready() -> void:
 			SettingsUI.open(self)},
 		# Home — the centre, prominent button; the single affordance back to the Map. Lands on the
 		# map you were LAST decorating (last_map), NOT the hub — empty on a fresh save → frontier.
-		{"icon": "nav_home.png", "px": 184.0, "label": tr("Home"), "action": func() -> void:
+		{"home_icon": "house", "px": 184.0, "label": tr("Home"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_persist()
 			HomeScene.decorate_map = _decorate_target()
@@ -1168,11 +1169,24 @@ func _tray_well(px: float, art: String = "") -> Button:
 	Look.add_press_juice(b)
 	return b
 
+# The Bag/Merchant well, built on the SHARED home-button shell (cream/gold disc + the lifted icon) so it
+# matches the rest of the bar; the stash/sell preview overlays still ride on top and the drop is resolved
+# by global-rect, so a home-button disc is as good a target as the old wood well. Soft-loads the kit by
+# path (engine → game-tool bridge); falls back to the wood _tray_well if the kit can't load.
+func _home_well(px: float, icon_id: String, fallback_art: String) -> Button:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return _tray_well(px, fallback_art)
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["px"] = px
+	opts["calm"] = FX.calm()
+	return Kit.home_button({"icon": icon_id, "caption": "", "sparkle": false}, opts)
+
 # The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
-	var b := _tray_well(px, "nav_bag.png")     # the round satchel button IS the bag icon
+	var b := _home_well(px, "bag", "nav_bag.png")     # the home-button disc + the lifted satchel icon
 	bag_content = CenterContainer.new()        # CENTERS the most-recent stashed item over the satchel
 	bag_content.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var pad := px * 0.30
@@ -1190,7 +1204,7 @@ func _make_bag_button(px: float) -> Button:
 # While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);
 # a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
 func _make_merchant_button(px: float) -> Button:
-	var b := _tray_well(px, "nav_merchant.png")   # the round coin-sack button IS the merchant icon
+	var b := _home_well(px, "sack", "nav_merchant.png")   # the home-button disc + the lifted coin-sack icon
 	merchant_rest = null
 	merchant_pay = HBoxContainer.new()
 	merchant_pay.alignment = BoxContainer.ALIGNMENT_CENTER
