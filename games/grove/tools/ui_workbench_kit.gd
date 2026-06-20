@@ -1411,6 +1411,98 @@ static func _ribbon_badge(text: String, scale: float = 1.0) -> Control:
 	pop.add_child(l)
 	return pop
 
+## A reusable PROGRESS BAR — a rounded track with a honey fill clipped to `frac` (0..1). Art mode uses
+## the kit's prog_track / prog_fill capsules (scaled whole); else a code-drawn StyleBoxFlat track + fill
+## (the legacy look). opts: height (px), width (px), art (bool), label ("" = none; centered, e.g. "75%"),
+## star_knob (bool — a star sprite riding the fill head). Standalone so improving it lifts every site
+## (the Level dialog now; the home-screen unlock % later).
+static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
+	var h: float = float(opts.get("height", 20.0))
+	var f: float = clampf(frac, 0.0, 1.0)
+	var use_art: bool = bool(opts.get("art", true))
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(float(opts.get("width", 280.0)), h)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# --- track (whole-scaled capsule, or a code-drawn rounded panel) ---
+	var track_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_track.png"), 256) if use_art else null
+	if track_tex != null:
+		var t := TextureRect.new()
+		t.texture = track_tex
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(t)
+	else:
+		var track := Panel.new()
+		track.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var tsb := StyleBoxFlat.new()
+		tsb.bg_color = Color(Pal.INK, 0.12)
+		tsb.set_corner_radius_all(int(h * 0.5))
+		track.add_theme_stylebox_override("panel", tsb)
+		track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(track)
+	# --- fill: full-width sprite/panel revealed by a clip sized to `frac` (keeps the right cap rounded) ---
+	var fill_clip := Control.new()
+	fill_clip.clip_contents = true
+	fill_clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(fill_clip)
+	var fill_tex: Texture2D = clean_tex_path(Look.kit("kit/prog_fill.png"), 256) if use_art else null
+	var fill: Control
+	if fill_tex != null:
+		var fr := TextureRect.new()
+		fr.texture = fill_tex
+		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fr.stretch_mode = TextureRect.STRETCH_SCALE
+		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill = fr
+	else:
+		var fp := Panel.new()
+		var fsb := StyleBoxFlat.new()
+		fsb.bg_color = Pal.STRAW
+		fsb.set_corner_radius_all(int(h * 0.5))
+		fp.add_theme_stylebox_override("panel", fsb)
+		fp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fill = fp
+	fill_clip.add_child(fill)
+	var lay := func() -> void:
+		if not (is_instance_valid(holder) and is_instance_valid(fill_clip) and is_instance_valid(fill)):
+			return
+		var w := holder.size.x
+		var fw := maxf(h, w * f)             # at least a rounded nub so 0% still reads as a bar
+		fill_clip.position = Vector2.ZERO
+		fill_clip.size = Vector2(fw, h)
+		fill.position = Vector2.ZERO
+		fill.size = Vector2(w, h)            # fill keeps FULL width; the clip reveals only `frac` of it
+	# Layout is driven by ready/resized (which only fire once the bar is IN a tree) — NOT a bare
+	# call_deferred, so a bar built-and-freed before any layout (a discarded preview) can't fire a
+	# lambda over freed captures.
+	holder.resized.connect(lay)
+	holder.ready.connect(lay)
+	# --- optional star knob riding the fill head ---
+	if bool(opts.get("star_knob", false)):
+		var knob := make_icon("star", h * 1.4)
+		knob.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(knob)
+		var place := func() -> void:
+			if is_instance_valid(knob) and is_instance_valid(holder):
+				knob.position = Vector2(maxf(0.0, holder.size.x * f - h * 0.7), -h * 0.2)
+		holder.resized.connect(place)
+	# --- optional centered label (e.g. "75%") ---
+	var label := String(opts.get("label", ""))
+	if label != "":
+		var l := Label.new()
+		l.text = label
+		l.set_anchors_preset(Control.PRESET_FULL_RECT)
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.add_theme_font_size_override("font_size", int(h * 0.7))
+		l.add_theme_color_override("font_color", Pal.INK)
+		l.add_theme_constant_override("outline_size", 0)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(l)
+	return holder
+
 ## Draw a highlight rim/glow over a day card (see DAY_BADGES). A code-drawn border-only overlay (plus a
 ## coloured shadow for the "glow" styles) so it's a SAVED setting the workbench can switch, not baked art.
 static func _apply_day_badge(panel: Control, key: String) -> void:
@@ -1945,6 +2037,16 @@ static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
 		"defringe": bool(b.get("defringe", false)),
 		"feather": float(b.get("feather", 0)),
 		"shadow": bool(b.get("shadow", false)),
+	}
+
+## The reusable PROGRESS BAR's saved STYLE from config (height / art / star knob). The Level dialog and
+## the standalone workbench preview both read it from here.
+static func progress_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var p: Dictionary = cfg.get("progress_bar", {})
+	return {
+		"height": float(p.get("height", 20)),
+		"art": bool(p.get("art", true)),
+		"star_knob": bool(p.get("star_knob", false)),
 	}
 
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's

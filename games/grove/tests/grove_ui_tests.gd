@@ -428,6 +428,18 @@ func _initialize() -> void:
 	pill.queue_free()
 
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
+
+	# 27. progress_bar — the reusable kit bar (track + fill, optional centered label)
+	var KitP = load("res://games/grove/tools/ui_workbench_kit.gd")
+	for frac in [0.0, 0.5, 1.0]:
+		var bar: Control = KitP.progress_bar(float(frac), {"height": 20.0, "art": false})
+		ok(bar != null and bar is Control, "progress_bar builds at frac=%.1f" % float(frac))
+		bar.queue_free()
+	var labelled: Control = KitP.progress_bar(0.75, {"height": 22.0, "art": false, "label": "75%"})
+	get_root().add_child(labelled)
+	await create_timer(0.02).timeout
+	ok("75%" in _all_label_texts(labelled), "progress_bar shows its centered label")
+	labelled.queue_free()
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget

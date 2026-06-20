@@ -4,6 +4,11 @@
 		"feather": 2.0,
 		"shadow": false
 	},
+	"progress_bar": {
+		"height": 20,
+		"art": true,
+		"star_knob": false
+	},
 	"button": {
 		"art": true,
 		"font": 27.0,

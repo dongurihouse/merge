@@ -16,13 +16,13 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
+const IDS := ["button", "home_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "frame", "dialog", "daily", "shop", "tiers", "currency_pill", "settings"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"]],   # the building blocks
+	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["frame"], ["progress_bar"]],   # the building blocks
 	[["dialog"], ["daily"], ["shop"], ["tiers"], ["currency_pill"], ["settings"]],   # dialogs, the HUD wallet pill, settings
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -44,6 +44,7 @@ const TEST_KEYS := {
 	# The previewed icon, caption text + sparkle toggle are test props — each call site sets its own.
 	"home_button": ["icon", "caption", "sparkle"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
+	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
@@ -64,6 +65,7 @@ const CAPTIONS := {
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"badge": "Badge — disc shell (raw vs polished)",
+	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
 	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
@@ -87,6 +89,9 @@ var _params := {
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
+	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
+	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
+	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
 	"card": {"title": 20, "body": 15, "badge": "auto", "icon_badge": "disc light", "claim_text": "Claim", "icon_on": false, "icon": "gem"},
 	# the shared FRAME is its OWN standalone component (banner · card border/art · ✕ · scroll/list ·
 	# padding). EVERY dialog reuses it. width here is just for the frame's own preview; each dialog
@@ -285,6 +290,12 @@ func _make_element(id: String) -> Control:
 			box.add_child(_badge_preview("Raw", {}))
 			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "shadow": bool(p.shadow)}))
 			return box
+		"progress_bar":
+			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
+			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
+			var bar := Kit.progress_bar(float(p.frac) / 100.0, po)
+			bar.custom_minimum_size.x = 320
+			return bar
 		"card":
 			# the Claim inherits the shared Button's STYLE, but the card picks its OWN (saved) badge
 			# background + icon for it. Give the standalone preview a representative width — a real card
@@ -754,6 +765,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
+		"progress_bar":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
+			_sidebar_body.add_child(_toggle_row("Use art", "art"))
+			_sidebar_body.add_child(_toggle_row("Star knob", "star_knob"))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["frac", 0, 100]))   # preview the fill amount
 		"frame":
 			_frame_sidebar()         # the shared frame's own config (Card / Banner / Close / List)
 		"dialog":
