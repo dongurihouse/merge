@@ -1064,6 +1064,7 @@ func _save_settings() -> void:
 		return
 	f.store_string(JSON.stringify(out, "\t"))
 	f.close()
+	Kit.clear_config_cache(SETTINGS)   # so any live Kit reader picks up the new file (not the stale cache)
 	print("WORKBENCH: settings saved -> %s" % SETTINGS)
 
 ## Merge the saved file over the defaults, copying ONLY config keys present in both — so test

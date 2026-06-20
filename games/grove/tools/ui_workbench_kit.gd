@@ -1848,15 +1848,33 @@ static func _shop_sections(sections: Array, width: float, opts: Dictionary) -> C
 ## transform: change a setting in the workbench, save, and the game reads the very same config.
 
 ## Read the saved settings JSON into a config dict ({} if missing/garbage — callers fall back to defaults).
+## CACHED per path: a scene build calls this once PER widget (every home button, pill, dialog), so an
+## uncached read re-opened + re-parsed the file dozens of times per build. The config file is immutable
+## during play, so the cache holds for the session; the workbench clears it on Save (clear_config_cache).
+## The returned dict is treated as READ-ONLY by callers (every opts-builder duplicates before mutating).
+static var _config_cache: Dictionary = {}     # path -> parsed config Dictionary
+
 static func load_config(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		return {}
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var data = JSON.parse_string(f.get_as_text())
-	f.close()
-	return data if data is Dictionary else {}
+	if _config_cache.has(path):
+		return _config_cache[path]
+	var data: Dictionary = {}
+	if FileAccess.file_exists(path):
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f != null:
+			var parsed = JSON.parse_string(f.get_as_text())
+			f.close()
+			if parsed is Dictionary:
+				data = parsed
+	_config_cache[path] = data
+	return data
+
+## Drop the cached config so the next load_config re-reads from disk. Pass a path to clear just that
+## file, or nothing to clear all. The workbench calls this after writing the settings file.
+static func clear_config_cache(path := "") -> void:
+	if path == "":
+		_config_cache.clear()
+	else:
+		_config_cache.erase(path)
 
 ## The Claim / cost-pill STYLE opts: the Button's saved style (shadow / art / font / corner) + the
 ## Card's own badge, icon and claim label. (bg is NOT here — the kit fixes it by role: green Claim,
