@@ -223,6 +223,7 @@ static func _icon_rect(tex: Texture2D, px: float) -> Control:
 ## badge tweak flows to the rail + nav automatically. No polish → the raw (already-clean) shell sprite.
 ## `polish` keys: defringe (bool), feather (px), shadow (bool) + the add_drop_shadow knobs.
 static var _shell_cache: Dictionary = {}    # "rel@<polish-json>" -> polished disc texture (per session)
+const SHELL_CAP := 256                       # clean_tex_path cap for a baked disc shell (≈1.8x its 140px display)
 
 static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var path := Look.kit(rel)
@@ -233,6 +234,12 @@ static func shell_texture(rel: String, polish: Dictionary = {}) -> Texture2D:
 	var shad := bool(polish.get("shadow", false))
 	if not defr and feat <= 0.0 and not shad:
 		return load(path)                       # untouched → the raw shell (already cleaned at intake)
+	# Exactly the bakeable clean recipe (defringe + feather 2 + no shadow = the shipped home-button
+	# config)? Route through clean_tex_path so the disc loads PRE-BAKED (bake_targets builds the chrome)
+	# instead of paying the ~190ms live pass on every cold boot. Any richer polish (a drop shadow, a
+	# different feather) still takes the live _polish_icon_aspect path below.
+	if defr and is_equal_approx(feat, 2.0) and not shad:   # 2.0 = _clean_image's fixed feather
+		return clean_tex_path(path, SHELL_CAP)
 	# The polished disc is IDENTICAL for every button sharing this (rel, polish) — the bottom nav + rail
 	# build 5-8 of them per scene, and a map<->board swap rebuilds the whole row. The polish is a ~190ms
 	# CPU pass (Lanczos resize + defringe + feather), so an uncached call multiplied that by every button
