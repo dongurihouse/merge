@@ -391,19 +391,48 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 		out[i * 4 + 3] = al[i]
 	img.set_data(w, h, false, Image.FORMAT_RGBA8, out)
 
-## --- baked asset cleanup: defringe + feather 2, cached per asset (applied to every workbench sprite) ---
+## --- baked asset cleanup: defringe + feather 2, cached per (path, max_dim) ----------------------
+## The defringe/feather is a per-pixel GDScript pass; running it live on first use is what hitches a
+## dialog open (≈0.8s for the level screen's chrome). `make bake-textures` pre-runs the EXACT same
+## _clean_image() offline into a `baked/<subpath>@<max>.png` mirror; clean_tex_path loads that when
+## present, so the runtime pays only a plain texture load. A missing bake silently degrades to the
+## live polish below — correct, just slower on first open.
 static var _clean_cache: Dictionary = {}
 
+## The baked-mirror path for a source sprite at a given cap: `baked/<subpath under the assets root>`
+## with the cap tagged in the name (so one source baked at two caps stays two distinct files). A
+## source outside the assets root flattens to just its filename. Used by BOTH the runtime lookup
+## here and the bake tool, so the two always agree on where a baked file lives.
+static func baked_path(src: String, max_dim: int) -> String:
+	var root: String = Game.art("")
+	var rel := src.substr(root.length()) if root != "" and src.begins_with(root) else src.get_file()
+	var dir := rel.get_base_dir()
+	var tail := "%s@%d.png" % [rel.get_file().get_basename(), max_dim]
+	return Game.art("baked/" + (tail if dir == "" else dir + "/" + tail))
+
+## Drop the cleaned-texture cache (tests / teardown). Mirrors clear_async_cache / clear_config_cache.
+static func clear_clean_cache() -> void:
+	_clean_cache.clear()
+
 ## A cleaned version of a sprite: defringe (kill the rough-cut colour fringe) + feather 2 (smooth the
-## jagged edge). Cached by path so it runs once per asset. max_dim caps the working resolution.
+## jagged edge). Cached by (path, max_dim) so it runs once per asset+cap. max_dim caps the working res.
 static func clean_tex_path(path: String, max_dim: int = 256) -> Texture2D:
 	if path == "" or not ResourceLoader.exists(path):
 		return null
-	if _clean_cache.has(path):
-		return _clean_cache[path]
+	var key := "%s@%d" % [path, max_dim]
+	if _clean_cache.has(key):
+		return _clean_cache[key]
+	# pre-baked (make bake-textures): load the polished mirror directly — no per-pixel work.
+	var bp := baked_path(path, max_dim)
+	if ResourceLoader.exists(bp):
+		var baked := load(bp) as Texture2D
+		if baked != null:
+			_clean_cache[key] = baked
+			return baked
+	# live fallback: defringe + feather on the main thread (the first-open cost the bake removes).
 	var img := (load(path) as Texture2D).get_image()
 	var t := ImageTexture.create_from_image(_clean_image(img, max_dim))
-	_clean_cache[path] = t
+	_clean_cache[key] = t
 	return t
 
 static func _clean_image(src: Image, max_dim: int) -> Image:
