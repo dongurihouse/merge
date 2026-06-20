@@ -1656,7 +1656,7 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 	var span: int = maxi(1, int(data.get("span", 1)))
 	var frac: float = clampf(float(int(data.get("into", 0))) / float(span), 0.0, 1.0)
 	var bar := progress_bar(frac, opts.get("progress", {}))
-	bar.custom_minimum_size.x = width * 0.66
+	bar.custom_minimum_size.x = width * 0.78
 	col.add_child(bar)
 	# levelup → the earned reward row (cream chips); info → the "N more ★" hint line
 	if mode == "levelup":

@@ -5,7 +5,7 @@
 		"shadow": false
 	},
 	"progress_bar": {
-		"height": 20,
+		"height": 30,
 		"art": true,
 		"star_knob": false
 	},
@@ -99,8 +99,8 @@
 		"frame_slice": 56,
 		"frame_pad": 26,
 		"frame_top_pad": 70,
-		"medallion_px": 120,
-		"ring_dy": 0,
+		"medallion_px": 150,
+		"ring_dy": -6,
 		"tally_font": 28,
 		"hint_font": 22,
 		"gap": 14
