@@ -741,6 +741,13 @@ static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Butto
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW
 			b.add_theme_stylebox_override(st_name, s)
+	# the SPARKLE sits BEHIND the +/cost (added first → drawn under), only if asked AND tuned > 0 — the
+	# same engine-drawn glow + twinkles the home button uses (no baked art). calm freezes it.
+	if bool(spec.get("sparkle", false)):
+		var glow: float = float(opts.get("glow", 0.0))
+		var tw: float = float(opts.get("twinkle", 0.0))
+		if glow > 0.0 or tw > 0.0:
+			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
 	# the "+" stacked over the cost row, centred on the disc (mouse-transparent so the Button is the only
 	# hit surface). All metrics are fractions of the disc, so the stack scales with px.
 	var col := VBoxContainer.new()
@@ -1351,7 +1358,9 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.add_child(center)
-	if milestone:
+	if d.has("node") and d.node != null:
+		center.add_child(d.node as Control)   # a GAME-injected hero (real piece preview, a 2-currency bundle, …)
+	elif milestone:
 		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.56))
 	elif d.has("reward"):
 		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56))   # icon a touch bigger (no number)
@@ -1406,6 +1415,8 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		co["font"] = claim_font
 		co["icon_size"] = int(claim_font + 8 * s)   # the currency glyph scales with the button font too
 		var btn := pill_button(act_text, co)
+		if d.has("affordable") and not bool(d.get("affordable", true)):
+			btn.modulate = Color(1, 1, 1, 0.45)   # can't afford → the buy CTA greys (still pressable: wallet wiggles)
 		if act_cb.is_valid():
 			btn.pressed.connect(func() -> void: act_cb.call())
 		act_node = btn
@@ -1422,11 +1433,28 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		act_wrap.add_child(act_node)
 		inner.add_child(act_wrap)
 
-	# the optional INFO icon — a small "i" disc pinned to the TOP-RIGHT corner (a togglable design knob)
-	if bool(opts.get("info_icon", false)):
+	# the optional INFO badge — top-right. A card's `on_info` Callable makes it an INTERACTIVE "i" button
+	# (a tap opens the game's detail sheet, without buying); otherwise the design-time `info_icon` toggle
+	# shows a static disc. The icon scales/positions with the card like everything else.
+	var on_info: Callable = d.get("on_info", Callable())
+	if on_info.is_valid() or bool(opts.get("info_icon", false)):
 		var ip: float = maxf(14.0, cw * 0.2)
 		var im: float = 6.0 * s                       # corner margin scales with the card too
-		var info := _kit_sprite("shared/icon_question.png", ip)
+		var info: Control
+		if on_info.is_valid():
+			var ib := Button.new()
+			ib.focus_mode = Control.FOCUS_NONE
+			var itex := clean_tex_path(Look.kit("shared/icon_question.png"), 192)
+			if itex != null:
+				var ist := StyleBoxTexture.new(); ist.texture = itex
+				ib.add_theme_stylebox_override("normal", ist)
+				ib.add_theme_stylebox_override("hover", ist)
+				var isp: StyleBoxTexture = ist.duplicate(); isp.modulate_color = Color(0.85, 0.85, 0.85)
+				ib.add_theme_stylebox_override("pressed", isp)
+			ib.pressed.connect(func() -> void: on_info.call())
+			info = ib
+		else:
+			info = _kit_sprite("shared/icon_question.png", ip)
 		info.anchor_left = 1.0; info.anchor_right = 1.0
 		info.anchor_top = 0.0; info.anchor_bottom = 0.0
 		info.offset_left = -(ip + im); info.offset_right = -im
@@ -2060,6 +2088,10 @@ static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cost_font": float(u.get("cost_font", 26)) / 100.0,
 		"stack_gap": float(u.get("stack_gap", -1)) / 100.0,
 		"icon_gap": float(u.get("icon_gap", 2)) / 100.0,
+		# the optional engine-drawn sparkle (glow halo + drifting twinkles), like the home button. Default 0
+		# → no sparkle, so the in-game disc is unchanged until a designer dials it up. calm added by caller.
+		"glow": float(u.get("glow", 0)) / 100.0,
+		"twinkle": float(u.get("twinkle", 0)) / 100.0,
 	}
 
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of

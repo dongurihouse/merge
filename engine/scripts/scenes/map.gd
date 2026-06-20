@@ -477,7 +477,10 @@ func _home_badge(z: int, k: int, b) -> Control:
 	var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var d := _map_rect.size.x * float(opts.get("disc_pct", 16.0)) / 100.0   # diameter as a % of the map width
 	opts["px"] = d
-	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star"}, opts)
+	opts["calm"] = FX.calm()                          # reduced-motion: freeze the sparkle to a static glow
+	# sparkle is opt-in via the workbench (glow/twinkle default 0 → no sparkle); when tuned up it draws the
+	# eye to a restorable spot. The overlay is mouse-ignored (and _force_ignore below seals the invariant).
+	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": true}, opts)
 	btn.size = Vector2(d, d)
 	btn.position = ctr - Vector2(d, d) * 0.5
 	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
