@@ -16,14 +16,14 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "frame", "dialog", "daily", "shop"]
+const IDS := ["button", "home_button", "icon", "badge", "card", "daily_card", "tiers_card", "frame", "dialog", "daily", "shop", "tiers"]
 # Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
 # column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
 # elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["frame"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"]],                                            # every dialog, one column
+	[["home_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card"], ["frame"]],   # the building blocks
+	[["dialog"], ["daily"], ["shop"], ["tiers"]],                                 # every dialog, one column
 ]
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -47,10 +47,12 @@ const TEST_KEYS := {
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
+	"tiers_card": ["preview"],             # the cell's preview STATE (seen / unseen / marked) is view-only
 	"frame": ["snap"],                     # snap is the drag-grid helper, not a saved design value
 	"dialog": ["entries"],
 	"daily": [],
 	"shop": [],
+	"tiers": [],
 }
 const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
@@ -59,10 +61,12 @@ const CAPTIONS := {
 	"badge": "Badge — disc shell (raw vs polished)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
+	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
 	"shop": "Shop — packs (shared frame)",
+	"tiers": "Discovery — tier ladder (twig border, no vines)",
 }
 var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
@@ -106,6 +110,18 @@ var _params := {
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
+	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
+	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
+	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
+	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_slice": 40, "cell_art": true,
+		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "piece_frac": 62, "sel_overflow": 100},
+	# the DISCOVERY dialog — the shared frame dressed in the TIERS chrome (twig border + ladder ribbon + its
+	# own ✕), wrapping a plain grid of tier cells with NO vines. It carries its OWN frame chrome (the bark
+	# panel wants different banner/padding than the parchment frame), so these knobs are independent.
+	"tiers": {"width_pct": 85, "cols": 3, "card_slice": 72, "panel_pad_x": 44, "panel_pad_y": 30,
+		"banner_font": 50, "banner_h": 168, "banner_x": 0, "banner_y": -66, "banner_text_x": 0, "banner_text_y": -2,
+		"banner_burn": 55, "close_size": 84, "close_x": 4, "close_y": 16,
+		"cell_gap": 16, "grid_inset": 56, "list_top_pad": 8, "list_max_h": 0},
 }
 var _selected := "button"
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -154,7 +170,7 @@ func _build() -> void:
 	# the DIALOG column is sized to the WIDEST dialog (mail/daily/shop carry their own width) + chrome, so
 	# no dialog is clipped inside its column; the building-blocks column takes the remaining width.
 	var dlg_w := 0.0
-	for did in ["dialog", "daily", "shop"]:
+	for did in ["dialog", "daily", "shop", "tiers"]:
 		dlg_w = maxf(dlg_w, _dlg_px(did))
 	var dlg_col_w: float = dlg_w + 96.0
 	_columns.clear()
@@ -294,6 +310,19 @@ func _make_element(id: String) -> Control:
 			var sopts := Kit.shop_opts_from_config(_params)
 			sopts["banner_text"] = "Shop"
 			return Kit.shop_dialog(Kit.demo_shop(), _dlg_px("shop"), sopts)   # the GAME's real items
+		"tiers_card":
+			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit
+			var tco := Kit.tiers_card_opts_from_config(_params)
+			var z := 2.0
+			tco["cell_w"] = float(tco["cell_w"]) * z
+			tco["cell_h"] = float(tco["cell_h"]) * z
+			tco["num_font"] = int(float(tco["num_font"]) * z)
+			return Kit.tiers_card(_tiers_preview_cell(String(p.preview)), tco)
+		"tiers":
+			# the SHARED frame in TIERS chrome (twig border + ladder ribbon, NO vines) + the tier-cell grid
+			var topts := Kit.tiers_opts_from_config(_params)
+			topts["banner_text"] = "Wildflower"
+			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
 	return Control.new()
 
 ## A demo day for the standalone Daily-card preview, in the chosen state (today shows the today badge,
@@ -305,6 +334,14 @@ func _daily_preview_day(state: String) -> Dictionary:
 		"mystery": return {"day": 7, "label": "Day 7", "reward": {"gems": 30}, "state": "future", "mystery": true}
 		"shop":    return {"icon": "gem", "count": 500, "price": "$4.99"}   # the SAME card as a shop pack
 		_:         return {"day": 4, "label": "Day 4", "reward": {"coins": 150}, "state": "today"}
+
+## A demo tier cell for the standalone Tier-card preview, in the chosen state (seen shows a stand-in piece,
+## unseen the baked "?" cell, marked the gold-ring cell).
+func _tiers_preview_cell(state: String) -> Dictionary:
+	match state:
+		"unseen": return {"tier": 7, "seen": false}
+		"seen":   return {"tier": 3, "seen": true, "icon": "daisy"}
+		_:        return {"tier": 6, "seen": true, "icon": "daisy", "marked": true}
 
 ## Placeholder content for the standalone Frame preview — faint bars standing in for "any content".
 func _frame_placeholder() -> Control:
@@ -602,6 +639,20 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
+	if _selected == "tiers":
+		var note := Label.new()
+		note.text = "Uses the SHARED frame but dressed in its OWN twig border + ladder ribbon + ✕ (so its chrome is tuned HERE, not on the Frame item). The tile is the Tier cell item. A plain grid — no vines."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
+	if _selected == "tiers_card":
+		var note := Label.new()
+		note.text = "The discovery board's tile, reused by the Discovery dialog. State picks the cell art: seen → filled, unseen → \"?\", marked → gold ring. Preview a state below."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
@@ -695,6 +746,45 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_h", 100, 200]))
 			_sidebar_body.add_child(_slider_row(["row_gap", 6, 60]))        # spacing between rows + sections
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+		"tiers_card":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
+			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 120]))    # the cell's nine-patch margin
+			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
+			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
+			_sidebar_body.add_child(_toggle_row("Show number", "show_num"))
+			_sidebar_body.add_child(_slider_row(["num_font", 12, 56]))
+			_sidebar_body.add_child(_slider_row(["num_x", 0, 50]))          # number inset from left (% of cell)
+			_sidebar_body.add_child(_slider_row(["num_y", 0, 50]))          # ...and from top
+			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # content size (% of cell)
+			_sidebar_body.add_child(_slider_row(["sel_overflow", 100, 140]))  # marked ring spill (%)
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["marked", "seen", "unseen"]))
+		"tiers":
+			_group_header("Saved to config", true)
+			_section_header("Layout (grid — no vines)")
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))    # % of the screen width (responsive)
+			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
+			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
+			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 160]))    # how far the twig border eats the width
+			_sidebar_body.add_child(_slider_row(["list_top_pad", -40, 200]))
+			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
+			_section_header("Border (twig panel)")
+			_sidebar_body.add_child(_slider_row(["card_slice", 0, 160]))
+			_sidebar_body.add_child(_slider_row(["panel_pad_x", 0, 140]))
+			_sidebar_body.add_child(_slider_row(["panel_pad_y", 0, 140]))
+			_section_header("Banner (ladder ribbon)")
+			_sidebar_body.add_child(_slider_row(["banner_font", 20, 72]))
+			_sidebar_body.add_child(_slider_row(["banner_h", 60, 200]))
+			_sidebar_body.add_child(_slider_row(["banner_x", -200, 200]))
+			_sidebar_body.add_child(_slider_row(["banner_y", -160, 80]))
+			_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))
+			_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))
+			_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))   # engrave intensity
+			_section_header("Close (✕ disc)")
+			_sidebar_body.add_child(_slider_row(["close_size", 40, 130]))
+			_sidebar_body.add_child(_slider_row(["close_x", -120, 120]))
+			_sidebar_body.add_child(_slider_row(["close_y", -120, 120]))
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:

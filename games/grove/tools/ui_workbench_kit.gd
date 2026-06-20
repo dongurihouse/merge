@@ -78,6 +78,25 @@ const DEMO_DAILY := [
 	{"day": 7, "reward": {"gems": 30}, "state": "future", "mystery": true},
 ]
 
+# Demo discovery ladder (12 tiers) for the workbench preview — same shape the game builds from a line's
+# Quests.ladder_entries: {tier, seen, marked, icon|node}. A SEEN tier shows its content (here a stand-in
+# icon; the game passes a real merge-piece node), an UNSEEN tier the baked "?" cell, one tier is marked
+# (the tapped/asked tier, gold-ring cell). Discovered up to tier 6, the rest still "?", mirroring tiers.png.
+const DEMO_TIERS := [
+	{"tier": 1, "seen": true, "icon": "leaf"},
+	{"tier": 2, "seen": true, "icon": "leaf"},
+	{"tier": 3, "seen": true, "icon": "daisy"},
+	{"tier": 4, "seen": true, "icon": "daisy"},
+	{"tier": 5, "seen": true, "icon": "daisy"},
+	{"tier": 6, "seen": true, "icon": "daisy", "marked": true},
+	{"tier": 7, "seen": false},
+	{"tier": 8, "seen": false},
+	{"tier": 9, "seen": false},
+	{"tier": 10, "seen": false},
+	{"tier": 11, "seen": false},
+	{"tier": 12, "seen": false},
+]
+
 ## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
 ## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
 ## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
@@ -840,11 +859,12 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 ## auto-aligns whatever the font size; plus an optional envelope icon (toggle). Named DialogBanner /
 ## DialogBannerIcon so the workbench can drag them.
 static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
-		icon_px: float, icon_pos, text_x: float = 0.0, text_y: float = 0.0, burn: float = 0.0) -> Control:
+		icon_px: float, icon_pos, text_x: float = 0.0, text_y: float = 0.0, burn: float = 0.0,
+		banner_art: String = "mail/mail_banner.png", banner_icon_id: String = "mail") -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
-	var bp := Look.kit("mail/mail_banner.png")
+	var bp := Look.kit(banner_art)
 	if ResourceLoader.exists(bp):
 		var art := TextureRect.new()
 		art.texture = clean_tex_path(bp, 480)   # polished ribbon
@@ -877,7 +897,7 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 		lbl.add_theme_constant_override("outline_size", 0)
 	header.add_child(lbl)
 	if icon_on and ResourceLoader.exists(bp):
-		var env := make_icon("mail", icon_px)   # polished envelope
+		var env := make_icon(banner_icon_id, icon_px)   # polished envelope (or the dialog's own banner icon)
 		env.name = "DialogBannerIcon"
 		env.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header.add_child(env)
@@ -892,12 +912,13 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	return header
 
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
-static func _close_button(size: float, cb: Callable) -> Button:
+## close_art overrides the sprite so another dialog (tiers) can dock its own ✕ disc.
+static func _close_button(size: float, cb: Callable, close_art: String = "kit/mail_close.png") -> Button:
 	var b := Button.new()
 	b.name = "DialogClose"
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(size, size)
-	var tex := clean_tex_path(Look.kit("kit/mail_close.png"), 192)
+	var tex := clean_tex_path(Look.kit(close_art), 192)
 	if tex != null:
 		var st := StyleBoxTexture.new()
 		st.texture = tex
@@ -961,19 +982,28 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
 	var on_close: Callable = opts.get("on_close", Callable())
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
+	# the frame's CHROME ART — defaults are the parchment border + mail ribbon + mail ✕ (mail/daily/shop
+	# pass nothing). A different dialog (e.g. tiers/discovery) overrides these to swap in its own border,
+	# banner ribbon and close disc, while reusing all the SAME frame mechanics (banner overlay, scroll, ✕).
+	var panel_art: String = String(opts.get("panel_art", "kit/panel_parchment_v2.png"))
+	var panel_pad_x: float = float(opts.get("panel_pad_x", 26.0))   # content inset from the border (L/R)
+	var panel_pad_y: float = float(opts.get("panel_pad_y", 24.0))   # content inset from the border (T/B)
+	var banner_art: String = String(opts.get("banner_art", "mail/mail_banner.png"))
+	var banner_icon_id: String = String(opts.get("banner_icon_id", "mail"))
+	var close_art: String = String(opts.get("close_art", "kit/mail_close.png"))
 
 	var wrap := Control.new()
 	var card := PanelContainer.new()
 	# parchment NINE-PATCH (tunable slice) when card art is on, else CODE-DRAWN with a configurable corner.
-	var pp := Look.kit("kit/panel_parchment_v2.png")
+	var pp := Look.kit(panel_art)
 	if card_art and ResourceLoader.exists(pp):
 		var st := StyleBoxTexture.new()
 		st.texture = load(pp)
 		st.set_texture_margin(SIDE_LEFT, sl_l); st.set_texture_margin(SIDE_TOP, sl_t)
 		st.set_texture_margin(SIDE_RIGHT, sl_r); st.set_texture_margin(SIDE_BOTTOM, sl_b)
 		st.axis_stretch_horizontal = hstr; st.axis_stretch_vertical = vstr
-		st.content_margin_left = 26; st.content_margin_right = 26
-		st.content_margin_top = 24; st.content_margin_bottom = 24
+		st.content_margin_left = panel_pad_x; st.content_margin_right = panel_pad_x
+		st.content_margin_top = panel_pad_y; st.content_margin_bottom = panel_pad_y
 		card.add_theme_stylebox_override("panel", st)
 	else:
 		var cf := StyleBoxFlat.new()
@@ -1013,13 +1043,13 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	scroll.add_child(rows)
 
 	# the banner overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn)
+	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id)
 	header.position = banner_pos
 	inner.add_child(header)
 
 	# the ✕ disc poles past the card's top-right corner. The game passes on_close; the workbench prints.
 	var close_cb: Callable = on_close if on_close.is_valid() else (func() -> void: print("WORKBENCH: dialog closed"))
-	var close := _close_button(close_size, close_cb)
+	var close := _close_button(close_size, close_cb, close_art)
 	wrap.add_child(close)
 
 	# ONE relayout: cap the content height (so it scrolls behind the banner), size the wrap to the card
@@ -1379,6 +1409,139 @@ static func _card_grid(cards: Array, width: float, opts: Dictionary) -> Control:
 static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {}) -> Control:
 	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
+## --- the discovery (tier-ladder) card + dialog ------------------------------------------------------
+## One TIER CELL — the discovery board's tile. State picks the baked cell art: marked → the gold-ring
+## cell, seen → the filled cell, unseen → the "?" cell (which bakes its own glyph). A seen tier shows its
+## content (a pre-built `node` Control from the game's piece view, or a stand-in `icon` for the preview);
+## the tier number sits top-left. Square by default, code-drawn fallback when the cell art is absent.
+## d keys: tier, seen, marked, icon|node. opts: cell_w/h, cell_slice, cell_art, num_font, num_x, num_y,
+## piece_frac, sel_overflow.
+static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
+	var cw: float = float(opts.get("cell_w", 150.0))
+	var ch: float = float(opts.get("cell_h", 150.0))
+	var seen := bool(d.get("seen", false))
+	var marked := bool(d.get("marked", false))
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(cw, ch)
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.clip_contents = false
+
+	# the tile face: marked → gold-ring cell · discovered → filled cell · unseen → the baked "?" cell.
+	var art := "kit/tiers_cell_sel.png" if marked else ("kit/tiers_cell_filled.png" if seen else "kit/tiers_cell_q.png")
+	var use_art: bool = bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
+	if use_art:
+		var face := TextureRect.new()
+		face.texture = clean_tex_path(Look.kit(art), 256)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var over: float = float(opts.get("sel_overflow", 1.0)) if marked else 1.0   # let the gold ring spill if asked
+		var pad := cw * (over - 1.0) / 2.0
+		face.position = Vector2(-pad, -pad)
+		face.size = Vector2(cw * over, ch * over)
+		holder.add_child(face)
+	else:                                              # code-drawn fallback (same metrics)
+		var p := Panel.new()
+		p.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var ss := StyleBoxFlat.new()
+		ss.bg_color = Color(Pal.GROUND, 0.18) if seen else Color(Pal.GROUND_EDGE, 0.16)
+		ss.set_corner_radius_all(22)
+		ss.set_border_width_all(5 if marked else 2)
+		ss.border_color = Pal.STRAW if marked else Color(Pal.GROUND_EDGE, 0.35)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		p.add_theme_stylebox_override("panel", ss)
+		holder.add_child(p)
+
+	# the content: a discovered piece, centred. A SEEN tile shows (in priority) a kit-built node from the
+	# game's `make_content` callable (sized to the kit-computed cell, so the game stays out of layout), or a
+	# pre-built `node` Control, or a stand-in `icon` (the workbench preview). An unseen "?" cell bakes its
+	# own glyph, so only a marked-yet-unseen tile (the gold ring on an undiscovered tier) draws a "?".
+	var frac: float = float(opts.get("piece_frac", 0.62))
+	var mk: Callable = opts.get("make_content", Callable())
+	var content: Control = null
+	if seen and mk.is_valid():
+		content = mk.call(d, cw * frac)
+	elif seen and d.get("node") is Control:
+		content = d.get("node")
+	elif seen and String(d.get("icon", "")) != "":
+		content = make_icon(String(d.icon), cw * frac)
+	elif marked and not seen:
+		var q := Label.new()
+		q.text = "?"
+		q.add_theme_font_size_override("font_size", int(cw * 0.42))
+		q.add_theme_color_override("font_color", Color(Pal.BARK, 0.7))
+		q.add_theme_constant_override("outline_size", 0)
+		content = q
+	if content != null:
+		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var cwrap := CenterContainer.new()
+		cwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cwrap.add_child(content)
+		holder.add_child(cwrap)
+
+	# the tier number, top-left (a dark numeral with a thin cream halo so it reads on the warm tile).
+	if bool(opts.get("show_num", true)):
+		var num := Label.new()
+		num.text = str(int(d.get("tier", 0)))
+		num.position = Vector2(cw * float(opts.get("num_x", 0.11)), ch * float(opts.get("num_y", 0.05)))
+		num.add_theme_font_size_override("font_size", int(opts.get("num_font", 26)))
+		num.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+		num.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.9))
+		num.add_theme_constant_override("outline_size", 5)
+		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(num)
+	return holder
+
+## A GRID of tier cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
+## daily grid but with square tiles and NO woven vines (just the cards). The cell size scales to fit `cols`
+## across the frame's content area; a partial last row centres.
+static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Control:
+	var cols: int = maxi(1, int(opts.get("cols", 3)))
+	var gap: int = int(opts.get("cell_gap", 16))
+	var inset: float = float(opts.get("grid_inset", 56.0))     # the bark border eats into the content width
+	var cw: float = maxf(48.0, (width - inset - (cols - 1) * gap) / float(cols))
+	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 150.0)))
+	var co := opts.duplicate()
+	co["cell_w"] = cw
+	co["cell_h"] = cw * aspect
+	co["num_font"] = clampi(int(cw * 0.18), 12, 40)
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", gap)
+	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var made: Array = []
+	var i := 0
+	while i < entries.size():
+		var r := HBoxContainer.new()
+		r.alignment = BoxContainer.ALIGNMENT_CENTER
+		r.add_theme_constant_override("separation", gap)
+		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		for j in cols:
+			if i + j < entries.size():
+				var c := tiers_card(entries[i + j], co)
+				r.add_child(c)
+				made.append(c)
+		content.add_child(r)
+		i += cols
+	var fit := func() -> void:
+		if not is_instance_valid(content):
+			return
+		var cwf := (content.size.x - (cols - 1) * gap) / float(cols)
+		for c in made:
+			if is_instance_valid(c):
+				(c as Control).custom_minimum_size = Vector2(maxf(40.0, cwf), maxf(40.0, cwf * aspect))
+	content.resized.connect(fit)
+	fit.call_deferred()
+	return content
+
+## The DISCOVERY dialog — the shared frame dressed in the TIERS chrome (twig border, gold ladder ribbon,
+## its own ✕ disc) wrapping a plain grid of tier cells. Same frame mechanics as mail/daily/shop; only the
+## border art + the card differ, and there are NO vines (just the cards).
+static func tiers_dialog(entries: Array, width: float = 620.0, opts: Dictionary = {}) -> Control:
+	return dialog_frame(_tiers_grid(entries, width, opts), width, opts)
+
 ## The SHOP dialog — the SAME shared frame, here filled with SECTIONS (each a vine divider + a centered
 ## row/grid of the SAME small card) rather than one flat grid. `sections` is [{caption, cards}, …] from
 ## demo_shop. Shared frame, sectioned shop content.
@@ -1612,6 +1775,63 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cell_h"] = float(sh.get("cell_h", 150))
 	o["row_gap"] = float(sh.get("row_gap", 22))        # spacing between rows + sections (the dividers)
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
+	return o
+
+## The TIER-CELL opts from config — its own component (the discovery board's tile), read by both the card
+## preview and the discovery dialog. Fractional knobs (number position, content size, marked overflow) are
+## stored as PERCENTS for the integer sliders and divided here, mirroring ribbon_scale.
+static func tiers_card_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var tc: Dictionary = cfg.get("tiers_card", {})
+	return {
+		"cell_w": float(tc.get("cell_w", 150)),
+		"cell_h": float(tc.get("cell_h", 150)),
+		"cell_slice": float(tc.get("cell_slice", 40)),
+		"cell_art": bool(tc.get("cell_art", true)),
+		"show_num": bool(tc.get("show_num", true)),
+		"num_font": int(tc.get("num_font", 26)),
+		"num_x": float(tc.get("num_x", 11)) / 100.0,         # number inset from the tile's left (% of cell)
+		"num_y": float(tc.get("num_y", 5)) / 100.0,          # ...and from its top
+		"piece_frac": float(tc.get("piece_frac", 62)) / 100.0,   # the content's size as a fraction of the cell
+		"sel_overflow": float(tc.get("sel_overflow", 100)) / 100.0,  # how far the marked cell's ring spills (100 = none)
+	}
+
+## The full DISCOVERY-dialog opts: the shared frame dressed in the TIERS chrome (twig border + ladder
+## ribbon + its own ✕) built straight from the "tiers" config (NOT the parchment "frame" section — the bark
+## panel wants its own banner/padding), plus the tier card + the grid (cols, default 3). No vine knobs.
+static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var t: Dictionary = cfg.get("tiers", {})
+	var o := {
+		# the TIERS chrome art — the only place the shared frame is dressed differently
+		"panel_art": "kit/tiers_panel.png",
+		"banner_art": "kit/tiers_banner.png",
+		"close_art": "kit/tiers_close.png",
+		"card_art": true,
+		"card_slice_l": float(t.get("card_slice", 72)), "card_slice_t": float(t.get("card_slice", 72)),
+		"card_slice_r": float(t.get("card_slice", 72)), "card_slice_b": float(t.get("card_slice", 72)),
+		"card_h_stretch": 0, "card_v_stretch": 0,
+		"panel_pad_x": float(t.get("panel_pad_x", 44)),
+		"panel_pad_y": float(t.get("panel_pad_y", 30)),
+		# the gold ladder ribbon straddling the top edge (no separate banner icon — the reference is text-only).
+		# banner_h ≈ panel width × ribbon-aspect makes the aspect-locked ribbon span the panel with overhanging
+		# tails (like tiers.png), and banner_y lifts ~40% of it above the top edge.
+		"banner_font": int(t.get("banner_font", 50)),
+		"banner_h": float(t.get("banner_h", 168)),
+		"banner_icon_on": false,
+		"banner_text_x": float(t.get("banner_text_x", 0)),
+		"banner_text_y": float(t.get("banner_text_y", -2)),
+		"banner_burn": float(t.get("banner_burn", 55)) / 100.0,
+		"banner_pos": Vector2(float(t.get("banner_x", 0)), float(t.get("banner_y", -66))),
+		# the ✕ disc docked past the top-right corner
+		"close_size": float(t.get("close_size", 84)),
+		"close_poke": Vector2(float(t.get("close_x", 4)), float(t.get("close_y", 16))),
+		# the grid (no vines): cols + the content cap / inset
+		"cols": int(t.get("cols", 3)),
+		"cell_gap": int(t.get("cell_gap", 16)),
+		"grid_inset": float(t.get("grid_inset", 56)),
+		"list_top_pad": float(t.get("list_top_pad", 8)),
+		"list_max_h": float(t.get("list_max_h", 0)),
+	}
+	o.merge(tiers_card_opts_from_config(cfg), true)   # the tier-cell look (cell size/art, number, content)
 	return o
 
 ## The badge (disc-shell) edge polish from config — the standalone Badge item's defringe / feather /
