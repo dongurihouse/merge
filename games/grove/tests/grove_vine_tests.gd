@@ -10,7 +10,38 @@ func _initialize() -> void:
 	_test_spot_derivation()
 	_test_maps_overlay()
 	_test_view_headless()
+	await _test_map_integration()
 	finish()
+
+func _test_map_integration() -> void:
+	fresh("vine_map")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	hx._open_map(G.hub_map())
+	await create_timer(0.1).timeout
+	# the hub renders through a VineMapView
+	var vv: Control = hx.content.find_child("VineMapView", true, false)
+	ok(vv != null, "the vine hub renders through a VineMapView")
+	# one tap-hit seated per region
+	ok(hx.spot_hits.size() == vv.region_count(), "the hub seats one spot per region")
+	# region 0 starts overgrown (unowned) ...
+	ok(_region_on(vv, 0), "region 0 vines are ON before it is restored")
+	# ... buying region 0 turns its vines off on rebuild
+	var sid := "%s_r0" % String(G.MAPS[G.hub_map()].id)
+	hx.unlocks[sid] = true
+	hx._build_map()
+	await create_timer(0.05).timeout
+	var vv2: Control = hx.content.find_child("VineMapView", true, false)
+	ok(vv2 != null and not _region_on(vv2, 0), "restoring region 0 turns its vines off")
+	hx.queue_free()
+
+# read the VineMapView's per-region enabled state (vines ON == enabled). set_region_enabled keeps
+# region_overlays[i].enabled in sync (confirmed in vine_map_view.gd), so read that directly.
+func _region_on(vv: Control, i: int) -> bool:
+	return bool(vv.region_overlays[i].get("enabled", true))
 
 func _test_view_headless() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
