@@ -2780,6 +2780,10 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# transparent margin, so the default tucks the badge well IN (negative) to sit on the disc's edge.
 		"badge_dx": float(h.get("badge_dx", -26)),
 		"badge_dy": float(h.get("badge_dy", -26)),
+		# the count/dot BADGE size (px): the bare-dot diameter, and the count-pill number font (the pill height
+		# tracks it). Defaults mirror Tune.BADGE_DOT_PX / BADGE_NUM_SIZE so an absent config renders the shipped badge.
+		"badge_dot_px": int(h.get("badge_dot_px", 14)),
+		"badge_num_size": int(h.get("badge_num_size", 14)),
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
@@ -2822,9 +2826,9 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square icon box
 		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
 		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
-		"plus_gap":    int(c.get("plus_gap", 0)),          # the green "+" LOCATION: extra gap right of the number
+		"plus_x":      int(c.get("plus_x", 0)),            # the green "+" LOCATION: x on the pill's right edge (+overhang out / −tuck in)
 		"plus_dy":     int(c.get("plus_dy", 0)),           # the green "+" LOCATION: vertical nudge up(-)/down(+)
-		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it)
+		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it; never grows the pill)
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -2902,16 +2906,11 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(lbl)
-	# the green "+" preview (the workbench tunes its LOCATION: plus_gap right of the number, plus_dy up/down).
-	# A static visual here — the live HUD uses a real Button; both read the same plus_gap / plus_dy opts.
+	# the green "+" preview FLOATS over the pill (the SAME Look.float_plus the live HUD uses): plus_x / plus_dy
+	# place it on the pill's right edge and plus_size scales it WITHOUT growing the capsule. A static visual
+	# here — the live HUD uses a real Button; both read the same plus_x / plus_dy / plus_size opts.
 	if bool(opts.get("show_plus", false)):
-		var pw := MarginContainer.new()
-		pw.add_theme_constant_override("margin_left", int(opts.get("plus_gap", 0)))
-		var dy := int(opts.get("plus_dy", 0))
-		pw.add_theme_constant_override("margin_top", maxi(0, dy))
-		pw.add_theme_constant_override("margin_bottom", maxi(0, -dy))
-		pw.add_child(_plus_token(float(opts.get("plus_size", 26))))
-		row.add_child(pw)
+		return Look.float_plus(panel, _plus_token(float(opts.get("plus_size", 26))), opts)
 	return panel
 
 ## A static green "+" token mirroring the live HUD's _plus_button look (leaf-green disc, cream "+"), for the
