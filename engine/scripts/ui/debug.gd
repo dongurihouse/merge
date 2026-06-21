@@ -63,7 +63,7 @@ static func mount(host: Control) -> void:
 	layer.layer = 128                      # above every game chrome layer
 	var col := VBoxContainer.new()
 	# Below the level badge (top EDGE_MARGIN + safe_top, 72 tall) so it never overlaps.
-	col.position = Vector2(12, 96 + Look.safe_top(host))
+	col.position = Vector2(12, 120 + Look.safe_top(host))
 	col.add_theme_constant_override("separation", 4)
 	layer.add_child(col)
 
