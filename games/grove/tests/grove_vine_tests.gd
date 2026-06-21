@@ -7,6 +7,7 @@ func _initialize() -> void:
 	begin("grove · vine")
 	_test_registry()
 	_test_spot_derivation()
+	_test_maps_overlay()
 	finish()
 
 func _test_registry() -> void:
@@ -17,6 +18,16 @@ func _test_registry() -> void:
 	var regions := VineMaps.regions_for(e0)
 	ok(regions.size() == 8, "map1_farm regions JSON has 8 regions (matches region_count)")
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
+
+func _test_maps_overlay() -> void:
+	# slot 0 keeps its id/name but is now vine-driven with region-derived spots
+	ok(String(G.MAPS[0].id) == "farmhouse", "slot 0 keeps id 'farmhouse'")
+	ok(G.MAPS[0].has("vine"), "slot 0 is vine-driven (carries the maps.json entry)")
+	ok(G.MAPS[0].spots.size() == 8, "slot 0 has 8 region spots")
+	ok(String(G.MAPS[0].spots[0].id) == "farmhouse_r0", "slot 0 spot ids are farmhouse_r*")
+	ok(bool(G.MAPS[0].get("hub", false)), "slot 0 stays the hub")
+	# legacy slots without a vine entry are untouched
+	ok(not G.MAPS[G.MAPS.size() - 1].has("vine"), "the last legacy slot is not vine-driven")
 
 func _test_spot_derivation() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
