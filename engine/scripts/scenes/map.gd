@@ -358,6 +358,7 @@ func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 # place_spot meta + routes the buy via spot_hits); owned -> an inert marker (keeps spot_hits index-aligned).
 func _build_vine_spot(z: int, k: int) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
+	# adapt the spot's Vector2 pos to the home-building dict's [x, y] list form that _home_badge reads.
 	var b := {"pos": [float(spot.pos.x), float(spot.pos.y)]}
 	if not spot_owned(String(spot.id)):
 		return _home_badge(z, k, b)
@@ -385,10 +386,13 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		var VineView := load("res://games/grove/vine/vine_map_view.gd")
 		var view: Control = VineView.new()
 		view.name = "VineMapView"
-		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var Grove := load("res://games/grove/vine/vine_maps.gd")
-		view.load_map(vine, Grove.regions_for(vine))
+		view.load_map(vine, Grove.regions_for(vine))               # sets size to image_size (for the tool's use)
+		# the game seats the view full-rect over the clip frame; clear the image-size hint so the frame
+		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
+		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		view.custom_minimum_size = Vector2.ZERO
 		view.set_calm(FX.calm())
 		# owned regions show clean (vines off); unowned show vines.
 		for i in range(view.region_count()):
