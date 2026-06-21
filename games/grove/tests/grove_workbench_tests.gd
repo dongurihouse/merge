@@ -167,6 +167,35 @@ func _test_new_knobs(view) -> void:
 	# the home-button preview carries a SAMPLE count badge so the offset is tunable live (default count 3).
 	ok(_has_label_text(view._make_element("home_button"), "3"), \
 		"the home-button preview shows a sample count badge")
+	# the in-disc COUNT overlay (the Bag's "x/y"): its offset + font are read by the shared resolver, default
+	# to the shipped placement, and are SAVED config; the sample "x/y" string is preview-only and renders on
+	# the nav disc so the offset is tunable live.
+	var hbn: Dictionary = Kit.home_button_opts_from_config({"home_button": {"count_dx": 5, "count_dy": 20, "count_font": 30}})
+	ok(is_equal_approx(float(hbn.count_dx), 5.0) and is_equal_approx(float(hbn.count_dy), 20.0) and int(hbn.count_font) == 30, \
+		"home_button reads count_dx / count_dy / count_font")
+	ok(is_equal_approx(float(Kit.home_button_opts_from_config({}).count_dy), 38.0), \
+		"default count_dy reproduces the shipped in-disc placement (38)")
+	ok(view._is_config("home_button", "count_dx") and view._is_config("home_button", "count_dy") and view._is_config("home_button", "count_font"), \
+		"the bag-count offset + font are saved config")
+	ok(not view._is_config("home_button", "count"), "the sample bag-count string is preview-only (not saved)")
+	ok(_has_label_text(view._make_element("home_button"), "1/6"), \
+		"the home-button preview shows the sample bag count inside the disc")
+
+	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
+	# and are SAVED config; `filled` is preview-only. Its frame borrows the shared currency-pill capsule.
+	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40}})
+	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
+		"info_bar reads height + inner_scale (0..1)")
+	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
+		"info_bar reads name_font / sep / sell_font / sell_icon")
+	ok(ib.has("pill"), "info_bar borrows the shared currency-pill frame opts")
+	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
+		"default info_bar height matches the bottom-bar wells (130)")
+	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon"), \
+		"the info-bar layout knobs are saved config")
+	ok(not view._is_config("info_bar", "filled"), "the filled-vs-empty preview toggle is not saved")
+	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \
+		"the info-bar preview shows a sample selected item")
 
 	# currency pill: plus_size is read, defaults to Tune.PLUS_BOX (26), is saved config, and resizes the token.
 	ok(int(Kit.currency_pill_opts_from_config({"currency_pill": {"plus_size": 40}}).plus_size) == 40, \
@@ -182,7 +211,7 @@ func _test_new_knobs(view) -> void:
 
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.
-	for sel in ["home_button", "currency_pill"]:
+	for sel in ["home_button", "currency_pill", "info_bar"]:
 		view._selected = sel
 		view._rebuild_sidebar()
 		ok(view._sidebar_body.get_child_count() > 0, "the %s sidebar builds its slider panel" % sel)
