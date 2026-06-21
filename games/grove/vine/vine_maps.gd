@@ -59,7 +59,12 @@ static func spots_for(slot_id: String, entry: Dictionary, override_path: String 
 		if typeof(parsed) == TYPE_DICTIONARY:
 			overrides = parsed
 	var spots: Array = []
+	# One spot per region regardless of the region's `enabled` flag: that flag is a tool-preview
+	# toggle; in-game, per-region vine visibility is driven by unlock state, and the unlockable
+	# count must match the detected region count.
 	for i in range(regions.size()):
+		if not (regions[i] is Dictionary):
+			continue
 		var region: Dictionary = regions[i]
 		var ov: Dictionary = overrides.get(str(i), {})
 		spots.append({
@@ -71,10 +76,13 @@ static func spots_for(slot_id: String, entry: Dictionary, override_path: String 
 	return spots
 
 static func _centroid(points: Array, isize: Vector2) -> Vector2:
-	if points.is_empty():
-		return Vector2(0.5, 0.5)
 	var sum := Vector2.ZERO
+	var n := 0
 	for p in points:
-		sum += Vector2(float(p[0]), float(p[1]))
-	var c: Vector2 = sum / float(points.size())
+		if p is Array and (p as Array).size() >= 2:
+			sum += Vector2(float(p[0]), float(p[1]))
+			n += 1
+	if n == 0:
+		return Vector2(0.5, 0.5)
+	var c: Vector2 = sum / float(n)
 	return Vector2(clampf(c.x / isize.x, 0.0, 1.0), clampf(c.y / isize.y, 0.0, 1.0))
