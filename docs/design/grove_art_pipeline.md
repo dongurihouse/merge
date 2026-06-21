@@ -94,7 +94,7 @@ during P1):
 | Map | Lines (base) | Ladder concept (t1 → t8, under a shared per-line motif) |
 |---|---|---|
 | 1 Farmhouse | Wildflower (`flower`), Berry (`berry`), Mushroom (`mushroom`), Honey (`honey`) | seed/origin → sprout → seedling → potted → bush → laden → small tree → mature trophy (the soil/pot motif). *Reference ladders exist in the old queue — re-authored, not reused.* |
-| 2 Barn | Egg (`egg`), Feather (`feather`), Milk (`milk`), Wool (`wool`) | single → few → gathered → vessel/nest → basket → … (dairy/coop motif) |
+| 2 Barn | Feather (`feather`), Milk (`milk`), Wool (`wool`) | single → few → gathered → vessel/nest → basket → … (dairy/coop motif) |
 | 3 Pond | Reed (`reed`), Lotus (`lotus`), Fish (`fish`), Snail (`snail`) | sprout/spawn → growth → cluster → mature (water/bank motif) |
 | 4 Orchard | Apple (`apple`), Pear (`pear`), Plum (`plum`), Cherry (`cherry`), Walnut (`walnut`), Blossom (`blossom`) | bud → fruitlet → branch → laden bough → basket → tree (orchard motif) |
 | 5 Meadow | Glowcap (`glowcap`), Spore (`spore`), Clover (`clover`), Dandelion (`dandelion`), Poppy (`poppy`), Firefly (`firefly`) | spore/seed → sprout → patch → bloom → glowing mature (meadow/lantern motif) |
@@ -120,7 +120,7 @@ then each generator's `tex` in `grove_data.GENERATORS` is repointed from the 3 s
 ## 6 · Holes & light items (no keying needed)
 
 The artist returns **finished transparent sprites** (§2), so there is **no background to key** —
-interior holes (rings, baskets, a glow-cap ring) and light-colored items (Milk/Wool/Egg/Feather/
+interior holes (rings, baskets, a glow-cap ring) and light-colored items (Milk/Wool/Feather/
 Blossom, which would otherwise blend into white) arrive already cut. The only carry-over is a
 **prompt instruction** on every item: *"transparent background; any interior gaps fully cut through
 (transparent), not filled."* No chroma background, no `chroma_cut` tool. *(Superseded the original

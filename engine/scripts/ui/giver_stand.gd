@@ -33,21 +33,23 @@ const BARK = Game.PALETTE.BARK
 const INK = Game.PALETTE.INK
 
 # the painted card's native size (ui/quest/card_quest.png — board1_asset3 island 34): a wide blank
-# parchment signboard in a wood frame, NO baked bubble. The box is sized to THIS aspect and the art is
-# drawn at a uniform scale (see _quest_card), so the frame, peg holes and leaf sprig never distort.
+# parchment signboard in a wood frame, NO baked bubble. The card is drawn as a NINE-SLICE (see _quest_card),
+# so the rounded wood frame + peg-hole corners stay crisp while only the centre parchment stretches — this
+# native size is the reference for the slice margins (card_slice_*) and the no-distortion box shape.
 const CARD_ART_W := 369.0
 const CARD_ART_H := 209.0
 const PLAQUE_PATH := "quest/plaque.png"   # the reusable wooden reward sign (island 6 of board1_asset2.png)
 const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stretches
 
-# Tunable layout — ALL fractions. card_w is the box's MAX width fraction of the stand; card_h its height
-# fraction — the box is sized to the card art's native aspect (no stretch). The rest are a size (×cardH)
-# and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech bubble + the
-# asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. These are the SHIPPED
-# DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config (Kit.giver_lay_from_config),
-# overriding per key — so designers tune + Save in the workbench instead of editing this constant.
+# Tunable layout — ALL fractions. card_w / card_h are the box's width / height fraction of the stand,
+# INDEPENDENT (the art fills the box, so a box off the art's ~1.77:1 native shape stretches it). The rest
+# are a size (×cardH) and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech
+# bubble + the asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. These are
+# the SHIPPED DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config
+# (Kit.giver_lay_from_config), overriding per key — so designers tune + Save in the workbench, not here.
+# card_h 0.65 keeps the board card at its native shape (card_w·sw : card_h·fh ≈ 1.77 on the live fence).
 const LAY := {
-	"card_w": 0.98, "card_h": 0.86,
+	"card_w": 0.98, "card_h": 0.65,
 	"bust_size": 0.94, "bust_x": 0.25, "bust_y": 0.53,
 	"bubble_size": 0.66, "bubble_x": 0.72, "bubble_y": 0.35,
 	"item_w": 0.32, "item_h": 0.32, "item_x": 0.72, "item_y": 0.32,
@@ -71,17 +73,15 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
-	# the box: sized to the card art's NATIVE aspect (height-bound, clamped to card_w of the stand width)
-	# so a uniform scale never distorts the frame / leaf sprig. Centred in the stand.
-	var artR := CARD_ART_W / CARD_ART_H
+	# the box: sized DIRECTLY to card_w × card_h of the stand — width and height are INDEPENDENT, so card_h
+	# is a true height knob (the workbench tunes each). The art fills the box (STRETCH_SCALE), so a box that
+	# leaves the card art's native ~1.77:1 shape (CARD_ART_W/CARD_ART_H) stretches the frame; keep
+	# card_w·sw : card_h·fh near that ratio to stay undistorted. Centred in the stand.
+	var cardW: float = sw * float(L.card_w)
 	var cardH: float = fh * float(L.card_h)
-	var cardW: float = cardH * artR
-	if cardW > sw * float(L.card_w):
-		cardW = sw * float(L.card_w)
-		cardH = cardW / artR
 	var cx := (sw - cardW) / 2.0
 	var cy := (fh - cardH) / 2.0
-	var card := _quest_card(cardW, cardH)
+	var card := _quest_card(cardW, cardH, L)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
@@ -183,15 +183,20 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 # The quest card surface: the painted `ui/quest/card_quest.png` (vertical gold-framed parchment
 # card with the reward plaque baked into the bottom) stretched to the card rect; a flat parchment
 # card when the art is absent.
-static func _quest_card(w: float, h: float) -> Control:
+static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 	var p := Look.kit("quest/card_quest.png")
 	if ResourceLoader.exists(p):
-		# the box is sized to the art's native aspect (see make()), so a UNIFORM scale keeps the wood
-		# frame, peg holes and leaf sprig undistorted — a nine-slice would warp those interior details.
-		var t := TextureRect.new()
+		# NINE-SLICE the parchment: the corners (rounded wood frame + peg holes) stay crisp at any box size
+		# while only the centre parchment stretches — so card_w / card_h can grow the card without warping the
+		# frame. The slice margins are SOURCE pixels (tunable in the workbench, see giver_lay_from_config). The
+		# mid-edge details (side tabs, the bottom leaf sprig) still stretch along their own edge — set the
+		# matching margin to bracket them. Falls back to a uniform scale if the lay carries no slices.
+		var t := NinePatchRect.new()
 		t.texture = load(p)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.patch_margin_left = int(lay.get("card_slice_l", 46))
+		t.patch_margin_top = int(lay.get("card_slice_t", 44))
+		t.patch_margin_right = int(lay.get("card_slice_r", 46))
+		t.patch_margin_bottom = int(lay.get("card_slice_b", 56))
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		return t
 	var card := Panel.new()

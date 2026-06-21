@@ -11,7 +11,7 @@ const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
 # §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
-# (Acorn & Bloom, grove_spec §2): 24 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
+# (Acorn & Bloom, grove_spec §2): 23 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
 # 3 Pond · 4 Orchard · 5 Meadow (the 15-map arc ≈104 lines is post-launch). Wildflower (1) is the
 # title line + the permanent ANCHOR (Seed satchel's pair never retires). Codes skip 9 (= COIN_LINE).
 const LINES := {
@@ -21,7 +21,6 @@ const LINES := {
 	3: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
 	# map 2 — Barn (Carrot): hen coop + dairy stall
-	5: {"name": "Egg", "base": "egg", "color": Color("#F2E4C4")},
 	6: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},
 	7: {"name": "Milk", "base": "milk", "color": Color("#EDEDE6")},
 	8: {"name": "Wool", "base": "wool", "color": Color("#DED7C8")},
@@ -62,8 +61,8 @@ const GENERATORS := [
 	# map 1 — Farmhouse (Radish): Wildflower + Garden tools. The ANCHOR — live from the first second.
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
 		"tex": "items/generator/gen_satchel.png", "label": "seeds"},
-	# map 2 — Barn (Carrot): Egg + Feather.
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [5, 6], "grant_from": "",
+	# map 2 — Barn (Carrot): Feather (the Egg line was removed).
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [6], "grant_from": "",
 		"tex": "items/generator/gen_hen_coop.png", "label": "coop"},
 	# map 3 — Pond (Frog): Reed + Lotus.
 	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "",
@@ -347,7 +346,6 @@ const SHOP_ITEM_OFFERS := [
 	{"id": "skip_tools3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "tools",    "label": "Garden tools"},  # t3 — the other starter line
 	{"id": "skip_mush4",   "code": 304, "currency": "coins",    "cost": 700,  "icon": "mushroom", "label": "Mushroom"},     # t4 — a deeper coin skip
 	{"id": "skip_honey4",  "code": 404, "currency": "diamonds", "cost": 8,    "icon": "honey",    "label": "Honey"},        # t4 — premium skip
-	{"id": "skip_egg5",    "code": 505, "currency": "diamonds", "cost": 14,   "icon": "egg",      "label": "Egg"},          # t5 — a map-2 line, premium
 ]
 
 # (Cosmetic "grove theme" looks — SHOP_COSMETICS — were removed with the customization
