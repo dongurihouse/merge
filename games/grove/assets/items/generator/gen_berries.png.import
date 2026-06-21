@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dt3lhkjt0vpuh"
-path="res://.godot/imported/gen_jar.png-6305a0489d3817262904d47e52df6e46.ctex"
+uid="uid://swq3j40am0kl"
+path="res://.godot/imported/gen_berries.png-5fe7576e860c9119cef7a08594420506.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_jar.png"
-dest_files=["res://.godot/imported/gen_jar.png-6305a0489d3817262904d47e52df6e46.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_berries.png"
+dest_files=["res://.godot/imported/gen_berries.png-5fe7576e860c9119cef7a08594420506.ctex"]
 
 [params]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cy24bm35it8t8"
-path="res://.godot/imported/gen_hen_coop.png-08f2d3e1b9fd76145e0b14fcec62b93f.ctex"
+uid="uid://bfwqla6y11xs2"
+path="res://.godot/imported/gen_root_ball.png-94ab95a8c79955230cd28f649c83fe50.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_hen_coop.png"
-dest_files=["res://.godot/imported/gen_hen_coop.png-08f2d3e1b9fd76145e0b14fcec62b93f.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_root_ball.png"
+dest_files=["res://.godot/imported/gen_root_ball.png-94ab95a8c79955230cd28f649c83fe50.ctex"]
 
 [params]
 

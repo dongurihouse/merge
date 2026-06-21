@@ -10,6 +10,7 @@ const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # shared level-badge medal for locked-cell gates
+const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the SHARED slot cell (bag + board)
 
@@ -320,30 +321,93 @@ static func make_generator(id: String, csz: float) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
 	var holder := _make_holder(csz)
 	_add_contact_shadow(holder, csz)   # same contact shadow as a piece — generators ground identically
+	_add_gen_glow(holder, csz)         # GEN highlight (1/3): a warm halo BEHIND the art (added before it)
 	var path: String = Game.art(String(gdef.get("tex", "")))
 	if ResourceLoader.exists(path):
 		_add_sprite(holder, _content_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece
-		return holder
-	var p := Panel.new()
-	p.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#8A5A3B")
-	sb.set_corner_radius_all(int(csz * 0.3))
-	sb.set_border_width_all(4)
-	sb.border_color = STRAW
-	p.add_theme_stylebox_override("panel", sb)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(p)
-	var lbl := Label.new()
-	lbl.text = TranslationServer.translate(String(gdef.get("label", id)))
-	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(csz * 0.24))
-	lbl.add_theme_color_override("font_color", CREAM)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(lbl)
+	else:
+		var p := Panel.new()
+		p.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("#8A5A3B")
+		sb.set_corner_radius_all(int(csz * 0.3))
+		sb.set_border_width_all(4)
+		sb.border_color = STRAW
+		p.add_theme_stylebox_override("panel", sb)
+		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(p)
+		var lbl := Label.new()
+		lbl.text = TranslationServer.translate(String(gdef.get("label", id)))
+		lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.add_theme_font_size_override("font_size", int(csz * 0.24))
+		lbl.add_theme_color_override("font_color", CREAM)
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.add_child(lbl)
+	# GEN highlight (2/3 + 3/3): a thin gold frame + a few slow twinkles ON TOP — marks a generator
+	# as a special, permanent producer (vs. a mergeable piece). Added last so they sit over the art and
+	# never disturb child(0) (the contact shadow / sprite). The board's FX.breathe makes the whole gently pulse.
+	_add_gen_frame(holder, csz)
+	_add_gen_sparkle(holder, csz)
 	return holder
+
+# GEN highlight — the look that says "this is a generator, a permanent producer" (vs. a mergeable
+# piece). THE FEEL-DIAL: three subtle layers, tuned here. A warm GLOW halo behind the art, a thin
+# gold FRAME around it, and a few slow SPARKLE twinkles over it. Each part is mouse-ignore (keeps
+# _all_ignore green) and never becomes child(0) (keeps the shadow/sprite invariant make_piece shares).
+const GEN_GLOW := {"scale": 1.0, "color": "#FFD27A", "a": 0.30}                            # warm halo
+const GEN_FRAME := {"inset": 0.06, "radius": 0.24, "width": 0.035, "color": "#E8BE5C", "a": 0.85}
+const GEN_SPARKLE := {"count": 5, "speed": 0.7, "color": "#FFF4C2"}
+
+# (1/3) A warm radial halo BEHIND the art. Shares the grounding layer with the contact shadow (added
+# before the sprite, drawn under it), so — like the shadow — it follows item_backing; that keeps the
+# "bare when backing off" affordance and the child(0) invariant intact.
+static func _add_gen_glow(holder: Control, size: float) -> void:
+	if not Features.on("item_backing"):
+		return
+	var glow := TextureRect.new()
+	glow.name = "GenGlow"
+	glow.texture = backing_tex()
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gw := size * float(GEN_GLOW["scale"])
+	glow.size = Vector2(gw, gw)
+	glow.position = (Vector2(size, size) - glow.size) / 2.0
+	glow.modulate = Color(GEN_GLOW["color"], float(GEN_GLOW["a"]))
+	holder.add_child(glow)
+
+# (2/3) A thin rounded gold frame around the icon, on top.
+static func _add_gen_frame(holder: Control, size: float) -> void:
+	var frame := Panel.new()
+	frame.name = "GenFrame"
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset := size * float(GEN_FRAME["inset"])
+	frame.offset_left = inset
+	frame.offset_top = inset
+	frame.offset_right = -inset
+	frame.offset_bottom = -inset
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color(0, 0, 0, 0)
+	fs.set_corner_radius_all(int(size * float(GEN_FRAME["radius"])))
+	fs.set_border_width_all(maxi(2, int(size * float(GEN_FRAME["width"]))))
+	fs.border_color = Color(GEN_FRAME["color"], float(GEN_FRAME["a"]))
+	frame.add_theme_stylebox_override("panel", fs)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(frame)
+
+# (3/3) A few slow code-drawn twinkles over the icon. GenSparkle is a self-animating Control (see its
+# header for why not particles). mouse_filter is set here too — _all_ignore can run before its _ready().
+static func _add_gen_sparkle(holder: Control, size: float) -> void:
+	var sp := GenSparkle.new()
+	sp.name = "GenSparkle"
+	sp.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sp.tint = Color(GEN_SPARKLE["color"])
+	sp.count = int(GEN_SPARKLE["count"])
+	sp.speed = float(GEN_SPARKLE["speed"])
+	holder.add_child(sp)
 
 # A small fixed-box item sprite (for giver ask-cards / the discovery ladder).
 static func mini_item(code: int) -> Control:

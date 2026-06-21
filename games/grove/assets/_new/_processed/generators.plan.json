@@ -1,0 +1,19 @@
+{
+  "source": "_new/generators.png",
+  "category": "grid",
+  "outputs": [
+    { "tile": 0,  "name": "gen_wildflowers", "path": "items/generator/gen_wildflowers.png", "post": "icon:512" },
+    { "tile": 1,  "name": "gen_porcini",     "path": "items/generator/gen_porcini.png",     "post": "icon:512" },
+    { "tile": 2,  "name": "gen_stump",       "path": "items/generator/gen_stump.png",       "post": "icon:512" },
+    { "tile": 3,  "name": "gen_twig_nest",   "path": "items/generator/gen_twig_nest.png",   "post": "icon:512" },
+    { "tile": 4,  "name": "gen_honeycomb",   "path": "items/generator/gen_honeycomb.png",   "post": "icon:512" },
+    { "tile": 5,  "name": "gen_cattails",    "path": "items/generator/gen_cattails.png",    "post": "icon:512" },
+    { "tile": 6,  "name": "gen_lotus",       "path": "items/generator/gen_lotus.png",       "post": "icon:512" },
+    { "tile": 7,  "name": "gen_root_ball",   "path": "items/generator/gen_root_ball.png",   "post": "icon:512" },
+    { "tile": 8,  "name": "gen_berries",     "path": "items/generator/gen_berries.png",     "post": "icon:512" },
+    { "tile": 9,  "name": "gen_apples",      "path": "items/generator/gen_apples.png",      "post": "icon:512" },
+    { "tile": 10, "name": "gen_glowcaps",    "path": "items/generator/gen_glowcaps.png",    "post": "icon:512" },
+    { "tile": 11, "name": "gen_glow_lotus",  "path": "items/generator/gen_glow_lotus.png",  "post": "icon:512" }
+  ],
+  "archive": "_originals/generators/generators.png"
+}

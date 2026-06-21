@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d063pb4dr3ka6"
-path="res://.godot/imported/gen_stone_fruit_bough.png-98a60a7d9d24775e3659847f32eae552.ctex"
+uid="uid://bfcypjkt52x0f"
+path="res://.godot/imported/gen_honeycomb.png-45d4d2f8e3f285df18683b8e128e7f6a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_stone_fruit_bough.png"
-dest_files=["res://.godot/imported/gen_stone_fruit_bough.png-98a60a7d9d24775e3659847f32eae552.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_honeycomb.png"
+dest_files=["res://.godot/imported/gen_honeycomb.png-45d4d2f8e3f285df18683b8e128e7f6a.ctex"]
 
 [params]
 

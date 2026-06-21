@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bf6kls6cyvrml"
-path="res://.godot/imported/gen_reed_bed.png-1ab847221e255968757811906a04306b.ctex"
+uid="uid://wx55dhw1cpvw"
+path="res://.godot/imported/gen_wildflowers.png-9eabde99b09bfaf7c1f0c147a4c2c49a.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_reed_bed.png"
-dest_files=["res://.godot/imported/gen_reed_bed.png-1ab847221e255968757811906a04306b.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_wildflowers.png"
+dest_files=["res://.godot/imported/gen_wildflowers.png-9eabde99b09bfaf7c1f0c147a4c2c49a.ctex"]
 
 [params]
 

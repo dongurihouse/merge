@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://hxq1lwppg15q"
-path="res://.godot/imported/gen_satchel.png-560d918381dd3d5f2cd73b088a1f7168.ctex"
+uid="uid://cfu0bnx1m4sn1"
+path="res://.godot/imported/gen_glowcaps.png-33840928f84c7cbae1c860d75ca5f1f4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_satchel.png"
-dest_files=["res://.godot/imported/gen_satchel.png-560d918381dd3d5f2cd73b088a1f7168.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_glowcaps.png"
+dest_files=["res://.godot/imported/gen_glowcaps.png-33840928f84c7cbae1c860d75ca5f1f4.ctex"]
 
 [params]
 
