@@ -85,7 +85,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
-var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's coin pill (shop's + entry)
+var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var coins_label: Label
@@ -1127,9 +1127,9 @@ func _build_hud() -> void:
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
-	_open_shop = hud.open_shop
+	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
 	_hud_panels = [hud.wallet, hud.lv_panel]
-	_shop_btn = hud.coin_plus        # the Store "new offer" badge rides the coin pill's "+" (the shop entry)
+	_shop_btn = hud.gem_plus         # the Welcome gift lives in the premium stall now → the badge rides the GEM pill's "+"
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():
@@ -1159,7 +1159,8 @@ func _build_chrome() -> void:
 	# the Play leaf breathes so the way to the board reads as the primary action (index 1).
 	FX.breathe_once(nav.buttons[1])
 	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer).
-	# It rides the wallet's coin pill now (_shop_btn = hud.coin_pill, set in _build_hud) — the shop's + entry.
+	# The starter (Welcome gift) is in the PREMIUM stall now, so it rides the wallet's gem pill
+	# (_shop_btn = hud.gem_plus, set in _build_hud) — the premium stall's + entry.
 	_store_badge = Look.badge("dot")
 	if _shop_btn != null and is_instance_valid(_shop_btn):
 		Look.attach_badge(_shop_btn, _store_badge)

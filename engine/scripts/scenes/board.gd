@@ -565,7 +565,7 @@ func _build_hud() -> void:
 	# _update_water_hud. The board owns only the empty-water REFILL stack (built in _build_water_hud).
 	water_label = hud.water
 	_water_icon = hud.water_icon
-	_open_shop = hud.open_shop       # the currency pills' "+" buttons open it
+	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall (the pills' + open their own)
 	_update_hud()
 
 # Water is the FIRST top-center pill (Water·Coin·Gem), bound from the shared HUD (water_label / _water_icon
