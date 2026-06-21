@@ -146,7 +146,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"badge_dx": -26, "badge_dy": -26, "glow": 45, "twinkle": 55,
+		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	# the HOME-UNLOCK disc — the restore-cost badge on an unowned home spot. disc_pct is the diameter as a
@@ -231,10 +231,10 @@ var _params := {
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
 	# the top-bar CURRENCY PILL (the 💧 🪙 💎 wallet — water replaced the star count). Defaults mirror
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
-	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_gap /
-	# plus_dy tune the "+" LOCATION. `water` is a preview-only sample count.
+	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
+	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_gap": 0, "plus_dy": 0, "plus_size": 26,
+		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
@@ -399,7 +399,9 @@ func _make_element(id: String) -> Control:
 			# (the same Look.attach_badge the side rail uses; count 0 → bare dot, ≥1 → count pill).
 			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho)
 			var bcount := int(p.get("badge_count", 3))
-			var bg := Look.badge("pill", bcount) if bcount >= 1 else Look.badge("dot")
+			# the badge SIZE is tunable too (dot diameter / count font) — the same opts the live rail reads
+			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
+			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
 			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
 			row.add_child(rail_btn)
 			var mc := MarginContainer.new()
@@ -542,7 +544,7 @@ func _make_element(id: String) -> Control:
 		"currency_pill":
 			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
-			# (plus_gap / plus_dy) is tunable here; the live HUD repeats this capsule for water/coin/gem.
+			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
 			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
 			co["icons"] = [["water", 40.0]]
 			co["show_plus"] = true
@@ -1182,6 +1184,8 @@ func _rebuild_sidebar() -> void:
 			_section_header("Side-rail badge (red dot / count)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
+			_sidebar_body.add_child(_slider_row(["badge_dot_px", 8, 28]))     # the bare-dot badge diameter
+			_sidebar_body.add_child(_slider_row(["badge_num_size", 8, 28]))   # the count-badge number size (pill tracks it)
 			_section_header("Bag count (in-disc \"x/y\")")
 			_sidebar_body.add_child(_slider_row(["count_dx", -60, 60]))   # count x offset from the disc centre
 			_sidebar_body.add_child(_slider_row(["count_dy", -60, 60]))   # count y offset from the disc centre (+ = lower)
@@ -1350,9 +1354,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square icon box
 			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
 			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
-			_sidebar_body.add_child(_slider_row(["plus_gap", 0, 48]))       # the "+" LOCATION: gap right of the number
+			_sidebar_body.add_child(_slider_row(["plus_x", -48, 48]))       # the "+" LOCATION: x on the pill's right edge (+out/−in)
 			_sidebar_body.add_child(_slider_row(["plus_dy", -24, 24]))      # the "+" LOCATION: vertical nudge up(-)/down(+)
-			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it)
+			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it; never grows the pill)
 			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
 			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
 		"info_bar":

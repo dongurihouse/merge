@@ -193,8 +193,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 # that opens the store. Added to `cluster`; returns {panel, label, icon, plus}. The icon and number are
 # DIRECT children of an inner `row` — the wallet-resolution contract: label.get_parent() == row, and
 # row.get_parent() == the pill PanelContainer (scenes/tests resolve the pill as label.get_parent().get_parent()).
-# The "+" rides a MarginContainer so its LOCATION is tunable from the workbench: plus_gap nudges it right of
-# the number, plus_dy nudges it up(-)/down(+).
+# The "+" FLOATS over the pill (Look.float_plus) so its LOCATION and SIZE are tunable from the workbench
+# without touching the capsule: plus_x slides it along the pill's right edge, plus_dy nudges it up(-)/down(+),
+# and plus_size scales it — none of which grow the pill.
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable) -> Dictionary:
 	var panel := PanelContainer.new()
@@ -216,22 +217,12 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
 	var plus := _plus_button(open_store, float(pill.get("plus_size", Tune.PLUS_BOX)))   # green "+", size tuned in the workbench
-	row.add_child(_plus_wrap(plus, pill))
-	cluster.add_child(panel)
-	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it — the pill PANEL is a
-	# PanelContainer, which would force-fill any badge child into a bar (the map's Store badge rides the + now).
+	# the "+" FLOATS over the pill: its size never grows the capsule, and plus_x / plus_dy place it on the
+	# right edge. The HOLDER (sized to the pill) is what the cluster lays out — the pill is its full-rect child.
+	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it (the map's Store badge
+	# rides the + now); the pill PANEL is a PanelContainer, which would force-fill any badge child into a bar.
+	cluster.add_child(Look.float_plus(panel, plus, pill))
 	return {"panel": panel, "label": lbl, "icon": icon, "plus": plus}
-
-# The "+" sits in a MarginContainer so the workbench can nudge its LOCATION (plus_gap right of the number,
-# plus_dy up/down) without breaking the row flow. Shared by the live HUD and the workbench pill preview.
-static func _plus_wrap(plus: Control, pill: Dictionary) -> Control:
-	var wrap := MarginContainer.new()
-	wrap.add_theme_constant_override("margin_left", int(pill.get("plus_gap", 0)))
-	var dy := int(pill.get("plus_dy", 0))
-	wrap.add_theme_constant_override("margin_top", maxi(0, dy))
-	wrap.add_theme_constant_override("margin_bottom", maxi(0, -dy))
-	wrap.add_child(plus)
-	return wrap
 
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the

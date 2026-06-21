@@ -586,15 +586,19 @@ static func round_button(icon_id: String, cb: Callable, opts: Dictionary = {}) -
 ## A small alert mark for "something new" / a count. kind:
 ##   "dot"  → a bare red dot with a cream/white rim (no number)
 ##   "pill" → a red pill carrying `count` (clamped 1+, shows "99+" past 99)
-## Always MOUSE_FILTER_IGNORE. Position it via attach_badge (top-right overhang) or by
-## hand. Returns a Control (the badge root).
-static func badge(kind: String = "dot", count: int = 0) -> Control:
+## `opts` tunes the SIZE (workbench-driven): opts.dot_px overrides the dot diameter; opts.num_size overrides
+## the count font (the pill height tracks it at the shipped ratio so the pill still wraps the number). Absent
+## opts → the shipped Tune defaults. Always MOUSE_FILTER_IGNORE. Position it via attach_badge (top-right
+## overhang) or by hand. Returns a Control (the badge root).
+static func badge(kind: String = "dot", count: int = 0, opts: Dictionary = {}) -> Control:
 	if kind == "pill":
+		var num := int(opts.get("num_size", Tune.BADGE_NUM_SIZE))   # count font (workbench-tunable)
+		var pill_h := int(round(float(num) * float(Tune.BADGE_PILL_H) / float(Tune.BADGE_NUM_SIZE)))  # pill wraps the number (shipped 14→22 ratio)
 		var pill := PanelContainer.new()
 		pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var s := StyleBoxFlat.new()
 		s.bg_color = Tune.BADGE_COLOR
-		s.set_corner_radius_all(int(Tune.BADGE_PILL_H / 2.0))
+		s.set_corner_radius_all(int(pill_h / 2.0))
 		s.set_border_width_all(Tune.BADGE_RIM_W)
 		s.border_color = Tune.BADGE_RIM
 		s.content_margin_left = Tune.BADGE_PILL_PAD_X
@@ -602,10 +606,10 @@ static func badge(kind: String = "dot", count: int = 0) -> Control:
 		s.content_margin_top = 1.0
 		s.content_margin_bottom = 1.0
 		pill.add_theme_stylebox_override("panel", s)
-		pill.custom_minimum_size = Vector2(Tune.BADGE_PILL_H, Tune.BADGE_PILL_H)  # min = a circle
+		pill.custom_minimum_size = Vector2(pill_h, pill_h)  # min = a circle
 		var l := Label.new()
 		l.text = ("99+" if count > 99 else str(maxi(count, 1)))
-		l.add_theme_font_size_override("font_size", Tune.BADGE_NUM_SIZE)
+		l.add_theme_font_size_override("font_size", num)
 		l.add_theme_color_override("font_color", Color.WHITE)
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -613,16 +617,17 @@ static func badge(kind: String = "dot", count: int = 0) -> Control:
 		pill.add_child(l)
 		return pill
 	# "dot" — a bare rimmed disc
+	var dot_px := int(opts.get("dot_px", Tune.BADGE_DOT_PX))   # dot diameter (workbench-tunable)
 	var dot := Panel.new()
 	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ds := StyleBoxFlat.new()
 	ds.bg_color = Tune.BADGE_COLOR
-	ds.set_corner_radius_all(int(Tune.BADGE_DOT_PX / 2.0))
+	ds.set_corner_radius_all(int(dot_px / 2.0))
 	ds.set_border_width_all(Tune.BADGE_RIM_W)
 	ds.border_color = Tune.BADGE_RIM
 	dot.add_theme_stylebox_override("panel", ds)
-	dot.custom_minimum_size = Vector2(Tune.BADGE_DOT_PX, Tune.BADGE_DOT_PX)
-	dot.size = Vector2(Tune.BADGE_DOT_PX, Tune.BADGE_DOT_PX)
+	dot.custom_minimum_size = Vector2(dot_px, dot_px)
+	dot.size = Vector2(dot_px, dot_px)
 	return dot
 
 ## Pin a badge to the top-right CORNER of `host`, overhanging the edge (the badge pokes
@@ -643,6 +648,35 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 	b.offset_top = -over.y                            # top edge: over.y above host top
 	b.offset_bottom = b.offset_top + sz.y
 	return b
+
+## Float a small token (the wallet "+") OVER a sized `pill` WITHOUT changing the pill's size. The pill stays
+## the layout-sized node (its icon + number drive the capsule); the token is anchored to the pill's RIGHT
+## edge, nudged by opts.plus_x (horizontal — +overhang past the edge / −tuck in over the pill) and
+## opts.plus_dy (vertical — +down / −up), and scaled by opts.plus_size. Returns a holder Control — add THIS
+## to the layout in place of the pill; its minimum size tracks the pill, so a bigger "+" never grows the
+## capsule. The token keeps its own input surface (a real Button stays tappable, and attach_badge can ride it).
+static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Control:
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
+	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.add_child(pill)
+	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
+	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only
+	var sync := func() -> void:
+		holder.custom_minimum_size = pill.get_combined_minimum_size()
+	sync.call()
+	pill.minimum_size_changed.connect(sync)
+	# the "+" overlays the pill's right-centre, decoupled from the pill size
+	var box := float(opts.get("plus_size", 26))
+	token.set_anchors_preset(Control.PRESET_CENTER_RIGHT)
+	token.offset_right = float(opts.get("plus_x", 0))         # +past the right edge / −in over the pill
+	token.offset_left = token.offset_right - box
+	var dy := float(opts.get("plus_dy", 0))
+	token.offset_top = -box / 2.0 + dy
+	token.offset_bottom = token.offset_top + box
+	holder.add_child(token)
+	return holder
 
 ## --- toggle switch ---------------------------------------------------------------------
 ## A SWITCH (the settings music / sounds / calm rows): a press surface wearing the sliced
