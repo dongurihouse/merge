@@ -32,30 +32,32 @@ const CREAM = Game.PALETTE.CREAM
 const BARK = Game.PALETTE.BARK
 const INK = Game.PALETTE.INK
 
-# the painted card's native size (ui/quest/card_quest.png — island 5 of board_asset.png): a wide
-# box with a speech bubble baked into the right side. Width follows this ratio off the fence-bound
-# height so the art never stretches.
-const CARD_ART_W := 417.0
-const CARD_ART_H := 239.0
+# the painted card's native size (ui/quest/card_quest.png — board1_asset3 island 34): a wide blank
+# parchment signboard in a wood frame, NO baked bubble. The box is sized to THIS aspect and the art is
+# drawn at a uniform scale (see _quest_card), so the frame, peg holes and leaf sprig never distort.
+const CARD_ART_W := 369.0
+const CARD_ART_H := 209.0
 const PLAQUE_PATH := "quest/plaque.png"   # the reusable wooden reward sign (island 6 of board1_asset2.png)
 const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stretches
 
-# Tunable layout — ALL fractions. card_w/card_h are the box size as a fraction of the stand (the box is
-# 9-sliced, so any W/H is fine; keep ~the art's 1.74:1 or the baked bubble stretches). The rest are a
-# size (×cardH) and a centre x/y (×cardW, ×cardH) for the bust, the asked item, and the plaque. The
-# board renders with these defaults; the UI workbench overrides them live via cfg.lay to dial it in.
+# Tunable layout — ALL fractions. card_w is the box's MAX width fraction of the stand; card_h its height
+# fraction — the box is sized to the card art's native aspect (no stretch). The rest are a size (×cardH)
+# and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech bubble + the
+# asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. The board renders
+# with these defaults; the UI workbench overrides them live via cfg.lay to dial it in.
 const LAY := {
-	"card_w": 0.96, "card_h": 0.78,
-	"bust_size": 1.00, "bust_x": 0.28, "bust_y": 0.46,
-	"item_size": 0.36, "item_x": 0.73, "item_y": 0.39,
-	"plaque_w": 0.44, "plaque_x": 0.50, "plaque_y": 0.78,
+	"card_w": 0.98, "card_h": 0.86,
+	"bust_size": 0.94, "bust_x": 0.25, "bust_y": 0.53,
+	"bubble_size": 0.66, "bubble_x": 0.72, "bubble_y": 0.35,
+	"item_size": 0.32, "item_x": 0.72, "item_y": 0.32,
+	"plaque_w": 0.40, "plaque_x": 0.72, "plaque_y": 0.81,
 }
 
-# A wide quest BOX (board_asset reskin): the 9-sliced painted box fills the stand. The character
-# bust sits LARGE on the LEFT (filling top↔bottom, free to overflow the box), the requested item
-# rides a CLEAR drawn speech bubble on the RIGHT (one big item — every quest needs exactly one), and
-# the +N reward sits centred on the reusable wooden plaque hung at the bottom-centre (over the bust).
-# No level badge, no count. No separate stand-level check — the per-item ✓ is the ready signal.
+# A wide blank parchment signboard (board1_asset3 art). The character bust fills the LEFT HALF (free to
+# overflow the box edges); the asked item sits on a STANDALONE speech bubble (board1_asset1, tail toward
+# the character) in the upper RIGHT; the +N reward sits on the wooden plaque hung just BELOW the bubble.
+# The bubble is a fixed-size sprite, so it never stretches with the card. No level badge, no count. No
+# separate stand-level check — the per-item ✓ is the ready signal.
 static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var sw: float = cfg.stand_w
 	var fh: float = cfg.fence_h
@@ -68,9 +70,14 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
-	# the box: a free W×H fraction of the stand (9-sliced, so the gold border never stretches), centred.
-	var cardW: float = sw * float(L.card_w)
+	# the box: sized to the card art's NATIVE aspect (height-bound, clamped to card_w of the stand width)
+	# so a uniform scale never distorts the frame / leaf sprig. Centred in the stand.
+	var artR := CARD_ART_W / CARD_ART_H
 	var cardH: float = fh * float(L.card_h)
+	var cardW: float = cardH * artR
+	if cardW > sw * float(L.card_w):
+		cardW = sw * float(L.card_w)
+		cardH = cardW / artR
 	var cx := (sw - cardW) / 2.0
 	var cy := (fh - cardH) / 2.0
 	var card := _quest_card(cardW, cardH)
@@ -90,11 +97,16 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	bust.tree_entered.connect(func() -> void:
 		if is_instance_valid(bust) and bust.is_inside_tree():
 			FX.pop_in(bust), CONNECT_ONE_SHOT)
-	# the requested item — one big icon seated on the box's BAKED speech bubble (cell_5, ~0.73w, 0.39h).
-	# The ✓ overtakes the item when the quest is ready. (No drawn bubble — the box paints its own.)
+	# the standalone speech bubble (ui/quest/bubble_ask.png — board1_asset1, tail tilting toward the
+	# character on the left), with the asked item drawn ON it. A fixed-size sprite drawn behind the item,
+	# so it never stretches with the card. The ✓ overtakes the item when the quest is ready.
 	var item_ui: Dictionary = {}
 	if not it.is_empty():
 		var acode := int(it.line) * 100 + int(it.tier)
+		var bd := cardH * float(L.bubble_size)
+		var bubble := _speech_bubble(bd)
+		bubble.position = Vector2(cx + cardW * float(L.bubble_x) - bd / 2.0, cy + cardH * float(L.bubble_y) - bd / 2.0)
+		stand.add_child(bubble)
 		var isz := cardH * float(L.item_size)
 		var icon := Control.new()
 		icon.custom_minimum_size = Vector2(isz, isz)
@@ -168,17 +180,14 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 static func _quest_card(w: float, h: float) -> Control:
 	var p := Look.kit("quest/card_quest.png")
 	if ResourceLoader.exists(p):
-		# 9-slice so the gold ornamental border keeps its thickness at any size (the flat parchment
-		# centre is the only part that stretches) — no more border-stretch.
-		var n := NinePatchRect.new()
-		n.texture = load(p)
-		var m := 44
-		n.patch_margin_left = m
-		n.patch_margin_right = m
-		n.patch_margin_top = m
-		n.patch_margin_bottom = m
-		n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return n
+		# the box is sized to the art's native aspect (see make()), so a UNIFORM scale keeps the wood
+		# frame, peg holes and leaf sprig undistorted — a nine-slice would warp those interior details.
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
 	var card := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#FBF1D8", 0.98)
@@ -191,6 +200,32 @@ static func _quest_card(w: float, h: float) -> Control:
 	card.add_theme_stylebox_override("panel", sb)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return card
+
+# The standalone speech bubble (ui/quest/bubble_ask.png) drawn at a fixed size in a d×d box (aspect
+# kept, so the tail stays put) — a plain cream rounded panel when the art is absent. The caller seats
+# the asked item on it.
+static func _speech_bubble(d: float) -> Control:
+	var p := Look.kit("quest/bubble_ask.png")
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.custom_minimum_size = Vector2(d, d)
+		t.size = Vector2(d, d)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var panel := Panel.new()
+	panel.custom_minimum_size = Vector2(d, d)
+	panel.size = Vector2(d, d)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#FBF6EC", 0.97)
+	sb.set_corner_radius_all(int(d * 0.32))
+	sb.set_border_width_all(2)
+	sb.border_color = Color("#C9A66B", 0.85)
+	panel.add_theme_stylebox_override("panel", sb)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return panel
 
 # The reusable wooden reward plaque (ui/quest/plaque.png) sized to the card — a flat wooden
 # StyleBox panel when the art is absent. The caller hangs it at the box's bottom-centre and

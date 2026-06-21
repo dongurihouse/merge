@@ -90,7 +90,8 @@ const TEST_KEYS := {
 	# giver_stand.gd, so NOTHING here is saved config: every knob just previews the live card
 	# (which bust, the asked tier, the reward, the size the board gives it, and the ready state).
 	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met", "card_w", "card_h",
-		"bust_size", "bust_x", "bust_y", "item_size", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
+		"bust_size", "bust_x", "bust_y", "bubble_size", "bubble_x", "bubble_y",
+		"item_size", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
@@ -186,8 +187,9 @@ var _params := {
 	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
 	# toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,
-		"card_w": 96, "card_h": 78, "bust_size": 100, "bust_x": 28, "bust_y": 46,
-		"item_size": 36, "item_x": 73, "item_y": 39, "plaque_w": 44, "plaque_x": 50, "plaque_y": 78},
+		"card_w": 98, "card_h": 86, "bust_size": 94, "bust_x": 25, "bust_y": 53,
+		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
+		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -501,6 +503,7 @@ func _make_element(id: String) -> Control:
 				"lay": {
 					"card_w": float(p.card_w) / 100.0, "card_h": float(p.card_h) / 100.0,
 					"bust_size": float(p.bust_size) / 100.0, "bust_x": float(p.bust_x) / 100.0, "bust_y": float(p.bust_y) / 100.0,
+					"bubble_size": float(p.bubble_size) / 100.0, "bubble_x": float(p.bubble_x) / 100.0, "bubble_y": float(p.bubble_y) / 100.0,
 					"item_size": float(p.item_size) / 100.0, "item_x": float(p.item_x) / 100.0, "item_y": float(p.item_y) / 100.0,
 					"plaque_w": float(p.plaque_w) / 100.0, "plaque_x": float(p.plaque_x) / 100.0, "plaque_y": float(p.plaque_y) / 100.0,
 				},
@@ -1295,11 +1298,15 @@ func _rebuild_sidebar() -> void:
 			# Nothing here writes to the config file.
 			_group_header("Layout (percent → copy into giver_stand.LAY)", false)
 			_sidebar_body.add_child(_slider_row(["card_w", 40, 100]))      # box width  (% of stand)
-			_sidebar_body.add_child(_slider_row(["card_h", 40, 100]))      # box height (% of stand) — ~card_w×0.57 keeps the art's 1.74:1
+			_sidebar_body.add_child(_slider_row(["card_h", 40, 100]))      # box height (% of stand) — box auto-keeps the card art's native aspect (width clamps to card_w)
 			_section_header("Quest giver")
 			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
 			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["bust_y", 0, 100]))       # centre y (% of box height)
+			_section_header("Speech bubble")
+			_sidebar_body.add_child(_slider_row(["bubble_size", 30, 100])) # size (% of box height)
+			_sidebar_body.add_child(_slider_row(["bubble_x", 0, 100]))     # centre x (% of box width)
+			_sidebar_body.add_child(_slider_row(["bubble_y", 0, 100]))     # centre y (% of box height)
 			_section_header("Item icon")
 			_sidebar_body.add_child(_slider_row(["item_size", 10, 80]))    # size (% of box height)
 			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
