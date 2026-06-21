@@ -141,7 +141,9 @@ var _selected_cell := Vector2i(-1, -1)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_btn: Button                # opens the selected item's Tiers ladder
-var _info_trash: Button              # sells the selected item; its text carries the coin/acorn payout
+var _info_trash: Button              # sells the selected item; its content shows trash + payout (built by the kit)
+var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button (kit meta sell_count)
+var _info_trash_coin: Control        # the payout currency icon slot (standard coin/acorn) inside the trash button
 var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
@@ -1401,7 +1403,9 @@ func _build_info_bar(px: float = 130.0) -> Control:
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
-	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its text carries the payout
+	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its content shows trash + payout
+	_info_trash_count = pill.get_meta("sell_count")  # the "+N" payout label, set in _select_item
+	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
 	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
 	return pill
 
@@ -1426,7 +1430,12 @@ func _select_item(cell: Vector2i) -> void:
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
-		_info_trash.text = " +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
+		_info_trash_count.text = "+%d" % (rw.y if gem else rw.x)
+		for c in _info_trash_coin.get_children():
+			c.queue_free()
+		var pay_icon := Look.icon("gem" if gem else "coin", _info_trash_coin.custom_minimum_size.x)
+		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
 
 # Reset the info bar to its empty "tap an item" state.

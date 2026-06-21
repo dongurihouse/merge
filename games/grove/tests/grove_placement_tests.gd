@@ -152,7 +152,7 @@ func _initialize() -> void:
 	ws._rebuild_pieces()
 	ws._select_item(sell_cell)
 	ok(ws._selected_cell == sell_cell, "W3: tapping a board item selects it into the info bar")
-	ok(ws._info_trash.visible and String(ws._info_trash.text).contains("+"), \
+	ok(ws._info_trash.visible and String(ws._info_trash_count.text).contains("+"), \
 		"W3: a deletable item shows the trashcan with its +N sell payout")
 	ok(not ws._info_btn.disabled, "W3: the info button goes live for a selected item (opens the Tiers ladder)")
 	ws._clear_selection()
