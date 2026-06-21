@@ -323,7 +323,11 @@ func _build_map() -> void:
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
-	content.add_child(_map_title_plank(z))
+	# The progress dialog (the "N to restore this place" pill) is DISABLED for now (might add back later).
+	# It also paid the one-time map-completion gift, so grant that here directly to keep it working without
+	# the pill. To re-enable the pill: `content.add_child(_map_title_plank(z))` (the builder still exists).
+	if map_spots_done(z):
+		_grant_map_task_reward(z)
 	if not has_home:
 		_seat_spots(z, home_dict, frame)
 	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
@@ -454,7 +458,13 @@ func _home_badge(z: int, k: int, b) -> Control:
 	opts["calm"] = FX.calm()                          # reduced-motion: freeze the sparkle to a static glow
 	# sparkle is opt-in via the workbench (glow/twinkle default 0 → no sparkle); when tuned up it draws the
 	# eye to a restorable spot. The overlay is mouse-ignored (and _force_ignore below seals the invariant).
-	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": true}, opts)
+	# gray the disc + drop its sparkle when the player can't yet afford the spot (workbench-toggled,
+	# default ON) — so only affordable spots invite a tap. The tap still routes (shows "Need N more").
+	var affordable := Save.stars() >= int(spot.cost)
+	var gray := bool(opts.get("gray_unaffordable", true)) and not affordable
+	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": not gray}, opts)
+	if gray:
+		btn.modulate = Color(0.6, 0.6, 0.6, 1.0)      # the whole disc (shell + "+" + cost) reads as locked
 	btn.size = Vector2(d, d)
 	btn.position = ctr - Vector2(d, d) * 0.5
 	btn.set_meta("place_spot", String(spot.id))       # the placement tool (tools/ui_placement.gd) drags by this
@@ -1130,26 +1140,23 @@ func _update_hud() -> void:
 func _build_chrome() -> void:
 	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
 	# board sizing — side buttons 140, the centred primary (Play) 184 — so the two screens' bottom bars
-	# match. Order: Map · [Play] · Piggy, with PLAY in the CENTRE (2nd of 3), mirroring the board's centred
-	# Home. PLAY is the way into the garden/board (the prominent leaf). Shop + Settings left the bottom bar:
-	# the shop opens from the top currency pills' "+", and Settings is the top-right gear in the shared HUD.
+	# match. Order: Map · Play. PLAY is the way into the garden/board (the prominent leaf). Shop + Settings
+	# left the bottom bar (shop opens from the top pills' "+", Settings is the top-right gear); the Piggy
+	# bank moved to the LiveOps side rail (_build_liveops_rail).
 	var sb := Look.safe_bottom(self)
-	# The flanking buttons are the SHARED configurable home button (disc shell + icon, tuned in the
-	# workbench — `home_icon`); only the CENTRE Play stays the prominent baked leaf (the primary CTA).
+	# The flanking Map disc is the SHARED configurable home button (disc shell + icon, tuned in the
+	# workbench — `home_icon`); Play stays the prominent baked leaf (the primary CTA).
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas).
 		{"home_icon": "map", "px": 140.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_select()},
-		# Play — the CENTRE, prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
-		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board},
-		# Piggy bank — the diegetic accrual-vault, on the bottom bar (home.png). Its claimable ready-pip
-		# rides this button (driven by _refresh_piggy_pip → Vault.claimable()).
-		{"home_icon": "piggy", "px": 140.0, "label": tr("Vault"), "action": _open_vault}])
+		# Play — the prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
+		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	# the Play leaf breathes so the way to the board reads as the primary action (centre, index 1).
+	# the Play leaf breathes so the way to the board reads as the primary action (index 1).
 	FX.breathe_once(nav.buttons[1])
 	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer).
 	# It rides the wallet's coin pill now (_shop_btn = hud.coin_pill, set in _build_hud) — the shop's + entry.
@@ -1157,12 +1164,8 @@ func _build_chrome() -> void:
 	if _shop_btn != null and is_instance_valid(_shop_btn):
 		Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the piggy's claimable ready-pip rides the bottom-bar piggy button (index 2).
-	_piggy_pip = Look.badge("dot")
-	Look.attach_badge(nav.buttons[2], _piggy_pip)   # Piggy is the 3rd of 3 now (Map · Play · Piggy)
-	_refresh_piggy_pip()
-	# the LiveOps rail: Daily · Free · Inbox, pinned TOP-right below the wallet (home.png). The map's
-	# restore progress (and its completion gift) rides the top progress pill, so there's no above-CTA strip.
+	# the LiveOps rail: Daily · Free · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
+	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there.
 	_build_liveops_rail()
 	# the place-picker's bottom-left BACK arrow (map.png) — returns to the map you were viewing. A real
 	# Button on `self` (chrome), NOT under the content input surface; hidden on a map, shown in select.
@@ -1236,6 +1239,13 @@ func _build_liveops_rail() -> void:
 	_place_rail(free, top, slot, step); slot += 1
 	_free_badge = Look.badge("dot")
 	Look.attach_badge(free, _free_badge)
+	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
+	# Vault.claimable() (driven by _refresh_piggy_pip).
+	var piggy := _rail_button("piggy", tr("Vault"), _open_vault)
+	_place_rail(piggy, top, slot, step); slot += 1
+	_piggy_pip = Look.badge("dot")
+	Look.attach_badge(piggy, _piggy_pip)
+	_refresh_piggy_pip()
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
 		var inbox := _rail_button("mail", tr("Inbox"), _open_inbox)

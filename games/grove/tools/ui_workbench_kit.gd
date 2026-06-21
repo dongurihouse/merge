@@ -2774,6 +2774,8 @@ static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# → no sparkle, so the in-game disc is unchanged until a designer dials it up. calm added by caller.
 		"glow": float(u.get("glow", 0)) / 100.0,
 		"twinkle": float(u.get("twinkle", 0)) / 100.0,
+		# gray the disc when the player can't yet afford the spot (the map passes affordability). Default ON.
+		"gray_unaffordable": bool(u.get("gray_unaffordable", true)),
 	}
 
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of

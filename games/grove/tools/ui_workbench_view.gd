@@ -147,7 +147,7 @@ var _params := {
 	# it shows the EXACT in-game size). plus/icon/cost + the two gaps are % of the disc, so all scales with
 	# it. cost + icon are preview-only — the map passes each spot's real cost + the "star" spend currency.
 	"home_unlock_button": {"disc_pct": 16, "plus_scale": 30, "icon_scale": 26, "cost_font": 26, "stack_gap": -1, "icon_gap": 2,
-		"glow": 0, "twinkle": 0, "cost": 4, "icon": "star", "sparkle": true},
+		"glow": 0, "twinkle": 0, "gray_unaffordable": true, "cost": 4, "icon": "star", "sparkle": true, "afford": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -394,7 +394,12 @@ func _make_element(id: String) -> Control:
 			# shows the exact size + proportions the map will. cost + icon are the preview-only content.
 			var uo := Kit.home_unlock_opts_from_config({"home_unlock_button": p})
 			uo["px"] = PHONE_W * float(p.disc_pct) / 100.0
-			return Kit.home_unlock_button({"cost": int(p.cost), "icon": String(p.icon), "sparkle": bool(p.sparkle)}, uo)
+			# preview the GRAY (can't-afford) state via the test-only "afford" toggle + the saved gray_unaffordable.
+			var pgray := bool(p.get("gray_unaffordable", true)) and not bool(p.get("afford", true))
+			var ub: Button = Kit.home_unlock_button({"cost": int(p.cost), "icon": String(p.icon), "sparkle": bool(p.sparkle) and not pgray}, uo)
+			if pgray:
+				ub.modulate = Color(0.6, 0.6, 0.6, 1.0)
+			return ub
 		"icon":
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
@@ -1145,6 +1150,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cost_font", 10, 60]))    # the cost number as % of the disc
 			_sidebar_body.add_child(_slider_row(["stack_gap", -10, 20]))   # gap "+"↔cost row, % of disc (neg tucks up)
 			_sidebar_body.add_child(_slider_row(["icon_gap", 0, 15]))      # gap icon↔number, % of disc
+			_sidebar_body.add_child(_toggle_row("Gray when unaffordable", "gray_unaffordable", true))   # dim locked spots
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount (0 = off)
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density (0 = off)
@@ -1152,6 +1158,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))
 			_sidebar_body.add_child(_option_row("Icon", "icon", UNLOCK_ICONS))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle (glow/twinkle must be > 0)
+			_sidebar_body.add_child(_toggle_row("Affordable", "afford", true))   # OFF → preview the grayed locked state
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
