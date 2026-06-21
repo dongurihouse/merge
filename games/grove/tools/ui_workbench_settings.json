@@ -60,8 +60,8 @@
 		"pad_y": 14.0,
 		"pair_sep": 10.0,
 		"plus_dy": 4.0,
-		"plus_gap": 13.0,
 		"plus_size": 26.0,
+		"plus_x": 0.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
 		"shadow_size": 5.0,
@@ -120,8 +120,10 @@
 		"width": 720.0
 	},
 	"home_button": {
+		"badge_dot_px": 14.0,
 		"badge_dx": -26.0,
 		"badge_dy": -26.0,
+		"badge_num_size": 14.0,
 		"caption_font": 22.0,
 		"caption_gap": -10.0,
 		"caption_pad_x": 16.0,

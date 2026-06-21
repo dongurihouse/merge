@@ -153,7 +153,7 @@ static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 		var ctier := BoardModel.tier_of(code)
 		var cpath := Game.art("items/coin/coin_%d.png" % ctier)
 		if cpath != "" and ResourceLoader.exists(cpath):
-			_add_sprite(holder, _content_tex(cpath), size, 0.06)   # coins sit tighter in the cell
+			_add_sprite(holder, _content_tex(cpath), size, inset)   # coins fit the cell UNIFORMLY — same inset as every other item (was a tighter 0.06)
 		else:
 			var cdisc := Panel.new()
 			var cd := size * (0.5 + 0.1 * ctier)

@@ -903,6 +903,29 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		capwrap.add_child(cap)
 		b.add_child(capwrap)
+	# the OPTIONAL count overlay — a small "x/y" label riding INSIDE the disc (the Bag well's slot count).
+	# Centred over the disc, then nudged by count_dx / count_dy (workbench knobs); the caller updates its
+	# text live via the exposed `count_label` meta. Any round button COULD carry one, but only the bag
+	# supplies text today — moving the count onto the SHARED disc keeps the bag cell the same px box as the
+	# rest of the bar (it used to sit in a taller stack below the disc, breaking the bottom-bar alignment).
+	var count := String(spec.get("count", ""))
+	if count != "":
+		var cnt := Label.new()
+		cnt.text = count
+		cnt.add_theme_font_size_override("font_size", int(opts.get("count_font", 26)))
+		cnt.add_theme_color_override("font_color", Pal.CREAM)
+		cnt.add_theme_color_override("font_outline_color", Color("#4A3B24"))
+		cnt.add_theme_constant_override("outline_size", 6)
+		cnt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		cnt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		cnt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cnt.set_anchors_preset(Control.PRESET_FULL_RECT)   # fills the disc; the equal offsets below SHIFT the centred text
+		var cdx := float(opts.get("count_dx", 0.0))
+		var cdy := float(opts.get("count_dy", 38.0))
+		cnt.offset_left = cdx; cnt.offset_right = cdx
+		cnt.offset_top = cdy; cnt.offset_bottom = cdy
+		b.add_child(cnt)
+		b.set_meta("count_label", cnt)
 	Look.add_press_juice(b)
 	if spec.has("action") and (spec.get("action") as Callable).is_valid():
 		b.pressed.connect(spec.get("action"))
@@ -2780,6 +2803,15 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# transparent margin, so the default tucks the badge well IN (negative) to sit on the disc's edge.
 		"badge_dx": float(h.get("badge_dx", -26)),
 		"badge_dy": float(h.get("badge_dy", -26)),
+		# the in-disc COUNT overlay (the Bag well's "x/y" slot count): its offset from the disc centre (px)
+		# and its font. Only a button GIVEN count text (the bag) draws it; everything else ignores these.
+		"count_dx": float(h.get("count_dx", 0)),
+		"count_dy": float(h.get("count_dy", 38)),
+		"count_font": int(h.get("count_font", 26)),
+		# the count/dot BADGE size (px): the bare-dot diameter, and the count-pill number font (the pill height
+		# tracks it). Defaults mirror Tune.BADGE_DOT_PX / BADGE_NUM_SIZE so an absent config renders the shipped badge.
+		"badge_dot_px": int(h.get("badge_dot_px", 14)),
+		"badge_num_size": int(h.get("badge_num_size", 14)),
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
@@ -2822,9 +2854,25 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square icon box
 		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
 		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
-		"plus_gap":    int(c.get("plus_gap", 0)),          # the green "+" LOCATION: extra gap right of the number
+		"plus_x":      int(c.get("plus_x", 0)),            # the green "+" LOCATION: x on the pill's right edge (+overhang out / −tuck in)
 		"plus_dy":     int(c.get("plus_dy", 0)),           # the green "+" LOCATION: vertical nudge up(-)/down(+)
-		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it)
+		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it; never grows the pill)
+	}
+
+## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
+## piece + name · sell cart). Only the LAYOUT persists; the FRAME is the SHARED currency-pill capsule
+## (so the bottom bar and the top wallet read as one language, and an absent info_bar block is unchanged).
+## inner_scale / sell_icon are stored 0..100 and divided here to the 0..1 fractions of the bar height.
+static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
+	return {
+		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
+		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
+		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
+		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
+		"sell_font":   int(i.get("sell_font", 30)),                 # the sell button's payout font
+		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the cart icon as % of the bar height
+		"pill":        currency_pill_opts_from_config(cfg),         # the SHARED capsule frame (top wallet + bottom bar)
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -2902,17 +2950,106 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(lbl)
-	# the green "+" preview (the workbench tunes its LOCATION: plus_gap right of the number, plus_dy up/down).
-	# A static visual here — the live HUD uses a real Button; both read the same plus_gap / plus_dy opts.
+	# the green "+" preview FLOATS over the pill (the SAME Look.float_plus the live HUD uses): plus_x / plus_dy
+	# place it on the pill's right edge and plus_size scales it WITHOUT growing the capsule. A static visual
+	# here — the live HUD uses a real Button; both read the same plus_x / plus_dy / plus_size opts.
 	if bool(opts.get("show_plus", false)):
-		var pw := MarginContainer.new()
-		pw.add_theme_constant_override("margin_left", int(opts.get("plus_gap", 0)))
-		var dy := int(opts.get("plus_dy", 0))
-		pw.add_theme_constant_override("margin_top", maxi(0, dy))
-		pw.add_theme_constant_override("margin_bottom", maxi(0, -dy))
-		pw.add_child(_plus_token(float(opts.get("plus_size", 26))))
-		row.add_child(pw)
+		return Look.float_plus(panel, _plus_token(float(opts.get("plus_size", 26))), opts)
 	return panel
+
+## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [sell cart] -------------------------
+## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
+## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button (cart icon + payout).
+## The FRAME is the shared currency-pill capsule, so the bottom bar and the top wallet read as one language.
+## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
+## font · separation · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
+## empty/selected state by mutating the sub-nodes exposed via meta (info_btn / info_icon / name_label /
+## sell_btn / inner_px), so the board's selection logic is unchanged.
+##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
+##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
+##     sell_font · sell_icon (0..1) · pill (the currency-pill opts for the borrowed capsule frame).
+static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
+	var height := float(opts.get("height", 130.0))
+	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ + piece box scale with the bar
+	var pill := PanelContainer.new()
+	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pill.custom_minimum_size.y = height
+	pill.add_theme_stylebox_override("panel", currency_pill_style(opts.get("pill", {})))   # the SHARED capsule
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill.add_child(hb)
+	var info_btn := _info_circle_btn("info", inner)              # opens the selected item's tier ladder
+	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
+		info_btn.pressed.connect(spec.get("info_action"))
+	hb.add_child(info_btn)
+	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
+	info_icon.custom_minimum_size = Vector2(inner, inner)
+	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(info_icon)
+	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
+	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
+	name_label.add_theme_color_override("font_color", Pal.INK)
+	name_label.add_theme_constant_override("outline_size", 0)
+	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.clip_text = true
+	hb.add_child(name_label)
+	var sell_btn := Button.new()                                 # sells the selected item; text carries the payout
+	sell_btn.focus_mode = Control.FOCUS_NONE
+	sell_btn.add_theme_font_size_override("font_size", int(opts.get("sell_font", 30)))
+	for cs in ["font_color", "font_color_hover", "font_color_pressed"]:
+		sell_btn.add_theme_color_override(cs, Pal.CREAM)
+	# the sell button wears the merchant cart icon (the same cart that marks the sell affordance elsewhere)
+	var cart_p := Look.kit("shared/icon_cart.png")
+	if ResourceLoader.exists(cart_p):
+		sell_btn.icon = load(cart_p)
+		sell_btn.add_theme_constant_override("icon_max_width", int(height * float(opts.get("sell_icon", 0.30))))
+		sell_btn.expand_icon = false
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color("#C25B4E")
+	ts.set_corner_radius_all(16)
+	ts.set_border_width_all(2)
+	ts.border_color = Color("#9C4438")
+	ts.content_margin_left = 14
+	ts.content_margin_right = 14
+	ts.content_margin_top = 8
+	ts.content_margin_bottom = 8
+	for st in ["normal", "hover", "pressed"]:
+		sell_btn.add_theme_stylebox_override(st, ts)
+	if spec.has("sell_action") and (spec.get("sell_action") as Callable).is_valid():
+		sell_btn.pressed.connect(spec.get("sell_action"))
+	Look.add_press_juice(sell_btn)
+	hb.add_child(sell_btn)
+	# expose the mutable sub-nodes so the caller drives selection state without rebuilding the bar
+	pill.set_meta("info_btn", info_btn)
+	pill.set_meta("info_icon", info_icon)
+	pill.set_meta("name_label", name_label)
+	pill.set_meta("sell_btn", sell_btn)
+	pill.set_meta("inner_px", inner)
+	return pill
+
+## A round cream icon button (the info bar's "ⓘ"): the cream disc + a centred kit icon. Mirrors the
+## board's old _circle_btn so the extracted info bar renders identically.
+static func _info_circle_btn(icon_id: String, px: float) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(Pal.CREAM)
+	sb.set_corner_radius_all(int(px / 2.0))
+	sb.set_border_width_all(2)
+	sb.border_color = Pal.STRAW
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		b.add_theme_stylebox_override(st, sb)
+	var ic := Look.icon(icon_id, px * 0.58)
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
+	Look.add_press_juice(b)
+	return b
 
 ## A static green "+" token mirroring the live HUD's _plus_button look (leaf-green disc, cream "+"), for the
 ## workbench currency-pill preview so the designer can position it. Values mirror Tune.Hud.PLUS_*.

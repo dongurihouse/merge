@@ -81,9 +81,13 @@ func _run() -> void:
 	if edit_toggle == null or not edit_toggle.button_pressed:
 		_fail("Edit Regions should be ON by default")
 		return
-	var editor := scene.find_child("RegionEditor", true, false)
+	var editor := scene.find_child("RegionEditor", true, false) as Control
 	if editor == null or not bool(editor.get("edit_enabled")):
 		_fail("Region editor should be edit-enabled by default")
+		return
+	# Editable means it actually receives mouse input — not just that the flag is set.
+	if editor.mouse_filter != Control.MOUSE_FILTER_STOP:
+		_fail("Region editor should accept mouse input by default (points editable on open)")
 		return
 
 	# The first visit to a map seeds its regions file (auto-detect + save).

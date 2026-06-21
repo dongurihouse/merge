@@ -41,7 +41,6 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
 const Pal = Game.PALETTE
-const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics (button radius/border/shadow)
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
@@ -142,9 +141,8 @@ var _selected_cell := Vector2i(-1, -1)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_btn: Button                # opens the selected item's Tiers ladder
-var _info_trash: Button              # sells the selected item; its content shows trash + payout (built in _build_info_bar)
-var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button
-var _info_trash_coin: Control        # the payout currency icon slot (standard coin/acorn) inside the trash button
+var _info_trash: Button              # sells the selected item; its text carries the coin/acorn payout
+var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
 var diamonds_label: Label
@@ -1343,45 +1341,42 @@ func _tray_well(px: float, art: String = "") -> Button:
 # matches the rest of the bar; the stash/sell preview overlays still ride on top and the drop is resolved
 # by global-rect, so a home-button disc is as good a target as the old wood well. Soft-loads the kit by
 # path (engine → game-tool bridge); falls back to the wood _tray_well if the kit can't load.
-func _home_well(px: float, icon_id: String, fallback_art: String) -> Button:
+func _home_well(px: float, icon_id: String, fallback_art: String, count: String = "") -> Button:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit == null:
 		return _tray_well(px, fallback_art)
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = px
 	opts["calm"] = FX.calm()
-	return Kit.home_button({"icon": icon_id, "caption": "", "sparkle": false}, opts)
+	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
+	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).
+	return Kit.home_button({"icon": icon_id, "caption": "", "sparkle": false, "count": count}, opts)
 
 # The Bag well (bottom nav): tap → the full bag overlay; a board item dragged onto it stashes
 # (the drop is resolved in _on_release by global-rect). bag_content shows the most-recent stashed
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
-	var b := _home_well(px, "bag", "nav_bag.png")     # the home-button disc + the lifted satchel icon
+	var b := _home_well(px, "bag", "nav_bag.png", _bag_count_text())   # the home-button disc + satchel icon + the in-disc "x/y" count
 	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
 	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
 	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
 	bag_content = b.get_meta("icon_wrap") if b.has_meta("icon_wrap") else null
 	bag_piece_px = float(b.get_meta("icon_px", px * 0.5))   # match the satchel icon box so the item FILLS it
+	# the "x/y" slot count now lives INSIDE the disc (the shared home_button's count overlay), so the bag cell
+	# is the same px box as the info bar + home disc next to it. The label is updated in place via this meta.
+	_bag_count_lbl = b.get_meta("count_label") if b.has_meta("count_label") else null
 	b.pressed.connect(_open_bag_overlay)
 	return b
 
-# The bottom-bar Bag cell: the swap-icon bag well + an "x/y" count beneath it (held / capacity).
+# The bottom-bar Bag cell: just the swap-icon bag well — the "x/y" count rides INSIDE the disc now
+# (see _make_bag_button), so the cell matches the height of the info bar + Home disc beside it.
 func _build_bag_box(px: float) -> Control:
-	var box := VBoxContainer.new()
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
-	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	box.add_theme_constant_override("separation", -4)
 	bag_btn = _make_bag_button(px)
-	box.add_child(bag_btn)
-	_bag_count_lbl = Label.new()
-	_bag_count_lbl.add_theme_font_size_override("font_size", 26)
-	_bag_count_lbl.add_theme_color_override("font_color", CREAM)
-	_bag_count_lbl.add_theme_color_override("font_outline_color", Color("#4A3B24"))
-	_bag_count_lbl.add_theme_constant_override("outline_size", 6)
-	_bag_count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	box.add_child(_bag_count_lbl)
-	_update_bag_count()
-	return box
+	return bag_btn
+
+# The Bag's "held / capacity" string, e.g. "1/6" — used both to seed the in-disc overlay and to refresh it.
+func _bag_count_text() -> String:
+	return "%d/%d" % [bag.size(), _bag_capacity()]
 
 # The Home disc for the bottom bar's right edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float) -> Button:
@@ -1395,138 +1390,20 @@ func _home_nav_button(px: float) -> Button:
 
 # The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
 # (see _select_item); empty otherwise. The info button opens the Tiers ladder; the trashcan sells the item.
+# The bar itself is the SHARED kit component (Kit.info_bar — the same one the workbench previews + tunes);
+# the board just grabs its mutable sub-nodes (info ⓘ / piece box / name / sell) and drives selection state.
 func _build_info_bar(px: float = 130.0) -> Control:
-	var pill := PanelContainer.new()
-	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	pill.custom_minimum_size.y = px                          # #5: the info bar matches the Bag/Home well height
-	# #4: the info bar wears the SAME frame as the top currency pill bar — the painted capsule from the
-	# shared kit recipe (Kit.currency_pill_style), so the bottom bar and the wallet read as one language.
-	# Falls back to the old code-drawn cream panel when the game-tool kit can't load (engine-only runs).
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit != null:
-		pill.add_theme_stylebox_override("panel", Kit.currency_pill_style(Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))))
-	else:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("#FBF6EC", 0.97)
-		sb.set_corner_radius_all(24)
-		sb.set_border_width_all(3)
-		sb.border_color = Color("#C9A66B", 0.9)
-		sb.shadow_color = Color(0, 0, 0, 0.18)
-		sb.shadow_size = 4
-		sb.content_margin_left = 12
-		sb.content_margin_right = 12
-		sb.content_margin_top = 8
-		sb.content_margin_bottom = 8
-		pill.add_theme_stylebox_override("panel", sb)
-	var hb := HBoxContainer.new()
-	hb.add_theme_constant_override("separation", 10)
-	hb.alignment = BoxContainer.ALIGNMENT_CENTER
-	pill.add_child(hb)
-	var circle := px * 0.48                                   # the inner controls scale with the bar (~10% bigger, #5)
-	_info_btn = _circle_btn("info", circle, _on_info_pressed) # opens the selected item's Tiers ladder
-	hb.add_child(_info_btn)
-	_info_icon = CenterContainer.new()                       # the selected piece preview
-	_info_icon.custom_minimum_size = Vector2(circle, circle)
-	_info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hb.add_child(_info_icon)
-	_info_label = Label.new()                                # "<name> · Tier N" (or the empty prompt)
-	_info_label.add_theme_font_size_override("font_size", 32)
-	_info_label.add_theme_color_override("font_color", Pal.INK)
-	_info_label.add_theme_constant_override("outline_size", 0)
-	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_info_label.clip_text = true
-	hb.add_child(_info_label)
-	_info_trash = Button.new()                               # sells the selected item; content shows trash + payout
-	_info_trash.focus_mode = Control.FOCUS_NONE
-	_info_trash.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_info_trash.custom_minimum_size = Vector2(px * 1.5, px * 0.52) # a fixed-width pill at the bar's end; content centers
-	var trash_icon_px := px * 0.34
-	# content row: [trash icon] +N [coin/acorn icon] — a mouse-ignoring centered HBox so the WHOLE pill stays
-	# the single tap target (the children pass their clicks through to the Button below them).
-	var trash_row := HBoxContainer.new()
-	trash_row.add_theme_constant_override("separation", 6)
-	trash_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	trash_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the sell button wears the trash-can icon cut from action_asset (ui/shared/icon_trash.png),
-	# replacing the merchant cart — a clearer "bin this for coins" read.
-	var trash_p := Look.kit("shared/icon_trash.png")
-	if ResourceLoader.exists(trash_p):
-		var ti := TextureRect.new()
-		ti.texture = load(trash_p)
-		ti.custom_minimum_size = Vector2(trash_icon_px, trash_icon_px)
-		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ti.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		trash_row.add_child(ti)
-	_info_trash_count = Label.new()                          # the "+N" payout amount
-	_info_trash_count.add_theme_font_size_override("font_size", 30)
-	_info_trash_count.add_theme_color_override("font_color", CREAM)
-	_info_trash_count.add_theme_constant_override("outline_size", 0)
-	_info_trash_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_info_trash_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	trash_row.add_child(_info_trash_count)
-	# the payout currency is the game's STANDARD coin/acorn icon (Look.icon → ui/currency/icon_*.png),
-	# swapped per payout in _select_item, replacing the inline 🪙/🌰 emoji glyph.
-	_info_trash_coin = CenterContainer.new()
-	_info_trash_coin.custom_minimum_size = Vector2(trash_icon_px, trash_icon_px)
-	_info_trash_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	trash_row.add_child(_info_trash_coin)
-	var trash_center := CenterContainer.new()                # center the row within the fixed-width pill
-	trash_center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	trash_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	trash_center.add_child(trash_row)
-	_info_trash.add_child(trash_center)
-	# the sell button wears the game's STANDARD green primary-CTA background (Pal.BTN_PRIMARY) — the same
-	# leaf-green pill Look.button(primary) uses — replacing the bespoke red box, so the bottom bar speaks the
-	# one button language.
-	var ts := StyleBoxFlat.new()
-	ts.bg_color = Pal.BTN_PRIMARY
-	ts.border_color = Pal.BTN_PRIMARY_EDGE
-	ts.set_corner_radius_all(Tune.BTN_RADIUS)
-	ts.set_border_width_all(Tune.BTN_BORDER_W)
-	ts.shadow_color = Tune.SHADOW_RAISED
-	ts.shadow_size = Tune.SHADOW_RAISED_SIZE
-	ts.shadow_offset = Tune.SHADOW_RAISED_OFFSET
-	ts.content_margin_left = 14
-	ts.content_margin_right = 14
-	ts.content_margin_top = 8
-	ts.content_margin_bottom = 8
-	_info_trash.add_theme_stylebox_override("normal", ts)
-	_info_trash.add_theme_stylebox_override("hover", ts)
-	var tsp := ts.duplicate()                                # pressed: darken + settle the shadow (the standard juice)
-	tsp.bg_color = ts.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
-	tsp.shadow_color = Tune.SHADOW_RESTING
-	tsp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
-	tsp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
-	_info_trash.add_theme_stylebox_override("pressed", tsp)
-	_info_trash.pressed.connect(_on_trash_pressed)
-	Look.add_press_juice(_info_trash)
-	hb.add_child(_info_trash)
+	if Kit == null:
+		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
+	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
+	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
+	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
+	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
+	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its text carries the payout
+	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
 	return pill
-
-# A round cream icon button (the info "i") — Button.pressed handles the tap (de-duped vs emulated touch).
-func _circle_btn(icon_id: String, px: float, cb: Callable) -> Button:
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(CREAM)
-	sb.set_corner_radius_all(int(px / 2.0))
-	sb.set_border_width_all(2)
-	sb.border_color = STRAW
-	for st in ["normal", "hover", "pressed", "disabled"]:
-		b.add_theme_stylebox_override(st, sb)
-	var ic := Look.icon(icon_id, px * 0.58)
-	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(ic)
-	Look.add_press_juice(b)
-	if cb.is_valid():
-		b.pressed.connect(cb)
-	return b
 
 # Select a board item INTO the info bar: show its piece + "<name> · Tier N", enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
@@ -1540,7 +1417,7 @@ func _select_item(cell: Vector2i) -> void:
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	_info_icon.add_child(_make_piece(code, 50.0))
+	_info_icon.add_child(_make_piece(code, _info_inner_px * 0.8))   # ~0.8 of the box (≈50px at the default inner) — scales with the bar knob
 	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else tr("Item")
 	_info_label.text = "%s · %s %d" % [nm, tr("Tier"), tier]
 	_info_btn.disabled = false
@@ -1549,12 +1426,7 @@ func _select_item(cell: Vector2i) -> void:
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
-		_info_trash_count.text = "+%d" % (rw.y if gem else rw.x)
-		for c in _info_trash_coin.get_children():
-			c.queue_free()
-		var pay_icon := Look.icon("gem" if gem else "coin", _info_trash_coin.custom_minimum_size.x)
-		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_info_trash_coin.add_child(pay_icon)
+		_info_trash.text = " +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
 		_info_trash.visible = true
 
 # Reset the info bar to its empty "tap an item" state.
@@ -1593,10 +1465,10 @@ func _on_trash_pressed() -> void:
 	_sell_item(cell, node)
 	_clear_selection()
 
-# Refresh the bottom-bar bag "x/y" count (held / capacity).
+# Refresh the bottom-bar bag "x/y" count (held / capacity) — the label lives inside the bag disc now.
 func _update_bag_count() -> void:
 	if _bag_count_lbl != null and is_instance_valid(_bag_count_lbl):
-		_bag_count_lbl.text = "%d/%d" % [bag.size(), _bag_capacity()]
+		_bag_count_lbl.text = _bag_count_text()
 
 # The Merchant well (bottom nav): drag a board spare onto it to SELL (drop resolved in _on_release).
 # While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);

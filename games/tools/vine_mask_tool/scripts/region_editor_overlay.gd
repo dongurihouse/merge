@@ -16,7 +16,9 @@ var dragging_point := -1
 var shared_merge_count := 0
 
 func _ready() -> void:
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Honour edit_enabled here: set_edit_enabled() runs before this node enters the tree, so a
+	# blanket MOUSE_FILTER_IGNORE would clobber edit-on-by-default and swallow the first edits.
+	mouse_filter = Control.MOUSE_FILTER_STOP if edit_enabled else Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = image_size
 	size = image_size
 

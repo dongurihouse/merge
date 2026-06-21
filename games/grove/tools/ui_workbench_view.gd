@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
+const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
 # column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
@@ -30,7 +30,7 @@ const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "b
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
 	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
-	[["board"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["frame"], ["progress_bar"]],
+	[["board"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["bag"]],   # dialogs, settings, vault, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
@@ -47,7 +47,7 @@ const DEPENDENTS := {
 	"badge": ["home_button"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
-	"currency_pill": ["bag"],
+	"currency_pill": ["bag", "info_bar"],   # the info bar borrows the pill's capsule frame
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -71,7 +71,7 @@ const TEST_KEYS := {
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
-	"home_button": ["icon", "caption", "sparkle", "badge_count"],
+	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
 	# the HOME-UNLOCK disc is a shared-STYLE sandbox: disc size + the inner proportions persist. The
 	# previewed cost number + currency icon are test props — the map sets each spot's real cost + "star".
 	"home_unlock_button": ["cost", "icon", "sparkle"],
@@ -89,6 +89,10 @@ const TEST_KEYS := {
 	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
 	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
 	"currency_pill": ["star", "coin", "gem"],
+	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
+	# the FRAME is the shared currency-pill capsule (tune it on that element). `filled` just previews the
+	# selected-vs-empty state (the game fills it from the tapped board item).
+	"info_bar": ["filled"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/stars_left just preview the card (the game sets each from map state).
@@ -126,6 +130,7 @@ const CAPTIONS := {
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
+	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
@@ -141,8 +146,9 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"badge_dx": -26, "badge_dy": -26, "glow": 45, "twinkle": 55,
-		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3},
+		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
+		"count_dx": 0, "count_dy": 38, "count_font": 26,
+		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	# the HOME-UNLOCK disc — the restore-cost badge on an unowned home spot. disc_pct is the diameter as a
 	# % of the MAP width (the game multiplies it by the live map width; the preview uses the 1080 base, so
 	# it shows the EXACT in-game size). plus/icon/cost + the two gaps are % of the disc, so all scales with
@@ -225,11 +231,14 @@ var _params := {
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
 	# the top-bar CURRENCY PILL (the 💧 🪙 💎 wallet — water replaced the star count). Defaults mirror
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
-	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_gap /
-	# plus_dy tune the "+" LOCATION. `water` is a preview-only sample count.
+	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
+	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_gap": 0, "plus_dy": 0, "plus_size": 26,
+		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
+	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
+	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
+	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 30, "sell_icon": 30, "filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -383,12 +392,16 @@ func _make_element(id: String) -> Control:
 			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"]})
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false}, ho))
+			# the nav-style disc carries the Bag's in-disc "x/y" COUNT so the count_dx / count_dy / count_font
+			# knobs are tunable live (the bag well is a nav-style disc; only a count-bearing button draws it).
+			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false, "count": String(p.get("count", ""))}, ho))
 			# the rail-style disc carries a SAMPLE red badge so the badge_dx / badge_dy offset is tunable live
 			# (the same Look.attach_badge the side rail uses; count 0 → bare dot, ≥1 → count pill).
 			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho)
 			var bcount := int(p.get("badge_count", 3))
-			var bg := Look.badge("pill", bcount) if bcount >= 1 else Look.badge("dot")
+			# the badge SIZE is tunable too (dot diameter / count font) — the same opts the live rail reads
+			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
+			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
 			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
 			row.add_child(rail_btn)
 			var mc := MarginContainer.new()
@@ -531,11 +544,35 @@ func _make_element(id: String) -> Control:
 		"currency_pill":
 			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
-			# (plus_gap / plus_dy) is tunable here; the live HUD repeats this capsule for water/coin/gem.
+			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
 			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
 			co["icons"] = [["water", 40.0]]
 			co["show_plus"] = true
 			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
+		"info_bar":
+			# the board's bottom-bar info pill, built from the SAME kit component + resolver the game reads
+			# (so the preview is exactly the live bar). Pull in the currency_pill block too — the bar borrows
+			# its capsule frame, so a pill tweak shows here live. `filled` previews the selected-vs-empty state.
+			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"]})
+			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
+			var inner := float(ib.get_meta("inner_px", 62.0))
+			if bool(p.get("filled", true)):
+				(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * 0.8))
+				(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
+				(ib.get_meta("info_btn") as Button).disabled = false
+				var sb := ib.get_meta("sell_btn") as Button
+				sb.text = " +12🪙"
+				sb.visible = true
+			else:
+				(ib.get_meta("name_label") as Label).text = "Tap an item to inspect it"
+				(ib.get_meta("info_btn") as Button).disabled = true
+				(ib.get_meta("sell_btn") as Button).visible = false
+			# the bar expands to fill the bottom row in-game; give the preview a representative bottom-bar width
+			var wrap := Control.new()
+			wrap.custom_minimum_size = Vector2(620, float(io.get("height", 130)))
+			ib.set_anchors_preset(Control.PRESET_FULL_RECT)
+			wrap.add_child(ib)
+			return wrap
 		"settings":
 			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
 			var setopts := Kit.settings_opts_from_config(_params)
@@ -1147,6 +1184,12 @@ func _rebuild_sidebar() -> void:
 			_section_header("Side-rail badge (red dot / count)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
+			_sidebar_body.add_child(_slider_row(["badge_dot_px", 8, 28]))     # the bare-dot badge diameter
+			_sidebar_body.add_child(_slider_row(["badge_num_size", 8, 28]))   # the count-badge number size (pill tracks it)
+			_section_header("Bag count (in-disc \"x/y\")")
+			_sidebar_body.add_child(_slider_row(["count_dx", -60, 60]))   # count x offset from the disc centre
+			_sidebar_body.add_child(_slider_row(["count_dy", -60, 60]))   # count y offset from the disc centre (+ = lower)
+			_sidebar_body.add_child(_slider_row(["count_font", 14, 40]))  # the "x/y" font size
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
@@ -1155,6 +1198,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
 			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
+			_sidebar_body.add_child(_text_row("Bag count", "count"))   # sample "x/y" on the nav disc (empty = none)
 		"home_unlock_button":
 			_group_header("Saved to config", true)              # disc size + the inner proportions
 			_sidebar_body.add_child(_slider_row(["disc_pct", 8, 30]))      # disc diameter as % of the MAP width
@@ -1310,11 +1354,21 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square icon box
 			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
 			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
-			_sidebar_body.add_child(_slider_row(["plus_gap", 0, 48]))       # the "+" LOCATION: gap right of the number
+			_sidebar_body.add_child(_slider_row(["plus_x", -48, 48]))       # the "+" LOCATION: x on the pill's right edge (+out/−in)
 			_sidebar_body.add_child(_slider_row(["plus_dy", -24, 24]))      # the "+" LOCATION: vertical nudge up(-)/down(+)
-			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it)
+			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it; never grows the pill)
 			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
 			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
+		"info_bar":
+			_group_header("Saved to config", true)                         # layout only — the frame is the shared currency pill
+			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
+			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
+			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
+			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
+			_sidebar_body.add_child(_slider_row(["sell_font", 16, 40]))     # the sell button's payout font
+			_sidebar_body.add_child(_slider_row(["sell_icon", 15, 50]))     # the cart icon as % of the height
+			_group_header("Test only — not saved", false)                  # the frame is tuned on the Currency pill element
+			_sidebar_body.add_child(_toggle_row("Filled (vs empty)", "filled", true))   # preview the selected vs empty state
 		"toggle_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Card art (parchment)", "card_art"))
