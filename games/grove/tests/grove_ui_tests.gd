@@ -69,15 +69,16 @@ func _initialize() -> void:
 	var kids_h7: int = h7.get_child_count()
 	Shop.open(h7, {})
 	ok(h7.get_child_count() == kids_h7 + 1, "the storefront opens over the home map too")
-	ok(s7.stars_label != null and s7.coins_label != null and s7.diamonds_label != null, \
+	# the wallet is Water·Coin·Gem now (no star count); resolve it via coins_label, which both scenes bind.
+	ok(s7.water_label != null and s7.coins_label != null and s7.diamonds_label != null, \
 		"the board's HUD labels exist")
-	ok(h7.stars_label != null and h7.coins_label != null, "home's HUD labels exist")
-	Save.add_stars(3)
+	ok(h7.coins_label != null, "home's HUD labels exist")
+	Save.add_coins(3)
 	h7._update_hud()
 	await create_timer(0.6).timeout            # numbers TICK toward the target (§6)
-	ok(h7.stars_label.text == str(Save.stars()), "the module refresh keeps the wallet live (ticked)")
-	var p_grove: Control = s7.stars_label.get_parent().get_parent()
-	var p_home: Control = h7.stars_label.get_parent().get_parent()
+	ok(h7.coins_label.text == str(Save.coins()), "the module refresh keeps the wallet live (ticked)")
+	var p_grove: Control = s7.coins_label.get_parent().get_parent()
+	var p_home: Control = h7.coins_label.get_parent().get_parent()
 	ok(p_grove.offset_top == p_home.offset_top and p_grove.offset_right == p_home.offset_right, \
 		"the wallet panel sits at IDENTICAL offsets in both scenes")
 	var lv_grove: Control = s7.level_label
@@ -103,7 +104,7 @@ func _initialize() -> void:
 	# R1: the plank wraps the WHOLE cluster — even (symmetric) padding, the row
 	# (store basket + ★/🪙/💧) fully inside (rect guard; the crop is the eye proof)
 	await create_timer(0.05).timeout            # let the panel lay out
-	var row_home: Control = h7.stars_label.get_parent()
+	var row_home: Control = h7.coins_label.get_parent()
 	assert_wraps(p_home, row_home, 10.0, 4.0, "R1 wallet")
 	var store_btn: Control = row_home.get_child(0)
 	ok(p_home.get_global_rect().grow(-4.0).encloses(store_btn.get_global_rect()), \
@@ -196,7 +197,7 @@ func _initialize() -> void:
 	var lchip: Control = h4.level_label
 	while lchip != null and not (lchip is PanelContainer):
 		lchip = lchip.get_parent()
-	var wallet4: Control = h4.stars_label.get_parent().get_parent()
+	var wallet4: Control = h4.coins_label.get_parent().get_parent()
 	ok(lchip != null and lchip.get_parent() != null and lchip.get_parent().get_parent() == h4, \
 		"R4 level chip sits in the top-left HUD row")
 	ok(lchip != null and h4.get_viewport_rect().encloses(lchip.get_global_rect()), \

@@ -10,50 +10,39 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
-	# the board-art nav is a slab-less FULL-WIDTH ROW of 3 painted buttons (bottom_bar IS the row):
-	# Bag · Home · Merchant. Shop + Settings left the bottom bar — the shop opens from the top currency
-	# pills' "+", and Settings is the top-right HUD gear. Buttons interleave with expanding spacers, so
-	# count the Button children (not raw children) and check the row + its buttons sit on-screen.
-	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
-	var nav_btns: Array = ss.bottom_bar.get_children().filter(func(c): return c is Button)
-	ok(nav_btns.size() == 3, "S1: the nav row holds 3 painted buttons (bag·home·merchant)")
+	# the board bottom bar is Bag (+count) · info bar · Home (bottom_bar IS the row). Selling moved to the
+	# info bar's trashcan, so there is no merchant well. Check the row + Bag/Home sit on-screen and the
+	# centre info bar (a framed pill) is present.
+	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom bar sits fully on-screen")
+	ok(ss.bag_btn != null and is_instance_valid(ss.bag_btn) and vp.encloses(ss.bag_btn.get_global_rect()), \
+		"S1: the Bag well sits fully on-screen")
+	ok(ss.home_btn != null and is_instance_valid(ss.home_btn) and vp.encloses(ss.home_btn.get_global_rect()), \
+		"S1: the Home button sits fully on-screen")
+	ok(ss.bottom_bar.find_children("*", "PanelContainer", true, false).size() >= 1, \
+		"S1: the centre info bar (a framed pill) is present")
 	var board_mat: Control = ss.board_area.get_child(0)
 	ok(board_mat.get_global_rect().position.y >= ss.giver_bar.get_global_rect().end.y, \
 		"S1: the board frame starts below the quest strip and does not cut off ready cards")
 	ok(not board_mat.get_global_rect().intersects(ss.bottom_bar.get_global_rect()), \
-		"S1: the board frame reserves its full height and stays clear of the bottom nav")
-	var bb_home: Control = ss.home_btn       # the centred Home button (Bag · Home · Merchant)
-	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
-	# Home → the map you were last on (NOT hard-wired to the hub): the nav Home button and the
-	# Decorate/gate handoff share ONE target = the persisted last_map (empty on a fresh save, so
-	# the Map boot falls through to the frontier).
+		"S1: the board frame reserves its full height and stays clear of the bottom bar")
+	# Home → the map you were last on (NOT hard-wired to the hub): the Home button and the Decorate/gate
+	# handoff share ONE target = the persisted last_map (empty on a fresh save → the Map boot picks frontier).
 	Save.grove()["last_map"] = "barn"
 	ok(ss._decorate_target() == "barn", "Home/Decorate target the LAST played map, not the hub")
 	Save.grove().erase("last_map")
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
-	# Shop is no longer a bottom-bar button (it opens from the top currency pills' "+"); the Bag +
-	# Merchant wells are the remaining flanking targets and stay fully on-screen.
-	ok(vp.encloses(ss.bag_btn.get_global_rect()) and vp.encloses(ss.merchant_btn.get_global_rect()), \
-		"S1: the Bag + Merchant wells sit fully on-screen")
-	# Bag + Merchant are now the SHARED home-button disc (Home·Bag·Merchant on one disc): the round
-	# target is painted by the button's `normal` StyleBox — a textured disc, or the kit's flat
-	# cream-disc fallback (same metrics either way) — with the satchel/coin-sack centred as the icon.
+	# the Bag well is the SHARED home-button disc: the round target is painted by the button's `normal`
+	# StyleBox — a textured disc, or the kit's flat cream-disc fallback (same metrics either way).
 	var bag_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal")
 	ok(bag_sb is StyleBoxTexture or bag_sb is StyleBoxFlat, \
-		"S1: the empty bag target paints the round satchel disc (shared home-button disc)")
-	var merchant_sb: StyleBox = ss.merchant_btn.get_theme_stylebox("normal")
-	ok(merchant_sb is StyleBoxTexture or merchant_sb is StyleBoxFlat, \
-		"S1: the merchant target paints the round coin-sack disc (shared home-button disc)")
-	ok(ss.merchant_rest == null or not is_instance_valid(ss.merchant_rest) \
-		or ss.merchant_rest.get_parent() != ss.merchant_btn or not ss.merchant_rest.visible, \
-		"S1: the merchant drop target has no centered shop/cart icon")
+		"S1: the bag well paints the round satchel disc (shared home-button disc)")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
 	ss._update_water_hud()
 	await create_timer(0.05).timeout
 	var wchip4: Control = ss.water_label.get_parent().get_parent()
 	ok(vp.encloses(wchip4.get_global_rect()), "S4: the water chip sits fully on-screen (board)")
-	ok(vp.encloses(ss.stars_label.get_parent().get_parent().get_global_rect()), \
+	ok(vp.encloses(ss.coins_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the wallet sits fully on-screen (board)")
 	ok(vp.encloses(ss.level_label.get_parent().get_parent().get_global_rect()), \
 		"S4/S10: the Lv chip sits fully on-screen (board — the module ships it to BOTH scenes)")
@@ -66,7 +55,7 @@ func _initialize() -> void:
 	await create_timer(0.05).timeout
 	ok(hs.get_viewport_rect().encloses(hs.level_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the Lv chip sits fully on-screen (home)")
-	ok(hs.get_viewport_rect().encloses(hs.stars_label.get_parent().get_parent().get_global_rect()), \
+	ok(hs.get_viewport_rect().encloses(hs.coins_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the wallet sits fully on-screen (home)")
 
 	# S6 regression guard: primary buttons must be SOLID pills — the kit btn_leaf
@@ -152,24 +141,22 @@ func _initialize() -> void:
 	ok(lbls1 > lbls0, "W3: the one-time sell hint floater appears on the first max-tier item")
 	ws._note_item_landed(top_code)
 	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
-	# (b) the merchant stall brightens while an item is dragged — the sell affordance.
-	# (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
-	# redesign; the stall brighten is the surviving affordance and the +N read returns in the
-	# new chip language during the redesign.)
+	# (b) selling moved to the bottom-bar INFO BAR's trashcan (the drag-to-merchant well is retired):
+	# selecting a deletable board item shows the trashcan with its "+N" payout; the info button goes live.
 	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
-	ok(ws.merchant_btn != null and is_instance_valid(ws.merchant_btn), "W3: the merchant sell-well rides the bottom nav (no fence stall)")
-	ws._show_sell_affordance(top_code)
-	ok(ws.merchant_btn.modulate.a >= 0.99, "W3: dragging a spare brightens the merchant well (sell affordance)")
-	# the well PREVIEWS the payout while a spare is dragged over it: a top-tier spare reads "+N"
-	# with its currency icon, so the player sees the reward before dropping.
-	ok(ws.merchant_pay.visible and String(ws.merchant_pay_lbl.text).begins_with("+"), \
-		"W3: the merchant well previews the payout (+N) while a spare is dragged")
-	ws._hide_sell_affordance()
-	ok(not ws.merchant_pay.visible, "W3: the payout preview clears when the drag ends")
-	# drag is the ONLY sell verb — there is no tap-sell path on the board.
-	ok(not ws.has_method("_on_merchant_tap"), "T39: tap-sell is removed — board has no _on_merchant_tap")
+	var sell_es: Array = ws.board.empty_ground_cells()
+	var sell_cell := Vector2i(sell_es[0])
+	ws.board.place(sell_cell, top_code)        # a top-tier spare with a real payout
+	ws._rebuild_pieces()
+	ws._select_item(sell_cell)
+	ok(ws._selected_cell == sell_cell, "W3: tapping a board item selects it into the info bar")
+	ok(ws._info_trash.visible and String(ws._info_trash.text).contains("+"), \
+		"W3: a deletable item shows the trashcan with its +N sell payout")
+	ok(not ws._info_btn.disabled, "W3: the info button goes live for a selected item (opens the Tiers ladder)")
+	ws._clear_selection()
+	ok(not ws._info_trash.visible and ws._selected_cell.x < 0, "W3: clearing the selection empties the info bar")
 	# X3: the giver pill renders one item on the stand for a single-item quest
 	var x3_1: Dictionary = ws._make_giver_stand(1, {"line": 1, "tier": 2, "reward": {"stars": 1, "coins": 0}})
 	ok(x3_1.item.has("code"), "a quest renders one item on the giver card")
