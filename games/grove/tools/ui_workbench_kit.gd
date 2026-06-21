@@ -205,7 +205,12 @@ static func demo_shop() -> Array:
 	var packs: Array = []
 	for i in (D.CASH_PACKS as Array).size():
 		var pk: Dictionary = D.CASH_PACKS[i]
-		var card := {"icon": "gem", "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
+		# the escalating gem-TIER icon the REAL ladder draws (mirrors Shop._gem_icon_id) — replicated here
+		# so the bake auto-discovers gem_t1…gem_tN; else they live-polish on first shop open (the freeze).
+		var gem_art := "gem_t%d" % (i + 1)
+		if not ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % gem_art)):
+			gem_art = "gem"
+		var card := {"icon": gem_art, "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
 		if bool(pk.get("pop", false)):
 			card["ribbon"] = "Popular"               # the merchandised mid anchor
 		elif i == (D.CASH_PACKS as Array).size() - 1:
