@@ -21,6 +21,7 @@
 		"content_frac": 62.0,
 		"cost_font": 26.0,
 		"cost_icon": 30.0,
+		"cost_y": 0.0,
 		"level_frac": 44.0,
 		"next_glow": 45.0,
 		"next_twinkle": 55.0
@@ -160,7 +161,7 @@
 	},
 	"settings": {
 		"row_gap": 12.0,
-		"width_pct": 80.0
+		"width_pct": 50.0
 	},
 	"shop": {
 		"cell_h": 150.0,

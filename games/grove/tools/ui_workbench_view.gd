@@ -230,7 +230,7 @@ var _params := {
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
-		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "level_frac": 44,
+		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "level_frac": 44,
 		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 0},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
@@ -545,6 +545,7 @@ func _make_element(id: String) -> Control:
 			bco["cell_h"] = float(bco["cell_h"]) * z
 			bco["cost_font"] = int(float(bco["cost_font"]) * z)
 			bco["cost_icon"] = float(bco["cost_icon"]) * z
+			bco["cost_y"] = float(bco["cost_y"]) * z
 			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
 			# the SHARED frame + the reused currency pill + a grid of bag cells (the SAME builder the game's
@@ -1253,6 +1254,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
+			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60]))        # nudge the acorn cost up(-) / down(+)
 			_section_header("Unlockable highlight (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the unlockable cell's glow halo
 			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density

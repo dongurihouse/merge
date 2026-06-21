@@ -2898,6 +2898,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
 		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
+		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
@@ -2927,6 +2928,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var ch := float(opts.get("cell_h", 120.0))
 	var cost_font := int(opts.get("cost_font", 24))
 	var cost_icon := float(opts.get("cost_icon", 26.0))
+	var cost_y := float(opts.get("cost_y", 0.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
 	var lockedwell := (state == "locked" or state == "unlockable")   # both show the baked-lock well
@@ -3002,8 +3004,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var cwrap := CenterContainer.new()
 		cwrap.anchor_left = 0.0; cwrap.anchor_right = 1.0
 		cwrap.anchor_top = 1.0; cwrap.anchor_bottom = 1.0
-		cwrap.offset_top = -float(cost_font) - ch * 0.12
-		cwrap.offset_bottom = -ch * 0.06
+		cwrap.offset_top = -float(cost_font) - ch * 0.12 + cost_y
+		cwrap.offset_bottom = -ch * 0.06 + cost_y
 		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cwrap.add_child(_bag_cost_row(cost, cost_icon, cost_font))
 		tile.add_child(cwrap)

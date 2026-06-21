@@ -190,6 +190,12 @@ func _test_bag_components() -> void:
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
 	# the locked cell's lock is now the board's BAKED padlock (slot_locked) — no separate lock overlay
 	ok(Kit.slot_cell({"state": "locked", "cost": 5}, co).find_child("BagLock", true, false) == null, "the locked cell uses the baked board lock (no overlay node)")
+	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
+	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
+	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))
+	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("*", "CenterContainer", true, false))
+	ok(not cost0.is_empty() and not costN.is_empty(), "a cell with a cost has a cost cluster")
+	ok(is_equal_approx((costN[0] as Control).offset_top - (cost0[0] as Control).offset_top, 24.0), "cost_y shifts the cost cluster down by the given pixels")
 
 	# the BAG DIALOG — the shared frame + the reused pill + a grid of the slot cells.
 	var entries := [

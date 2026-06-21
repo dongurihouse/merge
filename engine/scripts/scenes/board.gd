@@ -47,7 +47,9 @@ const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const STAND_W := 300.0           # one giver box's width — a few fit across; the row scrolls beyond
+const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
+const GIVER_AREA_FRAC := 0.75    # giver cards fill the LEFT this fraction of the fence; the painted shop stall owns the rest
+const GIVER_COLS := 3            # cards across that area → each card is GIVER_AREA_FRAC/GIVER_COLS of the screen width
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -706,26 +708,33 @@ func _rebuild_givers() -> void:
 	giver_bar.move_child(wall, 0)
 	# (the full-width quest-band Panel is removed — the giver cards now ride directly on the
 	# painted backdrop; the band box read as a phantom slab.)
-	# the stands scroll horizontally when the map is generous (cards stay BIG)
+	# the giver cards fill the LEFT GIVER_AREA_FRAC of the fence (up to the painted shop stall on the
+	# right); GIVER_COLS of them fit across that area, so each card is a fixed % of the screen width and
+	# the cards never cover the stall. The row scrolls left↔right within the area when there are more.
 	var span := giver_bar.size.x
 	if span <= 0.0:
 		span = get_viewport_rect().size.x
+	var area := span * GIVER_AREA_FRAC
+	var stand_w := area / float(GIVER_COLS)
 	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scroll.anchor_left = 0.0
+	scroll.anchor_top = 0.0
+	scroll.anchor_right = GIVER_AREA_FRAC          # left region only — the right stays clear for the painted stall
+	scroll.anchor_bottom = 1.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	giver_bar.add_child(scroll)
 	giver_bar.move_child(scroll, 1)
 	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # pack cards from the left
 	row.add_theme_constant_override("separation", 0)
-	if stands * STAND_W < span:
-		row.custom_minimum_size = Vector2(span, FENCE_H)   # few stands sit centered
+	if stands * stand_w < area:
+		row.custom_minimum_size = Vector2(area, FENCE_H)   # fewer than GIVER_COLS cards still pack left in the area
 	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.add_child(row)
 	for k in qidx.size():
 		var qi: int = qidx[k]
-		var stand := _make_giver_stand(qi, quests[qi])
+		var stand := _make_giver_stand(qi, quests[qi], stand_w)
 		row.add_child(stand.chip)
 		giver_chips.append(stand)
 	_refresh_giver_lights()
@@ -748,12 +757,12 @@ func _stand_tap(stand: Control, action: Callable) -> void:
 
 # Build one quest-giver stand. Wave 3: the construction lives in ui/giver_stand.gd;
 # the coordinator still owns the quests + delivery and wires the stand's taps back.
-func _make_giver_stand(qi: int, q: Dictionary) -> Dictionary:
+func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dictionary:
 	return GiverStand.make(qi, q, {
 		"ask_tap": _open_ladder,        # an ask icon tapped -> open its tier ladder
 		"stand_tap": _on_giver_tap,     # the stand tapped -> try to deliver
 		"wire_tap": _stand_tap,         # still-release tap (also resets the idle hint)
-		"stand_w": STAND_W, "fence_h": FENCE_H,
+		"stand_w": stand_w, "fence_h": FENCE_H,
 	})
 
 
