@@ -11,8 +11,9 @@ const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COMPONENT_THRESHOLD := 0.25
 
-# Per-region shader knobs. The table maps a tuning name to the shader target + param it drives.
-# Copied verbatim from the authoring tool so both renderers stay in lock-step.
+# Per-region shader knobs. CANONICAL source: this is the authoritative shader-knob → param
+# mapping. The authoring tool (vine_mask_tool.gd) mirrors it, adding slider-only fields
+# (label/min/max/step). Both copies must be kept in sync whenever entries are added or changed.
 const CONTROLS := [
 	{"name": "GlowOpacity", "label": "Glow opacity", "target": "glow", "param": "opacity", "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2},
 	{"name": "GlowPower", "label": "Glow power", "target": "glow", "param": "glow_strength", "min": 0.0, "max": 3.0, "step": 0.01, "decimals": 2},
@@ -79,6 +80,8 @@ func refresh(region_list: Array) -> void:
 # through the view without rebuilding overlays on every tick. ──────────────────────────────────
 
 func write_shader_value(target: String, param: String, value: float, region_index: int) -> void:
+	if region_overlays.is_empty():
+		return
 	_write_shader_value(target, param, value, region_index)
 
 func read_shader_value(target: String, param: String, region_index: int) -> float:

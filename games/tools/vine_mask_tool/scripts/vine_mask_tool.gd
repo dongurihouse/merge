@@ -12,10 +12,10 @@ const OVERLAP_PASSES := 6           # repeats of pairwise separation until boxes
 const MIN_REGION_SIZE := 12.0       # a separated box is never carved thinner than this
 const VERTEX_WELD_RADIUS := 24.0    # corners closer than this across zones snap to a shared point
 
-# Per-region shader knobs. The table is the source of truth for both the slider panel
-# and the saved-tuning round-trip, so it lives here (not inside _build_panel) — it must
-# be readable before the panel exists. It mirrors VineMapView.CONTROLS (the renderer drives
-# the same params); the tool keeps its own copy because the panel reads label/min/max/step too.
+# Per-region shader knobs. The knob→param mapping mirrors VineMapView.CONTROLS (canonical);
+# this copy adds slider UI fields (label/min/max/step) for the panel. Keep in sync with
+# VineMapView.CONTROLS whenever entries are added or changed. The table lives here (not inside
+# _build_panel) so it is readable before the panel exists.
 const CONTROLS := [
 	{"name": "GlowOpacity", "label": "Glow opacity", "target": "glow", "param": "opacity", "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2},
 	{"name": "GlowPower", "label": "Glow power", "target": "glow", "param": "glow_strength", "min": 0.0, "max": 3.0, "step": 0.01, "decimals": 2},
@@ -180,8 +180,9 @@ func _ensure_view() -> void:
 	# Sits at the frame origin; the view itself anchors its overlay group at mask_offset.
 	view.position = Vector2.ZERO
 	artwork_frame.add_child(view)
-	# Keep the view behind the region editor (added later) but above Base/Vignette.
-	artwork_frame.move_child(view, artwork_frame.get_child_count() - 1)
+	# Render order is by construction: Base/Vignette are added before the view, so the view
+	# sits above them; the region editor is added after the view (_create_region_editor), so
+	# it renders on top of the view — no explicit reordering needed.
 
 func _load_base_art() -> void:
 	var base_path := String(current_map.get("base", ""))
