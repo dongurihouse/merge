@@ -355,20 +355,23 @@ func _initialize() -> void:
 	ok(ShopS.pending_pieces().is_empty(), "...and the pending queue is drained")
 	sb.queue_free()
 
-	# S-D: the Featured band is a FIXED set — the first SHOP_FEATURED_COUNT offers, the same
-	# on every open (no rotation, no time-based refresh), real stock entries, no duplicates.
+	# S-D: each stall's shortcut shelf is offers_for(currency) — a STABLE, owner-curated slice of the
+	# stock table filtered to that currency, in stock order, capped at SHOP_FEATURED_COUNT (the split
+	# replaced the old single "first N of all offers" band). Real entries, currency-pure, no duplicates.
 	fresh("shop_featured")
-	var r_a: Array = ShopS.featured_offers()
-	var r_a2: Array = ShopS.featured_offers()
-	ok(r_a.size() == Data.SHOP_FEATURED_COUNT, "the featured band surfaces exactly SHOP_FEATURED_COUNT offers")
-	ok(_offer_ids(r_a) == _offer_ids(r_a2), "the featured set is STABLE — the same offers every open")
-	var ids_a := _offer_ids(r_a)
-	ok(ids_a.size() == _uniq(ids_a).size(), "the featured set has no duplicate offers")
-	# it is the first N of the stock table, in order (an owner-curated fixed slice).
-	var head: Array = []
-	for i in Data.SHOP_FEATURED_COUNT:
-		head.append(String(Data.SHOP_ITEM_OFFERS[i].id))
-	ok(ids_a == head, "the featured set is the first SHOP_FEATURED_COUNT of SHOP_ITEM_OFFERS, in order")
+	for cur in ["coins", "diamonds"]:
+		var shelf: Array = ShopS.offers_for(cur)
+		var shelf2: Array = ShopS.offers_for(cur)
+		var want: Array = []
+		for off in Data.SHOP_ITEM_OFFERS:
+			if String(off.currency) == cur and want.size() < int(Data.SHOP_FEATURED_COUNT):
+				want.append(String(off.id))
+		ok(_offer_ids(shelf) == want, "the %s shelf = the %s-priced stock offers, in order, capped at SHOP_FEATURED_COUNT" % [cur, cur])
+		ok(_offer_ids(shelf) == _offer_ids(shelf2), "the %s shelf is STABLE — the same offers every open" % cur)
+		var ids := _offer_ids(shelf)
+		ok(ids.size() == _uniq(ids).size(), "the %s shelf has no duplicate offers" % cur)
+		for off in shelf:
+			ok(String(off.currency) == cur, "the %s shelf carries only %s-priced offers" % [cur, cur])
 
 	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
 	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.

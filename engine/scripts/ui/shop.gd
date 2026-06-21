@@ -133,21 +133,38 @@ static func _spend(currency: String, cost: int) -> bool:
 		return Save.spend_diamonds(cost)
 	return Save.spend(cost, "shop")
 
-# --- featured offers (§10): a FEW item-shortcut offers, a FIXED set -----------------
-# The featured band shows a FIXED slice — the first SHOP_FEATURED_COUNT of SHOP_ITEM_OFFERS,
-# the same set on every open. No daily rotation, no time-based refresh, no reroll: the
-# storefront's shelf is stable (the cozy-bed call — no FOMO timer, no "watch an ad for new
-# offers" loop). The set is owner-curated via the order of SHOP_ITEM_OFFERS in grove_data.gd.
-static func featured_offers() -> Array:
-	var n: int = mini(int(D.SHOP_FEATURED_COUNT), D.SHOP_ITEM_OFFERS.size())
+# --- item-shortcut offers per shop (§10): a FEW skips, a FIXED set ------------------
+# After the shop split each storefront shows only the shortcuts paid in ITS currency: the Coin
+# shop the coin-priced skips, the Premium shop the 💎-priced ones. Capped at SHOP_FEATURED_COUNT,
+# the same set on every open (no rotation/refresh/reroll — the cozy-bed call). Owner-curated via
+# the order of SHOP_ITEM_OFFERS in grove_data.gd.
+static func offers_for(currency: String) -> Array:
 	var out: Array = []
-	for i in n:
-		out.append(D.SHOP_ITEM_OFFERS[i])
+	for off in D.SHOP_ITEM_OFFERS:
+		if String(off.currency) == currency:
+			out.append(off)
+			if out.size() >= int(D.SHOP_FEATURED_COUNT):
+				break
 	return out
 
 # --- the storefront ----------------------------------------------------------------
+# Three focused stalls share ONE dialog (one set of buy flows + chrome): the WATER pill's + opens the
+# water shop, the COIN pill's + the coin shop, the GEM pill's + the premium (acorn) shop. Each is `_open`
+# with a different `kind` — the section list (`_sections`) and banner are filtered to that kind.
+static func open_water(host: Control, opts: Dictionary = {}) -> void:
+	_open(host, opts, "water")
 
+static func open_coin(host: Control, opts: Dictionary = {}) -> void:
+	_open(host, opts, "coin")
+
+static func open_premium(host: Control, opts: Dictionary = {}) -> void:
+	_open(host, opts, "premium")
+
+# Back-compat / generic entry: the kind comes from opts (defaults to the premium stall).
 static func open(host: Control, opts: Dictionary = {}) -> void:
+	_open(host, opts, String(opts.get("kind", "premium")))
+
+static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Shop: kit missing at %s" % KIT_PATH)
@@ -193,7 +210,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	var refs := {
 		"coin": hud_wallet.get("coin", {"node": null, "label": null}),
 		"gem": hud_wallet.get("gem", {"node": null, "label": null}),
-		"overlay": overlay, "opts": opts, "host": host, "hero_px": hero_px}
+		"overlay": overlay, "opts": opts, "host": host, "hero_px": hero_px, "kind": kind}
 
 	# (re)build the storefront from the live wallet + stock; a buy rebuilds it in place to refresh
 	# affordability, the first-buy ribbon, and the starter's one-time availability (the login.gd pattern).
@@ -205,7 +222,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		for c in cc.get_children():
 			c.queue_free()
 		var sopts: Dictionary = Kit.shop_opts_from_config(cfg)
-		sopts["banner_text"] = host.tr("Shop")
+		sopts["banner_text"] = host.tr(_banner_for(kind))
 		sopts["on_close"] = func() -> void: overlay.queue_free()
 		# the workbench leaves list_max_h 0 (grow to fit, the gallery scrolls); on a PHONE the full ladder
 		# is taller than the screen, so cap the inner height to the viewport — the shop then scrolls inside.
@@ -228,54 +245,69 @@ static func _tag_buy_buttons(dialog: Control) -> void:
 		if b is Button and String((b as Button).text) != "":
 			b.set_meta("shop_buy", true)
 
-# Build the live shop SECTIONS for the kit dialog — Quick help, Featured (real piece previews), the
-# one-time Welcome bundle, and the Acorn-pouch ladder. Each card carries its data + buy/info callbacks +
-# a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
+# The banner title for each stall (the centred kit dialog header).
+static func _banner_for(kind: String) -> String:
+	match kind:
+		"water": return "Water"
+		"coin": return "Coins"
+		_: return "Acorns"
+
+# Build the live shop SECTIONS for the kit dialog, filtered to the open shop's KIND: the water stall
+# shows the Fill-water card; the coin stall the Coin pouch + coin-priced shortcuts; the premium stall the
+# 💎-priced shortcut + the one-time Welcome bundle + the Acorn-pouch ladder. Each card carries its data +
+# buy/info callbacks + a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
 static func _sections(refs: Dictionary) -> Array:
+	match String(refs.get("kind", "premium")):
+		"water": return _water_sections(refs)
+		"coin": return _coin_sections(refs)
+		_: return _premium_sections(refs)
+
+# WATER shop — refill the can (paid in 💎). Offered only when the host can grant water (the board/map
+# pass `water_grant`); without it the stall is empty (it is only ever reached WITH a grant in practice).
+static func _water_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
-	var opts: Dictionary = refs.opts
-	var hero_px: float = float(refs.hero_px)
-	var coins := Save.coins()
+	if not (refs.opts as Dictionary).has("water_grant"):
+		return []
+	var gems := Save.diamonds()
+	var card := {
+		"icon": "water", "label": host.tr("Fill water"),
+		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
+		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
+		"on_buy": func() -> void: _flow_water(refs),
+		"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"),
+			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own."))}
+	return [{"caption": host.tr("Water"), "cards": [card]}]
+
+# COIN shop — the Coin pouch (grants coins) + the coin-priced item shortcuts (grind-skips paid in coins).
+static func _coin_sections(refs: Dictionary) -> Array:
+	var host: Control = refs.host
 	var gems := Save.diamonds()
 	var secs: Array = []
-
-	# Quick help — water (if offered) + a coin pouch, both paid in 💎
-	var help: Array = []
-	if opts.has("water_grant"):
-		help.append({
-			"icon": "water", "label": host.tr("Fill water"),
-			"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
-			"affordable": gems >= int(G.REFILL_DIAMOND_COST),
-			"on_buy": func() -> void: _flow_water(refs),
-			"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"),
-				host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own."))})
-	help.append({
+	var pouch := {
 		"icon": "coin", "label": host.tr("Coin pouch"), "count": COIN_PACK,
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs),
 		"on_info": func() -> void: _info_sheet(host, host.tr("Coin pouch"),
-			host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK)})
-	secs.append({"caption": host.tr("Quick help"), "cards": help})
-
-	# Featured — item shortcuts, each a REAL piece preview (the game-injected hero node), coins or 💎
+			host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK)}
+	secs.append({"caption": host.tr("Quick help"), "cards": [pouch]})
 	var feat: Array = []
-	for offer in featured_offers():
-		var code := int(offer.code)
-		var cur := String(offer.currency)
-		var cost := int(offer.cost)
-		var idx := _offer_index(String(offer.id))
-		var label := String(offer.get("label", ""))
-		feat.append({
-			"node": PieceView.make_piece(code, hero_px),
-			"label": label,
-			"price": str(cost), "price_icon": ("gem" if cur == "diamonds" else "coin"),
-			"affordable": (gems if cur == "diamonds" else coins) >= cost,
-			"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
-			"on_info": func() -> void: _info_sheet(host, label,
-				host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, label])})
-	secs.append({"caption": host.tr("Featured"), "cards": feat})
+	for offer in offers_for("coins"):
+		feat.append(_offer_card(refs, offer))
+	if not feat.is_empty():
+		secs.append({"caption": host.tr("Featured"), "cards": feat})
+	return secs
 
+# PREMIUM shop — the 💎-priced item shortcut(s), the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
+static func _premium_sections(refs: Dictionary) -> Array:
+	var host: Control = refs.host
+	var hero_px: float = float(refs.hero_px)
+	var secs: Array = []
+	var feat: Array = []
+	for offer in offers_for("diamonds"):
+		feat.append(_offer_card(refs, offer))
+	if not feat.is_empty():
+		secs.append({"caption": host.tr("Featured"), "cards": feat})
 	# Welcome — the one-time, high-value starter bundle (new players only, until claimed)
 	if starter_available():
 		secs.append({"caption": host.tr("Welcome gift"), "cards": [{
@@ -283,7 +315,6 @@ static func _sections(refs: Dictionary) -> Array:
 			"ribbon": host.tr("Welcome"),
 			"price": String(STARTER_PACK.get("usd", "")),
 			"on_buy": func() -> void: _confirm_starter(host, refs)}]})
-
 	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbon)
 	var packs: Array = []
 	for i in CASH_PACKS.size():
@@ -301,6 +332,27 @@ static func _sections(refs: Dictionary) -> Array:
 		packs.append(card)
 	secs.append({"caption": host.tr("Acorn pouches"), "cards": packs})
 	return secs
+
+# One item-shortcut card — a REAL piece preview (the game-injected hero node) priced in the offer's
+# currency (coins for low tiers / 💎 for deeper ones); buying queues the piece into the pending grant.
+static func _offer_card(refs: Dictionary, offer: Dictionary) -> Dictionary:
+	var host: Control = refs.host
+	var hero_px: float = float(refs.hero_px)
+	var coins := Save.coins()
+	var gems := Save.diamonds()
+	var code := int(offer.code)
+	var cur := String(offer.currency)
+	var cost := int(offer.cost)
+	var idx := _offer_index(String(offer.id))
+	var label := String(offer.get("label", ""))
+	return {
+		"node": PieceView.make_piece(code, hero_px),
+		"label": label,
+		"price": str(cost), "price_icon": ("gem" if cur == "diamonds" else "coin"),
+		"affordable": (gems if cur == "diamonds" else coins) >= cost,
+		"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
+		"on_info": func() -> void: _info_sheet(host, label,
+			host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, label])}
 
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
 # has more packs than tier sprites — mirrors the old _gem_card art ladder.

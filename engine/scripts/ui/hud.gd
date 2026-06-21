@@ -47,7 +47,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# gui_input fired on BOTH the real mouse release AND the emulated touch release under
 	# emulate_touch_from_mouse, opening the shop twice → it then had to be closed twice.)
 	var shop_opts := opts.duplicate()
-	var open_store := func() -> void: Shop.open(host, shop_opts)
+	# Each currency pill's "+" opens its OWN stall: water → water shop, coin → coin shop, gem → premium shop.
+	var open_water := func() -> void: Shop.open_water(host, shop_opts)
+	var open_coin := func() -> void: Shop.open_coin(host, shop_opts)
+	var open_premium := func() -> void: Shop.open_premium(host, shop_opts)
 	var cluster := HBoxContainer.new()
 	cluster.anchor_left = 0.5
 	cluster.anchor_right = 0.5
@@ -59,9 +62,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# The wallet is WATER · COIN · GEM (the star count is gone — the level badge already encodes stars).
 	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
 	# contract scenes/tests rely on: <cur>_label.get_parent() == row, row.get_parent() == the pill panel.
-	var water_pill := _pill(cluster, Kit, pill, "water", Tune.GEM_ICON, 1.0, Color.WHITE, num_size, icon_box, open_store)
-	var coin_pill := _pill(cluster, Kit, pill, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_store)
-	var gem_pill := _pill(cluster, Kit, pill, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_store)
+	var water_pill := _pill(cluster, Kit, pill, "water", Tune.GEM_ICON, 1.0, Color.WHITE, num_size, icon_box, open_water)
+	var coin_pill := _pill(cluster, Kit, pill, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin)
+	var gem_pill := _pill(cluster, Kit, pill, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium)
 	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label
@@ -177,7 +180,12 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		"gem": {"node": gem_pill.panel, "label": gems},
 		"panels": raise_panels,
 	}
-	out["open_shop"] = open_store   # currency item 2: same Shop.open(host, shop_opts), shared with the + buttons
+	# The per-stall openers (the pills' + buttons share these); `open_shop` stays as the generic "open the
+	# shop" handle, pointed at the premium (acorn) stall, for callers that don't care which stall.
+	out["open_water"] = open_water
+	out["open_coin"] = open_coin
+	out["open_premium"] = open_premium
+	out["open_shop"] = open_premium
 	refresh.call()
 	return out
 
