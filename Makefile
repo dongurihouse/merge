@@ -14,14 +14,14 @@ ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engin
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
 GROVE_TESTS  := games/grove/tests/grove_workbench_tests
-GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_shop_ads_tests
+GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_placement_tool_tests games/grove/tests/grove_shop_ads_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench test test-fast test-engine test-grove test-one smoke import bake-textures \
-        shot-map shot-grove shot shot-workbench \
+.PHONY: help run run_debug run_grove editor workbench place test test-fast test-engine test-grove test-one smoke import bake-textures \
+        shot-map shot-grove shot shot-workbench shot-place \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -48,6 +48,11 @@ editor: ## open the project in the Godot editor
 
 w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
+
+place: ## drag major items + Save their location:  make place SCREEN=home|board
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=$(or $(SCREEN),home)
+
+p: place ## alias for `make place`
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
@@ -104,6 +109,9 @@ shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot
 
 shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png)
+
+shot-place: ## quiet screenshot of the placement tool:  make shot-place [SCREEN=home|board] [OUT=/tmp/place.png]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=$(or $(SCREEN),home) out=$(or $(OUT),/tmp/place.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios: ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/iOS_BUILD.md)
