@@ -1,15 +1,15 @@
 extends RefCounted
 ## Discovery-ladder MODAL — the tier ladder for a line: a twig-framed parchment board whose tiers fill a
-## plain grid (a grown tier shows its piece, an unseen tier the baked "?" cell, the tapped tier the
-## gold-ring cell). Self-contained popup, like ui/inbox.gd: builds its overlay into `host`, dismisses on a
-## veil tap or the shared ✕, enters with FX.pop_in. The coordinator owns the open-gate (the
-## discovery_ladder feature + line validity) and the data (Quests.ladder_entries); this just renders.
+## plain grid of SHARED slot cells (a grown tier shows its piece in the filled well, an unseen tier the
+## locked well, the tapped tier sparkles). Self-contained popup, like ui/inbox.gd: builds its overlay into
+## `host`, dismisses on a veil tap or the shared ✕, enters with FX.pop_in. The coordinator owns the open-gate
+## (the discovery_ladder feature + line validity) and the data (Quests.ladder_entries); this just renders.
 ##   Ladder.open(host, {title: String, entries: Array, mark_tier: int})
 ##
 ## The FACE is BUILT from the shared UI KIT (games/grove/tools/ui_workbench_kit.gd) using the design the
-## UI WORKBENCH saves — the twig border, ladder ribbon, ✕ disc and tier-cell look are authored ONCE in the
-## workbench (the "tiers" + "tiers_card" items) and read here, never duplicated. There are NO vines — just
-## the cards, in a plain grid. Only the open-gate + the entry→cell mapping live here.
+## UI WORKBENCH saves — the twig border, ladder ribbon and ✕ disc are authored on the shared "tiers" item,
+## and the cell look IS the shared slot cell (the "Slot cell" item), read here, never duplicated. There are
+## NO vines — just the cards, in a plain grid. Only the open-gate + the entry→cell mapping live here.
 
 const Game = preload("res://engine/scripts/core/game.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -55,7 +55,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var pct: float = float((cfg.get("tiers", {}) as Dictionary).get("width_pct", CARD_WIDTH_PCT))
 	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
 
-	# the TIERS dialog opts (twig border + ladder ribbon + ✕ + the tier-cell look) from the saved config.
+	# the TIERS dialog opts (twig border + ladder ribbon + ✕ + the shared slot-cell look) from the saved config.
 	# make_content lets the kit build each discovered tile's piece at the cell size IT computes, so this
 	# file never touches layout — it just renders the merge piece for a code.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)

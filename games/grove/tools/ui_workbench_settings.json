@@ -7,11 +7,11 @@
 	"bag": {
 		"caption": "Open a slot with acorns.",
 		"cell_gap": 12.0,
-		"cols": 6.0,
+		"cols": 5.0,
 		"grid_inset": 70.0,
 		"list_max_h": 0.0,
 		"row_gap": 14.0,
-		"width_pct": 85.0
+		"width_pct": 80.0
 	},
 	"bag_card": {
 		"cell_art": true,
@@ -21,6 +21,8 @@
 		"content_frac": 62.0,
 		"cost_font": 26.0,
 		"cost_icon": 30.0,
+		"cost_scale": 100.0,
+		"cost_x": 0.0,
 		"cost_y": 0.0,
 		"level_frac": 44.0,
 		"next_glow": 45.0,
@@ -173,19 +175,14 @@
 	},
 	"tiers": {
 		"cell_gap": 16.0,
-		"cols": 3.0,
-		"list_max_h": 0.0,
-		"width_pct": 85.0
-	},
-	"tiers_card": {
-		"cell_art": true,
 		"cell_h": 150.0,
 		"cell_w": 150.0,
-		"lvl_frac": 44.0,
+		"cols": 3.0,
+		"list_max_h": 0.0,
 		"mark_glow": 60.0,
 		"mark_twinkle": 50.0,
-		"piece_frac": 62.0,
-		"show_num": true
+		"show_num": true,
+		"width_pct": 85.0
 	},
 	"toggle_card": {
 		"card_art": true,

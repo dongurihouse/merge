@@ -117,7 +117,6 @@ const BADGES := {
 const ICON_BADGES := {
 	"disc light": "shared/disc_round.png",
 	"round chrome": "shared/btn_round.png",
-	"cell": "kit/tiers_cell.png",
 	"cream (flat)": "",
 }
 
@@ -152,7 +151,7 @@ const DEMO_DAILY := [
 
 # Demo discovery ladder (12 tiers) for the workbench preview — same shape the game builds from a line's
 # Quests.ladder_entries: {tier, seen, marked, icon|node}. A SEEN tier shows its content (here a stand-in
-# icon; the game passes a real merge-piece node), an UNSEEN tier the baked "?" cell, one tier is marked
+# icon; the game passes a real merge-piece node), an UNSEEN tier the locked slot well, one tier is marked
 # (the tapped/asked tier — flagged by the sparkle, not a bigger cell). Discovered up to tier 6, mirroring tiers.png.
 const DEMO_TIERS := [
 	{"tier": 1, "seen": true, "icon": "leaf"},
@@ -1706,7 +1705,9 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var s: float = cw / 160.0
 	var label_font := maxi(8, int(18.0 * s))
 	var count_font := maxi(8, int(21.0 * s))
-	var claim_font := maxi(8, int(18.0 * s))
+	# the bottom action is the SHARED pill_button — so its font tracks the Button component (opts.btn.font),
+	# scaled to the card like everything else, instead of a constant. Edit the Button slider, every card follows.
+	var claim_font := maxi(8, int(float(btn_opts.get("font", 18)) * s))
 	var label_y: float = float(opts.get("label_y", 12.0)) * s
 	var claim_y: float = float(opts.get("claim_y", 14.0)) * s
 
@@ -2273,15 +2274,16 @@ static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {
 	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
 ## --- the discovery (tier-ladder) card + dialog ------------------------------------------------------
-## One TIER CELL — the discovery board's tile, now built on the SHARED slot cell (Kit.slot_cell) so
-## discovery, the bag, and the board all read as ONE component. A DISCOVERED tier wears the FILLED well
-## holding its piece; an UNDISCOVERED tier wears the LOCKED well — the baked gold padlock KEPT, no acorn
-## cost, and no "?" glyph (the locked well stands in for it). The item TIER rides the gold level medal
-## docked lower-right (the SAME medal the HUD + board cells wear, via the slot cell's `level`/`level_frac`).
-## A MARKED tier (the tapped/asked one) is flagged by the engine sparkle. The game's make_content(d, px)
-## builds the discovered piece at the cell size.
-## d keys: tier, seen, marked, icon|node. opts: tiers_card_opts_from_config(...).
-static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
+## One discovery tile, built straight onto the SHARED slot cell (Kit.slot_cell) so discovery, the bag, and the
+## board all read as ONE component — there is NO separate tier-cell type. A DISCOVERED tier wears the FILLED
+## well holding its piece; an UNDISCOVERED tier wears the LOCKED well — the baked gold padlock KEPT, no acorn
+## cost, and no "?" glyph (the locked well stands in for it). The item TIER rides the gold level medal docked
+## lower-right (the SAME medal the HUD + board cells wear, via the slot cell's `level`/`level_frac`). A MARKED
+## tier (the tapped/asked one) is flagged by the engine sparkle. `opts` are slot-cell opts (the inherited slot
+## look + the discovery `cell_w/cell_h`, `show_num`, `mark_glow/mark_twinkle`) from tiers_opts_from_config.
+## The opts may carry a discovery make_content(d, px) — bridged to the slot cell's make_content(px) here.
+## d keys: tier, seen, marked, icon|node. Private to _tiers_grid; the dialog is the only public surface.
+static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 	var seen := bool(d.get("seen", false))
 	var sd := {
 		"state": ("filled" if seen else "locked"),
@@ -2298,24 +2300,9 @@ static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 		sd["content"] = d.get("node")
 	elif seen and String(d.get("icon", "")) != "":
 		sd["icon"] = String(d.get("icon"))
-	return slot_cell(sd, _tiers_to_slot_opts(opts))
+	return slot_cell(sd, opts)
 
-## Map the tier-cell opts (tiers_card_opts_from_config) onto the slot cell's opts — the discovery tile IS a
-## slot cell, with the lower-right level medal carrying the tier (level_frac ← lvl_frac) and the marked-tier
-## sparkle wired through (mark_glow / mark_twinkle).
-static func _tiers_to_slot_opts(opts: Dictionary) -> Dictionary:
-	return {
-		"cell_w": float(opts.get("cell_w", 150.0)),
-		"cell_h": float(opts.get("cell_h", 150.0)),
-		"cell_art": bool(opts.get("cell_art", true)),
-		"content_frac": float(opts.get("piece_frac", 0.62)),   # the discovered piece, % of the cell
-		"level_frac": float(opts.get("lvl_frac", 0.44)),       # the tier medal, % of the cell
-		"mark_glow": float(opts.get("mark_glow", 0.6)),
-		"mark_twinkle": float(opts.get("mark_twinkle", 0.5)),
-		"calm": bool(opts.get("calm", false)),
-	}
-
-## A GRID of tier cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
+## A GRID of discovery cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
 ## daily grid but with square tiles and NO woven vines (just the cards). The cell size scales to fit `cols`
 ## across the frame's content area; a partial last row centres.
 static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Control:
@@ -2343,7 +2330,7 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 		r.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		for j in cols:
 			if i + j < entries.size():
-				var c := tiers_card(entries[i + j], co)
+				var c := _discovery_cell(entries[i + j], co)
 				r.add_child(c)
 				made.append(c)
 		content.add_child(r)
@@ -2623,34 +2610,29 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
-## The TIER-CELL opts from config — its own component (the discovery board's tile), read by both the card
-## preview and the discovery dialog. The discovery tile IS the shared slot cell (filled / locked), so these
-## map onto slot-cell opts in _tiers_to_slot_opts. Fractional knobs (content / medal size, sparkle amounts)
-## are stored as PERCENTS for the integer sliders and divided here. The MARKED tier is flagged by the shared
-## engine sparkle (mark_glow / mark_twinkle); the tier number rides the gold level medal docked lower-right
-## (show_num → the slot cell's level).
-static func tiers_card_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var tc: Dictionary = cfg.get("tiers_card", {})
-	return {
-		"cell_w": float(tc.get("cell_w", 150)),
-		"cell_h": float(tc.get("cell_h", 150)),
-		"cell_art": bool(tc.get("cell_art", true)),
-		"show_num": bool(tc.get("show_num", true)),              # the tier rides the lower-right level medal
-		"piece_frac": float(tc.get("piece_frac", 62)) / 100.0,   # the discovered piece, % of the cell
-		"lvl_frac": float(tc.get("lvl_frac", 44)) / 100.0,       # the tier medal, % of the cell
-		"mark_glow": float(tc.get("mark_glow", 60)) / 100.0,     # the marked tier's sparkle glow (0 = off)
-		"mark_twinkle": float(tc.get("mark_twinkle", 50)) / 100.0,  # ...and its drifting twinkles (0 = off)
-	}
-
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits
 ## dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry, padding), with NO bespoke chrome
-## override. Only the discovery CONTENT differs: the tier grid (cols, gaps, scroll cap) + the tier-cell look.
-## Edit the frame on the shared Frame item and it flows here too. (The banner TEXT is the line name, passed
-## by the caller.)
+## override. The discovery tile IS the shared slot cell, so its LOOK (piece size, level-medal size, well art)
+## is INHERITED from the bag/slot config (bag_card_opts_from_config) — one source of truth, no duplicate knobs.
+## Only the genuinely discovery-specific knobs live in the `tiers` block: the square cell size, whether the
+## tier number shows, the marked-tier sparkle, and the grid (cols, gaps, scroll cap). Fractional sparkle knobs
+## are stored as PERCENTS for the integer sliders and divided here. Edit the frame on the shared Frame item, or
+## the cell look on the Slot-cell item, and both flow here. (The banner TEXT is the line name, passed by the caller.)
 static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
-	o.merge(tiers_card_opts_from_config(cfg), true)   # the tier-cell look (cell size, level medal, sparkle)
+	# inherit the shared slot-cell look (the discovered piece + tier-medal size, the well art + nine-patch)
+	var slot := bag_card_opts_from_config(cfg)
+	o["content_frac"] = slot["content_frac"]
+	o["level_frac"] = slot["level_frac"]
+	o["cell_art"] = slot["cell_art"]
+	o["cell_slice"] = slot["cell_slice"]
 	var t: Dictionary = cfg.get("tiers", {})
+	# discovery's OWN cell knobs: the square tile size, the tier-number medal, the marked-tier sparkle
+	o["cell_w"] = float(t.get("cell_w", 150))
+	o["cell_h"] = float(t.get("cell_h", 150))
+	o["show_num"] = bool(t.get("show_num", true))                  # the tier rides the lower-right level medal
+	o["mark_glow"] = float(t.get("mark_glow", 60)) / 100.0         # the marked tier's sparkle glow (0 = off)
+	o["mark_twinkle"] = float(t.get("mark_twinkle", 50)) / 100.0   # ...and its drifting twinkles (0 = off)
 	# the grid (no vines): cols + the inter-cell gap + the discovery's OWN scroll cap (0 = show every tier)
 	o["cols"] = int(t.get("cols", 3))
 	o["cell_gap"] = int(t.get("cell_gap", 16))
@@ -2899,9 +2881,12 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
 		"cost_y": float(bc.get("cost_y", 0)),                        # nudge the acorn cost up(-) / down(+), px
+		"cost_x": float(bc.get("cost_x", 0)),                        # nudge the acorn cost left(-) / right(+), px
+		"cost_scale": float(bc.get("cost_scale", 100)) / 100.0,      # the cost pill's overall size (% — shrinks the WHOLE button to fit the card)
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
+		"btn": card_btn_opts(cfg),                                   # the SHARED button style (art/shadow/corner) — the cost chip rides it
 	}
 
 ## One SLOT CELL — the shared bag + board cell, on the board's cream-well art. `d.state` (or the legacy
@@ -2929,6 +2914,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cost_font := int(opts.get("cost_font", 24))
 	var cost_icon := float(opts.get("cost_icon", 26.0))
 	var cost_y := float(opts.get("cost_y", 0.0))
+	var cost_x := float(opts.get("cost_x", 0.0))
+	var cost_scale := float(opts.get("cost_scale", 1.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
 	var lockedwell := (state == "locked" or state == "unlockable")   # both show the baked-lock well
@@ -2998,16 +2985,28 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 			pc.add_child(piece)
 			tile.add_child(pc)
 
-	# the acorn cost (bag) — under the baked lock, near the lower edge.
+	# the acorn cost (bag) — under the baked lock, near the lower edge. The SHARED green pill_button (the
+	# same atom as the shop buy / daily claim), as a STATIC display chip: the CELL itself takes the buy tap,
+	# so the price isn't separately pressable. It rides the Button style (art/shadow/corner) via opts.btn,
+	# sized by this cell's own cost_font / cost_icon knobs. cost_x / cost_y nudge it; cost_scale shrinks the
+	# WHOLE pill (incl. padding) to fit inside a card — scaled about its centre so it stays put.
 	var cost := int(d.get("cost", 0))
 	if cost > 0 and lockedwell:
 		var cwrap := CenterContainer.new()
 		cwrap.anchor_left = 0.0; cwrap.anchor_right = 1.0
 		cwrap.anchor_top = 1.0; cwrap.anchor_bottom = 1.0
+		cwrap.offset_left = cost_x; cwrap.offset_right = cost_x
 		cwrap.offset_top = -float(cost_font) - ch * 0.12 + cost_y
 		cwrap.offset_bottom = -ch * 0.06 + cost_y
 		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cwrap.add_child(_bag_cost_row(cost, cost_icon, cost_font))
+		var cbo := (opts.get("btn", {}) as Dictionary).duplicate()
+		cbo["bg"] = "green"; cbo["icon"] = "gem"; cbo["static"] = true
+		cbo["font"] = cost_font; cbo["icon_size"] = int(cost_icon)
+		var costpill := pill_button(str(cost), cbo)
+		if not is_equal_approx(cost_scale, 1.0):
+			costpill.pivot_offset = costpill.get_combined_minimum_size() * 0.5
+			costpill.scale = Vector2(cost_scale, cost_scale)
+		cwrap.add_child(costpill)
 		tile.add_child(cwrap)
 
 	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
@@ -3055,24 +3054,6 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 ## slot_cell (state=…). ONE builder.
 static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	return slot_cell(d, opts)
-
-# An "N 🌰" acorn-cost cluster (the gem currency icon = the golden acorn) — inside the next tile and
-# under a lock. Mouse-transparent so the tile keeps the tap.
-static func _bag_cost_row(cost: int, icon_px: float, font: int) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 3)
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lbl := Label.new()
-	lbl.text = str(cost)
-	lbl.add_theme_font_size_override("font_size", font)
-	lbl.add_theme_color_override("font_color", Pal.INK)
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lbl)
-	row.add_child(make_icon("gem", icon_px))
-	return row
 
 ## The full BAG-dialog opts: the SHARED frame + the bag-cell style + the reused currency-pill style +
 ## the dialog's own grid (cols, default 6 — the reference's six-wide ladder). Same construction as the

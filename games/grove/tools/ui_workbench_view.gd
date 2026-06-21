@@ -18,14 +18,16 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "tiers_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
-# Gallery layout: TWO side-by-side COLUMNS. The left column is the building-block components; the RIGHT
-# column stacks every DIALOG in a single column. Each column is a list of ROWS (a row = side-by-side
-# elements, e.g. button + icon). Splitting dialogs into their own column keeps them grouped and balances
+const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
+# Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
+# element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
+# column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
+# column never pairs — one per row. Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	[["home_button"], ["home_unlock_button"], ["button", "icon", "badge"], ["card"], ["daily_card"], ["tiers_card", "toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["frame"], ["progress_bar"]],   # the building blocks
-	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["currency_pill"], ["settings"], ["vault"], ["bag"]],   # dialogs, the HUD wallet pill, settings, vault, bag
+	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom)
+	[["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["frame"], ["progress_bar"]],
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["bag"]],   # dialogs, settings, vault, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -38,10 +40,9 @@ const DEPENDENTS := {
 	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
-	"tiers_card": ["tiers"],
 	"badge": ["home_button"],
-	# the bag dialog reuses the shared frame, the bag cell, AND the currency pill — editing any rebuilds it
-	"bag_card": ["bag"],
+	# the slot cell backs BOTH the bag dialog and the discovery ladder (which inherits its look) — editing it rebuilds both
+	"bag_card": ["bag", "tiers"],
 	"currency_pill": ["bag"],
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -72,7 +73,6 @@ const TEST_KEYS := {
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
-	"tiers_card": ["preview"],             # the cell's preview STATE (seen / unseen / marked) is view-only
 	"frame": ["snap"],                     # snap is the drag-grid helper, not a saved design value
 	"dialog": ["entries"],
 	"daily": [],
@@ -91,7 +91,7 @@ const TEST_KEYS := {
 	# (which bust, the asked tier, the reward, the size the board gives it, and the ready state).
 	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met", "card_w", "card_h",
 		"bust_size", "bust_x", "bust_y", "bubble_size", "bubble_x", "bubble_y",
-		"item_size", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
+		"item_w", "item_h", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
@@ -109,8 +109,7 @@ const CAPTIONS := {
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
-	"tiers_card": "Tier cell — discovery tile (slot cell · seen · locked · marked)",
-	"bag_card": "Slot cell — bag + board (empty · filled · unlockable · locked)",
+	"bag_card": "Slot cell — bag · board · discovery (empty · filled · unlockable · locked)",
 	"toggle_card": "Toggle card — label + switch",
 	"map_card": "Map card — place-picker (gold frame / locked panel)",
 	"quest_card": "Quest card — giver (portrait · ask · plaque reward)",
@@ -189,7 +188,7 @@ var _params := {
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,
 		"card_w": 98, "card_h": 86, "bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
-		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
+		"item_w": 32, "item_h": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -203,16 +202,13 @@ var _params := {
 		"frame_slice": 56, "frame_pad": 26, "frame_top_pad": 70,
 		"medallion_px": 120, "ring_dy": 0, "tally_font": 28, "hint_font": 22, "btn_font": 22, "gap": 14,
 		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
-	# the TIER CELL — the discovery board's tile, its own component (the discovery dialog reuses it). The
-	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
-	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
-	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_art": true,
-		"show_num": true, "lvl_frac": 44, "piece_frac": 62,
-		"mark_glow": 60, "mark_twinkle": 50},
 	# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
-	# wrapping ONLY the discovery content: the tier grid (cols, gap, scroll cap). The grid fills the frame's
-	# inner width, derived from the Frame's chosen border padding.
-	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0},
+	# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
+	# piece/medal size + well art are INHERITED from the Slot cell item; only the discovery-specific knobs live
+	# here — the square cell size, the tier-number medal, and the marked-tier sparkle (percents for the sliders).
+	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
+	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
+		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
 	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
 	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
@@ -230,7 +226,7 @@ var _params := {
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
-		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "level_frac": 44,
+		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
 		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 0},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
@@ -465,15 +461,6 @@ func _make_element(id: String) -> Control:
 				"mode": String(p.mode), "gift": {"water": 30, "gems": 1},
 			}
 			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
-		"tiers_card":
-			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit. Only
-			# the cell SIZE scales — every metric (piece, level medal) is a fraction of the cell, so the zoom
-			# shows the EXACT proportions the dialog will.
-			var tco := Kit.tiers_card_opts_from_config(_params)
-			var z := 2.0
-			tco["cell_w"] = float(tco["cell_w"]) * z
-			tco["cell_h"] = float(tco["cell_h"]) * z
-			return Kit.tiers_card(_tiers_preview_cell(String(p.preview)), tco)
 		"map_card":
 			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
 			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
@@ -501,7 +488,7 @@ func _make_element(id: String) -> Control:
 					"card_w": float(p.card_w) / 100.0, "card_h": float(p.card_h) / 100.0,
 					"bust_size": float(p.bust_size) / 100.0, "bust_x": float(p.bust_x) / 100.0, "bust_y": float(p.bust_y) / 100.0,
 					"bubble_size": float(p.bubble_size) / 100.0, "bubble_x": float(p.bubble_x) / 100.0, "bubble_y": float(p.bubble_y) / 100.0,
-					"item_size": float(p.item_size) / 100.0, "item_x": float(p.item_x) / 100.0, "item_y": float(p.item_y) / 100.0,
+					"item_w": float(p.item_w) / 100.0, "item_h": float(p.item_h) / 100.0, "item_x": float(p.item_x) / 100.0, "item_y": float(p.item_y) / 100.0,
 					"plaque_w": float(p.plaque_w) / 100.0, "plaque_x": float(p.plaque_x) / 100.0, "plaque_y": float(p.plaque_y) / 100.0,
 				},
 			}
@@ -536,9 +523,9 @@ func _make_element(id: String) -> Control:
 			p_st["claimable"] = bool(p.claimable)
 			return Kit.vault_dialog(p_st, _dlg_px("vault"), vopts)
 		"bag_card":
-			# the bag slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit
-			# (like tiers_card): only the SIZE scales — every metric is taken from the cell, so the zoom
-			# shows the EXACT proportions the dialog will.
+			# the slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit: only the
+			# SIZE scales — every metric is taken from the cell, so the zoom shows the EXACT proportions the
+			# bag and discovery dialogs will.
 			var bco := Kit.bag_card_opts_from_config(_params)
 			var z := 2.0
 			bco["cell_w"] = float(bco["cell_w"]) * z
@@ -546,6 +533,7 @@ func _make_element(id: String) -> Control:
 			bco["cost_font"] = int(float(bco["cost_font"]) * z)
 			bco["cost_icon"] = float(bco["cost_icon"]) * z
 			bco["cost_y"] = float(bco["cost_y"]) * z
+			bco["cost_x"] = float(bco["cost_x"]) * z   # cost_scale is a ratio — not zoomed
 			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
 			# the SHARED frame + the reused currency pill + a grid of bag cells (the SAME builder the game's
@@ -603,14 +591,6 @@ func _daily_preview_day(state: String) -> Dictionary:
 		"mystery": return {"day": 7, "label": "Day 7", "reward": {"gems": 30}, "state": "future", "mystery": true}
 		"shop":    return {"icon": "gem", "count": 500, "price": "$4.99"}   # the SAME card as a shop pack
 		_:         return {"day": 4, "label": "Day 4", "reward": {"coins": 150}, "state": "today"}
-
-## A demo tier cell for the standalone Tier-card preview, in the chosen state (seen shows a stand-in piece,
-## unseen the baked "?" cell, marked the gold-ring cell).
-func _tiers_preview_cell(state: String) -> Dictionary:
-	match state:
-		"unseen": return {"tier": 7, "seen": false}
-		"seen":   return {"tier": 3, "seen": true, "icon": "daisy"}
-		_:        return {"tier": 6, "seen": true, "icon": "daisy", "marked": true}
 
 ## Placeholder content for the standalone Frame preview — faint bars standing in for "any content".
 func _frame_placeholder() -> Control:
@@ -1008,14 +988,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. Only the tier grid + the Tier cell are tuned here. A plain grid — no vines."
-		note.add_theme_font_size_override("font_size", 12)
-		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_sidebar_body.add_child(note)
-	if _selected == "tiers_card":
-		var note := Label.new()
-		note.text = "The discovery board's tile, reusing the SHARED slot cell (edit on the Bag/slot cell item): seen → the filled well holds the piece, unseen → the locked well (baked padlock kept, no \"?\"). The tier rides the gold level medal lower-right; marked tiers sparkle. Preview a state below."
+		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the locked well (baked padlock, no \"?\"); the tier rides the gold level medal lower-right; marked tiers sparkle. The piece/medal size + well art are inherited from the Slot cell item — only the square cell size, the medal toggle, the sparkle, and the grid are tuned here. A plain grid — no vines."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1168,19 +1141,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
 			_sidebar_body.add_child(_slider_row(["into", 0, 30]))
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
-		"tiers_card":
-			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
-			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
-			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
-			_sidebar_body.add_child(_toggle_row("Tier medal", "show_num"))  # the lower-right gold level badge
-			_sidebar_body.add_child(_slider_row(["lvl_frac", 18, 60]))      # tier medal size (% of cell)
-			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # discovered-piece size (% of cell)
-			_section_header("Marked tier (sparkle)")
-			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
-			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["marked", "seen", "unseen"]))
 		"map_card":
 			_group_header("Saved to config", true)
 			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
@@ -1207,6 +1167,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
+			_section_header("Tile (square cell — piece/medal size + art are on the Slot cell)")
+			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
+			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
+			_sidebar_body.add_child(_toggle_row("Tier medal", "show_num"))  # the lower-right gold level badge
+			_section_header("Marked tier (sparkle)")
+			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
+			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			# the frame chrome (border · banner · ✕) is the STANDARD shared frame — tune it on the Frame item.
 		"currency_pill":
 			_group_header("Saved to config", true)
@@ -1255,6 +1222,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))
 			_sidebar_body.add_child(_slider_row(["cost_icon", 16, 56]))
 			_sidebar_body.add_child(_slider_row(["cost_y", -60, 60]))        # nudge the acorn cost up(-) / down(+)
+			_sidebar_body.add_child(_slider_row(["cost_x", -60, 60]))        # nudge the acorn cost left(-) / right(+)
+			_sidebar_body.add_child(_slider_row(["cost_scale", 30, 130]))    # the cost pill's overall size (% — shrink to fit the card)
 			_section_header("Unlockable highlight (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the unlockable cell's glow halo
 			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
@@ -1291,7 +1260,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["bubble_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["bubble_y", 0, 100]))     # centre y (% of box height)
 			_section_header("Item icon")
-			_sidebar_body.add_child(_slider_row(["item_size", 10, 80]))    # size (% of box height)
+			_sidebar_body.add_child(_slider_row(["item_w", 10, 150]))      # width  (% of box height) — set == item_h for square
+			_sidebar_body.add_child(_slider_row(["item_h", 10, 150]))      # height (% of box height)
 			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["item_y", 0, 100]))       # centre y (% of box height)
 			_section_header("Plaque")

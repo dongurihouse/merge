@@ -10,6 +10,7 @@ const Overlay = preload("res://games/grove/tools/placement_overlay.gd")
 func _initialize() -> void:
 	begin("grove · placement tool")
 	await _test_board_offsets()
+	await _test_board_scale()
 	await _test_home_badges()
 	await _test_overlay_drag()
 	_test_farm_home_roundtrip()
@@ -117,6 +118,47 @@ func _test_board_offsets() -> void:
 	ss.placement_refresh()
 	await create_timer(0.05).timeout
 	ok(absf(ss.giver_bar.position.y - fence0) < 1.0 and absf(ss._board_center.position.y - board0) < 1.0, "zero offsets reproduce the default layout")
+	ss.queue_free()
+
+# The board reads a saved UNIFORM scale (board_scale, default 1.0 = full size) and applies it to the
+# whole board+frame about its center, AFTER layout — independent of the responsive sizing and the dy
+# nudges. The placement overlay saves it into the SAME board_layout.json dict the dy nudges ride.
+func _test_board_scale() -> void:
+	fresh("place_scale")
+	var ss = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ss)
+	if ss.board == null:
+		ss._ready()
+	await create_timer(0.05).timeout
+	ok(absf(ss._place_board_scale - 1.0) < 0.001, "a fresh board has scale 1.0 (no file → full size)")
+	ok(ss._board_center.scale.is_equal_approx(Vector2.ONE), "a fresh board renders at 1.0 scale")
+
+	# a uniform scale shrinks the WHOLE board+frame about its center (cells, mat, pieces ride together).
+	ss._place_board_scale = 0.8
+	ss.placement_refresh()
+	await create_timer(0.05).timeout
+	ok(ss._board_center.scale.is_equal_approx(Vector2(0.8, 0.8)), "a board_scale scales the whole board+frame uniformly")
+	ok(absf(ss._board_center.pivot_offset.x - ss._board_center.size.x * 0.5) < 1.0 \
+		and absf(ss._board_center.pivot_offset.y - ss._board_center.size.y * 0.5) < 1.0, \
+		"the scale pivots about the board center (stays centered, not corner-anchored)")
+
+	# back to 1.0 → byte-for-byte the default full-size board (the production guarantee).
+	ss._place_board_scale = 1.0
+	ss.placement_refresh()
+	await create_timer(0.05).timeout
+	ok(ss._board_center.scale.is_equal_approx(Vector2.ONE), "scale 1.0 reproduces the default full-size board")
+
+	# the overlay saves board_scale into the same board_layout.json dict as the dy nudges.
+	var ov: Control = Overlay.new()
+	ov.scene = ss; ov.mode = "board"
+	ss.add_child(ov)
+	ov.setup()
+	await create_timer(0.05).timeout
+	ss._place_board_scale = 0.9
+	var data: Dictionary = ov._board_layout_data()
+	ok(data.has("board_scale") and absf(float(data["board_scale"]) - 0.9) < 0.001, \
+		"the overlay writes the live board_scale into board_layout.json")
+	ok(data.has("board_dy") and data.has("fence_dy"), "the saved dict keeps the dy nudges alongside the scale")
 	ss.queue_free()
 
 # Every farmhouse-hub unlock badge carries its spot-id meta, seated at its farm_home.json pos —

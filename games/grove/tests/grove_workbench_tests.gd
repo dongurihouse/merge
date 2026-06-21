@@ -28,6 +28,15 @@ func _has_label_text(node: Control, text: String) -> bool:
 			return true
 	return false
 
+# Like _has_label_text but for text carried on a Button (e.g. the shared pill_button cost chip).
+func _has_button_text(node: Control, text: String) -> bool:
+	if node is Button and String((node as Button).text) == text:
+		return true
+	for b in node.find_children("*", "Button", true, false):
+		if String((b as Button).text) == text:
+			return true
+	return false
+
 # The first Button at or under `node` (the tappable surface), or null.
 func _first_button(node: Control) -> Button:
 	if node is Button:
@@ -153,9 +162,9 @@ func _test_bag_components() -> void:
 	var co := Kit.bag_card_opts_from_config({})
 	for kind in ["filled", "empty", "next", "locked"]:
 		ok(Kit.bag_card({"kind": kind, "icon": "leaf", "cost": 10}, co) is Control, "bag_card builds a %s tile" % kind)
-	# the next (buyable) + locked tiles carry their acorn cost number
-	ok(_has_label_text(Kit.bag_card({"kind": "next", "cost": 10}, co), "10"), "the next tile shows its acorn cost (10)")
-	ok(_has_label_text(Kit.bag_card({"kind": "locked", "cost": 25}, co), "25"), "a locked tile shows its acorn cost (25)")
+	# the next (buyable) + locked tiles carry their acorn cost — now the SHARED green pill_button (cost on its text)
+	ok(_has_button_text(Kit.bag_card({"kind": "next", "cost": 10}, co), "10"), "the next tile shows its acorn cost (10)")
+	ok(_has_button_text(Kit.bag_card({"kind": "locked", "cost": 25}, co), "25"), "a locked tile shows its acorn cost (25)")
 	# a filled tile is a tappable button that fires on_tap (the retrieve), an empty tile is inert
 	var tapped := [false]
 	var fc := Kit.bag_card({"kind": "filled", "icon": "leaf", "on_tap": func() -> void: tapped[0] = true}, co)
@@ -209,44 +218,47 @@ func _test_bag_components() -> void:
 	ok(_grid_cells(dlg) == entries.size(), "the bag grid has one cell per entry (%d)" % entries.size())
 	ok(_has_label_text(dlg, "132"), "the reused currency pill shows the acorn balance (132)")
 
-# The DISCOVERY (tier) cell — now the SHARED slot cell: a discovered tier wears the filled well holding its
-# piece; an undiscovered tier wears the locked well (the baked padlock kept, no acorn cost, no "?"). The
-# tier rides the gold level medal (the reused `level` badge) docked lower-right; a marked tier sparkles.
+# The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
+# tier wears the filled well holding its piece; an undiscovered tier the locked well (baked padlock kept, no
+# acorn cost, no "?"). The tier rides the gold level medal (the reused `level` badge) docked lower-right; a
+# marked tier sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
 func _test_discovery_cell() -> void:
-	var to := Kit.tiers_card_opts_from_config({})
+	var topts := Kit.tiers_opts_from_config({})
+	# a tiny ladder: tier 3 discovered, tier 7 not
+	var dlg := Kit.tiers_dialog([
+		{"tier": 3, "seen": true, "icon": "leaf"},
+		{"tier": 7, "seen": false},
+	], 560.0, topts)
+	ok(dlg is Control, "tiers_dialog builds the discovery ladder")
 
-	# a DISCOVERED tier → the open (filled) slot well, holding its piece, tier on the lower-right medal
-	var seen_cell := Kit.tiers_card({"tier": 3, "seen": true, "icon": "leaf"}, to)
-	ok(seen_cell is Control, "tiers_card builds a discovered tile")
-	ok(_slot_face_tex(seen_cell).ends_with("slot_tile.png"), "a discovered tier wears the open (filled) slot well")
-	ok(_has_label_text(seen_cell, "3"), "the discovered tier's number reads on the level medal (3)")
+	# a DISCOVERED tier → the open (filled) slot well; an UNDISCOVERED tier → the locked well (baked padlock)
+	ok(_has_slot_face(dlg, "slot_tile.png"), "a discovered tier wears the open (filled) slot well")
+	ok(_has_slot_face(dlg, "slot_locked.png"), "an undiscovered tier wears the locked well (baked padlock kept)")
+	# each tier reads its number on the lower-right level medal; the old "?" glyph is gone
+	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "each tier reads its number on the level medal (3, 7)")
+	ok(not _has_label_text(dlg, "?"), "the '?' cell is gone — the locked well stands in")
 
-	# an UNDISCOVERED tier → the locked well (slot_locked, baked padlock kept), no "?", tier still shown
-	var unseen_cell := Kit.tiers_card({"tier": 7, "seen": false}, to)
-	ok(_slot_face_tex(unseen_cell).ends_with("slot_locked.png"), "an undiscovered tier wears the locked well (baked padlock kept)")
-	ok(not _has_label_text(unseen_cell, "?"), "the '?' cell is gone — the locked well stands in")
-	ok(_has_label_text(unseen_cell, "7"), "an undiscovered tier still reads its tier number (7)")
-
-	# a MARKED tier (the tapped/asked one) keeps the engine sparkle; an unmarked one has none
-	ok(_has_class(Kit.tiers_card({"tier": 6, "seen": true, "icon": "leaf", "marked": true}, to), "GPUParticles2D"),
+	# a MARKED tier (the tapped/asked one) is flagged by the engine sparkle; an unmarked ladder has none
+	ok(_has_class(Kit.tiers_dialog([{"tier": 6, "seen": true, "icon": "leaf", "marked": true}], 560.0, topts), "GPUParticles2D"),
 		"a marked tier is flagged by the engine sparkle")
-	ok(not _has_class(Kit.tiers_card({"tier": 5, "seen": true, "icon": "leaf"}, to), "GPUParticles2D"),
-		"an unmarked tier has no sparkle")
+	ok(not _has_class(Kit.tiers_dialog([{"tier": 5, "seen": true, "icon": "leaf"}], 560.0, topts), "GPUParticles2D"),
+		"an unmarked ladder has no sparkle")
 
 	# show_num off → no tier medal (the level badge only draws when the level is set)
-	var no_num_opts := to.duplicate()
-	no_num_opts["show_num"] = false
-	ok(not _has_label_text(Kit.tiers_card({"tier": 4, "seen": true, "icon": "leaf"}, no_num_opts), "4"),
+	var no_num := topts.duplicate()
+	no_num["show_num"] = false
+	ok(not _has_label_text(Kit.tiers_dialog([{"tier": 4, "seen": true, "icon": "leaf"}], 560.0, no_num), "4"),
 		"show_num off hides the tier medal")
 
-# The face texture path on a slot-cell tile (its first Panel with a StyleBoxTexture "panel"), so the test
-# can assert which well art — slot_tile (filled) vs slot_locked (locked) — the discovery cell is wearing.
-func _slot_face_tex(cell: Control) -> String:
-	for p in cell.find_children("*", "Panel", true, false):
+# True if any slot-cell well in `node`'s subtree wears well art whose path ends with `suffix` (slot_tile for a
+# filled/discovered tier, slot_locked for a locked/undiscovered one) — lets the test assert the discovery cell's
+# state without reaching into the grid's layout.
+func _has_slot_face(node: Control, suffix: String) -> bool:
+	for p in node.find_children("*", "Panel", true, false):
 		var sb := (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null:
-			return (sb as StyleBoxTexture).texture.resource_path
-	return ""
+		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null and (sb as StyleBoxTexture).texture.resource_path.ends_with(suffix):
+			return true
+	return false
 
 # The DISCOVERY dialog uses the STANDARD shared frame, with NO bespoke chrome override: it inherits
 # dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the
@@ -263,7 +275,7 @@ func _test_discovery_frame() -> void:
 	ok(float(topts.get("close_size", 0)) == float(dopts.get("close_size", -1)),
 		"discovery inherits the shared frame ✕ size")
 	# the discovery CONTENT still differs (its own grid + tier-cell look)
-	ok(topts.has("cols") and topts.has("cell_w"), "discovery still carries its own grid + tier-cell content opts")
+	ok(topts.has("cols") and topts.has("cell_w"), "discovery still carries its own grid + cell opts")
 	# and it still builds on the shared frame (the named banner overlay is present)
 	var dlg := Kit.tiers_dialog(Kit.DEMO_TIERS, 620.0, topts)
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the discovery dialog wraps the shared frame")

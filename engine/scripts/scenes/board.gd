@@ -44,7 +44,7 @@ const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
 const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
-const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
+const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
@@ -104,6 +104,7 @@ var giver_bar: Control           # the quest fence (givers pop up over it)
 var _board_center: Control       # the CenterContainer holding the board (placement tool nudges this)
 var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
 var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
+var _place_board_scale := 1.0    # saved UNIFORM board scale (placement tool board_scale; 1.0 = full size)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
 # Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
@@ -328,17 +329,20 @@ func _load_placement() -> void:
 	if typeof(d) == TYPE_DICTIONARY:
 		_place_fence_dy = float(d.get("fence_dy", 0.0))
 		_place_board_dy = float(d.get("board_dy", 0.0))
+		_place_board_scale = float(d.get("board_scale", 1.0))
 
-# Shift the fence + board by their saved fractions AFTER the VBox has positioned them, so the
-# nudges are independent of each other and the responsive sizing is unchanged. Runs per sort.
+# Shift the fence + board by their saved fractions, and scale the board, AFTER the VBox has positioned
+# them — so the nudges + scale are independent of each other and the responsive sizing is unchanged.
+# Runs per sort. The scale pivots about the board's center (set every sort; harmless at 1.0), so a
+# shrink/grow stays centered and the dy nudge re-seats it vertically. board_scale 1.0 → default layout.
 func _apply_placement() -> void:
-	if _place_fence_dy == 0.0 and _place_board_dy == 0.0:
-		return
 	var h := get_viewport_rect().size.y
 	if giver_bar != null:
 		giver_bar.position.y += _place_fence_dy * h
 	if _board_center != null:
 		_board_center.position.y += _place_board_dy * h
+		_board_center.pivot_offset = _board_center.size * 0.5
+		_board_center.scale = Vector2(_place_board_scale, _place_board_scale)
 
 # The placement tool changed an offset → re-sort so _apply_placement reseats the bands.
 func placement_refresh() -> void:

@@ -21,6 +21,8 @@ var _targets: Array = [] # [{node, kind, id}]  kind: "badge" (home) | "band" (bo
 var _sel = null          # the selected target dict
 var _drag = null         # active drag bookkeeping
 var _readout: Label
+var _size_slider: HSlider # board mode: uniform board scale knob (saved as board_scale)
+var _size_readout: Label  # board mode: the live scale, as a percent
 
 # --- setup ----------------------------------------------------------------------------
 
@@ -149,8 +151,13 @@ func _save_home() -> void:
 	_flash("saved %d spots → farm_home.json" % by_spot.size())
 
 func _save_board() -> void:
-	_write(BOARD_LAYOUT, {"board_dy": scene._place_board_dy, "fence_dy": scene._place_fence_dy})
+	_write(BOARD_LAYOUT, _board_layout_data())
 	_flash("saved → board_layout.json")
+
+# The board_layout.json payload: the two vertical nudges + the uniform board scale. One place so the
+# save writer and the tests agree on the shape.
+func _board_layout_data() -> Dictionary:
+	return {"board_dy": scene._place_board_dy, "fence_dy": scene._place_fence_dy, "board_scale": scene._place_board_scale}
 
 func _write(path: String, data) -> void:
 	var f := FileAccess.open(path, FileAccess.WRITE)
@@ -162,8 +169,12 @@ func _reset() -> void:
 	if mode == "board":
 		scene._place_fence_dy = 0.0
 		scene._place_board_dy = 0.0
-		scene._load_placement()
+		scene._place_board_scale = 1.0
+		scene._load_placement()                  # re-read the last-saved file (dy + scale)
 		scene.placement_refresh()
+		if _size_slider != null:
+			_size_slider.set_value_no_signal(scene._place_board_scale)
+			_update_size_readout()
 	else:
 		scene._build_map()           # re-seats every badge at the file's pos
 		_collect_targets()
@@ -180,6 +191,20 @@ func _build_toolbar() -> void:
 	add_child(bar)
 	bar.add_child(_btn("Save", Color("#27AE60"), _save))
 	bar.add_child(_btn("Reset", Color("#C0392B"), _reset))
+	# board mode: a uniform SIZE knob — scales the whole board+frame (saved as board_scale).
+	if mode == "board":
+		bar.add_child(_size_label("Size"))
+		_size_slider = HSlider.new()
+		_size_slider.min_value = 0.5
+		_size_slider.max_value = 1.6
+		_size_slider.step = 0.01
+		_size_slider.set_value_no_signal(scene._place_board_scale)
+		_size_slider.custom_minimum_size = Vector2(220, 48)
+		_size_slider.value_changed.connect(_on_size_changed)
+		bar.add_child(_size_slider)
+		_size_readout = _size_label("")
+		bar.add_child(_size_readout)
+		_update_size_readout()
 	_readout = Label.new()
 	_readout.add_theme_font_size_override("font_size", 22)
 	_readout.add_theme_color_override("font_color", Color.WHITE)
@@ -204,6 +229,27 @@ func _btn(text: String, bg: Color, fn: Callable) -> Button:
 		b.add_theme_stylebox_override(k, s)
 	b.pressed.connect(fn)
 	return b
+
+# A bold, outlined toolbar label that reads over the live scene (same treatment as the readout).
+func _size_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 22)
+	l.add_theme_color_override("font_color", Color.WHITE)
+	l.add_theme_color_override("font_outline_color", Color.BLACK)
+	l.add_theme_constant_override("outline_size", 6)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	return l
+
+# Drag the size knob → scale the live board (board.gd applies it on the next sort) + update the percent.
+func _on_size_changed(v: float) -> void:
+	scene._place_board_scale = v
+	scene.placement_refresh()
+	_update_size_readout()
+
+func _update_size_readout() -> void:
+	if _size_readout != null:
+		_size_readout.text = "%d%%" % roundi(scene._place_board_scale * 100.0)
 
 func _update_readout() -> void:
 	if _readout == null:

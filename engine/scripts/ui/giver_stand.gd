@@ -49,7 +49,7 @@ const LAY := {
 	"card_w": 0.98, "card_h": 0.86,
 	"bust_size": 0.94, "bust_x": 0.25, "bust_y": 0.53,
 	"bubble_size": 0.66, "bubble_x": 0.72, "bubble_y": 0.35,
-	"item_size": 0.32, "item_x": 0.72, "item_y": 0.32,
+	"item_w": 0.32, "item_h": 0.32, "item_x": 0.72, "item_y": 0.32,
 	"plaque_w": 0.40, "plaque_x": 0.72, "plaque_y": 0.81,
 }
 
@@ -107,17 +107,22 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		var bubble := _speech_bubble(bd)
 		bubble.position = Vector2(cx + cardW * float(L.bubble_x) - bd / 2.0, cy + cardH * float(L.bubble_y) - bd / 2.0)
 		stand.add_child(bubble)
-		var isz := cardH * float(L.item_size)
+		var iw := cardH * float(L.item_w)
+		var ih := cardH * float(L.item_h)
 		var icon := Control.new()
-		icon.custom_minimum_size = Vector2(isz, isz)
-		icon.size = Vector2(isz, isz)
-		icon.position = Vector2(cx + cardW * float(L.item_x) - isz / 2.0, cy + cardH * float(L.item_y) - isz / 2.0)
+		icon.custom_minimum_size = Vector2(iw, ih)
+		icon.size = Vector2(iw, ih)
+		icon.position = Vector2(cx + cardW * float(L.item_x) - iw / 2.0, cy + cardH * float(L.item_y) - ih / 2.0)
 		icon.mouse_filter = Control.MOUSE_FILTER_STOP
-		var piece := PieceView.make_piece(acode, isz)
+		# the asked item — built square at the LARGER of w/h (so it never upscales), then scaled to fill the
+		# w×h box. item_w == item_h gives an undistorted icon; differ them to stretch (the workbench tunes both).
+		var base := maxf(iw, ih)
+		var piece := PieceView.make_piece(acode, base)
+		piece.scale = Vector2(iw / base, ih / base)
 		icon.add_child(piece)
-		var mpx := isz * 0.88
+		var mpx := minf(iw, ih) * 0.88
 		var met := _ask_met_check(mpx)
-		met.position = Vector2((isz - mpx) / 2.0, (isz - mpx) / 2.0)
+		met.position = Vector2((iw - mpx) / 2.0, (ih - mpx) / 2.0)
 		icon.add_child(met)
 		stand.add_child(icon)
 		wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
