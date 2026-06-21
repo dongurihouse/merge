@@ -561,7 +561,9 @@ func _make_element(id: String) -> Control:
 				(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
 				(ib.get_meta("info_btn") as Button).disabled = false
 				var sb := ib.get_meta("sell_btn") as Button
-				sb.text = " +12🪙"
+				(ib.get_meta("sell_count") as Label).text = "+12"   # demo payout in the new [trash · +N · coin] layout
+				var demo_coin_slot := ib.get_meta("sell_coin") as Control
+				demo_coin_slot.add_child(Look.icon("coin", demo_coin_slot.custom_minimum_size.x))
 				sb.visible = true
 			else:
 				(ib.get_meta("name_label") as Label).text = "Tap an item to inspect it"

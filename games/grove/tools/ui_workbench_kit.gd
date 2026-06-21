@@ -15,6 +15,7 @@ extends RefCounted
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
+const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
 const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
 
 # Nine-patch margins for the shared mail kit (sourced from the real recipe in inbox.gd).
@@ -2996,28 +2997,69 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	hb.add_child(name_label)
-	var sell_btn := Button.new()                                 # sells the selected item; text carries the payout
+	var sell_btn := Button.new()                                 # sells the selected item; content shows trash + payout
 	sell_btn.focus_mode = Control.FOCUS_NONE
-	sell_btn.add_theme_font_size_override("font_size", int(opts.get("sell_font", 30)))
-	for cs in ["font_color", "font_color_hover", "font_color_pressed"]:
-		sell_btn.add_theme_color_override(cs, Pal.CREAM)
-	# the sell button wears the merchant cart icon (the same cart that marks the sell affordance elsewhere)
-	var cart_p := Look.kit("shared/icon_cart.png")
-	if ResourceLoader.exists(cart_p):
-		sell_btn.icon = load(cart_p)
-		sell_btn.add_theme_constant_override("icon_max_width", int(height * float(opts.get("sell_icon", 0.30))))
-		sell_btn.expand_icon = false
+	sell_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sell_btn.custom_minimum_size = Vector2(height * 1.4, height * 0.52)  # a fixed-width pill; its content centers
+	var sell_icon_px := height * float(opts.get("sell_icon", 0.30))
+	# content row: [trash icon] +N [coin/acorn icon] — a mouse-ignoring centered HBox so the WHOLE pill stays
+	# the single tap target (the children pass their clicks through to the Button below them).
+	var sell_row := HBoxContainer.new()
+	sell_row.add_theme_constant_override("separation", 6)
+	sell_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	sell_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the sell button wears the trash-can icon (ui/shared/icon_trash.png, cut from action_asset), replacing
+	# the merchant cart — a clearer "bin this for coins" read.
+	var trash_p := Look.kit("shared/icon_trash.png")
+	if ResourceLoader.exists(trash_p):
+		var ti := TextureRect.new()
+		ti.texture = load(trash_p)
+		ti.custom_minimum_size = Vector2(sell_icon_px, sell_icon_px)
+		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ti.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sell_row.add_child(ti)
+	var sell_count := Label.new()                                # the "+N" payout amount (the caller sets the text)
+	sell_count.add_theme_font_size_override("font_size", int(opts.get("sell_font", 30)))
+	sell_count.add_theme_color_override("font_color", Pal.CREAM)
+	sell_count.add_theme_constant_override("outline_size", 0)
+	sell_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_row.add_child(sell_count)
+	# the payout currency is the game's STANDARD coin/acorn icon (the caller fills it via Look.icon, swapped
+	# per payout), replacing the inline 🪙/🌰 emoji glyph.
+	var sell_coin := CenterContainer.new()
+	sell_coin.custom_minimum_size = Vector2(sell_icon_px, sell_icon_px)
+	sell_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_row.add_child(sell_coin)
+	var sell_center := CenterContainer.new()                     # center the row within the fixed-width pill
+	sell_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sell_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_center.add_child(sell_row)
+	sell_btn.add_child(sell_center)
+	# the sell button wears the game's STANDARD green primary-CTA background (Pal.BTN_PRIMARY) — the same
+	# leaf-green pill Look.button(primary) uses — replacing the bespoke red box, so the bottom bar speaks one
+	# button language.
 	var ts := StyleBoxFlat.new()
-	ts.bg_color = Color("#C25B4E")
-	ts.set_corner_radius_all(16)
-	ts.set_border_width_all(2)
-	ts.border_color = Color("#9C4438")
+	ts.bg_color = Pal.BTN_PRIMARY
+	ts.border_color = Pal.BTN_PRIMARY_EDGE
+	ts.set_corner_radius_all(Tune.BTN_RADIUS)
+	ts.set_border_width_all(Tune.BTN_BORDER_W)
+	ts.shadow_color = Tune.SHADOW_RAISED
+	ts.shadow_size = Tune.SHADOW_RAISED_SIZE
+	ts.shadow_offset = Tune.SHADOW_RAISED_OFFSET
 	ts.content_margin_left = 14
 	ts.content_margin_right = 14
 	ts.content_margin_top = 8
 	ts.content_margin_bottom = 8
-	for st in ["normal", "hover", "pressed"]:
-		sell_btn.add_theme_stylebox_override(st, ts)
+	sell_btn.add_theme_stylebox_override("normal", ts)
+	sell_btn.add_theme_stylebox_override("hover", ts)
+	var tsp := ts.duplicate()                                    # pressed: darken + settle the shadow (standard juice)
+	tsp.bg_color = ts.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
+	tsp.shadow_color = Tune.SHADOW_RESTING
+	tsp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
+	tsp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
+	sell_btn.add_theme_stylebox_override("pressed", tsp)
 	if spec.has("sell_action") and (spec.get("sell_action") as Callable).is_valid():
 		sell_btn.pressed.connect(spec.get("sell_action"))
 	Look.add_press_juice(sell_btn)
@@ -3027,6 +3069,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("info_icon", info_icon)
 	pill.set_meta("name_label", name_label)
 	pill.set_meta("sell_btn", sell_btn)
+	pill.set_meta("sell_count", sell_count)
+	pill.set_meta("sell_coin", sell_coin)
 	pill.set_meta("inner_px", inner)
 	return pill
 
