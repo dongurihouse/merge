@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://lvgjihe0thgh"
-path="res://.godot/imported/gen_orchard_basket.png-448cec0dc70d1d7c92a4d50822374ef5.ctex"
+uid="uid://iu6p62cuo4f6"
+path="res://.godot/imported/gen_porcini.png-2e70b16fdc50a46f7760c4456a2abd87.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_orchard_basket.png"
-dest_files=["res://.godot/imported/gen_orchard_basket.png-448cec0dc70d1d7c92a4d50822374ef5.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_porcini.png"
+dest_files=["res://.godot/imported/gen_porcini.png-2e70b16fdc50a46f7760c4456a2abd87.ctex"]
 
 [params]
 

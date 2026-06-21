@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dq5kxn78qw5il"
-path="res://.godot/imported/gen_glowcap_ring.png-dbe1703c454b858cdc3b059024ff0ff7.ctex"
+uid="uid://c00d3xn1t63rj"
+path="res://.godot/imported/gen_cattails.png-d4cdf154545ea868592c7ddde50cb1d1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_glowcap_ring.png"
-dest_files=["res://.godot/imported/gen_glowcap_ring.png-dbe1703c454b858cdc3b059024ff0ff7.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_cattails.png"
+dest_files=["res://.godot/imported/gen_cattails.png-d4cdf154545ea868592c7ddde50cb1d1.ctex"]
 
 [params]
 

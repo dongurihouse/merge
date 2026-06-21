@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://dn6vpehn1i37n"
-path="res://.godot/imported/gen_creel.png-a3cb72424ae69b93a1b979a79d57f3fd.ctex"
+uid="uid://c6sinevujwigh"
+path="res://.godot/imported/gen_twig_nest.png-3e56628336b4902b9eaa33ffeb07f786.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_creel.png"
-dest_files=["res://.godot/imported/gen_creel.png-a3cb72424ae69b93a1b979a79d57f3fd.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_twig_nest.png"
+dest_files=["res://.godot/imported/gen_twig_nest.png-3e56628336b4902b9eaa33ffeb07f786.ctex"]
 
 [params]
 

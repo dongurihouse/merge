@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://clovgr0620mhn"
-path="res://.godot/imported/gen_meadow_tuft.png-e1138d10c7cd9109d5661734c4613012.ctex"
+uid="uid://clwix5jthh1x2"
+path="res://.godot/imported/gen_apples.png-a29d4151daa0fbffb3256a81f21af602.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_meadow_tuft.png"
-dest_files=["res://.godot/imported/gen_meadow_tuft.png-e1138d10c7cd9109d5661734c4613012.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_apples.png"
+dest_files=["res://.godot/imported/gen_apples.png-a29d4151daa0fbffb3256a81f21af602.ctex"]
 
 [params]
 

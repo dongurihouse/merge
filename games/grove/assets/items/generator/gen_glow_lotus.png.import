@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://ktlta8bx8xhx"
-path="res://.godot/imported/gen_nut_blossom.png-f2ae0f2db5aca40b16cf227b50c6acd1.ctex"
+uid="uid://ckhbc22i0puqc"
+path="res://.godot/imported/gen_glow_lotus.png-10177ddf44e6f5dc2e26815e31137022.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/items/generator/gen_nut_blossom.png"
-dest_files=["res://.godot/imported/gen_nut_blossom.png-f2ae0f2db5aca40b16cf227b50c6acd1.ctex"]
+source_file="res://games/grove/assets/items/generator/gen_glow_lotus.png"
+dest_files=["res://.godot/imported/gen_glow_lotus.png-10177ddf44e6f5dc2e26815e31137022.ctex"]
 
 [params]
 

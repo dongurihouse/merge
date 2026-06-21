@@ -56,24 +56,26 @@ const LINES := {
 #
 # NOTE — the 13 lines NOT listed here (3,4,7,12,13,16-19,22-25) stay DEFINED in LINES (+ their art)
 # but are DORMANT: no generator produces them, so they are never popped or asked. Re-introducing them
-# (or splitting the content into more maps) is a content call (BACKLOG). Generator sprites are PARKED
-# art (§16) — they reuse stand-in sprites for now.
+# (or splitting the content into more maps) is a content call (BACKLOG). Generator sprites are now
+# dedicated art (items/generator/gen_*.png), sliced from the generators sheet via the asset-intake
+# flow; the 7 unwired icons (porcini, stump, honeycomb, lotus, root_ball, berries, glow_lotus) are
+# parked, ready for future maps.
 const GENERATORS := [
 	# map 1 — Farmhouse (Radish): Wildflower + Garden tools. The ANCHOR — live from the first second.
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
-		"tex": "items/generator/gen_satchel.png", "label": "seeds"},
+		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
 	# map 2 — Barn (Carrot): Feather (the Egg line was removed).
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [6], "grant_from": "",
-		"tex": "items/generator/gen_hen_coop.png", "label": "coop"},
+		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
 	# map 3 — Pond (Frog): Reed + Lotus.
 	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "",
-		"tex": "items/generator/gen_reed_bed.png", "label": "reeds"},
+		"tex": "items/generator/gen_cattails.png", "label": "reeds"},
 	# map 4 — Orchard (Bee): Apple + Pear.
 	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "",
-		"tex": "items/generator/gen_orchard_basket.png", "label": "orchard"},
+		"tex": "items/generator/gen_apples.png", "label": "orchard"},
 	# map 5 — Meadow (Morel): Glowcap + Spore.
 	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "",
-		"tex": "items/generator/gen_glowcap_ring.png", "label": "glowcap"},
+		"tex": "items/generator/gen_glowcaps.png", "label": "glowcap"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 
