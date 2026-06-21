@@ -11,8 +11,30 @@ func _initialize() -> void:
 	_test_maps_overlay()
 	_test_view_headless()
 	await _test_map_integration()
+	await _test_overlay_fills_view()
 	_test_multimap()
 	finish()
+
+func _test_overlay_fills_view() -> void:
+	fresh("vine_overlay_fit")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	hx._open_map(G.hub_map())
+	await create_timer(0.1).timeout
+	var vv: Control = hx.content.find_child("VineMapView", true, false)
+	ok(vv != null, "hub has a VineMapView")
+	var overlays: Control = vv.get_node_or_null("RegionOverlays")
+	ok(overlays != null, "VineMapView has a RegionOverlays group")
+	var vsz: Vector2 = vv.get_global_rect().size
+	var osz: Vector2 = overlays.get_global_rect().size
+	# the overlay group must fill the view (so its mask cover-fits the SAME rect as the base layer),
+	# not the smaller source-image rect — this is the C1 alignment regression guard.
+	ok(absf(vsz.x - osz.x) <= 2.0 and absf(vsz.y - osz.y) <= 2.0, \
+		"RegionOverlays fills the view rect (%.0fx%.0f) not the image rect (got %.0fx%.0f)" % [vsz.x, vsz.y, osz.x, osz.y])
+	hx.queue_free()
 
 func _test_map_integration() -> void:
 	fresh("vine_map")

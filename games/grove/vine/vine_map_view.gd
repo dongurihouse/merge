@@ -115,7 +115,13 @@ func set_mask_offset(value: Vector2) -> void:
 	mask_offset = value
 	var overlays := get_node_or_null("RegionOverlays") as Control
 	if overlays != null:
-		overlays.position = mask_offset
+		# Keep the group full-rect (tracking the view's size) and re-apply the offset via the four
+		# offset_* fields, so its size keeps following the view while its position stays == mask_offset.
+		overlays.set_anchors_preset(Control.PRESET_FULL_RECT)
+		overlays.offset_left = mask_offset.x
+		overlays.offset_top = mask_offset.y
+		overlays.offset_right = mask_offset.x
+		overlays.offset_bottom = mask_offset.y
 
 func set_calm(on: bool) -> void:
 	# reduced-motion: damp the time-driven shader terms (pulse/flow) toward 0 across all overlays.
@@ -378,12 +384,19 @@ func _create_region_overlays(force: bool) -> void:
 		remove_child(existing)
 		existing.free()
 
-	# Top-left anchored at mask_offset (not full-rect) so the whole overlay group can be nudged.
+	# Full-rect anchored to the view (so the group + its cover-fit children fill the SAME rect the
+	# game's base layer cover-fits into), with mask_offset applied as a uniform offset shift — NOT a
+	# fixed image-sized rect. In the game the view is seated full-rect over the clip frame, so the
+	# overlays fill the frame and align with the base; in the tool the view is sized to image_size, so
+	# full-rect == image_size shifted by mask_offset, giving position == mask_offset (the verifier's check).
 	var parent := Control.new()
 	parent.name = "RegionOverlays"
 	parent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.size = Vector2(image_size)
-	parent.position = mask_offset
+	parent.set_anchors_preset(Control.PRESET_FULL_RECT)
+	parent.offset_left = mask_offset.x
+	parent.offset_top = mask_offset.y
+	parent.offset_right = mask_offset.x
+	parent.offset_bottom = mask_offset.y
 	add_child(parent)
 
 	region_overlays.clear()
