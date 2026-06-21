@@ -65,6 +65,55 @@ func region_count() -> int:
 func set_region_enabled(index: int, on: bool) -> void:
 	_set_region_enabled(index, on)
 
+# Rebuild the region-index map + per-region overlays + re-apply tuning after the authoring tool
+# changed geometry, the region set, or the mask_offset. The templates and mask image are reused
+# (only load_map rebuilds those), so this is the cheap "the regions moved" refresh — it is NOT a
+# full reload. Set mask_offset first; the overlay group is re-anchored to it here.
+func refresh(region_list: Array) -> void:
+	regions = region_list.duplicate(true)
+	_rebuild_region_map()
+	_create_region_overlays(true)
+	_apply_all_region_tuning()
+
+# ── Live tuning (one knob, one region) — public so the authoring tool's sliders write/read
+# through the view without rebuilding overlays on every tick. ──────────────────────────────────
+
+func write_shader_value(target: String, param: String, value: float, region_index: int) -> void:
+	_write_shader_value(target, param, value, region_index)
+
+func read_shader_value(target: String, param: String, region_index: int) -> float:
+	if region_overlays.is_empty():
+		return 0.0
+	var material := _material_for_target(target, region_index)
+	var value: Variant = material.get_shader_parameter(param)
+	if value == null:
+		return 0.0
+	return float(value)
+
+# The pristine template value for a knob — what the tool's "Reset Region" restores and seeds its
+# sliders from. Read from the never-mutated template materials so saved tuning never contaminates it.
+func template_default(target: String, param: String) -> float:
+	var material: ShaderMaterial
+	match target:
+		"glow":
+			material = glow_template_material
+		"shadow":
+			material = shadow_template_material
+		"embers":
+			material = ember_template_material
+		_:
+			material = vines_template_material  # vines + "both" (matches _material_for_target fallback)
+	if material == null:
+		return 0.0
+	var value: Variant = material.get_shader_parameter(param)
+	return float(value) if value != null else 0.0
+
+func set_mask_offset(value: Vector2) -> void:
+	mask_offset = value
+	var overlays := get_node_or_null("RegionOverlays") as Control
+	if overlays != null:
+		overlays.position = mask_offset
+
 func set_calm(on: bool) -> void:
 	# reduced-motion: damp the time-driven shader terms (pulse/flow) toward 0 across all overlays.
 	_calm = on

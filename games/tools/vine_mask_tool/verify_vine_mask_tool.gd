@@ -53,7 +53,7 @@ func _run() -> void:
 			_fail("Each map1_farm region should have 8 vertices")
 			return
 
-	var vines := scene.get_node_or_null("Workspace/ArtworkFrame/RegionOverlays/Region1Vines") as TextureRect
+	var vines := scene.get_node_or_null("Workspace/ArtworkFrame/VineView/RegionOverlays/Region1Vines") as TextureRect
 	if vines == null:
 		_fail("Region 1 vines overlay missing")
 		return
@@ -70,7 +70,7 @@ func _run() -> void:
 	enabled.button_pressed = false
 	enabled.toggled.emit(false)
 	await process_frame
-	var glow := scene.get_node("Workspace/ArtworkFrame/RegionOverlays/Region1Glow") as TextureRect
+	var glow := scene.get_node("Workspace/ArtworkFrame/VineView/RegionOverlays/Region1Glow") as TextureRect
 	var glow_material := glow.material as ShaderMaterial
 	if float(glow_material.get_shader_parameter("region_enabled")) != 0.0:
 		_fail("EnableRegion did not disable selected region")
@@ -111,7 +111,7 @@ func _run() -> void:
 	var applied := float(reloaded.call("_read_shader_value", "glow", "opacity", 0))
 	var applied_offset: Vector2 = reloaded.get("mask_offset")
 	# The whole-mask offset moves the overlay group + the region editor over the fixed base.
-	var reloaded_overlays := reloaded.get_node_or_null("Workspace/ArtworkFrame/RegionOverlays") as Control
+	var reloaded_overlays := reloaded.get_node_or_null("Workspace/ArtworkFrame/VineView/RegionOverlays") as Control
 	var reloaded_editor := reloaded.find_child("RegionEditor", true, false) as Control
 	_restore_file(regions_abs, backup)
 	if absf(applied - SENTINEL) > 0.0001:

@@ -1,8 +1,7 @@
 extends Control
 
 const RegionEditorOverlay := preload("res://games/tools/vine_mask_tool/scripts/region_editor_overlay.gd")
-const ShadowShader := preload("res://games/tools/vine_mask_tool/shaders/vine_shadow.gdshader")
-const EmberShader := preload("res://games/tools/vine_mask_tool/shaders/vine_embers.gdshader")
+const VineMapView := preload("res://games/grove/vine/vine_map_view.gd")
 const MAPS_PATH := "res://games/tools/vine_mask_tool/maps/maps.json"
 const DEFAULT_MAP_ID := "map1_farm"
 const COMPONENT_THRESHOLD := 0.25
@@ -15,7 +14,8 @@ const VERTEX_WELD_RADIUS := 24.0    # corners closer than this across zones snap
 
 # Per-region shader knobs. The table is the source of truth for both the slider panel
 # and the saved-tuning round-trip, so it lives here (not inside _build_panel) — it must
-# be readable before the panel exists.
+# be readable before the panel exists. It mirrors VineMapView.CONTROLS (the renderer drives
+# the same params); the tool keeps its own copy because the panel reads label/min/max/step too.
 const CONTROLS := [
 	{"name": "GlowOpacity", "label": "Glow opacity", "target": "glow", "param": "opacity", "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2},
 	{"name": "GlowPower", "label": "Glow power", "target": "glow", "param": "glow_strength", "min": 0.0, "max": 3.0, "step": 0.01, "decimals": 2},
@@ -36,8 +36,6 @@ const CONTROLS := [
 
 @onready var artwork_frame: Control = $Workspace/ArtworkFrame
 @onready var base_rect: TextureRect = $Workspace/ArtworkFrame/Base
-@onready var glow_template: TextureRect = $Workspace/ArtworkFrame/PurpleGlow
-@onready var vines_template: TextureRect = $Workspace/ArtworkFrame/LivingVines
 
 var maps: Array[Dictionary] = []
 var current_map_index := 0
@@ -46,16 +44,12 @@ var current_map_id := ""
 var image_size := Vector2i(941, 1672)
 var regions_path := ""
 var mask_image: Image
-var mask_texture: Texture2D
 var regions: Array = []
 var region_count := 1
-var region_overlays: Array[Dictionary] = []
 var controls: Array[Dictionary] = []
 var sliders: Dictionary = {}
 var value_labels: Dictionary = {}
-var region_map_texture: ImageTexture
-var shadow_template_material: ShaderMaterial
-var ember_template_material: ShaderMaterial
+var view: VineMapView                # the shared renderer — the tool owns one, edits push to it
 var selected_region := 0
 var updating_ui := false
 var region_editor: Control
@@ -152,37 +146,51 @@ func _apply_current_map() -> void:
 	current_map = maps[clampi(current_map_index, 0, maps.size() - 1)]
 	current_map_id = String(current_map.get("id", "map_%d" % [current_map_index + 1]))
 	regions_path = String(current_map.get("regions_path", "res://games/tools/vine_mask_tool/maps/%s_regions.json" % current_map_id))
-	_load_art_for_current_map()
-	_create_effect_template_materials()
-	var had_regions_file := regions_path != "" and FileAccess.file_exists(regions_path)
-	mask_offset = _load_saved_mask_offset()
-	_load_saved_regions_or_detect()
-	_rebuild_region_map()
-	_create_region_overlays(true)
-	_apply_all_region_tuning()
-	# First visit to a map (no saved file): seed it by saving the auto-detected regions.
-	if not had_regions_file:
-		_pending_initial_save = true
-
-func _load_art_for_current_map() -> void:
-	var base_path := String(current_map.get("base", ""))
-	var base_texture := load(base_path) as Texture2D
-	if base_texture != null:
-		base_rect.texture = base_texture
-		image_size = Vector2i(int(base_texture.get_size().x), int(base_texture.get_size().y))
-
+	_load_base_art()
+	# The mask used for region DETECTION is built tool-side (the detector reads it pixel-by-pixel);
+	# the renderer (VineMapView) builds its own copy from the same map entry. Both read identical
+	# inputs, so the detector's mask and the rendered mask agree.
 	mask_image = _build_mask_image(current_map)
 	if mask_image == null or mask_image.is_empty():
 		mask_image = _fallback_mask_image()
 	mask_image.convert(Image.FORMAT_RGBA8)
 	image_size = Vector2i(mask_image.get_width(), mask_image.get_height())
-	mask_texture = ImageTexture.create_from_image(mask_image)
 
+	var had_regions_file := regions_path != "" and FileAccess.file_exists(regions_path)
+	mask_offset = _load_saved_mask_offset()
+	_load_saved_regions_or_detect()
+	region_count = maxi(regions.size(), 1)
+
+	# Hand the whole render off to the shared view: it builds the mask, region-index map, the
+	# per-region shadow/glow/vines/embers overlays, and applies each region's saved tuning.
+	_ensure_view()
+	view.mask_offset = mask_offset
+	view.load_map(current_map, regions)
+
+	# First visit to a map (no saved file): seed it by saving the auto-detected regions.
+	if not had_regions_file:
+		_pending_initial_save = true
+
+func _ensure_view() -> void:
+	if view != null and is_instance_valid(view):
+		return
+	view = VineMapView.new()
+	view.name = "VineView"
+	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Sits at the frame origin; the view itself anchors its overlay group at mask_offset.
+	view.position = Vector2.ZERO
+	artwork_frame.add_child(view)
+	# Keep the view behind the region editor (added later) but above Base/Vignette.
+	artwork_frame.move_child(view, artwork_frame.get_child_count() - 1)
+
+func _load_base_art() -> void:
+	var base_path := String(current_map.get("base", ""))
+	var base_texture := load(base_path) as Texture2D
+	if base_texture != null:
+		base_rect.texture = base_texture
+		image_size = Vector2i(int(base_texture.get_size().x), int(base_texture.get_size().y))
 	artwork_frame.custom_minimum_size = Vector2(image_size)
 	artwork_frame.size = Vector2(image_size)
-	glow_template.texture = mask_texture
-	vines_template.texture = mask_texture
-	_update_template_shader_masks()
 
 func _build_mask_image(map_data: Dictionary) -> Image:
 	var mode := String(map_data.get("mask_mode", ""))
@@ -265,31 +273,6 @@ func _fallback_mask_image() -> Image:
 	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
 	image.fill(Color(1.0, 1.0, 1.0, 1.0))
 	return image
-
-func _create_effect_template_materials() -> void:
-	_update_template_shader_masks()
-
-	shadow_template_material = ShaderMaterial.new()
-	shadow_template_material.shader = ShadowShader
-	shadow_template_material.set_shader_parameter("mask_texture", mask_texture)
-	shadow_template_material.set_shader_parameter("mask_pixel_size", _mask_pixel_size())
-
-	ember_template_material = ShaderMaterial.new()
-	ember_template_material.shader = EmberShader
-	ember_template_material.set_shader_parameter("mask_texture", mask_texture)
-
-func _update_template_shader_masks() -> void:
-	for template in [glow_template, vines_template]:
-		if template == null:
-			continue
-		var material := template.material as ShaderMaterial
-		if material == null:
-			continue
-		material.set_shader_parameter("mask_texture", mask_texture)
-		material.set_shader_parameter("mask_pixel_size", _mask_pixel_size())
-
-func _mask_pixel_size() -> Vector2:
-	return Vector2(1.0 / float(maxi(image_size.x, 1)), 1.0 / float(maxi(image_size.y, 1)))
 
 func _load_saved_regions_or_detect() -> void:
 	regions = _load_saved_regions()
@@ -561,159 +544,14 @@ func _sort_regions_by_size(a: Dictionary, b: Dictionary) -> bool:
 	return int(a.get("pixels", 0)) > int(b.get("pixels", 0))
 
 func _refresh_regions_from_polygons() -> void:
-	_rebuild_region_map()
-	_create_region_overlays(true)
-	_apply_all_region_tuning()
+	region_count = maxi(regions.size(), 1)
+	# Geometry / region-set changed: push it to the renderer (rebuilds region map + overlays +
+	# re-applies tuning). The view re-anchors its overlay group to mask_offset.
+	if view != null and is_instance_valid(view):
+		view.mask_offset = mask_offset
+		view.refresh(regions)
 	_refresh_region_select_items()
 	_select_region(mini(selected_region, region_count - 1))
-
-func _rebuild_region_map() -> void:
-	region_count = maxi(regions.size(), 1)
-	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
-	image.fill(Color(0.0, 0.0, 0.0, 1.0))
-	var denominator := float(maxi(region_count - 1, 1))
-
-	for region_index in range(regions.size()):
-		var region: Dictionary = regions[region_index]
-		var points: Array = region.get("points", [])
-		if points.size() < 3:
-			continue
-		var bounds := _polygon_bounds(points)
-		var encoded := float(region_index) / denominator
-		var color := Color(encoded, 0.0, 0.0, 1.0)
-		var packed := _points_to_packed(points)
-		for y in range(int(bounds.position.y), int(bounds.end.y) + 1):
-			for x in range(int(bounds.position.x), int(bounds.end.x) + 1):
-				if Geometry2D.is_point_in_polygon(Vector2(float(x) + 0.5, float(y) + 0.5), packed):
-					image.set_pixel(x, y, color)
-
-	region_map_texture = ImageTexture.create_from_image(image)
-	_apply_region_map_to_materials()
-
-func _polygon_bounds(points: Array) -> Rect2:
-	var min_x := float(image_size.x - 1)
-	var min_y := float(image_size.y - 1)
-	var max_x := 0.0
-	var max_y := 0.0
-	for point in points:
-		var p: Vector2 = point
-		min_x = minf(min_x, p.x)
-		min_y = minf(min_y, p.y)
-		max_x = maxf(max_x, p.x)
-		max_y = maxf(max_y, p.y)
-	var position := Vector2(clampf(floorf(min_x), 0.0, float(image_size.x - 1)), clampf(floorf(min_y), 0.0, float(image_size.y - 1)))
-	var end := Vector2(clampf(ceilf(max_x), 0.0, float(image_size.x - 1)), clampf(ceilf(max_y), 0.0, float(image_size.y - 1)))
-	return Rect2(position, end - position)
-
-func _create_region_overlays(force: bool) -> void:
-	if not force and region_overlays.size() == region_count:
-		_apply_region_map_to_materials()
-		return
-
-	glow_template.visible = false
-	vines_template.visible = false
-
-	var existing := artwork_frame.get_node_or_null("RegionOverlays")
-	if existing != null:
-		artwork_frame.remove_child(existing)
-		existing.free()
-
-	# Top-left anchored at mask_offset (not full-rect) so the whole overlay group can be nudged.
-	var parent := Control.new()
-	parent.name = "RegionOverlays"
-	parent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.size = Vector2(image_size)
-	parent.position = mask_offset
-	artwork_frame.add_child(parent)
-
-	region_overlays.clear()
-	for region_index in range(region_count):
-		var shadow := _create_effect_texture_rect("Region%dShadow" % [region_index + 1], shadow_template_material, region_index)
-		var glow := _create_region_texture_rect("Region%dGlow" % [region_index + 1], glow_template, region_index)
-		var vines := _create_region_texture_rect("Region%dVines" % [region_index + 1], vines_template, region_index)
-		var embers := _create_effect_texture_rect("Region%dEmbers" % [region_index + 1], ember_template_material, region_index)
-		parent.add_child(shadow)
-		parent.add_child(glow)
-		parent.add_child(vines)
-		parent.add_child(embers)
-		region_overlays.append({"shadow": shadow, "glow": glow, "vines": vines, "embers": embers, "enabled": bool((regions[region_index] as Dictionary).get("enabled", true))})
-		_set_region_enabled(region_index, bool((regions[region_index] as Dictionary).get("enabled", true)))
-
-func _create_region_texture_rect(node_name: String, template: TextureRect, region_index: int) -> TextureRect:
-	var rect := TextureRect.new()
-	rect.name = node_name
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rect.layout_mode = 1
-	rect.anchors_preset = Control.PRESET_FULL_RECT
-	rect.anchor_right = 1.0
-	rect.anchor_bottom = 1.0
-	rect.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	rect.grow_vertical = Control.GROW_DIRECTION_BOTH
-	rect.texture = mask_texture
-	rect.stretch_mode = template.stretch_mode
-
-	var material := (template.material as ShaderMaterial).duplicate() as ShaderMaterial
-	material.set_shader_parameter("mask_texture", mask_texture)
-	material.set_shader_parameter("mask_pixel_size", _mask_pixel_size())
-	material.set_shader_parameter("region_index", float(region_index))
-	material.set_shader_parameter("region_count", float(region_count))
-	material.set_shader_parameter("region_enabled", 1.0)
-	material.set_shader_parameter("region_map_texture", region_map_texture)
-	rect.material = material
-	return rect
-
-func _create_effect_texture_rect(node_name: String, template_material: ShaderMaterial, region_index: int) -> TextureRect:
-	var rect := TextureRect.new()
-	rect.name = node_name
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	rect.layout_mode = 1
-	rect.anchors_preset = Control.PRESET_FULL_RECT
-	rect.anchor_right = 1.0
-	rect.anchor_bottom = 1.0
-	rect.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	rect.grow_vertical = Control.GROW_DIRECTION_BOTH
-	rect.texture = mask_texture
-	rect.stretch_mode = glow_template.stretch_mode
-
-	var material := template_material.duplicate() as ShaderMaterial
-	material.set_shader_parameter("mask_texture", mask_texture)
-	material.set_shader_parameter("region_index", float(region_index))
-	material.set_shader_parameter("region_count", float(region_count))
-	material.set_shader_parameter("region_enabled", 1.0)
-	material.set_shader_parameter("region_map_texture", region_map_texture)
-	rect.material = material
-	return rect
-
-func _apply_region_map_to_materials() -> void:
-	if region_map_texture == null:
-		return
-	for region_index in range(region_overlays.size()):
-		var entry: Dictionary = region_overlays[region_index]
-		for key in ["shadow", "glow", "vines", "embers"]:
-			var rect := entry[key] as TextureRect
-			if rect == null:
-				continue
-			var material := rect.material as ShaderMaterial
-			material.set_shader_parameter("mask_texture", mask_texture)
-			material.set_shader_parameter("region_map_texture", region_map_texture)
-			material.set_shader_parameter("region_index", float(region_index))
-			material.set_shader_parameter("region_count", float(region_count))
-
-func _apply_all_region_tuning() -> void:
-	for region_index in range(mini(regions.size(), region_overlays.size())):
-		_apply_region_tuning(region_index)
-
-func _apply_region_tuning(region_index: int) -> void:
-	if region_index < 0 or region_index >= regions.size():
-		return
-	var region: Dictionary = regions[region_index]
-	var tuning: Dictionary = region.get("tuning", {})
-	if tuning.is_empty():
-		return
-	for control in controls:
-		var key := String(control["name"])
-		if tuning.has(key):
-			_write_shader_value(control["target"], control["param"], float(tuning[key]), region_index)
 
 func _store_region_tuning(region_index: int, control_name: String, value: float) -> void:
 	if region_index < 0 or region_index >= regions.size():
@@ -728,29 +566,18 @@ func _store_region_tuning(region_index: int, control_name: String, value: float)
 # saved file carries every knob, not just the ones the user happened to touch.
 func _current_region_tuning(region_index: int) -> Dictionary:
 	var tuning: Dictionary = {}
-	if region_index < 0 or region_index >= region_overlays.size():
+	if view == null or not is_instance_valid(view):
 		return tuning
 	for control in controls:
 		tuning[String(control["name"])] = _read_shader_value(control["target"], control["param"], region_index)
 	return tuning
 
-# The pristine template value for a knob — what "Reset Region" restores. Read from the
+# The pristine template value for a knob — what "Reset Region" restores. Delegates to the view's
 # never-mutated template materials so saved tuning can never contaminate the reset target.
 func _template_default(target: String, param: String) -> float:
-	var material: ShaderMaterial
-	match target:
-		"glow":
-			material = glow_template.material as ShaderMaterial
-		"shadow":
-			material = shadow_template_material
-		"embers":
-			material = ember_template_material
-		_:
-			material = vines_template.material as ShaderMaterial  # vines + "both" (matches _material_for_target fallback)
-	if material == null:
+	if view == null or not is_instance_valid(view):
 		return 0.0
-	var value: Variant = material.get_shader_parameter(param)
-	return float(value) if value != null else 0.0
+	return view.template_default(target, param)
 
 func _edit_regions_default() -> bool:
 	return edit_regions_toggle.button_pressed if edit_regions_toggle != null else true
@@ -871,9 +698,8 @@ func _on_mask_offset_changed(value: float, axis: String, value_label: Label) -> 
 	_apply_mask_offset()
 
 func _apply_mask_offset() -> void:
-	var overlays := artwork_frame.get_node_or_null("RegionOverlays")
-	if overlays != null:
-		overlays.position = mask_offset
+	if view != null and is_instance_valid(view):
+		view.set_mask_offset(mask_offset)
 	if region_editor != null:
 		region_editor.call("set_mask_offset", mask_offset)
 
@@ -1041,21 +867,15 @@ func _set_selected_region_enabled(enabled: bool) -> void:
 		return
 	_set_region_enabled(selected_region, enabled)
 
+# Push an enable toggle to the renderer and keep the tool's own `regions` source of truth in sync.
 func _set_region_enabled(region_index: int, enabled: bool) -> void:
-	if region_index < 0 or region_index >= region_overlays.size():
+	if region_index < 0 or region_index >= regions.size():
 		return
 	var region: Dictionary = regions[region_index]
 	region["enabled"] = enabled
 	regions[region_index] = region
-
-	var entry: Dictionary = region_overlays[region_index]
-	entry["enabled"] = enabled
-	for key in ["shadow", "glow", "vines", "embers"]:
-		var rect := entry[key] as TextureRect
-		var material := rect.material as ShaderMaterial
-		material.set_shader_parameter("region_enabled", 1.0 if enabled else 0.0)
-		rect.visible = enabled
-	region_overlays[region_index] = entry
+	if view != null and is_instance_valid(view):
+		view.set_region_enabled(region_index, enabled)
 
 func _region_is_enabled(region_index: int) -> bool:
 	if region_index < 0 or region_index >= regions.size():
@@ -1070,29 +890,17 @@ func _on_slider_changed(value: float, control_name: String, target: String, para
 	_store_region_tuning(selected_region, control_name, value)
 	_update_value_label(value_label, value, decimals)
 
+# Live read/write of one shader knob — delegates to the view so the tool and the game share ONE
+# renderer. Kept as named methods because the functional verifier calls them by name.
 func _read_shader_value(target: String, param: String, region_index: int) -> float:
-	if region_overlays.is_empty():
+	if view == null or not is_instance_valid(view):
 		return 0.0
-	var material := _material_for_target(target, region_index)
-	var value: Variant = material.get_shader_parameter(param)
-	if value == null:
-		return 0.0
-	return float(value)
+	return view.read_shader_value(target, param, region_index)
 
 func _write_shader_value(target: String, param: String, value: float, region_index: int) -> void:
-	if target == "both":
-		_material_for_target("glow", region_index).set_shader_parameter(param, value)
-		_material_for_target("vines", region_index).set_shader_parameter(param, value)
+	if view == null or not is_instance_valid(view):
 		return
-	_material_for_target(target, region_index).set_shader_parameter(param, value)
-
-func _material_for_target(target: String, region_index: int) -> ShaderMaterial:
-	var entry: Dictionary = region_overlays[clampi(region_index, 0, maxi(region_overlays.size() - 1, 0))]
-	var key := target
-	if not entry.has(key):
-		key = "vines"
-	var rect := entry[key] as TextureRect
-	return rect.material as ShaderMaterial
+	view.write_shader_value(target, param, value, region_index)
 
 func _update_value_label(label: Label, value: float, decimals: int) -> void:
 	if decimals == 3:
@@ -1163,25 +971,5 @@ func _save_regions_to_file() -> void:
 		_show_save_status("Save failed: could not write %s" % regions_path.get_file(), false)
 		push_error("[vine_mask_tool] could not write %s (error %d)" % [path, FileAccess.get_open_error()])
 
-func _points_to_packed(points: Array) -> PackedVector2Array:
-	var packed := PackedVector2Array()
-	for point in points:
-		packed.append(point)
-	return packed
-
 func _clamp_to_image(position: Vector2) -> Vector2:
 	return Vector2(clampf(position.x, 0.0, float(image_size.x - 1)), clampf(position.y, 0.0, float(image_size.y - 1)))
-
-func _clone_regions(source: Array) -> Array:
-	var clone: Array = []
-	for region_value in source:
-		var region: Dictionary = region_value
-		var points: Array = []
-		for point in region.get("points", []):
-			points.append(point)
-		clone.append({
-			"name": region.get("name", "Region"),
-			"points": points,
-			"enabled": bool(region.get("enabled", true))
-		})
-	return clone
