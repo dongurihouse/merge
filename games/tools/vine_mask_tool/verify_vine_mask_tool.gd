@@ -98,8 +98,10 @@ func _run() -> void:
 	var regions_abs := ProjectSettings.globalize_path(REGIONS_PATH)
 	var backup := FileAccess.get_file_as_string(regions_abs)
 	const SENTINEL := 0.9123
+	const OFFSET := Vector2(13.0, -7.0)
 	scene.call("_write_shader_value", "glow", "opacity", SENTINEL, 0)
 	scene.call("_store_region_tuning", 0, "GlowOpacity", SENTINEL)
+	scene.set("mask_offset", OFFSET)
 	scene.call("_save_regions_to_file")
 
 	var reloaded := packed.instantiate()
@@ -107,13 +109,56 @@ func _run() -> void:
 	await process_frame
 	await process_frame
 	var applied := float(reloaded.call("_read_shader_value", "glow", "opacity", 0))
+	var applied_offset: Vector2 = reloaded.get("mask_offset")
+	# The whole-mask offset moves the overlay group + the region editor over the fixed base.
+	var reloaded_overlays := reloaded.get_node_or_null("Workspace/ArtworkFrame/RegionOverlays") as Control
+	var reloaded_editor := reloaded.find_child("RegionEditor", true, false) as Control
 	_restore_file(regions_abs, backup)
 	if absf(applied - SENTINEL) > 0.0001:
 		_fail("Tuning did not round-trip: expected %f, got %f" % [SENTINEL, applied])
 		return
+	if not applied_offset.is_equal_approx(OFFSET):
+		_fail("Mask offset did not round-trip: expected %s, got %s" % [OFFSET, applied_offset])
+		return
+	if reloaded_overlays == null or not reloaded_overlays.position.is_equal_approx(OFFSET):
+		_fail("Mask offset not applied to the overlay group")
+		return
+	if reloaded_editor == null or not reloaded_editor.position.is_equal_approx(OFFSET):
+		_fail("Mask offset not applied to the region editor")
+		return
+
+	# Auto-detected zones must not overlap (overlaps are separated to a shared midline).
+	var overlap := _max_region_overlap(scene.get("regions"))
+	if overlap > 4.0:
+		_fail("Auto-detected regions overlap by %.0f px²" % overlap)
+		return
 
 	print("Vine mask tool verification passed")
 	quit(0)
+
+func _max_region_overlap(regions: Array) -> float:
+	var worst := 0.0
+	for i in range(regions.size()):
+		var pa := _packed_points(regions[i].get("points", []))
+		for j in range(i + 1, regions.size()):
+			var pb := _packed_points(regions[j].get("points", []))
+			for clip in Geometry2D.intersect_polygons(pa, pb):
+				worst = maxf(worst, absf(_polygon_area(clip)))
+	return worst
+
+func _packed_points(points: Array) -> PackedVector2Array:
+	var packed := PackedVector2Array()
+	for point in points:
+		packed.append(point)
+	return packed
+
+func _polygon_area(polygon: PackedVector2Array) -> float:
+	var area := 0.0
+	for k in range(polygon.size()):
+		var p := polygon[k]
+		var q := polygon[(k + 1) % polygon.size()]
+		area += p.x * q.y - q.x * p.y
+	return area * 0.5
 
 func _restore_file(path: String, contents: String) -> void:
 	var file := FileAccess.open(path, FileAccess.WRITE)

@@ -9,6 +9,9 @@ const COMPONENT_THRESHOLD := 0.25
 const MIN_COMPONENT_PIXELS := 420
 const DEFAULT_REGION_COUNT := 8
 const HULL_PADDING := 10.0
+const OVERLAP_PASSES := 6           # repeats of pairwise separation until boxes stop moving
+const MIN_REGION_SIZE := 12.0       # a separated box is never carved thinner than this
+const VERTEX_WELD_RADIUS := 24.0    # corners closer than this across zones snap to a shared point
 
 # Per-region shader knobs. The table is the source of truth for both the slider panel
 # and the saved-tuning round-trip, so it lives here (not inside _build_panel) — it must
@@ -62,6 +65,11 @@ var enable_region: CheckBox
 var edit_regions_toggle: CheckButton
 var save_status_label: Label
 var _pending_initial_save := false
+# Whole-mask nudge: shifts every overlay + the region editor over the fixed base, so a mask
+# that doesn't line up with the art can be aligned. Region points stay in mask-local space;
+# this offset is persisted alongside them.
+var mask_offset := Vector2.ZERO
+var mask_offset_sliders: Dictionary = {}
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(1380.0, 1672.0)
@@ -147,6 +155,7 @@ func _apply_current_map() -> void:
 	_load_art_for_current_map()
 	_create_effect_template_materials()
 	var had_regions_file := regions_path != "" and FileAccess.file_exists(regions_path)
+	mask_offset = _load_saved_mask_offset()
 	_load_saved_regions_or_detect()
 	_rebuild_region_map()
 	_create_region_overlays(true)
@@ -176,17 +185,35 @@ func _load_art_for_current_map() -> void:
 	_update_template_shader_masks()
 
 func _build_mask_image(map_data: Dictionary) -> Image:
-	if String(map_data.get("mask", "")) != "":
-		return _load_image(String(map_data["mask"]))
-
-	if String(map_data.get("mask_mode", "")) == "purple_difference":
+	var mode := String(map_data.get("mask_mode", ""))
+	if mode == "purple_difference":
 		return _build_purple_difference_mask(map_data)
+
+	if String(map_data.get("mask", "")) != "":
+		var image := _load_image(String(map_data["mask"]))
+		if mode == "luminance":
+			image = _bake_alpha_from_luminance(image)
+		return image
 
 	var mask_paths: Array = map_data.get("masks", [])
 	if not mask_paths.is_empty():
 		return _combine_mask_images(mask_paths)
 
 	return null
+
+# A white-on-black mask carries its coverage in RGB luminance but is fully opaque, so every
+# pixel would read as "mask" (the detector and shaders gate on alpha). Bake alpha from the
+# brightest channel; the shaders still sample the unchanged red channel for intensity.
+func _bake_alpha_from_luminance(image: Image) -> Image:
+	if image == null:
+		return null
+	image.convert(Image.FORMAT_RGBA8)
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var color := image.get_pixel(x, y)
+			color.a = maxf(color.r, maxf(color.g, color.b))
+			image.set_pixel(x, y, color)
+	return image
 
 func _build_purple_difference_mask(map_data: Dictionary) -> Image:
 	var base := _load_image(String(map_data.get("base", "")))
@@ -269,6 +296,20 @@ func _load_saved_regions_or_detect() -> void:
 	if regions.is_empty():
 		regions = _detect_regions_from_mask()
 
+func _load_saved_mask_offset() -> Vector2:
+	if regions_path == "" or not FileAccess.file_exists(regions_path):
+		return Vector2.ZERO
+	var file := FileAccess.open(regions_path, FileAccess.READ)
+	if file == null:
+		return Vector2.ZERO
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return Vector2.ZERO
+	var offset: Variant = (parsed as Dictionary).get("mask_offset", null)
+	if offset is Array and offset.size() >= 2:
+		return Vector2(float(offset[0]), float(offset[1]))
+	return Vector2.ZERO
+
 func _load_saved_regions() -> Array:
 	if regions_path == "" or not FileAccess.file_exists(regions_path):
 		return []
@@ -340,7 +381,10 @@ func _detect_regions_from_mask() -> Array:
 		region["name"] = "Region %d" % [index + 1]
 		detected[index] = region
 
-	return detected if detected.size() == target else _fallback_regions()
+	if detected.size() != target:
+		return _fallback_regions()
+	_resolve_region_overlaps(detected)
+	return detected
 
 func _target_region_count() -> int:
 	return int(current_map.get("region_count", DEFAULT_REGION_COUNT))
@@ -424,6 +468,90 @@ func _box_points_8(min_x: float, min_y: float, max_x: float, max_y: float) -> Ar
 		Vector2(min_x, mid_y)
 	]
 
+# Auto-detected boxes (padded component bounds) routinely overlap — a small component sitting
+# inside a larger one, or neighbours whose padding collides. Separate every overlapping pair
+# along its thinner seam to a shared midline so the zones tile instead of overlap, then weld
+# near-coincident corners so touching edges share exact vertices. Mutates `target_regions`.
+func _resolve_region_overlaps(target_regions: Array) -> void:
+	if target_regions.size() < 2:
+		return
+	var boxes: Array = []
+	for region in target_regions:
+		boxes.append(_box_from_points(region.get("points", [])))
+
+	for _pass in range(OVERLAP_PASSES):
+		var changed := false
+		for i in range(boxes.size()):
+			for j in range(i + 1, boxes.size()):
+				if _separate_box_pair(boxes[i], boxes[j]):
+					changed = true
+		if not changed:
+			break
+
+	for index in range(target_regions.size()):
+		var box: Dictionary = boxes[index]
+		var region: Dictionary = target_regions[index]
+		region["points"] = _box_points_8(box["min_x"], box["min_y"], box["max_x"], box["max_y"])
+		target_regions[index] = region
+
+	_weld_region_vertices(target_regions)
+
+func _box_from_points(points: Array) -> Dictionary:
+	var min_x := INF
+	var min_y := INF
+	var max_x := -INF
+	var max_y := -INF
+	for point in points:
+		var p: Vector2 = point
+		min_x = minf(min_x, p.x)
+		min_y = minf(min_y, p.y)
+		max_x = maxf(max_x, p.x)
+		max_y = maxf(max_y, p.y)
+	return {"min_x": min_x, "min_y": min_y, "max_x": max_x, "max_y": max_y}
+
+# Push one overlapping box pair apart along the axis where they overlap least (the seam),
+# setting the shared edge to the midline. Dictionaries are references, so this edits in place.
+func _separate_box_pair(a: Dictionary, b: Dictionary) -> bool:
+	var ox1 := maxf(a["min_x"], b["min_x"])
+	var ox2 := minf(a["max_x"], b["max_x"])
+	var oy1 := maxf(a["min_y"], b["min_y"])
+	var oy2 := minf(a["max_y"], b["max_y"])
+	if ox2 <= ox1 or oy2 <= oy1:
+		return false
+	if ox2 - ox1 <= oy2 - oy1:
+		var mid_x := (ox1 + ox2) * 0.5
+		if (a["min_x"] + a["max_x"]) <= (b["min_x"] + b["max_x"]):
+			a["max_x"] = maxf(mid_x, a["min_x"] + MIN_REGION_SIZE)
+			b["min_x"] = minf(mid_x, b["max_x"] - MIN_REGION_SIZE)
+		else:
+			b["max_x"] = maxf(mid_x, b["min_x"] + MIN_REGION_SIZE)
+			a["min_x"] = minf(mid_x, a["max_x"] - MIN_REGION_SIZE)
+	else:
+		var mid_y := (oy1 + oy2) * 0.5
+		if (a["min_y"] + a["max_y"]) <= (b["min_y"] + b["max_y"]):
+			a["max_y"] = maxf(mid_y, a["min_y"] + MIN_REGION_SIZE)
+			b["min_y"] = minf(mid_y, b["max_y"] - MIN_REGION_SIZE)
+		else:
+			b["max_y"] = maxf(mid_y, b["min_y"] + MIN_REGION_SIZE)
+			a["min_y"] = minf(mid_y, a["max_y"] - MIN_REGION_SIZE)
+	return true
+
+# Snap corner vertices from different zones that sit within VERTEX_WELD_RADIUS onto a shared
+# midpoint, so a touched seam shares exact vertices (and the editor moves them together).
+func _weld_region_vertices(target_regions: Array) -> void:
+	for i in range(target_regions.size()):
+		var a_points: Array = target_regions[i].get("points", [])
+		for ai in range(a_points.size()):
+			var ap: Vector2 = a_points[ai]
+			for j in range(i + 1, target_regions.size()):
+				var b_points: Array = target_regions[j].get("points", [])
+				for bi in range(b_points.size()):
+					var bp: Vector2 = b_points[bi]
+					if ap.distance_to(bp) <= VERTEX_WELD_RADIUS:
+						ap = (ap + bp) * 0.5
+						a_points[ai] = ap
+						b_points[bi] = ap
+
 func _sort_regions_by_position(a: Dictionary, b: Dictionary) -> bool:
 	var ap: Array = a["points"]
 	var bp: Array = b["points"]
@@ -490,10 +618,12 @@ func _create_region_overlays(force: bool) -> void:
 		artwork_frame.remove_child(existing)
 		existing.free()
 
+	# Top-left anchored at mask_offset (not full-rect) so the whole overlay group can be nudged.
 	var parent := Control.new()
 	parent.name = "RegionOverlays"
 	parent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	parent.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.size = Vector2(image_size)
+	parent.position = mask_offset
 	artwork_frame.add_child(parent)
 
 	region_overlays.clear()
@@ -700,6 +830,53 @@ func _add_map_controls(stack: VBoxContainer) -> void:
 	map_select.item_selected.connect(_on_map_selected)
 	map_row.add_child(map_select)
 
+	mask_offset_sliders.clear()
+	_add_mask_offset_slider(stack, "Mask offset X", "x")
+	_add_mask_offset_slider(stack, "Mask offset Y", "y")
+
+func _add_mask_offset_slider(stack: VBoxContainer, label_text: String, axis: String) -> void:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	stack.add_child(row)
+
+	var name_label := Label.new()
+	name_label.text = label_text
+	name_label.custom_minimum_size = Vector2(104.0, 0.0)
+	row.add_child(name_label)
+
+	var slider := HSlider.new()
+	slider.name = "MaskOffset" + axis.to_upper()
+	slider.min_value = -float(image_size.x if axis == "x" else image_size.y)
+	slider.max_value = float(image_size.x if axis == "x" else image_size.y)
+	slider.step = 1.0
+	slider.value = mask_offset.x if axis == "x" else mask_offset.y
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
+	mask_offset_sliders[axis] = slider
+
+	var value_label := Label.new()
+	value_label.custom_minimum_size = Vector2(48.0, 0.0)
+	value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	value_label.text = "%d" % int(slider.value)
+	row.add_child(value_label)
+
+	slider.value_changed.connect(_on_mask_offset_changed.bind(axis, value_label))
+
+func _on_mask_offset_changed(value: float, axis: String, value_label: Label) -> void:
+	if axis == "x":
+		mask_offset.x = value
+	else:
+		mask_offset.y = value
+	value_label.text = "%d" % int(value)
+	_apply_mask_offset()
+
+func _apply_mask_offset() -> void:
+	var overlays := artwork_frame.get_node_or_null("RegionOverlays")
+	if overlays != null:
+		overlays.position = mask_offset
+	if region_editor != null:
+		region_editor.call("set_mask_offset", mask_offset)
+
 func _add_region_controls(stack: VBoxContainer) -> void:
 	var region_row := HBoxContainer.new()
 	region_row.add_theme_constant_override("separation", 8)
@@ -791,8 +968,8 @@ func _create_region_editor() -> void:
 		region_editor.queue_free()
 	region_editor = RegionEditorOverlay.new()
 	region_editor.name = "RegionEditor"
-	region_editor.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	region_editor.call("set_image_size", Vector2(image_size))
+	region_editor.call("set_mask_offset", mask_offset)
 	region_editor.call("set_regions", regions)
 	region_editor.call("set_selected_region", selected_region)
 	region_editor.call("set_edit_enabled", _edit_regions_default())
@@ -954,6 +1131,7 @@ func _save_regions_to_file() -> void:
 	var data := {
 		"map_id": current_map_id,
 		"image_size": [image_size.x, image_size.y],
+		"mask_offset": [roundi(mask_offset.x), roundi(mask_offset.y)],
 		"mode": "auto_detected_mask_regions",
 		"regions": []
 	}

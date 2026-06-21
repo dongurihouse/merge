@@ -18,11 +18,16 @@ var shared_merge_count := 0
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	custom_minimum_size = image_size
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	size = image_size
 
 func set_image_size(value: Vector2) -> void:
 	image_size = value
 	custom_minimum_size = image_size
+	size = image_size
+	queue_redraw()
+
+func set_mask_offset(value: Vector2) -> void:
+	position = value
 	queue_redraw()
 
 func set_regions(value: Array) -> void:
