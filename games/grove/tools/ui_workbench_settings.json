@@ -54,15 +54,18 @@
 	"currency_pill": {
 		"border": "bag thin",
 		"border_w": 3.0,
-		"icon_box": 51.0,
+		"icon_box": 48.0,
 		"num_size": 41.0,
-		"pad_x": 47.0,
-		"pad_y": 17.0,
+		"pad_x": 32.0,
+		"pad_y": 14.0,
 		"pair_sep": 10.0,
+		"plus_dy": 4.0,
+		"plus_gap": 13.0,
 		"radius": 40.0,
-		"row_sep": 2.0,
+		"row_sep": 4.0,
 		"shadow_size": 5.0,
-		"use_art": true
+		"use_art": true,
+		"water": 128.0
 	},
 	"daily": {
 		"cols": 3.0,
@@ -117,16 +120,18 @@
 	},
 	"home_button": {
 		"caption_font": 22.0,
-		"caption_gap": 4.0,
+		"caption_gap": -10.0,
 		"glow": 45.0,
 		"icon_scale": 50.0,
 		"px": 140.0,
 		"twinkle": 55.0
 	},
 	"home_unlock_button": {
+		"afford": true,
 		"cost_font": 26.0,
 		"disc_pct": 16.0,
 		"glow": 82.0,
+		"gray_unaffordable": true,
 		"icon_gap": 2.0,
 		"icon_scale": 26.0,
 		"plus_scale": 30.0,

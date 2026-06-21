@@ -8,13 +8,15 @@ Generator sprites (`gen_*.png`) live in `items/generator/`. Coin board pieces li
 `items/coin/coin_<tier>.png` (the tiered merge-board coins). The currency-pill coin sprite
 is separate, at `ui/currency/coin.png`.
 
-Expected files (512×512, transparent PNG — see ../../ICON_PROMPTS.md for prompts):
+Expected files (512×512, transparent PNG — see ../../ICON_PROMPTS.md for prompts).
+Each line is a full `_1 … _12` ladder (TOP_TIER = 12):
 
 ```
-flower/flower_1.png    … flower_8.png
-tools/tools_1.png      … tools_8.png
-mushroom/mushroom_1.png… mushroom_8.png
-honey/honey_1.png      … honey_8.png
+flower/flower_1.png      … flower_12.png
+tools/tools_1.png        … tools_12.png
+mushroom/mushroom_1.png  … mushroom_12.png
+honey/honey_1.png        … honey_12.png
+feather/feather_1.png    … feather_12.png
 ```
 
 After adding files, open the project in the Godot editor once so it imports them.

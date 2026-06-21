@@ -11,7 +11,7 @@ const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled
 
 # Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
 # §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
-# (Acorn & Bloom, grove_spec §2): 23 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
+# (Acorn & Bloom, grove_spec §2): 22 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
 # 3 Pond · 4 Orchard · 5 Meadow (the 15-map arc ≈104 lines is post-launch). Wildflower (1) is the
 # title line + the permanent ANCHOR (Seed satchel's pair never retires). Codes skip 9 (= COIN_LINE).
 const LINES := {
@@ -23,7 +23,6 @@ const LINES := {
 	# map 2 — Barn (Carrot): hen coop + dairy stall
 	6: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},
 	7: {"name": "Milk", "base": "milk", "color": Color("#EDEDE6")},
-	8: {"name": "Wool", "base": "wool", "color": Color("#DED7C8")},
 	# map 3 — Pond (Frog): reed bed + creel
 	10: {"name": "Reed", "base": "reed", "color": Color("#8FB36B")},
 	11: {"name": "Lotus", "base": "lotus", "color": Color("#E8A8C0")},
@@ -53,7 +52,7 @@ const LINES := {
 # generators auto-place on the first open cell when granted, so their `cell` is unused. The map-1
 # anchor (`seed_satchel`) is live from the first second.
 #
-# NOTE — the 14 lines NOT listed here (3,4,7,8,12,13,16-19,22-25) stay DEFINED in LINES (+ their art)
+# NOTE — the 13 lines NOT listed here (3,4,7,12,13,16-19,22-25) stay DEFINED in LINES (+ their art)
 # but are DORMANT: no generator produces them, so they are never popped or asked. Re-introducing them
 # (or splitting the content into more maps) is a content call (BACKLOG). Generator sprites are PARKED
 # art (§16) — they reuse stand-in sprites for now.

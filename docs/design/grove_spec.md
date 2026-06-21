@@ -147,7 +147,7 @@ Generators (and their lines) arrive **per map** (Core §6): map 1 → 2 generato
 | Map | New generators (2 lines each) | Lines introduced | Live |
 |---|---|---|---|
 | **1 Farmhouse** | **Seed satchel** *(anchor)* · **Pantry crock** | Wildflower · Berry · Mushroom · Honey | 2 |
-| **2 Barn** | **Hen coop** · **Dairy stall** | Feather · Milk · Wool | 3 |
+| **2 Barn** | **Hen coop** · **Dairy stall** | Feather · Milk | 3 |
 | **3 Pond** | **Reed bed** · **Creel** | Reed · Lotus · Fish · Snail | 3 |
 | **4 Orchard** | **Orchard basket** · **Stone-fruit bough** · **Nut-&-blossom** | Apple · Pear · Plum · Cherry · Walnut · Blossom | 4 |
 | **5 Meadow** | **Glow-cap ring** · **Meadow tuft** · **Lantern bloom** | Glowcap · Spore · Clover · Dandelion · Poppy · Firefly | 4 |
