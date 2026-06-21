@@ -26,7 +26,10 @@ var _readout: Label
 
 func setup() -> void:
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	# set_anchors_AND_OFFSETS — anchors alone leave the rect at (0,0), so the overlay would have no
+	# hittable area and every press would fall through to the scene's own input surface (content /
+	# board_area), and the drag would silently do nothing. This sizes it to fill the parent.
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_toolbar()
 	_collect_targets()
 	queue_redraw()
@@ -54,13 +57,19 @@ func _collect_badges(n: Node) -> void:
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			_begin_drag(get_global_mouse_position())
+			_begin_drag(_evt_global(event))
 		else:
 			_drag = null
 		accept_event()
 	elif event is InputEventMouseMotion and _drag != null:
-		_drag_to(get_global_mouse_position())
+		_drag_to(_evt_global(event))
 		accept_event()
+
+# The event's OWN position in global canvas space. _gui_input delivers event.position in the
+# overlay's local space; map it to global so it matches every target's get_global_rect(). (Using
+# get_global_mouse_position() instead is wrong here — it polls the live cursor, not this event.)
+func _evt_global(event: InputEvent) -> Vector2:
+	return get_global_transform() * event.position
 
 func _begin_drag(m: Vector2) -> void:
 	var t = _pick(m)

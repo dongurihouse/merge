@@ -5,13 +5,81 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## farm_home.json writer round-trips (other fields + key order preserved).
 
 const FARM_HOME := "res://games/grove/assets/map/farm/farm_home.json"
+const Overlay = preload("res://games/grove/tools/placement_overlay.gd")
 
 func _initialize() -> void:
 	begin("grove · placement tool")
 	await _test_board_offsets()
 	await _test_home_badges()
+	await _test_overlay_drag()
 	_test_farm_home_roundtrip()
 	finish()
+
+# REGRESSION: the overlay must fill its parent so it sits in the input stack — a zero-size overlay
+# gets NO presses (they fall through to content/board_area) and the drag silently does nothing.
+# Then a simulated press→motion→release through _gui_input must actually move the target.
+func _test_overlay_drag() -> void:
+	# board: drag the quest fence down → a positive saved nudge + the band shifts.
+	fresh("place_drag_board")
+	var ss = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ss)
+	if ss.board == null:
+		ss._ready()
+	await create_timer(0.05).timeout
+	var ovb: Control = Overlay.new()
+	ovb.scene = ss; ovb.mode = "board"
+	ss.add_child(ovb)
+	ovb.setup()
+	await create_timer(0.05).timeout
+	ok(ovb.size.x > 0.0 and ovb.size.y > 0.0, "the overlay fills its parent (non-zero → it receives presses)")
+	var fence_y0: float = ss.giver_bar.position.y
+	var fc: Vector2 = ss.giver_bar.get_global_rect().get_center()
+	_drag(ovb, fc, fc + Vector2(0, 100))
+	await create_timer(0.05).timeout
+	ok(ss._place_fence_dy > 0.0, "dragging the fence down records a positive saved nudge")
+	ok(ss.giver_bar.position.y > fence_y0 + 1.0, "the quest fence actually shifts down on drag")
+	ss.queue_free()
+
+	# home: drag a badge sideways → the button moves with the cursor.
+	fresh("place_drag_home")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	hx._open_map(G.hub_map())
+	await create_timer(0.1).timeout
+	var ovh: Control = Overlay.new()
+	ovh.scene = hx; ovh.mode = "home"
+	hx.add_child(ovh)
+	ovh.setup()
+	await create_timer(0.05).timeout
+	ok(ovh._targets.size() >= 1, "the overlay collected the home unlock badges")
+	var badge: Control = ovh._targets[0].node
+	var c0: Vector2 = badge.get_global_rect().get_center()
+	_drag(ovh, c0, c0 + Vector2(120, 0))
+	await create_timer(0.05).timeout
+	var c1: Vector2 = badge.get_global_rect().get_center()
+	ok(absf(c1.x - (c0.x + 120.0)) < 6.0, "dragging a badge moves it with the cursor (~+120px)")
+	hx.queue_free()
+
+func _drag(ov: Control, from: Vector2, to: Vector2) -> void:
+	ov._gui_input(_press(from, true))
+	ov._gui_input(_motion(to))
+	ov._gui_input(_press(to, false))
+
+func _press(pos: Vector2, down: bool) -> InputEventMouseButton:
+	var e := InputEventMouseButton.new()
+	e.button_index = MOUSE_BUTTON_LEFT
+	e.pressed = down
+	e.position = pos
+	return e
+
+func _motion(pos: Vector2) -> InputEventMouseMotion:
+	var e := InputEventMouseMotion.new()
+	e.position = pos
+	e.button_mask = MOUSE_BUTTON_MASK_LEFT
+	return e
 
 # The board exposes the two bands + applies a saved vertical nudge AFTER layout, independently,
 # leaving the responsive sizing alone. A fresh board (no board_layout.json) → zero offset.
