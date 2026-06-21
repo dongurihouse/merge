@@ -59,9 +59,9 @@
 		"pad_x": 32.0,
 		"pad_y": 14.0,
 		"pair_sep": 10.0,
-		"plus_dy": 4.0,
-		"plus_size": 26.0,
-		"plus_x": 0.0,
+		"plus_dy": 0.0,
+		"plus_size": 38.0,
+		"plus_x": 11.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
 		"shadow_size": 5.0,
@@ -120,14 +120,17 @@
 		"width": 720.0
 	},
 	"home_button": {
-		"badge_dot_px": 14.0,
-		"badge_dx": -26.0,
-		"badge_dy": -26.0,
-		"badge_num_size": 14.0,
+		"badge_dot_px": 15.0,
+		"badge_dx": -4.0,
+		"badge_dy": -2.0,
+		"badge_num_size": 28.0,
 		"caption_font": 22.0,
 		"caption_gap": -10.0,
 		"caption_pad_x": 16.0,
 		"caption_pad_y": 5.0,
+		"count_dx": -2.0,
+		"count_dy": 35.0,
+		"count_font": 31.0,
 		"glow": 45.0,
 		"icon_scale": 50.0,
 		"px": 140.0,
@@ -147,6 +150,14 @@
 	},
 	"icon": {
 
+	},
+	"info_bar": {
+		"height": 130.0,
+		"inner_scale": 48.0,
+		"name_font": 32.0,
+		"sell_font": 30.0,
+		"sell_icon": 30.0,
+		"sep": 10.0
 	},
 	"level": {
 		"banner_text": "Level",

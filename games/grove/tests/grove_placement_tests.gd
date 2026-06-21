@@ -94,6 +94,22 @@ func _initialize() -> void:
 	get_root().size = Vector2i(1080, 1920)
 	await create_timer(0.06).timeout
 
+	# S-MAP: the home/map canvas FILLS the device width on an off-design (wider) aspect — it must
+	# never side-letterbox the way the design-aspect contain-fit once did (the board background already
+	# covers the full width). (2026-06-21: was a contain-fit pinned to Design.aspect, leaving sky bars on
+	# the sides on a device wider than 9:16.) Pure geometry helper so the check is deterministic.
+	var MapScript = load("res://engine/scripts/scenes/map.gd")
+	var design := Vector2(1080.0, 1920.0)
+	var design_aspect := design.x / design.y
+	var dr: Rect2 = MapScript.map_rect_for(design, design_aspect)
+	ok(dr == Rect2(0, 0, 1080, 1920), "S-MAP: at the exact design aspect the map rect is unchanged (whole viewport)")
+	var wide := Vector2(1600.0, 1920.0)         # a window WIDER than 9:16 (stretch aspect=expand grows .x)
+	var wr: Rect2 = MapScript.map_rect_for(wide, design_aspect)
+	ok(absf(wr.size.x - wide.x) < 1.0, "S-MAP: the map spans the FULL device width on a wide aspect (no side sky bars)")
+	ok(absf(wr.position.x) < 1.0, "S-MAP: the map sits flush to the left edge (x≈0) on a wide aspect")
+	ok(absf(wr.size.y / wr.size.x - design.y / design.x) < 0.01, \
+		"S-MAP: the map keeps the design aspect on a wide device (top/bottom crop, never squash)")
+
 	# --- order W: board feel ----------------------------------------------------
 	var ws = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ws)
