@@ -6,22 +6,24 @@
 	},
 	"bag": {
 		"caption": "Open a slot with acorns.",
-		"cell_gap": 12,
-		"cols": 6,
-		"grid_inset": 70,
-		"list_max_h": 0,
-		"row_gap": 14,
-		"width_pct": 85
+		"cell_gap": 12.0,
+		"cols": 6.0,
+		"grid_inset": 70.0,
+		"list_max_h": 0.0,
+		"row_gap": 14.0,
+		"width_pct": 85.0
 	},
 	"bag_card": {
 		"cell_art": true,
-		"cell_h": 120,
-		"cell_slice": 36,
-		"cell_w": 116,
-		"content_frac": 62,
-		"cost_font": 26,
-		"cost_icon": 30,
-		"lock_frac": 46
+		"cell_h": 120.0,
+		"cell_slice": 36.0,
+		"cell_w": 116.0,
+		"content_frac": 62.0,
+		"cost_font": 26.0,
+		"cost_icon": 30.0,
+		"level_frac": 44,
+		"next_glow": 45,
+		"next_twinkle": 55
 	},
 	"button": {
 		"art": true,
@@ -123,6 +125,7 @@
 	},
 	"level": {
 		"banner_text": "Level",
+		"btn_font": 22,
 		"frame_pad": 26.0,
 		"frame_slice": 56.0,
 		"frame_top_pad": 70.0,
@@ -135,16 +138,16 @@
 		"width_pct": 50.0
 	},
 	"map_card": {
-		"edge_sparkle": 60,
-		"pill_max": 290,
-		"pill_min": 170,
-		"pill_w_frac": 30,
-		"pill_y_frac": 13,
+		"edge_sparkle": 60.0,
+		"pill_max": 290.0,
+		"pill_min": 170.0,
+		"pill_w_frac": 30.0,
+		"pill_y_frac": 13.0,
 		"use_art": true,
-		"veil_deep": 66,
-		"veil_mark_alpha": 16,
-		"veil_mark_size": 64,
-		"veil_scrim": 42
+		"veil_deep": 66.0,
+		"veil_mark_alpha": 16.0,
+		"veil_mark_size": 64.0,
+		"veil_scrim": 42.0
 	},
 	"progress_bar": {
 		"art": true,
@@ -204,13 +207,13 @@
 		"switch_h": 44.0
 	},
 	"vault": {
-		"balance_font": 34,
-		"card_slice": 64,
-		"jar_px": 200,
-		"panel_pad_x": 40,
-		"panel_pad_y": 34,
-		"plate_px": 250,
-		"row_gap": 12,
-		"width_pct": 80
+		"balance_font": 34.0,
+		"card_slice": 64.0,
+		"jar_px": 200.0,
+		"panel_pad_x": 40.0,
+		"panel_pad_y": 34.0,
+		"plate_px": 250.0,
+		"row_gap": 12.0,
+		"width_pct": 80.0
 	}
 }
