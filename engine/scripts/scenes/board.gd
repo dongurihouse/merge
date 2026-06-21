@@ -74,6 +74,7 @@ const STRAW = Pal.STRAW
 # "step back" read — a soft difference, never harsh — so the eye lands on what's live.
 const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
 const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
+const PURGE_DIM := Color(0.62, 0.62, 0.62, 0.85)  # the Purge card while it can't yet afford a region — greyed (no padlock)
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
@@ -86,6 +87,7 @@ var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
+var _recent_lines: Array = []      # the last ≤5 asked item-lines — a NEW quest's item avoids these (§7)
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
@@ -467,7 +469,7 @@ func _meter_target() -> int:
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng)
+	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng, _recent_lines)
 	_assign_givers()                          # give each new quest a giver face distinct from the previous 5
 
 # Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
@@ -499,6 +501,13 @@ func _push_recent_giver(g: int) -> void:
 	_recent_givers.append(g)
 	while _recent_givers.size() > 5:
 		_recent_givers.pop_front()
+
+# Record an asked item-line in the rolling window (mirrors _push_recent_giver): a NEW quest's item is
+# steered off the last ≤5 asks, so the same item does not reappear within 5 (§7 anti-monotony).
+func _push_recent_line(line: int) -> void:
+	_recent_lines.append(line)
+	while _recent_lines.size() > 5:
+		_recent_lines.pop_front()
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
@@ -761,7 +770,10 @@ func _rebuild_givers() -> void:
 	var qidx := _active_quest_idx()
 	var stands := qidx.size()
 	merchant_chip = null   # the sell merchant is a bottom-nav well now (no fence stall)
-	if stands == 0:
+	var show_purge := _show_purge_card()
+	# the fence renders while there are quests OR the Purge card is showing — the Purge card now stands
+	# alone once the meter empties (banked enough to restore), so an empty quest list no longer blanks it.
+	if stands == 0 and not show_purge:
 		return
 	# the fence wall — one bordered strip; busts and cards pop up over its edge
 	var wall := Control.new()
@@ -790,7 +802,6 @@ func _rebuild_givers() -> void:
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
 	giver_bar.add_child(row)
 	giver_bar.move_child(row, 1)
-	var show_purge := _show_purge_card()
 	if show_purge:
 		row.add_child(_make_purge_card(stand_w))
 	var quest_slots := cols - (1 if show_purge else 0)   # Purge eats one slot → only 3 quests beside it
@@ -801,13 +812,16 @@ func _rebuild_givers() -> void:
 		giver_chips.append(stand)
 	_refresh_giver_lights()
 
-# The Purge card (fence slot 0) shows once the player has banked enough stars to unlock a region on the
-# home map (gate_ready — the SAME signal that lights the Home button) — a nudge to go home and spend them.
+# The Purge card (fence slot 0) shows whenever a frontier remains (the map is not done) — ALWAYS, not
+# only once affordable — advertising the home map's current ★ balance. It greys out until the cheapest
+# region is affordable, then lights + breathes (the SAME gate_ready signal the Home button uses).
 func _show_purge_card() -> bool:
-	return _gate_ready() and not _map_done()
+	return Quests.purge_state(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _gates()).show
 
-# A special fence card: a padlock over a "Purge" badge, tapped to go HOME and unlock more regions. Sized
-# like a giver card so it sits flush in its 25% slot; reuses the Home action (persist → Map).
+# A special fence card: the home map's current ★ balance over a "Purge" button, tapped to go HOME and
+# spend stars on regions. Sized like a giver card so it sits flush in its 25% slot; reuses the Home
+# action (persist → Map). It ALWAYS shows while a frontier remains (no padlock now) — greyed + still until
+# the cheapest region is affordable, then full colour + breathing (the Home-button gate_ready signal).
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
@@ -823,12 +837,28 @@ func _make_purge_card(stand_w: float) -> Control:
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
-	# the padlock, centred a touch high so the green button clears it below
-	var lock_px := cardH * 0.40
-	var lock := Look.icon("lock", lock_px)
-	lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lock.position = Vector2(cx + cardW * 0.5 - lock_px / 2.0, cy + cardH * 0.30 - lock_px / 2.0)
-	stand.add_child(lock)
+	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
+	# the layer's CURRENT ★ balance (replaces the old padlock): a star icon + the banked count, centred a
+	# touch high so the green button clears it below. Always shown — it is the card's headline now.
+	var srow := HBoxContainer.new()
+	srow.alignment = BoxContainer.ALIGNMENT_CENTER
+	srow.add_theme_constant_override("separation", maxi(2, int(cardH * 0.05)))
+	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	srow.add_child(Look.icon("star", cardH * 0.30))
+	var slbl := Label.new()
+	slbl.text = str(Save.stars())
+	slbl.add_theme_font_size_override("font_size", int(cardH * 0.28))
+	slbl.add_theme_color_override("font_color", Pal.INK)
+	slbl.add_theme_constant_override("outline_size", 0)
+	slbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	slbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	srow.add_child(slbl)
+	stand.add_child(srow)
+	var place_stars := func() -> void:
+		if is_instance_valid(srow):
+			srow.position = Vector2(cx + cardW * 0.5 - srow.size.x / 2.0, cy + cardH * 0.30 - srow.size.y / 2.0)
+	srow.resized.connect(place_stars)
+	place_stars.call()
 	# #2: the "Purge" CTA is the shared GREEN primary button (Look.button primary) — the same leaf-green
 	# pill + cream label as every other CTA in the grove. Tapped → go HOME (persist + jump to the Map) to
 	# unlock more regions. The button IS the affordance now (the old whole-card tap + cream pill are gone).
@@ -847,6 +877,13 @@ func _make_purge_card(stand_w: float) -> Control:
 			btn.position = Vector2(cx + cardW * 0.5 - btn.size.x / 2.0, cy + cardH * 0.64 - btn.size.y / 2.0)
 	btn.resized.connect(place_btn)
 	place_btn.call()
+	# ready → full colour + a gentle breathe (like a payable giver card); not yet → grey + still, so it
+	# reads as "earn more ★ first" without a padlock.
+	if ready:
+		stand.modulate = Color.WHITE
+		FX.breathe_once(stand)
+	else:
+		stand.modulate = PURGE_DIM
 	return stand
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
@@ -2191,6 +2228,8 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		t.tween_property(n, "scale", Vector2(0.4, 0.4), 0.3)
 		t.chain().tween_callback(n.queue_free)
 	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
+	if not it.is_empty():
+		_push_recent_line(int(it.line))       # remember this ask so the next ≤5 quests avoid the same item
 	# delivering a quest is the ONE place Level advances — earn_stars credits the
 	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
 	var sp_stars := _quest_stars(q)

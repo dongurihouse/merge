@@ -61,6 +61,7 @@
 		"pair_sep": 10.0,
 		"plus_dy": 4.0,
 		"plus_gap": 13.0,
+		"plus_size": 26.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
 		"shadow_size": 5.0,
@@ -119,8 +120,12 @@
 		"width": 720.0
 	},
 	"home_button": {
+		"badge_dx": -26.0,
+		"badge_dy": -26.0,
 		"caption_font": 22.0,
 		"caption_gap": -10.0,
+		"caption_pad_x": 16.0,
+		"caption_pad_y": 5.0,
 		"glow": 45.0,
 		"icon_scale": 50.0,
 		"px": 140.0,

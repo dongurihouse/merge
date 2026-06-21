@@ -38,6 +38,25 @@ func _initialize() -> void:
 	ok(not Quests.gate_ready(0, 0, {}), "0★ → the next unlock is not affordable (not ready)")
 	ok(Quests.gate_ready(0, 999999, {}), "a huge ★ bank can afford the next spot (ready)")
 
+	# --- purge_state: the fence Purge card SHOWs while a frontier remains (always, not only when ready),
+	# --- is READY (breathes) when the cheapest unlock is affordable, and carries the banked ★ to display ---
+	var ps_poor := Quests.purge_state(0, 0, {}, [])
+	ok(ps_poor.show and not ps_poor.ready, "purge card shows on a fresh map even with 0★ (greyed, not ready)")
+	ok(int(ps_poor.stars) == 0, "purge card carries the banked star count (0)")
+	var ps_rich := Quests.purge_state(0, 999999, {}, [])
+	ok(ps_rich.show and ps_rich.ready, "purge card is ready (breathes) once the cheapest unlock is affordable")
+	ok(int(ps_rich.stars) == 999999, "purge card carries the banked star count (999999)")
+	# a fully restored game (every spot + gate done) → no frontier → the purge card hides
+	var all_done := {}
+	for zz in G.MAPS.size():
+		for sp in G.MAPS[zz].spots:
+			all_done[String(sp.id)] = true
+	var all_gates: Array = []
+	for zz in G.MAPS.size():
+		all_gates.append(zz)
+	if Quests.map_done(all_done, all_gates):
+		ok(not Quests.purge_state(0, 999999, all_done, all_gates).show, "purge card hides once the whole map is done")
+
 	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as ★ bank toward finishing the map (§7) ---
 	var tgt := Quests.meter_target(0, 0, {})
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
@@ -73,6 +92,29 @@ func _initialize() -> void:
 		over.append({"line": 1, "tier": 1, "reward": {"stars": 1, "coins": 0}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
 	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
+
+	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-lines window (the last ≤5 asked
+	# --- item-lines), the SAME soft penalty (QUEST_REPEAT_PENALTY) the concurrent-fence avoid uses, so it
+	# --- degrades gracefully on a map with few live lines instead of starving the pool. ---
+	var pool := G.askable_lines(G.GENERATORS, 0, 99)
+	if pool.size() >= 2:
+		var rl_target := int(pool[pool.size() - 1])   # the newest/highest-weight line — the clearest signal
+		var rl_free := 0
+		var rl_avoid := 0
+		for s in 200:
+			var rf := RandomNumberGenerator.new(); rf.seed = s
+			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, rf):
+				if int(G.quest_item(q).line) == rl_target:
+					rl_free += 1
+			var ra := RandomNumberGenerator.new(); ra.seed = s
+			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, ra, [rl_target]):
+				if int(G.quest_item(q).line) == rl_target:
+					rl_avoid += 1
+		ok(rl_avoid < rl_free, "refill steers new asks off the recent-lines window (%d→%d)" % [rl_free, rl_avoid])
+		# determinism is preserved with a recent-lines window (same seed → same fence)
+		var rd1 := RandomNumberGenerator.new(); rd1.seed = 9
+		var rd2 := RandomNumberGenerator.new(); rd2.seed = 9
+		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-lines window")
 
 	# --- ladder_entries: one row per tier, code = line*100+tier, seen flagged from the save's `seen` set ---
 	var lad := Quests.ladder_entries({}, 1)

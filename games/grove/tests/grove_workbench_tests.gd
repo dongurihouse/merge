@@ -108,6 +108,7 @@ func _initialize() -> void:
 	_test_discovery_frame()
 	_test_board_element(view)
 	_test_quest_card_config(view)
+	_test_new_knobs(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -143,6 +144,49 @@ func _initialize() -> void:
 ## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
 ## two INDEPENDENT size knobs — `scale` (zoom the whole board) and `cell` (item width; the grid grows,
 ## the frame stays). Both enlarge the footprint; the demo-pieces toggle is preview-only.
+# The new workbench knobs (this branch): home-button caption padding + side-rail badge offset, and the
+# currency pill's "+" size. Each must be SAVED config the kit resolver reads, default to the shipped look,
+# and (for the badge) render a sample badge on the home-button preview so the offset is tunable live.
+func _test_new_knobs(view) -> void:
+	# home button: caption padding + badge offset are read by the shared resolver…
+	var hb: Dictionary = Kit.home_button_opts_from_config({"home_button":
+		{"caption_pad_x": 12, "caption_pad_y": 4, "badge_dx": -15, "badge_dy": -12}})
+	ok(is_equal_approx(float(hb.caption_pad_x), 12.0) and is_equal_approx(float(hb.caption_pad_y), 4.0), \
+		"home_button reads caption_pad_x / caption_pad_y")
+	ok(is_equal_approx(float(hb.badge_dx), -15.0) and is_equal_approx(float(hb.badge_dy), -12.0), \
+		"home_button reads badge_dx / badge_dy")
+	# …and an absent config reproduces the shipped ribbon padding (Tune.TITLE_PAD_X) so nothing shifts.
+	ok(is_equal_approx(float(Kit.home_button_opts_from_config({}).caption_pad_x), 30.0), \
+		"default caption_pad_x reproduces the shipped ribbon (30)")
+	# they are SAVED design config; the sample badge count is preview-only.
+	ok(view._is_config("home_button", "caption_pad_x") and view._is_config("home_button", "caption_pad_y"), \
+		"caption padding is saved config")
+	ok(view._is_config("home_button", "badge_dx") and view._is_config("home_button", "badge_dy"), \
+		"badge offset is saved config")
+	ok(not view._is_config("home_button", "badge_count"), "the sample badge count is preview-only (not saved)")
+	# the home-button preview carries a SAMPLE count badge so the offset is tunable live (default count 3).
+	ok(_has_label_text(view._make_element("home_button"), "3"), \
+		"the home-button preview shows a sample count badge")
+
+	# currency pill: plus_size is read, defaults to Tune.PLUS_BOX (26), is saved config, and resizes the token.
+	ok(int(Kit.currency_pill_opts_from_config({"currency_pill": {"plus_size": 40}}).plus_size) == 40, \
+		"currency_pill reads plus_size")
+	ok(int(Kit.currency_pill_opts_from_config({}).plus_size) == 26, "default plus_size mirrors Tune.PLUS_BOX (26)")
+	ok(view._is_config("currency_pill", "plus_size"), "plus_size is saved config")
+	var pill44: Control = Kit.currency_pill({"show_plus": true, "plus_size": 44}, {"water": 1})
+	var sized := false
+	for pn in pill44.find_children("*", "Panel", true, false):
+		if int((pn as Panel).custom_minimum_size.x) == 44:
+			sized = true
+	ok(sized, "the currency pill '+' token resizes to plus_size (44)")
+
+	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
+	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.
+	for sel in ["home_button", "currency_pill"]:
+		view._selected = sel
+		view._rebuild_sidebar()
+		ok(view._sidebar_body.get_child_count() > 0, "the %s sidebar builds its slider panel" % sel)
+
 func _test_board_element(view) -> void:
 	ok(view._sections.has("board"), "the board is a registered gallery item")
 	ok(view._is_config("board", "cell") and view._is_config("board", "scale"), \

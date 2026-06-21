@@ -879,13 +879,25 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var caption := String(spec.get("caption", ""))
 	if caption != "":
 		var cap_font := int(opts.get("caption_font", 22))
+		var cap_pad_x := float(opts.get("caption_pad_x", 30.0))
+		var cap_pad_y := float(opts.get("caption_pad_y", 8.0))
 		var capwrap := CenterContainer.new()
 		capwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		capwrap.anchor_left = 0.0; capwrap.anchor_right = 1.0
 		capwrap.anchor_top = 1.0; capwrap.anchor_bottom = 1.0
 		capwrap.offset_top = float(opts.get("caption_gap", 4.0))
-		capwrap.offset_bottom = capwrap.offset_top + cap_font + 22.0
+		# the box just clears the ribbon: the font plus its own top+bottom padding (was a fixed +22 band)
+		capwrap.offset_bottom = capwrap.offset_top + cap_font + 2.0 * cap_pad_y
 		var cap := Look.title_ribbon(caption, cap_font)
+		# override the SHARED ribbon margins with the home button's OWN tunable padding (workbench knobs)
+		var csb := cap.get_theme_stylebox("panel")
+		if csb is StyleBoxFlat:
+			var csbd: StyleBoxFlat = (csb as StyleBoxFlat).duplicate()
+			csbd.content_margin_left = cap_pad_x
+			csbd.content_margin_right = cap_pad_x
+			csbd.content_margin_top = cap_pad_y
+			csbd.content_margin_bottom = cap_pad_y
+			cap.add_theme_stylebox_override("panel", csbd)
 		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if cap.get_child_count() > 0:
 			(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2757,8 +2769,17 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"icon_scale": float(h.get("icon_scale", 50)) / 100.0,
 		"caption_font": int(h.get("caption_font", 22)),
 		"caption_gap": float(h.get("caption_gap", 4)),
+		# the caption tab's OWN padding (overrides the shared title-ribbon margins for the home button only);
+		# defaults reproduce the shipped ribbon (Tune.TITLE_PAD_X / ~T+B) so an absent config is unchanged.
+		"caption_pad_x": float(h.get("caption_pad_x", 30)),
+		"caption_pad_y": float(h.get("caption_pad_y", 8)),
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
+		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
+		# the badge by this, so the side rail can pull it snug to the disc. The disc art carries a wide
+		# transparent margin, so the default tucks the badge well IN (negative) to sit on the disc's edge.
+		"badge_dx": float(h.get("badge_dx", -26)),
+		"badge_dy": float(h.get("badge_dy", -26)),
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
@@ -2803,6 +2824,7 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
 		"plus_gap":    int(c.get("plus_gap", 0)),          # the green "+" LOCATION: extra gap right of the number
 		"plus_dy":     int(c.get("plus_dy", 0)),           # the green "+" LOCATION: vertical nudge up(-)/down(+)
+		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it)
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -2888,14 +2910,13 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		var dy := int(opts.get("plus_dy", 0))
 		pw.add_theme_constant_override("margin_top", maxi(0, dy))
 		pw.add_theme_constant_override("margin_bottom", maxi(0, -dy))
-		pw.add_child(_plus_token())
+		pw.add_child(_plus_token(float(opts.get("plus_size", 26))))
 		row.add_child(pw)
 	return panel
 
 ## A static green "+" token mirroring the live HUD's _plus_button look (leaf-green disc, cream "+"), for the
 ## workbench currency-pill preview so the designer can position it. Values mirror Tune.Hud.PLUS_*.
-static func _plus_token() -> Control:
-	var box := 26.0
+static func _plus_token(box: float = 26.0) -> Control:
 	var p := Panel.new()
 	p.custom_minimum_size = Vector2(box, box)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -2907,7 +2928,7 @@ static func _plus_token() -> Control:
 	p.add_theme_stylebox_override("panel", sb)
 	var g := Label.new()
 	g.text = "+"
-	g.add_theme_font_size_override("font_size", 22)
+	g.add_theme_font_size_override("font_size", int(box * 22.0 / 26.0))   # font tracks the box (shipped 26→22)
 	g.add_theme_color_override("font_color", Color("#FBF6EC"))
 	g.add_theme_constant_override("outline_size", 0)
 	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

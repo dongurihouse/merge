@@ -629,14 +629,15 @@ static func badge(kind: String = "dot", count: int = 0) -> Control:
 ## slightly past the corner — the universal "new" placement). The badge is a child of
 ## host and anchored to its top-right; MOUSE_FILTER_IGNORE keeps the single-input-surface
 ## rule intact. Returns the badge so the caller can toggle `.visible`.
-static func attach_badge(host: Control, b: Control) -> Control:
+static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_OVERHANG) -> Control:
 	host.add_child(b)
 	b.set_anchors_preset(Control.PRESET_TOP_RIGHT)   # all offsets now relative to host top-right
 	var sz := b.custom_minimum_size
 	if sz == Vector2.ZERO:
 		sz = b.size
-	# OVERHANG = how far the badge's right/top poke PAST host's corner (positive = outside).
-	var over := Tune.BADGE_OVERHANG
+	# OVERHANG = how far the badge's right/top poke PAST host's corner (positive = outside, negative tucks
+	# it IN over the disc). Callers (e.g. the home-button side rail) pass a workbench-tuned offset so the
+	# badge can sit snug to the disc instead of floating off its transparent art margin.
 	b.offset_right = over.x                           # right edge: +over.x past host right
 	b.offset_left = b.offset_right - sz.x
 	b.offset_top = -over.y                            # top edge: over.y above host top

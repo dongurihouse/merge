@@ -29,6 +29,17 @@ static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
 	var cost := G.map_cheapest_spot(z, unlocks)
 	return cost > 0 and banked_stars >= cost
 
+# The Purge fence card's state. It SHOWS whenever a frontier remains (the map is not done) — no longer
+# only when affordable — so it always advertises the home map's current ★ balance. It is READY (full
+# colour + breathing) when the banked stars can afford the cheapest remaining unlock; otherwise it greys
+# out (still shown, no breathe). `stars` is the banked balance the card displays.
+static func purge_state(z: int, banked_stars: int, unlocks: Dictionary, gates: Array) -> Dictionary:
+	return {
+		"show": not map_done(unlocks, gates),
+		"ready": gate_ready(z, banked_stars, unlocks),
+		"stars": banked_stars,
+	}
+
 # Stars the player still has to EARN to finish map z (its unowned spot costs, minus what is banked).
 static func stars_remaining(z: int, unlocks: Dictionary, banked: int) -> int:
 	return maxi(0, G.map_stars_left(z, unlocks) - banked)
@@ -49,7 +60,7 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 # gate's old "grant the next tool" role); delivering it appends those ids to the gen_bag. Idempotent:
 # a quest already carrying the reward is left alone, so a later refill never duplicates it onto a
 # second quest. Returns the new quests array.
-static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator) -> Array:
+static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator, recent_lines: Array = []) -> Array:
 	if map_done(unlocks, gates):
 		return []
 	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
@@ -58,9 +69,11 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var lines := G.askable_lines(G.GENERATORS, z, level)
 	var target := meter_target(z, banked_stars, unlocks)
 	while out.size() < target:
-		# §7 anti-monotony: steer the new stand off the lines already on the fence so the
-		# concurrent single-ask stands stay distinct (the "juggle several lines" texture).
-		var avoid: Array = []
+		# §7 anti-monotony: steer the new stand off the lines already on the fence (so the concurrent
+		# single-ask stands stay distinct) AND off the recent-lines window (the last ≤5 item-lines just
+		# asked), so a NEW quest avoids repeating an item from the previous few. Both feed the SAME soft
+		# penalty (QUEST_REPEAT_PENALTY) so the pick still resolves when the live pool is small.
+		var avoid: Array = recent_lines.duplicate()
 		for q in out:
 			var it := G.quest_item(q)
 			if not it.is_empty():
