@@ -31,6 +31,25 @@ const BANNER_H := 92.0
 # optical scales mirror Tune so the preview reads at the same weight as the live HUD.
 const CUR_PILL_ART := "shared/panel_pill.png"
 const CUR_PILL_CAP := 32
+# The pill's selectable BORDER art — a reusable registry (mirrors FRAME_BORDERS) so the Currency pill
+# item's Border picker dresses the SAME pill in a different painted capsule. Each entry carries the
+# nine-patch art + its cap (texture margin ≈ the rounded-end radius, so the caps draw 1:1 and the flat
+# middle stretches to the counts). "gold capsule" is the SHIPPED default, so an unset border is unchanged.
+const PILL_BORDERS := {
+	"gold capsule": {"art": CUR_PILL_ART,          "cap": CUR_PILL_CAP},   # shared/panel_pill.png (292×65)
+	"bag":          {"art": "kit/bag_pill.png",       "cap": 59},          # 416×118
+	"bag thin":     {"art": "kit/bag_pill_thin.png",  "cap": 33},          # 411×66
+	"bag blue":     {"art": "kit/bag_pill_b.png",     "cap": 58},          # 416×116
+	"bag green":    {"art": "kit/bag_pill_green.png", "cap": 59},          # 416×118
+	"mail":         {"art": "kit/mail_pill.png",      "cap": 38},          # 220×77
+	"mail cream":   {"art": "kit/mail_pill_cream.png","cap": 38},          # 180×76
+}
+
+## Resolve a pill-border NAME to its {art, cap} record (unknown → gold capsule, so a stale saved value
+## never blanks the wallet).
+static func pill_border(name: String) -> Dictionary:
+	return PILL_BORDERS.get(name, PILL_BORDERS["gold capsule"])
+
 const CUR_PILL_BG := Color("#FBF6EC", 0.95)
 const CUR_PILL_BORDER := Color("#C9A66B", 0.9)
 const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
@@ -2793,6 +2812,7 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("currency_pill", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":     bool(c.get("use_art", true)),       # painted capsule (panel_pill.png) vs code-drawn pill
+		"border":      String(c.get("border", "gold capsule")),   # which painted capsule (PILL_BORDERS) — art path only
 		"pad_x":       float(c.get("pad_x", 18.0)),        # Tune.CLUSTER_PAD_X — horizontal content margin
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
@@ -2812,11 +2832,12 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	var pad_x := float(opts.get("pad_x", 18.0))
 	var pad_y := float(opts.get("pad_y", 12.0))
 	if bool(opts.get("use_art", true)):
-		var p := Look.kit(CUR_PILL_ART)
+		var bd: Dictionary = pill_border(String(opts.get("border", "gold capsule")))
+		var p := Look.kit(String(bd["art"]))
 		if ResourceLoader.exists(p):
 			var sbt := StyleBoxTexture.new()
 			sbt.texture = load(p)
-			sbt.set_texture_margin_all(CUR_PILL_CAP)   # cap radius: the rounded ends never squash
+			sbt.set_texture_margin_all(int(bd["cap"]))   # cap radius: the rounded ends never squash
 			sbt.content_margin_left = pad_x
 			sbt.content_margin_right = pad_x
 			sbt.content_margin_top = pad_y

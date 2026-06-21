@@ -216,7 +216,7 @@ var _params := {
 		"cell_gap": 16, "list_top_pad": 8, "list_max_h": 0},
 	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
 	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
-	"currency_pill": {"use_art": true, "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
+	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
 		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14,
 		"star": 1280, "coin": 540, "gem": 36},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
@@ -1225,9 +1225,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["close_y", -120, 120]))
 		"currency_pill":
 			_group_header("Saved to config", true)
-			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. Border / radius / shadow
-			# only shape the code-drawn pill (the art bakes its own rim), so they show only when art is off.
+			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. The Border picker swaps the
+			# painted capsule (art path); radius / border_w / shadow shape the code-drawn pill (the art bakes
+			# its own rim), so the picker shows only with art ON and those knobs only with art OFF.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
+			if bool(_params["currency_pill"]["use_art"]):
+				_sidebar_body.add_child(_option_row("Border", "border", Kit.PILL_BORDERS.keys()))   # which painted capsule
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding
 			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
 			if not bool(_params["currency_pill"]["use_art"]):
