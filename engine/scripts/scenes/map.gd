@@ -458,6 +458,7 @@ func _home_badge(z: int, k: int, b) -> Control:
 	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": true}, opts)
 	btn.size = Vector2(d, d)
 	btn.position = ctr - Vector2(d, d) * 0.5
+	btn.set_meta("place_spot", String(spot.id))       # the placement tool (tools/ui_placement.gd) drags by this
 	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
 	return btn
 
@@ -519,6 +520,7 @@ func _home_badge_baked(z: int, k: int, b) -> Control:
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(lbl)
+	node.set_meta("place_spot", String(spot.id))      # placement tool drags by this (engine-fallback badge)
 	return node
 
 # An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with

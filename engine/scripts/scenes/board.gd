@@ -100,6 +100,9 @@ var _grown_cells: Array = []       # cells of generators that just GREW IN this 
 # (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
 #  T48 ahead of the UI redesign; the burst coin sink stays in code, see _upgrade_gen_burst)
 var giver_bar: Control           # the quest fence (givers pop up over it)
+var _board_center: Control       # the CenterContainer holding the board (placement tool nudges this)
+var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
+var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
 # Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
@@ -220,6 +223,13 @@ func _ready() -> void:
 		root.add_child(divider)
 		root.move_child(divider, center.get_index())   # slot it just ABOVE the grid (below the fence)
 
+	# Placement Workbench (tools/ui_placement.gd): the quest fence + the board carry an optional
+	# saved vertical nudge (board_layout.json). Applied AFTER the VBox lays out, per sort, so the
+	# offsets are independent and the responsive layout is untouched. No file / 0 → identical render.
+	_board_center = center
+	_load_placement()
+	root.sort_children.connect(_apply_placement)
+
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
 
@@ -309,6 +319,34 @@ func _board_w() -> float:
 
 func _board_h() -> float:
 	return G.ROWS * csz + (G.ROWS - 1) * GAP
+
+# --- placement (tools/ui_placement.gd) -----------------------------------------------
+const PLACEMENT_PATH := "res://games/grove/assets/board_layout.json"
+
+# Read the saved fence/board vertical nudges. Missing file or 0 → no offset (today's layout).
+func _load_placement() -> void:
+	if not FileAccess.file_exists(PLACEMENT_PATH):
+		return
+	var d = JSON.parse_string(FileAccess.get_file_as_string(PLACEMENT_PATH))
+	if typeof(d) == TYPE_DICTIONARY:
+		_place_fence_dy = float(d.get("fence_dy", 0.0))
+		_place_board_dy = float(d.get("board_dy", 0.0))
+
+# Shift the fence + board by their saved fractions AFTER the VBox has positioned them, so the
+# nudges are independent of each other and the responsive sizing is unchanged. Runs per sort.
+func _apply_placement() -> void:
+	if _place_fence_dy == 0.0 and _place_board_dy == 0.0:
+		return
+	var h := get_viewport_rect().size.y
+	if giver_bar != null:
+		giver_bar.position.y += _place_fence_dy * h
+	if _board_center != null:
+		_board_center.position.y += _place_board_dy * h
+
+# The placement tool changed an offset → re-sort so _apply_placement reseats the bands.
+func placement_refresh() -> void:
+	if giver_bar != null and giver_bar.get_parent() != null:
+		(giver_bar.get_parent() as Container).queue_sort()
 
 # --- state ----------------------------------------------------------------------
 
