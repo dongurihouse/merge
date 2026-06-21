@@ -8,6 +8,15 @@
       "mask_mode": "luminance",
       "region_count": 8,
       "regions_path": "res://games/tools/vine_mask_tool/maps/map1_farm_regions.json"
+    },
+    {
+      "id": "map2_placeholder",
+      "name": "Map 2 - Placeholder",
+      "base": "res://games/grove/assets/map/map1.png",
+      "mask": "res://games/grove/assets/map/map1_mask.png",
+      "mask_mode": "luminance",
+      "region_count": 8,
+      "regions_path": "res://games/tools/vine_mask_tool/maps/map2_placeholder_regions.json"
     }
   ]
 }

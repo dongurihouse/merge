@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_test_maps_overlay()
 	_test_view_headless()
 	await _test_map_integration()
+	_test_multimap()
 	finish()
 
 func _test_map_integration() -> void:
@@ -72,6 +73,12 @@ func _test_maps_overlay() -> void:
 	ok(bool(G.MAPS[0].get("hub", false)), "slot 0 stays the hub")
 	# legacy slots without a vine entry are untouched
 	ok(not G.MAPS[G.MAPS.size() - 1].has("vine"), "the last legacy slot is not vine-driven")
+
+func _test_multimap() -> void:
+	ok(VineMaps.count() >= 2, "maps.json holds at least 2 vine maps (map1 + placeholder)")
+	ok(G.MAPS[1].has("vine"), "slot 1 is vine-driven from the 2nd tool entry")
+	ok(G.MAPS[1].spots.size() == VineMaps.regions_for(VineMaps.entries()[1]).size(), "slot 1 spot count == its regions")
+	ok(String(G.MAPS[1].spots[0].id) == "%s_r0" % String(G.MAPS[1].id), "slot 1 spot ids use slot 1's id")
 
 func _test_spot_derivation() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
