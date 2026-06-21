@@ -2254,123 +2254,47 @@ static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {
 	return dialog_frame(_card_grid(days, width, opts), width, opts)
 
 ## --- the discovery (tier-ladder) card + dialog ------------------------------------------------------
-## One TIER CELL — the discovery board's tile. The face is the SAME baked cell for every state, so the
-## three states share an identical footprint (seen → the filled cell, unseen → the "?" cell which bakes
-## its own glyph; a MARKED tier reuses the filled cell + the engine-drawn SPARKLE the home buttons use —
-## NO bespoke gold-ring sprite, which cut badly and rendered larger than the rest). A seen tier shows its
-## content (a pre-built `node` from the game's piece view, or a stand-in `icon` for the preview); the tier
-## number rides a small badge top-left. Square by default, code-drawn fallback when the cell art is absent.
-## d keys: tier, seen, marked, icon|node. opts: cell_w/h, cell_art, num_font, num_x, num_y, piece_frac,
-## mark_glow, mark_twinkle, num_badge, num_badge_scale.
+## One TIER CELL — the discovery board's tile, now built on the SHARED slot cell (Kit.slot_cell) so
+## discovery, the bag, and the board all read as ONE component. A DISCOVERED tier wears the FILLED well
+## holding its piece; an UNDISCOVERED tier wears the LOCKED well — the baked gold padlock KEPT, no acorn
+## cost, and no "?" glyph (the locked well stands in for it). The item TIER rides the gold level medal
+## docked lower-right (the SAME medal the HUD + board cells wear, via the slot cell's `level`/`level_frac`).
+## A MARKED tier (the tapped/asked one) is flagged by the engine sparkle. The game's make_content(d, px)
+## builds the discovered piece at the cell size.
+## d keys: tier, seen, marked, icon|node. opts: tiers_card_opts_from_config(...).
 static func tiers_card(d: Dictionary, opts: Dictionary = {}) -> Control:
-	var cw: float = float(opts.get("cell_w", 150.0))
-	var ch: float = float(opts.get("cell_h", 150.0))
 	var seen := bool(d.get("seen", false))
-	var marked := bool(d.get("marked", false))
-	var holder := Control.new()
-	holder.custom_minimum_size = Vector2(cw, ch)
-	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.clip_contents = false
-
-	# the tile face — the SAME baked cell whether or not the tier is marked: filled when discovered, else
-	# the "?" cell (which bakes its own glyph). Marked is a pure overlay (the sparkle below), so it never
-	# swaps the art or changes the footprint. Drawn to FILL the exact rect so every state shares a footprint.
-	var art := "kit/tiers_cell_filled.png" if seen else "kit/tiers_cell_q.png"
-	var use_art: bool = bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art))
-	if use_art:
-		var face := TextureRect.new()
-		face.texture = clean_tex_path(Look.kit(art), 256)
-		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		face.stretch_mode = TextureRect.STRETCH_SCALE      # fill the rect 1:1 → identical footprint every state
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		face.set_anchors_preset(Control.PRESET_FULL_RECT)  # follow the holder so a later grid resize never desyncs
-		holder.add_child(face)
-	else:                                              # code-drawn fallback (same metrics)
-		var p := Panel.new()
-		p.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ss := StyleBoxFlat.new()
-		ss.bg_color = Color(Pal.GROUND, 0.18) if seen else Color(Pal.GROUND_EDGE, 0.16)
-		ss.set_corner_radius_all(22)
-		ss.set_border_width_all(2)
-		ss.border_color = Color(Pal.GROUND_EDGE, 0.35)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		p.add_theme_stylebox_override("panel", ss)
-		holder.add_child(p)
-
-	# the MARKED tier's flag — the SAME engine-drawn sparkle the home / home-unlock buttons use (a soft
-	# breathing glow + drifting twinkles, no baked FX), sitting over the cell and under the piece. It never
-	# changes the cell's footprint (it's an overlay), so marked stays the same size as every other state.
-	if marked:
-		var glow: float = float(opts.get("mark_glow", 0.6))
-		var twinkle: float = float(opts.get("mark_twinkle", 0.5))
-		if glow > 0.0 or twinkle > 0.0:
-			holder.add_child(_sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false))))
-
-	# the content: a discovered piece, centred. A SEEN tile shows (in priority) a kit-built node from the
-	# game's `make_content` callable (sized to the kit-computed cell, so the game stays out of layout), or a
-	# pre-built `node` Control, or a stand-in `icon` (the workbench preview). An unseen "?" cell bakes its
-	# own glyph (the cell art), so an undiscovered tier — marked or not — draws no content of its own.
-	var frac: float = float(opts.get("piece_frac", 0.62))
+	var sd := {
+		"state": ("filled" if seen else "locked"),
+		"cost": 0,                                          # discovery has no buy price → the locked well is its baked padlock alone
+		"marked": bool(d.get("marked", false)),
+		"level": (int(d.get("tier", 0)) if bool(opts.get("show_num", true)) else 0),   # the tier rides the lower-right level medal
+	}
+	# bridge the discovery make_content(d, px) → the slot cell's make_content(px); else a pre-built node or
+	# an icon id (the workbench preview). Only a discovered tier carries a piece.
 	var mk: Callable = opts.get("make_content", Callable())
-	var content: Control = null
 	if seen and mk.is_valid():
-		content = mk.call(d, cw * frac)
+		sd["make_content"] = func(px: float) -> Control: return mk.call(d, px)
 	elif seen and d.get("node") is Control:
-		content = d.get("node")
+		sd["content"] = d.get("node")
 	elif seen and String(d.get("icon", "")) != "":
-		content = make_icon(String(d.icon), cw * frac)
-	if content != null:
-		content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var cwrap := CenterContainer.new()
-		cwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
-		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cwrap.add_child(content)
-		holder.add_child(cwrap)
+		sd["icon"] = String(d.get("icon"))
+	return slot_cell(sd, _tiers_to_slot_opts(opts))
 
-	# the tier number, top-left. By default it rides a small cost-disc BADGE (the home-unlock shell sprite,
-	# reused as a plate — not the button) so the numeral reads as a deliberate medallion; the engraved brown
-	# ink matches that disc. num_badge off → the old bare numeral with a thin cream halo.
-	if bool(opts.get("show_num", true)):
-		var num := Label.new()
-		num.text = str(int(d.get("tier", 0)))
-		num.add_theme_font_size_override("font_size", int(opts.get("num_font", 26)))
-		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var nx: float = cw * float(opts.get("num_x", 0.11))
-		var ny: float = ch * float(opts.get("num_y", 0.05))
-		# raw load (NOT clean_tex_path) — the cost disc is already clean art and the round shell 9-slices/
-		# polishes no better baked, matching home_unlock_button. Keeps it out of the dialogs' bake set.
-		var badge_path := Look.kit(HOME_UNLOCK_SHELL)
-		var badge_tex: Texture2D = load(badge_path) if (bool(opts.get("num_badge", true)) and ResourceLoader.exists(badge_path)) else null
-		if badge_tex != null:
-			var bd: float = float(opts.get("num_font", 26)) * float(opts.get("num_badge_scale", 2.0))
-			var medal := Control.new()
-			medal.custom_minimum_size = Vector2(bd, bd)
-			medal.size = Vector2(bd, bd)
-			medal.position = Vector2(nx, ny)
-			medal.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			var disc := TextureRect.new()
-			disc.texture = badge_tex
-			disc.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			disc.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			disc.set_anchors_preset(Control.PRESET_FULL_RECT)
-			disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			medal.add_child(disc)
-			num.add_theme_color_override("font_color", HOME_UNLOCK_INK)   # the disc's engraved brown
-			num.add_theme_constant_override("outline_size", 0)
-			num.set_anchors_preset(Control.PRESET_FULL_RECT)
-			medal.add_child(num)
-			holder.add_child(medal)
-		else:
-			num.position = Vector2(nx, ny)
-			num.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
-			num.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.9))
-			num.add_theme_constant_override("outline_size", 5)
-			holder.add_child(num)
-	return holder
+## Map the tier-cell opts (tiers_card_opts_from_config) onto the slot cell's opts — the discovery tile IS a
+## slot cell, with the lower-right level medal carrying the tier (level_frac ← lvl_frac) and the marked-tier
+## sparkle wired through (mark_glow / mark_twinkle).
+static func _tiers_to_slot_opts(opts: Dictionary) -> Dictionary:
+	return {
+		"cell_w": float(opts.get("cell_w", 150.0)),
+		"cell_h": float(opts.get("cell_h", 150.0)),
+		"cell_art": bool(opts.get("cell_art", true)),
+		"content_frac": float(opts.get("piece_frac", 0.62)),   # the discovered piece, % of the cell
+		"level_frac": float(opts.get("lvl_frac", 0.44)),       # the tier medal, % of the cell
+		"mark_glow": float(opts.get("mark_glow", 0.6)),
+		"mark_twinkle": float(opts.get("mark_twinkle", 0.5)),
+		"calm": bool(opts.get("calm", false)),
+	}
 
 ## A GRID of tier cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
 ## daily grid but with square tiles and NO woven vines (just the cards). The cell size scales to fit `cols`
@@ -2388,7 +2312,6 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 	var co := opts.duplicate()
 	co["cell_w"] = cw
 	co["cell_h"] = cw * aspect
-	co["num_font"] = clampi(int(cw * 0.18), 12, 40)
 	var content := VBoxContainer.new()
 	content.add_theme_constant_override("separation", gap)
 	content.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2682,23 +2605,20 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return o
 
 ## The TIER-CELL opts from config — its own component (the discovery board's tile), read by both the card
-## preview and the discovery dialog. Fractional knobs (number position, content size, sparkle amounts) are
-## stored as PERCENTS for the integer sliders and divided here, mirroring ribbon_scale. The MARKED tier is
-## flagged by the shared engine sparkle (mark_glow / mark_twinkle), not a bespoke cell — so every state
-## shares one footprint. The tier number rides the home-unlock cost disc as a badge (num_badge).
+## preview and the discovery dialog. The discovery tile IS the shared slot cell (filled / locked), so these
+## map onto slot-cell opts in _tiers_to_slot_opts. Fractional knobs (content / medal size, sparkle amounts)
+## are stored as PERCENTS for the integer sliders and divided here. The MARKED tier is flagged by the shared
+## engine sparkle (mark_glow / mark_twinkle); the tier number rides the gold level medal docked lower-right
+## (show_num → the slot cell's level).
 static func tiers_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var tc: Dictionary = cfg.get("tiers_card", {})
 	return {
 		"cell_w": float(tc.get("cell_w", 150)),
 		"cell_h": float(tc.get("cell_h", 150)),
 		"cell_art": bool(tc.get("cell_art", true)),
-		"show_num": bool(tc.get("show_num", true)),
-		"num_font": int(tc.get("num_font", 26)),
-		"num_x": float(tc.get("num_x", 11)) / 100.0,         # number inset from the tile's left (% of cell)
-		"num_y": float(tc.get("num_y", 5)) / 100.0,          # ...and from its top
-		"num_badge": bool(tc.get("num_badge", true)),        # the number rides the cost-disc badge
-		"num_badge_scale": float(tc.get("num_badge_scale", 200)) / 100.0,  # disc diameter as a multiple of the font
-		"piece_frac": float(tc.get("piece_frac", 62)) / 100.0,   # the content's size as a fraction of the cell
+		"show_num": bool(tc.get("show_num", true)),              # the tier rides the lower-right level medal
+		"piece_frac": float(tc.get("piece_frac", 62)) / 100.0,   # the discovered piece, % of the cell
+		"lvl_frac": float(tc.get("lvl_frac", 44)) / 100.0,       # the tier medal, % of the cell
 		"mark_glow": float(tc.get("mark_glow", 60)) / 100.0,     # the marked tier's sparkle glow (0 = off)
 		"mark_twinkle": float(tc.get("mark_twinkle", 50)) / 100.0,  # ...and its drifting twinkles (0 = off)
 	}
@@ -2995,12 +2915,13 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ##                tap fires d.on_tap (buy / open). The bag's "next" maps here.
 ## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge,
 ## under the baked lock (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
-## level badge (board); d.dim (0..1) sets the cell's modulate alpha (the board's receded deep locks).
-## The piece is content-agnostic so the kit stays free of game deps: d.make_content(size) (a Callable
-## that builds the game's piece view at the FITTED size) wins, else d.content (a node), else d.icon (a
-## kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h. A code-drawn well
-## backs every state when the art is off/absent (the kit fallback law).
-## d keys: state|kind, make_content|content|icon, cost, level, dim, on_tap. opts: bag_card_opts_from_config(...).
+## level badge (board / discovery tier); d.marked (bool) → the engine sparkle over the well, under the
+## piece (the discovery ladder's tapped tier); d.dim (0..1) sets the cell's modulate alpha (the board's
+## receded deep locks). The piece is content-agnostic so the kit stays free of game deps: d.make_content
+## (size) (a Callable that builds the game's piece view at the FITTED size) wins, else d.content (a node),
+## else d.icon (a kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h. A
+## code-drawn well backs every state when the art is off/absent (the kit fallback law).
+## d keys: state|kind, make_content|content|icon, cost, level, marked, dim, on_tap. opts: bag_card_opts_from_config(...).
 static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var state := String(d.get("state", d.get("kind", "empty")))
 	if state == "next":
@@ -3047,6 +2968,17 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		p.add_theme_stylebox_override("panel", ss)
 		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(p)
+
+	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
+	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.
+	# The board + bag don't set this; the discovery cell does.
+	if bool(d.get("marked", false)):
+		var mglow := float(opts.get("mark_glow", 0.6))
+		var mtwinkle := float(opts.get("mark_twinkle", 0.5))
+		if mglow > 0.0 or mtwinkle > 0.0:
+			var msp := _sparkle_overlay(cw, mglow, mtwinkle, bool(opts.get("calm", false)))
+			msp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			tile.add_child(msp)
 
 	# filled — the piece, centred, built at the FITTED cell size (content-agnostic).
 	if state == "filled":
