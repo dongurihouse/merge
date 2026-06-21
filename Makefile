@@ -20,7 +20,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench ph pb test test-fast test-engine test-grove test-one smoke import bake-textures \
+.PHONY: help run run_debug run_grove editor workbench ph pb vine test test-fast test-engine test-grove test-one smoke import bake-textures \
         shot-map shot-grove shot shot-workbench shot-place \
         decor icon ios clean clean-cache intake intake-test
 
@@ -54,6 +54,9 @@ ph: ## drag-to-place on the HOME screen, then Save:  make ph
 
 pb: ## drag-to-place on the BOARD screen, then Save:  make pb
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=board
+
+vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
+	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).
