@@ -21,9 +21,9 @@
 		"content_frac": 62.0,
 		"cost_font": 26.0,
 		"cost_icon": 30.0,
-		"level_frac": 44,
-		"next_glow": 45,
-		"next_twinkle": 55
+		"level_frac": 44.0,
+		"next_glow": 45.0,
+		"next_twinkle": 55.0
 	},
 	"button": {
 		"art": true,
@@ -125,7 +125,7 @@
 	},
 	"level": {
 		"banner_text": "Level",
-		"btn_font": 22,
+		"btn_font": 38.0,
 		"frame_pad": 26.0,
 		"frame_slice": 56.0,
 		"frame_top_pad": 70.0,
