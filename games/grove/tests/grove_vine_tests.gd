@@ -2,13 +2,26 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · vine — VineMaps registry + spot derivation + VineMapView headless instantiation.
 
 const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
+const VineMapView = preload("res://games/grove/vine/vine_map_view.gd")
 
 func _initialize() -> void:
 	begin("grove · vine")
 	_test_registry()
 	_test_spot_derivation()
 	_test_maps_overlay()
+	_test_view_headless()
 	finish()
+
+func _test_view_headless() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, VineMaps.regions_for(e0))
+	ok(view.region_count() == 8, "VineMapView reports 8 regions for map1_farm")
+	view.set_region_enabled(0, false)   # must not error headless
+	view.set_region_enabled(0, true)
+	ok(view.get_node_or_null("RegionOverlays") != null, "VineMapView builds the per-region overlay tree")
+	view.queue_free()
 
 func _test_registry() -> void:
 	var entries := VineMaps.entries()
