@@ -7,6 +7,7 @@ class_name VineMapView
 const VINE_SHADER := "res://games/tools/vine_mask_tool/shaders/ominous_vines.gdshader"
 const SHADOW_SHADER := "res://games/tools/vine_mask_tool/shaders/vine_shadow.gdshader"
 const EMBER_SHADER := "res://games/tools/vine_mask_tool/shaders/vine_embers.gdshader"
+const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COMPONENT_THRESHOLD := 0.25
 
@@ -68,6 +69,7 @@ func set_calm(on: bool) -> void:
 	# reduced-motion: damp the time-driven shader terms (pulse/flow) toward 0 across all overlays.
 	_calm = on
 	if not on:
+		_apply_all_region_tuning()   # restore per-region pulse/flow that the calm-damp zeroed
 		return
 	for entry in region_overlays:
 		for key in ["shadow", "glow", "vines", "embers"]:
@@ -96,7 +98,7 @@ func _load_art(entry: Dictionary) -> void:
 	size = Vector2(image_size)
 
 func _image_size_for(entry: Dictionary) -> Vector2:
-	return load("res://games/grove/vine/vine_maps.gd").image_size_for(entry)
+	return VineMaps.image_size_for(entry)
 
 func _build_mask_image(map_data: Dictionary) -> Image:
 	var mode := String(map_data.get("mask_mode", ""))
@@ -342,8 +344,11 @@ func _create_region_overlays(force: bool) -> void:
 		parent.add_child(glow)
 		parent.add_child(vines)
 		parent.add_child(embers)
-		region_overlays.append({"shadow": shadow, "glow": glow, "vines": vines, "embers": embers, "enabled": bool((regions[region_index] as Dictionary).get("enabled", true))})
-		_set_region_enabled(region_index, bool((regions[region_index] as Dictionary).get("enabled", true)))
+		var enabled := true
+		if region_index < regions.size() and regions[region_index] is Dictionary:
+			enabled = bool((regions[region_index] as Dictionary).get("enabled", true))
+		region_overlays.append({"shadow": shadow, "glow": glow, "vines": vines, "embers": embers, "enabled": enabled})
+		_set_region_enabled(region_index, enabled)
 
 func _create_region_texture_rect(node_name: String, template_material: ShaderMaterial, region_index: int) -> TextureRect:
 	var rect := TextureRect.new()
