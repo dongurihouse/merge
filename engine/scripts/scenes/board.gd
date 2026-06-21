@@ -237,26 +237,16 @@ func _ready() -> void:
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
 
-	# the full-width bottom nav: Shop · Settings · [Home centre] · Bag · Merchant. Home is the
-	# single home affordance (the Leaf is retired) and sits centred + prominent — the way back to
-	# the Map/decorate hub. The Bag and Merchant are circular wells; the Merchant is the new
-	# drag-to-sell drop target (the fence stall is gone). shop_btn stays a member (§14 spotlight).
-	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the
-	# home/map screen uses, just fed different specs; the per-scene builder it used to duplicate is gone.
-	# Every button is the SHARED configurable home button (disc shell + icon). Shop/Settings/Home go through
-	# `home_icon`; the Bag + Merchant are still custom `make` wells (their drop-target role + live overlays),
-	# now built on the SAME home-button shell (_home_well) — house/bag/coin-sack icons lifted off the old
-	# baked nav buttons (extract_nav_icons.py) so they sit on the shared disc like the map's icons.
+	# the full-width bottom nav: Bag · [Home centre] · Merchant. Home is the single home affordance and
+	# sits centred + prominent — the way back to the Map/decorate hub. The Bag and Merchant are circular
+	# wells; the Merchant is the drag-to-sell drop target. Shop + Settings left the bottom bar: the shop
+	# opens from the top currency pills' "+", and Settings is the top-right gear in the shared HUD.
+	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the home/map
+	# screen uses. Home goes through `home_icon`; the Bag + Merchant are custom `make` wells (their
+	# drop-target role + live overlays), built on the SAME home-button shell (_home_well).
 	var nav := NavBar.build(self, [
-		# Shop — the currency store (unchanged action)
-		{"home_icon": "shop", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			if _open_shop.is_valid():
-				_open_shop.call()},
-		# Settings — the shared card the map's gear opens (ui/settings.gd)
-		{"home_icon": "gear", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			SettingsUI.open(self)},
+		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
+		{"make": func() -> Control: return _make_bag_button(140.0)},
 		# Home — the centre, prominent button; the single affordance back to the Map. Lands on the
 		# map you were LAST decorating (last_map), NOT the hub — empty on a fresh save → frontier.
 		{"home_icon": "house", "px": 184.0, "label": tr("Home"), "action": func() -> void:
@@ -264,15 +254,13 @@ func _ready() -> void:
 			_persist()
 			HomeScene.decorate_map = _decorate_target()
 			SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")},
-		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
-		{"make": func() -> Control: return _make_bag_button(140.0)},
 		# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)
 		{"make": func() -> Control: return _make_merchant_button(140.0)}])
 	bottom_bar = nav.row
-	shop_btn = nav.buttons[0] as Button       # §14 spotlight target
-	home_btn = nav.buttons[2] as Button       # lit when a spot is affordable (replaces the Decorate CTA)
-	bag_btn = nav.buttons[3] as Button
-	merchant_btn = nav.buttons[4] as Button
+	bag_btn = nav.buttons[0] as Button
+	home_btn = nav.buttons[1] as Button       # lit when a spot is affordable (replaces the Decorate CTA)
+	merchant_btn = nav.buttons[2] as Button
+	# shop_btn stays null now (no bottom-bar shop button) — the §14 shop spotlight guard skips on null.
 
 	_build_hud()
 	_build_water_hud()
@@ -514,7 +502,7 @@ func _gate_ready() -> bool:
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module, currencies in the same place everywhere)
-	var hud := Hud.build(self, {"water": true, "water_grant": func() -> void:
+	var hud := Hud.build(self, {"water_grant": func() -> void:
 		water = G.WATER_CAP
 		_update_water_hud()
 		_persist(),
@@ -522,32 +510,60 @@ func _build_hud() -> void:
 		# while the board is open — no scene reload needed for it to appear.
 		"piece_grant": func() -> void: _drain_shop_pieces(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self)})
+		"on_level": func() -> void: LevelPopup.open(self),
+		# Settings is a top-RIGHT gear in the shared HUD now (off the bottom bar) — opens the shared card.
+		"settings": func() -> void:
+			Audio.play("button_tap", -2.0)
+			SettingsUI.open(self)})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	stars_label = hud.stars
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; level is static here)
 	_wallet_panel = hud.wallet       # the shared cluster
-	water_label = hud.water          # water pair is built by the shared HUD now (one path with the map)
-	_water_icon = hud.water_icon     # the icon node, so FTUE can hide the water icon + label together
-	_open_shop = hud.open_shop       # the bottom-bar shop button opens it
+	# water left the top-center currency cluster (it's ★/coin/gem now) — the board owns its own always-on
+	# water meter (top-left, below the Lv badge); water_label / _water_icon are bound in _build_water_hud.
+	_open_shop = hud.open_shop       # the currency pills' "+" buttons open it
 	_update_hud()
 
-# water lives in the shared currency cluster (top-right) next to the other
-# currencies — no second row (owner 2026-06-13). The refill OFFER stays a separate
-# button, shown only when empty.
+# Water is the board's ENERGY, so it stays on the board screen even though it left the top-center
+# currency cluster (that's ★/coin/gem now): the board owns an always-on water meter pinned top-LEFT,
+# just below the Lv badge, with the empty-water REFILL stack appearing right under it when water runs out.
 func _build_water_hud() -> void:
-	# The water icon + count live in the shared currency cluster now (built by Hud.build via opts.water
-	# — ONE path with the map; the refs come back as hud.water / hud.water_icon, bound in _build_hud).
-	# This builds only the board-specific empty-water REFILL stack.
-	# T43: the empty-water surfaces live in a vertical stack under the Lv chip, shown only
+	var safe_top := Look.safe_top(self)
+	# the always-visible water meter: the SAME painted capsule the currency pills use (one recipe), with a
+	# droplet + the live count. Pinned below the 130px Lv badge so it never overlaps it.
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var water_top := 16.0 + safe_top + 130.0 + 12.0
+	var wpill := PanelContainer.new()
+	if Kit != null:
+		wpill.add_theme_stylebox_override("panel", Kit.currency_pill_style(Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))))
+	wpill.custom_minimum_size.y = 58.0
+	wpill.offset_left = 16.0
+	wpill.offset_top = water_top
+	add_child(wpill)
+	var wrow := HBoxContainer.new()
+	wrow.add_theme_constant_override("separation", 4)
+	wrow.alignment = BoxContainer.ALIGNMENT_CENTER
+	wpill.add_child(wrow)
+	var wbox := CenterContainer.new()           # the droplet icon, in a fixed box (= _water_icon, toggled by FTUE)
+	wbox.custom_minimum_size = Vector2(40, 40)
+	wbox.add_child(Look.icon("water", 40.0))
+	wrow.add_child(wbox)
+	_water_icon = wbox
+	water_label = Label.new()
+	water_label.add_theme_font_size_override("font_size", 34)
+	water_label.add_theme_color_override("font_color", Pal.INK)
+	water_label.add_theme_constant_override("outline_size", 0)
+	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	wrow.add_child(water_label)
+	# T43: the empty-water surfaces live in a vertical stack just below the meter, shown only
 	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded
 	# WATCH-AD refill (capped) and the cozy out-of-water OFFER, each shown only when live.
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
-	_refill_stack.offset_top = 16.0 + Look.safe_top(self) + 84.0
+	_refill_stack.offset_top = water_top + 70.0
 	_refill_stack.visible = false
 	add_child(_refill_stack)
 	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
@@ -1226,16 +1242,11 @@ func _home_well(px: float, icon_id: String, fallback_art: String) -> Button:
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
 	var b := _home_well(px, "bag", "nav_bag.png")     # the home-button disc + the lifted satchel icon
-	bag_content = CenterContainer.new()        # CENTERS the most-recent stashed item over the satchel
-	bag_content.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var pad := px * 0.30
-	bag_content.offset_left = pad
-	bag_content.offset_top = pad
-	bag_content.offset_right = -pad
-	bag_content.offset_bottom = -pad
-	bag_content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bag_piece_px = px * 0.40                    # small preview that rides on the satchel body
-	b.add_child(bag_content)
+	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
+	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
+	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
+	bag_content = b.get_meta("icon_wrap") if b.has_meta("icon_wrap") else null
+	bag_piece_px = float(b.get_meta("icon_px", px * 0.5))   # match the satchel icon box so the item FILLS it
 	b.pressed.connect(_open_bag_overlay)
 	return b
 
@@ -1814,16 +1825,22 @@ func _retrieve_from_bag(i: int, cell: Vector2i) -> bool:
 func _build_bag_bar() -> void:
 	_rebuild_bag()   # the bag is a single bottom-nav well now; just refresh it
 
-# Refresh the bottom-nav Bag well: show the most-recent stashed item in the circle (empty when the
-# bag is empty) and a count pill when more than one is held.
+# Refresh the bottom-nav Bag well by SWAPPING the disc's icon: the most-recent stashed item replaces
+# the satchel glyph (filled), and the satchel is restored when the bag empties. bag_content IS the
+# home-button's icon wrapper (a CenterContainer), so the swapped sprite sits exactly where the satchel did.
 func _rebuild_bag() -> void:
 	if bag_content == null or not is_instance_valid(bag_content):
 		return
 	for c in bag_content.get_children():
 		c.queue_free()
-	if not bag.is_empty():
-		# the most-recent stashed item, sized to fit the well and CENTERED (bag_content is a
-		# CenterContainer) — never stretched to fill, which over-scaled the art past the slot.
+	if bag.is_empty():
+		# empty → restore the satchel glyph (the same workbench-tuned kit icon the disc shipped with)
+		var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+		if Kit != null:
+			bag_content.add_child(Kit.make_icon("bag", bag_piece_px))
+	else:
+		# filled → the most-recent stashed item, sized to FILL the disc's icon box (a true swap, not a
+		# tiny preview riding on top of the satchel).
 		bag_content.add_child(_make_piece(int(bag[bag.size() - 1]), bag_piece_px))
 
 # §5 drag-back: a press on a FILLED bag slot lifts a preview that follows the cursor; releasing
@@ -2218,8 +2235,8 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 	if not Features.on("discovery_ladder") or not G.LINES.has(line):
 		return
 	# Wave 3: the ladder modal lives in ui/ladder.gd; the open-gate + data stay here.
+	# The dialog header is a fixed "Tiers" (set in ladder.gd) — no internal line name passed.
 	Ladder.open(self, {
-		"title": tr(String(G.LINES[line].name)),
 		"entries": _ladder_entries(line),
 		"mark_tier": mark_tier,
 	})

@@ -85,7 +85,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
-var _shop_btn: Button            # the Store nav button — kept as the anchor for the Store "new offer" badge
+var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's coin pill (shop's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var stars_label: Label
@@ -1103,21 +1103,25 @@ func _build_hud() -> void:
 	# redundant here and the level ring stands alone (item 2; the board still passes
 	# `home` since its nav legitimately returns to the map).
 	var hud := Hud.build(self, {
-		# the hub surfaces the board's water energy in the top-right currency bar (the board adds its
-		# own water entry, so only the map opts in here).
-		"water": true,
+		# water left the top bar (it's the board's energy — shown on the board, not the hub); the wallet
+		# is ★/coin/gem only here. `water_grant` stays for the shop's water-pack buy callback.
 		"water_grant": func() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP
 			Save.grove_write(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self)})
+		"on_level": func() -> void: LevelPopup.open(self),
+		# Settings is the top-right gear in the shared HUD now (off the bottom bar) — opens the shared card.
+		"settings": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_settings()})
 	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
 	_open_shop = hud.open_shop
 	_hud_panels = [hud.wallet, hud.lv_panel]
+	_shop_btn = hud.coin_plus        # the Store "new offer" badge rides the coin pill's "+" (the shop entry)
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():
@@ -1129,46 +1133,36 @@ func _update_hud() -> void:
 func _build_chrome() -> void:
 	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
 	# board sizing — side buttons 140, the centred primary (Play) 184 — so the two screens' bottom bars
-	# match. Order: Settings · Shop · [Play] · Map · Piggy, with PLAY in the CENTRE (3rd of 5), mirroring
-	# the board's centred Home and home.png. PLAY is the way into the garden/board (the prominent leaf
-	# that replaced the old wide "Enter Garden ▶" CTA). The Store "new offer" badge rides the Shop button
-	# (_shop_btn anchor); the piggy bank rides the bottom bar (home.png) with its ready-pip.
+	# match. Order: Map · [Play] · Piggy, with PLAY in the CENTRE (2nd of 3), mirroring the board's centred
+	# Home. PLAY is the way into the garden/board (the prominent leaf). Shop + Settings left the bottom bar:
+	# the shop opens from the top currency pills' "+", and Settings is the top-right gear in the shared HUD.
 	var sb := Look.safe_bottom(self)
-	# The four flanking buttons are the SHARED configurable home button (disc shell + icon, tuned in the
+	# The flanking buttons are the SHARED configurable home button (disc shell + icon, tuned in the
 	# workbench — `home_icon`); only the CENTRE Play stays the prominent baked leaf (the primary CTA).
 	var nav := NavBar.build(self, [
-		# Settings — the shared music/sounds/calm card (ui/settings.gd).
-		{"home_icon": "gear", "px": 140.0, "label": tr("Settings"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_settings()},
-		# Shop — the shared currency store (the wallet's open_shop closure).
-		{"home_icon": "shop", "px": 140.0, "label": tr("Shop"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			if _open_shop.is_valid():
-				_open_shop.call()},
-		# Play — the CENTRE, prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
-		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board},
 		# Map — the place-picker (atlas).
 		{"home_icon": "map", "px": 140.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_select()},
+		# Play — the CENTRE, prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
+		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board},
 		# Piggy bank — the diegetic accrual-vault, on the bottom bar (home.png). Its claimable ready-pip
 		# rides this button (driven by _refresh_piggy_pip → Vault.claimable()).
 		{"home_icon": "piggy", "px": 140.0, "label": tr("Vault"), "action": _open_vault}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	# the Store-badge anchor = the Shop button (index 1).
-	_shop_btn = nav.buttons[1]
-	# the Play leaf breathes so the way to the board reads as the primary action (centre, index 2).
-	FX.breathe_once(nav.buttons[2])
-	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer)
+	# the Play leaf breathes so the way to the board reads as the primary action (centre, index 1).
+	FX.breathe_once(nav.buttons[1])
+	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer).
+	# It rides the wallet's coin pill now (_shop_btn = hud.coin_pill, set in _build_hud) — the shop's + entry.
 	_store_badge = Look.badge("dot")
-	Look.attach_badge(_shop_btn, _store_badge)
+	if _shop_btn != null and is_instance_valid(_shop_btn):
+		Look.attach_badge(_shop_btn, _store_badge)
 	_refresh_store_badge()
-	# the piggy's claimable ready-pip rides the bottom-bar piggy button (index 4).
+	# the piggy's claimable ready-pip rides the bottom-bar piggy button (index 2).
 	_piggy_pip = Look.badge("dot")
-	Look.attach_badge(nav.buttons[4], _piggy_pip)
+	Look.attach_badge(nav.buttons[2], _piggy_pip)   # Piggy is the 3rd of 3 now (Map · Play · Piggy)
 	_refresh_piggy_pip()
 	# the LiveOps rail: Daily · Free · Inbox, pinned TOP-right below the wallet (home.png). The map's
 	# restore progress (and its completion gift) rides the top progress pill, so there's no above-CTA strip.

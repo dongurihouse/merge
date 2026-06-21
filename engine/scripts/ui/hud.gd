@@ -29,66 +29,60 @@ const STRAW = Pal.STRAW
 # both the live pill and the UI Workbench preview share one recipe). The slot is pinned ≥ the cap
 # height so the rounded ends always draw 1:1 and never crush into a thin border (T48 failure mode).
 const PILL_SLOT_H := 65.0
+# The wallet is THREE separate capsules centred across the top (board2.png); PILL_GAP is the gap
+# between them. The settings gear is a top-right disc (GEAR_PX square) matching the nav buttons.
+const PILL_GAP := 12.0
+const GEAR_PX := 110.0
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
 	var Kit = load(KIT_PATH)
-	var pill: Dictionary = Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var panel := PanelContainer.new()
-	panel.anchor_left = 1.0
-	panel.anchor_right = 1.0
-	panel.offset_right = -Tune.EDGE_MARGIN
-	panel.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
-	panel.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	# R1: the plank must visibly WRAP the whole cluster with EVEN padding.
-	# (The old dark chip nine-patch was an asymmetric pill thinner than the layout rect —
-	# on this short strip even layout padding read as lopsided and the tall icons spilled
-	# past the opaque band; that widget is now retired entirely, T48.) A clean wood-tone
-	# pill makes layout padding == visual padding (so the rect asserts below match what the
-	# eye sees), and fully contains the row.
-	panel.add_theme_stylebox_override("panel", Kit.currency_pill_style(pill))
-	# pin the slot ≥ the nine-patch cap height so the painted capsule's rounded gold ends
-	# always draw 1:1 and never crush into a thin border (T48 failure mode).
-	panel.custom_minimum_size.y = PILL_SLOT_H
-	var row := HBoxContainer.new()
-	# The row's uniform separation IS the tight icon↔number gap; the WIDER gap BETWEEN
-	# currencies comes from explicit spacer Controls (so every pair shares one centerline
-	# and the numbers align). Keeping every icon/number/+ a DIRECT child of `row` is also a
-	# contract: scenes resolve the wallet panel as stars_label.get_parent().get_parent().
-	row.add_theme_constant_override("separation", int(pill.row_sep))
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(row)
-	# The wallet cluster owns currencies only. Lv stays in the standalone top-left HUD row;
-	# HOME joins that row only when a scene passes it as navigation chrome.
-	var shop_opts := opts.duplicate()
-	var open_store := func() -> void: Shop.open(host, shop_opts)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var pill: Dictionary = Kit.currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned shared square icon box
-	var pair_gap := float(pill.pair_sep) - float(pill.row_sep)   # spacer width = pair gap minus the row's own sep
-	var stars := _pair(row, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, false, open_store, num_size, icon_box)
-	_spacer(row, pair_gap)
-	var coins := _pair(row, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, false, open_store, num_size, icon_box)
-	_spacer(row, pair_gap)
-	var gems := _pair(row, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, false, open_store, num_size, icon_box)
-	# Optional WATER pair (opts.water) — the top-right water readout. BOTH the map and the board opt
-	# in, so the wallet is built through ONE path; the board additionally owns the refill stack (its
-	# water is live) and binds it to the `water` / `water_icon` refs returned below. Returns the icon
-	# node too so the board's FTUE can hide the water icon+label together until the intro pops are spent.
-	var water_lbl: Label = null
-	var water_icon: Control = null
-	if bool(opts.get("water", false)):
-		_spacer(row, pair_gap)
-		water_lbl = _pair(row, "water", Tune.GEM_ICON, 1.0, Color.WHITE, false, open_store, num_size, icon_box)
-		water_icon = row.get_child(row.get_child_count() - 2)   # the _icon_box _pair added just before the label
-	# the whole currency pill is the acquire affordance now — a tap anywhere on it opens the
-	# store (the per-currency "+" buttons are retired; they bloated the pill + skewed its padding).
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	panel.gui_input.connect(func(ev: InputEvent) -> void:
-		var click: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
-			or (ev is InputEventScreenTouch and not ev.pressed)
-		if click and open_store.is_valid():
-			open_store.call())
-	host.add_child(panel)
+	# The wallet is THREE separate capsules (★ coin gem) centred across the TOP, each with its own green
+	# "+" that opens the store (board2.png). The store opens through the +'s Button.pressed — which the
+	# engine de-dupes against the emulated touch/mouse pair, so one tap opens it ONCE. (The old whole-pill
+	# gui_input fired on BOTH the real mouse release AND the emulated touch release under
+	# emulate_touch_from_mouse, opening the shop twice → it then had to be closed twice.)
+	var shop_opts := opts.duplicate()
+	var open_store := func() -> void: Shop.open(host, shop_opts)
+	var cluster := HBoxContainer.new()
+	cluster.anchor_left = 0.5
+	cluster.anchor_right = 0.5
+	cluster.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	cluster.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
+	cluster.add_theme_constant_override("separation", int(PILL_GAP))
+	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+	host.add_child(cluster)
+	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
+	# contract scenes/tests rely on: stars_label.get_parent() == row, row.get_parent() == the pill panel.
+	var star_pill := _pill(cluster, Kit, pill, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, num_size, icon_box, open_store)
+	var coin_pill := _pill(cluster, Kit, pill, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_store)
+	var gem_pill := _pill(cluster, Kit, pill, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_store)
+	var stars: Label = star_pill.label
+	var coins: Label = coin_pill.label
+	var gems: Label = gem_pill.label
+
+	# the optional top-RIGHT settings gear (board2.png), built from the SAME workbench-tuned disc the nav
+	# buttons use so it matches them. Scenes pass `settings` (open the shared Settings card); absent → no gear.
+	var gear: Button = null
+	var settings_cb: Variant = opts.get("settings")
+	if settings_cb is Callable and (settings_cb as Callable).is_valid():
+		var gopts: Dictionary = Kit.home_button_opts_from_config(cfg)
+		gopts["px"] = GEAR_PX
+		gear = Kit.home_button({"icon": "gear", "caption": "", "action": settings_cb}, gopts)
+		var gtop := Tune.EDGE_MARGIN + Look.safe_top(host)
+		gear.anchor_left = 1.0
+		gear.anchor_right = 1.0
+		gear.anchor_top = 0.0
+		gear.anchor_bottom = 0.0
+		gear.offset_left = -GEAR_PX - Tune.EDGE_MARGIN
+		gear.offset_right = -Tune.EDGE_MARGIN
+		gear.offset_top = gtop
+		gear.offset_bottom = gtop + GEAR_PX
+		host.add_child(gear)
 
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
 	# from the wallet; the level badge is player status, not currency.
@@ -140,14 +134,16 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	host.add_child(left)
 
 	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
-	var out := {"stars": stars, "coins": coins, "diamonds": gems, "water": water_lbl, "water_icon": water_icon,
-		"level": level, "wallet": panel, "lv_panel": lv_panel}
+	# `wallet` is the centred 3-pill cluster (the container scenes raise above the shop backdrop); the
+	# per-pill panels are returned too so the shop targets buy feedback + the map anchors its Store badge.
+	var out := {"stars": stars, "coins": coins, "diamonds": gems,
+		"level": level, "wallet": cluster, "lv_panel": lv_panel, "gear": gear,
+		"star_pill": star_pill.panel, "coin_pill": coin_pill.panel, "gem_pill": gem_pill.panel,
+		"star_plus": star_pill.plus, "coin_plus": coin_pill.plus, "gem_plus": gem_pill.plus}
 	var refresh := func() -> void:
 		_set_or_tick(stars, Save.stars())
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
-		if water_lbl != null:
-			_set_or_tick(water_lbl, int(Save.grove().get("water", G.WATER_CAP)))
 		var earned := int(Save.grove().get("stars_earned", 0))
 		var lvl := G.level_for_stars(earned)
 		_set_or_tick(level, lvl)
@@ -165,24 +161,37 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
 	# buttons and the bottom-bar store tick the wallet after a purchase.
 	shop_opts["refresh"] = refresh
-	# The shop drops its own (redundant) currency strip and reuses THIS bar as the wallet:
-	# pass the cluster pill + labels so buy feedback (fly-home / tick / "need more" wobble)
-	# targets it, and both pills so the shop can RAISE them crisp above its blurred backdrop.
+	# The shop drops its own (redundant) currency strip and reuses THIS bar as the wallet: pass each
+	# pill + label so buy feedback (fly-home / tick / "need more" wobble) targets the right capsule, and
+	# the top-bar panels so the shop can RAISE them crisp above its blurred backdrop. The shop only raises
+	# DIRECT children of host, so we pass the CLUSTER (the pills' parent) — raising it lifts all 3 pills.
+	var raise_panels: Array = [cluster, lv_panel]
+	if gear != null:
+		raise_panels.append(gear)
 	shop_opts["wallet"] = {
-		"coin": {"node": panel, "label": coins},
-		"gem": {"node": panel, "label": gems},
-		"panels": [panel, lv_panel],
+		"coin": {"node": coin_pill.panel, "label": coins},
+		"gem": {"node": gem_pill.panel, "label": gems},
+		"panels": raise_panels,
 	}
 	out["open_shop"] = open_store   # currency item 2: same Shop.open(host, shop_opts), shared with the + buttons
 	refresh.call()
 	return out
 
-# One currency pair: a fixed icon BOX (so all three share a centerline) + the number, and
-# optionally a small "+" acquire button that opens the store. The icon, number, and + are all
-# DIRECT children of `row` (the wallet-resolution contract: stars_label.get_parent() == row),
-# so the wider gap BETWEEN currencies comes from _spacer, never an inner container.
-static func _pair(row: HBoxContainer, icon_id: String, gsize: int, optical: float,
-		tint: Color, plus: bool, open_store: Callable, num_size: int, box: float) -> Label:
+# One currency CAPSULE: the workbench-styled pill wrapping a fixed icon BOX + the number + a green "+"
+# that opens the store. Added to `cluster`; returns {panel, label}. The icon, number, and + are DIRECT
+# children of an inner `row` — the wallet-resolution contract: label.get_parent() == row, and
+# row.get_parent() == the pill PanelContainer (scenes/tests resolve the pill as label.get_parent().get_parent()).
+static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
+		optical: float, tint: Color, num_size: int, box: float, open_store: Callable) -> Dictionary:
+	var panel := PanelContainer.new()
+	# the same painted capsule the workbench tunes (one recipe; T48 cap-height slot keeps the gold ends 1:1)
+	panel.add_theme_stylebox_override("panel", Kit.currency_pill_style(pill))
+	panel.custom_minimum_size.y = PILL_SLOT_H
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(pill.row_sep))   # the tight icon↔number↔+ gap
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_child(row)
 	row.add_child(_icon_box(icon_id, gsize, optical, tint, box))
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", num_size)
@@ -191,9 +200,12 @@ static func _pair(row: HBoxContainer, icon_id: String, gsize: int, optical: floa
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
-	if plus:
-		row.add_child(_plus_button(open_store))
-	return lbl
+	var plus := _plus_button(open_store)      # the green "+" — opens the store via Button.pressed (de-duped)
+	row.add_child(plus)
+	cluster.add_child(panel)
+	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it — the pill PANEL is a
+	# PanelContainer, which would force-fill any badge child into a bar (the map's Store badge rides the + now).
+	return {"panel": panel, "label": lbl, "plus": plus}
 
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
@@ -240,14 +252,6 @@ static func _plus_button(open_store: Callable) -> Button:
 	if open_store.is_valid():
 		b.pressed.connect(func() -> void: open_store.call())
 	return b
-
-# A fixed-width invisible gap BETWEEN currency pairs (the row's own separation is the tight
-# icon↔number gap; this widens only pair↔pair while every node stays a direct row child).
-static func _spacer(row: HBoxContainer, gap: float) -> void:
-	var s := Control.new()
-	s.custom_minimum_size = Vector2(gap, 0)
-	s.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(s)
 
 # HOME — its own pinned chip (a cream pill matching the HUD language), placed to the right of
 # the Lv chip in the shared left row. Pulled OUT of the wallet pill so nav ≠ currency. Returns

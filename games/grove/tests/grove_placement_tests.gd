@@ -10,18 +10,19 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
-	# the board-art nav is a slab-less FULL-WIDTH ROW of 5 painted buttons (bottom_bar IS the row),
-	# now interleaved with expanding spacers for even edge-to-edge spacing — so count the Button
-	# children (not raw children) and check the row + its buttons sit on-screen, not a wrapping plank.
+	# the board-art nav is a slab-less FULL-WIDTH ROW of 3 painted buttons (bottom_bar IS the row):
+	# Bag · Home · Merchant. Shop + Settings left the bottom bar — the shop opens from the top currency
+	# pills' "+", and Settings is the top-right HUD gear. Buttons interleave with expanding spacers, so
+	# count the Button children (not raw children) and check the row + its buttons sit on-screen.
 	ok(vp.encloses(ss.bottom_bar.get_global_rect()), "S1: the bottom nav sits fully on-screen")
 	var nav_btns: Array = ss.bottom_bar.get_children().filter(func(c): return c is Button)
-	ok(nav_btns.size() == 5, "S1: the nav row holds 5 painted buttons (home·shop·leaf·gear·bag)")
+	ok(nav_btns.size() == 3, "S1: the nav row holds 3 painted buttons (bag·home·merchant)")
 	var board_mat: Control = ss.board_area.get_child(0)
 	ok(board_mat.get_global_rect().position.y >= ss.giver_bar.get_global_rect().end.y, \
 		"S1: the board frame starts below the quest strip and does not cut off ready cards")
 	ok(not board_mat.get_global_rect().intersects(ss.bottom_bar.get_global_rect()), \
 		"S1: the board frame reserves its full height and stays clear of the bottom nav")
-	var bb_home: Control = nav_btns[0]
+	var bb_home: Control = ss.home_btn       # the centred Home button (Bag · Home · Merchant)
 	ok(vp.encloses(bb_home.get_global_rect()), "S1: the Home button sits fully on-screen")
 	# Home → the map you were last on (NOT hard-wired to the hub): the nav Home button and the
 	# Decorate/gate handoff share ONE target = the persisted last_map (empty on a fresh save, so
@@ -30,8 +31,10 @@ func _initialize() -> void:
 	ok(ss._decorate_target() == "barn", "Home/Decorate target the LAST played map, not the hub")
 	Save.grove().erase("last_map")
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
-	var bb_shop: Control = ss.shop_btn
-	ok(vp.encloses(bb_shop.get_global_rect()), "S1: the shop button sits fully on-screen")
+	# Shop is no longer a bottom-bar button (it opens from the top currency pills' "+"); the Bag +
+	# Merchant wells are the remaining flanking targets and stay fully on-screen.
+	ok(vp.encloses(ss.bag_btn.get_global_rect()) and vp.encloses(ss.merchant_btn.get_global_rect()), \
+		"S1: the Bag + Merchant wells sit fully on-screen")
 	# Bag + Merchant are now the SHARED home-button disc (Home·Bag·Merchant on one disc): the round
 	# target is painted by the button's `normal` StyleBox — a textured disc, or the kit's flat
 	# cream-disc fallback (same metrics either way) — with the satchel/coin-sack centred as the icon.
@@ -97,8 +100,8 @@ func _initialize() -> void:
 	var vp2: Rect2 = ss.get_viewport_rect()
 	ok(absf(vp2.size.y - 2340.0) < 2.0, "S1: viewport actually grew to the tall aspect (got %.0f)" % vp2.size.y)
 	ok(vp2.encloses(ss.bottom_bar.get_global_rect()), "S1: bottom nav fully on-screen at 1080×2340")
-	ok(vp2.encloses(ss.shop_btn.get_global_rect()), \
-		"S1: the shop button stays on-screen at 1080×2340")
+	ok(vp2.encloses(ss.bag_btn.get_global_rect()), \
+		"S1: the Bag well stays on-screen at 1080×2340")
 	get_root().size = Vector2i(1080, 1920)
 	await create_timer(0.06).timeout
 

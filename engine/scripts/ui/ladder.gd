@@ -27,7 +27,6 @@ static func open(host: Control, opts: Dictionary) -> void:
 	if Kit == null:
 		push_warning("Ladder: ui kit missing at %s" % KIT_PATH)
 		return
-	var title: String = opts.title
 	var entries: Array = opts.entries
 	var mark_tier: int = opts.mark_tier
 	Audio.play("button_tap", -4.0)
@@ -59,7 +58,9 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# make_content lets the kit build each discovered tile's piece at the cell size IT computes, so this
 	# file never touches layout — it just renders the merge piece for a code.
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
-	dopts["banner_text"] = host.tr(title)
+	# The dialog header is always just "Tiers" — the internal line name (e.g. "clover") is implementation
+	# detail, not player-facing copy. The tapped line is already obvious from the pieces on the ladder.
+	dopts["banner_text"] = host.tr("Tiers")
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		return PieceView.make_piece(int(d.get("code", 0)), px)
 	dopts["on_close"] = func() -> void:

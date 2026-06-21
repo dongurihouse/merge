@@ -851,12 +851,25 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon_px := px * float(opts.get("icon_scale", 0.5))
-	# icon_rel (a direct kit-relative png) wins over the icon id — same polish + square layout either way.
+	# A caller-supplied `icon_node` (any Control) wins outright — the Bag well passes the most-recent
+	# stashed item's piece view so the disc shows the held item INSTEAD of the satchel (a true swap, not a
+	# tiny overlay). Otherwise icon_rel (a direct kit-relative png) wins over the icon id — same polish +
+	# square layout either way.
 	var icon_rel := String(spec.get("icon_rel", ""))
-	var icon_node: Control = _icon_rect(clean_tex_path(Look.kit(icon_rel), 192), icon_px) if icon_rel != "" else make_icon(String(spec.get("icon", "")), icon_px)
+	var icon_node: Control
+	if spec.get("icon_node") is Control:
+		icon_node = spec.get("icon_node")
+	elif icon_rel != "":
+		icon_node = _icon_rect(clean_tex_path(Look.kit(icon_rel), 192), icon_px)
+	else:
+		icon_node = make_icon(String(spec.get("icon", "")), icon_px)
 	if icon_node != null:
 		icwrap.add_child(icon_node)
 	b.add_child(icwrap)
+	# expose the icon wrapper + its sizing so a caller can swap the icon in place later (the Bag well
+	# replaces the satchel with the stashed item, and restores it when emptied) without rebuilding the button.
+	b.set_meta("icon_wrap", icwrap)
+	b.set_meta("icon_px", icon_px)
 	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
 	var caption := String(spec.get("caption", ""))
 	if caption != "":
