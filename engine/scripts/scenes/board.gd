@@ -47,7 +47,8 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const BOTTOM_BAR_H := 150.0      # the board bottom bar height (Bag · info bar · Home)
+const BOTTOM_BAR_H := 166.0      # the board bottom bar height (Bag · info bar · Home) — grown with the ~10%-bigger wells (#5)
+const BOTTOM_BTN_PX := 130.0     # #5: the Bag/Home wells + the info bar share this height (~10% bigger than the old 118)
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
@@ -223,7 +224,7 @@ func _ready() -> void:
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
 	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
 	# so the height budget reserves only the frame overhang + the fence/nav rows.
-	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	var h_csz := (view.y - 536.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within the available space — the
 	# in-game "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
 	csz = minf(w_csz, h_csz) * _board_scale
@@ -266,9 +267,9 @@ func _ready() -> void:
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(bar)
 	bottom_bar = bar
-	bar.add_child(_build_bag_box(118.0))           # left: the Bag well + the x/y count
-	bar.add_child(_build_info_bar())               # centre: the selected-item info bar (expands)
-	home_btn = _home_nav_button(118.0)             # right: the Home disc (lit when a spot is affordable)
+	bar.add_child(_build_bag_box(BOTTOM_BTN_PX))   # left: the Bag well + the x/y count
+	bar.add_child(_build_info_bar(BOTTOM_BTN_PX))  # centre: the selected-item info bar (expands), height-matched to the wells
+	home_btn = _home_nav_button(BOTTOM_BTN_PX)     # right: the Home disc (lit when a spot is affordable)
 	bar.add_child(home_btn)
 	_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
@@ -810,52 +811,42 @@ func _show_purge_card() -> bool:
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
 	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
-	# the card art, sized to the SAME native aspect a giver card uses, so it sits flush in the row
-	var artR := 369.0 / 209.0
-	var cardH := FENCE_H * 0.86
-	var cardW := cardH * artR
-	if cardW > stand_w * 0.98:
-		cardW = stand_w * 0.98
-		cardH = cardW / artR
+	# #1: size + frame the card EXACTLY like a giver card — the SAME card_w/card_h fractions and the SAME
+	# 9-slice wood frame (GiverStand._quest_card) — so the Purge slot sits flush with the quest cards at
+	# the same height (no more shorter, aspect-locked card).
+	var L := _giver_lay()
+	var cardW := stand_w * float(L.card_w)
+	var cardH := FENCE_H * float(L.card_h)
 	var cx := (stand_w - cardW) / 2.0
 	var cy := (FENCE_H - cardH) / 2.0
-	var p := Look.kit("quest/card_quest.png")
-	var card: Control
-	if ResourceLoader.exists(p):
-		var t := TextureRect.new()
-		t.texture = load(p)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_SCALE
-		card = t
-	else:
-		card = Panel.new()
+	var card := GiverStand._quest_card(cardW, cardH, L)
 	card.position = Vector2(cx, cy)
 	card.size = Vector2(cardW, cardH)
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	stand.add_child(card)
-	# the padlock, centred a touch high so the "Purge" badge clears it below
-	var lock_px := cardH * 0.46
+	# the padlock, centred a touch high so the green button clears it below
+	var lock_px := cardH * 0.40
 	var lock := Look.icon("lock", lock_px)
 	lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lock.position = Vector2(cx + cardW * 0.5 - lock_px / 2.0, cy + cardH * 0.34 - lock_px / 2.0)
+	lock.position = Vector2(cx + cardW * 0.5 - lock_px / 2.0, cy + cardH * 0.30 - lock_px / 2.0)
 	stand.add_child(lock)
-	# the "Purge" badge near the card's center-bottom (the shared cream ask-pill + a label)
-	var badge := GiverStand.ask_pill()
-	badge.offset_top = cy + cardH * 0.64
-	var plbl := Label.new()
-	plbl.text = tr("Purge")
-	plbl.add_theme_font_size_override("font_size", int(cardH * 0.16))
-	plbl.add_theme_color_override("font_color", Pal.INK)
-	plbl.add_theme_constant_override("outline_size", 0)
-	plbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	badge.add_child(plbl)
-	stand.add_child(badge)
-	# tap → go HOME (persist + jump to the Map) to unlock more regions
-	_stand_tap(stand, func() -> void:
+	# #2: the "Purge" CTA is the shared GREEN primary button (Look.button primary) — the same leaf-green
+	# pill + cream label as every other CTA in the grove. Tapped → go HOME (persist + jump to the Map) to
+	# unlock more regions. The button IS the affordance now (the old whole-card tap + cream pill are gone).
+	var purge_go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
 		HomeScene.decorate_map = _decorate_target()
-		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
+		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
+	var btn := Look.button(tr("Purge"), purge_go, true)
+	btn.add_theme_font_size_override("font_size", int(cardH * 0.15))
+	btn.custom_minimum_size = Vector2(cardW * 0.6, 0.0)
+	stand.add_child(btn)
+	# centre the green pill near the card's lower third (driven by resized — its size settles after layout)
+	var place_btn := func() -> void:
+		if is_instance_valid(btn):
+			btn.position = Vector2(cx + cardW * 0.5 - btn.size.x / 2.0, cy + cardH * 0.64 - btn.size.y / 2.0)
+	btn.resized.connect(place_btn)
+	place_btn.call()
 	return stand
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
@@ -878,7 +869,8 @@ func _stand_tap(stand: Control, action: Callable) -> void:
 # the coordinator still owns the quests + delivery and wires the stand's taps back.
 func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dictionary:
 	var cfg := {
-		"ask_tap": _open_ladder,        # an ask icon tapped -> open its tier ladder
+		"ask_tap": _open_ladder,        # an ask icon tapped while NOT ready -> open its tier ladder
+		"item_tap": _on_item_tap,       # an ask icon tapped -> claim if ready, else open the ladder (#3)
 		"stand_tap": _on_giver_tap,     # the stand tapped -> try to deliver
 		"wire_tap": _stand_tap,         # still-release tap (also resets the idle hint)
 		"stand_w": stand_w, "fence_h": FENCE_H,
@@ -886,10 +878,20 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 	# the giver-card LAYOUT is tuned in the UI workbench and SAVED to its config (the quest_card block);
 	# read it the SAME way every other element does — soft-load the game-tool kit (engine → game bridge).
 	# Absent kit / empty block → GiverStand falls back to its baked-in LAY, so nothing changes until saved.
+	cfg["lay"] = _giver_lay()
+	return GiverStand.make(qi, q, cfg)
+
+# The resolved giver-card layout: GiverStand's baked defaults with the workbench config (the quest_card
+# block) merged over them. Shared by the giver stands AND the Purge card (#1) so the Purge slot is sized
+# and framed identically to the quest cards. Absent kit → the bare GiverStand.LAY defaults.
+func _giver_lay() -> Dictionary:
+	var L: Dictionary = GiverStand.LAY.duplicate()
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit != null:
-		cfg["lay"] = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	return GiverStand.make(qi, q, cfg)
+		var over: Dictionary = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		for k in over:
+			L[k] = over[k]
+	return L
 
 
 # AB1: a FRAMELESS giver — the chest-up cutout IS the UI element (no panel, no
@@ -1353,34 +1355,43 @@ func _home_nav_button(px: float) -> Button:
 
 # The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
 # (see _select_item); empty otherwise. The info button opens the Tiers ladder; the trashcan sells the item.
-func _build_info_bar() -> Control:
+func _build_info_bar(px: float = 130.0) -> Control:
 	var pill := PanelContainer.new()
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FBF6EC", 0.97)
-	sb.set_corner_radius_all(24)
-	sb.set_border_width_all(3)
-	sb.border_color = Color("#C9A66B", 0.9)
-	sb.shadow_color = Color(0, 0, 0, 0.18)
-	sb.shadow_size = 4
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	pill.add_theme_stylebox_override("panel", sb)
+	pill.custom_minimum_size.y = px                          # #5: the info bar matches the Bag/Home well height
+	# #4: the info bar wears the SAME frame as the top currency pill bar — the painted capsule from the
+	# shared kit recipe (Kit.currency_pill_style), so the bottom bar and the wallet read as one language.
+	# Falls back to the old code-drawn cream panel when the game-tool kit can't load (engine-only runs).
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit != null:
+		pill.add_theme_stylebox_override("panel", Kit.currency_pill_style(Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))))
+	else:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("#FBF6EC", 0.97)
+		sb.set_corner_radius_all(24)
+		sb.set_border_width_all(3)
+		sb.border_color = Color("#C9A66B", 0.9)
+		sb.shadow_color = Color(0, 0, 0, 0.18)
+		sb.shadow_size = 4
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 8
+		pill.add_theme_stylebox_override("panel", sb)
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", 10)
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	pill.add_child(hb)
-	_info_btn = _circle_btn("info", 56.0, _on_info_pressed)   # opens the selected item's Tiers ladder
+	var circle := px * 0.48                                   # the inner controls scale with the bar (~10% bigger, #5)
+	_info_btn = _circle_btn("info", circle, _on_info_pressed) # opens the selected item's Tiers ladder
 	hb.add_child(_info_btn)
 	_info_icon = CenterContainer.new()                       # the selected piece preview
-	_info_icon.custom_minimum_size = Vector2(54, 54)
+	_info_icon.custom_minimum_size = Vector2(circle, circle)
 	_info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(_info_icon)
 	_info_label = Label.new()                                # "<name> · Tier N" (or the empty prompt)
-	_info_label.add_theme_font_size_override("font_size", 30)
+	_info_label.add_theme_font_size_override("font_size", 32)
 	_info_label.add_theme_color_override("font_color", Pal.INK)
 	_info_label.add_theme_constant_override("outline_size", 0)
 	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1389,9 +1400,16 @@ func _build_info_bar() -> Control:
 	hb.add_child(_info_label)
 	_info_trash = Button.new()                               # sells the selected item; text carries the payout
 	_info_trash.focus_mode = Control.FOCUS_NONE
-	_info_trash.add_theme_font_size_override("font_size", 28)
+	_info_trash.add_theme_font_size_override("font_size", 30)
 	for cs in ["font_color", "font_color_hover", "font_color_pressed"]:
 		_info_trash.add_theme_color_override(cs, CREAM)
+	# #6: the sell button wears an EXISTING asset — the merchant cart icon (ui/shared/icon_cart.png), the
+	# same cart that marks the sell affordance elsewhere — instead of the bare 🗑 emoji glyph.
+	var cart_p := Look.kit("shared/icon_cart.png")
+	if ResourceLoader.exists(cart_p):
+		_info_trash.icon = load(cart_p)
+		_info_trash.add_theme_constant_override("icon_max_width", int(px * 0.30))
+		_info_trash.expand_icon = false
 	var ts := StyleBoxFlat.new()
 	ts.bg_color = Color("#C25B4E")
 	ts.set_corner_radius_all(16)
@@ -1451,7 +1469,7 @@ func _select_item(cell: Vector2i) -> void:
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
-		_info_trash.text = "🗑 +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
+		_info_trash.text = " +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
 		_info_trash.visible = true
 
 # Reset the info bar to its empty "tap an item" state.
@@ -2140,6 +2158,16 @@ func _end_bag_drag(gpos: Vector2) -> void:
 	_rebuild_bag()                                    # the dimmed slot restores; item stays put
 
 # --- givers / merchant / gate actions ----------------------------------------------
+
+# #3: a tap on the asked item IS the claim affordance. When the quest is READY (the asked item is on
+# the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
+# instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
+# still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
+func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
+	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
+		_on_giver_tap(qi, chip)
+	else:
+		_open_ladder(line, tier)
 
 func _on_giver_tap(qi: int, chip: Control) -> void:
 	if qi < 0 or qi >= quests.size():

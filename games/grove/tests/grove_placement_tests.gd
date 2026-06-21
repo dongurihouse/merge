@@ -202,6 +202,39 @@ func _initialize() -> void:
 	xb_giver.chip.queue_free()
 	ws.giver_chips = []
 
+	# #3: the per-item ✓ is itself the CLAIM affordance. Tapping the asked item routes through
+	# _on_item_tap: when the quest is READY (the ✓ is up) it DELIVERS (claims); otherwise it falls
+	# back to opening the tier ladder (the inspect path). One controlled quest at index 0 so the
+	# delivery is deterministic regardless of prior board state.
+	Feat.FLAGS["discovery_ladder"] = true
+	for r in G.ROWS:
+		for c in G.COLS:
+			if ws.board.is_open(Vector2i(r, c)):
+				ws.board.place(Vector2i(r, c), 0)
+	var claim_q := {"line": 1, "tier": 2, "reward": {"stars": 3, "coins": 0}}
+	ws.quests = [claim_q]
+	var claim_giver: Dictionary = ws._make_giver_stand(0, claim_q)
+	ws.add_child(claim_giver.chip)
+	ws.giver_chips = [claim_giver]
+	ok(ws.has_method("_on_item_tap"), "#3: the board routes an item tap through _on_item_tap")
+	# (a) NOT ready (no 102 on the board) → an item tap opens the ladder, never claims
+	ws._refresh_giver_lights()
+	ok(not (claim_giver.item.met as Control).visible, "#3: the ✓ is hidden while the ask is unmet")
+	var stars_unready := Save.stars()
+	ws._on_item_tap(0, 1, 2, claim_giver.chip)
+	ok(Save.stars() == stars_unready and ws.quests.size() == 1, \
+		"#3: tapping a NOT-ready item does not claim (it opens the tier ladder instead)")
+	# (b) ready (place the asked 102) → the SAME item tap CLAIMS it: delivers + pays stars
+	var claim_free: Array = ws.board.empty_ground_cells()
+	ws.board.place(claim_free[0], 102)
+	ws._rebuild_pieces()
+	ws._refresh_giver_lights()
+	ok((claim_giver.item.met as Control).visible, "#3: the ✓ shows once the asked item is on the board")
+	var stars_ready := Save.stars()
+	ws._on_item_tap(0, 1, 2, claim_giver.chip)
+	ok(Save.stars() > stars_ready, "#3: tapping the READY ✓ CLAIMS the quest (delivers, pays stars)")
+	ws.giver_chips = []
+
 	Feat.FLAGS["ftue_staged_chrome"] = true
 	ws.queue_free()
 

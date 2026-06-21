@@ -129,7 +129,13 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		met.position = Vector2((iw - mpx) / 2.0, (ih - mpx) / 2.0)
 		icon.add_child(met)
 		stand.add_child(icon)
-		wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
+		# #3: route the item tap through item_tap (claim when the ✓ is up, else open the ladder).
+		# Falls back to the bare ladder-open when a caller wires no item_tap (keeps make() standalone).
+		var item_tap: Callable = cfg.get("item_tap", Callable())
+		if item_tap.is_valid():
+			wire_tap.call(icon, func() -> void: item_tap.call(qi, int(it.line), int(it.tier), stand))
+		else:
+			wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
 		item_ui = {"code": acode, "piece": piece, "met": met}
 	# the near-end map quest ALSO rewards the next map's generator — preview its tool icon as a small
 	# badge tucked at the box's top-right, so the player sees the bonus they'll earn.
