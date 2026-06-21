@@ -40,11 +40,12 @@
 		"title": 25.0
 	},
 	"currency_pill": {
+		"border": "bag thin",
 		"border_w": 3.0,
-		"icon_box": 50.0,
-		"num_size": 38.0,
-		"pad_x": 41.0,
-		"pad_y": 15.0,
+		"icon_box": 51.0,
+		"num_size": 41.0,
+		"pad_x": 47.0,
+		"pad_y": 17.0,
 		"pair_sep": 10.0,
 		"radius": 40.0,
 		"row_sep": 2.0,
