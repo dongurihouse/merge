@@ -124,6 +124,16 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"infosel":
+			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
+			# the piece + "<name> · Tier N" + the trashcan with its sell payout.
+			var ies: Array = scn.board.empty_ground_cells()
+			var icell := Vector2i(ies[0])
+			scn.board.place(icell, 102)            # a tier-2 item (a clear name + a non-trivial sell value)
+			scn._rebuild_pieces()
+			await create_timer(0.3).timeout
+			scn._select_item(icell)
+			await create_timer(0.3).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
 			# balance for the acorn counter, then open the modal so the whole ladder shows

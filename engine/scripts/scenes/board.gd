@@ -47,6 +47,7 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
+const BOTTOM_BAR_H := 150.0      # the board bottom bar height (Bag · info bar · Home)
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
@@ -125,11 +126,19 @@ var home_btn: Button                 # the centre nav Home button — IS the dec
 var bag_btn: Button
 var bag_content: Control
 var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
+var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var merchant_btn: Button
 var merchant_rest: Control
 var merchant_pay: Control
 var merchant_pay_lbl: Label
 var merchant_pay_icon: Control
+# the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
+# Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
+var _selected_cell := Vector2i(-1, -1)
+var _info_icon: CenterContainer      # the selected piece preview
+var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
+var _info_btn: Button                # opens the selected item's Tiers ladder
+var _info_trash: Button              # sells the selected item; its text carries the coin/acorn payout
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
 var diamonds_label: Label
@@ -137,7 +146,7 @@ var level_label: Label            # S10: the shared Lv chip, wired in BOTH scene
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
-var bottom_bar: Control          # the painted bottom nav row (Home·Shop·Leaf·Gear·Bag)
+var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
 var shop_btn: Button             # T28: kept as a member so the §14 spotlight can target it
 var _spotlight_active := false   # T28: one spotlight at a time (don't stack overlays)
 
@@ -238,30 +247,30 @@ func _ready() -> void:
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
 
-	# the full-width bottom nav: Bag · [Home centre] · Merchant. Home is the single home affordance and
-	# sits centred + prominent — the way back to the Map/decorate hub. The Bag and Merchant are circular
-	# wells; the Merchant is the drag-to-sell drop target. Shop + Settings left the bottom bar: the shop
-	# opens from the top currency pills' "+", and Settings is the top-right gear in the shared HUD.
-	# Built through the shared NavBar component (ui/nav_bar.gd) — the SAME global bottom row the home/map
-	# screen uses. Home goes through `home_icon`; the Bag + Merchant are custom `make` wells (their
-	# drop-target role + live overlays), built on the SAME home-button shell (_home_well).
-	var nav := NavBar.build(self, [
-		# Bag — a circular well; tap opens the full bag, drag a board item onto it to stash
-		{"make": func() -> Control: return _make_bag_button(140.0)},
-		# Home — the centre, prominent button; the single affordance back to the Map. Lands on the
-		# map you were LAST decorating (last_map), NOT the hub — empty on a fresh save → frontier.
-		{"home_icon": "house", "px": 184.0, "label": tr("Home"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_persist()
-			HomeScene.decorate_map = _decorate_target()
-			SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")},
-		# Merchant — a circular well; drag a spare onto it to sell (it previews the payout)
-		{"make": func() -> Control: return _make_merchant_button(140.0)}])
-	bottom_bar = nav.row
-	bag_btn = nav.buttons[0] as Button
-	home_btn = nav.buttons[1] as Button       # lit when a spot is affordable (replaces the Decorate CTA)
-	merchant_btn = nav.buttons[2] as Button
-	# shop_btn stays null now (no bottom-bar shop button) — the §14 shop spotlight guard skips on null.
+	# The board bottom bar: Bag (+ x/y count) · Info bar · Home. Tapping a board item SELECTS it into the
+	# centre info bar — its name, an info button that opens the Tiers ladder, and a trashcan that sells it
+	# for coins when it's a deletable (non-generator) item. Selling moved here from the old drag-to-merchant
+	# well (merchant_btn stays null). Bag stays a drag-to-stash target; Home returns to the Map.
+	var bar := HBoxContainer.new()
+	bar.anchor_left = 0.0
+	bar.anchor_right = 1.0
+	bar.anchor_top = 1.0
+	bar.anchor_bottom = 1.0
+	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var sb_inset := Look.safe_bottom(self)
+	bar.offset_left = QUEST_SIDE
+	bar.offset_right = -QUEST_SIDE
+	bar.offset_top = -BOTTOM_BAR_H - 14.0 - sb_inset
+	bar.offset_bottom = -14.0 - sb_inset
+	bar.add_theme_constant_override("separation", 12)
+	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	add_child(bar)
+	bottom_bar = bar
+	bar.add_child(_build_bag_box(118.0))           # left: the Bag well + the x/y count
+	bar.add_child(_build_info_bar())               # centre: the selected-item info bar (expands)
+	home_btn = _home_nav_button(118.0)             # right: the Home disc (lit when a spot is affordable)
+	bar.add_child(home_btn)
+	_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
 	_build_hud()
 	_build_water_hud()
@@ -1314,6 +1323,178 @@ func _make_bag_button(px: float) -> Button:
 	b.pressed.connect(_open_bag_overlay)
 	return b
 
+# The bottom-bar Bag cell: the swap-icon bag well + an "x/y" count beneath it (held / capacity).
+func _build_bag_box(px: float) -> Control:
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.add_theme_constant_override("separation", -4)
+	bag_btn = _make_bag_button(px)
+	box.add_child(bag_btn)
+	_bag_count_lbl = Label.new()
+	_bag_count_lbl.add_theme_font_size_override("font_size", 26)
+	_bag_count_lbl.add_theme_color_override("font_color", CREAM)
+	_bag_count_lbl.add_theme_color_override("font_outline_color", Color("#4A3B24"))
+	_bag_count_lbl.add_theme_constant_override("outline_size", 6)
+	_bag_count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(_bag_count_lbl)
+	_update_bag_count()
+	return box
+
+# The Home disc for the bottom bar's right edge: the shared workbench-tuned home button + the Map jump.
+func _home_nav_button(px: float) -> Button:
+	var b := _home_well(px, "house", "nav_home.png")
+	b.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		_persist()
+		HomeScene.decorate_map = _decorate_target()
+		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
+	return b
+
+# The center INFO BAR: [info button] [selected piece + name] [trashcan/sell]. Tapping a board item fills it
+# (see _select_item); empty otherwise. The info button opens the Tiers ladder; the trashcan sells the item.
+func _build_info_bar() -> Control:
+	var pill := PanelContainer.new()
+	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#FBF6EC", 0.97)
+	sb.set_corner_radius_all(24)
+	sb.set_border_width_all(3)
+	sb.border_color = Color("#C9A66B", 0.9)
+	sb.shadow_color = Color(0, 0, 0, 0.18)
+	sb.shadow_size = 4
+	sb.content_margin_left = 12
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	pill.add_theme_stylebox_override("panel", sb)
+	var hb := HBoxContainer.new()
+	hb.add_theme_constant_override("separation", 10)
+	hb.alignment = BoxContainer.ALIGNMENT_CENTER
+	pill.add_child(hb)
+	_info_btn = _circle_btn("info", 56.0, _on_info_pressed)   # opens the selected item's Tiers ladder
+	hb.add_child(_info_btn)
+	_info_icon = CenterContainer.new()                       # the selected piece preview
+	_info_icon.custom_minimum_size = Vector2(54, 54)
+	_info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(_info_icon)
+	_info_label = Label.new()                                # "<name> · Tier N" (or the empty prompt)
+	_info_label.add_theme_font_size_override("font_size", 30)
+	_info_label.add_theme_color_override("font_color", Pal.INK)
+	_info_label.add_theme_constant_override("outline_size", 0)
+	_info_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_info_label.clip_text = true
+	hb.add_child(_info_label)
+	_info_trash = Button.new()                               # sells the selected item; text carries the payout
+	_info_trash.focus_mode = Control.FOCUS_NONE
+	_info_trash.add_theme_font_size_override("font_size", 28)
+	for cs in ["font_color", "font_color_hover", "font_color_pressed"]:
+		_info_trash.add_theme_color_override(cs, CREAM)
+	var ts := StyleBoxFlat.new()
+	ts.bg_color = Color("#C25B4E")
+	ts.set_corner_radius_all(16)
+	ts.set_border_width_all(2)
+	ts.border_color = Color("#9C4438")
+	ts.content_margin_left = 14
+	ts.content_margin_right = 14
+	ts.content_margin_top = 8
+	ts.content_margin_bottom = 8
+	for st in ["normal", "hover", "pressed"]:
+		_info_trash.add_theme_stylebox_override(st, ts)
+	_info_trash.pressed.connect(_on_trash_pressed)
+	Look.add_press_juice(_info_trash)
+	hb.add_child(_info_trash)
+	return pill
+
+# A round cream icon button (the info "i") — Button.pressed handles the tap (de-duped vs emulated touch).
+func _circle_btn(icon_id: String, px: float, cb: Callable) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(px, px)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(CREAM)
+	sb.set_corner_radius_all(int(px / 2.0))
+	sb.set_border_width_all(2)
+	sb.border_color = STRAW
+	for st in ["normal", "hover", "pressed", "disabled"]:
+		b.add_theme_stylebox_override(st, sb)
+	var ic := Look.icon(icon_id, px * 0.58)
+	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(ic)
+	Look.add_press_juice(b)
+	if cb.is_valid():
+		b.pressed.connect(cb)
+	return b
+
+# Select a board item INTO the info bar: show its piece + "<name> · Tier N", enable the info button, and
+# show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
+func _select_item(cell: Vector2i) -> void:
+	var code := board.item_at(cell)
+	if code <= 0:
+		_clear_selection()
+		return
+	_selected_cell = cell
+	var line := BoardModel.line_of(code)
+	var tier := BoardModel.tier_of(code)
+	for c in _info_icon.get_children():
+		c.queue_free()
+	_info_icon.add_child(_make_piece(code, 50.0))
+	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else tr("Item")
+	_info_label.text = "%s · %s %d" % [nm, tr("Tier"), tier]
+	_info_btn.disabled = false
+	if board.is_gen(cell) or G.is_coin(code):
+		_info_trash.visible = false           # generators + raw coins aren't "deletable for coins"
+	else:
+		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
+		var gem := rw.y > 0
+		_info_trash.text = "🗑 +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
+		_info_trash.visible = true
+
+# Reset the info bar to its empty "tap an item" state.
+func _clear_selection() -> void:
+	_selected_cell = Vector2i(-1, -1)
+	if _info_icon != null and is_instance_valid(_info_icon):
+		for c in _info_icon.get_children():
+			c.queue_free()
+	if _info_label != null and is_instance_valid(_info_label):
+		_info_label.text = tr("Tap an item to inspect it")
+	if _info_btn != null and is_instance_valid(_info_btn):
+		_info_btn.disabled = true
+	if _info_trash != null and is_instance_valid(_info_trash):
+		_info_trash.visible = false
+
+# The info button → open the selected item's Tiers ladder (guards a stale/empty selection).
+func _on_info_pressed() -> void:
+	if _selected_cell.x < 0:
+		return
+	var code := board.item_at(_selected_cell)
+	if code <= 0:
+		return
+	_open_ladder(BoardModel.line_of(code), BoardModel.tier_of(code))
+
+# The trashcan → sell the selected item for coins (guards generators / coins / a stale selection).
+func _on_trash_pressed() -> void:
+	if _selected_cell.x < 0:
+		return
+	var cell := _selected_cell
+	var code := board.item_at(cell)
+	if code <= 0 or board.is_gen(cell) or G.is_coin(code):
+		return
+	var node: Control = piece_nodes.get(cell)
+	if node == null:
+		return
+	_sell_item(cell, node)
+	_clear_selection()
+
+# Refresh the bottom-bar bag "x/y" count (held / capacity).
+func _update_bag_count() -> void:
+	if _bag_count_lbl != null and is_instance_valid(_bag_count_lbl):
+		_bag_count_lbl.text = "%d/%d" % [bag.size(), _bag_capacity()]
+
 # The Merchant well (bottom nav): drag a board spare onto it to SELL (drop resolved in _on_release).
 # While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);
 # a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
@@ -1475,6 +1656,8 @@ func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
 	_press_cell = cell
 	_press_pos = pos
+	if _selected_cell.x >= 0:
+		_clear_selection()                    # a new board touch resets the info bar (a still tap re-selects)
 	_drag_is_gen = board.is_gen(cell)
 	if _drag_is_gen:                          # a generator is a movable piece now (§2/T17)
 		_drag_from = cell
@@ -1525,8 +1708,8 @@ func _on_release(pos: Vector2) -> void:
 	if target == from and G.is_coin(board.item_at(from)):
 		_collect_coin(from, node)          # tapping a coin pockets it
 	elif target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
-		_snap_back(from, node)             # a STILL tap shows the upgrade path
-		_open_ladder(BoardModel.line_of(board.item_at(from)), BoardModel.tier_of(board.item_at(from)))
+		_snap_back(from, node)             # a STILL tap SELECTS the item into the bottom info bar
+		_select_item(from)
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif board.is_empty_ground(target) and target != from:
@@ -1893,6 +2076,7 @@ func _build_bag_bar() -> void:
 # the satchel glyph (filled), and the satchel is restored when the bag empties. bag_content IS the
 # home-button's icon wrapper (a CenterContainer), so the swapped sprite sits exactly where the satchel did.
 func _rebuild_bag() -> void:
+	_update_bag_count()                       # keep the bottom-bar "x/y" count in sync with the bag
 	if bag_content == null or not is_instance_valid(bag_content):
 		return
 	for c in bag_content.get_children():
