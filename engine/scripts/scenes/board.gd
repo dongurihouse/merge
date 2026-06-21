@@ -128,7 +128,6 @@ var merchant_rest: Control
 var merchant_pay: Control
 var merchant_pay_lbl: Label
 var merchant_pay_icon: Control
-var stars_label: Label
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
 var diamonds_label: Label
@@ -516,54 +515,30 @@ func _build_hud() -> void:
 			Audio.play("button_tap", -2.0)
 			SettingsUI.open(self)})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
-	stars_label = hud.stars
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level          # S10: store the board's Lv chip (set at build; level is static here)
 	_wallet_panel = hud.wallet       # the shared cluster
-	# water left the top-center currency cluster (it's ★/coin/gem now) — the board owns its own always-on
-	# water meter (top-left, below the Lv badge); water_label / _water_icon are bound in _build_water_hud.
+	# water is the FIRST top-center pill now (Water·Coin·Gem); the board's live value overrides it via
+	# _update_water_hud. The board owns only the empty-water REFILL stack (built in _build_water_hud).
+	water_label = hud.water
+	_water_icon = hud.water_icon
 	_open_shop = hud.open_shop       # the currency pills' "+" buttons open it
 	_update_hud()
 
-# Water is the board's ENERGY, so it stays on the board screen even though it left the top-center
-# currency cluster (that's ★/coin/gem now): the board owns an always-on water meter pinned top-LEFT,
-# just below the Lv badge, with the empty-water REFILL stack appearing right under it when water runs out.
+# Water is the FIRST top-center pill (Water·Coin·Gem), bound from the shared HUD (water_label / _water_icon
+# in _build_hud) and overridden live via _update_water_hud. The board owns only the empty-water REFILL
+# stack — the free/💎 rain refill, a rewarded watch-ad refill, and the cozy out-of-water offer — pinned
+# top-LEFT below the Lv badge and shown only when water runs out.
 func _build_water_hud() -> void:
 	var safe_top := Look.safe_top(self)
-	# the always-visible water meter: the SAME painted capsule the currency pills use (one recipe), with a
-	# droplet + the live count. Pinned below the 130px Lv badge so it never overlaps it.
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var water_top := 16.0 + safe_top + 130.0 + 12.0
-	var wpill := PanelContainer.new()
-	if Kit != null:
-		wpill.add_theme_stylebox_override("panel", Kit.currency_pill_style(Kit.currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))))
-	wpill.custom_minimum_size.y = 58.0
-	wpill.offset_left = 16.0
-	wpill.offset_top = water_top
-	add_child(wpill)
-	var wrow := HBoxContainer.new()
-	wrow.add_theme_constant_override("separation", 4)
-	wrow.alignment = BoxContainer.ALIGNMENT_CENTER
-	wpill.add_child(wrow)
-	var wbox := CenterContainer.new()           # the droplet icon, in a fixed box (= _water_icon, toggled by FTUE)
-	wbox.custom_minimum_size = Vector2(40, 40)
-	wbox.add_child(Look.icon("water", 40.0))
-	wrow.add_child(wbox)
-	_water_icon = wbox
-	water_label = Label.new()
-	water_label.add_theme_font_size_override("font_size", 34)
-	water_label.add_theme_color_override("font_color", Pal.INK)
-	water_label.add_theme_constant_override("outline_size", 0)
-	water_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	wrow.add_child(water_label)
-	# T43: the empty-water surfaces live in a vertical stack just below the meter, shown only
-	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded
-	# WATCH-AD refill (capped) and the cozy out-of-water OFFER, each shown only when live.
+	# T43: the empty-water surfaces live in a vertical stack top-left (below the 130px Lv badge), shown only
+	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded WATCH-AD refill
+	# (capped) and the cozy out-of-water OFFER, each shown only when live.
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
-	_refill_stack.offset_top = water_top + 70.0
+	_refill_stack.offset_top = 16.0 + safe_top + 130.0 + 16.0
 	_refill_stack.visible = false
 	add_child(_refill_stack)
 	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
@@ -709,7 +684,7 @@ func _open_oow_confirm(line: String, sub: String) -> void:
 	OowOffer.open(self, {"amount": line, "sub": sub, "on_accept": _grant_oow_offer})
 
 func _update_hud() -> void:
-	stars_label.text = str(Save.stars())
+	# the top wallet is Water·Coin·Gem now (no star count). Water is updated live by _update_water_hud.
 	coins_label.text = str(Save.coins())
 	if diamonds_label != null:
 		diamonds_label.text = str(Save.diamonds())
@@ -2111,7 +2086,7 @@ func _grant_sale(code: int, node: Control) -> void:
 		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
 		FX.floating_reward(self, center - Vector2(30, 60), "gem", reward.y, Color("#A9C7E8"), 30)
-		if Features.on("fly_to_wallet") and stars_label != null:
+		if Features.on("fly_to_wallet") and diamonds_label != null:
 			FX.fly_to_wallet(self, center, Look.icon("gem", 30.0), diamonds_label)
 	else:
 		FX.floating_reward(self, center - Vector2(30, 60), "coin", reward.x, STRAW, 30)

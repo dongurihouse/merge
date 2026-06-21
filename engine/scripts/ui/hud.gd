@@ -1,9 +1,9 @@
 extends RefCounted
 ## THE top bar (owner: a standalone module reused in every scene).
-## The currency cluster (★ 🪙 💎) and the Store button are pinned to the same
+## The currency cluster (💧 🪙 💎 — three separate pills) and the settings gear are pinned to the same
 ## pixels on every screen; scenes keep their refs and refresh the labels.
 ## Usage:  var hud := Hud.build(self, {"water_grant": Callable})
-##         hud.stars.text = ...   (or call hud.refresh.call())
+##         hud.water.text = ...   (or call hud.refresh.call())
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Hud).
 
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -56,12 +56,13 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	cluster.add_theme_constant_override("separation", int(PILL_GAP))
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
 	host.add_child(cluster)
+	# The wallet is WATER · COIN · GEM (the star count is gone — the level badge already encodes stars).
 	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
-	# contract scenes/tests rely on: stars_label.get_parent() == row, row.get_parent() == the pill panel.
-	var star_pill := _pill(cluster, Kit, pill, "star", Tune.STAR_ICON, Tune.STAR_OPTICAL, Tune.STAR_TINT, num_size, icon_box, open_store)
+	# contract scenes/tests rely on: <cur>_label.get_parent() == row, row.get_parent() == the pill panel.
+	var water_pill := _pill(cluster, Kit, pill, "water", Tune.GEM_ICON, 1.0, Color.WHITE, num_size, icon_box, open_store)
 	var coin_pill := _pill(cluster, Kit, pill, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_store)
 	var gem_pill := _pill(cluster, Kit, pill, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_store)
-	var stars: Label = star_pill.label
+	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label
 
@@ -136,12 +137,15 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
 	# `wallet` is the centred 3-pill cluster (the container scenes raise above the shop backdrop); the
 	# per-pill panels are returned too so the shop targets buy feedback + the map anchors its Store badge.
-	var out := {"stars": stars, "coins": coins, "diamonds": gems,
+	# `water_icon` is the droplet box so the board's FTUE can hide the water icon + label together.
+	var out := {"water": water_lbl, "water_icon": water_pill.icon, "coins": coins, "diamonds": gems,
 		"level": level, "wallet": cluster, "lv_panel": lv_panel, "gear": gear,
-		"star_pill": star_pill.panel, "coin_pill": coin_pill.panel, "gem_pill": gem_pill.panel,
-		"star_plus": star_pill.plus, "coin_plus": coin_pill.plus, "gem_plus": gem_pill.plus}
+		"water_pill": water_pill.panel, "coin_pill": coin_pill.panel, "gem_pill": gem_pill.panel,
+		"water_plus": water_pill.plus, "coin_plus": coin_pill.plus, "gem_plus": gem_pill.plus}
 	var refresh := func() -> void:
-		_set_or_tick(stars, Save.stars())
+		# water is the board's energy; the map shows the persisted value, the board overrides live via
+		# _update_water_hud. coin/gem tick on change. (no star count — the level badge carries stars.)
+		_set_or_tick(water_lbl, int(Save.grove().get("water", G.WATER_CAP)))
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
 		var earned := int(Save.grove().get("stars_earned", 0))
@@ -178,9 +182,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	return out
 
 # One currency CAPSULE: the workbench-styled pill wrapping a fixed icon BOX + the number + a green "+"
-# that opens the store. Added to `cluster`; returns {panel, label}. The icon, number, and + are DIRECT
-# children of an inner `row` — the wallet-resolution contract: label.get_parent() == row, and
+# that opens the store. Added to `cluster`; returns {panel, label, icon, plus}. The icon and number are
+# DIRECT children of an inner `row` — the wallet-resolution contract: label.get_parent() == row, and
 # row.get_parent() == the pill PanelContainer (scenes/tests resolve the pill as label.get_parent().get_parent()).
+# The "+" rides a MarginContainer so its LOCATION is tunable from the workbench: plus_gap nudges it right of
+# the number, plus_dy nudges it up(-)/down(+).
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable) -> Dictionary:
 	var panel := PanelContainer.new()
@@ -192,7 +198,8 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	row.add_theme_constant_override("separation", int(pill.row_sep))   # the tight icon↔number↔+ gap
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	row.add_child(_icon_box(icon_id, gsize, optical, tint, box))
+	var icon := _icon_box(icon_id, gsize, optical, tint, box)
+	row.add_child(icon)
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", num_size)
 	lbl.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
@@ -201,11 +208,22 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
 	var plus := _plus_button(open_store)      # the green "+" — opens the store via Button.pressed (de-duped)
-	row.add_child(plus)
+	row.add_child(_plus_wrap(plus, pill))
 	cluster.add_child(panel)
 	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it — the pill PANEL is a
 	# PanelContainer, which would force-fill any badge child into a bar (the map's Store badge rides the + now).
-	return {"panel": panel, "label": lbl, "plus": plus}
+	return {"panel": panel, "label": lbl, "icon": icon, "plus": plus}
+
+# The "+" sits in a MarginContainer so the workbench can nudge its LOCATION (plus_gap right of the number,
+# plus_dy up/down) without breaking the row flow. Shared by the live HUD and the workbench pill preview.
+static func _plus_wrap(plus: Control, pill: Dictionary) -> Control:
+	var wrap := MarginContainer.new()
+	wrap.add_theme_constant_override("margin_left", int(pill.get("plus_gap", 0)))
+	var dy := int(pill.get("plus_dy", 0))
+	wrap.add_theme_constant_override("margin_top", maxi(0, dy))
+	wrap.add_theme_constant_override("margin_bottom", maxi(0, -dy))
+	wrap.add_child(plus)
+	return wrap
 
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the

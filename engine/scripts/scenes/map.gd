@@ -88,7 +88,6 @@ var _weather: Control = null     # ambient weather layer — belongs to a MAP; h
 var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's coin pill (shop's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
-var stars_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
@@ -1115,7 +1114,6 @@ func _build_hud() -> void:
 		"settings": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_settings()})
-	stars_label = hud.stars
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
@@ -1125,9 +1123,8 @@ func _build_hud() -> void:
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():
-		_hud_refresh.call()              # wallet + the S10 level chip (ticks)
+		_hud_refresh.call()              # wallet (Water·Coin·Gem) + the S10 level chip (ticks)
 	else:
-		stars_label.text = str(Save.stars())
 		coins_label.text = str(Save.coins())
 
 func _build_chrome() -> void:

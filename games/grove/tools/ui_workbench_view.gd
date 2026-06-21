@@ -222,11 +222,13 @@ var _params := {
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
-	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
-	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
+	# the top-bar CURRENCY PILL (the 💧 🪙 💎 wallet — water replaced the star count). Defaults mirror
+	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
+	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_gap /
+	# plus_dy tune the "+" LOCATION. `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14,
-		"star": 1280, "coin": 540, "gem": 36},
+		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_gap": 0, "plus_dy": 0,
+		"water": 128},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -515,10 +517,13 @@ func _make_element(id: String) -> Control:
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
 		"currency_pill":
-			# the live top-bar wallet, built from the SAME kit resolver the HUD reads (so the preview is
-			# exactly what the game will render); the ★/🪙/💎 counts are preview-only sample values.
+			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
+			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
+			# (plus_gap / plus_dy) is tunable here; the live HUD repeats this capsule for water/coin/gem.
 			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
-			return Kit.currency_pill(co, {"star": int(p.star), "coin": int(p.coin), "gem": int(p.gem)})
+			co["icons"] = [["water", 40.0]]
+			co["show_plus"] = true
+			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
 		"settings":
 			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
 			var setopts := Kit.settings_opts_from_config(_params)
@@ -1284,11 +1289,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["num_size", 16, 56]))      # the currency number font
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square icon box
 			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
-			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies
-			_group_header("Test only — not saved", false)                  # preview counts; the wallet shows live balances
-			_sidebar_body.add_child(_slider_row(["star", 0, 9999]))
-			_sidebar_body.add_child(_slider_row(["coin", 0, 9999]))
-			_sidebar_body.add_child(_slider_row(["gem", 0, 9999]))
+			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
+			_sidebar_body.add_child(_slider_row(["plus_gap", 0, 48]))       # the "+" LOCATION: gap right of the number
+			_sidebar_body.add_child(_slider_row(["plus_dy", -24, 24]))      # the "+" LOCATION: vertical nudge up(-)/down(+)
+			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
+			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
 		"toggle_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Card art (parchment)", "card_art"))

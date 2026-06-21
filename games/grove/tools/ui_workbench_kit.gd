@@ -2794,6 +2794,8 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square icon box
 		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
 		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
+		"plus_gap":    int(c.get("plus_gap", 0)),          # the green "+" LOCATION: extra gap right of the number
+		"plus_dy":     int(c.get("plus_dy", 0)),           # the green "+" LOCATION: vertical nudge up(-)/down(+)
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -2871,7 +2873,41 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(lbl)
+	# the green "+" preview (the workbench tunes its LOCATION: plus_gap right of the number, plus_dy up/down).
+	# A static visual here — the live HUD uses a real Button; both read the same plus_gap / plus_dy opts.
+	if bool(opts.get("show_plus", false)):
+		var pw := MarginContainer.new()
+		pw.add_theme_constant_override("margin_left", int(opts.get("plus_gap", 0)))
+		var dy := int(opts.get("plus_dy", 0))
+		pw.add_theme_constant_override("margin_top", maxi(0, dy))
+		pw.add_theme_constant_override("margin_bottom", maxi(0, -dy))
+		pw.add_child(_plus_token())
+		row.add_child(pw)
 	return panel
+
+## A static green "+" token mirroring the live HUD's _plus_button look (leaf-green disc, cream "+"), for the
+## workbench currency-pill preview so the designer can position it. Values mirror Tune.Hud.PLUS_*.
+static func _plus_token() -> Control:
+	var box := 26.0
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(box, box)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#4E7C46")
+	sb.set_corner_radius_all(int(box / 2.0))
+	sb.set_border_width_all(2)
+	sb.border_color = Color("#3C6037")
+	p.add_theme_stylebox_override("panel", sb)
+	var g := Label.new()
+	g.text = "+"
+	g.add_theme_font_size_override("font_size", 22)
+	g.add_theme_color_override("font_color", Color("#FBF6EC"))
+	g.add_theme_constant_override("outline_size", 0)
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	g.set_anchors_preset(Control.PRESET_FULL_RECT)
+	p.add_child(g)
+	return p
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
 ## The slot cell is ONE component card with four states. A filled slot uses the raised card (a held
