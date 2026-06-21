@@ -20,7 +20,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench place test test-fast test-engine test-grove test-one smoke import bake-textures \
+.PHONY: help run run_debug run_grove editor workbench ph pb test test-fast test-engine test-grove test-one smoke import bake-textures \
         shot-map shot-grove shot shot-workbench shot-place \
         decor icon ios clean clean-cache intake intake-test
 
@@ -49,10 +49,11 @@ editor: ## open the project in the Godot editor
 w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
 
-place: ## drag major items + Save their location:  make place SCREEN=home|board
-	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=$(or $(SCREEN),home)
+ph: ## drag-to-place on the HOME screen, then Save:  make ph
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=home
 
-p: place ## alias for `make place`
+pb: ## drag-to-place on the BOARD screen, then Save:  make pb
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=board
 
 ## --- tests (headless, no window; parallel — override with JOBS=N) ----------
 ## INNER LOOP: run `make test-fast` after EVERY change (engine suites, a few seconds).

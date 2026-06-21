@@ -10,6 +10,7 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 const Overlay = preload("res://games/grove/tools/placement_overlay.gd")
 
 func _initialize() -> void:
@@ -33,6 +34,13 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 	Save.reset()
+
+	# Size the window to the design PORTRAIT aspect BEFORE the scene builds, so the board computes its
+	# grid against the right viewport. map.gd does this itself in _ready; board.gd does NOT (in normal
+	# play the board is entered from the already-sized map), so booting it cold here needs the fit.
+	if not quiet:
+		Design.fit_desktop_window()
+		await process_frame
 
 	var scene_path := "res://engine/scenes/Board.tscn" if mode == "board" else "res://engine/scenes/Map.tscn"
 	var scn: Node = load(scene_path).instantiate()
