@@ -1226,6 +1226,9 @@ func _build_liveops_rail() -> void:
 	_home_opts = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	_home_opts["calm"] = FX.calm()
 	_rail_px = float(_home_opts.get("px", RAIL_PX))
+	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
+	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).
+	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
 	var step := _rail_px + RAIL_CAP_H + RAIL_GAP
 	var top := Look.safe_top(self) + RAIL_TOP
 	var slot := 0
@@ -1233,26 +1236,26 @@ func _build_liveops_rail() -> void:
 	var daily := _rail_button("gift", tr("Daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot")
-	Look.attach_badge(daily, _daily_badge)
+	Look.attach_badge(daily, _daily_badge, bover)
 	# Free — a rewarded-video gem faucet; badge when a watch is offerable. Wears the optional SPARKLE
 	# (the "+gems" twinkle from the reference) at the workbench-tuned amount.
 	var free := _rail_button("faucet", tr("Free"), _claim_free_gems, true)
 	_place_rail(free, top, slot, step); slot += 1
 	_free_badge = Look.badge("dot")
-	Look.attach_badge(free, _free_badge)
+	Look.attach_badge(free, _free_badge, bover)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
 	var piggy := _rail_button("piggy", tr("Vault"), _open_vault)
 	_place_rail(piggy, top, slot, step); slot += 1
 	_piggy_pip = Look.badge("dot")
-	Look.attach_badge(piggy, _piggy_pip)
+	Look.attach_badge(piggy, _piggy_pip, bover)
 	_refresh_piggy_pip()
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
 		var inbox := _rail_button("mail", tr("Inbox"), _open_inbox)
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0)
-		Look.attach_badge(inbox, _inbox_badge)
+		Look.attach_badge(inbox, _inbox_badge, bover)
 	_refresh_liveops_badges()
 
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +

@@ -69,9 +69,9 @@ const TEST_KEYS := {
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
-	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / SPARKLE amount persist.
-	# The previewed icon, caption text + sparkle toggle are test props — each call site sets its own.
-	"home_button": ["icon", "caption", "sparkle"],
+	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
+	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
+	"home_button": ["icon", "caption", "sparkle", "badge_count"],
 	# the HOME-UNLOCK disc is a shared-STYLE sandbox: disc size + the inner proportions persist. The
 	# previewed cost number + currency icon are test props — the map sets each spot's real cost + "star".
 	"home_unlock_button": ["cost", "icon", "sparkle"],
@@ -140,8 +140,9 @@ var _params := {
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
-	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "glow": 45, "twinkle": 55,
-		"icon": "gift", "caption": "Daily", "sparkle": true},
+	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
+		"badge_dx": -26, "badge_dy": -26, "glow": 45, "twinkle": 55,
+		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3},
 	# the HOME-UNLOCK disc — the restore-cost badge on an unowned home spot. disc_pct is the diameter as a
 	# % of the MAP width (the game multiplies it by the live map width; the preview uses the 1080 base, so
 	# it shows the EXACT in-game size). plus/icon/cost + the two gaps are % of the disc, so all scales with
@@ -227,7 +228,7 @@ var _params := {
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_gap /
 	# plus_dy tune the "+" LOCATION. `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_gap": 0, "plus_dy": 0,
+		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_gap": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
@@ -383,7 +384,13 @@ func _make_element(id: String) -> Control:
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false}, ho))
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho))
+			# the rail-style disc carries a SAMPLE red badge so the badge_dx / badge_dy offset is tunable live
+			# (the same Look.attach_badge the side rail uses; count 0 → bare dot, ≥1 → count pill).
+			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho)
+			var bcount := int(p.get("badge_count", 3))
+			var bg := Look.badge("pill", bcount) if bcount >= 1 else Look.badge("dot")
+			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
+			row.add_child(rail_btn)
 			var mc := MarginContainer.new()
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
@@ -1135,6 +1142,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_scale", 30, 80]))   # icon as % of the disc
 			_sidebar_body.add_child(_slider_row(["caption_font", 14, 34]))
 			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
+			_sidebar_body.add_child(_slider_row(["caption_pad_x", 0, 40]))   # caption tab horizontal padding
+			_sidebar_body.add_child(_slider_row(["caption_pad_y", 0, 20]))   # caption tab vertical padding
+			_section_header("Side-rail badge (red dot / count)")
+			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
+			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
@@ -1142,6 +1154,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
+			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
 		"home_unlock_button":
 			_group_header("Saved to config", true)              # disc size + the inner proportions
 			_sidebar_body.add_child(_slider_row(["disc_pct", 8, 30]))      # disc diameter as % of the MAP width
@@ -1299,6 +1312,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
 			_sidebar_body.add_child(_slider_row(["plus_gap", 0, 48]))       # the "+" LOCATION: gap right of the number
 			_sidebar_body.add_child(_slider_row(["plus_dy", -24, 24]))      # the "+" LOCATION: vertical nudge up(-)/down(+)
+			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it)
 			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
 			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
 		"toggle_card":

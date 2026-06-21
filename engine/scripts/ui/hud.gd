@@ -215,7 +215,7 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
-	var plus := _plus_button(open_store)      # the green "+" — opens the store via Button.pressed (de-duped)
+	var plus := _plus_button(open_store, float(pill.get("plus_size", Tune.PLUS_BOX)))   # green "+", size tuned in the workbench
 	row.add_child(_plus_wrap(plus, pill))
 	cluster.add_child(panel)
 	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it — the pill PANEL is a
@@ -251,22 +251,22 @@ static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, 
 
 # A small round "+" that opens the store — the acquire affordance (the wallet had no path to
 # "get more"). Reuses Look.add_press_juice so it inherits the shared button polish.
-static func _plus_button(open_store: Callable) -> Button:
+static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE   # NOT flat — flat suppresses the stylebox bg (the green token)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.custom_minimum_size = Vector2(Tune.PLUS_BOX, Tune.PLUS_BOX)
+	b.custom_minimum_size = Vector2(box, box)
 	b.add_theme_constant_override("h_separation", 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Tune.PLUS_BG                          # leaf green — the "get more" CTA hue
-	sb.set_corner_radius_all(int(Tune.PLUS_BOX / 2.0))
+	sb.set_corner_radius_all(int(box / 2.0))
 	sb.set_border_width_all(2)
 	sb.border_color = Tune.PLUS_BORDER
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, sb)
 	var g := Label.new()
 	g.text = "+"
-	g.add_theme_font_size_override("font_size", Tune.PLUS_SIZE)
+	g.add_theme_font_size_override("font_size", int(box * float(Tune.PLUS_SIZE) / float(Tune.PLUS_BOX)))   # font tracks the box
 	g.add_theme_color_override("font_color", Tune.PLUS_GLYPH)
 	g.add_theme_constant_override("outline_size", 0)
 	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
