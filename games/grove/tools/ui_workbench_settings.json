@@ -171,21 +171,9 @@
 		"width_pct": 85.0
 	},
 	"tiers": {
-		"banner_burn": 55.0,
-		"banner_font": 50.0,
-		"banner_h": 168.0,
-		"banner_text_x": 0.0,
-		"banner_text_y": -2.0,
-		"banner_x": 0.0,
-		"banner_y": -66.0,
-		"border": "twig board",
 		"cell_gap": 16.0,
-		"close_size": 84.0,
-		"close_x": 4.0,
-		"close_y": 16.0,
 		"cols": 3.0,
 		"list_max_h": 0.0,
-		"list_top_pad": 8.0,
 		"width_pct": 85.0
 	},
 	"tiers_card": {
