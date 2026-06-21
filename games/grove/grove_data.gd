@@ -118,7 +118,7 @@ const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that A
 const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those — never extra ★ (§7); buys speed, not possibility
 const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
 # §7 soft gate — PROVISIONAL, sim-tuned.
-const MAX_GIVERS := 5                     # fence slots (§7); the metered active count caps here
+const MAX_GIVERS := 4                     # fence slots (§7) — the fence is 4 cards at 25% width; the metered active count caps here
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
 const GEN_GRANT_REMAINING_STARS := 4      # surface the next-generator quest when this few ★ remain to finish the map
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts

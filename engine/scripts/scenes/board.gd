@@ -48,8 +48,9 @@ const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the 
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
-const GIVER_AREA_FRAC := 0.70    # giver cards fill the LEFT this fraction of the fence; the painted shop stall owns the rest
-const GIVER_COLS := 3            # cards across that area → each card is GIVER_AREA_FRAC/GIVER_COLS of the screen width
+const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
+const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
+const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -82,6 +83,7 @@ const GEN_LIT := SHADE_LIT
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
+var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
@@ -456,6 +458,37 @@ func _meter_target() -> int:
 # via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
 	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng)
+	_assign_givers()                          # give each new quest a giver face distinct from the previous 5
+
+# Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
+# giver that is NOT among the last 5 assigned, so the same forest character never reappears within 5 — the
+# index persists on the quest (saved), so a stand keeps its face across rebuilds + sessions.
+func _assign_givers() -> void:
+	# seed the rolling window once from quests that already carry a giver (their array order ≈ assignment
+	# order), so a freshly-loaded session's new givers still avoid the recently-shown faces.
+	if _recent_givers.is_empty():
+		for q in quests:
+			if q.has("giver"):
+				_push_recent_giver(int(q["giver"]))
+	for q in quests:
+		if not q.has("giver"):
+			q["giver"] = _next_giver()
+
+# Pick a giver index (0..GIVER_COUNT-1) that is not among the last 5 used; GIVER_COUNT (16) ≫ 5, so the
+# avoid-set never exhausts the pool. Records the pick in the rolling window.
+func _next_giver() -> int:
+	var avail: Array = []
+	for g in range(Bust.GIVER_COUNT):
+		if not _recent_givers.has(g):
+			avail.append(g)
+	var pick: int = avail[rng.randi() % avail.size()] if not avail.is_empty() else rng.randi() % Bust.GIVER_COUNT
+	_push_recent_giver(pick)
+	return pick
+
+func _push_recent_giver(g: int) -> void:
+	_recent_givers.append(g)
+	while _recent_givers.size() > 5:
+		_recent_givers.pop_front()
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
@@ -727,38 +760,94 @@ func _rebuild_givers() -> void:
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
-	# (the full-width quest-band Panel is removed — the giver cards now ride directly on the
-	# painted backdrop; the band box read as a phantom slab.)
-	# the giver cards fill the LEFT GIVER_AREA_FRAC of the fence (up to the painted shop stall on the
-	# right); GIVER_COLS of them fit across that area, so each card is a fixed % of the screen width and
-	# the cards never cover the stall. The row scrolls left↔right within the area when there are more.
+	# (the full-width quest-band Panel is removed — the cards ride directly on the painted backdrop.)
+	# The fence is FULL-WIDTH: GIVER_COLS cards at ~25% each, inset QUEST_SIDE on each edge with QUEST_GAP
+	# between them. A "Purge" card takes the FIRST slot when the player can afford to unlock a region
+	# (_show_purge_card) — so the fence is Purge + up to 3 quests, otherwise up to 4 quests.
 	var span := giver_bar.size.x
 	if span <= 0.0:
 		span = get_viewport_rect().size.x
-	var area := span * GIVER_AREA_FRAC
-	var stand_w := area / float(GIVER_COLS)
-	var scroll := ScrollContainer.new()
-	scroll.anchor_left = 0.0
-	scroll.anchor_top = 0.0
-	scroll.anchor_right = GIVER_AREA_FRAC          # left region only — the right stays clear for the painted stall
-	scroll.anchor_bottom = 1.0
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
-	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	giver_bar.add_child(scroll)
-	giver_bar.move_child(scroll, 1)
+	var cols := GIVER_COLS
+	var stand_w := (span - 2.0 * QUEST_SIDE - float(cols - 1) * QUEST_GAP) / float(cols)
 	var row := HBoxContainer.new()
+	row.anchor_left = 0.0
+	row.anchor_right = 1.0
+	row.anchor_top = 0.0
+	row.anchor_bottom = 1.0
+	row.offset_left = QUEST_SIDE
+	row.offset_right = -QUEST_SIDE
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # pack cards from the left
-	row.add_theme_constant_override("separation", 0)
-	if stands * stand_w < area:
-		row.custom_minimum_size = Vector2(area, FENCE_H)   # fewer than GIVER_COLS cards still pack left in the area
-	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.add_child(row)
-	for k in qidx.size():
+	row.add_theme_constant_override("separation", int(QUEST_GAP))
+	giver_bar.add_child(row)
+	giver_bar.move_child(row, 1)
+	var show_purge := _show_purge_card()
+	if show_purge:
+		row.add_child(_make_purge_card(stand_w))
+	var quest_slots := cols - (1 if show_purge else 0)   # Purge eats one slot → only 3 quests beside it
+	for k in range(mini(quest_slots, qidx.size())):
 		var qi: int = qidx[k]
 		var stand := _make_giver_stand(qi, quests[qi], stand_w)
 		row.add_child(stand.chip)
 		giver_chips.append(stand)
 	_refresh_giver_lights()
+
+# The Purge card (fence slot 0) shows once the player has banked enough stars to unlock a region on the
+# home map (gate_ready — the SAME signal that lights the Home button) — a nudge to go home and spend them.
+func _show_purge_card() -> bool:
+	return _gate_ready() and not _map_done()
+
+# A special fence card: a padlock over a "Purge" badge, tapped to go HOME and unlock more regions. Sized
+# like a giver card so it sits flush in its 25% slot; reuses the Home action (persist → Map).
+func _make_purge_card(stand_w: float) -> Control:
+	var stand := Control.new()
+	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
+	# the card art, sized to the SAME native aspect a giver card uses, so it sits flush in the row
+	var artR := 369.0 / 209.0
+	var cardH := FENCE_H * 0.86
+	var cardW := cardH * artR
+	if cardW > stand_w * 0.98:
+		cardW = stand_w * 0.98
+		cardH = cardW / artR
+	var cx := (stand_w - cardW) / 2.0
+	var cy := (FENCE_H - cardH) / 2.0
+	var p := Look.kit("quest/card_quest.png")
+	var card: Control
+	if ResourceLoader.exists(p):
+		var t := TextureRect.new()
+		t.texture = load(p)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_SCALE
+		card = t
+	else:
+		card = Panel.new()
+	card.position = Vector2(cx, cy)
+	card.size = Vector2(cardW, cardH)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stand.add_child(card)
+	# the padlock, centred a touch high so the "Purge" badge clears it below
+	var lock_px := cardH * 0.46
+	var lock := Look.icon("lock", lock_px)
+	lock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lock.position = Vector2(cx + cardW * 0.5 - lock_px / 2.0, cy + cardH * 0.34 - lock_px / 2.0)
+	stand.add_child(lock)
+	# the "Purge" badge near the card's center-bottom (the shared cream ask-pill + a label)
+	var badge := GiverStand.ask_pill()
+	badge.offset_top = cy + cardH * 0.64
+	var plbl := Label.new()
+	plbl.text = tr("Purge")
+	plbl.add_theme_font_size_override("font_size", int(cardH * 0.16))
+	plbl.add_theme_color_override("font_color", Pal.INK)
+	plbl.add_theme_constant_override("outline_size", 0)
+	plbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.add_child(plbl)
+	stand.add_child(badge)
+	# tap → go HOME (persist + jump to the Map) to unlock more regions
+	_stand_tap(stand, func() -> void:
+		Audio.play("button_tap", -2.0)
+		_persist()
+		HomeScene.decorate_map = _decorate_target()
+		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn"))
+	return stand
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
 func _stand_tap(stand: Control, action: Callable) -> void:
