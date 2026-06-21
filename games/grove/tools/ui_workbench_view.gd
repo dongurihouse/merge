@@ -108,7 +108,7 @@ const CAPTIONS := {
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
-	"tiers_card": "Tier cell — discovery tile (seen · ? · marked)",
+	"tiers_card": "Tier cell — discovery tile (slot cell · seen · locked · marked)",
 	"bag_card": "Slot cell — bag + board (empty · filled · unlockable · locked)",
 	"toggle_card": "Toggle card — label + switch",
 	"map_card": "Map card — place-picker (gold frame / locked panel)",
@@ -205,8 +205,8 @@ var _params := {
 	# number/content position + marked-overflow are stored as PERCENTS for the integer sliders. preview is a
 	# workbench-only state toggle (seen / unseen / marked) — the real board sets each tile's state from data.
 	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_art": true,
-		"show_num": true, "num_font": 26, "num_x": 11, "num_y": 5, "num_badge": true, "num_badge_scale": 200,
-		"piece_frac": 62, "mark_glow": 60, "mark_twinkle": 50},
+		"show_num": true, "lvl_frac": 44, "piece_frac": 62,
+		"mark_glow": 60, "mark_twinkle": 50},
 	# the DISCOVERY dialog — the SAME shared frame as every other dialog, with a selectable Border (default
 	# the twig board; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
 	# chrome. The panel padding follows the chosen border, and the grid fills that inner width.
@@ -467,12 +467,13 @@ func _make_element(id: String) -> Control:
 			}
 			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
 		"tiers_card":
-			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit
+			# the discovery tile in a chosen preview state, rendered at 2× so it's comfortable to edit. Only
+			# the cell SIZE scales — every metric (piece, level medal) is a fraction of the cell, so the zoom
+			# shows the EXACT proportions the dialog will.
 			var tco := Kit.tiers_card_opts_from_config(_params)
 			var z := 2.0
 			tco["cell_w"] = float(tco["cell_w"]) * z
 			tco["cell_h"] = float(tco["cell_h"]) * z
-			tco["num_font"] = int(float(tco["num_font"]) * z)
 			return Kit.tiers_card(_tiers_preview_cell(String(p.preview)), tco)
 		"map_card":
 			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
@@ -1013,7 +1014,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers_card":
 		var note := Label.new()
-		note.text = "The discovery board's tile, reused by the Discovery dialog. State picks the cell art: seen → filled, unseen → \"?\", marked → gold ring. Preview a state below."
+		note.text = "The discovery board's tile, reusing the SHARED slot cell (edit on the Bag/slot cell item): seen → the filled well holds the piece, unseen → the locked well (baked padlock kept, no \"?\"). The tier rides the gold level medal lower-right; marked tiers sparkle. Preview a state below."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1171,13 +1172,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
-			_sidebar_body.add_child(_toggle_row("Show number", "show_num"))
-			_sidebar_body.add_child(_toggle_row("Number badge", "num_badge"))   # the cost-disc plate behind the numeral
-			_sidebar_body.add_child(_slider_row(["num_font", 12, 56]))
-			_sidebar_body.add_child(_slider_row(["num_badge_scale", 130, 300]))  # disc diameter (% of font)
-			_sidebar_body.add_child(_slider_row(["num_x", 0, 50]))          # number inset from left (% of cell)
-			_sidebar_body.add_child(_slider_row(["num_y", 0, 50]))          # ...and from top
-			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # content size (% of cell)
+			_sidebar_body.add_child(_toggle_row("Tier medal", "show_num"))  # the lower-right gold level badge
+			_sidebar_body.add_child(_slider_row(["lvl_frac", 18, 60]))      # tier medal size (% of cell)
+			_sidebar_body.add_child(_slider_row(["piece_frac", 30, 95]))    # discovered-piece size (% of cell)
 			_section_header("Marked tier (sparkle)")
 			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
 			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
