@@ -47,7 +47,6 @@ const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 12.0       # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const DIVIDER_H := 54.0          # the wood-branch divider band between the fence and the grid
 const STAND_W := 300.0           # one giver box's width — a few fit across; the row scrolls beyond
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -205,9 +204,9 @@ func _ready() -> void:
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the
 	# frame + last column never run off-screen (the prior calc sized only the cells → overflow).
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
-	# +DIVIDER_H (+ one VBox gap) reserves the branch divider's band so the grid+frame still
-	# clear the bottom nav (the divider now sits between the fence and the grid).
-	var h_csz := (view.y - 520.0 - (DIVIDER_H + 10.0) - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
+	# so the height budget reserves only the frame overhang + the fence/nav rows.
+	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	csz = minf(w_csz, h_csz)
 	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
 	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
@@ -216,12 +215,8 @@ func _ready() -> void:
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
 
-	# the wood-branch divider between the quest fence and the board grid (the "transition" from
-	# quests to the board). Sits in the stack right above the grid; null when the art is absent.
-	var divider := _make_branch_divider()
-	if divider != null:
-		root.add_child(divider)
-		root.move_child(divider, center.get_index())   # slot it just ABOVE the grid (below the fence)
+	# (the wood-branch divider that used to sit between the quest fence and the grid is retired —
+	# the grid pins directly under the fence now.)
 
 	# Placement Workbench (tools/ui_placement.gd): the quest fence + the board carry an optional
 	# saved vertical nudge (board_layout.json). Applied AFTER the VBox lays out, per sort, so the
@@ -1009,9 +1004,8 @@ func _rebuild_all() -> void:
 	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
 	gen_preview_cells.clear()
 	_rebuild_pieces()
-	var frame := _make_board_frame()   # bamboo ring ABOVE the cells — corner leaves overlap, not hidden under them
-	if frame != null:
-		board_area.add_child(frame)
+	# (the board panel — mat + border in one — is the bottom layer, added by _make_board_mat above;
+	# there is no separate frame overlay now that the panel carries its own border.)
 	_rebuild_givers()
 	_rebuild_bag()
 	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
@@ -1081,82 +1075,30 @@ func _rebuild_pieces() -> void:
 func _make_piece(code: int, size: float) -> Control:
 	return PieceView.make_piece(code, size)
 
-# The garden bed under the grid — the wood-plank grid FRAME (`ui/board/panel_grid.png`) as a
-# nine-patch, sized to the 7×9 grid, with a flat parchment field behind the cells so the
-# gutters read cream. The frame art is composited from the kit's corner + plank parts into one
-# 306px ring with a transparent center (games/grove/tools/build_board_frame.py), so ONLY the
-# wood ring + its corner leaf clusters are opaque. The nine-patch margin (108) holds those
-# corner clusters rigid; only the plain planks between corners stretch. Code-drawn planter fallback.
-const FRAME_OUT := 60.0      # how far the wood frame extends OUTSIDE the cell grid
-const FRAME_MARGIN := 108.0  # nine-patch corner size — matches the composited frame's 108px corners
-const FIELD_INSET := 16.0    # cream field tucks this far under the planks so no backdrop shows in the gutter
-const FIELD_RADIUS := 44     # field corner radius — rounds with the board so cream stays under the wood joints
-const FIELD_CREAM := Color("#FEE2B1")   # sampled new parchment — the gutter colour behind cells
+# The board surface — a single solid panel (`ui/board/board_frame.png`, sliced from board1_asset3.png):
+# a cream parchment field ringed by a soft wood/rope border with a dashed stitch line. Drawn as ONE
+# nine-patch BEHIND the cells (its own border + cream center in one art piece), so the cells sit on the
+# parchment and the rope frames them. Replaces the old bamboo ring + separate flat-cream field. The
+# PANEL_MARGIN corner holds the rounded corner + border rigid; only the plain parchment middle stretches.
+const FRAME_OUT := 60.0      # how far the board panel extends OUTSIDE the cell grid
+const PANEL_MARGIN := 70     # nine-patch corner size — covers the panel's rounded corner + rope border
 
-# The cream parchment bed the cells sit on — the BOTTOM layer of the board. The bamboo ring is a
-# separate node (_make_board_frame) drawn ABOVE the cells. Falls back to the code-drawn planter
-# (which carries its own frame) when the kit art is absent.
+# The board panel — the BOTTOM layer of the board, drawn behind the cells. Falls back to the
+# code-drawn planter (which carries its own frame) when the kit art is absent.
 func _make_board_mat() -> Control:
-	var fp := Look.kit("board/panel_grid.png")
+	var fp := Look.kit("board/board_frame.png")
 	if not ResourceLoader.exists(fp):
 		return PieceView.make_board_mat(_board_w(), _board_h())
-	var bw := _board_w()
-	var bh := _board_h()
-	var mat := Control.new()
-	mat.position = Vector2(-FRAME_OUT, -FRAME_OUT)
-	mat.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
-	mat.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# parchment field, tucked out under the poles (FIELD_INSET) so the whole gutter reads cream with
-	# no backdrop sliver, and rounded (FIELD_RADIUS) so the cream stays under the bamboo at the corners.
-	var field := Panel.new()
-	field.position = Vector2(FIELD_INSET, FIELD_INSET)
-	field.size = mat.size - Vector2(FIELD_INSET, FIELD_INSET) * 2.0
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = FIELD_CREAM
-	fs.set_corner_radius_all(FIELD_RADIUS)
-	field.add_theme_stylebox_override("panel", fs)
-	field.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mat.add_child(field)
-	return mat
-
-# The bamboo ring — a nine-patch, drawn ABOVE the cells so its corner leaf clusters overlap the
-# board (instead of being hidden under the corner cell). The poles sit OUTSIDE the grid so they
-# never cover a cell; only the inward-reaching corner leaves overlap. Null when the kit art is
-# absent (the planter fallback in _make_board_mat already carries a frame).
-func _make_board_frame() -> Control:
-	var fp := Look.kit("board/panel_grid.png")
-	if not ResourceLoader.exists(fp):
-		return null
-	var bw := _board_w()
-	var bh := _board_h()
-	var frame := NinePatchRect.new()
-	frame.texture = load(fp)
-	frame.position = Vector2(-FRAME_OUT, -FRAME_OUT)
-	frame.size = Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0)
-	frame.patch_margin_left = int(FRAME_MARGIN)
-	frame.patch_margin_top = int(FRAME_MARGIN)
-	frame.patch_margin_right = int(FRAME_MARGIN)
-	frame.patch_margin_bottom = int(FRAME_MARGIN)
-	frame.draw_center = false   # interior is transparent (pre-cleared); the cream field shows through
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return frame
-
-# The wood-branch divider between the quest fence and the board grid — the "transition" from
-# quests to the board. A NinePatchRect: the leafy cut ends stay fixed while the middle log
-# stretches to the board width. Null when the art is absent (the stack just omits it).
-func _make_branch_divider() -> Control:
-	var p := Look.kit("board/branch_divider.png")
-	if not ResourceLoader.exists(p):
-		return null
-	var np := NinePatchRect.new()
-	np.texture = load(p)
-	np.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, DIVIDER_H)
-	np.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	np.patch_margin_left = 80
-	np.patch_margin_right = 80
-	np.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return np
-
+	var panel := NinePatchRect.new()
+	panel.texture = load(fp)
+	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
+	panel.size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
+	panel.patch_margin_left = PANEL_MARGIN
+	panel.patch_margin_top = PANEL_MARGIN
+	panel.patch_margin_right = PANEL_MARGIN
+	panel.patch_margin_bottom = PANEL_MARGIN
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return panel
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
 # (full rebuild + bramble-clear) stay identical. A soft warm well with a gentle,
