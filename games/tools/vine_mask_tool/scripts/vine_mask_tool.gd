@@ -10,6 +10,27 @@ const MIN_COMPONENT_PIXELS := 420
 const DEFAULT_REGION_COUNT := 8
 const HULL_PADDING := 10.0
 
+# Per-region shader knobs. The table is the source of truth for both the slider panel
+# and the saved-tuning round-trip, so it lives here (not inside _build_panel) — it must
+# be readable before the panel exists.
+const CONTROLS := [
+	{"name": "GlowOpacity", "label": "Glow opacity", "target": "glow", "param": "opacity", "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2},
+	{"name": "GlowPower", "label": "Glow power", "target": "glow", "param": "glow_strength", "min": 0.0, "max": 3.0, "step": 0.01, "decimals": 2},
+	{"name": "GlowSize", "label": "Glow size", "target": "glow", "param": "glow_radius", "min": 0.0, "max": 0.03, "step": 0.001, "decimals": 3},
+	{"name": "VineOpacity", "label": "Vine opacity", "target": "vines", "param": "opacity", "min": 0.0, "max": 1.2, "step": 0.01, "decimals": 2},
+	{"name": "VinePower", "label": "Vine power", "target": "vines", "param": "glow_strength", "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2},
+	{"name": "Sharpness", "label": "Sharpness", "target": "vines", "param": "edge_power", "min": 0.5, "max": 6.0, "step": 0.05, "decimals": 2},
+	{"name": "PulseSpeed", "label": "Pulse speed", "target": "both", "param": "pulse_speed", "min": 0.0, "max": 5.0, "step": 0.05, "decimals": 2},
+	{"name": "FlowSpeed", "label": "Flow speed", "target": "both", "param": "flow_speed", "min": 0.0, "max": 4.0, "step": 0.05, "decimals": 2},
+	{"name": "Breathing", "label": "Breathing", "target": "vines", "param": "breath_strength", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
+	{"name": "Heartbeat", "label": "Heartbeat", "target": "vines", "param": "heartbeat_strength", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
+	{"name": "Lightning", "label": "Lightning", "target": "vines", "param": "lightning_strength", "min": 0.0, "max": 2.5, "step": 0.01, "decimals": 2},
+	{"name": "Shimmer", "label": "Shimmer", "target": "vines", "param": "shimmer_strength", "min": 0.0, "max": 0.015, "step": 0.001, "decimals": 3},
+	{"name": "EnergyCrawl", "label": "Energy crawl", "target": "vines", "param": "energy_crawl_strength", "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2},
+	{"name": "Shadow", "label": "Shadow", "target": "shadow", "param": "shadow_opacity", "min": 0.0, "max": 0.65, "step": 0.01, "decimals": 2},
+	{"name": "Embers", "label": "Embers", "target": "embers", "param": "ember_opacity", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
+]
+
 @onready var artwork_frame: Control = $Workspace/ArtworkFrame
 @onready var base_rect: TextureRect = $Workspace/ArtworkFrame/Base
 @onready var glow_template: TextureRect = $Workspace/ArtworkFrame/PurpleGlow
@@ -39,9 +60,12 @@ var map_select: OptionButton
 var region_select: OptionButton
 var enable_region: CheckBox
 var edit_regions_toggle: CheckButton
+var save_status_label: Label
+var _pending_initial_save := false
 
 func _ready() -> void:
 	custom_minimum_size = Vector2(1380.0, 1672.0)
+	controls.assign(CONTROLS.duplicate(true))
 	_load_maps()
 	if maps.is_empty():
 		push_error("Vine mask tool has no maps in %s" % MAPS_PATH)
@@ -51,6 +75,7 @@ func _ready() -> void:
 	_build_panel()
 	_create_region_editor()
 	_select_region(0)
+	_flush_pending_initial_save()
 
 func get_map_count() -> int:
 	return maps.size()
@@ -121,9 +146,14 @@ func _apply_current_map() -> void:
 	regions_path = String(current_map.get("regions_path", "res://games/tools/vine_mask_tool/maps/%s_regions.json" % current_map_id))
 	_load_art_for_current_map()
 	_create_effect_template_materials()
+	var had_regions_file := regions_path != "" and FileAccess.file_exists(regions_path)
 	_load_saved_regions_or_detect()
 	_rebuild_region_map()
 	_create_region_overlays(true)
+	_apply_all_region_tuning()
+	# First visit to a map (no saved file): seed it by saving the auto-detected regions.
+	if not had_regions_file:
+		_pending_initial_save = true
 
 func _load_art_for_current_map() -> void:
 	var base_path := String(current_map.get("base", ""))
@@ -264,10 +294,12 @@ func _load_saved_regions() -> Array:
 			if point_value is Array and point_value.size() >= 2:
 				points.append(_clamp_to_image(Vector2(float(point_value[0]), float(point_value[1]))))
 		if points.size() >= 3:
+			var tuning_value: Variant = region_data.get("tuning", {})
 			loaded.append({
 				"name": str(region_data.get("name", "Region %d" % [loaded.size() + 1])),
 				"points": points,
-				"enabled": bool(region_data.get("enabled", true))
+				"enabled": bool(region_data.get("enabled", true)),
+				"tuning": tuning_value if tuning_value is Dictionary else {}
 			})
 	return loaded if loaded.size() == _target_region_count() else []
 
@@ -403,6 +435,7 @@ func _sort_regions_by_size(a: Dictionary, b: Dictionary) -> bool:
 func _refresh_regions_from_polygons() -> void:
 	_rebuild_region_map()
 	_create_region_overlays(true)
+	_apply_all_region_tuning()
 	_refresh_region_select_items()
 	_select_region(mini(selected_region, region_count - 1))
 
@@ -536,26 +569,77 @@ func _apply_region_map_to_materials() -> void:
 			material.set_shader_parameter("region_index", float(region_index))
 			material.set_shader_parameter("region_count", float(region_count))
 
-func _build_panel() -> void:
-	controls = [
-		{"name": "GlowOpacity", "label": "Glow opacity", "target": "glow", "param": "opacity", "min": 0.0, "max": 1.0, "step": 0.01, "decimals": 2},
-		{"name": "GlowPower", "label": "Glow power", "target": "glow", "param": "glow_strength", "min": 0.0, "max": 3.0, "step": 0.01, "decimals": 2},
-		{"name": "GlowSize", "label": "Glow size", "target": "glow", "param": "glow_radius", "min": 0.0, "max": 0.03, "step": 0.001, "decimals": 3},
-		{"name": "VineOpacity", "label": "Vine opacity", "target": "vines", "param": "opacity", "min": 0.0, "max": 1.2, "step": 0.01, "decimals": 2},
-		{"name": "VinePower", "label": "Vine power", "target": "vines", "param": "glow_strength", "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2},
-		{"name": "Sharpness", "label": "Sharpness", "target": "vines", "param": "edge_power", "min": 0.5, "max": 6.0, "step": 0.05, "decimals": 2},
-		{"name": "PulseSpeed", "label": "Pulse speed", "target": "both", "param": "pulse_speed", "min": 0.0, "max": 5.0, "step": 0.05, "decimals": 2},
-		{"name": "FlowSpeed", "label": "Flow speed", "target": "both", "param": "flow_speed", "min": 0.0, "max": 4.0, "step": 0.05, "decimals": 2},
-		{"name": "Breathing", "label": "Breathing", "target": "vines", "param": "breath_strength", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
-		{"name": "Heartbeat", "label": "Heartbeat", "target": "vines", "param": "heartbeat_strength", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
-		{"name": "Lightning", "label": "Lightning", "target": "vines", "param": "lightning_strength", "min": 0.0, "max": 2.5, "step": 0.01, "decimals": 2},
-		{"name": "Shimmer", "label": "Shimmer", "target": "vines", "param": "shimmer_strength", "min": 0.0, "max": 0.015, "step": 0.001, "decimals": 3},
-		{"name": "EnergyCrawl", "label": "Energy crawl", "target": "vines", "param": "energy_crawl_strength", "min": 0.0, "max": 2.0, "step": 0.01, "decimals": 2},
-		{"name": "Shadow", "label": "Shadow", "target": "shadow", "param": "shadow_opacity", "min": 0.0, "max": 0.65, "step": 0.01, "decimals": 2},
-		{"name": "Embers", "label": "Embers", "target": "embers", "param": "ember_opacity", "min": 0.0, "max": 1.5, "step": 0.01, "decimals": 2},
-	]
+func _apply_all_region_tuning() -> void:
+	for region_index in range(mini(regions.size(), region_overlays.size())):
+		_apply_region_tuning(region_index)
+
+func _apply_region_tuning(region_index: int) -> void:
+	if region_index < 0 or region_index >= regions.size():
+		return
+	var region: Dictionary = regions[region_index]
+	var tuning: Dictionary = region.get("tuning", {})
+	if tuning.is_empty():
+		return
 	for control in controls:
-		control["default"] = _read_shader_value(control["target"], control["param"], selected_region)
+		var key := String(control["name"])
+		if tuning.has(key):
+			_write_shader_value(control["target"], control["param"], float(tuning[key]), region_index)
+
+func _store_region_tuning(region_index: int, control_name: String, value: float) -> void:
+	if region_index < 0 or region_index >= regions.size():
+		return
+	var region: Dictionary = regions[region_index]
+	var tuning: Dictionary = region.get("tuning", {})
+	tuning[control_name] = value
+	region["tuning"] = tuning
+	regions[region_index] = region
+
+# A full snapshot of one region's live shader values, used when serializing — so the
+# saved file carries every knob, not just the ones the user happened to touch.
+func _current_region_tuning(region_index: int) -> Dictionary:
+	var tuning: Dictionary = {}
+	if region_index < 0 or region_index >= region_overlays.size():
+		return tuning
+	for control in controls:
+		tuning[String(control["name"])] = _read_shader_value(control["target"], control["param"], region_index)
+	return tuning
+
+# The pristine template value for a knob — what "Reset Region" restores. Read from the
+# never-mutated template materials so saved tuning can never contaminate the reset target.
+func _template_default(target: String, param: String) -> float:
+	var material: ShaderMaterial
+	match target:
+		"glow":
+			material = glow_template.material as ShaderMaterial
+		"shadow":
+			material = shadow_template_material
+		"embers":
+			material = ember_template_material
+		_:
+			material = vines_template.material as ShaderMaterial  # vines + "both" (matches _material_for_target fallback)
+	if material == null:
+		return 0.0
+	var value: Variant = material.get_shader_parameter(param)
+	return float(value) if value != null else 0.0
+
+func _edit_regions_default() -> bool:
+	return edit_regions_toggle.button_pressed if edit_regions_toggle != null else true
+
+func _flush_pending_initial_save() -> void:
+	if not _pending_initial_save:
+		return
+	_pending_initial_save = false
+	_save_regions_to_file()
+
+func _show_save_status(message: String, ok: bool) -> void:
+	if save_status_label == null:
+		return
+	save_status_label.text = message
+	save_status_label.add_theme_color_override("font_color", Color(0.55, 1.0, 0.6) if ok else Color(1.0, 0.45, 0.45))
+
+func _build_panel() -> void:
+	for control in controls:
+		control["default"] = _template_default(control["target"], control["param"])
 
 	var panel := PanelContainer.new()
 	panel.name = "LiveTuningPanel"
@@ -647,6 +731,10 @@ func _add_region_controls(stack: VBoxContainer) -> void:
 	edit_regions_toggle.name = "EditRegionsToggle"
 	edit_regions_toggle.text = "Edit Regions"
 	edit_regions_toggle.toggled.connect(_set_edit_regions_enabled)
+	# On by default: open the tool ready to drag region handles. The editor itself is built
+	# after this panel, so it reads this state in _create_region_editor (the toggle handler
+	# is a no-op while region_editor is still null).
+	edit_regions_toggle.button_pressed = true
 	edit_row.add_child(edit_regions_toggle)
 
 	var auto := Button.new()
@@ -660,6 +748,12 @@ func _add_region_controls(stack: VBoxContainer) -> void:
 	save.text = "Save Regions"
 	save.pressed.connect(_save_regions_to_file)
 	edit_row.add_child(save)
+
+	save_status_label = Label.new()
+	save_status_label.name = "SaveStatus"
+	save_status_label.add_theme_font_size_override("font_size", 12)
+	save_status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	stack.add_child(save_status_label)
 
 	_refresh_region_select_items()
 
@@ -690,7 +784,7 @@ func _add_slider(stack: VBoxContainer, config: Dictionary) -> void:
 	value_labels[config["name"]] = value_label
 
 	_update_value_label(value_label, slider.value, config["decimals"])
-	slider.value_changed.connect(_on_slider_changed.bind(config["target"], config["param"], value_label, config["decimals"]))
+	slider.value_changed.connect(_on_slider_changed.bind(config["name"], config["target"], config["param"], value_label, config["decimals"]))
 
 func _create_region_editor() -> void:
 	if region_editor != null:
@@ -701,7 +795,7 @@ func _create_region_editor() -> void:
 	region_editor.call("set_image_size", Vector2(image_size))
 	region_editor.call("set_regions", regions)
 	region_editor.call("set_selected_region", selected_region)
-	region_editor.call("set_edit_enabled", false)
+	region_editor.call("set_edit_enabled", _edit_regions_default())
 	region_editor.regions_changed.connect(_on_regions_changed)
 	region_editor.selection_changed.connect(_select_region)
 	artwork_frame.add_child(region_editor)
@@ -718,6 +812,7 @@ func _on_map_selected(index: int) -> void:
 	_build_panel()
 	_create_region_editor()
 	_select_region(0)
+	_flush_pending_initial_save()
 
 func _remove_live_controls() -> void:
 	var panel := get_node_or_null("LiveTuningPanel")
@@ -791,10 +886,11 @@ func _region_is_enabled(region_index: int) -> bool:
 	var region: Dictionary = regions[region_index]
 	return bool(region.get("enabled", true))
 
-func _on_slider_changed(value: float, target: String, param: String, value_label: Label, decimals: int) -> void:
+func _on_slider_changed(value: float, control_name: String, target: String, param: String, value_label: Label, decimals: int) -> void:
 	if updating_ui:
 		return
 	_write_shader_value(target, param, value, selected_region)
+	_store_region_tuning(selected_region, control_name, value)
 	_update_value_label(value_label, value, decimals)
 
 func _read_shader_value(target: String, param: String, region_index: int) -> float:
@@ -836,9 +932,22 @@ func _reset_selected_region() -> void:
 		var slider := sliders.get(control["name"]) as HSlider
 		if slider != null:
 			slider.value = value
+	# Drop stored deltas so a later overlay rebuild keeps the template look, not the old tuning.
+	if selected_region >= 0 and selected_region < regions.size():
+		var region: Dictionary = regions[selected_region]
+		region["tuning"] = {}
+		regions[selected_region] = region
 
 func _on_regions_changed(next_regions: Array) -> void:
-	regions = _clone_regions(next_regions)
+	# The editor only owns geometry; merge its points/name/enabled back by index so each
+	# region's tuning (which the editor doesn't carry) is preserved across an edit.
+	for index in range(mini(regions.size(), next_regions.size())):
+		var existing: Dictionary = regions[index]
+		var incoming: Dictionary = next_regions[index]
+		existing["points"] = incoming.get("points", existing.get("points", []))
+		existing["name"] = incoming.get("name", existing.get("name", "Region %d" % [index + 1]))
+		existing["enabled"] = bool(incoming.get("enabled", existing.get("enabled", true)))
+		regions[index] = existing
 	_refresh_regions_from_polygons()
 
 func _save_regions_to_file() -> void:
@@ -856,13 +965,25 @@ func _save_regions_to_file() -> void:
 		data["regions"].append({
 			"name": str(region.get("name", "Region %d" % [index + 1])),
 			"enabled": bool(region.get("enabled", true)),
-			"points": serialized_points
+			"points": serialized_points,
+			"tuning": _current_region_tuning(index)
 		})
+
+	if regions_path == "":
+		_show_save_status("Save failed: this map has no regions_path", false)
+		push_error("[vine_mask_tool] cannot save — current map has no regions_path")
+		return
 
 	var path := ProjectSettings.globalize_path(regions_path)
 	var file := FileAccess.open(path, FileAccess.WRITE)
 	if file != null:
 		file.store_string(JSON.stringify(data, "  "))
+		file.close()
+		_show_save_status("Saved ✓  %d regions → %s" % [regions.size(), regions_path.get_file()], true)
+		print("[vine_mask_tool] saved %d regions to %s" % [regions.size(), regions_path])
+	else:
+		_show_save_status("Save failed: could not write %s" % regions_path.get_file(), false)
+		push_error("[vine_mask_tool] could not write %s (error %d)" % [path, FileAccess.get_open_error()])
 
 func _points_to_packed(points: Array) -> PackedVector2Array:
 	var packed := PackedVector2Array()
