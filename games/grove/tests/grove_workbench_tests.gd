@@ -128,6 +128,26 @@ func _test_bag_components() -> void:
 	var three := Kit.currency_pill({}, {"star": 1, "coin": 2, "gem": 3})
 	ok(three is Control and _pill_numbers(three) == 3, "currency_pill default still renders the 3-currency wallet")
 
+	# the pill's BORDER is a selectable painted capsule (PILL_BORDERS) — the workbench Border picker saves
+	# "border", currency_pill_style resolves it on the ART path. The default is "gold capsule" so the shipped
+	# wallet is unchanged, and EVERY registered border must resolve to a real loadable capsule art at its cap.
+	ok(String(Kit.currency_pill_opts_from_config({}).border) == "gold capsule", \
+		"currency_pill default border == gold capsule (shipped pill)")
+	var def_sb: StyleBox = Kit.currency_pill_style(Kit.currency_pill_opts_from_config({}))
+	ok(def_sb is StyleBoxTexture and (def_sb as StyleBoxTexture).texture.resource_path.ends_with("panel_pill.png"), \
+		"default border resolves to the shipped panel_pill capsule")
+	for bname in Kit.PILL_BORDERS.keys():
+		var rec: Dictionary = Kit.PILL_BORDERS[bname]
+		var sb: StyleBox = Kit.currency_pill_style({"use_art": true, "border": bname})
+		ok(sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null, \
+			"pill border '%s' loads its capsule art (%s)" % [bname, rec.art])
+		ok(int((sb as StyleBoxTexture).get_texture_margin(SIDE_LEFT)) == int(rec.cap), \
+			"pill border '%s' applies its cap (%d)" % [bname, int(rec.cap)])
+	# an unknown saved border falls back to the gold capsule rather than blanking the wallet
+	var bad_sb: StyleBox = Kit.currency_pill_style({"use_art": true, "border": "nope"})
+	ok(bad_sb is StyleBoxTexture and (bad_sb as StyleBoxTexture).texture.resource_path.ends_with("panel_pill.png"), \
+		"unknown border name falls back to the gold capsule")
+
 	# the BAG CELL — one slot tile in each of the four states (filled / empty / next / locked).
 	var co := Kit.bag_card_opts_from_config({})
 	for kind in ["filled", "empty", "next", "locked"]:
