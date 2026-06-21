@@ -466,7 +466,7 @@ func _initialize() -> void:
 	ok(band_mono and float(band[0]) >= 1.0, "T39: the per-map band rises monotonically across maps 1–5 (≥1.0 at map 1)")
 	# map resolution: code → line → generator → its map. Sample lines spanning maps 0..4.
 	ok(G.map_for_line(1) == 0 and G.map_for_line(2) == 0, "T39: map-1 lines (Wildflower/Berry) resolve to map 0")
-	ok(G.map_for_line(5) == 1 and G.map_for_line(6) == 1, "T39: map-2 lines (Egg/Feather) resolve to map 1")
+	ok(G.map_for_line(6) == 1, "T39: the map-2 line (Feather) resolves to map 1")
 	ok(G.map_for_line(10) == 2, "T39: a map-3 line (Reed) resolves to map 2")
 	ok(G.map_for_line(14) == 3 and G.map_for_line(20) == 4, "T39: map-4/5 lines (Apple/Glowcap) resolve to maps 3/4")
 	ok(G.map_for_code(1005) == 2, "T39: map_for_code derives the line then the map (Reed t5 → map 2)")

@@ -3599,11 +3599,15 @@ static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
 	var q: Dictionary = cfg.get("quest_card", {}) if cfg is Dictionary else {}
 	var isz: float = float(q.get("item_size", 32)) / 100.0
 	return {
-		"card_w":      float(q.get("card_w", 98)) / 100.0,      "card_h":   float(q.get("card_h", 86)) / 100.0,
+		"card_w":      float(q.get("card_w", 98)) / 100.0,      "card_h":   float(q.get("card_h", 65)) / 100.0,
 		"bust_size":   float(q.get("bust_size", 94)) / 100.0,   "bust_x":   float(q.get("bust_x", 25)) / 100.0,   "bust_y":   float(q.get("bust_y", 53)) / 100.0,
 		"bubble_size": float(q.get("bubble_size", 66)) / 100.0, "bubble_x": float(q.get("bubble_x", 72)) / 100.0, "bubble_y": float(q.get("bubble_y", 35)) / 100.0,
 		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 72)) / 100.0, "item_y": float(q.get("item_y", 32)) / 100.0,
 		"plaque_w":    float(q.get("plaque_w", 40)) / 100.0,    "plaque_x": float(q.get("plaque_x", 72)) / 100.0, "plaque_y": float(q.get("plaque_y", 81)) / 100.0,
+		# the card's 9-slice patch margins, in SOURCE pixels (NOT fractions) — the corners that stay crisp while
+		# the centre parchment stretches. Defaults bracket the wood frame + peg-hole corners of the 369×209 art.
+		"card_slice_l": float(q.get("card_slice_l", 46)), "card_slice_t": float(q.get("card_slice_t", 44)),
+		"card_slice_r": float(q.get("card_slice_r", 46)), "card_slice_b": float(q.get("card_slice_b", 56)),
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

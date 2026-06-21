@@ -204,7 +204,21 @@ func _test_quest_card_config(view) -> void:
 	var gov: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_w": 200, "bust_x": 40}})
 	ok(is_equal_approx(float(gov.card_w), 2.0) and is_equal_approx(float(gov.bust_x), 0.40), \
 		"giver_lay config overrides the named keys (percent → fraction)")
-	ok(is_equal_approx(float(gov.card_h), 0.86), "giver_lay leaves un-named keys at the shipped default")
+	ok(is_equal_approx(float(gov.card_h), 0.65), "giver_lay leaves un-named keys at the shipped default")
+
+	# the 9-slice patch margins ride the lay as SOURCE PIXELS (NOT divided) — defaults bracket the wood frame
+	ok(is_equal_approx(float(gdf.card_slice_l), 46.0) and is_equal_approx(float(gdf.card_slice_b), 56.0), \
+		"giver_lay carries the card 9-slice margins as raw source px (not /100)")
+	var gsl: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_slice_t": 30}})
+	ok(is_equal_approx(float(gsl.card_slice_t), 30.0), "giver_lay slice margins are overridable (raw px)")
+	# the card background is built as a NINE-SLICE so the frame corners stay crisp while the centre stretches
+	var noop := func(_a: Variant, _b: Variant) -> void: pass
+	var wire := func(_n: Control, _a: Callable) -> void: pass
+	var qcard: Control = GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"stars": 5}}, \
+		{"ask_tap": noop, "stand_tap": noop, "wire_tap": wire, "stand_w": 480.0, "fence_h": 410.0, "lay": gdf}).chip
+	ok(qcard.find_children("*", "NinePatchRect", true, false).size() > 0, \
+		"the giver card background is a NinePatchRect (9-slice, crisp corners)")
+	qcard.queue_free()
 
 	# editing a quest-card layout slider rebuilds just the quest-card section (live preview)
 	view._selected = "quest_card"

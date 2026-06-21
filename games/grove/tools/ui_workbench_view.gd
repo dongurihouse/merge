@@ -197,8 +197,9 @@ var _params := {
 	# The DEMO knobs only preview: bust picks which of giver_0..15 sits on the left; tier is the asked item's
 	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
 	# board's size; met toggles the ready ✓.
-	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,
-		"card_w": 98, "card_h": 86, "bust_size": 94, "bust_x": 25, "bust_y": 53,
+	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 410, "met": false,
+		"card_w": 98, "card_h": 65, "card_slice_l": 46, "card_slice_t": 44, "card_slice_r": 46, "card_slice_b": 56,
+		"bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
 		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
@@ -1340,8 +1341,13 @@ func _rebuild_sidebar() -> void:
 			# config; the board reads them live via Kit.giver_lay_from_config, so a tweak here flows straight to
 			# the live giver card on Save. (giver_stand.LAY stays the shipped fallback for an empty config.)
 			_group_header("Layout — saved to config (board reads it live)", true)
-			_sidebar_body.add_child(_slider_row(["card_w", 40, 300]))      # box width  (% of stand)
-			_sidebar_body.add_child(_slider_row(["card_h", 40, 300]))      # box height (% of stand) — box auto-keeps the card art's native aspect (width clamps to card_w)
+			_sidebar_body.add_child(_slider_row(["card_w", 40, 300]))      # box width  (% of stand) — independent of height
+			_sidebar_body.add_child(_slider_row(["card_h", 40, 300]))      # box height (% of stand) — independent of width
+			_section_header("Card 9-slice (source px — corners stay crisp)")
+			_sidebar_body.add_child(_slider_row(["card_slice_l", 0, 120]))  # left patch margin (keeps the L frame + side tab base)
+			_sidebar_body.add_child(_slider_row(["card_slice_t", 0, 100]))  # top patch margin (keeps the wood top + peg holes)
+			_sidebar_body.add_child(_slider_row(["card_slice_r", 0, 120]))  # right patch margin
+			_sidebar_body.add_child(_slider_row(["card_slice_b", 0, 100]))  # bottom patch margin (bracket the leaf sprig)
 			_section_header("Quest giver")
 			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
 			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)
