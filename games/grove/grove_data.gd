@@ -4,6 +4,8 @@ extends RefCounted
 ## numbers, the quest ramp, maps/spots, waysides, variants, and all economy dials.
 ## A different game ships its own data module with the SAME const names.
 
+const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
+
 const COLS := 7
 const ROWS := 9
 const TOP_TIER := 12
@@ -284,6 +286,23 @@ static func _build_maps() -> Array:
 		{"id": "md_arch", "name": "Rose arch", "cost": 5, "pos": Vector2(0.45, 0.85)},
 	]},
 	]
+	return _apply_vine_maps(maps)
+
+# Overlay the vine mask tool's maps onto the hardcoded slots, positionally: slot i becomes vine-driven
+# from the i-th maps.json entry when present. The slot KEEPS its id/name/hub (so saves + progression +
+# map_for_id stay stable); only its rendering (`vine`) and `spots` (one per region) change. Slots with
+# no matching tool entry are left exactly as-is. Any missing/unparseable tool file => no overlay (the
+# game falls back to the legacy maps), so this can never break the build.
+static func _apply_vine_maps(maps: Array) -> Array:
+	var entries := VineMaps.entries()
+	for i in range(mini(entries.size(), maps.size())):
+		var entry: Dictionary = entries[i]
+		var spots := VineMaps.spots_for(String(maps[i].id), entry)
+		if spots.is_empty():
+			continue   # a tool entry with no readable regions: leave the legacy slot intact
+		maps[i]["vine"] = entry
+		maps[i].erase("home")   # vine rendering supersedes the §16 mask-reveal home for this slot
+		maps[i]["spots"] = spots
 	return maps
 
 

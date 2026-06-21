@@ -341,11 +341,28 @@ func _build_map() -> void:
 # cutout sprite/ghost via _make_spot. Either way the hit lands in content + spot_hits.
 func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 	var has_home := not home.is_empty()
+	var is_vine := typeof(G.MAPS[z].get("vine", null)) == TYPE_DICTIONARY
 	var by_id := _home_buildings(home) if has_home else {}
 	for k in G.MAPS[z].spots.size():
-		var hit: Control = _build_home_spot(z, k, home, frame, by_id) if has_home else _make_spot(z, k, _map_rect)
+		var hit: Control
+		if is_vine:
+			hit = _build_vine_spot(z, k)
+		elif has_home:
+			hit = _build_home_spot(z, k, home, frame, by_id)
+		else:
+			hit = _make_spot(z, k, _map_rect)
 		content.add_child(hit)
 		spot_hits.append({"node": hit, "z": z, "k": k})
+
+# A vine map's per-region affordance: unowned -> the ✿cost disc at the region centroid (carries the
+# place_spot meta + routes the buy via spot_hits); owned -> an inert marker (keeps spot_hits index-aligned).
+func _build_vine_spot(z: int, k: int) -> Control:
+	var spot: Dictionary = G.MAPS[z].spots[k]
+	# adapt the spot's Vector2 pos to the home-building dict's [x, y] list form that _home_badge reads.
+	var b := {"pos": [float(spot.pos.x), float(spot.pos.y)]}
+	if not spot_owned(String(spot.id)):
+		return _home_badge(z, k, b)
+	return _home_owned_item(z, k, b)
 
 # --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 
@@ -362,6 +379,27 @@ var _home_mask: Shader
 # flat fallback panel. Returns the clipped frame the §16 reveals attach to (null for the panel — only a
 # §16 home needs it). `home` is {} for a map that ships no §16 home art.
 func _build_map_base(z: int, home: Dictionary) -> Control:
+	var vine = G.MAPS[z].get("vine", null)
+	if typeof(vine) == TYPE_DICTIONARY:
+		var vframe := _clip_frame()
+		_add_cover_layer(vframe, String(vine.get("base", "")))      # clean base (e.g. map1.png)
+		var VineView := load("res://games/grove/vine/vine_map_view.gd")
+		var view: Control = VineView.new()
+		view.name = "VineMapView"
+		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var Grove := load("res://games/grove/vine/vine_maps.gd")
+		view.load_map(vine, Grove.regions_for(vine))               # sets size to image_size (for the tool's use)
+		# the game seats the view full-rect over the clip frame; clear the image-size hint so the frame
+		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
+		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		view.custom_minimum_size = Vector2.ZERO
+		view.set_calm(FX.calm())
+		# owned regions show clean (vines off); unowned show vines.
+		for i in range(view.region_count()):
+			var sid := "%s_r%d" % [String(G.MAPS[z].id), i]
+			view.set_region_enabled(i, not spot_owned(sid))
+		vframe.add_child(view)
+		return vframe
 	var broken := String(home.get("broken", ""))
 	if broken != "":
 		var frame := _clip_frame()
@@ -875,6 +913,11 @@ func _card_art_path(z: int) -> String:
 	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
 	if ResourceLoader.exists(thumb_path):
 		return thumb_path
+	var vine = map_data.get("vine", null)
+	if typeof(vine) == TYPE_DICTIONARY:
+		var base := String(vine.get("base", ""))
+		if base != "" and ResourceLoader.exists(base):
+			return base
 	var home = map_data.get("home", null)
 	if typeof(home) == TYPE_DICTIONARY:
 		var clean := String(home.get("clean", ""))

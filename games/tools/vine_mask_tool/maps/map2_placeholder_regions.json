@@ -1,0 +1,454 @@
+{
+  "image_size": [
+    941,
+    1672
+  ],
+  "map_id": "map2_placeholder",
+  "mask_offset": [
+    0,
+    0
+  ],
+  "mode": "auto_detected_mask_regions",
+  "regions": [
+    {
+      "enabled": true,
+      "name": "Region 1",
+      "points": [
+        [
+          231,
+          214
+        ],
+        [
+          384,
+          214
+        ],
+        [
+          536,
+          214
+        ],
+        [
+          536,
+          311
+        ],
+        [
+          536,
+          409
+        ],
+        [
+          384,
+          409
+        ],
+        [
+          231,
+          409
+        ],
+        [
+          231,
+          311
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 2",
+      "points": [
+        [
+          126,
+          409
+        ],
+        [
+          420,
+          409
+        ],
+        [
+          714,
+          409
+        ],
+        [
+          714,
+          608
+        ],
+        [
+          714,
+          808
+        ],
+        [
+          420,
+          808
+        ],
+        [
+          138,
+          808
+        ],
+        [
+          126,
+          608
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 3",
+      "points": [
+        [
+          719,
+          661
+        ],
+        [
+          830,
+          661
+        ],
+        [
+          940,
+          661
+        ],
+        [
+          940,
+          856
+        ],
+        [
+          940,
+          1050
+        ],
+        [
+          830,
+          1050
+        ],
+        [
+          719,
+          1050
+        ],
+        [
+          719,
+          856
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 4",
+      "points": [
+        [
+          0,
+          808
+        ],
+        [
+          138,
+          808
+        ],
+        [
+          299,
+          808
+        ],
+        [
+          299,
+          993
+        ],
+        [
+          299,
+          1178
+        ],
+        [
+          150,
+          1178
+        ],
+        [
+          0,
+          1178
+        ],
+        [
+          0,
+          993
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 5",
+      "points": [
+        [
+          379,
+          856
+        ],
+        [
+          549,
+          856
+        ],
+        [
+          719,
+          856
+        ],
+        [
+          719,
+          975
+        ],
+        [
+          719,
+          1093
+        ],
+        [
+          549,
+          1093
+        ],
+        [
+          379,
+          1093
+        ],
+        [
+          379,
+          975
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 6",
+      "points": [
+        [
+          692,
+          1094
+        ],
+        [
+          801,
+          1094
+        ],
+        [
+          910,
+          1094
+        ],
+        [
+          910,
+          1204
+        ],
+        [
+          910,
+          1313
+        ],
+        [
+          801,
+          1313
+        ],
+        [
+          692,
+          1313
+        ],
+        [
+          692,
+          1204
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 7",
+      "points": [
+        [
+          616,
+          1320
+        ],
+        [
+          777,
+          1320
+        ],
+        [
+          937,
+          1320
+        ],
+        [
+          937,
+          1453
+        ],
+        [
+          937,
+          1586
+        ],
+        [
+          777,
+          1586
+        ],
+        [
+          616,
+          1586
+        ],
+        [
+          616,
+          1453
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "enabled": true,
+      "name": "Region 8",
+      "points": [
+        [
+          386,
+          1403
+        ],
+        [
+          482,
+          1403
+        ],
+        [
+          578,
+          1403
+        ],
+        [
+          578,
+          1501
+        ],
+        [
+          578,
+          1599
+        ],
+        [
+          482,
+          1599
+        ],
+        [
+          386,
+          1599
+        ],
+        [
+          386,
+          1501
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.0,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.0,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    }
+  ]
+}
