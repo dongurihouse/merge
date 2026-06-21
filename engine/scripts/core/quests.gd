@@ -17,9 +17,12 @@ static func current_map(unlocks: Dictionary, gates: Array) -> int:
 static func map_done(unlocks: Dictionary, gates: Array) -> bool:
 	return G.frontier_map(unlocks, gates) == -1
 
-# The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
+# §7 fence sizing: how many stands the fence shows, metered to the WHOLE map's remaining stars
+# (not the next single spot). The fence stays full and only tapers in the map's final stretch,
+# emptying once you've banked enough to finish the map. The "go restore" cue is the breathing
+# Home button (gate_ready) — the fence no longer empties at each affordable spot.
 static func meter_target(z: int, banked_stars: int, unlocks: Dictionary) -> int:
-	return G.active_giver_count(banked_stars, G.map_cheapest_spot(z, unlocks))
+	return G.active_giver_count(banked_stars, G.map_stars_left(z, unlocks))
 
 # The restore CTA: ready once the CURRENT map's cheapest spot is affordable.
 static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary) -> bool:

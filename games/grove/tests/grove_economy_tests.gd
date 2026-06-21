@@ -224,10 +224,11 @@ func _initialize() -> void:
 	ok(hint.size() == 2 and s3.board.item_at(hint[0]) == s3.board.item_at(hint[1]) \
 		and s3.board.can_merge(hint[0], hint[1]), "the idle hint wiggles a true mergeable pair")
 
-	# 12d. §7: the fence is METERED to the next unlock — it seats exactly active_giver_count
-	# stands (shrinking as stars bank, capped at MAX_GIVERS), not a fixed pool.
-	var s3_nxt: int = G.cheapest_spot_cost(Save.grove().get("unlocks", {}))
-	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_nxt), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
+	# 12d. §7: the fence is METERED to the WHOLE map's remaining stars — it seats exactly
+	# active_giver_count stands (capped at MAX_GIVERS, tapering only in the map's final stretch),
+	# not a fixed pool.
+	var s3_left: int = G.map_stars_left(s3._quest_map(), Save.grove().get("unlocks", {}))
+	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_left), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
 	ok(s3.giver_chips.size() <= int(G.MAX_GIVERS), "§7: the fence never exceeds MAX_GIVERS stands")
 
 	# 13. P3 — maps/spots content sanity + level math

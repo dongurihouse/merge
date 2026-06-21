@@ -43,8 +43,9 @@ const PLAQUE_AR := 202.0 / 110.0          # plaque art aspect, so it never stret
 # Tunable layout — ALL fractions. card_w is the box's MAX width fraction of the stand; card_h its height
 # fraction — the box is sized to the card art's native aspect (no stretch). The rest are a size (×cardH)
 # and a centre x/y (×cardW, ×cardH): the bust fills the LEFT half, the standalone speech bubble + the
-# asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. The board renders
-# with these defaults; the UI workbench overrides them live via cfg.lay to dial it in.
+# asked item ride the upper RIGHT, and the wooden plaque hangs just below the bubble. These are the SHIPPED
+# DEFAULTS / fallback; the board passes cfg.lay from the UI workbench's saved config (Kit.giver_lay_from_config),
+# overriding per key — so designers tune + Save in the workbench instead of editing this constant.
 const LAY := {
 	"card_w": 0.98, "card_h": 0.86,
 	"bust_size": 0.94, "bust_x": 0.25, "bust_y": 0.53,

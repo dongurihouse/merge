@@ -286,10 +286,10 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 giver meter: how many giver stands are active, metered to the NEXT unlock —
-## ≈ ceil((next_cost − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
-## next unlock is affordable (the fence empties → wordless "go restore"). next_cost == -1
-## (all spots owned) → 0.
+## §7 giver meter: how many giver stands are active for a remaining-cost target —
+## ≈ ceil((target − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the target
+## is banked. Quests.meter_target sizes the fence to the WHOLE map's remaining stars, so the fence
+## stays full through the map and only tapers at the very end. target == -1 (nothing left) → 0.
 static func active_giver_count(banked_stars: int, next_cost: int, max_givers: int = MAX_GIVERS) -> int:
 	if next_cost == -1:
 		return 0

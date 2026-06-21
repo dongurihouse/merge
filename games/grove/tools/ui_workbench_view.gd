@@ -13,20 +13,24 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
 const Pal = Game.PALETTE
+# Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
+const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
+const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "settings", "vault", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
 # column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
 # column never pairs — one per row. Splitting dialogs into their own column keeps them grouped and balances
 # the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom)
-	[["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["frame"], ["progress_bar"]],
+	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
+	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
+	[["board"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["frame"], ["progress_bar"]],
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["bag"]],   # dialogs, settings, vault, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
@@ -41,8 +45,8 @@ const DEPENDENTS := {
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"badge": ["home_button"],
-	# the slot cell backs BOTH the bag dialog and the discovery ladder (which inherits its look) — editing it rebuilds both
-	"bag_card": ["bag", "tiers"],
+	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
+	"bag_card": ["bag", "tiers", "board"],
 	"currency_pill": ["bag"],
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
@@ -59,6 +63,9 @@ const UNLOCK_ICONS := ["star", "coin", "gem", "daisy", "leaf", "water"]
 #   icon   — the whole element is a polish-tuning sandbox (the shipped recipe is fixed in the kit).
 #   dialog — entries is a preview count, snap is the drag grid.
 const TEST_KEYS := {
+	# the BOARD preview — the size knobs (scale / cell / item / gap / frame / cols / rows) are the saved
+	# design; `pieces` just toggles the demo merge pieces in the preview.
+	"board": ["pieces"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
@@ -86,12 +93,10 @@ const TEST_KEYS := {
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/stars_left just preview the card (the game sets each from map state).
 	"map_card": ["open", "done", "stars_left"],
-	# the quest-giver card — its LOOK is the painted card art + the layout fractions baked in
-	# giver_stand.gd, so NOTHING here is saved config: every knob just previews the live card
-	# (which bust, the asked tier, the reward, the size the board gives it, and the ready state).
-	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met", "card_w", "card_h",
-		"bust_size", "bust_x", "bust_y", "bubble_size", "bubble_x", "bubble_y",
-		"item_w", "item_h", "item_x", "item_y", "plaque_w", "plaque_x", "plaque_y"],
+	# the quest-giver card — the LAYOUT block (card/bust/bubble/item/plaque fractions) IS saved config now:
+	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
+	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
+	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
 	"settings": [],
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
@@ -101,6 +106,7 @@ const TEST_KEYS := {
 	"bag": ["balance", "owned", "filled"],
 }
 const CAPTIONS := {
+	"board": "Board — merge grid (frame · cells · pieces · scale + item width)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"home_unlock_button": "Home unlock — restore-cost disc (+ · ★ N)",
@@ -125,6 +131,11 @@ const CAPTIONS := {
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 var _params := {
+	# the BOARD preview — a live merge grid (bamboo frame · the shared slot-cell well · demo pieces). Two
+	# INDEPENDENT size knobs: `scale` zooms the whole composition (frame + cells together, in %); `cell` is
+	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
+	# `item` = the piece sprite size as a % of its cell; gap/frame/cols/rows shape the grid. Preview only.
+	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true},
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
@@ -181,14 +192,15 @@ var _params := {
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "stars_left": 3},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
-	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. Nothing
-	# is saved: bust picks which of giver_0..15 sits on the left; tier is the asked item's tier (the demo
-	# item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the board's size; met
-	# toggles the ready ✓.
+	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
+	# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
+	# The DEMO knobs only preview: bust picks which of giver_0..15 sits on the left; tier is the asked item's
+	# tier (the demo item is the Wildflower line); stars is the plaque reward; stand_w/fence_h preview the
+	# board's size; met toggles the ready ✓.
 	"quest_card": {"bust": 1, "tier": 3, "stars": 25, "stand_w": 480, "fence_h": 344, "met": false,
 		"card_w": 98, "card_h": 86, "bust_size": 94, "bust_x": 25, "bust_y": 53,
 		"bubble_size": 66, "bubble_x": 72, "bubble_y": 35,
-		"item_w": 32, "item_h": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
+		"item_size": 32, "item_x": 72, "item_y": 32, "plaque_w": 40, "plaque_x": 72, "plaque_y": 81},
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
@@ -227,7 +239,7 @@ var _params := {
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 0},
+		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -354,6 +366,8 @@ func _dlg_px(id: String) -> float:
 func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
+		"board":
+			return _make_board_preview()
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
@@ -472,9 +486,10 @@ func _make_element(id: String) -> Control:
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
 		"quest_card":
-			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls.
-			# `bust` IS the asked line (the bust face is keyed off it), so it drives both the giver and the
-			# item art; tier + stars round out the demo. The layout knobs feed cfg.lay (the board's defaults).
+			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
+			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
+			# saving (then the board) will render. `bust` IS the asked line (the bust face is keyed off it), so it
+			# drives both the giver and the item art; tier + stars round out the demo.
 			var demo_q := {"line": maxi(1, int(p.bust)), "tier": int(p.tier), "reward": {"stars": int(p.stars)}}
 			var noop2 := func(_a: Variant, _b: Variant) -> void: pass
 			var qcfg := {
@@ -484,13 +499,7 @@ func _make_element(id: String) -> Control:
 						if ev is InputEventMouseButton and not (ev as InputEventMouseButton).pressed:
 							action.call()),
 				"stand_w": float(p.stand_w), "fence_h": float(p.fence_h),
-				"lay": {
-					"card_w": float(p.card_w) / 100.0, "card_h": float(p.card_h) / 100.0,
-					"bust_size": float(p.bust_size) / 100.0, "bust_x": float(p.bust_x) / 100.0, "bust_y": float(p.bust_y) / 100.0,
-					"bubble_size": float(p.bubble_size) / 100.0, "bubble_x": float(p.bubble_x) / 100.0, "bubble_y": float(p.bubble_y) / 100.0,
-					"item_w": float(p.item_w) / 100.0, "item_h": float(p.item_h) / 100.0, "item_x": float(p.item_x) / 100.0, "item_y": float(p.item_y) / 100.0,
-					"plaque_w": float(p.plaque_w) / 100.0, "plaque_x": float(p.plaque_x) / 100.0, "plaque_y": float(p.plaque_y) / 100.0,
-				},
+				"lay": Kit.giver_lay_from_config({"quest_card": p}),
 			}
 			var made := GiverStand.make(maxi(1, int(p.bust)), demo_q, qcfg)
 			var stand: Control = made.chip
@@ -542,6 +551,68 @@ func _make_element(id: String) -> Control:
 			bopts["banner_text"] = "Bag"
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
+
+## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
+## slot-cell well the board + bag use) + a few demo merge pieces (PieceView), the SAME art the live board
+## renders. Two INDEPENDENT size knobs: `scale` zooms the WHOLE composition (frame + cells together);
+## `cell` is the item width in px (the grid grows, the frame thickness stays) — so you trade item size
+## against frame weight. `item` sizes the piece sprite as a % of its cell. Pure preview; not yet wired
+## into the in-game board (which still sizes itself responsively from the viewport).
+func _make_board_preview() -> Control:
+	var p: Dictionary = _params["board"]
+	var s: float = float(p.scale) / 100.0
+	var cell: float = maxf(8.0, float(p.cell) * s)
+	var gap: float = maxf(0.0, float(p.gap) * s)
+	var frame: float = maxf(0.0, float(p.frame) * s)
+	var cols: int = maxi(1, int(p.cols))
+	var rows: int = maxi(1, int(p.rows))
+	var grid_w: float = cols * cell + (cols - 1) * gap
+	var grid_h: float = rows * cell + (rows - 1) * gap
+	var total := Vector2(grid_w + frame * 2.0, grid_h + frame * 2.0)
+
+	var root := Control.new()
+	root.custom_minimum_size = total
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	# the bamboo frame, overhanging the grid by `frame` on every side (PANEL_MARGIN 70 = board.gd's slice)
+	var fp := Look.kit("board/board_frame.png")
+	if ResourceLoader.exists(fp):
+		var panel := NinePatchRect.new()
+		panel.texture = load(fp)
+		panel.size = total
+		panel.patch_margin_left = 70
+		panel.patch_margin_top = 70
+		panel.patch_margin_right = 70
+		panel.patch_margin_bottom = 70
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(panel)
+
+	# the empty wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style
+	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
+	opts["cell_w"] = cell
+	opts["cell_h"] = cell
+	for r in rows:
+		for c in cols:
+			var well: Control = Kit.slot_cell({"state": "empty"}, opts)
+			well.position = Vector2(frame + c * (cell + gap), frame + r * (cell + gap))
+			well.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			root.add_child(well)
+
+	# a few demo merge pieces. The holder fills the cell (so it centers exactly like the game); the `item`
+	# knob is the sprite width WITHIN it, applied as the inset — the SAME path the live board uses, so the
+	# preview reads 1:1 with the game (board._make_piece passes the same inset from the saved board.item).
+	if bool(p.pieces):
+		var inset: float = clampf((1.0 - float(p.item) / 100.0) / 2.0, 0.0, 0.45)
+		for d in BOARD_DEMO:
+			var r: int = int(d[0])
+			var c: int = int(d[1])
+			if r >= rows or c >= cols:
+				continue
+			var piece: Control = PieceView.make_piece(int(d[2]), cell, inset)
+			piece.position = Vector2(frame + c * (cell + gap), frame + r * (cell + gap))
+			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			root.add_child(piece)
+	return root
 
 ## A demo slot CELL for the standalone Slot-cell preview, in the chosen state. `level`>0 docks the board
 ## level badge (lower-right); `cost`>0 shows the bag acorn cost — either applies only to locked/unlockable.
@@ -1007,11 +1078,31 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
+	if _selected == "board":
+		var note := Label.new()
+		note.text = "A live preview of the merge board: the bamboo frame + the SHARED cell well (edit its look on the Slot cell item) + demo pieces. SCALE zooms the whole board (frame + cells together); CELL is the item width — the grid grows while the frame thickness stays, so you trade item size against frame weight. ITEM is the piece size within its cell. Preview only — not yet wired into the in-game board (which still sizes itself from the screen)."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
 	# config first, then the transient test/preview scaffolding that the config file never touches.
 	match _selected:
+		"board":
+			_group_header("Saved to config", true)
+			_section_header("Size")
+			_sidebar_body.add_child(_slider_row(["scale", 30, 200]))   # overall zoom (% — frame + cells together)
+			_sidebar_body.add_child(_slider_row(["cell", 28, 120]))    # item width (px) — grid grows, frame stays
+			_sidebar_body.add_child(_slider_row(["item", 40, 100]))    # piece sprite size as % of its cell
+			_sidebar_body.add_child(_slider_row(["gap", 0, 30]))       # gutter between cells (px)
+			_sidebar_body.add_child(_slider_row(["frame", 0, 120]))    # bamboo frame overhang (px)
+			_section_header("Grid")
+			_sidebar_body.add_child(_slider_row(["cols", 1, 9]))
+			_sidebar_body.add_child(_slider_row(["rows", 1, 12]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists
 			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
@@ -1245,12 +1336,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["owned", 0, 18]))          # how many slots are owned
 			_sidebar_body.add_child(_slider_row(["filled", 0, 18]))         # how many owned slots hold a piece
 		"quest_card":
-			# The LAYOUT block (card_w..plaque_y) are the giver_stand.LAY fractions, in PERCENT — tune them
-			# here, then copy the values into giver_stand.LAY to ship. The demo block just feeds the preview.
-			# Nothing here writes to the config file.
-			_group_header("Layout (percent → copy into giver_stand.LAY)", false)
-			_sidebar_body.add_child(_slider_row(["card_w", 40, 100]))      # box width  (% of stand)
-			_sidebar_body.add_child(_slider_row(["card_h", 40, 100]))      # box height (% of stand) — box auto-keeps the card art's native aspect (width clamps to card_w)
+			# The LAYOUT block (card_w..plaque_y) are the giver-card fractions, in PERCENT. They are SAVED to
+			# config; the board reads them live via Kit.giver_lay_from_config, so a tweak here flows straight to
+			# the live giver card on Save. (giver_stand.LAY stays the shipped fallback for an empty config.)
+			_group_header("Layout — saved to config (board reads it live)", true)
+			_sidebar_body.add_child(_slider_row(["card_w", 40, 300]))      # box width  (% of stand)
+			_sidebar_body.add_child(_slider_row(["card_h", 40, 300]))      # box height (% of stand) — box auto-keeps the card art's native aspect (width clamps to card_w)
 			_section_header("Quest giver")
 			_sidebar_body.add_child(_slider_row(["bust_size", 50, 160]))   # size (% of box height)
 			_sidebar_body.add_child(_slider_row(["bust_x", 0, 100]))       # centre x (% of box width)
@@ -1260,8 +1351,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["bubble_x", 0, 100]))     # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["bubble_y", 0, 100]))     # centre y (% of box height)
 			_section_header("Item icon")
-			_sidebar_body.add_child(_slider_row(["item_w", 10, 150]))      # width  (% of box height) — set == item_h for square
-			_sidebar_body.add_child(_slider_row(["item_h", 10, 150]))      # height (% of box height)
+			_sidebar_body.add_child(_slider_row(["item_size", 10, 150]))   # uniform size (% of box height) — drives item_w == item_h, so the item stays square
 			_sidebar_body.add_child(_slider_row(["item_x", 0, 100]))       # centre x (% of box width)
 			_sidebar_body.add_child(_slider_row(["item_y", 0, 100]))       # centre y (% of box height)
 			_section_header("Plaque")

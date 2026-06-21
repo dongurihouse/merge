@@ -10,11 +10,60 @@ const Overlay = preload("res://games/grove/tools/placement_overlay.gd")
 func _initialize() -> void:
 	begin("grove · placement tool")
 	await _test_board_offsets()
-	await _test_board_scale()
+	await _test_board_config()
 	await _test_home_badges()
 	await _test_overlay_drag()
 	_test_farm_home_roundtrip()
 	finish()
+
+# The board reads the optional saved UI-Workbench "board" design (gap / frame / scale / item) and maps it
+# onto its live geometry — the hookup so the workbench sliders actually drive the in-game board. A fresh
+# board (no saved block) keeps the shipped defaults; _apply_board_config maps each knob; and the piece
+# builder forwards the item-width inset to the sprite.
+func _test_board_config() -> void:
+	fresh("board_cfg")
+	var ss = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(ss)
+	if ss.board == null:
+		ss._ready()
+	await create_timer(0.05).timeout
+	# a fresh board picks up whatever is SAVED in the workbench settings (the live hookup) — read the same
+	# file the board read and confirm the geometry matches it. (Robust to whether a board block is present.)
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var saved: Dictionary = Kit.load_config(Kit.CONFIG_PATH).get("board", {})
+	if not saved.is_empty():
+		ok(absf(ss.FRAME_OUT - float(saved.get("frame", 60.0))) < 0.001, "a fresh board reads the saved workbench board.frame (live hookup)")
+		ok(absf(ss._board_scale - float(saved.get("scale", 100.0)) / 100.0) < 0.001, "a fresh board reads the saved workbench board.scale (live hookup)")
+	else:
+		ok(absf(ss.FRAME_OUT - 60.0) < 0.001 and absf(ss._board_scale - 1.0) < 0.001, "no saved board block → shipped frame + scale")
+	# the default-FALLBACK logic (an empty block) reproduces the shipped geometry exactly
+	ss._apply_board_config({})
+	ok(absf(ss.GAP - 7.0) < 0.001 and absf(ss.FRAME_OUT - 60.0) < 0.001, "an empty board block → the shipped 7 / 60")
+	ok(absf(ss._board_scale - 1.0) < 0.001, "an empty board block → scale 1.0 (responsive full-fit)")
+	ok(absf(ss._board_item_inset - 0.16) < 0.001, "an empty board block → the shipped 0.16 inset")
+
+	# applying a saved board block maps every knob onto the live geometry
+	ss._apply_board_config({"gap": 14, "frame": 30, "scale": 50, "item": 80})
+	ok(absf(ss.GAP - 14.0) < 0.001, "board.gap overrides the gutter")
+	ok(absf(ss.FRAME_OUT - 30.0) < 0.001, "board.frame overrides the frame overhang")
+	ok(absf(ss._board_scale - 0.5) < 0.001, "board.scale (50%) halves the board size")
+	ok(absf(ss._board_item_inset - 0.10) < 0.001, "board.item (80%) → a 0.10 sprite inset")
+
+	# a saved-DEFAULT block (item 68) reproduces the shipped inset exactly (saving defaults = no change)
+	ss._apply_board_config({"item": 68})
+	ok(absf(ss._board_item_inset - 0.16) < 0.001, "board.item 68% reproduces the shipped 0.16 inset")
+
+	# the item-width inset actually reaches the sprite (guarded: only when the piece art is imported)
+	ss._apply_board_config({"item": 80})
+	var path: String = G.item_tex_path(101)
+	if ResourceLoader.exists(path):
+		var pc: Control = ss._make_piece(101, 100.0)
+		var art: Node = pc.get_node_or_null("ItemArt")
+		ok(art is Control and absf((art as Control).offset_left - 10.0) < 0.5, \
+			"a board piece insets its sprite by board.item (10px at size 100, item 80)")
+	else:
+		ok(true, "(item-sprite inset check skipped — piece art not imported in this run)")
+	ss.queue_free()
 
 # REGRESSION: the overlay must fill its parent so it sits in the input stack — a zero-size overlay
 # gets NO presses (they fall through to content/board_area) and the drag silently does nothing.
@@ -118,47 +167,6 @@ func _test_board_offsets() -> void:
 	ss.placement_refresh()
 	await create_timer(0.05).timeout
 	ok(absf(ss.giver_bar.position.y - fence0) < 1.0 and absf(ss._board_center.position.y - board0) < 1.0, "zero offsets reproduce the default layout")
-	ss.queue_free()
-
-# The board reads a saved UNIFORM scale (board_scale, default 1.0 = full size) and applies it to the
-# whole board+frame about its center, AFTER layout — independent of the responsive sizing and the dy
-# nudges. The placement overlay saves it into the SAME board_layout.json dict the dy nudges ride.
-func _test_board_scale() -> void:
-	fresh("place_scale")
-	var ss = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(ss)
-	if ss.board == null:
-		ss._ready()
-	await create_timer(0.05).timeout
-	ok(absf(ss._place_board_scale - 1.0) < 0.001, "a fresh board has scale 1.0 (no file → full size)")
-	ok(ss._board_center.scale.is_equal_approx(Vector2.ONE), "a fresh board renders at 1.0 scale")
-
-	# a uniform scale shrinks the WHOLE board+frame about its center (cells, mat, pieces ride together).
-	ss._place_board_scale = 0.8
-	ss.placement_refresh()
-	await create_timer(0.05).timeout
-	ok(ss._board_center.scale.is_equal_approx(Vector2(0.8, 0.8)), "a board_scale scales the whole board+frame uniformly")
-	ok(absf(ss._board_center.pivot_offset.x - ss._board_center.size.x * 0.5) < 1.0 \
-		and absf(ss._board_center.pivot_offset.y - ss._board_center.size.y * 0.5) < 1.0, \
-		"the scale pivots about the board center (stays centered, not corner-anchored)")
-
-	# back to 1.0 → byte-for-byte the default full-size board (the production guarantee).
-	ss._place_board_scale = 1.0
-	ss.placement_refresh()
-	await create_timer(0.05).timeout
-	ok(ss._board_center.scale.is_equal_approx(Vector2.ONE), "scale 1.0 reproduces the default full-size board")
-
-	# the overlay saves board_scale into the same board_layout.json dict as the dy nudges.
-	var ov: Control = Overlay.new()
-	ov.scene = ss; ov.mode = "board"
-	ss.add_child(ov)
-	ov.setup()
-	await create_timer(0.05).timeout
-	ss._place_board_scale = 0.9
-	var data: Dictionary = ov._board_layout_data()
-	ok(data.has("board_scale") and absf(float(data["board_scale"]) - 0.9) < 0.001, \
-		"the overlay writes the live board_scale into board_layout.json")
-	ok(data.has("board_dy") and data.has("fence_dy"), "the saved dict keeps the dy nudges alongside the scale")
 	ss.queue_free()
 
 # Every farmhouse-hub unlock badge carries its spot-id meta, seated at its farm_home.json pos —

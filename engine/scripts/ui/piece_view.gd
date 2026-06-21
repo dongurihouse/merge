@@ -139,12 +139,12 @@ static func _add_sprite(holder: Control, tex: Texture2D, size: float, inset_frac
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(t)
 
-static func make_piece(code: int, size: float) -> Control:
+static func make_piece(code: int, size: float, inset := ITEM_INSET) -> Control:
 	var holder := _make_holder(size)
 	_add_contact_shadow(holder, size)
 	var path := G.item_tex_path(code)
 	if ResourceLoader.exists(path):
-		_add_sprite(holder, _content_tex(path), size, ITEM_INSET)   # cropped to opaque content so it CENTERS (art padding varies)
+		_add_sprite(holder, _content_tex(path), size, inset)   # cropped to opaque content so it CENTERS (art padding varies); `inset` = the board.item width
 		return holder
 	# coins: painted acorn art by tier (tap to pocket). Tier alone reads the value —
 	# no numeral is drawn over the sprite. Falls back to the code-drawn gold disc when

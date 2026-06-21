@@ -688,6 +688,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	var font_px := int(opts.get("font", 22))
 	var corner := float(opts.get("corner", 16.0))      # low = rectangular; ≥ height/2 = capsule
 	var shadow: bool = bool(opts.get("shadow", false)) # a soft drop shadow under the pill
+	var pad_scale := float(opts.get("pad_scale", 1.0)) # shrink/grow the padding (the cost chip uses < 1 to fit a card)
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.text = text
@@ -719,8 +720,8 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 			var stx := StyleBoxTexture.new()
 			stx.texture = tex
 			# NO texture margins → the entire sprite scales to the button, no slicing
-			stx.content_margin_left = 22; stx.content_margin_right = 22
-			stx.content_margin_top = 8; stx.content_margin_bottom = 9
+			stx.content_margin_left = 22 * pad_scale; stx.content_margin_right = 22 * pad_scale
+			stx.content_margin_top = 8 * pad_scale; stx.content_margin_bottom = 9 * pad_scale
 			b.add_theme_stylebox_override("normal", stx)
 			b.add_theme_stylebox_override("hover", stx)
 			var sp_t: StyleBoxTexture = stx.duplicate(); sp_t.modulate_color = Color(0.88, 0.88, 0.88)
@@ -736,8 +737,8 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	s.shadow_color = Color(0, 0, 0, 0.22)
 	s.shadow_size = 5 if shadow else 0      # the drop-shadow toggle (code-drawn pill)
 	s.shadow_offset = Vector2(0, 3)
-	s.content_margin_left = 18; s.content_margin_right = 18
-	s.content_margin_top = 7; s.content_margin_bottom = 8
+	s.content_margin_left = 18 * pad_scale; s.content_margin_right = 18 * pad_scale
+	s.content_margin_top = 7 * pad_scale; s.content_margin_bottom = 8 * pad_scale
 	b.add_theme_stylebox_override("normal", s)
 	b.add_theme_stylebox_override("hover", s)
 	var sp: StyleBoxFlat = s.duplicate()
@@ -2999,14 +3000,16 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		cwrap.offset_top = -float(cost_font) - ch * 0.12 + cost_y
 		cwrap.offset_bottom = -ch * 0.06 + cost_y
 		cwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# cost_scale shrinks the WHOLE pill — font, icon, padding AND corner — so the CenterContainer lays it
+		# out at the smaller size natively. (Control.scale would be wiped: a Container resets a managed child's
+		# scale/pivot in fit_child_in_rect, so the shrink never stuck.)
 		var cbo := (opts.get("btn", {}) as Dictionary).duplicate()
 		cbo["bg"] = "green"; cbo["icon"] = "gem"; cbo["static"] = true
-		cbo["font"] = cost_font; cbo["icon_size"] = int(cost_icon)
-		var costpill := pill_button(str(cost), cbo)
-		if not is_equal_approx(cost_scale, 1.0):
-			costpill.pivot_offset = costpill.get_combined_minimum_size() * 0.5
-			costpill.scale = Vector2(cost_scale, cost_scale)
-		cwrap.add_child(costpill)
+		cbo["font"] = maxi(1, int(round(float(cost_font) * cost_scale)))
+		cbo["icon_size"] = maxi(1, int(round(cost_icon * cost_scale)))
+		cbo["pad_scale"] = cost_scale
+		cbo["corner"] = float(cbo.get("corner", 16.0)) * cost_scale
+		cwrap.add_child(pill_button(str(cost), cbo))
 		tile.add_child(cwrap)
 
 	# the level badge (board) — the SAME HUD level medal, carrying THIS cell's level, docked lower-right.
@@ -3586,6 +3589,21 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"veil_deep":       float(c.get("veil_deep", 66)) / 100.0,
 		"veil_mark_alpha": float(c.get("veil_mark_alpha", 16)) / 100.0,
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),
+	}
+
+## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent
+## ints) → the `lay` dict GiverStand.make reads (cfg.lay). `item_size` drives a SQUARE item (item_w ==
+## item_h, undistorted). EVERY default mirrors giver_stand.LAY, so an absent/empty block resolves to the
+## SHIPPED layout and the board's giver card is unchanged until a designer saves a tweak.
+static func giver_lay_from_config(cfg: Dictionary) -> Dictionary:
+	var q: Dictionary = cfg.get("quest_card", {}) if cfg is Dictionary else {}
+	var isz: float = float(q.get("item_size", 32)) / 100.0
+	return {
+		"card_w":      float(q.get("card_w", 98)) / 100.0,      "card_h":   float(q.get("card_h", 86)) / 100.0,
+		"bust_size":   float(q.get("bust_size", 94)) / 100.0,   "bust_x":   float(q.get("bust_x", 25)) / 100.0,   "bust_y":   float(q.get("bust_y", 53)) / 100.0,
+		"bubble_size": float(q.get("bubble_size", 66)) / 100.0, "bubble_x": float(q.get("bubble_x", 72)) / 100.0, "bubble_y": float(q.get("bubble_y", 35)) / 100.0,
+		"item_w":      isz,                                     "item_h":   isz,                                  "item_x":   float(q.get("item_x", 72)) / 100.0, "item_y": float(q.get("item_y", 32)) / 100.0,
+		"plaque_w":    float(q.get("plaque_w", 40)) / 100.0,    "plaque_x": float(q.get("plaque_x", 72)) / 100.0, "plaque_y": float(q.get("plaque_y", 81)) / 100.0,
 	}
 
 ## The default config-file location the workbench writes (the single source of truth the game reads).

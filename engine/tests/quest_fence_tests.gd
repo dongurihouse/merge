@@ -38,10 +38,10 @@ func _initialize() -> void:
 	ok(not Quests.gate_ready(0, 0, {}), "0★ → the next unlock is not affordable (not ready)")
 	ok(Quests.gate_ready(0, 999999, {}), "a huge ★ bank can afford the next spot (ready)")
 
-	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as ★ bank toward the unlock (§7 soft gate) ---
+	# --- meter_target: bounded 0..MAX_GIVERS, and shrinks as ★ bank toward finishing the map (§7) ---
 	var tgt := Quests.meter_target(0, 0, {})
 	ok(tgt >= 0 and tgt <= int(G.MAX_GIVERS), "the metered fence size stays within 0..MAX_GIVERS (got %d)" % tgt)
-	ok(Quests.meter_target(0, 0, {}) >= Quests.meter_target(0, 100000, {}), "the fence shrinks monotonically as ★ bank toward the unlock")
+	ok(Quests.meter_target(0, 0, {}) >= Quests.meter_target(0, 100000, {}), "the fence shrinks monotonically as ★ bank toward finishing the map")
 
 	# --- owned_gens: the union of board generators and gen_bag ids ---
 	ok(str(Quests.owned_gens({Vector2i(0, 0): "a", Vector2i(1, 1): "b"}, ["c"])) == str(["a", "b", "c"]), "owned_gens unions board generators and the gen_bag")

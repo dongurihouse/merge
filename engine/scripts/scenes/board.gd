@@ -43,12 +43,12 @@ const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
-const GAP := 7.0                 # #7: tight, consistent gutter (was 10) — cells sit close
+var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
-const GIVER_AREA_FRAC := 0.75    # giver cards fill the LEFT this fraction of the fence; the painted shop stall owns the rest
+const GIVER_AREA_FRAC := 0.70    # giver cards fill the LEFT this fraction of the fence; the painted shop stall owns the rest
 const GIVER_COLS := 3            # cards across that area → each card is GIVER_AREA_FRAC/GIVER_COLS of the screen width
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
@@ -70,7 +70,7 @@ const STRAW = Pal.STRAW
 # gentle DIM = inert/locked/satisfied. One cozy dim value (~0.78 alpha) for every
 # "step back" read — a soft difference, never harsh — so the eye lands on what's live.
 const SHADE_LIT := Color(1, 1, 1, 1.0)      # actionable: deliverable giver, has-spares merchant
-const SHADE_DIM := Color(1, 1, 1, 0.78)     # inert: not-yet-payable giver, nothing to sell
+const SHADE_DIM := Color(1, 1, 1, 1.0)      # inert: not-yet-payable giver, nothing to sell — full opacity (✓/count/bob carry the lit state)
 
 # §6: a full board DIMS the generator(s) to a standing "paused" state — popping is free
 # while dimmed, so the cue must persist (not a one-shot wobble) until a cell frees up.
@@ -104,7 +104,8 @@ var giver_bar: Control           # the quest fence (givers pop up over it)
 var _board_center: Control       # the CenterContainer holding the board (placement tool nudges this)
 var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
 var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
-var _place_board_scale := 1.0    # saved UNIFORM board scale (placement tool board_scale; 1.0 = full size)
+var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
+var _board_item_inset := 0.16    # saved piece-in-cell inset (from board.item width %; 0.16 = the shipped look)
 var giver_chips: Array = []        # [{chip, qi}]
 var merchant_chip: Control
 # Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
@@ -204,13 +205,18 @@ func _ready() -> void:
 	# the board fills the screen side to side (owner); on wide screens the
 	# HEIGHT budget binds instead so the fence/bag rows always fit
 	var view := get_viewport_rect().size
+	# pick up any saved UI-Workbench board design (gap / frame / scale / item) BEFORE the fit is computed,
+	# so the gutter + frame budgets and the final cell size all reflect it. Absent → today's defaults.
+	_load_board_config()
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the
 	# frame + last column never run off-screen (the prior calc sized only the cells → overflow).
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
 	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
 	# so the height budget reserves only the frame overhang + the fence/nav rows.
 	var h_csz := (view.y - 520.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
-	csz = minf(w_csz, h_csz)
+	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within the available space — the
+	# in-game "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
+	csz = minf(w_csz, h_csz) * _board_scale
 	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
 	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
 	center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
@@ -318,6 +324,29 @@ func _board_w() -> float:
 func _board_h() -> float:
 	return G.ROWS * csz + (G.ROWS - 1) * GAP
 
+# --- board design (tools/ui_workbench — the "board" element) --------------------------
+# Pull the optional saved board design out of the UI-Workbench settings (ui_workbench_settings.json →
+# "board"): the gutter, the frame overhang, the overall scale, and the piece-in-cell width. Absent file
+# or keys → the shipped defaults, so the board is unchanged until you save a board block in the workbench.
+# (cell / cols / rows are workbench-PREVIEW only — the live grid is G.COLS×G.ROWS and sizes itself to the
+# screen; `scale` is the in-game cell/item-size knob, `item` the sprite width within each cell.)
+func _load_board_config() -> void:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	if cfg.has("board") and cfg["board"] is Dictionary:
+		_apply_board_config(cfg["board"])
+
+# Map a saved "board" block onto the live geometry. Split out so it is unit-testable without a file.
+func _apply_board_config(b: Dictionary) -> void:
+	GAP = float(b.get("gap", 7.0))
+	FRAME_OUT = float(b.get("frame", 60.0))
+	_board_scale = float(b.get("scale", 100.0)) / 100.0
+	# `item` = the piece sprite width as a % of its cell; the inset is the leftover half on each side.
+	# Default 68 reproduces the shipped ITEM_INSET (0.16), so a saved-default board renders identically.
+	_board_item_inset = clampf((1.0 - float(b.get("item", 68.0)) / 100.0) / 2.0, 0.0, 0.45)
+
 # --- placement (tools/ui_placement.gd) -----------------------------------------------
 const PLACEMENT_PATH := "res://games/grove/assets/board_layout.json"
 
@@ -329,20 +358,17 @@ func _load_placement() -> void:
 	if typeof(d) == TYPE_DICTIONARY:
 		_place_fence_dy = float(d.get("fence_dy", 0.0))
 		_place_board_dy = float(d.get("board_dy", 0.0))
-		_place_board_scale = float(d.get("board_scale", 1.0))
 
-# Shift the fence + board by their saved fractions, and scale the board, AFTER the VBox has positioned
-# them — so the nudges + scale are independent of each other and the responsive sizing is unchanged.
-# Runs per sort. The scale pivots about the board's center (set every sort; harmless at 1.0), so a
-# shrink/grow stays centered and the dy nudge re-seats it vertically. board_scale 1.0 → default layout.
+# Shift the fence + board by their saved fractions AFTER the VBox has positioned them, so the
+# nudges are independent of each other and the responsive sizing is unchanged. Runs per sort.
 func _apply_placement() -> void:
+	if _place_fence_dy == 0.0 and _place_board_dy == 0.0:
+		return
 	var h := get_viewport_rect().size.y
 	if giver_bar != null:
 		giver_bar.position.y += _place_fence_dy * h
 	if _board_center != null:
 		_board_center.position.y += _place_board_dy * h
-		_board_center.pivot_offset = _board_center.size * 0.5
-		_board_center.scale = Vector2(_place_board_scale, _place_board_scale)
 
 # The placement tool changed an offset → re-sort so _apply_placement reseats the bands.
 func placement_refresh() -> void:
@@ -435,7 +461,7 @@ func _quest_map() -> int:
 func _quest_level() -> int:
 	return G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
 
-# The soft gate (§7): how many stands the fence shows, metered to the current map's next spot.
+# §7 fence sizing: how many stands the fence shows, metered to the whole map's remaining stars.
 func _meter_target() -> int:
 	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
@@ -686,8 +712,8 @@ func _set_home_ready(on: bool) -> void:
 # --- givers + merchant ------------------------------------------------------------
 
 func _active_quest_idx() -> Array:
-	# the live fence is already metered to <= MAX_GIVERS by _refill_quests (§7's soft gate:
-	# it shrinks as stars bank toward the next unlock, and empties once it's affordable).
+	# the live fence is already metered to <= MAX_GIVERS by _refill_quests (§7: sized to the
+	# whole map's remaining stars — full through the map, tapering only in the final stretch).
 	var out: Array = []
 	for i in quests.size():
 		out.append(i)
@@ -762,12 +788,19 @@ func _stand_tap(stand: Control, action: Callable) -> void:
 # Build one quest-giver stand. Wave 3: the construction lives in ui/giver_stand.gd;
 # the coordinator still owns the quests + delivery and wires the stand's taps back.
 func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dictionary:
-	return GiverStand.make(qi, q, {
+	var cfg := {
 		"ask_tap": _open_ladder,        # an ask icon tapped -> open its tier ladder
 		"stand_tap": _on_giver_tap,     # the stand tapped -> try to deliver
 		"wire_tap": _stand_tap,         # still-release tap (also resets the idle hint)
 		"stand_w": stand_w, "fence_h": FENCE_H,
-	})
+	}
+	# the giver-card LAYOUT is tuned in the UI workbench and SAVED to its config (the quest_card block);
+	# read it the SAME way every other element does — soft-load the game-tool kit (engine → game bridge).
+	# Absent kit / empty block → GiverStand falls back to its baked-in LAY, so nothing changes until saved.
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit != null:
+		cfg["lay"] = Kit.giver_lay_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return GiverStand.make(qi, q, cfg)
 
 
 # AB1: a FRAMELESS giver — the chest-up cutout IS the UI element (no panel, no
@@ -1086,14 +1119,16 @@ func _rebuild_pieces() -> void:
 				piece_nodes[cell] = n
 
 func _make_piece(code: int, size: float) -> Control:
-	return PieceView.make_piece(code, size)
+	# the cell-sized holder stays `size` (placement + drag are unchanged); only the sprite inset shrinks/
+	# grows the visible item per the saved board.item width. The single chokepoint for every board piece.
+	return PieceView.make_piece(code, size, _board_item_inset)
 
 # The board surface — a single solid panel (`ui/board/board_frame.png`, sliced from board1_asset3.png):
 # a cream parchment field ringed by a soft wood/rope border with a dashed stitch line. Drawn as ONE
 # nine-patch BEHIND the cells (its own border + cream center in one art piece), so the cells sit on the
 # parchment and the rope frames them. Replaces the old bamboo ring + separate flat-cream field. The
 # PANEL_MARGIN corner holds the rounded corner + border rigid; only the plain parchment middle stretches.
-const FRAME_OUT := 60.0      # how far the board panel extends OUTSIDE the cell grid
+var FRAME_OUT := 60.0        # how far the board panel extends OUTSIDE the cell grid. Workbench-overridable (board.frame).
 const PANEL_MARGIN := 70     # nine-patch corner size — covers the panel's rounded corner + rope border
 
 # The board panel — the BOTTOM layer of the board, drawn behind the cells. Falls back to the

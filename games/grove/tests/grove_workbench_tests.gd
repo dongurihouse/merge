@@ -106,10 +106,20 @@ func _initialize() -> void:
 	_test_bag_components()
 	_test_discovery_cell()
 	_test_discovery_frame()
+	_test_board_element(view)
+	_test_quest_card_config(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
 	ok(view._sections.has("bag") and view._sections.has("bag_card"), "the bag dialog + bag cell are registered gallery items")
+
+	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
+	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
+	# scale) with no pill to act on — they look broken.
+	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
+	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
+		"the default Slot-cell preview actually renders the cost pill")
+
 	for src in ["currency_pill", "bag_card", "frame"]:
 		view._selected = src
 		view._dirty.clear()
@@ -130,6 +140,79 @@ func _initialize() -> void:
 # The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
 # bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same
 # transform the game reads), asserting structure — pixels are a screenshot job, not here.
+## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
+## two INDEPENDENT size knobs — `scale` (zoom the whole board) and `cell` (item width; the grid grows,
+## the frame stays). Both enlarge the footprint; the demo-pieces toggle is preview-only.
+func _test_board_element(view) -> void:
+	ok(view._sections.has("board"), "the board is a registered gallery item")
+	ok(view._is_config("board", "cell") and view._is_config("board", "scale"), \
+		"the item-width (cell) + scale knobs are saved design config")
+	ok(not view._is_config("board", "pieces"), "the demo-pieces toggle is preview-only (not saved)")
+
+	view._selected = "board"
+	view._params["board"]["scale"] = 100
+	view._params["board"]["cell"] = 50
+	var base: Control = view._make_element("board")
+	var w0: float = base.custom_minimum_size.x
+	ok(w0 > 0.0, "the board preview reports a real footprint")
+
+	# the CELL knob = item width: wider items grow the board (the grid, not the frame thickness)
+	view._params["board"]["cell"] = 80
+	ok(view._make_element("board").custom_minimum_size.x > w0, \
+		"a wider item-cell grows the board footprint (item-width knob)")
+
+	# the SCALE knob zooms the WHOLE composition, independently of cell
+	view._params["board"]["cell"] = 50
+	view._params["board"]["scale"] = 200
+	ok(view._make_element("board").custom_minimum_size.x > w0, \
+		"a larger scale zooms the whole board (scale knob)")
+
+	# editing a board slider rebuilds just the board section (live preview)
+	view._params["board"]["scale"] = 100
+	view._selected = "board"
+	var id0: int = _id_of(view, "board")
+	view._params["board"]["cell"] = 64
+	view._apply_edit()
+	ok(_id_of(view, "board") != id0, "editing a board slider rebuilds the board element live")
+
+## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
+## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read
+## bridge: the layout knobs are persisted, the demo knobs are not, and the transform mirrors the shipped LAY.
+func _test_quest_card_config(view) -> void:
+	ok(view._sections.has("quest_card"), "the quest card is a registered gallery item")
+	# the LAYOUT block is saved design config; the DEMO block (which giver / tier / size) is preview-only
+	ok(view._is_config("quest_card", "card_w") and view._is_config("quest_card", "item_size") \
+		and view._is_config("quest_card", "plaque_y"), "the quest-card layout knobs are saved design config")
+	ok(not view._is_config("quest_card", "bust") and not view._is_config("quest_card", "stand_w") \
+		and not view._is_config("quest_card", "met"), "the quest-card demo knobs are preview-only (not saved)")
+
+	# Kit.giver_lay_from_config DEFAULTS must mirror giver_stand.LAY, so an empty config renders the SHIPPED card
+	var GiverStand = load("res://engine/scripts/ui/giver_stand.gd")
+	var gdf: Dictionary = Kit.giver_lay_from_config({})
+	var lay_ok := true
+	for k in GiverStand.LAY:
+		if not (gdf.has(k) and is_equal_approx(float(gdf[k]), float(GiverStand.LAY[k]))):
+			lay_ok = false
+	ok(lay_ok, "giver_lay_from_config defaults mirror giver_stand.LAY (empty config == shipped card)")
+
+	# item_size is a SINGLE uniform knob → a SQUARE item (item_w == item_h, undistorted)
+	var gsq: Dictionary = Kit.giver_lay_from_config({"quest_card": {"item_size": 50}})
+	ok(is_equal_approx(float(gsq.item_w), 0.50) and is_equal_approx(float(gsq.item_h), 0.50), \
+		"giver_lay item_size drives item_w == item_h (square, percent → fraction)")
+
+	# a saved block overrides ONLY the named keys (percent → fraction); every other key stays shipped
+	var gov: Dictionary = Kit.giver_lay_from_config({"quest_card": {"card_w": 200, "bust_x": 40}})
+	ok(is_equal_approx(float(gov.card_w), 2.0) and is_equal_approx(float(gov.bust_x), 0.40), \
+		"giver_lay config overrides the named keys (percent → fraction)")
+	ok(is_equal_approx(float(gov.card_h), 0.86), "giver_lay leaves un-named keys at the shipped default")
+
+	# editing a quest-card layout slider rebuilds just the quest-card section (live preview)
+	view._selected = "quest_card"
+	var qid: int = _id_of(view, "quest_card")
+	view._params["quest_card"]["card_w"] = 120
+	view._apply_edit()
+	ok(_id_of(view, "quest_card") != qid, "editing a quest-card slider rebuilds the quest-card element live")
+
 func _test_bag_components() -> void:
 	# the currency pill, reused for the bag's single-acorn balance: an `icons` override renders just
 	# that currency. The default call still renders the three-currency wallet (backward-compat pin).
@@ -205,6 +288,20 @@ func _test_bag_components() -> void:
 	var costN := (Kit.slot_cell({"state": "locked", "cost": 5}, co_y).find_children("*", "CenterContainer", true, false))
 	ok(not cost0.is_empty() and not costN.is_empty(), "a cell with a cost has a cost cluster")
 	ok(is_equal_approx((costN[0] as Control).offset_top - (cost0[0] as Control).offset_top, 24.0), "cost_y shifts the cost cluster down by the given pixels")
+	# cost_x nudges it horizontally — a positive value shifts the cluster RIGHT by that many px
+	var co_x := co.duplicate(); co_x["cost_x"] = 18.0
+	var costX := (Kit.slot_cell({"state": "locked", "cost": 5}, co_x).find_children("*", "CenterContainer", true, false))
+	ok(is_equal_approx((costX[0] as Control).offset_left - (cost0[0] as Control).offset_left, 18.0), "cost_x shifts the cost cluster right by the given pixels")
+	# cost_scale shrinks the WHOLE cost pill (font + padding) so it FITS the card. It must shrink the real
+	# FOOTPRINT (a smaller font_size + smaller min size), NOT lean on Control.scale — a CenterContainer
+	# resets a managed child's scale in fit_child_in_rect, so a render scale would be silently wiped in-tree.
+	var co_s := co.duplicate(); co_s["cost_scale"] = 0.6
+	var btn_full := _first_button(Kit.slot_cell({"state": "locked", "cost": 5}, co))
+	var btn_s := _first_button(Kit.slot_cell({"state": "locked", "cost": 5}, co_s))
+	ok(btn_full != null and btn_s != null, "the cost pill is a button at any scale")
+	ok(is_equal_approx(btn_s.scale.x, 1.0), "the cost pill uses NO Control.scale (a container would reset it)")
+	ok(btn_s.get_theme_font_size("font_size") < btn_full.get_theme_font_size("font_size"), \
+		"cost_scale shrinks the pill's font (real footprint, not a render scale)")
 
 	# the BAG DIALOG — the shared frame + the reused pill + a grid of the slot cells.
 	var entries := [
