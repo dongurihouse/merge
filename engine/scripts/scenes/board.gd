@@ -41,6 +41,7 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
 const Pal = Game.PALETTE
+const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics (button radius/border/shadow)
 const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
@@ -141,7 +142,9 @@ var _selected_cell := Vector2i(-1, -1)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_btn: Button                # opens the selected item's Tiers ladder
-var _info_trash: Button              # sells the selected item; its text carries the coin/acorn payout
+var _info_trash: Button              # sells the selected item; its content shows trash + payout (built in _build_info_bar)
+var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button
+var _info_trash_coin: Control        # the payout currency icon slot (standard coin/acorn) inside the trash button
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
 var diamonds_label: Label
@@ -1435,29 +1438,69 @@ func _build_info_bar(px: float = 130.0) -> Control:
 	_info_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_info_label.clip_text = true
 	hb.add_child(_info_label)
-	_info_trash = Button.new()                               # sells the selected item; text carries the payout
+	_info_trash = Button.new()                               # sells the selected item; content shows trash + payout
 	_info_trash.focus_mode = Control.FOCUS_NONE
-	_info_trash.add_theme_font_size_override("font_size", 30)
-	for cs in ["font_color", "font_color_hover", "font_color_pressed"]:
-		_info_trash.add_theme_color_override(cs, CREAM)
-	# #6: the sell button wears an EXISTING asset — the merchant cart icon (ui/shared/icon_cart.png), the
-	# same cart that marks the sell affordance elsewhere — instead of the bare 🗑 emoji glyph.
-	var cart_p := Look.kit("shared/icon_cart.png")
-	if ResourceLoader.exists(cart_p):
-		_info_trash.icon = load(cart_p)
-		_info_trash.add_theme_constant_override("icon_max_width", int(px * 0.30))
-		_info_trash.expand_icon = false
+	_info_trash.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_info_trash.custom_minimum_size = Vector2(px * 1.5, px * 0.52) # a fixed-width pill at the bar's end; content centers
+	var trash_icon_px := px * 0.34
+	# content row: [trash icon] +N [coin/acorn icon] — a mouse-ignoring centered HBox so the WHOLE pill stays
+	# the single tap target (the children pass their clicks through to the Button below them).
+	var trash_row := HBoxContainer.new()
+	trash_row.add_theme_constant_override("separation", 6)
+	trash_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	trash_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# the sell button wears the trash-can icon cut from action_asset (ui/shared/icon_trash.png),
+	# replacing the merchant cart — a clearer "bin this for coins" read.
+	var trash_p := Look.kit("shared/icon_trash.png")
+	if ResourceLoader.exists(trash_p):
+		var ti := TextureRect.new()
+		ti.texture = load(trash_p)
+		ti.custom_minimum_size = Vector2(trash_icon_px, trash_icon_px)
+		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		ti.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		trash_row.add_child(ti)
+	_info_trash_count = Label.new()                          # the "+N" payout amount
+	_info_trash_count.add_theme_font_size_override("font_size", 30)
+	_info_trash_count.add_theme_color_override("font_color", CREAM)
+	_info_trash_count.add_theme_constant_override("outline_size", 0)
+	_info_trash_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_info_trash_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trash_row.add_child(_info_trash_count)
+	# the payout currency is the game's STANDARD coin/acorn icon (Look.icon → ui/currency/icon_*.png),
+	# swapped per payout in _select_item, replacing the inline 🪙/🌰 emoji glyph.
+	_info_trash_coin = CenterContainer.new()
+	_info_trash_coin.custom_minimum_size = Vector2(trash_icon_px, trash_icon_px)
+	_info_trash_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trash_row.add_child(_info_trash_coin)
+	var trash_center := CenterContainer.new()                # center the row within the fixed-width pill
+	trash_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	trash_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trash_center.add_child(trash_row)
+	_info_trash.add_child(trash_center)
+	# the sell button wears the game's STANDARD green primary-CTA background (Pal.BTN_PRIMARY) — the same
+	# leaf-green pill Look.button(primary) uses — replacing the bespoke red box, so the bottom bar speaks the
+	# one button language.
 	var ts := StyleBoxFlat.new()
-	ts.bg_color = Color("#C25B4E")
-	ts.set_corner_radius_all(16)
-	ts.set_border_width_all(2)
-	ts.border_color = Color("#9C4438")
+	ts.bg_color = Pal.BTN_PRIMARY
+	ts.border_color = Pal.BTN_PRIMARY_EDGE
+	ts.set_corner_radius_all(Tune.BTN_RADIUS)
+	ts.set_border_width_all(Tune.BTN_BORDER_W)
+	ts.shadow_color = Tune.SHADOW_RAISED
+	ts.shadow_size = Tune.SHADOW_RAISED_SIZE
+	ts.shadow_offset = Tune.SHADOW_RAISED_OFFSET
 	ts.content_margin_left = 14
 	ts.content_margin_right = 14
 	ts.content_margin_top = 8
 	ts.content_margin_bottom = 8
-	for st in ["normal", "hover", "pressed"]:
-		_info_trash.add_theme_stylebox_override(st, ts)
+	_info_trash.add_theme_stylebox_override("normal", ts)
+	_info_trash.add_theme_stylebox_override("hover", ts)
+	var tsp := ts.duplicate()                                # pressed: darken + settle the shadow (the standard juice)
+	tsp.bg_color = ts.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
+	tsp.shadow_color = Tune.SHADOW_RESTING
+	tsp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
+	tsp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
+	_info_trash.add_theme_stylebox_override("pressed", tsp)
 	_info_trash.pressed.connect(_on_trash_pressed)
 	Look.add_press_juice(_info_trash)
 	hb.add_child(_info_trash)
@@ -1506,7 +1549,12 @@ func _select_item(cell: Vector2i) -> void:
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
-		_info_trash.text = " +%d%s" % [(rw.y if gem else rw.x), ("🌰" if gem else "🪙")]
+		_info_trash_count.text = "+%d" % (rw.y if gem else rw.x)
+		for c in _info_trash_coin.get_children():
+			c.queue_free()
+		var pay_icon := Look.icon("gem" if gem else "coin", _info_trash_coin.custom_minimum_size.x)
+		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
 
 # Reset the info bar to its empty "tap an item" state.
