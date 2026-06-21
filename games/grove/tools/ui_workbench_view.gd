@@ -35,7 +35,7 @@ const COLUMNS := [
 const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings"],
 	"card": ["dialog", "daily", "shop", "settings"],
-	"frame": ["dialog", "daily", "shop", "settings", "bag"],
+	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"tiers_card": ["tiers"],
@@ -207,13 +207,10 @@ var _params := {
 	"tiers_card": {"preview": "marked", "cell_w": 150, "cell_h": 150, "cell_art": true,
 		"show_num": true, "lvl_frac": 44, "piece_frac": 62,
 		"mark_glow": 60, "mark_twinkle": 50},
-	# the DISCOVERY dialog — the SAME shared frame as every other dialog, with a selectable Border (default
-	# the twig board; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
-	# chrome. The panel padding follows the chosen border, and the grid fills that inner width.
-	"tiers": {"width_pct": 85, "cols": 3, "border": "twig board",
-		"banner_font": 50, "banner_h": 168, "banner_x": 0, "banner_y": -66, "banner_text_x": 0, "banner_text_y": -2,
-		"banner_burn": 55, "close_size": 84, "close_x": 4, "close_y": 16,
-		"cell_gap": 16, "list_top_pad": 8, "list_max_h": 0},
+	# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
+	# wrapping ONLY the discovery content: the tier grid (cols, gap, scroll cap). The grid fills the frame's
+	# inner width, derived from the Frame's chosen border padding.
+	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0},
 	# the top-bar CURRENCY PILL (the ★ 🪙 💎 wallet). Defaults mirror Tune.Hud, so the saved block the
 	# HUD reads renders the SHIPPED pill until you change it. star/coin/gem are preview-only sample counts.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
@@ -513,7 +510,7 @@ func _make_element(id: String) -> Control:
 					met.visible = true
 			return stand
 		"tiers":
-			# the SHARED frame in TIERS chrome (twig border + ladder ribbon, NO vines) + the tier-cell grid
+			# the STANDARD shared frame (no override) + the tier-cell grid (NO vines). The banner text is the line name.
 			var topts := Kit.tiers_opts_from_config(_params)
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
@@ -1007,7 +1004,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the SHARED frame on a selectable Border (default the twig board), with the ladder ribbon + ✕ on top (tuned HERE). The tile is the Tier cell item. A plain grid — no vines."
+		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. Only the tier grid + the Tier cell are tuned here. A plain grid — no vines."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1205,24 +1202,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))    # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
-			_sidebar_body.add_child(_slider_row(["list_top_pad", -40, 200]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
-			_section_header("Border (shared frame)")
-			# the SAME border registry the Frame item uses — the grid padding follows the chosen border, so
-			# the right column never spills (the old per-dialog slice/pad/grid_inset knobs are retired).
-			_sidebar_body.add_child(_option_row("Border", "border", Kit.FRAME_BORDERS.keys()))
-			_section_header("Banner (ladder ribbon)")
-			_sidebar_body.add_child(_slider_row(["banner_font", 20, 72]))
-			_sidebar_body.add_child(_slider_row(["banner_h", 60, 200]))
-			_sidebar_body.add_child(_slider_row(["banner_x", -200, 200]))
-			_sidebar_body.add_child(_slider_row(["banner_y", -160, 80]))
-			_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))
-			_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))
-			_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))   # engrave intensity
-			_section_header("Close (✕ disc)")
-			_sidebar_body.add_child(_slider_row(["close_size", 40, 130]))
-			_sidebar_body.add_child(_slider_row(["close_x", -120, 120]))
-			_sidebar_body.add_child(_slider_row(["close_y", -120, 120]))
+			# the frame chrome (border · banner · ✕) is the STANDARD shared frame — tune it on the Frame item.
 		"currency_pill":
 			_group_header("Saved to config", true)
 			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. The Border picker swaps the

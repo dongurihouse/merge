@@ -96,6 +96,7 @@ func _initialize() -> void:
 
 	_test_bag_components()
 	_test_discovery_cell()
+	_test_discovery_frame()
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -240,3 +241,23 @@ func _slot_face_tex(cell: Control) -> String:
 		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null:
 			return (sb as StyleBoxTexture).texture.resource_path
 	return ""
+
+# The DISCOVERY dialog uses the STANDARD shared frame, with NO bespoke chrome override: it inherits
+# dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the
+# tier grid + the tier-cell look) — exactly like daily/shop. Edits on the shared Frame item flow to it.
+func _test_discovery_frame() -> void:
+	var dopts := Kit.dialog_opts_from_config({})
+	var topts := Kit.tiers_opts_from_config({})
+	ok(not topts.has("banner_art"), "discovery does NOT override the banner ribbon (standard frame)")
+	ok(not topts.has("close_art"), "discovery does NOT override the ✕ disc (standard frame)")
+	ok(String(topts.get("border", "x")) == String(dopts.get("border", "y")),
+		"discovery inherits the shared frame border (no forced twig board)")
+	ok(int(topts.get("banner_font", 0)) == int(dopts.get("banner_font", -1)),
+		"discovery inherits the shared frame banner font")
+	ok(float(topts.get("close_size", 0)) == float(dopts.get("close_size", -1)),
+		"discovery inherits the shared frame ✕ size")
+	# the discovery CONTENT still differs (its own grid + tier-cell look)
+	ok(topts.has("cols") and topts.has("cell_w"), "discovery still carries its own grid + tier-cell content opts")
+	# and it still builds on the shared frame (the named banner overlay is present)
+	var dlg := Kit.tiers_dialog(Kit.DEMO_TIERS, 620.0, topts)
+	ok(dlg.find_child("DialogBanner", true, false) != null, "the discovery dialog wraps the shared frame")

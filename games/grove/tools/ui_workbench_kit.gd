@@ -2322,9 +2322,9 @@ static func _tiers_grid(entries: Array, width: float, opts: Dictionary) -> Contr
 	var cols: int = maxi(1, int(opts.get("cols", 3)))
 	var gap: int = int(opts.get("cell_gap", 16))
 	# the cells fill the panel's INNER width — the card width minus the border's content padding on BOTH
-	# sides. Deriving it from the REAL padding (not a separate `grid_inset` guess that drifted from it) is
-	# what keeps the right column from spilling past the border when cols / cell size / padding change.
-	var pad: float = float(opts.get("panel_pad_x", 44.0))
+	# sides. The discovery dialog uses the standard frame (no panel_pad override), so resolve the padding
+	# from the chosen border — the SAME value dialog_frame pads to — keeping the right column inside it.
+	var pad: float = float(opts.get("panel_pad_x", frame_border(String(opts.get("border", "parchment"))).get("pad_x", 26.0)))
 	var avail: float = maxf(48.0, width - 2.0 * pad)
 	var cw: float = maxf(40.0, (avail - (cols - 1) * gap) / float(cols))
 	var aspect: float = float(opts.get("cell_h", 150.0)) / maxf(1.0, float(opts.get("cell_w", 150.0)))
@@ -2642,43 +2642,19 @@ static func tiers_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"mark_twinkle": float(tc.get("mark_twinkle", 50)) / 100.0,  # ...and its drifting twinkles (0 = off)
 	}
 
-## The full DISCOVERY-dialog opts: the SAME shared frame as every other dialog, with a selectable BORDER
-## (the `border` key drives panel_art + slice + padding through the FRAME_BORDERS registry — default the
-## "twig board"; switchable to parchment / vault twig). The ladder ribbon + ✕ ride on top as the tiers
-## chrome. The grid derives its width from the resolved border padding (so the right column never spills).
+## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits
+## dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry, padding), with NO bespoke chrome
+## override. Only the discovery CONTENT differs: the tier grid (cols, gaps, scroll cap) + the tier-cell look.
+## Edit the frame on the shared Frame item and it flows here too. (The banner TEXT is the line name, passed
+## by the caller.)
 static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var o := dialog_opts_from_config(cfg)
+	o.merge(tiers_card_opts_from_config(cfg), true)   # the tier-cell look (cell size, level medal, sparkle)
 	var t: Dictionary = cfg.get("tiers", {})
-	var border_name: String = String(t.get("border", "twig board"))
-	var b: Dictionary = frame_border(border_name)
-	var o := {
-		# the BORDER is the shared registry choice — panel_art / slice / padding all resolve from it
-		"border": border_name,
-		"card_art": true,
-		"panel_pad_x": float(b.get("pad_x", 44)),   # passed through so the grid fills the SAME inner width
-		"panel_pad_y": float(b.get("pad_y", 30)),
-		# the ladder ribbon + ✕ disc stay the tiers chrome regardless of border
-		"banner_art": "kit/tiers_banner.png",
-		"close_art": "kit/tiers_close.png",
-		# the gold ladder ribbon straddling the top edge (no separate banner icon — the reference is text-only).
-		# banner_h ≈ panel width × ribbon-aspect makes the aspect-locked ribbon span the panel with overhanging
-		# tails (like tiers.png), and banner_y lifts ~40% of it above the top edge.
-		"banner_font": int(t.get("banner_font", 50)),
-		"banner_h": float(t.get("banner_h", 168)),
-		"banner_icon_on": false,
-		"banner_text_x": float(t.get("banner_text_x", 0)),
-		"banner_text_y": float(t.get("banner_text_y", -2)),
-		"banner_burn": float(t.get("banner_burn", 55)) / 100.0,
-		"banner_pos": Vector2(float(t.get("banner_x", 0)), float(t.get("banner_y", -66))),
-		# the ✕ disc docked past the top-right corner
-		"close_size": float(t.get("close_size", 84)),
-		"close_poke": Vector2(float(t.get("close_x", 4)), float(t.get("close_y", 16))),
-		# the grid (no vines): cols + the content cap
-		"cols": int(t.get("cols", 3)),
-		"cell_gap": int(t.get("cell_gap", 16)),
-		"list_top_pad": float(t.get("list_top_pad", 8)),
-		"list_max_h": float(t.get("list_max_h", 0)),
-	}
-	o.merge(tiers_card_opts_from_config(cfg), true)   # the tier-cell look (cell size/art, number, content)
+	# the grid (no vines): cols + the inter-cell gap + the discovery's OWN scroll cap (0 = show every tier)
+	o["cols"] = int(t.get("cols", 3))
+	o["cell_gap"] = int(t.get("cell_gap", 16))
+	o["list_max_h"] = float(t.get("list_max_h", 0))
 	return o
 
 ## The TOGGLE-CARD style opts from config (label font · switch size · parchment vs pill). The toggle card
