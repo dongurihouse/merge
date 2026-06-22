@@ -150,13 +150,16 @@ const RESIDENT_CORE := [
 	{"id": "acorn", "name": "Acorn sprite"},
 	{"id": "lantern", "name": "Lantern sprite"},
 ]
-# The per-map SIGNATURE residents — ~2 unique to each map; one marked premium (💎). Keyed by map id.
+# The per-map SIGNATURE residents — ~2 unique to each map; one marked premium (💎). Keyed by the stable
+# slot id, themed to the slot's vine ART (the slot ids stay fixed for save-stability, but the displayed
+# map + its critters follow the art: barn=Orchard, pond=Garden, orchard=Mill, meadow=Gate). No signature
+# resident ships a sprite yet (all render the shared placeholder), so these names are pure flavor.
 const RESIDENT_SIGNATURE := {
 	"farmhouse": [{"id": "hen", "name": "Hen-kin"}, {"id": "piglet", "name": "Piglet-kin", "premium": true}],
-	"barn": [{"id": "lamb", "name": "Lamb-kin"}, {"id": "mouse", "name": "Barn-mouse", "premium": true}],
-	"pond": [{"id": "frog", "name": "Frog-kin"}, {"id": "duck", "name": "Duckling", "premium": true}],
-	"orchard": [{"id": "bee", "name": "Bee-kin"}, {"id": "robin", "name": "Robin", "premium": true}],
-	"meadow": [{"id": "flutter", "name": "Flutterby"}, {"id": "firefly", "name": "Firefly", "premium": true}],
+	"barn": [{"id": "bee", "name": "Bee-kin"}, {"id": "robin", "name": "Robin", "premium": true}],
+	"pond": [{"id": "butterfly", "name": "Butterfly-kin"}, {"id": "ladybird", "name": "Ladybird", "premium": true}],
+	"orchard": [{"id": "fieldmouse", "name": "Field-mouse"}, {"id": "sparrow", "name": "Sparrow", "premium": true}],
+	"meadow": [{"id": "hedgehog", "name": "Hedgehog-kin"}, {"id": "wren", "name": "Wren", "premium": true}],
 }
 # Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 core / non-premium
 # resident costs coins; a premium (signature, marked) resident costs diamonds.
@@ -234,7 +237,10 @@ static func _build_maps() -> Array:
 	var maps: Array = [
 	# Map 1 — the home hub. Spots carry gameplay only (id/name/kind/cost/pos); the hub renders
 	# via the §16 mask-reveal `home` below (not per-spot cutouts), so spots need no `art`/`fsize`.
-	{"id": "farmhouse", "name": "The Farmhouse", "hub": true,
+	# Display names follow each slot's vine ART (farm/orchard/garden/mill/gate); the `id`s stay fixed
+	# (farmhouse/barn/pond/orchard/meadow) for save + progression stability, so e.g. id `orchard` shows
+	# "The Mill" and id `barn` shows "The Orchard". See RESIDENT_SIGNATURE for the matching critter themes.
+	{"id": "farmhouse", "name": "The Farm", "hub": true,
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home_spot).
 		"home": {"clean": "res://games/grove/assets/map/farm/farm.png", "broken": "res://games/grove/assets/map/farm/farm_brokenv2.png", "data": "res://games/grove/assets/map/farm/farm_home.json"},
@@ -247,7 +253,7 @@ static func _build_maps() -> Array:
 		{"id": "fh_boxes", "name": "Flower boxes", "kind": "decor", "cost": 4, "pos": Vector2(0.1324, 0.6305)},
 		{"id": "fh_lantern", "name": "Lantern post", "kind": "decor", "cost": 5, "pos": Vector2(0.8093, 0.9182)},
 	]},
-	{"id": "barn", "name": "The Barn", "spots": [
+	{"id": "barn", "name": "The Orchard", "spots": [
 		{"id": "bn_bales", "name": "Hay bales", "cost": 3, "pos": Vector2(0.30, 0.55)},
 		{"id": "bn_stool", "name": "Milking stool", "cost": 4, "pos": Vector2(0.55, 0.30)},
 		{"id": "bn_churns", "name": "Milk churns", "cost": 4, "pos": Vector2(0.70, 0.62)},
@@ -257,7 +263,7 @@ static func _build_maps() -> Array:
 		{"id": "bn_coop", "name": "Hen coop", "cost": 5, "pos": Vector2(0.15, 0.40)},
 		{"id": "bn_plow", "name": "Old plow", "cost": 5, "pos": Vector2(0.60, 0.85)},
 	]},
-	{"id": "pond", "name": "The Pond", "spots": [
+	{"id": "pond", "name": "The Garden", "spots": [
 		{"id": "pd_dock", "name": "Little dock", "cost": 4, "pos": Vector2(0.30, 0.60)},
 		{"id": "pd_lilies", "name": "Lily pads", "cost": 4, "pos": Vector2(0.60, 0.70)},
 		{"id": "pd_reeds", "name": "Reeds", "cost": 4, "pos": Vector2(0.20, 0.35)},
@@ -267,7 +273,7 @@ static func _build_maps() -> Array:
 		{"id": "pd_boat", "name": "Rowboat", "cost": 5, "pos": Vector2(0.55, 0.45)},
 		{"id": "pd_fireflies", "name": "Firefly jar", "cost": 5, "pos": Vector2(0.15, 0.75)},
 	]},
-	{"id": "orchard", "name": "The Orchard", "spots": [
+	{"id": "orchard", "name": "The Mill", "spots": [
 		{"id": "or_rows", "name": "Apple rows", "cost": 4, "pos": Vector2(0.30, 0.50)},
 		{"id": "or_ladder", "name": "Picker's ladder", "cost": 4, "pos": Vector2(0.55, 0.35)},
 		{"id": "or_baskets", "name": "Fruit baskets", "cost": 4, "pos": Vector2(0.70, 0.70)},
@@ -277,7 +283,7 @@ static func _build_maps() -> Array:
 		{"id": "or_scarecrow", "name": "Scarecrow", "cost": 5, "pos": Vector2(0.15, 0.30)},
 		{"id": "or_wagon", "name": "Apple wagon", "cost": 5, "pos": Vector2(0.60, 0.85)},
 	]},
-	{"id": "meadow", "name": "The Meadow", "spots": [
+	{"id": "meadow", "name": "The Gate", "spots": [
 		{"id": "md_path", "name": "Wildflower path", "cost": 4, "pos": Vector2(0.35, 0.60)},
 		{"id": "md_picnic", "name": "Picnic blanket", "cost": 4, "pos": Vector2(0.60, 0.75)},
 		{"id": "md_kite", "name": "Kite", "cost": 5, "pos": Vector2(0.70, 0.25)},
@@ -299,12 +305,20 @@ static func _apply_vine_maps(maps: Array) -> Array:
 	var entries := VineMaps.entries()
 	for i in range(mini(entries.size(), maps.size())):
 		var entry: Dictionary = entries[i]
-		var spots := VineMaps.spots_for(String(maps[i].id), entry)
-		if spots.is_empty():
-			continue   # a tool entry with no readable regions: leave the legacy slot intact
+		# Guard: only overlay once the entry's base art is actually imported. A half-added map (registered
+		# in maps.json but not yet copied/imported into assets/map) leaves its legacy slot intact rather
+		# than blanking it.
+		var base := String(entry.get("base", ""))
+		if base == "" or not ResourceLoader.exists(base):
+			continue
+		# Overlay positionally: the slot keeps its id/name/hub but renders vine-driven. Spots are one per
+		# region; a map whose regions aren't authored YET overlays with an EMPTY spot list, so its clean
+		# base art shows immediately (map.gd renders base-only when there are no regions) without becoming
+		# "complete" — map_spots_done is false for a spot-less map, so it never auto-unlocks the next map
+		# or invites residents. Each region the tool authors then appears in-game on the next open.
 		maps[i]["vine"] = entry
 		maps[i].erase("home")   # vine rendering supersedes the §16 mask-reveal home for this slot
-		maps[i]["spots"] = spots
+		maps[i]["spots"] = VineMaps.spots_for(String(maps[i].id), entry)
 	return maps
 
 

@@ -394,12 +394,19 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 	if typeof(vine) == TYPE_DICTIONARY:
 		var vframe := _clip_frame()
 		_add_cover_layer(vframe, String(vine.get("base", "")))      # clean base (e.g. map1.png)
+		var Grove := load("res://games/grove/vine/vine_maps.gd")
+		var regions: Array = Grove.regions_for(vine)
+		# A registered map whose regions aren't authored yet shows its CLEAN base only — skip the overlay.
+		# (VineMapView forces region_count to max(1), so a zero-region view would paint vines across the
+		# whole mask, i.e. fully overgrown — the opposite of "clean base art".) The overlay appears once
+		# the tool authors regions for this map.
+		if regions.is_empty():
+			return vframe
 		var VineView := load("res://games/grove/vine/vine_map_view.gd")
 		var view: Control = VineView.new()
 		view.name = "VineMapView"
 		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var Grove := load("res://games/grove/vine/vine_maps.gd")
-		view.load_map(vine, Grove.regions_for(vine))               # sets size to image_size (for the tool's use)
+		view.load_map(vine, regions)                                # sets size to image_size (for the tool's use)
 		# the game seats the view full-rect over the clip frame; clear the image-size hint so the frame
 		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
 		view.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

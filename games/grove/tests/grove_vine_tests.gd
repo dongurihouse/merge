@@ -179,14 +179,26 @@ func _test_maps_overlay() -> void:
 	ok(G.MAPS[0].spots.size() == VineMaps.regions_for(VineMaps.entries()[0]).size(), "slot 0 has one spot per region")
 	ok(G.MAPS[0].spots.size() >= 1 and String(G.MAPS[0].spots[0].id) == "farmhouse_r0", "slot 0 spot ids are farmhouse_r*")
 	ok(bool(G.MAPS[0].get("hub", false)), "slot 0 stays the hub")
-	# legacy slots without a vine entry are untouched
-	ok(not G.MAPS[G.MAPS.size() - 1].has("vine"), "the last legacy slot is not vine-driven")
+	# all five maps are registered + imported now, so every slot is vine-driven
+	var all_vine := true
+	for z in G.MAPS.size():
+		if not G.MAPS[z].has("vine"):
+			all_vine = false
+	ok(all_vine, "every game slot is vine-driven (all 5 maps registered)")
 
+# All five game slots are driven by the five registered vine maps (mapN -> slot N). A map whose regions
+# aren't authored yet overlays its slot with an EMPTY spot list (clean base art shown) and is NOT counted
+# "done" — the carve-out that keeps a region-less map from auto-unlocking the next map or inviting residents.
 func _test_multimap() -> void:
-	ok(VineMaps.count() >= 2, "maps.json holds at least 2 vine maps (map1 + placeholder)")
-	ok(G.MAPS[1].has("vine"), "slot 1 is vine-driven from the 2nd tool entry")
-	ok(G.MAPS[1].spots.size() == VineMaps.regions_for(VineMaps.entries()[1]).size(), "slot 1 spot count == its regions")
-	ok(String(G.MAPS[1].spots[0].id) == "%s_r0" % String(G.MAPS[1].id), "slot 1 spot ids use slot 1's id")
+	ok(VineMaps.count() == G.MAPS.size(), "maps.json holds one vine entry per game slot (%d)" % G.MAPS.size())
+	for z in G.MAPS.size():
+		ok(G.MAPS[z].has("vine"), "slot %d is vine-driven from tool entry %d" % [z, z])
+		ok(G.MAPS[z].spots.size() == VineMaps.regions_for(VineMaps.entries()[z]).size(), "slot %d spot count == its regions" % z)
+	# slot 1 (Orchard art) ships no authored regions yet: vine-driven, zero spots, never "done"
+	ok(G.MAPS[1].has("vine") and G.MAPS[1].spots.is_empty(), "a region-less slot is vine-driven with no spots (clean base art)")
+	ok(not G.map_spots_done(1, {}), "a region-less (spot-less) map is NOT 'done' (no auto-unlock / no residents)")
+	# a slot WITH authored regions derives its spot ids from the slot id
+	ok(String(G.MAPS[0].spots[0].id) == "%s_r0" % String(G.MAPS[0].id), "an authored slot's spot ids use the slot id")
 
 func _test_spot_derivation() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]

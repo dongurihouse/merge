@@ -114,6 +114,13 @@ func _initialize() -> void:
 			go["stars_earned"] = 40
 			Save.grove_write()
 
+	# noftue=1: suppress the FTUE overlays (daily-login calendar auto-popup + shop spotlight dim) so a
+	# map-view capture shows the bare map, not a popup. Must run after Save.configure_for_test (above).
+	for wa in args:
+		if String(wa) == "noftue=1":
+			load("res://engine/scripts/core/login.gd").claim_today()
+			Save.mark_spotlight_seen("shop")
+
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)
 	current_scene = scn

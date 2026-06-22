@@ -438,6 +438,13 @@ static func map_for_spots(i: int) -> int:
 	return MAPS.size() - 1
 
 static func map_spots_done(z: int, unlocks: Dictionary) -> bool:
+	# A map with no spots has nothing restored yet, so it is NOT "done". This guards the region-less
+	# vine map (a registered map whose regions aren't authored yet, shown as clean base art): without
+	# it, a spot-less map would read as vacuously complete and wrongly pay the map reward, get added to
+	# `gates`, unlock the next map, and invite residents. Every legacy map ships 8 spots, so this only
+	# affects an as-yet-unauthored vine map.
+	if MAPS[z].spots.is_empty():
+		return false
 	for sp in MAPS[z].spots:
 		if not unlocks.has(String(sp.id)):
 			return false
