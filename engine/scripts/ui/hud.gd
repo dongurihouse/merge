@@ -67,9 +67,12 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# The wallet is WATER · COIN · GEM (the star count is gone — the level badge already encodes stars).
 	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
 	# contract scenes/tests rely on: <cur>_label.get_parent() == row, row.get_parent() == the pill panel.
-	var water_pill := _pill(cluster, Kit, pill, "water", Tune.GEM_ICON, 1.0, Color.WHITE, num_size, icon_box, open_water)
-	var coin_pill := _pill(cluster, Kit, pill, "coin", Tune.COIN_ICON, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin)
-	var gem_pill := _pill(cluster, Kit, pill, "gem", Tune.GEM_ICON, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium)
+	# the sprite px = icon_box × per-currency optical, so the workbench `icon_box` slider drives the real
+	# icon size (box and sprite share one knob now — no separate hardcoded sprite px).
+	var gpx := int(round(icon_box))
+	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water)
+	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin)
+	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium)
 	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label

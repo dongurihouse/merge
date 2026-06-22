@@ -54,7 +54,7 @@
 	"currency_pill": {
 		"border": "bag thin",
 		"border_w": 3.0,
-		"icon_box": 56.0,
+		"icon_box": 48.0,
 		"num_size": 41.0,
 		"pad_x": 32.0,
 		"pad_y": 14.0,

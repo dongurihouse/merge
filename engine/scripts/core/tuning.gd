@@ -218,13 +218,12 @@ class Hud:
 
 	# --- currency cluster --------------------------------------------------------------
 	# ONE shared icon BOX so the three currencies share a centerline and the numbers
-	# line up; each sprite is centered in the box and given a per-icon OPTICAL SCALE so
-	# their visual weights match (the gold flower fills its box, the acorn is tall+narrow,
-	# the gem is a slim teardrop — equal box ≠ equal weight without these).
-	const CHIP_ICON_BOX := 40.0           # the shared square box every currency icon centers in
-	const STAR_ICON := 44                 # sprite px (the gold flower runs a touch large for parity)
-	const COIN_ICON := 56                 # the coin (was 40 — bumped to fill the 56px box; intricate art reads better large)
-	const GEM_ICON := 56                  # the gem (was 40 — same box as the coin)
+	# line up; each sprite is sized as icon_box × a per-icon OPTICAL SCALE so their visual
+	# weights match (the gold flower fills its box, the acorn is tall+narrow, the gem is a
+	# slim teardrop — equal box ≠ equal weight without these). The BOX itself is the live
+	# `icon_box` from the workbench (ui_workbench_settings.json) — that slider sets the real
+	# icon size now; CHIP_ICON_BOX is only the bare default when no config is present.
+	const CHIP_ICON_BOX := 40.0           # default square icon box (live size = workbench `icon_box`)
 	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
 	const COIN_OPTICAL := 1.0             # gold coin (soft currency): the reference weight
 	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin

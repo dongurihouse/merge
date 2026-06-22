@@ -365,8 +365,8 @@ func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 		content.add_child(hit)
 		spot_hits.append({"node": hit, "z": z, "k": k})
 
-# A vine map's per-region affordance: unowned -> the ✿cost disc at the region centroid (carries the
-# place_spot meta + routes the buy via spot_hits); owned -> an inert marker (keeps spot_hits index-aligned).
+# A vine map's per-region affordance: unowned -> the ✿cost disc at the region centroid (routes the
+# buy via spot_hits); owned -> an inert marker (keeps spot_hits index-aligned).
 func _build_vine_spot(z: int, k: int) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	# adapt the spot's Vector2 pos to the home-building dict's [x, y] list form that _home_badge reads.
@@ -523,7 +523,6 @@ func _home_badge(z: int, k: int, b) -> Control:
 		btn.modulate = Color(0.6, 0.6, 0.6, 1.0)      # the whole disc (shell + "+" + cost) reads as locked
 	btn.size = Vector2(d, d)
 	btn.position = ctr - Vector2(d, d) * 0.5
-	btn.set_meta("place_spot", String(spot.id))       # the placement tool (tools/ui_placement.gd) drags by this
 	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
 	return btn
 
@@ -585,7 +584,6 @@ func _home_badge_baked(z: int, k: int, b) -> Control:
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(lbl)
-	node.set_meta("place_spot", String(spot.id))      # placement tool drags by this (engine-fallback badge)
 	return node
 
 # An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with

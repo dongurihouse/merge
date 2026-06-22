@@ -54,9 +54,10 @@ static func pill_border(name: String) -> Dictionary:
 const CUR_PILL_BG := Color("#FBF6EC", 0.95)
 const CUR_PILL_BORDER := Color("#C9A66B", 0.9)
 const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
-# id → the rendered sprite px (Tune.Hud gsize × optical: star 44×0.86, coin/gem 40×1.0). The sprite is
-# centered in the `icon_box`-sized square, exactly as hud.gd's _icon_box does, so the preview matches.
-const CUR_PILL_ICONS := [["star", 38.0], ["coin", 40.0], ["gem", 40.0]]
+# id → per-currency OPTICAL weight (mirrors Tune.Hud.*_OPTICAL). The default wallet sprite px is
+# icon_box × optical, so the `icon_box` slider sets the real icon size — exactly as hud.gd's _icon_box
+# does, so the preview matches the live HUD. (Explicit-icon callers still pass their own [[id, px], …].)
+const CUR_PILL_OPTICAL := [["star", 0.86], ["coin", 1.0], ["gem", 1.0]]
 
 # The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
 # the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
@@ -2954,7 +2955,12 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 	var demo := {"star": 1280, "coin": 540, "gem": 36}
 	# the icon set is the 3-currency wallet by default; a caller (e.g. the bag's acorn balance) can pass
 	# opts["icons"] = [[id, px], …] to render a SUBSET (or a single currency) in the same capsule.
-	var icons: Array = opts.get("icons", CUR_PILL_ICONS)
+	# the DEFAULT wallet sizes each sprite as icon_box × optical (so the icon_box slider drives the icon
+	# size); an explicit opts["icons"] = [[id, px], …] still renders a caller-sized subset.
+	var icons: Array = opts.get("icons", [])
+	if icons.is_empty():
+		for e in CUR_PILL_OPTICAL:
+			icons.append([e[0], box * float(e[1])])
 	for i in icons.size():
 		if i > 0:
 			# the WIDER gap between pairs is an explicit spacer (matches hud.gd's _spacer)

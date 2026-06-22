@@ -107,7 +107,7 @@ var _grown_cells: Array = []       # cells of generators that just GREW IN this 
 # (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
 #  T48 ahead of the UI redesign; the burst coin sink stays in code, see _upgrade_gen_burst)
 var giver_bar: Control           # the quest fence (givers pop up over it)
-var _board_center: Control       # the CenterContainer holding the board (placement tool nudges this)
+var _board_center: Control       # the CenterContainer holding the board (carries the saved vertical nudge)
 var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
 var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
@@ -243,9 +243,9 @@ func _ready() -> void:
 	# (the wood-branch divider that used to sit between the quest fence and the grid is retired —
 	# the grid pins directly under the fence now.)
 
-	# Placement Workbench (tools/ui_placement.gd): the quest fence + the board carry an optional
-	# saved vertical nudge (board_layout.json). Applied AFTER the VBox lays out, per sort, so the
-	# offsets are independent and the responsive layout is untouched. No file / 0 → identical render.
+	# The quest fence + the board carry an optional saved vertical nudge (board_layout.json).
+	# Applied AFTER the VBox lays out, per sort, so the offsets are independent and the responsive
+	# layout is untouched. No file / 0 → identical render.
 	_board_center = center
 	_load_placement()
 	root.sort_children.connect(_apply_placement)
@@ -351,7 +351,7 @@ func _apply_board_config(b: Dictionary) -> void:
 	# Default 68 reproduces the shipped ITEM_INSET (0.16), so a saved-default board renders identically.
 	_board_item_inset = clampf((1.0 - float(b.get("item", 68.0)) / 100.0) / 2.0, 0.0, 0.45)
 
-# --- placement (tools/ui_placement.gd) -----------------------------------------------
+# --- board layout offsets ------------------------------------------------------------
 const PLACEMENT_PATH := "res://games/grove/assets/board_layout.json"
 
 # Read the saved fence/board vertical nudges. Missing file or 0 → no offset (today's layout).
@@ -373,11 +373,6 @@ func _apply_placement() -> void:
 		giver_bar.position.y += _place_fence_dy * h
 	if _board_center != null:
 		_board_center.position.y += _place_board_dy * h
-
-# The placement tool changed an offset → re-sort so _apply_placement reseats the bands.
-func placement_refresh() -> void:
-	if giver_bar != null and giver_bar.get_parent() != null:
-		(giver_bar.get_parent() as Container).queue_sort()
 
 # --- state ----------------------------------------------------------------------
 
