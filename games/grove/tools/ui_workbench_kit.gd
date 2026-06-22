@@ -1014,12 +1014,12 @@ static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Butto
 ## The engine-drawn SPARKLE overlay: a soft additive GLOW that gently breathes + drifting 4-point
 ## TWINKLES (a continuous GPUParticles2D), both code-generated (no baked art). glow / twinkle are 0..1
 ## amounts (the workbench sliders); calm freezes it to a static glow with no twinkles (reduced-motion).
-static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool, tint: Color = Pal.STRAW) -> Control:
+static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool, tint: Color = Pal.STRAW, size_mult: float = 1.7) -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if glow > 0.0:
-		var hsz := px * 1.7
+	if glow > 0.0 and size_mult > 0.0:
+		var hsz := px * size_mult
 		var gtex := _glow_texture(tint)
 		# one soft radial halo, twice: a NORMAL-blend warm tint first (so the glow reads on LIGHT
 		# backgrounds — additive has no headroom on the near-white disc / bright map), then the ADDITIVE
@@ -2786,6 +2786,24 @@ static func _level_btn_opts(cfg: Dictionary) -> Dictionary:
 	btn["font"] = int(lv.get("btn_font", int(btn.get("font", 22))))
 	return btn
 
+## The GENERATOR HIGHLIGHT opts from a saved config — the glow halo / silhouette outline / sparkle that
+## marks a board generator (drawn by engine PieceView.make_generator). Stored as workbench-friendly ints
+## (percent / per-mille / count) and converted to the fractions the builder reads. Returns {} when the
+## "generator" block is absent so the engine falls back to its shipped GEN_* consts (the source of truth
+## for the defaults below — keep them in sync with piece_view.gd).
+static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var g: Dictionary = cfg.get("generator", {})
+	if g.is_empty():
+		return {}
+	return {
+		"glow_scale": float(g.get("glow_scale", 100)) / 100.0,    # halo size, % of cell
+		"glow_a": float(g.get("glow_a", 30)) / 100.0,             # halo opacity
+		"outline_w": float(g.get("outline_w", 35)) / 1000.0,      # rim thickness, per-mille of cell
+		"outline_a": float(g.get("outline_a", 85)) / 100.0,       # rim opacity
+		"sparkle_count": int(g.get("sparkle_count", 5)),          # twinkle count
+		"sparkle_speed": float(g.get("sparkle_speed", 70)) / 100.0,   # twinkle cycles/sec
+	}
+
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's
 ## side rail and bottom nav. Slider values are stored 0..100 (icon_scale / glow / twinkle), divided here
 ## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
@@ -3153,6 +3171,9 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# pinned to STRAW's V (0.89), so the defaults (42°, 74%) reproduce Pal.STRAW exactly — drag the
 		# saturation down toward a warm white to take the yellow out of the glow.
 		"glow_tint": Color.from_hsv(float(bc.get("glow_hue", 42)) / 360.0, float(bc.get("glow_sat", 74)) / 100.0, 0.89),
+		"glow_size": float(bc.get("glow_size", 170)) / 100.0,        # the outer bloom's spread (× the cell; 0 = no halo)
+		"glow_shadow": float(bc.get("glow_shadow", 55)) / 100.0,     # the rim drop-shadow's strength (alpha; 0 = no rim glow)
+		"glow_shadow_size": float(bc.get("glow_shadow_size", 10)) / 100.0,  # ...and its size (× the cell)
 		"btn": card_btn_opts(cfg),                                   # the SHARED button style (art/shadow/corner) — the cost chip rides it
 	}
 
@@ -3304,15 +3325,18 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		ps.set_border_width_all(4)
 		ps.border_color = tint
 		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
-		ps.shadow_color = Color(tint, 0.55)
-		ps.shadow_size = int(maxf(4.0, cw * 0.10))
+		# the rim drop-shadow — its own strength (alpha) + size knobs, so it can be dialled all the way
+		# out. glow_shadow 0 (or glow_shadow_size 0) removes the glow hugging the cell entirely.
+		var sh_a := float(opts.get("glow_shadow", 0.55))
+		ps.shadow_color = Color(tint, sh_a)
+		ps.shadow_size = int(maxf(0.0, cw * float(opts.get("glow_shadow_size", 0.10)))) if sh_a > 0.0 else 0
 		pop.add_theme_stylebox_override("panel", ps)
 		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(pop)
 		var glow := float(opts.get("next_glow", 0.45))
 		var twinkle := float(opts.get("next_twinkle", 0.55))
 		if glow > 0.0 or twinkle > 0.0:
-			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)), tint)
+			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)), tint, float(opts.get("glow_size", 1.7)))
 			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			tile.add_child(spk)
 

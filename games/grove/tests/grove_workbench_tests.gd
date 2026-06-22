@@ -59,6 +59,14 @@ func _unlockable_tint(node: Control) -> Color:
 			return (sb as StyleBoxFlat).border_color
 	return Color(0, 0, 0, 0)
 
+# The unlockable highlight pop's rim drop-shadow size (px). -1 if the cell has no such pop.
+func _unlockable_shadow_size(node: Control) -> int:
+	for p in node.find_children("*", "Panel", true, false):
+		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
+			return (sb as StyleBoxFlat).shadow_size
+	return -1
+
 # True if `node` or any descendant is of the given built-in class.
 func _has_class(node: Node, klass: String) -> bool:
 	if node.is_class(klass):
@@ -385,6 +393,14 @@ func _test_bag_components() -> void:
 	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_white)).s < 0.02, "glow_sat 0 desaturates the unlockable accent to a warm white")
 	var co_orange := Kit.bag_card_opts_from_config({"bag_card": {"glow_hue": 20}})
 	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_orange)).h < Pal.STRAW.h, "lowering glow_hue shifts the unlockable accent toward orange")
+	# the glow INTENSITY/SIZE knobs: each glow layer can be dialled all the way out. glow_shadow 0 removes
+	# the rim drop-shadow (the glow hugging the cell); glow_size 0 removes the outer bloom halo.
+	ok(_unlockable_shadow_size(unl) > 0, "the unlockable cell has a rim drop-shadow by default")
+	var co_noshadow := Kit.bag_card_opts_from_config({"bag_card": {"glow_shadow": 0}})
+	ok(_unlockable_shadow_size(Kit.slot_cell({"state": "unlockable"}, co_noshadow)) == 0, "glow_shadow 0 removes the rim drop-shadow")
+	ok(_has_class(unl, "TextureRect"), "the unlockable cell carries the outer bloom halo by default")
+	var co_nohalo := Kit.bag_card_opts_from_config({"bag_card": {"glow_size": 0, "next_twinkle": 0}})
+	ok(not _has_class(Kit.slot_cell({"state": "unlockable"}, co_nohalo), "TextureRect"), "glow_size 0 removes the outer bloom halo")
 	# the locked cell's lock is now the board's BAKED padlock (slot_locked) — no separate lock overlay
 	ok(Kit.slot_cell({"state": "locked", "cost": 5}, co).find_child("BagLock", true, false) == null, "the locked cell uses the baked board lock (no overlay node)")
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px

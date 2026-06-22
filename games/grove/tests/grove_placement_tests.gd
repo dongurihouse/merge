@@ -58,6 +58,25 @@ func _initialize() -> void:
 	ok(hs.get_viewport_rect().encloses(hs.coins_label.get_parent().get_parent().get_global_rect()), \
 		"S4: the wallet sits fully on-screen (home)")
 
+	# S-RESIZE: the home/map canvas must FOLLOW a live viewport resize (drag the window wider / rotate),
+	# the way the board's anchored background does. The map is fitted once per build, so without a
+	# size_changed re-fit it stays pinned to the old width. Drive two known widths and assert the map
+	# rect tracks each (deferred one-frame coalesce → wait two frames). (Baseline set explicitly — the
+	# headless start size is whatever Design.fit_desktop_window picked for the test monitor.)
+	get_root().size = Vector2i(1080, 1920)
+	await create_timer(0.06).timeout
+	await create_timer(0.06).timeout
+	ok(absf(hs._map_rect.size.x - 1080.0) < 2.0, \
+		"S-RESIZE: the home map fits the 1080 width (baseline, got %.0f)" % hs._map_rect.size.x)
+	get_root().size = Vector2i(1600, 1920)
+	await create_timer(0.06).timeout
+	await create_timer(0.06).timeout
+	ok(absf(hs._map_rect.size.x - 1600.0) < 2.0, \
+		"S-RESIZE: the home map re-fits to the new width on a live resize (got %.0f)" % hs._map_rect.size.x)
+	ok(absf(hs._map_rect.position.x) < 2.0, "S-RESIZE: the re-fitted map is flush left (no side sky bars)")
+	get_root().size = Vector2i(1080, 1920)
+	await create_timer(0.06).timeout
+
 	# S6 regression guard: primary buttons must be SOLID pills — the kit btn_leaf
 	# nine-patch collapses invisibly at button heights (margins > the rect), which is
 	# how buttons once shipped as floating text. (The chapter ribbon that shared this

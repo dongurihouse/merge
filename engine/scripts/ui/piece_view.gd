@@ -11,6 +11,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # shared level-badge medal for locked-cell gates
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
+const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the SHARED slot cell (bag + board)
 
@@ -317,13 +318,16 @@ static func _locked_fill(csz: float, ring: int) -> Panel:
 	return base
 
 
-static func make_generator(id: String, csz: float) -> Control:
+# `hl` is the GEN-highlight override dict (from the UI workbench via Kit.gen_highlight_opts_from_config);
+# absent keys fall back to the GEN_* consts below, so make_generator(id, csz) renders the shipped look.
+static func make_generator(id: String, csz: float, hl: Dictionary = {}) -> Control:
 	var gdef: Dictionary = G.gen_def(G.GENERATORS, id)
 	var holder := _make_holder(csz)
 	_add_contact_shadow(holder, csz)   # same contact shadow as a piece — generators ground identically
-	_add_gen_glow(holder, csz)         # GEN highlight (1/3): a warm halo BEHIND the art (added before it)
+	_add_gen_glow(holder, csz, hl)     # GEN highlight (1/3): a warm halo BEHIND the art (added before it)
 	var path: String = Game.art(String(gdef.get("tex", "")))
 	if ResourceLoader.exists(path):
+		_add_gen_outline(holder, csz, path, hl)   # GEN highlight (2/3): gold rim tracing the silhouette, BEHIND the art
 		_add_sprite(holder, _content_tex(path), csz, ITEM_INSET)   # same crop-to-content + inset as a piece
 	else:
 		var p := Panel.new()
@@ -345,25 +349,26 @@ static func make_generator(id: String, csz: float) -> Control:
 		lbl.add_theme_color_override("font_color", CREAM)
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.add_child(lbl)
-	# GEN highlight (2/3 + 3/3): a thin gold frame + a few slow twinkles ON TOP — marks a generator
-	# as a special, permanent producer (vs. a mergeable piece). Added last so they sit over the art and
-	# never disturb child(0) (the contact shadow / sprite). The board's FX.breathe makes the whole gently pulse.
-	_add_gen_frame(holder, csz)
-	_add_gen_sparkle(holder, csz)
+	# GEN highlight (3/3): a few slow twinkles ON TOP — together with the glow + silhouette rim this marks
+	# a generator as a special, permanent producer (vs. a mergeable piece). Added last so it sits over the
+	# art and never disturbs child(0) (the contact shadow / sprite). The board's FX.breathe makes it pulse.
+	_add_gen_sparkle(holder, csz, hl)
 	return holder
 
 # GEN highlight — the look that says "this is a generator, a permanent producer" (vs. a mergeable
-# piece). THE FEEL-DIAL: three subtle layers, tuned here. A warm GLOW halo behind the art, a thin
-# gold FRAME around it, and a few slow SPARKLE twinkles over it. Each part is mouse-ignore (keeps
-# _all_ignore green) and never becomes child(0) (keeps the shadow/sprite invariant make_piece shares).
-const GEN_GLOW := {"scale": 1.0, "color": "#FFD27A", "a": 0.30}                            # warm halo
-const GEN_FRAME := {"inset": 0.06, "radius": 0.24, "width": 0.035, "color": "#E8BE5C", "a": 0.85}
+# piece). THE FEEL-DIAL: three subtle layers, tuned here (these consts are the SHIPPED defaults; the UI
+# workbench's "generator" knobs override them via the `hl` dict — keep the two in sync). A warm GLOW
+# halo behind the art, a gold OUTLINE tracing the art's silhouette, and a few slow SPARKLE twinkles over
+# it. Each part is mouse-ignore (keeps _all_ignore green) and never becomes child(0) (keeps the shadow/
+# sprite invariant make_piece shares). `scale`/`a`/`width` fractions are of the cell size.
+const GEN_GLOW := {"scale": 1.0, "color": "#FFD27A", "a": 0.30}                  # warm halo
+const GEN_OUTLINE := {"width": 0.035, "alpha": 0.85, "color": "#E8BE5C", "steps": 16}   # gold silhouette rim
 const GEN_SPARKLE := {"count": 5, "speed": 0.7, "color": "#FFF4C2"}
 
 # (1/3) A warm radial halo BEHIND the art. Shares the grounding layer with the contact shadow (added
 # before the sprite, drawn under it), so — like the shadow — it follows item_backing; that keeps the
 # "bare when backing off" affordance and the child(0) invariant intact.
-static func _add_gen_glow(holder: Control, size: float) -> void:
+static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> void:
 	if not Features.on("item_backing"):
 		return
 	var glow := TextureRect.new()
@@ -372,41 +377,66 @@ static func _add_gen_glow(holder: Control, size: float) -> void:
 	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	glow.stretch_mode = TextureRect.STRETCH_SCALE
 	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var gw := size * float(GEN_GLOW["scale"])
+	var gw := size * float(hl.get("glow_scale", GEN_GLOW["scale"]))
 	glow.size = Vector2(gw, gw)
 	glow.position = (Vector2(size, size) - glow.size) / 2.0
-	glow.modulate = Color(GEN_GLOW["color"], float(GEN_GLOW["a"]))
+	glow.modulate = Color(GEN_GLOW["color"], float(hl.get("glow_a", GEN_GLOW["a"])))
 	holder.add_child(glow)
 
-# (2/3) A thin rounded gold frame around the icon, on top.
-static func _add_gen_frame(holder: Control, size: float) -> void:
-	var frame := Panel.new()
-	frame.name = "GenFrame"
-	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var inset := size * float(GEN_FRAME["inset"])
-	frame.offset_left = inset
-	frame.offset_top = inset
-	frame.offset_right = -inset
-	frame.offset_bottom = -inset
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color(0, 0, 0, 0)
-	fs.set_corner_radius_all(int(size * float(GEN_FRAME["radius"])))
-	fs.set_border_width_all(maxi(2, int(size * float(GEN_FRAME["width"]))))
-	fs.border_color = Color(GEN_FRAME["color"], float(GEN_FRAME["a"]))
-	frame.add_theme_stylebox_override("panel", fs)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(frame)
+# A white SILHOUETTE of an icon (rgb forced white, alpha kept) so GenOutline can tint it to any rim
+# colour. Built from the SAME crop-to-content texture the sprite uses, so the rim aligns. Cached per
+# path; the byte pass (rgb=255) is far cheaper than per-pixel get/set.
+static var _silhouette_cache: Dictionary = {}
+static func _silhouette_tex(path: String) -> Texture2D:
+	if _silhouette_cache.has(path):
+		return _silhouette_cache[path]
+	var result: Texture2D = null
+	var ct := _content_tex(path)
+	if ct != null:
+		var img := ct.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			if img.get_format() != Image.FORMAT_RGBA8:
+				img.convert(Image.FORMAT_RGBA8)
+			var data := img.get_data()
+			for i in range(0, data.size(), 4):
+				data[i] = 255
+				data[i + 1] = 255
+				data[i + 2] = 255           # keep data[i + 3] (the alpha = the shape)
+			result = ImageTexture.create_from_image(
+				Image.create_from_data(img.get_width(), img.get_height(), false, Image.FORMAT_RGBA8, data))
+	_silhouette_cache[path] = result
+	return result
+
+# (2/3) A gold rim TRACING the icon's silhouette (not a square frame). GenOutline draws the white
+# silhouette tinted + offset around a ring; the art sprite (added after, on top) covers the interior.
+static func _add_gen_outline(holder: Control, size: float, path: String, hl: Dictionary = {}) -> void:
+	var sil := _silhouette_tex(path)
+	if sil == null:
+		return
+	var o := GenOutline.new()
+	o.name = "GenOutline"
+	o.set_anchors_preset(Control.PRESET_FULL_RECT)
+	o.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	o.tex = sil
+	o.inset = ITEM_INSET                    # MUST match the sprite so the rim aligns
+	o.color = Color(GEN_OUTLINE["color"])
+	o.width = float(hl.get("outline_w", GEN_OUTLINE["width"])) * size
+	o.alpha = float(hl.get("outline_a", GEN_OUTLINE["alpha"]))
+	o.steps = int(GEN_OUTLINE["steps"])
+	holder.add_child(o)
 
 # (3/3) A few slow code-drawn twinkles over the icon. GenSparkle is a self-animating Control (see its
 # header for why not particles). mouse_filter is set here too — _all_ignore can run before its _ready().
-static func _add_gen_sparkle(holder: Control, size: float) -> void:
+static func _add_gen_sparkle(holder: Control, size: float, hl: Dictionary = {}) -> void:
 	var sp := GenSparkle.new()
 	sp.name = "GenSparkle"
 	sp.set_anchors_preset(Control.PRESET_FULL_RECT)
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sp.tint = Color(GEN_SPARKLE["color"])
-	sp.count = int(GEN_SPARKLE["count"])
-	sp.speed = float(GEN_SPARKLE["speed"])
+	sp.count = int(hl.get("sparkle_count", GEN_SPARKLE["count"]))
+	sp.speed = float(hl.get("sparkle_speed", GEN_SPARKLE["speed"]))
 	holder.add_child(sp)
 
 # A small fixed-box item sprite (for giver ask-cards / the discovery ladder).

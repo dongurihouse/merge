@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
 # column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
@@ -30,7 +30,7 @@ const IDS := ["board", "button", "home_button", "home_unlock_button", "icon", "b
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
 	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
-	[["board"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["board"], ["generator"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["bag"]],   # dialogs, settings, vault, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
@@ -66,6 +66,9 @@ const TEST_KEYS := {
 	# the BOARD preview — the size knobs (scale / cell / item / gap / frame / cols / rows) are the saved
 	# design; `pieces` just toggles the demo merge pieces in the preview.
 	"board": ["pieces"],
+	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
+	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
+	"generator": ["preview", "cell"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
@@ -111,6 +114,7 @@ const TEST_KEYS := {
 }
 const CAPTIONS := {
 	"board": "Board — merge grid (frame · cells · pieces · scale + item width)",
+	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"home_unlock_button": "Home unlock — restore-cost disc (+ · ★ N)",
@@ -141,6 +145,12 @@ var _params := {
 	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
 	# `item` = the piece sprite size as a % of its cell; gap/frame/cols/rows shape the grid. Preview only.
 	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true},
+	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
+	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
+	# /100 cyc/s) flow to the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's
+	# GEN_* consts. `preview` (which generator) + `cell` (preview px) are test-only.
+	"generator": {"glow_scale": 100, "glow_a": 30, "outline_w": 35, "outline_a": 85, "sparkle_count": 5, "sparkle_speed": 70,
+		"preview": "seed_satchel", "cell": 170},
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
@@ -252,7 +262,8 @@ var _params := {
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-		"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74, "level": 7, "cost": 120},
+		"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
+		"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10, "level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -381,6 +392,15 @@ func _make_element(id: String) -> Control:
 	match id:
 		"board":
 			return _make_board_preview()
+		"generator":
+			# the live board generator (engine make_generator) with its highlight tuned by the knobs, through
+			# the SAME Kit transform the board reads — so the preview is 1:1 with the game.
+			var ghl := Kit.gen_highlight_opts_from_config({"generator": p})
+			var gcell := float(p.get("cell", 170))
+			var gwrap := CenterContainer.new()
+			gwrap.custom_minimum_size = Vector2(gcell + 90, gcell + 90)
+			gwrap.add_child(PieceView.make_generator(String(p.get("preview", "seed_satchel")), gcell, ghl))
+			return gwrap
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
@@ -1160,6 +1180,20 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["rows", 1, 12]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
+		"generator":
+			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.gen_highlight_opts_from_config)
+			_section_header("Glow halo")
+			_sidebar_body.add_child(_slider_row(["glow_scale", 60, 160]))    # halo size, % of cell
+			_sidebar_body.add_child(_slider_row(["glow_a", 0, 80]))          # halo opacity %
+			_section_header("Outline (traces the art)")
+			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
+			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
+			_section_header("Sparkle")
+			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
+			_sidebar_body.add_child(_slider_row(["sparkle_speed", 0, 150]))  # twinkle speed (/100 cyc/s)
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "reed_bed", "orchard_basket", "glowcap_ring"]))
+			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists
 			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
@@ -1403,6 +1437,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
 			_sidebar_body.add_child(_slider_row(["glow_hue", 0, 60]))         # accent tone: 0 orange → 42 straw → 60 yellow
 			_sidebar_body.add_child(_slider_row(["glow_sat", 0, 100]))        # accent saturation: 0 warm-white → 100 full gold
+			_sidebar_body.add_child(_slider_row(["glow_size", 0, 250]))       # outer-bloom spread (% of cell; 100 = cell-sized, 0 = no halo)
+			_sidebar_body.add_child(_slider_row(["glow_shadow", 0, 100]))     # rim-shadow strength (0 = no glow hugging the cell)
+			_sidebar_body.add_child(_slider_row(["glow_shadow_size", 0, 40])) # rim-shadow size (% of cell)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
 			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)

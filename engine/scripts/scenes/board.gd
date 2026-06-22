@@ -1161,8 +1161,9 @@ func _rebuild_all() -> void:
 				board_area.add_child(br)
 				bramble_nodes[cell] = br
 	gen_nodes.clear()
+	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
-		var gn := _make_generator(String(board.gens[cell]))
+		var gn := _make_generator(String(board.gens[cell]), ghl)
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
@@ -1619,8 +1620,16 @@ func _refresh_locked_cells() -> void:
 		old.queue_free()
 		bramble_nodes[cell] = nb
 
-func _make_generator(id: String) -> Control:
-	return PieceView.make_generator(String(id), csz)
+func _make_generator(id: String, hl: Dictionary = {}) -> Control:
+	return PieceView.make_generator(String(id), csz, hl)
+
+# The GEN-highlight (glow / silhouette outline / sparkle) tuning saved in the UI workbench
+# ("generator" block). Absent file/keys → {} → make_generator falls back to its shipped GEN_* consts.
+func _gen_highlight_opts() -> Dictionary:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return {}
+	return Kit.gen_highlight_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
 # --- input ---------------------------------------------------------------------
 

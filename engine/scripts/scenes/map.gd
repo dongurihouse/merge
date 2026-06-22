@@ -75,6 +75,8 @@ var unlocks := {}
 # descendant is MOUSE_FILTER_IGNORE (the single-input-surface rule; a test asserts it).
 var content: Control
 var _view := "map"               # "map" | "select"
+var _last_view_size := Vector2.ZERO   # viewport size at the last fit — guards the resize re-fit
+var _relayout_queued := false         # coalesces a burst of size_changed into one rebuild per frame
 var _map_idx := 0                # the map being viewed
 var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
 var _map_art_rect := Rect2()     # the placed/scaled background art
@@ -154,6 +156,14 @@ func _ready() -> void:
 		if start < 0:
 			start = G.hub_map()
 	_open_map(start)
+
+	# Live RESIZE: the map canvas is fitted once per build (_map_image_rect reads the viewport), so
+	# unlike the board's anchor-stretched background it does NOT follow a window/orientation resize on
+	# its own — drag a desktop window wider and the home stayed put. Re-fit the active view whenever the
+	# viewport actually changes. (headless harnesses run _ready out of tree → no viewport to watch.)
+	if get_viewport() != null:
+		_last_view_size = get_viewport_rect().size
+		get_viewport().size_changed.connect(_on_viewport_resized)
 
 	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
 	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
@@ -284,7 +294,7 @@ func _set_map_chrome_visible(on: bool) -> void:
 # sprites. The whole view lives under `content` — every child IGNOREs (single input
 # surface).
 
-func _build_map() -> void:
+func _build_map(animate := true) -> void:
 	for c in content.get_children():
 		c.queue_free()
 	spot_hits.clear()
@@ -334,7 +344,8 @@ func _build_map() -> void:
 	if G.can_populate(z, unlocks, _gates()):
 		_add_welcome_panel(z)
 	BootTrace.end("map.open.ambient")
-	FX.pop_in(content)
+	if animate:
+		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
 
 # Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
 # A §16 home (home != {}) renders the per-building reveal/badge into `frame`; any other map renders the
@@ -844,7 +855,7 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 # unlocked card opens that map; a locked card wobbles. Lives under `content` —
 # every child IGNOREs (single input surface).
 
-func _build_select() -> void:
+func _build_select(animate := true) -> void:
 	for c in content.get_children():
 		c.queue_free()
 	spot_hits.clear()
@@ -886,7 +897,8 @@ func _build_select() -> void:
 		y += card_h + sep
 	if _select_back != null and is_instance_valid(_select_back):
 		_select_back.visible = true
-	FX.pop_in(content)
+	if animate:
+		FX.pop_in(content)
 
 # One map card, built from the SHARED kit (Kit.map_card) so the workbench tunes the SAME recipe the
 # game renders. This resolves the per-card DATA from game state — OPEN → the locale art inside the gold
@@ -1517,6 +1529,27 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		elif _view == "select" and get_tree() != null:
 			get_tree().quit()
+
+# A window/orientation resize fires size_changed (often many times per drag). Coalesce to one
+# rebuild at the end of the frame so the home canvas re-fits the new width like the board background.
+func _on_viewport_resized() -> void:
+	if _relayout_queued:
+		return
+	_relayout_queued = true
+	_relayout_after_resize.call_deferred()
+
+func _relayout_after_resize() -> void:
+	_relayout_queued = false
+	if get_viewport() == null:
+		return
+	var sz := get_viewport_rect().size
+	if sz == _last_view_size:
+		return                            # no real change — skip the rebuild
+	_last_view_size = sz
+	if _view == "map":
+		_build_map(false)                 # re-fit WITHOUT the pop-in (a resize is not a navigation)
+	else:
+		_build_select(false)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:

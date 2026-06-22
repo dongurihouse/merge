@@ -10,10 +10,55 @@ func _initialize() -> void:
 	_test_spot_derivation()
 	_test_maps_overlay()
 	_test_view_headless()
+	_test_lock_overlay()
+	_test_region_map_membership()
 	await _test_map_integration()
 	await _test_overlay_fills_view()
 	_test_multimap()
 	finish()
+
+# The purple "locked region" cover: a per-region tint layer on top of the vines, gated by the same
+# region_enabled toggle. Locked regions show the purple; owned regions clear it.
+func _test_lock_overlay() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, VineMaps.regions_for(e0))
+	var entry: Dictionary = view.region_overlays[0]
+	var lock = entry.get("lock")
+	ok(lock is TextureRect, "region 0 has a 'lock' tint overlay")
+	if lock is TextureRect:
+		var mat := (lock as TextureRect).material as ShaderMaterial
+		ok(mat != null, "the lock overlay carries a ShaderMaterial")
+		var tc = mat.get_shader_parameter("tint_color")
+		ok(tc is Color and absf(tc.r - 0.6863) < 0.02 and absf(tc.g - 0.6627) < 0.02 \
+			and absf(tc.b - 0.9255) < 0.02 and absf(tc.a - 0.34) < 0.02, \
+			"the tint is #AFA9EC at 34%% (got %s)" % [tc])
+		view.set_region_enabled(0, true)
+		ok((lock as TextureRect).visible, "a locked region shows the purple cover")
+		ok(absf(float(mat.get_shader_parameter("region_enabled")) - 1.0) < 0.001, "locked -> region_enabled 1 on the lock layer")
+		view.set_region_enabled(0, false)
+		ok(not (lock as TextureRect).visible, "an owned region clears the purple cover")
+		ok(absf(float(mat.get_shader_parameter("region_enabled"))) < 0.001, "owned -> region_enabled 0 on the lock layer")
+	view.queue_free()
+
+# The region-index map marks region membership in the GREEN channel so the full polygon can be
+# filled with purple. Region 0 encodes to red 0.0 (same as the background fill), so green is what
+# distinguishes a region-0 pixel from a non-region pixel.
+func _test_region_map_membership() -> void:
+	var view: Control = VineMapView.new()
+	view.image_size = Vector2i(10, 10)
+	view.regions = [{"points": [[2, 2], [6, 2], [6, 6], [2, 6]]}, {"points": [[7, 7], [9, 7], [9, 9], [7, 9]]}]
+	view._rebuild_region_map()
+	var img: Image = view.region_map_texture.get_image()
+	var inside0 := img.get_pixel(4, 4)
+	var inside1 := img.get_pixel(8, 8)
+	var outside := img.get_pixel(0, 0)
+	ok(inside0.g > 0.5, "a region-0 interior pixel is marked as member (green=1)")
+	ok(inside0.r < 0.25, "a region-0 interior pixel decodes to index 0 (red~0)")
+	ok(inside1.g > 0.5, "a region-1 interior pixel is marked as member (green=1)")
+	ok(outside.g < 0.5, "an off-polygon pixel is unmarked (green=0) so region 0 != background")
+	view.free()
 
 func _test_overlay_fills_view() -> void:
 	fresh("vine_overlay_fit")

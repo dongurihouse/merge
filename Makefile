@@ -20,7 +20,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench ph pb vine test test-fast test-engine test-grove test-one smoke import bake-textures \
+.PHONY: help run run_debug run_grove editor workbench fx ph pb vine test test-fast test-engine test-grove test-one smoke import bake-textures \
         shot-map shot-grove shot shot-workbench shot-place \
         decor icon ios clean clean-cache intake intake-test
 
@@ -48,6 +48,9 @@ editor: ## open the project in the Godot editor
 
 w: ## see + test the UI workbench live (a real window you can click)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd
+
+fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
+	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
 
 ph: ## drag-to-place on the HOME screen, then Save:  make ph
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/ui_placement.gd -- screen=home

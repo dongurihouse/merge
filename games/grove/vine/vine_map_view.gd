@@ -7,6 +7,10 @@ class_name VineMapView
 const VINE_SHADER := "res://games/tools/vine_mask_tool/shaders/ominous_vines.gdshader"
 const SHADOW_SHADER := "res://games/tools/vine_mask_tool/shaders/vine_shadow.gdshader"
 const EMBER_SHADER := "res://games/tools/vine_mask_tool/shaders/vine_embers.gdshader"
+const LOCK_SHADER := "res://games/tools/vine_mask_tool/shaders/region_lock_tint.gdshader"
+# The "locked region" cover: a light, see-through purple veil over every still-locked region,
+# layered on top of the vines and cleared (with them) when the region's spot is bought.
+const LOCK_TINT := Color(0.6863, 0.6627, 0.9255, 0.34)  # #AFA9EC at 34%
 const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COMPONENT_THRESHOLD := 0.25
@@ -45,6 +49,7 @@ var glow_template_material: ShaderMaterial
 var vines_template_material: ShaderMaterial
 var shadow_template_material: ShaderMaterial
 var ember_template_material: ShaderMaterial
+var lock_template_material: ShaderMaterial
 var _calm := false
 
 func _init() -> void:
@@ -299,6 +304,10 @@ func _create_effect_template_materials() -> void:
 	ember_template_material.shader = load(EMBER_SHADER)
 	ember_template_material.set_shader_parameter("mask_texture", mask_texture)
 
+	lock_template_material = ShaderMaterial.new()
+	lock_template_material.shader = load(LOCK_SHADER)
+	lock_template_material.set_shader_parameter("tint_color", LOCK_TINT)
+
 # ── Region-index map ──────────────────────────────────────────────────────────
 
 func _rebuild_region_map() -> void:
@@ -314,7 +323,9 @@ func _rebuild_region_map() -> void:
 			continue
 		var bounds := _polygon_bounds(points)
 		var encoded := float(region_index) / denominator
-		var color := Color(encoded, 0.0, 0.0, 1.0)
+		# red = region index (vine shaders); green = membership flag, so the lock-tint shader can
+		# fill the WHOLE polygon and tell region 0 (red 0.0) apart from the background (also 0.0).
+		var color := Color(encoded, 1.0, 0.0, 1.0)
 		var packed := _points_to_packed(points)
 		for y in range(int(bounds.position.y), int(bounds.end.y) + 1):
 			for x in range(int(bounds.position.x), int(bounds.end.x) + 1):
@@ -362,8 +373,8 @@ func _apply_region_map_to_materials() -> void:
 		return
 	for region_index in range(region_overlays.size()):
 		var entry: Dictionary = region_overlays[region_index]
-		for key in ["shadow", "glow", "vines", "embers"]:
-			var rect := entry[key] as TextureRect
+		for key in ["shadow", "glow", "vines", "embers", "lock"]:
+			var rect := entry.get(key) as TextureRect
 			if rect == null:
 				continue
 			var material := rect.material as ShaderMaterial
@@ -405,14 +416,18 @@ func _create_region_overlays(force: bool) -> void:
 		var glow := _create_region_texture_rect("Region%dGlow" % [region_index + 1], glow_template_material, region_index)
 		var vines := _create_region_texture_rect("Region%dVines" % [region_index + 1], vines_template_material, region_index)
 		var embers := _create_effect_texture_rect("Region%dEmbers" % [region_index + 1], ember_template_material, region_index)
+		# the lock tint is added LAST so it sits on top of this region's vines (regions never overlap,
+		# so cross-region draw order is irrelevant — each tint only paints its own polygon).
+		var lock := _create_effect_texture_rect("Region%dLock" % [region_index + 1], lock_template_material, region_index)
 		parent.add_child(shadow)
 		parent.add_child(glow)
 		parent.add_child(vines)
 		parent.add_child(embers)
+		parent.add_child(lock)
 		var enabled := true
 		if region_index < regions.size() and regions[region_index] is Dictionary:
 			enabled = bool((regions[region_index] as Dictionary).get("enabled", true))
-		region_overlays.append({"shadow": shadow, "glow": glow, "vines": vines, "embers": embers, "enabled": enabled})
+		region_overlays.append({"shadow": shadow, "glow": glow, "vines": vines, "embers": embers, "lock": lock, "enabled": enabled})
 		_set_region_enabled(region_index, enabled)
 
 func _create_region_texture_rect(node_name: String, template_material: ShaderMaterial, region_index: int) -> TextureRect:
@@ -502,8 +517,10 @@ func _set_region_enabled(region_index: int, enabled: bool) -> void:
 
 	var entry: Dictionary = region_overlays[region_index]
 	entry["enabled"] = enabled
-	for key in ["shadow", "glow", "vines", "embers"]:
-		var rect := entry[key] as TextureRect
+	for key in ["shadow", "glow", "vines", "embers", "lock"]:
+		var rect := entry.get(key) as TextureRect
+		if rect == null:
+			continue
 		var material := rect.material as ShaderMaterial
 		material.set_shader_parameter("region_enabled", 1.0 if enabled else 0.0)
 		rect.visible = enabled
