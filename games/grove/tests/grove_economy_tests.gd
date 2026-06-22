@@ -464,12 +464,12 @@ func _initialize() -> void:
 		if float(band[bi]) <= float(band[bi - 1]):
 			band_mono = false
 	ok(band_mono and float(band[0]) >= 1.0, "T39: the per-map band rises monotonically across maps 1–5 (≥1.0 at map 1)")
-	# map resolution: code → line → generator → its map. Sample lines spanning maps 0..4.
-	ok(G.map_for_line(1) == 0 and G.map_for_line(2) == 0, "T39: map-1 lines (Wildflower/Berry) resolve to map 0")
-	ok(G.map_for_line(6) == 1, "T39: the map-2 line (Feather) resolves to map 1")
-	ok(G.map_for_line(10) == 2, "T39: a map-3 line (Reed) resolves to map 2")
-	ok(G.map_for_line(14) == 3 and G.map_for_line(20) == 4, "T39: map-4/5 lines (Apple/Glowcap) resolve to maps 3/4")
-	ok(G.map_for_code(1005) == 2, "T39: map_for_code derives the line then the map (Reed t5 → map 2)")
+	# map resolution: code → line → generator → its map. One line per map: line N → map N-1.
+	ok(G.map_for_line(1) == 0, "T39: the map-1 line (Wildflower) resolves to map 0")
+	ok(G.map_for_line(2) == 1, "T39: the map-2 line (Feather) resolves to map 1")
+	ok(G.map_for_line(3) == 2, "T39: the map-3 line (Garden tools) resolves to map 2")
+	ok(G.map_for_line(4) == 3 and G.map_for_line(5) == 4, "T39: map-4/5 lines (Honey/Mushroom) resolve to maps 3/4")
+	ok(G.map_for_code(305) == 2, "T39: map_for_code derives the line then the map (Garden tools t5 → map 2)")
 	# t1..(PREMIUM_TIER-1) reward == round(tier_coins × band[map]); checked across every line, every sub-pinnacle tier.
 	var band_ok := true
 	var t8_flat := true
@@ -490,7 +490,7 @@ func _initialize() -> void:
 	# concrete worked examples (map 0 band == 1.0 keeps the FTUE-era proofs exact)
 	ok(G.sell_reward(103) == Vector2i(3, 0), "T39: a map-1 t3 (band 1.0) still sells for exactly 3🪙")
 	ok(G.sell_reward(105) == Vector2i(5, 0), "T39: a map-1 t5 (band 1.0) still sells for exactly 5🪙")
-	ok(G.sell_reward(2005) == Vector2i(int(round(5 * float(band[4]))), 0), \
+	ok(G.sell_reward(505) == Vector2i(int(round(5 * float(band[4]))), 0), \
 		"T39: a map-5 t5 (band %.1f) sells for %d🪙 (later map → more coins)" % [float(band[4]), int(round(5 * float(band[4])))])
 
 	# diamonds: accessors + paid rain once the freebies are spent. A fresh save SEEDS a small

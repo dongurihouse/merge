@@ -11,71 +11,48 @@ const ROWS := 9
 const TOP_TIER := 12
 const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled from TOP_TIER
 
-# Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; until the
-# §16 sprites land (PARKED art), a line renders code-drawn from its `color`. v1 = the home grove
-# (Acorn & Bloom, grove_spec §2): 22 lines / 12 generators across maps 1 Farmhouse · 2 Barn ·
-# 3 Pond · 4 Orchard · 5 Meadow (the 15-map arc ≈104 lines is post-launch). Wildflower (1) is the
-# title line + the permanent ANCHOR (Seed satchel's pair never retires). Codes skip 9 (= COIN_LINE).
+# Item lines — code = line*100 + tier. Art loads <art_root>/items/<base>/<base>_<tier>.png; a line
+# renders code-drawn from its `color` only if a tier sprite is missing. v1 = the home grove
+# (Acorn & Bloom, grove_spec §2): ONE line per map across maps 1 Farmhouse · 2 Barn · 3 Pond ·
+# 4 Orchard · 5 Meadow. Line code == map number (1-indexed). All five bases are fully arted
+# (12 tiers each). Wildflower (1) is the title line + the permanent ANCHOR (Seed satchel never
+# retires). Codes skip 9 (= COIN_LINE). Earlier drafts carried 22 lines / 2-per-map; the unused
+# lines (Milk, Reed, Lotus, Fish, Snail, Apple, Pear, Plum, …, Firefly) were retired here.
 const LINES := {
-	# map 1 — Farmhouse (Radish): the starting lines (keep these bases — sprites may exist)
-	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3")},
-	2: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},
-	3: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},
-	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},
-	# map 2 — Barn (Carrot): hen coop + dairy stall
-	6: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},
-	7: {"name": "Milk", "base": "milk", "color": Color("#EDEDE6")},
-	# map 3 — Pond (Frog): reed bed + creel
-	10: {"name": "Reed", "base": "reed", "color": Color("#8FB36B")},
-	11: {"name": "Lotus", "base": "lotus", "color": Color("#E8A8C0")},
-	12: {"name": "Fish", "base": "fish", "color": Color("#7FB8C9")},
-	13: {"name": "Snail", "base": "snail", "color": Color("#B89A6B")},
-	# map 4 — Orchard (Bee): orchard basket + stone-fruit bough + nut-&-blossom
-	14: {"name": "Apple", "base": "apple", "color": Color("#D0483B")},
-	15: {"name": "Pear", "base": "pear", "color": Color("#BCD06B")},
-	16: {"name": "Plum", "base": "plum", "color": Color("#8E5AA8")},
-	17: {"name": "Cherry", "base": "cherry", "color": Color("#C8364F")},
-	18: {"name": "Walnut", "base": "walnut", "color": Color("#9A6B43")},
-	19: {"name": "Blossom", "base": "blossom", "color": Color("#F0B6CE")},
-	# map 5 — Meadow (Morel): glow-cap ring + meadow tuft + lantern bloom
-	20: {"name": "Glowcap", "base": "glowcap", "color": Color("#E07AA0")},
-	21: {"name": "Spore", "base": "spore", "color": Color("#C9B8E0")},
-	22: {"name": "Clover", "base": "clover", "color": Color("#6FA86B")},
-	23: {"name": "Dandelion", "base": "dandelion", "color": Color("#EAD24A")},
-	24: {"name": "Poppy", "base": "poppy", "color": Color("#D8503F")},
-	25: {"name": "Firefly", "base": "firefly", "color": Color("#E8E07A")},
+	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3")},     # map 1 — Farmhouse
+	2: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},       # map 2 — Barn
+	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},    # map 3 — Pond
+	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},           # map 4 — Orchard
+	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},     # map 5 — Meadow
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
 # (Farmhouse · Barn · Pond · Orchard · Meadow). Each generator is its map's sole producer and emits
-# 2 lines (popped at random). Generators PERSIST — never handed in / consumed (§6); the next map's
-# generator is the reward of a near-end quest, auto-placed on the board. `grant_from` is vestigial
-# (kept "" — the hand-in model is retired). `cell` only seeds the FIRST map (map 0); later maps'
-# generators auto-place on the first open cell when granted, so their `cell` is unused. The map-1
-# anchor (`seed_satchel`) is live from the first second.
+# its ONE line. Generators PERSIST — never handed in / consumed (§6); the next map's generator is
+# the reward of a near-end quest, auto-placed on the board. `grant_from` is vestigial (kept "" —
+# the hand-in model is retired). `cell` only seeds the FIRST map (map 0); later maps' generators
+# auto-place on the first open cell when granted, so their `cell` is unused. The map-1 anchor
+# (`seed_satchel`) is live from the first second.
 #
-# NOTE — the 13 lines NOT listed here (3,4,7,12,13,16-19,22-25) stay DEFINED in LINES (+ their art)
-# but are DORMANT: no generator produces them, so they are never popped or asked. Re-introducing them
-# (or splitting the content into more maps) is a content call (BACKLOG). Generator sprites are now
-# dedicated art (items/generator/gen_*.png), sliced from the generators sheet via the asset-intake
-# flow; the 7 unwired icons (porcini, stump, honeycomb, lotus, root_ball, berries, glow_lotus) are
-# parked, ready for future maps.
+# ICON NOTE — maps 3–5 still wear their OLD theme icons (gen_cattails/gen_apples/gen_glowcaps) since
+# the icon repaint is PARKED; the intended replacements are gen_honeycomb (Honey) and gen_porcini
+# (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
 const GENERATORS := [
-	# map 1 — Farmhouse (Radish): Wildflower + Garden tools. The ANCHOR — live from the first second.
-	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 2], "grant_from": "", "anchor": true,
+	# map 1 — Farmhouse: Wildflower. The ANCHOR — live from the first second.
+	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1], "grant_from": "", "anchor": true,
 		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
-	# map 2 — Barn (Carrot): Feather (the Egg line was removed).
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [6], "grant_from": "",
+	# map 2 — Barn: Feather.
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2], "grant_from": "",
 		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
-	# map 3 — Pond (Frog): Reed + Lotus.
-	{"id": "reed_bed", "map": 2, "cell": Vector2i(2, 1), "lines": [10, 11], "grant_from": "",
-		"tex": "items/generator/gen_cattails.png", "label": "reeds"},
-	# map 4 — Orchard (Bee): Apple + Pear.
-	{"id": "orchard_basket", "map": 3, "cell": Vector2i(2, 1), "lines": [14, 15], "grant_from": "",
-		"tex": "items/generator/gen_apples.png", "label": "orchard"},
-	# map 5 — Meadow (Morel): Glowcap + Spore.
-	{"id": "glowcap_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [20, 21], "grant_from": "",
-		"tex": "items/generator/gen_glowcaps.png", "label": "glowcap"},
+	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
+	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3], "grant_from": "",
+		"tex": "items/generator/gen_cattails.png", "label": "tools"},
+	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
+	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4], "grant_from": "",
+		"tex": "items/generator/gen_apples.png", "label": "hives"},
+	# map 5 — Meadow: Mushroom. (icon still glowcaps — repaint parked, gen_porcini ready)
+	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5], "grant_from": "",
+		"tex": "items/generator/gen_glowcaps.png", "label": "mushrooms"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
 

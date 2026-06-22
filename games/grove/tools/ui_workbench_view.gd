@@ -1192,7 +1192,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
 			_sidebar_body.add_child(_slider_row(["sparkle_speed", 0, 150]))  # twinkle speed (/100 cyc/s)
 			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "reed_bed", "orchard_basket", "glowcap_ring"]))
+			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "tool_shed", "bee_skep", "mushroom_ring"]))
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists

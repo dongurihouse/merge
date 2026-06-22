@@ -17,9 +17,9 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# map-0 lines: seed_satchel emits Wildflower(1)+Berry(2). (Map 0 ships ONE generator now; lines
-# 3,4 are dormant — no generator emits them.)
-const Z0_LINES := [1, 2]
+# map-0 lines: seed_satchel emits Wildflower(1). (One line per map now — line code == map number;
+# map 0's sole generator emits its single line.)
+const Z0_LINES := [1]
 
 func _initialize() -> void:
 	# --- askable_lines == lines_for_map (sorted), at EVERY map — no anchor union ---
