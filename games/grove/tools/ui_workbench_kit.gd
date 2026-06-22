@@ -2998,6 +2998,124 @@ static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"gray_unaffordable": bool(u.get("gray_unaffordable", true)),
 	}
 
+## --- the INSET PILL: a translucent, recessed-look capsule SKIN (shader-drawn) ---------------------
+## The reference home-screen pill replicated PROCEDURALLY: a warm cream body with a SLIGHT transparency,
+## a soft INNER SHADOW falling from the top rim, a BOTTOM highlight, and a gold border — the "recessed /
+## inset" read (measured off ui_mock: top inner edge ≈ #EAE1D1, centre ≈ #F6ECDB, bottom rim near-white).
+## ONE canvas_item shader draws it all from a rounded-rect SDF, so a SQUARE box + a large radius collapses
+## to a CIRCLE (the "+" tokens, the level badge) — one skin for every home-screen pill. Every look knob is
+## a uniform, so the workbench's inset_pill item tunes it live; later the currency / level pills adopt it.
+## Colours are kit consts (the sidebar has no colour picker); the scalar knobs ride inset_pill_opts_from_config.
+const INSET_PILL_FILL := Color("#F1EBDC")      # warm cream body (measured pill centre ≈ 238,233,222)
+const INSET_PILL_SHADOW := Color("#A89372")    # warm-tan inset-shadow tint (the recessed top rim)
+const INSET_PILL_HILITE := Color("#FFFEEE")    # near-white inner rim highlight (measured ≈ 255,255,236)
+const INSET_PILL_BORDER := Color("#C2A06A")    # MUTED straw outline (measured ≈ 177,137,107), not the hot Play-button gold
+
+const INSET_PILL_SHADER := "shader_type canvas_item;
+render_mode blend_mix;
+uniform vec2 rect_px = vec2(320.0, 110.0);   // the Control size in px (UV->px space)
+uniform float pad = 22.0;                     // transparent margin reserved for the outer glow + AA
+uniform float radius = 48.0;                  // corner radius px (>= min(pill half) => capsule / circle)
+uniform vec4 fill : source_color = vec4(0.965, 0.925, 0.86, 0.94);
+uniform vec4 shadow_col : source_color = vec4(0.478, 0.416, 0.29, 1.0);
+uniform vec4 hilite_col : source_color = vec4(1.0, 0.992, 0.965, 1.0);
+uniform vec4 border_col : source_color = vec4(0.898, 0.604, 0.169, 1.0);
+uniform float inset_depth = 0.22;             // top inner-shadow strength 0..1
+uniform float inset_reach = 0.45;             // how far the shadow (from top) + highlight (from bottom) reach 0..1
+uniform float hilite = 0.30;                  // bottom highlight strength 0..1
+uniform float border_w = 4.0;                 // border thickness px
+uniform float glow = 0.30;                    // outer glow strength 0..1
+
+// signed distance to a rounded box: centre origin, half-size b, corner r (<0 inside)
+float sd_rbox(vec2 p, vec2 b, float r) {
+	vec2 q = abs(p) - b + vec2(r);
+	return min(max(q.x, q.y), 0.0) + length(max(q, vec2(0.0))) - r;
+}
+
+void fragment() {
+	vec2 p = (UV - vec2(0.5)) * rect_px;          // pixel coords, centred
+	vec2 b = rect_px * 0.5 - vec2(pad);           // pill half-size (inset by pad so the glow has room)
+	float r = clamp(radius, 0.0, min(b.x, b.y));  // big radius on a square => circle
+	float d = sd_rbox(p, b, r);                   // <0 inside, >0 outside
+	float aa = max(fwidth(d), 0.75);              // ~1px antialias
+	float inside = 1.0 - smoothstep(-aa, aa, d);
+
+	float di = -d;                                           // px INSIDE the edge (>0 inside)
+	float ny = clamp((p.y + b.y) / (2.0 * b.y), 0.0, 1.0);  // 0 at pill top rim, 1 at bottom rim
+	vec3 rgb = fill.rgb;
+
+	// 1) top inset shadow — darkest at the top rim, fading down: the recessed read
+	float reach = max(inset_reach, 0.01);
+	float top_t = 1.0 - smoothstep(0.0, reach, ny);
+	rgb = mix(rgb, shadow_col.rgb, top_t * inset_depth);
+
+	// 2) inner RIM highlight — a bright band just inside the outline, weighted to the LOWER perimeter
+	//    (the lit inner wall of a recess: bright at the base + sides, absent under the top shadow)
+	float rim = inside
+		* smoothstep(border_w, border_w + 1.5, di)
+		* (1.0 - smoothstep(border_w + 1.5, border_w + 7.0, di));
+	float lower = smoothstep(0.1, 0.85, ny);
+	rgb = mix(rgb, hilite_col.rgb, rim * lower * hilite);
+
+	// 3) the thin straw OUTLINE at the very edge (killed when width < 0.5 so a 0 slider truly removes it)
+	float band = inside * (1.0 - smoothstep(border_w - aa, border_w + aa, di)) * step(0.5, border_w);
+	rgb = mix(rgb, border_col.rgb, band);
+	float a = mix(fill.a, 1.0, band) * inside;               // body keeps its translucency; the outline is opaque
+
+	float outside = 1.0 - inside;                            // outer glow halo just beyond the shape
+	float halo = glow * outside * (1.0 - smoothstep(0.0, pad, d));
+	COLOR = vec4(mix(border_col.rgb, rgb, inside), max(a, halo * 0.55));
+}"
+
+## Build the inset-pill SKIN as a shader-drawn Control. `opts` carries the look knobs (see
+## inset_pill_opts_from_config) plus the preview-only geometry: `w`/`h` (the OUTER size incl. the glow
+## margin) and `pad` (that margin). The visible capsule is the box inset by `pad`; a square w==h + a large
+## radius renders a circle. Self-contained — no game state.
+static func inset_pill(opts: Dictionary) -> Control:
+	var w := float(opts.get("w", 320.0))
+	var h := float(opts.get("h", 110.0))
+	var pad := float(opts.get("pad", 22.0))
+	var rect := ColorRect.new()
+	rect.custom_minimum_size = Vector2(w, h)
+	rect.color = Color(1, 1, 1, 1)                  # ignored — the shader writes COLOR wholesale
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := Shader.new()
+	sh.code = INSET_PILL_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	var fc := INSET_PILL_FILL
+	fc.a = float(opts.get("fill_alpha", 0.94))
+	mat.set_shader_parameter("rect_px", Vector2(w, h))
+	mat.set_shader_parameter("pad", pad)
+	mat.set_shader_parameter("radius", float(opts.get("radius", 48.0)))
+	mat.set_shader_parameter("fill", fc)
+	mat.set_shader_parameter("shadow_col", INSET_PILL_SHADOW)
+	mat.set_shader_parameter("hilite_col", INSET_PILL_HILITE)
+	mat.set_shader_parameter("border_col", INSET_PILL_BORDER)
+	mat.set_shader_parameter("inset_depth", float(opts.get("inset_depth", 0.22)))
+	mat.set_shader_parameter("inset_reach", float(opts.get("inset_reach", 0.45)))
+	mat.set_shader_parameter("hilite", float(opts.get("hilite", 0.30)))
+	mat.set_shader_parameter("border_w", float(opts.get("border_w", 4.0)))
+	mat.set_shader_parameter("glow", float(opts.get("glow", 0.30)))
+	rect.material = mat
+	return rect
+
+## The inset-pill look opts from a saved config block (the workbench's inset_pill item). Knobs are stored
+## as friendly integers (percent / px) and normalised here to the shader's 0..1 / px ranges — the single
+## source of truth the workbench preview and (later) the live pills both read. An absent block → the
+## measured reference defaults, so the shipped look renders until tuned.
+static func inset_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var c: Dictionary = cfg.get("inset_pill", {}) if cfg is Dictionary else {}
+	return {
+		"fill_alpha":  float(c.get("fill_alpha", 95)) / 100.0,   # the slight transparency
+		"radius":      float(c.get("radius", 48)),               # corner px (high = capsule / circle)
+		"inset_depth": float(c.get("inset_depth", 28)) / 100.0,  # top inner-shadow darkness
+		"inset_reach": float(c.get("inset_reach", 50)) / 100.0,  # how far the shadow reaches down
+		"hilite":      float(c.get("hilite", 50)) / 100.0,       # inner rim-highlight strength (the emboss)
+		"border_w":    float(c.get("border_w", 3)),              # straw outline thickness px
+		"glow":        float(c.get("glow", 25)) / 100.0,         # outer glow strength
+	}
+
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
 ## the top-bar wallet. EVERY default mirrors Tune.Hud (engine/scripts/core/tuning.gd → class Hud), so an
 ## absent or empty "currency_pill" block resolves to the SHIPPED pill and the live HUD is unchanged.

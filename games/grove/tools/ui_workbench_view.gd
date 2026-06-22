@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "inset_pill", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
 # column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
@@ -30,7 +30,7 @@ const IDS := ["board", "generator", "button", "home_button", "home_unlock_button
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
 	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
-	[["board"], ["generator"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["board"], ["generator"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["inset_pill"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
@@ -89,6 +89,8 @@ const TEST_KEYS := {
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
 	"tiers": [],
+	# the inset pill — every LOOK knob persists; `shape`/`over_sky` only drive the standalone preview.
+	"inset_pill": ["shape", "over_sky"],
 	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
 	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
 	"currency_pill": ["star", "coin", "gem"],
@@ -134,6 +136,7 @@ const CAPTIONS := {
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
+	"inset_pill": "Inset pill — recessed capsule skin (fill · inset shadow · highlight · border · glow)",
 	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
 	"settings": "Settings — toggles (shared frame)",
@@ -241,6 +244,12 @@ var _params := {
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
+	# the INSET PILL — the recessed capsule SKIN (shader-drawn), tuned to the ui_mock reference. The look
+	# knobs (fill_alpha · radius · inset_depth · inset_reach · hilite · border_w · glow) ARE saved config and
+	# flow through Kit.inset_pill_opts_from_config; `shape` (capsule/wide/round) + `over_sky` (preview bg)
+	# are test-only — they only size the preview and back it with a sky swatch so the translucency reads.
+	"inset_pill": {"fill_alpha": 95, "radius": 48, "inset_depth": 28, "inset_reach": 50, "hilite": 50,
+		"border_w": 3, "glow": 25, "shape": "capsule", "over_sky": true},
 	# the top-bar CURRENCY PILL (the 💧 🪙 💎 wallet — water replaced the star count). Defaults mirror
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
@@ -568,6 +577,30 @@ func _make_element(id: String) -> Control:
 			var topts := Kit.tiers_opts_from_config(_params)
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
+		"inset_pill":
+			# the recessed capsule SKIN, shader-drawn from the SAME kit transform the live pills will read.
+			# Sized by `shape` (capsule/wide/round → the "+"/level circle); backed by a SKY swatch (or the
+			# dark workbench bg) so the REAL translucency reads — a translucent cream over the dark gallery
+			# bg would look muddy and mislead the eye (verify representative state, not a flattering one).
+			var ipo := Kit.inset_pill_opts_from_config({"inset_pill": p})
+			var shape := String(p.get("shape", "capsule"))
+			var pw := 360.0
+			var ph := 132.0
+			if shape == "round":
+				pw = 150.0; ph = 150.0
+			elif shape == "wide":
+				pw = 470.0; ph = 124.0
+			ipo["w"] = pw; ipo["h"] = ph; ipo["pad"] = 24.0
+			var ip_back := ColorRect.new()
+			ip_back.custom_minimum_size = Vector2(pw + 80.0, ph + 56.0)
+			ip_back.color = Color("#BFD9EE") if bool(p.get("over_sky", true)) else Pal.BG
+			ip_back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var ip_cen := CenterContainer.new()
+			ip_cen.set_anchors_preset(Control.PRESET_FULL_RECT)
+			ip_cen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			ip_cen.add_child(Kit.inset_pill(ipo))
+			ip_back.add_child(ip_cen)
+			return ip_back
 		"currency_pill":
 			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
@@ -1389,6 +1422,21 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
 			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			# the frame chrome (border · banner · ✕) is the STANDARD shared frame — tune it on the Frame item.
+		"inset_pill":
+			_group_header("Saved to config", true)        # the look knobs flow via Kit.inset_pill_opts_from_config
+			_section_header("Body")
+			_sidebar_body.add_child(_slider_row(["fill_alpha", 50, 100]))   # the transparency (% opacity)
+			_sidebar_body.add_child(_slider_row(["radius", 8, 80]))         # corner px (high = capsule; square + high = circle)
+			_section_header("Inset shadow + highlight")
+			_sidebar_body.add_child(_slider_row(["inset_depth", 0, 50]))    # top inner-shadow darkness %
+			_sidebar_body.add_child(_slider_row(["inset_reach", 5, 80]))    # how far the shadow + highlight reach %
+			_sidebar_body.add_child(_slider_row(["hilite", 0, 80]))         # inner rim-highlight (emboss) strength %
+			_section_header("Border")
+			_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))       # thickness px (0 = none)
+			_sidebar_body.add_child(_slider_row(["glow", 0, 70]))           # outer glow strength %
+			_group_header("Test only — not saved", false)                  # preview shape + bg; the look is the saved part
+			_sidebar_body.add_child(_option_row("Shape", "shape", ["capsule", "wide", "round"]))
+			_sidebar_body.add_child(_toggle_row("Over sky", "over_sky"))    # preview over a sky swatch vs the dark bg
 		"currency_pill":
 			_group_header("Saved to config", true)
 			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. The Border picker swaps the
