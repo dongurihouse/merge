@@ -1557,11 +1557,11 @@ static func _cell_style() -> StyleBoxFlat:
 	sb.shadow_offset = Tuning.UiSkin.SHADOW_SUNK_OFFSET
 	return sb
 
-# The board backdrop — the painted grove meadow (`ui/board1_bg.png`). Items + grid pop
+# The board backdrop — the painted grove meadow (`ui/board2_bg.png`). Items + grid pop
 # against it; the dynamic givers/merchant ride over the painted fence band. Falls back to
 # the flat SURFACE field when the art is absent.
 static func _field_backdrop() -> Control:
-	var path := Game.art("ui/board1_bg.png")
+	var path := Game.art("ui/board2_bg.png")
 	if ResourceLoader.exists(path):
 		var bg := TextureRect.new()
 		bg.texture = load(path)

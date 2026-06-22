@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://crnhdvn03k0m2"
-path="res://.godot/imported/board1_bg.png-9348638200adddeedd1fed360ae1d0a7.ctex"
+uid="uid://b3v2k3huwngj3"
+path="res://.godot/imported/board2_bg.png-f75663b5cff3ead372c974bacd307c87.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/ui/board1_bg.png"
-dest_files=["res://.godot/imported/board1_bg.png-9348638200adddeedd1fed360ae1d0a7.ctex"]
+source_file="res://games/grove/assets/ui/board2_bg.png"
+dest_files=["res://.godot/imported/board2_bg.png-f75663b5cff3ead372c974bacd307c87.ctex"]
 
 [params]
 

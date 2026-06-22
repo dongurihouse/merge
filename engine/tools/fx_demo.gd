@@ -121,7 +121,8 @@ func _jittered_seeds(center: Vector2, side: float, rng: RandomNumberGenerator) -
 # =====================================================================================
 class ShatterField extends Node2D:
 	var _pieces: Array = []        # [{node, vel, ang, life, max_life, fade}]
-	var _gravity := 900.0
+	var _drag := 3.2               # top-down: shards slide out and decelerate to rest (no gravity)
+	var _spin_drag := 2.6
 	var _released := false
 
 	func build(base: Array, seeds: Array, center: Vector2, side: float, rng: RandomNumberGenerator) -> void:
@@ -156,9 +157,8 @@ class ShatterField extends Node2D:
 			dir = dir.normalized() if dir.length() > 8.0 else Vector2.from_angle(rng.randf_range(0.0, TAU))
 			dir = dir.rotated(rng.randf_range(-1.1, 1.1))                       # ±~63° off radial
 			dir = (dir + Vector2.from_angle(rng.randf_range(0.0, TAU)) * 0.5).normalized()  # blend a random heading
-			var speed := rng.randf_range(90.0, 340.0)                          # wide spread: some far, some barely move
+			var speed := rng.randf_range(120.0, 460.0)                         # wide spread: some far, some barely move
 			var vel := dir * speed
-			vel.y -= rng.randf_range(20.0, 140.0)                              # a little pop upward first
 			_pieces.append({
 				"node": pg, "vel": vel,
 				"ang": rng.randf_range(-7.0, 7.0),
@@ -176,8 +176,9 @@ class ShatterField extends Node2D:
 			var node = p["node"]                 # untyped: a freed instance must not hit a typed assign
 			if not is_instance_valid(node):
 				continue
-			p["vel"].y += _gravity * delta
+			p["vel"] *= exp(-_drag * delta)      # slide out, then friction brings it to rest
 			node.position += p["vel"] * delta
+			p["ang"] *= exp(-_spin_drag * delta)
 			node.rotation += p["ang"] * delta
 			p["life"] -= delta
 			if p["life"] <= p["fade"]:
