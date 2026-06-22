@@ -127,6 +127,7 @@ func _initialize() -> void:
 	_test_board_element(view)
 	_test_quest_card_config(view)
 	_test_new_knobs(view)
+	_test_inset_pill(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -440,6 +441,40 @@ func _test_bag_components() -> void:
 # tier wears the filled well holding its piece; an undiscovered tier the locked well (baked padlock kept, no
 # acorn cost, no "?"). The tier rides the gold level medal (the reused `level` badge) docked lower-right; a
 # marked tier sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
+func _test_inset_pill(view) -> void:
+	# the inset pill is a registered gallery building-block (the recessed capsule SKIN)
+	ok(view._sections.has("inset_pill"), "the inset pill is a registered gallery item")
+
+	# the look opts resolve to the measured reference defaults (the single source of truth the live pills read)
+	var o := Kit.inset_pill_opts_from_config({})
+	ok(is_equal_approx(float(o.fill_alpha), 0.95), "inset_pill default fill_alpha is 0.95 (slight transparency)")
+	ok(int(o.radius) == 48 and int(o.border_w) == 3, "inset_pill default radius/border_w (48 / 3)")
+	ok(float(o.inset_depth) > 0.0 and float(o.hilite) > 0.0, "inset_pill default has an inset shadow + rim highlight")
+
+	# a saved block overrides the defaults, normalised from percent → 0..1
+	var o2 := Kit.inset_pill_opts_from_config({"inset_pill": {"fill_alpha": 80, "glow": 10}})
+	ok(is_equal_approx(float(o2.fill_alpha), 0.80) and is_equal_approx(float(o2.glow), 0.10), \
+		"saved inset_pill knobs override the defaults (percent → 0..1)")
+
+	# the builder returns a shader-drawn Control whose ShaderMaterial carries the resolved knobs
+	o["w"] = 300.0; o["h"] = 110.0; o["pad"] = 24.0
+	var pill := Kit.inset_pill(o)
+	ok(pill is ColorRect, "inset_pill builds a ColorRect skin")
+	var mat := (pill as ColorRect).material
+	ok(mat is ShaderMaterial, "inset_pill carries a ShaderMaterial")
+	if mat is ShaderMaterial:
+		var sm := mat as ShaderMaterial
+		ok(sm.shader != null and ("sd_rbox" in sm.shader.code), "the skin uses the rounded-rect SDF shader")
+		ok(is_equal_approx(float(sm.get_shader_parameter("radius")), 48.0), "the shader radius reflects the opts")
+		ok(is_equal_approx(float((sm.get_shader_parameter("fill") as Color).a), 0.95), "the shader fill alpha reflects fill_alpha")
+
+	# editing an inset_pill slider rebuilds just that element (live preview), like every other building block
+	view._selected = "inset_pill"
+	var iid: int = _id_of(view, "inset_pill")
+	view._params["inset_pill"]["border_w"] = 8
+	view._apply_edit()
+	ok(_id_of(view, "inset_pill") != iid, "editing an inset_pill slider rebuilds the element live")
+
 func _test_discovery_cell() -> void:
 	var topts := Kit.tiers_opts_from_config({})
 	# a tiny ladder: tier 3 discovered, tier 7 not
