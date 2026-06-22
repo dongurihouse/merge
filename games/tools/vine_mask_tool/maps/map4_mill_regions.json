@@ -1,0 +1,230 @@
+{
+  "image_size": [
+    941,
+    1672
+  ],
+  "map_id": "map4_mill",
+  "mask_offset": [
+    0,
+    0
+  ],
+  "mode": "hand_drawn_regions",
+  "regions": [
+    {
+      "button": [
+        347,
+        461
+      ],
+      "cost": 6,
+      "enabled": true,
+      "name": "Region 1",
+      "points": [
+        [
+          522,
+          3
+        ],
+        [
+          522,
+          334
+        ],
+        [
+          370,
+          508
+        ],
+        [
+          0,
+          437
+        ],
+        [
+          0,
+          0
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.550000011920929,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.180000007152557,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "button": [
+        480,
+        687
+      ],
+      "cost": 16,
+      "enabled": true,
+      "name": "Region 2",
+      "points": [
+        [
+          522,
+          3
+        ],
+        [
+          522,
+          334
+        ],
+        [
+          370,
+          508
+        ],
+        [
+          332,
+          720
+        ],
+        [
+          671,
+          1056
+        ],
+        [
+          940,
+          1074
+        ],
+        [
+          940,
+          682
+        ],
+        [
+          940,
+          0
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.550000011920929,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.180000007152557,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "button": [
+        284,
+        692
+      ],
+      "cost": 3,
+      "enabled": true,
+      "name": "Region 3",
+      "points": [
+        [
+          0,
+          437
+        ],
+        [
+          370,
+          508
+        ],
+        [
+          332,
+          720
+        ],
+        [
+          201,
+          829
+        ],
+        [
+          0,
+          915
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.550000011920929,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.180000007152557,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "button": [
+        365,
+        887
+      ],
+      "cost": 15,
+      "enabled": true,
+      "name": "Region 4",
+      "points": [
+        [
+          332,
+          720
+        ],
+        [
+          201,
+          829
+        ],
+        [
+          0,
+          915
+        ],
+        [
+          0,
+          1671
+        ],
+        [
+          940,
+          1671
+        ],
+        [
+          940,
+          1074
+        ],
+        [
+          671,
+          1056
+        ],
+        [
+          332,
+          720
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.550000011920929,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.180000007152557,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    }
+  ]
+}

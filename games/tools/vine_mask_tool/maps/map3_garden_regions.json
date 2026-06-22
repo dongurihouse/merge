@@ -11,6 +11,10 @@
   "mode": "hand_drawn_regions",
   "regions": [
     {
+      "button": [
+        428,
+        742
+      ],
       "cost": 10,
       "enabled": true,
       "name": "Region 1",
@@ -87,6 +91,10 @@
       }
     },
     {
+      "button": [
+        622,
+        397
+      ],
       "cost": 3,
       "enabled": true,
       "name": "Region 2",
@@ -131,6 +139,10 @@
       }
     },
     {
+      "button": [
+        663,
+        696
+      ],
       "cost": 5,
       "enabled": true,
       "name": "Region 3",
@@ -175,6 +187,10 @@
       }
     },
     {
+      "button": [
+        610,
+        1084
+      ],
       "cost": 6,
       "enabled": true,
       "name": "Region 4",
@@ -223,6 +239,10 @@
       }
     },
     {
+      "button": [
+        359,
+        490
+      ],
       "cost": 5,
       "enabled": true,
       "name": "Region 5",
@@ -271,6 +291,10 @@
       }
     },
     {
+      "button": [
+        288,
+        932
+      ],
       "cost": 3,
       "enabled": true,
       "name": "Region 6",
@@ -327,6 +351,10 @@
       }
     },
     {
+      "button": [
+        460,
+        1130
+      ],
       "cost": 10,
       "enabled": true,
       "name": "Region 7",

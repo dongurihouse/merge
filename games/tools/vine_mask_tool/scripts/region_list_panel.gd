@@ -20,12 +20,14 @@ var _selected := 0
 var _rows: Array = []          # the RegionRow controls, index-aligned with the regions
 var _draw_button: Button
 var _rows_box: VBoxContainer
+var _total_label: Label        # header readout: sum of every region's star cost
 
 # A draggable list row. Its ≡ handle is the drag source; the whole row is a drop target that asks the
 # panel to reorder. The interactive widgets (name/stars/on/delete) keep their own input.
 class RegionRow extends PanelContainer:
 	var panel
 	var index := 0
+	var stars_spin: SpinBox        # this row's ★ cost editor, summed into the header total
 
 	func _can_drop_data(_pos: Vector2, data: Variant) -> bool:
 		return data is Dictionary and (data as Dictionary).has("region_row_from")
@@ -47,11 +49,20 @@ class DragHandle extends Label:
 
 func _init() -> void:
 	add_theme_constant_override("separation", 4)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	add_child(header)
 	_draw_button = Button.new()
 	_draw_button.name = "DrawPolygon"
 	_draw_button.text = "＋ Draw Polygon"
 	_draw_button.pressed.connect(func(): draw_requested.emit())
-	add_child(_draw_button)
+	header.add_child(_draw_button)
+	_total_label = Label.new()
+	_total_label.name = "TotalStars"
+	_total_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_total_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_total_label.tooltip_text = "Sum of every region's ★ cost"
+	header.add_child(_total_label)
 	_rows_box = VBoxContainer.new()
 	_rows_box.name = "Rows"
 	_rows_box.add_theme_constant_override("separation", 4)
@@ -65,6 +76,7 @@ func set_regions(regions: Array, selected: int) -> void:
 	for i in range(regions.size()):
 		_rows.append(_build_row(i, regions[i] if regions[i] is Dictionary else {}))
 	_highlight()
+	_update_total()
 
 func set_selected(index: int) -> void:
 	_selected = index
@@ -117,6 +129,8 @@ func _build_row(i: int, region: Dictionary) -> RegionRow:
 	stars.value = float(int(region.get("cost", DEFAULT_STARS)))
 	stars.custom_minimum_size = Vector2(56.0, 0.0)
 	stars.value_changed.connect(func(v): cost_changed.emit(i, int(v)))
+	stars.value_changed.connect(func(_v): _update_total())
+	row.stars_spin = stars
 	box.add_child(stars)
 
 	var on := CheckBox.new()
@@ -133,6 +147,17 @@ func _build_row(i: int, region: Dictionary) -> RegionRow:
 
 	_rows_box.add_child(row)
 	return row
+
+# Sum every row's ★ SpinBox into the header readout. Driven by set_regions() (add/delete/reorder/load)
+# and by each SpinBox's value_changed (live cost edits, which don't rebuild the list).
+func _update_total() -> void:
+	if _total_label == null:
+		return
+	var total := 0
+	for row in _rows:
+		if row != null and row.stars_spin != null:
+			total += int(row.stars_spin.value)
+	_total_label.text = "Total  ★ %d" % total
 
 func _highlight() -> void:
 	for i in range(_rows.size()):
