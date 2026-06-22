@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_region_map_membership()
 	_test_cover_offset_bleed()
 	await _test_map_integration()
+	await _test_unlock_badge_follows_map()
 	await _test_overlay_fills_view()
 	_test_multimap()
 	finish()
@@ -84,6 +85,37 @@ func _test_region_map_membership() -> void:
 	ok(inside1.g > 0.5, "a region-1 interior pixel is marked as member (green=1)")
 	ok(outside.g < 0.5, "an off-polygon pixel is unmarked (green=0) so region 0 != background")
 	view.free()
+
+# REGRESSION (map-2 "no restore badge" bug): the bottom restore badge is PER-MAP, but _open_map did not
+# refresh it. Booting onto / navigating to a fully-restored map (the hub) built the badge null/hidden, and
+# then opening an in-progress map (the barn) never rebuilt it — so the restore affordance was missing.
+# Opening a map must refresh the badge to that map's next-unlock state.
+func _test_unlock_badge_follows_map() -> void:
+	fresh("vine_unlock_badge")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	# complete the hub (every spot restored) + bank exp, then refresh chrome for the hub so the badge is
+	# built for a fully-restored map → hidden (null). This is the "start on a finished hub" boot state.
+	for sp in G.MAPS[G.hub_map()].spots:
+		hx.unlocks[String(sp.id)] = true
+	Save.grove()["unlocks"] = hx.unlocks
+	Save.grove()["exp"] = 9999
+	Save.grove_write()
+	hx._map_idx = G.hub_map()
+	hx._update_hud()
+	await create_timer(0.05).timeout
+	ok(hx._unlock_btn == null, "precondition: a fully-restored hub leaves the restore badge hidden")
+	# now open the NEXT (in-progress) map — the badge MUST reappear for its claimable spots
+	var nz: int = G.hub_map() + 1
+	ok(int(G.map_next_unlock(nz, hx.unlocks).k) >= 0, "precondition: the next map has a claimable spot")
+	hx._open_map(nz)
+	await create_timer(0.05).timeout
+	ok(hx._unlock_btn != null and is_instance_valid(hx._unlock_btn), \
+		"opening an in-progress map REBUILDS the restore badge (regression: it was missing on map 2)")
+	hx.queue_free()
 
 func _test_overlay_fills_view() -> void:
 	fresh("vine_overlay_fit")
