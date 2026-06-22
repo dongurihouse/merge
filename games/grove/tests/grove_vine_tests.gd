@@ -8,6 +8,7 @@ func _initialize() -> void:
 	begin("grove · vine")
 	_test_registry()
 	_test_spot_derivation()
+	_test_region_cost_field()
 	_test_maps_overlay()
 	_test_view_headless()
 	_test_lock_overlay()
@@ -181,3 +182,14 @@ func _test_spot_derivation() -> void:
 	# override file wins when present
 	var ov := VineMaps.spots_for("ovtest", {"id": "ovtest", "regions_path": "res://games/grove/tests/fixtures/ov_regions.json"}, "res://games/grove/tests/fixtures/ov_spots.json")
 	ok(ov.size() == 2 and String(ov[0].name) == "Cottage" and int(ov[0].cost) == 9, "override file sets name + cost")
+
+# A region that carries its own `cost` (authored in the vine tool) drives the spot's stars directly:
+# it wins over the COST_LADDER default AND over a _spots.json override (the tool is the source of truth
+# for stars). A region with no cost still falls back to the ladder, so existing maps are unchanged.
+func _test_region_cost_field() -> void:
+	var entry := {"id": "costtest", "regions_path": "res://games/grove/tests/fixtures/cost_regions.json"}
+	var spots := VineMaps.spots_for("costtest", entry)
+	ok(int(spots[0].cost) == 7, "a region's own cost (7) wins over the cost ladder")
+	ok(int(spots[1].cost) == 3, "a region with no cost falls back to the ladder (index 1 -> 3)")
+	var spots2 := VineMaps.spots_for("costtest", entry, "res://games/grove/tests/fixtures/cost_override.json")
+	ok(int(spots2[0].cost) == 7, "a region's own cost wins over a _spots.json override too")

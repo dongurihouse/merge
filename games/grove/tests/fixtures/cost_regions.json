@@ -1,0 +1,4 @@
+{ "image_size": [100, 100], "regions": [
+  {"name": "Region 1", "enabled": true, "points": [[10,10],[30,10],[30,30],[10,30]], "cost": 7, "tuning": {}},
+  {"name": "Region 2", "enabled": true, "points": [[50,50],[70,50],[70,70],[50,70]], "tuning": {}}
+] }

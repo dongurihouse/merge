@@ -67,10 +67,15 @@ static func spots_for(slot_id: String, entry: Dictionary, override_path: String 
 			continue
 		var region: Dictionary = regions[i]
 		var ov: Dictionary = overrides.get(str(i), {})
+		# Stars precedence: the region's own `cost` (authored in the vine tool) is the source of truth and
+		# wins over both the _spots.json override and the COST_LADDER. A region without a `cost` field falls
+		# back to the override, then the ladder — so legacy maps that never set a cost are unchanged.
+		var ladder_cost: int = COST_LADDER[i] if i < COST_LADDER.size() else COST_TAIL
+		var cost: int = int(region["cost"]) if region.has("cost") else int(ov.get("cost", ladder_cost))
 		spots.append({
 			"id": "%s_r%d" % [slot_id, i],
 			"name": String(ov.get("name", region.get("name", "Region %d" % (i + 1)))),
-			"cost": int(ov.get("cost", COST_LADDER[i] if i < COST_LADDER.size() else COST_TAIL)),
+			"cost": cost,
 			"pos": _centroid(region.get("points", []), isize),
 		})
 	return spots
