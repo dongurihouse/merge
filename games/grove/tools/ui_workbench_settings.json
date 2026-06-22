@@ -24,6 +24,11 @@
 		"cost_scale": 72.0,
 		"cost_x": 0.0,
 		"cost_y": -10.0,
+		"glow_hue": 42,
+		"glow_sat": 74,
+		"glow_shadow": 55,
+		"glow_shadow_size": 10,
+		"glow_size": 170,
 		"level_frac": 44.0,
 		"next_glow": 45.0,
 		"next_twinkle": 55.0
@@ -55,11 +60,12 @@
 		"border": "bag thin",
 		"border_w": 3.0,
 		"icon_box": 48.0,
+		"icon_size": 48.0,
 		"num_size": 41.0,
 		"pad_x": 32.0,
 		"pad_y": 14.0,
 		"pair_sep": 10.0,
-		"plus_dy": 0.0,
+		"plus_dy": -2.0,
 		"plus_size": 38.0,
 		"plus_x": 11.0,
 		"radius": 40.0,
@@ -118,6 +124,14 @@
 		"list_max_h": 425.0,
 		"list_top_pad": 0.0,
 		"width": 720.0
+	},
+	"generator": {
+		"glow_a": 30,
+		"glow_scale": 100,
+		"outline_a": 85,
+		"outline_w": 35,
+		"sparkle_count": 5,
+		"sparkle_speed": 70
 	},
 	"home_button": {
 		"badge_dot_px": 15.0,

@@ -397,6 +397,8 @@ static func _silhouette_tex(path: String) -> Texture2D:
 		if img != null:
 			if img.is_compressed():
 				img.decompress()
+			if img.has_mipmaps():
+				img.clear_mipmaps()   # silhouette needs mip 0 only; a mip chain breaks create_from_data(…false…)
 			if img.get_format() != Image.FORMAT_RGBA8:
 				img.convert(Image.FORMAT_RGBA8)
 			var data := img.get_data()

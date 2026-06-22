@@ -124,11 +124,13 @@ static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
 	_reflect(host)
 
-## Top up the SPENDABLE star balance (currencies.stars) so you can unlock spots
-## through the normal UI. Distinct from "Unlock next map" (auto-unlocks + bumps the
-## level clock); this just hands you the currency. Tap again for the big gate spots.
+## Top up the star balance so you can unlock spots through the normal UI. Routes through
+## earn_stars (NOT a bare add_stars) so the cumulative stars_earned LEVEL clock advances
+## alongside the spendable balance — exactly like real play. A bare add_stars left Level
+## stuck at 1 while the balance ballooned, which greyed the quest fence (fence_inert) and
+## made the next map read as "stuck". Tap again for the big gate spots.
 static func _act_stars(host: Control) -> void:
-	Save.add_stars(100)
+	G.earn_stars(100)
 	_reflect(host)
 
 ## Unlock every spot in the next unfinished map + credit the matching stars_earned,

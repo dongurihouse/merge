@@ -45,7 +45,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var pill: Dictionary = Kit.currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
-	var icon_box := float(pill.icon_box)             # the workbench-tuned shared square icon box
+	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
+	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)
 	# The wallet is THREE separate capsules (★ coin gem) centred across the TOP, each with its own green
 	# "+" that opens the store (board2.png). The store opens through the +'s Button.pressed — which the
 	# engine de-dupes against the emulated touch/mouse pair, so one tap opens it ONCE. (The old whole-pill
@@ -67,9 +68,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# The wallet is WATER · COIN · GEM (the star count is gone — the level badge already encodes stars).
 	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
 	# contract scenes/tests rely on: <cur>_label.get_parent() == row, row.get_parent() == the pill panel.
-	# the sprite px = icon_box × per-currency optical, so the workbench `icon_box` slider drives the real
-	# icon size (box and sprite share one knob now — no separate hardcoded sprite px).
-	var gpx := int(round(icon_box))
+	# the sprite px = icon_size × per-currency optical (the workbench `icon_size` slider drives the icon),
+	# centered in the icon_box cell.
+	var gpx := int(round(icon_size))
 	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water)
 	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin)
 	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium)

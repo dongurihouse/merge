@@ -324,6 +324,8 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 	var img := src.duplicate()
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
+	if img.has_mipmaps():
+		img.clear_mipmaps()   # polish works on mip 0 only; a stale mip chain breaks resize→get_data/set_data
 	# Process at a CAPPED working resolution (so a high supersample can't blow up the cost and freeze
 	# the tool), then Lanczos-downscale to the output size — the downscale is the supersample AA.
 	var work := mini(320, maxi(8, size * ss))
@@ -492,6 +494,8 @@ static func _clean_image(src: Image, max_dim: int) -> Image:
 	var img := src.duplicate() as Image
 	if img.get_format() != Image.FORMAT_RGBA8:
 		img.convert(Image.FORMAT_RGBA8)
+	if img.has_mipmaps():
+		img.clear_mipmaps()   # work on mip 0 only; a stale mip chain breaks resize→get_data/set_data
 	var w: int = img.get_width()
 	var h: int = img.get_height()
 	var m := maxi(w, h)
@@ -2880,7 +2884,8 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
 		"shadow_size": int(c.get("shadow_size", 5)),       # Tune.PILL_SHADOW_SIZE (0 = no shadow; code-drawn only)
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
-		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square icon box
+		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square LAYOUT cell (centerline / min box)
+		"icon_size":   float(c.get("icon_size", float(c.get("icon_box", 40.0)))),   # the icon SPRITE px (× optical); absent → fills the box
 		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
 		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
 		"plus_x":      int(c.get("plus_x", 0)),            # the green "+" LOCATION: x on the pill's right edge (+overhang out / −tuck in)
@@ -2951,16 +2956,17 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 	panel.add_child(row)
 	var num := int(opts.get("num_size", 34))
 	var box := float(opts.get("icon_box", 40.0))
+	var isize := float(opts.get("icon_size", box))   # the icon sprite px (× optical); defaults to fill the box
 	var pair_sep := int(opts.get("pair_sep", 14))
 	var demo := {"star": 1280, "coin": 540, "gem": 36}
 	# the icon set is the 3-currency wallet by default; a caller (e.g. the bag's acorn balance) can pass
 	# opts["icons"] = [[id, px], …] to render a SUBSET (or a single currency) in the same capsule.
-	# the DEFAULT wallet sizes each sprite as icon_box × optical (so the icon_box slider drives the icon
-	# size); an explicit opts["icons"] = [[id, px], …] still renders a caller-sized subset.
+	# the DEFAULT wallet sizes each sprite as icon_size × optical (the icon_size slider drives the icon),
+	# centered in the icon_box cell; an explicit opts["icons"] = [[id, px], …] still renders a caller-sized subset.
 	var icons: Array = opts.get("icons", [])
 	if icons.is_empty():
 		for e in CUR_PILL_OPTICAL:
-			icons.append([e[0], box * float(e[1])])
+			icons.append([e[0], isize * float(e[1])])
 	for i in icons.size():
 		if i > 0:
 			# the WIDER gap between pairs is an explicit spacer (matches hud.gd's _spacer)

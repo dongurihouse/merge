@@ -244,7 +244,7 @@ var _params := {
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"num_size": 34, "icon_box": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
+		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
@@ -1387,7 +1387,8 @@ func _rebuild_sidebar() -> void:
 				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width
 				_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))   # drop shadow (0 = off)
 			_sidebar_body.add_child(_slider_row(["num_size", 16, 56]))      # the currency number font
-			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square icon box
+			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square layout cell (centerline / min box)
+			_sidebar_body.add_child(_slider_row(["icon_size", 16, 80]))     # the icon SPRITE px within the box (× per-currency optical)
 			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
 			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
 			_sidebar_body.add_child(_slider_row(["plus_x", -48, 48]))       # the "+" LOCATION: x on the pill's right edge (+out/−in)
