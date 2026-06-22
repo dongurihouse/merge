@@ -253,6 +253,30 @@ func _initialize() -> void:
 		"the level clock is UNCAPPED — a flat tail past the table")
 	ok(G.stars_at_level(1) == 0 and G.stars_at_level(2) == 6 and G.stars_at_level(10) == 126 \
 		and G.stars_at_level(11) == 126 + G.LEVEL_STARS_TAIL, "stars_at_level inverts the curve")
+	# 13d. exp level math parity + the per-spot unlock-threshold ladder
+	ok(G.level_for_exp(0) == 1 and G.level_for_exp(6) == 2 and G.level_for_exp(126) == 10, \
+		"level_for_exp matches the cumulative thresholds")
+	ok(G.exp_at_level(1) == 0 and G.exp_at_level(2) == 6 and G.exp_at_level(11) == 126 + G.LEVEL_EXP_TAIL, \
+		"exp_at_level inverts the curve")
+	ok(G.spot_unlock_exp(0, 0) == 0, "the first spot overall is claimable at 0 exp")
+	# strictly increasing in global order
+	var inc_ok := true
+	var prev := -1
+	for z in G.MAPS.size():
+		for k in G.MAPS[z].spots.size():
+			var e := G.spot_unlock_exp(z, k)
+			if e <= prev and not (z == 0 and k == 0):
+				inc_ok = false
+			prev = e
+	ok(inc_ok, "spot_unlock_exp is strictly increasing across the global spot order")
+	# escalates per map: a later map's per-spot increment is larger
+	ok(G.unlock_inc(1) > G.unlock_inc(0) and G.unlock_inc(2) > G.unlock_inc(1), \
+		"the unlock increment escalates per map")
+	# next-unlock picks the lowest-threshold unclaimed spot
+	var nu := G.map_next_unlock(0, {})
+	ok(int(nu.k) == 0 and int(nu.exp) == 0, "map_next_unlock targets the lowest-threshold unclaimed spot")
+	var owned0 := {String(G.MAPS[0].spots[0].id): true}
+	ok(int(G.map_next_unlock(0, owned0).k) == 1, "claiming spot 0 advances the next-unlock to spot 1")
 	# earn_stars bumps the spendable balance AND the earned clock; the level-up gift is DEFERRED to the
 	# dialog's Collect (level_gift + grant_level_gift), so earn_stars itself grants nothing.
 	fresh("earn")

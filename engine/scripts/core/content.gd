@@ -67,6 +67,10 @@ const COIN_DROP_RATE = D.COIN_DROP_RATE
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_STARS = D.LEVEL_STARS
 const LEVEL_STARS_TAIL = D.LEVEL_STARS_TAIL
+const LEVEL_EXP = D.LEVEL_EXP
+const LEVEL_EXP_TAIL = D.LEVEL_EXP_TAIL
+const UNLOCK_BASE = D.UNLOCK_BASE
+const UNLOCK_STEP = D.UNLOCK_STEP
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
@@ -638,6 +642,59 @@ static func stars_at_level(level: int) -> int:
 	if level <= LEVEL_STARS.size():
 		return int(LEVEL_STARS[level - 1])
 	return int(LEVEL_STARS[LEVEL_STARS.size() - 1]) + LEVEL_STARS_TAIL * (level - LEVEL_STARS.size())
+
+# --- exp level math (the renamed clock; reads the single cumulative `exp`) ----------
+static func level_for_exp(earned: int) -> int:
+	var lvl := 1
+	for i in LEVEL_EXP.size():
+		if earned >= int(LEVEL_EXP[i]):
+			lvl = i + 1
+	var top := int(LEVEL_EXP[LEVEL_EXP.size() - 1])
+	if earned > top:
+		lvl += int((earned - top) / float(LEVEL_EXP_TAIL))
+	return lvl
+
+static func exp_at_level(level: int) -> int:
+	if level <= 1:
+		return 0
+	if level <= LEVEL_EXP.size():
+		return int(LEVEL_EXP[level - 1])
+	return int(LEVEL_EXP[LEVEL_EXP.size() - 1]) + LEVEL_EXP_TAIL * (level - LEVEL_EXP.size())
+
+# --- the per-spot unlock-threshold ladder (§map-unlock) -----------------------------
+# Per-spot increment for map z (escalates per map).
+static func unlock_inc(z: int) -> int:
+	return UNLOCK_BASE + z * UNLOCK_STEP
+
+# Cumulative exp threshold at which spot k of map z becomes claimable. Running sum over the
+# global spot order: every earlier map's spots at that map's increment, plus k of map z's.
+static func spot_unlock_exp(z: int, k: int) -> int:
+	var total := 0
+	for zz in z:
+		total += MAPS[zz].spots.size() * unlock_inc(zz)
+	return total + k * unlock_inc(z)
+
+# The next spot to claim in map z = the lowest-threshold UNCLAIMED spot. Returns
+# {k, exp}; k == -1 when every spot of z is already claimed.
+static func map_next_unlock(z: int, unlocks: Dictionary) -> Dictionary:
+	var best := {"k": -1, "exp": -1}
+	for k in MAPS[z].spots.size():
+		if unlocks.has(String(MAPS[z].spots[k].id)):
+			continue
+		var e := spot_unlock_exp(z, k)
+		if best.k == -1 or e < int(best.exp):
+			best = {"k": k, "exp": e}
+	return best
+
+# The exp at which the WHOLE of map z is claimable = the highest unclaimed threshold.
+# -1 when every spot is claimed. Drives fence_inert.
+static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
+	var hi := -1
+	for k in MAPS[z].spots.size():
+		if unlocks.has(String(MAPS[z].spots[k].id)):
+			continue
+		hi = maxi(hi, spot_unlock_exp(z, k))
+	return hi
 
 # Earn stars: credit BOTH the spendable balance and the cumulative EARNED clock that
 # drives Level. Returns the levels gained so the caller can show the Level dialog. The

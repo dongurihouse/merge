@@ -306,6 +306,15 @@ const LEVEL_WATER_GIFT := 20
 const LEVEL_STARS := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]
 const LEVEL_STARS_TAIL := 22       # stars per level past the table (flat tail)
 
+# §map-unlock — the per-spot exp threshold ladder. Spots across all maps form one global
+# order (map order, then spot order); each spot's unlock threshold is the running sum of a
+# per-spot increment that ESCALATES per map: inc(z) = UNLOCK_BASE + z*UNLOCK_STEP. The first
+# spot overall sits at 0 (claimable on a fresh save). PROVISIONAL feel dials.
+const UNLOCK_BASE := 3            # per-spot exp increment on the first map
+const UNLOCK_STEP := 3            # extra increment added per later map
+const LEVEL_EXP := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]   # exp to reach L2..L10 (L1 = 0)
+const LEVEL_EXP_TAIL := 22        # exp per level past the table (flat, uncapped)
+
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
 const CHARACTER_CAP := 5
