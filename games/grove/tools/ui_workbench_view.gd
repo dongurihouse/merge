@@ -252,7 +252,7 @@ var _params := {
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-		"next_glow": 45, "next_twinkle": 55, "level": 7, "cost": 120},
+		"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74, "level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -1401,6 +1401,8 @@ func _rebuild_sidebar() -> void:
 			_section_header("Unlockable highlight (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["next_glow", 0, 100]))       # the unlockable cell's glow halo
 			_sidebar_body.add_child(_slider_row(["next_twinkle", 0, 100]))    # ...and its drifting-star density
+			_sidebar_body.add_child(_slider_row(["glow_hue", 0, 60]))         # accent tone: 0 orange → 42 straw → 60 yellow
+			_sidebar_body.add_child(_slider_row(["glow_sat", 0, 100]))        # accent saturation: 0 warm-white → 100 full gold
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
 			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)

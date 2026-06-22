@@ -5,6 +5,7 @@ extends SceneTree
 
 const View = preload("res://games/grove/tools/ui_workbench_view.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Pal = preload("res://games/grove/grove_palette.gd")
 
 var _pass := 0
 var _fail := 0
@@ -48,6 +49,15 @@ func _first_button(node: Control) -> Button:
 func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
 	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
+
+# The unlockable cell's accent colour — the border colour of its highlight pop (the StyleBoxFlat panel
+# with the 4px gold rim). Returns transparent if the cell carries no such pop (not unlockable).
+func _unlockable_tint(node: Control) -> Color:
+	for p in node.find_children("*", "Panel", true, false):
+		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
+			return (sb as StyleBoxFlat).border_color
+	return Color(0, 0, 0, 0)
 
 # True if `node` or any descendant is of the given built-in class.
 func _has_class(node: Node, klass: String) -> bool:
@@ -367,6 +377,14 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	# the unlockable accent COLOUR (glow_hue / glow_sat): default (42°, 74%) reproduces Pal.STRAW within a
+	# single 8-bit level; glow_sat 0 washes it to a neutral warm white; lowering glow_hue shifts it warmer.
+	var def_tint := _unlockable_tint(unl)
+	ok(absf(def_tint.r - Pal.STRAW.r) < 0.01 and absf(def_tint.g - Pal.STRAW.g) < 0.01 and absf(def_tint.b - Pal.STRAW.b) < 0.01, "the default unlockable tint matches Pal.STRAW (within one level)")
+	var co_white := Kit.bag_card_opts_from_config({"bag_card": {"glow_sat": 0}})
+	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_white)).s < 0.02, "glow_sat 0 desaturates the unlockable accent to a warm white")
+	var co_orange := Kit.bag_card_opts_from_config({"bag_card": {"glow_hue": 20}})
+	ok(_unlockable_tint(Kit.slot_cell({"state": "unlockable"}, co_orange)).h < Pal.STRAW.h, "lowering glow_hue shifts the unlockable accent toward orange")
 	# the locked cell's lock is now the board's BAKED padlock (slot_locked) — no separate lock overlay
 	ok(Kit.slot_cell({"state": "locked", "cost": 5}, co).find_child("BagLock", true, false) == null, "the locked cell uses the baked board lock (no overlay node)")
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px

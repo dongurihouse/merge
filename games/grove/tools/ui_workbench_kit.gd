@@ -1014,13 +1014,13 @@ static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Butto
 ## The engine-drawn SPARKLE overlay: a soft additive GLOW that gently breathes + drifting 4-point
 ## TWINKLES (a continuous GPUParticles2D), both code-generated (no baked art). glow / twinkle are 0..1
 ## amounts (the workbench sliders); calm freezes it to a static glow with no twinkles (reduced-motion).
-static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool) -> Control:
+static func _sparkle_overlay(px: float, glow: float, twinkle: float, calm: bool, tint: Color = Pal.STRAW) -> Control:
 	var root := Control.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if glow > 0.0:
 		var hsz := px * 1.7
-		var gtex := _glow_texture()
+		var gtex := _glow_texture(tint)
 		# one soft radial halo, twice: a NORMAL-blend warm tint first (so the glow reads on LIGHT
 		# backgrounds — additive has no headroom on the near-white disc / bright map), then the ADDITIVE
 		# bloom on top (which pops on DARK backgrounds: the workbench panel, dusk maps). g is 0..1.
@@ -1123,23 +1123,27 @@ static func _star_texture() -> Texture2D:
 	_star_tex = ImageTexture.create_from_image(img)
 	return _star_tex
 
-## A code-generated radial gold bloom (long soft falloff) — the glow halo. Cached.
-static var _glow_tex: Texture2D = null
-static func _glow_texture() -> Texture2D:
-	if _glow_tex != null:
-		return _glow_tex
+## A code-generated radial bloom (long soft falloff) — the glow halo, tinted `gold` (defaults to the
+## honey straw). Cached PER COLOR, so the workbench can recolor the unlockable glow live without
+## rebuilding the texture every frame, while the default-tint callers (home buttons, discovery cell)
+## share one cached straw bloom.
+static var _glow_tex_cache: Dictionary = {}
+static func _glow_texture(gold: Color = Pal.STRAW) -> Texture2D:
+	var key := gold.to_rgba32()
+	if _glow_tex_cache.has(key):
+		return _glow_tex_cache[key]
 	var n := 128
 	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
 	var c := n / 2.0
-	var gold: Color = Pal.STRAW
 	for y in n:
 		for x in n:
 			var d: float = Vector2((x - c + 0.5) / c, (y - c + 0.5) / c).length()
 			var a: float = clampf(1.0 - d, 0.0, 1.0)
 			a = a * a * a                                    # tight core, long feathered falloff
 			img.set_pixel(x, y, Color(gold.r, gold.g, gold.b, a))
-	_glow_tex = ImageTexture.create_from_image(img)
-	return _glow_tex
+	var tex := ImageTexture.create_from_image(img)
+	_glow_tex_cache[key] = tex
+	return tex
 
 ## A mail card (mockup image 2): a plated icon + title/body + a reward pill + a Claim — the reward pill
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
@@ -3145,6 +3149,10 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
+		# the unlockable accent COLOUR (halo + border + shadow), as hue + saturation knobs. Brightness is
+		# pinned to STRAW's V (0.89), so the defaults (42°, 74%) reproduce Pal.STRAW exactly — drag the
+		# saturation down toward a warm white to take the yellow out of the glow.
+		"glow_tint": Color.from_hsv(float(bc.get("glow_hue", 42)) / 360.0, float(bc.get("glow_sat", 74)) / 100.0, 0.89),
 		"btn": card_btn_opts(cfg),                                   # the SHARED button style (art/shadow/corner) — the cost chip rides it
 	}
 
@@ -3286,14 +3294,17 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# unlockable — the shared HIGHLIGHT: a warm-gold border + glow (the board's "pop") AND the dynamic
 	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
 	if state == "unlockable":
+		# the accent COLOUR — halo + border + shadow share one tint (config: glow_hue/glow_sat); the
+		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
+		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()
 		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = Color(0, 0, 0, 0)
 		ps.set_border_width_all(4)
-		ps.border_color = Pal.STRAW
+		ps.border_color = tint
 		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
-		ps.shadow_color = Color(Pal.STRAW, 0.55)
+		ps.shadow_color = Color(tint, 0.55)
 		ps.shadow_size = int(maxf(4.0, cw * 0.10))
 		pop.add_theme_stylebox_override("panel", ps)
 		pop.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3301,7 +3312,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		var glow := float(opts.get("next_glow", 0.45))
 		var twinkle := float(opts.get("next_twinkle", 0.55))
 		if glow > 0.0 or twinkle > 0.0:
-			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)))
+			var spk := _sparkle_overlay(cw, glow, twinkle, bool(opts.get("calm", false)), tint)
 			spk.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			tile.add_child(spk)
 

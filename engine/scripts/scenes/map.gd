@@ -587,21 +587,23 @@ func _read_json_file(path: String):
 		return null
 	return JSON.parse_string(FileAccess.get_file_as_string(path))
 
-# The available area below the HUD and above the bottom chrome; the map image is
-# CONTAIN-fit, centered, to the viewport aspect (full-bleed-ish portrait).
+# The available area below the HUD and above the bottom chrome; the map image spans the FULL
+# viewport WIDTH at the design aspect, vertically centered.
 func _map_image_rect() -> Rect2:
-	# The map canvas is a phone-aspect rect, CONTAIN-fit and CENTERED in the viewport, so the
-	# WHOLE map image is always visible — never zoomed/cropped — on ANY window aspect (a wide
-	# desktop window no longer blows the cover-fit up). On the design phone aspect this fills the
-	# viewport exactly, so it stays identical to the map placer. Spots map to THIS rect; the sky
-	# ColorRect shows through any gap on an off-aspect (desktop) window. The HUD floats on top.
-	var view := get_viewport_rect().size
-	var aspect := Design.aspect()          # design portrait aspect (the art is authored to it)
+	# The map canvas is a phone-aspect rect WIDTH-ANCHORED to the viewport (full width), CENTERED
+	# vertically, so it tracks the device width exactly like the board background (a cover-fill) —
+	# never side-letterboxing on an off-design device. On a window WIDER than the design aspect the
+	# map runs off the top/bottom (cropped); on a TALLER window the sky ColorRect shows above/below.
+	# On the exact design aspect it fills the viewport exactly, so it stays identical to the map
+	# placer. Spots map to THIS rect, so the painting + buildings stay locked together. HUD floats on top.
+	return map_rect_for(get_viewport_rect().size, Design.aspect())
+
+# Pure geometry for _map_image_rect (unit-tested): the `aspect`-ratio rect that fills `view`'s full
+# WIDTH, centered. Width-anchored so the home never side-letterboxes on an off-design device; the
+# overflow on a wide window crops the top/bottom rather than pillarboxing the sides.
+static func map_rect_for(view: Vector2, aspect: float) -> Rect2:
 	var w := view.x
 	var h := w / aspect
-	if h > view.y:
-		h = view.y
-		w = h * aspect
 	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
 func _map_placed_rect(_z: int, base: Rect2) -> Rect2:
