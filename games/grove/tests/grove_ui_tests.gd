@@ -215,16 +215,13 @@ func _initialize() -> void:
 		"R4 level chip sits on-screen")
 	ok(lchip != null and not lchip.get_global_rect().intersects(wallet4.get_global_rect()), \
 		"R4 level chip stays separate from the wallet plank")
-	# §16 home: an unrestored hub building shows a ✿cost RESTORE BADGE (the mask-reveal home replaced
-	# the old cutout price-pin; the badge is a farm_icons circle + the star cost).
+	# §map-unlock: per-spot restore badges are RETIRED — a single bottom Unlock button is the one
+	# restore CTA (greyed until total exp reaches the next spot's threshold, with the requirement shown).
 	await create_timer(0.05).timeout
-	var badge_found := false
-	for hit in h4.spot_hits:
-		var node: Control = hit.node
-		if not node.find_children("*", "TextureRect", true, false).is_empty():
-			badge_found = true
-			break
-	ok(badge_found, "R4/§16: an unrestored hub spot shows a restore badge")
+	ok(h4._unlock_btn != null and is_instance_valid(h4._unlock_btn), \
+		"R4/§map-unlock: the map has a single bottom Unlock button (no per-spot badges)")
+	ok(h4._unlock_btn != null and h4._unlock_btn.text != "", \
+		"R4/§map-unlock: the Unlock button labels the next-unlock state")
 
 	# 22. U1 — item backing (contrast): ON puts a soft dark ellipse UNDER the item
 	# (first child = bottom); OFF leaves the item bare. Flag item_backing.
