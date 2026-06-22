@@ -135,6 +135,19 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
 	bw.queue_free()
+	# §4: a runtime-opened cell reveals a seed of an OPEN quest LINE (mimics one generator pop), not
+	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
+	# line 6 (the positional formula would yield line 2 at (2,3)).
+	fresh("bramopen")
+	var bq = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(bq)
+	if bq.board == null:
+		bq._ready()
+	bq.quests = [{"line": 6, "tier": 4}]
+	bq._open_bramble(Vector2i(2, 3))
+	ok(BoardModel.line_of(bq.board.item_at(Vector2i(2, 3))) == 6, \
+		"an unlocked cell reveals a seed of an OPEN quest line (6), not the positional 1-2 anchor")
+	bq.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
 	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons

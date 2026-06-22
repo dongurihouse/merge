@@ -1939,8 +1939,21 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
 	_update_hud()
 
+# The lines the player's open quests currently ask for (one entry per quest, so a line asked by two
+# quests is twice as likely to seed an unlocked cell). Empty only in the rare no-quest window.
+func _open_quest_lines() -> Array:
+	var out: Array = []
+	for q in quests:
+		var it := G.quest_item(q)
+		if not it.is_empty():
+			out.append(int(it.line))
+	return out
+
 func _open_bramble(cell: Vector2i) -> void:
-	var contents := board.open_bramble(cell)
+	# §4: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open quest line. With no
+	# open quests (rare), pass -1 so the model falls back to the legacy positional seed.
+	var lines := _open_quest_lines()
+	var contents := board.open_bramble(cell, BoardLogic.bramble_seed(lines, rng) if not lines.is_empty() else -1)
 	_mark_seen(contents)
 	Audio.play("bramble_clear" if Audio.has("bramble_clear") else "tidy_poof", -2.0)
 	var br: Control = bramble_nodes.get(cell)

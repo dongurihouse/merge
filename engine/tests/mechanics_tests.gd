@@ -164,6 +164,32 @@ func _initialize() -> void:
 	ok(BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rf, {1: [3]}) \
 		== BoardLogic.roll_spawn([Vector2i(4, 4)], Vector2i(4, 3), [1], [1], rg, {}), \
 		"default weight (0) makes a wanted tier a no-op — no rng draw, off until the owner ramps the dial")
+	# roll_tier IS the generator tier curve factored out of roll_spawn (one randf vs cumulative
+	# TIER_ODDS) so a generator pop AND a freshly-opened cell draw the tier from one definition.
+	var rt := RandomNumberGenerator.new(); rt.seed = 99
+	var rt_seen := {}
+	var rt_range_ok := true
+	for _i in 500:
+		var t := BoardLogic.roll_tier(rt)
+		rt_seen[t] = true
+		if t < 1 or t > G.TIER_ODDS.size():
+			rt_range_ok = false
+	ok(rt_range_ok and rt_seen.has(1) and rt_seen.has(2), \
+		"roll_tier stays within the pop curve (1..%d) and spreads across low tiers" % G.TIER_ODDS.size())
+	# §4 bramble_seed: a freshly-opened cell mimics ONE generator pop biased to a RANDOM open-quest
+	# line — line ∈ open_lines, tier off the same curve. (The scene gathers open_lines from quests.)
+	var bs := RandomNumberGenerator.new(); bs.seed = 20240601
+	var bs_lines := {}
+	var bs_tier_ok := true
+	for _i in 400:
+		var code := BoardLogic.bramble_seed([6, 11], bs)
+		bs_lines[BoardModel.line_of(code)] = true
+		var bt := BoardModel.tier_of(code)
+		if bt < 1 or bt > G.TIER_ODDS.size():
+			bs_tier_ok = false
+	ok(bs_lines.size() == 2 and bs_lines.has(6) and bs_lines.has(11), \
+		"bramble_seed picks a RANDOM line among the open quests (both [6,11] appear across draws)")
+	ok(bs_tier_ok, "the cell-open seed tier always sits within the generator pop curve (1..%d)" % G.TIER_ODDS.size())
 	# at a non-zero weight, with line 1 forced (pool=[1]) and t3 wanted, t3 pops far above its baseline.
 	var biased := 0
 	var unbiased := 0

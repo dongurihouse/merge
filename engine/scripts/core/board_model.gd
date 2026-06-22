@@ -187,10 +187,13 @@ func openable_brambles(cell: Vector2i, player_level: int) -> Array:
 			out.append(n)
 	return out
 
-## Clear a bramble; its contents become the cell's item. Returns the contents.
-func open_bramble(cell: Vector2i) -> int:
+## Clear a bramble; its contents become the cell's item. `contents` < 0 means "derive the legacy
+## positional seed" — the no-quest fallback and direct callers (the sim, model tests); the scene
+## passes a quest-relevant seed (BoardLogic.bramble_seed). Returns the contents.
+func open_bramble(cell: Vector2i, contents: int = -1) -> int:
 	terrain[idx(cell)] = 0
-	var contents := G.bramble_contents(cell)
+	if contents < 0:
+		contents = G.bramble_contents(cell)
 	items[idx(cell)] = contents
 	return contents
 

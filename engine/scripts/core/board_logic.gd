@@ -84,6 +84,27 @@ static func wanted_tiers(pool: Array, quests: Array) -> Dictionary:
 				out[li].append(t)
 	return out
 
+# The generator's tier curve: ONE randf against the cumulative TIER_ODDS (t1 most likely, decaying).
+# Factored out so a generator pop AND a freshly-opened cell (bramble_seed) draw the tier from one
+# definition. Exactly one rng.randf() and the same fallback (t1) as the old inline loop — roll_spawn's
+# load-bearing RNG order depends on this staying a single draw.
+static func roll_tier(rng: RandomNumberGenerator) -> int:
+	var roll := rng.randf()
+	var acc := 0.0
+	for i in G.TIER_ODDS.size():
+		acc += G.TIER_ODDS[i]
+		if roll <= acc:
+			return i + 1
+	return 1
+
+# A freshly-opened cell's reward: mimic ONE generator pop for what the player is questing. Pick a
+# RANDOM line among `open_lines` (the open quests' lines) and roll its tier off the SAME generator
+# curve (roll_tier). The caller guards `open_lines` non-empty — an empty set falls back to the
+# positional seed in BoardModel.open_bramble. RNG: line pick, then tier (two draws).
+static func bramble_seed(open_lines: Array, rng: RandomNumberGenerator) -> int:
+	var line := int(open_lines[rng.randi_range(0, open_lines.size() - 1)])
+	return line * 100 + roll_tier(rng)
+
 # The spawn roll: a landing cell (one of the few nearest the generator, then random) and a code
 # (line*100 + tier). `wanted` lines win with odds ASK_WEIGHT, else any of the generator's `pool`;
 # the tier comes off TIER_ODDS and then, when `tier_weight` > 0 and `wanted_tiers` names a poppable
@@ -103,14 +124,7 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 		line = wanted[rng.randi_range(0, wanted.size() - 1)]
 	else:
 		line = int(pool[rng.randi_range(0, pool.size() - 1)])
-	var roll := rng.randf()
-	var tier := 1
-	var acc := 0.0
-	for i in G.TIER_ODDS.size():
-		acc += G.TIER_ODDS[i]
-		if roll <= acc:
-			tier = i + 1
-			break
+	var tier := roll_tier(rng)
 	# §6: lean the tier toward an asked POPPABLE tier for this line (guarded to the TIER_ODDS range,
 	# so a generator never pops above it), with probability `tier_weight`. OFF (0.0) skips the whole
 	# block — no rng draw, byte-identical — so the default is a true no-op until the owner ramps the dial.
