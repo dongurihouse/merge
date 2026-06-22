@@ -827,20 +827,25 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	b.disabled = not bool(spec.get("enabled", true))
 	# the disc shell: the cream/gold sprite scaled WHOLE (a round disc 9-slices badly at its corners),
 	# or a flat code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
+	# `shell_tint` modulates the whole disc (default WHITE = the raw cream/gold sprite); the home/board Play
+	# CTA passes leaf green so it reads as the prominent green action while sharing the others' round shape.
 	var shell_rel := String(opts.get("shell", HOME_SHELL))
+	var shell_tint: Color = opts.get("shell_tint", Color.WHITE)
 	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
 	for st_name in ["normal", "hover", "pressed", "disabled"]:
 		if shell != null:
 			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
 			stx.texture = shell
 			if st_name == "pressed":
-				stx.modulate_color = Color(0.9, 0.9, 0.9)
+				stx.modulate_color = shell_tint * Color(0.9, 0.9, 0.9)
 			elif st_name == "disabled":
-				stx.modulate_color = Color(0.72, 0.72, 0.72)
+				stx.modulate_color = shell_tint * Color(0.72, 0.72, 0.72)
+			else:
+				stx.modulate_color = shell_tint
 			b.add_theme_stylebox_override(st_name, stx)
 		else:
 			var s := StyleBoxFlat.new()
-			s.bg_color = Color(Pal.CREAM, 0.95)
+			s.bg_color = shell_tint if opts.has("shell_tint") else Color(Pal.CREAM, 0.95)
 			s.set_corner_radius_all(int(px * 0.5))
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW

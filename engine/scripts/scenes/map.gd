@@ -1260,20 +1260,16 @@ func _build_chrome() -> void:
 		{"home_icon": "map", "px": 140.0, "label": tr("Map"), "action": func() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_select()},
-		# Play — the prominent leaf: the way into the garden/board (old wide "Enter Garden ▶" retired).
-		{"icon": "nav_leaf.png", "px": 184.0, "label": tr("Play"), "action": _on_board}])
+		# Play — the way into the garden/board. A round disc like the rest of the buttons (same shell), tinted
+		# leaf GREEN so it stays the prominent primary action (built via `make` to pass the green shell_tint).
+		{"make": _make_play_button, "label": tr("Play")}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
 	# the Play leaf breathes so the way to the board reads as the primary action (index 1).
 	FX.breathe_once(nav.buttons[1])
-	# the Store "new offer" badge — shown only while the starter pack is unclaimed (an actionable offer).
-	# The starter (Welcome gift) is in the PREMIUM stall now, so it rides the wallet's gem pill
-	# (_shop_btn = hud.gem_plus, set in _build_hud) — the premium stall's + entry.
-	_store_badge = Look.badge("dot")
-	if _shop_btn != null and is_instance_valid(_shop_btn):
-		Look.attach_badge(_shop_btn, _store_badge)
-	_refresh_store_badge()
+	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no
+	# longer wears a corner badge. `_store_badge` stays null, so `_refresh_store_badge` is a safe no-op.
 	# the LiveOps rail: Daily · Free · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
 	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there.
 	_build_liveops_rail()
@@ -1282,6 +1278,22 @@ func _build_chrome() -> void:
 	_select_back = _make_back_button(sb)
 	add_child(_select_back)
 	_select_back.visible = false
+
+# The Play button (bottom nav, index 1) — the way into the garden/board. It uses the SAME round disc shell
+# as the rest of the buttons (the Map disc + the rail), tinted leaf GREEN so it still reads as the prominent
+# primary action, with the leaf mark centred — replacing the old wide green leaf pill (nav_leaf.png).
+func _make_play_button() -> Button:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return NavBar._make_nav_button("nav_leaf.png", 140.0, _on_board)   # defensive: the baked leaf pill
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["px"] = 140.0                        # match the Map disc beside it ("like the rest of the buttons")
+	opts["shell_tint"] = Pal.BTN_PRIMARY      # leaf green — the primary-CTA hue (same as the wallet "+")
+	opts["icon_scale"] = 0.56                 # a touch larger so the leaf mark reads clearly on the green disc
+	opts["calm"] = FX.calm()
+	# the plate-less sprout (green leaf cluster) sits DIRECTLY on the disc like the other buttons' marks —
+	# icon_leaf carries its own cream wafer, which would read as a medallion-in-disc (inconsistent here).
+	return Kit.home_button({"icon": "sprout", "caption": "", "action": _on_board}, opts)
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
 # bottom nav + the live-ops rail build from — the cream/gold disc tuned in the workbench — so a button
@@ -1324,10 +1336,13 @@ func _make_back_button(sb: float) -> Button:
 const RAIL_PX := 140.0          # fallback disc size — matches the bottom-bar side buttons
 const RAIL_MARGIN := 18.0       # right-edge inset
 const RAIL_CAP_H := 42.0        # caption-tab band beneath each disc
-const RAIL_GAP := 16.0          # gap between stacked entries
+const RAIL_GAP := 8.0           # gap between stacked entries (tightened so the rail reads as one tidy column)
 const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
+const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared home-button size (nav + back stay full)
 var _home_opts := {}            # the shared home-button style (loaded once per rail build)
-var _rail_px := RAIL_PX         # live disc size = the saved config px (drives the stacking layout)
+var _rail_px := RAIL_PX         # the shared home-button size (drives the place-picker back button; full size)
+var _rail_disc_px := RAIL_PX    # the rail's OWN reduced disc size (RAIL_SCALE × shared) — smaller than the nav
+var _rail_opts := {}            # _home_opts with px overridden to _rail_disc_px (the rail discs only)
 
 func _build_liveops_rail() -> void:
 	# Load the shared home-button style ONCE (the same transform the bottom nav + workbench read).
@@ -1335,12 +1350,16 @@ func _build_liveops_rail() -> void:
 	_home_opts = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	_home_opts["calm"] = FX.calm()
 	_rail_px = float(_home_opts.get("px", RAIL_PX))
+	# the rail discs are smaller than the shared nav/back size, and packed closer (RAIL_GAP) — a tidier column.
+	_rail_disc_px = round(_rail_px * RAIL_SCALE)
+	_rail_opts = _home_opts.duplicate()
+	_rail_opts["px"] = _rail_disc_px
 	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
 	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).
 	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
-	var step := _rail_px + RAIL_CAP_H + RAIL_GAP
+	var step := _rail_disc_px + RAIL_CAP_H + RAIL_GAP
 	var top := Look.safe_top(self) + RAIL_TOP
 	var slot := 0
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
@@ -1376,11 +1395,11 @@ func _rail_button(icon_id: String, label: String, cb: Callable, sparkle := false
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
 	if Kit != null:
-		b = Kit.home_button({"icon": icon_id, "caption": label, "action": cb, "sparkle": sparkle}, _home_opts)
+		b = Kit.home_button({"icon": icon_id, "caption": label, "action": cb, "sparkle": sparkle}, _rail_opts)
 	else:
 		b = Button.new()                          # defensive fallback (kit absent): a bare disc
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(_rail_px, _rail_px)
+		b.custom_minimum_size = Vector2(_rail_disc_px, _rail_disc_px)
 		b.pressed.connect(cb)
 	add_child(b)
 	_chrome_nodes.append(b)
@@ -1394,9 +1413,9 @@ func _place_rail(b: Button, top: float, slot: int, step: float) -> void:
 	b.anchor_top = 0.0
 	b.anchor_bottom = 0.0
 	b.offset_right = -RAIL_MARGIN
-	b.offset_left = -RAIL_MARGIN - _rail_px
+	b.offset_left = -RAIL_MARGIN - _rail_disc_px
 	b.offset_top = top + slot * step
-	b.offset_bottom = b.offset_top + _rail_px
+	b.offset_bottom = b.offset_top + _rail_disc_px
 
 # Light each rail badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
 # button). Daily = today unclaimed; Free = a rewarded watch offerable; Inbox = unread count (guarded).
