@@ -121,7 +121,6 @@ const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those 
 # §7 soft gate — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 4                     # fence slots (§7) — the fence is 4 cards at 25% width; the metered active count caps here
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
-const GEN_GRANT_REMAINING_STARS := 4      # surface the next-generator quest when this few ★ remain to finish the map
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
 # taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,
 # capped on its own at BURST_FREE_MAX) PLUS the player's paid burst-upgrade level added on top — so each

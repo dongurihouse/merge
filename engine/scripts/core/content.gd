@@ -36,7 +36,6 @@ const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
 const QUEST_FEATURED_GEM_BONUS = D.QUEST_FEATURED_GEM_BONUS
 const MAX_GIVERS = D.MAX_GIVERS
 const STARS_PER_QUEST_EST = D.STARS_PER_QUEST_EST
-const GEN_GRANT_REMAINING_STARS = D.GEN_GRANT_REMAINING_STARS
 const BURST_ODDS = D.BURST_ODDS
 const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
@@ -138,17 +137,20 @@ static func retired_lines(roster: Array, map: int) -> Array:
 				out.append(int(l))
 	return out
 
-## The generator ids that map `map`'s near-end quest should grant: the NEXT map's generators not
-## already owned (on the board or in the gen_bag). Empty on the final map or once all are owned.
-## Generators now PERSIST (never handed in) — the next map's tool rides on an ordinary near-end
-## quest's `reward.generators` and lands in the gen_bag; the player drags it out on the next map.
-static func gens_to_grant(roster: Array, map: int, owned: Array) -> Array:
+## The generators the player is OWED but doesn't have: for every UNLOCKED map (map_unlocked — the SAME
+## gate signal that surfaces a map's quests, NOT where the camera is / which map was last visited), that
+## map's generator id(s) if not already owned (on the board or in the gen_bag). Monotonic + self-healing:
+## any unlocked map missing its tool is "due", so the next generator tap can produce it (board.gd). Empty
+## once every unlocked map's tool is owned. Replaces the retired carrier-quest delivery (gens_to_grant).
+static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
 	var out: Array = []
-	if map + 1 >= MAPS.size():
-		return out
-	for g in generators_for_map(roster, map + 1):
-		if not owned.has(String(g.id)):
-			out.append(String(g.id))
+	for z in MAPS.size():
+		if not map_unlocked(z, unlocks, gates):
+			continue
+		for g in generators_for_map(GENERATORS, z):
+			var id := String(g.id)
+			if not owned_ids.has(id) and not out.has(id):
+				out.append(id)
 	return out
 
 static func gen_def(roster: Array, id: String) -> Dictionary:
