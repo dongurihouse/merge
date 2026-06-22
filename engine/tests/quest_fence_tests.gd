@@ -253,5 +253,25 @@ func _initialize() -> void:
 	if Quests.map_done(every, every_gate):
 		ok(Quests.home_map_id(every, every_gate) == String(G.MAPS[0].id), "with everything complete, the home target falls back to the first map")
 
+	# --- the GENERATOR-DELIVERY GATE: a non-final map's COMPLETION — restoring its LAST spot — is refused
+	# --- until the next map's generator is owned (delivered to the board or the gen_bag). This is the hard
+	# --- guard behind the near-end carrier: a player can no longer bank enough ★ to buy the final spot and
+	# --- skip into the next map without ever taking that map's tool (the bug that stranded a Barn save with
+	# --- no producer). A non-completing spot is never gated; the final map (no next gen) is never gated. ---
+	var gate_ul := {}
+	for i in G.MAPS[0].spots.size() - 1:
+		gate_ul[String(G.MAPS[0].spots[i].id)] = true
+	var gate_last := String(G.MAPS[0].spots[G.MAPS[0].spots.size() - 1].id)
+	var gate_first := String(G.MAPS[0].spots[0].id)
+	ok(Quests.gen_gate_blocks_spot(0, gate_last, gate_ul, []), "the completing spot is blocked while the next map's generator is unowned")
+	ok(not Quests.gen_gate_blocks_spot(0, gate_last, gate_ul, G.gens_to_grant(G.GENERATORS, 0, [])), "the completing spot is allowed once the next map's generator is owned")
+	ok(not Quests.gen_gate_blocks_spot(0, gate_first, {}, []), "a non-completing spot purchase is never gated")
+	var glast := G.MAPS.size() - 1
+	var glast_ul := {}
+	for i in G.MAPS[glast].spots.size() - 1:
+		glast_ul[String(G.MAPS[glast].spots[i].id)] = true
+	var glast_last := String(G.MAPS[glast].spots[G.MAPS[glast].spots.size() - 1].id)
+	ok(not Quests.gen_gate_blocks_spot(glast, glast_last, glast_ul, []), "the final map's completion is never gated (no next generator)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

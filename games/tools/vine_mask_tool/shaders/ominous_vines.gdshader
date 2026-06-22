@@ -20,10 +20,6 @@ uniform sampler2D region_map_texture : repeat_disable, filter_nearest;
 uniform float region_index = 0.0;
 uniform float region_count = 8.0;
 uniform float region_enabled = 1.0;
-// The region boundary (cleared vs still-overgrown) is a hard polygon step → a "fake cut". We warp +
-// feather it so the overgrowth tears organically across the line instead of a straight edge.
-uniform float gate_warp = 0.03;     // noise warp of the boundary (UV); 0 = hard polygon line
-uniform float gate_feather = 2.5;   // soft transition width, in region-map texels
 
 float hash(vec2 p) {
 	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
@@ -44,26 +40,15 @@ float mask_at(vec2 uv) {
 	return texture(mask_texture, clamp(uv, vec2(0.0), vec2(1.0))).r;
 }
 
-float gate_at(vec2 uv, float max_index) {
+float region_gate(vec2 uv) {
+	// The boundary's organic shape is baked into the region map (_rebuild_region_map warps the
+	// rasterization with noise), so every overlay inherits the same torn edge — here it's a plain
+	// membership test.
+	float max_index = max(region_count - 1.0, 1.0);
 	float encoded = texture(region_map_texture, clamp(uv, vec2(0.0), vec2(1.0))).r;
 	float sampled_index = floor(encoded * max_index + 0.5);
-	return 1.0 - step(0.5, abs(sampled_index - region_index));
-}
-
-float region_gate(vec2 uv) {
-	float max_index = max(region_count - 1.0, 1.0);
-	// domain warp the boundary with the same noise the vines flow with → organic, torn region edge
-	float t = TIME * 0.03;
-	vec2 warp = vec2(noise(uv * 9.0 + t), noise(uv * 9.0 + vec2(5.2, 1.3) - t)) - 0.5;
-	vec2 wuv = uv + warp * gate_warp;
-	// 5-tap feather → the overgrowth fades across the line instead of a hard cut
-	vec2 d = (1.0 / vec2(textureSize(region_map_texture, 0))) * gate_feather;
-	float g = gate_at(wuv, max_index);
-	g += gate_at(wuv + vec2(d.x, d.y), max_index);
-	g += gate_at(wuv + vec2(-d.x, d.y), max_index);
-	g += gate_at(wuv + vec2(d.x, -d.y), max_index);
-	g += gate_at(wuv + vec2(-d.x, -d.y), max_index);
-	return (g / 5.0) * region_enabled;
+	float matches = 1.0 - step(0.5, abs(sampled_index - region_index));
+	return matches * region_enabled;
 }
 
 void fragment() {

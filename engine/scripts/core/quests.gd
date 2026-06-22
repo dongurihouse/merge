@@ -68,6 +68,20 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 		out.append(String(id))
 	return out
 
+# The GENERATOR-DELIVERY GATE: a non-final map cannot be COMPLETED — its last spot restored — until the
+# next map's generator has been delivered (owned on the board or in the gen_bag). Returns true when buying
+# `spot_id` on map z WOULD restore that map's final spot while the next generator is still pending, so the
+# purchase must be refused until the near-end carrier quest is delivered. The carrier (refill) and this
+# gate share one rule — gens_to_grant non-empty — so the buy unblocks the instant the tool is taken. The
+# final map (no next map) and every non-completing purchase are never gated. `owned_gen_ids` is the caller's
+# owned_gens(board, bag) — the gate lives in the map scene, which reads the board from save, not the model.
+static func gen_gate_blocks_spot(z: int, spot_id: String, unlocks: Dictionary, owned_gen_ids: Array) -> bool:
+	var after := unlocks.duplicate()
+	after[spot_id] = true
+	if not G.map_spots_done(z, after):
+		return false                          # not the completing purchase → never gated
+	return not G.gens_to_grant(G.GENERATORS, z, owned_gen_ids).is_empty()
+
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via `rng` — RNG CALL ORDER IS LOAD-BEARING (the rng is seeded + persisted): the filter takes no rng,
 # then gen_quest is drawn once per appended stand, in order. Near the END of the map, ONE quest also

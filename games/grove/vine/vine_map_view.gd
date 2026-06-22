@@ -14,6 +14,10 @@ const LOCK_TINT := Color(0.6863, 0.6627, 0.9255, 0.34)  # #AFA9EC at 34%
 const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 
 const COMPONENT_THRESHOLD := 0.25
+# How far the region boundary is torn by noise, as a fraction of the image's larger side. The cleared/
+# overgrown line is otherwise a straight polygon cut; warping the rasterization makes it organic, and
+# every region-gated overlay (vines/glow/shadow/embers/veil) inherits the same torn edge.
+const BOUNDARY_WARP := 0.06
 
 # Per-region shader knobs. CANONICAL source: this is the authoritative shader-knob → param
 # mapping. The authoring tool (vine_mask_tool.gd) mirrors it, adding slider-only fields
@@ -356,21 +360,32 @@ func _rebuild_region_map() -> void:
 	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0.0, 0.0, 0.0, 1.0))
 	var denominator := float(maxi(_region_count - 1, 1))
+	# Coherent noise that warps the test position → an organic (torn) boundary instead of the straight
+	# polygon edge. A pixel up to `amp` outside the polygon can warp inside, so bounds grow by `amp`.
+	var amp := float(maxi(image_size.x, image_size.y)) * BOUNDARY_WARP
+	var nx := FastNoiseLite.new(); nx.seed = 1337; nx.frequency = 0.012
+	var ny := FastNoiseLite.new(); ny.seed = 9281; ny.frequency = 0.012
 
 	for region_index in range(regions.size()):
 		var region: Dictionary = regions[region_index]
 		var points: Array = _region_points(region)
 		if points.size() < 3:
 			continue
-		var bounds := _polygon_bounds(points)
+		var bounds := _polygon_bounds(points).grow(amp)
 		var encoded := float(region_index) / denominator
 		# red = region index (vine shaders); green = membership flag, so the lock-tint shader can
 		# fill the WHOLE polygon and tell region 0 (red 0.0) apart from the background (also 0.0).
 		var color := Color(encoded, 1.0, 0.0, 1.0)
 		var packed := _points_to_packed(points)
-		for y in range(int(bounds.position.y), int(bounds.end.y) + 1):
-			for x in range(int(bounds.position.x), int(bounds.end.x) + 1):
-				if Geometry2D.is_point_in_polygon(Vector2(float(x) + 0.5, float(y) + 0.5), packed):
+		var x0 := maxi(0, int(bounds.position.x))
+		var y0 := maxi(0, int(bounds.position.y))
+		var x1 := mini(image_size.x - 1, int(bounds.end.x))
+		var y1 := mini(image_size.y - 1, int(bounds.end.y))
+		for y in range(y0, y1 + 1):
+			for x in range(x0, x1 + 1):
+				var sx := float(x) + 0.5 + nx.get_noise_2d(float(x), float(y)) * amp
+				var sy := float(y) + 0.5 + ny.get_noise_2d(float(x), float(y)) * amp
+				if Geometry2D.is_point_in_polygon(Vector2(sx, sy), packed):
 					image.set_pixel(x, y, color)
 
 	region_map_texture = ImageTexture.create_from_image(image)
