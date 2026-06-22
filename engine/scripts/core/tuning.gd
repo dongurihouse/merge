@@ -223,8 +223,8 @@ class Hud:
 	# the gem is a slim teardrop — equal box ≠ equal weight without these).
 	const CHIP_ICON_BOX := 40.0           # the shared square box every currency icon centers in
 	const STAR_ICON := 44                 # sprite px (the gold flower runs a touch large for parity)
-	const COIN_ICON := 40                 # the acorn
-	const GEM_ICON := 40                  # the gem (was 38 — same box as the rest now)
+	const COIN_ICON := 56                 # the coin (was 40 — bumped to fill the 56px box; intricate art reads better large)
+	const GEM_ICON := 56                  # the gem (was 40 — same box as the coin)
 	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
 	const COIN_OPTICAL := 1.0             # gold coin (soft currency): the reference weight
 	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin
