@@ -987,7 +987,10 @@ static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Butto
 		if glow > 0.0 or tw > 0.0:
 			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
 	# the "+" stacked over the cost row, centred on the disc (mouse-transparent so the Button is the only
-	# hit surface). All metrics are fractions of the disc, so the stack scales with px.
+	# hit surface). All metrics are fractions of the disc, so the stack scales with px. `show_cost` (default
+	# true) draws the icon+number row under the "+"; pass false for a bare "+" disc (e.g. a free/ready
+	# restore where a number would read as a price), and the lone "+" centres on the disc on its own.
+	var show_cost := bool(spec.get("show_cost", true))
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1001,21 +1004,22 @@ static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Butto
 	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(plus)
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", maxi(0, int(round(px * float(opts.get("icon_gap", 0.02))))))
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(row)
-	var ic := Look.icon(String(spec.get("icon", "star")), px * float(opts.get("icon_scale", 0.26)))
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(ic)
-	var lbl := Label.new()
-	lbl.text = "%d" % int(spec.get("cost", 0))
-	lbl.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("cost_font", 0.26)))))
-	lbl.add_theme_color_override("font_color", HOME_UNLOCK_INK)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lbl)
+	if show_cost:
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_theme_constant_override("separation", maxi(0, int(round(px * float(opts.get("icon_gap", 0.02))))))
+		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(row)
+		var ic := Look.icon(String(spec.get("icon", "star")), px * float(opts.get("icon_scale", 0.26)))
+		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(ic)
+		var lbl := Label.new()
+		lbl.text = "%d" % int(spec.get("cost", 0))
+		lbl.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("cost_font", 0.26)))))
+		lbl.add_theme_color_override("font_color", HOME_UNLOCK_INK)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(lbl)
 	Look.add_press_juice(b)
 	if spec.has("action") and (spec.get("action") as Callable).is_valid():
 		b.pressed.connect(spec.get("action"))

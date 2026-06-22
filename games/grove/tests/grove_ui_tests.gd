@@ -215,13 +215,20 @@ func _initialize() -> void:
 		"R4 level chip sits on-screen")
 	ok(lchip != null and not lchip.get_global_rect().intersects(wallet4.get_global_rect()), \
 		"R4 level chip stays separate from the wallet plank")
-	# §map-unlock: per-spot restore badges are RETIRED — a single bottom Unlock button is the one
-	# restore CTA (greyed until total exp reaches the next spot's threshold, with the requirement shown).
+	# §map-unlock: per-spot restore badges are RETIRED — a single bottom restore badge (the round map-style
+	# cost disc, centered between Map · Play) is the one restore CTA, greyed until total exp reaches the next
+	# spot's threshold, with that threshold shown as the disc's "+ / ★ N" number (a child label, not .text).
 	await create_timer(0.05).timeout
 	ok(h4._unlock_btn != null and is_instance_valid(h4._unlock_btn), \
-		"R4/§map-unlock: the map has a single bottom Unlock button (no per-spot badges)")
-	ok(h4._unlock_btn != null and h4._unlock_btn.text != "", \
-		"R4/§map-unlock: the Unlock button labels the next-unlock state")
+		"R4/§map-unlock: the map has a single bottom restore badge (no per-spot badges)")
+	var _unlock_shows_state := false
+	if h4._unlock_btn != null:
+		for _n in h4._unlock_btn.find_children("*", "Label", true, false):
+			if String((_n as Label).text) != "":
+				_unlock_shows_state = true
+				break
+	ok(_unlock_shows_state, \
+		"R4/§map-unlock: the restore badge shows the next-unlock state (the ★ threshold number)")
 
 	# 22. U1 — item backing (contrast): ON puts a soft dark ellipse UNDER the item
 	# (first child = bottom); OFF leaves the item bare. Flag item_backing.
