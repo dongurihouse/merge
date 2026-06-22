@@ -1,34 +1,37 @@
 extends SceneTree
 ## Standalone breaking-glass look-test (REAL renderer).
-##   make fx                                              → live looping window (watch it)
+##   make fx                                                       → live looping window
 ##   make shot TOOL=engine/tools/fx_demo ARGS="/tmp/shatter.png"   → headless film-strip
 ##
-## The shatter is a real POLYGON FRACTURE, not particles: a square pane is split into
-## Voronoi cells clipped to the pane (so every piece is literally a chunk of the original
-## polygon, and the pieces tile it exactly), then each piece flies outward, spins, falls
-## under gravity, and fades. Self-contained (no fx.gd / game-state deps) so the feel can
-## be tuned here, then promoted into FX.shatter.
+## ANNEALED (dramatic) glass: the pane fractures from an IMPACT POINT into radial-spoke +
+## concentric-ring shards (small sharp wedges near the impact, larger segments outward),
+## tiling the pane exactly so the pre-break hold reads as a cracked pane. On release each
+## shard flies outward (inner = faster, from impact energy), tumbles with a fake-3D edge
+## flicker, glints (break-flash + specular spin), slides to rest (top-down drag, no
+## gravity), and fades. A puff of fine glass dust sprays under the shards.
+## Self-contained (no fx.gd / game-state deps) — tune here, then promote into FX.shatter.
 
 const Save = preload("res://engine/scripts/core/save.gd")
 
 const CELL := 300          # per-frame capture size (square)
-const FRAMES := 9          # samples across the animation (frame 0 = intact pane)
-const STEP := 0.07         # seconds between samples
-const COLS := 4            # seed grid → ~COLS*ROWS pieces (kept chunky, not dust)
-const ROWS := 3
-const FILL := Color(0.83, 0.91, 0.96, 0.52)   # pale translucent glass
-const EDGE := Color(1, 1, 1, 0.85)            # bright crack-line edges
+const FRAMES := 9          # film-strip samples (frame 0 = cracked-but-intact pane)
+const STEP := 0.07
+const SPOKES_MIN := 8      # radial cracks from the impact point
+const SPOKES_MAX := 11
+const RING_FRACS := [0.0, 0.24, 0.54, 0.92, 1.28]   # concentric ring radii (×reach); dense near impact
+const IMPACT_OFF := 0.16   # impact point offset from pane center (×side)
+const FILL := Color(0.82, 0.90, 0.96, 0.50)         # pale translucent glass
+const EDGE := Color(1, 1, 1, 0.85)                  # bright crack-line edges
 
 
 func _initialize() -> void:
 	Save.configure_for_test("/tmp/tu_fx_demo/")
 	if FileAccess.file_exists("res://override.cfg"):
-		_capture()       # quiet, born-minimized → film-strip PNG
+		_capture()
 	else:
-		_live()          # a real, focusable window that replays on a loop
+		_live()
 
 
-# --- live: a real window, replaying the effect on a loop (close it to quit) ---------
 func _live() -> void:
 	DisplayServer.window_set_title("FX demo — breaking glass (close window to quit)")
 	var view: Vector2 = root.get_visible_rect().size
@@ -40,15 +43,14 @@ func _live() -> void:
 	var side: float = minf(view.x, view.y) * 0.34
 	var n := 0
 	while true:
-		var field := _spawn_pane(center, side, n)
-		await create_timer(0.35).timeout      # the intact pane sits a beat...
+		var field := _spawn_pane_in(root, center, side, n)
+		await create_timer(0.45).timeout      # cracked pane holds a beat...
 		field.release()                        # ...then it shatters
-		await create_timer(1.7).timeout
+		await create_timer(1.8).timeout
 		field.queue_free()
 		n += 1
 
 
-# --- capture: sample the effect into a film-strip PNG --------------------------------
 func _capture() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
@@ -76,110 +78,184 @@ func _capture() -> void:
 		frame.convert(Image.FORMAT_RGBA8)
 		strip.blit_rect(frame, Rect2i(Vector2i.ZERO, frame.get_size()), Vector2i(CELL * i, 0))
 		if i == 0:
-			field.release()                    # frame 0 = intact pane, then break
+			field.release()                    # frame 0 = cracked pane, then break
 	var err := strip.save_png(out)
 	print("FX strip saved=%s err=%d size=%dx%d (%d frames @ %.0fms)" % [out, err, strip.get_width(), strip.get_height(), FRAMES, STEP * 1000.0])
 	quit()
 
 
-func _spawn_pane(center: Vector2, side: float, n: int) -> ShatterField:
-	return _spawn_pane_in(root, center, side, n)
-
 func _spawn_pane_in(host: Node, center: Vector2, side: float, n: int) -> ShatterField:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = 1337 + n * 17                    # deterministic per run; varies the live loop
-	var base := _square(center, side)
-	var seeds := _jittered_seeds(center, side, rng)
+	rng.seed = 1337 + n * 17
+	var pane := _square(center, side)
+	var impact := center + Vector2(rng.randf_range(-1, 1), rng.randf_range(-1, 1)) * side * IMPACT_OFF
+	var reach := 0.0
+	for v in pane:
+		reach = maxf(reach, (v - impact).length())
+	var cells := _radial_fracture(pane, impact, reach, rng)
 	var field := ShatterField.new()
 	host.add_child(field)
-	field.build(base, seeds, center, side, rng)
+	field.build(cells, impact, reach, rng)
 	return field
 
 
-# the original polygon (swap this for any convex shape — pieces follow it)
+# the original polygon (swap for any convex shape — the fracture follows it)
 func _square(center: Vector2, side: float) -> Array:
 	var h := side * 0.5
 	return [center + Vector2(-h, -h), center + Vector2(h, -h),
 			center + Vector2(h, h), center + Vector2(-h, h)]
 
-# fracture seeds: a jittered grid inside the pane → organic, chunky cells
-func _jittered_seeds(center: Vector2, side: float, rng: RandomNumberGenerator) -> Array:
-	var tl := center - Vector2(side, side) * 0.5
-	var cw := side / COLS
-	var ch := side / ROWS
-	var pts: Array = []
-	for r in ROWS:
-		for c in COLS:
-			var jx := rng.randf_range(-0.42, 0.42) * cw
-			var jy := rng.randf_range(-0.42, 0.42) * ch
-			pts.append(tl + Vector2((c + 0.5) * cw + jx, (r + 0.5) * ch + jy))
-	return pts
+
+# Radial spokes + concentric rings from the impact point. Shared vertices on a polar
+# grid → cells tile the pane exactly. Outer cells are clipped to the pane outline.
+func _radial_fracture(pane: Array, impact: Vector2, reach: float, rng: RandomNumberGenerator) -> Array:
+	var spokes: int = rng.randi_range(SPOKES_MIN, SPOKES_MAX)
+	var a0 := rng.randf_range(0.0, TAU)
+	var angs: Array = []
+	for i in spokes:
+		angs.append(a0 + TAU * i / spokes + rng.randf_range(-0.14, 0.14))   # straight, jittered spokes
+
+	var rings: int = RING_FRACS.size()
+	# polar vertex grid: vgrid[j][i]. Ring 0 collapses to the impact point.
+	var vgrid: Array = []
+	for j in rings:
+		var row: Array = []
+		for i in spokes:
+			var rr: float = reach * float(RING_FRACS[j])
+			if j > 0:
+				rr *= rng.randf_range(0.88, 1.12)          # wavy concentric cracks
+			row.append(impact + Vector2.from_angle(angs[i]) * rr)
+		vgrid.append(row)
+
+	var cells: Array = []
+	for j in rings - 1:
+		for i in spokes:
+			var i2 := (i + 1) % spokes
+			var quad := [vgrid[j][i], vgrid[j][i2], vgrid[j + 1][i2], vgrid[j + 1][i]]
+			var cell := _clip_to_convex(_dedupe(quad), pane)
+			if cell.size() >= 3:
+				cells.append(cell)
+	return cells
 
 
-# =====================================================================================
-# Voronoi fracture + flyaway physics
+# Sutherland–Hodgman clip of `subject` to convex `clip` polygon (keep interior side).
+func _clip_to_convex(subject: Array, clip: Array) -> Array:
+	var c := _centroid(clip)
+	var out: Array = subject
+	for k in clip.size():
+		var a: Vector2 = clip[k]
+		var b: Vector2 = clip[(k + 1) % clip.size()]
+		var edge := b - a
+		var nrm := Vector2(-edge.y, edge.x)
+		if nrm.dot(c - a) < 0.0:
+			nrm = -nrm                                  # point inward
+		out = _clip_halfplane(out, a, nrm)
+		if out.size() < 3:
+			break
+	return out
+
+func _clip_halfplane(poly: Array, p: Vector2, n: Vector2) -> Array:
+	var out: Array = []
+	var cnt := poly.size()
+	for k in cnt:
+		var a: Vector2 = poly[k]
+		var b: Vector2 = poly[(k + 1) % cnt]
+		var da := (a - p).dot(n)
+		var db := (b - p).dot(n)
+		if da >= 0.0:
+			out.append(a)
+		if (da >= 0.0) != (db >= 0.0):
+			var t := da / (da - db)
+			out.append(a + (b - a) * t)
+	return out
+
+func _dedupe(poly: Array) -> Array:
+	var out: Array = []
+	for v in poly:
+		if out.is_empty() or out[out.size() - 1].distance_to(v) > 0.5:
+			out.append(v)
+	return out
+
+func _centroid(poly: Array) -> Vector2:
+	var c := Vector2.ZERO
+	for v in poly:
+		c += v
+	return c / poly.size()
+
+
 # =====================================================================================
 class ShatterField extends Node2D:
-	var _pieces: Array = []        # [{node, vel, ang, life, max_life, fade}]
-	var _drag := 3.2               # top-down: shards slide out and decelerate to rest (no gravity)
-	var _spin_drag := 2.6
+	var _pieces: Array = []
+	var _drag := 3.0               # top-down: slide out, friction to rest (no gravity)
+	var _spin_drag := 2.4
 	var _released := false
+	var _impact := Vector2.ZERO
 
-	func build(base: Array, seeds: Array, center: Vector2, side: float, rng: RandomNumberGenerator) -> void:
-		var edge_w: float = maxf(1.5, side * 0.018)
-		for i in seeds.size():
-			var cell: Array = _voronoi_cell(base, seeds, i)
-			if cell.size() < 3:
-				continue
+	func build(cells: Array, impact: Vector2, reach: float, rng: RandomNumberGenerator) -> void:
+		_impact = impact
+		for cell in cells:
 			var cen := _centroid(cell)
 			var local := PackedVector2Array()
 			for v in cell:
-				local.append(v - cen)            # piece drawn around its own centroid
+				local.append(v - cen)
 
 			var pg := Polygon2D.new()
 			pg.polygon = local
 			pg.color = FILL
 			pg.position = cen
-
 			var border := PackedVector2Array(local)
-			border.append(local[0])              # close the outline
+			border.append(local[0])
 			var ln := Line2D.new()
 			ln.points = border
-			ln.width = edge_w
+			ln.width = maxf(1.4, reach * 0.013)
 			ln.default_color = EDGE
 			ln.joint_mode = Line2D.LINE_JOINT_ROUND
 			pg.add_child(ln)
 			add_child(pg)
 
-			# Direction: roughly outward from the break, but each shard veers off on its own
-			# heading so they scatter every which way instead of expanding as a tidy ring.
-			var dir := (cen - center)
-			dir = dir.normalized() if dir.length() > 8.0 else Vector2.from_angle(rng.randf_range(0.0, TAU))
-			dir = dir.rotated(rng.randf_range(-1.1, 1.1))                       # ±~63° off radial
-			dir = (dir + Vector2.from_angle(rng.randf_range(0.0, TAU)) * 0.5).normalized()  # blend a random heading
-			var speed := rng.randf_range(120.0, 460.0)                         # wide spread: some far, some barely move
-			var vel := dir * speed
+			# direction: radially outward from the impact (slight scatter)
+			var dir := cen - impact
+			dir = dir.normalized() if dir.length() > 4.0 else Vector2.from_angle(rng.randf_range(0.0, TAU))
+			dir = dir.rotated(rng.randf_range(-0.5, 0.5))
+			dir = (dir + Vector2.from_angle(rng.randf_range(0.0, TAU)) * 0.28).normalized()
+			# impact energy: shards nearer the impact fly faster
+			var distf := clampf((cen - impact).length() / maxf(reach, 1.0), 0.0, 1.0)
+			var speed := lerpf(440.0, 150.0, distf) * rng.randf_range(0.8, 1.2)
 			_pieces.append({
-				"node": pg, "vel": vel,
-				"ang": rng.randf_range(-7.0, 7.0),
-				"life": rng.randf_range(0.8, 1.15),
-				"max_life": 1.15, "fade": 0.45,
+				"node": pg, "vel": dir * speed,
+				"ang": rng.randf_range(-8.0, 8.0),
+				"life": rng.randf_range(0.85, 1.25), "max_life": 1.25,
+				"fade": 0.5, "age": 0.0, "phase": rng.randf() * TAU,
 			})
 
 	func release() -> void:
 		_released = true
+		_emit_dust()
 
 	func _process(delta: float) -> void:
 		if not _released:
 			return
 		for p in _pieces:
-			var node = p["node"]                 # untyped: a freed instance must not hit a typed assign
+			var node = p["node"]
 			if not is_instance_valid(node):
 				continue
-			p["vel"] *= exp(-_drag * delta)      # slide out, then friction brings it to rest
+			p["age"] += delta
+			p["vel"] *= exp(-_drag * delta)
 			node.position += p["vel"] * delta
 			p["ang"] *= exp(-_spin_drag * delta)
 			node.rotation += p["ang"] * delta
+
+			# tumble: shrink for depth + squash X to fake passing edge-on
+			var t := clampf(p["age"] / p["max_life"], 0.0, 1.0)
+			var shrink := lerpf(1.0, 0.74, t)
+			var flick := 1.0 - 0.5 * absf(sin(node.rotation * 1.3 + p["phase"]))
+			node.scale = Vector2(shrink * flick, shrink)
+
+			# glint: a bright flash at the break, then occasional specular as it spins
+			var flash := maxf(0.0, 1.0 - p["age"] / 0.14) * 0.9
+			var spec := pow(maxf(0.0, sin(node.rotation * 1.7 + p["phase"])), 14) * 0.6
+			node.color = FILL.lerp(Color(1, 1, 1, 0.94), clampf(maxf(flash, spec), 0.0, 1.0))
+
 			p["life"] -= delta
 			if p["life"] <= p["fade"]:
 				node.modulate.a = clampf(p["life"] / p["fade"], 0.0, 1.0)
@@ -187,37 +263,43 @@ class ShatterField extends Node2D:
 				node.queue_free()
 				p["node"] = null
 
-	# Voronoi cell of seed i = base polygon clipped by the perpendicular bisector
-	# against every other seed (keep the half-plane nearer to seed i).
-	func _voronoi_cell(base: Array, seeds: Array, i: int) -> Array:
-		var cell: Array = base.duplicate()
-		var si: Vector2 = seeds[i]
-		for j in seeds.size():
-			if j == i:
-				continue
-			var sj: Vector2 = seeds[j]
-			var mid := (si + sj) * 0.5
-			var normal := si - sj                  # points toward seed i (the keep side)
-			cell = _clip_halfplane(cell, mid, normal)
-			if cell.size() < 3:
-				break
-		return cell
+	# fine glass dust sprayed from the impact, under the shards
+	func _emit_dust() -> void:
+		var p := GPUParticles2D.new()
+		p.texture = _speck_texture()
+		p.position = _impact
+		p.z_index = -1
+		p.amount = 30
+		p.lifetime = 0.55
+		p.one_shot = true
+		p.explosiveness = 1.0
+		var mat := ParticleProcessMaterial.new()
+		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
+		mat.emission_sphere_radius = 4.0
+		mat.direction = Vector3(0, -1, 0)
+		mat.spread = 180.0
+		mat.gravity = Vector3.ZERO                    # top-down
+		mat.damping_min = 120.0                       # friction to rest
+		mat.damping_max = 220.0
+		mat.initial_velocity_min = 90.0
+		mat.initial_velocity_max = 320.0
+		mat.scale_min = 0.15
+		mat.scale_max = 0.5
+		mat.color = Color(1, 1, 1, 0.8)
+		p.process_material = mat
+		add_child(p)
+		p.emitting = true
+		p.finished.connect(p.queue_free)
 
-	# Sutherland–Hodgman clip: keep the part of poly where (pt - p)·n >= 0
-	func _clip_halfplane(poly: Array, p: Vector2, n: Vector2) -> Array:
-		var out: Array = []
-		var cnt := poly.size()
-		for k in cnt:
-			var a: Vector2 = poly[k]
-			var b: Vector2 = poly[(k + 1) % cnt]
-			var da := (a - p).dot(n)
-			var db := (b - p).dot(n)
-			if da >= 0.0:
-				out.append(a)
-			if (da >= 0.0) != (db >= 0.0):
-				var t := da / (da - db)
-				out.append(a + (b - a) * t)
-		return out
+	func _speck_texture() -> Texture2D:
+		var n := 16
+		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+		var c := (n - 1) / 2.0
+		for y in n:
+			for x in n:
+				var d := Vector2(x - c, y - c).length() / c
+				img.set_pixel(x, y, Color(1, 1, 1, clampf(1.0 - d, 0.0, 1.0)))
+		return ImageTexture.create_from_image(img)
 
 	func _centroid(poly: Array) -> Vector2:
 		var c := Vector2.ZERO
