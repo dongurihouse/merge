@@ -264,12 +264,12 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 ## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
 ## The ITEM (line, tier) is drawn from the candidate space of every askable line×tier: a line's tiers
-## span [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
-## TOP_TIER) — the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling). Within
-## a line the tier is shaped as a NORMAL bell centred on the band midpoint (σ = band-width / 4), so
-## asks cluster at mid-difficulty and the centre rises with level as the band widens. Each item's
-## weight is its line's newest-bias weight ((rank+1)^QUEST_NEWEST_BIAS) times that bell, so the LINE
-## distribution still leans at the richest content.
+## ALWAYS span the full band [QUEST_TIER_BASE, TOP_TIER] (9 items at 4..12), so even a single live line
+## offers plenty of distinct asks. Within a line the tier is a NORMAL bell whose PEAK and SPREAD ramp
+## with level — μ slides from the floor (peak ≈ t4 early) up to the band centre, σ widens from ~t4–t6
+## early to the full t4–t12 late — so early asks stay low/achievable while late asks reach the top
+## without ever gating tiers out. Each item's weight is its line's newest-bias weight
+## ((rank+1)^QUEST_NEWEST_BIAS) times that bell, so the LINE distribution still leans at the richest content.
 ## `avoid` is a PRIORITY-ORDERED list of recently/concurrently asked ITEM codes (line*100+tier; oldest
 ## first, freshest + concurrent stands last): each is HARD-excluded (weight 0), so a new ask never
 ## repeats one of the previous few — variety can come from a different TIER of the same line, not only a
@@ -281,14 +281,19 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
-	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER)
-	# Per-tier bell over the band [QUEST_TIER_BASE, tier_hi], shared by every line (no debut cap):
-	# weight(t) ∝ exp(-½((t-μ)/σ)²), μ = band midpoint, σ = width/4 (so the floor/ceiling sit ≈2σ out).
-	var mu: float = (QUEST_TIER_BASE + tier_hi) / 2.0
-	var sigma: float = maxf((tier_hi - QUEST_TIER_BASE) / 4.0, 0.0001)
+	# Per-tier bell over the FULL band [QUEST_TIER_BASE, TOP_TIER] — so every line always offers all of
+	# its tiers (9 items at BASE=4, TOP=12), even at level 0. weight(t) ∝ exp(-½((t-μ)/σ)²). The band is
+	# fixed; the difficulty RAMP lives in μ (the peak) and σ (the spread), which climb with level:
+	#   `soft_hi` is the old soft ceiling (climbs +1 every QUEST_LEVELS_PER_TIER levels, capped at TOP).
+	#   μ = midpoint(BASE, soft_hi) → starts at the floor (peak = t4 early), slides up to the band centre.
+	#   σ = width/4 with a floor of 1.0 → early asks span ~t4–t6 (achievable) but never collapse to a
+	#       single tier (which would force repeats); late asks spread the full bell over t4–t12.
+	var soft_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER)
+	var mu: float = (QUEST_TIER_BASE + soft_hi) / 2.0
+	var sigma: float = maxf((soft_hi - QUEST_TIER_BASE) / 4.0, 1.0)
 	var tier_w: Array = []                             # bell weight per tier, indexed t - QUEST_TIER_BASE
 	var tier_sum := 0.0
-	for t in range(QUEST_TIER_BASE, tier_hi + 1):
+	for t in range(QUEST_TIER_BASE, TOP_TIER + 1):
 		var z: float = (t - mu) / sigma
 		var g: float = exp(-0.5 * z * z)
 		tier_w.append(g)
@@ -300,7 +305,7 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 	for i in lines.size():
 		var ln := int(lines[i])
 		var line_w: float = pow(i + 1, QUEST_NEWEST_BIAS)
-		for t in range(QUEST_TIER_BASE, tier_hi + 1):
+		for t in range(QUEST_TIER_BASE, TOP_TIER + 1):
 			items.append({"line": ln, "tier": t})
 			base_w.append(line_w * tier_w[t - QUEST_TIER_BASE] / tier_sum)
 	# Hard-exclude every avoided ITEM. `avoid` is PRIORITY-ORDERED (oldest asks first; the most-recent

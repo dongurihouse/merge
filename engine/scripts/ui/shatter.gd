@@ -13,9 +13,9 @@ extends Node2D
 ## Look-dev lives in engine/tools/fx_demo.gd (make fx / make shot), which drives this same code.
 
 # --- tuning (promote to Tune.FX when locked) ----------------------------------------
-const SPOKES_MIN := 8
-const SPOKES_MAX := 11
-const RING_FRACS := [0.0, 0.24, 0.54, 0.92, 1.28]   # concentric radii ×reach; dense near impact
+const SPOKES_MIN := 11
+const SPOKES_MAX := 15
+const RING_FRACS := [0.0, 0.16, 0.33, 0.52, 0.74, 1.0, 1.3]   # concentric radii ×reach; dense near impact
 const SPEED_INNER := 1050.0     # throw speed at the impact (shards here fly fastest)
 const SPEED_OUTER := 430.0      # throw speed at the rim
 const DRAG := 0.9               # low → shards coast off-screen (distance ≈ speed/drag)

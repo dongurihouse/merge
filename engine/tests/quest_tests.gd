@@ -76,15 +76,18 @@ func _initialize() -> void:
 		if int(q.line) * 100 + int(q.tier) == 308:
 			saw_308 = true
 	ok(saw_line3_other_tier and not saw_308, "avoiding one tier still allows OTHER tiers of the same line")
-	# fallback: when EVERY candidate item is avoided (pool smaller than the avoid window) the pick still resolves.
-	# at level 0 the band is just {t4}, so one line offers a single item — avoid it and the pick still resolves.
+	# fallback: when EVERY candidate item is avoided (pool smaller than the avoid window) the pick still
+	# resolves — the band is always [4..TOP_TIER], so one line offers TOP-BASE+1 items; avoid them all.
 	rng.seed = 9
+	var all_line1: Array = []
+	for t in range(int(G.QUEST_TIER_BASE), int(G.TOP_TIER) + 1):
+		all_line1.append(100 + t)
 	var fb_ok := true
 	for _i in 200:
-		var q := G.gen_quest(0, [1], rng, [104])   # line 1 offers only t4 (band [4..4]) — avoided
-		if int(q.line) * 100 + int(q.tier) != 104:
+		var q := G.gen_quest(0, [1], rng, all_line1)   # every t4..t12 of line 1 avoided
+		if not all_line1.has(int(q.line) * 100 + int(q.tier)):
 			fb_ok = false
-	ok(fb_ok, "avoid falls back to a soft pick when every candidate item is avoided")
+	ok(fb_ok, "avoid relaxes and still resolves when every candidate item is avoided")
 
 	# --- the soft gate (gate_pause): active giver count metered to the next unlock (§7) ---
 	ok(G.active_giver_count(0, -1) == 0, "no active givers when every spot is owned (next_cost -1)")
