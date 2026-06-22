@@ -163,21 +163,20 @@
 		"stack_gap": -1.0,
 		"twinkle": 94.0
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
-		"amount_font": 25.0,
-		"close_font": 24.0,
-		"icon_px": 72.0,
+		"amount_font": 22.0,
+		"close_font": 20.0,
+		"icon_px": 40.0,
 		"item_gap": 12.0,
-		"label_font": 25.0,
-		"note_font": 16.0,
-		"pad_x": 56.0,
-		"pad_y": 44.0,
-		"row_gap": 11.0,
+		"label_font": 18.0,
+		"note_font": 13.0,
+		"pad_x": 26.0,
+		"pad_y": 20.0,
+		"row_gap": 8.0,
 		"row_pad": 14.0,
-		"title_font": 28.0,
+		"title_band_h": 76.0,
+		"title_font": 30.0,
 		"width_pct": 50.0
 	},
 	"info_bar": {

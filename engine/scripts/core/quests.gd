@@ -114,10 +114,10 @@ static func ladder_entries(seen: Dictionary, line: int) -> Array:
 
 # Reward readers — the {reward:{exp,coins,gems}} shape, falling back to the flat legacy key.
 static func exp(q: Dictionary) -> int:
-	return int(q.reward.exp) if q.has("reward") else int(q.get("exp", 0))
+	return int(q.reward.get("exp", 0)) if q.has("reward") else int(q.get("exp", 0))
 
 static func coins(q: Dictionary) -> int:
-	return int(q.reward.coins) if q.has("reward") else 0
+	return int(q.reward.get("coins", 0)) if q.has("reward") else 0
 
 # §7 featured premium: the occasional 💎 bonus on a featured quest (0 on a normal one).
 static func gems(q: Dictionary) -> int:

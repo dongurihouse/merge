@@ -90,9 +90,10 @@ Replaces the base game's pick-from-a-list "welcome a spirit" panel. There is a s
 destination — you venture out from home rather than shop from a completed map. Spend **coins** to run
 an **expedition**; it surfaces **up to three** spirits drawn from a rarity-weighted **pool shared
 across all unlocked maps**. You **keep one for free**; the other candidates vanish unless you spend
-**diamonds** to keep them too. Whatever you keep comes home *in hand*; assigning each to a map is the
-separate **Place** step. Splitting acquire from place keeps capacity pressure legible: you hold a
-spirit and must find room for it. You discover who turns up; you don't shop.
+**diamonds** to keep them too. Whatever you keep is then **placed** on a completed map that has an open
+slot — the separate **Place** step. Capacity gates the whole flow: you can't launch an expedition
+with no room anywhere, and you can't keep more spirits than you can house (see **Place**). You
+discover who turns up; you don't shop.
 
 - **Rarity** — common → rare → special. A map's **signature** spirits are its *special* draws; the
   shared core (moss / acorn / lantern) are *commons*. Rarity is a new axis on the resident type.
@@ -105,7 +106,7 @@ spirit and must find room for it. You discover who turns up; you don't shop.
   - **Premium expedition** — a pricier, diamond-funded expedition draws from **better rarity odds**
     (more rares and specials per run).
   - **Keep extras** — on any expedition, pay diamonds to keep a second or third candidate instead of
-    letting it vanish.
+    letting it vanish — offered only while you still have free slots to house them.
 - **Growth seam** — v1 is the weighted draw only. The thesis's "full search-and-extraction
   mini-game" layers on top later without changing the keep-one contract.
 
@@ -117,8 +118,13 @@ spirit assigns it to that map's roster, where it wanders as today.
 - **Accounting** — **one slot per resident instance, any tier.** Two tier-1s fill two slots;
   merging them into one tier-2 frees a slot. Merging is therefore progression *and* space management
   at once.
-- **Out of room** — a full map refuses new placements until you merge (free a slot) or upgrade its
-  capacity. This pressure is the engine of the next move.
+- **Capacity gates Explore** — the expedition reads your **total free slots across all completed
+  maps.** Zero free → the expedition is **disabled**, with a message telling you to merge or
+  upgrade/unlock room. One or more free → you may explore, and you can keep at most as many spirits
+  as you have free slots (the diamond "keep extras" option is offered only while slots remain). You
+  never hold a homeless spirit — acquisition is blocked before it can happen.
+- **Out of room → expand** — a full habitat is the engine of the next move: merge to free a slot,
+  upgrade a map's capacity, or unlock another map.
 - **Placement seam** — v1 placement is "assign to map"; spirits still wander freely (stateless
   ambient render). Hand-positioning on a grid is a later layer.
 

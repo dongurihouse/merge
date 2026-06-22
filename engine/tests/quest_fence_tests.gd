@@ -29,6 +29,10 @@ func _initialize() -> void:
 	ok(Quests.exp(q_legacy) == 2, "exp() falls back to the flat legacy key")
 	ok(Quests.coins(q_legacy) == 0 and Quests.gems(q_legacy) == 0, "legacy quests pay no coins/gems")
 	ok(Quests.gems({"reward": {"exp": 1, "coins": 0}}) == 0, "a normal (non-featured) quest has 0 gems")
+	# a reward dict that OMITS a key must read 0, never crash (a coins-only / gems-only reward — e.g. the
+	# workbench's demo giver). Dot-access (q.reward.exp) blew up here; the readers .get() with a default now.
+	ok(Quests.exp({"reward": {"coins": 4}}) == 0, "exp() reads 0 from a reward with no exp (no crash)")
+	ok(Quests.coins({"reward": {"exp": 2}}) == 0, "coins() reads 0 from a reward with no coins (no crash)")
 
 	# --- map / map_done on a fresh game (no spots owned, no gates delivered) ---
 	ok(Quests.current_map({}, []) == 0, "a fresh game's frontier is map 0")

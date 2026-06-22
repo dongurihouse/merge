@@ -2597,6 +2597,20 @@ static func _frame_cfg(cfg: Dictionary) -> Dictionary:
 	m.merge(cfg.get("frame", {}), true)
 	return m
 
+## A PLAIN, regular-weight face for body text that should read as STANDARD UI text — not the cozy chunky/
+## outlined display font the global theme applies (the "bold marker" look). The info sheet's rows use this
+## with the outline off, so the labels/amounts/notes read as clean normal text. Cached per session.
+static var _plain_cache: Font = null
+static func _plain_font() -> Font:
+	if _plain_cache != null:
+		return _plain_cache
+	var sys := SystemFont.new()
+	sys.font_names = PackedStringArray(["SF Pro Text", "Helvetica Neue", "Segoe UI", "Roboto", "Arial", "Verdana"])
+	sys.font_weight = 400
+	sys.generate_mipmaps = true
+	_plain_cache = sys
+	return _plain_cache
+
 ## The INFO sheet face — a parchment card that explains a shop item as a LIST OF LINE ITEMS (icon +
 ## label + a small note + a right-aligned amount), under a ribbon title, closed by a "Got it" pill. The
 ## ui/ layer owns the modal overlay/veil (like vault_dialog); this builds only the card face so the look
@@ -2621,9 +2635,12 @@ static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", int(opts.get("row_gap", 8)))
 	card.add_child(col)
-	var ribbon := Look.title_ribbon(String(spec.get("title", "")), int(opts.get("title_font", 26)))
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
+	# the title is the engraved RIBBON banner (the same polished header shop/mail/vault wear), not a plain
+	# pill — burned into the ribbon so it reads as a designed title. Sized to the content width.
+	var content_w := width - 2.0 * float(opts.get("pad_x", 26))
+	var banner := _banner(String(spec.get("title", "")), int(opts.get("title_font", 30)),
+		float(opts.get("title_band_h", 76)), content_w, false, 0.0, null, 0.0, 0.0, 0.5, "shop/shop_banner.png", "")
+	col.add_child(banner)
 	var items: Array = spec.get("items", [])
 	for i in items.size():
 		if i > 0:
@@ -2635,8 +2652,10 @@ static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary
 		fl.text = footer
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fl.add_theme_font_override("font", _plain_font())          # standard text, not the chunky display face
 		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+		fl.add_theme_constant_override("outline_size", 0)
 		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		col.add_child(fl)
 	var btns := HBoxContainer.new()
@@ -2680,8 +2699,10 @@ static func _info_row(it: Dictionary, opts: Dictionary) -> Control:
 	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
 	lbl.text = String(it.get("label", ""))
+	lbl.add_theme_font_override("font", _plain_font())             # standard text, not the chunky display face
 	lbl.add_theme_font_size_override("font_size", int(opts.get("label_font", 18)))
 	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	txt.add_child(lbl)
 	var note := String(it.get("note", ""))
@@ -2689,8 +2710,10 @@ static func _info_row(it: Dictionary, opts: Dictionary) -> Control:
 		var nl := Label.new()
 		nl.text = note
 		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.add_theme_font_override("font", _plain_font())
 		nl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
 		nl.add_theme_color_override("font_color", Color(Pal.BARK, 0.9))
+		nl.add_theme_constant_override("outline_size", 0)
 		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		txt.add_child(nl)
 	row.add_child(txt)
@@ -2698,8 +2721,10 @@ static func _info_row(it: Dictionary, opts: Dictionary) -> Control:
 	if amount != "":
 		var al := Label.new()
 		al.text = amount
+		al.add_theme_font_override("font", _plain_font())
 		al.add_theme_font_size_override("font_size", int(opts.get("amount_font", 22)))
 		al.add_theme_color_override("font_color", Pal.INK)
+		al.add_theme_constant_override("outline_size", 0)
 		al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		al.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2801,7 +2826,8 @@ static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_x": float(i.get("pad_x", 26)),         # the card's inner side padding (overrides the parchment default)
 		"pad_y": float(i.get("pad_y", 20)),         # the card's inner top/bottom padding
 		"icon_px": float(i.get("icon_px", 40)),
-		"title_font": int(i.get("title_font", 26)),
+		"title_band_h": float(i.get("title_band_h", 76)),   # the title ribbon banner's height
+		"title_font": int(i.get("title_font", 30)),
 		"label_font": int(i.get("label_font", 18)),
 		"amount_font": int(i.get("amount_font", 22)),
 		"note_font": int(i.get("note_font", 13)),
