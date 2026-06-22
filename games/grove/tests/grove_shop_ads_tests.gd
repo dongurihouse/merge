@@ -152,8 +152,9 @@ func _initialize() -> void:
 	var v_overlay: Control = vhost.get_child(vhost.get_child_count() - 1)
 	ok(v_overlay.find_children("*", "PanelContainer", true, false).size() >= 1, \
 		"the piggy bank opens as a framed parchment card (diegetic, §13)")
-	# press Claim → then Confirm on the spawned confirm overlay → the jar cracks.
-	ok(_press_label(v_overlay, "Claim"), "the piggy bank shows a Claim button")
+	# press the green PRICE CTA (the claim button wears the jar's fixed price now, not the word "Claim") →
+	# then Confirm on the spawned crack confirm → the jar cracks.
+	ok(_press_label(v_overlay, Vault.price_usd()), "the piggy bank shows its claim CTA (the fixed price)")
 	var v_confirm: Control = vhost.get_child(vhost.get_child_count() - 1)
 	ok(_press_label(v_confirm, "Confirm"), "the crack confirm shows a Confirm button")
 	ok(Save.diamonds() == v_before + v_banked and Vault.balance() == 0, \
@@ -176,6 +177,44 @@ func _initialize() -> void:
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
 
+	# T-K: the FREE-ACORN faucet moved OFF the side rail INTO the premium (acorn) shop. The mechanic is
+	# unchanged (the free_gems ADS row — cap/cooldown/reward); only the surface moved. The pure status +
+	# claim helpers drive the card; the card itself is then asserted through the REAL shop below.
+	fresh("free_gems_helpers")
+	var fg_amt := int(Data.ADS.free_gems.gems)
+	ok(ShopS.free_gems_amount() == fg_amt, "free_gems_amount reports the ADS reward (%d🌰)" % fg_amt)
+	var fg0: Dictionary = ShopS.free_gems_status()
+	ok(bool(fg0.available) and String(fg0.kind) == "ready", "a fresh faucet reads available (kind 'ready')")
+	var fg_before := Save.diamonds()
+	var fg_got: int = ShopS.claim_free_gems()
+	ok(fg_got == fg_amt and Save.diamonds() == fg_before + fg_amt, "claiming the faucet grants %d🌰 to the wallet" % fg_amt)
+	ok(ShopS.claim_free_gems() == 0 and Save.diamonds() == fg_before + fg_amt, "an immediate second claim is refused (no over-grant)")
+	var fg1: Dictionary = ShopS.free_gems_status()
+	ok(not bool(fg1.available) and String(fg1.kind) == "cooldown" and int(fg1.minutes) >= 1, \
+		"right after a watch the faucet is on cooldown (a 'Ready in Nm' read)")
+	# exhaust the daily cap (clearing the cooldown between claims) → the faucet reads 'capped' (Back tomorrow).
+	for _k in range(Ads.remaining_today("free_gems")):
+		Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+		ShopS.claim_free_gems()
+	Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+	var fg2: Dictionary = ShopS.free_gems_status()
+	ok(not bool(fg2.available) and String(fg2.kind) == "capped", "with the daily cap spent the faucet reads 'capped' (Back tomorrow)")
+
+	# T-K(ii): the faucet card is REACHABLE in the real premium shop and grants end-to-end. Open the acorn
+	# stall on a tree-attached Map host (kit + viewport resolve), find the green "Free" CTA, press it, and
+	# assert the wallet gains the reward — proving the rail→shop move wired through.
+	fresh("free_gems_card")
+	var sh = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(sh)
+	if sh.content == null:
+		sh._ready()
+	ShopS.open_premium(sh, {})
+	var sh_overlay: Control = sh.get_child(sh.get_child_count() - 1)
+	var fg_card_before := Save.diamonds()
+	ok(_press_label(sh_overlay, "Free"), "the premium shop shows a 'Free' acorn faucet CTA")
+	ok(Save.diamonds() == fg_card_before + fg_amt, "pressing the shop faucet grants the %d🌰 reward" % fg_amt)
+	sh.queue_free()
+
 	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")
@@ -183,14 +222,21 @@ func _initialize() -> void:
 	var backdrop := BoardScript._field_backdrop()
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
-	var lock_sb := PieceViewScript._locked_style(100.0)
-	if lock_sb is StyleBoxFlat:
-		ok((lock_sb as StyleBoxFlat).bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
-		ok((lock_sb as StyleBoxFlat).shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
-		ok(not (lock_sb as StyleBoxFlat).bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
-		ok((lock_sb as StyleBoxFlat).border_color.is_equal_approx(Color(Pal.LOCKED_GLYPH, 0.30)), "locked cell rim is the quiet recessive LOCKED_GLYPH @ 0.30")
-	else:
-		ok(lock_sb is StyleBoxTexture, "locked cell well uses the painted slot_locked art when the kit is present")
+	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); a recessive `_locked_fill`
+	# Panel now backs its rounded corners (the painted slot_locked padlock + the Level badge ride ON TOP).
+	# Assert that base fill — a solid Pal.LOCKED, on the Sunk plane (no shadow), distinct from an empty
+	# cell, receding a hair for deeper rings (the standalone _locked_style stylebox accessor is retired).
+	var lock_fill := PieceViewScript._locked_fill(100.0, 1)
+	var lock_sb := lock_fill.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(lock_sb != null, "the locked-cell base is a solid StyleBoxFlat fill (a recessive well, not transparent art)")
+	ok(lock_sb != null and lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
+	ok(lock_sb != null and lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+	ok(lock_sb != null and not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
+	var deep_fill := PieceViewScript._locked_fill(100.0, 3)
+	var deep_sb := deep_fill.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(deep_sb != null and deep_sb.bg_color.v <= lock_sb.bg_color.v, "deeper rings recede a hair (ring 3 no brighter than ring 1)")
+	lock_fill.free()
+	deep_fill.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
 	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the gate marker")
 	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \

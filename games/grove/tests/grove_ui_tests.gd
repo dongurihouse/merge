@@ -51,10 +51,12 @@ func _initialize() -> void:
 	Shop.open_premium(s7, {})
 	ok(s7.get_child_count() == k + 1, "the premium stall opens over the board")
 	var rows_premium := _shop_rows(s7)
-	var want_premium := Shop.offers_for("diamonds").size() \
+	# +1 for the Free-acorn faucet card (the rewarded watch moved off the side rail into the stall's lead
+	# slot; its CTA is always present — "Free" when offerable, the cozy timer when cooling/capped).
+	var want_premium := 1 + Shop.offers_for("diamonds").size() \
 		+ (1 if Shop.starter_available() else 0) + Shop.CASH_PACKS.size()
 	ok(rows_premium == want_premium, \
-		"premium stall = 💎 shortcut(s) + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
+		"premium stall = Free faucet + 💎 shortcut(s) + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
 	# the coin stall = the Coin pouch + the coin-priced shortcuts, and NOTHING else (no acorn ladder):
 	# the exact count proves the split — it equals pouch + shortcuts, so no cash/💎 card leaked in.
 	k = s7.get_child_count()

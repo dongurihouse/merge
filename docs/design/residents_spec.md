@@ -1,67 +1,93 @@
 # Residents — Expansion Spec
 
 *Working title: "The Homecoming" (placeholder).*
-*Status: in progress — this is the summary and thesis. Mechanics, economy, and risk sections to follow.*
+*Status: in progress — summary and thesis only; mechanics, economy, and risk sections to follow.*
 
-A standalone expansion that layers on top of the base game (`merge_spec.md`, `grove_spec.md`).
-It supersedes the base game's "residents are cosmetic-only" stance — see *What this changes*.
+A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
+supersedes the base game's "residents are cosmetic-only" stance — see *What this changes*.
 
 ---
 
 ## Summary
 
-Residents is an expansion layer that sits on top of the base game's core loop (merge →
-deliver quests → restore the map). The base game's job is to *restore* a place. This
-expansion's job is to make a *restored place worth returning to*. Once a map is complete it
-becomes a living habitat: spirit-folk come home, the player chooses who to take in, the
-population grows on its own while away, and the residents pay the player back — in resources
-and in requests. It turns today's dead-end ("the map is finished, there's nothing left to do
-here") into the game's primary long-tail and daily-return loop.
+The base game restores places. This expansion makes a restored place worth living in.
 
-## Why we want it (the fundamental reasoning)
+It adds two things: a new **Explore** mode, where the player spends coins to venture out and
+bring spirit-folk home; and a rule that every completed map is a **habitat with limited
+capacity** for them. You explore to find spirits, choose who to keep, place them, and merge
+two-of-a-kind to climb tiers and free space. In return, the spirits produce items that feed
+back into the merge board.
 
-A completed map is currently a trophy with nothing behind it. Residents technically exist,
-but welcoming one is a pure coin **sink**: you spend, a placeholder wanders in, and you get
-nothing back — no goal, no reward, no reason to keep going. That was deliberate; the
-"cosmetic-only, no yield, no power" rule kept the economy provably safe. But it left the
-endgame hollow on three fronts that matter for a live game:
+Because spirits need room — and rarer ones are worth chasing — finishing a map is no longer an
+end but the start of a long-tail loop that pushes you to unlock and upgrade more maps. Coins
+fund the expeditions (their first open-ended use) and diamonds buy better odds, so both
+currencies finally have somewhere to go. Today's dead-end — "the map is finished, nothing left
+to do" — becomes the game's primary long-tail and daily-return loop.
 
-- **Coins have nowhere meaningful to go.** Spending is a drain, not a power — so the
-  late-game economy is inert.
-- **Finished maps go dead.** The thing the player worked hardest to complete becomes the
-  thing with the least to do.
-- **Nothing compounds and nothing pulls them back.** No reason to return tomorrow, no set to
-  complete, no growth to check on.
+## Why we want it
+
+A completed map is currently a trophy with nothing behind it. Welcoming a resident is a pure
+coin **sink**: you spend, a placeholder wanders in, and nothing comes back — no goal, no
+reward, no reason to continue. The "cosmetic-only, no yield, no power" rule kept the economy
+safe but left the endgame hollow:
+
+- **Coins have nowhere meaningful to go** — spending is a drain, not a power.
+- **Finished maps go dead** — the player's hardest-won content has the least to do.
+- **Nothing compounds or pulls them back** — no set to complete, no growth to check on.
 
 The base game proves the player *can* finish a map. It gives them no reason to *live* in one.
 
 ## Thesis
 
-A restored world should **grow, reward, and ask** — not just sit there. We turn residents
-from a cost into the engine of the late game by stacking four reinforcing pulls on a single
-roster:
+A restored world should **grow, reward, and ask** — not sit there. Four moves form a
+self-renewing loop, bolted on top of the merge core without changing how the core plays:
 
-- **Acquire with delight** — you don't buy a unit, you *take in a stray*: a few show up, you
-  keep one. Choice plus chance, endlessly repeatable, with a premium path that improves the
-  odds of rarer or higher residents.
-- **Collect** — the roster becomes a set worth completing: rarer and higher-tier residents
-  are *visible goals*, not invisible counts.
-- **Grow idle** — the habitat keeps filling while you're away, and fills **faster the more
-  you already have** — the compounding hook that makes leaving and returning feel earned.
-- **Be repaid** — residents *produce*, and they *ask* (quest-givers offering special things),
-  so the spend finally carries power and the finished map stays a live surface.
+- **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick
+  from a list, you discover who turns up and keep one. Spirits have **rarity** (common → rare →
+  special), and a **premium (diamond) path** improves the loot on every axis: better rare odds,
+  a higher starting tier, and exclusive *signature* spirits the coin path never shows. Starts
+  simple; built to grow into a full search-and-extraction mini-game.
+- **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
+  upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
+  progression and space management at once.
+- **Expand — the pull outward.** Because spirits need room, the player has a concrete new
+  reason to unlock more maps and upgrade capacity, wiring the expansion into the base game's
+  progression.
+- **Reward — the payback.** Placed spirits **produce for the core game**: board items
+  collected from the bag and spent back on the board — boosters, generator items, even Water.
+  More and higher-tier spirits make more (the idle, compounding payoff). They also fill a
+  **collection** worth completing (kinds × rarity × signatures, per map and overall) and act as
+  **quest-givers** handing out special things.
 
-**The bet:** each pull is weak alone — we've watched the cosmetic-only version fall flat —
-but stacked they reinforce. Acquisition feeds collection, collection motivates idle growth,
-idle growth feeds production, production funds more acquisition. That self-renewing loop is
-the retention engine and the reason coins and diamonds matter, bolted on top of the merge
-core without changing how the core plays.
+The residents loop: explore → keep one → place → merge → run out of room → expand → explore again.
+
+## The whole-game loop
+
+The expansion turns one loop into three that feed each other:
+
+1. **Merge the board** *(base game)* — restore spots and unlock maps; that buys more board
+   space *and* more room for residents.
+2. **Explore and grow residents** *(this expansion)* — explore, bring spirits home, merge to
+   climb tiers and free slots; that pushes you to unlock and upgrade more maps.
+3. **Residents power the board** *(payback)* — placed spirits produce boosters, coins, items,
+   and Water that make the board faster and more fun.
+
+The cycle closes: stronger board → more space → more residents → more production → stronger
+board. The base game was a single loop that *ended* when a map was finished; this makes it a
+three-engine flywheel with no end state — which is what an endgame needs.
 
 ## What this changes in the base game
 
-This expansion **supersedes** the current "residents are cosmetic-only forever — no yield, no
-power" mandate (`merge_spec.md` §4 corollary; `grove_spec.md` §3). Residents become an
-economic faucet and a progression system, which deliberately reopens the economy's
-"sink > faucet" balance — to be kept bounded and re-validated against the pacing sim
-(`grove_sim.gd`). That trade *is* the point: the base game showed coins have no power; this
-expansion gives them power.
+Three deliberate reversals of base-game rules:
+
+- **Cosmetic-only → faucet + progression.** Supersedes "residents grant no yield, no power"
+  (`merge_spec.md` §4; `grove_spec.md` §3). This reopens the economy's "sink > faucet" balance,
+  to be kept bounded and re-validated against the pacing sim (`grove_sim.gd`). That trade *is*
+  the point: the base game showed coins have no power; this gives them power.
+- **No roster cap → per-map capacity.** Replaces "residents are unbounded; tier-compression
+  keeps them sparse" (`grove_spec.md` §3) with an explicit, upgradable cap. Scarcity is now a
+  core lever — it makes placement a choice, makes merging matter, and gives map unlocks a purpose.
+- **No rarity → rarity + signatures.** Introduces rarity and premium-exclusive signature
+  spirits as collection axes, superseding the guardrail that banned rarity tiers (`BACKLOG.md`).
+  Which other cozy-capsule guardrails to keep (no-loss, no FOMO, transparent pricing) is
+  deferred to the mechanics section.

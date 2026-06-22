@@ -20,6 +20,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Ads = preload("res://engine/scripts/core/ads.gd")          # the rewarded-ad faucet behind the Free acorn card
 const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
@@ -89,6 +90,31 @@ static func grant_starter() -> int:
 	Save.add_diamonds(gems)
 	Save.add_water_pending(int(STARTER_PACK.get("water", 0)))
 	return gems
+
+# --- the free-acorn faucet (§4/§10): the rewarded "watch → a few 🌰" that used to live on the side
+# rail, now the premium stall's lead card. The mechanic is the Ads "free_gems" row (cap/cooldown/reward);
+# these wrap it so the storefront + tests share one source of truth.
+
+# The reward size the faucet pays (the card's count) — the ADS "free_gems" gem grant.
+static func free_gems_amount() -> int:
+	return int(D.ADS.get("free_gems", {}).get("gems", 0))
+
+# The faucet's display state for the card: {available, kind, minutes}. kind is "ready" (offerable now),
+# "cooldown" (a watch is cooling — `minutes` is the cozy "Ready in Nm" round-up), or "capped" (the daily
+# cap is spent — "Back tomorrow"). Pure read (Ads/Save) — the card + tests share it, no state change.
+static func free_gems_status() -> Dictionary:
+	if Ads.can_show("free_gems"):
+		return {"available": true, "kind": "ready", "minutes": 0}
+	if Ads.remaining_today("free_gems") <= 0:
+		return {"available": false, "kind": "capped", "minutes": 0}
+	var left := Save.ad_cooldown_left("free_gems", Ads.cooldown("free_gems"))
+	return {"available": false, "kind": "cooldown", "minutes": maxi(1, ceili(left / 60.0))}
+
+# Claim the faucet (the ad stub is a no-op in this build — the real SDK show slots in at the card's
+# on_buy, like the cash-pack confirm). Returns the 🌰 granted, 0 if refused (capped/cooling).
+static func claim_free_gems() -> int:
+	var res := Ads.claim("free_gems")
+	return int(res.get("gems", 0)) if bool(res.get("ok", false)) else 0
 
 # --- item-shortcuts (§10): buy a mid-tier PIECE to skip the grind to it ------------
 # Spends the offer's currency (coins for low tiers / 💎 for deeper ones) and QUEUES the
@@ -303,6 +329,9 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var hero_px: float = float(refs.hero_px)
 	var secs: Array = []
+	# Free acorns — the rewarded faucet (moved off the side rail). Always shown; dims to a cozy
+	# "Ready in Nm" / "Back tomorrow" read when a watch isn't offerable yet (§10 — a faucet, never a wall).
+	secs.append({"caption": host.tr("Free acorns"), "cards": [_free_gems_card(refs)]})
 	var feat: Array = []
 	for offer in offers_for("diamonds"):
 		feat.append(_offer_card(refs, offer))
@@ -332,6 +361,25 @@ static func _premium_sections(refs: Dictionary) -> Array:
 		packs.append(card)
 	secs.append({"caption": host.tr("Acorn pouches"), "cards": packs})
 	return secs
+
+# The premium stall's lead card: the rewarded free-acorn faucet. Shows the 🌰 reward + a green "Free"
+# CTA when offerable; when cooling/capped the CTA greys and reads the cozy timer, and a press is a no-op
+# (the faucet is just resting). on_buy re-checks the gate so a stale press can't over-grant.
+static func _free_gems_card(refs: Dictionary) -> Dictionary:
+	var host: Control = refs.host
+	var st := free_gems_status()
+	var cta := host.tr("Free")
+	if not bool(st.available):
+		cta = host.tr("Back tomorrow") if String(st.kind) == "capped" else host.tr("Ready in %dm") % int(st.minutes)
+	return {
+		"icon": "gem", "count": free_gems_amount(),
+		"price": cta, "price_icon": "",
+		"affordable": bool(st.available),
+		"on_buy": func() -> void:
+			if free_gems_status().available:
+				_flow_free_gems(refs),
+		"on_info": func() -> void: _info_sheet(host, host.tr("Free acorns"),
+			host.tr("Watch a short clip to collect a few acorns, free. Comes back a few times a day — a little top-up whenever you fancy one, never required."))}
 
 # One item-shortcut card — a REAL piece preview (the game-injected hero node) priced in the offer's
 # currency (coins for low tiers / 💎 for deeper ones); buying queues the piece into the pending grant.
@@ -401,6 +449,21 @@ static func _flow_water(refs: Dictionary) -> void:
 
 static func _flow_coins(refs: Dictionary) -> void:
 	_buy(refs, "gem", COIN_PACK_GEM_COST, buy_coin_pack, "coin")
+
+# The free-acorn faucet flow (no spend): claim, fly a 🌰 to the wallet, and rebuild the storefront so the
+# card flips to its cooldown read. Refused (raced past the cap) → a soft nudge + rebuild, no grant.
+static func _flow_free_gems(refs: Dictionary) -> void:
+	var host: Control = refs.host
+	if claim_free_gems() <= 0:
+		Audio.play("invalid_soft", -4.0)
+		_after_buy(refs)
+		return
+	Audio.play("merge_success", -3.0, 1.2)
+	var gem_n := _wallet_node(refs, "gem")
+	if gem_n != null:
+		FX.fly_to_wallet(host, _fb_at(host), Look.icon("gem", Tune.FLY_ICON), gem_n, func() -> void: _after_buy(refs))
+	else:
+		_after_buy(refs)
 
 # An item-shortcut buy (coins or 💎): spend, queue the piece, drain to the live board if present.
 static func _flow_item(refs: Dictionary, idx: int, currency: String, cost: int) -> void:

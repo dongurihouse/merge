@@ -243,7 +243,7 @@ var _params := {
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
-	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
+	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -566,7 +566,7 @@ func _make_element(id: String) -> Control:
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
 			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
 			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
-			co["icons"] = [["water", 40.0]]
+			co["icons"] = [["water", float(co["icon_size"])]]   # the preview water icon tracks the Icon Size slider (water optical = 1.0)
 			co["show_plus"] = true
 			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
 		"info_bar":
@@ -1380,7 +1380,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
 			if bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_option_row("Border", "border", Kit.PILL_BORDERS.keys()))   # which painted capsule
-			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding
+			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding (right side + default left)
+			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))       # LEFT padding — tighten the icon side on its own
 			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
 			if not bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius

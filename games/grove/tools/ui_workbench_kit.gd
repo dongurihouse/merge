@@ -2878,7 +2878,8 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"use_art":     bool(c.get("use_art", true)),       # painted capsule (panel_pill.png) vs code-drawn pill
 		"border":      String(c.get("border", "gold capsule")),   # which painted capsule (PILL_BORDERS) — art path only
-		"pad_x":       float(c.get("pad_x", 18.0)),        # Tune.CLUSTER_PAD_X — horizontal content margin
+		"pad_x":       float(c.get("pad_x", 18.0)),        # horizontal content margin (the RIGHT side + the default left)
+		"pad_left":    float(c.get("pad_left", float(c.get("pad_x", 18.0)))),   # LEFT content margin; absent → symmetric with pad_x
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
@@ -2915,6 +2916,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## preview both call this, so the pill's look lives in exactly one place.
 static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	var pad_x := float(opts.get("pad_x", 18.0))
+	var pad_left := float(opts.get("pad_left", pad_x))   # left margin, tightenable apart from the right (which keeps pad_x)
 	var pad_y := float(opts.get("pad_y", 12.0))
 	if bool(opts.get("use_art", true)):
 		var bd: Dictionary = pill_border(String(opts.get("border", "gold capsule")))
@@ -2923,7 +2925,7 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 			var sbt := StyleBoxTexture.new()
 			sbt.texture = load(p)
 			sbt.set_texture_margin_all(int(bd["cap"]))   # cap radius: the rounded ends never squash
-			sbt.content_margin_left = pad_x
+			sbt.content_margin_left = pad_left
 			sbt.content_margin_right = pad_x
 			sbt.content_margin_top = pad_y
 			sbt.content_margin_bottom = pad_y
@@ -2935,7 +2937,7 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	sb.border_color = CUR_PILL_BORDER
 	sb.shadow_color = CUR_PILL_SHADOW
 	sb.shadow_size = int(opts.get("shadow_size", 5))
-	sb.content_margin_left = pad_x
+	sb.content_margin_left = pad_left
 	sb.content_margin_right = pad_x
 	sb.content_margin_top = pad_y
 	sb.content_margin_bottom = pad_y

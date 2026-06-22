@@ -24,7 +24,6 @@ const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims earned premium here
 const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T45: the diegetic piggy-bank jar (chrome entry point)
-const Ads = preload("res://engine/scripts/core/ads.gd")                      # rewarded ads — the free-gem rail (T43); the 2× coin doubler moved to board.gd (quest reward)
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const Shop = preload("res://engine/scripts/ui/shop.gd")                      # chrome: the Store-badge query (starter_available)
@@ -98,7 +97,6 @@ var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
 var _store_badge: Control = null  # Store "new offer" badge — lit while the starter pack is unclaimed
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
-var _free_badge: Control = null   # Free rail badge — lit when the rewarded gem faucet is offerable
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
@@ -1365,12 +1363,8 @@ func _build_liveops_rail() -> void:
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot", 0, bopts)
 	Look.attach_badge(daily, _daily_badge, bover)
-	# Free — a rewarded-video gem faucet; badge when a watch is offerable. Wears the optional SPARKLE
-	# (the "+gems" twinkle from the reference) at the workbench-tuned amount.
-	var free := _rail_button("faucet", tr("Free"), _claim_free_gems, true)
-	_place_rail(free, top, slot, step); slot += 1
-	_free_badge = Look.badge("dot", 0, bopts)
-	Look.attach_badge(free, _free_badge, bover)
+	# (The rewarded "Free" gem faucet moved off the rail into the premium/acorn shop — its lead card.
+	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
 	var piggy := _rail_button("piggy", tr("Vault"), _open_vault)
@@ -1416,12 +1410,10 @@ func _place_rail(b: Button, top: float, slot: int, step: float) -> void:
 	b.offset_bottom = b.offset_top + _rail_disc_px
 
 # Light each rail badge ONLY when its surface is actionable (the calm rule: the badge pulls, not the
-# button). Daily = today unclaimed; Free = a rewarded watch offerable; Inbox = unread count (guarded).
+# button). Daily = today unclaimed; Inbox = unread count (guarded).
 func _refresh_liveops_badges() -> void:
 	if _daily_badge != null and is_instance_valid(_daily_badge):
 		_daily_badge.visible = not Login.claimed_today()
-	if _free_badge != null and is_instance_valid(_free_badge):
-		_free_badge.visible = Ads.can_show("free_gems")
 	if _has_inbox and _inbox_badge != null and is_instance_valid(_inbox_badge):
 		var n := int(load("res://engine/scripts/core/inbox.gd").unread_count())
 		_inbox_badge.visible = n > 0
@@ -1437,29 +1429,6 @@ func _open_daily() -> void:
 		_update_hud()
 		_refresh_piggy_pip()
 		_refresh_liveops_badges()})
-
-# Free rail tap: the rewarded gem faucet. If a watch is offerable, claim it (the stub records the
-# watch + grants the 💎 purely in Save) and play a small reward FX from the button; else a soft
-# "come back" nudge — never a wall. Refreshes the wallet + the Free badge after.
-func _claim_free_gems() -> void:
-	# the FX origin is the Free button (the badge's host), so coins/gems arc from where the player tapped
-	var src: Vector2 = get_global_rect().get_center()
-	if _free_badge != null and is_instance_valid(_free_badge) and is_instance_valid(_free_badge.get_parent()):
-		src = (_free_badge.get_parent() as Control).get_global_rect().get_center()
-	var res := Ads.claim("free_gems")
-	if not bool(res.get("ok", false)):
-		Audio.play("invalid_soft", -6.0)
-		FX.floating_text(self, src, tr("More acorns soon — come back later"), CREAM, 22)
-		_refresh_liveops_badges()
-		return
-	var gems := int(res.get("gems", 0))
-	Audio.play("level_complete", -3.0, 1.15)
-	FX.celebrate_reward(self, src, "gem", gems, Color("#A9C7E8"))
-	FX.fly_to_wallet(self, src, Look.icon("gem", 36.0),
-		_hud_panels[0] if _hud_panels.size() > 0 and is_instance_valid(_hud_panels[0]) else null,
-		func() -> void: _update_hud())
-	_update_hud()
-	_refresh_liveops_badges()
 
 # Inbox rail tap (GUARDED): open the parallel mailbox modal via load() so this worktree never hard-
 # depends on a system it doesn't own. A claim's refresh hook re-reads the wallet + unread badge (Save
