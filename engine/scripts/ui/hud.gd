@@ -30,10 +30,14 @@ const STRAW = Pal.STRAW
 # height so the rounded ends always draw 1:1 and never crush into a thin border (T48 failure mode).
 const PILL_SLOT_H := 65.0
 # The wallet is THREE separate capsules centred across the top (board2.png); PILL_GAP is the gap
-# between them. The settings gear is a top-right disc (GEAR_PX square) sized to MATCH the top-left
-# level badge (lv_px below) so the two top corners read at the same size and the same Y baseline.
+# between them. The settings gear is a top-right disc matched to the top-left level badge so the two top
+# corners read at the SAME VISIBLE size + the same Y centre. The two boxes are NOT equal: the gear's
+# disc_round art fills ~97% of its box but the level MEDAL art only ~78%, so equal boxes would render the
+# medal much smaller. We size each box from its art's fill so the two painted shapes come out equal, and
+# vertically CENTRE the (shorter) gear box within the (taller) level box so their centres line up.
 const PILL_GAP := 12.0
-const GEAR_PX := 130.0
+const LV_BADGE_PX := 150.0   # the level-badge BOX (its medal fills ~78% → ~116px visible)
+const GEAR_PX := 120.0       # the gear BOX (its disc fills ~97% → ~116px visible, matching the medal)
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
@@ -85,8 +89,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		gear.anchor_bottom = 0.0
 		gear.offset_left = -GEAR_PX - Tune.EDGE_MARGIN
 		gear.offset_right = -Tune.EDGE_MARGIN
-		gear.offset_top = gtop
-		gear.offset_bottom = gtop + GEAR_PX
+		# centre the (shorter) gear box within the level badge's box span [gtop, gtop+LV_BADGE_PX] so the
+		# gear's disc and the level medal share a Y centre — both art shapes sit ~box-centred.
+		gear.offset_top = gtop + (LV_BADGE_PX - GEAR_PX) / 2.0
+		gear.offset_bottom = gear.offset_top + GEAR_PX
 		host.add_child(gear)
 
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
@@ -112,7 +118,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
-	var lv_px := GEAR_PX   # match the top-right settings gear so both top corners are the same size + Y
+	var lv_px := LV_BADGE_PX   # bigger BOX than the gear (its medal under-fills) so the visible medal matches
 	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
 	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
 	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
@@ -353,9 +359,9 @@ static func _frame_tex(level: int) -> Texture2D:
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
 # ring (and clear the crown/laurel on the high badges) instead of crowding it.
 static func _lv_font_size(level: int) -> int:
-	# scaled +30% with the larger lv_px badge so digits stay centred in the medal.
+	# scaled to the LV_BADGE_PX medal so digits stay centred in the medal's open centre as it grows.
 	if level >= 100:
-		return 33
+		return 38
 	if level >= 10:
-		return 42
-	return 53
+		return 48
+	return 61
