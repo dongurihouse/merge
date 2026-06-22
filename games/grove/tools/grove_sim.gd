@@ -351,22 +351,14 @@ func _next_premium_welcome() -> Dictionary:
 				return {"z": z, "def": td}
 	return {}
 
-# Cheapest unowned, level-affordable spot in `z`: [cost, id]; [-1,""] all owned; [-2,""] all level-locked.
+# The next spot to claim in `z`: [unlock_exp, id]; [-1,""] when every spot is owned. (NOTE: grove_sim
+# still models the retired spend economy — its faucet/sink numbers need a separate exp-model rework;
+# this keeps it compiling against the central exp threshold ladder.)
 func _map_next_spot(z: int) -> Array:
-	var cheapest := 99
-	var cid := ""
-	var missing := false
-	for k in G.MAPS[z].spots.size():
-		var sp: Dictionary = G.MAPS[z].spots[k]
-		if unlocks.has(String(sp.id)):
-			continue
-		missing = true
-		if int(sp.cost) < cheapest:
-			cheapest = int(sp.cost)
-			cid = String(sp.id)
-	if not missing:
+	var nxt := G.map_next_unlock(z, unlocks)
+	if int(nxt.k) == -1:
 		return [-1, ""]
-	return [cheapest, cid]
+	return [int(nxt.exp), String(G.MAPS[z].spots[int(nxt.k)].id)]
 
 func _map_all_bought(z: int) -> bool:
 	return _map_next_spot(z)[0] == -1

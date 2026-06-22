@@ -3635,7 +3635,7 @@ static func _bag_leaf(rel: String, flip: bool) -> Control:
 	return t
 
 ## The map-SELECT place-picker CARD, built from game-resolved DATA + workbench-tuned presentation.
-## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill), stars_left:int,
+## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill), unlock_exp:int,
 ##        prereq:String (the locked "✿ after <prev>" line), map_id:String (the veil-art seam) }.
 ## `opts`: map_card_opts_from_config(...). The CALLER sizes the card (card_w × card_h); the kit lays the
 ## frame / art / pill out inside it. Every node IGNOREs the mouse (the map's single-input-surface rule).
@@ -3768,11 +3768,9 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(lbl)
 	else:
-		var ic := Look.icon("star", ph * 0.50)
-		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(ic)
+		# the map's full-restore exp requirement (no star sprite — exp/level is the only currency now).
 		var lbl := Label.new()
-		lbl.text = String(TranslationServer.translate("%d left")) % int(d.get("stars_left", 0))
+		lbl.text = String(TranslationServer.translate("✦ %d exp")) % int(d.get("unlock_exp", 0))
 		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
 		lbl.add_theme_color_override("font_color", Pal.INK)
 		lbl.add_theme_constant_override("outline_size", 0)

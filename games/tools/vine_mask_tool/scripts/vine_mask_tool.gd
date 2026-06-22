@@ -681,8 +681,9 @@ func _save_regions_to_file() -> void:
 func _clamp_to_image(position: Vector2) -> Vector2:
 	return Vector2(clampf(position.x, 0.0, float(image_size.x - 1)), clampf(position.y, 0.0, float(image_size.y - 1)))
 
-# The game's default stars for region `index` — mirrors VineMaps' COST_LADDER so a legacy map's
-# costs survive a tool round-trip. Past the table, the tail value repeats.
+# The tool's own default cost ladder for region `index` (the artist may still author per-region costs
+# in the tool; the GAME ignores them now — unlock thresholds come from G.spot_unlock_exp). Past the
+# table, the tail value repeats.
 func _ladder_cost(index: int) -> int:
-	var ladder: Array = VineMaps.COST_LADDER
-	return int(ladder[index]) if index < ladder.size() else int(VineMaps.COST_TAIL)
+	var ladder := [3, 3, 3, 4, 4, 4, 5, 5]
+	return int(ladder[index]) if index < ladder.size() else 5
