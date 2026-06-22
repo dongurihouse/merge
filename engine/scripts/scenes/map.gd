@@ -11,7 +11,6 @@ extends Control
 ## building (_build_home_spot); any other map draws cutout sprites / placeholder tiles via _make_spot.
 
 const G = preload("res://engine/scripts/core/content.gd")
-const Quests = preload("res://engine/scripts/core/quests.gd")   # the generator-delivery gate on a map's final spot
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
@@ -232,17 +231,6 @@ func _persist() -> void:
 
 func _gates() -> Array:                       # which maps are spots-done (all spots restored → next map unlocks)
 	return Save.grove().get("gates", [])
-
-# The generator ids the player owns, read straight from the persisted board (the map scene has no board
-# model): gens is serialized as [row, col, id] rows, gen_bag as a flat id list. Feeds the spot gate.
-func _owned_gen_ids() -> Array:
-	var b: Dictionary = Save.grove().get("board", {})
-	var ids: Array = []
-	for e in b.get("gens", []):
-		ids.append(String(e[2]))
-	for id in b.get("gen_bag", []):
-		ids.append(String(id))
-	return ids
 
 func spot_owned(id: String) -> bool:
 	return unlocks.has(id)
@@ -1039,14 +1027,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if spot_owned(String(spot.id)):
 		return                                # an already-restored spot is inert (no customization)
 	var cost := int(spot.cost)
-	# The generator-delivery gate: completing this map (restoring its LAST spot) is refused until the next
-	# map's tool has been delivered, so the carrier quest can never be skipped into the next map. The buy
-	# unblocks the instant the player delivers it (in the garden) — same gens_to_grant rule the carrier uses.
-	if Quests.gen_gate_blocks_spot(z, String(spot.id), unlocks, _owned_gen_ids()):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(170, 64), tr("Collect the new tool in the garden first ❀"), Color(CREAM, 0.9), 28)
-		return
 	if not Save.spend_stars(cost):
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)

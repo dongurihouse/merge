@@ -41,14 +41,8 @@ func _initialize() -> void:
 	ok(G.lines_for_map(r, 0) == [1, 2, 3, 4], "map 0's live lines are its own 4")
 	ok(G.retired_lines(r, 0) == [], "nothing is retired while in map 0")
 
-	# --- gens_to_grant: the next map's UNOWNED generators (the near-end quest's reward.generators) ---
-	# Generators PERSIST — there is no hand-in; the next map's tools ride on an ordinary near-end
-	# quest into the gen_bag. The hand-in functions (gen_can_grant/gen_grant/grant_quests_for_map/
-	# grant_map/surplus_gen_ids) are RETIRED; the new path is gens_to_grant.
-	ok(str(G.gens_to_grant(r, 0, [])) == str(["g1a", "g1b", "g1c"]), "map 0's near-end quest grants map 1's three generators (none owned)")
-	ok(G.gens_to_grant(r, 0, ["g1a", "g1b", "g1c"]).is_empty(), "gens_to_grant empties once all the next map's generators are owned")
-	ok(str(G.gens_to_grant(r, 0, ["g1a"])) == str(["g1b", "g1c"]), "gens_to_grant returns only the UNOWNED next-map ids")
-	ok(G.gens_to_grant(r, 1, []).is_empty(), "the last fixture map grants nothing (no map 2)")
+	# (gens_to_grant + the carrier-quest delivery are RETIRED — generators now arrive when a generator tap
+	#  produces a DUE tool; see G.due_generators, covered in quest_tests.gd against the real maps.)
 
 	# --- the §6 invariant: every generator emits exactly 2 lines ---
 	var two_each := true

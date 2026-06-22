@@ -269,66 +269,48 @@ func _initialize() -> void:
 	ok(Array(scn2.board.items) == snapshot and scn2._spots_bought() == scn._spots_bought(), \
 		"a fresh scene resumes the persisted board and progress")
 
-	# 10g. NEAR-END generator grant + spots-done unlock (the gate/grant quest types are retired).
-	# (a) Near the end of map 0, ONE ordinary quest carries reward.generators = map 1's unowned
-	# generators; delivering it AUTO-PLACES them on the board (bridges the new-map UX seam so the
-	# fence is payable on arrival). gen_bag is only the fallback when the board is full.
-	# (b) Restoring the LAST spot auto-appends z to `gates`, unlocking the next map (no gate quest).
-	# All engine/grove-side; the grove only supplies the tunables.
-	fresh("grant")
+	# 10g. TAP-TO-PRODUCE the next generator + spots-done unlock (the carrier/gate quest types are retired).
+	# (a) Once a map is UNLOCKED (map_unlocked — the SAME gate signal that surfaces its quests, not a visit),
+	# its generator is DUE; the next generator TAP births it on the board (gen_bag only when the board is full).
+	# No quest delivers it, and it self-heals any missing tool. (b) Restoring the LAST spot auto-appends z to
+	# `gates`, unlocking the next map (no gate quest). All engine/grove-side; the grove only supplies tunables.
+	fresh("produce")
 	var sg = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sg)
 	if sg.board == null:
 		sg._ready()
 	var sgg := Save.grove()
 	sgg["stars_earned"] = 300                 # level past map 0's spot gates
-	# buy all of map 0's spots EXCEPT the last, so one spot remains and the fence still meters non-empty
-	var near_ul := {}
-	for i in G.MAPS[0].spots.size() - 1:
-		near_ul[String(G.MAPS[0].spots[i].id)] = true
-	sgg["unlocks"] = near_ul
-	sgg["gates"] = []
+	# complete map 0 (all spots restored + the gate recorded) → map 1 is UNLOCKED → its tool (hen_coop) is due
+	var done0 := {}
+	for sp in G.MAPS[0].spots:
+		done0[String(sp.id)] = true
+	sgg["unlocks"] = done0
+	sgg["gates"] = [0]
 	Save.grove_write()
-	Save.add_stars(1)                          # banked 1 → stars_remaining ≤ GEN_GRANT_REMAINING_STARS
 	sg._init_quests()
-	sg._rebuild_givers()
-	# exactly one quest on the fence carries the next map's generators as a reward
-	var carrier_qi := -1
-	for cq in sg.quests.size():
-		if sg.quests[cq].has("reward") and (sg.quests[cq].reward as Dictionary).has("generators"):
-			carrier_qi = cq
-	ok(carrier_qi >= 0, "near the end of map 0, one ordinary quest carries reward.generators")
-	var carry_q: Dictionary = sg.quests[carrier_qi]
-	ok(str(carry_q.reward.generators) == str(G.gens_to_grant(G.GENERATORS, 0, [])), "the carried generators are map 1's unowned ids (hen_coop)")
-	# make the carrier payable (clear non-coin items, place the required quest item), then deliver it
-	# → the generators must be AUTO-PLACED on the board (board has room); gen_bag stays empty for them
-	for ci in sg.board.items.size():
-		if sg.board.items[ci] > 0 and not G.is_coin(sg.board.items[ci]):
-			sg.board.items[ci] = 0
-	var cemp: Array = sg.board.empty_ground_cells()
-	var it_carry := G.quest_item(carry_q)
-	if not it_carry.is_empty() and not cemp.is_empty():
-		sg.board.place(cemp[0], int(it_carry.line) * 100 + int(it_carry.tier))
-	sg._rebuild_pieces()
-	var carry_stars_b := Save.stars()
-	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip)
-	ok(sg.board.gens.values().has("hen_coop"), \
-		"delivering the near-end quest AUTO-PLACES map 1's generator on the board (board had room)")
-	ok(not sg.board.gen_bag.has("hen_coop"), \
-		"gen_bag is empty for the granted generator (board placement succeeded)")
-	ok(Save.stars() >= carry_stars_b, "the near-end quest still pays its ordinary star reward")
+	sg._rebuild_all()
+	# the anchor is on the board; map 1's tool is NOT yet — and it is DUE because map 1 is unlocked
+	var owned_b: Array = []
+	for gv in sg.board.gens.values():
+		owned_b.append(String(gv))
+	for gbid in sg.board.gen_bag:
+		owned_b.append(String(gbid))
+	ok(not sg.board.gens.values().has("hen_coop"), "pre: map 1's tool is not on the board yet")
+	ok(G.due_generators(done0, [0], owned_b).has("hen_coop"), "map 1 is unlocked → hen_coop is DUE")
+	# a generator TAP produces the due tool — _pop_seed taps the live (anchor) generator and births hen_coop
+	# instead of popping items (the tap is spent on the tool)
+	sg._pop_seed()
+	ok(sg.board.gens.values().has("hen_coop"), "a generator tap produces map 1's tool onto the board")
+	ok(not sg.board.gen_bag.has("hen_coop"), "the produced tool lands on the board, not the bag (board had room)")
 	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel stays on the board (generators are never consumed)")
-	# idempotency: delivering the same quest a second time (or re-running with already-owned gens) is a no-op
-	var gens_count_before: int = sg.board.gens.size()
-	var gen_bag_size_before: int = sg.board.gen_bag.size()
-	sg._on_giver_tap(carrier_qi, sg.giver_chips[carrier_qi].chip if carrier_qi < sg.giver_chips.size() else Control.new())
-	ok(sg.board.gens.size() == gens_count_before and sg.board.gen_bag.size() == gen_bag_size_before, \
-		"delivering an already-owned generator is a no-op (idempotent)")
-	# SEAM-BRIDGING PROBE: after the grant, gen_live_lines must include map 1's lines (5,6 — the only lines hen_coop produces)
-	# so that a fence entering map 1 can be satisfied — confirming the new-map seam is bridged.
+	# idempotent: once owned, nothing is due → a further generator tap produces no new tool
+	ok(not sg._produce_due_generators(), "with the tool owned, no further generator is due (idempotent)")
+	# SEAM PROBE: after producing, gen_live_lines includes hen_coop's own line(s) so a fence entering map 1
+	# is satisfiable — confirming the new-map seam is bridged. (Derive the line(s) from the roster.)
 	var live_lines_after: Array = G.gen_live_lines(sg.board.gens, G.GENERATORS)
-	ok(live_lines_after.has(5) and live_lines_after.has(6) and not live_lines_after.has(7), \
-		"after grant, gen_live_lines includes map-1 lines 5,6 (fence is producible on map-1 entry; seam bridged)")
+	for hc_ln in G.gen_def(G.GENERATORS, "hen_coop").get("lines", []):
+		ok(live_lines_after.has(int(hc_ln)), "after producing hen_coop, gen_live_lines includes its line %d (map-1 fence producible)" % int(hc_ln))
 	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;

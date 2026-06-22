@@ -68,27 +68,11 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 		out.append(String(id))
 	return out
 
-# The GENERATOR-DELIVERY GATE: a non-final map cannot be COMPLETED — its last spot restored — until the
-# next map's generator has been delivered (owned on the board or in the gen_bag). Returns true when buying
-# `spot_id` on map z WOULD restore that map's final spot while the next generator is still pending, so the
-# purchase must be refused until the near-end carrier quest is delivered. The carrier (refill) and this
-# gate share one rule — gens_to_grant non-empty — so the buy unblocks the instant the tool is taken. The
-# final map (no next map) and every non-completing purchase are never gated. `owned_gen_ids` is the caller's
-# owned_gens(board, bag) — the gate lives in the map scene, which reads the board from save, not the model.
-static func gen_gate_blocks_spot(z: int, spot_id: String, unlocks: Dictionary, owned_gen_ids: Array) -> bool:
-	var after := unlocks.duplicate()
-	after[spot_id] = true
-	if not G.map_spots_done(z, after):
-		return false                          # not the completing purchase → never gated
-	return not G.gens_to_grant(G.GENERATORS, z, owned_gen_ids).is_empty()
-
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via `rng` — RNG CALL ORDER IS LOAD-BEARING (the rng is seeded + persisted): the filter takes no rng,
-# then gen_quest is drawn once per appended stand, in order. Near the END of the map, ONE quest also
-# carries `reward.generators` — the NEXT map's unowned generator(s) (the simplest replacement for the
-# gate's old "grant the next tool" role); delivering it appends those ids to the gen_bag. Idempotent:
-# a quest already carrying the reward is left alone, so a later refill never duplicates it onto a
-# second quest. Returns the new quests array.
+# then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
+# carrier quest — they arrive when a generator tap produces a DUE tool (G.due_generators / board.gd), so
+# refill is purely the §7 ask stream now. Returns the new quests array.
 static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	if map_done(unlocks, gates):
 		return []
@@ -98,7 +82,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var lines := G.askable_lines(G.GENERATORS, z, level)
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
-	# lit Purge card). The generator-carrier below still rides out[0] and stays deliverable.
+	# lit Purge card).
 	var target := int(G.MAX_GIVERS) if fence_inert(z, banked_stars, unlocks) else meter_target(z, banked_stars, unlocks)
 	while out.size() < target:
 		# §7 anti-monotony: steer the new stand off the recent-items window (the last ≤5 item codes just
@@ -115,25 +99,6 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 		out.append(G.gen_quest(level, lines, rng, avoid))
 	while out.size() > target:
 		out.pop_back()
-	# near the end of the map, ONE quest also rewards the next generator(s) — idempotent: skip if a
-	# quest already carries it (so a later refill never duplicates the reward onto a second quest)
-	var already := false
-	for q in out:
-		if q.has("reward") and q.reward.has("generators"):
-			already = true
-			break
-	var grant := G.gens_to_grant(G.GENERATORS, z, owned_gens(board_gens, gen_bag))
-	# INVARIANT: GEN_GRANT_REMAINING_STARS must stay BELOW the cheapest "final remaining spot"
-	# cost on every non-final map — otherwise a player could afford that last spot and auto-unlock
-	# the next map before this generator-carrier quest ever surfaces, skipping the generator
-	# delivery entirely. Today's roster: costliest final spots are 5 > 4 stars, so the grant
-	# window (currently 4) always opens first. Any future roster pass must preserve this margin.
-	if not already and not grant.is_empty() and stars_remaining(z, unlocks, banked_stars) <= G.GEN_GRANT_REMAINING_STARS and not out.is_empty():
-		var q0: Dictionary = out[0].duplicate(true)
-		var rw: Dictionary = (q0.get("reward", {}) as Dictionary).duplicate(true)
-		rw["generators"] = grant
-		q0["reward"] = rw
-		out[0] = q0
 	return out
 
 # The discovery ladder for a line: one row per tier, code = line*100+tier, with `seen` flagged

@@ -161,42 +161,21 @@ func _initialize() -> void:
 	ok(bool(Quests.ladder_entries({"101": true}, 1)[0].seen), "a code in the `seen` set marks that tier seen")
 	ok(not bool(Quests.ladder_entries({"101": true}, 1)[1].seen), "an unseen tier stays unseen")
 
-	# --- the NEAR-END generator grant: while finishing map z, when the stars still needed to restore
-	# --- its remaining spots ≤ GEN_GRANT_REMAINING_STARS AND map z+1's generators aren't yet owned,
-	# --- EXACTLY ONE ordinary quest carries reward.generators (the next map's unowned tools → gen_bag).
-	# --- No gate/grant quest type — it rides an ordinary quest. Scenario: all of map 0's spots bought
-	# --- except the last (cost 5), so one spot remains and a non-empty metered fence still exists.
+	# --- the carrier mechanism is RETIRED: refill NEVER attaches reward.generators (generators now arrive
+	# --- when a generator tap produces a DUE tool — see G.due_generators / board._produce_due_generators).
+	# --- Scenario: all of map 0's spots bought except the last, so a non-empty metered fence still exists. ---
 	var ne_ul := {}
 	for i in G.MAPS[0].spots.size() - 1:
 		ne_ul[String(G.MAPS[0].spots[i].id)] = true
 	var rngz := RandomNumberGenerator.new(); rngz.seed = 11
 	var nfence := Quests.refill([], 0, ne_ul, [], {}, [], 1, 6, rngz)
-	ok(Quests.stars_remaining(0, ne_ul, 1) <= int(G.GEN_GRANT_REMAINING_STARS), "the scenario is near-end (stars_remaining ≤ GEN_GRANT_REMAINING_STARS)")
-	ok(not nfence.is_empty(), "the metered fence is still non-empty near the end (a quest can carry the grant)")
-	var carriers := nfence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators"))
-	ok(carriers.size() == 1, "EXACTLY one quest carries reward.generators near the end of the map")
-	ok(str(carriers[0].reward.generators) == str(G.gens_to_grant(G.GENERATORS, 0, [])), "the carried generators are map 1's unowned ids (hen_coop + dairy_stall)")
+	ok(not nfence.is_empty(), "the metered fence is non-empty near the end of the map")
+	ok(nfence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "refill never attaches reward.generators (carrier retired)")
 	var no_special2 := true
 	for q in nfence:
 		if bool(q.get("gate", false)) or q.has("grant"):
 			no_special2 = false
-	ok(no_special2, "the near-end fence is ordinary quests — no gate/grant quest type")
-
-	# --- idempotent: a later refill with the carrier already present never duplicates onto a second quest ---
-	var refilled := Quests.refill(nfence, 0, ne_ul, [], {}, [], 1, 6, RandomNumberGenerator.new())
-	ok(refilled.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).size() == 1, "a later refill keeps exactly one generator-carrying quest (no duplication)")
-
-	# --- once owned (in the gen_bag), the grant stops surfacing ---
-	var owned_fence := Quests.refill([], 0, ne_ul, [], {}, ["hen_coop", "dairy_stall"], 1, 6, RandomNumberGenerator.new())
-	ok(owned_fence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "no quest carries the grant once both next-map generators are owned (in gen_bag)")
-
-	# --- the final map grants nothing (no next map) ---
-	var last := G.MAPS.size() - 1
-	var last_ul := {}
-	for i in G.MAPS[last].spots.size() - 1:
-		last_ul[String(G.MAPS[last].spots[i].id)] = true
-	var last_fence := Quests.refill([], last, last_ul, [], {}, [], 1, 6, RandomNumberGenerator.new())
-	ok(last_fence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the final map's near-end quests carry no generator grant (nothing to grant)")
+	ok(no_special2, "the near-end fence is ordinary quests — no gate/grant/generator quest type")
 
 	# --- fence_inert (req 1 GREY TRIGGER): the fence goes INERT (greyed, NOT hidden) once the banked ★ can
 	# --- finish the WHOLE current map — the exact point the active meter used to empty to nothing. False
@@ -216,10 +195,8 @@ func _initialize() -> void:
 	var rin := Quests.refill([], 0, {}, [], {}, [], 999999, 1, RandomNumberGenerator.new())
 	ok(rin.size() == int(G.MAX_GIVERS), "refill fills the inert fence to MAX_GIVERS (greyed), not empty")
 
-	# --- refill INERT keeps the generator-carrier DELIVERABLE: a quest carrying reward.generators stays on
-	# --- the fence at out[0] (always rendered, the board keeps it active) so the next map's tools still get
-	# --- delivered even though the rest of the fence is greyed. Scenario: map 0 near its end, banked == the
-	# --- last spot's cost (can finish the map → inert), map 1's generators not yet owned. ---
+	# --- refill INERT carries NO generator quest either (carrier retired): the inert fence is ordinary greyed
+	# --- quests; the next map's tool is produced by a generator tap once that map unlocks, not delivered here. ---
 	var ne_in := {}
 	for i in G.MAPS[0].spots.size() - 1:
 		ne_in[String(G.MAPS[0].spots[i].id)] = true
@@ -227,9 +204,7 @@ func _initialize() -> void:
 	ok(Quests.fence_inert(0, ne_cost, ne_in), "the near-end fence with banked == remaining cost is inert")
 	var rin2 := Quests.refill([], 0, ne_in, [], {}, [], ne_cost, 6, RandomNumberGenerator.new())
 	ok(rin2.size() == int(G.MAX_GIVERS), "the inert near-end fence is full (MAX_GIVERS)")
-	var in_carriers := rin2.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators"))
-	ok(in_carriers.size() == 1, "the inert fence still carries exactly one generator-grant quest")
-	ok(rin2[0].has("reward") and (rin2[0].reward as Dictionary).has("generators"), "the generator-carrier sits at out[0] (always rendered → stays deliverable)")
+	ok(rin2.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the inert fence attaches no generator reward (carrier retired)")
 
 	# --- home_map_id (req 3/4 HOME TARGET): the map id the board's Home/Purge jump targets — the LATEST
 	# --- not-fully-unlocked map (the frontier), and the FIRST map once everything is complete. ---
@@ -252,26 +227,6 @@ func _initialize() -> void:
 		every_gate.append(zz)
 	if Quests.map_done(every, every_gate):
 		ok(Quests.home_map_id(every, every_gate) == String(G.MAPS[0].id), "with everything complete, the home target falls back to the first map")
-
-	# --- the GENERATOR-DELIVERY GATE: a non-final map's COMPLETION — restoring its LAST spot — is refused
-	# --- until the next map's generator is owned (delivered to the board or the gen_bag). This is the hard
-	# --- guard behind the near-end carrier: a player can no longer bank enough ★ to buy the final spot and
-	# --- skip into the next map without ever taking that map's tool (the bug that stranded a Barn save with
-	# --- no producer). A non-completing spot is never gated; the final map (no next gen) is never gated. ---
-	var gate_ul := {}
-	for i in G.MAPS[0].spots.size() - 1:
-		gate_ul[String(G.MAPS[0].spots[i].id)] = true
-	var gate_last := String(G.MAPS[0].spots[G.MAPS[0].spots.size() - 1].id)
-	var gate_first := String(G.MAPS[0].spots[0].id)
-	ok(Quests.gen_gate_blocks_spot(0, gate_last, gate_ul, []), "the completing spot is blocked while the next map's generator is unowned")
-	ok(not Quests.gen_gate_blocks_spot(0, gate_last, gate_ul, G.gens_to_grant(G.GENERATORS, 0, [])), "the completing spot is allowed once the next map's generator is owned")
-	ok(not Quests.gen_gate_blocks_spot(0, gate_first, {}, []), "a non-completing spot purchase is never gated")
-	var glast := G.MAPS.size() - 1
-	var glast_ul := {}
-	for i in G.MAPS[glast].spots.size() - 1:
-		glast_ul[String(G.MAPS[glast].spots[i].id)] = true
-	var glast_last := String(G.MAPS[glast].spots[G.MAPS[glast].spots.size() - 1].id)
-	ok(not Quests.gen_gate_blocks_spot(glast, glast_last, glast_ul, []), "the final map's completion is never gated (no next generator)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

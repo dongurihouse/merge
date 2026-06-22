@@ -1071,8 +1071,7 @@ func _giver_is_payable(e: Dictionary) -> bool:
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
 		# req 1: once the bank can finish the whole map the fence goes GREYED + inert instead of empty —
-		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert). The lone
-		# exception is the generator-carrier (out[0]) which stays a live, payable quest below.
+		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert).
 		if _quest_is_inert(int(e.get("qi", -1))):
 			var ichip: Control = e.chip
 			ichip.modulate = PURGE_DIM
@@ -1783,6 +1782,11 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			return
 		cell = board.gens.keys()[0]
 	var gnode: Control = gen_nodes.get(cell, gen_node)
+	# Tap-to-produce: when a generator is DUE (its map is unlocked but the player doesn't own it — board or
+	# bag), this tap BIRTHS the new tool instead of popping items. Free (no energy), preempts the pop, and
+	# self-heals any missing generator on any unlocked map (no carrier quest involved). See below.
+	if _produce_due_generators():
+		return
 	var charged := _ftue_pops_done()          # once the FTUE intro pops are spent, each item costs energy
 	if charged and water < G.POP_COST:
 		FX.wobble(gnode)
@@ -1848,6 +1852,37 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
 	_update_water_hud()
+
+# Tap-to-produce a DUE generator (the carrier quest is retired). A generator is DUE when its map is unlocked
+# (G.due_generators — keyed on map-unlock, the SAME signal that surfaces a map's quests, NOT on which map is
+# being viewed) but the player owns neither a board copy nor a bagged one. The new tool lands on the first open
+# cell (bag only when the board is full), pops in + breathes + glows so it is unmissable. Returns true if it
+# produced one — the tap is then SPENT birthing the tool (no energy, no item burst). Self-heals any missing
+# tool on any unlocked map, so every corner case (a skipped map, a stranded save) is caught on the next tap.
+func _produce_due_generators() -> bool:
+	var due := G.due_generators(Save.grove().get("unlocks", {}), Save.grove().get("gates", []), Quests.owned_gens(board.gens, board.gen_bag))
+	if due.is_empty():
+		return false
+	var landed: Array = []                        # board cells of tools placed this tap (bagged ones have none)
+	for id in due:
+		var dest := Vector2i(-1, -1)
+		for c in board.empty_ground_cells():
+			if not board.gens.has(c):
+				dest = c
+				break
+		if dest == Vector2i(-1, -1):
+			board.gen_bag.append(id)              # board full → hold it in the bag (placed from the bag later)
+		else:
+			board.place_gen(id, dest)
+			_grown_cells.append(dest)             # _rebuild_all pops it in + starts its breathe
+			landed.append(dest)
+	_persist()
+	_rebuild_all()                                # renders the new tool(s); _grown_cells drives the pop-in + breathe
+	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
+		var ctr := board_area.get_global_transform().origin + _cell_pos(gc) + Vector2(csz, csz) / 2.0
+		FX.celebrate_at(self, ctr, tr("A new tool arrived!"), STRAW)
+	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
+	return true
 
 # The player's paid burst-upgrade level (the burst-upgrade COIN SINK, §6/§8) — persisted in the
 # grove blob, read by _pop_seed to size the burst. 0 = unbought.
@@ -2154,17 +2189,12 @@ func _end_bag_drag(gpos: Vector2) -> void:
 # instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
 # still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
 # req 1: a quest is INERT — rendered greyed, taps do nothing (no claim, no ladder) — once the bank can
-# finish the WHOLE current map (Quests.fence_inert). The ONE exception is the generator-carrier quest
-# (it carries reward.generators and always rides out[0]): it stays live + deliverable so the next map's
-# tools still arrive before the map is finished.
+# finish the WHOLE current map (Quests.fence_inert). Generators no longer ride a carrier quest, so there
+# is no live-exception: every quest greys together once the map can be finished.
 func _quest_is_inert(qi: int) -> bool:
 	if qi < 0 or qi >= quests.size():
 		return false
-	if not Quests.fence_inert(_quest_map(), Save.stars(), Save.grove().get("unlocks", {})):
-		return false
-	var rw: Dictionary = quests[qi].get("reward", {})
-	var carrier := not (rw.get("generators", []) as Array).is_empty()
-	return not carrier
+	return Quests.fence_inert(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
 
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 	if _quest_is_inert(qi):
@@ -2210,35 +2240,14 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
 	if sp_gems > 0:
 		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra ★)
-	# the near-end map quest grants the NEXT map's generator(s) — auto-placed on the board's first
-	# open cell so the new map opens with its tool already producing; gen_bag is only a fallback when
-	# the board is full (the player can still store a generator into the bag at will).
-	var got_gens: Array = []
-	if q.has("reward") and q.reward.has("generators"):
-		for gid in q.reward.generators:
-			var id := String(gid)
-			if board.gen_bag.has(id) or board.gens.values().has(id):
-				continue                       # already owned (on board or stored)
-			var dest := Vector2i(-1, -1)
-			for c in board.empty_ground_cells():
-				if not board.gens.has(c):
-					dest = c
-					break
-			if dest == Vector2i(-1, -1):
-				board.gen_bag.append(id)       # board full → hold it in the bag
-			else:
-				board.place_gen(id, dest)
-			got_gens.append(id)
+	# (generators are no longer delivered here — they arrive when a generator tap produces a DUE tool;
+	#  see _produce_due_generators in _pop_seed.)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
 	if sp_gems > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 64), "gem", sp_gems, Color("#BFE6F2"), 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
-	if not got_gens.is_empty():
-		# a new tool arrived on the board (gen_bag is just the fallback if the board was full)
-		FX.celebrate_at(self, chip.get_global_rect().get_center() - Vector2(0, 60), tr("A new tool arrived!"), STRAW)
-		Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
 	if levels_up > 0:
 		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now
 		Audio.play("level_complete", -1.0)

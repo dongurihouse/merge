@@ -97,16 +97,25 @@ func _initialize() -> void:
 	var shrinks := G.active_giver_count(0, 8) >= G.active_giver_count(4, 8) and G.active_giver_count(4, 8) >= G.active_giver_count(6, 8)
 	ok(shrinks, "the active count shrinks monotonically as stars bank toward the unlock")
 
-	# --- gens_to_grant: the NEXT map's generators not yet owned (the near-end quest's reward) ---
-	ok(str(G.gens_to_grant(G.GENERATORS, 0, [])) == str(G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))), "gens_to_grant(0) lists map 1's generator ids (the next map's unowned tools)")
+	# --- due_generators: the tools the player is OWED — for every UNLOCKED map (map_unlocked, the SAME gate
+	# --- signal that surfaces a map's quests, NOT where the camera is), that map's generator if not owned
+	# --- (board or bag). Keyed on map UNLOCK, not on visiting a map; monotonic + self-healing. Replaces the
+	# --- retired carrier path (gens_to_grant): generators now arrive when a tap produces a DUE tool. ---
+	var anchor_ids: Array = G.generators_for_map(G.GENERATORS, 0).map(func(g): return String(g.id))
+	ok(G.due_generators({}, [], anchor_ids).is_empty(), "fresh game with map 0's tool owned → nothing due")
+	ok(str(G.due_generators({}, [], [])) == str(anchor_ids), "an unlocked map missing its tool is due (the self-heal catch-all)")
+	# complete map 0 (all spots restored + the gate recorded) → map 1 unlocks → its tool becomes due
+	var m0_done := {}
+	for sp in G.MAPS[0].spots:
+		m0_done[String(sp.id)] = true
 	var map1_ids: Array = G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))
-	ok(G.gens_to_grant(G.GENERATORS, 0, map1_ids).is_empty(), "gens_to_grant empties once all the next map's generators are owned")
-	# the drop-one-owned path on a SYNTHETIC roster (the shipped roster is one generator per map,
-	# so a real next map can't hold two — a fixture exercises the partial-owned filter directly).
-	var two_gen := [{"id": "g_a", "map": 1, "cell": Vector2i(2, 1), "lines": [5]},
-		{"id": "g_b", "map": 1, "cell": Vector2i(3, 1), "lines": [6]}]
-	ok(str(G.gens_to_grant(two_gen, 0, ["g_a"])) == str(["g_b"]), "gens_to_grant returns only the UNOWNED next-map ids (drops one already owned)")
-	ok(G.gens_to_grant(G.GENERATORS, G.MAPS.size() - 1, []).is_empty(), "the final map grants nothing (no next map)")
+	ok(str(G.due_generators(m0_done, [0], anchor_ids)) == str(map1_ids), "completing+gating map 0 unlocks map 1 → its tool is due")
+	ok(G.due_generators(m0_done, [0], anchor_ids + map1_ids).is_empty(), "a tool already owned (board or bag) is not due")
+	# map 1 is still incomplete → map 2 stays LOCKED → its tool is never due (unlock-keyed, not visit-keyed)
+	if G.MAPS.size() >= 3:
+		var due_at_m1 := G.due_generators(m0_done, [0], anchor_ids + map1_ids)
+		for mid in G.generators_for_map(G.GENERATORS, 2).map(func(g): return String(g.id)):
+			ok(not due_at_m1.has(mid), "a LOCKED map's tool is never due (%s)" % mid)
 
 	# --- askable_lines is CURRENT-MAP only (no anchor union) — equals lines_for_map, sorted ---
 	for z in G.MAPS.size():
