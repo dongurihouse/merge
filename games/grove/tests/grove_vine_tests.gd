@@ -187,17 +187,22 @@ func _test_maps_overlay() -> void:
 			all_vine = false
 	ok(all_vine, "every game slot is vine-driven (all 5 maps registered)")
 
-# All five game slots are driven by the five registered vine maps (mapN -> slot N). A map whose regions
-# aren't authored yet overlays its slot with an EMPTY spot list (clean base art shown) and is NOT counted
-# "done" — the carve-out that keeps a region-less map from auto-unlocking the next map or inviting residents.
+# All five game slots are driven by the five registered vine maps (mapN -> slot N), each with one spot
+# per authored region. The region-less carve-out (a map registered before its regions are authored
+# overlays with an EMPTY spot list — clean base art shown — and is NOT counted "done", so it never
+# auto-unlocks the next map or invites residents) still holds; since every shipping map now has
+# authored regions, it is exercised below on a SYNTHETIC region-less entry rather than a real slot.
 func _test_multimap() -> void:
 	ok(VineMaps.count() == G.MAPS.size(), "maps.json holds one vine entry per game slot (%d)" % G.MAPS.size())
 	for z in G.MAPS.size():
 		ok(G.MAPS[z].has("vine"), "slot %d is vine-driven from tool entry %d" % [z, z])
 		ok(G.MAPS[z].spots.size() == VineMaps.regions_for(VineMaps.entries()[z]).size(), "slot %d spot count == its regions" % z)
-	# slot 1 (Orchard art) ships no authored regions yet: vine-driven, zero spots, never "done"
-	ok(G.MAPS[1].has("vine") and G.MAPS[1].spots.is_empty(), "a region-less slot is vine-driven with no spots (clean base art)")
-	ok(not G.map_spots_done(1, {}), "a region-less (spot-less) map is NOT 'done' (no auto-unlock / no residents)")
+		ok(not G.MAPS[z].spots.is_empty(), "slot %d ships authored regions (no longer region-less)" % z)
+	# the carve-out, synthetically: a region-less entry derives ZERO spots, and a spot-less map is NOT "done"
+	ok(VineMaps.spots_for("ghost", {"regions_path": ""}).is_empty(), "a region-less entry derives zero spots (clean base art)")
+	G.MAPS.append({"id": "ghost_unauthored", "name": "Ghost", "spots": [], "vine": {}})
+	ok(not G.map_spots_done(G.MAPS.size() - 1, {}), "a spot-less map is NOT 'done' (no auto-unlock / no residents)")
+	G.MAPS.pop_back()
 	# a slot WITH authored regions derives its spot ids from the slot id
 	ok(String(G.MAPS[0].spots[0].id) == "%s_r0" % String(G.MAPS[0].id), "an authored slot's spot ids use the slot id")
 
