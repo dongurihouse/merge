@@ -1,9 +1,10 @@
 extends SceneTree
 ## Headless guard for the HOME/map canvas geometry (map.gd `map_rect_for`).
 ##   godot --headless --path . -s res://engine/tests/map_canvas_tests.gd
-## The home map background must FILL the device width at the design aspect (like the board
-## background's cover-fill) — never side-letterbox on an off-design device. On a window WIDER
-## than design it crops the top/bottom; on the exact design aspect it fills the viewport exactly.
+## The home map background must COVER-FILL the viewport at the design aspect (like the board
+## background) — never letterbox on an off-design device. On a window WIDER than design it crops the
+## top/bottom; on a TALLER window (the common phone case) it crops left/right; on the exact design
+## aspect it fills the viewport exactly.
 
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
@@ -36,11 +37,15 @@ func _initialize() -> void:
 	ok(absf(wr.size.y / wr.size.x - design.y / design.x) < 0.01, \
 		"a wide window: the map keeps the design aspect (crop, never squash)")
 
-	# a TALLER window (the common phone case): width still fills exactly; the sky shows above/below.
+	# a TALLER window (the common phone case: 19.5:9 vs the 9:16 canvas): the map must COVER the full
+	# HEIGHT (no top/bottom sky bands) and overflow left/right instead, keeping the design aspect.
 	var tall := Vector2(1080.0, 2340.0)
 	var tr: Rect2 = MapScene.map_rect_for(tall, design_aspect)
-	ok(absf(tr.size.x - tall.x) < 1.0, "a tall window: the map still fills the full width")
-	ok(tr.position.y > 0.0 and tr.size.y < tall.y, "a tall window: the map is shorter than the screen (sky above/below)")
+	ok(absf(tr.size.y - tall.y) < 1.0, "a tall window: the map fills the FULL height (no top/bottom sky bands)")
+	ok(absf(tr.position.y) < 1.0, "a tall window: the map is flush to the top edge (y≈0)")
+	ok(tr.position.x < 0.0 and tr.size.x > tall.x, "a tall window: the map overflows left/right (cropped, horizontally centered)")
+	ok(absf(tr.size.y / tr.size.x - design.y / design.x) < 0.01, \
+		"a tall window: the map keeps the design aspect (crop, never squash)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
