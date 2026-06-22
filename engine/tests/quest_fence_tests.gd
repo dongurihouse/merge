@@ -166,5 +166,60 @@ func _initialize() -> void:
 	var last_fence := Quests.refill([], last, last_ul, [], {}, [], 1, 6, RandomNumberGenerator.new())
 	ok(last_fence.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the final map's near-end quests carry no generator grant (nothing to grant)")
 
+	# --- fence_inert (req 1 GREY TRIGGER): the fence goes INERT (greyed, NOT hidden) once the banked ★ can
+	# --- finish the WHOLE current map — the exact point the active meter used to empty to nothing. False
+	# --- while the player still needs ★, and false on a spots-done map (that map is complete, not a frontier).
+	ok(not Quests.fence_inert(0, 0, {}), "fence_inert is false on a fresh map with 0★ (still earning)")
+	var z0_cost := G.map_stars_left(0, {})
+	ok(not Quests.fence_inert(0, z0_cost - 1, {}), "fence_inert is false one ★ short of finishing the map")
+	ok(Quests.fence_inert(0, z0_cost, {}), "fence_inert flips true the moment banked ★ can finish the whole map")
+	ok(Quests.fence_inert(0, 999999, {}), "fence_inert stays true with a huge ★ bank")
+	var z0_full := {}
+	for sp in G.MAPS[0].spots:
+		z0_full[String(sp.id)] = true
+	ok(not Quests.fence_inert(0, 999999, z0_full), "fence_inert is false on a spots-done map (no frontier work left)")
+
+	# --- refill INERT: instead of emptying when you can finish the map, the fence fills to MAX_GIVERS with
+	# --- quests the board renders GREYED + inert, so the fence never goes blank under the lit Purge card. ---
+	var rin := Quests.refill([], 0, {}, [], {}, [], 999999, 1, RandomNumberGenerator.new())
+	ok(rin.size() == int(G.MAX_GIVERS), "refill fills the inert fence to MAX_GIVERS (greyed), not empty")
+
+	# --- refill INERT keeps the generator-carrier DELIVERABLE: a quest carrying reward.generators stays on
+	# --- the fence at out[0] (always rendered, the board keeps it active) so the next map's tools still get
+	# --- delivered even though the rest of the fence is greyed. Scenario: map 0 near its end, banked == the
+	# --- last spot's cost (can finish the map → inert), map 1's generators not yet owned. ---
+	var ne_in := {}
+	for i in G.MAPS[0].spots.size() - 1:
+		ne_in[String(G.MAPS[0].spots[i].id)] = true
+	var ne_cost := G.map_stars_left(0, ne_in)
+	ok(Quests.fence_inert(0, ne_cost, ne_in), "the near-end fence with banked == remaining cost is inert")
+	var rin2 := Quests.refill([], 0, ne_in, [], {}, [], ne_cost, 6, RandomNumberGenerator.new())
+	ok(rin2.size() == int(G.MAX_GIVERS), "the inert near-end fence is full (MAX_GIVERS)")
+	var in_carriers := rin2.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators"))
+	ok(in_carriers.size() == 1, "the inert fence still carries exactly one generator-grant quest")
+	ok(rin2[0].has("reward") and (rin2[0].reward as Dictionary).has("generators"), "the generator-carrier sits at out[0] (always rendered → stays deliverable)")
+
+	# --- home_map_id (req 3/4 HOME TARGET): the map id the board's Home/Purge jump targets — the LATEST
+	# --- not-fully-unlocked map (the frontier), and the FIRST map once everything is complete. ---
+	ok(Quests.home_map_id({}, []) == String(G.MAPS[0].id), "a fresh game's home target is the first map")
+	var m0_done := {}
+	for sp in G.MAPS[0].spots:
+		m0_done[String(sp.id)] = true
+	if G.MAPS.size() >= 2:
+		ok(Quests.home_map_id(m0_done, [0]) == String(G.MAPS[1].id), "with map 0 complete, the home target advances to map 1 (the frontier)")
+	# everything complete → no frontier → home falls back to the FIRST map. Guarded on map_done like the
+	# purge-hides test above: today's maps 1+ carry zero regions (a zero-region map never reports done), so
+	# the all-complete state is unreachable and this assertion sleeps until those maps gain regions. The
+	# first-map OUTCOME is still exercised reachably by the fresh-game assertion above (frontier 0 → MAPS[0]).
+	var every := {}
+	for zz in G.MAPS.size():
+		for sp in G.MAPS[zz].spots:
+			every[String(sp.id)] = true
+	var every_gate: Array = []
+	for zz in G.MAPS.size():
+		every_gate.append(zz)
+	if Quests.map_done(every, every_gate):
+		ok(Quests.home_map_id(every, every_gate) == String(G.MAPS[0].id), "with everything complete, the home target falls back to the first map")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

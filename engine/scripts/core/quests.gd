@@ -13,6 +13,12 @@ const G = preload("res://engine/scripts/core/content.gd")
 static func current_map(unlocks: Dictionary, gates: Array) -> int:
 	return clampi(G.frontier_map(unlocks, gates), 0, G.MAPS.size() - 1)
 
+# The map id the board's Home/Purge jump targets (req 3/4): the LATEST not-fully-unlocked map (the
+# frontier — current_map), falling back to the FIRST map once everything is complete (current_map clamps
+# frontier_map's -1 → 0). There is always exactly one such map until the whole grove is restored.
+static func home_map_id(unlocks: Dictionary, gates: Array) -> String:
+	return String(G.MAPS[current_map(unlocks, gates)].id)
+
 # Every map fully complete (spots + gate) — no frontier left.
 static func map_done(unlocks: Dictionary, gates: Array) -> bool:
 	return G.frontier_map(unlocks, gates) == -1
@@ -28,6 +34,15 @@ static func meter_target(z: int, banked_stars: int, unlocks: Dictionary) -> int:
 static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
 	var cost := G.map_cheapest_spot(z, unlocks)
 	return cost > 0 and banked_stars >= cost
+
+# §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED + non-interactive
+# instead of emptying — once the banked ★ can finish the WHOLE current map (the exact point the active
+# meter used to taper to 0). False while the player still needs ★ for the map, and false on a spots-done
+# map (left == 0 → that map is complete, never a frontier). The generator-carrier quest stays deliverable
+# even here (board.gd keeps out[0] active), so the next map's tools still arrive — see refill().
+static func fence_inert(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
+	var left := G.map_stars_left(z, unlocks)
+	return left > 0 and banked_stars >= left
 
 # The Purge fence card's state. It SHOWS whenever a frontier remains (the map is not done) — no longer
 # only when affordable — so it always advertises the home map's current ★ balance. It is READY (full
@@ -67,7 +82,10 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	# Ask only from the current map's live lines (`level` gates a not-yet-grown generator's lines
 	# out, so the fence never asks for what nothing on the board can produce yet).
 	var lines := G.askable_lines(G.GENERATORS, z, level)
-	var target := meter_target(z, banked_stars, unlocks)
+	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
+	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
+	# lit Purge card). The generator-carrier below still rides out[0] and stays deliverable.
+	var target := int(G.MAX_GIVERS) if fence_inert(z, banked_stars, unlocks) else meter_target(z, banked_stars, unlocks)
 	while out.size() < target:
 		# §7 anti-monotony: steer the new stand off the items already on the fence (so the concurrent
 		# single-ask stands stay distinct) AND off the recent-items window (the last ≤5 item codes just

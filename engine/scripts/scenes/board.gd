@@ -1070,6 +1070,20 @@ func _giver_is_payable(e: Dictionary) -> bool:
 
 func _refresh_giver_lights() -> void:
 	for e in giver_chips:
+		# req 1: once the bank can finish the whole map the fence goes GREYED + inert instead of empty —
+		# dim the card, drop its ready ✓ + bob, and the tap handlers no-op (see _quest_is_inert). The lone
+		# exception is the generator-carrier (out[0]) which stays a live, payable quest below.
+		if _quest_is_inert(int(e.get("qi", -1))):
+			var ichip: Control = e.chip
+			ichip.modulate = PURGE_DIM
+			var iitem: Dictionary = e.get("item", {})
+			var imet: Control = iitem.get("met")
+			if imet != null and is_instance_valid(imet):
+				imet.visible = false
+			var ibust: Control = e.get("bust")
+			if ibust != null and is_instance_valid(ibust):
+				GiverStand.bob(ibust, false)
+			continue
 		var lit := _giver_is_payable(e)
 		var ready_ui := lit and Features.on("quest_ready_check")
 		var check: Control = e.check
@@ -2139,7 +2153,22 @@ func _end_bag_drag(gpos: Vector2) -> void:
 # the board, so the per-item ✓ is up) the tap DELIVERS it — the same path the stand-body tap takes —
 # instead of opening the tier ladder over a quest the player wants to hand in. While NOT ready the tap
 # still opens the ladder (the inspect / aim-for-the-ask path). One seam so the ✓ never opens a dialog.
+# req 1: a quest is INERT — rendered greyed, taps do nothing (no claim, no ladder) — once the bank can
+# finish the WHOLE current map (Quests.fence_inert). The ONE exception is the generator-carrier quest
+# (it carries reward.generators and always rides out[0]): it stays live + deliverable so the next map's
+# tools still arrive before the map is finished.
+func _quest_is_inert(qi: int) -> bool:
+	if qi < 0 or qi >= quests.size():
+		return false
+	if not Quests.fence_inert(_quest_map(), Save.stars(), Save.grove().get("unlocks", {})):
+		return false
+	var rw: Dictionary = quests[qi].get("reward", {})
+	var carrier := not (rw.get("generators", []) as Array).is_empty()
+	return not carrier
+
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
+	if _quest_is_inert(qi):
+		return                                # greyed quest: inert (no claim, no ladder)
 	if qi >= 0 and qi < quests.size() and BoardLogic.quest_payable(board, quests[qi]):
 		_on_giver_tap(qi, chip)
 	else:
@@ -2148,6 +2177,8 @@ func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 func _on_giver_tap(qi: int, chip: Control) -> void:
 	if qi < 0 or qi >= quests.size():
 		return
+	if _quest_is_inert(qi):
+		return                                # greyed quest: not deliverable
 	var q: Dictionary = quests[qi]
 	var it: Dictionary = G.quest_item(q)
 	if not BoardLogic.quest_payable(board, q):
@@ -2495,11 +2526,11 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 		"mark_tier": mark_tier,
 	})
 
-# The map→Map handoff target: the map the player was LAST on (persisted last_map). Empty on a
-# fresh save → the Map boot falls through to the frontier. Shared by the nav Home button and the
-# Decorate/gate jump — Home is no longer hard-wired to the hub; both return you where you were.
+# The map→Map handoff target (req 3/4): ALWAYS the latest not-fully-unlocked map (the frontier), falling
+# back to the FIRST map once the whole grove is restored. Shared by the nav Home button and the Purge card
+# — both now take the player to the map they should be working on, not wherever they last browsed.
 func _decorate_target() -> String:
-	return String(Save.grove().get("last_map", ""))
+	return Quests.home_map_id(Save.grove().get("unlocks", {}), _gates())
 
 # --- misc -------------------------------------------------------------------------
 
