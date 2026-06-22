@@ -8,7 +8,6 @@ func _initialize() -> void:
 	begin("grove · vine")
 	_test_registry()
 	_test_spot_derivation()
-	_test_region_cost_field()
 	_test_button_pos()
 	_test_maps_overlay()
 	_test_view_headless()
@@ -213,23 +212,15 @@ func _test_spot_derivation() -> void:
 	var spots := VineMaps.spots_for("farmhouse", e0)
 	ok(n >= 1 and spots.size() == n, "one derived spot per region")
 	ok(String(spots[0].id) == "farmhouse_r0" and String(spots[n - 1].id) == "farmhouse_r%d" % (n - 1), "spot ids are <slot>_r<index>")
-	# map1 is hand-authored now: each spot's stars mirror the region's own cost (the ladder-fallback
-	# path is covered by _test_region_cost_field with a dedicated fixture).
-	var cost_ok := true
-	for i in range(n):
-		var r: Dictionary = regions[i]
-		if int(spots[i].cost) < 1 or (r.has("cost") and int(spots[i].cost) != int(r["cost"])):
-			cost_ok = false
-	ok(cost_ok, "each spot's cost is valid and mirrors the region's authored cost")
+	# a spot is id · name · pos — no per-spot cost (the unlock threshold is computed centrally by
+	# G.spot_unlock_exp from the global spot order).
+	ok(not spots[0].has("cost"), "a derived spot carries no cost field (cost ladder retired)")
 	var p0: Vector2 = spots[0].pos
 	ok(p0.x > 0.0 and p0.x < 1.0 and p0.y > 0.0 and p0.y < 1.0, "centroid pos is normalized into (0,1)")
-	# override file wins when present
+	# override file wins when present (name)
 	var ov := VineMaps.spots_for("ovtest", {"id": "ovtest", "regions_path": "res://games/grove/tests/fixtures/ov_regions.json"}, "res://games/grove/tests/fixtures/ov_spots.json")
-	ok(ov.size() == 2 and String(ov[0].name) == "Cottage" and int(ov[0].cost) == 9, "override file sets name + cost")
+	ok(ov.size() == 2 and String(ov[0].name) == "Cottage", "override file sets the spot name")
 
-# A region that carries its own `cost` (authored in the vine tool) drives the spot's stars directly:
-# it wins over the COST_LADDER default AND over a _spots.json override (the tool is the source of truth
-# for stars). A region with no cost still falls back to the ladder, so existing maps are unchanged.
 # A region's optional `button` [x,y] sets the unlock-disc position (normalized), overriding the polygon
 # centroid the game otherwise computes. A region with no `button` still falls back to the centroid.
 func _test_button_pos() -> void:
@@ -241,10 +232,3 @@ func _test_button_pos() -> void:
 	var p1: Vector2 = spots[1].pos
 	ok(absf(p1.x - 0.2) < 0.001 and absf(p1.y - 0.2) < 0.001, "a region with no button falls back to the centroid (0.2,0.2)")
 
-func _test_region_cost_field() -> void:
-	var entry := {"id": "costtest", "regions_path": "res://games/grove/tests/fixtures/cost_regions.json"}
-	var spots := VineMaps.spots_for("costtest", entry)
-	ok(int(spots[0].cost) == 7, "a region's own cost (7) wins over the cost ladder")
-	ok(int(spots[1].cost) == 3, "a region with no cost falls back to the ladder (index 1 -> 3)")
-	var spots2 := VineMaps.spots_for("costtest", entry, "res://games/grove/tests/fixtures/cost_override.json")
-	ok(int(spots2[0].cost) == 7, "a region's own cost wins over a _spots.json override too")

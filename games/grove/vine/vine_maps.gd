@@ -4,9 +4,6 @@ extends RefCounted
 ## these files at map-build time, so a tool save shows up on the next home open.
 
 const MAPS_JSON := "res://games/tools/vine_mask_tool/maps/maps.json"
-# Star cost per region, indexed by region order; past the table, the tail value repeats.
-const COST_LADDER := [3, 3, 3, 4, 4, 4, 5, 5]
-const COST_TAIL := 5
 
 # The maps[] array from maps.json, in file order. [] if the file is missing/unparseable.
 static func entries() -> Array:
@@ -67,15 +64,11 @@ static func spots_for(slot_id: String, entry: Dictionary, override_path: String 
 			continue
 		var region: Dictionary = regions[i]
 		var ov: Dictionary = overrides.get(str(i), {})
-		# Stars precedence: the region's own `cost` (authored in the vine tool) is the source of truth and
-		# wins over both the _spots.json override and the COST_LADDER. A region without a `cost` field falls
-		# back to the override, then the ladder — so legacy maps that never set a cost are unchanged.
-		var ladder_cost: int = COST_LADDER[i] if i < COST_LADDER.size() else COST_TAIL
-		var cost: int = int(region["cost"]) if region.has("cost") else int(ov.get("cost", ladder_cost))
+		# A spot is id · name · pos only. There is no per-spot cost any more — the unlock threshold is
+		# computed centrally from the global spot order by G.spot_unlock_exp (the escalate-per-map ladder).
 		spots.append({
 			"id": "%s_r%d" % [slot_id, i],
 			"name": String(ov.get("name", region.get("name", "Region %d" % (i + 1)))),
-			"cost": cost,
 			"pos": _button_or_centroid(region, isize),
 		})
 	return spots

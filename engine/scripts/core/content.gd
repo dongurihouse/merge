@@ -536,61 +536,16 @@ static func owned_count(z: int, unlocks: Dictionary) -> int:
 			n += 1
 	return n
 
-static func map_stars_left(z: int, unlocks: Dictionary) -> int:
-	var left := 0
-	for s in MAPS[z].spots:
-		if not unlocks.has(String(s.id)):
-			left += int(s.cost)
-	return left
-
 static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 	for z in MAPS.size():
 		if map_unlocked(z, unlocks, gates) and not map_complete(z, unlocks, gates):
 			return z
 	return -1
 
-## The cheapest unowned spot IN map `z` (the frontier's next restore) — the §7 meter sizes the
-## fence to it. Returns the cost, or -1 (all of z owned → gate time). Map-scoped, so gate-locked
-## later maps are never the meter target.
-static func map_cheapest_spot(z: int, unlocks: Dictionary) -> int:
-	var cheapest := 99
-	for k in MAPS[z].spots.size():
-		var sp: Dictionary = MAPS[z].spots[k]
-		if unlocks.has(String(sp.id)):
-			continue
-		cheapest = mini(cheapest, int(sp.cost))
-	return cheapest if cheapest < 99 else -1
-
 ## How many ambient characters wander: 1 + completed maps, capped. The host
 ## passes this to Ambient.build_layer (progression stays a game rule, not engine).
 static func character_count(unlocks: Dictionary) -> int:
 	return mini(1 + completed_maps(unlocks), CHARACTER_CAP)
-
-static func cheapest_spot_cost(unlocks: Dictionary) -> int:
-	for z in MAPS.size():
-		var cheapest := 99
-		var missing := false
-		for k in MAPS[z].spots.size():
-			var s: Dictionary = MAPS[z].spots[k]
-			if unlocks.has(String(s.id)):
-				continue
-			missing = true
-			cheapest = mini(cheapest, int(s.cost))
-		if missing:
-			return cheapest
-	return -1
-
-# Of the open (unowned) spots in a map, is k the one to buy next?
-# Cheapest wins; ties break to the lower index. (Powers the "buy me next" affordance.)
-static func is_cheapest_open(z: int, k: int, unlocks: Dictionary) -> bool:
-	var my_cost := int(MAPS[z].spots[k].cost)
-	for j in MAPS[z].spots.size():
-		var s: Dictionary = MAPS[z].spots[j]
-		if unlocks.has(String(s.id)):
-			continue
-		if int(s.cost) < my_cost or (int(s.cost) == my_cost and j < k):
-			return j == k
-	return true
 
 # --- sell / economy formulas ------------------------------------------------------
 static func sell_value(code: int) -> int:

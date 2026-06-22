@@ -243,14 +243,8 @@ func map_unlocked(z: int) -> bool:
 func owned_count(z: int) -> int:
 	return G.owned_count(z, unlocks)
 
-func map_stars_left(z: int) -> int:
-	return G.map_stars_left(z, unlocks)
-
 func _frontier_map() -> int:
 	return G.frontier_map(unlocks, _gates())
-
-func _is_cheapest_open(z: int, k: int) -> bool:
-	return G.is_cheapest_open(z, k, unlocks)
 
 # --- navigation: a map IS one image; discrete maps via the map-select -------------------
 
@@ -522,58 +516,6 @@ func _force_ignore(n: Control) -> void:
 		if c is Control:
 			_force_ignore(c)
 
-# The baked code-drawn restore badge — the engine fallback when the grove kit can't load. Decoration only
-# (mouse-ignored); the spot's tap is then routed centrally via _map_tap → spot_hits → _on_spot_tap.
-func _home_badge_baked(z: int, k: int, b) -> Control:
-	var spot: Dictionary = G.MAPS[z].spots[k]
-	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
-	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
-	var d := _map_rect.size.x * 0.16                  # badge diameter relative to the map
-	var node := Control.new()
-	node.size = Vector2(d, d)
-	node.position = ctr - Vector2(d, d) * 0.5
-	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the disc — the sliced round cost badge. Falls back to the legacy badge.png disc (ui/map/).
-	var disc_kit := Look.kit("map/badge_cost.png")
-	var bg := TextureRect.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	bg.texture = load(disc_kit) if ResourceLoader.exists(disc_kit) else load(Look.kit("map/badge.png"))
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_child(bg)
-	# the buyable disc stacks a "+" over the star cost "★ N", centered on the disc.
-	var col := VBoxContainer.new()
-	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", -2)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_child(col)
-	var plus := Label.new()
-	plus.text = "+"
-	plus.add_theme_font_size_override("font_size", int(d * 0.30))
-	plus.add_theme_color_override("font_color", Color("#6E4E25"))
-	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(plus)
-	# the star cost — a gold star sprite (Look.icon) + the number, on the second line (matches the wallet).
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 3)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(row)
-	var ic := Look.icon("star", d * 0.26)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(ic)
-	var lbl := Label.new()
-	lbl.text = "%d" % int(spot.cost)
-	lbl.add_theme_font_size_override("font_size", int(d * 0.26))
-	lbl.add_theme_color_override("font_color", Color("#6E4E25"))
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(lbl)
-	return node
-
 # An owned building's affordance node at its position — a spot_hit (keeps the list index-aligned with
 # the spots) that also carries the upgrade pill + the inline customize strip, exactly like _make_spot.
 func _home_owned_item(z: int, k: int, b) -> Control:
@@ -664,12 +606,11 @@ func _map_title_plank(z: int) -> Control:
 	bg.texture = load(pill_path)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(bg)
-	# the GREEN fill bar inside the groove, clipped to the progress fraction (paid / total star cost).
-	var total := 0
-	for s in G.MAPS[z].spots:
-		total += int(s.cost)
-	var left := map_stars_left(z)
-	var frac := 1.0 if total <= 0 else clampf(float(total - left) / float(total), 0.0, 1.0)
+	# the GREEN fill bar inside the groove, clipped to the restore progress fraction (claimed / total spots).
+	var total: int = G.MAPS[z].spots.size()
+	var owned := owned_count(z)
+	var left := total - owned
+	var frac := 1.0 if total <= 0 else clampf(float(owned) / float(total), 0.0, 1.0)
 	if map_spots_done(z):
 		frac = 1.0
 	var fill_path := Look.kit("map/pill_progress_fill.png")
@@ -696,9 +637,9 @@ func _map_title_plank(z: int) -> Control:
 		clip.add_child(fill)
 	# the text — "N to restore this place" (or "restored ✿ 🎁"), in the pill's UPPER body. pill_progress.png
 	# already bakes a flower into its top-left, so we DON'T add an icon here — that flower IS the single
-	# left mark (mockup: one flower + text). The number is the map's TOTAL remaining star cost (every
-	# unowned spot), not just the next one — see map_stars_left. The label fills the area to the RIGHT of
-	# the baked flower and centers itself in that remaining span, so the text never overlaps the flower.
+	# left mark (mockup: one flower + text). The number is now the count of UNCLAIMED spots (the single
+	# bottom Unlock button carries the live per-spot exp requirement). The label fills the area to the
+	# RIGHT of the baked flower and centers itself in that remaining span, so it never overlaps the flower.
 	var lbl := Label.new()
 	lbl.text = tr("restored ✿ 🎁") if map_spots_done(z) else tr("%d to restore this place") % left
 	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
@@ -743,7 +684,7 @@ func _map_title_plank_fallback(z: int) -> Control:
 		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		plank.add_child(lbl)
 	else:
-		plank.add_child(_stars_left_row(map_stars_left(z), STRAW, 22))   # gold star sprite + count
+		plank.add_child(_restore_left_row(G.MAPS[z].spots.size() - owned_count(z), STRAW, 22))
 	return plank
 
 # A code-drawn stand-in for an owned spot that ships no cutout art (the non-hub maps):
@@ -796,52 +737,19 @@ func _make_spot(z: int, k: int, rect: Rect2) -> Control:
 		# Owned spots draw a code-generated placeholder so the restored plot reads as filled.
 		item.add_child(_placeholder_tile(spot, fs_eff))
 	else:
-		# Only unowned (gated or buyable) spots reach here — the price-pin + name.
-		# S7: ONE anchor rule — price chip + name stack CENTERED UNDER the plot
-		# point, ≥28px chip text, never covering the plot the furniture will fill
+		# Unowned spots show just their NAME centered under the plot — no per-spot cost chip. The
+		# single bottom Unlock button is the restore CTA, gated by each spot's exp threshold.
 		var stack := VBoxContainer.new()
 		stack.anchor_left = 0.0
 		stack.anchor_right = 1.0
 		stack.offset_top = SPOT_NAME_DY
-		stack.add_theme_constant_override("separation", 2)
 		stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var pin := PanelContainer.new()
-		pin.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		var ps := StyleBoxFlat.new()
-		ps.set_corner_radius_all(19)
-		ps.content_margin_left = 16.0
-		ps.content_margin_right = 16.0
-		ps.content_margin_top = 6.0
-		ps.content_margin_bottom = 6.0
-		ps.shadow_color = Color(0, 0, 0, 0.3)
-		ps.shadow_size = 4
-		var prow := HBoxContainer.new()
-		prow.alignment = BoxContainer.ALIGNMENT_CENTER
-		prow.add_theme_constant_override("separation", 5)
-		prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ptxt := Label.new()
-		ptxt.add_theme_font_size_override("font_size", 28)
-		ps.bg_color = Color(INK, 0.85)
-		ps.set_border_width_all(2)
-		ps.border_color = STRAW
-		# §13: the star price is ALWAYS a Look.icon sprite + a number-only label
-		# (Look.icon ships the ★ glyph as its own fallback) — no emoji baked in.
-		prow.add_child(Look.icon("star", 26.0))
-		ptxt.text = str(int(spot.cost))
-		ptxt.add_theme_color_override("font_color", CREAM)
-		prow.add_child(ptxt)
-		pin.add_theme_stylebox_override("panel", ps)
-		pin.add_child(prow)
-		pin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		stack.add_child(pin)
 		var name_l := _lbl(tr(spot.name), 24, CREAM)
 		name_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		name_l.autowrap_mode = TextServer.AUTOWRAP_WORD
 		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		stack.add_child(name_l)
 		item.add_child(stack)
-		if z == _frontier_map() and _is_cheapest_open(z, k):
-			FX.breathe_once(item)
 	return item
 
 # --- THE MAP-SELECT VIEW (grove_spec §3) ------------------------------------------------
@@ -908,7 +816,7 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 		"open": open,
 		"done": map_spots_done(z),
 		"art": _card_art_path(z) if open else "",     # painted thumbnail / §16 home clean art / "" → meadow fill
-		"stars_left": map_stars_left(z),
+		"unlock_exp": G.spot_unlock_exp(z, maxi(0, G.MAPS[z].spots.size() - 1)),   # exp to fully restore this map
 		"prereq": tr("✿ after %s") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
 	}
@@ -933,19 +841,15 @@ func _card_art_path(z: int) -> String:
 			return clean
 	return ""
 
-# A centered "★ N left" status row: the GOLD star SPRITE (Look.icon) + a number-only label, so
-# every star reads as the same currency as the HUD wallet. Used by the map cards and the map title
-# plank (replaces the old baked-glyph "✿ N★ left"). Every node IGNOREs the single input surface.
-func _stars_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
+# A centered "✿ N to restore" status row (no star sprite — exp/level is the only currency now). `n`
+# is the count of UNCLAIMED spots. Used by the (disabled) map title plank fallback. Mouse-IGNOREd.
+func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 5)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := Look.icon("star", float(px) + 3.0)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(ic)
 	var lbl := Label.new()
-	lbl.text = tr("%d left") % n
+	lbl.text = tr("✿ %d to restore") % n
 	lbl.add_theme_font_size_override("font_size", px)
 	lbl.add_theme_color_override("font_color", num_col)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
