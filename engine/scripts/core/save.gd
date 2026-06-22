@@ -7,8 +7,7 @@ extends RefCounted
 ## NOT a tree autoload: pure data needs no scene presence, and autoloads don't resolve in
 ## headless `-s` test runs. Tests call configure_for_test() to redirect the paths.
 
-const SCHEMA_VERSION := 2
-const COINS_PER_CLEAR_SEED := 35   # migration: coins granted per past board clear
+const SCHEMA_VERSION := 3   # v3: stars collapsed into a single grove.exp total (no migration — see load_now)
 # A small starting gem balance for a brand-new save, so the premium-currency wallet slot reads
 # alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
 # deliberately small — a taste, not a giveaway. Only fresh saves get it (defaulted, never re-granted).
@@ -31,7 +30,6 @@ static var _loaded := false
 static func _default() -> Dictionary:
 	return {
 		"schema_version": SCHEMA_VERSION,
-		"migrated_v2": false,
 		"currencies": {"coins": 0, "diamonds": NEW_SAVE_GEMS},
 		"settings": {},
 	}
@@ -47,19 +45,11 @@ static func load_now() -> void:
 	var loaded := _read(path)
 	if loaded.is_empty():
 		loaded = _read(bak)            # primary unreadable/corrupt → try the backup
+	# No migration: a save from an older schema is DISCARDED and recreated fresh (delete-and-recreate).
+	if int(loaded.get("schema_version", 0)) != SCHEMA_VERSION:
+		loaded = {}
 	data = _merge(_default(), loaded)
-	# First run with a legacy progress.cfg present and not yet migrated → carry it over once.
-	if not bool(data["migrated_v2"]) and FileAccess.file_exists(legacy):
-		_migrate_legacy()
 	save_now()
-
-static func _migrate_legacy() -> void:
-	var c := ConfigFile.new()
-	var cleared := 0
-	if c.load(legacy) == OK:
-		cleared = int(c.get_value("progress", "cleared", 0))
-	data["currencies"]["coins"] = coins_raw() + cleared * COINS_PER_CLEAR_SEED
-	data["migrated_v2"] = true
 
 # Reads coins WITHOUT _ensure_loaded re-entrancy (used during load_now, where _loaded is set).
 static func coins_raw() -> int:
@@ -173,73 +163,15 @@ static func set_vault(bank: int, carry: int) -> void:
 	v["carry"] = maxi(0, carry)
 	save_now()
 
-# --- stars + the grove (v2) -----------------------------------------------------
+# --- the grove (v3) -------------------------------------------------------------
 
-static func stars() -> int:
-	_ensure_loaded()
-	return int(data["currencies"].get("stars", 0))
-
-static func add_stars(n: int) -> void:
-	_ensure_loaded()
-	data["currencies"]["stars"] = stars() + n
-	save_now()
-
-static func spend_stars(n: int) -> bool:
-	_ensure_loaded()
-	if stars() < n:
-		return false
-	data["currencies"]["stars"] = stars() - n
-	save_now()
-	return true
-
-# The grove's persistent state blob (board/bag/unlocks/quests/rng) — a live ref.
-# Spot-id renames: barn = Order Q (placement-law v2); farmhouse = T21 (the §8 home-hub
-# roster — chest/bed/table… → hearth/kitchen/well/larder/porch/boxes/lantern/fence). This
-# is the ONE permitted code mention of the retired ids — every reader shares grove(), so the
-# rename runs here, once a save touches it, and is naturally idempotent (key and value id
-# sets are disjoint; after the rename the old keys are gone). Migrates unlocks (ownership)
-# so counts/stars survive.
-# (A save from a naming TWO renames back isn't chained — pre-launch, disposable; the live model is what matters.)
-const _SPOT_ID_RENAMES := {
-	"fh_chest": "fh_hearth", "fh_bed": "fh_kitchen", "fh_table": "fh_well", "fh_rug": "fh_larder",
-	"fh_plant": "fh_porch", "fh_wheel": "fh_boxes", "fh_chair": "fh_lantern",
-	"bn_doors": "bn_bales", "bn_loft": "bn_stool",
-	"bn_stalls": "bn_churns", "bn_weathervane": "bn_plow",
-}
-
+# The grove's persistent state blob (board/bag/unlocks/quests/rng/exp) — a live ref. No
+# migrations: a save from an older schema was already discarded + recreated in load_now().
 static func grove() -> Dictionary:
 	_ensure_loaded()
 	if not data.has("grove"):
 		data["grove"] = {}
-	_migrate_spot_ids(data["grove"])
-	_migrate_map_keys(data["grove"])
 	return data["grove"]
-
-# Old saves stored level as `exp` (= 10 × stars earned). The clock is now the
-# cumulative `stars_earned`, so carry the old level over (exp/10) and drop exp.
-static func _migrate_exp_to_stars(g: Dictionary) -> void:
-	if g.has("exp"):
-		if not g.has("stars_earned"):
-			g["stars_earned"] = int(int(g["exp"]) / 10.0)
-		g.erase("exp")
-
-static func _migrate_spot_ids(g: Dictionary) -> void:
-	for blob_key in ["unlocks"]:
-		var blob: Dictionary = g.get(blob_key, {})
-		for old in _SPOT_ID_RENAMES:
-			if blob.has(old):
-				blob[_SPOT_ID_RENAMES[old]] = blob[old]
-				blob.erase(old)
-
-# T38: the zone→map vocabulary sweep renamed two persisted grove keys. Carry an old
-# save's values over (idempotent — old key erased after the move).
-const _MAP_KEY_RENAMES := {"last_zone": "last_map", "quests_zone": "quests_map"}
-static func _migrate_map_keys(g: Dictionary) -> void:
-	for old in _MAP_KEY_RENAMES:
-		if g.has(old):
-			if not g.has(_MAP_KEY_RENAMES[old]):
-				g[_MAP_KEY_RENAMES[old]] = g[old]
-			g.erase(old)
 
 static func grove_write() -> void:
 	_ensure_loaded()

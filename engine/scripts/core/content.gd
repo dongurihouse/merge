@@ -65,8 +65,6 @@ const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
-const LEVEL_STARS = D.LEVEL_STARS
-const LEVEL_STARS_TAIL = D.LEVEL_STARS_TAIL
 const LEVEL_EXP = D.LEVEL_EXP
 const LEVEL_EXP_TAIL = D.LEVEL_EXP_TAIL
 const UNLOCK_BASE = D.UNLOCK_BASE
@@ -628,24 +626,8 @@ static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
 # --- progression ------------------------------------------------------------------
-# The ONE level clock (§3): one uncapped Level, driven by stars EARNED (cumulative).
-static func level_for_stars(earned: int) -> int:
-	var lvl := 1
-	for i in LEVEL_STARS.size():
-		if earned >= int(LEVEL_STARS[i]):
-			lvl = i + 1
-	var top := int(LEVEL_STARS[LEVEL_STARS.size() - 1])
-	if earned > top:
-		lvl += int((earned - top) / float(LEVEL_STARS_TAIL))   # uncapped flat tail
-	return lvl
-
-# Cumulative stars EARNED required to BE at `level` (the inverse — the HUD fraction).
-static func stars_at_level(level: int) -> int:
-	if level <= 1:
-		return 0
-	if level <= LEVEL_STARS.size():
-		return int(LEVEL_STARS[level - 1])
-	return int(LEVEL_STARS[LEVEL_STARS.size() - 1]) + LEVEL_STARS_TAIL * (level - LEVEL_STARS.size())
+# The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
+# level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.
 
 # --- exp level math (the renamed clock; reads the single cumulative `exp`) ----------
 static func level_for_exp(earned: int) -> int:

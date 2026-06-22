@@ -57,9 +57,9 @@ func _initialize() -> void:
 			# bank enough stars to make the frontier map's cheapest spot affordable, so the
 			# board reaches the gate-ready state it is meant to showcase (the lit Home button)
 			var gz := Save.grove()
-			gz["stars_earned"] = 300
+			gz["exp"] = 300
 			Save.grove_write()
-			Save.add_stars(300)
+			Save.add_exp(300)
 			scn._rebuild_givers()
 			scn._update_hud()
 			await create_timer(0.6).timeout
@@ -75,10 +75,10 @@ func _initialize() -> void:
 			# value) — proves water sits in the top-right cluster next to ★🪙💎
 			var gh := Save.grove()
 			gh["pops"] = 30
-			gh["stars_earned"] = 24
+			gh["exp"] = 24
 			gh["water"] = 42
 			Save.grove_write()
-			Save.add_stars(8)
+			Save.add_exp(8)
 			scn.water = 42
 			scn._update_hud()
 			scn._update_water_hud()
@@ -88,18 +88,18 @@ func _initialize() -> void:
 			# the level screen (tapping the Lv badge or a locked cell): banked partway to the
 			# next level so the tally + progress bar show a real fraction.
 			var glv := Save.grove()
-			glv["stars_earned"] = 24
+			glv["exp"] = 24
 			Save.grove_write()
-			Save.add_stars(8)
+			Save.add_exp(8)
 			scn._update_hud()
 			load("res://engine/scripts/ui/level_popup.gd").open(scn)
 			await create_timer(0.5).timeout
 		"levelup":
 			# the level-UP celebration (auto on a level gain): the Collect dialog showing the earned gift
 			var glu := Save.grove()
-			glu["stars_earned"] = 24
+			glu["exp"] = 24
 			Save.grove_write()
-			Save.add_stars(8)
+			Save.add_exp(8)
 			scn._update_hud()
 			load("res://engine/scripts/ui/level_popup.gd").open_levelup(scn, 1)
 			await create_timer(0.5).timeout
@@ -196,7 +196,7 @@ func _initialize() -> void:
 	img = _maybe_crop(img, args)
 	var err := img.save_png(out)
 	print("SHOT saved=%s err=%d stars=%d coins=%d brambles=%d" % \
-		[out, err, Save.stars(), Save.coins(), scn.board.bramble_count()])
+		[out, err, Save.exp_total(), Save.coins(), scn.board.bramble_count()])
 	quit()
 
 # R3 --crop: `crop=x,y,w,h` saves a ZOOMED (3×, nearest) cutout of one element

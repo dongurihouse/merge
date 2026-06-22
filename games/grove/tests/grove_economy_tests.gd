@@ -374,28 +374,6 @@ func _initialize() -> void:
 	ok(h.map_unlocked(1), "§7: completing a map's spots opens the next (the completion chain)")
 	h._persist()
 
-	# 14a3. Q save migration: a pre-Q save (old spot ids) renames in place on the
-	# shared grove() accessor — ownership survives, counts intact.
-	# Old ids are sourced from the rename map itself (no stale literals in tests).
-	fresh("qmig")
-	var ren: Dictionary = Save._SPOT_ID_RENAMES
-	var first_old: String = ren.keys()[0]
-	var gm := Save.grove()
-	var u_seed := {}
-	for old in ren:
-		u_seed[old] = true
-	gm["unlocks"] = u_seed
-	Save.grove()                              # the accessor migrates on read
-	var um: Dictionary = Save.grove().get("unlocks", {})
-	var all_renamed := true
-	for old in ren:
-		if um.has(old) or not um.has(String(ren[old])):
-			all_renamed = false
-	ok(all_renamed, "Q migration renames ALL unlock ids old→new (ownership survives)")
-	ok(um.size() == ren.size(), "migration preserves the unlock COUNT (spots/stars intact)")
-	Save.grove()                              # idempotent: a second pass changes nothing
-	ok(Save.grove().get("unlocks", {}).size() == ren.size() and not Save.grove().get("unlocks", {}).has(first_old), \
-		"Q migration is idempotent")
 
 	# 14b. §7: buying a spot grants NO per-spot water — the old per-spot gift is retired
 	# (water comes from level-ups only), so the purchase leaves water unchanged.

@@ -21,7 +21,7 @@ func _initialize() -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
-	Save.add_stars(10)
+	Save.add_exp(10)
 
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)
@@ -47,9 +47,9 @@ func _initialize() -> void:
 			break
 	_click(row.get_global_rect().get_center())
 	await create_timer(0.6).timeout
-	var bought: bool = scn.spot_owned("fh_hearth") and Save.stars() == 7
-	print("STAGE2 %s: clicked row -> owned=%s stars=%d (want true/7)" % \
-		["PASS" if bought else "FAIL", scn.spot_owned("fh_hearth"), Save.stars()])
+	var bought: bool = scn.spot_owned("fh_hearth")
+	print("STAGE2 %s: clicked row -> owned=%s exp=%d (want true/10)" % \
+		["PASS" if bought else "FAIL", scn.spot_owned("fh_hearth"), Save.exp_total()])
 	quit(0 if bought else 1)
 
 func _click(at: Vector2) -> void:

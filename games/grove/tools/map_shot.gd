@@ -50,9 +50,9 @@ func _initialize() -> void:
 			for sp in G.MAPS[G.hub_map()].spots:
 				fh[String(sp.id)] = true
 			gh["unlocks"] = fh
-			gh["stars_earned"] = 200
+			gh["exp"] = 200
 			Save.grove_write()
-			Save.add_stars(256)
+			Save.add_exp(256)
 			Save.add_coins(132)
 			Save.add_diamonds(87)
 			Save.mark_spotlight_seen("shop")
@@ -76,7 +76,7 @@ func _initialize() -> void:
 			for sp in G.MAPS[G.hub_map()].spots:
 				fv[String(sp.id)] = true
 			gv["unlocks"] = fv
-			gv["stars_earned"] = 20
+			gv["exp"] = 20
 			Save.grove_write()
 			Save.mark_spotlight_seen("shop")             # don't let the FTUE shop spotlight dim this composite
 			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
@@ -86,7 +86,7 @@ func _initialize() -> void:
 			# unclaimed (the default) → the _ready-driven popup fires.
 			var gl := Save.grove()
 			gl["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
-			gl["stars_earned"] = 6
+			gl["exp"] = 6
 			Save.grove_write()
 			Save.mark_spotlight_seen("shop")
 		"calmbreeze":
@@ -95,14 +95,14 @@ func _initialize() -> void:
 			gc["winback_until"] = Time.get_unix_time_from_system() + 60.0
 			Save.grove_write()
 		"closeup", "progress":
-			Save.add_stars(20)
+			Save.add_exp(20)
 			var g := Save.grove()
 			if mode == "progress":
 				g["unlocks"] = {"fh_hearth": true, "fh_kitchen": true, "fh_well": true}
-				g["stars_earned"] = 9
+				g["exp"] = 9
 			else:
 				g["unlocks"] = {"fh_hearth": true}   # one restored spot
-				g["stars_earned"] = 3
+				g["exp"] = 3
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
@@ -111,7 +111,7 @@ func _initialize() -> void:
 				for sp in G.MAPS[z].spots:
 					ul[String(sp.id)] = true
 			go["unlocks"] = ul
-			go["stars_earned"] = 40
+			go["exp"] = 40
 			Save.grove_write()
 
 	# noftue=1: suppress the FTUE overlays (daily-login calendar auto-popup + shop spotlight dim) so a
@@ -176,5 +176,5 @@ func _initialize() -> void:
 			cr.resize(int(r[2]) * 3, int(r[3]) * 3, Image.INTERPOLATE_NEAREST)
 			img = cr
 	var err := img.save_png(out)
-	print("SHOT saved=%s err=%d stars=%d earned=%d" % [out, err, Save.stars(), int(Save.grove().get("stars_earned", 0))])
+	print("SHOT saved=%s err=%d exp=%d" % [out, err, Save.exp_total()])
 	quit()

@@ -34,7 +34,7 @@ func _initialize() -> void:
 	# claim the overlay slot, then seed a news note + an unclaimed gift on top of the starters.
 	var g := Save.grove()
 	g["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
-	g["stars_earned"] = 6
+	g["exp"] = 6
 	Save.grove_write()
 	Save.mark_spotlight_seen("shop")
 	Inbox.messages()                       # trigger the one-time seed (welcome + starter gift)

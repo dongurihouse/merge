@@ -57,19 +57,20 @@ func _initialize() -> void:
 	ok(Save.spend(30) and Save.coins() == 70, "spend deducts when affordable")
 	ok(not Save.spend(1000) and Save.coins() == 70, "spend refused when too poor")
 
-	# 7. migrate a legacy progress.cfg, exactly once
-	fresh("migrate")
-	var c := ConfigFile.new()
-	c.set_value("progress", "cleared", 5)
-	c.save(Save.legacy)                      # temp legacy file (NOT the real one)
+	# 7. delete-and-recreate: a save written under an OLDER schema is discarded + recreated
+	# fresh on load (no migration — the stars→exp rework bumped the schema).
+	fresh("schema_reset")
+	Save.add_coins(500)
+	Save.grove()["exp"] = 99
+	Save.save_now()
+	var raw: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	raw["schema_version"] = Save.SCHEMA_VERSION - 1     # pretend it's an old-schema save
+	var wf := FileAccess.open(Save.path, FileAccess.WRITE)
+	wf.store_string(JSON.stringify(raw)); wf.close()
 	Save._loaded = false
 	Save.load_now()
-	ok(Save.coins() == 5 * Save.COINS_PER_CLEAR_SEED, "migration seeds coins from past clears")
-	ok(bool(Save.data["migrated_v2"]), "migration sets the once-guard")
-	var after := Save.coins()
-	Save._loaded = false
-	Save.load_now()                          # reloading must NOT re-grant
-	ok(Save.coins() == after, "migration does not double-grant on reload")
+	ok(Save.coins() == 0 and Save.exp_total() == 0, "an older-schema save is wiped + recreated fresh (no migration)")
+	ok(int(Save.data["schema_version"]) == Save.SCHEMA_VERSION, "the recreated save carries the current schema_version")
 
 	# 13b. settings: defaults true, set persists across reload
 	fresh("settings")
@@ -86,21 +87,6 @@ func _initialize() -> void:
 	ok(Save.exp_total() == 22 and int(Save.grove().get("exp", -1)) == 22, \
 		"add_exp accumulates into the persisted grove.exp")
 
-	# 16. T38 zone→map sweep: the two persisted grove keys migrate (value carried, old key dropped).
-	fresh("map_keys_rename")
-	var gm := Save.grove()
-	gm["last_zone"] = "farmhouse"
-	gm["quests_zone"] = 3
-	Save._migrate_map_keys(gm)
-	ok(not gm.has("last_zone") and String(gm.get("last_map", "")) == "farmhouse", \
-		"last_zone → last_map carries the value and drops the old key")
-	ok(not gm.has("quests_zone") and int(gm.get("quests_map", -99)) == 3, \
-		"quests_zone → quests_map carries the value and drops the old key")
-	# idempotent + non-clobbering: an existing new key wins, a re-run is a no-op.
-	gm["last_zone"] = "stale"; gm["last_map"] = "barn"
-	Save._migrate_map_keys(gm)
-	ok(not gm.has("last_zone") and String(gm.get("last_map", "")) == "barn", \
-		"migration never clobbers an existing last_map")
 
 	# 18. bag-slot count (§5: 6 owned at start, +1 per 💎 buy, hard cap 18). Stored in the
 	# grove blob (default-on-read, like hub levels) — accessor + buy path + cap + persistence.

@@ -297,21 +297,15 @@ static func _apply_vine_maps(maps: Array) -> Array:
 
 
 const LEVEL_WATER_GIFT := 20
-# The one uncapped LEVEL clock, driven by stars EARNED (cumulative): cross a
-# threshold → level up. The ramp is the old LEVEL_XP/10, so the existing pacing
-# and spot-gates carry over unchanged (level_for_stars(3·rank) == the old
-# level_for_exp(30·rank)); past the table a flat tail keeps it UNCAPPED.
-# PROVISIONAL — recalibrated with the generated-quest model + the Monte-Carlo
-# sim (docs/BACKLOG.md).
-const LEVEL_STARS := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]
-const LEVEL_STARS_TAIL := 22       # stars per level past the table (flat tail)
-
 # §map-unlock — the per-spot exp threshold ladder. Spots across all maps form one global
 # order (map order, then spot order); each spot's unlock threshold is the running sum of a
 # per-spot increment that ESCALATES per map: inc(z) = UNLOCK_BASE + z*UNLOCK_STEP. The first
 # spot overall sits at 0 (claimable on a fresh save). PROVISIONAL feel dials.
 const UNLOCK_BASE := 3            # per-spot exp increment on the first map
 const UNLOCK_STEP := 3            # extra increment added per later map
+# The one uncapped LEVEL clock, derived from the cumulative exp total: cross a threshold → level
+# up. Level is purely cosmetic now (badge + per-level gift); past the table a flat tail keeps it
+# UNCAPPED. PROVISIONAL — recalibrated with the generated-quest model + the Monte-Carlo sim.
 const LEVEL_EXP := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]   # exp to reach L2..L10 (L1 = 0)
 const LEVEL_EXP_TAIL := 22        # exp per level past the table (flat, uncapped)
 

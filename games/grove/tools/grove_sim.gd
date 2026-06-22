@@ -114,8 +114,8 @@ func _initialize() -> void:
 	print("\n== results ==")
 	print("  maps restored: %d/%d%s" % [maps_done, G.MAPS.size(),
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
-	print("  spots bought: %d/40 · maps completed: %d · level %d (★ earned %d)" % \
-		[unlocks.size(), gates_reached, G.level_for_stars(stars_earned), stars_earned])
+	print("  spots bought: %d/40 · maps completed: %d · level %d (exp earned %d)" % \
+		[unlocks.size(), gates_reached, G.level_for_exp(stars_earned), stars_earned])
 	print("  merchant sells: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 
@@ -264,7 +264,7 @@ func _initialize() -> void:
 # --- the bot -----------------------------------------------------------------------
 
 func _level() -> int:
-	return G.level_for_stars(stars_earned)
+	return G.level_for_exp(stars_earned)
 
 func _live_lines() -> Array:
 	return G.lines_for_map(G.GENERATORS, map)

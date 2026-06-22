@@ -165,13 +165,13 @@ func _initialize() -> void:
 		counts[k] = int(counts.get(k, 0)) + 1
 	ok(int(counts.get(101, 0)) >= 2 and int(counts.get(201, 0)) >= 2, "starters give each line a pair")
 
-	# 9. stars currency (Save)
-	fresh("stars")
-	ok(Save.stars() == 0, "stars default 0")
-	Save.add_stars(3)
-	ok(Save.stars() == 3, "add_stars banks")
-	ok(Save.spend_stars(3) and Save.stars() == 0, "spend_stars deducts")
-	ok(not Save.spend_stars(1), "spend_stars refuses when broke")
+	# 9. exp total (Save) — the single progression number (no spendable balance)
+	fresh("exp")
+	ok(Save.exp_total() == 0, "exp default 0")
+	Save.add_exp(3)
+	ok(Save.exp_total() == 3, "add_exp accumulates")
+	Save.add_exp(5)
+	ok(Save.exp_total() == 8, "exp only ever rises (no spend)")
 
 	# 10. the SCENE stands up and plays headless (merge → bramble → deliver → gate)
 	fresh("scene")
