@@ -940,7 +940,7 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if map_spots_done(z):
 		Save.add_diamonds(G.MAP_DIAMONDS)
 		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
-		if not _gates().has(z):
+		if not G.gate_recorded(_gates(), z):     # int-tolerant: a reloaded gate is a JSON float (0.0)
 			var gg := Save.grove()
 			var gl: Array = gg.get("gates", [])
 			gl.append(z)

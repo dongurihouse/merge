@@ -520,7 +520,17 @@ static func hub_map() -> int:
 ## `gates` (map indices) — the record now sets automatically the moment the map's spots are done
 ## (the gate QUEST is retired). The NEXT map unlocks on it (the completion chain).
 static func map_complete(z: int, unlocks: Dictionary, gates: Array) -> bool:
-	return map_spots_done(z, unlocks) and gates.has(z)
+	return map_spots_done(z, unlocks) and gate_recorded(gates, z)
+
+## Is map index `z` recorded in `gates`? Compares by INTEGER value, because the save round-trips gate
+## indices through JSON, which reloads every number as a float ([0] → [0.0]). Array.has(int) is type-
+## strict and would miss the reloaded float, so a plain `gates.has(z)` wrongly re-locked the next map on
+## restart (the gate read true in-session as an int, false after reload as a float). int(x) heals both.
+static func gate_recorded(gates: Array, z: int) -> bool:
+	for x in gates:
+		if int(x) == z:
+			return true
+	return false
 
 # A map is visitable once the previous map is complete (all its spots claimed). This stays a
 # pure completion-chain, but it is still gated by exp transitively: a map's spots can only be

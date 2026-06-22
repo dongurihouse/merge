@@ -6,6 +6,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")   # T44 — the piggy-bank accrual vault
 const Login = preload("res://engine/scripts/core/login.gd")   # T44 — the forgiving daily-login ladder
 const UILogin = preload("res://engine/scripts/ui/login.gd")   # the calendar popup face (day-state mapping)
+const G = preload("res://engine/scripts/core/content.gd")     # map-progression queries (gate/unlock chain)
 
 var _pass := 0
 var _fail := 0
@@ -367,6 +368,28 @@ func _initialize() -> void:
 	ok(not Login.claimed_today(), "debug fast-forward reopens today's claim")
 	ok(Login.streak() == s_ff, "debug fast-forward keeps the advanced streak (no decay)")
 	ok(Login.today_day() == s_ff + 1, "debug fast-forward lands on the next ladder day")
+
+	# 22. map gates survive a save→load — the reported "locked into map 1 on restart" bug.
+	# The auto-recorded map gate is an int in memory ([0]), but JSON reloads every number as a float
+	# ([0.0]). map_complete checked gates.has(z) with an INT z, which Array.has fails on a float — so the
+	# next map re-locked on restart. Round-trip a real save and assert the completion chain still holds.
+	fresh("gates_roundtrip")
+	var grt := Save.grove()
+	var ulr := {}
+	for msp in G.MAPS[0].spots:                # claim every spot of map 0 → map 0 spots-done
+		ulr[String(msp.id)] = true
+	grt["unlocks"] = ulr
+	grt["gates"] = [0]                          # int, exactly as the live auto-gate writes it
+	Save.save_now()
+	Save.load_now()                            # simulate a restart: re-parse from disk (ints → floats)
+	var gl: Array = Save.grove().get("gates", [])
+	var ul2: Dictionary = Save.grove().get("unlocks", {})
+	ok(gl.size() == 1 and typeof(gl[0]) == TYPE_FLOAT, \
+		"precondition: the reloaded gate index is a JSON float (0.0), not an int")
+	ok(G.map_complete(0, ul2, gl), \
+		"map 0 stays complete after a save→load (float gate index is tolerated)")
+	ok(G.map_unlocked(1, ul2, gl), \
+		"map 2 stays UNLOCKED across a restart (the reported bug)")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
