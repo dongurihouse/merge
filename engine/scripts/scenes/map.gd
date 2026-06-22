@@ -260,6 +260,7 @@ func _open_map(z: int) -> void:
 	Save.grove_write()
 	_build_map()
 	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
+	_refresh_unlock_button()             # the restore badge is PER-MAP — rebuild it for the map just opened
 
 func _open_select() -> void:
 	_view = "select"
