@@ -30,9 +30,10 @@ const STRAW = Pal.STRAW
 # height so the rounded ends always draw 1:1 and never crush into a thin border (T48 failure mode).
 const PILL_SLOT_H := 65.0
 # The wallet is THREE separate capsules centred across the top (board2.png); PILL_GAP is the gap
-# between them. The settings gear is a top-right disc (GEAR_PX square) matching the nav buttons.
+# between them. The settings gear is a top-right disc (GEAR_PX square) sized to MATCH the top-left
+# level badge (lv_px below) so the two top corners read at the same size and the same Y baseline.
 const PILL_GAP := 12.0
-const GEAR_PX := 110.0
+const GEAR_PX := 130.0
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
@@ -111,7 +112,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
-	var lv_px := 130.0   # standalone top-left badge size (+30%; badge art is tight-cropped so it fills this)
+	var lv_px := GEAR_PX   # match the top-right settings gear so both top corners are the same size + Y
 	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
 	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
 	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
@@ -249,10 +250,9 @@ static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Bu
 	b.custom_minimum_size = Vector2(box, box)
 	b.add_theme_constant_override("h_separation", 0)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Tune.PLUS_BG                          # leaf green — the "get more" CTA hue
+	sb.bg_color = Tune.PLUS_BG                          # plain leaf green — the "get more" CTA hue (no border ring)
 	sb.set_corner_radius_all(int(box / 2.0))
-	sb.set_border_width_all(2)
-	sb.border_color = Tune.PLUS_BORDER
+	sb.set_border_width_all(0)
 	for st in ["normal", "hover", "pressed", "focus"]:
 		b.add_theme_stylebox_override(st, sb)
 	var g := Label.new()
