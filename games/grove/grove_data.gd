@@ -114,7 +114,6 @@ const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 eve
 const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
 const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
 const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
-const QUEST_REPEAT_PENALTY := 0.15        # weight ×factor for a line already on the fence → distinct concurrent stands (anti-monotony, §7)
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
 const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that ALSO carry a premium (≈3% of all quests)

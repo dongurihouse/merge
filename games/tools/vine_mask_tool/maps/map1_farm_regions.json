@@ -68,8 +68,8 @@
           760
         ],
         [
-          320,
-          1097
+          339,
+          1262
         ],
         [
           248,
@@ -120,16 +120,16 @@
           1063
         ],
         [
-          320,
-          1097
+          339,
+          1262
         ],
         [
-          282,
-          862
+          291,
+          880
         ],
         [
-          282,
-          862
+          291,
+          880
         ]
       ],
       "tuning": {
@@ -156,8 +156,8 @@
       "name": "Region 5",
       "points": [
         [
-          320,
-          1097
+          339,
+          1262
         ],
         [
           401,
@@ -239,102 +239,6 @@
       }
     },
     {
-      "cost": 4,
-      "enabled": true,
-      "name": "Region 7",
-      "points": [
-        [
-          320,
-          1097
-        ],
-        [
-          511,
-          1279
-        ],
-        [
-          478,
-          1582
-        ],
-        [
-          0,
-          1576
-        ],
-        [
-          0,
-          1179
-        ],
-        [
-          248,
-          1312
-        ]
-      ],
-      "tuning": {
-        "Breathing": 0.35,
-        "Embers": 0.550000011920929,
-        "EnergyCrawl": 0.75,
-        "FlowSpeed": 1.35,
-        "GlowOpacity": 0.28,
-        "GlowPower": 1.15,
-        "GlowSize": 0.012,
-        "Heartbeat": 0.45,
-        "Lightning": 0.65,
-        "PulseSpeed": 2.4,
-        "Shadow": 0.180000007152557,
-        "Sharpness": 2.8,
-        "Shimmer": 0.004,
-        "VineOpacity": 0.48,
-        "VinePower": 0.42
-      }
-    },
-    {
-      "cost": 4,
-      "enabled": true,
-      "name": "Region 8",
-      "points": [
-        [
-          511,
-          1279
-        ],
-        [
-          662,
-          1376
-        ],
-        [
-          940,
-          1244
-        ],
-        [
-          940,
-          1601
-        ],
-        [
-          478,
-          1582
-        ],
-        [
-          511,
-          1279
-        ]
-      ],
-      "tuning": {
-        "Breathing": 0.35,
-        "Embers": 0.550000011920929,
-        "EnergyCrawl": 0.75,
-        "FlowSpeed": 1.35,
-        "GlowOpacity": 0.28,
-        "GlowPower": 1.15,
-        "GlowSize": 0.012,
-        "Heartbeat": 0.45,
-        "Lightning": 0.65,
-        "PulseSpeed": 2.4,
-        "Shadow": 0.180000007152557,
-        "Sharpness": 2.8,
-        "Shimmer": 0.004,
-        "VineOpacity": 0.48,
-        "VinePower": 0.42
-      }
-    },
-    {
       "cost": 5,
       "enabled": true,
       "name": "Region 1",
@@ -366,6 +270,62 @@
         [
           0,
           351
+        ]
+      ],
+      "tuning": {
+        "Breathing": 0.35,
+        "Embers": 0.550000011920929,
+        "EnergyCrawl": 0.75,
+        "FlowSpeed": 1.35,
+        "GlowOpacity": 0.28,
+        "GlowPower": 1.15,
+        "GlowSize": 0.012,
+        "Heartbeat": 0.45,
+        "Lightning": 0.65,
+        "PulseSpeed": 2.4,
+        "Shadow": 0.180000007152557,
+        "Sharpness": 2.8,
+        "Shimmer": 0.004,
+        "VineOpacity": 0.48,
+        "VinePower": 0.42
+      }
+    },
+    {
+      "cost": 3,
+      "enabled": true,
+      "name": "Region 7",
+      "points": [
+        [
+          0,
+          1179
+        ],
+        [
+          248,
+          1312
+        ],
+        [
+          339,
+          1262
+        ],
+        [
+          511,
+          1279
+        ],
+        [
+          662,
+          1376
+        ],
+        [
+          940,
+          1244
+        ],
+        [
+          940,
+          1572
+        ],
+        [
+          0,
+          1574
         ]
       ],
       "tuning": {

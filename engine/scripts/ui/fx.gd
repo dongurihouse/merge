@@ -35,7 +35,9 @@ static func shatter_veil(host: Node, texture: Texture2D, bbox: Rect2, impact: Ve
 	var rect_poly := [bbox.position, bbox.position + Vector2(bbox.size.x, 0.0),
 			bbox.position + bbox.size, bbox.position + Vector2(0.0, bbox.size.y)]
 	var dust := Color(0.6863, 0.6627, 0.9255, 0.8)   # #AFA9EC, the veil's tint
-	f.arm(rect_poly, impact, {"texture": texture, "dust": dust}, hold)
+	# A transparent-viewport snapshot is premultiplied-alpha — tell the field so shards composite
+	# to match the veil instead of darkening.
+	f.arm(rect_poly, impact, {"texture": texture, "dust": dust, "premultiplied": true}, hold)
 
 static func pop(node: Control) -> void:
 	if not (node and is_instance_valid(node)):

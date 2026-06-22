@@ -69,12 +69,12 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var lines := G.askable_lines(G.GENERATORS, z, level)
 	var target := meter_target(z, banked_stars, unlocks)
 	while out.size() < target:
-		# §7 anti-monotony: steer the new stand off the items already on the fence (so the concurrent
-		# single-ask stands stay distinct) AND off the recent-items window (the last ≤5 item codes just
-		# asked), so a NEW quest never repeats an item from the previous few — a different TIER of the
-		# same line still counts as variety. Both feed the SAME avoid set of item codes (line*100+tier)
-		# — a HARD exclusion that degrades to the QUEST_REPEAT_PENALTY soft penalty only when the live
-		# item pool is too small to honour it (see gen_quest).
+		# §7 anti-monotony: steer the new stand off the recent-items window (the last ≤5 item codes just
+		# asked) AND the items already on the fence (so the concurrent single-ask stands stay distinct),
+		# so a NEW quest never repeats an item from the previous few — a different TIER of the same line
+		# still counts as variety. The avoid set is PRIORITY-ORDERED — recent items (oldest→newest) first,
+		# then the concurrent fence items LAST, so when the pool is too small to honour the whole window
+		# gen_quest relaxes the oldest first and the fence stands stay distinct longest (see gen_quest).
 		var avoid: Array = recent_items.duplicate()
 		for q in out:
 			var it := G.quest_item(q)

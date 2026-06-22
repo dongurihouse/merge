@@ -95,8 +95,8 @@ func _initialize() -> void:
 
 	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-items window (the last ≤5 asked
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
-	# --- stands use) that degrades to the QUEST_REPEAT_PENALTY soft penalty on a map with too small an
-	# --- item pool instead of starving it. A different TIER of the same line still counts as variety. ---
+	# --- stands use). When the item pool is too small to honour the whole window it relaxes the OLDEST
+	# --- asks first, never the freshest. A different TIER of the same line still counts as variety. ---
 	var pool := G.askable_lines(G.GENERATORS, 0, 99)
 	if pool.size() >= 2:
 		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
@@ -120,6 +120,38 @@ func _initialize() -> void:
 		var rd1 := RandomNumberGenerator.new(); rd1.seed = 9
 		var rd2 := RandomNumberGenerator.new(); rd2.seed = 9
 		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-items window")
+
+	# --- NO TWO IN A ROW on the smallest real pool: map-0 has just 2 lines, so the recent window (5)
+	# --- is bigger than the early item pool. Priority relaxation must still keep CONSECUTIVE asks
+	# --- distinct (the bug: the old soft fallback repeated). A rolling window mirrors board.gd. ---
+	var small_lines := [1, 2]
+	for lvl in [0, 1, 4, 8]:
+		var rr := RandomNumberGenerator.new(); rr.seed = 99 + lvl
+		var recent: Array = []
+		var prev := -1
+		var dupes := 0
+		var seen := {}
+		for _i in 300:
+			var q := G.gen_quest(lvl, small_lines, rr, recent)
+			var code := int(q.line) * 100 + int(q.tier)
+			seen[code] = true
+			if code == prev:
+				dupes += 1
+			prev = code
+			recent.append(code)
+			while recent.size() > 5:
+				recent.pop_front()
+		ok(dupes == 0, "level %d: no two asks in a row on map-0's 2-line pool (%d distinct items, %d dupes)" % [lvl, seen.size(), dupes])
+	# concurrent fence stands stay distinct on a small pool too (mirrors refill's avoid construction)
+	var rf2 := RandomNumberGenerator.new(); rf2.seed = 7
+	var fence: Array = []
+	for _s in int(G.MAX_GIVERS):
+		var q := G.gen_quest(8, small_lines, rf2, fence.duplicate())
+		fence.append(int(q.line) * 100 + int(q.tier))
+	var uniq := {}
+	for c in fence:
+		uniq[c] = true
+	ok(uniq.size() == fence.size(), "concurrent fence stands stay distinct on a small pool (%d/%d unique)" % [uniq.size(), fence.size()])
 
 	# --- ladder_entries: one row per tier, code = line*100+tier, seen flagged from the save's `seen` set ---
 	var lad := Quests.ladder_entries({}, 1)

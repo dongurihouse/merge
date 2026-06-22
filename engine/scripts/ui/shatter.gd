@@ -29,6 +29,7 @@ var _auto := true               # false = wait for an explicit release() (look-d
 var _hold := 0.0                # seconds to show the cracked-but-intact shape before bursting
 var _impact := Vector2.ZERO
 var _dust_color := Color(1, 1, 1, 0.8)
+var _premult := false           # textured shards: snapshot is premultiplied-alpha → composite to match the veil
 
 
 # Fracture `poly` (host-local coords) from `impact`, painted per `paint`:
@@ -47,6 +48,11 @@ func arm(poly: Array, impact: Vector2, paint: Dictionary, auto_release := 0.0, r
 	var cells := _radial_fracture(poly, impact, reach, rng)
 	var tex: Texture2D = paint.get("texture", null)
 	var col: Color = paint.get("color", Color.WHITE)
+	_premult = tex != null and bool(paint.get("premultiplied", false))
+	var tex_mat: CanvasItemMaterial = null
+	if _premult:
+		tex_mat = CanvasItemMaterial.new()   # the snapshot's RGB is already ×alpha; blend it as premultiplied
+		tex_mat.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
 
 	for cell in cells:
 		var cen := _centroid(cell)
@@ -62,6 +68,7 @@ func arm(poly: Array, impact: Vector2, paint: Dictionary, auto_release := 0.0, r
 		if tex != null:
 			pg.texture = tex
 			pg.uv = uv
+			pg.material = tex_mat
 		else:
 			pg.color = col
 			var border := PackedVector2Array(local)
@@ -145,7 +152,8 @@ func _process(delta: float) -> void:
 		p["life"] -= delta
 		if p["life"] <= p["fade"]:
 			a = clampf(p["life"] / p["fade"], 0.0, 1.0)
-		node.modulate = Color(b, b, b, a)
+		# premultiplied shards: scale RGB by the fade too, else they go additive instead of fading out
+		node.modulate = Color(b * a, b * a, b * a, a) if _premult else Color(b, b, b, a)
 		if p["life"] <= 0.0:
 			node.queue_free()
 			p["node"] = null

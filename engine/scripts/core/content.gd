@@ -30,7 +30,6 @@ const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
 const QUEST_PREMIUM_MIN_LEVEL = D.QUEST_PREMIUM_MIN_LEVEL
 const QUEST_PREMIUM_GEMS = D.QUEST_PREMIUM_GEMS
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
-const QUEST_REPEAT_PENALTY = D.QUEST_REPEAT_PENALTY
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
@@ -254,6 +253,14 @@ static func _weighted_index(weights: Array, rng: RandomNumberGenerator) -> int:
 			return i
 	return -1
 
+## True when EVERY candidate item's code (line*100+tier) is in `avoid` — i.e. excluding the whole
+## avoid set would leave nothing to ask. Used to relax an over-large avoid window on a tiny pool.
+static func _all_avoided(items: Array, avoid: Array) -> bool:
+	for it in items:
+		if not avoid.has(int(it.line) * 100 + int(it.tier)):
+			return false
+	return true
+
 ## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
 ## The ITEM (line, tier) is drawn from the candidate space of every askable line×tier: a line's tiers
@@ -263,11 +270,12 @@ static func _weighted_index(weights: Array, rng: RandomNumberGenerator) -> int:
 ## asks cluster at mid-difficulty and the centre rises with level as the band widens. Each item's
 ## weight is its line's newest-bias weight ((rank+1)^QUEST_NEWEST_BIAS) times that bell, so the LINE
 ## distribution still leans at the richest content.
-## `avoid` is the set of recently/concurrently asked ITEM codes (line*100+tier): each is HARD-excluded
-## (weight 0) whenever any other item is free, so a new ask never repeats one of the previous few —
-## variety can come from a different TIER of the same line, not only a different line. Only when EVERY
-## candidate item is avoided does it fall back to the QUEST_REPEAT_PENALTY soft weighting so the pick
-## still resolves (anti-monotony, §7). Reward is level-based: stars=min(level,3), coins=max(0,level-3),
+## `avoid` is a PRIORITY-ORDERED list of recently/concurrently asked ITEM codes (line*100+tier; oldest
+## first, freshest + concurrent stands last): each is HARD-excluded (weight 0), so a new ask never
+## repeats one of the previous few — variety can come from a different TIER of the same line, not only a
+## different line. If the pool is too small to honour the whole window, it relaxes from the oldest end
+## until one item is free, so no two asks in a row repeat while >1 item exists (anti-monotony, §7).
+## Reward is level-based: stars=min(level,3), coins=max(0,level-3),
 ## gems at level≥QUEST_PREMIUM_MIN_LEVEL. Deterministic given `rng`. Returns {line, tier, reward, featured}.
 ## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
@@ -289,23 +297,24 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 	# (normalised so each line's tiers sum to the line weight — the line distribution is unchanged).
 	var items: Array = []
 	var base_w: Array = []
-	var any_free := false
 	for i in lines.size():
 		var ln := int(lines[i])
 		var line_w: float = pow(i + 1, QUEST_NEWEST_BIAS)
 		for t in range(QUEST_TIER_BASE, tier_hi + 1):
 			items.append({"line": ln, "tier": t})
 			base_w.append(line_w * tier_w[t - QUEST_TIER_BASE] / tier_sum)
-			if not avoid.has(ln * 100 + t):
-				any_free = true
-	# HARD-exclude avoided items (weight 0) while any other item is free; else soft-penalise them.
+	# Hard-exclude every avoided ITEM. `avoid` is PRIORITY-ORDERED (oldest asks first; the most-recent
+	# asks and the concurrent fence stands last). If excluding all of it would leave NO candidate free —
+	# the live item pool is smaller than the avoid window, common on an early map with few lines — relax
+	# from the FRONT (drop the oldest entries) until one item is free, so the freshest asks stay excluded
+	# longest. Guarantees no two asks in a row repeat whenever the pool holds >1 distinct item.
+	var eff: Array = avoid.duplicate()
+	while not eff.is_empty() and _all_avoided(items, eff):
+		eff.pop_front()
 	var weights: Array = []
 	for i in items.size():
 		var it: Dictionary = items[i]
-		if avoid.has(int(it.line) * 100 + int(it.tier)):
-			weights.append(0.0 if any_free else base_w[i] * QUEST_REPEAT_PENALTY)
-		else:
-			weights.append(base_w[i])
+		weights.append(0.0 if eff.has(int(it.line) * 100 + int(it.tier)) else base_w[i])
 	var pick: int = _weighted_index(weights, rng)
 	if pick < 0:
 		pick = 0
