@@ -93,29 +93,33 @@ func _initialize() -> void:
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
 	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
 
-	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-lines window (the last ≤5 asked
-	# --- item-lines) — a HARD exclusion (the same avoid set the concurrent-fence stands use) that
-	# --- degrades to the QUEST_REPEAT_PENALTY soft penalty on a map with few live lines instead of
-	# --- starving the pool. ---
+	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-items window (the last ≤5 asked
+	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
+	# --- stands use) that degrades to the QUEST_REPEAT_PENALTY soft penalty on a map with too small an
+	# --- item pool instead of starving it. A different TIER of the same line still counts as variety. ---
 	var pool := G.askable_lines(G.GENERATORS, 0, 99)
 	if pool.size() >= 2:
-		var rl_target := int(pool[pool.size() - 1])   # the newest/highest-weight line — the clearest signal
+		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
+		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(6 / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
+		var rl_target := int(pool[pool.size() - 1]) * 100 + int((int(G.QUEST_TIER_BASE) + fence_hi) / 2)
 		var rl_free := 0
 		var rl_avoid := 0
 		for s in 200:
 			var rf := RandomNumberGenerator.new(); rf.seed = s
 			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, rf):
-				if int(G.quest_item(q).line) == rl_target:
+				var it := G.quest_item(q)
+				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_free += 1
 			var ra := RandomNumberGenerator.new(); ra.seed = s
 			for q in Quests.refill([], 0, {}, [], {}, [], 0, 6, ra, [rl_target]):
-				if int(G.quest_item(q).line) == rl_target:
+				var it := G.quest_item(q)
+				if int(it.line) * 100 + int(it.tier) == rl_target:
 					rl_avoid += 1
-		ok(rl_avoid < rl_free, "refill steers new asks off the recent-lines window (%d→%d)" % [rl_free, rl_avoid])
-		# determinism is preserved with a recent-lines window (same seed → same fence)
+		ok(rl_free > 0 and rl_avoid < rl_free, "refill steers new asks off the recent-items window (%d→%d)" % [rl_free, rl_avoid])
+		# determinism is preserved with a recent-items window (same seed → same fence)
 		var rd1 := RandomNumberGenerator.new(); rd1.seed = 9
 		var rd2 := RandomNumberGenerator.new(); rd2.seed = 9
-		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-lines window")
+		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-items window")
 
 	# --- ladder_entries: one row per tier, code = line*100+tier, seen flagged from the save's `seen` set ---
 	var lad := Quests.ladder_entries({}, 1)

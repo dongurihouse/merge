@@ -57,11 +57,32 @@ func _init() -> void:
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
+# Process-lifetime cache of the per-map raster artifacts (mask image/texture + region-index map).
+# These are pure functions of (entry, regions) and that art never changes at runtime, yet _build_mask_image
+# / _rebuild_region_map recompute them with per-pixel loops (~270ms) on EVERY map (re)build — the home-map
+# unlock/resize freeze. Keyed on CONTENT so the authoring tool, which mutates geometry, naturally misses and
+# recomputes; the game reopens the same map and hits.
+static var _art_cache := {}
+
 func load_map(entry: Dictionary, region_list: Array) -> void:
 	regions = region_list.duplicate(true)
-	_load_art(entry)
-	_build_templates()
-	_rebuild_region_map()
+	_region_count = maxi(regions.size(), 1)   # depends only on regions; set it on the cache-hit path too
+	var key := hash([entry, region_list])
+	var cached: Dictionary = _art_cache.get(key, {})
+	if not cached.is_empty():
+		mask_image = cached["mask_image"]
+		image_size = cached["image_size"]
+		mask_texture = cached["mask_texture"]
+		region_map_texture = cached["region_map"]
+		custom_minimum_size = Vector2(image_size)
+		size = Vector2(image_size)
+		_build_templates()
+	else:
+		_load_art(entry)
+		_build_templates()
+		_rebuild_region_map()
+		_art_cache[key] = {"mask_image": mask_image, "image_size": image_size,
+			"mask_texture": mask_texture, "region_map": region_map_texture}
 	_create_region_overlays(true)
 	_apply_all_region_tuning()
 

@@ -35,7 +35,6 @@ const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const QUEST_FEATURED_GEM_ODDS = D.QUEST_FEATURED_GEM_ODDS
 const QUEST_FEATURED_GEM_BONUS = D.QUEST_FEATURED_GEM_BONUS
-const QUEST_DEBUT_TIER_CAP = D.QUEST_DEBUT_TIER_CAP
 const MAX_GIVERS = D.MAX_GIVERS
 const STARS_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const GEN_GRANT_REMAINING_STARS = D.GEN_GRANT_REMAINING_STARS
@@ -235,58 +234,84 @@ static func quest_reward(level: int) -> Dictionary:
 		r["gems"] = QUEST_PREMIUM_GEMS
 	return r
 
-## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
-## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
-## `avoid` are lines to steer off — the recent-asks window plus the lines already on the fence.
-## HARD exclusion with a soft fallback (anti-monotony, §7): if ANY non-avoided live line exists the
-## avoided lines are dropped outright (weight 0), so a new stand never repeats one of the recent /
-## concurrent asks; only when EVERY live line is avoided (the live pool is smaller than the avoid
-## window) do we fall back to the QUEST_REPEAT_PENALTY soft weighting so the pick still resolves.
-static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> int:
-	var has_free := false
-	for i in sorted_lines.size():
-		if not avoid.has(int(sorted_lines[i])):
-			has_free = true
-			break
-	var weights: Array = []
+## Weighted random index into the parallel `weights` array (all ≥ 0). Returns -1 when every weight
+## is 0. The `weights[i] > 0.0` guard plus the backward-scan fallback make it impossible to return a
+## zero-weight entry, so a HARD-excluded candidate is never picked by a float-rounding slip.
+static func _weighted_index(weights: Array, rng: RandomNumberGenerator) -> int:
 	var total := 0.0
-	for i in sorted_lines.size():
-		var w: float = pow(i + 1, QUEST_NEWEST_BIAS)
-		if avoid.has(int(sorted_lines[i])):
-			w = 0.0 if has_free else w * QUEST_REPEAT_PENALTY
-		weights.append(w)
-		total += w
+	for w in weights:
+		total += float(w)
+	if total <= 0.0:
+		return -1
 	var r := rng.randf() * total
 	var acc := 0.0
-	for i in sorted_lines.size():
-		acc += weights[i]
-		if weights[i] > 0.0 and r <= acc:
-			return int(sorted_lines[i])
-	# float-rounding fallback: the last line that carried any weight
-	for i in range(sorted_lines.size() - 1, -1, -1):
-		if weights[i] > 0.0:
-			return int(sorted_lines[i])
-	return int(sorted_lines[sorted_lines.size() - 1])
+	for i in weights.size():
+		acc += float(weights[i])
+		if float(weights[i]) > 0.0 and r <= acc:
+			return i
+	for i in range(weights.size() - 1, -1, -1):
+		if float(weights[i]) > 0.0:
+			return i
+	return -1
 
 ## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
-## Picks a line weighted toward the newest/highest-value live line, steered off `avoid` (the
-## recent-asks window + concurrent fence lines) so asks stay distinct. Tier is sampled in
-## [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
-## TOP_TIER) — so the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling).
-## A freshly-debuted (newest) line eases in at ≤ QUEST_DEBUT_TIER_CAP. Reward is level-based:
-## stars=min(level,3), coins=max(0,level-3), gems at level≥QUEST_PREMIUM_MIN_LEVEL.
-## Deterministic given `rng`. Returns {line, tier, reward, featured}.
+## The ITEM (line, tier) is drawn from the candidate space of every askable line×tier: a line's tiers
+## span [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
+## TOP_TIER) — the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling). Within
+## a line the tier is shaped as a NORMAL bell centred on the band midpoint (σ = band-width / 4), so
+## asks cluster at mid-difficulty and the centre rises with level as the band widens. Each item's
+## weight is its line's newest-bias weight ((rank+1)^QUEST_NEWEST_BIAS) times that bell, so the LINE
+## distribution still leans at the richest content.
+## `avoid` is the set of recently/concurrently asked ITEM codes (line*100+tier): each is HARD-excluded
+## (weight 0) whenever any other item is free, so a new ask never repeats one of the previous few —
+## variety can come from a different TIER of the same line, not only a different line. Only when EVERY
+## candidate item is avoided does it fall back to the QUEST_REPEAT_PENALTY soft weighting so the pick
+## still resolves (anti-monotony, §7). Reward is level-based: stars=min(level,3), coins=max(0,level-3),
+## gems at level≥QUEST_PREMIUM_MIN_LEVEL. Deterministic given `rng`. Returns {line, tier, reward, featured}.
 ## All numbers are PROVISIONAL (Monte-Carlo pass).
 static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
 	var tier_hi: int = clampi(QUEST_TIER_BASE + int(level / float(QUEST_LEVELS_PER_TIER)), QUEST_TIER_BASE, TOP_TIER)
-	var newest: int = int(lines[lines.size() - 1])
-	var li := _weighted_line_pick(lines, rng, avoid)
-	var tier := rng.randi_range(QUEST_TIER_BASE, tier_hi)
-	if li == newest:                                    # the freshest line eases in low
-		tier = mini(tier, QUEST_DEBUT_TIER_CAP)
+	# Per-tier bell over the band [QUEST_TIER_BASE, tier_hi], shared by every line (no debut cap):
+	# weight(t) ∝ exp(-½((t-μ)/σ)²), μ = band midpoint, σ = width/4 (so the floor/ceiling sit ≈2σ out).
+	var mu: float = (QUEST_TIER_BASE + tier_hi) / 2.0
+	var sigma: float = maxf((tier_hi - QUEST_TIER_BASE) / 4.0, 0.0001)
+	var tier_w: Array = []                             # bell weight per tier, indexed t - QUEST_TIER_BASE
+	var tier_sum := 0.0
+	for t in range(QUEST_TIER_BASE, tier_hi + 1):
+		var z: float = (t - mu) / sigma
+		var g: float = exp(-0.5 * z * z)
+		tier_w.append(g)
+		tier_sum += g
+	# Candidate ITEMS: every askable line×tier, carrying its line's newest-bias weight × the tier bell
+	# (normalised so each line's tiers sum to the line weight — the line distribution is unchanged).
+	var items: Array = []
+	var base_w: Array = []
+	var any_free := false
+	for i in lines.size():
+		var ln := int(lines[i])
+		var line_w: float = pow(i + 1, QUEST_NEWEST_BIAS)
+		for t in range(QUEST_TIER_BASE, tier_hi + 1):
+			items.append({"line": ln, "tier": t})
+			base_w.append(line_w * tier_w[t - QUEST_TIER_BASE] / tier_sum)
+			if not avoid.has(ln * 100 + t):
+				any_free = true
+	# HARD-exclude avoided items (weight 0) while any other item is free; else soft-penalise them.
+	var weights: Array = []
+	for i in items.size():
+		var it: Dictionary = items[i]
+		if avoid.has(int(it.line) * 100 + int(it.tier)):
+			weights.append(0.0 if any_free else base_w[i] * QUEST_REPEAT_PENALTY)
+		else:
+			weights.append(base_w[i])
+	var pick: int = _weighted_index(weights, rng)
+	if pick < 0:
+		pick = 0
+	var chosen: Dictionary = items[pick]
+	var li := int(chosen.line)
+	var tier := int(chosen.tier)
 	var reward: Dictionary = quest_reward(tier)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:

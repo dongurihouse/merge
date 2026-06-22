@@ -87,7 +87,7 @@ var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
-var _recent_lines: Array = []      # the last ≤5 asked item-lines — a NEW quest's item avoids these (§7)
+var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
 var quests_map := -1              # the map these quests were generated for (regenerate on map change)
 var bag: Array = []
 var water := G.WATER_CAP
@@ -472,7 +472,7 @@ func _meter_target() -> int:
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng, _recent_lines)
+	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng, _recent_items)
 	_assign_givers()                          # give each new quest a giver face distinct from the previous 5
 
 # Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
@@ -505,12 +505,13 @@ func _push_recent_giver(g: int) -> void:
 	while _recent_givers.size() > 5:
 		_recent_givers.pop_front()
 
-# Record an asked item-line in the rolling window (mirrors _push_recent_giver): a NEW quest's item is
-# steered off the last ≤5 asks, so the same item does not reappear within 5 (§7 anti-monotony).
-func _push_recent_line(line: int) -> void:
-	_recent_lines.append(line)
-	while _recent_lines.size() > 5:
-		_recent_lines.pop_front()
+# Record an asked item code (line*100+tier) in the rolling window (mirrors _push_recent_giver): a NEW
+# quest's item is steered off the last ≤5 asks, so the same item does not reappear within 5 — a
+# different TIER of the same line still counts as variety (§7 anti-monotony).
+func _push_recent_item(code: int) -> void:
+	_recent_items.append(code)
+	while _recent_items.size() > 5:
+		_recent_items.pop_front()
 
 # Fresh fence for the current map (load / migration / crossing a map boundary).
 func _init_quests() -> void:
@@ -2167,7 +2168,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		t.chain().tween_callback(n.queue_free)
 	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
 	if not it.is_empty():
-		_push_recent_line(int(it.line))       # remember this ask so the next ≤5 quests avoid the same item
+		_push_recent_item(code)               # remember this ask so the next ≤5 quests avoid the same item
 	# delivering a quest is the ONE place Level advances — earn_stars credits the
 	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
 	var sp_stars := _quest_stars(q)

@@ -1039,7 +1039,16 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	# level-ups, not a per-spot gift)
 	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden ❀"), CREAM, 30)
 	_persist()
-	_build_map()                          # the map (spot art + stars-left) refreshes
+	# Break the purple lock veil with a glass-shatter from the tap point. Snapshot the veil's
+	# true (masked) shape BEFORE the rebuild hides it, rebuild, then spawn the shards on top.
+	var veil := {}
+	if not FX.calm():
+		var vv = content.find_child("VineMapView", true, false)
+		if vv != null:
+			veil = await _capture_region_veil(vv, k)
+	_build_map(false)                     # rebuild IN PLACE (no whole-map pop-in) — only the veil should break
+	if not veil.is_empty():
+		FX.shatter_veil(self, veil["tex"], veil["bbox"], at - get_global_rect().position)
 	_update_hud()
 	if map_spots_done(z):
 		Save.add_diamonds(G.MAP_DIAMONDS)
@@ -1058,6 +1067,42 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 			gl.append(z)
 			gg["gates"] = gl
 			Save.grove_write()
+
+# Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
+# The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
+# (cover-fit + mask offset), so the snapshot matches where the veil sits. Returns {tex, bbox}, or {}
+# if the veil isn't present. Async — the SubViewport needs a frame to render.
+func _capture_region_veil(view: Variant, k: int) -> Dictionary:
+	if view == null or k < 0 or k >= view.region_overlays.size():
+		return {}
+	var lock := view.region_overlays[k].get("lock") as TextureRect
+	if lock == null or not lock.visible:
+		return {}
+	var vsize := Vector2i(get_global_rect().size)
+	if vsize.x < 4 or vsize.y < 4:
+		return {}
+	var sv := SubViewport.new()
+	sv.size = vsize
+	sv.transparent_bg = true
+	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	var dup := lock.duplicate() as TextureRect
+	dup.material = (lock.material as ShaderMaterial).duplicate()
+	(dup.material as ShaderMaterial).set_shader_parameter("region_enabled", 1.0)
+	dup.visible = true
+	dup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	sv.add_child(dup)
+	add_child(sv)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var img: Image = sv.get_texture().get_image()
+	sv.queue_free()
+	if img == null:
+		return {}
+	img.convert(Image.FORMAT_RGBA8)
+	var used := img.get_used_rect()       # native opaque-bounds (C++) — NOT a per-pixel GDScript scan
+	if used.size.x < 2 or used.size.y < 2:
+		return {}
+	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
 
 # --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
 # On a COMPLETED map the player WELCOMES wandering spirits. A cozy panel lists each welcomable

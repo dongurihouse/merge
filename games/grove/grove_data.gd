@@ -109,7 +109,7 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
 # §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
 const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
-const QUEST_TIER_BASE := 2                # floor of the asked-tier band
+const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4)
 const QUEST_LEVELS_PER_TIER := 2          # the asked tier-ceiling climbs +1 every N levels, up to TOP_TIER
 const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
 const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
@@ -119,7 +119,6 @@ const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged feat
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
 const QUEST_FEATURED_GEM_ODDS := 0.2      # of FEATURED quests, the share that ALSO carry a premium (≈3% of all quests)
 const QUEST_FEATURED_GEM_BONUS := 1       # small premium (💎) bonus on those — never extra ★ (§7); buys speed, not possibility
-const QUEST_DEBUT_TIER_CAP := 3           # a freshly-debuted (newest) line eases in at ≤ t3
 # §7 soft gate — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 4                     # fence slots (§7) — the fence is 4 cards at 25% width; the metered active count caps here
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter

@@ -60,7 +60,7 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 # gate's old "grant the next tool" role); delivering it appends those ids to the gen_bag. Idempotent:
 # a quest already carrying the reward is left alone, so a later refill never duplicates it onto a
 # second quest. Returns the new quests array.
-static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator, recent_lines: Array = []) -> Array:
+static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	if map_done(unlocks, gates):
 		return []
 	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
@@ -69,16 +69,17 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	var lines := G.askable_lines(G.GENERATORS, z, level)
 	var target := meter_target(z, banked_stars, unlocks)
 	while out.size() < target:
-		# §7 anti-monotony: steer the new stand off the lines already on the fence (so the concurrent
-		# single-ask stands stay distinct) AND off the recent-lines window (the last ≤5 item-lines just
-		# asked), so a NEW quest never repeats an item from the previous few. Both feed the SAME avoid
-		# set — a HARD exclusion that degrades to the QUEST_REPEAT_PENALTY soft penalty only when the
-		# live pool is too small to honour it (see _weighted_line_pick).
-		var avoid: Array = recent_lines.duplicate()
+		# §7 anti-monotony: steer the new stand off the items already on the fence (so the concurrent
+		# single-ask stands stay distinct) AND off the recent-items window (the last ≤5 item codes just
+		# asked), so a NEW quest never repeats an item from the previous few — a different TIER of the
+		# same line still counts as variety. Both feed the SAME avoid set of item codes (line*100+tier)
+		# — a HARD exclusion that degrades to the QUEST_REPEAT_PENALTY soft penalty only when the live
+		# item pool is too small to honour it (see gen_quest).
+		var avoid: Array = recent_items.duplicate()
 		for q in out:
 			var it := G.quest_item(q)
 			if not it.is_empty():
-				avoid.append(int(it.line))
+				avoid.append(int(it.line) * 100 + int(it.tier))
 		out.append(G.gen_quest(level, lines, rng, avoid))
 	while out.size() > target:
 		out.pop_back()

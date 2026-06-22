@@ -389,7 +389,7 @@ func _refill_quests() -> void:
 		for q in live_quests:
 			var it := G.quest_item(q)
 			if not it.is_empty():
-				avoid.append(int(it.line))
+				avoid.append(int(it.line) * 100 + int(it.tier))
 		live_quests.append(G.gen_quest(_level(), _live_lines(), rng, avoid))
 	while live_quests.size() > want:
 		live_quests.pop_back()

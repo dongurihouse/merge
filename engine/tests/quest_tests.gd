@@ -51,21 +51,40 @@ func _initialize() -> void:
 	var rA := RandomNumberGenerator.new(); rA.seed = 42
 	var rB := RandomNumberGenerator.new(); rB.seed = 42
 	ok(str(G.gen_quest(10, hi_lines, rA)) == str(G.gen_quest(10, hi_lines, rB)), "gen_quest is deterministic for a seed")
+	# avoid is a set of ITEM codes (line*100+tier): a HARD-excluded item is never asked while any other
+	# candidate item is free. (band [4..12] at level 20, tier bell centred on t8.)
 	rng.seed = 31
-	var newest_free := 0
-	var newest_avoided := 0
+	var item_free := 0       # how often the free roll asks line 5 / tier 8 (code 508 — a high-weight item)
+	var item_avoided := 0    # ... when that exact item is in `avoid`
 	for _i in 600:
-		if int(G.gen_quest(20, hi_lines, rng).line) == 6:
-			newest_free += 1
-		if int(G.gen_quest(20, hi_lines, rng, [6]).line) == 6:
-			newest_avoided += 1
-	ok(newest_free > 0 and newest_avoided == 0, "avoid HARD-excludes the fenced line while others stay free (%d→%d)" % [newest_free, newest_avoided])
-	# fallback: when EVERY live line is avoided (pool smaller than the avoid window) the pick still resolves
-	var all_avoided_ok := true
+		var qf := G.gen_quest(20, hi_lines, rng)
+		if int(qf.line) * 100 + int(qf.tier) == 508:
+			item_free += 1
+		var qa := G.gen_quest(20, hi_lines, rng, [508])
+		if int(qa.line) * 100 + int(qa.tier) == 508:
+			item_avoided += 1
+	ok(item_free > 0 and item_avoided == 0, "avoid HARD-excludes the asked ITEM (line+tier) while others stay free (%d→%d)" % [item_free, item_avoided])
+	# §7 variety is per-ITEM, not per-line: avoiding one (line, tier) still lets a DIFFERENT tier of the
+	# same line be asked, so a small line pool is never starved.
+	rng.seed = 7
+	var saw_line3_other_tier := false
+	var saw_308 := false
+	for _i in 800:
+		var q := G.gen_quest(20, [2, 3, 4], rng, [308])   # avoid only line 3 / tier 8
+		if int(q.line) == 3 and int(q.tier) != 8:
+			saw_line3_other_tier = true
+		if int(q.line) * 100 + int(q.tier) == 308:
+			saw_308 = true
+	ok(saw_line3_other_tier and not saw_308, "avoiding one tier still allows OTHER tiers of the same line")
+	# fallback: when EVERY candidate item is avoided (pool smaller than the avoid window) the pick still resolves.
+	# at level 0 the band is just {t4}, so one line offers a single item — avoid it and the pick still resolves.
+	rng.seed = 9
+	var fb_ok := true
 	for _i in 200:
-		if not hi_lines.has(int(G.gen_quest(20, hi_lines, rng, hi_lines).line)):
-			all_avoided_ok = false
-	ok(all_avoided_ok, "avoid falls back to a soft pick when every live line is avoided")
+		var q := G.gen_quest(0, [1], rng, [104])   # line 1 offers only t4 (band [4..4]) — avoided
+		if int(q.line) * 100 + int(q.tier) != 104:
+			fb_ok = false
+	ok(fb_ok, "avoid falls back to a soft pick when every candidate item is avoided")
 
 	# --- the soft gate (gate_pause): active giver count metered to the next unlock (§7) ---
 	ok(G.active_giver_count(0, -1) == 0, "no active givers when every spot is owned (next_cost -1)")
