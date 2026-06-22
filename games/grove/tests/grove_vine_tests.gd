@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_test_region_cost_field()
 	_test_maps_overlay()
 	_test_view_headless()
+	_test_empty_regions()
 	_test_lock_overlay()
 	_test_region_map_membership()
 	_test_cover_offset_bleed()
@@ -135,6 +136,20 @@ func _test_map_integration() -> void:
 func _region_on(vv: Control, i: int) -> bool:
 	return bool(vv.region_overlays[i].get("enabled", true))
 
+# Manual-only authoring can clear every polygon, handing the view an EMPTY region set. The view floors
+# its overlay count at 1 (a fallback overlay), so the enable-sync must tolerate an index past the end
+# of the empty `regions` array instead of crashing (regression: VineMapView._set_region_enabled).
+func _test_empty_regions() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, [])                 # open with no regions — must not crash
+	ok(view.get_node_or_null("RegionOverlays") != null, "the view builds overlays even with zero regions")
+	view.refresh([])                      # clearing to empty — must not crash
+	view.set_region_enabled(0, false)     # toggling the fallback overlay — must not crash
+	ok(true, "empty-region load / refresh / set_region_enabled do not crash")
+	view.queue_free()
+
 func _test_view_headless() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
 	var view: Control = VineMapView.new()
@@ -152,15 +167,17 @@ func _test_registry() -> void:
 	var e0: Dictionary = entries[0]
 	ok(String(e0.get("id", "")) == "map1_farm", "first vine entry is map1_farm")
 	var regions := VineMaps.regions_for(e0)
-	ok(regions.size() == 8, "map1_farm regions JSON has 8 regions (matches region_count)")
+	# map1_farm is hand-authored in the tool now, so its region count is whatever the artist saved —
+	# assert structure, not a fixed count (the count-specific coverage uses dedicated fixtures).
+	ok(regions.size() >= 1, "map1_farm regions JSON is non-empty")
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
 
 func _test_maps_overlay() -> void:
 	# slot 0 keeps its id/name but is now vine-driven with region-derived spots
 	ok(String(G.MAPS[0].id) == "farmhouse", "slot 0 keeps id 'farmhouse'")
 	ok(G.MAPS[0].has("vine"), "slot 0 is vine-driven (carries the maps.json entry)")
-	ok(G.MAPS[0].spots.size() == 8, "slot 0 has 8 region spots")
-	ok(String(G.MAPS[0].spots[0].id) == "farmhouse_r0", "slot 0 spot ids are farmhouse_r*")
+	ok(G.MAPS[0].spots.size() == VineMaps.regions_for(VineMaps.entries()[0]).size(), "slot 0 has one spot per region")
+	ok(G.MAPS[0].spots.size() >= 1 and String(G.MAPS[0].spots[0].id) == "farmhouse_r0", "slot 0 spot ids are farmhouse_r*")
 	ok(bool(G.MAPS[0].get("hub", false)), "slot 0 stays the hub")
 	# legacy slots without a vine entry are untouched
 	ok(not G.MAPS[G.MAPS.size() - 1].has("vine"), "the last legacy slot is not vine-driven")
@@ -173,10 +190,19 @@ func _test_multimap() -> void:
 
 func _test_spot_derivation() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
+	var regions := VineMaps.regions_for(e0)
+	var n := regions.size()
 	var spots := VineMaps.spots_for("farmhouse", e0)
-	ok(spots.size() == 8, "8 regions -> 8 derived spots")
-	ok(String(spots[0].id) == "farmhouse_r0" and String(spots[7].id) == "farmhouse_r7", "spot ids are <slot>_r<index>")
-	ok(int(spots[0].cost) == 3 and int(spots[3].cost) == 4 and int(spots[7].cost) == 5, "cost ladder 3,3,3,4,4,4,5,5")
+	ok(n >= 1 and spots.size() == n, "one derived spot per region")
+	ok(String(spots[0].id) == "farmhouse_r0" and String(spots[n - 1].id) == "farmhouse_r%d" % (n - 1), "spot ids are <slot>_r<index>")
+	# map1 is hand-authored now: each spot's stars mirror the region's own cost (the ladder-fallback
+	# path is covered by _test_region_cost_field with a dedicated fixture).
+	var cost_ok := true
+	for i in range(n):
+		var r: Dictionary = regions[i]
+		if int(spots[i].cost) < 1 or (r.has("cost") and int(spots[i].cost) != int(r["cost"])):
+			cost_ok = false
+	ok(cost_ok, "each spot's cost is valid and mirrors the region's authored cost")
 	var p0: Vector2 = spots[0].pos
 	ok(p0.x > 0.0 and p0.x < 1.0 and p0.y > 0.0 and p0.y < 1.0, "centroid pos is normalized into (0,1)")
 	# override file wins when present

@@ -541,9 +541,14 @@ func _material_for_target(target: String, region_index: int) -> ShaderMaterial:
 func _set_region_enabled(region_index: int, enabled: bool) -> void:
 	if region_index < 0 or region_index >= region_overlays.size():
 		return
-	var region: Dictionary = regions[region_index]
-	region["enabled"] = enabled
-	regions[region_index] = region
+	# With zero regions the view still builds ONE fallback overlay (_region_count floors at 1), so
+	# region_index can sit past the end of an empty `regions`. Only sync the backing region's flag
+	# when it exists; the overlay materials below update either way. (Manual authoring can clear all
+	# polygons — without this guard delete-to-empty / opening an empty map throws out-of-bounds.)
+	if region_index < regions.size() and regions[region_index] is Dictionary:
+		var region: Dictionary = regions[region_index]
+		region["enabled"] = enabled
+		regions[region_index] = region
 
 	var entry: Dictionary = region_overlays[region_index]
 	entry["enabled"] = enabled
