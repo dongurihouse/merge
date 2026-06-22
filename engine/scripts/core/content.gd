@@ -237,30 +237,41 @@ static func quest_reward(level: int) -> Dictionary:
 
 ## Pick a line index-weighted toward the newest (end of the ascending-sorted list): the
 ## weight of rank i is (i+1)^QUEST_NEWEST_BIAS, so the fence leans at the richest content.
-## `avoid` are lines already on the fence — their weight is scaled by QUEST_REPEAT_PENALTY so the
-## concurrent stands favour DISTINCT lines (anti-monotony, §7); it is a soft penalty, not a ban,
-## so the pick still resolves when every live line is already taken (live lines < fence slots).
+## `avoid` are lines to steer off — the recent-asks window plus the lines already on the fence.
+## HARD exclusion with a soft fallback (anti-monotony, §7): if ANY non-avoided live line exists the
+## avoided lines are dropped outright (weight 0), so a new stand never repeats one of the recent /
+## concurrent asks; only when EVERY live line is avoided (the live pool is smaller than the avoid
+## window) do we fall back to the QUEST_REPEAT_PENALTY soft weighting so the pick still resolves.
 static func _weighted_line_pick(sorted_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> int:
+	var has_free := false
+	for i in sorted_lines.size():
+		if not avoid.has(int(sorted_lines[i])):
+			has_free = true
+			break
 	var weights: Array = []
 	var total := 0.0
 	for i in sorted_lines.size():
 		var w: float = pow(i + 1, QUEST_NEWEST_BIAS)
 		if avoid.has(int(sorted_lines[i])):
-			w *= QUEST_REPEAT_PENALTY
+			w = 0.0 if has_free else w * QUEST_REPEAT_PENALTY
 		weights.append(w)
 		total += w
 	var r := rng.randf() * total
 	var acc := 0.0
 	for i in sorted_lines.size():
 		acc += weights[i]
-		if r <= acc:
+		if weights[i] > 0.0 and r <= acc:
+			return int(sorted_lines[i])
+	# float-rounding fallback: the last line that carried any weight
+	for i in range(sorted_lines.size() - 1, -1, -1):
+		if weights[i] > 0.0:
 			return int(sorted_lines[i])
 	return int(sorted_lines[sorted_lines.size() - 1])
 
 ## Generate a regular quest for a player at `level` from the live lines (§7). A quest is a FLAT
 ## single item — difficulty rises by higher TIER + more FREQUENT quests (level ∝ quest count, §3).
-## Picks a line weighted toward the newest/highest-value live line, steered off `avoid` (lines
-## already on the fence) so concurrent stands stay distinct. Tier is sampled in
+## Picks a line weighted toward the newest/highest-value live line, steered off `avoid` (the
+## recent-asks window + concurrent fence lines) so asks stay distinct. Tier is sampled in
 ## [QUEST_TIER_BASE, tier_hi] where tier_hi = clamp(BASE + level/QUEST_LEVELS_PER_TIER, BASE,
 ## TOP_TIER) — so the ceiling climbs with level up to TOP_TIER, which IS askable (no gate-ceiling).
 ## A freshly-debuted (newest) line eases in at ≤ QUEST_DEBUT_TIER_CAP. Reward is level-based:

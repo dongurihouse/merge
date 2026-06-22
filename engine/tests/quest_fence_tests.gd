@@ -94,8 +94,9 @@ func _initialize() -> void:
 	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
 
 	# --- item anti-repeat (§7): refill steers a NEW ask off the recent-lines window (the last ≤5 asked
-	# --- item-lines), the SAME soft penalty (QUEST_REPEAT_PENALTY) the concurrent-fence avoid uses, so it
-	# --- degrades gracefully on a map with few live lines instead of starving the pool. ---
+	# --- item-lines) — a HARD exclusion (the same avoid set the concurrent-fence stands use) that
+	# --- degrades to the QUEST_REPEAT_PENALTY soft penalty on a map with few live lines instead of
+	# --- starving the pool. ---
 	var pool := G.askable_lines(G.GENERATORS, 0, 99)
 	if pool.size() >= 2:
 		var rl_target := int(pool[pool.size() - 1])   # the newest/highest-weight line — the clearest signal

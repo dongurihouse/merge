@@ -59,7 +59,13 @@ func _initialize() -> void:
 			newest_free += 1
 		if int(G.gen_quest(20, hi_lines, rng, [6]).line) == 6:
 			newest_avoided += 1
-	ok(newest_avoided * 3 < newest_free, "avoid steers the ask off the fenced line (%d→%d)" % [newest_free, newest_avoided])
+	ok(newest_free > 0 and newest_avoided == 0, "avoid HARD-excludes the fenced line while others stay free (%d→%d)" % [newest_free, newest_avoided])
+	# fallback: when EVERY live line is avoided (pool smaller than the avoid window) the pick still resolves
+	var all_avoided_ok := true
+	for _i in 200:
+		if not hi_lines.has(int(G.gen_quest(20, hi_lines, rng, hi_lines).line)):
+			all_avoided_ok = false
+	ok(all_avoided_ok, "avoid falls back to a soft pick when every live line is avoided")
 
 	# --- the soft gate (gate_pause): active giver count metered to the next unlock (§7) ---
 	ok(G.active_giver_count(0, -1) == 0, "no active givers when every spot is owned (next_cost -1)")

@@ -71,8 +71,9 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	while out.size() < target:
 		# §7 anti-monotony: steer the new stand off the lines already on the fence (so the concurrent
 		# single-ask stands stay distinct) AND off the recent-lines window (the last ≤5 item-lines just
-		# asked), so a NEW quest avoids repeating an item from the previous few. Both feed the SAME soft
-		# penalty (QUEST_REPEAT_PENALTY) so the pick still resolves when the live pool is small.
+		# asked), so a NEW quest never repeats an item from the previous few. Both feed the SAME avoid
+		# set — a HARD exclusion that degrades to the QUEST_REPEAT_PENALTY soft penalty only when the
+		# live pool is too small to honour it (see _weighted_line_pick).
 		var avoid: Array = recent_lines.duplicate()
 		for q in out:
 			var it := G.quest_item(q)
