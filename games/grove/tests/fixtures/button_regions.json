@@ -1,0 +1,4 @@
+{ "image_size": [100, 100], "regions": [
+  {"name": "placed", "enabled": true, "points": [[40,40],[60,40],[60,60],[40,60]], "button": [20, 80], "tuning": {}},
+  {"name": "auto", "enabled": true, "points": [[10,10],[30,10],[30,30],[10,30]], "tuning": {}}
+] }

@@ -245,6 +245,10 @@ func _load_saved_regions() -> Array:
 				"cost": int(region_data.get("cost", _ladder_cost(loaded.size()))),
 				"tuning": tuning_value if tuning_value is Dictionary else {}
 			})
+			# the optional unlock-disc position; absent => the game/editor uses the centroid
+			var button_value: Variant = region_data.get("button", null)
+			if button_value is Array and (button_value as Array).size() >= 2:
+				(loaded[loaded.size() - 1] as Dictionary)["button"] = _clamp_to_image(Vector2(float(button_value[0]), float(button_value[1])))
 	return loaded
 
 # ── Region-set changes ─────────────────────────────────────────────────────────
@@ -622,6 +626,11 @@ func _on_regions_changed(next_regions: Array) -> void:
 		existing["points"] = incoming.get("points", existing.get("points", []))
 		existing["name"] = incoming.get("name", existing.get("name", "Region %d" % [index + 1]))
 		existing["enabled"] = bool(incoming.get("enabled", existing.get("enabled", true)))
+		# the unlock-disc position: carry a placed button, or drop it when reset to auto (centroid)
+		if incoming.has("button"):
+			existing["button"] = incoming["button"]
+		else:
+			existing.erase("button")
 		regions[index] = existing
 	_render_regions()
 
@@ -640,13 +649,18 @@ func _save_regions_to_file() -> void:
 		var serialized_points: Array = []
 		for point in region.get("points", []):
 			serialized_points.append([roundi(point.x), roundi(point.y)])
-		data["regions"].append({
+		var serialized := {
 			"name": str(region.get("name", "Region %d" % [index + 1])),
 			"enabled": bool(region.get("enabled", true)),
 			"cost": int(region.get("cost", DEFAULT_STARS)),
 			"points": serialized_points,
 			"tuning": _current_region_tuning(index)
-		})
+		}
+		# persist the unlock-disc position ONLY when placed; absent => the game uses the centroid
+		var button = region.get("button", null)
+		if button is Vector2:
+			serialized["button"] = [roundi(button.x), roundi(button.y)]
+		data["regions"].append(serialized)
 
 	if regions_path == "":
 		_show_save_status("Save failed: this map has no regions_path", false)

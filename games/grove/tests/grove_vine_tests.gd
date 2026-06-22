@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_test_registry()
 	_test_spot_derivation()
 	_test_region_cost_field()
+	_test_button_pos()
 	_test_maps_overlay()
 	_test_view_headless()
 	_test_empty_regions()
@@ -224,6 +225,17 @@ func _test_spot_derivation() -> void:
 # A region that carries its own `cost` (authored in the vine tool) drives the spot's stars directly:
 # it wins over the COST_LADDER default AND over a _spots.json override (the tool is the source of truth
 # for stars). A region with no cost still falls back to the ladder, so existing maps are unchanged.
+# A region's optional `button` [x,y] sets the unlock-disc position (normalized), overriding the polygon
+# centroid the game otherwise computes. A region with no `button` still falls back to the centroid.
+func _test_button_pos() -> void:
+	var entry := {"id": "btntest", "regions_path": "res://games/grove/tests/fixtures/button_regions.json"}
+	var spots := VineMaps.spots_for("btntest", entry)
+	ok(spots.size() == 2, "button fixture yields 2 spots")
+	var p0: Vector2 = spots[0].pos
+	ok(absf(p0.x - 0.2) < 0.001 and absf(p0.y - 0.8) < 0.001, "a region's button [20,80] -> pos (0.2,0.8), not the centroid (0.5,0.5)")
+	var p1: Vector2 = spots[1].pos
+	ok(absf(p1.x - 0.2) < 0.001 and absf(p1.y - 0.2) < 0.001, "a region with no button falls back to the centroid (0.2,0.2)")
+
 func _test_region_cost_field() -> void:
 	var entry := {"id": "costtest", "regions_path": "res://games/grove/tests/fixtures/cost_regions.json"}
 	var spots := VineMaps.spots_for("costtest", entry)

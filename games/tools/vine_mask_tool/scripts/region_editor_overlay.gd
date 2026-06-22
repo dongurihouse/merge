@@ -8,6 +8,8 @@ const HANDLE_RADIUS := 8.0
 const HIT_RADIUS := 16.0
 const SNAP_RADIUS := 18.0
 const CLOSE_RADIUS := 20.0   # a draw click this close to the first vertex closes the polygon
+const BUTTON_RADIUS := 11.0  # the unlock-disc marker (gold), drawn bigger + distinct from vertex handles
+const BUTTON_HIT_RADIUS := 18.0
 
 var image_size := Vector2(941.0, 1672.0)
 var regions: Array = []
@@ -15,6 +17,7 @@ var edit_enabled := false
 var selected_region := 0
 var dragging_region := -1
 var dragging_point := -1
+var dragging_button := -1   # region whose unlock-disc marker is being dragged (-1 = none)
 var shared_merge_count := 0
 
 # Draw mode: clicks drop vertices of a NEW polygon; a click near the first vertex (or a double-click)
@@ -114,6 +117,10 @@ func _draw() -> void:
 		for point in points:
 			_draw_handle(point, Color(0.75, 1.0, 1.0, 1.0) if region_index == selected_region else Color(1.0, 0.92, 1.0, 1.0))
 
+	# the unlock-disc markers on top of every polygon (so they are always grabbable)
+	for region_index in regions.size():
+		_draw_button_marker(regions[region_index])
+
 	if draw_mode:
 		_draw_in_progress()
 
@@ -136,6 +143,32 @@ func _draw_handle(point: Vector2, color: Color) -> void:
 	draw_circle(point, HANDLE_RADIUS, Color(0.0, 0.0, 0.0, 0.72))
 	draw_circle(point, HANDLE_RADIUS - 2.0, color)
 
+# The unlock-disc marker for a region: a gold ✿-style disc at its `button` (if placed) or its centroid.
+# When the button is placed off-centroid, a faint connector to the centroid shows which region it serves.
+func _draw_button_marker(region: Dictionary) -> void:
+	var points: Array = region.get("points", [])
+	if points.size() < 3:
+		return
+	var bpos: Vector2 = _button_pos(region)
+	if region.has("button"):
+		draw_line(_centroid(points), bpos, Color(1.0, 0.82, 0.25, 0.5), 1.5, true)
+	draw_circle(bpos, BUTTON_RADIUS + 2.0, Color(0.0, 0.0, 0.0, 0.55))
+	draw_circle(bpos, BUTTON_RADIUS, Color(1.0, 0.80, 0.20, 1.0))
+	draw_circle(bpos, BUTTON_RADIUS * 0.42, Color(0.30, 0.18, 0.05, 1.0))   # the ✿ center
+
+# Where a region's unlock disc sits: its placed `button` (a Vector2) or the polygon centroid (the default).
+func _button_pos(region: Dictionary) -> Vector2:
+	var b = region.get("button", null)
+	return b if b is Vector2 else _centroid(region.get("points", []))
+
+func _centroid(points: Array) -> Vector2:
+	if points.is_empty():
+		return Vector2.ZERO
+	var sum := Vector2.ZERO
+	for point in points:
+		sum += point as Vector2
+	return sum / float(points.size())
+
 func _gui_input(event: InputEvent) -> void:
 	if not edit_enabled:
 		return
@@ -146,10 +179,22 @@ func _gui_input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton:
 		var button_event := event as InputEventMouseButton
+
+		# right-click an unlock-disc marker -> reset it to auto (the centroid, which follows the polygon)
+		if button_event.button_index == MOUSE_BUTTON_RIGHT and button_event.pressed:
+			var reset_index := _find_button_handle(button_event.position)
+			if reset_index >= 0:
+				(regions[reset_index] as Dictionary).erase("button")
+				regions_changed.emit(_clone_regions(regions))
+				queue_redraw()
+				accept_event()
+			return
+
 		if button_event.button_index != MOUSE_BUTTON_LEFT:
 			return
 
 		if button_event.pressed:
+			# a vertex handle wins over the marker on overlap (vertex dragging is never hijacked)
 			var hit := _find_handle(button_event.position)
 			if int(hit["region"]) >= 0:
 				dragging_region = int(hit["region"])
@@ -158,16 +203,28 @@ func _gui_input(event: InputEvent) -> void:
 				selection_changed.emit(selected_region)
 				accept_event()
 				return
+			var button_index := _find_button_handle(button_event.position)
+			if button_index >= 0:
+				dragging_button = button_index
+				set_selected_region(button_index)
+				selection_changed.emit(selected_region)
+				accept_event()
+				return
 
 		dragging_region = -1
 		dragging_point = -1
+		dragging_button = -1
 		accept_event()
 		return
 
-	if event is InputEventMouseMotion and dragging_region >= 0 and dragging_point >= 0:
+	if event is InputEventMouseMotion:
 		var motion_event := event as InputEventMouseMotion
-		set_region_point(dragging_region, dragging_point, motion_event.position)
-		accept_event()
+		if dragging_region >= 0 and dragging_point >= 0:
+			set_region_point(dragging_region, dragging_point, motion_event.position)
+			accept_event()
+		elif dragging_button >= 0:
+			_set_button(dragging_button, motion_event.position)
+			accept_event()
 
 # Draw-mode input: left-click drops a vertex (or closes near the first one / on a double-click),
 # right-click cancels the in-progress polygon. Motion just updates the rubber-band cursor.
@@ -226,6 +283,30 @@ func _find_handle(position: Vector2) -> Dictionary:
 				best = {"region": region_index, "point": point_index, "distance": distance}
 	return best
 
+# The region whose unlock-disc marker is under `position` (closest within BUTTON_HIT_RADIUS), or -1.
+func _find_button_handle(position: Vector2) -> int:
+	var best_index := -1
+	var best_distance := INF
+	for region_index in regions.size():
+		var region: Dictionary = regions[region_index]
+		if (region.get("points", []) as Array).size() < 3:
+			continue
+		var distance := _button_pos(region).distance_to(position)
+		if distance <= BUTTON_HIT_RADIUS and distance < best_distance:
+			best_index = region_index
+			best_distance = distance
+	return best_index
+
+# Place a region's unlock disc at `position` (clamped to the image, no snapping) and broadcast the change.
+func _set_button(region_index: int, position: Vector2) -> void:
+	if region_index < 0 or region_index >= regions.size():
+		return
+	var region: Dictionary = regions[region_index]
+	region["button"] = _clamp_to_image(position)
+	regions[region_index] = region
+	regions_changed.emit(_clone_regions(regions))
+	queue_redraw()
+
 func _snap_or_clamp(region_index: int, point_index: int, position: Vector2) -> Vector2:
 	var clamped := _clamp_to_image(position)
 	for other_region_index in regions.size():
@@ -267,9 +348,12 @@ func _clone_regions(source: Array) -> Array:
 		var points: Array = []
 		for point in region.get("points", []):
 			points.append(point)
-		clone.append({
+		var cloned := {
 			"name": region.get("name", "Region"),
 			"points": points,
 			"enabled": bool(region.get("enabled", true))
-		})
+		}
+		if region.has("button"):
+			cloned["button"] = region["button"]   # Vector2; absent => auto (centroid)
+		clone.append(cloned)
 	return clone

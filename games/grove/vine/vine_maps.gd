@@ -76,9 +76,18 @@ static func spots_for(slot_id: String, entry: Dictionary, override_path: String 
 			"id": "%s_r%d" % [slot_id, i],
 			"name": String(ov.get("name", region.get("name", "Region %d" % (i + 1)))),
 			"cost": cost,
-			"pos": _centroid(region.get("points", []), isize),
+			"pos": _button_or_centroid(region, isize),
 		})
 	return spots
+
+# Where the unlock disc sits (normalized to image_size): the region's authored `button` [x,y] when the
+# artist placed one in the vine tool, else the polygon centroid (the default). Lets the tool override the
+# auto-centroid per region without any game-code change.
+static func _button_or_centroid(region: Dictionary, isize: Vector2) -> Vector2:
+	var b: Variant = region.get("button", null)
+	if b is Array and (b as Array).size() >= 2:
+		return Vector2(clampf(float(b[0]) / isize.x, 0.0, 1.0), clampf(float(b[1]) / isize.y, 0.0, 1.0))
+	return _centroid(region.get("points", []), isize)
 
 static func _centroid(points: Array, isize: Vector2) -> Vector2:
 	var sum := Vector2.ZERO
