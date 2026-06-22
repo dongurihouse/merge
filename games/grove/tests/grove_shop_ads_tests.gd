@@ -228,6 +228,33 @@ func _initialize() -> void:
 	ok(Save.diamonds() == fg_card_before + fg_amt, "pressing the shop faucet grants the %d🌰 reward" % fg_amt)
 	sh.queue_free()
 
+	# T-K(iii): when the faucet is at rest (capped/cooling) the card drops its CTA entirely — the cozy timer
+	# shows as plain text, NOT a greyed-out buy button, so it never reads as a dead pressable wall.
+	fresh("free_gems_resting")
+	for _j in range(Ads.remaining_today("free_gems")):       # spend the daily cap → the faucet rests
+		Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+		ShopS.claim_free_gems()
+	var rest = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(rest)
+	if rest.content == null:
+		rest._ready()
+	ShopS.open_premium(rest, {})
+	var rest_overlay: Control = rest.get_child(rest.get_child_count() - 1)
+	ok(not _press_label(rest_overlay, "Free"), "a rested faucet shows NO 'Free' buy button (no greyed CTA)")
+	ok(_label_texts(rest_overlay).has("Back tomorrow"), "...the resting state reads as plain timer text instead")
+	rest.queue_free()
+
+	# T-L: the Welcome bundle card holds ONE hero icon now (the card art isn't built for multiple items), so
+	# the 🌰 + 💧 breakdown moved into the info sheet. Assert that body carries both amounts + the one price.
+	fresh("starter_info")
+	var ihost := Control.new()
+	get_root().add_child(ihost)
+	var sbody := ShopS.starter_info_body(ihost)
+	ok(str(int(Data.STARTER_PACK.gems)) in sbody, "the Welcome info body lists the acorn amount (%d)" % int(Data.STARTER_PACK.gems))
+	ok(str(int(Data.STARTER_PACK.water)) in sbody, "...and the water amount (%d)" % int(Data.STARTER_PACK.water))
+	ok(String(Data.STARTER_PACK.usd) in sbody, "...and the one-time price (%s)" % String(Data.STARTER_PACK.usd))
+	ihost.free()
+
 	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
 	var cell_sb := BoardScript._cell_style()
 	ok(cell_sb.bg_color.is_equal_approx(Pal.CELL_EMPTY), "empty cell well uses Pal.CELL_EMPTY (not the old hardcoded tan)")

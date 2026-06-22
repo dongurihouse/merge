@@ -327,7 +327,6 @@ static func _coin_sections(refs: Dictionary) -> Array:
 # PREMIUM shop — the 💎-priced item shortcut(s), the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
-	var hero_px: float = float(refs.hero_px)
 	var secs: Array = []
 	# Free acorns — the rewarded faucet (moved off the side rail). Always shown; dims to a cozy
 	# "Ready in Nm" / "Back tomorrow" read when a watch isn't offerable yet (§10 — a faucet, never a wall).
@@ -337,13 +336,16 @@ static func _premium_sections(refs: Dictionary) -> Array:
 		feat.append(_offer_card(refs, offer))
 	if not feat.is_empty():
 		secs.append({"caption": host.tr("Featured"), "cards": feat})
-	# Welcome — the one-time, high-value starter bundle (new players only, until claimed)
+	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
+	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
+	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
 	if starter_available():
 		secs.append({"caption": host.tr("Welcome gift"), "cards": [{
-			"node": _starter_node(host, hero_px),
+			"icon": _starter_icon_id(),
 			"ribbon": host.tr("Welcome"),
 			"price": String(STARTER_PACK.get("usd", "")),
-			"on_buy": func() -> void: _confirm_starter(host, refs)}]})
+			"on_buy": func() -> void: _confirm_starter(host, refs),
+			"on_info": func() -> void: _starter_info(host)}]})
 	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbon)
 	var packs: Array = []
 	for i in CASH_PACKS.size():
@@ -368,18 +370,48 @@ static func _premium_sections(refs: Dictionary) -> Array:
 static func _free_gems_card(refs: Dictionary) -> Dictionary:
 	var host: Control = refs.host
 	var st := free_gems_status()
-	var cta := host.tr("Free")
-	if not bool(st.available):
-		cta = host.tr("Back tomorrow") if String(st.kind) == "capped" else host.tr("Ready in %dm") % int(st.minutes)
-	return {
-		"icon": "gem", "count": free_gems_amount(),
-		"price": cta, "price_icon": "",
-		"affordable": bool(st.available),
-		"on_buy": func() -> void:
-			if free_gems_status().available:
-				_flow_free_gems(refs),
+	var card := {
+		"node": _free_gems_content(refs, st),
 		"on_info": func() -> void: _info_sheet(host, host.tr("Free acorns"),
 			host.tr("Watch a short clip to collect a few acorns, free. Comes back a few times a day — a little top-up whenever you fancy one, never required."))}
+	# Offerable → the green "Free" CTA pill claims it. Cooling/capped → NO button: the cozy timer reads as
+	# plain muted text inside the card (see _free_gems_content) — a faucet at rest, not a greyed-out wall.
+	if bool(st.available):
+		card["price"] = host.tr("Free")
+		card["price_icon"] = ""
+		card["affordable"] = true
+		card["on_buy"] = func() -> void:
+			if free_gems_status().available:
+				_flow_free_gems(refs)
+	return card
+
+# The free-acorn card's centre: the 🌰 reward (icon + count), mirroring the cash-pack hero. When the faucet
+# is cooling/capped it carries a small muted line ("Ready in 23m" / "Back tomorrow") under the count, in
+# place of a CTA — so the resting state is quiet plain text, never a big greyed button.
+static func _free_gems_content(refs: Dictionary, st: Dictionary) -> Control:
+	var host: Control = refs.host
+	var px: float = float(refs.hero_px)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(maxf(2.0, px * 0.06)))
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(Look.icon("gem", px * 0.62))
+	var n := Label.new()
+	n.text = str(free_gems_amount())
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	n.add_theme_font_size_override("font_size", int(px * 0.34))
+	n.add_theme_color_override("font_color", INK)
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(n)
+	if not bool(st.available):
+		var t := Label.new()
+		t.text = host.tr("Back tomorrow") if String(st.kind) == "capped" else host.tr("Ready in %dm") % int(st.minutes)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.add_theme_font_size_override("font_size", int(maxf(11.0, px * 0.2)))
+		t.add_theme_color_override("font_color", Color(BARK, 0.9))
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(t)
+	return col
 
 # One item-shortcut card — a REAL piece preview (the game-injected hero node) priced in the offer's
 # currency (coins for low tiers / 💎 for deeper ones); buying queues the piece into the pending grant.
@@ -408,32 +440,23 @@ static func _gem_icon_id(i: int) -> String:
 	var art := "gem_t%d" % (i + 1)
 	return art if ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % art)) else "gem"
 
-# The Welcome bundle's hero — the 💎 count beside its water bonus (two currencies in one compact node),
-# injected into the kit card's centre.
-static func _starter_node(host: Control, px: float) -> Control:
-	var row := HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", int(px * 0.12))
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(Look.icon("gem", px * 0.62))
-	var gn := Label.new()
-	gn.text = str(int(STARTER_PACK.get("gems", 0)))
-	gn.add_theme_font_size_override("font_size", int(px * 0.34))
-	gn.add_theme_color_override("font_color", INK)
-	gn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	gn.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(gn)
-	var water_amt := int(STARTER_PACK.get("water", 0))
-	if water_amt > 0:
-		row.add_child(Look.icon("water", px * 0.5))
-		var wn := Label.new()
-		wn.text = "+%d" % water_amt
-		wn.add_theme_font_size_override("font_size", int(px * 0.26))
-		wn.add_theme_color_override("font_color", INK)
-		wn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		wn.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(wn)
-	return row
+# The Welcome bundle's hero ICON id. The card art holds ONE item, so the bundle shows a single hero (the
+# acorns + water breakdown lives in the info sheet). Prefers a baked welcome sprite (ui/shared/icon_welcome
+# .png) once it exists; until then the in-style gift icon stands in (the same resolver fallback as the gems).
+static func _starter_icon_id() -> String:
+	return "welcome" if ResourceLoader.exists(Game.art("ui/shared/icon_welcome.png")) else "gift"
+
+# The Welcome bundle's contents as the info-sheet body (the card shows only the hero + price now). Reads the
+# live STARTER_PACK numbers so the copy never drifts from what the confirm actually grants.
+static func starter_info_body(host: Control) -> String:
+	var gems := int(STARTER_PACK.get("gems", 0))
+	var water := int(STARTER_PACK.get("water", 0))
+	var usd := String(STARTER_PACK.get("usd", ""))
+	return host.tr("A one-time welcome bundle: %d acorns and %d water, together for %s. Claimable just once — a warm start to the grove.") % [gems, water, usd]
+
+# The Welcome card's "i" → the bundle's detail sheet (the parchment info modal the other shop cards use).
+static func _starter_info(host: Control) -> void:
+	_info_sheet(host, host.tr("Welcome gift"), starter_info_body(host))
 
 # --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
 # A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the

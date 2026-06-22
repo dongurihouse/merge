@@ -4,7 +4,8 @@
 *Status: in progress — summary and thesis only; mechanics, economy, and risk sections to follow.*
 
 A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
-supersedes the base game's "residents are cosmetic-only" stance — see *What this changes*.
+supersedes the base game's "residents are cosmetic-only" stance; the base specs (`merge_spec.md`
+§4/§8, `grove_spec.md` §3) now defer the resident model to this spec.
 
 ---
 
@@ -75,19 +76,3 @@ The expansion turns one loop into three that feed each other:
 The cycle closes: stronger board → more space → more residents → more production → stronger
 board. The base game was a single loop that *ended* when a map was finished; this makes it a
 three-engine flywheel with no end state — which is what an endgame needs.
-
-## What this changes in the base game
-
-Three deliberate reversals of base-game rules:
-
-- **Cosmetic-only → faucet + progression.** Supersedes "residents grant no yield, no power"
-  (`merge_spec.md` §4; `grove_spec.md` §3). This reopens the economy's "sink > faucet" balance,
-  to be kept bounded and re-validated against the pacing sim (`grove_sim.gd`). That trade *is*
-  the point: the base game showed coins have no power; this gives them power.
-- **No roster cap → per-map capacity.** Replaces "residents are unbounded; tier-compression
-  keeps them sparse" (`grove_spec.md` §3) with an explicit, upgradable cap. Scarcity is now a
-  core lever — it makes placement a choice, makes merging matter, and gives map unlocks a purpose.
-- **No rarity → rarity + signatures.** Introduces rarity and premium-exclusive signature
-  spirits as collection axes, superseding the guardrail that banned rarity tiers (`BACKLOG.md`).
-  Which other cozy-capsule guardrails to keep (no-loss, no FOMO, transparent pricing) is
-  deferred to the mechanics section.
