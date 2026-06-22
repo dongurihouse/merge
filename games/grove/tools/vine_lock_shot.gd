@@ -6,6 +6,7 @@ extends SceneTree
 ##   engine/tools/quiet_godot.sh --path . -s res://games/grove/tools/vine_lock_shot.gd -- /tmp/vine_lock
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 const W := 1080
 const H := 1920
@@ -24,6 +25,12 @@ func _initialize() -> void:
 	DisplayServer.window_set_size(Vector2i(W, H))
 	await create_timer(0.2).timeout
 
+	# Sandbox the save to a throwaway dir BEFORE anything can persist — this tool must NEVER touch the
+	# real game save (user://save.json). configure_for_test redirects path/bak/tmp here; reset seeds it.
+	var sandbox := "user://shottool_save/"
+	DirAccess.make_dir_recursive_absolute(sandbox)
+	Save.configure_for_test(sandbox)
+	Save.reset()
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(hx)
 	if hx.content == null:
@@ -40,7 +47,11 @@ func _initialize() -> void:
 	# (1) the real look: every still-locked region wears vines + the purple cover.
 	await _shot(prefix + "_locked.png")
 
-	# (2) isolate the cover: zero the four vine layers so ONLY the purple veil remains.
+	# (2) isolate the cover at offset 0: force every region locked (deterministic), zero the vines, so
+	# ONLY the purple veil remains. The locked patch must read lavender; the house patch is the control.
+	var vv0: Control = hx.content.find_child("VineMapView", true, false)
+	for i in range(vv0.region_count()):
+		vv0.set_region_enabled(i, true)
 	_zero_vines(hx)
 	await create_timer(0.1).timeout
 	var cover := await _shot(prefix + "_coveronly.png")
@@ -55,6 +66,33 @@ func _initialize() -> void:
 	var clean := await _shot(prefix + "_allopen.png")
 	print("  all-open    locked-patch mean = %s" % [_mean(clean, locked_patch)])
 	print("  all-open    house-patch  mean = %s" % [_mean(clean, house_patch)])
+
+	# (4) the edge-bleed fix: relock everything, force every region locked, and shift the mask DOWN
+	# 100px (map1's saved offset). A top strip that used to expose base art must now read purple.
+	for i in range(G.MAPS[G.hub_map()].spots.size()):
+		hx.unlocks.erase("%s_r%d" % [String(G.MAPS[G.hub_map()].id), i])
+	hx._build_map()
+	await create_timer(0.2).timeout
+	var vv: Control = hx.content.find_child("VineMapView", true, false)
+	for i in range(vv.region_count()):
+		vv.set_region_enabled(i, true)
+	vv.set_mask_offset(Vector2(0.0, 100.0))
+	await create_timer(0.1).timeout
+	await _shot(prefix + "_offset_real.png")   # vines + cover, mask shifted down — top must stay covered
+
+	_zero_vines(hx)                            # isolate the cover
+	await create_timer(0.1).timeout
+	var top := Rect2i(120, 72, 480, 70)        # a strip just under the HUD that the shifted mask used to expose
+	var off_cover := await _shot(prefix + "_offset_cover.png")
+	print("  offset cover  top-strip mean = %s" % [_mean(off_cover, top)])
+	for entry in vv.region_overlays:           # hide just the cover -> baseline (what was exposed before)
+		var lock := entry.get("lock") as TextureRect
+		if lock != null:
+			(lock.material as ShaderMaterial).set_shader_parameter("region_enabled", 0.0)
+			lock.visible = false
+	await create_timer(0.1).timeout
+	var off_base := await _shot(prefix + "_offset_base.png")
+	print("  offset base   top-strip mean = %s" % [_mean(off_base, top)])
 	quit()
 
 func _zero_vines(hx) -> void:

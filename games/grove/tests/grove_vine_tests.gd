@@ -12,6 +12,7 @@ func _initialize() -> void:
 	_test_view_headless()
 	_test_lock_overlay()
 	_test_region_map_membership()
+	_test_cover_offset_bleed()
 	await _test_map_integration()
 	await _test_overlay_fills_view()
 	_test_multimap()
@@ -40,6 +41,28 @@ func _test_lock_overlay() -> void:
 		view.set_region_enabled(0, false)
 		ok(not (lock as TextureRect).visible, "an owned region clears the purple cover")
 		ok(absf(float(mat.get_shader_parameter("region_enabled"))) < 0.001, "owned -> region_enabled 0 on the lock layer")
+	view.queue_free()
+
+# The purple cover lives in its OWN full-view container (not the mask-offset-translated overlay
+# group) and bleeds to the screen edges via a mask_offset_uv shift, so shifting the mask never
+# exposes background on the leading edge.
+func _test_cover_offset_bleed() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, VineMaps.regions_for(e0))
+	var covers: Control = view.get_node_or_null("RegionCovers")
+	ok(covers != null, "the view has a full-view RegionCovers container")
+	var lock := view.region_overlays[0].get("lock") as TextureRect
+	ok(lock != null and lock.get_parent() == covers, "lock rects live under RegionCovers, not the offset group")
+	# in the tool the view is sized to the image (941x1672) so cover-fit scale is 1.
+	view.set_mask_offset(Vector2(0.0, 100.0))
+	var uv = (lock.material as ShaderMaterial).get_shader_parameter("mask_offset_uv")
+	ok(uv is Vector2 and absf(uv.x) < 0.001 and absf(uv.y - 100.0 / float(view.image_size.y)) < 0.001, \
+		"mask_offset_uv = mask_offset / displayed_size (got %s, want y=%.4f)" % [uv, 100.0 / float(view.image_size.y)])
+	# the offset group must NOT carry the lock layer (vines stay there, cover does not).
+	var group: Control = view.get_node_or_null("RegionOverlays")
+	ok(group != null and group.get_node_or_null("Region1Lock") == null, "the offset group holds no lock rect")
 	view.queue_free()
 
 # The region-index map marks region membership in the GREEN channel so the full polygon can be

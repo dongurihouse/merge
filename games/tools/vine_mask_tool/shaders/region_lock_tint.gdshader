@@ -10,9 +10,13 @@ uniform float region_index = 0.0;
 uniform float region_count = 8.0;
 uniform float region_enabled = 1.0;
 uniform vec4 tint_color : source_color = vec4(0.6863, 0.6627, 0.9255, 0.34);
+// This cover layer is full-view (NOT translated by the mask offset like the vines). Subtracting the
+// offset (in UV) makes it sample the SAME region the vines do at each pixel; clamp-to-edge then
+// bleeds the edge region's tint outward, so a shifted mask never exposes background on the edges.
+uniform vec2 mask_offset_uv = vec2(0.0, 0.0);
 
 void fragment() {
-	vec4 rm = texture(region_map_texture, clamp(UV, vec2(0.0), vec2(1.0)));
+	vec4 rm = texture(region_map_texture, clamp(UV - mask_offset_uv, vec2(0.0), vec2(1.0)));
 	float member = step(0.5, rm.g);
 	float max_index = max(region_count - 1.0, 1.0);
 	float sampled_index = floor(rm.r * max_index + 0.5);

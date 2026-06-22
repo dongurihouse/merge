@@ -127,6 +127,13 @@ func set_mask_offset(value: Vector2) -> void:
 		overlays.offset_top = mask_offset.y
 		overlays.offset_right = mask_offset.x
 		overlays.offset_bottom = mask_offset.y
+	# The cover container stays full-view (offset 0); the shift is baked into the cover shader's UV so
+	# the purple bleeds out to the edges instead of leaving an uncovered strip on the leading edge.
+	var offset_uv := _mask_offset_uv()
+	for entry in region_overlays:
+		var lock := entry.get("lock") as TextureRect
+		if lock != null:
+			(lock.material as ShaderMaterial).set_shader_parameter("mask_offset_uv", offset_uv)
 
 func set_calm(on: bool) -> void:
 	# reduced-motion: damp the time-driven shader terms (pulse/flow) toward 0 across all overlays.
@@ -247,6 +254,19 @@ func _fallback_mask_image() -> Image:
 
 func _mask_pixel_size() -> Vector2:
 	return Vector2(1.0 / float(maxi(image_size.x, 1)), 1.0 / float(maxi(image_size.y, 1)))
+
+# The mask image's on-screen size after STRETCH_KEEP_ASPECT_COVERED — used to convert the pixel
+# mask_offset into a UV shift for the cover layer (which is full-view, not translated like the vines).
+func _displayed_size() -> Vector2:
+	var view_size := size
+	if view_size.x <= 0.0 or view_size.y <= 0.0:
+		view_size = Vector2(image_size)
+	var s := maxf(view_size.x / float(maxi(image_size.x, 1)), view_size.y / float(maxi(image_size.y, 1)))
+	return Vector2(image_size) * maxf(s, 0.0001)
+
+func _mask_offset_uv() -> Vector2:
+	var disp := _displayed_size()
+	return Vector2(mask_offset.x / maxf(disp.x, 1.0), mask_offset.y / maxf(disp.y, 1.0))
 
 # ── Template materials (built in code, mirroring the .tscn defaults) ──────────
 
@@ -390,10 +410,11 @@ func _create_region_overlays(force: bool) -> void:
 		_apply_region_map_to_materials()
 		return
 
-	var existing := get_node_or_null("RegionOverlays")
-	if existing != null:
-		remove_child(existing)
-		existing.free()
+	for node_name in ["RegionOverlays", "RegionCovers"]:
+		var stale := get_node_or_null(node_name)
+		if stale != null:
+			remove_child(stale)
+			stale.free()
 
 	# Full-rect anchored to the view (so the group + its cover-fit children fill the SAME rect the
 	# game's base layer cover-fits into), with mask_offset applied as a uniform offset shift — NOT a
@@ -410,20 +431,29 @@ func _create_region_overlays(force: bool) -> void:
 	parent.offset_bottom = mask_offset.y
 	add_child(parent)
 
+	# The purple cover lives in its OWN full-view container (NOT translated by mask_offset), added
+	# after the offset group so it draws on top of the vines. Its shader bakes the offset into UV +
+	# clamp-to-edge, so the cover always reaches the screen edges even when the mask is shifted.
+	var covers := Control.new()
+	covers.name = "RegionCovers"
+	covers.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	covers.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(covers)
+	var offset_uv := _mask_offset_uv()
+
 	region_overlays.clear()
 	for region_index in range(_region_count):
 		var shadow := _create_effect_texture_rect("Region%dShadow" % [region_index + 1], shadow_template_material, region_index)
 		var glow := _create_region_texture_rect("Region%dGlow" % [region_index + 1], glow_template_material, region_index)
 		var vines := _create_region_texture_rect("Region%dVines" % [region_index + 1], vines_template_material, region_index)
 		var embers := _create_effect_texture_rect("Region%dEmbers" % [region_index + 1], ember_template_material, region_index)
-		# the lock tint is added LAST so it sits on top of this region's vines (regions never overlap,
-		# so cross-region draw order is irrelevant — each tint only paints its own polygon).
 		var lock := _create_effect_texture_rect("Region%dLock" % [region_index + 1], lock_template_material, region_index)
+		(lock.material as ShaderMaterial).set_shader_parameter("mask_offset_uv", offset_uv)
 		parent.add_child(shadow)
 		parent.add_child(glow)
 		parent.add_child(vines)
 		parent.add_child(embers)
-		parent.add_child(lock)
+		covers.add_child(lock)
 		var enabled := true
 		if region_index < regions.size() and regions[region_index] is Dictionary:
 			enabled = bool((regions[region_index] as Dictionary).get("enabled", true))

@@ -186,7 +186,7 @@ func _centroid(poly: Array) -> Vector2:
 # =====================================================================================
 class ShatterField extends Node2D:
 	var _pieces: Array = []
-	var _drag := 3.0               # top-down: slide out, friction to rest (no gravity)
+	var _drag := 0.9               # low → shards keep going and fly off-screen (distance ≈ speed/drag)
 	var _spin_drag := 2.4
 	var _released := false
 	var _impact := Vector2.ZERO
@@ -220,12 +220,16 @@ class ShatterField extends Node2D:
 			dir = (dir + Vector2.from_angle(rng.randf_range(0.0, TAU)) * 0.28).normalized()
 			# impact energy: shards nearer the impact fly faster
 			var distf := clampf((cen - impact).length() / maxf(reach, 1.0), 0.0, 1.0)
-			var speed := lerpf(440.0, 150.0, distf) * rng.randf_range(0.8, 1.2)
+			var speed := lerpf(1050.0, 430.0, distf) * rng.randf_range(0.85, 1.25)
 			_pieces.append({
 				"node": pg, "vel": dir * speed,
 				"ang": rng.randf_range(-8.0, 8.0),
 				"life": rng.randf_range(0.85, 1.25), "max_life": 1.25,
 				"fade": 0.5, "age": 0.0, "phase": rng.randf() * TAU,
+				# two independent 3D tumble axes (rate + sign + phase)
+				"tumble_x": rng.randf_range(4.0, 9.0) * (1.0 if rng.randf() < 0.5 else -1.0),
+				"tumble_y": rng.randf_range(4.0, 9.0) * (1.0 if rng.randf() < 0.5 else -1.0),
+				"phase2": rng.randf() * TAU,
 			})
 
 	func release() -> void:
@@ -245,16 +249,20 @@ class ShatterField extends Node2D:
 			p["ang"] *= exp(-_spin_drag * delta)
 			node.rotation += p["ang"] * delta
 
-			# tumble: shrink for depth + squash X to fake passing edge-on
+			# fake 3D tumble: foreshorten on two independent axes (each |cos| collapses to a
+			# sliver edge-on, then opens back up). The in-plane spin (node.rotation) carries the
+			# squash axes around, so it reads as tumbling in space, not flipping flat.
 			var t := clampf(p["age"] / p["max_life"], 0.0, 1.0)
 			var shrink := lerpf(1.0, 0.74, t)
-			var flick := 1.0 - 0.5 * absf(sin(node.rotation * 1.3 + p["phase"]))
-			node.scale = Vector2(shrink * flick, shrink)
+			var sx := absf(cos(p["age"] * p["tumble_x"] + p["phase"]))
+			var sy := absf(cos(p["age"] * p["tumble_y"] + p["phase2"]))
+			node.scale = Vector2(maxf(0.1, sx), maxf(0.1, sy)) * shrink
 
-			# glint: a bright flash at the break, then occasional specular as it spins
+			# glint: break-flash + specular spin + a bright pop each time a face goes edge-on
 			var flash := maxf(0.0, 1.0 - p["age"] / 0.14) * 0.9
 			var spec := pow(maxf(0.0, sin(node.rotation * 1.7 + p["phase"])), 14) * 0.6
-			node.color = FILL.lerp(Color(1, 1, 1, 0.94), clampf(maxf(flash, spec), 0.0, 1.0))
+			var flip := clampf((pow(1.0 - sx, 8) + pow(1.0 - sy, 8)) * 0.5, 0.0, 0.7)
+			node.color = FILL.lerp(Color(1, 1, 1, 0.94), clampf(maxf(maxf(flash, spec), flip), 0.0, 1.0))
 
 			p["life"] -= delta
 			if p["life"] <= p["fade"]:
