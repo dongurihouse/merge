@@ -97,12 +97,17 @@ func _initialize() -> void:
 		"closeup", "progress":
 			Save.add_exp(20)
 			var g := Save.grove()
-			if mode == "progress":
-				g["unlocks"] = {"fh_hearth": true, "fh_kitchen": true, "fh_well": true}
-				g["exp"] = 9
-			else:
-				g["unlocks"] = {"fh_hearth": true}   # one restored spot
-				g["exp"] = 3
+			# Seed by the hub's REAL spot ids — content.gd remaps the hub to a vine map (farmhouse_r0..r6),
+			# so the retired fh_* ids matched nothing and the home rendered fully overgrown. Mark the first N
+			# owned (3 for progress, 1 for closeup) and set exp to the NEXT spot's unlock threshold, so the
+			# bottom restore badge reads a representative ready state over a partially-restored home.
+			var hub := G.hub_map()
+			var n_owned: int = mini(3 if mode == "progress" else 1, G.MAPS[hub].spots.size())
+			var seeded := {}
+			for k in n_owned:
+				seeded[String(G.MAPS[hub].spots[k].id)] = true
+			g["unlocks"] = seeded
+			g["exp"] = G.spot_unlock_exp(hub, n_owned)   # the next unclaimed spot's threshold
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
