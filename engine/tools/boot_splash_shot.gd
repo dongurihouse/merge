@@ -18,9 +18,14 @@ func _initialize() -> void:
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 	var uargs := OS.get_cmdline_user_args()
 	var out: String = String(uargs[0]) if uargs.size() >= 1 else "/tmp/tu_boot_splash.png"
+	# optional WxH second arg (e.g. an App Store size); default is the design resolution
+	var sz := Vector2i(W, H)
+	if uargs.size() >= 2 and "x" in String(uargs[1]):
+		var wh := String(uargs[1]).split("x")
+		sz = Vector2i(int(wh[0]), int(wh[1]))
 
 	await create_timer(0.2).timeout
-	DisplayServer.window_set_size(Vector2i(W, H))
+	DisplayServer.window_set_size(sz)
 	await create_timer(0.2).timeout
 
 	BootScript.capture = true
@@ -31,11 +36,15 @@ func _initialize() -> void:
 	b.set_process(false)              # belt-and-suspenders: freeze the frame for a deterministic shot
 	await process_frame
 
-	# a representative mid-load frame (the live bar is exercised by the running game)
+	# a representative mid-load frame (the live bar is exercised by the running game).
+	# `noload` hides the bar/label for a clean key-art capture (e.g. a store screenshot).
+	var noload := "noload" in uargs
 	if b._bar != null:
 		b._bar.value = 0.62
+		b._bar.visible = not noload
 	if b._label != null:
 		b._label.text = "Loading…  62%"
+		b._label.visible = not noload
 
 	await create_timer(0.3).timeout
 	RenderingServer.force_draw()

@@ -244,15 +244,26 @@ func _initialize() -> void:
 	ok(_label_texts(rest_overlay).has("Back tomorrow"), "...the resting state reads as plain timer text instead")
 	rest.queue_free()
 
-	# T-L: the Welcome bundle card holds ONE hero icon now (the card art isn't built for multiple items), so
-	# the 🌰 + 💧 breakdown moved into the info sheet. Assert that body carries both amounts + the one price.
+	# T-L: the Welcome bundle's detail is ITEMIZED rows now (icon + label + amount), rendered by the shared
+	# Kit.info_dialog. Assert the spec rows carry the acorns + water with the right icons/amounts, and that
+	# the dialog renders each item's amount (one visible row per line item).
 	fresh("starter_info")
 	var ihost := Control.new()
 	get_root().add_child(ihost)
-	var sbody := ShopS.starter_info_body(ihost)
-	ok(str(int(Data.STARTER_PACK.gems)) in sbody, "the Welcome info body lists the acorn amount (%d)" % int(Data.STARTER_PACK.gems))
-	ok(str(int(Data.STARTER_PACK.water)) in sbody, "...and the water amount (%d)" % int(Data.STARTER_PACK.water))
-	ok(String(Data.STARTER_PACK.usd) in sbody, "...and the one-time price (%s)" % String(Data.STARTER_PACK.usd))
+	var items := ShopS.starter_info_items(ihost)
+	ok(items.size() == 2, "the Welcome info lists two line items (acorns + water)")
+	ok(String(items[0].icon) == "gem" and String(items[0].amount) == str(int(Data.STARTER_PACK.gems)), \
+		"row 1 is the acorns (%d🌰)" % int(Data.STARTER_PACK.gems))
+	ok(String(items[1].icon) == "water" and String(items[1].amount) == str(int(Data.STARTER_PACK.water)), \
+		"row 2 is the water (%d💧)" % int(Data.STARTER_PACK.water))
+	var Kit2: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var idlg: Control = Kit2.info_dialog({"title": "Welcome gift", "items": items, "close": "Got it"}, \
+		400.0, Kit2.info_opts_from_config(Kit2.load_config(Kit2.CONFIG_PATH)))
+	var itexts := _label_texts(idlg)
+	ok(itexts.has(str(int(Data.STARTER_PACK.gems))) and itexts.has(str(int(Data.STARTER_PACK.water))), \
+		"the info dialog renders each item's amount")
+	ok(itexts.has("Acorns") and itexts.has("Water"), "...and each item's label")
+	idlg.free()
 	ihost.free()
 
 	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---

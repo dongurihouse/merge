@@ -1,7 +1,7 @@
 # Residents — Expansion Spec
 
 *Working title: "The Homecoming" (placeholder).*
-*Status: in progress — summary and thesis only; mechanics, economy, and risk sections to follow.*
+*Status: in progress — mechanics drafted (high-level, under review); economy and risk sections to follow.*
 
 A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
 supersedes the base game's "residents are cosmetic-only" stance; the base specs (`merge_spec.md`
@@ -45,9 +45,8 @@ self-renewing loop, bolted on top of the merge core without changing how the cor
 
 - **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick
   from a list, you discover who turns up and keep one. Spirits have **rarity** (common → rare →
-  special), and a **premium (diamond) path** improves the loot on every axis: better rare odds,
-  a higher starting tier, and exclusive *signature* spirits the coin path never shows. Starts
-  simple; built to grow into a full search-and-extraction mini-game.
+  special), and a **premium (diamond) path** improves the odds. Starts simple; built to grow
+  into a full search-and-extraction mini-game.
 - **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
   upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
   progression and space management at once.
@@ -76,3 +75,84 @@ The expansion turns one loop into three that feed each other:
 The cycle closes: stronger board → more space → more residents → more production → stronger
 board. The base game was a single loop that *ended* when a map was finished; this makes it a
 three-engine flywheel with no end state — which is what an endgame needs.
+
+---
+
+## Mechanics
+
+*High-level shape; numbers and edge rules are sim-tuned later (see Economy). This bolts onto the
+existing roster plumbing — the persisted `{map_id: {type_id: …}}` roster, two-of-a-kind auto-merge,
+and the ambient render layer all carry over.*
+
+### Explore — acquire
+
+Replaces the base game's pick-from-a-list "welcome a spirit" panel. There is a single **Explore**
+destination — you venture out from home rather than shop from a completed map. Spend **coins** to run
+an **expedition**; it surfaces **up to three** spirits drawn from a rarity-weighted **pool shared
+across all unlocked maps**. You **keep one for free**; the other candidates vanish unless you spend
+**diamonds** to keep them too. Whatever you keep comes home *in hand*; assigning each to a map is the
+separate **Place** step. Splitting acquire from place keeps capacity pressure legible: you hold a
+spirit and must find room for it. You discover who turns up; you don't shop.
+
+- **Rarity** — common → rare → special. A map's **signature** spirits are its *special* draws; the
+  shared core (moss / acorn / lantern) are *commons*. Rarity is a new axis on the resident type.
+- **Pool grows with progress** — the shared core is always discoverable; **unlocking a new map adds
+  its signatures to the pool.** Pushing the base game forward widens *what you can find*, not just
+  where you house them — each new map is a discovery event and feeds the collection.
+- **Diamonds, two levers** — both buy *better odds and convenience, never exclusivity*; every spirit
+  stays reachable on coin expeditions alone, just slower (the base game's "premium buys speed +
+  looks, never possibility" law holds):
+  - **Premium expedition** — a pricier, diamond-funded expedition draws from **better rarity odds**
+    (more rares and specials per run).
+  - **Keep extras** — on any expedition, pay diamonds to keep a second or third candidate instead of
+    letting it vanish.
+- **Growth seam** — v1 is the weighted draw only. The thesis's "full search-and-extraction
+  mini-game" layers on top later without changing the keep-one contract.
+
+### Place — capacity
+
+Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Placing a kept
+spirit assigns it to that map's roster, where it wanders as today.
+
+- **Accounting** — **one slot per resident instance, any tier.** Two tier-1s fill two slots;
+  merging them into one tier-2 frees a slot. Merging is therefore progression *and* space management
+  at once.
+- **Out of room** — a full map refuses new placements until you merge (free a slot) or upgrade its
+  capacity. This pressure is the engine of the next move.
+- **Placement seam** — v1 placement is "assign to map"; spirits still wander freely (stateless
+  ambient render). Hand-positioning on a grid is a later layer.
+
+### Expand — the pull outward
+
+Capacity is **per map**, so habitat scales two ways: **upgrade** a map you own (intensive) or
+**unlock the next map** (extensive — each new map brings its own ~8 slots). No new unlock mechanic;
+this rides the existing completion-chained map sequence. Running out of room becomes a concrete
+reason to push the base-game progression forward.
+
+*(Runway note: only the 5 home-grove maps are wired today; the designed 20-place journey is the
+long-tail this move leans on.)*
+
+### Reward — the payback
+
+Placed spirits **produce over time** into a collect-point — idle and compounding, so more spirits
+and higher tiers yield more. Output spans the full menu:
+
+- **Items** — low-tier board items dropped into the bag, spent back on the board.
+- **Coins** — a soft-currency trickle.
+- **Water** — capped as a daily top-up only, so it never makes energy self-sustaining (respects the
+  energy invariant; see Risk).
+- **Boosters** — the **Wild piece** (the one booster grove already ships); this does *not* reopen
+  the tone-cut Bomb / x2 / Producer / Countdown toys.
+
+Two collection-facing roles ride on the same residents:
+
+- **Collection** — a ledger of discovered spirits (kind × rarity × signature), tracked per map and
+  overall, with rewards for completing sets. Reuses the Explore rarity axis.
+- **Quest-givers** — placed signature/special spirits periodically offer a **special quest** (deliver
+  requested items → a special reward), coexisting with the metered quest fence.
+
+### The loop, restated
+
+Explore (spend coins) → keep one → place (fill a slot) → merge (climb tier, free a slot) → run out
+of room → expand (upgrade or unlock a map) → explore again — while placed spirits quietly produce
+back into the board.

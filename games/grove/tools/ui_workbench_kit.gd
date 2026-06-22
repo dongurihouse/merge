@@ -2597,6 +2597,115 @@ static func _frame_cfg(cfg: Dictionary) -> Dictionary:
 	m.merge(cfg.get("frame", {}), true)
 	return m
 
+## The INFO sheet face — a parchment card that explains a shop item as a LIST OF LINE ITEMS (icon +
+## label + a small note + a right-aligned amount), under a ribbon title, closed by a "Got it" pill. The
+## ui/ layer owns the modal overlay/veil (like vault_dialog); this builds only the card face so the look
+## is authored once in the workbench. spec: { title, items: [{icon, label, amount, note}], note (footer),
+## close }. opts: info_opts_from_config(cfg) + on_close (the Callable the "Got it" fires).
+static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary = {}) -> Control:
+	var card := PanelContainer.new()
+	# the parchment nine-patch, with its inner padding made INFO-tunable (a duplicated stylebox so the
+	# override is local — other parchment panels keep the shared default). pad_x/pad_y default to the
+	# shared PARCH_PAD, so an untouched config renders identically.
+	var panel := Look.kit_panel("parchment")
+	if panel is StyleBoxTexture:
+		panel = (panel as StyleBoxTexture).duplicate()
+		var px := float(opts.get("pad_x", 26))
+		var py := float(opts.get("pad_y", 20))
+		panel.content_margin_left = px
+		panel.content_margin_right = px
+		panel.content_margin_top = py
+		panel.content_margin_bottom = py
+	card.add_theme_stylebox_override("panel", panel)
+	card.custom_minimum_size = Vector2(width, 0)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", int(opts.get("row_gap", 8)))
+	card.add_child(col)
+	var ribbon := Look.title_ribbon(String(spec.get("title", "")), int(opts.get("title_font", 26)))
+	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(ribbon)
+	var items: Array = spec.get("items", [])
+	for i in items.size():
+		if i > 0:
+			col.add_child(_info_divider())        # a hairline ties the rows into one tidy list
+		col.add_child(_info_row(items[i] as Dictionary, opts))
+	var footer := String(spec.get("note", ""))
+	if footer != "":
+		var fl := Label.new()
+		fl.text = footer
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
+		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(fl)
+	var btns := HBoxContainer.new()
+	btns.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_child(btns)
+	var on_close: Callable = opts.get("on_close", Callable())
+	var got := pill_button(String(spec.get("close", "Got it")), {"bg": "green", "font": int(opts.get("close_font", 20))})
+	if on_close.is_valid():
+		got.pressed.connect(func() -> void: on_close.call())
+	btns.add_child(got)
+	return card
+
+## A hairline between info rows — a low-alpha bark line spanning the content width, so the list reads as
+## one grouped table rather than items floating in a wide card.
+static func _info_divider() -> Control:
+	var line := ColorRect.new()
+	line.color = Color(Pal.BARK, 0.16)
+	line.custom_minimum_size = Vector2(0, 2)
+	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return line
+
+## One info-sheet line: [icon] · (label + small note) · amount (right), vertically centred in a comfortable
+## row height. A missing icon/amount/note simply drops that part, so a single-concept sheet (one row, no
+## amount) reads as cleanly as the Welcome bundle's two-currency list. Icons resolve through _icon_tex.
+static func _info_row(it: Dictionary, opts: Dictionary) -> Control:
+	var icon_px := float(opts.get("icon_px", 40))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", int(opts.get("item_gap", 12)))
+	row.custom_minimum_size = Vector2(0, icon_px + float(opts.get("row_pad", 14)))   # breathing room above/below the row
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon_id := String(it.get("icon", ""))
+	if icon_id != "":
+		var ic := make_icon(icon_id, icon_px)
+		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(ic)
+	var txt := VBoxContainer.new()
+	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	txt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	txt.add_theme_constant_override("separation", 1)
+	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var lbl := Label.new()
+	lbl.text = String(it.get("label", ""))
+	lbl.add_theme_font_size_override("font_size", int(opts.get("label_font", 18)))
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	txt.add_child(lbl)
+	var note := String(it.get("note", ""))
+	if note != "":
+		var nl := Label.new()
+		nl.text = note
+		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		nl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
+		nl.add_theme_color_override("font_color", Color(Pal.BARK, 0.9))
+		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		txt.add_child(nl)
+	row.add_child(txt)
+	var amount := String(it.get("amount", ""))
+	if amount != "":
+		var al := Label.new()
+		al.text = amount
+		al.add_theme_font_size_override("font_size", int(opts.get("amount_font", 22)))
+		al.add_theme_color_override("font_color", Pal.INK)
+		al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		al.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(al)
+	return row
+
 ## The full mail_dialog STYLE opts from a saved config (card art/slice/stretch, banner, close, list,
 ## card fonts, and the Claim/cost-pill btn opts). Callers add entries_count / on_close / empty_text /
 ## banner_text and pass width separately. Used by BOTH the workbench dialog preview and the game.
@@ -2678,6 +2787,26 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["row_gap"] = float(sh.get("row_gap", 22))        # spacing between rows + sections (the dividers)
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
+
+## The INFO sheet's saved STYLE (width % of the screen, row/item spacing, icon size, the title/label/
+## amount/note fonts, and the card padding). Read by BOTH the workbench preview and the game's _info_sheet,
+## so a tweak here flows to every shop detail sheet. Defaults reproduce a tidy parchment list.
+static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var i: Dictionary = cfg.get("info", {})
+	return {
+		"width_pct": float(i.get("width_pct", 50)),
+		"row_gap": float(i.get("row_gap", 8)),
+		"item_gap": float(i.get("item_gap", 12)),
+		"row_pad": float(i.get("row_pad", 14)),     # extra height per row beyond the icon (vertical breathing room)
+		"pad_x": float(i.get("pad_x", 26)),         # the card's inner side padding (overrides the parchment default)
+		"pad_y": float(i.get("pad_y", 20)),         # the card's inner top/bottom padding
+		"icon_px": float(i.get("icon_px", 40)),
+		"title_font": int(i.get("title_font", 26)),
+		"label_font": int(i.get("label_font", 18)),
+		"amount_font": int(i.get("amount_font", 22)),
+		"note_font": int(i.get("note_font", 13)),
+		"close_font": int(i.get("close_font", 20)),
+	}
 
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits
 ## dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry, padding), with NO bespoke chrome

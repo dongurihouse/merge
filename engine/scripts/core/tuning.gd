@@ -532,8 +532,8 @@ class Shop:
 	const INFO_BORDER_W := 2
 	const INFO_FONT := 18
 	const INFO_MARGIN := 7.0
-	const INFO_SHEET_W := 560.0           # the item-detail sheet's card width
-	const INFO_BODY_SIZE := 24            # its body-paragraph font
+	# (the item-detail sheet's width/body-font consts moved to the workbench-tuned `info` config —
+	#  see Kit.info_opts_from_config; the sheet face is now Kit.info_dialog.)
 
 	# --- affordability + purchase feedback ---------------------------------------------
 	const NEED_OFFSET := Vector2(100, 70)  # "Need N more" floater offset

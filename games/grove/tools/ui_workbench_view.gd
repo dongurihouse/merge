@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
 # column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
@@ -31,7 +31,7 @@ const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
 	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
 	[["board"], ["generator"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
-	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["bag"]],   # dialogs, settings, vault, bag
+	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -105,6 +105,7 @@ const TEST_KEYS := {
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
 	"quest_card": ["bust", "tier", "stars", "stand_w", "fence_h", "met"],
 	"settings": [],
+	"info": [],   # the demo line items are fixed in the preview; every knob is saved style
 	"vault": ["balance", "claimable"],   # the previewed gem read + the claimable gate — preview only
 	# the bag CELL — the cell STYLE persists; `preview` just picks which state (filled/empty/next/locked) to show.
 	"bag_card": ["preview", "level", "cost"],
@@ -137,6 +138,7 @@ const CAPTIONS := {
 	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
+	"info": "Info — detail sheet (icon'd line items)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 var _params := {
@@ -258,6 +260,11 @@ var _params := {
 	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
 		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
 		"balance": 320, "claimable": true},
+	# the INFO detail sheet — a parchment list of line items (icon + label + note + amount). width %, the
+	# row/item spacing, icon size, the title/label/amount/note/close fonts, and the card padding are saved
+	# (read by the game's _info_sheet via Kit.info_opts_from_config); the demo rows are fixed in the preview.
+	"info": {"width_pct": 50, "row_gap": 8, "item_gap": 12, "row_pad": 14, "pad_x": 26, "pad_y": 20,
+		"icon_px": 40, "title_font": 26, "label_font": 18, "amount_font": 22, "note_font": 13, "close_font": 20},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
@@ -608,6 +615,16 @@ func _make_element(id: String) -> Control:
 			p_st["balance"] = int(p.balance)
 			p_st["claimable"] = bool(p.claimable)
 			return Kit.vault_dialog(p_st, _dlg_px("vault"), vopts)
+		"info":
+			# the shop's detail sheet — the SAME Kit.info_dialog the "i" opens in-game, with demo line items
+			# (the Welcome bundle's two-currency list) so the icon/label/amount/note layout is editable here.
+			var iopts := Kit.info_opts_from_config(_params)
+			var demo := {"title": "Welcome gift", "close": "Got it",
+				"items": [
+					{"icon": "gem", "label": "Acorns", "amount": "400", "note": "premium currency for shortcuts"},
+					{"icon": "water", "label": "Water", "amount": "60", "note": "tops up your watering can"}],
+				"note": "Claimable just once — a warm start to the grove."}
+			return Kit.info_dialog(demo, _dlg_px("info"), iopts)
 		"bag_card":
 			# the slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit: only the
 			# SIZE scales — every metric is taken from the cell, so the zoom shows the EXACT proportions the
@@ -1421,6 +1438,22 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))       # gap between toggle rows
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
+		"info":
+			_group_header("Saved to config", true)
+			_section_header("Layout")
+			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
+			_sidebar_body.add_child(_slider_row(["pad_x", 0, 80]))         # card inner side padding (overrides the parchment default)
+			_sidebar_body.add_child(_slider_row(["pad_y", 0, 80]))         # card inner top/bottom padding
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 32]))       # gap between the title / rows / footer / button
+			_sidebar_body.add_child(_slider_row(["item_gap", 0, 32]))      # gap between a row's icon · text · amount
+			_sidebar_body.add_child(_slider_row(["row_pad", 0, 48]))       # extra row height beyond the icon (vertical breathing room)
+			_section_header("Type + icon")
+			_sidebar_body.add_child(_slider_row(["icon_px", 16, 72]))      # the line-item icon size
+			_sidebar_body.add_child(_slider_row(["title_font", 16, 44]))
+			_sidebar_body.add_child(_slider_row(["label_font", 12, 36]))
+			_sidebar_body.add_child(_slider_row(["amount_font", 12, 40]))
+			_sidebar_body.add_child(_slider_row(["note_font", 10, 28]))
+			_sidebar_body.add_child(_slider_row(["close_font", 14, 36]))
 		"bag_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))

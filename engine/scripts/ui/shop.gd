@@ -300,8 +300,10 @@ static func _water_sections(refs: Dictionary) -> Array:
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
 		"on_buy": func() -> void: _flow_water(refs),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"),
-			host.tr("Refills your watering can to full right away, so you can keep tending the garden without waiting for it to top up on its own."))}
+		"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"), [{
+			"icon": "water", "label": host.tr("Water"), "amount": str(int(G.WATER_CAP)),
+			"note": host.tr("refills your watering can to full right away")}],
+			host.tr("Keep tending the garden without waiting for it to top up on its own."))}
 	return [{"caption": host.tr("Water"), "cards": [card]}]
 
 # COIN shop — the Coin pouch (grants coins) + the coin-priced item shortcuts (grind-skips paid in coins).
@@ -314,8 +316,10 @@ static func _coin_sections(refs: Dictionary) -> Array:
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Coin pouch"),
-			host.tr("Adds %d coins to your pouch instantly — handy for restoring spots and buying from the shelf.") % COIN_PACK)}
+		"on_info": func() -> void: _info_sheet(host, host.tr("Coin pouch"), [{
+			"icon": "coin", "label": host.tr("Coins"), "amount": str(COIN_PACK),
+			"note": host.tr("for restoring spots and buying from the shelf")}],
+			host.tr("Added to your pouch instantly."))}
 	secs.append({"caption": host.tr("Quick help"), "cards": [pouch]})
 	var feat: Array = []
 	for offer in offers_for("coins"):
@@ -372,8 +376,10 @@ static func _free_gems_card(refs: Dictionary) -> Dictionary:
 	var st := free_gems_status()
 	var card := {
 		"node": _free_gems_content(refs, st),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Free acorns"),
-			host.tr("Watch a short clip to collect a few acorns, free. Comes back a few times a day — a little top-up whenever you fancy one, never required."))}
+		"on_info": func() -> void: _info_sheet(host, host.tr("Free acorns"), [{
+			"icon": "gem", "label": host.tr("Acorns"), "amount": str(free_gems_amount()),
+			"note": host.tr("watch a short clip — free, a few times a day")}],
+			host.tr("A little top-up whenever you fancy one, never required."))}
 	# Offerable → the green "Free" CTA pill claims it. Cooling/capped → NO button: the cozy timer reads as
 	# plain muted text inside the card (see _free_gems_content) — a faucet at rest, not a greyed-out wall.
 	if bool(st.available):
@@ -431,8 +437,10 @@ static func _offer_card(refs: Dictionary, offer: Dictionary) -> Dictionary:
 		"price": str(cost), "price_icon": ("gem" if cur == "diamonds" else "coin"),
 		"affordable": (gems if cur == "diamonds" else coins) >= cost,
 		"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
-		"on_info": func() -> void: _info_sheet(host, label,
-			host.tr("Skips you straight to tier %d of %s — the piece drops into your bag, ready to place on the board.") % [code % 100, label])}
+		"on_info": func() -> void: _info_sheet(host, label, [{
+			"icon": "leaf", "label": label, "amount": host.tr("tier %d") % (code % 100),
+			"note": host.tr("drops into your bag, ready to place on the board")}],
+			host.tr("Skips you straight to this piece — no grinding up to it."))}
 
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
 # has more packs than tier sprites — mirrors the old _gem_card art ladder.
@@ -446,17 +454,22 @@ static func _gem_icon_id(i: int) -> String:
 static func _starter_icon_id() -> String:
 	return "welcome" if ResourceLoader.exists(Game.art("ui/shared/icon_welcome.png")) else "gift"
 
-# The Welcome bundle's contents as the info-sheet body (the card shows only the hero + price now). Reads the
-# live STARTER_PACK numbers so the copy never drifts from what the confirm actually grants.
-static func starter_info_body(host: Control) -> String:
-	var gems := int(STARTER_PACK.get("gems", 0))
+# The Welcome bundle's contents as info-sheet ROWS (the card shows only the hero + price now). One row per
+# currency the bundle grants, read live from STARTER_PACK so the copy never drifts from what it grants.
+static func starter_info_items(host: Control) -> Array:
+	var items: Array = [{
+		"icon": "gem", "label": host.tr("Acorns"), "amount": str(int(STARTER_PACK.get("gems", 0))),
+		"note": host.tr("premium currency for shortcuts")}]
 	var water := int(STARTER_PACK.get("water", 0))
-	var usd := String(STARTER_PACK.get("usd", ""))
-	return host.tr("A one-time welcome bundle: %d acorns and %d water, together for %s. Claimable just once — a warm start to the grove.") % [gems, water, usd]
+	if water > 0:
+		items.append({"icon": "water", "label": host.tr("Water"), "amount": str(water),
+			"note": host.tr("tops up your watering can")})
+	return items
 
 # The Welcome card's "i" → the bundle's detail sheet (the parchment info modal the other shop cards use).
 static func _starter_info(host: Control) -> void:
-	_info_sheet(host, host.tr("Welcome gift"), starter_info_body(host))
+	_info_sheet(host, host.tr("Welcome gift"), starter_info_items(host),
+		host.tr("Claimable just once — a warm start to the grove."))
 
 # --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
 # A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
@@ -556,10 +569,15 @@ static func _offer_index(id: String) -> int:
 			return i
 	return -1
 
-# The item-detail sheet the "i" opens (§10 product info) — a parchment modal in the confirm
-# language: ribbon title + a body paragraph + a "Got it" close; tap the veil to dismiss. Read-only,
-# never buys. (The card's "i" is the only path here, so it never collides with the buy press.)
-static func _info_sheet(host: Control, title: String, body: String) -> void:
+# The item-detail sheet the "i" opens (§10 product info) — a parchment modal listing the item as ICON'D
+# LINE ITEMS (icon + label + a small note + a right-aligned amount) under a ribbon title, with an optional
+# footer note and a "Got it" close; tap the veil to dismiss. Read-only, never buys. This layer owns the
+# modal overlay/veil; the card FACE is the shared, workbench-tuned Kit.info_dialog (one source of truth).
+# `items` = [{icon, label, amount, note}]; `note` is the optional footer line under the rows.
+static func _info_sheet(host: Control, title: String, items: Array, note := "") -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
@@ -574,27 +592,12 @@ static func _info_sheet(host: Control, title: String, body: String) -> void:
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	card.custom_minimum_size = Vector2(Tune.INFO_SHEET_W, 0)
+	var iopts: Dictionary = Kit.info_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var width: float = host.get_viewport_rect().size.x * clampf(float(iopts.get("width_pct", 70)), 30.0, 100.0) / 100.0
+	iopts["on_close"] = func() -> void: overlay.queue_free()
+	var spec := {"title": title, "items": items, "note": note, "close": host.tr("Got it")}
+	var card: Control = Kit.info_dialog(spec, width, iopts)
 	cc.add_child(card)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", Tune.CONFIRM_COL_SEP)
-	card.add_child(col)
-	var ribbon := Look.title_ribbon(title, Tune.CONFIRM_TITLE_SIZE)
-	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	col.add_child(ribbon)
-	var para := Label.new()
-	para.text = body
-	para.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	para.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	para.add_theme_font_size_override("font_size", Tune.INFO_BODY_SIZE)
-	para.add_theme_color_override("font_color", INK)
-	col.add_child(para)
-	var btns := HBoxContainer.new()
-	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_child(btns)
-	btns.add_child(Look.button(host.tr("Got it"), func() -> void: overlay.queue_free(), true))
 	FX.pop_in(card)
 
 # The blurred + warm-tinted + vignetted backdrop material (the §1 interim shop backdrop). A
