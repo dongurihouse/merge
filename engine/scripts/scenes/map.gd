@@ -591,22 +591,23 @@ func _read_json_file(path: String):
 		return null
 	return JSON.parse_string(FileAccess.get_file_as_string(path))
 
-# The available area below the HUD and above the bottom chrome; the map image spans the FULL
-# viewport WIDTH at the design aspect, vertically centered.
+# The available area below the HUD and above the bottom chrome; the map image COVER-FILLS the full
+# viewport at the design aspect, centered.
 func _map_image_rect() -> Rect2:
-	# The map canvas is a phone-aspect rect WIDTH-ANCHORED to the viewport (full width), CENTERED
-	# vertically, so it tracks the device width exactly like the board background (a cover-fill) —
-	# never side-letterboxing on an off-design device. On a window WIDER than the design aspect the
-	# map runs off the top/bottom (cropped); on a TALLER window the sky ColorRect shows above/below.
-	# On the exact design aspect it fills the viewport exactly, so it stays identical to the map
-	# placer. Spots map to THIS rect, so the painting + buildings stay locked together. HUD floats on top.
+	# The map canvas is a design-aspect rect that COVER-FILLS the viewport (like the board background),
+	# CENTERED, so it always fills the screen edge-to-edge on any device — never letterboxing. On a window
+	# TALLER than the design aspect (the common phone case: 19.5:9 vs the 9:16 canvas) the map fills the
+	# height and overflows/crops left+right; on a WIDER window it fills the width and overflows top+bottom.
+	# On the exact design aspect it fills the viewport exactly. Spots map to THIS rect, so the painting +
+	# buildings stay locked together even where the art runs off-screen. HUD floats on top.
 	return map_rect_for(get_viewport_rect().size, Design.aspect())
 
-# Pure geometry for _map_image_rect (unit-tested): the `aspect`-ratio rect that fills `view`'s full
-# WIDTH, centered. Width-anchored so the home never side-letterboxes on an off-design device; the
-# overflow on a wide window crops the top/bottom rather than pillarboxing the sides.
+# Pure geometry for _map_image_rect (unit-tested): the smallest `aspect`-ratio rect that COVERS `view`,
+# centered. Cover-fit (not inscribe) so the home fills the screen edge-to-edge and never letterboxes on
+# an off-design device — the overflow spills off the LONGER axis (crop) rather than leaving empty bands:
+# a taller-than-design window (phones) crops left/right, a wider one crops top/bottom. Matches the board.
 static func map_rect_for(view: Vector2, aspect: float) -> Rect2:
-	var w := view.x
+	var w := maxf(view.x, view.y * aspect)
 	var h := w / aspect
 	return Rect2(((view - Vector2(w, h)) * 0.5).floor(), Vector2(w, h).floor())
 
