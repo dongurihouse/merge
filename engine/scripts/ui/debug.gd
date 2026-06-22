@@ -124,17 +124,15 @@ static func _act_premium(host: Control) -> void:
 	Save.add_diamonds(100)               # the free premium currency; convert via shop
 	_reflect(host)
 
-## Top up the star balance so you can unlock spots through the normal UI. Routes through
-## earn_stars (NOT a bare add_stars) so the cumulative stars_earned LEVEL clock advances
-## alongside the spendable balance — exactly like real play. A bare add_stars left Level
-## stuck at 1 while the balance ballooned, which greyed the quest fence (fence_inert) and
-## made the next map read as "stuck". Tap again for the big gate spots.
+## Top up the exp total so you can claim spots through the normal UI (the single unlock
+## button enables as exp crosses each spot's threshold). Exactly like real play — earn_exp
+## advances the one progression total. Tap again for the big later-map gate spots.
 static func _act_stars(host: Control) -> void:
-	G.earn_stars(100)
+	G.earn_exp(100)
 	_reflect(host)
 
-## Unlock every spot in the next unfinished map + credit the matching stars_earned,
-## so the Level advances alongside, exactly like real play.
+## Claim every spot in the next unfinished map + push exp past its thresholds (so the next
+## map opens), exactly like real play.
 static func _act_unlock_map(host: Control) -> void:
 	var g := Save.grove()
 	var unlocks: Dictionary = g.get("unlocks", {})
@@ -146,20 +144,17 @@ static func _act_unlock_map(host: Control) -> void:
 			break
 	if z < 0:
 		return                              # every map already restored
-	var cost := 0
 	for sp in G.MAPS[z].spots:
-		var sid := String(sp.id)
-		if not unlocks.has(sid):
-			unlocks[sid] = true
-			cost += int(sp.cost)
-	g["stars_earned"] = int(g.get("stars_earned", 0)) + cost
+		unlocks[String(sp.id)] = true
+	# bump exp to where the NEXT map opens — covers all of map z's spot thresholds
+	g["exp"] = maxi(int(g.get("exp", 0)), G.spot_unlock_exp(z + 1, 0))
 	Save.grove_write()
 	_reflect(host)
 
-## Push stars_earned to the next level threshold (the clock is uncapped).
+## Push exp to the next level threshold (the clock is uncapped).
 static func _act_level_up(host: Control) -> void:
 	var g := Save.grove()
-	var lvl := G.level_for_stars(int(g.get("stars_earned", 0)))
-	g["stars_earned"] = G.stars_at_level(lvl + 1)
+	var lvl := G.level_for_exp(int(g.get("exp", 0)))
+	g["exp"] = G.exp_at_level(lvl + 1)
 	Save.grove_write()
 	_reflect(host)

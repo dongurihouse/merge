@@ -234,7 +234,7 @@ static func quest_item(q: Dictionary) -> Dictionary:
 ## The level-based reward: capped stars (§3 pacing), the surplus in coins, premium 💎 at high levels.
 ## All numbers PROVISIONAL (sim-tuned).
 static func quest_reward(level: int) -> Dictionary:
-	var r := {"stars": clampi(level, 1, STAR_CAP), "coins": maxi(0, level - STAR_CAP)}
+	var r := {"exp": clampi(level, 1, STAR_CAP), "coins": maxi(0, level - STAR_CAP)}
 	if level >= QUEST_PREMIUM_MIN_LEVEL:
 		r["gems"] = QUEST_PREMIUM_GEMS
 	return r
@@ -524,6 +524,10 @@ static func hub_map() -> int:
 static func map_complete(z: int, unlocks: Dictionary, gates: Array) -> bool:
 	return map_spots_done(z, unlocks) and gates.has(z)
 
+# A map is visitable once the previous map is complete (all its spots claimed). This stays a
+# pure completion-chain, but it is still gated by exp transitively: a map's spots can only be
+# claimed as exp crosses their thresholds, and the next map's first threshold is higher than
+# this map's last — so the chain advances exactly as exp climbs through the global ladder.
 static func map_unlocked(z: int, unlocks: Dictionary, gates: Array = []) -> bool:
 	return z == 0 or map_complete(z - 1, unlocks, gates)
 
@@ -700,16 +704,10 @@ static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
 # drives Level. Returns the levels gained so the caller can show the Level dialog. The
 # level-up GIFT is no longer granted here — it's DEFERRED to the dialog's Collect (see
 # level_gift / grant_level_gift below), so the interruption pays out. The sole way Level advances.
-static func earn_stars(n: int) -> int:
-	Save.add_stars(n)
-	var g := Save.grove()
-	var earned := int(g.get("stars_earned", 0))
-	var before := level_for_stars(earned)
-	earned += n
-	g["stars_earned"] = earned
-	var gained := level_for_stars(earned) - before
-	Save.grove_write()
-	return gained
+static func earn_exp(n: int) -> int:
+	var before := level_for_exp(Save.exp_total())
+	Save.add_exp(n)
+	return level_for_exp(Save.exp_total()) - before
 
 # The water + diamond gift for `levels` levels gained (PURE — no side effects). The Level dialog shows
 # it; the player collects it. Split out of earn_stars so the level-up interruption pays out on Collect.

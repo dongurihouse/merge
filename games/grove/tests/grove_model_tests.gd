@@ -181,7 +181,7 @@ func _initialize() -> void:
 		scn._ready()
 	ok(scn.board != null and scn.board.bramble_count() > 0, "grove scene builds with a brambled board")
 	var half: Vector2 = Vector2(scn.csz, scn.csz) / 2.0
-	Save.grove()["stars_earned"] = G.stars_at_level(2)   # §4: reach Lv2 (level clock only) so the L2 frontier cell (2,4) can open
+	Save.grove()["exp"] = G.exp_at_level(2)   # §4: reach Lv2 (the exp-derived level) so the L2 frontier cell (2,4) can open
 	scn._on_press(scn._cell_pos(Vector2i(3, 2)) + half)
 	scn._on_release(scn._cell_pos(Vector2i(3, 4)) + half)
 	ok(scn.board.item_at(Vector2i(3, 4)) == 102, "drag-merge grows t1+t1 into t2")
@@ -230,24 +230,24 @@ func _initialize() -> void:
 	if not it_dq.is_empty() and not demp.is_empty():
 		scn.board.place(demp[0], int(it_dq.line) * 100 + int(it_dq.tier))
 	scn._rebuild_pieces()
-	var stars_before := Save.stars()
+	var exp_before := Save.exp_total()
 	var dlv_coins_before := Save.coins()
 	var n_before: int = scn.quests.size()
 	scn._on_giver_tap(qi, scn.giver_chips[0].chip)
-	ok(Save.stars() > stars_before, "§7: delivery pays stars (all asks satisfied)")
+	ok(Save.exp_total() > exp_before, "§7: delivery pays exp (all asks satisfied)")
 	ok(Save.coins() >= dlv_coins_before, "§7: delivery pays any coin overflow (the quest coin faucet)")
 	ok(scn.quests.size() <= n_before, "§7: the delivered quest leaves the live fence")
 
-	# §7 soft gate: the fence is METERED to the next unlock — with enough banked stars + level
-	# the next spot is affordable, so the fence EMPTIES (the wordless "go restore" signal).
+	# §7 soft gate: once total exp can claim the WHOLE current map (fence_inert), the fence does
+	# NOT empty — it fills to MAX_GIVERS greyed/inert quests (so it never goes blank under the lit
+	# restore CTA), and the next unlock reads ready.
 	var gg := Save.grove()
-	gg["stars_earned"] = 300
+	gg["exp"] = 300                              # well past map 0's spot thresholds → fence_inert
 	Save.grove_write()
-	Save.add_stars(300)
 	scn._rebuild_givers()
 	scn._update_hud()
-	ok(scn._gate_ready(), "§7: the next unlock is affordable (gate ready)")
-	ok(scn.quests.is_empty(), "§7: the metered fence empties once the next unlock is affordable")
+	ok(scn._gate_ready(), "§7: total exp has reached the next unlock threshold (gate ready)")
+	ok(scn.quests.size() == int(G.MAX_GIVERS), "§7: the inert fence fills to MAX_GIVERS greyed (never blank)")
 	# the restore invitation now LIGHTS the centre Home button (the standalone Decorate CTA is retired):
 	# Home breathes the moment a spot is affordable
 	ok(scn.home_btn != null and scn.home_btn.has_meta("_fx_breathing"), "§7: the Home button breathes when a spot is affordable")
@@ -280,7 +280,7 @@ func _initialize() -> void:
 	if sg.board == null:
 		sg._ready()
 	var sgg := Save.grove()
-	sgg["stars_earned"] = 300                 # level past map 0's spot gates
+	sgg["exp"] = 300                          # exp past map 0's spot thresholds
 	# complete map 0 (all spots restored + the gate recorded) → map 1 is UNLOCKED → its tool (hen_coop) is due
 	var done0 := {}
 	for sp in G.MAPS[0].spots:
@@ -343,7 +343,7 @@ func _initialize() -> void:
 	if hm.content == null:
 		hm._ready()
 	var hmg := Save.grove()
-	hmg["stars_earned"] = 300
+	hmg["exp"] = G.spot_unlock_exp(0, G.MAPS[0].spots.size() - 1)   # exp at the last spot's threshold → claimable
 	var sd_ul := {}
 	for i in G.MAPS[0].spots.size() - 1:
 		sd_ul[String(G.MAPS[0].spots[i].id)] = true   # all but the last spot
@@ -351,7 +351,6 @@ func _initialize() -> void:
 	hmg["gates"] = []
 	Save.grove_write()
 	hm.unlocks = sd_ul.duplicate()
-	Save.add_stars(50)                          # afford the last spot
 	var last_k: int = G.MAPS[0].spots.size() - 1
 	var sd_node := Control.new()
 	hm.add_child(sd_node)

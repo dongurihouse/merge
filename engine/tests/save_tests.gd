@@ -78,13 +78,13 @@ func _initialize() -> void:
 	Save._loaded = false
 	ok(not Save.get_setting("music") and Save.get_setting("sfx"), "setting persists across reload")
 
-	# 14. exp→stars_earned: an old save stored level as `exp` (=10×stars). The clock
-	# is now stars EARNED, so the level carries over (exp/10) and `exp` is dropped.
-	fresh("exp_mig")
-	Save.grove()["exp"] = 240                 # an old ~L4 save
-	Save.grove()                              # the accessor migrates on read
-	ok(not Save.grove().has("exp") and int(Save.grove().get("stars_earned", -1)) == 24, \
-		"exp→stars_earned migration carries the old level and drops exp")
+	# 14. exp is the single cumulative progression total (no migration — it persists as-is).
+	fresh("exp_total")
+	ok(Save.exp_total() == 0, "a fresh save starts at 0 exp")
+	Save.add_exp(15)
+	Save.add_exp(7)
+	ok(Save.exp_total() == 22 and int(Save.grove().get("exp", -1)) == 22, \
+		"add_exp accumulates into the persisted grove.exp")
 
 	# 16. T38 zone→map sweep: the two persisted grove keys migrate (value carried, old key dropped).
 	fresh("map_keys_rename")

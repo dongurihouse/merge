@@ -305,7 +305,7 @@ func _test_quest_card_config(view) -> void:
 	# the card background is built as a NINE-SLICE so the frame corners stay crisp while the centre stretches
 	var noop := func(_a: Variant, _b: Variant) -> void: pass
 	var wire := func(_n: Control, _a: Callable) -> void: pass
-	var qcard: Control = GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"stars": 5}}, \
+	var qcard: Control = GiverStand.make(1, {"line": 1, "tier": 3, "reward": {"exp": 5}}, \
 		{"ask_tap": noop, "stand_tap": noop, "wire_tap": wire, "stand_w": 480.0, "fence_h": 410.0, "lay": gdf}).chip
 	ok(qcard.find_children("*", "NinePatchRect", true, false).size() > 0, \
 		"the giver card background is a NinePatchRect (9-slice, crisp corners)")

@@ -227,35 +227,24 @@ func _initialize() -> void:
 	# 12d. §7: the fence is METERED to the WHOLE map's remaining stars — it seats exactly
 	# active_giver_count stands (capped at MAX_GIVERS, tapering only in the map's final stretch),
 	# not a fixed pool.
-	var s3_left: int = G.map_stars_left(s3._quest_map(), Save.grove().get("unlocks", {}))
-	ok(s3.giver_chips.size() == G.active_giver_count(Save.stars(), s3_left), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
+	var s3_left: int = G.map_finish_exp(s3._quest_map(), Save.grove().get("unlocks", {}))
+	ok(s3.giver_chips.size() == G.active_giver_count(Save.exp_total(), s3_left), "§7: the fence seats exactly the metered giver count (%d shown)" % s3.giver_chips.size())
 	ok(s3.giver_chips.size() <= int(G.MAX_GIVERS), "§7: the fence never exceeds MAX_GIVERS stands")
 
-	# 13. P3 — maps/spots content sanity + level math
+	# 13. P3 — maps/spots content sanity (unique spot ids per map)
 	var maps_ok := true
 	for z in G.MAPS.size():
-		var n: int = G.MAPS[z].spots.size()
-		if n < 7 or n > 10:
-			maps_ok = false
 		var seen_ids := {}
 		for s in G.MAPS[z].spots:
-			if int(s.cost) < 3 or int(s.cost) > 5:
-				maps_ok = false
 			seen_ids[String(s.id)] = true
-		if seen_ids.size() != n:
+		if seen_ids.size() != G.MAPS[z].spots.size():
 			maps_ok = false
-	ok(maps_ok, "every map has 7-10 unique spots costing 3-5 stars (owner pacing)")
-	# 13c. the stars-driven level clock (one uncapped Level, driven by stars EARNED)
-	ok(G.level_for_stars(0) == 1 and G.level_for_stars(5) == 1 and G.level_for_stars(6) == 2, \
-		"level_for_stars maps cumulative-earned thresholds")
-	ok(G.level_for_stars(126) == 10, "L10 lands at 126 earned stars (= the old L10 exp/10)")
-	ok(G.level_for_stars(126 + G.LEVEL_STARS_TAIL) == 11 and G.level_for_stars(100000) > 50, \
-		"the level clock is UNCAPPED — a flat tail past the table")
-	ok(G.stars_at_level(1) == 0 and G.stars_at_level(2) == 6 and G.stars_at_level(10) == 126 \
-		and G.stars_at_level(11) == 126 + G.LEVEL_STARS_TAIL, "stars_at_level inverts the curve")
-	# 13d. exp level math parity + the per-spot unlock-threshold ladder
+	ok(maps_ok, "every map's spots have unique ids")
+	# 13d. exp level math + the per-spot unlock-threshold ladder (the one uncapped clock)
 	ok(G.level_for_exp(0) == 1 and G.level_for_exp(6) == 2 and G.level_for_exp(126) == 10, \
 		"level_for_exp matches the cumulative thresholds")
+	ok(G.level_for_exp(126 + G.LEVEL_EXP_TAIL) == 11 and G.level_for_exp(100000) > 50, \
+		"the level clock is UNCAPPED — a flat tail past the table")
 	ok(G.exp_at_level(1) == 0 and G.exp_at_level(2) == 6 and G.exp_at_level(11) == 126 + G.LEVEL_EXP_TAIL, \
 		"exp_at_level inverts the curve")
 	ok(G.spot_unlock_exp(0, 0) == 0, "the first spot overall is claimable at 0 exp")
@@ -277,26 +266,25 @@ func _initialize() -> void:
 	ok(int(nu.k) == 0 and int(nu.exp) == 0, "map_next_unlock targets the lowest-threshold unclaimed spot")
 	var owned0 := {String(G.MAPS[0].spots[0].id): true}
 	ok(int(G.map_next_unlock(0, owned0).k) == 1, "claiming spot 0 advances the next-unlock to spot 1")
-	# earn_stars bumps the spendable balance AND the earned clock; the level-up gift is DEFERRED to the
-	# dialog's Collect (level_gift + grant_level_gift), so earn_stars itself grants nothing.
+	# earn_exp bumps the single exp total; the level-up gift is DEFERRED to the dialog's Collect
+	# (level_gift + grant_level_gift), so earn_exp itself grants nothing.
 	fresh("earn")
 	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → the gift below is exact
 	var ge := Save.grove()
-	ge["stars_earned"] = 5
+	ge["exp"] = 5
 	ge["water"] = 10
-	var gained := G.earn_stars(2)              # 5 -> 7 crosses the L2 line (6)
-	ok(gained == 1, "earn_stars returns the number of levels gained")
-	ok(int(Save.grove()["stars_earned"]) == 7 and Save.stars() == 2, \
-		"earn_stars accrues BOTH the earned clock and the spendable balance")
+	var gained := G.earn_exp(2)                # 5 -> 7 crosses the L2 line (6)
+	ok(gained == 1, "earn_exp returns the number of levels gained")
+	ok(Save.exp_total() == 7, "earn_exp accrues the single exp total")
 	ok(int(Save.grove()["water"]) == 10 and Save.diamonds() == 0, \
-		"earn_stars does NOT grant the level-up gift (deferred to the dialog's Collect)")
+		"earn_exp does NOT grant the level-up gift (deferred to the dialog's Collect)")
 	var gift := G.level_gift(gained)
 	ok(int(gift.get("water", 0)) == G.LEVEL_WATER_GIFT and int(gift.get("gems", 0)) == G.LEVEL_DIAMONDS, \
 		"level_gift returns water + diamonds per level gained")
 	G.grant_level_gift(gift)
 	ok(int(Save.grove()["water"]) == 10 + G.LEVEL_WATER_GIFT and Save.diamonds() == G.LEVEL_DIAMONDS, \
 		"grant_level_gift applies the water + diamonds (what Collect does)")
-	ok(G.earn_stars(1) == 0, "earning within a level gains no level (no extra gift)")
+	ok(G.earn_exp(1) == 0, "earning within a level gains no level (no extra gift)")
 
 	# 14. P3 — the HOME scene (NEW map model): a map IS one image with restoration
 	# SPOTS placed on it; discrete maps via the map-select. boot → buy → gate → resume.
@@ -323,20 +311,25 @@ func _initialize() -> void:
 	ok(_all_ignore(h.content), "a non-hub map keeps the single-input-surface rule (unified render)")
 	h._open_map(G.hub_map())
 
-	# a spot BUY, driven through the REAL spot node: give stars, tap an affordable
-	# spot (k=0 fh_hearth, 3★) → owned, stars debited, the view stays a map (no
-	# takeover/scene change). Stars are the ONLY unlock gate now — no level gate.
-	Save.add_stars(100)
-	var stars0 := Save.stars()
+	# a spot CLAIM (tap-to-claim at an exp threshold): the first spot (threshold 0) is claimable
+	# at 0 exp; claiming restores it WITHOUT spending exp (total unchanged). Below the threshold
+	# the claim is a no-op. Exp only ever rises — there is no spendable balance.
+	Save.grove()["exp"] = 0
+	var exp0 := Save.exp_total()
 	var hearth_id: String = G.MAPS[0].spots[0].id
 	var buy_node: Control = h.spot_hits[0].node
 	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
-	ok(h.spot_owned(hearth_id), "buying a spot records the unlock")
-	ok(Save.stars() == stars0 - int(G.MAPS[0].spots[0].cost), "the spot's stars were spent")
-	ok(G.level_for_stars(int(Save.grove().get("stars_earned", 0))) == 1, \
-		"buying a spot does NOT raise Level (Level rides stars EARNED, not spent)")
-	ok(h._view == "map", "the view stays a map across a purchase (no takeover)")
-	# an already-restored spot is now INERT — tapping it does nothing (customization removed).
+	ok(h.spot_owned(hearth_id), "claiming the first spot (threshold 0) records the unlock")
+	ok(Save.exp_total() == exp0, "claiming a spot does NOT spend exp (the total is unchanged)")
+	ok(h._view == "map", "the view stays a map across a claim (no takeover)")
+	# spot 1 sits at a higher threshold — below it the claim is refused, then allowed once exp reaches it
+	var spot1_id: String = G.MAPS[0].spots[1].id
+	h._on_spot_tap(0, 1, h.spot_hits[1].node, _hit_center(h.spot_hits[1].node))
+	ok(not h.spot_owned(spot1_id), "a spot below its exp threshold is not claimable (no-op)")
+	Save.grove()["exp"] = G.spot_unlock_exp(0, 1)
+	h._on_spot_tap(0, 1, h.spot_hits[1].node, _hit_center(h.spot_hits[1].node))
+	ok(h.spot_owned(spot1_id), "at/above its threshold the spot becomes claimable")
+	# an already-restored spot is INERT — tapping it does nothing.
 	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
 	ok(h._view == "map", "tapping an owned spot is a no-op (no customization surface)")
 
@@ -362,10 +355,10 @@ func _initialize() -> void:
 	_map_tap_at(h, _hit_center(open_card))
 	ok(h._view == "map" and h._map_idx == 0, "tapping an UNLOCKED map card opens that map")
 
-	# the completion chain: restoring the LAST spot of map 0 auto-unlocks map 1 (the gate quest
-	# type is retired — the completion record now sets the moment the map's spots are done). Buy
-	# all of map 0 (earn past its L-gates); the final purchase appends z=0 to `gates` itself.
-	Save.grove()["stars_earned"] = G.stars_at_level(3)   # clear the farmhouse's L-gates
+	# the completion chain: restoring the LAST spot of map 0 auto-unlocks map 1 (the completion
+	# record sets the moment the map's spots are done). Raise exp past map 0's highest spot
+	# threshold so every spot is claimable; the final claim appends z=0 to `gates` itself.
+	Save.grove()["exp"] = G.spot_unlock_exp(0, G.MAPS[0].spots.size() - 1)   # clears every map-0 threshold
 	# buy all but the last spot, then check the next map is STILL locked (spots not yet done)
 	for i in G.MAPS[0].spots.size() - 1:
 		var sid: String = G.MAPS[0].spots[i].id
@@ -414,21 +407,16 @@ func _initialize() -> void:
 	gw2["unlocks"] = ul24
 	h.unlocks = ul24
 	gw2["water"] = 50
-	gw2["stars_earned"] = 200                # Level rides earned stars (no longer gates spots)
-	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → map 4 spots are buyable
-	Save.add_stars(10)
+	gw2["exp"] = G.spot_unlock_exp(3, 0)     # exp at map-3's first spot threshold → it's claimable
+	gw2["gates"] = [0, 1, 2]                  # §7: maps 1-3 gated through → map 4 spots are claimable
 	h._on_spot_tap(3, 0, Button.new(), Vector2(300, 300))
-	ok(int(Save.grove().get("water", 0)) == 50, "§7: a home purchase grants no per-spot water (water is level-ups only)")
+	ok(int(Save.grove().get("water", 0)) == 50, "§7: a claim grants no per-spot water (water is level-ups only)")
 
-	# 14c. unlocks are gated by STARS ALONE (no level gate): map_cheapest_spot returns the
-	# literal cheapest unowned spot — never a level-locked sentinel — so a stocked bank can
-	# clear any open map's spots in any order, on cost alone.
+	# 14c. the next unlock per map is its lowest-threshold spot (spot 0), claimed in order via the
+	# single button — no level exclusion.
 	for zc in G.MAPS.size():
-		var min_cost := 99
-		for sp in G.MAPS[zc].spots:
-			min_cost = mini(min_cost, int(sp.cost))
-		ok(G.map_cheapest_spot(zc, {}) == min_cost, \
-			"map %d's next unlock is its literal cheapest spot, no level exclusion" % zc)
+		ok(int(G.map_next_unlock(zc, {}).k) == 0 and int(G.map_next_unlock(zc, {}).exp) == G.spot_unlock_exp(zc, 0), \
+			"map %d's next unlock is its first spot at spot_unlock_exp(zc, 0)" % zc)
 
 	# a fresh Home resumes the same progress
 	var h2 = load("res://engine/scenes/Map.tscn").instantiate()
@@ -573,8 +561,8 @@ func _initialize() -> void:
 		h5._ready()
 	var d0 := Save.diamonds()
 	var vault0 := Vault.balance() * Vault.skim_den() + Save.vault_carry()   # total skimmed-units before
-	Save.grove()["stars_earned"] = G.stars_at_level(2) - 1     # one star short of L2
-	var lvg := G.earn_stars(1)                                 # crosses into L2 (no grant yet)
+	Save.grove()["exp"] = G.exp_at_level(2) - 1                # one exp short of L2
+	var lvg := G.earn_exp(1)                                   # crosses into L2 (no grant yet)
 	G.grant_level_gift(G.level_gift(lvg))                      # Collect grants the gift + skims
 	ok(Save.diamonds() == d0 + G.LEVEL_DIAMONDS, "a level-up pays diamonds on Collect")
 	# T44 SKIM-SITE wiring (content.grant_level_gift): the piggy bank skimmed a slice of the

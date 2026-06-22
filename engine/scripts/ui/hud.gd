@@ -126,7 +126,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
 	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
 	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
-	var lvl0 := G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+	var lvl0 := G.level_for_exp(Save.exp_total())
 	var avatar := Look.make_level_badge(lvl0, lv_px, _lv_font_size(lvl0))
 	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var frame := avatar.get_node_or_null("lv_frame") as TextureRect   # null when on the honey-token fallback
@@ -162,8 +162,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(water_lbl, int(Save.grove().get("water", G.WATER_CAP)))
 		_set_or_tick(coins, Save.coins())
 		_set_or_tick(gems, Save.diamonds())
-		var earned := int(Save.grove().get("stars_earned", 0))
-		var lvl := G.level_for_stars(earned)
+		var earned := Save.exp_total()
+		var lvl := G.level_for_exp(earned)
 		_set_or_tick(level, lvl)
 		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
 		# Upgrade the frame when leveling crosses a badge tier.

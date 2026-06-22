@@ -17,17 +17,17 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	# --- level-based reward: stars=min(level,CAP), coins=max(0,level-CAP), +gems at >=10 ---
+	# --- level-based reward: exp=min(level,CAP), coins=max(0,level-CAP), +gems at >=10 ---
 	var r1 := G.quest_reward(1)
-	ok(int(r1.stars) == 1 and int(r1.coins) == 0 and not r1.has("gems"), "a level-1 quest pays 1★, no coins, no gems")
+	ok(int(r1.exp) == 1 and int(r1.coins) == 0 and not r1.has("gems"), "a level-1 quest pays 1 exp, no coins, no gems")
 	var r6 := G.quest_reward(6)
-	ok(int(r6.stars) == int(G.STAR_CAP) and int(r6.coins) == 6 - int(G.STAR_CAP), "level 6 caps stars and pays the surplus in coins")
+	ok(int(r6.exp) == int(G.STAR_CAP) and int(r6.coins) == 6 - int(G.STAR_CAP), "level 6 caps exp and pays the surplus in coins")
 	var r10 := G.quest_reward(10)
 	ok(int(r10.get("gems", 0)) == int(G.QUEST_PREMIUM_GEMS), "level 10 also pays premium 💎")
 	ok(not G.quest_reward(9).has("gems"), "level 9 pays no premium 💎")
 	var capped := true
 	for L in range(1, 13):
-		if int(G.quest_reward(L).stars) > int(G.STAR_CAP):
+		if int(G.quest_reward(L).exp) > int(G.STAR_CAP):
 			capped = false
 	ok(capped, "stars never exceed STAR_CAP across levels 1–12 (§3 pacing)")
 

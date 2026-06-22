@@ -212,7 +212,6 @@ static func grove() -> Dictionary:
 	if not data.has("grove"):
 		data["grove"] = {}
 	_migrate_spot_ids(data["grove"])
-	_migrate_exp_to_stars(data["grove"])
 	_migrate_map_keys(data["grove"])
 	return data["grove"]
 
@@ -245,6 +244,16 @@ static func _migrate_map_keys(g: Dictionary) -> void:
 static func grove_write() -> void:
 	_ensure_loaded()
 	save_now()
+
+# The single cumulative progression total (replaces stars_earned + the spendable balance).
+# Only ever increases; every world unlock gates on reaching a threshold of it.
+static func exp_total() -> int:
+	return int(grove().get("exp", 0))
+
+static func add_exp(n: int) -> void:
+	var g := grove()
+	g["exp"] = int(g.get("exp", 0)) + maxi(0, n)
+	grove_write()
 
 # --- residents: the per-map population roster (§1 population sub-game) -------------
 # Residents WELCOMED on a completed map, auto-merging two-of-a-kind a tier up. Stored in

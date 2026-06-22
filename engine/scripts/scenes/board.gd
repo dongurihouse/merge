@@ -457,17 +457,21 @@ func _gates() -> Array:
 func _quest_map() -> int:
 	return Quests.current_map(Save.grove().get("unlocks", {}), _gates())
 
-func _quest_level() -> int:
-	return G.level_for_stars(int(Save.grove().get("stars_earned", 0)))
+# The single progression total — drives the cosmetic level, the fence meter, and every gate.
+func _exp() -> int:
+	return Save.exp_total()
 
-# §7 fence sizing: how many stands the fence shows, metered to the whole map's remaining stars.
+func _quest_level() -> int:
+	return G.level_for_exp(_exp())
+
+# §7 fence sizing: how many stands the fence shows, metered to the whole map's remaining exp.
 func _meter_target() -> int:
-	return Quests.meter_target(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
+	return Quests.meter_target(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
 
 # Top up / trim the live fence to the metered count with freshly generated quests (§7). Deterministic
 # via the rng. Near the end of the map, one quest also carries the next map's generator(s) → auto-placed on board.
 func _refill_quests() -> void:
-	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, Save.stars(), _quest_level(), rng, _recent_items)
+	quests = Quests.refill(quests, _quest_map(), Save.grove().get("unlocks", {}), _gates(), board.gens, board.gen_bag, _exp(), _quest_level(), rng, _recent_items)
 	_assign_givers()                          # give each new quest a giver face distinct from the previous 5
 
 # Each quest carries a stable `giver` index (the portrait shown on its stand). A NEW quest is assigned a
@@ -514,8 +518,8 @@ func _init_quests() -> void:
 	quests_map = _quest_map()
 	_refill_quests()
 
-func _quest_stars(q: Dictionary) -> int:
-	return Quests.stars(q)
+func _quest_exp(q: Dictionary) -> int:
+	return Quests.exp(q)
 
 func _quest_coins(q: Dictionary) -> int:
 	return Quests.coins(q)
@@ -546,7 +550,7 @@ func _map_done() -> bool:                     # every map fully complete (spots 
 # Scoped to the frontier map; a fully-restored map auto-unlocks the next one (spots-done),
 # so a map with no remaining spots is NOT "ready to restore" — there is nothing left to buy.
 func _gate_ready() -> bool:
-	return Quests.gate_ready(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
+	return Quests.gate_ready(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
 
 # --- HUD ------------------------------------------------------------------------
 
@@ -815,7 +819,7 @@ func _rebuild_givers() -> void:
 # only once affordable — advertising the home map's current ★ balance. It greys out until the cheapest
 # region is affordable, then lights + breathes (the SAME gate_ready signal the Home button uses).
 func _show_purge_card() -> bool:
-	return Quests.purge_state(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}), _gates()).show
+	return Quests.purge_state(_quest_map(), _exp(), Save.grove().get("unlocks", {}), _gates()).show
 
 # A special fence card: the home map's current ★ balance over a "Purge" button, tapped to go HOME and
 # spend stars on regions. Sized like a giver card so it sits flush in its 25% slot; reuses the Home
@@ -845,7 +849,7 @@ func _make_purge_card(stand_w: float) -> Control:
 	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	srow.add_child(Look.icon("star", cardH * 0.30))
 	var slbl := Label.new()
-	slbl.text = str(Save.stars())
+	slbl.text = str(_exp())
 	slbl.add_theme_font_size_override("font_size", int(cardH * 0.28))
 	slbl.add_theme_color_override("font_color", Pal.INK)
 	slbl.add_theme_constant_override("outline_size", 0)
@@ -2202,7 +2206,7 @@ func _end_bag_drag(gpos: Vector2) -> void:
 func _quest_is_inert(qi: int) -> bool:
 	if qi < 0 or qi >= quests.size():
 		return false
-	return Quests.fence_inert(_quest_map(), Save.stars(), Save.grove().get("unlocks", {}))
+	return Quests.fence_inert(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
 
 func _on_item_tap(qi: int, line: int, tier: int, chip: Control) -> void:
 	if _quest_is_inert(qi):
@@ -2238,19 +2242,19 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	quests.remove_at(qi)                      # §7: the delivered quest leaves the live fence
 	if not it.is_empty():
 		_push_recent_item(code)               # remember this ask so the next ≤5 quests avoid the same item
-	# delivering a quest is the ONE place Level advances — earn_stars credits the
-	# spendable balance AND the earned clock, and gifts water+💎 on a level-up.
-	var sp_stars := _quest_stars(q)
+	# delivering a quest is the ONE place exp advances — earn_exp bumps the single exp total
+	# and reports the levels gained so the Level dialog can fire (the gift pays on Collect).
+	var sp_exp := _quest_exp(q)
 	var sp_coins := _quest_coins(q)
 	var sp_gems := _quest_gems(q)             # §7: a featured quest may carry an occasional 💎 bonus
-	var levels_up := G.earn_stars(sp_stars)
+	var levels_up := G.earn_exp(sp_exp)
 	if sp_coins > 0:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
 	if sp_gems > 0:
-		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra ★)
+		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra exp)
 	# (generators are no longer delivered here — they arrive when a generator tap produces a DUE tool;
 	#  see _produce_due_generators in _pop_seed.)
-	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_stars, STRAW)
+	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
 	if sp_gems > 0:

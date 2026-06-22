@@ -178,7 +178,7 @@ func _initialize() -> void:
 	ws._clear_selection()
 	ok(not ws._info_trash.visible and ws._selected_cell.x < 0, "W3: clearing the selection empties the info bar")
 	# X3: the giver pill renders one item on the stand for a single-item quest
-	var x3_1: Dictionary = ws._make_giver_stand(1, {"line": 1, "tier": 2, "reward": {"stars": 1, "coins": 0}})
+	var x3_1: Dictionary = ws._make_giver_stand(1, {"line": 1, "tier": 2, "reward": {"exp": 1, "coins": 0}})
 	ok(x3_1.item.has("code"), "a quest renders one item on the giver card")
 	x3_1.chip.queue_free()
 
@@ -193,7 +193,7 @@ func _initialize() -> void:
 		for c in G.COLS:
 			if ws.board.is_open(Vector2i(r, c)):
 				ws.board.place(Vector2i(r, c), 0)
-	var xb_giver: Dictionary = ws._make_giver_stand(7, {"line": 1, "tier": 2, "reward": {"stars": 1, "coins": 0}})
+	var xb_giver: Dictionary = ws._make_giver_stand(7, {"line": 1, "tier": 2, "reward": {"exp": 1, "coins": 0}})
 	ws.add_child(xb_giver.chip)                    # in-tree so the bob can start immediately
 	ws.giver_chips = [xb_giver]
 	var bob_bust: Control = xb_giver.bust
@@ -231,7 +231,7 @@ func _initialize() -> void:
 		for c in G.COLS:
 			if ws.board.is_open(Vector2i(r, c)):
 				ws.board.place(Vector2i(r, c), 0)
-	var claim_q := {"line": 1, "tier": 2, "reward": {"stars": 3, "coins": 0}}
+	var claim_q := {"line": 1, "tier": 2, "reward": {"exp": 3, "coins": 0}}
 	ws.quests = [claim_q]
 	var claim_giver: Dictionary = ws._make_giver_stand(0, claim_q)
 	ws.add_child(claim_giver.chip)
@@ -240,19 +240,19 @@ func _initialize() -> void:
 	# (a) NOT ready (no 102 on the board) → an item tap opens the ladder, never claims
 	ws._refresh_giver_lights()
 	ok(not (claim_giver.item.met as Control).visible, "#3: the ✓ is hidden while the ask is unmet")
-	var stars_unready := Save.stars()
+	var exp_unready := Save.exp_total()
 	ws._on_item_tap(0, 1, 2, claim_giver.chip)
-	ok(Save.stars() == stars_unready and ws.quests.size() == 1, \
+	ok(Save.exp_total() == exp_unready and ws.quests.size() == 1, \
 		"#3: tapping a NOT-ready item does not claim (it opens the tier ladder instead)")
-	# (b) ready (place the asked 102) → the SAME item tap CLAIMS it: delivers + pays stars
+	# (b) ready (place the asked 102) → the SAME item tap CLAIMS it: delivers + pays exp
 	var claim_free: Array = ws.board.empty_ground_cells()
 	ws.board.place(claim_free[0], 102)
 	ws._rebuild_pieces()
 	ws._refresh_giver_lights()
 	ok((claim_giver.item.met as Control).visible, "#3: the ✓ shows once the asked item is on the board")
-	var stars_ready := Save.stars()
+	var exp_ready := Save.exp_total()
 	ws._on_item_tap(0, 1, 2, claim_giver.chip)
-	ok(Save.stars() > stars_ready, "#3: tapping the READY ✓ CLAIMS the quest (delivers, pays stars)")
+	ok(Save.exp_total() > exp_ready, "#3: tapping the READY ✓ CLAIMS the quest (delivers, pays exp)")
 	ws.giver_chips = []
 
 	Feat.FLAGS["ftue_staged_chrome"] = true

@@ -27,37 +27,39 @@ static func map_done(unlocks: Dictionary, gates: Array) -> bool:
 # (not the next single spot). The fence stays full and only tapers in the map's final stretch,
 # emptying once you've banked enough to finish the map. The "go restore" cue is the breathing
 # Home button (gate_ready) — the fence no longer empties at each affordable spot.
-static func meter_target(z: int, banked_stars: int, unlocks: Dictionary) -> int:
-	return G.active_giver_count(banked_stars, G.map_stars_left(z, unlocks))
+static func meter_target(z: int, exp: int, unlocks: Dictionary) -> int:
+	return G.active_giver_count(exp, G.map_finish_exp(z, unlocks))
 
-# The restore CTA: ready once the CURRENT map's cheapest spot is affordable.
-static func gate_ready(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
-	var cost := G.map_cheapest_spot(z, unlocks)
-	return cost > 0 and banked_stars >= cost
+# The restore CTA: ready once total exp has reached the NEXT unclaimed spot's threshold.
+static func gate_ready(z: int, exp: int, unlocks: Dictionary) -> bool:
+	var nxt := int(G.map_next_unlock(z, unlocks).exp)
+	return nxt >= 0 and exp >= nxt
 
 # §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED + non-interactive
 # instead of emptying — once the banked ★ can finish the WHOLE current map (the exact point the active
 # meter used to taper to 0). False while the player still needs ★ for the map, and false on a spots-done
 # map (left == 0 → that map is complete, never a frontier). The generator-carrier quest stays deliverable
 # even here (board.gd keeps out[0] active), so the next map's tools still arrive — see refill().
-static func fence_inert(z: int, banked_stars: int, unlocks: Dictionary) -> bool:
-	var left := G.map_stars_left(z, unlocks)
-	return left > 0 and banked_stars >= left
+static func fence_inert(z: int, exp: int, unlocks: Dictionary) -> bool:
+	var fin := G.map_finish_exp(z, unlocks)
+	return fin >= 0 and exp >= fin
 
 # The Purge fence card's state. It SHOWS whenever a frontier remains (the map is not done) — no longer
 # only when affordable — so it always advertises the home map's current ★ balance. It is READY (full
 # colour + breathing) when the banked stars can afford the cheapest remaining unlock; otherwise it greys
 # out (still shown, no breathe). `stars` is the banked balance the card displays.
-static func purge_state(z: int, banked_stars: int, unlocks: Dictionary, gates: Array) -> Dictionary:
+static func purge_state(z: int, exp: int, unlocks: Dictionary, gates: Array) -> Dictionary:
 	return {
 		"show": not map_done(unlocks, gates),
-		"ready": gate_ready(z, banked_stars, unlocks),
-		"stars": banked_stars,
+		"ready": gate_ready(z, exp, unlocks),
+		"exp": exp,
 	}
 
-# Stars the player still has to EARN to finish map z (its unowned spot costs, minus what is banked).
-static func stars_remaining(z: int, unlocks: Dictionary, banked: int) -> int:
-	return maxi(0, G.map_stars_left(z, unlocks) - banked)
+# Exp the player still has to EARN to make the WHOLE of map z claimable (the highest unclaimed
+# threshold minus current exp, floored at 0).
+static func exp_remaining(z: int, unlocks: Dictionary, exp: int) -> int:
+	var fin := G.map_finish_exp(z, unlocks)
+	return 0 if fin < 0 else maxi(0, fin - exp)
 
 # The owned generator ids = on the board ∪ stored in the gen_bag.
 static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
@@ -73,7 +75,7 @@ static func owned_gens(board_gens: Dictionary, gen_bag: Array) -> Array:
 # then gen_quest is drawn once per appended stand, in order. Generators are NO LONGER delivered by a
 # carrier quest — they arrive when a generator tap produces a DUE tool (G.due_generators / board.gd), so
 # refill is purely the §7 ask stream now. Returns the new quests array.
-static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, banked_stars: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
+static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, board_gens: Dictionary, gen_bag: Array, exp: int, level: int, rng: RandomNumberGenerator, recent_items: Array = []) -> Array:
 	if map_done(unlocks, gates):
 		return []
 	var out: Array = quests.filter(func(q): return not q.has("grant") and not bool(q.get("gate", false)))
@@ -83,7 +85,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 	# req 1: when the bank can already finish the whole map the active meter is 0 — instead of letting the
 	# fence empty, fill it to a FULL set the board renders GREYED + inert (so it never goes blank under the
 	# lit Purge card).
-	var target := int(G.MAX_GIVERS) if fence_inert(z, banked_stars, unlocks) else meter_target(z, banked_stars, unlocks)
+	var target := int(G.MAX_GIVERS) if fence_inert(z, exp, unlocks) else meter_target(z, exp, unlocks)
 	while out.size() < target:
 		# §7 anti-monotony: steer the new stand off the recent-items window (the last ≤5 item codes just
 		# asked) AND the items already on the fence (so the concurrent single-ask stands stay distinct),
@@ -110,9 +112,9 @@ static func ladder_entries(seen: Dictionary, line: int) -> Array:
 		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
 	return out
 
-# Reward readers — the new {reward:{stars,coins,gems}} shape, falling back to the flat legacy key.
-static func stars(q: Dictionary) -> int:
-	return int(q.reward.stars) if q.has("reward") else int(q.get("stars", 0))
+# Reward readers — the {reward:{exp,coins,gems}} shape, falling back to the flat legacy key.
+static func exp(q: Dictionary) -> int:
+	return int(q.reward.exp) if q.has("reward") else int(q.get("exp", 0))
 
 static func coins(q: Dictionary) -> int:
 	return int(q.reward.coins) if q.has("reward") else 0

@@ -20,32 +20,35 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	# --- reward readers: new {reward:{…}} shape and the legacy flat {stars} shape ---
-	var q_new := {"reward": {"stars": 3, "coins": 5, "gems": 1}}
-	ok(Quests.stars(q_new) == 3, "stars() reads reward.stars")
+	# --- reward readers: new {reward:{…}} shape and the legacy flat {exp} shape ---
+	var q_new := {"reward": {"exp": 3, "coins": 5, "gems": 1}}
+	ok(Quests.exp(q_new) == 3, "exp() reads reward.exp")
 	ok(Quests.coins(q_new) == 5, "coins() reads reward.coins")
 	ok(Quests.gems(q_new) == 1, "gems() reads reward.gems")
-	var q_legacy := {"stars": 2}
-	ok(Quests.stars(q_legacy) == 2, "stars() falls back to the flat legacy key")
+	var q_legacy := {"exp": 2}
+	ok(Quests.exp(q_legacy) == 2, "exp() falls back to the flat legacy key")
 	ok(Quests.coins(q_legacy) == 0 and Quests.gems(q_legacy) == 0, "legacy quests pay no coins/gems")
-	ok(Quests.gems({"reward": {"stars": 1, "coins": 0}}) == 0, "a normal (non-featured) quest has 0 gems")
+	ok(Quests.gems({"reward": {"exp": 1, "coins": 0}}) == 0, "a normal (non-featured) quest has 0 gems")
 
 	# --- map / map_done on a fresh game (no spots owned, no gates delivered) ---
 	ok(Quests.current_map({}, []) == 0, "a fresh game's frontier is map 0")
 	ok(not Quests.map_done({}, []), "a fresh game is not map-done (a frontier exists)")
 
-	# --- gate_ready: 0★ can't afford the next spot; a huge bank can (stars are the only gate) ---
-	ok(not Quests.gate_ready(0, 0, {}), "0★ → the next unlock is not affordable (not ready)")
-	ok(Quests.gate_ready(0, 999999, {}), "a huge ★ bank can afford the next spot (ready)")
+	# --- gate_ready: the FIRST spot sits at threshold 0, so a fresh map is claimable at 0 exp;
+	# --- once spot 0 is claimed, 0 exp can't yet reach spot 1's (higher) threshold ---
+	var own0 := {String(G.MAPS[0].spots[0].id): true}
+	ok(Quests.gate_ready(0, 0, {}), "the first spot (threshold 0) is claimable on a fresh map (ready)")
+	ok(not Quests.gate_ready(0, 0, own0), "with spot 0 claimed, 0 exp can't reach spot 1's threshold (not ready)")
+	ok(Quests.gate_ready(0, 999999, {}), "a huge exp total clears the next spot's threshold (ready)")
 
-	# --- purge_state: the fence Purge card SHOWs while a frontier remains (always, not only when ready),
-	# --- is READY (breathes) when the cheapest unlock is affordable, and carries the banked ★ to display ---
-	var ps_poor := Quests.purge_state(0, 0, {}, [])
-	ok(ps_poor.show and not ps_poor.ready, "purge card shows on a fresh map even with 0★ (greyed, not ready)")
-	ok(int(ps_poor.stars) == 0, "purge card carries the banked star count (0)")
+	# --- purge_state: the fence Purge card SHOWs while a frontier remains (always), is READY when total
+	# --- exp clears the next threshold, and carries the exp total to display ---
+	var ps_poor := Quests.purge_state(0, 0, own0, [])
+	ok(ps_poor.show and not ps_poor.ready, "purge card shows but is not ready when 0 exp is short of spot 1")
+	ok(int(ps_poor.exp) == 0, "purge card carries the exp total (0)")
 	var ps_rich := Quests.purge_state(0, 999999, {}, [])
-	ok(ps_rich.show and ps_rich.ready, "purge card is ready (breathes) once the cheapest unlock is affordable")
-	ok(int(ps_rich.stars) == 999999, "purge card carries the banked star count (999999)")
+	ok(ps_rich.show and ps_rich.ready, "purge card is ready (breathes) once exp clears the next threshold")
+	ok(int(ps_rich.exp) == 999999, "purge card carries the exp total (999999)")
 	# a fully restored game (every spot + gate done) → no frontier → the purge card hides
 	var all_done := {}
 	for zz in G.MAPS.size():
@@ -65,10 +68,10 @@ func _initialize() -> void:
 	# --- owned_gens: the union of board generators and gen_bag ids ---
 	ok(str(Quests.owned_gens({Vector2i(0, 0): "a", Vector2i(1, 1): "b"}, ["c"])) == str(["a", "b", "c"]), "owned_gens unions board generators and the gen_bag")
 
-	# --- stars_remaining: the unowned spot costs minus the banked stars, floored at 0 ---
-	var z0_left := G.map_stars_left(0, {})
-	ok(Quests.stars_remaining(0, {}, 0) == z0_left, "stars_remaining with 0 banked = the map's total unowned spot cost")
-	ok(Quests.stars_remaining(0, {}, 999999) == 0, "stars_remaining floors at 0 once banked covers the spots")
+	# --- exp_remaining: exp still needed to make the whole map claimable (highest threshold − exp), floored at 0 ---
+	var z0_left := G.map_finish_exp(0, {})
+	ok(Quests.exp_remaining(0, {}, 0) == z0_left, "exp_remaining with 0 exp = the map's highest unclaimed threshold")
+	ok(Quests.exp_remaining(0, {}, 999999) == 0, "exp_remaining floors at 0 once exp covers every spot")
 
 	# --- refill: the normal stream fills to the metered target with non-gate/grant quests ---
 	var rng := RandomNumberGenerator.new()
@@ -89,7 +92,7 @@ func _initialize() -> void:
 	# --- refill trims an over-full fence back down to the target ---
 	var over: Array = []
 	for _i in tgt + 3:
-		over.append({"line": 1, "tier": 1, "reward": {"stars": 1, "coins": 0}})
+		over.append({"line": 1, "tier": 1, "reward": {"exp": 1, "coins": 0}})
 	var rng2 := RandomNumberGenerator.new(); rng2.seed = 1
 	ok(Quests.refill(over, 0, {}, [], {}, [], 0, 1, rng2).size() == tgt, "refill trims an over-full fence to the metered target")
 
@@ -180,11 +183,11 @@ func _initialize() -> void:
 	# --- fence_inert (req 1 GREY TRIGGER): the fence goes INERT (greyed, NOT hidden) once the banked ★ can
 	# --- finish the WHOLE current map — the exact point the active meter used to empty to nothing. False
 	# --- while the player still needs ★, and false on a spots-done map (that map is complete, not a frontier).
-	ok(not Quests.fence_inert(0, 0, {}), "fence_inert is false on a fresh map with 0★ (still earning)")
-	var z0_cost := G.map_stars_left(0, {})
-	ok(not Quests.fence_inert(0, z0_cost - 1, {}), "fence_inert is false one ★ short of finishing the map")
-	ok(Quests.fence_inert(0, z0_cost, {}), "fence_inert flips true the moment banked ★ can finish the whole map")
-	ok(Quests.fence_inert(0, 999999, {}), "fence_inert stays true with a huge ★ bank")
+	ok(not Quests.fence_inert(0, 0, {}), "fence_inert is false on a fresh map with 0 exp (still earning)")
+	var z0_cost := G.map_finish_exp(0, {})
+	ok(not Quests.fence_inert(0, z0_cost - 1, {}), "fence_inert is false one exp short of finishing the map")
+	ok(Quests.fence_inert(0, z0_cost, {}), "fence_inert flips true the moment exp can claim the whole map")
+	ok(Quests.fence_inert(0, 999999, {}), "fence_inert stays true with a huge exp total")
 	var z0_full := {}
 	for sp in G.MAPS[0].spots:
 		z0_full[String(sp.id)] = true
@@ -200,8 +203,8 @@ func _initialize() -> void:
 	var ne_in := {}
 	for i in G.MAPS[0].spots.size() - 1:
 		ne_in[String(G.MAPS[0].spots[i].id)] = true
-	var ne_cost := G.map_stars_left(0, ne_in)
-	ok(Quests.fence_inert(0, ne_cost, ne_in), "the near-end fence with banked == remaining cost is inert")
+	var ne_cost := G.map_finish_exp(0, ne_in)
+	ok(Quests.fence_inert(0, ne_cost, ne_in), "the near-end fence with exp == the last threshold is inert")
 	var rin2 := Quests.refill([], 0, ne_in, [], {}, [], ne_cost, 6, RandomNumberGenerator.new())
 	ok(rin2.size() == int(G.MAX_GIVERS), "the inert near-end fence is full (MAX_GIVERS)")
 	ok(rin2.filter(func(q): return q.has("reward") and (q.reward as Dictionary).has("generators")).is_empty(), "the inert fence attaches no generator reward (carrier retired)")

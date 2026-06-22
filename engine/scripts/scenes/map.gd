@@ -85,6 +85,7 @@ var resident_hits: Array = []    # [{node, z, type}] — the "welcome a spirit" 
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
+var _unlock_btn: Button          # the SINGLE restore button: claims the map's next spot once exp reaches its threshold
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
@@ -500,29 +501,18 @@ func _add_fill_layer(frame: Control, path: String) -> TextureRect:
 # Rendered mouse-IGNORE to keep the map's single-input-surface invariant: the tap routes centrally via
 # _map_tap → spot_hits → _on_spot_tap (the buy), exactly as the baked badge did. Kit missing → that fallback.
 func _home_badge(z: int, k: int, b) -> Control:
-	var spot: Dictionary = G.MAPS[z].spots[k]
+	# The unowned-spot hit is now a transparent, mouse-ignored marker at the spot centroid. The
+	# "locked" read is the region veil (VineMapView); restoring is driven by the SINGLE bottom
+	# Unlock button (no per-spot cost disc any more). Kept as a sized hit so spot_hits stays
+	# index-aligned and the central router can still route a tap to _on_spot_tap.
 	var p = b.get("pos", [0.5, 0.5]) if b != null else [0.5, 0.5]
 	var ctr := _map_rect.position + Vector2(float(p[0]), float(p[1])) * _map_rect.size
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return _home_badge_baked(z, k, b)             # engine fallback: the central spot-routing buys it
-	var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var d := _map_rect.size.x * float(opts.get("disc_pct", 16.0)) / 100.0   # diameter as a % of the map width
-	opts["px"] = d
-	opts["calm"] = FX.calm()                          # reduced-motion: freeze the sparkle to a static glow
-	# sparkle is opt-in via the workbench (glow/twinkle default 0 → no sparkle); when tuned up it draws the
-	# eye to a restorable spot. The overlay is mouse-ignored (and _force_ignore below seals the invariant).
-	# gray the disc + drop its sparkle when the player can't yet afford the spot (workbench-toggled,
-	# default ON) — so only affordable spots invite a tap. The tap still routes (shows "Need N more").
-	var affordable := Save.stars() >= int(spot.cost)
-	var gray := bool(opts.get("gray_unaffordable", true)) and not affordable
-	var btn: Button = Kit.home_unlock_button({"cost": int(spot.cost), "icon": "star", "sparkle": not gray}, opts)
-	if gray:
-		btn.modulate = Color(0.6, 0.6, 0.6, 1.0)      # the whole disc (shell + "+" + cost) reads as locked
-	btn.size = Vector2(d, d)
-	btn.position = ctr - Vector2(d, d) * 0.5
-	_force_ignore(btn)                                # the map is ONE input surface; the central router buys it
-	return btn
+	var d := _map_rect.size.x * 0.16
+	var node := Control.new()
+	node.size = Vector2(d, d)
+	node.position = ctr - Vector2(d, d) * 0.5
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return node
 
 # Force a control subtree mouse-transparent — the map routes every spot tap through its single input
 # surface, so any seated affordance (the kit unlock disc) must not eat the press before _map_tap.
@@ -1018,15 +1008,18 @@ func _map_tap(gpos: Vector2) -> void:
 
 # --- buying a spot, right on the map image -----------------------------------------------
 
+# Restore (claim) a spot. FREE — total exp is never spent; the spot just becomes claimable once
+# exp reaches its threshold. Driven by the bottom Unlock button (and a direct spot tap, harmless
+# since thresholds are monotonic). A below-threshold call wobbles + shows the exp still needed.
 func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	if spot_owned(String(spot.id)):
 		return                                # an already-restored spot is inert (no customization)
-	var cost := int(spot.cost)
-	if not Save.spend_stars(cost):
+	var need := G.spot_unlock_exp(z, k)
+	if Save.exp_total() < need:
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 64), tr("Need %d more") % (cost - Save.stars()), Color(CREAM, 0.9), 30)
+		FX.floating_text(self, at - Vector2(110, 64), tr("Needs %d exp") % need, Color(CREAM, 0.9), 30)
 		return
 	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
@@ -1035,6 +1028,23 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	# level-ups, not a per-spot gift)
 	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden ❀"), CREAM, 30)
 	_persist()
+	# Spots-done completion — recorded SYNCHRONOUSLY (before the async veil FX below) so the gate
+	# advance + map reward never depend on FX timing. Completing the map's spots IS the completion
+	# record (the gate quest is retired): append z to `gates` so `map_complete`/`frontier_map`
+	# advance and the next map unlocks.
+	if map_spots_done(z):
+		Save.add_diamonds(G.MAP_DIAMONDS)
+		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
+		if not _gates().has(z):
+			var gg := Save.grove()
+			var gl: Array = gg.get("gates", [])
+			gl.append(z)
+			gg["gates"] = gl
+			Save.grove_write()
+		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
+		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
+			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
+		Audio.play("level_complete", -2.0)
 	# Break the purple lock veil with a glass-shatter from the tap point. Snapshot the veil's
 	# true (masked) shape BEFORE the rebuild hides it, rebuild, then spawn the shards on top.
 	var veil := {}
@@ -1046,23 +1056,6 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if not veil.is_empty():
 		FX.shatter_veil(self, veil["tex"], veil["bbox"], at - get_global_rect().position)
 	_update_hud()
-	if map_spots_done(z):
-		Save.add_diamonds(G.MAP_DIAMONDS)
-		Vault.skim(G.MAP_DIAMONDS)            # T44 SKIM-SITE 2/3 (map-restore): the piggy bank skims a slice of the restore premium (§10)
-		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
-		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
-			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
-		Audio.play("level_complete", -2.0)
-		# Spots-done unlock: completing the map's spots IS the completion record now (the gate
-		# quest is retired). Append z to `gates` so `map_complete`/`frontier_map` advance — the
-		# next map unlocks immediately. (The next map's generator already arrived earlier, via a
-		# near-end quest's reward.generators into the gen_bag.)
-		if not _gates().has(z):
-			var gg := Save.grove()
-			var gl: Array = gg.get("gates", [])
-			gl.append(z)
-			gg["gates"] = gl
-			Save.grove_write()
 
 # Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.
 # The lock shader rendered alone in a transparent SubViewport reproduces the exact on-screen masking
@@ -1241,6 +1234,54 @@ func _update_hud() -> void:
 		_hud_refresh.call()              # wallet (Water·Coin·Gem) + the S10 level chip (ticks)
 	else:
 		coins_label.text = str(Save.coins())
+	_refresh_unlock_button()
+
+# The SINGLE restore CTA, anchored above the bottom nav. It targets the open map's next unclaimed
+# spot (lowest threshold): greyed with "Unlock — N exp" until total exp reaches that threshold,
+# then enabled. Tapping it claims that one spot for free (exp is never spent). Tracked as chrome,
+# so it hides on the place-picker.
+func _build_unlock_cta() -> void:
+	var btn := Button.new()
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	btn.offset_left = 80.0
+	btn.offset_right = -80.0
+	btn.offset_top = -(Look.safe_bottom(self) + 96.0)   # sit above the nav row
+	btn.offset_bottom = -(Look.safe_bottom(self) + 40.0)
+	btn.add_theme_font_size_override("font_size", 30)
+	btn.pressed.connect(_on_unlock_pressed)
+	add_child(btn)
+	_unlock_btn = btn
+	_chrome_nodes.append(btn)
+	_refresh_unlock_button()
+
+func _refresh_unlock_button() -> void:
+	if _unlock_btn == null or not is_instance_valid(_unlock_btn):
+		return
+	var nxt := G.map_next_unlock(_map_idx, unlocks)
+	if int(nxt.k) == -1:
+		_unlock_btn.disabled = true
+		_unlock_btn.text = tr("All restored ✿")
+		return
+	var need := int(nxt.exp)
+	var have := Save.exp_total()
+	_unlock_btn.disabled = have < need
+	_unlock_btn.text = (tr("Unlock — %d exp") % need) if have < need else tr("Unlock ✦")
+
+func _on_unlock_pressed() -> void:
+	var z := _map_idx
+	var nxt := G.map_next_unlock(z, unlocks)
+	if int(nxt.k) == -1 or Save.exp_total() < int(nxt.exp):
+		return
+	var k := int(nxt.k)
+	var node: Control = self
+	var at := get_global_rect().get_center()
+	for hit in spot_hits:
+		if int(hit.z) == z and int(hit.k) == k:
+			node = hit.node
+			at = (hit.node as Control).get_global_rect().get_center()
+			break
+	_on_spot_tap(z, k, node, at)
 
 func _build_chrome() -> void:
 	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
@@ -1262,6 +1303,7 @@ func _build_chrome() -> void:
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
+	_build_unlock_cta()
 	# the Play leaf breathes so the way to the board reads as the primary action (index 1).
 	FX.breathe_once(nav.buttons[1])
 	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no

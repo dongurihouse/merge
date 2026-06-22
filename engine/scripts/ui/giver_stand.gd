@@ -166,7 +166,7 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	pay.add_child(Look.icon("star", plh * 0.50))
 	var pay_lbl := Label.new()
-	pay_lbl.text = "+%d" % Quests.stars(q)
+	pay_lbl.text = "+%d" % Quests.exp(q)
 	pay_lbl.add_theme_font_size_override("font_size", int(plh * 0.42))
 	pay_lbl.add_theme_color_override("font_color", Color.WHITE)
 	pay_lbl.add_theme_constant_override("outline_size", 0)             # solid plaque behind — no halo
