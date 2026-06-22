@@ -110,45 +110,61 @@ discover who turns up; you don't shop.
 - **Growth seam** — v1 is the weighted draw only. The thesis's "full search-and-extraction
   mini-game" layers on top later without changing the keep-one contract.
 
-### Place — capacity
+### Place — capacity & assignment
 
-Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Placing a kept
-spirit assigns it to that map's roster, where it wanders as today.
+The residents loop lives on a new **Residents screen** — a hub separate from the merge board and the
+map-restoration view. From it you can **assign** a spirit to a map, **merge** two-of-a-kind, **free
+or sell** a spirit, **view the collection**, and **launch an expedition** (Explore).
 
-- **Accounting** — **one slot per resident instance, any tier.** Two tier-1s fill two slots;
-  merging them into one tier-2 frees a slot. Merging is therefore progression *and* space management
-  at once.
+Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Assigning a
+spirit to a map fills a slot *and* raises that map's production (see **Reward**) — placement is a
+real economic decision, not flavor: where you put a spirit chooses which reward you make more of.
+
+- **Accounting** — **one slot per spirit instance, any tier.** Two tier-1s fill two slots; merging
+  them into one tier-2 frees a slot. Merge is progression *and* space management at once.
+- **Merge is per-map** — two-of-a-kind merge only while assigned to the **same map**; the higher-tier
+  result produces more for that map. Concentrating a type on one map is how you climb its tiers and
+  free its slots.
 - **Capacity gates Explore** — the expedition reads your **total free slots across all completed
-  maps.** Zero free → the expedition is **disabled**, with a message telling you to merge or
-  upgrade/unlock room. One or more free → you may explore, and you can keep at most as many spirits
-  as you have free slots (the diamond "keep extras" option is offered only while slots remain). You
-  never hold a homeless spirit — acquisition is blocked before it can happen.
+  maps.** Zero free → the expedition is **disabled**, with a message to merge or upgrade/unlock room.
+  One or more free → you may explore, keeping at most as many spirits as you have room for (the
+  diamond "keep extras" option is offered only while slots remain). You never hold a homeless spirit.
+- **Free / sell** — remove an assigned spirit to recover its slot (what you get back is TBD — see
+  Economy).
 - **Out of room → expand** — a full habitat is the engine of the next move: merge to free a slot,
   upgrade a map's capacity, or unlock another map.
-- **Placement seam** — v1 placement is "assign to map"; spirits still wander freely (stateless
-  ambient render). Hand-positioning on a grid is a later layer.
+- **Placement seam** — v1 assignment puts a spirit on a map where it wanders (stateless render);
+  hand-positioning on a grid is a later layer.
 
 ### Expand — the pull outward
 
 Capacity is **per map**, so habitat scales two ways: **upgrade** a map you own (intensive) or
-**unlock the next map** (extensive — each new map brings its own ~8 slots). No new unlock mechanic;
-this rides the existing completion-chained map sequence. Running out of room becomes a concrete
-reason to push the base-game progression forward.
+**unlock the next map** (extensive — each new map brings its own ~8 slots). Each new map also opens a
+**new reward stream** to feed, so unlocking widens both your housing *and* your production mix. No
+new unlock mechanic; this rides the existing completion-chained map sequence. Running out of room
+becomes a concrete reason to push the base-game progression forward.
 
 *(Runway note: only the 5 home-grove maps are wired today; the designed 20-place journey is the
 long-tail this move leans on.)*
 
 ### Reward — the payback
 
-Placed spirits **produce over time** into a collect-point — idle and compounding, so more spirits
-and higher tiers yield more. Output spans the full menu:
+**Each completed map produces one specific reward type, and its rate scales with the spirits assigned
+to it** — more spirits and higher tiers produce faster. Production is **idle and compounding**: it
+accrues while you're away (capped, so it's a daily-return pull rather than infinite idle) and you
+**collect** it from the Residents screen. Where you assign spirits is an economic choice — load a map
+to pour out more of its reward.
+
+The reward types, one kind per map:
 
 - **Items** — low-tier board items dropped into the bag, spent back on the board.
 - **Coins** — a soft-currency trickle.
 - **Water** — capped as a daily top-up only, so it never makes energy self-sustaining (respects the
   energy invariant; see Risk).
-- **Boosters** — the **Wild piece** (the one booster grove already ships); this does *not* reopen
-  the tone-cut Bomb / x2 / Producer / Countdown toys.
+- **Boosters** — the **Wild piece** grove already ships; this does *not* reopen the tone-cut
+  Bomb / x2 / Producer / Countdown toys.
+
+*(The map→reward mapping — which map makes which type — is still open; see questions.)*
 
 Two collection-facing roles ride on the same residents:
 
@@ -159,6 +175,6 @@ Two collection-facing roles ride on the same residents:
 
 ### The loop, restated
 
-Explore (spend coins) → keep one → place (fill a slot) → merge (climb tier, free a slot) → run out
-of room → expand (upgrade or unlock a map) → explore again — while placed spirits quietly produce
-back into the board.
+Explore (spend coins) → keep one → assign to a map (fill a slot, boost that map's reward) → merge
+(climb tier, free a slot) → run out of room → expand (upgrade or unlock a map) → explore again —
+while assigned spirits keep producing back into the board.

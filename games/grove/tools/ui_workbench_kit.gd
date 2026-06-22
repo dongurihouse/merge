@@ -2617,35 +2617,15 @@ static func _plain_font() -> Font:
 ## is authored once in the workbench. spec: { title, items: [{icon, label, amount, note}], note (footer),
 ## close }. opts: info_opts_from_config(cfg) + on_close (the Callable the "Got it" fires).
 static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary = {}) -> Control:
-	var card := PanelContainer.new()
-	# the parchment nine-patch, with its inner padding made INFO-tunable (a duplicated stylebox so the
-	# override is local — other parchment panels keep the shared default). pad_x/pad_y default to the
-	# shared PARCH_PAD, so an untouched config renders identically.
-	var panel := Look.kit_panel("parchment")
-	if panel is StyleBoxTexture:
-		panel = (panel as StyleBoxTexture).duplicate()
-		var px := float(opts.get("pad_x", 26))
-		var py := float(opts.get("pad_y", 20))
-		panel.content_margin_left = px
-		panel.content_margin_right = px
-		panel.content_margin_top = py
-		panel.content_margin_bottom = py
-	card.add_theme_stylebox_override("panel", panel)
-	card.custom_minimum_size = Vector2(width, 0)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", int(opts.get("row_gap", 8)))
-	card.add_child(col)
-	# the title is the engraved RIBBON banner (the same polished header shop/mail/vault wear), not a plain
-	# pill — burned into the ribbon so it reads as a designed title. Sized to the content width.
-	var content_w := width - 2.0 * float(opts.get("pad_x", 26))
-	var banner := _banner(String(spec.get("title", "")), int(opts.get("title_font", 30)),
-		float(opts.get("title_band_h", 76)), content_w, false, 0.0, null, 0.0, 0.0, 0.5, "shop/shop_banner.png", "")
-	col.add_child(banner)
+	# the CONTENT (rows + footer + Got it); the border, banner-ribbon title and ✕ come from the SHARED
+	# dialog_frame — the same chrome shop/mail/vault wear, so everything lands in the standard place.
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", int(opts.get("row_gap", 8)))
 	var items: Array = spec.get("items", [])
 	for i in items.size():
 		if i > 0:
-			col.add_child(_info_divider())        # a hairline ties the rows into one tidy list
-		col.add_child(_info_row(items[i] as Dictionary, opts))
+			content.add_child(_info_divider())     # a hairline ties the rows into one tidy list
+		content.add_child(_info_row(items[i] as Dictionary, opts))
 	var footer := String(spec.get("note", ""))
 	if footer != "":
 		var fl := Label.new()
@@ -2657,16 +2637,20 @@ static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 		fl.add_theme_constant_override("outline_size", 0)
 		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(fl)
+		content.add_child(fl)
 	var btns := HBoxContainer.new()
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_child(btns)
+	content.add_child(btns)
 	var on_close: Callable = opts.get("on_close", Callable())
 	var got := pill_button(String(spec.get("close", "Got it")), {"bg": "green", "font": int(opts.get("close_font", 20))})
 	if on_close.is_valid():
 		got.pressed.connect(func() -> void: on_close.call())
 	btns.add_child(got)
-	return card
+	# wrap in the standard frame: banner_text = the title (a generic info sheet wears no banner icon).
+	var fopts := opts.duplicate()
+	fopts["banner_text"] = String(spec.get("title", ""))
+	fopts["banner_icon_on"] = false
+	return dialog_frame(content, width, fopts)
 
 ## A hairline between info rows — a low-alpha bark line spanning the content width, so the list reads as
 ## one grouped table rather than items floating in a wide card.
@@ -2813,26 +2797,23 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
-## The INFO sheet's saved STYLE (width % of the screen, row/item spacing, icon size, the title/label/
-## amount/note fonts, and the card padding). Read by BOTH the workbench preview and the game's _info_sheet,
-## so a tweak here flows to every shop detail sheet. Defaults reproduce a tidy parchment list.
+## The INFO sheet's opts: the SHARED dialog frame chrome (border, banner ribbon, ✕, padding — tuned on the
+## Frame element, exactly like shop/daily/settings) PLUS the info's own ROW knobs (width, row/item spacing,
+## row height, icon size, the label/amount/note/close fonts). Read by BOTH the workbench preview and the
+## game's _info_sheet, so a tweak flows to every shop detail sheet.
 static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var o := dialog_opts_from_config(cfg)        # the standard frame: border + banner + ✕ + content padding
 	var i: Dictionary = cfg.get("info", {})
-	return {
-		"width_pct": float(i.get("width_pct", 50)),
-		"row_gap": float(i.get("row_gap", 8)),
-		"item_gap": float(i.get("item_gap", 12)),
-		"row_pad": float(i.get("row_pad", 14)),     # extra height per row beyond the icon (vertical breathing room)
-		"pad_x": float(i.get("pad_x", 26)),         # the card's inner side padding (overrides the parchment default)
-		"pad_y": float(i.get("pad_y", 20)),         # the card's inner top/bottom padding
-		"icon_px": float(i.get("icon_px", 40)),
-		"title_band_h": float(i.get("title_band_h", 76)),   # the title ribbon banner's height
-		"title_font": int(i.get("title_font", 30)),
-		"label_font": int(i.get("label_font", 18)),
-		"amount_font": int(i.get("amount_font", 22)),
-		"note_font": int(i.get("note_font", 13)),
-		"close_font": int(i.get("close_font", 20)),
-	}
+	o["width_pct"] = float(i.get("width_pct", 58))
+	o["row_gap"] = float(i.get("row_gap", 8))
+	o["item_gap"] = float(i.get("item_gap", 12))
+	o["row_pad"] = float(i.get("row_pad", 14))   # extra height per row beyond the icon (vertical breathing room)
+	o["icon_px"] = float(i.get("icon_px", 40))
+	o["label_font"] = int(i.get("label_font", 18))
+	o["amount_font"] = int(i.get("amount_font", 22))
+	o["note_font"] = int(i.get("note_font", 13))
+	o["close_font"] = int(i.get("close_font", 20))
+	return o
 
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits
 ## dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry, padding), with NO bespoke chrome

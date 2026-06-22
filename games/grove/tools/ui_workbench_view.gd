@@ -39,9 +39,9 @@ const COLUMNS := [
 # (a dialog's own width, the icon sandbox, the pill, …) touches only itself. Used to rebuild just the
 # edited element + its dependents instead of the whole gallery.
 const DEPENDENTS := {
-	"button": ["card", "dialog", "daily", "shop", "settings"],
-	"card": ["dialog", "daily", "shop", "settings"],
-	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers"],
+	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
+	"card": ["dialog", "daily", "shop", "settings", "info"],
+	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers", "info"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"badge": ["home_button"],
@@ -263,8 +263,8 @@ var _params := {
 	# the INFO detail sheet — a parchment list of line items (icon + label + note + amount). width %, the
 	# row/item spacing, icon size, the title/label/amount/note/close fonts, and the card padding are saved
 	# (read by the game's _info_sheet via Kit.info_opts_from_config); the demo rows are fixed in the preview.
-	"info": {"width_pct": 50, "row_gap": 8, "item_gap": 12, "row_pad": 14, "pad_x": 26, "pad_y": 20,
-		"icon_px": 40, "title_band_h": 76, "title_font": 30, "label_font": 18, "amount_font": 22, "note_font": 13, "close_font": 20},
+	"info": {"width_pct": 58, "row_gap": 8, "item_gap": 12, "row_pad": 14,
+		"icon_px": 40, "label_font": 18, "amount_font": 22, "note_font": 13, "close_font": 20},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
@@ -1440,17 +1440,13 @@ func _rebuild_sidebar() -> void:
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
 			_group_header("Saved to config", true)
-			_section_header("Layout")
+			_section_header("Layout (border · banner · ✕ · padding: on the Frame element)")
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
-			_sidebar_body.add_child(_slider_row(["pad_x", 0, 80]))         # card inner side padding (overrides the parchment default)
-			_sidebar_body.add_child(_slider_row(["pad_y", 0, 80]))         # card inner top/bottom padding
-			_sidebar_body.add_child(_slider_row(["row_gap", 0, 32]))       # gap between the title / rows / footer / button
+			_sidebar_body.add_child(_slider_row(["row_gap", 0, 32]))       # gap between the rows / footer / button
 			_sidebar_body.add_child(_slider_row(["item_gap", 0, 32]))      # gap between a row's icon · text · amount
 			_sidebar_body.add_child(_slider_row(["row_pad", 0, 48]))       # extra row height beyond the icon (vertical breathing room)
-			_section_header("Title + icon")
-			_sidebar_body.add_child(_slider_row(["title_band_h", 40, 140]))  # the title ribbon banner height
+			_section_header("Type + icon")
 			_sidebar_body.add_child(_slider_row(["icon_px", 16, 72]))      # the line-item icon size
-			_sidebar_body.add_child(_slider_row(["title_font", 16, 48]))
 			_sidebar_body.add_child(_slider_row(["label_font", 12, 36]))
 			_sidebar_body.add_child(_slider_row(["amount_font", 12, 40]))
 			_sidebar_body.add_child(_slider_row(["note_font", 10, 28]))
