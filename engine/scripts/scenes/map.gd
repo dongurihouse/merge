@@ -1141,37 +1141,68 @@ func _update_hud() -> void:
 		coins_label.text = str(Save.coins())
 	_refresh_unlock_button()
 
-# The SINGLE restore CTA, anchored above the bottom nav. It targets the open map's next unclaimed
-# spot (lowest threshold): greyed with "Unlock — N exp" until total exp reaches that threshold,
-# then enabled. Tapping it claims that one spot for free (exp is never spent). Tracked as chrome,
-# so it hides on the place-picker.
+# The SINGLE restore CTA — the round map-style restore badge (Kit.home_unlock_button: the dashed cream
+# cost disc), centered at the BOTTOM in line with the flanking Map · Play nav discs (same size + height),
+# so the bottom row reads Map · Restore · Play. It targets the open map's next unclaimed spot (lowest
+# threshold): greyed until total exp reaches that threshold, then full-color + tappable to claim it (exp is
+# never spent). Hidden once every spot is restored. Tracked as chrome, so it hides on the place-picker.
 func _build_unlock_cta() -> void:
-	var btn := Button.new()
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	btn.offset_left = 80.0
-	btn.offset_right = -80.0
-	btn.offset_top = -(Look.safe_bottom(self) + 96.0)   # sit above the nav row
-	btn.offset_bottom = -(Look.safe_bottom(self) + 40.0)
-	btn.add_theme_font_size_override("font_size", 30)
-	btn.pressed.connect(_on_unlock_pressed)
+	_refresh_unlock_button()          # builds the badge fresh from current state
+
+# (Re)build the restore badge from the open map's next-unlock state. Called on build + after any exp/owner
+# change (via _update_hud), so the disc's threshold number and greyed/ready look stay current. Rebuilds
+# rather than mutating, since the kit bakes the cost number into the disc at build time.
+func _refresh_unlock_button() -> void:
+	if _unlock_btn != null and is_instance_valid(_unlock_btn):
+		_chrome_nodes.erase(_unlock_btn)
+		_unlock_btn.queue_free()
+	_unlock_btn = null
+	var nxt := G.map_next_unlock(_map_idx, unlocks)
+	if int(nxt.k) == -1:
+		return                         # every spot on this map restored → no badge
+	var need := int(nxt.exp)
+	var ready := Save.exp_total() >= need
+	var btn := _make_unlock_badge(need, ready)
 	add_child(btn)
 	_unlock_btn = btn
 	_chrome_nodes.append(btn)
-	_refresh_unlock_button()
+	btn.visible = (_view == "map")     # chrome hides on the place-picker
 
-func _refresh_unlock_button() -> void:
-	if _unlock_btn == null or not is_instance_valid(_unlock_btn):
-		return
-	var nxt := G.map_next_unlock(_map_idx, unlocks)
-	if int(nxt.k) == -1:
-		_unlock_btn.disabled = true
-		_unlock_btn.text = tr("All restored ✿")
-		return
-	var need := int(nxt.exp)
-	var have := Save.exp_total()
-	_unlock_btn.disabled = have < need
-	_unlock_btn.text = (tr("Unlock — %d exp") % need) if have < need else tr("Unlock ✦")
+# The round restore badge: the SAME dashed cream cost disc the map kit draws (Kit.home_unlock_button —
+# a "+" over the ★ threshold), at the nav-disc size, anchored bottom-centre in line with the Map · Play
+# row. Greyed until affordable; full-colour + tappable when ready. Plain-button fallback if the kit is gone.
+func _make_unlock_badge(need: int, ready: bool) -> Button:
+	var px := NavBar.DEFAULT_PX                        # match the flanking Map · Play discs
+	var sb := Look.safe_bottom(self)
+	var btn: Button
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit != null:
+		var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		opts["px"] = px
+		opts["calm"] = FX.calm()
+		# locked → the greyed "+ ✿ N" goal; ready → a bare "+" disc (a number there would read as a spendable
+		# price, but exp is a cumulative threshold that is never spent — see _on_unlock_pressed).
+		btn = Kit.home_unlock_button({"cost": need, "icon": "star", "show_cost": not ready, "sparkle": ready, "enabled": ready, "action": _on_unlock_pressed}, opts)
+		if not ready:
+			btn.modulate = Color(0.6, 0.6, 0.6, 1.0)  # grey the whole disc until the threshold is met (map parity)
+	else:
+		btn = Button.new()                            # defensive: kit absent → a plain labelled button
+		btn.text = tr("Unlock ✦") if ready else (tr("Unlock — %d exp") % need)
+		btn.disabled = not ready
+		btn.add_theme_font_size_override("font_size", 30)
+		btn.pressed.connect(_on_unlock_pressed)
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.custom_minimum_size = Vector2(px, px)
+	# bottom-centre, sitting in the nav row's band (BOTTOM_MARGIN above the safe area, disc-tall)
+	btn.anchor_left = 0.5
+	btn.anchor_right = 0.5
+	btn.anchor_top = 1.0
+	btn.anchor_bottom = 1.0
+	btn.offset_left = -px / 2.0
+	btn.offset_right = px / 2.0
+	btn.offset_bottom = -(NavBar.BOTTOM_MARGIN + sb)
+	btn.offset_top = btn.offset_bottom - px
+	return btn
 
 func _on_unlock_pressed() -> void:
 	var z := _map_idx
