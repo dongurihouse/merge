@@ -98,8 +98,10 @@ slot — the separate **Place** step. Capacity gates the whole flow: you can't l
 with no room anywhere, and you can't keep more spirits than you can house (see **Place**). You
 discover who turns up; you don't shop.
 
-- **Rarity** — common → rare → special. A map's **signature** spirits are its *special* draws; the
-  shared core (moss / acorn / lantern) are *commons*. Rarity is a new axis on the resident type.
+- **Rarity** — common → rare → special. Rarity is a new axis on the resident type, and it **pays off
+  in production**: a rarer spirit yields more (see Reward), so chasing specials matters beyond the
+  collection badge. *(Exact type→rarity mapping — and filling the middle "rare" tier — is the next
+  open point.)*
 - **Pool grows with progress** — the shared core is always discoverable; **unlocking a new map adds
   its signatures to the pool.** Pushing the base game forward widens *what you can find*, not just
   where you house them — each new map is a discovery event and feeds the collection.
@@ -128,6 +130,11 @@ real economic decision, not flavor: where you put a spirit chooses which reward 
 - **Merge is per-map** — two-of-a-kind merge only while assigned to the **same map**; the higher-tier
   result produces more for that map. Concentrating a type on one map is how you climb its tiers and
   free its slots.
+- **Re-assignment is free** — move a placed spirit between maps any time, to line up a merge or
+  rebalance which reward you favor. This is what keeps merging and producing from fighting: a map's
+  output sums *all* its assigned spirits' yield (not specific types), so concentrating a type to
+  merge it never strands the spirit or permanently starves another map — merge-for-tier and
+  assign-for-reward pull the same direction.
 - **Capacity gates Explore** — the expedition reads your **total free slots across all completed
   maps.** Zero free → the expedition is **disabled**, with a message to merge or upgrade/unlock room.
   One or more free → you may explore, keeping at most as many spirits as you have room for (the
@@ -152,11 +159,12 @@ long-tail this move leans on.)*
 
 ### Reward — the payback
 
-**Each completed map produces one specific reward type, and its rate scales with the spirits assigned
-to it** — more spirits and higher tiers produce faster. Production is **idle and compounding**: it
-accrues while you're away (capped, so it's a daily-return pull rather than infinite idle) and you
-**collect** it from the Residents screen. Where you assign spirits is an economic choice — load a map
-to pour out more of its reward.
+**Each completed map produces one specific reward type, and its rate is the sum of every assigned
+spirit's yield** — and a spirit's yield rises with its **rarity × tier**. So you raise a map's output
+two ways: assign *more* spirits, or merge to push the ones there to higher tiers. Production is **idle
+and compounding**: it accrues while you're away (capped, so it's a daily-return pull rather than
+infinite idle) and you **collect** it from the Residents screen. Where you assign spirits is an
+economic choice — load a map to pour out more of its reward.
 
 The reward menu is **items, coins, Water, and boosters**, with two honest caveats carried into the
 Risk pass:

@@ -148,9 +148,15 @@
 		"count_dx": -2.0,
 		"count_dy": 35.0,
 		"count_font": 31.0,
+		"fill_alpha": 100.0,
 		"glow": 45.0,
 		"icon_scale": 50.0,
+		"play_px": 260.0,
 		"px": 140.0,
+		"rect_cap": 46.0,
+		"rect_pad": 13.0,
+		"rect_shadow": 7.0,
+		"rect_shadow_alpha": 32.0,
 		"twinkle": 55.0
 	},
 	"home_unlock_button": {
@@ -165,7 +171,9 @@
 		"stack_gap": -1.0,
 		"twinkle": 94.0
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"amount_font": 22.0,
 		"close_font": 20.0,

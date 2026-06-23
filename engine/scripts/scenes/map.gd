@@ -1168,26 +1168,27 @@ func _refresh_unlock_button() -> void:
 	_chrome_nodes.append(btn)
 	btn.visible = (_view == "map")     # chrome hides on the place-picker
 
-# The round restore badge: the SAME dashed cream cost disc the map kit draws (Kit.home_unlock_button —
-# a "+" over the ★ threshold), at the nav-disc size, anchored bottom-centre in line with the Map · Play
-# row. Greyed until affordable; full-colour + tappable when ready. Plain-button fallback if the kit is gone.
+# The restore CTA: the SAME rounded-rect badge the Map button uses (Kit.home_button shape:"rect"), with the
+# ui_asset3 vine mark over a "Purse" label, anchored bottom-centre in line with the Map · Play row. Greyed
+# until affordable; full-colour + sparkling + tappable when ready. Plain-button fallback if the kit is gone.
 func _make_unlock_badge(need: int, ready: bool) -> Button:
-	var px := NavBar.DEFAULT_PX                        # match the flanking Map · Play discs
+	var px := 140.0                                    # match the flanking Map badge (same rect button)
 	var sb := Look.safe_bottom(self)
 	var btn: Button
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit != null:
-		var opts: Dictionary = Kit.home_unlock_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 		opts["px"] = px
+		opts["shape"] = "rect"                        # the rounded-rect badge (same as Map)
 		opts["calm"] = FX.calm()
-		# locked → the greyed "+ ✿ N" goal; ready → a bare "+" disc (a number there would read as a spendable
-		# price, but exp is a cumulative threshold that is never spent — see _on_unlock_pressed).
-		btn = Kit.home_unlock_button({"cost": need, "icon": "star", "show_cost": not ready, "sparkle": ready, "enabled": ready, "action": _on_unlock_pressed}, opts)
+		# the vine mark over "Purse"; sparkles when ready (the cumulative-exp threshold is met). The exp goal
+		# is never SPENT (see _on_unlock_pressed), so the badge carries no cost number — just the CTA.
+		btn = Kit.home_button({"icon": "vine", "caption": Strings.t("map.unlock.purse"), "sparkle": ready, "enabled": ready, "action": _on_unlock_pressed}, opts)
 		if not ready:
-			btn.modulate = Color(0.6, 0.6, 0.6, 1.0)  # grey the whole disc until the threshold is met (map parity)
+			btn.modulate = Color(0.6, 0.6, 0.6, 1.0)  # grey the whole badge until the threshold is met (map parity)
 	else:
 		btn = Button.new()                            # defensive: kit absent → a plain labelled button
-		btn.text = Strings.t("map.unlock.ready") if ready else (Strings.t("map.unlock.cta") % need)
+		btn.text = Strings.t("map.unlock.purse")
 		btn.disabled = not ready
 		btn.add_theme_font_size_override("font_size", 30)
 		btn.pressed.connect(_on_unlock_pressed)

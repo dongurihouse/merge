@@ -849,16 +849,10 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	shell_tint = Color(shell_tint.r, shell_tint.g, shell_tint.b, shell_tint.a * fill_a)
 	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
 	var corner := int(px * (0.22 if shape == "rect" else 0.5))               # code-drawn fallback radius
-	# the rect badge is NINE-SLICED (rect_cap = the corner-region px): the corners stay crisp while the
-	# middle stretches, so the SAME rounded-rect sprite the currency pill uses tiles to any size/aspect. A
-	# disc shell stays whole-scaled (a circle 9-slices badly at its corners).
-	var rect_cap := int(opts.get("rect_cap", 46))
 	for st_name in ["normal", "hover", "pressed", "disabled"]:
 		if shell != null:
-			var stx := StyleBoxTexture.new()
-			stx.texture = shell
-			if shape == "rect":
-				stx.set_texture_margin_all(rect_cap)   # 9-slice: fixed corners, the flat middle stretches freely
+			var stx := StyleBoxTexture.new()      # NO texture margins → the whole shell scales (rail badges read
+			stx.texture = shell                   # better whole-scaled than 9-sliced; the pill 9-slices on its own path)
 			if st_name == "pressed":
 				stx.modulate_color = shell_tint * Color(0.9, 0.9, 0.9)
 			elif st_name == "disabled":
@@ -3035,9 +3029,6 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"fill_alpha": float(h.get("fill_alpha", 100)),
 		# the rect-badge inner PADDING as a fraction of px (the icon+caption inset off the badge edge).
 		"rect_pad": float(h.get("rect_pad", 13)) / 100.0,
-		# the rect-badge NINE-SLICE corner cap (px): the SAME rounded-rect sprite the currency pill uses, sliced
-		# so the corners stay crisp at any size. Match it to the sprite's painted corner radius.
-		"rect_cap": int(h.get("rect_cap", 46)),
 		# the orange PLAY disc's diameter (px) — the bottom-right CTA. Bigger than the 140 Map/rail buttons.
 		"play_px": float(h.get("play_px", 188)),
 		# the rect-badge DROP SHADOW (size in px + opacity %): drawn behind the rail / Map badges only (disc

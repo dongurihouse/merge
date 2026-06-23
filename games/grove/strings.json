@@ -100,6 +100,7 @@
 		},
 		"unlock": {
 			"cta": "Unlock — %d exp",
+			"purse": "Purse",
 			"ready": "Unlock ✦"
 		},
 		"welcome": {

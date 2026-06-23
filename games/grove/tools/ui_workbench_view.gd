@@ -158,7 +158,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 7, "rect_shadow_alpha": 32, "rect_cap": 46, "play_px": 188,
+		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 7, "rect_shadow_alpha": 32, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
@@ -438,6 +438,12 @@ func _make_element(id: String) -> Control:
 			var ro := ho.duplicate()
 			ro["shape"] = "rect"
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption)}, ro))
+			# the orange PLAY disc (bottom-right CTA) at its tuned size + art, so play_px adjusts live here.
+			var po := ho.duplicate()
+			po["px"] = float(ho.get("play_px", 188))
+			po["shell"] = "shared/play_disc.png"
+			po["icon_scale"] = 0.52
+			row.add_child(Kit.home_button({"icon": "board", "caption": ""}, po))
 			var mc := MarginContainer.new()
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
@@ -1246,6 +1252,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
 			_sidebar_body.add_child(_slider_row(["rect_shadow", 0, 24]))         # drop-shadow size (0 = off)
 			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
+			_section_header("Play disc (bottom-right CTA)")
+			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
 			_section_header("Side-rail badge (red dot / count)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
