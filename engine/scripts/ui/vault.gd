@@ -35,10 +35,10 @@ const BARK := Pal.BARK
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const WIDTH_PCT_DEF := 80.0        # the dialog's default width as a % of the screen (workbench-tunable)
 
-# IAP: the piggy-bank product. The crack routes through StoreKit (core/store.gd) when the plugin is in
-# the build; without it, the honest non-charging test path. Register this id in App Store Connect.
-const STORE_PATH := "res://engine/scripts/core/store.gd"
-const PIGGY_PRODUCT := "com.tidyup.piggybank"
+# IAP: the crack routes through StoreKit (via core/iap.gd → core/store.gd) when the plugin is in the
+# build; without it, the honest non-charging test path. Product id + price live in data/iap_products.json.
+const Iap = preload("res://engine/scripts/core/iap.gd")
+const PIGGY_KEY := "piggybank"
 
 # --- the storefront jar -------------------------------------------------------------
 
@@ -135,8 +135,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	what.add_child(amount)
 	# A real charge happens ONLY when StoreKit is in the build (the plugin is present); otherwise this
 	# stays the honest non-charging test path, and the caption says so. The grant is identical either way.
-	var Store: Variant = load(STORE_PATH) if ResourceLoader.exists(STORE_PATH) else null
-	var charged: bool = Store != null and Store.available()
+	var charged: bool = Iap.charging()
 	var note := Label.new()
 	note.text = (Strings.t("vault.crack.charged_note") % Vault.price_usd()) if charged else Strings.t("vault.crack.test_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -164,7 +163,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 		overlay.queue_free()
 		if charged:
 			# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase, just refresh on cancel.
-			Store.purchase(PIGGY_PRODUCT, func(okay: bool) -> void:
+			Iap.buy(PIGGY_KEY, func(okay: bool) -> void:
 				if okay:
 					grant.call()
 				elif opts.has("refresh"):

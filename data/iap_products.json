@@ -1,0 +1,14 @@
+{
+  "_doc": "In-app purchase catalog — the single source of truth for every real-money product: its App Store Connect Product ID, displayed price, type, and reference name. The game code (engine/scripts/core/iap.gd) looks products up by KEY; grove_data.gd carries the grant amounts (gems/water) and references these keys. To add/retune a product: edit here, then create a matching In-App Purchase in App Store Connect with the SAME product_id, type, and reference_name (price is set there via a price point ~ the usd shown). product_id is permanent once created in ASC.",
+  "products": {
+    "piggybank":  { "product_id": "com.dongurihouse.dongurimerge.piggybank",  "usd": "$2.99",  "type": "Consumable", "reference_name": "Piggy Bank" },
+    "starter":    { "product_id": "com.dongurihouse.dongurimerge.starter",    "usd": "$1.99",  "type": "Consumable", "reference_name": "Starter Pack" },
+    "water_offer":{ "product_id": "com.dongurihouse.dongurimerge.water_offer","usd": "$0.99",  "type": "Consumable", "reference_name": "Out-of-Water Offer" },
+    "gems_tier1": { "product_id": "com.dongurihouse.dongurimerge.gems.tier1", "usd": "$0.99",  "type": "Consumable", "reference_name": "Gems Pack 80 ($0.99)" },
+    "gems_tier2": { "product_id": "com.dongurihouse.dongurimerge.gems.tier2", "usd": "$4.99",  "type": "Consumable", "reference_name": "Gems Pack 450 ($4.99)" },
+    "gems_tier3": { "product_id": "com.dongurihouse.dongurimerge.gems.tier3", "usd": "$9.99",  "type": "Consumable", "reference_name": "Gems Pack 1000 ($9.99)" },
+    "gems_tier4": { "product_id": "com.dongurihouse.dongurimerge.gems.tier4", "usd": "$19.99", "type": "Consumable", "reference_name": "Gems Pack 2200 ($19.99)" },
+    "gems_tier5": { "product_id": "com.dongurihouse.dongurimerge.gems.tier5", "usd": "$49.99", "type": "Consumable", "reference_name": "Gems Pack 6000 ($49.99)" },
+    "gems_tier6": { "product_id": "com.dongurihouse.dongurimerge.gems.tier6", "usd": "$99.99", "type": "Consumable", "reference_name": "Gems Pack 13000 ($99.99)" }
+  }
+}

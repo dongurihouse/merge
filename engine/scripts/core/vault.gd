@@ -20,6 +20,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Iap = preload("res://engine/scripts/core/iap.gd")   # the crack price + product id (data/iap_products.json)
 const D = Game.DATA                                  # the active game's data (§10 VAULT_*)
 
 # --- the owner-tunable grove numbers (compile-time consts on the active game's DATA) ---
@@ -37,9 +38,9 @@ static func skim_den() -> int:
 static func claim_min() -> int:
 	return maxi(0, int(D.VAULT_CLAIM_MIN))
 
-## The single fixed real-money price the crack costs (display string, e.g. "$2.99").
+## The single fixed real-money price the crack costs (display string, e.g. "$2.99") — from the IAP catalog.
 static func price_usd() -> String:
-	return String(D.VAULT_PRICE_USD)
+	return Iap.usd("piggybank")
 
 ## A generous ceiling so the jar art has a "full" state; the bank never exceeds it.
 static func cap() -> int:

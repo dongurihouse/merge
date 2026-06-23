@@ -35,10 +35,12 @@ to stay inert there. On a non-Apple host the modules fall back to the shipped no
   the entitlement (`entitlements/game_center=true` in `export_presets.cfg`).
 - **Min iOS:** the plugin requires **iOS 17.0**, so the preset's `min_ios_version` is bumped to `17.0`
   (the app is iPad-only). Devices below iOS 17 can no longer install — revert if that is unacceptable.
-- **StoreKit:** create the products. Register the piggy-bank id used by the code:
-  `com.tidyup.piggybank` (see `PIGGY_PRODUCT` in `ui/vault.gd`). Add the shop's cash-pack ids when you
-  wire those (below). Test with a sandbox account on a real device, or via an Xcode **StoreKit
-  Configuration** file (`.storekit`) for local sandbox runs without App Store Connect round-trips.
+- **StoreKit:** create one **Consumable** per product in `data/iap_products.json` (the IAP catalog — the
+  single source of truth for product ids + prices), using the **exact** `product_id`, `type`, and
+  `reference_name` listed there, and a price point matching `usd`. All 9 are wired (piggy bank, the 6-tier
+  gem ladder, starter pack, out-of-water offer). Test with a sandbox account on a real device, or via an
+  Xcode **StoreKit Configuration** file (`.storekit`) for local sandbox runs without App Store Connect
+  round-trips. To add/retune a product later, edit the catalog and create the matching ASC product.
 
 ## 3. Confirm the two undocumented StoreKit specifics (one sandbox buy)
 GodotApplePlugins' StoreKit method/signal names are verified, but two values aren't in its public docs
@@ -50,9 +52,11 @@ Run one sandbox purchase, check the logged `status`/product fields, and fix thes
 ## 4. Turn it on
 - Game Center: `game_center` is now `true` in `core/features.gd` — sign-in runs on the iOS build. Safe to
   test; see §5 before trusting the id for targeting.
-- StoreKit: no flag — `store.available()` gates it, so **shipping the plugin enables real charges**. The
-  vault confirm caption already switches from "(test build — nothing is charged)" to a real-charge line
-  when StoreKit is present. (Sandbox accounts are not charged real money.)
+- StoreKit: no flag — `store.available()` gates it (false off iOS / without the plugin → callers take the
+  honest non-charging path), so **shipping the plugin enables real charges**. Every confirm (vault, shop
+  packs, starter, out-of-water offer) routes through `core/iap.gd::buy()` and grants ONLY on a confirmed
+  purchase; its caption switches from "(test build — nothing is charged)" to "You'll be charged $X." when
+  StoreKit is present. (Sandbox accounts are not charged real money.)
 
 ## 5. Server-side identity verification (REQUIRED before targeting)
 A client can claim any `X-Player-Id`, so the server must verify it before targeting mail.
@@ -63,7 +67,14 @@ session token the mail `GET` sends instead of re-signing every poll. Until that 
 fine to test, but do NOT target mail by the id — `mail_sync` stays off and the feed serves broadcast
 (already supported).
 
-## Follow-ups (same pattern, not yet wired)
-- **Shop cash packs** (`ui/shop.gd`): route the coin/gem-pack buys through `store.purchase()` exactly like
-  the vault, with the existing grant as the success branch. Register their product ids in step 2.
-- **Receipt/transaction verification** server-side for purchases (StoreKit 2 JWS), mirroring step 5.
+## The IAP catalog (`data/iap_products.json`)
+The single source of truth for every real-money product: key → `{product_id, usd, type, reference_name}`.
+`core/iap.gd` is the lookup (`product_id(key)`, `usd(key)`, `buy(key, on_done)`, `charging()`);
+`grove_data.gd` carries the grant amounts and tags each purchasable with a `key`; the UI reads the price
+via `Iap.usd(key)`. Add or retune a product in ONE place here, then create the matching ASC product.
+Covered by `engine/tests/iap_tests.gd`.
+
+## Follow-ups (not yet wired)
+- **Receipt/transaction verification** server-side for purchases (StoreKit 2 JWS), mirroring step 5 — the
+  client grants on StoreKit's success callback; a server must still validate the receipt before a real
+  launch (sandbox testing is fine without it).

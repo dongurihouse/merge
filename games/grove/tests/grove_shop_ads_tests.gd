@@ -1,6 +1,8 @@
 extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · shop+ads — split from the grove_tests monolith; shares grove_test_base.gd.
 
+const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
+
 func _initialize() -> void:
 	begin("grove · shop+ads")
 	fresh("iap_ladder")
@@ -8,10 +10,11 @@ func _initialize() -> void:
 	var prev_rate := -1.0
 	var top_price := 0.0
 	for pk in Data.CASH_PACKS:
-		var usd := float(String(pk.usd).substr(1))   # "$4.99" → 4.99
+		var price := Iap.usd(String(pk.key))         # price lives in the catalog, keyed by pk.key
+		var usd := float(price.substr(1))            # "$4.99" → 4.99
 		var rate := float(int(pk.gems)) / usd
-		ok(int(pk.gems) > 0 and usd > 0.0, "ladder tier %s grants %d💎" % [pk.usd, int(pk.gems)])
-		ok(rate > prev_rate - 0.001, "ladder 💎/$ rises at %s (%.1f ≥ prev)" % [pk.usd, rate])
+		ok(int(pk.gems) > 0 and usd > 0.0, "ladder tier %s grants %d💎" % [price, int(pk.gems)])
+		ok(rate > prev_rate - 0.001, "ladder 💎/$ rises at %s (%.1f ≥ prev)" % [price, rate])
 		prev_rate = rate
 		top_price = maxf(top_price, usd)
 	ok(top_price >= 49.99, "the ladder reaches a $49.99+/$99.99-class whale tier (%.2f)" % top_price)
@@ -22,7 +25,7 @@ func _initialize() -> void:
 	for ti in Data.CASH_PACKS.size():
 		var before := Save.diamonds()
 		var got: int = ShopS.grant_cash_pack(ti)
-		ok(got == int(Data.CASH_PACKS[ti].gems), "tier %s grants exactly %d💎" % [Data.CASH_PACKS[ti].usd, int(Data.CASH_PACKS[ti].gems)])
+		ok(got == int(Data.CASH_PACKS[ti].gems), "tier %s grants exactly %d💎" % [Iap.usd(String(Data.CASH_PACKS[ti].key)), int(Data.CASH_PACKS[ti].gems)])
 		ok(Save.diamonds() == before + int(Data.CASH_PACKS[ti].gems), "...and the wallet ticks up by that much")
 
 	# T-C: the first-purchase DOUBLER doubles the first ladder pack EXACTLY once, then stops.

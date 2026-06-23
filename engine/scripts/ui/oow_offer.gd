@@ -20,6 +20,10 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var amount: String = opts.amount
 	var sub: String = opts.sub
 	var on_accept: Callable = opts.on_accept
+	# Honest disclosure: a real charge when StoreKit is in the build (the coordinator passes `charged`),
+	# else the "(test build — nothing is charged)" note.
+	var charged: bool = opts.get("charged", false)
+	var disclosure: String = (Strings.t("oow.charged_note") % String(opts.get("usd", ""))) if charged else Strings.t("oow.disclosure")
 	var overlay := Control.new()
 	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -57,7 +61,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	subl.add_theme_color_override("font_color", Pal.BARK)
 	col.add_child(subl)
 	var note := Label.new()
-	note.text = Strings.t("oow.disclosure")
+	note.text = disclosure
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", 22)
 	note.add_theme_color_override("font_color", Pal.BARK)

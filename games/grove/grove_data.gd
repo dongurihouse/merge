@@ -382,13 +382,17 @@ const SHOP_FEATURED_COUNT := 3
 # — the top tier is always the best rate), so there's always a higher, better-value tier to
 # buy. `pop` marks the merchandised "Popular" card (the mid anchor). LIVE from launch behind
 # the honest confirm-stub; a real store SDK + receipt check replaces only the grant middle.
+# `key` indexes data/iap_products.json (product id + price live there — the IAP catalog is the single
+# source of truth for cost); `gems` is the grant. Prices/rates: $0.99→80 (80.8💎/$, entry) · $4.99→450
+# (90.2) · $9.99→1000 (100.1, the merchandised anchor) · $19.99→2200 (110.1) · $49.99→6000 (120.0) ·
+# $99.99→13000 (130.0, the whale ceiling, best rate). The 💎/$ rises up the ladder (guarded in tests).
 const CASH_PACKS := [
-	{"usd": "$0.99", "gems": 80},                # 80.8 💎/$  — the entry tier
-	{"usd": "$4.99", "gems": 450},               # 90.2 💎/$
-	{"usd": "$9.99", "gems": 1000, "pop": true}, # 100.1 💎/$ — the merchandised anchor
-	{"usd": "$19.99", "gems": 2200},             # 110.1 💎/$
-	{"usd": "$49.99", "gems": 6000},             # 120.0 💎/$
-	{"usd": "$99.99", "gems": 13000},            # 130.0 💎/$ — the whale ceiling, best rate
+	{"key": "gems_tier1", "gems": 80},
+	{"key": "gems_tier2", "gems": 450},
+	{"key": "gems_tier3", "gems": 1000, "pop": true},
+	{"key": "gems_tier4", "gems": 2200},
+	{"key": "gems_tier5", "gems": 6000},
+	{"key": "gems_tier6", "gems": 13000},
 ]
 
 # The STARTER PACK (§10) — a ONE-TIME, high-value, low-price bundle surfaced to new
@@ -396,7 +400,7 @@ const CASH_PACKS := [
 # reads as an unmissable welcome deal; claimable exactly once (Save.starter_claimed). Grants
 # diamonds + a water top-up. Separate from the first-purchase doubler below — it is its own
 # one-time SKU and does NOT consume the doubler.
-const STARTER_PACK := {"usd": "$1.99", "gems": 400, "water": 60}
+const STARTER_PACK := {"key": "starter", "gems": 400, "water": 60}   # price: data/iap_products.json
 
 # The FIRST-PURCHASE DOUBLER (§10) — the FIRST ladder cash pack a player buys grants ×this
 # many diamonds, then never again (Save.first_purchase_made). A one-time conversion sweetener
@@ -427,7 +431,7 @@ const ADS := {
 # as "a little help," never a shakedown. The discount is the value: the same $0.99 entry price
 # buys a full refill PLUS gems (a refill alone is 25💎; this throws the can in on top). LIVE
 # behind the same confirm-stub as the cash packs.
-const OOW_OFFER := {"usd": "$0.99", "water": WATER_CAP, "gems": 30, "cap": 1, "cooldown": 43200}  # 1/day, 12 h apart
+const OOW_OFFER := {"key": "water_offer", "water": WATER_CAP, "gems": 30, "cap": 1, "cooldown": 43200}  # 1/day, 12 h apart; price: data/iap_products.json
 # §10/§18 RETURN SURFACES — the piggy bank (accrual vault) + the daily login calendar
 # (T44). The ENGINE logic (skim/crack · ladder/claim) lives in engine/scripts/core/
 # vault.gd + login.gd; these are the OWNER-TUNABLE numbers. Both reward the daily open
@@ -445,8 +449,9 @@ const OOW_OFFER := {"usd": "$0.99", "water": WATER_CAP, "gems": 30, "cap": 1, "c
 const VAULT_SKIM_NUM := 1                 # skim numerator …
 const VAULT_SKIM_DEN := 4                 # … / denominator = 25% of earned premium banked
 const VAULT_CLAIM_MIN := 30               # min banked 💎 before the jar may be cracked (an empty pig isn't sold)
-const VAULT_PRICE_USD := "$2.99"          # the ONE fixed crack price (mirrors the shop's entry cash tier; real IAP is external)
 const VAULT_CAP := 500                    # a generous ceiling so the jar art has a "full" state; the bank never exceeds it
+# The crack price ($2.99) + product id live in data/iap_products.json under "piggybank" (the IAP catalog
+# is the single source of truth for cost); core/vault.gd::price_usd() reads it from there.
 
 # The daily login calendar (§18): a repeating WEEK ladder (7 entries, days 1..7 in a
 # week) of small rewards, escalating in value, with bigger MILESTONES at absolute streak

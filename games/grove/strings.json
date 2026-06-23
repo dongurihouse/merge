@@ -119,6 +119,7 @@
 		"spinning": "Spinning…"
 	},
 	"oow": {
+		"charged_note": "You'll be charged %s.",
 		"disclosure": "(test build — nothing is charged)",
 		"maybe_later": "Maybe later",
 		"title": "A little help",
@@ -147,6 +148,7 @@
 		},
 		"confirm": {
 			"cancel": "Cancel",
+			"charged_note": "You'll be charged %s.",
 			"confirm": "Confirm",
 			"test_build_note": "(test build — nothing is charged)"
 		},
