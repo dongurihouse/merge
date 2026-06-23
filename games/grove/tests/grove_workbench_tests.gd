@@ -764,13 +764,21 @@ func _info_bar_frame_image_with_badge(badge: Dictionary) -> Image:
 func _info_bar_frame_image(shine: float) -> Image:
 	return _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": shine})
 
+func _map_open_frame_image(badge: Dictionary) -> Image:
+	var opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": badge})
+	var card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, opts, 460.0, 160.0)
+	var frame := card.find_child(Kit.MAP_FRAME_NODE, true, false)
+	var img := ((frame as NinePatchRect).texture as Texture2D).get_image() if frame is NinePatchRect else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	card.queue_free()
+	return img
+
 func _test_gold_badge_consumers(view) -> void:
 	var prev_dirty: Dictionary = view._dirty.duplicate()
 	view._dirty.clear()
 	view._selected = "gold_badge"
 	view._apply_edit()
-	ok(view._dirty.has("board") and view._dirty.has("info_bar"), \
-		"editing gold_badge queues the board frame and info bar to rebuild")
+	ok(view._dirty.has("board") and view._dirty.has("info_bar") and view._dirty.has("map_card"), \
+		"editing gold_badge queues the board frame, info bar, and map card to rebuild")
 	view._dirty = prev_dirty
 
 	var board_dull := _board_frame_image(0)
@@ -802,6 +810,30 @@ func _test_gold_badge_consumers(view) -> void:
 	var info_round := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
 	ok(_image_sparse_diff(info_boxy, info_round) > 20, \
 		"the info bar board uses the saved gold_badge corner")
+
+	# the MAP CARD's open frame is the SHARED gold-badge skin too: an open card wears the MapGoldFrame
+	# NinePatch (a locked card does not), the opts carry the shared badge + band knob, and the frame tracks
+	# the saved gold_badge corner + shine.
+	var map_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
+	ok(map_opts.has("badge") and map_opts.has("frame_inset"), \
+		"map_card opts carry the shared gold_badge skin plus the frame_inset band knob")
+	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, map_opts, 460.0, 160.0)
+	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
+	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
+		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
+	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) == null, \
+		"a LOCKED map card has NO gold frame")
+	open_card.queue_free()
+	locked_card.queue_free()
+
+	var map_boxy := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 28})
+	var map_round := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 92})
+	ok(_image_sparse_diff(map_boxy, map_round) > 20, \
+		"the map card's open frame uses the saved gold_badge corner")
+	var map_dull := _map_open_frame_image({"inner_inset": 11, "shine": 0, "corner": 58})
+	var map_bright := _map_open_frame_image({"inner_inset": 11, "shine": 160, "corner": 58})
+	ok(_image_sparse_diff(map_dull, map_bright) > 20, \
+		"the map card's open frame uses the saved gold_badge shine")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

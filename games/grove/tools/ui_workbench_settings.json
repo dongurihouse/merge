@@ -246,6 +246,7 @@
 		"card_h_frac": 31.0,
 		"card_w_frac": 97.0,
 		"edge_sparkle": 60.0,
+		"frame_inset": 6.0,
 		"pill_max": 290.0,
 		"pill_min": 170.0,
 		"pill_w_frac": 30.0,

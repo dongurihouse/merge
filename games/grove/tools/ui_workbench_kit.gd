@@ -33,40 +33,41 @@ static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> f
 # The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
 # the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
 # a LOCKED place is the dark baked panel (ui/map/card_locked.png) under an "after <prev>" line. Code-
-# drawn fallbacks (gold rim · meadow fill · §8 fog veil) keep the picker from blanking when an asset is
-# missing. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq) and
-# passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
-# tunes it and the game reads the SAME recipe — the single-source-of-truth pattern the currency pill uses.
-const MAP_CARD_ACTIVE := "map/card_active.png"     # unlocked card's glowing gold frame
+# drawn fallbacks (meadow fill · §8 fog veil) keep the picker from blanking when an asset is missing. The
+# GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq) and passes it in `d`;
+# every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench tunes it and the game
+# reads the SAME recipe — the single-source-of-truth pattern the currency pill uses. The OPEN card's frame
+# is the SHARED gold-badge skin (board/info-bar consistent); only the LOCKED panel + count pill stay baked.
 const MAP_CARD_LOCKED := "map/card_locked.png"     # locked card's dark baked panel (lock medallion baked in)
 const MAP_CARD_PILL := "map/pill_left.png"         # the cream count pill on an open card's lower edge
-const MAP_CARD_ASPECT := 1027.0 / 352.0            # card_active's aspect — cards size to it so the frame never distorts
+const MAP_CARD_ASPECT := 1027.0 / 352.0            # the place-card aspect — cards size to it so the frame never distorts
 const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
 const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
 const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
-# Draws the locale art COVER-fitted to fill the card, masked to the gold frame's EXACT silhouette so it
-# never leaks past the rounded corners. The mask (`_map_silhouette_tex`) is the frame flood-filled from its
-# borders, so the art shows only inside the gold body + the enclosed hole — never in the transparent corner
-# gaps, edge margin, or glow. Runs on a ColorRect whose UV spans the card [0,1], the same space as the
-# frame TextureRect, so the mask lines up 1:1. (The old shader rounded corners with a guessed radius — it
-# could never match the frame's real, sparkle-decorated corner, so the art leaked.) `art` is the locale
-# texture, `tex_px` drives the COVER crop over `rect_px`, `mask` is the frame silhouette.
-const MAP_ART_CLIP_SHADER := "shader_type canvas_item;
+const MAP_FRAME_NODE := "MapGoldFrame"             # the open card's shared gold-badge frame (tests assert it)
+# Draws the locale art COVER-fitted to fill the inner rect, clipped to a rounded rect so it tucks INSIDE the
+# shared gold-badge frame's inner corner (the frame is a filled 9-slice behind it; the art nests in its
+# border like the board grid in the board frame). `art` is the locale texture, `tex_px` drives the COVER
+# crop over `rect_px`, `radius_px` rounds the corners to match the frame's inner groove.
+const MAP_ART_FILL_SHADER := "shader_type canvas_item;
 uniform sampler2D art : filter_linear;
-uniform sampler2D mask : filter_linear;
 uniform vec2 tex_px = vec2(1.0);
 uniform vec2 rect_px = vec2(1.0);
+uniform float radius_px = 0.0;
 void fragment() {
 	float cover = max(rect_px.x / tex_px.x, rect_px.y / tex_px.y);
-	vec2 disp = tex_px * cover;                 // art scaled to COVER the card
+	vec2 disp = tex_px * cover;                 // art scaled to COVER the inner rect
 	vec2 off = (disp - rect_px) * 0.5;          // centred crop
-	vec2 p = UV * rect_px;                       // pixel position within the card
+	vec2 p = UV * rect_px;                       // pixel position within the inner rect
 	vec4 col = texture(art, (p + off) / disp);   // COVER sample
-	col.a *= texture(mask, UV).a;                // clip to the gold frame's exact silhouette
+	vec2 hs = rect_px * 0.5;
+	float r = clamp(radius_px, 0.0, min(hs.x, hs.y));
+	vec2 q = abs(p - hs) - (hs - vec2(r));
+	float sd = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+	col.a *= clamp(0.5 - sd, 0.0, 1.0);          // rounded-rect clip with a 1px AA edge
 	COLOR = col;
 }"
-static var _map_art_clip: Shader
-static var _map_sil_tex: Texture2D = null         # cached gold-frame silhouette mask (flood-filled)
+static var _map_art_fill: Shader
 static var _map_meadow_tex: Texture2D = null      # cached 1x1 MEADOW texture for the art-less fallback
 
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
@@ -3988,35 +3989,44 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_card_locked(d, opts, card, card_w, card_h)
 	return card
 
-# An OPEN place: the locale art (or a meadow fallback) fills the hollow of the gold frame, drawn OVER it
-# so the frame's transparent centre lets the art show and its border frames it; the restore count rides a
-# pill on the lower edge.
+# An OPEN place: the SHARED gold-badge frame (the same procedural skin the board + info bar wear) fills the
+# card, and the locale art (or a meadow fallback) nests INSIDE its gold border — clipped to the frame's
+# inner rounded corner so it tucks under the rim like the board grid in the board frame. The restore count
+# rides a pill on the lower edge.
 static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	# The locale art FILLS THE CARD, masked to the gold frame's exact silhouette (see MAP_ART_CLIP_SHADER),
-	# so it nests under the gold border and never leaks past the rounded corners. A ColorRect carries the
-	# COVER-sample + mask shader; its UV spans the card, the same space as the frame, so the mask lines up.
-	var card_size := Vector2(card_w, card_h)
+	var badge_opts: Dictionary = opts.get("badge", {})
+	# the shared gold frame, filling the card as a 9-slice — corners native, edges stretch (board-consistent).
+	var cap := gold_badge_cap(badge_opts)
+	var frame := NinePatchRect.new()
+	frame.name = MAP_FRAME_NODE
+	frame.texture = gold_badge_style(badge_opts).texture
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.patch_margin_left = cap
+	frame.patch_margin_top = cap
+	frame.patch_margin_right = cap
+	frame.patch_margin_bottom = cap
+	frame.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(frame)
+	# the locale art nests INSIDE the gold border: inset by the band width, COVER-sampled + clipped to the
+	# frame's inner rounded corner (cap − band) so it never leaks past the rim.
+	var band := clampf(card_h * float(opts.get("frame_inset", 0.06)), 6.0, minf(card_w, card_h) * 0.45)
+	var inner := Vector2(maxf(2.0, card_w - band * 2.0), maxf(2.0, card_h - band * 2.0))
+	var radius := maxf(2.0, float(cap) - band)
 	var art_path := String(d.get("art", ""))
 	var fill_tex: Texture2D = load(art_path) if art_path != "" and ResourceLoader.exists(art_path) else _map_meadow_texture()
-	var t := ColorRect.new()
-	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	t.material = _map_art_material(fill_tex, card_size)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(t)
+	var art := ColorRect.new()
+	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	art.offset_left = band
+	art.offset_top = band
+	art.offset_right = -band
+	art.offset_bottom = -band
+	art.material = _map_art_material(fill_tex, inner, radius)
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(art)
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
-	# the gold frame OVER the art — card sized to its aspect, so a plain SCALE keeps the border crisp.
-	var frame_path := Look.kit(MAP_CARD_ACTIVE)
-	if bool(opts.get("use_art", true)) and ResourceLoader.exists(frame_path):
-		var fr := TextureRect.new()
-		fr.texture = load(frame_path)
-		fr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fr.stretch_mode = TextureRect.STRETCH_SCALE
-		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(fr)
-	else:
-		card.add_child(_map_code_border())
 	_map_count_pill(d, opts, card, card_w, card_h)
 	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
 	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
@@ -4219,20 +4229,6 @@ static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
 	ph.add_child(_map_place_mark(opts))
 	return ph
 
-# A code-drawn gold border, the fallback when card_active.png is absent (so an open card still reads as
-# framed). A borderless rounded panel that draws only the rim — mouse-ignored, self-sizing.
-static func _map_code_border() -> Control:
-	var pnl := Panel.new()
-	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0, 0, 0, 0)
-	ps.set_corner_radius_all(22)
-	ps.set_border_width_all(5)
-	ps.border_color = Pal.STRAW
-	pnl.add_theme_stylebox_override("panel", ps)
-	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return pnl
-
 # The fog veil for a LOCKED map card (§8): a translucent ink scrim + a gradient that pools fog at the
 # bottom + a faint ✿ ghost. Overlays exactly `thumb` (full-rect child), named MAP_VEIL_NODE so a test can
 # assert it. ART SEAM: map/veil_<id>.png (per-map) or map/veil.png (generic) REPLACES the code fog.
@@ -4292,78 +4288,20 @@ static func _map_veil(thumb: Control, map_id: String, opts: Dictionary) -> void:
 	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	veil.add_child(ghost)
 
-# Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to the gold frame's
-# exact silhouette mask. See MAP_ART_CLIP_SHADER.
-static func _map_art_material(tex: Texture2D, rect_size: Vector2) -> ShaderMaterial:
-	if _map_art_clip == null:
-		_map_art_clip = Shader.new()
-		_map_art_clip.code = MAP_ART_CLIP_SHADER
+# Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to a rounded rect
+# (radius `corner_px`) so the locale art tucks inside the shared gold frame's inner corner. See
+# MAP_ART_FILL_SHADER.
+static func _map_art_material(tex: Texture2D, rect_size: Vector2, corner_px: float) -> ShaderMaterial:
+	if _map_art_fill == null:
+		_map_art_fill = Shader.new()
+		_map_art_fill.code = MAP_ART_FILL_SHADER
 	var mat := ShaderMaterial.new()
-	mat.shader = _map_art_clip
+	mat.shader = _map_art_fill
 	mat.set_shader_parameter("art", tex)
 	mat.set_shader_parameter("tex_px", tex.get_size())
 	mat.set_shader_parameter("rect_px", rect_size)
-	mat.set_shader_parameter("mask", _map_silhouette_tex())
+	mat.set_shader_parameter("radius_px", corner_px)
 	return mat
-
-# The gold frame's silhouette as an alpha mask: 1 inside the frame body + its enclosed hole, 0 in the
-# transparent corner gaps / edge margin / glow. Computed by flood-filling the frame's TRANSPARENT pixels
-# inward from the 4 borders (so the enclosed centre hole stays "inside"). Built on a DOWN-SCALED copy so
-# the flood-fill is cheap (no first-open freeze); the mask is linear-filtered, so it upsamples smoothly to
-# the card. Cached — built once.
-static func _map_silhouette_tex() -> Texture2D:
-	if _map_sil_tex != null:
-		return _map_sil_tex
-	var ft: Texture2D = load(Look.kit(MAP_CARD_ACTIVE))
-	if ft == null:
-		return null
-	var img := ft.get_image()
-	img.convert(Image.FORMAT_RGBA8)
-	var sw := 256                                       # downsample width — plenty for a soft clip mask
-	img.resize(sw, maxi(1, int(round(sw * float(img.get_height()) / float(img.get_width())))), Image.INTERPOLATE_BILINEAR)
-	var w := img.get_width()
-	var h := img.get_height()
-	var n := w * h
-	# 1 = opaque (alpha >= 0.5), 0 = transparent
-	var opaque := PackedByteArray()
-	opaque.resize(n)
-	for y in h:
-		for x in w:
-			opaque[y * w + x] = 1 if img.get_pixel(x, y).a >= 0.5 else 0
-	# flood-fill "outside" = transparent pixels reachable from the border
-	var outside := PackedByteArray()
-	outside.resize(n)
-	var stack := PackedInt32Array()
-	for x in w:
-		if opaque[x] == 0: outside[x] = 1; stack.push_back(x)
-		var b := (h - 1) * w + x
-		if opaque[b] == 0 and outside[b] == 0: outside[b] = 1; stack.push_back(b)
-	for y in h:
-		var l := y * w
-		if opaque[l] == 0 and outside[l] == 0: outside[l] = 1; stack.push_back(l)
-		var r := y * w + (w - 1)
-		if opaque[r] == 0 and outside[r] == 0: outside[r] = 1; stack.push_back(r)
-	while stack.size() > 0:
-		var i := stack[stack.size() - 1]
-		stack.remove_at(stack.size() - 1)
-		var x := i % w
-		var y := i / w
-		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var nx := x + int(d.x)
-			var ny := y + int(d.y)
-			if nx < 0 or nx >= w or ny < 0 or ny >= h:
-				continue
-			var j := ny * w + nx
-			if outside[j] == 0 and opaque[j] == 0:
-				outside[j] = 1
-				stack.push_back(j)
-	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	for y in h:
-		for x in w:
-			var inside: bool = outside[y * w + x] == 0
-			mask.set_pixel(x, y, Color(1, 1, 1, 1.0 if inside else 0.0))
-	_map_sil_tex = ImageTexture.create_from_image(mask)
-	return _map_sil_tex
 
 # A cached 1x1 MEADOW-colour texture — the COVER-sampled fill for an open card whose locale art is absent.
 static func _map_meadow_texture() -> Texture2D:
@@ -4382,6 +4320,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
+		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin the open card's frame wears (board/info-bar consistent)
+		"frame_inset":     float(c.get("frame_inset", 6)) / 100.0,     # the open card's gold band width (% of card height) — how far the art insets inside the frame
 		"card_w_frac":     float(c.get("card_w_frac", 96)) / 100.0,     # card width  as a % of the screen width (smaller = wider side margins)
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
