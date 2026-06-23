@@ -482,6 +482,32 @@ static func welcome_resident(z: int, type_id: String) -> Dictionary:
 	var events := grant_resident(z, type_id)
 	return {"ok": true, "events": events}
 
+## Grant map z's one-time unlock gift if still unclaimed: coins + diamonds + the free signature spirit.
+## Sets the per-map `task_reward` flag so it pays exactly once (shared with the legacy completion gift).
+## Returns the granted reward {coins, gems, spirit, events} on the first claim, or {} if already claimed
+## (so the scene knows whether to show the celebration dialog). Pure model; no FX, no UI.
+static func claim_unlock_reward(z: int) -> Dictionary:
+	var g := Save.grove()
+	var claimed: Dictionary = g.get("task_reward", {})
+	var key := String(MAPS[z].id)
+	if claimed.has(key):
+		return {}
+	claimed[key] = true
+	g["task_reward"] = claimed
+	Save.grove_write()
+	var rew: Dictionary = D.map_unlock_reward(z)
+	var coins := int(rew.get("coins", 0))
+	var gems := int(rew.get("gems", 0))
+	var spirit := String(rew.get("spirit", ""))
+	if coins > 0:
+		Save.add_coins(coins)
+	if gems > 0:
+		Save.add_diamonds(gems)
+	var events: Array = []
+	if spirit != "":
+		events = grant_resident(z, spirit)
+	return {"coins": coins, "gems": gems, "spirit": spirit, "events": events}
+
 static func map_for_spots(i: int) -> int:
 	var acc := 0
 	for z in MAPS.size():

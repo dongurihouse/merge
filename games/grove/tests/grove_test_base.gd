@@ -304,6 +304,23 @@ func _test_unlock_rewards() -> void:
 	ok(bool(wr.ok) and Save.coins() == wc_before - G.RESIDENT_BASE_COST, "welcome_resident still debits the cost")
 	ok(Save.resident_counts(mid, gid)[0] == 1, "welcome_resident still lands a t1")
 
+	# claim_unlock_reward grants coins + gems + the free spirit ONCE per map; a second claim is a no-op.
+	fresh("claim_unlock_once")
+	var cz := 1                                       # map 1 (Orchard): 200 coins, 3 gems, signature "bee"
+	var cmid := String(G.MAPS[cz].id)
+	var coins0 := Save.coins()
+	var gems0 := Save.diamonds()
+	var got: Dictionary = G.claim_unlock_reward(cz)
+	ok(int(got.coins) == 200 and int(got.gems) == 3, "first claim returns the scaled reward (200c / 3g)")
+	ok(Save.coins() == coins0 + 200, "coins credited")
+	ok(Save.diamonds() == gems0 + 3, "diamonds credited")
+	ok(Save.resident_counts(cmid, String(got.spirit))[0] == 1, "the free signature spirit lands in the roster")
+	var coins1 := Save.coins()
+	var gems1 := Save.diamonds()
+	var again: Dictionary = G.claim_unlock_reward(cz)
+	ok(again.is_empty(), "a second claim returns {} (already claimed)")
+	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
+
 # §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
 # completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
 # (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.
