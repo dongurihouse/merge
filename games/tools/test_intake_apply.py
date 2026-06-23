@@ -59,6 +59,21 @@ class ArgTests(unittest.TestCase):
         self.assertEqual(ia.icon_args("/in.png", "/out.png", {"size": [300, 400]}),
                          ["/in.png", "/out.png", "300", "400"])
 
+    def test_icon_args_bottom_anchor_flag(self):
+        self.assertEqual(
+            ia.icon_args("/in.png", "/out.png", {"size": 512, "anchor": "bottom"}),
+            ["/in.png", "/out.png", "512", "--bottom"])
+
+    def test_icon_args_wh_bottom_anchor_flag(self):
+        self.assertEqual(
+            ia.icon_args("/in.png", "/out.png", {"size": [300, 400], "anchor": "bottom"}),
+            ["/in.png", "/out.png", "300", "400", "--bottom"])
+
+    def test_icon_args_center_anchor_omits_flag(self):
+        self.assertEqual(
+            ia.icon_args("/in.png", "/out.png", {"size": 512, "anchor": "center"}),
+            ["/in.png", "/out.png", "512"])
+
     def test_decor_args_opaque_canvas(self):
         self.assertEqual(
             ia.decor_args("/in.png", "/out.png", {"w": 1024, "h": 1280, "opaque": True}),
@@ -94,6 +109,22 @@ class ArgTests(unittest.TestCase):
     def test_parse_post_unknown_rejected(self):
         with self.assertRaises(ia.PlanError):
             ia.parse_post("blur:3")
+
+    def test_parse_post_icon_size_bottom(self):
+        self.assertEqual(ia.parse_post("icon:512:bottom"),
+                         {"size": 512, "anchor": "bottom"})
+
+    def test_parse_post_icon_wh_bottom(self):
+        self.assertEqual(ia.parse_post("icon:300x400:bottom"),
+                         {"size": [300, 400], "anchor": "bottom"})
+
+    def test_parse_post_icon_bottom_no_size(self):
+        # 'icon::bottom' = clean to default size, bottom-anchored.
+        self.assertEqual(ia.parse_post("icon::bottom"), {"anchor": "bottom"})
+
+    def test_parse_post_unknown_anchor_rejected(self):
+        with self.assertRaises(ia.PlanError):
+            ia.parse_post("icon:512:top")
 
     def test_matte_bright_uses_cutout_bg(self):
         tool, args = ia.matte_tool_and_args("/k.png", {"min_area": 800})
