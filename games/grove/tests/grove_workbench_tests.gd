@@ -81,6 +81,18 @@ func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
 	return n.get_instance_id() if n != null else 0
 
+func _gallery_neighbors(a: String, b: String) -> bool:
+	for col in View.COLUMNS:
+		var flat := []
+		for row in col:
+			for id in row:
+				flat.append(String(id))
+		var ia := flat.find(a)
+		var ib := flat.find(b)
+		if ia >= 0 and ib >= 0 and abs(ia - ib) == 1:
+			return true
+	return false
+
 func _initialize() -> void:
 	print("== Workbench selective-rebuild tests ==")
 	var view: Control = View.new()
@@ -138,6 +150,8 @@ func _initialize() -> void:
 	ok(gb is Control and gb.custom_minimum_size == Vector2(270, 270), "gold_badge builds at the requested size")
 	ok(gb.find_children("*", "TextureRect", true, false).size() == 1, "gold_badge exposes one generated texture rect")
 	ok(view._sections.has("gold_currency_pill"), "the gold currency pill is a separate registered gallery item")
+	ok(_gallery_neighbors("currency_pill", "gold_currency_pill"), \
+		"gold_currency_pill sits next to the existing currency_pill component")
 	var gcp := Kit.gold_currency_pill({
 		"icon": "water", "count": 2450, "plus_x": 0, "plus_y": 0,
 		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
