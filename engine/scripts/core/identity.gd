@@ -22,9 +22,11 @@ const GC_CLASS := "GameCenterManager"
 static var _gc: Object = null                       # the live GameCenterManager (kept so signals survive)
 static var _id := ""
 
-## True only on an iOS build that actually bundles the plugin — the gate for every native touch.
+## True only on an iOS build that actually bundles the plugin — the gate for every native touch. The
+## plugin's macOS frameworks (bundled so its GDExtension loads cleanly in the desktop editor) register
+## `GameCenterManager` on the dev Mac too; the `ios` feature check keeps this iPad-only game inert there.
 static func available() -> bool:
-	return ClassDB.class_exists(GC_CLASS)
+	return ClassDB.class_exists(GC_CLASS) and OS.has_feature("ios")
 
 ## The verified Game Center player id, or "" when unknown (→ broadcast). Falls back to the id cached in
 ## the save, so the header is present immediately on relaunch, before re-auth completes.
