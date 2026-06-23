@@ -144,6 +144,70 @@ func _initialize() -> void:
 	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "broke refusal leaves no level and no coin debt")
 	sbc.queue_free()
 
+	# 11d. The SHARED upgrade seam G.try_upgrade_burst() — the single buy path the info-bar chip
+	# (board) and the water-shop card (shop) both call (T54). Spends the ladder cost, bumps the
+	# global burst_lvl, persists, and refuses cleanly when broke or maxed — no scene needed.
+	fresh("burst_seam")
+	ok(G.burst_level() == 0, "seam: fresh burst_lvl is 0")
+	ok(not G.try_upgrade_burst(), "seam: broke → refuses (no coins)")
+	ok(G.burst_level() == 0 and Save.coins() == 0, "seam: broke refusal leaves no level, no debt")
+	Save.add_coins(10000)
+	var seam_c0 := Save.coins()
+	ok(G.try_upgrade_burst(), "seam: buys with coins")
+	ok(Save.coins() == seam_c0 - G.burst_upgrade_cost(0), "seam: spends the ladder cost")
+	ok(G.burst_level() == 1, "seam: raises the global burst_lvl (persisted)")
+	while G.burst_level() < G.burst_upgrade_max():
+		G.try_upgrade_burst()
+	var maxed_coins := Save.coins()
+	ok(not G.try_upgrade_burst(), "seam: caps → refuses past the max level")
+	ok(Save.coins() == maxed_coins, "seam: maxed refusal leaves no coin debt")
+
+	# 11e. The INFO-BAR burst chip (T54): a generator tap selects it into the bar and shows the buy chip
+	# in the slot the sell button leaves empty; tapping buys the next level; broke refuses; a plain item
+	# hides the chip; maxed hides it (the buy affordance disappears). (Here, not grove_ui — that disabled
+	# suite crashes earlier on a pre-existing map error before reaching this.)
+	fresh("burst_chip")
+	var sbu = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbu)
+	if sbu.board == null:
+		sbu._ready()
+	await create_timer(0.02).timeout
+	ok(not sbu.board.gens.is_empty(), "the fresh board has a generator")
+	var bgcell: Vector2i = sbu.board.gens.keys()[0]
+	Save.spend(Save.coins())                                   # drain to broke
+	# the REAL user path: a still-tap on the generator pops it AND surfaces the chip in the info bar.
+	Save.grove()["pops"] = 30                                  # past the FTUE so the tap is a normal pop
+	var ghalf: Vector2 = Vector2(sbu.csz, sbu.csz) / 2.0
+	sbu._on_press(sbu._cell_pos(bgcell) + ghalf)
+	sbu._on_release(sbu._cell_pos(bgcell) + ghalf)
+	await create_timer(0.05).timeout
+	ok(sbu._selected_cell == bgcell and sbu._info_burst.visible, "a still-tap on the generator surfaces the burst chip")
+	sbu._select_generator(bgcell)
+	ok(sbu._selected_cell == bgcell, "selecting a generator fills the info bar")
+	ok(sbu._info_burst.visible, "the burst chip shows for a generator with a level left to buy")
+	ok(not sbu._info_trash.visible, "the sell button is hidden for a generator")
+	sbu._on_burst_chip()
+	ok(sbu._gen_burst_level() == 0 and Save.coins() == 0, "broke: tapping the chip buys nothing, no debt")
+	Save.add_coins(10000)
+	var bc0 := Save.coins()
+	sbu._select_generator(bgcell)                              # re-read affordability with coins
+	sbu._on_burst_chip()
+	ok(sbu._gen_burst_level() == 1, "afford: tapping the burst chip buys the next level")
+	ok(Save.coins() == bc0 - G.burst_upgrade_cost(0), "...and spends the ladder cost")
+	var bicell := Vector2i(-1, -1)
+	for bcc in sbu.board.empty_ground_cells():
+		bicell = bcc
+		break
+	if bicell.x >= 0:
+		sbu.board.place(bicell, 101)
+		sbu._select_item(bicell)
+		ok(not sbu._info_burst.visible, "selecting a plain item hides the burst chip")
+	while sbu._gen_burst_level() < G.burst_upgrade_max():
+		sbu._upgrade_gen_burst()
+	sbu._select_generator(bgcell)
+	ok(not sbu._info_burst.visible, "maxed: the burst chip hides — nothing left to buy")
+	sbu.queue_free()
+
 	# 12. win-back: away 3 days with low water → full cap on return
 	fresh("winback")
 	var gw := Save.grove()

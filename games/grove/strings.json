@@ -12,6 +12,7 @@
 		},
 		"feedback": {
 			"bag_plus_one": "Bag +1!",
+			"bigger_bursts": "Bigger bursts!",
 			"cleared": "Cleared!",
 			"ready_to_restore": "Ready to restore!",
 			"stored": "Stored!",
@@ -22,7 +23,10 @@
 			"sell_spares": "the merchant buys spares — drag it to his stall"
 		},
 		"info": {
+			"burst_label": "Boost",
+			"burst_need": "Need more coins",
 			"empty_prompt": "Tap an item to inspect it",
+			"generator": "Generator",
 			"item_fallback": "Item",
 			"tier": "Tier"
 		},
@@ -135,6 +139,15 @@
 		"title": "Settings"
 	},
 	"shop": {
+		"burst": {
+			"bought": "Bigger bursts!",
+			"card": "Boost",
+			"info_note": "One upgrade boosts every generator, on every map.",
+			"info_row_label": "Burst",
+			"info_row_note": "each generator tap drops one more item",
+			"info_title": "Bigger bursts",
+			"label": "Bigger bursts"
+		},
 		"buy": {
 			"need_more": "Need %d more"
 		},

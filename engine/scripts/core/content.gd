@@ -384,6 +384,26 @@ static func burst_upgrade_cost(level: int) -> int:
 static func burst_upgrade_max() -> int:
 	return BURST_UPGRADE_COSTS.size()
 
+## The player's GLOBAL burst-upgrade level (one value sizes every generator's burst, every map),
+## persisted in the grove blob. 0 = unbought.
+static func burst_level() -> int:
+	return int(Save.grove().get("burst_lvl", 0))
+
+## The single buy path for the burst-upgrade coin sink — called by BOTH surfaces (T54): the board
+## info-bar chip (`_upgrade_gen_burst` delegates here) and the water-shop card. Spends the next
+## ladder cost, raises burst_lvl by one, and persists. Returns false (no spend, no level) when
+## already maxed or broke — the callers own the refusal feedback.
+static func try_upgrade_burst() -> bool:
+	var lvl := burst_level()
+	var cost := burst_upgrade_cost(lvl)
+	if cost < 0:
+		return false                          # already at the max burst-upgrade level
+	if not Save.spend(cost, "burst_upgrade"):
+		return false                          # not enough coins
+	Save.grove()["burst_lvl"] = lvl + 1
+	Save.grove_write()
+	return true
+
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
 # into one a tier up (cascading). The roster is persisted (Save.residents…); the ambient

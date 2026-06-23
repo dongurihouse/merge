@@ -66,11 +66,12 @@ func _initialize() -> void:
 	var want_coin := 1 + Shop.offers_for("coins").size()
 	ok(rows_coin == want_coin, \
 		"coin stall = the Coin pouch + coin shortcuts, no ladder (%d == %d)" % [rows_coin, want_coin])
-	# the water stall: the single Fill-water card, and ONLY when the host can grant water.
+	# the water stall: the burst-upgrade card is always offered (T54); the Fill-water card adds on when
+	# the host can grant water. (burst_lvl is 0 on this fresh save, so the burst card is present.)
 	Shop.open_water(s7, {})
-	ok(_shop_rows(s7) == 0, "the water stall is empty without a water_grant")
+	ok(_shop_rows(s7) == 1, "without a water_grant the water stall still offers the burst-upgrade card")
 	Shop.open_water(s7, {"water_grant": func() -> void: pass})
-	ok(_shop_rows(s7) == 1, "the water stall = the single Fill-water card with a water_grant")
+	ok(_shop_rows(s7) == 2, "the water stall = Fill-water + the burst-upgrade card with a water_grant")
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()
@@ -546,6 +547,8 @@ func _initialize() -> void:
 		collect.emit_signal("pressed")
 	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
 	lp_host.queue_free()
+	# (T54 — the info-bar burst-chip board test lives in grove_economy_tests, which runs to completion;
+	#  this suite crashes earlier on a pre-existing map `_unlock_btn` error before it could be reached.)
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget
