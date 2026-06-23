@@ -142,6 +142,7 @@ func _initialize() -> void:
 	_test_gold_badge_shared_shadow_toggle(view)
 	_test_gold_badge_inner_inset(view)
 	_test_gold_badge_shine(view)
+	_test_gold_badge_consumers(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
@@ -211,13 +212,14 @@ func _test_new_knobs(view) -> void:
 		"the home-button preview shows the sample bag count inside the disc")
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
-	# and are SAVED config; `filled` is preview-only. Its frame borrows the shared currency-pill capsule.
+	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
+	# the shared currency-pill padding as its content margin.
 	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
 	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
 		"info_bar reads name_font / sep / sell_font / sell_icon")
-	ok(ib.has("pill"), "info_bar borrows the shared currency-pill frame opts")
+	ok(ib.has("pill") and ib.has("badge"), "info_bar reads currency-pill padding plus the shared gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
 	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon"), \
@@ -349,7 +351,7 @@ func _image_sparse_diff(a: Image, b: Image) -> int:
 
 func _test_gold_badge_inner_inset(view) -> void:
 	ok(view._params["gold_badge"].has("inner_inset"), "gold_badge exposes an inner_inset Workbench control")
-	ok("inner_inset" in View.TEST_KEYS["gold_badge"], "gold_badge inner_inset is test-only")
+	ok(view._is_config("gold_badge", "inner_inset"), "gold_badge inner_inset is saved design config")
 	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
 	view._params["gold_badge"]["px"] = 270
 	view._params["gold_badge"]["inner_inset"] = 6
@@ -361,7 +363,7 @@ func _test_gold_badge_inner_inset(view) -> void:
 
 func _test_gold_badge_shine(view) -> void:
 	ok(view._params["gold_badge"].has("shine"), "gold_badge exposes a shine Workbench control")
-	ok("shine" in View.TEST_KEYS["gold_badge"], "gold_badge shine is test-only")
+	ok(view._is_config("gold_badge", "shine"), "gold_badge shine is saved design config")
 	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
 	view._params["gold_badge"]["px"] = 270
 	view._params["gold_badge"]["inner_inset"] = 11
@@ -371,6 +373,47 @@ func _test_gold_badge_shine(view) -> void:
 	var bright := _gold_badge_preview_image(view)
 	ok(_image_sparse_diff(dull, bright) > 20, "gold_badge shine redraws the background highlight")
 	view._params["gold_badge"] = prev
+
+func _board_frame_image(shine: float) -> Image:
+	var opts := Kit.board_panel_opts_from_config({
+		"board": {"frame_style": "badge", "shadow": false},
+		"gold_badge": {"inner_inset": 11, "shine": shine},
+	})
+	var board := Kit.board_panel(Vector2(220, 160), opts)
+	var patches := board.find_children("*", "NinePatchRect", true, false)
+	var img := ((patches[0] as NinePatchRect).texture as Texture2D).get_image() if not patches.is_empty() else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	board.queue_free()
+	return img
+
+func _info_bar_frame_image(shine: float) -> Image:
+	var opts := Kit.info_bar_opts_from_config({
+		"info_bar": {},
+		"gold_badge": {"inner_inset": 11, "shine": shine},
+	})
+	var bar := Kit.info_bar({}, opts)
+	var sb := bar.get_theme_stylebox("panel")
+	var img := ((sb as StyleBoxTexture).texture as Texture2D).get_image() if sb is StyleBoxTexture else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	bar.queue_free()
+	return img
+
+func _test_gold_badge_consumers(view) -> void:
+	var prev_dirty: Dictionary = view._dirty.duplicate()
+	view._dirty.clear()
+	view._selected = "gold_badge"
+	view._apply_edit()
+	ok(view._dirty.has("board") and view._dirty.has("info_bar"), \
+		"editing gold_badge queues the board frame and info bar to rebuild")
+	view._dirty = prev_dirty
+
+	var board_dull := _board_frame_image(0)
+	var board_bright := _board_frame_image(160)
+	ok(_image_sparse_diff(board_dull, board_bright) > 20, \
+		"the board badge frame uses the saved gold_badge shine")
+
+	var info_dull := _info_bar_frame_image(0)
+	var info_bright := _info_bar_frame_image(160)
+	ok(_image_sparse_diff(info_dull, info_bright) > 20, \
+		"the info bar board uses the saved gold_badge shine")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

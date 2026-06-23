@@ -720,7 +720,10 @@ static func _square_icon(id: String) -> Texture2D:
 	return t
 
 ## Code-drawn port of docs/art/gold-rounded-badge.html: a warm cream rounded square with a single
-## outer rim, an inset 1px groove, and soft inset depth. Test-only today, exposed in the workbench.
+## outer rim, an inset 1px groove, and soft inset depth. The fixed preview and stretched board/info
+## frames share the same generated texture path, so saved Workbench tuning lands everywhere.
+const GOLD_BADGE_BASE_SIZE := 270
+const GOLD_BADGE_CAP := 58
 static var _gold_badge_cache: Dictionary = {}
 static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0) -> Control:
 	var size := maxi(32, int(round(px)))
@@ -745,11 +748,29 @@ static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: 
 	root.add_child(tr)
 	return root
 
-static func _gold_badge_texture(size: int, groove_inset: float, shine: float) -> Texture2D:
-	var cache_key := "%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0))]
+static func gold_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var g: Dictionary = cfg.get("gold_badge", {}) if cfg is Dictionary else {}
+	return {
+		"inner_inset": float(g.get("inner_inset", 11.0)),
+		"shine": float(g.get("shine", 100.0)),
+	}
+
+static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
+	var size := GOLD_BADGE_BASE_SIZE
+	var inset := clampf(float(opts.get("inner_inset", 11.0)), 2.0, size * 0.18)
+	var shine := clampf(float(opts.get("shine", 100.0)) / 100.0, 0.0, 2.0)
+	var sb := StyleBoxTexture.new()
+	sb.texture = _gold_badge_texture(size, inset, shine, 0)
+	sb.set_texture_margin_all(GOLD_BADGE_CAP)
+	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	return sb
+
+static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1) -> Texture2D:
+	var pad := int(ceil(size * 0.075)) if pad_override < 0 else maxi(0, pad_override)
+	var cache_key := "%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad]
 	if _gold_badge_cache.has(cache_key):
 		return _gold_badge_cache[cache_key]
-	var pad := int(ceil(size * 0.075))
 	var tex_size := size + pad * 2
 	var img := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
 	var outer_radius := size * 0.215
@@ -3145,17 +3166,14 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
-## piece + name · sell cart). Only the LAYOUT persists; the FRAME is the SHARED currency-pill capsule
-## (so the bottom bar and the top wallet read as one language, and an absent info_bar block is unchanged).
+## piece + name · sell cart). The LAYOUT persists here; the FRAME comes from the shared code-drawn
+## gold badge block, with the currency-pill padding retained as the content margin.
 ## inner_scale / sell_icon are stored 0..100 and divided here to the 0..1 fractions of the bar height.
 static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
-	# the info bar borrows the wallet's frame opts, but FORCES the 9-sliced rounded-rect badge: this bar runs
-	# wide, so the wallet's whole-scaled capsule would stretch its rounded ends into a thick, distorted border.
-	# "grove square" is the smaller row-2 square from ui_asset2; it keeps the info bar in the same
-	# warm badge language without borrowing the larger rail/Map badge's oversized corners.
+	# The content margins still borrow the wallet's padding numbers, but the visible board now comes from the
+	# saved gold_badge style so the board frame and info bar can be tuned together.
 	var pill: Dictionary = currency_pill_opts_from_config(cfg)
-	pill["border"] = "grove square"
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
@@ -3163,7 +3181,8 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
 		"sell_font":   int(i.get("sell_font", 30)),                 # the sell button's payout font
 		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the cart icon as % of the bar height
-		"pill":        pill,                                        # the SHARED frame opts, 9-sliced badge for this wide bar
+		"pill":        pill,                                        # shared padding/margin opts retained for content spacing
+		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -3265,14 +3284,14 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 ## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [sell cart] -------------------------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
 ## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button (cart icon + payout).
-## The FRAME is the shared currency-pill capsule, so the bottom bar and the top wallet read as one language.
+## The FRAME is the shared gold badge skin, so the board border and bottom bar read as one surface.
 ## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
 ## font · separation · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
 ## empty/selected state by mutating the sub-nodes exposed via meta (info_btn / info_icon / name_label /
 ## sell_btn / inner_px), so the board's selection logic is unchanged.
 ##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
-##     sell_font · sell_icon (0..1) · pill (the currency-pill opts for the borrowed capsule frame).
+##     sell_font · sell_icon (0..1) · badge (the shared gold badge frame opts) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var height := float(opts.get("height", 130.0))
 	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ + piece box scale with the bar
@@ -3280,10 +3299,14 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pill.custom_minimum_size.y = height
-	# The info bar wears the PAINTED badge (badge_rect, 9-sliced) — the SAME sprite the Bag/Home wells use, so
-	# the bottom bar reads as one language. The 9-slice keeps the border at its NATIVE (thin) thickness however
-	# wide the bar grows: the rounded corners draw 1:1 and only the flat cream middle stretches.
-	pill.add_theme_stylebox_override("panel", currency_pill_style(opts.get("pill", {})))
+	var frame := gold_badge_style(opts.get("badge", {}))
+	var pad: Dictionary = opts.get("pill", {})
+	var pad_x := float(pad.get("pad_x", 18.0))
+	frame.content_margin_left = float(pad.get("pad_left", pad_x))
+	frame.content_margin_right = pad_x
+	frame.content_margin_top = float(pad.get("pad_y", 12.0))
+	frame.content_margin_bottom = float(pad.get("pad_y", 12.0))
+	pill.add_theme_stylebox_override("panel", frame)
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3445,13 +3468,11 @@ static func _plus_token(box: float = 26.0) -> Control:
 ## --- the BOARD PANEL: the rounded frame the cells sit on ---------------------------------------------
 ## ONE builder shared by the live board (board.gd _make_board_mat) AND the workbench preview, so they read
 ## 1:1 (the workbench shows the ACTUAL border). Two styles, chosen by board.frame_style:
-##   "badge" (default) — the painted shared/badge_rect.png, 9-sliced so the border stays its native thin
-##                       thickness however the board stretches; plus a soft drop shadow under the whole board.
+##   "badge" (default) — the shared code-drawn gold badge, 9-sliced so the border stays thin however the
+##                       board stretches; plus a soft drop shadow under the whole board.
 ##   "code"  — a code-drawn rounded-rect for tuning a depth effect: cream fill, an outer border (border_w),
 ##             an optional inner hairline (inner_w = "the border of the border"), and a top inset shadow for
 ##             depth (top_shadow). The under-board drop shadow is the SHARED box-shadow (the `shadow` toggle).
-const BOARD_BADGE := "shared/badge_rect.png"
-const BOARD_BADGE_CAP := 46
 
 ## opts (board.* config): frame_style · corner · border_w · inner_w · top_shadow (0..100) · shadow (bool) + shadow_params.
 static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
@@ -3459,7 +3480,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 	root.custom_minimum_size = size
 	root.size = size
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var corner := int(opts.get("corner", BOARD_BADGE_CAP))
+	var corner := int(opts.get("corner", GOLD_BADGE_CAP))
 	# the soft drop shadow under the WHOLE board (both styles) — the SHARED box-shadow, a sibling drawn BEHIND
 	# (show_behind_parent) so it bleeds past the edge. NinePatchRect has no native shadow. On via the toggle.
 	if bool(opts.get("shadow", false)):
@@ -3517,31 +3538,33 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 			inner.add_theme_stylebox_override("panel", isb)
 			root.add_child(inner)
 	else:
-		# the painted badge (default): the SAME sprite the Bag/Home wells wear, 9-sliced.
-		var fp := Look.kit(BOARD_BADGE)
-		if ResourceLoader.exists(fp):
-			var np := NinePatchRect.new()
-			np.texture = load(fp)
-			np.set_anchors_preset(Control.PRESET_FULL_RECT)
-			np.patch_margin_left = BOARD_BADGE_CAP
-			np.patch_margin_top = BOARD_BADGE_CAP
-			np.patch_margin_right = BOARD_BADGE_CAP
-			np.patch_margin_bottom = BOARD_BADGE_CAP
-			np.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			root.add_child(np)
+		var frame := gold_badge_style(opts.get("badge", {}))
+		var np := NinePatchRect.new()
+		np.texture = frame.texture
+		np.set_anchors_preset(Control.PRESET_FULL_RECT)
+		np.patch_margin_left = GOLD_BADGE_CAP
+		np.patch_margin_top = GOLD_BADGE_CAP
+		np.patch_margin_right = GOLD_BADGE_CAP
+		np.patch_margin_bottom = GOLD_BADGE_CAP
+		np.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		np.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(np)
 	return root
 
-## The board-panel frame opts from a saved config — the frame style + its code-drawn depth knobs.
+## The board-panel frame opts from a saved config — the frame style, its code-drawn depth knobs, and the
+## shared gold_badge style used by the default badge frame.
 static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	return {
-		"frame_style": String(b.get("frame_style", "badge")),   # "badge" (painted) | "code" (code-drawn)
-		"corner":      int(b.get("frame_corner", BOARD_BADGE_CAP)),
+		"frame_style": String(b.get("frame_style", "badge")),   # "badge" (gold_badge) | "code" (code-drawn)
+		"corner":      int(b.get("frame_corner", GOLD_BADGE_CAP)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
 		"top_shadow":  float(b.get("frame_top_shadow", 0)),      # code: top inset shadow depth (0..100) — a border highlight, NOT the drop shadow
 		"shadow":      bool(b.get("shadow", true)),              # cast the SHARED box-shadow under the board (on by default)
 		"shadow_params": Look.shadow_params(cfg),                # the single shared shadow look
+		"badge":       gold_badge_opts_from_config(cfg),          # shared code-drawn badge skin for board/info
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------

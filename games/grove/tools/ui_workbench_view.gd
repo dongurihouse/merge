@@ -46,9 +46,10 @@ const DEPENDENTS := {
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"badge": ["home_button"],
+	"gold_badge": ["board", "info_bar"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
-	"currency_pill": ["bag", "info_bar"],   # the info bar borrows the pill's capsule frame
+	"currency_pill": ["bag", "info_bar"],   # the info bar still borrows the pill padding for content margins
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -77,7 +78,7 @@ const TEST_KEYS := {
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
-	"gold_badge": ["px", "inner_inset", "shine"],   # test-only CSS-port preview size + background shine
+	"gold_badge": ["px"],                    # px is preview-only; inset + shine are saved and shared by board/info
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
@@ -90,7 +91,7 @@ const TEST_KEYS := {
 	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
 	"currency_pill": ["star", "coin", "gem"],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
-	# the FRAME is the shared currency-pill capsule (tune it on that element). `filled` just previews the
+	# the FRAME is the shared gold badge skin; currency_pill padding still controls its content margin. `filled` previews the
 	# selected-vs-empty state (the game fills it from the tapped board item).
 	"info_bar": ["filled"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
@@ -149,7 +150,7 @@ var _params := {
 	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
 	# `item` = the piece sprite size as a % of its cell; gap/frame/cols/rows shape the grid. Preview only.
 	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true,
-		# the board FRAME (Kit.board_panel): "badge" = the painted rounded badge; "code" = a code-drawn depth
+		# the board FRAME (Kit.board_panel): "badge" = the shared gold badge skin; "code" = a code-drawn depth
 		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
 		"frame_style": "badge", "frame_corner": 46,
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
@@ -252,7 +253,7 @@ var _params := {
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
-	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
+	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 30, "sell_icon": 30, "filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
@@ -601,9 +602,9 @@ func _make_element(id: String) -> Control:
 			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
 		"info_bar":
 			# the board's bottom-bar info pill, built from the SAME kit component + resolver the game reads
-			# (so the preview is exactly the live bar). Pull in the currency_pill block too — the bar borrows
-			# its capsule frame, so a pill tweak shows here live. `filled` previews the selected-vs-empty state.
-			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"], "shadow": _params["shadow"]})
+			# (so the preview is exactly the live bar). Pull in the currency_pill block too — the bar keeps
+			# its padding as content margins. `filled` previews the selected-vs-empty state.
+			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
 			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
 			var inner := float(ib.get_meta("inner_px", 62.0))
 			if bool(p.get("filled", true)):
@@ -750,8 +751,8 @@ func _make_board_preview() -> Control:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	# the board frame + its drop shadow — the SHARED Kit.board_panel, the SAME builder the live board uses,
-	# so this preview shows the ACTUAL border (the painted badge, or the code-drawn depth border per the knobs).
-	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "shadow": _params["shadow"]})))
+	# so this preview shows the ACTUAL border (the gold badge skin, or the code-drawn depth border per the knobs).
+	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})))
 
 	# the empty wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style
 	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
@@ -1295,7 +1296,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 9]))
 			_sidebar_body.add_child(_slider_row(["rows", 1, 12]))
 			_section_header("Frame")
-			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # painted badge vs code-drawn
+			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # shared gold badge vs code-drawn
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
@@ -1382,10 +1383,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 		"gold_badge":
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
+			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["inner_inset", 4, 36]))
 			_sidebar_body.add_child(_slider_row(["shine", 0, 200]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
 		"progress_bar":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
@@ -1513,14 +1515,14 @@ func _rebuild_sidebar() -> void:
 			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
 			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
 		"info_bar":
-			_group_header("Saved to config", true)                         # layout only — the frame is the shared currency pill
+			_group_header("Saved to config", true)                         # layout only — the frame is tuned on Gold badge
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
 			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
 			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
 			_sidebar_body.add_child(_slider_row(["sell_font", 16, 40]))     # the sell button's payout font
 			_sidebar_body.add_child(_slider_row(["sell_icon", 15, 50]))     # the cart icon as % of the height
-			_group_header("Test only — not saved", false)                  # the frame is tuned on the Currency pill element
+			_group_header("Test only — not saved", false)                  # preview selected vs empty state
 			_sidebar_body.add_child(_toggle_row("Filled (vs empty)", "filled", true))   # preview the selected vs empty state
 		"toggle_card":
 			_group_header("Saved to config", true)

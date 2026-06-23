@@ -151,6 +151,11 @@
 		"sparkle_count": 5.0,
 		"sparkle_speed": 70.0
 	},
+	"gold_badge": {
+		"inner_inset": 11.0,
+		"shadow": true,
+		"shine": 100.0
+	},
 	"home_button": {
 		"badge_dot_px": 15.0,
 		"badge_dx": -4.0,
