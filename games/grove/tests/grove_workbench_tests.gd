@@ -466,6 +466,9 @@ func _test_new_knobs(view) -> void:
 		"the gold currency pill plus font can be adjusted larger")
 	ok(plus_panel != null and default_panel != null and plus_panel.custom_minimum_size.x > default_panel.custom_minimum_size.x, \
 		"the gold currency pill plus button size is controlled by plus_button")
+	var compact_pill := Kit.gold_currency_pill({"pill_h": 72, "pad_y": 12, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	ok(compact_pill.custom_minimum_size.y >= 78.0, \
+		"gold_currency_pill clamps height to fit content and vertical padding")
 
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.

@@ -855,6 +855,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var plus := _gold_currency_plus_button(opts, plus_action)
 	var plus_h := plus.custom_minimum_size.y if show_plus else 0.0
 	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus_h))
+	pill_h = maxf(pill_h, ceilf(content_h + pad_y * 2.0))
 
 	var panel := PanelContainer.new()
 	panel.name = "GoldCurrencyPill"
@@ -3313,6 +3314,9 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var icon_box := float(g.get("icon_box", 54.0))
 	var icon_size := float(g.get("icon_size", 34.0))
 	return {
+		# the capsule FRAME is the shared gold-badge skin — fold the tuned block in as `badge` so the HUD /
+		# bag / info bar paint the SAME skin the workbench preview injects (gc["badge"] = _params["gold_badge"]).
+		"badge": cfg.get("gold_badge", {}) if cfg is Dictionary else {},
 		"pill_w": float(g.get("pill_w", 292.0)),
 		"pill_h": float(g.get("pill_h", 100.0)),
 		"pad_left": float(g.get("pad_left", 18.0)),
