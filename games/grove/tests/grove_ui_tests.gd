@@ -430,7 +430,7 @@ func _initialize() -> void:
 	ok(int(dflt.num_size) == Hud.NUM_SIZE, "currency_pill default font == Tune.NUM_SIZE")
 	ok(is_equal_approx(float(dflt.icon_box), Hud.CHIP_ICON_BOX) and int(dflt.row_sep) == Hud.CHIP_ROW_SEP \
 		and int(dflt.pair_sep) == Hud.PAIR_SEP, "currency_pill default icon box / separations == Tune")
-	ok(int(dflt.shadow_size) == Hud.PILL_SHADOW_SIZE, "currency_pill default shadow size == Tune")
+	ok(bool(dflt.shadow) and float(dflt.shadow_params.blur) > 0.0, "currency_pill casts the shared shadow by default")
 	# a saved block overrides ONLY the named keys; every other key stays at its Tune default
 	var over: Dictionary = Kit.currency_pill_opts_from_config({"currency_pill": {"pad_x": 5, "num_size": 99}})
 	ok(is_equal_approx(float(over.pad_x), 5.0) and int(over.num_size) == 99, "currency_pill config overrides the named keys")

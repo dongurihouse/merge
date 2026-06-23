@@ -676,34 +676,72 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 	b.offset_bottom = b.offset_top + sz.y
 	return b
 
-## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It paints a soft shadow
-## that HUGS the element: the shadow's rounded-rect footprint is FILLED with the warm shadow tint (so there
-## is NO hollow gap between the element edge and the cast shadow) and a soft feather fades outward past it.
-## The shadow reaches an INDEPENDENT distance on each side: `top` / `bottom` / `left` / `right` (px) each grow
-## the FILLED rect outward by that much (expand_margin); `softness` is the shared feather (blur) past the fill.
-## The OPAQUE element art sits on top, hiding the fill beneath itself, so the shadow shows ONLY where it pokes
-## past the element — independently per side. A side set to 0 collapses to just the soft feather; raise it to
-## cast further that way. `corner` is the element's radius (big = capsule, clamps). NOTE: the footprint fill is
-## solid, so a TRANSLUCENT element (the workbench fill_alpha < 100 preview) lets it read through — shipped
-## badges are opaque, so in-game the fill is always hidden.
-static func drop_shadow(corner: float, top: float, bottom: float, left: float, right: float, softness: float, alpha: float, warmth: float = 0.82) -> Panel:
+## --- THE SHARED SHADOW — one box-shadow model for every UI element ------------------------------
+## A single drop-shadow Panel to place BEHIND an element (full-rect of the SAME holder). ONE model
+## drives every component (the workbench Shadow item is its only tuning surface): `offset_x` / `offset_y`
+## cast the shadow (px), `blur` softens it (px feather), `spread` grows it on all sides (px), `alpha`
+## (0..1) is opacity, `warmth` (0..1) tints warm-brown ↔ cool. Because the look is OFFSET-based (not
+## per-side reach tied to one element size) it carries naturally across element sizes. The footprint is
+## FILLED (draw_center) so there is no hollow gap, and the corner is grown WITH the spread so a circle
+## stays a circle / a rounded rect stays concentric. The opaque element sits on top, hiding the fill, so
+## only the cast that pokes past the element shows. NOTE: the fill is solid, so a TRANSLUCENT element
+## (the workbench fill_alpha < 100 preview) lets it read through — shipped elements are opaque.
+static func shadow(corner: float, offset_x: float, offset_y: float, blur: float, spread: float, alpha: float, warmth: float = 0.82) -> Panel:
 	var sh := Panel.new()
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var tint := warm_shadow_color(alpha, warmth)
 	var ssb := StyleBoxFlat.new()
-	ssb.draw_center = true                                   # FILL the footprint with the shadow tint — no hollow gap
-	ssb.bg_color = tint                                      # the grown rect (under the badge + the per-side reach band)
+	ssb.draw_center = true                                   # FILL the footprint — no hollow gap
+	ssb.bg_color = tint
 	ssb.shadow_color = tint                                  # the soft feather past the filled rect, same tint
-	ssb.shadow_size = int(maxf(softness, 0.0))              # the shared soft feather (blur radius)
-	ssb.shadow_offset = Vector2.ZERO                         # direction comes from per-side reach, not an offset
-	ssb.set_corner_radius_all(int(corner))
-	ssb.expand_margin_left = maxf(left, 0.0)                # per-side REACH: grow the filled rect outward
-	ssb.expand_margin_top = maxf(top, 0.0)
-	ssb.expand_margin_right = maxf(right, 0.0)
-	ssb.expand_margin_bottom = maxf(bottom, 0.0)
+	ssb.shadow_size = int(maxf(blur, 0.0))                  # blur = the soft feather radius
+	ssb.shadow_offset = Vector2(offset_x, offset_y)         # the cast direction + distance
+	ssb.set_corner_radius_all(int(maxf(corner + spread, 0.0)))   # grow the corner WITH the spread → shape stays concentric
+	ssb.set_expand_margin_all(spread)                       # spread grows (or, negative, shrinks) the filled rect on every side
 	sh.add_theme_stylebox_override("panel", ssb)
 	return sh
+
+## The shared shadow params from a saved config's single "shadow" block (box-shadow model). Defaults
+## reproduce the shipped look, so an absent block leaves every element unchanged. alpha / warmth are
+## stored 0..100 in config and returned as 0..1. The shadow_rect / shadow_circle builders consume this.
+static func shadow_params(cfg: Dictionary) -> Dictionary:
+	var s: Dictionary = cfg.get("shadow", {}) if cfg is Dictionary else {}
+	return {
+		"offset_x": float(s.get("offset_x", 0.0)),
+		"offset_y": float(s.get("offset_y", 4.0)),
+		"blur":     float(s.get("blur", 14.0)),
+		"spread":   float(s.get("spread", 4.0)),
+		"alpha":    clampf(float(s.get("alpha", 34.0)) / 100.0, 0.0, 1.0),
+		"warmth":   clampf(float(s.get("warmth", 82.0)) / 100.0, 0.0, 1.0),
+	}
+
+## A RECTANGULAR shared shadow behind an element of corner radius `corner`. `p` is shadow_params().
+static func shadow_rect(corner: float, p: Dictionary) -> Panel:
+	return shadow(corner, float(p.get("offset_x", 0.0)), float(p.get("offset_y", 4.0)), float(p.get("blur", 14.0)), float(p.get("spread", 4.0)), float(p.get("alpha", 0.34)), float(p.get("warmth", 0.82)))
+
+## A CIRCULAR shared shadow behind a round element of diameter `diameter` (corner = radius). `p` is shadow_params().
+static func shadow_circle(diameter: float, p: Dictionary) -> Panel:
+	return shadow(diameter / 2.0, float(p.get("offset_x", 0.0)), float(p.get("offset_y", 4.0)), float(p.get("blur", 14.0)), float(p.get("spread", 4.0)), float(p.get("alpha", 0.34)), float(p.get("warmth", 0.82)))
+
+## Wrap `node` in a holder that draws the shared shadow BEHIND it — for CONTAINER nodes (PanelContainer
+## etc.) that manage their own children, where a behind-parent child would fight the layout. `size` is the
+## element corner (rect) or diameter (circle). The holder hugs the node's size, so the parent layout still
+## reserves the node's size only. (Non-container Controls — Buttons, Panels — instead add the shadow Panel
+## as a `show_behind_parent` child directly, keeping their node identity.)
+static func with_shadow(node: Control, size: float, p: Dictionary, circular := false) -> Control:
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the node owns its input
+	holder.size_flags_horizontal = node.size_flags_horizontal
+	holder.size_flags_vertical = node.size_flags_vertical
+	holder.add_child(shadow_circle(size, p) if circular else shadow_rect(size, p))   # behind (added first)
+	holder.add_child(node)
+	node.set_anchors_preset(Control.PRESET_FULL_RECT)         # the node fills the holder; the holder is sized to the node
+	var sync := func() -> void:
+		holder.custom_minimum_size = node.get_combined_minimum_size()
+	sync.call()
+	node.minimum_size_changed.connect(sync)
+	return holder
 
 ## Float a small token (the wallet "+") OVER a sized `pill` WITHOUT changing the pill's size. The pill stays
 ## the layout-sized node (its icon + number drive the capsule); the token is anchored to the pill's RIGHT
@@ -716,17 +754,11 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): a SOFT
-	# cast that reaches an independent distance on each side (shadow_top/bottom/left/right), feathered by
-	# shadow_size. The capsule corner is its half-height, so the big corner clamps to a shadow that hugs the pill.
-	var sh_alpha := clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0)
-	var sh_top := float(opts.get("shadow_top", 0))
-	var sh_bottom := float(opts.get("shadow_bottom", 0))
-	var sh_left := float(opts.get("shadow_left", 0))
-	var sh_right := float(opts.get("shadow_right", 0))
-	var sh_soft := float(opts.get("shadow_size", 0))
-	if sh_alpha > 0.0 and (sh_top > 0.0 or sh_bottom > 0.0 or sh_left > 0.0 or sh_right > 0.0 or sh_soft > 0.0):
-		holder.add_child(drop_shadow(1000.0, sh_top, sh_bottom, sh_left, sh_right, sh_soft, sh_alpha, float(opts.get("shadow_warmth", 82)) / 100.0))
+	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): the
+	# SHARED box-shadow, cast as a capsule (the big corner clamps to the pill's half-height so it hugs the
+	# pill). On only when the pill's Shadow toggle is set; opts.shadow_params carries the single shared look.
+	if bool(opts.get("shadow", false)):
+		holder.add_child(shadow_rect(1000.0, opts.get("shadow_params", {})))
 	holder.add_child(pill)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
 	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only

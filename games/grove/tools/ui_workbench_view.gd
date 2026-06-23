@@ -29,7 +29,7 @@ const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "p
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
-	[["generator"], ["home_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -110,6 +110,7 @@ const TEST_KEYS := {
 	"bag": ["balance", "owned", "filled"],
 }
 const CAPTIONS := {
+	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
 	"board": "Board — merge grid (frame · cells · pieces · scale + item width)",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
@@ -137,6 +138,10 @@ const CAPTIONS := {
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 var _params := {
+	# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
+	# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
+	# spread are px; alpha + warmth are percent. Defaults reproduce the shipped soft drop beneath.
+	"shadow": {"offset_x": 0, "offset_y": 4, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82},
 	# the BOARD preview — a live merge grid (bamboo frame · the shared slot-cell well · demo pieces). Two
 	# INDEPENDENT size knobs: `scale` zooms the whole composition (frame + cells together, in %); `cell` is
 	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
@@ -144,7 +149,7 @@ var _params := {
 	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true,
 		# the board FRAME (Kit.board_panel): "badge" = the painted rounded badge; "code" = a code-drawn depth
 		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
-		"frame_style": "badge", "frame_corner": 46, "frame_shadow": 18, "frame_shadow_alpha": 30, "frame_shadow_warmth": 82,
+		"frame_style": "badge", "frame_corner": 46,
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
 	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
@@ -157,7 +162,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "rect_shadow_top": 0, "rect_shadow_bottom": 10, "rect_shadow_left": 0, "rect_shadow_right": 0, "rect_shadow_soft": 6, "rect_shadow_alpha": 32, "rect_shadow_warmth": 82, "play_px": 188,
+		"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
@@ -241,8 +246,7 @@ var _params := {
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
-	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"shadow_alpha": 22, "shadow_top": 0, "shadow_bottom": 10, "shadow_left": 0, "shadow_right": 0, "shadow_warmth": 82, "icon_shadow": 35, "fill_alpha": 100,
+	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -290,8 +294,20 @@ var _drag_grab := Vector2.ZERO
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		theme = UiFont.make()
+	_ensure_shadow_keys()
 	_load_settings()
 	_build()
+
+## Give EVERY component a `shadow` on/off key (default ON for the elements that ship a drop shadow, OFF
+## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
+## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
+func _ensure_shadow_keys() -> void:
+	var on_by_default := {"home_button": true, "currency_pill": true, "board": true}
+	for id in _params.keys():
+		if id == "shadow":
+			continue
+		if not (_params[id] as Dictionary).has("shadow"):
+			_params[id]["shadow"] = bool(on_by_default.get(id, false))
 
 func _build() -> void:
 	if not is_inside_tree():
@@ -394,6 +410,11 @@ func _dlg_px(id: String) -> float:
 func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
 	match id:
+		"shadow":
+			# the SHARED shadow on its own — a CIRCLE sample and a RECT sample side by side, both casting the
+			# SAME shared shadow, so the sliders' effect reads on both shapes at once (over a light cell so the
+			# warm shadow shows). This is the single source of truth every other component's toggle references.
+			return _shadow_preview()
 		"board":
 			return _make_board_preview()
 		"generator":
@@ -413,7 +434,7 @@ func _make_element(id: String) -> Control:
 			# tuned sparkle), so the configurable parts read at a glance. A bottom margin gives the caption
 			# tab room (it overflows below the disc, exactly as it does on the rail).
 			# include the BADGE item's polish so the home button reflects it LIVE (the same link the game uses)
-			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"]})
+			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
 			# the nav-style disc carries the Bag's in-disc "x/y" COUNT so the count_dx / count_dy / count_font
@@ -447,15 +468,16 @@ func _make_element(id: String) -> Control:
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
 			box.add_child(_icon_preview("Raw", {"defringe": false, "feather": 0.0, "supersample": 1}))
-			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample), "shadow": bool(p.shadow)}))
+			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample)}))
 			return box
 		"badge":
-			# the home button's disc shell as its own polish sandbox — raw vs the tuned defringe/feather/shadow.
+			# the home button's disc shell as its own polish sandbox — raw vs the tuned defringe/feather.
 			# The home button reads these same params, so editing here updates the home button live.
+			# (Its drop shadow is the SHARED shadow — the Shadow toggle — not baked into the shell.)
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
 			box.add_child(_badge_preview("Raw", {}))
-			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "shadow": bool(p.shadow)}))
+			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather)}))
 			return box
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
@@ -568,7 +590,7 @@ func _make_element(id: String) -> Control:
 			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
 			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
-			var co := Kit.currency_pill_opts_from_config({"currency_pill": p})
+			var co := Kit.currency_pill_opts_from_config({"currency_pill": p, "shadow": _params["shadow"]})
 			co["icons"] = [["water", float(co["icon_size"])]]   # the preview water icon tracks the Icon Size slider (water optical = 1.0)
 			co["show_plus"] = true
 			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
@@ -576,7 +598,7 @@ func _make_element(id: String) -> Control:
 			# the board's bottom-bar info pill, built from the SAME kit component + resolver the game reads
 			# (so the preview is exactly the live bar). Pull in the currency_pill block too — the bar borrows
 			# its capsule frame, so a pill tweak shows here live. `filled` previews the selected-vs-empty state.
-			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"]})
+			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"], "shadow": _params["shadow"]})
 			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
 			var inner := float(ib.get_meta("inner_px", 62.0))
 			if bool(p.get("filled", true)):
@@ -648,6 +670,61 @@ func _make_element(id: String) -> Control:
 ## `cell` is the item width in px (the grid grows, the frame thickness stays) — so you trade item size
 ## against frame weight. `item` sizes the piece sprite as a % of its cell. Pure preview; not yet wired
 ## into the in-game board (which still sizes itself responsively from the viewport).
+## --- the SHARED shadow preview + the per-component wrap ------------------------------------------
+
+## Components whose KIT builder already casts the shared shadow internally (from opts.shadow + shadow_params);
+## the view must NOT also wrap them, or the shadow would double up.
+const SHADOW_WIRED := {"home_button": true, "currency_pill": true, "board": true, "button": true, "info_bar": true}
+
+## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
+## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
+## suits the panel/card/dialog family; the dedicated Shadow item demos the circular shape, and the disc
+## home buttons cast their own circle via the builder.
+func _maybe_wrap_shadow(el: Control, id: String) -> Control:
+	if id == "shadow" or SHADOW_WIRED.has(id):
+		return el
+	if not bool((_params[id] as Dictionary).get("shadow", false)):
+		return el
+	return Look.with_shadow(el, 28.0, Look.shadow_params({"shadow": _params["shadow"]}))
+
+## The SHARED shadow on its own — a circle sample + a rounded-rect sample, both casting it, over a light cell.
+func _shadow_preview() -> Control:
+	var p := Look.shadow_params({"shadow": _params["shadow"]})
+	var cell := ColorRect.new()
+	cell.color = Color("#EFE6D2")                # a light parchment so the dark soft shadow reads
+	cell.custom_minimum_size = Vector2(560, 340)
+	var row := HBoxContainer.new()
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 90)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(row)
+	row.add_child(_shadow_sample(true, p))       # circular
+	row.add_child(_shadow_sample(false, p))      # rounded rect
+	return cell
+
+## ONE sample for the Shadow preview: a cream disc (circular) or rounded-rect badge with the shared shadow
+## cast behind it (show_behind_parent — a Panel is not a Container, so the child draws cleanly underneath).
+func _shadow_sample(circular: bool, p: Dictionary) -> Control:
+	var holder := CenterContainer.new()
+	holder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var box := Panel.new()
+	var box_px := 150.0
+	box.custom_minimum_size = Vector2(box_px, box_px)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Pal.CREAM
+	sb.border_color = Pal.STRAW
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(int(box_px / 2.0) if circular else 34)
+	box.add_theme_stylebox_override("panel", sb)
+	var sh := Look.shadow_circle(box_px, p) if circular else Look.shadow_rect(34.0, p)
+	sh.show_behind_parent = true
+	box.add_child(sh)
+	holder.add_child(box)
+	return holder
+
 func _make_board_preview() -> Control:
 	var p: Dictionary = _params["board"]
 	var s: float = float(p.scale) / 100.0
@@ -666,7 +743,7 @@ func _make_board_preview() -> Control:
 
 	# the board frame + its drop shadow — the SHARED Kit.board_panel, the SAME builder the live board uses,
 	# so this preview shows the ACTUAL border (the painted badge, or the code-drawn depth border per the knobs).
-	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p})))
+	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "shadow": _params["shadow"]})))
 
 	# the empty wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style
 	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
@@ -853,6 +930,7 @@ func _btn_opts(overrides := {}) -> Dictionary:
 		"corner": int(b.corner),
 		"art": bool(b.art),
 		"shadow": bool(b.shadow),
+		"shadow_params": Look.shadow_params({"shadow": _params["shadow"]}),
 	}
 	if overrides.has("icon"):
 		o["icon"] = String(overrides["icon"])      # the Card's saved icon choice ("" = none)
@@ -920,6 +998,7 @@ func _section(id: String) -> Control:
 	_building = id                          # so the polish previews know which element to mark awaiting
 	var el := _make_element(id)
 	_building = ""
+	el = _maybe_wrap_shadow(el, id)         # cast the SHARED shadow behind the preview when this component's Shadow toggle is on
 	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
@@ -1170,9 +1249,32 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
+	# the UNIVERSAL Shadow toggle — every component casts the ONE shared shadow (tuned on the Shadow item).
+	# Skipped on the Shadow item itself (that IS the editor).
+	if _selected != "shadow":
+		_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
+		var sn := Label.new()
+		sn.text = "Casts the shared drop shadow — tune its look on the Shadow item."
+		sn.add_theme_font_size_override("font_size", 11)
+		sn.add_theme_color_override("font_color", Color(Pal.STRAW, 0.7))
+		sn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(sn)
+		_sidebar_body.add_child(HSeparator.new())
+
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
 	# config first, then the transient test/preview scaffolding that the config file never touches.
 	match _selected:
+		"shadow":
+			_group_header("Saved to config", true)
+			_section_header("Cast (offset-based — size-independent)")
+			_sidebar_body.add_child(_slider_row(["offset_x", -40, 40]))   # horizontal cast (px): −left / +right
+			_sidebar_body.add_child(_slider_row(["offset_y", -40, 40]))   # vertical cast (px): −up / +down
+			_section_header("Shape")
+			_sidebar_body.add_child(_slider_row(["blur", 0, 40]))         # soft feather radius (px)
+			_sidebar_body.add_child(_slider_row(["spread", -20, 40]))     # grow(+) / shrink(−) the shadow on every side (px)
+			_section_header("Tint")
+			_sidebar_body.add_child(_slider_row(["alpha", 0, 80]))        # opacity (%)
+			_sidebar_body.add_child(_slider_row(["warmth", 0, 100]))      # warm brown ↔ cool violet-black
 		"board":
 			_group_header("Saved to config", true)
 			_section_header("Size")
@@ -1187,9 +1289,6 @@ func _rebuild_sidebar() -> void:
 			_section_header("Frame")
 			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # painted badge vs code-drawn
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
-			_sidebar_body.add_child(_slider_row(["frame_shadow", 0, 40]))         # drop-shadow size under the board
-			_sidebar_body.add_child(_slider_row(["frame_shadow_alpha", 0, 100]))  # drop-shadow opacity %
-			_sidebar_body.add_child(_slider_row(["frame_shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
 			_sidebar_body.add_child(_slider_row(["frame_inner_w", 0, 10]))        # inner hairline — the border of the border
@@ -1212,7 +1311,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists
-			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_toggle_row("Use art", "art", true))   # sprite (scaled whole) vs code-drawn
 			_sidebar_body.add_child(_slider_row(["font", 12, 40]))
 			_group_header("Test only — not saved", false)      # preview props; text/badge/icon live on the Card
@@ -1236,13 +1334,6 @@ func _rebuild_sidebar() -> void:
 			_section_header("Rect badge (rail + Map — shape:\"rect\")")
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
-			_sidebar_body.add_child(_slider_row(["rect_shadow_top", 0, 40]))     # shadow reach UP (px) — 0 = no top shadow
-			_sidebar_body.add_child(_slider_row(["rect_shadow_bottom", 0, 40]))  # shadow reach DOWN (px)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_left", 0, 40]))    # shadow reach LEFT (px)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_right", 0, 40]))   # shadow reach RIGHT (px)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_soft", 0, 24]))    # softness / blur shared by all sides (px)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
 			_section_header("Play disc (bottom-right CTA)")
 			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
 			_section_header("Side-rail badge (red dot / count)")
@@ -1276,13 +1367,11 @@ func _rebuild_sidebar() -> void:
 		"icon":
 			_group_header("Test only — not saved", false)   # a polish-tuning sandbox; the recipe is fixed in the kit
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
-			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 			_sidebar_body.add_child(_slider_row(["supersample", 1, 4]))
 		"badge":
 			_group_header("Saved to config", true)           # the disc-shell polish; the home button reads it live
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
-			_sidebar_body.add_child(_toggle_row("Drop shadow", "shadow"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 		"progress_bar":
 			_group_header("Saved to config", true)
@@ -1394,17 +1483,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding (right side + default left)
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))       # LEFT padding — tighten the icon side on its own
 			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
-			# OPACITY + DROP SHADOW — honoured on BOTH paths: opacity modulates the painted capsule / scales the
-			# code-drawn fill; the shadow draws behind the capsule (float_plus) and as the StyleBoxFlat shadow.
+			# OPACITY — honoured on BOTH paths: it modulates the painted capsule / scales the code-drawn fill.
+			# (The pill's DROP SHADOW is the SHARED shadow — toggle it above, tune it on the Shadow item.)
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))   # capsule OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["shadow_top", 0, 40]))     # shadow reach UP (px) — 0 = no top shadow
-			_sidebar_body.add_child(_slider_row(["shadow_bottom", 0, 40]))  # shadow reach DOWN (px)
-			_sidebar_body.add_child(_slider_row(["shadow_left", 0, 40]))    # shadow reach LEFT (px)
-			_sidebar_body.add_child(_slider_row(["shadow_right", 0, 40]))   # shadow reach RIGHT (px)
-			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # softness / blur shared by all sides (px)
-			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
-			_sidebar_body.add_child(_slider_row(["icon_shadow", 0, 80]))    # soft drop-shadow on the currency ICON + the "+" (0 = off)
 			if not bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
 				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width (code-drawn pill)
