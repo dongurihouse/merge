@@ -197,17 +197,25 @@ func _initialize() -> void:
 	var icon := _first_control(tuned, "GoldCurrencyIcon", "TextureRect")
 	ok(icon_slot != null and icon != null and icon_slot.custom_minimum_size == Vector2(74, 74) and icon.custom_minimum_size == Vector2(44, 44), \
 		"gold_currency_pill icon box + icon size controls resize the icon component")
-	ok(icon != null and icon.position == Vector2(22, 10), \
-		"gold_currency_pill icon x/y controls offset the icon component")
+	ok(icon != null and icon.position.x == 22, \
+		"gold_currency_pill icon x control offsets the icon component")
 	var amount_slot := _first_control(tuned, "GoldCurrencyAmountSlot")
 	var amount := _first_control(tuned, "GoldCurrencyAmount", "Label") as Label
-	ok(amount_slot != null and amount != null and amount.position == Vector2(9, -3) and int(amount.get_theme_font_size("font_size")) == 36, \
-		"gold_currency_pill amount x/y + font controls adjust the amount component")
+	ok(amount_slot != null and amount != null and amount.position.x == 9 and int(amount.get_theme_font_size("font_size")) == 36, \
+		"gold_currency_pill amount x + font controls adjust the amount component")
 	var plus_slot := _first_control(tuned, "GoldCurrencyPlusSlot")
 	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
-	ok(plus_slot != null and plus_btn != null and plus_btn.position == Vector2(12, -8), \
-		"gold_currency_pill plus x/y controls offset the plus component")
-	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_y") and view._is_config("gold_currency_pill", "plus_button"), \
+	ok(plus_slot != null and plus_btn != null and plus_btn.position.x == 12, \
+		"gold_currency_pill plus x control offsets the plus component")
+	var icon_center := icon.position.y + icon.custom_minimum_size.y * 0.5
+	var amount_center := amount.position.y + amount.custom_minimum_size.y * 0.5
+	var plus_center := plus_btn.position.y + plus_btn.custom_minimum_size.y * 0.5
+	ok(is_equal_approx(icon_center, amount_center) and is_equal_approx(amount_center, plus_center), \
+		"gold_currency_pill vertically centers icon, amount, and plus on one line")
+	var gp: Dictionary = view._params["gold_currency_pill"]
+	ok(not gp.has("icon_y") and not gp.has("amount_y") and not gp.has("plus_y"), \
+		"gold_currency_pill has no individual vertical offset controls")
+	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_x") and view._is_config("gold_currency_pill", "plus_button"), \
 		"gold_currency_pill padding and component controls are saved on its own config block")
 	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
 	view._selected = "gold_currency_pill"

@@ -876,12 +876,12 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var icon_box := float(opts.get("icon_box", opts.get("badge_px", 54)))
 	var icon_px := float(opts.get("icon_size", 34))
 	var icon_x := float(opts.get("icon_x", 0))
-	var icon_y := float(opts.get("icon_y", 0))
 	var num_size := int(opts.get("num_size", 30))
 	var amount_x := float(opts.get("amount_x", 0))
-	var amount_y := float(opts.get("amount_y", 0))
 	var amount_w := float(opts.get("amount_w", maxf(88.0, float(num_size) * 2.9)))
 	var gap := int(opts.get("gap", 12))
+	var plus := _gold_currency_plus_button(opts)
+	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus.custom_minimum_size.y))
 
 	var panel := PanelContainer.new()
 	panel.name = "GoldCurrencyPill"
@@ -907,37 +907,40 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 
 	var icon_slot := Control.new()
 	icon_slot.name = "GoldCurrencyIconSlot"
-	icon_slot.custom_minimum_size = Vector2(icon_box, icon_box)
-	icon_slot.size = Vector2(icon_box, icon_box)
+	icon_slot.custom_minimum_size = Vector2(icon_box, content_h)
+	icon_slot.size = Vector2(icon_box, content_h)
+	icon_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := make_icon(icon_id, icon_px)
 	icon.name = "GoldCurrencyIcon"
-	icon.position = Vector2(round((icon_box - icon_px) * 0.5 + icon_x), round((icon_box - icon_px) * 0.5 + icon_y))
+	icon.position = Vector2(round((icon_box - icon_px) * 0.5 + icon_x), (content_h - icon_px) * 0.5)
 	icon_slot.add_child(icon)
 	row.add_child(icon_slot)
 
 	var amount_slot := Control.new()
 	amount_slot.name = "GoldCurrencyAmountSlot"
-	amount_slot.custom_minimum_size = Vector2(amount_w, float(num_size) * 1.45)
+	amount_slot.custom_minimum_size = Vector2(amount_w, content_h)
+	amount_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	amount_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var amount := Label.new()
 	amount.name = "GoldCurrencyAmount"
 	amount.text = str(int(counts.get(icon_id, opts.get("count", 2450))))
+	amount.custom_minimum_size = Vector2(amount_w, content_h)
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	amount.position = Vector2(amount_x, amount_y)
+	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	amount_slot.add_child(amount)
 	row.add_child(amount_slot)
 
-	var plus := _gold_currency_plus_button(opts)
 	var plus_slot := Control.new()
 	plus_slot.name = "GoldCurrencyPlusSlot"
-	plus_slot.custom_minimum_size = plus.custom_minimum_size
+	plus_slot.custom_minimum_size = Vector2(plus.custom_minimum_size.x, content_h)
+	plus_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plus.position = Vector2(float(opts.get("plus_x", 0)), float(opts.get("plus_y", 0)))
+	plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
 	plus_slot.add_child(plus)
 	row.add_child(plus_slot)
 	return panel

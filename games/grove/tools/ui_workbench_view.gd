@@ -177,9 +177,9 @@ var _params := {
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
 	"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
 	"gold_currency_pill": {"icon": "water", "count": 2450, "pill_w": 292, "pill_h": 100,
-		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0, "icon_y": 0,
-		"amount_w": 88, "num_size": 30, "amount_x": 0, "amount_y": 0,
-		"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
+		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
+		"amount_w": 88, "num_size": 30, "amount_x": 0,
+		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
 		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
@@ -1417,15 +1417,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 90]))
 			_sidebar_body.add_child(_slider_row(["icon_size", 18, 64]))
 			_sidebar_body.add_child(_slider_row(["icon_x", -32, 32]))
-			_sidebar_body.add_child(_slider_row(["icon_y", -32, 32]))
 			_section_header("Amount")
 			_sidebar_body.add_child(_slider_row(["amount_w", 40, 180]))
 			_sidebar_body.add_child(_slider_row(["num_size", 16, 48]))
 			_sidebar_body.add_child(_slider_row(["amount_x", -40, 40]))
-			_sidebar_body.add_child(_slider_row(["amount_y", -30, 30]))
 			_section_header("Plus button")
 			_sidebar_body.add_child(_slider_row(["plus_x", -20, 20]))
-			_sidebar_body.add_child(_slider_row(["plus_y", -20, 20]))
 			_sidebar_body.add_child(_slider_row(["plus_radius", 8, 44]))
 			_sidebar_body.add_child(_slider_row(["plus_shine", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["plus_stroke", 0, 5]))
