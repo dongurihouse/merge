@@ -3997,13 +3997,10 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_card_locked(d, opts, card, card_w, card_h)
 	return card
 
-# An OPEN place: the SHARED gold-badge frame (the same procedural skin the board + info bar wear) fills the
-# card, and the locale art (or a meadow fallback) nests INSIDE its gold border — clipped to the frame's
-# inner rounded corner so it tucks under the rim like the board grid in the board frame. The restore count
-# rides a pill on the lower edge.
-static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	var badge_opts: Dictionary = opts.get("badge", {})
-	# the shared gold frame, filling the card as a 9-slice — corners native, edges stretch (board-consistent).
+# The SHARED gold-badge frame, filling the card as a 9-slice (corners native, edges stretch —
+# board-consistent). Named so tests + the fill can find it. Open AND locked cards wear the SAME frame, so
+# the picker reads as one surface; only the interior (lit art vs dark veil) tells them apart.
+static func _map_add_frame(card: Control, badge_opts: Dictionary) -> void:
 	var cap := gold_badge_cap(badge_opts)
 	var frame := NinePatchRect.new()
 	frame.name = MAP_FRAME_NODE
@@ -4017,22 +4014,35 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(frame)
-	# the locale art nests INSIDE the gold border: inset by the band width, COVER-sampled + clipped to the
-	# frame's inner rounded corner (cap − band) so it never leaks past the rim.
-	var band := clampf(card_h * float(opts.get("frame_inset", 0.06)), 6.0, minf(card_w, card_h) * 0.45)
+
+# The card's interior fill: `tex` COVER-sampled to FILL the box right up to the frame's gold rim — tucked
+# just past the badge groove (inner_inset) so the art meets the rim with NO cream gap, and never stretched
+# (COVER keeps the source aspect). Clipped to the frame's inner rounded corner. Returns the fill node so the
+# caller can layer a veil / mark over it.
+static func _map_add_fill(card: Control, tex: Texture2D, badge_opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var cap := float(gold_badge_cap(badge_opts))
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
 	var inner := Vector2(maxf(2.0, card_w - band * 2.0), maxf(2.0, card_h - band * 2.0))
-	var radius := maxf(2.0, float(cap) - band)
+	var radius := maxf(2.0, cap - band)
+	var fill := ColorRect.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.offset_left = band
+	fill.offset_top = band
+	fill.offset_right = -band
+	fill.offset_bottom = -band
+	fill.material = _map_art_material(tex, inner, radius)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(fill)
+	return fill
+
+# An OPEN place: the shared gold frame + the locale art (or a meadow fallback) COVER-filling the box up to
+# the rim; the restore count rides a pill on the lower edge, and an ACTIVE place's gold band shimmers.
+static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
+	var badge_opts: Dictionary = opts.get("badge", {})
+	_map_add_frame(card, badge_opts)
 	var art_path := String(d.get("art", ""))
 	var fill_tex: Texture2D = load(art_path) if art_path != "" and ResourceLoader.exists(art_path) else _map_meadow_texture()
-	var art := ColorRect.new()
-	art.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	art.offset_left = band
-	art.offset_top = band
-	art.offset_right = -band
-	art.offset_bottom = -band
-	art.material = _map_art_material(fill_tex, inner, radius)
-	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(art)
+	_map_add_fill(card, fill_tex, badge_opts, card_w, card_h)
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
 	_map_count_pill(d, opts, card, card_w, card_h)
@@ -4043,24 +4053,19 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 		if spark > 0.0:
 			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
 
-# A LOCKED place: the dark baked panel fills the card, with the "after <prev>" prerequisite line low over
-# it. When the panel art is off/missing, fall back to a meadow panel under the §8 fog veil so the horizon
-# still reads as veiled.
+# A LOCKED place: the SAME shared gold frame as an open card + a dark interior — the baked dark panel (lock
+# medallion baked in) COVER-fills the box up to the rim, undistorted (no stretch). The "after <prev>"
+# prerequisite line sits low. With the painted panel off/missing, fall back to a meadow fill under the §8 fog.
 static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
+	var badge_opts: Dictionary = opts.get("badge", {})
+	_map_add_frame(card, badge_opts)
 	var panel_path := Look.kit(MAP_CARD_LOCKED)
 	if bool(opts.get("use_art", true)) and ResourceLoader.exists(panel_path):
-		var p := TextureRect.new()
-		p.texture = load(panel_path)
-		p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		p.stretch_mode = TextureRect.STRETCH_SCALE
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(p)
+		_map_add_fill(card, load(panel_path), badge_opts, card_w, card_h)   # dark panel, COVER-filled (no stretch)
 	else:
-		var inner := _map_meadow_fill(false, opts)
-		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		card.add_child(inner)
-		_map_veil(inner, String(d.get("map_id", "")), opts)   # the §8 code-drawn fog when the painted panel is absent
+		var fill := _map_add_fill(card, _map_meadow_texture(), badge_opts, card_w, card_h)
+		fill.clip_contents = true
+		_map_veil(fill, String(d.get("map_id", "")), opts)   # the §8 code-drawn fog when the painted panel is absent
 	# the prerequisite line, low on the panel (the baked medallion is the centre mark).
 	var state_l := Label.new()
 	state_l.text = String(d.get("prereq", ""))
@@ -4328,8 +4333,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
-		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin the open card's frame wears (board/info-bar consistent)
-		"frame_inset":     float(c.get("frame_inset", 6)) / 100.0,     # the open card's gold band width (% of card height) — how far the art insets inside the frame
+		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin BOTH cards' frame wears (board/info-bar consistent)
 		"card_w_frac":     float(c.get("card_w_frac", 96)) / 100.0,     # card width  as a % of the screen width (smaller = wider side margins)
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them

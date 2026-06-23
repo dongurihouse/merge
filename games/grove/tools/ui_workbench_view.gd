@@ -227,7 +227,7 @@ var _params := {
 	# mirror the shipped §8 constants, so the saved block the game's map.gd reads renders the card until you
 	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
 	# Kit.map_card_opts_from_config). open/done/unlock_exp are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "frame_inset": 6, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
+	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "unlock_exp": 3},
@@ -1587,9 +1587,6 @@ func _rebuild_sidebar() -> void:
 			# stretches the gold frame (the preview shows it).
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
 			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 50]))      # card height (% of screen height; the picker scrolls past the band)
-			# the OPEN card's gold band width — how far the locale art insets inside the SHARED gold-badge frame
-			# (% of card height). The frame SKIN itself (corner · shine · groove) is tuned on the Gold badge item.
-			_sidebar_body.add_child(_slider_row(["frame_inset", 0, 20]))      # gold band width (% of card height)
 			# the painted kit (card_locked / pill_left) vs the §8 code-drawn fallback. The fog veil + its dials
 			# apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
