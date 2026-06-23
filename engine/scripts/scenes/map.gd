@@ -86,8 +86,11 @@ var _map_idx := 0                # the map being viewed
 var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
-var select_hits: Array = []      # [{node, z}] — the map-select cards
+var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = clip-local base y, pre-scroll)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
+var _select_clip: Control = null # the place-picker's clipped scroll viewport (cards live + scroll inside it)
+var _select_scroll := 0.0        # current scroll offset of the place-picker stack (px from the top)
+var _select_scroll_max := 0.0    # 0 when the stack fits the band (no scroll); else total_h - band_h
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
@@ -274,6 +277,7 @@ func _open_select() -> void:
 	_view = "select"
 	_set_map_chrome_visible(false)        # the place-picker is a calm chooser — no map chrome, no weather
 	Audio.play("button_tap", -4.0)
+	_select_scroll = 0.0                  # always open the picker scrolled to the top
 	_build_select()
 
 # The bottom chrome (garden CTA / gear / shop / atlas / piggy) and ambient weather belong to a
@@ -822,13 +826,12 @@ func _build_select(animate := true) -> void:
 	var top := 96.0 + Look.safe_top(self)
 	# ONE wide painted card per row — a vista per place (map.png place-picker). No header: the HUD
 	# wallet + the framed cards carry the read. The card SIZE is workbench-saved as a % of the screen
-	# (card_w_frac of the screen width, card_h_frac of the screen height), so a designer tunes the
-	# width + side margins + height live in the kit. The stack centers in the band between the HUD and
-	# the floor back-arrow. WIDTH is honored directly (it sets the side margins); HEIGHT grows to its
-	# slider but is capped to ~band/n so all n cards fit — capping HEIGHT ALONE (never width) keeps the
-	# two knobs INDEPENDENT, so widening the card never shrinks it back. No ScrollContainer
-	# (single-input-surface); cards are positioned + hit-tested directly. NOTE: the gold frame
-	# STRETCH-scales, so a w:h far from the art's ~2.92 aspect distorts the border — the preview shows it.
+	# (card_w_frac of the screen width, card_h_frac of the screen height), tuned live in the kit. WIDTH and
+	# HEIGHT are INDEPENDENT: width sets the side margins; height is honored as-is. The cards live in a
+	# clipped band between the HUD and the floor back-arrow — when the stack fits it sits centered and
+	# locked; when it overflows (tall cards) the band SCROLLS (drag / wheel), so height has no ceiling. The
+	# band is the ONE input surface; cards are still hit-tested directly by their (scrolled) global rect.
+	# NOTE: the gold frame STRETCH-scales, so a w:h far from the art's ~2.92 aspect distorts the border.
 	var n := G.MAPS.size()
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
@@ -841,17 +844,27 @@ func _build_select(animate := true) -> void:
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
 	var card_w := view.x * w_frac                               # width is honored as-is — it sets the side margins
-	var card_h_cap := (band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1))   # the tallest each of n cards can be and still fit the band
-	var card_h := minf(view.y * h_frac, card_h_cap)            # grow height to the slider, but never past the fit cap (width is untouched)
+	var card_h := view.y * h_frac                               # height is honored as-is — the band scrolls if the stack overflows
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
-	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
+	# the clipped scroll viewport spanning the band; cards are its children (clip-local coords)
+	var clip := Control.new()
+	clip.position = Vector2(0.0, band_top)
+	clip.size = Vector2(view.x, band_h)
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
+	content.add_child(clip)
+	_select_clip = clip
+	_select_scroll_max = maxf(0.0, total_h - band_h)
+	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
+	var y0 := maxf(0.0, (band_h - total_h) * 0.5)               # centered when it fits; top-aligned (0) once it scrolls
+	var y := y0
 	for z in n:
 		var card := _make_card(z, card_w, card_h, opts)
-		card.position = Vector2(x, y)
+		card.position = Vector2(x, y - _select_scroll)
 		card.size = Vector2(card_w, card_h)
-		content.add_child(card)
-		select_hits.append({"node": card, "z": z})
+		clip.add_child(card)
+		select_hits.append({"node": card, "z": z, "y0": y})
 		y += card_h + sep
 	if _select_back != null and is_instance_valid(_select_back):
 		_select_back.visible = true
@@ -916,6 +929,21 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 # --- input: ONE surface, still-tap resolution ------------------------------------------
 
 func _on_input(event: InputEvent) -> void:
+	# place-picker scroll — only when the stack overflows the band. A drag/wheel pans the cards; the
+	# 18 px still-tap window below then disqualifies the release as a tap, so scroll never opens a card.
+	if _view == "select" and _select_scroll_max > 0.0:
+		if event is InputEventScreenDrag:
+			_scroll_select_by(-event.relative.y)
+			return
+		if event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT) != 0:
+			_scroll_select_by(-event.relative.y)
+			return
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_scroll_select_by(90.0)
+			return
+		if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_scroll_select_by(-90.0)
+			return
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) \
 		or event is InputEventScreenTouch
 	if pressed and event.pressed:
@@ -943,6 +971,18 @@ func _select_tap(gpos: Vector2) -> void:
 			FX.floating_text(self, gpos - Vector2(150, 70),
 				Strings.t("map.select.locked_prereq") % tr(G.MAPS[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
 		return
+
+# Pan the place-picker stack by `dy` px, clamped to [0, _select_scroll_max], and slide every card to its
+# scrolled position (clip-local y0 − scroll). No-op when the stack fits (_select_scroll_max == 0).
+func _scroll_select_by(dy: float) -> void:
+	var prev := _select_scroll
+	_select_scroll = clampf(_select_scroll + dy, 0.0, _select_scroll_max)
+	if is_equal_approx(_select_scroll, prev):
+		return
+	for hit in select_hits:
+		var c: Control = hit.node
+		if is_instance_valid(c):
+			c.position.y = float(hit.y0) - _select_scroll
 
 func _map_tap(gpos: Vector2) -> void:
 	# §1 residents are welcomed via the Residents shop dialog now (not an on-map panel), so taps resolve
