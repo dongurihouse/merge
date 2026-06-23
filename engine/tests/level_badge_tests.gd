@@ -1,10 +1,10 @@
 extends SceneTree
 ## Headless guard for the evolving level-chip badge (the HUD level frame that upgrades
-## with Level, sliced from assets/board/lvls.png into ui/lvl/ and mapped by
+## with Level, sliced from assets/_originals/ui/lvls2.png into ui/lvl/ and mapped by
 ## data/level_badges.json).
 ##   godot --headless --path . -s res://engine/tests/level_badge_tests.gd
-## Proves: the config parses, the even-tier Level->badge index is correct & clamped, and
-## all 16 sliced frames resolve as grove art (so a level-up actually has a frame to swap).
+## Proves: the config parses, the BANDED Level->badge index is correct, monotonic & clamped,
+## and all 36 sliced frames resolve as grove art (so a level-up actually has a frame to swap).
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
@@ -33,30 +33,45 @@ func _initialize() -> void:
 	ok(cfg is Dictionary, "config parses to a Dictionary")
 	var d: Dictionary = cfg if cfg is Dictionary else {}
 	var count := int(d.get("badge_count", 0))
-	var per := maxi(1, int(d.get("levels_per_tier", 1)))
-	ok(count == 16, "badge_count == 16 (got %d)" % count)
-	ok(int(d.get("levels_per_tier", 0)) == 3, "levels_per_tier == 3 (crown at L46)")
+	ok(count == 36, "badge_count == 36 (got %d)" % count)
+	var bands: Array = d.get("bands", [])
+	ok(bands.size() == 3, "3 bands (got %d)" % bands.size())
+	var tier_sum := 0
+	for b in bands:
+		tier_sum += int((b as Dictionary).get("tiers", 0))
+	ok(tier_sum == count, "band tiers sum to badge_count (%d == %d)" % [tier_sum, count])
 
-	# --- even-tier index: idx = clamp(floor((level-1)/per), 0, count-1) ----------
-	ok(Look.level_badge_index(1) == 0, "L1 -> badge 0")
-	ok(Look.level_badge_index(3) == 0, "L3 -> badge 0 (tier of 3)")
-	ok(Look.level_badge_index(4) == 1, "L4 -> badge 1 (tier flips)")
-	ok(Look.level_badge_index(45) == 14, "L45 -> badge 14")
-	ok(Look.level_badge_index(46) == 15, "L46 -> badge 15 (crown)")
+	# --- banded index: 12 badges/level (L1-12), then every 3 (L13-48), then every 6 (L49-120) ---
+	ok(Look.level_badge_index(1) == 0,   "L1 -> badge 0")
+	ok(Look.level_badge_index(12) == 11, "L12 -> badge 11 (one per level)")
+	ok(Look.level_badge_index(13) == 12, "L13 -> badge 12 (band 2 begins)")
+	ok(Look.level_badge_index(15) == 12, "L15 -> badge 12 (tier of 3)")
+	ok(Look.level_badge_index(16) == 13, "L16 -> badge 13 (tier flips)")
+	ok(Look.level_badge_index(48) == 23, "L48 -> badge 23 (band 2 ends)")
+	ok(Look.level_badge_index(49) == 24, "L49 -> badge 24 (band 3 begins)")
+	ok(Look.level_badge_index(54) == 24, "L54 -> badge 24 (tier of 6)")
+	ok(Look.level_badge_index(55) == 25, "L55 -> badge 25 (tier flips)")
+	ok(Look.level_badge_index(120) == 35, "L120 -> badge 35 (grand crown)")
+	ok(Look.level_badge_index(121) == count - 1, "past the last band holds at the crown")
 	ok(Look.level_badge_index(1000) == count - 1, "huge level clamps to crown")
 	ok(Look.level_badge_index(0) == 0, "L0 clamps to badge 0")
 	ok(Look.level_badge_index(-5) == 0, "negative level clamps to badge 0")
 
-	# formula holds across the whole designed-and-then-some range (also proves monotonic)
-	var formula_ok := true
+	# index is monotonic non-decreasing, clamped, and reaches EVERY badge across the design range
+	var mono_ok := true
+	var seen := {}
+	var prev := -1
 	for lvl in range(1, 200):
-		var want := clampi(int(floor((maxf(1.0, float(lvl)) - 1.0) / float(per))), 0, count - 1)
-		if Look.level_badge_index(lvl) != want:
-			formula_ok = false
+		var idx := Look.level_badge_index(lvl)
+		if idx < prev or idx < 0 or idx >= count:
+			mono_ok = false
 			break
-	ok(formula_ok, "index matches floor((L-1)/per) clamped for L in 1..199")
+		prev = idx
+		seen[idx] = true
+	ok(mono_ok, "index is monotonic non-decreasing and in [0, count) for L in 1..199")
+	ok(seen.size() == count, "every one of the %d badges is reachable (got %d)" % [count, seen.size()])
 
-	# --- all 16 frames exist as resolvable art ----------------------------------
+	# --- all 36 frames exist as resolvable art ----------------------------------
 	var missing := 0
 	for i in count:
 		if not ResourceLoader.exists(Game.art("ui/lvl/badge_%02d.png" % i)):
@@ -65,9 +80,9 @@ func _initialize() -> void:
 
 	# --- path resolution: distinct tiers -> distinct, existing frames -----------
 	var p1 := Look.level_badge_path(1)
-	var p_crown := Look.level_badge_path(46)
+	var p_crown := Look.level_badge_path(120)
 	ok(p1.ends_with("badge_00.png") and ResourceLoader.exists(p1), "L1 resolves to badge_00 art")
-	ok(p_crown.ends_with("badge_15.png") and ResourceLoader.exists(p_crown), "L46 resolves to badge_15 art")
+	ok(p_crown.ends_with("badge_35.png") and ResourceLoader.exists(p_crown), "L120 resolves to badge_35 art")
 	ok(p1 != p_crown, "the frame changes between low and high level")
 
 	# --- _safe_tex catches degenerate imports (exists() true but load() null) ---------
@@ -75,7 +90,7 @@ func _initialize() -> void:
 	# reimported in this checkout) — _safe_tex must catch that and return null.
 	ok(Hud._safe_tex("") == null, "_safe_tex('') is null")
 	ok(Hud._safe_tex("res://does/not/exist.png") == null, "_safe_tex(missing) is null")
-	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "badge_00 actually LOADS (not just exists)")
+	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "a real badge actually LOADS (not just exists)")
 	ok(Hud._frame_tex(2) != null, "L2 frame texture loads (the evolving badge)")
 
 	# --- no ring fallback: every shipped badge MUST be alpha-cut --------------------------

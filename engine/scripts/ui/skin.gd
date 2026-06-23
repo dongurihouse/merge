@@ -59,10 +59,10 @@ const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
 ## --- the level chip's evolving frame -------------------------------------------------
 ## The HUD level badge swaps to a fancier gold frame as the player levels up (plainest
-## ring 00 -> crown 15, sliced from assets/board/lvls.png into ui/lvl/). Which badge
-## a Level shows is DATA: res://data/level_badges.json maps Level -> badge index by an
-## even-tier rule. level_badge_path() returns the resolved art path, or "" when the
-## config/art is absent (the HUD then shows the honey-token coin). Parsed once.
+## ring 00 -> grand crown 35, sliced from assets/_originals/ui/lvls2.png into ui/lvl/).
+## Which badge a Level shows is DATA: res://data/level_badges.json maps Level -> badge index
+## by a BANDED rule (fast early, slow late). level_badge_path() returns the resolved art
+## path, or "" when the config/art is absent (the HUD then shows the honey-token coin). Parsed once.
 const LEVEL_BADGE_CFG := "res://data/level_badges.json"
 static var _badge_cfg: Dictionary = {}
 
@@ -77,15 +77,33 @@ static func _level_badge_cfg() -> Dictionary:
 	return _badge_cfg
 
 ## The badge index for a Level (0-based), or -1 when no badges are configured.
-## idx = clamp(floor((level-1) / levels_per_tier), 0, badge_count-1).
+## BANDED: walk `bands` in order; each contributes `tiers` consecutive indices spanning
+## `levels_per_tier` levels apiece, so the badge changes fast early and slows down. Past the
+## last band the index holds at badge_count-1. Falls back to the legacy single even-tier
+## rule (idx = clamp(floor((level-1)/levels_per_tier), 0, count-1)) when `bands` is absent.
 static func level_badge_index(level: int) -> int:
 	var cfg := _level_badge_cfg()
 	var count := int(cfg.get("badge_count", 0))
 	if count <= 0:
 		return -1
-	var per := maxi(1, int(cfg.get("levels_per_tier", 1)))
-	var tier := int(floor((maxf(1.0, float(level)) - 1.0) / float(per)))
-	return clampi(tier, 0, count - 1)
+	var lvl := maxi(1, level)
+	var bands: Array = cfg.get("bands", [])
+	if bands.is_empty():
+		var per := maxi(1, int(cfg.get("levels_per_tier", 1)))
+		return clampi(int(floor(float(lvl - 1) / float(per))), 0, count - 1)
+	var idx := 0
+	var cursor := 1                                   # first Level of the current band
+	for b in bands:
+		var band: Dictionary = b
+		var per := maxi(1, int(band.get("levels_per_tier", 1)))
+		var tiers := maxi(0, int(band.get("tiers", 0)))
+		var span := per * tiers                        # levels this band covers
+		if lvl < cursor + span:
+			idx += int(floor(float(lvl - cursor) / float(per)))
+			return clampi(idx, 0, count - 1)
+		idx += tiers
+		cursor += span
+	return count - 1                                   # past every band -> the grandest badge
 
 ## The resolved kit path of the badge for a Level, or "" when config/art is missing.
 static func level_badge_path(level: int) -> String:
