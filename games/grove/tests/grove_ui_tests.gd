@@ -416,31 +416,31 @@ func _initialize() -> void:
 	Music.take_dir = "res://games/grove/assets/music_archived/"   # archived: the dir is gone → no takes resolve
 	ok(Music._takes().size() == 0, "O: audio skin archived → no takes resolve (bare engine)")
 
-	# 27. the currency pill is now CONFIG-DRIVEN through the shared kit: the workbench saves a
-	# "currency_pill" block, Kit.currency_pill_opts_from_config resolves it (Tune.Hud values as the
-	# defaults), and the HUD reads it. The DEFAULTS must equal Tune so an absent/empty config renders
-	# the SHIPPED pill byte-for-byte — the R1 even-wrap contract above relies on that.
+	# 27. the gold currency pill is now CONFIG-DRIVEN through the shared kit: the workbench saves a
+	# "gold_currency_pill" block, Kit.gold_currency_pill_opts_from_config resolves it, and the HUD/bag
+	# read it directly. The old "currency_pill" block is ignored so stale settings cannot revive the
+	# removed capsule component.
 	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var Hud = load("res://engine/scripts/core/tuning.gd").Hud
-	var dflt: Dictionary = Kit.currency_pill_opts_from_config({})
-	ok(is_equal_approx(float(dflt.pad_x), Hud.CLUSTER_PAD_X) and is_equal_approx(float(dflt.pad_y), Hud.PILL_PAD_Y), \
-		"currency_pill default padding == Tune (CLUSTER_PAD_X / PILL_PAD_Y)")
-	ok(int(dflt.radius) == Hud.PILL_RADIUS and int(dflt.border_w) == Hud.PILL_BORDER_W, \
-		"currency_pill default border == Tune (radius / border width)")
-	ok(int(dflt.num_size) == Hud.NUM_SIZE, "currency_pill default font == Tune.NUM_SIZE")
-	ok(is_equal_approx(float(dflt.icon_box), Hud.CHIP_ICON_BOX) and int(dflt.row_sep) == Hud.CHIP_ROW_SEP \
-		and int(dflt.pair_sep) == Hud.PAIR_SEP, "currency_pill default icon box / separations == Tune")
-	ok(bool(dflt.shadow) and float(dflt.shadow_params.blur) > 0.0, "currency_pill casts the shared shadow by default")
-	# a saved block overrides ONLY the named keys; every other key stays at its Tune default
-	var over: Dictionary = Kit.currency_pill_opts_from_config({"currency_pill": {"pad_x": 5, "num_size": 99}})
-	ok(is_equal_approx(float(over.pad_x), 5.0) and int(over.num_size) == 99, "currency_pill config overrides the named keys")
-	ok(int(over.border_w) == Hud.PILL_BORDER_W, "currency_pill config leaves un-named keys at the Tune default")
-	# the standalone preview builds a panel whose row carries every currency count
-	var pill: Control = Kit.currency_pill(dflt, {"star": 12, "coin": 345, "gem": 6})
+	var dflt: Dictionary = Kit.gold_currency_pill_opts_from_config({})
+	ok(is_equal_approx(float(dflt.pill_w), 292.0) and is_equal_approx(float(dflt.pill_h), 100.0), \
+		"gold_currency_pill default frame size matches the tuned gold pill")
+	ok(is_equal_approx(float(dflt.pad_left), 18.0) and is_equal_approx(float(dflt.pad_y), 12.0), \
+		"gold_currency_pill default padding resolves without the legacy config")
+	ok(int(dflt.num_size) == 30 and is_equal_approx(float(dflt.icon_box), 54.0), \
+		"gold_currency_pill default amount font and icon box resolve")
+	ok(bool(dflt.show_plus), "gold_currency_pill shows the plus button by default")
+	# a saved block overrides ONLY the named keys; every other key stays at its gold-pill default
+	var over: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"pad_x": 5, "num_size": 99}})
+	ok(is_equal_approx(float(over.pad_x), 5.0) and int(over.num_size) == 99, "gold_currency_pill config overrides the named keys")
+	ok(is_equal_approx(float(over.pad_y), 12.0), "gold_currency_pill config leaves un-named keys at the default")
+	var stale: Dictionary = Kit.gold_currency_pill_opts_from_config({"currency_pill": {"pad_x": 5, "num_size": 99}})
+	ok(is_equal_approx(float(stale.pad_x), 16.0) and int(stale.num_size) == 30, "legacy currency_pill config is ignored")
+	# the standalone preview builds the gold pill for one currency count
+	var pill: Control = Kit.gold_currency_pill(dflt, {"water": 12})
 	get_root().add_child(pill)
 	await create_timer(0.05).timeout
 	var texts := _all_label_texts(pill)
-	ok("12" in texts and "345" in texts and "6" in texts, "currency_pill preview renders the sample counts")
+	ok("12" in texts and "+" in texts, "gold_currency_pill preview renders the sample count and plus")
 	pill.queue_free()
 
 	# 28. the map-SELECT place-picker CARD (spec §8) is now CONFIG-DRIVEN through the shared kit: the

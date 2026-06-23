@@ -45,6 +45,9 @@ func _has_button_text(node: Control, text: String) -> bool:
 			return true
 	return false
 
+func _source_contains(path: String, needle: String) -> bool:
+	return FileAccess.get_file_as_string(path).find(needle) != -1
+
 # The first Button at or under `node` (the tappable surface), or null.
 func _first_button(node: Control) -> Button:
 	if node is Button:
@@ -128,6 +131,21 @@ func _initialize() -> void:
 	await process_frame   # _ready -> _build -> _rebuild_gallery populates _sections
 
 	ok(view._sections.size() >= 16, "gallery built: every element section registered (%d)" % view._sections.size())
+	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")
+	ok(not view._sections.has("currency_pill"), "legacy currency_pill gallery section is removed")
+	ok(not view._params.has("currency_pill"), "legacy currency_pill settings block is removed from the workbench")
+	var currency_ids := []
+	for id in View.IDS:
+		if String(id).find("currency_pill") != -1:
+			currency_ids.append(String(id))
+	ok(currency_ids.size() == 1 and String(currency_ids[0]) == "gold_currency_pill", \
+		"gold_currency_pill is the sole currency pill component in the workbench")
+	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func currency_pill("), \
+		"legacy currency_pill builder is removed from the kit")
+	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func currency_pill_style("), \
+		"legacy currency_pill style API is removed from the kit")
+	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func currency_pill_opts_from_config("), \
+		"legacy currency_pill config resolver is removed from the kit")
 
 	# Let the INITIAL async-polish settle before snapshotting: an element showing a raw placeholder
 	# rebuilds itself once its off-thread polish lands (the _awaiting pump). If that lands mid-test it
@@ -139,10 +157,10 @@ func _initialize() -> void:
 
 	# Baseline instance ids for an edited element, a dependent, and two unrelated elements.
 	var before := {}
-	for k in ["button", "card", "dialog", "icon", "currency_pill"]:
+	for k in ["button", "card", "dialog", "icon", "gold_currency_pill"]:
 		before[k] = _id_of(view, k)
 
-	# Edit the BUTTON (selected by default). Its style flows into card + every dialog; icon + pill are unrelated.
+	# Edit the BUTTON (selected by default). Its style flows into card + every dialog; icon + gold pill are unrelated.
 	view._selected = "button"
 	view._params["button"]["font"] = 30
 	view._apply_edit()
@@ -150,7 +168,7 @@ func _initialize() -> void:
 	# Immediately: the edited element is rebuilt NOW; unrelated elements are untouched.
 	ok(_id_of(view, "button") != before["button"], "edited element (button) rebuilt immediately")
 	ok(_id_of(view, "icon") == before["icon"], "unrelated element (icon) NOT rebuilt")
-	ok(_id_of(view, "currency_pill") == before["currency_pill"], "unrelated element (currency_pill) NOT rebuilt")
+	ok(_id_of(view, "gold_currency_pill") == before["gold_currency_pill"], "unrelated element (gold_currency_pill) NOT rebuilt")
 	ok(view._dirty.has("card") and view._dirty.has("dialog"), "dependents queued dirty (not rebuilt synchronously)")
 
 	# Pump frames: the staggered queue drains, rebuilding the dependents over several frames.
@@ -160,6 +178,7 @@ func _initialize() -> void:
 	ok(_id_of(view, "card") != before["card"], "dependent (card) rebuilt after pumping")
 	ok(_id_of(view, "dialog") != before["dialog"], "dependent (dialog) rebuilt after pumping")
 	ok(_id_of(view, "icon") == before["icon"], "unrelated (icon) STILL untouched after pumping")
+	ok(_id_of(view, "gold_currency_pill") == before["gold_currency_pill"], "unrelated (gold_currency_pill) STILL untouched after pumping")
 
 	_test_bag_components()
 	_test_discovery_cell()
@@ -186,9 +205,7 @@ func _initialize() -> void:
 	_test_gold_badge_corner(view)
 	_test_gold_badge_inner_corner_tracks_outer(view)
 	_test_gold_badge_consumers(view)
-	ok(view._sections.has("gold_currency_pill"), "the gold currency pill is a separate registered gallery item")
-	ok(_gallery_neighbors("currency_pill", "gold_currency_pill"), \
-		"gold_currency_pill sits next to the existing currency_pill component")
+	ok(view._sections.has("gold_currency_pill"), "the gold currency pill is a registered gallery item")
 	var gcp := Kit.gold_currency_pill({
 		"icon": "water", "count": 2450, "plus_x": 0, "plus_y": 0,
 		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
@@ -274,7 +291,7 @@ func _initialize() -> void:
 	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
 		"the default Slot-cell preview actually renders the cost pill")
 
-	for src in ["currency_pill", "bag_card", "frame"]:
+	for src in ["gold_currency_pill", "bag_card", "frame"]:
 		view._selected = src
 		view._dirty.clear()
 		view._apply_edit()
@@ -336,13 +353,13 @@ func _test_new_knobs(view) -> void:
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
-	# the shared currency-pill padding as its content margin.
+	# the shared gold-pill padding as its content margin.
 	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
 	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
 		"info_bar reads name_font / sep / sell_font / sell_icon")
-	ok(ib.has("pill") and ib.has("badge"), "info_bar reads currency-pill padding plus the shared gold_badge frame opts")
+	ok(ib.has("pill") and ib.has("badge"), "info_bar reads gold-pill padding plus the shared gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
 	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon"), \
@@ -351,21 +368,25 @@ func _test_new_knobs(view) -> void:
 	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \
 		"the info-bar preview shows a sample selected item")
 
-	# currency pill: plus_size is read, defaults to Tune.PLUS_BOX (26), is saved config, and resizes the token.
-	ok(int(Kit.currency_pill_opts_from_config({"currency_pill": {"plus_size": 40}}).plus_size) == 40, \
-		"currency_pill reads plus_size")
-	ok(int(Kit.currency_pill_opts_from_config({}).plus_size) == 26, "default plus_size mirrors Tune.PLUS_BOX (26)")
-	ok(view._is_config("currency_pill", "plus_size"), "plus_size is saved config")
-	var pill44: Control = Kit.currency_pill({"show_plus": true, "plus_size": 44}, {"water": 1})
-	var sized := false
-	for pn in pill44.find_children("*", "Panel", true, false):
-		if int((pn as Panel).custom_minimum_size.x) == 44:
-			sized = true
-	ok(sized, "the currency pill '+' token resizes to plus_size (44)")
+	# gold currency pill: the plus glyph and surrounding green button are read from the new config block.
+	ok(int(Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"plus_font": 132}}).plus_font) == 132, \
+		"gold_currency_pill reads plus_font")
+	ok(view._is_config("gold_currency_pill", "plus_font") and view._is_config("gold_currency_pill", "plus_button"), \
+		"gold_currency_pill plus controls are saved config")
+	var pill132: Control = Kit.gold_currency_pill({"icon": "water", "count": 1, "show_plus": true, "plus_font": 132, "plus_button": 120}, {"water": 1})
+	var pill_default_plus: Control = Kit.gold_currency_pill({"icon": "water", "count": 1, "show_plus": true, "plus_button": 100}, {"water": 1})
+	var plus_label := _first_control(pill132, "GoldCurrencyPlusLabel", "Label") as Label
+	var plus_panel := _first_control(pill132, "GoldCurrencyPlusButton", "Panel") as Panel
+	var default_panel := _first_control(pill_default_plus, "GoldCurrencyPlusButton", "Panel") as Panel
+	var default_label := _first_control(pill_default_plus, "GoldCurrencyPlusLabel", "Label") as Label
+	ok(plus_label != null and default_label != null and plus_label.get_theme_font_size("font_size") > default_label.get_theme_font_size("font_size"), \
+		"the gold currency pill plus font can be adjusted larger")
+	ok(plus_panel != null and default_panel != null and plus_panel.custom_minimum_size.x > default_panel.custom_minimum_size.x, \
+		"the gold currency pill plus button size is controlled by plus_button")
 
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.
-	for sel in ["home_button", "currency_pill", "info_bar"]:
+	for sel in ["home_button", "gold_currency_pill", "info_bar"]:
 		view._selected = sel
 		view._rebuild_sidebar()
 		ok(view._sidebar_body.get_child_count() > 0, "the %s sidebar builds its slider panel" % sel)
@@ -693,34 +714,16 @@ func _test_quest_card_config(view) -> void:
 	ok(_id_of(view, "quest_card") != qid, "editing a quest-card slider rebuilds the quest-card element live")
 
 func _test_bag_components() -> void:
-	# the currency pill, reused for the bag's single-acorn balance: an `icons` override renders just
-	# that currency, and now resolves through the gold currency pill visual.
-	var one := Kit.currency_pill({"icons": [["gem", 40.0]], "show_plus": false}, {"gem": 132})
+	# the gold currency pill, reused for the bag's single-acorn balance, renders one icon/count pair and
+	# stays on the new direct entry point.
+	var one := Kit.gold_currency_pill({"icon": "gem", "count": 132, "icon_size": 40, "show_plus": false}, {"gem": 132})
 	ok(one is PanelContainer and one.name == "GoldCurrencyPill" and _pill_numbers(one) == 1, \
-		"currency_pill with one icon renders as the gold currency pill")
-	var water := Kit.currency_pill({"icon": "water", "show_plus": true}, {"water": 128})
+		"gold_currency_pill renders the bag's single-currency balance")
+	var water := Kit.gold_currency_pill({"icon": "water", "show_plus": true}, {"water": 128})
 	ok(water is PanelContainer and water.name == "GoldCurrencyPill" and _has_label_text(water, "+"), \
-		"currency_pill default entry point is replaced by the gold currency pill")
-
-	# the pill's BORDER is a selectable painted capsule (PILL_BORDERS) — the workbench Border picker saves
-	# "border", currency_pill_style resolves it on the ART path. The default is "gold capsule" so the shipped
-	# wallet is unchanged, and EVERY registered border must resolve to a real loadable capsule art at its cap.
-	ok(String(Kit.currency_pill_opts_from_config({}).border) == "gold capsule", \
-		"currency_pill default border == gold capsule (shipped pill)")
-	var def_sb: StyleBox = Kit.currency_pill_style(Kit.currency_pill_opts_from_config({}))
-	ok(def_sb is StyleBoxTexture and (def_sb as StyleBoxTexture).texture.resource_path.ends_with("panel_pill.png"), \
-		"default border resolves to the shipped panel_pill capsule")
-	for bname in Kit.PILL_BORDERS.keys():
-		var rec: Dictionary = Kit.PILL_BORDERS[bname]
-		var sb: StyleBox = Kit.currency_pill_style({"use_art": true, "border": bname})
-		ok(sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null, \
-			"pill border '%s' loads its capsule art (%s)" % [bname, rec.art])
-		ok(int((sb as StyleBoxTexture).get_texture_margin(SIDE_LEFT)) == int(rec.cap), \
-			"pill border '%s' applies its cap (%d)" % [bname, int(rec.cap)])
-	# an unknown saved border falls back to the gold capsule rather than blanking the wallet
-	var bad_sb: StyleBox = Kit.currency_pill_style({"use_art": true, "border": "nope"})
-	ok(bad_sb is StyleBoxTexture and (bad_sb as StyleBoxTexture).texture.resource_path.ends_with("panel_pill.png"), \
-		"unknown border name falls back to the gold capsule")
+		"gold_currency_pill renders the optional plus button directly")
+	ok(not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "top.add_child(currency_pill("), \
+		"bag_dialog uses gold_currency_pill directly for the in-game balance cell")
 
 	# the BAG CELL — one slot tile in each of the four states (filled / empty / next / locked).
 	var co := Kit.bag_card_opts_from_config({})
@@ -810,7 +813,9 @@ func _test_bag_components() -> void:
 	ok(dlg is Control, "bag_dialog builds a Control")
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the bag dialog reuses the SHARED frame banner")
 	ok(_grid_cells(dlg) == entries.size(), "the bag grid has one cell per entry (%d)" % entries.size())
-	ok(_has_label_text(dlg, "132"), "the reused currency pill shows the acorn balance (132)")
+	var balance_pill := dlg.find_child("GoldCurrencyPill", true, false) as Control
+	ok(balance_pill != null and _pill_numbers(balance_pill) == 1, "bag_dialog renders the direct gold currency pill for the balance")
+	ok(_has_label_text(dlg, "132"), "the gold currency pill shows the acorn balance (132)")
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
 # tier wears the filled well holding its piece; an undiscovered tier the locked well (baked padlock kept, no

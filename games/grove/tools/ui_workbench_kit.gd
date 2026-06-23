@@ -27,42 +27,6 @@ const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
 
-# The top-bar CURRENCY PILL (the ★ 🪙 💎 wallet cluster). The painted background is a nine-patch
-# CAPSULE; CUR_PILL_CAP is the cap radius the corners draw 1:1 at. The colours mirror the code-drawn
-# fallback in hud.gd (Tune.Hud.PILL_*) so "use art = off" matches the shipped pill. The per-currency
-# optical scales mirror Tune so the preview reads at the same weight as the live HUD.
-const CUR_PILL_ART := "shared/panel_pill.png"
-const CUR_PILL_CAP := 32
-# The pill's selectable BORDER art — a reusable registry (mirrors FRAME_BORDERS) so the Currency pill
-# item's Border picker dresses the SAME pill in a different painted capsule. Each entry carries the
-# nine-patch art + its cap (texture margin ≈ the rounded-end radius, so the caps draw 1:1 and the flat
-# middle stretches to the counts). "gold capsule" is the SHIPPED default, so an unset border is unchanged.
-const PILL_BORDERS := {
-	"gold capsule": {"art": CUR_PILL_ART,          "cap": CUR_PILL_CAP},   # shared/panel_pill.png (292×65)
-	"grove capsule":{"art": "shared/pill_capsule.png","cap": 36},          # ui_asset2 top-left cream capsule (resized 253×72 so end-radius 36 = pill height/2): 9-slice keeps the round ends FIXED, only the flat middle stretches horizontally
-	"grove badge":  {"art": "shared/badge_rect.png", "cap": 46},           # the shared rounded-rect, 9-sliced (same sprite the rail/Map badges use)
-	"grove square": {"art": "shared/badge_square.png", "cap": 47},         # ui_asset2 row-2 right square, 9-sliced as a tighter info-bar frame
-	"bag":          {"art": "kit/bag_pill.png",       "cap": 59},          # 416×118
-	"bag thin":     {"art": "kit/bag_pill_thin.png",  "cap": 33},          # 411×66
-	"bag blue":     {"art": "kit/bag_pill_b.png",     "cap": 58},          # 416×116
-	"bag green":    {"art": "kit/bag_pill_green.png", "cap": 59},          # 416×118
-	"mail":         {"art": "kit/mail_pill.png",      "cap": 38},          # 220×77
-	"mail cream":   {"art": "kit/mail_pill_cream.png","cap": 38},          # 180×76
-}
-
-## Resolve a pill-border NAME to its {art, cap} record (unknown → gold capsule, so a stale saved value
-## never blanks the wallet).
-static func pill_border(name: String) -> Dictionary:
-	return PILL_BORDERS.get(name, PILL_BORDERS["gold capsule"])
-
-const CUR_PILL_BG := Color("#FBF6EC", 0.95)
-const CUR_PILL_BORDER := Color("#C9A66B", 0.9)
-const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
-# id → per-currency OPTICAL weight (mirrors Tune.Hud.*_OPTICAL). The default wallet sprite px is
-# icon_box × optical, so the `icon_box` slider sets the real icon size — exactly as hud.gd's _icon_box
-# does, so the preview matches the live HUD. (Explicit-icon callers still pass their own [[id, px], …].)
-const CUR_PILL_OPTICAL := [["star", 0.86], ["coin", 1.0], ["gem", 1.0]]
-
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
 
