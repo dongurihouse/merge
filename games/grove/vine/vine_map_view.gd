@@ -19,6 +19,14 @@ const COMPONENT_THRESHOLD := 0.25
 # every region-gated overlay (vines/glow/shadow/embers/veil) inherits the same torn edge.
 const BOUNDARY_WARP := 0.06
 
+# Pre-baked region-index maps. _rebuild_region_map rasterizes a per-pixel noise-warped polygon test over
+# the whole image (~1.1s for the 941×1672 farm) on the first home render. The raster is a pure function of
+# (image_size, region polygons) + the noise constants, so `make bake-vine` writes it once to a committed PNG
+# and load_map loads that instead. The path is CONTENT-ADDRESSED (below): an authored geometry change misses
+# the bake and rasterizes live; bump REGION_MAP_BAKE_VERSION when the raster algorithm itself changes.
+const BAKED_REGION_DIR := "res://games/grove/assets/baked/vine/"
+const REGION_MAP_BAKE_VERSION := 1
+
 # Per-region shader knobs. CANONICAL source: this is the authoritative shader-knob → param
 # mapping. The authoring tool (vine_mask_tool.gd) mirrors it, adding slider-only fields
 # (label/min/max/step). Both copies must be kept in sync whenever entries are added or changed.
@@ -55,6 +63,9 @@ var shadow_template_material: ShaderMaterial
 var ember_template_material: ShaderMaterial
 var lock_template_material: ShaderMaterial
 var _calm := false
+# Authoring/dev opt-out: the vine mask tool sets this so it ALWAYS rasterizes live (it mutates geometry,
+# and an author must see the live torn edge, never a stale baked one). The game leaves it false → baked.
+var live_region_map_only := false
 
 func _init() -> void:
 	controls.assign(CONTROLS.duplicate(true))
@@ -84,7 +95,8 @@ func load_map(entry: Dictionary, region_list: Array) -> void:
 	else:
 		_load_art(entry)
 		_build_templates()
-		_rebuild_region_map()
+		if not _load_baked_region_map():        # the committed warped raster, if present — skips ~1.1s
+			_rebuild_region_map()               # tools/dev (no bake, or live_region_map_only): rasterize live
 		_art_cache[key] = {"mask_image": mask_image, "image_size": image_size,
 			"mask_texture": mask_texture, "region_map": region_map_texture}
 	_create_region_overlays(true)
@@ -370,43 +382,81 @@ func _create_effect_template_materials() -> void:
 
 func _rebuild_region_map() -> void:
 	_region_count = maxi(regions.size(), 1)
-	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
+	region_map_texture = ImageTexture.create_from_image(render_region_map_image(image_size, regions))
+	_apply_region_map_to_materials()
+
+# The warped region-index raster, as a pure function of (image_size, regions). Shared by the live path
+# (_rebuild_region_map) AND the bake tool (bake_vine_region_maps.gd), so a baked PNG is byte-identical to
+# what the game would compute live — the bake never drifts from the runtime. red = region index (vine
+# shaders); green = membership flag (lock-tint fills the whole polygon, telling region 0 from background).
+static func render_region_map_image(map_image_size: Vector2i, region_list: Array) -> Image:
+	var region_count := maxi(region_list.size(), 1)
+	var image := Image.create(map_image_size.x, map_image_size.y, false, Image.FORMAT_RGBA8)
 	image.fill(Color(0.0, 0.0, 0.0, 1.0))
-	var denominator := float(maxi(_region_count - 1, 1))
+	var denominator := float(maxi(region_count - 1, 1))
 	# Coherent noise that warps the test position → an organic (torn) boundary instead of the straight
 	# polygon edge. A pixel up to `amp` outside the polygon can warp inside, so bounds grow by `amp`.
-	var amp := float(maxi(image_size.x, image_size.y)) * BOUNDARY_WARP
+	var amp := float(maxi(map_image_size.x, map_image_size.y)) * BOUNDARY_WARP
 	var nx := FastNoiseLite.new(); nx.seed = 1337; nx.frequency = 0.012
 	var ny := FastNoiseLite.new(); ny.seed = 9281; ny.frequency = 0.012
 
-	for region_index in range(regions.size()):
-		var region: Dictionary = regions[region_index]
+	for region_index in range(region_list.size()):
+		var region: Dictionary = region_list[region_index]
 		var points: Array = _region_points(region)
 		if points.size() < 3:
 			continue
-		var bounds := _polygon_bounds(points).grow(amp)
+		var bounds := _polygon_bounds(points, map_image_size).grow(amp)
 		var encoded := float(region_index) / denominator
-		# red = region index (vine shaders); green = membership flag, so the lock-tint shader can
-		# fill the WHOLE polygon and tell region 0 (red 0.0) apart from the background (also 0.0).
 		var color := Color(encoded, 1.0, 0.0, 1.0)
 		var packed := _points_to_packed(points)
 		var x0 := maxi(0, int(bounds.position.x))
 		var y0 := maxi(0, int(bounds.position.y))
-		var x1 := mini(image_size.x - 1, int(bounds.end.x))
-		var y1 := mini(image_size.y - 1, int(bounds.end.y))
+		var x1 := mini(map_image_size.x - 1, int(bounds.end.x))
+		var y1 := mini(map_image_size.y - 1, int(bounds.end.y))
 		for y in range(y0, y1 + 1):
 			for x in range(x0, x1 + 1):
 				var sx := float(x) + 0.5 + nx.get_noise_2d(float(x), float(y)) * amp
 				var sy := float(y) + 0.5 + ny.get_noise_2d(float(x), float(y)) * amp
 				if Geometry2D.is_point_in_polygon(Vector2(sx, sy), packed):
 					image.set_pixel(x, y, color)
+	return image
 
-	region_map_texture = ImageTexture.create_from_image(image)
+# The committed PNG path for a map's region-index raster, content-addressed on EXACTLY what the raster
+# consumes: the algo version + image size + each region's polygon (and their order). A geometry edit moves
+# the path (→ missing → live fallback); a tuning/name/cost edit does NOT (the raster ignores those). Both
+# the bake tool and the runtime load below derive the path from here, so they always agree.
+static func baked_region_map_path(map_image_size: Vector2i, region_list: Array) -> String:
+	var geo: Array = []
+	for region in region_list:
+		var pts: Array = []
+		if region is Dictionary:
+			for p in _region_points(region):
+				pts.append([p.x, p.y])
+		geo.append(pts)
+	var blob := JSON.stringify([REGION_MAP_BAKE_VERSION, BOUNDARY_WARP, map_image_size.x, map_image_size.y, geo])
+	return "%sregion_map_%s.png" % [BAKED_REGION_DIR, blob.sha256_text().substr(0, 16)]
+
+# Load the pre-baked region-index map for the current (image_size, regions). Read as raw bytes via
+# Image.load_from_file (the same import-free path the mask takes) so the data channels survive intact —
+# no texture compression/sRGB to corrupt the region-index red channel. Returns false (→ live raster) when
+# the bake is missing (an un-baked authored map) or this view opted into live-only (the authoring tool).
+func _load_baked_region_map() -> bool:
+	if live_region_map_only:
+		return false
+	var path := baked_region_map_path(image_size, regions)
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(path)):
+		return false                            # un-baked authored map → caller rasterizes live (no error spam)
+	var img := _load_image(path)
+	if img == null or img.is_empty():
+		return false
+	img.convert(Image.FORMAT_RGBA8)
+	region_map_texture = ImageTexture.create_from_image(img)
 	_apply_region_map_to_materials()
+	return true
 
 # A region's points come either as Vector2 (tool, in-memory) or as [x, y] arrays (parsed JSON,
 # the path the game takes). Normalize to Vector2 so the polygon math is source-agnostic.
-func _region_points(region: Dictionary) -> Array:
+static func _region_points(region: Dictionary) -> Array:
 	var raw: Array = region.get("points", [])
 	var out: Array = []
 	for p in raw:
@@ -416,9 +466,9 @@ func _region_points(region: Dictionary) -> Array:
 			out.append(Vector2(float(p[0]), float(p[1])))
 	return out
 
-func _polygon_bounds(points: Array) -> Rect2:
-	var min_x := float(image_size.x - 1)
-	var min_y := float(image_size.y - 1)
+static func _polygon_bounds(points: Array, isize: Vector2i) -> Rect2:
+	var min_x := float(isize.x - 1)
+	var min_y := float(isize.y - 1)
 	var max_x := 0.0
 	var max_y := 0.0
 	for point in points:
@@ -427,11 +477,11 @@ func _polygon_bounds(points: Array) -> Rect2:
 		min_y = minf(min_y, p.y)
 		max_x = maxf(max_x, p.x)
 		max_y = maxf(max_y, p.y)
-	var position := Vector2(clampf(floorf(min_x), 0.0, float(image_size.x - 1)), clampf(floorf(min_y), 0.0, float(image_size.y - 1)))
-	var end := Vector2(clampf(ceilf(max_x), 0.0, float(image_size.x - 1)), clampf(ceilf(max_y), 0.0, float(image_size.y - 1)))
+	var position := Vector2(clampf(floorf(min_x), 0.0, float(isize.x - 1)), clampf(floorf(min_y), 0.0, float(isize.y - 1)))
+	var end := Vector2(clampf(ceilf(max_x), 0.0, float(isize.x - 1)), clampf(ceilf(max_y), 0.0, float(isize.y - 1)))
 	return Rect2(position, end - position)
 
-func _points_to_packed(points: Array) -> PackedVector2Array:
+static func _points_to_packed(points: Array) -> PackedVector2Array:
 	var packed := PackedVector2Array()
 	for point in points:
 		packed.append(point)

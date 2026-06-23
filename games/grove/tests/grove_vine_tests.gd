@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_empty_regions()
 	_test_lock_overlay()
 	_test_region_map_membership()
+	_test_region_map_prebaked()
 	_test_cover_offset_bleed()
 	await _test_map_integration()
 	await _test_unlock_badge_follows_map()
@@ -85,6 +86,36 @@ func _test_region_map_membership() -> void:
 	ok(inside1.g > 0.5, "a region-1 interior pixel is marked as member (green=1)")
 	ok(outside.g < 0.5, "an off-polygon pixel is unmarked (green=0) so region 0 != background")
 	view.free()
+
+# Every shipped vine map ships a pre-baked region-index map at the content-addressed path load_map()
+# computes, so the game's first home render LOADS the warped raster (skipping the ~1.1s per-pixel noise +
+# polygon pass) instead of building it live. A geometry edit moves the path; if the bake was not re-run
+# (`make bake-vine`), the file is missing and this FAILS loudly. The first map also byte-checks that the
+# committed PNG reproduces the live raster exactly (no data-channel corruption across the PNG round-trip).
+func _test_region_map_prebaked() -> void:
+	var entries := VineMaps.entries()
+	ok(entries.size() >= 1, "maps.json ships at least one vine map to bake")
+	var checked_fidelity := false
+	for entry in entries:
+		var regions: Array = VineMaps.regions_for(entry)
+		if regions.is_empty():
+			continue
+		var view := VineMapView.new()
+		view._load_art(entry)
+		var isize: Vector2i = view.image_size
+		view.free()
+		var path := VineMapView.baked_region_map_path(isize, regions)
+		var baked := Image.load_from_file(ProjectSettings.globalize_path(path))
+		ok(baked != null and not baked.is_empty(),
+			"map '%s' ships a baked region map (%s) — run `make bake-vine` after editing regions" % [String(entry.get("id", "?")), path.get_file()])
+		if baked == null or checked_fidelity:
+			continue
+		baked.convert(Image.FORMAT_RGBA8)
+		var live := VineMapView.render_region_map_image(isize, regions)
+		live.convert(Image.FORMAT_RGBA8)
+		ok(baked.get_size() == live.get_size() and baked.get_data() == live.get_data(),
+			"map '%s' baked region map is byte-identical to the live raster" % String(entry.get("id", "?")))
+		checked_fidelity = true
 
 # REGRESSION (map-2 "no restore badge" bug): the bottom restore badge is PER-MAP, but _open_map did not
 # refresh it. Booting onto / navigating to a fully-restored map (the hub) built the badge null/hidden, and
