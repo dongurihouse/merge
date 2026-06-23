@@ -87,11 +87,11 @@ var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS 
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z}] — the map-select cards
-var resident_hits: Array = []    # [{node, z, type}] — the "welcome a spirit" panel's kind rows (residents §1)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
+var _residents_btn: Button = null  # the bottom-nav Residents badge — shown only on a fully-unlocked map
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
@@ -268,6 +268,7 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
+	_refresh_residents_btn()             # show/hide the Residents badge for the map just opened
 
 func _open_select() -> void:
 	_view = "select"
@@ -300,7 +301,6 @@ func _build_map(animate := true) -> void:
 		c.queue_free()
 	spot_hits.clear()
 	select_hits.clear()
-	resident_hits.clear()
 	var z := _map_idx
 	# the stable map canvas is a centered, design-aspect rect (see _map_image_rect) that the HUD
 	# floats over. Background art fills it; spots ride this same rect, so the painting and the
@@ -334,16 +334,12 @@ func _build_map(animate := true) -> void:
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
-	# The progress dialog (the "N to restore this place" pill) is DISABLED for now (might add back later).
-	# It also paid the one-time map-completion gift, so grant that here directly to keep it working without
-	# the pill. To re-enable the pill: `content.add_child(_map_title_plank(z))` (the builder still exists).
-	if map_spots_done(z):
-		_grant_map_task_reward(z)
 	if not has_home:
 		_seat_spots(z, home_dict, frame)
-	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
+	# §1 residents: a FULLY-UNLOCKED map (spots restored + gate delivered) pays its one-time unlock gift
+	# (the celebration dialog) and offers the Residents shop via the bottom-nav button (_make_residents_button).
 	if G.can_populate(z, unlocks, _gates()):
-		_add_welcome_panel(z)
+		_maybe_show_unlock_reward(z)
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
@@ -643,10 +639,11 @@ const _PILL_GROOVE_Y := 0.6789   # 74 / 109
 const _PILL_GROOVE_H := 0.1193   # 13 / 109
 
 func _map_title_plank(z: int) -> Control:
-	# the pill IS the restore read; a fully-restored map pays MAP_TASK_REWARD once — the gift rides the
-	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays).
-	if map_spots_done(z):
-		_grant_map_task_reward(z)
+	# the pill IS the restore read; a fully-unlocked map pays its unlock gift once — the gift rides the
+	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays). NOTE: this
+	# pill is DISABLED (see _build_map); the live trigger is _build_map's can_populate block.
+	if G.can_populate(z, unlocks, _gates()):
+		_maybe_show_unlock_reward(z)
 	var pill_path := Look.kit("map/pill_progress.png")
 	if not ResourceLoader.exists(pill_path):
 		return _map_title_plank_fallback(z)
@@ -821,31 +818,34 @@ func _build_select(animate := true) -> void:
 		c.queue_free()
 	spot_hits.clear()
 	select_hits.clear()
-	resident_hits.clear()
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
 	# ONE wide painted card per row — a vista per place (map.png place-picker). No header: the HUD
-	# wallet + the framed cards carry the read. Cards size to the gold frame's ASPECT (so the frame
-	# never distorts) and the stack centers in the band between the HUD and the floor back-arrow; if
-	# the natural height overflows the band, every card shrinks uniformly to fit. No ScrollContainer
-	# (the single-input-surface model has none); cards are positioned + hit-tested directly.
+	# wallet + the framed cards carry the read. The card SIZE is workbench-saved as a % of the screen
+	# (card_w_frac of the screen width, card_h_frac of the screen height), so a designer tunes the
+	# width + side margins + height live in the kit. The stack centers in the band between the HUD and
+	# the floor back-arrow; if the saved height overflows the band, every card shrinks uniformly
+	# (keeping the chosen w:h) to fit. No ScrollContainer (single-input-surface); cards are positioned
+	# + hit-tested directly. NOTE: the gold frame STRETCH-scales, so a w:h far from the art's ~2.92
+	# aspect visibly distorts the border — the kit's live preview shows the chosen shape.
 	var n := G.MAPS.size()
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
-	var card_aspect: float = float(Kit.MAP_CARD_ASPECT) if Kit != null else 1027.0 / 352.0
-	var side := 46.0
-	var card_w := view.x - side * 2.0
+	var w_frac: float = float(opts.get("card_w_frac", 0.96))    # card width  as a fraction of the screen width
+	var h_frac: float = float(opts.get("card_h_frac", 0.16))    # card height as a fraction of the screen height
 	var sep := 18.0
 	var band_top := top + 16.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
-	var card_h := card_w / card_aspect
+	var card_w := view.x * w_frac
+	var card_h := view.y * h_frac
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
-	if total_h > band_h:                                        # shrink uniformly so all cards fit the band
-		card_h *= band_h / total_h
-		card_w = card_h * card_aspect
+	if total_h > band_h:                                        # shrink uniformly (keep the chosen w:h) so all cards fit the band
+		var k := band_h / total_h
+		card_w *= k
+		card_h *= k
 		total_h = card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
 	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
@@ -948,13 +948,8 @@ func _select_tap(gpos: Vector2) -> void:
 		return
 
 func _map_tap(gpos: Vector2) -> void:
-	# §1 residents: the "welcome a spirit" panel's kind rows float over the map — resolve them
-	# before the spots so a tap on the panel never falls through to a spot behind it.
-	for hit in resident_hits:
-		var rn: Control = hit.node
-		if rn.get_global_rect().grow(6.0).has_point(gpos):
-			_on_welcome_tap(int(hit.z), String(hit.type), rn, gpos)
-			return
+	# §1 residents are welcomed via the Residents shop dialog now (not an on-map panel), so taps resolve
+	# straight to spots / wandering spirits.
 	for hit in spot_hits:
 		var n: Control = hit.node
 		if n.get_global_rect().grow(8.0).has_point(gpos):
@@ -1063,112 +1058,10 @@ func _capture_region_veil(view: Variant, k: int) -> Dictionary:
 	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
 
 # --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
-# On a COMPLETED map the player WELCOMES wandering spirits. A cozy panel lists each welcomable
-# KIND (G.resident_lines) with its name + cost (coin/diamond). Tapping a row welcomes one
-# (G.welcome_resident, which spends + adds + silently auto-merges two-of-a-kind). The roster is
-# the source of truth: on success the population layer is REBUILT from it and a warm merge
-# flourish plays once per merge event. The panel itself is an IGNORE visual; content's input
-# surface resolves the taps via resident_hits.
-
-# The "Welcome a spirit" panel — a small parchment card pinned bottom-center (above the CTA),
-# one tappable row per welcomable kind. Built only on a populatable map; appended under `content`
-# so it clears + rebuilds with the map. Frame copy WELCOMES (never "Buy").
-func _add_welcome_panel(z: int) -> void:
-	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", Look.kit_panel("parchment"))
-	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(col)
-	var head := Label.new()
-	head.text = Strings.t("map.welcome.title")
-	head.add_theme_font_size_override("font_size", 22)
-	head.add_theme_color_override("font_color", INK)
-	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(head)
-	for type_def in G.resident_lines(z):
-		col.add_child(_welcome_row(z, type_def))
-	# pinned centered, just ABOVE the task strip / CTA stack at the bottom of the map
-	var sb_cta := Look.safe_bottom(self)
-	card.anchor_left = 0.5
-	card.anchor_right = 0.5
-	card.anchor_top = 1.0
-	card.anchor_bottom = 1.0
-	card.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	card.offset_top = -340 - sb_cta
-	card.offset_bottom = -184 - sb_cta
-	content.add_child(card)
-
-# One welcomable-kind row: the kind's name + its cost (coin/diamond icon + number). An IGNORE
-# visual resolved by content's input surface (registered in resident_hits → _on_welcome_tap).
-func _welcome_row(z: int, type_def: Dictionary) -> Control:
-	var cost: Dictionary = G.resident_cost(type_def)
-	var row_panel := PanelContainer.new()
-	var rs := StyleBoxFlat.new()
-	rs.bg_color = Color(INK, 0.10)
-	rs.set_corner_radius_all(12)
-	rs.content_margin_left = 10.0
-	rs.content_margin_right = 10.0
-	rs.content_margin_top = 5.0
-	rs.content_margin_bottom = 5.0
-	row_panel.add_theme_stylebox_override("panel", rs)
-	row_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row_panel.add_child(row)
-	var name_l := Label.new()
-	name_l.text = tr(String(type_def.name))
-	name_l.add_theme_font_size_override("font_size", 20)
-	name_l.add_theme_color_override("font_color", INK)
-	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_l.custom_minimum_size = Vector2(150, 0)
-	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(name_l)
-	# the price: the currency SPRITE (coin/gem) + a number-only label (§13 — no baked emoji)
-	var icon_id := "gem" if String(cost.currency) == "diamonds" else "coin"
-	var ci := Look.icon(icon_id, 22.0)
-	ci.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(ci)
-	var pl := Label.new()
-	pl.text = str(int(cost.cost))
-	pl.add_theme_font_size_override("font_size", 20)
-	pl.add_theme_color_override("font_color", Color(BARK, 0.95))
-	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(pl)
-	resident_hits.append({"node": row_panel, "z": z, "type": String(type_def.id)})
-	return row_panel
-
-# A welcome-row was tapped: welcome one spirit of `type_id` on map z. G.welcome_resident spends +
-# adds + silently auto-merges. On ok: rebuild the population layer from the now-updated roster, play
-# a warm float-text + a merge flourish once per merge event. On not-ok: the standard "can't afford"
-# feedback (the same wobble + "need more" the spots use).
-func _on_welcome_tap(z: int, type_id: String, node: Control, at: Vector2) -> void:
-	var res := G.welcome_resident(z, type_id)
-	if not bool(res.get("ok", false)):
-		Audio.play("invalid_soft", -4.0)
-		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 60), Strings.t("map.welcome.not_enough"), Color(CREAM, 0.9), 26)
-		return
-	Audio.play("level_complete", -6.0, 1.15)
-	FX.burst(self, at, STRAW, 14)
-	FX.floating_text(self, at - Vector2(120, 70), Strings.t("map.welcome.new_friend"), STRAW, 26)
-	# the roster changed → rebuild the whole map (the population layer reads the fresh roster). Then
-	# play the merge flourish on the rebuilt layer, once per auto-merge event (the roster is already
-	# committed by the API, so this is pure juice).
-	_build_map()
-	_update_hud()
-	var events: Array = res.get("events", [])
-	if not events.is_empty():
-		var amb: Control = content.get_node_or_null("AmbientLayer")
-		Ambient.merge_poof(amb, events.size())
-		Audio.play("tidy_poof", -2.0, 1.1)
-		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
-			Strings.t("map.welcome.two_became_one"), CREAM, 26)
+# On a COMPLETED map the player WELCOMES wandering spirits via the Residents shop dialog
+# (_open_residents_shop, opened from the bottom-nav Residents button). G.welcome_resident spends +
+# adds + silently auto-merges two-of-a-kind; the roster is the source of truth and the population
+# layer is rebuilt from it on each buy. (The old always-on bottom panel was retired for the shop.)
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
@@ -1264,14 +1157,18 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
+		# Residents — the resident roster shop (only on a fully-unlocked map; hidden otherwise).
+		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
 		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
 	_refresh_play_cta()                  # confirm the merged CTA's Play↔Restore state for the open map
-	# the Play disc breathes so the primary action reads (index 1) — kept whether it shows board or vine.
-	FX.breathe_once(nav.buttons[1])
+	# the Play disc breathes so the primary action reads — kept whether it shows board or vine. (Target by
+	# identity, not nav index: the Residents button shifts Play's position in the row.)
+	if is_instance_valid(_play_btn):
+		FX.breathe_once(_play_btn)
 	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no
 	# longer wears a corner badge. `_store_badge` stays null, so `_refresh_store_badge` is a safe no-op.
 	# the LiveOps rail: Daily · Free · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
@@ -1298,6 +1195,111 @@ func _make_map_button() -> Button:
 	opts["calm"] = FX.calm()
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
+
+# The Residents button (bottom nav, between Map and Play) — opens the resident roster shop. Built like the
+# Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
+# "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
+# out of the nav HBox, so an incomplete map shows just [Map, Play].
+func _make_residents_button() -> Button:
+	var open := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_residents_shop(_map_idx)
+	var Kit: GDScript = load(KIT_PATH)
+	var b: Button
+	if Kit == null:
+		b = NavBar._make_nav_button("nav_residents.png", 140.0, open)   # defensive: glyph/png fallback
+	else:
+		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		opts["px"] = 140.0
+		opts["shape"] = "rect"
+		opts["calm"] = FX.calm()
+		var HC: GDScript = load(HOME_CHROME_PATH)
+		b = Kit.home_button({"icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.residents"), "action": open}, opts)
+	_residents_btn = b
+	_refresh_residents_btn()
+	return b
+
+# Show the Residents button only when the open map is fully unlocked (same gate as the population layer).
+func _refresh_residents_btn() -> void:
+	if _residents_btn != null and is_instance_valid(_residents_btn):
+		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
+
+# The residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon, name,
+# cost). Buying welcomes a t1 (G.welcome_resident: spend → add → auto-merge), then rebuilds the population
+# layer and refreshes the shop's affordability in place. Built over a veil overlay with the shared Kit
+# shop_dialog chrome — the same frame the coin/gem store wears.
+func _open_residents_shop(z: int) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	var overlay := Control.new()
+	overlay.name = "ResidentsShopOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var veil := ColorRect.new()
+	veil.color = Color(INK, 0.55)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var width: float = minf(get_viewport_rect().size.x * 0.92, 520.0)
+	# rebuild closure: clears + rebuilds the storefront so a buy refreshes affordability in place.
+	var rebuild := {"fn": Callable()}
+	rebuild.fn = func() -> void:
+		if not is_instance_valid(cc):
+			return
+		for c in cc.get_children():
+			c.queue_free()
+		var cards: Array = []
+		for cd in G.residents_shop_cards(z):
+			var id := String(cd.id)
+			cards.append({
+				"node": _spirit_icon(id, width / 3.0 * 0.52),
+				"label": tr(String(cd.name)),
+				"price": str(int(cd.cost)),
+				"price_icon": ("gem" if String(cd.currency) == "diamonds" else "coin"),
+				"affordable": bool(cd.affordable),
+				"on_buy": func() -> void: _buy_resident(z, id, rebuild.fn),
+			})
+		var sopts: Dictionary = Kit.shop_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		sopts["banner_text"] = Strings.t("map.welcome.title")
+		sopts["on_close"] = func() -> void: overlay.queue_free()
+		if float(sopts.get("list_max_h", 0)) <= 0.0:
+			sopts["list_max_h"] = get_viewport_rect().size.y * 0.72
+		var dialog: Control = Kit.shop_dialog([{"caption": "", "cards": cards}], width, sopts)
+		cc.add_child(dialog)
+		FX.pop_in(dialog)
+	rebuild.fn.call()
+
+# Buy one resident from the shop: welcome (spend + add + auto-merge), rebuild the population layer + refresh
+# the open shop, and play the warm success / merge / can't-afford feedback (the old panel's feel).
+func _buy_resident(z: int, type_id: String, refresh: Callable) -> void:
+	var res := G.welcome_resident(z, type_id)
+	if not bool(res.get("ok", false)):
+		Audio.play("invalid_soft", -4.0)
+		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
+			Strings.t("map.welcome.not_enough"), Color(CREAM, 0.9), 26)
+		return
+	Audio.play("level_complete", -6.0, 1.15)
+	_build_map()
+	_update_hud()
+	if refresh.is_valid():
+		refresh.call()
+	var events: Array = res.get("events", [])
+	if not events.is_empty():
+		var amb: Control = content.get_node_or_null("AmbientLayer")
+		Ambient.merge_poof(amb, events.size())
+		Audio.play("tidy_poof", -2.0, 1.1)
+		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
+			Strings.t("map.welcome.two_became_one"), CREAM, 26)
+	else:
+		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
+			Strings.t("map.welcome.new_friend"), STRAW, 26)
 
 # The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
 # big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the
@@ -1493,29 +1495,119 @@ func _open_inbox() -> void:
 	# refresh deferred so a modal that grants on open settles before we re-read the count
 	_refresh_liveops_badges.call_deferred()
 
-# Grant the map's milestone reward ONCE per map (persisted by a per-map flag) when its spots are all
-# restored. Driven from the progress pill's "restored" end-state (see _map_title_plank), so the gift
-# rides the top progress read — no separate strip. Celebrates the beat the player already reached
-# (§4: no possibility gate).
-func _grant_map_task_reward(z: int) -> void:
-	var g := Save.grove()
-	var claimed: Dictionary = g.get("task_reward", {})
-	var key := String(G.MAPS[z].id)
-	if claimed.has(key):
+# One-time map-UNLOCK celebration. Grants the scaled reward (coins + gems + free signature spirit) via the
+# model the instant the map first completes (robust to interruption — the grant is committed before any
+# UI), then reveals it in a parchment dialog. Idempotent: claim_unlock_reward returns {} after the first
+# time, so a revisit shows nothing. Safe in headless rebuilds (the dialog is deferred + tree-guarded).
+func _maybe_show_unlock_reward(z: int) -> void:
+	var rew: Dictionary = G.claim_unlock_reward(z)
+	if rew.is_empty():
 		return
-	claimed[key] = true
-	g["task_reward"] = claimed
-	Save.grove_write()
-	var rew: Dictionary = Game.DATA.MAP_TASK_REWARD
-	var coins := int(rew.get("coins", 0))
-	var gems := int(rew.get("gems", 0))
-	if coins > 0:
-		Save.add_coins(coins)
-	if gems > 0:
-		Save.add_diamonds(gems)
+	_update_hud()
 	if not is_inside_tree():
 		return
-	_task_reward_fx.call_deferred(coins, gems)
+	_show_unlock_dialog.call_deferred(z, rew)
+
+func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	var coins := int(rew.get("coins", 0))
+	var gems := int(rew.get("gems", 0))
+	var spirit := String(rew.get("spirit", ""))
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		_task_reward_fx(coins, gems)          # defensive: at least play the float FX if the kit is absent
+		return
+	var overlay := Control.new()
+	overlay.name = "UnlockRewardOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var dismiss := func() -> void:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		_task_reward_fx(coins, gems)
+	var veil := ColorRect.new()
+	veil.color = Color(INK, 0.55)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			dismiss.call())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	if coins > 0:
+		col.add_child(_reward_row(Look.icon("coin", 44.0), Strings.t("map.unlock.coins"), "+%d" % coins))
+	if gems > 0:
+		col.add_child(_reward_row(Look.icon("gem", 44.0), Strings.t("map.unlock.diamonds"), "+%d" % gems))
+	if spirit != "":
+		col.add_child(_reward_row(_spirit_icon(spirit, 44.0), _resident_name(z, spirit), "+1"))
+	var collect: Button = Kit.pill_button(Strings.t("map.unlock.collect"), {"bg": "green", "font": 22})
+	collect.pressed.connect(func() -> void: dismiss.call())
+	var btn_wrap := CenterContainer.new()
+	btn_wrap.add_child(collect)
+	col.add_child(btn_wrap)
+	var width: float = minf(get_viewport_rect().size.x * 0.86, 520.0)
+	var opts := {"banner_text": Strings.t("map.unlock.title"), "banner_icon_on": false}
+	opts["on_close"] = func() -> void: dismiss.call()
+	var dialog: Control = Kit.dialog_frame(col, width, opts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
+
+# A fixed-size resident icon: the type's art when present, else a soft cream disc (signature spirits ship
+# without art yet — this keeps the row reading as "a spirit" rather than a broken/empty box).
+func _spirit_icon(type_id: String, px: float) -> Control:
+	var path := G.resident_art(type_id)
+	if path != "" and ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.texture = load(path)
+		t.custom_minimum_size = Vector2(px, px)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var disc := Panel.new()
+	disc.custom_minimum_size = Vector2(px, px)
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Color(STRAW, 0.9)
+	ds.set_corner_radius_all(int(px / 2.0))
+	disc.add_theme_stylebox_override("panel", ds)
+	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return disc
+
+# The resident's localized display name for map z (falls back to the raw id if unlisted).
+func _resident_name(z: int, type_id: String) -> String:
+	for td in G.resident_lines(z):
+		if String(td.id) == type_id:
+			return tr(String(td.name))
+	return type_id
+
+# One reward-reveal row: [icon] · label (expands) · amount (right). Used by the unlock dialog.
+func _reward_row(icon: Control, label: String, amount: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", 22)
+	l.add_theme_color_override("font_color", INK)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	var a := Label.new()
+	a.text = amount
+	a.add_theme_font_size_override("font_size", 22)
+	a.add_theme_color_override("font_color", Color(BARK, 0.95))
+	a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(a)
+	return row
 
 func _task_reward_fx(coins: int, gems: int) -> void:
 	if not is_inside_tree():

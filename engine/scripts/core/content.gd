@@ -46,6 +46,7 @@ const RESIDENT_CORE = D.RESIDENT_CORE
 const RESIDENT_ART = D.RESIDENT_ART
 const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
+const RESIDENT_SIGNATURE = D.RESIDENT_SIGNATURE
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
@@ -400,6 +401,10 @@ static func can_populate(z: int, unlocks: Dictionary, gates: Array) -> bool:
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
 
+## The per-map one-time unlock gift {coins, gems, spirit}. Delegates to the game data.
+static func map_unlock_reward(z: int) -> Dictionary:
+	return D.map_unlock_reward(z)
+
 ## The cost to welcome a t1 of `type_def`: {currency, cost}. Premium (signature, marked) types
 ## cost diamonds (RESIDENT_PREMIUM_COST); everything else costs coins (RESIDENT_BASE_COST).
 static func resident_cost(type_def: Dictionary) -> Dictionary:
@@ -410,6 +415,19 @@ static func resident_cost(type_def: Dictionary) -> Dictionary:
 ## The res:// art path for a resident `type_id` (reuses the CHARACTER_ART convention via Game.art).
 static func resident_art(type_id: String) -> String:
 	return Game.art(RESIDENT_ART % type_id)
+
+## The data behind the residents SHOP: one card per offered resident on map z — {id, name, cost, currency,
+## affordable}. Affordability reads the live wallet (coins/diamonds). Pure model; the scene turns each into
+## a Kit shop card (icon node + price pill + on_buy).
+static func residents_shop_cards(z: int) -> Array:
+	var out: Array = []
+	for td in resident_lines(z):
+		var cost: Dictionary = resident_cost(td)
+		var cur := String(cost.currency)
+		var have := Save.diamonds() if cur == "diamonds" else Save.coins()
+		out.append({"id": String(td.id), "name": String(td.name), "cost": int(cost.cost),
+			"currency": cur, "affordable": have >= int(cost.cost)})
+	return out
 
 ## Flatten map `z`'s persisted roster into one {type, tier} per resident INSTANCE — what the
 ## wander layer renders. Stable order: resident_lines order, then tier 1..MAX, pushing one copy
@@ -446,9 +464,18 @@ static func resolve_resident_merges(z: int) -> Array:
 			Save.set_resident_counts(map_id, tid, counts)
 	return events
 
-## Welcome (buy) one t1 resident of `type_id` on map `z`: charge the cost (coins or diamonds via
-## Save), add one to its t1 count, then resolve cascading merges. Returns {ok, events}: ok=false
-## with no events on insufficient funds; ok=true with the merge events on success.
+## Add one tier-1 instance of `type_id` to map z's roster and cascade two-of-a-kind merges. The shared
+## spend-free core of welcome_resident (paid) and the unlock gift (free). Returns the merge events.
+static func grant_resident(z: int, type_id: String) -> Array:
+	var map_id := String(MAPS[z].id)
+	var counts: Array = Save.resident_counts(map_id, type_id).duplicate()
+	counts[0] = int(counts[0]) + 1
+	Save.set_resident_counts(map_id, type_id, counts)
+	return resolve_resident_merges(z)
+
+## Welcome (buy) one t1 resident of `type_id` on map `z`: charge the cost (coins or diamonds via Save),
+## then grant_resident. Returns {ok, events}: ok=false with no events on insufficient funds; ok=true with
+## the merge events on success.
 static func welcome_resident(z: int, type_id: String) -> Dictionary:
 	var type_def: Dictionary = {}
 	for td in resident_lines(z):
@@ -465,12 +492,34 @@ static func welcome_resident(z: int, type_id: String) -> Dictionary:
 		paid = Save.spend(int(cost.cost), "welcome_resident")
 	if not paid:
 		return {"ok": false, "events": []}
-	var map_id := String(MAPS[z].id)
-	var counts: Array = Save.resident_counts(map_id, type_id).duplicate()
-	counts[0] = int(counts[0]) + 1
-	Save.set_resident_counts(map_id, type_id, counts)
-	var events := resolve_resident_merges(z)
+	var events := grant_resident(z, type_id)
 	return {"ok": true, "events": events}
+
+## Grant map z's one-time unlock gift if still unclaimed: coins + diamonds + the free signature spirit.
+## Sets the per-map `task_reward` flag so it pays exactly once (shared with the legacy completion gift).
+## Returns the granted reward {coins, gems, spirit, events} on the first claim, or {} if already claimed
+## (so the scene knows whether to show the celebration dialog). Pure model; no FX, no UI.
+static func claim_unlock_reward(z: int) -> Dictionary:
+	var g := Save.grove()
+	var claimed: Dictionary = g.get("task_reward", {})
+	var key := String(MAPS[z].id)
+	if claimed.has(key):
+		return {}
+	claimed[key] = true
+	g["task_reward"] = claimed
+	Save.grove_write()
+	var rew: Dictionary = D.map_unlock_reward(z)
+	var coins := int(rew.get("coins", 0))
+	var gems := int(rew.get("gems", 0))
+	var spirit := String(rew.get("spirit", ""))
+	if coins > 0:
+		Save.add_coins(coins)
+	if gems > 0:
+		Save.add_diamonds(gems)
+	var events: Array = []
+	if spirit != "":
+		events = grant_resident(z, spirit)
+	return {"coins": coins, "gems": gems, "spirit": spirit, "events": events}
 
 static func map_for_spots(i: int) -> int:
 	var acc := 0

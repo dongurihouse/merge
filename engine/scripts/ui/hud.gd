@@ -15,22 +15,15 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
-# The currency pill's look (padding / border / font / icon box / gaps) is tuned in the UI Workbench and
-# saved to the shared kit config; the kit resolves it with Tune.Hud as the defaults, so an absent config
-# renders exactly the values above. Loaded at runtime (matches nav_bar / inbox) to avoid a preload cycle.
+# The gold currency pill's look (padding, icon box, amount, plus button) is tuned in the UI Workbench
+# and saved to the shared kit config. Loaded at runtime (matches nav_bar / inbox) to avoid a preload cycle.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
 const STRAW = Pal.STRAW
 
-# The currency pill's painted background (ui/shared/panel_pill.png) is a CAPSULE — its rounded
-# gold caps are as tall as the whole pill. A nine-patch keeps those caps a fixed size while only
-# the flat middle stretches to the counts (the style is built by Kit.currency_pill_style now, so
-# both the live pill and the UI Workbench preview share one recipe). The slot is pinned ≥ the cap
-# height so the rounded ends always draw 1:1 and never crush into a thin border (T48 failure mode).
-const PILL_SLOT_H := 65.0
-# The wallet is THREE separate capsules centred across the top (board2.png); PILL_GAP is the gap
+# The wallet is THREE separate gold pills centred across the top (board2.png); PILL_GAP is the gap
 # between them. The settings gear is a top-right disc matched to the top-left level badge so the two top
 # corners read at the SAME VISIBLE size + the same Y centre. The two boxes are NOT equal: the gear's
 # disc_round art fills ~97% of its box but the level MEDAL art only ~78%, so equal boxes would render the
@@ -41,14 +34,14 @@ const LV_BADGE_PX := 225.0   # the level-badge BOX (its medal fills ~78% → ~17
 const GEAR_PX := 120.0       # the gear BOX (its disc fills ~97% → ~116px visible, matching the medal)
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
-	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
+	# the workbench-tuned gold pill look (padding / font / icon box / plus)
 	var Kit = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
 	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)
-	# The wallet is THREE separate capsules (★ coin gem) centred across the TOP, each with its own green
+	# The wallet is THREE separate gold pills (water coin gem) centred across the TOP, each with its own green
 	# "+" that opens the store (board2.png). The store opens through the +'s Button.pressed — which the
 	# engine de-dupes against the emulated touch/mouse pair, so one tap opens it ONCE. (The old whole-pill
 	# gui_input fired on BOTH the real mouse release AND the emulated touch release under
@@ -239,7 +232,7 @@ static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, 
 	box.custom_minimum_size = Vector2(box_px, box_px)
 	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the currency sprite, optically scaled. (Its lift off the cream capsule is the pill's SHARED box-shadow now,
+	# the currency sprite, optically scaled. (Its lift off the gold pill is handled at the pill surface now,
 	# not a per-icon drop shadow — the unified-shadow refactor retired the old `icon_shadow` polish.)
 	var ic: Control = Look.icon(icon_id, float(gsize) * optical)
 	ic.modulate = tint

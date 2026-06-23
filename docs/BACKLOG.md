@@ -19,161 +19,6 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
-## Open — daily mystery gifts (follow-ups · 2026-06-20)
-
-Shipped: mystery gift days on week slots 4 & 7 — an auto-spin reveal dialog
-(`engine/scripts/ui/login_mystery.gd`) over the forgiving login calendar, plus a
-debug "⏭ Next day" fast-forward. Engine roll/grant in `engine/scripts/core/login.gd`
-(`roll_mystery`/`claim_mystery`), owner-tunable pools in `grove_data.gd:LOGIN_MYSTERY`.
-Follow-ups parked:
-
-- **Tune the mystery reward pools.** `grove_data.gd:LOGIN_MYSTERY` (slot 4 = 3 shown / 1 won,
-  slot 7 = 5 shown / 2 won) holds sensible *defaults*, not balanced numbers. Re-tune day-4 to
-  mid-week tier and day-7 to milestone tier against the wider coin/gem economy; keep every `water`
-  entry ≤ `LOGIN_WATER_SAFE_MAX` (§4/§10 faucet guard, asserted by `save_tests` T46).
-- **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` covers the spin wiring,
-  the instant-grant path, and the reveal-amount cards — it passes today (run directly: 15/15) but
-  sits in the Makefile's `ENGINE_TESTS_DISABLED`. Fold it back into `ENGINE_TESTS` with the broader
-  "re-enable the UI + economy suites" pass.
-- **Live end-to-end check of the spin animation.** The animated landing (sweep → land on winner(s)
-  → "You won!" → celebrate → auto-dismiss) is verified only mid-spin (still) + by the instant-grant
-  test. Watch a real run; tune the `_spin` step counts/delays in `login_mystery.gd` if the
-  deceleration reads too fast/slow.
-- **(Optional) Promote the capture tool.** `.scratch/mystery_amounts_shot.gd` is a throwaway visual
-  aid; fold into a committed `games/grove/tools/*_shot.gd` if the calendar needs ongoing visual
-  regression.
-
----
-
-## Open — board screen UI overhaul (owner pass · 2026-06-18)
-
-A focused **board-screen-only** redesign (the merge grid scene, `engine/scripts/scenes/board.gd` +
-its `ui/` builders). Map/home untouched this pass. **Owner decisions are baked in below** (resolved
-2026-06-18). Code anchors are `file:symbol` (line numbers drift). Seven changes:
-
-- **1 · Quests sit directly above the grid (kill the dead band).** The grid is wrapped in a
-  `CenterContainer` (`board.gd:_ready`, `center := CenterContainer.new()`) with `SIZE_EXPAND_FILL`,
-  so it vertically-centres in the leftover space and a tall gap opens between the quest fence
-  (`giver_bar`, `FENCE_H = 196`) and the grid. **Change:** stop vertical-centring the grid — pin it
-  just under the fence (drop the expand/centre, or top-align the VBox so no empty band sits between
-  fence and grid). Removing the inline bag row (item 6) reclaims more height. **Why:** the white gap
-  reads as broken layout; quests should anchor to the board they feed.
-
-- **2 · One big checkmark on a ready quest, not two.** A completed ask shows BOTH a small per-ask
-  ✓ on the item's corner (`giver_stand.gd:_ask_met_check`, placed ~L109-116) AND a stand-level ✓ at
-  the card's bottom-right (`giver_stand.gd:_ready_check`, placed ~L141-143; toggled by
-  `board.gd:_refresh_giver_lights` via `e.check`). **Change:** delete the bottom-right `_ready_check`
-  (and its `check` ref wiring); enlarge the per-ask ✓ into a **big, obvious mark centred over the
-  asked item** (overlapping it), driven by the existing per-ask `met` toggle in
-  `_giver_is_payable`. Multi-ask quests get one big ✓ per satisfied item. **Why:** two checks are
-  redundant and small; one bold mark reads "ready" at a glance.
-
-- **3 · Locked cells use the numbered atlas; number only on the frontier; highlight what's
-  unlockable now.** Art is **`assets/_originals/board/locked_cells.png`** — a **5×5 atlas of 25
-  cream padlock tiles, each with a baked-in number 1-25** (bottom-right, sprout motif). First import
-  it into the kit (e.g. `ui/kit/locked_cells.png`) and load via `AtlasTexture` regioned by number
-  (5 cols × 5 rows; tile index = the cell's gate level, `content.gd:cell_min_level`, clamped 1-25).
-  Rendering lives in `piece_view.gd:make_bramble` / `_locked_style` / `_locked_art` /
-  `_lv_num_badge` / `FRONTIER_LV`. **Changes:**
-  - **Numbered tile only when the locked cell is immediately adjacent to an OPEN cell** (a 4-neighbour
-    is `board.is_open`). Replaces the current level-≤`FRONTIER_LV` rule. Deeper (non-adjacent) cells
-    show a **numberless** lock (reuse `slot_locked.png`, or a numberless variant) so ~30 locks stay calm.
-  - **Highlight "unlockable now" cells** — a glow/bright border on a locked cell that is adjacent to an
-    open cell **AND** the player's level has reached its gate (`cell_min_level <= _quest_level()`), i.e.
-    a merge beside it would open it (`board_model.openable_brambles` is the authority). Needs a live
-    refresh: re-evaluate after every board change (pop/merge/move/sell/retrieve), alongside
-    `_refresh_generator_dim`. **Why:** teach the player exactly where the next unlock is, without a wall
-    of numbered padlocks.
-  - *Open detail to confirm on build:* atlas number = gate level (the diamond runs ~L2→L12, within 1-25).
-    If the owner means number = unlock ORDER instead, swap the index source.
-
-- **4 · Generators + items are slightly smaller (no cell overflow).** `piece_view.gd:make_piece`
-  insets the item art by `size * 0.12`; `piece_view.gd:make_generator` draws the art **full-cell with
-  NO inset** (so generators bleed past the cell). **Change:** add an inset to `make_generator`
-  (≈`csz * 0.12-0.16`) and nudge the item inset up a touch, so every piece sits comfortably inside
-  its cell with a little margin. **Why:** art currently overflows the cell frame.
-
-- **5 · Bottom bar = Home (centre) · Shop · Settings · Bag · Merchant — drop the Leaf.** Today the row
-  is `[Home · Shop · Leaf · Gear · Bag]` (`board.gd:_ready`, built via `_make_nav_button`; `home_btn`
-  →Map, `leaf_btn` is a no-op "you are here", `bag_btn` bounces the row). **Change:** remove the Leaf
-  entirely; make **Home the centre, prominent button** (the larger centerpiece slot the Leaf held) that
-  still navigates to the Map/decorate hub. Suggested arrangement: `Shop · Settings · [Home] · Bag ·
-  Merchant` (tap-only openers left, drag-target circles right, Home dead-centre). **Why:** Home + Leaf
-  read as two "home" affordances; one centred Home is unambiguous.
-
-- **6 · Bag becomes a single circle icon (drag in / out), not an always-present row.** Remove the inline
-  `bag_bar` HBox + label (`board.gd:_ready`, `_build_bag_bar`, `_rebuild_bag`, `ui/bag_view.gd`).
-  **New Bag bottom-bar button:** an **empty circle with a small bag badge near the corner**; **tap →
-  open the full bag** (a NEW overlay/panel listing all owned slots + the buy-a-slot affordance — none
-  exists today, build it). **Drag a board item onto the circle → stash** (reuse `board.gd:_stash`); when
-  the bag holds items the **circle shows the (most-recent) stashed item's icon** (+ a count badge if >1).
-  **Drag/tap from the circle → return to the board** (reuse the drag-back path: `_on_bag_slot_input` /
-  `_input` / `_end_bag_drag` / `_retrieve_from_bag`, re-pointed at the single icon). **Why:** the
-  persistent row eats space; a single self-describing icon is cleaner.
-
-- **7 · Merchant becomes a bottom-bar drag-to-sell circle; the fence stall is removed completely.**
-  Keep the existing **Shop (currency store) button as-is** (`_open_shop` → `ui/shop.gd`). **Remove the
-  squirrel sell-stall from the fence entirely:** `board.gd:_make_merchant_stand`, `ui/merchant_stand.gd`,
-  `merchant_chip`, and — **parked/removed for now** — the buy-back **basket** (`basket`, `basket_chip`,
-  `_rebuild_basket`, `_record_sale`, `_buy_back`, porter `_porter_tick`/`_porter_collect`) and the acorn
-  **treat** (`_buy_treat`, `TREAT_COST`). **New Merchant bottom-bar button** (same circle pattern as the
-  bag): a **drag-to-sell drop target**. Reuse the sell transaction `board.gd:_sell_item` → `_grant_sale`
-  (drop the basket fly-target; fly the piece into the merchant circle / wallet instead). **While a spare
-  is dragged over the circle, show its payout** — `G.sell_reward(code)` returns `(coins, acorns)`, so
-  render e.g. **"+1 🪙"** (coin) or the acorn for a top-tier spare, so the player sees the exact reward
-  before dropping. Re-point `_show_sell_affordance` / `_hide_sell_affordance` and the drop-target hit
-  test (`board.gd:_on_release`, currently checks `merchant_chip.get_global_rect`) at the new icon. **Why:**
-  the fence stall is clutter; a single labelled drop target makes selling clear and consistent with the bag.
-
-**Tests / verify (per item).** Logic-testable (headless): locked-cell frontier/unlockable predicate
-(adjacency + level), generator inset math, sell-payout preview value. Visual (composite/measure, never
-eyeball): quests-above-grid gap = 0 dead band, single big ✓ centred on the item, bottom-bar 5-button
-layout with Home centred, bag/merchant circles showing stashed-icon / payout. *(Surfaced 2026-06-18 —
-owner board-UI pass; decisions resolved same day. Scope: board scene only.)*
-
-## Open — core loop
-
-- **Restore the sell + bag FTUEs — re-wire the §14 merchant + bag spotlights (engine · grove).** The
-  "Drag a top item here to sell" and "Drag a piece here to tuck it away" feature-spotlights were both
-  **removed for now** (2026-06-18) — they presented poorly (mistargeted / fired before the action was
-  meaningful: before the player had a top-tier spare to sell, or a piece worth stowing). The §14 spotlight
-  MECHANISM is fully intact (engine readers `core/spotlight.gd` + tests `engine/tests/spotlight_tests.gd`
-  still cover all features); only the **merchant** and **bag** presentation branches were pulled from the
-  board's flow (`board.gd` `_maybe_spotlight_chrome` + `_spotlight_chrome_deferred`). *(The **shop**
-  spotlight was also removed — see the next item; right now NO spotlight presents.)* The registry entries
-  are left in place as the gesture/label source (`grove_data.gd` `SPOTLIGHTS` → the `merchant` and `bag`
-  rows). **Build:** re-add each branch (a `Spotlight.should_spotlight("merchant")` / `("bag")` guard in
-  board.gd's `_spotlight_chrome_deferred`, staged merchant→bag, plus restoring the gate in
-  `_maybe_spotlight_chrome`), but only after fixing the **trigger condition** so each announces when its
-  well is actually actionable — merchant when a top-tier spare exists to sell (gate on the has-spares state
-  that brightens the well, `board.gd` `_show_sell_affordance` / the merchant `SHADE_LIT` rule); bag when the
-  player has a piece worth stowing (and free bag space). Confirm the overlays target the new bottom-bar
-  merchant + bag circles (board-UI overhaul items 6/7) and mime the drag onto them. Spec: `merge_spec §14`.
-  *(Surfaced 2026-06-18 — owner: the sell + bag FTUEs were broken; removed for now, restore once the
-  triggers are right.)*
-
-- **Restore the shop FTUE — re-wire the §14 shop spotlight on the home screen (engine · grove).** The
-  "Tap to visit the shop" feature-spotlight over the home-screen Store button was **removed for now**
-  (2026-06-18, with the sell + bag FTUEs above). The §14 MECHANISM + the `shop` registry entry
-  (`grove_data.gd` `SPOTLIGHTS`) + the engine tests are untouched; what was pulled is the **presentation**
-  on both surfaces — `map.gd`'s `_spotlight_shop_deferred` (the home-screen presenter; the trigger in
-  `_open` and the function itself are deleted) and the `shop` branch in `board.gd`'s
-  `_spotlight_chrome_deferred`. **Load-bearing side effect handled:** `map.gd` `_maybe_login_popup_deferred`
-  used to skip the daily-login calendar while `should_spotlight("shop")` was true (never stack two
-  overlays) and used a `_spotlight_overlay_live()` check + an extra defer frame to coordinate; with no shop
-  spotlight that guard would have **permanently suppressed the login popup** (shop stays unseen forever), so
-  it was removed along with `_spotlight_overlay_live` and the now-unused `Spotlight`/`SpotlightOverlay`
-  imports in map.gd. **Build:** re-add the shop spotlight presenter (map.gd, and/or the board branch),
-  staged after merchant/bag, AND **restore the login-popup don't-collide guard** so the calendar and the
-  shop spotlight never stack on the same first-hub-open frame (the removed code is the reference). Decide
-  whether the shop FTUE lives on the map, the board, or both (it is shared seen-state — whichever shows
-  first marks it seen). Spec: `merge_spec §14` + §18 (login-popup coordination). *(Surfaced 2026-06-18 —
-  owner: remove the home-screen shop FTUE for now.)*
-
-- **Shop backdrop — a dedicated stall-interior scene (art lane · owner).** The Shop currently renders over an **interim engine backdrop** (a blurred + warm-tinted + vignetted copy of the live scene — `engine/scripts/ui/shop.gd` `_backdrop_material`, dials in `tuning.gd` `Shop.BACKDROP_*`) because the flat dim read as dead space. Replace with **generated art**: the squirrel merchant's **market-stall interior** (warm wood, shelves, hanging goods, soft light), `ui/kit/bg_shop.png`, same §16 pipeline as the board backdrop. On arrival the shop should draw it behind the parchment (a small engine hookup in `Shop.open` — load `bg_shop.png` when present, else keep the blur). Spec: `merge_spec §10` (presentation) + `grove_art_pipeline §1` table row. *(Surfaced 2026-06-16 — shop polish pass.)*
-
-- **Map model — real §16 map images + on-image spot placement (art lane · owner).** The tail of the single-image-map rework (model T21; the `zone`→`map` rename + orphan-sprite cleanup shipped T38). **No engine gap** — the map view auto-wires `assets/map/map_<id>.png` (`map.gd` `_open_map`) and the Layout editor places spots on the image; this is **art + owner action**: generate the §16 per-map backgrounds (same pipeline as *Grove v1 art*, below), then re-place each map's spots via the Layout editor. `data/placements.json` was wiped to a clean slate (T38, owner call — `layout.gd` falls back to `grove_data` defaults), so re-placement starts fresh for **every** map. *(Pairs with the KEYSTONE hub loop below.)* *(T21 parked tail; (a)+(c) shipped T38.)*
-
 ## Open — economy
 
 - **Vault (piggy bank) — preserved systems behind the kit-screen rebuild (math · skim faucet · IAP · map chrome+pip).**
@@ -651,6 +496,32 @@ calls), **Testing** (re-enable / add coverage), and others as they emerge.
 ## Active — build now
 
 _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks/ux-feel.md`.)_
+
+- **FTUE system — redesign as ONE reusable hand-gesture spotlight (replaces the 3 removed §14
+  spotlights).** Build a single reusable FTUE overlay used at every tutorial site, then wire each site
+  with an explicit trigger. Replaces the old "restore the removed merchant/bag/shop spotlights" framing
+  — instead of restoring the bespoke presentation, redesign it around a hand icon that mimes the gesture
+  over a dimmed page. Pieces:
+  - **Hand icon + gesture animation.** Create a hand-cursor icon asset; animate it for two gesture types —
+    *drag* (hand travels from the source location to the target, loops) and *tap* (hand taps the target,
+    loops).
+  - **Dim-except-two-locations overlay.** Dim the whole page except the hand and the highlighted
+    location(s): two cutouts for a drag (source + target), one for a tap (target). Build on / replace the
+    existing `engine/scripts/ui/spotlight_overlay.gd`. Keep the seen-once gate + registry as the data
+    source — `core/spotlight.gd` (`should_spotlight` / `mark_spotlit`) and `grove_data.gd:SPOTLIGHTS`
+    (the per-feature gesture + label rows).
+  - **Reuse across all sites.** The three registered sites today are **merchant** (drag a top-tier spare →
+    sell), **bag** (drag a board piece → stash), **shop** (tap → open the store). All three drive the same
+    component; a future site = one registry row + one call.
+  - **Clear trigger rules — define + enforce per site:**
+    - *merchant:* show only when a **top-tier spare exists to sell** — gate on the has-spares state that
+      brightens the sell well (`board.gd` `_show_sell_affordance` / the merchant `SHADE_LIT` rule).
+    - *bag:* show only when the player has a **piece worth stowing AND free bag space**.
+    - *shop:* show on first home-screen open, **coordinated with the daily-login popup** so the two never
+      stack on the same frame — restore the don't-collide guard that was removed with the old shop
+      spotlight (without it the login popup would be permanently suppressed). Spec: `merge_spec §14` + §18.
+  - *Note:* the gesture targets are the **current** bag / merchant / shop surfaces — the Section-2 bag &
+    merchant "circle" redesign was cut. *(merges old core-loop items 3.1 + 3.2.)*
 
 ## Tuning (owner feel / pacing calls)
 

@@ -305,4 +305,8 @@ func _initialize() -> void:
 	bramble_node.free()
 	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
 
+	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
+	_test_unlock_rewards()
+	_test_residents_shop_cards()
+
 	finish()

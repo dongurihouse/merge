@@ -6,7 +6,7 @@ extends RefCounted
 ## (a padlock + its 💎 price below). Built on the SHARED ui kit (games/grove/tools/ui_workbench_kit.gd),
 ## the SAME builder the workbench previews and the game's vault/settings/hud read: the parchment frame
 ## (Kit.dialog_frame — banner · border · ✕ · scroll), the slot tile (Kit.bag_card), and the reused
-## wallet pill (Kit.currency_pill in single-acorn mode). So the engine and the design tool render one
+## gold wallet pill. So the engine and the design tool render one
 ## bag, from one transform — tweak the bag in the workbench and the game follows.
 ##
 ## Stateless pure VIEW: the board owns the bag array, the slot count, the 💎 balance, and the retrieve /

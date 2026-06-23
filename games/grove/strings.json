@@ -69,7 +69,8 @@
 		},
 		"nav": {
 			"map": "Map",
-			"play": "Play"
+			"play": "Play",
+			"residents": "Residents"
 		},
 		"pill": {
 			"restored": "restored ✿ 🎁",
@@ -99,9 +100,13 @@
 			"new_asks_in_garden": "New asks in the garden ❀"
 		},
 		"unlock": {
+			"coins": "Coins",
+			"collect": "Collect ✿",
 			"cta": "Unlock — %d exp",
+			"diamonds": "Diamonds",
 			"purse": "Purse",
-			"ready": "Unlock ✦"
+			"ready": "Unlock ✦",
+			"title": "A place restored ✿"
 		},
 		"welcome": {
 			"new_friend": "A new friend wanders in ✿",
