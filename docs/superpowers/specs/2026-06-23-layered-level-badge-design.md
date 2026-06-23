@@ -1,7 +1,8 @@
 # Layered level badge + workbench tuner
 
 Date: 2026-06-23
-Status: proposed (awaiting review — v2, 30-tier scheme)
+Status: implemented (v2, 30-tier scheme) — all 21 gated suites pass (853 tests); verified in the
+live HUD chip + level dialog. Tune the composition in the workbench (`make workbench` → Level badge).
 
 ## Goal
 
