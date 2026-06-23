@@ -59,7 +59,7 @@ const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
 ## --- the level chip's evolving frame -------------------------------------------------
 ## The HUD level badge swaps to a fancier gold frame as the player levels up (plainest
-## ring 00 -> grand crown 35, sliced from assets/_originals/ui/lvls2.png into ui/lvl/).
+## ring 00 -> grand crown 35, sliced from assets/_originals/ui/lvls3.png into ui/lvl/).
 ## Which badge a Level shows is DATA: res://data/level_badges.json maps Level -> badge index
 ## by a BANDED rule (fast early, slow late). level_badge_path() returns the resolved art
 ## path, or "" when the config/art is absent (the HUD then shows the honey-token coin). Parsed once.
@@ -131,7 +131,11 @@ static func make_level_badge(level: int, px: float, num_font: int = -1) -> Contr
 	if tex != null:
 		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no dark panel behind the ring
 		var disc := Panel.new()                                            # cream centre so the number reads on warm, not sky
-		var dpad := px * 0.16
+		# Sized to sit INSIDE the medal's ring opening. The disc-centred badge art carries its
+		# own cream centre, so this disc only reinforces the number's backing — it must stay
+		# within the ring (≈0.20·px radius) or it shows as bare cream in the open space the
+		# laurels/ribbons leave above the smaller ring.
+		var dpad := px * 0.30
 		disc.position = Vector2(dpad, dpad)
 		disc.size = Vector2(px - dpad * 2.0, px - dpad * 2.0)
 		var dsb := StyleBoxFlat.new()

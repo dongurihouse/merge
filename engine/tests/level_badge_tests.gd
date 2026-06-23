@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless guard for the evolving level-chip badge (the HUD level frame that upgrades
-## with Level, sliced from assets/_originals/ui/lvls2.png into ui/lvl/ and mapped by
+## with Level, sliced from assets/_originals/ui/lvls3.png into ui/lvl/ and mapped by
 ## data/level_badges.json).
 ##   godot --headless --path . -s res://engine/tests/level_badge_tests.gd
 ## Proves: the config parses, the BANDED Level->badge index is correct, monotonic & clamped,
