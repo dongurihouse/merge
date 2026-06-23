@@ -96,6 +96,19 @@ func region_count() -> int:
 func set_region_enabled(index: int, on: bool) -> void:
 	_set_region_enabled(index, on)
 
+# Set the purple LOCK veil's opacity for ONE region (0..1 alpha). The ready-to-claim zone fades its veil
+# so it reads as available — its boosted glow/vines show through clearly instead of under a heavy purple
+# film. No-op if the overlays aren't built yet or the index is out of range.
+func set_region_lock_alpha(index: int, alpha: float) -> void:
+	if index < 0 or index >= region_overlays.size():
+		return
+	var lock := region_overlays[index].get("lock") as TextureRect
+	if lock == null:
+		return
+	var m := lock.material as ShaderMaterial
+	var c: Color = m.get_shader_parameter("tint_color")
+	m.set_shader_parameter("tint_color", Color(c.r, c.g, c.b, alpha))
+
 # Rebuild the region-index map + per-region overlays + re-apply tuning after the authoring tool
 # changed geometry, the region set, or the mask_offset. The templates and mask image are reused
 # (only load_map rebuilds those), so this is the cheap "the regions moved" refresh — it is NOT a

@@ -47,4 +47,10 @@ static func _chrome(cfg: Dictionary) -> Array:
 	for icon_id in ["gear", "shop", "map", "piggy", "gift", "faucet", "mail"]:
 		out.append(Kit.home_button({"icon": icon_id, "caption": "", "action": Callable()}, opts))
 	out.append(Kit.home_button({"icon": "", "icon_rel": "map/back_arrow.png", "caption": "", "action": Callable()}, opts))
+	# the RECT-badge shell (shared/badge_rect.png) — worn by the Settings gear (HUD) + the Map / side-rail
+	# buttons. shell_texture still POLISHES that sprite (clean_tex_path @256); building one rect button bakes
+	# badge_rect@256 so the gear + rail load it pre-baked instead of polishing it live on every cold boot.
+	var ropts := Kit.home_button_opts_from_config(cfg)
+	ropts["shape"] = "rect"
+	out.append(Kit.home_button({"icon": "gear", "caption": "Settings", "action": Callable()}, ropts))
 	return out

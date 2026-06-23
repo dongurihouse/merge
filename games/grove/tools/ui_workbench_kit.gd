@@ -3322,6 +3322,118 @@ static func _plus_token(box: float = 26.0) -> Control:
 	p.add_child(g)
 	return p
 
+## --- the BOARD PANEL: the rounded frame the cells sit on ---------------------------------------------
+## ONE builder shared by the live board (board.gd _make_board_mat) AND the workbench preview, so they read
+## 1:1 (the workbench shows the ACTUAL border). Two styles, chosen by board.frame_style:
+##   "badge" (default) — the painted shared/badge_rect.png, 9-sliced so the border stays its native thin
+##                       thickness however the board stretches; plus a soft drop shadow under the whole board.
+##   "code"  — a code-drawn rounded-rect for tuning a depth effect: cream fill, an outer border (border_w),
+##             an optional inner hairline (inner_w = "the border of the border"), a top inset shadow for
+##             depth (top_shadow), and the same drop shadow (shadow_size / shadow_alpha).
+const BOARD_BADGE := "shared/badge_rect.png"
+const BOARD_BADGE_CAP := 46
+
+## opts (board.* config): frame_style · corner · border_w · inner_w · top_shadow (0..100) · shadow_size · shadow_alpha (0..100).
+static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
+	var root := Control.new()
+	root.custom_minimum_size = size
+	root.size = size
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var corner := int(opts.get("corner", BOARD_BADGE_CAP))
+	# the soft drop shadow under the WHOLE board (both styles) — a sibling panel drawn behind, painting only
+	# the shadow (draw_center off) so it bleeds past the edge. NinePatchRect has no native shadow.
+	var shadow_size := int(opts.get("shadow_size", 18))
+	if shadow_size > 0:
+		var sh := Panel.new()
+		sh.show_behind_parent = true
+		sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ssb := StyleBoxFlat.new()
+		ssb.draw_center = false
+		ssb.set_corner_radius_all(corner)
+		ssb.shadow_size = shadow_size
+		ssb.shadow_offset = Vector2(0.0, shadow_size * 0.5)
+		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 30)) / 100.0, 0.0, 1.0))
+		sh.add_theme_stylebox_override("panel", ssb)
+		root.add_child(sh)
+	if String(opts.get("frame_style", "badge")) == "code":
+		# code-drawn rounded-rect: cream fill + a gold outer border, corners held by `corner`.
+		var border_w := int(opts.get("border_w", 4))
+		var panel := Panel.new()
+		panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color("#FBF3E2")          # the parchment cream the cells sit on
+		sb.set_corner_radius_all(corner)
+		sb.set_border_width_all(border_w)
+		sb.border_color = Pal.STRAW
+		panel.add_theme_stylebox_override("panel", sb)
+		root.add_child(panel)
+		# a TOP inset shadow for depth ("shadow near the top"): a dark, downward-fading strip clipped to the
+		# panel, so the board reads slightly sunken under its top rim.
+		var top := clampf(float(opts.get("top_shadow", 0)) / 100.0, 0.0, 1.0)
+		if top > 0.0:
+			var grad := Gradient.new()
+			grad.set_color(0, Color(0.0, 0.0, 0.0, 0.5 * top))
+			grad.set_color(1, Color(0.0, 0.0, 0.0, 0.0))
+			var gtex := GradientTexture2D.new()
+			gtex.gradient = grad
+			gtex.fill_from = Vector2(0.0, 0.0)
+			gtex.fill_to = Vector2(0.0, 1.0)
+			gtex.width = 4
+			gtex.height = 64
+			var tr := TextureRect.new()
+			tr.texture = gtex
+			tr.stretch_mode = TextureRect.STRETCH_SCALE
+			tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var pad := float(border_w) + 1.0
+			tr.position = Vector2(pad + corner * 0.4, pad)
+			tr.size = Vector2(maxf(0.0, size.x - 2.0 * (pad + corner * 0.4)), size.y * 0.22)
+			root.add_child(tr)
+		# the inner hairline — "the border of the border" — an inset rounded-rect drawing only its border.
+		var inner_w := int(opts.get("inner_w", 0))
+		if inner_w > 0:
+			var inset := float(border_w) + 4.0
+			var inner := Panel.new()
+			inner.set_anchors_preset(Control.PRESET_FULL_RECT)
+			inner.offset_left = inset; inner.offset_top = inset
+			inner.offset_right = -inset; inner.offset_bottom = -inset
+			inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			var isb := StyleBoxFlat.new()
+			isb.draw_center = false
+			isb.set_corner_radius_all(maxi(0, corner - int(inset)))
+			isb.set_border_width_all(inner_w)
+			isb.border_color = Color(Pal.STRAW, 0.55)
+			inner.add_theme_stylebox_override("panel", isb)
+			root.add_child(inner)
+	else:
+		# the painted badge (default): the SAME sprite the Bag/Home wells wear, 9-sliced.
+		var fp := Look.kit(BOARD_BADGE)
+		if ResourceLoader.exists(fp):
+			var np := NinePatchRect.new()
+			np.texture = load(fp)
+			np.set_anchors_preset(Control.PRESET_FULL_RECT)
+			np.patch_margin_left = BOARD_BADGE_CAP
+			np.patch_margin_top = BOARD_BADGE_CAP
+			np.patch_margin_right = BOARD_BADGE_CAP
+			np.patch_margin_bottom = BOARD_BADGE_CAP
+			np.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			root.add_child(np)
+	return root
+
+## The board-panel frame opts from a saved config — the frame style + its code-drawn depth knobs.
+static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
+	return {
+		"frame_style": String(b.get("frame_style", "badge")),   # "badge" (painted) | "code" (code-drawn)
+		"corner":      int(b.get("frame_corner", BOARD_BADGE_CAP)),
+		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
+		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
+		"top_shadow":  float(b.get("frame_top_shadow", 0)),      # code: top inset shadow depth (0..100)
+		"shadow_size": int(b.get("frame_shadow", 18)),           # drop shadow size under the board
+		"shadow_alpha":float(b.get("frame_shadow_alpha", 30)),   # drop shadow opacity (0..100)
+	}
+
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
 ## The slot cell is ONE component card with four states. A filled slot uses the raised card (a held
 ## piece sits on it); empty / next / locked SHARE the flat empty-slot card (bag_card_empty.png) so they
