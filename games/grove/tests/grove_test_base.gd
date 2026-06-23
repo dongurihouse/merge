@@ -271,6 +271,19 @@ func _test_residents() -> void:
 	ok(Save.resident_counts(map_id, pid) == [0, 0, 1], "a premium roster line persists across a reload")
 	ok(Save.resident_counts(map_id, "no_such_type") == [0, 0, 0], "an un-welcomed type defaults to all-zero counts")
 
+# §1 · the per-map UNLOCK reward (scaling coins/gems + a free signature spirit), the free-spirit grant,
+# and the one-time claim. Pure-model coverage routed into the ACTIVE shop+ads suite (the resident tests
+# above run only from the parked placement suite).
+func _test_unlock_rewards() -> void:
+	fresh("unlock_reward_scale")
+	for z in G.MAPS.size():
+		var rew: Dictionary = G.map_unlock_reward(z)
+		ok(int(rew.coins) == 120 + 80 * z, "map %d unlock grants %d coins (120 + 80*%d)" % [z, 120 + 80 * z, z])
+		ok(int(rew.gems) == 2 + z, "map %d unlock grants %d diamonds (2 + %d)" % [z, 2 + z, z])
+		var sig: Array = G.RESIDENT_SIGNATURE.get(String(G.MAPS[z].id), [])
+		var want := String(sig[0].id) if sig.size() > 0 else ""
+		ok(String(rew.spirit) == want, "map %d unlock's free spirit is its signature[0] (%s)" % [z, want])
+
 # §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
 # completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
 # (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.

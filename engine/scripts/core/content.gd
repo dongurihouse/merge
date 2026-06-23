@@ -46,6 +46,7 @@ const RESIDENT_CORE = D.RESIDENT_CORE
 const RESIDENT_ART = D.RESIDENT_ART
 const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
+const RESIDENT_SIGNATURE = D.RESIDENT_SIGNATURE
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
@@ -399,6 +400,10 @@ static func can_populate(z: int, unlocks: Dictionary, gates: Array) -> bool:
 ## Dictionary {id, name, premium?}). Delegates to the game data, addressed by the map's id.
 static func resident_lines(z: int) -> Array:
 	return D.resident_lines(String(MAPS[z].id))
+
+## The per-map one-time unlock gift {coins, gems, spirit}. Delegates to the game data.
+static func map_unlock_reward(z: int) -> Dictionary:
+	return D.map_unlock_reward(z)
 
 ## The cost to welcome a t1 of `type_def`: {currency, cost}. Premium (signature, marked) types
 ## cost diamonds (RESIDENT_PREMIUM_COST); everything else costs coins (RESIDENT_BASE_COST).
