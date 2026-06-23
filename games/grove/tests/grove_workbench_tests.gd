@@ -142,6 +142,7 @@ func _initialize() -> void:
 	_test_gold_badge_shared_shadow_toggle(view)
 	_test_gold_badge_inner_inset(view)
 	_test_gold_badge_shine(view)
+	_test_gold_badge_corner(view)
 	_test_gold_badge_consumers(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
@@ -374,10 +375,27 @@ func _test_gold_badge_shine(view) -> void:
 	ok(_image_sparse_diff(dull, bright) > 20, "gold_badge shine redraws the background highlight")
 	view._params["gold_badge"] = prev
 
-func _board_frame_image(shine: float) -> Image:
+func _test_gold_badge_corner(view) -> void:
+	ok(view._params["gold_badge"].has("corner"), "gold_badge exposes a corner Workbench control")
+	ok(view._is_config("gold_badge", "corner"), "gold_badge corner is saved design config")
+	view._selected = "gold_badge"
+	view._rebuild_sidebar()
+	ok(_has_label_text(view._sidebar_body, "Corner"), "gold_badge sidebar shows the saved Corner slider")
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 11
+	view._params["gold_badge"]["shine"] = 100
+	view._params["gold_badge"]["corner"] = 28
+	var boxy := _gold_badge_preview_image(view)
+	view._params["gold_badge"]["corner"] = 92
+	var round := _gold_badge_preview_image(view)
+	ok(_image_sparse_diff(boxy, round) > 20, "gold_badge corner redraws the outer rounded border")
+	view._params["gold_badge"] = prev
+
+func _board_frame_image_with_badge(badge: Dictionary) -> Image:
 	var opts := Kit.board_panel_opts_from_config({
 		"board": {"frame_style": "badge", "shadow": false},
-		"gold_badge": {"inner_inset": 11, "shine": shine},
+		"gold_badge": badge,
 	})
 	var board := Kit.board_panel(Vector2(220, 160), opts)
 	var patches := board.find_children("*", "NinePatchRect", true, false)
@@ -385,16 +403,22 @@ func _board_frame_image(shine: float) -> Image:
 	board.queue_free()
 	return img
 
-func _info_bar_frame_image(shine: float) -> Image:
+func _board_frame_image(shine: float) -> Image:
+	return _board_frame_image_with_badge({"inner_inset": 11, "shine": shine})
+
+func _info_bar_frame_image_with_badge(badge: Dictionary) -> Image:
 	var opts := Kit.info_bar_opts_from_config({
 		"info_bar": {},
-		"gold_badge": {"inner_inset": 11, "shine": shine},
+		"gold_badge": badge,
 	})
 	var bar := Kit.info_bar({}, opts)
 	var sb := bar.get_theme_stylebox("panel")
 	var img := ((sb as StyleBoxTexture).texture as Texture2D).get_image() if sb is StyleBoxTexture else Image.create(1, 1, false, Image.FORMAT_RGBA8)
 	bar.queue_free()
 	return img
+
+func _info_bar_frame_image(shine: float) -> Image:
+	return _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": shine})
 
 func _test_gold_badge_consumers(view) -> void:
 	var prev_dirty: Dictionary = view._dirty.duplicate()
@@ -414,6 +438,16 @@ func _test_gold_badge_consumers(view) -> void:
 	var info_bright := _info_bar_frame_image(160)
 	ok(_image_sparse_diff(info_dull, info_bright) > 20, \
 		"the info bar board uses the saved gold_badge shine")
+
+	var board_boxy := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
+	var board_round := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
+	ok(_image_sparse_diff(board_boxy, board_round) > 20, \
+		"the board badge frame uses the saved gold_badge corner")
+
+	var info_boxy := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
+	var info_round := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
+	ok(_image_sparse_diff(info_boxy, info_round) > 20, \
+		"the info bar board uses the saved gold_badge corner")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

@@ -725,10 +725,11 @@ static func _square_icon(id: String) -> Texture2D:
 const GOLD_BADGE_BASE_SIZE := 270
 const GOLD_BADGE_CAP := 58
 static var _gold_badge_cache: Dictionary = {}
-static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0) -> Control:
+static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0, corner_px: float = -1.0) -> Control:
 	var size := maxi(32, int(round(px)))
 	var inset := clampf(inner_inset if inner_inset >= 0.0 else size * 0.040, 2.0, size * 0.18)
 	var shine := clampf(shine_pct / 100.0, 0.0, 2.0)
+	var corner := _gold_badge_corner_for_size(size, corner_px)
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(size, size)
 	root.size = Vector2(size, size)
@@ -738,7 +739,7 @@ static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: 
 	var tex_size := size + pad * 2
 	var tr := TextureRect.new()
 	tr.name = "GoldBadgeTexture"
-	tr.texture = _gold_badge_texture(size, inset, shine)
+	tr.texture = _gold_badge_texture(size, inset, shine, -1, corner)
 	tr.position = Vector2(-pad, -pad)
 	tr.custom_minimum_size = Vector2(tex_size, tex_size)
 	tr.size = Vector2(tex_size, tex_size)
@@ -753,27 +754,38 @@ static func gold_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"inner_inset": float(g.get("inner_inset", 11.0)),
 		"shine": float(g.get("shine", 100.0)),
+		"corner": float(g.get("corner", GOLD_BADGE_CAP)),
 	}
 
 static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
 	var size := GOLD_BADGE_BASE_SIZE
 	var inset := clampf(float(opts.get("inner_inset", 11.0)), 2.0, size * 0.18)
 	var shine := clampf(float(opts.get("shine", 100.0)) / 100.0, 0.0, 2.0)
+	var corner := _gold_badge_corner_for_size(size, float(opts.get("corner", GOLD_BADGE_CAP)))
 	var sb := StyleBoxTexture.new()
-	sb.texture = _gold_badge_texture(size, inset, shine, 0)
-	sb.set_texture_margin_all(GOLD_BADGE_CAP)
+	sb.texture = _gold_badge_texture(size, inset, shine, 0, corner)
+	sb.set_texture_margin_all(gold_badge_cap(opts))
 	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	return sb
 
-static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1) -> Texture2D:
+static func gold_badge_cap(opts: Dictionary = {}) -> int:
+	var size := GOLD_BADGE_BASE_SIZE
+	var corner := _gold_badge_corner_for_size(size, float(opts.get("corner", GOLD_BADGE_CAP)))
+	return clampi(int(ceil(corner)), 4, maxi(4, int(size * 0.5) - 1))
+
+static func _gold_badge_corner_for_size(size: int, corner_px: float) -> float:
+	var corner := float(size) * 0.215 if corner_px < 0.0 else corner_px * float(size) / float(GOLD_BADGE_BASE_SIZE)
+	return clampf(corner, 4.0, float(size) * 0.5 - 1.0)
+
+static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1, corner_radius: float = -1.0) -> Texture2D:
 	var pad := int(ceil(size * 0.075)) if pad_override < 0 else maxi(0, pad_override)
-	var cache_key := "%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad]
+	var outer_radius := clampf(corner_radius if corner_radius >= 0.0 else float(size) * 0.215, 4.0, float(size) * 0.5 - 1.0)
+	var cache_key := "%d|%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad, int(round(outer_radius))]
 	if _gold_badge_cache.has(cache_key):
 		return _gold_badge_cache[cache_key]
 	var tex_size := size + pad * 2
 	var img := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
-	var outer_radius := size * 0.215
 	var default_groove_inset := size * 0.040
 	var groove_radius := maxf(6.0, outer_radius * 0.78 + (default_groove_inset - groove_inset))
 	var half := Vector2(size * 0.5, size * 0.5)
@@ -3538,14 +3550,16 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 			inner.add_theme_stylebox_override("panel", isb)
 			root.add_child(inner)
 	else:
-		var frame := gold_badge_style(opts.get("badge", {}))
+		var badge: Dictionary = opts.get("badge", {})
+		var frame := gold_badge_style(badge)
+		var cap := gold_badge_cap(badge)
 		var np := NinePatchRect.new()
 		np.texture = frame.texture
 		np.set_anchors_preset(Control.PRESET_FULL_RECT)
-		np.patch_margin_left = GOLD_BADGE_CAP
-		np.patch_margin_top = GOLD_BADGE_CAP
-		np.patch_margin_right = GOLD_BADGE_CAP
-		np.patch_margin_bottom = GOLD_BADGE_CAP
+		np.patch_margin_left = cap
+		np.patch_margin_top = cap
+		np.patch_margin_right = cap
+		np.patch_margin_bottom = cap
 		np.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 		np.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
