@@ -281,6 +281,8 @@ func _initialize() -> void:
 	ok(hud.coins is Label, "live HUD exposes the coin amount label")
 	ok(_ancestor_named(hud.coins, "GoldCurrencyPill") != null, "live HUD currency pills use the gold currency pill")
 	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
+	ok(hud.coin_plus is Button and not (hud.coin_plus as Button).flat, \
+		"live HUD plus button draws the same green rounded background as the workbench plus")
 	hud_host.queue_free()
 	await process_frame
 

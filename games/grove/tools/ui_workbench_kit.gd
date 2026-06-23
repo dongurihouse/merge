@@ -934,7 +934,7 @@ static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable =
 	var p: Control
 	if action.is_valid():
 		var b := Button.new()
-		b.flat = true
+		b.flat = false
 		b.focus_mode = Control.FOCUS_NONE
 		b.add_theme_constant_override("h_separation", 0)
 		b.pressed.connect(func() -> void: action.call())

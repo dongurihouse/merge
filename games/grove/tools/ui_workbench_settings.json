@@ -226,7 +226,7 @@
 		"width_pct": 50.0
 	},
 	"map_card": {
-		"card_h_frac": 22.0,
+		"card_h_frac": 16.0,
 		"card_w_frac": 97.0,
 		"edge_sparkle": 60.0,
 		"pill_max": 290.0,

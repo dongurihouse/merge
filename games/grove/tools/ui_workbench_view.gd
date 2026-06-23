@@ -21,6 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
+const MAP_SELECT_H_CAP := 16.5   # the tallest a place-picker card fits (~band 86% of H ÷ 5 places) — map.gd caps to this
 
 const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
@@ -558,7 +559,7 @@ func _make_element(id: String) -> Control:
 			# size sliders reshapes the card live (and shows any gold-frame stretch).
 			var mw := 460.0
 			var wf: float = maxf(1.0, float(p.get("card_w_frac", 96)))
-			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
+			var hf: float = minf(maxf(1.0, float(p.get("card_h_frac", 16))), MAP_SELECT_H_CAP)   # cap to the column-fit, as map.gd does
 			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "unlock_exp": int(p.unlock_exp),
 				"prereq": "✿ after Meadow", "map_id": ""}
@@ -1458,11 +1459,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"map_card":
 			_group_header("Saved to config", true)
-			# card SIZE: width as a % of the screen width (smaller = wider side margins), height as a % of
-			# the screen height. A w:h far from the art's ~2.92 aspect stretches the gold frame (the preview
-			# shows it). With 5 places stacked, a too-tall card is shrunk uniformly in-game to fit the band.
+			# card SIZE: width as a % of the screen width (smaller = wider side margins) and height as a % of
+			# the screen height — the two are INDEPENDENT (width sets margins; height caps to fit the column).
+			# A w:h far from the art's ~2.92 aspect stretches the gold frame (the preview shows it). With the
+			# 5 places stacked and no scroll, height tops out near MAP_SELECT_H_CAP % — past that it can't grow.
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
-			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 30]))      # card height (% of screen height)
+			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 18]))      # card height (% of screen height; caps to fit 5 stacked)
 			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
 			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
