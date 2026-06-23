@@ -295,23 +295,60 @@ static func _sections(refs: Dictionary) -> Array:
 		"coin": return _coin_sections(refs)
 		_: return _premium_sections(refs)
 
-# WATER shop — refill the can (paid in 💎). Offered only when the host can grant water (the board/map
-# pass `water_grant`); without it the stall is empty (it is only ever reached WITH a grant in practice).
+# WATER shop — refill the can (paid in 💎) + the burst-upgrade (paid in 🪙). The fill card needs the
+# host's water_grant (the board/map pass it); the burst card is always offered until maxed, since the
+# §6/§10 burst sink is global (it makes each water-pop yield more — "make your water go further", T54).
 static func _water_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
-	if not (refs.opts as Dictionary).has("water_grant"):
-		return []
-	var gems := Save.diamonds()
-	var card := {
-		"icon": "water", "label": Strings.t("shop.water.fill_label"),
-		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
-		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
-		"on_buy": func() -> void: _flow_water(refs),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
-			"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
-			"note": Strings.t("shop.water.info_row_note")}],
-			Strings.t("shop.water.info_note"))}
-	return [{"caption": Strings.t("shop.water.caption"), "cards": [card]}]
+	var secs: Array = []
+	if (refs.opts as Dictionary).has("water_grant"):
+		var gems := Save.diamonds()
+		var card := {
+			"icon": "water", "label": Strings.t("shop.water.fill_label"),
+			"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
+			"affordable": gems >= int(G.REFILL_DIAMOND_COST),
+			"on_buy": func() -> void: _flow_water(refs),
+			"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
+				"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
+				"note": Strings.t("shop.water.info_row_note")}],
+				Strings.t("shop.water.info_note"))}
+		secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
+	var burst := _burst_card(refs)
+	if not burst.is_empty():
+		secs.append({"caption": Strings.t("shop.burst.label"), "cards": [burst]})
+	return secs
+
+# The burst-upgrade card (T54): a coin-priced buy of the next global burst level. Empty {} once maxed
+# (the buy affordance disappears, like the +bag-slot at cap). Buys through the shared seam in _flow_burst.
+static func _burst_card(refs: Dictionary) -> Dictionary:
+	var host: Control = refs.host
+	var cost := G.burst_upgrade_cost(G.burst_level())
+	if cost < 0:
+		return {}                                   # fully upgraded — nothing left to buy
+	return {
+		"icon": "sprout", "label": Strings.t("shop.burst.card"),
+		"price": str(cost), "price_icon": "coin",
+		"affordable": Save.coins() >= cost,
+		"on_buy": func() -> void: _flow_burst(refs),
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.burst.info_title"), [{
+			"icon": "sprout", "label": Strings.t("shop.burst.info_row_label"), "amount": "+1",
+			"note": Strings.t("shop.burst.info_row_note")}],
+			Strings.t("shop.burst.info_note"))}
+
+# Buy the next burst level with coins (the shared seam G.try_upgrade_burst). Broke → wallet nudge, no
+# spend; success → a "Bigger bursts!" floater + the storefront rebuilds to the next cost (or drops the card).
+static func _flow_burst(refs: Dictionary) -> void:
+	var cost := G.burst_upgrade_cost(G.burst_level())
+	if cost < 0:
+		return
+	if Save.coins() < cost:
+		_need_more(refs, "coin", cost - Save.coins())
+		return
+	if not G.try_upgrade_burst():
+		return
+	Audio.play("merge_success", -3.0, 1.2)
+	FX.floating_text(refs.host, _fb_at(refs.host), Strings.t("shop.burst.bought"), STRAW, Tune.NEED_SIZE)
+	_after_buy(refs)
 
 # COIN shop — the Coin pouch (grants coins) + the coin-priced item shortcuts (grind-skips paid in coins).
 static func _coin_sections(refs: Dictionary) -> Array:

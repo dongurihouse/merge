@@ -77,16 +77,13 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   event-batched, offline-queued, privacy-light. Nothing exists today. Build the engine analytics bus +
   the grove sink wiring. *(from old meta 5.9.)*
 
-- **Reintroduce the burst-upgrade buy UI (T48 follow-up).** The on-board "Burst L#" buy pill was removed
-  in T48 (2026-06-17). The §6/§10 burst **coin sink is fully intact in code** — `board.gd`
-  `_gen_burst_level` + `_upgrade_gen_burst` (spend + cap rules), cost ladder `BURST_UPGRADE_COSTS` +
-  `burst_count` in `content.gd`, level persisted as `grove()["burst_lvl"]`, all still unit-tested. Only the
-  buy affordance is missing. Build a burst-upgrade buy chip in the new cream-chip language, wired to the
-  existing `_upgrade_gen_burst` (it owns broke/maxed refusal + feedback). **Design call:** anchor it back
-  on the primary generator, or relocate to the home hub (the sink is GLOBAL — one `burst_lvl` sizes every
-  generator). Asset: `panel_chip.png` is deleted, so code-build the chip (StyleBoxFlat) or a fresh
-  nine-patch. **Acceptance:** tapping raises `burst_lvl` + spends the ladder cost, refuses cleanly when
-  broke/maxed, reads consistent with the new HUD. *(from old HUD 7.1.)*
+- ✅ **Reintroduce the burst-upgrade buy UI — SHIPPED as T54** (2026-06-23, `tasks/ux-feel.md`). Dev
+  design call: the buy lives on TWO surfaces — the board **info bar** when the generator is tapped (a
+  green "Boost / 🪙cost" chip in the slot the sell button leaves empty for generators;
+  affordable/dimmed/hidden-at-max) + a coin-priced **water-shop** card ("Boost" under a "Bigger bursts"
+  section). One shared seam `G.try_upgrade_burst()` (content.gd) drives both surfaces; `board.gd`
+  `_upgrade_gen_burst` delegates to it. Code-built chip (StyleBoxFlat, the redesign's cream/Rest-plane
+  language). *(was old HUD 7.1.)*
 
 ## Low priority — parking lot
 
