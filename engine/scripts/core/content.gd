@@ -77,7 +77,6 @@ const CHARACTER_ART = D.CHARACTER_ART
 const BASKET_CAP = D.BASKET_CAP
 const PORTER_SECS = D.PORTER_SECS
 const TREAT_COST = D.TREAT_COST
-const SPOTLIGHTS = D.SPOTLIGHTS
 
 # --- the bag (§5) ----------------------------------------------------------------
 # The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).

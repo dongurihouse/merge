@@ -504,8 +504,6 @@ func _test_t45_wiring() -> void:
 	# first hub open auto-shows the calendar ONCE; already-claimed → it stays shut.
 	Feat.FLAGS["daily_login_popup"] = true            # restore the flag the 2× section turned off
 	fresh("t45_login_fresh")
-	# mark the FTUE shop spotlight as already seen so it doesn't compete for the overlay slot.
-	Save.mark_spotlight_seen("shop")
 	var gl := Save.grove()
 	gl["unlocks"] = {hub_id: true}                    # past the cold FTUE (a rewarding beat happened)
 	Save.grove_write()
@@ -522,7 +520,6 @@ func _test_t45_wiring() -> void:
 
 	# 3b. ALREADY CLAIMED today → no auto-popup (it fired its once; never nags).
 	fresh("t45_login_claimed")
-	Save.mark_spotlight_seen("shop")
 	var gl2 := Save.grove()
 	gl2["unlocks"] = {hub_id: true}
 	Save.grove_write()
@@ -538,7 +535,6 @@ func _test_t45_wiring() -> void:
 
 	# 3c. the cold FTUE session (no spots owned) is SKIPPED — §18 "after a reward, not a cold open".
 	fresh("t45_login_ftue")
-	Save.mark_spotlight_seen("shop")                  # isolate the FTUE gate from the spotlight gate
 	var hf = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hf)
 	if hf.content == null:
