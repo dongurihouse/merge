@@ -188,7 +188,7 @@ var _params := {
 		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
 		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 		"plus_label_y": 0,
-		"inner_shadow": 30},
+		"inner_shadow": 30, "shadow_alpha": 34},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
@@ -517,6 +517,11 @@ func _make_element(id: String) -> Control:
 		"gold_currency_pill":
 			var gc := p.duplicate()
 			gc["badge"] = _params["gold_badge"]
+			# cast the SAME overall shadow the live pill does: the shared look + the pill's alpha strength
+			# (gold_currency_pill is SHADOW_WIRED, so the builder casts it — the view must not also wrap).
+			var sp := Look.shadow_params({"shadow": _params["shadow"]})
+			sp["alpha"] = clampf(float(gc.get("shadow_alpha", 34)) / 100.0, 0.0, 1.0)
+			gc["shadow_params"] = sp
 			var icon_id := String(gc.get("icon", "water"))
 			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
 		"level_badge":
@@ -736,7 +741,7 @@ func _make_element(id: String) -> Control:
 ## the view must NOT also wrap them, or the shadow would double up. (info_bar is NOT here: it returns a
 ## PanelContainer and builds its own frame directly, so its shadow comes from the
 ## view-level wrap below, like the other unwired components.)
-const SHADOW_WIRED := {"home_button": true, "board": true, "button": true}
+const SHADOW_WIRED := {"home_button": true, "board": true, "button": true, "gold_currency_pill": true}
 
 ## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
 ## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
@@ -1481,6 +1486,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plus_round", 0, 18]))
 			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button
+			_section_header("Shadow")
+			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # the pill's own drop-shadow STRENGTH (turn it on with the Shadow toggle above)
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Icon", "icon", ["water", "coin", "gem", "star"]))
 			_sidebar_body.add_child(_slider_row(["count", 0, 9999]))

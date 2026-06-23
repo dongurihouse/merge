@@ -921,6 +921,12 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
+	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
+	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
+	# folded into shadow_params by the resolver. A PanelContainer manages its children, so cast it via a holder
+	# (Look.with_shadow) rather than a behind-parent child; the big corner clamps to a capsule.
+	if bool(opts.get("shadow", false)):
+		return Look.with_shadow(panel, pill_h, opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
@@ -3321,7 +3327,14 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
 	var icon_box := float(g.get("icon_box", 54.0))
 	var icon_size := float(g.get("icon_size", 34.0))
+	# the OVERALL drop shadow reuses the shared shadow look (offset/blur/spread/warmth), but the pill
+	# overrides just its STRENGTH (alpha) — so the wallet capsule can sit heavier/lighter than the rest.
+	var sp: Dictionary = Look.shadow_params(cfg)
+	if g.has("shadow_alpha"):
+		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, 1.0)
 	return {
+		"shadow": bool(g.get("shadow", false)),
+		"shadow_params": sp,
 		# the capsule FRAME is the shared gold-badge skin — fold the tuned block in as `badge` so the HUD /
 		# bag / info bar paint the SAME skin the workbench preview injects (gc["badge"] = _params["gold_badge"]).
 		"badge": cfg.get("gold_badge", {}) if cfg is Dictionary else {},
