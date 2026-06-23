@@ -131,10 +131,10 @@ static func make_level_badge(level: int, px: float, num_font: int = -1) -> Contr
 	if tex != null:
 		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no dark panel behind the ring
 		var disc := Panel.new()                                            # cream centre so the number reads on warm, not sky
-		# Sized to sit INSIDE the medal's ring opening. The disc-centred badge art carries its
+		# Sized to sit INSIDE the medal's ring opening. The medal-centred badge art carries its
 		# own cream centre, so this disc only reinforces the number's backing — it must stay
 		# within the ring (≈0.20·px radius) or it shows as bare cream in the open space the
-		# laurels/ribbons leave above the smaller ring.
+		# laurels/ribbons leave around the ring.
 		var dpad := px * 0.30
 		disc.position = Vector2(dpad, dpad)
 		disc.size = Vector2(px - dpad * 2.0, px - dpad * 2.0)
