@@ -3,6 +3,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const VineMaps = preload("res://games/grove/vine/vine_maps.gd")
 const VineMapView = preload("res://games/grove/vine/vine_map_view.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 
 func _initialize() -> void:
 	begin("grove · vine")
@@ -16,6 +17,7 @@ func _initialize() -> void:
 	_test_region_map_membership()
 	_test_region_map_prebaked()
 	_test_cover_offset_bleed()
+	await _test_boot_does_zero_live_work()
 	await _test_map_integration()
 	await _test_unlock_badge_follows_map()
 	await _test_overlay_fills_view()
@@ -167,6 +169,34 @@ func _test_overlay_fills_view() -> void:
 	# not the smaller source-image rect — this is the C1 alignment regression guard.
 	ok(absf(vsz.x - osz.x) <= 2.0 and absf(vsz.y - osz.y) <= 2.0, \
 		"RegionOverlays fills the view rect (%.0fx%.0f) not the image rect (got %.0fx%.0f)" % [vsz.x, vsz.y, osz.x, osz.y])
+	hx.queue_free()
+
+# The whole-class boot perf guard: building the REAL home (chrome + HUD + the vine hub) must do ZERO live
+# per-pixel work — every bakeable sprite loads its baked mirror, and the warped region map loads its baked
+# PNG. This is what catches "someone added boot art but forgot to bake it" WITHOUT any hand-maintained
+# manifest: it drives the actual map.gd builders (not a replica) and asserts the live-fallback logs stayed
+# empty. A failure names the offending asset(s) + the fix (`make bake-textures` / `make bake-vine`).
+func _test_boot_does_zero_live_work() -> void:
+	fresh("boot_zero_live")
+	# Clear the bake-aware caches so this build re-runs the lookups (a warm cache would hide a live miss),
+	# and the logs so we measure only THIS build.
+	Kit.clear_clean_cache()
+	Kit._live_polish_log.clear()
+	VineMapView._art_cache.clear()
+	VineMapView._live_region_raster_log.clear()
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	hx._open_map(G.hub_map())
+	await create_timer(0.1).timeout
+	if not Kit._live_polish_log.is_empty():
+		print("        LIVE-POLISHED on boot (run `make bake-textures`): ", ", ".join(Kit._live_polish_log))
+	ok(Kit._live_polish_log.is_empty(), "boot polishes zero bakeable sprites live (%d live)" % Kit._live_polish_log.size())
+	if not VineMapView._live_region_raster_log.is_empty():
+		print("        LIVE-RASTERED region maps on boot (run `make bake-vine`): ", VineMapView._live_region_raster_log)
+	ok(VineMapView._live_region_raster_log.is_empty(), "boot rasterizes zero vine region maps live (%d live)" % VineMapView._live_region_raster_log.size())
 	hx.queue_free()
 
 func _test_map_integration() -> void:

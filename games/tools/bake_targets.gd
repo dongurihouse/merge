@@ -10,6 +10,7 @@ extends RefCounted
 ## freeze — nothing else to update.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const HomeChrome = preload("res://games/grove/home_chrome.gd")   # the canonical home-chrome icon set (shared with map.gd)
 
 static func _level_data(mode: String) -> Dictionary:
 	return {
@@ -39,27 +40,27 @@ static func build_all(cfg: Dictionary) -> Array:
 ## boot (each disc shell + icon polished live). They are all the SAME shared home button (Kit.home_button:
 ## the cream/gold disc shell + a polished icon), so building one per chrome icon id drives clean_tex_path
 ## for the disc AND every nav/rail icon → the bake covers them and the guard test holds them covered.
-## Icon ids mirror map.gd._build_chrome / _build_liveops_rail; the back button carries its arrow via
-## icon_rel. The Play CTA (board/vine on the orange play_disc) + the calendar/chest rail icons land here
-## too — every one of them polishes a sprite live on a cold boot unless it is baked.
+## The icon ids come from HomeChrome (the SAME constant map.gd's chrome builders read), so this list can't
+## drift from what the home actually renders. The back button carries its arrow via icon_rel; the Play CTA
+## (board/vine on the orange play_disc) + the calendar/chest rail icons all polish a sprite live on a cold
+## boot unless baked. (grove_vine_tests._test_boot_does_zero_live_work backstops any remaining drift.)
 static func _chrome(cfg: Dictionary) -> Array:
 	var opts := Kit.home_button_opts_from_config(cfg)
 	var out: Array = []
-	# Bottom-nav + side-rail icon marks. board/vine = the merged Play↔Restore CTA's two faces;
-	# calendar/chest = the live-ops rail's daily/vault buttons (map.gd._build_liveops_rail).
-	for icon_id in ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "board", "vine", "calendar", "chest"]:
+	# Every home-surface icon mark — bottom nav, live-ops rail, HUD affordances (HomeChrome.BAKE_ICONS).
+	for icon_id in HomeChrome.BAKE_ICONS:
 		out.append(Kit.home_button({"icon": icon_id, "caption": "", "action": Callable()}, opts))
-	out.append(Kit.home_button({"icon": "", "icon_rel": "map/back_arrow.png", "caption": "", "action": Callable()}, opts))
-	# the orange Play disc (shared/play_disc.png) — the CAPTIONLESS centre CTA's shell. It is NOT the default
+	out.append(Kit.home_button({"icon": "", "icon_rel": HomeChrome.BACK_ICON_REL, "caption": "", "action": Callable()}, opts))
+	# the orange Play disc (HomeChrome.PLAY_SHELL) — the CAPTIONLESS centre CTA's shell. It is NOT the default
 	# cream disc, so building a disc button with this shell override bakes play_disc@256; otherwise the home
 	# polishes it live (clean_tex_path @256) on every cold boot, the spike _build_chrome paid.
 	var popts := Kit.home_button_opts_from_config(cfg)
-	popts["shell"] = "shared/play_disc.png"
-	out.append(Kit.home_button({"icon": "board", "caption": "", "action": Callable()}, popts))
+	popts["shell"] = HomeChrome.PLAY_SHELL
+	out.append(Kit.home_button({"icon": HomeChrome.ICON_PLAY, "caption": "", "action": Callable()}, popts))
 	# the RECT-badge shell (shared/badge_rect.png) — worn by the Settings gear (HUD) + the Map / side-rail
 	# buttons. shell_texture still POLISHES that sprite (clean_tex_path @256); building one rect button bakes
 	# badge_rect@256 so the gear + rail load it pre-baked instead of polishing it live on every cold boot.
 	var ropts := Kit.home_button_opts_from_config(cfg)
 	ropts["shape"] = "rect"
-	out.append(Kit.home_button({"icon": "gear", "caption": "Settings", "action": Callable()}, ropts))
+	out.append(Kit.home_button({"icon": HomeChrome.ICON_SETTINGS, "caption": "Settings", "action": Callable()}, ropts))
 	return out

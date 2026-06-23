@@ -486,6 +486,10 @@ static func _feather_alpha(img: Image, radius: float) -> void:
 ## present, so the runtime pays only a plain texture load. A missing bake silently degrades to the
 ## live polish below — correct, just slower on first open.
 static var _clean_cache: Dictionary = {}
+# Boot perf guard (see grove_vine_tests._test_boot_does_zero_live_work): every "path@cap" that hit the
+# LIVE defringe/feather fallback below — i.e. a bakeable sprite that was NOT pre-baked. On a shipped boot
+# this must stay empty; an entry means a new asset polishes live on cold boot (run `make bake-textures`).
+static var _live_polish_log: Array = []
 
 ## The baked-mirror path for a source sprite at a given cap: `baked/<subpath under the assets root>`
 ## with the cap tagged in the name (so one source baked at two caps stays two distinct files). A
@@ -518,6 +522,7 @@ static func clean_tex_path(path: String, max_dim: int = 256) -> Texture2D:
 			_clean_cache[key] = baked
 			return baked
 	# live fallback: defringe + feather on the main thread (the first-open cost the bake removes).
+	_live_polish_log.append(key)            # bakeable sprite with no baked mirror — the boot guard flags this
 	var img := (load(path) as Texture2D).get_image()
 	var t := ImageTexture.create_from_image(_clean_image(img, max_dim))
 	_clean_cache[key] = t
