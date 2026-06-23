@@ -173,7 +173,7 @@ var _params := {
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
-	"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58},
+	"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100, "corner": 58, "gradient": 100},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
@@ -484,7 +484,7 @@ func _make_element(id: String) -> Control:
 			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather)}))
 			return box
 		"gold_badge":
-			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)))
+			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)), float(p.get("gradient", 100)))
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
@@ -1390,6 +1390,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["corner", 12, 134]))
 			_sidebar_body.add_child(_slider_row(["inner_inset", 4, 36]))
 			_sidebar_body.add_child(_slider_row(["shine", 0, 200]))
+			_sidebar_body.add_child(_slider_row(["gradient", 0, 100]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
 		"progress_bar":

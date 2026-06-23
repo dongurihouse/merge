@@ -730,10 +730,11 @@ static func _square_icon(id: String) -> Texture2D:
 const GOLD_BADGE_BASE_SIZE := 270
 const GOLD_BADGE_CAP := 58
 static var _gold_badge_cache: Dictionary = {}
-static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0, corner_px: float = -1.0) -> Control:
+static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0, corner_px: float = -1.0, gradient_pct: float = 100.0) -> Control:
 	var size := maxi(32, int(round(px)))
 	var inset := clampf(inner_inset if inner_inset >= 0.0 else size * 0.040, 2.0, size * 0.18)
 	var shine := clampf(shine_pct / 100.0, 0.0, 2.0)
+	var gradient := clampf(gradient_pct / 100.0, 0.0, 1.0)
 	var corner := _gold_badge_corner_for_size(size, corner_px)
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(size, size)
@@ -744,7 +745,7 @@ static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: 
 	var tex_size := size + pad * 2
 	var tr := TextureRect.new()
 	tr.name = "GoldBadgeTexture"
-	tr.texture = _gold_badge_texture(size, inset, shine, -1, corner)
+	tr.texture = _gold_badge_texture(size, inset, shine, -1, corner, gradient)
 	tr.position = Vector2(-pad, -pad)
 	tr.custom_minimum_size = Vector2(tex_size, tex_size)
 	tr.size = Vector2(tex_size, tex_size)
@@ -760,15 +761,17 @@ static func gold_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"inner_inset": float(g.get("inner_inset", 11.0)),
 		"shine": float(g.get("shine", 100.0)),
 		"corner": float(g.get("corner", GOLD_BADGE_CAP)),
+		"gradient": float(g.get("gradient", 100.0)),
 	}
 
 static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
 	var size := GOLD_BADGE_BASE_SIZE
 	var inset := clampf(float(opts.get("inner_inset", 11.0)), 2.0, size * 0.18)
 	var shine := clampf(float(opts.get("shine", 100.0)) / 100.0, 0.0, 2.0)
+	var gradient := clampf(float(opts.get("gradient", 100.0)) / 100.0, 0.0, 1.0)
 	var corner := _gold_badge_corner_for_size(size, float(opts.get("corner", GOLD_BADGE_CAP)))
 	var sb := StyleBoxTexture.new()
-	sb.texture = _gold_badge_texture(size, inset, shine, 0, corner)
+	sb.texture = _gold_badge_texture(size, inset, shine, 0, corner, gradient)
 	sb.set_texture_margin_all(gold_badge_cap(opts))
 	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
@@ -783,10 +786,11 @@ static func _gold_badge_corner_for_size(size: int, corner_px: float) -> float:
 	var corner := float(size) * 0.215 if corner_px < 0.0 else corner_px * float(size) / float(GOLD_BADGE_BASE_SIZE)
 	return clampf(corner, 4.0, float(size) * 0.5 - 1.0)
 
-static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1, corner_radius: float = -1.0) -> Texture2D:
+static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1, corner_radius: float = -1.0, gradient: float = 1.0) -> Texture2D:
 	var pad := int(ceil(size * 0.075)) if pad_override < 0 else maxi(0, pad_override)
 	var outer_radius := clampf(corner_radius if corner_radius >= 0.0 else float(size) * 0.215, 4.0, float(size) * 0.5 - 1.0)
-	var cache_key := "%d|%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad, int(round(outer_radius))]
+	var gradient_amt := clampf(gradient, 0.0, 1.0)
+	var cache_key := "%d|%d|%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad, int(round(outer_radius)), int(round(gradient_amt * 100.0))]
 	if _gold_badge_cache.has(cache_key):
 		return _gold_badge_cache[cache_key]
 	var tex_size := size + pad * 2
@@ -798,6 +802,7 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 	var c0 := Color("#ffefc7")
 	var c1 := Color("#ffe7b0")
 	var c2 := Color("#f6c974")
+	var flat := c1
 	var rim := Color(189.0 / 255.0, 121.0 / 255.0, 38.0 / 255.0, 0.35)
 	var groove := Color(181.0 / 255.0, 116.0 / 255.0, 35.0 / 255.0, 0.50)
 	var groove_shadow := Color(117.0 / 255.0, 66.0 / 255.0, 17.0 / 255.0, 0.30)
@@ -812,7 +817,8 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 			if face_a > 0.0:
 				var uv := Vector2(local.x / float(size), local.y / float(size))
 				var proj := clampf((uv - Vector2(0.5, 0.5)).dot(linear_dir) + 0.5, 0.0, 1.0)
-				var face := c0.lerp(c1, proj / 0.47) if proj <= 0.47 else c1.lerp(c2, (proj - 0.47) / 0.53)
+				var ramp_face := c0.lerp(c1, proj / 0.47) if proj <= 0.47 else c1.lerp(c2, (proj - 0.47) / 0.53)
+				var face := flat.lerp(ramp_face, gradient_amt)
 
 				var radial_center := Vector2(size * 0.35, size * 0.23)
 				var radial_t := (local - radial_center).length() / float(size)
@@ -830,7 +836,7 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 
 				var top_gloss := clampf(clampf(1.0 - uv.y / 0.12, 0.0, 1.0) * 0.12 * shine, 0.0, 0.36)
 				face = face.lerp(Color.WHITE, top_gloss)
-				var bottom_shade := clampf((uv.y - 0.80) / 0.20, 0.0, 1.0) * 0.06
+				var bottom_shade := clampf((uv.y - 0.80) / 0.20, 0.0, 1.0) * 0.06 * gradient_amt
 				face = face.lerp(Color(173.0 / 255.0, 103.0 / 255.0, 22.0 / 255.0), bottom_shade)
 				face.a = face_a
 				pixel = _gold_badge_over(pixel, face)

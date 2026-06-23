@@ -142,6 +142,7 @@ func _initialize() -> void:
 	_test_gold_badge_shared_shadow_toggle(view)
 	_test_gold_badge_inner_inset(view)
 	_test_gold_badge_shine(view)
+	_test_gold_badge_gradient(view)
 	_test_gold_badge_corner(view)
 	_test_gold_badge_inner_corner_tracks_outer(view)
 	_test_gold_badge_consumers(view)
@@ -379,6 +380,28 @@ func _test_gold_badge_shine(view) -> void:
 	ok(_image_sparse_diff(dull, bright) > 20, "gold_badge shine redraws the background highlight")
 	view._params["gold_badge"] = prev
 
+func _test_gold_badge_gradient(view) -> void:
+	ok(view._params["gold_badge"].has("gradient"), "gold_badge exposes a gradient Workbench control")
+	ok(view._is_config("gold_badge", "gradient"), "gold_badge gradient is saved design config")
+	view._selected = "gold_badge"
+	view._rebuild_sidebar()
+	ok(_has_label_text(view._sidebar_body, "Gradient"), "gold_badge sidebar shows the saved Gradient slider")
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 11
+	view._params["gold_badge"]["corner"] = 58
+	view._params["gold_badge"]["shine"] = 0
+	view._params["gold_badge"]["gradient"] = 0
+	var flat := _gold_badge_preview_image(view)
+	view._params["gold_badge"]["gradient"] = 100
+	var ramp := _gold_badge_preview_image(view)
+	var pad := int(ceil(270 * 0.075))
+	var flat_delta := absf(_luma(flat.get_pixel(pad + 80, pad + 80)) - _luma(flat.get_pixel(pad + 210, pad + 210)))
+	var ramp_delta := absf(_luma(ramp.get_pixel(pad + 80, pad + 80)) - _luma(ramp.get_pixel(pad + 210, pad + 210)))
+	ok(flat_delta < ramp_delta * 0.35, "gold_badge gradient controls flat-vs-ramped background shading")
+	ok(_image_sparse_diff(flat, ramp) > 20, "gold_badge gradient redraws the background fill")
+	view._params["gold_badge"] = prev
+
 func _test_gold_badge_corner(view) -> void:
 	ok(view._params["gold_badge"].has("corner"), "gold_badge exposes a corner Workbench control")
 	ok(view._is_config("gold_badge", "corner"), "gold_badge corner is saved design config")
@@ -456,6 +479,16 @@ func _test_gold_badge_consumers(view) -> void:
 	var info_bright := _info_bar_frame_image(160)
 	ok(_image_sparse_diff(info_dull, info_bright) > 20, \
 		"the info bar board uses the saved gold_badge shine")
+
+	var board_flat := _board_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 0})
+	var board_ramp := _board_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 100})
+	ok(_image_sparse_diff(board_flat, board_ramp) > 20, \
+		"the board badge frame uses the saved gold_badge gradient")
+
+	var info_flat := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 0})
+	var info_ramp := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 0, "corner": 58, "gradient": 100})
+	ok(_image_sparse_diff(info_flat, info_ramp) > 20, \
+		"the info bar board uses the saved gold_badge gradient")
 
 	var board_boxy := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 28})
 	var board_round := _board_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
