@@ -284,6 +284,26 @@ func _test_unlock_rewards() -> void:
 		var want := String(sig[0].id) if sig.size() > 0 else ""
 		ok(String(rew.spirit) == want, "map %d unlock's free spirit is its signature[0] (%s)" % [z, want])
 
+	# grant_resident adds a t1 WITHOUT spending, and still cascades merges.
+	fresh("grant_resident_free")
+	var z0 := 0
+	var mid := String(G.MAPS[z0].id)
+	var gid := String(G.RESIDENT_CORE[0].id)
+	var coins_before := Save.coins()
+	var ev1: Array = G.grant_resident(z0, gid)
+	ok(Save.coins() == coins_before, "grant_resident does NOT spend coins")
+	ok(Save.resident_counts(mid, gid)[0] == 1, "grant_resident adds one t1")
+	ok(ev1.is_empty(), "a lone grant produces no merge event")
+	var ev2: Array = G.grant_resident(z0, gid)
+	ok(ev2.size() == 1 and int(ev2[0].to) == 2, "a second grant cascades t1+t1 -> t2")
+	# welcome_resident still SPENDS then grants (paid path unchanged).
+	fresh("welcome_still_spends")
+	Save.add_coins(1000)
+	var wc_before := Save.coins()
+	var wr: Dictionary = G.welcome_resident(z0, gid)
+	ok(bool(wr.ok) and Save.coins() == wc_before - G.RESIDENT_BASE_COST, "welcome_resident still debits the cost")
+	ok(Save.resident_counts(mid, gid)[0] == 1, "welcome_resident still lands a t1")
+
 # §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
 # completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
 # (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.

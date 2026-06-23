@@ -451,9 +451,18 @@ static func resolve_resident_merges(z: int) -> Array:
 			Save.set_resident_counts(map_id, tid, counts)
 	return events
 
-## Welcome (buy) one t1 resident of `type_id` on map `z`: charge the cost (coins or diamonds via
-## Save), add one to its t1 count, then resolve cascading merges. Returns {ok, events}: ok=false
-## with no events on insufficient funds; ok=true with the merge events on success.
+## Add one tier-1 instance of `type_id` to map z's roster and cascade two-of-a-kind merges. The shared
+## spend-free core of welcome_resident (paid) and the unlock gift (free). Returns the merge events.
+static func grant_resident(z: int, type_id: String) -> Array:
+	var map_id := String(MAPS[z].id)
+	var counts: Array = Save.resident_counts(map_id, type_id).duplicate()
+	counts[0] = int(counts[0]) + 1
+	Save.set_resident_counts(map_id, type_id, counts)
+	return resolve_resident_merges(z)
+
+## Welcome (buy) one t1 resident of `type_id` on map `z`: charge the cost (coins or diamonds via Save),
+## then grant_resident. Returns {ok, events}: ok=false with no events on insufficient funds; ok=true with
+## the merge events on success.
 static func welcome_resident(z: int, type_id: String) -> Dictionary:
 	var type_def: Dictionary = {}
 	for td in resident_lines(z):
@@ -470,11 +479,7 @@ static func welcome_resident(z: int, type_id: String) -> Dictionary:
 		paid = Save.spend(int(cost.cost), "welcome_resident")
 	if not paid:
 		return {"ok": false, "events": []}
-	var map_id := String(MAPS[z].id)
-	var counts: Array = Save.resident_counts(map_id, type_id).duplicate()
-	counts[0] = int(counts[0]) + 1
-	Save.set_resident_counts(map_id, type_id, counts)
-	var events := resolve_resident_merges(z)
+	var events := grant_resident(z, type_id)
 	return {"ok": true, "events": events}
 
 static func map_for_spots(i: int) -> int:
