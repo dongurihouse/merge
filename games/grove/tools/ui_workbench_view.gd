@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -29,7 +29,7 @@ const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "g
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["gold_currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["gold_currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -45,7 +45,6 @@ const DEPENDENTS := {
 	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers", "info"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
-	"badge": ["home_button"],
 	"gold_badge": ["board", "info_bar"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
@@ -120,7 +119,6 @@ const CAPTIONS := {
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
-	"badge": "Badge — disc shell (raw vs polished)",
 	"gold_badge": "Gold badge — CSS port",
 	"gold_currency_pill": "Gold currency pill — CSS plus study",
 	"progress_bar": "Progress bar — track + fill (reusable)",
@@ -166,7 +164,8 @@ var _params := {
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
-	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
+	# Its shell edge polish (defringe / feather) lives under this item's Shell-polish knobs (saved as
+	# config["badge"]); its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
 		"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
@@ -264,7 +263,7 @@ var _params := {
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
-	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 30, "sell_icon": 30, "filled": true},
+	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -446,7 +445,8 @@ func _make_element(id: String) -> Control:
 			# game reads. Every live surface is a ROUNDED-RECT tile now (icon over label INSIDE the badge):
 			# the bag well (in-tile "x/y" count), the rail/Map tile (caption + a red badge), plus the orange
 			# Play disc. (The old circular disc-with-caption/-count form is retired — the rail moved to rect.)
-			# include the BADGE item's polish so the home button reflects it LIVE (the same link the game uses)
+			# include the shell edge polish (config["badge"], tuned under this item's Shell-polish knobs) so
+			# the home button reflects it LIVE — the same link the game uses
 			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
@@ -481,15 +481,6 @@ func _make_element(id: String) -> Control:
 			box.add_theme_constant_override("separation", 28)
 			box.add_child(_icon_preview("Raw", {"defringe": false, "feather": 0.0, "supersample": 1}))
 			box.add_child(_icon_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather), "supersample": int(p.supersample)}))
-			return box
-		"badge":
-			# the home button's disc shell as its own polish sandbox — raw vs the tuned defringe/feather.
-			# The home button reads these same params, so editing here updates the home button live.
-			# (Its drop shadow is the SHARED shadow — the Shadow toggle — not baked into the shell.)
-			var box := HBoxContainer.new()
-			box.add_theme_constant_override("separation", 28)
-			box.add_child(_badge_preview("Raw", {}))
-			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather)}))
 			return box
 		"gold_badge":
 			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)), float(p.get("gradient", 100)))
@@ -625,7 +616,7 @@ func _make_element(id: String) -> Control:
 				(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
 				(ib.get_meta("info_btn") as Button).disabled = false
 				var sb := ib.get_meta("sell_btn") as Button
-				(ib.get_meta("sell_count") as Label).text = "+12"   # demo payout in the new [trash · +N · coin] layout
+				(ib.get_meta("sell_count") as Label).text = "12"    # demo payout under the coin in the vertical "Sell" badge
 				var demo_coin_slot := ib.get_meta("sell_coin") as Control
 				demo_coin_slot.add_child(Look.icon("coin", demo_coin_slot.custom_minimum_size.x))
 				sb.visible = true
@@ -884,30 +875,6 @@ func _icon_preview(label: String, opts: Dictionary) -> Control:
 
 ## One labelled badge (disc-shell) preview (raw or polished) for the Badge element — the SAME shell the
 ## home button uses, polished by the SAME kit transform, so what you see here is what the rail/nav get.
-func _badge_preview(label: String, polish: Dictionary) -> Control:
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 6)
-	var l := Label.new()
-	l.text = label
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.8))
-	v.add_child(l)
-	var tr := TextureRect.new()
-	tr.custom_minimum_size = Vector2(170, 170)
-	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	# the untouched "Raw" shell is an instant plain load; the "Polished" one bakes on a worker thread
-	var defr := bool(polish.get("defringe", false))
-	var feat := float(polish.get("feather", 0.0))
-	var shad := bool(polish.get("shadow", false))
-	if not defr and feat <= 0.0 and not shad:
-		tr.texture = Kit.shell_texture(Kit.HOME_SHELL, polish)
-	else:
-		var key := "badge|%s|%s|%s" % [defr, feat, shad]
-		_set_polished(tr, key, Look.kit(Kit.HOME_SHELL), polish, true)
-	v.add_child(tr)
-	return v
-
 ## Drive a preview TextureRect from the worker-thread polish cache: show the finished texture if it's
 ## ready, else show the RAW sprite now and mark this element awaiting — the pump rebuilds it (picking up
 ## the cached polish) once the worker lands. Keeps the polish sliders responsive (no per-tick main-thread bake).
@@ -1373,6 +1340,11 @@ func _rebuild_sidebar() -> void:
 			_section_header("Sparkle (engine FX — no baked art)")
 			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount
 			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density
+			_section_header("Shell polish (raw vs cleaned — shared by every home button)")
+			# the shell's edge polish (defringe / feather) — SAVED under config["badge"], read by the live
+			# game via Kit.badge_polish_from_config and applied to every home-button shell (rect + play).
+			_sidebar_body.add_child(_toggle_row("Defringe", "defringe", false, "badge"))
+			_sidebar_body.add_child(_slider_row(["feather", 0, 4], "badge"))
 			_group_header("Test only — not saved", false)        # the rail/nav each set their own icon + caption
 			_sidebar_body.add_child(_option_row("Icon", "icon", HOME_ICONS))
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
@@ -1394,10 +1366,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
 			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 			_sidebar_body.add_child(_slider_row(["supersample", 1, 4]))
-		"badge":
-			_group_header("Saved to config", true)           # the disc-shell polish; the home button reads it live
-			_sidebar_body.add_child(_toggle_row("Defringe", "defringe"))
-			_sidebar_body.add_child(_slider_row(["feather", 0, 4]))
 		"gold_badge":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["corner", 12, 134]))
@@ -1568,8 +1536,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
 			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
 			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
-			_sidebar_body.add_child(_slider_row(["sell_font", 16, 40]))     # the sell button's payout font
-			_sidebar_body.add_child(_slider_row(["sell_icon", 15, 50]))     # the cart icon as % of the height
+			_sidebar_body.add_child(_slider_row(["sell_label_font", 14, 34]))  # the plain "Sell" caption font
+			_sidebar_body.add_child(_slider_row(["sell_font", 16, 40]))     # the sell badge's payout number font
+			_sidebar_body.add_child(_slider_row(["sell_icon", 15, 50]))     # the payout coin as % of the height
+			_sidebar_body.add_child(_slider_row(["sell_badge_radius", 0, 30]))  # the green badge corner radius
+			_sidebar_body.add_child(_slider_row(["pad_right", 0, 80]))      # right padding — how near the Sell button sits to the edge
 			_group_header("Test only — not saved", false)                  # preview selected vs empty state
 			_sidebar_body.add_child(_toggle_row("Filled (vs empty)", "filled", true))   # preview the selected vs empty state
 		"toggle_card":
@@ -1752,11 +1723,11 @@ func _vault_sidebar() -> void:
 	_sidebar_body.add_child(_slider_row(["balance", 0, 999]))       # the previewed gem read
 	_sidebar_body.add_child(_toggle_row("Claimable", "claimable"))  # toggles the CTA dim + hint
 
-func _slider_row(spec: Array) -> Control:
+func _slider_row(spec: Array, target := "") -> Control:
 	var key: String = spec[0]
 	var lo: float = float(spec[1])
 	var hi: float = float(spec[2])
-	var params: Dictionary = _params[_selected]
+	var params: Dictionary = _params[target if target != "" else _selected]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -1802,7 +1773,8 @@ func _text_row(label: String, key: String) -> Control:
 	row.add_child(le)
 	return row
 
-func _toggle_row(label: String, key: String, rebuild_sidebar := false) -> Control:
+func _toggle_row(label: String, key: String, rebuild_sidebar := false, target := "") -> Control:
+	var params: Dictionary = _params[target if target != "" else _selected]
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -1811,9 +1783,9 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false) -> Contro
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
 	var cb := CheckButton.new()
-	cb.button_pressed = bool(_params[_selected].get(key, false))
+	cb.button_pressed = bool(params.get(key, false))
 	cb.toggled.connect(func(on: bool) -> void:
-		_params[_selected][key] = on
+		params[key] = on
 		_apply_edit()
 		if rebuild_sidebar:
 			_rebuild_sidebar.call_deferred())   # defer — we're inside this toggle's own signal

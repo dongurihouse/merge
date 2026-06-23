@@ -3400,8 +3400,12 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
-		"sell_font":   int(i.get("sell_font", 30)),                 # the sell button's payout font
-		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the cart icon as % of the bar height
+		"sell_font":   int(i.get("sell_font", 30)),                 # the sell badge's payout number font
+		"sell_label_font": int(i.get("sell_label_font", 22)),       # the plain "Sell" caption above the badge
+		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the payout coin as % of the bar height
+		"sell_badge_radius": int(i.get("sell_badge_radius", 10)),   # the green badge's corner radius (softer than the full pill)
+		"vpad":        float(i.get("vpad", 8)),                      # the gold frame's top/bottom padding (its own, not the wallet's)
+		"pad_right":   float(i.get("pad_right", 16)),               # the gold frame's RIGHT padding — pins the Sell button off the edge
 		"pill":        pill,                                        # shared padding/margin opts retained for content spacing
 		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
@@ -3504,9 +3508,10 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		return Look.with_shadow(panel, 1000.0, opts.get("shadow_params", {}))   # the shared capsule shadow (corner clamps to half-height)
 	return panel
 
-## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [sell cart] -------------------------
+## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [Sell badge] -------------------------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
-## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button (cart icon + payout).
+## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button — the word "Sell" in
+## plain ink over a vertical green badge (the payout coin on top, the payout number below).
 ## The FRAME is the shared gold badge skin, so the board border and bottom bar read as one surface.
 ## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
 ## font · separation · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
@@ -3514,7 +3519,8 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 ## sell_btn / inner_px), so the board's selection logic is unchanged.
 ##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
-##     sell_font · sell_icon (0..1) · badge (the shared gold badge frame opts) · pill (content margins).
+##     sell_font (payout number) · sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) ·
+##     badge (the shared gold badge frame opts) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var height := float(opts.get("height", 130.0))
 	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ + piece box scale with the bar
@@ -3526,9 +3532,14 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var pad: Dictionary = opts.get("pill", {})
 	var pad_x := float(pad.get("pad_x", 18.0))
 	frame.content_margin_left = float(pad.get("pad_left", pad_x))
-	frame.content_margin_right = pad_x
-	frame.content_margin_top = float(pad.get("pad_y", 12.0))
-	frame.content_margin_bottom = float(pad.get("pad_y", 12.0))
+	# the RIGHT padding is its OWN knob — the name label expands to fill, so this gap pins the Sell button
+	# off the right edge. Small by default so the button sits near the very right.
+	frame.content_margin_right = float(opts.get("pad_right", 16.0))
+	# vertical frame padding is its OWN knob (not the wallet's tall pad_y) — the bar's content is now a
+	# taller "Sell" stack, so it hugs top/bottom tighter and the pill stays height-matched to the wells.
+	var vpad := float(opts.get("vpad", 8.0))
+	frame.content_margin_top = vpad
+	frame.content_margin_bottom = vpad
 	pill.add_theme_stylebox_override("panel", frame)
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
@@ -3550,69 +3561,81 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
 	hb.add_child(name_label)
-	var sell_btn := Button.new()                                 # sells the selected item; content shows trash + payout
+	var sell_btn := Button.new()                                 # sells the selected item; content = "Sell" over a coin·payout badge
 	sell_btn.focus_mode = Control.FOCUS_NONE
 	sell_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	sell_btn.custom_minimum_size = Vector2(height * 1.4, height * 0.52)  # a fixed-width pill; its content centers
 	var sell_icon_px := height * float(opts.get("sell_icon", 0.30))
-	# content row: [trash icon] +N [coin/acorn icon] — a mouse-ignoring centered HBox so the WHOLE pill stays
-	# the single tap target (the children pass their clicks through to the Button below them).
-	var sell_row := HBoxContainer.new()
-	sell_row.add_theme_constant_override("separation", 6)
-	sell_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	sell_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# the sell button wears the trash-can icon (ui/shared/icon_trash.png, cut from action_asset), replacing
-	# the merchant cart — a clearer "bin this for coins" read.
-	var trash_p := Look.kit("shared/icon_trash.png")
-	if ResourceLoader.exists(trash_p):
-		var ti := TextureRect.new()
-		ti.texture = load(trash_p)
-		ti.custom_minimum_size = Vector2(sell_icon_px, sell_icon_px)
-		ti.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		ti.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		ti.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		sell_row.add_child(ti)
-	var sell_count := Label.new()                                # the "+N" payout amount (the caller sets the text)
-	sell_count.add_theme_font_size_override("font_size", int(opts.get("sell_font", 30)))
-	sell_count.add_theme_color_override("font_color", Pal.CREAM)
-	sell_count.add_theme_constant_override("outline_size", 0)
-	sell_count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sell_row.add_child(sell_count)
+	var sell_label_font := int(opts.get("sell_label_font", 22))
+	var sell_num_font := int(opts.get("sell_font", 30))
+	# content STACK: the word "Sell" in plain ink ABOVE a vertical green badge (coin on top, the payout number
+	# below). The label rides on the bar surface — the green is only the badge. A mouse-ignoring centered
+	# stack so the WHOLE button stays the single tap target (children pass their clicks through).
+	var sell_stack := VBoxContainer.new()
+	sell_stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	sell_stack.add_theme_constant_override("separation", 3)
+	sell_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sell_label := Label.new()                                # the plain "Sell" caption above the badge
+	sell_label.text = "Sell"
+	sell_label.add_theme_font_size_override("font_size", sell_label_font)
+	sell_label.add_theme_color_override("font_color", Pal.INK)
+	sell_label.add_theme_constant_override("outline_size", 0)
+	sell_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sell_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_stack.add_child(sell_label)
+	# the green badge — a VERTICAL pill: the payout currency rides on top, the amount sits below it.
+	var badge_col := VBoxContainer.new()
+	badge_col.alignment = BoxContainer.ALIGNMENT_CENTER
+	badge_col.add_theme_constant_override("separation", 1)
+	badge_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# the payout currency is the game's STANDARD coin/acorn icon (the caller fills it via Look.icon, swapped
-	# per payout), replacing the inline 🪙/🌰 emoji glyph.
+	# per payout) — on TOP of the badge.
 	var sell_coin := CenterContainer.new()
 	sell_coin.custom_minimum_size = Vector2(sell_icon_px, sell_icon_px)
 	sell_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sell_row.add_child(sell_coin)
-	var sell_center := CenterContainer.new()                     # center the row within the fixed-width pill
-	sell_center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sell_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sell_center.add_child(sell_row)
-	sell_btn.add_child(sell_center)
-	# the sell button wears the game's STANDARD green primary-CTA background (Pal.BTN_PRIMARY) — the same
-	# leaf-green pill Look.button(primary) uses — replacing the bespoke red box, so the bottom bar speaks one
-	# button language.
+	badge_col.add_child(sell_coin)
+	var sell_count := Label.new()                                # the payout amount (the caller sets the text), under the coin
+	sell_count.add_theme_font_size_override("font_size", sell_num_font)
+	sell_count.add_theme_color_override("font_color", Pal.CREAM)
+	sell_count.add_theme_constant_override("outline_size", 0)
+	sell_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sell_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge_col.add_child(sell_count)
+	# the badge wears the game's STANDARD green primary-CTA fill (Pal.BTN_PRIMARY) — the same leaf-green pill
+	# Look.button(primary) uses — so the bottom bar speaks one button language. (Previously the green dressed
+	# the whole button; now it's only the badge, with "Sell" sitting above it on the bar surface.)
+	var badge := PanelContainer.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var ts := StyleBoxFlat.new()
 	ts.bg_color = Pal.BTN_PRIMARY
 	ts.border_color = Pal.BTN_PRIMARY_EDGE
-	ts.set_corner_radius_all(Tune.BTN_RADIUS)
+	ts.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))   # a softer rounded-rect, not the full pill
 	ts.set_border_width_all(Tune.BTN_BORDER_W)
-	ts.shadow_color = Tune.SHADOW_RAISED
-	ts.shadow_size = Tune.SHADOW_RAISED_SIZE
-	ts.shadow_offset = Tune.SHADOW_RAISED_OFFSET
+	ts.shadow_color = Color(0, 0, 0, 0.16)                             # very minimal lift (was the heavy SHADOW_RAISED)
+	ts.shadow_size = 2
+	ts.shadow_offset = Vector2(0, 1)
 	ts.content_margin_left = 14
 	ts.content_margin_right = 14
-	ts.content_margin_top = 8
-	ts.content_margin_bottom = 8
-	sell_btn.add_theme_stylebox_override("normal", ts)
-	sell_btn.add_theme_stylebox_override("hover", ts)
-	var tsp := ts.duplicate()                                    # pressed: darken + settle the shadow (standard juice)
-	tsp.bg_color = ts.bg_color.darkened(Tune.BTN_PRESS_DARKEN)
-	tsp.shadow_color = Tune.SHADOW_RESTING
-	tsp.shadow_size = Tune.BTN_PRESS_SHADOW_SIZE
-	tsp.shadow_offset = Tune.BTN_PRESS_SHADOW_OFFSET
-	sell_btn.add_theme_stylebox_override("pressed", tsp)
+	ts.content_margin_top = 4
+	ts.content_margin_bottom = 4
+	badge.add_theme_stylebox_override("panel", ts)
+	badge.add_child(badge_col)
+	sell_stack.add_child(badge)
+	# size the button to its content (a Button does not grow to fit child controls), then center the stack in
+	# it via a full-rect CenterContainer. The min height tracks the label + coin + number so the badge never
+	# clips and the bar height stays close to the Bag/Home wells.
+	var sell_h := int(sell_label_font * 1.45) + 3 + 8 + sell_icon_px + 1 + int(sell_num_font * 1.45)
+	sell_btn.custom_minimum_size = Vector2(maxf(sell_icon_px + 64.0, 96.0), sell_h)
+	var sell_center := CenterContainer.new()                     # center the stack within the button rect
+	sell_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sell_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_center.add_child(sell_stack)
+	sell_btn.add_child(sell_center)
+	# the button itself is transparent — the green now lives on the inner badge; the press juice (scale)
+	# carries the tactile feedback.
+	var flat := StyleBoxEmpty.new()
+	sell_btn.add_theme_stylebox_override("normal", flat)
+	sell_btn.add_theme_stylebox_override("hover", flat)
+	sell_btn.add_theme_stylebox_override("pressed", flat)
 	if spec.has("sell_action") and (spec.get("sell_action") as Callable).is_valid():
 		sell_btn.pressed.connect(spec.get("sell_action"))
 	Look.add_press_juice(sell_btn)

@@ -1424,7 +1424,7 @@ func _build_info_bar(px: float = 130.0) -> Control:
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
 	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its content shows trash + payout
-	_info_trash_count = pill.get_meta("sell_count")  # the "+N" payout label, set in _select_item
+	_info_trash_count = pill.get_meta("sell_count")  # the payout-amount label, set in _select_item
 	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
 	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
 	return pill
@@ -1450,7 +1450,7 @@ func _select_item(cell: Vector2i) -> void:
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
-		_info_trash_count.text = "+%d" % (rw.y if gem else rw.x)
+		_info_trash_count.text = "%d" % (rw.y if gem else rw.x)
 		for c in _info_trash_coin.get_children():
 			c.queue_free()
 		var pay_icon := Look.icon("gem" if gem else "coin", _info_trash_coin.custom_minimum_size.x)

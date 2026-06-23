@@ -1320,21 +1320,23 @@ func _make_play_button() -> Button:
 	return _play_btn
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
-# bottom nav + the live-ops rail build from — the cream/gold disc tuned in the workbench — so a button
-# tweak (size · shell · icon scale · polish) flows here too. It just carries the back-arrow icon
-# (CARD_BACK, outside the icon_<id> convention → passed as icon_rel) and no caption. Pinned bottom-left;
-# its press returns to the last-viewed map. Falls back to a bare disc when the kit can't load.
+# bottom nav + the live-ops rail build from, in its ROUNDED-RECT form (shape:"rect") — matching the Map
+# button — so a button tweak (size · shell · icon scale · polish) flows here too. It just carries the
+# back-arrow icon (CARD_BACK, outside the icon_<id> convention → passed as icon_rel) and no caption.
+# Pinned bottom-left; its press returns to the last-viewed map. Falls back to a bare square when the kit can't load.
 func _make_back_button(sb: float) -> Button:
-	var px := _rail_px                       # the workbench-saved disc size (shared with the rail + nav)
+	var px := _rail_px                       # the workbench-saved button size (shared with the rail + nav)
 	var back := func() -> void:
 		Audio.play("button_tap", -4.0)
 		_open_map(_map_idx)
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
 	if Kit != null:
-		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, _home_opts)
+		var opts := _home_opts.duplicate()
+		opts["shape"] = "rect"               # the rounded-rect badge, matching the Map button (no longer a disc)
+		b = Kit.home_button({"icon_rel": CARD_BACK, "caption": "", "action": back}, opts)
 	else:
-		b = Button.new()                     # defensive fallback (kit absent): a bare disc
+		b = Button.new()                     # defensive fallback (kit absent): a bare square
 		b.focus_mode = Control.FOCUS_NONE
 		b.custom_minimum_size = Vector2(px, px)
 		Look.add_press_juice(b)

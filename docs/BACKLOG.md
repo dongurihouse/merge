@@ -635,3 +635,48 @@ items 1/4/5 should consume. Each item notes the overlap.
   post-launch.) **+ a small engine follow-up:** keep the `seed_satchel` anchor live +
   askable past map 1 on a **cold load** (`seed_gens` / `lines_for_map`) — it already persists in live
   play via the hand-in flow. *(Surfaced 2026-06-14; data built T20 2026-06-15.)*
+
+<!-- ============================================================================ -->
+<!-- EVERYTHING ABOVE THIS LINE IS THE OLD BACKLOG — to be DELETED once the review -->
+<!-- below is complete. The reviewed/revised backlog is the single section below.  -->
+<!-- ============================================================================ -->
+
+# Reviewed backlog (revision in progress — 2026-06-23)
+
+Built up section-by-section as we review the old backlog above with owner input. When the review
+is complete, everything above the divider is deleted and only this section remains. New owner-driven
+buckets cut across the old per-surface sections: **Active** (build now), **Tuning** (owner feel/pacing
+calls), **Testing** (re-enable / add coverage), and others as they emerge.
+
+## Active — build now
+
+- **Mystery-reward dialog — build + verify the full experience on placeholder rewards.** Build and
+  test the mystery-gift dialog / popup and its spin-reveal experience end-to-end using the *placeholder*
+  reward pools — don't block on final numbers (those move to **Tuning**, below). Three parts:
+  - **Externalize the reward config to JSON.** Daily + mystery rewards live today as GDScript constants
+    in [`games/grove/grove_data.gd`](../games/grove/grove_data.gd) (`LOGIN_LADDER`, `LOGIN_MILESTONES`,
+    `LOGIN_MYSTERY`) — move / mirror them into a JSON config (e.g. `games/grove/data/login_rewards.json`)
+    that `engine/scripts/core/login.gd` reads, so rewards are data-tunable without code edits.
+  - **Live end-to-end spin check.** Watch a real run of the animated landing (sweep → land on winner(s)
+    → "You won!" → celebrate → auto-dismiss); tune the `_spin` step counts/delays in
+    `engine/scripts/ui/login_mystery.gd` if the deceleration reads too fast/slow. *(was follow-up 1.3.)*
+  - **Visual-capture tooling in the workbench.** Throw away the scratch `.scratch/mystery_amounts_shot.gd`;
+    build the mystery-reveal capture/preview into the UI workbench (`games/grove/tools/ui_workbench*`),
+    which already previews login-calendar states (incl. a "mystery" mode), so the dialog is repeatably
+    visual-checkable. *(was follow-up 1.4.)*
+
+## Tuning (owner feel / pacing calls)
+
+- **Mystery reward pools.** Re-tune `LOGIN_MYSTERY` (in the new JSON config above) — day-4 to a mid-week
+  reward tier, day-7 to a milestone tier, against the wider coin/gem economy; keep every `water` entry
+  ≤ `LOGIN_WATER_SAFE_MAX` (= 15, the §4/§10 faucet guard, asserted by tests). *(was follow-up 1.1.)*
+
+## Testing (re-enable / add coverage)
+
+- **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` (15 assertions, passes today)
+  sits in the Makefile's `ENGINE_TESTS_DISABLED`; fold it back into `ENGINE_TESTS`. It covers: (1)
+  claim-feedback z-order — the daily-reward celebration renders ABOVE the z=100 calendar modal, not
+  behind the veil; (2) mystery-chest wiring — a mystery slot is the claimable "today" rung, wears the
+  "?" chest, and opens the spin (not an instant grant); (3) mystery reveal grant — opening a day-7
+  reveal claims the day, bumps the streak by 1, fires `on_done`; (4) reveal cards show concrete reward
+  amounts, not icon-only. *(was follow-up 1.2.)*
