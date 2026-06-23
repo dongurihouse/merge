@@ -21,7 +21,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "gold_badge", "gold_currency_pill", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -29,7 +29,7 @@ const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "g
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["gold_currency_pill"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -78,6 +78,7 @@ const TEST_KEYS := {
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"gold_badge": ["px"],                  # test-only CSS-port preview size; not saved to config
+	"gold_currency_pill": ["icon", "count"],   # standalone pill study; sample icon/count are preview-only
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
@@ -119,6 +120,7 @@ const CAPTIONS := {
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"badge": "Badge — disc shell (raw vs polished)",
 	"gold_badge": "Gold badge — CSS port",
+	"gold_currency_pill": "Gold currency pill — CSS plus study",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
@@ -173,6 +175,9 @@ var _params := {
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
 	"gold_badge": {"px": 270},
+	"gold_currency_pill": {"icon": "water", "count": 2450, "pill_w": 292, "pill_h": 100, "badge_px": 54, "icon_size": 34,
+		"num_size": 30, "gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
+		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
@@ -484,6 +489,10 @@ func _make_element(id: String) -> Control:
 			return box
 		"gold_badge":
 			return Kit.gold_badge(float(p.get("px", 270)))
+		"gold_currency_pill":
+			var gc := p.duplicate()
+			var icon_id := String(gc.get("icon", "water"))
+			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
@@ -1383,6 +1392,27 @@ func _rebuild_sidebar() -> void:
 		"gold_badge":
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
+		"gold_currency_pill":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["pill_w", 180, 380]))
+			_sidebar_body.add_child(_slider_row(["pill_h", 64, 132]))
+			_sidebar_body.add_child(_slider_row(["badge_px", 34, 84]))
+			_sidebar_body.add_child(_slider_row(["icon_size", 18, 64]))
+			_sidebar_body.add_child(_slider_row(["num_size", 16, 48]))
+			_sidebar_body.add_child(_slider_row(["gap", 0, 30]))
+			_section_header("Plus button")
+			_sidebar_body.add_child(_slider_row(["plus_x", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["plus_y", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["plus_radius", 8, 44]))
+			_sidebar_body.add_child(_slider_row(["plus_shine", 0, 60]))
+			_sidebar_body.add_child(_slider_row(["plus_stroke", 0, 5]))
+			_sidebar_body.add_child(_slider_row(["plus_font", 58, 82]))
+			_sidebar_body.add_child(_slider_row(["plus_button", 75, 135]))
+			_sidebar_body.add_child(_slider_row(["plus_round", 0, 18]))
+			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Icon", "icon", ["water", "coin", "gem", "star"]))
+			_sidebar_body.add_child(_slider_row(["count", 0, 9999]))
 		"progress_bar":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
