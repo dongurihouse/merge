@@ -237,24 +237,11 @@ static func buy_bag_slot(price: int) -> bool:
 	set_bag_slots(bag_slots() + 1)
 	return true
 
-# --- FTUE feature-spotlight seen-state (Core §14 / T28) -------------------------
-# Which staged features have already been spotlit (so a feature is announced exactly
-# ONCE, ever). Lives in the grove blob keyed by feature id; absent on old saves and
-# defaulted empty via the deep-merge-over-defaults path (no migration). The §14
-# first-appearance gate (engine/scripts/core/spotlight.gd) reads + records here.
-static func spotlights_seen() -> Array:
-	return Array(grove().get("spotlights_seen", []))
-
-static func spotlight_seen(feature_id: String) -> bool:
-	return spotlights_seen().has(feature_id)
-
-static func mark_spotlight_seen(feature_id: String) -> void:
-	var g := grove()
-	var seen: Array = g.get("spotlights_seen", [])
-	if not seen.has(feature_id):
-		seen.append(feature_id)
-		g["spotlights_seen"] = seen
-		grove_write()
+# (The FTUE feature-spotlight seen-state API — spotlights_seen / spotlight_seen /
+# mark_spotlight_seen — was removed 2026-06-23 with the dormant spotlight subsystem. The
+# redesign is specced + parked (docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-
+# design.md); the rebuild re-adds it here. A leftover "spotlights_seen" key on old saves is
+# harmless — the deep-merge-over-defaults load never drops unknown keys.)
 
 # --- settings -----------------------------------------------------------------
 

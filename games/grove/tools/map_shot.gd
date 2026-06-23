@@ -39,12 +39,11 @@ func _initialize() -> void:
 
 	match mode:
 		"select":
-			Save.mark_spotlight_seen("shop")   # the place-picker capture shouldn't be dimmed by the FTUE shop spotlight
+			pass   # the place-picker capture needs no special save setup
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
 			# no overlays. Unlock the hub spots, seed the reference wallet (★256 🪙132 💧87) and a
-			# mid level, pre-see the shop spotlight (no FTUE dim), and mark today claimed so the
-			# daily-login popup never covers the screen.
+			# mid level, and mark today claimed so the daily-login popup never covers the screen.
 			var gh := Save.grove()
 			var fh := {}
 			for sp in G.MAPS[G.hub_map()].spots:
@@ -55,7 +54,6 @@ func _initialize() -> void:
 			Save.add_exp(256)
 			Save.add_coins(132)
 			Save.add_diamonds(87)
-			Save.mark_spotlight_seen("shop")
 			load("res://engine/scripts/core/login.gd").claim_today()
 			# 3 unread letters so the Inbox count badge reads "3" (home.png).
 			var Inbox = load("res://engine/scripts/core/inbox.gd")
@@ -78,17 +76,14 @@ func _initialize() -> void:
 			gv["unlocks"] = fv
 			gv["exp"] = 20
 			Save.grove_write()
-			Save.mark_spotlight_seen("shop")             # don't let the FTUE shop spotlight dim this composite
 			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
 		"login":
 			# T45: the daily-login calendar AUTO-POPUP on a fresh day. One hub spot owned (past the
-			# cold FTUE) + the shop spotlight pre-seen (so it doesn't claim the overlay slot) + today
-			# unclaimed (the default) → the _ready-driven popup fires.
+			# cold FTUE) + today unclaimed (the default) → the _ready-driven popup fires.
 			var gl := Save.grove()
 			gl["unlocks"] = {String(G.MAPS[G.hub_map()].spots[0].id): true}
 			gl["exp"] = 6
 			Save.grove_write()
-			Save.mark_spotlight_seen("shop")
 		"calmbreeze":
 			Save.set_setting("calm", true)
 			var gc := Save.grove()
@@ -119,12 +114,11 @@ func _initialize() -> void:
 			go["exp"] = 40
 			Save.grove_write()
 
-	# noftue=1: suppress the FTUE overlays (daily-login calendar auto-popup + shop spotlight dim) so a
-	# map-view capture shows the bare map, not a popup. Must run after Save.configure_for_test (above).
+	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
+	# not a popup. Must run after Save.configure_for_test (above).
 	for wa in args:
 		if String(wa) == "noftue=1":
 			load("res://engine/scripts/core/login.gd").claim_today()
-			Save.mark_spotlight_seen("shop")
 
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
 	root.add_child(scn)

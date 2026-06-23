@@ -44,7 +44,6 @@ func _initialize() -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	g["exp"] = 60
 	Save.grove_write()
-	Save.mark_spotlight_seen("shop")          # don't let the FTUE shop spotlight claim the overlay slot
 	Save.add_coins(800)                        # afford the coin cards in the shop shot
 	Save.add_diamonds(20)                      # afford the premium card too
 

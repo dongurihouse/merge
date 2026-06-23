@@ -177,8 +177,7 @@ func _ready() -> void:
 	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
 	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
 	# is open yet — and the board's Home button returns here). Gated + deferred so it never fires on a
-	# cold first launch (see _maybe_login_popup). (The §14 shop spotlight that used to share this
-	# first-hub-open beat was removed 2026-06-18 — docs/BACKLOG.md "Restore the shop FTUE".)
+	# cold first launch (see _maybe_login_popup).
 	_maybe_login_popup_deferred.call_deferred()
 
 	# Apple Game Center sign-in → a pseudonymous player id for targeted mail (and later more). Flag-gated
@@ -1696,10 +1695,10 @@ func _refresh_piggy_pip() -> void:
 #   • today is genuinely unclaimed (not Login.claimed_today() — the day's first open),
 #   • this is NOT a brand-new save (unlocks.size() > 0 — at least one spot restored, so a rewarding
 #     beat has already happened; a fresh save doesn't open on a money-ish calendar).
-# (The §14 shop spotlight used to share this first-hub-open beat and gated the popup so the two never
-# stacked — removed 2026-06-18, docs/BACKLOG.md "Restore the shop FTUE". With no spotlight to collide
-# with, the extra defer + overlay-live check are gone; restore the don't-collide guard if a chrome
-# spotlight is re-added here.)
+# (A future FTUE spotlight on this same first-hub-open beat must coordinate so the two never stack on
+# one frame — see the parked redesign spec docs/superpowers/specs/2026-06-23-ftue-hand-gesture-
+# spotlight-design.md; the current sites are merge/bag on the board, so there is nothing to collide
+# with here today.)
 # The synchronous gate for the auto-popup: shown-this-launch (item 3) · flag · today unclaimed ·
 # past the cold-FTUE. Pulled out so a test can assert the once-per-launch guard without the UI.
 func _login_popup_blocked() -> bool:

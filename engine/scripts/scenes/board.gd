@@ -31,9 +31,7 @@ const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared glob
 const Shop = preload("res://engine/scripts/ui/shop.gd")   # §10: drains shop-bought item-shortcuts into the bag
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Spotlight = preload("res://engine/scripts/core/spotlight.gd")          # T28: the §14 first-appearance gate
 const Ads = preload("res://engine/scripts/core/ads.gd")                       # T43: §10 rewarded-ad refill at the wall
-const SpotlightOverlay = preload("res://engine/scripts/ui/spotlight_overlay.gd")  # T28: the veil+pulse+hand guide
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
@@ -155,8 +153,6 @@ var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
 var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
-var shop_btn: Button             # T28: kept as a member so the §14 spotlight can target it
-var _spotlight_active := false   # T28: one spotlight at a time (don't stack overlays)
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
@@ -1214,52 +1210,12 @@ func _rebuild_all() -> void:
 	_rebuild_bag()
 	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
 	_update_hud()
-	_maybe_spotlight_chrome()
 
-# T28 (§14): the instant a staged chrome feature FIRST appears, announce it once — a
-# spotlight + pulse over it and a mimed tap/drag guide. Driven from _rebuild_all (which
-# runs on every state change), but the first-appearance GATE (Spotlight.should_spotlight)
-# fires each only once, ever. Target rects must be laid out, so resolve on the next frame.
-func _maybe_spotlight_chrome() -> void:
-	# ALL §14 board chrome spotlights (merchant/sell, bag, shop) are removed for now — each
-	# fired before its action was meaningful (removed 2026-06-18; see docs/BACKLOG.md "Restore
-	# the sell + bag FTUEs" and "Restore the shop FTUE"). Nothing is eligible, so never defer.
-	# The presenter helpers below (_spotlight_chrome_deferred / _show_spotlight) are kept as the
-	# re-add surface — restore the flag check + a should_spotlight(id) → call_deferred here, plus
-	# the matching branch in _spotlight_chrome_deferred, to bring one back. The §14 mechanism +
-	# registry are unchanged.
-	return
-
-# Dormant re-add template (not called while _maybe_spotlight_chrome is neutered above). When a
-# chrome spotlight is restored, this dispatches them one at a time in staged order so overlays
-# never stack: add `if <btn> != null and is_instance_valid(<btn>) and Spotlight.should_spotlight(id):
-# _show_spotlight(id, <btn>); return` per feature.
-func _spotlight_chrome_deferred() -> void:
-	await get_tree().process_frame              # let busts/slots get real global rects
-	if not is_instance_valid(self) or not is_inside_tree():
-		return
-	if shop_btn != null and is_instance_valid(shop_btn) and Spotlight.should_spotlight("shop"):
-		_show_spotlight("shop", shop_btn)
-
-# Present the §14 overlay for `feature_id` over `target` and mark it spotlit (so it never
-# re-announces). One overlay at a time; the gesture/caption come from the game's registry.
-# The completion callback is a BOUND method (not a self-capturing lambda) so a torn-down
-# scene leaves an auto-invalidated Callable, never a "freed capture" error.
-func _show_spotlight(feature_id: String, target: Control) -> void:
-	if _spotlight_active:
-		return
-	_spotlight_active = true
-	Spotlight.mark_spotlit(feature_id)          # record now — announced exactly once
-	var ov := SpotlightOverlay.present(self, target, Spotlight.gesture_for(feature_id),
-		tr(Spotlight.label_for(feature_id)), Callable(self, "_on_spotlight_done"))
-	if ov == null:                              # flag flipped off mid-call → release the latch
-		_spotlight_active = false
-
-# A spotlight was dismissed: release the latch and chain to the next staged feature that
-# may already be visible (so merchant → bag → shop announce one after another).
-func _on_spotlight_done() -> void:
-	_spotlight_active = false
-	_maybe_spotlight_chrome()
+# (The §14 FTUE feature-spotlight wiring — _maybe_spotlight_chrome / _spotlight_chrome_deferred /
+# _show_spotlight / _on_spotlight_done, plus the Spotlight/SpotlightOverlay preloads and the
+# shop_btn/_spotlight_active members — was removed 2026-06-23 with the dormant spotlight subsystem.
+# The redesign (merge + bag hand-gesture spotlights) is specced + parked:
+# docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-design.md.)
 
 func _rebuild_pieces() -> void:
 	for n in piece_nodes.values():

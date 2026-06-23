@@ -217,31 +217,27 @@ calls), **Testing** (re-enable / add coverage), and others as they emerge.
 
 _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-feel.md`.)_
 
-- **FTUE system — redesign as ONE reusable hand-gesture spotlight (replaces the 3 removed §14
-  spotlights).** Build a single reusable FTUE overlay used at every tutorial site, then wire each site
-  with an explicit trigger. Replaces the old "restore the removed merchant/bag/shop spotlights" framing
-  — instead of restoring the bespoke presentation, redesign it around a hand icon that mimes the gesture
-  over a dimmed page. Pieces:
-  - **Hand icon + gesture animation.** Create a hand-cursor icon asset; animate it for two gesture types —
-    *drag* (hand travels from the source location to the target, loops) and *tap* (hand taps the target,
-    loops).
-  - **Dim-except-two-locations overlay.** Dim the whole page except the hand and the highlighted
-    location(s): two cutouts for a drag (source + target), one for a tap (target). Build on / replace the
-    existing `engine/scripts/ui/spotlight_overlay.gd`. Keep the seen-once gate + registry as the data
-    source — `core/spotlight.gd` (`should_spotlight` / `mark_spotlit`) and `grove_data.gd:SPOTLIGHTS`
-    (the per-feature gesture + label rows).
-  - **Reuse across all sites.** The three registered sites today are **merchant** (drag a top-tier spare →
-    sell), **bag** (drag a board piece → stash), **shop** (tap → open the store). All three drive the same
-    component; a future site = one registry row + one call.
-  - **Clear trigger rules — define + enforce per site:**
-    - *merchant:* show only when a **top-tier spare exists to sell** — gate on the has-spares state that
-      brightens the sell well (`board.gd` `_show_sell_affordance` / the merchant `SHADE_LIT` rule).
-    - *bag:* show only when the player has a **piece worth stowing AND free bag space**.
-    - *shop:* show on first home-screen open, **coordinated with the daily-login popup** so the two never
-      stack on the same frame — restore the don't-collide guard that was removed with the old shop
-      spotlight (without it the login popup would be permanently suppressed). Spec: `merge_spec §14` + §18.
-  - *Note:* the gesture targets are the **current** bag / merchant / shop surfaces — the Section-2 bag &
-    merchant "circle" redesign was cut. *(merges old core-loop items 3.1 + 3.2.)*
+- **FTUE system — redesign as ONE reusable hand-gesture spotlight. [SPECCED · PARKED · old code
+  removed]** Full design: `docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-design.md`.
+  One reusable overlay — a hand icon that mimes the gesture over a dimmed page — driven by a seen-once
+  gate + a `{id, gesture, label}` registry, wired per site with an explicit trigger. **Implementation is
+  parked**; the dormant feature-spotlight subsystem was **removed** (clean slate — see the spec's
+  *Removed code* section) so the rebuild starts fresh against the spec. Summary of the locked design:
+  - **Two live sites, both `drag`** (merchant + shop sites were dropped):
+    - *merge* — taught the very first time on the board: drag one piece onto its match
+      (`BoardLogic.find_mergeable_pair`). **This now spotlights the merge verb** — reverses the old
+      `merge_spec §14` "idle hint teaches merge" rule; the idle hint becomes the post-teach re-nudge.
+    - *bag* — taught the first time the board is full (`board.empty_ground_cells().is_empty()`) AND the
+      bag has room AND a stashable piece exists: drag a board piece → the bag well.
+  - **Dropped:** *merchant* (selling moved to the info-bar trashcan — `merchant_btn` is unassigned; the
+    "drag → sell well" gesture has no target) and *shop* (the store opens from the gem-`+` pill and the
+    info-bar delete icon covers the teach; this also removes the daily-login-popup collision concern).
+  - **Overlay (`engine/scripts/ui/spotlight_overlay.gd`):** dim-except-cutouts (two cutouts for a drag:
+    source + target; one for a tap), a pulsing ring per cutout, and a hand that travels source → target
+    (drag) or taps in place (tap), on a loop. Built from a real `ui/kit/hand.png` art asset (intake
+    pipeline) with the code-drawn `_HandDraw` as the §13 fallback.
+  - **Tests:** re-enable `engine/tests/spotlight_tests` in the active `ENGINE_TESTS`; retarget it to the
+    merge/bag registry. *(merges old core-loop items 3.1 + 3.2.)*
 
 - **Merge the T45 entry-point wiring.** The 2×-collect ad hook, the piggy-vault button, and the
   daily-login auto-popup are committed + verified on branch `t45-integration` (`90a8ff0`) but NOT
