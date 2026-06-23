@@ -1,11 +1,9 @@
 {
-  "_doc": "Which level-frame badge the HUD level chip shows, by player Level. Badges are games/grove/assets/ui/<dir>/<prefix>NN.png, sliced from assets/_originals/ui/lvls3.png (plainest ring 00 -> grand crown 35). The Level->badge map is BANDED so the badge changes fast early and slows down: walk `bands` in order, each contributes `tiers` consecutive badge indices that each span `levels_per_tier` levels. Past the last band the badge holds at badge_count-1. The legacy single-band form (top-level levels_per_tier, no bands) is still honoured.",
-  "badge_count": 36,
-  "dir": "lvl",
-  "prefix": "badge_",
+  "_doc": "Which TIER of the layered level badge the player sees, by Level. The badge is composited from cut parts in games/grove/assets/ui/lvl_parts/ (see Kit.level_badge); a tier decomposes group=tier/6, stage=tier%6+1. The Level->tier map is BANDED so it advances fast early and slows down: walk `bands` in order, each contributes `tiers` consecutive tier indices that each span `levels_per_tier` levels. Past the last band the tier holds at tier_count-1. The legacy single-band form (top-level levels_per_tier, no bands) is still honoured. Banding: L1-10 one tier per level, L11-40 every 3 levels, L41-100 every 6 levels = 30 tiers.",
+  "tier_count": 30,
   "bands": [
-    { "tiers": 12, "levels_per_tier": 1 },
-    { "tiers": 12, "levels_per_tier": 3 },
-    { "tiers": 12, "levels_per_tier": 6 }
+    { "tiers": 10, "levels_per_tier": 1 },
+    { "tiers": 10, "levels_per_tier": 3 },
+    { "tiers": 10, "levels_per_tier": 6 }
   ]
 }

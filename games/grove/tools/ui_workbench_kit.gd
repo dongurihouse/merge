@@ -2372,58 +2372,137 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 		holder.add_child(l)
 	return holder
 
-## The Level MEDALLION — the laurel wreath behind the gold ring, with the level NUMBER centered on the
-## ring's cream face. The ring sprite (level_ring.png) already carries its own cream inner face (verified
-## at intake), so NO separate badge disc is layered. `px` is the ring diameter; the wreath frames it a
-## touch larger. opts: number_font, ink (Color), ring_dy (px — nudge the ring up/down within the wreath).
-static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}) -> Control:
+## --- the LAYERED level badge ---------------------------------------------------------
+## Five cut parts (ui/lvl_parts/<part>_<stage>.png) composited bottom-up with the level
+## NUMBER centered. The art has 6 stages per part; a 30-tier progression groups them:
+## tier ÷ 6 = group (0..4), tier mod 6 + 1 = stage (1..6). Each GROUP draws a fixed set of
+## parts at the current stage, so the badge accretes a centerpiece every 6 tiers. Shared by
+## the workbench preview AND Look.make_level_badge (HUD chip / cell gate / level dialog).
+const LEVEL_PARTS := ["circle", "leaf", "flower", "acorn", "gem"]   # z-order: circle back -> gem front
+const LEVEL_BADGE_GROUPS := [
+	["leaf"],
+	["leaf", "flower"],
+	["leaf", "acorn"],
+	["leaf", "flower", "gem"],
+	["leaf", "acorn", "gem"],
+]
+## Per-part default geometry: x/y are % of px (from the bottom-centered baseline), scale is % of the box.
+const _LEVEL_BADGE_DEFAULTS := {
+	"circle": {"x": 0.0, "y": -4.0,  "scale": 90.0},
+	"leaf":   {"x": 0.0, "y": 0.0,   "scale": 100.0},
+	"flower": {"x": 0.0, "y": -10.0, "scale": 48.0},
+	"acorn":  {"x": 0.0, "y": -8.0,  "scale": 52.0},
+	"gem":    {"x": 0.0, "y": -40.0, "scale": 36.0},
+}
+
+## Decompose a 0-based tier into {group, stage (1..6), parts}. Clamps to the last group/stage.
+static func level_badge_tier_parts(tier: int) -> Dictionary:
+	var t := maxi(0, tier)
+	var last := LEVEL_BADGE_GROUPS.size() - 1
+	var group := mini(t / 6, last)
+	var stage := 6 if t / 6 > last else t % 6 + 1     # clamped tiers hold at the fullest stage
+	return {"group": group, "stage": stage, "parts": LEVEL_BADGE_GROUPS[group]}
+
+## The workbench-tuned level-badge geometry from a saved config (cfg["level_badge"]). Every
+## position/size knob is a PERCENT of the badge px so the emblem scales to any size.
+static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var g: Dictionary = cfg.get("level_badge", {}) if cfg is Dictionary else {}
+	var out := {
+		"size":     float(g.get("size", 100.0)),      # the common part box, % of px
+		"num_size": float(g.get("num_size", 32.0)),   # the level number font, % of px
+		"num_x":    float(g.get("num_x", 0.0)),       # number offset, % of px (side / margin)
+		"num_y":    float(g.get("num_y", -16.0)),
+	}
+	for p in LEVEL_PARTS:
+		var dft: Dictionary = _LEVEL_BADGE_DEFAULTS[p]
+		out[p + "_x"]     = float(g.get(p + "_x", dft["x"]))
+		out[p + "_y"]     = float(g.get(p + "_y", dft["y"]))
+		out[p + "_scale"] = float(g.get(p + "_scale", dft["scale"]))
+	return out
+
+## Build the layered level badge: the tier's parts (bottom-anchored, each at its tuned
+## offset/scale) under the centered level NUMBER. `px` is the square size; `num_font` overrides
+## the number font (auto from num_size when < 0). The number Label is named "lv_num" and each part
+## TextureRect "lv_<part>" so a live caller (HUD level-up) can find and refresh them. `extra_part`
+## (workbench only) force-draws a part the tier's group omits, so it can be positioned/previewed.
+static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_font: int = -1, extra_part: String = "") -> Control:
 	var root := Control.new()
-	var wreath_px := px * 1.55
-	root.custom_minimum_size = Vector2(wreath_px, wreath_px)
-	root.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	# the wreath sits BEHIND (added first), centered, a touch larger than the ring
-	var wreath := clean_tex_path(Look.kit("kit/level_wreath.png"), 512)
-	if wreath != null:
-		var wr := TextureRect.new()
-		wr.texture = wreath
-		wr.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		wr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		wr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(wr)
-	# the ring centered at px (a touch above centre by ring_dy so the wreath frames its lower half)
-	var ring_dy := float(opts.get("ring_dy", 0.0))
-	var ring := Control.new()
-	ring.custom_minimum_size = Vector2(px, px)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.anchor_left = 0.5; ring.anchor_right = 0.5
-	ring.anchor_top = 0.5; ring.anchor_bottom = 0.5
-	ring.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	ring.grow_vertical = Control.GROW_DIRECTION_BOTH
-	ring.offset_left = -px * 0.5; ring.offset_right = px * 0.5
-	ring.offset_top = -px * 0.5 + ring_dy; ring.offset_bottom = px * 0.5 + ring_dy
-	root.add_child(ring)
-	var ring_tex := clean_tex_path(Look.kit("kit/level_ring.png"), 512)
-	if ring_tex != null:
-		var rt := TextureRect.new()
-		rt.texture = ring_tex
-		rt.set_anchors_preset(Control.PRESET_FULL_RECT)
-		rt.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		rt.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		rt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ring.add_child(rt)
-	# the level number, centered on the ring face
+	root.custom_minimum_size = Vector2(px, px)
+	root.size = Vector2(px, px)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var info := level_badge_tier_parts(tier)
+	var stage := int(info["stage"])
+	var draw_parts: Array = (info["parts"] as Array).duplicate()
+	if extra_part != "" and not draw_parts.has(extra_part):
+		draw_parts.append(extra_part)
+	var base_box := px * float(opts.get("size", 100.0)) / 100.0
+	for part in LEVEL_PARTS:                            # canonical z-order; draw only the active parts
+		if not draw_parts.has(part):
+			continue
+		var tex := Look._safe_tex(Game.art("ui/lvl_parts/%s_%d.png" % [part, stage]))
+		if tex == null:
+			continue
+		var box := base_box * float(opts.get(part + "_scale", 100.0)) / 100.0
+		var t := TextureRect.new()
+		t.name = "lv_" + part
+		t.texture = tex
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		t.size = Vector2(box, box)
+		# horizontally centered, bottom-aligned to the shared baseline, then nudged by the part's offset
+		t.position = Vector2(
+			(px - box) * 0.5 + px * float(opts.get(part + "_x", 0.0)) / 100.0,
+			(px - box) + px * float(opts.get(part + "_y", 0.0)) / 100.0)
+		root.add_child(t)
+	if root.get_child_count() == 0:                    # no art at all -> warm honey token, no blank rect
+		var coin := StyleBoxFlat.new()
+		coin.bg_color = Color("#F4CF82"); coin.set_corner_radius_all(int(px / 2.0))
+		coin.set_border_width_all(2); coin.border_color = Color("#8D6B35")
+		var panel := Panel.new()
+		panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+		panel.add_theme_stylebox_override("panel", coin)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(panel)
+	# the level number on top, centered then nudged by num_x / num_y (the "side and margin")
 	var num := Label.new()
+	num.name = "lv_num"
 	num.text = str(level)
 	num.set_anchors_preset(Control.PRESET_FULL_RECT)
 	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	num.add_theme_font_size_override("font_size", int(opts.get("number_font", px * 0.42)))
-	num.add_theme_color_override("font_color", opts.get("ink", Pal.INK))
+	num.offset_left = px * float(opts.get("num_x", 0.0)) / 100.0
+	num.offset_right = num.offset_left
+	num.offset_top = px * float(opts.get("num_y", 0.0)) / 100.0
+	num.offset_bottom = num.offset_top
+	num.add_theme_font_size_override("font_size", _level_badge_font(level, px, opts, num_font))
+	num.add_theme_color_override("font_color", Pal.INK)
 	num.add_theme_constant_override("outline_size", 0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ring.add_child(num)
+	root.add_child(num)
 	return root
+
+## The number font px: num_font when given (> 0), else num_size% of px, stepped down as digits grow.
+static func _level_badge_font(level: int, px: float, opts: Dictionary, num_font: int) -> int:
+	if num_font > 0:
+		return num_font
+	var base := px * float(opts.get("num_size", 32.0)) / 100.0
+	var digits := str(maxi(0, level)).length()
+	if digits >= 3:
+		base *= 0.67
+	elif digits == 2:
+		base *= 0.81
+	return int(maxf(8.0, base))
+
+## The Level MEDALLION for dialogs/previews — now the shared LAYERED level badge (the same emblem the
+## HUD chip and locked-cell gate wear), tuned by the saved level_badge config so all three match. Kept
+## as a named helper so the level dialog reads clearly; `px` is the emblem size. opts may carry
+## `number_font` (absolute override) — otherwise the tuned num_size drives the number.
+static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}) -> Control:
+	var geo := level_badge_opts_from_config(load_config(CONFIG_PATH))
+	var med := level_badge(geo, Look.level_badge_index(level), level, px, int(opts.get("number_font", -1)))
+	med.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return med
 
 ## A dedicated FRAME for the Level dialog (NOT the shared dialog_frame): the level_frame parchment border
 ## (nine-patch), the gold level_title pill banner centered over the top edge, inner padding, and NO scroll

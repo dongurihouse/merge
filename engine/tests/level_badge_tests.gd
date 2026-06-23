@@ -1,15 +1,20 @@
 extends SceneTree
-## Headless guard for the evolving level-chip badge (the HUD level frame that upgrades
-## with Level, sliced from assets/_originals/ui/lvls3.png into ui/lvl/ and mapped by
-## data/level_badges.json).
+## Headless guard for the LAYERED level badge — five cut parts (circle, leaf, flower, acorn,
+## gem; ui/lvl_parts/<part>_<1..6>.png) composited per a 30-tier progression, with the level
+## number centered. The Level->tier map is BANDED in data/level_badges.json. Tier ÷ 6 = group
+## (0..4), tier mod 6 + 1 = stage (1..6); each group draws a fixed set of parts at that stage.
 ##   godot --headless --path . -s res://engine/tests/level_badge_tests.gd
-## Proves: the config parses, the BANDED Level->badge index is correct, monotonic & clamped,
-## and all 36 sliced frames resolve as grove art (so a level-up actually has a frame to swap).
+## Proves: config parses, banded Level->tier is correct/monotonic/clamped, all 30 parts resolve
+## as alpha-cut grove art, the tier decomposition + builder + config resolver behave, and the
+## shared make_level_badge composites the right parts with the level number.
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+
+const PARTS := ["circle", "leaf", "flower", "acorn", "gem"]
 
 var _pass := 0
 var _fail := 0
@@ -23,41 +28,41 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	OS.set_environment("GAME", "grove")   # the badges live in grove's clothes (Game.art root)
-	print("== Level badge guard ==")
+	OS.set_environment("GAME", "grove")   # the parts live in grove's clothes (Game.art root)
+	print("== Layered level badge guard ==")
 
-	# --- config -----------------------------------------------------------------
+	# --- config: 30 tiers, banded 10@1 / 10@3 / 10@6 -----------------------------
 	var f := FileAccess.open("res://data/level_badges.json", FileAccess.READ)
 	ok(f != null, "data/level_badges.json present")
 	var cfg = JSON.parse_string(f.get_as_text()) if f != null else null
 	ok(cfg is Dictionary, "config parses to a Dictionary")
 	var d: Dictionary = cfg if cfg is Dictionary else {}
-	var count := int(d.get("badge_count", 0))
-	ok(count == 36, "badge_count == 36 (got %d)" % count)
+	var count := int(d.get("tier_count", d.get("badge_count", 0)))
+	ok(count == 30, "tier_count == 30 (got %d)" % count)
 	var bands: Array = d.get("bands", [])
 	ok(bands.size() == 3, "3 bands (got %d)" % bands.size())
 	var tier_sum := 0
 	for b in bands:
 		tier_sum += int((b as Dictionary).get("tiers", 0))
-	ok(tier_sum == count, "band tiers sum to badge_count (%d == %d)" % [tier_sum, count])
+	ok(tier_sum == count, "band tiers sum to tier_count (%d == %d)" % [tier_sum, count])
 
-	# --- banded index: 12 badges/level (L1-12), then every 3 (L13-48), then every 6 (L49-120) ---
-	ok(Look.level_badge_index(1) == 0,   "L1 -> badge 0")
-	ok(Look.level_badge_index(12) == 11, "L12 -> badge 11 (one per level)")
-	ok(Look.level_badge_index(13) == 12, "L13 -> badge 12 (band 2 begins)")
-	ok(Look.level_badge_index(15) == 12, "L15 -> badge 12 (tier of 3)")
-	ok(Look.level_badge_index(16) == 13, "L16 -> badge 13 (tier flips)")
-	ok(Look.level_badge_index(48) == 23, "L48 -> badge 23 (band 2 ends)")
-	ok(Look.level_badge_index(49) == 24, "L49 -> badge 24 (band 3 begins)")
-	ok(Look.level_badge_index(54) == 24, "L54 -> badge 24 (tier of 6)")
-	ok(Look.level_badge_index(55) == 25, "L55 -> badge 25 (tier flips)")
-	ok(Look.level_badge_index(120) == 35, "L120 -> badge 35 (grand crown)")
-	ok(Look.level_badge_index(121) == count - 1, "past the last band holds at the crown")
-	ok(Look.level_badge_index(1000) == count - 1, "huge level clamps to crown")
-	ok(Look.level_badge_index(0) == 0, "L0 clamps to badge 0")
-	ok(Look.level_badge_index(-5) == 0, "negative level clamps to badge 0")
+	# --- banded tier index: 1/level (L1-10), every 3 (L11-40), every 6 (L41-100) ---
+	ok(Look.level_badge_index(1) == 0,   "L1 -> tier 0")
+	ok(Look.level_badge_index(10) == 9,  "L10 -> tier 9 (one per level)")
+	ok(Look.level_badge_index(11) == 10, "L11 -> tier 10 (band 2 begins)")
+	ok(Look.level_badge_index(13) == 10, "L13 -> tier 10 (tier of 3)")
+	ok(Look.level_badge_index(14) == 11, "L14 -> tier 11 (tier flips)")
+	ok(Look.level_badge_index(40) == 19, "L40 -> tier 19 (band 2 ends)")
+	ok(Look.level_badge_index(41) == 20, "L41 -> tier 20 (band 3 begins)")
+	ok(Look.level_badge_index(46) == 20, "L46 -> tier 20 (tier of 6)")
+	ok(Look.level_badge_index(47) == 21, "L47 -> tier 21 (tier flips)")
+	ok(Look.level_badge_index(100) == 29, "L100 -> tier 29 (final)")
+	ok(Look.level_badge_index(101) == count - 1, "past the last band holds at the final tier")
+	ok(Look.level_badge_index(1000) == count - 1, "huge level clamps to the final tier")
+	ok(Look.level_badge_index(0) == 0, "L0 clamps to tier 0")
+	ok(Look.level_badge_index(-5) == 0, "negative level clamps to tier 0")
 
-	# index is monotonic non-decreasing, clamped, and reaches EVERY badge across the design range
+	# monotonic non-decreasing, clamped, reaches EVERY tier across the design range
 	var mono_ok := true
 	var seen := {}
 	var prev := -1
@@ -68,46 +73,76 @@ func _initialize() -> void:
 			break
 		prev = idx
 		seen[idx] = true
-	ok(mono_ok, "index is monotonic non-decreasing and in [0, count) for L in 1..199")
-	ok(seen.size() == count, "every one of the %d badges is reachable (got %d)" % [count, seen.size()])
+	ok(mono_ok, "tier index is monotonic non-decreasing and in [0, count) for L in 1..199")
+	ok(seen.size() == count, "every one of the %d tiers is reachable (got %d)" % [count, seen.size()])
 
-	# --- all 36 frames exist as resolvable art ----------------------------------
+	# --- all 30 parts exist as resolvable, alpha-cut grove art -------------------
 	var missing := 0
-	for i in count:
-		if not ResourceLoader.exists(Game.art("ui/lvl/badge_%02d.png" % i)):
-			missing += 1
-	ok(missing == 0, "all %d badge frames resolve (missing=%d)" % [count, missing])
+	var opaque := 0
+	for p in PARTS:
+		for s in range(1, 7):
+			var path := Game.art("ui/lvl_parts/%s_%d.png" % [p, s])
+			if not ResourceLoader.exists(path):
+				missing += 1
+				continue
+			var tex := Hud._safe_tex(path)
+			if tex == null or not _all_corners_transparent(tex):
+				opaque += 1
+	ok(missing == 0, "all 30 parts resolve (missing=%d)" % missing)
+	ok(opaque == 0, "all 30 parts are alpha-cut (4 transparent corners; opaque=%d)" % opaque)
 
-	# --- path resolution: distinct tiers -> distinct, existing frames -----------
-	var p1 := Look.level_badge_path(1)
-	var p_crown := Look.level_badge_path(120)
-	ok(p1.ends_with("badge_00.png") and ResourceLoader.exists(p1), "L1 resolves to badge_00 art")
-	ok(p_crown.ends_with("badge_35.png") and ResourceLoader.exists(p_crown), "L120 resolves to badge_35 art")
-	ok(p1 != p_crown, "the frame changes between low and high level")
+	# --- tier -> (group, stage, parts) decomposition ----------------------------
+	var t0: Dictionary = Kit.level_badge_tier_parts(0)
+	ok(t0.get("group") == 0 and t0.get("stage") == 1 and t0.get("parts") == ["leaf"],
+		"tier 0 -> group 0, stage 1, parts [leaf]")
+	var t5: Dictionary = Kit.level_badge_tier_parts(5)
+	ok(t5.get("group") == 0 and t5.get("stage") == 6, "tier 5 -> group 0, stage 6")
+	var t6: Dictionary = Kit.level_badge_tier_parts(6)
+	ok(t6.get("group") == 1 and t6.get("stage") == 1 and t6.get("parts") == ["leaf", "flower"],
+		"tier 6 -> group 1, stage 1, parts [leaf, flower]")
+	var t18: Dictionary = Kit.level_badge_tier_parts(18)
+	ok(t18.get("group") == 3 and t18.get("parts") == ["leaf", "flower", "gem"],
+		"tier 18 -> group 3, parts [leaf, flower, gem]")
+	var t29: Dictionary = Kit.level_badge_tier_parts(29)
+	ok(t29.get("group") == 4 and t29.get("stage") == 6 and t29.get("parts") == ["leaf", "acorn", "gem"],
+		"tier 29 -> group 4, stage 6, parts [leaf, acorn, gem]")
+	ok(Kit.level_badge_tier_parts(999).get("group") == 4, "tier beyond range clamps to group 4")
 
-	# --- _safe_tex catches degenerate imports (exists() true but load() null) ---------
-	# A committed .import can make exists() true while load() returns null (art not yet
-	# reimported in this checkout) — _safe_tex must catch that and return null.
+	# --- config resolver returns every knob with a default ----------------------
+	var o: Dictionary = Kit.level_badge_opts_from_config({})
+	var keys_ok := o.has("size") and o.has("num_size") and o.has("num_x") and o.has("num_y")
+	for p in PARTS:
+		keys_ok = keys_ok and o.has(p + "_x") and o.has(p + "_y") and o.has(p + "_scale")
+	ok(keys_ok, "level_badge_opts_from_config({}) yields size/num_*/<part>_{x,y,scale} defaults")
+
+	# --- the builder composites the tier's parts + the level number -------------
+	var opts: Dictionary = Kit.level_badge_opts_from_config({})
+	var b0: Control = Kit.level_badge(opts, 0, 7, 200.0)        # tier 0 = leaf only
+	ok(b0.find_child("lv_leaf", true, false) != null, "tier 0 badge has lv_leaf")
+	ok(b0.find_child("lv_flower", true, false) == null, "tier 0 badge has NO lv_flower")
+	var num0 := b0.find_child("lv_num", true, false) as Label
+	ok(num0 != null and num0.text == "7", "badge prints the level number (7)")
+	b0.free()
+	var b29: Control = Kit.level_badge(opts, 29, 100, 200.0)    # tier 29 = leaf+acorn+gem
+	ok(b29.find_child("lv_leaf", true, false) != null
+		and b29.find_child("lv_acorn", true, false) != null
+		and b29.find_child("lv_gem", true, false) != null, "tier 29 badge has leaf+acorn+gem")
+	ok(b29.find_child("lv_flower", true, false) == null, "tier 29 badge has NO lv_flower")
+	b29.free()
+
+	# --- the shared entry point (HUD chip / cell gate) delegates to the builder --
+	var badge: Control = Look.make_level_badge(7, 200.0)
+	var bnum := badge.find_child("lv_num", true, false) as Label
+	ok(bnum != null and bnum.text == "7", "make_level_badge prints the level number")
+	ok(badge.find_child("lv_leaf", true, false) != null, "make_level_badge composites the parts")
+	badge.free()
+
+	# --- _safe_tex catches degenerate imports (exists() true but load() null) ----
 	ok(Hud._safe_tex("") == null, "_safe_tex('') is null")
 	ok(Hud._safe_tex("res://does/not/exist.png") == null, "_safe_tex(missing) is null")
-	ok(Hud._safe_tex(Look.level_badge_path(2)) != null, "a real badge actually LOADS (not just exists)")
-	ok(Hud._frame_tex(2) != null, "L2 frame texture loads (the evolving badge)")
+	ok(Hud._safe_tex(Game.art("ui/lvl_parts/leaf_2.png")) != null, "a real part actually LOADS")
 
-	# --- no ring fallback: every shipped badge MUST be alpha-cut --------------------------
-	# The HUD draws the badge directly now, so an opaque (checker/white-backed) slice would
-	# render a square backing in the compact chip. Enforce transparent corners at build time.
-	var opaque := 0
-	for i in count:
-		var tex := Hud._safe_tex(Game.art("ui/lvl/badge_%02d.png" % i))
-		if tex == null or not _has_transparent_corner(tex):
-			opaque += 1
-	ok(opaque == 0, "all %d badges are alpha-cut (transparent corners, no square backing)" % count)
-
-	# --- the level popup is idempotent: one overlay per host -------------------------
-	# emulate_touch_from_mouse (project.godot) makes a single tap deliver BOTH a mouse and a
-	# touch event, so the HUD badge's gui_input fires on_level TWICE in one frame. Two stacked,
-	# identical overlays look like the dialog "won't close" — you must dismiss it twice. open()
-	# must guard against that and keep exactly one overlay alive per host.
+	# --- the level popup is idempotent: one overlay per host --------------------
 	var host := Control.new()
 	get_root().add_child(host)
 	var ov1 := LevelPopup.open(host)
@@ -116,15 +151,10 @@ func _initialize() -> void:
 	ok(ov1 == ov2, "the second open returns the existing overlay")
 	host.free()
 
-	# Badges absent -> the frame is null and the HUD shows the honey-token coin; no ring.
-	Look._badge_cfg = {"badge_count": 16, "levels_per_tier": 3, "dir": "no_such_dir", "prefix": "x_"}
-	ok(Look.level_badge_path(2) == "", "missing badge art -> empty path")
-	ok(Hud._frame_tex(2) == null, "badges absent -> frame is null (honey-token coin, no ring fallback)")
-
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
 
-func _has_transparent_corner(tex: Texture2D) -> bool:
+func _all_corners_transparent(tex: Texture2D) -> bool:
 	if tex == null:
 		return false
 	var img := tex.get_image()
@@ -132,6 +162,6 @@ func _has_transparent_corner(tex: Texture2D) -> bool:
 		return false
 	var last := Vector2i(img.get_width() - 1, img.get_height() - 1)
 	for p in [Vector2i(0, 0), Vector2i(last.x, 0), Vector2i(0, last.y), last]:
-		if img.get_pixelv(p).a < 0.2:
-			return true
-	return false
+		if img.get_pixelv(p).a >= 0.2:
+			return false
+	return true

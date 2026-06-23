@@ -168,6 +168,7 @@ func _initialize() -> void:
 	_test_quest_card_config(view)
 	_test_new_knobs(view)
 	_test_warm_shadow_port()
+	_test_level_badge_component(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -857,6 +858,36 @@ func _has_slot_face(node: Control, suffix: String) -> bool:
 # The DISCOVERY dialog uses the STANDARD shared frame, with NO bespoke chrome override: it inherits
 # dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the
 # tier grid + the tier-cell look) — exactly like daily/shop. Edits on the shared Frame item flow to it.
+func _test_level_badge_component(view) -> void:
+	# the LAYERED level badge is a registered building block with a working preview + sidebar
+	ok(view._sections.has("level_badge"), "level_badge is a registered gallery item")
+	view._selected = "level_badge"
+	view._params["level_badge"]["preview_level"] = 110   # clamps to the final tier -> leaf + acorn + gem
+	view._params["level_badge"]["edit_part"] = "leaf"
+	var prev: Control = view._make_element("level_badge")
+	var n := prev.find_child("lv_num", true, false) as Label
+	ok(n != null and n.text == "110", "level_badge preview prints the test level (110)")
+	ok(prev.find_child("lv_leaf", true, false) != null and prev.find_child("lv_gem", true, false) != null,
+		"level_badge preview composites the tier's parts (leaf + gem at L110)")
+	ok(prev.find_child("lv_circle", true, false) == null, "L110's tier omits the circle")
+	# selecting the circle (no tier shows it) force-shows it via extra_part so it can be positioned
+	view._params["level_badge"]["edit_part"] = "circle"
+	var withc: Control = view._make_element("level_badge")
+	ok(withc.find_child("lv_circle", true, false) != null, "the edited part (circle) is force-shown for positioning")
+	# the sidebar binds the part picker + that part's X/Y/Scale, the number knobs, and the test level
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Circle X") >= 60.0, "sidebar binds X/Y/Scale to the selected part (circle)")
+	ok(_slider_max(view, "Num Size") >= 70.0, "sidebar exposes the number size knob")
+	ok(_slider_max(view, "Preview Level") >= 110.0, "sidebar exposes the test level (1..110)")
+	# switching the part rebinds the sliders to the new part's keys
+	view._params["level_badge"]["edit_part"] = "gem"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Gem X") >= 60.0 and _slider_max(view, "Circle X") == -INF,
+		"changing the part rebinds the X/Y/Scale sliders")
+	# the saved knobs persist; the preview/edit helpers do not
+	ok(view._is_config("level_badge", "leaf_x") and not view._is_config("level_badge", "preview_level"),
+		"part offsets are saved config; preview_level is test-only")
+
 func _test_discovery_frame() -> void:
 	var dopts := Kit.dialog_opts_from_config({})
 	var topts := Kit.tiers_opts_from_config({})
