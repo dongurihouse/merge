@@ -5,8 +5,10 @@ build/
 *.pck
 *.xcframework/
 
-# Godot editor cache & reimported binaries
+# Godot editor cache & reimported binaries (the bare form also ignores a
+# worktree `.godot` symlink, which `.godot/` would not match)
 .godot/
+.godot
 
 # macOS
 .DS_Store
