@@ -85,6 +85,8 @@ def icon_args(src_abs: str, out_abs: str, params: dict) -> list[str]:
         a += [str(size[0]), str(size[1])]
     elif size is not None:
         a += [str(size)]
+    if params.get("anchor") == "bottom":
+        a.append("--bottom")     # process_icon anchors the trimmed art to the canvas bottom
     return a
 
 
@@ -121,22 +123,28 @@ def matte_tool_and_args(keyed_abs: str, params: dict) -> tuple[str, list[str]]:
 def parse_post(post: str | None) -> dict | None:
     """Parse an output post-op into params for icon_args.
 
-    'icon:512'    -> {'size': 512}        (square 512)
-    'icon:300x400'-> {'size': [300, 400]} (fit into 300x400)
-    'icon' / 'icon:' -> {}                (clean to process_icon's default size)
-    None / ''     -> None                 (no post-op; copy the slice as-is)
+    'icon:512'        -> {'size': 512}                       (square 512, centered)
+    'icon:300x400'    -> {'size': [300, 400]}                (fit into 300x400, centered)
+    'icon:512:bottom' -> {'size': 512, 'anchor': 'bottom'}   (square 512, bottom-anchored)
+    'icon::bottom'    -> {'anchor': 'bottom'}                (default size, bottom-anchored)
+    'icon' / 'icon:'  -> {}                                  (clean to default size, centered)
+    None / ''         -> None                                (no post-op; copy the slice as-is)
     """
     if not post:
         return None
     name, _, arg = post.partition(":")
     if name != "icon":
-        raise PlanError(f"unknown post op: {post!r} (only 'icon:<size>' is supported)")
-    if not arg:
-        return {}
-    if "x" in arg:
-        w, h = arg.split("x")
-        return {"size": [int(w), int(h)]}
-    return {"size": int(arg)}
+        raise PlanError(f"unknown post op: {post!r} (only 'icon:<size>[:bottom]' is supported)")
+    size_part, _, anchor_part = arg.partition(":")
+    out: dict = {}
+    if anchor_part:
+        if anchor_part != "bottom":
+            raise PlanError(f"unknown anchor {anchor_part!r} in {post!r} (only 'bottom')")
+        out["anchor"] = "bottom"
+    if size_part:
+        out["size"] = [int(w) for w in size_part.split("x")] if "x" in size_part \
+            else int(size_part)
+    return out
 
 
 def abspath(rel_under_asset_root: str, root: Path = ASSET_ROOT) -> str:

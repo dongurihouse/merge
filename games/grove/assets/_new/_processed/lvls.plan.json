@@ -1,0 +1,35 @@
+{
+  "source": "_new/lvls_asset.png",
+  "category": "grid",
+  "_note": "6 rows x 5 cols, row-major. Col 0 circle, col 1 leaf-sprout (DISCARDED -- use lvls_leafs.png), col 2 flower, col 3 acorn, col 4 gem. Row N = stage N. Each part bottom-anchored into 512 so the 5 layers share a baseline.",
+  "outputs": [
+    { "tile": 0,  "name": "circle_1", "path": "ui/lvl_parts/circle_1.png", "post": "icon:512:bottom" },
+    { "tile": 5,  "name": "circle_2", "path": "ui/lvl_parts/circle_2.png", "post": "icon:512:bottom" },
+    { "tile": 10, "name": "circle_3", "path": "ui/lvl_parts/circle_3.png", "post": "icon:512:bottom" },
+    { "tile": 15, "name": "circle_4", "path": "ui/lvl_parts/circle_4.png", "post": "icon:512:bottom" },
+    { "tile": 20, "name": "circle_5", "path": "ui/lvl_parts/circle_5.png", "post": "icon:512:bottom" },
+    { "tile": 25, "name": "circle_6", "path": "ui/lvl_parts/circle_6.png", "post": "icon:512:bottom" },
+
+    { "tile": 2,  "name": "flower_1", "path": "ui/lvl_parts/flower_1.png", "post": "icon:512:bottom" },
+    { "tile": 7,  "name": "flower_2", "path": "ui/lvl_parts/flower_2.png", "post": "icon:512:bottom" },
+    { "tile": 12, "name": "flower_3", "path": "ui/lvl_parts/flower_3.png", "post": "icon:512:bottom" },
+    { "tile": 17, "name": "flower_4", "path": "ui/lvl_parts/flower_4.png", "post": "icon:512:bottom" },
+    { "tile": 22, "name": "flower_5", "path": "ui/lvl_parts/flower_5.png", "post": "icon:512:bottom" },
+    { "tile": 27, "name": "flower_6", "path": "ui/lvl_parts/flower_6.png", "post": "icon:512:bottom" },
+
+    { "tile": 3,  "name": "acorn_1", "path": "ui/lvl_parts/acorn_1.png", "post": "icon:512:bottom" },
+    { "tile": 8,  "name": "acorn_2", "path": "ui/lvl_parts/acorn_2.png", "post": "icon:512:bottom" },
+    { "tile": 13, "name": "acorn_3", "path": "ui/lvl_parts/acorn_3.png", "post": "icon:512:bottom" },
+    { "tile": 18, "name": "acorn_4", "path": "ui/lvl_parts/acorn_4.png", "post": "icon:512:bottom" },
+    { "tile": 23, "name": "acorn_5", "path": "ui/lvl_parts/acorn_5.png", "post": "icon:512:bottom" },
+    { "tile": 28, "name": "acorn_6", "path": "ui/lvl_parts/acorn_6.png", "post": "icon:512:bottom" },
+
+    { "tile": 4,  "name": "gem_1", "path": "ui/lvl_parts/gem_1.png", "post": "icon:512:bottom" },
+    { "tile": 9,  "name": "gem_2", "path": "ui/lvl_parts/gem_2.png", "post": "icon:512:bottom" },
+    { "tile": 14, "name": "gem_3", "path": "ui/lvl_parts/gem_3.png", "post": "icon:512:bottom" },
+    { "tile": 19, "name": "gem_4", "path": "ui/lvl_parts/gem_4.png", "post": "icon:512:bottom" },
+    { "tile": 24, "name": "gem_5", "path": "ui/lvl_parts/gem_5.png", "post": "icon:512:bottom" },
+    { "tile": 29, "name": "gem_6", "path": "ui/lvl_parts/gem_6.png", "post": "icon:512:bottom" }
+  ],
+  "archive": "_originals/ui/lvls_asset.png"
+}

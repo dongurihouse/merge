@@ -57,12 +57,11 @@ const ICON_GLYPHS := {
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
-## --- the level chip's evolving frame -------------------------------------------------
-## The HUD level badge swaps to a fancier gold frame as the player levels up (plainest
-## ring 00 -> grand crown 35, sliced from assets/_originals/ui/lvls3.png into ui/lvl/).
-## Which badge a Level shows is DATA: res://data/level_badges.json maps Level -> badge index
-## by a BANDED rule (fast early, slow late). level_badge_path() returns the resolved art
-## path, or "" when the config/art is absent (the HUD then shows the honey-token coin). Parsed once.
+## --- the level badge's tier ----------------------------------------------------------
+## The layered level badge gets fancier as the player levels up. Which TIER a Level shows is
+## DATA: res://data/level_badges.json maps Level -> tier index by a BANDED rule (fast early,
+## slow late); Kit.level_badge composites that tier's parts. level_badge_index() returns the
+## 0-based tier (or -1 when unconfigured). Parsed once.
 const LEVEL_BADGE_CFG := "res://data/level_badges.json"
 static var _badge_cfg: Dictionary = {}
 
@@ -83,7 +82,7 @@ static func _level_badge_cfg() -> Dictionary:
 ## rule (idx = clamp(floor((level-1)/levels_per_tier), 0, count-1)) when `bands` is absent.
 static func level_badge_index(level: int) -> int:
 	var cfg := _level_badge_cfg()
-	var count := int(cfg.get("badge_count", 0))
+	var count := int(cfg.get("tier_count", cfg.get("badge_count", 0)))
 	if count <= 0:
 		return -1
 	var lvl := maxi(1, level)
@@ -105,83 +104,19 @@ static func level_badge_index(level: int) -> int:
 		cursor += span
 	return count - 1                                   # past every band -> the grandest badge
 
-## The resolved kit path of the badge for a Level, or "" when config/art is missing.
-static func level_badge_path(level: int) -> String:
-	var cfg := _level_badge_cfg()
-	var idx := level_badge_index(level)
-	if idx < 0:
-		return ""
-	var dir := String(cfg.get("dir", "lvl"))
-	var prefix := String(cfg.get("prefix", "badge_"))
-	var p := Game.art("ui/%s/%s%02d.png" % [dir, prefix, idx])
-	return p if ResourceLoader.exists(p) else ""
-
-## A level-status badge: the evolving gold medal (level_badge_path) with a cream disc behind the
-## centred level NUMBER. Falls back to a warm honey token when the medal art is absent. Shared by
-## the top-left HUD chip and the locked-cell gate marker — same look, just a different number. `px`
-## is the square size; `num_font` overrides the number's font size (auto-scaled from px when < 0).
-## The medal TextureRect is named "lv_frame" and the number Label "lv_num" so callers that update
-## live (the HUD level-up) can fetch and re-skin them.
+## A level-status badge: the LAYERED emblem (cut parts composited per the Level's tier) with the
+## level NUMBER centered. Built by Kit.level_badge from the workbench-tuned config, so the HUD chip,
+## the locked-cell gate, and the level dialog all wear the same tuned look — just a different number.
+## `px` is the square size; `num_font` overrides the number font (auto-scaled from num_size when < 0).
+## The number Label is named "lv_num" and each part TextureRect "lv_<part>" so a live caller (the HUD
+## level-up) can rebuild/refresh them. Falls back to a warm honey token when the part art is absent.
 static func make_level_badge(level: int, px: float, num_font: int = -1) -> Control:
-	var avatar := Panel.new()
-	avatar.custom_minimum_size = Vector2(px, px)
-	avatar.size = Vector2(px, px)
-	avatar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var tex := _safe_tex(level_badge_path(level))
-	if tex != null:
-		avatar.add_theme_stylebox_override("panel", StyleBoxEmpty.new())   # no dark panel behind the ring
-		var disc := Panel.new()                                            # cream centre so the number reads on warm, not sky
-		# Sized to sit INSIDE the medal's ring opening. The medal-centred badge art carries its
-		# own cream centre, so this disc only reinforces the number's backing — it must stay
-		# within the ring (≈0.20·px radius) or it shows as bare cream in the open space the
-		# laurels/ribbons leave around the ring.
-		var dpad := px * 0.30
-		disc.position = Vector2(dpad, dpad)
-		disc.size = Vector2(px - dpad * 2.0, px - dpad * 2.0)
-		var dsb := StyleBoxFlat.new()
-		dsb.bg_color = Color("#FBF3E2")
-		dsb.set_corner_radius_all(int(px))
-		disc.add_theme_stylebox_override("panel", dsb)
-		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		avatar.add_child(disc)
-		var frame := TextureRect.new()
-		frame.name = "lv_frame"
-		frame.texture = tex
-		frame.set_anchors_preset(Control.PRESET_FULL_RECT)
-		frame.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		frame.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		avatar.add_child(frame)
-	else:
-		var coin := StyleBoxFlat.new()                                     # no-art fallback: a warm honey token
-		coin.bg_color = Color("#F4CF82")
-		coin.set_corner_radius_all(int(px / 2.0))
-		coin.set_border_width_all(2)
-		coin.border_color = Color("#8D6B35")
-		avatar.add_theme_stylebox_override("panel", coin)
-	var num := Label.new()
-	num.name = "lv_num"
-	num.set_anchors_preset(Control.PRESET_FULL_RECT)
-	num.text = str(level)
-	num.add_theme_font_size_override("font_size", num_font if num_font > 0 else _lv_badge_font(level, px))
-	num.add_theme_color_override("font_color", Pal.INK)
-	num.add_theme_constant_override("outline_size", 0)
-	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	num.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	avatar.add_child(num)
-	return avatar
-
-## The level NUMBER size for a `px`-tall badge — steps down as digits grow so it stays inside the
-## medal's open centre.
-static func _lv_badge_font(level: int, px: float) -> int:
-	var digits := str(maxi(0, level)).length()
-	var f := px * 0.42
-	if digits >= 3:
-		f = px * 0.28
-	elif digits == 2:
-		f = px * 0.34
-	return int(maxf(11.0, f))
+	var Kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var opts: Dictionary = Kit.level_badge_opts_from_config(cfg)
+	var badge: Control = Kit.level_badge(opts, level_badge_index(level), level, px, num_font)
+	badge.name = "LevelBadge"
+	return badge
 
 ## Resolve a texture path to a REAL image (rejects the import placeholder + degenerate empty
 ## imports), or null — so an absent/stale badge falls back to the honey token, never a blank rect.

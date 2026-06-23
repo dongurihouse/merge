@@ -47,13 +47,22 @@ func _unpremultiply(im: Image) -> void:
 				im.set_pixel(x, y, Color(0, 0, 0, 0))
 
 func _initialize() -> void:
-	var args := OS.get_cmdline_user_args()
+	var raw := OS.get_cmdline_user_args()
+	# --bottom: anchor the trimmed art to the canvas BOTTOM (slack to the top) instead of
+	# centering — keeps a shared baseline for parts composited bottom-up (e.g. level badges).
+	var anchor_bottom := false
+	var args: PackedStringArray = []
+	for a0 in raw:
+		if a0 == "--bottom":
+			anchor_bottom = true
+		else:
+			args.append(a0)
 	if args.size() < 2:
-		print("usage: process_icon <input.png> <output_res_path_or_abs> [size]")
+		print("usage: process_icon <input.png> <output_res_path_or_abs> [size] [--bottom]")
 		quit(1); return
 	var src: String = args[0]
 	var out: String = args[1]
-	# size: [size] -> square size×size, or [w h] -> fit into w×h preserving aspect (centered, transparent pad)
+	# size: [size] -> square size×size, or [w h] -> fit into w×h preserving aspect (transparent pad)
 	var tw := DEFAULT_SIZE
 	var th := DEFAULT_SIZE
 	if args.size() >= 4:
@@ -114,7 +123,11 @@ func _initialize() -> void:
 		quit(1); return
 
 	minx = maxi(0, minx - PAD); miny = maxi(0, miny - PAD)
-	maxx = mini(W - 1, maxx + PAD); maxy = mini(H - 1, maxy + PAD)
+	maxx = mini(W - 1, maxx + PAD)
+	# Bottom-anchor mode keeps NO bottom pad: the content's last opaque row becomes the crop's
+	# bottom edge, so after blitting the crop flush to the canvas bottom every part shares the
+	# exact same baseline (a padded bottom would leave a per-part PAD*scale gap and misalign them).
+	maxy = maxy if anchor_bottom else mini(H - 1, maxy + PAD)
 	var cw := maxx - minx + 1
 	var ch := maxy - miny + 1
 
@@ -132,7 +145,8 @@ func _initialize() -> void:
 	_unpremultiply(crop)
 	var canvas := Image.create(tw, th, false, Image.FORMAT_RGBA8)
 	canvas.fill(Color(0, 0, 0, 0))
-	canvas.blit_rect(crop, Rect2i(0, 0, nw, nh), Vector2i((tw - nw) / 2, (th - nh) / 2))
+	var off_y := (th - nh) if anchor_bottom else (th - nh) / 2     # bottom-flush vs centered
+	canvas.blit_rect(crop, Rect2i(0, 0, nw, nh), Vector2i((tw - nw) / 2, off_y))
 
 	# ensure parent dir exists (for nested output paths)
 	DirAccess.make_dir_recursive_absolute(out_abs.get_base_dir())

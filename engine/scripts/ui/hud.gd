@@ -120,26 +120,30 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.add_theme_constant_override("separation", Tune.LV_ROW_SEP)
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
-	# the level "coin" — a Panel hosting the rope-ring sprite + the big number.
+	# the level "coin" — the shared LAYERED emblem (cut parts) + the big number.
 	var lv_px := LV_BADGE_PX   # bigger BOX than the gear (its medal under-fills) so the visible medal matches
-	# the level badge — the shared evolving medal + centred number (Look.make_level_badge, also used
-	# by the locked-cell gate markers). The HUD carries the player's CURRENT level and swaps the
-	# medal/number in `refresh` on level-up; `_lv_font_size` keeps the HUD's tuned opening size.
+	# the level badge — the shared layered emblem + centred number (Look.make_level_badge, also worn by
+	# the locked-cell gate markers). The HUD carries the player's CURRENT level; `refresh` re-ticks the
+	# number and, when leveling crosses a badge TIER (the part SET changes), rebuilds the emblem.
 	var lvl0 := G.level_for_exp(Save.exp_total())
-	var avatar := Look.make_level_badge(lvl0, lv_px, _lv_font_size(lvl0))
-	avatar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var frame := avatar.get_node_or_null("lv_frame") as TextureRect   # null when on the honey-token fallback
-	var level := avatar.get_node_or_null("lv_num") as Label
-	# tap the level badge -> open the level screen (stars earned / needed for the next level), when
-	# the scene wires "on_level". The badge's children ignore input, so the avatar catches the tap.
+	# tap the level badge -> the level screen (stars earned / needed next), when the scene wires
+	# "on_level". The badge's children ignore input, so the avatar itself catches the tap.
 	var on_level: Variant = opts.get("on_level")
-	if on_level is Callable and (on_level as Callable).is_valid():
-		avatar.mouse_filter = Control.MOUSE_FILTER_STOP
-		avatar.gui_input.connect(func(ev: InputEvent) -> void:
-			var click: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
-				or (ev is InputEventScreenTouch and not ev.pressed)
-			if click:
-				(on_level as Callable).call())
+	var build_badge := func(lvl: int) -> Control:
+		var av := Look.make_level_badge(lvl, lv_px, _lv_font_size(lvl))
+		av.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		if on_level is Callable and (on_level as Callable).is_valid():
+			av.mouse_filter = Control.MOUSE_FILTER_STOP
+			av.gui_input.connect(func(ev: InputEvent) -> void:
+				var click: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
+					or (ev is InputEventScreenTouch and not ev.pressed)
+				if click:
+					(on_level as Callable).call())
+		return av
+	var avatar: Control = build_badge.call(lvl0)
+	# the rebuildable badge bits, shared with `refresh` via a dict (closures capture it by reference)
+	var badge_state := {"avatar": avatar, "level": avatar.get_node_or_null("lv_num") as Label,
+		"tier": Look.level_badge_index(lvl0)}
 	lrow.add_child(avatar)
 	left.add_child(lv_panel)
 
@@ -147,12 +151,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	_build_home_chip(left, opts)
 	host.add_child(left)
 
-	var frame_state := {"tier": Look.level_badge_index(lvl0)}   # only reload when the badge tier flips
 	# `wallet` is the centred 3-pill cluster (the container scenes raise above the shop backdrop); the
 	# per-pill panels are returned too so the shop targets buy feedback + the map anchors its Store badge.
 	# `water_icon` is the droplet box so the board's FTUE can hide the water icon + label together.
 	var out := {"water": water_lbl, "water_icon": water_pill.icon, "coins": coins, "diamonds": gems,
-		"level": level, "wallet": cluster, "lv_panel": lv_panel, "gear": gear,
+		"level": badge_state["level"], "wallet": cluster, "lv_panel": lv_panel, "gear": gear,
 		"water_pill": water_pill.panel, "coin_pill": coin_pill.panel, "gem_pill": gem_pill.panel,
 		"water_plus": water_pill.plus, "coin_plus": coin_pill.plus, "gem_plus": gem_pill.plus}
 	var refresh := func() -> void:
@@ -163,16 +166,22 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		_set_or_tick(gems, Save.diamonds())
 		var earned := Save.exp_total()
 		var lvl := G.level_for_exp(earned)
-		_set_or_tick(level, lvl)
-		level.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside the badge as digits grow
-		# Upgrade the frame when leveling crosses a badge tier.
-		if frame != null:
-			var tier := Look.level_badge_index(lvl)
-			if tier != int(frame_state["tier"]):
-				var t := _frame_tex(lvl)
-				if t != null:
-					frame.texture = t
-					frame_state["tier"] = tier
+		var tier := Look.level_badge_index(lvl)
+		if tier != int(badge_state["tier"]):
+			# tier flipped -> rebuild the emblem (a tier changes the SET of parts, not just one frame)
+			var old: Control = badge_state["avatar"]
+			var nb: Control = build_badge.call(lvl)
+			lrow.add_child(nb)
+			if is_instance_valid(old):
+				old.queue_free()
+			badge_state["avatar"] = nb
+			badge_state["level"] = nb.get_node_or_null("lv_num") as Label
+			badge_state["tier"] = tier
+			out["level"] = badge_state["level"]
+		var lnum: Label = badge_state["level"]
+		if lnum != null:
+			_set_or_tick(lnum, lvl)
+			lnum.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside as digits grow
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +
@@ -341,12 +350,6 @@ static func _safe_tex(path: String) -> Texture2D:
 		return null
 	return tex
 
-# The level-chip frame texture: the evolving gold badge for this Level (ui/lvl/badge_NN.png,
-# mapped by data/level_badges.json), or null when the art is missing or a degenerate import —
-# the HUD then shows the honey-token coin. There is no ring fallback; every shipped badge must
-# be alpha-cut (transparent corners), enforced by engine/tests/level_badge_tests.gd.
-static func _frame_tex(level: int) -> Texture2D:
-	return _safe_tex(Look.level_badge_path(level))
 
 # The level number sits in the badge's open centre, which is tighter than the plain
 # avatar — so a 2- or 3-digit Level must step the font DOWN to stay inside the gold
