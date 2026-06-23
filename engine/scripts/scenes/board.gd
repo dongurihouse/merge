@@ -16,6 +16,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Iap = preload("res://engine/scripts/core/iap.gd")   # out-of-water offer: product id + price (data/iap_products.json)
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
@@ -654,7 +655,7 @@ func _update_water_hud() -> void:
 	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
 	if oow_offer_btn.visible:
 		oow_offer_btn.text = Strings.t("board.refill.oow_detail") % \
-			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), String(Data.OOW_OFFER.usd)]
+			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), Iap.usd(String(Data.OOW_OFFER.key))]
 	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
 	if _refill_stack.visible:
 		FX.breathe_once(refill_btn if refill_btn.visible else _first_visible_refill())
@@ -718,7 +719,7 @@ func _on_oow_offer() -> void:
 		_update_water_hud()
 		return
 	var line := Strings.t("board.oow.amount") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
-	_open_oow_confirm(line, Strings.t("board.oow.sub") % String(Data.OOW_OFFER.usd))
+	_open_oow_confirm(line, Strings.t("board.oow.sub") % Iap.usd(String(Data.OOW_OFFER.key)))
 
 # Grant the out-of-water offer (pure side effects): the water top-up, the 💎, and record
 # the show. Factored so it is the single grant seam (a real receipt check guards the call).
@@ -733,12 +734,22 @@ func _grant_oow_offer() -> void:
 	_update_water_hud()
 	_update_hud()
 
-# A compact honest parchment confirm for the out-of-water offer (same "(test build —
-# nothing is charged)" disclosure as the shop's cash confirm). Cozy: warm copy, a Maybe
-# later / Yes please pair, no pressure.
+# A compact honest parchment confirm for the out-of-water offer (a real charge when StoreKit is in the
+# build, else the "(test build — nothing is charged)" disclosure). Cozy: warm copy, a Maybe later /
+# Yes please pair, no pressure.
 func _open_oow_confirm(line: String, sub: String) -> void:
 	# Wave 3: the modal lives in ui/oow_offer.gd; the gate + grant stay in the coordinator.
-	OowOffer.open(self, {"amount": line, "sub": sub, "on_accept": _grant_oow_offer})
+	var key := String(Data.OOW_OFFER.key)
+	var charged := Iap.charging()
+	# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase. Else the honest direct grant.
+	var accept := func() -> void:
+		if charged:
+			Iap.buy(key, func(okay: bool) -> void:
+				if okay:
+					_grant_oow_offer())
+		else:
+			_grant_oow_offer()
+	OowOffer.open(self, {"amount": line, "sub": sub, "charged": charged, "usd": Iap.usd(key), "on_accept": accept})
 
 func _update_hud() -> void:
 	# the top wallet is Water·Coin·Gem now (no star count). Water is updated live by _update_water_hud.

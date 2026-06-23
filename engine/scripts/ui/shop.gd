@@ -21,6 +21,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Ads = preload("res://engine/scripts/core/ads.gd")          # the rewarded-ad faucet behind the Free acorn card
+const Iap = preload("res://engine/scripts/core/iap.gd")          # IAP catalog: product id + price by key (data/iap_products.json)
 const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
@@ -353,7 +354,7 @@ static func _premium_sections(refs: Dictionary) -> Array:
 		secs.append({"caption": Strings.t("shop.premium.welcome_gift_caption"), "cards": [{
 			"icon": _starter_icon_id(),
 			"ribbon": Strings.t("shop.premium.welcome_ribbon"),
-			"price": String(STARTER_PACK.get("usd", "")),
+			"price": Iap.usd(String(STARTER_PACK.get("key", ""))),
 			"on_buy": func() -> void: _confirm_starter(host, refs),
 			"on_info": func() -> void: _starter_info(host)}]})
 	# Acorn pouches — the cash → 💎 ladder (escalating gem art + the merchandising ribbon)
@@ -362,7 +363,7 @@ static func _premium_sections(refs: Dictionary) -> Array:
 		var pack: Dictionary = CASH_PACKS[i]
 		var card := {
 			"icon": _gem_icon_id(i), "count": int(pack.gems),
-			"price": String(pack.usd),
+			"price": Iap.usd(String(pack.key)),
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
 		if first_buy_doubled():
 			card["ribbon"] = Strings.t("shop.premium.ribbon_first_buy")
@@ -655,21 +656,23 @@ static func _wallet_node(refs: Dictionary, key: String) -> Control:
 # and a "first-buy doubled!" line — so the confirm matches what actually lands.
 static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	var pack: Dictionary = CASH_PACKS[i]
+	var key := String(pack.key)
 	var doubled := first_buy_doubled()
 	var gems := int(pack.gems) * (int(FIRST_BUY_MULT) if doubled else 1)
 	var sub := Strings.t("shop.cash.first_buy_bonus") if doubled else ""
 	_confirm_gem_grant(host, refs, Strings.t("shop.cash.confirm_title"),
-		Strings.t("shop.cash.confirm_line") % [gems, String(pack.usd)], sub, func() -> void:
+		Strings.t("shop.cash.confirm_line") % [gems, Iap.usd(key)], sub, key, func() -> void:
 			grant_cash_pack(i))
 
 # The starter-pack confirm: same honest parchment confirm; confirming grants the bundle
 # (💎 now + the water credit the board applies on open) exactly once.
 static func _confirm_starter(host: Control, refs: Dictionary) -> void:
+	var key := String(STARTER_PACK.get("key", ""))
 	var gems := int(STARTER_PACK.get("gems", 0))
 	var water_amt := int(STARTER_PACK.get("water", 0))
-	var line := Strings.t("shop.starter.confirm_line") % [gems, String(STARTER_PACK.get("usd", ""))]
+	var line := Strings.t("shop.starter.confirm_line") % [gems, Iap.usd(key)]
 	var sub := Strings.t("shop.starter.confirm_sub") % water_amt if water_amt > 0 else ""
-	_confirm_gem_grant(host, refs, Strings.t("shop.starter.confirm_title"), line, sub, func() -> void:
+	_confirm_gem_grant(host, refs, Strings.t("shop.starter.confirm_title"), line, sub, key, func() -> void:
 		grant_starter())
 
 # The shared honest cash-confirm body (§10): parchment card, ribbon title, the 💎 line,
@@ -678,7 +681,7 @@ static func _confirm_starter(host: Control, refs: Dictionary) -> void:
 # to the wallet, and settles. A real store SDK + receipt check replaces ONLY the inside of
 # `grant` + a guard around this Confirm — the frame, the note, and the wiring stay.
 static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
-		line: String, sub: String, grant: Callable) -> void:
+		line: String, sub: String, product_key: String, grant: Callable) -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
@@ -721,8 +724,10 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		subl.add_theme_font_size_override("font_size", Tune.CONFIRM_NOTE_SIZE)
 		subl.add_theme_color_override("font_color", STRAW)
 		col.add_child(subl)
+	# Honest disclosure: a real charge happens ONLY when StoreKit is in the build; else the test note.
+	var charged := Iap.charging()
 	var note := Label.new()
-	note.text = Strings.t("shop.confirm.test_build_note")
+	note.text = (Strings.t("shop.confirm.charged_note") % Iap.usd(product_key)) if charged else Strings.t("shop.confirm.test_build_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", Tune.CONFIRM_NOTE_SIZE)
 	note.add_theme_color_override("font_color", BARK)
@@ -733,11 +738,20 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	col.add_child(btns)
 	btns.add_child(Look.button(Strings.t("shop.confirm.cancel"), func() -> void: overlay.queue_free(), false))
 	btns.add_child(Look.button(Strings.t("shop.confirm.confirm"), func() -> void:
-		grant.call()
 		var at := card.get_global_rect().get_center()
+		# grant + fly-to-wallet + rebuild — IDENTICAL whether the purchase was real or the test path.
+		var settle := func() -> void:
+			grant.call()
+			var gem_n := _wallet_node(refs, "gem")
+			if gem_n != null:
+				FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), gem_n)
+			_after_buy(refs)
 		overlay.queue_free()
-		var gem_n := _wallet_node(refs, "gem")
-		if gem_n != null:
-			FX.fly_to_wallet(host, at, Look.icon("gem", Tune.FLY_ICON), gem_n)
-		_after_buy(refs), true))
+		if charged:
+			# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase, nothing on cancel.
+			Iap.buy(product_key, func(okay: bool) -> void:
+				if okay:
+					settle.call())
+		else:
+			settle.call(), true))
 	FX.pop_in(card)

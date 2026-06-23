@@ -14,6 +14,7 @@ extends RefCounted
 
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices by key (data/iap_products.json)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # button radius/border/shadow metrics
 const Sparkle = preload("res://games/grove/tools/sparkle.gd")   # the code-drawn twinkle overlay
@@ -218,7 +219,7 @@ static func demo_shop() -> Array:
 		var gem_art := "gem_t%d" % (i + 1)
 		if not ResourceLoader.exists(Game.art("ui/currency/icon_%s.png" % gem_art)):
 			gem_art = "gem"
-		var card := {"icon": gem_art, "count": int(pk.get("gems", 0)), "price": String(pk.get("usd", ""))}
+		var card := {"icon": gem_art, "count": int(pk.get("gems", 0)), "price": Iap.usd(String(pk.get("key", "")))}
 		if bool(pk.get("pop", false)):
 			card["ribbon"] = "Popular"               # the merchandised mid anchor
 		elif i == (D.CASH_PACKS as Array).size() - 1:

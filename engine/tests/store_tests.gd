@@ -23,7 +23,7 @@ func _initialize() -> void:
 	ok(not Store.available(), "StoreKit is unavailable without the iOS plugin (no class)")
 
 	var got := {"called": false, "ok": true}
-	Store.purchase("com.tidyup.piggybank", func(success: bool) -> void:
+	Store.purchase("com.dongurihouse.dongurimerge.piggybank", func(success: bool) -> void:
 		got.called = true
 		got.ok = success)
 	ok(got.called and got.ok == false, "a purchase fails immediately when StoreKit is unavailable")
