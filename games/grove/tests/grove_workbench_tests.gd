@@ -815,14 +815,14 @@ func _test_gold_badge_consumers(view) -> void:
 	# NinePatch (a locked card does not), the opts carry the shared badge + band knob, and the frame tracks
 	# the saved gold_badge corner + shine.
 	var map_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
-	ok(map_opts.has("badge") and map_opts.has("frame_inset"), \
-		"map_card opts carry the shared gold_badge skin plus the frame_inset band knob")
+	ok(map_opts.has("badge"), \
+		"map_card opts carry the shared gold_badge skin BOTH card states' frame wears")
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
-	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) == null, \
-		"a LOCKED map card has NO gold frame")
+	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
+		"a LOCKED map card ALSO wears the shared gold-badge frame (consistent with open)")
 	open_card.queue_free()
 	locked_card.queue_free()
 
