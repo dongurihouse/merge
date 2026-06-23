@@ -48,7 +48,7 @@ const DEPENDENTS := {
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
-	"gold_badge": ["board", "info_bar"],
+	"gold_badge": ["board", "info_bar", "map_card"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -226,7 +226,7 @@ var _params := {
 	# mirror the shipped §8 constants, so the saved block the game's map.gd reads renders the card until you
 	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
 	# Kit.map_card_opts_from_config). open/done/unlock_exp are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
+	"map_card": {"use_art": true, "frame_inset": 6, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "unlock_exp": 3},
@@ -608,7 +608,8 @@ func _make_element(id: String) -> Control:
 			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
 			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
 			# gold frame / dark panel + the §8 veil read on their own; open/done/unlock_exp preview the state.
-			var mco := Kit.map_card_opts_from_config({"map_card": p})
+			# pass the shared gold_badge skin so the open card's frame previews the SAME tuning as board/info-bar.
+			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"]})
 			# preview at the SAME proportion the game lays out — card_w_frac of the screen WIDTH by
 			# card_h_frac of the screen HEIGHT — scaled to the 460-px preview width, so dragging the
 			# size sliders reshapes the card live (and shows any gold-frame stretch). No height cap: the
@@ -1584,8 +1585,11 @@ func _rebuild_sidebar() -> void:
 			# stretches the gold frame (the preview shows it).
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
 			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 50]))      # card height (% of screen height; the picker scrolls past the band)
-			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
-			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
+			# the OPEN card's gold band width — how far the locale art insets inside the SHARED gold-badge frame
+			# (% of card height). The frame SKIN itself (corner · shine · groove) is tuned on the Gold badge item.
+			_sidebar_body.add_child(_slider_row(["frame_inset", 0, 20]))      # gold band width (% of card height)
+			# the painted kit (card_locked / pill_left) vs the §8 code-drawn fallback. The fog veil + its dials
+			# apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
 			_sidebar_body.add_child(_slider_row(["edge_sparkle", 0, 100]))    # twinkles ringing an ACTIVE open card's gold band (% — 0 = off)
 			_sidebar_body.add_child(_slider_row(["pill_w_frac", 10, 60]))     # count-pill width (% of card width)
