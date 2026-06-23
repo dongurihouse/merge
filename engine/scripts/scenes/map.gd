@@ -86,7 +86,7 @@ var resident_hits: Array = []    # [{node, z, type}] — the "welcome a spirit" 
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
-var _unlock_btn: Button          # the SINGLE restore button: claims the map's next spot once exp reaches its threshold
+var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
@@ -261,7 +261,7 @@ func _open_map(z: int) -> void:
 	Save.grove_write()
 	_build_map()
 	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
-	_refresh_unlock_button()             # the restore badge is PER-MAP — rebuild it for the map just opened
+	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
 
 func _open_select() -> void:
 	_view = "select"
@@ -349,10 +349,23 @@ func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 	var has_home := not home.is_empty()
 	var is_vine := typeof(G.MAPS[z].get("vine", null)) == TYPE_DICTIONARY
 	var by_id := _home_buildings(home) if has_home else {}
+	# For a vine map, the READY-to-claim region gets a hit that covers its WHOLE zone (its polygon bounding
+	# box) instead of the small centroid disc, so a tap anywhere on the highlighted zone restores it.
+	var vregions: Array = []
+	var visize := Vector2.ONE
+	var ready_k := -1
+	if is_vine:
+		var Grove := load("res://games/grove/vine/vine_maps.gd")
+		var vine = G.MAPS[z].get("vine", null)
+		vregions = Grove.regions_for(vine)
+		visize = Grove.image_size_for(vine)
+		var nxt := G.map_next_unlock(z, unlocks)
+		if int(nxt.k) != -1 and Save.exp_total() >= int(nxt.exp):
+			ready_k = int(nxt.k)
 	for k in G.MAPS[z].spots.size():
 		var hit: Control
 		if is_vine:
-			hit = _build_vine_spot(z, k)
+			hit = _build_vine_spot(z, k, ready_k, vregions, visize)
 		elif has_home:
 			hit = _build_home_spot(z, k, home, frame, by_id)
 		else:
@@ -360,15 +373,43 @@ func _seat_spots(z: int, home: Dictionary, frame: Control) -> void:
 		content.add_child(hit)
 		spot_hits.append({"node": hit, "z": z, "k": k})
 
-# A vine map's per-region affordance: unowned -> the ✿cost disc at the region centroid (routes the
-# buy via spot_hits); owned -> an inert marker (keeps spot_hits index-aligned).
-func _build_vine_spot(z: int, k: int) -> Control:
+# A vine map's per-region affordance: unowned -> a tap target that routes the restore via spot_hits;
+# owned -> an inert marker (keeps spot_hits index-aligned). The READY spot (k == ready_k) takes a
+# full-zone hit so tapping anywhere on the lit zone claims it; other zones keep the compact centroid disc.
+func _build_vine_spot(z: int, k: int, ready_k: int = -1, regions: Array = [], isize: Vector2 = Vector2.ONE) -> Control:
 	var spot: Dictionary = G.MAPS[z].spots[k]
 	# adapt the spot's Vector2 pos to the home-building dict's [x, y] list form that _home_badge reads.
 	var b := {"pos": [float(spot.pos.x), float(spot.pos.y)]}
-	if not spot_owned(String(spot.id)):
-		return _home_badge(z, k, b)
-	return _home_owned_item(z, k, b)
+	if spot_owned(String(spot.id)):
+		return _home_owned_item(z, k, b)
+	if k == ready_k and k < regions.size():
+		var zone := _region_zone_hit(regions[k], isize)
+		if zone != null:
+			return zone
+	return _home_badge(z, k, b)
+
+# A tap surface covering a vine region's whole zone: the polygon's bounding box, normalized by the
+# region image size and mapped into the live map rect. Returns null when the region carries no polygon
+# (the caller then falls back to the centroid disc). Mouse-ignored — the central router resolves the tap.
+func _region_zone_hit(region, isize: Vector2) -> Control:
+	if not (region is Dictionary):
+		return null
+	var pts: Array = (region as Dictionary).get("points", [])
+	var mn := Vector2(INF, INF)
+	var mx := Vector2(-INF, -INF)
+	for p in pts:
+		if p is Array and (p as Array).size() >= 2:
+			var v := Vector2(clampf(float(p[0]) / isize.x, 0.0, 1.0), clampf(float(p[1]) / isize.y, 0.0, 1.0))
+			mn = mn.min(v); mx = mx.max(v)
+	if mn.x > mx.x:
+		return null
+	var tl := _map_rect.position + mn * _map_rect.size
+	var br := _map_rect.position + mx * _map_rect.size
+	var node := Control.new()
+	node.position = tl
+	node.size = br - tl
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return node
 
 # --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 
@@ -411,6 +452,15 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		for i in range(view.region_count()):
 			var sid := "%s_r%d" % [String(G.MAPS[z].id), i]
 			view.set_region_enabled(i, not spot_owned(sid))
+		# the spot that's READY to claim (enough exp banked) is lit hotter than the other locked zones —
+		# a stronger glow halo + denser, brighter vines — so the eye lands on the one you can restore now.
+		var ready := G.map_next_unlock(z, unlocks)
+		if int(ready.k) != -1 and Save.exp_total() >= int(ready.exp) and int(ready.k) < view.region_count():
+			var rk := int(ready.k)
+			view.write_shader_value("glow", "opacity", 0.6, rk)          # default 0.28 — a stronger highlight halo
+			view.write_shader_value("glow", "glow_strength", 2.3, rk)    # default 1.15 — brighter
+			view.write_shader_value("vines", "opacity", 0.9, rk)         # default 0.48 — denser vines
+			view.write_shader_value("vines", "glow_strength", 1.1, rk)   # default 0.42 — hotter vine cores
 		vframe.add_child(view)
 		return vframe
 	var broken := String(home.get("broken", ""))
@@ -1124,9 +1174,12 @@ func _build_hud() -> void:
 			g["water"] = G.WATER_CAP
 			Save.grove_write(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self)})
-		# Settings moved OFF the top bar (no gear) into the LiveOps rail as its own rect badge (ui_mock2) —
-		# see _build_liveops_rail; the shared HUD no longer draws a gear (it omits `settings`).
+		"on_level": func() -> void: LevelPopup.open(self),
+		# Settings is the top-right gear in the shared HUD — the SAME button + spot the board uses, so the
+		# gear sits in one place across both screens (off the LiveOps rail now).
+		"settings": func() -> void:
+			Audio.play("button_tap", -2.0)
+			_open_settings()})
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
@@ -1139,71 +1192,36 @@ func _update_hud() -> void:
 		_hud_refresh.call()              # wallet (Water·Coin·Gem) + the S10 level chip (ticks)
 	else:
 		coins_label.text = str(Save.coins())
-	_refresh_unlock_button()
+	_refresh_play_cta()
 
-# The SINGLE restore CTA — the round map-style restore badge (Kit.home_unlock_button: the dashed cream
-# cost disc), centered at the BOTTOM in line with the flanking Map · Play nav discs (same size + height),
-# so the bottom row reads Map · Restore · Play. It targets the open map's next unclaimed spot (lowest
-# threshold): greyed until total exp reaches that threshold, then full-color + tappable to claim it (exp is
-# never spent). Hidden once every spot is restored. Tracked as chrome, so it hides on the place-picker.
-func _build_unlock_cta() -> void:
-	_refresh_unlock_button()          # builds the badge fresh from current state
-
-# (Re)build the restore badge from the open map's next-unlock state. Called on build + after any exp/owner
-# change (via _update_hud), so the disc's threshold number and greyed/ready look stay current. Rebuilds
-# rather than mutating, since the kit bakes the cost number into the disc at build time.
-func _refresh_unlock_button() -> void:
-	if _unlock_btn != null and is_instance_valid(_unlock_btn):
-		_chrome_nodes.erase(_unlock_btn)
-		_unlock_btn.queue_free()
-	_unlock_btn = null
+# Is the open map's next spot affordable right now? Drives the merged Play/Restore CTA's state.
+func _unlock_ready() -> bool:
 	var nxt := G.map_next_unlock(_map_idx, unlocks)
-	if int(nxt.k) == -1:
-		return                         # every spot on this map restored → no badge
-	var need := int(nxt.exp)
-	var ready := Save.exp_total() >= need
-	var btn := _make_unlock_badge(need, ready)
-	add_child(btn)
-	_unlock_btn = btn
-	_chrome_nodes.append(btn)
-	btn.visible = (_view == "map")     # chrome hides on the place-picker
+	return int(nxt.k) != -1 and Save.exp_total() >= int(nxt.exp)
 
-# The restore CTA: the SAME rounded-rect badge the Map button uses (Kit.home_button shape:"rect"), with the
-# ui_asset3 vine mark over a "Purse" label, anchored bottom-centre in line with the Map · Play row. Greyed
-# until affordable; full-colour + sparkling + tappable when ready. Plain-button fallback if the kit is gone.
-func _make_unlock_badge(need: int, ready: bool) -> Button:
-	var px := 140.0                                    # match the flanking Map badge (same rect button)
-	var sb := Look.safe_bottom(self)
-	var btn: Button
+# The bottom-right CTA is MERGED: PLAY by default (the board+acorn mark → the board), and RESTORE when the
+# open map's next spot is affordable — the SAME orange play disc, but wearing the ui_asset3 vine mark and
+# tapping into the unlock (_on_unlock_pressed). Called on build + map open + any exp/owner change (via
+# _update_hud), so it flips the instant a spot becomes affordable. Updates the disc IN PLACE — swaps the
+# icon + repoints the press — so the breathing tween carries across the flip (no rebuild).
+func _refresh_play_cta() -> void:
+	if _play_btn == null or not is_instance_valid(_play_btn):
+		return
 	var Kit: GDScript = load(KIT_PATH)
-	if Kit != null:
-		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		opts["px"] = px
-		opts["shape"] = "rect"                        # the rounded-rect badge (same as Map)
-		opts["calm"] = FX.calm()
-		# the vine mark over "Purse"; sparkles when ready (the cumulative-exp threshold is met). The exp goal
-		# is never SPENT (see _on_unlock_pressed), so the badge carries no cost number — just the CTA.
-		btn = Kit.home_button({"icon": "vine", "caption": Strings.t("map.unlock.purse"), "sparkle": ready, "enabled": ready, "action": _on_unlock_pressed}, opts)
-		if not ready:
-			btn.modulate = Color(0.6, 0.6, 0.6, 1.0)  # grey the whole badge until the threshold is met (map parity)
-	else:
-		btn = Button.new()                            # defensive: kit absent → a plain labelled button
-		btn.text = Strings.t("map.unlock.purse")
-		btn.disabled = not ready
-		btn.add_theme_font_size_override("font_size", 30)
-		btn.pressed.connect(_on_unlock_pressed)
-	btn.focus_mode = Control.FOCUS_NONE
-	btn.custom_minimum_size = Vector2(px, px)
-	# bottom-centre, sitting in the nav row's band (BOTTOM_MARGIN above the safe area, disc-tall)
-	btn.anchor_left = 0.5
-	btn.anchor_right = 0.5
-	btn.anchor_top = 1.0
-	btn.anchor_bottom = 1.0
-	btn.offset_left = -px / 2.0
-	btn.offset_right = px / 2.0
-	btn.offset_bottom = -(NavBar.BOTTOM_MARGIN + sb)
-	btn.offset_top = btn.offset_bottom - px
-	return btn
+	if Kit == null:
+		return
+	var ready := _unlock_ready()
+	var wrap := _play_btn.get_meta("icon_wrap", null) as Control
+	if wrap != null:
+		for c in wrap.get_children():
+			c.queue_free()
+		var icon_node: Control = Kit.make_icon("vine" if ready else "board", float(_play_btn.get_meta("icon_px", 96.0)))
+		if icon_node != null:
+			wrap.add_child(icon_node)
+	# re-point the tap: RESTORE the next spot when affordable, else into the garden/board.
+	for conn in _play_btn.pressed.get_connections():
+		_play_btn.pressed.disconnect(conn["callable"])
+	_play_btn.pressed.connect(_on_unlock_pressed if ready else _on_board)
 
 func _on_unlock_pressed() -> void:
 	var z := _map_idx
@@ -1237,8 +1255,8 @@ func _build_chrome() -> void:
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
-	_build_unlock_cta()
-	# the Play leaf breathes so the way to the board reads as the primary action (index 1).
+	_refresh_play_cta()                  # confirm the merged CTA's Play↔Restore state for the open map
+	# the Play disc breathes so the primary action reads (index 1) — kept whether it shows board or vine.
 	FX.breathe_once(nav.buttons[1])
 	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no
 	# longer wears a corner badge. `_store_badge` stays null, so `_refresh_store_badge` is a safe no-op.
@@ -1266,19 +1284,24 @@ func _make_map_button() -> Button:
 	opts["calm"] = FX.calm()
 	return Kit.home_button({"icon": "map", "caption": Strings.t("map.nav.map"), "action": open}, opts)
 
-# The Play button (bottom nav, index 1) — the way into the garden/board, and the home screen's primary CTA.
-# It is the only round bottom button: the big ORANGE play disc (ui_asset2 play_disc) wearing the board+acorn
-# mark, larger than the Map badge beside it, and CAPTIONLESS (the disc art reads as "go to the board").
+# The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
+# big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the
+# board by default, but flips to the ui_asset3 VINE mark + the restore action the moment the open map's next
+# spot is affordable (_unlock_ready). _refresh_play_cta swaps the icon/action in place; the disc breathes in
+# either state. Stored in _play_btn so the refresh can find it.
 func _make_play_button() -> Button:
+	var ready := _unlock_ready()
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return NavBar._make_nav_button("nav_leaf.png", 188.0, _on_board)   # defensive: the baked leaf pill
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = float(opts.get("play_px", 188))   # the workbench-tuned Play-disc size (bigger than the 140 Map badge)
 	opts["shell"] = "shared/play_disc.png"    # the orange play disc (no green tint — the art carries the colour)
-	opts["icon_scale"] = 0.52                 # the board+acorn mark centred on the disc
+	opts["icon_scale"] = 0.52                 # the centred mark (board+acorn, or the vine when a restore is ready)
 	opts["calm"] = FX.calm()
-	return Kit.home_button({"icon": "board", "caption": "", "action": _on_board}, opts)
+	var action: Callable = _on_unlock_pressed if ready else _on_board
+	_play_btn = Kit.home_button({"icon": ("vine" if ready else "board"), "caption": "", "action": action}, opts)
+	return _play_btn
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
 # bottom nav + the live-ops rail build from — the cream/gold disc tuned in the workbench — so a button
@@ -1368,12 +1391,8 @@ func _build_liveops_rail() -> void:
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
-	# Settings — moved off the top bar (no more gear) into the rail as its own tile (ui_mock2): opens the
-	# shared Settings card. No badge — it is never "actionable" in the calm-rail sense.
-	var settings := _rail_button("gear", Strings.t("map.rail.settings"), func() -> void:
-		Audio.play("button_tap", -2.0)
-		_open_settings())
-	_place_rail(settings, top, slot, step); slot += 1
+	# (Settings is NOT on the rail — it is the shared top-right HUD gear now, the same button + spot the
+	# board uses. See the Hud.build `settings` opt above.)
 	_refresh_liveops_badges()
 
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +

@@ -13,16 +13,20 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const OVERLAY_NAME := "LoginMysteryOverlay"
 
 # --- the reveal popup ---------------------------------------------------------------
 
 ## Open the spin reveal for `day` (a mystery day). opts: on_done (Callable, rebuild the calendar),
 ## instant (bool, skip the spin and grant now — the test path).
 static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
@@ -33,6 +37,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 	var instant: bool = bool(opts.get("instant", false))
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 110                          # above the z=100 calendar overlay
 	host.add_child(overlay)

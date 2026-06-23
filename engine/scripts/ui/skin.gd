@@ -650,6 +650,26 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 	b.offset_bottom = b.offset_top + sz.y
 	return b
 
+## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It is a SOLID dark
+## silhouette of the element (corner-matched), OFFSET by (dx, dy) and grown evenly by `spread`. The element
+## art (opaque) sits on top un-offset, so the shadow shows ONLY where it peeks past the element — which is
+## the OFFSET side(s). So dx/dy give a DIRECTIONAL cast (e.g. dy>0 → only below); `spread` adds an even all-
+## around halo (spread 0 = a clean one-directional shadow). NO symmetric shadow blur — that's what made the
+## old shadow ring every side regardless of offset. `corner` is the element's radius (big = capsule, clamps).
+static func drop_shadow(corner: float, dx: float, dy: float, spread: float, alpha: float) -> Panel:
+	var sh := Panel.new()
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var sp := maxf(spread, 0.0)
+	sh.offset_left = dx - sp; sh.offset_right = dx + sp      # grow by spread (even) + shift by (dx, dy)
+	sh.offset_top = dy - sp; sh.offset_bottom = dy + sp
+	var ssb := StyleBoxFlat.new()
+	ssb.bg_color = Color(0.0, 0.0, 0.0, alpha)               # SOLID body — the offset is what reveals it (directional)
+	ssb.set_corner_radius_all(int(corner) + int(sp))         # grow the corner with spread so the shape stays matched
+	ssb.anti_aliasing = true                                 # soft 1px edge (no all-around blur halo)
+	sh.add_theme_stylebox_override("panel", ssb)
+	return sh
+
 ## Float a small token (the wallet "+") OVER a sized `pill` WITHOUT changing the pill's size. The pill stays
 ## the layout-sized node (its icon + number drive the capsule); the token is anchored to the pill's RIGHT
 ## edge, nudged by opts.plus_x (horizontal — +overhang past the edge / −tuck in over the pill) and
@@ -661,21 +681,15 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# the optional DROP SHADOW (workbench shadow_size / shadow_alpha): a soft rounded shadow drawn BEHIND
-	# the pill. The painted capsule is a StyleBoxTexture (no native shadow), so we lift it with this sibling
-	# Panel — full-rect like the pill, its StyleBoxFlat shadow bleeds past the edge by shadow_size.
-	var sh_size := int(opts.get("shadow_size", 0))
-	if sh_size > 0:
-		var shadow := Panel.new()
-		shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		shadow.set_anchors_preset(Control.PRESET_FULL_RECT)   # matches the pill rect (both fill the holder)
-		var ssb := StyleBoxFlat.new()
-		ssb.draw_center = false                               # only the shadow paints; the capsule art owns the fill
-		ssb.set_corner_radius_all(100)                        # clamps to half-height → a capsule-shaped shadow
-		ssb.shadow_size = sh_size
-		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
-		shadow.add_theme_stylebox_override("panel", ssb)
-		holder.add_child(shadow)
+	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): a SOLID
+	# cast shadow OFFSET by (shadow_dx, shadow_dy) so it reads off the pill's edge, blurred by shadow_size. The
+	# capsule corner is its half-height, so a big corner clamps to a capsule shadow that hugs the pill.
+	var sh_alpha := clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0)
+	var sh_dx := float(opts.get("shadow_dx", 0))
+	var sh_dy := float(opts.get("shadow_dy", 0))
+	var sh_blur := float(opts.get("shadow_size", 0))
+	if sh_alpha > 0.0 and (sh_blur > 0.0 or sh_dx != 0.0 or sh_dy != 0.0):
+		holder.add_child(drop_shadow(1000.0, sh_dx, sh_dy, sh_blur, sh_alpha))
 	holder.add_child(pill)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
 	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only

@@ -38,8 +38,8 @@ const CUR_PILL_CAP := 32
 # middle stretches to the counts). "gold capsule" is the SHIPPED default, so an unset border is unchanged.
 const PILL_BORDERS := {
 	"gold capsule": {"art": CUR_PILL_ART,          "cap": CUR_PILL_CAP},   # shared/panel_pill.png (292×65)
-	"grove capsule":{"art": "shared/pill_capsule.png","cap": 62},          # ui_asset2 cream capsule (439×125)
-	"grove badge":  {"art": "shared/badge_rect.png", "cap": 46},           # THE shared rounded-rect — same sprite the rail/Map badges nine-slice (one badge everywhere)
+	"grove capsule":{"art": "shared/pill_capsule.png","cap": 36},          # ui_asset2 top-left cream capsule (resized 253×72 so end-radius 36 = pill height/2): 9-slice keeps the round ends FIXED, only the flat middle stretches horizontally
+	"grove badge":  {"art": "shared/badge_rect.png", "cap": 46},           # the shared rounded-rect, 9-sliced (same sprite the rail/Map badges use)
 	"bag":          {"art": "kit/bag_pill.png",       "cap": 59},          # 416×118
 	"bag thin":     {"art": "kit/bag_pill_thin.png",  "cap": 33},          # 411×66
 	"bag blue":     {"art": "kit/bag_pill_b.png",     "cap": 58},          # 416×116
@@ -231,6 +231,27 @@ static func demo_shop() -> Array:
 static func make_icon(id: String, px: float) -> Control:
 	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
 	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
+
+## Like make_icon, but with a baked soft DROP SHADOW (silhouette-following, mostly downward) — the currency
+## pill's icon + its "+" use this so they lift off the cream capsule. `alpha` (0..1) is the shadow strength
+## (0 → no shadow, falls back to the plain icon); offset + blur derive from the sprite size.
+static func make_icon_shadow(id: String, px: float, alpha: float) -> Control:
+	var a := clampf(alpha, 0.0, 1.0)
+	var tex := _icon_tex(id)
+	if tex == null or a <= 0.0:
+		return make_icon(id, px)
+	var img := tex.get_image()
+	if img == null:                       # headless dummy renderer can't read pixels → plain icon, no shadow
+		return make_icon(id, px)
+	if img.get_format() != Image.FORMAT_RGBA8:
+		img.convert(Image.FORMAT_RGBA8)
+	var w := float(img.get_width())
+	img = add_drop_shadow(img, {
+		"shadow_alpha": a,
+		"shadow_offset": Vector2(0.03, 0.10) * w,   # a touch right, mostly DOWN — a grounded drop shadow
+		"shadow_blur": maxf(2.0, w * 0.05),
+	})
+	return _icon_rect(ImageTexture.create_from_image(img), px)
 
 ## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
 ## box by its own aspect. Returns null when the texture is absent (the caller supplies the glyph fallback).
@@ -867,23 +888,16 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW
 			b.add_theme_stylebox_override(st_name, s)
-	# the RECT-badge DROP SHADOW (workbench rect_shadow / rect_shadow_alpha): the rounded-rect shell is a
-	# StyleBoxTexture (no native shadow), so we lift it with a sibling Panel drawn BEHIND the button
-	# (show_behind_parent) — its StyleBoxFlat paints only the shadow (draw_center off), bleeding past the
-	# badge edge by rect_shadow. Disc buttons ignore it (the Play/back/bag discs are unchanged).
-	var rect_shadow := int(opts.get("rect_shadow", 0))
-	if shape == "rect" and rect_shadow > 0:
-		var sh := Panel.new()
-		sh.show_behind_parent = true                          # draws under the button's textured shell
-		sh.set_anchors_preset(Control.PRESET_FULL_RECT)       # matches the badge rect; the shadow bleeds outward
-		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ssb := StyleBoxFlat.new()
-		ssb.draw_center = false                               # only the shadow paints; the shell art owns the fill
-		ssb.set_corner_radius_all(corner)                     # match the rect badge's rounded corners
-		ssb.shadow_size = rect_shadow
-		ssb.shadow_offset = Vector2(0.0, rect_shadow * 0.4)   # a gentle downward drop
-		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("rect_shadow_alpha", 30)) / 100.0, 0.0, 1.0))
-		sh.add_theme_stylebox_override("panel", ssb)
+	# the RECT-badge DROP SHADOW: a SOLID cast shadow (Look.drop_shadow) drawn BEHIND the button shell
+	# (show_behind_parent), OFFSET by (rect_shadow_dx, rect_shadow_dy) so it reads off the badge edge and
+	# softened by rect_shadow. Corner-matched to the badge. Disc buttons ignore it (Play/back/bag unchanged).
+	var rect_alpha := clampf(float(opts.get("rect_shadow_alpha", 30)) / 100.0, 0.0, 1.0)
+	var rect_dx := float(opts.get("rect_shadow_dx", 0))
+	var rect_dy := float(opts.get("rect_shadow_dy", 0))
+	var rect_blur := float(opts.get("rect_shadow", 0))
+	if shape == "rect" and rect_alpha > 0.0 and (rect_blur > 0.0 or rect_dx != 0.0 or rect_dy != 0.0):
+		var sh := Look.drop_shadow(corner, rect_dx, rect_dy, rect_blur, rect_alpha)
+		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
 	if bool(spec.get("sparkle", false)):
@@ -992,89 +1006,6 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		cnt.offset_top = cdy; cnt.offset_bottom = cdy
 		b.add_child(cnt)
 		b.set_meta("count_label", cnt)
-	Look.add_press_juice(b)
-	if spec.has("action") and (spec.get("action") as Callable).is_valid():
-		b.pressed.connect(spec.get("action"))
-	return b
-
-## --- the HOME UNLOCK BUTTON: the round restore-cost disc on an unowned home spot -----------------
-## A sibling of the home button: the dashed cream cost disc (map/badge_cost.png) carrying a centred "+"
-## stacked over the cost row (a currency icon + the number). The map's unowned spots build through this,
-## so a workbench tweak (disc size · "+" scale · icon scale · cost font · gaps) flows to the live map.
-##   spec (per-instance content): cost (int) · icon (currency id; "star") · action (Callable) · enabled.
-##   opts (shared STYLE — see home_unlock_opts_from_config): px (diameter, set by the caller) ·
-##     plus_scale / icon_scale / cost_font / stack_gap / icon_gap (all 0..1 fractions of the disc).
-const HOME_UNLOCK_SHELL := "map/badge_cost.png"
-const HOME_UNLOCK_INK := Color("#6E4E25")   # the engraved brown of the "+" and the cost number
-
-static func home_unlock_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
-	var px: float = float(opts.get("px", 173.0))
-	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(px, px)
-	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	b.disabled = not bool(spec.get("enabled", true))
-	# the cost disc: the sliced round badge sprite scaled WHOLE (a round disc 9-slices badly), or a flat
-	# code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
-	var shell_path := Look.kit(HOME_UNLOCK_SHELL)
-	var shell: Texture2D = load(shell_path) if ResourceLoader.exists(shell_path) else null
-	for st_name in ["normal", "hover", "pressed", "disabled"]:
-		if shell != null:
-			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
-			stx.texture = shell
-			if st_name == "pressed":
-				stx.modulate_color = Color(0.9, 0.9, 0.9)
-			elif st_name == "disabled":
-				stx.modulate_color = Color(0.72, 0.72, 0.72)
-			b.add_theme_stylebox_override(st_name, stx)
-		else:
-			var s := StyleBoxFlat.new()
-			s.bg_color = Color(Pal.CREAM, 0.95)
-			s.set_corner_radius_all(int(px * 0.5))
-			s.set_border_width_all(3)
-			s.border_color = Pal.STRAW
-			b.add_theme_stylebox_override(st_name, s)
-	# the SPARKLE sits BEHIND the +/cost (added first → drawn under), only if asked AND tuned > 0 — the
-	# same engine-drawn glow + twinkles the home button uses (no baked art). calm freezes it.
-	if bool(spec.get("sparkle", false)):
-		var glow: float = float(opts.get("glow", 0.0))
-		var tw: float = float(opts.get("twinkle", 0.0))
-		if glow > 0.0 or tw > 0.0:
-			b.add_child(_sparkle_overlay(px, glow, tw, bool(opts.get("calm", false))))
-	# the "+" stacked over the cost row, centred on the disc (mouse-transparent so the Button is the only
-	# hit surface). All metrics are fractions of the disc, so the stack scales with px. `show_cost` (default
-	# true) draws the icon+number row under the "+"; pass false for a bare "+" disc (e.g. a free/ready
-	# restore where a number would read as a price), and the lone "+" centres on the disc on its own.
-	var show_cost := bool(spec.get("show_cost", true))
-	var col := VBoxContainer.new()
-	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", int(round(px * float(opts.get("stack_gap", -0.01)))))
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(col)
-	var plus := Label.new()
-	plus.text = "+"
-	plus.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("plus_scale", 0.30)))))
-	plus.add_theme_color_override("font_color", HOME_UNLOCK_INK)
-	plus.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	plus.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(plus)
-	if show_cost:
-		var row := HBoxContainer.new()
-		row.alignment = BoxContainer.ALIGNMENT_CENTER
-		row.add_theme_constant_override("separation", maxi(0, int(round(px * float(opts.get("icon_gap", 0.02))))))
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(row)
-		var ic := Look.icon(String(spec.get("icon", "star")), px * float(opts.get("icon_scale", 0.26)))
-		ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(ic)
-		var lbl := Label.new()
-		lbl.text = "%d" % int(spec.get("cost", 0))
-		lbl.add_theme_font_size_override("font_size", maxi(1, int(px * float(opts.get("cost_font", 0.26)))))
-		lbl.add_theme_color_override("font_color", HOME_UNLOCK_INK)
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(lbl)
 	Look.add_press_juice(b)
 	if spec.has("action") and (spec.get("action") as Callable).is_valid():
 		b.pressed.connect(spec.get("action"))
@@ -1357,13 +1288,23 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
+	# the ribbon WIDTH tracks the title: a short label gives a short banner, growing with the number of
+	# letters up to the full card `width` (the max). The folded tails stay rigid (9-slice) so only the flat
+	# middle stretches — the ribbon never squashes or distorts however long or short the title is.
+	var text_w := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font).x
+	var end_pad := band_h * 0.55                                # keep the title clear of the folded tails
+	var icon_room := (icon_px + band_h * 0.25) if icon_on else 0.0
+	var banner_w := clampf(text_w + end_pad * 2.0 + icon_room, band_h * 2.2, width)
+	var ribbon_x := (width - banner_w) * 0.5                    # centre the sized ribbon within the band
 	var bp := Look.kit(banner_art)
 	if ResourceLoader.exists(bp):
-		var art := TextureRect.new()
+		var art := NinePatchRect.new()
 		art.texture = clean_tex_path(bp, 480)   # polished ribbon
-		art.set_anchors_preset(Control.PRESET_FULL_RECT)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		art.position = Vector2(ribbon_x, 0.0)
+		art.size = Vector2(banner_w, band_h)
+		var cap := int(round(float(art.texture.get_width()) * 0.20)) if art.texture != null else 0
+		art.patch_margin_left = cap             # the folded tails stay 1:1; the flat middle stretches
+		art.patch_margin_right = cap
 		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		header.add_child(art)
 	var lbl := Label.new()
@@ -1397,11 +1338,8 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 		if icon_pos != null:
 			env.position = icon_pos
 		else:
-			var place := func() -> void:                       # default: ~30% across, vertically centred
-				if is_instance_valid(env) and is_instance_valid(header):
-					env.position = Vector2(header.size.x * 0.30 - icon_px / 2.0, header.size.y / 2.0 - icon_px / 2.0)
-			header.resized.connect(place)
-			header.ready.connect(place)
+			# default: just inside the sized ribbon's left, vertically centred (tracks the ribbon, not the band)
+			env.position = Vector2(ribbon_x + banner_w * 0.14 - icon_px / 2.0, band_h / 2.0 - icon_px / 2.0)
 	return header
 
 ## The dialog ✕ — the mail_close sprite scaled (polished). Named DialogClose so the workbench drags it.
@@ -3033,8 +2971,10 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"play_px": float(h.get("play_px", 188)),
 		# the rect-badge DROP SHADOW (size in px + opacity %): drawn behind the rail / Map badges only (disc
 		# buttons ignore it). Default ON so the rounded-rect tiles lift off the homestead out of the box.
-		"rect_shadow": float(h.get("rect_shadow", 7)),
+		"rect_shadow": float(h.get("rect_shadow", 2)),         # even SPREAD (px): 0 = a clean one-directional cast; >0 grows an all-around halo
 		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),
+		"rect_shadow_dx": float(h.get("rect_shadow_dx", 0)),   # shadow X offset (px): cast left(−) / right(+) — makes it DIRECTIONAL
+		"rect_shadow_dy": float(h.get("rect_shadow_dy", 8)),   # shadow Y offset (px): cast up(−) / down(+) off the badge edge
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
@@ -3054,27 +2994,6 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
-## The HOME-UNLOCK style opts from a saved config — the restore-cost disc on an unowned home spot.
-## disc_pct is the disc diameter as a % of the MAP width (the caller multiplies it by its own width and
-## sets opts.px); plus_scale / icon_scale / cost_font / stack_gap / icon_gap are stored 0..100 and divided
-## here to the 0..1 fractions of the disc the builder wants (stack_gap may be negative — a tuck-up).
-static func home_unlock_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var u: Dictionary = cfg.get("home_unlock_button", {}) if cfg is Dictionary else {}
-	return {
-		"disc_pct": float(u.get("disc_pct", 16)),
-		"plus_scale": float(u.get("plus_scale", 30)) / 100.0,
-		"icon_scale": float(u.get("icon_scale", 26)) / 100.0,
-		"cost_font": float(u.get("cost_font", 26)) / 100.0,
-		"stack_gap": float(u.get("stack_gap", -1)) / 100.0,
-		"icon_gap": float(u.get("icon_gap", 2)) / 100.0,
-		# the optional engine-drawn sparkle (glow halo + drifting twinkles), like the home button. Default 0
-		# → no sparkle, so the in-game disc is unchanged until a designer dials it up. calm added by caller.
-		"glow": float(u.get("glow", 0)) / 100.0,
-		"twinkle": float(u.get("twinkle", 0)) / 100.0,
-		# gray the disc when the player can't yet afford the spot (the map passes affordability). Default ON.
-		"gray_unaffordable": bool(u.get("gray_unaffordable", true)),
-	}
-
 ## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
 ## the top-bar wallet. EVERY default mirrors Tune.Hud (engine/scripts/core/tuning.gd → class Hud), so an
 ## absent or empty "currency_pill" block resolves to the SHIPPED pill and the live HUD is unchanged.
@@ -3089,8 +3008,11 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
-		"shadow_size": int(c.get("shadow_size", 5)),       # Tune.PILL_SHADOW_SIZE (0 = no shadow); drives BOTH the code-drawn fallback AND the art capsule's drawn drop-shadow (float_plus)
+		"shadow_size": int(c.get("shadow_size", 2)),       # the shadow's even SPREAD (px): 0 = a clean ONE-directional cast (offset alone shows it); >0 grows an all-around halo
 		"shadow_alpha":float(c.get("shadow_alpha", 22)),   # the drop-shadow opacity (0..100 %); the art capsule's drawn shadow + the code-drawn shadow tint
+		"shadow_dx":   float(c.get("shadow_dx", 0)),       # the drop-shadow X offset (px): cast left(−) / right(+) off the pill edge — this is what makes it DIRECTIONAL
+		"shadow_dy":   float(c.get("shadow_dy", 8)),       # the drop-shadow Y offset (px): cast up(−) / down(+) off the pill edge
+		"icon_shadow": float(c.get("icon_shadow", 35)),    # soft drop-shadow on the pill's currency icon + the "+" (0..100 % alpha; 0 = off)
 		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square LAYOUT cell (centerline / min box)
@@ -3108,6 +3030,12 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## inner_scale / sell_icon are stored 0..100 and divided here to the 0..1 fractions of the bar height.
 static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
+	# the info bar borrows the wallet's frame opts, but FORCES the 9-sliced rounded-rect badge: this bar runs
+	# wide, so the wallet's whole-scaled capsule would stretch its rounded ends into a thick, distorted border.
+	# "grove badge" (badge_rect.png, cap 46) is the SAME sprite the Bag/Home wells wear, so the bottom bar reads
+	# as one language and the border stays thin however wide the bar grows.
+	var pill: Dictionary = currency_pill_opts_from_config(cfg)
+	pill["border"] = "grove badge"
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
@@ -3115,7 +3043,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
 		"sell_font":   int(i.get("sell_font", 30)),                 # the sell button's payout font
 		"sell_icon":   float(i.get("sell_icon", 30)) / 100.0,       # the cart icon as % of the bar height
-		"pill":        currency_pill_opts_from_config(cfg),         # the SHARED capsule frame (top wallet + bottom bar)
+		"pill":        pill,                                        # the SHARED frame opts, 9-sliced badge for this wide bar
 	}
 
 ## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
@@ -3133,7 +3061,10 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 		if ResourceLoader.exists(p):
 			var sbt := StyleBoxTexture.new()
 			sbt.texture = load(p)
-			sbt.set_texture_margin_all(int(bd["cap"]))   # cap radius: the rounded ends never squash
+			var cap := int(bd["cap"])
+			if cap > 0:
+				sbt.set_texture_margin_all(cap)   # 9-slice: the rounded ends never squash, the middle stretches
+			# cap == 0 → no texture margins → the WHOLE sprite scales to the pill (the capsule's natural look)
 			sbt.modulate_color = Color(1.0, 1.0, 1.0, fill_a)   # opacity: the painted capsule reads translucent at < 100%
 			sbt.content_margin_left = pad_left
 			sbt.content_margin_right = pad_x
@@ -3147,6 +3078,7 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	sb.border_color = Color(CUR_PILL_BORDER, CUR_PILL_BORDER.a * fill_a)
 	sb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
 	sb.shadow_size = int(opts.get("shadow_size", 5))
+	sb.shadow_offset = Vector2(float(opts.get("shadow_dx", 0)), float(opts.get("shadow_dy", 0)))   # px cast offset (x, y)
 	sb.content_margin_left = pad_left
 	sb.content_margin_right = pad_x
 	sb.content_margin_top = pad_y
@@ -3192,7 +3124,8 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		cc.custom_minimum_size = Vector2(box, box)
 		cc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cc.add_child(make_icon(id, icon_px))
+		var ish := float(opts.get("icon_shadow", 0)) / 100.0   # preview the icon drop-shadow live (workbench)
+		cc.add_child(make_icon_shadow(id, icon_px, ish) if ish > 0.0 else make_icon(id, icon_px))
 		row.add_child(cc)
 		var lbl := Label.new()
 		lbl.text = str(int(counts.get(id, demo.get(id, 0))))
@@ -3227,7 +3160,10 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	pill.custom_minimum_size.y = height
-	pill.add_theme_stylebox_override("panel", currency_pill_style(opts.get("pill", {})))   # the SHARED capsule
+	# The info bar wears the PAINTED badge (badge_rect, 9-sliced) — the SAME sprite the Bag/Home wells use, so
+	# the bottom bar reads as one language. The 9-slice keeps the border at its NATIVE (thin) thickness however
+	# wide the bar grows: the rounded corners draw 1:1 and only the flat cream middle stretches.
+	pill.add_theme_stylebox_override("panel", currency_pill_style(opts.get("pill", {})))
 	var hb := HBoxContainer.new()
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER

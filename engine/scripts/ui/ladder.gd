@@ -16,14 +16,18 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching inbox.gd's guarded idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const CARD_WIDTH_PCT := 85.0       # default discovery-dialog width as a % of the screen (overridable in config)
+const OVERLAY_NAME := "LadderOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Ladder: ui kit missing at %s" % KIT_PATH)
@@ -33,6 +37,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	Audio.play("button_tap", -4.0)
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 100
 	host.add_child(overlay)

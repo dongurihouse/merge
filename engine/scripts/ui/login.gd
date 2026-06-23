@@ -16,22 +16,27 @@ const Features = preload("res://engine/scripts/core/features.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const CARD_WIDTH_PCT := 85.0       # default daily-dialog width as a % of the screen (overridable in config)
 const WEEK := 7
+const OVERLAY_NAME := "LoginOverlay"
 
 # --- the calendar popup -------------------------------------------------------------
 
 static func open(host: Control, opts: Dictionary = {}) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Daily: mail kit missing at %s" % KIT_PATH)
 		return
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 100
 	host.add_child(overlay)

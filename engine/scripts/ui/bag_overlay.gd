@@ -34,8 +34,10 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"   # the shared ui kit (frame · cell · pill)
+const OVERLAY_NAME := "BagOverlay"
 
 const INK = Pal.INK
 
@@ -70,6 +72,8 @@ static func slot_plan(owned: int, max_slots: int, bag_size: int, prices: Array, 
 
 # --- the modal ---------------------------------------------------------------------
 static func open(host: Control, cfg: Dictionary) -> Control:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return null
 	var bag: Array = cfg.get("bag", [])
 	var owned: int = int(cfg.get("owned", 0))
 	var balance: int = int(cfg.get("balance", 0))
@@ -83,6 +87,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 60
 	host.add_child(overlay)

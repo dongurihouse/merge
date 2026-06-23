@@ -17,7 +17,9 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
+const OVERLAY_NAME := "SettingsOverlay"
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox/login idiom.
@@ -33,6 +35,8 @@ const FLAGS := [
 ]
 
 static func open(host: Control) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Settings: mail kit missing at %s" % KIT_PATH)
@@ -40,6 +44,7 @@ static func open(host: Control) -> void:
 	Audio.play("button_tap", -2.0)
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 100
 	host.add_child(overlay)

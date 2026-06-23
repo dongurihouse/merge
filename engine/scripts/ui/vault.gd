@@ -23,7 +23,9 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
+const OVERLAY_NAME := "VaultOverlay"
 
 const INK := Pal.INK
 const CREAM := Pal.CREAM
@@ -41,11 +43,14 @@ const PIGGY_PRODUCT := "com.tidyup.piggybank"
 # --- the storefront jar -------------------------------------------------------------
 
 static func open(host: Control, opts: Dictionary = {}) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Vault: ui kit missing at %s" % KIT_PATH)
 		return
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 100
 	host.add_child(overlay)

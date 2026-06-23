@@ -12,6 +12,7 @@ const Shop = preload("res://engine/scripts/ui/shop.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud   # the engine's HUD dials
 # The currency pill's look (padding / border / font / icon box / gaps) is tuned in the UI Workbench and
@@ -36,7 +37,7 @@ const PILL_SLOT_H := 65.0
 # medal much smaller. We size each box from its art's fill so the two painted shapes come out equal, and
 # vertically CENTRE the (shorter) gear box within the (taller) level box so their centres line up.
 const PILL_GAP := 12.0
-const LV_BADGE_PX := 150.0   # the level-badge BOX (its medal fills ~78% → ~116px visible)
+const LV_BADGE_PX := 225.0   # the level-badge BOX (its medal fills ~78% → ~175px visible) — 50% bigger than the gear
 const GEAR_PX := 120.0       # the gear BOX (its disc fills ~97% → ~116px visible, matching the medal)
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
@@ -84,19 +85,23 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var settings_cb: Variant = opts.get("settings")
 	if settings_cb is Callable and (settings_cb as Callable).is_valid():
 		var gopts: Dictionary = Kit.home_button_opts_from_config(cfg)
-		gopts["px"] = GEAR_PX
-		gear = Kit.home_button({"icon": "gear", "caption": "", "action": settings_cb}, gopts)
+		# Settings reuses the SAME rounded-rect badge the Map button uses (gear icon over a "Settings" label),
+		# sized to match the side rail (RAIL_SCALE 0.80 × the home-button size — mirrors map.gd).
+		var gear_px := roundf(float(gopts.get("px", 140)) * 0.80)
+		gopts["px"] = gear_px
+		gopts["shape"] = "rect"
+		gear = Kit.home_button({"icon": "gear", "caption": Strings.t("settings.title"), "action": settings_cb}, gopts)
 		var gtop := Tune.EDGE_MARGIN + Look.safe_top(host)
 		gear.anchor_left = 1.0
 		gear.anchor_right = 1.0
 		gear.anchor_top = 0.0
 		gear.anchor_bottom = 0.0
-		gear.offset_left = -GEAR_PX - Tune.EDGE_MARGIN
+		gear.offset_left = -gear_px - Tune.EDGE_MARGIN
 		gear.offset_right = -Tune.EDGE_MARGIN
 		# centre the (shorter) gear box within the level badge's box span [gtop, gtop+LV_BADGE_PX] so the
-		# gear's disc and the level medal share a Y centre — both art shapes sit ~box-centred.
-		gear.offset_top = gtop + (LV_BADGE_PX - GEAR_PX) / 2.0
-		gear.offset_bottom = gear.offset_top + GEAR_PX
+		# gear badge and the level medal share a Y centre.
+		gear.offset_top = gtop + (LV_BADGE_PX - gear_px) / 2.0
+		gear.offset_bottom = gear.offset_top + gear_px
 		host.add_child(gear)
 
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
@@ -218,7 +223,8 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	row.add_theme_constant_override("separation", int(pill.row_sep))   # the tight icon↔number↔+ gap
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	var icon := _icon_box(icon_id, gsize, optical, tint, box)
+	var ishadow := float(pill.get("icon_shadow", 0)) / 100.0   # soft drop-shadow on the icon + the "+" (workbench)
+	var icon := _icon_box(Kit, icon_id, gsize, optical, tint, box, ishadow)
 	row.add_child(icon)
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", num_size)
@@ -227,7 +233,7 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
-	var plus := _plus_button(open_store, float(pill.get("plus_size", Tune.PLUS_BOX)))   # green "+", size tuned in the workbench
+	var plus := _plus_button(Kit, open_store, float(pill.get("plus_size", Tune.PLUS_BOX)), ishadow)   # green "+", size tuned in the workbench
 	# the "+" FLOATS over the pill: its size never grows the capsule, and plus_x / plus_dy place it on the
 	# right edge. The HOLDER (sized to the pill) is what the cluster lays out — the pill is its full-rect child.
 	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it (the map's Store badge
@@ -238,12 +244,13 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
 # sprite to reinforce each currency's hue (star=gold, acorn=brown, gem=teal — gem ≠ water).
-static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, box_px: float) -> Control:
+static func _icon_box(Kit: Variant, icon_id: String, gsize: int, optical: float, tint: Color, box_px: float, icon_shadow: float = 0.0) -> Control:
 	var box := CenterContainer.new()
 	box.custom_minimum_size = Vector2(box_px, box_px)
 	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ic := Look.icon(icon_id, float(gsize) * optical)
+	# a baked soft drop-shadow lifts the sprite off the cream capsule (workbench `icon_shadow`); 0 → plain icon.
+	var ic: Control = Kit.make_icon_shadow(icon_id, float(gsize) * optical, icon_shadow) if (icon_shadow > 0.0 and Kit != null) else Look.icon(icon_id, float(gsize) * optical)
 	ic.modulate = tint
 	if ic is Label:                                   # glyph fallback — re-tint via font_color too
 		(ic as Label).add_theme_color_override("font_color", tint)
@@ -254,14 +261,15 @@ static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, 
 # A small "+" that opens the store — the acquire affordance (the wallet had no path to "get more").
 # Wears the painted ui_asset2 "+" sprite (shared/icon_plus.png — a self-contained green plus token, so no
 # code-drawn disc behind it); a "+" glyph falls back when the sprite is missing. Reuses the shared press juice.
-static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Button:
+static func _plus_button(Kit: Variant, open_store: Callable, box: float = Tune.PLUS_BOX, icon_shadow: float = 0.0) -> Button:
 	var b := Button.new()
 	b.flat = true                       # the sprite IS the token — the Button draws no chrome of its own
 	b.focus_mode = Control.FOCUS_NONE
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.custom_minimum_size = Vector2(box, box)
 	b.add_theme_constant_override("h_separation", 0)
-	var mark := Look.icon("plus", box)                  # the painted green "+" (glyph "+" fallback when absent)
+	# the painted green "+" (glyph "+" fallback when absent), with the same soft drop-shadow as the pill icon.
+	var mark: Control = Kit.make_icon_shadow("plus", box, icon_shadow) if (icon_shadow > 0.0 and Kit != null) else Look.icon("plus", box)
 	if mark is Label:                                   # glyph fallback: keep the cream-on-green token look
 		(mark as Label).add_theme_color_override("font_color", Tune.PLUS_GLYPH)
 		var sb := StyleBoxFlat.new()
@@ -362,7 +370,7 @@ static func _frame_tex(level: int) -> Texture2D:
 static func _lv_font_size(level: int) -> int:
 	# scaled to the LV_BADGE_PX medal so digits stay centred in the medal's open centre as it grows.
 	if level >= 100:
-		return 38
+		return 57
 	if level >= 10:
-		return 48
-	return 61
+		return 72
+	return 92

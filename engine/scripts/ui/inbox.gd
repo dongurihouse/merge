@@ -15,8 +15,10 @@ const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
+const OVERLAY_NAME := "InboxOverlay"
 
 # The kit ships in the game build (export_filter=all_resources); load() at runtime keeps this file from
 # hard-depending on a tools script, matching the inbox's own guarded-system idiom.
@@ -26,12 +28,15 @@ const CARD_WIDTH_PCT := 85.0       # default mail-dialog width as a % of the scr
 # --- the mailbox popup --------------------------------------------------------------
 
 static func open(host: Control, host_opts: Dictionary = {}) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Inbox: mail kit missing at %s" % KIT_PATH)
 		return
 
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.z_index = 100
 	host.add_child(overlay)

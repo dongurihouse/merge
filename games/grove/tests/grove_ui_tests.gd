@@ -488,40 +488,6 @@ func _initialize() -> void:
 	ok(locked_code.find_child("Veil", true, false) != null, "map_card LOCKED w/o art falls back to the §8 fog veil")
 	locked_code.queue_free()
 
-	# 29. the unowned-spot restore disc is CONFIG-DRIVEN through the same kit: the workbench saves a
-	# "home_unlock_button" block, Kit.home_unlock_opts_from_config resolves it (scales stored 0..100,
-	# divided to 0..1 fractions of the disc), and map.gd reads it. The DEFAULTS reproduce the baked
-	# badge (disc 16% of the map; "+" 30% / icon 26% / cost font 26% of the disc).
-	var udf: Dictionary = Kit.home_unlock_opts_from_config({})
-	ok(is_equal_approx(float(udf.disc_pct), 16.0), "home_unlock default disc_pct == 16 (% of map width)")
-	ok(is_equal_approx(float(udf.plus_scale), 0.30) and is_equal_approx(float(udf.cost_font), 0.26) \
-		and is_equal_approx(float(udf.icon_scale), 0.26), "home_unlock default +/icon/cost == 30/26/26% of disc")
-	ok(is_equal_approx(float(udf.stack_gap), -0.01) and is_equal_approx(float(udf.icon_gap), 0.02), \
-		"home_unlock default gaps resolve (stack -1% · icon 2% of disc)")
-	# sparkle (glow/twinkle) defaults to 0 → the in-game disc is unchanged until a designer dials it up
-	ok(is_equal_approx(float(udf.glow), 0.0) and is_equal_approx(float(udf.twinkle), 0.0), \
-		"home_unlock default sparkle is OFF (glow/twinkle 0)")
-	# a saved block overrides ONLY the named keys (and is divided to a fraction)
-	var uov: Dictionary = Kit.home_unlock_opts_from_config({"home_unlock_button": {"disc_pct": 22, "plus_scale": 50, "glow": 40}})
-	ok(is_equal_approx(float(uov.disc_pct), 22.0) and is_equal_approx(float(uov.plus_scale), 0.50) \
-		and is_equal_approx(float(uov.glow), 0.40), "home_unlock config overrides the named keys (glow → /100)")
-	ok(is_equal_approx(float(uov.cost_font), 0.26), "home_unlock config leaves un-named keys at the default")
-	# the builder makes a real Button rendering the "+" and the cost number
-	udf["px"] = 173.0
-	var disc: Button = Kit.home_unlock_button({"cost": 4, "icon": "star"}, udf)
-	get_root().add_child(disc)
-	await create_timer(0.05).timeout
-	var dtexts := _all_label_texts(disc)
-	ok(disc is Button and "+" in dtexts and "4" in dtexts, "home_unlock disc is a Button rendering '+' and the cost")
-	# sparkle is opt-in: no overlay when glow/twinkle are 0, an overlay child when asked AND tuned > 0
-	var spk: Button = Kit.home_unlock_button({"cost": 4, "icon": "star", "sparkle": true}, \
-		{"px": 173.0, "glow": 0.5, "twinkle": 0.5})
-	get_root().add_child(spk)
-	await create_timer(0.05).timeout
-	ok(spk.get_child_count() > disc.get_child_count(), "home_unlock adds the sparkle overlay when sparkle + glow/twinkle > 0")
-	disc.queue_free()
-	spk.queue_free()
-
 	# 26. order S — placement asserts (S1 bottom bar · S4 chips never clip)
 
 	# 27. progress_bar — the reusable kit bar (track + fill, optional centered label)

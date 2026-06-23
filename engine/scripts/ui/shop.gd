@@ -25,6 +25,8 @@ const D = Game.DATA                                               # the active g
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
 const Strings = preload("res://engine/scripts/core/strings.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const OVERLAY_NAME := "ShopOverlay"
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
@@ -192,11 +194,14 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	_open(host, opts, String(opts.get("kind", "premium")))
 
 static func _open(host: Control, opts: Dictionary, kind: String) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		push_warning("Shop: kit missing at %s" % KIT_PATH)
 		return
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring

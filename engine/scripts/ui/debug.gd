@@ -19,6 +19,10 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MARGIN — the level badge's top inset
+# The level-badge BOX height — mirrors Hud.LV_BADGE_PX (NOT preloaded: hud.gd ↔ scene preloads form a cycle).
+# The debug menu sits just below the badge box; keep this in sync if the HUD badge size changes.
+const LV_BADGE_BOX := 225.0
 
 static var force := false
 
@@ -62,8 +66,9 @@ static func mount(host: Control) -> void:
 	layer.name = "DebugOverlay"
 	layer.layer = 128                      # above every game chrome layer
 	var col := VBoxContainer.new()
-	# Below the level badge (top EDGE_MARGIN + safe_top, 72 tall) so it never overlaps.
-	col.position = Vector2(12, 120 + Look.safe_top(host))
+	# Pinned just below the level badge — RELATIVE to its box (top inset + safe-top + the badge box height),
+	# so it follows the badge's size instead of a fixed 120 that the bigger badge now overlaps.
+	col.position = Vector2(12, Tune.EDGE_MARGIN + Look.safe_top(host) + LV_BADGE_BOX + 8.0)
 	col.add_theme_constant_override("separation", 4)
 	layer.add_child(col)
 
@@ -79,7 +84,7 @@ static func mount(host: Control) -> void:
 
 	_action(menu, host, "Reset progress", _act_reset)
 	_action(menu, host, "+100 premium", _act_premium)
-	_action(menu, host, "+100 stars", _act_stars)
+	_action(menu, host, "+5 stars", _act_stars)
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
 
@@ -128,7 +133,7 @@ static func _act_premium(host: Control) -> void:
 ## button enables as exp crosses each spot's threshold). Exactly like real play — earn_exp
 ## advances the one progression total. Tap again for the big later-map gate spots.
 static func _act_stars(host: Control) -> void:
-	G.earn_exp(100)
+	G.earn_exp(5)
 	_reflect(host)
 
 ## Claim every spot in the next unfinished map + push exp past its thresholds (so the next

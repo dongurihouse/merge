@@ -21,17 +21,18 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "home_unlock_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
-# element per row (each on its own line). The RIGHT column stacks every DIALOG in a single column. Each
-# column is a list of ROWS; a row CAN hold side-by-side elements (the right column may), but the left
-# column never pairs — one per row. Splitting dialogs into their own column keeps them grouped and balances
-# the gallery's height (the tall dialogs no longer each span a full-width row).
+# element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
+# DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
+# column may), but the left column never pairs — one per row. Splitting dialogs into their own column keeps
+# them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
-	# the Board preview leads the column — the live merge grid you size with the scale / item-width knobs.
-	[["board"], ["generator"], ["home_button"], ["home_unlock_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
-	[["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # dialogs, settings, vault, info, bag
+	[["generator"], ["home_button"], ["button"], ["icon"], ["badge"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
+	# knobs — then every dialog stacked below.
+	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -54,8 +55,6 @@ const DEPENDENTS := {
 const ICONS := ["none", "coin", "gem", "bluegem", "water", "leaf", "gift", "star", "daisy", "faucet", "rain", "news", "mail"]
 # Icons the HOME button can show (the home page's rail + nav set; all resolve via the kit's _icon_tex).
 const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "daisy", "leaf"]
-# Currencies the HOME-UNLOCK disc can show as its cost (the spend the spot wants; the game passes "star").
-const UNLOCK_ICONS := ["star", "coin", "gem", "daisy", "leaf", "water"]
 # Each element's params split into two buckets: anything listed here is TEST-ONLY scaffolding (sample
 # content, preview counts, tool helpers) and is NOT written to / read from the config file; everything
 # else is real design config that IS persisted. The sidebar mirrors this split under two headers.
@@ -75,9 +74,6 @@ const TEST_KEYS := {
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
 	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
-	# the HOME-UNLOCK disc is a shared-STYLE sandbox: disc size + the inner proportions persist. The
-	# previewed cost number + currency icon are test props — the map sets each spot's real cost + "star".
-	"home_unlock_button": ["cost", "icon", "sparkle"],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
@@ -118,7 +114,6 @@ const CAPTIONS := {
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
-	"home_unlock_button": "Home unlock — restore-cost disc (+ · ★ N)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"badge": "Badge — disc shell (raw vs polished)",
 	"progress_bar": "Progress bar — track + fill (reusable)",
@@ -158,16 +153,10 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 7, "rect_shadow_alpha": 32, "play_px": 188,
+		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 2, "rect_shadow_alpha": 32, "rect_shadow_dx": 0, "rect_shadow_dy": 8, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
-	# the HOME-UNLOCK disc — the restore-cost badge on an unowned home spot. disc_pct is the diameter as a
-	# % of the MAP width (the game multiplies it by the live map width; the preview uses the 1080 base, so
-	# it shows the EXACT in-game size). plus/icon/cost + the two gaps are % of the disc, so all scales with
-	# it. cost + icon are preview-only — the map passes each spot's real cost + the "star" spend currency.
-	"home_unlock_button": {"disc_pct": 16, "plus_scale": 30, "icon_scale": 26, "cost_font": 26, "stack_gap": -1, "icon_gap": 2,
-		"glow": 0, "twinkle": 0, "gray_unaffordable": true, "cost": 4, "icon": "star", "sparkle": true, "afford": true},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -246,8 +235,8 @@ var _params := {
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
-	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"shadow_alpha": 22, "fill_alpha": 100,
+	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 2,
+		"shadow_alpha": 22, "shadow_dx": 0, "shadow_dy": 8, "icon_shadow": 35, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -448,18 +437,6 @@ func _make_element(id: String) -> Control:
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
 			return mc
-		"home_unlock_button":
-			# the restore-cost disc as the map builds it, from the SAME kit transform the game reads. The
-			# preview diameter = PHONE_W × disc_pct (the in-game d on the design phone), so the workbench
-			# shows the exact size + proportions the map will. cost + icon are the preview-only content.
-			var uo := Kit.home_unlock_opts_from_config({"home_unlock_button": p})
-			uo["px"] = PHONE_W * float(p.disc_pct) / 100.0
-			# preview the GRAY (can't-afford) state via the test-only "afford" toggle + the saved gray_unaffordable.
-			var pgray := bool(p.get("gray_unaffordable", true)) and not bool(p.get("afford", true))
-			var ub: Button = Kit.home_unlock_button({"cost": int(p.cost), "icon": String(p.icon), "sparkle": bool(p.sparkle) and not pgray}, uo)
-			if pgray:
-				ub.modulate = Color(0.6, 0.6, 0.6, 1.0)
-			return ub
 		"icon":
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
@@ -1096,17 +1073,19 @@ func select(id: String) -> void:
 	_rebuild_sidebar.call_deferred()      # swap in this element's options
 
 func _section_style(selected: bool) -> StyleBox:
+	# LIGHT cell so a dark drop-shadow reads against it (a dark cell hid the shadow knobs' effect). A cool
+	# light slate also keeps the cream badges legible (cream-on-cream would wash out).
 	var sb := StyleBoxFlat.new()
 	sb.set_corner_radius_all(12)
 	sb.set_content_margin_all(14)
 	if selected:
-		sb.bg_color = Color(1, 1, 1, 0.05)
+		sb.bg_color = Color("#E3ECEF")
 		sb.set_border_width_all(2)
 		sb.border_color = Pal.STRAW
 	else:
-		sb.bg_color = Color(0, 0, 0, 0.22)
+		sb.bg_color = Color("#C7D4DB")
 		sb.set_border_width_all(1)
-		sb.border_color = Color(Pal.CREAM, 0.1)
+		sb.border_color = Color(Pal.INK, 0.18)
 	return sb
 
 ## --- sidebar (right) -----------------------------------------------------------------------------
@@ -1252,6 +1231,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
 			_sidebar_body.add_child(_slider_row(["rect_shadow", 0, 24]))         # drop-shadow size (0 = off)
 			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_dx", -20, 20]))    # shadow X offset (px): cast left(−)/right(+)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_dy", -20, 20]))    # shadow Y offset (px): cast up(−)/down(+)
 			_section_header("Play disc (bottom-right CTA)")
 			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
 			_section_header("Side-rail badge (red dot / count)")
@@ -1272,23 +1253,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
 			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
 			_sidebar_body.add_child(_text_row("Bag count", "count"))   # sample "x/y" on the nav disc (empty = none)
-		"home_unlock_button":
-			_group_header("Saved to config", true)              # disc size + the inner proportions
-			_sidebar_body.add_child(_slider_row(["disc_pct", 8, 30]))      # disc diameter as % of the MAP width
-			_sidebar_body.add_child(_slider_row(["plus_scale", 10, 60]))   # the "+" as % of the disc
-			_sidebar_body.add_child(_slider_row(["icon_scale", 10, 60]))   # the cost icon as % of the disc
-			_sidebar_body.add_child(_slider_row(["cost_font", 10, 60]))    # the cost number as % of the disc
-			_sidebar_body.add_child(_slider_row(["stack_gap", -10, 20]))   # gap "+"↔cost row, % of disc (neg tucks up)
-			_sidebar_body.add_child(_slider_row(["icon_gap", 0, 15]))      # gap icon↔number, % of disc
-			_sidebar_body.add_child(_toggle_row("Gray when unaffordable", "gray_unaffordable", true))   # dim locked spots
-			_section_header("Sparkle (engine FX — no baked art)")
-			_sidebar_body.add_child(_slider_row(["glow", 0, 100]))       # the breathing halo amount (0 = off)
-			_sidebar_body.add_child(_slider_row(["twinkle", 0, 100]))    # the drifting-star density (0 = off)
-			_group_header("Test only — not saved", false)        # the map sets each spot's real cost + "star"
-			_sidebar_body.add_child(_slider_row(["cost", 0, 999]))
-			_sidebar_body.add_child(_option_row("Icon", "icon", UNLOCK_ICONS))
-			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle (glow/twinkle must be > 0)
-			_sidebar_body.add_child(_toggle_row("Affordable", "afford", true))   # OFF → preview the grayed locked state
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
@@ -1425,6 +1389,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))   # capsule OPACITY (%)
 			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # drop-shadow size (0 = off)
 			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["shadow_dx", -20, 20]))    # shadow X offset (px): cast left(−)/right(+)
+			_sidebar_body.add_child(_slider_row(["shadow_dy", -20, 20]))    # shadow Y offset (px): cast up(−)/down(+)
+			_sidebar_body.add_child(_slider_row(["icon_shadow", 0, 80]))    # soft drop-shadow on the currency ICON + the "+" (0 = off)
 			if not bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
 				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width (code-drawn pill)

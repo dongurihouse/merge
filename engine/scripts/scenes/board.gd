@@ -1269,18 +1269,18 @@ func _make_piece(code: int, size: float) -> Control:
 	# grows the visible item per the saved board.item width. The single chokepoint for every board piece.
 	return PieceView.make_piece(code, size, _board_item_inset)
 
-# The board surface — a single solid panel (`ui/board/board_frame.png`, sliced from board1_asset3.png):
-# a cream parchment field ringed by a soft wood/rope border with a dashed stitch line. Drawn as ONE
-# nine-patch BEHIND the cells (its own border + cream center in one art piece), so the cells sit on the
-# parchment and the rope frames them. Replaces the old bamboo ring + separate flat-cream field. The
-# PANEL_MARGIN corner holds the rounded corner + border rigid; only the plain parchment middle stretches.
+# The board surface — the SHARED rounded-rect badge (`ui/shared/badge_rect.png`), the SAME sprite the
+# Bag/Home wells + the Map button wear. Drawn as ONE nine-patch BEHIND the cells (its thin gold border +
+# cream center in one art piece), so the cells sit on the cream field and the badge frames them. The board
+# runs wide, so it is 9-SLICED (PANEL_MARGIN corner held rigid, only the flat cream middle stretches) —
+# the border stays thin instead of squashing. A sibling shadow panel lifts the whole board off the scene.
 var FRAME_OUT := 60.0        # how far the board panel extends OUTSIDE the cell grid. Workbench-overridable (board.frame).
-const PANEL_MARGIN := 70     # nine-patch corner size — covers the panel's rounded corner + rope border
+const PANEL_MARGIN := 46     # nine-patch corner size — badge_rect's rounded corner + thin border (matches the kit's "grove badge" cap)
 
 # The board panel — the BOTTOM layer of the board, drawn behind the cells. Falls back to the
 # code-drawn planter (which carries its own frame) when the kit art is absent.
 func _make_board_mat() -> Control:
-	var fp := Look.kit("board/board_frame.png")
+	var fp := Look.kit("shared/badge_rect.png")   # the same rounded-rect badge the bottom-bar buttons use
 	if not ResourceLoader.exists(fp):
 		return PieceView.make_board_mat(_board_w(), _board_h())
 	var panel := NinePatchRect.new()
@@ -1292,6 +1292,20 @@ func _make_board_mat() -> Control:
 	panel.patch_margin_right = PANEL_MARGIN
 	panel.patch_margin_bottom = PANEL_MARGIN
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# a soft drop shadow under the whole board — a sibling panel drawn BEHIND the badge (NinePatchRect has
+	# no native shadow), its StyleBoxFlat painting only the shadow (draw_center off) so it bleeds past the edge.
+	var sh := Panel.new()
+	sh.show_behind_parent = true
+	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ssb := StyleBoxFlat.new()
+	ssb.draw_center = false
+	ssb.set_corner_radius_all(PANEL_MARGIN)
+	ssb.shadow_size = 18
+	ssb.shadow_offset = Vector2(0.0, 9.0)
+	ssb.shadow_color = Color(0.0, 0.0, 0.0, 0.30)
+	sh.add_theme_stylebox_override("panel", ssb)
+	panel.add_child(sh)
 	return panel
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites
@@ -1364,6 +1378,7 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 		return _tray_well(px, fallback_art)
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = px
+	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
 	opts["calm"] = FX.calm()
 	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
 	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).

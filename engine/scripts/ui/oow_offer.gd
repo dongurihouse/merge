@@ -10,13 +10,18 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
+const OVERLAY_NAME := "OowOfferOverlay"
 
 static func open(host: Control, opts: Dictionary) -> void:
+	if Overlay.is_open(host, OVERLAY_NAME):
+		return
 	var amount: String = opts.amount
 	var sub: String = opts.sub
 	var on_accept: Callable = opts.on_accept
 	var overlay := Control.new()
+	overlay.name = OVERLAY_NAME
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
 	var veil := ColorRect.new()
