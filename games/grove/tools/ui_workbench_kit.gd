@@ -2424,7 +2424,9 @@ static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"num_size":    float(g.get("num_size", 32.0)),   # the level number font, % of px
 		"num_x":       float(g.get("num_x", 0.0)),       # number offset, % of px (side / margin)
 		"num_y":       float(g.get("num_y", -16.0)),
+		"num_burn":    float(g.get("num_burn", 0.0)),    # engraved 'burn' on the number (0..100)
 		"circle_base": bool(g.get("circle_base", true)), # draw the coin behind every tier (toggleable)
+		"circle_design": String(g.get("circle_design", "auto")), # 'auto' tracks the tier; "1".."6" pins a design
 	}
 	for p in LEVEL_PARTS:
 		var dft: Dictionary = _LEVEL_BADGE_DEFAULTS[p]
@@ -2436,25 +2438,28 @@ static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## Build the layered level badge: the tier's parts (bottom-anchored, each at its tuned
 ## offset/scale) under the centered level NUMBER. `px` is the square size; `num_font` overrides
 ## the number font (auto from num_size when < 0). The number Label is named "lv_num" and each part
-## TextureRect "lv_<part>" so a live caller (HUD level-up) can find and refresh them. `extra_part`
-## (workbench only) force-draws a part the tier's group omits, so it can be positioned/previewed.
-static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_font: int = -1, extra_part: String = "") -> Control:
+## TextureRect "lv_<part>" so a live caller (HUD level-up) can find and refresh them. `show_all`
+## (workbench only) draws every part regardless of the tier, so they can all be positioned at once.
+static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_font: int = -1, show_all: bool = false) -> Control:
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(px, px)
 	root.size = Vector2(px, px)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var info := level_badge_tier_parts(tier)
 	var stage := int(info["stage"])
-	var draw_parts: Array = (info["parts"] as Array).duplicate()
-	if bool(opts.get("circle_base", true)) and not draw_parts.has("circle"):
+	var draw_parts: Array = LEVEL_PARTS.duplicate() if show_all else (info["parts"] as Array).duplicate()
+	if not show_all and bool(opts.get("circle_base", true)) and not draw_parts.has("circle"):
 		draw_parts.append("circle")     # always-on coin behind every tier (drawn first via z-order)
-	if extra_part != "" and not draw_parts.has(extra_part):
-		draw_parts.append(extra_part)
+	# the coin's design: 'auto' tracks the tier stage; "1".."6" pins a fixed design from the asset.
+	var circle_design := String(opts.get("circle_design", "auto"))
 	var base_box := px * float(opts.get("size", 100.0)) / 100.0
 	for part in LEVEL_PARTS:                            # canonical z-order; draw only the active parts
 		if not draw_parts.has(part):
 			continue
-		var tex := Look._safe_tex(Game.art("ui/lvl_parts/%s_%d.png" % [part, stage]))
+		var pstage := stage
+		if part == "circle" and circle_design != "auto":
+			pstage = clampi(int(circle_design), 1, 6)
+		var tex := Look._safe_tex(Game.art("ui/lvl_parts/%s_%d.png" % [part, pstage]))
 		if tex == null:
 			continue
 		var box := base_box * float(opts.get(part + "_scale", 100.0)) / 100.0
@@ -2491,8 +2496,19 @@ static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_
 	num.offset_top = px * float(opts.get("num_y", 0.0)) / 100.0
 	num.offset_bottom = num.offset_top
 	num.add_theme_font_size_override("font_size", _level_badge_font(level, px, opts, num_font))
-	num.add_theme_color_override("font_color", Pal.INK)
-	num.add_theme_constant_override("outline_size", 0)
+	var burn := clampf(float(opts.get("num_burn", 0.0)) / 100.0, 0.0, 1.0)
+	if burn > 0.0:
+		# "burned into the coin": dark engraved ink + a light lower emboss + a soft dark halo (matches the
+		# banner-text burn). Intensity (0..1) deepens the ink and grows the emboss/outline.
+		num.add_theme_color_override("font_color", Color("#4A2E14").darkened(0.35 * burn))
+		num.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.25 + 0.45 * burn))
+		num.add_theme_constant_override("shadow_offset_x", int(round(1.0 + 2.0 * burn)))
+		num.add_theme_constant_override("shadow_offset_y", int(round(2.0 + 3.0 * burn)))
+		num.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.12 + 0.33 * burn))
+		num.add_theme_constant_override("outline_size", int(round(2.0 + 4.0 * burn)))
+	else:
+		num.add_theme_color_override("font_color", Pal.INK)
+		num.add_theme_constant_override("outline_size", 0)
 	num.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(num)
 	return root
