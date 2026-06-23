@@ -57,8 +57,9 @@
 		"title": 25.0
 	},
 	"currency_pill": {
-		"border": "bag thin",
+		"border": "grove badge",
 		"border_w": 3.0,
+		"fill_alpha": 100.0,
 		"icon_box": 38.0,
 		"icon_size": 32.0,
 		"num_size": 32.0,
@@ -71,6 +72,7 @@
 		"plus_x": 6.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
+		"shadow_alpha": 22.0,
 		"shadow_size": 5.0,
 		"use_art": true,
 		"water": 128.0

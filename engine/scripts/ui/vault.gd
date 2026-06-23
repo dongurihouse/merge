@@ -17,6 +17,7 @@ extends RefCounted
 ## Layering: ui/ may import core/ + ui/, never scenes/ (merge_spec §15); the kit is loaded by PATH at
 ## runtime (like inbox.gd) so this file keeps no hard dependency on a tools script.
 
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -83,9 +84,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 			_confirm_crack(host, overlay, opts),
 	}
 	var vopts: Dictionary = Kit.vault_opts_from_config(cfg)
-	vopts["banner_text"] = host.tr("Vault")
-	vopts["pitch"] = host.tr("Premium you've earned, saved up — claim it all for %s.") % Vault.price_usd()
-	vopts["hint_text"] = host.tr("Keep playing — it fills at")
+	vopts["banner_text"] = Strings.t("vault.banner")
+	vopts["pitch"] = Strings.t("vault.pitch") % Vault.price_usd()
+	vopts["hint_text"] = Strings.t("vault.hint")
 	vopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 	var dialog: Control = Kit.vault_dialog(state, width, vopts)
@@ -113,7 +114,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	col.add_theme_constant_override("separation", 14)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	card.add_child(col)
-	var ribbon := Look.title_ribbon(host.tr("Crack the piggy bank"), 26)
+	var ribbon := Look.title_ribbon(Strings.t("vault.crack.ribbon"), 26)
 	ribbon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(ribbon)
 	var what := HBoxContainer.new()
@@ -122,7 +123,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	col.add_child(what)
 	what.add_child(Look.icon("gem", 40))
 	var amount := Label.new()
-	amount.text = host.tr("%d for %s") % [Vault.balance(), Vault.price_usd()]
+	amount.text = Strings.t("vault.crack.amount") % [Vault.balance(), Vault.price_usd()]
 	amount.add_theme_font_size_override("font_size", 28)
 	amount.add_theme_color_override("font_color", INK)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -132,7 +133,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	var Store: Variant = load(STORE_PATH) if ResourceLoader.exists(STORE_PATH) else null
 	var charged: bool = Store != null and Store.available()
 	var note := Label.new()
-	note.text = (host.tr("You'll be charged %s.") % Vault.price_usd()) if charged else host.tr("(test build — nothing is charged)")
+	note.text = (Strings.t("vault.crack.charged_note") % Vault.price_usd()) if charged else Strings.t("vault.crack.test_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", 15)
 	note.add_theme_color_override("font_color", BARK)
@@ -141,8 +142,8 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", 12)
 	col.add_child(btns)
-	btns.add_child(Look.button(host.tr("Cancel"), func() -> void: overlay.queue_free(), false))
-	btns.add_child(Look.button(host.tr("Confirm"), func() -> void:
+	btns.add_child(Look.button(Strings.t("vault.crack.cancel"), func() -> void: overlay.queue_free(), false))
+	btns.add_child(Look.button(Strings.t("vault.crack.confirm"), func() -> void:
 		var at := card.get_global_rect().get_center()
 		# grant the banked 💎 + reset the jar, celebrate, close the vault, refresh — IDENTICAL whether the
 		# purchase was real or the test path; only the "did money move?" gate differs.

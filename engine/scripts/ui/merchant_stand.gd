@@ -15,6 +15,7 @@ extends RefCounted
 ##         merchant_chip = m.stand ; basket_chip = m.basket_chip ; ... ; _rebuild_basket()
 ## Returns {stand, basket_chip}.
 
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
@@ -48,7 +49,7 @@ static func build(cfg: Dictionary) -> Dictionary:
 	prow.add_theme_constant_override("separation", 4)
 	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
-	lbl.text = TranslationServer.translate("top ▶ +%d") % (top_rw.y if top_rw.y > 0 else top_rw.x)
+	lbl.text = Strings.t("merchant.top") % (top_rw.y if top_rw.y > 0 else top_rw.x)
 	lbl.add_theme_font_size_override("font_size", 24)
 	lbl.add_theme_color_override("font_color", Color("#6E4B2F"))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE

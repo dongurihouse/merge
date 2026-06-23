@@ -11,6 +11,7 @@ extends RefCounted
 ## Layering: ui/ may import core/ + ui/, never scenes/ — see docs/design/merge_spec.md §15. The kit is
 ## loaded by PATH at runtime (like inbox.gd) so this file keeps no hard dependency on a tools script.
 
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -65,7 +66,7 @@ static func open(host: Control) -> void:
 	var opts: Dictionary = Kit.settings_opts_from_config(cfg)
 	opts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
-	opts["banner_text"] = host.tr("Settings")
+	opts["banner_text"] = Strings.t("settings.title")
 	var dialog: Control = Kit.settings_dialog(_entries(host), width, opts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)

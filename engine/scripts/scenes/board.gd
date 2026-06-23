@@ -37,6 +37,7 @@ const Vault = preload("res://engine/scripts/core/vault.gd")                  # T
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
 const Game = preload("res://engine/scripts/core/game.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
@@ -290,7 +291,7 @@ func _ready() -> void:
 	if _winback:
 		_winback = false
 		FX.floating_text(self, Vector2(get_global_rect().get_center().x - 260, 200),
-			tr("It rained while you were away ☔"), CREAM, 38)
+			Strings.t("board.winback.rained"), CREAM, 38)
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
@@ -596,14 +597,14 @@ func _build_water_hud() -> void:
 	_refill_stack.offset_top = 16.0 + safe_top + 130.0 + 16.0
 	_refill_stack.visible = false
 	add_child(_refill_stack)
-	refill_btn = Look.button(tr("Rain ☔ free refill"), _on_refill, true)
+	refill_btn = Look.button(Strings.t("board.refill.free"), _on_refill, true)
 	refill_btn.custom_minimum_size = Vector2(330, 76)
 	_refill_stack.add_child(refill_btn)
-	ad_refill_btn = Look.button(tr("Watch a cloud ☁ → fill"), _on_ad_refill, false)
+	ad_refill_btn = Look.button(Strings.t("board.refill.watch_ad"), _on_ad_refill, false)
 	ad_refill_btn.custom_minimum_size = Vector2(330, 68)
 	ad_refill_btn.visible = false
 	_refill_stack.add_child(ad_refill_btn)
-	oow_offer_btn = Look.button(tr("A little help ✿"), _on_oow_offer, false)
+	oow_offer_btn = Look.button(Strings.t("board.refill.oow_label"), _on_oow_offer, false)
 	oow_offer_btn.custom_minimum_size = Vector2(330, 68)
 	oow_offer_btn.visible = false
 	_refill_stack.add_child(oow_offer_btn)
@@ -644,14 +645,14 @@ func _update_water_hud() -> void:
 	var free_left := refills_used < G.FREE_REFILLS
 	refill_btn.visible = empty and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
 	if refill_btn.visible:
-		refill_btn.text = tr("Rain ☔ free refill") if free_left else tr("Rain ☔ %d🌰") % G.REFILL_DIAMOND_COST
+		refill_btn.text = Strings.t("board.refill.free") if free_left else Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
 	# the rewarded WATCH-AD refill — a free, capped + cooldowned alternative (§10 ads).
 	ad_refill_btn.visible = empty and Ads.can_show("refill_water")
 	# the cozy OUT-OF-WATER offer — a gently-discounted top-up on a low cap + long cooldown,
 	# NO countdown, NO fail copy (§10 locked guardrails). Shows only inside its cap/cooldown.
 	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
 	if oow_offer_btn.visible:
-		oow_offer_btn.text = tr("A little help ✿ +%d💧 +%d🌰 · %s") % \
+		oow_offer_btn.text = Strings.t("board.refill.oow_detail") % \
 			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), String(Data.OOW_OFFER.usd)]
 	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
 	if _refill_stack.visible:
@@ -715,8 +716,8 @@ func _on_oow_offer() -> void:
 		FX.wobble(oow_offer_btn)
 		_update_water_hud()
 		return
-	var line := tr("+%d water, +%d acorns") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
-	_open_oow_confirm(line, tr("for %s — a little help on a dry day") % String(Data.OOW_OFFER.usd))
+	var line := Strings.t("board.oow.amount") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
+	_open_oow_confirm(line, Strings.t("board.oow.sub") % String(Data.OOW_OFFER.usd))
 
 # Grant the out-of-water offer (pure side effects): the water top-up, the 💎, and record
 # the show. Factored so it is the single grant seam (a real receipt check guards the call).
@@ -870,7 +871,7 @@ func _make_purge_card(stand_w: float) -> Control:
 		_persist()
 		HomeScene.decorate_map = _decorate_target()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
-	var btn := Look.button(tr("Purge"), purge_go, true)
+	var btn := Look.button(Strings.t("board.purge.cta"), purge_go, true)
 	btn.add_theme_font_size_override("font_size", int(cardH * 0.15))
 	btn.custom_minimum_size = Vector2(cardW * 0.6, 0.0)
 	stand.add_child(btn)
@@ -974,7 +975,7 @@ func _buy_treat() -> void:
 	if not spirits.is_empty():
 		var who: Control = spirits[rng.randi_range(0, spirits.size() - 1)]
 		Ambient.hop(who)
-		FX.celebrate_at(self, who.get_global_rect().get_center(), tr("✿"), STRAW)
+		FX.celebrate_at(self, who.get_global_rect().get_center(), Strings.t("board.treat.flower"), STRAW)
 	Audio.play("merge_success", -4.0, 1.3)
 	_persist()
 	_update_hud()
@@ -1047,7 +1048,7 @@ func _note_item_landed(code: int) -> void:
 		return
 	g["seen_sell_hint"] = true
 	FX.floating_text(self, Vector2(get_global_rect().get_center().x - 250, 220),
-		tr("the merchant buys spares — drag it to his stall"), CREAM, 28)
+		Strings.t("board.hints.sell_spares"), CREAM, 28)
 
 # The one notion of "deliverable" — the single asked item is on the board RIGHT NOW.
 # A pure boolean, asserted by tests, that both the ✓ and the bob read so they can never diverge.
@@ -1436,8 +1437,8 @@ func _select_item(cell: Vector2i) -> void:
 	for c in _info_icon.get_children():
 		c.queue_free()
 	_info_icon.add_child(_make_piece(code, _info_inner_px * 0.8))   # ~0.8 of the box (≈50px at the default inner) — scales with the bar knob
-	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else tr("Item")
-	_info_label.text = "%s · %s %d" % [nm, tr("Tier"), tier]
+	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else Strings.t("board.info.item_fallback")
+	_info_label.text = "%s · %s %d" % [nm, Strings.t("board.info.tier"), tier]
 	_info_btn.disabled = false
 	if board.is_gen(cell) or G.is_coin(code):
 		_info_trash.visible = false           # generators + raw coins aren't "deletable for coins"
@@ -1459,7 +1460,7 @@ func _clear_selection() -> void:
 		for c in _info_icon.get_children():
 			c.queue_free()
 	if _info_label != null and is_instance_valid(_info_label):
-		_info_label.text = tr("Tap an item to inspect it")
+		_info_label.text = Strings.t("board.info.empty_prompt")
 	if _info_btn != null and is_instance_valid(_info_btn):
 		_info_btn.disabled = true
 	if _info_trash != null and is_instance_valid(_info_trash):
@@ -1519,7 +1520,7 @@ func _make_merchant_button(px: float) -> Button:
 	b.add_child(merchant_pay)
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
-		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), tr("drag a spare here to sell"), CREAM, 26))
+		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), Strings.t("board.hints.drag_to_sell"), CREAM, 26))
 	return b
 
 # Open the full bag overlay (the bottom-nav Bag well's tap). Tapping an item there returns it to
@@ -1751,7 +1752,7 @@ func _release_gen(pos: Vector2) -> void:
 		if board.store_gen(from):
 			_persist()
 			_rebuild_all()
-			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), tr("Stored!"), STRAW)
+			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.stored"), STRAW)
 		elif node != null:
 			_snap_back(from, node)
 		return
@@ -1879,7 +1880,7 @@ func _produce_due_generators() -> bool:
 	_rebuild_all()                                # renders the new tool(s); _grown_cells drives the pop-in + breathe
 	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
 		var ctr := board_area.get_global_transform().origin + _cell_pos(gc) + Vector2(csz, csz) / 2.0
-		FX.celebrate_at(self, ctr, tr("A new tool arrived!"), STRAW)
+		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
 	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
 	return true
 
@@ -1982,7 +1983,7 @@ func _open_bramble(cell: Vector2i) -> void:
 	var t2 := n.create_tween()
 	t2.tween_property(n, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	FX.burst(board_area, _cell_pos(cell) + Vector2(csz, csz) / 2.0, Color("#7FA65A"), 16)
-	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), tr("Cleared!"), CREAM, 34)
+	FX.floating_text(self, board_area.get_global_transform() * (_cell_pos(cell)) - Vector2(10, 40), Strings.t("board.feedback.cleared"), CREAM, 34)
 	Audio.play("tidy_poof", -2.0)
 
 func _drop_coin_near(near: Vector2i) -> void:
@@ -2090,7 +2091,7 @@ func _buy_bag_slot() -> void:
 	if price > 0 and Save.buy_bag_slot(price):
 		Audio.play("level_complete", -4.0, 1.2)
 		if bag_btn != null and is_instance_valid(bag_btn):
-			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), tr("Bag +1!"), STRAW)
+			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.bag_plus_one"), STRAW)
 		_build_bag_bar()              # one more owned slot → refresh the bag well
 		_update_hud()
 	else:
@@ -2282,7 +2283,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	if sp_coins > 0:
 		_maybe_offer_2x(sp_coins, chip.get_global_rect().get_center())
 	if _gate_ready() and home_btn != null and is_instance_valid(home_btn):
-		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), tr("Ready to restore!"), STRAW, 40)
+		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), Strings.t("board.feedback.ready_to_restore"), STRAW, 40)
 
 # The cozy, optional 2× DOUBLER card — re-homed from the removed hub yield-collect to the quest
 # COIN reward (the surviving lump coin faucet, §7/§10). Shown after a quest pays `got` coins when
@@ -2313,7 +2314,7 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	pitch.add_theme_constant_override("separation", 6)
 	col.add_child(pitch)
 	var pl := Label.new()
-	pl.text = tr("Watch a cloud to double it!")
+	pl.text = Strings.t("board.double.pitch")
 	pl.add_theme_font_size_override("font_size", 24)
 	pl.add_theme_color_override("font_color", Pal.INK)
 	pl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2351,8 +2352,8 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", 12)
 	col.add_child(btns)
-	btns.add_child(Look.button(tr("No thanks"), _dismiss_2x_offer, false))
-	btns.add_child(Look.button(tr("Double ✿"), func() -> void: _accept_2x_offer(got), true))
+	btns.add_child(Look.button(Strings.t("board.double.decline"), _dismiss_2x_offer, false))
+	btns.add_child(Look.button(Strings.t("board.double.accept"), func() -> void: _accept_2x_offer(got), true))
 	add_child(card)
 	_2x_offer = card
 	FX.pop_in(card)

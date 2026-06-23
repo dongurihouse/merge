@@ -1,0 +1,215 @@
+{
+	"bag": {
+		"banner_text": "Bag",
+		"caption": "Open a slot with acorns.",
+		"generators": "Generators"
+	},
+	"board": {
+		"double": {
+			"accept": "Double ✿",
+			"decline": "No thanks",
+			"pitch": "Watch a cloud to double it!"
+		},
+		"feedback": {
+			"bag_plus_one": "Bag +1!",
+			"cleared": "Cleared!",
+			"ready_to_restore": "Ready to restore!",
+			"stored": "Stored!",
+			"tool_arrived": "A new tool arrived!"
+		},
+		"hints": {
+			"drag_to_sell": "drag a spare here to sell",
+			"sell_spares": "the merchant buys spares — drag it to his stall"
+		},
+		"info": {
+			"empty_prompt": "Tap an item to inspect it",
+			"item_fallback": "Item",
+			"tier": "Tier"
+		},
+		"oow": {
+			"amount": "+%d water, +%d acorns",
+			"sub": "for %s — a little help on a dry day"
+		},
+		"purge": {
+			"cta": "Purge"
+		},
+		"refill": {
+			"free": "Rain ☔ free refill",
+			"oow_detail": "A little help ✿ +%d💧 +%d🌰 · %s",
+			"oow_label": "A little help ✿",
+			"paid": "Rain ☔ %d🌰",
+			"watch_ad": "Watch a cloud ☁ → fill"
+		},
+		"treat": {
+			"flower": "✿"
+		},
+		"winback": {
+			"rained": "It rained while you were away ☔"
+		}
+	},
+	"inbox": {
+		"banner_text": "Mail",
+		"claimed_text": "Claimed",
+		"empty_text": "No mail right now — check back soon."
+	},
+	"ladder": {
+		"title": "Tiers"
+	},
+	"level": {
+		"banner": "Level %d"
+	},
+	"login": {
+		"banner": "Daily",
+		"claim": "Claim",
+		"day_label": "Day %d"
+	},
+	"map": {
+		"card": {
+			"prereq": "✿ after %s"
+		},
+		"nav": {
+			"map": "Map",
+			"play": "Play"
+		},
+		"pill": {
+			"restored": "restored ✿ 🎁",
+			"to_restore_this_place": "%d to restore this place"
+		},
+		"plank": {
+			"restored": "✿ restored 🎁"
+		},
+		"rail": {
+			"daily": "Daily",
+			"inbox": "Inbox",
+			"settings": "Settings",
+			"vault": "Vault"
+		},
+		"restore_row": {
+			"left": "✿ %d to restore"
+		},
+		"reward": {
+			"place_restored": "Place restored ✿ 🎁"
+		},
+		"select": {
+			"locked_prereq": "Restore %s first ✿"
+		},
+		"spot": {
+			"map_restored": "%s restored!",
+			"needs_exp": "Needs %d exp",
+			"new_asks_in_garden": "New asks in the garden ❀"
+		},
+		"unlock": {
+			"cta": "Unlock — %d exp",
+			"ready": "Unlock ✦"
+		},
+		"welcome": {
+			"new_friend": "A new friend wanders in ✿",
+			"not_enough": "Not enough — keep tending ✿",
+			"title": "Welcome a spirit ✿",
+			"two_became_one": "Two friends became one ✿"
+		}
+	},
+	"merchant": {
+		"top": "top ▶ +%d"
+	},
+	"mystery": {
+		"banner_plural": "Mystery Gifts",
+		"banner_single": "Mystery Gift",
+		"spinning": "Spinning…"
+	},
+	"oow": {
+		"disclosure": "(test build — nothing is charged)",
+		"maybe_later": "Maybe later",
+		"title": "A little help",
+		"yes_please": "Yes please"
+	},
+	"settings": {
+		"title": "Settings"
+	},
+	"shop": {
+		"buy": {
+			"need_more": "Need %d more"
+		},
+		"cash": {
+			"confirm_line": "%d for %s",
+			"confirm_title": "Acorn pouch",
+			"first_buy_bonus": "first-buy bonus doubled!"
+		},
+		"coin": {
+			"featured_caption": "Featured",
+			"info_note": "Added to your pouch instantly.",
+			"info_row_label": "Coins",
+			"info_row_note": "for restoring spots and buying from the shelf",
+			"info_title": "Coin pouch",
+			"pouch_label": "Coin pouch",
+			"quick_help_caption": "Quick help"
+		},
+		"confirm": {
+			"cancel": "Cancel",
+			"confirm": "Confirm",
+			"test_build_note": "(test build — nothing is charged)"
+		},
+		"flow": {
+			"into_bag": "Into your bag"
+		},
+		"free": {
+			"back_tomorrow": "Back tomorrow",
+			"cta": "Free",
+			"info_note": "A little top-up whenever you fancy one, never required.",
+			"info_row_label": "Acorns",
+			"info_row_note": "watch a short clip — free, a few times a day",
+			"info_title": "Free acorns",
+			"ready_in": "Ready in %dm"
+		},
+		"info": {
+			"got_it": "Got it"
+		},
+		"offer": {
+			"info_note": "Skips you straight to this piece — no grinding up to it.",
+			"info_row_note": "drops into your bag, ready to place on the board",
+			"tier": "tier %d"
+		},
+		"premium": {
+			"acorn_pouches_caption": "Acorn pouches",
+			"featured_caption": "Featured",
+			"free_acorns_caption": "Free acorns",
+			"ribbon_best_value": "Best value",
+			"ribbon_first_buy": "First buy x2",
+			"ribbon_popular": "Popular",
+			"welcome_gift_caption": "Welcome gift",
+			"welcome_ribbon": "Welcome"
+		},
+		"starter": {
+			"acorns_label": "Acorns",
+			"acorns_note": "premium currency for shortcuts",
+			"confirm_line": "%d for %s",
+			"confirm_sub": "+%d water — a warm welcome",
+			"confirm_title": "Welcome gift",
+			"info_note": "Claimable just once — a warm start to the grove.",
+			"info_title": "Welcome",
+			"water_label": "Water",
+			"water_note": "tops up your watering can"
+		},
+		"water": {
+			"caption": "Water",
+			"fill_label": "Fill water",
+			"info_note": "Keep tending the garden without waiting for it to top up on its own.",
+			"info_row_label": "Water",
+			"info_row_note": "refills your watering can to full right away",
+			"info_title": "Fill your water"
+		}
+	},
+	"vault": {
+		"banner": "Vault",
+		"crack": {
+			"amount": "%d for %s",
+			"cancel": "Cancel",
+			"charged_note": "You'll be charged %s.",
+			"confirm": "Confirm",
+			"ribbon": "Crack the piggy bank",
+			"test_note": "(test build — nothing is charged)"
+		},
+		"hint": "Keep playing — it fills at",
+		"pitch": "Premium you've earned, saved up — claim it all for %s."
+	}
+}

@@ -11,6 +11,7 @@ extends RefCounted
 ## and the cell look IS the shared slot cell (the "Slot cell" item), read here, never duplicated. There are
 ## NO vines — just the cards, in a plain grid. Only the open-gate + the entry→cell mapping live here.
 
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -60,7 +61,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
 	# The dialog header is always just "Tiers" — the internal line name (e.g. "clover") is implementation
 	# detail, not player-facing copy. The tapped line is already obvious from the pieces on the ladder.
-	dopts["banner_text"] = host.tr("Tiers")
+	dopts["banner_text"] = Strings.t("ladder.title")
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		return PieceView.make_piece(int(d.get("code", 0)), px)
 	dopts["on_close"] = func() -> void:

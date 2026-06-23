@@ -9,6 +9,7 @@ extends RefCounted
 const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Pal = Game.PALETTE
 
 static func open(host: Control, opts: Dictionary) -> void:
@@ -35,7 +36,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	card.add_child(col)
-	var title := Look.title_ribbon(TranslationServer.translate("A little help"), 32)
+	var title := Look.title_ribbon(Strings.t("oow.title"), 32)
 	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	col.add_child(title)
 	var amount_l := Label.new()
@@ -51,7 +52,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	subl.add_theme_color_override("font_color", Pal.BARK)
 	col.add_child(subl)
 	var note := Label.new()
-	note.text = TranslationServer.translate("(test build — nothing is charged)")
+	note.text = Strings.t("oow.disclosure")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", 22)
 	note.add_theme_color_override("font_color", Pal.BARK)
@@ -60,8 +61,8 @@ static func open(host: Control, opts: Dictionary) -> void:
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", 16)
 	col.add_child(btns)
-	btns.add_child(Look.button(TranslationServer.translate("Maybe later"), func() -> void: overlay.queue_free(), false))
-	btns.add_child(Look.button(TranslationServer.translate("Yes please"), func() -> void:
+	btns.add_child(Look.button(Strings.t("oow.maybe_later"), func() -> void: overlay.queue_free(), false))
+	btns.add_child(Look.button(Strings.t("oow.yes_please"), func() -> void:
 		overlay.queue_free()
 		on_accept.call(), true))
 	FX.pop_in(card)

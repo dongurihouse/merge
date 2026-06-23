@@ -158,6 +158,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
+		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 7, "rect_shadow_alpha": 32, "rect_cap": 46, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
@@ -246,6 +247,7 @@ var _params := {
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
+		"shadow_alpha": 22, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -431,6 +433,11 @@ func _make_element(id: String) -> Control:
 			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
 			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
 			row.add_child(rail_btn)
+			# the RECT badge as the rail tiles + Map button build it (shape:"rect"): icon over label INSIDE a
+			# rounded-rect, so the rect-only knobs (fill_alpha / rect_pad / rect_shadow) tune live in the preview.
+			var ro := ho.duplicate()
+			ro["shape"] = "rect"
+			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption)}, ro))
 			var mc := MarginContainer.new()
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
@@ -1234,6 +1241,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["caption_gap", -10, 40]))   # tab offset below the disc (negative tucks up)
 			_sidebar_body.add_child(_slider_row(["caption_pad_x", 0, 40]))   # caption tab horizontal padding
 			_sidebar_body.add_child(_slider_row(["caption_pad_y", 0, 20]))   # caption tab vertical padding
+			_section_header("Rect badge (rail + Map — shape:\"rect\")")
+			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
+			_sidebar_body.add_child(_slider_row(["rect_shadow", 0, 24]))         # drop-shadow size (0 = off)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
 			_section_header("Side-rail badge (red dot / count)")
 			_sidebar_body.add_child(_slider_row(["badge_dx", -30, 20]))   # badge x past the disc corner (neg tucks in)
 			_sidebar_body.add_child(_slider_row(["badge_dy", -30, 20]))   # badge y past the disc corner (neg tucks in)
@@ -1400,10 +1412,14 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding (right side + default left)
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))       # LEFT padding — tighten the icon side on its own
 			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
+			# OPACITY + DROP SHADOW — honoured on BOTH paths: opacity modulates the painted capsule / scales the
+			# code-drawn fill; the shadow draws behind the capsule (float_plus) and as the StyleBoxFlat shadow.
+			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))   # capsule OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # drop-shadow size (0 = off)
+			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
 			if not bool(_params["currency_pill"]["use_art"]):
-				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius
-				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width
-				_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))   # drop shadow (0 = off)
+				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
+				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width (code-drawn pill)
 			_sidebar_body.add_child(_slider_row(["num_size", 16, 56]))      # the currency number font
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square layout cell (centerline / min box)
 			_sidebar_body.add_child(_slider_row(["icon_size", 16, 80]))     # the icon SPRITE px within the box (× per-currency optical)

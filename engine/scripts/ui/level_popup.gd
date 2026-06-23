@@ -9,6 +9,7 @@ extends RefCounted
 ## Self-contained (like the old popup): builds into `host`. Renders via the shared kit (Kit.level_dialog),
 ## so the workbench tunes its look and the game reads the same config.
 
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -61,7 +62,7 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 
 	var cfg := Kit.load_config(Kit.CONFIG_PATH)
 	var opts := Kit.level_opts_from_config(cfg)
-	opts["banner_text"] = TranslationServer.translate("Level %d") % lvl
+	opts["banner_text"] = Strings.t("level.banner") % lvl
 	# responsive: a % of the LIVE screen width (mirrors inbox.gd), so the dialog fits every phone size
 	var vw: float = host.get_viewport_rect().size.x
 	var pct: float = float((cfg.get("level", {}) as Dictionary).get("width_pct", DEFAULT_WIDTH_PCT))

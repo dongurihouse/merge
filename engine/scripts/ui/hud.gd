@@ -251,30 +251,27 @@ static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, 
 	box.add_child(ic)
 	return box
 
-# A small round "+" that opens the store — the acquire affordance (the wallet had no path to
-# "get more"). Reuses Look.add_press_juice so it inherits the shared button polish.
+# A small "+" that opens the store — the acquire affordance (the wallet had no path to "get more").
+# Wears the painted ui_asset2 "+" sprite (shared/icon_plus.png — a self-contained green plus token, so no
+# code-drawn disc behind it); a "+" glyph falls back when the sprite is missing. Reuses the shared press juice.
 static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Button:
 	var b := Button.new()
-	b.focus_mode = Control.FOCUS_NONE   # NOT flat — flat suppresses the stylebox bg (the green token)
+	b.flat = true                       # the sprite IS the token — the Button draws no chrome of its own
+	b.focus_mode = Control.FOCUS_NONE
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.custom_minimum_size = Vector2(box, box)
 	b.add_theme_constant_override("h_separation", 0)
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Tune.PLUS_BG                          # plain leaf green — the "get more" CTA hue (no border ring)
-	sb.set_corner_radius_all(int(box / 2.0))
-	sb.set_border_width_all(0)
-	for st in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(st, sb)
-	var g := Label.new()
-	g.text = "+"
-	g.add_theme_font_size_override("font_size", int(box * float(Tune.PLUS_SIZE) / float(Tune.PLUS_BOX)))   # font tracks the box
-	g.add_theme_color_override("font_color", Tune.PLUS_GLYPH)
-	g.add_theme_constant_override("outline_size", 0)
-	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	b.add_child(g)
+	var mark := Look.icon("plus", box)                  # the painted green "+" (glyph "+" fallback when absent)
+	if mark is Label:                                   # glyph fallback: keep the cream-on-green token look
+		(mark as Label).add_theme_color_override("font_color", Tune.PLUS_GLYPH)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Tune.PLUS_BG
+		sb.set_corner_radius_all(int(box / 2.0))
+		for st in ["normal", "hover", "pressed", "focus"]:
+			b.add_theme_stylebox_override(st, sb)
+	mark.set_anchors_preset(Control.PRESET_FULL_RECT)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(mark)
 	Look.add_press_juice(b)
 	if open_store.is_valid():
 		b.pressed.connect(func() -> void: open_store.call())

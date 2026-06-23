@@ -11,6 +11,7 @@ extends Control
 ## building (_build_home_spot); any other map draws cutout sprites / placeholder tiles via _make_spot.
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
@@ -642,7 +643,7 @@ func _map_title_plank(z: int) -> Control:
 	# bottom Unlock button carries the live per-spot exp requirement). The label fills the area to the
 	# RIGHT of the baked flower and centers itself in that remaining span, so it never overlaps the flower.
 	var lbl := Label.new()
-	lbl.text = tr("restored ✿ 🎁") if map_spots_done(z) else tr("%d to restore this place") % left
+	lbl.text = Strings.t("map.pill.restored") if map_spots_done(z) else Strings.t("map.pill.to_restore_this_place") % left
 	lbl.add_theme_font_size_override("font_size", int(ph * 0.30 if map_spots_done(z) else ph * 0.28))
 	# match the currency pill: dark INK + NO halo (panel-text law — the pill is a solid painted capsule).
 	lbl.add_theme_color_override("font_color", INK)
@@ -678,7 +679,7 @@ func _map_title_plank_fallback(z: int) -> Control:
 	plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if map_spots_done(z):
 		var lbl := Label.new()
-		lbl.text = tr("✿ restored 🎁")
+		lbl.text = Strings.t("map.plank.restored")
 		lbl.add_theme_font_size_override("font_size", 22)
 		lbl.add_theme_color_override("font_color", STRAW)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -818,7 +819,7 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 		"done": map_spots_done(z),
 		"art": _card_art_path(z) if open else "",     # painted thumbnail / §16 home clean art / "" → meadow fill
 		"unlock_exp": G.spot_unlock_exp(z, maxi(0, G.MAPS[z].spots.size() - 1)),   # exp to fully restore this map
-		"prereq": tr("✿ after %s") % tr(G.MAPS[maxi(z - 1, 0)].name),
+		"prereq": Strings.t("map.card.prereq") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
 	}
 	return Kit.map_card(d, opts, card_w, card_h)
@@ -850,7 +851,7 @@ func _restore_left_row(n: int, num_col: Color, px: int) -> HBoxContainer:
 	row.add_theme_constant_override("separation", 5)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var lbl := Label.new()
-	lbl.text = tr("✿ %d to restore") % n
+	lbl.text = Strings.t("map.restore_row.left") % n
 	lbl.add_theme_font_size_override("font_size", px)
 	lbl.add_theme_color_override("font_color", num_col)
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -886,7 +887,7 @@ func _select_tap(gpos: Vector2) -> void:
 			Audio.play("invalid_soft", -4.0)
 			FX.wobble(n)
 			FX.floating_text(self, gpos - Vector2(150, 70),
-				tr("Restore %s first ✿") % tr(G.MAPS[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
+				Strings.t("map.select.locked_prereq") % tr(G.MAPS[maxi(z - 1, 0)].name), Color(CREAM, 0.9), 28)
 		return
 
 func _map_tap(gpos: Vector2) -> void:
@@ -925,14 +926,14 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if Save.exp_total() < need:
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 64), tr("Needs %d exp") % need, Color(CREAM, 0.9), 30)
+		FX.floating_text(self, at - Vector2(110, 64), Strings.t("map.spot.needs_exp") % need, Color(CREAM, 0.9), 30)
 		return
 	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
 	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
 	# level-ups, not a per-spot gift)
-	FX.floating_text(self, at - Vector2(160, 96), tr("New asks in the garden ❀"), CREAM, 30)
+	FX.floating_text(self, at - Vector2(160, 96), Strings.t("map.spot.new_asks_in_garden"), CREAM, 30)
 	_persist()
 	# Spots-done completion — recorded SYNCHRONOUSLY (before the async veil FX below) so the gate
 	# advance + map reward never depend on FX timing. Completing the map's spots IS the completion
@@ -947,7 +948,7 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 			gl.append(z)
 			gg["gates"] = gl
 			Save.grove_write()
-		FX.celebrate_at(self, get_global_rect().get_center(), tr("%s restored!") % tr(G.MAPS[z].name), STRAW)
+		FX.celebrate_at(self, get_global_rect().get_center(), Strings.t("map.spot.map_restored") % tr(G.MAPS[z].name), STRAW)
 		FX.floating_reward(self, get_global_rect().get_center() + Vector2(-60, 70),
 			"gem", G.MAP_DIAMONDS, Color("#BFE6F2"), 38)
 		Audio.play("level_complete", -2.0)
@@ -1019,7 +1020,7 @@ func _add_welcome_panel(z: int) -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(col)
 	var head := Label.new()
-	head.text = tr("Welcome a spirit ✿")
+	head.text = Strings.t("map.welcome.title")
 	head.add_theme_font_size_override("font_size", 22)
 	head.add_theme_color_override("font_color", INK)
 	head.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1089,11 +1090,11 @@ func _on_welcome_tap(z: int, type_id: String, node: Control, at: Vector2) -> voi
 	if not bool(res.get("ok", false)):
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 60), tr("Not enough — keep tending ✿"), Color(CREAM, 0.9), 26)
+		FX.floating_text(self, at - Vector2(110, 60), Strings.t("map.welcome.not_enough"), Color(CREAM, 0.9), 26)
 		return
 	Audio.play("level_complete", -6.0, 1.15)
 	FX.burst(self, at, STRAW, 14)
-	FX.floating_text(self, at - Vector2(120, 70), tr("A new friend wanders in ✿"), STRAW, 26)
+	FX.floating_text(self, at - Vector2(120, 70), Strings.t("map.welcome.new_friend"), STRAW, 26)
 	# the roster changed → rebuild the whole map (the population layer reads the fresh roster). Then
 	# play the merge flourish on the rebuilt layer, once per auto-merge event (the roster is already
 	# committed by the API, so this is pure juice).
@@ -1105,7 +1106,7 @@ func _on_welcome_tap(z: int, type_id: String, node: Control, at: Vector2) -> voi
 		Ambient.merge_poof(amb, events.size())
 		Audio.play("tidy_poof", -2.0, 1.1)
 		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
-			tr("Two friends became one ✿"), CREAM, 26)
+			Strings.t("map.welcome.two_became_one"), CREAM, 26)
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
@@ -1123,11 +1124,9 @@ func _build_hud() -> void:
 			g["water"] = G.WATER_CAP
 			Save.grove_write(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self),
-		# Settings is the top-right gear in the shared HUD now (off the bottom bar) — opens the shared card.
-		"settings": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_settings()})
+		"on_level": func() -> void: LevelPopup.open(self)})
+		# Settings moved OFF the top bar (no gear) into the LiveOps rail as its own rect badge (ui_mock2) —
+		# see _build_liveops_rail; the shared HUD no longer draws a gear (it omits `settings`).
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
@@ -1188,7 +1187,7 @@ func _make_unlock_badge(need: int, ready: bool) -> Button:
 			btn.modulate = Color(0.6, 0.6, 0.6, 1.0)  # grey the whole disc until the threshold is met (map parity)
 	else:
 		btn = Button.new()                            # defensive: kit absent → a plain labelled button
-		btn.text = tr("Unlock ✦") if ready else (tr("Unlock — %d exp") % need)
+		btn.text = Strings.t("map.unlock.ready") if ready else (Strings.t("map.unlock.cta") % need)
 		btn.disabled = not ready
 		btn.add_theme_font_size_override("font_size", 30)
 		btn.pressed.connect(_on_unlock_pressed)
@@ -1227,16 +1226,13 @@ func _build_chrome() -> void:
 	# left the bottom bar (shop opens from the top pills' "+", Settings is the top-right gear); the Piggy
 	# bank moved to the LiveOps side rail (_build_liveops_rail).
 	var sb := Look.safe_bottom(self)
-	# The flanking Map disc is the SHARED configurable home button (disc shell + icon, tuned in the
-	# workbench — `home_icon`); Play stays the prominent baked leaf (the primary CTA).
+	# The flanking Map button is the SHARED configurable home button in its ROUNDED-RECT form (icon + "Map"
+	# label inside the badge — ui_mock2); Play is the big CIRCULAR orange CTA (the only round bottom button).
 	var nav := NavBar.build(self, [
-		# Map — the place-picker (atlas).
-		{"home_icon": "map", "px": 140.0, "label": tr("Map"), "action": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_select()},
-		# Play — the way into the garden/board. A round disc like the rest of the buttons (same shell), tinted
-		# leaf GREEN so it stays the prominent primary action (built via `make` to pass the green shell_tint).
-		{"make": _make_play_button, "label": tr("Play")}])
+		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
+		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
+		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
+		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
@@ -1254,21 +1250,34 @@ func _build_chrome() -> void:
 	add_child(_select_back)
 	_select_back.visible = false
 
-# The Play button (bottom nav, index 1) — the way into the garden/board. It uses the SAME round disc shell
-# as the rest of the buttons (the Map disc + the rail), tinted leaf GREEN so it still reads as the prominent
-# primary action, with the leaf mark centred — replacing the old wide green leaf pill (nav_leaf.png).
+# The Map button (bottom nav, index 0) — opens the place-picker. The shared home button in its ROUNDED-RECT
+# form: the ui_asset2 badge with the map icon over a "Map" label, both inside the badge (ui_mock2).
+func _make_map_button() -> Button:
+	var open := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_select()
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["px"] = 140.0
+	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
+	opts["calm"] = FX.calm()
+	return Kit.home_button({"icon": "map", "caption": Strings.t("map.nav.map"), "action": open}, opts)
+
+# The Play button (bottom nav, index 1) — the way into the garden/board, and the home screen's primary CTA.
+# It is the only round bottom button: the big ORANGE play disc (ui_asset2 play_disc) wearing the board+acorn
+# mark, larger than the Map badge beside it, and CAPTIONLESS (the disc art reads as "go to the board").
 func _make_play_button() -> Button:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
-		return NavBar._make_nav_button("nav_leaf.png", 140.0, _on_board)   # defensive: the baked leaf pill
+		return NavBar._make_nav_button("nav_leaf.png", 188.0, _on_board)   # defensive: the baked leaf pill
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	opts["px"] = 140.0                        # match the Map disc beside it ("like the rest of the buttons")
-	opts["shell_tint"] = Pal.BTN_PRIMARY      # leaf green — the primary-CTA hue (same as the wallet "+")
-	opts["icon_scale"] = 0.56                 # a touch larger so the leaf mark reads clearly on the green disc
+	opts["px"] = float(opts.get("play_px", 188))   # the workbench-tuned Play-disc size (bigger than the 140 Map badge)
+	opts["shell"] = "shared/play_disc.png"    # the orange play disc (no green tint — the art carries the colour)
+	opts["icon_scale"] = 0.52                 # the board+acorn mark centred on the disc
 	opts["calm"] = FX.calm()
-	# the plate-less sprout (green leaf cluster) sits DIRECTLY on the disc like the other buttons' marks —
-	# icon_leaf carries its own cream wafer, which would read as a medallion-in-disc (inconsistent here).
-	return Kit.home_button({"icon": "sprout", "caption": "", "action": _on_board}, opts)
+	return Kit.home_button({"icon": "board", "caption": "", "action": _on_board}, opts)
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
 # bottom nav + the live-ops rail build from — the cream/gold disc tuned in the workbench — so a button
@@ -1310,7 +1319,7 @@ func _make_back_button(sb: float) -> Button:
 # follows _set_map_chrome_visible (hidden on the place-picker).
 const RAIL_PX := 140.0          # fallback disc size — matches the bottom-bar side buttons
 const RAIL_MARGIN := 18.0       # right-edge inset
-const RAIL_CAP_H := 42.0        # caption-tab band beneath each disc
+const RAIL_CAP_H := 10.0        # gap band beneath each tile (captions now sit INSIDE the rect badge, so this is just spacing)
 const RAIL_GAP := 8.0           # gap between stacked entries (tightened so the rail reads as one tidy column)
 const RAIL_TOP := 210.0         # first disc sits this far below the safe-top (clear of the wallet pill)
 const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared home-button size (nav + back stay full)
@@ -1329,6 +1338,7 @@ func _build_liveops_rail() -> void:
 	_rail_disc_px = round(_rail_px * RAIL_SCALE)
 	_rail_opts = _home_opts.duplicate()
 	_rail_opts["px"] = _rail_disc_px
+	_rail_opts["shape"] = "rect"   # the rail tiles are ROUNDED-RECT badges (icon over label inside), not discs (ui_mock2)
 	# the workbench-tuned badge offset (px past the disc's top-right): pulls the red dot / count snug to the
 	# rail disc instead of floating off its transparent art margin (negative tucks it IN over the edge).
 	var bover := Vector2(float(_home_opts.get("badge_dx", -26.0)), float(_home_opts.get("badge_dy", -26.0)))
@@ -1338,7 +1348,7 @@ func _build_liveops_rail() -> void:
 	var top := Look.safe_top(self) + RAIL_TOP
 	var slot := 0
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
-	var daily := _rail_button("gift", tr("Daily"), _open_daily)
+	var daily := _rail_button("calendar", Strings.t("map.rail.daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot", 0, bopts)
 	Look.attach_badge(daily, _daily_badge, bover)
@@ -1346,17 +1356,23 @@ func _build_liveops_rail() -> void:
 	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
-	var piggy := _rail_button("piggy", tr("Vault"), _open_vault)
+	var piggy := _rail_button("chest", Strings.t("map.rail.vault"), _open_vault)
 	_place_rail(piggy, top, slot, step); slot += 1
 	_piggy_pip = Look.badge("dot", 0, bopts)
 	Look.attach_badge(piggy, _piggy_pip, bover)
 	_refresh_piggy_pip()
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
-		var inbox := _rail_button("mail", tr("Inbox"), _open_inbox)
+		var inbox := _rail_button("mail", Strings.t("map.rail.inbox"), _open_inbox)
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
+	# Settings — moved off the top bar (no more gear) into the rail as its own tile (ui_mock2): opens the
+	# shared Settings card. No badge — it is never "actionable" in the calm-rail sense.
+	var settings := _rail_button("gear", Strings.t("map.rail.settings"), func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_settings())
+	_place_rail(settings, top, slot, step); slot += 1
 	_refresh_liveops_badges()
 
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +
@@ -1472,7 +1488,7 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 		FX.celebrate_reward(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8")); dy += 34
 	if coins > 0:
 		FX.celebrate_reward(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"))
-	FX.floating_text(self, at - Vector2(0, 40), tr("Place restored ✿ 🎁"), CREAM, 24)
+	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, 24)
 	_update_hud()
 
 # Refresh the Store "new offer" badge — lit while the one-time starter pack is unclaimed (the

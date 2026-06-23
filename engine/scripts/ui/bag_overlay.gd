@@ -30,6 +30,7 @@ extends RefCounted
 ## Returns the overlay root Control (already added to host).
 
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -118,8 +119,8 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 		return overlay
 	var kcfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var opts: Dictionary = Kit.bag_opts_from_config(kcfg)
-	opts["banner_text"] = host.tr("Bag")
-	opts["caption"] = host.tr("Open a slot with acorns.")
+	opts["banner_text"] = Strings.t("bag.banner_text")
+	opts["caption"] = Strings.t("bag.caption")
 	opts["on_close"] = dismiss
 
 	# the responsive width: the saved bag width_pct × the live viewport (matching the other overlays)
@@ -170,7 +171,7 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, on_place_
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 8)
 	var label := Label.new()
-	label.text = host.tr("Generators")
+	label.text = Strings.t("bag.generators")
 	label.add_theme_font_size_override("font_size", 24)
 	label.add_theme_color_override("font_color", Color(INK, 0.75))
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

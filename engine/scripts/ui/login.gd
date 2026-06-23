@@ -11,6 +11,7 @@ extends RefCounted
 
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
@@ -62,8 +63,8 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 		for c in cc.get_children():
 			c.queue_free()
 		var fo: Dictionary = Kit.daily_opts_from_config(cfg)
-		fo["banner_text"] = host.tr("Daily")
-		(fo["btn"] as Dictionary)["text"] = host.tr("Claim")
+		fo["banner_text"] = Strings.t("login.banner")
+		(fo["btn"] as Dictionary)["text"] = Strings.t("login.claim")
 		fo["on_close"] = func() -> void: _dismiss(overlay, opts)
 		var dialog: Control = Kit.daily_dialog(_days(host, rb, opts), width, fo)
 		cc.add_child(dialog)
@@ -120,7 +121,7 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 			st = "future" if Login.claimed_today() else "today"
 		var d := {
 			"day": day,
-			"label": host.tr("Day %d") % day,
+			"label": Strings.t("login.day_label") % day,
 			"reward": Login.reward_for(day),
 			"state": st,
 		}

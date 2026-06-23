@@ -44,20 +44,19 @@ A restored world should **grow, reward, and ask** — not sit there. Four moves 
 self-renewing loop, bolted on top of the merge core without changing how the core plays:
 
 - **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick
-  from a list, you discover who turns up and keep one. Spirits have **rarity** (common → rare →
-  special), and a **premium (diamond) path** improves the odds. Starts simple; built to grow
-  into a full search-and-extraction mini-game.
+  from a list, you discover who turns up and keep one for free (more for diamonds). Spirits have
+  **rarity** (common → rare → special), and a **premium (diamond) path** improves the odds. Starts
+  simple; built to grow into a full search-and-extraction mini-game.
 - **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
   upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
   progression and space management at once.
 - **Expand — the pull outward.** Because spirits need room, the player has a concrete new
   reason to unlock more maps and upgrade capacity, wiring the expansion into the base game's
   progression.
-- **Reward — the payback.** Placed spirits **produce for the core game**: board items
-  collected from the bag and spent back on the board — boosters, generator items, even Water.
-  More and higher-tier spirits make more (the idle, compounding payoff). They also fill a
-  **collection** worth completing (kinds × rarity × signatures, per map and overall) and act as
-  **quest-givers** handing out special things.
+- **Reward — the payback.** Placed spirits **produce for the core game** — rewards that feed back
+  into play (the reward set is TBD; see Mechanics). More and higher-tier spirits make more (the
+  idle, compounding payoff). They also fill a **collection** worth completing (global at first,
+  per-map sets later). *(Quest-giving was considered and is parked — see Mechanics.)*
 
 The residents loop: explore → keep one → place → merge → run out of room → expand → explore again.
 
@@ -80,9 +79,13 @@ three-engine flywheel with no end state — which is what an endgame needs.
 
 ## Mechanics
 
-*High-level shape; numbers and edge rules are sim-tuned later (see Economy). This bolts onto the
-existing roster plumbing — the persisted `{map_id: {type_id: …}}` roster, two-of-a-kind auto-merge,
-and the ambient render layer all carry over.*
+*High-level shape; numbers and edge rules are sim-tuned later (see Economy). It reuses the existing
+roster plumbing where it can — the persisted `{map_id: {type_id: …}}` roster, two-of-a-kind
+auto-merge, and the ambient render layer. But three pillars deliberately **reverse** base-game
+invariants and must be re-proven, not inherited: **capacity** makes the resident sink finite again
+(the base `sink > faucet` proof relied on there being no cap), and **idle production / Water** re-open
+the cut passive faucet and the energy invariant (I2). Those re-proofs land in the parked Economy/Risk
+pass; the save-shape changes they imply are called out in that pass too.*
 
 ### Explore — acquire
 
@@ -155,23 +158,37 @@ accrues while you're away (capped, so it's a daily-return pull rather than infin
 **collect** it from the Residents screen. Where you assign spirits is an economic choice — load a map
 to pour out more of its reward.
 
-The reward types, one kind per map:
+The reward menu is **items, coins, Water, and boosters**, with two honest caveats carried into the
+Risk pass:
 
-- **Items** — low-tier board items dropped into the bag, spent back on the board.
-- **Coins** — a soft-currency trickle.
-- **Water** — capped as a daily top-up only, so it never makes energy self-sustaining (respects the
-  energy invariant; see Risk).
-- **Boosters** — the **Wild piece** grove already ships; this does *not* reopen the tone-cut
+- **Water** is the tightest constraint — to respect the energy invariant (I2) it cannot scale with
+  spirit count/tier like the other rewards (a capped daily top-up at most), and whether it survives
+  v1 is resolved in the parked Risk pass, not settled here.
+- **Boosters** means the **Wild piece** — the only booster grove's design sanctions — but it is **not
+  yet built**, so this reward rung depends on building it first. It does *not* reopen the tone-cut
   Bomb / x2 / Producer / Countdown toys.
 
-*(The map→reward mapping — which map makes which type — is still open; see questions.)*
+**Open — reward content & map mapping (deliberately undefined for now).** Two pieces are deferred to
+a later pass:
 
-Two collection-facing roles ride on the same residents:
+- **What is produced** — production should likely feed a **new, dedicated set of reward items /
+  boosters**, not the existing board lines. Low-tier early-line items lose their value as the player
+  moves on, so reusing them would make the payback go stale. Designing that reward set is its own
+  task. *(We may later add reasons to keep wanting early-line items — left open.)*
+- **Which map makes what** — the map→reward assignment is set only once that reward set exists.
+  ("Each map produces its own line" was considered and parked for the staleness reason above.)
 
-- **Collection** — a ledger of discovered spirits (kind × rarity × signature), tracked per map and
-  overall, with rewards for completing sets. Reuses the Explore rarity axis.
-- **Quest-givers** — placed signature/special spirits periodically offer a **special quest** (deliver
-  requested items → a special reward), coexisting with the metered quest fence.
+Beyond production, the same residents feed a **collection**:
+
+- **Collection** — a **global** ledger of discovered spirits (kind × rarity × signature), reusing the
+  Explore rarity axis. Completing it grants a gameplay **reward** (the specific payoff is parked, like
+  the production content). *(Per-map sets are a later layer.)*
+
+**Parked — quest-givers.** The thesis floated residents "acting as quest-givers." It's parked: here
+residents are the *supply* side (they produce), while quests are *demand* and already live on the
+board's quest fence — a resident-run quest would duplicate the fence and blur the resident's role. If
+ever revisited, the coherent form is a residents-loop *goal* (e.g. "house a tier-3 on the Garden →
+reward"), not a board-item delivery quest.
 
 ### The loop, restated
 

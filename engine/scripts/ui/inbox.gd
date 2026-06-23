@@ -11,6 +11,7 @@ extends RefCounted
 ## dismiss) and the message→entry mapping live in this file; the list + grant live in core/inbox.gd.
 
 const Inbox = preload("res://engine/scripts/core/inbox.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -72,8 +73,8 @@ static func open(host: Control, host_opts: Dictionary = {}) -> void:
 		var opts: Dictionary = Kit.dialog_opts_from_config(cfg)
 		opts["on_close"] = func() -> void:
 			if is_instance_valid(overlay): overlay.queue_free()
-		opts["empty_text"] = host.tr("No mail right now — check back soon.")
-		opts["banner_text"] = host.tr("Mail")
+		opts["empty_text"] = Strings.t("inbox.empty_text")
+		opts["banner_text"] = Strings.t("inbox.banner_text")
 		(opts["btn"] as Dictionary)["text"] = host.tr(String((opts["btn"] as Dictionary).get("text", "Claim")))
 		var dialog: Control = Kit.mail_dialog(_entries(host, rb), width, opts)
 		cc.add_child(dialog)
@@ -94,7 +95,7 @@ static func _entries(host: Control, rb: Dictionary) -> Array:
 			"body": host.tr(String(m.get("body", ""))),
 			"reward": reward,
 			"claimed": bool(m.get("claimed", false)),
-			"claimed_text": host.tr("Claimed"),
+			"claimed_text": Strings.t("inbox.claimed_text"),
 		}
 		if not bool(e.claimed) and _reward_total(reward) > 0:
 			var id := String(m.get("id", ""))

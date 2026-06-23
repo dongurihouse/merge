@@ -38,6 +38,8 @@ const CUR_PILL_CAP := 32
 # middle stretches to the counts). "gold capsule" is the SHIPPED default, so an unset border is unchanged.
 const PILL_BORDERS := {
 	"gold capsule": {"art": CUR_PILL_ART,          "cap": CUR_PILL_CAP},   # shared/panel_pill.png (292×65)
+	"grove capsule":{"art": "shared/pill_capsule.png","cap": 62},          # ui_asset2 cream capsule (439×125)
+	"grove badge":  {"art": "shared/badge_rect.png", "cap": 46},           # THE shared rounded-rect — same sprite the rail/Map badges nine-slice (one badge everywhere)
 	"bag":          {"art": "kit/bag_pill.png",       "cap": 59},          # 416×118
 	"bag thin":     {"art": "kit/bag_pill_thin.png",  "cap": 33},          # 411×66
 	"bag blue":     {"art": "kit/bag_pill_b.png",     "cap": 58},          # 416×116
@@ -822,6 +824,7 @@ static func plated_icon(id: String, px: float = 56.0, badge_rel: String = "share
 ##   opts (shared STYLE — see home_button_opts_from_config): px · shell · icon_scale (0..1) ·
 ##     caption_font · caption_gap · glow (0..1) · twinkle (0..1) · calm (bool).
 const HOME_SHELL := "shared/disc_round.png"
+const RECT_SHELL := "shared/badge_rect.png"   # the ui_asset2 rounded-rect badge (rail + Map button), used when opts.shape == "rect"
 
 static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var px: float = float(opts.get("px", 140.0))
@@ -830,17 +833,32 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.disabled = not bool(spec.get("enabled", true))
-	# the disc shell: the cream/gold sprite scaled WHOLE (a round disc 9-slices badly at its corners),
-	# or a flat code-drawn cream disc when the art is missing (the kit invariant — same metrics either way).
-	# `shell_tint` modulates the whole disc (default WHITE = the raw cream/gold sprite); the home/board Play
-	# CTA passes leaf green so it reads as the prominent green action while sharing the others' round shape.
+	# the shell shape: "disc" (the round cream/gold sprite, the default) or "rect" (the ui_asset2 rounded-rect
+	# badge — the home rail + the Map button). The rect shell stacks its icon + caption INSIDE the badge; the
+	# disc keeps the icon centred with the caption as an overflow tab beneath it.
+	var shape := String(opts.get("shape", "disc"))
+	# the shell sprite scaled WHOLE (a round disc / rounded square 9-slices badly at its corners), or a flat
+	# code-drawn shape when the art is missing (the kit invariant — same metrics either way). `shell_tint`
+	# modulates the whole shell (default WHITE = the raw sprite); the Play CTA passes the orange play disc.
+	# `fill_alpha` (workbench 0..100) makes the badge read translucent over the scene.
 	var shell_rel := String(opts.get("shell", HOME_SHELL))
+	if shape == "rect" and shell_rel == HOME_SHELL:
+		shell_rel = RECT_SHELL   # a rect badge defaults to the rounded-rect sprite (unless the caller named a specific shell)
 	var shell_tint: Color = opts.get("shell_tint", Color.WHITE)
+	var fill_a := clampf(float(opts.get("fill_alpha", 100)) / 100.0, 0.0, 1.0)
+	shell_tint = Color(shell_tint.r, shell_tint.g, shell_tint.b, shell_tint.a * fill_a)
 	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
+	var corner := int(px * (0.22 if shape == "rect" else 0.5))               # code-drawn fallback radius
+	# the rect badge is NINE-SLICED (rect_cap = the corner-region px): the corners stay crisp while the
+	# middle stretches, so the SAME rounded-rect sprite the currency pill uses tiles to any size/aspect. A
+	# disc shell stays whole-scaled (a circle 9-slices badly at its corners).
+	var rect_cap := int(opts.get("rect_cap", 46))
 	for st_name in ["normal", "hover", "pressed", "disabled"]:
 		if shell != null:
-			var stx := StyleBoxTexture.new()      # NO texture margins → the whole disc scales (no corner slice)
+			var stx := StyleBoxTexture.new()
 			stx.texture = shell
+			if shape == "rect":
+				stx.set_texture_margin_all(rect_cap)   # 9-slice: fixed corners, the flat middle stretches freely
 			if st_name == "pressed":
 				stx.modulate_color = shell_tint * Color(0.9, 0.9, 0.9)
 			elif st_name == "disabled":
@@ -850,11 +868,29 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			b.add_theme_stylebox_override(st_name, stx)
 		else:
 			var s := StyleBoxFlat.new()
-			s.bg_color = shell_tint if opts.has("shell_tint") else Color(Pal.CREAM, 0.95)
-			s.set_corner_radius_all(int(px * 0.5))
+			s.bg_color = shell_tint if opts.has("shell_tint") else Color(Pal.CREAM, 0.95 * fill_a)
+			s.set_corner_radius_all(corner)
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW
 			b.add_theme_stylebox_override(st_name, s)
+	# the RECT-badge DROP SHADOW (workbench rect_shadow / rect_shadow_alpha): the rounded-rect shell is a
+	# StyleBoxTexture (no native shadow), so we lift it with a sibling Panel drawn BEHIND the button
+	# (show_behind_parent) — its StyleBoxFlat paints only the shadow (draw_center off), bleeding past the
+	# badge edge by rect_shadow. Disc buttons ignore it (the Play/back/bag discs are unchanged).
+	var rect_shadow := int(opts.get("rect_shadow", 0))
+	if shape == "rect" and rect_shadow > 0:
+		var sh := Panel.new()
+		sh.show_behind_parent = true                          # draws under the button's textured shell
+		sh.set_anchors_preset(Control.PRESET_FULL_RECT)       # matches the badge rect; the shadow bleeds outward
+		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ssb := StyleBoxFlat.new()
+		ssb.draw_center = false                               # only the shadow paints; the shell art owns the fill
+		ssb.set_corner_radius_all(corner)                     # match the rect badge's rounded corners
+		ssb.shadow_size = rect_shadow
+		ssb.shadow_offset = Vector2(0.0, rect_shadow * 0.4)   # a gentle downward drop
+		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("rect_shadow_alpha", 30)) / 100.0, 0.0, 1.0))
+		sh.add_theme_stylebox_override("panel", ssb)
+		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
 	if bool(spec.get("sparkle", false)):
 		var glow: float = float(opts.get("glow", 0.0))
@@ -864,7 +900,6 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	# the kit icon, centred on the disc (mouse-transparent so the Button is the only hit surface). The icon
 	# gets the SHARED global polish (make_icon → _icon_tex's defringe + feather) — its own clean recipe.
 	var icwrap := CenterContainer.new()
-	icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
 	icwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon_px := px * float(opts.get("icon_scale", 0.5))
 	# A caller-supplied `icon_node` (any Control) wins outright — the Bag well passes the most-recent
@@ -881,39 +916,65 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 		icon_node = make_icon(String(spec.get("icon", "")), icon_px)
 	if icon_node != null:
 		icwrap.add_child(icon_node)
-	b.add_child(icwrap)
+	var caption := String(spec.get("caption", ""))
+	if shape == "rect":
+		# RECT badge: icon (upper) + caption (lower) stacked INSIDE the rounded rect, padded off the edge —
+		# the rail's "icon over label" tiles and the Map button's "Map" plate (matches the ui_mock2 chrome).
+		var vb := VBoxContainer.new()
+		vb.set_anchors_preset(Control.PRESET_FULL_RECT)
+		vb.alignment = BoxContainer.ALIGNMENT_CENTER
+		vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var rpad := px * float(opts.get("rect_pad", 0.13))
+		vb.offset_left = rpad; vb.offset_right = -rpad
+		vb.offset_top = rpad; vb.offset_bottom = -rpad
+		icwrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		icwrap.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		vb.add_child(icwrap)
+		if caption != "":
+			var cl := Label.new()
+			cl.text = caption
+			cl.add_theme_font_size_override("font_size", int(opts.get("caption_font", 22)))
+			cl.add_theme_color_override("font_color", Pal.INK)
+			cl.add_theme_constant_override("outline_size", 0)   # solid badge = the contrast (panel-text law)
+			cl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+			cl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			cl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			vb.add_child(cl)
+		b.add_child(vb)
+	else:
+		icwrap.set_anchors_preset(Control.PRESET_FULL_RECT)
+		b.add_child(icwrap)
+		# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
+		if caption != "":
+			var cap_font := int(opts.get("caption_font", 22))
+			var cap_pad_x := float(opts.get("caption_pad_x", 30.0))
+			var cap_pad_y := float(opts.get("caption_pad_y", 8.0))
+			var capwrap := CenterContainer.new()
+			capwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			capwrap.anchor_left = 0.0; capwrap.anchor_right = 1.0
+			capwrap.anchor_top = 1.0; capwrap.anchor_bottom = 1.0
+			capwrap.offset_top = float(opts.get("caption_gap", 4.0))
+			# the box just clears the ribbon: the font plus its own top+bottom padding (was a fixed +22 band)
+			capwrap.offset_bottom = capwrap.offset_top + cap_font + 2.0 * cap_pad_y
+			var cap := Look.title_ribbon(caption, cap_font)
+			# override the SHARED ribbon margins with the home button's OWN tunable padding (workbench knobs)
+			var csb := cap.get_theme_stylebox("panel")
+			if csb is StyleBoxFlat:
+				var csbd: StyleBoxFlat = (csb as StyleBoxFlat).duplicate()
+				csbd.content_margin_left = cap_pad_x
+				csbd.content_margin_right = cap_pad_x
+				csbd.content_margin_top = cap_pad_y
+				csbd.content_margin_bottom = cap_pad_y
+				cap.add_theme_stylebox_override("panel", csbd)
+			cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			if cap.get_child_count() > 0:
+				(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
+			capwrap.add_child(cap)
+			b.add_child(capwrap)
 	# expose the icon wrapper + its sizing so a caller can swap the icon in place later (the Bag well
 	# replaces the satchel with the stashed item, and restores it when emptied) without rebuilding the button.
 	b.set_meta("icon_wrap", icwrap)
 	b.set_meta("icon_px", icon_px)
-	# the OPTIONAL caption tab, centred just beneath the disc (overflows into the gap below)
-	var caption := String(spec.get("caption", ""))
-	if caption != "":
-		var cap_font := int(opts.get("caption_font", 22))
-		var cap_pad_x := float(opts.get("caption_pad_x", 30.0))
-		var cap_pad_y := float(opts.get("caption_pad_y", 8.0))
-		var capwrap := CenterContainer.new()
-		capwrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		capwrap.anchor_left = 0.0; capwrap.anchor_right = 1.0
-		capwrap.anchor_top = 1.0; capwrap.anchor_bottom = 1.0
-		capwrap.offset_top = float(opts.get("caption_gap", 4.0))
-		# the box just clears the ribbon: the font plus its own top+bottom padding (was a fixed +22 band)
-		capwrap.offset_bottom = capwrap.offset_top + cap_font + 2.0 * cap_pad_y
-		var cap := Look.title_ribbon(caption, cap_font)
-		# override the SHARED ribbon margins with the home button's OWN tunable padding (workbench knobs)
-		var csb := cap.get_theme_stylebox("panel")
-		if csb is StyleBoxFlat:
-			var csbd: StyleBoxFlat = (csb as StyleBoxFlat).duplicate()
-			csbd.content_margin_left = cap_pad_x
-			csbd.content_margin_right = cap_pad_x
-			csbd.content_margin_top = cap_pad_y
-			csbd.content_margin_bottom = cap_pad_y
-			cap.add_theme_stylebox_override("panel", csbd)
-		cap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if cap.get_child_count() > 0:
-			(cap.get_child(0) as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
-		capwrap.add_child(cap)
-		b.add_child(capwrap)
 	# the OPTIONAL count overlay — a small "x/y" label riding INSIDE the disc (the Bag well's slot count).
 	# Centred over the disc, then nudged by count_dx / count_dy (workbench knobs); the caller updates its
 	# text live via the exposed `count_label` meta. Any round button COULD carry one, but only the bag
@@ -2969,6 +3030,20 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# defaults reproduce the shipped ribbon (Tune.TITLE_PAD_X / ~T+B) so an absent config is unchanged.
 		"caption_pad_x": float(h.get("caption_pad_x", 30)),
 		"caption_pad_y": float(h.get("caption_pad_y", 8)),
+		# the rect-badge OPACITY (0..100 %): modulates the painted badge so the rail / Map tiles can read
+		# translucent over the homestead. Default 100 → opaque, so the shipped disc buttons are unchanged.
+		"fill_alpha": float(h.get("fill_alpha", 100)),
+		# the rect-badge inner PADDING as a fraction of px (the icon+caption inset off the badge edge).
+		"rect_pad": float(h.get("rect_pad", 13)) / 100.0,
+		# the rect-badge NINE-SLICE corner cap (px): the SAME rounded-rect sprite the currency pill uses, sliced
+		# so the corners stay crisp at any size. Match it to the sprite's painted corner radius.
+		"rect_cap": int(h.get("rect_cap", 46)),
+		# the orange PLAY disc's diameter (px) — the bottom-right CTA. Bigger than the 140 Map/rail buttons.
+		"play_px": float(h.get("play_px", 188)),
+		# the rect-badge DROP SHADOW (size in px + opacity %): drawn behind the rail / Map badges only (disc
+		# buttons ignore it). Default ON so the rounded-rect tiles lift off the homestead out of the box.
+		"rect_shadow": float(h.get("rect_shadow", 7)),
+		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
@@ -3023,7 +3098,9 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
-		"shadow_size": int(c.get("shadow_size", 5)),       # Tune.PILL_SHADOW_SIZE (0 = no shadow; code-drawn only)
+		"shadow_size": int(c.get("shadow_size", 5)),       # Tune.PILL_SHADOW_SIZE (0 = no shadow); drives BOTH the code-drawn fallback AND the art capsule's drawn drop-shadow (float_plus)
+		"shadow_alpha":float(c.get("shadow_alpha", 22)),   # the drop-shadow opacity (0..100 %); the art capsule's drawn shadow + the code-drawn shadow tint
+		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square LAYOUT cell (centerline / min box)
 		"icon_size":   float(c.get("icon_size", float(c.get("icon_box", 40.0)))),   # the icon SPRITE px (× optical); absent → fills the box
@@ -3058,6 +3135,7 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	var pad_x := float(opts.get("pad_x", 18.0))
 	var pad_left := float(opts.get("pad_left", pad_x))   # left margin, tightenable apart from the right (which keeps pad_x)
 	var pad_y := float(opts.get("pad_y", 12.0))
+	var fill_a := clampf(float(opts.get("fill_alpha", 100)) / 100.0, 0.0, 1.0)   # capsule opacity (workbench)
 	if bool(opts.get("use_art", true)):
 		var bd: Dictionary = pill_border(String(opts.get("border", "gold capsule")))
 		var p := Look.kit(String(bd["art"]))
@@ -3065,17 +3143,18 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 			var sbt := StyleBoxTexture.new()
 			sbt.texture = load(p)
 			sbt.set_texture_margin_all(int(bd["cap"]))   # cap radius: the rounded ends never squash
+			sbt.modulate_color = Color(1.0, 1.0, 1.0, fill_a)   # opacity: the painted capsule reads translucent at < 100%
 			sbt.content_margin_left = pad_left
 			sbt.content_margin_right = pad_x
 			sbt.content_margin_top = pad_y
 			sbt.content_margin_bottom = pad_y
 			return sbt
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = CUR_PILL_BG
+	sb.bg_color = Color(CUR_PILL_BG, CUR_PILL_BG.a * fill_a)        # opacity scales the cream fill
 	sb.set_corner_radius_all(int(opts.get("radius", 40)))
 	sb.set_border_width_all(int(opts.get("border_w", 3)))
-	sb.border_color = CUR_PILL_BORDER
-	sb.shadow_color = CUR_PILL_SHADOW
+	sb.border_color = Color(CUR_PILL_BORDER, CUR_PILL_BORDER.a * fill_a)
+	sb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
 	sb.shadow_size = int(opts.get("shadow_size", 5))
 	sb.content_margin_left = pad_left
 	sb.content_margin_right = pad_x

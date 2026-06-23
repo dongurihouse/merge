@@ -1,0 +1,20 @@
+{
+	"source": "_new/ui_asset2.png",
+	"category": "sheet",
+	"outputs": [
+		{ "island": 0,  "name": "pill_capsule", "path": "ui/shared/pill_capsule.png" },
+		{ "island": 3,  "name": "badge_rect",   "path": "ui/shared/badge_rect.png" },
+		{ "island": 7,  "name": "play_disc",    "path": "ui/shared/play_disc.png" },
+		{ "island": 10, "name": "icon_plus",     "path": "ui/shared/icon_plus.png",     "post": "icon:512" },
+		{ "island": 19, "name": "icon_board",    "path": "ui/shared/icon_board.png",    "post": "icon:512" },
+		{ "island": 12, "name": "icon_calendar", "path": "ui/shared/icon_calendar.png", "post": "icon:512" },
+		{ "island": 15, "name": "icon_chest",    "path": "ui/shared/icon_chest.png",    "post": "icon:512" },
+		{ "island": 16, "name": "icon_mail",     "path": "ui/shared/icon_mail.png",     "post": "icon:512" },
+		{ "island": 17, "name": "icon_gear",     "path": "ui/shared/icon_gear.png",     "post": "icon:512" },
+		{ "island": 18, "name": "icon_map",      "path": "ui/shared/icon_map.png",      "post": "icon:512" },
+		{ "island": 11, "name": "icon_water",    "path": "ui/shared/icon_water.png",    "post": "icon:512" },
+		{ "island": 13, "name": "icon_coin",     "path": "ui/currency/icon_coin.png",   "post": "icon:512" },
+		{ "island": 14, "name": "icon_gem",      "path": "ui/currency/icon_gem.png",    "post": "icon:512" }
+	],
+	"archive": "_originals/ui/ui_asset2.png"
+}

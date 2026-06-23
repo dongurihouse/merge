@@ -45,6 +45,7 @@ const ICON_GLYPHS := {
 	"star": "★", "coin": "🪙", "gem": "🌰", "water": "💧", "rain": "☔",
 	"cart": "🛒", "gear": "⚙", "check": "✓", "lock": "Lv", "question": "?",
 	"home": "◀", "back": "◀", "level": "Lv", "cash": "$", "trash": "🗑", "info": "ℹ",
+	"plus": "+", "calendar": "📅", "chest": "🎁", "board": "▦",
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 
@@ -660,6 +661,21 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# the optional DROP SHADOW (workbench shadow_size / shadow_alpha): a soft rounded shadow drawn BEHIND
+	# the pill. The painted capsule is a StyleBoxTexture (no native shadow), so we lift it with this sibling
+	# Panel — full-rect like the pill, its StyleBoxFlat shadow bleeds past the edge by shadow_size.
+	var sh_size := int(opts.get("shadow_size", 0))
+	if sh_size > 0:
+		var shadow := Panel.new()
+		shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shadow.set_anchors_preset(Control.PRESET_FULL_RECT)   # matches the pill rect (both fill the holder)
+		var ssb := StyleBoxFlat.new()
+		ssb.draw_center = false                               # only the shadow paints; the capsule art owns the fill
+		ssb.set_corner_radius_all(100)                        # clamps to half-height → a capsule-shaped shadow
+		ssb.shadow_size = sh_size
+		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
+		shadow.add_theme_stylebox_override("panel", ssb)
+		holder.add_child(shadow)
 	holder.add_child(pill)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
 	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only

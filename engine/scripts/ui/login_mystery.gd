@@ -9,6 +9,7 @@ extends RefCounted
 ## look. Pass {instant:true} to skip the spin and grant immediately (the headless test path).
 
 const Login = preload("res://engine/scripts/core/login.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -57,7 +58,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 
 	var caption := Label.new()
 	caption.name = "MysteryCaption"
-	caption.text = host.tr("Spinning…")
+	caption.text = Strings.t("mystery.spinning")
 	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	caption.add_theme_font_size_override("font_size", 18)
 	caption.add_theme_color_override("font_color", Pal.INK)
@@ -81,7 +82,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 		row.add_child(card)
 
 	var fo: Dictionary = Kit.daily_opts_from_config(cfg)
-	fo["banner_text"] = (host.tr("Mystery Gifts") if winners.size() > 1 else host.tr("Mystery Gift"))
+	fo["banner_text"] = (Strings.t("mystery.banner_plural") if winners.size() > 1 else Strings.t("mystery.banner_single"))
 	fo["on_close"] = func() -> void: _dismiss(overlay, on_done)
 	var dialog: Control = Kit.dialog_frame(body, width, fo)
 	cc.add_child(dialog)

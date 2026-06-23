@@ -24,6 +24,7 @@ const Ads = preload("res://engine/scripts/core/ads.gd")          # the rewarded-
 const D = Game.DATA                                               # the active game's data (§10 shop stock)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
+const Strings = preload("res://engine/scripts/core/strings.gd")
 
 const INK = Pal.INK
 const CREAM = Pal.CREAM
@@ -296,15 +297,15 @@ static func _water_sections(refs: Dictionary) -> Array:
 		return []
 	var gems := Save.diamonds()
 	var card := {
-		"icon": "water", "label": host.tr("Fill water"),
+		"icon": "water", "label": Strings.t("shop.water.fill_label"),
 		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
 		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
 		"on_buy": func() -> void: _flow_water(refs),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Fill your water"), [{
-			"icon": "water", "label": host.tr("Water"), "amount": str(int(G.WATER_CAP)),
-			"note": host.tr("refills your watering can to full right away")}],
-			host.tr("Keep tending the garden without waiting for it to top up on its own."))}
-	return [{"caption": host.tr("Water"), "cards": [card]}]
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
+			"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
+			"note": Strings.t("shop.water.info_row_note")}],
+			Strings.t("shop.water.info_note"))}
+	return [{"caption": Strings.t("shop.water.caption"), "cards": [card]}]
 
 # COIN shop — the Coin pouch (grants coins) + the coin-priced item shortcuts (grind-skips paid in coins).
 static func _coin_sections(refs: Dictionary) -> Array:
@@ -312,20 +313,20 @@ static func _coin_sections(refs: Dictionary) -> Array:
 	var gems := Save.diamonds()
 	var secs: Array = []
 	var pouch := {
-		"icon": "coin", "label": host.tr("Coin pouch"), "count": COIN_PACK,
+		"icon": "coin", "label": Strings.t("shop.coin.pouch_label"), "count": COIN_PACK,
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Coin pouch"), [{
-			"icon": "coin", "label": host.tr("Coins"), "amount": str(COIN_PACK),
-			"note": host.tr("for restoring spots and buying from the shelf")}],
-			host.tr("Added to your pouch instantly."))}
-	secs.append({"caption": host.tr("Quick help"), "cards": [pouch]})
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.coin.info_title"), [{
+			"icon": "coin", "label": Strings.t("shop.coin.info_row_label"), "amount": str(COIN_PACK),
+			"note": Strings.t("shop.coin.info_row_note")}],
+			Strings.t("shop.coin.info_note"))}
+	secs.append({"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [pouch]})
 	var feat: Array = []
 	for offer in offers_for("coins"):
 		feat.append(_offer_card(refs, offer))
 	if not feat.is_empty():
-		secs.append({"caption": host.tr("Featured"), "cards": feat})
+		secs.append({"caption": Strings.t("shop.coin.featured_caption"), "cards": feat})
 	return secs
 
 # PREMIUM shop — the 💎-priced item shortcut(s), the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
@@ -334,19 +335,19 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	var secs: Array = []
 	# Free acorns — the rewarded faucet (moved off the side rail). Always shown; dims to a cozy
 	# "Ready in Nm" / "Back tomorrow" read when a watch isn't offerable yet (§10 — a faucet, never a wall).
-	secs.append({"caption": host.tr("Free acorns"), "cards": [_free_gems_card(refs)]})
+	secs.append({"caption": Strings.t("shop.premium.free_acorns_caption"), "cards": [_free_gems_card(refs)]})
 	var feat: Array = []
 	for offer in offers_for("diamonds"):
 		feat.append(_offer_card(refs, offer))
 	if not feat.is_empty():
-		secs.append({"caption": host.tr("Featured"), "cards": feat})
+		secs.append({"caption": Strings.t("shop.premium.featured_caption"), "cards": feat})
 	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
 	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
 	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
 	if starter_available():
-		secs.append({"caption": host.tr("Welcome gift"), "cards": [{
+		secs.append({"caption": Strings.t("shop.premium.welcome_gift_caption"), "cards": [{
 			"icon": _starter_icon_id(),
-			"ribbon": host.tr("Welcome"),
+			"ribbon": Strings.t("shop.premium.welcome_ribbon"),
 			"price": String(STARTER_PACK.get("usd", "")),
 			"on_buy": func() -> void: _confirm_starter(host, refs),
 			"on_info": func() -> void: _starter_info(host)}]})
@@ -359,13 +360,13 @@ static func _premium_sections(refs: Dictionary) -> Array:
 			"price": String(pack.usd),
 			"on_buy": func() -> void: _confirm_cash(host, refs, i)}
 		if first_buy_doubled():
-			card["ribbon"] = host.tr("First buy x2")
+			card["ribbon"] = Strings.t("shop.premium.ribbon_first_buy")
 		elif bool(pack.get("pop", false)):
-			card["ribbon"] = host.tr("Popular")
+			card["ribbon"] = Strings.t("shop.premium.ribbon_popular")
 		elif i == CASH_PACKS.size() - 1:
-			card["ribbon"] = host.tr("Best value")
+			card["ribbon"] = Strings.t("shop.premium.ribbon_best_value")
 		packs.append(card)
-	secs.append({"caption": host.tr("Acorn pouches"), "cards": packs})
+	secs.append({"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs})
 	return secs
 
 # The premium stall's lead card: the rewarded free-acorn faucet. Shows the 🌰 reward + a green "Free"
@@ -376,14 +377,14 @@ static func _free_gems_card(refs: Dictionary) -> Dictionary:
 	var st := free_gems_status()
 	var card := {
 		"node": _free_gems_content(refs, st),
-		"on_info": func() -> void: _info_sheet(host, host.tr("Free acorns"), [{
-			"icon": "gem", "label": host.tr("Acorns"), "amount": str(free_gems_amount()),
-			"note": host.tr("watch a short clip — free, a few times a day")}],
-			host.tr("A little top-up whenever you fancy one, never required."))}
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.free.info_title"), [{
+			"icon": "gem", "label": Strings.t("shop.free.info_row_label"), "amount": str(free_gems_amount()),
+			"note": Strings.t("shop.free.info_row_note")}],
+			Strings.t("shop.free.info_note"))}
 	# Offerable → the green "Free" CTA pill claims it. Cooling/capped → NO button: the cozy timer reads as
 	# plain muted text inside the card (see _free_gems_content) — a faucet at rest, not a greyed-out wall.
 	if bool(st.available):
-		card["price"] = host.tr("Free")
+		card["price"] = Strings.t("shop.free.cta")
 		card["price_icon"] = ""
 		card["affordable"] = true
 		card["on_buy"] = func() -> void:
@@ -411,7 +412,7 @@ static func _free_gems_content(refs: Dictionary, st: Dictionary) -> Control:
 	col.add_child(n)
 	if not bool(st.available):
 		var t := Label.new()
-		t.text = host.tr("Back tomorrow") if String(st.kind) == "capped" else host.tr("Ready in %dm") % int(st.minutes)
+		t.text = Strings.t("shop.free.back_tomorrow") if String(st.kind) == "capped" else Strings.t("shop.free.ready_in") % int(st.minutes)
 		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		t.add_theme_font_size_override("font_size", int(maxf(11.0, px * 0.2)))
 		t.add_theme_color_override("font_color", Color(BARK, 0.9))
@@ -438,9 +439,9 @@ static func _offer_card(refs: Dictionary, offer: Dictionary) -> Dictionary:
 		"affordable": (gems if cur == "diamonds" else coins) >= cost,
 		"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
 		"on_info": func() -> void: _info_sheet(host, label, [{
-			"icon": "leaf", "label": label, "amount": host.tr("tier %d") % (code % 100),
-			"note": host.tr("drops into your bag, ready to place on the board")}],
-			host.tr("Skips you straight to this piece — no grinding up to it."))}
+			"icon": "leaf", "label": label, "amount": Strings.t("shop.offer.tier") % (code % 100),
+			"note": Strings.t("shop.offer.info_row_note")}],
+			Strings.t("shop.offer.info_note"))}
 
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
 # has more packs than tier sprites — mirrors the old _gem_card art ladder.
@@ -458,18 +459,18 @@ static func _starter_icon_id() -> String:
 # currency the bundle grants, read live from STARTER_PACK so the copy never drifts from what it grants.
 static func starter_info_items(host: Control) -> Array:
 	var items: Array = [{
-		"icon": "gem", "label": host.tr("Acorns"), "amount": str(int(STARTER_PACK.get("gems", 0))),
-		"note": host.tr("premium currency for shortcuts")}]
+		"icon": "gem", "label": Strings.t("shop.starter.acorns_label"), "amount": str(int(STARTER_PACK.get("gems", 0))),
+		"note": Strings.t("shop.starter.acorns_note")}]
 	var water := int(STARTER_PACK.get("water", 0))
 	if water > 0:
-		items.append({"icon": "water", "label": host.tr("Water"), "amount": str(water),
-			"note": host.tr("tops up your watering can")})
+		items.append({"icon": "water", "label": Strings.t("shop.starter.water_label"), "amount": str(water),
+			"note": Strings.t("shop.starter.water_note")})
 	return items
 
 # The Welcome card's "i" → the bundle's detail sheet (the parchment info modal the other shop cards use).
 static func _starter_info(host: Control) -> void:
-	_info_sheet(host, host.tr("Welcome gift"), starter_info_items(host),
-		host.tr("Claimable just once — a warm start to the grove."))
+	_info_sheet(host, Strings.t("shop.starter.info_title"), starter_info_items(host),
+		Strings.t("shop.starter.info_note"))
 
 # --- buy flows (kit cards have no Button to hand the old _try_buy; these take refs + rebuild) --------
 # A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
@@ -510,7 +511,7 @@ static func _flow_item(refs: Dictionary, idx: int, currency: String, cost: int) 
 		if opts.has("piece_grant"):
 			(opts.piece_grant as Callable).call()
 		return true
-	_buy_currency(refs, ("gem" if currency == "diamonds" else "coin"), cost, grant, (refs.host as Control).tr("Into your bag"))
+	_buy_currency(refs, ("gem" if currency == "diamonds" else "coin"), cost, grant, Strings.t("shop.flow.into_bag"))
 
 static func _buy(refs: Dictionary, currency: String, cost: int, action: Callable, fly_id: String) -> void:
 	var host: Control = refs.host
@@ -545,7 +546,7 @@ static func _need_more(refs: Dictionary, currency: String, short: int) -> void:
 	var chip := _wallet_node(refs, currency)
 	if chip != null:
 		FX.wobble(chip)
-	FX.floating_text(host, _fb_at(host), host.tr("Need %d more") % short, CREAM, Tune.NEED_SIZE)
+	FX.floating_text(host, _fb_at(host), Strings.t("shop.buy.need_more") % short, CREAM, Tune.NEED_SIZE)
 
 # A feedback anchor (floaters / fly-home start) — just above the screen centre, since the kit cards
 # don't hand us a per-card button rect like the old card-buttons did.
@@ -595,7 +596,7 @@ static func _info_sheet(host: Control, title: String, items: Array, note := "") 
 	var iopts: Dictionary = Kit.info_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var width: float = host.get_viewport_rect().size.x * clampf(float(iopts.get("width_pct", 70)), 30.0, 100.0) / 100.0
 	iopts["on_close"] = func() -> void: overlay.queue_free()
-	var spec := {"title": title, "items": items, "note": note, "close": host.tr("Got it")}
+	var spec := {"title": title, "items": items, "note": note, "close": Strings.t("shop.info.got_it")}
 	var card: Control = Kit.info_dialog(spec, width, iopts)
 	cc.add_child(card)
 	FX.pop_in(card)
@@ -651,9 +652,9 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 	var pack: Dictionary = CASH_PACKS[i]
 	var doubled := first_buy_doubled()
 	var gems := int(pack.gems) * (int(FIRST_BUY_MULT) if doubled else 1)
-	var sub := host.tr("first-buy bonus doubled!") if doubled else ""
-	_confirm_gem_grant(host, refs, host.tr("Acorn pouch"),
-		host.tr("%d for %s") % [gems, String(pack.usd)], sub, func() -> void:
+	var sub := Strings.t("shop.cash.first_buy_bonus") if doubled else ""
+	_confirm_gem_grant(host, refs, Strings.t("shop.cash.confirm_title"),
+		Strings.t("shop.cash.confirm_line") % [gems, String(pack.usd)], sub, func() -> void:
 			grant_cash_pack(i))
 
 # The starter-pack confirm: same honest parchment confirm; confirming grants the bundle
@@ -661,9 +662,9 @@ static func _confirm_cash(host: Control, refs: Dictionary, i: int) -> void:
 static func _confirm_starter(host: Control, refs: Dictionary) -> void:
 	var gems := int(STARTER_PACK.get("gems", 0))
 	var water_amt := int(STARTER_PACK.get("water", 0))
-	var line := host.tr("%d for %s") % [gems, String(STARTER_PACK.get("usd", ""))]
-	var sub := host.tr("+%d water — a warm welcome") % water_amt if water_amt > 0 else ""
-	_confirm_gem_grant(host, refs, host.tr("Welcome gift"), line, sub, func() -> void:
+	var line := Strings.t("shop.starter.confirm_line") % [gems, String(STARTER_PACK.get("usd", ""))]
+	var sub := Strings.t("shop.starter.confirm_sub") % water_amt if water_amt > 0 else ""
+	_confirm_gem_grant(host, refs, Strings.t("shop.starter.confirm_title"), line, sub, func() -> void:
 		grant_starter())
 
 # The shared honest cash-confirm body (§10): parchment card, ribbon title, the 💎 line,
@@ -716,7 +717,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		subl.add_theme_color_override("font_color", STRAW)
 		col.add_child(subl)
 	var note := Label.new()
-	note.text = host.tr("(test build — nothing is charged)")
+	note.text = Strings.t("shop.confirm.test_build_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", Tune.CONFIRM_NOTE_SIZE)
 	note.add_theme_color_override("font_color", BARK)
@@ -725,8 +726,8 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 	btns.alignment = BoxContainer.ALIGNMENT_CENTER
 	btns.add_theme_constant_override("separation", Tune.BTNS_SEP)
 	col.add_child(btns)
-	btns.add_child(Look.button(host.tr("Cancel"), func() -> void: overlay.queue_free(), false))
-	btns.add_child(Look.button(host.tr("Confirm"), func() -> void:
+	btns.add_child(Look.button(Strings.t("shop.confirm.cancel"), func() -> void: overlay.queue_free(), false))
+	btns.add_child(Look.button(Strings.t("shop.confirm.confirm"), func() -> void:
 		grant.call()
 		var at := card.get_global_rect().get_center()
 		overlay.queue_free()
