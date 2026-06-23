@@ -7,6 +7,7 @@ const View = preload("res://games/grove/tools/ui_workbench_view.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = preload("res://games/grove/grove_palette.gd")
+const Hud = preload("res://engine/scripts/ui/hud.gd")
 
 var _pass := 0
 var _fail := 0
@@ -19,9 +20,14 @@ func ok(cond: bool, label: String) -> void:
 		_fail += 1
 		print("  FAIL  ", label)
 
-# Count the currency-number labels inside a pill (one per currency pair).
+# Count the currency-number labels inside a pill (one per currency pair). The gold pill also has a
+# "+" label, so count only numeric text.
 func _pill_numbers(pill: Control) -> int:
-	return pill.find_children("*", "Label", true, false).size()
+	var n := 0
+	for l in pill.find_children("*", "Label", true, false):
+		if String((l as Label).text).is_valid_int():
+			n += 1
+	return n
 
 # True if any Label in `node`'s subtree has exactly `text`.
 func _has_label_text(node: Control, text: String) -> bool:
@@ -49,6 +55,23 @@ func _first_button(node: Control) -> Button:
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
 	return found[0] as Control if not found.is_empty() else null
+
+func _ancestor_named(n: Node, node_name: String) -> Control:
+	var p := n
+	while p != null:
+		if p is Control and String(p.name).begins_with(node_name):
+			return p as Control
+		p = p.get_parent()
+	return null
+
+func _slider_max(view: Control, label: String) -> float:
+	for row in view._sidebar_body.find_children("*", "HBoxContainer", true, false):
+		var kids := (row as HBoxContainer).get_children()
+		if kids.size() >= 2 and kids[0] is Label and String((kids[0] as Label).text) == label:
+			for kid in kids:
+				if kid is HSlider:
+					return (kid as HSlider).max_value
+	return -INF
 
 # Count the slot tiles in a bag dialog's grid (the GridContainer's children).
 func _grid_cells(dialog: Control) -> int:
@@ -170,6 +193,7 @@ func _initialize() -> void:
 		"icon": "water", "count": 2450, "plus_x": 0, "plus_y": 0,
 		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
 		"plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
+		"inner_shadow": 30,
 	})
 	ok(gcp is Control and _has_label_text(gcp, "2450") and _has_label_text(gcp, "+"), \
 		"gold_currency_pill renders the sample count and plus glyph")
@@ -188,7 +212,8 @@ func _initialize() -> void:
 		"num_size": 36, "amount_x": 9, "amount_y": -3,
 		"gap": 17, "plus_x": 12, "plus_y": -8,
 		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
-		"plus_font": 70, "plus_button": 120, "plus_round": 8, "plus_hue": 65,
+		"plus_font": 132, "plus_button": 120, "plus_round": 8, "plus_hue": 65,
+		"inner_shadow": 0,
 	})
 	var tuned_frame := (tuned as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	ok(tuned_frame != null and int(tuned_frame.content_margin_left) == 31 and int(tuned_frame.content_margin_right) == 22 and int(tuned_frame.content_margin_top) == 14, \
@@ -207,20 +232,40 @@ func _initialize() -> void:
 	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
 	ok(plus_slot != null and plus_btn != null and plus_btn.position.x == 12, \
 		"gold_currency_pill plus x control offsets the plus component")
+	var plus_label := _first_control(tuned, "GoldCurrencyPlusLabel", "Label") as Label
+	ok(plus_label != null and int(plus_label.get_theme_font_size("font_size")) >= 44, \
+		"gold_currency_pill plus font can be adjusted larger")
 	var icon_center := icon.position.y + icon.custom_minimum_size.y * 0.5
 	var amount_center := amount.position.y + amount.custom_minimum_size.y * 0.5
 	var plus_center := plus_btn.position.y + plus_btn.custom_minimum_size.y * 0.5
 	ok(is_equal_approx(icon_center, amount_center) and is_equal_approx(amount_center, plus_center), \
 		"gold_currency_pill vertically centers icon, amount, and plus on one line")
+	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	var no_px := no_inner.texture.get_image().get_pixel(58, 14)
+	var strong_px := strong_inner.texture.get_image().get_pixel(58, 14)
+	ok((strong_px.r + strong_px.g + strong_px.b) < (no_px.r + no_px.g + no_px.b), \
+		"gold_currency_pill inner_shadow darkens the badge inset groove")
 	var gp: Dictionary = view._params["gold_currency_pill"]
 	ok(not gp.has("icon_y") and not gp.has("amount_y") and not gp.has("plus_y"), \
 		"gold_currency_pill has no individual vertical offset controls")
-	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_x") and view._is_config("gold_currency_pill", "plus_button"), \
+	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_x") and view._is_config("gold_currency_pill", "plus_button") and view._is_config("gold_currency_pill", "inner_shadow"), \
 		"gold_currency_pill padding and component controls are saved on its own config block")
 	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
 	view._selected = "gold_currency_pill"
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
+	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
+	var hud_host := Control.new()
+	hud_host.custom_minimum_size = Vector2(1080, 1920)
+	get_root().add_child(hud_host)
+	var hud := Hud.build(hud_host, {})
+	ok(hud.coins is Label, "live HUD exposes the coin amount label")
+	ok(_ancestor_named(hud.coins, "GoldCurrencyPill") != null, "live HUD currency pills use the gold currency pill")
+	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
+	hud_host.queue_free()
+	await process_frame
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
@@ -649,11 +694,13 @@ func _test_quest_card_config(view) -> void:
 
 func _test_bag_components() -> void:
 	# the currency pill, reused for the bag's single-acorn balance: an `icons` override renders just
-	# that currency. The default call still renders the three-currency wallet (backward-compat pin).
-	var one := Kit.currency_pill({"icons": [["gem", 40.0]]}, {"gem": 132})
-	ok(one is Control and _pill_numbers(one) == 1, "currency_pill with one icon renders a single acorn count")
-	var three := Kit.currency_pill({}, {"star": 1, "coin": 2, "gem": 3})
-	ok(three is Control and _pill_numbers(three) == 3, "currency_pill default still renders the 3-currency wallet")
+	# that currency, and now resolves through the gold currency pill visual.
+	var one := Kit.currency_pill({"icons": [["gem", 40.0]], "show_plus": false}, {"gem": 132})
+	ok(one is PanelContainer and one.name == "GoldCurrencyPill" and _pill_numbers(one) == 1, \
+		"currency_pill with one icon renders as the gold currency pill")
+	var water := Kit.currency_pill({"icon": "water", "show_plus": true}, {"water": 128})
+	ok(water is PanelContainer and water.name == "GoldCurrencyPill" and _has_label_text(water, "+"), \
+		"currency_pill default entry point is replaced by the gold currency pill")
 
 	# the pill's BORDER is a selectable painted capsule (PILL_BORDERS) — the workbench Border picker saves
 	# "border", currency_pill_style resolves it on the ART path. The default is "gold capsule" so the shipped

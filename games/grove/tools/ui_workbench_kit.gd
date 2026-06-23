@@ -741,6 +741,7 @@ static func gold_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"shine": float(g.get("shine", 100.0)),
 		"corner": float(g.get("corner", GOLD_BADGE_CAP)),
 		"gradient": float(g.get("gradient", 100.0)),
+		"inner_shadow": float(g.get("inner_shadow", 30.0)),
 	}
 
 static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
@@ -750,7 +751,7 @@ static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
 	var gradient := clampf(float(opts.get("gradient", 100.0)) / 100.0, 0.0, 1.0)
 	var corner := _gold_badge_corner_for_size(size, float(opts.get("corner", GOLD_BADGE_CAP)))
 	var sb := StyleBoxTexture.new()
-	sb.texture = _gold_badge_texture(size, inset, shine, 0, corner, gradient)
+	sb.texture = _gold_badge_texture(size, inset, shine, 0, corner, gradient, float(opts.get("inner_shadow", 30.0)))
 	sb.set_texture_margin_all(gold_badge_cap(opts))
 	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
@@ -773,11 +774,12 @@ static func _gold_badge_corner_for_size(size: int, corner_px: float) -> float:
 	var corner := float(size) * 0.215 if corner_px < 0.0 else corner_px * float(size) / float(GOLD_BADGE_BASE_SIZE)
 	return clampf(corner, 4.0, float(size) * 0.5 - 1.0)
 
-static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1, corner_radius: float = -1.0, gradient: float = 1.0) -> Texture2D:
+static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pad_override: int = -1, corner_radius: float = -1.0, gradient: float = 1.0, inner_shadow: float = 30.0) -> Texture2D:
 	var pad := int(ceil(size * 0.075)) if pad_override < 0 else maxi(0, pad_override)
 	var outer_radius := clampf(corner_radius if corner_radius >= 0.0 else float(size) * 0.215, 4.0, float(size) * 0.5 - 1.0)
 	var gradient_amt := clampf(gradient, 0.0, 1.0)
-	var cache_key := "%d|%d|%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad, int(round(outer_radius)), int(round(gradient_amt * 100.0))]
+	var inner_shadow_amt := clampf(inner_shadow, 0.0, 100.0)
+	var cache_key := "%d|%d|%d|%d|%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0)), pad, int(round(outer_radius)), int(round(gradient_amt * 100.0)), int(round(inner_shadow_amt))]
 	if _gold_badge_cache.has(cache_key):
 		return _gold_badge_cache[cache_key]
 	var tex_size := size + pad * 2
@@ -792,7 +794,7 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 	var flat := c1
 	var rim := Color(189.0 / 255.0, 121.0 / 255.0, 38.0 / 255.0, 0.35)
 	var groove := Color(181.0 / 255.0, 116.0 / 255.0, 35.0 / 255.0, 0.50)
-	var groove_shadow := Color(117.0 / 255.0, 66.0 / 255.0, 17.0 / 255.0, 0.30)
+	var groove_shadow := Color(117.0 / 255.0, 66.0 / 255.0, 17.0 / 255.0, inner_shadow_amt / 100.0)
 	var groove_light := Color(1.0, 1.0, 1.0, 0.78)
 
 	for y in tex_size:
@@ -881,8 +883,14 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var amount_x := float(opts.get("amount_x", 0))
 	var amount_w := float(opts.get("amount_w", maxf(88.0, float(num_size) * 2.9)))
 	var gap := int(opts.get("gap", 12))
-	var plus := _gold_currency_plus_button(opts)
-	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus.custom_minimum_size.y))
+	var show_plus := bool(opts.get("show_plus", true))
+	var plus_action := Callable()
+	var plus_action_value: Variant = opts.get("plus_action", null)
+	if plus_action_value is Callable:
+		plus_action = plus_action_value as Callable
+	var plus := _gold_currency_plus_button(opts, plus_action)
+	var plus_h := plus.custom_minimum_size.y if show_plus else 0.0
+	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus_h))
 
 	var panel := PanelContainer.new()
 	panel.name = "GoldCurrencyPill"
@@ -894,6 +902,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	for k in ["inner_inset", "shine", "corner", "gradient"]:
 		if opts.has(k):
 			badge_opts[k] = opts[k]
+	badge_opts["inner_shadow"] = float(opts.get("inner_shadow", badge_opts.get("inner_shadow", 30.0)))
 	badge_opts["content_margin_left"] = pad_left
 	badge_opts["content_margin_right"] = pad_x
 	badge_opts["content_margin_top"] = pad_y
@@ -936,17 +945,18 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount_slot.add_child(amount)
 	row.add_child(amount_slot)
 
-	var plus_slot := Control.new()
-	plus_slot.name = "GoldCurrencyPlusSlot"
-	plus_slot.custom_minimum_size = Vector2(plus.custom_minimum_size.x, content_h)
-	plus_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
-	plus_slot.add_child(plus)
-	row.add_child(plus_slot)
+	if show_plus:
+		var plus_slot := Control.new()
+		plus_slot.name = "GoldCurrencyPlusSlot"
+		plus_slot.custom_minimum_size = Vector2(plus.custom_minimum_size.x, content_h)
+		plus_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
+		plus_slot.add_child(plus)
+		row.add_child(plus_slot)
 	return panel
 
-static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
+static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
 	var base := float(opts.get("plus_base", 34))
 	var button_scale := float(opts.get("plus_button", 100)) / 100.0
 	var hue := float(opts.get("plus_hue", 65)) / 360.0
@@ -957,11 +967,21 @@ static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	var w := base * 1.03 * button_scale
 	var h := base * 0.90 * button_scale
 
-	var p := Panel.new()
+	var p: Control
+	if action.is_valid():
+		var b := Button.new()
+		b.flat = true
+		b.focus_mode = Control.FOCUS_NONE
+		b.add_theme_constant_override("h_separation", 0)
+		b.pressed.connect(func() -> void: action.call())
+		Look.add_press_juice(b)
+		p = b
+	else:
+		p = Panel.new()
 	p.name = "GoldCurrencyPlusButton"
 	p.custom_minimum_size = Vector2(w, h)
 	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.mouse_filter = Control.MOUSE_FILTER_STOP if action.is_valid() else Control.MOUSE_FILTER_IGNORE
 	var green := Color.from_hsv(hue, 0.42, 0.40 + shine * 0.04)
 	var psb := StyleBoxFlat.new()
 	psb.bg_color = green
@@ -971,7 +991,11 @@ static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	psb.shadow_color = Color(55.0 / 255.0, 53.0 / 255.0, 22.0 / 255.0, 0.34)
 	psb.shadow_size = 3
 	psb.shadow_offset = Vector2(0, 2)
-	p.add_theme_stylebox_override("panel", psb)
+	if p is Button:
+		for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+			(p as Button).add_theme_stylebox_override(st, psb)
+	else:
+		(p as Panel).add_theme_stylebox_override("panel", psb)
 
 	var g := Label.new()
 	g.name = "GoldCurrencyPlusLabel"
@@ -3302,6 +3326,66 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it; never grows the pill)
 	}
 
+static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
+	var legacy: Dictionary = cfg.get("currency_pill", {}) if cfg is Dictionary else {}
+	var icon_box := float(g.get("icon_box", legacy.get("icon_box", 54.0)))
+	var icon_size := float(g.get("icon_size", legacy.get("icon_size", 34.0)))
+	return {
+		"pill_w": float(g.get("pill_w", 292.0)),
+		"pill_h": float(g.get("pill_h", 100.0)),
+		"pad_left": float(g.get("pad_left", legacy.get("pad_left", 18.0))),
+		"pad_x": float(g.get("pad_x", legacy.get("pad_x", 16.0))),
+		"pad_y": float(g.get("pad_y", legacy.get("pad_y", 12.0))),
+		"icon_box": icon_box,
+		"icon_size": icon_size,
+		"icon_x": float(g.get("icon_x", 0.0)),
+		"amount_w": float(g.get("amount_w", 88.0)),
+		"num_size": int(g.get("num_size", legacy.get("num_size", 30))),
+		"amount_x": float(g.get("amount_x", 0.0)),
+		"gap": int(g.get("gap", legacy.get("row_sep", 12))),
+		"plus_x": float(g.get("plus_x", legacy.get("plus_x", 0.0))),
+		"plus_radius": float(g.get("plus_radius", 28.0)),
+		"plus_shine": float(g.get("plus_shine", 32.0)),
+		"plus_stroke": float(g.get("plus_stroke", 2.0)),
+		"plus_font": float(g.get("plus_font", 70.0)),
+		"plus_button": float(g.get("plus_button", 100.0)),
+		"plus_round": float(g.get("plus_round", 8.0)),
+		"plus_hue": float(g.get("plus_hue", 65.0)),
+		"inner_shadow": float(g.get("inner_shadow", 30.0)),
+		"show_plus": true,
+	}
+
+static func _gold_currency_opts_from_currency_opts(opts: Dictionary, counts: Dictionary = {}) -> Dictionary:
+	var g := opts.duplicate()
+	var icons: Array = opts.get("icons", [])
+	var icon_id := String(opts.get("icon", "water"))
+	if not icons.is_empty():
+		icon_id = String(icons[0][0])
+		if icons[0].size() > 1:
+			g["icon_size"] = float(icons[0][1])
+	elif not counts.is_empty():
+		for id in ["water", "coin", "gem", "star"]:
+			if counts.has(id):
+				icon_id = id
+				break
+	g["icon"] = icon_id
+	g["count"] = int(counts.get(icon_id, opts.get("count", 0)))
+	var plus_action_value: Variant = opts.get("plus_action", null)
+	var has_plus_action := false
+	if plus_action_value is Callable:
+		has_plus_action = (plus_action_value as Callable).is_valid()
+	g["show_plus"] = bool(opts.get("show_plus", false)) or has_plus_action
+	if opts.has("plus_size") and not opts.has("plus_base"):
+		g["plus_base"] = float(opts.get("plus_size", 26.0)) / 1.03
+		g["plus_button"] = float(opts.get("plus_button", 100.0))
+	if not g.has("pill_h"):
+		g["pill_h"] = maxf(64.0, float(opts.get("icon_box", 54.0)) + float(opts.get("pad_y", 12.0)) * 2.0)
+	if not g.has("pill_w"):
+		var amount_w := float(opts.get("amount_w", maxf(72.0, float(opts.get("num_size", 30)) * 2.4)))
+		g["pill_w"] = float(opts.get("icon_box", 54.0)) + amount_w + (float(opts.get("plus_size", 34.0)) if bool(g.get("show_plus", false)) else 0.0) + float(opts.get("pad_left", 18.0)) + float(opts.get("pad_x", 16.0)) + float(opts.get("gap", opts.get("row_sep", 12.0))) * (2.0 if bool(g.get("show_plus", false)) else 1.0)
+	return g
+
 ## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
 ## piece + name · sell cart). The LAYOUT persists here; the FRAME comes from the shared code-drawn
 ## gold badge block, with the currency-pill padding retained as the content margin.
@@ -3364,6 +3448,8 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 ## ★ 🪙 💎 row, sized from the same opts the live HUD reads. `counts` supplies the sample numbers
 ## (the wallet shows live values in-game; here they are preview-only). Self-contained — no game state.
 static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
+	if not bool(opts.get("legacy_currency_pill", false)):
+		return gold_currency_pill(_gold_currency_opts_from_currency_opts(opts, counts), counts)
 	var panel := PanelContainer.new()
 	panel.add_theme_stylebox_override("panel", currency_pill_style(opts))
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -3923,7 +4009,7 @@ static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
 	o.merge(bag_card_opts_from_config(cfg), true)
-	o["pill"] = currency_pill_opts_from_config(cfg)   # the reused pill's style (single-acorn at build time)
+	o["pill"] = gold_currency_pill_opts_from_config(cfg)   # the reused gold pill's style (single-acorn at build time)
 	var bg: Dictionary = cfg.get("bag", {})
 	o["cols"] = int(bg.get("cols", 6))
 	o["cell_gap"] = int(bg.get("cell_gap", 12))
@@ -3953,6 +4039,7 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pill_opts: Dictionary = (opts.get("pill", {}) as Dictionary).duplicate()
 	pill_opts["icons"] = [["gem", float(opts.get("balance_icon", 38.0))]]
+	pill_opts["show_plus"] = false
 	top.add_child(currency_pill(pill_opts, {"gem": balance}))
 	content.add_child(top)
 

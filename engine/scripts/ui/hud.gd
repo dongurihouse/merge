@@ -44,7 +44,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned pill look (padding / border / font / icon box / gaps); Tune.Hud values when unset
 	var Kit = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var pill: Dictionary = Kit.currency_pill_opts_from_config(cfg)
+	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
 	var icon_size := float(pill.get("icon_size", icon_box))   # the workbench-tuned icon SPRITE px (defaults to fill the box)
@@ -206,39 +206,29 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	refresh.call()
 	return out
 
-# One currency CAPSULE: the workbench-styled pill wrapping a fixed icon BOX + the number + a green "+"
-# that opens the store. Added to `cluster`; returns {panel, label, icon, plus}. The icon and number are
-# DIRECT children of an inner `row` — the wallet-resolution contract: label.get_parent() == row, and
-# row.get_parent() == the pill PanelContainer (scenes/tests resolve the pill as label.get_parent().get_parent()).
-# The "+" FLOATS over the pill (Look.float_plus) so its LOCATION and SIZE are tunable from the workbench
-# without touching the capsule: plus_x slides it along the pill's right edge, plus_dy nudges it up(-)/down(+),
-# and plus_size scales it — none of which grow the pill.
+# One currency pill: the workbench-styled gold badge wrapping a fixed icon BOX + the number + a green "+"
+# that opens the store. Added to `cluster`; returns {panel, label, icon, plus}.
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
 		optical: float, tint: Color, num_size: int, box: float, open_store: Callable) -> Dictionary:
-	var panel := PanelContainer.new()
-	# the same painted capsule the workbench tunes (one recipe; T48 cap-height slot keeps the gold ends 1:1)
-	panel.add_theme_stylebox_override("panel", Kit.currency_pill_style(pill))
-	panel.custom_minimum_size.y = PILL_SLOT_H
+	var po: Dictionary = pill.duplicate()
+	po["icon"] = icon_id
+	po["icon_size"] = float(gsize) * optical
+	po["icon_box"] = box
+	po["num_size"] = num_size
+	po["count"] = 0
+	po["show_plus"] = true
+	po["plus_action"] = open_store
+	var panel: Control = Kit.gold_currency_pill(po, {icon_id: 0})
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(pill.row_sep))   # the tight icon↔number↔+ gap
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(row)
-	var icon := _icon_box(icon_id, gsize, optical, tint, box)
-	row.add_child(icon)
-	var lbl := Label.new()
-	lbl.add_theme_font_size_override("font_size", num_size)
-	lbl.add_theme_color_override("font_color", INK)   # AC4: dark text on the cream pill
-	lbl.add_theme_constant_override("outline_size", 0)   # AF6: no dark halo on a solid pill (panel-text law)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(lbl)
-	var plus := _plus_button(open_store, float(pill.get("plus_size", Tune.PLUS_BOX)))   # green "+", size tuned in the workbench
-	# the "+" FLOATS over the pill: its size never grows the capsule, and plus_x / plus_dy place it on the
-	# right edge. The HOLDER (sized to the pill) is what the cluster lays out — the pill is its full-rect child.
-	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it (the map's Store badge
-	# rides the + now); the pill PANEL is a PanelContainer, which would force-fill any badge child into a bar.
-	cluster.add_child(Look.float_plus(panel, plus, pill))
+	var lbl := panel.find_child("GoldCurrencyAmount", true, false) as Label
+	var icon := panel.find_child("GoldCurrencyIcon", true, false) as Control
+	if icon != null:
+		icon.modulate = tint
+		if icon is Label:
+			(icon as Label).add_theme_color_override("font_color", tint)
+			icon.modulate = Color.WHITE
+	var plus := panel.find_child("GoldCurrencyPlusButton", true, false) as Control
+	cluster.add_child(panel)
 	return {"panel": panel, "label": lbl, "icon": icon, "plus": plus}
 
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor

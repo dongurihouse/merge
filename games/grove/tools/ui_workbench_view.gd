@@ -50,6 +50,7 @@ const DEPENDENTS := {
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"currency_pill": ["bag", "info_bar"],   # the info bar still borrows the pill padding for content margins
+	"gold_currency_pill": ["currency_pill", "bag"],
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -180,7 +181,8 @@ var _params := {
 		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 		"amount_w": 88, "num_size": 30, "amount_x": 0,
 		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
-		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65},
+		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
+		"inner_shadow": 30},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
@@ -607,7 +609,7 @@ func _make_element(id: String) -> Control:
 			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
 			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
 			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
-			var co := Kit.currency_pill_opts_from_config({"currency_pill": p, "shadow": _params["shadow"]})
+			var co := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": _params["gold_currency_pill"], "currency_pill": p, "shadow": _params["shadow"]})
 			co["icons"] = [["water", float(co["icon_size"])]]   # the preview water icon tracks the Icon Size slider (water optical = 1.0)
 			co["show_plus"] = true
 			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
@@ -1412,6 +1414,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_y", 0, 36]))
+			_sidebar_body.add_child(_slider_row(["inner_shadow", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["gap", 0, 30]))
 			_section_header("Icon")
 			_sidebar_body.add_child(_slider_row(["icon_box", 20, 90]))
@@ -1426,7 +1429,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plus_radius", 8, 44]))
 			_sidebar_body.add_child(_slider_row(["plus_shine", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["plus_stroke", 0, 5]))
-			_sidebar_body.add_child(_slider_row(["plus_font", 58, 82]))
+			_sidebar_body.add_child(_slider_row(["plus_font", 50, 160]))
 			_sidebar_body.add_child(_slider_row(["plus_button", 75, 135]))
 			_sidebar_body.add_child(_slider_row(["plus_round", 0, 18]))
 			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
