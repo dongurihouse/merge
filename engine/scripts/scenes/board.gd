@@ -195,8 +195,9 @@ func _ready() -> void:
 	add_child(root)
 
 	# the fence band lives BELOW the pinned HUD chips, never under them
+	# (54, was 64 — raised the fence + board 10px to tighten the gap under the HUD chips)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 64.0 + Look.safe_top(self))
+	spacer.custom_minimum_size = Vector2(0, 54.0 + Look.safe_top(self))
 	root.add_child(spacer)
 
 	# The chapter ribbon is retired (T49 — progression is one `level` clock, merge_spec §3;
