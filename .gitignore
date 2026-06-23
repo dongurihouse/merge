@@ -5,6 +5,12 @@ build/
 *.pck
 *.xcframework/
 
+# iOS Apple-services plugin (Game Center + StoreKit) — large prebuilt binaries,
+# fetched per-checkout by `make ios-plugins` (tools/install_ios_plugins.sh).
+# Regenerable like the baked caches, so the whole dir is ignored; the script is
+# the source of truth (pinned release).
+/addons/
+
 # Godot editor cache & reimported binaries (the bare form also ignores a
 # worktree `.godot` symlink, which `.godot/` would not match)
 .godot/

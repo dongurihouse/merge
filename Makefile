@@ -118,7 +118,10 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
-ios: ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/iOS_BUILD.md)
+ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
+	tools/install_ios_plugins.sh
+
+ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/design/apple-services-setup.md)
 	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/ReachZero.xcodeproj
 
 ## --- clean -----------------------------------------------------------------
