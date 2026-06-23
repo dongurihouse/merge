@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Gold Rounded Badge</title>
+  <style>
+    :root {
+      --badge-size: min(74vmin, 270px);
+      --badge-radius: calc(var(--badge-size) * 0.215);
+      --groove-inset: calc(var(--badge-size) * 0.040);
+      --groove-radius: calc(var(--badge-radius) * 0.78);
+      --tile-size: 26px;
+      --cream: #ffe7b0;
+      --cream-light: #fff2cc;
+      --gold: #dca554;
+      --gold-deep: #bc7f2f;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      min-height: 100%;
+    }
+
+    body {
+      margin: 0;
+      color: #3d2a13;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .checkerboard {
+      background-color: #ffffff;
+      background-image:
+        conic-gradient(
+          from 90deg,
+          #efefef 25%,
+          #ffffff 0 50%,
+          #efefef 0 75%,
+          #ffffff 0
+        );
+      background-position: 0 0;
+      background-size: var(--tile-size) var(--tile-size);
+    }
+
+    .stage {
+      display: grid;
+      width: 100%;
+      min-height: 100vh;
+      place-items: center;
+      padding: 34px;
+    }
+
+    .badge {
+      position: relative;
+      width: var(--badge-size);
+      aspect-ratio: 1;
+      border: 1px solid rgba(189, 121, 38, 0.35);
+      border-radius: var(--badge-radius);
+      background:
+        radial-gradient(
+          circle at 35% 23%,
+          rgba(255, 250, 222, 0.92) 0 18%,
+          rgba(255, 236, 186, 0.66) 35%,
+          rgba(255, 229, 166, 0) 64%
+        ),
+        linear-gradient(138deg, #ffefc7 0%, var(--cream) 47%, #f6c974 100%);
+      box-shadow:
+        0 2px 1px rgba(255, 255, 255, 0.82) inset,
+        0 -3px 5px rgba(173, 103, 22, 0.12) inset,
+        0 8px 16px rgba(136, 89, 30, 0.22);
+    }
+
+    .badge::before,
+    .badge::after {
+      position: absolute;
+      pointer-events: none;
+      content: "";
+    }
+
+    .badge::before {
+      inset: var(--groove-inset);
+      border: 1px solid rgba(181, 116, 35, 0.50);
+      border-radius: var(--groove-radius);
+      box-shadow:
+        0 1px 1px rgba(255, 255, 255, 0.88),
+        0 -2px 3px rgba(255, 255, 255, 0.78) inset,
+        0 3px 6px rgba(117, 66, 17, 0.30) inset;
+    }
+
+    .badge::after {
+      inset: 0;
+      border-radius: inherit;
+      background:
+        linear-gradient(
+          145deg,
+          rgba(255, 255, 255, 0.48) 0%,
+          rgba(255, 255, 255, 0.1) 34%,
+          rgba(183, 105, 28, 0.07) 100%
+        ),
+        radial-gradient(
+          circle at 73% 79%,
+          rgba(183, 105, 28, 0.11) 0 10%,
+          rgba(183, 105, 28, 0) 38%
+        );
+      mix-blend-mode: soft-light;
+    }
+  </style>
+</head>
+<body class="checkerboard">
+  <main class="stage" aria-label="CSS drawing of a gold rounded square badge">
+    <div class="badge" role="img" aria-label="Soft gold rounded square badge"></div>
+  </main>
+</body>
+</html>

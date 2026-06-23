@@ -133,6 +133,10 @@ func _initialize() -> void:
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
 	ok(view._sections.has("bag") and view._sections.has("bag_card"), "the bag dialog + bag cell are registered gallery items")
+	ok(view._sections.has("gold_badge"), "the CSS-port gold badge is a registered gallery item")
+	var gb := Kit.gold_badge(270.0)
+	ok(gb is Control and gb.custom_minimum_size == Vector2(270, 270), "gold_badge builds at the requested size")
+	ok(gb.find_children("*", "TextureRect", true, false).size() == 1, "gold_badge exposes one generated texture rect")
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/

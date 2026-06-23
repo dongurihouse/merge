@@ -719,6 +719,126 @@ static func _square_icon(id: String) -> Texture2D:
 	_square_cache[id] = t
 	return t
 
+## Code-drawn port of docs/art/gold-rounded-badge.html: a warm cream rounded square with a single
+## outer rim, an inset 1px groove, and soft depth/shadow. Test-only today, exposed in the workbench.
+static var _gold_badge_cache: Dictionary = {}
+static func gold_badge(px: float = 270.0) -> Control:
+	var size := maxi(32, int(round(px)))
+	var root := Control.new()
+	root.custom_minimum_size = Vector2(size, size)
+	root.size = Vector2(size, size)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var pad := int(ceil(size * 0.075))
+	var tex_size := size + pad * 2
+	var tr := TextureRect.new()
+	tr.name = "GoldBadgeTexture"
+	tr.texture = _gold_badge_texture(size)
+	tr.position = Vector2(-pad, -pad)
+	tr.custom_minimum_size = Vector2(tex_size, tex_size)
+	tr.size = Vector2(tex_size, tex_size)
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(tr)
+	return root
+
+static func _gold_badge_texture(size: int) -> Texture2D:
+	if _gold_badge_cache.has(size):
+		return _gold_badge_cache[size]
+	var pad := int(ceil(size * 0.075))
+	var tex_size := size + pad * 2
+	var img := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
+	var outer_radius := size * 0.215
+	var groove_inset := size * 0.040
+	var groove_radius := outer_radius * 0.78
+	var half := Vector2(size * 0.5, size * 0.5)
+	var linear_angle := deg_to_rad(138.0)
+	var linear_dir := Vector2(sin(linear_angle), -cos(linear_angle)).normalized()
+	var c0 := Color("#ffefc7")
+	var c1 := Color("#ffe7b0")
+	var c2 := Color("#f6c974")
+	var rim := Color(189.0 / 255.0, 121.0 / 255.0, 38.0 / 255.0, 0.35)
+	var groove := Color(181.0 / 255.0, 116.0 / 255.0, 35.0 / 255.0, 0.50)
+	var groove_shadow := Color(117.0 / 255.0, 66.0 / 255.0, 17.0 / 255.0, 0.30)
+	var groove_light := Color(1.0, 1.0, 1.0, 0.78)
+	var shadow_color := Look.warm_shadow_color(0.22)
+
+	for y in tex_size:
+		for x in tex_size:
+			var local := Vector2(float(x - pad), float(y - pad))
+			var pixel := Color(0, 0, 0, 0)
+
+			var shadow_local := local - Vector2(0, size * 0.030)
+			var shadow_d := _gold_badge_sdf(shadow_local - half, half, outer_radius)
+			if shadow_d > 0.0 and shadow_d < size * 0.060:
+				var sa := pow(1.0 - shadow_d / (size * 0.060), 2.0) * shadow_color.a
+				pixel = _gold_badge_over(pixel, Color(shadow_color.r, shadow_color.g, shadow_color.b, sa))
+
+			var d := _gold_badge_sdf(local - half, half, outer_radius)
+			var face_a := clampf(0.5 - d, 0.0, 1.0)
+			if face_a > 0.0:
+				var uv := Vector2(local.x / float(size), local.y / float(size))
+				var proj := clampf((uv - Vector2(0.5, 0.5)).dot(linear_dir) + 0.5, 0.0, 1.0)
+				var face := c0.lerp(c1, proj / 0.47) if proj <= 0.47 else c1.lerp(c2, (proj - 0.47) / 0.53)
+
+				var radial_center := Vector2(size * 0.35, size * 0.23)
+				var radial_t := (local - radial_center).length() / float(size)
+				var hi := Color(255.0 / 255.0, 250.0 / 255.0, 222.0 / 255.0, 0.92)
+				var mid := Color(255.0 / 255.0, 236.0 / 255.0, 186.0 / 255.0, 0.66)
+				var radial := Color(255.0 / 255.0, 229.0 / 255.0, 166.0 / 255.0, 0.0)
+				if radial_t <= 0.18:
+					radial = hi
+				elif radial_t <= 0.35:
+					radial = hi.lerp(mid, (radial_t - 0.18) / 0.17)
+				elif radial_t <= 0.64:
+					radial = mid.lerp(Color(mid.r, mid.g, mid.b, 0.0), (radial_t - 0.35) / 0.29)
+				face = _gold_badge_over(face, radial)
+
+				var top_gloss := clampf(1.0 - uv.y / 0.12, 0.0, 1.0) * 0.12
+				face = face.lerp(Color.WHITE, top_gloss)
+				var bottom_shade := clampf((uv.y - 0.80) / 0.20, 0.0, 1.0) * 0.06
+				face = face.lerp(Color(173.0 / 255.0, 103.0 / 255.0, 22.0 / 255.0), bottom_shade)
+				face.a = face_a
+				pixel = _gold_badge_over(pixel, face)
+
+				var rim_a := clampf(1.0 - abs(d), 0.0, 1.0) * rim.a
+				if rim_a > 0.0:
+					pixel = _gold_badge_over(pixel, Color(rim.r, rim.g, rim.b, rim_a))
+
+				var groove_half := Vector2(size * 0.5 - groove_inset, size * 0.5 - groove_inset)
+				var gd := _gold_badge_sdf(local - half, groove_half, groove_radius)
+				var groove_line := clampf(1.0 - abs(gd), 0.0, 1.0)
+				if gd <= 0.0 and -gd < 6.0:
+					var depth := 1.0 - (-gd / 6.0)
+					var top_weight := clampf(1.0 - uv.y / 0.62, 0.0, 1.0)
+					var bottom_weight := clampf((uv.y - 0.34) / 0.66, 0.0, 1.0)
+					pixel = _gold_badge_over(pixel, Color(groove_shadow.r, groove_shadow.g, groove_shadow.b, groove_shadow.a * depth * top_weight))
+					pixel = _gold_badge_over(pixel, Color(groove_light.r, groove_light.g, groove_light.b, groove_light.a * depth * bottom_weight * 0.38))
+				if groove_line > 0.0:
+					pixel = _gold_badge_over(pixel, Color(groove.r, groove.g, groove.b, groove.a * groove_line))
+
+			img.set_pixel(x, y, pixel)
+	var tex := ImageTexture.create_from_image(img)
+	_gold_badge_cache[size] = tex
+	return tex
+
+static func _gold_badge_sdf(p: Vector2, half_size: Vector2, radius: float) -> float:
+	var q := Vector2(absf(p.x), absf(p.y)) - half_size + Vector2(radius, radius)
+	var outside := Vector2(maxf(q.x, 0.0), maxf(q.y, 0.0)).length()
+	var inside := minf(maxf(q.x, q.y), 0.0)
+	return outside + inside - radius
+
+static func _gold_badge_over(dst: Color, src: Color) -> Color:
+	var a := src.a + dst.a * (1.0 - src.a)
+	if a <= 0.0001:
+		return Color(0, 0, 0, 0)
+	return Color(
+		(src.r * src.a + dst.r * dst.a * (1.0 - src.a)) / a,
+		(src.g * src.a + dst.g * dst.a * (1.0 - src.a)) / a,
+		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) / a,
+		a)
+
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
 ##   bg      "green" | "cream"     (the same button, two backgrounds — Claim vs a cream chip)
 ##   icon    currency id | ""      (drawn to the LEFT of the text; "" = none — the icon toggle)
