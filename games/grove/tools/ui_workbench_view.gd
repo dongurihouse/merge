@@ -305,7 +305,7 @@ func _ready() -> void:
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "currency_pill": true, "board": true}
+	var on_by_default := {"home_button": true, "currency_pill": true, "board": true, "gold_badge": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
@@ -692,7 +692,8 @@ func _maybe_wrap_shadow(el: Control, id: String) -> Control:
 		return el
 	if not bool((_params[id] as Dictionary).get("shadow", false)):
 		return el
-	return Look.with_shadow(el, 28.0, Look.shadow_params({"shadow": _params["shadow"]}))
+	var corner := float((_params[id] as Dictionary).get("px", 130)) * 0.215 if id == "gold_badge" else 28.0
+	return Look.with_shadow(el, corner, Look.shadow_params({"shadow": _params["shadow"]}))
 
 ## The SHARED shadow on its own — a circle sample + a rounded-rect sample, both casting it, over a light cell.
 func _shadow_preview() -> Control:

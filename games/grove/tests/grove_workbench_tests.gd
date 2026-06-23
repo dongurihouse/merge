@@ -134,9 +134,12 @@ func _initialize() -> void:
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
 	ok(view._sections.has("bag") and view._sections.has("bag_card"), "the bag dialog + bag cell are registered gallery items")
 	ok(view._sections.has("gold_badge"), "the CSS-port gold badge is a registered gallery item")
+	ok(bool(view._params["gold_badge"]["shadow"]), "gold_badge defaults to the shared Shadow toggle on")
 	var gb := Kit.gold_badge(270.0)
 	ok(gb is Control and gb.custom_minimum_size == Vector2(270, 270), "gold_badge builds at the requested size")
 	ok(gb.find_children("*", "TextureRect", true, false).size() == 1, "gold_badge exposes one generated texture rect")
+	_test_gold_badge_has_no_baked_shadow()
+	_test_gold_badge_shared_shadow_toggle(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
@@ -301,6 +304,31 @@ func _test_warm_shadow_port() -> void:
 	})
 	ok(_is_warm_shadow(baked.get_pixel(18, 18)), \
 		"baked icon/badge shadows use the warm reference shadow tint")
+
+func _test_gold_badge_has_no_baked_shadow() -> void:
+	var size := 270
+	var badge := Kit.gold_badge(float(size))
+	var tex_rects := badge.find_children("*", "TextureRect", true, false)
+	var tr := tex_rects[0] as TextureRect
+	var img := tr.texture.get_image()
+	var pad := int(ceil(size * 0.075))
+	var bottom_contact := img.get_pixel(pad + int(size * 0.5), pad + size + 1)
+	ok(bottom_contact.a < 0.001, "gold_badge texture carries no baked outer shadow")
+
+func _test_gold_badge_shared_shadow_toggle(view) -> void:
+	view._params["gold_badge"]["shadow"] = true
+	var raw := Kit.gold_badge(270.0)
+	var wrapped: Control = view._maybe_wrap_shadow(raw, "gold_badge")
+	var shadow_panel := wrapped.get_child(0) as Panel if wrapped.get_child_count() > 0 else null
+	var sb := shadow_panel.get_theme_stylebox("panel") as StyleBoxFlat if shadow_panel != null else null
+	ok(wrapped.get_instance_id() != raw.get_instance_id() and sb != null and sb.shadow_size > 0, \
+		"gold_badge uses the shared shadow wrapper when its Shadow toggle is on")
+	view._params["gold_badge"]["shadow"] = false
+	var raw2 := Kit.gold_badge(270.0)
+	var unwrapped: Control = view._maybe_wrap_shadow(raw2, "gold_badge")
+	ok(unwrapped.get_instance_id() == raw2.get_instance_id(), \
+		"gold_badge Shadow toggle removes the shared shadow wrapper")
+	view._params["gold_badge"]["shadow"] = true
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

@@ -762,19 +762,11 @@ static func _gold_badge_texture(size: int) -> Texture2D:
 	var groove := Color(181.0 / 255.0, 116.0 / 255.0, 35.0 / 255.0, 0.50)
 	var groove_shadow := Color(117.0 / 255.0, 66.0 / 255.0, 17.0 / 255.0, 0.30)
 	var groove_light := Color(1.0, 1.0, 1.0, 0.78)
-	var shadow_color := Look.warm_shadow_color(0.22)
 
 	for y in tex_size:
 		for x in tex_size:
 			var local := Vector2(float(x - pad), float(y - pad))
 			var pixel := Color(0, 0, 0, 0)
-
-			var shadow_local := local - Vector2(0, size * 0.030)
-			var shadow_d := _gold_badge_sdf(shadow_local - half, half, outer_radius)
-			if shadow_d > 0.0 and shadow_d < size * 0.060:
-				var sa := pow(1.0 - shadow_d / (size * 0.060), 2.0) * shadow_color.a
-				pixel = _gold_badge_over(pixel, Color(shadow_color.r, shadow_color.g, shadow_color.b, sa))
-
 			var d := _gold_badge_sdf(local - half, half, outer_radius)
 			var face_a := clampf(0.5 - d, 0.0, 1.0)
 			if face_a > 0.0:
