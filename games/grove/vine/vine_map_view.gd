@@ -380,8 +380,16 @@ func _create_effect_template_materials() -> void:
 
 # ── Region-index map ──────────────────────────────────────────────────────────
 
+# Boot perf guard (see grove_vine_tests._test_boot_does_zero_live_work): every live region-map raster —
+# the ~1.1s per-pixel noise+polygon pass. On a shipped boot this must stay empty (load_map loads the baked
+# map instead); an entry means a vine map rasterizes live on first render (run `make bake-vine`). The
+# authoring tool's live_region_map_only path intentionally rasters, so it does NOT log here.
+static var _live_region_raster_log: Array = []
+
 func _rebuild_region_map() -> void:
 	_region_count = maxi(regions.size(), 1)
+	if not live_region_map_only:
+		_live_region_raster_log.append(image_size)
 	region_map_texture = ImageTexture.create_from_image(render_region_map_image(image_size, regions))
 	_apply_region_map_to_materials()
 

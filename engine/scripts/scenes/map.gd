@@ -38,6 +38,7 @@ const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
+const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
@@ -1225,7 +1226,8 @@ func _refresh_play_cta() -> void:
 	if wrap != null:
 		for c in wrap.get_children():
 			c.queue_free()
-		var icon_node: Control = Kit.make_icon("vine" if ready else "board", float(_play_btn.get_meta("icon_px", 96.0)))
+		var HC: GDScript = load(HOME_CHROME_PATH)
+		var icon_node: Control = Kit.make_icon(HC.ICON_PLAY_RESTORE if ready else HC.ICON_PLAY, float(_play_btn.get_meta("icon_px", 96.0)))
 		if icon_node != null:
 			wrap.add_child(icon_node)
 	# re-point the tap: RESTORE the next spot when affordable, else into the garden/board.
@@ -1292,7 +1294,8 @@ func _make_map_button() -> Button:
 	opts["px"] = 140.0
 	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
 	opts["calm"] = FX.calm()
-	return Kit.home_button({"icon": "map", "caption": Strings.t("map.nav.map"), "action": open}, opts)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
 
 # The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
 # big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the
@@ -1306,11 +1309,12 @@ func _make_play_button() -> Button:
 		return NavBar._make_nav_button("nav_leaf.png", 188.0, _on_board)   # defensive: the baked leaf pill
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = float(opts.get("play_px", 188))   # the workbench-tuned Play-disc size (bigger than the 140 Map badge)
-	opts["shell"] = "shared/play_disc.png"    # the orange play disc (no green tint — the art carries the colour)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	opts["shell"] = HC.PLAY_SHELL             # the orange play disc (no green tint — the art carries the colour)
 	opts["icon_scale"] = 0.52                 # the centred mark (board+acorn, or the vine when a restore is ready)
 	opts["calm"] = FX.calm()
 	var action: Callable = _on_unlock_pressed if ready else _on_board
-	_play_btn = Kit.home_button({"icon": ("vine" if ready else "board"), "caption": "", "action": action}, opts)
+	_play_btn = Kit.home_button({"icon": (HC.ICON_PLAY_RESTORE if ready else HC.ICON_PLAY), "caption": "", "action": action}, opts)
 	return _play_btn
 
 # The place-picker's bottom-left BACK button. It is the SAME shared home button (Kit.home_button) the
@@ -1382,7 +1386,8 @@ func _build_liveops_rail() -> void:
 	var top := Look.safe_top(self) + RAIL_TOP
 	var slot := 0
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
-	var daily := _rail_button("calendar", Strings.t("map.rail.daily"), _open_daily)
+	var HC: GDScript = load(HOME_CHROME_PATH)
+	var daily := _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot", 0, bopts)
 	Look.attach_badge(daily, _daily_badge, bover)
@@ -1390,14 +1395,14 @@ func _build_liveops_rail() -> void:
 	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
-	var piggy := _rail_button("chest", Strings.t("map.rail.vault"), _open_vault)
+	var piggy := _rail_button(HC.ICON_VAULT, Strings.t("map.rail.vault"), _open_vault)
 	_place_rail(piggy, top, slot, step); slot += 1
 	_piggy_pip = Look.badge("dot", 0, bopts)
 	Look.attach_badge(piggy, _piggy_pip, bover)
 	_refresh_piggy_pip()
 	# Inbox — GUARDED: only built when the parallel inbox system exists in this build (load() runtime).
 	if _has_inbox:
-		var inbox := _rail_button("mail", Strings.t("map.rail.inbox"), _open_inbox)
+		var inbox := _rail_button(HC.ICON_INBOX, Strings.t("map.rail.inbox"), _open_inbox)
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
