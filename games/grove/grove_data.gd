@@ -495,12 +495,6 @@ const LOGIN_MYSTERY := {
 }
 const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)
 
-# The MAP TASK-STRIP reward (§17 chrome task loop). The strip rides the EXISTING
-# restore-the-next-spot goal (no bolted-on quest); finishing a map's spots pays this
-# small bonus once. A modest soft-currency + premium dribble — never possibility (§4):
-# it celebrates the milestone the player already reached, it does not gate the next.
-const MAP_TASK_REWARD := {"coins": 120, "gems": 2}
-
 # The one-time gift for fully unlocking a map (all spots restored + gate delivered). Escalates with the
 # map index z: more coins/diamonds on later maps, plus one free signature spirit (the map's non-premium
 # critter). z=0 (120 coins / 2 gems) equals the old flat MAP_TASK_REWARD, so the first map is unchanged.

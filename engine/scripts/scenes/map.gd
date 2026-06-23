@@ -334,16 +334,12 @@ func _build_map(animate := true) -> void:
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
-	# The progress dialog (the "N to restore this place" pill) is DISABLED for now (might add back later).
-	# It also paid the one-time map-completion gift, so grant that here directly to keep it working without
-	# the pill. To re-enable the pill: `content.add_child(_map_title_plank(z))` (the builder still exists).
-	if map_spots_done(z):
-		_grant_map_task_reward(z)
 	if not has_home:
 		_seat_spots(z, home_dict, frame)
-	# §1 residents: a COMPLETED map invites the player to WELCOME spirits (the population sub-game)
+	# §1 residents: a FULLY-UNLOCKED map (spots restored + gate delivered) pays its one-time unlock gift
+	# (the celebration dialog) and offers the Residents shop via the bottom-nav button (_make_residents_button).
 	if G.can_populate(z, unlocks, _gates()):
-		_add_welcome_panel(z)
+		_maybe_show_unlock_reward(z)
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
@@ -643,10 +639,11 @@ const _PILL_GROOVE_Y := 0.6789   # 74 / 109
 const _PILL_GROOVE_H := 0.1193   # 13 / 109
 
 func _map_title_plank(z: int) -> Control:
-	# the pill IS the restore read; a fully-restored map pays MAP_TASK_REWARD once — the gift rides the
-	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays).
-	if map_spots_done(z):
-		_grant_map_task_reward(z)
+	# the pill IS the restore read; a fully-unlocked map pays its unlock gift once — the gift rides the
+	# pill's "restored" end-state (idempotent via a per-map flag, so revisiting never re-pays). NOTE: this
+	# pill is DISABLED (see _build_map); the live trigger is _build_map's can_populate block.
+	if G.can_populate(z, unlocks, _gates()):
+		_maybe_show_unlock_reward(z)
 	var pill_path := Look.kit("map/pill_progress.png")
 	if not ResourceLoader.exists(pill_path):
 		return _map_title_plank_fallback(z)
@@ -1491,29 +1488,119 @@ func _open_inbox() -> void:
 	# refresh deferred so a modal that grants on open settles before we re-read the count
 	_refresh_liveops_badges.call_deferred()
 
-# Grant the map's milestone reward ONCE per map (persisted by a per-map flag) when its spots are all
-# restored. Driven from the progress pill's "restored" end-state (see _map_title_plank), so the gift
-# rides the top progress read — no separate strip. Celebrates the beat the player already reached
-# (§4: no possibility gate).
-func _grant_map_task_reward(z: int) -> void:
-	var g := Save.grove()
-	var claimed: Dictionary = g.get("task_reward", {})
-	var key := String(G.MAPS[z].id)
-	if claimed.has(key):
+# One-time map-UNLOCK celebration. Grants the scaled reward (coins + gems + free signature spirit) via the
+# model the instant the map first completes (robust to interruption — the grant is committed before any
+# UI), then reveals it in a parchment dialog. Idempotent: claim_unlock_reward returns {} after the first
+# time, so a revisit shows nothing. Safe in headless rebuilds (the dialog is deferred + tree-guarded).
+func _maybe_show_unlock_reward(z: int) -> void:
+	var rew: Dictionary = G.claim_unlock_reward(z)
+	if rew.is_empty():
 		return
-	claimed[key] = true
-	g["task_reward"] = claimed
-	Save.grove_write()
-	var rew: Dictionary = Game.DATA.MAP_TASK_REWARD
-	var coins := int(rew.get("coins", 0))
-	var gems := int(rew.get("gems", 0))
-	if coins > 0:
-		Save.add_coins(coins)
-	if gems > 0:
-		Save.add_diamonds(gems)
+	_update_hud()
 	if not is_inside_tree():
 		return
-	_task_reward_fx.call_deferred(coins, gems)
+	_show_unlock_dialog.call_deferred(z, rew)
+
+func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	var coins := int(rew.get("coins", 0))
+	var gems := int(rew.get("gems", 0))
+	var spirit := String(rew.get("spirit", ""))
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		_task_reward_fx(coins, gems)          # defensive: at least play the float FX if the kit is absent
+		return
+	var overlay := Control.new()
+	overlay.name = "UnlockRewardOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(overlay)
+	var dismiss := func() -> void:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+		_task_reward_fx(coins, gems)
+	var veil := ColorRect.new()
+	veil.color = Color(INK, 0.55)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			dismiss.call())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	if coins > 0:
+		col.add_child(_reward_row(Look.icon("coin", 44.0), Strings.t("map.unlock.coins"), "+%d" % coins))
+	if gems > 0:
+		col.add_child(_reward_row(Look.icon("gem", 44.0), Strings.t("map.unlock.diamonds"), "+%d" % gems))
+	if spirit != "":
+		col.add_child(_reward_row(_spirit_icon(spirit, 44.0), _resident_name(z, spirit), "+1"))
+	var collect: Button = Kit.pill_button(Strings.t("map.unlock.collect"), {"bg": "green", "font": 22})
+	collect.pressed.connect(func() -> void: dismiss.call())
+	var btn_wrap := CenterContainer.new()
+	btn_wrap.add_child(collect)
+	col.add_child(btn_wrap)
+	var width: float = minf(get_viewport_rect().size.x * 0.86, 520.0)
+	var opts := {"banner_text": Strings.t("map.unlock.title"), "banner_icon_on": false}
+	opts["on_close"] = func() -> void: dismiss.call()
+	var dialog: Control = Kit.dialog_frame(col, width, opts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
+
+# A fixed-size resident icon: the type's art when present, else a soft cream disc (signature spirits ship
+# without art yet — this keeps the row reading as "a spirit" rather than a broken/empty box).
+func _spirit_icon(type_id: String, px: float) -> Control:
+	var path := G.resident_art(type_id)
+	if path != "" and ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.texture = load(path)
+		t.custom_minimum_size = Vector2(px, px)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
+	var disc := Panel.new()
+	disc.custom_minimum_size = Vector2(px, px)
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Color(STRAW, 0.9)
+	ds.set_corner_radius_all(int(px / 2.0))
+	disc.add_theme_stylebox_override("panel", ds)
+	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return disc
+
+# The resident's localized display name for map z (falls back to the raw id if unlisted).
+func _resident_name(z: int, type_id: String) -> String:
+	for td in G.resident_lines(z):
+		if String(td.id) == type_id:
+			return tr(String(td.name))
+	return type_id
+
+# One reward-reveal row: [icon] · label (expands) · amount (right). Used by the unlock dialog.
+func _reward_row(icon: Control, label: String, amount: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var l := Label.new()
+	l.text = label
+	l.add_theme_font_size_override("font_size", 22)
+	l.add_theme_color_override("font_color", INK)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(l)
+	var a := Label.new()
+	a.text = amount
+	a.add_theme_font_size_override("font_size", 22)
+	a.add_theme_color_override("font_color", Color(BARK, 0.95))
+	a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(a)
+	return row
 
 func _task_reward_fx(coins: int, gems: int) -> void:
 	if not is_inside_tree():
