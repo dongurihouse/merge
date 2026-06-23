@@ -753,6 +753,14 @@ static func gold_badge_style(opts: Dictionary = {}) -> StyleBoxTexture:
 	sb.set_texture_margin_all(gold_badge_cap(opts))
 	sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
 	sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	if opts.has("content_margin_left") or opts.has("left"):
+		sb.content_margin_left = float(opts.get("content_margin_left", opts.get("left", 0.0)))
+	if opts.has("content_margin_right") or opts.has("right"):
+		sb.content_margin_right = float(opts.get("content_margin_right", opts.get("right", 0.0)))
+	if opts.has("content_margin_top") or opts.has("top"):
+		sb.content_margin_top = float(opts.get("content_margin_top", opts.get("top", 0.0)))
+	if opts.has("content_margin_bottom") or opts.has("bottom"):
+		sb.content_margin_bottom = float(opts.get("content_margin_bottom", opts.get("bottom", 0.0)))
 	return sb
 
 static func gold_badge_cap(opts: Dictionary = {}) -> int:
@@ -862,9 +870,17 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var pill_w := float(opts.get("pill_w", 292))
 	var pill_h := float(opts.get("pill_h", 100))
 	var icon_id := String(opts.get("icon", "water"))
-	var badge_px := float(opts.get("badge_px", 54))
+	var pad_left := float(opts.get("pad_left", pill_h * 0.18))
+	var pad_x := float(opts.get("pad_x", pill_h * 0.16))
+	var pad_y := float(opts.get("pad_y", pill_h * 0.12))
+	var icon_box := float(opts.get("icon_box", opts.get("badge_px", 54)))
 	var icon_px := float(opts.get("icon_size", 34))
+	var icon_x := float(opts.get("icon_x", 0))
+	var icon_y := float(opts.get("icon_y", 0))
 	var num_size := int(opts.get("num_size", 30))
+	var amount_x := float(opts.get("amount_x", 0))
+	var amount_y := float(opts.get("amount_y", 0))
+	var amount_w := float(opts.get("amount_w", maxf(88.0, float(num_size) * 2.9)))
 	var gap := int(opts.get("gap", 12))
 
 	var panel := PanelContainer.new()
@@ -873,19 +889,15 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#FDE7B0")
-	sb.border_color = Color(151.0 / 255.0, 104.0 / 255.0, 31.0 / 255.0, 0.36)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(int(pill_h * 0.5))
-	sb.content_margin_left = int(pill_h * 0.18)
-	sb.content_margin_right = int(pill_h * 0.16)
-	sb.content_margin_top = int(pill_h * 0.12)
-	sb.content_margin_bottom = int(pill_h * 0.12)
-	sb.shadow_color = Color(73.0 / 255.0, 93.0 / 255.0, 97.0 / 255.0, 0.22)
-	sb.shadow_size = 8
-	sb.shadow_offset = Vector2(0, 5)
-	panel.add_theme_stylebox_override("panel", sb)
+	var badge_opts: Dictionary = (opts.get("badge", {}) as Dictionary).duplicate() if opts.get("badge", {}) is Dictionary else {}
+	for k in ["inner_inset", "shine", "corner", "gradient"]:
+		if opts.has(k):
+			badge_opts[k] = opts[k]
+	badge_opts["content_margin_left"] = pad_left
+	badge_opts["content_margin_right"] = pad_x
+	badge_opts["content_margin_top"] = pad_y
+	badge_opts["content_margin_bottom"] = pad_y
+	panel.add_theme_stylebox_override("panel", gold_badge_style(badge_opts))
 
 	var row := HBoxContainer.new()
 	row.name = "GoldCurrencyPillRow"
@@ -893,22 +905,21 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	row.add_theme_constant_override("separation", gap)
 	panel.add_child(row)
 
-	var badge_wrap := Control.new()
-	badge_wrap.name = "GoldCurrencyBadge"
-	badge_wrap.custom_minimum_size = Vector2(badge_px, badge_px)
-	badge_wrap.size = Vector2(badge_px, badge_px)
-	badge_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge_wrap.add_child(gold_badge(badge_px))
-	var icon_slot := CenterContainer.new()
+	var icon_slot := Control.new()
 	icon_slot.name = "GoldCurrencyIconSlot"
-	icon_slot.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon_slot.custom_minimum_size = Vector2(icon_box, icon_box)
+	icon_slot.size = Vector2(icon_box, icon_box)
 	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var icon := make_icon(icon_id, icon_px)
 	icon.name = "GoldCurrencyIcon"
+	icon.position = Vector2(round((icon_box - icon_px) * 0.5 + icon_x), round((icon_box - icon_px) * 0.5 + icon_y))
 	icon_slot.add_child(icon)
-	badge_wrap.add_child(icon_slot)
-	row.add_child(badge_wrap)
+	row.add_child(icon_slot)
 
+	var amount_slot := Control.new()
+	amount_slot.name = "GoldCurrencyAmountSlot"
+	amount_slot.custom_minimum_size = Vector2(amount_w, float(num_size) * 1.45)
+	amount_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var amount := Label.new()
 	amount.name = "GoldCurrencyAmount"
 	amount.text = str(int(counts.get(icon_id, opts.get("count", 2450))))
@@ -916,10 +927,19 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(amount)
+	amount.position = Vector2(amount_x, amount_y)
+	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	amount_slot.add_child(amount)
+	row.add_child(amount_slot)
 
-	row.add_child(_gold_currency_plus_button(opts))
+	var plus := _gold_currency_plus_button(opts)
+	var plus_slot := Control.new()
+	plus_slot.name = "GoldCurrencyPlusSlot"
+	plus_slot.custom_minimum_size = plus.custom_minimum_size
+	plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plus.position = Vector2(float(opts.get("plus_x", 0)), float(opts.get("plus_y", 0)))
+	plus_slot.add_child(plus)
+	row.add_child(plus_slot)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
@@ -959,8 +979,8 @@ static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
 	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var dx := float(opts.get("plus_x", 0))
-	var dy := float(opts.get("plus_y", 0))
+	var dx := float(opts.get("plus_label_x", 0))
+	var dy := float(opts.get("plus_label_y", 0))
 	g.offset_left = dx
 	g.offset_right = dx
 	g.offset_top = dy
