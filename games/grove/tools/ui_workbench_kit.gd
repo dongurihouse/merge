@@ -720,10 +720,11 @@ static func _square_icon(id: String) -> Texture2D:
 	return t
 
 ## Code-drawn port of docs/art/gold-rounded-badge.html: a warm cream rounded square with a single
-## outer rim, an inset 1px groove, and soft depth/shadow. Test-only today, exposed in the workbench.
+## outer rim, an inset 1px groove, and soft inset depth. Test-only today, exposed in the workbench.
 static var _gold_badge_cache: Dictionary = {}
-static func gold_badge(px: float = 270.0) -> Control:
+static func gold_badge(px: float = 270.0, inner_inset: float = -1.0) -> Control:
 	var size := maxi(32, int(round(px)))
+	var inset := clampf(inner_inset if inner_inset >= 0.0 else size * 0.040, 2.0, size * 0.18)
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(size, size)
 	root.size = Vector2(size, size)
@@ -733,7 +734,7 @@ static func gold_badge(px: float = 270.0) -> Control:
 	var tex_size := size + pad * 2
 	var tr := TextureRect.new()
 	tr.name = "GoldBadgeTexture"
-	tr.texture = _gold_badge_texture(size)
+	tr.texture = _gold_badge_texture(size, inset)
 	tr.position = Vector2(-pad, -pad)
 	tr.custom_minimum_size = Vector2(tex_size, tex_size)
 	tr.size = Vector2(tex_size, tex_size)
@@ -743,15 +744,16 @@ static func gold_badge(px: float = 270.0) -> Control:
 	root.add_child(tr)
 	return root
 
-static func _gold_badge_texture(size: int) -> Texture2D:
-	if _gold_badge_cache.has(size):
-		return _gold_badge_cache[size]
+static func _gold_badge_texture(size: int, groove_inset: float) -> Texture2D:
+	var cache_key := "%d|%d" % [size, int(round(groove_inset))]
+	if _gold_badge_cache.has(cache_key):
+		return _gold_badge_cache[cache_key]
 	var pad := int(ceil(size * 0.075))
 	var tex_size := size + pad * 2
 	var img := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
 	var outer_radius := size * 0.215
-	var groove_inset := size * 0.040
-	var groove_radius := outer_radius * 0.78
+	var default_groove_inset := size * 0.040
+	var groove_radius := maxf(6.0, outer_radius * 0.78 + (default_groove_inset - groove_inset))
 	var half := Vector2(size * 0.5, size * 0.5)
 	var linear_angle := deg_to_rad(138.0)
 	var linear_dir := Vector2(sin(linear_angle), -cos(linear_angle)).normalized()
@@ -812,7 +814,7 @@ static func _gold_badge_texture(size: int) -> Texture2D:
 
 			img.set_pixel(x, y, pixel)
 	var tex := ImageTexture.create_from_image(img)
-	_gold_badge_cache[size] = tex
+	_gold_badge_cache[cache_key] = tex
 	return tex
 
 static func _gold_badge_sdf(p: Vector2, half_size: Vector2, radius: float) -> float:

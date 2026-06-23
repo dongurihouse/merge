@@ -140,6 +140,7 @@ func _initialize() -> void:
 	ok(gb.find_children("*", "TextureRect", true, false).size() == 1, "gold_badge exposes one generated texture rect")
 	_test_gold_badge_has_no_baked_shadow()
 	_test_gold_badge_shared_shadow_toggle(view)
+	_test_gold_badge_inner_inset(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
@@ -329,6 +330,33 @@ func _test_gold_badge_shared_shadow_toggle(view) -> void:
 	ok(unwrapped.get_instance_id() == raw2.get_instance_id(), \
 		"gold_badge Shadow toggle removes the shared shadow wrapper")
 	view._params["gold_badge"]["shadow"] = true
+
+func _gold_badge_preview_image(view) -> Image:
+	var badge: Control = view._make_element("gold_badge")
+	var tex_rects := badge.find_children("*", "TextureRect", true, false)
+	return (tex_rects[0] as TextureRect).texture.get_image()
+
+func _image_sparse_diff(a: Image, b: Image) -> int:
+	var changed := 0
+	for y in range(0, mini(a.get_height(), b.get_height()), 7):
+		for x in range(0, mini(a.get_width(), b.get_width()), 7):
+			var ca := a.get_pixel(x, y)
+			var cb := b.get_pixel(x, y)
+			if absf(ca.r - cb.r) + absf(ca.g - cb.g) + absf(ca.b - cb.b) + absf(ca.a - cb.a) > 0.04:
+				changed += 1
+	return changed
+
+func _test_gold_badge_inner_inset(view) -> void:
+	ok(view._params["gold_badge"].has("inner_inset"), "gold_badge exposes an inner_inset Workbench control")
+	ok("inner_inset" in View.TEST_KEYS["gold_badge"], "gold_badge inner_inset is test-only")
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 6
+	var near := _gold_badge_preview_image(view)
+	view._params["gold_badge"]["inner_inset"] = 24
+	var far := _gold_badge_preview_image(view)
+	ok(_image_sparse_diff(near, far) > 20, "gold_badge inner_inset redraws the groove distance from the outer border")
+	view._params["gold_badge"] = prev
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read
