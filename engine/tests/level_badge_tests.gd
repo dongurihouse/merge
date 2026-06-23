@@ -130,6 +130,18 @@ func _initialize() -> void:
 	ok(b29.find_child("lv_flower", true, false) == null, "tier 29 badge has NO lv_flower")
 	b29.free()
 
+	# --- circle base: a coin behind every tier (default on, toggleable) ----------
+	ok(o.get("circle_base") == true, "circle_base defaults on")
+	var bc: Control = Kit.level_badge(opts, 6, 7, 200.0)        # tier 6 = leaf+flower; circle is NOT in the group
+	ok(bc.find_child("lv_circle", true, false) != null, "circle_base on -> the coin draws behind any tier")
+	ok(bc.get_child(0).name == "lv_circle", "the circle base is the backmost layer")
+	bc.free()
+	var opts_off: Dictionary = opts.duplicate()
+	opts_off["circle_base"] = false
+	var boff: Control = Kit.level_badge(opts_off, 6, 7, 200.0)
+	ok(boff.find_child("lv_circle", true, false) == null, "circle_base off -> no coin (tier 6 omits the circle)")
+	boff.free()
+
 	# --- the shared entry point (HUD chip / cell gate) delegates to the builder --
 	var badge: Control = Look.make_level_badge(7, 200.0)
 	var bnum := badge.find_child("lv_num", true, false) as Label
