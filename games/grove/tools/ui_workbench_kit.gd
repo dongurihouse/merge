@@ -772,15 +772,13 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 			b.add_theme_stylebox_override("pressed", sp_t)
 			var sd_t: StyleBoxTexture = stx.duplicate(); sd_t.modulate_color = Color(0.62, 0.62, 0.62)
 			b.add_theme_stylebox_override("disabled", sd_t)
-			return _maybe_shadow(b, shadow, 24.0)
+			return _maybe_shadow(b, shadow, 24.0, opts.get("shadow_params", {}))
 	var s := StyleBoxFlat.new()
 	s.bg_color = fill
 	s.border_color = edge
 	s.set_corner_radius_all(int(corner))      # rectangular at low values; capsule near/above height/2
 	s.set_border_width_all(2)
-	s.shadow_color = Look.warm_shadow_color(0.22)
-	s.shadow_size = 5 if shadow else 0      # the drop-shadow toggle (code-drawn pill)
-	s.shadow_offset = Vector2(0, 3)
+	# NO native shadow — the drop shadow is the SHARED box-shadow, wrapped behind the whole button below.
 	s.content_margin_left = 18 * pad_scale; s.content_margin_right = 18 * pad_scale
 	s.content_margin_top = 7 * pad_scale; s.content_margin_bottom = 8 * pad_scale
 	b.add_theme_stylebox_override("normal", s)
@@ -790,27 +788,21 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	b.add_theme_stylebox_override("pressed", sp)
 	var sd: StyleBoxFlat = s.duplicate()
 	sd.bg_color = fill.lerp(Color(0.55, 0.55, 0.55), 0.55)
-	sd.shadow_size = 0
 	b.add_theme_stylebox_override("disabled", sd)
 	b.add_child(Look.rim_overlay(corner, 2))
-	return b
+	return _maybe_shadow(b, shadow, corner, opts.get("shadow_params", {}))
 
-## Wrap a textured (art-mode) pill in a PanelContainer whose only job is to draw a soft rounded-rect
-## drop shadow behind it. The container hugs the button's size, so callers' size flags still apply to
-## the returned node. (Code-drawn pills get their shadow from the StyleBoxFlat directly, no wrapper.)
-static func _maybe_shadow(b: Control, on: bool, corner: float) -> Control:
+## Cast the SHARED box-shadow behind a BUTTON, returning the SAME button (callers connect `.pressed` and
+## set size flags on it, so its identity must be preserved). A Button is not a Container, so the shadow
+## Panel rides as a `show_behind_parent` child — drawn behind the button, no layout fight. `params` is
+## Look.shadow_params() (the single shared look); an empty dict falls back to the shipped defaults.
+static func _maybe_shadow(b: Control, on: bool, corner: float, params: Dictionary = {}) -> Control:
 	if not on:
 		return b
-	var wrap := PanelContainer.new()
-	var ss := StyleBoxFlat.new()
-	ss.draw_center = false                       # only the shadow renders, not a fill
-	ss.set_corner_radius_all(int(maxf(corner, 18.0)))
-	ss.shadow_color = Look.warm_shadow_color(0.30)
-	ss.shadow_size = 6
-	ss.shadow_offset = Vector2(0, 4)
-	wrap.add_theme_stylebox_override("panel", ss)
-	wrap.add_child(b)
-	return wrap
+	var sh := Look.shadow_rect(maxf(corner, 18.0), params)
+	sh.show_behind_parent = true
+	b.add_child(sh)
+	return b
 
 ## (The standalone buy_pill / green-CTA builder was REMOVED — it was the original spike component and
 ## is fully covered by pill_button(green, icon). The CTA is now the shared button's green variant.)
@@ -898,17 +890,11 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW
 			b.add_theme_stylebox_override(st_name, s)
-	# the RECT-badge DROP SHADOW: a SOFT cast shadow (Look.drop_shadow) drawn BEHIND the button shell
-	# (show_behind_parent) that reaches an INDEPENDENT distance on each side (rect_shadow_top/bottom/left/
-	# right), feathered by rect_shadow_soft. Corner-matched to the badge. Disc buttons ignore it (Play/back/bag).
-	var rect_alpha := clampf(float(opts.get("rect_shadow_alpha", 30)) / 100.0, 0.0, 1.0)
-	var rect_top := float(opts.get("rect_shadow_top", 0))
-	var rect_bottom := float(opts.get("rect_shadow_bottom", 0))
-	var rect_left := float(opts.get("rect_shadow_left", 0))
-	var rect_right := float(opts.get("rect_shadow_right", 0))
-	var rect_soft := float(opts.get("rect_shadow_soft", 0))
-	if shape == "rect" and rect_alpha > 0.0 and (rect_top > 0.0 or rect_bottom > 0.0 or rect_left > 0.0 or rect_right > 0.0 or rect_soft > 0.0):
-		var sh := Look.drop_shadow(corner, rect_top, rect_bottom, rect_left, rect_right, rect_soft, rect_alpha, _shadow_warmth(opts, "rect_shadow_warmth"))
+	# the DROP SHADOW behind the button shell (show_behind_parent): the SHARED box-shadow, SHAPED to the
+	# button — a rounded RECT for the rail / Map badges (corner = the badge corner) or a CIRCLE for disc
+	# buttons (corner = px/2). On only when the Shadow toggle is set; opts.shadow_params is the single look.
+	if bool(opts.get("shadow", false)):
+		var sh: Panel = Look.shadow_rect(float(corner), opts.get("shadow_params", {})) if shape == "rect" else Look.shadow_circle(px, opts.get("shadow_params", {}))
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
@@ -2594,6 +2580,7 @@ static func card_btn_opts(cfg: Dictionary) -> Dictionary:
 		"corner": int(b.get("corner", 16)),
 		"art": bool(b.get("art", true)),
 		"shadow": bool(b.get("shadow", false)),
+		"shadow_params": Look.shadow_params(cfg),
 	}
 	var badge := String(c.get("badge", "auto"))
 	if badge != "auto" and BADGES.has(badge) and String(BADGES[badge]) != "":
@@ -2904,11 +2891,12 @@ static func vault_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## The badge (disc-shell) edge polish from config — the standalone Badge item's defringe / feather /
 ## shadow. The home button's shell reads this, so a Badge tweak flows to the rail + nav automatically.
 static func badge_polish_from_config(cfg: Dictionary) -> Dictionary:
+	# NOTE: no baked `shadow` here — the disc/badge drop shadow is the SHARED box-shadow, cast behind the
+	# home button by home_button() (the Shadow toggle), so the shell texture stays a clean, bakeable recipe.
 	var b: Dictionary = cfg.get("badge", {})
 	return {
 		"defringe": bool(b.get("defringe", false)),
 		"feather": float(b.get("feather", 0)),
-		"shadow": bool(b.get("shadow", false)),
 	}
 
 ## The reusable PROGRESS BAR's saved STYLE from config (height / art / star knob). The Level dialog and
@@ -2990,16 +2978,10 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"rect_pad": float(h.get("rect_pad", 13)) / 100.0,
 		# the orange PLAY disc's diameter (px) — the bottom-right CTA. Bigger than the 140 Map/rail buttons.
 		"play_px": float(h.get("play_px", 188)),
-		# the rect-badge DROP SHADOW (per-side reach + softness + opacity %): drawn behind the rail / Map badges
-		# only (disc buttons ignore it). Each side casts INDEPENDENTLY; `rect_shadow_soft` is the shared feather.
-		# Default ON (a soft drop beneath) so the rounded-rect tiles lift off the homestead out of the box.
-		"rect_shadow_top": float(h.get("rect_shadow_top", 0)),        # reach UP (px)
-		"rect_shadow_bottom": float(h.get("rect_shadow_bottom", 10)), # reach DOWN (px)
-		"rect_shadow_left": float(h.get("rect_shadow_left", 0)),      # reach LEFT (px)
-		"rect_shadow_right": float(h.get("rect_shadow_right", 0)),    # reach RIGHT (px)
-		"rect_shadow_soft": float(h.get("rect_shadow_soft", 6)),      # the shared soft feather / blur (px)
-		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),   # opacity (0..100 %)
-		"rect_shadow_warmth": float(h.get("rect_shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
+		# the DROP SHADOW: cast the SHARED box-shadow behind the badge / disc (on by default — the shipped rail +
+		# Map tiles lift off the homestead). home_button() shapes it per button (rounded rect vs circle).
+		"shadow": bool(h.get("shadow", true)),
+		"shadow_params": Look.shadow_params(cfg),
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
@@ -3033,14 +3015,8 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
-		"shadow_size": int(c.get("shadow_size", 5)),       # the shadow's soft FEATHER / blur (px); shared by all sides (was the native shadow size — default mirrors Tune.PILL_SHADOW_SIZE)
-		"shadow_alpha":float(c.get("shadow_alpha", 22)),   # the drop-shadow opacity (0..100 %)
-		"shadow_top":   float(c.get("shadow_top", 0)),     # per-side REACH (px): how far the shadow casts UP
-		"shadow_bottom":float(c.get("shadow_bottom", 10)), # ...DOWN (default: a soft drop beneath the pill)
-		"shadow_left":  float(c.get("shadow_left", 0)),    # ...LEFT
-		"shadow_right": float(c.get("shadow_right", 0)),   # ...RIGHT
-		"shadow_warmth": float(c.get("shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
-		"icon_shadow": float(c.get("icon_shadow", 35)),    # soft drop-shadow on the pill's currency icon + the "+" (0..100 % alpha; 0 = off)
+		"shadow":      bool(c.get("shadow", true)),        # cast the SHARED box-shadow behind the capsule (on by default — the shipped pill has a soft drop)
+		"shadow_params": Look.shadow_params(cfg),          # the single shared shadow look (offset / blur / spread / alpha / warmth)
 		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
 		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square LAYOUT cell (centerline / min box)
@@ -3104,16 +3080,8 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	sb.set_corner_radius_all(int(opts.get("radius", 40)))
 	sb.set_border_width_all(int(opts.get("border_w", 3)))
 	sb.border_color = Color(CUR_PILL_BORDER, CUR_PILL_BORDER.a * fill_a)
-	# the code-drawn pill uses the native StyleBoxFlat shadow (single blur + offset), so the per-side reach is
-	# approximated: the blur is `shadow_size` (softness) and the offset biases toward the heavier sides. (The
-	# painted-capsule path gets a true per-side soft shadow via Look.float_plus → drop_shadow.)
-	var sh_top := float(opts.get("shadow_top", 0))
-	var sh_bottom := float(opts.get("shadow_bottom", 0))
-	var sh_left := float(opts.get("shadow_left", 0))
-	var sh_right := float(opts.get("shadow_right", 0))
-	sb.shadow_color = Look.warm_shadow_color(clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0), _shadow_warmth(opts))
-	sb.shadow_size = int(opts.get("shadow_size", 5))
-	sb.shadow_offset = Vector2((sh_right - sh_left) * 0.5, (sh_bottom - sh_top) * 0.5)
+	# NO native shadow here — the pill's drop shadow is the SHARED box-shadow, cast behind the whole capsule
+	# by currency_pill() (the `shadow` toggle), so the art + code-drawn paths read identically.
 	sb.content_margin_left = pad_left
 	sb.content_margin_right = pad_x
 	sb.content_margin_top = pad_y
@@ -3159,8 +3127,7 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 		cc.custom_minimum_size = Vector2(box, box)
 		cc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ish := float(opts.get("icon_shadow", 0)) / 100.0   # preview the icon drop-shadow live (workbench)
-		cc.add_child(make_icon_shadow(id, icon_px, ish) if ish > 0.0 else make_icon(id, icon_px))
+		cc.add_child(make_icon(id, icon_px))   # the icon rides the SHARED pill shadow — no separate icon shadow
 		row.add_child(cc)
 		var lbl := Label.new()
 		lbl.text = str(int(counts.get(id, demo.get(id, 0))))
@@ -3174,7 +3141,9 @@ static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
 	# place it on the pill's right edge and plus_size scales it WITHOUT growing the capsule. A static visual
 	# here — the live HUD uses a real Button; both read the same plus_x / plus_dy / plus_size opts.
 	if bool(opts.get("show_plus", false)):
-		return Look.float_plus(panel, _plus_token(float(opts.get("plus_size", 26))), opts)
+		return Look.float_plus(panel, _plus_token(float(opts.get("plus_size", 26))), opts)   # float_plus casts the shared shadow when opts.shadow
+	if bool(opts.get("shadow", false)):
+		return Look.with_shadow(panel, 1000.0, opts.get("shadow_params", {}))   # the shared capsule shadow (corner clamps to half-height)
 	return panel
 
 ## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [sell cart] -------------------------
@@ -3363,33 +3332,23 @@ static func _plus_token(box: float = 26.0) -> Control:
 ##   "badge" (default) — the painted shared/badge_rect.png, 9-sliced so the border stays its native thin
 ##                       thickness however the board stretches; plus a soft drop shadow under the whole board.
 ##   "code"  — a code-drawn rounded-rect for tuning a depth effect: cream fill, an outer border (border_w),
-##             an optional inner hairline (inner_w = "the border of the border"), a top inset shadow for
-##             depth (top_shadow), and the same drop shadow (shadow_size / shadow_alpha).
+##             an optional inner hairline (inner_w = "the border of the border"), and a top inset shadow for
+##             depth (top_shadow). The under-board drop shadow is the SHARED box-shadow (the `shadow` toggle).
 const BOARD_BADGE := "shared/badge_rect.png"
 const BOARD_BADGE_CAP := 46
 
-## opts (board.* config): frame_style · corner · border_w · inner_w · top_shadow (0..100) · shadow_size · shadow_alpha (0..100).
+## opts (board.* config): frame_style · corner · border_w · inner_w · top_shadow (0..100) · shadow (bool) + shadow_params.
 static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 	var root := Control.new()
 	root.custom_minimum_size = size
 	root.size = size
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var corner := int(opts.get("corner", BOARD_BADGE_CAP))
-	# the soft drop shadow under the WHOLE board (both styles) — a sibling panel drawn behind, painting only
-	# the shadow (draw_center off) so it bleeds past the edge. NinePatchRect has no native shadow.
-	var shadow_size := int(opts.get("shadow_size", 18))
-	if shadow_size > 0:
-		var sh := Panel.new()
+	# the soft drop shadow under the WHOLE board (both styles) — the SHARED box-shadow, a sibling drawn BEHIND
+	# (show_behind_parent) so it bleeds past the edge. NinePatchRect has no native shadow. On via the toggle.
+	if bool(opts.get("shadow", false)):
+		var sh := Look.shadow_rect(float(corner), opts.get("shadow_params", {}))
 		sh.show_behind_parent = true
-		sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var ssb := StyleBoxFlat.new()
-		ssb.draw_center = false
-		ssb.set_corner_radius_all(corner)
-		ssb.shadow_size = shadow_size
-		ssb.shadow_offset = Vector2(0.0, shadow_size * 0.5)
-		ssb.shadow_color = Look.warm_shadow_color(clampf(float(opts.get("shadow_alpha", 30)) / 100.0, 0.0, 1.0), _shadow_warmth(opts))
-		sh.add_theme_stylebox_override("panel", ssb)
 		root.add_child(sh)
 	if String(opts.get("frame_style", "badge")) == "code":
 		# code-drawn rounded-rect: cream fill + a gold outer border, corners held by `corner`.
@@ -3464,10 +3423,9 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"corner":      int(b.get("frame_corner", BOARD_BADGE_CAP)),
 		"border_w":    int(b.get("frame_border_w", 4)),          # code: outer border thickness
 		"inner_w":     int(b.get("frame_inner_w", 0)),           # code: inner hairline (border-of-the-border); 0 = off
-		"top_shadow":  float(b.get("frame_top_shadow", 0)),      # code: top inset shadow depth (0..100)
-		"shadow_size": int(b.get("frame_shadow", 18)),           # drop shadow size under the board
-		"shadow_alpha":float(b.get("frame_shadow_alpha", 30)),   # drop shadow opacity (0..100)
-		"shadow_warmth":float(b.get("frame_shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
+		"top_shadow":  float(b.get("frame_top_shadow", 0)),      # code: top inset shadow depth (0..100) — a border highlight, NOT the drop shadow
+		"shadow":      bool(b.get("shadow", true)),              # cast the SHARED box-shadow under the board (on by default)
+		"shadow_params": Look.shadow_params(cfg),                # the single shared shadow look
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------

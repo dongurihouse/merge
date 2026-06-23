@@ -40,15 +40,13 @@
 		"frame_border_w": 4,
 		"frame_corner": 46,
 		"frame_inner_w": 0,
-		"frame_shadow": 18,
-		"frame_shadow_alpha": 30,
-		"frame_shadow_warmth": 82,
 		"frame_style": "badge",
 		"frame_top_shadow": 0,
 		"gap": 7.0,
 		"item": 63.0,
 		"rows": 9.0,
-		"scale": 94.0
+		"scale": 94.0,
+		"shadow": true
 	},
 	"button": {
 		"art": true,
@@ -69,7 +67,6 @@
 		"border_w": 3.0,
 		"fill_alpha": 100.0,
 		"icon_box": 38.0,
-		"icon_shadow": 35.0,
 		"icon_size": 32.0,
 		"num_size": 32.0,
 		"pad_left": 20.0,
@@ -81,15 +78,9 @@
 		"plus_x": -19.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
-		"shadow_alpha": 22.0,
-		"shadow_bottom": 10.0,
-		"shadow_left": 0.0,
-		"shadow_right": 0.0,
-		"shadow_size": 5.0,
-		"shadow_top": 0.0,
-		"shadow_warmth": 82.0,
 		"use_art": true,
-		"water": 5438.0
+		"water": 5438.0,
+		"shadow": true
 	},
 	"daily": {
 		"cols": 3.0,
@@ -170,18 +161,10 @@
 		"play_px": 260.0,
 		"px": 140.0,
 		"rect_pad": 13.0,
-		"rect_shadow_alpha": 32.0,
-		"rect_shadow_bottom": 10.0,
-		"rect_shadow_left": 0.0,
-		"rect_shadow_right": 0.0,
-		"rect_shadow_soft": 6.0,
-		"rect_shadow_top": 0.0,
-		"rect_shadow_warmth": 82.0,
-		"twinkle": 55.0
+		"twinkle": 55.0,
+		"shadow": true
 	},
-	"icon": {
-
-	},
+	"icon": {},
 	"info": {
 		"amount_font": 22.0,
 		"close_font": 20.0,
@@ -289,5 +272,13 @@
 		"plate_px": 250.0,
 		"row_gap": 12.0,
 		"width_pct": 80.0
+	},
+	"shadow": {
+		"offset_x": 0,
+		"offset_y": 4,
+		"blur": 14,
+		"spread": 4,
+		"alpha": 34,
+		"warmth": 82
 	}
 }

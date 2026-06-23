@@ -272,33 +272,30 @@ func _is_warm_shadow(color: Color) -> bool:
 	return color.a > 0.0 and color.r > color.b and color.r > 0.08
 
 func _test_warm_shadow_port() -> void:
-	var rect_shadow := Look.drop_shadow(40.0, 0.0, 10.0, 0.0, 0.0, 14.0, 0.34)
-	var rect_style := rect_shadow.get_theme_stylebox("panel") as StyleBoxFlat
-	ok(rect_style != null and _is_warm_shadow(rect_style.shadow_color), \
-		"rect badge shadows use the warm reference shadow tint")
+	# the SHARED box-shadow (both shapes) carries the warm reference tint — fill + feather, same colour.
+	var p := Look.shadow_params({"shadow": {"offset_x": 0, "offset_y": 10, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82}})
+	for sh in [Look.shadow_rect(40.0, p), Look.shadow_circle(140.0, p)]:
+		var st := (sh as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+		ok(st != null and _is_warm_shadow(st.shadow_color) and st.shadow_size > 0, \
+			"the shared shadow uses the warm reference shadow tint")
 
-	var pill_style := Kit.currency_pill_style({
-		"use_art": false, "shadow_alpha": 34.0, "shadow_top": 0.0, "shadow_bottom": 10.0,
-		"shadow_left": 0.0, "shadow_right": 0.0, "shadow_size": 14.0
-	}) as StyleBoxFlat
-	ok(pill_style != null and _is_warm_shadow(pill_style.shadow_color), \
-		"code-drawn currency pill shadows use the warm reference shadow tint")
-
-	var board := Kit.board_panel(Vector2(220.0, 160.0), {"shadow_size": 14, "shadow_alpha": 34})
+	# a component that casts the shared shadow (board) gets the warm tint on its shadow panel
+	var board := Kit.board_panel(Vector2(220.0, 160.0), {"shadow": true, "shadow_params": p})
 	var board_warm := false
-	for p in board.find_children("*", "Panel", true, false):
-		var sb := (p as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+	for pan in board.find_children("*", "Panel", true, false):
+		var sb := (pan as Panel).get_theme_stylebox("panel") as StyleBoxFlat
 		if sb != null and sb.shadow_size > 0:
 			board_warm = _is_warm_shadow(sb.shadow_color)
 			break
-	ok(board_warm, "board frame shadows use the warm reference shadow tint")
+	ok(board_warm, "the board frame casts the shared warm-tinted shadow")
 
+	# the asset-pipeline baked shadow (shape-true, for sprites) still uses the warm tint
 	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
 	img.fill(Color.WHITE)
-	var with_shadow := Kit.add_drop_shadow(img, {
+	var baked := Kit.add_drop_shadow(img, {
 		"shadow_alpha": 1.0, "shadow_offset": Vector2(4.0, 4.0), "shadow_blur": 0.0, "shadow_pad": 8
 	})
-	ok(_is_warm_shadow(with_shadow.get_pixel(18, 18)), \
+	ok(_is_warm_shadow(baked.get_pixel(18, 18)), \
 		"baked icon/badge shadows use the warm reference shadow tint")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
