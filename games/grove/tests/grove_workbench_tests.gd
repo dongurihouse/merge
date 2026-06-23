@@ -5,6 +5,7 @@ extends SceneTree
 
 const View = preload("res://games/grove/tools/ui_workbench_view.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = preload("res://games/grove/grove_palette.gd")
 
 var _pass := 0
@@ -127,6 +128,7 @@ func _initialize() -> void:
 	_test_board_element(view)
 	_test_quest_card_config(view)
 	_test_new_knobs(view)
+	_test_warm_shadow_port()
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -265,6 +267,39 @@ func _test_board_element(view) -> void:
 	view._params["board"]["cell"] = 64
 	view._apply_edit()
 	ok(_id_of(view, "board") != id0, "editing a board slider rebuilds the board element live")
+
+func _is_warm_shadow(color: Color) -> bool:
+	return color.a > 0.0 and color.r > color.b and color.r > 0.08
+
+func _test_warm_shadow_port() -> void:
+	var rect_shadow := Look.drop_shadow(40.0, 0.0, 10.0, 0.0, 0.0, 14.0, 0.34)
+	var rect_style := rect_shadow.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(rect_style != null and _is_warm_shadow(rect_style.shadow_color), \
+		"rect badge shadows use the warm reference shadow tint")
+
+	var pill_style := Kit.currency_pill_style({
+		"use_art": false, "shadow_alpha": 34.0, "shadow_top": 0.0, "shadow_bottom": 10.0,
+		"shadow_left": 0.0, "shadow_right": 0.0, "shadow_size": 14.0
+	}) as StyleBoxFlat
+	ok(pill_style != null and _is_warm_shadow(pill_style.shadow_color), \
+		"code-drawn currency pill shadows use the warm reference shadow tint")
+
+	var board := Kit.board_panel(Vector2(220.0, 160.0), {"shadow_size": 14, "shadow_alpha": 34})
+	var board_warm := false
+	for p in board.find_children("*", "Panel", true, false):
+		var sb := (p as Panel).get_theme_stylebox("panel") as StyleBoxFlat
+		if sb != null and sb.shadow_size > 0:
+			board_warm = _is_warm_shadow(sb.shadow_color)
+			break
+	ok(board_warm, "board frame shadows use the warm reference shadow tint")
+
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color.WHITE)
+	var with_shadow := Kit.add_drop_shadow(img, {
+		"shadow_alpha": 1.0, "shadow_offset": Vector2(4.0, 4.0), "shadow_blur": 0.0, "shadow_pad": 8
+	})
+	ok(_is_warm_shadow(with_shadow.get_pixel(18, 18)), \
+		"baked icon/badge shadows use the warm reference shadow tint")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

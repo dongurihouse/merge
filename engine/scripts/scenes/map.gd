@@ -41,6 +41,10 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
 
+# Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
+# is semi-transparent; the shards are captured at this crisper alpha so the break reads clearly.
+const SHATTER_VEIL_ALPHA := 0.72
+
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
 # Process-scoped on purpose: a fresh app boot always lands on the frontier.
@@ -461,7 +465,7 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 			view.write_shader_value("glow", "glow_strength", 2.3, rk)    # default 1.15 — brighter
 			view.write_shader_value("vines", "opacity", 0.9, rk)         # default 0.48 — denser vines
 			view.write_shader_value("vines", "glow_strength", 1.1, rk)   # default 0.42 — hotter vine cores
-			view.set_region_lock_alpha(rk, 0.12)                         # default 0.34 — fade the purple lock veil (it's claimable, not locked)
+			view.set_region_lock_alpha(rk, 0.55)                         # default 0.34 — the claimable zone's overall purple shape reads as a SOLID pane ready to shatter (more opaque than a locked zone), not a faded film
 		vframe.add_child(view)
 		return vframe
 	var broken := String(home.get("broken", ""))
@@ -1033,8 +1037,13 @@ func _capture_region_veil(view: Variant, k: int) -> Dictionary:
 	sv.transparent_bg = true
 	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	var dup := lock.duplicate() as TextureRect
-	dup.material = (lock.material as ShaderMaterial).duplicate()
-	(dup.material as ShaderMaterial).set_shader_parameter("region_enabled", 1.0)
+	var dmat := (lock.material as ShaderMaterial).duplicate() as ShaderMaterial
+	dmat.set_shader_parameter("region_enabled", 1.0)
+	# The shards carry this snapshot's alpha. The live veil sits semi-transparent, so capture it at a
+	# crisp opacity here — otherwise the breaking glass reads as a faint purple smear.
+	var vtc: Color = dmat.get_shader_parameter("tint_color")
+	dmat.set_shader_parameter("tint_color", Color(vtc.r, vtc.g, vtc.b, SHATTER_VEIL_ALPHA))
+	dup.material = dmat
 	dup.visible = true
 	dup.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	sv.add_child(dup)

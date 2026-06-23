@@ -45,8 +45,8 @@ self-renewing loop, bolted on top of the merge core without changing how the cor
 
 - **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick
   from a list, you discover who turns up and keep one for free (more for diamonds). Spirits have
-  **rarity** (common → rare → special), and a **premium (diamond) path** improves the odds. Starts
-  simple; built to grow into a full search-and-extraction mini-game.
+  **rarity** (four tiers: white · blue · orange · red), and a **premium (diamond) path** improves the
+  odds. Starts simple; built to grow into a full search-and-extraction mini-game.
 - **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
   upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
   progression and space management at once.
@@ -68,8 +68,8 @@ The expansion turns one loop into three that feed each other:
    space *and* more room for residents.
 2. **Explore and grow residents** *(this expansion)* — explore, bring spirits home, merge to
    climb tiers and free slots; that pushes you to unlock and upgrade more maps.
-3. **Residents power the board** *(payback)* — placed spirits produce boosters, coins, items,
-   and Water that make the board faster and more fun.
+3. **Residents power the board** *(payback)* — placed spirits produce coins, Water, generator
+   boosters, premium currency, and even more residents that make the board faster and more fun.
 
 The cycle closes: stronger board → more space → more residents → more production → stronger
 board. The base game was a single loop that *ended* when a map was finished; this makes it a
@@ -98,20 +98,25 @@ slot — the separate **Place** step. Capacity gates the whole flow: you can't l
 with no room anywhere, and you can't keep more spirits than you can house (see **Place**). You
 discover who turns up; you don't shop.
 
-- **Rarity** — common → rare → special. Rarity is a new axis on the resident type, and it **pays off
-  in production**: a rarer spirit yields more (see Reward), so chasing specials matters beyond the
-  collection badge. *(Exact type→rarity mapping — and filling the middle "rare" tier — is the next
-  open point.)*
+- **Rarity** — four tiers, colour-coded: **white** (common), **blue** (magic), **orange**
+  (legendary), **red** (heroic). Rarity is a new axis on the spirit, and it **pays off in
+  production**: a rarer spirit yields more (yield rises with rarity × tier — see Reward), so chasing
+  reds matters beyond the collection badge. *(The actual roster of spirits at each rarity is content,
+  parked with the reward-set design — the existing core/signature placeholders aren't the final set.)*
 - **Pool grows with progress** — the shared core is always discoverable; **unlocking a new map adds
   its signatures to the pool.** Pushing the base game forward widens *what you can find*, not just
   where you house them — each new map is a discovery event and feeds the collection.
 - **Diamonds, two levers** — both buy *better odds and convenience, never exclusivity*; every spirit
   stays reachable on coin expeditions alone, just slower (the base game's "premium buys speed +
   looks, never possibility" law holds):
-  - **Premium expedition** — a pricier, diamond-funded expedition draws from **better rarity odds**
-    (more rares and specials per run).
+  - **Premium expedition** — a pricier, diamond-funded expedition shifts the draw upward two ways: it
+    **removes white (common)** from the pool and **lowers the chance of blue (magic)**, so results
+    skew toward orange and red. (Every rarity still appears on coin-only expeditions, just at lower
+    odds — premium compresses time-to-red, never gates it.)
   - **Keep extras** — on any expedition, pay diamonds to keep a second or third candidate instead of
-    letting it vanish — offered only while you still have free slots to house them.
+    letting it vanish — offered only while you still have free slots to house them. The vanish-or-pay
+    framing is a deliberate choice that **relaxes the base game's no-loss guardrail** — flagged as
+    such for the Risk pass, not an oversight.
 - **Growth seam** — v1 is the weighted draw only. The thesis's "full search-and-extraction
   mini-game" layers on top later without changing the keep-one contract.
 
@@ -136,9 +141,11 @@ real economic decision, not flavor: where you put a spirit chooses which reward 
   merge it never strands the spirit or permanently starves another map — merge-for-tier and
   assign-for-reward pull the same direction.
 - **Capacity gates Explore** — the expedition reads your **total free slots across all completed
-  maps.** Zero free → the expedition is **disabled**, with a message to merge or upgrade/unlock room.
-  One or more free → you may explore, keeping at most as many spirits as you have room for (the
-  diamond "keep extras" option is offered only while slots remain). You never hold a homeless spirit.
+  maps.** Zero free → the expedition is **disabled**, with a message to **merge, sell, or
+  upgrade/unlock** room. One or more free → you may explore, keeping at most as many spirits as you
+  have room for (the diamond "keep extras" option is offered only while slots remain). You never hold
+  a homeless spirit. **Selling is the always-available door:** even a habitat full of distinct
+  singletons (no legal merge) can free a slot by selling one, so the gate is never a dead wall.
 - **Free / sell** — remove an assigned spirit to recover its slot (what you get back is TBD — see
   Economy).
 - **Out of room → expand** — a full habitat is the engine of the next move: merge to free a slot,
@@ -166,25 +173,36 @@ and compounding**: it accrues while you're away (capped, so it's a daily-return 
 infinite idle) and you **collect** it from the Residents screen. Where you assign spirits is an
 economic choice — load a map to pour out more of its reward.
 
-The reward menu is **items, coins, Water, and boosters**, with two honest caveats carried into the
-Risk pass:
+**Map → reward (home grove, 5 maps).** Each map has a fixed, distinct payback — deliberately chosen
+to be things that *don't* go stale (currencies and utility, not early-tier board line-items, which
+resolves the staleness concern that earlier kept this parked):
 
-- **Water** is the tightest constraint — to respect the energy invariant (I2) it cannot scale with
-  spirit count/tier like the other rewards (a capped daily top-up at most), and whether it survives
-  v1 is resolved in the parked Risk pass, not settled here.
-- **Boosters** means the **Wild piece** — the only booster grove's design sanctions — but it is **not
-  yet built**, so this reward rung depends on building it first. It does *not* reopen the tone-cut
-  Bomb / x2 / Producer / Countdown toys.
+| Map | Produces |
+|-----|----------|
+| 1 | **Coins** |
+| 2 | **Water** |
+| 3 | a **generator-booster item** (boosts generator output) |
+| 4 | **Premium currency** (diamonds) |
+| 5 | a **special generator** — itself spawns *random residents* over time, no expedition needed |
 
-**Open — reward content & map mapping (deliberately undefined for now).** Two pieces are deferred to
-a later pass:
+Every map gets a clear identity, and "Expand" now opens a genuinely new payback each unlock (map 4 →
+a diamond stream; map 5 → a free-resident faucet). A vertical slice can start on **map 1 (coins)** —
+the simplest stream — and layer the rest in.
 
-- **What is produced** — production should likely feed a **new, dedicated set of reward items /
-  boosters**, not the existing board lines. Low-tier early-line items lose their value as the player
-  moves on, so reusing them would make the payback go stale. Designing that reward set is its own
-  task. *(We may later add reasons to keep wanting early-line items — left open.)*
-- **Which map makes what** — the map→reward assignment is set only once that reward set exists.
-  ("Each map produces its own line" was considered and parked for the staleness reason above.)
+Three of these reopen base-economy questions, flagged for the parked Risk/Economy pass, not settled
+here:
+
+- **Water (map 2)** must respect the energy invariant (I2) — a capped top-up that cannot scale with
+  spirit count/tier like the others, or it is pulled from v1.
+- **Premium currency (map 4)** makes residents a *diamond faucet.* Diamonds are tightly metered today
+  (IAP + sparse earns), so this reopens the premium economy and the IAP value proposition — the
+  highest-stakes balance question in the expansion; it needs hard caps.
+- **Special generator (map 5)** is a second resident-acquisition path that bypasses the coin-funded
+  expedition — it must stay slow/random enough that Explore remains the primary, targeted route, so
+  it doesn't undercut coins' role as the first open-ended sink.
+
+The **generator-booster (map 3)** and **special generator (map 5)** are new content to define and
+build; their exact behaviour and numbers are an implementation/Economy detail.
 
 Beyond production, the same residents feed a **collection**:
 

@@ -9,6 +9,9 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").UiSkin   # the engine's skin metrics
 const TuneShop = preload("res://engine/scripts/core/tuning.gd").Shop # popup-chrome dials (card/✕/banner), shared by every modal
 
+const SHADOW_WARM := Color("#5A371B")
+const SHADOW_COOL := Color("#1D1720")
+
 ## Device safe-area insets (notch / home indicator), in CANVAS units for `ctrl`'s
 ## viewport. Zero on desktop, so layouts are unchanged in dev — pinned chrome adds
 ## these to its offsets and just works on notched phones.
@@ -30,6 +33,11 @@ static func safe_bottom(ctrl: Control) -> float:
 	var safe := DisplayServer.get_display_safe_area()
 	var inset := win.y - (safe.position.y + safe.size.y)
 	return ctrl.get_viewport_rect().size.y * float(maxi(inset, 0)) / float(win.y)
+
+static func warm_shadow_color(alpha: float, warmth: float = 0.82) -> Color:
+	var c := SHADOW_WARM.lerp(SHADOW_COOL, 1.0 - clampf(warmth, 0.0, 1.0))
+	c.a = clampf(alpha, 0.0, 1.0)
+	return c
 
 ## --- THE KIT — one source for panels, icons, chips. ------------------------------
 ## Everything ships twice: kit art when generated, code-drawn fallback with the
@@ -650,23 +658,27 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 	b.offset_bottom = b.offset_top + sz.y
 	return b
 
-## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It is a SOLID dark
-## silhouette of the element (corner-matched), OFFSET by (dx, dy) and grown evenly by `spread`. The element
-## art (opaque) sits on top un-offset, so the shadow shows ONLY where it peeks past the element — which is
-## the OFFSET side(s). So dx/dy give a DIRECTIONAL cast (e.g. dy>0 → only below); `spread` adds an even all-
-## around halo (spread 0 = a clean one-directional shadow). NO symmetric shadow blur — that's what made the
-## old shadow ring every side regardless of offset. `corner` is the element's radius (big = capsule, clamps).
-static func drop_shadow(corner: float, dx: float, dy: float, spread: float, alpha: float) -> Panel:
+## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It paints ONLY a soft
+## shadow — never a solid body — so it can NOT read as a black box. The shadow reaches an INDEPENDENT
+## distance on each side: `top` / `bottom` / `left` / `right` (px) each grow the shadow's base rect outward
+## by that much (expand_margin), and `softness` is the shared feather (blur) that keeps every edge soft.
+## The element art (opaque, un-grown) sits on top, so the shadow shows ONLY where it pokes past the element
+## — independently per side. A side set to 0 collapses to just the soft feather; raise it to cast further
+## that way. `corner` is the element's radius (big = capsule, clamps).
+static func drop_shadow(corner: float, top: float, bottom: float, left: float, right: float, softness: float, alpha: float, warmth: float = 0.82) -> Panel:
 	var sh := Panel.new()
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var sp := maxf(spread, 0.0)
-	sh.offset_left = dx - sp; sh.offset_right = dx + sp      # grow by spread (even) + shift by (dx, dy)
-	sh.offset_top = dy - sp; sh.offset_bottom = dy + sp
 	var ssb := StyleBoxFlat.new()
-	ssb.bg_color = Color(0.0, 0.0, 0.0, alpha)               # SOLID body — the offset is what reveals it (directional)
-	ssb.set_corner_radius_all(int(corner) + int(sp))         # grow the corner with spread so the shape stays matched
-	ssb.anti_aliasing = true                                 # soft 1px edge (no all-around blur halo)
+	ssb.draw_center = false                                  # NO solid fill — only the soft shadow draws
+	ssb.shadow_color = warm_shadow_color(alpha, warmth)
+	ssb.shadow_size = int(maxf(softness, 0.0))              # the shared soft feather (blur radius)
+	ssb.shadow_offset = Vector2.ZERO                         # direction comes from per-side reach, not an offset
+	ssb.set_corner_radius_all(int(corner))
+	ssb.expand_margin_left = maxf(left, 0.0)                # per-side REACH: grow the shadow's base rect outward
+	ssb.expand_margin_top = maxf(top, 0.0)
+	ssb.expand_margin_right = maxf(right, 0.0)
+	ssb.expand_margin_bottom = maxf(bottom, 0.0)
 	sh.add_theme_stylebox_override("panel", ssb)
 	return sh
 
@@ -681,15 +693,17 @@ static func float_plus(pill: Control, token: Control, opts: Dictionary) -> Contr
 	holder.mouse_filter = Control.MOUSE_FILTER_PASS           # transparent shell; the pill / token own their input
 	holder.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): a SOLID
-	# cast shadow OFFSET by (shadow_dx, shadow_dy) so it reads off the pill's edge, blurred by shadow_size. The
-	# capsule corner is its half-height, so a big corner clamps to a capsule shadow that hugs the pill.
+	# the DROP SHADOW behind the capsule (the painted pill is a StyleBoxTexture with no native shadow): a SOFT
+	# cast that reaches an independent distance on each side (shadow_top/bottom/left/right), feathered by
+	# shadow_size. The capsule corner is its half-height, so the big corner clamps to a shadow that hugs the pill.
 	var sh_alpha := clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0)
-	var sh_dx := float(opts.get("shadow_dx", 0))
-	var sh_dy := float(opts.get("shadow_dy", 0))
-	var sh_blur := float(opts.get("shadow_size", 0))
-	if sh_alpha > 0.0 and (sh_blur > 0.0 or sh_dx != 0.0 or sh_dy != 0.0):
-		holder.add_child(drop_shadow(1000.0, sh_dx, sh_dy, sh_blur, sh_alpha))
+	var sh_top := float(opts.get("shadow_top", 0))
+	var sh_bottom := float(opts.get("shadow_bottom", 0))
+	var sh_left := float(opts.get("shadow_left", 0))
+	var sh_right := float(opts.get("shadow_right", 0))
+	var sh_soft := float(opts.get("shadow_size", 0))
+	if sh_alpha > 0.0 and (sh_top > 0.0 or sh_bottom > 0.0 or sh_left > 0.0 or sh_right > 0.0 or sh_soft > 0.0):
+		holder.add_child(drop_shadow(1000.0, sh_top, sh_bottom, sh_left, sh_right, sh_soft, sh_alpha, float(opts.get("shadow_warmth", 82)) / 100.0))
 	holder.add_child(pill)
 	pill.set_anchors_preset(Control.PRESET_FULL_RECT)         # the pill fills the holder; the holder is sized to the pill
 	# keep the holder's MINIMUM size equal to the pill's, so the parent layout reserves the pill size only

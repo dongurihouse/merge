@@ -1269,43 +1269,21 @@ func _make_piece(code: int, size: float) -> Control:
 	# grows the visible item per the saved board.item width. The single chokepoint for every board piece.
 	return PieceView.make_piece(code, size, _board_item_inset)
 
-# The board surface — the SHARED rounded-rect badge (`ui/shared/badge_rect.png`), the SAME sprite the
-# Bag/Home wells + the Map button wear. Drawn as ONE nine-patch BEHIND the cells (its thin gold border +
-# cream center in one art piece), so the cells sit on the cream field and the badge frames them. The board
-# runs wide, so it is 9-SLICED (PANEL_MARGIN corner held rigid, only the flat cream middle stretches) —
-# the border stays thin instead of squashing. A sibling shadow panel lifts the whole board off the scene.
+# The board surface is built by the SHARED Kit.board_panel (the SAME builder the workbench previews) — the
+# painted rounded badge (badge_rect) or a code-drawn depth border, per the board.frame_style config — plus a
+# soft drop shadow. The cells sit on its cream field. See _make_board_mat below.
 var FRAME_OUT := 60.0        # how far the board panel extends OUTSIDE the cell grid. Workbench-overridable (board.frame).
-const PANEL_MARGIN := 46     # nine-patch corner size — badge_rect's rounded corner + thin border (matches the kit's "grove badge" cap)
 
-# The board panel — the BOTTOM layer of the board, drawn behind the cells. Falls back to the
-# code-drawn planter (which carries its own frame) when the kit art is absent.
+# The board panel — the BOTTOM layer of the board, drawn behind the cells. The frame (painted badge or a
+# code-drawn depth border) + its drop shadow are built by the SHARED Kit.board_panel, so the workbench
+# preview shows the ACTUAL border. Falls back to the code-drawn planter when the kit can't load.
 func _make_board_mat() -> Control:
-	var fp := Look.kit("shared/badge_rect.png")   # the same rounded-rect badge the bottom-bar buttons use
-	if not ResourceLoader.exists(fp):
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
 		return PieceView.make_board_mat(_board_w(), _board_h())
-	var panel := NinePatchRect.new()
-	panel.texture = load(fp)
+	var size := Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
+	var panel: Control = Kit.board_panel(size, Kit.board_panel_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)))
 	panel.position = Vector2(-FRAME_OUT, -FRAME_OUT)
-	panel.size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
-	panel.patch_margin_left = PANEL_MARGIN
-	panel.patch_margin_top = PANEL_MARGIN
-	panel.patch_margin_right = PANEL_MARGIN
-	panel.patch_margin_bottom = PANEL_MARGIN
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a soft drop shadow under the whole board — a sibling panel drawn BEHIND the badge (NinePatchRect has
-	# no native shadow), its StyleBoxFlat painting only the shadow (draw_center off) so it bleeds past the edge.
-	var sh := Panel.new()
-	sh.show_behind_parent = true
-	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ssb := StyleBoxFlat.new()
-	ssb.draw_center = false
-	ssb.set_corner_radius_all(PANEL_MARGIN)
-	ssb.shadow_size = 18
-	ssb.shadow_offset = Vector2(0.0, 9.0)
-	ssb.shadow_color = Color(0.0, 0.0, 0.0, 0.30)
-	sh.add_theme_stylebox_override("panel", ssb)
-	panel.add_child(sh)
 	return panel
 
 # #7: the per-cell empty "well" — a single shared builder so both creation sites

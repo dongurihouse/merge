@@ -79,7 +79,7 @@ const TEST_KEYS := {
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
-	"frame": ["snap"],                     # snap is the drag-grid helper, not a saved design value
+	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
 	"dialog": ["entries"],
 	"daily": [],
 	"shop": [],
@@ -141,7 +141,11 @@ var _params := {
 	# INDEPENDENT size knobs: `scale` zooms the whole composition (frame + cells together, in %); `cell` is
 	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
 	# `item` = the piece sprite size as a % of its cell; gap/frame/cols/rows shape the grid. Preview only.
-	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true},
+	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true,
+		# the board FRAME (Kit.board_panel): "badge" = the painted rounded badge; "code" = a code-drawn depth
+		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
+		"frame_style": "badge", "frame_corner": 46, "frame_shadow": 18, "frame_shadow_alpha": 30,
+		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
 	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
 	# /100 cyc/s) flow to the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's
@@ -153,7 +157,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "rect_shadow": 2, "rect_shadow_alpha": 32, "rect_shadow_dx": 0, "rect_shadow_dy": 8, "play_px": 188,
+		"fill_alpha": 100, "rect_pad": 13, "rect_shadow_top": 0, "rect_shadow_bottom": 10, "rect_shadow_left": 0, "rect_shadow_right": 0, "rect_shadow_soft": 6, "rect_shadow_alpha": 32, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
@@ -174,10 +178,12 @@ var _params := {
 		"card_h_stretch": "stretch", "card_v_stretch": "stretch",
 		"banner_font": 32, "banner_h": 92, "banner_icon": 54, "banner_icon_on": true,
 		"banner_text_x": 0, "banner_text_y": 0, "banner_burn": 60,
+		"banner_text_pad_l": 50, "banner_text_pad_r": 50,   # title↔tail room (the auto-sizing ribbon's L/R padding)
 		"banner_x": 0, "banner_y": 0,
 		"banner_icon_x": 130, "banner_icon_y": 19,
 		"close_size": 64, "close_x": 12, "close_y": 12, "snap": 8,
 		"list_max_h": 0, "list_top_pad": 0,
+		"preview_text": "Frame",   # TEST-only: type any title to preview the ribbon's letter-count width-scaling
 	},
 	# the mail DIALOG = the shared frame + the mail cards. width_pct = the dialog's width as a % of the
 	# SCREEN (responsive — the game multiplies by the live viewport width; here it previews against the
@@ -235,8 +241,8 @@ var _params := {
 	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
-	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 2,
-		"shadow_alpha": 22, "shadow_dx": 0, "shadow_dy": 8, "icon_shadow": 35, "fill_alpha": 100,
+	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
+		"shadow_alpha": 22, "shadow_top": 0, "shadow_bottom": 10, "shadow_left": 0, "shadow_right": 0, "icon_shadow": 35, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -423,7 +429,7 @@ func _make_element(id: String) -> Control:
 			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
 			row.add_child(rail_btn)
 			# the RECT badge as the rail tiles + Map button build it (shape:"rect"): icon over label INSIDE a
-			# rounded-rect, so the rect-only knobs (fill_alpha / rect_pad / rect_shadow) tune live in the preview.
+			# rounded-rect, so the rect-only knobs (fill_alpha / rect_pad / rect_shadow_*) tune live in the preview.
 			var ro := ho.duplicate()
 			ro["shape"] = "rect"
 			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption)}, ro))
@@ -467,7 +473,7 @@ func _make_element(id: String) -> Control:
 		"frame":
 			# the SHARED frame on its own, with placeholder content — the one chrome every dialog reuses
 			var fo := Kit.dialog_opts_from_config(_params)
-			fo["banner_text"] = "Frame"
+			fo["banner_text"] = String(p.get("preview_text", "Frame"))   # type any title to test the ribbon width-scaling
 			var fr := Kit.dialog_frame(_frame_placeholder(), float(p.width), fo)
 			_attach_dialog_drag(fr)
 			return fr
@@ -658,18 +664,9 @@ func _make_board_preview() -> Control:
 	root.custom_minimum_size = total
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the bamboo frame, overhanging the grid by `frame` on every side (PANEL_MARGIN 70 = board.gd's slice)
-	var fp := Look.kit("board/board_frame.png")
-	if ResourceLoader.exists(fp):
-		var panel := NinePatchRect.new()
-		panel.texture = load(fp)
-		panel.size = total
-		panel.patch_margin_left = 70
-		panel.patch_margin_top = 70
-		panel.patch_margin_right = 70
-		panel.patch_margin_bottom = 70
-		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		root.add_child(panel)
+	# the board frame + its drop shadow — the SHARED Kit.board_panel, the SAME builder the live board uses,
+	# so this preview shows the ACTUAL border (the painted badge, or the code-drawn depth border per the knobs).
+	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p})))
 
 	# the empty wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style
 	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
@@ -1187,6 +1184,15 @@ func _rebuild_sidebar() -> void:
 			_section_header("Grid")
 			_sidebar_body.add_child(_slider_row(["cols", 1, 9]))
 			_sidebar_body.add_child(_slider_row(["rows", 1, 12]))
+			_section_header("Frame")
+			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # painted badge vs code-drawn
+			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
+			_sidebar_body.add_child(_slider_row(["frame_shadow", 0, 40]))         # drop-shadow size under the board
+			_sidebar_body.add_child(_slider_row(["frame_shadow_alpha", 0, 100]))  # drop-shadow opacity %
+			_section_header("Code border (when Style = code)")
+			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
+			_sidebar_body.add_child(_slider_row(["frame_inner_w", 0, 10]))        # inner hairline — the border of the border
+			_sidebar_body.add_child(_slider_row(["frame_top_shadow", 0, 100]))    # top inset shadow — depth near the top
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
 		"generator":
@@ -1229,10 +1235,12 @@ func _rebuild_sidebar() -> void:
 			_section_header("Rect badge (rail + Map — shape:\"rect\")")
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))         # the rect-badge OPACITY (%)
 			_sidebar_body.add_child(_slider_row(["rect_pad", 4, 28]))            # inner padding (% of px) for the icon+label stack
-			_sidebar_body.add_child(_slider_row(["rect_shadow", 0, 24]))         # drop-shadow size (0 = off)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_top", 0, 40]))     # shadow reach UP (px) — 0 = no top shadow
+			_sidebar_body.add_child(_slider_row(["rect_shadow_bottom", 0, 40]))  # shadow reach DOWN (px)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_left", 0, 40]))    # shadow reach LEFT (px)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_right", 0, 40]))   # shadow reach RIGHT (px)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_soft", 0, 24]))    # softness / blur shared by all sides (px)
 			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_dx", -20, 20]))    # shadow X offset (px): cast left(−)/right(+)
-			_sidebar_body.add_child(_slider_row(["rect_shadow_dy", -20, 20]))    # shadow Y offset (px): cast up(−)/down(+)
 			_section_header("Play disc (bottom-right CTA)")
 			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
 			_section_header("Side-rail badge (red dot / count)")
@@ -1387,10 +1395,12 @@ func _rebuild_sidebar() -> void:
 			# OPACITY + DROP SHADOW — honoured on BOTH paths: opacity modulates the painted capsule / scales the
 			# code-drawn fill; the shadow draws behind the capsule (float_plus) and as the StyleBoxFlat shadow.
 			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))   # capsule OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # drop-shadow size (0 = off)
+			_sidebar_body.add_child(_slider_row(["shadow_top", 0, 40]))     # shadow reach UP (px) — 0 = no top shadow
+			_sidebar_body.add_child(_slider_row(["shadow_bottom", 0, 40]))  # shadow reach DOWN (px)
+			_sidebar_body.add_child(_slider_row(["shadow_left", 0, 40]))    # shadow reach LEFT (px)
+			_sidebar_body.add_child(_slider_row(["shadow_right", 0, 40]))   # shadow reach RIGHT (px)
+			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # softness / blur shared by all sides (px)
 			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
-			_sidebar_body.add_child(_slider_row(["shadow_dx", -20, 20]))    # shadow X offset (px): cast left(−)/right(+)
-			_sidebar_body.add_child(_slider_row(["shadow_dy", -20, 20]))    # shadow Y offset (px): cast up(−)/down(+)
 			_sidebar_body.add_child(_slider_row(["icon_shadow", 0, 80]))    # soft drop-shadow on the currency ICON + the "+" (0 = off)
 			if not bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
@@ -1552,6 +1562,8 @@ func _frame_sidebar() -> void:
 	_section_header("Banner")
 	_sidebar_body.add_child(_slider_row(["banner_font", 16, 56]))
 	_sidebar_body.add_child(_slider_row(["banner_h", 50, 160]))
+	_sidebar_body.add_child(_slider_row(["banner_text_pad_l", 0, 200]))   # title↔left-tail room (the ribbon auto-sizes to fit)
+	_sidebar_body.add_child(_slider_row(["banner_text_pad_r", 0, 200]))   # title↔right-tail room
 	_sidebar_body.add_child(_slider_row(["banner_text_x", -150, 150]))
 	_sidebar_body.add_child(_slider_row(["banner_text_y", -80, 80]))
 	_sidebar_body.add_child(_slider_row(["banner_burn", 0, 100]))   # engrave intensity (0 = off)
@@ -1572,6 +1584,7 @@ func _frame_sidebar() -> void:
 	_sidebar_body.add_child(_slider_row(["list_top_pad", -80, 200]))   # gap above row 1 (negative tucks it up)
 
 	_group_header("Test only — not saved", false)
+	_sidebar_body.add_child(_text_row("Banner text", "preview_text"))   # type any title to test the ribbon's width-scaling
 	_sidebar_body.add_child(_slider_row(["snap", 1, 40]))            # the drag-to-move grid
 
 ## The VAULT dialog's own knobs — layout + the twig-border slice/pad. The banner / ✕ styling is

@@ -888,15 +888,17 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 			s.set_border_width_all(3)
 			s.border_color = Pal.STRAW
 			b.add_theme_stylebox_override(st_name, s)
-	# the RECT-badge DROP SHADOW: a SOLID cast shadow (Look.drop_shadow) drawn BEHIND the button shell
-	# (show_behind_parent), OFFSET by (rect_shadow_dx, rect_shadow_dy) so it reads off the badge edge and
-	# softened by rect_shadow. Corner-matched to the badge. Disc buttons ignore it (Play/back/bag unchanged).
+	# the RECT-badge DROP SHADOW: a SOFT cast shadow (Look.drop_shadow) drawn BEHIND the button shell
+	# (show_behind_parent) that reaches an INDEPENDENT distance on each side (rect_shadow_top/bottom/left/
+	# right), feathered by rect_shadow_soft. Corner-matched to the badge. Disc buttons ignore it (Play/back/bag).
 	var rect_alpha := clampf(float(opts.get("rect_shadow_alpha", 30)) / 100.0, 0.0, 1.0)
-	var rect_dx := float(opts.get("rect_shadow_dx", 0))
-	var rect_dy := float(opts.get("rect_shadow_dy", 0))
-	var rect_blur := float(opts.get("rect_shadow", 0))
-	if shape == "rect" and rect_alpha > 0.0 and (rect_blur > 0.0 or rect_dx != 0.0 or rect_dy != 0.0):
-		var sh := Look.drop_shadow(corner, rect_dx, rect_dy, rect_blur, rect_alpha)
+	var rect_top := float(opts.get("rect_shadow_top", 0))
+	var rect_bottom := float(opts.get("rect_shadow_bottom", 0))
+	var rect_left := float(opts.get("rect_shadow_left", 0))
+	var rect_right := float(opts.get("rect_shadow_right", 0))
+	var rect_soft := float(opts.get("rect_shadow_soft", 0))
+	if shape == "rect" and rect_alpha > 0.0 and (rect_top > 0.0 or rect_bottom > 0.0 or rect_left > 0.0 or rect_right > 0.0 or rect_soft > 0.0):
+		var sh := Look.drop_shadow(corner, rect_top, rect_bottom, rect_left, rect_right, rect_soft, rect_alpha)
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
@@ -1284,17 +1286,21 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 ## DialogBannerIcon so the workbench can drag them.
 static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
 		icon_px: float, icon_pos, text_x: float = 0.0, text_y: float = 0.0, burn: float = 0.0,
-		banner_art: String = "mail/mail_banner.png", banner_icon_id: String = "mail") -> Control:
+		banner_art: String = "mail/mail_banner.png", banner_icon_id: String = "mail",
+		pad_l: float = -1.0, pad_r: float = -1.0) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
 	# the ribbon WIDTH tracks the title: a short label gives a short banner, growing with the number of
 	# letters up to the full card `width` (the max). The folded tails stay rigid (9-slice) so only the flat
-	# middle stretches — the ribbon never squashes or distorts however long or short the title is.
+	# middle stretches — the ribbon never squashes or distorts however long or short the title is. pad_l /
+	# pad_r are the breathing room between the title and each tail (workbench-tunable); asymmetric padding
+	# both widens the ribbon AND nudges the title toward the roomier side.
+	var pl := pad_l if pad_l >= 0.0 else band_h * 0.55
+	var pr := pad_r if pad_r >= 0.0 else band_h * 0.55
 	var text_w := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font).x
-	var end_pad := band_h * 0.55                                # keep the title clear of the folded tails
 	var icon_room := (icon_px + band_h * 0.25) if icon_on else 0.0
-	var banner_w := clampf(text_w + end_pad * 2.0 + icon_room, band_h * 2.2, width)
+	var banner_w := clampf(text_w + pl + pr + icon_room, band_h * 2.2, width)
 	var ribbon_x := (width - banner_w) * 0.5                    # centre the sized ribbon within the band
 	var bp := Look.kit(banner_art)
 	if ResourceLoader.exists(bp):
@@ -1310,7 +1316,8 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var lbl := Label.new()
 	lbl.text = text
 	lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	lbl.offset_left = text_x; lbl.offset_right = text_x      # shift the centred text horizontally
+	var shift := text_x + (pl - pr) * 0.5                    # centre the title in its padded span, + the manual nudge
+	lbl.offset_left = shift; lbl.offset_right = shift        # shift the centred text horizontally
 	lbl.offset_top = text_y; lbl.offset_bottom = text_y      # ...and vertically
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER       # auto-vcentre on any font size
@@ -1427,6 +1434,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var banner_pos = opts.get("banner_pos", Vector2.ZERO)
 	var banner_text_x: float = float(opts.get("banner_text_x", 0.0))
 	var banner_text_y: float = float(opts.get("banner_text_y", 0.0))
+	var banner_text_pad_l: float = float(opts.get("banner_text_pad_l", -1.0))   # title↔left-tail room (−1 = auto)
+	var banner_text_pad_r: float = float(opts.get("banner_text_pad_r", -1.0))   # title↔right-tail room (−1 = auto)
 	var banner_burn: float = float(opts.get("banner_burn", 0.0))
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
@@ -1493,7 +1502,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	scroll.add_child(rows)
 
 	# the banner overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id)
+	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r)
 	header.position = banner_pos
 	inner.add_child(header)
 
@@ -2737,6 +2746,8 @@ static func dialog_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"banner_icon_on": bool(d.get("banner_icon_on", true)),
 		"banner_text_x": float(d.get("banner_text_x", 0)),
 		"banner_text_y": float(d.get("banner_text_y", 0)),
+		"banner_text_pad_l": float(d.get("banner_text_pad_l", float(d.get("banner_h", 92)) * 0.55)),   # title↔left-tail room
+		"banner_text_pad_r": float(d.get("banner_text_pad_r", float(d.get("banner_h", 92)) * 0.55)),   # title↔right-tail room
 		"banner_burn": float(d.get("banner_burn", 0)) / 100.0,
 		"banner_pos": Vector2(float(d.get("banner_x", 0)), float(d.get("banner_y", 0))),
 		"banner_icon_pos": Vector2(float(d.get("banner_icon_x", 130)), float(d.get("banner_icon_y", 19))),
@@ -2969,12 +2980,15 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"rect_pad": float(h.get("rect_pad", 13)) / 100.0,
 		# the orange PLAY disc's diameter (px) — the bottom-right CTA. Bigger than the 140 Map/rail buttons.
 		"play_px": float(h.get("play_px", 188)),
-		# the rect-badge DROP SHADOW (size in px + opacity %): drawn behind the rail / Map badges only (disc
-		# buttons ignore it). Default ON so the rounded-rect tiles lift off the homestead out of the box.
-		"rect_shadow": float(h.get("rect_shadow", 2)),         # even SPREAD (px): 0 = a clean one-directional cast; >0 grows an all-around halo
-		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),
-		"rect_shadow_dx": float(h.get("rect_shadow_dx", 0)),   # shadow X offset (px): cast left(−) / right(+) — makes it DIRECTIONAL
-		"rect_shadow_dy": float(h.get("rect_shadow_dy", 8)),   # shadow Y offset (px): cast up(−) / down(+) off the badge edge
+		# the rect-badge DROP SHADOW (per-side reach + softness + opacity %): drawn behind the rail / Map badges
+		# only (disc buttons ignore it). Each side casts INDEPENDENTLY; `rect_shadow_soft` is the shared feather.
+		# Default ON (a soft drop beneath) so the rounded-rect tiles lift off the homestead out of the box.
+		"rect_shadow_top": float(h.get("rect_shadow_top", 0)),        # reach UP (px)
+		"rect_shadow_bottom": float(h.get("rect_shadow_bottom", 10)), # reach DOWN (px)
+		"rect_shadow_left": float(h.get("rect_shadow_left", 0)),      # reach LEFT (px)
+		"rect_shadow_right": float(h.get("rect_shadow_right", 0)),    # reach RIGHT (px)
+		"rect_shadow_soft": float(h.get("rect_shadow_soft", 6)),      # the shared soft feather / blur (px)
+		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),   # opacity (0..100 %)
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
@@ -3008,10 +3022,12 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
 		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
 		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
-		"shadow_size": int(c.get("shadow_size", 2)),       # the shadow's even SPREAD (px): 0 = a clean ONE-directional cast (offset alone shows it); >0 grows an all-around halo
-		"shadow_alpha":float(c.get("shadow_alpha", 22)),   # the drop-shadow opacity (0..100 %); the art capsule's drawn shadow + the code-drawn shadow tint
-		"shadow_dx":   float(c.get("shadow_dx", 0)),       # the drop-shadow X offset (px): cast left(−) / right(+) off the pill edge — this is what makes it DIRECTIONAL
-		"shadow_dy":   float(c.get("shadow_dy", 8)),       # the drop-shadow Y offset (px): cast up(−) / down(+) off the pill edge
+		"shadow_size": int(c.get("shadow_size", 5)),       # the shadow's soft FEATHER / blur (px); shared by all sides (was the native shadow size — default mirrors Tune.PILL_SHADOW_SIZE)
+		"shadow_alpha":float(c.get("shadow_alpha", 22)),   # the drop-shadow opacity (0..100 %)
+		"shadow_top":   float(c.get("shadow_top", 0)),     # per-side REACH (px): how far the shadow casts UP
+		"shadow_bottom":float(c.get("shadow_bottom", 10)), # ...DOWN (default: a soft drop beneath the pill)
+		"shadow_left":  float(c.get("shadow_left", 0)),    # ...LEFT
+		"shadow_right": float(c.get("shadow_right", 0)),   # ...RIGHT
 		"icon_shadow": float(c.get("icon_shadow", 35)),    # soft drop-shadow on the pill's currency icon + the "+" (0..100 % alpha; 0 = off)
 		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
@@ -3076,9 +3092,16 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	sb.set_corner_radius_all(int(opts.get("radius", 40)))
 	sb.set_border_width_all(int(opts.get("border_w", 3)))
 	sb.border_color = Color(CUR_PILL_BORDER, CUR_PILL_BORDER.a * fill_a)
+	# the code-drawn pill uses the native StyleBoxFlat shadow (single blur + offset), so the per-side reach is
+	# approximated: the blur is `shadow_size` (softness) and the offset biases toward the heavier sides. (The
+	# painted-capsule path gets a true per-side soft shadow via Look.float_plus → drop_shadow.)
+	var sh_top := float(opts.get("shadow_top", 0))
+	var sh_bottom := float(opts.get("shadow_bottom", 0))
+	var sh_left := float(opts.get("shadow_left", 0))
+	var sh_right := float(opts.get("shadow_right", 0))
 	sb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
 	sb.shadow_size = int(opts.get("shadow_size", 5))
-	sb.shadow_offset = Vector2(float(opts.get("shadow_dx", 0)), float(opts.get("shadow_dy", 0)))   # px cast offset (x, y)
+	sb.shadow_offset = Vector2((sh_right - sh_left) * 0.5, (sh_bottom - sh_top) * 0.5)
 	sb.content_margin_left = pad_left
 	sb.content_margin_right = pad_x
 	sb.content_margin_top = pad_y
