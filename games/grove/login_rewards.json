@@ -1,0 +1,37 @@
+{
+	"_note": "Daily-login reward tables (Core §18), read by engine/scripts/core/login.gd via Game.active() — data-tunable, no code edit. Faucet discipline: mostly COINS; WATER stays a modest top-up (every water entry, ladder + mystery pools, <= water_safe_max, asserted by save_tests); PREMIUM (gems) is the weekly capstone + milestones. Placeholder values (mirror the old grove_data consts) — balancing is the BACKLOG 'Mystery reward pools' Tuning item.",
+
+	"ladder": [
+		{"coins": 50},
+		{"water": 8},
+		{"coins": 100},
+		{"water": 12},
+		{"coins": 150},
+		{"gems": 1, "coins": 60},
+		{"coins": 200, "gems": 1}
+	],
+
+	"milestones": {
+		"30": {"gems": 15, "coins": 300}
+	},
+
+	"mystery": {
+		"4": {"show": 3, "win": 1, "pool": [
+			{"coins": 120},
+			{"water": 12},
+			{"coins": 60, "water": 6},
+			{"gems": 1},
+			{"coins": 150}
+		]},
+		"7": {"show": 5, "win": 2, "pool": [
+			{"coins": 200},
+			{"gems": 2},
+			{"coins": 100, "gems": 1},
+			{"water": 14},
+			{"coins": 300},
+			{"gems": 3}
+		]}
+	},
+
+	"water_safe_max": 15
+}

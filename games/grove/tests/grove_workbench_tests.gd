@@ -8,6 +8,8 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Pal = preload("res://games/grove/grove_palette.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Login = preload("res://engine/scripts/core/login.gd")
+const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 
 var _pass := 0
 var _fail := 0
@@ -187,6 +189,7 @@ func _initialize() -> void:
 	_test_quest_card_config(view)
 	_test_new_knobs(view)
 	_test_warm_shadow_port()
+	_test_mystery_preview(view)
 	_test_level_badge_component(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
@@ -455,6 +458,62 @@ func _test_warm_shadow_port() -> void:
 	})
 	ok(_is_warm_shadow(baked.get_pixel(18, 18)), \
 		"baked icon/badge shadows use the warm reference shadow tint")
+
+# The lowest modulate alpha across the reveal CARDS (PanelContainers) in a built mystery dialog — 1.0 when
+# every card is fully lit ("shown"), < 1 when the "won" state dims the non-winners.
+func _min_panel_alpha(node: Control) -> float:
+	var lo := 1.0
+	for pc in node.find_children("*", "PanelContainer", true, false):
+		lo = minf(lo, (pc as Control).modulate.a)
+	return lo
+
+# The MYSTERY spin-reveal dialog as a workbench preview (T53). It is a registered gallery item built from
+# the SAME engine builder the game animates (LoginMystery.build_reveal), rendered static and DETERMINISTIC
+# so the capture is repeatable. Two states: "shown" (every card lit) and "won" (winners lit, rest dimmed).
+func _test_mystery_preview(view) -> void:
+	ok(view._sections.has("mystery"), "the mystery spin-reveal dialog is a registered gallery item")
+	ok(_gallery_neighbors("daily", "mystery"), "the mystery dialog sits next to the daily calendar in the gallery")
+	ok(not view._is_config("mystery", "preview"), "the mystery preview-state picker is preview-only (not saved)")
+	# the engine width rule is shared (one place) and caps the dialog at 560 on a wide viewport
+	ok(is_equal_approx(LoginMystery.reveal_width(2000.0), 560.0), "the reveal width caps at 560 (shared with the live dialog)")
+
+	# the SHARED builder returns the reveal face: a dialog, one card per option, and the caption label
+	var pool: Array = Login.mystery_pool(7)
+	var opts := [pool[0], pool[1], pool[2]]
+	var built: Dictionary = LoginMystery.build_reveal(opts, [1], LoginMystery.reveal_width(1080.0), {"frame_cfg": view._params})
+	ok(built.has("dialog") and built.has("cards") and built.has("caption"), "build_reveal returns {dialog, cards, caption}")
+	ok((built["cards"] as Array).size() == opts.size(), "build_reveal makes one reveal card per option")
+	(built["dialog"] as Control).queue_free()
+
+	# the day-7 pool shows 5 distinct cards with their concrete amounts (the first card pays 200 coins)
+	view._params["mystery"]["preview"] = "day 7 · shown"
+	var shown: Control = view._make_element("mystery")
+	ok(_has_label_text(shown, "200"), "the day-7 reveal shows a concrete reward amount (200)")
+	# DETERMINISTIC: a second build renders the identical cards (the preview never shuffles)
+	var shown2: Control = view._make_element("mystery")
+	ok(_collect_label_set(shown) == _collect_label_set(shown2), "the mystery preview is deterministic (no shuffle between builds)")
+	# "shown" lights every card; "won" dims the non-winners (the landed-winner highlight)
+	ok(is_equal_approx(_min_panel_alpha(shown), 1.0), "the 'shown' state lights every reveal card")
+	view._params["mystery"]["preview"] = "day 7 · won"
+	var won: Control = view._make_element("mystery")
+	ok(_min_panel_alpha(won) < 0.9, "the 'won' state dims the non-winning cards (winner highlight)")
+	ok(_has_label_text(won, "You won!"), "the 'won' state swaps the caption to the win line")
+	shown.free(); shown2.free(); won.free()
+	# the OTHER pool (day 4 = 3 cards / 1 win) renders too — fewer cards, one winner, the first pays 120 coins
+	view._params["mystery"]["preview"] = "day 4 · won"
+	var d4: Control = view._make_element("mystery")
+	ok(d4.find_children("*", "PanelContainer", true, false).size() >= Login.mystery_config(4).get("show", 0), \
+		"the day-4 reveal renders its 3-card pool")
+	ok(_has_label_text(d4, "120"), "the day-4 reveal shows a concrete reward amount (120)")
+	d4.free()
+	view._params["mystery"]["preview"] = "day 7 · won"
+
+# The set of all Label texts under `node` (order-independent), for comparing two deterministic builds.
+func _collect_label_set(node: Control) -> Dictionary:
+	var s := {}
+	for l in node.find_children("*", "Label", true, false):
+		s[String((l as Label).text)] = true
+	return s
 
 func _test_gold_badge_has_no_baked_shadow() -> void:
 	var size := 270
