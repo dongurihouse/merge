@@ -1,30 +1,35 @@
 extends SceneTree
-## Dev tool: slice the level-badge sheet into individual PNGs, row-major from the plainest
-## ring (badge_00) to the grandest crown+ribbon. The current sheet is a 6×6 grid of 36
-## circular gold medals — assets/_originals/ui/lvls3.png. If the sheet ships on a baked
-## white background, key it transparent FIRST with cutout_bg.gd; this tool expects
-## transparent gaps between medals.
+## Dev tool: slice the level-badge sheet into per-medal PNGs, ordered row-major from the
+## plainest ring (badge_00) to the grandest crown (badge_35). The current sheet is a 6×6 grid
+## of 36 medals — assets/_originals/ui/lvls3.png. If it ships on a baked white background, key
+## it transparent FIRST with cutout_bg.gd; this tool expects transparent gaps between medals.
 ##
 ##   godot --headless --path . -s res://games/tools/slice_badges.gd -- <in.png> <out_dir> [cols rows]
 ##   (defaults: cols=6 rows=6, out_dir=res://games/grove/assets/ui/lvl)
 ##
-## MEDAL-CENTRED REGISTRATION: the medals are NOT centred in their grid cells (they drift, and
-## the laurels/ribbons hang below the ring). The HUD draws the level NUMBER centred in a square
-## box, so every badge must put the medal's CENTRE at the texture centre — otherwise the number
-## misses the ring and the medal hangs off to one side. So we anchor each crop on the medal's
-## BBOX CENTRE and emit one shared SQUARE big enough to hold the furthest reach (in ANY
-## direction, on ANY badge) — so the whole medal stays centred AND nothing is ever clipped.
+## GRID-FREE, FULL MEDAL: the medals OVERFLOW their grid cells — the ornate crowns rise past the
+## cell line into the row above. Cutting on the grid clips those crowns (badge_35's crown lost its
+## top gem). So we do NOT cut on the grid: each medal is found as a CONNECTED COMPONENT on the
+## whole sheet (its crown stays attached), then ordered row-major by centroid. A neighbour's
+## overflow is a different component, so it never bleeds in.
 ##
-## BLEED-PROOF: per cell we keep ONLY the LARGEST opaque connected component (the medal) and
-## zero everything else, so a neighbour's crown/ribbon that crosses a grid line never leaves a
-## stray fleck (and never inflates the shared square).
+## TOP-ANCHORED REGISTRATION: every medal is laid into ONE shared SQUARE with its RING OPENING
+## (the cream region's bbox centre) pinned to a fixed height near the top — so the crowns sit just
+## under the HUD currency pills and the laurels/ribbons hang below, and the HUD number (drawn at
+## the box centre) lands in the ring on every badge. The square is sized to hold the furthest
+## reach in any direction on any badge, so nothing is ever clipped.
 
 const ALPHA_MIN := 0.08        # a pixel counts as "medal" above this alpha
+const MIN_AREA := 400          # ignore specks / dust below this (px)
 const PAD := 8                 # transparent px kept past the furthest decoration
 const NEI := [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 func _globalize(p: String) -> String:
 	return ProjectSettings.globalize_path(p) if p.begins_with("res://") else p
+
+# A pixel is the medal's cream open-centre (the ring opening): bright, gently warm, low-ish sat.
+func _is_cream(c: Color) -> bool:
+	return c.a > 0.5 and c.v > 0.88 and c.s > 0.14 and c.s < 0.36 and c.r >= c.g and (c.r - c.b) > 0.08
 
 func _initialize() -> void:
 	var a := OS.get_cmdline_user_args()
@@ -40,102 +45,85 @@ func _initialize() -> void:
 		img.convert(Image.FORMAT_RGBA8)
 	var W := img.get_width()
 	var H := img.get_height()
+	var cell_w := float(W) / float(cols)
+	var cell_h := float(H) / float(rows)
 
-	# Cell boundaries on float-accurate grid lines (no drift accumulating across columns).
-	var xs := PackedInt32Array(); xs.resize(cols + 1)
-	for c in cols + 1:
-		xs[c] = int(round(c * float(W) / float(cols)))
-	var ys := PackedInt32Array(); ys.resize(rows + 1)
-	for r in rows + 1:
-		ys[r] = int(round(r * float(H) / float(rows)))
-
-	# Pass 1 — per cell: isolate the medal, find its cream-disc anchor, and the furthest reach
-	# from that anchor to the medal's edge (which sizes the shared square).
-	var n := cols * rows
-	var cells: Array = []
-	var reach := 0
-	for r in rows:
-		for c in cols:
-			var cx0 := xs[c]; var cy0 := ys[r]
-			var cw := xs[c + 1] - cx0; var ch := ys[r + 1] - cy0
-			var m := _medal(img, cx0, cy0, cw, ch)
-			m["ox"] = cx0; m["oy"] = cy0; m["cw"] = cw; m["ch"] = ch
-			cells.append(m)
-			reach = maxi(reach, int(m["reach"]))
-	if reach <= 0:
-		print("FAIL: no medal content found"); quit(1); return
-	var half := reach + PAD
-	var size := half * 2
-
-	# Pass 2 — emit one square per cell, the medal's disc anchor pinned to the centre.
-	DirAccess.make_dir_recursive_absolute(_globalize(out_dir))
-	var i := 0
-	for cell in cells:
-		var cw: int = cell["cw"]; var ch: int = cell["ch"]
-		var ox: int = cell["ox"]; var oy: int = cell["oy"]
-		var ax: int = cell["ax"]; var ay: int = cell["ay"]   # disc anchor, cell-local
-		var mask: PackedByteArray = cell["mask"]
-		var cut := Image.create(size, size, false, Image.FORMAT_RGBA8)   # zero-init -> transparent
-		for ly in ch:
-			var dy := half + (ly - ay)
-			if dy < 0 or dy >= size:
-				continue
-			for lx in cw:
-				if mask[ly * cw + lx] == 0:
-					continue
-				var dx := half + (lx - ax)
-				if dx < 0 or dx >= size:
-					continue
-				cut.set_pixel(dx, dy, img.get_pixel(ox + lx, oy + ly))
-		var p := "%s/badge_%02d.png" % [out_dir, i]
-		cut.save_png(_globalize(p))
-		print("badge_%02d -> %s (%dx%d, anchor %d,%d)" % [i, p, size, size, ax, ay])
-		i += 1
-	print("DONE: %d badges, %dx%d square (medal-centred, reach=%d + pad=%d)" % [n, size, size, reach, PAD])
-	quit()
-
-## Isolate the medal in a cell: its largest opaque component (mask), the centring anchor
-## (ax, ay — cell-local) = the component's BBOX CENTRE, and `reach` = furthest distance from
-## that anchor to the component's edge in any of the four directions. We anchor on the bbox
-## centre (not the cream centroid) so the WHOLE medal is centred in its square — the open-top
-## wreaths on the ornate badges pull a cream centroid high, which rode the number up into the
-## notch and left the medal hanging low; bbox-centre sits the number in the ring and balances
-## the frame.
-func _medal(img: Image, ox: int, oy: int, cw: int, ch: int) -> Dictionary:
-	var seen := PackedByteArray(); seen.resize(cw * ch)
-	var best: Array[Vector2i] = []
-	for sy in ch:
-		for sx in cw:
-			var k0 := sy * cw + sx
+	# --- find every medal as a connected component on the WHOLE sheet ---------------------
+	var seen := PackedByteArray(); seen.resize(W * H)
+	var medals: Array = []           # each: {pts, cx, cy (centroid), acx, acy (ring-opening centre)}
+	for sy in H:
+		for sx in W:
+			var k0 := sy * W + sx
 			if seen[k0] != 0:
 				continue
-			if img.get_pixel(ox + sx, oy + sy).a <= ALPHA_MIN:
+			if img.get_pixel(sx, sy).a <= ALPHA_MIN:
 				seen[k0] = 1
 				continue
-			var comp: Array[Vector2i] = [Vector2i(sx, sy)]
+			var pts: Array[Vector2i] = [Vector2i(sx, sy)]
 			seen[k0] = 1
 			var qi := 0
-			while qi < comp.size():
-				var px: Vector2i = comp[qi]; qi += 1
+			while qi < pts.size():
+				var p: Vector2i = pts[qi]; qi += 1
 				for d in NEI:
-					var nx: int = px.x + d.x; var ny: int = px.y + d.y
-					if nx < 0 or ny < 0 or nx >= cw or ny >= ch:
+					var nx: int = p.x + d.x; var ny: int = p.y + d.y
+					if nx < 0 or ny < 0 or nx >= W or ny >= H:
 						continue
-					var kk := ny * cw + nx
-					if seen[kk] == 0 and img.get_pixel(ox + nx, oy + ny).a > ALPHA_MIN:
+					var kk := ny * W + nx
+					if seen[kk] == 0 and img.get_pixel(nx, ny).a > ALPHA_MIN:
 						seen[kk] = 1
-						comp.append(Vector2i(nx, ny))
-			if comp.size() > best.size():
-				best = comp
-	var mask := PackedByteArray(); mask.resize(cw * ch)
-	var bx0 := 1 << 30; var by0 := 1 << 30; var bx1 := -1; var by1 := -1
-	for px in best:
-		mask[px.y * cw + px.x] = 1
-		bx0 = mini(bx0, px.x); by0 = mini(by0, px.y)
-		bx1 = maxi(bx1, px.x); by1 = maxi(by1, px.y)
-	var ax := int((bx0 + bx1) / 2.0)
-	var ay := int((by0 + by1) / 2.0)
-	var reach := 0
-	if bx1 >= 0:
-		reach = maxi(maxi(ax - bx0, bx1 - ax), maxi(ay - by0, by1 - ay))
-	return {"mask": mask, "ax": ax, "ay": ay, "reach": reach}
+						pts.append(Vector2i(nx, ny))
+			if pts.size() < MIN_AREA:
+				continue
+			var sumx := 0; var sumy := 0
+			var crx0 := 1 << 30; var cry0 := 1 << 30; var crx1 := -1; var cry1 := -1
+			var bx0 := 1 << 30; var by0 := 1 << 30; var bx1 := -1; var by1 := -1
+			for p in pts:
+				var pt: Vector2i = p
+				sumx += pt.x; sumy += pt.y
+				bx0 = mini(bx0, pt.x); by0 = mini(by0, pt.y); bx1 = maxi(bx1, pt.x); by1 = maxi(by1, pt.y)
+				if _is_cream(img.get_pixel(pt.x, pt.y)):
+					crx0 = mini(crx0, pt.x); cry0 = mini(cry0, pt.y); crx1 = maxi(crx1, pt.x); cry1 = maxi(cry1, pt.y)
+			var acx := (crx0 + crx1) / 2 if crx1 >= 0 else (bx0 + bx1) / 2   # ring-opening centre
+			var acy := (cry0 + cry1) / 2 if cry1 >= 0 else (by0 + by1) / 2
+			medals.append({"pts": pts, "cx": float(sumx) / pts.size(), "cy": float(sumy) / pts.size(),
+				"acx": acx, "acy": acy})
+	if medals.size() != cols * rows:
+		print("WARN: found %d medals, expected %d (check MIN_AREA / keying)" % [medals.size(), cols * rows])
+
+	# --- order row-major by centroid (plainest top-left -> grandest bottom-right) ----------
+	medals.sort_custom(func(p, q):
+		var pr := int(p["cy"] / cell_h); var qr := int(q["cy"] / cell_h)
+		if pr != qr:
+			return pr < qr
+		return p["cx"] < q["cx"])
+
+	# --- shared square: ring-opening centre pinned at (size/2, cy_anchor); fits every reach -
+	var up := 0; var dn := 0; var side := 0
+	for m in medals:
+		var macy: int = m["acy"]; var macx: int = m["acx"]
+		for p in m["pts"]:
+			var pt: Vector2i = p
+			up = maxi(up, macy - pt.y)
+			dn = maxi(dn, pt.y - macy)
+			side = maxi(side, absi(pt.x - macx))
+	var cy_anchor := up + PAD
+	var size := maxi(cy_anchor + dn + PAD, 2 * (side + PAD))
+
+	# --- emit one square per medal -------------------------------------------------------
+	DirAccess.make_dir_recursive_absolute(_globalize(out_dir))
+	var i := 0
+	for m in medals:
+		var acx: int = m["acx"]; var acy: int = m["acy"]
+		var cut := Image.create(size, size, false, Image.FORMAT_RGBA8)   # zero-init -> transparent
+		for p in m["pts"]:
+			var pt: Vector2i = p
+			var dx := size / 2 + (pt.x - acx)
+			var dy := cy_anchor + (pt.y - acy)
+			if dx >= 0 and dy >= 0 and dx < size and dy < size:
+				cut.set_pixel(dx, dy, img.get_pixel(pt.x, pt.y))
+		var path := "%s/badge_%02d.png" % [out_dir, i]
+		cut.save_png(_globalize(path))
+		i += 1
+	print("DONE: %d badges, %dx%d square (ring opening at y=%d, F=%.3f, up=%d dn=%d side=%d)" \
+		% [medals.size(), size, size, cy_anchor, float(cy_anchor) / float(size), up, dn, side])
+	quit()
