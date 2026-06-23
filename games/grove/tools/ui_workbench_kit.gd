@@ -905,6 +905,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER   # centre the number within its amount box
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -972,13 +973,19 @@ static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable =
 	g.add_theme_constant_override("outline_size", maxi(0, int(round(base * stroke_scale))))
 	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var dx := float(opts.get("plus_label_x", 0))
+	# Dead-centre the "+" on the green background at ANY size. A full-rect Label with valign=CENTER
+	# pins its line box to the top and overflows DOWNWARD once the glyph is taller than the button
+	# (whose height is fixed by plus_button, NOT plus_font) — so a big plus_font drifts low. Instead
+	# anchor the CONTENT-SIZED label at the button centre and grow BOTH ways: the glyph box straddles
+	# the centre and overflow is symmetric, so the "+" stays centred however large plus_font goes.
+	var dx := float(opts.get("plus_label_x", 0))   # manual nudge rides the centre point
 	var dy := float(opts.get("plus_label_y", 0))
-	g.offset_left = dx
-	g.offset_right = dx
-	g.offset_top = dy
-	g.offset_bottom = dy
+	g.anchor_left = 0.5; g.anchor_right = 0.5
+	g.anchor_top = 0.5; g.anchor_bottom = 0.5
+	g.offset_left = dx; g.offset_right = dx
+	g.offset_top = dy; g.offset_bottom = dy
+	g.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	g.grow_vertical = Control.GROW_DIRECTION_BOTH
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(g)
 	return p
@@ -3338,6 +3345,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_button": float(g.get("plus_button", 100.0)),
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
+		"plus_label_y": float(g.get("plus_label_y", 0.0)),   # vertical nudge of the "+" within the green button
 		"inner_shadow": float(g.get("inner_shadow", 30.0)),
 		"show_plus": true,
 	}

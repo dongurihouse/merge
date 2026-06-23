@@ -19,19 +19,6 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
-## Open — UI language & colour redesign (2026-06-17)
-
-Systematic UI-language + colour-scheme redesign — a **light warm-neutral `#EDE6D2`** board so items pop, a three-plane depth ladder (Sunk/Rest/Float), and de-overloaded green (reclaimed as the CTA/growth signal). Full spec: [`superpowers/specs/2026-06-17-ui-language-redesign-design.md`](superpowers/specs/2026-06-17-ui-language-redesign-design.md).
-
-**SHIPPED (2026-06-17).** Phase 1 palette foundation (**T50**, merge `186bdc0`) + Phases 2–4 (**T51**, merge `daf6f2f`): semantic role tiers in `grove_palette.gd`; the **Sunk** elevation tier; board field → flat `SURFACE`, empty cells → `CELL_EMPTY`, **locked cells recede** (light `LOCKED` well + quiet glyph, dark bramble overlay + chip gone); **de-greened honey level token**; **light quest band** + bigger giver busts; **light bottom nav** (home icon); shop/overlay coherence pass; and the **12-icon chrome kit** (`ui/kit/icon_*`, + new `bag`/`map`/`sprout`). The board reads light top-to-bottom, locks recede, green = CTA only. Full headless gate green (palette 25/0, grove 489/0) + three adversarial verify passes. Dead `bramble_*` + `fence_grove` art removed.
-
-**Parked tails (follow-ups — NOT regressions):**
-
-- **Textured garden-bed backdrop (§2, content-art).** The field ships as a flat `SURFACE` fill; spec §2 wants a subtle hand-painted tilled-soil mat. Process a soil tile (`assets/llm/llm_dirt`/`llm_board`) → swap behind the cells (`board.gd` `_field_backdrop`). `bg_grove_board.png` is now unreferenced — reuse or replace.
-- **Item grounding + `ITEM_BOX` optical scale (§4, ux-feel).** Items still render via `PieceView.make_piece` without contact-shadow grounding or a normalized per-item optical scale (mirror HUD `CHIP_ICON_BOX`/`*_OPTICAL`) so a big item doesn't dwarf a small one. *(Lower impact — items already read fine.)*
-- **Map-page chrome (ux-feel).** The map view (painted-art context, not the light `SURFACE` board) keeps dark borders/chests/power-pill (`map.gd` `#2A1C11`/`#2A2620`/`#4A4F46`) — evaluate against the map art separately; not a board clash.
-- **Colour-token consolidation (tech, success-criterion 6).** Pre-existing hardcoded `#33402F`→`Pal.INK` (board/giver/merchant labels) + the gem-FX reward tints (`#A9C7E8`/`#BFE6F2`, ~10 sites) want shared tokens. No visual change; a clean sweep. *(Pre-existing, not a redesign regression.)*
-
 ## Open — HUD, currencies & button chrome (presentation + monetization funnel)
 
 *Surfaced 2026-06-16 — UI design pass against two reference cozy/merge games. Our currency set is already **richer** than either reference (⭐ star = soft progression / restores places + drives Level · 🌰 acorn = soft coin from hub yield · 💎 gem = premium hard / IAP · 💧 water = board energy); the gaps are **affordances, hierarchy, and polish — not more systems**, and several backends already exist and just need surfacing. Anchors: HUD top bar `engine/scripts/ui/hud.gd` `build`; bottom chrome `engine/scripts/scenes/map.gd` `_build_chrome`; buttons/panels/icons `engine/scripts/ui/skin.gd` (`button` · `kit_panel` · `icon`; the old `stat_chip` pill is **removed**, T48 — see the rebuild item below). All dials in `engine/scripts/core/tuning.gd` — `Tune.Hud` (PILL_* · STAR_ICON/COIN_ICON/GEM_ICON · LV_* · XP_*) and `Tune.UiSkin` (BTN_* · KIT_* · CHIP_* · PARCH_* · TITLE_* · ICON_PX). Build the **polish item first** — it makes everything else look finished; then the funnel items. Verify every visual with a composite/zoom capture over BOTH a cream-parchment AND a busy grass/sky background (never eyeball).*

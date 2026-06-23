@@ -91,6 +91,9 @@ func _initialize() -> void:
 	ok(floater != null, "claiming today plays a floating reward celebration")
 	ok(floater != null and overlay != null and _is_descendant(floater, overlay),
 		"the daily celebration renders inside the z=100 overlay (above the veil), not behind it")
+	# claiming auto-dismisses the popup: after the reward-shout delay + fade, the z=100 overlay is gone.
+	await create_timer(LoginUI.CLAIM_CLOSE_DELAY + 0.4).timeout
+	ok(not is_instance_valid(overlay), "claiming today auto-closes the daily popup")
 	host.queue_free()
 	await process_frame
 
@@ -135,7 +138,7 @@ func _initialize() -> void:
 	await process_frame
 	ok(Login.claimed_today(), "the reveal claims the day")
 	ok(Login.streak() == s_pre + 1, "the reveal bumps the streak by one")
-	ok(bool(done_fired.v), "the reveal fires on_done (rebuilds the calendar)")
+	ok(bool(done_fired.v), "the reveal fires on_done (closes the calendar)")
 	host3.queue_free()
 	await process_frame
 

@@ -24,6 +24,7 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const CARD_WIDTH_PCT := 85.0       # default daily-dialog width as a % of the screen (overridable in config)
 const WEEK := 7
 const OVERLAY_NAME := "LoginOverlay"
+const CLAIM_CLOSE_DELAY := 0.85    # after a claim, let the reward shout rise, then the popup bows out on its own
 
 # --- the calendar popup -------------------------------------------------------------
 
@@ -140,23 +141,25 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 				# a mystery day opens the AUTO-SPIN reveal; claim_mystery grants the winners there.
 				d["on_claim"] = func() -> void:
 					var fx_host: Control = rb.get("fx_host", host)
+					# the reveal grants, celebrates, and waits on its own; once it closes, the
+					# calendar bows out too so the player never has to find the ✕.
 					var done := func() -> void:
-						if opts.has("refresh"):
-							(opts.refresh as Callable).call()
-						if rb.fn.is_valid():
-							rb.fn.call()
+						_dismiss(fx_host, opts)
 					LoginMystery.open(fx_host, day, {"on_done": done})
 			else:
 				d["on_claim"] = func() -> void:
 					var fx_host: Control = rb.get("fx_host", host) ; var at := fx_host.get_viewport_rect().size * 0.5
 					if Login.claim_today():
 						_celebrate(fx_host, at, Login.reward_for(day))
+						if rb.fn.is_valid():
+							rb.fn.call()                 # flip today's card to ✓ behind the celebration
+						_close_after(fx_host, opts, CLAIM_CLOSE_DELAY)
 					else:
 						Audio.play("invalid_soft", -6.0)
-					if opts.has("refresh"):
-						(opts.refresh as Callable).call()
-					if rb.fn.is_valid():
-						rb.fn.call()
+						if opts.has("refresh"):
+							(opts.refresh as Callable).call()
+						if rb.fn.is_valid():
+							rb.fn.call()
 		out.append(d)
 	return out
 
@@ -165,6 +168,23 @@ static func _dismiss(overlay: Control, opts: Dictionary) -> void:
 		overlay.queue_free()
 	if opts.has("refresh"):
 		(opts.refresh as Callable).call()
+
+# Auto-dismiss after a claim: hold for `delay` so the reward shout rises, then fade the whole
+# overlay out (a soft exit, not a hard cut) and refresh. Headless/no-tree falls back to an
+# immediate dismiss so logic tests don't hang on a timer.
+static func _close_after(overlay: Control, opts: Dictionary, delay: float) -> void:
+	var tree := overlay.get_tree() if is_instance_valid(overlay) else null
+	if tree == null:
+		_dismiss(overlay, opts)
+		return
+	tree.create_timer(delay).timeout.connect(func() -> void:
+		if not is_instance_valid(overlay):
+			if opts.has("refresh"):
+				(opts.refresh as Callable).call()
+			return
+		var tw := overlay.create_tween()
+		tw.tween_property(overlay, "modulate:a", 0.0, 0.22)
+		tw.tween_callback(func() -> void: _dismiss(overlay, opts)))
 
 # Play the collected rung's juice — a celebratory reward shout per granted component.
 static func _celebrate(host: Control, at: Vector2, rew: Dictionary) -> void:
