@@ -943,11 +943,14 @@ func _test_level_badge_component(view) -> void:
 	ok(n != null and n.text == "110", "level_badge preview prints the test level (110)")
 	ok(prev.find_child("lv_leaf", true, false) != null and prev.find_child("lv_gem", true, false) != null,
 		"level_badge preview composites the tier's parts (leaf + gem at L110)")
-	ok(prev.find_child("lv_circle", true, false) == null, "L110's tier omits the circle")
-	# selecting the circle (no tier shows it) force-shows it via extra_part so it can be positioned
+	ok(prev.find_child("lv_circle", true, false) != null, "the circle base draws behind every tier by default")
+	ok(view._is_config("level_badge", "circle_base"), "circle_base is a saved config toggle")
+	# with the base OFF, selecting the circle still force-shows it (extra_part) so it can be positioned
+	view._params["level_badge"]["circle_base"] = false
 	view._params["level_badge"]["edit_part"] = "circle"
 	var withc: Control = view._make_element("level_badge")
-	ok(withc.find_child("lv_circle", true, false) != null, "the edited part (circle) is force-shown for positioning")
+	ok(withc.find_child("lv_circle", true, false) != null, "the edited part (circle) is force-shown even with the base off")
+	view._params["level_badge"]["circle_base"] = true
 	# the sidebar binds the part picker + that part's X/Y/Scale, the number knobs, and the test level
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Circle X") >= 60.0, "sidebar binds X/Y/Scale to the selected part (circle)")

@@ -269,7 +269,7 @@ var _params := {
 	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
 	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / cell gate / level dialog
 	# read. preview_level drives the tier + the printed number; edit_part picks which part X/Y/Scale edit.
-	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16,
+	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16, "circle_base": true,
 		"circle_x": 0, "circle_y": -4, "circle_scale": 90,
 		"leaf_x": 0, "leaf_y": 0, "leaf_scale": 100,
 		"flower_x": 0, "flower_y": -10, "flower_scale": 48,
@@ -1560,6 +1560,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
 			_sidebar_body.add_child(_slider_row(["num_y", -50, 50]))        # margin (vertical offset)
 			_section_header("Overall")
+			_sidebar_body.add_child(_toggle_row("Circle base", "circle_base"))   # draw the coin behind every tier
 			_sidebar_body.add_child(_slider_row(["size", 40, 120]))         # the common part box (% of px)
 			_group_header("Test only — not saved", false)
 			# preview_level drives BOTH the printed number AND the tier (which parts show, at which stage)
