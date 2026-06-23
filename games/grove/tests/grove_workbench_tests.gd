@@ -46,6 +46,10 @@ func _first_button(node: Control) -> Button:
 	var bs := node.find_children("*", "Button", true, false)
 	return bs[0] if not bs.is_empty() else null
 
+func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
+	var found := node.find_children(pattern, klass, true, false)
+	return found[0] as Control if not found.is_empty() else null
+
 # Count the slot tiles in a bag dialog's grid (the GridContainer's children).
 func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
@@ -159,12 +163,42 @@ func _initialize() -> void:
 	})
 	ok(gcp is Control and _has_label_text(gcp, "2450") and _has_label_text(gcp, "+"), \
 		"gold_currency_pill renders the sample count and plus glyph")
-	ok(gcp.find_children("GoldBadgeTexture", "TextureRect", true, false).size() >= 1, \
-		"gold_currency_pill reuses the code-drawn gold badge texture")
+	var gcp_frame: StyleBox = (gcp as PanelContainer).get_theme_stylebox("panel")
+	ok(gcp_frame is StyleBoxTexture, "gold_currency_pill background uses the code-drawn gold badge texture")
+	ok(not (gcp_frame is StyleBoxFlat) or (gcp_frame as StyleBoxFlat).shadow_size == 0, \
+		"gold_currency_pill does not add its own flat-panel shadow")
+	ok(gcp.find_children("GoldCurrencyBadge", "Control", true, false).is_empty(), \
+		"gold_currency_pill icon has no extra square badge background")
 	ok(gcp.find_children("GoldCurrencyIcon", "TextureRect", true, false).size() >= 1, \
 		"gold_currency_pill reuses the existing currency icon asset")
-	ok(view._is_config("gold_currency_pill", "plus_hue") and view._is_config("gold_currency_pill", "plus_button"), \
-		"gold_currency_pill plus controls are saved on its own config block")
+	var tuned := Kit.gold_currency_pill({
+		"icon": "water", "count": 2450, "pill_w": 310, "pill_h": 106,
+		"pad_left": 31, "pad_x": 22, "pad_y": 14, "icon_box": 74,
+		"icon_size": 44, "icon_x": 7, "icon_y": -5,
+		"num_size": 36, "amount_x": 9, "amount_y": -3,
+		"gap": 17, "plus_x": 12, "plus_y": -8,
+		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
+		"plus_font": 70, "plus_button": 120, "plus_round": 8, "plus_hue": 65,
+	})
+	var tuned_frame := (tuned as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
+	ok(tuned_frame != null and int(tuned_frame.content_margin_left) == 31 and int(tuned_frame.content_margin_right) == 22 and int(tuned_frame.content_margin_top) == 14, \
+		"gold_currency_pill saved padding controls the badge frame margins")
+	var icon_slot := _first_control(tuned, "GoldCurrencyIconSlot")
+	var icon := _first_control(tuned, "GoldCurrencyIcon", "TextureRect")
+	ok(icon_slot != null and icon != null and icon_slot.custom_minimum_size == Vector2(74, 74) and icon.custom_minimum_size == Vector2(44, 44), \
+		"gold_currency_pill icon box + icon size controls resize the icon component")
+	ok(icon != null and icon.position == Vector2(22, 10), \
+		"gold_currency_pill icon x/y controls offset the icon component")
+	var amount_slot := _first_control(tuned, "GoldCurrencyAmountSlot")
+	var amount := _first_control(tuned, "GoldCurrencyAmount", "Label") as Label
+	ok(amount_slot != null and amount != null and amount.position == Vector2(9, -3) and int(amount.get_theme_font_size("font_size")) == 36, \
+		"gold_currency_pill amount x/y + font controls adjust the amount component")
+	var plus_slot := _first_control(tuned, "GoldCurrencyPlusSlot")
+	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
+	ok(plus_slot != null and plus_btn != null and plus_btn.position == Vector2(12, -8), \
+		"gold_currency_pill plus x/y controls offset the plus component")
+	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_y") and view._is_config("gold_currency_pill", "plus_button"), \
+		"gold_currency_pill padding and component controls are saved on its own config block")
 	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
 	view._selected = "gold_currency_pill"
 	view._rebuild_sidebar()
