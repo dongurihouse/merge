@@ -271,6 +271,80 @@ func _test_residents() -> void:
 	ok(Save.resident_counts(map_id, pid) == [0, 0, 1], "a premium roster line persists across a reload")
 	ok(Save.resident_counts(map_id, "no_such_type") == [0, 0, 0], "an un-welcomed type defaults to all-zero counts")
 
+# §1 · the per-map UNLOCK reward (scaling coins/gems + a free signature spirit), the free-spirit grant,
+# and the one-time claim. Pure-model coverage routed into the ACTIVE shop+ads suite (the resident tests
+# above run only from the parked placement suite).
+func _test_unlock_rewards() -> void:
+	fresh("unlock_reward_scale")
+	for z in G.MAPS.size():
+		var rew: Dictionary = G.map_unlock_reward(z)
+		ok(int(rew.coins) == 120 + 80 * z, "map %d unlock grants %d coins (120 + 80*%d)" % [z, 120 + 80 * z, z])
+		ok(int(rew.gems) == 2 + z, "map %d unlock grants %d diamonds (2 + %d)" % [z, 2 + z, z])
+		var sig: Array = G.RESIDENT_SIGNATURE.get(String(G.MAPS[z].id), [])
+		var want := String(sig[0].id) if sig.size() > 0 else ""
+		ok(String(rew.spirit) == want, "map %d unlock's free spirit is its signature[0] (%s)" % [z, want])
+
+	# grant_resident adds a t1 WITHOUT spending, and still cascades merges.
+	fresh("grant_resident_free")
+	var z0 := 0
+	var mid := String(G.MAPS[z0].id)
+	var gid := String(G.RESIDENT_CORE[0].id)
+	var coins_before := Save.coins()
+	var ev1: Array = G.grant_resident(z0, gid)
+	ok(Save.coins() == coins_before, "grant_resident does NOT spend coins")
+	ok(Save.resident_counts(mid, gid)[0] == 1, "grant_resident adds one t1")
+	ok(ev1.is_empty(), "a lone grant produces no merge event")
+	var ev2: Array = G.grant_resident(z0, gid)
+	ok(ev2.size() == 1 and int(ev2[0].to) == 2, "a second grant cascades t1+t1 -> t2")
+	# welcome_resident still SPENDS then grants (paid path unchanged).
+	fresh("welcome_still_spends")
+	Save.add_coins(1000)
+	var wc_before := Save.coins()
+	var wr: Dictionary = G.welcome_resident(z0, gid)
+	ok(bool(wr.ok) and Save.coins() == wc_before - G.RESIDENT_BASE_COST, "welcome_resident still debits the cost")
+	ok(Save.resident_counts(mid, gid)[0] == 1, "welcome_resident still lands a t1")
+
+	# claim_unlock_reward grants coins + gems + the free spirit ONCE per map; a second claim is a no-op.
+	fresh("claim_unlock_once")
+	var cz := 1                                       # map 1 (Orchard): 200 coins, 3 gems, signature "bee"
+	var cmid := String(G.MAPS[cz].id)
+	var coins0 := Save.coins()
+	var gems0 := Save.diamonds()
+	var got: Dictionary = G.claim_unlock_reward(cz)
+	ok(int(got.coins) == 200 and int(got.gems) == 3, "first claim returns the scaled reward (200c / 3g)")
+	ok(Save.coins() == coins0 + 200, "coins credited")
+	ok(Save.diamonds() == gems0 + 3, "diamonds credited")
+	ok(Save.resident_counts(cmid, String(got.spirit))[0] == 1, "the free signature spirit lands in the roster")
+	var coins1 := Save.coins()
+	var gems1 := Save.diamonds()
+	var again: Dictionary = G.claim_unlock_reward(cz)
+	ok(again.is_empty(), "a second claim returns {} (already claimed)")
+	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
+
+# §1 · the residents SHOP card data: one card per offered resident, correct price/currency, and an
+# affordability flag that reflects the live wallet.
+func _test_residents_shop_cards() -> void:
+	fresh("residents_shop_cards")
+	var z := 0
+	var lines := G.resident_lines(z)
+	Save.add_coins(G.RESIDENT_BASE_COST)        # exactly one core coin card's worth
+	Save.spend_diamonds(Save.diamonds())        # zero the NEW_SAVE_GEMS starter balance so the premium card reads unaffordable
+	var cards := G.residents_shop_cards(z)
+	ok(cards.size() == lines.size(), "one shop card per offered resident")
+	for c in cards:
+		var td := {}
+		for t in lines:
+			if String(t.id) == String(c.id):
+				td = t
+		var prem := bool(td.get("premium", false))
+		ok(int(c.cost) == (G.RESIDENT_PREMIUM_COST if prem else G.RESIDENT_BASE_COST), "card %s has the right cost" % c.id)
+		ok(String(c.currency) == ("diamonds" if prem else "coins"), "card %s has the right currency" % c.id)
+	for c in cards:
+		if String(c.currency) == "coins":
+			ok(bool(c.affordable), "a coin card is affordable with exactly its cost banked")
+		else:
+			ok(not bool(c.affordable), "a diamond card is unaffordable with 0 diamonds")
+
 # §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
 # completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
 # (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.
@@ -308,7 +382,8 @@ func _test_resident_wiring() -> void:
 		hx._ready()
 	hx.unlocks = unl
 	hx._open_map(z)
-	ok(hx.resident_hits.size() >= 1, "the 'welcome a spirit' panel built its kind rows on a populatable map")
+	ok(G.residents_shop_cards(z).size() >= 1, "the Residents shop offers kind cards on a populatable map")
+	ok(hx._residents_btn != null and hx._residents_btn.visible, "the Residents nav button shows on a populatable map")
 	# map.gd rendered the roster as one tier-tagged sprite per member (the population layer).
 	var sprites := _find_residents(hx.content, [])
 	var has_t1 := false
@@ -337,13 +412,10 @@ func _find_residents(n: Node, acc: Array) -> Array:
 		_find_residents(c, acc)
 	return acc
 
-# drive map.gd's REAL welcome handler for kind `cid` via its freshly-registered panel row (the row
-# nodes are rebuilt each _build_map, so re-find the hit each call rather than caching it).
+# drive map.gd's REAL buy handler for kind `cid` (the Residents shop's on_buy path: spend + cascade +
+# rebuild). A null refresh Callable is skipped (no open shop to refresh in this headless wiring check).
 func _welcome_kind(hx, z: int, cid: String) -> void:
-	for h in hx.resident_hits:
-		if String(h.type) == cid:
-			hx._on_welcome_tap(z, cid, h.node, Vector2(100, 100))
-			return
+	hx._buy_resident(z, cid, Callable())
 
 # §10 · the 2× DOUBLER re-homed to the board's quest COIN reward (was the removed hub yield-collect).
 # Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,
