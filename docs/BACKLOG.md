@@ -19,160 +19,6 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
-## Open — meta, content-cadence & infra
-
-- **Server-driven mail + Apple identity/IAP (Game Center · StoreKit) — remaining hookup (client foundation shipped 2026-06-19/20).**
-  The CLIENT side is built, guarded, and **inert until switched on** (placeholder endpoint + flags off; native
-  classes reached via `ClassDB` so everything degrades to broadcast/no-charge off iOS). Anchors are `file:symbol`.
-  **Shipped (client):** capped server-driven mailbox — cursor + cap + prune (`core/inbox.gd` `MAIL_CAP=10`,
-  `cursor`/`set_cursor`/`remaining_slots`/`prune`) and the fold/contract (`core/inbox_sync.gd` `apply_feed`,
-  `sync` = prune→`?since=&limit=`→fold; sends `X-Player-Id` when present); Game Center provider
-  (`core/identity.gd` via GodotApplePlugins `GameCenterManager`); StoreKit provider (`core/store.gd` via
-  `StoreKitManager`); the piggy crack routed through it (`ui/vault.gd` `PIGGY_PRODUCT`); map wiring
-  (`map.gd` `_sync_mail` on home-open + 10-min timer; `Identity.boot`). Flags `mail_sync` + `game_center`
-  (both OFF, `core/features.gd`). Pure-logic suites ACTIVE (`inbox_sync_tests`, `identity_tests`,
-  `store_tests`); contract + native steps in
-  [`docs/design/apple-services-setup.md`](design/apple-services-setup.md) +
-  [`docs/design/mail-feed.sample.json`](design/mail-feed.sample.json). **Remaining:**
-  - **Backend — the mail feed server (not started).** Implement `GET <url>?since=<cursor>&limit=<n>` →
-    `{messages:[{seq,id,title,body,icon,reward}]}` (live-only, ascending, ≤ limit; contract in the
-    `inbox_sync.gd` header). A Cloudflare Worker + KV fits. Then set `FEED_URL` (`inbox_sync.gd:29`, today
-    `https://example.invalid/...`) + flip `mail_sync` on.
-  - **Backend — Game Center identity verification (required before ANY targeting).** Server verifies
-    `Identity.verification()` (Apple GKLocalPlayer signature: reject non-Apple key host → fetch key → rebuild
-    `playerID+bundleID+timestamp+salt` → verify) before trusting `X-Player-Id`, then issues a short-lived
-    session token the mail GET sends instead of re-signing each poll. Until then ship broadcast (no id).
-  - **Backend — StoreKit 2 receipt/transaction verification.** Same external remainder already tracked in the
-    **economy → Vault IAP item (c)**; applies to every SKU, not just the vault.
-  - **Apple / native (needs Xcode + Apple account — can't be done in-repo).** Install **GodotApplePlugins** into
-    the iOS export; App Store Connect: enable Game Center, register IAP products (`com.tidyup.piggybank` + the
-    shop gem-pack/starter SKUs), add entitlements; **confirm the two undocumented StoreKit specifics**
-    (`STATUS_OK`, the `StoreProduct` id property — isolated at `store.gd:13`) with one sandbox buy. Then flip
-    `game_center` on. ⚠️ shipping the plugin makes `store.available()` true → **real charges**.
-  - **Client — wire the shop's real-money SKUs through StoreKit.** The vault crack is wired; the shop
-    **gem packs / starter pack** (`ui/shop.gd:66-69`, `add_diamonds(base*mult)`) still grant directly — apply the
-    same `store.purchase(id, func(okay): if okay: <grant>)` pattern (the gems→coins pack `:53-55` is soft
-    currency, no IAP). I can do this in-repo now.
-  - **On-device verification.** Sign-in / purchase / restore can't run in this environment — test on a real device.
-  *(Surfaced 2026-06-20. The net-new inbox SYSTEM itself is the LiveOps→Inbox item under "HUD/currencies"; this
-  item is the server-driven SYNC + Apple identity/IAP hookup layered on top. The parked `inbox`/`login` UI suites —
-  which hold the claim z-order + wallet-refresh regression tests — re-enable via the test-suites item below.)*
-
-- **Re-enable the UI + economy test suites (parked 2026-06-19; grove_model added 2026-06-20).** At this dev stage the UI and economy/liveops suites churn with every rapid iteration and slow the inner loop without guarding stable code, so they were parked: the `Makefile` keeps only the core-logic / "basic coding functional" suites active (`save`, `mechanics`, `quest`, `quest_fence`, `anchor`, `layering`) and moved the rest into `ENGINE_TESTS_DISABLED` / `GROVE_TESTS_DISABLED`. **Parked — UI:** `mapfx`, `palette`, `level_badge`, `bag_overlay`, `switch`, `calm`, `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. **Parked — economy/liveops:** `inbox`, `featured`, `grove_economy`, `grove_shop_ads`. **Parked — grove model (2026-06-20):** `grove_model` — pulled too; it stands up the real `Board.tscn`/`Map.tscn` and runs real-time `await` waits, so it's the slowest grove slice, and with board/economy behavior in constant flux it churns without guarding settled code. (`grove_workbench` stays active.) The suite *files* are untouched — re-enabling is purely moving names from the `*_DISABLED` vars back into `ENGINE_TESTS` / `GROVE_TESTS`. **Do this once the board/UI + economy systems stabilise** (pre-launch hardening), and expect some to need updating to match by-then-current behavior. *(Surfaced 2026-06-19 — owner call: trim tests to the core-logic set during heavy UI/economy churn; grove_model added 2026-06-20 on the same rationale.)*
-
-- **Push notifications + re-engagement (spec done · engine code · grove — UN-DEFERRED to launch).** §18: local + remote pushes (energy-full · yield-ready · event beat · win-back), opt-in, calm-toned, capped, prompted **after a rewarding moment** (never cold launch), per-type Settings toggle. The grove skeleton **deferred** notifications (`grove_spec §1`) — now **launch scope** (a silent energy return-hook with no prompt is the costliest omission, per the director review). **Absent** (no notification code). **Build (engine):** local-notification scheduling + a remote-push hook + opt-in / quiet-hours / caps. **Build (grove):** copy, cadence, reward sizes. *(Surfaced 2026-06-14 — director review.)*
-
-- **Gentle-urgency + recurring-scarcity events & opt-in social/competitive (spec done · engine · grove).** §17 adds **gentle urgency softened by recurrence** (time-boxed exclusives that return on a **seasonal calendar** — cozy-safe FOMO) and an **opt-in, async, positive-sum social layer** (bracketed "race a few others" leaderboard events, gifting, light co-op / community goals — no-lose, solo-playable). **Absent** (no recurrence, leaderboard, gifting, or community-goal code). **Build (engine):** event recurrence rules; the async-bracket leaderboard, gifting, and community-goal surfaces (flagged, §11). **Build (grove):** the seasonal calendar, which social surfaces ship, bracket/gift caps. *Extends the live-ops/events framework item below.* *(Surfaced 2026-06-14 — director review.)*
-
-- **Featured quests — flesh out a surface where featured-ness is actually a CHOICE (engine flag exists; board UI removed).** The §7 `featured` flag + its coins/premium bonus are live in the quest data (`content.gd` `gen_quest`; rate/bonus dials in `grove_data.gd` `QUEST_FEATURED_*`) and still pay out silently on hand-in (`board.gd`). **The board badge was removed** (the gold "Featured" ribbon + the `+N💎` shoulder on the giver stand, `giver_stand.gd`) because **quests aren't skippable** — flagging one as special on the fence is noise the player can't act on, so it added nothing. Featured-ness only earns a surface when it drives a *decision*: the spec's **"do a featured quest" daily/event hook** (§17/§18) — an objective that points the player at a featured quest, so the highlight finally has a target. **Build:** a featured-quest daily/event objective (rides the live-ops/events framework + task strip), and only then a fence highlight wired to it. Until that lands, featured is a silent bonus — correct, just invisible. *(Surfaced 2026-06-18 — owner call: drop the board badge, keep the mechanic.)*
-
-- **The Collection — retired-line almanac (spec done · engine code · grove).** §6: a line that retires
-  (map advance, or an event ending) **archives to the Collection** — a completionist almanac keeping
-  its tiers; a favorite can be set as **décor**, never re-summoned to the board. **Entirely absent**
-  (no archive/almanac/codex code). **Build (engine):** the archive + décor-display path. **Build
-  (grove):** re-summon/décor prices. Depends on line-retirement (generator item). *(Surfaced
-  2026-06-14 — code audit vs `merge_spec`.)*
-
-- **Live-ops / events framework (spec done · engine code · grove calendar).** §17: a **data-driven**
-  event framework — a time-boxed overlay with a **mini reward-track**, usually a **limited-time
-  generator + line** (pops on the same board, retires to the Collection when the event ends), plus
-  bonus weekends (×2 drops / cheaper energy), limited cosmetics, and catch-up bundles — **no code per
-  event**. **Entirely absent** (every `event` hit is Godot's `InputEvent`). **Build (engine):** the
-  config-driven framework. **Build (grove):** the event calendar + limited-line themes + reward sizes. **§17 also adds free + premium event lanes** (an optional paid lane per event — additive, never gating; a standalone seasonal Battle Pass is parked future/not-v1, below).
-  *(Surfaced 2026-06-14 — director review + code audit.)*
-
-- **Sharing / virality (spec done · engine code · grove).** §17: a **share** button captures a
-  **screenshot of the player's world** and grants premium+energy on a **daily cooldown** (generous
-  enough to feel worth it, gated enough not to be farmable). **Absent** — only dev screenshot tools
-  exist (`games/grove/tools/grove_shot.gd`, `games/grove/tools/map_shot.gd`), no in-game share. **Build (engine):** in-game
-  capture + share + reward + cooldown. **Build (grove):** reward sizes. *(Surfaced 2026-06-14 —
-  director review + code audit.)*
-
-- **Analytics — at launch, not deferred (spec done · engine code · grove sink).** §15: from day 1 log
-  the **FTUE funnel**, **retention** (D1/D7/D30, session length/count), **economy flow** (per-currency
-  faucet/sink totals, energy-wall hit-rate, refill usage), **progression**, **monetization** (even
-  while dark: which IAP popups shown/tapped), and **virality** — event-batched, offline-queued,
-  privacy-light. **Entirely absent** (`grep -ri analytics engine games` → nothing). **Build
-  (engine):** the analytics bus. **Build (grove):** the sink wiring. *(Surfaced 2026-06-14 — code
-  audit vs `merge_spec`.)*
-
-- **Save-schema extension + migration (cross-cutting · code).** As the items above land, the `grove`
-  save blob needs new fields — **all absent today** (`engine/scripts/save.gd`): cumulative
-  `stars_earned`, a per-day refill date, the live generator set + retired-line state (generator-grant model),
-  the **per-map resident roster** (the population loop's source of truth — type+tier counts per completed map,
-  Core §8 / `grove_spec §3` — this is the persisted-roster the on-screen wanderers render from),
-  the Collection (retired lines), generator burst-upgrade levels, and event
-  state. **(The old buildable upgrade-levels + yield-collection timestamps are NO LONGER needed — the
-  hub-yield loop is removed; spots are unlock-once and the roster replaces yield state, 2026-06-17.)**
-  Retire `exp`/`qdone_chapter`; bump `SCHEMA_VERSION` (currently 2) with a deep-merge
-  migration. The atomic-write + `.bak` + deep-merge plumbing is sound — only the schema grows. Park
-  the matching field alongside whichever item introduces it. *(Surfaced 2026-06-14 — code audit vs
-  `merge_spec`.)*
-
-- **Grove: story implementation — the trapped-family spirit-grove arc (story specced · content · art · code).**
-  The narrative is now **designed in `grove_spec §1`** — a wordless spirit-world spine: a
-  child crosses into a fading spirit-grove, her parents become **silent nature-spirits** (Acorn-dad +
-  Flower-mom) and she restores the grove to **reunite the family** and wake the **forgotten great heart-tree
-  spirit** — v1 ends on a **cliffhanger** (the parents' *full freeing* defers to the first post-launch place, `grove_spec §1`); reunite-early-then-help-others, scaling **maps = beats** (the family become
-  the grove's new Keepers — the endless-content justification). **Givers re-cast** as humanoid
-  produce/critter spirits (Radish · Carrot · Frog · Bee · Morel + menagerie; fox/hedgehog/owl
-  retired). **Build (grove content):** giver names/personalities/wishes + per-map beats + the Map-1
-  episode (authored crossing/FTUE → restoration beats → heart-tree waking → reunion + onward hook);
-  image-memory vignettes. **Build (art):** the cast, the parents + their **easing de-transformation**
-  (composited per map, Core §16), the great-spirit's **bloom-awake** climax, candidate later maps.
-  **Build (engine, maybe):** the per-map de-transform swap is plain compositing (Core §16) — likely no
-  new engine system, but the FTUE crossing + the parents-as-guides surface may need wiring. Engine
-  giver-arc layer is Core §7. *Fleshes out the old "character arcs for givers" item (now specced).* ✅ **`grove_spec` reconciled (2026-06-15):** map = a beat (one image) with **no episode/chapter tier** (a flat map sequence), the **Farmhouse is the home hub** (authored deeper + a HUD home-shortcut to return & keep upgrading), the legacy free-pan/`interior_view` model retired — the §1 story + §3 build sections now read on the single-image-map model. Only the content/art/code **build** below remains.
-  *(Surfaced 2026-06-14 — director review; designed 2026-06-14.)*
-
-- **Standalone seasonal Battle Pass (future — not v1, owner 2026-06-14).** A persistent, cross-event
-  **season ladder** (free + premium tracks, leveled by all play over a ~30-day season) — distinct from
-  the **per-event premium lane** that now ships in Core §17. Owner: **not interested for v1**; parked
-  as a future LiveOps revenue line if the cozy positioning proves it can carry one. *(Surfaced
-  2026-06-14 — director review.)*
-
-- **Premium diamond surprise-capsule — special-character "gachapon" (post-v1, behind a readiness gate;
-  REVERSED from cut, owner 2026-06-17).** A diamond surprise-capsule yielding **special characters** for the
-  population/residents loop (Core §8 / `grove_spec §3`). Previously **permanently cut (tone)** — that
-  `grove_spec §1` line is now **amended** (gacha/mystery crates removed from it; the bounded reversal
-  recorded). **It is part of the design but ships POST-V1**, gated on a **readiness condition: the
-  deterministic resident loop is proven healthy** (the v1 base/premium-resident welcome + auto-merge
-  economy is sim-validated and live) **AND a special-character library exists** (enough premium-resident art
-  to fill a non-disappointing pull). It must carry all **seven locked cozy guardrails** (Core §4's
-  bounded-surprise-capsule clause — absent any one, it does not ship): **(a)** cosmetic-only forever (no
-  yield, no power); **(b)** no-loss randomness — every pull is *wanted*, dupes **auto-convert** to
-  merge-fuel / soft-currency, never wasted; **(c)** no dangled rarity tiers; **(d)** no pity timer; **(e)**
-  evergreen — no time-limited / FOMO capsules; **(f)** soft, transparent pricing with a **free/earned path**
-  to the same collection; **(g)** diegetic framing — **never the word "gacha"**, and **not bolted onto the
-  peddler** (its no-predatory role is already set). **Build (engine):** the capsule mechanism (pull,
-  dupe-auto-convert, the earned-path faucet) behind a flag. **Build (grove):** the premium-resident
-  library + diegetic frame + pricing. Spec: `merge_spec §4` (the clause), `grove_spec §1` (Scope — the
-  reversal). *(Surfaced 2026-06-17 — owner reversal of the §1 "permanently cut" gacha line.)*
-
-- **Engine layering — Phase 4 (optional refactor).** The `core/ui/scenes` split (Phases 1–3) is
-  **done + guard-enforced** — invariant now in `merge_spec §15`, guard `engine/tests/layering_tests.gd`.
-  Phase 4 folds the last view-stranded logic into core: ambient **win-back** trigger → core
-  (`save`/`content`); shop **purchase logic** → `core/economy.gd` (economy numbers → `Game.DATA`) —
-  leaving `ambient.gd`/`shop.gd` pure view. LOW risk, behavior-identical. Out of scope (separate axis):
-  relocating `board`/`map` from `engine/` to `games/`. *(Was `ui_backend_separation.md` §Phase 4; that
-  plan doc is deleted now Phases 1–3 landed — invariant lifted to `merge_spec §15`. Surfaced 2026-06-15.)*
-  ⚠️ **Separate, in-progress on another thread (unlogged — flag for backfill):** a **`board.gd` decomposition**
-  refactor — **Wave 1** extracted quest-fence composition → `core/quests.gd` (`1edbdea`), **Wave 2** view
-  builders → `ui/piece_view` + `ui/bust` (`a102b85`); both shipped to `main` with **no `T#` entry**, and "Wave N"
-  implies more passes touching `board.gd`. Backfill the task entries + coordinate before other `board.gd` work.
-
-- **Economy sim — track board occupancy/congestion (sim tooling · grove `grove_sim.gd`).** §15
-  (`merge_spec.md:438`; echoed §7 `:257`) requires the sim to validate the board for **space**, not just
-  affordability: **peak & mean cells filled** and the **full-board stall rate** (taps blocked for want of a
-  free cell, net of the bag §5 and merchant §9 drains), so the late-game "juggle every line on one board"
-  is proven drainable. Today `games/grove/tools/grove_sim.gd` tracks only a binary jam count (`:437`) and a
-  free-cell low-water mark (`:310`, `open_low_mark`) — **no mean occupancy and no stall *rate***
-  (`grep occupancy|congestion|stall_rate` → none). The engine primitives already exist
-  (`engine/scripts/core/board_model.gd:172` `empty_ground_cells()`). **Build (sim):** aggregate peak/mean
-  occupancy + a drain-net stall rate into the sim results. **Build (grove):** set the peak-occupancy +
-  stall-rate ceilings (a grove number, §15). **Minor** — tooling/validation, not a runtime gap. *(Surfaced
-  2026-06-16 — engine vs `merge_spec` gap audit.)*
-
 ## Open — UI language & colour redesign (2026-06-17)
 
 Systematic UI-language + colour-scheme redesign — a **light warm-neutral `#EDE6D2`** board so items pop, a three-plane depth ladder (Sunk/Rest/Float), and de-overloaded green (reclaimed as the CTA/growth signal). Full spec: [`superpowers/specs/2026-06-17-ui-language-redesign-design.md`](superpowers/specs/2026-06-17-ui-language-redesign-design.md).
@@ -367,9 +213,9 @@ is complete, everything above the divider is deleted and only this section remai
 buckets cut across the old per-surface sections: **Active** (build now), **Tuning** (owner feel/pacing
 calls), **Testing** (re-enable / add coverage), and others as they emerge.
 
-## Active — build now
+## High priority — build now
 
-_(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks/ux-feel.md`.)_
+_(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-feel.md`.)_
 
 - **FTUE system — redesign as ONE reusable hand-gesture spotlight (replaces the 3 removed §14
   spotlights).** Build a single reusable FTUE overlay used at every tutorial site, then wire each site
@@ -406,8 +252,73 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
 - **Rip out the superseded hub-yield loop (T42).** The §8 keystone changed from hub-yield to the
   population/residents loop, so remove the T42 hub-yield + upgrade-levels code / tests + `HUB_*` dials
   (restoration spots become unlock-once; the resident roster replaces yield state). Pairs with the
-  residents-loop work referenced in the meta save-schema item. *(from old economy 4.2 — kept here for
-  routing; cut if not wanted.)*
+  population/residents loop — the new §8 keystone (`grove_spec §3`). *(from old economy 4.2 — kept here
+  for routing; cut if not wanted.)*
+
+- **Server-driven mail + Apple identity/IAP (Game Center · StoreKit) — backend + Apple hookup.** The
+  client side is built, guarded, and inert (flags off); what's left is backend + Apple work. This is the
+  **consolidation point for the IAP/StoreKit external remainder** referenced across the economy items
+  (old 4.1c / 4.2 / 4.3). Pieces:
+  - **Mail-feed server.** Implement `GET <url>?since=<cursor>&limit=<n>` → `{messages:[{seq,id,title,
+    body,icon,reward}]}` (live-only, ascending, ≤ limit; contract in `core/inbox_sync.gd`). A Cloudflare
+    Worker + KV fits. Then set `FEED_URL` (`inbox_sync.gd:29`) + flip `mail_sync` on.
+  - **Game Center identity verification.** Server verifies `Identity.verification()` (Apple GKLocalPlayer
+    signature) before trusting `X-Player-Id`, then issues a short-lived session token. Until then ship
+    broadcast (no id).
+  - **StoreKit 2 receipt/transaction verification — for ALL SKUs** (the vault crack
+    `com.tidyup.piggybank` + the shop gem packs / starter pack). Grant ONLY on a confirmed purchase.
+  - **Apple / native (needs Xcode + Apple account).** Install GodotApplePlugins into the iOS export;
+    App Store Connect: enable Game Center, register the IAP products, add entitlements; confirm the two
+    undocumented StoreKit specifics with a sandbox buy. ⚠️ shipping the plugin makes purchases real-charge.
+  - **Wire the shop's real-money SKUs through StoreKit (doable in-repo now).** The vault crack is wired;
+    the shop gem packs / starter still grant directly — apply the same `store.purchase(id, func(okay):
+    if okay: <grant>)` pattern.
+  - **On-device verification.** Sign-in / purchase / restore must be tested on a real device.
+  *(from old meta 5.1 + the IAP remainder consolidated from economy 4.1/4.2/4.3.)*
+
+- **Analytics — at launch, not deferred (§15).** From day 1 log the FTUE funnel, retention (D1/D7/D30,
+  session length/count), economy flow (per-currency faucet/sink totals, energy-wall hit-rate, refill
+  usage), progression, monetization (even while dark: which IAP popups shown/tapped), and virality —
+  event-batched, offline-queued, privacy-light. Nothing exists today. Build the engine analytics bus +
+  the grove sink wiring. *(from old meta 5.9.)*
+
+## Low priority — parking lot
+
+- **Push notifications + re-engagement (§18).** Local + remote pushes (energy-full, yield-ready, event
+  beat, win-back) — opt-in, calm, capped, prompted after a rewarding moment (never cold launch), per-type
+  Settings toggle. No code today. Build engine scheduling + a remote hook + opt-in/quiet-hours/caps;
+  grove copy/cadence/reward sizes. *(from old meta 5.3 — was "un-deferred to launch"; owner re-parked to
+  low priority 2026-06-23.)*
+
+- **Gentle-urgency + recurring-scarcity events & opt-in social/competitive (§17).** Time-boxed exclusives
+  on a seasonal calendar (cozy FOMO) + an opt-in async positive-sum social layer (bracketed leaderboards,
+  gifting, light co-op / community goals — no-lose, solo-playable). No code. **Extends the live-ops
+  framework below.** *(from old meta 5.4.)*
+
+- **Featured quests — give featured-ness a real choice (§7/§17/§18).** The featured flag pays out
+  silently; the board badge was removed because quests aren't skippable (flagging is noise). Build a "do a
+  featured quest" daily/event objective so the highlight has a target, then a fence highlight wired to it.
+  **Depends on the live-ops framework.** *(from old meta 5.5.)*
+
+- **The Collection — retired-line almanac (§6).** A line that retires (map advance / event end) archives
+  into a completionist almanac keeping its tiers; a favorite can be set as décor (never re-summoned). No
+  code. **Depends on line-retirement (generator work).** *(from old meta 5.6.)*
+
+- **Live-ops / events framework (§17).** A data-driven event framework — a time-boxed overlay with a mini
+  reward track, usually a limited-time generator + line (retires to the Collection), plus bonus weekends,
+  limited cosmetics, catch-up bundles, and free + premium event lanes — **no code per event.** No code
+  today. **Underpins the events / featured / Collection / sharing items above.** *(from old meta 5.7.)*
+
+- **Sharing / virality (§17).** A share button captures a screenshot of the player's world and grants
+  premium + energy on a daily cooldown (generous but not farmable). Only dev screenshot tools exist. Build
+  engine capture + share + reward + cooldown; grove reward sizes. *(from old meta 5.8.)*
+
+- **Premium diamond surprise-capsule — "gachapon" (post-v1, gated).** A diamond capsule yielding special
+  resident characters; ships **post-v1**, gated on (a) the resident loop proven healthy + (b) a
+  special-character art library, and must carry all seven cozy guardrails — cosmetic-only, no-loss
+  (dupes auto-convert), no rarity tiers, no pity timer, evergreen, transparent pricing with a free/earned
+  path, diegetic framing (never the word "gacha"). Build the engine capsule mechanism behind a flag +
+  the grove library/pricing. *(from old meta 5.13.)*
 
 ## Features
 
@@ -447,6 +358,12 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
   frequency, and the new payout size (bigger coin multiplier and/or 💎 bonus) — keep it a treat, not a
   nag; it's a faucet, so sim the rate + payout on `grove_sim`. *(from old economy 4.3.)*
 
+- **Board occupancy / congestion ceilings (§15).** Extend `games/grove/tools/grove_sim.gd` to aggregate
+  **peak + mean board occupancy** and a **drain-net full-board stall rate** (today it tracks only a binary
+  jam count + a free-cell low-water mark), then set the peak-occupancy + stall-rate **ceilings** (grove
+  numbers) so the late-game "juggle every line on one board" is proven drainable. Engine primitive exists
+  (`board_model.empty_ground_cells()`). Minor — tooling/validation. *(from old meta 5.15.)*
+
 ## Testing (re-enable / add coverage)
 
 - **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` (15 assertions, passes today)
@@ -465,3 +382,11 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
 - **Ad-reward (2× doubler) flow.** Cover offer → accept → grant: the offer fires on the right trigger(s),
   respects the cap / cooldown, and the accept credits the new (>1×) payout. Seed: `grove_tests`
   `_test_2x_doubler_rehome`. *(from old economy 4.3.)*
+
+- **Re-enable the parked UI + economy/liveops suites (pre-launch hardening).** The Makefile keeps only the
+  core-logic suites active (`save`, `mechanics`, `quest`, `quest_fence`, `anchor`, `layering`); the rest
+  sit in `*_DISABLED`. Parked — UI: `mapfx`, `palette`, `level_badge`, `bag_overlay`, `switch`, `calm`,
+  `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. Economy/liveops: `inbox`,
+  `featured`, `grove_economy`, `grove_shop_ads`. Grove model: `grove_model`. Re-enabling = moving names
+  from `*_DISABLED` back into `ENGINE_TESTS` / `GROVE_TESTS`; do it once board/UI + economy stabilise,
+  and expect some to need updating to match by-then-current behavior. *(from old meta 5.2.)*
