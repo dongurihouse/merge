@@ -98,6 +98,7 @@ var _select_back: Button         # the place-picker's bottom-left back arrow (sh
 var level_label: Label
 var coins_label: Label
 var _hud_refresh := Callable()
+var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
 var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
 var _hud_panels: Array = []       # wallet + Lv chips
@@ -1194,6 +1195,7 @@ func _build_hud() -> void:
 	coins_label = hud.coins
 	level_label = hud.level
 	_hud_refresh = hud.refresh
+	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
 	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
 	_hud_panels = [hud.wallet, hud.lv_panel]
 	_shop_btn = hud.gem_plus         # the Welcome gift lives in the premium stall now → the badge rides the GEM pill's "+"
@@ -1383,7 +1385,11 @@ func _build_liveops_rail() -> void:
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
 	var step := _rail_disc_px + RAIL_CAP_H + RAIL_GAP
-	var top := Look.safe_top(self) + RAIL_TOP
+	# the rail hangs directly beneath the settings gear (top-aligned with the wallet), one inter-tile gap
+	# below it — so the gear + the rail read as ONE top-aligned right column. The gear box matches the rail
+	# disc size (both RAIL_SCALE × the home button), so the spacing is even. Fallback: the old fixed inset.
+	var top := (_gear.offset_bottom + RAIL_CAP_H + RAIL_GAP) if (_gear != null and is_instance_valid(_gear)) \
+		else (Look.safe_top(self) + RAIL_TOP)
 	var slot := 0
 	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	var HC: GDScript = load(HOME_CHROME_PATH)

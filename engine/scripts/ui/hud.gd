@@ -98,9 +98,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		gear.anchor_bottom = 0.0
 		gear.offset_left = -gear_px - Tune.EDGE_MARGIN
 		gear.offset_right = -Tune.EDGE_MARGIN
-		# centre the (shorter) gear box within the level badge's box span [gtop, gtop+LV_BADGE_PX] so the
-		# gear badge and the level medal share a Y centre.
-		gear.offset_top = gtop + (LV_BADGE_PX - gear_px) / 2.0
+		# top-align the gear with the currency pills — both pin to gtop, so the settings tile and the
+		# wallet share a top edge (the map's live-ops rail then hangs directly beneath the gear so the
+		# settings + rail read as one top-aligned right column; see map._build_liveops_rail).
+		gear.offset_top = gtop
 		gear.offset_bottom = gear.offset_top + gear_px
 		host.add_child(gear)
 
