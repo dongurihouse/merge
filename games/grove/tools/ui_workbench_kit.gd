@@ -61,6 +61,9 @@ const CUR_PILL_SHADOW := Color(0, 0, 0, 0.22)
 # does, so the preview matches the live HUD. (Explicit-icon callers still pass their own [[id, px], …].)
 const CUR_PILL_OPTICAL := [["star", 0.86], ["coin", 1.0], ["gem", 1.0]]
 
+static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
+	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
+
 # The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
 # the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
 # a LOCKED place is the dark baked panel (ui/map/card_locked.png) under an "after <prev>" line. Code-
@@ -250,6 +253,7 @@ static func make_icon_shadow(id: String, px: float, alpha: float) -> Control:
 		"shadow_alpha": a,
 		"shadow_offset": Vector2(0.03, 0.10) * w,   # a touch right, mostly DOWN — a grounded drop shadow
 		"shadow_blur": maxf(2.0, w * 0.05),
+		"shadow_warmth": 82.0,
 	})
 	return _icon_rect(ImageTexture.create_from_image(img), px)
 
@@ -365,7 +369,7 @@ static func polish_image(src: Image, opts: Dictionary = {}) -> Image:
 
 ## Bake a soft drop shadow beneath an alpha-shaped sprite (icons). Grows the canvas symmetrically by
 ## `pad` so the sprite stays centred (it just renders a touch smaller in its box) and the shadow — the
-## sprite's own alpha, offset + blurred + tinted black — sits beneath it. opts: shadow_offset (Vector2
+## sprite's own alpha, offset + blurred + warm-tinted — sits beneath it. opts: shadow_offset (Vector2
 ## px at this image's scale), shadow_blur (px), shadow_alpha (0..1), shadow_pad (px). The shape-true
 ## shadow (follows the sprite's silhouette) is why icons bake it instead of using a rounded-rect panel.
 static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
@@ -376,6 +380,7 @@ static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 	var off: Vector2 = opts.get("shadow_offset", Vector2(0.04, 0.07) * float(w))
 	var blur: float = float(opts.get("shadow_blur", maxf(2.0, float(w) * 0.035)))
 	var alpha: float = clampf(float(opts.get("shadow_alpha", 0.5)), 0.0, 1.0)
+	var sh_color := Look.warm_shadow_color(alpha, _shadow_warmth(opts))
 	var pad: int = int(opts.get("shadow_pad", int(ceil(blur)) + int(maxf(absf(off.x), absf(off.y))) + 2))
 	var nw := w + pad * 2
 	var nh := h + pad * 2
@@ -393,7 +398,11 @@ static func add_drop_shadow(img: Image, opts: Dictionary = {}) -> Image:
 			var ny := y + sy
 			if nx < 0 or ny < 0 or nx >= nw or ny >= nh:
 				continue
-			sh_data[(ny * nw + nx) * 4 + 3] = int(a * alpha)   # RGB stays 0 → a black shadow
+			var si := (ny * nw + nx) * 4
+			sh_data[si] = int(round(sh_color.r * 255.0))
+			sh_data[si + 1] = int(round(sh_color.g * 255.0))
+			sh_data[si + 2] = int(round(sh_color.b * 255.0))
+			sh_data[si + 3] = int(a * sh_color.a)
 	shadow.set_data(nw, nh, false, Image.FORMAT_RGBA8, sh_data)
 	_feather_alpha(shadow, blur)
 	shadow.blend_rect(img, Rect2i(0, 0, w, h), Vector2i(pad, pad))   # sprite OVER the shadow (alpha blend)
@@ -768,7 +777,7 @@ static func pill_button(text: String, opts: Dictionary = {}) -> Button:
 	s.border_color = edge
 	s.set_corner_radius_all(int(corner))      # rectangular at low values; capsule near/above height/2
 	s.set_border_width_all(2)
-	s.shadow_color = Color(0, 0, 0, 0.22)
+	s.shadow_color = Look.warm_shadow_color(0.22)
 	s.shadow_size = 5 if shadow else 0      # the drop-shadow toggle (code-drawn pill)
 	s.shadow_offset = Vector2(0, 3)
 	s.content_margin_left = 18 * pad_scale; s.content_margin_right = 18 * pad_scale
@@ -795,7 +804,7 @@ static func _maybe_shadow(b: Control, on: bool, corner: float) -> Control:
 	var ss := StyleBoxFlat.new()
 	ss.draw_center = false                       # only the shadow renders, not a fill
 	ss.set_corner_radius_all(int(maxf(corner, 18.0)))
-	ss.shadow_color = Color(0, 0, 0, 0.30)
+	ss.shadow_color = Look.warm_shadow_color(0.30)
 	ss.shadow_size = 6
 	ss.shadow_offset = Vector2(0, 4)
 	wrap.add_theme_stylebox_override("panel", ss)
@@ -898,7 +907,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	var rect_right := float(opts.get("rect_shadow_right", 0))
 	var rect_soft := float(opts.get("rect_shadow_soft", 0))
 	if shape == "rect" and rect_alpha > 0.0 and (rect_top > 0.0 or rect_bottom > 0.0 or rect_left > 0.0 or rect_right > 0.0 or rect_soft > 0.0):
-		var sh := Look.drop_shadow(corner, rect_top, rect_bottom, rect_left, rect_right, rect_soft, rect_alpha)
+		var sh := Look.drop_shadow(corner, rect_top, rect_bottom, rect_left, rect_right, rect_soft, rect_alpha, _shadow_warmth(opts, "rect_shadow_warmth"))
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
 	# the SPARKLE sits BEHIND the icon (added first → drawn under it), only if asked AND tuned > 0.
@@ -2989,6 +2998,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"rect_shadow_right": float(h.get("rect_shadow_right", 0)),    # reach RIGHT (px)
 		"rect_shadow_soft": float(h.get("rect_shadow_soft", 6)),      # the shared soft feather / blur (px)
 		"rect_shadow_alpha": float(h.get("rect_shadow_alpha", 32)),   # opacity (0..100 %)
+		"rect_shadow_warmth": float(h.get("rect_shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
@@ -3028,6 +3038,7 @@ static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"shadow_bottom":float(c.get("shadow_bottom", 10)), # ...DOWN (default: a soft drop beneath the pill)
 		"shadow_left":  float(c.get("shadow_left", 0)),    # ...LEFT
 		"shadow_right": float(c.get("shadow_right", 0)),   # ...RIGHT
+		"shadow_warmth": float(c.get("shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
 		"icon_shadow": float(c.get("icon_shadow", 35)),    # soft drop-shadow on the pill's currency icon + the "+" (0..100 % alpha; 0 = off)
 		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
 		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
@@ -3099,7 +3110,7 @@ static func currency_pill_style(opts: Dictionary) -> StyleBox:
 	var sh_bottom := float(opts.get("shadow_bottom", 0))
 	var sh_left := float(opts.get("shadow_left", 0))
 	var sh_right := float(opts.get("shadow_right", 0))
-	sb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0))
+	sb.shadow_color = Look.warm_shadow_color(clampf(float(opts.get("shadow_alpha", 22)) / 100.0, 0.0, 1.0), _shadow_warmth(opts))
 	sb.shadow_size = int(opts.get("shadow_size", 5))
 	sb.shadow_offset = Vector2((sh_right - sh_left) * 0.5, (sh_bottom - sh_top) * 0.5)
 	sb.content_margin_left = pad_left
@@ -3376,7 +3387,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		ssb.set_corner_radius_all(corner)
 		ssb.shadow_size = shadow_size
 		ssb.shadow_offset = Vector2(0.0, shadow_size * 0.5)
-		ssb.shadow_color = Color(0.0, 0.0, 0.0, clampf(float(opts.get("shadow_alpha", 30)) / 100.0, 0.0, 1.0))
+		ssb.shadow_color = Look.warm_shadow_color(clampf(float(opts.get("shadow_alpha", 30)) / 100.0, 0.0, 1.0), _shadow_warmth(opts))
 		sh.add_theme_stylebox_override("panel", ssb)
 		root.add_child(sh)
 	if String(opts.get("frame_style", "badge")) == "code":
@@ -3455,6 +3466,7 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"top_shadow":  float(b.get("frame_top_shadow", 0)),      # code: top inset shadow depth (0..100)
 		"shadow_size": int(b.get("frame_shadow", 18)),           # drop shadow size under the board
 		"shadow_alpha":float(b.get("frame_shadow_alpha", 30)),   # drop shadow opacity (0..100)
+		"shadow_warmth":float(b.get("frame_shadow_warmth", 82)), # warm brown ↔ cool violet-black tint
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------

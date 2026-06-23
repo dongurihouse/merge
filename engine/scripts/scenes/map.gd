@@ -465,7 +465,7 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 			view.write_shader_value("glow", "glow_strength", 2.3, rk)    # default 1.15 — brighter
 			view.write_shader_value("vines", "opacity", 0.9, rk)         # default 0.48 — denser vines
 			view.write_shader_value("vines", "glow_strength", 1.1, rk)   # default 0.42 — hotter vine cores
-			view.set_region_lock_alpha(rk, 0.55)                         # default 0.34 — the claimable zone's overall purple shape reads as a SOLID pane ready to shatter (more opaque than a locked zone), not a faded film
+			view.set_region_lock_alpha(rk, 0.75)                         # default 0.34 — the claimable zone's overall purple shape reads as a near-SOLID pane ready to shatter (75% — far more opaque than a locked zone), not a faded film
 		vframe.add_child(view)
 		return vframe
 	var broken := String(home.get("broken", ""))

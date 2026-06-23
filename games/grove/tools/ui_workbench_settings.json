@@ -42,6 +42,7 @@
 		"frame_inner_w": 0,
 		"frame_shadow": 18,
 		"frame_shadow_alpha": 30,
+		"frame_shadow_warmth": 82,
 		"frame_style": "badge",
 		"frame_top_shadow": 0,
 		"gap": 7.0,
@@ -86,6 +87,7 @@
 		"shadow_right": 0.0,
 		"shadow_size": 5.0,
 		"shadow_top": 0.0,
+		"shadow_warmth": 82.0,
 		"use_art": true,
 		"water": 5438.0
 	},
@@ -174,6 +176,7 @@
 		"rect_shadow_right": 0.0,
 		"rect_shadow_soft": 6.0,
 		"rect_shadow_top": 0.0,
+		"rect_shadow_warmth": 82.0,
 		"twinkle": 55.0
 	},
 	"icon": {

@@ -144,7 +144,7 @@ var _params := {
 	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true,
 		# the board FRAME (Kit.board_panel): "badge" = the painted rounded badge; "code" = a code-drawn depth
 		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
-		"frame_style": "badge", "frame_corner": 46, "frame_shadow": 18, "frame_shadow_alpha": 30,
+		"frame_style": "badge", "frame_corner": 46, "frame_shadow": 18, "frame_shadow_alpha": 30, "frame_shadow_warmth": 82,
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
 	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
@@ -157,7 +157,7 @@ var _params := {
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
 	# Its disc shell's polish lives on the standalone Badge item; its icon uses the global icon clean.
 	"home_button": {"px": 140, "icon_scale": 50, "caption_font": 22, "caption_gap": 4, "caption_pad_x": 30, "caption_pad_y": 8,
-		"fill_alpha": 100, "rect_pad": 13, "rect_shadow_top": 0, "rect_shadow_bottom": 10, "rect_shadow_left": 0, "rect_shadow_right": 0, "rect_shadow_soft": 6, "rect_shadow_alpha": 32, "play_px": 188,
+		"fill_alpha": 100, "rect_pad": 13, "rect_shadow_top": 0, "rect_shadow_bottom": 10, "rect_shadow_left": 0, "rect_shadow_right": 0, "rect_shadow_soft": 6, "rect_shadow_alpha": 32, "rect_shadow_warmth": 82, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
@@ -242,7 +242,7 @@ var _params := {
 	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
 	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
 	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "shadow_size": 5,
-		"shadow_alpha": 22, "shadow_top": 0, "shadow_bottom": 10, "shadow_left": 0, "shadow_right": 0, "icon_shadow": 35, "fill_alpha": 100,
+		"shadow_alpha": 22, "shadow_top": 0, "shadow_bottom": 10, "shadow_left": 0, "shadow_right": 0, "shadow_warmth": 82, "icon_shadow": 35, "fill_alpha": 100,
 		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
 		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared currency-pill capsule.
@@ -1189,6 +1189,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
 			_sidebar_body.add_child(_slider_row(["frame_shadow", 0, 40]))         # drop-shadow size under the board
 			_sidebar_body.add_child(_slider_row(["frame_shadow_alpha", 0, 100]))  # drop-shadow opacity %
+			_sidebar_body.add_child(_slider_row(["frame_shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
 			_section_header("Code border (when Style = code)")
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
 			_sidebar_body.add_child(_slider_row(["frame_inner_w", 0, 10]))        # inner hairline — the border of the border
@@ -1241,6 +1242,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["rect_shadow_right", 0, 40]))   # shadow reach RIGHT (px)
 			_sidebar_body.add_child(_slider_row(["rect_shadow_soft", 0, 24]))    # softness / blur shared by all sides (px)
 			_sidebar_body.add_child(_slider_row(["rect_shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["rect_shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
 			_section_header("Play disc (bottom-right CTA)")
 			_sidebar_body.add_child(_slider_row(["play_px", 120, 260]))          # the orange Play disc diameter (px)
 			_section_header("Side-rail badge (red dot / count)")
@@ -1401,6 +1403,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["shadow_right", 0, 40]))   # shadow reach RIGHT (px)
 			_sidebar_body.add_child(_slider_row(["shadow_size", 0, 24]))    # softness / blur shared by all sides (px)
 			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # drop-shadow OPACITY (%)
+			_sidebar_body.add_child(_slider_row(["shadow_warmth", 0, 100])) # warm brown ↔ cool violet-black tint
 			_sidebar_body.add_child(_slider_row(["icon_shadow", 0, 80]))    # soft drop-shadow on the currency ICON + the "+" (0 = off)
 			if not bool(_params["currency_pill"]["use_art"]):
 				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
