@@ -77,7 +77,7 @@ const TEST_KEYS := {
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
-	"gold_badge": ["px", "inner_inset"],   # test-only CSS-port preview size + inner groove spacing
+	"gold_badge": ["px", "inner_inset", "shine"],   # test-only CSS-port preview size + background shine
 	"card": [],
 	"daily_card": ["preview", "ribbon", "sparkle"],   # preview/ribbon view toggles; sparkle is NOT saved (always on in-game)
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
@@ -172,7 +172,7 @@ var _params := {
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
 	"badge": {"defringe": false, "shadow": false, "feather": 0},
-	"gold_badge": {"px": 270, "inner_inset": 11},
+	"gold_badge": {"px": 270, "inner_inset": 11, "shine": 100},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},
@@ -483,7 +483,7 @@ func _make_element(id: String) -> Control:
 			box.add_child(_badge_preview("Polished", {"defringe": bool(p.defringe), "feather": float(p.feather)}))
 			return box
 		"gold_badge":
-			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)))
+			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)))
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
@@ -1385,6 +1385,7 @@ func _rebuild_sidebar() -> void:
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["px", 160, 360]))
 			_sidebar_body.add_child(_slider_row(["inner_inset", 4, 36]))
+			_sidebar_body.add_child(_slider_row(["shine", 0, 200]))
 		"progress_bar":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))

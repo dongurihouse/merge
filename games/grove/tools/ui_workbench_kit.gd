@@ -722,9 +722,10 @@ static func _square_icon(id: String) -> Texture2D:
 ## Code-drawn port of docs/art/gold-rounded-badge.html: a warm cream rounded square with a single
 ## outer rim, an inset 1px groove, and soft inset depth. Test-only today, exposed in the workbench.
 static var _gold_badge_cache: Dictionary = {}
-static func gold_badge(px: float = 270.0, inner_inset: float = -1.0) -> Control:
+static func gold_badge(px: float = 270.0, inner_inset: float = -1.0, shine_pct: float = 100.0) -> Control:
 	var size := maxi(32, int(round(px)))
 	var inset := clampf(inner_inset if inner_inset >= 0.0 else size * 0.040, 2.0, size * 0.18)
+	var shine := clampf(shine_pct / 100.0, 0.0, 2.0)
 	var root := Control.new()
 	root.custom_minimum_size = Vector2(size, size)
 	root.size = Vector2(size, size)
@@ -734,7 +735,7 @@ static func gold_badge(px: float = 270.0, inner_inset: float = -1.0) -> Control:
 	var tex_size := size + pad * 2
 	var tr := TextureRect.new()
 	tr.name = "GoldBadgeTexture"
-	tr.texture = _gold_badge_texture(size, inset)
+	tr.texture = _gold_badge_texture(size, inset, shine)
 	tr.position = Vector2(-pad, -pad)
 	tr.custom_minimum_size = Vector2(tex_size, tex_size)
 	tr.size = Vector2(tex_size, tex_size)
@@ -744,8 +745,8 @@ static func gold_badge(px: float = 270.0, inner_inset: float = -1.0) -> Control:
 	root.add_child(tr)
 	return root
 
-static func _gold_badge_texture(size: int, groove_inset: float) -> Texture2D:
-	var cache_key := "%d|%d" % [size, int(round(groove_inset))]
+static func _gold_badge_texture(size: int, groove_inset: float, shine: float) -> Texture2D:
+	var cache_key := "%d|%d|%d" % [size, int(round(groove_inset)), int(round(shine * 100.0))]
 	if _gold_badge_cache.has(cache_key):
 		return _gold_badge_cache[cache_key]
 	var pad := int(ceil(size * 0.075))
@@ -787,9 +788,10 @@ static func _gold_badge_texture(size: int, groove_inset: float) -> Texture2D:
 					radial = hi.lerp(mid, (radial_t - 0.18) / 0.17)
 				elif radial_t <= 0.64:
 					radial = mid.lerp(Color(mid.r, mid.g, mid.b, 0.0), (radial_t - 0.35) / 0.29)
+				radial.a = clampf(radial.a * shine, 0.0, 1.0)
 				face = _gold_badge_over(face, radial)
 
-				var top_gloss := clampf(1.0 - uv.y / 0.12, 0.0, 1.0) * 0.12
+				var top_gloss := clampf(clampf(1.0 - uv.y / 0.12, 0.0, 1.0) * 0.12 * shine, 0.0, 0.36)
 				face = face.lerp(Color.WHITE, top_gloss)
 				var bottom_shade := clampf((uv.y - 0.80) / 0.20, 0.0, 1.0) * 0.06
 				face = face.lerp(Color(173.0 / 255.0, 103.0 / 255.0, 22.0 / 255.0), bottom_shade)

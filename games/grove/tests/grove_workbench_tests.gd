@@ -141,6 +141,7 @@ func _initialize() -> void:
 	_test_gold_badge_has_no_baked_shadow()
 	_test_gold_badge_shared_shadow_toggle(view)
 	_test_gold_badge_inner_inset(view)
+	_test_gold_badge_shine(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
@@ -356,6 +357,19 @@ func _test_gold_badge_inner_inset(view) -> void:
 	view._params["gold_badge"]["inner_inset"] = 24
 	var far := _gold_badge_preview_image(view)
 	ok(_image_sparse_diff(near, far) > 20, "gold_badge inner_inset redraws the groove distance from the outer border")
+	view._params["gold_badge"] = prev
+
+func _test_gold_badge_shine(view) -> void:
+	ok(view._params["gold_badge"].has("shine"), "gold_badge exposes a shine Workbench control")
+	ok("shine" in View.TEST_KEYS["gold_badge"], "gold_badge shine is test-only")
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 11
+	view._params["gold_badge"]["shine"] = 0
+	var dull := _gold_badge_preview_image(view)
+	view._params["gold_badge"]["shine"] = 160
+	var bright := _gold_badge_preview_image(view)
+	ok(_image_sparse_diff(dull, bright) > 20, "gold_badge shine redraws the background highlight")
 	view._params["gold_badge"] = prev
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
