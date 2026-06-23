@@ -55,6 +55,24 @@ func _first_button(node: Control) -> Button:
 	var bs := node.find_children("*", "Button", true, false)
 	return bs[0] if not bs.is_empty() else null
 
+# The first Button at/under `node` whose text CONTAINS `frag` (case-insensitive), or null — to read its
+# art (the normal stylebox) or assert its presence. (find_children can't match on text.)
+func _find_button(node: Control, frag: String) -> Button:
+	if node is Button and String((node as Button).text).findn(frag) != -1:
+		return node as Button
+	for b in node.find_children("*", "Button", true, false):
+		if String((b as Button).text).findn(frag) != -1:
+			return b as Button
+	return null
+
+# The texture on a Button's `normal` stylebox when it wears sprite art (a StyleBoxTexture), else null —
+# lets a test prove two buttons share the SAME baked sprite (e.g. the level cta atom) without node names.
+func _btn_tex(b: Button) -> Texture2D:
+	if b == null:
+		return null
+	var sb := b.get_theme_stylebox("normal")
+	return (sb as StyleBoxTexture).texture if sb is StyleBoxTexture else null
+
 func _first_control(node: Control, pattern: String, klass: String = "Control") -> Control:
 	var found := node.find_children(pattern, klass, true, false)
 	return found[0] as Control if not found.is_empty() else null
@@ -300,6 +318,8 @@ func _initialize() -> void:
 		view._apply_edit()
 		ok(view._dirty.has("bag"), "editing %s queues the bag to rebuild" % src)
 
+	_test_info_reuses_mail(view)
+
 	view.queue_free()
 	await process_frame
 	# Drain the workbench's async-polish WorkerThreadPool tasks before exit. The icon/badge gallery
@@ -310,6 +330,52 @@ func _initialize() -> void:
 	Kit.clear_async_cache()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# The shop's "i" detail sheet REUSES the mail dialog (parchment cards, NO Claim) + a level-style "Got it"
+# footer (the shared cta_button atom), replacing the dropped standalone info_dialog. Asserts the new kit
+# surface: the cta_button atom, the optional mail footer, the read-only amount chip, the re-pointed
+# workbench preview, and that the old info_dialog / _info_row / _info_divider builders are GONE.
+func _test_info_reuses_mail(view) -> void:
+	# 1. cta_button — the SHARED green level-badge button atom (one source, reused everywhere).
+	var cta := Kit.cta_button("Got it", {})
+	ok(cta is Button and String((cta as Button).text) == "Got it", "cta_button builds a labelled Button")
+	var cta_tex := _btn_tex(cta)
+	ok(cta_tex != null, "cta_button wears the baked level-badge sprite (a StyleBoxTexture, not a flat pill)")
+	# the level dialog's bottom button IS this same atom → SAME sprite texture (proves reuse, not a copy)
+	var lv := Kit.level_dialog({"level": 1, "earned": 0, "next": 6, "into": 0, "span": 6, "remaining": 6, "mode": "info"}, 460.0, Kit.level_opts_from_config(view._params))
+	var lv_got := _find_button(lv, "Got it")
+	ok(lv_got != null and _btn_tex(lv_got) == cta_tex, "the level dialog's bottom button IS the cta_button atom (same sprite)")
+
+	# 2. mail_dialog — an OPTIONAL Got-it footer: off by default (the inbox is unchanged), a centered
+	#    cta_button below the cards when opts.got_it is set (the info sheet's close affordance).
+	var mail_plain := Kit.mail_dialog(Kit.DEMO_MAIL, 480.0, {})
+	ok(_find_button(mail_plain, "Got it") == null, "mail_dialog shows NO Got-it footer by default (the inbox is unchanged)")
+	var mail_foot := Kit.mail_dialog(Kit.DEMO_MAIL, 480.0, {"got_it": "Got it"})
+	var foot := _find_button(mail_foot, "Got it")
+	ok(foot != null, "mail_dialog adds a Got-it footer button when opts.got_it is set")
+	ok(_btn_tex(foot) == cta_tex, "the mail Got-it footer reuses the level cta_button sprite")
+
+	# 3. mail_card — an info-style entry carries a read-only `chip` (icon + amount) and NO Claim button; a
+	#    reward entry still shows its Claim (the existing inbox path is unchanged).
+	var info_card := Kit.mail_card({"icon": "water", "title": "Water", "body": "tops up your can", "chip": {"icon": "water", "text": "60"}})
+	ok(_has_button_text(info_card, "60"), "an info mail_card renders the amount on a read-only chip")
+	ok(_find_button(info_card, "Claim") == null, "...and shows NO Claim button")
+	var reward_card := Kit.mail_card({"icon": "gift", "title": "Gift", "body": "yay", "reward": {"gems": 50}, "on_claim": func() -> void: pass}, 20, 15, {"text": "Claim"})
+	ok(_find_button(reward_card, "Claim") != null, "a reward mail_card still shows its Claim button (unchanged)")
+	ok(_has_button_text(reward_card, "50"), "...and its reward chip amount")
+
+	# 4. the workbench "info" preview is re-pointed at the mail dialog: line items as chips + a Got-it footer.
+	var info_prev: Control = view._make_element("info")
+	ok(_has_button_text(info_prev, "400") and _has_button_text(info_prev, "60"), "the info preview renders each line item's amount as a chip")
+	ok(_find_button(info_prev, "Got it") != null, "the info preview shows the Got-it footer")
+	ok(_find_button(info_prev, "Claim") == null, "the info preview has NO Claim button")
+
+	# 5. the standalone info_dialog builder (and its info-row helpers) are DROPPED — the info sheet is the
+	#    shared mail dialog now.
+	var kit_src := "res://games/grove/tools/ui_workbench_kit.gd"
+	ok(not _source_contains(kit_src, "static func info_dialog("), "the standalone info_dialog builder is removed from the kit")
+	ok(not _source_contains(kit_src, "static func _info_row("), "the _info_row helper is removed from the kit")
+	ok(not _source_contains(kit_src, "static func _info_divider("), "the _info_divider helper is removed from the kit")
 
 # The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
 # bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same

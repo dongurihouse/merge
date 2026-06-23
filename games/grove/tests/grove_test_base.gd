@@ -430,6 +430,16 @@ func _label_texts(node: Node) -> Array:
 		out.append_array(_label_texts(c))
 	return out
 
+# Every Button.text under `node` (depth-first). Button text is NOT a child Label, so _label_texts misses
+# it — use this to assert a widget's button/chip labels (e.g. a read-only amount chip) without pressing.
+func _button_texts(node: Node) -> Array:
+	var out: Array = []
+	if node is Button:
+		out.append((node as Button).text)
+	for c in node.get_children():
+		out.append_array(_button_texts(c))
+	return out
+
 func _test_2x_doubler_rehome() -> void:
 	fresh("rehome_2x")
 	var scn = load("res://engine/scenes/Board.tscn").instantiate()

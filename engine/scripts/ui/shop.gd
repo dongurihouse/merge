@@ -576,11 +576,12 @@ static func _offer_index(id: String) -> int:
 			return i
 	return -1
 
-# The item-detail sheet the "i" opens (§10 product info) — a parchment modal listing the item as ICON'D
-# LINE ITEMS (icon + label + a small note + a right-aligned amount) under a ribbon title, with an optional
-# footer note and a "Got it" close; tap the veil to dismiss. Read-only, never buys. This layer owns the
-# modal overlay/veil; the card FACE is the shared, workbench-tuned Kit.info_dialog (one source of truth).
-# `items` = [{icon, label, amount, note}]; `note` is the optional footer line under the rows.
+# The item-detail sheet the "i" opens (§10 product info) — now the SAME mail dialog the inbox wears
+# (parchment cards, NO Claim) closed by a level-style "Got it" footer; tap the veil to dismiss. Read-only,
+# never buys. This layer owns the modal overlay/veil; the card FACE is the shared, workbench-tuned
+# Kit.mail_dialog (one source of truth). Each `items` line → a mail entry: label→title, note→body, and the
+# amount rides a read-only cream chip (no Claim). `items` = [{icon, label, amount, note}]; `note` is the
+# optional footer caption under the cards.
 static func _info_sheet(host: Control, title: String, items: Array, note := "") -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
@@ -602,8 +603,23 @@ static func _info_sheet(host: Control, title: String, items: Array, note := "") 
 	var iopts: Dictionary = Kit.info_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var width: float = host.get_viewport_rect().size.x * clampf(float(iopts.get("width_pct", 70)), 30.0, 100.0) / 100.0
 	iopts["on_close"] = func() -> void: overlay.queue_free()
-	var spec := {"title": title, "items": items, "note": note, "close": Strings.t("shop.info.got_it")}
-	var card: Control = Kit.info_dialog(spec, width, iopts)
+	iopts["banner_text"] = title             # the ribbon title (a generic info sheet wears no banner icon)
+	iopts["banner_icon_on"] = false
+	iopts["note"] = note                     # the optional footer caption under the cards
+	iopts["got_it"] = Strings.t("shop.info.got_it")
+	# each line item → a mail entry with a read-only amount chip (no reward → no Claim button).
+	var entries: Array = []
+	for it in items:
+		var e := {
+			"icon": String((it as Dictionary).get("icon", "")),
+			"title": String((it as Dictionary).get("label", "")),
+			"body": String((it as Dictionary).get("note", "")),
+		}
+		var amount := String((it as Dictionary).get("amount", ""))
+		if amount != "":
+			e["chip"] = {"icon": String((it as Dictionary).get("icon", "")), "text": amount}
+		entries.append(e)
+	var card: Control = Kit.mail_dialog(entries, width, iopts)
 	cc.add_child(card)
 	FX.pop_in(card)
 

@@ -533,7 +533,7 @@ class Shop:
 	const INFO_FONT := 18
 	const INFO_MARGIN := 7.0
 	# (the item-detail sheet's width/body-font consts moved to the workbench-tuned `info` config —
-	#  see Kit.info_opts_from_config; the sheet face is now Kit.info_dialog.)
+	#  see Kit.info_opts_from_config; the sheet face is now the shared Kit.mail_dialog, no Claim + a Got it.)
 
 	# --- affordability + purchase feedback ---------------------------------------------
 	const NEED_OFFSET := Vector2(100, 70)  # "Need N more" floater offset

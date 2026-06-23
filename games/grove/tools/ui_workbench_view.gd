@@ -139,7 +139,7 @@ const CAPTIONS := {
 	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
-	"info": "Info — detail sheet (icon'd line items)",
+	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
 var _params := {
@@ -279,11 +279,10 @@ var _params := {
 	"vault": {"width_pct": 80, "card_slice": 64, "panel_pad_x": 40, "panel_pad_y": 34,
 		"jar_px": 200, "plate_px": 250, "balance_font": 34, "row_gap": 12,
 		"balance": 320, "claimable": true},
-	# the INFO detail sheet — a parchment list of line items (icon + label + note + amount). width %, the
-	# row/item spacing, icon size, the title/label/amount/note/close fonts, and the card padding are saved
-	# (read by the game's _info_sheet via Kit.info_opts_from_config); the demo rows are fixed in the preview.
-	"info": {"width_pct": 58, "row_gap": 8, "item_gap": 12, "row_pad": 14,
-		"icon_px": 40, "label_font": 18, "amount_font": 22, "note_font": 13, "close_font": 20},
+	# the INFO detail sheet — now the shared MAIL DIALOG (parchment cards, NO Claim) with a "Got it" footer.
+	# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
+	# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
+	"info": {"width_pct": 58},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
@@ -660,15 +659,19 @@ func _make_element(id: String) -> Control:
 			p_st["claimable"] = bool(p.claimable)
 			return Kit.vault_dialog(p_st, _dlg_px("vault"), vopts)
 		"info":
-			# the shop's detail sheet — the SAME Kit.info_dialog the "i" opens in-game, with demo line items
-			# (the Welcome bundle's two-currency list) so the icon/label/amount/note layout is editable here.
+			# the shop's detail sheet — now the SAME mail dialog the inbox uses (parchment cards, NO Claim)
+			# with a level-style "Got it" footer, exactly what the "i" opens in-game. Demo: the Welcome
+			# bundle's two line items, each amount riding a read-only cream chip.
 			var iopts := Kit.info_opts_from_config(_params)
-			var demo := {"title": "Welcome gift", "close": "Got it",
-				"items": [
-					{"icon": "gem", "label": "Acorns", "amount": "400", "note": "premium currency for shortcuts"},
-					{"icon": "water", "label": "Water", "amount": "60", "note": "tops up your watering can"}],
-				"note": "Claimable just once — a warm start to the grove."}
-			return Kit.info_dialog(demo, _dlg_px("info"), iopts)
+			iopts["banner_text"] = "Welcome gift"
+			iopts["banner_icon_on"] = false
+			iopts["got_it"] = "Got it"
+			iopts["note"] = "Claimable just once — a warm start to the grove."
+			iopts["on_close"] = func() -> void: print("WORKBENCH: info closed")
+			var demo := [
+				{"icon": "gem", "title": "Acorns", "body": "premium currency for shortcuts", "chip": {"icon": "gem", "text": "400"}},
+				{"icon": "water", "title": "Water", "body": "tops up your watering can", "chip": {"icon": "water", "text": "60"}}]
+			return Kit.mail_dialog(demo, _dlg_px("info"), iopts)
 		"bag_card":
 			# the slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit: only the
 			# SIZE scales — every metric is taken from the cell, so the zoom shows the EXACT proportions the
@@ -1571,18 +1574,11 @@ func _rebuild_sidebar() -> void:
 		"vault":
 			_vault_sidebar()         # the vault's own layout + twig-border knobs (chrome on the Frame item)
 		"info":
+			# the info sheet IS the mail dialog now: its border/banner/✕/card art + fonts are tuned on the
+			# Frame + Card elements (shared). Only the sheet WIDTH is info-specific.
 			_group_header("Saved to config", true)
-			_section_header("Layout (border · banner · ✕ · padding: on the Frame element)")
+			_section_header("Layout (face shared with the Mail dialog — tune the Frame + Card elements)")
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
-			_sidebar_body.add_child(_slider_row(["row_gap", 0, 32]))       # gap between the rows / footer / button
-			_sidebar_body.add_child(_slider_row(["item_gap", 0, 32]))      # gap between a row's icon · text · amount
-			_sidebar_body.add_child(_slider_row(["row_pad", 0, 48]))       # extra row height beyond the icon (vertical breathing room)
-			_section_header("Type + icon")
-			_sidebar_body.add_child(_slider_row(["icon_px", 16, 72]))      # the line-item icon size
-			_sidebar_body.add_child(_slider_row(["label_font", 12, 36]))
-			_sidebar_body.add_child(_slider_row(["amount_font", 12, 40]))
-			_sidebar_body.add_child(_slider_row(["note_font", 10, 28]))
-			_sidebar_body.add_child(_slider_row(["close_font", 14, 36]))
 		"bag_card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))

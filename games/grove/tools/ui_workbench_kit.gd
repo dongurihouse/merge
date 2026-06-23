@@ -1405,9 +1405,22 @@ static func _glow_texture(gold: Color = Pal.STRAW) -> Texture2D:
 	_glow_tex_cache[key] = tex
 	return tex
 
+## A read-only CREAM chip showing an arbitrary icon + amount text (e.g. "💧 60", "🪙 100", "Tier 3") — the
+## SAME cream/static pill_button variant reward_chip uses for a single currency, but for ANY icon/text, so
+## the info sheet can show a line item's amount on a mail card with NO Claim button beside it.
+static func amount_chip(icon_id: String, text: String, btn_opts: Dictionary = {}) -> Button:
+	var o := btn_opts.duplicate()
+	o["bg"] = "cream"
+	o.erase("art_rel")                 # cream by role — never a chosen (green) badge
+	o["icon"] = icon_id
+	o["static"] = true                 # a display chip: looks like the button, not pressable
+	o["enabled"] = true
+	return pill_button(text, o)
+
 ## A mail card (mockup image 2): a plated icon + title/body + a reward pill + a Claim — the reward pill
 ## and Claim are BOTH the shared pill_button, so a Button knob change propagates here. icon_badge picks
-## the circular badge sprite behind the left icon (see ICON_BADGES).
+## the circular badge sprite behind the left icon (see ICON_BADGES). The INFO variant carries a read-only
+## `chip` ({icon, text}) instead of a reward: the amount shows as a cream amount_chip with NO Claim.
 static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 15, btn_opts: Dictionary = {}, icon_badge: String = "shared/disc_round.png") -> Control:
 	var panel := PanelContainer.new()
 	var box := Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD)
@@ -1487,6 +1500,15 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 			if on_claim.is_valid():
 				claim.pressed.connect(func() -> void: on_claim.call())
 			row.add_child(claim)
+	else:
+		# the INFO variant: a read-only amount chip (icon + text) and NO Claim button. A plain note (no
+		# reward, no chip) adds neither, exactly as before.
+		var chip_spec: Dictionary = entry.get("chip", {})
+		var chip_text := String(chip_spec.get("text", ""))
+		if chip_text != "":
+			var ac := amount_chip(String(chip_spec.get("icon", "")), chip_text, btn_opts)
+			ac.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(ac)
 	return panel
 
 ## A TOGGLE CARD — a NEW card type (sibling of mail_card / daily_card): one persisted setting as a row,
@@ -1806,6 +1828,32 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		var icon_badge: String = String(opts.get("icon_badge", "shared/disc_round.png"))
 		for i in maxi(0, entries_count):
 			content.add_child(mail_card(entries[i % entries.size()], card_title, card_body, btn_opts, icon_badge))
+	# an optional centered FOOTER NOTE — the info sheet's one-line caption under the rows; off by default
+	# (the inbox passes none, so it stays a pure card list).
+	var foot_note := String(opts.get("note", ""))
+	if foot_note != "":
+		var fl := Label.new()
+		fl.text = foot_note
+		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		fl.add_theme_font_override("font", _plain_font())          # standard text, not the chunky display face
+		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
+		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+		fl.add_theme_constant_override("outline_size", 0)
+		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		content.add_child(fl)
+	# an optional GOT-IT footer button — the SHARED level cta_button, fired by opts.on_close (same as the
+	# ✕). Off by default → the inbox is unchanged; the info sheet sets opts.got_it to close itself.
+	var got_it_text := String(opts.get("got_it", ""))
+	if got_it_text != "":
+		var got := cta_button(got_it_text, opts)
+		var on_close: Callable = opts.get("on_close", Callable())
+		if on_close.is_valid():
+			got.pressed.connect(func() -> void: on_close.call())
+		var btns := HBoxContainer.new()
+		btns.alignment = BoxContainer.ALIGNMENT_CENTER
+		btns.add_child(got)
+		content.add_child(btns)
 	return dialog_frame(content, width, opts)
 
 ## The SETTINGS dialog — the SHARED frame with a column of toggle_cards, one per persisted flag. The
@@ -2545,9 +2593,21 @@ static func _level_title_pill(text: String, font: int) -> Control:
 	pill.add_child(l)
 	return pill
 
+## The dialog CTA button — the SHARED pill_button wearing the registered "level green" badge background
+## (Kit.BADGES["level green"], the level_btn sprite). The SAME atom for the level dialog's Collect / Got it
+## AND the mail/info "Got it" footer, so the green badged button is authored ONCE. `opts.btn` supplies the
+## base pill style (font · padding); bg / art / art_rel / icon are forced to the level badge. SHRINK_CENTER
+## so it sits centred under its column. Callers connect `.pressed` themselves.
+static func cta_button(text: String, opts: Dictionary = {}) -> Button:
+	var bo: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
+	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = String(BADGES["level green"]); bo["icon"] = ""
+	var btn := pill_button(text, bo)
+	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	return btn
+
 ## The whole LEVEL dialog: the dedicated frame + medallion + "X / Y ★ earned" + progress_bar + the
 ## "N more ★ to reach Level N+1" line (info) OR a reward chip row (levelup) + the bottom button (the
-## shared pill_button with the green level_btn bg). `data` keys: level, earned, next, into, span,
+## shared cta_button with the green level_btn bg). `data` keys: level, earned, next, into, span,
 ## remaining, mode ("info"|"levelup"), gift ({water,gems}), on_button (Callable). opts: see
 ## level_opts_from_config (frame + progress + btn style). Used by BOTH the workbench preview and the game.
 static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionary = {}) -> Control:
@@ -2590,13 +2650,10 @@ static func level_dialog(data: Dictionary, width: float = 460.0, opts: Dictionar
 		nxt.add_theme_color_override("font_color", Pal.BARK)
 		nxt.add_theme_constant_override("outline_size", 0)
 		col.add_child(nxt)
-	# the bottom button — the SHARED pill_button wearing the registered "level green" badge background
-	# (Kit.BADGES), so it's the same atom every dialog uses and the bg is a selectable shared-button option.
-	var bo: Dictionary = (opts.get("btn", {}) as Dictionary).duplicate()
-	bo["bg"] = "green"; bo["art"] = true; bo["art_rel"] = String(BADGES["level green"]); bo["icon"] = ""
+	# the bottom button — the SHARED cta_button (the registered "level green" badge), the SAME atom the
+	# mail/info "Got it" footer uses, so the green badged button is authored once.
 	var btn_text := TranslationServer.translate("Collect") if mode == "levelup" else TranslationServer.translate("Got it")
-	var btn := pill_button(btn_text, bo)
-	btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var btn := cta_button(btn_text, opts)
 	var cb: Callable = data.get("on_button", Callable())
 	if cb.is_valid():
 		btn.pressed.connect(func() -> void: cb.call())
@@ -2955,110 +3012,6 @@ static func _plain_font() -> Font:
 	_plain_cache = sys
 	return _plain_cache
 
-## The INFO sheet face — a parchment card that explains a shop item as a LIST OF LINE ITEMS (icon +
-## label + a small note + a right-aligned amount), under a ribbon title, closed by a "Got it" pill. The
-## ui/ layer owns the modal overlay/veil (like vault_dialog); this builds only the card face so the look
-## is authored once in the workbench. spec: { title, items: [{icon, label, amount, note}], note (footer),
-## close }. opts: info_opts_from_config(cfg) + on_close (the Callable the "Got it" fires).
-static func info_dialog(spec: Dictionary, width: float = 480.0, opts: Dictionary = {}) -> Control:
-	# the CONTENT (rows + footer + Got it); the border, banner-ribbon title and ✕ come from the SHARED
-	# dialog_frame — the same chrome shop/mail/vault wear, so everything lands in the standard place.
-	var content := VBoxContainer.new()
-	content.add_theme_constant_override("separation", int(opts.get("row_gap", 8)))
-	var items: Array = spec.get("items", [])
-	for i in items.size():
-		if i > 0:
-			content.add_child(_info_divider())     # a hairline ties the rows into one tidy list
-		content.add_child(_info_row(items[i] as Dictionary, opts))
-	var footer := String(spec.get("note", ""))
-	if footer != "":
-		var fl := Label.new()
-		fl.text = footer
-		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		fl.add_theme_font_override("font", _plain_font())          # standard text, not the chunky display face
-		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
-		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
-		fl.add_theme_constant_override("outline_size", 0)
-		fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		content.add_child(fl)
-	var btns := HBoxContainer.new()
-	btns.alignment = BoxContainer.ALIGNMENT_CENTER
-	content.add_child(btns)
-	var on_close: Callable = opts.get("on_close", Callable())
-	var got := pill_button(String(spec.get("close", "Got it")), {"bg": "green", "font": int(opts.get("close_font", 20))})
-	if on_close.is_valid():
-		got.pressed.connect(func() -> void: on_close.call())
-	btns.add_child(got)
-	# wrap in the standard frame: banner_text = the title (a generic info sheet wears no banner icon).
-	var fopts := opts.duplicate()
-	fopts["banner_text"] = String(spec.get("title", ""))
-	fopts["banner_icon_on"] = false
-	return dialog_frame(content, width, fopts)
-
-## A hairline between info rows — a low-alpha bark line spanning the content width, so the list reads as
-## one grouped table rather than items floating in a wide card.
-static func _info_divider() -> Control:
-	var line := ColorRect.new()
-	line.color = Color(Pal.BARK, 0.16)
-	line.custom_minimum_size = Vector2(0, 2)
-	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return line
-
-## One info-sheet line: [icon] · (label + small note) · amount (right), vertically centred in a comfortable
-## row height. A missing icon/amount/note simply drops that part, so a single-concept sheet (one row, no
-## amount) reads as cleanly as the Welcome bundle's two-currency list. Icons resolve through _icon_tex.
-static func _info_row(it: Dictionary, opts: Dictionary) -> Control:
-	var icon_px := float(opts.get("icon_px", 40))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", int(opts.get("item_gap", 12)))
-	row.custom_minimum_size = Vector2(0, icon_px + float(opts.get("row_pad", 14)))   # breathing room above/below the row
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon_id := String(it.get("icon", ""))
-	if icon_id != "":
-		var ic := make_icon(icon_id, icon_px)
-		ic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(ic)
-	var txt := VBoxContainer.new()
-	txt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	txt.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	txt.add_theme_constant_override("separation", 1)
-	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var lbl := Label.new()
-	lbl.text = String(it.get("label", ""))
-	lbl.add_theme_font_override("font", _plain_font())             # standard text, not the chunky display face
-	lbl.add_theme_font_size_override("font_size", int(opts.get("label_font", 18)))
-	lbl.add_theme_color_override("font_color", Pal.INK)
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	txt.add_child(lbl)
-	var note := String(it.get("note", ""))
-	if note != "":
-		var nl := Label.new()
-		nl.text = note
-		nl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		nl.add_theme_font_override("font", _plain_font())
-		nl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
-		nl.add_theme_color_override("font_color", Color(Pal.BARK, 0.9))
-		nl.add_theme_constant_override("outline_size", 0)
-		nl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		txt.add_child(nl)
-	row.add_child(txt)
-	var amount := String(it.get("amount", ""))
-	if amount != "":
-		var al := Label.new()
-		al.text = amount
-		al.add_theme_font_override("font", _plain_font())
-		al.add_theme_font_size_override("font_size", int(opts.get("amount_font", 22)))
-		al.add_theme_color_override("font_color", Pal.INK)
-		al.add_theme_constant_override("outline_size", 0)
-		al.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		al.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		al.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(al)
-	return row
-
 ## The full mail_dialog STYLE opts from a saved config (card art/slice/stretch, banner, close, list,
 ## card fonts, and the Claim/cost-pill btn opts). Callers add entries_count / on_close / empty_text /
 ## banner_text and pass width separately. Used by BOTH the workbench dialog preview and the game.
@@ -3143,22 +3096,14 @@ static func shop_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["list_max_h"] = float(sh.get("list_max_h", 0))   # the shop's OWN cap (0 = no scroll, show every item)
 	return o
 
-## The INFO sheet's opts: the SHARED dialog frame chrome (border, banner ribbon, ✕, padding — tuned on the
-## Frame element, exactly like shop/daily/settings) PLUS the info's own ROW knobs (width, row/item spacing,
-## row height, icon size, the label/amount/note/close fonts). Read by BOTH the workbench preview and the
+## The INFO sheet's opts: the info sheet IS the shared MAIL DIALOG (parchment cards, NO Claim) with a
+## level-style "Got it" footer, so it inherits dialog_opts_from_config WHOLESALE (border · banner ribbon ·
+## ✕ · padding · card art/fonts — tuned on the Frame/Card elements, exactly like the mail dialog). Only the
+## width differs: a 1–2 row sheet is narrower than the inbox. Read by BOTH the workbench preview and the
 ## game's _info_sheet, so a tweak flows to every shop detail sheet.
 static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var o := dialog_opts_from_config(cfg)        # the standard frame: border + banner + ✕ + content padding
-	var i: Dictionary = cfg.get("info", {})
-	o["width_pct"] = float(i.get("width_pct", 58))
-	o["row_gap"] = float(i.get("row_gap", 8))
-	o["item_gap"] = float(i.get("item_gap", 12))
-	o["row_pad"] = float(i.get("row_pad", 14))   # extra height per row beyond the icon (vertical breathing room)
-	o["icon_px"] = float(i.get("icon_px", 40))
-	o["label_font"] = int(i.get("label_font", 18))
-	o["amount_font"] = int(i.get("amount_font", 22))
-	o["note_font"] = int(i.get("note_font", 13))
-	o["close_font"] = int(i.get("close_font", 20))
+	var o := dialog_opts_from_config(cfg)        # the standard mail-dialog face: border + banner + ✕ + cards
+	o["width_pct"] = float((cfg.get("info", {}) as Dictionary).get("width_pct", 58))
 	return o
 
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits

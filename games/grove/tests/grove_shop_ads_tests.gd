@@ -247,11 +247,13 @@ func _initialize() -> void:
 	ok(_label_texts(rest_overlay).has("Back tomorrow"), "...the resting state reads as plain timer text instead")
 	rest.queue_free()
 
-	# T-L: the Welcome bundle's detail is ITEMIZED rows now (icon + label + amount), rendered by the shared
-	# Kit.info_dialog. Assert the spec rows carry the acorns + water with the right icons/amounts, and that
-	# the dialog renders each item's amount (one visible row per line item).
+	# T-L: the Welcome bundle's detail sheet — now the SHARED mail dialog (parchment cards, NO Claim) with a
+	# level-style "Got it" footer, replacing the dropped info_dialog. starter_info_items still itemizes the
+	# acorns + water; the REAL _info_sheet renders each label (card title) + amount (a read-only chip), a
+	# Got it footer, and NO Claim.
 	fresh("starter_info")
 	var ihost := Control.new()
+	ihost.set_anchors_preset(Control.PRESET_FULL_RECT)
 	get_root().add_child(ihost)
 	var items := ShopS.starter_info_items(ihost)
 	ok(items.size() == 2, "the Welcome info lists two line items (acorns + water)")
@@ -259,14 +261,14 @@ func _initialize() -> void:
 		"row 1 is the acorns (%d🌰)" % int(Data.STARTER_PACK.gems))
 	ok(String(items[1].icon) == "water" and String(items[1].amount) == str(int(Data.STARTER_PACK.water)), \
 		"row 2 is the water (%d💧)" % int(Data.STARTER_PACK.water))
-	var Kit2: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var idlg: Control = Kit2.info_dialog({"title": "Welcome gift", "items": items, "close": "Got it"}, \
-		400.0, Kit2.info_opts_from_config(Kit2.load_config(Kit2.CONFIG_PATH)))
-	var itexts := _label_texts(idlg)
-	ok(itexts.has(str(int(Data.STARTER_PACK.gems))) and itexts.has(str(int(Data.STARTER_PACK.water))), \
-		"the info dialog renders each item's amount")
-	ok(itexts.has("Acorns") and itexts.has("Water"), "...and each item's label")
-	idlg.free()
+	ShopS._info_sheet(ihost, "Welcome gift", items, "Claimable just once.")
+	var iov: Control = ihost.get_child(ihost.get_child_count() - 1)
+	var ibtns := _button_texts(iov)
+	ok(ibtns.has(str(int(Data.STARTER_PACK.gems))) and ibtns.has(str(int(Data.STARTER_PACK.water))), \
+		"the info sheet renders each item's amount on a read-only chip")
+	ok(_label_texts(iov).has("Acorns") and _label_texts(iov).has("Water"), "...and each item's label as the card title")
+	ok(not _press_label(iov, "Claim"), "the info sheet has NO Claim button (read-only)")
+	ok(_press_label(iov, "Got it"), "the info sheet shows a Got it footer (which closes it)")
 	ihost.free()
 
 	# --- UI redesign P2: the empty-cell well reads the role token on the Sunk plane ---
