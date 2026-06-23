@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
-# Install the iOS Apple-services plugin (Game Center + StoreKit) into addons/.
+# Install the Apple-services plugin (Game Center + StoreKit) into addons/.
 #
 # The plugin is GodotApplePlugins (github.com/migueldeicaza/GodotApplePlugins): a
-# Godot-4 GDExtension shipping prebuilt binaries. Its xcframeworks are large and
-# gitignored (.gitignore: *.xcframework/), so — like the baked .ctex caches — they
-# are a REGENERABLE per-checkout artifact, fetched by this script rather than
-# committed. Run it once per fresh checkout/worktree before `make ios`.
+# Godot-4 GDExtension shipping prebuilt binaries. They are large and gitignored
+# (.gitignore: /addons/), so — like the baked .ctex caches — they are a
+# REGENERABLE per-checkout artifact, fetched by this script rather than committed.
+# Run it once per fresh checkout/worktree before `make ios`.
 #
-# We install IOS SLICES ONLY (the .xcframework dirs hold just ios-arm64 +
-# ios-arm64_x86_64-simulator; the plugin's macOS .framework variants live OUTSIDE
-# them and are intentionally NOT fetched). That keeps the host Mac inert: the
-# native classes never register on desktop, so Store/Identity.available() stay
-# false there and the headless test suites behave exactly as before.
+# We install three modules (Runtime + GameCenter + StoreKit) with ALL their
+# shipped slices: iOS (the export target) AND macOS (so the GDExtension also
+# loads cleanly in the desktop editor/headless — no "no library for macos.arm64"
+# spam), plus the no-op linux/windows stubs. The native classes therefore DO
+# register on the dev Mac, but Store/Identity.available() additionally gate on
+# OS.has_feature("ios"), so the iPad-only game stays inert on desktop (and the
+# headless test suites keep passing). See docs/design/apple-services-setup.md.
 #
 # Usage:  tools/install_ios_plugins.sh [--force]
 set -euo pipefail
@@ -24,13 +26,13 @@ ASSET="GodotApplePlugins-addons-${COMMIT}.zip"
 URL="https://github.com/migueldeicaza/GodotApplePlugins/releases/download/${TAG}/${ASSET}"
 SHA256="f9128c17c2d0128c2d58168c5bb5c795d351cb1333364179fd7a26c39f95ce21"
 
-# Only the modules this game uses. Each entry: "<ModuleDir>:<XCFrameworkName>".
-# Runtime is the shared SwiftGodot dependency; GameCenter + StoreKit are the
-# providers wired in engine/scripts/core/{identity,store}.gd.
+# Only the modules this game uses. Runtime is the shared SwiftGodot dependency;
+# GameCenter + StoreKit are the providers wired in core/{identity,store}.gd. The
+# other shipped modules (ARKit, AVFoundation, …) are intentionally skipped.
 MODULES=(
-  "GodotApplePluginsRuntime:SwiftGodotRuntime"
-  "GodotApplePluginsGameCenter:GodotApplePluginsGameCenter"
-  "GodotApplePluginsStoreKit:GodotApplePluginsStoreKit"
+  "GodotApplePluginsRuntime"
+  "GodotApplePluginsGameCenter"
+  "GodotApplePluginsStoreKit"
 )
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -43,7 +45,7 @@ force=0
 [ "${1:-}" = "--force" ] && force=1
 
 if [ "$force" = 0 ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$TAG" ]; then
-  echo "iOS plugins already installed ($TAG). Use --force to reinstall."
+  echo "Apple-services plugin already installed ($TAG). Use --force to reinstall."
   exit 0
 fi
 
@@ -60,55 +62,31 @@ if ! verify; then
   exit 1
 fi
 
-# --- extract iOS xcframeworks into addons/ -----------------------------------
+# --- extract the modules (whole dirs: shipped .gdextension + every slice) -----
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 PATTERNS=()
-for entry in "${MODULES[@]}"; do
-  dir="${entry%%:*}"; xc="${entry##*:}"
-  PATTERNS+=("dist/addons/$dir/bin/$xc.xcframework/*")
-done
-echo "Extracting iOS slices…"
+for m in "${MODULES[@]}"; do PATTERNS+=("dist/addons/$m/*"); done
+echo "Extracting plugin modules…"
 unzip -q -o "$ZIP" "${PATTERNS[@]}" -d "$STAGE"
 
-for entry in "${MODULES[@]}"; do
-  dir="${entry%%:*}"; xc="${entry##*:}"
-  src="$STAGE/dist/addons/$dir/bin/$xc.xcframework"
-  dst="$ADDONS/$dir/bin"
+for m in "${MODULES[@]}"; do
+  src="$STAGE/dist/addons/$m"
   if [ ! -d "$src" ]; then
-    echo "ERROR: $xc.xcframework missing from the release zip." >&2
+    echo "ERROR: module $m missing from the release zip." >&2
     exit 1
   fi
-  rm -rf "$dst/$xc.xcframework"
-  mkdir -p "$dst"
-  cp -R "$src" "$dst/"
+  rm -rf "${ADDONS:?}/$m"
+  mkdir -p "$ADDONS"
+  cp -R "$src" "$ADDONS/"
 done
 
-# --- iOS-only .gdextension files ---------------------------------------------
-# Authored here (not copied) so they reference ONLY the ios library + ios
-# dependency. The shipped files also list macos/linux/windows binaries we don't
-# fetch; dropping those entries is what keeps the host Mac from registering the
-# classes. Runtime has no .gdextension — it is a pure dependency.
-write_gdext() {
-  local dir="$1" sym="$2" xc="$3"
-  cat > "$ADDONS/$dir/${4}" <<EOF
-[configuration]
-
-entry_symbol = "$sym"
-compatibility_minimum = 4.2
-
-[libraries]
-ios = "res://addons/$dir/bin/$xc.xcframework"
-
-[dependencies]
-ios = { "res://addons/GodotApplePluginsRuntime/bin/SwiftGodotRuntime.xcframework": "" }
-EOF
-}
-write_gdext GodotApplePluginsGameCenter godot_apple_plugins_game_center_start \
-  GodotApplePluginsGameCenter godot_apple_plugins_game_center.gdextension
-write_gdext GodotApplePluginsStoreKit godot_apple_plugins_storekit_start \
-  GodotApplePluginsStoreKit godot_apple_plugins_storekit.gdextension
+# Strip macOS quarantine so dyld will load the frameworks in the editor (curl
+# downloads usually aren't quarantined, but be safe). No-op on non-macOS.
+if command -v xattr >/dev/null 2>&1; then
+  xattr -dr com.apple.quarantine "$ADDONS" 2>/dev/null || true
+fi
 
 echo "$TAG" > "$MARKER"
-echo "Installed iOS plugins → addons/ ($(du -sh "$ADDONS" | cut -f1))"
-echo "  Game Center + StoreKit (iOS slices only). Run 'make ios' to export."
+echo "Installed Apple-services plugin → addons/ ($(du -sh "$ADDONS" | cut -f1))"
+echo "  Game Center + StoreKit (iOS + macOS slices). Run 'make ios' to export."

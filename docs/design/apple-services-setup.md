@@ -9,24 +9,26 @@ with Apple. The GDScript side is done and **inert until the plugin is in the bui
 - `core/inbox_sync.gd` sends `X-Player-Id` when an id exists; `ui/vault.gd` routes the piggy-bank crack
   through `store.gd` when StoreKit is present (else the honest non-charging path).
 
-Every native class is reached via `ClassDB` (never a direct symbol), so off iOS / without the plugin the
-providers report unavailable and the game behaves exactly as today — verified by `identity_tests` /
-`store_tests` in the active sweep.
+Every native class is reached via `ClassDB` (never a direct symbol). `available()` additionally requires
+`OS.has_feature("ios")`, so even though the plugin's macOS frameworks register the classes on the dev Mac
+(see §1), the providers report unavailable on desktop and the game behaves exactly as today — verified by
+`identity_tests` / `store_tests` in the active sweep.
 
 ## 1. Install the plugin (one command)
 Run **`make ios-plugins`** (`tools/install_ios_plugins.sh`). It fetches a **pinned** GodotApplePlugins
-release, verifies its checksum, and lays down **iOS slices only** of the Game Center + StoreKit modules
-(plus their shared `SwiftGodotRuntime`) under `addons/`, with iOS-only `.gdextension` files. `make ios`
-runs this first, so an export never lacks the plugin.
+release, verifies its checksum, and lays down the Game Center + StoreKit modules (plus their shared
+`SwiftGodotRuntime`) under `addons/`, using the shipped `.gdextension` files. `make ios` runs this first,
+so an export never lacks the plugin.
 
 The binaries are large and **gitignored** (`/addons/`) — a regenerable per-checkout artifact like the
 baked `.ctex` caches, so re-run `make ios-plugins` once in each fresh checkout/worktree. To bump the
 plugin, change the pinned `COMMIT`/`SHA256` at the top of the script.
 
-iOS-slices-only is deliberate: the plugin also ships **macOS** frameworks, and bundling those would
-register `StoreKitManager`/`GameCenterManager` in `ClassDB` on the dev Mac — flipping `available()` true
-on desktop and breaking `identity_tests` / `store_tests`. Fetching only the `.xcframework` (iOS) dirs
-keeps the host inert. On the **iOS** build the three classes register; nowhere else.
+Both **iOS and macOS** slices are installed. The macOS frameworks aren't used by the game (it's iPad-only)
+but are present so the GDExtension loads cleanly in the desktop editor/headless — otherwise Godot logs a
+`No GDExtension library found for ... macos.arm64` error on every launch. They register
+`StoreKitManager`/`GameCenterManager` on the Mac, which is why `available()` gates on `OS.has_feature("ios")`
+to stay inert there. On a non-Apple host the modules fall back to the shipped no-op linux/windows stubs.
 
 ## 2. App Store Connect + entitlements
 - **Game Center:** enable the capability for the app in App Store Connect. The iOS export already carries

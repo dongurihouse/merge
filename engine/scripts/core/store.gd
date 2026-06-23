@@ -22,9 +22,11 @@ static var _pending_id := ""                        # one purchase in flight at 
 static var _pending_cb := Callable()
 
 ## True only on an iOS build that bundles the plugin — the gate for every native touch and the signal that
-## a Confirm will move REAL money. Callers use the honest non-charging path when this is false.
+## a Confirm will move REAL money. Callers use the honest non-charging path when this is false. The plugin
+## also ships macOS frameworks (so its GDExtension loads cleanly in the desktop editor), which register
+## `StoreKitManager` on the dev Mac too; the `ios` feature check keeps this iPad-only game inert there.
 static func available() -> bool:
-	return ClassDB.class_exists(SK_CLASS)
+	return ClassDB.class_exists(SK_CLASS) and OS.has_feature("ios")
 
 # Lazily build + start the manager and wire its signals. False when StoreKit is unavailable.
 static func _ensure() -> bool:
