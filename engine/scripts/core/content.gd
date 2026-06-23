@@ -416,6 +416,19 @@ static func resident_cost(type_def: Dictionary) -> Dictionary:
 static func resident_art(type_id: String) -> String:
 	return Game.art(RESIDENT_ART % type_id)
 
+## The data behind the residents SHOP: one card per offered resident on map z — {id, name, cost, currency,
+## affordable}. Affordability reads the live wallet (coins/diamonds). Pure model; the scene turns each into
+## a Kit shop card (icon node + price pill + on_buy).
+static func residents_shop_cards(z: int) -> Array:
+	var out: Array = []
+	for td in resident_lines(z):
+		var cost: Dictionary = resident_cost(td)
+		var cur := String(cost.currency)
+		var have := Save.diamonds() if cur == "diamonds" else Save.coins()
+		out.append({"id": String(td.id), "name": String(td.name), "cost": int(cost.cost),
+			"currency": cur, "affordable": have >= int(cost.cost)})
+	return out
+
 ## Flatten map `z`'s persisted roster into one {type, tier} per resident INSTANCE — what the
 ## wander layer renders. Stable order: resident_lines order, then tier 1..MAX, pushing one copy
 ## per counted resident. Reads the counts off Save (no merge here — that's resolve_…).

@@ -321,6 +321,30 @@ func _test_unlock_rewards() -> void:
 	ok(again.is_empty(), "a second claim returns {} (already claimed)")
 	ok(Save.coins() == coins1 and Save.diamonds() == gems1, "a second claim grants nothing more")
 
+# §1 · the residents SHOP card data: one card per offered resident, correct price/currency, and an
+# affordability flag that reflects the live wallet.
+func _test_residents_shop_cards() -> void:
+	fresh("residents_shop_cards")
+	var z := 0
+	var lines := G.resident_lines(z)
+	Save.add_coins(G.RESIDENT_BASE_COST)        # exactly one core coin card's worth
+	Save.spend_diamonds(Save.diamonds())        # zero the NEW_SAVE_GEMS starter balance so the premium card reads unaffordable
+	var cards := G.residents_shop_cards(z)
+	ok(cards.size() == lines.size(), "one shop card per offered resident")
+	for c in cards:
+		var td := {}
+		for t in lines:
+			if String(t.id) == String(c.id):
+				td = t
+		var prem := bool(td.get("premium", false))
+		ok(int(c.cost) == (G.RESIDENT_PREMIUM_COST if prem else G.RESIDENT_BASE_COST), "card %s has the right cost" % c.id)
+		ok(String(c.currency) == ("diamonds" if prem else "coins"), "card %s has the right currency" % c.id)
+	for c in cards:
+		if String(c.currency) == "coins":
+			ok(bool(c.affordable), "a coin card is affordable with exactly its cost banked")
+		else:
+			ok(not bool(c.affordable), "a diamond card is unaffordable with 0 diamonds")
+
 # §1 · RESIDENTS wiring through the REAL Map scene — proves the UI path, not just the API: a
 # completed map opens the "welcome a spirit" panel AND renders the roster as tier-tagged sprites
 # (build_population_layer), and map.gd's welcome handler spends + cascades the persisted roster.
@@ -358,7 +382,8 @@ func _test_resident_wiring() -> void:
 		hx._ready()
 	hx.unlocks = unl
 	hx._open_map(z)
-	ok(hx.resident_hits.size() >= 1, "the 'welcome a spirit' panel built its kind rows on a populatable map")
+	ok(G.residents_shop_cards(z).size() >= 1, "the Residents shop offers kind cards on a populatable map")
+	ok(hx._residents_btn != null and hx._residents_btn.visible, "the Residents nav button shows on a populatable map")
 	# map.gd rendered the roster as one tier-tagged sprite per member (the population layer).
 	var sprites := _find_residents(hx.content, [])
 	var has_t1 := false
@@ -387,13 +412,10 @@ func _find_residents(n: Node, acc: Array) -> Array:
 		_find_residents(c, acc)
 	return acc
 
-# drive map.gd's REAL welcome handler for kind `cid` via its freshly-registered panel row (the row
-# nodes are rebuilt each _build_map, so re-find the hit each call rather than caching it).
+# drive map.gd's REAL buy handler for kind `cid` (the Residents shop's on_buy path: spend + cascade +
+# rebuild). A null refresh Callable is skipped (no open shop to refresh in this headless wiring check).
 func _welcome_kind(hx, z: int, cid: String) -> void:
-	for h in hx.resident_hits:
-		if String(h.type) == cid:
-			hx._on_welcome_tap(z, cid, h.node, Vector2(100, 100))
-			return
+	hx._buy_resident(z, cid, Callable())
 
 # §10 · the 2× DOUBLER re-homed to the board's quest COIN reward (was the removed hub yield-collect).
 # Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,

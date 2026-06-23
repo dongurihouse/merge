@@ -304,5 +304,6 @@ func _initialize() -> void:
 
 	# §1 residents: unlock reward + free-spirit grant + residents shop card data (active-suite coverage).
 	_test_unlock_rewards()
+	_test_residents_shop_cards()
 
 	finish()
