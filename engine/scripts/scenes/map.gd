@@ -824,10 +824,11 @@ func _build_select(animate := true) -> void:
 	# wallet + the framed cards carry the read. The card SIZE is workbench-saved as a % of the screen
 	# (card_w_frac of the screen width, card_h_frac of the screen height), so a designer tunes the
 	# width + side margins + height live in the kit. The stack centers in the band between the HUD and
-	# the floor back-arrow; if the saved height overflows the band, every card shrinks uniformly
-	# (keeping the chosen w:h) to fit. No ScrollContainer (single-input-surface); cards are positioned
-	# + hit-tested directly. NOTE: the gold frame STRETCH-scales, so a w:h far from the art's ~2.92
-	# aspect visibly distorts the border — the kit's live preview shows the chosen shape.
+	# the floor back-arrow. WIDTH is honored directly (it sets the side margins); HEIGHT grows to its
+	# slider but is capped to ~band/n so all n cards fit — capping HEIGHT ALONE (never width) keeps the
+	# two knobs INDEPENDENT, so widening the card never shrinks it back. No ScrollContainer
+	# (single-input-surface); cards are positioned + hit-tested directly. NOTE: the gold frame
+	# STRETCH-scales, so a w:h far from the art's ~2.92 aspect distorts the border — the preview shows it.
 	var n := G.MAPS.size()
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
@@ -839,14 +840,10 @@ func _build_select(animate := true) -> void:
 	var band_top := top + 16.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
-	var card_w := view.x * w_frac
-	var card_h := view.y * h_frac
+	var card_w := view.x * w_frac                               # width is honored as-is — it sets the side margins
+	var card_h_cap := (band_h - sep * float(maxi(n - 1, 0))) / float(maxi(n, 1))   # the tallest each of n cards can be and still fit the band
+	var card_h := minf(view.y * h_frac, card_h_cap)            # grow height to the slider, but never past the fit cap (width is untouched)
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
-	if total_h > band_h:                                        # shrink uniformly (keep the chosen w:h) so all cards fit the band
-		var k := band_h / total_h
-		card_w *= k
-		card_h *= k
-		total_h = card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
 	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)
 	for z in n:

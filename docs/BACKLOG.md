@@ -19,132 +19,6 @@ and the shop-reroll button (§10) — shipped 2026-06-16 (`d492d67`). Code ancho
 
 ---
 
-## Open — economy
-
-- **Vault (piggy bank) — preserved systems behind the kit-screen rebuild (math · skim faucet · IAP · map chrome+pip).**
-  The vault **FACE** is being rebuilt on the shared workbench kit + config (spec:
-  [`superpowers/specs/2026-06-20-vault-screen-kit-design.md`](superpowers/specs/2026-06-20-vault-screen-kit-design.md);
-  new twig-border frame option + reused banner/button). That rebuild deliberately **does NOT touch** the four
-  systems below — they are the vault's *behaviour*, correct and tested, and folding them into a face-only change
-  would balloon scope and risk a working economy surface. Parked here so the follow-up tails aren't lost and so a
-  tester re-verifies each still works **after** the face swap. Anchors are `file:symbol` (line numbers drift).
-  - **(a) Vault MATH — keep `core/vault.gd` the single source of truth (don't leak it into the kit).** The accrual
-    model — `balance` / `cap` / `claimable` / `claim_min` / `price_usd` / `crack` / `skim` — stays in
-    `engine/scripts/core/vault.gd`; the new `vault_dialog` is **game-state-agnostic** and receives a `state` dict
-    built from these getters (mirrors how `settings_dialog` takes entries). **Why:** if the UI ever computes a vault
-    number itself (e.g. a progress-to-claim fraction), that logic forks from the tested core and the two drift.
-    **Instruction:** any new read the screen needs → add a getter to `core/vault.gd` (+ a unit test in
-    `engine/tests/save_tests.gd` `§10`), never compute it in `ui/vault.gd` or the kit. Owner sign-off on the pig
-    **price** + **claim threshold** is a pacing call already parked in the T42–T45 economy item below — don't
-    re-decide it here.
-  - **(b) SKIM faucet — the three sites that FILL the jar are untouched; re-validate fill pace after the rebuild.**
-    `Vault.skim(...)` is called from exactly three premium-grant moments: **level-up**
-    (`engine/scripts/core/content.gd:598`, SKIM-SITE 1/3), **map-restore** (`engine/scripts/scenes/map.gd:1204`,
-    2/3), and **t8 spare-sell** (`engine/scripts/scenes/board.gd:2033`, 3/3). **Why:** these are the faucet; the
-    screen only *reads* `balance`, so the rebuild can't change fill rate — but a tester must confirm the jar still
-    visibly fills (the balance read now comes through the kit `state`, a new path). **Instruction:** after the
-    rebuild, play/sim a level-up + a restore + a t8 sell and confirm `balance` climbs and the screen reflects it;
-    the skim *rate* (what fraction of each premium event is skimmed) is an owner-tunable in `grove_data.gd` →
-    re-validate on `grove_sim` if touched. If a **new** premium faucet is added later, add a 4th skim site there
-    (and a comment tagging it SKIM-SITE n/N) — the jar should skim every premium grant.
-  - **(c) IAP / StoreKit — `_confirm_crack` is kept verbatim; the real purchase is the external remainder.** The
-    crack routes through `engine/scripts/core/store.gd` when the StoreKit plugin is in the build (product
-    `com.tidyup.piggybank`), else the **honest non-charging test path** ("test build — nothing is charged"); both
-    arms call `Vault.crack()` to grant + reset, identically. The rebuilt `ui/vault.gd` reuses this confirm flow
-    unchanged. **Why:** the load→purchase→**receipt-validate**→grant chain can't ship in-engine — everything
-    game-side already sits behind the confirm-stub, and the rebuild must not regress the "grant only on a confirmed
-    purchase" gate. **Instruction:** register the product id in App Store Connect; implement receipt validation
-    behind the geo build-flag; grant ONLY on `purchase(..., okay==true)` (the code already does this — keep it).
-    This is the **same external remainder** tracked in the T42–T45 item's "External remainder" bullet below —
-    treat that as the canonical IAP-SDK task; this sub-point just flags "don't break the confirm flow in the face
-    rebuild." Coverage today: `engine/tests/store_tests.gd:26`.
-  - **(d) `map.gd` chrome + ready-pip — the entry button and claimable glow are unchanged; verify pip sync.** The
-    bottom-bar **piggy button** (`engine/scripts/scenes/map.gd:1388`, `home_icon:"piggy"`, index 4) and its
-    **claimable ready-pip** (`_piggy_pip`, `map.gd:134`; `Look.attach_badge` `:1402`; `_refresh_piggy_pip` `:1691`
-    → `Vault.claimable()`, refreshed on open-close `:1688` and elsewhere `:1577`) are untouched — the rebuild only
-    swaps **what `_open_vault` (`map.gd:1682`) opens**. **Why:** the pip is the attention-driver telling the player
-    the vault is ready; it and the screen both read `Vault.claimable()`, so they must agree before/after a crack.
-    **Instruction:** after the rebuild, confirm the pip lights when `claimable()` is true, the screen opens, and the
-    pip clears after a successful crack (the on-close `_refresh_piggy_pip` + post-crack refresh handle this — verify
-    they still fire through the new dialog's `opts.refresh`). **Coordinate:** the "Bottom row — extract ONE reusable
-    nav component" item (Home-screen chrome §4) will re-home this button into a shared `nav_bar.gd`, and the "Badge
-    system" item will replace the bespoke `_piggy_pip` with the shared badge — when either lands, the pip must ride
-    the new piggy button. *(Surfaced 2026-06-20 — parked alongside the vault-screen kit rebuild; these four are the
-    preserved behaviour behind that face-only change.)*
-
-- **Economy 2nd-batch follow-ups — entry-point merge · feel sign-offs · the IAP/ads SDK (T42–T45).**
-  ⚠️ **SUPERSEDED IN PART by the population/residents design change (2026-06-17):** the **hub-yield +
-  upgrade-levels loop (T42)** is being **REMOVED** — the §8 keystone is now the **population/residents loop**
-  (welcome residents on completed maps; Coins base / Diamonds premium; same-kind auto-merge), restoration
-  spots become **unlock-once** (no Coins-upgrade axis), and the §10 economy is **reopened** (re-author
-  `grove_sim` around the resident sink; the 96🪙/day faucet + ~8,600🪙 hub ladder are deleted). See
-  `merge_spec §8`, `grove_spec §3/§5/§10`. The **T42 hub-yield code/tests/`HUB_*` dials below are now
-  the thing to RIP OUT**, not sign off; T43/T44/T45 (IAP/ads/vault/login) are **unaffected** and still apply.
-  Below records the shipped state for the rip-out, not a live keystone. — The
-  §8 keystone **hub-yield + upgrade-levels loop** (T42 — restore→L1, upgrade L1→L5 = richer look + higher
-  yield, per-building daily-cap yield swept on return), the §4/§10 **live-IAP ladder + rewarded ads +
-  out-of-water offer** (T43), and the §10/§18 **piggy vault + forgiving login calendar** (T44) all **shipped
-  to `main`** (engines + tests + sim; the §6 burst-upgrade Part B was already T23/T25). What remains:
-  • **Merge the entry-point wiring (T45).** The 2×-collect ad hook, the piggy-vault button, and the
-  daily-login auto-popup are **committed + verified on branch `t45-integration` (`90a8ff0`) but NOT merged** —
-  they edit `map.gd`, which currently has **active uncommitted §16 map-art/placement work** in the primary
-  tree; merge once that lands, reconciling the `map.gd` overlap. *(Until then the vault/login surfaces + the
-  2× ad are built-but-unreachable in play.)*
-  • **Feel sign-offs (owner pacing).** Provisional grove dials want a pass: `HUB_YIELD_RATE/CAP/UPGRADE_COST`
-  (T42 — sim-bounded at 96🪙/day, "extend, never self-sustain"), the cash ladder + ad caps + out-of-water
-  discount (T43), the vault skim / pig price / login ladder + milestones (T44). All owner-tunable one-liners in
-  `grove_data.gd`; re-validate economy changes on `grove_sim`.
-  • **Perceptual placement (owner eye).** T45's piggy-button position, the 2×-offer card look/copy, and the
-  login-popup timing — flagged in the T45 ledger entry.
-  • **External remainder.** The real ad-SDK (load→show→reward) + IAP **receipt validation** behind the geo
-  build-flag — the one piece that can't ship in-engine; everything game-side sits behind the honest
-  confirm-stub. *(Surfaced 2026-06-15 — 2nd economy batch, T42–T45; engines merged, the above is the tail.)*
-
-- **2× rewarded-ad doubler — flush out the full workflow (engine SDK + trigger coverage + tuning · grove/engine).**
-  The 2× "double your coins" card was **re-homed** from the removed hub yield-collect to the **quest coin overflow**
-  (`board.gd` `_on_giver_tap` → `_maybe_offer_2x(sp_coins, …)` after `Save.add_coins`; card + `_accept_2x_offer`/
-  `_dismiss_2x_offer` now live in `board.gd`; the ad id is still `collect_2x`). It works end-to-end against the
-  honest stub (`grove_tests` `_test_2x_doubler_rehome`), but the workflow is **not finished**:
-  • **Owner directive — surface it MORE often, and make the bonus WORTH more (2026-06-20).** The owner recalls
-  the doubler was specced to appear **only on a top-tier quest**; the call now is to flip that — show the offer
-  **more commonly** (not gated to top-tier hand-ins) but make each accept **worth more — a bigger coin payout, or
-  a premium-currency (💎) bonus** — rather than a flat coin-for-coin double, so watching the ad clearly pays off.
-  *Current reality to reconcile:* `_maybe_offer_2x(sp_coins, …)` already fires on **every** regular quest delivery
-  with `sp_coins > 0`, gated only by the `collect_2x` ad cap/cooldown, and `_accept_2x_offer` credits exactly a
-  second `got` coins (`Save.add_coins(got)`) — so it is *not* top-tier-gated today, and the reward is a plain ×2.
-  **Build:** (a) keep/raise the offer frequency and drop any implicit top-tier gating, re-validating against the
-  ad cap so it stays a treat, not a nag (pairs with the Owner-tuning bullet below); (b) make the payout > 1× —
-  a larger coin multiplier and/or a 💎 (or vault-skim) bonus on accept — and update the card copy + reward icon
-  (the value tag is hard-coded coin via `Look.icon("coin", …)`). Sim the new offer rate + payout on `grove_sim`
-  (it's a faucet). Spec to reconcile: `merge_spec §10/§18`.
-  • **Real ad SDK.** `ads.gd` `can_show`/`claim`/`consume_2x` are stubs (instant "watch"); the load→show→reward
-  callback behind the geo build-flag is the **external remainder** (shared with the T43 ads tail above) — until it
-  lands, accepting credits the bonus on a confirm-stub, no actual video.
-  • **Trigger coverage.** It fires only on **regular** quest deliveries. The **gate quest's large coin reward**
-  (`board.gd` `_deliver_gate`) is an infrequent big lump and the strongest 2× moment — decide whether to extend it
-  there (and to generator-grant deliveries). Currently those pay coins with no doubler offer.
-  • **Rename the ad id.** `collect_2x` is now a misnomer (it doubles a quest reward, not a hub collect) — rename in
-  `ads.gd` + its cap/cooldown config and the call sites for clarity.
-  • **Owner tuning (perceptual).** The `collect_2x` daily cap + cooldown, the card copy ("Watch a cloud → double
-  it!") + its board placement, and the **offer frequency** — quest deliveries are frequent, so confirm the cap keeps
-  the card a treat, not a nag (observe / sim the offer rate vs. the cap). Was flagged as T45 "perceptual placement."
-  Spec: `merge_spec §10/§18`, `grove_spec §10`. *(Surfaced 2026-06-18 — re-home shipped (`6ff5b01`); this is the maturation tail.)*
-
-- **Item & map customization feature (DEFERRED — all code removed 2026-06-18, owner call).** Customization
-  is **cut from v1 and parked here as a whole future feature** — owner decision (2026-06-18): no
-  customization ships now, but keep the design + a backlog hook. **Removed code** (so a rebuild starts
-  clean, not from half-wired stubs): the per-spot **look-picker strip** on owned map buildings
-  (`customize_variants` flag, `_add_variant_strip`/`_apply_variant`/`_spot_variant` in `scenes/map.gd`,
-  `spot_variants`/`variant_by_id`/`VARIANT_*` in `core/content.gd`+`grove_data.gd`, the `grove()["custom"]`
-  blob); and the Shop **"grove theme" cosmetic looks** (`SHOP_COSMETICS`, `buy_cosmetic`/`cosmetic_owned`/
-  `_cosmetic_card` in `ui/shop.gd`, the `grove()["cosmetics"]` blob, the day-30 login cosmetic grant). The
-  shop looks were never applied to render — a granted-and-owned-only stub. **Future build (when un-deferred):**
-  decide the two axes — **(a) item customization** (re-skin/tint board pieces) and **(b) map customization**
-  (building looks + a board/grove theme), composited per `merge_spec §16` (swap/tint cut-outs, never
-  re-render); a coins/💎 sink that **buys looks, not power** (§4); and the render application both stubs
-  lacked. Spec hooks: `grove_spec §5/§6` (the removed sink + flag rows), `merge_spec §10` (cosmetics as a
-  revenue surface). *(Surfaced 2026-06-18 — owner cut; supersedes the old "apply the owned look" T40 tail.)*
-
 ## Open — meta, content-cadence & infra
 
 - **Server-driven mail + Apple identity/IAP (Game Center · StoreKit) — remaining hookup (client foundation shipped 2026-06-19/20).**
@@ -523,6 +397,35 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
   - *Note:* the gesture targets are the **current** bag / merchant / shop surfaces — the Section-2 bag &
     merchant "circle" redesign was cut. *(merges old core-loop items 3.1 + 3.2.)*
 
+- **Merge the T45 entry-point wiring.** The 2×-collect ad hook, the piggy-vault button, and the
+  daily-login auto-popup are committed + verified on branch `t45-integration` (`90a8ff0`) but NOT
+  merged — they edit `map.gd`, which had active §16 map-art/placement work. Merge once that lands,
+  reconciling the `map.gd` overlap. Until then the vault / login surfaces + the 2× ad are
+  built-but-unreachable in play. *(from old economy 4.2 — kept here for routing; cut if not wanted.)*
+
+- **Rip out the superseded hub-yield loop (T42).** The §8 keystone changed from hub-yield to the
+  population/residents loop, so remove the T42 hub-yield + upgrade-levels code / tests + `HUB_*` dials
+  (restoration spots become unlock-once; the resident roster replaces yield state). Pairs with the
+  residents-loop work referenced in the meta save-schema item. *(from old economy 4.2 — kept here for
+  routing; cut if not wanted.)*
+
+## Features
+
+- **Ad-reward (2× doubler) — real implementation.** Mature the rewarded-ad doubler from a stub into a
+  finished, compelling offer:
+  - **Real ad SDK.** `core/ads.gd` `can_show` / `claim` / `consume_2x` are stubs (instant "watch");
+    implement the load→show→reward callback behind the geo build-flag. *(Shared external remainder with
+    the IAP SDK — to be consolidated at the meta Apple/StoreKit item.)*
+  - **Make the bonus worth more (owner directive 2026-06-20).** Replace the flat coin-for-coin ×2 with a
+    bigger payout — a larger coin multiplier and/or a 💎 (or vault-skim) bonus on accept; update the card
+    copy + reward icon. *(Dial values → Tuning.)*
+  - **Offer frequency + trigger coverage.** It already fires on every regular quest delivery (drop any
+    implicit top-tier gating). Decide whether to also offer it on the **gate-quest's big coin lump** (the
+    strongest 2× moment) and on generator-grant deliveries. *(Cap/frequency dials → Tuning.)*
+  - **Rename the ad id.** `collect_2x` is a misnomer (it doubles a quest reward, not a hub collect) —
+    rename in `ads.gd` + its cap/cooldown config + the call sites. Spec: `merge_spec §10/§18`.
+    *(from old economy 4.3.)*
+
 ## Tuning (owner feel / pacing calls)
 
 - **Mystery reward pools.** Re-tune the pools in **`games/grove/login_rewards.json`** (the reward config is
@@ -536,6 +439,14 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
   shorten the per-winner step counts in `login_mystery.gd:_spin` (`steps = 14 + wi*5` → e.g. `10 + wi*4`) and/or
   the 1.5s finish hold. Owner eyeball — captures shared with the T53 handoff.
 
+- **Economy feel sign-offs (T43/T44).** Owner pacing pass on the cash → 💎 price ladder, rewarded-ad
+  caps, the out-of-water discount (T43), and the vault skim rate / pig price / login ladder + milestones
+  (T44). All owner-tunable one-liners in `grove_data.gd`; re-validate on `grove_sim`. *(from old economy 4.2.)*
+
+- **2× ad-reward frequency + payout.** The `collect_2x` (rename pending) daily cap + cooldown, the offer
+  frequency, and the new payout size (bigger coin multiplier and/or 💎 bonus) — keep it a treat, not a
+  nag; it's a faucet, so sim the rate + payout on `grove_sim`. *(from old economy 4.3.)*
+
 ## Testing (re-enable / add coverage)
 
 - **Re-enable the login UI test suite.** `engine/tests/login_tests.gd` (15 assertions, passes today)
@@ -545,3 +456,12 @@ _(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks
   "?" chest, and opens the spin (not an instant grant); (3) mystery reveal grant — opening a day-7
   reveal claims the day, bumps the streak by 1, fires `on_done`; (4) reveal cards show concrete reward
   amounts, not icon-only. *(was follow-up 1.2.)*
+
+- **IAP / StoreKit purchase flow (generic).** Coverage for the IAP purchase → grant → (receipt-validate)
+  path across every SKU — the vault crack (`com.tidyup.piggybank`) and the shop gem packs / starter pack.
+  Assert the grant happens ONLY on a confirmed purchase (`okay == true`); extend as the real StoreKit SDK
+  + receipt validation land. Seed: `engine/tests/store_tests.gd`. *(from old economy 4.1c.)*
+
+- **Ad-reward (2× doubler) flow.** Cover offer → accept → grant: the offer fires on the right trigger(s),
+  respects the cap / cooldown, and the accept credits the new (>1×) payout. Seed: `grove_tests`
+  `_test_2x_doubler_rehome`. *(from old economy 4.3.)*

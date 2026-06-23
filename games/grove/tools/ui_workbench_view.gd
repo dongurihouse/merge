@@ -23,8 +23,9 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
+const MAP_SELECT_H_CAP := 16.5   # the tallest a place-picker card fits (~band 86% of H ÷ 5 places) — map.gd caps to this
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +33,7 @@ const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -92,6 +93,9 @@ const TEST_KEYS := {
 	"mystery": ["preview"],
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
+	# the LAYERED level badge — every position/size knob is saved design; preview_level (drives the tier
+	# + the printed number) and edit_part (which part the X/Y/Scale sliders target) are workbench-only.
+	"level_badge": ["preview_level", "edit_part"],
 	"tiers": [],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
 	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
@@ -122,6 +126,7 @@ const CAPTIONS := {
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"gold_badge": "Gold badge — CSS port",
+	"level_badge": "Level badge — layered emblem (circle·leaf·flower·acorn·gem + number)",
 	"gold_currency_pill": "Gold currency pill — CSS plus study",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
@@ -261,6 +266,17 @@ var _params := {
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
+	# the LAYERED level badge — five cut parts (ui/lvl_parts) composited bottom-up + the level number.
+	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
+	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / cell gate / level dialog
+	# read. preview_level drives the tier + the printed number; edit_part picks which part X/Y/Scale edit.
+	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16,
+		"circle_x": 0, "circle_y": -4, "circle_scale": 90,
+		"leaf_x": 0, "leaf_y": 0, "leaf_scale": 100,
+		"flower_x": 0, "flower_y": -10, "flower_scale": 48,
+		"acorn_x": 0, "acorn_y": -8, "acorn_scale": 52,
+		"gem_x": 0, "gem_y": -40, "gem_scale": 36,
+		"preview_level": 30, "edit_part": "leaf"},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
@@ -501,6 +517,19 @@ func _make_element(id: String) -> Control:
 			gc["badge"] = _params["gold_badge"]
 			var icon_id := String(gc.get("icon", "water"))
 			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
+		"level_badge":
+			# the shared LAYERED level badge, from the SAME resolver the HUD chip / cell gate / dialog read.
+			# preview_level -> tier (+ the printed number). When this item is selected, the part being edited
+			# is force-shown (extra_part) so it can be positioned even if the test tier's group omits it.
+			var lbpx := 320.0
+			var lopts := Kit.level_badge_opts_from_config({"level_badge": p})
+			var lblvl := int(p.get("preview_level", 30))
+			var extra := String(p.get("edit_part", "")) if _selected == "level_badge" else ""
+			var lbadge := Kit.level_badge(lopts, Look.level_badge_index(lblvl), lblvl, lbpx, -1, extra)
+			var wrap := CenterContainer.new()
+			wrap.custom_minimum_size = Vector2(lbpx + 20.0, lbpx + 20.0)
+			wrap.add_child(lbadge)
+			return wrap
 		"progress_bar":
 			# the reusable bar at the previewed fill — built from the SAME config transform the game reads
 			var po := Kit.progress_bar_opts_from_config({"progress_bar": p})
@@ -585,7 +614,7 @@ func _make_element(id: String) -> Control:
 			# size sliders reshapes the card live (and shows any gold-frame stretch).
 			var mw := 460.0
 			var wf: float = maxf(1.0, float(p.get("card_w_frac", 96)))
-			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
+			var hf: float = minf(maxf(1.0, float(p.get("card_h_frac", 16))), MAP_SELECT_H_CAP)   # cap to the column-fit, as map.gd does
 			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "unlock_exp": int(p.unlock_exp),
 				"prereq": "✿ after Meadow", "map_id": ""}
@@ -1517,13 +1546,32 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 50]))
 			_sidebar_body.add_child(_slider_row(["into", 0, 30]))
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
+		"level_badge":
+			_group_header("Saved to config", true)
+			_section_header("Part — pick one, then move/scale it")
+			# pick which of the 5 parts the X/Y/Scale sliders below target (rebuilds so they rebind)
+			_sidebar_body.add_child(_option_row("Part", "edit_part", Kit.LEVEL_PARTS, true))
+			var ep := String(_params["level_badge"].get("edit_part", "leaf"))
+			_sidebar_body.add_child(_slider_row([ep + "_x", -60, 60]))      # horizontal offset (% of px)
+			_sidebar_body.add_child(_slider_row([ep + "_y", -60, 60]))      # vertical offset (% of px; − = up)
+			_sidebar_body.add_child(_slider_row([ep + "_scale", 10, 160]))  # size (% of the common box)
+			_section_header("Number (the level text)")
+			_sidebar_body.add_child(_slider_row(["num_size", 8, 70]))       # font (% of px)
+			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
+			_sidebar_body.add_child(_slider_row(["num_y", -50, 50]))        # margin (vertical offset)
+			_section_header("Overall")
+			_sidebar_body.add_child(_slider_row(["size", 40, 120]))         # the common part box (% of px)
+			_group_header("Test only — not saved", false)
+			# preview_level drives BOTH the printed number AND the tier (which parts show, at which stage)
+			_sidebar_body.add_child(_slider_row(["preview_level", 1, 110]))
 		"map_card":
 			_group_header("Saved to config", true)
-			# card SIZE: width as a % of the screen width (smaller = wider side margins), height as a % of
-			# the screen height. A w:h far from the art's ~2.92 aspect stretches the gold frame (the preview
-			# shows it). With 5 places stacked, a too-tall card is shrunk uniformly in-game to fit the band.
+			# card SIZE: width as a % of the screen width (smaller = wider side margins) and height as a % of
+			# the screen height — the two are INDEPENDENT (width sets margins; height caps to fit the column).
+			# A w:h far from the art's ~2.92 aspect stretches the gold frame (the preview shows it). With the
+			# 5 places stacked and no scroll, height tops out near MAP_SELECT_H_CAP % — past that it can't grow.
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
-			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 30]))      # card height (% of screen height)
+			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 18]))      # card height (% of screen height; caps to fit 5 stacked)
 			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
 			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
@@ -1818,7 +1866,7 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false, target :=
 	row.add_child(cb)
 	return row
 
-func _option_row(label: String, key: String, options: Array) -> Control:
+func _option_row(label: String, key: String, options: Array, rebuild_sidebar := false) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()
@@ -1834,7 +1882,9 @@ func _option_row(label: String, key: String, options: Array) -> Control:
 			ob.select(i)
 	ob.item_selected.connect(func(idx: int) -> void:
 		_params[_selected][key] = String(options[idx])
-		_apply_edit())
+		_apply_edit()
+		if rebuild_sidebar:
+			_rebuild_sidebar.call_deferred())   # defer — we're inside this option's own signal
 	row.add_child(ob)
 	return row
 

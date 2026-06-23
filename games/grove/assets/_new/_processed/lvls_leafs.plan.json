@@ -1,0 +1,14 @@
+{
+  "source": "_new/lvls_leafs.png",
+  "category": "grid",
+  "_note": "2 rows x 3 cols laurel wreaths, row-major = stages 1..6 (smallest to fullest). The leaf part used by the level badge (replaces the discarded col-1 sprouts in lvls_asset). Bottom-anchored into 512.",
+  "outputs": [
+    { "tile": 0, "name": "leaf_1", "path": "ui/lvl_parts/leaf_1.png", "post": "icon:512:bottom" },
+    { "tile": 1, "name": "leaf_2", "path": "ui/lvl_parts/leaf_2.png", "post": "icon:512:bottom" },
+    { "tile": 2, "name": "leaf_3", "path": "ui/lvl_parts/leaf_3.png", "post": "icon:512:bottom" },
+    { "tile": 3, "name": "leaf_4", "path": "ui/lvl_parts/leaf_4.png", "post": "icon:512:bottom" },
+    { "tile": 4, "name": "leaf_5", "path": "ui/lvl_parts/leaf_5.png", "post": "icon:512:bottom" },
+    { "tile": 5, "name": "leaf_6", "path": "ui/lvl_parts/leaf_6.png", "post": "icon:512:bottom" }
+  ],
+  "archive": "_originals/ui/lvls_leafs.png"
+}
