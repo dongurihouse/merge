@@ -673,8 +673,10 @@ func _make_element(id: String) -> Control:
 ## --- the SHARED shadow preview + the per-component wrap ------------------------------------------
 
 ## Components whose KIT builder already casts the shared shadow internally (from opts.shadow + shadow_params);
-## the view must NOT also wrap them, or the shadow would double up.
-const SHADOW_WIRED := {"home_button": true, "currency_pill": true, "board": true, "button": true, "info_bar": true}
+## the view must NOT also wrap them, or the shadow would double up. (info_bar is NOT here: it returns a
+## PanelContainer and builds its own frame — not via currency_pill() — so its shadow comes from the
+## view-level wrap below, like the other unwired components.)
+const SHADOW_WIRED := {"home_button": true, "currency_pill": true, "board": true, "button": true}
 
 ## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
 ## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
