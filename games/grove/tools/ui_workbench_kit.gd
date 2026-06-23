@@ -236,28 +236,6 @@ static func make_icon(id: String, px: float) -> Control:
 	var node := _icon_rect(_icon_tex(id), px)   # polished (defringe + feather), via the shared resolver
 	return node if node != null else Look.icon(id, px)   # glyph fallback when no sprite
 
-## Like make_icon, but with a baked soft DROP SHADOW (silhouette-following, mostly downward) — the currency
-## pill's icon + its "+" use this so they lift off the cream capsule. `alpha` (0..1) is the shadow strength
-## (0 → no shadow, falls back to the plain icon); offset + blur derive from the sprite size.
-static func make_icon_shadow(id: String, px: float, alpha: float) -> Control:
-	var a := clampf(alpha, 0.0, 1.0)
-	var tex := _icon_tex(id)
-	if tex == null or a <= 0.0:
-		return make_icon(id, px)
-	var img := tex.get_image()
-	if img == null:                       # headless dummy renderer can't read pixels → plain icon, no shadow
-		return make_icon(id, px)
-	if img.get_format() != Image.FORMAT_RGBA8:
-		img.convert(Image.FORMAT_RGBA8)
-	var w := float(img.get_width())
-	img = add_drop_shadow(img, {
-		"shadow_alpha": a,
-		"shadow_offset": Vector2(0.03, 0.10) * w,   # a touch right, mostly DOWN — a grounded drop shadow
-		"shadow_blur": maxf(2.0, w * 0.05),
-		"shadow_warmth": 82.0,
-	})
-	return _icon_rect(ImageTexture.create_from_image(img), px)
-
 ## A polished texture wrapped as the SHARED icon rect: a centred, mouse-transparent square that fills its
 ## box by its own aspect. Returns null when the texture is absent (the caller supplies the glyph fallback).
 ## make_icon (id lookup) and home_button's icon_rel (direct kit path) both build through this one layout.
