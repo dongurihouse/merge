@@ -936,34 +936,26 @@ func _test_level_badge_component(view) -> void:
 	# the LAYERED level badge is a registered building block with a working preview + sidebar
 	ok(view._sections.has("level_badge"), "level_badge is a registered gallery item")
 	view._selected = "level_badge"
-	view._params["level_badge"]["preview_level"] = 110   # clamps to the final tier -> leaf + acorn + gem
-	view._params["level_badge"]["edit_part"] = "leaf"
+	view._params["level_badge"]["preview_level"] = 110   # final tier (the live game would show leaf+acorn+gem)
 	var prev: Control = view._make_element("level_badge")
 	var n := prev.find_child("lv_num", true, false) as Label
 	ok(n != null and n.text == "110", "level_badge preview prints the test level (110)")
-	ok(prev.find_child("lv_leaf", true, false) != null and prev.find_child("lv_gem", true, false) != null,
-		"level_badge preview composites the tier's parts (leaf + gem at L110)")
-	ok(prev.find_child("lv_circle", true, false) != null, "the circle base draws behind every tier by default")
-	ok(view._is_config("level_badge", "circle_base"), "circle_base is a saved config toggle")
-	# with the base OFF, selecting the circle still force-shows it (extra_part) so it can be positioned
-	view._params["level_badge"]["circle_base"] = false
-	view._params["level_badge"]["edit_part"] = "circle"
-	var withc: Control = view._make_element("level_badge")
-	ok(withc.find_child("lv_circle", true, false) != null, "the edited part (circle) is force-shown even with the base off")
-	view._params["level_badge"]["circle_base"] = true
-	# the sidebar binds the part picker + that part's X/Y/Scale, the number knobs, and the test level
+	# the preview renders ALL five parts at once so each can be positioned together
+	ok(prev.find_child("lv_leaf", true, false) != null and prev.find_child("lv_flower", true, false) != null
+		and prev.find_child("lv_acorn", true, false) != null and prev.find_child("lv_gem", true, false) != null
+		and prev.find_child("lv_circle", true, false) != null, "the preview shows ALL parts for positioning")
+	# the sidebar exposes EVERY part's X/Y/Scale at once (no dropdown), plus the number + coin controls
 	view._rebuild_sidebar()
-	ok(_slider_max(view, "Circle X") >= 60.0, "sidebar binds X/Y/Scale to the selected part (circle)")
-	ok(_slider_max(view, "Num Size") >= 70.0, "sidebar exposes the number size knob")
+	ok(_slider_max(view, "Leaf X") >= 60.0 and _slider_max(view, "Flower X") >= 60.0
+		and _slider_max(view, "Acorn X") >= 60.0 and _slider_max(view, "Gem X") >= 60.0
+		and _slider_max(view, "Circle X") >= 60.0, "every part has its own X/Y/Scale sliders, all visible")
+	ok(_slider_max(view, "Num Size") >= 70.0 and _slider_max(view, "Num Burn") >= 100.0,
+		"sidebar exposes the number size + the engraved burn slider")
 	ok(_slider_max(view, "Preview Level") >= 110.0, "sidebar exposes the test level (1..110)")
-	# switching the part rebinds the sliders to the new part's keys
-	view._params["level_badge"]["edit_part"] = "gem"
-	view._rebuild_sidebar()
-	ok(_slider_max(view, "Gem X") >= 60.0 and _slider_max(view, "Circle X") == -INF,
-		"changing the part rebinds the X/Y/Scale sliders")
-	# the saved knobs persist; the preview/edit helpers do not
-	ok(view._is_config("level_badge", "leaf_x") and not view._is_config("level_badge", "preview_level"),
-		"part offsets are saved config; preview_level is test-only")
+	# circle design + burn are saved config; preview_level is test-only
+	ok(view._is_config("level_badge", "circle_design") and view._is_config("level_badge", "num_burn")
+		and view._is_config("level_badge", "leaf_x"), "part/coin/burn knobs are saved config")
+	ok(not view._is_config("level_badge", "preview_level"), "preview_level is test-only")
 
 func _test_discovery_frame() -> void:
 	var dopts := Kit.dialog_opts_from_config({})

@@ -142,6 +142,37 @@ func _initialize() -> void:
 	ok(boff.find_child("lv_circle", true, false) == null, "circle_base off -> no coin (tier 6 omits the circle)")
 	boff.free()
 
+	# --- circle design: pick a fixed coin (1-6) or 'auto' (track the tier) -------
+	ok(o.get("circle_design") == "auto" and o.get("num_burn") == 0.0,
+		"circle_design defaults 'auto'; num_burn defaults 0")
+	var auto_c: Control = Kit.level_badge(opts, 0, 1, 200.0)     # tier 0 stage 1 -> circle_1
+	ok((auto_c.find_child("lv_circle", true, false) as TextureRect).texture.resource_path.get_file().begins_with("circle_1"),
+		"circle_design 'auto' tracks the tier stage (circle_1 at tier 0)")
+	auto_c.free()
+	var fixed: Dictionary = opts.duplicate(); fixed["circle_design"] = "5"
+	var fixed_c: Control = Kit.level_badge(fixed, 0, 1, 200.0)   # tier stage 1, but pinned to design 5
+	ok((fixed_c.find_child("lv_circle", true, false) as TextureRect).texture.resource_path.get_file().begins_with("circle_5"),
+		"circle_design '5' pins the coin to circle_5 regardless of tier")
+	fixed_c.free()
+
+	# --- num_burn: the engraved 'burn' outline on the level number --------------
+	var nob: Control = Kit.level_badge(opts, 0, 7, 200.0)        # num_burn 0 -> no outline
+	ok((nob.find_child("lv_num", true, false) as Label).get_theme_constant("outline_size") == 0,
+		"num_burn 0 -> the number has no outline")
+	nob.free()
+	var burned: Dictionary = opts.duplicate(); burned["num_burn"] = 80.0
+	var bd: Control = Kit.level_badge(burned, 0, 7, 200.0)
+	ok((bd.find_child("lv_num", true, false) as Label).get_theme_constant("outline_size") > 0,
+		"num_burn > 0 -> the number gets a burn outline")
+	bd.free()
+
+	# --- show_all (workbench aid): every part renders so they can be positioned --
+	var all_c: Control = Kit.level_badge(opts, 0, 1, 200.0, -1, true)   # tier 0 is normally leaf-only
+	ok(all_c.find_child("lv_leaf", true, false) != null and all_c.find_child("lv_flower", true, false) != null
+		and all_c.find_child("lv_acorn", true, false) != null and all_c.find_child("lv_gem", true, false) != null
+		and all_c.find_child("lv_circle", true, false) != null, "show_all renders every part for positioning")
+	all_c.free()
+
 	# --- the shared entry point (HUD chip / cell gate) delegates to the builder --
 	var badge: Control = Look.make_level_badge(7, 200.0)
 	var bnum := badge.find_child("lv_num", true, false) as Label

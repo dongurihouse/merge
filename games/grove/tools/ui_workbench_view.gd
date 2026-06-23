@@ -92,9 +92,9 @@ const TEST_KEYS := {
 	"mystery": ["preview"],
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
-	# the LAYERED level badge — every position/size knob is saved design; preview_level (drives the tier
-	# + the printed number) and edit_part (which part the X/Y/Scale sliders target) are workbench-only.
-	"level_badge": ["preview_level", "edit_part"],
+	# the LAYERED level badge — every position/size knob (incl. circle_design + num_burn) is saved design;
+	# only preview_level (drives the tier stage + the printed number) is workbench-only.
+	"level_badge": ["preview_level"],
 	"tiers": [],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
 	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
@@ -268,14 +268,17 @@ var _params := {
 	# the LAYERED level badge — five cut parts (ui/lvl_parts) composited bottom-up + the level number.
 	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
 	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / cell gate / level dialog
-	# read. preview_level drives the tier + the printed number; edit_part picks which part X/Y/Scale edit.
-	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16, "circle_base": true,
+	# read. The preview shows ALL parts at once (so you can position them together); preview_level drives
+	# the tier stage + the printed number. circle_design pins the coin (auto = grow with tier); num_burn is
+	# the engraved burn on the number.
+	"level_badge": {"size": 100, "num_size": 32, "num_x": 0, "num_y": -16, "num_burn": 0,
+		"circle_base": true, "circle_design": "auto",
 		"circle_x": 0, "circle_y": -4, "circle_scale": 90,
 		"leaf_x": 0, "leaf_y": 0, "leaf_scale": 100,
 		"flower_x": 0, "flower_y": -10, "flower_scale": 48,
 		"acorn_x": 0, "acorn_y": -8, "acorn_scale": 52,
 		"gem_x": 0, "gem_y": -40, "gem_scale": 36,
-		"preview_level": 30, "edit_part": "leaf"},
+		"preview_level": 30},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
@@ -518,13 +521,12 @@ func _make_element(id: String) -> Control:
 			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
 		"level_badge":
 			# the shared LAYERED level badge, from the SAME resolver the HUD chip / cell gate / dialog read.
-			# preview_level -> tier (+ the printed number). When this item is selected, the part being edited
-			# is force-shown (extra_part) so it can be positioned even if the test tier's group omits it.
+			# preview_level -> the tier stage (+ the printed number). The workbench draws ALL parts (show_all)
+			# so every part can be positioned together; the live game draws only the tier's group.
 			var lbpx := 320.0
 			var lopts := Kit.level_badge_opts_from_config({"level_badge": p})
 			var lblvl := int(p.get("preview_level", 30))
-			var extra := String(p.get("edit_part", "")) if _selected == "level_badge" else ""
-			var lbadge := Kit.level_badge(lopts, Look.level_badge_index(lblvl), lblvl, lbpx, -1, extra)
+			var lbadge := Kit.level_badge(lopts, Look.level_badge_index(lblvl), lblvl, lbpx, -1, true)
 			var wrap := CenterContainer.new()
 			wrap.custom_minimum_size = Vector2(lbpx + 20.0, lbpx + 20.0)
 			wrap.add_child(lbadge)
@@ -1548,22 +1550,28 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"level_badge":
 			_group_header("Saved to config", true)
-			_section_header("Part — pick one, then move/scale it")
-			# pick which of the 5 parts the X/Y/Scale sliders below target (rebuilds so they rebind)
-			_sidebar_body.add_child(_option_row("Part", "edit_part", Kit.LEVEL_PARTS, true))
-			var ep := String(_params["level_badge"].get("edit_part", "leaf"))
-			_sidebar_body.add_child(_slider_row([ep + "_x", -60, 60]))      # horizontal offset (% of px)
-			_sidebar_body.add_child(_slider_row([ep + "_y", -60, 60]))      # vertical offset (% of px; − = up)
-			_sidebar_body.add_child(_slider_row([ep + "_scale", 10, 160]))  # size (% of the common box)
+			# every part has its own X/Y/Scale, all visible at once; the preview renders ALL parts together
+			_section_header("Circle (coin background)")
+			_sidebar_body.add_child(_toggle_row("Circle base", "circle_base"))   # draw the coin behind every tier
+			# the coin design: 'auto' grows with the level, or pin one of the 6 designs from the asset
+			_sidebar_body.add_child(_option_row("Circle design", "circle_design", ["auto", "1", "2", "3", "4", "5", "6"]))
+			_sidebar_body.add_child(_slider_row(["circle_x", -60, 60]))
+			_sidebar_body.add_child(_slider_row(["circle_y", -60, 60]))
+			_sidebar_body.add_child(_slider_row(["circle_scale", 10, 160]))
+			for pn in [["Leaf (wreath)", "leaf"], ["Flower", "flower"], ["Acorn", "acorn"], ["Gem", "gem"]]:
+				_section_header(String(pn[0]))
+				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_x", -60, 60]))      # horizontal offset (% of px)
+				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_y", -60, 60]))      # vertical offset (% of px; − = up)
+				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_scale", 10, 160]))  # size (% of the common box)
 			_section_header("Number (the level text)")
 			_sidebar_body.add_child(_slider_row(["num_size", 8, 70]))       # font (% of px)
 			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
 			_sidebar_body.add_child(_slider_row(["num_y", -50, 50]))        # margin (vertical offset)
+			_sidebar_body.add_child(_slider_row(["num_burn", 0, 100]))      # engraved burn (dark ink + emboss + outline)
 			_section_header("Overall")
-			_sidebar_body.add_child(_toggle_row("Circle base", "circle_base"))   # draw the coin behind every tier
 			_sidebar_body.add_child(_slider_row(["size", 40, 120]))         # the common part box (% of px)
 			_group_header("Test only — not saved", false)
-			# preview_level drives BOTH the printed number AND the tier (which parts show, at which stage)
+			# preview_level drives the tier stage + the printed number (the preview shows ALL parts)
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 110]))
 		"map_card":
 			_group_header("Saved to config", true)
