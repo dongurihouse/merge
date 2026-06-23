@@ -45,6 +45,10 @@ const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
 const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
 const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
 const MAP_FRAME_NODE := "MapGoldFrame"             # the open card's shared gold-badge frame (tests assert it)
+const MAP_CARD_LOCK := "map/lock_flower.png"       # the standalone lock medallion centred on a locked card
+const MAP_LOCK_NODE := "MapLockMedallion"          # the locked card's centred lock medallion (tests assert it)
+const LOCK_FILL_TOP := Color(0.165, 0.490, 0.588)  # locked-card interior gradient — teal at top …
+const LOCK_FILL_BOTTOM := Color(0.235, 0.290, 0.275)  # … to a muted dark at the base (sampled from card_locked)
 # Draws the locale art COVER-fitted to fill the inner rect, clipped to a rounded rect so it tucks INSIDE the
 # shared gold-badge frame's inner corner (the frame is a filled 9-slice behind it; the art nests in its
 # border like the board grid in the board frame). `art` is the locale texture, `tex_px` drives the COVER
@@ -68,6 +72,24 @@ void fragment() {
 	COLOR = col;
 }"
 static var _map_art_fill: Shader
+# A locked card's dark "veiled" interior: a top→bottom gradient (no texture, so no baked border to double up
+# the frame), clipped to the frame's inner rounded corner — the same rounded clip the art fill uses.
+const MAP_LOCK_FILL_SHADER := "shader_type canvas_item;
+uniform vec4 top_color : source_color = vec4(0.165, 0.49, 0.588, 1.0);
+uniform vec4 bottom_color : source_color = vec4(0.235, 0.29, 0.275, 1.0);
+uniform vec2 rect_px = vec2(1.0);
+uniform float radius_px = 0.0;
+void fragment() {
+	vec4 col = mix(top_color, bottom_color, clamp(UV.y, 0.0, 1.0));
+	vec2 p = UV * rect_px;
+	vec2 hs = rect_px * 0.5;
+	float r = clamp(radius_px, 0.0, min(hs.x, hs.y));
+	vec2 q = abs(p - hs) - (hs - vec2(r));
+	float sd = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+	col.a *= clamp(0.5 - sd, 0.0, 1.0);
+	COLOR = col;
+}"
+static var _map_lock_fill: Shader
 static var _map_meadow_tex: Texture2D = null      # cached 1x1 MEADOW texture for the art-less fallback
 
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
@@ -4066,20 +4088,56 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 		if spark > 0.0:
 			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
 
-# A LOCKED place: the SAME shared gold frame as an open card + a dark interior — the baked dark panel (lock
-# medallion baked in) COVER-fills the box up to the rim, undistorted (no stretch). The "after <prev>"
-# prerequisite line sits low. With the painted panel off/missing, fall back to a meadow fill under the §8 fog.
+# The locked card's dark "veiled" interior: a top→bottom gradient ColorRect (NO texture, so there's no baked
+# border to double up against the gold frame), inset to the rim + clipped to the frame's inner rounded
+# corner exactly like the art fill. (The old card_locked.png baked its OWN gold border, which showed through
+# as a cream band once the shared frame wrapped it.)
+static func _map_add_gradient_fill(card: Control, badge_opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var cap := float(gold_badge_cap(badge_opts))
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var radius := maxf(2.0, cap - band)
+	if _map_lock_fill == null:
+		_map_lock_fill = Shader.new()
+		_map_lock_fill.code = MAP_LOCK_FILL_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _map_lock_fill
+	mat.set_shader_parameter("top_color", LOCK_FILL_TOP)
+	mat.set_shader_parameter("bottom_color", LOCK_FILL_BOTTOM)
+	mat.set_shader_parameter("rect_px", Vector2(maxf(2.0, card_w - band * 2.0), maxf(2.0, card_h - band * 2.0)))
+	mat.set_shader_parameter("radius_px", radius)
+	var fill := ColorRect.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.offset_left = band
+	fill.offset_top = band
+	fill.offset_right = -band
+	fill.offset_bottom = -band
+	fill.material = mat
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(fill)
+	return fill
+
+# A LOCKED place: the SAME shared gold frame as an open card + a dark gradient interior carrying the
+# standalone lock medallion (centred), with the "after <prev>" prerequisite line low. Open and locked read
+# as one surface — same frame — distinguished by the lit art vs the dark veil + lock.
 static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
 	var badge_opts: Dictionary = opts.get("badge", {})
 	_map_add_frame(card, badge_opts)
-	var panel_path := Look.kit(MAP_CARD_LOCKED)
-	if bool(opts.get("use_art", true)) and ResourceLoader.exists(panel_path):
-		_map_add_fill(card, load(panel_path), badge_opts, card_w, card_h)   # dark panel, COVER-filled (no stretch)
-	else:
-		var fill := _map_add_fill(card, _map_meadow_texture(), badge_opts, card_w, card_h)
-		fill.clip_contents = true
-		_map_veil(fill, String(d.get("map_id", "")), opts)   # the §8 code-drawn fog when the painted panel is absent
-	# the prerequisite line, low on the panel (the baked medallion is the centre mark).
+	_map_add_gradient_fill(card, badge_opts, card_w, card_h)
+	# the standalone lock medallion, centred (lifted slightly so the prerequisite line clears it).
+	var lock_path := Look.kit(MAP_CARD_LOCK)
+	if ResourceLoader.exists(lock_path):
+		var med := TextureRect.new()
+		med.name = MAP_LOCK_NODE
+		med.texture = load(lock_path)
+		med.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		med.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var msz := clampf(card_h * 0.44, 56.0, 260.0)
+		med.custom_minimum_size = Vector2(msz, msz)
+		med.size = Vector2(msz, msz)
+		med.position = Vector2((card_w - msz) * 0.5, (card_h - msz) * 0.5 - card_h * 0.07)
+		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(med)
+	# the prerequisite line, low on the panel.
 	var state_l := Label.new()
 	state_l.text = String(d.get("prereq", ""))
 	state_l.add_theme_font_size_override("font_size", int(clampf(card_h * 0.135, 18.0, 30.0)))
