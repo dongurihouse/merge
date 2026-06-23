@@ -147,6 +147,24 @@ func _initialize() -> void:
 	_test_gold_badge_corner(view)
 	_test_gold_badge_inner_corner_tracks_outer(view)
 	_test_gold_badge_consumers(view)
+	ok(view._sections.has("gold_currency_pill"), "the gold currency pill is a separate registered gallery item")
+	var gcp := Kit.gold_currency_pill({
+		"icon": "water", "count": 2450, "plus_x": 0, "plus_y": 0,
+		"plus_radius": 28, "plus_shine": 32, "plus_stroke": 2,
+		"plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
+	})
+	ok(gcp is Control and _has_label_text(gcp, "2450") and _has_label_text(gcp, "+"), \
+		"gold_currency_pill renders the sample count and plus glyph")
+	ok(gcp.find_children("GoldBadgeTexture", "TextureRect", true, false).size() >= 1, \
+		"gold_currency_pill reuses the code-drawn gold badge texture")
+	ok(gcp.find_children("GoldCurrencyIcon", "TextureRect", true, false).size() >= 1, \
+		"gold_currency_pill reuses the existing currency icon asset")
+	ok(view._is_config("gold_currency_pill", "plus_hue") and view._is_config("gold_currency_pill", "plus_button"), \
+		"gold_currency_pill plus controls are saved on its own config block")
+	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
+	view._selected = "gold_currency_pill"
+	view._rebuild_sidebar()
+	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/

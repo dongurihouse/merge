@@ -856,6 +856,119 @@ static func _gold_badge_over(dst: Color, src: Color) -> Color:
 		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) / a,
 		a)
 
+## Standalone workbench currency pill that ports the HTML plus-button study without changing the
+## shipped HUD currency_pill. The left badge reuses gold_badge(); the currency glyph reuses make_icon().
+static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -> Control:
+	var pill_w := float(opts.get("pill_w", 292))
+	var pill_h := float(opts.get("pill_h", 100))
+	var icon_id := String(opts.get("icon", "water"))
+	var badge_px := float(opts.get("badge_px", 54))
+	var icon_px := float(opts.get("icon_size", 34))
+	var num_size := int(opts.get("num_size", 30))
+	var gap := int(opts.get("gap", 12))
+
+	var panel := PanelContainer.new()
+	panel.name = "GoldCurrencyPill"
+	panel.custom_minimum_size = Vector2(pill_w, pill_h)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#FDE7B0")
+	sb.border_color = Color(151.0 / 255.0, 104.0 / 255.0, 31.0 / 255.0, 0.36)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(int(pill_h * 0.5))
+	sb.content_margin_left = int(pill_h * 0.18)
+	sb.content_margin_right = int(pill_h * 0.16)
+	sb.content_margin_top = int(pill_h * 0.12)
+	sb.content_margin_bottom = int(pill_h * 0.12)
+	sb.shadow_color = Color(73.0 / 255.0, 93.0 / 255.0, 97.0 / 255.0, 0.22)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 5)
+	panel.add_theme_stylebox_override("panel", sb)
+
+	var row := HBoxContainer.new()
+	row.name = "GoldCurrencyPillRow"
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", gap)
+	panel.add_child(row)
+
+	var badge_wrap := Control.new()
+	badge_wrap.name = "GoldCurrencyBadge"
+	badge_wrap.custom_minimum_size = Vector2(badge_px, badge_px)
+	badge_wrap.size = Vector2(badge_px, badge_px)
+	badge_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge_wrap.add_child(gold_badge(badge_px))
+	var icon_slot := CenterContainer.new()
+	icon_slot.name = "GoldCurrencyIconSlot"
+	icon_slot.set_anchors_preset(Control.PRESET_FULL_RECT)
+	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var icon := make_icon(icon_id, icon_px)
+	icon.name = "GoldCurrencyIcon"
+	icon_slot.add_child(icon)
+	badge_wrap.add_child(icon_slot)
+	row.add_child(badge_wrap)
+
+	var amount := Label.new()
+	amount.name = "GoldCurrencyAmount"
+	amount.text = str(int(counts.get(icon_id, opts.get("count", 2450))))
+	amount.add_theme_font_size_override("font_size", num_size)
+	amount.add_theme_color_override("font_color", Color("#3A1C12"))
+	amount.add_theme_constant_override("outline_size", 0)
+	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	amount.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(amount)
+
+	row.add_child(_gold_currency_plus_button(opts))
+	return panel
+
+static func _gold_currency_plus_button(opts: Dictionary = {}) -> Control:
+	var base := float(opts.get("plus_base", 34))
+	var button_scale := float(opts.get("plus_button", 100)) / 100.0
+	var hue := float(opts.get("plus_hue", 65)) / 360.0
+	var shine := clampf(float(opts.get("plus_shine", 32)) / 100.0, 0.0, 1.0)
+	var radius_scale := float(opts.get("plus_radius", 28)) / 100.0
+	var stroke_scale := float(opts.get("plus_stroke", 2)) / 100.0
+	var font_scale := float(opts.get("plus_font", 70)) / 100.0
+	var w := base * 1.03 * button_scale
+	var h := base * 0.90 * button_scale
+
+	var p := Panel.new()
+	p.name = "GoldCurrencyPlusButton"
+	p.custom_minimum_size = Vector2(w, h)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var green := Color.from_hsv(hue, 0.42, 0.40 + shine * 0.04)
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = green
+	psb.border_color = green.darkened(0.28)
+	psb.set_border_width_all(1)
+	psb.set_corner_radius_all(int(base * radius_scale * button_scale))
+	psb.shadow_color = Color(55.0 / 255.0, 53.0 / 255.0, 22.0 / 255.0, 0.34)
+	psb.shadow_size = 3
+	psb.shadow_offset = Vector2(0, 2)
+	p.add_theme_stylebox_override("panel", psb)
+
+	var g := Label.new()
+	g.name = "GoldCurrencyPlusLabel"
+	g.text = "+"
+	g.add_theme_font_size_override("font_size", int(round(base * font_scale)))
+	g.add_theme_color_override("font_color", Color("#FFF6C7"))
+	g.add_theme_color_override("font_outline_color", Color(62.0 / 255.0, 73.0 / 255.0, 23.0 / 255.0, 0.54))
+	g.add_theme_constant_override("outline_size", maxi(0, int(round(base * stroke_scale))))
+	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	g.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var dx := float(opts.get("plus_x", 0))
+	var dy := float(opts.get("plus_y", 0))
+	g.offset_left = dx
+	g.offset_right = dx
+	g.offset_top = dy
+	g.offset_bottom = dy
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(g)
+	return p
+
 ## A unified pill BUTTON — ONE component, parameterised by state. opts:
 ##   bg      "green" | "cream"     (the same button, two backgrounds — Claim vs a cream chip)
 ##   icon    currency id | ""      (drawn to the LEFT of the text; "" = none — the icon toggle)
