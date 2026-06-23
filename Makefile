@@ -114,8 +114,8 @@ shot-grove: ## capture the board:  make shot-grove [MODE=fresh|played|gate|hud|c
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)
 
-shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png]
-	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png)
+shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png] [EL=mystery]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png) $(EL)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)

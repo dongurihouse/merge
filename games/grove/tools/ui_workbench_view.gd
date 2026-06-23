@@ -14,6 +14,8 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
+const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
+const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const Pal = Game.PALETTE
 # Demo merge pieces for the Board preview — [row, col, item code]; cells outside the grid are skipped.
 const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 102], [5, 1, 104], [6, 5, 101], [2, 5, 103]]
@@ -21,7 +23,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -32,7 +34,7 @@ const COLUMNS := [
 	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["gold_currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
-	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
+	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -42,7 +44,7 @@ const COLUMNS := [
 const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
 	"card": ["dialog", "daily", "shop", "settings", "info"],
-	"frame": ["dialog", "daily", "shop", "settings", "bag", "tiers", "info"],
+	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
 	"gold_badge": ["board", "info_bar"],
@@ -85,6 +87,9 @@ const TEST_KEYS := {
 	"frame": ["snap", "preview_text"],     # snap is the drag-grid helper; preview_text is sample title text — neither saved
 	"dialog": ["entries"],
 	"daily": [],
+	# the MYSTERY spin-reveal dialog has no own saved knobs — it inherits the shared frame (edited on the
+	# Frame item) and sizes by the engine's min(560, 94%) rule; `preview` just picks which pool + state to show.
+	"mystery": ["preview"],
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
 	"tiers": [],
@@ -131,6 +136,7 @@ const CAPTIONS := {
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
+	"mystery": "Mystery — spin-reveal dialog (shared frame · reward cards · winners)",
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
@@ -237,6 +243,10 @@ var _params := {
 	# …the daily DIALOG reuses the shared frame + that card, adding the grid knobs + its OWN scroll cap
 	# (list_max_h 0 = no scroll, tall enough for every day; the frame's mail-list cap doesn't apply)…
 	"daily": {"width_pct": 85, "cols": 3, "list_max_h": 0},
+	# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
+	# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
+	# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
+	"mystery": {"preview": "day 7 · won"},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
@@ -291,6 +301,8 @@ var _params := {
 		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
 var _selected := "button"
+var _focus_only := ""             # if set (a component id), _build() renders JUST that element centred — a
+                                  # focused, repeatable capture (make shot-workbench EL=<id>); "" = full gallery
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
 var _sidebar_body: VBoxContainer = null
 var _sections: Dictionary = {}    # id -> the element's gallery section (PanelContainer), for in-place rebuilds
@@ -340,6 +352,16 @@ func _build() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
+
+	# FOCUS capture: render JUST one element, centred, with no sidebar/gallery chrome — a clean, repeatable
+	# single-component shot (make shot-workbench EL=<id>). Used to capture the mystery spin-reveal dialog
+	# (and any other component) for visual regression without cropping it out of the full gallery.
+	if _focus_only != "" and IDS.has(_focus_only):
+		var cc := CenterContainer.new()
+		cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+		add_child(cc)
+		cc.add_child(_make_element(_focus_only))
+		return
 
 	var hb := HBoxContainer.new()
 	hb.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -541,6 +563,11 @@ func _make_element(id: String) -> Control:
 			var dopts := Kit.daily_opts_from_config(_params)
 			dopts["banner_text"] = "Daily"
 			return Kit.daily_dialog(Kit.DEMO_DAILY, _dlg_px("daily"), dopts)   # frame edited on the Frame item
+		"mystery":
+			# the spin-reveal dialog (login_mystery.gd build_reveal) — the SAME face the game animates, rendered
+			# STATIC so it's visual-checkable. The preview picks a pool + a state; the demo roll is DETERMINISTIC
+			# (no shuffle) so the capture is repeatable. Frame edits flow through via frame_cfg: _params.
+			return _mystery_preview(String(p.preview))
 		"shop":
 			# the SAME shared frame + the SAME small card — just shop data (icon+count+price+ribbon)
 			var sopts := Kit.shop_opts_from_config(_params)
@@ -836,6 +863,35 @@ func _daily_preview_day(state: String) -> Dictionary:
 		"mystery": return {"day": 7, "label": "Day 7", "reward": {"gems": 30}, "state": "future", "mystery": true}
 		"shop":    return {"icon": "gem", "count": 500, "price": "$4.99"}   # the SAME card as a shop pack
 		_:         return {"day": 4, "label": "Day 4", "reward": {"coins": 150}, "state": "today"}
+
+## The MYSTERY spin-reveal dialog, rendered STATIC for a repeatable visual check. `which` selects the
+## pool (day 4 = 3 cards / 1 win · day 7 = 5 cards / 2 wins) and the state ("shown" = every card lit, the
+## look you read each amount off · "won" = winners lit, the rest dimmed + the "You won!" caption — the
+## landed climax). The demo roll is DETERMINISTIC (first `show` pool entries, evenly-spaced winners — no
+## shuffle), so the same preview always renders the same cards. Reuses LoginMystery.build_reveal, so this
+## is byte-for-byte the dialog the game opens; frame_cfg: _params flows live Frame edits through.
+func _mystery_preview(which: String) -> Control:
+	var slot := 4 if which.begins_with("day 4") else 7
+	var won := which.ends_with("won")
+	var mc: Dictionary = Login.mystery_config(slot)
+	var pool: Array = mc.get("pool", [])
+	var show: int = mini(int(mc.get("show", 0)), pool.size())
+	var win: int = mini(int(mc.get("win", 0)), show)
+	var options: Array = []
+	for i in show:
+		options.append(pool[i])                       # first `show` (deterministic — the live roll shuffles)
+	var winners: Array = []
+	for j in win:
+		winners.append(clampi(int(floor((j + 0.5) * show / float(maxi(1, win)))), 0, maxi(0, show - 1)))
+	var built: Dictionary = LoginMystery.build_reveal(options, winners, LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params})
+	var cards: Array = built["cards"]
+	if won:
+		# the landed climax: winners full, the rest dimmed (mirror the live _set_highlight modulate — no scale,
+		# which would pivot oddly on an unlaid-out preview), and swap the caption to the win line.
+		for i in cards.size():
+			(cards[i] as Control).modulate = Color(1, 1, 1, 1.0 if winners.has(i) else 0.4)
+		(built["caption"] as Label).text = "You won!"
+	return built["dialog"]
 
 ## Placeholder content for the standalone Frame preview — faint bars standing in for "any content".
 func _frame_placeholder() -> Control:
@@ -1192,7 +1248,7 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
-	if _selected == "dialog" or _selected == "daily" or _selected == "shop" or _selected == "settings":
+	if _selected == "dialog" or _selected == "daily" or _selected == "mystery" or _selected == "shop" or _selected == "settings":
 		var note := Label.new()
 		var card_src := ""
 		if _selected == "daily" or _selected == "shop":
@@ -1442,6 +1498,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
+		"mystery":
+			# no saved knobs: the frame is shared (Frame item) and the width is the engine's min(560, 94%) cap.
+			# Just the preview-state picker — which pool (day 4 / 7) and which state (all shown / winners landed).
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["day 7 · won", "day 7 · shown", "day 4 · won", "day 4 · shown"]))
 		"shop":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)

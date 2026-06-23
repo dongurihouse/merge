@@ -650,26 +650,20 @@ calls), **Testing** (re-enable / add coverage), and others as they emerge.
 
 ## Active — build now
 
-- **Mystery-reward dialog — build + verify the full experience on placeholder rewards.** Build and
-  test the mystery-gift dialog / popup and its spin-reveal experience end-to-end using the *placeholder*
-  reward pools — don't block on final numbers (those move to **Tuning**, below). Three parts:
-  - **Externalize the reward config to JSON.** Daily + mystery rewards live today as GDScript constants
-    in [`games/grove/grove_data.gd`](../games/grove/grove_data.gd) (`LOGIN_LADDER`, `LOGIN_MILESTONES`,
-    `LOGIN_MYSTERY`) — move / mirror them into a JSON config (e.g. `games/grove/data/login_rewards.json`)
-    that `engine/scripts/core/login.gd` reads, so rewards are data-tunable without code edits.
-  - **Live end-to-end spin check.** Watch a real run of the animated landing (sweep → land on winner(s)
-    → "You won!" → celebrate → auto-dismiss); tune the `_spin` step counts/delays in
-    `engine/scripts/ui/login_mystery.gd` if the deceleration reads too fast/slow. *(was follow-up 1.3.)*
-  - **Visual-capture tooling in the workbench.** Throw away the scratch `.scratch/mystery_amounts_shot.gd`;
-    build the mystery-reveal capture/preview into the UI workbench (`games/grove/tools/ui_workbench*`),
-    which already previews login-calendar states (incl. a "mystery" mode), so the dialog is repeatably
-    visual-checkable. *(was follow-up 1.4.)*
+_(empty — the mystery-reward dialog shipped as **T53**, 2026-06-23; see `tasks/ux-feel.md`.)_
 
 ## Tuning (owner feel / pacing calls)
 
-- **Mystery reward pools.** Re-tune `LOGIN_MYSTERY` (in the new JSON config above) — day-4 to a mid-week
-  reward tier, day-7 to a milestone tier, against the wider coin/gem economy; keep every `water` entry
-  ≤ `LOGIN_WATER_SAFE_MAX` (= 15, the §4/§10 faucet guard, asserted by tests). *(was follow-up 1.1.)*
+- **Mystery reward pools.** Re-tune the pools in **`games/grove/login_rewards.json`** (the reward config is
+  now data — `LOGIN_*` consts removed from `grove_data.gd` in T53) — day-4 to a mid-week reward tier, day-7
+  to a milestone tier, against the wider coin/gem economy; keep every `water` entry ≤ `water_safe_max`
+  (= 15, the §4/§10 faucet guard, asserted by tests). *(was follow-up 1.1.)*
+- **Mystery spin pacing (day-7 length).** The deceleration *curve* reads right (measured 0.035s→0.17s ramp,
+  visible card-to-card slowdown) so T53 left `_spin` untouched. The one open feel call: a 2-winner day (slot 7)
+  runs ~3.6s of spin (vs ~1.6s for the 1-winner slot 4) because each extra winner appends a full ~2s segment,
+  then a 1.5s "You won!" hold → ~5s total before auto-dismiss. If that reads long for a weekly-repeating reward,
+  shorten the per-winner step counts in `login_mystery.gd:_spin` (`steps = 14 + wi*5` → e.g. `10 + wi*4`) and/or
+  the 1.5s finish hold. Owner eyeball — captures shared with the T53 handoff.
 
 ## Testing (re-enable / add coverage)
 

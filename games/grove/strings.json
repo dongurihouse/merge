@@ -116,7 +116,8 @@
 	"mystery": {
 		"banner_plural": "Mystery Gifts",
 		"banner_single": "Mystery Gift",
-		"spinning": "Spinning…"
+		"spinning": "Spinning…",
+		"won": "You won!"
 	},
 	"oow": {
 		"charged_note": "You'll be charged %s.",

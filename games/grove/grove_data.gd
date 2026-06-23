@@ -453,52 +453,15 @@ const VAULT_CAP := 500                    # a generous ceiling so the jar art ha
 # The crack price ($2.99) + product id live in data/iap_products.json under "piggybank" (the IAP catalog
 # is the single source of truth for cost); core/vault.gd::price_usd() reads it from there.
 
-# The daily login calendar (§18): a repeating WEEK ladder (7 entries, days 1..7 in a
-# week) of small rewards, escalating in value, with bigger MILESTONES at absolute streak
-# day 7 / 30 that OVERRIDE the week slot. A reward is any of {coins, water, gems,
-# cosmetic}. Faucet discipline: mostly COINS (the friendly soft currency); WATER stays a
-# modest top-up on a couple of days (≤ LOGIN_WATER_SAFE_MAX, far under a day's ~720 natural
-# regen — the calendar tops up, it never refills); PREMIUM (💎) lands as the weekly capstone
-# and the milestones lean premium/cosmetic. The streak is FORGIVING (Save.daily soft-decays
-# a missed day one step, never to day 1). OWNER-TUNABLE — re-tune copy/cadence here.
-const LOGIN_LADDER := [
-	{"coins": 50},                        # day 1 — a friendly welcome
-	{"water": 8},                         # day 2 — a modest splash
-	{"coins": 100},                       # day 3
-	{"water": 12},                        # day 4 — the largest single-day water gift (≤ safe max)
-	{"coins": 150},                       # day 5
-	{"gems": 1, "coins": 60},             # day 6 — a first taste of premium (the build toward the cap)
-	{"coins": 200, "gems": 1},            # day 7 slot for NON-milestone weeks (14/21/28 — day-7 absolute is the milestone below)
-]
-# Milestones keyed by ABSOLUTE streak day — a bigger, premium/cosmetic payout that
-# overrides the week slot when the streak lands here (§18 "bigger milestones"). The old
-# day-7 milestone is gone: slot 7 is now a MYSTERY day (LOGIN_MYSTERY below).
-const LOGIN_MILESTONES := {
-	30: {"gems": 15, "coins": 300},                         # the month cap — leans premium (the cosmetic unlock was removed with customization)
-}
-# MYSTERY gift slots (§18 · T46) — keyed by WEEKLY slot (((day-1) % 7) + 1), so they recur
-# every week (days 4/7/11/14/…). On these days the calendar opens an AUTO-SPIN reveal instead
-# of a fixed grant: it draws `show` DISTINCT rewards from the pool and the spin lands on `win`
-# of them. Slot 7 supersedes the old day-7 milestone — its pool is milestone-tier (richer, 2
-# wins). Pools are OWNER-TUNABLE; every `water` entry stays ≤ LOGIN_WATER_SAFE_MAX (faucet guard).
-const LOGIN_MYSTERY := {
-	4: {"show": 3, "win": 1, "pool": [
-		{"coins": 120},
-		{"water": 12},
-		{"coins": 60, "water": 6},
-		{"gems": 1},
-		{"coins": 150},
-	]},
-	7: {"show": 5, "win": 2, "pool": [
-		{"coins": 200},
-		{"gems": 2},
-		{"coins": 100, "gems": 1},
-		{"water": 14},
-		{"coins": 300},
-		{"gems": 3},
-	]},
-}
-const LOGIN_WATER_SAFE_MAX := 15          # §4/§10 guard: the biggest daily water gift the ladder may pay (asserted by tests)
+# The daily login calendar (§18) reward tables are now DATA, not consts: the repeating
+# WEEK `ladder` (escalating small rewards), the `milestones` keyed by absolute streak day
+# (a bigger payout that OVERRIDES the week slot), the MYSTERY `mystery` slots (an auto-spin
+# reveal drawing `show` rewards and landing on `win`), and the `water_safe_max` faucet guard
+# all live in `games/grove/login_rewards.json`, read by engine/scripts/core/login.gd off
+# Game.active() (mirrors strings.json). Re-tune rewards/cadence THERE — no code edit.
+# Faucet discipline still holds (mostly COINS; WATER a modest top-up ≤ water_safe_max, far
+# under a day's ~720 natural regen; PREMIUM 💎 the weekly capstone + milestones); the streak
+# stays FORGIVING (Save.daily soft-decays a missed day, never to day 1).
 
 # The MAP TASK-STRIP reward (§17 chrome task loop). The strip rides the EXISTING
 # restore-the-next-spot goal (no bolted-on quest); finishing a map's spots pays this
