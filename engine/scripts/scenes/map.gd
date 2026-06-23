@@ -92,6 +92,7 @@ var _press := Vector2.ZERO       # last press point (still-tap resolution)
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
+var _residents_btn: Button = null  # the bottom-nav Residents badge — shown only on a fully-unlocked map
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
@@ -268,6 +269,7 @@ func _open_map(z: int) -> void:
 	_build_map()
 	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
+	_refresh_residents_btn()             # show/hide the Residents badge for the map just opened
 
 func _open_select() -> void:
 	_view = "select"
@@ -1261,14 +1263,18 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
+		# Residents — the resident roster shop (only on a fully-unlocked map; hidden otherwise).
+		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
 		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
 	_refresh_play_cta()                  # confirm the merged CTA's Play↔Restore state for the open map
-	# the Play disc breathes so the primary action reads (index 1) — kept whether it shows board or vine.
-	FX.breathe_once(nav.buttons[1])
+	# the Play disc breathes so the primary action reads — kept whether it shows board or vine. (Target by
+	# identity, not nav index: the Residents button shifts Play's position in the row.)
+	if is_instance_valid(_play_btn):
+		FX.breathe_once(_play_btn)
 	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no
 	# longer wears a corner badge. `_store_badge` stays null, so `_refresh_store_badge` is a safe no-op.
 	# the LiveOps rail: Daily · Free · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
@@ -1295,6 +1301,38 @@ func _make_map_button() -> Button:
 	opts["calm"] = FX.calm()
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
+
+# The Residents button (bottom nav, between Map and Play) — opens the resident roster shop. Built like the
+# Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
+# "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
+# out of the nav HBox, so an incomplete map shows just [Map, Play].
+func _make_residents_button() -> Button:
+	var open := func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_residents_shop(_map_idx)
+	var Kit: GDScript = load(KIT_PATH)
+	var b: Button
+	if Kit == null:
+		b = NavBar._make_nav_button("nav_residents.png", 140.0, open)   # defensive: glyph/png fallback
+	else:
+		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		opts["px"] = 140.0
+		opts["shape"] = "rect"
+		opts["calm"] = FX.calm()
+		b = Kit.home_button({"icon": "house", "caption": Strings.t("map.nav.residents"), "action": open}, opts)
+	_residents_btn = b
+	_refresh_residents_btn()
+	return b
+
+# Show the Residents button only when the open map is fully unlocked (same gate as the population layer).
+func _refresh_residents_btn() -> void:
+	if _residents_btn != null and is_instance_valid(_residents_btn):
+		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
+
+# The residents SHOP — filled in by the roster shop dialog (see _open_residents_shop). Stub kept so the
+# Residents button compiles; replaced with the real builder.
+func _open_residents_shop(_z: int) -> void:
+	pass
 
 # The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
 # big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the
