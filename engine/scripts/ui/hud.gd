@@ -223,8 +223,7 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	row.add_theme_constant_override("separation", int(pill.row_sep))   # the tight icon↔number↔+ gap
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(row)
-	var ishadow := float(pill.get("icon_shadow", 0)) / 100.0   # soft drop-shadow on the icon + the "+" (workbench)
-	var icon := _icon_box(Kit, icon_id, gsize, optical, tint, box, ishadow)
+	var icon := _icon_box(icon_id, gsize, optical, tint, box)
 	row.add_child(icon)
 	var lbl := Label.new()
 	lbl.add_theme_font_size_override("font_size", num_size)
@@ -233,7 +232,7 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(lbl)
-	var plus := _plus_button(Kit, open_store, float(pill.get("plus_size", Tune.PLUS_BOX)), ishadow)   # green "+", size tuned in the workbench
+	var plus := _plus_button(open_store, float(pill.get("plus_size", Tune.PLUS_BOX)))   # green "+", size tuned in the workbench
 	# the "+" FLOATS over the pill: its size never grows the capsule, and plus_x / plus_dy place it on the
 	# right edge. The HOLDER (sized to the pill) is what the cluster lays out — the pill is its full-rect child.
 	# `plus` is a plain Button (not a Container), so a caller can attach_badge() to it (the map's Store badge
@@ -244,13 +243,14 @@ static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_i
 # A fixed square box with the currency sprite centered in it and scaled by an OPTICAL factor
 # (so the dense flower, tall acorn, and slim gem read at matching weight). `tint` modulates the
 # sprite to reinforce each currency's hue (star=gold, acorn=brown, gem=teal — gem ≠ water).
-static func _icon_box(Kit: Variant, icon_id: String, gsize: int, optical: float, tint: Color, box_px: float, icon_shadow: float = 0.0) -> Control:
+static func _icon_box(icon_id: String, gsize: int, optical: float, tint: Color, box_px: float) -> Control:
 	var box := CenterContainer.new()
 	box.custom_minimum_size = Vector2(box_px, box_px)
 	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# a baked soft drop-shadow lifts the sprite off the cream capsule (workbench `icon_shadow`); 0 → plain icon.
-	var ic: Control = Kit.make_icon_shadow(icon_id, float(gsize) * optical, icon_shadow) if (icon_shadow > 0.0 and Kit != null) else Look.icon(icon_id, float(gsize) * optical)
+	# the currency sprite, optically scaled. (Its lift off the cream capsule is the pill's SHARED box-shadow now,
+	# not a per-icon drop shadow — the unified-shadow refactor retired the old `icon_shadow` polish.)
+	var ic: Control = Look.icon(icon_id, float(gsize) * optical)
 	ic.modulate = tint
 	if ic is Label:                                   # glyph fallback — re-tint via font_color too
 		(ic as Label).add_theme_color_override("font_color", tint)
@@ -261,15 +261,15 @@ static func _icon_box(Kit: Variant, icon_id: String, gsize: int, optical: float,
 # A small "+" that opens the store — the acquire affordance (the wallet had no path to "get more").
 # Wears the painted ui_asset2 "+" sprite (shared/icon_plus.png — a self-contained green plus token, so no
 # code-drawn disc behind it); a "+" glyph falls back when the sprite is missing. Reuses the shared press juice.
-static func _plus_button(Kit: Variant, open_store: Callable, box: float = Tune.PLUS_BOX, icon_shadow: float = 0.0) -> Button:
+static func _plus_button(open_store: Callable, box: float = Tune.PLUS_BOX) -> Button:
 	var b := Button.new()
 	b.flat = true                       # the sprite IS the token — the Button draws no chrome of its own
 	b.focus_mode = Control.FOCUS_NONE
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.custom_minimum_size = Vector2(box, box)
 	b.add_theme_constant_override("h_separation", 0)
-	# the painted green "+" (glyph "+" fallback when absent), with the same soft drop-shadow as the pill icon.
-	var mark: Control = Kit.make_icon_shadow("plus", box, icon_shadow) if (icon_shadow > 0.0 and Kit != null) else Look.icon("plus", box)
+	# the painted green "+" (glyph "+" fallback when absent). Its lift off the pill is the SHARED box-shadow.
+	var mark: Control = Look.icon("plus", box)
 	if mark is Label:                                   # glyph fallback: keep the cream-on-green token look
 		(mark as Label).add_theme_color_override("font_color", Tune.PLUS_GLYPH)
 		var sb := StyleBoxFlat.new()
