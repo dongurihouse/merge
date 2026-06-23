@@ -3255,13 +3255,30 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("inner_px", inner)
 	return pill
 
-## A round cream icon button (the info bar's "ⓘ"): the cream disc + a centred kit icon. Mirrors the
-## board's old _circle_btn so the extracted info bar renders identically.
+## The info bar's "ⓘ" button. When the shipped disc sprite (ui/shared/icon_<id>.png — the cream
+## disc + "i" cut from action_asset) is present it IS the whole button face: a transparent button
+## under the texture, rendered edge-to-edge. The disc art already carries its own cream fill +
+## border, so drawing a pill behind it would double the disc. Falls back to a drawn cream disc +
+## centred glyph when the sprite is absent (mirrors the board's old _circle_btn).
 static func _info_circle_btn(icon_id: String, px: float) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.custom_minimum_size = Vector2(px, px)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var disc_p := Look.kit("shared/icon_%s.png" % icon_id)
+	if ResourceLoader.exists(disc_p):
+		var empty := StyleBoxEmpty.new()
+		for st in ["normal", "hover", "pressed", "disabled"]:
+			b.add_theme_stylebox_override(st, empty)
+		var tr := TextureRect.new()
+		tr.texture = load(disc_p)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(tr)
+		Look.add_press_juice(b)
+		return b
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(Pal.CREAM)
 	sb.set_corner_radius_all(int(px / 2.0))

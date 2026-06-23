@@ -3,7 +3,8 @@
   "category": "sheet",
   "params": { "min_area": 600 },
   "outputs": [
-    { "island": 9, "name": "icon_trash", "path": "ui/shared/icon_trash.png", "post": "icon:512" }
+    { "island": 9, "name": "icon_trash", "path": "ui/shared/icon_trash.png", "post": "icon:512" },
+    { "island": 5, "name": "icon_info",  "path": "ui/shared/icon_info.png",  "post": "icon:512" }
   ],
   "archive": "_originals/ui/action_asset.png"
 }
