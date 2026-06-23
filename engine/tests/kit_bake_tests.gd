@@ -63,6 +63,13 @@ func _initialize() -> void:
 	ok(srcs.has(Look.kit("shared/disc_round.png")), "the home-button disc shell is in the bake set")
 	ok(srcs.has(Game.art("ui/shared/icon_gear.png")), "a nav icon (gear) is in the bake set")
 	ok(srcs.has(Game.art("ui/shared/icon_mail.png")), "a rail icon (mail) is in the bake set")
+	# 4c. The Play CTA + live-ops rail icons that landed AFTER the first chrome pass: the board/vine play
+	#     marks, the calendar/chest rail icons, and the orange play_disc shell. They were the live-polish
+	#     cost in _build_chrome / _build_liveops_rail; _chrome() builds a home_button for each so they land
+	#     in the bake set (and the GUARD above holds each one baked).
+	for icon_id in ["board", "vine", "calendar", "chest"]:
+		ok(srcs.has(Game.art("ui/shared/icon_%s.png" % icon_id)), "the %s chrome icon is in the bake set" % icon_id)
+	ok(srcs.has(Look.kit("shared/play_disc.png")), "the orange play-disc shell is in the bake set")
 	for n in nodes:
 		if n is Node:
 			(n as Node).queue_free()

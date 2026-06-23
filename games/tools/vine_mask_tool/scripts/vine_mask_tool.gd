@@ -184,6 +184,7 @@ func _ensure_view() -> void:
 		return
 	view = VineMapView.new()
 	view.name = "VineView"
+	view.live_region_map_only = true        # the tool edits geometry — always raster live, never a baked map
 	view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	view.position = Vector2.ZERO
 	artwork_frame.add_child(view)
