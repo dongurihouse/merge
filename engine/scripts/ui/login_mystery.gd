@@ -51,10 +51,34 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vw: float = (host.get_viewport_rect().size.x if host.is_inside_tree() else 720.0)
-	var width: float = minf(560.0, maxf(360.0, vw * 0.94))
+	var built: Dictionary = build_reveal(options, winners, reveal_width(vw),
+		{"on_close": func() -> void: _dismiss(overlay, on_done)})
+	var dialog: Control = built["dialog"]
+	var cards: Array = built["cards"]
+	var caption: Label = built["caption"]
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
 
+	var finish := func() -> void: _finish(overlay, roll, caption, on_done, instant)
+	if instant:
+		finish.call()
+	else:
+		_set_highlight(cards, -1, [])
+		_spin(overlay, cards, roll, finish)
+
+## The reveal dialog's width for a viewport `vw` — capped at 560 on phone, never below 360 (a % of the
+## live viewport otherwise). One place so the live dialog and the workbench preview size identically.
+static func reveal_width(vw: float) -> float:
+	return minf(560.0, maxf(360.0, vw * 0.94))
+
+## Build the reveal's FACE — a caption over a centred row of the option cards, wrapped in the shared
+## dialog frame. Returns {dialog, cards (in row order), caption}. The SINGLE source for the reveal
+## dialog: open() animates it live (spin → land → grant); the UI workbench renders it static for
+## visual checks. opts: frame_cfg (Dictionary, the dialog-frame config — defaults to the saved
+## workbench settings, exactly what the game reads); on_close (Callable for the ✕, optional).
+static func build_reveal(options: Array, winners: Array, width: float, opts: Dictionary = {}) -> Dictionary:
+	var Kit: GDScript = load(KIT_PATH)
 	# body = a caption + a single centred row of the option cards (held by ref so the spin lights them)
 	var body := VBoxContainer.new()
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -86,19 +110,14 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 		cards.append(card)
 		row.add_child(card)
 
+	var cfg: Dictionary = opts.get("frame_cfg", Kit.load_config(Kit.CONFIG_PATH))
 	var fo: Dictionary = Kit.daily_opts_from_config(cfg)
 	fo["banner_text"] = (Strings.t("mystery.banner_plural") if winners.size() > 1 else Strings.t("mystery.banner_single"))
-	fo["on_close"] = func() -> void: _dismiss(overlay, on_done)
+	var on_close: Callable = opts.get("on_close", Callable())
+	if on_close.is_valid():
+		fo["on_close"] = on_close
 	var dialog: Control = Kit.dialog_frame(body, width, fo)
-	cc.add_child(dialog)
-	FX.pop_in(dialog)
-
-	var finish := func() -> void: _finish(overlay, roll, caption, on_done, instant)
-	if instant:
-		finish.call()
-	else:
-		_set_highlight(cards, -1, [])
-		_spin(overlay, cards, roll, finish)
+	return {"dialog": dialog, "cards": cards, "caption": caption}
 
 # --- the option cards ---------------------------------------------------------------
 
@@ -225,7 +244,7 @@ static func _finish(overlay: Control, roll: Dictionary, caption: Label, on_done:
 		return
 	Login.claim_mystery(Login.won_rewards(roll))
 	if is_instance_valid(caption):
-		caption.text = "You won!"
+		caption.text = Strings.t("mystery.won")
 	if instant or not overlay.is_inside_tree():
 		_dismiss(overlay, on_done)
 		return

@@ -2420,10 +2420,11 @@ static func level_badge_tier_parts(tier: int) -> Dictionary:
 static func level_badge_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("level_badge", {}) if cfg is Dictionary else {}
 	var out := {
-		"size":     float(g.get("size", 100.0)),      # the common part box, % of px
-		"num_size": float(g.get("num_size", 32.0)),   # the level number font, % of px
-		"num_x":    float(g.get("num_x", 0.0)),       # number offset, % of px (side / margin)
-		"num_y":    float(g.get("num_y", -16.0)),
+		"size":        float(g.get("size", 100.0)),      # the common part box, % of px
+		"num_size":    float(g.get("num_size", 32.0)),   # the level number font, % of px
+		"num_x":       float(g.get("num_x", 0.0)),       # number offset, % of px (side / margin)
+		"num_y":       float(g.get("num_y", -16.0)),
+		"circle_base": bool(g.get("circle_base", true)), # draw the coin behind every tier (toggleable)
 	}
 	for p in LEVEL_PARTS:
 		var dft: Dictionary = _LEVEL_BADGE_DEFAULTS[p]
@@ -2445,6 +2446,8 @@ static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_
 	var info := level_badge_tier_parts(tier)
 	var stage := int(info["stage"])
 	var draw_parts: Array = (info["parts"] as Array).duplicate()
+	if bool(opts.get("circle_base", true)) and not draw_parts.has("circle"):
+		draw_parts.append("circle")     # always-on coin behind every tier (drawn first via z-order)
 	if extra_part != "" and not draw_parts.has(extra_part):
 		draw_parts.append(extra_part)
 	var base_box := px * float(opts.get("size", 100.0)) / 100.0

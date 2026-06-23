@@ -11,18 +11,53 @@ extends RefCounted
 ## the resolved streak and maps it to the ladder, so the decay is single-sourced.
 ##
 ## PURE engine (core/ layer — no ui/, no scenes/): the ladder MATH + the claim live
-## here; the streak/claim state persists via Save.daily(); the OWNER-
-## TUNABLE ladder + milestones live in the active game's data (games/grove/grove_data.gd
-## · LOGIN_*). The diegetic calendar popup is ui/login.gd.
+## here; the streak/claim state persists via Save.daily(); the OWNER-TUNABLE ladder +
+## milestones + mystery pools are DATA — `res://games/<active>/login_rewards.json` (read
+## lazily below, mirroring core/strings.gd), so rewards re-tune without a code edit. The
+## diegetic calendar popup is ui/login.gd; the spin-reveal dialog is ui/login_mystery.gd.
 ##
 ## A reward is a small dict — any of {coins, water, gems, cosmetic} — so one ladder can
 ## mix soft currency, modest energy, and a premium/cosmetic capstone. The repeating WEEK
-## ladder (LOGIN_LADDER, 7 entries) gives the day-in-week reward; LOGIN_MILESTONES keys
-## ABSOLUTE streak days (7, 30, …) and OVERRIDES the week slot when the streak lands on one.
+## ladder (`ladder`, 7 entries) gives the day-in-week reward; `milestones` keys ABSOLUTE
+## streak days (7, 30, …) and OVERRIDES the week slot when the streak lands on one. (JSON
+## object keys are strings, so milestone/mystery-slot lookups go through str(day/slot).)
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const D = Game.DATA                                  # the active game's data (§18 LOGIN_*)
+const D = Game.DATA                                  # the active game's data (WATER_CAP for the water grant)
+
+# --- the reward config (data-tunable JSON, lazy-loaded + cached) ---------------------
+# Mirrors core/strings.gd: one structured JSON per game, resolved off Game.active(), loaded
+# once and cached. A missing/malformed file warns and yields empty tables (every accessor
+# degrades to "no reward") instead of crashing. _reset() drops the cache for tests.
+
+static var _cfg: Dictionary = {}
+static var _cfg_loaded := false
+
+## The active game's login-reward config path (mirrors Game.art / strings resolution).
+static func _config_path() -> String:
+	return "res://games/%s/login_rewards.json" % Game.active()
+
+## The parsed reward config ({ladder, milestones, mystery, water_safe_max}), loaded once.
+static func _config() -> Dictionary:
+	if _cfg_loaded:
+		return _cfg
+	_cfg_loaded = true
+	var p := _config_path()
+	if not FileAccess.file_exists(p):
+		push_warning("Login: no reward config at %s — the calendar pays nothing" % p)
+		return _cfg
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(p))
+	if parsed is Dictionary:
+		_cfg = parsed
+	else:
+		push_warning("Login: %s is not a JSON object" % p)
+	return _cfg
+
+## Test hook: drop the cache so a suite that points the active game elsewhere re-reads.
+static func _reset() -> void:
+	_cfg_loaded = false
+	_cfg = {}
 
 # --- streak + "what day am I on" ----------------------------------------------------
 
@@ -47,10 +82,10 @@ static func today_day() -> int:
 static func reward_for(day: int) -> Dictionary:
 	if day < 1:
 		return {}
-	var ms: Dictionary = D.LOGIN_MILESTONES
-	if ms.has(day):
-		return ms[day]
-	var ladder: Array = D.LOGIN_LADDER
+	var ms: Dictionary = _config().get("milestones", {})
+	if ms.has(str(day)):                             # JSON keys are strings
+		return ms[str(day)]
+	var ladder: Array = _config().get("ladder", [])
 	if ladder.is_empty():
 		return {}
 	return ladder[(day - 1) % ladder.size()]
@@ -61,7 +96,7 @@ static func today_reward() -> Dictionary:
 
 ## Whether absolute streak `day` is a milestone (a bigger, premium/cosmetic payout).
 static func is_milestone(day: int) -> bool:
-	return (D.LOGIN_MILESTONES as Dictionary).has(day)
+	return (_config().get("milestones", {}) as Dictionary).has(str(day))
 
 # --- mystery gift days (§18 · T46) --------------------------------------------------
 # Slots 4 and 7 of the repeating week are MYSTERY days: instead of a fixed grant the calendar
@@ -76,19 +111,23 @@ static func slot_of(day: int) -> int:
 static func is_mystery(day: int) -> bool:
 	if day < 1:
 		return false
-	return (D.LOGIN_MYSTERY as Dictionary).has(slot_of(day))
+	return (_config().get("mystery", {}) as Dictionary).has(str(slot_of(day)))   # JSON keys are strings
 
 ## The reward pool for a weekly slot (empty if the slot is not a mystery slot). Tuning/test aid.
 static func mystery_pool(slot: int) -> Array:
-	var cfg: Dictionary = (D.LOGIN_MYSTERY as Dictionary).get(slot, {})
-	return cfg.get("pool", [])
+	return mystery_config(slot).get("pool", [])
+
+## A weekly slot's full mystery spec ({show, win, pool}), or {} if the slot is not a mystery slot.
+## Read-only tuning/preview aid — the workbench builds a deterministic demo roll from it.
+static func mystery_config(slot: int) -> Dictionary:
+	return (_config().get("mystery", {}) as Dictionary).get(str(slot), {})
 
 ## Roll a mystery day's reveal: draw `show` DISTINCT rewards from the slot's pool, then pick
 ## `win` winners uniformly. Returns {show, win, options:[reward…], winners:[idx…]}. Grants
 ## NOTHING (pure). The UI animates the spin landing on `winners`; claim_mystery() pays them.
 static func roll_mystery(day: int) -> Dictionary:
 	var slot := slot_of(day)
-	var cfg: Dictionary = (D.LOGIN_MYSTERY as Dictionary).get(slot, {})
+	var cfg: Dictionary = (_config().get("mystery", {}) as Dictionary).get(str(slot), {})
 	var pool: Array = cfg.get("pool", [])
 	var show := mini(int(cfg.get("show", 0)), pool.size())
 	var win := mini(int(cfg.get("win", 0)), show)
@@ -170,7 +209,7 @@ static func _grant_water(n: int) -> void:
 ## The largest single-day water gift the ladder is ALLOWED to pay (the §4/§10 self-sustain
 ## guard — the calendar tops up, it never refills). Owner-tunable; asserted by the tests.
 static func water_safe_max() -> int:
-	return int(D.LOGIN_WATER_SAFE_MAX)
+	return int(_config().get("water_safe_max", 15))
 
 ## A single comparable scalar for a day's reward VALUE, used to assert the ladder escalates
 ## (coins + water + a premium weight for gems/cosmetic). Tuning/test aid — not game-facing.

@@ -32,6 +32,8 @@ const STRAW = Pal.STRAW
 const PILL_GAP := 12.0
 const LV_BADGE_PX := 225.0   # the level-badge BOX (its medal fills ~78% → ~175px visible) — 50% bigger than the gear
 const GEAR_PX := 120.0       # the gear BOX (its disc fills ~97% → ~116px visible, matching the medal)
+const HUD_SIDE_Z := 30        # above ambient/weather, below fly/floating FX
+const HUD_WALLET_Z := 40      # wallet stays above the side row when the top bands overlap
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
@@ -58,6 +60,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	cluster.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
 	cluster.add_theme_constant_override("separation", int(PILL_GAP))
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
+	cluster.z_index = HUD_WALLET_Z
 	host.add_child(cluster)
 	# The wallet is WATER · COIN · GEM (the star count is gone — the level badge already encodes stars).
 	# Each pill keeps its icon/number/+ as DIRECT children of an inner row — the wallet-resolution
@@ -96,6 +99,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		# settings + rail read as one top-aligned right column; see map._build_liveops_rail).
 		gear.offset_top = gtop
 		gear.offset_bottom = gear.offset_top + gear_px
+		gear.z_index = HUD_WALLET_Z
 		host.add_child(gear)
 
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
@@ -105,6 +109,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
+	left.z_index = HUD_SIDE_Z
 
 	# S10: the Lv chip is part of THE module — same top-left pixels in both scenes.
 	# The level number sits INSIDE the sprout avatar; the level-progress fraction sits to
