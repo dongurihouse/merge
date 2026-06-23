@@ -831,8 +831,8 @@ static func _gold_badge_over(dst: Color, src: Color) -> Color:
 		(src.b * src.a + dst.b * dst.a * (1.0 - src.a)) / a,
 		a)
 
-## Standalone workbench currency pill that ports the HTML plus-button study without changing the
-## shipped HUD currency_pill. The left badge reuses gold_badge(); the currency glyph reuses make_icon().
+## Shared gold currency pill that ports the HTML plus-button study. The background reuses
+## gold_badge(); the currency glyph reuses make_icon().
 static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -> Control:
 	var pill_w := float(opts.get("pill_w", 292))
 	var pill_h := float(opts.get("pill_h", 100))
@@ -3263,52 +3263,26 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge": badge_polish_from_config(cfg),    # the Badge item's shell polish (defringe / feather / shadow)
 	}
 
-## The shared CURRENCY-PILL style opts from a saved config — padding, border, font and the look knobs of
-## the top-bar wallet. EVERY default mirrors Tune.Hud (engine/scripts/core/tuning.gd → class Hud), so an
-## absent or empty "currency_pill" block resolves to the SHIPPED pill and the live HUD is unchanged.
-## grove_ui_tests pins these defaults to Tune (the R1 even-wrap contract depends on it).
-static func currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var c: Dictionary = cfg.get("currency_pill", {}) if cfg is Dictionary else {}
-	return {
-		"use_art":     bool(c.get("use_art", true)),       # painted capsule (panel_pill.png) vs code-drawn pill
-		"border":      String(c.get("border", "gold capsule")),   # which painted capsule (PILL_BORDERS) — art path only
-		"pad_x":       float(c.get("pad_x", 18.0)),        # horizontal content margin (the RIGHT side + the default left)
-		"pad_left":    float(c.get("pad_left", float(c.get("pad_x", 18.0)))),   # LEFT content margin; absent → symmetric with pad_x
-		"pad_y":       float(c.get("pad_y", 12.0)),        # Tune.PILL_PAD_Y — vertical content margin
-		"radius":      int(c.get("radius", 40)),           # Tune.PILL_RADIUS (code-drawn pill only)
-		"border_w":    int(c.get("border_w", 3)),          # Tune.PILL_BORDER_W (code-drawn pill only)
-		"shadow":      bool(c.get("shadow", true)),        # cast the SHARED box-shadow behind the capsule (on by default — the shipped pill has a soft drop)
-		"shadow_params": Look.shadow_params(cfg),          # the single shared shadow look (offset / blur / spread / alpha / warmth)
-		"fill_alpha":  float(c.get("fill_alpha", 100)),    # the capsule OPACITY (0..100 %): modulates the painted texture / scales the code-drawn fill so the pill can read translucent over the scene
-		"num_size":    int(c.get("num_size", 34)),         # Tune.NUM_SIZE — the currency number font
-		"icon_box":    float(c.get("icon_box", 40.0)),     # Tune.CHIP_ICON_BOX — the shared square LAYOUT cell (centerline / min box)
-		"icon_size":   float(c.get("icon_size", float(c.get("icon_box", 40.0)))),   # the icon SPRITE px (× optical); absent → fills the box
-		"row_sep":     int(c.get("row_sep", 4)),           # Tune.CHIP_ROW_SEP — icon↔number gap
-		"pair_sep":    int(c.get("pair_sep", 14)),         # Tune.PAIR_SEP — gap between currency pairs
-		"plus_x":      int(c.get("plus_x", 0)),            # the green "+" LOCATION: x on the pill's right edge (+overhang out / −tuck in)
-		"plus_dy":     int(c.get("plus_dy", 0)),           # the green "+" LOCATION: vertical nudge up(-)/down(+)
-		"plus_size":   int(c.get("plus_size", 26)),        # Tune.PLUS_BOX — the green "+" token diameter (font scales with it; never grows the pill)
-	}
-
+## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
+## all build the same gold_badge-backed component directly from this block.
 static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
-	var legacy: Dictionary = cfg.get("currency_pill", {}) if cfg is Dictionary else {}
-	var icon_box := float(g.get("icon_box", legacy.get("icon_box", 54.0)))
-	var icon_size := float(g.get("icon_size", legacy.get("icon_size", 34.0)))
+	var icon_box := float(g.get("icon_box", 54.0))
+	var icon_size := float(g.get("icon_size", 34.0))
 	return {
 		"pill_w": float(g.get("pill_w", 292.0)),
 		"pill_h": float(g.get("pill_h", 100.0)),
-		"pad_left": float(g.get("pad_left", legacy.get("pad_left", 18.0))),
-		"pad_x": float(g.get("pad_x", legacy.get("pad_x", 16.0))),
-		"pad_y": float(g.get("pad_y", legacy.get("pad_y", 12.0))),
+		"pad_left": float(g.get("pad_left", 18.0)),
+		"pad_x": float(g.get("pad_x", 16.0)),
+		"pad_y": float(g.get("pad_y", 12.0)),
 		"icon_box": icon_box,
 		"icon_size": icon_size,
 		"icon_x": float(g.get("icon_x", 0.0)),
 		"amount_w": float(g.get("amount_w", 88.0)),
-		"num_size": int(g.get("num_size", legacy.get("num_size", 30))),
+		"num_size": int(g.get("num_size", 30)),
 		"amount_x": float(g.get("amount_x", 0.0)),
-		"gap": int(g.get("gap", legacy.get("row_sep", 12))),
-		"plus_x": float(g.get("plus_x", legacy.get("plus_x", 0.0))),
+		"gap": int(g.get("gap", 12)),
+		"plus_x": float(g.get("plus_x", 0.0)),
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)),
@@ -3320,45 +3294,15 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"show_plus": true,
 	}
 
-static func _gold_currency_opts_from_currency_opts(opts: Dictionary, counts: Dictionary = {}) -> Dictionary:
-	var g := opts.duplicate()
-	var icons: Array = opts.get("icons", [])
-	var icon_id := String(opts.get("icon", "water"))
-	if not icons.is_empty():
-		icon_id = String(icons[0][0])
-		if icons[0].size() > 1:
-			g["icon_size"] = float(icons[0][1])
-	elif not counts.is_empty():
-		for id in ["water", "coin", "gem", "star"]:
-			if counts.has(id):
-				icon_id = id
-				break
-	g["icon"] = icon_id
-	g["count"] = int(counts.get(icon_id, opts.get("count", 0)))
-	var plus_action_value: Variant = opts.get("plus_action", null)
-	var has_plus_action := false
-	if plus_action_value is Callable:
-		has_plus_action = (plus_action_value as Callable).is_valid()
-	g["show_plus"] = bool(opts.get("show_plus", false)) or has_plus_action
-	if opts.has("plus_size") and not opts.has("plus_base"):
-		g["plus_base"] = float(opts.get("plus_size", 26.0)) / 1.03
-		g["plus_button"] = float(opts.get("plus_button", 100.0))
-	if not g.has("pill_h"):
-		g["pill_h"] = maxf(64.0, float(opts.get("icon_box", 54.0)) + float(opts.get("pad_y", 12.0)) * 2.0)
-	if not g.has("pill_w"):
-		var amount_w := float(opts.get("amount_w", maxf(72.0, float(opts.get("num_size", 30)) * 2.4)))
-		g["pill_w"] = float(opts.get("icon_box", 54.0)) + amount_w + (float(opts.get("plus_size", 34.0)) if bool(g.get("show_plus", false)) else 0.0) + float(opts.get("pad_left", 18.0)) + float(opts.get("pad_x", 16.0)) + float(opts.get("gap", opts.get("row_sep", 12.0))) * (2.0 if bool(g.get("show_plus", false)) else 1.0)
-	return g
-
 ## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
 ## piece + name · sell cart). The LAYOUT persists here; the FRAME comes from the shared code-drawn
-## gold badge block, with the currency-pill padding retained as the content margin.
+## gold badge block, with the gold currency pill padding retained as the content margin.
 ## inner_scale / sell_icon are stored 0..100 and divided here to the 0..1 fractions of the bar height.
 static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
-	# The content margins still borrow the wallet's padding numbers, but the visible board now comes from the
+	# The content margins borrow the gold wallet's padding numbers, but the visible board comes from the
 	# saved gold_badge style so the board frame and info bar can be tuned together.
-	var pill: Dictionary = currency_pill_opts_from_config(cfg)
+	var pill: Dictionary = gold_currency_pill_opts_from_config(cfg)
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
@@ -3373,104 +3317,6 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill":        pill,                                        # shared padding/margin opts retained for content spacing
 		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
-
-## The currency pill's panel StyleBox from resolved opts. Prefers the painted nine-patch capsule (caps
-## fixed, middle stretches); the border / radius / shadow knobs drive the code-drawn fallback (use_art
-## off, or the art missing). Padding (content margins) applies on BOTH paths. hud.gd and the workbench
-## preview both call this, so the pill's look lives in exactly one place.
-static func currency_pill_style(opts: Dictionary) -> StyleBox:
-	var pad_x := float(opts.get("pad_x", 18.0))
-	var pad_left := float(opts.get("pad_left", pad_x))   # left margin, tightenable apart from the right (which keeps pad_x)
-	var pad_y := float(opts.get("pad_y", 12.0))
-	var fill_a := clampf(float(opts.get("fill_alpha", 100)) / 100.0, 0.0, 1.0)   # capsule opacity (workbench)
-	if bool(opts.get("use_art", true)):
-		var bd: Dictionary = pill_border(String(opts.get("border", "gold capsule")))
-		var p := Look.kit(String(bd["art"]))
-		if ResourceLoader.exists(p):
-			var sbt := StyleBoxTexture.new()
-			sbt.texture = load(p)
-			var cap := int(bd["cap"])
-			if cap > 0:
-				sbt.set_texture_margin_all(cap)   # 9-slice: the rounded ends never squash, the middle stretches
-			# cap == 0 → no texture margins → the WHOLE sprite scales to the pill (the capsule's natural look)
-			sbt.modulate_color = Color(1.0, 1.0, 1.0, fill_a)   # opacity: the painted capsule reads translucent at < 100%
-			sbt.content_margin_left = pad_left
-			sbt.content_margin_right = pad_x
-			sbt.content_margin_top = pad_y
-			sbt.content_margin_bottom = pad_y
-			return sbt
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(CUR_PILL_BG, CUR_PILL_BG.a * fill_a)        # opacity scales the cream fill
-	sb.set_corner_radius_all(int(opts.get("radius", 40)))
-	sb.set_border_width_all(int(opts.get("border_w", 3)))
-	sb.border_color = Color(CUR_PILL_BORDER, CUR_PILL_BORDER.a * fill_a)
-	# NO native shadow here — the pill's drop shadow is the SHARED box-shadow, cast behind the whole capsule
-	# by currency_pill() (the `shadow` toggle), so the art + code-drawn paths read identically.
-	sb.content_margin_left = pad_left
-	sb.content_margin_right = pad_x
-	sb.content_margin_top = pad_y
-	sb.content_margin_bottom = pad_y
-	return sb
-
-## A standalone, faithful currency pill for the workbench gallery: the styled panel wrapping the
-## ★ 🪙 💎 row, sized from the same opts the live HUD reads. `counts` supplies the sample numbers
-## (the wallet shows live values in-game; here they are preview-only). Self-contained — no game state.
-static func currency_pill(opts: Dictionary, counts: Dictionary = {}) -> Control:
-	if not bool(opts.get("legacy_currency_pill", false)):
-		return gold_currency_pill(_gold_currency_opts_from_currency_opts(opts, counts), counts)
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", currency_pill_style(opts))
-	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var row := HBoxContainer.new()
-	var row_sep := int(opts.get("row_sep", 4))
-	row.add_theme_constant_override("separation", row_sep)   # the tight icon↔number gap
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_child(row)
-	var num := int(opts.get("num_size", 34))
-	var box := float(opts.get("icon_box", 40.0))
-	var isize := float(opts.get("icon_size", box))   # the icon sprite px (× optical); defaults to fill the box
-	var pair_sep := int(opts.get("pair_sep", 14))
-	var demo := {"star": 1280, "coin": 540, "gem": 36}
-	# the icon set is the 3-currency wallet by default; a caller (e.g. the bag's acorn balance) can pass
-	# opts["icons"] = [[id, px], …] to render a SUBSET (or a single currency) in the same capsule.
-	# the DEFAULT wallet sizes each sprite as icon_size × optical (the icon_size slider drives the icon),
-	# centered in the icon_box cell; an explicit opts["icons"] = [[id, px], …] still renders a caller-sized subset.
-	var icons: Array = opts.get("icons", [])
-	if icons.is_empty():
-		for e in CUR_PILL_OPTICAL:
-			icons.append([e[0], isize * float(e[1])])
-	for i in icons.size():
-		if i > 0:
-			# the WIDER gap between pairs is an explicit spacer (matches hud.gd's _spacer)
-			var s := Control.new()
-			s.custom_minimum_size = Vector2(float(pair_sep - row_sep), 0)
-			s.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			row.add_child(s)
-		var id := String(icons[i][0])
-		var icon_px := float(icons[i][1])
-		var cc := CenterContainer.new()
-		cc.custom_minimum_size = Vector2(box, box)
-		cc.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		cc.add_child(make_icon(id, icon_px))   # the icon rides the SHARED pill shadow — no separate icon shadow
-		row.add_child(cc)
-		var lbl := Label.new()
-		lbl.text = str(int(counts.get(id, demo.get(id, 0))))
-		lbl.add_theme_font_size_override("font_size", num)
-		lbl.add_theme_color_override("font_color", Pal.INK)
-		lbl.add_theme_constant_override("outline_size", 0)   # panel-text law: no halo on a solid pill
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(lbl)
-	# the green "+" preview FLOATS over the pill (the SAME Look.float_plus the live HUD uses): plus_x / plus_dy
-	# place it on the pill's right edge and plus_size scales it WITHOUT growing the capsule. A static visual
-	# here — the live HUD uses a real Button; both read the same plus_x / plus_dy / plus_size opts.
-	if bool(opts.get("show_plus", false)):
-		return Look.float_plus(panel, _plus_token(float(opts.get("plus_size", 26))), opts)   # float_plus casts the shared shadow when opts.shadow
-	if bool(opts.get("shadow", false)):
-		return Look.with_shadow(panel, 1000.0, opts.get("shadow_params", {}))   # the shared capsule shadow (corner clamps to half-height)
-	return panel
 
 ## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [Sell badge] -------------------------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
@@ -3651,29 +3497,6 @@ static func _info_circle_btn(icon_id: String, px: float) -> Button:
 	b.add_child(ic)
 	Look.add_press_juice(b)
 	return b
-
-## A static green "+" token mirroring the live HUD's _plus_button look (leaf-green disc, cream "+"), for the
-## workbench currency-pill preview so the designer can position it. Values mirror Tune.Hud.PLUS_*.
-static func _plus_token(box: float = 26.0) -> Control:
-	var p := Panel.new()
-	p.custom_minimum_size = Vector2(box, box)
-	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#4E7C46")
-	sb.set_corner_radius_all(int(box / 2.0))
-	sb.set_border_width_all(2)
-	sb.border_color = Color("#3C6037")
-	p.add_theme_stylebox_override("panel", sb)
-	var g := Label.new()
-	g.text = "+"
-	g.add_theme_font_size_override("font_size", int(box * 22.0 / 26.0))   # font tracks the box (shipped 26→22)
-	g.add_theme_color_override("font_color", Color("#FBF6EC"))
-	g.add_theme_constant_override("outline_size", 0)
-	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	p.add_child(g)
-	return p
 
 ## --- the BOARD PANEL: the rounded frame the cells sit on ---------------------------------------------
 ## ONE builder shared by the live board (board.gd _make_board_mat) AND the workbench preview, so they read
@@ -3990,7 +3813,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 static func bag_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	return slot_cell(d, opts)
 
-## The full BAG-dialog opts: the SHARED frame + the bag-cell style + the reused currency-pill style +
+## The full BAG-dialog opts: the SHARED frame + the bag-cell style + the reused gold currency pill +
 ## the dialog's own grid (cols, default 6 — the reference's six-wide ladder). Same construction as the
 ## daily/settings dialogs. Used by the workbench preview AND the game (engine/scripts/ui/bag_overlay.gd).
 static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
@@ -4008,7 +3831,7 @@ static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["banner_icon_on"] = false                        # the reference's "Bag" ribbon is text-only (no envelope)
 	return o
 
-## The BAG dialog — the SHARED frame wrapping the bag screen: the reused currency pill (the single-acorn
+## The BAG dialog — the SHARED frame wrapping the bag screen: the reused gold currency pill (the single-acorn
 ## balance, docked top-right), a grid of bag cells (the slot ladder), and a leaf-flanked footer caption.
 ## The direct sibling of daily_dialog: same chrome, the bag's content. `entries` is an Array of bag_card
 ## data dicts (already classified by the caller — the game's slot_plan, or the workbench's DEMO_BAG);
@@ -4019,15 +3842,17 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	content.add_theme_constant_override("separation", int(opts.get("row_gap", 14)))
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# the acorn-balance pill, docked top-right — the REUSED currency pill in single-currency (acorn) mode.
+	# the acorn-balance pill, docked top-right — the REUSED gold currency pill in single-currency mode.
 	var top := HBoxContainer.new()
 	top.alignment = BoxContainer.ALIGNMENT_END
 	top.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var pill_opts: Dictionary = (opts.get("pill", {}) as Dictionary).duplicate()
-	pill_opts["icons"] = [["gem", float(opts.get("balance_icon", 38.0))]]
+	pill_opts["icon"] = "gem"
+	pill_opts["icon_size"] = float(opts.get("balance_icon", pill_opts.get("icon_size", 38.0)))
+	pill_opts["count"] = balance
 	pill_opts["show_plus"] = false
-	top.add_child(currency_pill(pill_opts, {"gem": balance}))
+	top.add_child(gold_currency_pill(pill_opts, {"gem": balance}))
 	content.add_child(top)
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width

@@ -21,15 +21,15 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
 # column may), but the left column never pairs — one per row. Splitting dialogs into their own column keeps
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
-	# the building blocks — one element per row (the HUD currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["currency_pill"], ["gold_currency_pill"], ["info_bar"], ["frame"], ["progress_bar"]],
+	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
+	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["dialog"], ["daily"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
@@ -37,7 +37,7 @@ const COLUMNS := [
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
 # cards flow into the dialogs; the Badge's polish flows into the Home button. Editing anything else
-# (a dialog's own width, the icon sandbox, the pill, …) touches only itself. Used to rebuild just the
+# (a dialog's own width, the icon sandbox, the pill, ...) touches only itself. Used to rebuild just the
 # edited element + its dependents instead of the whole gallery.
 const DEPENDENTS := {
 	"button": ["card", "dialog", "daily", "shop", "settings", "info"],
@@ -48,8 +48,7 @@ const DEPENDENTS := {
 	"gold_badge": ["board", "info_bar"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
-	"currency_pill": ["bag", "info_bar"],   # the info bar still borrows the pill padding for content margins
-	"gold_currency_pill": ["currency_pill", "bag"],
+	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
 }
 # Badge backgrounds live in the kit now (Kit.BADGES) so the game resolves them from the same map.
 # Icons the button can show (all resolve via the kit's _icon_tex); "none" = no icon.
@@ -88,11 +87,8 @@ const TEST_KEYS := {
 	"shop": [],
 	"level": ["preview_level", "into", "span", "mode"],   # preview state (level / progress / which mode)
 	"tiers": [],
-	# the currency pill — the STYLE (art / padding / border / font / icon box / gaps) persists; the
-	# ★/🪙/💎 counts are preview-only (the live wallet shows the player's real balances).
-	"currency_pill": ["star", "coin", "gem"],
 	# the bottom-bar INFO BAR — the LAYOUT (height · inner scale · fonts · separation · sell button) persists;
-	# the FRAME is the shared gold badge skin; currency_pill padding still controls its content margin. `filled` previews the
+	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
 	# selected-vs-empty state (the game fills it from the tapped board item).
 	"info_bar": ["filled"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
@@ -134,7 +130,6 @@ const CAPTIONS := {
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
-	"currency_pill": "Currency pill — top-bar wallet (★ 🪙 💎)",
 	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
@@ -254,13 +249,6 @@ var _params := {
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
-	# the top-bar CURRENCY PILL (the 💧 🪙 💎 wallet — water replaced the star count). Defaults mirror
-	# Tune.Hud, so the saved block the HUD reads renders the SHIPPED pill until you change it. The preview
-	# is a single WATER pill with its "+" (the live HUD repeats this capsule for water/coin/gem); plus_x /
-	# plus_dy tune the "+" LOCATION (it floats over the pill). `water` is a preview-only sample count.
-	"currency_pill": {"use_art": true, "border": "gold capsule", "pad_x": 18, "pad_left": 18, "pad_y": 12, "radius": 40, "border_w": 3, "fill_alpha": 100,
-		"num_size": 34, "icon_box": 40, "icon_size": 40, "row_sep": 4, "pair_sep": 14, "plus_x": 0, "plus_dy": 0, "plus_size": 26,
-		"water": 128},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
@@ -314,7 +302,7 @@ func _ready() -> void:
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "currency_pill": true, "board": true, "gold_badge": true}
+	var on_by_default := {"home_button": true, "board": true, "gold_badge": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
@@ -596,19 +584,11 @@ func _make_element(id: String) -> Control:
 			var topts := Kit.tiers_opts_from_config(_params)
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
-		"currency_pill":
-			# the live top-bar wallet pill, built from the SAME kit resolver the HUD reads (so the preview is
-			# exactly what the game renders). Shown as a single WATER pill WITH its "+" so the + LOCATION
-			# (plus_x / plus_dy) and size are tunable here; the live HUD repeats this capsule for water/coin/gem.
-			var co := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": _params["gold_currency_pill"], "currency_pill": p, "shadow": _params["shadow"]})
-			co["icons"] = [["water", float(co["icon_size"])]]   # the preview water icon tracks the Icon Size slider (water optical = 1.0)
-			co["show_plus"] = true
-			return Kit.currency_pill(co, {"water": int(p.get("water", 128))})
 		"info_bar":
 			# the board's bottom-bar info pill, built from the SAME kit component + resolver the game reads
-			# (so the preview is exactly the live bar). Pull in the currency_pill block too — the bar keeps
+			# (so the preview is exactly the live bar). Pull in the gold_currency_pill block too — the bar keeps
 			# its padding as content margins. `filled` previews the selected-vs-empty state.
-			var io := Kit.info_bar_opts_from_config({"info_bar": p, "currency_pill": _params["currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
+			var io := Kit.info_bar_opts_from_config({"info_bar": p, "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
 			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
 			var inner := float(ib.get_meta("inner_px", 62.0))
 			if bool(p.get("filled", true)):
@@ -667,7 +647,7 @@ func _make_element(id: String) -> Control:
 			bco["cost_x"] = float(bco["cost_x"]) * z   # cost_scale is a ratio — not zoomed
 			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
-			# the SHARED frame + the reused currency pill + a grid of bag cells (the SAME builder the game's
+			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's
 			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
 			var bopts := Kit.bag_opts_from_config(_params)
 			bopts["banner_text"] = "Bag"
@@ -684,9 +664,9 @@ func _make_element(id: String) -> Control:
 
 ## Components whose KIT builder already casts the shared shadow internally (from opts.shadow + shadow_params);
 ## the view must NOT also wrap them, or the shadow would double up. (info_bar is NOT here: it returns a
-## PanelContainer and builds its own frame — not via currency_pill() — so its shadow comes from the
+## PanelContainer and builds its own frame directly, so its shadow comes from the
 ## view-level wrap below, like the other unwired components.)
-const SHADOW_WIRED := {"home_button": true, "currency_pill": true, "board": true, "button": true}
+const SHADOW_WIRED := {"home_button": true, "board": true, "button": true}
 
 ## Cast the SHARED shadow behind a component's preview when its Shadow toggle is on. Skips the wired
 ## components (their builder casts it) and the Shadow item itself. A rounded-rect cast (corner ~ a card's)
@@ -1503,33 +1483,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
 			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			# the frame chrome (border · banner · ✕) is the STANDARD shared frame — tune it on the Frame item.
-		"currency_pill":
-			_group_header("Saved to config", true)
-			# the painted capsule (panel_pill.png) vs a code-drawn cream pill. The Border picker swaps the
-			# painted capsule (art path); radius / border_w / shadow shape the code-drawn pill (the art bakes
-			# its own rim), so the picker shows only with art ON and those knobs only with art OFF.
-			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
-			if bool(_params["currency_pill"]["use_art"]):
-				_sidebar_body.add_child(_option_row("Border", "border", Kit.PILL_BORDERS.keys()))   # which painted capsule
-			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))          # horizontal padding (right side + default left)
-			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))       # LEFT padding — tighten the icon side on its own
-			_sidebar_body.add_child(_slider_row(["pad_y", 0, 40]))          # vertical padding
-			# OPACITY — honoured on BOTH paths: it modulates the painted capsule / scales the code-drawn fill.
-			# (The pill's DROP SHADOW is the SHARED shadow — toggle it above, tune it on the Shadow item.)
-			_sidebar_body.add_child(_slider_row(["fill_alpha", 20, 100]))   # capsule OPACITY (%)
-			if not bool(_params["currency_pill"]["use_art"]):
-				_sidebar_body.add_child(_slider_row(["radius", 0, 60]))     # corner radius (code-drawn pill)
-				_sidebar_body.add_child(_slider_row(["border_w", 0, 12]))   # border width (code-drawn pill)
-			_sidebar_body.add_child(_slider_row(["num_size", 16, 56]))      # the currency number font
-			_sidebar_body.add_child(_slider_row(["icon_box", 20, 72]))      # the shared square layout cell (centerline / min box)
-			_sidebar_body.add_child(_slider_row(["icon_size", 16, 80]))     # the icon SPRITE px within the box (× per-currency optical)
-			_sidebar_body.add_child(_slider_row(["row_sep", 0, 20]))        # icon↔number gap
-			_sidebar_body.add_child(_slider_row(["pair_sep", 0, 40]))       # gap between currencies (the live cluster)
-			_sidebar_body.add_child(_slider_row(["plus_x", -48, 48]))       # the "+" LOCATION: x on the pill's right edge (+out/−in)
-			_sidebar_body.add_child(_slider_row(["plus_dy", -24, 24]))      # the "+" LOCATION: vertical nudge up(-)/down(+)
-			_sidebar_body.add_child(_slider_row(["plus_size", 14, 44]))     # the green "+" token diameter (font tracks it; never grows the pill)
-			_group_header("Test only — not saved", false)                  # preview count; the wallet shows live balances
-			_sidebar_body.add_child(_slider_row(["water", 0, 9999]))
 		"info_bar":
 			_group_header("Saved to config", true)                         # layout only — the frame is tuned on Gold badge
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)

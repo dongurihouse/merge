@@ -2,7 +2,7 @@ extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): render the home-button RECT badge + the
 ## currency pill with a range of PER-SIDE drop-shadow configs, so the soft directional shadow can be SEEN.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/shadow_shot.gd -- /tmp/shadow.png
-## Each row is one config (the label says which side(s) cast); left = home badge, right = currency pill.
+## Each row is one config (the label says which side(s) cast); left = home badge, right = gold currency pill.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
@@ -25,11 +25,13 @@ func _row(title: String, sh: Dictionary) -> Control:
 	for k in sh: ho["rect_" + k] = sh[k]
 	var hb := Kit.home_button({"icon": "board", "caption": "Map"}, ho)
 	pair.add_child(_pad(hb))
-	# the currency pill (with its "+" so the float_plus shadow draws)
-	var co := Kit.currency_pill_opts_from_config({})
+	# the gold currency pill, with its own plus button.
+	var co := Kit.gold_currency_pill_opts_from_config({})
+	co["icon"] = "water"
+	co["count"] = 128
 	co["show_plus"] = true
 	for k in sh: co[k] = sh[k]
-	var cp := Kit.currency_pill(co, {"star": 128, "coin": 54, "gem": 6})
+	var cp := Kit.gold_currency_pill(co, {"water": 128})
 	pair.add_child(_pad(cp))
 	box.add_child(pair)
 	return box
