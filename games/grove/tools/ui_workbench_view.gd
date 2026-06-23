@@ -433,31 +433,30 @@ func _make_element(id: String) -> Control:
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
-			# the round icon button as the rail + nav build it, from the SAME kit transform the game reads.
-			# Two variants side by side: nav-style (no caption / no sparkle) and rail-style (caption + the
-			# tuned sparkle), so the configurable parts read at a glance. A bottom margin gives the caption
-			# tab room (it overflows below the disc, exactly as it does on the rail).
+			# the shared home button as the LIVE rail + nav + board build it, from the SAME kit transform the
+			# game reads. Every live surface is a ROUNDED-RECT tile now (icon over label INSIDE the badge):
+			# the bag well (in-tile "x/y" count), the rail/Map tile (caption + a red badge), plus the orange
+			# Play disc. (The old circular disc-with-caption/-count form is retired — the rail moved to rect.)
 			# include the BADGE item's polish so the home button reflects it LIVE (the same link the game uses)
 			var ho := Kit.home_button_opts_from_config({"home_button": p, "badge": _params["badge"], "shadow": _params["shadow"]})
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 30)
-			# the nav-style disc carries the Bag's in-disc "x/y" COUNT so the count_dx / count_dy / count_font
-			# knobs are tunable live (the bag well is a nav-style disc; only a count-bearing button draws it).
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "sparkle": false, "count": String(p.get("count", ""))}, ho))
-			# the rail-style disc carries a SAMPLE red badge so the badge_dx / badge_dy offset is tunable live
-			# (the same Look.attach_badge the side rail uses; count 0 → bare dot, ≥1 → count pill).
-			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ho)
+			# the RECT bag well carries the Bag's in-tile "x/y" COUNT so count_dx / count_dy / count_font tune
+			# live (the live bag well is this exact rect-with-count form — board.gd _home_well).
+			var co := ho.duplicate()
+			co["shape"] = "rect"
+			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": "", "count": String(p.get("count", ""))}, co))
+			# the RECT rail tile as the live side rail + Map button build it (shape:"rect"): icon over label
+			# INSIDE the rounded-rect, carrying a SAMPLE red badge so badge_dx / badge_dy (+ dot/num size) tune
+			# live — the same Look.attach_badge the rail uses (count 0 → bare dot, ≥1 → count pill).
+			var ro := ho.duplicate()
+			ro["shape"] = "rect"
+			var rail_btn := Kit.home_button({"icon": String(p.icon), "caption": String(p.caption), "sparkle": bool(p.sparkle)}, ro)
 			var bcount := int(p.get("badge_count", 3))
-			# the badge SIZE is tunable too (dot diameter / count font) — the same opts the live rail reads
 			var bopts := {"dot_px": int(ho.get("badge_dot_px", 14)), "num_size": int(ho.get("badge_num_size", 14))}
 			var bg := Look.badge("pill", bcount, bopts) if bcount >= 1 else Look.badge("dot", 0, bopts)
 			Look.attach_badge(rail_btn, bg, Vector2(float(ho.get("badge_dx", -8)), float(ho.get("badge_dy", -8))))
 			row.add_child(rail_btn)
-			# the RECT badge as the rail tiles + Map button build it (shape:"rect"): icon over label INSIDE a
-			# rounded-rect, so the rect-only knobs (fill_alpha / rect_pad / rect_shadow_*) tune live in the preview.
-			var ro := ho.duplicate()
-			ro["shape"] = "rect"
-			row.add_child(Kit.home_button({"icon": String(p.icon), "caption": String(p.caption)}, ro))
 			# the orange PLAY disc (bottom-right CTA) at its tuned size + art, so play_px adjusts live here.
 			var po := ho.duplicate()
 			po["px"] = float(ho.get("play_px", 188))

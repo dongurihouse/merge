@@ -1349,13 +1349,12 @@ func _make_back_button(sb: float) -> Button:
 	b.offset_top = b.offset_bottom - px
 	return b
 
-# The LIVE-OPS RAIL — a CALM vertical column of round badge-buttons pinned TOP-RIGHT, below the
-# wallet pill (home.png): Daily · Free · (guarded) Inbox. Each is the SHARED configurable home button
-# (Kit.home_button — the SAME cream/gold disc + icon + caption the bottom nav uses, tuned in the
-# workbench) carrying a caption tab; the RED BADGE does all the attention-pulling, shown ONLY when
-# actionable (today unclaimed / a free watch ready / unread mail — the mail badge shows the count).
-# The Free faucet wears the optional SPARKLE (the workbench glow/twinkle amount). Discs are sized by the
-# saved config (default 140, matching the bottom bar). Every button is appended to _chrome_nodes so it
+# The LIVE-OPS RAIL — a CALM vertical column of rounded-rect badge tiles pinned TOP-RIGHT, below the
+# wallet pill (home.png): Daily · Vault · (guarded) Inbox. Each is the SHARED configurable home button
+# in its rect form (Kit.home_button shape:"rect" — the SAME cream/gold badge + icon the bottom nav uses,
+# tuned in the workbench) with its label INSIDE the tile; the RED BADGE does all the attention-pulling,
+# shown ONLY when actionable (today unclaimed / vault claimable / unread mail — the mail badge shows the count).
+# Tiles are sized by the saved config (default 140, scaled by RAIL_SCALE), matching the bottom bar. Every button is appended to _chrome_nodes so it
 # follows _set_map_chrome_visible (hidden on the place-picker).
 const RAIL_PX := 140.0          # fallback disc size — matches the bottom-bar side buttons
 const RAIL_MARGIN := 18.0       # right-edge inset
