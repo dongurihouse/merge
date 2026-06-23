@@ -287,6 +287,14 @@ func _initialize() -> void:
 	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
 	ok(hud.coin_plus is Button and not (hud.coin_plus as Button).flat, \
 		"live HUD plus button draws the same green rounded background as the workbench plus")
+	var later_weather := Control.new()
+	later_weather.name = "WeatherLayer"
+	hud_host.add_child(later_weather)
+	var level_row := (hud.lv_panel as Control).get_parent() as Control
+	ok((hud.wallet as Control).z_index > later_weather.z_index, \
+		"live HUD wallet draws above later full-screen weather so the pills are not cut")
+	ok(level_row != null and (hud.wallet as Control).z_index > level_row.z_index, \
+		"live HUD wallet draws above the level row when their top bands overlap")
 	hud_host.queue_free()
 	await process_frame
 
