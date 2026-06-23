@@ -13,16 +13,30 @@ Every native class is reached via `ClassDB` (never a direct symbol), so off iOS 
 providers report unavailable and the game behaves exactly as today — verified by `identity_tests` /
 `store_tests` in the active sweep.
 
-## 1. Install the plugin (no build-from-source)
-Download a release from the repo / Godot Asset Library, drop it into `addons/`, and add its
-`.gdextension` to the iOS export. After this, `GameCenterManager`, `GKLocalPlayer`, and `StoreKitManager`
-exist in `ClassDB` on the iOS build (and nowhere else).
+## 1. Install the plugin (one command)
+Run **`make ios-plugins`** (`tools/install_ios_plugins.sh`). It fetches a **pinned** GodotApplePlugins
+release, verifies its checksum, and lays down **iOS slices only** of the Game Center + StoreKit modules
+(plus their shared `SwiftGodotRuntime`) under `addons/`, with iOS-only `.gdextension` files. `make ios`
+runs this first, so an export never lacks the plugin.
+
+The binaries are large and **gitignored** (`/addons/`) — a regenerable per-checkout artifact like the
+baked `.ctex` caches, so re-run `make ios-plugins` once in each fresh checkout/worktree. To bump the
+plugin, change the pinned `COMMIT`/`SHA256` at the top of the script.
+
+iOS-slices-only is deliberate: the plugin also ships **macOS** frameworks, and bundling those would
+register `StoreKitManager`/`GameCenterManager` in `ClassDB` on the dev Mac — flipping `available()` true
+on desktop and breaking `identity_tests` / `store_tests`. Fetching only the `.xcframework` (iOS) dirs
+keeps the host inert. On the **iOS** build the three classes register; nowhere else.
 
 ## 2. App Store Connect + entitlements
-- **Game Center:** enable the capability for the app; add the Game Center entitlement to the iOS export.
+- **Game Center:** enable the capability for the app in App Store Connect. The iOS export already carries
+  the entitlement (`entitlements/game_center=true` in `export_presets.cfg`).
+- **Min iOS:** the plugin requires **iOS 17.0**, so the preset's `min_ios_version` is bumped to `17.0`
+  (the app is iPad-only). Devices below iOS 17 can no longer install — revert if that is unacceptable.
 - **StoreKit:** create the products. Register the piggy-bank id used by the code:
   `com.tidyup.piggybank` (see `PIGGY_PRODUCT` in `ui/vault.gd`). Add the shop's cash-pack ids when you
-  wire those (below). Test with a sandbox account on a real device.
+  wire those (below). Test with a sandbox account on a real device, or via an Xcode **StoreKit
+  Configuration** file (`.storekit`) for local sandbox runs without App Store Connect round-trips.
 
 ## 3. Confirm the two undocumented StoreKit specifics (one sandbox buy)
 GodotApplePlugins' StoreKit method/signal names are verified, but two values aren't in its public docs
@@ -32,18 +46,20 @@ and are isolated in `core/store.gd`:
 Run one sandbox purchase, check the logged `status`/product fields, and fix these two if needed.
 
 ## 4. Turn it on
-- Game Center: flip `game_center` to `true` in `core/features.gd`.
+- Game Center: `game_center` is now `true` in `core/features.gd` — sign-in runs on the iOS build. Safe to
+  test; see §5 before trusting the id for targeting.
 - StoreKit: no flag — `store.available()` gates it, so **shipping the plugin enables real charges**. The
   vault confirm caption already switches from "(test build — nothing is charged)" to a real-charge line
-  when StoreKit is present.
+  when StoreKit is present. (Sandbox accounts are not charged real money.)
 
 ## 5. Server-side identity verification (REQUIRED before targeting)
 A client can claim any `X-Player-Id`, so the server must verify it before targeting mail.
 `Identity.verification()` returns the signed payload (`public_key_url, signature, salt, timestamp,
 player_id`). Server: reject non-Apple `public_key_url`; fetch the public key; rebuild
 `playerID + bundleID + timestamp(8-byte BE) + salt`; verify the signature; then issue a short-lived
-session token the mail `GET` sends instead of re-signing every poll. Until that exists, keep
-`game_center` off and ship broadcast mail (already supported).
+session token the mail `GET` sends instead of re-signing every poll. Until that server exists, sign-in is
+fine to test, but do NOT target mail by the id — `mail_sync` stays off and the feed serves broadcast
+(already supported).
 
 ## Follow-ups (same pattern, not yet wired)
 - **Shop cash packs** (`ui/shop.gd`): route the coin/gem-pack buys through `store.purchase()` exactly like
