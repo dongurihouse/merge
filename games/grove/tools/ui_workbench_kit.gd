@@ -40,6 +40,7 @@ const PILL_BORDERS := {
 	"gold capsule": {"art": CUR_PILL_ART,          "cap": CUR_PILL_CAP},   # shared/panel_pill.png (292×65)
 	"grove capsule":{"art": "shared/pill_capsule.png","cap": 36},          # ui_asset2 top-left cream capsule (resized 253×72 so end-radius 36 = pill height/2): 9-slice keeps the round ends FIXED, only the flat middle stretches horizontally
 	"grove badge":  {"art": "shared/badge_rect.png", "cap": 46},           # the shared rounded-rect, 9-sliced (same sprite the rail/Map badges use)
+	"grove square": {"art": "shared/badge_square.png", "cap": 47},         # ui_asset2 row-2 right square, 9-sliced as a tighter info-bar frame
 	"bag":          {"art": "kit/bag_pill.png",       "cap": 59},          # 416×118
 	"bag thin":     {"art": "kit/bag_pill_thin.png",  "cap": 33},          # 411×66
 	"bag blue":     {"art": "kit/bag_pill_b.png",     "cap": 58},          # 416×116
@@ -3059,10 +3060,10 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
 	# the info bar borrows the wallet's frame opts, but FORCES the 9-sliced rounded-rect badge: this bar runs
 	# wide, so the wallet's whole-scaled capsule would stretch its rounded ends into a thick, distorted border.
-	# "grove badge" (badge_rect.png, cap 46) is the SAME sprite the Bag/Home wells wear, so the bottom bar reads
-	# as one language and the border stays thin however wide the bar grows.
+	# "grove square" is the smaller row-2 square from ui_asset2; it keeps the info bar in the same
+	# warm badge language without borrowing the larger rail/Map badge's oversized corners.
 	var pill: Dictionary = currency_pill_opts_from_config(cfg)
-	pill["border"] = "grove badge"
+	pill["border"] = "grove square"
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
