@@ -4546,6 +4546,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
+		"card_w_frac":     float(c.get("card_w_frac", 96)) / 100.0,     # card width  as a % of the screen width (smaller = wider side margins)
+		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
 		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())
 		"pill_w_frac":     float(c.get("pill_w_frac", 30)) / 100.0,     # count-pill width (% of card width)

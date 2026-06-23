@@ -825,27 +825,31 @@ func _build_select(animate := true) -> void:
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
 	# ONE wide painted card per row — a vista per place (map.png place-picker). No header: the HUD
-	# wallet + the framed cards carry the read. Cards size to the gold frame's ASPECT (so the frame
-	# never distorts) and the stack centers in the band between the HUD and the floor back-arrow; if
-	# the natural height overflows the band, every card shrinks uniformly to fit. No ScrollContainer
-	# (the single-input-surface model has none); cards are positioned + hit-tested directly.
+	# wallet + the framed cards carry the read. The card SIZE is workbench-saved as a % of the screen
+	# (card_w_frac of the screen width, card_h_frac of the screen height), so a designer tunes the
+	# width + side margins + height live in the kit. The stack centers in the band between the HUD and
+	# the floor back-arrow; if the saved height overflows the band, every card shrinks uniformly
+	# (keeping the chosen w:h) to fit. No ScrollContainer (single-input-surface); cards are positioned
+	# + hit-tested directly. NOTE: the gold frame STRETCH-scales, so a w:h far from the art's ~2.92
+	# aspect visibly distorts the border — the kit's live preview shows the chosen shape.
 	var n := G.MAPS.size()
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
-	var card_aspect: float = float(Kit.MAP_CARD_ASPECT) if Kit != null else 1027.0 / 352.0
-	var side := 46.0
-	var card_w := view.x - side * 2.0
+	var w_frac: float = float(opts.get("card_w_frac", 0.96))    # card width  as a fraction of the screen width
+	var h_frac: float = float(opts.get("card_h_frac", 0.16))    # card height as a fraction of the screen height
 	var sep := 18.0
 	var band_top := top + 16.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
-	var card_h := card_w / card_aspect
+	var card_w := view.x * w_frac
+	var card_h := view.y * h_frac
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
-	if total_h > band_h:                                        # shrink uniformly so all cards fit the band
-		card_h *= band_h / total_h
-		card_w = card_h * card_aspect
+	if total_h > band_h:                                        # shrink uniformly (keep the chosen w:h) so all cards fit the band
+		var k := band_h / total_h
+		card_w *= k
+		card_h *= k
 		total_h = card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
 	var y := band_top + maxf(0.0, (band_h - total_h) * 0.5)

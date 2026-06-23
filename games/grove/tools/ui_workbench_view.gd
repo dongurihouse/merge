@@ -20,6 +20,7 @@ const BOARD_DEMO := [[1, 1, 101], [1, 2, 101], [2, 3, 102], [3, 2, 103], [4, 4, 
 const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persisted params (in the repo)
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
+const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 
 const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "shop", "level", "tiers", "currency_pill", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
@@ -215,11 +216,12 @@ var _params := {
 	# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
 	# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
 	"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
-	# the MAP-SELECT place-picker card (spec §8). Defaults mirror the shipped §8 constants, so the saved
-	# block the game's map.gd reads renders the SHIPPED card until you change it. Insets/fracs are scaled
-	# integers for the sliders (inset/radius in thousandths, fracs + veil alphas in percent — see
+	# the MAP-SELECT place-picker card (spec §8). card_w_frac / card_h_frac SIZE the card as a % of the
+	# screen (width % of screen width — smaller = wider side margins; height % of screen height). The rest
+	# mirror the shipped §8 constants, so the saved block the game's map.gd reads renders the card until you
+	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
 	# Kit.map_card_opts_from_config). open/done/unlock_exp are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "edge_sparkle": 60,
+	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
 		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
 		"open": true, "done": false, "unlock_exp": 3},
@@ -563,8 +565,13 @@ func _make_element(id: String) -> Control:
 			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
 			# gold frame / dark panel + the §8 veil read on their own; open/done/unlock_exp preview the state.
 			var mco := Kit.map_card_opts_from_config({"map_card": p})
+			# preview at the SAME proportion the game lays out — card_w_frac of the screen WIDTH by
+			# card_h_frac of the screen HEIGHT — scaled to the 460-px preview width, so dragging the
+			# size sliders reshapes the card live (and shows any gold-frame stretch).
 			var mw := 460.0
-			var mh := mw / Kit.MAP_CARD_ASPECT
+			var wf: float = maxf(1.0, float(p.get("card_w_frac", 96)))
+			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
+			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "unlock_exp": int(p.unlock_exp),
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
@@ -1471,6 +1478,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["span", 1, 30]))
 		"map_card":
 			_group_header("Saved to config", true)
+			# card SIZE: width as a % of the screen width (smaller = wider side margins), height as a % of
+			# the screen height. A w:h far from the art's ~2.92 aspect stretches the gold frame (the preview
+			# shows it). With 5 places stacked, a too-tall card is shrunk uniformly in-game to fit the band.
+			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
+			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 30]))      # card height (% of screen height)
 			# the painted kit (card_active / card_locked / pill_left) vs the code-drawn fallback. The §8 fog
 			# veil + its dials apply ONLY to that fallback (a locked card with art off), so they show then.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
