@@ -143,6 +143,7 @@ func _initialize() -> void:
 	_test_gold_badge_inner_inset(view)
 	_test_gold_badge_shine(view)
 	_test_gold_badge_corner(view)
+	_test_gold_badge_inner_corner_tracks_outer(view)
 	_test_gold_badge_consumers(view)
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
@@ -350,6 +351,9 @@ func _image_sparse_diff(a: Image, b: Image) -> int:
 				changed += 1
 	return changed
 
+func _luma(c: Color) -> float:
+	return c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722
+
 func _test_gold_badge_inner_inset(view) -> void:
 	ok(view._params["gold_badge"].has("inner_inset"), "gold_badge exposes an inner_inset Workbench control")
 	ok(view._is_config("gold_badge", "inner_inset"), "gold_badge inner_inset is saved design config")
@@ -390,6 +394,20 @@ func _test_gold_badge_corner(view) -> void:
 	view._params["gold_badge"]["corner"] = 92
 	var round := _gold_badge_preview_image(view)
 	ok(_image_sparse_diff(boxy, round) > 20, "gold_badge corner redraws the outer rounded border")
+	view._params["gold_badge"] = prev
+
+func _test_gold_badge_inner_corner_tracks_outer(view) -> void:
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 6
+	view._params["gold_badge"]["shine"] = 100
+	view._params["gold_badge"]["corner"] = 28
+	var img := _gold_badge_preview_image(view)
+	var pad := int(ceil(270 * 0.075))
+	var true_inset_curve := img.get_pixel(pad + 15, pad + 10)
+	var old_overrounded_curve := img.get_pixel(pad + 14, pad + 14)
+	ok(_luma(true_inset_curve) < _luma(old_overrounded_curve) - 0.015, \
+		"gold_badge inner border corner follows outer corner as a true inset")
 	view._params["gold_badge"] = prev
 
 func _board_frame_image_with_badge(badge: Dictionary) -> Image:

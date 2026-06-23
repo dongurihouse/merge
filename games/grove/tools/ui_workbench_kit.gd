@@ -791,8 +791,7 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 		return _gold_badge_cache[cache_key]
 	var tex_size := size + pad * 2
 	var img := Image.create(tex_size, tex_size, false, Image.FORMAT_RGBA8)
-	var default_groove_inset := size * 0.040
-	var groove_radius := maxf(6.0, outer_radius * 0.78 + (default_groove_inset - groove_inset))
+	var groove_radius := maxf(4.0, outer_radius - groove_inset)
 	var half := Vector2(size * 0.5, size * 0.5)
 	var linear_angle := deg_to_rad(138.0)
 	var linear_dir := Vector2(sin(linear_angle), -cos(linear_angle)).normalized()
