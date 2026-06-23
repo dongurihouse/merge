@@ -11,6 +11,7 @@
 		"grid_inset": 70.0,
 		"list_max_h": 0.0,
 		"row_gap": 14.0,
+		"shadow": false,
 		"width_pct": 80.0
 	},
 	"bag_card": {
@@ -31,17 +32,18 @@
 		"glow_size": 125.0,
 		"level_frac": 44.0,
 		"next_glow": 9.0,
-		"next_twinkle": 55.0
+		"next_twinkle": 55.0,
+		"shadow": false
 	},
 	"board": {
 		"cell": 52.0,
 		"cols": 7.0,
 		"frame": 30.0,
-		"frame_border_w": 4,
-		"frame_corner": 46,
-		"frame_inner_w": 0,
+		"frame_border_w": 4.0,
+		"frame_corner": 46.0,
+		"frame_inner_w": 0.0,
 		"frame_style": "badge",
-		"frame_top_shadow": 0,
+		"frame_top_shadow": 0.0,
 		"gap": 7.0,
 		"item": 63.0,
 		"rows": 9.0,
@@ -60,6 +62,7 @@
 		"icon": "gem",
 		"icon_badge": "disc light",
 		"icon_on": false,
+		"shadow": false,
 		"title": 25.0
 	},
 	"currency_pill": {
@@ -78,13 +81,14 @@
 		"plus_x": -19.0,
 		"radius": 40.0,
 		"row_sep": 4.0,
+		"shadow": true,
 		"use_art": true,
-		"water": 5438.0,
-		"shadow": true
+		"water": 5438.0
 	},
 	"daily": {
 		"cols": 3.0,
 		"list_max_h": 0.0,
+		"shadow": false,
 		"width_pct": 85.0
 	},
 	"daily_card": {
@@ -100,9 +104,11 @@
 		"ribbon_scale": 100.0,
 		"ribbon_x": 0.0,
 		"ribbon_y": 16.0,
+		"shadow": false,
 		"today_badge": "gold glow"
 	},
 	"dialog": {
+		"shadow": false,
 		"width_pct": 85.0
 	},
 	"frame": {
@@ -133,6 +139,7 @@
 		"close_y": -1.0,
 		"list_max_h": 425.0,
 		"list_top_pad": -2.0,
+		"shadow": false,
 		"width": 720.0
 	},
 	"generator": {
@@ -140,6 +147,7 @@
 		"glow_scale": 100.0,
 		"outline_a": 85.0,
 		"outline_w": 35.0,
+		"shadow": false,
 		"sparkle_count": 5.0,
 		"sparkle_speed": 70.0
 	},
@@ -161,10 +169,12 @@
 		"play_px": 260.0,
 		"px": 140.0,
 		"rect_pad": 13.0,
-		"twinkle": 55.0,
-		"shadow": true
+		"shadow": true,
+		"twinkle": 55.0
 	},
-	"icon": {},
+	"icon": {
+
+	},
 	"info": {
 		"amount_font": 22.0,
 		"close_font": 20.0,
@@ -174,6 +184,7 @@
 		"note_font": 13.0,
 		"row_gap": 8.0,
 		"row_pad": 14.0,
+		"shadow": false,
 		"width_pct": 58.0
 	},
 	"info_bar": {
@@ -182,7 +193,8 @@
 		"name_font": 30.0,
 		"sell_font": 30.0,
 		"sell_icon": 30.0,
-		"sep": 10.0
+		"sep": 10.0,
+		"shadow": true
 	},
 	"level": {
 		"banner_text": "Level",
@@ -194,6 +206,7 @@
 		"hint_font": 22.0,
 		"medallion_px": 150.0,
 		"ring_dy": -6.0,
+		"shadow": false,
 		"tally_font": 28.0,
 		"title_font": 30.0,
 		"width_pct": 50.0
@@ -204,6 +217,7 @@
 		"pill_min": 170.0,
 		"pill_w_frac": 30.0,
 		"pill_y_frac": 13.0,
+		"shadow": false,
 		"use_art": true,
 		"veil_deep": 66.0,
 		"veil_mark_alpha": 16.0,
@@ -213,6 +227,7 @@
 	"progress_bar": {
 		"art": true,
 		"height": 30.0,
+		"shadow": false,
 		"star_knob": false
 	},
 	"quest_card": {
@@ -233,11 +248,21 @@
 		"item_y": 32.0,
 		"plaque_w": 39.0,
 		"plaque_x": 72.0,
-		"plaque_y": 79.0
+		"plaque_y": 79.0,
+		"shadow": false
 	},
 	"settings": {
 		"row_gap": 12.0,
+		"shadow": false,
 		"width_pct": 50.0
+	},
+	"shadow": {
+		"alpha": 46.0,
+		"blur": 15.0,
+		"offset_x": 1.0,
+		"offset_y": 2.0,
+		"spread": -13.0,
+		"warmth": 82.0
 	},
 	"shop": {
 		"cell_h": 150.0,
@@ -245,6 +270,7 @@
 		"cols": 3.0,
 		"list_max_h": 0.0,
 		"row_gap": 22.0,
+		"shadow": false,
 		"width_pct": 85.0
 	},
 	"tiers": {
@@ -255,12 +281,14 @@
 		"list_max_h": 0.0,
 		"mark_glow": 60.0,
 		"mark_twinkle": 50.0,
+		"shadow": false,
 		"show_num": true,
 		"width_pct": 85.0
 	},
 	"toggle_card": {
 		"card_art": true,
 		"label_font": 28.0,
+		"shadow": false,
 		"switch_h": 44.0
 	},
 	"vault": {
@@ -271,14 +299,7 @@
 		"panel_pad_y": 34.0,
 		"plate_px": 250.0,
 		"row_gap": 12.0,
+		"shadow": false,
 		"width_pct": 80.0
-	},
-	"shadow": {
-		"offset_x": 0,
-		"offset_y": 4,
-		"blur": 14,
-		"spread": 4,
-		"alpha": 34,
-		"warmth": 82
 	}
 }
