@@ -799,9 +799,9 @@ static func _gold_badge_texture(size: int, groove_inset: float, shine: float, pa
 	var half := Vector2(size * 0.5, size * 0.5)
 	var linear_angle := deg_to_rad(138.0)
 	var linear_dir := Vector2(sin(linear_angle), -cos(linear_angle)).normalized()
-	var c0 := Color("#ffefc7")
-	var c1 := Color("#ffe7b0")
-	var c2 := Color("#f6c974")
+	var c0 := Color("#fff0cf")
+	var c1 := Color("#fde6ba")
+	var c2 := Color("#f3c983")
 	var flat := c1
 	var rim := Color(189.0 / 255.0, 121.0 / 255.0, 38.0 / 255.0, 0.35)
 	var groove := Color(181.0 / 255.0, 116.0 / 255.0, 35.0 / 255.0, 0.50)

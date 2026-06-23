@@ -143,6 +143,7 @@ func _initialize() -> void:
 	_test_gold_badge_inner_inset(view)
 	_test_gold_badge_shine(view)
 	_test_gold_badge_gradient(view)
+	_test_gold_badge_background_matches_icon_badges(view)
 	_test_gold_badge_corner(view)
 	_test_gold_badge_inner_corner_tracks_outer(view)
 	_test_gold_badge_consumers(view)
@@ -355,6 +356,9 @@ func _image_sparse_diff(a: Image, b: Image) -> int:
 func _luma(c: Color) -> float:
 	return c.r * 0.2126 + c.g * 0.7152 + c.b * 0.0722
 
+func _max_rgb_delta(a: Color, b: Color) -> float:
+	return maxf(absf(a.r - b.r), maxf(absf(a.g - b.g), absf(a.b - b.b)))
+
 func _test_gold_badge_inner_inset(view) -> void:
 	ok(view._params["gold_badge"].has("inner_inset"), "gold_badge exposes an inner_inset Workbench control")
 	ok(view._is_config("gold_badge", "inner_inset"), "gold_badge inner_inset is saved design config")
@@ -400,6 +404,23 @@ func _test_gold_badge_gradient(view) -> void:
 	var ramp_delta := absf(_luma(ramp.get_pixel(pad + 80, pad + 80)) - _luma(ramp.get_pixel(pad + 210, pad + 210)))
 	ok(flat_delta < ramp_delta * 0.35, "gold_badge gradient controls flat-vs-ramped background shading")
 	ok(_image_sparse_diff(flat, ramp) > 20, "gold_badge gradient redraws the background fill")
+	view._params["gold_badge"] = prev
+
+func _test_gold_badge_background_matches_icon_badges(view) -> void:
+	var prev: Dictionary = (view._params["gold_badge"] as Dictionary).duplicate()
+	view._params["gold_badge"]["px"] = 270
+	view._params["gold_badge"]["inner_inset"] = 11
+	view._params["gold_badge"]["corner"] = 58
+	view._params["gold_badge"]["shine"] = 0
+	view._params["gold_badge"]["gradient"] = 0
+	var img := _gold_badge_preview_image(view)
+	var pad := int(ceil(270 * 0.075))
+	var face := img.get_pixel(pad + 135, pad + 135)
+	var ref_tex := load(Look.kit("shared/badge_square.png")) as Texture2D
+	var ref_img := ref_tex.get_image()
+	var ref := ref_img.get_pixel(ref_img.get_width() / 2, ref_img.get_height() / 2)
+	ok(_max_rgb_delta(face, ref) < 0.02, \
+		"gold_badge flat background matches the shared icon badge face")
 	view._params["gold_badge"] = prev
 
 func _test_gold_badge_corner(view) -> void:
