@@ -658,24 +658,29 @@ static func attach_badge(host: Control, b: Control, over: Vector2 = Tune.BADGE_O
 	b.offset_bottom = b.offset_top + sz.y
 	return b
 
-## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It paints ONLY a soft
-## shadow — never a solid body — so it can NOT read as a black box. The shadow reaches an INDEPENDENT
-## distance on each side: `top` / `bottom` / `left` / `right` (px) each grow the shadow's base rect outward
-## by that much (expand_margin), and `softness` is the shared feather (blur) that keeps every edge soft.
-## The element art (opaque, un-grown) sits on top, so the shadow shows ONLY where it pokes past the element
-## — independently per side. A side set to 0 collapses to just the soft feather; raise it to cast further
-## that way. `corner` is the element's radius (big = capsule, clamps).
+## A DROP SHADOW Panel to place BEHIND an element (full-rect of the SAME holder). It paints a soft shadow
+## that HUGS the element: the shadow's rounded-rect footprint is FILLED with the warm shadow tint (so there
+## is NO hollow gap between the element edge and the cast shadow) and a soft feather fades outward past it.
+## The shadow reaches an INDEPENDENT distance on each side: `top` / `bottom` / `left` / `right` (px) each grow
+## the FILLED rect outward by that much (expand_margin); `softness` is the shared feather (blur) past the fill.
+## The OPAQUE element art sits on top, hiding the fill beneath itself, so the shadow shows ONLY where it pokes
+## past the element — independently per side. A side set to 0 collapses to just the soft feather; raise it to
+## cast further that way. `corner` is the element's radius (big = capsule, clamps). NOTE: the footprint fill is
+## solid, so a TRANSLUCENT element (the workbench fill_alpha < 100 preview) lets it read through — shipped
+## badges are opaque, so in-game the fill is always hidden.
 static func drop_shadow(corner: float, top: float, bottom: float, left: float, right: float, softness: float, alpha: float, warmth: float = 0.82) -> Panel:
 	var sh := Panel.new()
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	sh.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var tint := warm_shadow_color(alpha, warmth)
 	var ssb := StyleBoxFlat.new()
-	ssb.draw_center = false                                  # NO solid fill — only the soft shadow draws
-	ssb.shadow_color = warm_shadow_color(alpha, warmth)
+	ssb.draw_center = true                                   # FILL the footprint with the shadow tint — no hollow gap
+	ssb.bg_color = tint                                      # the grown rect (under the badge + the per-side reach band)
+	ssb.shadow_color = tint                                  # the soft feather past the filled rect, same tint
 	ssb.shadow_size = int(maxf(softness, 0.0))              # the shared soft feather (blur radius)
 	ssb.shadow_offset = Vector2.ZERO                         # direction comes from per-side reach, not an offset
 	ssb.set_corner_radius_all(int(corner))
-	ssb.expand_margin_left = maxf(left, 0.0)                # per-side REACH: grow the shadow's base rect outward
+	ssb.expand_margin_left = maxf(left, 0.0)                # per-side REACH: grow the filled rect outward
 	ssb.expand_margin_top = maxf(top, 0.0)
 	ssb.expand_margin_right = maxf(right, 0.0)
 	ssb.expand_margin_bottom = maxf(bottom, 0.0)
