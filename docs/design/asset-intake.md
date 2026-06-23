@@ -83,6 +83,31 @@ the folder. When the Dev says "pick up the new art" (or similar), run this loop.
 - Raws are archived, never deleted.
 - Map scenes stay with the §16 pipeline; don't try to automate the share-gate.
 
+## Item line sheets (the 12-tier ladders) — `slice_item_lines.py`
+
+The merge lines (`flower`/`mushroom`/`honey`/`feather`/`tools`) each ship as one 12-tier sheet under
+`_originals/items/<family>.png` and are re-sliced into `items/<family>/<family>_1..12.png` by
+`games/tools/slice_item_lines.py` (not the generic `grid`/`sheet` path). Run it after the source
+sheet changes:
+
+```bash
+python3 games/tools/slice_item_lines.py --montage   # all five lines; montages to tmp/itemcut/
+make import                                          # reimport the regenerated PNGs
+```
+
+**Why a dedicated slicer.** The generic slicers (`slice_grid.gd`, `proc_line.gd` fixed-grid) cut the
+sheet into uniform grid **cells**, then crop each cell to its content bbox. The artist does not draw
+every subject perfectly inside its uniform cell, so a thin **sliver of a neighbouring item — cut by
+the grid line — lands in a cell**; the bbox then spans subject+sliver and the subject comes out
+shrunk, off-centre, with a stray fragment at the edge (the floating disc under `honey_5`, the stray
+cap under `mushroom_7`). `slice_item_lines.py` instead segments by **connected components on the whole
+de-backgrounded sheet** (objects are never cut at a boundary) and buckets each component into its grid
+cell by **centroid** — so slivers cannot exist. It chroma-keys the background by flooding the
+corner-sampled colour inward from the borders (pale item interiors walled by the outline survive), and
+for saturated cyan/pink sheets also punches enclosed bg pockets (gaps between thin stems). It **fails
+loudly** if any tier cell ends up empty. The per-sheet grid (`rows × cols`) lives in the `SHEETS`
+table in the script.
+
 ## Pre-baked texture polish (`make bake-textures`)
 
 Separate from intake. At runtime the UI kit's `clean_tex_path()` (in `games/grove/tools/ui_workbench_kit.gd`)

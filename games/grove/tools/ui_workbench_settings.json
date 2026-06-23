@@ -36,16 +36,16 @@
 		"shadow": false
 	},
 	"board": {
-		"cell": 52.0,
+		"cell": 120.0,
 		"cols": 7.0,
-		"frame": 30.0,
+		"frame": 16.0,
 		"frame_border_w": 4.0,
 		"frame_corner": 46.0,
 		"frame_inner_w": 0.0,
 		"frame_style": "badge",
 		"frame_top_shadow": 0.0,
-		"gap": 7.0,
-		"item": 63.0,
+		"gap": 4.0,
+		"item": 56.0,
 		"rows": 9.0,
 		"scale": 94.0,
 		"shadow": true
@@ -152,11 +152,11 @@
 		"sparkle_speed": 70.0
 	},
 	"gold_badge": {
-		"corner": 58.0,
-		"gradient": 100.0,
+		"corner": 21.0,
+		"gradient": 22.0,
 		"inner_inset": 6.0,
 		"shadow": true,
-		"shine": 2.0
+		"shine": 0.0
 	},
 	"home_button": {
 		"badge_dot_px": 15.0,
@@ -195,7 +195,7 @@
 		"width_pct": 58.0
 	},
 	"info_bar": {
-		"height": 136.0,
+		"height": 125.0,
 		"inner_scale": 52.0,
 		"name_font": 30.0,
 		"sell_font": 30.0,
