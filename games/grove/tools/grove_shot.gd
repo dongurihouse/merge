@@ -168,11 +168,14 @@ func _initialize() -> void:
 			scn._select_generator(scn.board.gens.keys()[0])   # re-read the bar (steady boosted state)
 			await create_timer(0.3).timeout
 		"watershop":
-			# the WATER stall opened over the board → just the Fill-water card (the boost is a board action, T57).
+			# the WATER stall opened over the board → the FREE refill (a full can, capped + cooled) leads,
+			# then the 💎 Fill-water card. Mirrors the real board HUD, which passes BOTH callbacks.
 			Save.add_coins(2000)
 			Save.add_diamonds(50)
 			scn._update_hud()
-			load("res://engine/scripts/ui/shop.gd").open_water(scn, {"water_grant": func() -> void: pass})
+			load("res://engine/scripts/ui/shop.gd").open_water(scn, {
+				"water_grant": func() -> void: scn.water = G.WATER_CAP,
+				"water_add": func() -> void: scn.water += G.WATER_CAP})
 			await create_timer(0.5).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
