@@ -98,7 +98,6 @@ var piece_nodes := {}
 var bramble_nodes := {}
 var gen_node: Control              # the starter satchel (kept for tools/tests)
 var gen_nodes := {}                # generator index -> node
-var gen_preview_cells := {}        # V: cell -> gi for locked-gen previews (tap → name floater)
 var _grown_cells: Array = []       # cells of generators that just GREW IN this rebuild (appear_level reached) — popped for feedback
 # (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
 #  T48 ahead of the UI redesign; the §6 boost coin sink stays in code, see _activate_gen_boost)
@@ -528,9 +527,6 @@ func _quest_exp(q: Dictionary) -> int:
 func _quest_coins(q: Dictionary) -> int:
 	return Quests.coins(q)
 
-func _quest_gems(q: Dictionary) -> int:
-	return Quests.gems(q)
-
 func _persist() -> void:
 	var g := Save.grove()
 	g["board"] = board.to_dict()
@@ -623,12 +619,14 @@ func _update_water_hud() -> void:
 	if water_label == null:
 		return
 	# T43: apply any banked water credit (e.g. the starter pack's water bonus bought from
-	# the map) ONCE on board open — before the empty check, so a fresh top-up shows.
+	# the map) ONCE on board open — before the empty check, so a fresh top-up shows. ADDITIVE
+	# and OVER-CAP (like the free refill): a player who buys the starter at a full can still gets
+	# the paid water as a banked spare, not clamped to nothing. Regen pauses above the cap.
 	if not _water_pending_drained:
 		_water_pending_drained = true
 		var credit := Save.take_water_pending()
 		if credit > 0:
-			water = mini(G.WATER_CAP, water + credit)
+			water = water + credit
 			_persist()
 	# Water is a first-class currency in the shared top bar — always visible on the board now, matching
 	# the map. (The old FTUE staged-chrome hide that kept the meter hidden until the 10 free pops were
@@ -1171,11 +1169,9 @@ func _rebuild_all() -> void:
 	gen_node = gen_nodes.values()[0] if not gen_nodes.is_empty() else null
 	# (the §6 burst buy pill was rebuilt here — retired T48 ahead of the UI redesign; the §6 boost
 	#  coin sink stays live via _activate_gen_boost, only its on-board pill is gone)
-	# PARKED (T17): the locked-generator preview ("after N spots") was keyed on the old
-	# per-spot-count `appears_at`. Under per-map generators the next set arrives on map
-	# COMPLETION, not after N spots — the preview needs redefining (show the next map's
-	# incoming generators) alongside §6/§7. Disabled for now; the `gen_preview` flag stays.
-	gen_preview_cells.clear()
+	# PARKED (T17, backlog): the locked-generator preview ("after N spots") was retired with the
+	# per-map generator redesign (the next set now arrives on map COMPLETION, not after N spots);
+	# if it returns it needs redefining to show the next map's incoming generators.
 	_rebuild_pieces()
 	# (the board panel — mat + border in one — is the bottom layer, added by _make_board_mat above;
 	# there is no separate frame overlay now that the panel carries its own border.)
@@ -2438,19 +2434,14 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	# and reports the levels gained so the Level dialog can fire (the gift pays on Collect).
 	var sp_exp := _quest_exp(q)
 	var sp_coins := _quest_coins(q)
-	var sp_gems := _quest_gems(q)             # §7: a featured quest may carry an occasional 💎 bonus
 	var levels_up := G.earn_exp(sp_exp)
 	if sp_coins > 0:
 		Save.add_coins(sp_coins)              # §7/§10: the quest coin faucet
-	if sp_gems > 0:
-		Save.add_diamonds(sp_gems)            # §7: the featured-quest premium bonus (never extra exp)
 	# (generators are no longer delivered here — they arrive when a generator tap produces a DUE tool;
 	#  see _produce_due_generators in _pop_seed.)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
 	if sp_coins > 0:
 		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
-	if sp_gems > 0:
-		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 64), "gem", sp_gems, Color("#BFE6F2"), 26)
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now

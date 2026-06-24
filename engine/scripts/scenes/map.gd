@@ -96,7 +96,6 @@ var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
 var _residents_btn: Button = null  # the bottom-nav Residents badge — shown only on a fully-unlocked map
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
-var _shop_btn: Control           # anchor for the Store "new offer" badge — the wallet's gem pill (premium stall's + entry)
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var coins_label: Label
@@ -107,7 +106,6 @@ var _open_shop := Callable()      # opens the shared Shop / premium stall (lives
 var _open_water := Callable()     # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
-var _store_badge: Control = null  # Store "new offer" badge — lit while the starter pack is unclaimed
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
@@ -269,7 +267,7 @@ func _open_map(z: int) -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	Save.grove_write()
 	_build_map()
-	_refresh_chrome_badges()             # Store / Daily / Free / Inbox badges re-read their actionable state on nav
+	_refresh_chrome_badges()             # Daily · Vault · Inbox badges re-read their actionable state on nav
 	_refresh_play_cta()                  # the merged CTA is PER-MAP — flip Play↔Restore for the map just opened
 	_refresh_residents_btn()             # show/hide the Residents badge for the map just opened
 
@@ -1132,7 +1130,6 @@ func _build_hud() -> void:
 	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_panels = [hud.wallet, hud.lv_panel]
-	_shop_btn = hud.gem_plus         # the Welcome gift lives in the premium stall now → the badge rides the GEM pill's "+"
 
 func _update_hud() -> void:
 	if _hud_refresh.is_valid():
@@ -1210,10 +1207,9 @@ func _build_chrome() -> void:
 	# identity, not nav index: the Residents button shifts Play's position in the row.)
 	if is_instance_valid(_play_btn):
 		FX.breathe_once(_play_btn)
-	# The premium (gem) pill's top-right "new offer" red dot was REMOVED by request — the gem stall no
-	# longer wears a corner badge. `_store_badge` stays null, so `_refresh_store_badge` is a safe no-op.
-	# the LiveOps rail: Daily · Free · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
-	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there.
+	# the LiveOps rail: Daily · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
+	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there. (The
+	# premium pill's "new offer" red dot and the rail "Free" faucet were removed — Free moved to the shop.)
 	_build_liveops_rail()
 	# the place-picker's bottom-left BACK arrow (map.png) — returns to the map you were viewing. A real
 	# Button on `self` (chrome), NOT under the content input surface; hidden on a map, shown in select.
@@ -1666,15 +1662,8 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, 24)
 	_update_hud()
 
-# Refresh the Store "new offer" badge — lit while the one-time starter pack is unclaimed (the
-# clearest "there's an offer for you" signal; Shop.starter_available is the public query).
-func _refresh_store_badge() -> void:
-	if _store_badge != null and is_instance_valid(_store_badge):
-		_store_badge.visible = Shop.starter_available()
-
 # Re-read every chrome badge's actionable state in one go (called on map nav). Cheap, idempotent.
 func _refresh_chrome_badges() -> void:
-	_refresh_store_badge()
 	_refresh_liveops_badges()
 
 # T45: open the diegetic piggy-bank jar (the accrual vault, ui/vault.gd). On close it refreshes

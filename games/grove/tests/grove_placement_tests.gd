@@ -163,7 +163,6 @@ func _initialize() -> void:
 	ok(ws.find_children("*", "Label", true, false).size() == lbls1, "W3: the sell hint never fires twice")
 	# (b) selling moved to the bottom-bar INFO BAR's trashcan (the drag-to-merchant well is retired):
 	# selecting a deletable board item shows the trashcan with its "+N" payout; the info button goes live.
-	Feat.FLAGS["ftue_staged_chrome"] = false
 	ws._rebuild_givers()
 	await create_timer(0.05).timeout
 	var sell_es: Array = ws.board.empty_ground_cells()
@@ -255,7 +254,6 @@ func _initialize() -> void:
 	ok(Save.exp_total() > exp_ready, "#3: tapping the READY ✓ CLAIMS the quest (delivers, pays exp)")
 	ws.giver_chips = []
 
-	Feat.FLAGS["ftue_staged_chrome"] = true
 	ws.queue_free()
 
 	# V1 (the locked-generator "after N spots" preview) is PARKED with T17: it was keyed on
@@ -265,7 +263,6 @@ func _initialize() -> void:
 	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
 	fresh("y")
 	var Feat2 = load("res://engine/scripts/core/features.gd")
-	Feat2.FLAGS["ftue_staged_chrome"] = false   # merchant + basket present on a fresh board
 	Feat2.FLAGS["porter_collect"] = false        # test the MECHANICS, not the drift animation
 	var ys = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ys)
@@ -308,7 +305,6 @@ func _initialize() -> void:
 	ok(ys.basket.size() == 1, "Y3: a sale arms the porter timer")
 	ys._porter_tick(ys.PORTER_SECS + 1.0)
 	ok(ys.basket.is_empty(), "Y3: the porter collects the basket after ~3 min")
-	Feat2.FLAGS["ftue_staged_chrome"] = true
 	Feat2.FLAGS["porter_collect"] = true
 	ys.queue_free()
 	# Y4 invariant: the water↔diamond round trip loses >=10x — never a water pump
