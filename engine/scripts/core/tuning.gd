@@ -229,7 +229,7 @@ class FX:
 	const GEN_CHARGE_T := [0.07, 0.11]  # per-leg seconds: K0->K1, K1->K2
 
 	# --- combo (cozy successive-merge streak) ------------------------------------------
-	const ESCALATE_TIER := 4            # tier >= this earns the reserved big-moment shake
+	const ESCALATE_TIER := 8            # tier >= this earns the reserved big-moment shake (PREMIUM_TIER — the pinnacle merges)
 	const BIG_BURST_BONUS := 6         # + burst particles on a big-moment (tier >= ESCALATE_TIER) merge
 	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
 	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
