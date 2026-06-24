@@ -125,6 +125,8 @@ ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export temp
 	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/AcornForest.xcodeproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
+	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
+	tools/normalize_ios_signing.sh build/ios/AcornForest.xcodeproj/project.pbxproj
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output
