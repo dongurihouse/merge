@@ -137,7 +137,7 @@ const CAPTIONS := {
 	"frame": "Dialog frame — shared chrome",
 	"dialog": "Mail dialog — cards",
 	"daily": "Daily — day grid (shared frame)",
-	"mystery": "Mystery — spin-reveal dialog (shared frame · reward cards · winners)",
+	"mystery": "Mystery — slot reveal (reels spin · premium shines · pick N)",
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
@@ -247,7 +247,7 @@ var _params := {
 	# the MYSTERY spin-reveal dialog (login_mystery.gd) — the shared frame + a row of reward cards the spin
 	# lands on. NO saved knobs (the frame is the shared one; width is the engine's min(560, 94%) cap). `preview`
 	# picks the pool (day 4 = 3 cards/1 win · day 7 = 5 cards/2 wins) and the state (all shown · winners landed).
-	"mystery": {"preview": "day 7 · won"},
+	"mystery": {"preview": "day 7 · revealed"},
 	# …and the SHOP dialog reuses the SAME frame + the SAME card with bigger cells, its own scroll cap
 	# (list_max_h 0 = no scroll, show every item), and the GAME's real items.
 	"shop": {"width_pct": 85, "cols": 3, "cell_w": 112, "cell_h": 150, "row_gap": 22, "list_max_h": 0},
@@ -885,15 +885,15 @@ func _daily_preview_day(state: String) -> Dictionary:
 		"shop":    return {"icon": "gem", "count": 500, "price": "$4.99"}   # the SAME card as a shop pack
 		_:         return {"day": 4, "label": "Day 4", "reward": {"coins": 150}, "state": "today"}
 
-## The MYSTERY spin-reveal dialog, rendered STATIC for a repeatable visual check. `which` selects the
-## pool (day 4 = 3 cards / 1 win · day 7 = 5 cards / 2 wins) and the state ("shown" = every card lit, the
-## look you read each amount off · "won" = winners lit, the rest dimmed + the "You won!" caption — the
-## landed climax). The demo roll is DETERMINISTIC (first `show` pool entries, evenly-spaced winners — no
-## shuffle), so the same preview always renders the same cards. Reuses LoginMystery.build_reveal, so this
-## is byte-for-byte the dialog the game opens; frame_cfg: _params flows live Frame edits through.
+## The MYSTERY slot-reveal dialog, rendered STATIC for a repeatable visual check (T54). `which` selects
+## the pool (day 4 = 3 reels / pick 1 · day 7 = 5 reels / pick 2) and the state: "revealed" = every reel
+## landed with the premium ones shining (the end of the spin); "pick" = the pick phase, one reel already
+## selected + the Claim button. The reels are DETERMINISTIC (first `show` pool entries — no shuffle), and
+## "▶ Play spin" (sidebar) replays the real animation on this element. Reuses LoginMystery.build_reveal,
+## so it's byte-for-byte the dialog the game opens; frame_cfg: _params flows live Frame edits through.
 func _mystery_preview(which: String) -> Control:
 	var slot := 4 if which.begins_with("day 4") else 7
-	var won := which.ends_with("won")
+	var pick_state := which.ends_with("pick")
 	var mc: Dictionary = Login.mystery_config(slot)
 	var pool: Array = mc.get("pool", [])
 	var show: int = mini(int(mc.get("show", 0)), pool.size())
@@ -901,18 +901,28 @@ func _mystery_preview(which: String) -> Control:
 	var options: Array = []
 	for i in show:
 		options.append(pool[i])                       # first `show` (deterministic — the live roll shuffles)
-	var winners: Array = []
-	for j in win:
-		winners.append(clampi(int(floor((j + 0.5) * show / float(maxi(1, win)))), 0, maxi(0, show - 1)))
-	var built: Dictionary = LoginMystery.build_reveal(options, winners, LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params})
-	var cards: Array = built["cards"]
-	if won:
-		# the landed climax: winners full, the rest dimmed (mirror the live _set_highlight modulate — no scale,
-		# which would pivot oddly on an unlaid-out preview), and swap the caption to the win line.
-		for i in cards.size():
-			(cards[i] as Control).modulate = Color(1, 1, 1, 1.0 if winners.has(i) else 0.4)
-		(built["caption"] as Label).text = "You won!"
-	return built["dialog"]
+	var built: Dictionary = LoginMystery.build_reveal(options, range(win), LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params})
+	var reels: Array = built["reels"]
+	var dialog: Control = built["dialog"]
+	LoginMystery.reveal_static(reels)                 # land + shine the premium reels (end-of-spin look)
+	if pick_state:
+		var noop := func(_p: Array) -> void: pass
+		LoginMystery.enter_pick(reels, win, built["caption"], built["claim"], noop)
+		if reels.size() >= 2:
+			((reels[1] as Control).get_meta("tap") as Button).pressed.emit()   # preview one chosen
+	dialog.set_meta("reels", reels)                   # so "▶ Play spin" can replay on this element
+	return dialog
+
+## "▶ Play spin" — replay the REAL reel animation on the live Mystery preview element (find the dialog
+## carrying the reels, reset + spin). Lets the owner watch + tune the spin pacing in the workbench.
+func _play_mystery_spin() -> void:
+	var sec: Variant = _sections.get("mystery")
+	if sec == null:
+		return
+	for n in (sec as Control).find_children("*", "Control", true, false):
+		if (n as Control).has_meta("reels"):
+			LoginMystery.replay_spin(n, (n as Control).get_meta("reels"))
+			return
 
 ## Placeholder content for the standalone Frame preview — faint bars standing in for "any content".
 func _frame_placeholder() -> Control:
@@ -1520,10 +1530,14 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 7]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1000]))   # height cap; 0 = no scroll
 		"mystery":
-			# no saved knobs: the frame is shared (Frame item) and the width is the engine's min(560, 94%) cap.
-			# Just the preview-state picker — which pool (day 4 / 7) and which state (all shown / winners landed).
+			# no saved knobs: the frame is shared (Frame item), width is the engine's min(560, 94%) cap.
+			# The preview-state picker (which pool · revealed-vs-pick) + "▶ Play spin" to watch the real animation.
 			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Preview", "preview", ["day 7 · won", "day 7 · shown", "day 4 · won", "day 4 · shown"]))
+			_sidebar_body.add_child(_option_row("Preview", "preview", ["day 7 · revealed", "day 7 · pick", "day 4 · revealed", "day 4 · pick"]))
+			var mplay := Button.new()
+			mplay.text = "▶ Play spin"
+			mplay.pressed.connect(_play_mystery_spin)
+			_sidebar_body.add_child(mplay)
 		"shop":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
