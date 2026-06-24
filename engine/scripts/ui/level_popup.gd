@@ -68,7 +68,7 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	var pct: float = float((cfg.get("level", {}) as Dictionary).get("width_pct", DEFAULT_WIDTH_PCT))
 	var width: float = vw * clampf(pct, 30.0, 100.0) / 100.0
 
-	var gift: Dictionary = G.level_gift(levels_up) if mode == "levelup" else {}
+	var gift: Dictionary = G.level_gift(levels_up, lvl) if mode == "levelup" else {}   # lvl = new level → milestone acorns
 	var data := {
 		"level": lvl, "earned": earned, "next": nxt, "into": into, "span": span,
 		"remaining": remaining, "mode": mode, "gift": gift,

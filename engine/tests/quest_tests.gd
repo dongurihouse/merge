@@ -17,19 +17,22 @@ func ok(cond: bool, label: String) -> void:
 		print("  FAIL  ", label)
 
 func _initialize() -> void:
-	# --- level-based reward: exp=min(level,CAP), coins=max(0,level-CAP), +gems at >=10 ---
-	var r1 := G.quest_reward(1)
-	ok(int(r1.exp) == 1 and int(r1.coins) == 0 and not r1.has("gems"), "a level-1 quest pays 1 exp, no coins, no gems")
-	var r6 := G.quest_reward(6)
-	ok(int(r6.exp) == int(G.STAR_CAP) and int(r6.coins) == 6 - int(G.STAR_CAP), "level 6 caps exp and pays the surplus in coins")
-	var r10 := G.quest_reward(10)
-	ok(int(r10.get("gems", 0)) == int(G.QUEST_PREMIUM_GEMS), "level 10 also pays premium 💎")
-	ok(not G.quest_reward(9).has("gems"), "level 9 pays no premium 💎")
-	var capped := true
-	for L in range(1, 13):
-		if int(G.quest_reward(L).exp) > int(G.STAR_CAP):
-			capped = false
-	ok(capped, "stars never exceed STAR_CAP across levels 1–12 (§3 pacing)")
+	# --- EFFORT-BASED reward: exp=round(clicks/7), coins=round(clicks/cpc[map]×depth), NO acorns ---
+	var r4 := G.quest_reward(4)            # t4 = 8 clicks
+	ok(int(r4.exp) == int(round(8.0 / float(G.QUEST_CLICKS_PER_EXP))) and not r4.has("gems"), "a t4 quest pays round(8/7)=1 exp and no acorns")
+	var r8 := G.quest_reward(8)            # t8 = 128 clicks
+	ok(int(r8.exp) == int(round(128.0 / float(G.QUEST_CLICKS_PER_EXP))), "t8 exp = round(128/7) = 18 (effort-based)")
+	ok(int(r8.coins) > int(r4.coins), "a deeper-tier quest pays more coins than a shallow one")
+	ok(int(G.quest_reward(8, 4).coins) > int(G.quest_reward(8, 0).coins), "later maps pay more coins for the same tier (per-map cpc)")
+	var rising := true
+	var no_acorns := true
+	for L in range(5, 13):
+		if int(G.quest_reward(L).exp) <= int(G.quest_reward(L - 1).exp):
+			rising = false
+		if int(G.quest_reward(L).get("gems", 0)) > 0:
+			no_acorns = false
+	ok(rising, "exp rises monotonically with tier (effort-based, uncapped)")
+	ok(no_acorns, "no quest pays acorns across t4–t12 (Option A — milestone/IAP only)")
 
 	# --- gen_quest: flat {line, tier}, single item, level-scaled, deterministic ---
 	var rng := RandomNumberGenerator.new()
@@ -129,11 +132,10 @@ func _initialize() -> void:
 			z1_excludes_z0 = false
 	ok(z1_excludes_z0, "askable_lines(roster, 1) excludes map-0 lines (old-map lines aren't quested)")
 
-	# --- economy ceiling + PREMIUM_TIER pinning ---
+	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")
-	ok(G.water_to_earn_diamond() == int(pow(2, int(G.PREMIUM_TIER) - 1)), "diamond-earn rate pins to PREMIUM_TIER, not TOP_TIER")
-	ok(G.sell_reward(int(G.PREMIUM_TIER)) == Vector2i(0, 1), "the flat-1💎 pinnacle is PREMIUM_TIER")
-	ok(int(G.sell_reward(int(G.PREMIUM_TIER) + 1).y) == 0, "a tier above PREMIUM_TIER still sells for coins (not premium)")
+	ok(int(G.sell_reward(int(G.PREMIUM_TIER)).y) == 0 and int(G.sell_reward(int(G.PREMIUM_TIER)).x) > 0, "t8 (former pinnacle) now sells for COINS, not acorns (Option A)")
+	ok(int(G.sell_reward(int(G.TOP_TIER)).y) == 0, "no tier mints acorns on sale (selling never pays premium)")
 	var rngc := RandomNumberGenerator.new(); rngc.seed = 5
 	var saw_high := false
 	for _i in 800:
