@@ -311,28 +311,18 @@ func _initialize() -> void:
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
 
-	# T54 — the water-shop burst-upgrade card: a coin-priced buy of the next global burst level, surfaced
-	# in the water stall (even without a water_grant), and gone once maxed (the affordance disappears).
+	# T57 — the boost moved off the water shop onto the board's generator info bar. The water stall no
+	# longer carries a coin-priced card; without a water_grant it offers nothing at all.
 	fresh("burst_shop")
 	var bhost := Control.new()
 	get_root().add_child(bhost)
-	var brefs := {"host": bhost, "opts": {}}
-	var bcard: Dictionary = Shop._burst_card(brefs)
-	ok(not bcard.is_empty(), "the burst card is offered before maxed")
-	ok(String(bcard.get("price_icon", "")) == "coin", "the burst card is COIN-priced (the §6/§10 sink)")
-	ok(String(bcard.get("price", "")) == str(G.burst_upgrade_cost(0)), "the burst card shows the next ladder cost")
-	ok(not bool(bcard.get("affordable", true)), "broke → the burst card reads unaffordable")
-	Save.add_coins(10000)
-	ok(bool(Shop._burst_card(brefs).get("affordable", false)), "with coins → the burst card reads affordable")
-	var saw_burst := false
-	for sec in Shop._water_sections({"host": bhost, "opts": {}}):
+	ok(Shop._water_sections({"host": bhost, "opts": {}}).is_empty(), "no water_grant → the water stall is empty (no boost card)")
+	var saw_coin_card := false
+	for sec in Shop._water_sections({"host": bhost, "opts": {"water_grant": func() -> void: pass}}):
 		for cardx in (sec as Dictionary).get("cards", []):
 			if String((cardx as Dictionary).get("price_icon", "")) == "coin":
-				saw_burst = true
-	ok(saw_burst, "the water stall surfaces the coin-priced burst card (no water_grant needed)")
-	while G.burst_level() < G.burst_upgrade_max():
-		G.try_upgrade_burst()
-	ok(Shop._burst_card(brefs).is_empty(), "maxed → the burst card is no longer offered")
+				saw_coin_card = true
+	ok(not saw_coin_card, "the water stall carries no coin-priced card (the boost is a board action now)")
 	bhost.queue_free()
 
 	finish()

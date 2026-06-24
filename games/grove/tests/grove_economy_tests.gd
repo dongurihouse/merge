@@ -81,22 +81,28 @@ func _initialize() -> void:
 	ok(not bc.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "top coin (25) never merges")
 	ok(bc.top_tier_cells().is_empty(), "coins are never merchant goods")
 
-	# 11b. BURST-POP (§6) + the burst-upgrade COIN SINK — both engine-side; the grove only sets the
-	# odds/scale/cost dials. One tap throws a burst that scales with the map + the paid upgrade, each
-	# item costing one energy. The upgrade spends coins, raises the burst, persists, and caps.
+	# 11b. BURST-POP (§6) + the temporary BOOST — both engine-side; the grove only sets the odds/
+	# scale/cost dials. One tap throws a burst that scales with the map; while a boost is ACTIVE every
+	# tap drops BOOST_BONUS extra items for BOOST_TAPS taps, then it expires. Activating spends coins,
+	# arms the taps, and refuses a second buy while one is already running (no double spend).
 	fresh("burst")
 	var sbp = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbp)
 	if sbp.board == null:
 		sbp._ready()
 	Save.grove()["pops"] = 50                 # well past the FTUE — the energy meter is on
-	ok(sbp._gen_burst_level() == 0, "the burst-upgrade starts at level 0")
+	ok(not G.boost_active(), "no boost is active on a fresh save")
+	ok(sbp._gen_boost_bonus() == 0, "with no boost a generator gets no bonus items")
 	Save.add_coins(10000)
 	var bu_c0 := Save.coins()
-	ok(sbp._upgrade_gen_burst(), "the burst-upgrade buys with coins")
-	ok(Save.coins() == bu_c0 - G.burst_upgrade_cost(0), "the burst-upgrade spends coins (the sink)")
-	ok(sbp._gen_burst_level() == 1, "the burst-upgrade raises the burst level")
-	ok(sbp._upgrade_gen_burst() and sbp._gen_burst_level() == 2, "a second burst-upgrade stacks")
+	ok(sbp._activate_gen_boost(), "the boost activates with coins")
+	ok(Save.coins() == bu_c0 - G.BOOST_COST, "activating spends the boost cost (the coin sink)")
+	ok(G.boost_active() and G.boost_taps_left() == G.BOOST_TAPS, "the boost arms BOOST_TAPS taps")
+	ok(sbp._gen_boost_bonus() == G.BOOST_BONUS, "while active a generator gets +BOOST_BONUS items")
+	# a second activation while one is running is refused — no extra taps, no double spend
+	var bu_c1 := Save.coins()
+	ok(not sbp._activate_gen_boost(), "a second boost while one is running is refused")
+	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == bu_c1, "...no extra taps, no double spend")
 	# clear a wide-open area so the burst is bounded only by its own size (not by board space)
 	for ci in sbp.board.items.size():
 		if sbp.board.items[ci] > 0 and not G.is_coin(sbp.board.items[ci]):
@@ -114,58 +120,61 @@ func _initialize() -> void:
 	for v in sbp.board.items:
 		if v > 0:
 			burst_got += 1
-	ok(burst_got >= 3, "with the upgrade a single tap throws a burst of ≥3 items (map 1, level 2)")
+	ok(burst_got >= 1 + G.BOOST_BONUS, "with the boost a single tap throws a burst of ≥1+BOOST_BONUS items (map 1)")
 	ok(sbp.water == bw0 - burst_got * G.POP_COST, "each burst item costs one energy")
-	# the sink caps: drive to the max level, then the upgrade refuses
-	while sbp._gen_burst_level() < G.burst_upgrade_max():
-		sbp._upgrade_gen_burst()
-	ok(not sbp._upgrade_gen_burst(), "the burst-upgrade caps — no buy past the max level")
-	# the burst level rides the save
-	var saved_lvl: int = sbp._gen_burst_level()
+	ok(G.boost_taps_left() == G.BOOST_TAPS - 1, "a charged tap spends one boost tap")
+	# the boost expires when its taps run out — back to no bonus
+	while G.boost_active():
+		G.consume_boost_tap()
+	ok(sbp._gen_boost_bonus() == 0, "an expired boost gives no bonus")
+	# the boost taps ride the save across scenes
+	ok(G.try_activate_boost(), "re-arm a boost for the persistence check")
+	var saved_taps: int = G.boost_taps_left()
 	var sbp2 = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbp2)
 	if sbp2.board == null:
 		sbp2._ready()
-	ok(sbp2._gen_burst_level() == saved_lvl, "the burst-upgrade level persists across scenes")
+	ok(sbp2._gen_boost_bonus() == G.BOOST_BONUS and G.boost_taps_left() == saved_taps, "the boost taps persist across scenes")
 	sbp.queue_free()
 	sbp2.queue_free()
 
-	# 11c. The burst-upgrade coin sink refuses cleanly when broke — no level gain, no coin debt.
-	# (The on-board buy PILL that used to drive this was the dark stat_chip pill — retired T48
-	# ahead of the UI redesign; the sink logic above + this broke-refusal is the lasting coverage,
-	# and the redesign re-surfaces a buy affordance over the same `_upgrade_gen_burst`.)
+	# 11c. The boost refuses cleanly when broke — no taps armed, no coin debt.
 	fresh("burst_broke")
 	var sbc = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbc)
 	if sbc.board == null:
 		sbc._ready()
-	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "fresh: burst level 0, no coins")
-	ok(not sbc._upgrade_gen_burst(), "broke: the burst-upgrade refuses — returns false")
-	ok(sbc._gen_burst_level() == 0 and Save.coins() == 0, "broke refusal leaves no level and no coin debt")
+	ok(not G.boost_active() and Save.coins() == 0, "fresh: no boost, no coins")
+	ok(not sbc._activate_gen_boost(), "broke: the boost refuses — returns false")
+	ok(not G.boost_active() and Save.coins() == 0, "broke refusal arms no taps and leaves no coin debt")
 	sbc.queue_free()
 
-	# 11d. The SHARED upgrade seam G.try_upgrade_burst() — the single buy path the info-bar chip
-	# (board) and the water-shop card (shop) both call (T54). Spends the ladder cost, bumps the
-	# global burst_lvl, persists, and refuses cleanly when broke or maxed — no scene needed.
+	# 11d. The SHARED boost seam G.try_activate_boost() + G.consume_boost_tap() — the single arm/decay
+	# path the info-bar chip drives. Spends the cost, arms BOOST_TAPS, refuses a second arm while live
+	# and when broke, decays one tap at a time to expiry, and never underflows. No scene needed.
 	fresh("burst_seam")
-	ok(G.burst_level() == 0, "seam: fresh burst_lvl is 0")
-	ok(not G.try_upgrade_burst(), "seam: broke → refuses (no coins)")
-	ok(G.burst_level() == 0 and Save.coins() == 0, "seam: broke refusal leaves no level, no debt")
+	ok(not G.boost_active() and G.boost_taps_left() == 0, "seam: fresh save has no boost")
+	ok(not G.try_activate_boost(), "seam: broke → refuses (no coins)")
+	ok(not G.boost_active() and Save.coins() == 0, "seam: broke refusal arms nothing, no debt")
 	Save.add_coins(10000)
 	var seam_c0 := Save.coins()
-	ok(G.try_upgrade_burst(), "seam: buys with coins")
-	ok(Save.coins() == seam_c0 - G.burst_upgrade_cost(0), "seam: spends the ladder cost")
-	ok(G.burst_level() == 1, "seam: raises the global burst_lvl (persisted)")
-	while G.burst_level() < G.burst_upgrade_max():
-		G.try_upgrade_burst()
-	var maxed_coins := Save.coins()
-	ok(not G.try_upgrade_burst(), "seam: caps → refuses past the max level")
-	ok(Save.coins() == maxed_coins, "seam: maxed refusal leaves no coin debt")
+	ok(G.try_activate_boost(), "seam: arms with coins")
+	ok(Save.coins() == seam_c0 - G.BOOST_COST, "seam: spends the boost cost")
+	ok(G.boost_active() and G.boost_taps_left() == G.BOOST_TAPS, "seam: arms BOOST_TAPS taps (persisted)")
+	var live_coins := Save.coins()
+	ok(not G.try_activate_boost(), "seam: a second arm while live is refused")
+	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == live_coins, "seam: no extra taps, no double spend")
+	for _i in G.BOOST_TAPS:
+		G.consume_boost_tap()
+	ok(not G.boost_active() and G.boost_taps_left() == 0, "seam: decays to expiry over BOOST_TAPS taps")
+	G.consume_boost_tap()
+	ok(G.boost_taps_left() == 0, "seam: consuming past expiry never underflows")
 
-	# 11e. The INFO-BAR burst chip (T54): a generator tap selects it into the bar and shows the buy chip
-	# in the slot the sell button leaves empty; tapping buys the next level; broke refuses; a plain item
-	# hides the chip; maxed hides it (the buy affordance disappears). (Here, not grove_ui — that disabled
-	# suite crashes earlier on a pre-existing map error before reaching this.)
+	# 11e. The INFO-BAR boost chip (T54→boost): a generator tap selects it into the bar and shows the
+	# chip in the slot the sell button leaves empty; tapping it arms the boost; broke refuses; while the
+	# boost is LIVE the chip stays visible but faded + inert (no re-buy) and the label carries the boost
+	# detail; a plain item hides the chip. (Here, not grove_ui — that disabled suite crashes earlier on a
+	# pre-existing map error before reaching this.)
 	fresh("burst_chip")
 	var sbu = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbu)
@@ -181,19 +190,27 @@ func _initialize() -> void:
 	sbu._on_press(sbu._cell_pos(bgcell) + ghalf)
 	sbu._on_release(sbu._cell_pos(bgcell) + ghalf)
 	await create_timer(0.05).timeout
-	ok(sbu._selected_cell == bgcell and sbu._info_burst.visible, "a still-tap on the generator surfaces the burst chip")
+	ok(sbu._selected_cell == bgcell and sbu._info_burst.visible, "a still-tap on the generator surfaces the boost chip")
 	sbu._select_generator(bgcell)
 	ok(sbu._selected_cell == bgcell, "selecting a generator fills the info bar")
-	ok(sbu._info_burst.visible, "the burst chip shows for a generator with a level left to buy")
+	ok(sbu._info_burst.visible, "the boost chip shows for a generator")
 	ok(not sbu._info_trash.visible, "the sell button is hidden for a generator")
 	sbu._on_burst_chip()
-	ok(sbu._gen_burst_level() == 0 and Save.coins() == 0, "broke: tapping the chip buys nothing, no debt")
+	ok(not G.boost_active() and Save.coins() == 0, "broke: tapping the chip arms nothing, no debt")
 	Save.add_coins(10000)
 	var bc0 := Save.coins()
 	sbu._select_generator(bgcell)                              # re-read affordability with coins
 	sbu._on_burst_chip()
-	ok(sbu._gen_burst_level() == 1, "afford: tapping the burst chip buys the next level")
-	ok(Save.coins() == bc0 - G.burst_upgrade_cost(0), "...and spends the ladder cost")
+	ok(G.boost_active(), "afford: tapping the boost chip arms the boost")
+	ok(Save.coins() == bc0 - G.BOOST_COST, "...and spends the boost cost")
+	# while the boost is LIVE: the chip stays visible but faded + inert; the label carries the detail
+	sbu._select_generator(bgcell)
+	ok(sbu._info_burst.visible, "the boost chip stays visible while a boost is live")
+	ok(sbu._info_burst.modulate.a < 1.0, "the live boost chip is faded (like can't-afford) — no re-buy")
+	ok(sbu._info_label.text.contains("+%d" % G.BOOST_BONUS) and sbu._info_label.text.contains(str(G.boost_taps_left())), "the info label shows the boost bonus and taps left")
+	var live_c := Save.coins()
+	sbu._on_burst_chip()
+	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == live_c, "tapping the live chip re-buys nothing, no double spend")
 	var bicell := Vector2i(-1, -1)
 	for bcc in sbu.board.empty_ground_cells():
 		bicell = bcc
@@ -201,11 +218,7 @@ func _initialize() -> void:
 	if bicell.x >= 0:
 		sbu.board.place(bicell, 101)
 		sbu._select_item(bicell)
-		ok(not sbu._info_burst.visible, "selecting a plain item hides the burst chip")
-	while sbu._gen_burst_level() < G.burst_upgrade_max():
-		sbu._upgrade_gen_burst()
-	sbu._select_generator(bgcell)
-	ok(not sbu._info_burst.visible, "maxed: the burst chip hides — nothing left to buy")
+		ok(not sbu._info_burst.visible, "selecting a plain item hides the boost chip")
 	sbu.queue_free()
 
 	# 11f. The INFO-BAR BUY chip (T55): selecting a sellable item shows a buy chip beside sell; tapping it
