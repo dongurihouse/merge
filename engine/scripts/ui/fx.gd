@@ -82,6 +82,22 @@ static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEA
 	t.tween_property(fl, "modulate:a", 0.0, Tune.FLASH_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_callback(fl.queue_free)
 
+## A short decaying positional shake (the "thunk"). Promoted from login_mystery's private
+## copy so the board's big-moment escalation and the slot jackpot share one verb. `amp` px;
+## settles back to the rest position. No-op under calm (motion accessibility). Callers gate
+## on their own flag (e.g. big_moment_shake).
+static func shake(node: Control, amp := Tune.SHAKE_AMP) -> void:
+	if not (node and is_instance_valid(node)) or not node.is_inside_tree():
+		return
+	if calm():
+		return
+	var rest := node.position
+	var t := node.create_tween()
+	var offs := [Vector2(amp, -amp * 0.5), Vector2(-amp * 0.8, amp * 0.4), Vector2(amp * 0.5, amp * 0.3), Vector2(-amp * 0.3, -amp * 0.2)]
+	for o in offs:
+		t.tween_property(node, "position", rest + o, Tune.SHAKE_LEG_T).set_trans(Tween.TRANS_SINE)
+	t.tween_property(node, "position", rest, Tune.SHAKE_SETTLE_T).set_trans(Tween.TRANS_SINE)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return

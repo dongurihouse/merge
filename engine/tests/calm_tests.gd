@@ -118,5 +118,19 @@ func _initialize() -> void:
 	Features.FLAGS["merge_impact"] = true
 	fh.queue_free(); fh2.queue_free(); fh3.queue_free()
 
+	# --- shake: a decaying positional thunk (active) / no-op under calm -------------
+	Save.set_setting("calm", false)
+	var sk := Control.new(); sk.size = Vector2(60, 60); get_root().add_child(sk)
+	FX.shake(sk)
+	ok(is_instance_valid(sk), "shake: active path runs on a real in-tree node (no crash)")
+	Save.set_setting("calm", true)
+	var skc := Control.new(); skc.size = Vector2(60, 60); skc.position = Vector2(5, 5); get_root().add_child(skc)
+	FX.shake(skc)
+	ok(skc.position.is_equal_approx(Vector2(5, 5)), "shake: calm leaves the position untouched (no shake)")
+	FX.shake(null)
+	ok(true, "shake: tolerates a null node")
+	Save.set_setting("calm", false)
+	sk.queue_free(); skc.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

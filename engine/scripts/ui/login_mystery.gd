@@ -376,7 +376,7 @@ static func _land_reel(reel: Control, idx: int = 0, total: int = 1, dialog: Cont
 	t.tween_property(reel, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	_flash(reel, top)
 	if top and is_instance_valid(dialog):          # the jackpot reel kicks a screen shake
-		_shake(dialog, 9.0)
+		FX.shake(dialog, FX.Tune.SHAKE_BIG_AMP)
 	# the chime climbs in pitch as the reels stop, building toward the last — classic slot escalation
 	Audio.play("merge_success", -4.0, 1.04 + float(idx) / float(maxi(1, total)) * 0.5)
 
@@ -393,17 +393,6 @@ static func _flash(reel: Control, strong: bool = false) -> void:
 	var t := fl.create_tween()
 	t.tween_property(fl, "modulate:a", 0.0, 0.26 if strong else 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_callback(fl.queue_free)
-
-# A short decaying positional shake (the jackpot "thunk"). `amp` px; settles back to the rest position.
-static func _shake(node: Control, amp: float) -> void:
-	if not node.is_inside_tree():
-		return
-	var rest := node.position
-	var t := node.create_tween()
-	var offs := [Vector2(amp, -amp * 0.5), Vector2(-amp * 0.8, amp * 0.4), Vector2(amp * 0.5, amp * 0.3), Vector2(-amp * 0.3, -amp * 0.2)]
-	for o in offs:
-		t.tween_property(node, "position", rest + o, 0.045).set_trans(Tween.TRANS_SINE)
-	t.tween_property(node, "position", rest, 0.05).set_trans(Tween.TRANS_SINE)
 
 # The premium-reward SHINE: just a warm glow BEHIND the band that gently pulses (so the valuable reels
 # keep drawing the eye), plus a one-shot sparkle burst on land. Deliberately quiet — no rim or corner
