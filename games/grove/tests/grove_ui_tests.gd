@@ -67,12 +67,10 @@ func _initialize() -> void:
 	var want_coin := 1
 	ok(rows_coin == want_coin, \
 		"coin stall = just the Coin pouch, no ladder (%d == %d)" % [rows_coin, want_coin])
-	# the water stall: just the Fill-water card now (the boost moved to the board's generator info bar,
-	# T57). Without a water_grant the stall has nothing to offer; the grant adds the Fill-water card.
+	# the water stall: the free refill + the 💎 Fill-water card. Water is Save-backed now, so the stall is
+	# host-agnostic — no water_grant/water_add to pass (the boost moved to the board's generator bar, T57).
 	Shop.open_water(s7, {})
-	ok(_shop_rows(s7) == 0, "without a water_grant the water stall is empty (the boost moved to the board)")
-	Shop.open_water(s7, {"water_grant": func() -> void: pass})
-	ok(_shop_rows(s7) == 1, "the water stall = just the Fill-water card with a water_grant")
+	ok(_shop_rows(s7) == 2, "the water stall = the free refill + the 💎 Fill-water card (host-agnostic)")
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()

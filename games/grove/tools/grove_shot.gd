@@ -171,7 +171,7 @@ func _initialize() -> void:
 			# the WATER stall opened over the board → the FREE refill (a full can, capped + cooled) leads,
 			# then the 💎 Fill-water card. Drive the REAL water-pill "+" button (the exact path a tap takes,
 			# through _build_hud → Hud.build → shop_opts), NOT a direct open_water call — so the capture
-			# proves the board's own HUD delivers the water_add callback the free card is gated on.
+			# matches the live board. Water is Save-backed now; the stall shows the same from any host.
 			Save.add_coins(2000)
 			Save.add_diamonds(50)
 			scn._update_hud()

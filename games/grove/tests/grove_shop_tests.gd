@@ -117,57 +117,55 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
 	bw.queue_free()
-	# T-J(ii): the FREE WATER refill is now a SHOP card with OVER-CAP banking. A board-opened water
-	# stall carries the free-refill card (gated on the board's `water_add`); claiming it pours a full
-	# can ON TOP of the current water — past WATER_CAP — and regen stays paused while over the cap.
-	fresh("refill_overcap")
-	var rb = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(rb)
-	if rb.board == null:
-		rb._ready()
-	rb.water = G.WATER_CAP - 10            # nearly full
-	var added := ShopS.claim_refill()      # the free claim hands back a full can to ADD
-	ok(added == G.WATER_CAP, "the free refill hands back a full can (%d💧)" % G.WATER_CAP)
-	rb.water += added                       # the board's water_add pours it on top (no clamp)
-	ok(rb.water == G.WATER_CAP * 2 - 10 and rb.water > G.WATER_CAP, \
-		"the can banks OVER the cap (%d > %d)" % [rb.water, G.WATER_CAP])
-	# regen must NOT add while over the cap (BoardLogic pauses above WATER_CAP), so the spare is kept.
-	var over: int = rb.water
-	var regen := BoardLogic.regen(over, 0.0, Time.get_unix_time_from_system())   # huge elapsed time
-	ok(int(regen.water) == over, "regen is paused while over the cap (the banked spare is not topped or trimmed)")
-	rb.queue_free()
-	# T-J(iii): the free-refill card is REACHABLE in the water stall when the board passes water_add,
-	# and absent without it (e.g. opened from the map). _water_sections is the single source.
+	# T-J(ii): water is a Save-backed CURRENCY now (like coins/gems). The free refill ADDS a full can
+	# over-cap (banks a spare); a plain add clamps to the cap; the 💎 fill tops to full without trimming
+	# a spare; and regen pauses above the cap (BoardLogic), so the banked spare is kept.
+	fresh("water_currency")
+	Save.set_water(G.WATER_CAP - 10)                       # nearly full
+	ok(Save.water() == G.WATER_CAP - 10, "Save.water() reads the stored level")
+	var after_add := Save.add_water(G.WATER_CAP, true)     # free refill: additive, over-cap
+	ok(after_add == G.WATER_CAP * 2 - 10 and Save.water() > G.WATER_CAP, \
+		"add_water(over_cap) banks OVER the cap (%d > %d)" % [Save.water(), G.WATER_CAP])
+	var regen := BoardLogic.regen(Save.water(), 0.0, Time.get_unix_time_from_system())   # huge elapsed time
+	ok(int(regen.water) == Save.water(), "regen is paused while over the cap (the spare is not topped or trimmed)")
+	Save.set_water(50)
+	ok(Save.add_water(G.WATER_CAP) == G.WATER_CAP, "add_water (no over_cap) clamps to the cap")
+	Save.set_water(G.WATER_CAP * 2)
+	ok(Save.fill_water() == G.WATER_CAP * 2, "the 💎 fill never trims a banked over-cap spare")
+	Save.set_water(30)
+	ok(Save.fill_water() == G.WATER_CAP, "the 💎 fill tops a low can to full")
+	# T-J(iii): the water stall is HOST-AGNOSTIC now — it ALWAYS shows the free refill + the 💎 fill, with
+	# no per-scene `water_add`/`water_grant` gate (water grants through Save). _water_sections is the source.
 	fresh("refill_card")
 	var wh := Control.new()
 	get_root().add_child(wh)
-	var with_add := Shop._water_sections({"host": wh, "hero_px": 100.0, "opts": {"water_add": func() -> void: pass}})
 	var saw_refill := false
-	for sec in with_add:
+	var saw_fill := false
+	for sec in Shop._water_sections({"host": wh, "hero_px": 100.0, "opts": {}}):
 		for cardx in (sec as Dictionary).get("cards", []):
-			if (cardx as Dictionary).has("node"):   # the free-refill card is a custom-node card, like Free acorns
+			if (cardx as Dictionary).has("node"):                                    # the free-refill card (custom node)
 				saw_refill = true
-	ok(saw_refill, "with water_add the water stall offers the free-refill card")
-	ok(Shop._water_sections({"host": wh, "opts": {}}).is_empty(), "without water_add (and no water_grant) the stall is empty")
+			elif String((cardx as Dictionary).get("price_icon", "")) == "gem":       # the 💎 fill card
+				saw_fill = true
+	ok(saw_refill, "the water stall offers the free-refill card (no host callback needed)")
+	ok(saw_fill, "...and the 💎 fill card")
 	wh.queue_free()
-	# T-J(iv): the free-refill card is REACHABLE in the REAL water stall (kit + viewport resolve) and
-	# pours a full can through its green "Free" CTA end-to-end — the rail→shop wiring, like Free acorns.
+	# T-J(iv): pressing the free refill in the REAL stall GRANTS THROUGH SAVE (over-cap), end-to-end —
+	# no host callback. Start full so the refill banks a spare; assert Save's water doubles.
 	fresh("refill_card_live")
 	var wsh = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(wsh)
 	if wsh.content == null:
 		wsh._ready()
-	var poured := [0]
-	ShopS.open_water(wsh, {"water_add": func() -> void: poured[0] += G.WATER_CAP})
-	var w_overlay: Control = wsh.get_child(wsh.get_child_count() - 1)
-	ok(_press_label(w_overlay, "Free"), "the water stall shows a green 'Free' refill CTA")
-	ok(poured[0] == G.WATER_CAP, "pressing the free refill pours a full can (%d💧) via water_add" % G.WATER_CAP)
+	Save.set_water(G.WATER_CAP)                            # full → a refill banks a spare
+	ShopS.open_water(wsh, {})
+	var w_overlay: Control = wsh.find_child("ShopOverlay", true, false)
+	ok(w_overlay != null and _press_label(w_overlay, "Free"), "the water stall shows a green 'Free' refill CTA")
+	ok(Save.water() == G.WATER_CAP * 2, "pressing the free refill banks a full can over-cap via Save (%d💧)" % Save.water())
 	wsh.queue_free()
-	# T-J(v): the water stall is reachable from BOTH the board AND the hub (map) — and BOTH HUDs must pass
-	# water_add, so the free-refill card shows wherever you open it. Drive each scene's REAL `_open_water`
-	# (the SAME callable the water pill's + fires, carrying that scene's shop_opts) and assert the free
-	# CTA appears. Regression: the map HUD used to pass only water_grant → the free card was missing when
-	# the shop was opened from the hub.
+	# T-J(v): the stall is reachable from BOTH the board AND the hub (map), and grants through Save from
+	# each — the host-agnostic win (regression: the hub HUD used to lack the free card entirely). Drive each
+	# scene's REAL `_open_water` (the SAME callable the water pill + fires) and assert the grant lands in Save.
 	for host_scene in ["res://engine/scenes/Map.tscn", "res://engine/scenes/Board.tscn"]:
 		var is_map: bool = "Map" in host_scene
 		var where: String = "map" if is_map else "board"
@@ -176,11 +174,27 @@ func _initialize() -> void:
 		get_root().add_child(h)
 		if (h.get("content") if is_map else h.get("board")) == null:
 			h._ready()
+		Save.set_water(G.WATER_CAP)                        # full → a refill banks a spare
 		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
-		h._open_water.call()                                                      # the exact path the water pill + fires
-		var ov: Control = h.find_child("ShopOverlay", true, false)                # the stall is a named overlay, not last-child
-		ok(ov != null and _press_label(ov, "Free"), "the %s water stall shows the free-refill CTA (HUD passes water_add)" % where)
+		h._open_water.call()                               # the exact path the water pill + fires
+		var ov: Control = h.find_child("ShopOverlay", true, false)
+		ok(ov != null and _press_label(ov, "Free"), "the %s water stall shows the free-refill CTA" % where)
+		ok(Save.water() == G.WATER_CAP * 2, "...and pressing it grants a full can over-cap via Save (%s)" % where)
 		h.queue_free()
+	# T-J(vi): the board keeps a live water cache for gameplay; when a shop grant ticks the HUD refresh,
+	# the board re-syncs that cache from Save (the on_refresh hook) — no per-currency callback, and it
+	# can't undo a pop (the board never fires the refresh mid-pop).
+	fresh("board_water_resync")
+	var brd = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(brd)
+	if brd.board == null:
+		brd._ready()
+	brd.water = G.WATER_CAP
+	Save.add_water(G.WATER_CAP, true)                      # a shop grant lands in Save; the cache is now stale
+	ok(brd.water == G.WATER_CAP and Save.water() == G.WATER_CAP * 2, "the board's live cache is stale until refresh")
+	brd._hud_refresh.call()                                # the post-grant HUD refresh fires on_refresh
+	ok(brd.water == Save.water() and brd.water == G.WATER_CAP * 2, "the board re-syncs its live water cache from Save on refresh")
+	brd.queue_free()
 	# §4: a runtime-opened cell reveals a seed of an OPEN quest LINE (mimics one generator pop), not
 	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
 	# line 6 (the positional formula would yield line 2 at (2,3)).
@@ -354,14 +368,13 @@ func _initialize() -> void:
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
 
-	# T57 — the boost moved off the water shop onto the board's generator info bar. The water stall no
-	# longer carries a coin-priced card; without a water_grant it offers nothing at all.
+	# T57 — the boost moved off the water shop onto the board's generator info bar. The water stall
+	# carries the water refill + 💎 fill (water grants through Save now), but NO coin-priced card.
 	fresh("burst_shop")
 	var bhost := Control.new()
 	get_root().add_child(bhost)
-	ok(Shop._water_sections({"host": bhost, "opts": {}}).is_empty(), "no water_grant → the water stall is empty (no boost card)")
 	var saw_coin_card := false
-	for sec in Shop._water_sections({"host": bhost, "opts": {"water_grant": func() -> void: pass}}):
+	for sec in Shop._water_sections({"host": bhost, "hero_px": 100.0, "opts": {}}):
 		for cardx in (sec as Dictionary).get("cards", []):
 			if String((cardx as Dictionary).get("price_icon", "")) == "coin":
 				saw_coin_card = true

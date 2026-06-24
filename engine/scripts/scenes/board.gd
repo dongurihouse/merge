@@ -165,6 +165,7 @@ var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_shop: Callable = Callable()   # opens the shared Shop / premium stall (wired from the HUD)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
+var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
 var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
 
 var _press_cell := Vector2i(-1, -1)
@@ -559,17 +560,15 @@ func _gate_ready() -> bool:
 
 func _build_hud() -> void:
 	# the shared top bar (owner: one module, currencies in the same place everywhere)
-	var hud := Hud.build(self, {"water_grant": func() -> void:
-		water = G.WATER_CAP
-		_update_water_hud()
-		_persist(),
-		# the FREE refill (water shop): pour a full can ON TOP of the current water — ADDITIVE, no
-		# clamp, so it may bank OVER the cap (regen pauses above cap, resuming once it drops below).
-		"water_add": func() -> void:
-			water += G.WATER_CAP
-			_regen_ts = Time.get_unix_time_from_system()
-			_update_water_hud()
-			_persist(),
+	var hud := Hud.build(self, {
+		# water is Save-backed now (the shop grants through Save). The board keeps `water` as a live
+		# cache for gameplay (regen/pop); when a shop grant ticks the HUD, re-sync the cache from Save
+		# (a grant may have banked OVER the cap; regen pauses above cap) and refresh the refill stack.
+		"on_refresh": func() -> void:
+			if water != Save.water():
+				water = Save.water()
+				_regen_ts = Time.get_unix_time_from_system()
+			_update_water_hud(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
 		"on_level": func() -> void: LevelPopup.open(self),
 		# Settings is a top-RIGHT gear in the shared HUD now (off the bottom bar) — opens the shared card.
@@ -587,6 +586,7 @@ func _build_hud() -> void:
 	_water_icon = hud.water_icon
 	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall (the pills' + open their own)
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
+	_hud_refresh = hud.refresh       # tick the wallet + fire on_refresh (re-sync the live water cache from Save)
 	_update_hud()
 
 # Water is the FIRST top-center pill (Water·Coin·Gem), bound from the shared HUD (water_label / _water_icon

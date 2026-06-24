@@ -7,6 +7,11 @@ extends RefCounted
 ## NOT a tree autoload: pure data needs no scene presence, and autoloads don't resolve in
 ## headless `-s` test runs. Tests call configure_for_test() to redirect the paths.
 
+# The active game's DATA (for WATER_CAP — water is a capped grove currency). game.gd is a core/
+# leaf that only exposes DATA/PALETTE; it never imports Save, so this is not the circular content.gd
+# dependency the bag band below avoids — just a one-way read of a tuning constant.
+const Game = preload("res://engine/scripts/core/game.gd")
+
 const SCHEMA_VERSION := 3   # v3: stars collapsed into a single grove.exp total (no migration — see load_now)
 # A small starting gem balance for a brand-new save, so the premium-currency wallet slot reads
 # alive (not a dead 0) and a first acquire-button tap lands the player in a non-empty store. Kept
@@ -360,6 +365,32 @@ static func first_purchase_made() -> bool:
 static func set_first_purchase_made() -> void:
 	grove()["first_purchase_made"] = true
 	grove_write()
+
+# --- water — a Save-backed currency (grove energy) -------------------------
+# Water lives in the grove blob, capped at WATER_CAP. It is the SINGLE source of truth: the shop
+# grants through these accessors (like coins/diamonds), the HUD reads them, and the board keeps a
+# live cache it re-syncs from here (gameplay regen/pop write back through it). A grant may exceed
+# WATER_CAP when `over_cap` (the free refill banks a spare); regen pauses above the cap
+# (board_logic.regen), so the spare is kept until spent. Default = a full can (a fresh save reads full).
+static func water() -> int:
+	return int(grove().get("water", int(Game.DATA.WATER_CAP)))
+
+static func set_water(n: int) -> void:
+	grove()["water"] = maxi(0, n)
+	grove_write()
+
+# Add `n` water; clamped to WATER_CAP unless `over_cap`. Returns the new total.
+static func add_water(n: int, over_cap := false) -> int:
+	var v := water() + n
+	if not over_cap:
+		v = mini(v, int(Game.DATA.WATER_CAP))
+	set_water(v)
+	return water()
+
+# Top the can to full (the 💎 fill) — never reduces a banked over-cap spare. Returns the new total.
+static func fill_water() -> int:
+	set_water(maxi(water(), int(Game.DATA.WATER_CAP)))
+	return water()
 
 # A banked WATER credit (e.g. the starter pack's water bonus, bought from the map where
 # no live board exists). The board adds + clears it on its next open (capped to WATER_CAP
