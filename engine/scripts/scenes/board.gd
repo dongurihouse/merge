@@ -90,6 +90,8 @@ var water := G.WATER_CAP
 var refills_used := 0
 var _regen_ts := 0.0               # regen anchor (unix); advances as water accrues
 var _winback := false              # set on load when away >= WINBACK_HOURS
+var _gate_was_ready := false       # edge-detect for the quest_complete cue
+var _gate_ready_seen := false      # skip the cue on the first (load-time) call
 
 var csz := 86.0
 var board_area: Control
@@ -676,6 +678,10 @@ func _update_hud() -> void:
 # ON it now: a gentle breathe (suppressed in calm, like every attention pulse). On the board stars
 # only rise, so this flips off→on once and never back; breathe_once self-guards re-entry.
 func _set_home_ready(on: bool) -> void:
+	if on and not _gate_was_ready and _gate_ready_seen:
+		Audio.play("quest_complete", -2.0)
+	_gate_was_ready = on
+	_gate_ready_seen = true
 	if on and home_btn != null and is_instance_valid(home_btn):
 		FX.breathe_once(home_btn)
 
@@ -2085,7 +2091,7 @@ func _produce_due_generators() -> bool:
 	for gc in landed:                             # glow + announce each freshly-landed tool so it can't be missed
 		var ctr := board_area.get_global_transform().origin + _cell_pos(gc) + Vector2(csz, csz) / 2.0
 		FX.celebrate_at(self, ctr, Strings.t("board.feedback.tool_arrived"), STRAW)
-	Audio.play("level_complete" if Audio.has("level_complete") else "merge_success", -3.0, 1.1)
+	Audio.play("unlock" if Audio.has("unlock") else "level_complete", -3.0)
 	return true
 
 # A generator's per-tap bonus from the LIVE boost (§6): BOOST_BONUS while a boost is active, else 0.
@@ -2207,6 +2213,7 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	var code := board.take(cell)
 	piece_nodes.erase(cell)
 	Save.add_coins(G.coin_value(code))
+	Audio.play("coin_earn", -3.0)
 	if node != null and is_instance_valid(node):
 		var dest: Vector2 = coins_label.get_global_rect().get_center() - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
 		var t := node.create_tween()
