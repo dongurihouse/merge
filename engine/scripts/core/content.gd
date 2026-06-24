@@ -751,10 +751,10 @@ static func unlock_content_zone_exp() -> float:
 
 # Cumulative exp threshold at which spot k of map z becomes claimable. A CONTENT map z occupies the band
 # [z·cz, (z+1)·cz] and its spots divide it evenly; the FINALE map (last) occupies the small cap band
-# [content_end, full budget]. The global FIRST spot is 0 (claimable fresh); the final spot = full budget.
+# [content_end, full budget]. EVERY spot — including the global first — costs one even increment, so the
+# first unlock is NOT free on a fresh save (it lands at cz/n, one zone-spot of effort); the final spot =
+# full budget.
 static func spot_unlock_exp(z: int, k: int) -> int:
-	if z == 0 and k == 0:
-		return 0
 	var cz := unlock_content_zone_exp()
 	var last: int = MAPS.size() - 1
 	var n: int = maxi(1, MAPS[z].spots.size())

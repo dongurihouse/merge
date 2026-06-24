@@ -38,10 +38,13 @@ func _initialize() -> void:
 	ok(Quests.current_map({}, []) == 0, "a fresh game's frontier is map 0")
 	ok(not Quests.map_done({}, []), "a fresh game is not map-done (a frontier exists)")
 
-	# --- gate_ready: the FIRST spot sits at threshold 0, so a fresh map is claimable at 0 exp;
-	# --- once spot 0 is claimed, 0 exp can't yet reach spot 1's (higher) threshold ---
+	# --- gate_ready: the FIRST spot costs one even increment (spot_unlock_exp(0,0) > 0), so a fresh
+	# --- map is NOT claimable at 0 exp — it becomes ready only once exp reaches that threshold ---
 	var own0 := {String(G.MAPS[0].spots[0].id): true}
-	ok(Quests.gate_ready(0, 0, {}), "the first spot (threshold 0) is claimable on a fresh map (ready)")
+	var first_cost := G.spot_unlock_exp(0, 0)
+	ok(first_cost > 0, "the first spot is no longer free — it costs one even increment of exp")
+	ok(not Quests.gate_ready(0, 0, {}), "a fresh map is NOT claimable at 0 exp (the first unlock costs exp)")
+	ok(Quests.gate_ready(0, first_cost, {}), "the first spot becomes claimable once exp reaches its threshold")
 	ok(not Quests.gate_ready(0, 0, own0), "with spot 0 claimed, 0 exp can't reach spot 1's threshold (not ready)")
 	ok(Quests.gate_ready(0, 999999, {}), "a huge exp total clears the next spot's threshold (ready)")
 

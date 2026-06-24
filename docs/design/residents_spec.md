@@ -1,7 +1,7 @@
 # Residents — Expansion Spec
 
 *Working title: "The Homecoming" (placeholder).*
-*Status: in progress — mechanics drafted and under active refinement (Explore/Rush detailed); economy and risk sections parked for last.*
+*Status: in progress — mechanics + risk drafted; economy structure stubbed (numbers sim-tuned last).*
 
 A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
 supersedes the base game's "residents are cosmetic-only" stance; the base specs (`merge_spec.md`
@@ -114,6 +114,16 @@ you're out in the wilds, and it's discarded after — never your home board). Fo
 - **Two clocks.** You race the countdown *and* the board filling: **board-full ends the Rush early**
   (you cash out at your best). Space is the core skill — and capturing relieves space, so it both
   scores and keeps you alive.
+- **Treefall (the hazard).** Periodically a tree looms over a row or column (telegraphed with a
+  warning), then falls and **destroys** everything in that line. Drag items clear in time to save
+  them — rescue the reds and near-done chains, sacrifice the whites. A crushed line also clears its
+  cells, so it doubles as a **space-relief valve**: a full board can be saved by letting a line fall.
+  *(Easy dial: crush can **knock items down a tier** instead of destroying them — gentler, but then
+  no space relief.)* This replaces per-item decay as the "keep moving, don't hoard" pressure — one
+  readable threat instead of a grid of timers.
+- **Balance is simmed, not guessed.** Drop rate, colour count, treefall cadence and target spawn are
+  tuned in a **Rush sim** (the way `grove_sim` tunes the economy) to keep the mode fair and fun —
+  e.g. there's always somewhere to rescue items to, and capture targets keep pace with the climb.
 
 **3. Haul.** The spirits you caught form your slate. **Keep one for free**; pay **diamonds** to keep
 the others (within capacity) or they're released. Then place each on a map. How well you played the
@@ -139,12 +149,6 @@ Rush sets *what* and *how much* you caught.
     letting it vanish — offered only while you still have free slots to house them. The vanish-or-pay
     framing is a deliberate choice that **relaxes the base game's no-loss guardrail** — flagged as
     such for the Risk pass, not an oversight.
-- **Decay (off by default)** — an optional "the trail goes cold" dial: an idle trace loses a tier
-  over time. It must only ever erode value you *could* have used, so it's balanced by a **small active
-  colour set** (dense supply), **context-aware** decay (only ticks while a legal merge/target exists;
-  stuck traces go dormant), a **tier-1 floor** (never vanishes), and a **Rush sim** that proves "no
-  forced decay" the way `grove_sim` proves "no jam." Ships **off**; switched on only if the core plays
-  too easy or too hoardy.
 - **Growth seam** — the Rush *is* the v1 search-and-extraction game. Later layers (no contract
   change): destinations/biomes with different pools, a pre-Rush loadout/bait beat, and **limited-time
   featured events** (e.g. a "Red Spirit Trek" weekend) as the live-ops urgency layer.
@@ -153,7 +157,11 @@ Rush sets *what* and *how much* you caught.
 
 The residents loop lives on a new **Residents screen** — a hub separate from the merge board and the
 map-restoration view. From it you can **assign** a spirit to a map, **merge** two-of-a-kind, **free
-or sell** a spirit, **view the collection**, and **launch an expedition** (Explore).
+or sell** a spirit, **view the collection**, and **launch an expedition** (Explore). This screen is
+**net-new** (its own scene + nav entry) and **supersedes the base game's per-map "welcome a spirit"
+panel** — acquisition moves off the individual maps and into Explore. (*Assign* is the v1 verb for the
+Place action; hand-positioning is a later seam. Diegetic trade-off: the base game welcomes spirits on
+the map they live on; the hub swaps a little of that intimacy for one legible management surface.)
 
 Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Assigning a
 spirit to a map fills a slot *and* raises that map's production (see **Reward**) — placement is a
@@ -202,6 +210,13 @@ and compounding**: it accrues while you're away (capped, so it's a daily-return 
 infinite idle) and you **collect** it from the Residents screen. Where you assign spirits is an
 economic choice — load a map to pour out more of its reward.
 
+- **Merge stays worth it** — yield rises *per slot* with tier: a higher-tier spirit out-produces the
+  two that merged into it. So merging is always a production gain, not only space management — there's
+  no "hoard tier-1 commons" degenerate play.
+- **Accrual contract** — each completed map stores a last-collect time; accrued = its assigned
+  spirits' rate × elapsed, **clamped to a cap** (the daily-return ceiling); **collect** banks it into
+  that map's reward target and resets the clock. Rates and caps are Economy.
+
 **Map → reward (home grove, 5 maps).** Each map has a fixed, distinct payback — deliberately chosen
 to be things that *don't* go stale (currencies and utility, not early-tier board line-items, which
 resolves the staleness concern that earlier kept this parked):
@@ -245,8 +260,101 @@ board's quest fence — a resident-run quest would duplicate the fence and blur 
 ever revisited, the coherent form is a residents-loop *goal* (e.g. "house a tier-3 on the Garden →
 reward"), not a board-item delivery quest.
 
+### Build-readiness notes
+
+Things a vertical slice must respect, captured here rather than left implicit:
+
+- **Gating** — the whole loop is gated on **at least one completed map** (it inherits the base game's
+  `can_populate` / `map_complete`): capacity lives on completed maps and Explore reads free slots
+  across them, so with zero completed maps Explore is simply unavailable. A slice must be seeded with
+  one completed map. The **pre-first-completion coin gap** (until the first map is done, coins have
+  only burst-upgrades / cosmetics to spend on) is a known base-economy concern, carried to Economy.
+- **Save shape & migration** — the expansion needs state today's `{map_id:{type_id:[t1,t2,t3]}}` roster
+  doesn't hold: a **rarity** axis (on the spirit/type table, not the count array), **per-map
+  capacity**, a **global collection** ledger, **per-map production state** (last-collect time +
+  accrued), and a home for **in-hand / unplaced** spirits. Migration is non-destructive — old saves
+  read as housed commons, capacity defaults to ~8. Exact shape is an implementation detail.
+- **Coins are both sink and faucet** — Explore spends coins; map 1 produces them. The net must stay
+  sink-positive (an expedition costs more than map 1 yields back) or the loop self-funds — a
+  constraint for the Economy/sim pass, flagged here.
+- **Art** — no signature/rarity sprites ship today; the slice uses the existing placeholder body with
+  a **colour-frame** rarity indicator (white / blue / orange / red). Bespoke per-spirit and
+  per-rarity art is parked with the reward-set content.
+
 ### The loop, restated
 
 Explore (spend coins) → keep one → assign to a map (fill a slot, boost that map's reward) → merge
 (climb tier, free a slot) → run out of room → expand (upgrade or unlock a map) → explore again —
 while assigned spirits keep producing back into the board.
+
+---
+
+## Economy
+
+*Parked for last — numbers are sim-tuned once the mechanics settle.* This section will set the
+**structure** of the new currency flows, not invent final numbers:
+
+- **Coin sinks** — expedition launch cost (coins' first open-ended sink) and per-map capacity-upgrade
+  cost.
+- **Diamond levers** — premium-expedition price and keep-extras price.
+- **Faucets** — per-map production rates and caps for each reward (coins, Water, generator-booster,
+  diamonds, residents), plus the free / sell return.
+- **The proof** — re-author `grove_sim` around the resident faucet + capacity and show the base
+  invariants stay green (no-strand, no-jam, `sink > faucet`, selling-is-not-income, I2), plus the new
+  **Rush sim** (fair tide, no forced decay/loss).
+
+---
+
+## Risk
+
+The expansion bolts a faucet, a cap, a premium-currency source, and a frantic mini-game onto a
+deliberately-tuned base economy. The honest risks, grouped, with how each is contained:
+
+### Economy (load-bearing)
+
+- **Premium-currency faucet (map 4)** — residents minting diamonds reopens the IAP value proposition
+  itself; if output out-paces the cash packs it guts monetization. *Contain:* hard daily/clamped caps,
+  modelled against the IAP ladder; the single most-scrutinized number here, and a candidate to cut
+  from v1 if it won't sit.
+- **Capacity re-opens `sink > faucet`** — the base proof relied on residents being an *uncapped* sink.
+  A finite cap plus a production faucet means the inequality must be **re-proven on `grove_sim`, not
+  inherited**.
+- **Idle, compounding production = a passive faucet the base game cut** — re-introduces deferred idle
+  income. *Contain:* per-map accrual caps (the daily-return ceiling), simmed so total output stays
+  under faucet limits.
+- **Water vs invariant I2** — Water output must stay a capped top-up that does **not** scale with
+  spirit count/tier (I2: a level's energy rewards < 30% of its cost), or it's pulled from v1.
+- **Coins self-funding** — map 1 makes coins while Explore spends them; the net must stay
+  sink-positive or the loop pays for itself.
+- **Map-5 bypass** — the resident-spawning generator is a free acquisition path; it must stay
+  slow/random enough that paid Explore remains primary, so it doesn't undercut coins' sink.
+
+### Tone & design
+
+- **No-loss guardrail relaxed** — keep-extras' "vanish unless you pay" is a deliberate FOMO lever in a
+  cozy game. *Contain:* bounded — every spirit stays reachable on coin runs; premium only compresses
+  time-to-red — but a real departure to watch in playtest.
+- **Rush: fun vs chaotic** — tide + capture + treefall + countdown is a lot at once and could read as
+  stressful, not cozy-exciting. *Contain:* the Rush sim + playtest set the rates; treefalls are
+  telegraphed; easy dials exist (knock-down crush, slower tide).
+- **Pay-to-win perception** — two diamond levers could feel like a gate. *Contain:* "premium buys
+  speed + looks, never possibility" holds, with a defined coin-only reachability floor per rarity.
+- **Hub vs the world** — a global Residents screen trades the base game's "welcome them home where
+  they live" intimacy for one management surface. Accepted; watch it doesn't feel detached.
+
+### Scope & technical
+
+- **Content dependencies** — the map-3 generator-booster, the map-5 special generator, and the Wild
+  piece are **not built**, and rarity/collection art doesn't exist; v1 leans on the placeholder +
+  colour-frame. Bespoke content is a separate task and a genuine scope risk.
+- **Save migration** — a schema change (rarity, capacity, collection, production state, in-hand
+  spirits); must be non-destructive (old saves read as housed commons).
+- **Runway** — only the 5 home-grove maps are wired against a designed 20-place journey, so the
+  *Expand* arm and reward-stream variety stay thin until post-launch maps ship; v1 leans on Explore +
+  merge + collection.
+- **Early-game gap** — the loop is gated on first-map completion; the pre-completion coin-sink gap is
+  inherited and unverified.
+
+All the economy items converge on one obligation: **re-author and re-run `grove_sim`** around the
+resident faucet + capacity before build, holding the base invariants green. That work is the parked
+Economy pass.

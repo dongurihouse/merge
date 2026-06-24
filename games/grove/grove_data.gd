@@ -323,7 +323,8 @@ const LEVEL_WATER_GIFT := 20
 # zones that split the whole-game exp budget (= ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP) EVENLY; the LAST map
 # (the Gate finale) is a small final CAP worth GATE_CAP_FRACTION of a content zone — so the climax is a
 # short push right after the Mill, not a ~20% dead stretch. Within a zone the spots divide its share
-# evenly. First spot is 0 (claimable on a fresh save); the last spot lands at the full budget (~14,286 exp).
+# evenly. EVERY spot costs one even increment — the FIRST unlock is not free on a fresh save (it lands at
+# cz/n of effort); the last spot lands at the full budget (~14,286 exp).
 # No per-spot const — the budget + map shape drive it (content.gd: spot_unlock_exp / unlock_content_zone_exp).
 const GATE_CAP_FRACTION := 0.25   # the Gate finale = this fraction of a content zone (≈ one content spot)
 # The one uncapped LEVEL clock (cosmetic badge + per-level gift), derived from the same budget. EVEN curve
