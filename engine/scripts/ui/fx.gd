@@ -63,6 +63,25 @@ static func squash_pop(node: Control) -> void:
 	for i in range(1, Tune.SQUASH_K.size()):
 		t.tween_property(node, "scale", Tune.SQUASH_K[i], Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
+## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash).
+## `gpos`/`size` are host-local — a `size`×`size` square centred on `gpos`. Gated on
+## merge_impact, off under calm. Frees itself.
+static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEAK) -> void:
+	if not Features.on("merge_impact") or calm():
+		return
+	if not (host and is_instance_valid(host)):
+		return
+	var fl := ColorRect.new()
+	fl.color = Color(1, 1, 1, peak)
+	fl.size = Vector2(size, size)
+	fl.position = gpos - Vector2(size, size) * 0.5
+	fl.z_index = Tune.BURST_Z + 1
+	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(fl)
+	var t := fl.create_tween()
+	t.tween_property(fl, "modulate:a", 0.0, Tune.FLASH_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_callback(fl.queue_free)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return

@@ -98,5 +98,25 @@ func _initialize() -> void:
 	Save.set_setting("calm", false)
 	sp.queue_free(); spc.queue_free()
 
+	# --- flash: a brief white overlay (gated on merge_impact, off under calm) --------
+	Features.FLAGS["merge_impact"] = true
+	Save.set_setting("calm", false)
+	var fh := Control.new(); fh.size = Vector2(200, 200); get_root().add_child(fh)
+	FX.flash(fh, Vector2(100, 100), 64.0)
+	ok(fh.get_child_count() == 1, "flash: active path adds a white overlay child")
+
+	Save.set_setting("calm", true)
+	var fh2 := Control.new(); fh2.size = Vector2(200, 200); get_root().add_child(fh2)
+	FX.flash(fh2, Vector2(100, 100), 64.0)
+	ok(fh2.get_child_count() == 0, "flash: calm adds nothing")
+
+	Save.set_setting("calm", false)
+	Features.FLAGS["merge_impact"] = false
+	var fh3 := Control.new(); fh3.size = Vector2(200, 200); get_root().add_child(fh3)
+	FX.flash(fh3, Vector2(100, 100), 64.0)
+	ok(fh3.get_child_count() == 0, "flash: flag OFF adds nothing")
+	Features.FLAGS["merge_impact"] = true
+	fh.queue_free(); fh2.queue_free(); fh3.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
