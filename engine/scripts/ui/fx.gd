@@ -47,6 +47,105 @@ static func pop(node: Control) -> void:
 	t.tween_property(node, "scale", Tune.POP_SCALE, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
+## The merge result's IMPACT: squash & stretch (the chosen "C" feel). Calm falls back to a
+## gentle uniform overshoot. `pop()` stays for taps/confirms — this is for produced tiles.
+static func squash_pop(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.pivot_offset = _center_pivot(node)
+	if calm():
+		var c := node.create_tween()
+		c.tween_property(node, "scale", Tune.SQUASH_CALM, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		c.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		return
+	node.scale = Tune.SQUASH_K[0]
+	var t := node.create_tween()
+	for i in range(1, Tune.SQUASH_K.size()):
+		t.tween_property(node, "scale", Tune.SQUASH_K[i], Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash).
+## `gpos`/`size` are host-local — a `size`×`size` square centred on `gpos`. Gated on
+## merge_impact, off under calm. Frees itself.
+static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEAK) -> void:
+	if not Features.on("merge_impact") or calm():
+		return
+	if not (host and is_instance_valid(host)):
+		return
+	var fl := ColorRect.new()
+	fl.color = Color(1, 1, 1, peak)
+	fl.size = Vector2(size, size)
+	fl.position = gpos - Vector2(size, size) * 0.5
+	fl.z_index = Tune.BURST_Z + 1
+	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(fl)
+	if not fl.is_inside_tree():       # host not yet in-tree → create_tween() is dead, the callback never frees
+		fl.queue_free()
+		return
+	var t := fl.create_tween()
+	t.tween_property(fl, "modulate:a", 0.0, Tune.FLASH_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_callback(fl.queue_free)
+
+## A short decaying positional shake (the "thunk"). Promoted from login_mystery's private
+## copy so the board's big-moment escalation and the slot jackpot share one verb. `amp` px;
+## settles back to the rest position. No-op under calm (motion accessibility). Callers gate
+## on their own flag (e.g. big_moment_shake).
+static func shake(node: Control, amp := Tune.SHAKE_AMP) -> void:
+	if not (node and is_instance_valid(node)) or not node.is_inside_tree():
+		return
+	if calm():
+		return
+	var rest := node.position
+	var t := node.create_tween()
+	var offs := [Vector2(amp, -amp * 0.5), Vector2(-amp * 0.8, amp * 0.4), Vector2(amp * 0.5, amp * 0.3), Vector2(-amp * 0.3, -amp * 0.2)]
+	for o in offs:
+		t.tween_property(node, "position", rest + o, Tune.SHAKE_LEG_T).set_trans(Tween.TRANS_SINE)
+	t.tween_property(node, "position", rest, Tune.SHAKE_SETTLE_T).set_trans(Tween.TRANS_SINE)
+
+# --- hitstop: a global micro-freeze at the moment of impact -------------------------
+static var _hitstop_active := false
+
+# "do we want a freeze" — flag ON and not calm. Testable off-headless.
+static func hitstop_wanted() -> bool:
+	return Features.on("merge_hitstop") and not calm()
+
+# the full gate: wanted AND not headless. A global time_scale change would starve the
+# deterministic headless test clock (the grove base pins time_scale=1.0), and a freeze
+# is a purely-felt effect with no logic consequence — so it is hard-off in headless.
+static func hitstop_enabled() -> bool:
+	return hitstop_wanted() and DisplayServer.get_name() != "headless"
+
+## Freeze the whole game for `secs` real-time, then restore. Tweens obey time_scale, so a
+## squash_pop started at impact holds its compressed pose during the freeze and plays on
+## release; audio ignores time_scale, so the merge sound punches through. The restore timer
+## ignores time_scale, so it always fires. Re-entrancy-guarded so rapid merges don't stack.
+static func hitstop(secs: float) -> void:
+	if not hitstop_enabled() or _hitstop_active or secs <= 0.0:
+		return
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	_hitstop_active = true
+	Engine.time_scale = Tune.HITSTOP_SCALE
+	var timer := tree.create_timer(secs, true, false, true)   # process_always, ignore_time_scale
+	timer.timeout.connect(func() -> void:
+		Engine.time_scale = 1.0
+		_hitstop_active = false)
+
+## Generator pop anticipation: a quick crouch -> spring -> settle squash as the generator
+## spits a tile. Flag-off / calm fall back to the existing `pop()` so a tap still feels
+## responsive.
+static func gen_charge(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	if not Features.on("gen_anticipation") or calm():
+		pop(node)
+		return
+	node.pivot_offset = _center_pivot(node)
+	node.scale = Tune.GEN_CHARGE_K[0]
+	var t := node.create_tween()
+	for i in range(1, Tune.GEN_CHARGE_K.size()):
+		t.tween_property(node, "scale", Tune.GEN_CHARGE_K[i], Tune.GEN_CHARGE_T[i - 1]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return

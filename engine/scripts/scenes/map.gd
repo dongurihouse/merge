@@ -1024,6 +1024,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
 	Audio.play("level_complete", -6.0, 1.2)
+	if Features.on("big_moment_shake"):
+		FX.shake(self)
 	# the garden's givers re-meter to the next unlock after a purchase (§7 — water comes from
 	# level-ups, not a per-spot gift)
 	FX.floating_text(self, at - Vector2(160, 96), Strings.t("map.spot.new_asks_in_garden"), CREAM, 30)
@@ -1055,6 +1057,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	_build_map(false)                     # rebuild IN PLACE (no whole-map pop-in) — only the veil should break
 	if not veil.is_empty():
 		FX.shatter_veil(self, veil["tex"], veil["bbox"], at - get_global_rect().position)
+		if Features.on("big_moment_shake"):
+			FX.shake(self)
 	_update_hud()
 
 # Snapshot the still-visible purple lock veil for region `k` into a texture, in self-local pixels.

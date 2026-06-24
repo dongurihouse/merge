@@ -81,6 +81,8 @@ const GEN_LIT := SHADE_LIT
 
 var board: BoardModel
 var rng := RandomNumberGenerator.new()
+var _combo_count := 0                 # cozy successive-merge streak length (see _bump_combo)
+var _last_merge_ms := -100000         # ticks at the last merge; a big initial gap → first merge starts at 1
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
@@ -2043,7 +2045,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		t.set_parallel(true)
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	FX.pop(gnode)
+	FX.gen_charge(gnode)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
 	if G.boost_active():
@@ -2110,7 +2112,8 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	piece_nodes.erase(a)
 	animating = true
 	var t := node.create_tween()
-	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	var slide_ease := Tween.EASE_IN if Features.on("merge_impact") else Tween.EASE_OUT   # accelerate INTO the hit
+	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(slide_ease)
 	t.tween_callback(_after_merge.bind(a, b, produced, node))
 
 func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> void:
@@ -2125,10 +2128,31 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	n.position = _cell_pos(b)
 	board_area.add_child(n)
 	piece_nodes[b] = n
-	FX.pop(n)
 	var tier := BoardModel.tier_of(produced)
-	FX.burst(board_area, _cell_pos(b) + Vector2(csz, csz) / 2.0, STRAW if tier >= 4 else Color("#7FA65A"), 10 + tier * 3)
-	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, clampf(0.95 + 0.03 * tier, 0.9, 1.3))
+	var center := _cell_pos(b) + Vector2(csz, csz) / 2.0
+	# the merge IMPACT (the chosen "C" feel): squash & stretch on the result + a white flash
+	if Features.on("merge_impact"):
+		FX.squash_pop(n)
+		FX.flash(board_area, center, csz)
+	else:
+		FX.pop(n)
+	var combo := _bump_combo()
+	var hit := FX.Tune.HITSTOP_MERGE + FX.Tune.HITSTOP_TIER_BONUS * maxf(0.0, tier - 1)
+	var burst_n := 10 + tier * 3
+	var pitch := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
+	# big-moment escalation: a rare high-tier merge earns a gentle board shake + a longer hold + a fuller burst
+	if Features.on("big_moment_shake") and tier >= FX.Tune.ESCALATE_TIER:
+		FX.shake(board_area)
+		hit = FX.Tune.HITSTOP_BIG
+		burst_n += FX.Tune.BIG_BURST_BONUS
+	# cozy combo: a live streak nudges the pitch up and the burst out a touch
+	if Features.on("merge_combo"):
+		burst_n += FX.Tune.COMBO_BURST_BONUS
+		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, FX.Tune.COMBO_PITCH_MAX)
+	FX.hitstop(minf(hit, FX.Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm
+	FX.burst(board_area, center, STRAW if tier >= 4 else Color("#7FA65A"), burst_n)
+	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, pitch)
+	_combo_celebrate(combo, center)
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
@@ -2141,6 +2165,36 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
 	_update_hud()
+
+# Extend or restart the cozy merge streak. A merge within COMBO_WINDOW of the previous one
+# bumps the count; a longer gap restarts at 1. Returns the new streak length. Cadence is
+# BoardLogic.combo_step (pure, unit-tested).
+func _bump_combo() -> int:
+	var now := Time.get_ticks_msec()
+	var dt := float(now - _last_merge_ms) / 1000.0
+	_last_merge_ms = now
+	_combo_count = BoardLogic.combo_step(_combo_count, dt, FX.Tune.COMBO_WINDOW)
+	return _combo_count
+
+# How many milestone thresholds the current streak has reached (drives the pitch nudge).
+func _combo_milestones_passed(count: int) -> int:
+	var k := 0
+	for m in FX.Tune.COMBO_MILESTONES:
+		if count >= int(m):
+			k += 1
+	return k
+
+# At an EXACT milestone, shout a cozy word over the merge (never a "COMBO xN" tag).
+func _combo_celebrate(count: int, center: Vector2) -> void:
+	if not Features.on("merge_combo"):
+		return
+	var idx := FX.Tune.COMBO_MILESTONES.find(count)
+	if idx < 0:
+		return
+	var words := ["combo_nice", "combo_lovely", "combo_wonderful"]
+	var key: String = words[mini(idx, words.size() - 1)]
+	var gpos := board_area.get_global_transform() * center - Vector2(20, 50)
+	FX.floating_text(self, gpos, Strings.t("board.feedback." + key), STRAW, 30)
 
 # The lines the player's open quests currently ask for (one entry per quest, so a line asked by two
 # quests is twice as likely to seed an unlocked cell). Empty only in the rare no-quest window.
