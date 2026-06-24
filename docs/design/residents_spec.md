@@ -1,7 +1,7 @@
 # Residents — Expansion Spec
 
 *Working title: "The Homecoming" (placeholder).*
-*Status: in progress — mechanics drafted (high-level, under review); economy and risk sections to follow.*
+*Status: in progress — mechanics drafted and under active refinement (Explore/Rush detailed); economy and risk sections parked for last.*
 
 A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
 supersedes the base game's "residents are cosmetic-only" stance; the base specs (`merge_spec.md`
@@ -43,10 +43,11 @@ The base game proves the player *can* finish a map. It gives them no reason to *
 A restored world should **grow, reward, and ask** — not sit there. Four moves form a
 self-renewing loop, bolted on top of the merge core without changing how the core plays:
 
-- **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick
-  from a list, you discover who turns up and keep one for free (more for diamonds). Spirits have
-  **rarity** (four tiers: white · blue · orange · red), and a **premium (diamond) path** improves the
-  odds. Starts simple; built to grow into a full search-and-extraction mini-game.
+- **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick from a
+  list, you discover who turns up and keep one for free (more for diamonds). Spirits have **rarity**
+  (four tiers: white · blue · orange · red), and a **premium (diamond) path** improves the odds. The
+  *act* of exploring is a timed merge-rush (see Mechanics), not a slot pull — built to grow into a
+  full search-and-extraction mini-game.
 - **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
   upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
   progression and space management at once.
@@ -89,14 +90,34 @@ pass; the save-shape changes they imply are called out in that pass too.*
 
 ### Explore — acquire
 
-Replaces the base game's pick-from-a-list "welcome a spirit" panel. There is a single **Explore**
-destination — you venture out from home rather than shop from a completed map. Spend **coins** to run
-an **expedition**; it surfaces **up to three** spirits drawn from a rarity-weighted **pool shared
-across all unlocked maps**. You **keep one for free**; the other candidates vanish unless you spend
-**diamonds** to keep them too. Whatever you keep is then **placed** on a completed map that has an open
-slot — the separate **Place** step. Capacity gates the whole flow: you can't launch an expedition
-with no room anywhere, and you can't keep more spirits than you can house (see **Place**). You
-discover who turns up; you don't shop.
+Replaces the base game's pick-from-a-list "welcome a spirit" panel. Explore is a single global
+**destination** — you venture out from home, not shop from a completed map — and acquisition is a
+three-beat ritual: **Launch → Rush → Haul**. The Rush is the playable heart: a short, timed
+merge-frenzy that turns the pull into a real game, not a slot machine.
+
+**1. Launch.** Spend **coins** to set out (coins' first open-ended sink). Capacity-gated: you can't
+launch with no free slot anywhere, and you can't keep more spirits than you can house (see **Place**).
+
+**2. Rush** — a board-fuelled, timed game on a **dedicated expedition board** (a fresh temporary grid;
+you're out in the wilds, and it's discarded after — never your home board). For a short window
+(~60–90s):
+
+- **Traces rain in automatically** — no generator tapping, no Water cost — and the inflow accelerates
+  into a frenzy. The drop *is* the pressure.
+- You **merge traces up the tiers** toward rarer results. Traces come in a **small set of colours**,
+  kept few so each colour's supply stays dense and mergeable.
+- **Capture is the friction.** Spirits appear as targets, each with a **colour + required tier +
+  patience timer**; to catch one you merge a matching-colour trace to that tier and **deliver it onto
+  the spirit** (which also clears those cells). Rarer = rarer colour, higher tier, shorter patience —
+  so you're choosing *which target*, *which colour chain to feed*, and *commit-or-hedge*, not just
+  spotting pairs.
+- **Two clocks.** You race the countdown *and* the board filling: **board-full ends the Rush early**
+  (you cash out at your best). Space is the core skill — and capturing relieves space, so it both
+  scores and keeps you alive.
+
+**3. Haul.** The spirits you caught form your slate. **Keep one for free**; pay **diamonds** to keep
+the others (within capacity) or they're released. Then place each on a map. How well you played the
+Rush sets *what* and *how much* you caught.
 
 - **Rarity** — four tiers, colour-coded: **white** (common), **blue** (magic), **orange**
   (legendary), **red** (heroic). Rarity is a new axis on the spirit, and it **pays off in
@@ -104,21 +125,29 @@ discover who turns up; you don't shop.
   reds matters beyond the collection badge. *(The actual roster of spirits at each rarity is content,
   parked with the reward-set design — the existing core/signature placeholders aren't the final set.)*
 - **Pool grows with progress** — the shared core is always discoverable; **unlocking a new map adds
-  its signatures to the pool.** Pushing the base game forward widens *what you can find*, not just
-  where you house them — each new map is a discovery event and feeds the collection.
+  its signatures to the pool** of spirits that can appear as Rush targets. Pushing the base game
+  forward widens *what you can find*, not just where you house them — each new map is a discovery
+  event and feeds the collection.
 - **Diamonds, two levers** — both buy *better odds and convenience, never exclusivity*; every spirit
   stays reachable on coin expeditions alone, just slower (the base game's "premium buys speed +
   looks, never possibility" law holds):
-  - **Premium expedition** — a pricier, diamond-funded expedition shifts the draw upward two ways: it
-    **removes white (common)** from the pool and **lowers the chance of blue (magic)**, so results
-    skew toward orange and red. (Every rarity still appears on coin-only expeditions, just at lower
-    odds — premium compresses time-to-red, never gates it.)
+  - **Premium expedition** — a pricier run that shifts the odds upward two ways: it **removes white
+    (common)** and **lowers the chance of blue (magic)**, so the spirits that appear as Rush targets
+    skew toward orange and red. (Every rarity still appears on coin-only runs, just at lower odds —
+    premium compresses time-to-red, never gates it.)
   - **Keep extras** — on any expedition, pay diamonds to keep a second or third candidate instead of
     letting it vanish — offered only while you still have free slots to house them. The vanish-or-pay
     framing is a deliberate choice that **relaxes the base game's no-loss guardrail** — flagged as
     such for the Risk pass, not an oversight.
-- **Growth seam** — v1 is the weighted draw only. The thesis's "full search-and-extraction
-  mini-game" layers on top later without changing the keep-one contract.
+- **Decay (off by default)** — an optional "the trail goes cold" dial: an idle trace loses a tier
+  over time. It must only ever erode value you *could* have used, so it's balanced by a **small active
+  colour set** (dense supply), **context-aware** decay (only ticks while a legal merge/target exists;
+  stuck traces go dormant), a **tier-1 floor** (never vanishes), and a **Rush sim** that proves "no
+  forced decay" the way `grove_sim` proves "no jam." Ships **off**; switched on only if the core plays
+  too easy or too hoardy.
+- **Growth seam** — the Rush *is* the v1 search-and-extraction game. Later layers (no contract
+  change): destinations/biomes with different pools, a pre-Rush loadout/bait beat, and **limited-time
+  featured events** (e.g. a "Red Spirit Trek" weekend) as the live-ops urgency layer.
 
 ### Place — capacity & assignment
 
