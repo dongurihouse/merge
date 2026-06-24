@@ -104,7 +104,11 @@ class Ambient:
 
 class Audio:
 	# --- the SFX player pool -----------------------------------------------------------
-	const VOICES := 8                                # round-robin player pool → max sounds that can overlap
+	const VOICES := 8                    # round-robin player pool → max overlapping sounds
+	# --- per-trigger "juice" variation -------------------------------------------------
+	const PITCH_JITTER_CENTS := 35.0     # ± random detune per trigger (musical, subtle)
+	const GAIN_JITTER_DB := 1.2          # ± random level per trigger
+	const HOT_VARIANTS := 3              # baked take-variants for high-frequency cues
 
 
 class FX:
