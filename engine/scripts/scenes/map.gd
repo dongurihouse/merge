@@ -1114,11 +1114,17 @@ func _build_hud() -> void:
 	# redundant here and the level ring stands alone (item 2; the board still passes
 	# `home` since its nav legitimately returns to the map).
 	var hud := Hud.build(self, {
-		# water left the top bar (it's the board's energy — shown on the board, not the hub); the wallet
-		# is ★/coin/gem only here. `water_grant` stays for the shop's water-pack buy callback.
+		# the water pill's + opens the water stall here too (no live board on the hub, so both refills
+		# write Save's water; the board reads it on open). `water_grant` = the 💎 fill (top to cap).
 		"water_grant": func() -> void:
 			var g := Save.grove()
 			g["water"] = G.WATER_CAP
+			Save.grove_write(),
+		# the FREE refill — pour a full can ON TOP of the saved water (ADDITIVE, over-cap ok; the board
+		# reads the banked water on its next open). Gated the free-refill card on in the water stall.
+		"water_add": func() -> void:
+			var g := Save.grove()
+			g["water"] = int(g.get("water", G.WATER_CAP)) + G.WATER_CAP
 			Save.grove_write(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
 		"on_level": func() -> void: LevelPopup.open(self),
