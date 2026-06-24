@@ -2144,9 +2144,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	if Features.on("big_moment_shake") and tier >= FX.Tune.ESCALATE_TIER:
 		FX.shake(board_area)
 		hit = FX.Tune.HITSTOP_BIG
-		burst_n += 6
+		burst_n += FX.Tune.BIG_BURST_BONUS
 	# cozy combo: a live streak nudges the pitch up and the burst out a touch
-	if combo > 0 and Features.on("merge_combo"):
+	if Features.on("merge_combo"):
 		burst_n += FX.Tune.COMBO_BURST_BONUS
 		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, 1.6)
 	FX.hitstop(minf(hit, FX.Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm

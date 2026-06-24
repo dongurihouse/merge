@@ -226,6 +226,7 @@ class FX:
 
 	# --- combo (cozy successive-merge streak) ------------------------------------------
 	const ESCALATE_TIER := 4            # tier >= this earns the reserved big-moment shake
+	const BIG_BURST_BONUS := 6         # + burst particles on a big-moment (tier >= ESCALATE_TIER) merge
 	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
 	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
 	const COMBO_PITCH_STEP := 0.04      # + audio pitch per milestone reached
