@@ -562,22 +562,6 @@ func _press_label(overlay: Control, frag: String) -> bool:
 			return true
 	return false
 
-# T40 helpers: pull the id list out of a rotation, and a uniq pass.
-func _offer_ids(offers: Array) -> Array:
-	var out: Array = []
-	for o in offers:
-		out.append(String(o.id))
-	return out
-
-func _uniq(arr: Array) -> Array:
-	var seen := {}
-	var out: Array = []
-	for v in arr:
-		if not seen.has(v):
-			seen[v] = true
-			out.append(v)
-	return out
-
 # UI redesign: true if `n` or any descendant is of the given built-in class name.
 func _tree_has(n: Node, klass: String) -> bool:
 	if n.is_class(klass):

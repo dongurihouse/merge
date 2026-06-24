@@ -1,28 +1,27 @@
 extends RefCounted
 ## The Shop as the squirrel merchant's MARKET STALL (the §10 buy-side sink; owner:
 ## "the store menu shouldn't just be a list of buttons"). It sells, all behind an
-## honest confirm where money is involved: water + a coin pouch (quick help), a few
-## item-SHORTCUTS (buy a mid-tier piece to skip the grind) in a DETERMINISTICALLY-ROTATING
-## featured band (a few at a time, §10), and the cash → premium acorn pouches. The cash
-## packs are LIVE: confirming grants the diamonds directly (an honest "test build — nothing
-## is charged"); a real store SDK replaces ONLY the middle of `_confirm_cash` — nothing else
-## changes. §4 law: premium buys SPEED, never POSSIBILITY — a shortcut is a grind-skip to a
-## piece you can already merge to. The grove's stock/prices/rotation count are owner-tunable
-## in games/grove/grove_data.gd (§10 SHOP STOCK). Pure grant + rotation funcs are static and
-## test-covered. (Cosmetic LOOKS were removed with the customization feature — parked in
-## BACKLOG as the deferred "item & map customization" feature.)
+## honest confirm where money is involved: water + a coin pouch (quick help), the
+## rewarded free-acorn faucet, the one-time Welcome bundle, and the cash → premium acorn
+## pouches. The cash packs are LIVE: confirming grants the diamonds directly (an honest
+## "test build — nothing is charged"); a real store SDK replaces ONLY the middle of
+## `_confirm_cash` — nothing else changes. §4 law: premium buys SPEED, never POSSIBILITY.
+## The grove's pack prices are owner-tunable in games/grove/grove_data.gd (§10 LIVE-IAP).
+## Pure grant funcs are static and test-covered. (Item-SHORTCUTS — buy a mid-tier piece to
+## skip the grind — were removed 2026-06-23; item-buying is moving to the board's item info
+## bar. Cosmetic LOOKS were removed earlier with customization. Both rebuilds are parked in
+## docs/BACKLOG.md.)
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Shop).
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
-const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # real piece previews on item-shortcut cards
 const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Ads = preload("res://engine/scripts/core/ads.gd")          # the rewarded-ad faucet behind the Free acorn card
 const Iap = preload("res://engine/scripts/core/iap.gd")          # IAP catalog: product id + price by key (data/iap_products.json)
-const D = Game.DATA                                               # the active game's data (§10 shop stock)
+const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").Shop   # the engine's shop dials
 const Strings = preload("res://engine/scripts/core/strings.gd")
@@ -119,63 +118,6 @@ static func free_gems_status() -> Dictionary:
 static func claim_free_gems() -> int:
 	var res := Ads.claim("free_gems")
 	return int(res.get("gems", 0)) if bool(res.get("ok", false)) else 0
-
-# --- item-shortcuts (§10): buy a mid-tier PIECE to skip the grind to it ------------
-# Spends the offer's currency (coins for low tiers / 💎 for deeper ones) and QUEUES the
-# piece into the pending grant. The board drains the queue into its bag on its next open
-# (drain_pending below) — so the grant survives whether the shop is opened from the map
-# (no live board) or over the board itself. Refuses (no spend, no grant) when broke.
-static func buy_item_offer(i: int) -> bool:
-	if i < 0 or i >= D.SHOP_ITEM_OFFERS.size():
-		return false
-	var off: Dictionary = D.SHOP_ITEM_OFFERS[i]
-	if not _spend(String(off.currency), int(off.cost)):
-		return false
-	var g := Save.grove()
-	var q: Array = g.get("shop_pending", [])
-	q.append(int(off.code))
-	g["shop_pending"] = q
-	Save.grove_write()
-	return true
-
-# The queued item-shortcut codes awaiting pickup (the board drains these on open).
-static func pending_pieces() -> Array:
-	return Array(Save.grove().get("shop_pending", []))
-
-# Drain up to `capacity` queued shortcut pieces into `bag` (mutated in place); the rest
-# stay queued for next time. The board calls this on open with its current bag + capacity.
-# Returns the number drained (so the caller can persist if any moved).
-static func drain_pending(bag: Array, capacity: int) -> int:
-	var g := Save.grove()
-	var q: Array = g.get("shop_pending", [])
-	var moved := 0
-	while not q.is_empty() and bag.size() < capacity:
-		bag.append(int(q.pop_front()))
-		moved += 1
-	if moved > 0:
-		g["shop_pending"] = q
-		Save.grove_write()
-	return moved
-
-# Spend a cost in the named currency ("coins" | "diamonds"). One seam for both shop sinks.
-static func _spend(currency: String, cost: int) -> bool:
-	if currency == "diamonds":
-		return Save.spend_diamonds(cost)
-	return Save.spend(cost, "shop")
-
-# --- item-shortcut offers per shop (§10): a FEW skips, a FIXED set ------------------
-# After the shop split each storefront shows only the shortcuts paid in ITS currency: the Coin
-# shop the coin-priced skips, the Premium shop the 💎-priced ones. Capped at SHOP_FEATURED_COUNT,
-# the same set on every open (no rotation/refresh/reroll — the cozy-bed call). Owner-curated via
-# the order of SHOP_ITEM_OFFERS in grove_data.gd.
-static func offers_for(currency: String) -> Array:
-	var out: Array = []
-	for off in D.SHOP_ITEM_OFFERS:
-		if String(off.currency) == currency:
-			out.append(off)
-			if out.size() >= int(D.SHOP_FEATURED_COUNT):
-				break
-	return out
 
 # --- the storefront ----------------------------------------------------------------
 # Three focused stalls share ONE dialog (one set of buy flows + chrome): the WATER pill's + opens the
@@ -286,8 +228,8 @@ static func _banner_for(kind: String) -> String:
 		_: return "Acorns"
 
 # Build the live shop SECTIONS for the kit dialog, filtered to the open shop's KIND: the water stall
-# shows the Fill-water card; the coin stall the Coin pouch + coin-priced shortcuts; the premium stall the
-# 💎-priced shortcut + the one-time Welcome bundle + the Acorn-pouch ladder. Each card carries its data +
+# shows the Fill-water card; the coin stall the Coin pouch; the premium stall the rewarded free-acorn
+# faucet + the one-time Welcome bundle + the Acorn-pouch ladder. Each card carries its data +
 # buy/info callbacks + a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
 static func _sections(refs: Dictionary) -> Array:
 	match String(refs.get("kind", "premium")):
@@ -313,11 +255,11 @@ static func _water_sections(refs: Dictionary) -> Array:
 			Strings.t("shop.water.info_note"))}
 	return [{"caption": Strings.t("shop.water.caption"), "cards": [card]}]
 
-# COIN shop — the Coin pouch (grants coins) + the coin-priced item shortcuts (grind-skips paid in coins).
+# COIN shop — the Coin pouch (turn 💎 into coins). (The coin-priced item shortcuts were removed
+# 2026-06-23 — item-buying is moving to the board's item info bar.)
 static func _coin_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var gems := Save.diamonds()
-	var secs: Array = []
 	var pouch := {
 		"icon": "coin", "label": Strings.t("shop.coin.pouch_label"), "count": COIN_PACK,
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
@@ -327,26 +269,16 @@ static func _coin_sections(refs: Dictionary) -> Array:
 			"icon": "coin", "label": Strings.t("shop.coin.info_row_label"), "amount": str(COIN_PACK),
 			"note": Strings.t("shop.coin.info_row_note")}],
 			Strings.t("shop.coin.info_note"))}
-	secs.append({"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [pouch]})
-	var feat: Array = []
-	for offer in offers_for("coins"):
-		feat.append(_offer_card(refs, offer))
-	if not feat.is_empty():
-		secs.append({"caption": Strings.t("shop.coin.featured_caption"), "cards": feat})
-	return secs
+	return [{"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [pouch]}]
 
-# PREMIUM shop — the 💎-priced item shortcut(s), the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
+# PREMIUM shop — the rewarded free-acorn faucet, the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
+# (The 💎-priced item shortcut was removed 2026-06-23 — item-buying is moving to the board's item info bar.)
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var secs: Array = []
 	# Free acorns — the rewarded faucet (moved off the side rail). Always shown; dims to a cozy
 	# "Ready in Nm" / "Back tomorrow" read when a watch isn't offerable yet (§10 — a faucet, never a wall).
 	secs.append({"caption": Strings.t("shop.premium.free_acorns_caption"), "cards": [_free_gems_card(refs)]})
-	var feat: Array = []
-	for offer in offers_for("diamonds"):
-		feat.append(_offer_card(refs, offer))
-	if not feat.is_empty():
-		secs.append({"caption": Strings.t("shop.premium.featured_caption"), "cards": feat})
 	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
 	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
 	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
@@ -426,29 +358,6 @@ static func _free_gems_content(refs: Dictionary, st: Dictionary) -> Control:
 		col.add_child(t)
 	return col
 
-# One item-shortcut card — a REAL piece preview (the game-injected hero node) priced in the offer's
-# currency (coins for low tiers / 💎 for deeper ones); buying queues the piece into the pending grant.
-static func _offer_card(refs: Dictionary, offer: Dictionary) -> Dictionary:
-	var host: Control = refs.host
-	var hero_px: float = float(refs.hero_px)
-	var coins := Save.coins()
-	var gems := Save.diamonds()
-	var code := int(offer.code)
-	var cur := String(offer.currency)
-	var cost := int(offer.cost)
-	var idx := _offer_index(String(offer.id))
-	var label := String(offer.get("label", ""))
-	return {
-		"node": PieceView.make_piece(code, hero_px),
-		"label": label,
-		"price": str(cost), "price_icon": ("gem" if cur == "diamonds" else "coin"),
-		"affordable": (gems if cur == "diamonds" else coins) >= cost,
-		"on_buy": func() -> void: _flow_item(refs, idx, cur, cost),
-		"on_info": func() -> void: _info_sheet(host, label, [{
-			"icon": "leaf", "label": label, "amount": Strings.t("shop.offer.tier") % (code % 100),
-			"note": Strings.t("shop.offer.info_row_note")}],
-			Strings.t("shop.offer.info_note"))}
-
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
 # has more packs than tier sprites — mirrors the old _gem_card art ladder.
 static func _gem_icon_id(i: int) -> String:
@@ -508,17 +417,6 @@ static func _flow_free_gems(refs: Dictionary) -> void:
 	else:
 		_after_buy(refs)
 
-# An item-shortcut buy (coins or 💎): spend, queue the piece, drain to the live board if present.
-static func _flow_item(refs: Dictionary, idx: int, currency: String, cost: int) -> void:
-	var opts: Dictionary = refs.opts
-	var grant := func() -> bool:
-		if not buy_item_offer(idx):
-			return false
-		if opts.has("piece_grant"):
-			(opts.piece_grant as Callable).call()
-		return true
-	_buy_currency(refs, ("gem" if currency == "diamonds" else "coin"), cost, grant, Strings.t("shop.flow.into_bag"))
-
 static func _buy(refs: Dictionary, currency: String, cost: int, action: Callable, fly_id: String) -> void:
 	var host: Control = refs.host
 	var have: int = Save.diamonds() if currency == "gem" else Save.coins()
@@ -533,18 +431,6 @@ static func _buy(refs: Dictionary, currency: String, cost: int, action: Callable
 		FX.fly_to_wallet(host, _fb_at(host), Look.icon(fly_id, Tune.FLY_ICON), target, func() -> void: _after_buy(refs))
 	else:
 		_after_buy(refs)
-
-static func _buy_currency(refs: Dictionary, currency: String, cost: int, grant: Callable, ok_text: String) -> void:
-	var host: Control = refs.host
-	var have: int = Save.diamonds() if currency == "gem" else Save.coins()
-	if have < cost:
-		_need_more(refs, currency, cost - have)
-		return
-	if not bool(grant.call()):
-		return
-	Audio.play("merge_success", -3.0, 1.2)
-	FX.floating_text(host, _fb_at(host), ok_text, STRAW, Tune.NEED_SIZE)
-	_after_buy(refs)
 
 static func _need_more(refs: Dictionary, currency: String, short: int) -> void:
 	var host: Control = refs.host
@@ -568,13 +454,6 @@ static func _after_buy(refs: Dictionary) -> void:
 	var rb: Dictionary = refs.get("rb", {})
 	if rb.has("fn") and (rb.fn as Callable).is_valid():
 		(rb.fn as Callable).call()
-
-# The index of an item offer by id (the stable handle the pure grant func takes).
-static func _offer_index(id: String) -> int:
-	for i in D.SHOP_ITEM_OFFERS.size():
-		if String(D.SHOP_ITEM_OFFERS[i].id) == id:
-			return i
-	return -1
 
 # The item-detail sheet the "i" opens (§10 product info) — now the SAME mail dialog the inbox wears
 # (parchment cards, NO Claim) closed by a level-style "Got it" footer; tap the veil to dismiss. Read-only,

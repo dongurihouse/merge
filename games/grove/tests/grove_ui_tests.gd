@@ -53,19 +53,20 @@ func _initialize() -> void:
 	var rows_premium := _shop_rows(s7)
 	# +1 for the Free-acorn faucet card (the rewarded watch moved off the side rail into the stall's lead
 	# slot; its CTA is always present — "Free" when offerable, the cozy timer when cooling/capped).
-	var want_premium := 1 + Shop.offers_for("diamonds").size() \
+	# (Item-shortcut cards were removed 2026-06-23 — item-buying moves to the board's item info bar.)
+	var want_premium := 1 \
 		+ (1 if Shop.starter_available() else 0) + Shop.CASH_PACKS.size()
 	ok(rows_premium == want_premium, \
-		"premium stall = Free faucet + 💎 shortcut(s) + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
-	# the coin stall = the Coin pouch + the coin-priced shortcuts, and NOTHING else (no acorn ladder):
-	# the exact count proves the split — it equals pouch + shortcuts, so no cash/💎 card leaked in.
+		"premium stall = Free faucet + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
+	# the coin stall = JUST the Coin pouch, and NOTHING else (no acorn ladder, no shortcuts):
+	# the exact count proves the split — it equals the single pouch, so no cash/💎 card leaked in.
 	k = s7.get_child_count()
 	Shop.open_coin(s7, {})
 	ok(s7.get_child_count() == k + 1, "the coin stall opens over the board")
 	var rows_coin := _shop_rows(s7)
-	var want_coin := 1 + Shop.offers_for("coins").size()
+	var want_coin := 1
 	ok(rows_coin == want_coin, \
-		"coin stall = the Coin pouch + coin shortcuts, no ladder (%d == %d)" % [rows_coin, want_coin])
+		"coin stall = just the Coin pouch, no ladder (%d == %d)" % [rows_coin, want_coin])
 	# the water stall: the single Fill-water card, and ONLY when the host can grant water.
 	Shop.open_water(s7, {})
 	ok(_shop_rows(s7) == 0, "the water stall is empty without a water_grant")

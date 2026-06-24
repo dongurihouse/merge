@@ -365,7 +365,7 @@ static func set_first_purchase_made() -> void:
 
 # A banked WATER credit (e.g. the starter pack's water bonus, bought from the map where
 # no live board exists). The board adds + clears it on its next open (capped to WATER_CAP
-# there). Like shop_pending for items — survives the map→board hop, drained exactly once.
+# there) — survives the map→board hop, drained exactly once.
 static func water_pending() -> int:
 	return int(grove().get("water_pending", 0))
 
