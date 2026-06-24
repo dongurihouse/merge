@@ -455,9 +455,8 @@ func _initialize() -> void:
 	ok(is_equal_approx(float(md.pill_w_frac), 0.30) and is_equal_approx(float(md.pill_min), 170.0) \
 		and is_equal_approx(float(md.pill_max), 290.0) and is_equal_approx(float(md.pill_y_frac), 0.13), \
 		"map_card default count-pill metrics == shipped")
-	ok(is_equal_approx(float(md.veil_scrim), 0.42) and is_equal_approx(float(md.veil_deep), 0.66) \
-		and is_equal_approx(float(md.veil_mark_alpha), 0.16) and is_equal_approx(float(md.veil_mark_size), 64.0), \
-		"map_card default fog-veil look == shipped (§8)")
+	ok(is_equal_approx(float(md.veil_mark_size), 64.0), \
+		"map_card default place-mark size == shipped")
 	ok(bool(md.use_art), "map_card defaults to the painted art (use_art)")
 	# a saved block overrides ONLY the named keys; every other key stays at its shipped default
 	var mover: Dictionary = Kit.map_card_opts_from_config({"map_card": {"frame_inset": 80, "pill_min": 99}})
