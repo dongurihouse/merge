@@ -103,7 +103,8 @@ var coins_label: Label
 var _hud_refresh := Callable()
 var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
-var _open_shop := Callable()      # opens the shared Shop (lives in the bottom chrome)
+var _open_shop := Callable()      # opens the shared Shop / premium stall (lives in the bottom chrome)
+var _open_water := Callable()     # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
 var _store_badge: Control = null  # Store "new offer" badge — lit while the starter pack is unclaimed
@@ -1138,6 +1139,7 @@ func _build_hud() -> void:
 	_hud_refresh = hud.refresh
 	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
 	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
+	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_panels = [hud.wallet, hud.lv_panel]
 	_shop_btn = hud.gem_plus         # the Welcome gift lives in the premium stall now → the badge rides the GEM pill's "+"
 

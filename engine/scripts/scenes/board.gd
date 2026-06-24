@@ -163,7 +163,8 @@ var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
-var _open_shop: Callable = Callable()   # opens the shared Shop (wired from the HUD)
+var _open_shop: Callable = Callable()   # opens the shared Shop / premium stall (wired from the HUD)
+var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
 
 var _press_cell := Vector2i(-1, -1)
@@ -585,6 +586,7 @@ func _build_hud() -> void:
 	water_label = hud.water
 	_water_icon = hud.water_icon
 	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall (the pills' + open their own)
+	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_update_hud()
 
 # Water is the FIRST top-center pill (Water·Coin·Gem), bound from the shared HUD (water_label / _water_icon

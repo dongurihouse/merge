@@ -163,6 +163,24 @@ func _initialize() -> void:
 	ok(_press_label(w_overlay, "Free"), "the water stall shows a green 'Free' refill CTA")
 	ok(poured[0] == G.WATER_CAP, "pressing the free refill pours a full can (%d💧) via water_add" % G.WATER_CAP)
 	wsh.queue_free()
+	# T-J(v): the water stall is reachable from BOTH the board AND the hub (map) — and BOTH HUDs must pass
+	# water_add, so the free-refill card shows wherever you open it. Drive each scene's REAL `_open_water`
+	# (the SAME callable the water pill's + fires, carrying that scene's shop_opts) and assert the free
+	# CTA appears. Regression: the map HUD used to pass only water_grant → the free card was missing when
+	# the shop was opened from the hub.
+	for host_scene in ["res://engine/scenes/Map.tscn", "res://engine/scenes/Board.tscn"]:
+		var is_map: bool = "Map" in host_scene
+		var where: String = "map" if is_map else "board"
+		fresh("refill_card_%s" % where)
+		var h = load(host_scene).instantiate()
+		get_root().add_child(h)
+		if (h.get("content") if is_map else h.get("board")) == null:
+			h._ready()
+		ok(h._open_water.is_valid(), "the %s HUD wires an _open_water callable" % where)
+		h._open_water.call()                                                      # the exact path the water pill + fires
+		var ov: Control = h.find_child("ShopOverlay", true, false)                # the stall is a named overlay, not last-child
+		ok(ov != null and _press_label(ov, "Free"), "the %s water stall shows the free-refill CTA (HUD passes water_add)" % where)
+		h.queue_free()
 	# §4: a runtime-opened cell reveals a seed of an OPEN quest LINE (mimics one generator pop), not
 	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
 	# line 6 (the positional formula would yield line 2 at (2,3)).

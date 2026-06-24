@@ -141,6 +141,16 @@ func _initialize() -> void:
 	elif mode == "closeup" or mode == "progress" or mode == "owned":
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
+	elif mode == "watershop":
+		# the WATER stall opened from the HUB by pressing the real water-pill "+" — proves the map HUD
+		# delivers BOTH water_grant (💎 fill) and water_add (free refill), so the free card shows here too.
+		Save.add_diamonds(40)
+		var cluster: Control = scn._hud_panels[0]               # hud.wallet — the Water·Coin·Gem cluster
+		var water_pill_panel: Control = cluster.get_child(0)    # water is first
+		var water_plus: Button = water_pill_panel.find_child("GoldCurrencyPlusButton", true, false)
+		print("MAP WATERSHOP probe: plus=%s" % water_plus)
+		water_plus.pressed.emit()
+		await create_timer(0.6).timeout
 	elif mode == "shop" or mode == "confirm":
 		Save.add_diamonds(40)
 		Save.add_coins(1200)            # T40: so the coin-priced featured offers read un-dimmed
