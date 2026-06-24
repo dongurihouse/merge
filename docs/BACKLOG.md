@@ -219,4 +219,24 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   `floater`, `hint`, `gendim`, `spotlight`, `grove_ui`, `grove_placement`. Economy/liveops: `inbox`,
   `featured`, `grove_economy`, `grove_shop_ads`. Grove model: `grove_model`. Re-enabling = moving names
   from `*_DISABLED` back into `ENGINE_TESTS` / `GROVE_TESTS`; do it once board/UI + economy stabilise,
-  and expect some to need updating to match by-then-current behavior. *(from old meta 5.2.)*
+  and expect some to need updating to match by-then-current behavior. *(from old meta 5.2.)* **Note (T62):
+  `grove_economy` + `grove_placement` still reference the retired `STAR_CAP` + the t8 → 1💎 sell pinnacle —
+  re-enabling them needs a rewrite to the §exp economy (effort exp = `round(clicks/7)`, every tier sells for
+  coins×band, exp-threshold spot claims). The specs are now reconciled (`exp_progression_spec`, `merge_spec`
+  §3/§7/§9, `grove_spec` §4/§5) — use them + `economy_model.html` as the target.**
+
+- **Code-narrative cleanup — stale comments + legacy spot fields (T62, docs pass found these).** The build is
+  correct but a few **code comments + data fields still assert the retired economy**, parked to keep the spec
+  reconcile docs-only: (a) `content.gd:sell_map_band` comment "t8 stays flat 1💎" + `grove_data.gd:SELL_MAP_BAND`
+  comment "t8 → FLAT 1💎 pinnacle / 32× proof" — `sell_reward` actually applies the band to every tier, premium
+  0; (b) `content.gd:earn_exp` comment "credit BOTH the spendable balance and the cumulative clock" — there is
+  no spendable balance; (c) `grove_data.gd` ~L407 comment "tier − STAR_CAP" — `STAR_CAP` is retired; (d) the
+  static `grove_data.MAPS` spot arrays carry legacy per-spot `cost: 3–5` (the old ★ price, unused under
+  exp-threshold claiming) and ~8 spots/map, while the live ladder is tuned to the vine-mask `[7,4,7,4,1]=23`
+  (`economy_model.html`). Comment/field cleanup only — no behaviour change.
+
+- **§3 world-narrative reconcile (T62 flagged, parked).** `grove_spec` §3's map roster (the *reworked journey*
+  table) keeps older names/ids (`mill`/`vale_gate`, "Old Mill & Brook", 8 spots/map) that don't match the
+  build (ids `farmhouse/barn/pond/orchard/meadow`; names The Farm/Orchard/Garden/Mill/Gate; `[7,4,7,4,1]`).
+  This is a world-design/naming reconcile (NOT economy — economy facts were fixed in T62); needs a Dev call on
+  the canonical map names + journey before rewriting the table.
