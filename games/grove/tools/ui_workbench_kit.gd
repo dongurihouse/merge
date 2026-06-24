@@ -2499,6 +2499,9 @@ static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# the 512px part art is drawn as small as ~1/9 size on a board cell; the project default NEAREST
+		# filter aliases hard when minified, so sample LINEAR + mipmaps here for a smooth shrink.
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		t.size = Vector2(box, box)
 		# horizontally centered, bottom-aligned to the shared baseline, then nudged by the part's offset
 		t.position = Vector2(

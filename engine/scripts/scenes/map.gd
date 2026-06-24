@@ -86,7 +86,7 @@ var _map_idx := 0                # the map being viewed
 var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
-var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = clip-local base y, pre-scroll)
+var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _select_clip: Control = null # the place-picker's clipped scroll viewport (cards live + scroll inside it)
 var _select_scroll := 0.0        # current scroll offset of the place-picker stack (px from the top)
@@ -846,18 +846,24 @@ func _build_select(animate := true) -> void:
 	var card_h := view.y * h_frac                               # height is honored as-is — the band scrolls if the stack overflows
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
-	# the clipped scroll viewport spanning the band; cards are its children (clip-local coords)
+	# the clipped scroll viewport is the FULL screen, so cards scroll off the real top/bottom edges
+	# (passing behind the floating HUD + back arrow) instead of being cut mid-image at an interior band
+	# line. Cards are still LAID OUT within the band (below the HUD, above the back arrow); only the clip
+	# rect spans the whole view.
 	var clip := Control.new()
-	clip.position = Vector2(0.0, band_top)
-	clip.size = Vector2(view.x, band_h)
+	clip.position = Vector2.ZERO
+	clip.size = view
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
 	_select_clip = clip
-	_select_scroll_max = maxf(0.0, total_h - band_h)
+	# the first card rests TOP_PAD below the band top so it clears the settings gear; the stack then
+	# scrolls if it overflows. y is in clip (= screen) coords: band_top + the in-band offset.
+	var top_pad := 20.0
+	var y0 := maxf(top_pad, (band_h - total_h) * 0.5)          # centered when it fits; TOP_PAD down once it scrolls
+	_select_scroll_max = maxf(0.0, y0 + total_h - band_h)
 	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
-	var y0 := maxf(0.0, (band_h - total_h) * 0.5)               # centered when it fits; top-aligned (0) once it scrolls
-	var y := y0
+	var y := band_top + y0
 	for z in n:
 		var card := _make_card(z, card_w, card_h, opts)
 		card.position = Vector2(x, y - _select_scroll)

@@ -34,6 +34,11 @@ const LV_BADGE_PX := 225.0   # the level-badge BOX (its medal fills ~78% → ~17
 const GEAR_PX := 120.0       # the gear BOX (its disc fills ~97% → ~116px visible, matching the medal)
 const HUD_SIDE_Z := 30        # above ambient/weather, below fly/floating FX
 const HUD_WALLET_Z := 40      # wallet stays above the side row when the top bands overlap
+# the level MEDAL art is bottom-anchored and fills only ~78% of its 225px box, so ~44px of the box is
+# empty space ABOVE the painted ring. Lift the badge by that inset so the ring's TOP edge sits flush
+# with the wallet pills (whose panels start right at the edge margin), matching the gear's top corner.
+const LV_BADGE_TOP_INSET := 44.0
+const PILL_SHIFT_X := 24.0    # nudge the centred wallet a touch right, giving the big left badge more room
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
@@ -58,6 +63,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	cluster.anchor_right = 0.5
 	cluster.grow_horizontal = Control.GROW_DIRECTION_BOTH
 	cluster.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
+	cluster.offset_left = PILL_SHIFT_X            # shift the centred cluster right (both offsets = translate)
+	cluster.offset_right = PILL_SHIFT_X
 	cluster.add_theme_constant_override("separation", int(PILL_GAP))
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
 	cluster.z_index = HUD_WALLET_Z
@@ -106,7 +113,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# from the wallet; the level badge is player status, not currency.
 	var left := HBoxContainer.new()
 	left.offset_left = Tune.EDGE_MARGIN
-	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
+	# top-align the badge with the wallet pills: lift it by the medal art's transparent top inset.
+	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host) - LV_BADGE_TOP_INSET
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 	left.z_index = HUD_SIDE_Z
