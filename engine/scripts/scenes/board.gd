@@ -2045,7 +2045,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		t.set_parallel(true)
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	FX.pop(gnode)
+	FX.gen_charge(gnode)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
 	if G.boost_active():
