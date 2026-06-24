@@ -317,17 +317,18 @@ static func _apply_vine_maps(maps: Array) -> Array:
 
 
 const LEVEL_WATER_GIFT := 20
-# §map-unlock — the per-spot exp threshold ladder, EQUAL PER ZONE (owner pick). Each of the N maps gets
-# an equal 1/N share of the whole-game exp budget (= ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP); within a map
-# its spots divide that share evenly. So unlock pacing is time-even per MAP regardless of spot count
-# [7,4,7,4,1] — the 1-spot Gate is the long final push. First spot is 0 (claimable on a fresh save); the
-# last spot lands at the full budget (~14,286 exp). No per-spot const — the budget + map shape drive it,
-# computed in content.gd: spot_unlock_exp / unlock_zone_exp.
-# The one uncapped LEVEL clock (cosmetic badge + per-level gift), derived from the same budget. GENTLE
-# ARITHMETIC ramp (owner pick — replaces the front-loaded geometric): level 1→2 costs LEVEL_BASE_EXP,
-# each later level +LEVEL_STEP_EXP more. ~L35 at the 100K-click endgame (≈4 min early → ~44 min late).
-const LEVEL_BASE_EXP := 70        # exp to reach L2 (≈ 490 clicks ≈ 4 min) — the first level
-const LEVEL_STEP_EXP := 20        # each level costs this much MORE exp than the previous (linear ramp)
+# §map-unlock — the per-spot exp threshold ladder (owner pick: option C). The first N-1 maps are CONTENT
+# zones that split the whole-game exp budget (= ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP) EVENLY; the LAST map
+# (the Gate finale) is a small final CAP worth GATE_CAP_FRACTION of a content zone — so the climax is a
+# short push right after the Mill, not a ~20% dead stretch. Within a zone the spots divide its share
+# evenly. First spot is 0 (claimable on a fresh save); the last spot lands at the full budget (~14,286 exp).
+# No per-spot const — the budget + map shape drive it (content.gd: spot_unlock_exp / unlock_content_zone_exp).
+const GATE_CAP_FRACTION := 0.25   # the Gate finale = this fraction of a content zone (≈ one content spot)
+# The one uncapped LEVEL clock (cosmetic badge + per-level gift), derived from the same budget. EVEN curve
+# (owner pick — replaces the front-loaded geometric): every level costs the SAME exp, so each takes equal
+# wall-clock time and levels spread evenly across the maps (~8 per content zone). ~L35 at the 100K endgame.
+const LEVEL_BASE_EXP := 420       # exp PER level (≈ 2,940 clicks ≈ 24 min each) — flat
+const LEVEL_STEP_EXP := 0         # 0 = perfectly even (raise for a gentle ramp; cost(n)=BASE+(n-1)*STEP)
 
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)

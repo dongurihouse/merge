@@ -75,6 +75,7 @@ static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at lo
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
 const ENDGAME_CLICKS = D.ENDGAME_CLICKS
+const GATE_CAP_FRACTION = D.GATE_CAP_FRACTION
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
@@ -743,20 +744,27 @@ static func exp_at_level(level: int) -> int:
 	var m := level - 1                                   # number of completed level-ups
 	return m * LEVEL_BASE_EXP + (m * (m - 1) / 2) * LEVEL_STEP_EXP
 
-# --- the per-spot unlock-threshold ladder (§map-unlock) — EQUAL PER ZONE -------------
-# Each map gets an equal 1/N share of the whole-game exp budget (the "zone exp").
-static func unlock_zone_exp() -> float:
-	return (float(ENDGAME_CLICKS) / float(QUEST_CLICKS_PER_EXP)) / float(maxi(1, MAPS.size()))
+# --- the per-spot unlock-threshold ladder (§map-unlock) — OPTION C --------------------
+# The first N-1 maps are CONTENT zones splitting the budget evenly; the last map is a small finale CAP
+# (GATE_CAP_FRACTION of a content zone). One content zone's exp share:
+static func unlock_content_zone_exp() -> float:
+	var n_content: int = maxi(1, MAPS.size() - 1)
+	return (float(ENDGAME_CLICKS) / float(QUEST_CLICKS_PER_EXP)) / (float(n_content) + GATE_CAP_FRACTION)
 
-# Cumulative exp threshold at which spot k of map z becomes claimable. Map z occupies the exp band
-# [z·zone, (z+1)·zone]; its spots divide that band evenly so the map's LAST spot lands on the band's
-# end (the final map's last spot = the full budget). The global FIRST spot is 0 (claimable fresh).
+# Cumulative exp threshold at which spot k of map z becomes claimable. A CONTENT map z occupies the band
+# [z·cz, (z+1)·cz] and its spots divide it evenly; the FINALE map (last) occupies the small cap band
+# [content_end, full budget]. The global FIRST spot is 0 (claimable fresh); the final spot = full budget.
 static func spot_unlock_exp(z: int, k: int) -> int:
 	if z == 0 and k == 0:
 		return 0
-	var zone := unlock_zone_exp()
+	var cz := unlock_content_zone_exp()
+	var last: int = MAPS.size() - 1
 	var n: int = maxi(1, MAPS[z].spots.size())
-	return int(round(z * zone + (k + 1) * (zone / float(n))))
+	if z < last:
+		return int(round(z * cz + (k + 1) * (cz / float(n))))
+	# finale cap: band [last·cz, last·cz + GATE_CAP_FRACTION·cz] (ends at the full budget)
+	var cap := GATE_CAP_FRACTION * cz
+	return int(round(last * cz + (k + 1) * (cap / float(n))))
 
 # The next spot to claim in map z = the lowest-threshold UNCLAIMED spot. Returns
 # {k, exp}; k == -1 when every spot of z is already claimed.

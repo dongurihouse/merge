@@ -73,9 +73,10 @@ const D = {
   totalClicks:100000, cps:2,
   cpc1:8, cpc5:4,                       // clicks-per-coin endpoints (linear across 5 maps)
   coinDepth:1.05, clicksPerExp:7, coinsPerAcorn:1024,
-  // unlocks: EQUAL PER ZONE — each map gets 1/N of the budget (no per-spot dial)
-  // levels: GENTLE ARITHMETIC ramp — cost(n) = levelBaseExp + (n-1)*levelStep (exp)
-  levelBaseExp:70, levelStep:20,
+  // unlocks: OPTION C — N-1 content zones split the budget evenly; last map = small finale cap
+  gateCapFraction:0.25,
+  // levels: EVEN — cost(n) = levelBaseExp + (n-1)*levelStep; levelStep:0 = perfectly flat
+  levelBaseExp:420, levelStep:0,
   // acorn faucet (Option A)
   mapDiamonds:5, levelDiamondEvery:10, levelDiamonds:3, freeAcornPerDay:0,
 };
@@ -83,8 +84,8 @@ const DIAL_META = {
   totalClicks:"Total clicks = endgame", cps:"Clicks / second",
   cpc1:"Clicks per coin — map 1", cpc5:"Clicks per coin — map 5",
   coinDepth:"Coin depth bonus / tier", clicksPerExp:"Clicks per exp (star)",
-  coinsPerAcorn:"Coins per acorn (peg)",
-  levelBaseExp:"Level 1 cost (exp)", levelStep:"Level cost +per level (exp)",
+  coinsPerAcorn:"Coins per acorn (peg)", gateCapFraction:"Gate cap (× content zone)",
+  levelBaseExp:"Level cost (exp)", levelStep:"Level cost +per level (exp)",
   mapDiamonds:"Acorns / map complete",
   levelDiamondEvery:"Acorn level milestone (every N)", levelDiamonds:"Acorns / milestone",
   freeAcornPerDay:"Free acorns / day",
@@ -136,19 +137,25 @@ function renderTiers(){
 }
 
 const MAP_SPOTS=[7,4,7,4,1];               // real per-map spot counts (Farm·Orchard·Garden·Mill·Gate)
-function ladder(){ // EQUAL PER ZONE: each map gets 1/N of the exp budget; spots divide it evenly
-  const zone=(D.totalClicks/D.clicksPerExp)/MAP_SPOTS.length;   // exp per zone
+function ladder(){ // OPTION C: N-1 content zones split the budget evenly; last map = small finale cap
+  const budget=D.totalClicks/D.clicksPerExp;
+  const nContent=MAP_SPOTS.length-1, cz=budget/(nContent+D.gateCapFraction), last=MAP_SPOTS.length-1;
   const thr=[]; const perMap=[];
-  for(let z=0;z<MAP_SPOTS.length;z++){ const n=MAP_SPOTS[z]; let fz=null,last=0;
-    for(let k=0;k<n;k++){ const e=(z===0&&k===0)?0:Math.round(z*zone+(k+1)*(zone/n)); if(fz===null)fz=e; last=e; thr.push(e);}
-    perMap.push({spots:n,first:fz,last:last,zoneClicks:Math.round(zone*D.clicksPerExp)});
+  for(let z=0;z<MAP_SPOTS.length;z++){ const n=MAP_SPOTS[z]; let fz=null,lastE=0;
+    for(let k=0;k<n;k++){ let e;
+      if(z===0&&k===0) e=0;
+      else if(z<last) e=Math.round(z*cz+(k+1)*(cz/n));
+      else e=Math.round(last*cz+(k+1)*(D.gateCapFraction*cz/n));
+      if(fz===null)fz=e; lastE=e; thr.push(e);}
+    const zClicks=Math.round((z<last?cz:D.gateCapFraction*cz)*D.clicksPerExp);
+    perMap.push({spots:n,first:fz,last:lastE,zoneClicks:zClicks});
   }
-  return {thr,perMap,total:thr[thr.length-1],zone};
+  return {thr,perMap,total:thr[thr.length-1]};
 }
 function renderLadder(){
   const L=ladder(), names=["The Farm","The Orchard","The Garden","The Mill","The Gate"];
   let h="<tr><th>map</th><th>spots</th><th>enter (exp)</th><th>complete (exp)</th><th>zone clicks</th><th>share</th></tr>";
-  L.perMap.forEach((m,z)=>{ h+=`<tr><td>${names[z]}</td><td>${m.spots}</td><td>${fmt(m.first)}</td><td>${fmt(m.last)}</td><td>${fmt(m.zoneClicks)}</td><td>${Math.round(100/MAP_SPOTS.length)}%</td></tr>`;});
+  L.perMap.forEach((m,z)=>{ h+=`<tr><td>${names[z]}</td><td>${m.spots}</td><td>${fmt(m.first)}</td><td>${fmt(m.last)}</td><td>${fmt(m.zoneClicks)}</td><td>${Math.round(100*m.zoneClicks/D.totalClicks)}%</td></tr>`;});
   h+=`<tr><th>final spot</th><th></th><th></th><th>${fmt(L.total)}</th><th>${fmt(L.total*D.clicksPerExp)}</th><th>= budget</th></tr>`;
   document.getElementById('ladder').innerHTML=h;
 }
