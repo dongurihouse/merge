@@ -28,7 +28,6 @@ static var FLAGS := {
 	"porter_collect": true,       # Y3: a porter spirit drifts in to clear the sell basket (off → chips just fade)
 	"spirit_treats": true,        # Z3: a 10🪙 acorn treat at the stall — a wandering spirit nibbles it (recurring sink)
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
-	"gen_preview": true,          # V: locked generators show a greyed "after N spots" silhouette
 	# ambient
 	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute
 	"ambient_characters": true,   # characters wander the scenes
@@ -40,7 +39,6 @@ static var FLAGS := {
 	"drag_swap": true,            # drop an item on another occupied cell → swap (P)
 	# ftue
 	"ftue_free_pops": false,      # retired: water now costs from the first pop (no 10-pop free intro)
-	"ftue_staged_chrome": true,   # merchant ch1+, bag ch2+ (the water meter is always shown now)
 	# (ftue_feature_spotlight flag removed 2026-06-23 with the dormant spotlight subsystem — redesign
 	#  specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-gesture-spotlight-design.md)
 	"daily_login_popup": true,    # T45: the day's first hub open auto-shows the login calendar once (§18 — after a rewarding moment, skips the cold first FTUE session)

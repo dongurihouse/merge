@@ -102,7 +102,8 @@ func _initialize() -> void:
 			"doubling %d coins costs %d💎 → %.0f coins/💎 (>= %d, beats the shop)" % [got2, cost2, float(got2) / float(cost2), rate])
 
 	# T-J: the live board surfaces the empty-water stack — the free/💎 refill button exists and the
-	# starter water credit is drained on open (the energy-wall wiring, §10).
+	# starter water credit is drained on open. The credit is ADDED OVER-CAP (a fresh board starts at a
+	# full can, so a clamping drain would silently swallow the paid water — regression guard).
 	fresh("oow_board")
 	Save.add_water_pending(int(Data.STARTER_PACK.water))
 	var bw = load("res://engine/scenes/Board.tscn").instantiate()
@@ -110,8 +111,8 @@ func _initialize() -> void:
 	if bw.board == null:
 		bw._ready()
 	ok(bw.refill_btn != null, "the board builds the refill surface")
-	ok(Save.water_pending() == 0 and bw.water >= int(Data.STARTER_PACK.water), \
-		"the board applies the banked starter water on open")
+	ok(Save.water_pending() == 0 and bw.water == G.WATER_CAP + int(Data.STARTER_PACK.water), \
+		"the board banks the starter water over-cap on open (%d = full can + %d, not clamped)" % [bw.water, int(Data.STARTER_PACK.water)])
 	# drive to empty and surface the stack (water<=0 reveals the refill stack).
 	bw.water = 0
 	bw._update_water_hud()
