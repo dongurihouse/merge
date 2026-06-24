@@ -1,8 +1,8 @@
-# Reach Zero — Revised Direction & Godot Build Roadmap
+# Acorn Forest: Merge! — Revised Direction & Godot Build Roadmap
 
 ## 1. Revised positioning
 
-Reach Zero is a **cosy, can't-lose merge puzzle** where you slide colorful gems together up a 2^n ladder and clear the board to **ZERO** — and "it feels like 2048" is now the point, not a problem. The moat is **not the mechanic**; it is **juice + content + feel + progression**: a familiar verb wrapped in best-in-class screen feel, a steady drip of new toys, and a visible place that grows between sessions. The three chill-audience design rules we build to: **(1) zero learning** — every new thing is the merge verb you already know, taught wordlessly on a can't-fail board; **(2) zero dead frames** — every gesture produces something satisfying, you can never silently fail and never truly lose; **(3) something new almost every session** — a gift, theme, room, or chest within a 60–90s play.
+Acorn Forest: Merge! is a **cosy, can't-lose merge puzzle** where you slide colorful gems together up a 2^n ladder and clear the board to **ZERO** — and "it feels like 2048" is now the point, not a problem. The moat is **not the mechanic**; it is **juice + content + feel + progression**: a familiar verb wrapped in best-in-class screen feel, a steady drip of new toys, and a visible place that grows between sessions. The three chill-audience design rules we build to: **(1) zero learning** — every new thing is the merge verb you already know, taught wordlessly on a can't-fail board; **(2) zero dead frames** — every gesture produces something satisfying, you can never silently fail and never truly lose; **(3) something new almost every session** — a gift, theme, room, or chest within a 60–90s play.
 
 ## 2. Core difficulty decision — FORGIVING / near-confluent
 
@@ -17,7 +17,7 @@ Reach Zero is a **cosy, can't-lose merge puzzle** where you slide colorful gems 
 
 **Pick ONE: per-piece TAP-FIRST, drag-accepted, with a "sticky selection / never-discard" commit model. Verdict on 2048's whole-board swipe: REJECT it.**
 
-**Why reject the 2048 swipe (load-bearing):** 2048's directional swipe is inseparable from **gravity + a spawn-every-move** ruleset. Reach Zero is the inverse — no gravity, no spawning, the board only shrinks (`board.gd` has zero gravity/spawn code). A whole-board swipe would force adding gravity, which makes a *perfectly empty* board unreachable and **kills the "reach ZERO" win condition** and the one differentiator we keep. It is a rules rewrite masquerading as a control fix.
+**Why reject the 2048 swipe (load-bearing):** 2048's directional swipe is inseparable from **gravity + a spawn-every-move** ruleset. Acorn Forest: Merge! is the inverse — no gravity, no spawning, the board only shrinks (`board.gd` has zero gravity/spawn code). A whole-board swipe would force adding gravity, which makes a *perfectly empty* board unreachable and **kills the "reach ZERO" win condition** and the one differentiator we keep. It is a rules rewrite masquerading as a control fix.
 
 **How the chosen scheme works (it is already 90% built in `main.gd`):**
 - Tap a piece → it lifts + the board shows **GREEN merge targets** (`board.merge_targets`) and **BLUE reachable cells** (`board.reachable_empties`), plus a new **dim "ghost halo"** on right-match-but-blocked partners.
@@ -41,7 +41,7 @@ This is ~90% of the remaining product. Build top-down; **1–4 make the demo fin
 4. **Build the ZERO catharsis screen** (the namesake moment, currently just a status string at `main.gd:317`). On `is_cleared()`: dim board → left-to-right shimmer sweep over the empty grid → "ZERO" serif scale-in + fake bloom → 1–3 stars stamp sequentially with ascending chime + small bursts → pieces/sparkles fly to a Vault icon. Reuse `_flash` as the bridge; sequence with a chained Tween.
 5. **Recolor for high-contrast pop.** Replace `_tier_color` with saturated, value-ascending, colorblind-safe hues: **T1 cyan `#3FC9FF`, T2 spring-green `#43E06A`, T3 violet `#B36BFF`, T4 hot-magenta `#FF5FA8`, T5+ warm-gold `#FFC24A`.** Keep the dark velvet bg (`0.09,0.08,0.12`). Add gloss (top-light gradient + inner rim highlight in the StyleBoxFlat) + tier pips. Never two adjacent-hue families on one board.
 6. **Pentatonic run system (re-keyed for chill, NOT speed).** Run = consecutive merges within a ~2.5s rolling window; step the tink up C-D-E-G-A-C (cap ~8), scale mote count 12→~28; on lapse, a soft descending two-note "settle" — never a buzzer.
-7. **Haptics.** Android: `Input.vibrate_handheld(ms)`. iOS: thin ObjC singleton calling `impactOccurred` (the project already builds via `ReachZero.xcodeproj`). Map selection=light, slide-tick=faint, merge=`.medium` (<16ms from visual contact), showcase=double-pulse, ZERO=three ascending pulses. Global toggle, respect OS setting, **never the sole carrier of a cue.**
+7. **Haptics.** Android: `Input.vibrate_handheld(ms)`. iOS: thin ObjC singleton calling `impactOccurred` (the project already builds via `AcornForest.xcodeproj`). Map selection=light, slide-tick=faint, merge=`.medium` (<16ms from visual contact), showcase=double-pulse, ZERO=three ascending pulses. Global toggle, respect OS setting, **never the sole carrier of a cue.**
 8. **Restrained screen punctuation + fake bloom — showcase/ZERO ONLY.** 2–4px board-offset shake, <12% white flash, brief `Engine.time_scale ~0.85` slow in the 0–150ms showcase anticipation, additive radial soft-white sprite. **Explicitly nothing on ordinary merges.**
 
 ## 5. Additive content elements — ordered introduction

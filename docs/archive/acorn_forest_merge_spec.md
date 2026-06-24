@@ -1,12 +1,12 @@
-# Reach Zero — Game Design Spec
+# Acorn Forest: Merge! — Game Design Spec
 
-> **Reach Zero** is a free-to-play mobile puzzle (iOS/Android) that inverts the merge genre: instead of building a pile, you *slide* glittering shards together to craft luxury jewels and looks, and you **win by clearing the board to perfectly empty**. The signature idea is "empty is the win" — merge solitaire. The core verb is deliberately spatial: a piece slides through empty cells only and merges with a matching piece only when brought orthogonally adjacent, which turns merging into a genuine sliding-tile puzzle (proven non-confluent: order and routing decide whether a board reaches zero). The brand pillar is fairness — no lives, no energy, never blocked, unlimited undo and restart; you can only solve, never lose. Monetization is cosmetic-led and convenience-only, never pay-to-win.
+> **Acorn Forest: Merge!** is a free-to-play mobile puzzle (iOS/Android) that inverts the merge genre: instead of building a pile, you *slide* glittering shards together to craft luxury jewels and looks, and you **win by clearing the board to perfectly empty**. The signature idea is "empty is the win" — merge solitaire. The core verb is deliberately spatial: a piece slides through empty cells only and merges with a matching piece only when brought orthogonally adjacent, which turns merging into a genuine sliding-tile puzzle (proven non-confluent: order and routing decide whether a board reaches zero). The brand pillar is fairness — no lives, no energy, never blocked, unlimited undo and restart; you can only solve, never lose. Monetization is cosmetic-led and convenience-only, never pay-to-win.
 
 ## At a glance
 
 | Facet | Decision |
 |---|---|
-| **Working title** | Reach Zero |
+| **Working title** | Acorn Forest: Merge! |
 | **Platform / model** | iOS + Android, free-to-play |
 | **Genre** | Merge solitaire — a spatial **sliding-merge** puzzle ("merge meets the sliding-tile puzzle") |
 | **Core verb** | **Drag a piece so it SLIDES through empty cells (rook-style, no jumping, no gravity) onto a cell orthogonally ADJACENT to a matching piece (same `familyId` AND same `tier`); they merge into tier+1 on the target cell, the source cell empties (net −1 occupied cell). NOT "merge anywhere."** |
@@ -54,22 +54,22 @@
 
 ## 1.1 One-liner
 
-> **Reach Zero** — a no-fail mobile puzzle where you *slide* glittering shards together to craft luxury jewels and looks, and **win by clearing the board to perfectly empty.** Merge solitaire: empty is the win.
+> **Acorn Forest: Merge!** — a no-fail mobile puzzle where you *slide* glittering shards together to craft luxury jewels and looks, and **win by clearing the board to perfectly empty.** Merge solitaire: empty is the win.
 
 Elevator pitch (App Store subtitle length, ≤30 chars each line):
 
-- **Line 1:** "Slide. Merge. Reach Zero."
+- **Line 1:** "Slide. Merge. Acorn Forest: Merge!."
 - **Line 2:** "Empty the board. Never lose."
 
 Long-form pitch (store description opener):
 
-> Every other merge game wants you to *build a pile*. Reach Zero flips it: the board starts full of raw gems and threads, and your job is to craft them into finished jewels and outfits until **nothing is left**. But there's a catch — pieces only **slide** through empty space, so every clear cell is precious. Route matching pieces together, showcase your masterpiece, and chase the perfect "ZERO." No lives. No energy. We never block you. You can only solve it.
+> Every other merge game wants you to *build a pile*. Acorn Forest: Merge! flips it: the board starts full of raw gems and threads, and your job is to craft them into finished jewels and outfits until **nothing is left**. But there's a catch — pieces only **slide** through empty space, so every clear cell is precious. Route matching pieces together, showcase your masterpiece, and chase the perfect "ZERO." No lives. No energy. We never block you. You can only solve it.
 
 ## 1.2 The core inversion: "empty is the win"
 
-The signature idea is a **goal inversion** on the merge genre. In conventional merge games the loop is *accumulate* — you spawn pieces, combine them up a ladder, and grow a collection that never really "ends." Reach Zero reframes the identical merge verb as **subtraction toward zero**:
+The signature idea is a **goal inversion** on the merge genre. In conventional merge games the loop is *accumulate* — you spawn pieces, combine them up a ladder, and grow a collection that never really "ends." Acorn Forest: Merge! reframes the identical merge verb as **subtraction toward zero**:
 
-| Dimension | Conventional merge (Merge-2 incumbents) | **Reach Zero (merge solitaire)** |
+| Dimension | Conventional merge (Merge-2 incumbents) | **Acorn Forest: Merge! (merge solitaire)** |
 |---|---|---|
 | Win state | Open-ended; fill an order book / grow a collection | **Board perfectly empty → "ZERO — collection complete"** |
 | Board over time | Grows (spawners, generators add pieces) | **Only ever shrinks** (no in-level spawning, no gravity) |
@@ -85,7 +85,7 @@ Merging **two top-tier pieces** of a family triggers the **showcase** animation 
 
 ## 1.3 This is a SPATIAL sliding-merge puzzle (not "merge anywhere")
 
-This is the most important design truth in the document and it is **load-bearing for the entire product**: Reach Zero's core is **adjacency + sliding**, *not* a non-spatial "drag any item onto any matching item anywhere."
+This is the most important design truth in the document and it is **load-bearing for the entire product**: Acorn Forest: Merge!'s core is **adjacency + sliding**, *not* a non-spatial "drag any item onto any matching item anywhere."
 
 **The locked rule:**
 
@@ -146,7 +146,7 @@ Five pillars. Every feature decision must serve at least one and contradict none
 
 ## 1.6 2026 market positioning
 
-Reach Zero sits **between two giant casual categories** and borrows the legibility of both while owning a gap neither fills.
+Acorn Forest: Merge! sits **between two giant casual categories** and borrows the legibility of both while owning a gap neither fills.
 
 ```
                          MERGE-2 INCUMBENTS                COLLAPSE / BLAST INCUMBENTS
@@ -159,9 +159,9 @@ Reach Zero sits **between two giant casual categories** and borrows the legibili
    Hook for us      borrow the merge verb's legibility    borrow "clear the board" satisfaction
 
                                   v   v
-                           +-----------------+
-                           |   REACH ZERO    |
-                           +-----------------+
+                           +----------------------+
+                           | ACORN FOREST: MERGE! |
+                           +----------------------+
                     Verb : SLIDE pieces, merge adjacent matches
                     Goal : reach ZERO (board perfectly empty), finite levels
                     Fail : none — undo/restart, "we never block you"
@@ -871,7 +871,7 @@ Replacement levers for an energy economy: (1) **daily login streak** (forgiving,
 
 ## 5.1 Philosophy: Monetize Delight, Never Friction
 
-Reach Zero monetizes the **glow**, not the **gate**. Every offer is either **Aspiration** (make the board/gem/poof look *more expensive* — cosmetics, season pass, Vault flair) or **Convenience** (skip a moment of thinking — hint/wild packs). Because the core promise is no lives, no energy, never blocked, unlimited undo/restart, and every board provably free-solvable, **there is nothing to sell that the player strictly needs** — that is the brand.
+Acorn Forest: Merge! monetizes the **glow**, not the **gate**. Every offer is either **Aspiration** (make the board/gem/poof look *more expensive* — cosmetics, season pass, Vault flair) or **Convenience** (skip a moment of thinking — hint/wild packs). Because the core promise is no lives, no energy, never blocked, unlimited undo/restart, and every board provably free-solvable, **there is nothing to sell that the player strictly needs** — that is the brand.
 
 **Hard rules (locked):**
 
@@ -1162,7 +1162,7 @@ A feature, consistent with "we never block you."
 ## 6.7 The ideal first 60-second session
 
 ```
-0:00  App opens. Velvet field, a soft light sweep, "Reach Zero" breathes in/out 1.5s. No login wall,
+0:00  App opens. Velvet field, a soft light sweep, "Acorn Forest: Merge!" breathes in/out 1.5s. No login wall,
       no splash ad. One tap: "Play".
 0:03  Cold-open into hand-built L0. Two glossy blue gems on a 4×4 velvet board, a clear empty lane
       between them. A sparkle finger-trail arcs one toward the other along the lane.

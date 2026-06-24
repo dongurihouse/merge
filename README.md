@@ -6,9 +6,8 @@ to merge them up a tier ladder, deliver harvests to the grove's spirit-folk for 
 and restore a hand-painted "Ghibli Grove" homestead.
 
 The canonical design — spec **and** feature index — lives in
-[`docs/design/merge_spec.md`](docs/design/merge_spec.md). (This project began as
-"Reach Zero," a merge-solitaire prototype — that original spec and the pivot history are
-kept under [`docs/archive/`](docs/archive/).)
+[`docs/design/merge_spec.md`](docs/design/merge_spec.md). (Early prototype specs and the pivot history are kept under
+[`docs/archive/`](docs/archive/).)
 
 ## Requirements
 Godot **4.6** (developed on 4.6.2). On this machine: `/opt/homebrew/bin/godot`.

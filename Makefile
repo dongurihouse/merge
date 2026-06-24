@@ -122,7 +122,7 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 	tools/install_ios_plugins.sh
 
 ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/design/apple-services-setup.md)
-	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/ReachZero.xcodeproj
+	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/AcornForest.xcodeproj
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output
