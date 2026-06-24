@@ -147,5 +147,20 @@ func _initialize() -> void:
 	FX.hitstop(0.05)
 	ok(Engine.time_scale == before, "hitstop: a call in headless does not touch Engine.time_scale")
 
+	# --- gen_charge: anticipation pose (flag on) vs plain pop fallback (flag off) -----
+	Features.FLAGS["gen_anticipation"] = true
+	Save.set_setting("calm", false)
+	var gc := Control.new(); gc.size = Vector2(90, 90); get_root().add_child(gc)
+	FX.gen_charge(gc)
+	ok(gc.scale.is_equal_approx(Tune.GEN_CHARGE_K[0]), "gen_charge: active path sets the crouch pose")
+	Features.FLAGS["gen_anticipation"] = false
+	var gc2 := Control.new(); gc2.size = Vector2(90, 90); get_root().add_child(gc2)
+	FX.gen_charge(gc2)
+	ok(not gc2.scale.is_equal_approx(Tune.GEN_CHARGE_K[0]), "gen_charge: flag OFF falls back to plain pop (no crouch pose)")
+	FX.gen_charge(null)
+	ok(true, "gen_charge: tolerates a null node")
+	Features.FLAGS["gen_anticipation"] = true
+	gc.queue_free(); gc2.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

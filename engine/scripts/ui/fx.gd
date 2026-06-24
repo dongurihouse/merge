@@ -128,6 +128,21 @@ static func hitstop(secs: float) -> void:
 		Engine.time_scale = 1.0
 		_hitstop_active = false)
 
+## Generator pop anticipation: a quick crouch -> spring -> settle squash as the generator
+## spits a tile. Flag-off / calm fall back to the existing `pop()` so a tap still feels
+## responsive.
+static func gen_charge(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	if not Features.on("gen_anticipation") or calm():
+		pop(node)
+		return
+	node.pivot_offset = _center_pivot(node)
+	node.scale = Tune.GEN_CHARGE_K[0]
+	var t := node.create_tween()
+	for i in range(1, Tune.GEN_CHARGE_K.size()):
+		t.tween_property(node, "scale", Tune.GEN_CHARGE_K[i], Tune.GEN_CHARGE_T[i - 1]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return
