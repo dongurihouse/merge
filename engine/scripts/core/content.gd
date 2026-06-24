@@ -73,9 +73,9 @@ const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
-const LEVEL_GROWTH = D.LEVEL_GROWTH
-const UNLOCK_BASE = D.UNLOCK_BASE
-const UNLOCK_STEP = D.UNLOCK_STEP
+const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
+const ENDGAME_CLICKS = D.ENDGAME_CLICKS
+const GATE_CAP_FRACTION = D.GATE_CAP_FRACTION
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
@@ -729,8 +729,9 @@ static func coin_value(code: int) -> int:
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.
 
 # --- exp level math (the renamed clock; reads the single cumulative `exp`) ----------
-# GEOMETRIC level curve (uncapped): level 1→2 costs LEVEL_BASE_EXP exp, each later level ×LEVEL_GROWTH.
-# exp_at_level(L) = cumulative exp to REACH level L (closed-form geometric sum).
+# GENTLE ARITHMETIC level curve (uncapped): level n→n+1 costs LEVEL_BASE_EXP + (n-1)·LEVEL_STEP_EXP.
+# exp_at_level(L) = cumulative exp to REACH level L = sum of the first (L-1) level costs (closed form).
+# Much less front-loaded than the old geometric curve (no "20 levels in map 1").
 static func level_for_exp(earned: int) -> int:
 	var lvl := 1
 	while exp_at_level(lvl + 1) <= earned:
@@ -740,20 +741,30 @@ static func level_for_exp(earned: int) -> int:
 static func exp_at_level(level: int) -> int:
 	if level <= 1:
 		return 0
-	return int(round(LEVEL_BASE_EXP * (pow(LEVEL_GROWTH, level - 1) - 1.0) / (LEVEL_GROWTH - 1.0)))
+	var m := level - 1                                   # number of completed level-ups
+	return m * LEVEL_BASE_EXP + (m * (m - 1) / 2) * LEVEL_STEP_EXP
 
-# --- the per-spot unlock-threshold ladder (§map-unlock) -----------------------------
-# Per-spot increment for map z (escalates per map).
-static func unlock_inc(z: int) -> int:
-	return UNLOCK_BASE + z * UNLOCK_STEP
+# --- the per-spot unlock-threshold ladder (§map-unlock) — OPTION C --------------------
+# The first N-1 maps are CONTENT zones splitting the budget evenly; the last map is a small finale CAP
+# (GATE_CAP_FRACTION of a content zone). One content zone's exp share:
+static func unlock_content_zone_exp() -> float:
+	var n_content: int = maxi(1, MAPS.size() - 1)
+	return (float(ENDGAME_CLICKS) / float(QUEST_CLICKS_PER_EXP)) / (float(n_content) + GATE_CAP_FRACTION)
 
-# Cumulative exp threshold at which spot k of map z becomes claimable. Running sum over the
-# global spot order: every earlier map's spots at that map's increment, plus k of map z's.
+# Cumulative exp threshold at which spot k of map z becomes claimable. A CONTENT map z occupies the band
+# [z·cz, (z+1)·cz] and its spots divide it evenly; the FINALE map (last) occupies the small cap band
+# [content_end, full budget]. The global FIRST spot is 0 (claimable fresh); the final spot = full budget.
 static func spot_unlock_exp(z: int, k: int) -> int:
-	var total := 0
-	for zz in z:
-		total += MAPS[zz].spots.size() * unlock_inc(zz)
-	return total + k * unlock_inc(z)
+	if z == 0 and k == 0:
+		return 0
+	var cz := unlock_content_zone_exp()
+	var last: int = MAPS.size() - 1
+	var n: int = maxi(1, MAPS[z].spots.size())
+	if z < last:
+		return int(round(z * cz + (k + 1) * (cz / float(n))))
+	# finale cap: band [last·cz, last·cz + GATE_CAP_FRACTION·cz] (ends at the full budget)
+	var cap := GATE_CAP_FRACTION * cz
+	return int(round(last * cz + (k + 1) * (cap / float(n))))
 
 # The next spot to claim in map z = the lowest-threshold UNCLAIMED spot. Returns
 # {k, exp}; k == -1 when every spot of z is already claimed.

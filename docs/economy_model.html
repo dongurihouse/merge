@@ -73,9 +73,10 @@ const D = {
   totalClicks:100000, cps:2,
   cpc1:8, cpc5:4,                       // clicks-per-coin endpoints (linear across 5 maps)
   coinDepth:1.05, clicksPerExp:7, coinsPerAcorn:1024,
-  unlockBase:275, unlockStep:275,
-  levelBaseClicks:128, levelGrowth:1.15,
-  // sell band (existing) — for context
+  // unlocks: OPTION C — N-1 content zones split the budget evenly; last map = small finale cap
+  gateCapFraction:0.25,
+  // levels: EVEN — cost(n) = levelBaseExp + (n-1)*levelStep; levelStep:0 = perfectly flat
+  levelBaseExp:420, levelStep:0,
   // acorn faucet (Option A)
   mapDiamonds:5, levelDiamondEvery:10, levelDiamonds:3, freeAcornPerDay:0,
 };
@@ -83,9 +84,9 @@ const DIAL_META = {
   totalClicks:"Total clicks = endgame", cps:"Clicks / second",
   cpc1:"Clicks per coin — map 1", cpc5:"Clicks per coin — map 5",
   coinDepth:"Coin depth bonus / tier", clicksPerExp:"Clicks per exp (star)",
-  coinsPerAcorn:"Coins per acorn (peg)", unlockBase:"Unlock inc — map 1",
-  unlockStep:"Unlock inc — +per map", levelBaseClicks:"Level 1 cost (clicks)",
-  levelGrowth:"Level cost growth ×", mapDiamonds:"Acorns / map complete",
+  coinsPerAcorn:"Coins per acorn (peg)", gateCapFraction:"Gate cap (× content zone)",
+  levelBaseExp:"Level cost (exp)", levelStep:"Level cost +per level (exp)",
+  mapDiamonds:"Acorns / map complete",
   levelDiamondEvery:"Acorn level milestone (every N)", levelDiamonds:"Acorns / milestone",
   freeAcornPerDay:"Free acorns / day",
 };
@@ -136,34 +137,40 @@ function renderTiers(){
 }
 
 const MAP_SPOTS=[7,4,7,4,1];               // real per-map spot counts (Farm·Orchard·Garden·Mill·Gate)
-function ladder(){ // cumulative exp threshold per spot, in global order
-  const inc=z=>D.unlockBase+z*D.unlockStep;
-  const thr=[]; let cum=0,first=true; const perMap=[];
-  for(let z=0;z<MAP_SPOTS.length;z++){ const i=inc(z); let me=0,fz=null;
-    for(let k=0;k<MAP_SPOTS[z];k++){ if(first){cum=0;first=false;} else {cum+=i;me+=i;} if(fz===null)fz=cum; thr.push(cum);}
-    perMap.push({inc:i,spots:MAP_SPOTS[z],exp:me,clicks:me*D.clicksPerExp,first:fz,last:cum});
+function ladder(){ // OPTION C: N-1 content zones split the budget evenly; last map = small finale cap
+  const budget=D.totalClicks/D.clicksPerExp;
+  const nContent=MAP_SPOTS.length-1, cz=budget/(nContent+D.gateCapFraction), last=MAP_SPOTS.length-1;
+  const thr=[]; const perMap=[];
+  for(let z=0;z<MAP_SPOTS.length;z++){ const n=MAP_SPOTS[z]; let fz=null,lastE=0;
+    for(let k=0;k<n;k++){ let e;
+      if(z===0&&k===0) e=0;
+      else if(z<last) e=Math.round(z*cz+(k+1)*(cz/n));
+      else e=Math.round(last*cz+(k+1)*(D.gateCapFraction*cz/n));
+      if(fz===null)fz=e; lastE=e; thr.push(e);}
+    const zClicks=Math.round((z<last?cz:D.gateCapFraction*cz)*D.clicksPerExp);
+    perMap.push({spots:n,first:fz,last:lastE,zoneClicks:zClicks});
   }
   return {thr,perMap,total:thr[thr.length-1]};
 }
 function renderLadder(){
   const L=ladder(), names=["The Farm","The Orchard","The Garden","The Mill","The Gate"];
-  let h="<tr><th>map</th><th>inc/spot</th><th>map exp</th><th>map clicks</th><th>share</th><th>unlocks at (exp)</th></tr>";
-  L.perMap.forEach((m,z)=>{ h+=`<tr><td>${names[z]}</td><td>+${m.inc}</td><td>${fmt(m.exp)}</td><td>${fmt(m.clicks)}</td><td>${Math.round(100*m.clicks/D.totalClicks)}%</td><td>${fmt(m.first)} → ${fmt(m.last)}</td></tr>`;});
-  h+=`<tr><th>final spot</th><th></th><th>${fmt(L.total)}</th><th>${fmt(L.total*D.clicksPerExp)}</th><th>100%</th><th>= total exp budget</th></tr>`;
+  let h="<tr><th>map</th><th>spots</th><th>enter (exp)</th><th>complete (exp)</th><th>zone clicks</th><th>share</th></tr>";
+  L.perMap.forEach((m,z)=>{ h+=`<tr><td>${names[z]}</td><td>${m.spots}</td><td>${fmt(m.first)}</td><td>${fmt(m.last)}</td><td>${fmt(m.zoneClicks)}</td><td>${Math.round(100*m.zoneClicks/D.totalClicks)}%</td></tr>`;});
+  h+=`<tr><th>final spot</th><th></th><th></th><th>${fmt(L.total)}</th><th>${fmt(L.total*D.clicksPerExp)}</th><th>= budget</th></tr>`;
   document.getElementById('ladder').innerHTML=h;
 }
 
 function levelInfo(){
-  const expAt=L=> L<=1?0:Math.round((D.levelBaseClicks/D.clicksPerExp)*(Math.pow(D.levelGrowth,L-1)-1)/(D.levelGrowth-1));
+  const expAt=L=>{ if(L<=1)return 0; const m=L-1; return m*D.levelBaseExp + (m*(m-1)/2)*D.levelStep; };
   const budget=D.totalClicks/D.clicksPerExp; let L=1; while(expAt(L+1)<=budget) L++;
   return {expAt, maxLevel:L};
 }
 function renderLevels(){
   const {expAt,maxLevel}=levelInfo();
-  const picks=[1,5,10,15,20,25,30].filter(n=>n<=maxLevel); if(!picks.includes(maxLevel))picks.push(maxLevel);
-  let h=`<tr><th>level</th><th>clicks for it</th><th>exp for it</th><th>cum clicks</th></tr>`;
-  for(const n of picks){ const c=D.levelBaseClicks*Math.pow(D.levelGrowth,n-1); h+=`<tr><td>${n}</td><td>${fmt(c)}</td><td>${fmt(Math.round(c/D.clicksPerExp))}</td><td>${fmt(expAt(n)*D.clicksPerExp)}</td></tr>`;}
-  h+=`<tr><th>max @ endgame</th><th colspan="3" style="text-align:left">≈ L${maxLevel}</th></tr>`;
+  const picks=[1,5,10,15,20,25,30,35].filter(n=>n<=maxLevel); if(!picks.includes(maxLevel))picks.push(maxLevel);
+  let h=`<tr><th>level</th><th>exp for it</th><th>clicks for it</th><th>time for it</th><th>cum clicks</th></tr>`;
+  for(const n of picks){ const ce=D.levelBaseExp+(n-1)*D.levelStep; const cc=ce*D.clicksPerExp; h+=`<tr><td>${n}</td><td>${fmt(ce)}</td><td>${fmt(cc)}</td><td>${ftime(sec(cc))}</td><td>${fmt(expAt(n)*D.clicksPerExp)}</td></tr>`;}
+  h+=`<tr><th>max @ endgame</th><th colspan="4" style="text-align:left">≈ L${maxLevel}</th></tr>`;
   document.getElementById('levels').innerHTML=h;
 }
 
@@ -176,7 +183,7 @@ function renderLevelChart(){
   const W=720,H=240,padL=40,padB=22,padT=8;
   const bw=(W-padL-6)/maxLevel; const plotH=H-padB-padT;
   let maxT=0; const bars=[];
-  for(let n=1;n<=maxLevel;n++){const t=D.levelBaseClicks*Math.pow(D.levelGrowth,n-1)/D.cps; bars.push({n,t,z:mapOf(expAt(n))}); if(t>maxT)maxT=t;}
+  for(let n=1;n<=maxLevel;n++){const t=(D.levelBaseExp+(n-1)*D.levelStep)*D.clicksPerExp/D.cps; bars.push({n,t,z:mapOf(expAt(n))}); if(t>maxT)maxT=t;}
   let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px">`;
   for(let g=0;g<=4;g++){const y=padT+plotH*(1-g/4); svg+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#2c3626"/><text x="2" y="${(y+3).toFixed(1)}" fill="#9aa890" font-size="9">${ftime(maxT*g/4)}</text>`;}
   bars.forEach(b=>{const bh=plotH*(b.t/maxT); const x=padL+(b.n-1)*bw; const y=padT+plotH-bh; svg+=`<rect x="${(x+0.5).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-1).toFixed(1)}" height="${bh.toFixed(1)}" fill="${cols[b.z]}"><title>L${b.n}: ${ftime(b.t)} — ${names[b.z]}</title></rect>`;});
