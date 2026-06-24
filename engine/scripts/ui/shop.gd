@@ -2,7 +2,7 @@ extends RefCounted
 ## The Shop as the squirrel merchant's MARKET STALL (the §10 buy-side sink; owner:
 ## "the store menu shouldn't just be a list of buttons"). It sells, all behind an
 ## honest confirm where money is involved: water + a coin pouch (quick help), the
-## rewarded free-acorn faucet, the one-time Welcome bundle, and the cash → premium acorn
+## free-acorn faucet, the one-time Welcome bundle, and the cash → premium acorn
 ## pouches. The cash packs are LIVE: confirming grants the diamonds directly (an honest
 ## "test build — nothing is charged"); a real store SDK replaces ONLY the middle of
 ## `_confirm_cash` — nothing else changes. §4 law: premium buys SPEED, never POSSIBILITY.
@@ -19,7 +19,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
-const Ads = preload("res://engine/scripts/core/ads.gd")          # the rewarded-ad faucet behind the Free acorn card
+const Claims = preload("res://engine/scripts/core/claims.gd")    # the free daily-claim faucets (Free acorns + the free water refill)
 const Iap = preload("res://engine/scripts/core/iap.gd")          # IAP catalog: product id + price by key (data/iap_products.json)
 const D = Game.DATA                                               # the active game's data (§10 IAP ladder)
 const Pal = Game.PALETTE
@@ -94,30 +94,49 @@ static func grant_starter() -> int:
 	Save.add_water_pending(int(STARTER_PACK.get("water", 0)))
 	return gems
 
-# --- the free-acorn faucet (§4/§10): the rewarded "watch → a few 🌰" that used to live on the side
-# rail, now the premium stall's lead card. The mechanic is the Ads "free_gems" row (cap/cooldown/reward);
-# these wrap it so the storefront + tests share one source of truth.
+# --- the free-acorn faucet (§4/§10): a free "tap → a few 🌰", the premium stall's lead card. The
+# mechanic is the Claims "free_gems" row (cap/cooldown/reward); these wrap it so the storefront +
+# tests share one source of truth.
 
-# The reward size the faucet pays (the card's count) — the ADS "free_gems" gem grant.
+# The reward size the faucet pays (the card's count) — the CLAIMS "free_gems" gem grant.
 static func free_gems_amount() -> int:
-	return int(D.ADS.get("free_gems", {}).get("gems", 0))
+	return int(D.CLAIMS.get("free_gems", {}).get("gems", 0))
 
 # The faucet's display state for the card: {available, kind, minutes}. kind is "ready" (offerable now),
-# "cooldown" (a watch is cooling — `minutes` is the cozy "Ready in Nm" round-up), or "capped" (the daily
-# cap is spent — "Back tomorrow"). Pure read (Ads/Save) — the card + tests share it, no state change.
+# "cooldown" (a claim is cooling — `minutes` is the cozy "Ready in Nm" round-up), or "capped" (the daily
+# cap is spent — "Back tomorrow"). Pure read (Claims/Save) — the card + tests share it, no state change.
 static func free_gems_status() -> Dictionary:
-	if Ads.can_show("free_gems"):
-		return {"available": true, "kind": "ready", "minutes": 0}
-	if Ads.remaining_today("free_gems") <= 0:
-		return {"available": false, "kind": "capped", "minutes": 0}
-	var left := Save.ad_cooldown_left("free_gems", Ads.cooldown("free_gems"))
-	return {"available": false, "kind": "cooldown", "minutes": maxi(1, ceili(left / 60.0))}
+	return _claim_status("free_gems")
 
-# Claim the faucet (the ad stub is a no-op in this build — the real SDK show slots in at the card's
-# on_buy, like the cash-pack confirm). Returns the 🌰 granted, 0 if refused (capped/cooling).
+# Claim the faucet (free — no cost, no ad). Returns the 🌰 granted, 0 if refused (capped/cooling).
 static func claim_free_gems() -> int:
-	var res := Ads.claim("free_gems")
+	var res := Claims.claim("free_gems")
 	return int(res.get("gems", 0)) if bool(res.get("ok", false)) else 0
+
+# --- the free WATER refill (§4/§10): a full can, free, capped + cooled, in the water stall. Pours a
+# full can ON TOP of the current water (additive, over-cap ok). Shares the Claims "refill_water" row.
+
+# The free-refill faucet's display state, same shape as free_gems_status (ready/cooldown/capped).
+static func refill_status() -> Dictionary:
+	return _claim_status("refill_water")
+
+# The full-can size the free refill pours (the card's count) — the CLAIMS "refill_water" grant.
+static func refill_amount() -> int:
+	return int(D.CLAIMS.get("refill_water", {}).get("water", 0))
+
+# Claim the free refill. Returns the 💧 to ADD to the board's water (over-cap ok), 0 if refused.
+static func claim_refill() -> int:
+	var res := Claims.claim("refill_water")
+	return int(res.get("water", 0)) if bool(res.get("ok", false)) else 0
+
+# Shared faucet-status read for the free-claim cards: {available, kind, minutes}. Pure (Claims/Save).
+static func _claim_status(kind: String) -> Dictionary:
+	if Claims.can_show(kind):
+		return {"available": true, "kind": "ready", "minutes": 0}
+	if Claims.remaining_today(kind) <= 0:
+		return {"available": false, "kind": "capped", "minutes": 0}
+	var left := Save.claim_cooldown_left(kind, Claims.cooldown(kind))
+	return {"available": false, "kind": "cooldown", "minutes": maxi(1, ceili(left / 60.0))}
 
 # --- the storefront ----------------------------------------------------------------
 # Three focused stalls share ONE dialog (one set of buy flows + chrome): the WATER pill's + opens the
@@ -228,7 +247,7 @@ static func _banner_for(kind: String) -> String:
 		_: return "Acorns"
 
 # Build the live shop SECTIONS for the kit dialog, filtered to the open shop's KIND: the water stall
-# shows the Fill-water card; the coin stall the Coin pouch; the premium stall the rewarded free-acorn
+# shows the Fill-water card; the coin stall the Coin pouch; the premium stall the free-acorn
 # faucet + the one-time Welcome bundle + the Acorn-pouch ladder. Each card carries its data +
 # buy/info callbacks + a build-time `affordable` flag (the kit dims the price when broke). Rebuilt on every buy.
 static func _sections(refs: Dictionary) -> Array:
@@ -237,11 +256,16 @@ static func _sections(refs: Dictionary) -> Array:
 		"coin": return _coin_sections(refs)
 		_: return _premium_sections(refs)
 
-# WATER shop — refill the can (paid in 💎). The fill card needs the host's water_grant (the board/map
-# pass it). The boost is no longer sold here — it's activated from the board's generator info bar (T57).
+# WATER shop — the FREE daily refill (a full can, capped + cooled) leads, then the 💎 fill. Both need a
+# host callback to apply the water to the live board: the free refill uses `water_add` (additive, over-cap
+# ok), the 💎 fill uses `water_grant` (top to cap). The boost is no longer sold here — it's activated from
+# the board's generator info bar (T57).
 static func _water_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var secs: Array = []
+	# the FREE refill faucet — the lead card (only when the board can apply an over-cap can)
+	if (refs.opts as Dictionary).has("water_add"):
+		secs.append({"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]})
 	if (refs.opts as Dictionary).has("water_grant"):
 		var gems := Save.diamonds()
 		var card := {
@@ -255,6 +279,54 @@ static func _water_sections(refs: Dictionary) -> Array:
 				Strings.t("shop.water.info_note"))}
 		secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
 	return secs
+
+# The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
+# drops and the cozy timer reads as plain text inside the card (a faucet at rest, not a greyed wall) —
+# mirroring the free-acorn card. on_buy re-checks the gate so a stale press can't over-grant.
+static func _refill_card(refs: Dictionary) -> Dictionary:
+	var host: Control = refs.host
+	var st := refill_status()
+	var card := {
+		"node": _refill_content(refs, st),
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.refill.info_title"), [{
+			"icon": "water", "label": Strings.t("shop.refill.info_row_label"), "amount": str(refill_amount()),
+			"note": Strings.t("shop.refill.info_row_note")}],
+			Strings.t("shop.refill.info_note"))}
+	if bool(st.available):
+		card["price"] = Strings.t("shop.refill.cta")
+		card["price_icon"] = ""
+		card["affordable"] = true
+		card["on_buy"] = func() -> void:
+			if refill_status().available:
+				_flow_free_refill(refs)
+	return card
+
+# The free-refill card's centre: the 💧 full-can reward (icon + count), mirroring the free-acorn hero.
+# When the faucet is cooling/capped it carries a small muted line ("Ready in 23m" / "Back tomorrow")
+# under the count, in place of a CTA — so the resting state is quiet plain text, never a greyed button.
+static func _refill_content(refs: Dictionary, st: Dictionary) -> Control:
+	var px: float = float(refs.hero_px)
+	var col := VBoxContainer.new()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", int(maxf(2.0, px * 0.06)))
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(Look.icon("water", px * 0.62))
+	var n := Label.new()
+	n.text = str(refill_amount())
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	n.add_theme_font_size_override("font_size", int(maxf(16.0, px * 0.34)))
+	n.add_theme_color_override("font_color", INK)
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(n)
+	if not bool(st.available):
+		var t := Label.new()
+		t.text = Strings.t("shop.refill.back_tomorrow") if String(st.kind) == "capped" else Strings.t("shop.refill.ready_in") % int(st.minutes)
+		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		t.add_theme_font_size_override("font_size", int(maxf(11.0, px * 0.2)))
+		t.add_theme_color_override("font_color", Color(BARK, 0.9))
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		col.add_child(t)
+	return col
 
 # COIN shop — the Coin pouch (turn 💎 into coins). (The coin-priced item shortcuts were removed
 # 2026-06-23 — item-buying is moving to the board's item info bar.)
@@ -272,13 +344,13 @@ static func _coin_sections(refs: Dictionary) -> Array:
 			Strings.t("shop.coin.info_note"))}
 	return [{"caption": Strings.t("shop.coin.quick_help_caption"), "cards": [pouch]}]
 
-# PREMIUM shop — the rewarded free-acorn faucet, the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
+# PREMIUM shop — the free-acorn faucet, the one-time Welcome bundle, and the cash → 💎 Acorn ladder.
 # (The 💎-priced item shortcut was removed 2026-06-23 — item-buying is moving to the board's item info bar.)
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var secs: Array = []
-	# Free acorns — the rewarded faucet (moved off the side rail). Always shown; dims to a cozy
-	# "Ready in Nm" / "Back tomorrow" read when a watch isn't offerable yet (§10 — a faucet, never a wall).
+	# Free acorns — the free faucet (moved off the side rail). Always shown; dims to a cozy
+	# "Ready in Nm" / "Back tomorrow" read when a claim isn't offerable yet (§10 — a faucet, never a wall).
 	secs.append({"caption": Strings.t("shop.premium.free_acorns_caption"), "cards": [_free_gems_card(refs)]})
 	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
 	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
@@ -308,7 +380,7 @@ static func _premium_sections(refs: Dictionary) -> Array:
 	secs.append({"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs})
 	return secs
 
-# The premium stall's lead card: the rewarded free-acorn faucet. Shows the 🌰 reward + a green "Free"
+# The premium stall's lead card: the free-acorn faucet. Shows the 🌰 reward + a green "Free"
 # CTA when offerable; when cooling/capped the CTA greys and reads the cozy timer, and a press is a no-op
 # (the faucet is just resting). on_buy re-checks the gate so a stale press can't over-grant.
 static func _free_gems_card(refs: Dictionary) -> Dictionary:
@@ -415,6 +487,24 @@ static func _flow_free_gems(refs: Dictionary) -> void:
 	var gem_n := _wallet_node(refs, "gem")
 	if gem_n != null:
 		FX.fly_to_wallet(host, _fb_at(host), Look.icon("gem", Tune.FLY_ICON), gem_n, func() -> void: _after_buy(refs))
+	else:
+		_after_buy(refs)
+
+# The free-refill faucet flow (no spend): claim, pour the full can onto the board's water via the host's
+# `water_add` callback (additive, over-cap ok), fly a 💧 to the wallet, and rebuild so the card flips to
+# its cooldown read. Refused (raced past the cap) → a soft nudge + rebuild, no grant.
+static func _flow_free_refill(refs: Dictionary) -> void:
+	var host: Control = refs.host
+	if claim_refill() <= 0:
+		Audio.play("invalid_soft", -4.0)
+		_after_buy(refs)
+		return
+	var opts: Dictionary = refs.opts
+	(opts.water_add as Callable).call()
+	Audio.play("rain_refill" if Audio.has("rain_refill") else "merge_success", -3.0, 1.2)
+	var water_n := _wallet_node(refs, "water")
+	if water_n != null:
+		FX.fly_to_wallet(host, _fb_at(host), Look.icon("water", Tune.FLY_ICON), water_n, func() -> void: _after_buy(refs))
 	else:
 		_after_buy(refs)
 

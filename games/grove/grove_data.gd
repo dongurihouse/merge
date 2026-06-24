@@ -338,13 +338,13 @@ const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin
 # with the customization feature; both rebuilds are parked in docs/BACKLOG.md.)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's
+# §10 LIVE-IAP + STARTER + FREE CLAIMS + OUT-OF-WATER OFFER (T43). The grove's
 # instance of the §4/§10 monetization layer. The ENGINE (grant/cap/cooldown logic)
-# lives in engine/scripts/ui/shop.gd, engine/scripts/core/ads.gd, and the board's
-# energy-wall area; these are the OWNER-TUNABLE numbers. DESIGN LAW (§4): premium &
-# ads buy SPEED + LOOKS, never POSSIBILITY — every wall is passable for FREE (slower).
-# Cozy guardrails (§10, LOCKED): rewarded-ONLY (no interstitials), opt-in, capped +
-# cooldowned; the out-of-water offer has NO countdown, NO fail-shaming, a low cap.
+# lives in engine/scripts/ui/shop.gd, engine/scripts/core/claims.gd, and the board's
+# energy-wall area; these are the OWNER-TUNABLE numbers. DESIGN LAW (§4): premium
+# buys SPEED + LOOKS, never POSSIBILITY — every wall is passable for FREE (slower).
+# Cozy guardrails (§10, LOCKED): free claims are opt-in, capped + cooldowned; the
+# out-of-water offer has NO countdown, NO fail-shaming, a low cap.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # The full cash → 💎 price ladder (§10 "from an entry tier up to a $49.99/$99.99-class
@@ -378,22 +378,28 @@ const STARTER_PACK := {"key": "starter", "gems": 400, "water": 60}   # price: da
 # on the standard ladder (the starter pack is excluded — it's its own SKU).
 const FIRST_BUY_MULT := 2
 
-# REWARDED ADS (§10 — "opt-in, rewarded-ONLY, capped + cooldowned, geo-flagged"). One row
-# per ad surface: the per-type DAILY cap and COOLDOWN (seconds) gate how often it pays, so an
-# ad never becomes the optimal grind (§4 "buys speed, never possibility"; §10 cozy bed). The
-# ad itself is a STUB in this build (an honest confirm — "no ad network"); the real SDK call
-# replaces only the play middle. `reward`/`gems`/`water` describe the grant the engine applies:
-#   refill_water — at the wall: watch → a FULL can (a free, daily-capped alt to the 💎 refill).
-#   collect_2x   — the board quest-reward 2× doubler's faucet: watch → the reward is doubled by
-#                  scenes/board.gd (which grants the extra coins itself). The ad grants no currency
-#                  directly. (The old hub-yield collect that this once armed was removed.)
-#   event_topup  — a small event-currency boost (§17); stubbed as a small 💎 grant for now.
-const ADS := {
-	"refill_water": {"cap": 3, "cooldown": 1800,  "water": WATER_CAP},  # 3/day, 30 min apart — a full can
-	"collect_2x":   {"cap": 2, "cooldown": 3600,  "mult": 2},           # 2/day, 1 h apart — arms the next collect
-	"event_topup":  {"cap": 1, "cooldown": 86400, "gems": 8},           # 1/day — a small event boost (stub)
-	"free_gems":    {"cap": 3, "cooldown": 1800,  "gems": 5},           # 3/day, 30 min apart — the persistent LiveOps gem faucet ("Free")
+# FREE CLAIMS (§10 — "opt-in, free, capped + cooldowned"). One row per faucet surface: the
+# per-type DAILY cap and COOLDOWN (seconds) gate how often it pays, so a faucet never becomes
+# the optimal grind (§4 "buys speed, never possibility"; §10 cozy bed). Every claim is FREE —
+# a tap, no ad, no cost. `gems`/`water` describe the grant the engine applies:
+#   refill_water — the watering-can top-up (a full can) offered free in the water stall. The
+#                  grant is ADDITIVE and may carry the can OVER WATER_CAP (banked spare); regen
+#                  pauses while over the cap (board_logic.regen), resuming once it drops below.
+#   free_gems    — the persistent LiveOps gem faucet ("Free"), the premium stall's lead card.
+const CLAIMS := {
+	"refill_water": {"cap": 3, "cooldown": 1800, "water": WATER_CAP},  # 3/day, 30 min apart — a full can (over-cap ok)
+	"free_gems":    {"cap": 3, "cooldown": 1800, "gems": 5},           # 3/day, 30 min apart — the persistent gem faucet ("Free")
 }
+
+# The diamond-priced QUEST-REWARD 2× DOUBLER (§10). After a quest pays a lump of coins, the
+# player may pay 💎 to DOUBLE it — but only when the deal beats the shop coin pouch. This is
+# the guaranteed coins-per-💎 the doubler delivers: the offer appears only when the reward is
+# at least this big (got >= rate), and the price is floor(got / rate) 💎, so the player always
+# gets >= `rate` coins per 💎. It MUST exceed the shop pouch rate (shop.gd COIN_PACK /
+# COIN_PACK_GEM_COST = 150/5 = 30) so the doubler is always the better buy (a test guards this).
+# NOTE: with today's small quest coin rewards (tier − STAR_CAP ≈ 1–9), got rarely reaches this,
+# so the doubler is a correct-but-rarely-seen offer until quest coin faucets grow.
+const COLLECT_2X_COIN_RATE := 36
 
 # The OUT-OF-WATER TRIGGERED OFFER (§10 "the contextual sell" — state-driven, fired at the
 # moment of friction: water hits 0). A single, gently-DISCOUNTED top-up — a full can + a little

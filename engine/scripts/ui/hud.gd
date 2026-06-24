@@ -208,6 +208,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	if gear != null:
 		raise_panels.append(gear)
 	shop_opts["wallet"] = {
+		"water": {"node": water_pill.panel, "label": water_lbl},
 		"coin": {"node": coin_pill.panel, "label": coins},
 		"gem": {"node": gem_pill.panel, "label": gems},
 		"panels": raise_panels,

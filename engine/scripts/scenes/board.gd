@@ -30,7 +30,6 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared global bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Ads = preload("res://engine/scripts/core/ads.gd")                       # T43: §10 rewarded-ad refill at the wall
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Map off-thread so Home is snappy
@@ -161,7 +160,7 @@ var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
 var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
 var coins_label: Label
-var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
+var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var bag_slots_ui: Array = []
@@ -182,9 +181,9 @@ var _water_icon: Control
 var _wallet_panel: Control
 var refill_btn: Button
 # T43: the empty-water surfaces stack under the Lv chip (shown only at water<=0): the
-# free/💎 refill (refill_btn), a rewarded WATCH-AD refill, and the cozy out-of-water OFFER.
+# free/💎 refill (refill_btn) and the cozy out-of-water OFFER. (The free daily refill — a full
+# can, capped + cooled — lives in the water SHOP stall now, not here; see shop.gd.)
 var _refill_stack: VBoxContainer
-var ad_refill_btn: Button
 var oow_offer_btn: Button
 var _water_pending_drained := false   # the starter-pack water credit drains once per board open
 
@@ -568,6 +567,13 @@ func _build_hud() -> void:
 		water = G.WATER_CAP
 		_update_water_hud()
 		_persist(),
+		# the FREE refill (water shop): pour a full can ON TOP of the current water — ADDITIVE, no
+		# clamp, so it may bank OVER the cap (regen pauses above cap, resuming once it drops below).
+		"water_add": func() -> void:
+			water += G.WATER_CAP
+			_regen_ts = Time.get_unix_time_from_system()
+			_update_water_hud()
+			_persist(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
 		"on_level": func() -> void: LevelPopup.open(self),
 		# Settings is a top-RIGHT gear in the shared HUD now (off the bottom bar) — opens the shared card.
@@ -588,13 +594,13 @@ func _build_hud() -> void:
 
 # Water is the FIRST top-center pill (Water·Coin·Gem), bound from the shared HUD (water_label / _water_icon
 # in _build_hud) and overridden live via _update_water_hud. The board owns only the empty-water REFILL
-# stack — the free/💎 rain refill, a rewarded watch-ad refill, and the cozy out-of-water offer — pinned
-# top-LEFT below the Lv badge and shown only when water runs out.
+# stack — the free/💎 rain refill and the cozy out-of-water offer — pinned top-LEFT below the Lv badge and
+# shown only when water runs out. (The free daily refill — a full can — is in the water SHOP stall now.)
 func _build_water_hud() -> void:
 	var safe_top := Look.safe_top(self)
 	# T43: the empty-water surfaces live in a vertical stack top-left (below the 130px Lv badge), shown only
-	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded WATCH-AD refill
-	# (capped) and the cozy out-of-water OFFER, each shown only when live.
+	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill, then the cozy out-of-water OFFER,
+	# each shown only when live.
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
@@ -604,10 +610,6 @@ func _build_water_hud() -> void:
 	refill_btn = Look.button(Strings.t("board.refill.free"), _on_refill, true)
 	refill_btn.custom_minimum_size = Vector2(330, 76)
 	_refill_stack.add_child(refill_btn)
-	ad_refill_btn = Look.button(Strings.t("board.refill.watch_ad"), _on_ad_refill, false)
-	ad_refill_btn.custom_minimum_size = Vector2(330, 68)
-	ad_refill_btn.visible = false
-	_refill_stack.add_child(ad_refill_btn)
 	oow_offer_btn = Look.button(Strings.t("board.refill.oow_label"), _on_oow_offer, false)
 	oow_offer_btn.custom_minimum_size = Vector2(330, 68)
 	oow_offer_btn.visible = false
@@ -650,15 +652,13 @@ func _update_water_hud() -> void:
 	refill_btn.visible = empty and (free_left or Save.diamonds() >= G.REFILL_DIAMOND_COST)
 	if refill_btn.visible:
 		refill_btn.text = Strings.t("board.refill.free") if free_left else Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
-	# the rewarded WATCH-AD refill — a free, capped + cooldowned alternative (§10 ads).
-	ad_refill_btn.visible = empty and Ads.can_show("refill_water")
 	# the cozy OUT-OF-WATER offer — a gently-discounted top-up on a low cap + long cooldown,
 	# NO countdown, NO fail copy (§10 locked guardrails). Shows only inside its cap/cooldown.
 	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
 	if oow_offer_btn.visible:
 		oow_offer_btn.text = Strings.t("board.refill.oow_detail") % \
 			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), Iap.usd(String(Data.OOW_OFFER.key))]
-	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
+	_refill_stack.visible = refill_btn.visible or oow_offer_btn.visible
 	if _refill_stack.visible:
 		FX.breathe_once(refill_btn if refill_btn.visible else _first_visible_refill())
 
@@ -680,34 +680,11 @@ func _on_refill() -> void:
 	_update_hud()
 
 # The first currently-visible refill button (for the breathe pulse when the free/💎
-# refill is spent but the ad / offer surfaces remain).
+# refill is spent but the offer surface remains).
 func _first_visible_refill() -> Control:
-	if ad_refill_btn.visible:
-		return ad_refill_btn
 	if oow_offer_btn.visible:
 		return oow_offer_btn
 	return refill_btn
-
-# Rewarded WATCH-AD refill (§10): the ad is a STUB here — Ads.claim re-checks the cap +
-# cooldown, records the watch, and hands back the water target; we fill to it. The real
-# ad-SDK show→reward callback replaces only the (here-instant) "watch"; everything else
-# — the cap gate, the grant, the persist — is wired. Refuses cozily if just-capped.
-func _on_ad_refill() -> void:
-	if water > 0:
-		return
-	var res := Ads.claim("refill_water")
-	if not bool(res.get("ok", false)):
-		FX.wobble(ad_refill_btn)
-		Audio.play("invalid_soft", -4.0)
-		_update_water_hud()
-		return
-	water = mini(G.WATER_CAP, int(res.get("water", G.WATER_CAP)))
-	_regen_ts = Time.get_unix_time_from_system()
-	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
-	FX.celebrate_reward(self, ad_refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
-	_persist()
-	_update_water_hud()
-	_update_hud()
 
 # The cozy OUT-OF-WATER offer (§10): an honest confirm (LIVE IAP, "test build" note) for a
 # gently-discounted top-up — a full can + a little 💎 at the entry price, on a low cap + long
@@ -2558,22 +2535,24 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_rebuild_givers()
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	_update_hud()
-	# §10: a quest's coin overflow is the surviving lump coin faucet — the re-home of the old
-	# hub-collect 2× doubler. Offer to double it via a rewarded ad (opt-in, capped by Ads.can_show).
+	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
+	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
 	if sp_coins > 0:
 		_maybe_offer_2x(sp_coins, chip.get_global_rect().get_center())
 	if _gate_ready() and home_btn != null and is_instance_valid(home_btn):
 		FX.floating_text(self, home_btn.get_global_rect().get_center() - Vector2(140, 120), Strings.t("board.feedback.ready_to_restore"), STRAW, 40)
 
-# The cozy, optional 2× DOUBLER card — re-homed from the removed hub yield-collect to the quest
-# COIN reward (the surviving lump coin faucet, §7/§10). Shown after a quest pays `got` coins when
-# the rewarded ad is offerable; accept → claim the ad + credit a SECOND `got`. Opt-in, dismissible,
-# one at a time, never blocks play. The board frees on scene-change, so no nav-dismiss is needed.
+# The cozy, optional 2× DOUBLER card on the quest COIN reward (the surviving lump coin faucet,
+# §7/§10). Shown after a quest pays `got` coins, but ONLY when the reward is big enough that paying
+# 💎 to double it beats the shop coin pouch (G.collect_2x_offered). Accept → spend the 💎 price +
+# credit a SECOND `got`. Opt-in, dismissible, one at a time, never blocks play. The board frees on
+# scene-change, so no nav-dismiss is needed.
 func _maybe_offer_2x(got: int, _center: Vector2) -> void:
-	if got <= 0 or not Ads.can_show("collect_2x"):
+	if not G.collect_2x_offered(got):
 		return
 	if not is_inside_tree():
 		return
+	var cost := G.collect_2x_cost(got)
 	if _2x_offer != null and is_instance_valid(_2x_offer):
 		_2x_offer.queue_free()                       # never stack offers
 	var card := PanelContainer.new()
@@ -2633,19 +2612,19 @@ func _maybe_offer_2x(got: int, _center: Vector2) -> void:
 	btns.add_theme_constant_override("separation", 12)
 	col.add_child(btns)
 	btns.add_child(Look.button(Strings.t("board.double.decline"), _dismiss_2x_offer, false))
-	btns.add_child(Look.button(Strings.t("board.double.accept"), func() -> void: _accept_2x_offer(got), true))
+	btns.add_child(Look.button(Strings.t("board.double.accept") % cost, func() -> void: _accept_2x_offer(got), true))
 	add_child(card)
 	_2x_offer = card
 	FX.pop_in(card)
 	FX.breathe_once(card)
 
-# Accept the 2× doubler: re-check + claim the rewarded ad, credit a SECOND `got` coins, celebrate
-# the bonus, tick the wallet, consume the arm, and close the card. A refused claim closes cozily.
+# Accept the 2× doubler: re-check the deal, SPEND the 💎 price, credit a SECOND `got` coins,
+# celebrate the bonus, tick the wallet, and close the card. Can't afford (or no longer a deal) →
+# the card closes cozily with a soft nudge, no spend, the original coins kept.
 func _accept_2x_offer(got: int) -> void:
 	var at := _2x_offer.get_global_rect().get_center() if _2x_offer != null and is_instance_valid(_2x_offer) else get_global_rect().get_center()
 	_dismiss_2x_offer()
-	var res := Ads.claim("collect_2x")
-	if not bool(res.get("ok", false)):
+	if not G.collect_2x_offered(got) or not Save.spend_diamonds(G.collect_2x_cost(got)):
 		Audio.play("invalid_soft", -4.0)
 		return
 	Save.add_coins(got)                              # the doubled half — the same amount again

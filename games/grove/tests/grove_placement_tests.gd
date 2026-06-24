@@ -349,9 +349,9 @@ func _initialize() -> void:
 	# daily-login auto-popup — driven through the real Map scene. Own scope (its own fn).
 	await _test_t45_wiring()
 	_test_2x_doubler_rehome()
-	# --- order T (T43): live-IAP ladder + starter + first-buy doubler + rewarded ads +
-	# --- the out-of-water triggered offer. §4 law: premium & ads buy SPEED + LOOKS, never
-	# --- POSSIBILITY — every wall is free-passable (slower); ads/offers are capped+cooled.
+	# --- order T (T43): live-IAP ladder + starter + first-buy doubler + free claims +
+	# --- the out-of-water triggered offer. §4 law: premium buys SPEED + LOOKS, never
+	# --- POSSIBILITY — every wall is free-passable (slower); claims/offers are capped+cooled.
 
 	# T-A: the cash ladder is a real, well-formed escalating curve up to a $49.99/$99.99
 	# top, with 💎-per-dollar RISING up the ladder (the whale always gets the best rate).
