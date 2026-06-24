@@ -1,13 +1,13 @@
 {
-  "_doc": "In-app purchase catalog — the single source of truth for every real-money product: its App Store Connect Product ID, displayed price, type, and reference name. The game code (engine/scripts/core/iap.gd) looks products up by KEY; grove_data.gd carries the grant amounts (gems/water) and references these keys. To add/retune a product: edit here, then create a matching In-App Purchase in App Store Connect with the SAME product_id, type, and reference_name (price is set there via a price point ~ the usd shown). product_id is permanent once created in ASC.",
+  "_doc": "In-app purchase catalog — the single source of truth for every real-money product. Game code (engine/scripts/core/iap.gd) reads product_id/usd/type by KEY; grove_data.gd carries the grant amounts and references these keys. The remaining fields are the App Store Connect setup values you copy when creating each In-App Purchase: reference_name (internal), display_name (player-facing, <=30 chars), description (player-facing, <=45 chars). Create each IAP in ASC with the SAME product_id and type; set a price point ~ the usd shown. product_id is permanent once created.",
   "products": {
-    "piggybank":  { "product_id": "com.dongurihouse.dongurimerge.piggybank",  "usd": "$2.99",  "type": "Consumable", "reference_name": "Piggy Bank" },
-    "starter":    { "product_id": "com.dongurihouse.dongurimerge.starter",    "usd": "$1.99",  "type": "Consumable", "reference_name": "Starter Pack" },
-    "gems_tier1": { "product_id": "com.dongurihouse.dongurimerge.gems.tier1", "usd": "$0.99",  "type": "Consumable", "reference_name": "Gems Pack 80 ($0.99)" },
-    "gems_tier2": { "product_id": "com.dongurihouse.dongurimerge.gems.tier2", "usd": "$4.99",  "type": "Consumable", "reference_name": "Gems Pack 450 ($4.99)" },
-    "gems_tier3": { "product_id": "com.dongurihouse.dongurimerge.gems.tier3", "usd": "$9.99",  "type": "Consumable", "reference_name": "Gems Pack 1000 ($9.99)" },
-    "gems_tier4": { "product_id": "com.dongurihouse.dongurimerge.gems.tier4", "usd": "$19.99", "type": "Consumable", "reference_name": "Gems Pack 2200 ($19.99)" },
-    "gems_tier5": { "product_id": "com.dongurihouse.dongurimerge.gems.tier5", "usd": "$49.99", "type": "Consumable", "reference_name": "Gems Pack 6000 ($49.99)" },
-    "gems_tier6": { "product_id": "com.dongurihouse.dongurimerge.gems.tier6", "usd": "$99.99", "type": "Consumable", "reference_name": "Gems Pack 13000 ($99.99)" }
+    "piggybank":  { "product_id": "com.dongurihouse.dongurimerge.piggybank",  "usd": "$2.99",  "type": "Consumable", "reference_name": "Piggy Bank",            "display_name": "Piggy Bank",    "description": "Claim all the Acorns saved in your jar." },
+    "starter":    { "product_id": "com.dongurihouse.dongurimerge.starter",    "usd": "$1.99",  "type": "Consumable", "reference_name": "Starter Pack",          "display_name": "Starter Pack",  "description": "400 Acorns plus 60 Water to get growing." },
+    "gems_tier1": { "product_id": "com.dongurihouse.dongurimerge.gems.tier1", "usd": "$0.99",  "type": "Consumable", "reference_name": "Gems Pack 80 ($0.99)",   "display_name": "80 Acorns",     "description": "A handful of Acorns for more merging." },
+    "gems_tier2": { "product_id": "com.dongurihouse.dongurimerge.gems.tier2", "usd": "$4.99",  "type": "Consumable", "reference_name": "Gems Pack 450 ($4.99)",  "display_name": "450 Acorns",    "description": "A pouch of Acorns to grow your grove." },
+    "gems_tier3": { "product_id": "com.dongurihouse.dongurimerge.gems.tier3", "usd": "$9.99",  "type": "Consumable", "reference_name": "Gems Pack 1000 ($9.99)", "display_name": "1,000 Acorns",  "description": "A big bag of Acorns for lots of merging." },
+    "gems_tier4": { "product_id": "com.dongurihouse.dongurimerge.gems.tier4", "usd": "$19.99", "type": "Consumable", "reference_name": "Gems Pack 2200 ($19.99)","display_name": "2,200 Acorns",  "description": "A sack of Acorns for serious decorating." },
+    "gems_tier5": { "product_id": "com.dongurihouse.dongurimerge.gems.tier5", "usd": "$49.99", "type": "Consumable", "reference_name": "Gems Pack 6000 ($49.99)","display_name": "6,000 Acorns",  "description": "A crate of Acorns. Our best-value bundle." },
+    "gems_tier6": { "product_id": "com.dongurihouse.dongurimerge.gems.tier6", "usd": "$99.99", "type": "Consumable", "reference_name": "Gems Pack 13000 ($99.99)","display_name": "13,000 Acorns", "description": "A mountain of Acorns. Our very best deal." }
   }
 }
