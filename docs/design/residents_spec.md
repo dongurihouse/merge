@@ -16,8 +16,8 @@ The base game restores places. This expansion makes a restored place worth livin
 It adds two things: a new **Explore** mode, where the player spends coins to venture out and
 bring spirit-folk home; and a rule that every completed map is a **habitat with limited
 capacity** for them. You explore to find spirits, choose who to keep, place them, and merge
-two-of-a-kind to climb tiers and free space. In return, the spirits produce items that feed
-back into the merge board.
+two-of-a-kind to climb tiers and free space. In return, the spirits produce coins, currencies,
+and utility rewards that feed back into the game.
 
 Because spirits need room — and rarer ones are worth chasing — finishing a map is no longer an
 end but the start of a long-tail loop that pushes you to unlock and upgrade more maps. Coins
@@ -44,7 +44,7 @@ A restored world should **grow, reward, and ask** — not sit there. Four moves 
 self-renewing loop, bolted on top of the merge core without changing how the core plays:
 
 - **Explore — acquire.** Spend **coins** to venture out and bring spirits home; you don't pick from a
-  list, you discover who turns up and keep one for free (more for diamonds). Spirits have **rarity**
+  list, you discover who turns up and keep one for free (more for diamonds, if you have room). Spirits have **rarity**
   (four tiers: white · blue · orange · red), and a **premium (diamond) path** improves the odds. The
   *act* of exploring is a timed merge-rush (see Mechanics), not a slot pull — built to grow into a
   full search-and-extraction mini-game.
@@ -98,9 +98,9 @@ merge-frenzy that turns the pull into a real game, not a slot machine.
 **1. Launch.** Spend **coins** to set out (coins' first open-ended sink). Capacity-gated: you can't
 launch with no free slot anywhere, and you can't keep more spirits than you can house (see **Place**).
 
-**2. Rush** — a board-fuelled, timed game on a **dedicated expedition board** (a fresh temporary grid;
-you're out in the wilds, and it's discarded after — never your home board). For a short window
-(~60–90s):
+**2. Rush** — a board-fuelled, timed game on a **dedicated expedition board**: a fresh temporary grid
+(v1 reuses the home **7×9** — a Rush-sim knob), discarded after; you're out in the wilds, never on your
+home board. For a short window (~60–90s):
 
 - **Traces rain in automatically** — no generator tapping, no Water cost — and the inflow accelerates
   into a frenzy. The drop *is* the pressure.
@@ -111,23 +111,30 @@ you're out in the wilds, and it's discarded after — never your home board). Fo
   the spirit** (which also clears those cells). Rarer = rarer colour, higher tier, shorter patience —
   so you're choosing *which target*, *which colour chain to feed*, and *commit-or-hedge*, not just
   spotting pairs.
-- **Two clocks.** You race the countdown *and* the board filling: **board-full ends the Rush early**
-  (you cash out at your best). Space is the core skill — and capturing relieves space, so it both
-  scores and keeps you alive.
+- **Two clocks.** You race the countdown *and* the board filling: the Rush ends on **countdown→0 or
+  board-full, whichever first.** Captures **bank progressively** — board-full is not a wipe, you keep
+  what you'd caught — then the Haul opens. Space is the core skill, and capturing relieves space, so it
+  both scores and keeps you alive. A **zero-capture run still sends one common home** (you paid coins
+  to launch; you never come back empty-handed) — *flagged for the no-loss guardrail.*
 - **Treefall (the hazard).** Periodically a tree looms over a row or column (telegraphed with a
   warning), then falls and **destroys** everything in that line. Drag items clear in time to save
-  them — rescue the reds and near-done chains, sacrifice the whites. A crushed line also clears its
-  cells, so it doubles as a **space-relief valve**: a full board can be saved by letting a line fall.
-  *(Easy dial: crush can **knock items down a tier** instead of destroying them — gentler, but then
-  no space relief.)* This replaces per-item decay as the "keep moving, don't hoard" pressure — one
-  readable threat instead of a grid of timers.
+  them — rescue the reds and near-done chains, sacrifice the whites. Treefall is the Rush's single
+  hoarding-pressure: **one readable threat** instead of a grid of per-item timers. (Letting a doomed
+  line fall to clear a clogged board is an *emergent* desperate option, not a second mode; the **easy
+  dial** — crush knocks items down a tier instead of destroying them — is a global difficulty setting,
+  not a per-fall choice.)
 - **Balance is simmed, not guessed.** Drop rate, colour count, treefall cadence and target spawn are
   tuned in a **Rush sim** (the way `grove_sim` tunes the economy) to keep the mode fair and fun —
   e.g. there's always somewhere to rescue items to, and capture targets keep pace with the climb.
 
-**3. Haul.** The spirits you caught form your slate. **Keep one for free**; pay **diamonds** to keep
-the others (within capacity) or they're released. Then place each on a map. How well you played the
-Rush sets *what* and *how much* you caught.
+**3. Haul.** The spirits you caught form your slate — a post-Rush modal. **Keep one for free** (you
+pick which, if you caught several); in v1 the rest auto-release, with diamond keep-extras and the
+multi-keep UI parked. Anything beyond your free capacity auto-releases too. Then place each on a map.
+
+**What a caught spirit *is* (capture → roster).** A target's **colour is its rarity** (white / blue /
+orange / red); the tier you had to build on the expedition board is **capture difficulty, not housed
+tier.** A kept spirit enters the roster at **housed tier 1** and only climbs via in-habitat merges —
+so the Rush decides *which rarity* and *how many* come home; the habitat decides their tier.
 
 - **Rarity** — four tiers, colour-coded: **white** (common), **blue** (magic), **orange**
   (legendary), **red** (heroic). Rarity is a new axis on the spirit, and it **pays off in
@@ -158,10 +165,12 @@ Rush sets *what* and *how much* you caught.
 The residents loop lives on a new **Residents screen** — a hub separate from the merge board and the
 map-restoration view. From it you can **assign** a spirit to a map, **merge** two-of-a-kind, **free
 or sell** a spirit, **view the collection**, and **launch an expedition** (Explore). This screen is
-**net-new** (its own scene + nav entry) and **supersedes the base game's per-map "welcome a spirit"
-panel** — acquisition moves off the individual maps and into Explore. (*Assign* is the v1 verb for the
-Place action; hand-positioning is a later seam. Diegetic trade-off: the base game welcomes spirits on
-the map they live on; the hub swaps a little of that intimacy for one legible management surface.)
+**promotes** the existing per-map welcome overlay (already reached from the residents nav button) into
+a full **hub** — adding assign / merge / free-sell / collection / launch — likely as a dedicated scene
+(today only the board and map scenes exist). It **supersedes that per-map welcome panel**; acquisition
+moves off the individual maps and into Explore. (*Assign* is the v1 verb for the Place action;
+hand-positioning is a later seam. Diegetic trade-off: the base game welcomes spirits on the map they
+live on; the hub swaps a little of that intimacy for one legible management surface.)
 
 Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Assigning a
 spirit to a map fills a slot *and* raises that map's production (see **Reward**) — placement is a
@@ -173,10 +182,14 @@ real economic decision, not flavor: where you put a spirit chooses which reward 
   result produces more for that map. Concentrating a type on one map is how you climb its tiers and
   free its slots.
 - **Re-assignment is free** — move a placed spirit between maps any time, to line up a merge or
-  rebalance which reward you favor. This is what keeps merging and producing from fighting: a map's
-  output sums *all* its assigned spirits' yield (not specific types), so concentrating a type to
-  merge it never strands the spirit or permanently starves another map — merge-for-tier and
-  assign-for-reward pull the same direction.
+  rebalance which reward you favor. This keeps merging and producing from fighting: a map's output
+  sums *all* its assigned spirits' yield (not specific types), so concentrating a type to merge it
+  never strands the spirit or starves another map.
+- **Why you don't just dog-pile the best map** — per-map **capacity (~8)** is the brake. You can only
+  fit your ~8 best spirits on your favourite reward (say map 4's diamonds); a growing roster *must*
+  spill onto other maps, so you naturally earn a **mix** of rewards and every map's identity stays
+  live. Over-indexing your favourite is the *choice* capacity lets you make — not a dominant
+  strategy. (Capacity upgrades let you deepen a favourite, at a cost.)
 - **Capacity gates Explore** — the expedition reads your **total free slots across all completed
   maps.** Zero free → the expedition is **disabled**, with a message to **merge, sell, or
   upgrade/unlock** room. One or more free → you may explore, keeping at most as many spirits as you
@@ -193,7 +206,7 @@ real economic decision, not flavor: where you put a spirit chooses which reward 
 ### Expand — the pull outward
 
 Capacity is **per map**, so habitat scales two ways: **upgrade** a map you own (intensive) or
-**unlock the next map** (extensive — each new map brings its own ~8 slots). Each new map also opens a
+**unlock the next map** (extensive — each new map brings its own ~8 starting slots, also upgradable). Each new map also opens a
 **new reward stream** to feed, so unlocking widens both your housing *and* your production mix. No
 new unlock mechanic; this rides the existing completion-chained map sequence. Running out of room
 becomes a concrete reason to push the base-game progression forward.
@@ -270,16 +283,50 @@ Things a vertical slice must respect, captured here rather than left implicit:
   one completed map. The **pre-first-completion coin gap** (until the first map is done, coins have
   only burst-upgrades / cosmetics to spend on) is a known base-economy concern, carried to Economy.
 - **Save shape & migration** — the expansion needs state today's `{map_id:{type_id:[t1,t2,t3]}}` roster
-  doesn't hold: a **rarity** axis (on the spirit/type table, not the count array), **per-map
-  capacity**, a **global collection** ledger, **per-map production state** (last-collect time +
-  accrued), and a home for **in-hand / unplaced** spirits. Migration is non-destructive — old saves
-  read as housed commons, capacity defaults to ~8. Exact shape is an implementation detail.
-- **Coins are both sink and faucet** — Explore spends coins; map 1 produces them. The net must stay
-  sink-positive (an expedition costs more than map 1 yields back) or the loop self-funds — a
-  constraint for the Economy/sim pass, flagged here.
+  doesn't hold: a **rarity** axis, **per-map capacity**, a **global collection** ledger, **per-map
+  production state** (last-collect time + accrued), and a transient home for **in-hand** spirits.
+  Because rarity persists per instance (it drives yield), the roster **key becomes (type, rarity)** and
+  merges require matching **type *and* rarity** — rarity is not cosmetic. In-hand is **transient**: a
+  kept spirit must be assigned to a map before the Haul modal closes (that's how "you never hold a
+  homeless spirit" holds). Migration is non-destructive — old saves read as housed white-rarity
+  commons, capacity defaults to ~8.
+- **The Rush is a net-new board engine** — the expedition board shares nothing with the home board: a
+  separate grid model, an **auto-drop / no-Water spawn driver**, the capture and treefall verbs, and
+  its own scene. The home board is a single fixed-7×9, generator+Water-gated instance, so this is the
+  **single largest build item** (honestly a growth seam, not a reskin); v1 keeps it small (reuse 7×9).
+- **Coins are both sink and faucet** — Explore spends coins; map 1 produces them. Sink-positivity must
+  hold against the **total** coin faucet (merge drops + selling + quest coins + map-1 residents) vs the
+  **total** coin sink (launches + capacity upgrades + burst upgrades) — not map-1-vs-expedition in
+  isolation. That total is what the re-authored `grove_sim` must prove.
 - **Art** — no signature/rarity sprites ship today; the slice uses the existing placeholder body with
   a **colour-frame** rarity indicator (white / blue / orange / red). Bespoke per-spirit and
   per-rarity art is parked with the reward-set content.
+
+### Prototype status & open interaction questions
+
+A playable HTML **feel-prototype** of the full expedition (Start → Rush → Haul → Manage) lives at
+`docs/design/prototypes/expedition_rush.html` (open in a browser). It validates the **juice** — traces
+falling with a landing squash, tap-to-merge pop + particle burst + combo screen-flash, the telegraphed
+**treefall** (board shake + tiles squished to dust), and the low-time **suspense vignette** — and the
+screen flow:
+
+- **Start** — two run choices: Coin run (all rarities) vs Premium run (removes white, fewer blue).
+- **Haul** — the spirits you caught; keep one (the rest release).
+- **Manage** — **5 rows, one per map**, each showing its reward + housed spirits + a production number;
+  tap a row to assign your kept spirit. (Confirms the "simple 5-row assign screen" shape.)
+
+**Open before the GDScript port** (prototype shortcuts to resolve):
+
+- **Merge verb** — the prototype uses **tap-an-adjacent-match**; the home board uses **drag-to-merge**.
+  Pick one for the Rush.
+- **Capture** — prototype **auto-fires** when you build a tile matching a target's colour + tier; the
+  alternative is **drag the finished tile onto the target** (more deliberate, more juice).
+- **Treefall imagery** — vertical **timber down a column** (prototype) vs a tree **toppling across a row**.
+- **Pacing dials** — drop acceleration, treefall cadence, combo threshold, suspense intensity — set by
+  the Rush sim + playtest, not by hand.
+
+The prototype is HTML for feel only; the real Rush is the net-new GDScript board engine (see
+Build-readiness).
 
 ### The loop, restated
 
@@ -301,7 +348,11 @@ while assigned spirits keep producing back into the board.
   diamonds, residents), plus the free / sell return.
 - **The proof** — re-author `grove_sim` around the resident faucet + capacity and show the base
   invariants stay green (no-strand, no-jam, `sink > faucet`, selling-is-not-income, I2), plus the new
-  **Rush sim** (fair tide, no forced decay/loss).
+  **Rush sim** (fair tide, no forced loss).
+- **Felt scale (provisional targets)** — the sim and reviewers need the intended magnitude, e.g. a
+  fully-housed map-1 produces ~one expedition's coin cost per day (which also directly tests
+  sink-positivity); a map-4 red's diamond trickle stays well under a cash pack; collection completion
+  is a multi-week chase. Provisional, but stated so "is the payback worth the grind" is answerable.
 
 ---
 
@@ -344,9 +395,9 @@ deliberately-tuned base economy. The honest risks, grouped, with how each is con
 
 ### Scope & technical
 
-- **Content dependencies** — the map-3 generator-booster, the map-5 special generator, and the Wild
-  piece are **not built**, and rarity/collection art doesn't exist; v1 leans on the placeholder +
-  colour-frame. Bespoke content is a separate task and a genuine scope risk.
+- **Content dependencies** — the map-3 generator-booster and the map-5 special generator are **not
+  built**, and rarity/collection art doesn't exist; v1 leans on the placeholder + colour-frame.
+  Bespoke content is a separate task and a genuine scope risk.
 - **Save migration** — a schema change (rarity, capacity, collection, production state, in-hand
   spirits); must be non-destructive (old saves read as housed commons).
 - **Runway** — only the 5 home-grove maps are wired against a designed 20-place journey, so the

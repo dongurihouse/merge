@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expedition Rush — feel prototype</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+<style>
+:root{--font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+--border-radius-md:8px;--border-radius-lg:12px;--border-radius-xl:16px;}
+html,body{background:#0e1512;margin:0;padding:24px;font-family:var(--font-sans);}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+</style>
+</head>
+<body>
+<!-- Feel-prototype for the Residents "Expedition Rush" (see docs/design/residents_spec.md).
+     HTML for game-feel only; the real Rush is a net-new GDScript board engine. -->
+<div style="padding:1rem 0;">
+<h2 class="sr-only">Playable prototype of the Expedition Rush: a timed merge mini-game where traces drop onto a board, you merge matching colours to fill capture targets, dodge falling timber, then keep a caught spirit and assign it to a map.</h2>
+<style>
+#er{--er-bg:#16221d;--er-bg2:#21302a;--er-line:rgba(255,255,255,.09);--er-tx:#e7efe8;--er-mut:#93a89b;
+--w:#e6e7ee;--b:#4f9dee;--o:#f5a623;--r:#ef5b50;--cell:52px;--gap:5px;
+font-family:var(--font-sans);color:var(--er-tx);width:100%;max-width:660px;margin:0 auto;
+background:var(--er-bg);border-radius:var(--border-radius-xl);border:0.5px solid var(--er-line);overflow:hidden;}
+#er .screen{display:none;padding:18px;}
+#er .screen.on{display:block;}
+#er h3{margin:0;font-size:18px;font-weight:500;color:var(--er-tx);}
+#er .mut{color:var(--er-mut);font-size:13px;}
+#er .btn{appearance:none;border:0.5px solid rgba(255,255,255,.18);background:var(--er-bg2);color:var(--er-tx);
+font:inherit;font-size:14px;padding:10px 16px;border-radius:var(--border-radius-md);cursor:pointer;transition:transform .08s,background .15s;}
+#er .btn:hover{background:#2c3e35;} #er .btn:active{transform:scale(.97);}
+#er .btn.primary{background:#2f6b4f;border-color:#3c8a64;}
+#er .opt{flex:1;background:var(--er-bg2);border:0.5px solid var(--er-line);border-radius:var(--border-radius-lg);padding:14px;cursor:pointer;transition:transform .1s,border-color .15s;}
+#er .opt:hover{transform:translateY(-2px);border-color:#3c8a64;}
+#er .opt b{font-weight:500;}
+#er #hud{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;height:40px;}
+#er .timer{font-size:26px;font-weight:500;font-variant-numeric:tabular-nums;}
+#er .timer.low{color:#ff6a5d;}
+#er #rail{display:flex;gap:8px;margin-bottom:10px;min-height:60px;}
+#er .tgt{flex:1;background:var(--er-bg2);border:0.5px solid var(--er-line);border-radius:var(--border-radius-md);padding:7px 8px;position:relative;overflow:hidden;}
+#er .tgt .glyph{display:flex;align-items:center;gap:7px;}
+#er .swatch{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;}
+#er .tgt .pat{position:absolute;left:0;bottom:0;height:3px;background:#3c8a64;width:100%;transition:width .2s linear;}
+#er .tgt.caught{border-color:#3c8a64;}
+#er #boardwrap{position:relative;display:flex;justify-content:center;}
+#er #board{position:relative;}
+#er .slot{position:absolute;width:var(--cell);height:var(--cell);border-radius:9px;background:rgba(255,255,255,.045);}
+#er .tile{position:absolute;width:var(--cell);height:var(--cell);transition:transform .28s cubic-bezier(.45,0,.55,1);will-change:transform;}
+#er .tile.dropping{transition:transform .34s cubic-bezier(.5,.0,.75,.3);}
+#er .face{width:100%;height:100%;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;cursor:pointer;user-select:none;}
+#er #tele{position:absolute;top:0;border-radius:9px;background:#ef5b50;opacity:0;pointer-events:none;animation:erTel .5s infinite;}
+#er #warn{position:absolute;top:-22px;color:#ff6a5d;font-size:18px;display:none;}
+#er #log{position:absolute;width:var(--cell);border-radius:8px;background:#6b4a2f;border:2px solid #3e2a1a;top:0;opacity:0;pointer-events:none;}
+#er #flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;border-radius:12px;}
+#er #combo{position:absolute;left:50%;top:36%;transform:translateX(-50%);font-size:34px;font-weight:500;color:#ffd166;opacity:0;pointer-events:none;text-shadow:0 2px 0 rgba(0,0,0,.3);}
+#er #vig{position:absolute;inset:-2px;pointer-events:none;border-radius:12px;opacity:0;
+background:radial-gradient(ellipse at center,transparent 52%,rgba(214,40,30,.55) 100%);}
+#er #vig.on{animation:erVig 1s infinite;}
+#er .fx{position:absolute;pointer-events:none;}
+#er .dust{width:8px;height:8px;border-radius:50%;animation:erDust .5s ease-out forwards;}
+#er .ring{border:3px solid #ffd166;border-radius:50%;width:30px;height:30px;animation:erRing .5s ease-out forwards;}
+#er .pop-txt{font-size:15px;font-weight:500;color:#ffd166;animation:erRise .7s ease-out forwards;}
+#er .hint{text-align:center;margin-top:10px;}
+#er .cards{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0;}
+#er .scard{width:88px;background:var(--er-bg2);border:0.5px solid var(--er-line);border-radius:var(--border-radius-md);padding:12px 8px;text-align:center;cursor:pointer;transition:transform .1s,border-color .15s,opacity .2s;}
+#er .scard:hover{transform:translateY(-2px);}
+#er .scard.sel{border-color:#ffd166;border-width:2px;}
+#er .scard.dim{opacity:.32;}
+#er .orb{width:42px;height:42px;border-radius:50%;margin:0 auto 8px;}
+#er .row{display:flex;align-items:center;gap:12px;background:var(--er-bg2);border:0.5px solid var(--er-line);border-radius:var(--border-radius-md);padding:10px 12px;margin-bottom:8px;cursor:pointer;transition:border-color .15s;}
+#er .row:hover{border-color:#3c8a64;} #er .row .ic{width:30px;height:30px;border-radius:8px;background:#2f6b4f;display:flex;align-items:center;justify-content:center;font-size:17px;}
+#er .row .prod{margin-left:auto;text-align:right;}
+#er .pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:#2f6b4f;}
+@keyframes erLand{0%{transform:scale(1,1)}30%{transform:scale(1.16,.8)}70%{transform:scale(.93,1.07)}100%{transform:scale(1,1)}}
+@keyframes erPop{0%{transform:scale(1)}40%{transform:scale(1.34)}100%{transform:scale(1)}}
+@keyframes erSquish{0%{transform:scale(1,1);opacity:1}100%{transform:scale(1.35,.08);opacity:0}}
+@keyframes erWig{0%,100%{transform:translateX(0) rotate(0)}25%{transform:translateX(-4px) rotate(-7deg)}75%{transform:translateX(4px) rotate(7deg)}}
+@keyframes erShake{0%,100%{transform:translate(0,0)}12%{transform:translate(-7px,3px)}24%{transform:translate(6px,-4px)}36%{transform:translate(-6px,4px)}48%{transform:translate(6px,-3px)}60%{transform:translate(-4px,3px)}72%{transform:translate(4px,-2px)}84%{transform:translate(-2px,1px)}}
+@keyframes erFlash{0%{opacity:0}28%{opacity:.45}100%{opacity:0}}
+@keyframes erDust{0%{opacity:.95;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.3)}}
+@keyframes erRing{0%{opacity:.85;transform:scale(.3)}100%{opacity:0;transform:scale(1.7)}}
+@keyframes erRise{0%{opacity:0;transform:translateY(0) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-36px) scale(1.1)}}
+@keyframes erTimber{0%{transform:translateY(-130%) rotate(-3deg)}68%{transform:translateY(0) rotate(2deg)}82%{transform:translateY(-7px) rotate(-1deg)}100%{transform:translateY(0) rotate(0)}}
+@keyframes erTel{0%,100%{opacity:.16}50%{opacity:.42}}
+@keyframes erVig{0%,100%{opacity:.28}50%{opacity:.62}}
+@keyframes erCombo{0%{opacity:0;transform:translateX(-50%) scale(.6)}25%{opacity:1;transform:translateX(-50%) scale(1.15)}100%{opacity:0;transform:translateX(-50%) scale(1.3)}}
+</style>
+
+<div id="er">
+  <div class="screen on" id="scr-start">
+    <h3>Expedition</h3>
+    <p class="mut" style="margin:6px 0 14px;">Venture out, merge what you find, bring spirits home. Pick a run:</p>
+    <div style="display:flex;gap:10px;">
+      <div class="opt" data-run="coin">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><i class="ti ti-coin" style="font-size:20px;color:#f5d76e;" aria-hidden="true"></i><b>Coin run</b></div>
+        <div class="mut">All rarities turn up &mdash; mostly white &amp; blue. Paid in coins.</div>
+      </div>
+      <div class="opt" data-run="prem">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><i class="ti ti-diamond" style="font-size:20px;color:#7fd3ff;" aria-hidden="true"></i><b>Premium run</b></div>
+        <div class="mut">Removes white, fewer blue &mdash; skews orange &amp; red. Paid in diamonds.</div>
+      </div>
+    </div>
+    <p class="hint mut" style="margin-top:16px;">Tap two matching neighbours to merge up &middot; fill the capture targets &middot; dodge the falling timber.</p>
+  </div>
+
+  <div class="screen" id="scr-rush">
+    <div id="hud">
+      <div class="timer" id="t-timer">0:45</div>
+      <div class="mut"><i class="ti ti-paw" aria-hidden="true"></i> caught <b id="t-caught" style="color:var(--er-tx)">0</b></div>
+      <div class="mut">combo <b id="t-combo" style="color:#ffd166">&mdash;</b></div>
+    </div>
+    <div id="rail"></div>
+    <div id="boardwrap">
+      <div id="board">
+        <div id="tele"></div>
+        <div id="warn"><i class="ti ti-alert-triangle" aria-hidden="true"></i></div>
+        <div id="log"></div>
+        <div id="flash"></div>
+        <div id="vig"></div>
+        <div id="combo"></div>
+      </div>
+    </div>
+    <p class="hint mut">tap matching neighbours &middot; build toward the targets above &middot; clear the timber's line in time</p>
+  </div>
+
+  <div class="screen" id="scr-haul">
+    <h3>The haul</h3>
+    <p class="mut" id="haul-sub" style="margin:6px 0;">Keep one for free &mdash; pick who comes home.</p>
+    <div class="cards" id="haul-cards"></div>
+    <button class="btn primary" id="haul-go" style="display:none;">Bring it home <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+  </div>
+
+  <div class="screen" id="scr-manage">
+    <h3>Your maps</h3>
+    <p class="mut" style="margin:6px 0 12px;">Assign your new spirit to a map &mdash; it joins the habitat and boosts that map's reward.</p>
+    <div id="maps"></div>
+    <button class="btn primary" id="again" style="margin-top:6px;">New expedition <i class="ti ti-arrow-right" aria-hidden="true"></i></button>
+  </div>
+</div>
+
+<script>
+(function(){
+  var er=document.getElementById('er'); if(!er) return;
+  var COLS=6,ROWS=7,CELL=52,GAP=5,GAME=45,MAXT=6;
+  var COLORS={white:'#e6e7ee',blue:'#4f9dee',orange:'#f5a623',red:'#ef5b50'};
+  var DARKTX={white:'#23252e',blue:'#08243f',orange:'#3d2702',red:'#420f0b'};
+  var RNAME={white:'common',blue:'magic',orange:'legendary',red:'heroic'};
+  var WEIGHT={white:1,blue:2,orange:4,red:8};
+  var MAPS=[{n:'The Farm',rw:'Coins',ic:'ti-coin'},{n:'The Garden',rw:'Water',ic:'ti-droplet'},
+    {n:'The Mill',rw:'Booster',ic:'ti-bolt'},{n:'The Gate',rw:'Diamonds',ic:'ti-diamond'},
+    {n:'The Hollow',rw:'Spawner',ic:'ti-sparkles'}];
+  MAPS.forEach(function(m){m.res=[];});
+  function px(c){return c*(CELL+GAP);} function py(r){return r*(CELL+GAP);}
+  function rnd(a){return a[Math.floor(Math.random()*a.length)];}
+  function $(id){return document.getElementById(id);}
+  var board=$('board'),tele=$('tele'),warn=$('warn'),logEl=$('log'),flash=$('flash'),vig=$('vig'),comboEl=$('combo');
+  board.style.width=px(COLS-1)+CELL+'px'; board.style.height=py(ROWS-1)+CELL+'px';
+  tele.style.width=CELL+'px'; tele.style.height=board.style.height; logEl.style.height=board.style.height;
+  for(var r=0;r<ROWS;r++)for(var c=0;c<COLS;c++){var s=document.createElement('div');s.className='slot';s.style.transform='translate('+px(c)+'px,'+py(r)+'px)';board.appendChild(s);}
+
+  var grid,running,gameTime,spawnAcc,dropInt,tf,targets,caught,combo,lastMerge,comboTimer,raf,last,kept;
+
+  function show(id){['start','rush','haul','manage'].forEach(function(s){$('scr-'+s).classList.toggle('on',s===id);});}
+
+  function startRun(run){
+    grid=[];for(var r=0;r<ROWS;r++){grid.push([]);for(var c=0;c<COLS;c++)grid[r].push(null);}
+    Array.prototype.slice.call(board.querySelectorAll('.tile,.fx')).forEach(function(e){e.remove();});
+    gameTime=GAME;spawnAcc=0;combo=0;lastMerge=0;caught=[];kept=null;
+    er.dataset.weights = run==='prem' ? 'blue:18,orange:50,red:32' : 'white:42,blue:30,orange:20,red:8';
+    targets=[null,null,null];rail();for(var i=0;i<3;i++)newTarget(i);
+    tf={phase:'idle',t:0,next:6.5,col:0};
+    vig.classList.remove('on');$('t-timer').classList.remove('low');
+    $('t-caught').textContent='0';$('t-combo').textContent='—';
+    show('rush');running=true;last=performance.now();raf=requestAnimationFrame(loop);
+  }
+  function weights(){var o={};er.dataset.weights.split(',').forEach(function(p){var x=p.split(':');o[x[0]]=+x[1];});return o;}
+  function pickColor(){var w=weights(),tot=0,k;for(k in w)tot+=w[k];var n=Math.random()*tot;for(k in w){if(n<w[k])return k;n-=w[k];}return 'blue';}
+
+  function makeTile(color,tier,c,landR){
+    var t={color:color,tier:tier,r:landR,c:c};
+    var el=document.createElement('div');el.className='tile dropping';
+    var f=document.createElement('div');f.className='face';
+    f.style.background=COLORS[color];f.style.color=DARKTX[color];f.textContent=tier;
+    el.appendChild(f);t.el=el;t.face=f;
+    el.style.transform='translate('+px(c)+'px,'+py(-1.4)+'px)';
+    board.appendChild(el);
+    f.addEventListener('click',function(){onTap(t);});
+    requestAnimationFrame(function(){requestAnimationFrame(function(){
+      el.style.transform='translate('+px(c)+'px,'+py(landR)+'px)';});});
+    setTimeout(function(){el.classList.remove('dropping');anim(f,'erLand .25s');},350);
+    grid[landR][c]=t;return t;
+  }
+  function anim(el,a){el.style.animation='none';el.offsetHeight;el.style.animation=a;}
+
+  function spawn(){
+    var cols=[];for(var c=0;c<COLS;c++){var fc=0;for(var r=0;r<ROWS;r++)if(grid[r][c])fc++;if(fc<ROWS)cols.push({c:c,land:ROWS-1-fc});}
+    if(!cols.length){endRush('full');return;}
+    var ch=rnd(cols);makeTile(pickColor(),1,ch.c,ch.land);
+    var empt=0;for(var rr=0;rr<ROWS;rr++)for(var cc=0;cc<COLS;cc++)if(!grid[rr][cc])empt++;
+    if(empt===0)setTimeout(function(){if(running)endRush('full');},400);
+  }
+  function gravity(){
+    for(var c=0;c<COLS;c++){var stack=[];for(var r=ROWS-1;r>=0;r--){if(grid[r][c]){stack.push(grid[r][c]);grid[r][c]=null;}}
+      for(var i=0;i<stack.length;i++){var t=stack[i],nr=ROWS-1-i;grid[nr][c]=t;if(t.r!==nr){t.r=nr;t.el.style.transform='translate('+px(c)+'px,'+py(nr)+'px)';}}}
+  }
+  function neighborMatch(t){
+    var d=[[1,0],[-1,0],[0,1],[0,-1]];
+    for(var i=0;i<d.length;i++){var nr=t.r+d[i][0],nc=t.c+d[i][1];
+      if(nr<0||nc<0||nr>=ROWS||nc>=COLS)continue;var n=grid[nr][nc];
+      if(n&&n.color===t.color&&n.tier===t.tier)return n;}
+    return null;
+  }
+  function onTap(t){
+    if(!running)return;
+    if(t.tier>=MAXT){anim(t.face,'erWig .3s');return;}
+    var n=neighborMatch(t);
+    if(!n){anim(t.face,'erWig .3s');return;}
+    grid[n.r][n.c]=null;anim(n.face,'erSquish .25s');var ne=n.el;setTimeout(function(){ne.remove();},250);
+    t.tier++;t.face.textContent=t.tier;anim(t.face,'erPop .3s');
+    burst(px(t.c)+CELL/2,py(t.r)+CELL/2,COLORS[t.color],5);
+    popTxt(px(t.c)+CELL/2,py(t.r)+CELL/2,'+'+(t.tier*WEIGHT[t.color]));
+    var now=performance.now();
+    if(now-lastMerge<1500)combo++;else combo=1;lastMerge=now;
+    $('t-combo').textContent=combo>1?('x'+combo):'—';
+    if(combo>=2)comboFx(combo);
+    clearTimeout(comboTimer);comboTimer=setTimeout(function(){combo=0;$('t-combo').textContent='—';},1700);
+    gravity();
+    captureCheck(t);
+  }
+  function captureCheck(t){
+    for(var i=0;i<3;i++){var g=targets[i];if(g&&!g.done&&g.color===t.color&&t.tier>=g.tier){doCapture(t,i);return;}}
+  }
+  function doCapture(t,i){
+    grid[t.r][t.c]=null;var x=px(t.c)+CELL/2,y=py(t.r)+CELL/2;
+    ring(x,y);burst(x,y,COLORS[t.color],9);var te=t.el;anim(t.face,'erPop .3s');
+    setTimeout(function(){te.remove();},180);
+    targets[i].done=true;caught.push({color:targets[i].color});
+    $('t-caught').textContent=caught.length;
+    var chip=$('tgt-'+i);if(chip){chip.classList.add('caught');chip.querySelector('.glyph').innerHTML='<i class="ti ti-check" style="color:#7fe0a8;font-size:18px"></i> <span class="mut">caught!</span>';}
+    setTimeout(function(){if(running)newTarget(i);},700);
+    gravity();
+  }
+  function newTarget(i){
+    var col=rnd(['blue','blue','orange','orange','red','white']);
+    var tier=Math.random()<0.65?2:3;
+    targets[i]={color:col,tier:tier,pat:11,max:11,done:false};
+    drawTarget(i);
+  }
+  function rail(){var R=$('rail');R.innerHTML='';for(var i=0;i<3;i++){var d=document.createElement('div');d.className='tgt';d.id='tgt-'+i;R.appendChild(d);}}
+  function drawTarget(i){
+    var g=targets[i],el=$('tgt-'+i);if(!el)return;el.classList.remove('caught');
+    el.innerHTML='<div class="glyph"><span class="swatch" style="background:'+COLORS[g.color]+';color:'+DARKTX[g.color]+'">'+g.tier+'</span>'+
+      '<span style="font-size:13px">'+RNAME[g.color]+'</span></div>'+
+      '<div class="mut" style="font-size:11px;margin-top:2px">wants tier '+g.tier+'+</div>'+
+      '<div class="pat" id="pat-'+i+'"></div>';
+  }
+
+  function comboFx(n){comboEl.textContent='COMBO x'+n;anim(comboEl,'erCombo .8s');anim(flash,'erFlash .45s');}
+  function burst(x,y,col,n){for(var i=0;i<n;i++){var d=document.createElement('div');d.className='fx dust';d.style.background=col;
+    d.style.left=(x-4)+'px';d.style.top=(y-4)+'px';var a=Math.random()*6.28,r=18+Math.random()*22;
+    d.style.setProperty('--dx',Math.cos(a)*r+'px');d.style.setProperty('--dy',Math.sin(a)*r+'px');
+    board.appendChild(d);setTimeout(function(e){return function(){e.remove();};}(d),520);}}
+  function ring(x,y){var d=document.createElement('div');d.className='fx ring';d.style.left=(x-15)+'px';d.style.top=(y-15)+'px';board.appendChild(d);setTimeout(function(){d.remove();},520);}
+  function popTxt(x,y,s){var d=document.createElement('div');d.className='fx pop-txt';d.textContent=s;d.style.left=(x-10)+'px';d.style.top=(y-8)+'px';board.appendChild(d);setTimeout(function(){d.remove();},720);}
+
+  function startTimber(){
+    tf.phase='tele';tf.t=0;tf.col=Math.floor(Math.random()*COLS);
+    tele.style.transform='translate('+px(tf.col)+'px,0)';tele.style.display='block';
+    warn.style.display='block';warn.style.left=(px(tf.col)+CELL/2-9)+'px';
+  }
+  function dropTimber(){
+    tele.style.display='none';warn.style.display='none';
+    logEl.style.transform='translate('+px(tf.col)+'px,0)';logEl.style.opacity='1';anim(logEl,'erTimber .5s');
+    anim(board,'erShake .45s');
+    for(var r=0;r<ROWS;r++){var t=grid[r][tf.col];if(t){grid[r][tf.col]=null;(function(tt){anim(tt.face,'erSquish .3s');
+      burst(px(tt.c)+CELL/2,py(tt.r)+CELL/2,'#8a6a45',6);setTimeout(function(){tt.el.remove();},300);})(t);}}
+    setTimeout(function(){logEl.style.opacity='0';gravity();},480);
+    tf.phase='idle';tf.t=0;tf.next=7+Math.random()*3;
+  }
+
+  function endRush(){
+    running=false;cancelAnimationFrame(raf);
+    if(!caught.length)caught.push({color:'white'});
+    renderHaul();show('haul');
+  }
+  function loop(now){
+    if(!running)return;var dt=(now-last)/1000;last=now;if(dt>0.1)dt=0.1;
+    gameTime-=dt;if(gameTime<=0){gameTime=0;$('t-timer').textContent='0:00';endRush();return;}
+    var prog=1-gameTime/GAME;dropInt=1.0-0.57*prog;
+    spawnAcc+=dt;if(spawnAcc>=dropInt){spawnAcc=0;spawn();}
+    tf.t+=dt;
+    if(tf.phase==='idle'&&tf.t>=tf.next)startTimber();
+    else if(tf.phase==='tele'&&tf.t>=1.8)dropTimber();
+    for(var i=0;i<3;i++){var g=targets[i];if(g&&!g.done){g.pat-=dt;if(g.pat<=0){newTarget(i);}else{var pb=$('pat-'+i);if(pb)pb.style.width=Math.max(0,g.pat/g.max*100)+'%';}}}
+    var s=Math.ceil(gameTime);$('t-timer').textContent='0:'+(s<10?'0'+s:s);
+    var low=gameTime<=10;$('t-timer').classList.toggle('low',low);vig.classList.toggle('on',low);
+    raf=requestAnimationFrame(loop);
+  }
+
+  function renderHaul(){
+    var sub=$('haul-sub'),cc=$('haul-cards');cc.innerHTML='';kept=null;$('haul-go').style.display='none';
+    sub.textContent=caught.length>1?'Keep one for free — pick who comes home (the rest are released).':'You brought one spirit home.';
+    caught.forEach(function(sp,idx){
+      var d=document.createElement('div');d.className='scard';
+      d.innerHTML='<div class="orb" style="background:'+COLORS[sp.color]+'"></div><div style="font-size:13px;font-weight:500">'+RNAME[sp.color]+'</div>';
+      d.addEventListener('click',function(){kept=sp;
+        Array.prototype.slice.call(cc.children).forEach(function(e,j){e.classList.toggle('sel',j===idx);e.classList.toggle('dim',j!==idx);});
+        $('haul-go').style.display='inline-block';});
+      cc.appendChild(d);
+    });
+    if(caught.length===1){cc.children[0].click();}
+  }
+  function renderManage(){
+    var box=$('maps');box.innerHTML='';
+    MAPS.forEach(function(m,i){
+      var prod=m.res.reduce(function(a,s){return a+WEIGHT[s.color];},0);
+      var row=document.createElement('div');row.className='row';
+      var dots=m.res.slice(-6).map(function(s){return '<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:'+COLORS[s.color]+';margin-left:3px"></span>';}).join('');
+      row.innerHTML='<div class="ic"><i class="ti '+m.ic+'" aria-hidden="true"></i></div>'+
+        '<div><div style="font-size:14px;font-weight:500">'+m.n+'</div><div class="mut" style="font-size:12px">produces '+m.rw+'</div></div>'+
+        '<div class="prod"><div>'+dots+'</div><div class="pill" style="margin-top:4px">+'+Math.round(prod)+'/day</div></div>';
+      row.addEventListener('click',function(){
+        if(!kept)return;m.res.push(kept);kept=null;renderManage();
+      });
+      box.appendChild(row);
+    });
+    if(!$('assign-note')){var n=document.createElement('p');n.id='assign-note';n.className='mut';n.style.margin='4px 0 12px';box.parentNode.insertBefore(n,box.nextSibling);}
+    $('assign-note').textContent = kept ? 'Tap a map to house your '+RNAME[kept.color]+' spirit.' : 'No spirit in hand — start another expedition.';
+  }
+
+  Array.prototype.slice.call(document.querySelectorAll('#er .opt')).forEach(function(o){o.addEventListener('click',function(){startRun(o.dataset.run);});});
+  $('haul-go').addEventListener('click',function(){renderManage();show('manage');});
+  $('again').addEventListener('click',function(){show('start');});
+})();
+</script>
+</div>
+</body>
+</html>
