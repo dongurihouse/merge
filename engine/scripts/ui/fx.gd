@@ -47,6 +47,22 @@ static func pop(node: Control) -> void:
 	t.tween_property(node, "scale", Tune.POP_SCALE, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	t.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
+## The merge result's IMPACT: squash & stretch (the chosen "C" feel). Calm falls back to a
+## gentle uniform overshoot. `pop()` stays for taps/confirms — this is for produced tiles.
+static func squash_pop(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.pivot_offset = _center_pivot(node)
+	if calm():
+		var c := node.create_tween()
+		c.tween_property(node, "scale", Tune.SQUASH_CALM, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		c.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		return
+	node.scale = Tune.SQUASH_K[0]
+	var t := node.create_tween()
+	for i in range(1, Tune.SQUASH_K.size()):
+		t.tween_property(node, "scale", Tune.SQUASH_K[i], Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return

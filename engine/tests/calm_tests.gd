@@ -8,6 +8,7 @@ extends SceneTree
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 var _pass := 0
 var _fail := 0
@@ -80,6 +81,22 @@ func _initialize() -> void:
 
 	# leave settings clean for any shared state
 	Save.set_setting("calm", false)
+
+	# --- squash_pop: squash & stretch (active) vs gentle overshoot (calm) ------------
+	Save.set_setting("calm", false)
+	var sp := Control.new(); sp.size = Vector2(80, 80); get_root().add_child(sp)
+	FX.squash_pop(sp)
+	ok(sp.scale.is_equal_approx(Tune.SQUASH_K[0]), "squash_pop: active path sets the squash-start pose")
+	ok(sp.pivot_offset.is_equal_approx(Vector2(40, 40)), "squash_pop: scales from the node centre")
+
+	Save.set_setting("calm", true)
+	var spc := Control.new(); spc.size = Vector2(80, 80); get_root().add_child(spc)
+	FX.squash_pop(spc)
+	ok(not spc.scale.is_equal_approx(Tune.SQUASH_K[0]), "squash_pop: calm uses the gentle overshoot, not the squash pose")
+	FX.squash_pop(null)
+	ok(true, "squash_pop: tolerates a null node (no crash)")
+	Save.set_setting("calm", false)
+	sp.queue_free(); spc.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
