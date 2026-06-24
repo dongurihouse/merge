@@ -91,6 +91,9 @@ const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort (
 const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per map (Farmhouse→Meadow); later maps pay more coins/click
 const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep merge's click is worth ~1.5× a shallow one across the band
 const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns precious; earned only at milestones / bought)
+# The whole-game effort budget: clicks to finish ALL maps (map 5 complete). Drives the unlock ladder +
+# the level curve — both are spread across this budget (total exp = ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP).
+const ENDGAME_CLICKS := 100000            # 100K-click game (docs/economy_model.html is the live calculator)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4); band is always [4..TOP_TIER]
 const QUEST_LEVELS_PER_TIER := 2          # the asked-tier bell's CENTRE climbs +1 every N levels, up to the band midpoint
@@ -314,20 +317,17 @@ static func _apply_vine_maps(maps: Array) -> Array:
 
 
 const LEVEL_WATER_GIFT := 20
-# §map-unlock — the per-spot exp threshold ladder. Spots across all maps form one global
-# order (map order, then spot order); each spot's unlock threshold is the running sum of a
-# per-spot increment that ESCALATES per map: inc(z) = UNLOCK_BASE + z*UNLOCK_STEP. The first
-# spot overall sits at 0 (claimable on a fresh save). PROVISIONAL feel dials.
-# Scaled for the 100K-click game. The real maps are [7,4,7,4,1]=23 spots (Farm·Orchard·Garden·Mill·Gate);
-# the final spot's threshold = 52×UNLOCK_BASE, set to ~total exp = 100000/7 ≈ 14,286 → BASE≈275.
-# inc(z)=275+275z → Farm +275/spot, Orchard +550, Garden +825, Mill +1100, Gate +1375.
-const UNLOCK_BASE := 275          # per-spot exp increment on the first map
-const UNLOCK_STEP := 275          # extra increment added per later map
-# The one uncapped LEVEL clock, derived from the cumulative exp total: cross a threshold → level up.
-# Level is purely cosmetic (badge + per-level gift). GEOMETRIC curve (owner pick): level 1→2 costs
-# LEVEL_BASE_EXP, each later level ×LEVEL_GROWTH — uncapped. ~L34 at the 100K-click endgame.
-const LEVEL_BASE_EXP := 18        # exp to reach L2 (≈ 128 clicks ÷ 7) — the first level
-const LEVEL_GROWTH := 1.15        # each level costs this × the previous (uncapped)
+# §map-unlock — the per-spot exp threshold ladder, EQUAL PER ZONE (owner pick). Each of the N maps gets
+# an equal 1/N share of the whole-game exp budget (= ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP); within a map
+# its spots divide that share evenly. So unlock pacing is time-even per MAP regardless of spot count
+# [7,4,7,4,1] — the 1-spot Gate is the long final push. First spot is 0 (claimable on a fresh save); the
+# last spot lands at the full budget (~14,286 exp). No per-spot const — the budget + map shape drive it,
+# computed in content.gd: spot_unlock_exp / unlock_zone_exp.
+# The one uncapped LEVEL clock (cosmetic badge + per-level gift), derived from the same budget. GENTLE
+# ARITHMETIC ramp (owner pick — replaces the front-loaded geometric): level 1→2 costs LEVEL_BASE_EXP,
+# each later level +LEVEL_STEP_EXP more. ~L35 at the 100K-click endgame (≈4 min early → ~44 min late).
+const LEVEL_BASE_EXP := 70        # exp to reach L2 (≈ 490 clicks ≈ 4 min) — the first level
+const LEVEL_STEP_EXP := 20        # each level costs this much MORE exp than the previous (linear ramp)
 
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
