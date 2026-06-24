@@ -296,9 +296,19 @@ func _initialize() -> void:
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
+	# The shipped wallet capsule (workbench-tuned to a COMPACT pill, owner call) must still render tall
+	# enough to HOLD its content (icon / number / +) without squishing AND stay a usable touch target.
+	# This asserts the LIVE built pill height (gold_currency_pill auto-grows to max(pill_h, content+2·pad_y)),
+	# NOT a raw config knob — so it guards the real "is the wallet pill broken?" question at any tuned height.
+	# (Replaces the old `pill_h >= 96` floor, which tracked the retired 100px default and never matched the
+	# tuned config — it was red from the commit that added it; the compact pill is intentional.)
 	var shipped_gold := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	ok(float(shipped_gold.pill_h) >= 96.0 and float(shipped_gold.pad_y) >= 8.0, \
-		"shipped gold_currency_pill config keeps the live HUD pill full-height")
+	var live_pill: Control = Kit.gold_currency_pill(shipped_gold, {})
+	var live_h: float = live_pill.custom_minimum_size.y
+	var content_floor: float = maxf(float(shipped_gold.icon_box), float(shipped_gold.num_size) * 1.45)
+	ok(live_h >= maxf(content_floor, 48.0), \
+		"the shipped gold_currency_pill renders a wallet capsule that holds its content + stays a touch target (live %d px)" % int(live_h))
+	live_pill.queue_free()
 	var hud_host := Control.new()
 	hud_host.custom_minimum_size = Vector2(1080, 1920)
 	get_root().add_child(hud_host)
