@@ -64,11 +64,11 @@ const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 const CLAY = Pal.CLAY
 
-# --- map-select place-picker CARD — the painted kit (spec §8 "the horizon, visible AND veiled") -----
-# The CARD recipe (gold frame `card_active` / dark locked panel `card_locked` / cream count pill
-# `pill_left` / §8 fog veil / meadow fallback / the rounded-corner art clip) now lives in the SHARED
-# kit — Kit.map_card + Kit.map_card_opts_from_config — so the workbench tunes the SAME recipe the game
-# renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
+# --- map-select place-picker CARD ----------------------------------------------------------------------
+# The CARD recipe (the SHARED gold-badge frame over the locale art for an OPEN place, or over a dark
+# gradient + lock medallion for a LOCKED one / cream count pill `pill_left` / the rounded-corner art clip)
+# lives in the SHARED kit — Kit.map_card + Kit.map_card_opts_from_config — so the workbench tunes the SAME
+# recipe the game renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
 const VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it; built by Kit.map_card)
