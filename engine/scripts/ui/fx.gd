@@ -98,6 +98,36 @@ static func shake(node: Control, amp := Tune.SHAKE_AMP) -> void:
 		t.tween_property(node, "position", rest + o, Tune.SHAKE_LEG_T).set_trans(Tween.TRANS_SINE)
 	t.tween_property(node, "position", rest, Tune.SHAKE_SETTLE_T).set_trans(Tween.TRANS_SINE)
 
+# --- hitstop: a global micro-freeze at the moment of impact -------------------------
+static var _hitstop_active := false
+
+# "do we want a freeze" — flag ON and not calm. Testable off-headless.
+static func hitstop_wanted() -> bool:
+	return Features.on("merge_hitstop") and not calm()
+
+# the full gate: wanted AND not headless. A global time_scale change would starve the
+# deterministic headless test clock (the grove base pins time_scale=1.0), and a freeze
+# is a purely-felt effect with no logic consequence — so it is hard-off in headless.
+static func hitstop_enabled() -> bool:
+	return hitstop_wanted() and DisplayServer.get_name() != "headless"
+
+## Freeze the whole game for `secs` real-time, then restore. Tweens obey time_scale, so a
+## squash_pop started at impact holds its compressed pose during the freeze and plays on
+## release; audio ignores time_scale, so the merge sound punches through. The restore timer
+## ignores time_scale, so it always fires. Re-entrancy-guarded so rapid merges don't stack.
+static func hitstop(secs: float) -> void:
+	if not hitstop_enabled() or _hitstop_active or secs <= 0.0:
+		return
+	var tree := Engine.get_main_loop() as SceneTree
+	if tree == null:
+		return
+	_hitstop_active = true
+	Engine.time_scale = Tune.HITSTOP_SCALE
+	var timer := tree.create_timer(secs, true, false, true)   # process_always, ignore_time_scale
+	timer.timeout.connect(func() -> void:
+		Engine.time_scale = 1.0
+		_hitstop_active = false)
+
 static func wobble(node: Control) -> void:
 	if not (node and is_instance_valid(node)):
 		return

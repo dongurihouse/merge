@@ -132,5 +132,20 @@ func _initialize() -> void:
 	Save.set_setting("calm", false)
 	sk.queue_free(); skc.queue_free()
 
+	# --- hitstop: wanted-gate is testable; the full gate + effect are off in headless --
+	Features.FLAGS["merge_hitstop"] = true
+	Save.set_setting("calm", false)
+	ok(FX.hitstop_wanted(), "hitstop: flag ON + calm OFF → wanted")
+	Save.set_setting("calm", true)
+	ok(not FX.hitstop_wanted(), "hitstop: calm ON → not wanted")
+	Save.set_setting("calm", false)
+	Features.FLAGS["merge_hitstop"] = false
+	ok(not FX.hitstop_wanted(), "hitstop: flag OFF → not wanted")
+	Features.FLAGS["merge_hitstop"] = true
+	ok(not FX.hitstop_enabled(), "hitstop: NEVER enabled in headless (protects the test clock)")
+	var before := Engine.time_scale
+	FX.hitstop(0.05)
+	ok(Engine.time_scale == before, "hitstop: a call in headless does not touch Engine.time_scale")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
