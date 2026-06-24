@@ -1859,7 +1859,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		fl.text = foot_note
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		fl.add_theme_font_override("font", _plain_font())          # standard text, not the chunky display face
+		fl.add_theme_font_override("font", plain_font())          # standard text, not the chunky display face
 		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 		fl.add_theme_constant_override("outline_size", 0)
@@ -1909,6 +1909,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	bal.add_child(make_icon("gem", float(opts.get("balance_icon", 34))))
 	var bnum := Label.new()
 	bnum.text = str(int(state.get("balance", 0)))
+	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 34)))
 	bnum.add_theme_color_override("font_color", Pal.INK)
 	bnum.add_theme_constant_override("outline_size", 0)
@@ -1926,8 +1927,10 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.text = String(opts.get("pitch", "Premium you've earned, saved up — claim it all."))
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 16)))
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(pitch)
 
@@ -1948,16 +1951,20 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var hl := Label.new()
 		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
+		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 		hl.add_theme_font_size_override("font_size", 15)
 		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hl)
 		hint.add_child(make_icon("gem", 16))
 		var hn := Label.new()
 		hn.text = str(int(state.get("claim_min", 0)))
+		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 		hn.add_theme_font_size_override("font_size", 15)
 		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hn)
@@ -3041,10 +3048,11 @@ static func _frame_cfg(cfg: Dictionary) -> Dictionary:
 	return m
 
 ## A PLAIN, regular-weight face for body text that should read as STANDARD UI text — not the cozy chunky/
-## outlined display font the global theme applies (the "bold marker" look). The info sheet's rows use this
-## with the outline off, so the labels/amounts/notes read as clean normal text. Cached per session.
+## outlined display font the global theme applies (the "bold marker" look). The info sheet's rows AND the
+## vault's body text use this with the outline off, so the labels/amounts/notes read as clean normal text.
+## Public so ui/vault.gd (loaded by path) can share the SAME face. Cached per session.
 static var _plain_cache: Font = null
-static func _plain_font() -> Font:
+static func plain_font() -> Font:
 	if _plain_cache != null:
 		return _plain_cache
 	var sys := SystemFont.new()
