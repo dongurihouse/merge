@@ -26,6 +26,7 @@ const PILL_TEX := Vector2(46, 34)
 const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
+const BANNER_MIN_W_FRAC := 0.25   # a dialog floors its banner at this fraction of the SCREEN width (banner_min_w)
 
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
@@ -1590,7 +1591,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 static func _banner(text: String, font: int, band_h: float, width: float, icon_on: bool,
 		icon_px: float, icon_pos, text_x: float = 0.0, text_y: float = 0.0, burn: float = 0.0,
 		banner_art: String = "mail/mail_banner.png", banner_icon_id: String = "mail",
-		pad_l: float = -1.0, pad_r: float = -1.0) -> Control:
+		pad_l: float = -1.0, pad_r: float = -1.0, banner_min_w: float = 0.0) -> Control:
 	var header := Control.new()
 	header.name = "DialogBanner"
 	header.custom_minimum_size = Vector2(width, band_h)
@@ -1603,7 +1604,11 @@ static func _banner(text: String, font: int, band_h: float, width: float, icon_o
 	var pr := pad_r if pad_r >= 0.0 else band_h * 0.55
 	var text_w := ThemeDB.fallback_font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, font).x
 	var icon_room := (icon_px + band_h * 0.25) if icon_on else 0.0
-	var banner_w := clampf(text_w + pl + pr + icon_room, band_h * 2.2, width)
+	# the ribbon never shrinks below a floor: two tail-widths OR a caller-supplied floor (banner_min_w —
+	# dialogs pass a fraction of the SCREEN width, so a SHORT title like the bag's "Bag" still reads as a
+	# proper banner, not a tiny stub). Clamped to the frame width (the ribbon's hard max).
+	var min_w := minf(maxf(band_h * 2.2, banner_min_w), width)
+	var banner_w := clampf(text_w + pl + pr + icon_room, min_w, width)
 	var ribbon_x := (width - banner_w) * 0.5                    # centre the sized ribbon within the band
 	var bp := Look.kit(banner_art)
 	if ResourceLoader.exists(bp):
@@ -1739,6 +1744,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var banner_text_y: float = float(opts.get("banner_text_y", 0.0))
 	var banner_text_pad_l: float = float(opts.get("banner_text_pad_l", -1.0))   # title↔left-tail room (−1 = auto)
 	var banner_text_pad_r: float = float(opts.get("banner_text_pad_r", -1.0))   # title↔right-tail room (−1 = auto)
+	var banner_min_w: float = float(opts.get("banner_min_w", 0.0))              # ribbon floor in px (dialogs pass 25% of the screen)
 	var banner_burn: float = float(opts.get("banner_burn", 0.0))
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
@@ -1805,7 +1811,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	scroll.add_child(rows)
 
 	# the banner overlays the TOP (added after the scroll → drawn on top), draggable
-	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r)
+	var header := _banner(banner_text, banner_font, banner_h, width, banner_icon_on, banner_icon, banner_icon_pos, banner_text_x, banner_text_y, banner_burn, banner_art, banner_icon_id, banner_text_pad_l, banner_text_pad_r, banner_min_w)
 	header.position = banner_pos
 	inner.add_child(header)
 
@@ -2131,7 +2137,9 @@ static func daily_card(d: Dictionary, opts: Dictionary = {}) -> Control:
 	if d.has("node") and d.node != null:
 		center.add_child(d.node as Control)   # a GAME-injected hero (real piece preview, a 2-currency bundle, …)
 	elif milestone:
-		center.add_child(_kit_sprite("kit/daily_chest.png", cw * 0.56))
+		# the mystery marker: the "?" chest by default, OR a per-day sprite the caller supplies (e.g. day 4's
+		# gift box) via `mystery_icon` — so individual mystery days can read distinctly.
+		center.add_child(_kit_sprite(String(d.get("mystery_icon", "kit/daily_chest.png")), cw * 0.56))
 	elif d.has("reward"):
 		center.add_child(_daily_reward(d.get("reward", {}), cw * 0.56))   # icon a touch bigger (no number)
 	elif d.has("icon"):
@@ -3394,6 +3402,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
+		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
 		"sell_font":   int(i.get("sell_font", 30)),                 # the sell badge's payout number font
@@ -3446,7 +3455,19 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var info_btn := _info_circle_btn("info", inner)              # opens the selected item's tier ladder
 	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
 		info_btn.pressed.connect(spec.get("info_action"))
-	hb.add_child(info_btn)
+	# the ⓘ keeps its footprint in the row via a fixed SLOT; info_x nudges the button (hit area and all)
+	# inside it — +right / −left — so the icon can be repositioned without disturbing the rest of the bar.
+	var info_x := float(opts.get("info_x", 0.0))
+	if info_x != 0.0:
+		var info_slot := Control.new()
+		info_slot.custom_minimum_size = Vector2(inner, inner)
+		info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		info_btn.size = Vector2(inner, inner)
+		info_btn.position = Vector2(info_x, 0.0)
+		info_slot.add_child(info_btn)
+		hb.add_child(info_slot)
+	else:
+		hb.add_child(info_btn)
 	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
 	info_icon.custom_minimum_size = Vector2(inner, inner)
 	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3913,6 +3934,7 @@ static func bag_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cell_gap"] = int(bg.get("cell_gap", 12))
 	o["grid_inset"] = float(bg.get("grid_inset", 70))  # how much the parchment border/padding eats the grid width
 	o["row_gap"] = float(bg.get("row_gap", 14))        # gap between the pill / grid / footer rows
+	o["acorn_x"] = float(bg.get("acorn_x", 0))         # nudge the acorn-balance pill left(−) / right(+)
 	o["list_max_h"] = float(bg.get("list_max_h", 0))   # the bag's OWN scroll cap (0 = no scroll, 18 slots fit)
 	o["caption"] = String(bg.get("caption", "Open a slot with acorns."))
 	o["banner_text"] = String(bg.get("banner_text", "Bag"))
@@ -3940,7 +3962,20 @@ static func bag_dialog(entries: Array, balance: int, width: float = 560.0, opts:
 	pill_opts["icon_size"] = float(opts.get("balance_icon", pill_opts.get("icon_size", 38.0)))
 	pill_opts["count"] = balance
 	pill_opts["show_plus"] = false
-	top.add_child(gold_currency_pill(pill_opts, {"gem": balance}))
+	var pill: Control = gold_currency_pill(pill_opts, {"gem": balance})
+	# the acorn box keeps its docked-right footprint via a fixed SLOT (so the row layout is unchanged), while
+	# the pill itself can be nudged horizontally inside it — acorn_x (+right / −left), the amount_x idiom.
+	var acorn_x := float(opts.get("acorn_x", 0.0))
+	if acorn_x != 0.0:
+		var pill_slot := Control.new()
+		pill_slot.custom_minimum_size = pill.custom_minimum_size
+		pill_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pill.size = pill.custom_minimum_size
+		pill.position = Vector2(acorn_x, 0.0)
+		pill_slot.add_child(pill)
+		top.add_child(pill_slot)
+	else:
+		top.add_child(pill)
 	content.add_child(top)
 
 	# the slot grid — the six-wide ladder. The cells SCALE to fit `cols` across the frame's content width

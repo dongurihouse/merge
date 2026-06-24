@@ -134,6 +134,9 @@ static func _days(host: Control, rb: Dictionary, opts: Dictionary) -> Array:
 		# the "?" chest marks a MYSTERY day (slots 4 & 7, any state) or a still-locked future milestone.
 		if Login.is_mystery(day):
 			d["mystery"] = true
+			# slot 4 (day 4 of each week) reads as a wrapped GIFT BOX rather than the shared chest.
+			if Login.slot_of(day) == 4:
+				d["mystery_icon"] = "shared/icon_gift.png"
 		elif Login.is_milestone(day) and st == "future":
 			d["mystery"] = true
 		if st == "today":

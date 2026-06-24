@@ -281,7 +281,7 @@ var _params := {
 		"preview_level": 30},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
-	"info_bar": {"height": 130, "inner_scale": 48, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
+	"info_bar": {"height": 130, "inner_scale": 48, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -304,7 +304,7 @@ var _params := {
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
-	"bag": {"width_pct": 85, "cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0,
+	"bag": {"width_pct": 85, "cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
 		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
 var _selected := "button"
@@ -725,6 +725,7 @@ func _make_element(id: String) -> Control:
 			# bag_overlay.gd uses). owned/filled compose the slot ladder; balance feeds the acorn pill.
 			var bopts := Kit.bag_opts_from_config(_params)
 			bopts["banner_text"] = "Bag"
+			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
 
@@ -1624,6 +1625,7 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)                         # layout only — the frame is tuned on Gold badge
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
+			_sidebar_body.add_child(_slider_row(["info_x", -120, 120]))     # nudge the info ⓘ button left(−) / right(+)
 			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
 			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
 			_sidebar_body.add_child(_slider_row(["sell_label_font", 14, 34]))  # the plain "Sell" caption font
@@ -1685,6 +1687,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 40]))
 			_sidebar_body.add_child(_slider_row(["grid_inset", 0, 200]))    # how far the parchment border eats the grid width
 			_sidebar_body.add_child(_slider_row(["row_gap", 0, 40]))        # gap between pill / grid / footer
+			_sidebar_body.add_child(_slider_row(["acorn_x", -200, 80]))     # nudge the acorn-balance pill left(−) / right(+)
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1200]))   # height cap; 0 = no scroll
 			_sidebar_body.add_child(_text_row("Caption", "caption"))
 			_group_header("Test only — not saved", false)                  # the game sets each from save
