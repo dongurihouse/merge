@@ -208,6 +208,70 @@ func _initialize() -> void:
 	ok(not sbu._info_burst.visible, "maxed: the burst chip hides — nothing left to buy")
 	sbu.queue_free()
 
+	# 11f. The INFO-BAR BUY chip (T55): selecting a sellable item shows a buy chip beside sell; tapping it
+	# spends G.buy_price and drops a COPY on the board; a generator has no buy chip; broke refuses cleanly.
+	fresh("buy_chip")
+	var sbb = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sbb)
+	if sbb.board == null:
+		sbb._ready()
+	await create_timer(0.02).timeout
+	# place a known sellable item (map-1 t3 → buys for coins) and select it
+	var icell2 := Vector2i(-1, -1)
+	for c2 in sbb.board.empty_ground_cells():
+		if not sbb.board.is_gen(c2):
+			icell2 = c2
+			break
+	sbb.board.place(icell2, 103)
+	sbb._rebuild_pieces()
+	await create_timer(0.05).timeout
+	Save.spend(Save.coins())                                   # broke first
+	sbb._select_item(icell2)
+	ok(sbb._info_buy.visible and sbb._info_trash.visible, "a sellable item shows BOTH the buy chip and the sell button")
+	var price103: Vector2i = G.buy_price(103)
+	var items_b := 0
+	for v in sbb.board.items:
+		if v > 0:
+			items_b += 1
+	sbb._on_buy_pressed()
+	var items_broke := 0
+	for v in sbb.board.items:
+		if v > 0:
+			items_broke += 1
+	ok(items_broke == items_b and Save.coins() == 0, "broke: tapping buy adds no item and spends nothing")
+	Save.add_coins(10000)
+	var coins_b := Save.coins()
+	sbb._select_item(icell2)                                   # re-read affordability with coins
+	sbb._on_buy_pressed()
+	await create_timer(0.05).timeout
+	var items_after := 0
+	for v in sbb.board.items:
+		if v > 0:
+			items_after += 1
+	ok(items_after == items_b + 1, "afford: buying drops one COPY onto the board")
+	ok(Save.coins() == coins_b - price103.x, "afford: buying spends ceil(sell×markup) coins")
+	# board FULL → the bought copy lands in the bag instead (no loss)
+	for c3 in sbb.board.empty_ground_cells():
+		if not sbb.board.is_gen(c3):
+			sbb.board.place(c3, 102)
+	sbb._rebuild_pieces()
+	Save.add_coins(10000)
+	sbb._select_item(icell2)
+	var bag_b: int = sbb.bag.size()
+	sbb._on_buy_pressed()
+	ok(sbb.bag.size() == bag_b + 1, "board full → the bought copy lands in the bag")
+	# board AND bag full → buy refuses cleanly (no item anywhere, no spend)
+	while sbb.bag.size() < sbb._bag_capacity():
+		sbb.bag.append(101)
+	var coins_full := Save.coins()
+	var bag_cap: int = sbb.bag.size()
+	sbb._on_buy_pressed()
+	ok(sbb.bag.size() == bag_cap and Save.coins() == coins_full, "board AND bag full → buy refuses, no spend")
+	# a generator has no buy chip (its action is burst, not a copy)
+	sbb._select_generator(sbb.board.gens.keys()[0])
+	ok(not sbb._info_buy.visible, "a generator shows no buy chip")
+	sbb.queue_free()
+
 	# 12. win-back: away 3 days with low water → full cap on return
 	fresh("winback")
 	var gw := Save.grove()
@@ -546,6 +610,31 @@ func _initialize() -> void:
 	ok(G.sell_reward(105) == Vector2i(5, 0), "T39: a map-1 t5 (band 1.0) still sells for exactly 5🪙")
 	ok(G.sell_reward(505) == Vector2i(int(round(5 * float(band[4]))), 0), \
 		"T39: a map-5 t5 (band %.1f) sells for %d🪙 (later map → more coins)" % [float(band[4]), int(round(5 * float(band[4])))])
+
+	# T55: BUY price (info-bar buy a copy) = ceil(sell × BUY_MARKUP), same currency split as selling, and
+	# STRICTLY above the sell value for every tier on every map (the anti-arbitrage invariant — no loop).
+	var buy_arb_ok := true
+	var buy_split_ok := true
+	for line in [1, 3, 5]:
+		for tier in range(1, G.PREMIUM_TIER + 1):
+			var code: int = int(line) * 100 + tier
+			var sell: Vector2i = G.sell_reward(code)
+			var buy: Vector2i = G.buy_price(code)
+			if buy != Vector2i(int(ceil(sell.x * G.BUY_MARKUP)), int(ceil(sell.y * G.BUY_MARKUP))):
+				buy_split_ok = false
+			# strictly dearer in whichever currency the item uses (coins for sub-top, 💎 for the pinnacle)
+			if sell.x > 0 and not (buy.x > sell.x):
+				buy_arb_ok = false
+			if sell.y > 0 and not (buy.y > sell.y):
+				buy_arb_ok = false
+			# exactly one currency, mirroring sell
+			if (buy.x > 0) == (buy.y > 0):
+				buy_arb_ok = false
+	ok(buy_split_ok, "T55: buy_price == ceil(sell × BUY_MARKUP) in the same currency split, every tier")
+	ok(buy_arb_ok, "T55: buying ALWAYS costs strictly more than selling returns (anti-arbitrage, one currency)")
+	ok(G.buy_price(103) == Vector2i(int(ceil(3 * G.BUY_MARKUP)), 0), "T55: a map-1 t3 buys for ceil(3×markup)🪙")
+	var top_buy: Vector2i = G.buy_price(100 + int(G.PREMIUM_TIER))   # line 1, the pinnacle tier
+	ok(top_buy.x == 0 and top_buy.y == int(ceil(G.BUY_MARKUP)), "T55: the top tier buys in 💎 = ceil(markup) (mirrors the 1💎 sell pinnacle)")
 
 	# diamonds: accessors + paid rain once the freebies are spent. A fresh save SEEDS a small
 	# starting balance (so the premium slot never reads a dead 0); drain it to a known 0 first.

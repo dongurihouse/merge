@@ -167,6 +167,12 @@ const STARTER_ITEMS := {
 # content.sell_reward(). One entry per MAPS row.
 const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Farmhouse · Barn · Pond · Orchard · Meadow
 
+# What BUYING a copy of an item (the §10 board info-bar buy, T55) costs RELATIVE to its sell value:
+# buy_price = ceil(sell_reward × BUY_MARKUP), in the same currency split (coins sub-top, 💎 top). Must
+# be > 1 so buying always costs strictly more than selling returns (the buy-low/sell-high loop is
+# impossible by construction). OWNER/SIM FEEL DIAL — re-validate the faucet/sink balance on grove_sim.
+const BUY_MARKUP := 3.0
+
 # Diamonds (earned-only).
 const LEVEL_DIAMONDS := 3                 # per level-up
 const MAP_DIAMONDS := 10                 # per map fully restored
