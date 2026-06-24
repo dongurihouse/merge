@@ -130,7 +130,11 @@
 		"banner_plural": "Mystery Gifts",
 		"banner_single": "Mystery Gift",
 		"spinning": "Spinning…",
-		"won": "You won!"
+		"won": "You won!",
+		"pick": "Pick %d",
+		"pick_counter": "%d / %d",
+		"claim": "Claim",
+		"claim_more": "Pick %d more"
 	},
 	"oow": {
 		"charged_note": "You'll be charged %s.",

@@ -152,8 +152,79 @@ func _initialize() -> void:
 	rc.free()
 	await process_frame
 
+	# === T54: slot-machine reels + the player picks N ===
+	# build_reveal now yields one tappable REEL per shown option (each carrying its landed reward) plus a
+	# Claim button — the reels spin, the player picks, Claim grants the picks.
+	var b54 := LoginMystery.build_reveal([{"coins": 200}, {"gems": 2}, {"coins": 300}], [1], 560.0, {})
+	var reels: Array = b54.get("reels", [])
+	ok(reels.size() == 3, "build_reveal makes one reel per shown option")
+	ok(b54.get("claim") is Button, "build_reveal exposes a Claim button")
+	ok((reels[0] as Control).get_meta("reward", {}) == {"coins": 200}, "each reel carries its landed reward (meta)")
+	get_root().add_child(b54["dialog"]); await process_frame
+	ok(_collect_label_texts(b54["dialog"]).has("300"), "a reel shows its concrete reward amount (300)")
+	(b54["dialog"] as Control).queue_free(); await process_frame
+
+	# the SHINE classification: a reward with gems is premium; gems outweigh coins for the top-value shine.
+	ok(LoginMystery.is_premium({"gems": 1}) and not LoginMystery.is_premium({"coins": 500}), "a gem reward is premium (shines); a coins reward is not")
+	ok(LoginMystery.reward_value({"gems": 2}) > LoginMystery.reward_value({"coins": 300}), "gems outweigh coins in reward value (top shine)")
+
+	# the PICK phase: each reel is tappable, Claim is gated until exactly `win` are chosen, over-cap is blocked,
+	# deselect works, and Claim hands on_claim EXACTLY the picked rewards.
+	var picked := {"v": []}
+	var b2 := LoginMystery.build_reveal([{"coins": 200}, {"gems": 2}, {"coins": 100}, {"water": 14}, {"coins": 300}], [], 560.0, {})
+	var reels2: Array = b2["reels"]
+	var claim2: Button = b2["claim"]
+	get_root().add_child(b2["dialog"]); await process_frame
+	LoginMystery.enter_pick(reels2, 2, b2["caption"], claim2, func(p: Array) -> void: picked.v = p)
+	ok(claim2.disabled, "Claim is disabled before any pick")
+	_tap_reel(reels2[2]); await process_frame
+	ok(claim2.disabled, "Claim stays disabled with only 1 of 2 picked")
+	_tap_reel(reels2[4]); await process_frame
+	ok(not claim2.disabled, "Claim enables when exactly 2 are picked")
+	_tap_reel(reels2[0]); await process_frame
+	ok(_selected_count(reels2) == 2, "selecting a 3rd is blocked at the pick limit (still 2)")
+	_tap_reel(reels2[2]); await process_frame
+	ok(_selected_count(reels2) == 1 and claim2.disabled, "tapping a picked reel deselects it (Claim disables again)")
+	_tap_reel(reels2[2]); await process_frame
+	claim2.pressed.emit(); await process_frame
+	ok(picked.v.size() == 2 and picked.v.has({"coins": 100}) and picked.v.has({"coins": 300}), "Claim hands on_claim exactly the picked rewards")
+	(b2["dialog"] as Control).queue_free(); await process_frame
+
+	# pick → claim_mystery grants the picked set + bumps the streak (the real integration).
+	fresh("mystery_pick_grant")
+	var gpg := Save.data
+	gpg["daily"] = {"day": int(Time.get_unix_time_from_system() / 86400.0), "jobs": 0, "merges": 0, "coins": 0, "claimed": false, "streak": 6}
+	Save.save_now(); Save._loaded = false
+	var c_pre := Save.coins(); var g_pre := Save.diamonds(); var s_pre2 := Login.streak()
+	var b3 := LoginMystery.build_reveal([{"coins": 200}, {"gems": 2}, {"coins": 100}, {"water": 14}, {"coins": 300}], [], 560.0, {})
+	var reels3: Array = b3["reels"]; var claim3: Button = b3["claim"]
+	get_root().add_child(b3["dialog"]); await process_frame
+	LoginMystery.enter_pick(reels3, 2, b3["caption"], claim3, func(p: Array) -> void: Login.claim_mystery(p))
+	_tap_reel(reels3[0]); _tap_reel(reels3[1]); await process_frame
+	claim3.pressed.emit(); await process_frame
+	ok(Save.coins() - c_pre == 200 and Save.diamonds() - g_pre == 2, "claiming grants exactly the picked rewards (200 coin + 2 gem)")
+	ok(Login.claimed_today() and Login.streak() == s_pre2 + 1, "the pick-claim marks claimed + bumps the streak")
+	(b3["dialog"] as Control).queue_free(); await process_frame
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# Press a reel's tap surface (each reel is a Button), simulating a player tap.
+func _tap_reel(reel: Variant) -> void:
+	if reel is Button:
+		(reel as Button).pressed.emit()
+		return
+	var bs := (reel as Node).find_children("*", "Button", true, false)
+	if not bs.is_empty():
+		(bs[0] as Button).pressed.emit()
+
+# How many reels are currently selected (the pick phase flags each via a "selected" meta).
+func _selected_count(reels: Array) -> int:
+	var n := 0
+	for r in reels:
+		if bool((r as Control).get_meta("selected", false)):
+			n += 1
+	return n
 
 # Gather every Label's text under a node (for asserting on-card amount text).
 func _collect_label_texts(n: Node) -> Array:
