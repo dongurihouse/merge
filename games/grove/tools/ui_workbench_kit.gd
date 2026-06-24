@@ -30,20 +30,15 @@ const BANNER_H := 92.0
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
 
-# The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
-# the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
-# a LOCKED place is the dark baked panel (ui/map/card_locked.png) under an "after <prev>" line. Code-
-# drawn fallbacks (meadow fill · §8 fog veil) keep the picker from blanking when an asset is missing. The
-# GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq) and passes it in `d`;
-# every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench tunes it and the game
-# reads the SAME recipe — the single-source-of-truth pattern the currency pill uses. The OPEN card's frame
-# is the SHARED gold-badge skin (board/info-bar consistent); only the LOCKED panel + count pill stay baked.
-const MAP_CARD_LOCKED := "map/card_locked.png"     # locked card's dark baked panel (lock medallion baked in)
+# The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
+# only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
+# left"/"restored" pill; a LOCKED place shows a dark gradient interior carrying the lock medallion under an
+# "after <prev>" line. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq)
+# and passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
+# tunes it and the game reads the SAME recipe — the single-source-of-truth pattern the currency pill uses.
 const MAP_CARD_PILL := "map/pill_left.png"         # the cream count pill on an open card's lower edge
 const MAP_CARD_ASPECT := 1027.0 / 352.0            # the place-card aspect — cards size to it so the frame never distorts
 const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
-const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
-const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
 const MAP_FRAME_NODE := "MapGoldFrame"             # the open card's shared gold-badge frame (tests assert it)
 const MAP_CARD_LOCK := "map/lock_flower.png"       # the standalone lock medallion centred on a locked card
 const MAP_LOCK_NODE := "MapLockMedallion"          # the locked card's centred lock medallion (tests assert it)
@@ -4299,79 +4294,6 @@ static func _map_place_mark(opts: Dictionary) -> Control:
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return mark
 
-# A code-drawn meadow fill for a LOCKED card whose painted panel is absent — a flat panel + a centered ✿
-# "place" mark, dimmed; the fog veil layers over this. (Open cards use the silhouette-masked fill instead.)
-static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
-	var ph := Panel.new()
-	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ph.clip_contents = true
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Pal.MEADOW if open else Pal.MEADOW.lerp(Pal.INK, 0.45)
-	ps.set_corner_radius_all(14)
-	ph.add_theme_stylebox_override("panel", ps)
-	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ph.add_child(_map_place_mark(opts))
-	return ph
-
-# The fog veil for a LOCKED map card (§8): a translucent ink scrim + a gradient that pools fog at the
-# bottom + a faint ✿ ghost. Overlays exactly `thumb` (full-rect child), named MAP_VEIL_NODE so a test can
-# assert it. ART SEAM: map/veil_<id>.png (per-map) or map/veil.png (generic) REPLACES the code fog.
-static func _map_veil(thumb: Control, map_id: String, opts: Dictionary) -> void:
-	thumb.clip_contents = true
-	var veil := Control.new()
-	veil.name = MAP_VEIL_NODE
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	thumb.add_child(veil)
-	var art := Game.art("map/veil_%s.png" % map_id)
-	if not ResourceLoader.exists(art):
-		art = Game.art(MAP_VEIL_ART)
-	if ResourceLoader.exists(art):
-		var sprite := TextureRect.new()
-		sprite.texture = load(art)
-		sprite.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		veil.add_child(sprite)
-		return
-	var scrim := float(opts.get("veil_scrim", 0.42))
-	var deep := float(opts.get("veil_deep", 0.66))
-	# 1. a flat haze over the whole thumb.
-	var haze := ColorRect.new()
-	haze.color = Color(Pal.INK, scrim)
-	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
-	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(haze)
-	# 2. fog settling — a top→bottom gradient deepening to `deep` at the base.
-	var grad := Gradient.new()
-	grad.set_color(0, Color(Pal.INK, 0.0))
-	grad.set_color(1, Color(Pal.INK, deep - scrim))
-	var gtex := GradientTexture2D.new()
-	gtex.gradient = grad
-	gtex.fill_from = Vector2(0.5, 0.0)
-	gtex.fill_to = Vector2(0.5, 1.0)
-	gtex.width = 4
-	gtex.height = 64
-	var settle := TextureRect.new()
-	settle.texture = gtex
-	settle.set_anchors_preset(Control.PRESET_FULL_RECT)
-	settle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	settle.stretch_mode = TextureRect.STRETCH_SCALE
-	settle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(settle)
-	# 3. the teasing ✿ ghost — a faint mark in the mist.
-	var ghost := Label.new()
-	ghost.name = "VeilMark"
-	ghost.text = "✿"
-	ghost.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", 64.0)))
-	ghost.add_theme_color_override("font_color", Color(Pal.CREAM, float(opts.get("veil_mark_alpha", 0.16))))
-	ghost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ghost.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(ghost)
-
 # Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to a rounded rect
 # (radius `corner_px`) so the locale art tucks inside the shared gold frame's inner corner. See
 # MAP_ART_FILL_SHADER.
@@ -4413,10 +4335,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
-		"veil_scrim":      float(c.get("veil_scrim", 42)) / 100.0,
-		"veil_deep":       float(c.get("veil_deep", 66)) / 100.0,
-		"veil_mark_alpha": float(c.get("veil_mark_alpha", 16)) / 100.0,
-		"veil_mark_size":  float(c.get("veil_mark_size", 64)),
+		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 
 ## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent

@@ -228,8 +228,7 @@ var _params := {
 	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
 	# Kit.map_card_opts_from_config). open/done/unlock_exp are preview-only (the game sets each per map).
 	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
-		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13,
-		"veil_scrim": 42, "veil_deep": 66, "veil_mark_alpha": 16, "veil_mark_size": 64,
+		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
 		"open": true, "done": false, "unlock_exp": 3},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
@@ -1594,19 +1593,14 @@ func _rebuild_sidebar() -> void:
 			# stretches the gold frame (the preview shows it).
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
 			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 50]))      # card height (% of screen height; the picker scrolls past the band)
-			# the painted kit (card_locked / pill_left) vs the §8 code-drawn fallback. The fog veil + its dials
-			# apply ONLY to that fallback (a locked card with art off), so they show then.
+			# the count pill's painted art (pill_left) vs a code-drawn cream pill — both card frames + the
+			# locked interior are code-drawn now, so this toggle only governs the count pill.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
 			_sidebar_body.add_child(_slider_row(["edge_sparkle", 0, 100]))    # twinkles ringing an ACTIVE open card's gold band (% — 0 = off)
 			_sidebar_body.add_child(_slider_row(["pill_w_frac", 10, 60]))     # count-pill width (% of card width)
 			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
 			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
 			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
-			if not bool(_params["map_card"]["use_art"]):
-				_sidebar_body.add_child(_slider_row(["veil_scrim", 0, 100]))       # §8 fog haze over the locked thumb
-				_sidebar_body.add_child(_slider_row(["veil_deep", 0, 100]))        # …pooled deeper at the base
-				_sidebar_body.add_child(_slider_row(["veil_mark_alpha", 0, 100]))  # the ✿ ghost in the mist
-				_sidebar_body.add_child(_slider_row(["veil_mark_size", 16, 120]))  # ✿ glyph px (also the meadow-fill mark)
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
