@@ -46,8 +46,9 @@ var coins := 0                 # spendable wallet BALANCE (faucet minus the sink
 var coins_earned := 0          # cumulative coin INTAKE over the run (the faucet total — balance never goes negative, so the report reads intake, not the drained balance)
 var quest_coins := 0           # coins from quest rewards (the §7 faucet)
 var sell_coins := 0            # coins from selling only (the Y "cleanup, not income" tripwire)
-var burst_level := 0           # the player's paid burst-upgrade level (the §6 burst coin SINK)
-var burst_coins_spent := 0     # coins sunk into burst-upgrades (a finite Z sink)
+var boost_taps := 0            # generator taps left on the live temporary boost (§6 coin sink)
+var boost_coins_spent := 0     # coins sunk into boost activations (a repeatable Z sink)
+var boosts_bought := 0         # how many boosts the bot has activated over the run
 # §1 POPULATION loop: once a map COMPLETES, its resident roster opens. Welcoming spends coins
 # (base/core) or diamonds (premium signature); two-of-a-kind auto-merges a tier up. NO roster cap,
 # so the bot re-buys base feeders forever — this is the ENDLESS coin sink that replaced the hub.
@@ -191,11 +192,11 @@ func _initialize() -> void:
 	# REPORTED; the absorption ratio is a tuning signal (the population invariants P1/P2 below are the
 	# hard checks). ---
 	var other_coins := coins_earned - quest_coins - sell_coins   # drop-coins (merge spawns) + featured bonuses
-	var total_sink := burst_coins_spent + resident_coins_spent
+	var total_sink := boost_coins_spent + resident_coins_spent
 	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · held balance %d🪙" % \
 		[coins_earned, quest_coins, sell_coins, other_coins, coins])
-	print("                 sink %d🪙 = residents %d🪙 (%d welcomed, %d auto-merges) + burst %d🪙 (lvl %d) → absorbs %.0f%% of the faucet" % \
-		[total_sink, resident_coins_spent, residents_welcomed - residents_premium, resident_merges, burst_coins_spent, burst_level, minf(100.0, 100.0 * float(total_sink) / float(maxi(1, coins_earned)))])
+	print("                 sink %d🪙 = residents %d🪙 (%d welcomed, %d auto-merges) + boosts %d🪙 (%d bought) → absorbs %.0f%% of the faucet" % \
+		[total_sink, resident_coins_spent, residents_welcomed - residents_premium, resident_merges, boost_coins_spent, boosts_bought, minf(100.0, 100.0 * float(total_sink) / float(maxi(1, coins_earned)))])
 
 	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
@@ -211,11 +212,9 @@ func _initialize() -> void:
 	#      the endless sink exists to prevent. We measure the coins earned post-first-completion vs the
 	#      resident spend over the same window; the population sink must absorb a healthy share.
 	#   P2 EARLY-GAME dead-zone: BEFORE the first completion (population isn't open yet) there must be
-	#      no idle coin gap — the active faucet has to keep flowing into restoration + the burst ladder,
+	#      no idle coin gap — the active faucet has to keep flowing into restoration + boost activations,
 	#      i.e. the bot is never sitting on a fat pre-population coin pile with nothing to spend on. ---
-	var burst_ladder := 0
-	for c in G.BURST_UPGRADE_COSTS:
-		burst_ladder += int(c)
+	var boost_budget := G.BOOST_COST * 4         # a few boosts' worth — the repeatable pre-population coin sink
 
 	# P1 — late-game (post-first-completion) no-pile. The HARD check: once population opened, the coin
 	# faucet earned since must have been ABSORBED, leaving no growing pile. We compare the coin INTAKE
@@ -249,12 +248,12 @@ func _initialize() -> void:
 	# population never opened and there is no pre-pop/post-pop boundary — P1 already noted the runway.)
 	if first_complete_day > 0:
 		var pre_pop_pile := balance_at_first_complete
-		# the burst ladder is the standing pre-pop sink; one ladder's worth of held coins between
-		# upgrades is normal churn — a pile beyond that before pop opens is the dead-zone to flag.
-		if pre_pop_pile <= burst_ladder:
-			print("  PASS P2: at the first completion the held pile (%d🪙) stayed within the burst-ladder sink (%d🪙) — surplus kept flowing pre-population, no early-game coin dead-zone" % [pre_pop_pile, burst_ladder])
+		# boosts are the standing pre-pop sink; a few boosts' worth of held coins between activations is
+		# normal churn — a pile beyond that before pop opens is the dead-zone to flag.
+		if pre_pop_pile <= boost_budget:
+			print("  PASS P2: at the first completion the held pile (%d🪙) stayed within the boost sink (%d🪙) — surplus kept flowing pre-population, no early-game coin dead-zone" % [pre_pop_pile, boost_budget])
 		else:
-			print("  WARN P2: at the first completion the bot held %d🪙 — beyond the %d🪙 burst ladder, the only pre-population sink — an early-game coin gap (tune the burst cadence or open population sooner)" % [pre_pop_pile, burst_ladder])
+			print("  WARN P2: at the first completion the bot held %d🪙 — beyond the %d🪙 boost sink, the only pre-population sink — an early-game coin gap (tune the boost cadence or open population sooner)" % [pre_pop_pile, boost_budget])
 	else:
 		print("  -- P2: population never opened (no completion) — no pre-population boundary to check (see I3 runway) --")
 
@@ -479,16 +478,16 @@ func _play_session() -> Dictionary:
 		if delivered:
 			continue
 
-		# 1b. SINK surplus coins. Two sinks now: the FINITE §6 burst-upgrade ladder, and the ENDLESS
-		# §1 POPULATION loop (welcoming residents on COMPLETED maps — no roster cap, so it absorbs
-		# coins forever once the first map is done). The bot first tops up the cheap finite burst
-		# ladder, then pours the rest into residents — the new standing coin sink that replaced the
-		# deleted §8 hub-upgrade ladder. (Greedy mode welcomes more aggressively; see _greedy.)
-		var net := coins - burst_coins_spent
-		var buc := G.burst_upgrade_cost(burst_level)
-		if buc > 0 and net >= buc:
-			burst_coins_spent += buc
-			burst_level += 1
+		# 1b. SINK surplus coins. Two sinks now: the repeatable §6 BOOST (re-armed whenever none is live),
+		# and the ENDLESS §1 POPULATION loop (welcoming residents on COMPLETED maps — no roster cap, so it
+		# absorbs coins forever once the first map is done). The bot re-arms the cheap boost when it lapses,
+		# then pours the rest into residents — the standing coin sink that replaced the deleted §8 hub
+		# ladder. (Greedy mode welcomes more aggressively; see _greedy.)
+		var net := coins - boost_coins_spent
+		if boost_taps <= 0 and net >= G.BOOST_COST:
+			boost_coins_spent += G.BOOST_COST
+			boost_taps = G.BOOST_TAPS
+			boosts_bought += 1
 			continue
 		# §1 population SINK (coins): welcome a base resident on a completed map. The default mode
 		# keeps a one-resident coin cushion for restoration; greedy welcomes whenever it can afford one.
@@ -564,10 +563,13 @@ func _play_session() -> Dictionary:
 					board.place(empt[rng.randi_range(0, empt.size() - 1)], G.COIN_LINE * 100 + 1)
 			continue
 
-		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + burst-upgrade),
-		# each costing G.POP_COST, bounded by affordable energy + open cells.
+		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
+		# each costing G.POP_COST, bounded by affordable energy + open cells. A charged tap spends one
+		# boost tap (the boost is global and decays one tap at a time, then lapses).
 		if water >= G.POP_COST and not board.empty_ground_cells().is_empty() and map < G.MAPS.size():
-			var burst: int = G.burst_count(map, burst_level, rng)
+			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
+			if boost_taps > 0:
+				boost_taps -= 1
 			burst = mini(burst, int(water / G.POP_COST))
 			burst = mini(burst, board.empty_ground_cells().size())
 			for _b in burst:

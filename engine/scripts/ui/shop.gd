@@ -237,9 +237,8 @@ static func _sections(refs: Dictionary) -> Array:
 		"coin": return _coin_sections(refs)
 		_: return _premium_sections(refs)
 
-# WATER shop — refill the can (paid in 💎) + the burst-upgrade (paid in 🪙). The fill card needs the
-# host's water_grant (the board/map pass it); the burst card is always offered until maxed, since the
-# §6/§10 burst sink is global (it makes each water-pop yield more — "make your water go further", T54).
+# WATER shop — refill the can (paid in 💎). The fill card needs the host's water_grant (the board/map
+# pass it). The boost is no longer sold here — it's activated from the board's generator info bar (T57).
 static func _water_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var secs: Array = []
@@ -255,42 +254,7 @@ static func _water_sections(refs: Dictionary) -> Array:
 				"note": Strings.t("shop.water.info_row_note")}],
 				Strings.t("shop.water.info_note"))}
 		secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
-	var burst := _burst_card(refs)
-	if not burst.is_empty():
-		secs.append({"caption": Strings.t("shop.burst.label"), "cards": [burst]})
 	return secs
-
-# The burst-upgrade card (T54): a coin-priced buy of the next global burst level. Empty {} once maxed
-# (the buy affordance disappears, like the +bag-slot at cap). Buys through the shared seam in _flow_burst.
-static func _burst_card(refs: Dictionary) -> Dictionary:
-	var host: Control = refs.host
-	var cost := G.burst_upgrade_cost(G.burst_level())
-	if cost < 0:
-		return {}                                   # fully upgraded — nothing left to buy
-	return {
-		"icon": "sprout", "label": Strings.t("shop.burst.card"),
-		"price": str(cost), "price_icon": "coin",
-		"affordable": Save.coins() >= cost,
-		"on_buy": func() -> void: _flow_burst(refs),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.burst.info_title"), [{
-			"icon": "sprout", "label": Strings.t("shop.burst.info_row_label"), "amount": "+1",
-			"note": Strings.t("shop.burst.info_row_note")}],
-			Strings.t("shop.burst.info_note"))}
-
-# Buy the next burst level with coins (the shared seam G.try_upgrade_burst). Broke → wallet nudge, no
-# spend; success → a "Bigger bursts!" floater + the storefront rebuilds to the next cost (or drops the card).
-static func _flow_burst(refs: Dictionary) -> void:
-	var cost := G.burst_upgrade_cost(G.burst_level())
-	if cost < 0:
-		return
-	if Save.coins() < cost:
-		_need_more(refs, "coin", cost - Save.coins())
-		return
-	if not G.try_upgrade_burst():
-		return
-	Audio.play("merge_success", -3.0, 1.2)
-	FX.floating_text(refs.host, _fb_at(refs.host), Strings.t("shop.burst.bought"), STRAW, Tune.NEED_SIZE)
-	_after_buy(refs)
 
 # COIN shop — the Coin pouch (turn 💎 into coins). (The coin-priced item shortcuts were removed
 # 2026-06-23 — item-buying is moving to the board's item info bar.)

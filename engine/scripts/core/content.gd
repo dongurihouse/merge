@@ -40,7 +40,9 @@ const BURST_ODDS = D.BURST_ODDS
 const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
 const BURST_MAX = D.BURST_MAX
-const BURST_UPGRADE_COSTS = D.BURST_UPGRADE_COSTS
+const BOOST_BONUS = D.BOOST_BONUS
+const BOOST_TAPS = D.BOOST_TAPS
+const BOOST_COST = D.BOOST_COST
 const RESIDENT_MAX_TIER = D.RESIDENT_MAX_TIER
 const RESIDENT_CORE = D.RESIDENT_CORE
 const RESIDENT_ART = D.RESIDENT_ART
@@ -356,11 +358,11 @@ static func active_giver_count(banked_stars: int, next_cost: int, max_givers: in
 ## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
 ## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every
 ## BURST_MAP_EVERY maps, generators throw one more) — capped on its OWN at BURST_FREE_MAX, PLUS
-## the player's paid burst-upgrade level added on top. Decoupling the paid part from the free cap
-## (T25) means every purchased level ALWAYS adds +1 — the free per-map gift can no longer eat the
-## paid headroom (the old `clampi(base+free+paid, …, 6)` wasted the top paid levels on deep maps).
-## Final clamp to [1, BURST_MAX] is a board-flood safety net. Each popped item still costs 1 energy.
-static func burst_count(map: int, upgrade_level: int, rng: RandomNumberGenerator) -> int:
+## `boost_bonus` (the live temporary boost's +items/tap, 0 when none is active) added on top.
+## Decoupling the boost from the free cap (T25) means the boost ALWAYS adds its full bonus — the
+## free per-map gift can no longer eat its headroom. Final clamp to [1, BURST_MAX] is a board-flood
+## safety net. Each popped item still costs 1 energy.
+static func burst_count(map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
 	var base := 1
 	var roll := rng.randf()
 	var acc := 0.0
@@ -371,39 +373,46 @@ static func burst_count(map: int, upgrade_level: int, rng: RandomNumberGenerator
 			break
 	var free_scale := int(map / float(BURST_MAP_EVERY))     # +1 base burst every N maps…
 	var free := mini(base + free_scale, BURST_FREE_MAX)      # …capped on its own, so the gift can't trivialize the board
-	var paid := mini(upgrade_level, BURST_UPGRADE_COSTS.size())   # the paid sink — always added on top of the free cap
+	var paid := clampi(boost_bonus, 0, BOOST_BONUS)         # the live boost's bonus — added on top of the free cap
 	return clampi(free + paid, 1, BURST_MAX)
 
-## The burst-upgrade coin sink: the cost to raise the burst from `level` to `level+1`,
-## escalating up the BURST_UPGRADE_COSTS ladder. Returns −1 once maxed (no further upgrade).
-static func burst_upgrade_cost(level: int) -> int:
-	if level >= 0 and level < BURST_UPGRADE_COSTS.size():
-		return int(BURST_UPGRADE_COSTS[level])
-	return -1
+## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS generator taps that each
+## drop BOOST_BONUS extra items, board-wide, then it expires. The arm count rides the grove blob under
+## "boost_taps" (0 = none active). Replaces the old permanent burst-upgrade ladder (T57).
+static func boost_cost() -> int:
+	return BOOST_COST
 
-## How many paid burst-upgrade levels exist (the ladder length) — i.e. the max upgrade level.
-static func burst_upgrade_max() -> int:
-	return BURST_UPGRADE_COSTS.size()
+## The boost's magnitude: extra items per generator tap while it is live (the caller gates on active).
+static func boost_bonus() -> int:
+	return BOOST_BONUS
 
-## The player's GLOBAL burst-upgrade level (one value sizes every generator's burst, every map),
-## persisted in the grove blob. 0 = unbought.
-static func burst_level() -> int:
-	return int(Save.grove().get("burst_lvl", 0))
+## Generator taps left on the live boost (0 = none active), read from the grove blob.
+static func boost_taps_left() -> int:
+	return int(Save.grove().get("boost_taps", 0))
 
-## The single buy path for the burst-upgrade coin sink — called by BOTH surfaces (T54): the board
-## info-bar chip (`_upgrade_gen_burst` delegates here) and the water-shop card. Spends the next
-## ladder cost, raises burst_lvl by one, and persists. Returns false (no spend, no level) when
-## already maxed or broke — the callers own the refusal feedback.
-static func try_upgrade_burst() -> bool:
-	var lvl := burst_level()
-	var cost := burst_upgrade_cost(lvl)
-	if cost < 0:
-		return false                          # already at the max burst-upgrade level
-	if not Save.spend(cost, "burst_upgrade"):
+## Is a boost currently live?
+static func boost_active() -> bool:
+	return boost_taps_left() > 0
+
+## The single arm path the info-bar chip drives. Refuses (no spend) when a boost is already live or
+## when broke; else spends BOOST_COST, arms BOOST_TAPS taps, and persists. Returns true on a real arm.
+static func try_activate_boost() -> bool:
+	if boost_active():
+		return false                          # one boost at a time — no re-buy while live
+	if not Save.spend(BOOST_COST, "boost"):
 		return false                          # not enough coins
-	Save.grove()["burst_lvl"] = lvl + 1
+	Save.grove()["boost_taps"] = BOOST_TAPS
 	Save.grove_write()
 	return true
+
+## Spend one tap off the live boost — called once per charged generator tap. No-op (never underflows)
+## when no boost is active. Persists so the count rides app restarts.
+static func consume_boost_tap() -> void:
+	var left := boost_taps_left()
+	if left <= 0:
+		return
+	Save.grove()["boost_taps"] = left - 1
+	Save.grove_write()
 
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE

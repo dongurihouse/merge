@@ -110,37 +110,35 @@ func _initialize() -> void:
 	ok(later > 3, "a later map's generator pops a bigger burst (free per-map scale-up)")
 	var upgraded := 0
 	for _i in 200:
-		upgraded = maxi(upgraded, G.burst_count(0, 2, brng))
-	ok(upgraded > 3, "a burst-upgrade raises the burst")
+		upgraded = maxi(upgraded, G.burst_count(0, G.BOOST_BONUS, brng))
+	ok(upgraded > 3, "a live boost raises the burst")
 	var capped := true
 	var floored := true
 	for _i in 200:
-		var bc := G.burst_count(4, 9, brng)
+		var bc := G.burst_count(4, G.BOOST_BONUS, brng)
 		if bc > int(G.BURST_MAX):
 			capped = false
 		if G.burst_count(0, 0, brng) < 1:
 			floored = false
 	ok(capped, "burst never exceeds BURST_MAX")
 	ok(floored, "burst is always at least 1")
-	# the burst-upgrade coin-sink cost ladder (escalating, then maxed)
-	ok(G.burst_upgrade_cost(0) > 0 and G.burst_upgrade_cost(1) > G.burst_upgrade_cost(0), "the burst-upgrade coin cost escalates")
-	ok(G.burst_upgrade_cost(G.burst_upgrade_max()) == -1, "burst-upgrade caps — cost -1 past the max level")
-	# T25 DECOUPLE: at a deep map the FREE portion is capped (BURST_FREE_MAX), and each PAID level adds
-	# +1 ON TOP — regression guard for the old combined cap that clipped upper paid levels (burst_count(4,3)
-	# was stuck at 6). The MAX burst at the deepest level should walk BURST_FREE_MAX → BURST_MAX, one per level.
-	var deep_max := {}
-	for L in range(0, int(G.BURST_UPGRADE_COSTS.size()) + 1):
-		var m := 0
-		for _i in 400:
-			m = maxi(m, G.burst_count(4, L, brng))
-		deep_max[L] = m
-	ok(deep_max[0] == int(G.BURST_FREE_MAX), "deep-map FREE burst caps at BURST_FREE_MAX")
-	var decoupled := true
-	for L in range(1, int(G.BURST_UPGRADE_COSTS.size()) + 1):
-		if deep_max[L] != mini(int(G.BURST_FREE_MAX) + L, int(G.BURST_MAX)):
-			decoupled = false
-	ok(decoupled, "each paid burst level adds +1 on top of the free cap (decoupled — no wasted levels)")
-	ok(deep_max[int(G.BURST_UPGRADE_COSTS.size())] == int(G.BURST_MAX), "the top paid level reaches BURST_MAX (free cap + all paid)")
+	# the boost coin sink: a flat cost, the same every activation (no ladder — T57)
+	ok(G.boost_cost() > 0, "the boost has a positive coin cost")
+	ok(G.boost_bonus() > 0, "the boost adds a positive per-tap bonus")
+	# T25/T57 DECOUPLE: at a deep map the FREE portion is capped (BURST_FREE_MAX), and a live BOOST adds
+	# exactly BOOST_BONUS more ON TOP (clamped — a larger addend can't over-stack). Regression guard for
+	# the old combined cap that clipped the bonus (burst_count(4, bonus) was stuck at the free cap).
+	var deep_free := 0
+	var deep_boost := 0
+	var deep_over := 0
+	for _i in 400:
+		deep_free = maxi(deep_free, G.burst_count(4, 0, brng))                  # no boost
+		deep_boost = maxi(deep_boost, G.burst_count(4, G.BOOST_BONUS, brng))    # a live boost
+		deep_over = maxi(deep_over, G.burst_count(4, G.BOOST_BONUS + 5, brng))  # an over-large addend → clamped
+	ok(deep_free == int(G.BURST_FREE_MAX), "deep-map FREE burst caps at BURST_FREE_MAX")
+	ok(deep_boost == mini(int(G.BURST_FREE_MAX) + int(G.BOOST_BONUS), int(G.BURST_MAX)), "a live boost adds BOOST_BONUS on top of the free cap")
+	ok(deep_boost == int(G.BURST_MAX), "the boosted deep-map burst reaches BURST_MAX (free cap + the boost bonus)")
+	ok(deep_over == deep_boost, "the boost addend is clamped — a larger value can't over-stack the burst")
 
 	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
 	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier

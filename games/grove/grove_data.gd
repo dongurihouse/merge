@@ -100,13 +100,17 @@ const MAX_GIVERS := 4                     # fence slots (§7) — the fence is 4
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
 # taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,
-# capped on its own at BURST_FREE_MAX) PLUS the player's paid burst-upgrade level added on top — so each
-# bought level always adds +1 (decoupled, T25; the old combined cap wasted the top paid levels on deep maps).
+# capped on its own at BURST_FREE_MAX) PLUS — while a temporary BOOST is live — BOOST_BONUS extra items
+# per tap, board-wide, for BOOST_TAPS taps after one BOOST_COST activation (the §10 coin sink). The
+# boost is global and decays one tap at a time, then expires; no permanent stacking (T57, replaces the
+# old paid burst-upgrade ladder).
 const BURST_ODDS := [0.55, 0.30, 0.15]    # base burst pops 1 / 2 / 3 items
 const BURST_MAP_EVERY := 2                # +1 base burst every N maps (the free per-map scale-up)
 const BURST_FREE_MAX := 4                 # cap on the FREE portion (base + per-map gift) — keeps the gift from trivializing the board
-const BURST_MAX := 8                      # absolute ceiling = BURST_FREE_MAX + the 4 paid levels (paid never clips)
-const BURST_UPGRADE_COSTS := [120, 360, 840, 1800]   # coin cost L0→1…3→4 (the §10 second coin sink); each buys a guaranteed +1; size = max level
+const BOOST_BONUS := 2                    # extra items per generator tap while a boost is live
+const BOOST_TAPS := 10                    # how many generator taps one boost lasts
+const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
+const BURST_MAX := BURST_FREE_MAX + BOOST_BONUS   # absolute ceiling = free cap + the live boost bonus
 
 # ─────────────────────────────────────────────────────────────────────────────
 # §1 RESIDENTS — the population sub-game (replaces the removed home-hub coin-yield

@@ -139,21 +139,36 @@ func _initialize() -> void:
 			scn._select_item(icell)
 			await create_timer(0.3).timeout
 		"genburst", "genburstbroke":
-			# T54: the info bar with the GENERATOR selected → the burst-upgrade buy chip in the action slot.
-			# "genburst" = affordable (coins present → green chip); "genburstbroke" = broke (dimmed chip).
+			# T54→boost: the info bar with the GENERATOR selected → the boost chip in the action slot.
+			# "genburst" = affordable, no boost live (coins present → green chip); "genburstbroke" = broke
+			# (dimmed chip).
 			var gbg := Save.grove()
 			gbg["pops"] = 30                       # past the FTUE so the bar reads its played state
 			Save.grove_write()
 			if mode == "genburst":
-				Save.add_coins(2000)               # enough for the next burst level → the chip lights green
+				Save.add_coins(2000)               # enough to arm a boost → the chip lights green
 			else:
 				Save.spend(Save.coins())           # broke → the chip dims, cost shown as a goal
 			scn._update_hud()
 			await create_timer(0.3).timeout
 			scn._select_generator(scn.board.gens.keys()[0])
 			await create_timer(0.3).timeout
+		"genboost":
+			# T57: a LIVE boost — every generator wears the sparkle + taps-left badge, the info bar reads
+			# the boost detail (+N/tap · M left), and the boost chip is FADED (no re-buy while running).
+			var gbo := Save.grove()
+			gbo["pops"] = 30                       # past the FTUE so the bar reads its played state
+			Save.grove_write()
+			Save.add_coins(2000)
+			scn._update_hud()
+			await create_timer(0.2).timeout
+			scn._select_generator(scn.board.gens.keys()[0])
+			scn._on_burst_chip()                   # arm the boost → indicator lights up + chip fades
+			await create_timer(2.0).timeout        # let the "Bigger bursts!" celebration floater clear
+			scn._select_generator(scn.board.gens.keys()[0])   # re-read the bar (steady boosted state)
+			await create_timer(0.3).timeout
 		"watershop":
-			# T54: the WATER stall opened over the board → the Fill-water card + the coin-priced burst card.
+			# the WATER stall opened over the board → just the Fill-water card (the boost is a board action, T57).
 			Save.add_coins(2000)
 			Save.add_diamonds(50)
 			scn._update_hud()

@@ -24,6 +24,7 @@
 			"sell_spares": "the merchant buys spares — drag it to his stall"
 		},
 		"info": {
+			"boost_detail": "Boosted +%d/tap · %d left",
 			"burst_label": "Boost",
 			"burst_need": "Need more coins",
 			"buy_label": "Buy",
@@ -143,15 +144,6 @@
 		"title": "Settings"
 	},
 	"shop": {
-		"burst": {
-			"bought": "Bigger bursts!",
-			"card": "Boost",
-			"info_note": "One upgrade boosts every generator, on every map.",
-			"info_row_label": "Burst",
-			"info_row_note": "each generator tap drops one more item",
-			"info_title": "Bigger bursts",
-			"label": "Bigger bursts"
-		},
 		"buy": {
 			"need_more": "Need %d more"
 		},
