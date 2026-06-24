@@ -18,7 +18,7 @@ const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")  # flush pr
 # Script handles shared across the split suites (were per-section locals).
 const Shop = preload("res://engine/scripts/ui/shop.gd")
 const ShopS = preload("res://engine/scripts/ui/shop.gd")
-const Ads = preload("res://engine/scripts/core/ads.gd")
+const Claims = preload("res://engine/scripts/core/claims.gd")
 const Feat = preload("res://engine/scripts/core/features.gd")
 const Data = preload("res://games/active.gd").DATA
 
@@ -446,27 +446,36 @@ func _test_2x_doubler_rehome() -> void:
 	get_root().add_child(scn)
 	if scn.board == null:
 		scn._ready()
-	ok(Ads.can_show("collect_2x"), "the 2× ad is offerable on a fresh save")
-	scn._maybe_offer_2x(50, scn.get_global_rect().get_center())
-	ok(scn._2x_offer != null and is_instance_valid(scn._2x_offer), "a quest coin reward surfaces the 2× doubler on the board")
+	# The 💎-priced doubler is GATED: it only surfaces when the coin reward is big enough that doubling
+	# beats the shop pouch (got >= COLLECT_2X_COIN_RATE). A small reward never offers it.
+	scn._maybe_offer_2x(9, scn.get_global_rect().get_center())
+	ok(scn._2x_offer == null, "a small reward (9 < rate) never offers the doubler (it can't beat the shop)")
+	# A big reward (50 >= 36) DOES surface it — the deal is worth diamonds.
+	Save.add_diamonds(10)                              # enough to afford the doubler
+	var got := 50
+	var cost := G.collect_2x_cost(got)
+	scn._maybe_offer_2x(got, scn.get_global_rect().get_center())
+	ok(scn._2x_offer != null and is_instance_valid(scn._2x_offer), "a big quest coin reward surfaces the 2× doubler on the board")
 	# The card must SPELL OUT the doubling (legibility, not a bare "+50"): the ORIGINAL amount and the
 	# DOUBLED total both appear, so the player sees 50 → 100, not one ambiguous number.
 	var card_labels := _label_texts(scn._2x_offer)
 	ok("50" in card_labels, "the 2× card shows the original amount (50)")
 	ok("100" in card_labels, "the 2× card shows the DOUBLED total (100)")
 	var coins_b := Save.coins()
-	scn._accept_2x_offer(50)
-	ok(Save.coins() == coins_b + 50, "accepting the 2× credits a SECOND N coins (the doubled half)")
+	var gems_b := Save.diamonds()
+	scn._accept_2x_offer(got)
+	ok(Save.coins() == coins_b + got, "accepting the 2× credits a SECOND N coins (the doubled half)")
+	ok(Save.diamonds() == gems_b - cost, "...and spends the %d💎 price (paid in diamonds, no ad)" % cost)
 	ok(scn._2x_offer == null, "the card dismisses after accept")
 	scn._maybe_offer_2x(0, scn.get_global_rect().get_center())
 	ok(scn._2x_offer == null, "a zero-coin reward never offers the doubler")
 	scn.queue_free()
 
 # ── T45 · the INTEGRATION wiring (drives the real Map scene) ──────────────────────────────
-# The three monetization engines (2×-collect ad, piggy vault, daily-login calendar) merged
+# The three monetization engines (2× coin doubler, piggy vault, daily-login calendar) merged
 # tested but UNREACHABLE; this proves their entry points are now live:
 #   1. a hub auto-collect of N coins surfaces an opt-in 2× DOUBLER that credits exactly a
-#      second N and consumes the arm (and does NOT appear when the ad isn't offerable),
+#      second N (and does NOT appear when the reward is too small to beat the shop),
 #   2. the piggy-bank button lives in the map chrome, opens the jar, and lights its pip when
 #      the vault is claimable,
 #   3. the daily-login calendar auto-pops on a fresh (unclaimed) day past the FTUE, and stays
@@ -476,8 +485,8 @@ func _test_t45_wiring() -> void:
 	var hub_id := String(G.MAPS[hub].spots[0].id)   # a real hub spot to restore as a yield building
 
 	# (The 2× DOUBLER sub-tests (1a/1b) were retired with the hub-yield auto-collect they hung off —
-	# the §8 home-hub loop is gone (population sub-game now). FOLLOW-UP: re-point the rewarded "2×"
-	# ad from "double a yield collect" to "double a welcome" and restore coverage. See grove_spec §10.)
+	# the §8 home-hub loop is gone (population sub-game now). The 💎-priced "2×" doubler is covered by
+	# _test_2x_doubler_rehome on the board instead. See grove_spec §10.)
 
 	# 2. THE PIGGY-VAULT CHROME ENTRY. The map chrome carries a piggy button that opens the jar;
 	# its ready-pip reflects Vault.claimable(). Drive _open_vault() → a parchment overlay appears.

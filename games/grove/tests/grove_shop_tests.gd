@@ -1,10 +1,12 @@
 extends "res://games/grove/tests/grove_test_base.gd"
-## grove · shop+ads — split from the grove_tests monolith; shares grove_test_base.gd.
+## grove · shop — split from the grove_tests monolith; shares grove_test_base.gd. Covers the IAP
+## ladder, the free claims (water refill + free acorns), the 💎 doubler pricing, and the shop cards.
 
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
 
 func _initialize() -> void:
-	begin("grove · shop+ads")
+	begin("grove · shop")
 	fresh("iap_ladder")
 	ok(Data.CASH_PACKS.size() >= 5, "the cash ladder has many tiers (entry → whale ceiling)")
 	var prev_rate := -1.0
@@ -57,51 +59,49 @@ func _initialize() -> void:
 	ok(Save.take_water_pending() == int(Data.STARTER_PACK.water), "the board drains the banked water credit")
 	ok(Save.water_pending() == 0, "...and the credit is cleared (applied exactly once)")
 
-	# T-E: rewarded ads — a watch grants the reward, then the type is REFUSED until its
+	# T-E: free claims — a claim grants the reward, then the type is REFUSED until its
 	# cooldown elapses AND under its daily cap; the per-type daily cap holds.
-	fresh("ads_refill")
-	ok(Ads.can_show("refill_water"), "a fresh refill ad is offerable")
-	var rr: Dictionary = Ads.claim("refill_water")
-	ok(bool(rr.ok) and int(rr.water) == G.WATER_CAP, "watching the refill ad yields a full can (%d💧)" % G.WATER_CAP)
-	ok(not Ads.can_show("refill_water"), "...and the ad is refused immediately after (cooldown)")
-	ok(not bool(Ads.claim("refill_water").ok), "a claim during cooldown is refused (no over-grant)")
-	# backdate the last-watch to simulate the cooldown elapsing → offerable again.
-	Save.grove()["ad_ledger"]["refill_water"]["last"] = Time.get_unix_time_from_system() - Data.ADS.refill_water.cooldown - 1.0
-	ok(Ads.can_show("refill_water"), "past the cooldown the refill ad is offerable again")
+	fresh("claims_refill")
+	ok(Claims.can_show("refill_water"), "a fresh refill claim is offerable")
+	var rr: Dictionary = Claims.claim("refill_water")
+	ok(bool(rr.ok) and int(rr.water) == G.WATER_CAP, "claiming the free refill yields a full can (%d💧)" % G.WATER_CAP)
+	ok(not Claims.can_show("refill_water"), "...and the claim is refused immediately after (cooldown)")
+	ok(not bool(Claims.claim("refill_water").ok), "a claim during cooldown is refused (no over-grant)")
+	# backdate the last-claim to simulate the cooldown elapsing → offerable again.
+	Save.grove()["claim_ledger"]["refill_water"]["last"] = Time.get_unix_time_from_system() - Data.CLAIMS.refill_water.cooldown - 1.0
+	ok(Claims.can_show("refill_water"), "past the cooldown the refill claim is offerable again")
 	# exhaust the daily cap (clearing cooldown each time) → refused for the rest of the day.
-	var cap_n := int(Data.ADS.refill_water.cap)
-	for k in range(Ads.remaining_today("refill_water")):
-		Save.grove()["ad_ledger"]["refill_water"]["last"] = 0.0   # ignore cooldown for the cap probe
-		ok(bool(Ads.claim("refill_water").ok), "refill watch within the daily cap")
-	ok(Save.ad_used_today("refill_water") == cap_n, "the daily cap is reached (%d/day)" % cap_n)
-	Save.grove()["ad_ledger"]["refill_water"]["last"] = 0.0
-	ok(not Ads.can_show("refill_water"), "the per-type DAILY CAP refuses further watches")
-	ok(not bool(Ads.claim("refill_water").ok), "...and a capped claim grants nothing")
+	var cap_n := int(Data.CLAIMS.refill_water.cap)
+	for k in range(Claims.remaining_today("refill_water")):
+		Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0   # ignore cooldown for the cap probe
+		ok(bool(Claims.claim("refill_water").ok), "refill claim within the daily cap")
+	ok(Save.claim_used_today("refill_water") == cap_n, "the daily cap is reached (%d/day)" % cap_n)
+	Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0
+	ok(not Claims.can_show("refill_water"), "the per-type DAILY CAP refuses further claims")
+	ok(not bool(Claims.claim("refill_water").ok), "...and a capped claim grants nothing")
 	# a NEW day resets the cap (the day-rollover in the ledger).
-	Save.grove()["ad_ledger"]["refill_water"]["day"] = int(Time.get_unix_time_from_system() / 86400.0) - 1
-	Save.grove()["ad_ledger"]["refill_water"]["last"] = 0.0
-	ok(Ads.can_show("refill_water") and Save.ad_used_today("refill_water") == 0, "a new day resets the daily cap")
+	Save.grove()["claim_ledger"]["refill_water"]["day"] = int(Time.get_unix_time_from_system() / 86400.0) - 1
+	Save.grove()["claim_ledger"]["refill_water"]["last"] = 0.0
+	ok(Claims.can_show("refill_water") and Save.claim_used_today("refill_water") == 0, "a new day resets the daily cap")
 
-	# T-F: the 2×-collection ad is the board quest-reward doubler's faucet — it still claims
-	# (capped+cooled, no currency granted here), but the hub-yield "arm a flag the hub-collect
-	# reads" machinery is gone (the hub-collect was removed; residents replace the hub yield).
-	fresh("ads_2x")
-	var x2: Dictionary = Ads.claim("collect_2x")
-	ok(bool(x2.ok), "the 2× quest ad still claims (capped+cooled)")
-	ok(not Save.grove().has("collect_2x_armed"), "claiming no longer arms a hub-collect flag (hub yield removed)")
+	# T-F: the quest-reward 2× DOUBLER is now a 💎 PURCHASE, gated so the deal always beats the shop
+	# coin pouch. The pure helpers (content.gd) decide whether to offer it and what it costs:
+	#   • offered only when got >= COLLECT_2X_COIN_RATE (a small reward can't beat the shop),
+	#   • price = floor(got / rate) 💎, so the effective coins-per-💎 (got / cost) stays >= rate.
+	fresh("collect_2x_pricing")
+	var rate := int(Data.COLLECT_2X_COIN_RATE)
+	var shop_rate := float(ShopS.COIN_PACK) / float(ShopS.COIN_PACK_GEM_COST)   # 150/5 = 30 coins per 💎
+	ok(float(rate) > shop_rate, "the doubler's guaranteed rate (%d) beats the shop pouch (%.0f coins/💎)" % [rate, shop_rate])
+	ok(not G.collect_2x_offered(rate - 1), "a reward below the rate is NOT offered (would lose to the shop)")
+	ok(G.collect_2x_offered(rate), "a reward at the rate IS offered (the deal beats the shop)")
+	ok(G.collect_2x_cost(rate) == 1, "at the threshold the price is 1💎")
+	# across a spread of reward sizes the effective coins-per-💎 is ALWAYS >= the guaranteed rate.
+	for got2 in [rate, rate + 5, rate * 2, rate * 3 + 7, 500]:
+		var cost2 := G.collect_2x_cost(got2)
+		ok(cost2 >= 1 and float(got2) / float(cost2) >= float(rate), \
+			"doubling %d coins costs %d💎 → %.0f coins/💎 (>= %d, beats the shop)" % [got2, cost2, float(got2) / float(cost2), rate])
 
-	# (The free-reroll "shop_reroll" ad was removed with the Featured rotation/refresh — the
-	# storefront's featured band is now a fixed set, so there is no reroll surface to watch.)
-
-	# T-H: the event top-up ad grants a small 💎, capped at 1/day.
-	fresh("ads_event")
-	var ev_b := Save.diamonds()
-	var ev: Dictionary = Ads.claim("event_topup")
-	ok(bool(ev.ok) and Save.diamonds() == ev_b + int(Data.ADS.event_topup.gems), \
-		"the event top-up grants +%d💎" % int(Data.ADS.event_topup.gems))
-	ok(not Ads.can_show("event_topup"), "the event top-up is 1/day (capped after one watch)")
-
-	# T-J: the live board surfaces the empty-water stack — the ad refill button exists and the
+	# T-J: the live board surfaces the empty-water stack — the free/💎 refill button exists and the
 	# starter water credit is drained on open (the energy-wall wiring, §10).
 	fresh("oow_board")
 	Save.add_water_pending(int(Data.STARTER_PACK.water))
@@ -109,7 +109,7 @@ func _initialize() -> void:
 	get_root().add_child(bw)
 	if bw.board == null:
 		bw._ready()
-	ok(bw.ad_refill_btn != null, "the board builds the watch-ad refill surface")
+	ok(bw.refill_btn != null, "the board builds the refill surface")
 	ok(Save.water_pending() == 0 and bw.water >= int(Data.STARTER_PACK.water), \
 		"the board applies the banked starter water on open")
 	# drive to empty and surface the stack (water<=0 reveals the refill stack).
@@ -117,6 +117,52 @@ func _initialize() -> void:
 	bw._update_water_hud()
 	ok(bw._refill_stack.visible, "at empty the refill stack is shown (the friction point)")
 	bw.queue_free()
+	# T-J(ii): the FREE WATER refill is now a SHOP card with OVER-CAP banking. A board-opened water
+	# stall carries the free-refill card (gated on the board's `water_add`); claiming it pours a full
+	# can ON TOP of the current water — past WATER_CAP — and regen stays paused while over the cap.
+	fresh("refill_overcap")
+	var rb = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(rb)
+	if rb.board == null:
+		rb._ready()
+	rb.water = G.WATER_CAP - 10            # nearly full
+	var added := ShopS.claim_refill()      # the free claim hands back a full can to ADD
+	ok(added == G.WATER_CAP, "the free refill hands back a full can (%d💧)" % G.WATER_CAP)
+	rb.water += added                       # the board's water_add pours it on top (no clamp)
+	ok(rb.water == G.WATER_CAP * 2 - 10 and rb.water > G.WATER_CAP, \
+		"the can banks OVER the cap (%d > %d)" % [rb.water, G.WATER_CAP])
+	# regen must NOT add while over the cap (BoardLogic pauses above WATER_CAP), so the spare is kept.
+	var over: int = rb.water
+	var regen := BoardLogic.regen(over, 0.0, Time.get_unix_time_from_system())   # huge elapsed time
+	ok(int(regen.water) == over, "regen is paused while over the cap (the banked spare is not topped or trimmed)")
+	rb.queue_free()
+	# T-J(iii): the free-refill card is REACHABLE in the water stall when the board passes water_add,
+	# and absent without it (e.g. opened from the map). _water_sections is the single source.
+	fresh("refill_card")
+	var wh := Control.new()
+	get_root().add_child(wh)
+	var with_add := Shop._water_sections({"host": wh, "hero_px": 100.0, "opts": {"water_add": func() -> void: pass}})
+	var saw_refill := false
+	for sec in with_add:
+		for cardx in (sec as Dictionary).get("cards", []):
+			if (cardx as Dictionary).has("node"):   # the free-refill card is a custom-node card, like Free acorns
+				saw_refill = true
+	ok(saw_refill, "with water_add the water stall offers the free-refill card")
+	ok(Shop._water_sections({"host": wh, "opts": {}}).is_empty(), "without water_add (and no water_grant) the stall is empty")
+	wh.queue_free()
+	# T-J(iv): the free-refill card is REACHABLE in the REAL water stall (kit + viewport resolve) and
+	# pours a full can through its green "Free" CTA end-to-end — the rail→shop wiring, like Free acorns.
+	fresh("refill_card_live")
+	var wsh = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(wsh)
+	if wsh.content == null:
+		wsh._ready()
+	var poured := [0]
+	ShopS.open_water(wsh, {"water_add": func() -> void: poured[0] += G.WATER_CAP})
+	var w_overlay: Control = wsh.get_child(wsh.get_child_count() - 1)
+	ok(_press_label(w_overlay, "Free"), "the water stall shows a green 'Free' refill CTA")
+	ok(poured[0] == G.WATER_CAP, "pressing the free refill pours a full can (%d💧) via water_add" % G.WATER_CAP)
+	wsh.queue_free()
 	# §4: a runtime-opened cell reveals a seed of an OPEN quest LINE (mimics one generator pop), not
 	# the old positional 1-2 anchor. Force a single open quest on line 6 → the unlocked cell carries
 	# line 6 (the positional formula would yield line 2 at (2,3)).
@@ -173,11 +219,11 @@ func _initialize() -> void:
 	lhost.queue_free()
 
 	# T-K: the FREE-ACORN faucet moved OFF the side rail INTO the premium (acorn) shop. The mechanic is
-	# unchanged (the free_gems ADS row — cap/cooldown/reward); only the surface moved. The pure status +
+	# unchanged (the free_gems CLAIMS row — cap/cooldown/reward); only the surface moved. The pure status +
 	# claim helpers drive the card; the card itself is then asserted through the REAL shop below.
 	fresh("free_gems_helpers")
-	var fg_amt := int(Data.ADS.free_gems.gems)
-	ok(ShopS.free_gems_amount() == fg_amt, "free_gems_amount reports the ADS reward (%d🌰)" % fg_amt)
+	var fg_amt := int(Data.CLAIMS.free_gems.gems)
+	ok(ShopS.free_gems_amount() == fg_amt, "free_gems_amount reports the CLAIMS reward (%d🌰)" % fg_amt)
 	var fg0: Dictionary = ShopS.free_gems_status()
 	ok(bool(fg0.available) and String(fg0.kind) == "ready", "a fresh faucet reads available (kind 'ready')")
 	var fg_before := Save.diamonds()
@@ -186,12 +232,12 @@ func _initialize() -> void:
 	ok(ShopS.claim_free_gems() == 0 and Save.diamonds() == fg_before + fg_amt, "an immediate second claim is refused (no over-grant)")
 	var fg1: Dictionary = ShopS.free_gems_status()
 	ok(not bool(fg1.available) and String(fg1.kind) == "cooldown" and int(fg1.minutes) >= 1, \
-		"right after a watch the faucet is on cooldown (a 'Ready in Nm' read)")
+		"right after a claim the faucet is on cooldown (a 'Ready in Nm' read)")
 	# exhaust the daily cap (clearing the cooldown between claims) → the faucet reads 'capped' (Back tomorrow).
-	for _k in range(Ads.remaining_today("free_gems")):
-		Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+	for _k in range(Claims.remaining_today("free_gems")):
+		Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
 		ShopS.claim_free_gems()
-	Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+	Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
 	var fg2: Dictionary = ShopS.free_gems_status()
 	ok(not bool(fg2.available) and String(fg2.kind) == "capped", "with the daily cap spent the faucet reads 'capped' (Back tomorrow)")
 
@@ -213,8 +259,8 @@ func _initialize() -> void:
 	# T-K(iii): when the faucet is at rest (capped/cooling) the card drops its CTA entirely — the cozy timer
 	# shows as plain text, NOT a greyed-out buy button, so it never reads as a dead pressable wall.
 	fresh("free_gems_resting")
-	for _j in range(Ads.remaining_today("free_gems")):       # spend the daily cap → the faucet rests
-		Save.grove()["ad_ledger"]["free_gems"]["last"] = 0.0
+	for _j in range(Claims.remaining_today("free_gems")):       # spend the daily cap → the faucet rests
+		Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
 		ShopS.claim_free_gems()
 	var rest = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(rest)

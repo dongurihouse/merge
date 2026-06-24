@@ -282,45 +282,44 @@ static func daily() -> Dictionary:
 	return d
 
 # ════════════════════════════════════════════════════════════════════════════
-# T43 — STORE / REWARDED-ADS state (ADDITIVE accessor block)
+# T43 — STORE / FREE-CLAIM state (ADDITIVE accessor block)
 # ════════════════════════════════════════════════════════════════════════════
 # A self-contained, append-only persistence block for the §10 monetization layer:
-#   • rewarded-ad per-type DAILY usage + cooldown timestamps (Ads, core/ads.gd),
-#   • the collect-2× "armed" flag the hub-collect reads (§8 / T42 hook),
+#   • free-claim per-type DAILY usage + cooldown timestamps (Claims, core/claims.gd),
 #   • one-time purchase flags (starter pack claimed, first cash pack made).
 # Everything lives in the grove blob (grove()), so it is test-redirected with the
 # rest of the save and DEFAULTED on old saves by the deep-merge-over-defaults path —
 # NO SCHEMA bump, no migration. The per-type cap rollover uses the same day index
 # (unix/86400) as daily(); cooldowns compare wall-clock seconds.
 
-# The per-type ad ledger: {type -> {day, used, last}} (a live ref in the grove blob).
-static func _ad_ledger() -> Dictionary:
+# The per-type claim ledger: {type -> {day, used, last}} (a live ref in the grove blob).
+static func _claim_ledger() -> Dictionary:
 	var g := grove()
-	if not g.has("ad_ledger"):
-		g["ad_ledger"] = {}
-	return g["ad_ledger"]
+	if not g.has("claim_ledger"):
+		g["claim_ledger"] = {}
+	return g["claim_ledger"]
 
 # This type's row for TODAY — rolls `used` back to 0 on the first touch of a new day
 # (so a daily cap resets at the day boundary, like the daily bundle). `last` is the
-# unix time of the most recent watch (0 = never), kept across days for the cooldown.
-static func _ad_row(ad_type: String) -> Dictionary:
+# unix time of the most recent claim (0 = never), kept across days for the cooldown.
+static func _claim_row(kind: String) -> Dictionary:
 	var today := int(Time.get_unix_time_from_system() / 86400.0)
-	var led := _ad_ledger()
-	var r: Dictionary = led.get(ad_type, {})
+	var led := _claim_ledger()
+	var r: Dictionary = led.get(kind, {})
 	if int(r.get("day", -1)) != today:
 		r = {"day": today, "used": 0, "last": float(r.get("last", 0.0))}
-		led[ad_type] = r
+		led[kind] = r
 	return r
 
-# How many times this ad type was watched TODAY (after the day-rollover check).
-static func ad_used_today(ad_type: String) -> int:
-	return int(_ad_row(ad_type).get("used", 0))
+# How many times this claim type was taken TODAY (after the day-rollover check).
+static func claim_used_today(kind: String) -> int:
+	return int(_claim_row(kind).get("used", 0))
 
-# Whether this ad type may be shown right now: under its daily `cap` AND past its
-# `cooldown_s` since the last watch. Pure read — no state change. A cap/cooldown of 0
+# Whether this claim type may be shown right now: under its daily `cap` AND past its
+# `cooldown_s` since the last claim. Pure read — no state change. A cap/cooldown of 0
 # means "unlimited / no wait" on that axis.
-static func ad_can_show(ad_type: String, cap: int, cooldown_s: float) -> bool:
-	var r := _ad_row(ad_type)
+static func claim_can_show(kind: String, cap: int, cooldown_s: float) -> bool:
+	var r := _claim_row(kind)
 	if cap > 0 and int(r.get("used", 0)) >= cap:
 		return false
 	if cooldown_s > 0.0:
@@ -329,21 +328,21 @@ static func ad_can_show(ad_type: String, cap: int, cooldown_s: float) -> bool:
 			return false
 	return true
 
-# Seconds remaining on this ad type's cooldown (0 if ready) — for a cozy "ready in…"
+# Seconds remaining on this claim type's cooldown (0 if ready) — for a cozy "ready in…"
 # read, never a punitive countdown.
-static func ad_cooldown_left(ad_type: String, cooldown_s: float) -> float:
+static func claim_cooldown_left(kind: String, cooldown_s: float) -> float:
 	if cooldown_s <= 0.0:
 		return 0.0
-	var since := Time.get_unix_time_from_system() - float(_ad_row(ad_type).get("last", 0.0))
+	var since := Time.get_unix_time_from_system() - float(_claim_row(kind).get("last", 0.0))
 	return maxf(0.0, cooldown_s - since)
 
-# Record one watch of this ad type: bump today's `used` and stamp `last` = now. The
-# caller checks ad_can_show first; this is the commit half.
-static func ad_record(ad_type: String) -> void:
-	var r := _ad_row(ad_type)
+# Record one claim of this type: bump today's `used` and stamp `last` = now. The
+# caller checks claim_can_show first; this is the commit half.
+static func claim_record(kind: String) -> void:
+	var r := _claim_row(kind)
 	r["used"] = int(r.get("used", 0)) + 1
 	r["last"] = Time.get_unix_time_from_system()
-	_ad_ledger()[ad_type] = r
+	_claim_ledger()[kind] = r
 	grove_write()
 
 # One-time purchase flags (§10 starter pack + first-purchase doubler). Defaulted false

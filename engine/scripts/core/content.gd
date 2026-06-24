@@ -55,6 +55,7 @@ const BUY_MARKUP = D.BUY_MARKUP
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
+const COLLECT_2X_COIN_RATE = D.COLLECT_2X_COIN_RATE
 const BAG_START_SLOTS = D.BAG_START_SLOTS
 const BAG_MAX_SLOTS = D.BAG_MAX_SLOTS
 const BAG_SLOT_PRICES = D.BAG_SLOT_PRICES
@@ -239,6 +240,21 @@ static func quest_reward(level: int) -> Dictionary:
 	if level >= QUEST_PREMIUM_MIN_LEVEL:
 		r["gems"] = QUEST_PREMIUM_GEMS
 	return r
+
+## The diamond-priced quest-reward 2× DOUBLER (§10). Pure economy helpers — the board UI reads
+## these to decide whether to offer the card and what it costs. The doubler grants `got` extra
+## coins (doubling the reward to 2×); it costs floor(got / COLLECT_2X_COIN_RATE) 💎, and is ONLY
+## offered when got is big enough to afford 1 💎 — which guarantees coins-per-💎 (got / cost) is
+## at least COLLECT_2X_COIN_RATE, strictly better than the shop coin pouch (a test guards this).
+
+## Whether the 2× doubler is worth offering for a `got`-coin reward (the deal beats the shop).
+static func collect_2x_offered(got: int) -> bool:
+	return got >= COLLECT_2X_COIN_RATE
+
+## The 💎 price to double a `got`-coin reward. floor(got / rate) — always >= 1 when offered, and
+## scaled so the effective rate (got / cost) stays >= COLLECT_2X_COIN_RATE for any reward size.
+static func collect_2x_cost(got: int) -> int:
+	return maxi(1, got / COLLECT_2X_COIN_RATE)
 
 ## Weighted random index into the parallel `weights` array (all ≥ 0). Returns -1 when every weight
 ## is 0. The `weights[i] > 0.0` guard plus the backward-scan fallback make it impossible to return a

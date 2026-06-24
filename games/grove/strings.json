@@ -6,9 +6,9 @@
 	},
 	"board": {
 		"double": {
-			"accept": "Double ✿",
+			"accept": "Double · %d🌰",
 			"decline": "No thanks",
-			"pitch": "Watch a cloud to double it!"
+			"pitch": "Double your coins!"
 		},
 		"feedback": {
 			"bag_plus_one": "Bag +1!",
@@ -40,8 +40,7 @@
 		},
 		"refill": {
 			"free": "Rain ☔ free refill",
-			"paid": "Rain ☔ %d🌰",
-			"watch_ad": "Watch a cloud ☁ → fill"
+			"paid": "Rain ☔ %d🌰"
 		},
 		"treat": {
 			"flower": "✿"
@@ -162,7 +161,7 @@
 			"cta": "Free",
 			"info_note": "A little top-up whenever you fancy one, never required.",
 			"info_row_label": "Acorns",
-			"info_row_note": "watch a short clip — free, a few times a day",
+			"info_row_note": "free, a few times a day",
 			"info_title": "Free acorns",
 			"ready_in": "Ready in %dm"
 		},
@@ -177,6 +176,16 @@
 			"ribbon_popular": "Popular",
 			"welcome_gift_caption": "Welcome gift",
 			"welcome_ribbon": "Welcome"
+		},
+		"refill": {
+			"back_tomorrow": "Back tomorrow",
+			"caption": "Free refill",
+			"cta": "Free",
+			"info_note": "A free top-up whenever you fancy one — it can fill past full, and a brim-full can keeps the extra.",
+			"info_row_label": "Water",
+			"info_row_note": "a full can, free, a few times a day",
+			"info_title": "Free refill",
+			"ready_in": "Ready in %dm"
 		},
 		"starter": {
 			"acorns_label": "Acorns",

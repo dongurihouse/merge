@@ -30,5 +30,5 @@ Both run headless and in parallel via `engine/tools/run_suites.py` (`JOBS=4` def
 The runner prints a per-suite timing table and fails on any FAIL or crash — it never
 trusts a zero exit code alone. The grove suite is split into focused suites
 (`grove_model_tests`, `grove_economy_tests`, `grove_ui_tests`, `grove_placement_tests`,
-`grove_shop_ads_tests`) sharing `games/grove/tests/grove_test_base.gd` — edit a slice,
+`grove_shop_tests`) sharing `games/grove/tests/grove_test_base.gd` — edit a slice,
 run that slice with `make test-grove`.

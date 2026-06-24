@@ -289,9 +289,9 @@ func _set_map_chrome_visible(on: bool) -> void:
 	if _weather != null and is_instance_valid(_weather):
 		_weather.visible = on
 
-# (The 2× rewarded-ad DOUBLER lived here, triggered by the now-removed hub yield-collect. It was
-# RE-HOMED to the quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map
-# scene no longer has a coin faucet to double. The `collect_2x` ad id is unchanged.)
+# (The 2× DOUBLER lived here, triggered by the now-removed hub yield-collect. It was RE-HOMED to the
+# quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map scene no longer has a
+# coin faucet to double. It is a 💎-priced doubler now, gated to rewards big enough to beat the shop.)
 
 # --- THE MAP VIEW (grove_spec §3) -------------------------------------------------------
 # One self-contained image fills the area below the HUD; the spots sit directly on
@@ -1442,7 +1442,7 @@ func _build_liveops_rail() -> void:
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot", 0, bopts)
 	Look.attach_badge(daily, _daily_badge, bover)
-	# (The rewarded "Free" gem faucet moved off the rail into the premium/acorn shop — its lead card.
+	# (The free "Free" gem faucet moved off the rail into the premium/acorn shop — its lead card.
 	#  See shop.gd `_free_gems_card`. The rail is the navigation/liveops column only now.)
 	# Vault — the diegetic piggy bank, moved here from the bottom bar. Its claimable ready-pip lights when
 	# Vault.claimable() (driven by _refresh_piggy_pip).
