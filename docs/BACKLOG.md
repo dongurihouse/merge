@@ -125,16 +125,13 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
 
 ## Features
 
-- **Buy an item from the board's item info bar (replaces the shop item-shortcuts).** The shop's
-  item-shortcut catalogue (buy a mid-tier piece to skip the grind) was removed 2026-06-23 — owner
-  call: item-buying belongs on the board, not in the store. Rebuild it as a **Buy** action in the
-  item info bar that opens when a board/bag item is tapped: show the piece + a price, and on confirm
-  spend the currency and **place the bought piece on the board** (not the old map→bag drain queue).
-  Gone with the removal: `SHOP_ITEM_OFFERS` / `SHOP_FEATURED_COUNT` (`grove_data.gd`), the shop's
-  `buy_item_offer` / `offers_for` / `drain_pending` / `pending_pieces` + the board's `shop_pending`
-  drain (`engine/scripts/ui/shop.gd`, `engine/scripts/scenes/board.gd`), and the `offer` / `flow`
-  strings + featured captions (`games/grove/strings.json`). Keep the §4 law: a shortcut is a
-  grind-skip to a piece already reachable by merging, never a gate. *(owner directive 2026-06-23.)*
+- ✅ **Buy an item from the board's item info bar — SHIPPED as T55** (2026-06-23, `tasks/ux-feel.md`).
+  Tapping a regular board item shows a green **Buy** chip beside Sell; on tap it spends the currency
+  and places a live COPY on the board (the bag when the board is full). Dev call "mirror selling +
+  markup": new `G.buy_price(code) = ceil(sell_reward × BUY_MARKUP)` (coins sub-top, 💎 top;
+  `BUY_MARKUP=3.0` owner dial) — strictly above sell on every tier, so the buy-low/sell-high loop is
+  impossible. Honors §4 (you can only buy a copy of an item already on your board). **Parked tail:**
+  buying a copy of a *bag* item (the info bar populates from board taps; the bag is a separate overlay).
 
 - **Ad-reward (2× doubler) — real implementation.** Mature the rewarded-ad doubler from a stub into a
   finished, compelling offer:

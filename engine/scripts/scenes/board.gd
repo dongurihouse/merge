@@ -152,6 +152,13 @@ var _info_burst_badge: PanelContainer # the chip's cost badge (re-tinted by affo
 var _info_burst_sb: StyleBoxFlat     # the badge's style (mutated for affordable / dimmed states)
 var _info_burst_count: Label         # the next-cost coin amount inside the badge
 var _info_burst_coin: Control        # the coin icon slot inside the badge
+# T55 — the BUY chip: buy a copy of the SELECTED item (coins for sub-top tiers, 💎 for the top tier,
+# at G.buy_price) and drop it on the board (the bag when the board is full). Sits beside the sell button.
+var _info_buy: Button                # the buy-a-copy chip (a regular item's second action, beside sell)
+var _info_buy_badge: PanelContainer  # the chip's price badge (re-tinted by affordability)
+var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable / dimmed states)
+var _info_buy_count: Label           # the price amount inside the badge
+var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
 var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" rewarded-ad card (re-homed from the removed hub-collect, §10)
@@ -1382,13 +1389,15 @@ func _build_info_bar(px: float = 130.0) -> Control:
 	_info_trash_count = pill.get_meta("sell_count")  # the payout-amount label, set in _select_item
 	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
 	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
-	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot
+	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
+	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	return pill
 
-# T54 — build the burst-upgrade buy chip and add it beside the sell button in the info-bar row. It
-# MIRRORS the kit sell button's recipe (a caption over a green badge holding a coin + number) so the
-# two read as one button language; only one is ever visible (sell for items, burst for generators).
-func _build_burst_chip(opts: Dictionary, row: Control) -> void:
+# An info-bar ACTION chip — a caption over a green badge holding a currency icon + a number — MIRRORING
+# the kit sell button's recipe so every action in the bar reads one button language. Shared by the T54
+# burst chip and the T55 buy chip; returns the mutable nodes the caller drives (caption set here, the
+# coin glyph + number filled per-selection). The chip starts hidden and is added to `row`.
+func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on_press: Callable) -> Dictionary:
 	var height := float(opts.get("height", 130.0))
 	var icon_px := height * float(opts.get("sell_icon", 0.30))
 	var label_font := int(opts.get("sell_label_font", 22))
@@ -1400,46 +1409,46 @@ func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.add_theme_constant_override("separation", 3)
 	stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_burst_caption = Label.new()                # the "Boost" caption above the badge (ink on the bar)
-	_info_burst_caption.text = Strings.t("board.info.burst_label")
-	_info_burst_caption.add_theme_font_size_override("font_size", label_font)
-	_info_burst_caption.add_theme_color_override("font_color", Pal.INK)
-	_info_burst_caption.add_theme_constant_override("outline_size", 0)
-	_info_burst_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_info_burst_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stack.add_child(_info_burst_caption)
-	var badge_col := VBoxContainer.new()             # the green badge body: coin on top, cost below
+	var caption := Label.new()                       # the caption above the badge (ink on the bar)
+	caption.text = caption_text
+	caption.add_theme_font_size_override("font_size", label_font)
+	caption.add_theme_color_override("font_color", Pal.INK)
+	caption.add_theme_constant_override("outline_size", 0)
+	caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.add_child(caption)
+	var badge_col := VBoxContainer.new()             # the green badge body: currency on top, number below
 	badge_col.alignment = BoxContainer.ALIGNMENT_CENTER
 	badge_col.add_theme_constant_override("separation", 1)
 	badge_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_burst_coin = CenterContainer.new()         # the coin glyph (filled in _refresh_burst_chip)
-	_info_burst_coin.custom_minimum_size = Vector2(icon_px, icon_px)
-	_info_burst_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge_col.add_child(_info_burst_coin)
-	_info_burst_count = Label.new()                  # the next-level COST
-	_info_burst_count.add_theme_font_size_override("font_size", num_font)
-	_info_burst_count.add_theme_color_override("font_color", Pal.CREAM)
-	_info_burst_count.add_theme_constant_override("outline_size", 0)
-	_info_burst_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_info_burst_count.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge_col.add_child(_info_burst_count)
-	_info_burst_badge = PanelContainer.new()
-	_info_burst_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_info_burst_sb = StyleBoxFlat.new()              # the SAME leaf-green CTA fill the sell badge uses
-	_info_burst_sb.bg_color = Pal.BTN_PRIMARY
-	_info_burst_sb.border_color = Pal.BTN_PRIMARY_EDGE
-	_info_burst_sb.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))
-	_info_burst_sb.set_border_width_all(Tuning.UiSkin.BTN_BORDER_W)
-	_info_burst_sb.shadow_color = Color(0, 0, 0, 0.16)
-	_info_burst_sb.shadow_size = 2
-	_info_burst_sb.shadow_offset = Vector2(0, 1)
-	_info_burst_sb.content_margin_left = 14
-	_info_burst_sb.content_margin_right = 14
-	_info_burst_sb.content_margin_top = 4
-	_info_burst_sb.content_margin_bottom = 4
-	_info_burst_badge.add_theme_stylebox_override("panel", _info_burst_sb)
-	_info_burst_badge.add_child(badge_col)
-	stack.add_child(_info_burst_badge)
+	var coin := CenterContainer.new()                # the currency glyph (filled per-selection)
+	coin.custom_minimum_size = Vector2(icon_px, icon_px)
+	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge_col.add_child(coin)
+	var count := Label.new()                         # the COST / number
+	count.add_theme_font_size_override("font_size", num_font)
+	count.add_theme_color_override("font_color", Pal.CREAM)
+	count.add_theme_constant_override("outline_size", 0)
+	count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	count.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge_col.add_child(count)
+	var badge := PanelContainer.new()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()                     # the SAME leaf-green CTA fill the sell badge uses
+	sb.bg_color = Pal.BTN_PRIMARY
+	sb.border_color = Pal.BTN_PRIMARY_EDGE
+	sb.set_corner_radius_all(int(opts.get("sell_badge_radius", 10)))
+	sb.set_border_width_all(Tuning.UiSkin.BTN_BORDER_W)
+	sb.shadow_color = Color(0, 0, 0, 0.16)
+	sb.shadow_size = 2
+	sb.shadow_offset = Vector2(0, 1)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	badge.add_theme_stylebox_override("panel", sb)
+	badge.add_child(badge_col)
+	stack.add_child(badge)
 	var h := int(label_font * 1.45) + 3 + 8 + icon_px + 1 + int(num_font * 1.45)
 	btn.custom_minimum_size = Vector2(maxf(icon_px + 64.0, 96.0), h)
 	var center := CenterContainer.new()
@@ -1451,11 +1460,30 @@ func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 	btn.add_theme_stylebox_override("normal", flat)
 	btn.add_theme_stylebox_override("hover", flat)
 	btn.add_theme_stylebox_override("pressed", flat)
-	btn.pressed.connect(_on_burst_chip)
+	btn.pressed.connect(on_press)
 	Look.add_press_juice(btn)
 	btn.visible = false
 	row.add_child(btn)
-	_info_burst = btn
+	return {"btn": btn, "badge": badge, "sb": sb, "count": count, "coin": coin}
+
+# T54 — the burst-upgrade chip (a generator's action). Built from the shared action-chip recipe.
+func _build_burst_chip(opts: Dictionary, row: Control) -> void:
+	var c := _build_action_chip(opts, row, Strings.t("board.info.burst_label"), _on_burst_chip)
+	_info_burst = c.btn
+	_info_burst_badge = c.badge
+	_info_burst_sb = c.sb
+	_info_burst_count = c.count
+	_info_burst_coin = c.coin
+
+# T55 — the buy-a-copy chip (a regular item's action, beside sell). Built from the shared recipe.
+func _build_buy_chip(opts: Dictionary, row: Control) -> void:
+	var c := _build_action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed)
+	_info_buy = c.btn
+	_info_buy_badge = c.badge
+	_info_buy_sb = c.sb
+	_info_buy_count = c.count
+	_info_buy_coin = c.coin
+	row.move_child(_info_buy, _info_trash.get_index())   # buy sits just LEFT of the sell button
 
 # Select a board item INTO the info bar: show its piece + "<name> · Tier N", enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
@@ -1477,6 +1505,8 @@ func _select_item(cell: Vector2i) -> void:
 	_info_btn.disabled = false
 	if board.is_gen(cell) or G.is_coin(code):
 		_info_trash.visible = false           # generators + raw coins aren't "deletable for coins"
+		if _info_buy != null and is_instance_valid(_info_buy):
+			_info_buy.visible = false         # …nor buyable
 	else:
 		var rw := G.sell_reward(code)         # Vector2i(coins, acorns) — top tier pays the premium
 		var gem := rw.y > 0
@@ -1487,6 +1517,7 @@ func _select_item(cell: Vector2i) -> void:
 		pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_info_trash_coin.add_child(pay_icon)
 		_info_trash.visible = true
+		_refresh_buy_chip(code)               # T55: a sellable item is also BUYABLE (a copy → the board)
 
 # T54 — select a GENERATOR into the info bar (after a tap pops it): its sprite + name, the ⓘ ladder
 # of what it produces, and — in the slot the sell button leaves empty — the burst-upgrade buy chip.
@@ -1506,7 +1537,9 @@ func _select_generator(cell: Vector2i) -> void:
 	_info_label.text = lbl if lbl != "" else Strings.t("board.info.generator")
 	_info_btn.disabled = false                # ⓘ opens the line ladder of what this generator makes
 	_info_trash.visible = false               # a generator is never sold
-	_refresh_burst_chip()                     # shows the buy chip (or hides it when maxed)
+	if _info_buy != null and is_instance_valid(_info_buy):
+		_info_buy.visible = false             # …nor buyable as a copy (the burst chip is its action)
+	_refresh_burst_chip()                     # shows the burst chip (or hides it when maxed)
 
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
@@ -1522,6 +1555,8 @@ func _clear_selection() -> void:
 		_info_trash.visible = false
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false
+	if _info_buy != null and is_instance_valid(_info_buy):
+		_info_buy.visible = false
 
 # T54 — drive the burst-upgrade chip to the current sink state. Shown (affordable / dimmed) while a
 # level remains to buy; HIDDEN once maxed (the buy affordance disappears, like the +bag-slot at cap).
@@ -1565,6 +1600,84 @@ func _on_burst_chip() -> void:
 			var ctr := board_area.get_global_transform().origin + _cell_pos(_selected_cell) + Vector2(csz, csz) / 2.0
 			FX.celebrate_at(self, ctr, Strings.t("board.feedback.bigger_bursts"), STRAW)
 		_refresh_burst_chip()                 # next cost, or hides at max
+
+# T55 — drive the BUY chip for the selected item: its price (G.buy_price) in the right currency (coins
+# for sub-top tiers, 💎 for the top tier), dimmed when the player can't afford it. Always offered for a
+# sellable item (buying a copy you already have is "speed, not possibility", §4).
+func _refresh_buy_chip(code: int) -> void:
+	if _info_buy == null or not is_instance_valid(_info_buy):
+		return
+	var price := G.buy_price(code)
+	var use_gem := price.y > 0
+	var cost := price.y if use_gem else price.x
+	var afford := (Save.diamonds() if use_gem else Save.coins()) >= cost
+	for c in _info_buy_coin.get_children():
+		c.queue_free()
+	var ic := Look.icon("gem" if use_gem else "coin", _info_buy_coin.custom_minimum_size.x)
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_info_buy_coin.add_child(ic)
+	_info_buy_count.text = "%d" % cost
+	_info_buy_sb.bg_color = Pal.BTN_PRIMARY if afford else Color(Pal.BTN_PRIMARY, 0.42)
+	_info_buy_sb.border_color = Pal.BTN_PRIMARY_EDGE if afford else Color(Pal.BTN_PRIMARY_EDGE, 0.42)
+	_info_buy.modulate = Color(1, 1, 1, 1.0) if afford else Color(1, 1, 1, 0.7)
+	_info_buy.visible = true
+
+# T55 — tap the buy chip: buy a COPY of the selected item and drop it on the board (the bag when the
+# board is full). Broke or no-room → a nudge, no spend. Price is G.buy_price (always > the sell value,
+# so there's no buy-low/sell-high loop). The selection stays on the original item; the copy lands elsewhere.
+func _on_buy_pressed() -> void:
+	if _selected_cell.x < 0:
+		return
+	var code := board.item_at(_selected_cell)
+	if code <= 0 or board.is_gen(_selected_cell) or G.is_coin(code):
+		return
+	var price := G.buy_price(code)
+	var use_gem := price.y > 0
+	var cost := price.y if use_gem else price.x
+	var have := Save.diamonds() if use_gem else Save.coins()
+	if have < cost:
+		FX.wobble(_info_buy)
+		Audio.play("invalid_soft", -4.0)
+		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.buy_need"), CREAM, 24)
+		return
+	# pick a destination first — the board's first empty (non-generator) cell, else the bag — so we never
+	# spend without a place to put the copy.
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.is_gen(c):
+			dest = c
+			break
+	var to_bag := dest.x < 0
+	if to_bag and bag.size() >= _bag_capacity():
+		FX.wobble(_info_buy)                       # board AND bag are full — nowhere to land
+		Audio.play("invalid_soft", -4.0)
+		FX.floating_text(self, _info_buy.get_global_rect().get_center() - Vector2(70, 78), Strings.t("board.info.no_room"), CREAM, 24)
+		return
+	if not (Save.spend_diamonds(cost) if use_gem else Save.spend(cost, "buy_item")):
+		return                                    # safety: affordability re-checked at the spend
+	Audio.play("button_tap", -2.0)
+	if to_bag:
+		bag.append(code)
+		_rebuild_bag()
+		if bag_btn != null and is_instance_valid(bag_btn):
+			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.bought"), STRAW)
+	else:
+		board.place(dest, code)
+		_mark_seen(code)
+		var n := _make_piece(code, csz)           # pop the copy in at its cell (no generator flight)
+		n.position = _cell_pos(dest)
+		n.scale = Vector2(0.3, 0.3)
+		board_area.add_child(n)
+		piece_nodes[dest] = n
+		var t := n.create_tween()
+		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var ctr := board_area.get_global_transform().origin + _cell_pos(dest) + Vector2(csz, csz) / 2.0
+		FX.celebrate_at(self, ctr, Strings.t("board.feedback.bought"), STRAW)
+	_persist()
+	_update_hud()                                 # the wallet ticks down
+	_refresh_giver_lights()                       # the copy may satisfy a quest
+	_refresh_generator_dim()                      # a now-full board dims the generator(s)
+	_refresh_buy_chip(code)                       # re-read affordability (currency dropped)
 
 # The info button → open the selected item's Tiers ladder (or, for a generator, the ladder of the
 # line it produces). Guards a stale/empty selection.
