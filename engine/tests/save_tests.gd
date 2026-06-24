@@ -391,5 +391,24 @@ func _initialize() -> void:
 	ok(G.map_unlocked(1, ul2, gl), \
 		"map 2 stays UNLOCKED across a restart (the reported bug)")
 
+	# 23. reconcile_gates heals a save STRANDED with spots-done but an EMPTY `gates` — the reported
+	# "stuck on map one, can't move forward" bug. Every spot of map 0 was restored, yet gates stayed []
+	# (the gate write was missed when the spot ids were remapped between builds), so map 1 never unlocked
+	# and the last-spot auto-record could never re-fire (no unclaimed spot left to tap). The boot reconcile
+	# must back-fill the missing gate, and it must be idempotent.
+	fresh("reconcile_gates")
+	var rg := Save.grove()
+	var rul := {}
+	for rsp in G.MAPS[0].spots:                 # claim every spot of map 0 → map 0 spots-done
+		rul[String(rsp.id)] = true
+	rg["unlocks"] = rul
+	rg["gates"] = []                            # spots done, gate never recorded — the stranded state
+	ok(G.map_spots_done(0, rul) and not G.map_unlocked(1, rul, rg["gates"]), \
+		"precondition: map 0 spots done but map 1 locked (empty gates) — the stuck state")
+	ok(G.reconcile_gates(rg), "reconcile_gates back-fills the missing gate for map 0")
+	ok(G.gate_recorded(rg["gates"], 0), "map 0 is now recorded in gates")
+	ok(G.map_unlocked(1, rg["unlocks"], rg["gates"]), "map 2 unlocks after the reconcile")
+	ok(not G.reconcile_gates(rg), "reconcile_gates is idempotent on an already-healed save")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

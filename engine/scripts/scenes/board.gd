@@ -1326,8 +1326,7 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 		return _tray_well(px, fallback_art)
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = px
-	opts["shape"] = "rect"               # keeps the icon+count layout; `flat` drops the visible badge behind it
-	opts["flat"] = true                  # no cream/gold shell or shadow — just the satchel / house icon on the grass
+	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
 	opts["calm"] = FX.calm()
 	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
 	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).
