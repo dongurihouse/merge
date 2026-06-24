@@ -2,8 +2,9 @@ extends RefCounted
 ## THE top bar (owner: a standalone module reused in every scene).
 ## The currency cluster (💧 🪙 💎 — three separate pills) and the settings gear are pinned to the same
 ## pixels on every screen; scenes keep their refs and refresh the labels.
-## Usage:  var hud := Hud.build(self, {"water_grant": Callable})
-##         hud.water.text = ...   (or call hud.refresh.call())
+## Usage:  var hud := Hud.build(self, {"on_level": Callable, "settings": Callable, "on_refresh": Callable})
+##         hud.water.text = ...   (or call hud.refresh.call()). `on_refresh` is an optional host hook the
+##         refresh fires last, for a scene that keeps live state derived from Save (e.g. the board's water).
 ## Look/feel values live in Tune (engine/scripts/core/tuning.gd → class Hud).
 
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -198,6 +199,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 		if lnum != null:
 			_set_or_tick(lnum, lvl)
 			lnum.add_theme_font_size_override("font_size", _lv_font_size(lvl))   # keep the number inside as digits grow
+		# host hook: a scene that keeps live state derived from Save (the board's water cache + its
+		# empty-water refill stack) re-syncs here, so a shop grant lands without per-currency callbacks.
+		var host_refresh: Variant = opts.get("on_refresh")
+		if host_refresh is Callable and (host_refresh as Callable).is_valid():
+			(host_refresh as Callable).call()
 	out["refresh"] = refresh
 	# `shop_opts` was duplicated up top (so the + acquire buttons share the SAME options);
 	# wire `refresh` into it now — the closure captured the dict by reference, so both the +

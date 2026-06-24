@@ -142,8 +142,8 @@ func _initialize() -> void:
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
 	elif mode == "watershop":
-		# the WATER stall opened from the HUB by pressing the real water-pill "+" — proves the map HUD
-		# delivers BOTH water_grant (💎 fill) and water_add (free refill), so the free card shows here too.
+		# the WATER stall opened from the HUB by pressing the real water-pill "+". Water is Save-backed,
+		# so the stall is host-agnostic — the same free refill + 💎 fill show here as on the board.
 		Save.add_diamonds(40)
 		var cluster: Control = scn._hud_panels[0]               # hud.wallet — the Water·Coin·Gem cluster
 		var water_pill_panel: Control = cluster.get_child(0)    # water is first

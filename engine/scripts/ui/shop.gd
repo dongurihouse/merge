@@ -256,28 +256,26 @@ static func _sections(refs: Dictionary) -> Array:
 		"coin": return _coin_sections(refs)
 		_: return _premium_sections(refs)
 
-# WATER shop — the FREE daily refill (a full can, capped + cooled) leads, then the 💎 fill. Both need a
-# host callback to apply the water to the live board: the free refill uses `water_add` (additive, over-cap
-# ok), the 💎 fill uses `water_grant` (top to cap). The boost is no longer sold here — it's activated from
-# the board's generator info bar (T57).
+# WATER shop — the FREE daily refill (a full can, capped + cooled) leads, then the 💎 fill. Water is a
+# Save-backed currency now (like coins/gems): both cards grant through Save (set/add_water), so the stall
+# is host-agnostic — it shows the same from the board AND the hub, with no per-scene callbacks to forget.
+# The board re-syncs its live water cache via the HUD refresh. The boost is no longer sold here (T57).
 static func _water_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
-	var secs: Array = []
-	# the FREE refill faucet — the lead card (only when the board can apply an over-cap can)
-	if (refs.opts as Dictionary).has("water_add"):
-		secs.append({"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]})
-	if (refs.opts as Dictionary).has("water_grant"):
-		var gems := Save.diamonds()
-		var card := {
-			"icon": "water", "label": Strings.t("shop.water.fill_label"),
-			"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
-			"affordable": gems >= int(G.REFILL_DIAMOND_COST),
-			"on_buy": func() -> void: _flow_water(refs),
-			"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
-				"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
-				"note": Strings.t("shop.water.info_row_note")}],
-				Strings.t("shop.water.info_note"))}
-		secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
+	var gems := Save.diamonds()
+	# the FREE refill faucet — the lead card
+	var secs: Array = [{"caption": Strings.t("shop.refill.caption"), "cards": [_refill_card(refs)]}]
+	# the 💎 fill — top the can to full
+	var card := {
+		"icon": "water", "label": Strings.t("shop.water.fill_label"),
+		"price": str(int(G.REFILL_DIAMOND_COST)), "price_icon": "gem",
+		"affordable": gems >= int(G.REFILL_DIAMOND_COST),
+		"on_buy": func() -> void: _flow_water(refs),
+		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.water.info_title"), [{
+			"icon": "water", "label": Strings.t("shop.water.info_row_label"), "amount": str(int(G.WATER_CAP)),
+			"note": Strings.t("shop.water.info_row_note")}],
+			Strings.t("shop.water.info_note"))}
+	secs.append({"caption": Strings.t("shop.water.caption"), "cards": [card]})
 	return secs
 
 # The free-refill card: a full 💧 can + a green "Free" CTA when offerable; when cooling/capped the CTA
@@ -464,11 +462,10 @@ static func _starter_info(host: Control) -> void:
 # A direct buy in `currency` ("gem"|"coin"): can't afford → wallet wiggles; else spend+grant, fly the
 # grant home to the HUD wallet, and rebuild the storefront so affordability re-reads.
 static func _flow_water(refs: Dictionary) -> void:
-	var opts: Dictionary = refs.opts
 	var act := func() -> bool:
 		if not buy_water():
 			return false
-		(opts.water_grant as Callable).call()
+		Save.fill_water()                # top the can to full (Save-backed; the HUD refresh re-reads it)
 		return true
 	_buy(refs, "gem", int(G.REFILL_DIAMOND_COST), act, "water")
 
@@ -490,17 +487,17 @@ static func _flow_free_gems(refs: Dictionary) -> void:
 	else:
 		_after_buy(refs)
 
-# The free-refill faucet flow (no spend): claim, pour the full can onto the board's water via the host's
-# `water_add` callback (additive, over-cap ok), fly a 💧 to the wallet, and rebuild so the card flips to
-# its cooldown read. Refused (raced past the cap) → a soft nudge + rebuild, no grant.
+# The free-refill faucet flow (no spend): claim, pour the full can onto Save's water ADDITIVELY (over-cap
+# ok — banks a spare), fly a 💧 to the wallet, and rebuild so the card flips to its cooldown read. The HUD
+# refresh re-reads Save (and re-syncs the board's live cache). Refused (raced past the cap) → soft nudge.
 static func _flow_free_refill(refs: Dictionary) -> void:
 	var host: Control = refs.host
-	if claim_refill() <= 0:
+	var got := claim_refill()
+	if got <= 0:
 		Audio.play("invalid_soft", -4.0)
 		_after_buy(refs)
 		return
-	var opts: Dictionary = refs.opts
-	(opts.water_add as Callable).call()
+	Save.add_water(got, true)            # additive, over-cap (Save-backed; no per-host callback)
 	Audio.play("rain_refill" if Audio.has("rain_refill") else "merge_success", -3.0, 1.2)
 	var water_n := _wallet_node(refs, "water")
 	if water_n != null:
