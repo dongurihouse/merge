@@ -230,6 +230,7 @@ class FX:
 	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
 	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
 	const COMBO_PITCH_STEP := 0.04      # + audio pitch per milestone reached
+	const COMBO_PITCH_MAX := 1.6        # upper clamp on the streak-nudged merge pitch
 	const COMBO_BURST_BONUS := 3        # + burst particles while a streak is live
 
 

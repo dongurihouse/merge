@@ -2148,7 +2148,7 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# cozy combo: a live streak nudges the pitch up and the burst out a touch
 	if Features.on("merge_combo"):
 		burst_n += FX.Tune.COMBO_BURST_BONUS
-		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, 1.6)
+		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, FX.Tune.COMBO_PITCH_MAX)
 	FX.hitstop(minf(hit, FX.Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm
 	FX.burst(board_area, center, STRAW if tier >= 4 else Color("#7FA65A"), burst_n)
 	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, pitch)
