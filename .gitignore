@@ -35,3 +35,6 @@ games/grove/assets/.gdignore
 
 # raw LLM image drops (process via slice_grid + make icon/decor; not committed)
 games/placeholder/assets/llm/
+
+# Brainstorm visual companion scratch
+.superpowers/
