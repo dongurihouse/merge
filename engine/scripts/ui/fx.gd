@@ -78,6 +78,9 @@ static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEA
 	fl.z_index = Tune.BURST_Z + 1
 	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(fl)
+	if not fl.is_inside_tree():       # host not yet in-tree → create_tween() is dead, the callback never frees
+		fl.queue_free()
+		return
 	var t := fl.create_tween()
 	t.tween_property(fl, "modulate:a", 0.0, Tune.FLASH_T).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_callback(fl.queue_free)
