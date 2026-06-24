@@ -129,8 +129,12 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	opts["on_close"] = dismiss
 
 	# the responsive width: the saved bag width_pct × the live viewport (matching the other overlays)
+	var vw: float = host.get_viewport_rect().size.x
 	var width_pct: float = float((kcfg.get("bag", {}) as Dictionary).get("width_pct", 85))
-	var width: float = host.get_viewport_rect().size.x * clampf(width_pct, 30.0, 100.0) / 100.0
+	var width: float = vw * clampf(width_pct, 30.0, 100.0) / 100.0
+	# the "Bag" ribbon is short, so floor it at a fraction of the SCREEN width (not the narrower dialog) — it
+	# reads as a proper banner instead of a tiny stub. The shared frame honours this min in _banner.
+	opts["banner_min_w"] = vw * Kit.BANNER_MIN_W_FRAC
 
 	# the slot ladder → bag_card entries. A filled slot builds its real piece view at the kit-FITTED cell
 	# size (make_content); the next/filled tiles tap (buy / retrieve) and dismiss; empty/locked are inert.
