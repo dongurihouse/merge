@@ -23,8 +23,20 @@ def test_primitives(state):
     _check(abs(peak_db - (-3.0)) < 0.2, "normalize hits -3 dBFS", state)
 
 
+def test_recipes(state):
+    from tools.sfx_synth import recipes as R
+    _check(len(R.CUES) == 21, "21 cues defined", state)
+    _check(R.HOT.issubset(set(R.CUES)), "every hot cue is a known cue", state)
+    rng = np.random.default_rng(3)
+    for name in R.CUES:
+        sig = R.RECIPES[name](rng, 0)
+        _check(sig.ndim == 1 and len(sig) > 0 and np.all(np.isfinite(sig)),
+               f"recipe '{name}' renders finite mono audio", state)
+
+
 if __name__ == "__main__":
     state = [0, 0]  # [pass, fail]
     test_primitives(state)
+    test_recipes(state)
     print("== %d passed, %d failed ==" % (state[0], state[1]))
     raise SystemExit(0 if state[1] == 0 else 1)
