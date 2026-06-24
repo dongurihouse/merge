@@ -321,36 +321,11 @@ const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-
 # gesture-spotlight-design.md + docs/BACKLOG.md. The rebuild re-adds a SPOTLIGHTS table here.)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# §10 SHOP STOCK — the buy-side sinks (T40). The grove's instance of the §10 Shop:
-# the item-shortcut catalogue, the cosmetic/look catalogue, and how many offers the
-# storefront features at once. The ENGINE logic (spend/grant/rotate) lives in
-# engine/scripts/ui/shop.gd; these are the OWNER-TUNABLE numbers (prices/codes/count).
-# DESIGN LAW (§4): premium buys SPEED + LOOKS, never POSSIBILITY — an item-shortcut is
-# a grind-SKIP to a piece the player can already reach by merging, never a gate-only or
-# purchase-only item; a cosmetic only re-dresses what's there. Cozy: small catalogue, no
-# anxiety, no pay-to-win (a shortcut piece is mid-tier — it saves taps, it never wins the
-# board). Coins for low tiers / base looks; premium (💎) for deeper skips / exclusive looks.
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Item-shortcut offers (§10 "specific items"): buy a MID-TIER piece to skip the grind to
-# it. `code` = line*100 + tier (the same encoding the board uses), drawn from EARLY, already-
-# askable lines so the shortcut is always a real skip, never a gate. Low tiers (t2–t3) are
-# CHEAP COINS; deeper tiers (t4–t5) are PREMIUM (💎) — the §4 "buys speed" curve. The grant
-# drops the piece into the bag (the board drains it on open). `icon` rides the card.
-const SHOP_ITEM_OFFERS := [
-	{"id": "skip_flower3", "code": 103, "currency": "coins",    "cost": 240,  "icon": "flower",   "label": "Wildflower"},   # t3 — a cheap nudge up the home line
-	{"id": "skip_tools3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "tools",    "label": "Garden tools"},  # t3 — the other starter line
-	{"id": "skip_mush4",   "code": 304, "currency": "coins",    "cost": 700,  "icon": "mushroom", "label": "Mushroom"},     # t4 — a deeper coin skip
-	{"id": "skip_honey4",  "code": 404, "currency": "diamonds", "cost": 8,    "icon": "honey",    "label": "Honey"},        # t4 — premium skip
-]
-
-# (Cosmetic "grove theme" looks — SHOP_COSMETICS — were removed with the customization
-# feature; the deferred "item & map customization" feature is parked in docs/BACKLOG.md.)
-
-# How many offers the featured band shows — a FEW (§10), a FIXED slice of SHOP_ITEM_OFFERS
-# (the first N, in table order). No rotation, no time-based refresh: the shelf is stable.
-const SHOP_FEATURED_COUNT := 3
+# (§10 SHOP STOCK — the item-shortcut catalogue (SHOP_ITEM_OFFERS / SHOP_FEATURED_COUNT,
+# "buy a mid-tier piece to skip the grind") was removed 2026-06-23: item-buying is moving
+# out of the shop and into the board's item info bar. The shop keeps its currency sinks —
+# water, the coin pouch, and the §10 IAP layer below. Cosmetic looks were removed earlier
+# with the customization feature; both rebuilds are parked in docs/BACKLOG.md.)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's

@@ -177,9 +177,10 @@ const DEMO_SETTINGS := [
 # accrual jar's balance/cap + the fixed price + the claim gate). balance/claimable are preview-only.
 const DEMO_VAULT := {"balance": 320, "cap": 500, "price": "$4.99", "claimable": true, "claim_min": 100}
 
-## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
+## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME sections the real
 ## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
-## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
+## a vine divider. Quick help is a 2-card row; Acorn pouches is the gem ladder. (The Featured item-shortcut
+## row was removed 2026-06-23 with the shop's item-buying — that moves to the board's item info bar.)
 ## Only the ITEMS (icon / amount / price / ribbon); the card STYLING is the shared small card.
 static func demo_shop() -> Array:
 	var D := Game.DATA
@@ -188,15 +189,6 @@ static func demo_shop() -> Array:
 		{"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"},
 		{"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"},
 	]
-	# Featured — the item-shortcut offers (coins or 💎)
-	var featured: Array = []
-	for off in D.SHOP_ITEM_OFFERS:
-		featured.append({
-			"icon": String(off.get("icon", "star")),
-			"label": String(off.get("label", "")),
-			"price": str(int(off.get("cost", 0))),
-			"price_icon": ("gem" if String(off.get("currency", "coins")) == "diamonds" else "coin"),
-		})
 	# Acorn pouches — the cash → gems ladder (a 3-wide grid; the merchandised packs wear ribbons)
 	var packs: Array = []
 	for i in (D.CASH_PACKS as Array).size():
@@ -214,7 +206,6 @@ static func demo_shop() -> Array:
 		packs.append(card)
 	return [
 		{"caption": "Quick help", "cards": help},
-		{"caption": "Featured", "cards": featured},
 		{"caption": "Acorn pouches", "cards": packs},
 	]
 

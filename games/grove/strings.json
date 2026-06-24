@@ -157,10 +157,9 @@
 			"first_buy_bonus": "first-buy bonus doubled!"
 		},
 		"coin": {
-			"featured_caption": "Featured",
 			"info_note": "Added to your pouch instantly.",
 			"info_row_label": "Coins",
-			"info_row_note": "for restoring spots and buying from the shelf",
+			"info_row_note": "for restoring spots around the grove",
 			"info_title": "Coin pouch",
 			"pouch_label": "Coin pouch",
 			"quick_help_caption": "Quick help"
@@ -170,9 +169,6 @@
 			"charged_note": "You'll be charged %s.",
 			"confirm": "Confirm",
 			"test_build_note": "(test build — nothing is charged)"
-		},
-		"flow": {
-			"into_bag": "Into your bag"
 		},
 		"free": {
 			"back_tomorrow": "Back tomorrow",
@@ -186,14 +182,8 @@
 		"info": {
 			"got_it": "Got it"
 		},
-		"offer": {
-			"info_note": "Skips you straight to this piece — no grinding up to it.",
-			"info_row_note": "drops into your bag, ready to place on the board",
-			"tier": "tier %d"
-		},
 		"premium": {
 			"acorn_pouches_caption": "Acorn pouches",
-			"featured_caption": "Featured",
 			"free_acorns_caption": "Free acorns",
 			"ribbon_best_value": "Best value",
 			"ribbon_first_buy": "First buy x2",
