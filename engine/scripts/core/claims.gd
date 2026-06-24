@@ -49,7 +49,7 @@ static func remaining_today(kind: String) -> int:
 #   {"ok": true, "kind": "refill_water", "water": N}
 #        → the CALLER adds N to its water (board state; this layer can't touch it). The grant
 #          is ADDITIVE and may carry the player OVER the cap (the can banks a little spare).
-#   {"ok": true, "kind": "free_gems", "gems": N}  → +N 💎 already granted via Save.
+# (The "free_gems" acorn faucet was retired 2026-06-23 — acorns are earned-only, Option A.)
 static func claim(kind: String) -> Dictionary:
 	if not can_show(kind):
 		return {"ok": false}
@@ -61,13 +61,6 @@ static func claim(kind: String) -> Dictionary:
 		"refill_water":
 			# Water lives on the board (scenes/), not in Save — hand the full-can target back up.
 			result = {"ok": true, "kind": kind, "water": int(def.get("water", 0))}
-		"free_gems":
-			# The persistent "Free" stall faucet (§4/§10): tap → a small 💎 grant, capped + cooled.
-			# Granted PURELY here (premium lives in Save); the caller plays the reward FX.
-			var fg := int(def.get("gems", 0))
-			if fg > 0:
-				Save.add_diamonds(fg)
-			result = {"ok": true, "kind": kind, "gems": fg}
 		_:
 			return {"ok": false}
 	Save.claim_record(kind)

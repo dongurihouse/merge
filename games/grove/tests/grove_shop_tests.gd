@@ -236,59 +236,7 @@ func _initialize() -> void:
 		"collecting through the surface claims today's rung and bumps the streak")
 	lhost.queue_free()
 
-	# T-K: the FREE-ACORN faucet moved OFF the side rail INTO the premium (acorn) shop. The mechanic is
-	# unchanged (the free_gems CLAIMS row — cap/cooldown/reward); only the surface moved. The pure status +
-	# claim helpers drive the card; the card itself is then asserted through the REAL shop below.
-	fresh("free_gems_helpers")
-	var fg_amt := int(Data.CLAIMS.free_gems.gems)
-	ok(ShopS.free_gems_amount() == fg_amt, "free_gems_amount reports the CLAIMS reward (%d🌰)" % fg_amt)
-	var fg0: Dictionary = ShopS.free_gems_status()
-	ok(bool(fg0.available) and String(fg0.kind) == "ready", "a fresh faucet reads available (kind 'ready')")
-	var fg_before := Save.diamonds()
-	var fg_got: int = ShopS.claim_free_gems()
-	ok(fg_got == fg_amt and Save.diamonds() == fg_before + fg_amt, "claiming the faucet grants %d🌰 to the wallet" % fg_amt)
-	ok(ShopS.claim_free_gems() == 0 and Save.diamonds() == fg_before + fg_amt, "an immediate second claim is refused (no over-grant)")
-	var fg1: Dictionary = ShopS.free_gems_status()
-	ok(not bool(fg1.available) and String(fg1.kind) == "cooldown" and int(fg1.minutes) >= 1, \
-		"right after a claim the faucet is on cooldown (a 'Ready in Nm' read)")
-	# exhaust the daily cap (clearing the cooldown between claims) → the faucet reads 'capped' (Back tomorrow).
-	for _k in range(Claims.remaining_today("free_gems")):
-		Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
-		ShopS.claim_free_gems()
-	Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
-	var fg2: Dictionary = ShopS.free_gems_status()
-	ok(not bool(fg2.available) and String(fg2.kind) == "capped", "with the daily cap spent the faucet reads 'capped' (Back tomorrow)")
-
-	# T-K(ii): the faucet card is REACHABLE in the real premium shop and grants end-to-end. Open the acorn
-	# stall on a tree-attached Map host (kit + viewport resolve), find the green "Free" CTA, press it, and
-	# assert the wallet gains the reward — proving the rail→shop move wired through.
-	fresh("free_gems_card")
-	var sh = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(sh)
-	if sh.content == null:
-		sh._ready()
-	ShopS.open_premium(sh, {})
-	var sh_overlay: Control = sh.get_child(sh.get_child_count() - 1)
-	var fg_card_before := Save.diamonds()
-	ok(_press_label(sh_overlay, "Free"), "the premium shop shows a 'Free' acorn faucet CTA")
-	ok(Save.diamonds() == fg_card_before + fg_amt, "pressing the shop faucet grants the %d🌰 reward" % fg_amt)
-	sh.queue_free()
-
-	# T-K(iii): when the faucet is at rest (capped/cooling) the card drops its CTA entirely — the cozy timer
-	# shows as plain text, NOT a greyed-out buy button, so it never reads as a dead pressable wall.
-	fresh("free_gems_resting")
-	for _j in range(Claims.remaining_today("free_gems")):       # spend the daily cap → the faucet rests
-		Save.grove()["claim_ledger"]["free_gems"]["last"] = 0.0
-		ShopS.claim_free_gems()
-	var rest = load("res://engine/scenes/Map.tscn").instantiate()
-	get_root().add_child(rest)
-	if rest.content == null:
-		rest._ready()
-	ShopS.open_premium(rest, {})
-	var rest_overlay: Control = rest.get_child(rest.get_child_count() - 1)
-	ok(not _press_label(rest_overlay, "Free"), "a rested faucet shows NO 'Free' buy button (no greyed CTA)")
-	ok(_label_texts(rest_overlay).has("Back tomorrow"), "...the resting state reads as plain timer text instead")
-	rest.queue_free()
+	# (T-K free-acorn faucet tests removed 2026-06-23 — the faucet was retired; acorns are earned-only, Option A.)
 
 	# T-L: the Welcome bundle's detail sheet — now the SHARED mail dialog (parchment cards, NO Claim) with a
 	# level-style "Got it" footer, replacing the dropped info_dialog. starter_info_items still itemizes the

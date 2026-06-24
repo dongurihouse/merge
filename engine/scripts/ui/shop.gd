@@ -94,24 +94,8 @@ static func grant_starter() -> int:
 	Save.add_water_pending(int(STARTER_PACK.get("water", 0)))
 	return gems
 
-# --- the free-acorn faucet (§4/§10): a free "tap → a few 🌰", the premium stall's lead card. The
-# mechanic is the Claims "free_gems" row (cap/cooldown/reward); these wrap it so the storefront +
-# tests share one source of truth.
-
-# The reward size the faucet pays (the card's count) — the CLAIMS "free_gems" gem grant.
-static func free_gems_amount() -> int:
-	return int(D.CLAIMS.get("free_gems", {}).get("gems", 0))
-
-# The faucet's display state for the card: {available, kind, minutes}. kind is "ready" (offerable now),
-# "cooldown" (a claim is cooling — `minutes` is the cozy "Ready in Nm" round-up), or "capped" (the daily
-# cap is spent — "Back tomorrow"). Pure read (Claims/Save) — the card + tests share it, no state change.
-static func free_gems_status() -> Dictionary:
-	return _claim_status("free_gems")
-
-# Claim the faucet (free — no cost, no ad). Returns the 🌰 granted, 0 if refused (capped/cooling).
-static func claim_free_gems() -> int:
-	var res := Claims.claim("free_gems")
-	return int(res.get("gems", 0)) if bool(res.get("ok", false)) else 0
+# (The free-ACORN faucet was retired 2026-06-23 — acorns are precious/earned-only at 1024🪙 each, Option A.
+# Only the free WATER refill remains a free claim; water isn't acorns.)
 
 # --- the free WATER refill (§4/§10): a full can, free, capped + cooled, in the water stall. Pours a
 # full can ON TOP of the current water (additive, over-cap ok). Shares the Claims "refill_water" row.
@@ -349,9 +333,7 @@ static func _coin_sections(refs: Dictionary) -> Array:
 static func _premium_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var secs: Array = []
-	# Free acorns — the free faucet (moved off the side rail). Always shown; dims to a cozy
-	# "Ready in Nm" / "Back tomorrow" read when a claim isn't offerable yet (§10 — a faucet, never a wall).
-	secs.append({"caption": Strings.t("shop.premium.free_acorns_caption"), "cards": [_free_gems_card(refs)]})
+	# (The free-acorn faucet card was retired 2026-06-23 — acorns are precious/earned-only, Option A.)
 	# Welcome — the one-time, high-value starter bundle (new players only, until claimed). The shop card art
 	# is built for ONE hero item, so the card shows a single placeholder icon + the price; the bundle's
 	# breakdown (acorns + water) lives in the info sheet (the "i"), not crammed into the hero.
@@ -379,57 +361,6 @@ static func _premium_sections(refs: Dictionary) -> Array:
 		packs.append(card)
 	secs.append({"caption": Strings.t("shop.premium.acorn_pouches_caption"), "cards": packs})
 	return secs
-
-# The premium stall's lead card: the free-acorn faucet. Shows the 🌰 reward + a green "Free"
-# CTA when offerable; when cooling/capped the CTA greys and reads the cozy timer, and a press is a no-op
-# (the faucet is just resting). on_buy re-checks the gate so a stale press can't over-grant.
-static func _free_gems_card(refs: Dictionary) -> Dictionary:
-	var host: Control = refs.host
-	var st := free_gems_status()
-	var card := {
-		"node": _free_gems_content(refs, st),
-		"on_info": func() -> void: _info_sheet(host, Strings.t("shop.free.info_title"), [{
-			"icon": "gem", "label": Strings.t("shop.free.info_row_label"), "amount": str(free_gems_amount()),
-			"note": Strings.t("shop.free.info_row_note")}],
-			Strings.t("shop.free.info_note"))}
-	# Offerable → the green "Free" CTA pill claims it. Cooling/capped → NO button: the cozy timer reads as
-	# plain muted text inside the card (see _free_gems_content) — a faucet at rest, not a greyed-out wall.
-	if bool(st.available):
-		card["price"] = Strings.t("shop.free.cta")
-		card["price_icon"] = ""
-		card["affordable"] = true
-		card["on_buy"] = func() -> void:
-			if free_gems_status().available:
-				_flow_free_gems(refs)
-	return card
-
-# The free-acorn card's centre: the 🌰 reward (icon + count), mirroring the cash-pack hero. When the faucet
-# is cooling/capped it carries a small muted line ("Ready in 23m" / "Back tomorrow") under the count, in
-# place of a CTA — so the resting state is quiet plain text, never a big greyed button.
-static func _free_gems_content(refs: Dictionary, st: Dictionary) -> Control:
-	var host: Control = refs.host
-	var px: float = float(refs.hero_px)
-	var col := VBoxContainer.new()
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", int(maxf(2.0, px * 0.06)))
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(Look.icon("gem", px * 0.62))
-	var n := Label.new()
-	n.text = str(free_gems_amount())
-	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	n.add_theme_font_size_override("font_size", int(px * 0.34))
-	n.add_theme_color_override("font_color", INK)
-	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(n)
-	if not bool(st.available):
-		var t := Label.new()
-		t.text = Strings.t("shop.free.back_tomorrow") if String(st.kind) == "capped" else Strings.t("shop.free.ready_in") % int(st.minutes)
-		t.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		t.add_theme_font_size_override("font_size", int(maxf(11.0, px * 0.2)))
-		t.add_theme_color_override("font_color", Color(BARK, 0.9))
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		col.add_child(t)
-	return col
 
 # The escalating gem art id for ladder pack i (gem_t1…), falling back to the plain gem when the grove
 # has more packs than tier sprites — mirrors the old _gem_card art ladder.
@@ -474,21 +405,6 @@ static func _flow_water(refs: Dictionary) -> void:
 
 static func _flow_coins(refs: Dictionary) -> void:
 	_buy(refs, "gem", COIN_PACK_GEM_COST, buy_coin_pack, "coin")
-
-# The free-acorn faucet flow (no spend): claim, fly a 🌰 to the wallet, and rebuild the storefront so the
-# card flips to its cooldown read. Refused (raced past the cap) → a soft nudge + rebuild, no grant.
-static func _flow_free_gems(refs: Dictionary) -> void:
-	var host: Control = refs.host
-	if claim_free_gems() <= 0:
-		Audio.play("invalid_soft", -4.0)
-		_after_buy(refs)
-		return
-	Audio.play("merge_success", -3.0, 1.2)
-	var gem_n := _wallet_node(refs, "gem")
-	if gem_n != null:
-		FX.fly_to_wallet(host, _fb_at(host), Look.icon("gem", Tune.FLY_ICON), gem_n, func() -> void: _after_buy(refs))
-	else:
-		_after_buy(refs)
 
 # The free-refill faucet flow (no spend): claim, pour the full can onto the board's water via the host's
 # `water_add` callback (additive, over-cap ok), fly a 💧 to the wallet, and rebuild so the card flips to

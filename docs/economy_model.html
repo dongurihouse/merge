@@ -56,6 +56,10 @@
 <p class="note">Level cost <code>L1 = levelBaseClicks</code>, ×<code>levelGrowth</code> each level. Level gates nothing now; its only role is the per-level-up reward.</p>
 <div class="card"><table id="levels"></table></div>
 
+<h2>Time spent on each level</h2>
+<p class="note">Active-play time to clear each level (level clicks ÷ 2 per sec). Bars are coloured by the map you're on when you cross that level — note how many levels fall inside The Farm (front-loaded leveling).</p>
+<div class="card"><div id="levelchart"></div></div>
+
 <h2>Coin faucet over the whole game</h2>
 <div class="card"><table id="coins"></table></div>
 
@@ -69,11 +73,11 @@ const D = {
   totalClicks:100000, cps:2,
   cpc1:8, cpc5:4,                       // clicks-per-coin endpoints (linear across 5 maps)
   coinDepth:1.05, clicksPerExp:7, coinsPerAcorn:1024,
-  unlockBase:120, unlockStep:120,
+  unlockBase:275, unlockStep:275,
   levelBaseClicks:128, levelGrowth:1.15,
   // sell band (existing) — for context
   // acorn faucet (Option A)
-  mapDiamonds:5, levelDiamondEvery:10, levelDiamonds:3, freeAcornPerDay:2,
+  mapDiamonds:5, levelDiamondEvery:10, levelDiamonds:3, freeAcornPerDay:0,
 };
 const DIAL_META = {
   totalClicks:"Total clicks = endgame", cps:"Clicks / second",
@@ -163,6 +167,27 @@ function renderLevels(){
   document.getElementById('levels').innerHTML=h;
 }
 
+function renderLevelChart(){
+  const {expAt,maxLevel}=levelInfo();
+  const enters=ladder().perMap.map(m=>m.first);
+  const names=["The Farm","The Orchard","The Garden","The Mill","The Gate"];
+  const cols=["#9ad36b","#7fd0a0","#5fb8c8","#c8a25f","#e0857a"];
+  const mapOf=exp=>{let z=0;for(let i=0;i<enters.length;i++){if(exp>=enters[i])z=i;}return z;};
+  const W=720,H=240,padL=40,padB=22,padT=8;
+  const bw=(W-padL-6)/maxLevel; const plotH=H-padB-padT;
+  let maxT=0; const bars=[];
+  for(let n=1;n<=maxLevel;n++){const t=D.levelBaseClicks*Math.pow(D.levelGrowth,n-1)/D.cps; bars.push({n,t,z:mapOf(expAt(n))}); if(t>maxT)maxT=t;}
+  let svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:760px">`;
+  for(let g=0;g<=4;g++){const y=padT+plotH*(1-g/4); svg+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W}" y2="${y.toFixed(1)}" stroke="#2c3626"/><text x="2" y="${(y+3).toFixed(1)}" fill="#9aa890" font-size="9">${ftime(maxT*g/4)}</text>`;}
+  bars.forEach(b=>{const bh=plotH*(b.t/maxT); const x=padL+(b.n-1)*bw; const y=padT+plotH-bh; svg+=`<rect x="${(x+0.5).toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1,bw-1).toFixed(1)}" height="${bh.toFixed(1)}" fill="${cols[b.z]}"><title>L${b.n}: ${ftime(b.t)} — ${names[b.z]}</title></rect>`;});
+  for(let n=1;n<=maxLevel;n+=5){const x=padL+(n-0.5)*bw; svg+=`<text x="${x.toFixed(1)}" y="${H-7}" fill="#9aa890" font-size="9" text-anchor="middle">L${n}</text>`;}
+  svg+=`</svg>`;
+  const counts={}; bars.forEach(b=>counts[b.z]=(counts[b.z]||0)+1);
+  let leg=`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--muted)">`;
+  names.forEach((nm,z)=>{if(counts[z])leg+=`<span><span style="display:inline-block;width:10px;height:10px;background:${cols[z]};border-radius:2px;margin-right:4px"></span>${nm}: ${counts[z]} levels</span>`;});
+  document.getElementById('levelchart').innerHTML=svg+leg+`</div>`;
+}
+
 function coinFaucet(){
   const L=ladder();
   let quest=0; L.perMap.forEach((m,z)=>{ quest+=m.clicks/cpc(z+1); });
@@ -194,7 +219,7 @@ function renderAcorns(){
   else el.innerHTML=`<div class="flag bad">⚠ Acorns worth ${ratio.toFixed(1)}× the entire coin faucet (${fmt(acornValue)} vs ${fmt(coinFauc)} coins) — acorns would dominate. Shrink the acorn faucet or lower the peg.</div>`;
 }
 
-function renderAll(){ renderMaster();renderConv();renderTiers();renderLadder();renderLevels();renderCoins();renderAcorns(); }
+function renderAll(){ renderMaster();renderConv();renderTiers();renderLadder();renderLevels();renderLevelChart();renderCoins();renderAcorns(); }
 renderDials(); renderAll();
 </script>
 </body>

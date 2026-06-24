@@ -394,10 +394,9 @@ const FIRST_BUY_MULT := 2
 #   refill_water — the watering-can top-up (a full can) offered free in the water stall. The
 #                  grant is ADDITIVE and may carry the can OVER WATER_CAP (banked spare); regen
 #                  pauses while over the cap (board_logic.regen), resuming once it drops below.
-#   free_gems    — the persistent LiveOps gem faucet ("Free"), the premium stall's lead card.
+#   (the free_gems acorn faucet was RETIRED 2026-06-23 — acorns are precious/earned-only, Option A.)
 const CLAIMS := {
 	"refill_water": {"cap": 3, "cooldown": 1800, "water": WATER_CAP},  # 3/day, 30 min apart — a full can (over-cap ok)
-	"free_gems":    {"cap": 2, "cooldown": 43200, "gems": 1},          # Option A: acorns precious — 2/day, 1💎, 12h apart (was 3×5/day; at 1 acorn=1024🪙 the old faucet dwarfed the coin economy). TODO: convert the "Free" card to COINS or retire it for the full 0-free-acorn target.
 }
 
 # The diamond-priced QUEST-REWARD 2× DOUBLER (§10). After a quest pays a lump of coins, the
