@@ -60,21 +60,25 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # reaches its number, then opens on the next ADJACENT MERGE (the level gates *when*, not *how*;
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
-# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L12
-# at the four corners (the last cells to open — still early in a 150-level run; the board is the
-# early-game workspace, §4). THIS GRID IS THE OWNER'S FEEL DIAL — re-tune it; the engine reads
-# it via G.cell_min_level(). 9 rows × 7 cols, indexed [row][col] = [cell.x][cell.y].
+# grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
+# at the four corners (the last cells to open). RE-TUNED for the flat §exp curve (LEVEL_BASE_EXP=420,
+# LEVEL_STEP_EXP=0 → ~35 levels for the whole 5-map game): the board grows ~half by the end of map 1,
+# ~87% by the end of map 2, and the outer two rings complete during MAP 3 (L18 / L22) — so "fill the
+# board" is a map-3 beat, not something finished in map 1 (the old L12 corner landed in early map 2).
+# Map→level bands: map1 L1–9 · map2 L9–17 · map3 L17–25 · map4 L25–33 · map5 L33–35. THIS GRID IS THE
+# OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
+# [row][col] = [cell.x][cell.y].
 const MIN_LEVEL := [
 #    c0  c1  c2  c3  c4  c5  c6
-	[11,  7,  5,  5,  5,  7, 11],   # r0  ← outer corners last (~L11)
-	[ 9,  5,  3,  3,  3,  5,  9],   # r1
-	[ 7,  5,  1,  1,  1,  5,  7],   # r2   inner N/S frontier → L1 (T37: whole diamond shifted −1; L1 now HAS a frontier so the board grows before L2 — fixes the seed-123 strand)
-	[ 5,  2,  0,  0,  0,  2,  5],   # r3
-	[ 3,  2,  0,  0,  0,  2,  3],   # r4   center 3×3 open · generator at c3
-	[ 5,  2,  0,  0,  0,  2,  5],   # r5
-	[ 7,  5,  1,  1,  1,  5,  7],   # r6   inner N/S frontier → L1
-	[ 9,  5,  3,  3,  3,  5,  9],   # r7
-	[11,  7,  5,  5,  5,  7, 11],   # r8
+	[22, 14, 10, 10, 10, 14, 22],   # r0  ← outer corners last (L22, mid map 3)
+	[18, 10,  6,  6,  6, 10, 18],   # r1
+	[14, 10,  1,  1,  1, 10, 14],   # r2   inner N/S frontier → L1 (T37: L1 frontier so the board grows before L2 — fixes the seed-123 strand)
+	[10,  3,  0,  0,  0,  3, 10],   # r3
+	[ 6,  3,  0,  0,  0,  3,  6],   # r4   center 3×3 open · generator at c3
+	[10,  3,  0,  0,  0,  3, 10],   # r5
+	[14, 10,  1,  1,  1, 10, 14],   # r6   inner N/S frontier → L1
+	[18, 10,  6,  6,  6, 10, 18],   # r7
+	[22, 14, 10, 10, 10, 14, 22],   # r8
 ]
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
