@@ -169,14 +169,18 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 		"watershop":
 			# the WATER stall opened over the board → the FREE refill (a full can, capped + cooled) leads,
-			# then the 💎 Fill-water card. Mirrors the real board HUD, which passes BOTH callbacks.
+			# then the 💎 Fill-water card. Drive the REAL water-pill "+" button (the exact path a tap takes,
+			# through _build_hud → Hud.build → shop_opts), NOT a direct open_water call — so the capture
+			# proves the board's own HUD delivers the water_add callback the free card is gated on.
 			Save.add_coins(2000)
 			Save.add_diamonds(50)
 			scn._update_hud()
-			load("res://engine/scripts/ui/shop.gd").open_water(scn, {
-				"water_grant": func() -> void: scn.water = G.WATER_CAP,
-				"water_add": func() -> void: scn.water += G.WATER_CAP})
-			await create_timer(0.5).timeout
+			var cluster: Control = scn._wallet_panel
+			var water_pill_panel: Control = cluster.get_child(0)   # WATER · COIN · GEM — water is first
+			var water_plus: Button = water_pill_panel.find_child("GoldCurrencyPlusButton", true, false)
+			print("WATERSHOP probe: cluster=%s water_pill=%s plus=%s" % [cluster, water_pill_panel, water_plus])
+			water_plus.pressed.emit()
+			await create_timer(0.6).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
 			# balance for the acorn counter, then open the modal so the whole ladder shows
