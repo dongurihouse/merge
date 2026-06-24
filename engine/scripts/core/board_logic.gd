@@ -142,6 +142,14 @@ static func roll_spawn(empties: Array, gen_cell: Vector2i, pool: Array, wanted: 
 static func rolls_coin_drop(produced: int, rng: RandomNumberGenerator) -> bool:
 	return not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE
 
+# A cozy successive-merge streak: a merge within `window` seconds of the previous one
+# extends the streak (+1); a longer gap (or no prior streak) restarts it at 1. Pure, so the
+# cadence is unit-tested without the scene. `dt` = seconds since the last merge.
+static func combo_step(prev_count: int, dt: float, window: float) -> int:
+	if prev_count <= 0 or dt > window:
+		return 1
+	return prev_count + 1
+
 # A quest delivers all-or-nothing: the single asked item must be present on the board.
 static func quest_payable(board: BoardModel, q: Dictionary) -> bool:
 	var it := G.quest_item(q)
