@@ -98,6 +98,13 @@ intake: ## apply intake plans in assets/_new/ (agent authors plan.json first): m
 intake-test: ## unit-test the intake runner (pure stdlib, no godot)
 	python3 games/tools/test_intake_apply.py
 
+sfx: ## bake the synth SFX palette into games/grove/assets/music/sfx/ then import
+	python3 -m tools.sfx_synth.bake
+	$(GODOT) --headless --path $(PROJECT) --import
+
+sfx-test: ## pure-python tests for the SFX generator (no godot)
+	python3 -m tools.sfx_synth.test_synth
+
 decor: ## process a bg/decor raw:  make decor IN=/tmp/x.png OUT=res://assets/rooms/y.png W=2160 H=2880 [OPAQUE=1]
 	$(GODOT) --headless --path $(PROJECT) -s res://games/tools/process_decor.gd -- "$(IN)" $(OUT) $(W) $(H) $(if $(OPAQUE),--opaque,)
 

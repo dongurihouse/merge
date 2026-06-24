@@ -1,0 +1,25 @@
+{
+  "cues": {
+    "bag_in": 1,
+    "bag_out": 1,
+    "bramble_clear": 1,
+    "button_tap": 3,
+    "coin_earn": 1,
+    "giver_cheer": 1,
+    "invalid_soft": 1,
+    "item_drop": 3,
+    "item_pickup": 3,
+    "item_slide": 1,
+    "level_complete": 1,
+    "merge_soft": 3,
+    "merge_success": 3,
+    "quest_complete": 1,
+    "rain_refill": 1,
+    "star_earn": 1,
+    "star_pop": 1,
+    "tidy_poof": 1,
+    "undo": 1,
+    "unlock": 1,
+    "water_pop": 1
+  }
+}
