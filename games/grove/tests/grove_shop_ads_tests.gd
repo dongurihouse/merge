@@ -311,4 +311,28 @@ func _initialize() -> void:
 	_test_unlock_rewards()
 	_test_residents_shop_cards()
 
+	# T54 — the water-shop burst-upgrade card: a coin-priced buy of the next global burst level, surfaced
+	# in the water stall (even without a water_grant), and gone once maxed (the affordance disappears).
+	fresh("burst_shop")
+	var bhost := Control.new()
+	get_root().add_child(bhost)
+	var brefs := {"host": bhost, "opts": {}}
+	var bcard: Dictionary = Shop._burst_card(brefs)
+	ok(not bcard.is_empty(), "the burst card is offered before maxed")
+	ok(String(bcard.get("price_icon", "")) == "coin", "the burst card is COIN-priced (the §6/§10 sink)")
+	ok(String(bcard.get("price", "")) == str(G.burst_upgrade_cost(0)), "the burst card shows the next ladder cost")
+	ok(not bool(bcard.get("affordable", true)), "broke → the burst card reads unaffordable")
+	Save.add_coins(10000)
+	ok(bool(Shop._burst_card(brefs).get("affordable", false)), "with coins → the burst card reads affordable")
+	var saw_burst := false
+	for sec in Shop._water_sections({"host": bhost, "opts": {}}):
+		for cardx in (sec as Dictionary).get("cards", []):
+			if String((cardx as Dictionary).get("price_icon", "")) == "coin":
+				saw_burst = true
+	ok(saw_burst, "the water stall surfaces the coin-priced burst card (no water_grant needed)")
+	while G.burst_level() < G.burst_upgrade_max():
+		G.try_upgrade_burst()
+	ok(Shop._burst_card(brefs).is_empty(), "maxed → the burst card is no longer offered")
+	bhost.queue_free()
+
 	finish()

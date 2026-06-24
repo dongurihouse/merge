@@ -49,6 +49,7 @@ const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
 const RESIDENT_SIGNATURE = D.RESIDENT_SIGNATURE
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
+const BUY_MARKUP = D.BUY_MARKUP
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
 const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
@@ -77,7 +78,6 @@ const CHARACTER_ART = D.CHARACTER_ART
 const BASKET_CAP = D.BASKET_CAP
 const PORTER_SECS = D.PORTER_SECS
 const TREAT_COST = D.TREAT_COST
-const SPOTLIGHTS = D.SPOTLIGHTS
 
 # --- the bag (§5) ----------------------------------------------------------------
 # The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).
@@ -385,6 +385,26 @@ static func burst_upgrade_cost(level: int) -> int:
 static func burst_upgrade_max() -> int:
 	return BURST_UPGRADE_COSTS.size()
 
+## The player's GLOBAL burst-upgrade level (one value sizes every generator's burst, every map),
+## persisted in the grove blob. 0 = unbought.
+static func burst_level() -> int:
+	return int(Save.grove().get("burst_lvl", 0))
+
+## The single buy path for the burst-upgrade coin sink — called by BOTH surfaces (T54): the board
+## info-bar chip (`_upgrade_gen_burst` delegates here) and the water-shop card. Spends the next
+## ladder cost, raises burst_lvl by one, and persists. Returns false (no spend, no level) when
+## already maxed or broke — the callers own the refusal feedback.
+static func try_upgrade_burst() -> bool:
+	var lvl := burst_level()
+	var cost := burst_upgrade_cost(lvl)
+	if cost < 0:
+		return false                          # already at the max burst-upgrade level
+	if not Save.spend(cost, "burst_upgrade"):
+		return false                          # not enough coins
+	Save.grove()["burst_lvl"] = lvl + 1
+	Save.grove_write()
+	return true
+
 # --- §1 residents: the population sub-game (welcome + auto-merge) ------------------
 # Residents are WELCOMED (bought) on a COMPLETED map; two of the same type+tier AUTO-MERGE
 # into one a tier up (cascading). The roster is persisted (Save.residents…); the ambient
@@ -620,6 +640,15 @@ static func sell_reward(code: int) -> Vector2i:
 		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
+
+## What it costs to BUY a copy of an item via the board info bar (§10, T55): Vector2i(coins, premium),
+## mirroring sell_reward's currency split (coins for sub-top tiers scaled by the map band, 💎 for the
+## TOP tier) but marked up by BUY_MARKUP over the sell value. Because the markup is > 1 and we ceil,
+## buying ALWAYS costs strictly more than selling returns — the buy-low/sell-high loop is impossible by
+## construction (the same anti-arbitrage discipline sell_reward keeps). Exactly one component is non-zero.
+static func buy_price(code: int) -> Vector2i:
+	var sell := sell_reward(code)
+	return Vector2i(int(ceil(sell.x * BUY_MARKUP)), int(ceil(sell.y * BUY_MARKUP)))
 
 ## The per-map coin band for `map` (0-indexed), clamped to the table (a map past the table
 ## reuses the last entry). Owner/sim feel dial; t8 never reads this (it stays flat 1💎).

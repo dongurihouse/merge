@@ -6,13 +6,13 @@
 	},
 	"bag": {
 		"caption": "Open a slot with acorns.",
-		"cell_gap": 12.0,
+		"cell_gap": 5.0,
 		"cols": 5.0,
 		"grid_inset": 70.0,
 		"list_max_h": 0.0,
 		"row_gap": 14.0,
 		"shadow": false,
-		"width_pct": 80.0
+		"width_pct": 75.0
 	},
 	"bag_card": {
 		"cell_art": true,
@@ -47,7 +47,7 @@
 		"gap": 4.0,
 		"item": 56.0,
 		"rows": 9.0,
-		"scale": 94.0,
+		"scale": 97.0,
 		"shadow": true
 	},
 	"button": {
@@ -69,7 +69,7 @@
 		"cols": 3.0,
 		"list_max_h": 0.0,
 		"shadow": false,
-		"width_pct": 85.0
+		"width_pct": 75.0
 	},
 	"daily_card": {
 		"cell_art": true,
@@ -89,7 +89,7 @@
 	},
 	"dialog": {
 		"shadow": false,
-		"width_pct": 85.0
+		"width_pct": 75.0
 	},
 	"frame": {
 		"banner_burn": 62.0,
@@ -139,33 +139,35 @@
 		"shine": 0.0
 	},
 	"gold_currency_pill": {
-		"amount_w": 88.0,
-		"amount_x": 0.0,
-		"gap": 12.0,
-		"icon_box": 54.0,
-		"icon_size": 34.0,
-		"icon_x": 0.0,
-		"inner_shadow": 30.0,
-		"num_size": 30.0,
-		"pad_left": 18.0,
+		"amount_w": 86.0,
+		"amount_x": 18.0,
+		"gap": 10.0,
+		"icon_box": 27.0,
+		"icon_size": 46.0,
+		"icon_x": 18.0,
+		"inner_shadow": 11.0,
+		"num_size": 32.0,
+		"pad_left": 3.0,
 		"pad_x": 16.0,
-		"pad_y": 12.0,
-		"pill_h": 72.0,
-		"pill_w": 292.0,
-		"plus_button": 100.0,
-		"plus_font": 70.0,
-		"plus_hue": 65.0,
-		"plus_radius": 28.0,
+		"pad_y": 2.0,
+		"pill_h": 64.0,
+		"pill_w": 193.0,
+		"plus_button": 112.0,
+		"plus_font": 101.0,
+		"plus_hue": 64.0,
+		"plus_label_y": 0.0,
+		"plus_radius": 35.0,
 		"plus_round": 8.0,
-		"plus_shine": 32.0,
+		"plus_shine": 58.0,
 		"plus_stroke": 2.0,
-		"plus_x": -1.0,
-		"shadow": false
+		"plus_x": 2.0,
+		"shadow": true,
+		"shadow_alpha": 80.0
 	},
 	"home_button": {
 		"badge_dot_px": 15.0,
-		"badge_dx": -4.0,
-		"badge_dy": -2.0,
+		"badge_dx": 8.0,
+		"badge_dy": 8.0,
 		"badge_num_size": 28.0,
 		"caption_font": 22.0,
 		"caption_gap": -10.0,
@@ -187,14 +189,6 @@
 
 	},
 	"info": {
-		"amount_font": 22.0,
-		"close_font": 20.0,
-		"icon_px": 40.0,
-		"item_gap": 12.0,
-		"label_font": 18.0,
-		"note_font": 13.0,
-		"row_gap": 8.0,
-		"row_pad": 14.0,
 		"shadow": false,
 		"width_pct": 58.0
 	},
@@ -226,27 +220,29 @@
 		"width_pct": 50.0
 	},
 	"level_badge": {
-		"acorn_scale": 52.0,
+		"acorn_scale": 33.0,
 		"acorn_x": 0.0,
-		"acorn_y": -8.0,
+		"acorn_y": 4.0,
 		"circle_base": true,
+		"circle_design": "2",
 		"circle_scale": 90.0,
 		"circle_x": 0.0,
 		"circle_y": -4.0,
-		"flower_scale": 48.0,
+		"flower_scale": 41.0,
 		"flower_x": 0.0,
-		"flower_y": -10.0,
-		"gem_scale": 36.0,
+		"flower_y": 4.0,
+		"gem_scale": 25.0,
 		"gem_x": 0.0,
-		"gem_y": -40.0,
-		"leaf_scale": 100.0,
+		"gem_y": -60.0,
+		"leaf_scale": 94.0,
 		"leaf_x": 0.0,
 		"leaf_y": 0.0,
+		"num_burn": 99.0,
 		"num_size": 32.0,
 		"num_x": 0.0,
-		"num_y": -16.0,
+		"num_y": 5.0,
 		"shadow": false,
-		"size": 100.0
+		"size": 105.0
 	},
 	"map_card": {
 		"card_h_frac": 31.0,
@@ -258,10 +254,7 @@
 		"pill_y_frac": 13.0,
 		"shadow": false,
 		"use_art": true,
-		"veil_deep": 66.0,
-		"veil_mark_alpha": 16.0,
-		"veil_mark_size": 64.0,
-		"veil_scrim": 42.0
+		"veil_mark_size": 64.0
 	},
 	"mystery": {
 		"shadow": false

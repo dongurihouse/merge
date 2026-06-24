@@ -64,11 +64,11 @@ const STRAW = Pal.STRAW
 const BARK = Pal.BARK
 const CLAY = Pal.CLAY
 
-# --- map-select place-picker CARD — the painted kit (spec §8 "the horizon, visible AND veiled") -----
-# The CARD recipe (gold frame `card_active` / dark locked panel `card_locked` / cream count pill
-# `pill_left` / §8 fog veil / meadow fallback / the rounded-corner art clip) now lives in the SHARED
-# kit — Kit.map_card + Kit.map_card_opts_from_config — so the workbench tunes the SAME recipe the game
-# renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
+# --- map-select place-picker CARD ----------------------------------------------------------------------
+# The CARD recipe (the SHARED gold-badge frame over the locale art for an OPEN place, or over a dark
+# gradient + lock medallion for a LOCKED one / cream count pill `pill_left` / the rounded-corner art clip)
+# lives in the SHARED kit — Kit.map_card + Kit.map_card_opts_from_config — so the workbench tunes the SAME
+# recipe the game renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
 const VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it; built by Kit.map_card)
@@ -86,7 +86,7 @@ var _map_idx := 0                # the map being viewed
 var _map_rect := Rect2()         # the stable map canvas (spot pos maps to THIS rect)
 var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
-var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = clip-local base y, pre-scroll)
+var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
 var _select_clip: Control = null # the place-picker's clipped scroll viewport (cards live + scroll inside it)
 var _select_scroll := 0.0        # current scroll offset of the place-picker stack (px from the top)
@@ -177,8 +177,7 @@ func _ready() -> void:
 	# T45 (§18): on the day's FIRST hub open, auto-show the login calendar ONCE. The hub map is the
 	# surface the player reliably hits first (fresh boot lands on the frontier — the hub when nothing
 	# is open yet — and the board's Home button returns here). Gated + deferred so it never fires on a
-	# cold first launch (see _maybe_login_popup). (The §14 shop spotlight that used to share this
-	# first-hub-open beat was removed 2026-06-18 — docs/BACKLOG.md "Restore the shop FTUE".)
+	# cold first launch (see _maybe_login_popup).
 	_maybe_login_popup_deferred.call_deferred()
 
 	# Apple Game Center sign-in → a pseudonymous player id for targeted mail (and later more). Flag-gated
@@ -847,18 +846,24 @@ func _build_select(animate := true) -> void:
 	var card_h := view.y * h_frac                               # height is honored as-is — the band scrolls if the stack overflows
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
-	# the clipped scroll viewport spanning the band; cards are its children (clip-local coords)
+	# the clipped scroll viewport is the FULL screen, so cards scroll off the real top/bottom edges
+	# (passing behind the floating HUD + back arrow) instead of being cut mid-image at an interior band
+	# line. Cards are still LAID OUT within the band (below the HUD, above the back arrow); only the clip
+	# rect spans the whole view.
 	var clip := Control.new()
-	clip.position = Vector2(0.0, band_top)
-	clip.size = Vector2(view.x, band_h)
+	clip.position = Vector2.ZERO
+	clip.size = view
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
 	_select_clip = clip
-	_select_scroll_max = maxf(0.0, total_h - band_h)
+	# the first card rests TOP_PAD below the band top so it clears the settings gear; the stack then
+	# scrolls if it overflows. y is in clip (= screen) coords: band_top + the in-band offset.
+	var top_pad := 20.0
+	var y0 := maxf(top_pad, (band_h - total_h) * 0.5)          # centered when it fits; TOP_PAD down once it scrolls
+	_select_scroll_max = maxf(0.0, y0 + total_h - band_h)
 	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
-	var y0 := maxf(0.0, (band_h - total_h) * 0.5)               # centered when it fits; top-aligned (0) once it scrolls
-	var y := y0
+	var y := band_top + y0
 	for z in n:
 		var card := _make_card(z, card_w, card_h, opts)
 		card.position = Vector2(x, y - _select_scroll)
@@ -1696,10 +1701,10 @@ func _refresh_piggy_pip() -> void:
 #   • today is genuinely unclaimed (not Login.claimed_today() — the day's first open),
 #   • this is NOT a brand-new save (unlocks.size() > 0 — at least one spot restored, so a rewarding
 #     beat has already happened; a fresh save doesn't open on a money-ish calendar).
-# (The §14 shop spotlight used to share this first-hub-open beat and gated the popup so the two never
-# stacked — removed 2026-06-18, docs/BACKLOG.md "Restore the shop FTUE". With no spotlight to collide
-# with, the extra defer + overlay-live check are gone; restore the don't-collide guard if a chrome
-# spotlight is re-added here.)
+# (A future FTUE spotlight on this same first-hub-open beat must coordinate so the two never stack on
+# one frame — see the parked redesign spec docs/superpowers/specs/2026-06-23-ftue-hand-gesture-
+# spotlight-design.md; the current sites are merge/bag on the board, so there is nothing to collide
+# with here today.)
 # The synchronous gate for the auto-popup: shown-this-launch (item 3) · flag · today unclaimed ·
 # past the cold-FTUE. Pulled out so a test can assert the once-per-launch guard without the UI.
 func _login_popup_blocked() -> bool:

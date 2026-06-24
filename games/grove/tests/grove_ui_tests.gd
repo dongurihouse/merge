@@ -53,24 +53,26 @@ func _initialize() -> void:
 	var rows_premium := _shop_rows(s7)
 	# +1 for the Free-acorn faucet card (the rewarded watch moved off the side rail into the stall's lead
 	# slot; its CTA is always present — "Free" when offerable, the cozy timer when cooling/capped).
-	var want_premium := 1 + Shop.offers_for("diamonds").size() \
+	# (Item-shortcut cards were removed 2026-06-23 — item-buying moves to the board's item info bar.)
+	var want_premium := 1 \
 		+ (1 if Shop.starter_available() else 0) + Shop.CASH_PACKS.size()
 	ok(rows_premium == want_premium, \
-		"premium stall = Free faucet + 💎 shortcut(s) + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
-	# the coin stall = the Coin pouch + the coin-priced shortcuts, and NOTHING else (no acorn ladder):
-	# the exact count proves the split — it equals pouch + shortcuts, so no cash/💎 card leaked in.
+		"premium stall = Free faucet + Welcome + the acorn ladder (%d == %d)" % [rows_premium, want_premium])
+	# the coin stall = JUST the Coin pouch, and NOTHING else (no acorn ladder, no shortcuts):
+	# the exact count proves the split — it equals the single pouch, so no cash/💎 card leaked in.
 	k = s7.get_child_count()
 	Shop.open_coin(s7, {})
 	ok(s7.get_child_count() == k + 1, "the coin stall opens over the board")
 	var rows_coin := _shop_rows(s7)
-	var want_coin := 1 + Shop.offers_for("coins").size()
+	var want_coin := 1
 	ok(rows_coin == want_coin, \
-		"coin stall = the Coin pouch + coin shortcuts, no ladder (%d == %d)" % [rows_coin, want_coin])
-	# the water stall: the single Fill-water card, and ONLY when the host can grant water.
+		"coin stall = just the Coin pouch, no ladder (%d == %d)" % [rows_coin, want_coin])
+	# the water stall: the burst-upgrade card is always offered (T54); the Fill-water card adds on when
+	# the host can grant water. (burst_lvl is 0 on this fresh save, so the burst card is present.)
 	Shop.open_water(s7, {})
-	ok(_shop_rows(s7) == 0, "the water stall is empty without a water_grant")
+	ok(_shop_rows(s7) == 1, "without a water_grant the water stall still offers the burst-upgrade card")
 	Shop.open_water(s7, {"water_grant": func() -> void: pass})
-	ok(_shop_rows(s7) == 1, "the water stall = the single Fill-water card with a water_grant")
+	ok(_shop_rows(s7) == 2, "the water stall = Fill-water + the burst-upgrade card with a water_grant")
 
 	# 18. the HUD module: same labels, same pixels, in BOTH scenes
 	var h7 = load("res://engine/scenes/Map.tscn").instantiate()
@@ -453,9 +455,8 @@ func _initialize() -> void:
 	ok(is_equal_approx(float(md.pill_w_frac), 0.30) and is_equal_approx(float(md.pill_min), 170.0) \
 		and is_equal_approx(float(md.pill_max), 290.0) and is_equal_approx(float(md.pill_y_frac), 0.13), \
 		"map_card default count-pill metrics == shipped")
-	ok(is_equal_approx(float(md.veil_scrim), 0.42) and is_equal_approx(float(md.veil_deep), 0.66) \
-		and is_equal_approx(float(md.veil_mark_alpha), 0.16) and is_equal_approx(float(md.veil_mark_size), 64.0), \
-		"map_card default fog-veil look == shipped (§8)")
+	ok(is_equal_approx(float(md.veil_mark_size), 64.0), \
+		"map_card default place-mark size == shipped")
 	ok(bool(md.use_art), "map_card defaults to the painted art (use_art)")
 	# a saved block overrides ONLY the named keys; every other key stays at its shipped default
 	var mover: Dictionary = Kit.map_card_opts_from_config({"map_card": {"frame_inset": 80, "pill_min": 99}})
@@ -546,6 +547,8 @@ func _initialize() -> void:
 		collect.emit_signal("pressed")
 	ok(Save.diamonds() == dia0 + G.LEVEL_DIAMONDS, "Collect grants the level-up diamond gift once")
 	lp_host.queue_free()
+	# (T54 — the info-bar burst-chip board test lives in grove_economy_tests, which runs to completion;
+	#  this suite crashes earlier on a pre-existing map `_unlock_btn` error before it could be reached.)
 	finish()
 
 ## Every Label.text under `n` (depth-first) — lets a placement assert check that a built widget

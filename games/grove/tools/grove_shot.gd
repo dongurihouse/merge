@@ -124,16 +124,41 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
-		"infosel":
+		"infosel", "infobuy":
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
-			# the piece + "<name> · Tier N" + the trashcan with its sell payout.
+			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
+			# read affordable (green); "infobuy" is just the explicit alias for the buy-chip capture.
+			Save.add_coins(2000)
+			Save.add_diamonds(50)
 			var ies: Array = scn.board.empty_ground_cells()
 			var icell := Vector2i(ies[0])
-			scn.board.place(icell, 102)            # a tier-2 item (a clear name + a non-trivial sell value)
+			scn.board.place(icell, 104)            # a tier-4 item (a clear name + a non-trivial buy/sell value)
 			scn._rebuild_pieces()
+			scn._update_hud()
 			await create_timer(0.3).timeout
 			scn._select_item(icell)
 			await create_timer(0.3).timeout
+		"genburst", "genburstbroke":
+			# T54: the info bar with the GENERATOR selected → the burst-upgrade buy chip in the action slot.
+			# "genburst" = affordable (coins present → green chip); "genburstbroke" = broke (dimmed chip).
+			var gbg := Save.grove()
+			gbg["pops"] = 30                       # past the FTUE so the bar reads its played state
+			Save.grove_write()
+			if mode == "genburst":
+				Save.add_coins(2000)               # enough for the next burst level → the chip lights green
+			else:
+				Save.spend(Save.coins())           # broke → the chip dims, cost shown as a goal
+			scn._update_hud()
+			await create_timer(0.3).timeout
+			scn._select_generator(scn.board.gens.keys()[0])
+			await create_timer(0.3).timeout
+		"watershop":
+			# T54: the WATER stall opened over the board → the Fill-water card + the coin-priced burst card.
+			Save.add_coins(2000)
+			Save.add_diamonds(50)
+			scn._update_hud()
+			load("res://engine/scripts/ui/shop.gd").open_water(scn, {"water_grant": func() -> void: pass})
+			await create_timer(0.5).timeout
 		"bag":
 			# §5 full-bag overlay: a few stashed pieces (filled tiles) + owned vacancies, a 💎
 			# balance for the acorn counter, then open the modal so the whole ladder shows

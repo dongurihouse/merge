@@ -30,43 +30,61 @@ const BANNER_H := 92.0
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
 
-# The map-SELECT place-picker CARD (spec §8 "the horizon — visible AND veiled"). An OPEN place wears
-# the glowing gold frame (ui/map/card_active.png) over its locale art + a "★ N left"/"restored" pill;
-# a LOCKED place is the dark baked panel (ui/map/card_locked.png) under an "after <prev>" line. Code-
-# drawn fallbacks (gold rim · meadow fill · §8 fog veil) keep the picker from blanking when an asset is
-# missing. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq) and
-# passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
+# The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
+# only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
+# left"/"restored" pill; a LOCKED place shows a dark gradient interior carrying the lock medallion under an
+# "after <prev>" line. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq)
+# and passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
 # tunes it and the game reads the SAME recipe — the single-source-of-truth pattern the currency pill uses.
-const MAP_CARD_ACTIVE := "map/card_active.png"     # unlocked card's glowing gold frame
-const MAP_CARD_LOCKED := "map/card_locked.png"     # locked card's dark baked panel (lock medallion baked in)
 const MAP_CARD_PILL := "map/pill_left.png"         # the cream count pill on an open card's lower edge
-const MAP_CARD_ASPECT := 1027.0 / 352.0            # card_active's aspect — cards size to it so the frame never distorts
+const MAP_CARD_ASPECT := 1027.0 / 352.0            # the place-card aspect — cards size to it so the frame never distorts
 const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
-const MAP_VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it)
-const MAP_VEIL_ART := "map/veil.png"               # generic painted-veil seam (per-map: veil_<id>.png)
-# Draws the locale art COVER-fitted to fill the card, masked to the gold frame's EXACT silhouette so it
-# never leaks past the rounded corners. The mask (`_map_silhouette_tex`) is the frame flood-filled from its
-# borders, so the art shows only inside the gold body + the enclosed hole — never in the transparent corner
-# gaps, edge margin, or glow. Runs on a ColorRect whose UV spans the card [0,1], the same space as the
-# frame TextureRect, so the mask lines up 1:1. (The old shader rounded corners with a guessed radius — it
-# could never match the frame's real, sparkle-decorated corner, so the art leaked.) `art` is the locale
-# texture, `tex_px` drives the COVER crop over `rect_px`, `mask` is the frame silhouette.
-const MAP_ART_CLIP_SHADER := "shader_type canvas_item;
+const MAP_FRAME_NODE := "MapGoldFrame"             # the open card's shared gold-badge frame (tests assert it)
+const MAP_CARD_LOCK := "map/lock_flower.png"       # the standalone lock medallion centred on a locked card
+const MAP_LOCK_NODE := "MapLockMedallion"          # the locked card's centred lock medallion (tests assert it)
+const LOCK_FILL_TOP := Color(0.165, 0.490, 0.588)  # locked-card interior gradient — teal at top …
+const LOCK_FILL_BOTTOM := Color(0.235, 0.290, 0.275)  # … to a muted dark at the base (sampled from card_locked)
+# Draws the locale art COVER-fitted to fill the inner rect, clipped to a rounded rect so it tucks INSIDE the
+# shared gold-badge frame's inner corner (the frame is a filled 9-slice behind it; the art nests in its
+# border like the board grid in the board frame). `art` is the locale texture, `tex_px` drives the COVER
+# crop over `rect_px`, `radius_px` rounds the corners to match the frame's inner groove.
+const MAP_ART_FILL_SHADER := "shader_type canvas_item;
 uniform sampler2D art : filter_linear;
-uniform sampler2D mask : filter_linear;
 uniform vec2 tex_px = vec2(1.0);
 uniform vec2 rect_px = vec2(1.0);
+uniform float radius_px = 0.0;
 void fragment() {
 	float cover = max(rect_px.x / tex_px.x, rect_px.y / tex_px.y);
-	vec2 disp = tex_px * cover;                 // art scaled to COVER the card
+	vec2 disp = tex_px * cover;                 // art scaled to COVER the inner rect
 	vec2 off = (disp - rect_px) * 0.5;          // centred crop
-	vec2 p = UV * rect_px;                       // pixel position within the card
+	vec2 p = UV * rect_px;                       // pixel position within the inner rect
 	vec4 col = texture(art, (p + off) / disp);   // COVER sample
-	col.a *= texture(mask, UV).a;                // clip to the gold frame's exact silhouette
+	vec2 hs = rect_px * 0.5;
+	float r = clamp(radius_px, 0.0, min(hs.x, hs.y));
+	vec2 q = abs(p - hs) - (hs - vec2(r));
+	float sd = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+	col.a *= clamp(0.5 - sd, 0.0, 1.0);          // rounded-rect clip with a 1px AA edge
 	COLOR = col;
 }"
-static var _map_art_clip: Shader
-static var _map_sil_tex: Texture2D = null         # cached gold-frame silhouette mask (flood-filled)
+static var _map_art_fill: Shader
+# A locked card's dark "veiled" interior: a top→bottom gradient (no texture, so no baked border to double up
+# the frame), clipped to the frame's inner rounded corner — the same rounded clip the art fill uses.
+const MAP_LOCK_FILL_SHADER := "shader_type canvas_item;
+uniform vec4 top_color : source_color = vec4(0.165, 0.49, 0.588, 1.0);
+uniform vec4 bottom_color : source_color = vec4(0.235, 0.29, 0.275, 1.0);
+uniform vec2 rect_px = vec2(1.0);
+uniform float radius_px = 0.0;
+void fragment() {
+	vec4 col = mix(top_color, bottom_color, clamp(UV.y, 0.0, 1.0));
+	vec2 p = UV * rect_px;
+	vec2 hs = rect_px * 0.5;
+	float r = clamp(radius_px, 0.0, min(hs.x, hs.y));
+	vec2 q = abs(p - hs) - (hs - vec2(r));
+	float sd = length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+	col.a *= clamp(0.5 - sd, 0.0, 1.0);
+	COLOR = col;
+}"
+static var _map_lock_fill: Shader
 static var _map_meadow_tex: Texture2D = null      # cached 1x1 MEADOW texture for the art-less fallback
 
 # Badge backgrounds (art mode): friendly label → kit sprite. The Card picks one for its Claim; the
@@ -154,9 +172,10 @@ const DEMO_SETTINGS := [
 # accrual jar's balance/cap + the fixed price + the claim gate). balance/claimable are preview-only.
 const DEMO_VAULT := {"balance": 320, "cap": 500, "price": "$4.99", "claimable": true, "claim_min": 100}
 
-## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME 3 sections the real
+## The GAME shop's items, faithfully from Game.DATA, grouped into the SAME sections the real
 ## storefront uses (engine/scripts/ui/shop.gd) — each a {caption, cards} dict the shop dialog draws under
-## a vine divider. Quick help is a 2-card row; Featured is a 3-card row; Acorn pouches is the gem ladder.
+## a vine divider. Quick help is a 2-card row; Acorn pouches is the gem ladder. (The Featured item-shortcut
+## row was removed 2026-06-23 with the shop's item-buying — that moves to the board's item info bar.)
 ## Only the ITEMS (icon / amount / price / ribbon); the card STYLING is the shared small card.
 static func demo_shop() -> Array:
 	var D := Game.DATA
@@ -165,15 +184,6 @@ static func demo_shop() -> Array:
 		{"icon": "water", "label": "Fill water", "price": str(int(D.REFILL_DIAMOND_COST)), "price_icon": "gem"},
 		{"icon": "coin", "label": "Coin pouch", "count": 150, "price": "5", "price_icon": "gem"},
 	]
-	# Featured — the item-shortcut offers (coins or 💎)
-	var featured: Array = []
-	for off in D.SHOP_ITEM_OFFERS:
-		featured.append({
-			"icon": String(off.get("icon", "star")),
-			"label": String(off.get("label", "")),
-			"price": str(int(off.get("cost", 0))),
-			"price_icon": ("gem" if String(off.get("currency", "coins")) == "diamonds" else "coin"),
-		})
 	# Acorn pouches — the cash → gems ladder (a 3-wide grid; the merchandised packs wear ribbons)
 	var packs: Array = []
 	for i in (D.CASH_PACKS as Array).size():
@@ -191,7 +201,6 @@ static func demo_shop() -> Array:
 		packs.append(card)
 	return [
 		{"caption": "Quick help", "cards": help},
-		{"caption": "Featured", "cards": featured},
 		{"caption": "Acorn pouches", "cards": packs},
 	]
 
@@ -855,6 +864,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var plus := _gold_currency_plus_button(opts, plus_action)
 	var plus_h := plus.custom_minimum_size.y if show_plus else 0.0
 	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus_h))
+	pill_h = maxf(pill_h, ceilf(content_h + pad_y * 2.0))
 
 	var panel := PanelContainer.new()
 	panel.name = "GoldCurrencyPill"
@@ -903,6 +913,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER   # centre the number within its amount box
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -918,6 +929,12 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
+	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
+	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
+	# folded into shadow_params by the resolver. A PanelContainer manages its children, so cast it via a holder
+	# (Look.with_shadow) rather than a behind-parent child; the big corner clamps to a capsule.
+	if bool(opts.get("shadow", false)):
+		return Look.with_shadow(panel, pill_h, opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
@@ -970,13 +987,19 @@ static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable =
 	g.add_theme_constant_override("outline_size", maxi(0, int(round(base * stroke_scale))))
 	g.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	g.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	g.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var dx := float(opts.get("plus_label_x", 0))
+	# Dead-centre the "+" on the green background at ANY size. A full-rect Label with valign=CENTER
+	# pins its line box to the top and overflows DOWNWARD once the glyph is taller than the button
+	# (whose height is fixed by plus_button, NOT plus_font) — so a big plus_font drifts low. Instead
+	# anchor the CONTENT-SIZED label at the button centre and grow BOTH ways: the glyph box straddles
+	# the centre and overflow is symmetric, so the "+" stays centred however large plus_font goes.
+	var dx := float(opts.get("plus_label_x", 0))   # manual nudge rides the centre point
 	var dy := float(opts.get("plus_label_y", 0))
-	g.offset_left = dx
-	g.offset_right = dx
-	g.offset_top = dy
-	g.offset_bottom = dy
+	g.anchor_left = 0.5; g.anchor_right = 0.5
+	g.anchor_top = 0.5; g.anchor_bottom = 0.5
+	g.offset_left = dx; g.offset_right = dx
+	g.offset_top = dy; g.offset_bottom = dy
+	g.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	g.grow_vertical = Control.GROW_DIRECTION_BOTH
 	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(g)
 	return p
@@ -1836,7 +1859,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 		fl.text = foot_note
 		fl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		fl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		fl.add_theme_font_override("font", _plain_font())          # standard text, not the chunky display face
+		fl.add_theme_font_override("font", plain_font())          # standard text, not the chunky display face
 		fl.add_theme_font_size_override("font_size", int(opts.get("note_font", 13)))
 		fl.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 		fl.add_theme_constant_override("outline_size", 0)
@@ -1886,6 +1909,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	bal.add_child(make_icon("gem", float(opts.get("balance_icon", 34))))
 	var bnum := Label.new()
 	bnum.text = str(int(state.get("balance", 0)))
+	bnum.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 	bnum.add_theme_font_size_override("font_size", int(opts.get("balance_font", 34)))
 	bnum.add_theme_color_override("font_color", Pal.INK)
 	bnum.add_theme_constant_override("outline_size", 0)
@@ -1903,8 +1927,10 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.text = String(opts.get("pitch", "Premium you've earned, saved up — claim it all."))
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 16)))
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(pitch)
 
@@ -1925,16 +1951,20 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var hl := Label.new()
 		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
+		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 		hl.add_theme_font_size_override("font_size", 15)
 		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hl)
 		hint.add_child(make_icon("gem", 16))
 		var hn := Label.new()
 		hn.text = str(int(state.get("claim_min", 0)))
+		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
 		hn.add_theme_font_size_override("font_size", 15)
 		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
+		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		hn.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		hint.add_child(hn)
@@ -2469,6 +2499,9 @@ static func level_badge(opts: Dictionary, tier: int, level: int, px: float, num_
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		# the 512px part art is drawn as small as ~1/9 size on a board cell; the project default NEAREST
+		# filter aliases hard when minified, so sample LINEAR + mipmaps here for a smooth shrink.
+		t.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 		t.size = Vector2(box, box)
 		# horizontally centered, bottom-aligned to the shared baseline, then nudged by the part's offset
 		t.position = Vector2(
@@ -3018,10 +3051,11 @@ static func _frame_cfg(cfg: Dictionary) -> Dictionary:
 	return m
 
 ## A PLAIN, regular-weight face for body text that should read as STANDARD UI text — not the cozy chunky/
-## outlined display font the global theme applies (the "bold marker" look). The info sheet's rows use this
-## with the outline off, so the labels/amounts/notes read as clean normal text. Cached per session.
+## outlined display font the global theme applies (the "bold marker" look). The info sheet's rows AND the
+## vault's body text use this with the outline off, so the labels/amounts/notes read as clean normal text.
+## Public so ui/vault.gd (loaded by path) can share the SAME face. Cached per session.
 static var _plain_cache: Font = null
-static func _plain_font() -> Font:
+static func plain_font() -> Font:
 	if _plain_cache != null:
 		return _plain_cache
 	var sys := SystemFont.new()
@@ -3312,7 +3346,17 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
 	var icon_box := float(g.get("icon_box", 54.0))
 	var icon_size := float(g.get("icon_size", 34.0))
+	# the OVERALL drop shadow reuses the shared shadow look (offset/blur/spread/warmth), but the pill
+	# overrides just its STRENGTH (alpha) — so the wallet capsule can sit heavier/lighter than the rest.
+	var sp: Dictionary = Look.shadow_params(cfg)
+	if g.has("shadow_alpha"):
+		sp["alpha"] = clampf(float(g["shadow_alpha"]) / 100.0, 0.0, 1.0)
 	return {
+		"shadow": bool(g.get("shadow", false)),
+		"shadow_params": sp,
+		# the capsule FRAME is the shared gold-badge skin — fold the tuned block in as `badge` so the HUD /
+		# bag / info bar paint the SAME skin the workbench preview injects (gc["badge"] = _params["gold_badge"]).
+		"badge": cfg.get("gold_badge", {}) if cfg is Dictionary else {},
 		"pill_w": float(g.get("pill_w", 292.0)),
 		"pill_h": float(g.get("pill_h", 100.0)),
 		"pad_left": float(g.get("pad_left", 18.0)),
@@ -3333,6 +3377,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"plus_button": float(g.get("plus_button", 100.0)),
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
+		"plus_label_y": float(g.get("plus_label_y", 0.0)),   # vertical nudge of the "+" within the green button
 		"inner_shadow": float(g.get("inner_shadow", 30.0)),
 		"show_plus": true,
 	}
@@ -3984,35 +4029,54 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_card_locked(d, opts, card, card_w, card_h)
 	return card
 
-# An OPEN place: the locale art (or a meadow fallback) fills the hollow of the gold frame, drawn OVER it
-# so the frame's transparent centre lets the art show and its border frames it; the restore count rides a
-# pill on the lower edge.
+# The SHARED gold-badge frame, filling the card as a 9-slice (corners native, edges stretch —
+# board-consistent). Named so tests + the fill can find it. Open AND locked cards wear the SAME frame, so
+# the picker reads as one surface; only the interior (lit art vs dark veil) tells them apart.
+static func _map_add_frame(card: Control, badge_opts: Dictionary) -> void:
+	var cap := gold_badge_cap(badge_opts)
+	var frame := NinePatchRect.new()
+	frame.name = MAP_FRAME_NODE
+	frame.texture = gold_badge_style(badge_opts).texture
+	frame.set_anchors_preset(Control.PRESET_FULL_RECT)
+	frame.patch_margin_left = cap
+	frame.patch_margin_top = cap
+	frame.patch_margin_right = cap
+	frame.patch_margin_bottom = cap
+	frame.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(frame)
+
+# The card's interior fill: `tex` COVER-sampled to FILL the box right up to the frame's gold rim — tucked
+# just past the badge groove (inner_inset) so the art meets the rim with NO cream gap, and never stretched
+# (COVER keeps the source aspect). Clipped to the frame's inner rounded corner. Returns the fill node so the
+# caller can layer a veil / mark over it.
+static func _map_add_fill(card: Control, tex: Texture2D, badge_opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var cap := float(gold_badge_cap(badge_opts))
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var inner := Vector2(maxf(2.0, card_w - band * 2.0), maxf(2.0, card_h - band * 2.0))
+	var radius := maxf(2.0, cap - band)
+	var fill := ColorRect.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.offset_left = band
+	fill.offset_top = band
+	fill.offset_right = -band
+	fill.offset_bottom = -band
+	fill.material = _map_art_material(tex, inner, radius)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(fill)
+	return fill
+
+# An OPEN place: the shared gold frame + the locale art (or a meadow fallback) COVER-filling the box up to
+# the rim; the restore count rides a pill on the lower edge, and an ACTIVE place's gold band shimmers.
 static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	# The locale art FILLS THE CARD, masked to the gold frame's exact silhouette (see MAP_ART_CLIP_SHADER),
-	# so it nests under the gold border and never leaks past the rounded corners. A ColorRect carries the
-	# COVER-sample + mask shader; its UV spans the card, the same space as the frame, so the mask lines up.
-	var card_size := Vector2(card_w, card_h)
+	var badge_opts: Dictionary = opts.get("badge", {})
+	_map_add_frame(card, badge_opts)
 	var art_path := String(d.get("art", ""))
 	var fill_tex: Texture2D = load(art_path) if art_path != "" and ResourceLoader.exists(art_path) else _map_meadow_texture()
-	var t := ColorRect.new()
-	t.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	t.material = _map_art_material(fill_tex, card_size)
-	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(t)
+	_map_add_fill(card, fill_tex, badge_opts, card_w, card_h)
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
-	# the gold frame OVER the art — card sized to its aspect, so a plain SCALE keeps the border crisp.
-	var frame_path := Look.kit(MAP_CARD_ACTIVE)
-	if bool(opts.get("use_art", true)) and ResourceLoader.exists(frame_path):
-		var fr := TextureRect.new()
-		fr.texture = load(frame_path)
-		fr.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		fr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		fr.stretch_mode = TextureRect.STRETCH_SCALE
-		fr.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(fr)
-	else:
-		card.add_child(_map_code_border())
 	_map_count_pill(d, opts, card, card_w, card_h)
 	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
 	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
@@ -4021,25 +4085,56 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 		if spark > 0.0:
 			card.add_child(_map_card_edge_sparkle(card_w, card_h, spark, bool(opts.get("calm", false))))
 
-# A LOCKED place: the dark baked panel fills the card, with the "after <prev>" prerequisite line low over
-# it. When the panel art is off/missing, fall back to a meadow panel under the §8 fog veil so the horizon
-# still reads as veiled.
+# The locked card's dark "veiled" interior: a top→bottom gradient ColorRect (NO texture, so there's no baked
+# border to double up against the gold frame), inset to the rim + clipped to the frame's inner rounded
+# corner exactly like the art fill. (The old card_locked.png baked its OWN gold border, which showed through
+# as a cream band once the shared frame wrapped it.)
+static func _map_add_gradient_fill(card: Control, badge_opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var cap := float(gold_badge_cap(badge_opts))
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var radius := maxf(2.0, cap - band)
+	if _map_lock_fill == null:
+		_map_lock_fill = Shader.new()
+		_map_lock_fill.code = MAP_LOCK_FILL_SHADER
+	var mat := ShaderMaterial.new()
+	mat.shader = _map_lock_fill
+	mat.set_shader_parameter("top_color", LOCK_FILL_TOP)
+	mat.set_shader_parameter("bottom_color", LOCK_FILL_BOTTOM)
+	mat.set_shader_parameter("rect_px", Vector2(maxf(2.0, card_w - band * 2.0), maxf(2.0, card_h - band * 2.0)))
+	mat.set_shader_parameter("radius_px", radius)
+	var fill := ColorRect.new()
+	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	fill.offset_left = band
+	fill.offset_top = band
+	fill.offset_right = -band
+	fill.offset_bottom = -band
+	fill.material = mat
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(fill)
+	return fill
+
+# A LOCKED place: the SAME shared gold frame as an open card + a dark gradient interior carrying the
+# standalone lock medallion (centred), with the "after <prev>" prerequisite line low. Open and locked read
+# as one surface — same frame — distinguished by the lit art vs the dark veil + lock.
 static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
-	var panel_path := Look.kit(MAP_CARD_LOCKED)
-	if bool(opts.get("use_art", true)) and ResourceLoader.exists(panel_path):
-		var p := TextureRect.new()
-		p.texture = load(panel_path)
-		p.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		p.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		p.stretch_mode = TextureRect.STRETCH_SCALE
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		card.add_child(p)
-	else:
-		var inner := _map_meadow_fill(false, opts)
-		inner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		card.add_child(inner)
-		_map_veil(inner, String(d.get("map_id", "")), opts)   # the §8 code-drawn fog when the painted panel is absent
-	# the prerequisite line, low on the panel (the baked medallion is the centre mark).
+	var badge_opts: Dictionary = opts.get("badge", {})
+	_map_add_frame(card, badge_opts)
+	_map_add_gradient_fill(card, badge_opts, card_w, card_h)
+	# the standalone lock medallion, centred (lifted slightly so the prerequisite line clears it).
+	var lock_path := Look.kit(MAP_CARD_LOCK)
+	if ResourceLoader.exists(lock_path):
+		var med := TextureRect.new()
+		med.name = MAP_LOCK_NODE
+		med.texture = load(lock_path)
+		med.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		med.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var msz := clampf(card_h * 0.44, 56.0, 260.0)
+		med.custom_minimum_size = Vector2(msz, msz)
+		med.size = Vector2(msz, msz)
+		med.position = Vector2((card_w - msz) * 0.5, (card_h - msz) * 0.5 - card_h * 0.07)
+		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		card.add_child(med)
+	# the prerequisite line, low on the panel.
 	var state_l := Label.new()
 	state_l.text = String(d.get("prereq", ""))
 	state_l.add_theme_font_size_override("font_size", int(clampf(card_h * 0.135, 18.0, 30.0)))
@@ -4201,165 +4296,20 @@ static func _map_place_mark(opts: Dictionary) -> Control:
 	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return mark
 
-# A code-drawn meadow fill for a LOCKED card whose painted panel is absent — a flat panel + a centered ✿
-# "place" mark, dimmed; the fog veil layers over this. (Open cards use the silhouette-masked fill instead.)
-static func _map_meadow_fill(open: bool, opts: Dictionary) -> Control:
-	var ph := Panel.new()
-	ph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ph.clip_contents = true
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Pal.MEADOW if open else Pal.MEADOW.lerp(Pal.INK, 0.45)
-	ps.set_corner_radius_all(14)
-	ph.add_theme_stylebox_override("panel", ps)
-	ph.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ph.add_child(_map_place_mark(opts))
-	return ph
-
-# A code-drawn gold border, the fallback when card_active.png is absent (so an open card still reads as
-# framed). A borderless rounded panel that draws only the rim — mouse-ignored, self-sizing.
-static func _map_code_border() -> Control:
-	var pnl := Panel.new()
-	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var ps := StyleBoxFlat.new()
-	ps.bg_color = Color(0, 0, 0, 0)
-	ps.set_corner_radius_all(22)
-	ps.set_border_width_all(5)
-	ps.border_color = Pal.STRAW
-	pnl.add_theme_stylebox_override("panel", ps)
-	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return pnl
-
-# The fog veil for a LOCKED map card (§8): a translucent ink scrim + a gradient that pools fog at the
-# bottom + a faint ✿ ghost. Overlays exactly `thumb` (full-rect child), named MAP_VEIL_NODE so a test can
-# assert it. ART SEAM: map/veil_<id>.png (per-map) or map/veil.png (generic) REPLACES the code fog.
-static func _map_veil(thumb: Control, map_id: String, opts: Dictionary) -> void:
-	thumb.clip_contents = true
-	var veil := Control.new()
-	veil.name = MAP_VEIL_NODE
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	veil.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	thumb.add_child(veil)
-	var art := Game.art("map/veil_%s.png" % map_id)
-	if not ResourceLoader.exists(art):
-		art = Game.art(MAP_VEIL_ART)
-	if ResourceLoader.exists(art):
-		var sprite := TextureRect.new()
-		sprite.texture = load(art)
-		sprite.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sprite.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		sprite.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		veil.add_child(sprite)
-		return
-	var scrim := float(opts.get("veil_scrim", 0.42))
-	var deep := float(opts.get("veil_deep", 0.66))
-	# 1. a flat haze over the whole thumb.
-	var haze := ColorRect.new()
-	haze.color = Color(Pal.INK, scrim)
-	haze.set_anchors_preset(Control.PRESET_FULL_RECT)
-	haze.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(haze)
-	# 2. fog settling — a top→bottom gradient deepening to `deep` at the base.
-	var grad := Gradient.new()
-	grad.set_color(0, Color(Pal.INK, 0.0))
-	grad.set_color(1, Color(Pal.INK, deep - scrim))
-	var gtex := GradientTexture2D.new()
-	gtex.gradient = grad
-	gtex.fill_from = Vector2(0.5, 0.0)
-	gtex.fill_to = Vector2(0.5, 1.0)
-	gtex.width = 4
-	gtex.height = 64
-	var settle := TextureRect.new()
-	settle.texture = gtex
-	settle.set_anchors_preset(Control.PRESET_FULL_RECT)
-	settle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	settle.stretch_mode = TextureRect.STRETCH_SCALE
-	settle.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(settle)
-	# 3. the teasing ✿ ghost — a faint mark in the mist.
-	var ghost := Label.new()
-	ghost.name = "VeilMark"
-	ghost.text = "✿"
-	ghost.add_theme_font_size_override("font_size", int(opts.get("veil_mark_size", 64.0)))
-	ghost.add_theme_color_override("font_color", Color(Pal.CREAM, float(opts.get("veil_mark_alpha", 0.16))))
-	ghost.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	ghost.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	ghost.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ghost.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	veil.add_child(ghost)
-
-# Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to the gold frame's
-# exact silhouette mask. See MAP_ART_CLIP_SHADER.
-static func _map_art_material(tex: Texture2D, rect_size: Vector2) -> ShaderMaterial:
-	if _map_art_clip == null:
-		_map_art_clip = Shader.new()
-		_map_art_clip.code = MAP_ART_CLIP_SHADER
+# Material for an open card's fill: COVER-samples `tex` over `rect_size` and clips it to a rounded rect
+# (radius `corner_px`) so the locale art tucks inside the shared gold frame's inner corner. See
+# MAP_ART_FILL_SHADER.
+static func _map_art_material(tex: Texture2D, rect_size: Vector2, corner_px: float) -> ShaderMaterial:
+	if _map_art_fill == null:
+		_map_art_fill = Shader.new()
+		_map_art_fill.code = MAP_ART_FILL_SHADER
 	var mat := ShaderMaterial.new()
-	mat.shader = _map_art_clip
+	mat.shader = _map_art_fill
 	mat.set_shader_parameter("art", tex)
 	mat.set_shader_parameter("tex_px", tex.get_size())
 	mat.set_shader_parameter("rect_px", rect_size)
-	mat.set_shader_parameter("mask", _map_silhouette_tex())
+	mat.set_shader_parameter("radius_px", corner_px)
 	return mat
-
-# The gold frame's silhouette as an alpha mask: 1 inside the frame body + its enclosed hole, 0 in the
-# transparent corner gaps / edge margin / glow. Computed by flood-filling the frame's TRANSPARENT pixels
-# inward from the 4 borders (so the enclosed centre hole stays "inside"). Built on a DOWN-SCALED copy so
-# the flood-fill is cheap (no first-open freeze); the mask is linear-filtered, so it upsamples smoothly to
-# the card. Cached — built once.
-static func _map_silhouette_tex() -> Texture2D:
-	if _map_sil_tex != null:
-		return _map_sil_tex
-	var ft: Texture2D = load(Look.kit(MAP_CARD_ACTIVE))
-	if ft == null:
-		return null
-	var img := ft.get_image()
-	img.convert(Image.FORMAT_RGBA8)
-	var sw := 256                                       # downsample width — plenty for a soft clip mask
-	img.resize(sw, maxi(1, int(round(sw * float(img.get_height()) / float(img.get_width())))), Image.INTERPOLATE_BILINEAR)
-	var w := img.get_width()
-	var h := img.get_height()
-	var n := w * h
-	# 1 = opaque (alpha >= 0.5), 0 = transparent
-	var opaque := PackedByteArray()
-	opaque.resize(n)
-	for y in h:
-		for x in w:
-			opaque[y * w + x] = 1 if img.get_pixel(x, y).a >= 0.5 else 0
-	# flood-fill "outside" = transparent pixels reachable from the border
-	var outside := PackedByteArray()
-	outside.resize(n)
-	var stack := PackedInt32Array()
-	for x in w:
-		if opaque[x] == 0: outside[x] = 1; stack.push_back(x)
-		var b := (h - 1) * w + x
-		if opaque[b] == 0 and outside[b] == 0: outside[b] = 1; stack.push_back(b)
-	for y in h:
-		var l := y * w
-		if opaque[l] == 0 and outside[l] == 0: outside[l] = 1; stack.push_back(l)
-		var r := y * w + (w - 1)
-		if opaque[r] == 0 and outside[r] == 0: outside[r] = 1; stack.push_back(r)
-	while stack.size() > 0:
-		var i := stack[stack.size() - 1]
-		stack.remove_at(stack.size() - 1)
-		var x := i % w
-		var y := i / w
-		for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
-			var nx := x + int(d.x)
-			var ny := y + int(d.y)
-			if nx < 0 or nx >= w or ny < 0 or ny >= h:
-				continue
-			var j := ny * w + nx
-			if outside[j] == 0 and opaque[j] == 0:
-				outside[j] = 1
-				stack.push_back(j)
-	var mask := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	for y in h:
-		for x in w:
-			var inside: bool = outside[y * w + x] == 0
-			mask.set_pixel(x, y, Color(1, 1, 1, 1.0 if inside else 0.0))
-	_map_sil_tex = ImageTexture.create_from_image(mask)
-	return _map_sil_tex
 
 # A cached 1x1 MEADOW-colour texture — the COVER-sampled fill for an open card whose locale art is absent.
 static func _map_meadow_texture() -> Texture2D:
@@ -4378,6 +4328,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var c: Dictionary = cfg.get("map_card", {}) if cfg is Dictionary else {}
 	return {
 		"use_art":         bool(c.get("use_art", true)),
+		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin BOTH cards' frame wears (board/info-bar consistent)
 		"card_w_frac":     float(c.get("card_w_frac", 96)) / 100.0,     # card width  as a % of the screen width (smaller = wider side margins)
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
@@ -4386,10 +4337,7 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
-		"veil_scrim":      float(c.get("veil_scrim", 42)) / 100.0,
-		"veil_deep":       float(c.get("veil_deep", 66)) / 100.0,
-		"veil_mark_alpha": float(c.get("veil_mark_alpha", 16)) / 100.0,
-		"veil_mark_size":  float(c.get("veil_mark_size", 64)),
+		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 
 ## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent

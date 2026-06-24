@@ -296,9 +296,19 @@ func _initialize() -> void:
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
+	# The shipped wallet capsule (workbench-tuned to a COMPACT pill, owner call) must still render tall
+	# enough to HOLD its content (icon / number / +) without squishing AND stay a usable touch target.
+	# This asserts the LIVE built pill height (gold_currency_pill auto-grows to max(pill_h, content+2·pad_y)),
+	# NOT a raw config knob — so it guards the real "is the wallet pill broken?" question at any tuned height.
+	# (Replaces the old `pill_h >= 96` floor, which tracked the retired 100px default and never matched the
+	# tuned config — it was red from the commit that added it; the compact pill is intentional.)
 	var shipped_gold := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	ok(float(shipped_gold.pill_h) >= 96.0 and float(shipped_gold.pad_y) >= 8.0, \
-		"shipped gold_currency_pill config keeps the live HUD pill full-height")
+	var live_pill: Control = Kit.gold_currency_pill(shipped_gold, {})
+	var live_h: float = live_pill.custom_minimum_size.y
+	var content_floor: float = maxf(float(shipped_gold.icon_box), float(shipped_gold.num_size) * 1.45)
+	ok(live_h >= maxf(content_floor, 48.0), \
+		"the shipped gold_currency_pill renders a wallet capsule that holds its content + stays a touch target (live %d px)" % int(live_h))
+	live_pill.queue_free()
 	var hud_host := Control.new()
 	hud_host.custom_minimum_size = Vector2(1080, 1920)
 	get_root().add_child(hud_host)
@@ -466,6 +476,9 @@ func _test_new_knobs(view) -> void:
 		"the gold currency pill plus font can be adjusted larger")
 	ok(plus_panel != null and default_panel != null and plus_panel.custom_minimum_size.x > default_panel.custom_minimum_size.x, \
 		"the gold currency pill plus button size is controlled by plus_button")
+	var compact_pill := Kit.gold_currency_pill({"pill_h": 72, "pad_y": 12, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	ok(compact_pill.custom_minimum_size.y >= 78.0, \
+		"gold_currency_pill clamps height to fit content and vertical padding")
 
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.
@@ -759,13 +772,21 @@ func _info_bar_frame_image_with_badge(badge: Dictionary) -> Image:
 func _info_bar_frame_image(shine: float) -> Image:
 	return _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": shine})
 
+func _map_open_frame_image(badge: Dictionary) -> Image:
+	var opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": badge})
+	var card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, opts, 460.0, 160.0)
+	var frame := card.find_child(Kit.MAP_FRAME_NODE, true, false)
+	var img := ((frame as NinePatchRect).texture as Texture2D).get_image() if frame is NinePatchRect else Image.create(1, 1, false, Image.FORMAT_RGBA8)
+	card.queue_free()
+	return img
+
 func _test_gold_badge_consumers(view) -> void:
 	var prev_dirty: Dictionary = view._dirty.duplicate()
 	view._dirty.clear()
 	view._selected = "gold_badge"
 	view._apply_edit()
-	ok(view._dirty.has("board") and view._dirty.has("info_bar"), \
-		"editing gold_badge queues the board frame and info bar to rebuild")
+	ok(view._dirty.has("board") and view._dirty.has("info_bar") and view._dirty.has("map_card"), \
+		"editing gold_badge queues the board frame, info bar, and map card to rebuild")
 	view._dirty = prev_dirty
 
 	var board_dull := _board_frame_image(0)
@@ -797,6 +818,30 @@ func _test_gold_badge_consumers(view) -> void:
 	var info_round := _info_bar_frame_image_with_badge({"inner_inset": 11, "shine": 100, "corner": 92})
 	ok(_image_sparse_diff(info_boxy, info_round) > 20, \
 		"the info bar board uses the saved gold_badge corner")
+
+	# the MAP CARD's open frame is the SHARED gold-badge skin too: an open card wears the MapGoldFrame
+	# NinePatch (a locked card does not), the opts carry the shared badge + band knob, and the frame tracks
+	# the saved gold_badge corner + shine.
+	var map_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
+	ok(map_opts.has("badge"), \
+		"map_card opts carry the shared gold_badge skin BOTH card states' frame wears")
+	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, map_opts, 460.0, 160.0)
+	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
+	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
+		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
+	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
+		"a LOCKED map card ALSO wears the shared gold-badge frame (consistent with open)")
+	open_card.queue_free()
+	locked_card.queue_free()
+
+	var map_boxy := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 28})
+	var map_round := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 92})
+	ok(_image_sparse_diff(map_boxy, map_round) > 20, \
+		"the map card's open frame uses the saved gold_badge corner")
+	var map_dull := _map_open_frame_image({"inner_inset": 11, "shine": 0, "corner": 58})
+	var map_bright := _map_open_frame_image({"inner_inset": 11, "shine": 160, "corner": 58})
+	ok(_image_sparse_diff(map_dull, map_bright) > 20, \
+		"the map card's open frame uses the saved gold_badge shine")
 
 ## The quest-giver card layout is CONFIG-DRIVEN now: the workbench SAVES the quest_card layout block and
 ## the board reads it via Kit.giver_lay_from_config (cfg.lay → GiverStand.make). This pins the save/read

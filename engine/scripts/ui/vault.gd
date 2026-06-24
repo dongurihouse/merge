@@ -101,6 +101,9 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 # The crack confirm — parchment, the honest caption, Confirm pays out (the future IAP
 # hookup replaces exactly this middle: today Confirm calls Vault.crack() to grant + reset).
 static func _confirm_crack(host: Control, parent_overlay: Control, opts: Dictionary) -> void:
+	# the plain body face — the SAME standard font the vault dialog uses (loaded by path, no hard tools dep).
+	var Kit: GDScript = load(KIT_PATH)
+	var plain: Font = Kit.plain_font() if Kit != null else null
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
 	host.add_child(overlay)
@@ -129,6 +132,9 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	what.add_child(Look.icon("gem", 40))
 	var amount := Label.new()
 	amount.text = Strings.t("vault.crack.amount") % [Vault.balance(), Vault.price_usd()]
+	if plain != null:
+		amount.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
+		amount.add_theme_constant_override("outline_size", 0)
 	amount.add_theme_font_size_override("font_size", 28)
 	amount.add_theme_color_override("font_color", INK)
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -139,6 +145,9 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	var note := Label.new()
 	note.text = (Strings.t("vault.crack.charged_note") % Vault.price_usd()) if charged else Strings.t("vault.crack.test_note")
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if plain != null:
+		note.add_theme_font_override("font", plain)          # plain standard face, not the chunky display font
+		note.add_theme_constant_override("outline_size", 0)
 	note.add_theme_font_size_override("font_size", 15)
 	note.add_theme_color_override("font_color", BARK)
 	col.add_child(note)

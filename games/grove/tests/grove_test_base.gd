@@ -504,8 +504,6 @@ func _test_t45_wiring() -> void:
 	# first hub open auto-shows the calendar ONCE; already-claimed → it stays shut.
 	Feat.FLAGS["daily_login_popup"] = true            # restore the flag the 2× section turned off
 	fresh("t45_login_fresh")
-	# mark the FTUE shop spotlight as already seen so it doesn't compete for the overlay slot.
-	Save.mark_spotlight_seen("shop")
 	var gl := Save.grove()
 	gl["unlocks"] = {hub_id: true}                    # past the cold FTUE (a rewarding beat happened)
 	Save.grove_write()
@@ -522,7 +520,6 @@ func _test_t45_wiring() -> void:
 
 	# 3b. ALREADY CLAIMED today → no auto-popup (it fired its once; never nags).
 	fresh("t45_login_claimed")
-	Save.mark_spotlight_seen("shop")
 	var gl2 := Save.grove()
 	gl2["unlocks"] = {hub_id: true}
 	Save.grove_write()
@@ -538,7 +535,6 @@ func _test_t45_wiring() -> void:
 
 	# 3c. the cold FTUE session (no spots owned) is SKIPPED — §18 "after a reward, not a cold open".
 	fresh("t45_login_ftue")
-	Save.mark_spotlight_seen("shop")                  # isolate the FTUE gate from the spotlight gate
 	var hf = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hf)
 	if hf.content == null:
@@ -565,22 +561,6 @@ func _press_label(overlay: Control, frag: String) -> bool:
 			(b as Button).pressed.emit()
 			return true
 	return false
-
-# T40 helpers: pull the id list out of a rotation, and a uniq pass.
-func _offer_ids(offers: Array) -> Array:
-	var out: Array = []
-	for o in offers:
-		out.append(String(o.id))
-	return out
-
-func _uniq(arr: Array) -> Array:
-	var seen := {}
-	var out: Array = []
-	for v in arr:
-		if not seen.has(v):
-			seen[v] = true
-			out.append(v)
-	return out
 
 # UI redesign: true if `n` or any descendant is of the given built-in class name.
 func _tree_has(n: Node, klass: String) -> bool:

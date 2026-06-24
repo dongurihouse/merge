@@ -167,6 +167,12 @@ const STARTER_ITEMS := {
 # content.sell_reward(). One entry per MAPS row.
 const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Farmhouse · Barn · Pond · Orchard · Meadow
 
+# What BUYING a copy of an item (the §10 board info-bar buy, T55) costs RELATIVE to its sell value:
+# buy_price = ceil(sell_reward × BUY_MARKUP), in the same currency split (coins sub-top, 💎 top). Must
+# be > 1 so buying always costs strictly more than selling returns (the buy-low/sell-high loop is
+# impossible by construction). OWNER/SIM FEEL DIAL — re-validate the faucet/sink balance on grove_sim.
+const BUY_MARKUP := 3.0
+
 # Diamonds (earned-only).
 const LEVEL_DIAMONDS := 3                 # per level-up
 const MAP_DIAMONDS := 10                 # per map fully restored
@@ -317,54 +323,15 @@ const BASKET_CAP := 3            # the merchant's buy-back basket size
 const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
 const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)
 
-# §14 FTUE feature-spotlight registry (T28). The staged features the game announces
-# on FIRST appearance — a spotlight + pulse + a mimed hand gesture showing how to use
-# them — IN the order they unlock over the early levels (chrome stages merchant ch1+,
-# bag ch2+; the shop sits in the bottom bar from the start). The engine reads this
-# table game-agnostically (Spotlight.gesture_for / feature_order); the merge verb is
-# NOT here — the idle hint teaches it (§14). `gesture`: "tap" = a mimed finger-tap
-# scale-pulse at the target; "drag" = a finger gliding along a short path (sell/stow).
-# `label` is the wordless-friendly one-liner the overlay may caption (all via tr()).
-const SPOTLIGHTS := [
-	# NOTE: NONE of these spotlights are presented right now — merchant/sell + bag + shop
-	# were all removed for now (2026-06-18; board.gd + map.gd skip them — see docs/BACKLOG.md
-	# "Restore the sell + bag FTUEs" and "Restore the shop FTUE"). The entries stay as the
-	# gesture/label source + test fixtures for when they are re-wired.
-	{"id": "merchant", "gesture": "drag", "label": "Drag a top item here to sell"},
-	{"id": "bag", "gesture": "drag", "label": "Drag a piece here to tuck it away"},
-	{"id": "shop", "gesture": "tap", "label": "Tap to visit the shop"},
-]
+# (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
+# subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-
+# gesture-spotlight-design.md + docs/BACKLOG.md. The rebuild re-adds a SPOTLIGHTS table here.)
 
-# ─────────────────────────────────────────────────────────────────────────────
-# §10 SHOP STOCK — the buy-side sinks (T40). The grove's instance of the §10 Shop:
-# the item-shortcut catalogue, the cosmetic/look catalogue, and how many offers the
-# storefront features at once. The ENGINE logic (spend/grant/rotate) lives in
-# engine/scripts/ui/shop.gd; these are the OWNER-TUNABLE numbers (prices/codes/count).
-# DESIGN LAW (§4): premium buys SPEED + LOOKS, never POSSIBILITY — an item-shortcut is
-# a grind-SKIP to a piece the player can already reach by merging, never a gate-only or
-# purchase-only item; a cosmetic only re-dresses what's there. Cozy: small catalogue, no
-# anxiety, no pay-to-win (a shortcut piece is mid-tier — it saves taps, it never wins the
-# board). Coins for low tiers / base looks; premium (💎) for deeper skips / exclusive looks.
-# ─────────────────────────────────────────────────────────────────────────────
-
-# Item-shortcut offers (§10 "specific items"): buy a MID-TIER piece to skip the grind to
-# it. `code` = line*100 + tier (the same encoding the board uses), drawn from EARLY, already-
-# askable lines so the shortcut is always a real skip, never a gate. Low tiers (t2–t3) are
-# CHEAP COINS; deeper tiers (t4–t5) are PREMIUM (💎) — the §4 "buys speed" curve. The grant
-# drops the piece into the bag (the board drains it on open). `icon` rides the card.
-const SHOP_ITEM_OFFERS := [
-	{"id": "skip_flower3", "code": 103, "currency": "coins",    "cost": 240,  "icon": "flower",   "label": "Wildflower"},   # t3 — a cheap nudge up the home line
-	{"id": "skip_tools3",  "code": 203, "currency": "coins",    "cost": 240,  "icon": "tools",    "label": "Garden tools"},  # t3 — the other starter line
-	{"id": "skip_mush4",   "code": 304, "currency": "coins",    "cost": 700,  "icon": "mushroom", "label": "Mushroom"},     # t4 — a deeper coin skip
-	{"id": "skip_honey4",  "code": 404, "currency": "diamonds", "cost": 8,    "icon": "honey",    "label": "Honey"},        # t4 — premium skip
-]
-
-# (Cosmetic "grove theme" looks — SHOP_COSMETICS — were removed with the customization
-# feature; the deferred "item & map customization" feature is parked in docs/BACKLOG.md.)
-
-# How many offers the featured band shows — a FEW (§10), a FIXED slice of SHOP_ITEM_OFFERS
-# (the first N, in table order). No rotation, no time-based refresh: the shelf is stable.
-const SHOP_FEATURED_COUNT := 3
+# (§10 SHOP STOCK — the item-shortcut catalogue (SHOP_ITEM_OFFERS / SHOP_FEATURED_COUNT,
+# "buy a mid-tier piece to skip the grind") was removed 2026-06-23: item-buying is moving
+# out of the shop and into the board's item info bar. The shop keeps its currency sinks —
+# water, the coin pouch, and the §10 IAP layer below. Cosmetic looks were removed earlier
+# with the customization feature; both rebuilds are parked in docs/BACKLOG.md.)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's
