@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Acorn Forest — Economy Model (100K-click game)</title>
+<style>
+  :root{
+    --bg:#10140f; --panel:#181d15; --panel2:#1f261a; --ink:#e8efe0; --muted:#9aa890;
+    --line:#2c3626; --accent:#9ad36b; --warn:#e6b65c; --bad:#e07a6b; --good:#7fd0a0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:24px;max-width:1100px;margin:0 auto}
+  h1{font-size:22px;margin:0 0 2px} h2{font-size:16px;margin:26px 0 10px;color:var(--accent);border-bottom:1px solid var(--line);padding-bottom:6px}
+  .sub{color:var(--muted);margin:0 0 18px}
+  .dials{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .dial{display:flex;flex-direction:column;gap:3px}
+  .dial label{font-size:11px;color:var(--muted)} .dial input{background:var(--panel2);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:6px 8px;font:13px monospace}
+  table{border-collapse:collapse;width:100%;margin:6px 0 4px;font-variant-numeric:tabular-nums}
+  th,td{border:1px solid var(--line);padding:5px 9px;text-align:right} th{background:var(--panel2);color:var(--muted);font-weight:600}
+  td:first-child,th:first-child{text-align:left}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin:8px 0}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px}
+  .kpi{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px}
+  .kpi b{display:block;font-size:20px;color:var(--accent)} .kpi span{font-size:11px;color:var(--muted)}
+  .flag{border-left:3px solid var(--warn);background:#221c10;padding:10px 14px;border-radius:6px;margin:8px 0}
+  .flag.ok{border-left-color:var(--good);background:#10231a}
+  .flag.bad{border-left-color:var(--bad);background:#231311}
+  code{background:var(--panel2);padding:1px 5px;border-radius:4px;color:var(--accent);font-size:12px}
+  .note{color:var(--muted);font-size:12px;margin:4px 0}
+</style>
+</head>
+<body>
+<h1>Acorn Forest — Economy Model</h1>
+<p class="sub">Single source of truth for the curve tuning. Everything below is computed from the dials. Endgame anchor: <b>finishing map 5 = a fixed total-click budget</b>. Time unit derived at 2&nbsp;clicks/sec.</p>
+
+<h2>Dials</h2>
+<div class="dials" id="dials"></div>
+<p class="note">Edit any dial → every table recomputes. <code>cpc</code> = clicks per coin (per map). Merge is 2:1, generators pop tier-1, so a tier-N item = 2^(N-1) clicks = 2^(N-1) water.</p>
+
+<h2>Master budget</h2>
+<div class="card"><div class="kpis" id="master"></div></div>
+
+<h2>Conversion table (everything → time @ 2 clicks/sec)</h2>
+<div class="card"><table id="conv"></table></div>
+
+<h2>Per-tier: build cost + quest reward</h2>
+<p class="note">Quest exp = <code>round(clicks / clicksPerExp)</code> (effort-based, flat across maps). Quest coins = <code>round(clicks / cpc[map] × depthBonus^(tier-4))</code> — deeper merges pay slightly better per click. Quests pay <b>no acorns</b> (acorns are milestone/IAP only).</p>
+<div class="card"><table id="tiers"></table></div>
+
+<h2>Unlock ladder (the 40 spot gates)</h2>
+<p class="note">Per-map exp increment <code>inc(z) = UNLOCK_BASE + z×UNLOCK_STEP</code>, scaled so the final spot lands at the total-exp budget (= totalClicks ÷ clicksPerExp).</p>
+<div class="card"><table id="ladder"></table></div>
+
+<h2>Level curve (cosmetic badge)</h2>
+<p class="note">Level cost <code>L1 = levelBaseClicks</code>, ×<code>levelGrowth</code> each level. Level gates nothing now; its only role is the per-level-up reward.</p>
+<div class="card"><table id="levels"></table></div>
+
+<h2>Coin faucet over the whole game</h2>
+<div class="card"><table id="coins"></table></div>
+
+<h2>Acorn faucet — Option A (precious: milestone + IAP only)</h2>
+<p class="note">t8-sell-for-acorn is removed (t8 sells for coins like every tier). Acorns come from map completion, level milestones, login, and IAP. Peg: <code>1 acorn = coinsPerAcorn coins</code>.</p>
+<div class="card"><table id="acorns"></table></div>
+<div id="acornflag"></div>
+
+<script>
+const D = {
+  totalClicks:100000, cps:2,
+  cpc1:8, cpc5:4,                       // clicks-per-coin endpoints (linear across 5 maps)
+  coinDepth:1.05, clicksPerExp:7, coinsPerAcorn:1024,
+  unlockBase:120, unlockStep:120,
+  levelBaseClicks:128, levelGrowth:1.15,
+  // sell band (existing) — for context
+  // acorn faucet (Option A)
+  mapDiamonds:5, levelDiamondEvery:10, levelDiamonds:3, freeAcornPerDay:2,
+};
+const DIAL_META = {
+  totalClicks:"Total clicks = endgame", cps:"Clicks / second",
+  cpc1:"Clicks per coin — map 1", cpc5:"Clicks per coin — map 5",
+  coinDepth:"Coin depth bonus / tier", clicksPerExp:"Clicks per exp (star)",
+  coinsPerAcorn:"Coins per acorn (peg)", unlockBase:"Unlock inc — map 1",
+  unlockStep:"Unlock inc — +per map", levelBaseClicks:"Level 1 cost (clicks)",
+  levelGrowth:"Level cost growth ×", mapDiamonds:"Acorns / map complete",
+  levelDiamondEvery:"Acorn level milestone (every N)", levelDiamonds:"Acorns / milestone",
+  freeAcornPerDay:"Free acorns / day",
+};
+const TIERS=[4,5,6,7,8,9,10,11,12];
+const clicks = t => Math.pow(2,t-1);
+const cpc = m => D.cpc1 + (D.cpc5-D.cpc1)*((m-1)/4);   // m=1..5, linear
+const bonus = t => Math.pow(D.coinDepth, t-4);
+const coinReward = (t,m) => Math.round(clicks(t)/cpc(m)*bonus(t));
+const expReward = t => Math.round(clicks(t)/D.clicksPerExp);
+const sec = c => c/D.cps;
+function ftime(s){ if(s<60)return s.toFixed(0)+"s"; if(s<3600)return (s/60).toFixed(1)+"m"; if(s<86400)return (s/3600).toFixed(1)+"h"; return (s/86400).toFixed(1)+"d";}
+const fmt = n => n.toLocaleString(undefined,{maximumFractionDigits:0});
+
+function renderDials(){
+  const el=document.getElementById('dials'); el.innerHTML='';
+  for(const k in D){ const d=document.createElement('div'); d.className='dial';
+    d.innerHTML=`<label>${DIAL_META[k]||k}</label><input data-k="${k}" value="${D[k]}">`; el.appendChild(d); }
+  el.querySelectorAll('input').forEach(i=>i.addEventListener('change',e=>{ D[e.target.dataset.k]=parseFloat(e.target.value); renderAll(); }));
+}
+
+function renderMaster(){
+  const exp=D.totalClicks/D.clicksPerExp;
+  const el=document.getElementById('master');
+  const rows=[["Total clicks",fmt(D.totalClicks),"map 5 complete"],
+    ["Total exp",fmt(exp),"= clicks ÷ "+D.clicksPerExp],
+    ["Pure tapping",ftime(sec(D.totalClicks)),"@ "+D.cps+" clicks/sec"],
+    ["@1500/day",Math.round(D.totalClicks/1500)+" d","casual faucet"],
+    ["@2500/day",Math.round(D.totalClicks/2500)+" d","engaged faucet"],
+    ["@3300/day",Math.round(D.totalClicks/3300)+" d","heavy+premium"]];
+  el.innerHTML=rows.map(r=>`<div class="kpi"><b>${r[1]}</b><span>${r[0]} — ${r[2]}</span></div>`).join('');
+}
+
+function renderConv(){
+  const t=document.getElementById('conv');
+  const rows=[["1 click / item / water","1",ftime(sec(1))],
+    ["1 coin — map 1 → map 5",`${cpc(1)} → ${cpc(5)}`,`${ftime(sec(cpc(1)))} → ${ftime(sec(cpc(5)))}`],
+    ["1 exp (star)",D.clicksPerExp,ftime(sec(D.clicksPerExp))],
+    ["1 acorn — map1 → map5",`${fmt(D.coinsPerAcorn*cpc(1))} → ${fmt(D.coinsPerAcorn*cpc(5))}`,`${ftime(sec(D.coinsPerAcorn*cpc(1)))} → ${ftime(sec(D.coinsPerAcorn*cpc(5)))}`],
+    ["level 1 (then ×"+D.levelGrowth+")",D.levelBaseClicks,ftime(sec(D.levelBaseClicks))]];
+  t.innerHTML="<tr><th>unit</th><th>= clicks</th><th>= time</th></tr>"+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join('');
+}
+
+function renderTiers(){
+  const t=document.getElementById('tiers');
+  let h="<tr><th>tier</th><th>clicks</th><th>build time</th><th>coins m1</th><th>m3</th><th>m5</th><th>exp</th></tr>";
+  for(const tr of TIERS) h+=`<tr><td>t${tr}</td><td>${fmt(clicks(tr))}</td><td>${ftime(sec(clicks(tr)))}</td><td>${coinReward(tr,1)}</td><td>${coinReward(tr,3)}</td><td>${coinReward(tr,5)}</td><td>${expReward(tr)}</td></tr>`;
+  t.innerHTML=h;
+}
+
+const MAP_SPOTS=[7,4,7,4,1];               // real per-map spot counts (Farm·Orchard·Garden·Mill·Gate)
+function ladder(){ // cumulative exp threshold per spot, in global order
+  const inc=z=>D.unlockBase+z*D.unlockStep;
+  const thr=[]; let cum=0,first=true; const perMap=[];
+  for(let z=0;z<MAP_SPOTS.length;z++){ const i=inc(z); let me=0,fz=null;
+    for(let k=0;k<MAP_SPOTS[z];k++){ if(first){cum=0;first=false;} else {cum+=i;me+=i;} if(fz===null)fz=cum; thr.push(cum);}
+    perMap.push({inc:i,spots:MAP_SPOTS[z],exp:me,clicks:me*D.clicksPerExp,first:fz,last:cum});
+  }
+  return {thr,perMap,total:thr[thr.length-1]};
+}
+function renderLadder(){
+  const L=ladder(), names=["The Farm","The Orchard","The Garden","The Mill","The Gate"];
+  let h="<tr><th>map</th><th>inc/spot</th><th>map exp</th><th>map clicks</th><th>share</th><th>unlocks at (exp)</th></tr>";
+  L.perMap.forEach((m,z)=>{ h+=`<tr><td>${names[z]}</td><td>+${m.inc}</td><td>${fmt(m.exp)}</td><td>${fmt(m.clicks)}</td><td>${Math.round(100*m.clicks/D.totalClicks)}%</td><td>${fmt(m.first)} → ${fmt(m.last)}</td></tr>`;});
+  h+=`<tr><th>final spot</th><th></th><th>${fmt(L.total)}</th><th>${fmt(L.total*D.clicksPerExp)}</th><th>100%</th><th>= total exp budget</th></tr>`;
+  document.getElementById('ladder').innerHTML=h;
+}
+
+function levelInfo(){
+  const expAt=L=> L<=1?0:Math.round((D.levelBaseClicks/D.clicksPerExp)*(Math.pow(D.levelGrowth,L-1)-1)/(D.levelGrowth-1));
+  const budget=D.totalClicks/D.clicksPerExp; let L=1; while(expAt(L+1)<=budget) L++;
+  return {expAt, maxLevel:L};
+}
+function renderLevels(){
+  const {expAt,maxLevel}=levelInfo();
+  const picks=[1,5,10,15,20,25,30].filter(n=>n<=maxLevel); if(!picks.includes(maxLevel))picks.push(maxLevel);
+  let h=`<tr><th>level</th><th>clicks for it</th><th>exp for it</th><th>cum clicks</th></tr>`;
+  for(const n of picks){ const c=D.levelBaseClicks*Math.pow(D.levelGrowth,n-1); h+=`<tr><td>${n}</td><td>${fmt(c)}</td><td>${fmt(Math.round(c/D.clicksPerExp))}</td><td>${fmt(expAt(n)*D.clicksPerExp)}</td></tr>`;}
+  h+=`<tr><th>max @ endgame</th><th colspan="3" style="text-align:left">≈ L${maxLevel}</th></tr>`;
+  document.getElementById('levels').innerHTML=h;
+}
+
+function coinFaucet(){
+  const L=ladder();
+  let quest=0; L.perMap.forEach((m,z)=>{ quest+=m.clicks/cpc(z+1); });
+  const questHi=quest*1.20, merge=0.10*0.9*D.totalClicks;
+  return {quest,questHi,merge,total:quest+merge,totalHi:questHi+merge};
+}
+function renderCoins(){
+  const c=coinFaucet();
+  const rows=[["Quest coins (flat → with depth bonus)",`${fmt(c.quest)} → ${fmt(c.questHi)}`],
+    ["Merge-drop coins (10% of merges)","~"+fmt(c.merge)],
+    ["Total coin faucet","~"+fmt(c.total)+" → "+fmt(c.totalHi)]];
+  document.getElementById('coins').innerHTML="<tr><th>source</th><th>coins over the game</th></tr>"+rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+}
+
+function renderAcorns(){
+  const {maxLevel}=levelInfo();
+  const mapComplete=5*D.mapDiamonds;
+  const milestones=Math.floor(maxLevel/D.levelDiamondEvery)*D.levelDiamonds;
+  const free=D.freeAcornPerDay*Math.round(D.totalClicks/2000); // ~days at a 2000/day faucet
+  const earned=mapComplete+milestones+free;
+  const rows=[["Map completion ("+D.mapDiamonds+" × 5)",mapComplete],
+    ["Level milestones ("+D.levelDiamonds+" every "+D.levelDiamondEvery+", to L"+maxLevel+")",milestones],
+    ["Free daily acorns ("+D.freeAcornPerDay+"/day)",free],
+    ["TOTAL earned over game (excl. IAP)",earned]];
+  document.getElementById('acorns').innerHTML="<tr><th>source</th><th>acorns</th></tr>"+rows.map(r=>`<tr><td>${r[0]}</td><td>${fmt(r[1])}</td></tr>`).join('');
+  const coinFauc=coinFaucet().total, acornValue=earned*D.coinsPerAcorn, ratio=acornValue/coinFauc;
+  const el=document.getElementById('acornflag');
+  if(ratio<=1.5) el.innerHTML=`<div class="flag ok">✓ Consistent: ${earned} earned acorns are worth ~${fmt(acornValue)} coins = ${ratio.toFixed(1)}× the coin faucet (${fmt(coinFauc)}). Acorns stay precious without drowning coins.</div>`;
+  else el.innerHTML=`<div class="flag bad">⚠ Acorns worth ${ratio.toFixed(1)}× the entire coin faucet (${fmt(acornValue)} vs ${fmt(coinFauc)} coins) — acorns would dominate. Shrink the acorn faucet or lower the peg.</div>`;
+}
+
+function renderAll(){ renderMaster();renderConv();renderTiers();renderLadder();renderLevels();renderCoins();renderAcorns(); }
+renderDials(); renderAll();
+</script>
+</body>
+</html>

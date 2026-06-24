@@ -83,13 +83,17 @@ const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF 
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
 
-# §7 generated-quest reward — PROVISIONAL (owner/sim tunables, pending the Monte-Carlo balance pass).
-const STAR_CAP := 3                       # max ★ per quest → level ∝ quest COUNT (§3); held to ~1–3★
+# §7 generated-quest reward — EFFORT-BASED (clicks are the unit; merge 2:1 so a tier-N item = 2^(N-1) clicks).
+#   exp   = round(clicks / QUEST_CLICKS_PER_EXP)              — flat across maps (the progression clock)
+#   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × QUEST_COIN_DEPTH^(tier-QUEST_TIER_BASE))
+#   acorns= NONE — acorns are milestone/IAP only (the t8-sell pinnacle was removed; 1 acorn = COINS_PER_ACORN coins).
+const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort (owner anchor)
+const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per map (Farmhouse→Meadow); later maps pay more coins/click
+const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep merge's click is worth ~1.5× a shallow one across the band
+const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns precious; earned only at milestones / bought)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4); band is always [4..TOP_TIER]
 const QUEST_LEVELS_PER_TIER := 2          # the asked-tier bell's CENTRE climbs +1 every N levels, up to the band midpoint
-const QUEST_PREMIUM_MIN_LEVEL := 10       # at this asked level and above a quest also pays premium 💎
-const QUEST_PREMIUM_GEMS := 1             # the 💎 a high-level quest pays (provisional, sim-tuned)
 const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the newest/highest-value live line
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (coins/premium bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest
@@ -177,9 +181,12 @@ const SELL_MAP_BAND := [1.0, 1.3, 1.7, 2.2, 2.8]   # Farmhouse · Barn · Pond �
 # impossible by construction). OWNER/SIM FEEL DIAL — re-validate the faucet/sink balance on grove_sim.
 const BUY_MARKUP := 3.0
 
-# Diamonds (earned-only).
-const LEVEL_DIAMONDS := 3                 # per level-up
-const MAP_DIAMONDS := 10                 # per map fully restored
+# Diamonds/acorns — EARNED-ONLY and precious (Option A — 1 acorn = COINS_PER_ACORN coins).
+# Quests pay none; sells pay none (the t8 pinnacle was removed). Acorns come from map completion,
+# level MILESTONES, login, and IAP — sized so the whole-game earned acorns ≈ the coin faucet in value.
+const LEVEL_DIAMONDS := 3                 # acorns granted per level MILESTONE (not every level)
+const LEVEL_DIAMOND_EVERY := 10           # a milestone is every Nth level crossed (L10, L20, …)
+const MAP_DIAMONDS := 5                   # acorns per map fully restored
 const REFILL_DIAMOND_COST := 25           # paid rain, once free refills are spent
 
 # §5 The Bag — 6 owned slots at start, +1 at a time bought with 💎, hard cap 18 (12
@@ -311,13 +318,16 @@ const LEVEL_WATER_GIFT := 20
 # order (map order, then spot order); each spot's unlock threshold is the running sum of a
 # per-spot increment that ESCALATES per map: inc(z) = UNLOCK_BASE + z*UNLOCK_STEP. The first
 # spot overall sits at 0 (claimable on a fresh save). PROVISIONAL feel dials.
-const UNLOCK_BASE := 3            # per-spot exp increment on the first map
-const UNLOCK_STEP := 3            # extra increment added per later map
-# The one uncapped LEVEL clock, derived from the cumulative exp total: cross a threshold → level
-# up. Level is purely cosmetic now (badge + per-level gift); past the table a flat tail keeps it
-# UNCAPPED. PROVISIONAL — recalibrated with the generated-quest model + the Monte-Carlo sim.
-const LEVEL_EXP := [0, 6, 14, 24, 36, 50, 66, 84, 104, 126]   # exp to reach L2..L10 (L1 = 0)
-const LEVEL_EXP_TAIL := 22        # exp per level past the table (flat, uncapped)
+# Scaled for the 100K-click game. The real maps are [7,4,7,4,1]=23 spots (Farm·Orchard·Garden·Mill·Gate);
+# the final spot's threshold = 52×UNLOCK_BASE, set to ~total exp = 100000/7 ≈ 14,286 → BASE≈275.
+# inc(z)=275+275z → Farm +275/spot, Orchard +550, Garden +825, Mill +1100, Gate +1375.
+const UNLOCK_BASE := 275          # per-spot exp increment on the first map
+const UNLOCK_STEP := 275          # extra increment added per later map
+# The one uncapped LEVEL clock, derived from the cumulative exp total: cross a threshold → level up.
+# Level is purely cosmetic (badge + per-level gift). GEOMETRIC curve (owner pick): level 1→2 costs
+# LEVEL_BASE_EXP, each later level ×LEVEL_GROWTH — uncapped. ~L34 at the 100K-click endgame.
+const LEVEL_BASE_EXP := 18        # exp to reach L2 (≈ 128 clicks ÷ 7) — the first level
+const LEVEL_GROWTH := 1.15        # each level costs this × the previous (uncapped)
 
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
@@ -387,7 +397,7 @@ const FIRST_BUY_MULT := 2
 #   free_gems    — the persistent LiveOps gem faucet ("Free"), the premium stall's lead card.
 const CLAIMS := {
 	"refill_water": {"cap": 3, "cooldown": 1800, "water": WATER_CAP},  # 3/day, 30 min apart — a full can (over-cap ok)
-	"free_gems":    {"cap": 3, "cooldown": 1800, "gems": 5},           # 3/day, 30 min apart — the persistent gem faucet ("Free")
+	"free_gems":    {"cap": 2, "cooldown": 43200, "gems": 1},          # Option A: acorns precious — 2/day, 1💎, 12h apart (was 3×5/day; at 1 acorn=1024🪙 the old faucet dwarfed the coin economy). TODO: convert the "Free" card to COINS or retire it for the full 0-free-acorn target.
 }
 
 # The diamond-priced QUEST-REWARD 2× DOUBLER (§10). After a quest pays a lump of coins, the

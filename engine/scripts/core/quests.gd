@@ -98,7 +98,7 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 			var it := G.quest_item(q)
 			if not it.is_empty():
 				avoid.append(int(it.line) * 100 + int(it.tier))
-		out.append(G.gen_quest(level, lines, rng, avoid))
+		out.append(G.gen_quest(level, lines, rng, avoid, z))   # z = current map → per-map coin band
 	while out.size() > target:
 		out.pop_back()
 	return out

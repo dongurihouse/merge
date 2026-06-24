@@ -24,11 +24,12 @@ const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
-const STAR_CAP = D.STAR_CAP
+const QUEST_CLICKS_PER_EXP = D.QUEST_CLICKS_PER_EXP
+const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
+const QUEST_COIN_DEPTH = D.QUEST_COIN_DEPTH
+const COINS_PER_ACORN = D.COINS_PER_ACORN
 const QUEST_TIER_BASE = D.QUEST_TIER_BASE
 const QUEST_LEVELS_PER_TIER = D.QUEST_LEVELS_PER_TIER
-const QUEST_PREMIUM_MIN_LEVEL = D.QUEST_PREMIUM_MIN_LEVEL
-const QUEST_PREMIUM_GEMS = D.QUEST_PREMIUM_GEMS
 const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
@@ -53,6 +54,7 @@ const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
 const BUY_MARKUP = D.BUY_MARKUP
 const LEVEL_DIAMONDS = D.LEVEL_DIAMONDS
+const LEVEL_DIAMOND_EVERY = D.LEVEL_DIAMOND_EVERY
 const MAP_DIAMONDS = D.MAP_DIAMONDS
 const REFILL_DIAMOND_COST = D.REFILL_DIAMOND_COST
 const COLLECT_2X_COIN_RATE = D.COLLECT_2X_COIN_RATE
@@ -70,8 +72,8 @@ const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
-const LEVEL_EXP = D.LEVEL_EXP
-const LEVEL_EXP_TAIL = D.LEVEL_EXP_TAIL
+const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
+const LEVEL_GROWTH = D.LEVEL_GROWTH
 const UNLOCK_BASE = D.UNLOCK_BASE
 const UNLOCK_STEP = D.UNLOCK_STEP
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
@@ -233,13 +235,26 @@ static func quest_item(q: Dictionary) -> Dictionary:
 		return {"line": int(q.asks[0].line), "tier": int(q.asks[0].tier)}
 	return {}
 
-## The level-based reward: capped stars (§3 pacing), the surplus in coins, premium 💎 at high levels.
-## All numbers PROVISIONAL (sim-tuned).
-static func quest_reward(level: int) -> Dictionary:
-	var r := {"exp": clampi(level, 1, STAR_CAP), "coins": maxi(0, level - STAR_CAP)}
-	if level >= QUEST_PREMIUM_MIN_LEVEL:
-		r["gems"] = QUEST_PREMIUM_GEMS
-	return r
+## Clicks (generator pops / water / merge-cost) to BUILD one tier-`t` item: merge is 2:1 and
+## generators pop tier-1, so a tier-N item costs 2^(N-1) clicks. The fundamental effort unit.
+static func tier_clicks(t: int) -> int:
+	return int(pow(2, maxi(1, t) - 1))
+
+## EFFORT-BASED quest reward, keyed on the asked TIER and the MAP (§7). The whole economy is priced
+## in clicks (= the effort to build the asked item):
+##   exp   = round(clicks / QUEST_CLICKS_PER_EXP)                       — flat across maps (progression clock)
+##   coins = round(clicks / QUEST_CLICKS_PER_COIN[map] × depth^(tier-base)) — later maps + deeper merges pay more
+##   acorns= NONE (acorns are milestone/IAP only — Option A). `map` is 0-indexed; defaults to map 1.
+## All numbers OWNER/SIM tunables (grove_data); validated against the 100K-click budget (docs/economy_model.html).
+static func quest_reward(tier: int, map: int = 0) -> Dictionary:
+	var c := float(tier_clicks(tier))
+	var cpc_arr: Array = QUEST_CLICKS_PER_COIN
+	var cpc: float = float(cpc_arr[clampi(map, 0, cpc_arr.size() - 1)]) if not cpc_arr.is_empty() else 8.0
+	var depth: float = pow(QUEST_COIN_DEPTH, maxi(0, tier - QUEST_TIER_BASE))
+	return {
+		"exp": maxi(1, int(round(c / float(QUEST_CLICKS_PER_EXP)))),
+		"coins": maxi(0, int(round(c / cpc * depth))),
+	}
 
 ## The diamond-priced quest-reward 2× DOUBLER (§10). Pure economy helpers — the board UI reads
 ## these to decide whether to offer the card and what it costs. The doubler grants `got` extra
@@ -298,10 +313,10 @@ static func _all_avoided(items: Array, avoid: Array) -> bool:
 ## repeats one of the previous few — variety can come from a different TIER of the same line, not only a
 ## different line. If the pool is too small to honour the whole window, it relaxes from the oldest end
 ## until one item is free, so no two asks in a row repeat while >1 item exists (anti-monotony, §7).
-## Reward is level-based: stars=min(level,3), coins=max(0,level-3),
-## gems at level≥QUEST_PREMIUM_MIN_LEVEL. Deterministic given `rng`. Returns {line, tier, reward, featured}.
-## All numbers are PROVISIONAL (Monte-Carlo pass).
-static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = []) -> Dictionary:
+## Reward is EFFORT-BASED on the asked tier (+ `map` for coins): exp=round(clicks/7),
+## coins=round(clicks/cpc[map]×depth^(tier-base)), no acorns. Deterministic given `rng`.
+## Returns {line, tier, reward, featured}. All numbers OWNER/SIM tunables (docs/economy_model.html).
+static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator, avoid: Array = [], map: int = 0) -> Dictionary:
 	var lines: Array = live_lines.duplicate()
 	lines.sort()                                       # ascending: last entry = newest / highest-value
 	# Per-tier bell over the FULL band [QUEST_TIER_BASE, TOP_TIER] — so every line always offers all of
@@ -349,14 +364,12 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 	var chosen: Dictionary = items[pick]
 	var li := int(chosen.line)
 	var tier := int(chosen.tier)
-	var reward: Dictionary = quest_reward(tier)
+	var reward: Dictionary = quest_reward(tier, map)
 	var featured: bool = rng.randf() < QUEST_FEATURED_RATE
 	if featured:
-		# the featured bonus is coins/premium, NEVER extra ★ (§7): reward.stars is left untouched
-		# so level ∝ quests-done holds. A flat coin bonus always; OCCASIONALLY (gem-odds) a small premium.
+		# the featured bonus is COINS ONLY, NEVER extra exp (§7 level ∝ quests-done) and NEVER acorns
+		# (Option A: acorns are milestone/IAP only). A flat coin sweetener on the asked item.
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
-		if rng.randf() < QUEST_FEATURED_GEM_ODDS:
-			reward["gems"] = int(reward.get("gems", 0)) + QUEST_FEATURED_GEM_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
 ## §7 giver meter: how many giver stands are active for a remaining-cost target —
@@ -675,14 +688,12 @@ static func character_count(unlocks: Dictionary) -> int:
 static func sell_value(code: int) -> int:
 	return maxi(1, code % 100)            # t1=1 … tN=N coins
 
-## What an item sells for at the merchant (§9): Vector2i(coins, premium). Every tier below TOP_TIER
-## pays its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more); TOP_TIER
-## stays the FLAT 1💎 pinnacle on every map (the anti-arbitrage invariant — only the sub-pinnacle coin
-## reward bands up, never the pinnacle→premium). The band is read off SELL_MAP_BAND by the item's map.
+## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
+## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
+## premium-sell pinnacle anymore — selling never mints acorns (acorns are milestone/IAP only), so the
+## old t8=1💎 special case + the 32× anti-arbitrage guard are retired. `premium` is always 0 here.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
-	if tier == PREMIUM_TIER:
-		return Vector2i(0, 1)            # the premium pinnacle — flat 1💎, NEVER banded (32× proof)
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 
@@ -718,22 +729,18 @@ static func coin_value(code: int) -> int:
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.
 
 # --- exp level math (the renamed clock; reads the single cumulative `exp`) ----------
+# GEOMETRIC level curve (uncapped): level 1→2 costs LEVEL_BASE_EXP exp, each later level ×LEVEL_GROWTH.
+# exp_at_level(L) = cumulative exp to REACH level L (closed-form geometric sum).
 static func level_for_exp(earned: int) -> int:
 	var lvl := 1
-	for i in LEVEL_EXP.size():
-		if earned >= int(LEVEL_EXP[i]):
-			lvl = i + 1
-	var top := int(LEVEL_EXP[LEVEL_EXP.size() - 1])
-	if earned > top:
-		lvl += int((earned - top) / float(LEVEL_EXP_TAIL))
+	while exp_at_level(lvl + 1) <= earned:
+		lvl += 1
 	return lvl
 
 static func exp_at_level(level: int) -> int:
 	if level <= 1:
 		return 0
-	if level <= LEVEL_EXP.size():
-		return int(LEVEL_EXP[level - 1])
-	return int(LEVEL_EXP[LEVEL_EXP.size() - 1]) + LEVEL_EXP_TAIL * (level - LEVEL_EXP.size())
+	return int(round(LEVEL_BASE_EXP * (pow(LEVEL_GROWTH, level - 1) - 1.0) / (LEVEL_GROWTH - 1.0)))
 
 # --- the per-spot unlock-threshold ladder (§map-unlock) -----------------------------
 # Per-spot increment for map z (escalates per map).
@@ -779,11 +786,17 @@ static func earn_exp(n: int) -> int:
 	Save.add_exp(n)
 	return level_for_exp(Save.exp_total()) - before
 
-# The water + diamond gift for `levels` levels gained (PURE — no side effects). The Level dialog shows
-# it; the player collects it. Split out of earn_stars so the level-up interruption pays out on Collect.
-static func level_gift(levels: int) -> Dictionary:
+# The water + acorn gift for `levels` levels gained, landing at `new_level` (PURE — no side effects).
+# Water is per level; ACORNS are MILESTONE-ONLY (Option A) — paid only when a level that is a multiple of
+# LEVEL_DIAMOND_EVERY is crossed, so acorns stay precious. `new_level` defaults to -1 → no acorns (the
+# caller should pass the post-gain level). The Level dialog shows the gift; the player collects it.
+static func level_gift(levels: int, new_level: int = -1) -> Dictionary:
 	var n := maxi(0, levels)
-	return {"water": LEVEL_WATER_GIFT * n, "gems": LEVEL_DIAMONDS * n}
+	var gems := 0
+	if new_level > 0 and LEVEL_DIAMOND_EVERY > 0:
+		var prev := new_level - n
+		gems = LEVEL_DIAMONDS * (int(new_level / LEVEL_DIAMOND_EVERY) - int(prev / LEVEL_DIAMOND_EVERY))
+	return {"water": LEVEL_WATER_GIFT * n, "gems": gems}
 
 # Apply a level_gift: water (capped), diamonds, and the piggy-bank skim. Called by the Level dialog's
 # Collect button (the deferred grant — what earn_stars used to do inline).
