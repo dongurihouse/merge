@@ -25,6 +25,9 @@ const OVERLAY_NAME := "SettingsOverlay"
 # hard-depending on a tools script, matching the inbox/login idiom.
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const WIDTH_PCT_DEF := 80.0        # the dialog's default width as a % of the screen (workbench-tunable)
+# The privacy policy the App Store listing points at — also reachable in-app (reviewer-expected for a
+# paid-IAP app). The SAME URL goes in App Store Connect's "Privacy Policy URL" field.
+const PRIVACY_URL := "https://dongurihouse.net/privacy"
 
 # The persisted flags, in display order: key · label (localized at build) · the unset default. Music
 # re-evaluates playback on change (Music.refresh); the rest are pull-based, so no side-effect needed.
@@ -72,6 +75,11 @@ static func open(host: Control) -> void:
 	opts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 	opts["banner_text"] = Strings.t("settings.title")
+	# the Privacy Policy link under the toggles — opens the policy in the system browser.
+	opts["footer_text"] = Strings.t("settings.privacy")
+	opts["on_footer"] = func() -> void:
+		Audio.play("button_tap", -2.0)
+		OS.shell_open(PRIVACY_URL)
 	var dialog: Control = Kit.settings_dialog(_entries(host), width, opts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)

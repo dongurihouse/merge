@@ -123,6 +123,8 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 
 ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/design/apple-services-setup.md)
 	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/AcornForest.xcodeproj
+	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
+	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output

@@ -131,7 +131,8 @@
 		"claim_more": "Pick %d more"
 	},
 	"settings": {
-		"title": "Settings"
+		"title": "Settings",
+		"privacy": "Privacy Policy"
 	},
 	"shop": {
 		"buy": {

@@ -67,6 +67,26 @@ func _initialize() -> void:
 			switches += 1
 	ok(switches == Kit.DEMO_SETTINGS.size(), "settings_dialog renders one toggle row per flag (%d)" % switches)
 
+	# --- settings_dialog renders an optional footer LINK (privacy policy) ----------
+	var tapped: Array = [false]
+	var linked := Kit.settings_dialog(Kit.DEMO_SETTINGS, 540.0, {
+		"banner_text": "Settings",
+		"footer_text": "Privacy Policy",
+		"on_footer": func() -> void: tapped[0] = true,
+	})
+	var link: LinkButton = null
+	for b in linked.find_children("", "LinkButton", true, false):
+		if (b as LinkButton).text == "Privacy Policy":
+			link = b
+	ok(link != null, "settings_dialog renders the footer link ('Privacy Policy')")
+	if link != null:
+		link.pressed.emit()
+	ok(tapped[0] == true, "pressing the footer link fires on_footer")
+
+	# footer off by default → no link (the workbench preview stays a pure toggle list)
+	var plain := Kit.settings_dialog(Kit.DEMO_SETTINGS, 540.0, {"banner_text": "Settings"})
+	ok(plain.find_children("", "LinkButton", true, false).is_empty(), "no footer link when footer_text unset")
+
 	# --- the config transforms: defaults + saved overrides ------------------------
 	var d := Kit.toggle_card_opts_from_config({})
 	ok(int(d.get("label_font", 0)) == 28 and float(d.get("switch_h", 0)) == 44.0 and bool(d.get("card_art", false)) == true,

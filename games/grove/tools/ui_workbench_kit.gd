@@ -1895,6 +1895,25 @@ static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictiona
 	var to: Dictionary = opts.get("toggle", {})
 	for e in entries:
 		content.add_child(toggle_card(e, to))
+	# an optional centered FOOTER LINK — the Privacy Policy hyperlink the game wires to OS.shell_open
+	# (App Store expects a reachable policy link for apps with purchases). Off by default so the
+	# workbench preview stays a pure toggle list — the parallel of mail_dialog's footer note.
+	var footer_text := String(opts.get("footer_text", ""))
+	if footer_text != "":
+		var link := LinkButton.new()
+		link.text = footer_text
+		link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
+		link.add_theme_font_override("font", plain_font())
+		link.add_theme_font_size_override("font_size", int(opts.get("footer_font", 14)))
+		link.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
+		link.add_theme_color_override("font_hover_color", Color(Pal.BARK, 1.0))
+		var on_footer: Callable = opts.get("on_footer", Callable())
+		if on_footer.is_valid():
+			link.pressed.connect(func() -> void: on_footer.call())
+		var row := HBoxContainer.new()
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+		row.add_child(link)
+		content.add_child(row)
 	return dialog_frame(content, width, opts)
 
 ## The VAULT (piggy-bank) dialog — the shared frame dressed in the twig border, wrapping the jar hero +
