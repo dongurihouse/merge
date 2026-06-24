@@ -75,9 +75,12 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the sprite px = icon_size × per-currency optical (the workbench `icon_size` slider drives the icon),
 	# centered in the icon_box cell.
 	var gpx := int(round(icon_size))
-	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water)
-	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin)
-	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium)
+	# seed each pill with the value `refresh` will read, so the build-time refresh is a silent no-op
+	# (the numbers don't re-tick from 0 on every page change).
+	var water0 := int(Save.grove().get("water", G.WATER_CAP))
+	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water, water0)
+	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin, Save.coins())
+	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium, Save.diamonds())
 	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label
@@ -224,16 +227,18 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 # One currency pill: the workbench-styled gold badge wrapping a fixed icon BOX + the number + a green "+"
 # that opens the store. Added to `cluster`; returns {panel, label, icon, plus}.
 static func _pill(cluster: HBoxContainer, Kit: Variant, pill: Dictionary, icon_id: String, gsize: int,
-		optical: float, tint: Color, num_size: int, box: float, open_store: Callable) -> Dictionary:
+		optical: float, tint: Color, num_size: int, box: float, open_store: Callable, init_count: int = 0) -> Dictionary:
 	var po: Dictionary = pill.duplicate()
 	po["icon"] = icon_id
 	po["icon_size"] = float(gsize) * optical
 	po["icon_box"] = box
 	po["num_size"] = num_size
-	po["count"] = 0
+	po["count"] = init_count
 	po["show_plus"] = true
 	po["plus_action"] = open_store
-	var panel: Control = Kit.gold_currency_pill(po, {icon_id: 0})
+	# born showing the CURRENT value, not 0 — so build()'s first refresh sets silently instead of
+	# count-ticking up from 0 every time a page rebuilds the HUD.
+	var panel: Control = Kit.gold_currency_pill(po, {icon_id: init_count})
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var lbl := panel.find_child("GoldCurrencyAmount", true, false) as Label
 	var icon := panel.find_child("GoldCurrencyIcon", true, false) as Control

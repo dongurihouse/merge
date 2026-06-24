@@ -610,6 +610,26 @@ static func gate_recorded(gates: Array, z: int) -> bool:
 			return true
 	return false
 
+## Back-fill `gates` from spots-done state: every map whose spots are ALL restored MUST be recorded in
+## `gates`, so map_complete is true and the next map unlocks. Mutates the passed grove blob's `gates`
+## array; returns true iff it added anything. IDEMPOTENT and safe to run every boot — it only ADDS
+## genuinely-earned gates (map_spots_done already excludes spot-less maps), never removes one. This heals
+## a save whose gate write was missed: a pre-§7 save (the gate quest is retired), or one whose spot ids
+## were remapped between builds so the old one-shot `if not has("gates")` migration recorded an EMPTY
+## gates and then never ran again — which strands the player on a finished map forever (the last-spot
+## auto-record never re-fires once every spot is claimed).
+static func reconcile_gates(grove: Dictionary) -> bool:
+	var unlocks: Dictionary = grove.get("unlocks", {})
+	var gates: Array = grove.get("gates", [])
+	var changed := false
+	for z in MAPS.size():
+		if map_spots_done(z, unlocks) and not gate_recorded(gates, z):
+			gates.append(z)
+			changed = true
+	if changed:
+		grove["gates"] = gates
+	return changed
+
 # A map is visitable once the previous map is complete (all its spots claimed). This stays a
 # pure completion-chain, but it is still gated by exp transitively: a map's spots can only be
 # claimed as exp crosses their thresholds, and the next map's first threshold is higher than

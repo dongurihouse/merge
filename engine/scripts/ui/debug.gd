@@ -18,6 +18,7 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Login = preload("res://engine/scripts/core/login.gd")   # the daily calendar — debug_advance_day()
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MARGIN — the level badge's top inset
 # The level-badge BOX height — mirrors Hud.LV_BADGE_PX (NOT preloaded: hud.gd ↔ scene preloads form a cycle).
@@ -87,6 +88,8 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "+5 stars", _act_stars)
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
+	_action(menu, host, "Advance day", _act_advance_day)
+	_action(menu, host, "-25 water", _act_reduce_water)
 
 	host.add_child(layer)
 
@@ -161,5 +164,19 @@ static func _act_level_up(host: Control) -> void:
 	var g := Save.grove()
 	var lvl := G.level_for_exp(int(g.get("exp", 0)))
 	g["exp"] = G.exp_at_level(lvl + 1)
+	Save.grove_write()
+	_reflect(host)
+
+## Fast-forward the daily-login calendar to the next day (claims today to advance the
+## streak, then reopens the claim) — the game's designated "next day" debug helper.
+## Water regen is real-time, not day-based, so this does not refill the can.
+static func _act_advance_day(host: Control) -> void:
+	Login.debug_advance_day()
+	_reflect(host)
+
+## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
+static func _act_reduce_water(host: Control) -> void:
+	var g := Save.grove()
+	g["water"] = maxi(0, int(g.get("water", G.WATER_CAP)) - 25)
 	Save.grove_write()
 	_reflect(host)

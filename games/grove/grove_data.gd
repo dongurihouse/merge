@@ -338,13 +338,13 @@ const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin
 # with the customization feature; both rebuilds are parked in docs/BACKLOG.md.)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# §10 LIVE-IAP + STARTER + REWARDED ADS + OUT-OF-WATER OFFER (T43). The grove's
-# instance of the §4/§10 monetization layer. The ENGINE (grant/cap/cooldown logic)
-# lives in engine/scripts/ui/shop.gd, engine/scripts/core/ads.gd, and the board's
-# energy-wall area; these are the OWNER-TUNABLE numbers. DESIGN LAW (§4): premium &
-# ads buy SPEED + LOOKS, never POSSIBILITY — every wall is passable for FREE (slower).
-# Cozy guardrails (§10, LOCKED): rewarded-ONLY (no interstitials), opt-in, capped +
-# cooldowned; the out-of-water offer has NO countdown, NO fail-shaming, a low cap.
+# §10 LIVE-IAP + STARTER + REWARDED ADS (T43). The grove's instance of the §4/§10
+# monetization layer. The ENGINE (grant/cap/cooldown logic) lives in
+# engine/scripts/ui/shop.gd, engine/scripts/core/ads.gd, and the board's energy-wall
+# area; these are the OWNER-TUNABLE numbers. DESIGN LAW (§4): premium & ads buy SPEED
+# + LOOKS, never POSSIBILITY — every wall is passable for FREE (slower). Cozy
+# guardrails (§10, LOCKED): rewarded-ONLY (no interstitials), opt-in, capped +
+# cooldowned.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # The full cash → 💎 price ladder (§10 "from an entry tier up to a $49.99/$99.99-class
@@ -395,14 +395,6 @@ const ADS := {
 	"free_gems":    {"cap": 3, "cooldown": 1800,  "gems": 5},           # 3/day, 30 min apart — the persistent LiveOps gem faucet ("Free")
 }
 
-# The OUT-OF-WATER TRIGGERED OFFER (§10 "the contextual sell" — state-driven, fired at the
-# moment of friction: water hits 0). A single, gently-DISCOUNTED top-up — a full can + a little
-# premium for the entry price — surfaced beside the free/ad/💎 refill at the wall. Cozy
-# guardrails (LOCKED): a LOW daily cap + a long cooldown, NO countdown, NO fail copy — it reads
-# as "a little help," never a shakedown. The discount is the value: the same $0.99 entry price
-# buys a full refill PLUS gems (a refill alone is 25💎; this throws the can in on top). LIVE
-# behind the same confirm-stub as the cash packs.
-const OOW_OFFER := {"key": "water_offer", "water": WATER_CAP, "gems": 30, "cap": 1, "cooldown": 43200}  # 1/day, 12 h apart; price: data/iap_products.json
 # §10/§18 RETURN SURFACES — the piggy bank (accrual vault) + the daily login calendar
 # (T44). The ENGINE logic (skim/crack · ladder/claim) lives in engine/scripts/core/
 # vault.gd + login.gd; these are the OWNER-TUNABLE numbers. Both reward the daily open

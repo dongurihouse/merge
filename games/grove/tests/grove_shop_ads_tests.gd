@@ -101,36 +101,15 @@ func _initialize() -> void:
 		"the event top-up grants +%d💎" % int(Data.ADS.event_topup.gems))
 	ok(not Ads.can_show("event_topup"), "the event top-up is 1/day (capped after one watch)")
 
-	# T-I: the OUT-OF-WATER triggered offer — fires inside its low cap + cooldown, refuses
-	# past the cap; cozy by construction (a single gentle top-up, no countdown state here).
-	fresh("oow_offer")
-	var oc := int(Data.OOW_OFFER.cap)
-	var ocd := float(Data.OOW_OFFER.cooldown)
-	ok(Save.oow_can_show(oc, ocd), "the out-of-water offer may fire at the wall (within cap/cooldown)")
-	Save.oow_record()
-	ok(not Save.oow_can_show(oc, ocd), "...then it's on cooldown (no repeat shakedown)")
-	# exhaust the daily cap, clearing the cooldown between probes.
-	while Save.oow_used_today() < oc:
-		var g_oow: Dictionary = Save.grove()["oow_offer"]
-		g_oow["last"] = 0.0
-		if Save.oow_can_show(oc, ocd):
-			Save.oow_record()
-	Save.grove()["oow_offer"]["last"] = 0.0
-	ok(Save.oow_used_today() == oc, "the offer reaches its low daily cap (%d/day)" % oc)
-	ok(not Save.oow_can_show(oc, ocd), "...and is refused past the cap (a low, cozy ceiling)")
-	# the offer's discount is real value: a full can PLUS premium for the entry price.
-	ok(int(Data.OOW_OFFER.water) > 0 and int(Data.OOW_OFFER.gems) > 0, \
-		"the offer bundles water + a little 💎 (a gentle discount, §10)")
-
-	# T-J: the live board surfaces the empty-water stack — the ad refill + the offer button
-	# exist and the starter water credit is drained on open (the energy-wall wiring, §10).
+	# T-J: the live board surfaces the empty-water stack — the ad refill button exists and the
+	# starter water credit is drained on open (the energy-wall wiring, §10).
 	fresh("oow_board")
 	Save.add_water_pending(int(Data.STARTER_PACK.water))
 	var bw = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(bw)
 	if bw.board == null:
 		bw._ready()
-	ok(bw.ad_refill_btn != null and bw.oow_offer_btn != null, "the board builds the watch-ad + offer surfaces")
+	ok(bw.ad_refill_btn != null, "the board builds the watch-ad refill surface")
 	ok(Save.water_pending() == 0 and bw.water >= int(Data.STARTER_PACK.water), \
 		"the board applies the banked starter water on open")
 	# drive to empty and surface the stack (water<=0 reveals the refill stack).

@@ -6,9 +6,9 @@ extends SceneTree
 
 const Iap = preload("res://engine/scripts/core/iap.gd")
 
-# Every key the game buys by (mirrors the grove tags: vault, shop ladder, starter, out-of-water offer).
+# Every key the game buys by (mirrors the grove tags: vault, shop ladder, starter).
 const EXPECTED := [
-	"piggybank", "starter", "water_offer",
+	"piggybank", "starter",
 	"gems_tier1", "gems_tier2", "gems_tier3", "gems_tier4", "gems_tier5", "gems_tier6",
 ]
 

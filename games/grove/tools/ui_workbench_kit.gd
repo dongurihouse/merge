@@ -1158,8 +1158,13 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	shell_tint = Color(shell_tint.r, shell_tint.g, shell_tint.b, shell_tint.a * fill_a)
 	var shell: Texture2D = shell_texture(shell_rel, opts.get("badge", {}))   # the Badge item's tuned polish
 	var corner := int(px * (0.22 if shape == "rect" else 0.5))               # code-drawn fallback radius
+	# `flat`: drop the badge shell AND its drop shadow entirely → JUST the centred icon, no chrome behind it
+	# (the board's bottom-bar Bag + Home wells, which sit straight on the grass). Default off = unchanged.
+	var flat := bool(opts.get("flat", false))
 	for st_name in ["normal", "hover", "pressed", "disabled"]:
-		if shell != null:
+		if flat:
+			b.add_theme_stylebox_override(st_name, StyleBoxEmpty.new())   # transparent in every state — beats the theme default bg
+		elif shell != null:
 			var stx := StyleBoxTexture.new()      # NO texture margins → the whole shell scales (rail badges read
 			stx.texture = shell                   # better whole-scaled than 9-sliced; the pill 9-slices on its own path)
 			if st_name == "pressed":
@@ -1179,7 +1184,7 @@ static func home_button(spec: Dictionary, opts: Dictionary = {}) -> Button:
 	# the DROP SHADOW behind the button shell (show_behind_parent): the SHARED box-shadow, SHAPED to the
 	# button — a rounded RECT for the rail / Map badges (corner = the badge corner) or a CIRCLE for disc
 	# buttons (corner = px/2). On only when the Shadow toggle is set; opts.shadow_params is the single look.
-	if bool(opts.get("shadow", false)):
+	if not flat and bool(opts.get("shadow", false)):
 		var sh: Panel = Look.shadow_rect(float(corner), opts.get("shadow_params", {})) if shape == "rect" else Look.shadow_circle(px, opts.get("shadow_params", {}))
 		sh.show_behind_parent = true                          # draw under the button's textured shell
 		b.add_child(sh)
@@ -3461,6 +3466,9 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	if info_x != 0.0:
 		var info_slot := Control.new()
 		info_slot.custom_minimum_size = Vector2(inner, inner)
+		# stay inner-tall and let the HBox vertically center the slot — matches the info_x==0 path
+		# (the button's own SIZE_SHRINK_CENTER) so nudging x doesn't make the ⓘ jump to the row top.
+		info_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		info_btn.size = Vector2(inner, inner)
 		info_btn.position = Vector2(info_x, 0.0)

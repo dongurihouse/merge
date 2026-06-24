@@ -35,17 +35,11 @@
 			"item_fallback": "Item",
 			"tier": "Tier"
 		},
-		"oow": {
-			"amount": "+%d water, +%d acorns",
-			"sub": "for %s — a little help on a dry day"
-		},
 		"purge": {
 			"cta": "Purge"
 		},
 		"refill": {
 			"free": "Rain ☔ free refill",
-			"oow_detail": "A little help ✿ +%d💧 +%d🌰 · %s",
-			"oow_label": "A little help ✿",
 			"paid": "Rain ☔ %d🌰",
 			"watch_ad": "Watch a cloud ☁ → fill"
 		},
@@ -136,13 +130,6 @@
 		"pick_counter": "%d / %d",
 		"claim": "Claim",
 		"claim_more": "Pick %d more"
-	},
-	"oow": {
-		"charged_note": "You'll be charged %s.",
-		"disclosure": "(test build — nothing is charged)",
-		"maybe_later": "Maybe later",
-		"title": "A little help",
-		"yes_please": "Yes please"
 	},
 	"settings": {
 		"title": "Settings"

@@ -5,6 +5,7 @@
 		"shadow": false
 	},
 	"bag": {
+		"acorn_x": -37.0,
 		"caption": "Open a slot with acorns.",
 		"cell_gap": 5.0,
 		"cols": 5.0,
@@ -140,19 +141,19 @@
 	},
 	"gold_currency_pill": {
 		"amount_w": 86.0,
-		"amount_x": 18.0,
+		"amount_x": 17.0,
 		"gap": 10.0,
 		"icon_box": 27.0,
 		"icon_size": 46.0,
 		"icon_x": 18.0,
 		"inner_shadow": 11.0,
 		"num_size": 32.0,
-		"pad_left": 3.0,
-		"pad_x": 16.0,
+		"pad_left": 4.0,
+		"pad_x": 18.0,
 		"pad_y": 2.0,
 		"pill_h": 64.0,
 		"pill_w": 193.0,
-		"plus_button": 112.0,
+		"plus_button": 103.0,
 		"plus_font": 101.0,
 		"plus_hue": 64.0,
 		"plus_label_y": 0.0,
@@ -160,7 +161,7 @@
 		"plus_round": 8.0,
 		"plus_shine": 58.0,
 		"plus_stroke": 2.0,
-		"plus_x": 2.0,
+		"plus_x": 6.0,
 		"shadow": true,
 		"shadow_alpha": 80.0
 	},
@@ -194,6 +195,7 @@
 	},
 	"info_bar": {
 		"height": 125.0,
+		"info_x": 18.0,
 		"inner_scale": 52.0,
 		"name_font": 30.0,
 		"pad_right": 0.0,

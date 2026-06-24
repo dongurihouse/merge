@@ -3,7 +3,6 @@
   "products": {
     "piggybank":  { "product_id": "com.dongurihouse.dongurimerge.piggybank",  "usd": "$2.99",  "type": "Consumable", "reference_name": "Piggy Bank" },
     "starter":    { "product_id": "com.dongurihouse.dongurimerge.starter",    "usd": "$1.99",  "type": "Consumable", "reference_name": "Starter Pack" },
-    "water_offer":{ "product_id": "com.dongurihouse.dongurimerge.water_offer","usd": "$0.99",  "type": "Consumable", "reference_name": "Out-of-Water Offer" },
     "gems_tier1": { "product_id": "com.dongurihouse.dongurimerge.gems.tier1", "usd": "$0.99",  "type": "Consumable", "reference_name": "Gems Pack 80 ($0.99)" },
     "gems_tier2": { "product_id": "com.dongurihouse.dongurimerge.gems.tier2", "usd": "$4.99",  "type": "Consumable", "reference_name": "Gems Pack 450 ($4.99)" },
     "gems_tier3": { "product_id": "com.dongurihouse.dongurimerge.gems.tier3", "usd": "$9.99",  "type": "Consumable", "reference_name": "Gems Pack 1000 ($9.99)" },

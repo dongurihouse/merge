@@ -282,13 +282,12 @@ static func daily() -> Dictionary:
 	return d
 
 # ════════════════════════════════════════════════════════════════════════════
-# T43 — STORE / REWARDED-ADS / OUT-OF-WATER state (ADDITIVE accessor block)
+# T43 — STORE / REWARDED-ADS state (ADDITIVE accessor block)
 # ════════════════════════════════════════════════════════════════════════════
 # A self-contained, append-only persistence block for the §10 monetization layer:
 #   • rewarded-ad per-type DAILY usage + cooldown timestamps (Ads, core/ads.gd),
 #   • the collect-2× "armed" flag the hub-collect reads (§8 / T42 hook),
-#   • one-time purchase flags (starter pack claimed, first cash pack made),
-#   • the out-of-water triggered-offer daily usage + cooldown (board energy-wall).
+#   • one-time purchase flags (starter pack claimed, first cash pack made).
 # Everything lives in the grove blob (grove()), so it is test-redirected with the
 # rest of the save and DEFAULTED on old saves by the deep-merge-over-defaults path —
 # NO SCHEMA bump, no migration. The per-type cap rollover uses the same day index
@@ -384,36 +383,6 @@ static func take_water_pending() -> int:
 		grove().erase("water_pending")
 		grove_write()
 	return n
-
-# The out-of-water triggered offer (§10) — its own daily-usage + cooldown ledger,
-# mirroring the ad gate (low cap + long cooldown, cozy). {day, used, last} in the grove
-# blob under `oow_offer`.
-static func _oow_row() -> Dictionary:
-	var today := int(Time.get_unix_time_from_system() / 86400.0)
-	var g := grove()
-	var r: Dictionary = g.get("oow_offer", {})
-	if int(r.get("day", -1)) != today:
-		r = {"day": today, "used": 0, "last": float(r.get("last", 0.0))}
-		g["oow_offer"] = r
-	return r
-
-static func oow_used_today() -> int:
-	return int(_oow_row().get("used", 0))
-
-static func oow_can_show(cap: int, cooldown_s: float) -> bool:
-	var r := _oow_row()
-	if cap > 0 and int(r.get("used", 0)) >= cap:
-		return false
-	if cooldown_s > 0.0 and Time.get_unix_time_from_system() - float(r.get("last", 0.0)) < cooldown_s:
-		return false
-	return true
-
-static func oow_record() -> void:
-	var r := _oow_row()
-	r["used"] = int(r.get("used", 0)) + 1
-	r["last"] = Time.get_unix_time_from_system()
-	grove()["oow_offer"] = r
-	grove_write()
 
 # --- test support ----------------------------------------------------------
 

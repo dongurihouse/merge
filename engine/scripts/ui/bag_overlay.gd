@@ -101,8 +101,8 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 			on_close.call()
 		overlay.queue_free()
 
-	# the dimmed backdrop — a flat scrim that dismisses on tap (the bag is a light modal, matching
-	# oow_offer.gd's plain veil rather than the shop's blurred one).
+	# the dimmed backdrop — a flat scrim that dismisses on tap (the bag is a light modal with a
+	# plain veil rather than the shop's blurred one).
 	var veil := ColorRect.new()
 	veil.color = Color(INK, 0.5)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)

@@ -16,7 +16,6 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
-const Iap = preload("res://engine/scripts/core/iap.gd")   # out-of-water offer: product id + price (data/iap_products.json)
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
@@ -24,7 +23,6 @@ const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
-const OowOffer = preload("res://engine/scripts/ui/oow_offer.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared global bottom nav row (board + map)
@@ -40,7 +38,7 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
 const Pal = Game.PALETTE
-const Data = Game.DATA   # T43: the active game's DATA (the §10 out-of-water offer numbers)
+const Data = Game.DATA   # T43: the active game's DATA (the §10 monetization numbers)
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
@@ -182,10 +180,9 @@ var _water_icon: Control
 var _wallet_panel: Control
 var refill_btn: Button
 # T43: the empty-water surfaces stack under the Lv chip (shown only at water<=0): the
-# free/💎 refill (refill_btn), a rewarded WATCH-AD refill, and the cozy out-of-water OFFER.
+# free/💎 refill (refill_btn) and a rewarded WATCH-AD refill.
 var _refill_stack: VBoxContainer
 var ad_refill_btn: Button
-var oow_offer_btn: Button
 var _water_pending_drained := false   # the starter-pack water credit drains once per board open
 
 func _ready() -> void:
@@ -417,14 +414,12 @@ func _load_state() -> void:
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
 		board.seed_gens(G.map_for_spots(_spots_bought()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
-	if not Save.grove().has("gates"):       # pre-§7 save: maps already spot-restored were unlocked → gate them
-		var mg: Array = []
-		var ul: Dictionary = Save.grove().get("unlocks", {})
-		for z in G.MAPS.size():
-			if G.map_spots_done(z, ul):
-				mg.append(z)
-		var gg := Save.grove()
-		gg["gates"] = mg
+	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
+	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
+	# a save whose gate write was missed — a pre-§7 save (gate quest retired), or one whose spot ids were
+	# remapped between builds so the old one-shot `if not has("gates")` guard recorded an empty gates and
+	# then never ran again, stranding the player on a finished map.
+	if G.reconcile_gates(Save.grove()):
 		Save.grove_write()
 	if quests_map != _quest_map():        # never-seeded (pre-§7 save) or crossed into a new map
 		_init_quests()
@@ -594,7 +589,7 @@ func _build_water_hud() -> void:
 	var safe_top := Look.safe_top(self)
 	# T43: the empty-water surfaces live in a vertical stack top-left (below the 130px Lv badge), shown only
 	# at water<=0 (§10 — the friction point). Top: the free/💎 rain refill. Then a rewarded WATCH-AD refill
-	# (capped) and the cozy out-of-water OFFER, each shown only when live.
+	# (capped), shown only when live.
 	_refill_stack = VBoxContainer.new()
 	_refill_stack.add_theme_constant_override("separation", 8)
 	_refill_stack.offset_left = 16.0
@@ -608,10 +603,6 @@ func _build_water_hud() -> void:
 	ad_refill_btn.custom_minimum_size = Vector2(330, 68)
 	ad_refill_btn.visible = false
 	_refill_stack.add_child(ad_refill_btn)
-	oow_offer_btn = Look.button(Strings.t("board.refill.oow_label"), _on_oow_offer, false)
-	oow_offer_btn.custom_minimum_size = Vector2(330, 68)
-	oow_offer_btn.visible = false
-	_refill_stack.add_child(oow_offer_btn)
 	_update_water_hud()
 
 func _tick_water() -> void:
@@ -652,13 +643,7 @@ func _update_water_hud() -> void:
 		refill_btn.text = Strings.t("board.refill.free") if free_left else Strings.t("board.refill.paid") % G.REFILL_DIAMOND_COST
 	# the rewarded WATCH-AD refill — a free, capped + cooldowned alternative (§10 ads).
 	ad_refill_btn.visible = empty and Ads.can_show("refill_water")
-	# the cozy OUT-OF-WATER offer — a gently-discounted top-up on a low cap + long cooldown,
-	# NO countdown, NO fail copy (§10 locked guardrails). Shows only inside its cap/cooldown.
-	oow_offer_btn.visible = empty and Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown))
-	if oow_offer_btn.visible:
-		oow_offer_btn.text = Strings.t("board.refill.oow_detail") % \
-			[int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems), Iap.usd(String(Data.OOW_OFFER.key))]
-	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible or oow_offer_btn.visible
+	_refill_stack.visible = refill_btn.visible or ad_refill_btn.visible
 	if _refill_stack.visible:
 		FX.breathe_once(refill_btn if refill_btn.visible else _first_visible_refill())
 
@@ -680,12 +665,10 @@ func _on_refill() -> void:
 	_update_hud()
 
 # The first currently-visible refill button (for the breathe pulse when the free/💎
-# refill is spent but the ad / offer surfaces remain).
+# refill is spent but the ad surface remains).
 func _first_visible_refill() -> Control:
 	if ad_refill_btn.visible:
 		return ad_refill_btn
-	if oow_offer_btn.visible:
-		return oow_offer_btn
 	return refill_btn
 
 # Rewarded WATCH-AD refill (§10): the ad is a STUB here — Ads.claim re-checks the cap +
@@ -708,50 +691,6 @@ func _on_ad_refill() -> void:
 	_persist()
 	_update_water_hud()
 	_update_hud()
-
-# The cozy OUT-OF-WATER offer (§10): an honest confirm (LIVE IAP, "test build" note) for a
-# gently-discounted top-up — a full can + a little 💎 at the entry price, on a low cap + long
-# cooldown. NO countdown, NO fail-shaming (the locked guardrails). Confirming grants both and
-# records the show (so the cap/cooldown holds); cancelling costs nothing.
-func _on_oow_offer() -> void:
-	if water > 0:
-		return
-	if not Save.oow_can_show(int(Data.OOW_OFFER.cap), float(Data.OOW_OFFER.cooldown)):
-		FX.wobble(oow_offer_btn)
-		_update_water_hud()
-		return
-	var line := Strings.t("board.oow.amount") % [int(Data.OOW_OFFER.water), int(Data.OOW_OFFER.gems)]
-	_open_oow_confirm(line, Strings.t("board.oow.sub") % Iap.usd(String(Data.OOW_OFFER.key)))
-
-# Grant the out-of-water offer (pure side effects): the water top-up, the 💎, and record
-# the show. Factored so it is the single grant seam (a real receipt check guards the call).
-func _grant_oow_offer() -> void:
-	water = mini(G.WATER_CAP, water + int(Data.OOW_OFFER.water))
-	_regen_ts = Time.get_unix_time_from_system()
-	Save.add_diamonds(int(Data.OOW_OFFER.gems))
-	Save.oow_record()
-	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
-	FX.celebrate_reward(self, oow_offer_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
-	_persist()
-	_update_water_hud()
-	_update_hud()
-
-# A compact honest parchment confirm for the out-of-water offer (a real charge when StoreKit is in the
-# build, else the "(test build — nothing is charged)" disclosure). Cozy: warm copy, a Maybe later /
-# Yes please pair, no pressure.
-func _open_oow_confirm(line: String, sub: String) -> void:
-	# Wave 3: the modal lives in ui/oow_offer.gd; the gate + grant stay in the coordinator.
-	var key := String(Data.OOW_OFFER.key)
-	var charged := Iap.charging()
-	# real IAP: StoreKit takes over; grant ONLY on a confirmed purchase. Else the honest direct grant.
-	var accept := func() -> void:
-		if charged:
-			Iap.buy(key, func(okay: bool) -> void:
-				if okay:
-					_grant_oow_offer())
-		else:
-			_grant_oow_offer()
-	OowOffer.open(self, {"amount": line, "sub": sub, "charged": charged, "usd": Iap.usd(key), "on_accept": accept})
 
 func _update_hud() -> void:
 	# the top wallet is Water·Coin·Gem now (no star count). Water is updated live by _update_water_hud.
@@ -1387,7 +1326,8 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 		return _tray_well(px, fallback_art)
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["px"] = px
-	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
+	opts["shape"] = "rect"               # keeps the icon+count layout; `flat` drops the visible badge behind it
+	opts["flat"] = true                  # no cream/gold shell or shadow — just the satchel / house icon on the grass
 	opts["calm"] = FX.calm()
 	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
 	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).
