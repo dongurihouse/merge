@@ -198,6 +198,39 @@ class FX:
 	const POLLEN_B := 0.5                 # ... and b < this → pollen (else leaf if g>r, else petal)
 	const DOT_TEX_SIZE := 24
 
+	# --- squash_pop (merge result — squash & stretch, the "C" impact) ------------------
+	const SQUASH_K := [Vector2(1.16, 0.84), Vector2(0.92, 1.12), Vector2(1.03, 0.98), Vector2.ONE]
+	const SQUASH_T := [0.07, 0.06, 0.06]        # per-leg seconds: K0->K1, K1->K2, K2->K3
+	const SQUASH_CALM := Vector2(1.08, 1.08)    # calm: a gentle uniform overshoot (no stretch)
+
+	# --- flash (white impact pop over a merged tile) -----------------------------------
+	const FLASH_PEAK := 0.55
+	const FLASH_T := 0.16
+
+	# --- hitstop (global micro-freeze at impact) ---------------------------------------
+	const HITSTOP_SCALE := 0.0          # Engine.time_scale during the freeze (0 = full hold)
+	const HITSTOP_MERGE := 0.05         # base freeze seconds (real time)
+	const HITSTOP_TIER_BONUS := 0.006   # + per tier above 1 (a bigger merge holds a touch longer)
+	const HITSTOP_BIG := 0.08           # big-moment freeze (tier >= ESCALATE_TIER)
+	const HITSTOP_MAX := 0.12           # never freeze longer than this
+
+	# --- shake (decaying positional thunk — reserved for big moments) ------------------
+	const SHAKE_AMP := 7.0              # px, the gentle board nudge
+	const SHAKE_BIG_AMP := 9.0          # px, login jackpot / strongest
+	const SHAKE_LEG_T := 0.045
+	const SHAKE_SETTLE_T := 0.05
+
+	# --- gen_charge (generator pop anticipation: crouch -> spring -> settle) ------------
+	const GEN_CHARGE_K := [Vector2(1.1, 0.9), Vector2(0.94, 1.08), Vector2.ONE]
+	const GEN_CHARGE_T := [0.07, 0.11]  # per-leg seconds: K0->K1, K1->K2
+
+	# --- combo (cozy successive-merge streak) ------------------------------------------
+	const ESCALATE_TIER := 4            # tier >= this earns the reserved big-moment shake
+	const COMBO_WINDOW := 2.5           # seconds; a merge within this of the last extends the streak
+	const COMBO_MILESTONES := [3, 5, 8] # streak counts that shout an encouraging word
+	const COMBO_PITCH_STEP := 0.04      # + audio pitch per milestone reached
+	const COMBO_BURST_BONUS := 3        # + burst particles while a streak is live
+
 
 class Hud:
 	# --- layout ------------------------------------------------------------------------

@@ -24,6 +24,11 @@ static var FLAGS := {
 	"scatter_in": true,           # staggered pop-in for card groups
 	"floaters": true,             # drift-up feedback text
 	"celebrate_bursts": true,     # particle bursts on merges/buys/restores
+	"merge_impact": true,         # squash & stretch + flash + accelerate-into-impact on a merge
+	"merge_hitstop": true,        # a ~50ms global freeze at the merge impact (the "thunk"); headless-guarded
+	"big_moment_shake": true,     # a gentle reserved board shake on tier>=4 merges, level-ups, map restores
+	"gen_anticipation": true,     # a generator squash-charges before it pops a tile
+	"merge_combo": true,          # rapid successive merges build a cozy worded streak
 	"spirit_tap_hop": true,       # tapping a map spirit hops it
 	"porter_collect": true,       # Y3: a porter spirit drifts in to clear the sell basket (off → chips just fade)
 	"spirit_treats": true,        # Z3: a 10🪙 acorn treat at the stall — a wandering spirit nibbles it (recurring sink)
