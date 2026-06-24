@@ -1,13 +1,33 @@
 # EXP progression — collapse stars into a single experience total
 
-Status: design approved 2026-06-22. Drives an implementation plan.
+Status: design approved 2026-06-22 · **shipped, then partly superseded** — see the banner below.
+
+> **⚠️ Build status & supersession (2026-06-24, T62).** The **core model here SHIPPED**: stars
+> collapsed into one cumulative `exp`, spots **claimed at exp thresholds (no spend)**, the spendable
+> balance deleted, `earn_exp`/`level_for_exp`/`exp_at_level`/`spot_unlock_exp` live, the schema
+> delete-and-recreate done. But two parts of *this* document were **overtaken or never built**, and
+> the live numbers now live in `economy_model.html` + `merge_spec` §3/§7/§9:
+> - **§2 unlock ladder — SUPERSEDED.** The escalate-per-map ladder (`inc(z)=UNLOCK_BASE+z·UNLOCK_STEP`)
+>   was replaced by the **Option C** even-split (the N−1 content maps split the 100K-click exp budget
+>   evenly; the last map is a `GATE_CAP_FRACTION=0.25` finale cap) — `spot_unlock_exp`, T58/T60.
+>   `UNLOCK_BASE`/`UNLOCK_STEP`/`unlock_inc` were removed.
+> - **§3 level curve — SUPERSEDED.** The `LEVEL_EXP` table + flat tail became a **flat arithmetic**
+>   curve (`LEVEL_BASE_EXP=420`, `LEVEL_STEP_EXP=0`) — ≈ L35 at the 100K-click endgame, T58/T60.
+> - **§3 "level gates nothing" — NOT BUILT.** Board cells still gate on **level** (`MIN_LEVEL` /
+>   `cell_min_level`, *not* `MIN_EXP`) and generators retain the engine's `appear_level` hook (the
+>   grove's roster uses none). Since level is a pure function of exp, this is behaviourally an exp
+>   gate, so it was left as-is. Converting cells/generators to direct exp (`MIN_EXP`/`appear_exp`,
+>   §3/§6 below) is an **unbuilt CODE option**, parked — not a shipped fact.
+>
+> The rest (Goal, §1, §4, §5, and the naming sweep except the two rows noted in §6) matches the build.
 
 ## Goal
 
 Remove **stars as a separate spendable currency**. There is now **one progression
 number, `exp`**, that only ever increases. All world unlocks gate on *reaching* an exp
-total (never on spending). **Level** is demoted to a cosmetic role: a badge identity and
-a per-level reward — it gates nothing. Coins, gems/diamonds, and water are untouched.
+total (never on spending). **Level** is demoted toward a cosmetic role: a badge identity and
+a per-level reward. *(As-built caveat: level still gates the §4 board-cell obstacles via `MIN_LEVEL`
+— see the banner; it gates nothing else.)* Coins, gems/diamonds, and water are untouched.
 
 ## Current system (what we are replacing)
 
@@ -49,10 +69,11 @@ a per-level reward — it gates nothing. Coins, gems/diamonds, and water are unt
 - Each spot has a cumulative exp threshold `unlock_exp`:
   - `threshold[first spot overall] = 0` (immediately claimable on a fresh save).
   - `threshold[i] = threshold[i-1] + inc(z)` where `z` is the map of spot `i`.
-- **Escalate per map:** `inc(z) = UNLOCK_BASE + z * UNLOCK_STEP`, defaults
-  `UNLOCK_BASE = 3`, `UNLOCK_STEP = 3` → Farmhouse +3/spot, Barn +6, Pond +9, Orchard +12,
-  Meadow +15. Constants live in `grove_data.gd`, fully tunable. (These replace the old
-  per-region cost ladder in `vine_maps.gd`; that cost ladder is removed.)
+- **Escalate per map** — **⚠️ SUPERSEDED (see banner).** This document proposed
+  `inc(z) = UNLOCK_BASE + z * UNLOCK_STEP` (defaults 3/3). The build instead ships **Option C**
+  (`spot_unlock_exp`, T58/T60): the N−1 content maps split the 100K-click exp budget **evenly** and
+  the last map is a `GATE_CAP_FRACTION=0.25` finale cap; `UNLOCK_BASE/STEP/unlock_inc` were removed.
+  (The old per-region cost ladder in `vine_maps.gd` is still removed, as planned.)
 - **UI:** the map screen drops per-spot unlock tapping. Instead it shows **one unlock
   button at the bottom** that targets the **next unclaimed spot in order**:
   - Label shows that spot's exp requirement (e.g. "Unlock — 45 exp").
@@ -74,20 +95,22 @@ a per-level reward — it gates nothing. Coins, gems/diamonds, and water are unt
 ### 3. Level — cosmetic only
 
 - `level_for_exp(exp)` / `exp_at_level(level)` (renamed from the `…_stars` forms) still
-  exist, fed by `LEVEL_EXP` (renamed `LEVEL_STARS`) + the flat tail. They compute the
-  badge level and the progress-bar bound — nothing else.
-- Level grants **rewards on level-up**: the existing gift (water + gems per level crossed,
-  `LEVEL_WATER_GIFT` / `LEVEL_DIAMONDS`, granted on the dialog's Collect). Unchanged.
-- Level drives the **badge visual** using the level-badge art that already exists. No new
-  art and no new badge work in this task.
-- Level **gates nothing.** The two formerly level-based gates convert to direct exp
-  thresholds:
-  - Board cells: `MIN_LEVEL` table → `MIN_EXP` table; `cell_min_level()` →
-    `cell_min_exp()`; the open test becomes `exp ≥ cell_min_exp(cell)`. Default `MIN_EXP`
-    values are the current `MIN_LEVEL` values mapped through `exp_at_level()` so pacing is
-    preserved; tunable afterward.
-  - Generators: `appear_level` → `appear_exp`; `generators_for_map()` excludes generators
-    whose `appear_exp > exp`. Defaults derived the same way.
+  exist. **⚠️ As-built (T58/T60):** they are fed by a **flat arithmetic** curve
+  (`LEVEL_BASE_EXP=420`, `LEVEL_STEP_EXP=0`), *not* the `LEVEL_EXP` table proposed here. They
+  compute the badge level and the progress-bar bound.
+- Level grants **rewards on level-up**: water **every** level (`LEVEL_WATER_GIFT`) + acorns/gems
+  **only at milestones** (`LEVEL_DIAMONDS` every `LEVEL_DIAMOND_EVERY`th level — T58 made acorns
+  precious; *not* "per level crossed"), granted on the dialog's Collect.
+- Level drives the **badge visual** using the level-badge art that already exists.
+- **⚠️ "Level gates nothing" — NOT BUILT (see banner).** The two level-based gates were
+  **kept on level**, not converted:
+  - Board cells: still `MIN_LEVEL` / `cell_min_level()` (the `MIN_EXP` / `cell_min_exp()`
+    conversion was not done). The open test is `level ≥ cell_min_level(cell)`; since level is a
+    flat function of exp, this is an exp gate in effect.
+  - Generators: still `appear_level` (the engine hook); the grove's roster sets none (all appear
+    at map entry), so generators are effectively map-gated, not level-gated.
+  - *(Converting both to direct exp — `MIN_EXP` / `appear_exp` — remains an unbuilt, optional
+    CODE cleanup, parked.)*
 
 ### 4. Exp display — always the cumulative total
 
@@ -119,10 +142,10 @@ Rename the cumulative-progression vocabulary across `engine/` and `games/grove/`
 | `earn_stars` | `earn_exp` |
 | `level_for_stars` | `level_for_exp` |
 | `stars_at_level` | `exp_at_level` |
-| `LEVEL_STARS` | `LEVEL_EXP` |
+| `LEVEL_STARS` | **as-built:** `LEVEL_BASE_EXP` + `LEVEL_STEP_EXP` (flat curve, not a `LEVEL_EXP` table) |
 | `grove.stars_earned` | `grove.exp` |
-| `cell_min_level` / `MIN_LEVEL` | `cell_min_exp` / `MIN_EXP` |
-| generator `appear_level` | `appear_exp` |
+| `cell_min_level` / `MIN_LEVEL` | **NOT renamed** — stayed `cell_min_level` / `MIN_LEVEL` (cells still level-gated; see banner) |
+| generator `appear_level` | **NOT renamed** — stayed `appear_level` (grove uses none) |
 | quest reward `stars` field | `exp` |
 | `map_cheapest_spot` | `next_unclaimed_spot` |
 
@@ -167,8 +190,15 @@ Delete: `save.gd: stars()/add_stars()/spend_stars()`, the spendable-stars HUD,
     not merged.
 - Run `make test-grove` while iterating; `make test` before handoff.
 
-## Tunable constants (defaults)
+## Tunable constants (defaults) — **as-built supersedes this list (T58/T60)**
 
-- `UNLOCK_BASE = 3`, `UNLOCK_STEP = 3` (per-map unlock increment).
-- `LEVEL_EXP` table + flat tail: unchanged numbers (renamed from `LEVEL_STARS`).
-- `MIN_EXP`, generator `appear_exp`: derived from current level values via `exp_at_level()`.
+Proposed here, but **not what shipped** — the live constants live in `grove_data.gd` + are tuned in
+`economy_model.html`:
+- ~~`UNLOCK_BASE = 3`, `UNLOCK_STEP = 3`~~ → **removed**; the ladder is **Option C** even-split with
+  `GATE_CAP_FRACTION = 0.25` (`spot_unlock_exp`), sized to `ENDGAME_CLICKS = 100000`.
+- ~~`LEVEL_EXP` table + flat tail~~ → **flat** `LEVEL_BASE_EXP = 420`, `LEVEL_STEP_EXP = 0` (≈ L35 at
+  the 100K-click endgame).
+- ~~`MIN_EXP`, generator `appear_exp`~~ → **not built**; cells stay on `MIN_LEVEL`, generators on
+  `appear_level` (grove uses none). See the banner.
+- Quest reward (added by T58, not in this doc's original scope): `QUEST_CLICKS_PER_EXP = 7`,
+  `QUEST_CLICKS_PER_COIN = [8,7,6,5,4]`, `QUEST_COIN_DEPTH = 1.05`.
