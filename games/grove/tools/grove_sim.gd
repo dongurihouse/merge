@@ -1,12 +1,13 @@
 extends SceneTree
 ## Ghibli Grove — headless PACING SIM for the §7 GENERATED-quest model (the economy's
 ## tables are validated here, not by vibes). A bot plays the model for N days and reports
-## water→stars→coins→map rates, then checks the invariants:
+## water→EXP→coins→map rates, then checks the invariants. (§exp model: quests pay EXP, spots unlock when
+## cumulative exp crosses a threshold — NO spending; selling + quests pay COINS only, never acorns.)
 ##   I1 zero jams (board full + no merge + nothing deliverable)
 ##   I2 every map's level-up water gift < WATER_REWARD_MAX_RATIO of its measured spend
 ##   I3 runway (days to finish all maps) — reported (tuning signal, not a hard fail)
-##   no-strand — the bot never sits a full session unable to earn ★ while spots remain
-##   Y selling is cleanup, not income (sell-coins tripwire + the water↔💎 round trip)
+##   no-strand — the bot never sits a full session unable to earn exp while spots remain
+##   Y selling is cleanup, not income (sell-coins tripwire)
 ##   Z coin faucet vs sink — REPORTED; the new endless sink is the §1 POPULATION loop
 ##   P population invariants (NEW — replaces the deleted §8 hub keystone check):
 ##     P1 LATE-GAME no-pile: once a map completes, the resident sink absorbs the
@@ -40,8 +41,7 @@ var map := 0                  # the map currently being restored
 var gates_done := {}           # map -> true (its spots fully bought → map completed, roster open)
 var live_quests: Array = []    # the active fence — generated flat regular quests, metered to the next unlock
 
-var stars := 0                 # spendable ★ balance
-var stars_earned := 0          # cumulative ★ EARNED — drives the uncapped Level
+var exp_earned := 0            # cumulative EXP earned — drives Level AND gates spot unlocks (no spending; §exp model)
 var coins := 0                 # spendable wallet BALANCE (faucet minus the sinks spent in-session)
 var coins_earned := 0          # cumulative coin INTAKE over the run (the faucet total — balance never goes negative, so the report reads intake, not the drained balance)
 var quest_coins := 0           # coins from quest rewards (the §7 faucet)
@@ -64,8 +64,8 @@ var resident_merges := 0       # auto-merge events fired (two-of-a-kind → a ti
 var diamonds := 0              # spendable 💎 balance (faucet minus the premium sink)
 var gems_from_levels := 0      # 💎 from level-ups (LEVEL_DIAMONDS each)
 var gems_from_maps := 0        # 💎 from fully restoring a map (MAP_DIAMONDS each)
-var gems_from_sells := 0       # 💎 from selling t8 pinnacles (the flat 1💎 each)
-var gems_from_quests := 0      # 💎 from premium/featured quest rewards (reward.gems)
+var gems_from_sells := 0       # RETIRED (always 0) — t8 sells for COINS now, no premium pinnacle
+var gems_from_quests := 0      # RETIRED (always 0) — quests pay no acorns now (milestone/IAP only)
 # the coin faucet measured ONCE the FIRST map completes (drives the P1 late-game no-pile check) —
 # coins earned AFTER population opens must have somewhere to go.
 var coins_at_first_complete := -1   # cumulative coin INTAKE the moment the first map completed (-1 = not yet)
@@ -99,24 +99,24 @@ func _initialize() -> void:
 	var map_done_day := -1
 	for day in days:
 		_cur_day = day
-		var d_stars := 0
+		var d_exp := 0
 		var d_water := 0
 		for _session in 3:
 			water = G.WATER_CAP
 			var r := _play_session()
-			d_stars += r.stars
+			d_exp += r.exp
 			d_water += r.water
 		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
-		print("  day %d: spent %d💧 · earned %d★ · map %d/%d · maps-done %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
-			[day + 1, d_water, d_stars, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
+		print("  day %d: spent %d💧 · earned %d exp · map %d/%d · maps-done %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
+			[day + 1, d_water, d_exp, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
 
 	maps_done = mini(map, G.MAPS.size())
 	print("\n== results ==")
 	print("  maps restored: %d/%d%s" % [maps_done, G.MAPS.size(),
 		("  (runway: day %d)" % map_done_day) if map_done_day > 0 else "  (runway exceeds the %d-day window)" % days])
-	print("  spots bought: %d/40 · maps completed: %d · level %d (exp earned %d)" % \
-		[unlocks.size(), gates_reached, G.level_for_exp(stars_earned), stars_earned])
+	print("  spots claimed: %d/23 · maps completed: %d · level %d (exp earned %d)" % \
+		[unlocks.size(), gates_reached, G.level_for_exp(exp_earned), exp_earned])
 	print("  merchant sells: %d · open-cell low-water-mark: %d · jams: %d" % [merchant_sells, open_low_mark, jams])
 	print("  level-up water gifts: %d💧 (the recurring water faucet, §4)" % level_gift_water)
 
@@ -263,7 +263,7 @@ func _initialize() -> void:
 # --- the bot -----------------------------------------------------------------------
 
 func _level() -> int:
-	return G.level_for_exp(stars_earned)
+	return G.level_for_exp(exp_earned)
 
 func _live_lines() -> Array:
 	return G.lines_for_map(G.GENERATORS, map)
@@ -372,7 +372,7 @@ func _refill_quests() -> void:
 	if map >= G.MAPS.size():
 		live_quests = []
 		return
-	var want := G.active_giver_count(stars, _map_next_spot(map)[0])
+	var want := G.active_giver_count(exp_earned, _map_next_spot(map)[0])
 	while live_quests.size() < want:
 		# mirror quests.gd refill: steer each new single-item stand off the lines already on the
 		# fence so the sim validates the real anti-monotony line-diversity behaviour.
@@ -415,7 +415,7 @@ func _payable(q: Dictionary) -> bool:
 	return board.count_of(int(it.line) * 100 + int(it.tier)) >= 1
 
 func _play_session() -> Dictionary:
-	var s_stars := 0
+	var s_exp := 0
 	var s_water := 0
 	var guard := 0
 	while guard < 8000:
@@ -451,19 +451,14 @@ func _play_session() -> Dictionary:
 			var it := G.quest_item(q)
 			board.take(board.first_item_of(int(it.line) * 100 + int(it.tier)))
 			var rw: Dictionary = q.reward
-			var sp_stars := int(rw.stars)
-			stars += sp_stars
-			s_stars += sp_stars
+			var sp_exp := int(rw.exp)              # effort-based exp (was rw.stars — the field is `exp` now)
+			s_exp += sp_exp
 			coins += int(rw.coins)
 			coins_earned += int(rw.coins)
 			quest_coins += int(rw.coins)
-			# §7 premium: a high-level / featured quest may also pay 💎 (faucet).
-			var sp_gems := int(rw.get("gems", 0))
-			if sp_gems > 0:
-				diamonds += sp_gems
-				gems_from_quests += sp_gems
+			# (quests pay NO acorns now — acorns are milestone/IAP only, Option A)
 			var lvl_b := _level()
-			stars_earned += sp_stars
+			exp_earned += sp_exp
 			if _level() > lvl_b:
 				var up := _level() - lvl_b
 				water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT * up)
@@ -506,12 +501,11 @@ func _play_session() -> Dictionary:
 				_welcome(int(pw.z), pw.def)
 				continue
 
-		# 2. restore: buy the current map's cheapest affordable spot (the fence has emptied).
-		# Buying the LAST spot makes the map spots-done — step 0 fires completion next iteration.
+		# 2. restore: CLAIM the next spot once cumulative exp has reached its threshold (no spending —
+		# §exp model). Claiming the LAST spot makes the map spots-done — step 0 fires completion next iter.
 		if map < G.MAPS.size():
 			var ns := _map_next_spot(map)
-			if int(ns[0]) > 0 and stars >= int(ns[0]):
-				stars -= int(ns[0])
+			if int(ns[0]) >= 0 and exp_earned >= int(ns[0]):
 				unlocks[String(ns[1])] = true
 				continue
 
@@ -522,9 +516,7 @@ func _play_session() -> Dictionary:
 			board.take(tops[0])
 			coins += rw.x
 			coins_earned += rw.x
-			sell_coins += rw.x
-			diamonds += rw.y                  # t8 pinnacle pays a flat 1💎 (the §1 diamond faucet)
-			gems_from_sells += rw.y
+			sell_coins += rw.x                 # every tier sells for COINS now (no premium pinnacle, Option A)
 			merchant_sells += 1
 			continue
 
@@ -546,8 +538,6 @@ func _play_session() -> Dictionary:
 			coins += rwj.x
 			coins_earned += rwj.x
 			sell_coins += rwj.x
-			diamonds += rwj.y                 # t8 clutter also pays its 1💎 pinnacle
-			gems_from_sells += rwj.y
 			merchant_sells += 1
 			continue
 
@@ -584,7 +574,7 @@ func _play_session() -> Dictionary:
 			jams += 1
 		break
 
-	return {"stars": s_stars, "water": s_water}
+	return {"exp": s_exp, "water": s_water}
 
 func _first_coin() -> Vector2i:
 	for i in board.items.size():
