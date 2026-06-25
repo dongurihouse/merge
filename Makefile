@@ -20,8 +20,8 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot shot-workbench shot-fx-workbench \
+.PHONY: help run run_debug run_grove editor workbench fx water-fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+        shot-map shot-grove shot shot-workbench shot-fx-workbench shot-water-fx \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -51,6 +51,9 @@ w: ## see + test the UI workbench live (a real window you can click)
 
 fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
 	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
+
+water-fx: ## watch the water-fill FX live (a real window; close it to quit)
+	$(GODOT) --path $(PROJECT) -s res://engine/tools/water_fill_demo.gd
 
 fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
@@ -129,6 +132,9 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 
 shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
+
+shot-water-fx: ## quiet frame strip of the water-fill FX: make shot-water-fx [OUT=/tmp/water_fill_demo.png]
+	$(QUIET) --path $(PROJECT) -s res://engine/tools/water_fill_demo.gd -- $(or $(OUT),/tmp/water_fill_demo.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
