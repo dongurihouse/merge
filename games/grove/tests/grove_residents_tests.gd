@@ -179,6 +179,10 @@ func _test_screen() -> void:
 		s._ready()
 	await create_timer(0.05).timeout
 	ok(s.get_child_count() > 0, "the Residents screen builds a non-empty tree")
+	ok(s._root.find_child("ResidentsShell", true, false) != null, "the Residents screen uses a Grove-style parchment shell")
+	ok(s._root.find_child("ResidentsBanner", true, false) != null, "the Residents screen has a Grove-style title banner")
+	ok(s._root.find_child("HandTray", true, false) != null, "the hand is presented as a native tray")
+	ok(s._root.find_child("ResidentsFooterBar", true, false) != null, "the screen actions sit in a native footer bar")
 	# placing a spirit then rebuilding shows it on the map row
 	Habitat.hand_add("moss", 1)
 	Habitat.place(String(G.MAPS[0].id), 0)
@@ -191,6 +195,7 @@ func _test_screen() -> void:
 		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
 			has_cap = true
 	ok(has_cap, "the map row shows a capacity readout (n/%d)" % Habitat.DEFAULT_CAP)
+	ok(s._root.find_child("ResidentCard_*", true, false) != null, "residents render inside finished card frames")
 	s.queue_free()
 	await process_frame
 
