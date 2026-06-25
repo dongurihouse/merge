@@ -1001,8 +1001,8 @@ func _test_bag_components() -> void:
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
 # tier wears the filled well holding its piece; an undiscovered tier the locked well (baked padlock kept, no
-# acorn cost, no "?"). The tier rides the gold level medal (the reused `level` badge) docked lower-right; a
-# marked tier sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
+# acorn cost, no "?"), with a plain lower-right tier number and no level badge decoration. A marked tier
+# sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
 func _test_discovery_cell() -> void:
 	var topts := Kit.tiers_opts_from_config({})
 	# a tiny ladder: tier 3 discovered, tier 7 not
@@ -1015,8 +1015,9 @@ func _test_discovery_cell() -> void:
 	# a DISCOVERED tier → the open (filled) slot well; an UNDISCOVERED tier → the locked well (baked padlock)
 	ok(_has_slot_face(dlg, "slot_tile.png"), "a discovered tier wears the open (filled) slot well")
 	ok(_has_slot_face(dlg, "slot_locked.png"), "an undiscovered tier wears the locked well (baked padlock kept)")
-	# each tier reads its number on the lower-right level medal; the old "?" glyph is gone
-	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "each tier reads its number on the level medal (3, 7)")
+	# tier cells carry a plain number, not the decorated level-badge medal.
+	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
+	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")
 	ok(not _has_label_text(dlg, "?"), "the '?' cell is gone — the locked well stands in")
 
 	# a MARKED tier (the tapped/asked one) is flagged by the engine sparkle; an unmarked ladder has none
@@ -1025,11 +1026,11 @@ func _test_discovery_cell() -> void:
 	ok(not _has_class(Kit.tiers_dialog([{"tier": 5, "seen": true, "icon": "leaf"}], 560.0, topts), "GPUParticles2D"),
 		"an unmarked ladder has no sparkle")
 
-	# show_num off → no tier medal (the level badge only draws when the level is set)
+	# show_num off remains a compatibility path for hiding the plain tier number.
 	var no_num := topts.duplicate()
 	no_num["show_num"] = false
 	ok(not _has_label_text(Kit.tiers_dialog([{"tier": 4, "seen": true, "icon": "leaf"}], 560.0, no_num), "4"),
-		"show_num off hides the tier medal")
+		"show_num off hides the plain tier number")
 
 # True if any slot-cell well in `node`'s subtree wears well art whose path ends with `suffix` (slot_tile for a
 # filled/discovered tier, slot_locked for a locked/undiscovered one) — lets the test assert the discovery cell's

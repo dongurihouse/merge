@@ -106,7 +106,7 @@ static func level_badge_index(level: int) -> int:
 
 ## A level-status badge: the LAYERED emblem (cut parts composited per the Level's tier) with the
 ## level NUMBER centered. Built by Kit.level_badge from the workbench-tuned config, so the HUD chip,
-## the locked-cell gate, and the level dialog all wear the same tuned look — just a different number.
+## level popup, and level-up dialog all wear the same tuned look — just a different number.
 ## `px` is the square size; `num_font` overrides the number font (auto-scaled from num_size when < 0).
 ## The number Label is named "lv_num" and each part TextureRect "lv_<part>" so a live caller (the HUD
 ## level-up) can rebuild/refresh them. Falls back to a warm honey token when the part art is absent.

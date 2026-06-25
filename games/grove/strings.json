@@ -36,7 +36,8 @@
 			"empty_prompt": "Tap an item to inspect it",
 			"generator": "Generator",
 			"item_fallback": "Item",
-			"tier": "Tier"
+			"tier": "Tier",
+			"unlock_level": "Unlocks at Level %d"
 		},
 		"purge": {
 			"cta": "Purge"

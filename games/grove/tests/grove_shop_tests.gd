@@ -285,7 +285,7 @@ func _initialize() -> void:
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
 	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); a recessive `_locked_fill`
-	# Panel now backs its rounded corners (the painted slot_locked padlock + the Level badge ride ON TOP).
+	# Panel now backs its rounded corners (the painted slot_locked padlock rides ON TOP).
 	# Assert that base fill — a solid Pal.LOCKED, on the Sunk plane (no shadow), distinct from an empty
 	# cell, receding a hair for deeper rings (the standalone _locked_style stylebox accessor is retired).
 	var lock_fill := PieceViewScript._locked_fill(100.0, 1)
@@ -303,12 +303,8 @@ func _initialize() -> void:
 	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the gate marker")
 	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \
 		"frontier locked cell background is a solid fill, not transparent art that exposes the board gutter")
-	# the gate marker is the SHARED level-badge medal (Look.make_level_badge) carrying this cell's
-	# required Level — same component as the HUD chip, different number (not the old numbered atlas).
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
-	ok(lv_num != null, "frontier locked cell shows the shared level-badge marker (medal + number)")
-	ok(lv_num != null and lv_num.text == str(clampi(G.cell_min_level(Vector2i(0, 0)), 1, 25)), \
-		"the level-badge marker carries this cell's gate Level number")
+	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
 	bramble_node.free()
 	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")

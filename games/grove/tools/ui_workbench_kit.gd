@@ -2446,7 +2446,7 @@ static func progress_bar(frac: float, opts: Dictionary = {}) -> Control:
 ## NUMBER centered. The art has 6 stages per part; a 30-tier progression groups them:
 ## tier ÷ 6 = group (0..4), tier mod 6 + 1 = stage (1..6). Each GROUP draws a fixed set of
 ## parts at the current stage, so the badge accretes a centerpiece every 6 tiers. Shared by
-## the workbench preview AND Look.make_level_badge (HUD chip / cell gate / level dialog).
+## the workbench preview AND Look.make_level_badge (HUD chip / level dialog).
 const LEVEL_PARTS := ["circle", "leaf", "flower", "acorn", "gem"]   # z-order: circle back -> gem front
 const LEVEL_BADGE_GROUPS := [
 	["leaf"],
@@ -2586,7 +2586,7 @@ static func _level_badge_font(level: int, px: float, opts: Dictionary, num_font:
 	return int(maxf(8.0, base))
 
 ## The Level MEDALLION for dialogs/previews — now the shared LAYERED level badge (the same emblem the
-## HUD chip and locked-cell gate wear), tuned by the saved level_badge config so all three match. Kept
+## HUD chip and level dialog wear), tuned by the saved level_badge config so those surfaces match. Kept
 ## as a named helper so the level dialog reads clearly; `px` is the emblem size. opts may carry
 ## `number_font` (absolute override) — otherwise the tuned num_size drives the number.
 static func level_medallion(level: int, px: float = 120.0, opts: Dictionary = {}) -> Control:
@@ -2825,10 +2825,10 @@ static func daily_dialog(days: Array, width: float = 460.0, opts: Dictionary = {
 ## One discovery tile, built straight onto the SHARED slot cell (Kit.slot_cell) so discovery, the bag, and the
 ## board all read as ONE component — there is NO separate tier-cell type. A DISCOVERED tier wears the FILLED
 ## well holding its piece; an UNDISCOVERED tier wears the LOCKED well — the baked gold padlock KEPT, no acorn
-## cost, and no "?" glyph (the locked well stands in for it). The item TIER rides the gold level medal docked
-## lower-right (the SAME medal the HUD + board cells wear, via the slot cell's `level`/`level_frac`). A MARKED
-## tier (the tapped/asked one) is flagged by the engine sparkle. `opts` are slot-cell opts (the inherited slot
-## look + the discovery `cell_w/cell_h`, `show_num`, `mark_glow/mark_twinkle`) from tiers_opts_from_config.
+## cost, and no "?" glyph (the locked well stands in for it). Each tile carries a plain lower-right tier
+## number, with no badge decoration. A MARKED tier (the tapped/asked one) is flagged by the engine sparkle.
+## `opts` are slot-cell opts (the inherited slot look + the discovery `cell_w/cell_h`, `mark_glow`/`mark_twinkle`)
+## from tiers_opts_from_config.
 ## The opts may carry a discovery make_content(d, px) — bridged to the slot cell's make_content(px) here.
 ## d keys: tier, seen, marked, icon|node. Private to _tiers_grid; the dialog is the only public surface.
 static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
@@ -2837,7 +2837,6 @@ static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 		"state": ("filled" if seen else "locked"),
 		"cost": 0,                                          # discovery has no buy price → the locked well is its baked padlock alone
 		"marked": bool(d.get("marked", false)),
-		"level": (int(d.get("tier", 0)) if bool(opts.get("show_num", true)) else 0),   # the tier rides the lower-right level medal
 	}
 	# bridge the discovery make_content(d, px) → the slot cell's make_content(px); else a pre-built node or
 	# an icon id (the workbench preview). Only a discovered tier carries a piece.
@@ -2848,7 +2847,29 @@ static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 		sd["content"] = d.get("node")
 	elif seen and String(d.get("icon", "")) != "":
 		sd["icon"] = String(d.get("icon"))
-	return slot_cell(sd, opts)
+	var cell := slot_cell(sd, opts)
+	if bool(opts.get("show_num", true)):
+		var tier := int(d.get("tier", 0))
+		if tier > 0:
+			var cw := float(opts.get("cell_w", 150.0))
+			var ch := float(opts.get("cell_h", 150.0))
+			var font := int(maxf(14.0, cw * 0.18))
+			var num := Label.new()
+			num.name = "TierNumber"
+			num.text = str(tier)
+			num.add_theme_font_size_override("font_size", font)
+			num.add_theme_color_override("font_color", Color(Pal.INK, 0.92))
+			num.add_theme_constant_override("outline_size", 0)
+			num.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			num.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+			num.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			num.anchor_left = 1.0; num.anchor_top = 1.0; num.anchor_right = 1.0; num.anchor_bottom = 1.0
+			num.offset_left = -cw * 0.34
+			num.offset_top = -ch * 0.26
+			num.offset_right = -cw * 0.07
+			num.offset_bottom = -ch * 0.04
+			cell.add_child(num)
+	return cell
 
 ## A GRID of discovery cells — plain reading order (tier 1 top-left, filling `cols` per row), exactly like the
 ## daily grid but with square tiles and NO woven vines (just the cards). The cell size scales to fit `cols`
@@ -3203,10 +3224,10 @@ static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["cell_art"] = slot["cell_art"]
 	o["cell_slice"] = slot["cell_slice"]
 	var t: Dictionary = cfg.get("tiers", {})
-	# discovery's OWN cell knobs: the square tile size, the tier-number medal, the marked-tier sparkle
+	# discovery's OWN cell knobs: the square tile size, plain tier number, and marked-tier sparkle
 	o["cell_w"] = float(t.get("cell_w", 150))
 	o["cell_h"] = float(t.get("cell_h", 150))
-	o["show_num"] = bool(t.get("show_num", true))                  # the tier rides the lower-right level medal
+	o["show_num"] = bool(t.get("show_num", true))                  # plain lower-right tier number
 	o["mark_glow"] = float(t.get("mark_glow", 60)) / 100.0         # the marked tier's sparkle glow (0 = off)
 	o["mark_twinkle"] = float(t.get("mark_twinkle", 50)) / 100.0   # ...and its drifting twinkles (0 = off)
 	# the grid (no vines): cols + the inter-cell gap + the discovery's OWN scroll cap (0 = show every tier)
