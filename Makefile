@@ -13,15 +13,15 @@ ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/test
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
-GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_vine_tests games/grove/tests/grove_shop_tests
+GROVE_TESTS  := games/grove/tests/grove_workbench_tests games/grove/tests/grove_vine_tests games/grove/tests/grove_shop_tests games/grove/tests/grove_fx_workbench_tests
 GROVE_TESTS_DISABLED := games/grove/tests/grove_model_tests games/grove/tests/grove_economy_tests games/grove/tests/grove_ui_tests games/grove/tests/grove_placement_tests games/grove/tests/grove_vine_tool_tests
 TESTS        := $(ENGINE_TESTS) $(GROVE_TESTS)
 export GODOT JOBS                             # so $(RUNNER) (a python script) sees them
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench fx vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot shot-workbench \
+.PHONY: help run run_debug run_grove editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+        shot-map shot-grove shot shot-workbench shot-fx-workbench \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -51,6 +51,9 @@ w: ## see + test the UI workbench live (a real window you can click)
 
 fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
 	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
+
+fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
+	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
 
 vine: ## edit a map's vine-overgrowth mask regions live (a real window):  make vine
 	$(GODOT) --path $(PROJECT) res://games/tools/vine_mask_tool/VineMaskTool.tscn
@@ -123,6 +126,9 @@ shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot
 
 shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [OUT=/tmp/ui_workbench.png] [EL=mystery]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/ui_workbench.gd -- $(or $(OUT),/tmp/ui_workbench.png) $(EL)
+
+shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
