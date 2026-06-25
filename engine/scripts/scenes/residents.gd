@@ -18,6 +18,9 @@ const Pal = Game.PALETTE
 var _hud: Dictionary = {}
 var _root: Control = null
 var _sel := -1
+var _drag_node: Control = null
+var _drag_from := -1
+var _press_pos := Vector2.ZERO
 
 func _ready() -> void:
 	_ensure_background()
@@ -38,6 +41,7 @@ func _ensure_background() -> void:
 
 ## Tear down + rebuild the content column from the live model. Called after every action.
 func _rebuild() -> void:
+	_clear_drag_preview()
 	if _root != null:
 		_root.queue_free()
 		_root = null
@@ -192,8 +196,7 @@ func _hand_section() -> Control:
 			icon.set_meta("hand_index", hand_index)
 			icon.mouse_filter = Control.MOUSE_FILTER_STOP
 			icon.gui_input.connect(func(ev: InputEvent) -> void:
-				if _is_release(ev):
-					_on_hand_tap(hand_index))
+				_on_hand_input(ev, hand_index, icon))
 			strip.add_child(icon)
 	return panel
 
@@ -261,6 +264,119 @@ func _on_hand_tap(index: int) -> void:
 	else:
 		_sel = index
 	_rebuild()
+
+func _on_hand_input(ev: InputEvent, index: int, source: Control) -> void:
+	var pressed: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed) \
+		or (ev is InputEventScreenTouch and ev.pressed)
+	if pressed:
+		_begin_hand_drag(index, _event_pos_from(source, ev))
+
+func _input(event: InputEvent) -> void:
+	if _drag_node == null:
+		return
+	if event is InputEventMouseMotion or event is InputEventScreenDrag:
+		_update_drag(_event_pos(event))
+	elif (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and not event.pressed) \
+			or (event is InputEventScreenTouch and not event.pressed):
+		_end_hand_drag(_event_pos(event))
+
+func _begin_hand_drag(index: int, gpos: Vector2) -> void:
+	var h := Habitat.hand()
+	if index < 0 or index >= h.size():
+		return
+	_clear_drag_preview()
+	_drag_from = index
+	_press_pos = gpos
+	_drag_node = _spirit_icon(h[index], 62.0, true)
+	_drag_node.name = "HandDragPreview"
+	_drag_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_drag_node.z_index = 1000
+	_drag_node.scale = Vector2(1.08, 1.08)
+	_drag_node.size = _drag_node.custom_minimum_size
+	add_child(_drag_node)
+	_update_drag(gpos)
+
+func _update_drag(gpos: Vector2) -> void:
+	if _drag_node == null:
+		return
+	var sz := _drag_node.size
+	if sz == Vector2.ZERO:
+		sz = _drag_node.custom_minimum_size
+	_drag_node.global_position = gpos - sz * 0.5
+
+func _end_hand_drag(gpos: Vector2) -> void:
+	var from := _drag_from
+	var travel := gpos.distance_to(_press_pos)
+	_clear_drag_preview()
+	if travel <= 18.0:
+		_on_hand_tap(from)
+		return
+
+	var h := Habitat.hand()
+	if from < 0 or from >= h.size():
+		_rebuild()
+		return
+	var drop_hand := _hand_drop_index(gpos, from)
+	if drop_hand >= 0 and drop_hand < h.size():
+		var a: Dictionary = h[from]
+		var b: Dictionary = h[drop_hand]
+		if String(a.get("kind", "")) == String(b.get("kind", "")) and int(a.get("tier", 1)) == int(b.get("tier", 1)):
+			Audio.play("button_tap", -2.0)
+			Habitat.hand_merge(String(a.kind), int(a.tier))
+			_sel = -1
+			_rebuild()
+			return
+
+	var map_id := _map_drop_id(gpos)
+	if map_id != "" and not Habitat.is_full(map_id):
+		Audio.play("button_tap", -2.0)
+		if Habitat.place(map_id, from):
+			_sel = -1
+			_rebuild()
+			return
+	_sel = from
+	_rebuild()
+
+func _clear_drag_preview() -> void:
+	if _drag_node != null and is_instance_valid(_drag_node):
+		_drag_node.queue_free()
+	_drag_node = null
+	_drag_from = -1
+
+func _hand_drop_index(gpos: Vector2, from: int) -> int:
+	if _root == null:
+		return -1
+	for n in _root.find_children("HandSpirit_*", "Control", true, false):
+		if n.has_meta("hand_index") and int(n.get_meta("hand_index")) != from \
+				and (n as Control).get_global_rect().has_point(gpos):
+			return int(n.get_meta("hand_index"))
+	return -1
+
+func _map_drop_id(gpos: Vector2) -> String:
+	if _root == null:
+		return ""
+	for n in _root.find_children("MapRow_*", "Control", true, false):
+		if n.has_meta("map_id") and (n as Control).get_global_rect().has_point(gpos):
+			return String(n.get_meta("map_id"))
+	return ""
+
+func _event_pos_from(source: Control, ev: InputEvent) -> Vector2:
+	if ev is InputEventMouseButton:
+		return source.get_global_transform() * (ev as InputEventMouseButton).position
+	if ev is InputEventScreenTouch:
+		return source.get_global_transform() * (ev as InputEventScreenTouch).position
+	return get_global_mouse_position()
+
+func _event_pos(ev: InputEvent) -> Vector2:
+	if ev is InputEventMouseButton:
+		return (ev as InputEventMouseButton).position
+	if ev is InputEventMouseMotion:
+		return (ev as InputEventMouseMotion).position
+	if ev is InputEventScreenTouch:
+		return (ev as InputEventScreenTouch).position
+	if ev is InputEventScreenDrag:
+		return (ev as InputEventScreenDrag).position
+	return get_global_mouse_position()
 
 func _place_selected(map_id: String) -> void:
 	if _sel < 0:
