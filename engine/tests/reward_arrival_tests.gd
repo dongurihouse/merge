@@ -66,5 +66,33 @@ func _initialize() -> void:
 	ok(_count_named(host, "RewardArrivalIcon") == 0, "reward_arrival cleans up the main travel icon")
 
 	host.queue_free()
+
+	fresh("gate")
+	Features.FLAGS["floaters"] = true
+	Features.FLAGS["celebrate_bursts"] = true
+	Features.FLAGS["fly_to_wallet"] = true
+
+	var gated_host := Control.new()
+	gated_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(gated_host)
+	await process_frame
+
+	var gated_wallet := PanelContainer.new()
+	gated_wallet.name = "GatedWalletTarget"
+	gated_wallet.position = Vector2(300, 80)
+	gated_wallet.size = Vector2(110, 52)
+	gated_host.add_child(gated_wallet)
+
+	FX.set_reward_fx_enabled("coin_pickup", false)
+	var gated_arrived := {"called": false}
+	var gated_done := func() -> void:
+		gated_arrived.called = true
+	var gated_spawned: Array = FX.reward_arrival(gated_host, Vector2(90, 230), "coin", 5, Color("#E3B23C"), gated_wallet, gated_done, 32.0, "+", 2, "coin_pickup")
+
+	ok(gated_spawned.is_empty(), "disabled reward FX setting suppresses reward_arrival spawned nodes")
+	ok(bool(gated_arrived.called), "disabled reward FX setting still calls the arrival callback")
+	ok(_count_named(gated_host, "RewardArrivalIcon") == 0, "disabled reward FX setting leaves no travel icon in the tree")
+
+	gated_host.queue_free()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://games/grove/tests/grove_fx_workbench_tests.gd
 
 const View = preload("res://games/grove/tools/fx_workbench_view.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 
 const FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
 const FX_LABELS := ["Coin pickup", "Board refill", "Stash to bag", "Quest payout", "2x reward accept", "Map task reward", "Sale payout"]
@@ -41,8 +42,18 @@ func _is_list_button_disabled(node: Node, text: String) -> bool:
 			return btn.disabled
 	return true
 
+func fresh(name: String) -> void:
+	var dir := "user://tu_grove_fx_workbench_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
 func _initialize() -> void:
 	print("== Grove FX workbench tests ==")
+	fresh("settings")
 	var scene := load("res://games/grove/tools/FxWorkbench.tscn")
 	ok(scene != null, "FX workbench scene loads")
 
@@ -76,6 +87,7 @@ func _initialize() -> void:
 	await process_frame
 	view.call("_set_fx_enabled", "quest_payout", false)
 	await process_frame
+	ok(not Save.get_setting("fx.quest_payout", true), "workbench toggle writes the saved FX setting")
 	view.call("_clear_runtime_fx")
 	await process_frame
 	view.call("_play_selected")
@@ -84,5 +96,16 @@ func _initialize() -> void:
 	ok(view.find_child("FxDisabledBadge", true, false) != null, "disabled selected FX shows an off-state badge")
 
 	view.queue_free()
+	await process_frame
+	var restored: Control = View.new()
+	restored.size = Vector2(1440, 920)
+	root.add_child(restored)
+	await process_frame
+	await process_frame
+	restored.call("_select_fx", "quest_payout")
+	await process_frame
+	ok(not bool(restored.call("_is_fx_enabled", "quest_payout")), "new workbench instances read saved FX toggle state")
+	restored.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

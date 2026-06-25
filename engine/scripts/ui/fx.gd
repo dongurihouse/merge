@@ -10,6 +10,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")   # §13: every glyph is
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX   # the engine's juice dials
 const ShatterScript = preload("res://engine/scripts/ui/shatter.gd")
+const REWARD_FX_SETTING_PREFIX := "fx."
 
 static var _dot_tex: Texture2D
 
@@ -17,6 +18,15 @@ static var _dot_tex: Texture2D
 ## so toggling applies immediately.
 static func calm() -> bool:
 	return Save.get_setting("calm", false)
+
+static func reward_fx_key(id: String) -> String:
+	return REWARD_FX_SETTING_PREFIX + id
+
+static func reward_fx_enabled(id: String) -> bool:
+	return Save.get_setting(reward_fx_key(id), true)
+
+static func set_reward_fx_enabled(id: String, on: bool) -> void:
+	Save.set_setting(reward_fx_key(id), on)
 
 ## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
 static func amount_for(amount: int) -> int:
@@ -389,8 +399,13 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 ## Use this for meaningful grants/stores so every screen reads as "reward went home".
 static func reward_arrival(host: Control, from_gpos: Vector2, icon_id: String, amount: int,
 		color: Color, to_chip: Control = null, then: Callable = Callable(),
-		size: float = 32.0, prefix: String = "+", trail_count: int = 2) -> Array:
+		size: float = 32.0, prefix: String = "+", trail_count: int = 2,
+		fx_id: String = "") -> Array:
 	var spawned: Array = []
+	if fx_id != "" and not reward_fx_enabled(fx_id):
+		if then.is_valid():
+			then.call()
+		return spawned
 	if not (host and is_instance_valid(host)):
 		if then.is_valid():
 			then.call()

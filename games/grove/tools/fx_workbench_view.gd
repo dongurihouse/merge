@@ -28,7 +28,6 @@ const FX_DEFS := [
 
 var _selected_fx := "coin_pickup"
 var _settings := {"amount": 25, "icon_size": 42, "trail_count": 2, "coin_size": 112, "auto_replay": false}
-var _fx_enabled: Dictionary = {}
 var _totals: Dictionary = {"coin": 120, "gem": 8, "water": 0, "bag": 3}
 var _targets: Dictionary = {}
 var _target_labels: Dictionary = {}
@@ -44,15 +43,7 @@ func _ready() -> void:
 	UiFont.apply()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = Vector2(960, 720)
-	_ensure_fx_enabled_defaults()
 	_build()
-
-func _ensure_fx_enabled_defaults() -> void:
-	for entry in FX_DEFS:
-		var def: Dictionary = entry
-		var id: String = String(def["id"])
-		if not _fx_enabled.has(id):
-			_fx_enabled[id] = true
 
 func _build() -> void:
 	for c in get_children():
@@ -313,14 +304,14 @@ func _select_fx(id: String) -> void:
 	_build_selected_preview()
 
 func _set_fx_enabled(id: String, on: bool) -> void:
-	_fx_enabled[id] = on
+	FX.set_reward_fx_enabled(id, on)
 	_build_fx_list()
 	_rebuild_controls()
 	if id == _selected_fx:
 		_build_selected_preview()
 
 func _is_fx_enabled(id: String) -> bool:
-	return bool(_fx_enabled.get(id, true))
+	return FX.reward_fx_enabled(id)
 
 func _build_selected_preview() -> void:
 	var def: Dictionary = _fx_def(_selected_fx)
@@ -653,7 +644,7 @@ func _play_reward(icon_id: String, amount: int, color: Color, target_id: String,
 		var live: Object = self_ref.get_ref()
 		if live != null and is_instance_valid(live):
 			live.call("_finish_reward", target_id, amount)
-	FX.reward_arrival(self, from, icon_id, amount, color, target, done, icon_size, "+", trail_count)
+	FX.reward_arrival(self, from, icon_id, amount, color, target, done, icon_size, "+", trail_count, _selected_fx)
 
 func _finish_reward(target_id: String, amount: int) -> void:
 	var current: int = int(_totals.get(target_id, 0))

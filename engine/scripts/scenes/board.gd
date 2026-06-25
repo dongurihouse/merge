@@ -664,11 +664,12 @@ func _on_refill() -> void:
 	_regen_ts = Time.get_unix_time_from_system()
 	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 	var water_target: Control = _water_icon if _water_icon != null and is_instance_valid(_water_icon) else water_label
-	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"), water_target, func() -> void:
+	var refill_done := func() -> void:
 		if not is_instance_valid(self):
 			return
 		_update_water_hud()
-		_update_hud())
+		_update_hud()
+	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"), water_target, refill_done, 32.0, "+", 2, "board_refill")
 	_persist()
 	refill_btn.visible = false
 	_refill_stack.visible = false
@@ -2297,9 +2298,10 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 		at = node.get_global_rect().get_center()
 		node.queue_free()
 	Save.add_coins(got)
-	FX.reward_arrival(self, at, "coin", got, STRAW, coins_label, func() -> void:
+	var coin_done := func() -> void:
 		if is_instance_valid(self):
-			_update_hud())
+			_update_hud()
+	FX.reward_arrival(self, at, "coin", got, STRAW, coins_label, coin_done, 32.0, "+", 2, "coin_pickup")
 	Audio.play("coin_earn", -3.0)
 	_persist()
 	_refresh_giver_lights()
@@ -2356,9 +2358,10 @@ func _stash(from: Vector2i, node: Control) -> void:
 	_persist()
 	_rebuild_bag()
 	if bag_btn != null and is_instance_valid(bag_btn):
-		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, func() -> void:
+		var stash_done := func() -> void:
 			if is_instance_valid(self):
-				_update_bag_count())
+				_update_bag_count()
+		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, stash_done, 32.0, "+", 2, "stash_to_bag")
 		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, 24)
 	_refresh_giver_lights()
 
@@ -2532,9 +2535,10 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	#  see _produce_due_generators in _pop_seed.)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
 	if sp_coins > 0:
-		FX.reward_arrival(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, coins_label, func() -> void:
+		var quest_coin_done := func() -> void:
 			if is_instance_valid(self):
-				_update_hud())
+				_update_hud()
+		FX.reward_arrival(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, coins_label, quest_coin_done, 32.0, "+", 2, "quest_payout")
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now
@@ -2648,9 +2652,10 @@ func _accept_2x_offer(got: int) -> void:
 		return
 	Save.add_coins(got)                              # the doubled half — the same amount again
 	Audio.play("level_complete", -3.0, 1.2)
-	FX.reward_arrival(self, at, "coin", got, Color("#E3B23C"), coins_label, func() -> void:
+	var accept_2x_done := func() -> void:
 		if is_instance_valid(self):
-			_update_hud())
+			_update_hud()
+	FX.reward_arrival(self, at, "coin", got, Color("#E3B23C"), coins_label, accept_2x_done, 32.0, "+", 2, "accept_2x")
 
 # Close the 2× offer card (decline, tap-away, or post-accept). Idempotent.
 func _dismiss_2x_offer() -> void:
@@ -2694,13 +2699,15 @@ func _grant_sale(code: int, node: Control) -> void:
 		t.tween_property(node, "scale", Vector2(0.35, 0.35), 0.25)
 		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
-		FX.reward_arrival(self, center, "gem", reward.y, Color("#A9C7E8"), diamonds_label, func() -> void:
+		var sale_gem_done := func() -> void:
 			if is_instance_valid(self):
-				_update_hud())
+				_update_hud()
+		FX.reward_arrival(self, center, "gem", reward.y, Color("#A9C7E8"), diamonds_label, sale_gem_done, 32.0, "+", 2, "sale_payout")
 	elif reward.x > 0:
-		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, func() -> void:
+		var sale_coin_done := func() -> void:
 			if is_instance_valid(self):
-				_update_hud())
+				_update_hud()
+		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, sale_coin_done, 32.0, "+", 2, "sale_payout")
 	_record_sale(code, reward)
 
 # Y2: hold the sale for buy-back; a 4th sale overflows → the porter comes at once.

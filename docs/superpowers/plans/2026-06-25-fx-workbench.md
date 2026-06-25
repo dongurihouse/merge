@@ -20,13 +20,14 @@ Create a Grove-only FX lab that behaves like the existing UI workbench: a standa
    - map task reward
    - sale payout
 5. Add per-FX on/off toggles in the sidebar and selected-effect controls; toggling off suppresses the FX while keeping its preview visible.
-6. Build the `Coin pickup` preview as a board-context stage:
+6. Save those toggles through the shared `Save.settings` namespace (`fx.<id>`) and have the real board/map reward FX calls read the same gates.
+7. Build the `Coin pickup` preview as a board-context stage:
    - wallet chip at the top
    - board grid with one clickable coin piece
    - replay button and live sliders for amount, icon size, trail count, and coin size
-7. Wire every preview to the real `FX.reward_arrival(...)` helper so the lab is testing the same effect spine used in the game.
-8. Add a focused headless test for scene load, list visibility, controls, toggles, and spawned reward-arrival nodes.
-9. Add Makefile targets without replacing the existing `fx` shatter demo.
+8. Wire every preview to the real `FX.reward_arrival(...)` helper so the lab is testing the same effect spine used in the game.
+9. Add a focused headless test for scene load, list visibility, controls, toggles, saved toggle sync, and spawned reward-arrival nodes.
+10. Add Makefile targets without replacing the existing `fx` shatter demo.
 
 ## Next Ladders
 
