@@ -24,6 +24,7 @@ const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared global bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -781,16 +782,15 @@ func _make_purge_card(stand_w: float) -> Control:
 	card.size = Vector2(cardW, cardH)
 	stand.add_child(card)
 	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
-	# the layer's CURRENT ★ balance (replaces the old padlock): a star icon + the banked count, centred a
-	# touch high so the green button clears it below. Always shown — it is the card's headline now.
+	# The layer's CURRENT ★ balance stays as a compact headline while the jar becomes the card's visual.
 	var srow := HBoxContainer.new()
 	srow.alignment = BoxContainer.ALIGNMENT_CENTER
-	srow.add_theme_constant_override("separation", maxi(2, int(cardH * 0.05)))
+	srow.add_theme_constant_override("separation", maxi(2, int(cardH * 0.035)))
 	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	srow.add_child(Look.icon("star", cardH * 0.30))
+	srow.add_child(Look.icon("star", cardH * 0.16))
 	var slbl := Label.new()
 	slbl.text = str(_exp())
-	slbl.add_theme_font_size_override("font_size", int(cardH * 0.28))
+	slbl.add_theme_font_size_override("font_size", int(cardH * 0.15))
 	slbl.add_theme_color_override("font_color", Pal.INK)
 	slbl.add_theme_constant_override("outline_size", 0)
 	slbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -799,9 +799,17 @@ func _make_purge_card(stand_w: float) -> Control:
 	stand.add_child(srow)
 	var place_stars := func() -> void:
 		if is_instance_valid(srow):
-			srow.position = Vector2(cx + cardW * 0.5 - srow.size.x / 2.0, cy + cardH * 0.30 - srow.size.y / 2.0)
+			srow.position = Vector2(cx + cardW * 0.5 - srow.size.x / 2.0, cy + cardH * 0.14 - srow.size.y / 2.0)
 	srow.resized.connect(place_stars)
 	place_stars.call()
+	var vase := VaseWaterEffect.new()
+	vase.name = "PurgeVaseWater"
+	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var vase_h := cardH * 0.45
+	var vase_w := minf(cardW * 0.62, vase_h * 0.88)
+	vase.size = Vector2(vase_w, vase_h)
+	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy + cardH * 0.25)
+	stand.add_child(vase)
 	# #2: the "Purge" CTA is the shared GREEN primary button (Look.button primary) — the same leaf-green
 	# pill + cream label as every other CTA in the grove. Tapped → go HOME (persist + jump to the Map) to
 	# unlock more regions. The button IS the affordance now (the old whole-card tap + cream pill are gone).
@@ -811,13 +819,13 @@ func _make_purge_card(stand_w: float) -> Control:
 		HomeScene.decorate_map = _decorate_target()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	var btn := Look.button(Strings.t("board.purge.cta"), purge_go, true)
-	btn.add_theme_font_size_override("font_size", int(cardH * 0.15))
-	btn.custom_minimum_size = Vector2(cardW * 0.6, 0.0)
+	btn.add_theme_font_size_override("font_size", int(cardH * 0.12))
+	btn.custom_minimum_size = Vector2(cardW * 0.54, cardH * 0.22)
 	stand.add_child(btn)
 	# centre the green pill near the card's lower third (driven by resized — its size settles after layout)
 	var place_btn := func() -> void:
 		if is_instance_valid(btn):
-			btn.position = Vector2(cx + cardW * 0.5 - btn.size.x / 2.0, cy + cardH * 0.64 - btn.size.y / 2.0)
+			btn.position = Vector2(cx + cardW * 0.5 - btn.size.x / 2.0, cy + cardH * 0.80 - btn.size.y / 2.0)
 	btn.resized.connect(place_btn)
 	place_btn.call()
 	# ready → full colour + a gentle breathe (like a payable giver card); not yet → grey + still, so it

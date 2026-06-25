@@ -3,7 +3,11 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/water_fill_effect_tests.gd
 
 const WaterFillEffect = preload("res://engine/scripts/ui/water_fill_effect.gd")
+const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
+const BoardScene = preload("res://engine/scripts/scenes/board.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 const SCENE_PATH := "res://engine/tools/WaterFillDemo.tscn"
+const VASE_SCENE_PATH := "res://engine/tools/VaseWaterDemo.tscn"
 
 var _pass := 0
 var _fail := 0
@@ -15,6 +19,23 @@ func ok(cond: bool, label: String) -> void:
 	else:
 		_fail += 1
 		print("  FAIL  ", label)
+
+func fresh(name: String) -> void:
+	var dir := "user://tu_water_fill_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+func _has_button(node: Node) -> bool:
+	if node is Button:
+		return true
+	for child in node.get_children():
+		if _has_button(child):
+			return true
+	return false
 
 func _initialize() -> void:
 	var fx: Control = WaterFillEffect.new()
@@ -68,6 +89,42 @@ func _initialize() -> void:
 			ok(scene.find_child("WaterFillEffect", true, false) is Control,
 				"water demo scene contains the animated water effect")
 			scene.queue_free()
+
+	ok(ResourceLoader.exists(VaseWaterEffect.VASE_PATH), "extracted vase sprite exists")
+	var vase_fx: Control = VaseWaterEffect.new()
+	vase_fx.size = Vector2(360, 420)
+	root.add_child(vase_fx)
+	await process_frame
+	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
+	var calm_surface: PackedVector2Array = vase_fx.water_surface_for_test()
+	ok(calm_surface.size() >= 12, "vase water effect exposes a sampled water surface")
+	var calm_energy: float = vase_fx.energy_for_test()
+	vase_fx.trigger_impact_for_test()
+	ok(vase_fx.energy_for_test() > calm_energy * 3.0, "vase water impact injects extra energy")
+	vase_fx.queue_free()
+
+	ok(ResourceLoader.exists(VASE_SCENE_PATH), "editor-openable vase water scene exists")
+	var vase_packed := load(VASE_SCENE_PATH) as PackedScene
+	ok(vase_packed != null, "vase water scene loads as a PackedScene")
+	if vase_packed != null:
+		var vase_scene := vase_packed.instantiate() as Control
+		ok(vase_scene != null and vase_scene.name == "VaseWaterDemo", "vase water scene instantiates as VaseWaterDemo")
+		if vase_scene != null:
+			root.add_child(vase_scene)
+			await process_frame
+			ok(vase_scene.find_child("VaseWaterEffect", true, false) is Control,
+				"vase water scene contains the animated vase water effect")
+			vase_scene.queue_free()
+
+	fresh("purge_card")
+	var board := BoardScene.new()
+	var purge_card := board._make_purge_card(360.0)
+	ok(purge_card.find_child("PurgeVaseWater", true, false) is VaseWaterEffect,
+		"purge card contains the vase water animation")
+	ok(_has_button(purge_card), "purge card still contains a CTA button")
+	purge_card.free()
+	board.free()
+	await process_frame
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
