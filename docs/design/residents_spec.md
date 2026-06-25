@@ -61,7 +61,7 @@ self-renewing loop, bolted on top of the merge core without changing how the cor
   completing (global at first, per-map sets later). *(Quest-giving was considered and is parked — see
   Mechanics.)*
 
-The residents loop: rush for score → open boxes → place → merge → run out of room → expand → rush again.
+The residents loop: rush for score → open boxes → merge in hand → place → run out of room → sell / expand → rush again.
 
 ## The whole-game loop
 
@@ -70,7 +70,8 @@ The expansion turns one loop into three that feed each other:
 1. **Merge the board** *(base game)* — restore spots and unlock maps; that buys more board
    space *and* more room for residents.
 2. **Explore and grow residents** *(this expansion)* — run merge-rushes, open boxes to bring spirits
-   home, merge them to climb tiers and free slots; that pushes you to unlock and upgrade more maps.
+   home, merge them in hand to climb tiers (more production per slot); a full habitat — freed only by
+   sell/move — pushes you to unlock and upgrade more maps.
 3. **Residents power the board** *(payback)* — placed spirits produce coins, Water, generator
    boosters, premium currency, and even more residents that make the board faster and more fun.
 
@@ -83,8 +84,9 @@ three-engine flywheel with no end state — which is what an endgame needs.
 ## Mechanics
 
 *High-level shape; numbers and edge rules are sim-tuned later (see Economy). The **habitat** side
-reuses the existing roster plumbing — the persisted per-map roster, two-of-a-kind auto-merge, and the
-ambient render layer. The **Rush** is net-new (see Build-readiness). Three pillars deliberately
+reuses the existing roster plumbing — the persisted per-map roster and the ambient render layer;
+**in-hand drag-merge is net-new** (the base game's on-map auto-merge is *not* reused — placement is
+merge-free). The **Rush** is net-new (see Build-readiness). Three pillars deliberately
 **reverse** base-game invariants and must be re-proven, not inherited: **capacity** makes the resident
 sink finite again (the base `sink > faucet` proof relied on there being no cap), and **idle production
 / Water** re-open the cut passive faucet and the energy invariant (I2). Those re-proofs land in the
@@ -141,7 +143,7 @@ give you comes home** — then you place them across your maps (see **Place**).
 - **Rarity lives on the spirit, set by the box** — four tiers: **white** (common) · **blue** (magic) ·
   **orange** (legendary) · **red** (heroic). Pricier boxes weight toward the top. Rarity drives
   production (yield rises with rarity × housed tier — see Reward); spirits enter the roster at **housed
-  tier 1** and climb only via in-habitat merges. *(The roster of spirits at each rarity is content,
+  tier 1** and climb only via **in-hand** merges. *(The roster of spirits at each rarity is content,
   parked with the reward-set design; current placeholders aren't the final set.)*
 - **Boxes are skill-earned, not sold.** They're bought with **score** (earned by play), and **every
   box tier is reachable** by playing well — a loot reveal, not a paid gacha. If diamonds ever buy a
@@ -184,8 +186,9 @@ economic decision, not flavor: where you put a spirit chooses which reward you m
   spill onto other maps, so you naturally earn a **mix** of rewards and every map's identity stays
   live. Over-indexing your favourite is the *choice* capacity lets you make — not a dominant strategy.
 - **Capacity gates placement, not the run.** Launching an expedition only needs **one completed map**
-  (you might run purely for score / the collection). Box-spirits land **in-hand** and you place them on
-  maps with free slots; overflow waits in-hand until you free room. A full habitat across all maps is
+  (you might run purely for score — and, once the collection ships, to complete it). Box-spirits land
+  **in-hand** and you place them on maps with free slots; overflow waits in the hand, which has **no
+  slot limit** — sell, not a hand cap, is the pressure valve. A full habitat across all maps is
   the pressure that drives Expand. **Selling is the always-available door:** even a habitat full of
   distinct singletons (no legal merge) can free a slot by selling one.
 - **Free / sell** — remove an assigned spirit to recover its slot (what you get back is TBD — see
@@ -272,15 +275,17 @@ Things a vertical slice must respect, captured here rather than left implicit:
   one completed map. The **pre-first-completion coin gap** (until the first map is done, coins have only
   burst-upgrades / cosmetics to spend on) is a known base-economy concern, carried to Economy.
 - **Score → box → spirit contract** — a run yields a **score** (sum of merge value × multiplier);
-  score buys **boxes** at fixed costs; a box rolls a **rarity** from its odds table and a **kind** from
-  the unlocked pool; the spirit enters the roster at **housed tier 1**. This is the seam between the
-  Rush (skill) and the habitat (roster) — define the box cost/odds tables and the kind pool with it.
-- **Save shape & migration** — the habitat needs state today's per-map roster doesn't hold: a
-  **rarity** axis, **per-map capacity**, a **global collection** ledger, **per-map production state**
-  (last-collect time + accrued), and an **in-hand holding area** for box-spirits awaiting placement.
-  Because rarity persists per instance (it drives yield), the roster **key becomes (kind, rarity)** and
-  merges require matching **kind *and* rarity**. Migration is non-destructive — old saves read as
-  housed white-rarity commons, capacity defaults to ~8.
+  score buys **boxes** at fixed costs; a box rolls a **kind** from the unlocked pool and the spirit
+  enters the roster at **tier 1** (no rarity roll in v1). This is the seam between the Rush (skill) and
+  the habitat (roster) — define the box **cost table** and the **kind pool** with it. *(Pricier boxes
+  weighting better rarity odds is the parked rarity extension.)*
+- **Save shape & migration** — the habitat needs state today's per-map roster doesn't hold:
+  **per-map capacity**, **per-map production state** (last-collect time + accrued), and an **in-hand
+  holding area** (no slot limit) for box-spirits awaiting placement. The v1 roster **keys on (kind)**;
+  an instance stores **kind + housed tier**, and merges require matching **kind *and* tier**. Migration
+  is non-destructive — old per-map roster entries read as housed **tier-1** spirits, capacity defaults
+  to ~8. *(Later — the **rarity extension**: add a rarity axis and a **global collection** ledger,
+  re-key the roster to **(kind, rarity)**, and gate merges on **kind + rarity**.)*
 - **The Rush is a net-new board engine** — the expedition board shares nothing with the home board: a
   separate grid model, an **auto-drop / no-Water spawn driver**, **tap-to-merge with random-line
   output**, fling, the treefall hazard, and a **scoring + combo-multiplier** system, in its own scene.
@@ -290,9 +295,9 @@ Things a vertical slice must respect, captured here rather than left implicit:
   Sink-positivity must hold against the **total** coin faucet (merge drops + selling + quest coins +
   map-1 residents) vs the **total** coin sink (loadout boosts + capacity upgrades + burst upgrades) —
   not in isolation. That total is what the re-authored `grove_sim` must prove.
-- **Art** — no signature/rarity sprites ship today; the slice uses placeholder bodies with a
-  **colour-frame** rarity indicator (white / blue / orange / red), and neutral line tiles in the Rush.
-  Bespoke per-spirit and per-rarity art is parked with the reward-set content.
+- **Art** — no signature sprites ship today; the v1 slice uses placeholder bodies with a **tier badge**
+  and neutral line tiles in the Rush. Bespoke per-spirit art — and the white / blue / orange / red
+  **rarity colour-frame** — are parked with the rarity extension and the reward-set content.
 
 ### Prototype status
 
@@ -400,8 +405,9 @@ is contained:
 - **Content dependencies** — the **Rush engine**, the **loadout item set**, the **mystery-box tables**,
   the map-3 generator-booster and the map-5 special generator are all **new**, and rarity/collection
   art doesn't exist; v1 leans on placeholders + colour-frames. This is a genuine scope risk.
-- **Save migration** — a schema change (rarity, capacity, collection, production state, in-hand
-  holding); must be non-destructive (old saves read as housed commons).
+- **Save migration** — a schema change (capacity, production state, in-hand holding; collection +
+  rarity come with the rarity extension); must be non-destructive (old saves read as housed tier-1
+  spirits, capacity ~8).
 - **Runway** — only the 5 home-grove maps are wired against a designed 20-place journey, so the
   *Expand* arm and reward-stream variety stay thin until post-launch maps ship.
 - **Early-game gap** — the loop is gated on first-map completion; the pre-completion coin-sink gap is
