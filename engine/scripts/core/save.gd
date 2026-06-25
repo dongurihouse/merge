@@ -259,6 +259,15 @@ static func set_setting(key: String, v: bool) -> void:
 	data["settings"][key] = v
 	save_now()
 
+static func get_number_setting(key: String, def: float = 0.0) -> float:
+	_ensure_loaded()
+	return float(data["settings"].get(key, def))
+
+static func set_number_setting(key: String, v: float) -> void:
+	_ensure_loaded()
+	data["settings"][key] = v
+	save_now()
+
 # --- quest counters (daily bundle + silent milestones) --------------------------
 
 # Today's bundle state, rolling over (and resolving the streak) on the first touch

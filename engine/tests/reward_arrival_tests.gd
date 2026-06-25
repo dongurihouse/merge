@@ -34,6 +34,15 @@ func _count_named(node: Node, name_fragment: String) -> int:
 		total += _count_named(c, name_fragment)
 	return total
 
+func _find_named(node: Node, name_fragment: String) -> Node:
+	for c in node.get_children():
+		if name_fragment in String(c.name):
+			return c
+		var found := _find_named(c, name_fragment)
+		if found != null:
+			return found
+	return null
+
 func _initialize() -> void:
 	print("== Reward arrival FX tests ==")
 	fresh("basic")
@@ -94,5 +103,32 @@ func _initialize() -> void:
 	ok(_count_named(gated_host, "RewardArrivalIcon") == 0, "disabled reward FX setting leaves no travel icon in the tree")
 
 	gated_host.queue_free()
+
+	fresh("global_settings")
+	Features.FLAGS["floaters"] = true
+	Features.FLAGS["celebrate_bursts"] = true
+	Features.FLAGS["fly_to_wallet"] = true
+
+	var configured_host := Control.new()
+	configured_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(configured_host)
+	await process_frame
+
+	var configured_wallet := PanelContainer.new()
+	configured_wallet.name = "ConfiguredWalletTarget"
+	configured_wallet.position = Vector2(330, 92)
+	configured_wallet.size = Vector2(110, 52)
+	configured_host.add_child(configured_wallet)
+
+	FX.set_reward_fx_icon_size(58.0)
+	FX.set_reward_fx_trail_count(4)
+	var configured_spawned: Array = FX.reward_arrival(configured_host, Vector2(92, 232), "coin", 9, Color("#E3B23C"), configured_wallet, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "coin_pickup")
+	var configured_icon := _find_named(configured_host, "RewardArrivalIcon") as Control
+
+	ok(configured_spawned.size() >= 6, "global FX settings still produce the full reward-arrival stack")
+	ok(configured_icon != null and absf(configured_icon.custom_minimum_size.x - 58.0) < 0.1, "saved global icon size feeds reward_arrival")
+	ok(_count_named(configured_host, "RewardArrivalTrail") == 4, "saved global trail count feeds reward_arrival")
+
+	configured_host.queue_free()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

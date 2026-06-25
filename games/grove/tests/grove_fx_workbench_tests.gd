@@ -42,6 +42,9 @@ func _is_list_button_disabled(node: Node, text: String) -> bool:
 			return btn.disabled
 	return true
 
+func _slider(node: Node, name_text: String) -> HSlider:
+	return node.find_child(name_text, true, false) as HSlider
+
 func fresh(name: String) -> void:
 	var dir := "user://tu_grove_fx_workbench_" + name + "/"
 	if DirAccess.dir_exists_absolute(dir):
@@ -95,6 +98,27 @@ func _initialize() -> void:
 	ok(_count_named(view, "RewardArrivalIcon") == 0, "disabled selected FX does not spawn reward-arrival icons")
 	ok(view.find_child("FxDisabledBadge", true, false) != null, "disabled selected FX shows an off-state badge")
 
+	var amount_slider := _slider(view, "AmountSlider")
+	var icon_slider := _slider(view, "IconSizeSlider")
+	var trail_slider := _slider(view, "TrailCountSlider")
+	var source_slider := _slider(view, "CoinSizeSlider")
+	var auto := view.find_child("AutoReplayToggle", true, false) as CheckButton
+	ok(amount_slider != null and icon_slider != null and trail_slider != null and source_slider != null and auto != null, "global FX controls expose sliders and auto replay")
+
+	amount_slider.value = 77
+	icon_slider.value = 58
+	trail_slider.value = 4
+	source_slider.value = 126
+	auto.set_pressed_no_signal(true)
+	auto.toggled.emit(true)
+	await process_frame
+
+	ok(int(Save.get_number_setting("fx.global.amount", 0)) == 77, "amount slider writes the saved global FX amount")
+	ok(int(Save.get_number_setting("fx.global.icon_size", 0)) == 58, "icon-size slider writes the saved global FX icon size")
+	ok(int(Save.get_number_setting("fx.global.trail_count", 0)) == 4, "trail-count slider writes the saved global FX trail count")
+	ok(int(Save.get_number_setting("fx.global.source_size", 0)) == 126, "source-size slider writes the saved global FX source size")
+	ok(Save.get_setting("fx.global.auto_replay", false), "auto replay writes the saved global FX setting")
+
 	view.queue_free()
 	await process_frame
 	var restored: Control = View.new()
@@ -105,6 +129,11 @@ func _initialize() -> void:
 	restored.call("_select_fx", "quest_payout")
 	await process_frame
 	ok(not bool(restored.call("_is_fx_enabled", "quest_payout")), "new workbench instances read saved FX toggle state")
+	ok(int(_slider(restored, "AmountSlider").value) == 77, "new workbench instances read saved amount")
+	ok(int(_slider(restored, "IconSizeSlider").value) == 58, "new workbench instances read saved icon size")
+	ok(int(_slider(restored, "TrailCountSlider").value) == 4, "new workbench instances read saved trail count")
+	ok(int(_slider(restored, "CoinSizeSlider").value) == 126, "new workbench instances read saved source size")
+	ok((restored.find_child("AutoReplayToggle", true, false) as CheckButton).button_pressed, "new workbench instances read saved auto replay")
 	restored.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

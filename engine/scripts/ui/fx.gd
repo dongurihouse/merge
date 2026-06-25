@@ -11,6 +11,19 @@ const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX   # the engine's juice dials
 const ShatterScript = preload("res://engine/scripts/ui/shatter.gd")
 const REWARD_FX_SETTING_PREFIX := "fx."
+const REWARD_FX_GLOBAL_PREFIX := "fx.global."
+const REWARD_FX_DEFAULT_AMOUNT := 25
+const REWARD_FX_DEFAULT_ICON_SIZE := 42.0
+const REWARD_FX_DEFAULT_TRAIL_COUNT := 2
+const REWARD_FX_DEFAULT_SOURCE_SIZE := 112.0
+const REWARD_FX_MIN_AMOUNT := 1
+const REWARD_FX_MAX_AMOUNT := 250
+const REWARD_FX_MIN_ICON_SIZE := 24.0
+const REWARD_FX_MAX_ICON_SIZE := 72.0
+const REWARD_FX_MIN_TRAIL_COUNT := 0
+const REWARD_FX_MAX_TRAIL_COUNT := 4
+const REWARD_FX_MIN_SOURCE_SIZE := 72.0
+const REWARD_FX_MAX_SOURCE_SIZE := 148.0
 
 static var _dot_tex: Texture2D
 
@@ -27,6 +40,39 @@ static func reward_fx_enabled(id: String) -> bool:
 
 static func set_reward_fx_enabled(id: String, on: bool) -> void:
 	Save.set_setting(reward_fx_key(id), on)
+
+static func reward_fx_global_key(id: String) -> String:
+	return REWARD_FX_GLOBAL_PREFIX + id
+
+static func reward_fx_amount() -> int:
+	return clampi(int(round(Save.get_number_setting(reward_fx_global_key("amount"), REWARD_FX_DEFAULT_AMOUNT))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
+
+static func set_reward_fx_amount(value: int) -> void:
+	Save.set_number_setting(reward_fx_global_key("amount"), clampi(value, REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT))
+
+static func reward_fx_icon_size() -> float:
+	return clampf(Save.get_number_setting(reward_fx_global_key("icon_size"), REWARD_FX_DEFAULT_ICON_SIZE), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
+
+static func set_reward_fx_icon_size(value: float) -> void:
+	Save.set_number_setting(reward_fx_global_key("icon_size"), clampf(value, REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE))
+
+static func reward_fx_trail_count() -> int:
+	return clampi(int(round(Save.get_number_setting(reward_fx_global_key("trail_count"), REWARD_FX_DEFAULT_TRAIL_COUNT))), REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT)
+
+static func set_reward_fx_trail_count(value: int) -> void:
+	Save.set_number_setting(reward_fx_global_key("trail_count"), clampi(value, REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT))
+
+static func reward_fx_source_size() -> float:
+	return clampf(Save.get_number_setting(reward_fx_global_key("source_size"), REWARD_FX_DEFAULT_SOURCE_SIZE), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
+
+static func set_reward_fx_source_size(value: float) -> void:
+	Save.set_number_setting(reward_fx_global_key("source_size"), clampf(value, REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE))
+
+static func reward_fx_auto_replay() -> bool:
+	return Save.get_setting(reward_fx_global_key("auto_replay"), false)
+
+static func set_reward_fx_auto_replay(on: bool) -> void:
+	Save.set_setting(reward_fx_global_key("auto_replay"), on)
 
 ## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
 static func amount_for(amount: int) -> int:

@@ -1665,13 +1665,13 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 		var map_gem_done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
-		FX.reward_arrival(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8"), diamonds_label, map_gem_done, 32.0, "+", 2, "map_task_reward")
+		FX.reward_arrival(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8"), diamonds_label, map_gem_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "map_task_reward")
 		dy += 34
 	if coins > 0:
 		var map_coin_done := func() -> void:
 			if is_instance_valid(self):
 				_update_hud()
-		FX.reward_arrival(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"), coins_label, map_coin_done, 32.0, "+", 2, "map_task_reward")
+		FX.reward_arrival(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"), coins_label, map_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "map_task_reward")
 	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, 24)
 	if gems <= 0 and coins <= 0:
 		_update_hud()

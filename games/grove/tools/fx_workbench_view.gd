@@ -27,7 +27,13 @@ const FX_DEFS := [
 ]
 
 var _selected_fx := "coin_pickup"
-var _settings := {"amount": 25, "icon_size": 42, "trail_count": 2, "coin_size": 112, "auto_replay": false}
+var _settings := {
+	"amount": FX.REWARD_FX_DEFAULT_AMOUNT,
+	"icon_size": int(FX.REWARD_FX_DEFAULT_ICON_SIZE),
+	"trail_count": FX.REWARD_FX_DEFAULT_TRAIL_COUNT,
+	"coin_size": int(FX.REWARD_FX_DEFAULT_SOURCE_SIZE),
+	"auto_replay": false,
+}
 var _totals: Dictionary = {"coin": 120, "gem": 8, "water": 0, "bag": 3}
 var _targets: Dictionary = {}
 var _target_labels: Dictionary = {}
@@ -43,7 +49,17 @@ func _ready() -> void:
 	UiFont.apply()
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	custom_minimum_size = Vector2(960, 720)
+	_load_global_settings()
 	_build()
+
+func _load_global_settings() -> void:
+	_settings = {
+		"amount": FX.reward_fx_amount(),
+		"icon_size": int(round(FX.reward_fx_icon_size())),
+		"trail_count": FX.reward_fx_trail_count(),
+		"coin_size": int(round(FX.reward_fx_source_size())),
+		"auto_replay": FX.reward_fx_auto_replay(),
+	}
 
 func _build() -> void:
 	for c in get_children():
@@ -75,6 +91,8 @@ func _build() -> void:
 		if bool(_settings.get("auto_replay", false)):
 			_play_selected())
 	add_child(_auto_timer)
+	if bool(_settings.get("auto_replay", false)):
+		_auto_timer.start()
 
 func _make_sidebar() -> Control:
 	var panel := PanelContainer.new()
@@ -247,10 +265,10 @@ func _rebuild_controls() -> void:
 	replay.pressed.connect(_play_selected)
 	_controls.add_child(replay)
 
-	_controls.add_child(_slider_row("Amount", "amount", 1, 250, 1))
-	_controls.add_child(_slider_row("Icon size", "icon_size", 24, 72, 1))
-	_controls.add_child(_slider_row("Trail count", "trail_count", 0, 4, 1))
-	_controls.add_child(_slider_row("Source size", "coin_size", 72, 148, 1))
+	_controls.add_child(_slider_row("Amount", "amount", FX.REWARD_FX_MIN_AMOUNT, FX.REWARD_FX_MAX_AMOUNT, 1))
+	_controls.add_child(_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
+	_controls.add_child(_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
+	_controls.add_child(_slider_row("Source size", "coin_size", FX.REWARD_FX_MIN_SOURCE_SIZE, FX.REWARD_FX_MAX_SOURCE_SIZE, 1))
 	var auto := CheckButton.new()
 	auto.name = "AutoReplayToggle"
 	auto.text = "Auto replay"
@@ -259,6 +277,7 @@ func _rebuild_controls() -> void:
 	auto.add_theme_font_size_override("font_size", 16)
 	auto.toggled.connect(func(on: bool) -> void:
 		_settings["auto_replay"] = on
+		FX.set_reward_fx_auto_replay(on)
 		if _auto_timer != null:
 			if on:
 				_auto_timer.start()
@@ -288,12 +307,23 @@ func _slider_row(label: String, key: String, min_value: float, max_value: float,
 	slider.value = float(current_value)
 	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	slider.value_changed.connect(func(v: float) -> void:
-		_settings[key] = int(round(v))
-		value.text = str(int(_settings[key]))
-		if key == "coin_size":
-			_build_selected_preview())
+		_set_global_setting(key, int(round(v)))
+		value.text = str(int(_settings[key])))
 	row.add_child(slider)
 	return row
+
+func _set_global_setting(key: String, value: int) -> void:
+	_settings[key] = value
+	match key:
+		"amount":
+			FX.set_reward_fx_amount(value)
+		"icon_size":
+			FX.set_reward_fx_icon_size(float(value))
+		"trail_count":
+			FX.set_reward_fx_trail_count(value)
+		"coin_size":
+			FX.set_reward_fx_source_size(float(value))
+			_build_selected_preview()
 
 func _select_fx(id: String) -> void:
 	if id == _selected_fx:
