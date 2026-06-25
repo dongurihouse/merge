@@ -160,6 +160,7 @@ var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable
 var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
 var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
+var _info_item_icon_scale := 0.80    # selected item/generator art scale inside the info bar's preview box
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
@@ -1361,6 +1362,7 @@ func _build_info_bar(px: float = 130.0) -> Control:
 	_info_trash_count = pill.get_meta("sell_count")  # the payout-amount label, set in _select_item
 	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
 	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
+	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale inside that fixed preview box
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	return pill
@@ -1471,7 +1473,7 @@ func _select_item(cell: Vector2i) -> void:
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	_info_icon.add_child(_make_piece(code, _info_inner_px * 0.8))   # ~0.8 of the box (≈50px at the default inner) — scales with the bar knob
+	_info_icon.add_child(_make_piece(code, _info_inner_px * _info_item_icon_scale))
 	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else Strings.t("board.info.item_fallback")
 	_info_label.text = "%s · %s %d" % [nm, Strings.t("board.info.tier"), tier]
 	_info_btn.disabled = false
@@ -1502,7 +1504,7 @@ func _select_generator(cell: Vector2i) -> void:
 	var gid := board.gen_id_at(cell)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	var prev := PieceView.make_generator(gid, _info_inner_px * 0.8, {})
+	var prev := PieceView.make_generator(gid, _info_inner_px * _info_item_icon_scale, {})
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid)

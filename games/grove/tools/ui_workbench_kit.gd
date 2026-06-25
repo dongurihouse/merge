@@ -3442,6 +3442,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
+		"item_icon_scale": float(i.get("item_icon_scale", 80)) / 100.0, # selected item/generator art as % of that piece box
 		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
@@ -3461,13 +3462,14 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## plain ink over a vertical green badge (the payout coin on top, the payout number below).
 ## The FRAME is the shared gold badge skin, so the board border and bottom bar read as one surface.
 ## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
-## font · separation · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
+## font · separation · selected-item art scale · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
 ## empty/selected state by mutating the sub-nodes exposed via meta (info_btn / info_icon / name_label /
-## sell_btn / inner_px), so the board's selection logic is unchanged.
+## sell_btn / inner_px / item_icon_scale), so the board's selection logic is unchanged.
 ##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
-##     sell_font (payout number) · sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) ·
-##     badge (the shared gold badge frame opts) · pill (content margins).
+##     item_icon_scale (0..1, selected art inside the piece box) · sell_font (payout number) ·
+##     sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) · badge (the shared gold badge
+##     frame opts) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var height := float(opts.get("height", 130.0))
 	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ + piece box scale with the bar
@@ -3610,6 +3612,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("sell_count", sell_count)
 	pill.set_meta("sell_coin", sell_coin)
 	pill.set_meta("inner_px", inner)
+	pill.set_meta("item_icon_scale", float(opts.get("item_icon_scale", 0.80)))
 	return pill
 
 ## The info bar's "ⓘ" button. When the shipped disc sprite (ui/shared/icon_<id>.png — the cream
