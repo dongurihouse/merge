@@ -96,6 +96,15 @@ func _slider_max(view: Control, label: String) -> float:
 					return (kid as HSlider).max_value
 	return -INF
 
+func _slider_min(view: Control, label: String) -> float:
+	for row in view._sidebar_body.find_children("*", "HBoxContainer", true, false):
+		var kids := (row as HBoxContainer).get_children()
+		if kids.size() >= 2 and kids[0] is Label and String((kids[0] as Label).text) == label:
+			for kid in kids:
+				if kid is HSlider:
+					return (kid as HSlider).min_value
+	return INF
+
 # Count the slot tiles in a bag dialog's grid (the GridContainer's children).
 func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
@@ -1071,6 +1080,7 @@ func _test_level_badge_component(view) -> void:
 	ok(_slider_max(view, "Leaf X") >= 60.0 and _slider_max(view, "Flower X") >= 60.0
 		and _slider_max(view, "Acorn X") >= 60.0 and _slider_max(view, "Gem X") >= 60.0
 		and _slider_max(view, "Circle X") >= 60.0, "every part has its own X/Y/Scale sliders, all visible")
+	ok(_slider_min(view, "Gem Y") <= -120.0, "Gem Y can move above the old -60 cap")
 	ok(_slider_max(view, "Num Size") >= 70.0 and _slider_max(view, "Num Burn") >= 100.0,
 		"sidebar exposes the number size + the engraved burn slider")
 	ok(_slider_max(view, "Preview Level") >= 110.0, "sidebar exposes the test level (1..110)")
