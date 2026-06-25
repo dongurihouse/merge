@@ -45,6 +45,7 @@ const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brigh
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const BOTTOM_BAR_H := 166.0      # the board bottom bar height (Bag · info bar · Home) — grown with the ~10%-bigger wells (#5)
 const BOTTOM_BTN_PX := 130.0     # #5: the Bag/Home wells + the info bar share this height (~10% bigger than the old 118)
+const HOME_NAV_ICON_SCALE := 0.62 # board Home glyph size inside the shared bottom well
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
@@ -1296,7 +1297,7 @@ func _tray_well(px: float, art: String = "") -> Button:
 # matches the rest of the bar; the stash/sell preview overlays still ride on top and the drop is resolved
 # by global-rect, so a home-button disc is as good a target as the old wood well. Soft-loads the kit by
 # path (engine → game-tool bridge); falls back to the wood _tray_well if the kit can't load.
-func _home_well(px: float, icon_id: String, fallback_art: String, count: String = "") -> Button:
+func _home_well(px: float, icon_id: String, fallback_art: String, count: String = "", icon_scale: float = -1.0) -> Button:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit == null:
 		return _tray_well(px, fallback_art)
@@ -1304,6 +1305,8 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 	opts["px"] = px
 	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
 	opts["calm"] = FX.calm()
+	if icon_scale > 0.0:
+		opts["icon_scale"] = icon_scale
 	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
 	# so the bag cell stays the same px box as the rest of the bar (no taller label stacked beneath it).
 	return Kit.home_button({"icon": icon_id, "caption": "", "sparkle": false, "count": count}, opts)
@@ -1336,7 +1339,7 @@ func _bag_count_text() -> String:
 
 # The Home disc for the bottom bar's right edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float) -> Button:
-	var b := _home_well(px, "house", "nav_home.png")
+	var b := _home_well(px, "house", "nav_home.png", "", HOME_NAV_ICON_SCALE)
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()

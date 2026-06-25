@@ -18,6 +18,9 @@ func _initialize() -> void:
 		"S1: the Bag well sits fully on-screen")
 	ok(ss.home_btn != null and is_instance_valid(ss.home_btn) and vp.encloses(ss.home_btn.get_global_rect()), \
 		"S1: the Home button sits fully on-screen")
+	ok(ss.home_btn.has_meta("icon_px") and ss.bag_btn.has_meta("icon_px") \
+		and float(ss.home_btn.get_meta("icon_px")) > float(ss.bag_btn.get_meta("icon_px")), \
+		"S1: the board Home icon is larger than the default bottom-well icon")
 	ok(ss.bottom_bar.find_children("*", "PanelContainer", true, false).size() >= 1, \
 		"S1: the centre info bar (a framed pill) is present")
 	var board_mat: Control = ss.board_area.get_child(0)
