@@ -80,6 +80,30 @@ func _initialize() -> void:
 	Save._loaded = false
 	ok(not Save.get_setting("music") and Save.get_setting("sfx"), "setting persists across reload")
 
+	fresh("settings_external_refresh")
+	Save.set_number_setting("fx.global.icon_size", 42)
+	Save.set_setting("fx.coin_pickup", true)
+	var refreshed: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	refreshed["settings"]["fx.global.icon_size"] = 66
+	refreshed["settings"]["fx.coin_pickup"] = false
+	var refreshed_file := FileAccess.open(Save.path, FileAccess.WRITE)
+	refreshed_file.store_string(JSON.stringify(refreshed))
+	refreshed_file.close()
+	ok(int(Save.get_number_setting("fx.global.icon_size", 0)) == 66 and not Save.get_setting("fx.coin_pickup", true), \
+		"settings reads refresh externally saved FX changes")
+
+	fresh("settings_preserve_disk")
+	Save.coins()
+	var latest: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	latest["currencies"]["coins"] = 321
+	var latest_file := FileAccess.open(Save.path, FileAccess.WRITE)
+	latest_file.store_string(JSON.stringify(latest))
+	latest_file.close()
+	Save.set_number_setting("fx.global.trail_count", 4)
+	var after_setting: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(Save.path))
+	ok(int(after_setting["currencies"]["coins"]) == 321 and int(after_setting["settings"]["fx.global.trail_count"]) == 4, \
+		"settings writes preserve newer non-settings save data on disk")
+
 	# 14. exp is the single cumulative progression total (no migration — it persists as-is).
 	fresh("exp_total")
 	ok(Save.exp_total() == 0, "a fresh save starts at 0 exp")

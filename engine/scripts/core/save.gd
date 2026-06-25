@@ -72,8 +72,11 @@ static func _read(p: String) -> Dictionary:
 	return {}                              # garbage/truncated → treat as missing
 
 static func save_now() -> void:
-	data["schema_version"] = SCHEMA_VERSION
-	var text := JSON.stringify(data, "  ")
+	_save_data(data)
+
+static func _save_data(next_data: Dictionary) -> void:
+	next_data["schema_version"] = SCHEMA_VERSION
+	var text := JSON.stringify(next_data, "  ")
 	var f := FileAccess.open(tmp, FileAccess.WRITE)
 	if f == null:
 		return
@@ -87,6 +90,14 @@ static func save_now() -> void:
 	if FileAccess.file_exists(path):
 		dir.rename(path.get_file(), bak.get_file())   # keep last-good as backup
 	dir.rename(tmp.get_file(), path.get_file())        # atomic swap-in
+
+static func _latest_disk_data() -> Dictionary:
+	var loaded := _read(path)
+	if loaded.is_empty():
+		loaded = _read(bak)
+	if int(loaded.get("schema_version", 0)) != SCHEMA_VERSION:
+		return {}
+	return _merge(_default(), loaded)
 
 ## DEBUG: wipe ALL progress back to a fresh install (the base debug panel's Reset).
 static func reset() -> void:
@@ -252,21 +263,36 @@ static func buy_bag_slot(price: int) -> bool:
 
 static func get_setting(key: String, def: bool = true) -> bool:
 	_ensure_loaded()
+	_refresh_settings_from_disk()
 	return bool(data["settings"].get(key, def))
 
 static func set_setting(key: String, v: bool) -> void:
-	_ensure_loaded()
-	data["settings"][key] = v
-	save_now()
+	_set_setting_value(key, v)
 
 static func get_number_setting(key: String, def: float = 0.0) -> float:
 	_ensure_loaded()
+	_refresh_settings_from_disk()
 	return float(data["settings"].get(key, def))
 
 static func set_number_setting(key: String, v: float) -> void:
+	_set_setting_value(key, v)
+
+static func _refresh_settings_from_disk() -> void:
+	var latest := _latest_disk_data()
+	if latest.is_empty():
+		return
+	data["settings"] = (latest.get("settings", {}) as Dictionary).duplicate(true)
+
+static func _set_setting_value(key: String, v: Variant) -> void:
 	_ensure_loaded()
-	data["settings"][key] = v
-	save_now()
+	var latest := _latest_disk_data()
+	if latest.is_empty():
+		latest = data.duplicate(true)
+	var settings: Dictionary = (latest.get("settings", {}) as Dictionary).duplicate(true)
+	settings[key] = v
+	latest["settings"] = settings
+	_save_data(latest)
+	data["settings"] = settings
 
 # --- quest counters (daily bundle + silent milestones) --------------------------
 
