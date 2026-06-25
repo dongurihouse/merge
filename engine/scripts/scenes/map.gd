@@ -426,36 +426,18 @@ func _add_zone_level_badge_if_locked(node: Control, z: int, k: int) -> void:
 	node.add_child(_zone_level_badge(need_level, node.size))
 
 func _zone_level_badge(level: int, host_size: Vector2) -> Control:
-	var w := clampf(_map_rect.size.x * 0.085, 64.0, 92.0)
-	var h := clampf(w * 0.46, 30.0, 42.0)
-	var badge := PanelContainer.new()
-	badge.name = ZONE_LEVEL_BADGE_NODE
-	badge.size = Vector2(w, h)
-	badge.custom_minimum_size = badge.size
-	badge.position = ((host_size - badge.size) * 0.5).floor()
+	var px := clampf(_map_rect.size.x * 0.085, 64.0, 92.0)
+	var wrap := Control.new()
+	wrap.name = ZONE_LEVEL_BADGE_NODE
+	wrap.size = Vector2(px, px)
+	wrap.custom_minimum_size = wrap.size
+	wrap.position = ((host_size - wrap.size) * 0.5).floor()
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.z_index = 6
+	var badge := Look.make_level_badge(level, px)
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.z_index = 6
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color("#4E5663", 0.78)
-	sb.border_color = Color("#D8D4C3", 0.42)
-	sb.set_border_width_all(2)
-	sb.set_corner_radius_all(int(h * 0.5))
-	sb.content_margin_left = 10.0
-	sb.content_margin_right = 10.0
-	sb.content_margin_top = 3.0
-	sb.content_margin_bottom = 4.0
-	badge.add_theme_stylebox_override("panel", sb)
-	var lbl := Label.new()
-	lbl.name = "ZoneLevelBadgeLabel"
-	lbl.text = "Lv %d" % level
-	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.add_theme_font_size_override("font_size", int(h * 0.52))
-	lbl.add_theme_color_override("font_color", Color(CREAM, 0.86))
-	lbl.add_theme_constant_override("outline_size", 0)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	badge.add_child(lbl)
-	return badge
+	wrap.add_child(badge)
+	return wrap
 
 # --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 

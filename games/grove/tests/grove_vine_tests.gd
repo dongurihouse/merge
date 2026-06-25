@@ -242,12 +242,12 @@ func _test_locked_zone_level_badges() -> void:
 	Save.grove()["exp"] = G.exp_at_level(required_level) - 1
 	hx._open_map(z)
 	await create_timer(0.05).timeout
-	ok(_has_label_text(hx.spot_hits[k].node, "Lv %d" % required_level),
-		"a locked zone shows its required level badge")
+	ok(_has_zone_level_badge(hx.spot_hits[k].node, required_level),
+		"a locked zone shows the shared level badge for its required level")
 	Save.grove()["exp"] = G.exp_at_level(required_level)
 	hx._open_map(z)
 	await create_timer(0.05).timeout
-	ok(not _has_label_text(hx.spot_hits[k].node, "Lv %d" % required_level),
+	ok(not _has_zone_level_badge(hx.spot_hits[k].node, required_level),
 		"the level badge hides once the player reaches the required level")
 	hx.queue_free()
 
@@ -278,6 +278,16 @@ func _has_label_text(node: Control, text: String) -> bool:
 		if String((l as Label).text) == text:
 			return true
 	return false
+
+func _has_zone_level_badge(node: Control, level: int) -> bool:
+	var wrap := node.find_child("ZoneLevelBadge", true, false) as Control
+	if wrap == null:
+		return false
+	var badge := wrap.find_child("LevelBadge", true, false) as Control
+	if badge == null:
+		return false
+	var num := badge.find_child("lv_num", true, false) as Label
+	return num != null and num.text == str(level)
 
 func _any_label_contains(node: Control, text: String) -> bool:
 	for l in node.find_children("*", "Label", true, false):

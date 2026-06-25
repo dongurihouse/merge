@@ -124,7 +124,7 @@
 		"width": 720.0
 	},
 	"fx": {
-		"amount": 25,
+		"amount": 23,
 		"auto_replay": false,
 		"enabled": {
 			"accept_2x": true,
@@ -133,11 +133,11 @@
 			"map_task_reward": true,
 			"quest_payout": true,
 			"sale_payout": true,
-			"stash_to_bag": true
+			"stash_to_bag": false
 		},
 		"icon_size": 42.0,
 		"source_size": 112.0,
-		"trail_count": 2
+		"trail_count": 2.0
 	},
 	"generator": {
 		"glow_a": 30.0,
