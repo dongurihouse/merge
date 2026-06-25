@@ -6,33 +6,249 @@ extends Control
 ## in map.gd stays callable but is no longer the entry point.)
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Game = preload("res://engine/scripts/core/game.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
+const Pal = Game.PALETTE
 
 var _hud: Dictionary = {}
 var _root: Control = null
 
 func _ready() -> void:
+	_ensure_background()
 	_hud = Hud.build(self, {"on_refresh": func() -> void: _rebuild()})
-	_build()
+	if _root == null:
+		_build()
+
+func _ensure_background() -> void:
+	if get_node_or_null("ResidentsBackground") != null:
+		return
+	var bg := ColorRect.new()
+	bg.name = "ResidentsBackground"
+	bg.color = Pal.SCREEN_BG
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+	move_child(bg, 0)
 
 ## Tear down + rebuild the content column from the live model. Called after every action.
 func _rebuild() -> void:
 	if _root != null:
 		_root.queue_free()
+		_root = null
 	_build()
 
 func _build() -> void:
-	# 1. content column (a VBoxContainer under the HUD band)
-	# 2. the COMPLETED maps as rows (G.completed_maps / G.can_populate gate which maps show)
-	# 3. the hand strip
-	# 4. the acquire-stub button + the Back button
-	# (Detailed wiring in Tasks 6-7.)
-	pass
+	var scroll := ScrollContainer.new()
+	scroll.name = "ResidentsContent"
+	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scroll.offset_left = 28.0
+	scroll.offset_right = -28.0
+	scroll.offset_top = 176.0
+	scroll.offset_bottom = -28.0
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+	add_child(scroll)
+	_root = scroll
+
+	var col := VBoxContainer.new()
+	col.name = "ResidentsColumn"
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 16)
+	scroll.add_child(col)
+
+	var title := _label("Residents", 34, Pal.INK)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(title)
+
+	var g := Save.grove()
+	var unlocks: Dictionary = g.get("unlocks", {})
+	var gates: Array = g.get("gates", [])
+	var shown := 0
+	for z in G.MAPS.size():
+		if G.can_populate(z, unlocks, gates):
+			col.add_child(_map_row(z))
+			shown += 1
+	if shown == 0:
+		var empty := _label("Complete a map to open habitats.", 20, Color(Pal.INK, 0.72))
+		empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(empty)
+
+	col.add_child(_hand_section())
+
+	var actions := HBoxContainer.new()
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	actions.add_theme_constant_override("separation", 12)
+	var find := Kit.pill_button("Find a spirit", {"font": 20, "corner": 12.0})
+	find.name = "FindSpiritButton"
+	find.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var back := Kit.pill_button("Back", {"bg": "cream", "font": 20, "corner": 12.0})
+	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(_on_back)
+	actions.add_child(find)
+	actions.add_child(back)
+	col.add_child(actions)
+
+func _map_row(z: int) -> Control:
+	var map_id := String(G.MAPS[z].id)
+	var placed := Habitat.placed(map_id)
+	var row := PanelContainer.new()
+	row.name = "MapRow_%s" % map_id
+	row.set_meta("map_id", map_id)
+	row.add_theme_stylebox_override("panel", _panel_style(Color(Pal.CREAM, 0.94), Color(Pal.STRAW, 0.85), 8, Vector4(14, 12, 14, 12)))
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 10)
+	row.add_child(body)
+
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	body.add_child(top)
+
+	var name := _label(String(G.MAPS[z].name), 24, Pal.INK)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(name)
+	var cap := _chip("%d/%d" % [placed.size(), Habitat.cap(map_id)])
+	top.add_child(cap)
+	var ready := int(floor(Habitat.pending(map_id)))
+	top.add_child(_chip("%d ready" % ready))
+	var currency := Habitat.reward_currency(map_id)
+	if currency != "":
+		var collect := Kit.pill_button("Collect", {"font": 18, "corner": 10.0})
+		collect.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		collect.pressed.connect(func() -> void:
+			Audio.play("button_tap", -2.0)
+			Habitat.collect(map_id)
+			_after_currency_action())
+		top.add_child(collect)
+
+	var spirits := HBoxContainer.new()
+	spirits.name = "Placed_%s" % map_id
+	spirits.add_theme_constant_override("separation", 10)
+	body.add_child(spirits)
+	if placed.is_empty():
+		spirits.add_child(_label("0 residents", 18, Color(Pal.INK, 0.62)))
+	else:
+		for i in placed.size():
+			spirits.add_child(_placed_spirit(map_id, i, placed[i]))
+	return row
+
+func _placed_spirit(map_id: String, index: int, inst: Dictionary) -> Control:
+	var box := VBoxContainer.new()
+	box.name = "PlacedSpirit_%s_%d" % [map_id, index]
+	box.add_theme_constant_override("separation", 4)
+	box.add_child(_spirit_icon(inst, 66.0))
+	var sell := Kit.pill_button("Sell", {"bg": "cream", "font": 16, "corner": 8.0, "pad_scale": 0.78})
+	sell.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sell.pressed.connect(func() -> void:
+		Audio.play("button_tap", -2.0)
+		Habitat.sell(map_id, index)
+		_after_currency_action())
+	box.add_child(sell)
+	return box
+
+func _hand_section() -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "HandPanel"
+	panel.add_theme_stylebox_override("panel", _panel_style(Color(Pal.BARK, 0.08), Color(Pal.BARK, 0.18), 8, Vector4(14, 12, 14, 12)))
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var body := VBoxContainer.new()
+	body.add_theme_constant_override("separation", 10)
+	panel.add_child(body)
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	body.add_child(head)
+	var label := _label("Hand", 24, Pal.INK)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(label)
+	head.add_child(_chip("%d" % Habitat.hand().size()))
+
+	var strip := HBoxContainer.new()
+	strip.name = "HandStrip"
+	strip.add_theme_constant_override("separation", 10)
+	body.add_child(strip)
+	var h := Habitat.hand()
+	if h.is_empty():
+		strip.add_child(_label("Empty", 18, Color(Pal.INK, 0.62)))
+	else:
+		for i in h.size():
+			var icon := _spirit_icon(h[i], 62.0)
+			icon.name = "HandSpirit_%d" % i
+			icon.set_meta("hand_index", i)
+			strip.add_child(icon)
+	return panel
+
+func _spirit_icon(inst: Dictionary, px: float) -> Control:
+	var wrap := PanelContainer.new()
+	wrap.custom_minimum_size = Vector2(px + 12.0, px + 22.0)
+	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
+	wrap.add_theme_stylebox_override("panel", _panel_style(Color(Pal.CREAM, 0.82), Color(Pal.STRAW, 0.75), 8, Vector4(6, 6, 6, 6)))
+	var stack := VBoxContainer.new()
+	stack.alignment = BoxContainer.ALIGNMENT_CENTER
+	stack.add_theme_constant_override("separation", 2)
+	wrap.add_child(stack)
+	var kind := String(inst.get("kind", "moss"))
+	var path := G.resident_art(kind)
+	var img: Control = null
+	if path != "" and ResourceLoader.exists(path):
+		var tr := TextureRect.new()
+		tr.texture = load(path)
+		tr.custom_minimum_size = Vector2(px, px)
+		tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		img = tr
+	else:
+		img = Kit.plated_icon(kind, px, "shared/disc_round.png")
+	stack.add_child(img)
+	var tier := _label("T%d" % int(inst.get("tier", 1)), 15, Pal.INK)
+	tier.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	stack.add_child(tier)
+	return wrap
+
+func _after_currency_action() -> void:
+	if _hud.has("refresh") and _hud.refresh is Callable:
+		_hud.refresh.call()
+	else:
+		_rebuild()
+
+func _label(text: String, font_px: int, color: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", font_px)
+	l.add_theme_color_override("font_color", color)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
+
+func _chip(text: String) -> Label:
+	var l := _label(text, 18, Pal.INK)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(maxf(54.0, float(text.length()) * 10.0 + 22.0), 34.0)
+	l.add_theme_stylebox_override("normal", _panel_style(Color(Pal.CREAM, 0.9), Color(Pal.STRAW, 0.68), 7, Vector4(10, 4, 10, 4)))
+	return l
+
+func _panel_style(fill: Color, edge: Color, radius: int, margins: Vector4) -> StyleBoxFlat:
+	var st := StyleBoxFlat.new()
+	st.bg_color = fill
+	st.border_color = edge
+	st.set_border_width_all(2)
+	st.set_corner_radius_all(radius)
+	st.content_margin_left = margins.x
+	st.content_margin_top = margins.y
+	st.content_margin_right = margins.z
+	st.content_margin_bottom = margins.w
+	return st
 
 func _on_back() -> void:
 	Audio.play("button_tap", -2.0)

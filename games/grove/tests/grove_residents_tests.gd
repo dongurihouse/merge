@@ -155,5 +155,17 @@ func _test_screen() -> void:
 		s._ready()
 	await create_timer(0.05).timeout
 	ok(s.get_child_count() > 0, "the Residents screen builds a non-empty tree")
+	# placing a spirit then rebuilding shows it on the map row
+	Habitat.hand_add("moss", 1)
+	Habitat.place(String(G.MAPS[0].id), 0)
+	s._rebuild()
+	await create_timer(0.05).timeout
+	var labels := _label_texts(s)
+	ok(labels.has(String(G.MAPS[0].name)), "the screen shows the completed map's name")
+	var has_cap := false
+	for t in labels:
+		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
+			has_cap = true
+	ok(has_cap, "the map row shows a capacity readout (n/%d)" % Habitat.DEFAULT_CAP)
 	s.queue_free()
 	await process_frame
