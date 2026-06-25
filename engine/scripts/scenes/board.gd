@@ -43,6 +43,7 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
+const BOARD_STACK_TOP_SPACER := 44.0 # top offset for the quest fence + board stack under the pinned HUD
 const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Bag · info bar · Home); runtime follows workbench button px
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
@@ -211,9 +212,9 @@ func _ready() -> void:
 	add_child(root)
 
 	# the fence band lives BELOW the pinned HUD chips, never under them
-	# (54, was 64 — raised the fence + board 10px to tighten the gap under the HUD chips)
+	# (44, was 54 — raised the fence + board 10px higher under the HUD chips)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 54.0 + Look.safe_top(self))
+	spacer.custom_minimum_size = Vector2(0, BOARD_STACK_TOP_SPACER + Look.safe_top(self))
 	root.add_child(spacer)
 
 	# The chapter ribbon is retired (T49 — progression is one `level` clock, merge_spec §3;

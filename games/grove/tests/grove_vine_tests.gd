@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_empty_regions()
 	_test_lock_overlay()
 	_test_region_map_membership()
+	_test_vine_image_loader_is_export_safe()
 	_test_region_map_prebaked()
 	_test_cover_offset_bleed()
 	await _test_boot_does_zero_live_work()
@@ -92,6 +93,11 @@ func _test_region_map_membership() -> void:
 	ok(outside.g < 0.5, "an off-polygon pixel is unmarked (green=0) so region 0 != background")
 	view.free()
 
+func _test_vine_image_loader_is_export_safe() -> void:
+	var src := FileAccess.get_file_as_string("res://games/grove/vine/vine_map_view.gd")
+	ok(src.find("ProjectSettings.globalize_path") == -1,
+		"VineMapView loads res:// mask/bake images through the virtual filesystem, not exported-unsafe globalized paths")
+
 # Every shipped vine map ships a pre-baked region-index map at the content-addressed path load_map()
 # computes, so the game's first home render LOADS the warped raster (skipping the ~1.1s per-pixel noise +
 # polygon pass) instead of building it live. A geometry edit moves the path; if the bake was not re-run
@@ -110,7 +116,7 @@ func _test_region_map_prebaked() -> void:
 		var isize: Vector2i = view.image_size
 		view.free()
 		var path := VineMapView.baked_region_map_path(isize, regions)
-		var baked := Image.load_from_file(ProjectSettings.globalize_path(path))
+		var baked := VineMapView.new()._load_image(path)
 		ok(baked != null and not baked.is_empty(),
 			"map '%s' ships a baked region map (%s) — run `make bake-vine` after editing regions" % [String(entry.get("id", "?")), path.get_file()])
 		if baked == null or checked_fidelity:

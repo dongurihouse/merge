@@ -5,6 +5,7 @@ PROJECT := .
 QUIET   := engine/tools/quiet_godot.sh
 JOBS    ?= 4                                  # parallel suites; 4 avoids over-subscribing cores
 RUNNER  := engine/tools/run_suites.py         # parallel runner + per-suite timing table
+DEVICE  ?=                                    # desktop phone simulator for make g, e.g. DEVICE=393x852
 # Active suites = the core-logic / "basic coding functional" set. At this stage of development the
 # UI + economy/liveops suites are PARKED in the *_DISABLED vars below — they churn with rapid UI/
 # economy iteration and slow the loop without guarding stable code. To RE-ENABLE: move names back
@@ -20,7 +21,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
         shot-map shot-grove shot shot-workbench shot-fx-workbench \
         decor icon ios clean clean-cache intake intake-test
 
@@ -39,9 +40,12 @@ debug: ## play the active game (default grove) WITH the debug panel + toggles
 	rm -f games/grove/assets/.gdignore
 	GAME=$${GAME:-grove} $(GODOT) --path $(PROJECT) -- debug
 
-g: ## play the GROVE game (full art; first run imports grove art)
+g: ## play the GROVE game (full art; use DEVICE=393x852 to mimic a phone viewport)
 	rm -f games/grove/assets/.gdignore
-	GAME=grove $(GODOT) --path $(PROJECT)
+	GROVE_DEVICE_POINTS="$(DEVICE)" GAME=grove $(GODOT) --path $(PROJECT)
+
+g-phone: ## play Grove in an iPhone-ish point viewport (same as make g DEVICE=393x852)
+	$(MAKE) g DEVICE=393x852
 
 editor: ## open the project in the Godot editor
 	$(GODOT) -e --path $(PROJECT)

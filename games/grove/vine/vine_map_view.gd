@@ -295,7 +295,20 @@ func _combine_mask_images(mask_entries: Array) -> Image:
 func _load_image(path: String) -> Image:
 	if path == "":
 		return null
-	return Image.load_from_file(ProjectSettings.globalize_path(path))
+	var bytes := FileAccess.get_file_as_bytes(path)
+	if not bytes.is_empty():
+		var image := Image.new()
+		var err := ERR_UNAVAILABLE
+		match path.get_extension().to_lower():
+			"png":
+				err = image.load_png_from_buffer(bytes)
+			"jpg", "jpeg":
+				err = image.load_jpg_from_buffer(bytes)
+			"webp":
+				err = image.load_webp_from_buffer(bytes)
+		if err == OK and not image.is_empty():
+			return image
+	return Image.load_from_file(path)
 
 func _fallback_mask_image() -> Image:
 	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
@@ -444,15 +457,15 @@ static func baked_region_map_path(map_image_size: Vector2i, region_list: Array) 
 	var blob := JSON.stringify([REGION_MAP_BAKE_VERSION, BOUNDARY_WARP, map_image_size.x, map_image_size.y, geo])
 	return "%sregion_map_%s.png" % [BAKED_REGION_DIR, blob.sha256_text().substr(0, 16)]
 
-# Load the pre-baked region-index map for the current (image_size, regions). Read as raw bytes via
-# Image.load_from_file (the same import-free path the mask takes) so the data channels survive intact —
+# Load the pre-baked region-index map for the current (image_size, regions). Read through FileAccess
+# (the same import-free path the mask takes) so the data channels survive intact —
 # no texture compression/sRGB to corrupt the region-index red channel. Returns false (→ live raster) when
 # the bake is missing (an un-baked authored map) or this view opted into live-only (the authoring tool).
 func _load_baked_region_map() -> bool:
 	if live_region_map_only:
 		return false
 	var path := baked_region_map_path(image_size, regions)
-	if not FileAccess.file_exists(ProjectSettings.globalize_path(path)):
+	if not FileAccess.file_exists(path):
 		return false                            # un-baked authored map → caller rasterizes live (no error spam)
 	var img := _load_image(path)
 	if img == null or img.is_empty():

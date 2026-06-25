@@ -45,7 +45,7 @@ static func reward_fx_config() -> Dictionary:
 	var raw := _load_reward_fx_file(path)
 	var fx = raw.get("fx", {}) if raw is Dictionary else {}
 	if fx is Dictionary:
-		for key in ["amount", "icon_size", "trail_count", "source_size", "auto_replay"]:
+		for key in ["icon_size", "trail_count"]:
 			if fx.has(key):
 				cfg[key] = fx[key]
 		var saved_enabled = fx.get("enabled", {})
@@ -61,11 +61,8 @@ static func _default_reward_fx_config() -> Dictionary:
 	for id in REWARD_FX_IDS:
 		enabled[id] = true
 	return {
-		"amount": REWARD_FX_DEFAULT_AMOUNT,
 		"icon_size": REWARD_FX_DEFAULT_ICON_SIZE,
 		"trail_count": REWARD_FX_DEFAULT_TRAIL_COUNT,
-		"source_size": REWARD_FX_DEFAULT_SOURCE_SIZE,
-		"auto_replay": false,
 		"enabled": enabled,
 	}
 

@@ -47,5 +47,12 @@ func _initialize() -> void:
 	ok(absf(tr.size.y / tr.size.x - design.y / design.x) < 0.01, \
 		"a tall window: the map keeps the design aspect (crop, never squash)")
 
+	var design_src := FileAccess.get_file_as_string("res://engine/scripts/core/design.gd")
+	ok(design_src.find("GROVE_DEVICE_POINTS") != -1,
+		"desktop window fit accepts GROVE_DEVICE_POINTS so `make g DEVICE=393x852` can mimic phone shape")
+	var makefile_src := FileAccess.get_file_as_string("res://Makefile")
+	ok(makefile_src.find("GROVE_DEVICE_POINTS") != -1 and makefile_src.find("DEVICE=393x852") != -1,
+		"Makefile exposes the phone simulator through `make g DEVICE=393x852`")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

@@ -10,6 +10,8 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
+	ok(absf(ss.giver_bar.get_global_rect().position.y - 54.0) < 1.0, \
+		"S1: the quest fence and board stack sit 10px higher under the HUD")
 	# the board bottom bar is Bag (+count) · info bar · Home (bottom_bar IS the row). Selling moved to the
 	# info bar's trashcan, so there is no merchant well. Check the row + Bag/Home sit on-screen and the
 	# centre info bar (a framed pill) is present.

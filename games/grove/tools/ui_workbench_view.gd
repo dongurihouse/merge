@@ -471,7 +471,7 @@ func _make_element(id: String) -> Control:
 			fx.embedded = true
 			fx.show_sidebar = false
 			fx.preview_scale = 0.68
-			fx.set("_selected_fx", _fx_selected)
+			fx.set("_preview_action", _fx_selected)
 			fx.custom_minimum_size = Vector2(540, 760)
 			fx.size = fx.custom_minimum_size
 			return fx
@@ -1354,7 +1354,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "fx":
 		var note := Label.new()
-		note.text = "Use the embedded FX Workbench controls in the gallery. Its toggles and global sliders write the fx bucket in ui_workbench_settings.json."
+		note.text = "Coin Flow is one shared reward-flight component. Saved settings tune the shared feel and gate which actions use it; test settings only change this preview."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1948,80 +1948,75 @@ func _option_row(label: String, key: String, options: Array, rebuild_sidebar := 
 	return row
 
 func _fx_sidebar() -> void:
-	_group_header("Saved to config", true)
-	_section_header("Effects")
-	var list_scroll := ScrollContainer.new()
-	list_scroll.name = "WorkbenchFxListScroll"
-	list_scroll.custom_minimum_size = Vector2(0, 235)
-	list_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	_sidebar_body.add_child(list_scroll)
-	var list := VBoxContainer.new()
-	list.name = "WorkbenchFxList"
-	list.add_theme_constant_override("separation", 8)
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list_scroll.add_child(list)
+	var saved := Label.new()
+	saved.name = "WorkbenchFxSavedSettingsHeader"
+	saved.text = "●  Saved to config"
+	saved.add_theme_font_size_override("font_size", 20)
+	saved.add_theme_color_override("font_color", Pal.STRAW)
+	_sidebar_body.add_child(saved)
+	_section_header("Action gates")
 	for entry in FxWorkbenchView.FX_DEFS:
 		var def: Dictionary = entry
 		var fx_id := String(def.get("id", ""))
-		var row := HBoxContainer.new()
-		row.name = "WorkbenchFxRow_%s" % fx_id
-		row.add_theme_constant_override("separation", 8)
-		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		list.add_child(row)
-
-		var b := Button.new()
-		b.name = "WorkbenchFxList_%s" % fx_id
-		b.text = String(def.get("label", fx_id))
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.disabled = fx_id == _fx_selected
-		b.pressed.connect(func() -> void:
-			_fx_select(fx_id))
-		row.add_child(b)
-
 		var toggle := CheckButton.new()
-		toggle.name = "WorkbenchFxToggle_%s" % fx_id
+		toggle.name = "WorkbenchFxActionToggle_%s" % fx_id
+		toggle.text = String(def.get("label", fx_id))
 		toggle.button_pressed = FX.reward_fx_enabled(fx_id)
-		toggle.custom_minimum_size = Vector2(58, 32)
+		toggle.add_theme_color_override("font_color", Pal.CREAM)
 		toggle.toggled.connect(func(on: bool) -> void:
 			_fx_set_enabled(fx_id, on))
-		row.add_child(toggle)
+		_sidebar_body.add_child(toggle)
 
-	_section_header("Selected")
-	var selected: Dictionary = _fx_def(_fx_selected)
-	var meta := Label.new()
-	meta.text = "%s / %s" % [String(selected.get("label", "Effect")), String(selected.get("screen", "Preview"))]
-	meta.add_theme_font_size_override("font_size", 14)
-	meta.add_theme_color_override("font_color", Color(Pal.CREAM, 0.72))
-	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_sidebar_body.add_child(meta)
-	var selected_toggle := CheckButton.new()
-	selected_toggle.name = "WorkbenchFxSelectedToggle"
-	selected_toggle.text = "Effect on"
-	selected_toggle.button_pressed = FX.reward_fx_enabled(_fx_selected)
-	selected_toggle.toggled.connect(func(on: bool) -> void:
-		_fx_set_enabled(_fx_selected, on))
-	_sidebar_body.add_child(selected_toggle)
+	_section_header("Feel")
+	_sidebar_body.add_child(_fx_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
+	_sidebar_body.add_child(_fx_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
+
+	var test := Label.new()
+	test.name = "WorkbenchFxTestSettingsHeader"
+	test.text = "○  Test only — not saved"
+	test.add_theme_font_size_override("font_size", 20)
+	test.add_theme_color_override("font_color", Color(Pal.CREAM, 0.5))
+	_sidebar_body.add_child(test)
+	_sidebar_body.add_child(_fx_action_row())
 	var replay := Button.new()
 	replay.name = "WorkbenchFxReplayButton"
 	replay.text = "Replay"
 	replay.disabled = not FX.reward_fx_enabled(_fx_selected)
 	replay.pressed.connect(_fx_replay)
 	_sidebar_body.add_child(replay)
-
-	_section_header("Global")
 	_sidebar_body.add_child(_fx_slider_row("Amount", "amount", FX.REWARD_FX_MIN_AMOUNT, FX.REWARD_FX_MAX_AMOUNT, 1))
-	_sidebar_body.add_child(_fx_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
-	_sidebar_body.add_child(_fx_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
 	_sidebar_body.add_child(_fx_slider_row("Source size", "coin_size", FX.REWARD_FX_MIN_SOURCE_SIZE, FX.REWARD_FX_MAX_SOURCE_SIZE, 1))
 	var auto := CheckButton.new()
 	auto.name = "WorkbenchFxAutoReplayToggle"
 	auto.text = "Auto replay"
-	auto.button_pressed = FX.reward_fx_auto_replay()
+	var preview := _fx_preview()
+	auto.button_pressed = bool(preview.get("_settings").get("auto_replay", false)) if preview != null else false
+	auto.add_theme_color_override("font_color", Pal.CREAM)
 	auto.toggled.connect(func(on: bool) -> void:
 		_fx_set_auto_replay(on))
 	_sidebar_body.add_child(auto)
+
+func _fx_action_row() -> Control:
+	var row := HBoxContainer.new()
+	row.name = "WorkbenchFxPreviewActionRow"
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = "Preview action"
+	lbl.custom_minimum_size = Vector2(118, 0)
+	row.add_child(lbl)
+	var opt := OptionButton.new()
+	opt.name = "WorkbenchFxPreviewActionOption"
+	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for i in FxWorkbenchView.FX_DEFS.size():
+		var def: Dictionary = FxWorkbenchView.FX_DEFS[i]
+		opt.add_item(String(def.get("label", def.get("id", ""))), i)
+		if String(def.get("id", "")) == _fx_selected:
+			opt.select(i)
+	opt.item_selected.connect(func(index: int) -> void:
+		var def: Dictionary = FxWorkbenchView.FX_DEFS[index]
+		_fx_select(String(def.get("id", "coin_pickup"))))
+	row.add_child(opt)
+	return row
 
 func _fx_slider_row(label: String, key: String, lo: float, hi: float, step: float) -> Control:
 	var row := HBoxContainer.new()
@@ -2059,6 +2054,11 @@ func _pascal_fx_key(key: String) -> String:
 	return out
 
 func _fx_global_value(key: String) -> int:
+	var preview := _fx_preview()
+	if preview != null and preview.has_method("_set_global_setting"):
+		var settings: Dictionary = preview.get("_settings")
+		if settings.has(key):
+			return int(round(float(settings.get(key, 0))))
 	match key:
 		"amount":
 			return FX.reward_fx_amount()
@@ -2078,7 +2078,7 @@ func _fx_select(id: String) -> void:
 	_fx_selected = id
 	var preview := _fx_preview()
 	if preview != null and is_instance_valid(preview):
-		preview.call("_select_fx", id)
+		preview.call("_select_action", id)
 	else:
 		_rebuild_element("fx")
 	_rebuild_sidebar.call_deferred()

@@ -124,8 +124,6 @@
 		"width": 720.0
 	},
 	"fx": {
-		"amount": 23,
-		"auto_replay": false,
 		"enabled": {
 			"accept_2x": true,
 			"board_refill": true,
@@ -136,7 +134,6 @@
 			"stash_to_bag": false
 		},
 		"icon_size": 42.0,
-		"source_size": 112.0,
 		"trail_count": 2.0
 	},
 	"generator": {
@@ -156,14 +153,15 @@
 		"shine": 0.0
 	},
 	"gold_currency_pill": {
-		"amount_w": 86.0,
+		"amount_w": 88.0,
 		"amount_x": 17.0,
 		"gap": 10.0,
 		"icon_box": 27.0,
-		"icon_size": 46.0,
+		"icon_size": 45.0,
 		"icon_x": 18.0,
 		"inner_shadow": 11.0,
 		"num_size": 32.0,
+		"overall_scale": 116.0,
 		"pad_left": 4.0,
 		"pad_x": 18.0,
 		"pad_y": 2.0,
@@ -178,7 +176,6 @@
 		"plus_shine": 58.0,
 		"plus_stroke": 2.0,
 		"plus_x": 6.0,
-		"overall_scale": 180.0,
 		"shadow": true,
 		"shadow_alpha": 80.0
 	},
@@ -198,7 +195,7 @@
 		"glow": 45.0,
 		"icon_scale": 50.0,
 		"play_px": 260.0,
-		"px": 210.0,
+		"px": 158.0,
 		"rect_pad": 13.0,
 		"shadow": true,
 		"twinkle": 55.0
