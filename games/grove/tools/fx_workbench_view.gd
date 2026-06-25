@@ -191,15 +191,15 @@ func _rebuild_controls() -> void:
 	_controls.add_child(_section_label("Action gates"))
 	for entry in FX_DEFS:
 		var id := String((entry as Dictionary).get("id", ""))
-			var toggle := CheckButton.new()
-			toggle.name = "FxActionToggle_%s" % id
-			toggle.text = String((entry as Dictionary).get("label", id))
-			toggle.button_pressed = FX.reward_fx_enabled(id)
-			toggle.add_theme_font_size_override("font_size", 18)
-			toggle.add_theme_color_override("font_color", Pal.CREAM)
-			toggle.toggled.connect(func(on: bool) -> void:
-				_set_fx_enabled(id, on))
-			_controls.add_child(toggle)
+		var toggle := CheckButton.new()
+		toggle.name = "FxActionToggle_%s" % id
+		toggle.text = String((entry as Dictionary).get("label", id))
+		toggle.button_pressed = FX.reward_fx_enabled(id)
+		toggle.add_theme_font_size_override("font_size", 18)
+		toggle.add_theme_color_override("font_color", Pal.CREAM)
+		toggle.toggled.connect(func(on: bool) -> void:
+			_set_fx_enabled(id, on))
+		_controls.add_child(toggle)
 	_controls.add_child(_section_label("Feel"))
 	_controls.add_child(_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
 	_controls.add_child(_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))

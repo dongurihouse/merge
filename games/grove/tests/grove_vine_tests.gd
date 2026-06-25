@@ -17,6 +17,9 @@ func _initialize() -> void:
 	_test_lock_overlay()
 	_test_region_map_membership()
 	_test_vine_image_loader_is_export_safe()
+	_test_vine_debug_layer_modes()
+	_test_vine_diagnostic_summary()
+	_test_vine_device_debug_wiring()
 	_test_region_map_prebaked()
 	_test_cover_offset_bleed()
 	await _test_boot_does_zero_live_work()
@@ -69,7 +72,15 @@ func _test_cover_offset_bleed() -> void:
 	view.set_mask_offset(Vector2(0.0, 100.0))
 	var uv = (lock.material as ShaderMaterial).get_shader_parameter("mask_offset_uv")
 	ok(uv is Vector2 and absf(uv.x) < 0.001 and absf(uv.y - 100.0 / float(view.image_size.y)) < 0.001, \
-		"mask_offset_uv = mask_offset / displayed_size (got %s, want y=%.4f)" % [uv, 100.0 / float(view.image_size.y)])
+		"mask_offset_uv = mask_offset / source image size (got %s, want y=%.4f)" % [uv, 100.0 / float(view.image_size.y)])
+	view.size = Vector2(view.image_size) * 2.0
+	view.set_mask_offset(Vector2(0.0, 100.0))
+	var scaled_uv = (lock.material as ShaderMaterial).get_shader_parameter("mask_offset_uv")
+	ok(scaled_uv is Vector2 and absf(scaled_uv.y - 100.0 / float(view.image_size.y)) < 0.001,
+		"mask_offset_uv stays in source-image space when the view is scaled")
+	var scaled_group: Control = view.get_node_or_null("RegionOverlays")
+	ok(scaled_group != null and absf(scaled_group.offset_top - 200.0) < 1.0,
+		"the translated overlay group scales the source-pixel mask offset to display pixels")
 	# the offset group must NOT carry the lock layer (vines stay there, cover does not).
 	var group: Control = view.get_node_or_null("RegionOverlays")
 	ok(group != null and group.get_node_or_null("Region1Lock") == null, "the offset group holds no lock rect")
@@ -97,6 +108,46 @@ func _test_vine_image_loader_is_export_safe() -> void:
 	var src := FileAccess.get_file_as_string("res://games/grove/vine/vine_map_view.gd")
 	ok(src.find("ProjectSettings.globalize_path") == -1,
 		"VineMapView loads res:// mask/bake images through the virtual filesystem, not exported-unsafe globalized paths")
+
+func _test_vine_debug_layer_modes() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, VineMaps.regions_for(e0))
+	view.set_debug_layer_mode("lock_only")
+	var entry: Dictionary = view.region_overlays[0]
+	ok(not (entry.get("vines") as TextureRect).visible, "lock_only hides vine strokes")
+	ok((entry.get("lock") as TextureRect).visible, "lock_only keeps the lock veil visible")
+	view.set_debug_layer_mode("no_lock")
+	ok((entry.get("vines") as TextureRect).visible, "no_lock keeps vine strokes visible")
+	ok(not (entry.get("lock") as TextureRect).visible, "no_lock hides the lock veil")
+	view.set_debug_layer_mode("off")
+	ok(not (entry.get("glow") as TextureRect).visible and not (entry.get("lock") as TextureRect).visible,
+		"off hides every vine overlay layer")
+	view.set_debug_layer_mode("bogus")
+	ok(view.debug_layer_mode() == "all", "unknown debug layer modes fall back to all")
+	view.queue_free()
+
+func _test_vine_diagnostic_summary() -> void:
+	var e0: Dictionary = VineMaps.entries()[0]
+	var view: Control = VineMapView.new()
+	get_root().add_child(view)
+	view.load_map(e0, VineMaps.regions_for(e0))
+	view.set_debug_layer_mode("vines_only")
+	var diag: Dictionary = view.diagnostic_summary()
+	ok(String(diag.get("debug_layer_mode", "")) == "vines_only", "diagnostic summary reports the active debug layer mode")
+	ok((diag.get("image_size", []) as Array).size() == 2, "diagnostic summary includes image size")
+	ok(int(diag.get("region_count", 0)) == view.region_count(), "diagnostic summary includes region count")
+	ok((diag.get("overlays", []) as Array).size() == view.region_count(), "diagnostic summary includes per-region overlays")
+	view.queue_free()
+
+func _test_vine_device_debug_wiring() -> void:
+	var map_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/map.gd")
+	ok(map_src.find("VINE_DIAG") != -1 and map_src.find("debug_cycle_vine_fx") != -1,
+		"Map scene prints VINE_DIAG and exposes a vine layer-cycle debug action")
+	var debug_src := FileAccess.get_file_as_string("res://engine/scripts/ui/debug.gd")
+	ok(debug_src.find("debug_cycle_vine_fx") != -1 and debug_src.find("debug_vine_diag") != -1,
+		"Debug panel wires vine layer-cycle and diagnostic actions when the host supports them")
 
 # Every shipped vine map ships a pre-baked region-index map at the content-addressed path load_map()
 # computes, so the game's first home render LOADS the warped raster (skipping the ~1.1s per-pixel noise +
@@ -221,6 +272,8 @@ func _test_map_integration() -> void:
 	# the hub renders through a VineMapView
 	var vv: Control = hx.content.find_child("VineMapView", true, false)
 	ok(vv != null, "the vine hub renders through a VineMapView")
+	ok(vv != null and vv.mask_offset == VineMaps.mask_offset_for(G.MAPS[G.hub_map()].vine),
+		"the runtime VineMapView uses the authored mask offset")
 	# one tap-hit seated per region
 	ok(hx.spot_hits.size() == vv.region_count(), "the hub seats one spot per region")
 	# region 0 starts overgrown (unowned) ...
@@ -336,6 +389,7 @@ func _test_registry() -> void:
 	# assert structure, not a fixed count (the count-specific coverage uses dedicated fixtures).
 	ok(regions.size() >= 1, "map1_farm regions JSON is non-empty")
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
+	ok(VineMaps.mask_offset_for(e0) == Vector2(0, 100), "map1_farm exposes its authored mask offset")
 
 # The authoring ladder still decides which LEVEL a region belongs to, but the live threshold floors
 # to the start of that level. Example: Farm 6/7 maps into L7, so it opens at exp_at_level(7).

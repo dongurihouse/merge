@@ -90,6 +90,10 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "Level up", _act_level_up)
 	_action(menu, host, "Advance day", _act_advance_day)
 	_action(menu, host, "-25 water", _act_reduce_water)
+	if host.has_method("debug_cycle_vine_fx"):
+		_action(menu, host, "Vine FX mode", _act_vine_fx_mode)
+	if host.has_method("debug_vine_diag"):
+		_action(menu, host, "Vine diag", _act_vine_diag)
 	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
 		_action(menu, host, "Drop coin", _act_drop_coin)
 
@@ -188,3 +192,11 @@ static func _act_reduce_water(host: Control) -> void:
 	g["water"] = maxi(0, int(g.get("water", G.WATER_CAP)) - 25)
 	Save.grove_write()
 	_reflect(host)
+
+static func _act_vine_fx_mode(host: Control) -> void:
+	if host.has_method("debug_cycle_vine_fx"):
+		host.call("debug_cycle_vine_fx")
+
+static func _act_vine_diag(host: Control) -> void:
+	if host.has_method("debug_vine_diag"):
+		host.call("debug_vine_diag")
