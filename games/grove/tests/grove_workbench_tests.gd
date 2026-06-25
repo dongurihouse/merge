@@ -163,20 +163,22 @@ func _initialize() -> void:
 	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")
 	ok(not view._sections.has("currency_pill"), "legacy currency_pill gallery section is removed")
 	ok(not view._params.has("currency_pill"), "legacy currency_pill settings block is removed from the workbench")
-	ok(View.IDS.has("fx"), "FX workbench is registered as a UI Workbench component")
-	ok(view._sections.has("fx"), "FX workbench gallery section is built")
-	ok(view.find_child("FxWorkbenchRoot", true, false) != null, "FX workbench gallery section embeds the FX tool surface")
-	ok(view.find_child("CoinPickupPiece", true, false) != null, "embedded FX workbench keeps its board preview")
-	ok(view.find_child("FxWorkbenchSidebar", true, false) == null, "embedded FX workbench omits its own sidebar")
-	var embedded_fx := view.find_child("FxWorkbenchComponent", true, false) as Control
-	ok(embedded_fx != null and embedded_fx.custom_minimum_size.x <= 760.0, "embedded FX workbench stays compact enough to stack cleanly")
+	ok(View.IDS.has("fx"), "Coin Flow is registered as the UI Workbench FX component")
+	ok(view._sections.has("fx"), "Coin Flow gallery section is built")
+	ok(view.find_child("FxWorkbenchRoot", true, false) == null, "Coin Flow does not embed the special FX mini-app in the gallery")
+	ok(view.find_child("CoinFlowPreview", true, false) != null, "Coin Flow gallery section uses a native workbench component preview")
+	ok(view.find_child("CoinFlowSource", true, false) != null, "Coin Flow preview shows the shared source")
+	ok(view.find_child("CoinWalletTarget", true, false) != null, "Coin Flow preview shows the wallet target")
 	view._selected = "fx"
 	view._rebuild_sidebar()
 	await process_frame
-	ok(view._sidebar_body.find_child("WorkbenchFxList_coin_pickup", true, false) != null, "FX component selection shows the effect list in the main sidebar")
-	ok(view._sidebar_body.find_child("WorkbenchFxToggle_coin_pickup", true, false) != null, "FX component selection shows per-effect toggles in the main sidebar")
-	ok(view._sidebar_body.find_child("WorkbenchFxAmountSlider", true, false) != null, "FX component selection shows global sliders in the main sidebar")
-	ok(view._sidebar_body.find_child("WorkbenchFxReplayButton", true, false) != null, "FX component selection shows replay in the main sidebar")
+	ok(view._sidebar_body.find_child("WorkbenchFxList_coin_pickup", true, false) == null, "Coin Flow sidebar has no duplicated per-action list")
+	ok(view._sidebar_body.find_child("WorkbenchFxSavedSettingsHeader", true, false) != null, "Coin Flow sidebar has a saved-settings section")
+	ok(view._sidebar_body.find_child("WorkbenchFxTestSettingsHeader", true, false) != null, "Coin Flow sidebar has a test-settings section")
+	ok(view._sidebar_body.find_child("WorkbenchFxActionToggle_coin_pickup", true, false) != null, "Coin Flow sidebar keeps per-action on/off toggles in settings")
+	ok(view._sidebar_body.find_child("WorkbenchFxIconSizeSlider", true, false) != null, "Coin Flow sidebar shows saved feel sliders")
+	ok(view._sidebar_body.find_child("WorkbenchFxAmountSlider", true, false) != null, "Coin Flow sidebar shows preview-only amount slider")
+	ok(view._sidebar_body.find_child("WorkbenchFxReplayButton", true, false) != null, "Coin Flow sidebar shows replay in the test section")
 	var currency_ids := []
 	for id in View.IDS:
 		if String(id).find("currency_pill") != -1:
@@ -319,6 +321,14 @@ func _initialize() -> void:
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
+	var scaled_gold: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"overall_scale": 180}})
+	ok(is_equal_approx(float(scaled_gold.pill_w), 525.6) and is_equal_approx(float(scaled_gold.pill_h), 180.0), \
+		"gold_currency_pill overall_scale grows the frame as one unit")
+	ok(is_equal_approx(float(scaled_gold.icon_box), 97.2) and int(scaled_gold.num_size) == 54 and is_equal_approx(float(scaled_gold.plus_button), 180.0), \
+		"gold_currency_pill overall_scale grows icon, font, and plus controls together")
+	ok(view._is_config("gold_currency_pill", "overall_scale"), \
+		"gold_currency_pill overall_scale is saved config")
+	ok(_slider_max(view, "Overall Scale") >= 220.0, "gold_currency_pill sidebar exposes overall scaling")
 	# The shipped wallet capsule (workbench-tuned to a COMPACT pill, owner call) must still render tall
 	# enough to HOLD its content (icon / number / +) without squishing AND stay a usable touch target.
 	# This asserts the LIVE built pill height (gold_currency_pill auto-grows to max(pill_h, content+2·pad_y)),
@@ -466,6 +476,9 @@ func _test_new_knobs(view) -> void:
 	ok(not view._is_config("home_button", "count"), "the sample bag-count string is preview-only (not saved)")
 	ok(_has_label_text(view._make_element("home_button"), "1/6"), \
 		"the home-button preview shows the sample bag count inside the disc")
+	view._selected = "home_button"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Px") >= 260.0, "the home_button sidebar allows larger shared button sizes")
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
@@ -511,6 +524,11 @@ func _test_new_knobs(view) -> void:
 	var compact_pill := Kit.gold_currency_pill({"pill_h": 72, "pad_y": 12, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
 	ok(compact_pill.custom_minimum_size.y >= 78.0, \
 		"gold_currency_pill clamps height to fit content and vertical padding")
+	ok(not _source_contains("res://engine/scripts/scenes/map.gd", "opts[\"px\"] = 140.0"), \
+		"map bottom-nav buttons use the workbench home_button px instead of hard-coded 140")
+	ok(not _source_contains("res://engine/scripts/scenes/board.gd", "_build_bag_box(BOTTOM_BTN_PX)") \
+		and not _source_contains("res://engine/scripts/scenes/board.gd", "_home_nav_button(BOTTOM_BTN_PX)"), \
+		"board Bag/Home wells use the workbench home_button px instead of the old board constant")
 
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.

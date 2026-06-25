@@ -43,8 +43,9 @@ var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cel
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const BOTTOM_BAR_H := 166.0      # the board bottom bar height (Bag · info bar · Home) — grown with the ~10%-bigger wells (#5)
-const BOTTOM_BTN_PX := 130.0     # #5: the Bag/Home wells + the info bar share this height (~10% bigger than the old 118)
+const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Bag · info bar · Home); runtime follows workbench button px
+const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
+const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const HOME_NAV_ICON_SCALE := 0.62 # board Home glyph size inside the shared bottom well
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
@@ -281,17 +282,19 @@ func _ready() -> void:
 	bar.anchor_bottom = 1.0
 	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var sb_inset := Look.safe_bottom(self)
+	var bottom_btn_px := _bottom_button_px()
+	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
 	bar.offset_left = QUEST_SIDE
 	bar.offset_right = -QUEST_SIDE
-	bar.offset_top = -BOTTOM_BAR_H - 14.0 - sb_inset
+	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
 	bar.add_theme_constant_override("separation", 12)
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(bar)
 	bottom_bar = bar
-	bar.add_child(_build_bag_box(BOTTOM_BTN_PX))   # left: the Bag well + the x/y count
-	bar.add_child(_build_info_bar(BOTTOM_BTN_PX))  # centre: the selected-item info bar (expands), height-matched to the wells
-	home_btn = _home_nav_button(BOTTOM_BTN_PX)     # right: the Home disc (lit when a spot is affordable)
+	bar.add_child(_build_bag_box(bottom_btn_px))   # left: the Bag well + the x/y count
+	bar.add_child(_build_info_bar(bottom_btn_px))  # centre: the selected-item info bar (expands), height-matched to the wells
+	home_btn = _home_nav_button(bottom_btn_px)     # right: the Home disc (lit when a spot is affordable)
 	bar.add_child(home_btn)
 	_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
@@ -1339,6 +1342,14 @@ func _make_bag_button(px: float) -> Button:
 func _build_bag_box(px: float) -> Control:
 	bag_btn = _make_bag_button(px)
 	return bag_btn
+
+func _bottom_button_px() -> float:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return BOTTOM_BTN_PX
+	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var shared_px := float(opts.get("px", 140.0))
+	return maxf(1.0, roundf(shared_px * (BOTTOM_BTN_PX / 140.0)))
 
 # The Bag's "held / capacity" string, e.g. "1/6" — used both to seed the in-disc overlay and to refresh it.
 func _bag_count_text() -> String:
