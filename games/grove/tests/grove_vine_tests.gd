@@ -9,6 +9,7 @@ func _initialize() -> void:
 	begin("grove · vine")
 	_test_registry()
 	_test_spot_derivation()
+	_test_zone_unlocks_floor_to_required_level()
 	_test_button_pos()
 	_test_maps_overlay()
 	_test_view_headless()
@@ -19,6 +20,7 @@ func _initialize() -> void:
 	_test_cover_offset_bleed()
 	await _test_boot_does_zero_live_work()
 	await _test_map_integration()
+	await _test_locked_zone_level_badges()
 	await _test_map_card_zone_progress()
 	await _test_unlock_badge_follows_map()
 	await _test_overlay_fills_view()
@@ -120,19 +122,18 @@ func _test_region_map_prebaked() -> void:
 			"map '%s' baked region map is byte-identical to the live raster" % String(entry.get("id", "?")))
 		checked_fidelity = true
 
-# REGRESSION (map-2 "no restore badge" bug): the bottom restore badge is PER-MAP, but _open_map did not
-# refresh it. Booting onto / navigating to a fully-restored map (the hub) built the badge null/hidden, and
-# then opening an in-progress map (the barn) never rebuilt it — so the restore affordance was missing.
-# Opening a map must refresh the badge to that map's next-unlock state.
+# REGRESSION (map-2 "no restore badge" bug): the merged Play/Restore CTA is PER-MAP, and _open_map
+# must refresh it from the newly-opened map's next-unlock state.
 func _test_unlock_badge_follows_map() -> void:
 	fresh("vine_unlock_badge")
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
+	await create_timer(0.01).timeout
 	if hx.content == null:
 		hx._ready()
 	await create_timer(0.05).timeout
-	# complete the hub (every spot restored) + bank exp, then refresh chrome for the hub so the badge is
-	# built for a fully-restored map → hidden (null). This is the "start on a finished hub" boot state.
+	# complete the hub (every spot restored) + bank exp, then refresh chrome for the hub so Restore is
+	# inactive. This is the "start on a finished hub" boot state.
 	for sp in G.MAPS[G.hub_map()].spots:
 		hx.unlocks[String(sp.id)] = true
 	Save.grove()["unlocks"] = hx.unlocks
@@ -141,20 +142,20 @@ func _test_unlock_badge_follows_map() -> void:
 	hx._map_idx = G.hub_map()
 	hx._update_hud()
 	await create_timer(0.05).timeout
-	ok(hx._unlock_btn == null, "precondition: a fully-restored hub leaves the restore badge hidden")
-	# now open the NEXT (in-progress) map — the badge MUST reappear for its claimable spots
+	ok(not hx._unlock_ready(), "precondition: a fully-restored hub leaves Restore inactive")
+	# now open the NEXT (in-progress) map — Restore MUST become active for its claimable spots
 	var nz: int = G.hub_map() + 1
 	ok(int(G.map_next_unlock(nz, hx.unlocks).k) >= 0, "precondition: the next map has a claimable spot")
 	hx._open_map(nz)
 	await create_timer(0.05).timeout
-	ok(hx._unlock_btn != null and is_instance_valid(hx._unlock_btn), \
-		"opening an in-progress map REBUILDS the restore badge (regression: it was missing on map 2)")
+	ok(hx._unlock_ready(), "opening an in-progress map refreshes Restore readiness")
 	hx.queue_free()
 
 func _test_overlay_fills_view() -> void:
 	fresh("vine_overlay_fit")
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
+	await create_timer(0.01).timeout
 	if hx.content == null:
 		hx._ready()
 	await create_timer(0.05).timeout
@@ -187,6 +188,7 @@ func _test_boot_does_zero_live_work() -> void:
 	VineMapView._live_region_raster_log.clear()
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
+	await create_timer(0.01).timeout
 	if hx.content == null:
 		hx._ready()
 	await create_timer(0.05).timeout
@@ -204,6 +206,7 @@ func _test_map_integration() -> void:
 	fresh("vine_map")
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
+	await create_timer(0.01).timeout
 	if hx.content == null:
 		hx._ready()
 	await create_timer(0.05).timeout
@@ -225,10 +228,34 @@ func _test_map_integration() -> void:
 	ok(vv2 != null and not _region_on(vv2, 0), "restoring region 0 turns its vines off")
 	hx.queue_free()
 
+func _test_locked_zone_level_badges() -> void:
+	fresh("zone_level_badges")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	await create_timer(0.01).timeout
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	var z := G.hub_map()
+	var k := 5
+	var required_level := G.level_for_exp(_raw_zone_unlock_exp(z, k))
+	Save.grove()["exp"] = G.exp_at_level(required_level) - 1
+	hx._open_map(z)
+	await create_timer(0.05).timeout
+	ok(_has_label_text(hx.spot_hits[k].node, "Lv %d" % required_level),
+		"a locked zone shows its required level badge")
+	Save.grove()["exp"] = G.exp_at_level(required_level)
+	hx._open_map(z)
+	await create_timer(0.05).timeout
+	ok(not _has_label_text(hx.spot_hits[k].node, "Lv %d" % required_level),
+		"the level badge hides once the player reaches the required level")
+	hx.queue_free()
+
 func _test_map_card_zone_progress() -> void:
 	fresh("map_card_zone_progress")
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
+	await create_timer(0.01).timeout
 	if hx.content == null:
 		hx._ready()
 	await create_timer(0.05).timeout
@@ -293,6 +320,29 @@ func _test_registry() -> void:
 	# assert structure, not a fixed count (the count-specific coverage uses dedicated fixtures).
 	ok(regions.size() >= 1, "map1_farm regions JSON is non-empty")
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
+
+# The authoring ladder still decides which LEVEL a region belongs to, but the live threshold floors
+# to the start of that level. Example: Farm 6/7 maps into L7, so it opens at exp_at_level(7).
+func _test_zone_unlocks_floor_to_required_level() -> void:
+	var farm_6_raw := _raw_zone_unlock_exp(0, 5)
+	var farm_6_level := G.level_for_exp(farm_6_raw)
+	ok(farm_6_level == 7, "Farm 6/7 maps to required level 7")
+	ok(G.spot_unlock_exp(0, 5) == G.exp_at_level(farm_6_level), "Farm 6/7 unlocks at the L7 floor")
+	for z in G.MAPS.size():
+		for k in G.MAPS[z].spots.size():
+			var raw := _raw_zone_unlock_exp(z, k)
+			var required_level := G.level_for_exp(raw)
+			ok(G.spot_unlock_exp(z, k) == G.exp_at_level(required_level),
+				"zone %d/%d unlocks at the floor of L%d" % [z, k, required_level])
+
+func _raw_zone_unlock_exp(z: int, k: int) -> int:
+	var cz: float = G.unlock_content_zone_exp()
+	var last: int = G.MAPS.size() - 1
+	var n: int = maxi(1, G.MAPS[z].spots.size())
+	if z < last:
+		return int(round(z * cz + (k + 1) * (cz / float(n))))
+	var cap := G.GATE_CAP_FRACTION * cz
+	return int(round(last * cz + (k + 1) * (cap / float(n))))
 
 func _test_maps_overlay() -> void:
 	# slot 0 keeps its id/name but is now vine-driven with region-derived spots

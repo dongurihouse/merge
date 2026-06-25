@@ -41,6 +41,7 @@ const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const HOME_CHROME_PATH := "res://games/grove/home_chrome.gd"   # canonical chrome icon ids (shared with the bake)
 
 const SPOT_NAME_DY := 50.0   # spot name/price stack baseline below the plot point
+const ZONE_LEVEL_BADGE_NODE := "ZoneLevelBadge"
 
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
 # is semi-transparent; the shards are captured at this crisper alpha so the break reads clearly.
@@ -391,7 +392,9 @@ func _build_vine_spot(z: int, k: int, ready_k: int = -1, regions: Array = [], is
 		var zone := _region_zone_hit(regions[k], isize)
 		if zone != null:
 			return zone
-	return _home_badge(z, k, b)
+	var hit := _home_badge(z, k, b)
+	_add_zone_level_badge_if_locked(hit, z, k)
+	return hit
 
 # A tap surface covering a vine region's whole zone: the polygon's bounding box, normalized by the
 # region image size and mapped into the live map rect. Returns null when the region carries no polygon
@@ -415,6 +418,44 @@ func _region_zone_hit(region, isize: Vector2) -> Control:
 	node.size = br - tl
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return node
+
+func _add_zone_level_badge_if_locked(node: Control, z: int, k: int) -> void:
+	var need_level := G.spot_unlock_level(z, k)
+	if G.level_for_exp(Save.exp_total()) >= need_level:
+		return
+	node.add_child(_zone_level_badge(need_level, node.size))
+
+func _zone_level_badge(level: int, host_size: Vector2) -> Control:
+	var w := clampf(_map_rect.size.x * 0.085, 64.0, 92.0)
+	var h := clampf(w * 0.46, 30.0, 42.0)
+	var badge := PanelContainer.new()
+	badge.name = ZONE_LEVEL_BADGE_NODE
+	badge.size = Vector2(w, h)
+	badge.custom_minimum_size = badge.size
+	badge.position = ((host_size - badge.size) * 0.5).floor()
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.z_index = 6
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color("#4E5663", 0.78)
+	sb.border_color = Color("#D8D4C3", 0.42)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(int(h * 0.5))
+	sb.content_margin_left = 10.0
+	sb.content_margin_right = 10.0
+	sb.content_margin_top = 3.0
+	sb.content_margin_bottom = 4.0
+	badge.add_theme_stylebox_override("panel", sb)
+	var lbl := Label.new()
+	lbl.name = "ZoneLevelBadgeLabel"
+	lbl.text = "Lv %d" % level
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", int(h * 0.52))
+	lbl.add_theme_color_override("font_color", Color(CREAM, 0.86))
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	badge.add_child(lbl)
+	return badge
 
 # --- §16 mask-reveal home (any map that ships clean/broken/mask art) ----------------------
 
@@ -1027,7 +1068,8 @@ func _on_spot_tap(z: int, k: int, node: Control, at: Vector2) -> void:
 	if Save.exp_total() < need:
 		Audio.play("invalid_soft", -4.0)
 		FX.wobble(node)
-		FX.floating_text(self, at - Vector2(110, 64), Strings.t("map.spot.needs_exp") % need, Color(CREAM, 0.9), 30)
+		FX.floating_text(self, at - Vector2(110, 64),
+			Strings.t("map.spot.needs_level") % G.spot_unlock_level(z, k), Color(CREAM, 0.9), 30)
 		return
 	unlocks[String(spot.id)] = true
 	FX.burst(self, at, STRAW, 18)
