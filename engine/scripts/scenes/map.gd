@@ -878,7 +878,7 @@ func _build_select(animate := true) -> void:
 
 # One map card, built from the SHARED kit (Kit.map_card) so the workbench tunes the SAME recipe the
 # game renders. This resolves the per-card DATA from game state — OPEN → the locale art inside the gold
-# frame + a "★ N left"/"restored" pill; LOCKED → the dark baked panel under an "after <prev>" line — and
+# frame + a restored-zone progress pill; LOCKED → the dark baked panel under an "after <prev>" line — and
 # hands it the workbench-saved look `opts` (Kit.map_card_opts_from_config, resolved once per place-picker
 # build in _build_select). `card_h` is always > 0 from _build_select. Every node IGNOREs the mouse.
 func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {}) -> Control:
@@ -886,15 +886,22 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	if opts.is_empty():     # standalone callers (no _build_select context) resolve the saved look themselves
 		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	var open := map_unlocked(z)
+	var total_zones := _card_zone_total(z)
 	var d := {
 		"open": open,
 		"done": map_spots_done(z),
 		"art": _card_art_path(z) if open else "",     # painted thumbnail / §16 home clean art / "" → meadow fill
-		"unlock_exp": G.spot_unlock_exp(z, maxi(0, G.MAPS[z].spots.size() - 1)),   # exp to fully restore this map
+		"owned_zones": mini(owned_count(z), total_zones),
+		"total_zones": total_zones,
 		"prereq": Strings.t("map.card.prereq") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
 	}
 	return Kit.map_card(d, opts, card_w, card_h)
+
+func _card_zone_total(z: int) -> int:
+	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
+	# The picker badge reports restore progress, so a fresh Farm card reads 0/6 rather than 0/7.
+	return maxi(0, G.MAPS[z].spots.size() - 1)
 
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home
 # clean art (the hub's restored cottage), else "" → a code-drawn meadow fill.

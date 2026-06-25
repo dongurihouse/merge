@@ -33,7 +33,7 @@ static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> f
 
 # The map-SELECT place-picker CARD. Both states wear the SHARED gold-badge frame (board/info-bar consistent);
 # only the interior differs. An OPEN place shows its locale art COVER-filled inside the frame + a "★ N
-# left"/"restored" pill; a LOCKED place shows a dark gradient interior carrying the lock medallion under an
+# restored-zone progress pill; a LOCKED place shows a dark gradient interior carrying the lock medallion under an
 # "after <prev>" line. The GAME (map.gd) resolves each card's DATA (art path · open/locked · counts · prereq)
 # and passes it in `d`; every presentation dial lives in `opts` (map_card_opts_from_config) so the workbench
 # tunes it and the game reads the SAME recipe — the single-source-of-truth pattern the currency pill uses.
@@ -4095,8 +4095,9 @@ static func _bag_leaf(rel: String, flip: bool) -> Control:
 	return t
 
 ## The map-SELECT place-picker CARD, built from game-resolved DATA + workbench-tuned presentation.
-## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill), unlock_exp:int,
-##        prereq:String (the locked "✿ after <prev>" line), map_id:String (the veil-art seam) }.
+## `d`: { open:bool, done:bool, art:String (locale-art path, "" → meadow fill),
+##        owned_zones:int, total_zones:int, prereq:String (the locked "✿ after <prev>" line),
+##        map_id:String (the veil-art seam) }.
 ## `opts`: map_card_opts_from_config(...). The CALLER sizes the card (card_w × card_h); the kit lays the
 ## frame / art / pill out inside it. Every node IGNOREs the mouse (the map's single-input-surface rule).
 static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: float) -> Control:
@@ -4230,8 +4231,8 @@ static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, car
 	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(state_l)
 
-# The restore count on an open card's lower edge: a cream pill (pill_left) carrying the GOLD star sprite
-# + "N left" (panel-text law: dark INK, no halo), or "✿ restored" on a finished place.
+# The restore count on an open card's lower edge: a cream pill (pill_left) carrying "owned / total"
+# restored-zone progress (panel-text law: dark INK, no halo).
 static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
 	var done := bool(d.get("done", false))
 	var pw := clampf(card_w * float(opts.get("pill_w_frac", 0.30)), float(opts.get("pill_min", 170.0)), float(opts.get("pill_max", 290.0)))
@@ -4268,25 +4269,23 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_child(row)
-	if done:
-		var lbl := Label.new()
+	var lbl := Label.new()
+	var total := int(d.get("total_zones", -1))
+	if total >= 0:
+		total = maxi(0, total)
+		var owned := clampi(int(d.get("owned_zones", total if done else 0)), 0, total)
+		lbl.text = "%d/%d" % [owned, total]
+	elif done:
 		lbl.text = String(TranslationServer.translate("✿ restored"))   # static ctx: tr() is instance-only
-		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
-		lbl.add_theme_color_override("font_color", Pal.INK)
-		lbl.add_theme_constant_override("outline_size", 0)
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(lbl)
 	else:
-		# the map's full-restore exp requirement (no star sprite — exp/level is the only currency now).
-		var lbl := Label.new()
+		# Backward-compatible fallback for standalone callers that have not been moved to zone progress.
 		lbl.text = String(TranslationServer.translate("✦ %d exp")) % int(d.get("unlock_exp", 0))
-		lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
-		lbl.add_theme_color_override("font_color", Pal.INK)
-		lbl.add_theme_constant_override("outline_size", 0)
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(lbl)
+	lbl.add_theme_font_size_override("font_size", int(ph * 0.42))
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_constant_override("outline_size", 0)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(lbl)
 
 # Twinkles spaced AROUND the card's edges — each rides the gold frame band and pulses (fade + scale) on
 # a staggered loop, so an active place's border shimmers and draws the eye. Reuses the twinkle sprite
