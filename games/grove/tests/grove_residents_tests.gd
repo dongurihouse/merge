@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_test_hand()
 	_test_place()
 	_test_production()
+	await _test_screen()
 	finish()
 
 func _test_hand() -> void:
@@ -134,3 +135,25 @@ func _test_production() -> void:
 	Habitat.place(mr, 0)
 	Save._loaded = false
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
+
+func _test_screen() -> void:
+	fresh("residents_screen")
+	# seed a COMPLETED map 0 so the screen has a habitat to show (same recipe the residents tests use)
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	ok(G.can_populate(z, unl, [z]), "map 0 is complete (screen precondition)")
+
+	var s = load("res://engine/scenes/Residents.tscn").instantiate()
+	get_root().add_child(s)
+	if not s.is_node_ready():
+		s._ready()
+	await create_timer(0.05).timeout
+	ok(s.get_child_count() > 0, "the Residents screen builds a non-empty tree")
+	s.queue_free()
+	await process_frame

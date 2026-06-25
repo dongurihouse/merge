@@ -46,6 +46,8 @@ const ZONE_LEVEL_BADGE_NODE := "ZoneLevelBadge"
 # Opacity the lock veil is snapshotted at for the breaking-glass shatter. The resting ready-zone veil
 # is semi-transparent; the shards are captured at this crisper alpha so the break reads clearly.
 const SHATTER_VEIL_ALPHA := 0.72
+const VINE_DIAG_PREFIX := "VINE_DIAG "
+const VINE_DEBUG_MODES := ["all", "no_lock", "lock_only", "vines_only", "off"]
 
 # T2: the board's Decorate sets this (a MAP id) before changing scene; _ready
 # consumes it and opens that map BEFORE the first draw — no map-select flash.
@@ -110,6 +112,9 @@ var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
+var _vine_debug_mode_idx := 0
+var _vine_debug_layer: CanvasLayer = null
+var _vine_debug_button: Button = null
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
@@ -199,6 +204,7 @@ func _ready() -> void:
 		add_child(mail_timer)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
+	_mount_vine_debug_overlay()          # phone vine diagnostics (debug-only; no-op in release)
 
 	SceneWarm.prewarm("res://engine/scenes/Board.tscn")   # warm the board off-thread while the player lingers on the map
 
@@ -470,6 +476,8 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		var view: Control = VineView.new()
 		view.name = "VineMapView"
 		view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var mask_offset: Vector2 = Grove.mask_offset_for(vine)
+		view.mask_offset = mask_offset
 		view.load_map(vine, regions)                                # sets size to image_size (for the tool's use)
 		# the game seats the view full-rect over the clip frame; clear the image-size hint so the frame
 		# (not the image) drives geometry — base cover layer + vine overlays then fill the SAME frame.
@@ -491,6 +499,11 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 			view.write_shader_value("vines", "glow_strength", 1.1, rk)   # default 0.42 — hotter vine cores
 			view.set_region_lock_alpha(rk, 0.75)                         # default 0.34 — the claimable zone's overall purple shape reads as a near-SOLID pane ready to shatter (75% — far more opaque than a locked zone), not a faded film
 		vframe.add_child(view)
+		view.set_mask_offset(mask_offset)
+		_apply_vine_debug_mode(view)
+		_refresh_vine_debug_button()
+		if _vine_diag_enabled():
+			_print_vine_diag.call_deferred("map_open")
 		return vframe
 	var broken := String(home.get("broken", ""))
 	if broken != "":
@@ -613,6 +626,136 @@ func _read_json_file(path: String):
 	if path == "" or not FileAccess.file_exists(path):
 		return null
 	return JSON.parse_string(FileAccess.get_file_as_string(path))
+
+func debug_cycle_vine_fx() -> void:
+	_vine_debug_mode_idx = (_vine_debug_mode_idx + 1) % VINE_DEBUG_MODES.size()
+	var view := _active_vine_view()
+	_apply_vine_debug_mode(view)
+	_refresh_vine_debug_button()
+	_print_vine_diag("cycle")
+
+func debug_vine_diag() -> void:
+	_print_vine_diag("manual")
+
+func _active_vine_view() -> Control:
+	if content == null:
+		return null
+	return content.find_child("VineMapView", true, false) as Control
+
+func _apply_vine_debug_mode(view: Control) -> void:
+	if view == null or not view.has_method("set_debug_layer_mode"):
+		return
+	view.call("set_debug_layer_mode", String(VINE_DEBUG_MODES[_vine_debug_mode_idx]))
+
+func _vine_diag_enabled() -> bool:
+	if DisplayServer.get_name() == "headless":
+		return false
+	if OS.get_environment("TU_VINE_DIAG") == "1":
+		return true
+	return OS.has_feature("mobile") and OS.is_debug_build()
+
+func _mount_vine_debug_overlay() -> void:
+	if not _vine_diag_enabled() or _vine_debug_layer != null:
+		return
+	_vine_debug_layer = CanvasLayer.new()
+	_vine_debug_layer.name = "VineDebugOverlay"
+	_vine_debug_layer.layer = 129
+	var col := VBoxContainer.new()
+	col.position = Vector2(12.0, Look.safe_top(self) + 330.0)
+	col.add_theme_constant_override("separation", 4)
+	_vine_debug_layer.add_child(col)
+
+	_vine_debug_button = _vine_debug_btn("")
+	_vine_debug_button.pressed.connect(debug_cycle_vine_fx)
+	col.add_child(_vine_debug_button)
+	var diag := _vine_debug_btn("Diag")
+	diag.pressed.connect(debug_vine_diag)
+	col.add_child(diag)
+	add_child(_vine_debug_layer)
+	_refresh_vine_debug_button()
+
+func _vine_debug_btn(label: String) -> Button:
+	var b := Button.new()
+	b.text = label
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(160, 40)
+	b.add_theme_font_size_override("font_size", 18)
+	b.add_theme_color_override("font_color", Color.WHITE)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color("#4B2E83", 0.88)
+	style.set_corner_radius_all(6)
+	style.set_border_width_all(2)
+	style.border_color = Color(1, 1, 1, 0.55)
+	style.content_margin_left = 10.0
+	style.content_margin_right = 10.0
+	style.content_margin_top = 5.0
+	style.content_margin_bottom = 5.0
+	b.add_theme_stylebox_override("normal", style)
+	b.add_theme_stylebox_override("hover", style)
+	b.add_theme_stylebox_override("pressed", style)
+	return b
+
+func _refresh_vine_debug_button() -> void:
+	if _vine_debug_button == null or not is_instance_valid(_vine_debug_button):
+		return
+	_vine_debug_button.text = "Vine: %s" % String(VINE_DEBUG_MODES[_vine_debug_mode_idx])
+
+func _print_vine_diag(reason: String) -> void:
+	var view := _active_vine_view()
+	if view == null:
+		print(VINE_DIAG_PREFIX + JSON.stringify({"reason": reason, "vine_view": false}))
+		return
+	print(VINE_DIAG_PREFIX + JSON.stringify(_vine_diag_payload(view, reason)))
+
+func _vine_diag_payload(view: Control, reason: String) -> Dictionary:
+	var vp := get_viewport_rect().size
+	var win := DisplayServer.window_get_size()
+	var ready := G.map_next_unlock(_map_idx, unlocks)
+	var vine_summary := {}
+	if view.has_method("diagnostic_summary"):
+		vine_summary = view.call("diagnostic_summary")
+	return {
+		"reason": reason,
+		"os": OS.get_name(),
+		"display": DisplayServer.get_name(),
+		"features": {
+			"mobile": OS.has_feature("mobile"),
+			"ios": OS.has_feature("ios"),
+			"debug": OS.is_debug_build(),
+		},
+		"window": [win.x, win.y],
+		"viewport": [roundi(vp.x), roundi(vp.y)],
+		"map": {
+			"index": _map_idx,
+			"id": String(G.MAPS[_map_idx].id),
+			"rect": _rect_diag(_map_rect),
+			"art_rect": _rect_diag(_map_art_rect),
+			"base_exists": _vine_base_exists(_map_idx),
+		},
+		"progress": {
+			"exp": Save.exp_total(),
+			"level": G.level_for_exp(Save.exp_total()),
+			"ready_k": int(ready.k),
+			"ready_exp": int(ready.exp),
+			"owned_count": owned_count(_map_idx),
+			"spot_count": G.MAPS[_map_idx].spots.size(),
+		},
+		"wallet": {
+			"water": Save.water(),
+			"coins": Save.coins(),
+			"diamonds": Save.diamonds(),
+		},
+		"vine": vine_summary,
+	}
+
+func _vine_base_exists(z: int) -> bool:
+	var vine = G.MAPS[z].get("vine", null)
+	if typeof(vine) != TYPE_DICTIONARY:
+		return false
+	return ResourceLoader.exists(String((vine as Dictionary).get("base", "")))
+
+func _rect_diag(rect: Rect2) -> Array:
+	return [roundi(rect.position.x), roundi(rect.position.y), roundi(rect.size.x), roundi(rect.size.y)]
 
 # The available area below the HUD and above the bottom chrome; the map image COVER-FILLS the full
 # viewport at the design aspect, centered.
@@ -1276,7 +1419,7 @@ func _make_map_button() -> Button:
 func _make_residents_button() -> Button:
 	var open := func() -> void:
 		Audio.play("button_tap", -2.0)
-		_open_residents_shop(_map_idx)
+		SceneWarm.go(get_tree(), "res://engine/scenes/Residents.tscn")
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
 	if Kit == null:
