@@ -23,6 +23,29 @@ func _initialize() -> void:
 	var persisted: Dictionary = Save.grove().get("seen", {})
 	ok(persisted.has("102"), "the discovery log persists in the save")
 
+	fresh("locked-cell-info")
+	var sl = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sl)
+	if sl.board == null:
+		sl._ready()
+	var locked := Vector2i(-1, -1)
+	for c in sl.bramble_nodes.keys():
+		var cell := c as Vector2i
+		if sl._is_frontier_bramble(cell):
+			locked = cell
+			break
+	ok(locked.x >= 0, "a frontier locked cell exists for the info-bar tap")
+	if locked.x >= 0:
+		var need_level := G.cell_min_level(locked)
+		var locked_view: Control = sl.bramble_nodes[locked]
+		ok(locked_view.find_child("lv_num", true, false) == null, "locked board cells omit the level badge")
+		var locked_center: Vector2 = sl._cell_pos(locked) + Vector2(sl.csz, sl.csz) / 2.0
+		sl._on_press(locked_center)
+		sl._on_release(locked_center)
+		ok(sl._info_label.text == "Unlocks at Level %d" % need_level, "tapping a locked cell explains its unlock level in the info bar")
+		ok(sl.get_node_or_null("LevelPopupOverlay") == null, "tapping a locked cell does not open the level popup")
+	sl.queue_free()
+
 	# 17. the Shop: diamond packs grant, cash confirm grants directly (no rails yet)
 	fresh("shop")
 	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → genuinely broke

@@ -260,14 +260,14 @@ var _params := {
 		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 	# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
 	# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
-	# piece/medal size + well art are INHERITED from the Slot cell item; only the discovery-specific knobs live
-	# here — the square cell size, the tier-number medal, and the marked-tier sparkle (percents for the sliders).
+	# piece size + well art are INHERITED from the Slot cell item; only the discovery-specific knobs live
+	# here — the square cell size, plain tier number, and marked-tier sparkle (percents for the sliders).
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
 		"cell_w": 150, "cell_h": 150, "show_num": true, "mark_glow": 60, "mark_twinkle": 50},
 	# the LAYERED level badge — five cut parts (ui/lvl_parts) composited bottom-up + the level number.
 	# Every position/size knob is a PERCENT of the badge px (so the emblem scales to any size); they map
-	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / cell gate / level dialog
+	# 1:1 to Kit.level_badge_opts_from_config, the SAME resolver the HUD chip / level dialog
 	# read. The preview shows ALL parts at once (so you can position them together); preview_level drives
 	# the tier stage + the printed number. circle_design pins the coin (auto = grow with tier); num_burn is
 	# the engraved burn on the number.
@@ -524,7 +524,7 @@ func _make_element(id: String) -> Control:
 			var icon_id := String(gc.get("icon", "water"))
 			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
 		"level_badge":
-			# the shared LAYERED level badge, from the SAME resolver the HUD chip / cell gate / dialog read.
+			# the shared LAYERED level badge, from the SAME resolver the HUD chip / dialog read.
 			# preview_level -> the tier stage (+ the printed number). The workbench draws ALL parts (show_all)
 			# so every part can be positioned together; the live game draws only the tier's group.
 			var lbpx := 320.0
@@ -1307,7 +1307,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "tiers":
 		var note := Label.new()
-		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the locked well (baked padlock, no \"?\"); the tier rides the gold level medal lower-right; marked tiers sparkle. The piece/medal size + well art are inherited from the Slot cell item — only the square cell size, the medal toggle, the sparkle, and the grid are tuned here. A plain grid — no vines."
+		note.text = "Uses the STANDARD shared frame with NO override — border, banner + ✕ are all tuned on the Frame item and flow here. The tiles ARE the SHARED slot cell: a seen tier → the filled well holds its piece, an unseen tier → the locked well (baked padlock, no \"?\"), with a plain lower-right tier number; marked tiers sparkle. The piece size + well art are inherited from the Slot cell item — only the square cell size, tier-number toggle, sparkle, and grid are tuned here. A plain grid — no vines."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1627,10 +1627,10 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cols", 1, 5]))
 			_sidebar_body.add_child(_slider_row(["cell_gap", 0, 48]))
 			_sidebar_body.add_child(_slider_row(["list_max_h", 0, 1400]))   # height cap; 0 = no scroll
-			_section_header("Tile (square cell — piece/medal size + art are on the Slot cell)")
+			_section_header("Tile (square cell — piece size + art are on the Slot cell)")
 			_sidebar_body.add_child(_slider_row(["cell_w", 80, 240]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 80, 240]))
-			_sidebar_body.add_child(_toggle_row("Tier medal", "show_num"))  # the lower-right gold level badge
+			_sidebar_body.add_child(_toggle_row("Tier number", "show_num"))  # plain lower-right text, no badge
 			_section_header("Marked tier (sparkle)")
 			_sidebar_body.add_child(_slider_row(["mark_glow", 0, 100]))     # the marked tier's glow (0 = off)
 			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)

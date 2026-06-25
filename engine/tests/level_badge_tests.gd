@@ -173,7 +173,7 @@ func _initialize() -> void:
 		and all_c.find_child("lv_circle", true, false) != null, "show_all renders every part for positioning")
 	all_c.free()
 
-	# --- the shared entry point (HUD chip / cell gate) delegates to the builder --
+	# --- the shared entry point (HUD chip / level dialog) delegates to the builder --
 	var badge: Control = Look.make_level_badge(7, 200.0)
 	var bnum := badge.find_child("lv_num", true, false) as Label
 	ok(bnum != null and bnum.text == "7", "make_level_badge prints the level number")

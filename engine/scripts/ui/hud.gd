@@ -139,8 +139,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lv_panel.add_child(lrow)
 	# the level "coin" — the shared LAYERED emblem (cut parts) + the big number.
 	var lv_px := LV_BADGE_PX   # bigger BOX than the gear (its medal under-fills) so the visible medal matches
-	# the level badge — the shared layered emblem + centred number (Look.make_level_badge, also worn by
-	# the locked-cell gate markers). The HUD carries the player's CURRENT level; `refresh` re-ticks the
+	# the level badge — the shared layered emblem + centred number (Look.make_level_badge). The HUD
+	# carries the player's CURRENT level; `refresh` re-ticks the
 	# number and, when leveling crosses a badge TIER (the part SET changes), rebuilds the emblem.
 	var lvl0 := G.level_for_exp(Save.exp_total())
 	# tap the level badge -> the level screen (stars earned / needed next), when the scene wires

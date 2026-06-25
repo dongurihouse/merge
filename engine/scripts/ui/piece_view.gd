@@ -9,7 +9,6 @@ const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Look = preload("res://engine/scripts/ui/skin.gd")   # shared level-badge medal for locked-cell gates
 const GenSparkle = preload("res://engine/scripts/ui/gen_sparkle.gd")   # code-drawn twinkle for the GEN highlight
 const GenOutline = preload("res://engine/scripts/ui/gen_outline.gd")   # code-drawn silhouette rim for the GEN highlight
 const Pal = Game.PALETTE
@@ -267,23 +266,21 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 
 
 # A sealed cell. The look is now FLAG-DRIVEN by the scene (no internal level gating):
-#   frontier   → the cell sits on the live border the player is reaching; render the NUMBERED
-#                padlock tile (atlas tile n, n = this cell's unseal level clamped 1..25) — the
-#                baked number IS the teach-signal, so no code-drawn "Lv N" badge is added.
+#   frontier   → the cell sits on the live border the player is reaching; the unlock level is
+#                explained on tap in the board info bar, not as an on-cell badge.
 #   not frontier → a NUMBERLESS locked tile (the calm slot_locked look), faded back so deep
 #                rings recede and the eye lands on the playable cells.
 #   unlockable → this cell can be opened by a merge RIGHT NOW: it gets a bright highlight border
 #                and full (un-faded) modulate so it POPS as the actionable next move.
 # Defaults keep existing callers (board.gd, tools, tests) compiling unchanged.
 # A sealed/gated board cell, built on the SHARED slot cell (Kit.slot_cell — the same component the bag
-# uses): the slot_locked well (baked padlock); a FRONTIER gate carries its required-Level badge
-# (lower-right); an UNLOCKABLE cell (openable by a merge right now) is the highlighted state (gold border
-# + glow + dynamic sparkle). The board reads the SAME workbench "bag_card" style the bag does, so tuning
-# the cell in the workbench flows to both. A `_locked_fill` base backs the well's rounded corners; the
-# whole holder recedes (deeper rings fade a hair more) so the actionable cells pop against the quiet ones.
+# uses): the slot_locked well (baked padlock); an UNLOCKABLE cell (openable by a merge right now)
+# is the highlighted state (gold border + glow + dynamic sparkle). The board reads the SAME workbench
+# "bag_card" style the bag does, so tuning the cell in the workbench flows to both. A `_locked_fill`
+# base backs the well's rounded corners; the whole holder recedes (deeper rings fade a hair more) so
+# the actionable cells pop against the quiet ones.
 static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlockable: bool = false) -> Control:
 	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
-	var n := clampi(lvl, 1, 25)                 # this gate's required Level (the badge number)
 	var ring := clampi(lvl / 4 + 1, 1, 3)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
@@ -296,8 +293,6 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
 	var d := {"state": ("unlockable" if unlockable else "locked")}
-	if frontier:
-		d["level"] = n                          # only a frontier gate shows its required-Level badge
 	holder.add_child(Kit.slot_cell(d, opts))
 	# RECEDE: non-unlockable locks fade back (a frontier gate a little, deeper non-frontier rings more);
 	# an unlockable cell keeps full opacity so it POPS as the actionable next move.

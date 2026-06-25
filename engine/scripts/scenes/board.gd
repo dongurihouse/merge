@@ -35,7 +35,7 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
-const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge or a locked cell → the level screen
+const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const Pal = Game.PALETTE
 const Data = Game.DATA   # T43: the active game's DATA (the §10 monetization numbers)
 
@@ -1540,6 +1540,11 @@ func _clear_selection() -> void:
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
 
+func _show_locked_cell_info(cell: Vector2i) -> void:
+	_clear_selection()
+	if _info_label != null and is_instance_valid(_info_label):
+		_info_label.text = Strings.t("board.info.unlock_level") % maxi(1, G.cell_min_level(cell))
+
 # T54→boost — drive the boost chip for a selected generator. ALWAYS shown (the single booster never
 # "maxes out"): full-color only when a boost can be armed right now (affordable AND none live), and
 # DIMMED otherwise — broke, or a boost is already running (no re-buy mid-boost, §2).
@@ -1897,7 +1902,7 @@ func _on_release(pos: Vector2) -> void:
 	if _drag_node == null:
 		var tap := _pos_to_cell(pos)
 		if tap == _press_cell and board.is_bramble(tap):
-			LevelPopup.open(self)   # tap a locked cell -> the level screen (its gate Level + your progress)
+			_show_locked_cell_info(tap)
 		return
 	var target := _pos_to_cell(pos)
 	var from := _drag_from
