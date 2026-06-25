@@ -759,7 +759,7 @@ func _rebuild_givers() -> void:
 	_refresh_giver_lights()
 
 # The Purge card (fence slot 0) shows whenever a frontier remains (the map is not done) — ALWAYS, not
-# only once affordable — advertising the home map's current ★ balance. It greys out until the cheapest
+# only once affordable — advertising progress toward the next region. It greys out until the cheapest
 # region is affordable, then lights + breathes (the SAME gate_ready signal the Home button uses).
 func _show_purge_card() -> bool:
 	return Quests.purge_state(_quest_map(), _exp(), Save.grove().get("unlocks", {}), _gates()).show
@@ -767,56 +767,45 @@ func _show_purge_card() -> bool:
 func _purge_progress() -> float:
 	return Quests.purge_progress(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
 
-# A special fence card: the home map's current ★ balance over a progress vase, tapped to go HOME and
-# restore regions. It ALWAYS shows while a frontier remains; the vase fills from the previous claimed
-# threshold to the next unlock threshold, then glows + sparkles once that next region is affordable.
+# A special fence card: progress percent over the water vase, tapped to go HOME and restore regions.
+# It ALWAYS shows while a frontier remains; the vase fills from the previous claimed threshold to the
+# next unlock threshold, then glows + sparkles once that next region is affordable.
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
 	_purge_card = stand
 	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
-	# #1: size + frame the card EXACTLY like a giver card — the SAME card_w/card_h fractions and the SAME
-	# 9-slice wood frame (GiverStand._quest_card) — so the Purge slot sits flush with the quest cards at
-	# the same height (no more shorter, aspect-locked card).
+	# Keep the same footprint as giver cards so the Purge slot still sits flush in the fence row, but let
+	# the vase art carry the surface instead of another card frame.
 	var L := _giver_lay()
 	var cardW := stand_w * float(L.card_w)
 	var cardH := FENCE_H * float(L.card_h)
 	var cx := (stand_w - cardW) / 2.0
 	var cy := (FENCE_H - cardH) / 2.0
-	var card := GiverStand._quest_card(cardW, cardH, L)
-	card.position = Vector2(cx, cy)
-	card.size = Vector2(cardW, cardH)
-	stand.add_child(card)
 	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
-	# The layer's CURRENT ★ balance stays as a compact headline while the jar becomes the card's visual.
-	var srow := HBoxContainer.new()
-	srow.alignment = BoxContainer.ALIGNMENT_CENTER
-	srow.add_theme_constant_override("separation", maxi(2, int(cardH * 0.035)))
-	srow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	srow.add_child(Look.icon("star", cardH * 0.16))
-	var slbl := Label.new()
-	slbl.text = str(_exp())
-	slbl.add_theme_font_size_override("font_size", int(cardH * 0.15))
-	slbl.add_theme_color_override("font_color", Pal.INK)
-	slbl.add_theme_constant_override("outline_size", 0)
-	slbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	slbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	srow.add_child(slbl)
-	stand.add_child(srow)
-	var place_stars := func() -> void:
-		if is_instance_valid(srow):
-			srow.position = Vector2(cx + cardW * 0.5 - srow.size.x / 2.0, cy + cardH * 0.14 - srow.size.y / 2.0)
-	srow.resized.connect(place_stars)
-	place_stars.call()
+	var progress := _purge_progress()
+	var pct := Label.new()
+	pct.name = "PurgeProgressLabel"
+	pct.text = "%d%%" % int(round(progress * 100.0))
+	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pct.add_theme_font_size_override("font_size", int(cardH * 0.19))
+	pct.add_theme_color_override("font_color", Color("#FFF6D7"))
+	pct.add_theme_color_override("font_outline_color", Color("#2D1A0D"))
+	pct.add_theme_constant_override("outline_size", maxi(3, int(cardH * 0.035)))
+	pct.size = Vector2(cardW, cardH * 0.20)
+	pct.position = Vector2(cx, cy + cardH * 0.035)
+	stand.add_child(pct)
 	var vase := VaseWaterEffect.new()
 	vase.name = "PurgeVaseWater"
 	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vase.set_progress(_purge_progress())
+	vase.set_progress(progress)
 	vase.set_ready(ready)
 	_purge_vase = vase
-	var vase_h := cardH * 0.62
-	var vase_w := minf(cardW * 0.72, vase_h * 0.88)
+	var vase_h := cardH * 0.78
+	var vase_w := minf(cardW * 0.88, vase_h)
 	vase.size = Vector2(vase_w, vase_h)
-	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy + cardH * 0.25)
+	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy + cardH * 0.20)
 	stand.add_child(vase)
 	var purge_go := func() -> void:
 		Audio.play("button_tap", -2.0)
@@ -825,8 +814,7 @@ func _make_purge_card(stand_w: float) -> Control:
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 	_stand_tap(stand, purge_go)
 	stand.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	# ready → full colour + a gentle breathe (like a payable giver card); not yet → grey + still, so it
-	# reads as "earn more ★ first" without a padlock.
+	# ready → full colour + a gentle breathe (like a payable giver card); not yet → grey + still.
 	if ready:
 		stand.modulate = Color.WHITE
 		FX.breathe_once(vase)

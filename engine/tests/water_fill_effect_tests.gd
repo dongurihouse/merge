@@ -38,6 +38,31 @@ func _has_button(node: Node) -> bool:
 			return true
 	return false
 
+func _has_card_frame(node: Node) -> bool:
+	if node is NinePatchRect or node is Panel:
+		return true
+	for child in node.get_children():
+		if _has_card_frame(child):
+			return true
+	return false
+
+func _find_label(node: Node, label_name: String) -> Label:
+	if node is Label and node.name == label_name:
+		return node
+	for child in node.get_children():
+		var found := _find_label(child, label_name)
+		if found != null:
+			return found
+	return null
+
+func _has_label_text(node: Node, text: String) -> bool:
+	if node is Label and node.text == text:
+		return true
+	for child in node.get_children():
+		if _has_label_text(child, text):
+			return true
+	return false
+
 func _initialize() -> void:
 	var fx: Control = WaterFillEffect.new()
 	fx.size = Vector2(640, 520)
@@ -91,14 +116,19 @@ func _initialize() -> void:
 				"water demo scene contains the animated water effect")
 			scene.queue_free()
 
-	ok(ResourceLoader.exists(VaseWaterEffect.VASE_PATH), "extracted vase sprite exists")
+	ok(VaseWaterEffect.VASE_PATH.ends_with("vase_acorn.png"), "vase water effect uses the acorn vase art")
+	ok(ResourceLoader.exists(VaseWaterEffect.VASE_PATH), "acorn vase sprite exists")
+	ok(ResourceLoader.exists(VaseWaterEffect.MASK_PATH), "acorn vase water mask exists")
 	var vase_fx: Control = VaseWaterEffect.new()
 	vase_fx.size = Vector2(360, 420)
 	root.add_child(vase_fx)
 	await process_frame
 	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
+	ok(vase_fx.get_mask_texture_for_test() != null, "vase water effect loads the water mask texture")
 	var calm_surface: PackedVector2Array = vase_fx.water_surface_for_test()
 	ok(calm_surface.size() >= 12, "vase water effect exposes a sampled water surface")
+	ok(calm_surface[0].x > vase_fx.size.x * 0.10 and calm_surface[calm_surface.size() - 1].x < vase_fx.size.x * 0.90,
+		"vase water surface is clipped to the mask span")
 	vase_fx.set_progress_for_test(0.0)
 	var empty_line: float = vase_fx.waterline_y_for_test()
 	vase_fx.set_progress_for_test(1.0)
@@ -109,6 +139,14 @@ func _initialize() -> void:
 	for i in 20:
 		await process_frame
 	ok(vase_fx.progress_for_test() > 0.2, "vase water animates progress upward")
+	vase_fx.set_progress_for_test(0.2)
+	vase_fx.animate_progress_for_test(0.8)
+	ok(vase_fx.energy_for_test() > VaseWaterEffect.IDLE_ENERGY + 7.0,
+		"vase water fill animation injects stronger wave energy")
+	vase_fx.set_time_for_test(0.9)
+	var vase_drop: Dictionary = vase_fx.drop_state_for_test()
+	ok(bool(vase_drop.visible) and float(vase_drop.radius) > vase_fx.size.x * 0.07,
+		"vase droplet is large enough to read on the acorn vase")
 	vase_fx.set_time_for_test(0.0)
 	var calm_energy: float = vase_fx.energy_for_test()
 	vase_fx.trigger_impact_for_test()
@@ -135,9 +173,13 @@ func _initialize() -> void:
 	var board := BoardScene.new()
 	var purge_card := board._make_purge_card(360.0)
 	var purge_vase := purge_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
+	var percent_label := _find_label(purge_card, "PurgeProgressLabel")
 	ok(purge_vase != null, "purge card contains the vase water animation")
 	if purge_vase != null:
 		ok(absf(purge_vase.progress_for_test() - 0.5) < 0.06, "purge vase initializes from exp progress")
+	ok(percent_label != null and percent_label.text == "50%", "purge card shows readable percent progress")
+	ok(not _has_label_text(purge_card, str(Save.exp_total())), "purge card removes the old star count label")
+	ok(not _has_card_frame(purge_card), "purge card removes the old framed background")
 	ok(not _has_button(purge_card), "purge card replaces the text CTA button with the vase")
 	purge_card.free()
 	board.free()
