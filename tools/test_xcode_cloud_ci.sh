@@ -2,22 +2,28 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SCRIPT="$ROOT/ci_scripts/ci_post_clone.sh"
+ROOT_SCRIPT="$ROOT/ci_scripts/ci_post_clone.sh"
+PROJECT_SCRIPT="$ROOT/build/ios/ci_scripts/ci_post_clone.sh"
 
 fail() {
 	echo "test_xcode_cloud_ci: $*" >&2
 	exit 1
 }
 
-[ -f "$SCRIPT" ] || fail "missing $SCRIPT"
-[ -x "$SCRIPT" ] || fail "$SCRIPT is not executable"
-bash -n "$SCRIPT"
+[ -f "$ROOT_SCRIPT" ] || fail "missing $ROOT_SCRIPT"
+[ -x "$ROOT_SCRIPT" ] || fail "$ROOT_SCRIPT is not executable"
+bash -n "$ROOT_SCRIPT"
+
+[ -f "$PROJECT_SCRIPT" ] || fail "missing Xcode-project-relative hook $PROJECT_SCRIPT"
+[ -x "$PROJECT_SCRIPT" ] || fail "$PROJECT_SCRIPT is not executable"
+bash -n "$PROJECT_SCRIPT"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-mkdir -p "$TMP/repo/ci_scripts" "$TMP/bin"
-cp "$SCRIPT" "$TMP/repo/ci_scripts/ci_post_clone.sh"
+mkdir -p "$TMP/repo/ci_scripts" "$TMP/repo/build/ios/ci_scripts" "$TMP/bin"
+cp "$ROOT_SCRIPT" "$TMP/repo/ci_scripts/ci_post_clone.sh"
+cp "$PROJECT_SCRIPT" "$TMP/repo/build/ios/ci_scripts/ci_post_clone.sh"
 
 mkdir -p "$TMP/home/Library/Application Support/Godot/export_templates/4.6.2.stable"
 touch "$TMP/home/Library/Application Support/Godot/export_templates/4.6.2.stable/ios.zip"
@@ -58,7 +64,7 @@ chmod +x "$TMP/bin/make"
 
 (
 	cd "$TMP/repo"
-	HOME="$TMP/home" PATH="$TMP/bin:$PATH" ci_scripts/ci_post_clone.sh
+	HOME="$TMP/home" PATH="$TMP/bin:$PATH" build/ios/ci_scripts/ci_post_clone.sh
 )
 
 [ -f "$TMP/repo/.make-ios-called" ] || fail "ci_post_clone.sh did not run make ios"

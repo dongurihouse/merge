@@ -135,8 +135,8 @@ ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into ad
 	tools/install_ios_plugins.sh
 
 ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/design/apple-services-setup.md)
-	rm -rf build/ios
 	mkdir -p build/ios
+	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
 	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/AcornForest.xcodeproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
@@ -145,7 +145,8 @@ ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export temp
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output
-	rm -rf build
+	if [ -d build ]; then find build -mindepth 1 -maxdepth 1 ! -name ios -exec rm -rf {} +; fi
+	if [ -d build/ios ]; then find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +; fi
 
 clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 	rm -rf .godot
