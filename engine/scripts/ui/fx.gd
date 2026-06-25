@@ -285,6 +285,93 @@ static func fly_to_wallet(host: Control, from_gpos: Vector2, fly_icon: Control, 
 		if then.is_valid():
 			then.call())
 
+## The shared cozy payday spine: a source burst + icon/number floater, a main token
+## arcing to its destination, tiny delayed companion tokens, and an arrival pulse.
+## Use this for meaningful grants/stores so every screen reads as "reward went home".
+static func reward_arrival(host: Control, from_gpos: Vector2, icon_id: String, amount: int,
+		color: Color, to_chip: Control = null, then: Callable = Callable(),
+		size: float = 32.0, prefix: String = "+", trail_count: int = 2) -> Array:
+	var spawned: Array = []
+	if not (host and is_instance_valid(host)):
+		if then.is_valid():
+			then.call()
+		return spawned
+	if not host.is_inside_tree():
+		if then.is_valid():
+			then.call()
+		return spawned
+	var floater := floating_reward(host, from_gpos + Vector2(18, -54), icon_id, amount, color, Tune.FLOAT_SIZE, prefix)
+	if floater != null:
+		floater.name = "RewardArrivalFloater"
+		spawned.append(floater)
+	burst(host, from_gpos, color, mini(Tune.CELEB_BURST, 14))
+	if Features.on("fly_to_wallet") and not calm():
+		for i in mini(trail_count, 4):
+			var trail := _reward_trail(host, from_gpos, icon_id, color, to_chip, i, size)
+			if trail != null:
+				spawned.append(trail)
+	var main := Look.icon(icon_id, size)
+	main.name = "RewardArrivalIcon"
+	spawned.append(main)
+	var host_ref: WeakRef = weakref(host)
+	var chip_ref: WeakRef = weakref(to_chip) if to_chip != null else null
+	fly_to_wallet(host, from_gpos, main, to_chip, func() -> void:
+		var live_host := host_ref.get_ref() as Control
+		if live_host == null or not is_instance_valid(live_host):
+			return
+		var live_chip: Control = null
+		if chip_ref != null:
+			live_chip = chip_ref.get_ref() as Control
+		var arrive := _arrival_center(from_gpos, live_chip)
+		burst(live_host, arrive, color, mini(Tune.CELEB_BURST, 12))
+		var pulse := _arrival_pulse_target(live_chip)
+		if pulse != null:
+			pop(pulse)
+		if then.is_valid():
+			then.call())
+	return spawned
+
+static func _reward_trail(host: Control, from_gpos: Vector2, icon_id: String, color: Color,
+		to_chip: Control, index: int, size: float) -> Control:
+	var ic := Look.icon(icon_id, size * 0.56)
+	if ic == null:
+		return null
+	ic.name = "RewardArrivalTrail%d" % index
+	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ic.modulate = Color(1, 1, 1, 0.7)
+	host.add_child(ic)
+	ic.global_position = from_gpos - Tune.FLY_ICON_OFFSET + Vector2(-5.0 * index, 4.0 * index)
+	ic.z_index = Tune.FLY_Z - 1
+	ic.scale = Vector2(0.82, 0.82)
+	var dest := _fly_dest(from_gpos, to_chip)
+	var mid := (from_gpos + dest) / 2.0 + Tune.FLY_ARC + Vector2(0, 12.0 * float(index + 1))
+	var tw := ic.create_tween()
+	tw.tween_interval(0.045 * float(index + 1))
+	tw.tween_property(ic, "global_position", mid, Tune.FLY_T_UP).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(ic, "global_position", dest, Tune.FLY_T_DOWN).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(ic, "scale", Vector2(0.36, 0.36), Tune.FLY_T_DOWN)
+	tw.parallel().tween_property(ic, "modulate:a", 0.0, Tune.FLY_T_DOWN)
+	tw.tween_callback(ic.queue_free)
+	return ic
+
+static func _fly_dest(from_gpos: Vector2, to_chip: Control) -> Vector2:
+	return to_chip.get_global_rect().get_center() - Tune.FLY_ICON_OFFSET \
+		if to_chip != null and is_instance_valid(to_chip) else from_gpos + Tune.FLY_FALLBACK
+
+static func _arrival_center(from_gpos: Vector2, to_chip: Control) -> Vector2:
+	return to_chip.get_global_rect().get_center() \
+		if to_chip != null and is_instance_valid(to_chip) else from_gpos + Tune.FLY_FALLBACK + Tune.FLY_ICON_OFFSET
+
+static func _arrival_pulse_target(to_chip: Control) -> Control:
+	if to_chip == null or not is_instance_valid(to_chip):
+		return null
+	var cur: Node = to_chip
+	while cur != null and not cur is PanelContainer:
+		cur = cur.get_parent()
+	if cur is Control:
+		return cur as Control
+	return to_chip
+
 # then bursts use the soft dot. Choice follows the color's mood (gold → pollen,
 # green → leaf, else petal) — the hand-painted FX style.
 static var _grove_tex := {}

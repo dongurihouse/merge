@@ -53,7 +53,7 @@ const ICON_GLYPHS := {
 	"star": "★", "coin": "🪙", "gem": "🌰", "water": "💧", "rain": "☔",
 	"cart": "🛒", "gear": "⚙", "check": "✓", "lock": "Lv", "question": "?",
 	"home": "◀", "back": "◀", "level": "Lv", "cash": "$", "trash": "🗑", "info": "ℹ",
-	"plus": "+", "calendar": "📅", "chest": "🎁", "board": "▦",
+	"plus": "+", "calendar": "📅", "chest": "🎁", "bag": "▣", "board": "▦",
 }
 const ICON_TINTS := {"star": Pal.STRAW, "check": Color.WHITE}
 

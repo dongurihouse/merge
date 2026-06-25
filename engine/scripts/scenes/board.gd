@@ -657,10 +657,15 @@ func _on_refill() -> void:
 	water = G.WATER_CAP
 	_regen_ts = Time.get_unix_time_from_system()
 	Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
-	FX.celebrate_reward(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"))
+	var water_target: Control = _water_icon if _water_icon != null and is_instance_valid(_water_icon) else water_label
+	FX.reward_arrival(self, refill_btn.get_global_rect().get_center(), "water", G.WATER_CAP, Color("#9CCDE8"), water_target, func() -> void:
+		if not is_instance_valid(self):
+			return
+		_update_water_hud()
+		_update_hud())
 	_persist()
-	_update_water_hud()
-	_update_hud()
+	refill_btn.visible = false
+	_refill_stack.visible = false
 
 func _update_hud() -> void:
 	# the top wallet is Water·Coin·Gem now (no star count). Water is updated live by _update_water_hud.
@@ -2206,18 +2211,17 @@ func _drop_coin_near(near: Vector2i) -> void:
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	var code := board.take(cell)
 	piece_nodes.erase(cell)
-	Save.add_coins(G.coin_value(code))
+	var got := G.coin_value(code)
+	var at := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	if node != null and is_instance_valid(node):
-		var dest: Vector2 = coins_label.get_global_rect().get_center() - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
-		var t := node.create_tween()
-		t.set_parallel(true)
-		t.tween_property(node, "position", dest, 0.3).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-		t.tween_property(node, "scale", Vector2(0.3, 0.3), 0.3)
-		t.chain().tween_callback(node.queue_free)
-	FX.floating_text(self, board_area.get_global_transform() * _cell_pos(cell) - Vector2(0, 30), "+%d" % G.coin_value(code), STRAW, 32)
+		at = node.get_global_rect().get_center()
+		node.queue_free()
+	Save.add_coins(got)
+	FX.reward_arrival(self, at, "coin", got, STRAW, coins_label, func() -> void:
+		if is_instance_valid(self):
+			_update_hud())
 	Audio.play("star_earn" if Audio.has("star_earn") else "merge_soft", -3.0, 1.2)
 	_persist()
-	_update_hud()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: collecting a coin freed a cell → un-dim if the board was full
 
@@ -2264,11 +2268,18 @@ func _stash(from: Vector2i, node: Control) -> void:
 	var code := board.take(from)
 	bag.append(code)
 	piece_nodes.erase(from)
+	var at := board_area.get_global_transform() * _cell_pos(from) + Vector2(csz, csz) / 2.0
 	if is_instance_valid(node):
+		at = node.get_global_rect().get_center()
 		node.queue_free()
 	Audio.play("bag_in" if Audio.has("bag_in") else "item_pickup", -2.0)
 	_persist()
 	_rebuild_bag()
+	if bag_btn != null and is_instance_valid(bag_btn):
+		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, func() -> void:
+			if is_instance_valid(self):
+				_update_bag_count())
+		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, 24)
 	_refresh_giver_lights()
 
 # §5 expansion: buy ONE more slot with 💎 at the schedule price, then regrow the bar. A refusal
@@ -2441,7 +2452,9 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	#  see _produce_due_generators in _pop_seed.)
 	FX.celebrate_reward(self, chip.get_global_rect().get_center(), "star", sp_exp, STRAW)
 	if sp_coins > 0:
-		FX.floating_reward(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, 26)
+		FX.reward_arrival(self, chip.get_global_rect().get_center() + Vector2(20, 36), "coin", sp_coins, STRAW, coins_label, func() -> void:
+			if is_instance_valid(self):
+				_update_hud())
 	Audio.play("giver_cheer" if Audio.has("giver_cheer") else "merge_success", -2.0, 1.2)
 	if levels_up > 0:
 		_refresh_locked_cells()   # a level-up may make deeper frontier cells unlockable now
@@ -2459,7 +2472,8 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_persist()
 	_rebuild_givers()
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
-	_update_hud()
+	if sp_coins <= 0:
+		_update_hud()
 	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
 	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
 	if sp_coins > 0:
@@ -2554,9 +2568,9 @@ func _accept_2x_offer(got: int) -> void:
 		return
 	Save.add_coins(got)                              # the doubled half — the same amount again
 	Audio.play("level_complete", -3.0, 1.2)
-	FX.celebrate_reward(self, at, "coin", got, Color("#E3B23C"))
-	FX.fly_to_wallet(self, at, Look.icon("coin", 40.0), coins_label, func() -> void: _update_hud())
-	_update_hud()
+	FX.reward_arrival(self, at, "coin", got, Color("#E3B23C"), coins_label, func() -> void:
+		if is_instance_valid(self):
+			_update_hud())
 
 # Close the 2× offer card (decline, tap-away, or post-accept). Idempotent.
 func _dismiss_2x_offer() -> void:
@@ -2577,7 +2591,6 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	_grant_sale(code, node)
 	Audio.play("tidy_poof", -4.0, 1.1)
 	_persist()
-	_update_hud()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: selling freed a cell → un-dim if the board was full
 
@@ -2601,11 +2614,13 @@ func _grant_sale(code: int, node: Control) -> void:
 		t.tween_property(node, "scale", Vector2(0.35, 0.35), 0.25)
 		t.chain().tween_callback(node.queue_free)
 	if reward.y > 0:
-		FX.floating_reward(self, center - Vector2(30, 60), "gem", reward.y, Color("#A9C7E8"), 30)
-		if Features.on("fly_to_wallet") and diamonds_label != null:
-			FX.fly_to_wallet(self, center, Look.icon("gem", 30.0), diamonds_label)
-	else:
-		FX.floating_reward(self, center - Vector2(30, 60), "coin", reward.x, STRAW, 30)
+		FX.reward_arrival(self, center, "gem", reward.y, Color("#A9C7E8"), diamonds_label, func() -> void:
+			if is_instance_valid(self):
+				_update_hud())
+	elif reward.x > 0:
+		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, func() -> void:
+			if is_instance_valid(self):
+				_update_hud())
 	_record_sale(code, reward)
 
 # Y2: hold the sale for buy-back; a 4th sale overflows → the porter comes at once.

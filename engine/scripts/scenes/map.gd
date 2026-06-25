@@ -99,6 +99,7 @@ var _weather: Control = null     # ambient weather layer — belongs to a MAP; h
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var coins_label: Label
+var diamonds_label: Label
 var _hud_refresh := Callable()
 var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
@@ -1124,6 +1125,7 @@ func _build_hud() -> void:
 			Audio.play("button_tap", -2.0)
 			_open_settings()})
 	coins_label = hud.coins
+	diamonds_label = hud.diamonds
 	level_label = hud.level
 	_hud_refresh = hud.refresh
 	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
@@ -1656,11 +1658,17 @@ func _task_reward_fx(coins: int, gems: int) -> void:
 	Audio.play("level_complete", -4.0, 1.1)
 	var dy := 0.0
 	if gems > 0:
-		FX.celebrate_reward(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8")); dy += 34
+		FX.reward_arrival(self, at + Vector2(0, dy), "gem", gems, Color("#A9C7E8"), diamonds_label, func() -> void:
+			if is_instance_valid(self):
+				_update_hud())
+		dy += 34
 	if coins > 0:
-		FX.celebrate_reward(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"))
+		FX.reward_arrival(self, at + Vector2(0, dy), "coin", coins, Color("#E3B23C"), coins_label, func() -> void:
+			if is_instance_valid(self):
+				_update_hud())
 	FX.floating_text(self, at - Vector2(0, 40), Strings.t("map.reward.place_restored"), CREAM, 24)
-	_update_hud()
+	if gems <= 0 and coins <= 0:
+		_update_hud()
 
 # Re-read every chrome badge's actionable state in one go (called on map nav). Cheap, idempotent.
 func _refresh_chrome_badges() -> void:
