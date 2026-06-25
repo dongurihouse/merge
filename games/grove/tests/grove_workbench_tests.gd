@@ -447,17 +447,26 @@ func _test_new_knobs(view) -> void:
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
 	# the shared gold-pill padding as its content margin.
-	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40}})
+	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
 	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
 		"info_bar reads name_font / sep / sell_font / sell_icon")
+	ok(ib.has("item_icon_scale") and is_equal_approx(float(ib.get("item_icon_scale", -1.0)), 1.15), \
+		"info_bar reads item_icon_scale as a selected item/generator artwork scale")
 	ok(ib.has("pill") and ib.has("badge"), "info_bar reads gold-pill padding plus the shared gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
-	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon"), \
+	var default_ib: Dictionary = Kit.info_bar_opts_from_config({})
+	ok(default_ib.has("item_icon_scale") and is_equal_approx(float(default_ib.get("item_icon_scale", -1.0)), 0.80), \
+		"default info_bar item_icon_scale preserves the shipped selected-item size")
+	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon") and view._is_config("info_bar", "item_icon_scale"), \
 		"the info-bar layout knobs are saved config")
 	ok(not view._is_config("info_bar", "filled"), "the filled-vs-empty preview toggle is not saved")
+	var scaled_bar: PanelContainer = Kit.info_bar({}, ib)
+	var scaled_meta := float(scaled_bar.get_meta("item_icon_scale")) if scaled_bar.has_meta("item_icon_scale") else -1.0
+	ok(scaled_bar.has_meta("item_icon_scale") and is_equal_approx(scaled_meta, 1.15), \
+		"info_bar exposes item_icon_scale for live board and preview renderers")
 	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \
 		"the info-bar preview shows a sample selected item")
 

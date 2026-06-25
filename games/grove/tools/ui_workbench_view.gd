@@ -280,8 +280,9 @@ var _params := {
 		"gem_x": 0, "gem_y": -40, "gem_scale": 36,
 		"preview_level": 30},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
-	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. `filled` previews state.
-	"info_bar": {"height": 130, "inner_scale": 48, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
+	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. item_icon_scale is
+	# % of the selected-piece box. `filled` previews state.
+	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -661,8 +662,9 @@ func _make_element(id: String) -> Control:
 			var io := Kit.info_bar_opts_from_config({"info_bar": p, "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
 			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
 			var inner := float(ib.get_meta("inner_px", 62.0))
+			var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
 			if bool(p.get("filled", true)):
-				(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * 0.8))
+				(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * item_scale))
 				(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
 				(ib.get_meta("info_btn") as Button).disabled = false
 				var sb := ib.get_meta("sell_btn") as Button
@@ -1639,6 +1641,7 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)                         # layout only — the frame is tuned on Gold badge
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
+			_sidebar_body.add_child(_slider_row(["item_icon_scale", 50, 120]))  # selected item/generator art as % of that box
 			_sidebar_body.add_child(_slider_row(["info_x", -120, 120]))     # nudge the info ⓘ button left(−) / right(+)
 			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
 			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
