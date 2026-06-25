@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_test_production()
 	_test_screen_actions()
 	await _test_screen()
+	await _test_screen_drag_actions()
 	finish()
 
 func _test_hand() -> void:
@@ -190,5 +191,45 @@ func _test_screen() -> void:
 		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
 			has_cap = true
 	ok(has_cap, "the map row shows a capacity readout (n/%d)" % Habitat.DEFAULT_CAP)
+	s.queue_free()
+	await process_frame
+
+func _test_screen_drag_actions() -> void:
+	fresh("residents_drag")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	var mid := String(G.MAPS[z].id)
+
+	Habitat.hand_add("moss")
+	Habitat.hand_add("moss")
+	var s = load("res://engine/scenes/Residents.tscn").instantiate()
+	get_root().add_child(s)
+	if not s.is_node_ready():
+		s._ready()
+	await create_timer(0.05).timeout
+
+	var h0 := s._root.find_child("HandSpirit_0", true, false) as Control
+	var h1 := s._root.find_child("HandSpirit_1", true, false) as Control
+	s._begin_hand_drag(0, h0.get_global_rect().get_center())
+	s._end_hand_drag(h1.get_global_rect().get_center())
+	await create_timer(0.05).timeout
+	ok(Habitat.hand().size() == 1 and int(Habitat.hand()[0].tier) == 2, "dragging matching hand spirits merges them")
+
+	Habitat.hand_add("acorn")
+	s._rebuild()
+	await create_timer(0.05).timeout
+	var h_acorn := s._root.find_child("HandSpirit_1", true, false) as Control
+	var row := s._root.find_child("MapRow_%s" % mid, true, false) as Control
+	s._begin_hand_drag(1, h_acorn.get_global_rect().get_center())
+	s._end_hand_drag(row.get_global_rect().get_center())
+	await create_timer(0.05).timeout
+	ok(Habitat.placed(mid).size() == 1 and String(Habitat.placed(mid)[0].kind) == "acorn", "dragging a hand spirit onto a map places it")
+
 	s.queue_free()
 	await process_frame
