@@ -116,7 +116,7 @@ func _make_sidebar() -> Control:
 	panel.name = "CoinFlowSidebar"
 	panel.custom_minimum_size = Vector2(SIDEBAR_W, 0)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override("panel", _box(Color("#6F4D33"), 0, 0, Color.TRANSPARENT, 0))
+	panel.add_theme_stylebox_override("panel", _box(Color("#15101F"), 0, 0, Color.TRANSPARENT, 0))
 
 	var margin := MarginContainer.new()
 	margin.add_theme_constant_override("margin_left", 18)
@@ -191,14 +191,15 @@ func _rebuild_controls() -> void:
 	_controls.add_child(_section_label("Action gates"))
 	for entry in FX_DEFS:
 		var id := String((entry as Dictionary).get("id", ""))
-		var toggle := CheckButton.new()
-		toggle.name = "FxActionToggle_%s" % id
-		toggle.text = String((entry as Dictionary).get("label", id))
-		toggle.button_pressed = FX.reward_fx_enabled(id)
-		toggle.add_theme_color_override("font_color", Pal.CREAM)
-		toggle.toggled.connect(func(on: bool) -> void:
-			_set_fx_enabled(id, on))
-		_controls.add_child(toggle)
+			var toggle := CheckButton.new()
+			toggle.name = "FxActionToggle_%s" % id
+			toggle.text = String((entry as Dictionary).get("label", id))
+			toggle.button_pressed = FX.reward_fx_enabled(id)
+			toggle.add_theme_font_size_override("font_size", 18)
+			toggle.add_theme_color_override("font_color", Pal.CREAM)
+			toggle.toggled.connect(func(on: bool) -> void:
+				_set_fx_enabled(id, on))
+			_controls.add_child(toggle)
 	_controls.add_child(_section_label("Feel"))
 	_controls.add_child(_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
 	_controls.add_child(_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
@@ -208,6 +209,8 @@ func _rebuild_controls() -> void:
 	var replay := Button.new()
 	replay.name = "ReplayButton"
 	replay.text = "Replay"
+	replay.custom_minimum_size = Vector2(0, 42)
+	replay.add_theme_font_size_override("font_size", 18)
 	replay.disabled = not _is_fx_enabled(_preview_action)
 	replay.pressed.connect(_play_selected)
 	_controls.add_child(replay)
@@ -217,6 +220,7 @@ func _rebuild_controls() -> void:
 	auto.name = "AutoReplayToggle"
 	auto.text = "Auto replay"
 	auto.button_pressed = bool(_settings.get("auto_replay", false))
+	auto.add_theme_font_size_override("font_size", 18)
 	auto.add_theme_color_override("font_color", Pal.CREAM)
 	auto.toggled.connect(func(on: bool) -> void:
 		_set_auto_replay(on))
@@ -240,6 +244,7 @@ func _action_option() -> Control:
 	var opt := OptionButton.new()
 	opt.name = "PreviewActionOption"
 	opt.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	opt.add_theme_font_size_override("font_size", 18)
 	for i in FX_DEFS.size():
 		var def: Dictionary = FX_DEFS[i]
 		opt.add_item(String(def.get("label", def.get("id", ""))), i)

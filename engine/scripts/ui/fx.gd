@@ -113,7 +113,7 @@ static func reward_fx_amount() -> int:
 	return clampi(int(round(float(reward_fx_config().get("amount", REWARD_FX_DEFAULT_AMOUNT)))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
 
 static func set_reward_fx_amount(value: int) -> void:
-	_set_reward_fx_config_value("amount", clampi(value, REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT))
+	pass # test-only preview value; kept as a no-op for older workbench call sites
 
 static func reward_fx_icon_size() -> float:
 	return clampf(float(reward_fx_config().get("icon_size", REWARD_FX_DEFAULT_ICON_SIZE)), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
@@ -131,13 +131,13 @@ static func reward_fx_source_size() -> float:
 	return clampf(float(reward_fx_config().get("source_size", REWARD_FX_DEFAULT_SOURCE_SIZE)), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
 
 static func set_reward_fx_source_size(value: float) -> void:
-	_set_reward_fx_config_value("source_size", clampf(value, REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE))
+	pass # test-only preview value; kept as a no-op for older workbench call sites
 
 static func reward_fx_auto_replay() -> bool:
 	return bool(reward_fx_config().get("auto_replay", false))
 
 static func set_reward_fx_auto_replay(on: bool) -> void:
-	_set_reward_fx_config_value("auto_replay", on)
+	pass # test-only preview value; kept as a no-op for older workbench call sites
 
 ## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
 static func amount_for(amount: int) -> int:

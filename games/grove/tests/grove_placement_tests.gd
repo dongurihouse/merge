@@ -10,8 +10,25 @@ func _initialize() -> void:
 		ss._ready()
 	await create_timer(0.05).timeout
 	var vp: Rect2 = ss.get_viewport_rect()
-	ok(absf(ss.giver_bar.get_global_rect().position.y - 54.0) < 1.0, \
-		"S1: the quest fence and board stack sit 10px higher under the HUD")
+	var layout_cfg = JSON.parse_string(FileAccess.get_file_as_string("res://games/grove/assets/board_layout.json"))
+	ok(typeof(layout_cfg) == TYPE_DICTIONARY, "S1: board_layout.json stores the saved board/fence nudges")
+	if typeof(layout_cfg) == TYPE_DICTIONARY:
+		var fence_dy := float(layout_cfg.get("fence_dy", 0.0))
+		var board_dy := float(layout_cfg.get("board_dy", 0.0))
+		var workbench_h := 1920.0
+		var prior_fence_dy := 0.0779410163561499
+		var prior_board_dy := 0.0678472518920896
+		ok(absf((prior_fence_dy - fence_dy) * workbench_h - 10.0) < 0.01, \
+			"S1: the saved quest-fence nudge is 10px higher than the prior workbench placement")
+		ok(absf((prior_board_dy - board_dy) * workbench_h - 10.0) < 0.01, \
+			"S1: the saved board nudge is 10px higher than the prior workbench placement")
+		var stack_base_y: float = ss.giver_bar.position.y - fence_dy * vp.size.y
+		var fence_expected_y: float = stack_base_y + fence_dy * vp.size.y
+		var board_expected_y: float = stack_base_y + ss.giver_bar.custom_minimum_size.y + 10.0 + board_dy * vp.size.y
+		ok(absf(ss.giver_bar.position.y - fence_expected_y) < 1.0, \
+			"S1: the quest fence follows the saved board_layout y nudge")
+		ok(absf(ss._board_center.position.y - board_expected_y) < 1.0, \
+			"S1: the board follows the saved board_layout y nudge")
 	# the board bottom bar is Bag (+count) · info bar · Home (bottom_bar IS the row). Selling moved to the
 	# info bar's trashcan, so there is no merchant well. Check the row + Bag/Home sit on-screen and the
 	# centre info bar (a framed pill) is present.

@@ -10,9 +10,11 @@ const Pal = preload("res://games/grove/grove_palette.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
 
 var _pass := 0
 var _fail := 0
+var _fx_settings_path := ""
 
 func ok(cond: bool, label: String) -> void:
 	if cond:
@@ -49,6 +51,24 @@ func _has_button_text(node: Control, text: String) -> bool:
 
 func _source_contains(path: String, needle: String) -> bool:
 	return FileAccess.get_file_as_string(path).find(needle) != -1
+
+func _fresh_fx_settings(name: String) -> void:
+	var dir := "user://tu_grove_workbench_fx_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	_fx_settings_path = dir + "ui_workbench_settings.json"
+	FX.configure_reward_fx_config_for_test(_fx_settings_path)
+
+func _saved_fx_config() -> Dictionary:
+	if not FileAccess.file_exists(_fx_settings_path):
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_fx_settings_path))
+	if parsed is Dictionary and parsed.has("fx") and parsed["fx"] is Dictionary:
+		return parsed["fx"]
+	return {}
 
 # The first Button at or under `node` (the tappable surface), or null.
 func _first_button(node: Control) -> Button:
@@ -154,6 +174,7 @@ func _gallery_neighbors(a: String, b: String) -> bool:
 
 func _initialize() -> void:
 	print("== Workbench selective-rebuild tests ==")
+	_fresh_fx_settings("settings")
 	var view: Control = View.new()
 	root.add_child(view)
 	await process_frame
@@ -179,6 +200,18 @@ func _initialize() -> void:
 	ok(view._sidebar_body.find_child("WorkbenchFxIconSizeSlider", true, false) != null, "Coin Flow sidebar shows saved feel sliders")
 	ok(view._sidebar_body.find_child("WorkbenchFxAmountSlider", true, false) != null, "Coin Flow sidebar shows preview-only amount slider")
 	ok(view._sidebar_body.find_child("WorkbenchFxReplayButton", true, false) != null, "Coin Flow sidebar shows replay in the test section")
+	var fx_preview := view.find_child("FxWorkbenchComponent", true, false) as Control
+	if fx_preview != null:
+		fx_preview.get_parent().remove_child(fx_preview)
+		fx_preview.queue_free()
+		await process_frame
+	view._fx_set_global_setting("amount", 91)
+	view._fx_set_global_setting("coin_size", 133)
+	view._fx_set_auto_replay(true)
+	var fallback_fx_cfg := _saved_fx_config()
+	ok(not fallback_fx_cfg.has("amount"), "Coin Flow amount remains test-only when the embedded preview is absent")
+	ok(not fallback_fx_cfg.has("source_size"), "Coin Flow source size remains test-only when the embedded preview is absent")
+	ok(not fallback_fx_cfg.has("auto_replay"), "Coin Flow auto replay remains test-only when the embedded preview is absent")
 	var currency_ids := []
 	for id in View.IDS:
 		if String(id).find("currency_pill") != -1:
