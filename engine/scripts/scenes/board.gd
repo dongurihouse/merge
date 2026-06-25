@@ -783,30 +783,33 @@ func _make_purge_card(stand_w: float) -> Control:
 	var cy := (FENCE_H - cardH) / 2.0
 	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
 	var progress := _purge_progress()
-	var pct := Label.new()
-	pct.name = "PurgeProgressLabel"
-	pct.text = "%d%%" % int(round(progress * 100.0))
-	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pct.add_theme_font_size_override("font_size", int(cardH * 0.19))
-	pct.add_theme_color_override("font_color", Color("#FFF6D7"))
-	pct.add_theme_color_override("font_outline_color", Color("#2D1A0D"))
-	pct.add_theme_constant_override("outline_size", maxi(3, int(cardH * 0.035)))
-	pct.size = Vector2(cardW, cardH * 0.20)
-	pct.position = Vector2(cx, cy + cardH * 0.035)
-	stand.add_child(pct)
 	var vase := VaseWaterEffect.new()
 	vase.name = "PurgeVaseWater"
 	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	vase.set_progress(progress)
 	vase.set_ready(ready)
 	_purge_vase = vase
-	var vase_h := cardH * 0.78
-	var vase_w := minf(cardW * 0.88, vase_h)
+	var vase_h := cardH
+	var vase_w := minf(cardW * 0.98, vase_h)
 	vase.size = Vector2(vase_w, vase_h)
-	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy + cardH * 0.20)
+	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy)
 	stand.add_child(vase)
+	var pct := Label.new()
+	pct.name = "PurgeProgressLabel"
+	pct.text = "%d%%" % int(round(progress * 100.0))
+	pct.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	pct.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	pct.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pct.add_theme_font_size_override("font_size", int(cardH * 0.20))
+	pct.add_theme_color_override("font_color", Color("#FFF3B8"))
+	pct.add_theme_color_override("font_outline_color", Color("#241407"))
+	pct.add_theme_constant_override("outline_size", maxi(4, int(cardH * 0.040)))
+	var pct_size := Vector2(vase_w * 0.76, cardH * 0.22)
+	pct.size = pct_size
+	pct.position = Vector2(
+		vase.position.x + vase_w * 0.5 - pct_size.x * 0.5,
+		vase.position.y + vase_h * 0.44 - pct_size.y * 0.5)
+	stand.add_child(pct)
 	var purge_go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()

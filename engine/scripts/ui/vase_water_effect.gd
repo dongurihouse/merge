@@ -97,6 +97,9 @@ func get_mask_texture_for_test() -> Texture2D:
 		_prepare_mask_cache()
 	return _mask_tex
 
+func ready_glow_style_for_test() -> Dictionary:
+	return {"tone": "gold", "soft_layers": 5, "hard_rings": 0}
+
 func drop_state_for_test() -> Dictionary:
 	return _drop_state(_vase_rect())
 
@@ -223,12 +226,17 @@ func _draw_drop(vase: Rect2) -> void:
 
 
 func _draw_ready_glow(vase: Rect2) -> void:
-	var pulse := 0.5 + 0.5 * sin(_time * TAU / 1.8)
-	var alpha := 0.12 + pulse * 0.10
-	var rect := vase.grow(vase.size.x * (0.08 + pulse * 0.025))
-	draw_circle(rect.position + rect.size * 0.5, rect.size.x * 0.47, Color(0.75, 0.95, 1.0, alpha))
-	draw_arc(vase.position + vase.size * 0.5, vase.size.x * (0.42 + pulse * 0.025),
-		0.0, TAU, 48, Color(1.0, 0.91, 0.42, alpha + 0.05), 2.0)
+	var pulse := 0.5 + 0.5 * sin(_time * TAU / 2.4)
+	var center := vase.position + vase.size * 0.5
+	draw_set_transform(center, 0.0, Vector2(0.92, 1.05))
+	for i in range(4, -1, -1):
+		var layer := float(i) / 4.0
+		var radius := vase.size.x * (0.38 + layer * 0.18 + pulse * 0.028)
+		var alpha := lerpf(0.15, 0.035, layer) + pulse * lerpf(0.050, 0.012, layer)
+		draw_circle(Vector2.ZERO, radius, Color(1.0, 0.74, 0.22, alpha))
+	draw_circle(Vector2.ZERO, vase.size.x * (0.34 + pulse * 0.020),
+		Color(1.0, 0.92, 0.48, 0.10 + pulse * 0.055))
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 func _draw_ready_sparkles(vase: Rect2) -> void:

@@ -63,6 +63,9 @@ func _has_label_text(node: Node, text: String) -> bool:
 			return true
 	return false
 
+func _control_rect(control: Control) -> Rect2:
+	return Rect2(control.position, control.size)
+
 func _initialize() -> void:
 	var fx: Control = WaterFillEffect.new()
 	fx.size = Vector2(640, 520)
@@ -125,6 +128,12 @@ func _initialize() -> void:
 	await process_frame
 	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
 	ok(vase_fx.get_mask_texture_for_test() != null, "vase water effect loads the water mask texture")
+	ok(vase_fx.has_method("ready_glow_style_for_test"), "vase ready glow exposes its style for tests")
+	if vase_fx.has_method("ready_glow_style_for_test"):
+		var glow_style: Dictionary = vase_fx.call("ready_glow_style_for_test")
+		ok(glow_style.get("tone", "") == "gold", "vase ready glow is gold-toned")
+		ok(int(glow_style.get("soft_layers", 0)) >= 3, "vase ready glow uses layered soft fills")
+		ok(int(glow_style.get("hard_rings", -1)) == 0, "vase ready glow avoids hard outline rings")
 	var calm_surface: PackedVector2Array = vase_fx.water_surface_for_test()
 	ok(calm_surface.size() >= 12, "vase water effect exposes a sampled water surface")
 	ok(calm_surface[0].x > vase_fx.size.x * 0.10 and calm_surface[calm_surface.size() - 1].x < vase_fx.size.x * 0.90,
@@ -177,7 +186,14 @@ func _initialize() -> void:
 	ok(purge_vase != null, "purge card contains the vase water animation")
 	if purge_vase != null:
 		ok(absf(purge_vase.progress_for_test() - 0.5) < 0.06, "purge vase initializes from exp progress")
+		var lay: Dictionary = board._giver_lay()
+		var card_h := purge_card.custom_minimum_size.y * float(lay.get("card_h", 1.0))
+		ok(purge_vase.size.y >= card_h * 0.96, "purge vase is full height inside the card slot")
 	ok(percent_label != null and percent_label.text == "50%", "purge card shows readable percent progress")
+	if purge_vase != null and percent_label != null:
+		var vase_rect := _control_rect(purge_vase)
+		var label_rect := _control_rect(percent_label)
+		ok(vase_rect.has_point(label_rect.get_center()), "purge percent label is centered inside the vase")
 	ok(not _has_label_text(purge_card, str(Save.exp_total())), "purge card removes the old star count label")
 	ok(not _has_card_frame(purge_card), "purge card removes the old framed background")
 	ok(not _has_button(purge_card), "purge card replaces the text CTA button with the vase")
