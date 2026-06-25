@@ -15,8 +15,8 @@ The base game restores places. This expansion makes a restored place worth livin
 
 It adds two things: a new **Explore** mode — a short, timed **merge-for-score** rush you kit out with
 coin-bought boosts, where the score you earn buys **mystery boxes** that reveal the spirits you bring
-home; and a rule that every completed map is a **habitat with limited capacity** for them. You place
-spirits on maps and merge two-of-a-kind to climb tiers and free space. In return, the spirits produce
+home; and a rule that every completed map is a **habitat with limited capacity** for them. You merge
+spirits in your hand to climb tiers, then place them on maps to produce. In return, the spirits produce
 coins, currencies, and utility rewards that feed back into the game.
 
 Because spirits need room — and rarer ones are worth chasing — finishing a map is no longer an
@@ -50,8 +50,8 @@ self-renewing loop, bolted on top of the merge core without changing how the cor
   skill-earned score, and any premium path buys *better odds, never an exclusive spirit*. Built to
   grow into a full search-and-extraction mini-game.
 - **Place — capacity.** Each completed map holds a limited number of spirits (~8 to start,
-  upgradable). Two of a kind merge into one — raising tier *and* freeing a slot — so merging is
-  progression and space management at once.
+  upgradable). You **merge two-of-a-kind in your hand** to raise tier, then place — a higher-tier
+  spirit packs more production into one of a map's limited slots, so capacity stays the squeeze.
 - **Expand — the pull outward.** Because spirits need room, the player has a concrete new
   reason to unlock more maps and upgrade capacity, wiring the expansion into the base game's
   progression.
@@ -89,6 +89,12 @@ ambient render layer. The **Rush** is net-new (see Build-readiness). Three pilla
 sink finite again (the base `sink > faucet` proof relied on there being no cap), and **idle production
 / Water** re-open the cut passive faucet and the energy invariant (I2). Those re-proofs land in the
 parked Economy/Risk pass.*
+
+*v1 simplification — **rarity is parked.** Assume every spirit is **common**; production is
+**tier-only** and the merge rule is **same kind + same tier**. Rarity (white · blue · orange · red) is
+a clean later extension — wherever this spec still says "rarity × tier", "box rarity odds", or "kind ×
+rarity collection", read v1 as the all-common, tier-only version. The merge-across-rarity rule (result
+takes the higher) and the collection almanac come back with it.*
 
 ### Explore — acquire
 
@@ -150,8 +156,9 @@ give you comes home** — then you place them across your maps (see **Place**).
 ### Place — capacity & assignment
 
 The residents loop lives on a **Residents screen** — a hub separate from the merge board and the
-map-restoration view. From it you **assign** a spirit to a map, **merge** two-of-a-kind, **free or
-sell** a spirit, **view the collection**, and **launch an expedition** (Explore). The screen
+map-restoration view. From it you **merge** spirits in your hand, **assign** them to maps, **free or
+sell** a spirit, and **launch an expedition** (Explore) — the collection lives on its own almanac page.
+The screen
 **promotes** the existing per-map welcome overlay (already reached from the residents nav button) into
 a full hub — likely a dedicated scene (today only the board and map scenes exist) — and **supersedes
 that per-map welcome panel**; acquisition moves off the individual maps into Explore. (*Assign* is the
@@ -163,14 +170,15 @@ Each completed map is a **habitat with a slot capacity** (start: **~8**, upgrada
 spirit to a map fills a slot *and* raises that map's production (see **Reward**) — placement is a real
 economic decision, not flavor: where you put a spirit chooses which reward you make more of.
 
-- **Accounting** — **one slot per spirit instance, any tier.** Two tier-1s fill two slots; merging
-  them into one tier-2 frees a slot. Merge is progression *and* space management at once.
-- **Merge is per-map** — two-of-a-kind (same kind + rarity) merge only while assigned to the **same
-  map**; the higher-tier result produces more for that map. Concentrating a type on one map is how you
-  climb its tiers and free its slots.
-- **Re-assignment is free** — move a placed spirit between maps any time, to line up a merge or
-  rebalance which reward you favor. A map's output sums *all* its assigned spirits' yield (not specific
-  types), so concentrating a type to merge it never strands the spirit or starves another map.
+- **Accounting** — **one slot per spirit instance, any tier.** A map slot holds one spirit and is
+  freed by **selling or moving** it (not by merging — merge lives in the hand now). A higher-tier
+  spirit packs more production into that one slot.
+- **Merge is in-hand** — you merge **before placing**: in the hand, drag two-of-a-kind (**same kind +
+  same tier**) together to make one a tier up. Maps just hold placed spirits and produce — no on-map
+  merge. Merging up in hand is how you fit more production into a map's limited slots.
+- **Re-assignment is free** — move a placed spirit between maps any time to rebalance which reward you
+  favor. A map's output sums *all* its assigned spirits' yield, so moving a spirit never strands it or
+  starves a map.
 - **Why you don't just dog-pile the best map** — per-map **capacity (~8)** is the brake. You can only
   fit your ~8 best spirits on your favourite reward (say map 4's diamonds); a growing roster *must*
   spill onto other maps, so you naturally earn a **mix** of rewards and every map's identity stays
@@ -182,8 +190,8 @@ economic decision, not flavor: where you put a spirit chooses which reward you m
   distinct singletons (no legal merge) can free a slot by selling one.
 - **Free / sell** — remove an assigned spirit to recover its slot (what you get back is TBD — see
   Economy).
-- **Out of room → expand** — a full habitat is the engine of the next move: merge to free a slot,
-  upgrade a map's capacity, or unlock another map.
+- **Out of room → expand** — a full habitat is the engine of the next move: **sell or move** a spirit
+  to free a slot, upgrade a map's capacity, or unlock another map.
 - **Placement seam** — v1 assignment puts a spirit on a map where it wanders (stateless render);
   hand-positioning on a grid is a later layer.
 
@@ -202,13 +210,13 @@ long-tail this move leans on.)*
 
 **Each completed map produces one specific reward type, and its rate is the sum of every assigned
 spirit's yield** — and a spirit's yield rises with its **rarity × housed tier**. So you raise a map's
-output two ways: assign *more* spirits, or merge to push the ones there to higher tiers. Production is
+output two ways: place *more* spirits, or place **higher-tier** ones (merged up in hand). Production is
 **idle and compounding**: it accrues while you're away (capped, so it's a daily-return pull rather
 than infinite idle) and you **collect** it from the Residents screen.
 
 - **Merge stays worth it** — yield rises *per slot* with tier: a higher-tier spirit out-produces the
-  two that merged into it. So merging is always a production gain, not only space management — there's
-  no "hoard tier-1 commons" degenerate play.
+  two that merged into it, so merging up in hand is always a production gain — there's no "place a pile
+  of tier-1s" degenerate play.
 - **Accrual contract** — each completed map stores a last-collect time; accrued = its assigned
   spirits' rate × elapsed, **clamped to a cap** (the daily-return ceiling); **collect** banks it into
   that map's reward target and resets the clock. Rates and caps are Economy.
@@ -245,8 +253,9 @@ build; their exact behaviour and numbers are an implementation/Economy detail.
 Beyond production, the same residents feed a **collection**:
 
 - **Collection** — a **global** ledger of discovered spirits (kind × rarity × signature), reusing the
-  Explore rarity axis. Completing it grants a gameplay **reward** (the specific payoff is parked, like
-  the production content). *(Per-map sets are a later layer.)*
+  Explore rarity axis. It lives on **its own almanac page** (a shared almanac component, not inline on
+  the habitat screen) and is **parked to the backlog** (`docs/BACKLOG.md`). Completion reward and
+  per-map sets are later layers.
 
 **Parked — quest-givers.** The thesis once floated residents "acting as quest-givers." It's parked:
 here residents are the *supply* side (they produce), while quests are *demand* and already live on the
@@ -305,11 +314,19 @@ without a dominant strategy); **fling can't be aimed**, so a "clean dodge" is pa
 fling toward emptying the danger column; the **loadout item set** and prices; treefall **destroy vs
 knock-down** default. The prototype is HTML for feel only; the real Rush is the net-new GDScript engine.
 
+A second feel-prototype (`docs/design/prototypes/habitat_production.html`) validated the **payback
+half** and locked these decisions: **merge happens in the hand via drag** (drag two-of-a-kind
+together), **drag a spirit onto a map to place** it, maps **produce idly** in a fill→collect rhythm at
+a rate that rises with the spirits on them, and **capacity is freed by sell/move** (not on-map merge).
+The per-map reward identities read as a real "where do I load this" choice. Open tuning: collect
+cadence (naggy vs satisfying — levers are fewer maps / a collect-all / bigger caps) and the accrual-cap
+curve. (Rarity is parked — every spirit is common; see the Mechanics note.)
+
 ### The loop, restated
 
 Load out (spend coins on boosts) → merge-rush for score → trade score for mystery boxes → open them →
-place spirits across maps → merge to climb tiers and free slots → run out of room → expand → rush
-again — while placed spirits produce back into the board.
+merge spirits up in hand → place across maps → collect production → run out of room → sell / expand →
+rush again — while placed spirits produce back into the board.
 
 ---
 

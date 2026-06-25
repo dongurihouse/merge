@@ -107,6 +107,12 @@ _(The mystery-reward dialog shipped as **T53**, 2026-06-23 — see `tasks/ux-fee
   into a completionist almanac keeping its tiers; a favorite can be set as décor (never re-summoned). No
   code. **Depends on line-retirement (generator work).** *(from old meta 5.6.)*
 
+- **Resident collection — its own almanac page (residents expansion).** The residents loop discovers
+  spirits along a **kind × rarity** ledger; surface it as a dedicated **almanac page**, not inline on
+  the habitat/management screen (Dev call, 2026-06-24). Likely shares an almanac component with the
+  retired-line Collection above. Parked until the residents habitat/management screen is built. Spec:
+  `docs/design/residents_spec.md` (Reward → Collection).
+
 - **Live-ops / events framework (§17).** A data-driven event framework — a time-boxed overlay with a mini
   reward track, usually a limited-time generator + line (retires to the Collection), plus bonus weekends,
   limited cosmetics, catch-up bundles, and free + premium event lanes — **no code per event.** No code

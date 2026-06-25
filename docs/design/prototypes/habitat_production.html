@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Habitat &amp; production — feel prototype</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css">
+<style>
+:root{--font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+--border-radius-md:8px;--border-radius-lg:12px;--border-radius-xl:16px;}
+html,body{background:#0e1512;margin:0;padding:24px;font-family:var(--font-sans);}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;}
+</style>
+</head>
+<body>
+<!-- Feel-prototype for the Residents payback half (see docs/design/residents_spec.md).
+     Model (rarity parked — all spirits common): spirits = kind + tier; drag two-of-a-kind (same kind +
+     tier) together IN HAND to merge up; drag a spirit onto a map to place it; each map produces a
+     distinct reward idly (fill -> collect); capacity freed by sell/move; +slot upgrade with coins.
+     The collection/almanac is parked to docs/BACKLOG.md. HTML for feel only. -->
+<div style="padding:1rem 0;">
+<h2 class="sr-only">Simplified habitat prototype: all spirits are common and differ only by kind and tier; drag a matching kind+tier together in your hand to merge up a tier, drag a spirit onto a map to place it, and each map produces a distinct reward over time that you collect; manage capacity with sell and slot upgrades.</h2>
+<style>
+#hb3{--bg:#16221d;--bg2:#21302a;--bg3:#2a3a32;--line:rgba(255,255,255,.09);--tx:#e7efe8;--mut:#93a89b;
+font-family:var(--font-sans);color:var(--tx);width:100%;max-width:660px;margin:0 auto;background:var(--bg);border-radius:var(--border-radius-xl);border:0.5px solid var(--line);padding:16px;}
+#hb3 .mut{color:var(--mut);font-size:13px;}
+#hb3 .wallet{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+#hb3 .chip{display:flex;align-items:center;gap:5px;background:var(--bg2);border:0.5px solid var(--line);border-radius:20px;padding:5px 11px;font-size:13px;font-variant-numeric:tabular-nums;}
+#hb3 .chip i{font-size:15px;}
+#hb3 .hand{background:var(--bg2);border:0.5px solid var(--line);border-radius:var(--border-radius-lg);padding:10px 12px;margin-bottom:12px;}
+#hb3 .handrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:42px;}
+#hb3 .btn{appearance:none;border:0.5px solid rgba(255,255,255,.18);background:var(--bg3);color:var(--tx);font:inherit;font-size:13px;padding:8px 13px;border-radius:var(--border-radius-md);cursor:pointer;transition:transform .08s,background .15s;}
+#hb3 .btn:hover{background:#345244;} #hb3 .btn:active{transform:scale(.96);} #hb3 .btn[disabled]{opacity:.35;cursor:default;}
+#hb3 .btn.green{background:#2f6b4f;border-color:#3c8a64;}
+#hb3 .orb{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:14px;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.45);position:relative;cursor:grab;flex:none;touch-action:none;user-select:none;}
+#hb3 .orb .tg{position:absolute;bottom:-4px;right:-4px;font-size:9px;background:#1b2a23;color:#cfe;border-radius:8px;padding:0 3px;border:0.5px solid var(--line);text-shadow:none;}
+#hb3 .orb .xx{position:absolute;top:-6px;right:-6px;width:15px;height:15px;border-radius:50%;background:#a3392d;color:#fff;font-size:10px;display:none;align-items:center;justify-content:center;line-height:1;cursor:pointer;text-shadow:none;}
+#hb3 .map .orb:hover .xx{display:flex;}
+#hb3 .ghost{position:fixed;pointer-events:none;z-index:99;opacity:.92;}
+#hb3 .map{background:var(--bg2);border:0.5px solid var(--line);border-radius:var(--border-radius-lg);padding:10px 12px;margin-bottom:8px;transition:border-color .12s;}
+#hb3 .map.drop{border-color:#ffd166;background:#23302a;} #hb3 .map.full.drop{border-color:#a3392d;}
+#hb3 .mhead{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+#hb3 .mic{width:30px;height:30px;border-radius:8px;background:#2f6b4f;display:flex;align-items:center;justify-content:center;font-size:17px;flex:none;}
+#hb3 .slots{display:flex;gap:6px;flex-wrap:wrap;min-height:38px;align-items:center;margin-bottom:8px;}
+#hb3 .empty{width:38px;height:38px;border-radius:50%;border:1.5px dashed rgba(255,255,255,.14);flex:none;}
+#hb3 .barwrap{display:flex;align-items:center;gap:10px;}
+#hb3 .bar{flex:1;height:8px;background:rgba(255,255,255,.07);border-radius:6px;overflow:hidden;}
+#hb3 .bar > i{display:block;height:100%;background:#3c8a64;width:0;border-radius:6px;transition:width .15s linear;}
+#hb3 .bar.full > i{background:#ffd166;}
+#hb3 .pop{position:fixed;pointer-events:none;font-weight:500;font-size:14px;animation:hbRise .8s ease-out forwards;z-index:100;}
+@keyframes hbRise{0%{opacity:0;transform:translateY(0) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translateY(-40px) scale(1.1)}}
+@keyframes hbShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+</style>
+
+<div id="hb3">
+  <div class="wallet" id="hb-wallet"></div>
+  <div class="hand">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+      <span class="mut">spirits in hand <span style="color:#ffd166">— drag a match onto a match to merge, or drag onto a map to place</span></span>
+      <button class="btn" id="hb-run"><i class="ti ti-compass" aria-hidden="true"></i> Run expedition</button>
+    </div>
+    <div class="handrow" id="hb-hand"></div>
+  </div>
+  <div id="hb-maps"></div>
+</div>
+
+<script>
+(function(){
+  var hb=document.getElementById('hb3'); if(!hb) return;
+  var KINDS=['Moss','Fern','Acorn','Lantern','Pip'];
+  var KCO={Moss:'#5bbf7a',Fern:'#3fb6c0',Acorn:'#c98b4a',Lantern:'#d9b94a',Pip:'#b07ed8'};
+  var MAPS=[{n:'The Farm',rw:'coins',ic:'ti-coin'},{n:'The Garden',rw:'water',ic:'ti-droplet'},{n:'The Mill',rw:'boost',ic:'ti-bolt'},{n:'The Gate',rw:'diamond',ic:'ti-diamond'},{n:'The Hollow',rw:'spirit',ic:'ti-sparkles'}];
+  var WICON={coins:'ti-coin',water:'ti-droplet',boost:'ti-bolt',diamond:'ti-diamond'};
+  var WCOL={coins:'#f5d76e',water:'#7fd3ff',boost:'#c9a6ff',diamond:'#9fe0ff'};
+  function $(id){return document.getElementById(id);}
+  function rnd(a){return a[Math.floor(Math.random()*a.length)];}
+  var wallet={coins:600,water:30,boost:2,diamond:8};var hand=[];
+  MAPS.forEach(function(m){m.res=[];m.cap=5;m.acc=0;});
+  function rate(m){return m.res.reduce(function(a,s){return a+s.tier;},0);}
+  function cap(m){var r=rate(m);return Math.max(12,r*10);}
+  function newSpirit(){return {kind:rnd(KINDS),tier:1};}
+  function upCost(m){return 60+(m.cap-5)*40;}
+  MAPS[0].res=[{kind:'Moss',tier:1},{kind:'Acorn',tier:2}];MAPS[3].res=[{kind:'Pip',tier:1}];
+  for(var i=0;i<6;i++)hand.push(newSpirit());
+
+  function pop(x,y,txt,col){var d=document.createElement('div');d.className='pop';d.textContent=txt;d.style.left=x+'px';d.style.top=y+'px';d.style.color=col||'#ffd166';document.body.appendChild(d);setTimeout(function(){d.remove();},800);}
+  function orbInner(s){return s.kind[0]+'<span class="tg">t'+s.tier+'</span>';}
+  function styleOrb(el,s){el.style.background=KCO[s.kind];}
+
+  function renderWallet(){var w=$('hb-wallet');w.innerHTML='';['coins','water','boost','diamond'].forEach(function(k){
+    var c=document.createElement('div');c.className='chip';c.innerHTML='<i class="ti '+WICON[k]+'" style="color:'+WCOL[k]+'" aria-hidden="true"></i> '+Math.round(wallet[k]);w.appendChild(c);});}
+  function renderHand(){var h=$('hb-hand');h.innerHTML='';
+    hand.forEach(function(s,i){var d=document.createElement('div');d.className='orb';d.dataset.hi=i;styleOrb(d,s);d.innerHTML=orbInner(s);
+      d.addEventListener('pointerdown',function(e){startDrag(e,s);});h.appendChild(d);});
+    if(!hand.length){var e=document.createElement('span');e.className='mut';e.style.fontSize='12px';e.textContent='none — run an expedition for more';h.appendChild(e);}}
+  function renderMaps(){var box=$('hb-maps');box.innerHTML='';
+    MAPS.forEach(function(m,mi){var r=rate(m),cp=cap(m);
+      var card=document.createElement('div');card.className='map';card.dataset.mi=mi;
+      var slots='';m.res.forEach(function(s,si){slots+='<div class="orb" style="background:'+KCO[s.kind]+'">'+orbInner(s)+'<span class="xx" data-sell="'+mi+'_'+si+'">×</span></div>';});
+      for(var e=m.res.length;e<m.cap;e++)slots+='<div class="empty"></div>';
+      var rlabel=m.rw==='spirit'?'spawns a spirit':('+'+r+' '+m.rw+'/cycle');
+      card.innerHTML='<div class="mhead"><div class="mic"><i class="ti '+m.ic+'" aria-hidden="true"></i></div>'+
+        '<div><div style="font-size:14px;font-weight:500">'+m.n+'</div><div class="mut" style="font-size:12px">'+rlabel+' &middot; '+m.res.length+'/'+m.cap+' slots</div></div>'+
+        '<button class="btn" data-up="'+mi+'" style="margin-left:auto">+ slot &middot; '+upCost(m)+'<i class="ti ti-coin" style="color:#f5d76e;margin-left:3px" aria-hidden="true"></i></button></div>'+
+        '<div class="slots">'+slots+'</div>'+
+        '<div class="barwrap"><div class="bar'+(m.acc>=cp-0.5?' full':'')+'" id="bar-'+mi+'"><i style="width:'+(cp?Math.min(100,m.acc/cp*100):0)+'%"></i></div>'+
+        '<button class="btn green" data-col="'+mi+'" '+(m.acc>=1?'':'disabled')+'>'+(m.rw==='spirit'?'Collect spirit':('Collect '+Math.floor(m.acc)))+'</button></div>';
+      box.appendChild(card);});
+    bind();}
+  function bind(){
+    Array.prototype.slice.call(hb.querySelectorAll('[data-col]')).forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();collect(+b.dataset.col);});});
+    Array.prototype.slice.call(hb.querySelectorAll('[data-up]')).forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();upgrade(+b.dataset.up);});});
+    Array.prototype.slice.call(hb.querySelectorAll('[data-sell]')).forEach(function(b){b.addEventListener('click',function(e){e.stopPropagation();var p=b.dataset.sell.split('_');sell(+p[0],+p[1]);});});}
+
+  var drag=null;
+  function startDrag(e,s){e.preventDefault();drag={s:s,sx:e.clientX,sy:e.clientY,moved:false,ghost:null};}
+  function onMove(e){if(!drag)return;if(Math.abs(e.clientX-drag.sx)>5||Math.abs(e.clientY-drag.sy)>5)drag.moved=true;
+    if(drag.moved){if(!drag.ghost){var g=document.createElement('div');g.className='orb ghost';styleOrb(g,drag.s);g.innerHTML=orbInner(drag.s);hb.appendChild(g);drag.ghost=g;}
+      drag.ghost.style.left=(e.clientX-19)+'px';drag.ghost.style.top=(e.clientY-19)+'px';}
+    var hit=document.elementFromPoint(e.clientX,e.clientY);var card=hit&&hit.closest?hit.closest('.map'):null;
+    Array.prototype.slice.call(hb.querySelectorAll('.map')).forEach(function(c){c.classList.toggle('drop',c===card);if(c===card){var m=MAPS[+c.dataset.mi];c.classList.toggle('full',m.res.length>=m.cap);}});}
+  function onUp(e){if(!drag)return;var d=drag;drag=null;if(d.ghost)d.ghost.remove();
+    Array.prototype.slice.call(hb.querySelectorAll('.map')).forEach(function(c){c.classList.remove('drop','full');});
+    if(!d.moved)return;var hit=document.elementFromPoint(e.clientX,e.clientY);if(!hit||!hit.closest)return;
+    var ho=hit.closest('[data-hi]');var card=hit.closest('.map');
+    if(ho){var tgt=hand[+ho.dataset.hi];if(tgt&&tgt!==d.s&&tgt.kind===d.s.kind&&tgt.tier===d.s.tier){
+      tgt.tier++;hand.splice(hand.indexOf(d.s),1);var rc=ho.getBoundingClientRect();pop(rc.left+8,rc.top-4,'t'+tgt.tier+'!','#ffd166');renderHand();renderMaps();return;}return;}
+    if(card){placeOnMap(+card.dataset.mi,d.s);return;}}
+  document.addEventListener('pointermove',onMove);document.addEventListener('pointerup',onUp);
+
+  function placeOnMap(mi,s){var m=MAPS[mi];var idx=hand.indexOf(s);if(idx<0)return;
+    if(m.res.length>=m.cap){var card=hb.querySelector('.map[data-mi="'+mi+'"]');card.style.animation='hbShake .3s';setTimeout(function(){card.style.animation='';},300);return;}
+    hand.splice(idx,1);m.res.push(s);renderHand();renderMaps();}
+  function collect(mi){var m=MAPS[mi];if(m.acc<1)return;var card=hb.querySelector('.map[data-mi="'+mi+'"]');var rc=card.getBoundingClientRect();
+    if(m.rw==='spirit'){if(m.acc<cap(m))return;hand.push(newSpirit());m.acc=0;pop(rc.left+40,rc.top+10,'+1 spirit','#ffd166');renderHand();}
+    else{var amt=Math.floor(m.acc);wallet[m.rw]+=amt;m.acc=0;pop(rc.left+40,rc.top+10,'+'+amt+' '+m.rw,WCOL[m.rw]);renderWallet();}
+    renderMaps();}
+  function upgrade(mi){var m=MAPS[mi],c=upCost(m);if(wallet.coins<c)return;wallet.coins-=c;m.cap++;renderWallet();renderMaps();}
+  function sell(mi,si){var m=MAPS[mi];var s=m.res.splice(si,1)[0];wallet.coins+=s.tier*5;renderWallet();renderMaps();}
+  $('hb-run').addEventListener('click',function(){for(var i=0;i<3;i++)hand.push(newSpirit());renderHand();});
+
+  var last=performance.now();
+  function loop(now){var dt=(now-last)/1000;last=now;if(dt>0.2)dt=0.2;
+    MAPS.forEach(function(m,mi){var r=rate(m),cp=cap(m);if(r>0&&m.acc<cp){m.acc=Math.min(cp,m.acc+r*dt*1.3);
+      var bar=$('bar-'+mi);if(bar){bar.firstChild.style.width=Math.min(100,m.acc/cp*100)+'%';bar.classList.toggle('full',m.acc>=cp-0.5);
+      var btn=hb.querySelector('[data-col="'+mi+'"]');if(btn){btn.disabled=m.acc<1;if(m.rw!=='spirit')btn.textContent='Collect '+Math.floor(m.acc);}}}});
+    requestAnimationFrame(loop);}
+  renderWallet();renderHand();renderMaps();requestAnimationFrame(loop);
+})();
+</script>
+</div>
+</body>
+</html>
