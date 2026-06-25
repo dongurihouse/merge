@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_cover_offset_bleed()
 	await _test_boot_does_zero_live_work()
 	await _test_map_integration()
+	await _test_map_card_zone_progress()
 	await _test_unlock_badge_follows_map()
 	await _test_overlay_fills_view()
 	_test_multimap()
@@ -224,10 +225,38 @@ func _test_map_integration() -> void:
 	ok(vv2 != null and not _region_on(vv2, 0), "restoring region 0 turns its vines off")
 	hx.queue_free()
 
+func _test_map_card_zone_progress() -> void:
+	fresh("map_card_zone_progress")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	await create_timer(0.05).timeout
+	var opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
+	var card: Control = hx._make_card(G.hub_map(), 460.0, 160.0, opts)
+	get_root().add_child(card)
+	await create_timer(0.05).timeout
+	ok(_has_label_text(card, "0/6"), "fresh map card shows unlocked zone progress as 0/6")
+	ok(not _any_label_contains(card, "exp"), "fresh map card progress pill no longer shows total exp")
+	card.queue_free()
+	hx.queue_free()
+
 # read the VineMapView's per-region enabled state (vines ON == enabled). set_region_enabled keeps
 # region_overlays[i].enabled in sync (confirmed in vine_map_view.gd), so read that directly.
 func _region_on(vv: Control, i: int) -> bool:
 	return bool(vv.region_overlays[i].get("enabled", true))
+
+func _has_label_text(node: Control, text: String) -> bool:
+	for l in node.find_children("*", "Label", true, false):
+		if String((l as Label).text) == text:
+			return true
+	return false
+
+func _any_label_contains(node: Control, text: String) -> bool:
+	for l in node.find_children("*", "Label", true, false):
+		if String((l as Label).text).find(text) != -1:
+			return true
+	return false
 
 # Manual-only authoring can clear every polygon, handing the view an EMPTY region set. The view floors
 # its overlay count at 1 (a fallback overlay), so the enable-sync must tolerate an index past the end
@@ -324,4 +353,3 @@ func _test_button_pos() -> void:
 	ok(absf(p0.x - 0.2) < 0.001 and absf(p0.y - 0.8) < 0.001, "a region's button [20,80] -> pos (0.2,0.8), not the centroid (0.5,0.5)")
 	var p1: Vector2 = spots[1].pos
 	ok(absf(p1.x - 0.2) < 0.001 and absf(p1.y - 0.2) < 0.001, "a region with no button falls back to the centroid (0.2,0.2)")
-

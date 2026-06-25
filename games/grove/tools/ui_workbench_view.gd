@@ -102,8 +102,8 @@ const TEST_KEYS := {
 	"info_bar": ["filled"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
-	# veil look) persists; open/done/unlock_exp just preview the card (the game sets each from map state).
-	"map_card": ["open", "done", "unlock_exp"],
+	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
+	"map_card": ["open", "done", "owned_zones", "total_zones"],
 	# the quest-giver card — the LAYOUT block (card/bust/bubble/item/plaque fractions) IS saved config now:
 	# the board reads it via Kit.giver_lay_from_config, so a tweak here flows to the live giver card. Only
 	# the DEMO knobs are test-only (which bust, the asked tier/reward, the board-given size, the ready ✓).
@@ -226,10 +226,10 @@ var _params := {
 	# screen (width % of screen width — smaller = wider side margins; height % of screen height). The rest
 	# mirror the shipped §8 constants, so the saved block the game's map.gd reads renders the card until you
 	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
-	# Kit.map_card_opts_from_config). open/done/unlock_exp are preview-only (the game sets each per map).
+	# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
 	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
-		"open": true, "done": false, "unlock_exp": 3},
+		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
 	# LAYOUT fractions (card/bust/bubble/item/plaque) ARE saved and the board reads them (giver_lay_from_config).
@@ -613,7 +613,7 @@ func _make_element(id: String) -> Control:
 		"map_card":
 			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
 			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
-			# gold frame / dark panel + the §8 veil read on their own; open/done/unlock_exp preview the state.
+			# gold frame / dark panel + the §8 veil read on their own; open/done/zone progress preview the state.
 			# pass the shared gold_badge skin so the open card's frame previews the SAME tuning as board/info-bar.
 			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"]})
 			# preview at the SAME proportion the game lays out — card_w_frac of the screen WIDTH by
@@ -624,7 +624,8 @@ func _make_element(id: String) -> Control:
 			var wf: float = maxf(1.0, float(p.get("card_w_frac", 96)))
 			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
 			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
-			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "", "unlock_exp": int(p.unlock_exp),
+			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "",
+				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
 		"quest_card":
@@ -1623,7 +1624,8 @@ func _rebuild_sidebar() -> void:
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
-			_sidebar_body.add_child(_slider_row(["unlock_exp", 0, 99]))
+			_sidebar_body.add_child(_slider_row(["owned_zones", 0, 12]))
+			_sidebar_body.add_child(_slider_row(["total_zones", 0, 12]))
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")
