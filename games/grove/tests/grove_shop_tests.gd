@@ -306,6 +306,7 @@ func _initialize() -> void:
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")
 	ok(not _tree_has(bramble_node, "PanelContainer"), "locked cell has no dark cream-on-bark gate chip (the loud badge is gone)")
+	ok(_all_ignore(bramble_node), "frontier locked cell ignores mouse so the board input surface receives taps")
 	bramble_node.free()
 	ok(BoardScript._quest_band_style().bg_color.v > 0.70, "quest band is a light Rest-plane strip (not the dark fence)")
 

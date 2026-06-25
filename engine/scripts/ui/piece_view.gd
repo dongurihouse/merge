@@ -293,7 +293,9 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
 	var d := {"state": ("unlockable" if unlockable else "locked")}
-	holder.add_child(Kit.slot_cell(d, opts))
+	var cell_view: Control = Kit.slot_cell(d, opts)
+	cell_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.add_child(cell_view)
 	# RECEDE: non-unlockable locks fade back (a frontier gate a little, deeper non-frontier rings more);
 	# an unlockable cell keeps full opacity so it POPS as the actionable next move.
 	if not unlockable:
