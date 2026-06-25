@@ -1,6 +1,6 @@
 extends SceneTree
 ## Headless tests for the server-driven mail SYNC contract (core/inbox_sync.gd::apply_feed) + the
-## capped-mailbox helpers it leans on (core/inbox.gd cursor/remaining_slots/prune). Pure logic, no
+## capped-mailbox helpers it leans on (core/inbox.gd seen/remaining_slots/prune). Pure logic, no
 ## network.  godot --headless -s res://engine/tests/inbox_sync_tests.gd
 
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -43,49 +43,60 @@ func _feed(from: int, count: int) -> String:
 func _initialize() -> void:
 	print("== Inbox sync tests ==")
 
-	# fresh box = the 2 seeded starters (welcome + starter_gift), cursor 0, room for CAP-2 more.
+	# fresh box = the 2 seeded starters (welcome + starter_gift), empty seen-ledger, room for CAP-2 more.
 	fresh("base")
-	ok(Inbox.cursor() == 0, "a fresh save starts at cursor 0 (fetch everything since 0)")
+	ok(Inbox.seen().is_empty(), "a fresh save has an empty seen-ledger (nothing folded yet)")
 	ok(Inbox.remaining_slots() == Inbox.MAIL_CAP - 2, "remaining_slots = cap minus the 2 seeded messages")
 
-	# 1. FOLD + CURSOR: a feed folds its messages in, returns the count, and advances the cursor to the
-	#    highest seq it took.
-	var n := Sync.apply_feed(_feed(5, 3))                    # seq 5,6,7
+	# 1. FOLD: a feed folds its messages in, returns the count, and records each id in the seen-ledger.
+	var n := Sync.apply_feed(_feed(5, 3))                    # ids g5,g6,g7
 	ok(n == 3 and _has("g5") and _has("g7"), "a feed folds its new messages into the box")
-	ok(Inbox.cursor() == 7, "the cursor advances to the last seq folded")
+	ok(Inbox.seen().has("g5") and Inbox.seen().has("g7"), "folded ids are recorded in the seen-ledger")
 
-	# 2. RE-APPLY: folding the same feed again adds nothing and leaves the cursor put (id dedup + seqs
-	#    not past the cursor).
+	# 2. RE-APPLY: folding the same feed again adds nothing (the ids are already in the box AND seen).
 	var n2 := Sync.apply_feed(_feed(5, 3))
-	ok(n2 == 0 and Inbox.cursor() == 7, "re-applying a folded feed is a no-op")
+	ok(n2 == 0, "re-applying a folded feed is a no-op")
 
-	# 3. CAP: a feed bigger than the box only folds up to remaining_slots; the cursor stops at the last
-	#    one that FIT, so the overflow comes back on the next fetch.
+	# 3. NO RE-DELIVERY across prune: the whole point of the seen-ledger. Fold a gift, claim it, prune it
+	#    out of the box, then re-ingest a feed that STILL lists it — it must NOT come back (no double-claim).
+	fresh("seen")
+	Sync.apply_feed('{"messages":[{"seq":1,"id":"gift1","title":"g","body":"b","reward":{"coins":50}}]}')
+	ok(_has("gift1"), "the gift folds in on first sync")
+	Inbox.claim("gift1")                                     # claimed → now "dealt with"
+	ok(Inbox.prune() >= 1 and not _has("gift1"), "claiming then pruning removes the gift from the box")
+	var redelivered := Sync.apply_feed('{"messages":[{"seq":1,"id":"gift1","title":"g","body":"b","reward":{"coins":50}}]}')
+	ok(redelivered == 0 and not _has("gift1"), "a pruned-but-claimed gift the feed still lists is NOT re-delivered")
+
+	# 4. CAP + overflow: a feed bigger than the box only folds up to remaining_slots; the overflow stays
+	#    UNMARKED, so once slots free it folds in on a later sync.
 	fresh("cap")
-	var big := Sync.apply_feed(_feed(1, 50))                 # seq 1..50, but only CAP-2 slots free
+	var big := Sync.apply_feed(_feed(1, 50))                 # ids g1..g50, but only CAP-2 slots free
 	ok(big == Inbox.MAIL_CAP - 2, "a feed only folds up to the remaining slots")
 	ok(Inbox.messages().size() == Inbox.MAIL_CAP, "the box fills exactly to the cap")
-	ok(Inbox.cursor() == Inbox.MAIL_CAP - 2, "the cursor stops at the last message that fit (overflow refetched)")
+	for m in Inbox.messages():
+		m["read"] = true                                    # mark everything read so prune can clear the plain notes
+	Inbox.prune()                                           # frees the read notes (keeps the unclaimed starter gift)
+	var more := Sync.apply_feed(_feed(1, 50))                # same file → the unseen overflow (g9+) now folds in
+	ok(more > 0 and _has("g%d" % Inbox.MAIL_CAP), "overflow left unmarked is folded on a later sync")
 
-	# 4. MALFORMED: never crashes, folds nothing, cursor untouched.
+	# 5. MALFORMED: never crashes, folds nothing, ledger untouched.
 	fresh("malformed")
 	ok(Sync.apply_feed("not json {{{") == 0, "garbage JSON folds nothing")
 	ok(Sync.apply_feed('{"messages":"oops"}') == 0, "a non-array messages field folds nothing")
-	ok(Inbox.cursor() == 0, "malformed input leaves the cursor at 0")
+	ok(Inbox.seen().is_empty(), "malformed input leaves the seen-ledger empty")
 
-	# 5. SKIPS still advance the cursor: a message with no id (can't dedup) is not folded but is consumed.
+	# 6. NO-ID: a message with no id can't be deduped, so it's never folded (and never marked seen).
 	fresh("noid")
 	var n5 := Sync.apply_feed('{"messages":[{"seq":9,"title":"no id"}]}')
-	ok(n5 == 0 and not _has("") and Inbox.cursor() == 9, "a message with no id is skipped but the cursor passes it")
+	ok(n5 == 0 and not _has("") and Inbox.seen().is_empty(), "a message with no id is skipped and not recorded")
 
-	# 6. FULL BOX: when nothing fits, apply_feed folds nothing and leaves the cursor alone.
+	# 7. FULL BOX: when nothing fits, apply_feed folds nothing.
 	fresh("full")
 	Sync.apply_feed(_feed(1, 50))                            # fill to cap
-	var before := Inbox.cursor()
 	var n6 := Sync.apply_feed(_feed(100, 5))
-	ok(n6 == 0 and Inbox.cursor() == before, "a full box folds nothing and does not advance the cursor")
+	ok(n6 == 0, "a full box folds nothing")
 
-	# 7. PRUNE: dealt-with mail (claimed gifts / read notes) clears; unclaimed gifts + unread stay.
+	# 8. PRUNE: dealt-with mail (claimed gifts / read notes) clears; unclaimed gifts + unread stay.
 	fresh("prune")
 	Inbox.add({"id": "gift_keep", "title": "g", "body": "b", "reward": {"coins": 50}})   # unclaimed gift
 	Inbox.add({"id": "note_unread", "title": "n", "body": "b"})                          # unread note
