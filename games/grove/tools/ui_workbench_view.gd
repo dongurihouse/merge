@@ -1589,9 +1589,11 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["circle_scale", 10, 160]))
 			for pn in [["Leaf (wreath)", "leaf"], ["Flower", "flower"], ["Acorn", "acorn"], ["Gem", "gem"]]:
 				_section_header(String(pn[0]))
-				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_x", -60, 60]))      # horizontal offset (% of px)
-				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_y", -60, 60]))      # vertical offset (% of px; − = up)
-				_sidebar_body.add_child(_slider_row([String(pn[1]) + "_scale", 10, 160]))  # size (% of the common box)
+				var part_key := String(pn[1])
+				var y_min := -120 if part_key == "gem" else -60
+				_sidebar_body.add_child(_slider_row([part_key + "_x", -60, 60]))      # horizontal offset (% of px)
+				_sidebar_body.add_child(_slider_row([part_key + "_y", y_min, 60]))    # vertical offset (% of px; - = up)
+				_sidebar_body.add_child(_slider_row([part_key + "_scale", 10, 160]))  # size (% of the common box)
 			_section_header("Number (the level text)")
 			_sidebar_body.add_child(_slider_row(["num_size", 8, 70]))       # font (% of px)
 			_sidebar_body.add_child(_slider_row(["num_x", -50, 50]))        # side (horizontal offset)
