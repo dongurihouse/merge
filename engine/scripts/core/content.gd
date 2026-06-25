@@ -749,12 +749,11 @@ static func unlock_content_zone_exp() -> float:
 	var n_content: int = maxi(1, MAPS.size() - 1)
 	return (float(ENDGAME_CLICKS) / float(QUEST_CLICKS_PER_EXP)) / (float(n_content) + GATE_CAP_FRACTION)
 
-# Cumulative exp threshold at which spot k of map z becomes claimable. A CONTENT map z occupies the band
-# [z·cz, (z+1)·cz] and its spots divide it evenly; the FINALE map (last) occupies the small cap band
-# [content_end, full budget]. EVERY spot — including the global first — costs one even increment, so the
-# first unlock is NOT free on a fresh save (it lands at cz/n, one zone-spot of effort); the final spot =
-# full budget.
-static func spot_unlock_exp(z: int, k: int) -> int:
+# Raw authoring ladder for spot k of map z. A CONTENT map z occupies the band [z·cz, (z+1)·cz]
+# and its spots divide it evenly; the FINALE map occupies the small cap band at the end.
+# This raw value chooses the required LEVEL; live claiming floors to exp_at_level(required_level)
+# so a zone opens as soon as the player reaches that level.
+static func spot_unlock_raw_exp(z: int, k: int) -> int:
 	var cz := unlock_content_zone_exp()
 	var last: int = MAPS.size() - 1
 	var n: int = maxi(1, MAPS[z].spots.size())
@@ -763,6 +762,15 @@ static func spot_unlock_exp(z: int, k: int) -> int:
 	# finale cap: band [last·cz, last·cz + GATE_CAP_FRACTION·cz] (ends at the full budget)
 	var cap := GATE_CAP_FRACTION * cz
 	return int(round(last * cz + (k + 1) * (cap / float(n))))
+
+static func spot_unlock_level(z: int, k: int) -> int:
+	return level_for_exp(spot_unlock_raw_exp(z, k))
+
+# Cumulative exp threshold at which spot k of map z becomes claimable. The authored raw threshold
+# maps to a level, then floors to that level's start; e.g. Farm 6/7 maps to L7 and unlocks at
+# exp_at_level(7), not at the middle of L7.
+static func spot_unlock_exp(z: int, k: int) -> int:
+	return exp_at_level(spot_unlock_level(z, k))
 
 # The next spot to claim in map z = the lowest-threshold UNCLAIMED spot. Returns
 # {k, exp}; k == -1 when every spot of z is already claimed.

@@ -103,6 +103,7 @@
 		"spot": {
 			"map_restored": "%s restored!",
 			"needs_exp": "Needs %d exp",
+			"needs_level": "Unlocks at Level %d",
 			"new_asks_in_garden": "New asks in the garden ❀"
 		},
 		"unlock": {
