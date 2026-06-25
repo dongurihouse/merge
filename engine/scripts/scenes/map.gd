@@ -1264,7 +1264,6 @@ func _make_map_button() -> Button:
 	if Kit == null:
 		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	opts["px"] = 140.0
 	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
 	opts["calm"] = FX.calm()
 	var HC: GDScript = load(HOME_CHROME_PATH)
@@ -1284,7 +1283,6 @@ func _make_residents_button() -> Button:
 		b = NavBar._make_nav_button("nav_residents.png", 140.0, open)   # defensive: glyph/png fallback
 	else:
 		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		opts["px"] = 140.0
 		opts["shape"] = "rect"
 		opts["calm"] = FX.calm()
 		var HC: GDScript = load(HOME_CHROME_PATH)

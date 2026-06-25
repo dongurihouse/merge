@@ -3392,8 +3392,9 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## all build the same gold_badge-backed component directly from this block.
 static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("gold_currency_pill", {}) if cfg is Dictionary else {}
-	var icon_box := float(g.get("icon_box", 54.0))
-	var icon_size := float(g.get("icon_size", 34.0))
+	var scale := maxf(0.01, float(g.get("overall_scale", 100.0)) / 100.0)
+	var icon_box := float(g.get("icon_box", 54.0)) * scale
+	var icon_size := float(g.get("icon_size", 34.0)) * scale
 	# the OVERALL drop shadow reuses the shared shadow look (offset/blur/spread/warmth), but the pill
 	# overrides just its STRENGTH (alpha) — so the wallet capsule can sit heavier/lighter than the rest.
 	var sp: Dictionary = Look.shadow_params(cfg)
@@ -3405,27 +3406,27 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# the capsule FRAME is the shared gold-badge skin — fold the tuned block in as `badge` so the HUD /
 		# bag / info bar paint the SAME skin the workbench preview injects (gc["badge"] = _params["gold_badge"]).
 		"badge": cfg.get("gold_badge", {}) if cfg is Dictionary else {},
-		"pill_w": float(g.get("pill_w", 292.0)),
-		"pill_h": float(g.get("pill_h", 100.0)),
-		"pad_left": float(g.get("pad_left", 18.0)),
-		"pad_x": float(g.get("pad_x", 16.0)),
-		"pad_y": float(g.get("pad_y", 12.0)),
+		"pill_w": float(g.get("pill_w", 292.0)) * scale,
+		"pill_h": float(g.get("pill_h", 100.0)) * scale,
+		"pad_left": float(g.get("pad_left", 18.0)) * scale,
+		"pad_x": float(g.get("pad_x", 16.0)) * scale,
+		"pad_y": float(g.get("pad_y", 12.0)) * scale,
 		"icon_box": icon_box,
 		"icon_size": icon_size,
-		"icon_x": float(g.get("icon_x", 0.0)),
-		"amount_w": float(g.get("amount_w", 88.0)),
-		"num_size": int(g.get("num_size", 30)),
-		"amount_x": float(g.get("amount_x", 0.0)),
-		"gap": int(g.get("gap", 12)),
-		"plus_x": float(g.get("plus_x", 0.0)),
+		"icon_x": float(g.get("icon_x", 0.0)) * scale,
+		"amount_w": float(g.get("amount_w", 88.0)) * scale,
+		"num_size": maxi(1, int(round(float(g.get("num_size", 30)) * scale))),
+		"amount_x": float(g.get("amount_x", 0.0)) * scale,
+		"gap": int(round(float(g.get("gap", 12)) * scale)),
+		"plus_x": float(g.get("plus_x", 0.0)) * scale,
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
-		"plus_stroke": float(g.get("plus_stroke", 2.0)),
-		"plus_font": float(g.get("plus_font", 70.0)),
-		"plus_button": float(g.get("plus_button", 100.0)),
+		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,
+		"plus_font": float(g.get("plus_font", 70.0)) * scale,
+		"plus_button": float(g.get("plus_button", 100.0)) * scale,
 		"plus_round": float(g.get("plus_round", 8.0)),
 		"plus_hue": float(g.get("plus_hue", 65.0)),
-		"plus_label_y": float(g.get("plus_label_y", 0.0)),   # vertical nudge of the "+" within the green button
+		"plus_label_y": float(g.get("plus_label_y", 0.0)) * scale,   # vertical nudge of the "+" within the green button
 		"inner_shadow": float(g.get("inner_shadow", 30.0)),
 		"show_plus": true,
 	}

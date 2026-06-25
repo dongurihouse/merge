@@ -178,6 +178,7 @@
 		"plus_shine": 58.0,
 		"plus_stroke": 2.0,
 		"plus_x": 6.0,
+		"overall_scale": 180.0,
 		"shadow": true,
 		"shadow_alpha": 80.0
 	},
@@ -197,7 +198,7 @@
 		"glow": 45.0,
 		"icon_scale": 50.0,
 		"play_px": 260.0,
-		"px": 140.0,
+		"px": 210.0,
 		"rect_pad": 13.0,
 		"shadow": true,
 		"twinkle": 55.0
