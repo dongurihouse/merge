@@ -66,6 +66,14 @@ func _has_label_text(node: Node, text: String) -> bool:
 func _control_rect(control: Control) -> Rect2:
 	return Rect2(control.position, control.size)
 
+func _read_text_file(path: String) -> String:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return ""
+	var text := f.get_as_text()
+	f.close()
+	return text
+
 func _initialize() -> void:
 	var fx: Control = WaterFillEffect.new()
 	fx.size = Vector2(640, 520)
@@ -127,6 +135,15 @@ func _initialize() -> void:
 	root.add_child(vase_fx)
 	await process_frame
 	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
+	ok(vase_fx.texture_filter == CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS,
+		"vase water effect requests smooth mipmap texture filtering")
+	var vase_import_text := _read_text_file(VaseWaterEffect.VASE_PATH + ".import")
+	ok(vase_import_text.contains("mipmaps/generate=true"), "acorn vase import generates mipmaps")
+	ok(vase_fx.has_method("visible_vase_rect_for_test"), "vase water effect exposes visible art bounds")
+	if vase_fx.has_method("visible_vase_rect_for_test"):
+		var visible_vase_rect: Rect2 = vase_fx.call("visible_vase_rect_for_test")
+		ok(visible_vase_rect.size.y >= vase_fx.size.y * 0.96, "visible vase art fills the control height")
+		ok(visible_vase_rect.position.y <= vase_fx.size.y * 0.02, "visible vase art starts at the top of the control")
 	ok(vase_fx.get_mask_texture_for_test() != null, "vase water effect loads the water mask texture")
 	ok(vase_fx.has_method("ready_glow_style_for_test"), "vase ready glow exposes its style for tests")
 	if vase_fx.has_method("ready_glow_style_for_test"):
@@ -136,8 +153,11 @@ func _initialize() -> void:
 		ok(int(glow_style.get("hard_rings", -1)) == 0, "vase ready glow avoids hard outline rings")
 	var calm_surface: PackedVector2Array = vase_fx.water_surface_for_test()
 	ok(calm_surface.size() >= 12, "vase water effect exposes a sampled water surface")
-	ok(calm_surface[0].x > vase_fx.size.x * 0.10 and calm_surface[calm_surface.size() - 1].x < vase_fx.size.x * 0.90,
-		"vase water surface is clipped to the mask span")
+	if vase_fx.has_method("visible_vase_rect_for_test"):
+		var mask_clip_rect: Rect2 = vase_fx.call("visible_vase_rect_for_test")
+		ok(calm_surface[0].x > mask_clip_rect.position.x + mask_clip_rect.size.x * 0.02
+				and calm_surface[calm_surface.size() - 1].x < mask_clip_rect.end.x - mask_clip_rect.size.x * 0.02,
+			"vase water surface is clipped to the mask span")
 	vase_fx.set_progress_for_test(0.0)
 	var empty_line: float = vase_fx.waterline_y_for_test()
 	vase_fx.set_progress_for_test(1.0)
@@ -189,6 +209,14 @@ func _initialize() -> void:
 		var lay: Dictionary = board._giver_lay()
 		var card_h := purge_card.custom_minimum_size.y * float(lay.get("card_h", 1.0))
 		ok(purge_vase.size.y >= card_h * 0.96, "purge vase is full height inside the card slot")
+		var slot_h := purge_card.custom_minimum_size.y
+		ok(purge_vase.size.y >= slot_h * 0.96, "purge vase fills the whole Purge slot height")
+		ok(purge_vase.position.y <= slot_h * 0.02, "purge vase starts at the top of the Purge slot")
+		if purge_vase.has_method("visible_vase_rect_for_test"):
+			var purge_visible_rect: Rect2 = purge_vase.call("visible_vase_rect_for_test")
+			ok(purge_visible_rect.size.y >= purge_vase.size.y * 0.96, "visible purge vase art fills the whole slot height")
+		ok(purge_card.modulate == Color.WHITE, "not-ready purge card keeps the vase full color")
+		ok(purge_vase.modulate == Color.WHITE, "not-ready purge vase is not locally faded")
 	ok(percent_label != null and percent_label.text == "50%", "purge card shows readable percent progress")
 	if purge_vase != null and percent_label != null:
 		var vase_rect := _control_rect(purge_vase)

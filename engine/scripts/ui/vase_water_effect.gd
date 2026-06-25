@@ -18,6 +18,7 @@ const _IMPACT_TAIL := 1.5
 const _WATERLINE_EMPTY := 0.68
 const _WATERLINE_FULL := 0.36
 const _MASK_THRESHOLD := 0.38
+const _VASE_ALPHA_THRESHOLD := 0.05
 const _WATER := Color("#3CBCE9")
 const _SURFACE := Color("#BDF5FF")
 
@@ -28,6 +29,7 @@ var _progress := 0.5
 var _target_progress := 0.5
 var _ready_fx := false
 var _tex: Texture2D
+var _vase_content_bounds := Rect2i()
 var _mask_tex: Texture2D
 var _mask_img: Image
 var _mask_bounds := Rect2i()
@@ -36,7 +38,9 @@ var _mask_row_spans: Array[Vector2i] = []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_tex = load(VASE_PATH) as Texture2D
+	_prepare_vase_cache()
 	_mask_tex = load(MASK_PATH) as Texture2D
 	_prepare_mask_cache()
 	set_process(true)
@@ -89,7 +93,11 @@ func water_surface_for_test() -> PackedVector2Array:
 func get_texture_for_test() -> Texture2D:
 	if _tex == null:
 		_tex = load(VASE_PATH) as Texture2D
+		_prepare_vase_cache()
 	return _tex
+
+func visible_vase_rect_for_test() -> Rect2:
+	return _visible_vase_rect(_vase_rect())
 
 func get_mask_texture_for_test() -> Texture2D:
 	if _mask_tex == null:
@@ -259,6 +267,13 @@ func _vase_rect() -> Rect2:
 	var tex_size := Vector2(383, 444)
 	if tex != null:
 		tex_size = Vector2(tex.get_width(), tex.get_height())
+	if _has_vase_content_bounds():
+		var content_size := Vector2(float(_vase_content_bounds.size.x), float(_vase_content_bounds.size.y))
+		var scale := minf(view.x / content_size.x, view.y / content_size.y)
+		var rect_size := tex_size * scale
+		var visible_size := content_size * scale
+		var content_offset := Vector2(float(_vase_content_bounds.position.x), float(_vase_content_bounds.position.y)) * scale
+		return Rect2((view - visible_size) * 0.5 - content_offset, rect_size)
 	var scale := minf(view.x / tex_size.x, view.y / tex_size.y)
 	var rect_size := tex_size * scale
 	return Rect2((view - rect_size) * 0.5, rect_size)
@@ -360,6 +375,51 @@ func _legacy_half_width_at(vase: Rect2, y: float) -> float:
 	if v < 0.62:
 		return lerpf(top_half, belly_half, smoothstep(0.38, 0.62, v))
 	return lerpf(belly_half, bottom_half, smoothstep(0.62, 0.86, v))
+
+
+func _prepare_vase_cache() -> void:
+	_vase_content_bounds = Rect2i()
+	if _tex == null:
+		return
+	var img := _tex.get_image()
+	if img == null:
+		return
+	var w := img.get_width()
+	var h := img.get_height()
+	if w <= 0 or h <= 0:
+		return
+
+	var min_x := w
+	var min_y := h
+	var max_x := -1
+	var max_y := -1
+	for y in range(h):
+		for x in range(w):
+			if img.get_pixel(x, y).a >= _VASE_ALPHA_THRESHOLD:
+				min_x = mini(min_x, x)
+				min_y = mini(min_y, y)
+				max_x = maxi(max_x, x)
+				max_y = maxi(max_y, y)
+	if max_x >= min_x and max_y >= min_y:
+		_vase_content_bounds = Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+
+
+func _has_vase_content_bounds() -> bool:
+	return _vase_content_bounds.size.x > 0 and _vase_content_bounds.size.y > 0
+
+
+func _visible_vase_rect(vase: Rect2) -> Rect2:
+	if not _has_vase_content_bounds():
+		return vase
+	var tex := get_texture_for_test()
+	if tex == null:
+		return vase
+	var tex_size := Vector2(float(tex.get_width()), float(tex.get_height()))
+	if tex_size.x <= 0.0 or tex_size.y <= 0.0:
+		return vase
+	var pos := vase.position + Vector2(float(_vase_content_bounds.position.x), float(_vase_content_bounds.position.y)) * vase.size / tex_size
+	var content_size := Vector2(float(_vase_content_bounds.size.x), float(_vase_content_bounds.size.y)) * vase.size / tex_size
+	return Rect2(pos, content_size)
 
 
 func _prepare_mask_cache() -> void:
