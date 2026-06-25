@@ -163,6 +163,10 @@ func _initialize() -> void:
 	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")
 	ok(not view._sections.has("currency_pill"), "legacy currency_pill gallery section is removed")
 	ok(not view._params.has("currency_pill"), "legacy currency_pill settings block is removed from the workbench")
+	ok(View.IDS.has("fx"), "FX workbench is registered as a UI Workbench component")
+	ok(view._sections.has("fx"), "FX workbench gallery section is built")
+	ok(view.find_child("FxWorkbenchRoot", true, false) != null, "FX workbench gallery section embeds the FX tool surface")
+	ok(view.find_child("CoinPickupPiece", true, false) != null, "embedded FX workbench keeps its board preview")
 	var currency_ids := []
 	for id in View.IDS:
 		if String(id).find("currency_pill") != -1:

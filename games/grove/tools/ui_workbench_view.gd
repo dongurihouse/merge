@@ -11,6 +11,8 @@ extends Control
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
@@ -24,7 +26,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 
-const IDS := ["board", "generator", "button", "home_button", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "button", "home_button", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -35,7 +37,7 @@ const COLUMNS := [
 	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
-	[["board"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + dialogs, settings, vault, info, bag
+	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
 ]
 # Editing element X must also refresh the elements that COMPOSE from it (derived from the kit's
 # opts-builders): the Button's style flows into every Claim/cost pill; the shared Frame + the small
@@ -68,6 +70,7 @@ const TEST_KEYS := {
 	# the BOARD preview — the size knobs (scale / cell / item / gap / frame / cols / rows) are the saved
 	# design; `pieces` just toggles the demo merge pieces in the preview.
 	"board": ["pieces"],
+	"fx": [],
 	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
 	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
 	"generator": ["preview", "cell"],
@@ -120,6 +123,7 @@ const TEST_KEYS := {
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
 	"board": "Board — merge grid (frame · cells · pieces · scale + item width)",
+	"fx": "FX Workbench — reward arrivals in board, map, and home context",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
@@ -161,6 +165,7 @@ var _params := {
 		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
 		"frame_style": "badge", "frame_corner": 46,
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
+	"fx": {"shadow": false},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
 	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
 	# /100 cyc/s) flow to the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's
@@ -459,6 +464,12 @@ func _make_element(id: String) -> Control:
 			return _shadow_preview()
 		"board":
 			return _make_board_preview()
+		"fx":
+			var fx := FxWorkbenchView.new()
+			fx.embedded = true
+			fx.custom_minimum_size = Vector2(1320, 820)
+			fx.size = fx.custom_minimum_size
+			return fx
 		"generator":
 			# the live board generator (engine make_generator) with its highlight tuned by the knobs, through
 			# the SAME Kit transform the board reads — so the preview is 1:1 with the game.
@@ -1088,7 +1099,8 @@ func _section(id: String) -> Control:
 	var el := _make_element(id)
 	_building = ""
 	el = _maybe_wrap_shadow(el, id)         # cast the SHARED shadow behind the preview when this component's Shadow toggle is on
-	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
+	if id != "fx":
+		_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
 	_sections[id] = sec
@@ -1336,11 +1348,18 @@ func _rebuild_sidebar() -> void:
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		_sidebar_body.add_child(note)
+	if _selected == "fx":
+		var note := Label.new()
+		note.text = "Use the embedded FX Workbench controls in the gallery. Its toggles and global sliders write the fx bucket in ui_workbench_settings.json."
+		note.add_theme_font_size_override("font_size", 12)
+		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sidebar_body.add_child(note)
 	_sidebar_body.add_child(HSeparator.new())
 
 	# the UNIVERSAL Shadow toggle — every component casts the ONE shared shadow (tuned on the Shadow item).
 	# Skipped on the Shadow item itself (that IS the editor).
-	if _selected != "shadow":
+	if _selected != "shadow" and _selected != "fx":
 		_sidebar_body.add_child(_toggle_row("Shadow", "shadow"))
 		var sn := Label.new()
 		sn.text = "Casts the shared drop shadow — tune its look on the Shadow item."
@@ -1931,11 +1950,14 @@ func _save_settings() -> void:
 	# write ONLY the config bucket — test/preview scaffolding (button icon, dialog entries, …) is excluded
 	var out := {}
 	for id in _params.keys():
+		if id == "fx":
+			continue
 		var sub := {}
 		for k in (_params[id] as Dictionary).keys():
 			if _is_config(id, k):
 				sub[k] = _params[id][k]
 		out[id] = sub
+	out["fx"] = FX.reward_fx_config()
 	var f := FileAccess.open(SETTINGS, FileAccess.WRITE)
 	if f == null:
 		push_warning("UI Workbench: could not write %s" % SETTINGS)

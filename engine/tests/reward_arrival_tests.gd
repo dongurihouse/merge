@@ -25,6 +25,7 @@ func fresh(name: String) -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+	FX.configure_reward_fx_config_for_test(dir + "ui_workbench_settings.json")
 
 func _count_named(node: Node, name_fragment: String) -> int:
 	var total := 0

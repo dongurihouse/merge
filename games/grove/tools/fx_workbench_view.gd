@@ -44,11 +44,13 @@ var _preview_root: Control = null
 var _context_label: Label = null
 var _source: Control = null
 var _auto_timer: Timer = null
+@export var embedded := false
 
 func _ready() -> void:
-	UiFont.apply()
+	if not embedded:
+		UiFont.apply()
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(960, 720)
+	custom_minimum_size = Vector2(1320, 820) if embedded else Vector2(960, 720)
 	_load_global_settings()
 	_build()
 

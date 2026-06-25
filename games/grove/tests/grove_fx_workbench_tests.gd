@@ -4,12 +4,14 @@ extends SceneTree
 
 const View = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
 
 const FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
 const FX_LABELS := ["Coin pickup", "Board refill", "Stash to bag", "Quest payout", "2x reward accept", "Map task reward", "Sale payout"]
 
 var _pass := 0
 var _fail := 0
+var _settings_path := ""
 
 func ok(cond: bool, label: String) -> void:
 	if cond:
@@ -53,6 +55,23 @@ func fresh(name: String) -> void:
 	else:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
+	_settings_path = dir + "ui_workbench_settings.json"
+	FX.configure_reward_fx_config_for_test(_settings_path)
+
+func _saved_fx_config() -> Dictionary:
+	if not FileAccess.file_exists(_settings_path):
+		return {}
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(_settings_path))
+	if parsed is Dictionary and parsed.has("fx") and parsed["fx"] is Dictionary:
+		return parsed["fx"]
+	return {}
+
+func _saved_fx_enabled(id: String, def := true) -> bool:
+	var cfg := _saved_fx_config()
+	var enabled = cfg.get("enabled", {})
+	if enabled is Dictionary:
+		return bool(enabled.get(id, def))
+	return def
 
 func _initialize() -> void:
 	print("== Grove FX workbench tests ==")
@@ -90,7 +109,9 @@ func _initialize() -> void:
 	await process_frame
 	view.call("_set_fx_enabled", "quest_payout", false)
 	await process_frame
-	ok(not Save.get_setting("fx.quest_payout", true), "workbench toggle writes the saved FX setting")
+	Save.coins()
+	ok(not _saved_fx_enabled("quest_payout"), "workbench toggle writes the FX flag into UI Workbench settings")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.quest_payout"), "workbench toggle does not write FX flags into the game save")
 	view.call("_clear_runtime_fx")
 	await process_frame
 	view.call("_play_selected")
@@ -113,11 +134,17 @@ func _initialize() -> void:
 	auto.toggled.emit(true)
 	await process_frame
 
-	ok(int(Save.get_number_setting("fx.global.amount", 0)) == 77, "amount slider writes the saved global FX amount")
-	ok(int(Save.get_number_setting("fx.global.icon_size", 0)) == 58, "icon-size slider writes the saved global FX icon size")
-	ok(int(Save.get_number_setting("fx.global.trail_count", 0)) == 4, "trail-count slider writes the saved global FX trail count")
-	ok(int(Save.get_number_setting("fx.global.source_size", 0)) == 126, "source-size slider writes the saved global FX source size")
-	ok(Save.get_setting("fx.global.auto_replay", false), "auto replay writes the saved global FX setting")
+	var cfg := _saved_fx_config()
+	ok(int(cfg.get("amount", 0)) == 77, "amount slider writes the saved UI Workbench FX amount")
+	ok(int(cfg.get("icon_size", 0)) == 58, "icon-size slider writes the saved UI Workbench FX icon size")
+	ok(int(cfg.get("trail_count", 0)) == 4, "trail-count slider writes the saved UI Workbench FX trail count")
+	ok(int(cfg.get("source_size", 0)) == 126, "source-size slider writes the saved UI Workbench FX source size")
+	ok(bool(cfg.get("auto_replay", false)), "auto replay writes the saved UI Workbench FX setting")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.global.amount"), "amount slider does not write FX globals into the game save")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.global.icon_size"), "icon-size slider does not write FX globals into the game save")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.global.trail_count"), "trail-count slider does not write FX globals into the game save")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.global.source_size"), "source-size slider does not write FX globals into the game save")
+	ok(not (Save.data["settings"] as Dictionary).has("fx.global.auto_replay"), "auto replay does not write FX globals into the game save")
 
 	view.queue_free()
 	await process_frame

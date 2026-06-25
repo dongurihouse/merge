@@ -10,8 +10,6 @@ const Look = preload("res://engine/scripts/ui/skin.gd")   # §13: every glyph is
 const Pal = Game.PALETTE
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX   # the engine's juice dials
 const ShatterScript = preload("res://engine/scripts/ui/shatter.gd")
-const REWARD_FX_SETTING_PREFIX := "fx."
-const REWARD_FX_GLOBAL_PREFIX := "fx.global."
 const REWARD_FX_DEFAULT_AMOUNT := 25
 const REWARD_FX_DEFAULT_ICON_SIZE := 42.0
 const REWARD_FX_DEFAULT_TRAIL_COUNT := 2
@@ -24,55 +22,125 @@ const REWARD_FX_MIN_TRAIL_COUNT := 0
 const REWARD_FX_MAX_TRAIL_COUNT := 4
 const REWARD_FX_MIN_SOURCE_SIZE := 72.0
 const REWARD_FX_MAX_SOURCE_SIZE := 148.0
+const REWARD_FX_CONFIG_PATH := "res://games/grove/tools/ui_workbench_settings.json"
+const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_payout", "accept_2x", "map_task_reward", "sale_payout"]
 
 static var _dot_tex: Texture2D
+static var _reward_fx_config_path := ""
 
 ## Calm mode (accessibility): fewer particles, gentler motion. Checked at fire time
 ## so toggling applies immediately.
 static func calm() -> bool:
 	return Save.get_setting("calm", false)
 
-static func reward_fx_key(id: String) -> String:
-	return REWARD_FX_SETTING_PREFIX + id
+static func reward_fx_config_path() -> String:
+	return _reward_fx_config_path if _reward_fx_config_path != "" else REWARD_FX_CONFIG_PATH
+
+static func configure_reward_fx_config_for_test(path: String) -> void:
+	_reward_fx_config_path = path
+
+static func reward_fx_config() -> Dictionary:
+	var cfg := _default_reward_fx_config()
+	var path := reward_fx_config_path()
+	var raw := _load_reward_fx_file(path)
+	var fx = raw.get("fx", {}) if raw is Dictionary else {}
+	if fx is Dictionary:
+		for key in ["amount", "icon_size", "trail_count", "source_size", "auto_replay"]:
+			if fx.has(key):
+				cfg[key] = fx[key]
+		var saved_enabled = fx.get("enabled", {})
+		if saved_enabled is Dictionary:
+			var enabled: Dictionary = cfg["enabled"].duplicate(true)
+			for id in (saved_enabled as Dictionary).keys():
+				enabled[String(id)] = bool(saved_enabled[id])
+			cfg["enabled"] = enabled
+	return cfg
+
+static func _default_reward_fx_config() -> Dictionary:
+	var enabled := {}
+	for id in REWARD_FX_IDS:
+		enabled[id] = true
+	return {
+		"amount": REWARD_FX_DEFAULT_AMOUNT,
+		"icon_size": REWARD_FX_DEFAULT_ICON_SIZE,
+		"trail_count": REWARD_FX_DEFAULT_TRAIL_COUNT,
+		"source_size": REWARD_FX_DEFAULT_SOURCE_SIZE,
+		"auto_replay": false,
+		"enabled": enabled,
+	}
+
+static func _write_reward_fx_config(cfg: Dictionary) -> void:
+	var path := reward_fx_config_path()
+	var out := _load_reward_fx_file(path)
+	out["fx"] = cfg
+	var dir_path := path.get_base_dir()
+	if dir_path != "" and not DirAccess.dir_exists_absolute(dir_path):
+		DirAccess.make_dir_recursive_absolute(dir_path)
+	var f := FileAccess.open(path, FileAccess.WRITE)
+	if f == null:
+		push_warning("FX: could not write reward FX settings to %s" % path)
+		return
+	f.store_string(JSON.stringify(out, "\t"))
+	f.close()
+
+static func _load_reward_fx_file(path: String) -> Dictionary:
+	if not FileAccess.file_exists(path):
+		return {}
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {}
+	var parsed = JSON.parse_string(f.get_as_text())
+	f.close()
+	if parsed is Dictionary:
+		return (parsed as Dictionary).duplicate(true)
+	return {}
+
+static func _set_reward_fx_config_value(key: String, value: Variant) -> void:
+	var cfg := reward_fx_config()
+	cfg[key] = value
+	_write_reward_fx_config(cfg)
 
 static func reward_fx_enabled(id: String) -> bool:
-	return Save.get_setting(reward_fx_key(id), true)
+	var enabled: Dictionary = reward_fx_config().get("enabled", {})
+	return bool(enabled.get(id, true))
 
 static func set_reward_fx_enabled(id: String, on: bool) -> void:
-	Save.set_setting(reward_fx_key(id), on)
-
-static func reward_fx_global_key(id: String) -> String:
-	return REWARD_FX_GLOBAL_PREFIX + id
+	var cfg := reward_fx_config()
+	var enabled: Dictionary = cfg.get("enabled", {})
+	enabled = enabled.duplicate(true)
+	enabled[id] = on
+	cfg["enabled"] = enabled
+	_write_reward_fx_config(cfg)
 
 static func reward_fx_amount() -> int:
-	return clampi(int(round(Save.get_number_setting(reward_fx_global_key("amount"), REWARD_FX_DEFAULT_AMOUNT))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
+	return clampi(int(round(float(reward_fx_config().get("amount", REWARD_FX_DEFAULT_AMOUNT)))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
 
 static func set_reward_fx_amount(value: int) -> void:
-	Save.set_number_setting(reward_fx_global_key("amount"), clampi(value, REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT))
+	_set_reward_fx_config_value("amount", clampi(value, REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT))
 
 static func reward_fx_icon_size() -> float:
-	return clampf(Save.get_number_setting(reward_fx_global_key("icon_size"), REWARD_FX_DEFAULT_ICON_SIZE), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
+	return clampf(float(reward_fx_config().get("icon_size", REWARD_FX_DEFAULT_ICON_SIZE)), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
 
 static func set_reward_fx_icon_size(value: float) -> void:
-	Save.set_number_setting(reward_fx_global_key("icon_size"), clampf(value, REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE))
+	_set_reward_fx_config_value("icon_size", clampf(value, REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE))
 
 static func reward_fx_trail_count() -> int:
-	return clampi(int(round(Save.get_number_setting(reward_fx_global_key("trail_count"), REWARD_FX_DEFAULT_TRAIL_COUNT))), REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT)
+	return clampi(int(round(float(reward_fx_config().get("trail_count", REWARD_FX_DEFAULT_TRAIL_COUNT)))), REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT)
 
 static func set_reward_fx_trail_count(value: int) -> void:
-	Save.set_number_setting(reward_fx_global_key("trail_count"), clampi(value, REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT))
+	_set_reward_fx_config_value("trail_count", clampi(value, REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT))
 
 static func reward_fx_source_size() -> float:
-	return clampf(Save.get_number_setting(reward_fx_global_key("source_size"), REWARD_FX_DEFAULT_SOURCE_SIZE), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
+	return clampf(float(reward_fx_config().get("source_size", REWARD_FX_DEFAULT_SOURCE_SIZE)), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
 
 static func set_reward_fx_source_size(value: float) -> void:
-	Save.set_number_setting(reward_fx_global_key("source_size"), clampf(value, REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE))
+	_set_reward_fx_config_value("source_size", clampf(value, REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE))
 
 static func reward_fx_auto_replay() -> bool:
-	return Save.get_setting(reward_fx_global_key("auto_replay"), false)
+	return bool(reward_fx_config().get("auto_replay", false))
 
 static func set_reward_fx_auto_replay(on: bool) -> void:
-	Save.set_setting(reward_fx_global_key("auto_replay"), on)
+	_set_reward_fx_config_value("auto_replay", on)
 
 ## Particle count adjusted for calm mode — shared by fx.burst and main's local burst.
 static func amount_for(amount: int) -> int:
