@@ -3,6 +3,7 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/water_fill_effect_tests.gd
 
 const WaterFillEffect = preload("res://engine/scripts/ui/water_fill_effect.gd")
+const SCENE_PATH := "res://engine/tools/WaterFillDemo.tscn"
 
 var _pass := 0
 var _fail := 0
@@ -54,5 +55,19 @@ func _initialize() -> void:
 		"droplet disappears into the water after impact")
 
 	fx.queue_free()
+
+	ok(ResourceLoader.exists(SCENE_PATH), "editor-openable water demo scene exists")
+	var packed := load(SCENE_PATH) as PackedScene
+	ok(packed != null, "water demo scene loads as a PackedScene")
+	if packed != null:
+		var scene := packed.instantiate() as Control
+		ok(scene != null and scene.name == "WaterFillDemo", "water demo scene instantiates as WaterFillDemo")
+		if scene != null:
+			root.add_child(scene)
+			await process_frame
+			ok(scene.find_child("WaterFillEffect", true, false) is Control,
+				"water demo scene contains the animated water effect")
+			scene.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
