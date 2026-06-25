@@ -13,12 +13,17 @@ const _SAMPLES := 28
 const _DROP_START := 0.45
 const _DROP_GROWN := 1.18
 const _IMPACT_TAIL := 1.5
+const _WATERLINE_EMPTY := 0.68
+const _WATERLINE_FULL := 0.36
 const _WATER := Color("#3CBCE9")
 const _SURFACE := Color("#BDF5FF")
 
 var _time := 0.0
 var _energy := IDLE_ENERGY
 var _impact_age := 999.0
+var _progress := 0.5
+var _target_progress := 0.5
+var _ready_fx := false
 var _tex: Texture2D
 
 
@@ -48,6 +53,22 @@ func trigger_impact_for_test() -> void:
 	_trigger_impact()
 
 
+func set_progress_for_test(value: float) -> void:
+	set_progress(value)
+
+
+func animate_progress_for_test(value: float) -> void:
+	animate_progress_to(value)
+
+
+func progress_for_test() -> float:
+	return _progress
+
+
+func waterline_y_for_test() -> float:
+	return _waterline_y(_vase_rect())
+
+
 func energy_for_test() -> float:
 	return _energy
 
@@ -60,6 +81,26 @@ func get_texture_for_test() -> Texture2D:
 	if _tex == null:
 		_tex = load(VASE_PATH) as Texture2D
 	return _tex
+
+
+func set_progress(value: float) -> void:
+	_progress = clampf(value, 0.0, 1.0)
+	_target_progress = _progress
+	queue_redraw()
+
+
+func animate_progress_to(value: float) -> void:
+	var next_progress := clampf(value, 0.0, 1.0)
+	if next_progress > _progress + 0.01:
+		_energy = maxf(_energy, IDLE_ENERGY + (next_progress - _progress) * 8.0)
+		_impact_age = 0.0
+	_target_progress = next_progress
+	queue_redraw()
+
+
+func set_ready(value: bool) -> void:
+	_ready_fx = value
+	queue_redraw()
 
 
 func _advance(delta: float, auto_trigger: bool) -> void:
@@ -76,6 +117,11 @@ func _advance(delta: float, auto_trigger: bool) -> void:
 		_energy = lerpf(_energy, IDLE_ENERGY, clampf(delta * 1.45, 0.0, 1.0))
 	else:
 		_energy = lerpf(_energy, IDLE_ENERGY, clampf(delta * 0.8, 0.0, 1.0))
+	if not is_equal_approx(_progress, _target_progress):
+		var old_progress := _progress
+		_progress = move_toward(_progress, _target_progress, delta * 1.35)
+		if _progress > old_progress:
+			_energy = maxf(_energy, IDLE_ENERGY + (_progress - old_progress) * 16.0)
 	queue_redraw()
 
 
@@ -91,22 +137,30 @@ func _draw() -> void:
 	if tex == null:
 		return
 	var vase := _vase_rect()
+	if _ready_fx:
+		_draw_ready_glow(vase)
 	draw_texture_rect(tex, vase, false)
 	_draw_water_overlay(vase)
 	_draw_drop(vase)
+	if _ready_fx:
+		_draw_ready_sparkles(vase)
 
 
 func _draw_water_overlay(vase: Rect2) -> void:
 	var surface := _surface_points(vase)
-	var body := PackedVector2Array(surface)
-	for i in range(6):
+	var body := PackedVector2Array()
+	var top_y := _waterline_y(vase)
+	var top_half := _half_width_at(vase, top_y)
+	body.append(Vector2(_center_x(vase) - top_half, top_y))
+	body.append(Vector2(_center_x(vase) + top_half, top_y))
+	for i in range(1, 6):
 		var t := float(i) / 5.0
-		var y := lerpf(_waterline_y(vase), vase.position.y + vase.size.y * 0.84, t)
+		var y := lerpf(top_y, vase.position.y + vase.size.y * 0.84, t)
 		var half := _half_width_at(vase, y)
 		body.append(Vector2(_center_x(vase) + half, y))
-	for i in range(5, -1, -1):
+	for i in range(5, 0, -1):
 		var t := float(i) / 5.0
-		var y := lerpf(_waterline_y(vase), vase.position.y + vase.size.y * 0.84, t)
+		var y := lerpf(top_y, vase.position.y + vase.size.y * 0.84, t)
 		var half := _half_width_at(vase, y)
 		body.append(Vector2(_center_x(vase) - half, y))
 
@@ -138,6 +192,29 @@ func _draw_drop(vase: Rect2) -> void:
 	draw_circle(center, radius, col)
 	draw_circle(center + Vector2(-radius * 0.25, -radius * 0.35), radius * 0.24,
 		Color(1, 1, 1, 0.42 * alpha))
+
+
+func _draw_ready_glow(vase: Rect2) -> void:
+	var pulse := 0.5 + 0.5 * sin(_time * TAU / 1.8)
+	var alpha := 0.12 + pulse * 0.10
+	var rect := vase.grow(vase.size.x * (0.08 + pulse * 0.025))
+	draw_circle(rect.position + rect.size * 0.5, rect.size.x * 0.47, Color(0.75, 0.95, 1.0, alpha))
+	draw_arc(vase.position + vase.size * 0.5, vase.size.x * (0.42 + pulse * 0.025),
+		0.0, TAU, 48, Color(1.0, 0.91, 0.42, alpha + 0.05), 2.0)
+
+
+func _draw_ready_sparkles(vase: Rect2) -> void:
+	for i in range(7):
+		var seed := float(i) * 1.618
+		var phase := fposmod(_time * 0.55 + seed, 1.0)
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var x := _center_x(vase) + side * vase.size.x * (0.26 + 0.08 * sin(seed))
+		var y := vase.position.y + vase.size.y * (0.18 + phase * 0.55)
+		var a := sin(phase * PI)
+		var r := vase.size.x * (0.010 + 0.010 * a)
+		var c := Color(1.0, 0.94, 0.42, 0.60 * a)
+		draw_line(Vector2(x - r, y), Vector2(x + r, y), c, 1.5)
+		draw_line(Vector2(x, y - r), Vector2(x, y + r), c, 1.5)
 
 
 func _vase_rect() -> Rect2:
@@ -197,7 +274,7 @@ func _drop_state(vase: Rect2) -> Dictionary:
 
 
 func _waterline_y(vase: Rect2) -> float:
-	return vase.position.y + vase.size.y * 0.415
+	return vase.position.y + vase.size.y * lerpf(_WATERLINE_EMPTY, _WATERLINE_FULL, _progress)
 
 
 func _center_x(vase: Rect2) -> float:

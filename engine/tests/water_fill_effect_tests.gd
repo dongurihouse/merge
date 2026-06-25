@@ -6,6 +6,7 @@ const WaterFillEffect = preload("res://engine/scripts/ui/water_fill_effect.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const BoardScene = preload("res://engine/scripts/scenes/board.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
 const SCENE_PATH := "res://engine/tools/WaterFillDemo.tscn"
 const VASE_SCENE_PATH := "res://engine/tools/VaseWaterDemo.tscn"
 
@@ -98,6 +99,17 @@ func _initialize() -> void:
 	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
 	var calm_surface: PackedVector2Array = vase_fx.water_surface_for_test()
 	ok(calm_surface.size() >= 12, "vase water effect exposes a sampled water surface")
+	vase_fx.set_progress_for_test(0.0)
+	var empty_line: float = vase_fx.waterline_y_for_test()
+	vase_fx.set_progress_for_test(1.0)
+	var full_line: float = vase_fx.waterline_y_for_test()
+	ok(full_line < empty_line, "vase water progress raises the waterline")
+	vase_fx.set_progress_for_test(0.2)
+	vase_fx.animate_progress_for_test(0.7)
+	for i in 20:
+		await process_frame
+	ok(vase_fx.progress_for_test() > 0.2, "vase water animates progress upward")
+	vase_fx.set_time_for_test(0.0)
 	var calm_energy: float = vase_fx.energy_for_test()
 	vase_fx.trigger_impact_for_test()
 	ok(vase_fx.energy_for_test() > calm_energy * 3.0, "vase water impact injects extra energy")
@@ -117,13 +129,35 @@ func _initialize() -> void:
 			vase_scene.queue_free()
 
 	fresh("purge_card")
+	var first_unlock := G.spot_unlock_exp(0, 0)
+	Save.grove()["exp"] = int(first_unlock / 2)
+	Save.grove_write()
 	var board := BoardScene.new()
 	var purge_card := board._make_purge_card(360.0)
-	ok(purge_card.find_child("PurgeVaseWater", true, false) is VaseWaterEffect,
-		"purge card contains the vase water animation")
-	ok(_has_button(purge_card), "purge card still contains a CTA button")
+	var purge_vase := purge_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
+	ok(purge_vase != null, "purge card contains the vase water animation")
+	if purge_vase != null:
+		ok(absf(purge_vase.progress_for_test() - 0.5) < 0.06, "purge vase initializes from exp progress")
+	ok(not _has_button(purge_card), "purge card replaces the text CTA button with the vase")
 	purge_card.free()
 	board.free()
+	await process_frame
+
+	fresh("purge_debug_exp")
+	var debug_board := BoardScene.new()
+	var debug_card := debug_board._make_purge_card(360.0)
+	root.add_child(debug_card)
+	await process_frame
+	var debug_vase := debug_card.find_child("PurgeVaseWater", true, false) as VaseWaterEffect
+	var before_progress: float = debug_vase.progress_for_test() if debug_vase != null else 0.0
+	debug_board.debug_add_exp(5)
+	for i in 20:
+		await process_frame
+	ok(Save.exp_total() == 5, "debug board exp gain credits Save without scene reload")
+	if debug_vase != null:
+		ok(debug_vase.progress_for_test() > before_progress, "debug board exp gain fills the visible purge vase")
+	debug_card.free()
+	debug_board.free()
 	await process_frame
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])

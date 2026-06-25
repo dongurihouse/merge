@@ -47,6 +47,12 @@ func _initialize() -> void:
 	ok(Quests.gate_ready(0, first_cost, {}), "the first spot becomes claimable once exp reaches its threshold")
 	ok(not Quests.gate_ready(0, 0, own0), "with spot 0 claimed, 0 exp can't reach spot 1's threshold (not ready)")
 	ok(Quests.gate_ready(0, 999999, {}), "a huge exp total clears the next spot's threshold (ready)")
+	ok(is_equal_approx(Quests.purge_progress(0, 0, {}), 0.0), "purge progress starts empty on a fresh map")
+	ok(is_equal_approx(Quests.purge_progress(0, first_cost, {}), 1.0), "purge progress reaches full at the next unlock threshold")
+	if G.MAPS[0].spots.size() > 1:
+		var second_cost := G.spot_unlock_exp(0, 1)
+		ok(is_equal_approx(Quests.purge_progress(0, first_cost, own0), 0.0), "purge progress resets after claiming the first spot")
+		ok(is_equal_approx(Quests.purge_progress(0, second_cost, own0), 1.0), "purge progress fills to the next claimed spot threshold")
 
 	# --- purge_state: the fence Purge card SHOWs while a frontier remains (always), is READY when total
 	# --- exp clears the next threshold, and carries the exp total to display ---

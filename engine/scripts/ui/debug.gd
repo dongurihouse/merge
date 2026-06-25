@@ -138,6 +138,9 @@ static func _act_premium(host: Control) -> void:
 ## button enables as exp crosses each spot's threshold). Exactly like real play — earn_exp
 ## advances the one progression total. Tap again for the big later-map gate spots.
 static func _act_stars(host: Control) -> void:
+	if host.has_method("debug_add_exp"):
+		host.debug_add_exp(5)
+		return
 	G.earn_exp(5)
 	_reflect(host)
 
@@ -165,6 +168,9 @@ static func _act_unlock_map(host: Control) -> void:
 static func _act_level_up(host: Control) -> void:
 	var g := Save.grove()
 	var lvl := G.level_for_exp(int(g.get("exp", 0)))
+	if host.has_method("debug_add_exp"):
+		host.debug_add_exp(maxi(0, G.exp_at_level(lvl + 1) - int(g.get("exp", 0))))
+		return
 	g["exp"] = G.exp_at_level(lvl + 1)
 	Save.grove_write()
 	_reflect(host)

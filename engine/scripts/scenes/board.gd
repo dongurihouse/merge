@@ -96,6 +96,8 @@ var _regen_ts := 0.0               # regen anchor (unix); advances as water accr
 var _winback := false              # set on load when away >= WINBACK_HOURS
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
+var _purge_vase: VaseWaterEffect
+var _purge_card: Control
 
 var csz := 86.0
 var board_area: Control
@@ -762,12 +764,15 @@ func _rebuild_givers() -> void:
 func _show_purge_card() -> bool:
 	return Quests.purge_state(_quest_map(), _exp(), Save.grove().get("unlocks", {}), _gates()).show
 
-# A special fence card: the home map's current ★ balance over a "Purge" button, tapped to go HOME and
-# spend stars on regions. Sized like a giver card so it sits flush in its 25% slot; reuses the Home
-# action (persist → Map). It ALWAYS shows while a frontier remains (no padlock now) — greyed + still until
-# the cheapest region is affordable, then full colour + breathing (the Home-button gate_ready signal).
+func _purge_progress() -> float:
+	return Quests.purge_progress(_quest_map(), _exp(), Save.grove().get("unlocks", {}))
+
+# A special fence card: the home map's current ★ balance over a progress vase, tapped to go HOME and
+# restore regions. It ALWAYS shows while a frontier remains; the vase fills from the previous claimed
+# threshold to the next unlock threshold, then glows + sparkles once that next region is affordable.
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
+	_purge_card = stand
 	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
 	# #1: size + frame the card EXACTLY like a giver card — the SAME card_w/card_h fractions and the SAME
 	# 9-slice wood frame (GiverStand._quest_card) — so the Purge slot sits flush with the quest cards at
@@ -805,37 +810,48 @@ func _make_purge_card(stand_w: float) -> Control:
 	var vase := VaseWaterEffect.new()
 	vase.name = "PurgeVaseWater"
 	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var vase_h := cardH * 0.45
-	var vase_w := minf(cardW * 0.62, vase_h * 0.88)
+	vase.set_progress(_purge_progress())
+	vase.set_ready(ready)
+	_purge_vase = vase
+	var vase_h := cardH * 0.62
+	var vase_w := minf(cardW * 0.72, vase_h * 0.88)
 	vase.size = Vector2(vase_w, vase_h)
 	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, cy + cardH * 0.25)
 	stand.add_child(vase)
-	# #2: the "Purge" CTA is the shared GREEN primary button (Look.button primary) — the same leaf-green
-	# pill + cream label as every other CTA in the grove. Tapped → go HOME (persist + jump to the Map) to
-	# unlock more regions. The button IS the affordance now (the old whole-card tap + cream pill are gone).
 	var purge_go := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
 		HomeScene.decorate_map = _decorate_target()
 		SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
-	var btn := Look.button(Strings.t("board.purge.cta"), purge_go, true)
-	btn.add_theme_font_size_override("font_size", int(cardH * 0.12))
-	btn.custom_minimum_size = Vector2(cardW * 0.54, cardH * 0.22)
-	stand.add_child(btn)
-	# centre the green pill near the card's lower third (driven by resized — its size settles after layout)
-	var place_btn := func() -> void:
-		if is_instance_valid(btn):
-			btn.position = Vector2(cx + cardW * 0.5 - btn.size.x / 2.0, cy + cardH * 0.80 - btn.size.y / 2.0)
-	btn.resized.connect(place_btn)
-	place_btn.call()
+	_stand_tap(stand, purge_go)
+	stand.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	# ready → full colour + a gentle breathe (like a payable giver card); not yet → grey + still, so it
 	# reads as "earn more ★ first" without a padlock.
 	if ready:
 		stand.modulate = Color.WHITE
-		FX.breathe_once(stand)
+		FX.breathe_once(vase)
 	else:
 		stand.modulate = PURGE_DIM
 	return stand
+
+func _animate_purge_vase_from(previous_progress: float) -> void:
+	if _purge_vase == null or not is_instance_valid(_purge_vase):
+		return
+	var now := _purge_progress()
+	_purge_vase.set_ready(_gate_ready())
+	_purge_vase.set_progress(previous_progress)
+	_purge_vase.animate_progress_to(now)
+	if now >= 1.0:
+		FX.breathe_once(_purge_vase)
+
+func debug_add_exp(amount: int = 5) -> void:
+	var before_purge := _purge_progress()
+	G.earn_exp(amount)
+	if is_inside_tree():
+		_rebuild_givers()
+		_refresh_locked_cells()
+		_update_hud()
+	_animate_purge_vase_from(before_purge)
 
 # A tap fires on a still RELEASE so scrolling the row never delivers by accident.
 func _stand_tap(stand: Control, action: Callable) -> void:
@@ -2534,6 +2550,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 		_push_recent_item(code)               # remember this ask so the next ≤5 quests avoid the same item
 	# delivering a quest is the ONE place exp advances — earn_exp bumps the single exp total
 	# and reports the levels gained so the Level dialog can fire (the gift pays on Collect).
+	var purge_before := _purge_progress()
 	var sp_exp := _quest_exp(q)
 	var sp_coins := _quest_coins(q)
 	var levels_up := G.earn_exp(sp_exp)
@@ -2566,6 +2583,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	if sp_coins <= 0:
 		_update_hud()
+	_animate_purge_vase_from(purge_before)
 	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
 	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
 	if sp_coins > 0:
