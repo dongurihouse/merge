@@ -107,15 +107,28 @@ static func _reward_total(rew: Dictionary) -> int:
 static func remaining_slots() -> int:
 	return maxi(0, MAIL_CAP - messages().size())
 
-## The high-watermark of server mail already folded in ("last mail gotten"). 0 on a fresh save, so the
-## first fetch asks for everything since 0. apply_feed advances it; the request sends it as `since`.
-static func cursor() -> int:
-	return int(Save.grove().get("inbox_cursor", 0))
-
-static func set_cursor(seq: int) -> void:
+## The permanent ledger of message ids ALREADY folded in from the feed — EVER, not just the ones
+## still in the box. This is what makes ingesting a dumb static feed safe: the client pulls the whole
+## file every sync, but a message whose id is in here is never folded again. It SURVIVES prune, so a
+## claimed-and-pruned gift the feed still lists is never re-delivered (no double-claim). A small
+## {id: true} dict in the grove blob, lazy-init to {} and defaulted on old saves by the deep-merge path.
+static func seen() -> Dictionary:
 	var g := Save.grove()
-	if int(g.get("inbox_cursor", 0)) != seq:
-		g["inbox_cursor"] = seq
+	if not (g.get("inbox_seen") is Dictionary):
+		g["inbox_seen"] = {}
+	return g["inbox_seen"]
+
+## Record ids as folded-in and persist (one write for the batch). No-op on an empty list or when every
+## id is already known, so it never writes for nothing.
+static func mark_seen(ids: Array) -> void:
+	var s := seen()
+	var changed := false
+	for raw_id in ids:
+		var id := String(raw_id)
+		if id != "" and not s.has(id):
+			s[id] = true
+			changed = true
+	if changed:
 		Save.grove_write()
 
 ## Clear "dealt-with" mail so the capped box frees room over time: drop claimed gifts and read plain
