@@ -90,6 +90,8 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "Level up", _act_level_up)
 	_action(menu, host, "Advance day", _act_advance_day)
 	_action(menu, host, "-25 water", _act_reduce_water)
+	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
+		_action(menu, host, "Drop coin", _act_drop_coin)
 
 	host.add_child(layer)
 
@@ -173,6 +175,12 @@ static func _act_level_up(host: Control) -> void:
 static func _act_advance_day(host: Control) -> void:
 	Login.debug_advance_day()
 	_reflect(host)
+
+## Board-only: drop a coin onto a free cell so you can exercise the tap-to-collect flow on demand.
+## No _reflect — the coin animates in live and debug_drop_coin() persists it (no scene reload).
+static func _act_drop_coin(host: Control) -> void:
+	if host.has_method("debug_drop_coin"):
+		host.debug_drop_coin()
 
 ## Knock 25 off the water can (floored at 0) to walk down into the out-of-water flow.
 static func _act_reduce_water(host: Control) -> void:

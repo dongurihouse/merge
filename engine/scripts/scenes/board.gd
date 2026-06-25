@@ -2278,6 +2278,16 @@ func _drop_coin_near(near: Vector2i) -> void:
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Audio.play("tidy_poof", -5.0, 1.3)
 
+## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
+## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
+## save/reload and un-dims a generator if this filled the last empty cell.
+func debug_drop_coin() -> void:
+	if board.empty_ground_cells().is_empty():
+		return
+	_drop_coin_near(Vector2i(G.ROWS / 2, G.COLS / 2))
+	_persist()
+	_refresh_generator_dim()
+
 func _collect_coin(cell: Vector2i, node: Control) -> void:
 	var code := board.take(cell)
 	piece_nodes.erase(cell)

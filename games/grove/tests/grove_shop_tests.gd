@@ -209,6 +209,31 @@ func _initialize() -> void:
 	ok(BoardModel.line_of(bq.board.item_at(Vector2i(2, 3))) == 6, \
 		"an unlocked cell reveals a seed of an OPEN quest line (6), not the positional 1-2 anchor")
 	bq.queue_free()
+	# debug affordance: in debug mode the panel's "Drop coin" button calls board.debug_drop_coin(), which
+	# lands a tier-1 coin on a free cell AND persists it (so the dropped coin survives the next save/reload).
+	fresh("debug_drop_coin")
+	var bd = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(bd)
+	if bd.board == null:
+		bd._ready()
+	for ci in bd.board.items.size():           # clear the playfield so the only coin is the debug drop
+		bd.board.items[ci] = 0
+	bd._rebuild_pieces()
+	bd.debug_drop_coin()
+	await create_timer(0.3).timeout
+	var dc := Vector2i(-1, -1)
+	for i in bd.board.items.size():
+		if bd.board.items[i] > 0 and G.is_coin(bd.board.items[i]):
+			dc = BoardModel.cell_of(i)
+			break
+	ok(dc != Vector2i(-1, -1), "debug_drop_coin lands a coin on an empty board cell")
+	ok(bd.piece_nodes.has(dc), "the debug-dropped coin gets a piece node")
+	var saved_coin := false
+	for v in Save.grove().get("board", {}).get("items", []):
+		if int(v) > 0 and G.is_coin(int(v)):
+			saved_coin = true
+	ok(saved_coin, "debug_drop_coin persists the coin to the save (survives a reload)")
+	bd.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
 	# REAL tree-attached host so the kit + viewport resolve, then drive the actual buttons
