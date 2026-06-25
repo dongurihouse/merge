@@ -8,6 +8,7 @@ func _initialize() -> void:
 	begin("grove · residents habitat")
 	_test_hand()
 	_test_place()
+	_test_production()
 	finish()
 
 func _test_hand() -> void:
@@ -67,3 +68,69 @@ func _test_place() -> void:
 	ok(Habitat.move(a, 0, b), "moving a placed spirit between maps succeeds")
 	ok(Habitat.placed(a).is_empty() and Habitat.placed(b).size() == 1, "it leaves a, lands on b")
 	ok(int(Habitat.placed(b)[0].tier) == 3, "the moved instance keeps its tier")
+
+func _test_production() -> void:
+	# rate = sum of placed tiers
+	fresh("habitat_rate")
+	var mid := String(G.MAPS[0].id)
+	for spec in [["moss", 1], ["acorn", 2], ["lantern", 3]]:
+		Habitat.hand_add(String(spec[0]), int(spec[1]))
+		Habitat.place(mid, 0)
+	ok(Habitat.rate(mid) == 6, "rate is the sum of placed tiers (1+2+3)")
+
+	# accrual: one tier-1 spirit, one hour elapsed -> YIELD_PER_HOUR units pending
+	fresh("habitat_accrual")
+	var m := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 1)
+	var t0 := 1_000_000.0
+	Habitat.place(m, 0)
+	# re-stamp last to t0 deterministically, then read one hour later
+	Habitat._settle(m, t0)
+	var p1h := Habitat.pending(m, t0 + 3600.0)
+	ok(abs(p1h - Habitat.YIELD_PER_HOUR) < 0.001, "a t1 spirit accrues YIELD_PER_HOUR units in one hour")
+
+	# the accrual is CAPPED at ACCRUAL_HOURS of output
+	var pbig := Habitat.pending(m, t0 + 3600.0 * 100.0)
+	ok(abs(pbig - Habitat.YIELD_PER_HOUR * Habitat.ACCRUAL_HOURS) < 0.001, "accrual clamps to the ACCRUAL_HOURS ceiling")
+
+	# collect grants floor(pending) coins, keeps the remainder, resets the clock
+	fresh("habitat_collect")
+	var mc := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 1)
+	Habitat.place(mc, 0)
+	Habitat._settle(mc, t0)
+	var coins_b := Save.coins()
+	var r := Habitat.collect(mc, t0 + 3600.0)
+	ok(String(r.currency) == "coins" and int(r.amount) == int(Habitat.YIELD_PER_HOUR), "collect pays floor(pending) coins on the coin map")
+	ok(Save.coins() == coins_b + int(Habitat.YIELD_PER_HOUR), "the coins are credited")
+	ok(abs(Habitat.pending(mc, t0 + 3600.0) - 0.0) < 0.001, "pending resets to ~0 right after collect")
+
+	# a PARKED map (not farmhouse) accrues but pays nothing yet
+	fresh("habitat_parked_reward")
+	var mp := String(G.MAPS[2].id)
+	Habitat.hand_add("moss", 1)
+	Habitat.place(mp, 0)
+	Habitat._settle(mp, t0)
+	var parked_coins_b := Save.coins()
+	var diamonds_b := Save.diamonds()
+	var rp := Habitat.collect(mp, t0 + 3600.0 * 100.0)
+	ok(String(rp.currency) == "" and int(rp.amount) == 0, "a parked map pays nothing (reward content not shipped)")
+	ok(Save.diamonds() == diamonds_b and Save.coins() == parked_coins_b, "no currency leaks from a parked map")
+
+	# selling does NOT erase already-banked production (settle banks before the rate drops)
+	fresh("habitat_settle_keeps_acc")
+	var ms := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 1)
+	Habitat.place(ms, 0)
+	Habitat._settle(ms, t0)
+	Habitat.sell(ms, 0, t0 + 3600.0)
+	var pr := Habitat._prod(ms)
+	ok(abs(float(pr.get("acc", 0.0)) - Habitat.YIELD_PER_HOUR) < 0.001, "sell banks accrued production before the rate drops")
+
+	# the roster survives a cold reload
+	fresh("habitat_persist")
+	var mr := String(G.MAPS[0].id)
+	Habitat.hand_add("acorn", 2)
+	Habitat.place(mr, 0)
+	Save._loaded = false
+	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
