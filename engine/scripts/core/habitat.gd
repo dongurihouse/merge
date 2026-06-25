@@ -58,3 +58,83 @@ static func hand_merge(kind: String, tier: int) -> bool:
 	list.append({"kind": kind, "tier": tier + 1})
 	_set_hand(list)
 	return true
+
+static func _settle(map_id: String, now: float = -1.0) -> void:
+	pass
+
+# --- per-map placement & capacity -------------------------------------------------
+static func cap(map_id: String) -> int:
+	return int(Save.grove().get("hab_cap", {}).get(map_id, DEFAULT_CAP))
+
+static func placed(map_id: String) -> Array:
+	return Save.grove().get("habitat", {}).get(map_id, [])
+
+static func _set_placed(map_id: String, list: Array) -> void:
+	var g := Save.grove()
+	if not g.has("habitat"):
+		g["habitat"] = {}
+	g["habitat"][map_id] = list
+	Save.grove_write()
+
+static func is_full(map_id: String) -> bool:
+	return placed(map_id).size() >= cap(map_id)
+
+## Place hand[index] onto map_id if it has a free slot. Settles that map's production at the OLD
+## rate first (Task 3) so the rate change is clean, then moves the instance hand -> map.
+static func place(map_id: String, index: int) -> bool:
+	var h := hand()
+	if index < 0 or index >= h.size() or is_full(map_id):
+		return false
+	_settle(map_id)
+	var inst: Dictionary = h[index]
+	h.remove_at(index)
+	_set_hand(h)
+	var p := placed(map_id)
+	p.append({"kind": String(inst.kind), "tier": int(inst.tier)})
+	_set_placed(map_id, p)
+	return true
+
+## Sell placed[index] on map_id: settle production, free the slot, credit + return the coin value
+## (SELL_PER_TIER * tier). Returns 0 on a bad index.
+static func sell(map_id: String, index: int) -> int:
+	var p := placed(map_id)
+	if index < 0 or index >= p.size():
+		return 0
+	_settle(map_id)
+	var tier := int(p[index].tier)
+	p.remove_at(index)
+	_set_placed(map_id, p)
+	var coins := SELL_PER_TIER * tier
+	Save.add_coins(coins)
+	return coins
+
+## Move placed[index] from one map to another that has room. Settles BOTH maps' production.
+## Returns true on success (false on a bad index or a full target).
+static func move(from_id: String, index: int, to_id: String) -> bool:
+	var src := placed(from_id)
+	if index < 0 or index >= src.size() or is_full(to_id):
+		return false
+	_settle(from_id)
+	_settle(to_id)
+	var inst: Dictionary = src[index]
+	src.remove_at(index)
+	_set_placed(from_id, src)
+	var dst := placed(to_id)
+	dst.append({"kind": String(inst.kind), "tier": int(inst.tier)})
+	_set_placed(to_id, dst)
+	return true
+
+## Pick a placed spirit back UP into the hand (the other capacity door, for re-merging). Settles
+## production first. Returns true on success.
+static func unplace(map_id: String, index: int) -> bool:
+	var p := placed(map_id)
+	if index < 0 or index >= p.size():
+		return false
+	_settle(map_id)
+	var inst: Dictionary = p[index]
+	p.remove_at(index)
+	_set_placed(map_id, p)
+	var h := hand()
+	h.append({"kind": String(inst.kind), "tier": int(inst.tier)})
+	_set_hand(h)
+	return true
