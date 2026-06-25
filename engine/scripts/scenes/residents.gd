@@ -17,6 +17,7 @@ const Pal = Game.PALETTE
 
 var _hud: Dictionary = {}
 var _root: Control = null
+var _sel := -1
 
 func _ready() -> void:
 	_ensure_background()
@@ -86,6 +87,7 @@ func _build() -> void:
 	var find := Kit.pill_button("Find a spirit", {"font": 20, "corner": 12.0})
 	find.name = "FindSpiritButton"
 	find.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	find.pressed.connect(_on_find_spirit)
 	var back := Kit.pill_button("Back", {"bg": "cream", "font": 20, "corner": 12.0})
 	back.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	back.pressed.connect(_on_back)
@@ -99,6 +101,10 @@ func _map_row(z: int) -> Control:
 	var row := PanelContainer.new()
 	row.name = "MapRow_%s" % map_id
 	row.set_meta("map_id", map_id)
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	row.gui_input.connect(func(ev: InputEvent) -> void:
+		if _is_release(ev):
+			_place_selected(map_id))
 	row.add_theme_stylebox_override("panel", _panel_style(Color(Pal.CREAM, 0.94), Color(Pal.STRAW, 0.85), 8, Vector4(14, 12, 14, 12)))
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
@@ -180,17 +186,24 @@ func _hand_section() -> Control:
 		strip.add_child(_label("Empty", 18, Color(Pal.INK, 0.62)))
 	else:
 		for i in h.size():
-			var icon := _spirit_icon(h[i], 62.0)
-			icon.name = "HandSpirit_%d" % i
-			icon.set_meta("hand_index", i)
+			var hand_index := i
+			var icon := _spirit_icon(h[hand_index], 62.0, hand_index == _sel)
+			icon.name = "HandSpirit_%d" % hand_index
+			icon.set_meta("hand_index", hand_index)
+			icon.mouse_filter = Control.MOUSE_FILTER_STOP
+			icon.gui_input.connect(func(ev: InputEvent) -> void:
+				if _is_release(ev):
+					_on_hand_tap(hand_index))
 			strip.add_child(icon)
 	return panel
 
-func _spirit_icon(inst: Dictionary, px: float) -> Control:
+func _spirit_icon(inst: Dictionary, px: float, selected: bool = false) -> Control:
 	var wrap := PanelContainer.new()
 	wrap.custom_minimum_size = Vector2(px + 12.0, px + 22.0)
 	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
-	wrap.add_theme_stylebox_override("panel", _panel_style(Color(Pal.CREAM, 0.82), Color(Pal.STRAW, 0.75), 8, Vector4(6, 6, 6, 6)))
+	var edge := Pal.BTN_PRIMARY if selected else Pal.STRAW
+	var fill := Color(Pal.CREAM, 0.96) if selected else Color(Pal.CREAM, 0.82)
+	wrap.add_theme_stylebox_override("panel", _panel_style(fill, Color(edge, 0.9), 8, Vector4(6, 6, 6, 6)))
 	var stack := VBoxContainer.new()
 	stack.alignment = BoxContainer.ALIGNMENT_CENTER
 	stack.add_theme_constant_override("separation", 2)
@@ -219,6 +232,50 @@ func _after_currency_action() -> void:
 		_hud.refresh.call()
 	else:
 		_rebuild()
+
+func _on_find_spirit() -> void:
+	Audio.play("button_tap", -2.0)
+	if G.RESIDENT_CORE.is_empty():
+		return
+	var pick := randi() % G.RESIDENT_CORE.size()
+	Habitat.hand_add(String(G.RESIDENT_CORE[pick].id))
+	_sel = -1
+	_rebuild()
+
+func _on_hand_tap(index: int) -> void:
+	var h := Habitat.hand()
+	if index < 0 or index >= h.size():
+		_sel = -1
+		_rebuild()
+		return
+	if _sel < 0 or _sel >= h.size() or _sel == index:
+		_sel = index
+		_rebuild()
+		return
+	var a: Dictionary = h[_sel]
+	var b: Dictionary = h[index]
+	if String(a.get("kind", "")) == String(b.get("kind", "")) and int(a.get("tier", 1)) == int(b.get("tier", 1)):
+		Audio.play("button_tap", -2.0)
+		Habitat.hand_merge(String(a.kind), int(a.tier))
+		_sel = -1
+	else:
+		_sel = index
+	_rebuild()
+
+func _place_selected(map_id: String) -> void:
+	if _sel < 0:
+		return
+	if Habitat.is_full(map_id):
+		_rebuild()
+		return
+	Audio.play("button_tap", -2.0)
+	if Habitat.place(map_id, _sel):
+		_sel = -1
+	_rebuild()
+
+func _is_release(ev: InputEvent) -> bool:
+	return (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and not ev.pressed) \
+		or (ev is InputEventScreenTouch and not ev.pressed)
 
 func _label(text: String, font_px: int, color: Color) -> Label:
 	var l := Label.new()

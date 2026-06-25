@@ -9,6 +9,7 @@ func _initialize() -> void:
 	_test_hand()
 	_test_place()
 	_test_production()
+	_test_screen_actions()
 	await _test_screen()
 	finish()
 
@@ -135,6 +136,28 @@ func _test_production() -> void:
 	Habitat.place(mr, 0)
 	Save._loaded = false
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
+
+func _test_screen_actions() -> void:
+	fresh("residents_actions")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	var mid := String(G.MAPS[z].id)
+
+	# acquire stub fills the hand from the core set
+	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
+	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
+	ok(Habitat.hand().size() == 2, "two acquires (the stub) fill the hand")
+	# merge in hand
+	ok(Habitat.hand_merge(String(G.RESIDENT_CORE[0].id), 1), "the two merge to a t2 in hand")
+	# place onto the completed map
+	ok(Habitat.place(mid, 0), "the t2 places onto the completed map")
+	ok(Habitat.rate(mid) == 2, "the placed t2 sets the map's rate to 2")
 
 func _test_screen() -> void:
 	fresh("residents_screen")
