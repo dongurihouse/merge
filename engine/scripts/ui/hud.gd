@@ -39,6 +39,7 @@ const HUD_WALLET_Z := 40      # wallet stays above the side row when the top ban
 # empty space ABOVE the painted ring. Lift the badge by that inset so the ring's TOP edge sits flush
 # with the wallet pills (whose panels start right at the edge margin), matching the gear's top corner.
 const LV_BADGE_TOP_INSET := 44.0
+const LV_BADGE_LEFT := 8.0     # painted badge edge aligns with the bottom Map tile's 32px side inset
 const PILL_SHIFT_X := 24.0    # nudge the centred wallet a touch right, giving the big left badge more room
 
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
@@ -116,7 +117,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
 	# from the wallet; the level badge is player status, not currency.
 	var left := HBoxContainer.new()
-	left.offset_left = Tune.EDGE_MARGIN
+	left.offset_left = LV_BADGE_LEFT
 	# top-align the badge with the wallet pills: lift it by the medal art's transparent top inset.
 	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host) - LV_BADGE_TOP_INSET
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
