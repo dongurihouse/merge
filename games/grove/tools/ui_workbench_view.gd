@@ -314,6 +314,7 @@ var _params := {
 		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
 var _selected := "button"
+var _fx_selected := "coin_pickup"
 var _focus_only := ""             # if set (a component id), _build() renders JUST that element centred — a
                                   # focused, repeatable capture (make shot-workbench EL=<id>); "" = full gallery
 var _columns: Array = []          # one content VBox per gallery column (each in its OWN scroll)
@@ -466,8 +467,12 @@ func _make_element(id: String) -> Control:
 			return _make_board_preview()
 		"fx":
 			var fx := FxWorkbenchView.new()
+			fx.name = "FxWorkbenchComponent"
 			fx.embedded = true
-			fx.custom_minimum_size = Vector2(1320, 820)
+			fx.show_sidebar = false
+			fx.preview_scale = 0.68
+			fx.set("_selected_fx", _fx_selected)
+			fx.custom_minimum_size = Vector2(540, 760)
 			fx.size = fx.custom_minimum_size
 			return fx
 		"generator":
@@ -1099,8 +1104,7 @@ func _section(id: String) -> Control:
 	var el := _make_element(id)
 	_building = ""
 	el = _maybe_wrap_shadow(el, id)         # cast the SHARED shadow behind the preview when this component's Shadow toggle is on
-	if id != "fx":
-		_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
+	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
 	holder.add_child(el)
 	v.add_child(holder)
 	_sections[id] = sec
@@ -1372,6 +1376,8 @@ func _rebuild_sidebar() -> void:
 	# Every element splits its controls into the two buckets (see TEST_KEYS): the persisted design
 	# config first, then the transient test/preview scaffolding that the config file never touches.
 	match _selected:
+		"fx":
+			_fx_sidebar()
 		"shadow":
 			_group_header("Saved to config", true)
 			_section_header("Cast (offset-based — size-independent)")
@@ -1939,6 +1945,184 @@ func _option_row(label: String, key: String, options: Array, rebuild_sidebar := 
 			_rebuild_sidebar.call_deferred())   # defer — we're inside this option's own signal
 	row.add_child(ob)
 	return row
+
+func _fx_sidebar() -> void:
+	_group_header("Saved to config", true)
+	_section_header("Effects")
+	var list_scroll := ScrollContainer.new()
+	list_scroll.name = "WorkbenchFxListScroll"
+	list_scroll.custom_minimum_size = Vector2(0, 235)
+	list_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_sidebar_body.add_child(list_scroll)
+	var list := VBoxContainer.new()
+	list.name = "WorkbenchFxList"
+	list.add_theme_constant_override("separation", 8)
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list_scroll.add_child(list)
+	for entry in FxWorkbenchView.FX_DEFS:
+		var def: Dictionary = entry
+		var fx_id := String(def.get("id", ""))
+		var row := HBoxContainer.new()
+		row.name = "WorkbenchFxRow_%s" % fx_id
+		row.add_theme_constant_override("separation", 8)
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_child(row)
+
+		var b := Button.new()
+		b.name = "WorkbenchFxList_%s" % fx_id
+		b.text = String(def.get("label", fx_id))
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		b.disabled = fx_id == _fx_selected
+		b.pressed.connect(func() -> void:
+			_fx_select(fx_id))
+		row.add_child(b)
+
+		var toggle := CheckButton.new()
+		toggle.name = "WorkbenchFxToggle_%s" % fx_id
+		toggle.button_pressed = FX.reward_fx_enabled(fx_id)
+		toggle.custom_minimum_size = Vector2(58, 32)
+		toggle.toggled.connect(func(on: bool) -> void:
+			_fx_set_enabled(fx_id, on))
+		row.add_child(toggle)
+
+	_section_header("Selected")
+	var selected: Dictionary = _fx_def(_fx_selected)
+	var meta := Label.new()
+	meta.text = "%s / %s" % [String(selected.get("label", "Effect")), String(selected.get("screen", "Preview"))]
+	meta.add_theme_font_size_override("font_size", 14)
+	meta.add_theme_color_override("font_color", Color(Pal.CREAM, 0.72))
+	meta.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_sidebar_body.add_child(meta)
+	var selected_toggle := CheckButton.new()
+	selected_toggle.name = "WorkbenchFxSelectedToggle"
+	selected_toggle.text = "Effect on"
+	selected_toggle.button_pressed = FX.reward_fx_enabled(_fx_selected)
+	selected_toggle.toggled.connect(func(on: bool) -> void:
+		_fx_set_enabled(_fx_selected, on))
+	_sidebar_body.add_child(selected_toggle)
+	var replay := Button.new()
+	replay.name = "WorkbenchFxReplayButton"
+	replay.text = "Replay"
+	replay.disabled = not FX.reward_fx_enabled(_fx_selected)
+	replay.pressed.connect(_fx_replay)
+	_sidebar_body.add_child(replay)
+
+	_section_header("Global")
+	_sidebar_body.add_child(_fx_slider_row("Amount", "amount", FX.REWARD_FX_MIN_AMOUNT, FX.REWARD_FX_MAX_AMOUNT, 1))
+	_sidebar_body.add_child(_fx_slider_row("Icon size", "icon_size", FX.REWARD_FX_MIN_ICON_SIZE, FX.REWARD_FX_MAX_ICON_SIZE, 1))
+	_sidebar_body.add_child(_fx_slider_row("Trail count", "trail_count", FX.REWARD_FX_MIN_TRAIL_COUNT, FX.REWARD_FX_MAX_TRAIL_COUNT, 1))
+	_sidebar_body.add_child(_fx_slider_row("Source size", "coin_size", FX.REWARD_FX_MIN_SOURCE_SIZE, FX.REWARD_FX_MAX_SOURCE_SIZE, 1))
+	var auto := CheckButton.new()
+	auto.name = "WorkbenchFxAutoReplayToggle"
+	auto.text = "Auto replay"
+	auto.button_pressed = FX.reward_fx_auto_replay()
+	auto.toggled.connect(func(on: bool) -> void:
+		_fx_set_auto_replay(on))
+	_sidebar_body.add_child(auto)
+
+func _fx_slider_row(label: String, key: String, lo: float, hi: float, step: float) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = label
+	lbl.custom_minimum_size = Vector2(118, 0)
+	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(lbl)
+	var s := HSlider.new()
+	s.name = "WorkbenchFx%sSlider" % _pascal_fx_key(key)
+	s.min_value = lo
+	s.max_value = hi
+	s.step = step
+	s.value = float(_fx_global_value(key))
+	s.custom_minimum_size = Vector2(0, 28)
+	s.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	s.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(s)
+	var val := Label.new()
+	val.text = "%d" % int(round(s.value))
+	val.custom_minimum_size = Vector2(44, 0)
+	val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	row.add_child(val)
+	s.value_changed.connect(func(x: float) -> void:
+		var iv := int(round(x))
+		val.text = "%d" % iv
+		_fx_set_global_setting(key, iv))
+	return row
+
+func _pascal_fx_key(key: String) -> String:
+	var out := ""
+	for part in key.split("_"):
+		out += String(part).capitalize()
+	return out
+
+func _fx_global_value(key: String) -> int:
+	match key:
+		"amount":
+			return FX.reward_fx_amount()
+		"icon_size":
+			return int(round(FX.reward_fx_icon_size()))
+		"trail_count":
+			return FX.reward_fx_trail_count()
+		"coin_size":
+			return int(round(FX.reward_fx_source_size()))
+		_:
+			return 0
+
+func _fx_preview() -> Control:
+	return find_child("FxWorkbenchComponent", true, false) as Control
+
+func _fx_select(id: String) -> void:
+	_fx_selected = id
+	var preview := _fx_preview()
+	if preview != null and is_instance_valid(preview):
+		preview.call("_select_fx", id)
+	else:
+		_rebuild_element("fx")
+	_rebuild_sidebar.call_deferred()
+
+func _fx_set_enabled(id: String, on: bool) -> void:
+	var preview := _fx_preview()
+	if preview != null and is_instance_valid(preview):
+		preview.call("_set_fx_enabled", id, on)
+	else:
+		FX.set_reward_fx_enabled(id, on)
+	_rebuild_sidebar.call_deferred()
+
+func _fx_set_global_setting(key: String, value: int) -> void:
+	var preview := _fx_preview()
+	if preview != null and is_instance_valid(preview):
+		preview.call("_set_global_setting", key, value)
+		return
+	match key:
+		"amount":
+			FX.set_reward_fx_amount(value)
+		"icon_size":
+			FX.set_reward_fx_icon_size(float(value))
+		"trail_count":
+			FX.set_reward_fx_trail_count(value)
+		"coin_size":
+			FX.set_reward_fx_source_size(float(value))
+
+func _fx_set_auto_replay(on: bool) -> void:
+	var preview := _fx_preview()
+	if preview != null and is_instance_valid(preview):
+		preview.call("_set_auto_replay", on)
+	else:
+		FX.set_reward_fx_auto_replay(on)
+
+func _fx_replay() -> void:
+	var preview := _fx_preview()
+	if preview != null and is_instance_valid(preview):
+		preview.call("_play_selected")
+
+func _fx_def(id: String) -> Dictionary:
+	for entry in FxWorkbenchView.FX_DEFS:
+		var def: Dictionary = entry
+		if String(def.get("id", "")) == id:
+			return def
+	return FxWorkbenchView.FX_DEFS[0]
 
 ## --- persistence -------------------------------------------------------------------------------
 

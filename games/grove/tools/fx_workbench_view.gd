@@ -13,6 +13,7 @@ const Pal = Game.PALETTE
 const SIDEBAR_W := 360.0
 const PREVIEW_W := 620.0
 const PREVIEW_H := 940.0
+const EMBEDDED_PREVIEW_SCALE := 0.68
 const COIN_CODE := G.COIN_LINE * 100 + 1
 const SAMPLE_ITEM_A := 101
 const SAMPLE_ITEM_B := 102
@@ -45,12 +46,18 @@ var _context_label: Label = null
 var _source: Control = null
 var _auto_timer: Timer = null
 @export var embedded := false
+@export var show_sidebar := true
+@export var preview_scale := 1.0
 
 func _ready() -> void:
 	if not embedded:
 		UiFont.apply()
-	mouse_filter = Control.MOUSE_FILTER_STOP
-	custom_minimum_size = Vector2(1320, 820) if embedded else Vector2(960, 720)
+	else:
+		show_sidebar = false
+		if is_equal_approx(preview_scale, 1.0):
+			preview_scale = EMBEDDED_PREVIEW_SCALE
+	mouse_filter = Control.MOUSE_FILTER_PASS if embedded else Control.MOUSE_FILTER_STOP
+	custom_minimum_size = Vector2(540, 760) if embedded else Vector2(960, 720)
 	_load_global_settings()
 	_build()
 
@@ -79,10 +86,12 @@ func _build() -> void:
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
 	root.add_theme_constant_override("separation", 0)
 	add_child(root)
-	root.add_child(_make_sidebar())
+	if show_sidebar:
+		root.add_child(_make_sidebar())
 	root.add_child(_make_stage())
-	_build_fx_list()
-	_rebuild_controls()
+	if show_sidebar:
+		_build_fx_list()
+		_rebuild_controls()
 	_build_selected_preview()
 
 	_auto_timer = Timer.new()
@@ -278,13 +287,7 @@ func _rebuild_controls() -> void:
 	auto.add_theme_color_override("font_color", Pal.CREAM)
 	auto.add_theme_font_size_override("font_size", 16)
 	auto.toggled.connect(func(on: bool) -> void:
-		_settings["auto_replay"] = on
-		FX.set_reward_fx_auto_replay(on)
-		if _auto_timer != null:
-			if on:
-				_auto_timer.start()
-			else:
-				_auto_timer.stop())
+		_set_auto_replay(on))
 	_controls.add_child(auto)
 
 func _slider_row(label: String, key: String, min_value: float, max_value: float, step: float) -> Control:
@@ -326,6 +329,15 @@ func _set_global_setting(key: String, value: int) -> void:
 		"coin_size":
 			FX.set_reward_fx_source_size(float(value))
 			_build_selected_preview()
+
+func _set_auto_replay(on: bool) -> void:
+	_settings["auto_replay"] = on
+	FX.set_reward_fx_auto_replay(on)
+	if _auto_timer != null:
+		if on:
+			_auto_timer.start()
+		else:
+			_auto_timer.stop()
 
 func _select_fx(id: String) -> void:
 	if id == _selected_fx:
@@ -382,7 +394,18 @@ func _reset_preview(name_text: String) -> void:
 	_preview_root.custom_minimum_size = Vector2(PREVIEW_W, PREVIEW_H)
 	_preview_root.size = Vector2(PREVIEW_W, PREVIEW_H)
 	_preview_root.clip_contents = true
-	_preview_stage.add_child(_preview_root)
+	var scale := clampf(preview_scale, 0.25, 1.0)
+	if scale < 0.999:
+		var wrap := Control.new()
+		wrap.name = "FxScaledPreviewWrap"
+		wrap.custom_minimum_size = Vector2(PREVIEW_W, PREVIEW_H) * scale
+		wrap.size = wrap.custom_minimum_size
+		wrap.clip_contents = true
+		_preview_stage.add_child(wrap)
+		_preview_root.scale = Vector2(scale, scale)
+		wrap.add_child(_preview_root)
+	else:
+		_preview_stage.add_child(_preview_root)
 
 func _targets_for(def: Dictionary) -> Array:
 	var targets: Array = def.get("targets", [])

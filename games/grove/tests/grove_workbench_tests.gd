@@ -167,6 +167,16 @@ func _initialize() -> void:
 	ok(view._sections.has("fx"), "FX workbench gallery section is built")
 	ok(view.find_child("FxWorkbenchRoot", true, false) != null, "FX workbench gallery section embeds the FX tool surface")
 	ok(view.find_child("CoinPickupPiece", true, false) != null, "embedded FX workbench keeps its board preview")
+	ok(view.find_child("FxWorkbenchSidebar", true, false) == null, "embedded FX workbench omits its own sidebar")
+	var embedded_fx := view.find_child("FxWorkbenchComponent", true, false) as Control
+	ok(embedded_fx != null and embedded_fx.custom_minimum_size.x <= 760.0, "embedded FX workbench stays compact enough to stack cleanly")
+	view._selected = "fx"
+	view._rebuild_sidebar()
+	await process_frame
+	ok(view._sidebar_body.find_child("WorkbenchFxList_coin_pickup", true, false) != null, "FX component selection shows the effect list in the main sidebar")
+	ok(view._sidebar_body.find_child("WorkbenchFxToggle_coin_pickup", true, false) != null, "FX component selection shows per-effect toggles in the main sidebar")
+	ok(view._sidebar_body.find_child("WorkbenchFxAmountSlider", true, false) != null, "FX component selection shows global sliders in the main sidebar")
+	ok(view._sidebar_body.find_child("WorkbenchFxReplayButton", true, false) != null, "FX component selection shows replay in the main sidebar")
 	var currency_ids := []
 	for id in View.IDS:
 		if String(id).find("currency_pill") != -1:
