@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://knjbivedrjgf"
-path="res://.godot/imported/region_map_30e58291ea552de3.png-c34699b71995d9ce4d5578a3c416103d.ctex"
+uid="uid://dqvhiiy21mkq7"
+path="res://.godot/imported/region_map_ef4565460c94f3f3.png-9223b1ed5d307855c32a25ac166be1c1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/baked/vine/region_map_30e58291ea552de3.png"
-dest_files=["res://.godot/imported/region_map_30e58291ea552de3.png-c34699b71995d9ce4d5578a3c416103d.ctex"]
+source_file="res://games/grove/assets/baked/vine/region_map_ef4565460c94f3f3.png"
+dest_files=["res://.godot/imported/region_map_ef4565460c94f3f3.png-9223b1ed5d307855c32a25ac166be1c1.ctex"]
 
 [params]
 

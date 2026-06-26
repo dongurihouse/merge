@@ -1152,7 +1152,7 @@ func _empty_slot(px: float) -> Control:
 
 func _card_zone_total(z: int) -> int:
 	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
-	# The picker badge reports restore progress, so a fresh Farm card reads 0/6 rather than 0/7.
+	# The picker badge reports restore progress only, so a fresh card reads (zones − 1), not the full count.
 	return maxi(0, G.MAPS[z].spots.size() - 1)
 
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home

@@ -350,7 +350,10 @@ func _test_map_card_zone_progress() -> void:
 	var card: Control = hx._make_card(G.hub_map(), 460.0, 160.0, opts)
 	get_root().add_child(card)
 	await create_timer(0.05).timeout
-	ok(_has_label_text(card, "0/6"), "fresh map card shows unlocked zone progress as 0/6")
+	# Track the live region geometry instead of a magic number: the picker pill reports restore
+	# progress as zones-minus-the-one-base-region, so an edit in the vine tool shifts the total.
+	var expected_total := maxi(0, int(G.MAPS[G.hub_map()].spots.size()) - 1)
+	ok(_has_label_text(card, "0/%d" % expected_total), "fresh map card shows unlocked zone progress as 0/%d" % expected_total)
 	ok(not _any_label_contains(card, "exp"), "fresh map card progress pill no longer shows total exp")
 	card.queue_free()
 	hx.queue_free()
