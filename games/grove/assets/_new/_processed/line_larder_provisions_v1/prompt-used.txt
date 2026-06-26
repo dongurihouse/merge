@@ -1,0 +1,9 @@
+Prompt provenance note:
+The exact interactive generation prompt for this earlier accepted Larder Provisions line was not preserved.
+
+Accepted production requirements for the final asset:
+- 12-tier Grove/Farm line sheet in a 3x4 row-major layout.
+- Solid magenta key background, clear continuous outlines, no shadows, no floor or grounding.
+- Single cutout-friendly item per tier with matched visual footprint.
+- Provision/package object language with everyday stored goods and distinct tier silhouettes.
+- Avoid detached FX, tiny crumbs, loose labels, readable text, watermarks, and arbitrary acorn symbols.

@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Mill Small Fish line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, cute compact fish silhouettes, bright readable body colors, simple scale patterns. No cast shadow, no contact shadow, no floor shadow, no water, no bubbles, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 fish must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one whole small fish per cell, in this order:
+1. plain silver minnow
+2. orange goldfish with rounded tail
+3. blue creek fish with pale belly
+4. yellow striped pond fish
+5. green mossback fish with simple dark stripe
+6. red speckled little trout, large simple spots
+7. teal millstream fish with stout fins
+8. purple dusk fish with crescent tail mark
+9. black-and-white koi-like small fish, simple patches
+10. turquoise glassy fish with brass fin edges
+11. violet moonfish with rounded crescent body shape
+12. rainbow scale festival fish with bold color bands
+
+Important constraints: one connected fish object per cell only. No hooks, no line, no net, no bucket, no plants, no acorn symbols. Keep fins attached close to body, with no tiny fin rays or loose scale specks.

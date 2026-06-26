@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Mill Water Plants line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, broad simple plant silhouettes, water-plant theme without drawing water. Use greens plus teal, yellow, pink, purple, and rainbow accents. No cast shadow, no contact shadow, no floor shadow, no water, no bubbles, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 plants must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one compact water plant clump per cell, in this order:
+1. single round lily pad with one notch
+2. broad water lettuce rosette with chunky leaves
+3. cattail pair fused at the base, only two stalks
+4. lotus bud with two broad leaves attached
+5. green duckweed mat as one rounded connected shape
+6. red water lily bud on a broad pad
+7. teal reed fan with five broad blades fused at base
+8. yellow marsh iris bud with two large leaves
+9. dark mossy water fern as one compact fan, no tiny fronds
+10. turquoise glassy lily pad with brass vein
+11. violet moon lotus bud with crescent-shaped broad leaf
+12. rainbow water lily pad with bold color sections
+
+Important constraints: one connected plant object per cell only. No loose leaves, no flowers floating separately, no many tiny fronds, no water rings, no rocks, no pots, no acorn symbols. Keep stems short and thick, with all parts touching so each object cuts cleanly.

@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Gate Arch Tokens line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, flat chunky medallion/token silhouettes, each with a simple arch or doorway motif. Use varied stone, wood, brass, teal, purple, and rainbow materials. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 tokens must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one arch token per cell, in this order:
+1. round gray stone token with simple raised arch motif
+2. wooden oval token with carved arch motif
+3. brass coin token with doorway arch cut shape embossed
+4. green patina copper token with thick arch border
+5. blue ceramic token with pale arch inset
+6. red enamel gate token with gold arch stripe
+7. teal shield-shaped token with rounded arch symbol
+8. pink petal-edged token with simple arch center
+9. dark iron arch token with pale rim stripe
+10. turquoise glassy arch token with brass outer rim
+11. violet moon arch token with crescent above the arch motif
+12. rainbow enamel arch token with bold color panels and gold arch outline
+
+Important constraints: one connected token object per cell only. No full buildings, no full gates, no keys, no chains, no loose coins, no piles, no acorn symbols. Motifs must be geometric and large, not tiny runes or text. Keep every token chunky and cutout-friendly.

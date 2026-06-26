@@ -1,0 +1,22 @@
+Use case: stylized-concept
+Asset type: 2D game item-line sprite sheet for a merge game, 12-tier Orchard Fruits v1 line
+Input images: use the fruit/item sheets already shown only as visual style references for clean hand-painted HD game asset rendering, saturated colors, crisp continuous dark outlines, solid magenta cutout workflow, and comparable item footprint. Do not copy their fruit choices or symbols.
+
+Create one portrait sprite sheet, exactly 1024x1536 pixels, with exactly 12 separate whole fruit items in a clean 3 columns x 4 rows grid. Row-major progression from tier 1 to tier 12.
+
+Critical content requirements:
+- Twelve fruit identities must all be different. Do not repeat apples, pears, plums, berries, citrus, or any other fruit type.
+- Exactly one whole fruit per cell. No fruit clusters, no bunches, no piles, no pairs, no multiple berries, no grapes, no strawberry clusters.
+- No cut fruit, no slices, no wedges, no halves, no opened fruit, no peeled-open fruit, no visible interiors, no visible seed rows.
+- No acorn symbol anywhere. Also avoid acorn-shaped emblems, acorn badges, acorn medallions, acorn seals, acorn stems, or acorn-like decorations.
+- No decorative symbols or icons on the fruit at all. Make high tiers special through color, silhouette, surface pattern, and shape only.
+
+Fruit list, one per cell, exactly in this order: 1 whole green apple, 2 whole pear, 3 whole peach, 4 whole orange, 5 whole purple plum, 6 whole pomegranate with closed crown, 7 whole fig, 8 whole persimmon, 9 whole mango, 10 whole dragon fruit with simple fins, 11 whole teal lanternfruit fantasy fruit with a curled stem, 12 whole rainbow orchard fruit fantasy fruit with a smooth pear-like silhouette. Every fruit is closed and intact.
+
+Style/medium: clean hand-painted HD 2D game item art, cozy pastoral merge-game asset, crisp continuous dark outline, cel-shaded forms, smooth color-blocked surfaces, very low texture noise. Bright varied colors: green, yellow, peach coral, orange, purple, crimson, magenta, warm gold, mango yellow, teal, violet, rainbow. Do not make pixel art.
+
+Composition/framing: exact 3x4 grid with no visible borders or frames. Each fruit must be isolated and centered in its invisible cell, fully inside the cell with generous magenta padding. All 12 fruits must have the same visual footprint and comparable maximum silhouette size, about the central 65-70% of each cell. Early fruits must not be tiny; final fruits must not be oversized. Strong readable silhouettes for cutting.
+
+Cleanup constraints: perfectly flat solid #FF00FF background everywhere, no gradients, no texture, no lighting variation in the background. No cast shadow, no contact shadow, no drop shadow, no blurred shadow, no floor plane, no reflection, no ground smudge. No detached sparkles, particles, glow clouds, smoke, crumbs, loose seeds, hairline decorations, tiny leaf clutter, labels, text, numbers, watermark, UI, frame borders, or guide marks. Use only 0-1 simple attached leaf per fruit when needed, large and easy to cut.
+
+Avoid: baskets, crates, boards, bowls, plates, jars, bottles, vases, pots, packages, ribbons, furniture, fireplaces, tools, flowers as the main subject, leafy bouquets, fruit piles, repeated fruit shapes, duplicate fruit species, cut-open fruit, sliced fruit, wedge fruit, visible fruit flesh, acorns, acorn icons, decorative emblems, complicated magical FX. Keep the base assets distinct and cut-friendly.

@@ -1,0 +1,8 @@
+Generate a production-ready 2D game asset sheet for the Farm Well Water line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, bright distinct water colors, simple readable silhouettes, no cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 elements must have the same visual footprint and fill the same amount of each grid cell.
+
+Accepted line requirements: water represented through different simple containers and magical vases, not repeated from adjacent herb/package lines. Use simple single-object silhouettes and avoid tiny splashes, droplets, or detached FX.

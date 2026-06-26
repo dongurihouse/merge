@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Stones line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, tactile stone texture, simple readable silhouettes. Use varied earth, teal, blue, pink, and violet colors so the line is not dull. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 stones must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one stone per cell, in this order:
+1. plain smooth gray garden pebble
+2. warm tan oval stepping stone
+3. green striped river stone
+4. red heart-shaped stone, simple solid shape
+5. blue skipping stone with pale band
+6. orange sun-warmed stone with rounded corners
+7. teal polished stone with brass-colored rim vein
+8. lavender moon-shaped stone, solid crescent slab
+9. moss-dusted dark stone with one large moss patch only
+10. turquoise glassy garden stone, smooth simple oval
+11. violet mystery stone with a carved spiral symbol, not a letter
+12. rainbow banded wonder stone with bold mineral layers
+
+Important constraints: one connected stone object per cell only. No piles, no clusters, no loose gravel, no tiny pebbles, no flowers, no leaves except the single moss patch on item 9, no acorn symbols. Keep cracks and mineral lines thick and simple, not fine noisy detail.

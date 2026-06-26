@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Small Critters line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, cute rounded critter silhouettes, simple readable bodies, varied colors. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 critters must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one whole small critter per cell, in this order:
+1. round garden snail with simple spiral shell
+2. squat green frog, front-facing
+3. red ladybug with large spots, legs tucked close
+4. blue beetle with smooth shell, legs tucked close
+5. yellow caterpillar with chunky segments
+6. orange tiny lizard curled into compact shape
+7. tan garden mouse, round body, tail wrapped against body
+8. brown hedgehog with simple chunky spines
+9. teal newt with rounded feet close to body
+10. turquoise glassy snail with brass shell rim
+11. violet moon moth with wings closed into one compact shape
+12. rainbow shell garden turtle with round shell and short attached legs
+
+Important constraints: one connected critter object per cell only. No grass, no leaves, no rocks, no food, no flowers, no acorn symbols. Avoid thin antennae, thin whiskers, thin tails, and spindly legs. Keep appendages attached close to the body and easy to cut out.

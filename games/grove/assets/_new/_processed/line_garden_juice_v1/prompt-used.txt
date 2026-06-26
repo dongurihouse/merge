@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Juice line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, bright distinct liquids, simple readable silhouettes, no cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 elements must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one juice container per cell, in this order:
+1. small clear tumbler of pale apple juice
+2. squat green garden juice bottle with cork
+3. red berry juice cup with simple straw attached
+4. orange carrot juice flask
+5. purple grape juice jug with tiny handle
+6. turquoise cucumber mint juice bottle
+7. yellow melon juice canteen
+8. pink blossom juice jar with rounded lid
+9. emerald mystery juice vial with thick glass rim
+10. bright blue cloudberry juice bottle with brass cap
+11. violet moonfruit juice decanter, simple round shape
+12. rainbow garden nectar bottle with bold color bands
+
+Important constraints: one connected container per cell only. No fruit pieces, no sliced fruit, no loose leaves, no piles, no trays, no labels, no acorn symbols. Keep decorations attached to the main object and large enough to cut cleanly. Avoid thin wisps, tiny bubbles, splash effects, condensation droplets, or any extra FX.

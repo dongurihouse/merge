@@ -90,6 +90,13 @@ The merge lines (`flower`/`mushroom`/`honey`/`feather`/`tools`) each ship as one
 `games/tools/slice_item_lines.py` (not the generic `grid`/`sheet` path). Run it after the source
 sheet changes:
 
+Before generating or accepting a new line sheet, apply the cutter-first art requirements in
+`docs/design/grove_art_pipeline.md` §4.1: 3×4 row-major, exact/normalized magenta key, clear
+continuous outlines, low fine-detail cleanup burden, matched visual footprint across all tiers, no
+shadows, no floor/grounding, no detached FX, mostly single-object tiers, compact everyday objects,
+distinct silhouette/material families from neighboring lines, and high-tier signature motifs placed
+in the natural emblem slot.
+
 ```bash
 python3 games/tools/slice_item_lines.py --montage   # all five lines; montages to tmp/itemcut/
 make import                                          # reimport the regenerated PNGs

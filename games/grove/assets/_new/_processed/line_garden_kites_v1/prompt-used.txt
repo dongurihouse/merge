@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Kites line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, playful garden colors, simple readable silhouettes. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 kites must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one kite per cell, in this order:
+1. plain red diamond kite with short chunky tail
+2. blue triangle kite with two broad tail ribbons attached
+3. yellow round sun kite with simple attached tail
+4. green leaf-shaped kite with thick outline and short ribbon tail
+5. orange fish-shaped kite, whole body silhouette, no loose fins
+6. pink butterfly-shaped kite, simplified wide wings and attached tail
+7. teal shield kite with stitched border
+8. purple crescent kite with a stubby ribbon tail
+9. striped windsock-style kite, compact and closed silhouette
+10. bright turquoise cloud kite with brass corner caps
+11. violet mystery kite with single eye-like stitched patch, not scary
+12. rainbow festival kite with bold color panels and chunky attached tail
+
+Important constraints: one connected kite object per cell only. No kite strings, no hands, no sky, no clouds separate from the kite, no loose bows, no tiny tassels, no acorn symbols. Keep tails short, chunky, attached to the main kite, and easy to cut out.

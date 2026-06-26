@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Orchard Scarecrows line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, simple readable silhouettes, cheerful but slightly mysterious high tiers. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 scarecrows must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one small scarecrow figure per cell, in this order:
+1. plain straw stick scarecrow with tan sack head
+2. blue shirt scarecrow with button eyes
+3. red scarf scarecrow with round straw hat
+4. green patched coat scarecrow
+5. sunflower straw-hat scarecrow with broad simple hat brim
+6. apple-button scarecrow with orange vest
+7. teal raincoat scarecrow with simple hood
+8. purple dusk scarecrow with crescent patch on chest
+9. pumpkin-head scarecrow with closed friendly carved smile
+10. bright turquoise orchard-guard scarecrow with brass buttons
+11. violet mystery scarecrow with tall floppy hat and stitched grin
+12. rainbow patchwork harvest scarecrow with bold colored patches
+
+Important constraints: one connected scarecrow figure per cell only. No field scene, no fence, no crops, no loose birds, no loose straw piles, no tiny detached accessories, no weapons, no acorn symbols. Keep each figure compact, front-facing, with attached arms and a simple post/body shape so it cuts out cleanly.

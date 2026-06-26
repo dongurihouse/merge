@@ -67,16 +67,16 @@ medium/palette/linework clauses: gouache+watercolour, cel-shaded, warm pastoral 
 outline). Map *scenes* keep a gentle high angle but objects stay **floor-standing**, never
 perspective-skewed (§16 rule 2).
 
-## 4 · Items — 3×3 line-grids
+## 4 · Items — line grids
 
-**One render per line = that line's 8 tiers laid out in a clean 3×3 grid** (8 used + 1 spare cell),
-clearly separated with generous margin (§16 rule 4). One render per line keeps a line's tiers
+**Legacy batch shape:** one render per line = that line's 8 tiers laid out in a clean 3×3 grid
+(8 used + 1 spare cell), clearly separated with generous margin (§16 rule 4). One render per line keeps a line's tiers
 style-consistent (shared lighting/brushwork), and **24 grid-renders → 192 sprites** (vs 192 single
 renders). Items display at ~100 px in-game, so a ~340 px grid cell upscaled to the 512² asset is
 ample.
 
 - **Per-class scaffold:** *"a clean 3×3 grid of 8 painted game items, evenly spaced with empty
-  margin around each, no overlap, soft contact shadow under each; one [LINE MOTIF] shown at 8
+  margin around each, no overlap, no shadow; one [LINE MOTIF] shown at 8
   growth stages stepping up in size and silhouette from a tiny [origin] to a large [trophy]; chunky
   readable silhouette, soft painterly shading with one warm rim light, clean simple outline; on a
   transparent background, any interior gaps fully cut through (transparent), not filled."*
@@ -102,6 +102,55 @@ during P1):
 **Grid-reliability fork (decided in P0):** if the artist's tool can't reliably produce a clean,
 splittable, on-style 3×3, fall back to **individual sprites** or a 2×2 (4 tiers/render). The grid is
 a throughput goal, not a hard requirement.
+
+### 4.1 · Current 12-tier line-sheet prompt requirements
+
+The live board now uses 12-tier item lines. For new model-generated line sheets, default to a
+**3×4 sheet**: exactly 12 separate icons, row-major tier order (`tier 1` top-left → `tier 12`
+bottom-right), no visible grid, no text, no labels, no watermark. Save the raw in
+`games/grove/assets/_new/line_<base>_vN.png`, then keep a normalized cutter copy as
+`line_<base>_vN_keyed.png` if the generated magenta is not exact.
+
+Use these requirements in every item-line prompt before generating:
+
+- **Cutter-first silhouette:** each tier is one isolated object on a flat solid `#FF00FF`
+  background, with a strong continuous dark outline and generous padding. No cropped edges,
+  no overlapping cells, and no object outside the central safe area.
+- **Low cleanup burden:** avoid dense fine-detail clusters such as many tiny leaves, stems, fronds,
+  seeds, crumbs, or hairline decorations. Use fewer, larger attached details and clean color-blocked
+  surfaces so each icon is easy to key, crop, and read at board size.
+- **Simple single-object tiers:** each tier should usually be one main object, not a kit, bundle,
+  scene, crossed-tools arrangement, or multi-prop assembly. High tiers may have richer trim or one
+  attached accessory, but the silhouette should still read as a single clean item.
+- **Consistent visual footprint:** all 12 tiers should occupy the same approximate icon footprint
+  inside their cells. Early tiers may be visually simpler, but they should not be noticeably smaller
+  than late tiers; late tiers should gain personality through color, silhouette, and motif rather
+  than by scaling up.
+- **No shadows or grounding:** absolutely no cast shadow, contact shadow, drop shadow, blurred
+  shadow, ground smudge, floor plane, reflection, or background texture. The slicer should see
+  foreground object(s) against connected flat key color only.
+- **Base asset only:** do not add sparkles, particles, smoke, aura clouds, glow clouds, or other
+  detached FX. FX are authored separately later; the item sheet should contain only the base
+  merge objects.
+- **Everyday item language:** item tiers should be portable game objects, not room furniture,
+  fireplaces, mantels, stoves, built-in architecture, scene fragments, or full environments.
+  High tiers can be more ornate, funny, mysterious, or colorful, but they must still read as
+  compact item icons.
+- **Line-family differentiation:** before prompting a new line, compare it against the most recent
+  adjacent line sheets and choose a different silhouette/material family. Do not reuse the same
+  dominant object language across neighboring lines, such as jars, bottles, books, grinders, caddies,
+  pots, baskets, or medallion-heavy vessels, unless that object type is the line's unique identity.
+- **High-tier distinctness:** the last three tiers should be clearly different at board size
+  through silhouette, palette, and material accents. Prefer vibrant color blocking and a bold
+  central motif over tiny clutter.
+- **Signature motifs:** when a line needs the Grove/acorn signature, replace an existing central
+  decorative motif on the high-tier object with **one clear acorn emblem**. Do not add extra
+  acorn badges, dangling acorns, floating acorns, or acorns in arbitrary corners.
+
+The Hearth Ember line (`line_hearth_ember_v7_keyed.png`) is the reference outcome: simple
+early tiers, high tiers with more color/personality, no shadows, no FX clutter, and acorn
+signatures occupying the natural emblem slots rather than being added as separate decorations, with
+all tiers kept to a matched visual size.
 
 ## 5 · Generators — individual renders
 
