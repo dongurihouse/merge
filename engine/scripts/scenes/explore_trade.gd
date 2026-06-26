@@ -45,20 +45,15 @@ func _pool() -> Array:
 
 func _build() -> void:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.offset_top = 250.0                  # clear the HUD band (level badge + wallet)
-	scroll.offset_left = 24.0
-	scroll.offset_right = -24.0
-	scroll.offset_bottom = -24.0
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	add_child(scroll)
-	_root = scroll
+	# centre the whole cluster in the screen (it's short — a top-anchored scroll left the bottom empty)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(center)
+	_root = center
 
 	var col := VBoxContainer.new()
-	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 14)
-	scroll.add_child(col)
+	center.add_child(col)
 
 	var title := _heading("Trade")
 	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

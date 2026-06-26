@@ -55,19 +55,29 @@ func _ready() -> void:
 	_start()
 
 func _build_topbar() -> void:
-	var bar := HBoxContainer.new()
-	bar.position = Vector2(24, 60)
-	bar.add_theme_constant_override("separation", 28)
-	add_child(bar)
 	_lbl_time = _label("0:00", 30, true)
 	_lbl_score = _label("0", 30, true)
 	_lbl_mult = _label("×1.0", 30, true)
+	# the three readouts spread across the top: Time · Score · Mult (End sits in the corner)
+	var bar := HBoxContainer.new()
+	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	bar.offset_left = 28.0
+	bar.offset_right = -150.0          # leave the top-right corner for the End pill
+	bar.offset_top = 54.0
+	bar.add_theme_constant_override("separation", 0)
 	bar.add_child(_chip("Time", _lbl_time))
+	var s1 := Control.new() ; s1.size_flags_horizontal = Control.SIZE_EXPAND_FILL ; bar.add_child(s1)
 	bar.add_child(_chip("Score", _lbl_score))
+	var s2 := Control.new() ; s2.size_flags_horizontal = Control.SIZE_EXPAND_FILL ; bar.add_child(s2)
 	bar.add_child(_chip("Mult", _lbl_mult))
+	add_child(bar)
+	# End — pinned to the top-right corner, clear of the board
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	var giveup: Button = Kit.pill_button("End", {"bg": "cream", "art": true, "font": 18})
-	giveup.position = Vector2(24, 140)
+	giveup.anchor_left = 1.0 ; giveup.anchor_right = 1.0     # explicit top-right box (preset leaves a zero-height collapse)
+	giveup.anchor_top = 0.0 ; giveup.anchor_bottom = 0.0
+	giveup.offset_left = -120.0 ; giveup.offset_right = -24.0
+	giveup.offset_top = 48.0 ; giveup.offset_bottom = 92.0
 	giveup.pressed.connect(func() -> void: _end())
 	add_child(giveup)
 
