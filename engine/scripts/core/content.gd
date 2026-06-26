@@ -772,7 +772,7 @@ static func merge_top(code: int) -> int:
 	if is_coin(code):
 		return COIN_TOP
 	if is_special(code):
-		return SPECIAL_TOP
+		return int(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("top", SPECIAL_TOP))
 	return TOP_TIER
 
 # §6.B special-drop roll + reward math (PURE — board.gd applies the side effects).

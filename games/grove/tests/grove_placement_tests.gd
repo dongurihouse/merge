@@ -48,14 +48,26 @@ func _initialize() -> void:
 	ok(action_seps.size() == 2, \
 		"S1: the shared action tray uses separators between Bag, Info, and Home")
 	ok(ss.home_btn.has_meta("icon_px") and ss.bag_btn.has_meta("icon_px") \
-		and absf(float(ss.home_btn.get_meta("icon_px")) - float(ss.bag_btn.get_meta("icon_px"))) < 0.01, \
-		"S1: the board Home and Bag icons use the same size")
+			and absf(float(ss.home_btn.get_meta("icon_px")) - float(ss.bag_btn.get_meta("icon_px"))) < 0.01, \
+			"S1: the board Home and Bag icons use the same size")
 	var action_info := ss.bottom_bar.find_child("ActionBarInfoBar", true, false) as PanelContainer
 	var action_info_sb: StyleBox = action_info.get_theme_stylebox("panel") if action_info != null else null
 	var bag_action_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal") if ss.bag_btn != null else null
 	var home_action_sb: StyleBox = ss.home_btn.get_theme_stylebox("normal") if ss.home_btn != null else null
 	ok(action_info_sb is StyleBoxEmpty and bag_action_sb is StyleBoxEmpty and home_action_sb is StyleBoxEmpty, \
 		"S1: the shared action tray has no separate inner Bag/Info/Home borders")
+	var action_row := ss.bottom_bar.find_child("ActionBarRow", true, false) as HBoxContainer
+	var info_cell: Node = action_info
+	while info_cell != null and info_cell.get_parent() != action_row:
+		info_cell = info_cell.get_parent()
+	ok(action_row != null \
+		and action_info != null \
+		and info_cell != null \
+		and ss.home_btn.get_parent() == action_row \
+		and ss.bag_btn.get_parent() == action_row \
+		and ss.home_btn.get_index() < info_cell.get_index() \
+		and info_cell.get_index() < ss.bag_btn.get_index(), \
+		"S1: the shared action tray orders Home, Info, Bag with fixed outer-button alignment")
 	ok(action_info != null, \
 		"S1: the centre info bar content is present")
 	var board_mat: Control = ss.board_area.get_child(0)

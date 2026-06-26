@@ -298,7 +298,8 @@ func _initialize() -> void:
 	var wild_t3 := 15 * 100 + 3
 	var flower_t3 := 1 * 100 + 3
 	ok(G.is_wildcard(wild_t3) and not G.is_wildcard(flower_t3), "is_wildcard gates only the wildcard")
-	ok(G.merge_top(wild_t3) == G.SPECIAL_TOP, "a wildcard self-merges up to the special ceiling")
+	ok(G.merge_top(wild_t3) == G.TOP_TIER and G.merge_top(10 * 100 + 1) == G.SPECIAL_TOP,
+		"a wildcard self-merges the full 12 tiers; other special items still cap at SPECIAL_TOP")
 	# wildcard advances a same-tier item one tier (consuming the wildcard)
 	ok(G.wildcard_advance_code(wild_t3, flower_t3) == 1 * 100 + 4, "a wildcard advances a same-tier item one tier")
 	ok(G.wildcard_advance_code(wild_t3, 1 * 100 + 5) == 0, "a wildcard does NOT apply to a different-tier item")

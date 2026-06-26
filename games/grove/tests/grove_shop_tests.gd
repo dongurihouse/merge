@@ -341,14 +341,16 @@ func _initialize() -> void:
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
 	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); the locked face is the simple
-	# code-drawn background. Frontier border cells get a gentle near-unlock wash; deep locked cells stay quiet and flat.
+	# code-drawn background. Frontier border cells get a gentle near-unlock wash and use the same
+	# tunable depth/shadow settings as the workbench Slot-cell component.
 	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
 	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
 	var border_bg := border_slot.find_child("SlotCellBackground", true, false) as Panel
 	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
 	ok(border_sb != null, "the locked-cell background is a solid StyleBoxFlat fill (not transparent art)")
 	ok(border_sb != null and border_sb.bg_color.is_equal_approx(Pal.NEAR_UNLOCK), "border locked cells use the near-unlock background")
-	ok(border_sb != null and border_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+	ok(border_sb != null and border_sb.shadow_size > 0 and border_sb.shadow_color.a > 0.0, \
+		"locked cell uses the Slot-cell depth shadow setting")
 	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell")
 	var deep_slot: Control = Kit.slot_cell({"state": "locked", "frontier": false}, slot_opts)
 	var deep_bg := deep_slot.find_child("SlotCellBackground", true, false) as Panel

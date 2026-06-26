@@ -278,15 +278,16 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # clear of the 1-5 content lines + 9 = coin). Art at items/<base>/<base>_<tier>.png (already wired). `kind`
 # selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
-const SPECIAL_TOP := 3                     # special items merge up to tier 3 (like coins)
+const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
 const SPECIAL_ITEMS := {
 	10: {"base": "chest", "kind": "chest"},   # merges; opened by a key for a reward
 	11: {"base": "key",   "kind": "key"},     # merges; opens a chest
 	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
 	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
 	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
-	# wildcard — behaviour below; art PENDING (code-drawn from `color` until the sprite lands, §6.B/#5).
-	15: {"base": "wildcard", "kind": "wildcard", "color": Color("#C77DD9")},  # self-merges up; OR advances any same-tier item
+	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
+	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
+	15: {"base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9")},  # self-merges up to 12; OR advances any same-tier item
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.

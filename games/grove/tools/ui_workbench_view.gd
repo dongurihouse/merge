@@ -149,7 +149,7 @@ const CAPTIONS := {
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
-	"info_bar": "Info bar — board bottom action bar (Bag · ⓘ · selected piece · Home)",
+	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -297,7 +297,7 @@ var _params := {
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. item_icon_scale is
 	# % of the selected-piece box. `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
-		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "bag_x_pct": 0, "info_x_pct": 0, "home_x_pct": 0,
+		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
 		"filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
@@ -316,14 +316,14 @@ var _params := {
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
 	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
-		"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
-		"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
-		"open_hue": 43, "open_sat": 10, "open_val": 92,
-		"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
-		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
-		"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
-		"depth": 4, "depth_alpha": 18, "cell_shadow": 16, "cell_shadow_size": 10, "cell_shadow_y": 3,
-		"level": 7, "cost": 120},
+			"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
+			"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
+			"open_hue": 43, "open_sat": 10, "open_val": 92,
+			"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
+			"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
+			"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
+			"depth": 4, "depth_alpha": 18, "cell_shadow": 16, "cell_shadow_size": 10, "cell_shadow_y": 3, "inset": 20,
+			"level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
 	# each from save). The banner / ✕ styling is inherited from the Frame item (like the other dialogs).
@@ -728,8 +728,8 @@ func _make_element(id: String) -> Control:
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
 		"info_bar":
-			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Bag · Info ·
-			# Home. The inner Bag/Home/Info frames are transparent so only the parent tray paints a border.
+			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Home · Info ·
+			# Bag. The inner Home/Info/Bag frames are transparent so only the parent tray paints a border.
 			return _action_bar_preview()
 		"settings":
 			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
@@ -924,7 +924,8 @@ func _action_bar_preview() -> Control:
 	var bar_h := maxf(166.0, btn_px + 36.0)
 	var sep_w := maxf(18.0, btn_px * 0.24)
 	var tray_pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
-	var info_w := maxf(120.0, preview_w * float(layout.get("info_bar_w_frac", 0.70)) - sep_w * 2.0 - tray_pad_x * 2.0)
+	var fit_slop := 12.0
+	var info_w := maxf(120.0, preview_w * float(layout.get("info_bar_w_frac", 0.70)) - sep_w * 2.0 - tray_pad_x * 2.0 - fit_slop)
 
 	var bar := PanelContainer.new()
 	bar.custom_minimum_size = Vector2(preview_w, bar_h)
@@ -941,11 +942,13 @@ func _action_bar_preview() -> Control:
 	ho["shape"] = "rect"
 	ho["shadow"] = false
 	ho["icon_scale"] = float(ao.get("icon_scale", 0.5))
-	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, ho.duplicate())
-	bag_btn.name = "ActionBarPreviewBag"
-	_action_bar_clear_button_frame(bag_btn)
-	row.add_child(_action_bar_nudge(bag_btn, float(ao.get("bag_x_frac", 0.0)), "ActionBarPreviewBagOffset"))
-	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorBagInfo"))
+	var home_btn := Kit.home_button({"icon": "house", "caption": ""}, ho.duplicate())
+	home_btn.name = "ActionBarPreviewHome"
+	home_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	home_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_action_bar_clear_button_frame(home_btn)
+	row.add_child(home_btn)
+	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorHomeInfo"))
 	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
 	var ib: PanelContainer = Kit.info_bar({}, io)
 	ib.name = "ActionBarPreviewInfoBar"
@@ -967,11 +970,13 @@ func _action_bar_preview() -> Control:
 		(ib.get_meta("info_btn") as Button).disabled = true
 		(ib.get_meta("sell_btn") as Button).visible = false
 	row.add_child(_action_bar_nudge(ib, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
-	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorInfoHome"))
-	var home_btn := Kit.home_button({"icon": "house", "caption": ""}, ho.duplicate())
-	home_btn.name = "ActionBarPreviewHome"
-	_action_bar_clear_button_frame(home_btn)
-	row.add_child(_action_bar_nudge(home_btn, float(ao.get("home_x_frac", 0.0)), "ActionBarPreviewHomeOffset"))
+	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorInfoBag"))
+	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, ho.duplicate())
+	bag_btn.name = "ActionBarPreviewBag"
+	bag_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	bag_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_action_bar_clear_button_frame(bag_btn)
+	row.add_child(bag_btn)
 	return bar
 
 func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "") -> Control:
@@ -1157,8 +1162,8 @@ func _make_board_preview() -> Control:
 			var demo_key := "%d,%d" % [r, c]
 			if demo_by_cell.has(demo_key):
 				var piece_code: int = int(demo_by_cell[demo_key])
-				cell_data = {"state": "filled", "make_content": func(_px: float) -> Control:
-					return PieceView.make_piece(piece_code, cell, inset)}
+				cell_data = {"state": "filled", "make_content": func(px: float) -> Control:
+					return PieceView.make_piece(piece_code, px, inset)}
 			elif r == 0 and c == 0:
 				cell_data = {"state": "unlockable", "frontier": true}
 			elif r == 0 or c == 0:
@@ -1999,9 +2004,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_scale_pct", 25, 95]))       # Bag/Home icon size (% of the button slot)
 			_sidebar_body.add_child(_slider_row(["pad_x_pct", 0, 16]))             # left/right padding (% of bar height)
 			_sidebar_body.add_child(_slider_row(["pad_y_pct", 0, 16]))             # top/bottom padding (% of bar height)
-			_sidebar_body.add_child(_slider_row(["bag_x_pct", -30, 30]))           # Bag item horizontal nudge
 			_sidebar_body.add_child(_slider_row(["info_x_pct", -30, 30]))          # Info pill horizontal nudge
-			_sidebar_body.add_child(_slider_row(["home_x_pct", -30, 30]))          # Home item horizontal nudge
 			_section_header("Info content")
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
@@ -2081,6 +2084,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["cell_shadow", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["cell_shadow_size", 0, 40]))
 			_sidebar_body.add_child(_slider_row(["cell_shadow_y", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["inset", 0, 100]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
 			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)

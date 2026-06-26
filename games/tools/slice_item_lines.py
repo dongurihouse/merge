@@ -68,6 +68,8 @@ SHEETS = {
     "special_avacado":  (4, 3),
     "special_cherry":   (4, 3),
     "special_watermelon": (4, 3),
+    # §6.B wildcard — a full 12-tier line (3 cols × 4 rows). Base name is "wildcard" → items/wildcard/wildcard_1..12.png.
+    "wildcard": (4, 3),
 }
 
 SIZE = 512          # output canvas (square)

@@ -120,6 +120,14 @@ func _painted_top(node: Control) -> float:
 		top = minf(top, (tr as TextureRect).get_global_rect().position.y + float(used.position.y) * scale_y)
 	return top
 
+func _piece_holder_max_px(node: Control) -> float:
+	var max_px := -1.0
+	for art in node.find_children("ItemArt", "TextureRect", true, false):
+		var parent := (art as Node).get_parent()
+		if parent is Control:
+			max_px = maxf(max_px, (parent as Control).size.x)
+	return max_px
+
 # The texture on a Button's `normal` stylebox when it wears sprite art (a StyleBoxTexture), else null —
 # lets a test prove two buttons share the SAME baked sprite (e.g. the level cta atom) without node names.
 func _btn_tex(b: Button) -> Texture2D:
@@ -177,7 +185,7 @@ func _live_board_frame_size(view_size: Vector2, board_cfg: Dictionary) -> Vector
 # The unlockable cell's accent colour — the border colour of its highlight pop (the StyleBoxFlat panel
 # with the 4px gold rim). Returns transparent if the cell carries no such pop (not unlockable).
 func _unlockable_tint(node: Control) -> Color:
-	for p in node.find_children("*", "Panel", true, false):
+	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
 		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
 			return (sb as StyleBoxFlat).border_color
@@ -185,7 +193,7 @@ func _unlockable_tint(node: Control) -> Color:
 
 # The unlockable highlight pop's rim drop-shadow size (px). -1 if the cell has no such pop.
 func _unlockable_shadow_size(node: Control) -> int:
-	for p in node.find_children("*", "Panel", true, false):
+	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
 		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
 			return (sb as StyleBoxFlat).shadow_size
@@ -843,7 +851,7 @@ func _test_new_knobs(view) -> void:
 	view._params["hud_layout"] = hud_default
 
 	# the board bottom ACTION BAR is merged into the Info bar Workbench target: one component owns the full
-	# shared tray (Bag · Info · Home), so the workbench cannot accidentally reintroduce inner frames.
+	# shared tray (Home · Info · Bag), so the workbench cannot accidentally reintroduce inner frames.
 	ok(not View.IDS.has("action_bar") and not view._params.has("action_bar"), \
 		"the standalone action_bar component is merged into info_bar")
 	var ab: Dictionary = Kit.action_bar_opts_from_config({"info_bar": {
@@ -852,23 +860,32 @@ func _test_new_knobs(view) -> void:
 	ok(is_equal_approx(float(ab.icon_scale), 0.65) \
 		and is_equal_approx(float(ab.pad_x_frac), 0.06) \
 		and is_equal_approx(float(ab.pad_y_frac), 0.04) \
-		and is_equal_approx(float(ab.bag_x_frac), -0.07) \
 		and is_equal_approx(float(ab.info_x_frac), 0.05) \
-		and is_equal_approx(float(ab.home_x_frac), 0.08), \
-		"info_bar resolver reads icon size, padding, and item x as percentages")
-	var action_keys := ["icon_scale_pct", "pad_x_pct", "pad_y_pct", "bag_x_pct", "info_x_pct", "home_x_pct"]
+		and not ab.has("bag_x_frac") \
+		and not ab.has("home_x_frac"), \
+		"info_bar resolver reads the shared Bag/Home size knob and ignores Bag/Home x")
+	var action_keys := ["icon_scale_pct", "pad_x_pct", "pad_y_pct", "info_x_pct"]
 	var action_has_knobs := true
 	for k in action_keys:
 		action_has_knobs = action_has_knobs and (view._params["info_bar"] as Dictionary).has(k) and view._is_config("info_bar", k)
-	ok(action_has_knobs, "merged info_bar action percentage knobs are saved config")
+	ok(action_has_knobs \
+		and not (view._params["info_bar"] as Dictionary).has("bag_x_pct") \
+		and not (view._params["info_bar"] as Dictionary).has("home_x_pct"), \
+		"merged info_bar action knobs keep one shared Bag/Home size control and no Bag/Home x controls")
 	var action_prev: Control = view._make_element("info_bar")
 	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
 	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
 	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer
 	ok(action_prev is PanelContainer \
-		and action_prev.find_child("ActionBarPreviewSeparatorBagInfo", true, false) != null \
-		and action_prev.find_child("ActionBarPreviewSeparatorInfoHome", true, false) != null, \
-		"merged info_bar preview renders the shared tray with Bag/Info/Home separators")
+		and action_prev.find_child("ActionBarPreviewSeparatorHomeInfo", true, false) != null \
+		and action_prev.find_child("ActionBarPreviewSeparatorInfoBag", true, false) != null, \
+		"merged info_bar preview renders the shared tray with Home/Info/Bag separators")
+	ok(preview_home != null and preview_bag != null and preview_info != null \
+		and preview_home.get_index() < preview_info.get_index() \
+		and preview_info.get_index() < preview_bag.get_index() \
+		and action_prev.find_child("ActionBarPreviewBagOffset", true, false) == null \
+		and action_prev.find_child("ActionBarPreviewHomeOffset", true, false) == null, \
+		"merged info_bar preview fixes Home left and Bag right with no Bag/Home x offsets")
 	ok(preview_bag != null and preview_bag.get_theme_stylebox("normal") is StyleBoxEmpty \
 		and preview_home != null and preview_home.get_theme_stylebox("normal") is StyleBoxEmpty \
 		and preview_info != null and preview_info.get_theme_stylebox("panel") is StyleBoxEmpty, \
@@ -876,9 +893,10 @@ func _test_new_knobs(view) -> void:
 	view._selected = "info_bar"
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Icon Scale Pct") >= 95.0 and _slider_max(view, "Pad X Pct") >= 16.0 \
-		and _slider_min(view, "Bag X Pct") <= -30.0 and _slider_max(view, "Home X Pct") >= 30.0 \
+		and _slider_min(view, "Info X Pct") <= -30.0 \
+		and _slider_max(view, "Bag X Pct") == -INF and _slider_max(view, "Home X Pct") == -INF \
 		and _slider_max(view, "Item Icon Scale") >= 120.0, \
-		"merged info_bar sidebar exposes both action-bar and info-bar sliders")
+		"merged info_bar sidebar exposes shared Bag/Home size but no Bag/Home x sliders")
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
@@ -975,6 +993,16 @@ func _test_board_element(view) -> void:
 		"the board preview renders every cell state through the Slot-cell background")
 	ok(_has_class(board_with_locks, "GPUParticles2D"), \
 		"the board preview includes the unlockable Slot-cell state")
+	view._params["board"]["cell"] = 100
+	view._params["board"]["scale"] = 100
+	view._params["board"]["pieces"] = true
+	view._params["bag_card"]["content_frac"] = 30
+	var small_piece_px := _piece_holder_max_px(view._make_element("board"))
+	view._params["bag_card"]["content_frac"] = 80
+	var large_piece_px := _piece_holder_max_px(view._make_element("board"))
+	ok(small_piece_px > 0.0 and large_piece_px > small_piece_px + 20.0 \
+		and absf(small_piece_px - 30.0) <= 2.0 and absf(large_piece_px - 80.0) <= 2.0, \
+		"board preview applies Slot-cell content_frac to demo pieces")
 	view._params["bag_card"] = bag_default
 
 	# the CELL knob = item width: wider items grow the board (the grid, not the frame thickness)
@@ -1461,6 +1489,22 @@ func _test_bag_components() -> void:
 		and (depth_style as StyleBoxFlat).shadow_color.a > 0.5 \
 		and is_equal_approx((depth_style as StyleBoxFlat).shadow_offset.y, 7.0), \
 		"Slot-cell depth and shadow settings affect the code-drawn background")
+	var co_inset := Kit.bag_card_opts_from_config({"bag_card": {"inset": 70}})
+	var inset_cell := Kit.slot_cell({"state": "empty"}, co_inset)
+	var inset_dark := inset_cell.find_child("SlotCellInsetDark", true, false) as Panel
+	var inset_light := inset_cell.find_child("SlotCellInsetLight", true, false) as Panel
+	var inset_dark_style: StyleBox = inset_dark.get_theme_stylebox("panel") if inset_dark != null else null
+	var inset_light_style: StyleBox = inset_light.get_theme_stylebox("panel") if inset_light != null else null
+	ok(inset_dark != null and inset_light != null \
+		and inset_dark.size == cwh and inset_light.size == cwh \
+		and inset_dark.custom_minimum_size == Vector2.ZERO and inset_light.custom_minimum_size == Vector2.ZERO \
+		and inset_dark_style is StyleBoxFlat and (inset_dark_style as StyleBoxFlat).border_width_top > 0 \
+		and (inset_dark_style as StyleBoxFlat).border_width_left > 0 \
+		and (inset_dark_style as StyleBoxFlat).border_color.a > 0.15 \
+		and inset_light_style is StyleBoxFlat and (inset_light_style as StyleBoxFlat).border_width_bottom > 0 \
+		and (inset_light_style as StyleBoxFlat).border_width_right > 0 \
+		and (inset_light_style as StyleBoxFlat).border_color.a > 0.10, \
+		"Slot-cell inset setting draws an in-cell depressed bevel without changing the cell size")
 	var locked_host := Control.new()
 	locked_host.custom_minimum_size = cwh
 	locked_host.size = cwh
@@ -1487,8 +1531,9 @@ func _test_bag_components() -> void:
 	side_view._selected = "bag_card"
 	side_view._rebuild_sidebar()
 	ok(_slider_max(side_view, "Depth") >= 24.0 and _slider_max(side_view, "Cell Shadow") >= 100.0 \
-		and _slider_max(side_view, "Cell Shadow Size") >= 40.0 and _slider_min(side_view, "Cell Shadow Y") <= -20.0, \
-		"Slot-cell sidebar exposes depth and shadow controls")
+		and _slider_max(side_view, "Cell Shadow Size") >= 40.0 and _slider_min(side_view, "Cell Shadow Y") <= -20.0 \
+		and _slider_max(side_view, "Inset") >= 100.0, \
+		"Slot-cell sidebar exposes depth, shadow, and inset controls")
 	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0

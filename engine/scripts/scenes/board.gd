@@ -42,11 +42,12 @@ const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the 
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
 const BOARD_STACK_TOP_SPACER := 44.0 # top offset for the quest fence + board stack under the pinned HUD
-const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Bag · info bar · Home); runtime follows workbench button px
+const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const ACTION_BAR_SEPARATOR := "shared/action_separator.png"
 const ACTION_BAR_SEPARATOR_FRAC := 0.24
+const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
@@ -152,7 +153,9 @@ var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
-var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
+var bottom_bar: Control          # the board bottom bar row (Home · info bar · Bag+count)
+var _action_bar_relayout_queued := false
+var _last_action_bar_view_size := Vector2.ZERO
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
@@ -251,13 +254,13 @@ func _ready() -> void:
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
 
-	# The board bottom bar: Bag (+ x/y count) · Info bar · Home. Tapping a board item SELECTS it into the
+	# The board bottom bar: Home · Info bar · Bag (+ x/y count). Tapping a board item SELECTS it into the
 	# centre info bar — its name, an info button that opens the Tiers ladder, and a trashcan that sells it
 	# for coins when it's a deletable (non-generator) item. Selling moved here from the old drag-to-merchant
 	# well. Bag stays a drag-to-stash target; Home returns to the Map.
 	var bar := PanelContainer.new()
 	bar.anchor_left = 0.0
-	bar.anchor_right = 1.0
+	bar.anchor_right = 0.0
 	bar.anchor_top = 1.0
 	bar.anchor_bottom = 1.0
 	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
@@ -266,7 +269,7 @@ func _ready() -> void:
 	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
 	var action_opts := _action_bar_opts()
 	bar.offset_left = 0.0
-	bar.offset_right = 0.0
+	bar.offset_right = _view_size().x
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
 	bar.add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
@@ -280,16 +283,11 @@ func _ready() -> void:
 	row.add_theme_constant_override("separation", 0)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	bar.add_child(row)
-	row.add_child(_action_bar_offset_slot(_build_bag_box(bottom_btn_px, action_opts), \
-		float(action_opts.get("bag_x_frac", 0.0)), "ActionBarBagOffset"))   # left: the Bag well + the x/y count
-	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorBagInfo"))
-	row.add_child(_action_bar_offset_slot(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), \
-		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))  # centre: the selected-item info bar
-	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorInfoHome"))
-	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # right: the Home disc (lit when a spot is affordable)
-	row.add_child(_action_bar_offset_slot(home_btn, \
-		float(action_opts.get("home_x_frac", 0.0)), "ActionBarHomeOffset"))
-	_clear_selection()                             # the info bar starts in its empty "tap an item" state
+	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, false)
+	if get_viewport() != null:
+		_last_action_bar_view_size = get_viewport_rect().size
+		if not get_viewport().size_changed.is_connected(_on_action_bar_viewport_resized):
+			get_viewport().size_changed.connect(_on_action_bar_viewport_resized)
 
 	_build_hud()
 	_build_water_hud()
@@ -1196,6 +1194,63 @@ func _action_bar_opts() -> Dictionary:
 		return {}
 	return Kit.action_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
+func _rebuild_action_bar_row(row: HBoxContainer, bottom_btn_px: float, action_opts: Dictionary, bottom_bar_h: float, preserve_selection: bool) -> void:
+	if row == null:
+		return
+	var prior_selection := _selected_cell
+	for child in row.get_children():
+		row.remove_child(child)
+		child.queue_free()
+	home_btn = _home_nav_button(bottom_btn_px, action_opts)     # left: the Home disc (lit when a spot is affordable)
+	row.add_child(home_btn)
+	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorHomeInfo"))
+	row.add_child(_action_bar_offset_slot(_build_info_bar(bottom_btn_px, action_opts, bottom_bar_h), \
+		float(action_opts.get("info_x_frac", 0.0)), "ActionBarInfoOffset"))  # centre: the selected-item info bar
+	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorInfoBag"))
+	row.add_child(_build_bag_box(bottom_btn_px, action_opts))   # right: the Bag well + the x/y count
+	if preserve_selection and prior_selection.x >= 0 and board != null:
+		if board.is_gen(prior_selection):
+			_select_generator(prior_selection)
+		else:
+			_select_item(prior_selection)
+	else:
+		_clear_selection()                             # the info bar starts in its empty "tap an item" state
+
+func _relayout_action_bar() -> void:
+	if bottom_bar == null or not is_instance_valid(bottom_bar):
+		return
+	var sb_inset := Look.safe_bottom(self)
+	var bottom_btn_px := _bottom_button_px()
+	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
+	var action_opts := _action_bar_opts()
+	bottom_bar.anchor_left = 0.0
+	bottom_bar.anchor_right = 0.0
+	bottom_bar.anchor_top = 1.0
+	bottom_bar.anchor_bottom = 1.0
+	bottom_bar.offset_left = 0.0
+	bottom_bar.offset_right = _view_size().x
+	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
+	bottom_bar.offset_bottom = -14.0 - sb_inset
+	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
+	var row := bottom_bar.find_child("ActionBarRow", false, false) as HBoxContainer
+	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, true)
+
+func _on_action_bar_viewport_resized() -> void:
+	if _action_bar_relayout_queued:
+		return
+	_action_bar_relayout_queued = true
+	_relayout_action_bar_after_resize.call_deferred()
+
+func _relayout_action_bar_after_resize() -> void:
+	_action_bar_relayout_queued = false
+	if get_viewport() == null:
+		return
+	var sz := get_viewport_rect().size
+	if sz == _last_action_bar_view_size:
+		return
+	_last_action_bar_view_size = sz
+	_relayout_action_bar()
+
 func _apply_action_bar_padding(sb: StyleBox, bar_h: float, action_opts: Dictionary) -> StyleBox:
 	var pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
 	var pad_y := roundf(bar_h * float(action_opts.get("pad_y_frac", 0.0)))
@@ -1347,6 +1402,8 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 func _make_bag_button(px: float, action_opts: Dictionary = {}) -> Button:
 	var b := _home_well(px, "bag", "nav_bag.png", _bag_count_text(), -1.0, action_opts)   # the home-button disc + satchel icon + the in-disc "x/y" count
 	_clear_action_tray_button_frame(b)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
 	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
 	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
@@ -1389,10 +1446,12 @@ func _view_size() -> Vector2:
 func _bag_count_text() -> String:
 	return "%d/%d" % [bag.size(), _bag_capacity()]
 
-# The Home disc for the bottom bar's right edge: the shared workbench-tuned home button + the Map jump.
+# The Home disc for the bottom bar's left edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float, action_opts: Dictionary = {}) -> Button:
 	var b := _home_well(px, "house", "nav_home.png", "", -1.0, action_opts)
 	_clear_action_tray_button_frame(b)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
@@ -1412,7 +1471,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
 	pill.name = "ActionBarInfoBar"
 	var tray_pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-	pill.custom_minimum_size.x = maxf(1.0, _info_bar_w_px() - _action_bar_separator_w(px) * 2.0 - tray_pad_x * 2.0)
+	pill.custom_minimum_size.x = maxf(1.0, _info_bar_w_px() - _action_bar_separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.add_theme_stylebox_override("panel", _transparent_info_bar_frame(opts))
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder

@@ -3421,8 +3421,8 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## Board bottom action-bar tuning from the workbench. Values are saved as whole percents:
-## icon_scale_pct is % of the Bag/Home slot size; pad_*_pct are % of bar height; *_x_pct nudges each
-## bottom-bar item horizontally as a % of its own slot width.
+## icon_scale_pct is the single shared Bag/Home icon size; pad_*_pct are % of bar height; info_x_pct
+## nudges only the center info content. Home and Bag keep fixed edge alignment.
 static func action_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
 	var legacy: Dictionary = cfg.get("action_bar", {}) if cfg is Dictionary else {}
@@ -3430,9 +3430,7 @@ static func action_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"icon_scale": clampf(float(i.get("icon_scale_pct", legacy.get("icon_scale_pct", 50.0))) / 100.0, 0.10, 1.50),
 		"pad_x_frac": clampf(float(i.get("pad_x_pct", legacy.get("pad_x_pct", 0.0))) / 100.0, 0.0, 0.30),
 		"pad_y_frac": clampf(float(i.get("pad_y_pct", legacy.get("pad_y_pct", 0.0))) / 100.0, 0.0, 0.30),
-		"bag_x_frac": clampf(float(i.get("bag_x_pct", legacy.get("bag_x_pct", 0.0))) / 100.0, -0.50, 0.50),
 		"info_x_frac": clampf(float(i.get("info_x_pct", legacy.get("info_x_pct", 0.0))) / 100.0, -0.50, 0.50),
-		"home_x_frac": clampf(float(i.get("home_x_pct", legacy.get("home_x_pct", 0.0))) / 100.0, -0.50, 0.50),
 	}
 
 static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7.0, rows := 9.0) -> Vector2:
@@ -3854,7 +3852,28 @@ static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary
 		"cell_shadow": clampf(float(bc.get("cell_shadow", 16.0)) / 100.0, 0.0, 1.0),
 		"cell_shadow_size": clampf(float(bc.get("cell_shadow_size", 10.0)) / 100.0, 0.0, 0.60),
 		"cell_shadow_y": clampf(float(bc.get("cell_shadow_y", 3.0)), -40.0, 40.0),
+		"inset": clampf(float(bc.get("inset", 20.0)) / 100.0, 0.0, 1.0),
 	}
+
+static func _slot_cell_inset_layer(name: String, size_px: Vector2, corner_px: int, edge_px: int, color: Color, dark_edge: bool) -> Panel:
+	var layer := Panel.new()
+	layer.name = name
+	layer.position = Vector2.ZERO
+	layer.size = size_px
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color.TRANSPARENT
+	fs.draw_center = false
+	fs.set_corner_radius_all(corner_px)
+	fs.border_color = color
+	if dark_edge:
+		fs.border_width_top = edge_px
+		fs.border_width_left = edge_px
+	else:
+		fs.border_width_bottom = edge_px
+		fs.border_width_right = edge_px
+	layer.add_theme_stylebox_override("panel", fs)
+	return layer
 
 static func slot_cell_background(size_px: Vector2, state: String, frontier: bool, opts: Dictionary = {}) -> Panel:
 	var base := Panel.new()
@@ -3878,6 +3897,12 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 	fs.shadow_offset = Vector2(0, float(opts.get("cell_shadow_y", 3.0)))
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var inset := float(opts.get("inset", 0.20))
+	if inset > 0.0:
+		var corner_px := int(maxf(10.0, minf(size_px.x, size_px.y) * float(opts.get("corner_frac", 0.18))))
+		var edge_px := maxi(1, int(round(minf(size_px.x, size_px.y) * lerpf(0.025, 0.070, inset))))
+		base.add_child(_slot_cell_inset_layer("SlotCellInsetDark", size_px, corner_px, edge_px, Color(0.12, 0.08, 0.04, 0.34 * inset), true))
+		base.add_child(_slot_cell_inset_layer("SlotCellInsetLight", size_px, corner_px, maxi(1, edge_px - 1), Color(1.0, 0.96, 0.78, 0.26 * inset), false))
 	return base
 
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
@@ -4035,6 +4060,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()
+		pop.name = "SlotCellUnlockableHighlight"
 		pop.position = Vector2.ZERO
 		pop.size = Vector2(cw, ch)
 		var ps := StyleBoxFlat.new()
