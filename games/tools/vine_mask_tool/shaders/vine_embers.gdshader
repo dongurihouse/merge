@@ -11,8 +11,12 @@ uniform float region_index = 0.0;
 uniform float region_count = 8.0;
 uniform float region_enabled = 1.0;
 
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(41.13, 289.97))) * 19342.937);
+// highp is required: a phone GPU (mobile renderer) honors mediump and the large `* 19342.x` overflows
+// fp16 mantissa, breaking the per-cell ember seed. Desktop already promotes to fp32, so this matches
+// the two. No-op on desktop.
+float hash(highp vec2 p) {
+	highp float d = dot(p, vec2(41.13, 289.97));
+	return fract(sin(d) * 19342.937);
 }
 
 float region_gate(vec2 uv) {

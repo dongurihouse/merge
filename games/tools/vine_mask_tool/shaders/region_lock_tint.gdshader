@@ -23,8 +23,13 @@ uniform float noise_scale = 9.0;    // noise frequency across the view
 uniform float mist = 0.45;          // interior density variation (0 = flat fill)
 uniform float drift = 0.03;         // slow flow speed
 
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+// hash() must run in highp: the editor/desktop GPU promotes mediump to fp32, but a real phone GPU
+// (mobile renderer) honors mediump and the large `* 43758.5453` overflows fp16 mantissa precision,
+// collapsing the noise into harsh bands. highp forces the same fp32 math the desktop already uses,
+// so the veil looks identical on both. A no-op on desktop.
+float hash(highp vec2 p) {
+	highp float d = dot(p, vec2(127.1, 311.7));
+	return fract(sin(d) * 43758.5453);
 }
 
 float vnoise(vec2 p) {

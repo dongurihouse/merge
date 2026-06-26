@@ -21,8 +21,12 @@ uniform float region_index = 0.0;
 uniform float region_count = 8.0;
 uniform float region_enabled = 1.0;
 
-float hash(vec2 p) {
-	return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+// highp is required: a phone GPU (mobile renderer) honors mediump and the large `* 43758.x` overflows
+// fp16 mantissa, turning the noise into harsh bands. Desktop already promotes to fp32, so this matches
+// the two. No-op on desktop.
+float hash(highp vec2 p) {
+	highp float d = dot(p, vec2(127.1, 311.7));
+	return fract(sin(d) * 43758.5453123);
 }
 
 float noise(vec2 p) {
