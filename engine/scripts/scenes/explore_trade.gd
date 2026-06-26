@@ -43,6 +43,7 @@ func _pool() -> Array:
 	return Explore.unlocked_pool(Save.grove().get("unlocks", {}), Save.grove().get("gates", []))
 
 func _build() -> void:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
 	scroll.offset_top = 230.0
@@ -59,14 +60,17 @@ func _build() -> void:
 	scroll.add_child(col)
 
 	col.add_child(_heading("Trade"))
-	col.add_child(_label("Score: %d" % Explore.score(), 24, true))
+	# the run's score as the shared cream amount chip
+	var score_row := HBoxContainer.new()
+	score_row.add_child(Kit.amount_chip("star", "Score  %d" % Explore.score()))
+	col.add_child(score_row)
 	col.add_child(_note("Spend your score on boxes — each opens to a spirit for your hand."))
 
-	# box cards
+	# box cards (parchment + a gift icon + an Open pill priced in points)
 	var boxes := HBoxContainer.new()
 	boxes.add_theme_constant_override("separation", 12)
 	for b in Explore.BOXES:
-		boxes.add_child(_box_card(b))
+		boxes.add_child(_box_card(Kit, b))
 	col.add_child(boxes)
 
 	# the reveal strip (what you've pulled this session)
@@ -78,9 +82,11 @@ func _build() -> void:
 			strip.add_child(_spirit_widget(String(kind), 72.0))
 		col.add_child(strip)
 
-	col.add_child(_button("Done", _on_done))
+	var done: Button = Kit.pill_button("Done", {"bg": "cream", "art": true, "font": 22})
+	done.pressed.connect(_on_done)
+	col.add_child(done)
 
-func _box_card(b: Dictionary) -> Control:
+func _box_card(Kit: GDScript, b: Dictionary) -> Control:
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = PARCH
@@ -91,11 +97,13 @@ func _box_card(b: Dictionary) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
 	panel.add_child(box)
-	box.add_child(_label(String(b.name), 22, true))
-	box.add_child(_label("%d pts" % int(b.cost), 20))
-	var buy := _button("Open", func() -> void: _on_buy(int(b.cost)))
-	buy.disabled = Explore.score() < int(b.cost)
-	box.add_child(buy)
+	var icon: Control = Kit.make_icon("gift", 48.0)
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	box.add_child(icon)
+	box.add_child(_label(String(b.name), 20, true))
+	var open: Button = Kit.pill_button("%d pts" % int(b.cost), {"bg": "green", "art": true, "font": 18, "enabled": Explore.score() >= int(b.cost)})
+	open.pressed.connect(func() -> void: _on_buy(int(b.cost)))
+	box.add_child(open)
 	return panel
 
 func _on_buy(cost: int) -> void:

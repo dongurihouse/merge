@@ -62,9 +62,8 @@ func _build_topbar() -> void:
 	bar.add_child(_chip("Time", _lbl_time))
 	bar.add_child(_chip("Score", _lbl_score))
 	bar.add_child(_chip("Mult", _lbl_mult))
-	var giveup := Button.new()
-	giveup.text = "End"
-	giveup.add_theme_font_size_override("font_size", 20)
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var giveup: Button = Kit.pill_button("End", {"bg": "cream", "art": true, "font": 18})
 	giveup.position = Vector2(24, 140)
 	giveup.pressed.connect(func() -> void: _end())
 	add_child(giveup)

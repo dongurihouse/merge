@@ -156,9 +156,11 @@ func _test_map_dock() -> void:
 	hx.unlocks = unl
 	hx._open_map(z)
 	ok(hx._spirits_dock != null and hx._spirits_dock.visible, "the spirits dock shows on a completed map")
-	var labels := _label_texts(hx._spirits_dock)
+	# capacity now reads from a Kit amount chip (a Button), so check label AND button texts
+	var texts := _label_texts(hx._spirits_dock)
+	texts.append_array(_button_texts(hx._spirits_dock))
 	var has_cap := false
-	for t in labels:
+	for t in texts:
 		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
 			has_cap = true
 	ok(has_cap, "the dock shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)

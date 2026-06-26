@@ -1442,20 +1442,22 @@ func _fill_spirits_dock() -> void:
 	if not populatable:
 		return
 	var map_id := String(G.MAPS[_map_idx].id)
+	var Kit: GDScript = load(KIT_PATH)
 
-	# header: capacity + (on a coin map) the collectable production
+	# header: map name + capacity chip + (on a coin map) the collectable production + a Collect pill
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 10)
-	head.add_child(_dock_label("%s  %d/%d" % [String(G.MAPS[_map_idx].name), Habitat.placed(map_id).size(), Habitat.cap(map_id)], 20, true))
+	head.add_child(_dock_label(String(G.MAPS[_map_idx].name), 20, true))
+	head.add_child(Kit.amount_chip("leaf", "%d/%d" % [Habitat.placed(map_id).size(), Habitat.cap(map_id)]))
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
 	var cur := Habitat.reward_currency(map_id)
 	if cur != "":
 		var pend := int(floor(Habitat.pending(map_id)))
-		head.add_child(_dock_label("+%d %s" % [pend, cur], 18))
-		var coll := _dock_button("Collect", func() -> void: _on_dock_collect(map_id))
-		coll.disabled = pend <= 0
+		head.add_child(Kit.amount_chip("coin", "+%d" % pend))
+		var coll: Button = Kit.pill_button("Collect", {"bg": "green", "art": true, "font": 18, "icon": "coin", "enabled": pend > 0})
+		coll.pressed.connect(func() -> void: _on_dock_collect(map_id))
 		head.add_child(coll)
 	_dock_body.add_child(head)
 
@@ -1473,8 +1475,8 @@ func _fill_spirits_dock() -> void:
 			if idx == _sel_hand:
 				w.modulate = Color(1.0, 0.92, 0.55)
 			hand_row.add_child(w)
-		var place := _dock_button("＋ Place", func() -> void: _on_dock_place(map_id))
-		place.disabled = _sel_hand < 0 or Habitat.is_full(map_id)
+		var place: Button = Kit.pill_button("Place", {"bg": "green", "art": true, "font": 18, "enabled": _sel_hand >= 0 and not Habitat.is_full(map_id)})
+		place.pressed.connect(func() -> void: _on_dock_place(map_id))
 		hand_row.add_child(place)
 	_dock_body.add_child(hand_row)
 
@@ -1596,6 +1598,9 @@ func _dock_button(text: String, on_press: Callable) -> Button:
 # stackable boosts, then Set off → the Rush (a scene) → Trade → back to the map with spirits in hand.
 # Replaces the standalone Loadout scene; built over a veil with the same look as the other map dialogs.
 func _open_expedition() -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
 	var equip := {"v": {}}                # boxed so the rebuild closure can mutate the chosen boosts
 	var overlay := Control.new()
 	overlay.name = "ExpeditionOverlay"
@@ -1606,49 +1611,49 @@ func _open_expedition() -> void:
 	veil.color = Color(DOCK_INK, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
 	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
 	var cc := CenterContainer.new()
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
+	var width: float = minf(get_viewport_rect().size.x * 0.9, 540.0)
 	var rebuild := {"fn": Callable()}
 	rebuild.fn = func() -> void:
 		if not is_instance_valid(cc):
 			return
 		for c in cc.get_children():
 			c.queue_free()
-		var panel := PanelContainer.new()
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = DOCK_PARCH
-		sb.set_corner_radius_all(18)
-		sb.content_margin_left = 22 ; sb.content_margin_right = 22
-		sb.content_margin_top = 18 ; sb.content_margin_bottom = 18
-		panel.add_theme_stylebox_override("panel", sb)
 		var col := VBoxContainer.new()
 		col.add_theme_constant_override("separation", 10)
-		col.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x * 0.9, 520.0), 0)
-		panel.add_child(col)
-		col.add_child(_dock_label("Load out", 30, true))
-		col.add_child(_dock_label("Spend coins on boosts, then set off. You have %d coins." % Save.coins(), 18))
+		col.custom_minimum_size = Vector2(width - 64.0, 0)
+		# each boost is a shared toggle card (parchment + the kit switch)
 		for it in Explore.LOADOUT:
 			var id := String(it.id)
-			var on := bool(equip.v.get(id, false))
-			var row := Button.new()
-			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
-			row.add_theme_font_size_override("font_size", 18)
-			row.text = "%s  %s  ·  %d coins%s" % [String(it.name), String(it.eff), int(it.cost), ("   ✓" if on else "")]
-			if on:
-				row.modulate = Color(1.0, 0.92, 0.55)
-			row.pressed.connect(func() -> void:
-				var want := not bool(equip.v.get(id, false))
-				equip.v[id] = want
-				if want and Explore.loadout_cost(equip.v) > Save.coins():
-					equip.v[id] = false      # can't afford — leave it off
-				Audio.play("button_tap", -2.0)
-				rebuild.fn.call())
-			col.add_child(row)
-		col.add_child(_dock_label("Cost: %d coins" % Explore.loadout_cost(equip.v), 20, true))
+			col.add_child(Kit.toggle_card({
+				"label": "%s — %s · %d" % [String(it.name), String(it.eff), int(it.cost)],
+				"value": bool(equip.v.get(id, false)),
+				"on_toggle": func(want: bool) -> void:
+					equip.v[id] = want
+					if want and Explore.loadout_cost(equip.v) > Save.coins():
+						equip.v[id] = false      # can't afford — leave it off
+					Audio.play("button_tap", -2.0)
+					rebuild.fn.call(),
+			}, {"label_font": 19, "card_art": true}))
+		# coins + cost as the shared cream amount chips
+		var chips := HBoxContainer.new()
+		chips.add_theme_constant_override("separation", 10)
+		chips.alignment = BoxContainer.ALIGNMENT_CENTER
+		chips.add_child(Kit.amount_chip("coin", "Have %d" % Save.coins()))
+		chips.add_child(Kit.amount_chip("coin", "Cost %d" % Explore.loadout_cost(equip.v)))
+		col.add_child(chips)
+		# actions: Set off (green) + Cancel (cream) — the shared pill buttons
 		var actions := HBoxContainer.new()
 		actions.add_theme_constant_override("separation", 14)
-		var go := _dock_button("Set off", func() -> void:
+		actions.alignment = BoxContainer.ALIGNMENT_CENTER
+		var go: Button = Kit.pill_button("Set off", {"bg": "green", "art": true, "font": 22, "enabled": Explore.can_start(equip.v)})
+		go.pressed.connect(func() -> void:
 			var cost := Explore.loadout_cost(equip.v)
 			if cost > Save.coins():
 				return
@@ -1657,12 +1662,21 @@ func _open_expedition() -> void:
 			Explore.begin_run(equip.v)
 			Audio.play("button_tap", -2.0)
 			SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
-		go.disabled = not Explore.can_start(equip.v)
 		actions.add_child(go)
-		actions.add_child(_dock_button("Cancel", func() -> void: overlay.queue_free()))
+		var cancel: Button = Kit.pill_button("Cancel", {"bg": "cream", "art": true, "font": 22})
+		cancel.pressed.connect(func() -> void: overlay.queue_free())
+		actions.add_child(cancel)
 		col.add_child(actions)
-		cc.add_child(panel)
-		FX.pop_in(panel)
+		# the shared parchment dialog frame (banner ribbon + ✕), as mail/shop/settings wear
+		var dialog: Control = Kit.dialog_frame(col, width, {
+			"banner_text": "Load out",
+			"banner_icon_id": "leaf",
+			"card_art": true,
+			"on_close": func() -> void: overlay.queue_free(),
+			"list_max_h": get_viewport_rect().size.y * 0.7,
+		})
+		cc.add_child(dialog)
+		FX.pop_in(dialog)
 	rebuild.fn.call()
 
 # DORMANT legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident —
