@@ -79,6 +79,12 @@ const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
 const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
 const KEY_TIER_MULT = D.KEY_TIER_MULT
 const ACCUMULATORS = D.ACCUMULATORS
+const TREAT_SPAWN_CHANCE = D.TREAT_SPAWN_CHANCE
+const TREAT_CLICKS = D.TREAT_CLICKS
+const TREAT_LINES = D.TREAT_LINES
+const TREAT_POP_TIER = D.TREAT_POP_TIER
+const TREAT_DROP_RATE = D.TREAT_DROP_RATE
+const TREAT_GEN_TEX = D.TREAT_GEN_TEX
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
@@ -853,7 +859,31 @@ static func gen_tex(id: String) -> String:
 	var kind := accumulator_kind_of(id)
 	if kind != "":
 		return String(ACCUMULATORS[kind].get("tex", ""))
+	if is_treat_gen(id):                                  # §6.D treat gen icon — derived from its line, stateless
+		var idx := TREAT_LINES.find(treat_line_of(id))
+		return String(TREAT_GEN_TEX[maxi(0, idx) % TREAT_GEN_TEX.size()])
 	return ""
+
+# --- §6.D temporary treat generators (the main generator occasionally spawns one) ---------------------
+static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:
+	return rng.randf() < TREAT_SPAWN_CHANCE
+
+static func pick_treat_line(rng: RandomNumberGenerator) -> int:
+	return int(TREAT_LINES[rng.randi_range(0, TREAT_LINES.size() - 1)])
+
+static func pick_treat_clicks(rng: RandomNumberGenerator) -> int:
+	return rng.randi_range(int(TREAT_CLICKS[0]), int(TREAT_CLICKS[1]))
+
+# A temp treat generator is a board generator with id "treat_<line>" (one at a time). Helpers below
+# keep the line ↔ id mapping in one place so the board can place/render/tap/vanish it via the gen infra.
+static func is_treat_gen(id: String) -> bool:
+	return id.begins_with("treat_")
+
+static func treat_gen_id(line: int) -> String:
+	return "treat_%d" % line
+
+static func treat_line_of(id: String) -> int:
+	return int(id.trim_prefix("treat_")) if is_treat_gen(id) else 0
 
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via

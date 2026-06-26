@@ -274,5 +274,25 @@ func _initialize() -> void:
 	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
 		"the collect reward is banked × the per-unit value")
 
+	# --- §6.D temporary treat generators (spawn / line / clicks / id mapping) ---
+	var trng := RandomNumberGenerator.new(); trng.seed = 5
+	var tlines := {}
+	var clicks_ok := true
+	for i in 200:
+		var ln := G.pick_treat_line(trng)
+		tlines[ln] = true
+		if not G.TREAT_LINES.has(ln):
+			clicks_ok = false
+		var c := G.pick_treat_clicks(trng)
+		if c < int(G.TREAT_CLICKS[0]) or c > int(G.TREAT_CLICKS[1]):
+			clicks_ok = false
+	ok(clicks_ok and tlines.size() >= 4, "pick_treat_line/clicks stay in range and spread across the treat lines")
+	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)
+	ok(G.is_treat_gen(G.treat_gen_id(63)) and G.treat_line_of(G.treat_gen_id(63)) == 63,
+		"treat_gen_id ↔ treat_line_of roundtrips")
+	ok(not G.is_treat_gen("seed_satchel") and not G.is_treat_gen("acc_water"),
+		"a normal generator / accumulator is NOT a treat generator")
+	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

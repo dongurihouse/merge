@@ -1096,6 +1096,11 @@ func _rebuild_all() -> void:
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen persists; new ones arrive via gen_bag, §6)
 		if G.is_accumulator(gid):             # §6.C show the banked count on a utility accumulator
 			_refresh_accumulator_badge(cell)
+		elif G.is_treat_gen(gid):             # §6.D show the taps-left on a temp treat generator
+			var tb := _make_boost_badge()
+			tb.name = "TreatBadge"
+			(tb.get_node("Count") as Label).text = "%d" % int(Save.grove().get("treat_clicks", 0))
+			gn.add_child(tb)
 	if not _grown_cells.is_empty():
 		Audio.play("level_complete", -6.0, 1.1)
 		_grown_cells = []
@@ -1947,6 +1952,8 @@ func _release_gen(pos: Vector2) -> void:
 			node.position = _cell_pos(from)
 		if G.is_accumulator(board.gen_id_at(from)):
 			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
+		elif G.is_treat_gen(board.gen_id_at(from)):
+			_pop_treat(from)                  # §6.D a temp treat generator — a tap pops a premium burst
 		else:
 			_pop_seed(from)                   # a still tap pops the generator (merge fuel)
 			_select_generator(from)           # …and surfaces the burst-upgrade chip in the info bar (T54)
@@ -2061,6 +2068,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		if _selected_cell.x >= 0 and board.is_gen(_selected_cell):
 			_info_label.text = _gen_info_text(board.gen_id_at(_selected_cell))
 			_refresh_burst_chip()          # re-enables the chip the moment the boost expires
+	# §6.D a main-generator tap may pop out a temporary TREAT generator (one live at a time)
+	if not _has_treat_gen() and G.rolls_treat_spawn(rng):
+		_spawn_treat_gen()
 	_persist()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a burst may have filled the last cell → dim the generator(s)
@@ -2459,6 +2469,72 @@ func _refresh_accumulator_badge(cell: Vector2i) -> void:
 		badge.name = "AccBadge"
 		gn.add_child(badge)
 	(badge.get_node("Count") as Label).text = "%d" % banked
+
+# --- §6.D temporary treat generators (board) ----------------------------------------------------------
+func _has_treat_gen() -> bool:
+	for v in board.gens.values():
+		if G.is_treat_gen(String(v)):
+			return true
+	for v in board.gen_bag:
+		if G.is_treat_gen(String(v)):
+			return true
+	return false
+
+# Pop a temp treat generator onto a free cell with a random tap budget (saved). Skips if the board is full.
+func _spawn_treat_gen() -> void:
+	var dest := Vector2i(-1, -1)
+	for c in board.empty_ground_cells():
+		if not board.gens.has(c):
+			dest = c
+			break
+	if dest == Vector2i(-1, -1):
+		return
+	board.place_gen(G.treat_gen_id(G.pick_treat_line(rng)), dest)
+	Save.grove()["treat_clicks"] = G.pick_treat_clicks(rng)
+	_grown_cells.append(dest)             # _rebuild_all pops it in
+	_rebuild_all()
+	Audio.play("level_complete", -5.0, 1.25)
+
+# A tap on the treat generator pops a burst of its premium line at the head-start tier (no water), often
+# also showering a §6.B special drop. Decrements the tap budget; at 0 the treat generator VANISHES.
+func _pop_treat(cell: Vector2i) -> void:
+	var line := G.treat_line_of(board.gen_id_at(cell))
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		var gnw: Control = gen_nodes.get(cell)
+		if gnw != null:
+			FX.wobble(gnw)
+		Audio.play("invalid_soft", -6.0)
+		return
+	var burst := mini(G.burst_count(_quest_map(), 0, rng), empties.size())
+	for _b in burst:
+		var pick: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
+		var code: int = line * 100 + G.TREAT_POP_TIER
+		board.place(pick, code)
+		empties.erase(pick)
+		_mark_seen(code)
+		var n := _make_piece(code, csz)
+		n.position = _cell_pos(cell)
+		n.scale = Vector2(0.3, 0.3)
+		board_area.add_child(n)
+		piece_nodes[pick] = n
+		var t := n.create_tween()
+		t.set_parallel(true)
+		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if not empties.is_empty() and rng.randf() < G.TREAT_DROP_RATE:
+		_drop_special_near(cell, G.pick_special_drop(rng))   # the treat shower: a §6.B special item too
+	var clicks := int(Save.grove().get("treat_clicks", 0)) - 1
+	FX.gen_charge(gen_nodes.get(cell))
+	Audio.play("water_pop", -2.0, 1.2)
+	if clicks <= 0:
+		board.gens.erase(cell)                # the treat generator is spent → it vanishes
+		Save.grove().erase("treat_clicks")
+	else:
+		Save.grove()["treat_clicks"] = clicks
+	_persist()
+	_rebuild_all()
+	_update_hud()
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)

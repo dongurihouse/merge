@@ -307,6 +307,22 @@ const ACCUMULATORS := {
 	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 4, "secs": 1800, "value": 1, "unlock_spot": 3},
 }
 
+# §6.D TEMPORARY TREAT GENERATORS — the main generator occasionally pops one out; it pops a burst of a
+# premium "treat" line (the §6.E Farm lines, which are NOT in the main pool, so they appear ONLY here) at
+# a head-start tier, for a random number of taps, then VANISHES. Scarce + fleeting (grab it before it's
+# gone), no water cost. The treat items merge + sell (the Farm lines carry the later-map sell band), and
+# each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
+const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
+const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
+const TREAT_LINES := [61, 62, 63, 64, 65, 66]   # the premium treat lines (Farm) it draws from
+const TREAT_POP_TIER := 2                 # treat items pop at this tier (a head start — "better rewards")
+const TREAT_DROP_RATE := 0.5              # each treat tap ALSO drops a §6.B special item this often
+const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at random; the wired treat art)
+	"items/generator/gen_seedcart.png", "items/generator/gen_beehive.png",
+	"items/generator/gen_lilyfountain.png", "items/generator/gen_applepress.png",
+	"items/generator/gen_wildflowerarch.png",
+]
+
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside
 # interior; discrete maps reached via a map-select. `hub: true` marks the permanent home hub (the
