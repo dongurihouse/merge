@@ -633,18 +633,12 @@ func _pop() -> void:
 	if empties.is_empty():
 		return
 	var cell: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
-	var gens := G.generators_for_map(G.GENERATORS, map)
-	if gens.is_empty():
+	# SINGLE-GENERATOR model (idea 3): the one anchor pops every OPENED line (mirrors board.gd's
+	# askable_lines pop pool) — NOT just the current map's generator. Biased toward what quests want.
+	var pool: Array = _live_lines()
+	if pool.is_empty():
 		return
 	var wanted := _wanted_lines()
-	var serving: Array = []                     # generators that emit a wanted line — cover ALL of them
-	for cand in gens:
-		for l in cand.lines:
-			if wanted.has(int(l)):
-				serving.append(cand)
-				break
-	var g: Dictionary = serving[rng.randi_range(0, serving.size() - 1)] if not serving.is_empty() else gens[rng.randi_range(0, gens.size() - 1)]
-	var pool: Array = g.lines
 	var pw: Array = []
 	for l in pool:
 		if wanted.has(int(l)):
