@@ -15,6 +15,9 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its field backdrop + slot-well art
+const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
+
+const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
@@ -51,38 +54,127 @@ func _ready() -> void:
 	_build_board()
 	_start()
 
+# The carved-wood / parchment top bar (rush_concept): a hero TIMER plaque (banner + hourglass + countdown)
+# on the left, a parchment SCORE card and a gilded MULTIPLIER medallion beside it, and a small parchment
+# EXIT square pinned to the top-right corner. Every piece is the rush_asset art; the dynamic numerals ride
+# on top. Sizes derive from one plaque height `H`, scaled down once if the row would overflow the width.
 func _build_topbar() -> void:
 	_lbl_time = _label("0:00", 30, true)
 	_lbl_score = _label("0", 30, true)
 	_lbl_mult = _label("×1.0", 30, true)
-	# the three readouts spread across the top: Time · Score · Mult (End sits in the corner)
-	var bar := HBoxContainer.new()
-	bar.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bar.offset_left = 28.0
-	bar.offset_right = -150.0          # leave the top-right corner for the End pill
-	bar.offset_top = 54.0
-	bar.add_theme_constant_override("separation", 0)
-	bar.add_child(_chip("Time", _lbl_time))
-	var s1 := Control.new() ; s1.size_flags_horizontal = Control.SIZE_EXPAND_FILL ; bar.add_child(s1)
-	bar.add_child(_chip("Score", _lbl_score))
-	var s2 := Control.new() ; s2.size_flags_horizontal = Control.SIZE_EXPAND_FILL ; bar.add_child(s2)
-	bar.add_child(_chip("Mult", _lbl_mult))
-	add_child(bar)
-	# End — pinned to the top-right corner, clear of the board
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var giveup: Button = Kit.pill_button("End", {"bg": "cream", "art": true, "font": 18})
-	giveup.anchor_left = 1.0 ; giveup.anchor_right = 1.0     # explicit top-right box (preset leaves a zero-height collapse)
-	giveup.anchor_top = 0.0 ; giveup.anchor_bottom = 0.0
-	giveup.offset_left = -120.0 ; giveup.offset_right = -24.0
-	giveup.offset_top = 48.0 ; giveup.offset_bottom = 92.0
-	giveup.pressed.connect(func() -> void: _end())
-	add_child(giveup)
+	var vp := get_viewport_rect().size
+	var vw: float = vp.x if vp.x > 0.0 else 720.0
+	var vh: float = vp.y if vp.y > 0.0 else 1280.0
+	var bar_top := maxf(Look.safe_top(self), 14.0) + 8.0
+
+	# piece sizes, all derived from the plaque height H (native aspects baked in). The board top is fixed at
+	# y=224, so cap H to the room above it (the banner overhangs upward, so it never eats the board).
+	var band := 224.0 - bar_top - 6.0
+	var H := clampf(minf(vh * 0.20, band), 110.0, 162.0)
+	var plaque := Vector2(H * 475.0 / 275.0, H)
+	var score := Vector2(H * 0.62 * 370.0 / 169.0, H * 0.62)
+	var mult := Vector2(H * 0.70 * 141.0 / 156.0, H * 0.70)
+	var exit := Vector2(H * 0.46 * 185.0 / 188.0, H * 0.46)
+	var gap := vw * 0.015
+	# shrink the whole row once if plaque + score + mult (+ the corner exit) would overflow the width
+	var row_w := plaque.x + gap + score.x + gap + mult.x
+	var avail := vw * 0.97 - exit.x - gap
+	if row_w > avail:
+		var k := avail / row_w
+		plaque *= k ; score *= k ; mult *= k ; exit *= k ; H *= k
+
+	var cy := bar_top + plaque.y * 0.5                      # the shared vertical centre line
+	var x := vw * 0.02
+	add_child(_timer_widget(plaque, Vector2(x, bar_top)))
+	x += plaque.x + gap
+	add_child(_score_widget(score, Vector2(x, cy - score.y * 0.5)))
+	x += score.x + gap
+	add_child(_mult_widget(mult, Vector2(x, cy - mult.y * 0.5)))
+
+	# EXIT — the parchment × square, pinned to the top-right corner, clear of the board
+	var ex := TextureButton.new()
+	ex.texture_normal = _tex("exit_x")
+	ex.ignore_texture_size = true
+	ex.stretch_mode = TextureButton.STRETCH_SCALE
+	ex.custom_minimum_size = exit ; ex.size = exit
+	ex.position = Vector2(vw * 0.98 - exit.x, cy - exit.y * 0.5)
+	ex.pressed.connect(func() -> void: _end())
+	add_child(ex)
+
+func _tex(name: String) -> Texture2D:
+	var p := RUSH_ART % name
+	return load(p) if ResourceLoader.exists(p) else null
+
+func _art_rect(name: String, w: float, h: float) -> TextureRect:
+	var t := TextureRect.new()
+	t.texture = _tex(name)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.custom_minimum_size = Vector2(w, h)
+	t.size = Vector2(w, h)
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
+# Center `lbl` inside a sub-rect of its parent at `pos`+`size`, at `font_px`.
+func _fit_label(lbl: Label, pos: Vector2, size: Vector2, font_px: int) -> void:
+	lbl.add_theme_font_size_override("font_size", font_px)
+	lbl.position = pos ; lbl.size = size ; lbl.custom_minimum_size = size
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+# TIMER: the wood plaque, the title banner riding its top edge, the hourglass on the left, and the
+# countdown numerals filling the body to its right.
+func _timer_widget(size: Vector2, pos: Vector2) -> Control:
+	var w := Control.new()
+	w.position = pos ; w.size = size ; w.custom_minimum_size = size
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	w.add_child(_art_rect("timer_plaque", size.x, size.y))
+	# the parchment banner overlaps the plaque's top edge, carrying the expedition title
+	var bw := size.x * 0.70 ; var bh := bw * 181.0 / 320.0
+	var bn := _art_rect("title_banner", bw, bh)
+	bn.position = Vector2((size.x - bw) * 0.5, -bh * 0.16)
+	w.add_child(bn)
+	var title := _label("Acorn Forest Expedition", int(maxf(11.0, size.y * 0.115)))
+	_fit_label(title, Vector2((size.x - bw) * 0.5, -bh * 0.06), Vector2(bw, bh * 0.7), int(maxf(11.0, size.y * 0.115)))
+	w.add_child(title)
+	# hourglass on the left of the plaque body
+	var hh := size.y * 0.50 ; var hw := hh * 116.0 / 210.0
+	var hg := _art_rect("hourglass", hw, hh)
+	hg.position = Vector2(size.x * 0.10, size.y * 0.42)
+	w.add_child(hg)
+	# the countdown numerals fill the body to the right of the hourglass
+	_lbl_time.add_theme_constant_override("outline_size", 5)
+	_fit_label(_lbl_time, Vector2(size.x * 0.26, size.y * 0.32), Vector2(size.x * 0.62, size.y * 0.54), int(size.y * 0.40))
+	w.add_child(_lbl_time)
+	return w
+
+# SCORE: the parchment card with its built-in acorn, the score numerals centred on it.
+func _score_widget(size: Vector2, pos: Vector2) -> Control:
+	var w := Control.new()
+	w.position = pos ; w.size = size ; w.custom_minimum_size = size
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	w.add_child(_art_rect("score_card", size.x, size.y))
+	_fit_label(_lbl_score, Vector2(size.x * 0.20, size.y * 0.16), Vector2(size.x * 0.72, size.y * 0.62), int(size.y * 0.46))
+	w.add_child(_lbl_score)
+	return w
+
+# MULTIPLIER: the gilded medallion with the multiplier reading centred on it.
+func _mult_widget(size: Vector2, pos: Vector2) -> Control:
+	var w := Control.new()
+	w.position = pos ; w.size = size ; w.custom_minimum_size = size
+	w.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	w.add_child(_art_rect("mult_medallion", size.x, size.y))
+	_lbl_mult.add_theme_constant_override("outline_size", 4)
+	_fit_label(_lbl_mult, Vector2(size.x * 0.08, size.y * 0.16), Vector2(size.x * 0.84, size.y * 0.5), int(size.y * 0.30))
+	w.add_child(_lbl_mult)
+	return w
 
 func _build_board() -> void:
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var top := 200.0
+	var top := 224.0          # room for the carved-wood top bar (see _build_topbar)
 	var avail_w := vw * 0.96
 	var avail_h := vh - top - 40.0
 	# size cells to fill the screen on whichever axis binds (the board is 7×9, taller than wide)
@@ -270,7 +362,12 @@ func _settle() -> void:
 		for c in G.COLS:
 			var cell = _grid[r][c]
 			if cell != null:
-				(cell.node as Control).position = Vector2(_cell * c + 3.0, _cell * r + 3.0)
+				var node := cell.node as Control
+				var rest := Vector2(_cell * c + 3.0, _cell * r + 3.0)
+				if node.position.y < rest.y - 1.0:
+					_fall_to(node, rest, node.position.y)   # a cleared tile DROPS into the gap (gravity)
+				else:
+					node.position = rest                    # already settled / a same-row or sideways move
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
@@ -291,10 +388,24 @@ func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 		b.add_theme_stylebox_override(st, empty)
 	b.pressed.connect(func() -> void: _on_tile(b))
 	_board.add_child(b)
-	FX.pop(b)                       # JUICE: a little landing pop as the trace drops in
 	var cell := {"kind": line, "tier": tier, "node": b}
 	_paint(cell)
+	_fall_to(b, b.position, -_cell)   # JUICE: the trace FALLS in from the top of the board (not a pop-in)
 	return b
+
+# A tile FALLS from `from_y` to its resting cell `rest`, accelerating like gravity, with a small squash on
+# impact — used for freshly-spawned traces (from above the board) and for tiles settling down after a clear.
+func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.position = Vector2(rest.x, from_y)
+	node.pivot_offset = node.size * 0.5
+	var dist := maxf(0.0, rest.y - from_y)
+	var dur := clampf(0.10 + dist / maxf(1.0, _cell * float(G.ROWS)) * 0.24, 0.10, 0.36)
+	var t := node.create_tween()
+	t.tween_property(node, "position:y", rest.y, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:
@@ -325,15 +436,6 @@ func _refresh_readouts() -> void:
 		_lbl_score.text = str(Explore.score())
 	if _lbl_mult != null:
 		_lbl_mult.text = "×%.1f" % _mult
-
-func _chip(caption: String, value: Label) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 0)
-	var cap := _label(caption, 16)
-	cap.modulate = Color(1, 1, 1, 0.65)
-	box.add_child(cap)
-	box.add_child(value)
-	return box
 
 func _label(text: String, size: int, bold: bool = false) -> Label:
 	var l := Label.new()
