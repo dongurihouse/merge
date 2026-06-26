@@ -61,6 +61,12 @@ const LINES := {
 	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A")},
 	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B")},
 	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3")},
+	# §6.D special "treasure" lines (#3) — the premium fruit chains, emitted ONLY by temp treat generators
+	# (TREAT_LINES below), never the main pool. 12 tiers each, sliced from _originals/items/special_*.
+	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F")},
+	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A")},
+	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F")},
+	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -278,16 +284,15 @@ const SPECIAL_ITEMS := {
 	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
 	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
 	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
-	# wildcard + tool — behaviours below; art PENDING (code-drawn from `color` until sprites land, §6.B/#5).
+	# wildcard — behaviour below; art PENDING (code-drawn from `color` until the sprite lands, §6.B/#5).
 	15: {"base": "wildcard", "kind": "wildcard", "color": Color("#C77DD9")},  # self-merges up; OR advances any same-tier item
-	16: {"base": "tool", "kind": "tool", "color": Color("#8A8F94")},          # single-use; clears any locked cell
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
 # (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
 const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2, 15: 1, 16: 1}   # chest·key·water·acorn·exp·wildcard·tool (last two scarce)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2, 15: 1}   # chest·key·water·acorn·exp·wildcard (wildcard scarce)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},
@@ -317,7 +322,7 @@ const ACCUMULATORS := {
 # each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
 const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
 const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
-const TREAT_LINES := [61, 62, 63, 64, 65, 66]   # the premium treat lines (Farm) it draws from
+const TREAT_LINES := [71, 72, 73, 74, 61, 62, 63, 64, 65, 66]   # premium treat lines: the §3 fruit treasures + the Farm lines
 const TREAT_POP_TIER := 2                 # treat items pop at this tier (a head start — "better rewards")
 const TREAT_DROP_RATE := 0.5              # each treat tap ALSO drops a §6.B special item this often
 const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at random; the wired treat art)

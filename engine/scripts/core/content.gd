@@ -755,9 +755,6 @@ static func special_base(code: int) -> String:
 static func is_wildcard(code: int) -> bool:
 	return special_kind(code) == "wildcard"
 
-static func is_tool_item(code: int) -> bool:
-	return special_kind(code) == "tool"
-
 # A WILDCARD advances ANY same-tier non-wildcard item one tier, consuming the wildcard. (Two wildcards
 # instead merge normally via can_merge.) Returns the advanced target code, or 0 if it can't apply here.
 static func wildcard_advance_code(wild: int, target: int) -> int:
@@ -769,13 +766,11 @@ static func wildcard_advance_code(wild: int, target: int) -> int:
 		return 0
 	return target + 1
 
-# The merge CEILING for a code: coins + special items cap low (3); content lines reach TOP_TIER; a TOOL is
-# single-use and never merges. One place so can_merge / openable-pair logic agree (board_model, board_logic).
+# The merge CEILING for a code: coins + special items cap low (3); content lines reach TOP_TIER. One
+# place so can_merge / openable-pair logic agree (board_model, board_logic).
 static func merge_top(code: int) -> int:
 	if is_coin(code):
 		return COIN_TOP
-	if is_tool_item(code):
-		return 1                                       # a tool never merges (single-use)
 	if is_special(code):
 		return SPECIAL_TOP
 	return TOP_TIER

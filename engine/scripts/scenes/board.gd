@@ -1922,8 +1922,6 @@ func _on_release(pos: Vector2) -> void:
 			_select_item(from)
 	elif G.wildcard_advance_code(from_code, target_code) > 0:
 		_apply_wildcard(from, target, node)   # §6.B a WILDCARD advances a same-tier item one tier
-	elif G.is_tool_item(from_code) and target != from and not board.is_open(target):
-		_use_tool(from, target, node)         # §6.B a TOOL clears a locked cell
 	elif G.can_open_chest(from_code, target_code):
 		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
@@ -2408,18 +2406,6 @@ func _apply_wildcard(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_refresh_locked_cells()
 	_persist()
 	_refresh_giver_lights()
-	_update_hud()
-
-# §6.B a single-use TOOL dragged onto a locked cell clears it (consumes the tool).
-func _use_tool(from: Vector2i, target: Vector2i, node: Control) -> void:
-	board.take(from)
-	piece_nodes.erase(from)
-	if node != null and is_instance_valid(node):
-		node.queue_free()
-	_open_bramble(target)            # opens the locked cell unconditionally (a tool ignores the level gate)
-	_refresh_locked_cells()
-	_persist()
-	_rebuild_pieces()
 	_update_hud()
 
 # §6.C ensure every UNLOCKED accumulator (its map-1 spot claimed) is on the board (or the gen bag), and
