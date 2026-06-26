@@ -77,6 +77,14 @@ func _test_grid() -> void:
 	ok(Explore.neighbor_match(g, 2, 0) == Vector2i(-1, -1), "no match when the neighbour's kind differs")
 	g[2][1] = {"kind": "leaf", "tier": 2}
 	ok(Explore.neighbor_match(g, 2, 0) == Vector2i(-1, -1), "no match when the neighbour's tier differs")
+	# the Rush uses INTEGER line indices as kinds (RUSH_LINES = [1,2,3]); neighbor_match must handle them
+	# (str(), not String() — String(int) has no constructor and crashed every tap-merge in the Rush)
+	var gi := _grid(3, 3)
+	gi[2][0] = {"kind": 1, "tier": 1}
+	gi[2][1] = {"kind": 1, "tier": 1}
+	ok(Explore.neighbor_match(gi, 2, 0) == Vector2i(2, 1), "neighbor_match matches integer (line-index) kinds")
+	gi[2][1] = {"kind": 2, "tier": 1}
+	ok(Explore.neighbor_match(gi, 2, 0) == Vector2i(-1, -1), "no match when integer kinds differ")
 
 	var g2 := _grid(3, 3)
 	g2[0][1] = {"kind": "leaf", "tier": 1}

@@ -110,7 +110,7 @@ static func neighbor_match(grid: Array, r: int, c: int) -> Vector2i:
 		if nr < 0 or nc < 0 or nr >= grid.size() or nc >= cols:
 			continue
 		var n = grid[nr][nc]
-		if n != null and String(n.kind) == String(t.kind) and int(n.tier) == int(t.tier):
+		if n != null and str(n.kind) == str(t.kind) and int(n.tier) == int(t.tier):   # str(): kinds are int line-indices in the Rush (String(int) has no ctor)
 			return Vector2i(nr, nc)
 	return Vector2i(-1, -1)
 
