@@ -4,6 +4,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Iap = preload("res://engine/scripts/core/iap.gd")   # cash-pack prices/ids live in the IAP catalog now
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the water regen rule (over-cap pause)
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 
 func _initialize() -> void:
 	begin("grove · shop")
@@ -233,6 +234,36 @@ func _initialize() -> void:
 		if int(v) > 0 and G.is_coin(int(v)):
 			saved_coin = true
 	ok(saved_coin, "debug_drop_coin persists the coin to the save (survives a reload)")
+	# coins (and any future collectable) are POCKETED by a tap-to-FOCUS then tap-AGAIN gesture,
+	# never by a drag (board.gd _on_release keys off G.is_collectable + the focused cell).
+	ok(G.is_collectable(bd.board.item_at(dc)), "the dropped coin counts as a collectable")
+	var coin_val := G.coin_value(bd.board.item_at(dc))
+	var wallet0 := Save.coins()
+	var chalf := Vector2(bd.csz, bd.csz) / 2.0
+	var dcpos: Vector2 = bd._cell_pos(dc) + chalf
+	bd._on_press(dcpos)
+	bd._on_release(dcpos)                                   # first tap → focus only
+	ok(Save.coins() == wallet0, "first tap on a coin does not pocket it")
+	ok(bd.board.item_at(dc) != 0 and bd._selected_cell == dc, "first tap only brings up the info bar")
+	bd._on_press(dcpos)
+	bd._on_release(dcpos)                                   # second tap, now focused → collect
+	ok(Save.coins() == wallet0 + coin_val and bd.board.item_at(dc) == 0, "a second tap on the focused coin pockets it")
+	# a drag never collects, even when the coin is already focused
+	bd.debug_drop_coin()
+	await create_timer(0.3).timeout
+	var dc2 := Vector2i(-1, -1)
+	for i in bd.board.items.size():
+		if bd.board.items[i] > 0 and G.is_coin(bd.board.items[i]):
+			dc2 = BoardModel.cell_of(i)
+			break
+	ok(dc2 != Vector2i(-1, -1), "a second coin dropped for the drag check")
+	var wallet1 := Save.coins()
+	var dc2pos: Vector2 = bd._cell_pos(dc2) + chalf
+	bd._on_press(dc2pos)
+	bd._on_release(dc2pos)                                  # focus it
+	bd._on_press(dc2pos)
+	bd._on_release(dc2pos + Vector2(bd.csz, 0.0))           # drag away (>18px) — must not collect
+	ok(Save.coins() == wallet1, "dragging a coin does not pocket it")
 	bd.queue_free()
 	# ── T44 · the diegetic return surfaces build + drive (§10/§13 · §18) ─────────
 	# Both surfaces are world objects (parchment cards), not bare chrome. Open them on a
@@ -309,23 +340,26 @@ func _initialize() -> void:
 	var backdrop := BoardScript._field_backdrop()
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
-	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); a simple code-drawn
-	# background backs the rounded corners (the painted slot_locked padlock rides ON TOP). Frontier
-	# border cells get a gentle near-unlock wash; deep locked cells stay quiet and flat.
-	var border_bg := PieceViewScript._locked_background(100.0, true)
+	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); the locked face is the simple
+	# code-drawn background. Frontier border cells get a gentle near-unlock wash; deep locked cells stay quiet and flat.
+	var slot_opts := Kit.bag_card_opts_from_config({"bag_card": {"cell_w": 100, "cell_h": 100}})
+	var border_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, slot_opts)
+	var border_bg := border_slot.find_child("SlotCellBackground", true, false) as Panel
 	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
 	ok(border_sb != null, "the locked-cell background is a solid StyleBoxFlat fill (not transparent art)")
 	ok(border_sb != null and border_sb.bg_color.is_equal_approx(Pal.NEAR_UNLOCK), "border locked cells use the near-unlock background")
 	ok(border_sb != null and border_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
 	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell")
-	var deep_bg := PieceViewScript._locked_background(100.0, false)
+	var deep_slot: Control = Kit.slot_cell({"state": "locked", "frontier": false}, slot_opts)
+	var deep_bg := deep_slot.find_child("SlotCellBackground", true, false) as Panel
 	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxFlat
 	ok(deep_sb != null and deep_sb.bg_color.is_equal_approx(Pal.LOCKED), "deep locked cells keep the quiet locked background")
-	border_bg.free()
-	deep_bg.free()
+	border_slot.free()
+	deep_slot.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
-	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the gate marker")
-	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \
+	var bramble_bg := bramble_node.find_child("SlotCellBackground", true, false) as Panel
+	ok(bramble_bg != null, "frontier locked cell paints a full-cell locked background")
+	ok(bramble_bg != null and bramble_bg.get_theme_stylebox("panel") is StyleBoxFlat, \
 		"frontier locked cell background is a solid fill, not transparent art that exposes the board gutter")
 	var lv_num: Label = bramble_node.find_child("lv_num", true, false) as Label
 	ok(lv_num == null, "frontier locked cell omits the old shared level-badge marker")

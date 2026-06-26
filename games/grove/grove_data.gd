@@ -340,9 +340,6 @@ const LEVEL_STEP_EXP := 3         # each level costs +3 more than the last (gent
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
 const CHARACTER_CAP := 5
 const CHARACTER_ART := "characters/spirit_%s.png"              # type → clothes asset (assets keep their names)
-const BASKET_CAP := 3            # the merchant's buy-back basket size
-const PORTER_SECS := 180.0       # the porter clears the basket every ~3 min
-const TREAT_COST := 10           # an acorn treat for a wandering spirit (a coin sink)
 
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-

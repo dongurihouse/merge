@@ -92,11 +92,6 @@ func _initialize() -> void:
 	st1.chip.position = Vector2(348, 558)
 	page.add_child(st1.chip)
 
-	# row 7: the merchant stall (merchant-slice builder) ---------------------------------
-	var ms: Control = b._make_merchant_stand()
-	ms.position = Vector2(8, 826)
-	page.add_child(ms)
-
 	# row 8: the bag bar (bag-view builder; 2 filled slots + the +slot buy affordance) ----
 	var bag_bar := HBoxContainer.new()
 	bag_bar.add_theme_constant_override("separation", 8)

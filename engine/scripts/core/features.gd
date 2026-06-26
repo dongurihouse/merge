@@ -15,7 +15,7 @@ static var FLAGS := {
 	"idle_hint": true,            # idle ~7s → a mergeable pair wiggles
 	"discovery_ladder": true,     # tap item → upgrade-path card ("?" tiers)
 	"quest_ready_check": true,    # green ✓ badge when an ask is payable
-	"sell_hints": true,           # W3: stall brightens + "+N🪙" tag while dragging; 1st max-tier floater
+	"sell_hints": true,           # W3: a one-time floater the first time a max-tier item lands (sell spares)
 	# juice
 	"breathe_cta": true,          # the ONE suggested next action breathes
 	"press_juice": true,          # buttons squash in / overshoot out
@@ -30,8 +30,6 @@ static var FLAGS := {
 	"gen_anticipation": true,     # a generator squash-charges before it pops a tile
 	"merge_combo": true,          # rapid successive merges build a cozy worded streak
 	"spirit_tap_hop": true,       # tapping a map spirit hops it
-	"porter_collect": true,       # Y3: a porter spirit drifts in to clear the sell basket (off → chips just fade)
-	"spirit_treats": true,        # Z3: a 10🪙 acorn treat at the stall — a wandering spirit nibbles it (recurring sink)
 	"giver_bob": true,            # AB: frameless fence givers idle-bob over the rail
 	# ambient
 	"winback_rain_beat": true,    # >=48h away → full water + the rainy minute

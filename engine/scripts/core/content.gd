@@ -77,9 +77,6 @@ const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
 const CHARACTER_ART = D.CHARACTER_ART
-const BASKET_CAP = D.BASKET_CAP
-const PORTER_SECS = D.PORTER_SECS
-const TREAT_COST = D.TREAT_COST
 
 # --- the bag (§5) ----------------------------------------------------------------
 # The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).

@@ -613,13 +613,11 @@ func _initialize() -> void:
 		if v > 0:
 			ftue_n += 1
 	ok(ftue_n >= 1 and s5.water == G.WATER_CAP - ftue_n * G.POP_COST, "a pop charges one energy per burst item from the first tap (no free intro)")
-	ok(s5.merchant_chip == null, "the merchant waits for the first spot")
 
-	# sell anything: a t3 flower pays 3 coins and leaves the board
+	# sell anything via the info-bar sell button: a t3 flower pays 3 coins and leaves the board
 	Save.grove()["unlocks"] = {String(G.MAPS[0].spots[0].id): true}
 	Save.grove_write()
 	s5._rebuild_givers()
-	ok(s5.merchant_btn != null and is_instance_valid(s5.merchant_btn), "the merchant sell-well rides the bottom nav")
 	s5.board.place(Vector2i(3, 3), 103)
 	s5._rebuild_pieces()
 	var c0 := Save.coins()

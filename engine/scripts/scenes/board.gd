@@ -21,7 +21,6 @@ const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign ro
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
-const MerchantStand = preload("res://engine/scripts/ui/merchant_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
@@ -57,9 +56,6 @@ const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22r
 const HINT_ROCK_CYCLE := 1.2     # W1: seconds per rock cycle
 const HINT_ROCK_CYCLES := 3      # W1: number of slow rock cycles
 # §5: the bag's owned-slot COUNT is dynamic + persisted (Save.bag_slots(), 6→18) — no const.
-const BASKET_CAP = G.BASKET_CAP
-const PORTER_SECS = G.PORTER_SECS
-const TREAT_COST = G.TREAT_COST
 
 # grove board palette (the night-purples retire here)
 const GROUND_EDGE = Pal.GROUND_EDGE
@@ -115,14 +111,6 @@ var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction 
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
 var _board_item_inset := 0.16    # saved piece-in-cell inset (from board.item width %; 0.16 = the shipped look)
 var giver_chips: Array = []        # [{chip, qi}]
-var merchant_chip: Control
-# Y2/Y3: the merchant's collection basket — last <=3 sales, each with its EXACT grant
-# for an exact buy-back. NOT persisted (the porter clears it within ~3 min anyway).
-var basket: Array = []               # [{code, coins, diamonds}]
-var basket_chip: Control             # the wicker basket beside the merchant stall
-var _porter_timer := 0.0             # Y3: counts up while the basket has anything
-var _porter_running := false
-var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
 var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
 # the bottom-nav bag is a circular well (the always-present bag row is retired).
 # bag_btn: tap → full bag, drag a board item onto it → stash; bag_content (a CenterContainer)
@@ -191,8 +179,7 @@ func _ready() -> void:
 	# painted bg_grove_board.png (an olive field) and the warm dim that used to recede it.
 	# A flat neutral field needs no veil.
 	add_child(_field_backdrop())
-	# (the ambient drift + wandering-spirit layers were removed — they cluttered the top.
-	# _amb_layer stays null; _buy_treat guards it.)
+	# (the ambient drift + wandering-spirit layers were removed — they cluttered the top.)
 	_load_state()
 	SceneWarm.prewarm("res://engine/scenes/Map.tscn")   # warm the Home target off-thread while we build
 
@@ -312,7 +299,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	if board == null:
 		return
-	_porter_tick(delta)   # Y3: the basket's collection timer runs regardless of the idle hint
 	if animating or _drag_node != null or not Features.on("idle_hint"):
 		_idle = 0.0
 		return
@@ -705,7 +691,6 @@ func _rebuild_givers() -> void:
 	_refill_quests()                          # §7: size the live fence to the meter before rendering
 	var qidx := _active_quest_idx()
 	var stands := qidx.size()
-	merchant_chip = null   # the sell merchant is a bottom-nav well now (no fence stall)
 	var show_purge := _show_purge_card()
 	# the fence renders while there are quests OR the Purge card is showing — the Purge card now stands
 	# alone once the meter empties (banked enough to restore), so an empty quest list no longer blanks it.
@@ -876,42 +861,6 @@ func _giver_lay() -> Dictionary:
 	return L
 
 
-# Build the merchant stall. Wave 3: construction lives in ui/merchant_stand.gd; the coordinator
-# keeps the basket state, the sell/buy-back transactions, the drag-driven affordance, the porter.
-func _make_merchant_stand() -> Control:
-	var m := MerchantStand.build({
-		"stand_w": STAND_W, "fence_h": FENCE_H,
-		"buy_treat": _buy_treat,
-		"wire_tap": _stand_tap,
-	})
-	basket_chip = m.basket_chip
-	_rebuild_basket()                        # paint any held sales now that basket_chip exists
-	return m.stand
-
-# Z3: spend 10🪙 → a random wandering spirit scurries over, nibbles, hops + glows.
-# Endlessly repeatable; rapid taps each resolve independently (no queue to break).
-func _buy_treat() -> void:
-	if not Features.on("spirit_treats"):
-		return
-	if Save.coins() < TREAT_COST:
-		Audio.play("invalid_soft", -6.0)
-		if merchant_chip != null and is_instance_valid(merchant_chip):
-			FX.wobble(merchant_chip)
-		return
-	Save.spend(TREAT_COST, "treat")
-	var spirits: Array = []
-	if _amb_layer != null and is_instance_valid(_amb_layer):
-		for sp in _amb_layer.get_children():
-			if sp is Control:
-				spirits.append(sp)
-	if not spirits.is_empty():
-		var who: Control = spirits[rng.randi_range(0, spirits.size() - 1)]
-		Ambient.hop(who)
-		FX.celebrate_at(self, who.get_global_rect().get_center(), Strings.t("board.treat.flower"), STRAW)
-	Audio.play("merge_success", -4.0, 1.3)
-	_persist()
-	_update_hud()
-
 # Drag drop-target affordance for the bottom-nav Bag well. Selling moved to the info-bar trashcan, so
 # dragging a piece now only advertises stash when the bag has room.
 func _show_drag_targets() -> void:
@@ -995,11 +944,6 @@ func _refresh_giver_lights() -> void:
 		chip.modulate = SHADE_LIT if lit else SHADE_DIM
 		if lit:
 			FX.breathe_once(chip)
-	if merchant_chip != null and is_instance_valid(merchant_chip):
-		# the stall is actionable only when there's a top-tier spare to sell — bright then,
-		# softly shaded otherwise (same cozy dim as the givers, so the rule reads as one).
-		var has_top := not board.top_tier_cells().is_empty()
-		merchant_chip.modulate = SHADE_LIT if has_top else SHADE_DIM
 
 # §6: dim EVERY live generator to a standing "paused" look while the board has no free
 # cell (popping is free while dimmed — only the cue is missing), and restore full modulate
@@ -2626,9 +2570,8 @@ func _sell_item(from: Vector2i, node: Control) -> void:
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: selling freed a cell → un-dim if the board was full
 
-# Y1/Y2: pay the sale (t8 → a flat 1💎; t1–t7 → tier coins × the item's per-map band, §6),
-# fly the piece into the basket, float the right currency, and RECORD the sale so it can be
-# bought back for the EXACT grant until the porter comes.
+# Y1: pay the sale (t8 → a flat 1💎; t1–t7 → tier coins × the item's per-map band, §6),
+# fly the piece into the info-bar sell button, and float the right currency.
 func _grant_sale(code: int, node: Control) -> void:
 	var reward := G.sell_reward(code)        # Vector2i(coins, diamonds)
 	if reward.x > 0:
@@ -2655,117 +2598,6 @@ func _grant_sale(code: int, node: Control) -> void:
 			if is_instance_valid(self):
 				_update_hud()
 		FX.reward_arrival(self, center, "coin", reward.x, STRAW, coins_label, sale_coin_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "sale_payout")
-	_record_sale(code, reward)
-
-# Y2: hold the sale for buy-back; a 4th sale overflows → the porter comes at once.
-func _record_sale(code: int, reward: Vector2i) -> void:
-	basket.append({"code": code, "coins": reward.x, "diamonds": reward.y})
-	if basket.size() > BASKET_CAP:
-		_porter_collect(true)
-	else:
-		_rebuild_basket()
-
-# Y2: refund EXACTLY what was granted and return the item to a free cell (no arbitrage:
-# you give back the same currency, you get the same item). Blocked (wobble) if the
-# board is full or you've already spent the granted currency.
-func _buy_back(idx: int) -> void:
-	if idx < 0 or idx >= basket.size():
-		return
-	var rec: Dictionary = basket[idx]
-	var empties := board.empty_ground_cells()
-	if empties.is_empty() or Save.coins() < int(rec.coins) or Save.diamonds() < int(rec.diamonds):
-		if basket_chip != null and is_instance_valid(basket_chip):
-			FX.wobble(basket_chip)
-		Audio.play("invalid_soft", -6.0)
-		return
-	if int(rec.coins) > 0:
-		Save.spend(int(rec.coins), "buyback")
-	if int(rec.diamonds) > 0:
-		Save.spend_diamonds(int(rec.diamonds))
-	var cell: Vector2i = empties[0]
-	board.place(cell, int(rec.code))
-	basket.remove_at(idx)
-	var pn := _make_piece(int(rec.code), csz)
-	pn.position = _cell_pos(cell)
-	board_area.add_child(pn)
-	piece_nodes[cell] = pn
-	FX.pop(pn)
-	Audio.play("item_pickup", -4.0)
-	_rebuild_basket()
-	_persist()
-	_update_hud()
-	_refresh_giver_lights()
-	_refresh_generator_dim()   # §6: a bought-back item may have filled the last cell → dim
-
-# Y2: paint the <=3 sale chips into the basket (tap one to buy it back).
-func _rebuild_basket() -> void:
-	if basket_chip == null or not is_instance_valid(basket_chip):
-		return
-	for c in basket_chip.get_children():
-		c.queue_free()
-	basket_chip.visible = not basket.is_empty()
-	if basket.is_empty():
-		return
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 4)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	basket_chip.add_child(row)
-	for idx in basket.size():
-		var rec: Dictionary = basket[idx]
-		var chip := Control.new()
-		chip.custom_minimum_size = Vector2(42, 42)
-		chip.mouse_filter = Control.MOUSE_FILTER_STOP
-		chip.add_child(_make_piece(int(rec.code), 42.0))
-		var bidx := idx
-		_stand_tap(chip, func() -> void: _buy_back(bidx))
-		row.add_child(chip)
-
-# Y3: the porter spirit collects the basket — buy-back closes, items gone for good.
-# The basket data clears IMMEDIATELY (the window shuts the moment he arrives); the
-# sprite drift is a cosmetic flourish behind the flag. Flag OFF → chips just fade.
-func _porter_collect(_early: bool) -> void:
-	if basket.is_empty():
-		return
-	_porter_timer = 0.0
-	basket.clear()
-	_rebuild_basket()
-	if Features.on("porter_collect"):
-		_play_porter()
-
-func _porter_tick(delta: float) -> void:
-	if basket.is_empty() or _porter_running:
-		_porter_timer = 0.0
-		return
-	_porter_timer += delta
-	if _porter_timer >= PORTER_SECS:
-		_porter_collect(false)
-
-# Y3: a wandering spirit drifts along the fence to the stall and off again (cosmetic).
-func _play_porter() -> void:
-	if merchant_chip == null or not is_instance_valid(merchant_chip):
-		return
-	if not ResourceLoader.exists(Game.art("characters/spirit_porter.png")):
-		return
-	_porter_running = true
-	var sp := TextureRect.new()
-	sp.texture = load(Game.art("characters/spirit_porter.png"))
-	sp.custom_minimum_size = Vector2(96, 96)
-	sp.size = Vector2(96, 96)
-	sp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	sp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sp.z_index = 40
-	add_child(sp)
-	var mid: Vector2 = merchant_chip.get_global_rect().get_center() - Vector2(48, 96)
-	sp.global_position = Vector2(-110, mid.y)
-	var t := sp.create_tween()
-	t.tween_property(sp, "global_position", mid, 0.9).set_trans(Tween.TRANS_SINE)
-	t.tween_interval(0.35)
-	t.tween_property(sp, "global_position", Vector2(get_viewport_rect().size.x + 110, mid.y), 0.9).set_trans(Tween.TRANS_SINE)
-	t.tween_callback(func() -> void:
-		_porter_running = false
-		if is_instance_valid(sp):
-			sp.queue_free())
 
 # The real gate lives on the HOME scene now (buying a spot IS the progression step) —
 # this button is the invitation: stars suffice, go decorate.

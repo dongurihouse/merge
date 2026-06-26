@@ -282,10 +282,10 @@ func _initialize() -> void:
 	# the old per-spot-count `appears_at`; under per-map generators the next set arrives on map
 	# COMPLETION, so the preview needs redefining alongside §6/§7. Test removed with the feature.
 
-	# --- order Y: selling v2 — the diamond pinnacle + the porter's basket --------
+	# --- order Y: selling — the t8 diamond pinnacle + tier coins, paid via the info-bar sell button --------
+	# (The buy-back basket + porter and the spirit-treat coin sink were removed with the merchant stall;
+	# selling is now a one-shot info-bar button that pays out — no recent-sales tray, no undo.)
 	fresh("y")
-	var Feat2 = load("res://engine/scripts/core/features.gd")
-	Feat2.FLAGS["porter_collect"] = false        # test the MECHANICS, not the drift animation
 	var ys = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ys)
 	if ys.board == null:
@@ -293,7 +293,6 @@ func _initialize() -> void:
 	await create_timer(0.05).timeout
 	ys._rebuild_givers()
 	await create_timer(0.05).timeout
-	ok(ys.basket != null and ys.basket.is_empty(), "Y2: the sell basket starts empty (buy-back parked; no fence chip)")
 	# Y1: a t8 (PREMIUM_TIER) sells for exactly 1💎 (no coins); a t5 for 5🪙
 	var yt8 := 100 + G.PREMIUM_TIER
 	var yd0: int = Save.diamonds()
@@ -302,62 +301,10 @@ func _initialize() -> void:
 	ok(Save.diamonds() == yd0 + 1 and Save.coins() == yc0, "Y1: a t8 sells for exactly 1💎, no coins")
 	ys._grant_sale(105, null)
 	ok(Save.coins() == yc0 + 5, "Y1: a t5 sells for 5🪙")
-	ok(ys.basket.size() == 2, "Y2: sales land in the basket")
-	# Y2: buy back the t8 — EXACT refund (the 1💎 returns), item back on a free cell
-	var yd1: int = Save.diamonds()
-	var yopen0: int = ys.board.empty_ground_cells().size()
-	ys._buy_back(0)
-	ok(Save.diamonds() == yd1 - 1, "Y2: buy-back refunds EXACTLY the 1💎 granted (no arbitrage)")
-	ok(ys.board.empty_ground_cells().size() == yopen0 - 1, "Y2: the bought-back item returns to a free cell")
-	ok(ys.basket.size() == 1, "Y2: the sale leaves the basket on buy-back")
-	# Y2: a FULL board blocks buy-back (wobble, no refund, sale kept)
-	for yfc in ys.board.empty_ground_cells():
-		ys.board.place(yfc, 101)
-	var ycfull: int = Save.coins()
-	ys._buy_back(0)
-	ok(Save.coins() == ycfull and ys.basket.size() == 1, "Y2: full-board buy-back is blocked (no refund, sale kept)")
-	# Y2/Y3: a 4th sale overflows cap-3 → the porter collects at once
-	ys.basket.clear()
-	ys._rebuild_basket()
-	for yi4 in 4:
-		ys._record_sale(105, Vector2i(5, 0))
-	ok(ys.basket.is_empty(), "Y2/Y3: a 4th sale overflows cap-3 → the porter collects (basket emptied)")
-	# Y3: the timer collects after ~3 min (buy-back window closes)
-	ys._record_sale(105, Vector2i(5, 0))
-	ok(ys.basket.size() == 1, "Y3: a sale arms the porter timer")
-	ys._porter_tick(ys.PORTER_SECS + 1.0)
-	ok(ys.basket.is_empty(), "Y3: the porter collects the basket after ~3 min")
-	Feat2.FLAGS["porter_collect"] = true
 	ys.queue_free()
 	# Y4 invariant: the water↔diamond round trip loses >=10x — never a water pump
 	ok(G.water_to_earn_diamond() >= 10 * G.water_a_diamond_buys(), \
 		"Y4: water to EARN 1💎 (%d) >= 10x the water 1💎 BUYS (%d)" % [G.water_to_earn_diamond(), G.water_a_diamond_buys()])
-
-	# --- order Z: the coin sink — spirit treats -----------------------------------
-	# (Z1/Z2 wayside on-map decorations are RETIRED with the old free-pan overworld:
-	# the NEW map model is one image with restoration spots, no on-map wayside plots —
-	# G.waysides()/wayside_available/buy_wayside/_on_map_tap no longer exist.)
-	var Feat3 = load("res://engine/scripts/core/features.gd")
-	# Z3: spirit treats — a 10🪙 recurring sink. Spend deducts exactly, rapid-buy is
-	# independent (graceful), and you can't overspend.
-	fresh("z3")
-	Feat3.FLAGS["spirit_treats"] = true
-	var z3 = load("res://engine/scenes/Board.tscn").instantiate()
-	get_root().add_child(z3)
-	if z3.board == null:
-		z3._ready()
-	await create_timer(0.05).timeout
-	Save.add_coins(40)
-	var z3c0: int = Save.coins()
-	z3._buy_treat()
-	ok(Save.coins() == z3c0 - z3.TREAT_COST, "Z3: a treat costs exactly 10🪙")
-	z3._buy_treat()
-	z3._buy_treat()
-	ok(Save.coins() == z3c0 - 3 * z3.TREAT_COST, "Z3: rapid treats each deduct independently (graceful)")
-	Save.spend(Save.coins())                 # drain to 0
-	z3._buy_treat()
-	ok(Save.coins() == 0, "Z3: no treat without coins (no overspend)")
-	z3.queue_free()
 
 	# §1 · the RESIDENTS population sub-game (replaces the removed §8 home-hub coin-yield loop):
 	# welcome (spend) + two-of-a-kind auto-merge + the flattened roster + the populate gate. Own fn.
