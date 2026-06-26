@@ -111,6 +111,9 @@ func ready_glow_style_for_test() -> Dictionary:
 func drop_state_for_test() -> Dictionary:
 	return _drop_state(_vase_rect())
 
+func drop_shape_points_for_test() -> PackedVector2Array:
+	return _drop_shape_points(_drop_state(_vase_rect()))
+
 
 func set_progress(value: float) -> void:
 	_progress = clampf(value, 0.0, 1.0)
@@ -228,8 +231,12 @@ func _draw_drop(vase: Rect2) -> void:
 	var alpha := float(st.alpha)
 	var col := _WATER
 	col.a = 0.78 * alpha
-	draw_circle(center, radius, col)
-	draw_circle(center + Vector2(-radius * 0.25, -radius * 0.35), radius * 0.24,
+	var outline := _drop_shape_points(st)
+	if outline.size() >= 3:
+		draw_colored_polygon(outline, col)
+	else:
+		draw_circle(center, radius, col)
+	draw_circle(center + Vector2(-radius * 0.23, -radius * 0.36), radius * 0.20,
 		Color(1, 1, 1, 0.42 * alpha))
 
 
@@ -316,11 +323,48 @@ func _drop_state(vase: Rect2) -> Dictionary:
 		var grow_t := smoothstep(_DROP_START, _DROP_GROWN, _time)
 		radius = lerpf(vase.size.x * 0.014, vase.size.x * 0.032, grow_t) * _DROP_SCALE
 		y = top_y - vase.size.y * 0.015 * sin(grow_t * PI)
+		var width_scale := lerpf(1.08, 0.92, grow_t)
+		var height_scale := lerpf(0.82, 1.22, grow_t)
+		var wobble := sin(grow_t * PI * 1.5) * 0.08
+		return {
+			"visible": true, "shape": "teardrop", "x": x, "y": y, "radius": radius, "alpha": 1.0,
+			"width_scale": width_scale, "height_scale": height_scale, "wobble": wobble,
+		}
 	else:
 		var fall_t := smoothstep(_DROP_GROWN, IMPACT_TIME, _time)
 		radius = lerpf(vase.size.x * 0.032, vase.size.x * 0.022, fall_t) * _DROP_SCALE
 		y = lerpf(top_y, hit_y, fall_t * fall_t)
-	return {"visible": true, "x": x, "y": y, "radius": radius, "alpha": 1.0}
+		var width_scale := 0.86 + sin(fall_t * TAU * 1.15) * 0.08
+		var height_scale := 1.28 + sin(fall_t * PI) * 0.16
+		var wobble := sin(fall_t * TAU * 1.8) * 0.10
+		return {
+			"visible": true, "shape": "teardrop", "x": x, "y": y, "radius": radius, "alpha": 1.0,
+			"width_scale": width_scale, "height_scale": height_scale, "wobble": wobble,
+		}
+
+
+func _drop_shape_points(st: Dictionary) -> PackedVector2Array:
+	var pts := PackedVector2Array()
+	if not bool(st.get("visible", false)):
+		return pts
+	var center := Vector2(float(st.get("x", 0.0)), float(st.get("y", 0.0)))
+	var radius := float(st.get("radius", 0.0))
+	var width_scale := float(st.get("width_scale", 1.0))
+	var height_scale := float(st.get("height_scale", 1.0))
+	var wobble := float(st.get("wobble", 0.0))
+	var w := radius * width_scale
+	var h := radius * height_scale
+	pts.append(center + Vector2(w * 0.00 + w * wobble * 0.30, -h * 1.36))
+	pts.append(center + Vector2(w * 0.34 + w * wobble * 0.18, -h * 0.92))
+	pts.append(center + Vector2(w * 0.68 + w * wobble * 0.08, -h * 0.34))
+	pts.append(center + Vector2(w * 0.80, h * 0.20))
+	pts.append(center + Vector2(w * 0.48 - w * wobble * 0.08, h * 0.76))
+	pts.append(center + Vector2(w * 0.00 - w * wobble * 0.16, h * 0.96))
+	pts.append(center + Vector2(-w * 0.48 - w * wobble * 0.08, h * 0.76))
+	pts.append(center + Vector2(-w * 0.80, h * 0.20))
+	pts.append(center + Vector2(-w * 0.68 + w * wobble * 0.08, -h * 0.34))
+	pts.append(center + Vector2(-w * 0.34 + w * wobble * 0.18, -h * 0.92))
+	return pts
 
 
 func _waterline_y(vase: Rect2) -> float:

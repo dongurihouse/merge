@@ -176,6 +176,24 @@ func _initialize() -> void:
 	var vase_drop: Dictionary = vase_fx.drop_state_for_test()
 	ok(bool(vase_drop.visible) and float(vase_drop.radius) > vase_fx.size.x * 0.07,
 		"vase droplet is large enough to read on the acorn vase")
+	ok(str(vase_drop.get("shape", "")) == "teardrop", "vase droplet uses a teardrop shape")
+	ok(vase_drop.has("width_scale") and vase_drop.has("height_scale"), "vase droplet reports squash/stretch shape")
+	ok(vase_fx.has_method("drop_shape_points_for_test"), "vase droplet exposes its outline points for tests")
+	if vase_fx.has_method("drop_shape_points_for_test"):
+		var drop_points: PackedVector2Array = vase_fx.call("drop_shape_points_for_test")
+		ok(drop_points.size() >= 8, "vase droplet outline has enough points to read as a droplet")
+		var top_y := INF
+		var bottom_y := -INF
+		for p in drop_points:
+			top_y = minf(top_y, p.y)
+			bottom_y = maxf(bottom_y, p.y)
+		ok(top_y < float(vase_drop.y) and bottom_y > float(vase_drop.y), "vase droplet outline has tapered top and rounded bottom")
+	vase_fx.set_time_for_test(1.65)
+	var falling_vase_drop: Dictionary = vase_fx.drop_state_for_test()
+	if bool(vase_drop.visible) and bool(falling_vase_drop.visible) and vase_drop.has("width_scale") and falling_vase_drop.has("width_scale"):
+		ok(absf(float(vase_drop.get("width_scale", 0.0)) - float(falling_vase_drop.get("width_scale", 0.0))) > 0.04
+				or absf(float(vase_drop.get("height_scale", 0.0)) - float(falling_vase_drop.get("height_scale", 0.0))) > 0.04,
+			"vase droplet shape shifts as it falls")
 	vase_fx.set_time_for_test(0.0)
 	var calm_energy: float = vase_fx.energy_for_test()
 	vase_fx.trigger_impact_for_test()
