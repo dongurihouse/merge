@@ -1,7 +1,7 @@
 extends RefCounted
 ## §7 fence COMPOSITION — the decisions board.gd makes about WHICH quests sit on the live
 ## giver fence, lifted off the scene so they are headless-testable. Pure statics: state comes
-## in (the grove's unlocks/gates, the board's live generators + gen_bag, banked stars, level,
+## in (the grove's unlocks/gates, the board's live generators + gen_bag, earned exp, level,
 ## rng) and a quests Array comes out. The quest ENGINE (gen_quest / active_giver_count) and all
 ## tuning live in content.gd (G); this layer only orchestrates it. board.gd keeps thin
 ## Save-reading wrappers (_quest_map / _refill_quests / …) over these.
@@ -23,7 +23,7 @@ static func home_map_id(unlocks: Dictionary, gates: Array) -> String:
 static func map_done(unlocks: Dictionary, gates: Array) -> bool:
 	return G.frontier_map(unlocks, gates) == -1
 
-# §7 fence sizing: how many stands the fence shows, metered to the WHOLE map's remaining stars
+# §7 fence sizing: how many stands the fence shows, metered to the WHOLE map's remaining exp
 # (not the next single spot). The fence stays full and only tapers in the map's final stretch,
 # emptying once you've banked enough to finish the map. The "go restore" cue is the breathing
 # Home button (gate_ready) — the fence no longer empties at each affordable spot.
@@ -36,8 +36,8 @@ static func gate_ready(z: int, exp: int, unlocks: Dictionary) -> bool:
 	return nxt >= 0 and exp >= nxt
 
 # §7 fence GREY state (req 1): the fence goes INERT — the board renders its quests GREYED + non-interactive
-# instead of emptying — once the banked ★ can finish the WHOLE current map (the exact point the active
-# meter used to taper to 0). False while the player still needs ★ for the map, and false on a spots-done
+# instead of emptying — once earned exp can finish the WHOLE current map (the exact point the active
+# meter used to taper to 0). False while the player still needs exp for the map, and false on a spots-done
 # map (left == 0 → that map is complete, never a frontier). The generator-carrier quest stays deliverable
 # even here (board.gd keeps out[0] active), so the next map's tools still arrive — see refill().
 static func fence_inert(z: int, exp: int, unlocks: Dictionary) -> bool:
@@ -45,9 +45,9 @@ static func fence_inert(z: int, exp: int, unlocks: Dictionary) -> bool:
 	return fin >= 0 and exp >= fin
 
 # The Purge fence card's state. It SHOWS whenever a frontier remains (the map is not done) — no longer
-# only when affordable — so it always advertises the home map's current ★ balance. It is READY (full
-# colour + breathing) when the banked stars can afford the cheapest remaining unlock; otherwise it greys
-# out (still shown, no breathe). `stars` is the banked balance the card displays.
+# only when affordable — so it always advertises the home map's current exp total. It is READY (full
+# colour + breathing) when earned exp reaches the cheapest remaining unlock; otherwise it greys
+# out (still shown, no breathe). `exp` is the balance the card displays.
 static func purge_state(z: int, exp: int, unlocks: Dictionary, gates: Array) -> Dictionary:
 	return {
 		"show": not map_done(unlocks, gates),
@@ -138,6 +138,6 @@ static func exp(q: Dictionary) -> int:
 static func coins(q: Dictionary) -> int:
 	return int(q.reward.get("coins", 0)) if q.has("reward") else 0
 
-# §7 featured premium: the occasional 💎 bonus on a featured quest (0 on a normal one).
+# Reward reader for optional premium in data-authored quests; current generated quests return 0.
 static func gems(q: Dictionary) -> int:
 	return int(q.reward.get("gems", 0)) if q.has("reward") else 0

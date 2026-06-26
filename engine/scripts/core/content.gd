@@ -34,7 +34,7 @@ const QUEST_NEWEST_BIAS = D.QUEST_NEWEST_BIAS
 const QUEST_FEATURED_RATE = D.QUEST_FEATURED_RATE
 const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const MAX_GIVERS = D.MAX_GIVERS
-const STARS_PER_QUEST_EST = D.STARS_PER_QUEST_EST
+const EXP_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const BURST_ODDS = D.BURST_ODDS
 const BURST_MAP_EVERY = D.BURST_MAP_EVERY
 const BURST_FREE_MAX = D.BURST_FREE_MAX
@@ -370,17 +370,17 @@ static func gen_quest(level: int, live_lines: Array, rng: RandomNumberGenerator,
 		reward["coins"] = int(reward.coins) + QUEST_FEATURED_COIN_BONUS
 	return {"line": li, "tier": tier, "reward": reward, "featured": featured}
 
-## §7 giver meter: how many giver stands are active for a remaining-cost target —
-## ≈ ceil((target − banked) / STARS_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the target
-## is banked. Quests.meter_target sizes the fence to the WHOLE map's remaining stars, so the fence
-## stays full through the map and only tapers at the very end. target == -1 (nothing left) → 0.
-static func active_giver_count(banked_stars: int, next_cost: int, max_givers: int = MAX_GIVERS) -> int:
-	if next_cost == -1:
+## §7 giver meter: how many giver stands are active for a remaining-exp target —
+## ≈ ceil((target - earned_exp) / EXP_PER_QUEST_EST), capped at MAX_GIVERS, and 0 once the
+## target is reached. Quests.meter_target sizes the fence to the WHOLE map's remaining exp, so
+## the fence stays full through the map and only tapers at the very end. target == -1 means done.
+static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int = MAX_GIVERS) -> int:
+	if target_exp == -1:
 		return 0
-	var need := next_cost - banked_stars
+	var need := target_exp - earned_exp
 	if need <= 0:
 		return 0
-	return clampi(int(ceil(need / float(STARS_PER_QUEST_EST))), 1, max_givers)
+	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
 ## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
 ## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every
@@ -683,9 +683,6 @@ static func character_count(unlocks: Dictionary) -> int:
 	return mini(1 + completed_maps(unlocks), CHARACTER_CAP)
 
 # --- sell / economy formulas ------------------------------------------------------
-static func sell_value(code: int) -> int:
-	return maxi(1, code % 100)            # t1=1 … tN=N coins
-
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells
 ## for its tier in coins SCALED by the item's per-map band (§6 — later maps sell for more). There is NO
 ## premium-sell pinnacle anymore — selling never mints acorns (acorns are milestone/IAP only), so the
@@ -695,17 +692,15 @@ static func sell_reward(code: int) -> Vector2i:
 	var band: float = sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 
-## What it costs to BUY a copy of an item via the board info bar (§10, T55): Vector2i(coins, premium),
-## mirroring sell_reward's currency split (coins for sub-top tiers scaled by the map band, 💎 for the
-## TOP tier) but marked up by BUY_MARKUP over the sell value. Because the markup is > 1 and we ceil,
-## buying ALWAYS costs strictly more than selling returns — the buy-low/sell-high loop is impossible by
-## construction (the same anti-arbitrage discipline sell_reward keeps). Exactly one component is non-zero.
+## What it costs to BUY a copy of an item via the board info bar (§10, T55): marked up over the
+## coin sale value by BUY_MARKUP. Since sell_reward no longer pays premium, the premium component
+## is always 0; buying ALWAYS costs strictly more coins than selling returns.
 static func buy_price(code: int) -> Vector2i:
 	var sell := sell_reward(code)
-	return Vector2i(int(ceil(sell.x * BUY_MARKUP)), int(ceil(sell.y * BUY_MARKUP)))
+	return Vector2i(int(ceil(sell.x * BUY_MARKUP)), 0)
 
 ## The per-map coin band for `map` (0-indexed), clamped to the table (a map past the table
-## reuses the last entry). Owner/sim feel dial; t8 never reads this (it stays flat 1💎).
+## reuses the last entry). Owner/sim feel dial for every item sale.
 static func sell_map_band(map: int) -> float:
 	if SELL_MAP_BAND.is_empty():
 		return 1.0
@@ -794,8 +789,8 @@ static func map_finish_exp(z: int, unlocks: Dictionary) -> int:
 		hi = maxi(hi, spot_unlock_exp(z, k))
 	return hi
 
-# Earn stars: credit BOTH the spendable balance and the cumulative EARNED clock that
-# drives Level. Returns the levels gained so the caller can show the Level dialog. The
+# Earn exp into the cumulative progression clock that drives Level. Returns the levels gained
+# so the caller can show the Level dialog. The
 # level-up GIFT is no longer granted here — it's DEFERRED to the dialog's Collect (see
 # level_gift / grant_level_gift below), so the interruption pays out. The sole way Level advances.
 static func earn_exp(n: int) -> int:
@@ -816,7 +811,7 @@ static func level_gift(levels: int, new_level: int = -1) -> Dictionary:
 	return {"water": LEVEL_WATER_GIFT * n, "gems": gems}
 
 # Apply a level_gift: water (capped), diamonds, and the piggy-bank skim. Called by the Level dialog's
-# Collect button (the deferred grant — what earn_stars used to do inline).
+# Collect button (the deferred grant that used to happen inline with progression).
 static func grant_level_gift(gift: Dictionary) -> void:
 	var water := int(gift.get("water", 0))
 	var gems := int(gift.get("gems", 0))
@@ -827,7 +822,7 @@ static func grant_level_gift(gift: Dictionary) -> void:
 	Save.grove_write()
 	if gems > 0:
 		Save.add_diamonds(gems)
-		Vault.skim(gems)                      # T44 SKIM-SITE 1/3 (level-up): the piggy bank skims a slice of the level-up premium (§10)
+		Vault.skim(gems)                      # the piggy bank skims a slice of the level-up premium (§10)
 
 static func item_tex_path(code: int) -> String:
 	var line := int(code / 100.0)

@@ -74,7 +74,6 @@ const CLAY = Pal.CLAY
 # recipe the game renders here (the currency-pill / settings pattern). map.gd resolves each card's DATA (open/locked ·
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
-const VEIL_NODE := "Veil"                       # the locked-card fog overlay's name (mapfx_tests asserts it; built by Kit.map_card)
 const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
 
 var unlocks := {}
@@ -91,7 +90,6 @@ var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
-var _select_clip: Control = null # the place-picker's clipped scroll viewport (cards live + scroll inside it)
 var _select_scroll := 0.0        # current scroll offset of the place-picker stack (px from the top)
 var _select_scroll_max := 0.0    # 0 when the stack fits the band (no scroll); else total_h - band_h
 
@@ -970,7 +968,6 @@ func _build_select(animate := true) -> void:
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
-	_select_clip = clip
 	# the first card rests TOP_PAD below the band top so it clears the settings gear; the stack then
 	# scrolls if it overflows. y is in clip (= screen) coords: band_top + the in-band offset.
 	var top_pad := 20.0

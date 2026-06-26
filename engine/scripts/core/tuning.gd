@@ -256,14 +256,12 @@ class Hud:
 	const PILL_PAD_Y := 12.0              # vertical content margin (both pills)
 
 	# --- currency cluster --------------------------------------------------------------
-	# ONE shared icon BOX so the three currencies share a centerline and the numbers
+	# ONE shared icon BOX so the wallet currencies share a centerline and the numbers
 	# line up; each sprite is sized as icon_box × a per-icon OPTICAL SCALE so their visual
-	# weights match (the gold flower fills its box, the acorn is tall+narrow, the gem is a
-	# slim teardrop — equal box ≠ equal weight without these). The BOX itself is the live
+	# weights match (equal box ≠ equal visual weight). The BOX itself is the live
 	# `icon_box` from the workbench (ui_workbench_settings.json) — that slider sets the real
 	# icon size now; CHIP_ICON_BOX is only the bare default when no config is present.
 	const CHIP_ICON_BOX := 40.0           # default square icon box (live size = workbench `icon_box`)
-	const STAR_OPTICAL := 0.86            # flower: dense, dial it DOWN so it doesn't dominate
 	const COIN_OPTICAL := 1.0             # gold coin (soft currency): the reference weight
 	const GEM_OPTICAL := 1.0              # premium acorn: round, same weight as the coin
 	const CHIP_ROW_SEP := 4               # constant icon↔number gap (shared centerline)
@@ -273,7 +271,6 @@ class Hud:
 	# --- identity tints (modulate over the sprites) ---
 	# Soft currency = a GOLD COIN, premium = a GOLDEN ACORN (the grove's premium). Both art
 	# pieces already carry their warm hue, so they render as-is — no modulate (a tint muddied them).
-	const STAR_TINT := Color.WHITE        # painted clover icon renders as-is (no muddying tint)
 	const COIN_TINT := Color.WHITE        # gold coin renders as-is
 	const GEM_TINT := Color.WHITE         # premium acorn renders as-is (was teal for the old dewdrop gem)
 
@@ -456,7 +453,6 @@ class Shop:
 	const X_BTN := 64.0                   # round close button size
 	const X_FONT := 30
 	const X_MARGIN := 12.0                # inset from the card's top-right corner
-	const X_TEX_MARGIN := 24.0            # nine-patch margin when art exists
 	const X_RADIUS := 32
 	const X_BORDER_W := 3
 	const X_BG := Color("#D75A4E")        # RED close disc — an unmistakable control (was a brown btn_round, read as an ornament)
@@ -532,11 +528,6 @@ class Shop:
 	const BUY_NEED_MODULATE := Color(0.74, 0.77, 0.72, 0.95)  # can't-afford → dim the PILL only (the card stays bright)
 	const PRICE_ICON := 28.0              # the coin/gem glyph inside the BUY pill (cost = icon + number)
 	const PRICE_ROW_SEP := 6             # gap between that glyph and the number
-
-	# --- starter (welcome) banner ------------------------------------------------------
-	# A WIDE banner (not a narrow pouch) so the two-currency bundle (💎 + 💧) fits on one row
-	# without spilling, and the card doesn't look stretched/empty.
-	const STARTER_CARD := Vector2(480, 176)
 
 	# --- the card button (both card kinds) ---------------------------------------------
 	const CARD_BG := Color("#F4E9D6")

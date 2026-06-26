@@ -212,17 +212,6 @@ func bramble_count() -> int:
 			n += 1
 	return n
 
-## Any merge available among unlocked items? (the pigeonhole check)
-func any_pair_exists() -> bool:
-	var seen := {}
-	for i in items.size():
-		var k := items[i]
-		if k > 0 and tier_of(k) < G.TOP_TIER:
-			if seen.has(k):
-				return true
-			seen[k] = true
-	return false
-
 func count_of(code: int) -> int:
 	var n := 0
 	for v in items:
