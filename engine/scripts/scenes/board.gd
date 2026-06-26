@@ -167,6 +167,7 @@ var bottom_bar: Control          # the board bottom bar row (Bag+count · info b
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
+var _press_was_selected := false   # the press landed on the already-focused cell (collect-on-second-tap)
 var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
@@ -1831,6 +1832,7 @@ func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
 	_press_cell = cell
 	_press_pos = pos
+	_press_was_selected = (_selected_cell == cell)   # remember focus BEFORE clearing — a collectable collects only on a tap of its already-focused cell
 	if _selected_cell.x >= 0:
 		_clear_selection()                    # a new board touch resets the info bar (a still tap re-selects)
 	_drag_is_gen = board.is_gen(cell)
@@ -1876,11 +1878,15 @@ func _on_release(pos: Vector2) -> void:
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
 		_stash(from, node)
 		return
-	if target == from and G.is_coin(board.item_at(from)):
-		_collect_coin(from, node)          # tapping a coin pockets it
-	elif target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
-		_snap_back(from, node)             # a STILL tap SELECTS the item into the bottom info bar
-		_select_item(from)
+	if target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
+		# a STILL tap. A collectable (coin, …) collects ONLY on a second tap of its already-focused
+		# cell; a first tap (or any tap of a non-collectable) just selects it into the info bar. A
+		# DRAG (distance > 18px) never reaches here, so dragging a collectable never collects it.
+		if G.is_collectable(board.item_at(from)) and _press_was_selected:
+			_collect_coin(from, node)
+		else:
+			_snap_back(from, node)
+			_select_item(from)
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif board.is_empty_ground(target) and target != from:

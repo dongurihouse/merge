@@ -596,6 +596,32 @@ func _initialize() -> void:
 	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
 	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
 		"the default Slot-cell preview actually renders the cost pill")
+	ok(view._sections.has("border_cell"), "the border cell background is a registered gallery item next to the Slot cell")
+	ok(view._is_config("border_cell", "frontier_hue") and view._is_config("border_cell", "deep_hue") \
+		and view._is_config("border_cell", "rim_alpha") and view._is_config("border_cell", "corner"), \
+		"border_cell colour and shape knobs are saved design config")
+	ok(not view._is_config("border_cell", "preview"), "border_cell preview state is test-only")
+	var border_prev: Control = view._make_element("border_cell")
+	ok(border_prev.find_child("BorderCellBackground", true, false) is Panel, \
+		"border_cell preview renders the code-drawn background behind the locked slot")
+	var border_opts := Kit.border_cell_opts_from_config({"border_cell": {
+		"frontier_hue": 20, "frontier_sat": 60, "frontier_val": 80,
+		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
+		"rim_hue": 20, "rim_sat": 60, "rim_val": 80, "rim_alpha": 70,
+		"corner": 22,
+	}})
+	var tuned_border: Panel = Kit.border_cell_background(100.0, true, border_opts)
+	var tuned_sb := tuned_border.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(tuned_sb != null and tuned_sb.bg_color.h < Pal.NEAR_UNLOCK.h, \
+		"border_cell frontier hue tuning changes the live background colour")
+	tuned_border.free()
+	ok(_source_contains("res://engine/scripts/ui/piece_view.gd", "border_cell_opts_from_config"), \
+		"live locked board cells read the workbench border_cell config")
+
+	view._selected = "border_cell"
+	view._dirty.clear()
+	view._apply_edit()
+	ok(view._dirty.has("board"), "editing border_cell queues the board preview to rebuild")
 
 	for src in ["gold_currency_pill", "bag_card", "frame"]:
 		view._selected = src

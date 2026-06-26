@@ -55,7 +55,8 @@ func _initialize() -> void:
 			s2.board.items[ci] = 0
 	s2._rebuild_pieces()
 
-	# coins: drop → tap-collect → wallet
+	# collectables (coins): a coin is collectable; FIRST tap only focuses it into the info bar,
+	# a SECOND tap (while focused) collects it; a DRAG never collects. (board.gd _on_release)
 	var coins0 := Save.coins()
 	s2._drop_coin_near(Vector2i(4, 3))
 	await create_timer(0.3).timeout
@@ -65,11 +66,37 @@ func _initialize() -> void:
 			coin_cell = BoardModel.cell_of(i)
 			break
 	ok(coin_cell != Vector2i(-1, -1), "a coin dropped onto the board")
+	ok(G.is_collectable(s2.board.item_at(coin_cell)), "a coin counts as a collectable")
 	var chalf: Vector2 = Vector2(s2.csz, s2.csz) / 2.0
-	s2._on_press(s2._cell_pos(coin_cell) + chalf)
-	s2._on_release(s2._cell_pos(coin_cell) + chalf)
-	ok(Save.coins() == coins0 + 1, "tapping a coin pockets its value")
+	var cpos: Vector2 = s2._cell_pos(coin_cell) + chalf
+	# first tap: brings up the info bar only — no collection
+	s2._on_press(cpos)
+	s2._on_release(cpos)
+	ok(Save.coins() == coins0, "first tap on a coin does not collect it")
+	ok(s2.board.item_at(coin_cell) != 0, "first tap leaves the coin on the board")
+	ok(s2._selected_cell == coin_cell, "first tap focuses the coin in the info bar")
+	# second tap, now that it is focused: it collects
+	s2._on_press(cpos)
+	s2._on_release(cpos)
+	ok(Save.coins() == coins0 + 1, "tapping a focused coin pockets its value")
 	ok(s2.board.item_at(coin_cell) == 0, "the collected coin left the board")
+
+	# a DRAG never collects — even on a focused coin
+	s2._drop_coin_near(Vector2i(4, 3))
+	await create_timer(0.3).timeout
+	var coin_cell2 := Vector2i(-1, -1)
+	for i in s2.board.items.size():
+		if s2.board.items[i] > 0 and G.is_coin(s2.board.items[i]):
+			coin_cell2 = BoardModel.cell_of(i)
+			break
+	ok(coin_cell2 != Vector2i(-1, -1), "a second coin dropped onto the board")
+	var cpos2: Vector2 = s2._cell_pos(coin_cell2) + chalf
+	var coins_before_drag := Save.coins()
+	s2._on_press(cpos2)
+	s2._on_release(cpos2)                                  # focus it first
+	s2._on_press(cpos2)
+	s2._on_release(cpos2 + Vector2(s2.csz, 0.0))           # then drag it away (>18px)
+	ok(Save.coins() == coins_before_drag, "dragging a coin does not collect it")
 
 	# coin merge rules (model): c1+c1 merges, c3 is capped
 	var bc: BoardModel = BoardModel.new()
@@ -599,7 +626,7 @@ func _initialize() -> void:
 	s5._sell_item(Vector2i(3, 3), s5.piece_nodes.get(Vector2i(3, 3)))
 	ok(Save.coins() == c0 + 3 and s5.board.item_at(Vector2i(3, 3)) == 0, \
 		"selling a t3 pays 3 coins and clears the cell")
-	ok(G.sell_value(108) == 8 and G.sell_value(201) == 1, "sell value scales with tier")
+	ok(G.sell_reward(108).x == 8 and G.sell_reward(201).x == 1, "sell value scales with tier")
 
 	# T39: per-map sell COIN band (§6/§9) — later maps sell t1..(PREMIUM_TIER-1) for more coins;
 	# PREMIUM_TIER (t8) is the flat-1💎 pinnacle on every map; t9..TOP_TIER sell for coins again.

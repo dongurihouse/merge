@@ -309,21 +309,20 @@ func _initialize() -> void:
 	var backdrop := BoardScript._field_backdrop()
 	ok(backdrop is TextureRect or (backdrop is ColorRect and (backdrop as ColorRect).color.is_equal_approx(Pal.SURFACE)), \
 		"board backdrop is either the painted grove board art or the flat SURFACE fallback")
-	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); a recessive `_locked_fill`
-	# Panel now backs its rounded corners (the painted slot_locked padlock rides ON TOP).
-	# Assert that base fill — a solid Pal.LOCKED, on the Sunk plane (no shadow), distinct from an empty
-	# cell, receding a hair for deeper rings (the standalone _locked_style stylebox accessor is retired).
-	var lock_fill := PieceViewScript._locked_fill(100.0, 1)
-	var lock_sb := lock_fill.get_theme_stylebox("panel") as StyleBoxFlat
-	ok(lock_sb != null, "the locked-cell base is a solid StyleBoxFlat fill (a recessive well, not transparent art)")
-	ok(lock_sb != null and lock_sb.bg_color.is_equal_approx(Pal.LOCKED), "locked cell well uses Pal.LOCKED (light recessive, not dark tan)")
-	ok(lock_sb != null and lock_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
-	ok(lock_sb != null and not lock_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell (LOCKED != CELL_EMPTY)")
-	var deep_fill := PieceViewScript._locked_fill(100.0, 3)
-	var deep_sb := deep_fill.get_theme_stylebox("panel") as StyleBoxFlat
-	ok(deep_sb != null and deep_sb.bg_color.v <= lock_sb.bg_color.v, "deeper rings recede a hair (ring 3 no brighter than ring 1)")
-	lock_fill.free()
-	deep_fill.free()
+	# the locked-cell WELL unified into the SHARED slot cell (Kit.slot_cell); a simple code-drawn
+	# background backs the rounded corners (the painted slot_locked padlock rides ON TOP). Frontier
+	# border cells get a gentle near-unlock wash; deep locked cells stay quiet and flat.
+	var border_bg := PieceViewScript._locked_background(100.0, true)
+	var border_sb := border_bg.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(border_sb != null, "the locked-cell background is a solid StyleBoxFlat fill (not transparent art)")
+	ok(border_sb != null and border_sb.bg_color.is_equal_approx(Pal.NEAR_UNLOCK), "border locked cells use the near-unlock background")
+	ok(border_sb != null and border_sb.shadow_size == 0, "locked cell sits on the Sunk plane (no drop shadow)")
+	ok(border_sb != null and not border_sb.bg_color.is_equal_approx(BoardScript._cell_style().bg_color), "locked is visually distinct from an empty cell")
+	var deep_bg := PieceViewScript._locked_background(100.0, false)
+	var deep_sb := deep_bg.get_theme_stylebox("panel") as StyleBoxFlat
+	ok(deep_sb != null and deep_sb.bg_color.is_equal_approx(Pal.LOCKED), "deep locked cells keep the quiet locked background")
+	border_bg.free()
+	deep_bg.free()
 	var bramble_node: Control = PieceViewScript.make_bramble(Vector2i(0, 0), 100.0)
 	ok(bramble_node.get_child(0) is Panel, "frontier locked cell paints a full-cell locked background behind the gate marker")
 	ok((bramble_node.get_child(0) as Panel).get_theme_stylebox("panel") is StyleBoxFlat, \

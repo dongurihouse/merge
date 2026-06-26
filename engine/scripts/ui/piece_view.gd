@@ -275,19 +275,15 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 # Defaults keep existing callers (board.gd, tools, tests) compiling unchanged.
 # A sealed/gated board cell, built on the SHARED slot cell (Kit.slot_cell — the same component the bag
 # uses): the slot_locked well (baked padlock); an UNLOCKABLE cell (openable by a merge right now)
-# is the highlighted state (gold border + glow + dynamic sparkle). The board reads the SAME workbench
-# "bag_card" style the bag does, so tuning the cell in the workbench flows to both. A `_locked_fill`
-# base backs the well's rounded corners; the whole holder recedes (deeper rings fade a hair more) so
-# the actionable cells pop against the quiet ones.
+# is the highlighted state (gold border + glow + dynamic sparkle). A tiny code-drawn background backs
+# the well's rounded corners: border cells get the near-unlock wash, deeper cells stay quiet.
 static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlockable: bool = false) -> Control:
-	var lvl := G.cell_min_level(cell)          # the Level this cell unseals at (§4)
-	var ring := clampi(lvl / 4 + 1, 1, 3)
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(_locked_fill(csz, ring))   # the recessive base under the well's rounded corners
+	holder.add_child(_locked_background(csz, frontier))
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
@@ -296,18 +292,24 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	var cell_view: Control = Kit.slot_cell(d, opts)
 	cell_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(cell_view)
-	# RECEDE: non-unlockable locks fade back (a frontier gate a little, deeper non-frontier rings more);
-	# an unlockable cell keeps full opacity so it POPS as the actionable next move.
+	# RECEDE: non-unlockable locks fade back; an unlockable cell keeps full opacity so it POPS.
 	if not unlockable:
-		holder.modulate = Color(1.0, 1.0, 1.0, (0.86 if frontier else 0.66 - 0.06 * float(ring - 1)))
+		holder.modulate = Color(1.0, 1.0, 1.0, 0.86 if frontier else 0.60)
 	return holder
 
-static func _locked_fill(csz: float, ring: int) -> Panel:
+static func _locked_background(csz: float, frontier: bool) -> Panel:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit != null:
+		var opts: Dictionary = Kit.border_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		return Kit.border_cell_background(csz, frontier, opts)
 	var base := Panel.new()
+	base.name = "BorderCellBackground"
 	base.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var fs := StyleBoxFlat.new()
-	fs.bg_color = Pal.LOCKED.darkened(0.018 * float(ring - 1))
+	fs.bg_color = Pal.NEAR_UNLOCK if frontier else Pal.LOCKED
 	fs.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
+	fs.set_border_width_all(1 if frontier else 0)
+	fs.border_color = Color(Pal.NEAR_HINT, 0.35 if frontier else 0.0)
 	fs.shadow_color = Color(0, 0, 0, 0)
 	fs.shadow_size = 0
 	base.add_theme_stylebox_override("panel", fs)

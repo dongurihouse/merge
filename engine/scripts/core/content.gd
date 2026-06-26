@@ -717,6 +717,12 @@ static func is_coin(code: int) -> bool:
 static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
+## A board piece that is POCKETED rather than merged into goods. The single hook the board's
+## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release), so every
+## future collectable inherits the same gesture by extending this — no board.gd edit needed.
+static func is_collectable(code: int) -> bool:
+	return is_coin(code)
+
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.

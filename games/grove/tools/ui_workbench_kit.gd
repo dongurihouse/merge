@@ -3817,6 +3817,46 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
 const SLOT_LOCKED_ART := "board/slot_locked.png" # the same well + the baked gold padlock — locked / unlockable
 
+static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
+	if not c.has(prefix + "_hue") and not c.has(prefix + "_sat") and not c.has(prefix + "_val"):
+		return fallback
+	return Color.from_hsv(
+		float(c.get(prefix + "_hue", roundf(fallback.h * 360.0))) / 360.0,
+		float(c.get(prefix + "_sat", roundf(fallback.s * 100.0))) / 100.0,
+		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
+		fallback.a)
+
+## The board BORDER-CELL background: the quiet code-drawn fill behind locked frontier/deep cells.
+## It is separate from slot_cell because it lives UNDER the baked locked well and is board-only.
+static func border_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var bc: Dictionary = cfg.get("border_cell", {}) if cfg is Dictionary else {}
+	return {
+		"frontier_fill": _hsv_setting(bc, "frontier", Pal.NEAR_UNLOCK),
+		"deep_fill": _hsv_setting(bc, "deep", Pal.LOCKED),
+		"rim": _hsv_setting(bc, "rim", Pal.NEAR_HINT),
+		"rim_alpha": clampf(float(bc.get("rim_alpha", 35.0)) / 100.0, 0.0, 1.0),
+		"corner_frac": clampf(float(bc.get("corner", 18.0)) / 100.0, 0.04, 0.50),
+	}
+
+static func border_cell_background(csz: float, frontier: bool, opts: Dictionary = {}) -> Panel:
+	var base := Panel.new()
+	base.name = "BorderCellBackground"
+	base.custom_minimum_size = Vector2(csz, csz)
+	base.size = Vector2(csz, csz)
+	base.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = opts.get("frontier_fill", Pal.NEAR_UNLOCK) if frontier else opts.get("deep_fill", Pal.LOCKED)
+	fs.set_corner_radius_all(int(maxf(10.0, csz * float(opts.get("corner_frac", 0.18)))))
+	var rim_alpha := float(opts.get("rim_alpha", 0.35)) if frontier else 0.0
+	fs.set_border_width_all(1 if rim_alpha > 0.0 else 0)
+	var rim: Color = opts.get("rim", Pal.NEAR_HINT)
+	fs.border_color = Color(rim.r, rim.g, rim.b, rim_alpha)
+	fs.shadow_color = Color(0, 0, 0, 0)
+	fs.shadow_size = 0
+	base.add_theme_stylebox_override("panel", fs)
+	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return base
+
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
