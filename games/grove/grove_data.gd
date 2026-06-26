@@ -40,6 +40,7 @@ const LINES := {
 	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9")},
 	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9")},
 	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B")},
+	38: {"name": "Vegetables", "base": "garden_vegetables", "color": Color("#6BA84F")},
 	# map idx 3 — The Mill (orchard)
 	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6")},
 	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B")},
@@ -50,6 +51,23 @@ const LINES := {
 	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
 	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
 	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
+	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). STAGED via `min_level`:
+	# the FTUE map's board is tiny early, so 6 extra lines live from L1 jam it. min_level keeps each line
+	# off the askable/pop set until the player's level reaches it (the single anchor still emits them — no
+	# extra generator), so the Farm content "grows in" once the board has opened. (askable_lines gate.)
+	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F")},
+	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A")},
+	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9")},
+	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A")},
+	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B")},
+	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3")},
+	# §6.D special "treasure" lines (#3) — the premium fruit chains, emitted ONLY by temp treat generators
+	# (TREAT_LINES below), never the main pool. 12 tiers each, sliced from _originals/items/special_*.
+	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F")},
+	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A")},
+	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F")},
+	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F")},
+	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -71,7 +89,7 @@ const GENERATORS := [
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
 		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
 	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
-	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37], "grant_from": "",
+	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37, 38], "grant_from": "",
 		"tex": "items/generator/gen_cattails.png", "label": "tools"},
 	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
 	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4, 41, 42, 43, 44], "grant_from": "",
@@ -267,13 +285,15 @@ const SPECIAL_ITEMS := {
 	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
 	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
 	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
+	# wildcard — behaviour below; art PENDING (code-drawn from `color` until the sprite lands, §6.B/#5).
+	15: {"base": "wildcard", "kind": "wildcard", "color": Color("#C77DD9")},  # self-merges up; OR advances any same-tier item
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
 # (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
 const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2}   # chest · key · water · acorn · exp
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2, 15: 1}   # chest·key·water·acorn·exp·wildcard (wildcard scarce)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},
@@ -295,6 +315,22 @@ const ACCUMULATORS := {
 	"exp":   {"id": "acc_exp", "tex": "items/generator/gen_crystalfont.png", "cap": 6, "secs": 900, "value": 6, "unlock_spot": 2},
 	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 4, "secs": 1800, "value": 1, "unlock_spot": 3},
 }
+
+# §6.D TEMPORARY TREAT GENERATORS — the main generator occasionally pops one out; it pops a burst of a
+# premium "treat" line (the §6.E Farm lines, which are NOT in the main pool, so they appear ONLY here) at
+# a head-start tier, for a random number of taps, then VANISHES. Scarce + fleeting (grab it before it's
+# gone), no water cost. The treat items merge + sell (the Farm lines carry the later-map sell band), and
+# each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
+const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
+const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
+const TREAT_LINES := [71, 72, 73, 74, 75, 61, 62, 63, 64, 65, 66]   # premium treat lines: the §3 fruit treasures + the Farm lines
+const TREAT_POP_TIER := 2                 # treat items pop at this tier (a head start — "better rewards")
+const TREAT_DROP_RATE := 0.5              # each treat tap ALSO drops a §6.B special item this often
+const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at random; the wired treat art)
+	"items/generator/gen_seedcart.png", "items/generator/gen_beehive.png",
+	"items/generator/gen_lilyfountain.png", "items/generator/gen_applepress.png",
+	"items/generator/gen_wildflowerarch.png",
+]
 
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside

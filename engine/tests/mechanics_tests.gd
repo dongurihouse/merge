@@ -274,5 +274,39 @@ func _initialize() -> void:
 	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
 		"the collect reward is banked × the per-unit value")
 
+	# --- §6.D temporary treat generators (spawn / line / clicks / id mapping) ---
+	var trng := RandomNumberGenerator.new(); trng.seed = 5
+	var tlines := {}
+	var clicks_ok := true
+	for i in 200:
+		var ln := G.pick_treat_line(trng)
+		tlines[ln] = true
+		if not G.TREAT_LINES.has(ln):
+			clicks_ok = false
+		var c := G.pick_treat_clicks(trng)
+		if c < int(G.TREAT_CLICKS[0]) or c > int(G.TREAT_CLICKS[1]):
+			clicks_ok = false
+	ok(clicks_ok and tlines.size() >= 4, "pick_treat_line/clicks stay in range and spread across the treat lines")
+	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)
+	ok(G.is_treat_gen(G.treat_gen_id(63)) and G.treat_line_of(G.treat_gen_id(63)) == 63,
+		"treat_gen_id ↔ treat_line_of roundtrips")
+	ok(not G.is_treat_gen("seed_satchel") and not G.is_treat_gen("acc_water"),
+		"a normal generator / accumulator is NOT a treat generator")
+	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
+
+	# --- §6.B wildcard ---
+	var wild_t3 := 15 * 100 + 3
+	var flower_t3 := 1 * 100 + 3
+	ok(G.is_wildcard(wild_t3) and not G.is_wildcard(flower_t3), "is_wildcard gates only the wildcard")
+	ok(G.merge_top(wild_t3) == G.SPECIAL_TOP, "a wildcard self-merges up to the special ceiling")
+	# wildcard advances a same-tier item one tier (consuming the wildcard)
+	ok(G.wildcard_advance_code(wild_t3, flower_t3) == 1 * 100 + 4, "a wildcard advances a same-tier item one tier")
+	ok(G.wildcard_advance_code(wild_t3, 1 * 100 + 5) == 0, "a wildcard does NOT apply to a different-tier item")
+	ok(G.wildcard_advance_code(wild_t3, 15 * 100 + 3) == 0, "two wildcards do NOT 'advance' (they merge normally)")
+	# two wildcards CAN self-merge
+	var wbm := BoardModel.new()
+	wbm.place(Vector2i(5, 2), 15 * 100 + 1); wbm.place(Vector2i(5, 4), 15 * 100 + 1)
+	ok(wbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two wildcards self-merge")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

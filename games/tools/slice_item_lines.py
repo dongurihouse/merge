@@ -62,6 +62,12 @@ SHEETS = {
     "flower":   (4, 3),
     "feather":  (3, 4),
     "tools":    (4, 3),
+    # §6.D special "treasure" line sheets (#3) — 1086x1448 = 4 rows × 3 cols, white matte.
+    "special_pumpkin":  (4, 3),
+    "special_banana":   (4, 3),
+    "special_avacado":  (4, 3),
+    "special_cherry":   (4, 3),
+    "special_watermelon": (4, 3),
 }
 
 SIZE = 512          # output canvas (square)
