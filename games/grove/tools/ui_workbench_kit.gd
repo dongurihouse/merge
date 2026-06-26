@@ -3348,10 +3348,10 @@ static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## the cell look on the Slot-cell item, and both flow here. (The banner TEXT is the line name, passed by the caller.)
 static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
-	# inherit the shared slot-cell look (the discovered piece + tier-medal size + code-drawn well face)
+	# inherit the full shared slot-cell look (piece sizing + code-drawn well face); discovery overrides
+	# only its own layout knobs below.
 	var slot := bag_card_opts_from_config(cfg)
-	o["content_frac"] = slot["content_frac"]
-	o["level_frac"] = slot["level_frac"]
+	o.merge(slot, true)
 	var t: Dictionary = cfg.get("tiers", {})
 	# discovery's OWN cell knobs: the square tile size, plain tier number, and marked-tier sparkle
 	o["cell_w"] = float(t.get("cell_w", 150))
@@ -4046,7 +4046,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
-		# the unlockable accent COLOUR (halo + border + shadow), as hue + saturation knobs. Brightness is
+			# the unlockable accent COLOUR (halo + shadow), as hue + saturation knobs. Brightness is
 		# pinned to STRAW's V (0.89), so the defaults (42°, 74%) reproduce Pal.STRAW exactly — drag the
 		# saturation down toward a warm white to take the yellow out of the glow.
 		"glow_tint": Color.from_hsv(float(bc.get("glow_hue", 42)) / 360.0, float(bc.get("glow_sat", 74)) / 100.0, 0.89),
@@ -4063,7 +4063,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ##   empty      — the open cream well (seen / unlocked / owned-empty), inert
 ##   filled     — the open well + a piece on top; a tap fires d.on_tap (retrieve)
 ##   locked     — the well with the BAKED gold padlock (unseen / gated), inert
-##   unlockable — the locked well, HIGHLIGHTED (gold border + glow + dynamic sparkle), full opacity; a
+##   unlockable — the locked well, HIGHLIGHTED (glow + dynamic sparkle), full opacity; a
 ##                tap fires d.on_tap (buy / open). The bag's "next" maps here.
 ## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge,
 ## under the baked lock (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
@@ -4174,8 +4174,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(badge)
 
-	# unlockable — the shared HIGHLIGHT: a warm-gold border + glow (the board's "pop") AND the dynamic
-	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
+		# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
+		# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
 	if state == "unlockable":
 		# the accent COLOUR — halo + border + shadow share one tint (config: glow_hue/glow_sat); the
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
@@ -4186,7 +4186,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		pop.size = Vector2(cw, ch)
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = Color(0, 0, 0, 0)
-		ps.set_border_width_all(4)
+			ps.set_border_width_all(0)
 		ps.border_color = tint
 		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
 		# the rim drop-shadow — its own strength (alpha) + size knobs, so it can be dialled all the way

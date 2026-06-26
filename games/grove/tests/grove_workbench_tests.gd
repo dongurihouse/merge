@@ -198,22 +198,31 @@ func _live_board_frame_size(view_size: Vector2, board_cfg: Dictionary) -> Vector
 		(view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows) * scale
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
 
-# The unlockable cell's accent colour — the border colour of its highlight pop (the StyleBoxFlat panel
-# with the 4px gold rim). Returns transparent if the cell carries no such pop (not unlockable).
-func _unlockable_tint(node: Control) -> Color:
+# The unlockable cell's highlight pop style. Returns null if the cell carries no such pop (not unlockable).
+func _unlockable_highlight_style(node: Control) -> StyleBoxFlat:
 	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
 		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
-			return (sb as StyleBoxFlat).border_color
-	return Color(0, 0, 0, 0)
+		if sb is StyleBoxFlat:
+			return sb as StyleBoxFlat
+	return null
+
+# The unlockable cell's accent colour — shared by the glow/shadow highlight. Returns transparent if the
+# cell carries no such pop (not unlockable).
+func _unlockable_tint(node: Control) -> Color:
+	var sb := _unlockable_highlight_style(node)
+	return sb.border_color if sb != null else Color(0, 0, 0, 0)
 
 # The unlockable highlight pop's rim drop-shadow size (px). -1 if the cell has no such pop.
 func _unlockable_shadow_size(node: Control) -> int:
-	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
-		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
-			return (sb as StyleBoxFlat).shadow_size
-	return -1
+	var sb := _unlockable_highlight_style(node)
+	return sb.shadow_size if sb != null else -1
+
+# The unlockable highlight's visible border width. -1 if the cell has no such pop.
+func _unlockable_border_width(node: Control) -> int:
+	var sb := _unlockable_highlight_style(node)
+	if sb == null:
+		return -1
+	return maxi(maxi(sb.border_width_left, sb.border_width_right), maxi(sb.border_width_top, sb.border_width_bottom))
 
 func _same_rgb(a: Color, b: Color, eps := 0.01) -> bool:
 	return absf(a.r - b.r) <= eps and absf(a.g - b.g) <= eps and absf(a.b - b.b) <= eps
@@ -1489,6 +1498,7 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "GPUParticles2D"), "an unlockable cell carries the shared highlight sparkle")
 	ok(_first_button(unl) != null, "an unlockable cell is tappable")
 	ok(unl.find_children("*", "Label", true, false).is_empty(), "an unlockable cell with no cost shows no cost number")
+	ok(_unlockable_border_width(unl) == 0, "an unlockable cell has no visible highlight border")
 	# the unlockable accent COLOUR (glow_hue / glow_sat): default (42°, 74%) reproduces Pal.STRAW within a
 	# single 8-bit level; glow_sat 0 washes it to a neutral warm white; lowering glow_hue shifts it warmer.
 	var def_tint := _unlockable_tint(unl)
@@ -1555,11 +1565,9 @@ func _test_bag_components() -> void:
 	ok(unl_bg != null and unl_bg.custom_minimum_size == Vector2.ZERO, \
 		"the unlockable background is paint-only and does not expand the slot cell")
 	var unlockable_pop: Control = null
-	for p in unl.find_children("*", "Panel", true, false):
-		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
-			unlockable_pop = p as Control
-			break
+	for p in unl.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
+		unlockable_pop = p as Control
+		break
 	ok(unlockable_pop != null and unlockable_pop.custom_minimum_size == Vector2.ZERO, \
 		"the unlockable highlight overlay is paint-only and does not expand the slot cell")
 	var side_view := View.new()
@@ -1626,6 +1634,14 @@ func _test_discovery_cell() -> void:
 	# a DISCOVERED tier → filled Slot-cell background; an UNDISCOVERED tier → locked Slot-cell background
 	ok(dlg.find_children("SlotCellBackground", "Panel", true, false).size() >= 2, \
 		"discovered and undiscovered tiers both use the shared Slot-cell background")
+	var tuned_cfg := {"bag_card": {"open_hue": 126, "open_sat": 78, "open_val": 52}}
+	var tuned_topts := Kit.tiers_opts_from_config(tuned_cfg)
+	var tuned_dlg := Kit.tiers_dialog([{"tier": 1, "seen": true, "icon": "leaf"}], 560.0, tuned_topts)
+	var tuned_bg := tuned_dlg.find_child("SlotCellBackground", true, false) as Panel
+	var tuned_style: StyleBox = tuned_bg.get_theme_stylebox("panel") if tuned_bg != null else null
+	var expected_fill: Color = Kit.bag_card_opts_from_config(tuned_cfg).open_fill
+	ok(tuned_style is StyleBoxFlat and _same_rgb((tuned_style as StyleBoxFlat).bg_color, expected_fill), \
+		"tiers_dialog inherits Slot-cell background colours from bag_card settings")
 	# tier cells carry a plain number, not the decorated level-badge medal.
 	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
 	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")

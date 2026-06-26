@@ -1658,7 +1658,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "bag_card":
 		var note := Label.new()
-		note.text = "ONE cell shared by the Bag dialog AND the board: empty / filled use the cream well; locked / unlockable use the code-drawn locked background. Unlockable = the highlight (gold border + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
+		note.text = "ONE cell shared by the Bag dialog AND the board: empty / filled use the cream well; locked / unlockable use the code-drawn locked background. Unlockable = the highlight (glow + dynamic sparkle). Add a level badge (board) or an acorn cost (bag) below."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
