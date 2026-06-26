@@ -270,7 +270,12 @@ func _settle() -> void:
 		for c in G.COLS:
 			var cell = _grid[r][c]
 			if cell != null:
-				(cell.node as Control).position = Vector2(_cell * c + 3.0, _cell * r + 3.0)
+				var node := cell.node as Control
+				var rest := Vector2(_cell * c + 3.0, _cell * r + 3.0)
+				if node.position.y < rest.y - 1.0:
+					_fall_to(node, rest, node.position.y)   # a cleared tile DROPS into the gap (gravity)
+				else:
+					node.position = rest                    # already settled / a same-row or sideways move
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
@@ -291,10 +296,24 @@ func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 		b.add_theme_stylebox_override(st, empty)
 	b.pressed.connect(func() -> void: _on_tile(b))
 	_board.add_child(b)
-	FX.pop(b)                       # JUICE: a little landing pop as the trace drops in
 	var cell := {"kind": line, "tier": tier, "node": b}
 	_paint(cell)
+	_fall_to(b, b.position, -_cell)   # JUICE: the trace FALLS in from the top of the board (not a pop-in)
 	return b
+
+# A tile FALLS from `from_y` to its resting cell `rest`, accelerating like gravity, with a small squash on
+# impact — used for freshly-spawned traces (from above the board) and for tiles settling down after a clear.
+func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.position = Vector2(rest.x, from_y)
+	node.pivot_offset = node.size * 0.5
+	var dist := maxf(0.0, rest.y - from_y)
+	var dur := clampf(0.10 + dist / maxf(1.0, _cell * float(G.ROWS)) * 0.24, 0.10, 0.36)
+	var t := node.create_tween()
+	t.tween_property(node, "position:y", rest.y, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:

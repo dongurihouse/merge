@@ -60,6 +60,42 @@ func _initialize() -> void:
 	var scn = load(path).instantiate()
 	root.add_child(scn)
 	current_scene = scn
+	# midfall=1: clear the board, force-spawn one tile, capture it part-way through its drop (a guaranteed
+	# mid-fall frame, since random sequence captures keep landing on settled tiles).
+	if which == "rush":
+		for a in args:
+			if String(a) == "midfall=1":
+				await create_timer(0.4).timeout
+				scn.set_process(false)
+				for r in G.ROWS:
+					for c in G.COLS:
+						if scn._grid[r][c] != null:
+							(scn._grid[r][c].node as Node).queue_free()
+							scn._grid[r][c] = null
+				scn._spawn()
+				await create_timer(0.12).timeout   # let the fall tween run part-way
+				RenderingServer.force_draw()
+				var mf := root.get_texture().get_image()
+				var em := mf.save_png(out)
+				print("SHOT explore/rush midfall=%s (err %d)" % [out, em])
+				quit()
+				return
+	# seq=N: dump N frames at ~0.12s intervals (catches tiles mid-fall to show the drop). Else one frame.
+	var seq := 0
+	for a in args:
+		if String(a).begins_with("seq="):
+			seq = int(String(a).split("=")[1])
+	if seq > 0:
+		var base := out.trim_suffix(".png")
+		await create_timer(0.6).timeout                 # let a couple of tiles spawn first
+		for i in seq:
+			RenderingServer.force_draw()
+			var fr := root.get_texture().get_image()
+			fr.save_png("%s_%02d.png" % [base, i])
+			await create_timer(0.12).timeout
+		print("SHOT explore/%s seq=%d base=%s" % [which, seq, base])
+		quit()
+		return
 	# rush needs a few seconds of frames to drop tiles; the others just need a layout pass
 	var wait := 2.4 if which == "rush" else 0.7
 	await create_timer(wait).timeout
