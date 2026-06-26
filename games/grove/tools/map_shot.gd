@@ -136,11 +136,13 @@ func _initialize() -> void:
 			go["task_reward"] = oclaimed
 			go["exp"] = 40
 			Save.grove_write()
-			# seed a few in-hand + placed spirits so the dock renders fully (for UI capture)
+			# seed in-hand + placed spirits so the residents dialog renders fully (for UI capture): a
+			# mergeable pair left in hand + a few placed on the hub.
 			var Habitat = load("res://engine/scripts/core/habitat.gd")
 			var hub_id := String(G.MAPS[G.hub_map()].id)
-			Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Fern", 2)
-			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)
+			Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1)
+			Habitat.hand_add("Fern", 2) ; Habitat.hand_add("Fern", 2)
+			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)   # 3 Moss placed; 2 Fern left in hand
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).
@@ -169,6 +171,13 @@ func _initialize() -> void:
 	elif mode == "closeup" or mode == "progress" or mode == "owned":
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
+		for wa in args:
+			if String(wa) == "residents=1":   # open the habitat-management dialog over the map
+				scn._open_residents_dialog()
+				await create_timer(0.3).timeout
+				scn._sel_placed = 0           # pre-select a placed spirit so Sell / Bring out render
+				scn._residents_rebuild.call()
+				await create_timer(0.4).timeout
 	elif mode == "watershop":
 		# the WATER stall opened from the HUB by pressing the real water-pill "+". Water is Save-backed,
 		# so the stall is host-agnostic — the same free refill + 💎 fill show here as on the board.
