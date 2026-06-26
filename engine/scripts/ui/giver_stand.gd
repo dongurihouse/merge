@@ -137,21 +137,9 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		else:
 			wire_tap.call(icon, func() -> void: ask_tap.call(int(it.line), int(it.tier)))
 		item_ui = {"code": acode, "piece": piece, "met": met}
-	# the near-end map quest ALSO rewards the next map's generator — preview its tool icon as a small
-	# badge tucked at the box's top-right, so the player sees the bonus they'll earn.
-	if q.has("reward") and (q.reward as Dictionary).has("generators") and not (q.reward.generators as Array).is_empty():
-		var gdef: Dictionary = G.gen_def(G.GENERATORS, String(q.reward.generators[0]))
-		var gtex := Game.art(String(gdef.get("tex", "")))
-		if ResourceLoader.exists(gtex):
-			var gs := cardH * 0.24
-			var gicon := TextureRect.new()
-			gicon.texture = load(gtex)
-			gicon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-			gicon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-			gicon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			gicon.size = Vector2(gs, gs)
-			gicon.position = Vector2(cx + cardW * 0.92 - gs, cy + cardH * 0.04)
-			stand.add_child(gicon)
+	# (The "incoming generator" reward preview was removed with the SINGLE-GENERATOR model: quests no
+	# longer carry a `reward.generators` grant — the one map-0 anchor pops every opened line, so there is
+	# no next-map tool to preview.)
 	# the reusable wooden PLAQUE — seated INSIDE the box at the bottom-centre, in FRONT of the bust, with
 	# the +N reward (flower/star + WHITE count) centred on its wooden face.
 	var plw := cardW * float(L.plaque_w)

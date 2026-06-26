@@ -413,7 +413,10 @@ func _load_state() -> void:
 		_init_quests()
 		_persist()
 	if board.gens.is_empty():               # fresh game, or a pre-T17 save with no gen map →
-		board.seed_gens(G.map_for_spots(_spots_bought()), _quest_level())   # seed at the player's Level — staged gens (appear_level) hold back until earned
+		# SINGLE-GENERATOR model (idea 3): always seed the map-0 ANCHOR (never the current map's tool).
+		# The one anchor pops EVERY opened line (askable_lines), and due_generators never grows another,
+		# so the whole game runs on this single generator regardless of progression.
+		board.seed_gens(0, _quest_level())
 	# Reconcile `gates` with spots-done state every boot: a map whose spots are ALL restored must be
 	# recorded in `gates` so the next map unlocks. Idempotent + safe (only adds earned gates). This heals
 	# a save whose gate write was missed — a pre-§7 save (gate quest retired), or one whose spot ids were
@@ -1968,7 +1971,10 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
-	var pool: Array = G.gen_def(G.GENERATORS, board.gen_id_at(cell)).get("lines", [])
+	# SINGLE-GENERATOR model (idea 3): the pop pool is ALL OPENED lines (every map reached so far), not
+	# just this generator's static def — so the one anchor produces every opened line, biased by `wanted`
+	# toward what the current quests ask. As maps open, the pool grows; old lines never retire.
+	var pool: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():

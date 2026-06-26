@@ -281,7 +281,7 @@ func _initialize() -> void:
 		sg._ready()
 	var sgg := Save.grove()
 	sgg["exp"] = 300                          # exp past map 0's spot thresholds
-	# complete map 0 (all spots restored + the gate recorded) → map 1 is UNLOCKED → its tool (hen_coop) is due
+	# complete map 0 (all spots restored + the gate recorded) → map 1 is UNLOCKED
 	var done0 := {}
 	for sp in G.MAPS[0].spots:
 		done0[String(sp.id)] = true
@@ -290,27 +290,25 @@ func _initialize() -> void:
 	Save.grove_write()
 	sg._init_quests()
 	sg._rebuild_all()
-	# the anchor is on the board; map 1's tool is NOT yet — and it is DUE because map 1 is unlocked
+	# SINGLE-GENERATOR model (idea 3): the map-0 anchor is the ONLY generator. Unlocking map 1 does NOT
+	# grow a new tool — the anchor itself pops every OPENED line (map 1's included). So nothing is due, and
+	# a generator tap POPS ITEMS rather than birthing a tool; no new generator tile ever accumulates.
 	var owned_b: Array = []
 	for gv in sg.board.gens.values():
 		owned_b.append(String(gv))
 	for gbid in sg.board.gen_bag:
 		owned_b.append(String(gbid))
-	ok(not sg.board.gens.values().has("hen_coop"), "pre: map 1's tool is not on the board yet")
-	ok(G.due_generators(done0, [0], owned_b).has("hen_coop"), "map 1 is unlocked → hen_coop is DUE")
-	# a generator TAP produces the due tool — _pop_seed taps the live (anchor) generator and births hen_coop
-	# instead of popping items (the tap is spent on the tool)
-	sg._pop_seed()
-	ok(sg.board.gens.values().has("hen_coop"), "a generator tap produces map 1's tool onto the board")
-	ok(not sg.board.gen_bag.has("hen_coop"), "the produced tool lands on the board, not the bag (board had room)")
-	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel stays on the board (generators are never consumed)")
-	# idempotent: once owned, nothing is due → a further generator tap produces no new tool
-	ok(not sg._produce_due_generators(), "with the tool owned, no further generator is due (idempotent)")
-	# SEAM PROBE: after producing, gen_live_lines includes hen_coop's own line(s) so a fence entering map 1
-	# is satisfiable — confirming the new-map seam is bridged. (Derive the line(s) from the roster.)
-	var live_lines_after: Array = G.gen_live_lines(sg.board.gens, G.GENERATORS)
+	ok(not sg.board.gens.values().has("hen_coop"), "map 1's tool is never produced (single anchor)")
+	ok(G.due_generators(done0, [0], owned_b).is_empty(), "map 1 unlocked → NO tool is due (the anchor serves all opened lines)")
+	var gens_before: int = sg.board.gens.size()
+	ok(not sg._produce_due_generators(), "nothing is due → a tap produces no new tool")
+	ok(sg.board.gens.size() == gens_before, "the generator set stays a single anchor (no new tiles accumulate)")
+	ok(sg.board.gen_id_at(Vector2i(4, 3)) == "seed_satchel", "the anchor satchel remains the sole generator")
+	# SEAM PROBE: map 1's line is in the anchor's ASKABLE pool, so a fence entering map 1 is satisfiable from
+	# the single anchor WITHOUT producing hen_coop.
+	var askable_at_m1: Array = G.askable_lines(G.GENERATORS, 1)
 	for hc_ln in G.gen_def(G.GENERATORS, "hen_coop").get("lines", []):
-		ok(live_lines_after.has(int(hc_ln)), "after producing hen_coop, gen_live_lines includes its line %d (map-1 fence producible)" % int(hc_ln))
+		ok(askable_at_m1.has(int(hc_ln)), "map-1 line %d is askable from the anchor (fence producible, no new tool)" % int(hc_ln))
 	sg.queue_free()
 	# full-board fallback: exercise board_model.place_gen directly — no open cell → gen_bag.
 	# (The full-scene delivery path can't easily be made to have zero empty cells post-quest-consume;

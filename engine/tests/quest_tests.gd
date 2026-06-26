@@ -111,26 +111,29 @@ func _initialize() -> void:
 	var m0_done := {}
 	for sp in G.MAPS[0].spots:
 		m0_done[String(sp.id)] = true
-	var map1_ids: Array = G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id))
-	ok(str(G.due_generators(m0_done, [0], anchor_ids)) == str(map1_ids), "completing+gating map 0 unlocks map 1 → its tool is due")
-	ok(G.due_generators(m0_done, [0], anchor_ids + map1_ids).is_empty(), "a tool already owned (board or bag) is not due")
-	# map 1 is still incomplete → map 2 stays LOCKED → its tool is never due (unlock-keyed, not visit-keyed)
-	if G.MAPS.size() >= 3:
-		var due_at_m1 := G.due_generators(m0_done, [0], anchor_ids + map1_ids)
-		for mid in G.generators_for_map(G.GENERATORS, 2).map(func(g): return String(g.id)):
-			ok(not due_at_m1.has(mid), "a LOCKED map's tool is never due (%s)" % mid)
+	# SINGLE-GENERATOR model (idea 3): later maps NEVER grow their own tool — the one map-0 anchor pops
+	# every opened line. So unlocking map 1 makes NO new tool due; only a MISSING anchor is ever due.
+	ok(G.due_generators(m0_done, [0], anchor_ids).is_empty(), "unlocking map 1 makes NO new tool due (the single anchor serves all lines)")
+	for mid in G.generators_for_map(G.GENERATORS, 1).map(func(g): return String(g.id)):
+		ok(not G.due_generators(m0_done, [0], anchor_ids).has(mid), "a later map's tool is never due (%s)" % mid)
+	ok(str(G.due_generators(m0_done, [0], [])) == str(anchor_ids), "a MISSING anchor is still self-healed (the only thing ever due)")
 
-	# --- askable_lines is CURRENT-MAP only (no anchor union) — equals lines_for_map, sorted ---
+	# --- askable_lines is ALL OPENED lines (maps 0..map) — old lines no longer retire (idea 3) ---
 	for z in G.MAPS.size():
-		var live := G.lines_for_map(G.GENERATORS, z); live.sort()
-		ok(str(G.askable_lines(G.GENERATORS, z)) == str(live), "askable_lines(map %d) == lines_for_map sorted (current-map only)" % z)
+		var opened: Array = []
+		for zz in z + 1:
+			for l in G.lines_for_map(G.GENERATORS, zz):
+				if not opened.has(int(l)):
+					opened.append(int(l))
+		opened.sort()
+		ok(str(G.askable_lines(G.GENERATORS, z)) == str(opened), "askable_lines(map %d) == all opened lines (0..map)" % z)
 	var z1_ask := G.askable_lines(G.GENERATORS, 1)
 	var z0_only := G.lines_for_map(G.GENERATORS, 0)
-	var z1_excludes_z0 := true
+	var z1_includes_z0 := true
 	for l in z0_only:
-		if z1_ask.has(int(l)):
-			z1_excludes_z0 = false
-	ok(z1_excludes_z0, "askable_lines(roster, 1) excludes map-0 lines (old-map lines aren't quested)")
+		if not z1_ask.has(int(l)):
+			z1_includes_z0 = false
+	ok(z1_includes_z0, "askable_lines(roster, 1) INCLUDES map-0 lines (opened lines stay askable)")
 
 	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")
