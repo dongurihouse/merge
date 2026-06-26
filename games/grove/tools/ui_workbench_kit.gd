@@ -744,6 +744,127 @@ static func gold_badge_cap(opts: Dictionary = {}) -> int:
 	var corner := _gold_badge_corner_for_size(size, float(opts.get("corner", GOLD_BADGE_CAP)))
 	return clampi(int(ceil(corner)), 4, maxi(4, int(size * 0.5) - 1))
 
+# ============ RUSH BAR — the Expedition Rush top HUD =====================================================
+# Three CODE-DRAWN gold-badge cells — Time | SCORE (centred, larger) | Mult — with the rush_bar_asset art
+# used ONLY for the decorations: oak-leaf clusters on the flanks, a coin in the score cell, and an acorn
+# crown topping the centre. The dynamic numerals are exposed via meta (time_label / score_label /
+# mult_label) so the game updates them in place. Every dial is workbench-tunable (rush_bar_opts_from_config).
+
+## Resolve the rush-bar look from config (workbench "rush_bar" block) + the SHARED gold-badge skin.
+static func rush_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var r: Dictionary = cfg.get("rush_bar", {}) if cfg is Dictionary else {}
+	return {
+		"height":     float(r.get("height", 116.0)),     # cell height
+		"score_w":    float(r.get("score_w", 300.0)),    # the centred SCORE cell width
+		"side_w":     float(r.get("side_w", 224.0)),     # the flank (Time / Mult) cell width
+		"gap":        float(r.get("gap", 18.0)),         # spacing between cells
+		"label_size": float(r.get("label_size", 24.0)),  # the "Time" / "Score" / "Mult" caption
+		"value_size": float(r.get("value_size", 46.0)),  # the numerals
+		"icon_size":  float(r.get("icon_size", 52.0)),   # the score coin
+		"leaf_size":  float(r.get("leaf_size", 92.0)),   # the flank oak-leaf clusters (tall, by aspect)
+		"crown_size": float(r.get("crown_size", 76.0)),  # the acorn crown over the centre
+		"pad":        float(r.get("pad", 16.0)),         # cell content inset
+		"gold":       gold_badge_opts_from_config(cfg),  # the SHARED code-drawn gold badge skin
+		"label_col":  String(r.get("label_col", "#9A7B43")),
+		"value_col":  String(r.get("value_col", "#43352B")),
+	}
+
+## Build the rush bar. `data` = {time, score, mult} display strings. Returns a Control sized to the bar;
+## the three value Labels are exposed as meta (time_label / score_label / mult_label) for live updates.
+static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
+	var H := float(opts.get("height", 116.0))
+	var score_w := float(opts.get("score_w", 300.0))
+	var side_w := float(opts.get("side_w", 224.0))
+	var gap := float(opts.get("gap", 18.0))
+	var crown_sz := float(opts.get("crown_size", 76.0))
+	var total_w := side_w * 2.0 + score_w + gap * 2.0
+	var top_pad := crown_sz * 0.78                             # headroom so the crown sits mostly ABOVE the cell
+	var bar := Control.new()
+	bar.custom_minimum_size = Vector2(total_w, top_pad + H)
+	bar.size = bar.custom_minimum_size
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gold := gold_badge_style(opts.get("gold", {}))
+	var labels := {}
+	var x := 0.0
+	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Time", String(data.get("time", "0:00")), "leaf_l", "left", labels, "time"))
+	x += side_w + gap
+	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(score_w, H), "Score", String(data.get("score", "0")), "coin", "left", labels, "score"))
+	var score_cx := x + score_w * 0.5
+	x += score_w + gap
+	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Mult", String(data.get("mult", "x1.0")), "leaf_r", "right", labels, "mult"))
+	# the acorn CROWN tops the centre cell (the "separator" ornament), straddling its top edge
+	var crown := _bar_art("bar_crown", crown_sz)
+	if crown != null:
+		crown.position = Vector2(score_cx - crown.size.x * 0.5, top_pad - crown.size.y * 0.75)
+		bar.add_child(crown)
+	bar.set_meta("time_label", labels.get("time"))
+	bar.set_meta("score_label", labels.get("score"))
+	bar.set_meta("mult_label", labels.get("mult"))
+	return bar
+
+# One rush-bar cell: a code-drawn gold-badge panel with a side decoration (leaf / coin) and a centred
+# caption + value column. Returns the cell; records the value Label into `labels_out[key]`.
+static func _rush_cell(opts: Dictionary, gold: StyleBox, pos: Vector2, size: Vector2, caption: String, value_text: String, deco: String, deco_side: String, labels_out: Dictionary, key: String) -> Control:
+	var pad := float(opts.get("pad", 16.0))
+	var cell := Control.new()
+	cell.position = pos ; cell.size = size ; cell.custom_minimum_size = size
+	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var panel := PanelContainer.new()
+	panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	panel.add_theme_stylebox_override("panel", gold)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cell.add_child(panel)
+	var deco_h := float(opts.get("icon_size", 52.0)) if deco == "coin" else float(opts.get("leaf_size", 92.0))
+	var deco_w := 0.0
+	var dn := _bar_art("bar_" + deco, deco_h)
+	if dn != null:
+		deco_w = dn.size.x
+		var dy := (size.y - dn.size.y) * 0.5
+		dn.position = Vector2(pad, dy) if deco_side == "left" else Vector2(size.x - pad - deco_w, dy)
+		cell.add_child(dn)
+	var tx0 := pad + (deco_w + pad if deco_side == "left" else 0.0)
+	var tx1 := size.x - pad - (deco_w + pad if deco_side == "right" else 0.0)
+	var tw := maxf(10.0, tx1 - tx0)
+	var col := VBoxContainer.new()
+	col.position = Vector2(tx0, pad)
+	col.size = Vector2(tw, size.y - pad * 2.0)
+	col.custom_minimum_size = col.size
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(_bar_label(caption, int(opts.get("label_size", 24)), String(opts.get("label_col", "#9A7B43")), tw))
+	var val := _bar_label(value_text, int(opts.get("value_size", 46)), String(opts.get("value_col", "#43352B")), tw)
+	col.add_child(val)
+	cell.add_child(col)
+	labels_out[key] = val
+	return cell
+
+static func _bar_label(text: String, size: int, color_hex: String, width: float) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", Color(color_hex))
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.custom_minimum_size = Vector2(width, 0)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
+
+# A rush-bar decoration (ui/rush/bar_<name>.png) scaled to `target_h` keeping its aspect. Null if absent.
+static func _bar_art(name: String, target_h: float) -> Control:
+	var path := Look.kit("rush/%s.png" % name)
+	if not ResourceLoader.exists(path):
+		return null
+	var tex: Texture2D = load(path)
+	var asp := tex.get_size().x / maxf(1.0, tex.get_size().y)
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.custom_minimum_size = Vector2(target_h * asp, target_h)
+	t.size = t.custom_minimum_size
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
+
 static func _gold_badge_corner_for_size(size: int, corner_px: float) -> float:
 	var corner := float(size) * 0.215 if corner_px < 0.0 else corner_px * float(size) / float(GOLD_BADGE_BASE_SIZE)
 	return clampf(corner, 4.0, float(size) * 0.5 - 1.0)

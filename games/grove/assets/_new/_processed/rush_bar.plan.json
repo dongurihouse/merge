@@ -1,0 +1,12 @@
+{
+  "source": "_new/rush_bar_asset.png",
+  "category": "sheet",
+  "params": { "min_area": 600 },
+  "outputs": [
+    { "island": 4, "name": "rush_bar_crown",  "path": "ui/rush/bar_crown.png" },
+    { "island": 5, "name": "rush_bar_coin",   "path": "ui/rush/bar_coin.png" },
+    { "island": 6, "name": "rush_bar_leaf_l", "path": "ui/rush/bar_leaf_l.png" },
+    { "island": 7, "name": "rush_bar_leaf_r", "path": "ui/rush/bar_leaf_r.png" }
+  ],
+  "archive": "_originals/ui/rush_bar_asset.png"
+}
