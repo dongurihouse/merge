@@ -1367,6 +1367,23 @@ func _test_bag_components() -> void:
 	ok(locked_plain.find_child("SlotCellBackground", true, false) is Panel \
 		and locked_plain.find_child("BagLock", true, false) == null, \
 		"the locked cell uses the code-drawn Slot-cell background")
+	var locked_bg := locked_plain.find_child("SlotCellBackground", true, false) as Control
+	ok(locked_plain.custom_minimum_size == cwh, "the locked slot cell owns the configured cell_w/cell_h")
+	ok(locked_bg != null and locked_bg.size == cwh, "the locked background paints at the configured slot-cell size")
+	ok(locked_bg != null and locked_bg.custom_minimum_size == Vector2.ZERO, \
+		"the locked background is paint-only and does not expand the slot cell")
+	var unl_bg := unl.find_child("SlotCellBackground", true, false) as Control
+	ok(unl.custom_minimum_size == cwh, "the unlockable slot cell owns the configured cell_w/cell_h")
+	ok(unl_bg != null and unl_bg.custom_minimum_size == Vector2.ZERO, \
+		"the unlockable background is paint-only and does not expand the slot cell")
+	var unlockable_pop: Control = null
+	for p in unl.find_children("*", "Panel", true, false):
+		var sb: StyleBox = (p as Panel).get_theme_stylebox("panel")
+		if sb is StyleBoxFlat and (sb as StyleBoxFlat).border_width_left >= 4:
+			unlockable_pop = p as Control
+			break
+	ok(unlockable_pop != null and unlockable_pop.custom_minimum_size == Vector2.ZERO, \
+		"the unlockable highlight overlay is paint-only and does not expand the slot cell")
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
 	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))

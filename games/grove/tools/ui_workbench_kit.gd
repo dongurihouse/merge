@@ -3840,7 +3840,6 @@ static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary
 static func slot_cell_background(size_px: Vector2, frontier: bool, opts: Dictionary = {}) -> Panel:
 	var base := Panel.new()
 	base.name = "SlotCellBackground"
-	base.custom_minimum_size = size_px
 	base.size = size_px
 	base.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var fs := StyleBoxFlat.new()
@@ -3936,7 +3935,6 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		tile.add_child(slot_cell_background(Vector2(cw, ch), frontier, opts))
 	elif bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(SLOT_EMPTY_ART)):
 		var face := Panel.new()
-		face.custom_minimum_size = Vector2(cw, ch)
 		face.size = Vector2(cw, ch)
 		face.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var sbt := StyleBoxTexture.new()
@@ -3947,7 +3945,6 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		tile.add_child(face)
 	else:
 		var p := Panel.new()
-		p.custom_minimum_size = Vector2(cw, ch)
 		p.size = Vector2(cw, ch)
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ss := StyleBoxFlat.new()
@@ -4035,7 +4032,6 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()
-		pop.custom_minimum_size = Vector2(cw, ch)
 		pop.size = Vector2(cw, ch)
 		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ps := StyleBoxFlat.new()
