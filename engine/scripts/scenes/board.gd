@@ -1920,6 +1920,10 @@ func _on_release(pos: Vector2) -> void:
 		else:
 			_snap_back(from, node)
 			_select_item(from)
+	elif G.wildcard_advance_code(from_code, target_code) > 0:
+		_apply_wildcard(from, target, node)   # §6.B a WILDCARD advances a same-tier item one tier
+	elif G.is_tool_item(from_code) and target != from and not board.is_open(target):
+		_use_tool(from, target, node)         # §6.B a TOOL clears a locked cell
 	elif G.can_open_chest(from_code, target_code):
 		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
@@ -2376,6 +2380,47 @@ func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_update_hud()
 	_refresh_giver_lights()
 	_refresh_generator_dim()
+
+# §6.B a WILDCARD dragged onto a same-tier item advances that item one tier, consuming the wildcard.
+func _apply_wildcard(from: Vector2i, target: Vector2i, node: Control) -> void:
+	var advanced := G.wildcard_advance_code(board.item_at(from), board.item_at(target))
+	if advanced <= 0:
+		_snap_back(from, node)
+		return
+	board.take(from)
+	board.take(target)
+	board.place(target, advanced)
+	piece_nodes.erase(from)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	if piece_nodes.has(target) and is_instance_valid(piece_nodes[target]):
+		piece_nodes[target].queue_free()
+	var tn := _make_piece(advanced, csz)
+	tn.position = _cell_pos(target)
+	board_area.add_child(tn)
+	piece_nodes[target] = tn
+	_mark_seen(advanced)
+	FX.pop(tn)
+	Audio.play("merge_success", -1.0, 1.25)
+	# a wildcard advance opens an eligible sealed neighbour, like a merge
+	for cell in board.openable_brambles(target, _quest_level()):
+		_open_bramble(cell)
+	_refresh_locked_cells()
+	_persist()
+	_refresh_giver_lights()
+	_update_hud()
+
+# §6.B a single-use TOOL dragged onto a locked cell clears it (consumes the tool).
+func _use_tool(from: Vector2i, target: Vector2i, node: Control) -> void:
+	board.take(from)
+	piece_nodes.erase(from)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	_open_bramble(target)            # opens the locked cell unconditionally (a tool ignores the level gate)
+	_refresh_locked_cells()
+	_persist()
+	_rebuild_pieces()
+	_update_hud()
 
 # §6.C ensure every UNLOCKED accumulator (its map-1 spot claimed) is on the board (or the gen bag), and
 # start its banking clock the first time it appears. Idempotent — called each rebuild.

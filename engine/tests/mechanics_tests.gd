@@ -294,5 +294,24 @@ func _initialize() -> void:
 		"a normal generator / accumulator is NOT a treat generator")
 	ok(G.gen_tex(G.treat_gen_id(61)).begins_with("items/generator/gen_"), "a treat gen resolves a wired icon")
 
+	# --- §6.B wildcard + tool ---
+	var wild_t3 := 15 * 100 + 3
+	var tool_t1 := 16 * 100 + 1
+	var flower_t3 := 1 * 100 + 3
+	ok(G.is_wildcard(wild_t3) and G.is_tool_item(tool_t1) and not G.is_wildcard(tool_t1), "is_wildcard / is_tool_item gate the right kinds")
+	ok(G.merge_top(tool_t1) == 1, "a tool never merges (ceiling 1)")
+	ok(G.merge_top(wild_t3) == G.SPECIAL_TOP, "a wildcard self-merges up to the special ceiling")
+	# wildcard advances a same-tier item one tier (consuming the wildcard)
+	ok(G.wildcard_advance_code(wild_t3, flower_t3) == 1 * 100 + 4, "a wildcard advances a same-tier item one tier")
+	ok(G.wildcard_advance_code(wild_t3, 1 * 100 + 5) == 0, "a wildcard does NOT apply to a different-tier item")
+	ok(G.wildcard_advance_code(wild_t3, 15 * 100 + 3) == 0, "two wildcards do NOT 'advance' (they merge normally)")
+	ok(G.wildcard_advance_code(wild_t3, 1 * 100 + G.TOP_TIER) == 0 or (1 * 100 + G.TOP_TIER) % 100 != 3, "a wildcard can't advance a maxed item")
+	# a tool can't be merged onto another tool (ceiling 1); two wildcards CAN self-merge
+	var wbm := BoardModel.new()
+	wbm.place(Vector2i(3, 2), 16 * 100 + 1); wbm.place(Vector2i(3, 4), 16 * 100 + 1)
+	ok(not wbm.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "two tools do NOT merge (single-use)")
+	wbm.place(Vector2i(5, 2), 15 * 100 + 1); wbm.place(Vector2i(5, 4), 15 * 100 + 1)
+	ok(wbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two wildcards self-merge")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

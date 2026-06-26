@@ -278,13 +278,16 @@ const SPECIAL_ITEMS := {
 	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
 	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
 	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
+	# wildcard + tool — behaviours below; art PENDING (code-drawn from `color` until sprites land, §6.B/#5).
+	15: {"base": "wildcard", "kind": "wildcard", "color": Color("#C77DD9")},  # self-merges up; OR advances any same-tier item
+	16: {"base": "tool", "kind": "tool", "color": Color("#8A8F94")},          # single-use; clears any locked cell
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
 # (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
 const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2}   # chest · key · water · acorn · exp
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2, 15: 1, 16: 1}   # chest·key·water·acorn·exp·wildcard·tool (last two scarce)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},
