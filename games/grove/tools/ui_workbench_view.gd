@@ -1149,7 +1149,6 @@ func _make_board_preview() -> Control:
 	opts["cell_w"] = cell
 	opts["cell_h"] = cell
 	var demo_by_cell := {}
-	var inset: float = clampf((1.0 - float(p.item) / 100.0) / 2.0, 0.0, 0.45)
 	if bool(p.pieces):
 		for d in BOARD_DEMO:
 			var dr: int = int(d[0])
@@ -1163,7 +1162,7 @@ func _make_board_preview() -> Control:
 			if demo_by_cell.has(demo_key):
 				var piece_code: int = int(demo_by_cell[demo_key])
 				cell_data = {"state": "filled", "make_content": func(px: float) -> Control:
-					return PieceView.make_piece(piece_code, px, inset)}
+					return PieceView.make_piece(piece_code, px, 0.0)}
 			elif r == 0 and c == 0:
 				cell_data = {"state": "unlockable", "frontier": true}
 			elif r == 0 or c == 0:

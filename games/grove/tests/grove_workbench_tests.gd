@@ -128,6 +128,16 @@ func _piece_holder_max_px(node: Control) -> float:
 			max_px = maxf(max_px, (parent as Control).size.x)
 	return max_px
 
+func _piece_art_max_px(node: Control) -> float:
+	var max_px := -1.0
+	for found in node.find_children("ItemArt", "TextureRect", true, false):
+		var art := found as TextureRect
+		var parent := art.get_parent()
+		if parent is Control:
+			var art_w := (parent as Control).size.x - art.offset_left + art.offset_right
+			max_px = maxf(max_px, art_w)
+	return max_px
+
 # The texture on a Button's `normal` stylebox when it wears sprite art (a StyleBoxTexture), else null —
 # lets a test prove two buttons share the SAME baked sprite (e.g. the level cta atom) without node names.
 func _btn_tex(b: Button) -> Texture2D:
@@ -165,6 +175,12 @@ func _slider_min(view: Control, label: String) -> float:
 				if kid is HSlider:
 					return (kid as HSlider).min_value
 	return INF
+
+func _has_sidebar_label(view: Control, label: String) -> bool:
+	for found in view._sidebar_body.find_children("*", "Label", true, false):
+		if String((found as Label).text) == label:
+			return true
+	return false
 
 # Count the slot tiles in a bag dialog's grid (the GridContainer's children).
 func _grid_cells(dialog: Control) -> int:
@@ -957,8 +973,12 @@ func _test_new_knobs(view) -> void:
 
 func _test_board_element(view) -> void:
 	ok(view._sections.has("board"), "the board is a registered gallery item")
-	ok(view._is_config("board", "cell") and view._is_config("board", "scale"), \
-		"the item-width (cell) + scale knobs are saved design config")
+	ok(view._is_config("board", "scale") and view._is_config("board", "gap") and view._is_config("board", "frame"), \
+		"the live board saves scale, gap, and frame settings")
+	ok(not view._is_config("board", "cell") and not view._is_config("board", "cols") and not view._is_config("board", "rows"), \
+		"board cell size and grid dimensions are preview-only")
+	ok(not (view._params["board"] as Dictionary).has("item"), \
+		"the board no longer owns a second item-size knob")
 	ok(not view._is_config("board", "pieces"), "the demo-pieces toggle is preview-only (not saved)")
 
 	var board_default: Dictionary = (view._params["board"] as Dictionary).duplicate()
@@ -998,12 +1018,20 @@ func _test_board_element(view) -> void:
 	view._params["board"]["pieces"] = true
 	view._params["bag_card"]["content_frac"] = 30
 	var small_piece_px := _piece_holder_max_px(view._make_element("board"))
-	view._params["bag_card"]["content_frac"] = 80
+	var small_art_px := _piece_art_max_px(view._make_element("board"))
+	view._params["bag_card"]["content_frac"] = 95
 	var large_piece_px := _piece_holder_max_px(view._make_element("board"))
+	var large_art_px := _piece_art_max_px(view._make_element("board"))
 	ok(small_piece_px > 0.0 and large_piece_px > small_piece_px + 20.0 \
-		and absf(small_piece_px - 30.0) <= 2.0 and absf(large_piece_px - 80.0) <= 2.0, \
+		and absf(small_piece_px - 30.0) <= 2.0 and absf(large_piece_px - 95.0) <= 2.0 \
+		and absf(small_art_px - 30.0) <= 2.0 and large_art_px >= 90.0, \
 		"board preview applies Slot-cell content_frac to demo pieces")
 	view._params["bag_card"] = bag_default
+	var board_scene = load("res://engine/scenes/Board.tscn").instantiate()
+	board_scene._apply_board_config({"scale": 100, "gap": 7, "frame": 60, "item": 56, "content_frac": 91})
+	ok(absf(float(board_scene.get("_board_item_inset")) - 0.045) <= 0.001, \
+		"live board pieces use Slot-cell content_frac instead of board.item")
+	board_scene.queue_free()
 
 	# the CELL knob = item width: wider items grow the board (the grid, not the frame thickness)
 	view._params["board"]["cell"] = 80
@@ -1019,6 +1047,8 @@ func _test_board_element(view) -> void:
 	# editing a board slider rebuilds just the board section (live preview)
 	view._params["board"]["scale"] = 100
 	view._selected = "board"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Item") == -INF, "the board sidebar does not expose a duplicate item-size slider")
 	var id0: int = _id_of(view, "board")
 	view._params["board"]["cell"] = 64
 	view._apply_edit()
