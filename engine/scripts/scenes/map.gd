@@ -1024,7 +1024,49 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 		"prereq": Strings.t("map.card.prereq") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
 	}
-	return Kit.map_card(d, opts, card_w, card_h)
+	var card: Control = Kit.map_card(d, opts, card_w, card_h)
+	if open and G.can_populate(z, unlocks, _gates()):
+		_add_card_habitat(card, z)          # the picker maps each completed map's caught spirits
+	return card
+
+# Overlay a compact habitat readout on a COMPLETED map's place-picker card — capacity + the housed
+# spirits + production — so the map-SELECT screen shows where the caught spirits live, across all maps.
+# Mouse-IGNORE throughout so a tap still falls through to the card (the picker selects by global rect).
+func _add_card_habitat(card: Control, z: int) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	var map_id := String(G.MAPS[z].id)
+	var placed: Array = Habitat.placed(map_id)
+	var strip := PanelContainer.new()
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	strip.offset_left = 16.0 ; strip.offset_right = -16.0
+	strip.offset_top = -58.0 ; strip.offset_bottom = -12.0
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(DOCK_PARCH, 0.92)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 10 ; sb.content_margin_right = 10
+	sb.content_margin_top = 4 ; sb.content_margin_bottom = 4
+	strip.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_child(row)
+	row.add_child(Kit.amount_chip("leaf", "%d/%d" % [placed.size(), Habitat.cap(map_id)]))
+	for i in mini(placed.size(), 6):
+		var inst: Dictionary = placed[i]
+		var chip := _spirit_chip(String(inst.kind), int(inst.tier), 34.0, func() -> void: pass)
+		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE      # display only — the card stays tappable
+		row.add_child(chip)
+	var cur := Habitat.reward_currency(map_id)
+	if cur != "":
+		var spacer := Control.new()
+		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(spacer)
+		row.add_child(Kit.amount_chip("coin", "+%d" % int(floor(Habitat.pending(map_id)))))
+	card.add_child(strip)
 
 func _card_zone_total(z: int) -> int:
 	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
