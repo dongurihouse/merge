@@ -27,7 +27,6 @@ const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
-const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared global bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
@@ -98,7 +97,6 @@ var _winback := false              # set on load when away >= WINBACK_HOURS
 var _gate_was_ready := false       # edge-detect for the quest_complete cue
 var _gate_ready_seen := false      # skip the cue on the first (load-time) call
 var _purge_vase: VaseWaterEffect
-var _purge_card: Control
 
 var csz := 86.0
 var board_area: Control
@@ -126,19 +124,13 @@ var _porter_timer := 0.0             # Y3: counts up while the basket has anythi
 var _porter_running := false
 var _amb_layer: Control              # Z3: the board's wandering-spirit layer (a treat sends one over)
 var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
-# the bottom-nav bag + merchant are circular wells (the always-present bag row is retired).
+# the bottom-nav bag is a circular well (the always-present bag row is retired).
 # bag_btn: tap → full bag, drag a board item onto it → stash; bag_content (a CenterContainer)
-# shows the most-recent stashed item, centered at bag_piece_px. merchant_btn: drag a spare onto
-# it → sell; merchant_pay previews the payout (+N coin/acorn) while a spare is dragged over it.
+# shows the most-recent stashed item, centered at bag_piece_px.
 var bag_btn: Button
 var bag_content: Control
 var bag_piece_px := 72.0             # the in-well item-preview size (set from the well px on build)
 var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
-var merchant_btn: Button
-var merchant_rest: Control
-var merchant_pay: Control
-var merchant_pay_lbl: Label
-var merchant_pay_icon: Control
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
@@ -152,14 +144,12 @@ var _info_trash_coin: Control        # the payout currency icon slot (standard c
 # GENERATOR is selected (generators aren't sellable). Built as a sibling of the sell button so the bar
 # reads as one button language; shown only for a generator that still has a burst level to buy.
 var _info_burst: Button              # the burst-upgrade buy chip (a generator's contextual action)
-var _info_burst_badge: PanelContainer # the chip's cost badge (re-tinted by affordability)
 var _info_burst_sb: StyleBoxFlat     # the badge's style (mutated for affordable / dimmed states)
 var _info_burst_count: Label         # the next-cost coin amount inside the badge
 var _info_burst_coin: Control        # the coin icon slot inside the badge
 # T55 — the BUY chip: buy a copy of the SELECTED item (coins for sub-top tiers, 💎 for the top tier,
 # at G.buy_price) and drop it on the board (the bag when the board is full). Sits beside the sell button.
 var _info_buy: Button                # the buy-a-copy chip (a regular item's second action, beside sell)
-var _info_buy_badge: PanelContainer  # the chip's price badge (re-tinted by affordability)
 var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable / dimmed states)
 var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
@@ -275,7 +265,7 @@ func _ready() -> void:
 	# The board bottom bar: Bag (+ x/y count) · Info bar · Home. Tapping a board item SELECTS it into the
 	# centre info bar — its name, an info button that opens the Tiers ladder, and a trashcan that sells it
 	# for coins when it's a deletable (non-generator) item. Selling moved here from the old drag-to-merchant
-	# well (merchant_btn stays null). Bag stays a drag-to-stash target; Home returns to the Map.
+	# well. Bag stays a drag-to-stash target; Home returns to the Map.
 	var bar := HBoxContainer.new()
 	bar.anchor_left = 0.0
 	bar.anchor_right = 1.0
@@ -768,7 +758,6 @@ func _purge_progress() -> float:
 # next unlock threshold, then glows + sparkles once that next region is affordable.
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
-	_purge_card = stand
 	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
 	# Keep the same footprint as giver cards so the Purge slot still sits flush in the fence row, but let
 	# the vase art carry the surface instead of another card frame.
@@ -883,15 +872,6 @@ func _giver_lay() -> Dictionary:
 	return L
 
 
-# AB1: a FRAMELESS giver — the chest-up cutout IS the UI element (no panel, no
-# border). Pops over the fence rail. Art-missing fallback is a ROUND initial chip
-# (never a square).
-func _bust(which: int, px: float = 124.0) -> Control:
-	return Bust.make(which, px)
-
-func _mini_item(code: int) -> Control:
-	return PieceView.mini_item(code)
-
 # Build the merchant stall. Wave 3: construction lives in ui/merchant_stand.gd; the coordinator
 # keeps the basket state, the sell/buy-back transactions, the drag-driven affordance, the porter.
 func _make_merchant_stand() -> Control:
@@ -928,49 +908,12 @@ func _buy_treat() -> void:
 	_persist()
 	_update_hud()
 
-# W3: while ANY item is dragged, the merchant's stall brightens — the sell affordance.
-# (The live "+N🪙" shoulder tag was the dark stat_chip pill — retired T48 ahead of the UI
-#  redesign; the +N value read returns as a new-language chip during the redesign. The `code`
-#  is no longer read here, kept on the signature for the callers + the redesign rebuild.)
-func _show_sell_affordance(code: int) -> void:
-	if not Features.on("sell_hints") or merchant_btn == null or not is_instance_valid(merchant_btn):
-		return
-	merchant_btn.modulate = DRAG_HILITE
-	FX.breathe_once(merchant_btn)
-	# preview the payout on the well so the player sees what they'll get before dropping
-	if G.is_coin(code) or merchant_pay == null or not is_instance_valid(merchant_pay):
-		return
-	var rw := G.sell_reward(code)            # Vector2i(coins, acorns)
-	var gem := rw.y > 0
-	merchant_pay_lbl.text = "+%d" % (rw.y if gem else rw.x)
-	for c in merchant_pay_icon.get_children():
-		c.queue_free()
-	var ic := Look.icon("gem" if gem else "coin", merchant_pay_icon.custom_minimum_size.x)
-	ic.set_anchors_preset(Control.PRESET_FULL_RECT)
-	ic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	merchant_pay_icon.add_child(ic)
-	merchant_pay.visible = true
-	if merchant_rest != null and is_instance_valid(merchant_rest):
-		merchant_rest.visible = false
-
-func _hide_sell_affordance() -> void:
-	if merchant_pay != null and is_instance_valid(merchant_pay):
-		merchant_pay.visible = false
-	if merchant_rest != null and is_instance_valid(merchant_rest):
-		merchant_rest.visible = true
-	if merchant_btn != null and is_instance_valid(merchant_btn):
-		FX.breathe_stop(merchant_btn)        # end the drag pulse (it otherwise loops forever after the 1st drag)
-		merchant_btn.modulate = Color(1, 1, 1, 1.0)
-
-# Drag drop-target affordance (the §-bottom-nav wells). A stashable piece picked up lights BOTH its
-# drop targets for the drag's duration — the Bag (stash) and the merchant's cart (sell) — each with
-# a gentle pulse + brighten. NEITHER pulses at idle. The Bag is SKIPPED when full (no room to stash).
-func _show_drag_targets(code: int) -> void:
-	_show_sell_affordance(code)              # the merchant cart (sell) — pulse + brighten + payout preview
+# Drag drop-target affordance for the bottom-nav Bag well. Selling moved to the info-bar trashcan, so
+# dragging a piece now only advertises stash when the bag has room.
+func _show_drag_targets() -> void:
 	_highlight_bag_target()
 
 func _hide_drag_targets() -> void:
-	_hide_sell_affordance()                  # settle the cart back to rest
 	_unhighlight_bag_target()
 
 func _highlight_bag_target() -> void:
@@ -1479,13 +1422,12 @@ func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on
 	Look.add_press_juice(btn)
 	btn.visible = false
 	row.add_child(btn)
-	return {"btn": btn, "badge": badge, "sb": sb, "count": count, "coin": coin}
+	return {"btn": btn, "sb": sb, "count": count, "coin": coin}
 
 # T54 — the burst-upgrade chip (a generator's action). Built from the shared action-chip recipe.
 func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 	var c := _build_action_chip(opts, row, Strings.t("board.info.burst_label"), _on_burst_chip)
 	_info_burst = c.btn
-	_info_burst_badge = c.badge
 	_info_burst_sb = c.sb
 	_info_burst_count = c.count
 	_info_burst_coin = c.coin
@@ -1494,7 +1436,6 @@ func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 func _build_buy_chip(opts: Dictionary, row: Control) -> void:
 	var c := _build_action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed)
 	_info_buy = c.btn
-	_info_buy_badge = c.badge
 	_info_buy_sb = c.sb
 	_info_buy_count = c.count
 	_info_buy_coin = c.coin
@@ -1747,35 +1688,6 @@ func _update_bag_count() -> void:
 	if _bag_count_lbl != null and is_instance_valid(_bag_count_lbl):
 		_bag_count_lbl.text = _bag_count_text()
 
-# The Merchant well (bottom nav): drag a board spare onto it to SELL (drop resolved in _on_release).
-# While a spare is dragged the well brightens and merchant_pay previews the payout (+N coin/acorn);
-# a tap is a gentle nudge (the verb is drag-to-sell). The fence sell-stall is retired.
-func _make_merchant_button(px: float) -> Button:
-	var b := _home_well(px, "sack", "nav_merchant.png")   # the home-button disc + the lifted coin-sack icon
-	merchant_rest = null
-	merchant_pay = HBoxContainer.new()
-	merchant_pay.alignment = BoxContainer.ALIGNMENT_CENTER
-	merchant_pay.add_theme_constant_override("separation", 2)
-	merchant_pay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	merchant_pay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	merchant_pay.visible = false
-	merchant_pay_lbl = Label.new()
-	merchant_pay_lbl.add_theme_font_size_override("font_size", int(px * 0.26))
-	merchant_pay_lbl.add_theme_color_override("font_color", Color("#33402F"))
-	merchant_pay_lbl.add_theme_color_override("font_outline_color", CREAM)
-	merchant_pay_lbl.add_theme_constant_override("outline_size", 4)
-	merchant_pay_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	merchant_pay.add_child(merchant_pay_lbl)
-	merchant_pay_icon = Control.new()
-	merchant_pay_icon.custom_minimum_size = Vector2(px * 0.32, px * 0.32)
-	merchant_pay_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	merchant_pay.add_child(merchant_pay_icon)
-	b.add_child(merchant_pay)
-	b.pressed.connect(func() -> void:
-		Audio.play("button_tap", -2.0)
-		FX.floating_text(self, b.get_global_rect().get_center() - Vector2(120, 70), Strings.t("board.hints.drag_to_sell"), CREAM, 26))
-	return b
-
 # Open the full bag overlay (the bottom-nav Bag well's tap). Tapping an item there returns it to
 # the board's first empty cell; the +slot tile buys a slot. Built in ui/bag_overlay.gd (pure view).
 func _open_bag_overlay() -> void:
@@ -1936,7 +1848,7 @@ func _on_press(pos: Vector2) -> void:
 			_drag_node.scale = Vector2(1.12, 1.12)
 			PieceView.set_lifted(_drag_node, true)   # spread the shadow — the item lifts off
 			Audio.play("item_pickup", -6.0)
-			_show_drag_targets(board.item_at(cell))   # light the drop targets: Bag (stash) + cart (sell)
+			_show_drag_targets()   # light the Bag drop target when it can accept a stashed piece
 
 func _on_release(pos: Vector2) -> void:
 	if _drag_is_gen:
@@ -1955,15 +1867,11 @@ func _on_release(pos: Vector2) -> void:
 	node.z_index = 0
 	node.scale = Vector2.ONE
 	PieceView.set_lifted(node, false)   # back to the tight resting shadow
-	_hide_drag_targets()   # drag ended — settle the Bag + cart back to rest (stop the pulse)
-	# the bag and the merchant's cart are drop targets too (global-rect check)
+	_hide_drag_targets()   # drag ended — settle the Bag back to rest
+	# the bag is a drop target too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
 		_stash(from, node)
-		return
-	if merchant_btn != null and is_instance_valid(merchant_btn) \
-			and merchant_btn.get_global_rect().has_point(gp):
-		_sell_item(from, node)
 		return
 	if target == from and G.is_coin(board.item_at(from)):
 		_collect_coin(from, node)          # tapping a coin pockets it
@@ -2009,11 +1917,6 @@ func _release_gen(pos: Vector2) -> void:
 			FX.celebrate_at(self, bag_btn.get_global_rect().get_center(), Strings.t("board.feedback.stored"), STRAW)
 		elif node != null:
 			_snap_back(from, node)
-		return
-	if merchant_btn != null and is_instance_valid(merchant_btn) \
-			and merchant_btn.get_global_rect().has_point(gp):
-		if node != null:
-			_snap_back(from, node)            # never sold
 		return
 	if target != from and board.is_empty_ground(target) and board.move_gen(from, target):
 		Audio.play("item_drop", -3.0)
@@ -2721,7 +2624,7 @@ func _grant_sale(code: int, node: Control) -> void:
 	if reward.y > 0:
 		Save.add_diamonds(reward.y)
 		Vault.skim(reward.y)                  # T44 SKIM-SITE 3/3 (t8-sell): the piggy bank skims a slice of the t8 premium sale (§10)
-	var target: Control = merchant_btn   # the sale flies into the bottom-nav merchant well
+	var target: Control = _info_trash if (_info_trash != null and is_instance_valid(_info_trash)) else null
 	var center: Vector2 = target.get_global_rect().get_center() if (target != null and is_instance_valid(target)) else get_global_rect().get_center()
 	if node != null and is_instance_valid(node):
 		var dest: Vector2 = center - board_area.get_global_transform().origin - Vector2(csz, csz) / 2.0
@@ -2871,15 +2774,3 @@ func _open_ladder(line: int, mark_tier: int) -> void:
 # — both now take the player to the map they should be working on, not wherever they last browsed.
 func _decorate_target() -> String:
 	return Quests.home_map_id(Save.grove().get("unlocks", {}), _gates())
-
-# --- misc -------------------------------------------------------------------------
-
-func _lbl(t: String, size: int, col: Color) -> Label:
-	var l := Label.new()
-	l.text = t
-	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", col)
-	l.add_theme_color_override("font_outline_color", GROUND_EDGE)
-	l.add_theme_constant_override("outline_size", 8)
-	return l

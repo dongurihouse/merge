@@ -2,7 +2,7 @@ extends RefCounted
 ## THE persistence layer (single owner of all saved state).
 ## Static singleton (like Audio): everything reads/writes via Save.* — no other save file,
 ## no other format. Versioned JSON at user://save.json with atomic writes + a .bak fallback
-## and a one-time migration from the legacy progress.cfg.
+## Older schema versions are discarded and recreated fresh on load.
 ##
 ## NOT a tree autoload: pure data needs no scene presence, and autoloads don't resolve in
 ## headless `-s` test runs. Tests call configure_for_test() to redirect the paths.
@@ -27,7 +27,6 @@ const BAG_MAX_SLOTS := 18
 static var path := "user://save.json"
 static var bak := "user://save.bak"
 static var tmp := "user://save.tmp"
-static var legacy := "user://progress.cfg"
 
 static var data: Dictionary = {}
 static var _loaded := false
@@ -55,10 +54,6 @@ static func load_now() -> void:
 		loaded = {}
 	data = _merge(_default(), loaded)
 	save_now()
-
-# Reads coins WITHOUT _ensure_loaded re-entrancy (used during load_now, where _loaded is set).
-static func coins_raw() -> int:
-	return int(data["currencies"]["coins"])
 
 static func _read(p: String) -> Dictionary:
 	if not FileAccess.file_exists(p):
@@ -423,6 +418,5 @@ static func configure_for_test(dir: String) -> void:
 	path = dir + "save.json"
 	bak = dir + "save.bak"
 	tmp = dir + "save.tmp"
-	legacy = dir + "progress.cfg"
 	data = {}
 	_loaded = false

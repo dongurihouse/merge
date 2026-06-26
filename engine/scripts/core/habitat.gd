@@ -181,7 +181,6 @@ static func _grant(currency: String, amount: int) -> void:
 		"coins": Save.add_coins(amount)
 		# "water"/"diamonds" intentionally NOT wired in v1 — parked (I2 / IAP economy). Do not add here
 		# without the Economy pass; doing so reopens a base invariant.
-		_: pass
 
 ## Collect a map's accrued production into its reward currency: grant floor(pending), keep the
 ## fractional remainder, reset the clock. Returns {currency, amount} (amount 0 when nothing accrued

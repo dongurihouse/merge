@@ -30,7 +30,7 @@ func _ready() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
-	var hud := Hud.build(self, {"on_level": func() -> void: pass})
+	var hud := Hud.build(self)
 	_hud_refresh = hud.get("refresh", Callable())
 	_build()
 

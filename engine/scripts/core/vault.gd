@@ -1,7 +1,7 @@
 extends RefCounted
 ## THE PIGGY BANK — the accrual vault (Core §10). A persistent jar that SKIMS a small
-## slice of the premium (💎) you EARN at the three play sites — a level-up, a fully
-## restored map, a t8 sell — into a banked balance you can release only by paying ONE
+## slice of the premium (💎) you earn at explicit reward sites — level milestones and
+## fully restored maps — into a banked balance you can release only by paying ONE
 ## FIXED real-money price. The fill grows with play; the price is fixed — so the longer
 ## you play, the better the deal (the endowment hook, §10). Cracking grants the banked
 ## diamonds and resets the jar. It is the friendliest first purchase for a non-payer:
@@ -14,8 +14,8 @@ extends RefCounted
 ## data (games/grove/grove_data.gd · VAULT_*). The diegetic jar surface is ui/vault.gd.
 ##
 ## The skim is a RATIONAL fraction (num/den) with a carried sub-unit REMAINDER, so a
-## skim of many small earns (a 1💎 t8 sell, skim 1/4) accrues honestly instead of
-## truncating every small earn to nothing: 4 such sells bank exactly 1💎. The cumulative
+## skim of many small earns (for example, repeated 1💎 grants at a 1/4 skim) accrues honestly
+## instead of truncating every small earn to nothing: 4 such grants bank exactly 1💎. The cumulative
 ## banked total is always floor(total_earned × num/den) — no loss, no over-credit.
 
 const Save = preload("res://engine/scripts/core/save.gd")
