@@ -1,0 +1,397 @@
+{
+  "source": "games/grove/assets/ui/items/acorn_forest_icons_5x5.png",
+  "cell_size": 250,
+  "columns": 5,
+  "rows": 5,
+  "items": [
+    {
+      "cell": 1,
+      "row": 1,
+      "column": 1,
+      "id": "woven_twig_treasure_box_t1",
+      "title": "Woven twig treasure box",
+      "group": "treasure_box",
+      "tier": 1,
+      "file": "01_woven_twig_treasure_box_t1.png",
+      "alpha_bbox": [
+        41,
+        81,
+        219,
+        250
+      ]
+    },
+    {
+      "cell": 2,
+      "row": 1,
+      "column": 2,
+      "id": "carved_wooden_chest_t2",
+      "title": "Carved wooden chest",
+      "group": "treasure_box",
+      "tier": 2,
+      "file": "02_carved_wooden_chest_t2.png",
+      "alpha_bbox": [
+        35,
+        49,
+        236,
+        250
+      ]
+    },
+    {
+      "cell": 3,
+      "row": 1,
+      "column": 3,
+      "id": "gilded_acorn_chest_t3",
+      "title": "Gilded acorn chest",
+      "group": "treasure_box",
+      "tier": 3,
+      "file": "03_gilded_acorn_chest_t3.png",
+      "alpha_bbox": [
+        47,
+        22,
+        234,
+        250
+      ]
+    },
+    {
+      "cell": 4,
+      "row": 1,
+      "column": 4,
+      "id": "bent_twig_key_t1",
+      "title": "Bent twig key",
+      "group": "key",
+      "tier": 1,
+      "file": "04_bent_twig_key_t1.png",
+      "alpha_bbox": [
+        45,
+        49,
+        212,
+        250
+      ]
+    },
+    {
+      "cell": 5,
+      "row": 1,
+      "column": 5,
+      "id": "polished_brass_key_t2",
+      "title": "Polished brass key",
+      "group": "key",
+      "tier": 2,
+      "file": "05_polished_brass_key_t2.png",
+      "alpha_bbox": [
+        32,
+        48,
+        188,
+        250
+      ]
+    },
+    {
+      "cell": 6,
+      "row": 2,
+      "column": 1,
+      "id": "ornate_golden_key_t3",
+      "title": "Ornate golden key",
+      "group": "key",
+      "tier": 3,
+      "file": "06_ornate_golden_key_t3.png",
+      "alpha_bbox": [
+        46,
+        59,
+        207,
+        250
+      ]
+    },
+    {
+      "cell": 7,
+      "row": 2,
+      "column": 2,
+      "id": "single_dewdrop_t1",
+      "title": "Single dewdrop",
+      "group": "water",
+      "tier": 1,
+      "file": "07_single_dewdrop_t1.png",
+      "alpha_bbox": [
+        65,
+        73,
+        181,
+        245
+      ]
+    },
+    {
+      "cell": 8,
+      "row": 2,
+      "column": 3,
+      "id": "water_droplet_cluster_t2",
+      "title": "Water droplet cluster",
+      "group": "water",
+      "tier": 2,
+      "file": "08_water_droplet_cluster_t2.png",
+      "alpha_bbox": [
+        25,
+        0,
+        219,
+        245
+      ]
+    },
+    {
+      "cell": 9,
+      "row": 2,
+      "column": 4,
+      "id": "blue_water_orb_t3",
+      "title": "Blue water orb",
+      "group": "water",
+      "tier": 3,
+      "file": "09_blue_water_orb_t3.png",
+      "alpha_bbox": [
+        30,
+        78,
+        204,
+        250
+      ]
+    },
+    {
+      "cell": 10,
+      "row": 2,
+      "column": 5,
+      "id": "single_acorn_t1",
+      "title": "Single acorn",
+      "group": "acorn",
+      "tier": 1,
+      "file": "10_single_acorn_t1.png",
+      "alpha_bbox": [
+        25,
+        60,
+        185,
+        250
+      ]
+    },
+    {
+      "cell": 11,
+      "row": 3,
+      "column": 1,
+      "id": "pair_acorns_t2",
+      "title": "Pair of acorns",
+      "group": "acorn",
+      "tier": 2,
+      "file": "11_pair_acorns_t2.png",
+      "alpha_bbox": [
+        46,
+        80,
+        219,
+        224
+      ]
+    },
+    {
+      "cell": 12,
+      "row": 3,
+      "column": 2,
+      "id": "golden_acorn_t3",
+      "title": "Golden acorn",
+      "group": "acorn",
+      "tier": 3,
+      "file": "12_golden_acorn_t3.png",
+      "alpha_bbox": [
+        42,
+        37,
+        221,
+        244
+      ]
+    },
+    {
+      "cell": 13,
+      "row": 3,
+      "column": 3,
+      "id": "green_leaf_spark_t1",
+      "title": "Green leaf spark",
+      "group": "leaf_spark",
+      "tier": 1,
+      "file": "13_green_leaf_spark_t1.png",
+      "alpha_bbox": [
+        67,
+        55,
+        193,
+        241
+      ]
+    },
+    {
+      "cell": 14,
+      "row": 3,
+      "column": 4,
+      "id": "glowing_sprig_t2",
+      "title": "Glowing sprig",
+      "group": "leaf_spark",
+      "tier": 2,
+      "file": "14_glowing_sprig_t2.png",
+      "alpha_bbox": [
+        35,
+        43,
+        192,
+        250
+      ]
+    },
+    {
+      "cell": 15,
+      "row": 3,
+      "column": 5,
+      "id": "golden_star_leaf_t3",
+      "title": "Golden star leaf",
+      "group": "leaf_spark",
+      "tier": 3,
+      "file": "15_golden_star_leaf_t3.png",
+      "alpha_bbox": [
+        13,
+        40,
+        201,
+        248
+      ]
+    },
+    {
+      "cell": 16,
+      "row": 4,
+      "column": 1,
+      "id": "rain_barrel_dew_catcher",
+      "title": "Rain barrel dew catcher",
+      "group": "accumulator_water",
+      "tier": null,
+      "file": "16_rain_barrel_dew_catcher.png",
+      "alpha_bbox": [
+        42,
+        8,
+        228,
+        237
+      ]
+    },
+    {
+      "cell": 17,
+      "row": 4,
+      "column": 2,
+      "id": "wooden_coin_press_stump",
+      "title": "Wooden coin press stump",
+      "group": "accumulator_coins",
+      "tier": null,
+      "file": "17_wooden_coin_press_stump.png",
+      "alpha_bbox": [
+        33,
+        19,
+        213,
+        248
+      ]
+    },
+    {
+      "cell": 18,
+      "row": 4,
+      "column": 3,
+      "id": "crystal_sprout_font",
+      "title": "Crystal sprout font",
+      "group": "accumulator_exp",
+      "tier": null,
+      "file": "18_crystal_sprout_font.png",
+      "alpha_bbox": [
+        37,
+        15,
+        204,
+        246
+      ]
+    },
+    {
+      "cell": 19,
+      "row": 4,
+      "column": 4,
+      "id": "acorn_mill_cache_stump",
+      "title": "Acorn mill cache stump",
+      "group": "accumulator_acorns",
+      "tier": null,
+      "file": "19_acorn_mill_cache_stump.png",
+      "alpha_bbox": [
+        10,
+        24,
+        211,
+        249
+      ]
+    },
+    {
+      "cell": 20,
+      "row": 4,
+      "column": 5,
+      "id": "flowering_seed_cart_farm",
+      "title": "Flowering seed cart Farm",
+      "group": "temporary_generator_farm",
+      "tier": null,
+      "file": "20_flowering_seed_cart_farm.png",
+      "alpha_bbox": [
+        4,
+        30,
+        222,
+        250
+      ]
+    },
+    {
+      "cell": 21,
+      "row": 5,
+      "column": 1,
+      "id": "beehive_fruit_basket_orchard",
+      "title": "Beehive fruit basket Orchard",
+      "group": "temporary_generator_orchard",
+      "tier": null,
+      "file": "21_beehive_fruit_basket_orchard.png",
+      "alpha_bbox": [
+        32,
+        13,
+        223,
+        232
+      ]
+    },
+    {
+      "cell": 22,
+      "row": 5,
+      "column": 2,
+      "id": "lily_reed_fountain_pond_garden",
+      "title": "Lily reed fountain Pond Garden",
+      "group": "temporary_generator_pond_garden",
+      "tier": null,
+      "file": "22_lily_reed_fountain_pond_garden.png",
+      "alpha_bbox": [
+        25,
+        12,
+        234,
+        233
+      ]
+    },
+    {
+      "cell": 23,
+      "row": 5,
+      "column": 3,
+      "id": "apple_press_mill_wheel",
+      "title": "Apple press mill wheel",
+      "group": "temporary_generator_mill",
+      "tier": null,
+      "file": "23_apple_press_mill_wheel.png",
+      "alpha_bbox": [
+        13,
+        10,
+        217,
+        222
+      ]
+    },
+    {
+      "cell": 24,
+      "row": 5,
+      "column": 4,
+      "id": "wildflower_arch_meadow_gate",
+      "title": "Wildflower arch Meadow Gate",
+      "group": "temporary_generator_meadow_gate",
+      "tier": null,
+      "file": "24_wildflower_arch_meadow_gate.png",
+      "alpha_bbox": [
+        3,
+        13,
+        235,
+        234
+      ]
+    }
+  ],
+  "empty_cell": {
+    "cell": 25,
+    "row": 5,
+    "column": 5
+  }
+}

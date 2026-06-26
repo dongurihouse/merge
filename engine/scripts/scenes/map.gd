@@ -1118,13 +1118,23 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
 	shelf.add_theme_stylebox_override("panel", ss)
 	shelf.add_child(col)
+
+	# dock the shelf to the bottom via a full-card VBox (a transparent EXPAND spacer pushes it down). The
+	# container system sizes the shelf to its SETTLED content height each layout pass — reading
+	# get_combined_minimum_size() synchronously here returns an inflated pre-layout value, which (only on the
+	# taller coin-card footer) doubled the shelf and centred its rows in a sea of empty space.
 	var inset := band + 6.0
-	var shelf_w := card_w - inset * 2.0
-	shelf.size = Vector2(shelf_w, 0.0)
-	var shelf_h := shelf.get_combined_minimum_size().y
-	shelf.size = Vector2(shelf_w, shelf_h)
-	shelf.position = Vector2(inset, card_h - inset - shelf_h)
-	card.add_child(shelf)
+	var lay := VBoxContainer.new()
+	lay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	lay.offset_left = inset ; lay.offset_top = inset
+	lay.offset_right = -inset ; lay.offset_bottom = -inset
+	lay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var spacer := Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	lay.add_child(spacer)
+	lay.add_child(shelf)
+	card.add_child(lay)
 
 	return card
 
