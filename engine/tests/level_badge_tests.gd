@@ -11,8 +11,8 @@ extends SceneTree
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")
-const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 
 const PARTS := ["circle", "leaf", "flower", "acorn", "gem"]
@@ -181,24 +181,22 @@ func _initialize() -> void:
 	ok(badge.find_child("lv_leaf", true, false) != null, "make_level_badge composites the parts")
 	badge.free()
 
-	# --- HUD placement: the badge's PAINTED edge aligns with the bottom Map button ---
+	# --- HUD placement: the level badge occupies the configured left screen-width slot ---
 	var align_host := Control.new()
 	align_host.size = Vector2(1080, 1920)
 	get_root().add_child(align_host)
 	var hud := Hud.build(align_host, {})
-	var nav := NavBar.build(align_host, [
-		{"make": func() -> Button: return _dummy_nav_button(140.0)},
-		{"make": func() -> Button: return _dummy_nav_button(140.0), "visible": false},
-		{"make": func() -> Button: return _dummy_nav_button(188.0)}])
 	await process_frame
 	await process_frame
-	var hud_badge: Control = (hud.level as Label).get_parent()
-	while hud_badge != null and hud_badge.name != "LevelBadge":
-		hud_badge = hud_badge.get_parent()
-	var painted_left := _badge_painted_left(hud_badge)
-	var map_left: float = (nav.buttons[0] as Control).global_position.x
-	ok(absf(painted_left - map_left) <= 1.0,
-		"HUD level badge painted-left aligns with bottom Map button (%.1f ~= %.1f)" % [painted_left, map_left])
+	var lv_slot: Control = hud.get("lv_panel") as Control
+	var layout := Kit.hud_layout_opts_from_config({})
+	var expected_badge_w := roundf(Design.size().x * float(layout.get("level_w_frac", 0.25)))
+	var badge_rect := lv_slot.get_global_rect() if lv_slot != null else Rect2()
+	ok(lv_slot != null
+		and absf(badge_rect.position.x) <= 1.0
+		and absf(badge_rect.size.x - expected_badge_w) <= 1.0,
+		"HUD level badge uses %.0f%% screen width from the left edge (%.1f ~= %.1f)" % [
+			float(layout.get("level_w_frac", 0.25)) * 100.0, badge_rect.size.x, expected_badge_w])
 	align_host.free()
 
 	# --- _safe_tex catches degenerate imports (exists() true but load() null) ----
@@ -229,26 +227,3 @@ func _all_corners_transparent(tex: Texture2D) -> bool:
 		if img.get_pixelv(p).a >= 0.2:
 			return false
 	return true
-
-func _dummy_nav_button(px: float) -> Button:
-	var b := Button.new()
-	b.custom_minimum_size = Vector2(px, px)
-	return b
-
-func _badge_painted_left(badge: Control) -> float:
-	if badge == null:
-		return INF
-	var left := INF
-	for child in badge.get_children():
-		if child is TextureRect:
-			var tr := child as TextureRect
-			var tex := tr.texture
-			var img := tex.get_image() if tex != null else null
-			if img == null:
-				continue
-			var used := img.get_used_rect()
-			if used.size.x <= 0 or used.size.y <= 0:
-				continue
-			var scale := tr.size.x / float(tex.get_width())
-			left = minf(left, tr.global_position.x + float(used.position.x) * scale)
-	return left
