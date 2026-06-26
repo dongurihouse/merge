@@ -38,7 +38,6 @@ const Debug = preload("res://engine/scripts/ui/debug.gd")
 const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const Pal = Game.PALETTE
-const Data = Game.DATA   # T43: the active game's DATA (the §10 monetization numbers)
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
@@ -153,7 +152,6 @@ var _info_trash_coin: Control        # the payout currency icon slot (standard c
 # GENERATOR is selected (generators aren't sellable). Built as a sibling of the sell button so the bar
 # reads as one button language; shown only for a generator that still has a burst level to buy.
 var _info_burst: Button              # the burst-upgrade buy chip (a generator's contextual action)
-var _info_burst_caption: Label       # the chip caption ("Boost")
 var _info_burst_badge: PanelContainer # the chip's cost badge (re-tinted by affordability)
 var _info_burst_sb: StyleBoxFlat     # the badge's style (mutated for affordable / dimmed states)
 var _info_burst_count: Label         # the next-cost coin amount inside the badge
@@ -173,7 +171,6 @@ var diamonds_label: Label
 var level_label: Label            # S10: the shared Lv chip, wired in BOTH scenes
 var bag_slots_ui: Array = []
 var _bag_drag_idx := -1                 # §5 drag-back: which bag slot the in-flight drag came from (-1 = none)
-var _open_shop: Callable = Callable()   # opens the shared Shop / premium stall (wired from the HUD)
 var _open_water: Callable = Callable()  # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the live water cache (on_refresh)
 var bottom_bar: Control          # the board bottom bar row (Bag+count · info bar · Home)
@@ -593,7 +590,6 @@ func _build_hud() -> void:
 	# _update_water_hud. The board owns only the empty-water REFILL stack (built in _build_water_hud).
 	water_label = hud.water
 	_water_icon = hud.water_icon
-	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall (the pills' + open their own)
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_refresh = hud.refresh       # tick the wallet + fire on_refresh (re-sync the live water cache from Save)
 	_update_hud()

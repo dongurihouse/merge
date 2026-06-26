@@ -106,7 +106,6 @@ var diamonds_label: Label
 var _hud_refresh := Callable()
 var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
-var _open_shop := Callable()      # opens the shared Shop / premium stall (lives in the bottom chrome)
 var _open_water := Callable()     # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
@@ -1112,8 +1111,7 @@ func _scroll_select_by(dy: float) -> void:
 			c.position.y = float(hit.y0) - _select_scroll
 
 func _map_tap(gpos: Vector2) -> void:
-	# §1 residents are welcomed via the Residents shop dialog now (not an on-map panel), so taps resolve
-	# straight to spots / wandering spirits.
+	# Residents live on their own screen now, so map taps resolve straight to spots / wandering spirits.
 	for hit in spot_hits:
 		var n: Control = hit.node
 		if n.get_global_rect().grow(8.0).has_point(gpos):
@@ -1226,11 +1224,11 @@ func _capture_region_veil(view: Variant, k: int) -> Dictionary:
 		return {}
 	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
 
-# --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
-# On a COMPLETED map the player WELCOMES wandering spirits via the Residents shop dialog
-# (_open_residents_shop, opened from the bottom-nav Residents button). G.welcome_resident spends +
-# adds + silently auto-merges two-of-a-kind; the roster is the source of truth and the population
-# layer is rebuilt from it on each buy. (The old always-on bottom panel was retired for the shop.)
+# --- §1 residents: legacy welcome shop + unlock gift helpers -----------------------------
+# The bottom-nav Residents button now opens Residents.tscn. This older shop path stays callable for
+# existing tests/tools and for the map-population roster model until that model is migrated or retired.
+# G.welcome_resident spends + adds + silently auto-merges two-of-a-kind; the population layer is rebuilt
+# from that roster after each legacy buy.
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
@@ -1256,7 +1254,6 @@ func _build_hud() -> void:
 	level_label = hud.level
 	_hud_refresh = hud.refresh
 	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
-	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_panels = [hud.wallet, hud.lv_panel]
 
@@ -1324,7 +1321,7 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
-		# Residents — the resident roster shop (only on a fully-unlocked map; hidden otherwise).
+		# Residents — the habitat management screen (only on a fully-unlocked map; hidden otherwise).
 		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
 		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
@@ -1361,7 +1358,7 @@ func _make_map_button() -> Button:
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
 
-# The Residents button (bottom nav, between Map and Play) — opens the resident roster shop. Built like the
+# The Residents button (bottom nav, between Map and Play) — opens the habitat management screen. Built like the
 # Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
 # "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
 # out of the nav HBox, so an incomplete map shows just [Map, Play].
@@ -1388,10 +1385,8 @@ func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
 		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
 
-# The residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon, name,
-# cost). Buying welcomes a t1 (G.welcome_resident: spend → add → auto-merge), then rebuilds the population
-# layer and refreshes the shop's affordability in place. Built over a veil overlay with the shared Kit
-# shop_dialog chrome — the same frame the coin/gem store wears.
+# Legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon,
+# name, cost). Kept for existing tests/tools while the active button routes to Residents.tscn.
 func _open_residents_shop(z: int) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
