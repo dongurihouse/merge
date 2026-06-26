@@ -266,8 +266,9 @@ func _level() -> int:
 	return G.level_for_exp(exp_earned)
 
 func _live_lines() -> Array:
-	# SINGLE-GENERATOR model (idea 3): all opened lines stay live, not just the current map's.
-	return G.askable_lines(G.GENERATORS, map)
+	# SINGLE-GENERATOR model (idea 3): all opened lines stay live, not just the current map's. Pass the
+	# LEVEL so per-line stage gates (§6.E min_level) apply, mirroring the board's askable pool.
+	return G.askable_lines(G.GENERATORS, map, _level())
 
 # --- §1 POPULATION: the endless coin/diamond sink on COMPLETED maps -----------------
 # The sim keeps its OWN resident roster (residents[z] = {type_id -> [t1..tMAX]}) rather than

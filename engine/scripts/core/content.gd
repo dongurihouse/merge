@@ -124,6 +124,11 @@ static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> A
 	var out: Array = []
 	for g in generators_for_map(roster, map, level):
 		for l in g.lines:
+			# per-LINE stage gate (§6.E): a line with `min_level` stays out of the askable/pop set until
+			# the player reaches it — so extra lines on the small FTUE board grow in as it opens, without
+			# placing a second generator (the single anchor still emits them once ungated).
+			if int(LINES.get(int(l), {}).get("min_level", 0)) > level:
+				continue
 			if not out.has(int(l)):
 				out.append(int(l))
 	return out

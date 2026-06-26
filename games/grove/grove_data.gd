@@ -40,6 +40,7 @@ const LINES := {
 	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9")},
 	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9")},
 	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B")},
+	38: {"name": "Vegetables", "base": "garden_vegetables", "color": Color("#6BA84F")},
 	# map idx 3 — The Mill (orchard)
 	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6")},
 	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B")},
@@ -50,6 +51,16 @@ const LINES := {
 	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
 	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
 	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
+	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). STAGED via `min_level`:
+	# the FTUE map's board is tiny early, so 6 extra lines live from L1 jam it. min_level keeps each line
+	# off the askable/pop set until the player's level reaches it (the single anchor still emits them — no
+	# extra generator), so the Farm content "grows in" once the board has opened. (askable_lines gate.)
+	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F")},
+	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A")},
+	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9")},
+	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A")},
+	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B")},
+	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -71,7 +82,7 @@ const GENERATORS := [
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
 		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
 	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
-	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37], "grant_from": "",
+	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37, 38], "grant_from": "",
 		"tex": "items/generator/gen_cattails.png", "label": "tools"},
 	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
 	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4, 41, 42, 43, 44], "grant_from": "",
