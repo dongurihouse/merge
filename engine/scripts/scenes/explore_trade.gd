@@ -11,6 +11,7 @@ const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")     # shared screen-juice toolbox
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
@@ -46,7 +47,7 @@ func _build() -> void:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	var scroll := ScrollContainer.new()
 	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	scroll.offset_top = 230.0
+	scroll.offset_top = 250.0                  # clear the HUD band (level badge + wallet)
 	scroll.offset_left = 24.0
 	scroll.offset_right = -24.0
 	scroll.offset_bottom = -24.0
@@ -59,30 +60,46 @@ func _build() -> void:
 	col.add_theme_constant_override("separation", 14)
 	scroll.add_child(col)
 
-	col.add_child(_heading("Trade"))
-	# the run's score as the shared cream amount chip
-	var score_row := HBoxContainer.new()
-	score_row.add_child(Kit.amount_chip("star", "Score  %d" % Explore.score()))
-	col.add_child(score_row)
-	col.add_child(_note("Spend your score on boxes — each opens to a spirit for your hand."))
+	var title := _heading("Trade")
+	title.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(title)
+	# the run's score as the shared cream amount chip, centred
+	var score_chip: Control = Kit.amount_chip("star", "Score  %d" % Explore.score())
+	score_chip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	col.add_child(score_chip)
+	var note := _note("Spend your score on boxes — each opens to a spirit for your hand.")
+	note.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(note)
 
-	# box cards (parchment + a gift icon + an Open pill priced in points)
+	# box cards (parchment + a gift icon + an Open pill priced in points), centred + scattered in
 	var boxes := HBoxContainer.new()
 	boxes.add_theme_constant_override("separation", 12)
+	boxes.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var cards: Array = []
 	for b in Explore.BOXES:
-		boxes.add_child(_box_card(Kit, b))
+		var c := _box_card(Kit, b)
+		cards.append(c)
+		boxes.add_child(c)
 	col.add_child(boxes)
+	FX.scatter_in(cards)
 
 	# the reveal strip (what you've pulled this session)
 	if not _revealed.is_empty():
-		col.add_child(_heading("Revealed"))
+		var rev := _heading("Revealed")
+		rev.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		rev.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		col.add_child(rev)
 		var strip := HBoxContainer.new()
 		strip.add_theme_constant_override("separation", 8)
+		strip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		for kind in _revealed:
 			strip.add_child(_spirit_widget(String(kind), 72.0))
 		col.add_child(strip)
 
 	var done: Button = Kit.pill_button("Done", {"bg": "cream", "art": true, "font": 22})
+	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	done.pressed.connect(_on_done)
 	col.add_child(done)
 
@@ -114,7 +131,10 @@ func _on_buy(cost: int) -> void:
 	if kind != "":
 		Habitat.hand_add(kind)
 		_revealed.append(kind)
-	Audio.play("button_tap", -2.0)
+		Audio.play("level_complete", -8.0, 1.15)   # JUICE: a reward chime + a name callout on a pull
+		FX.celebrate_at(self, get_global_rect().get_center() - Vector2(0, 70), "%s!" % String(kind).capitalize(), STRAW)
+	else:
+		Audio.play("button_tap", -2.0)
 	_rebuild()
 
 func _on_done() -> void:

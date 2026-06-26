@@ -1501,10 +1501,12 @@ func _on_dock_hand(idx: int) -> void:
 		var b: Dictionary = h[idx]
 		if String(a.kind) == String(b.kind) and int(a.tier) == int(b.tier):
 			Habitat.hand_merge(String(a.kind), int(a.tier))
-			Audio.play("button_tap", -2.0)
+			Audio.play("tidy_poof", -2.0, 1.1)               # JUICE: a satisfying merge poof + callout
+			FX.celebrate_at(self, _dock_center(-12.0), "Merged!", STRAW)
 			_sel_hand = -1
 			_fill_spirits_dock()
 			return
+	Audio.play("button_tap", -3.0)
 	_sel_hand = idx
 	_fill_spirits_dock()
 
@@ -1512,23 +1514,39 @@ func _on_dock_place(map_id: String) -> void:
 	if _sel_hand < 0 or _sel_hand >= Habitat.hand().size():
 		return
 	if Habitat.place(map_id, _sel_hand):
-		Audio.play("button_tap", -2.0)
+		Audio.play("tidy_poof", -3.0, 1.05)
 		_sel_hand = -1
 		_refresh_population()
+		var amb := content.get_node_or_null("AmbientLayer")   # JUICE: a poof where the spirit settles in
+		if amb != null:
+			Ambient.merge_poof(amb, 1)
 		_fill_spirits_dock()
 
 func _on_dock_sell(map_id: String, idx: int) -> void:
-	Habitat.sell(map_id, idx)
+	var got := int(Habitat.sell(map_id, idx))
 	Audio.play("button_tap", -2.0)
 	_update_hud()
+	if got > 0:
+		FX.floating_reward(self, _dock_center(0.0), "coin", got, STRAW)   # JUICE: coins float up
 	_refresh_population()
 	_fill_spirits_dock()
 
 func _on_dock_collect(map_id: String) -> void:
-	Habitat.collect(map_id)
-	Audio.play("button_tap", -2.0)
+	var r: Dictionary = Habitat.collect(map_id)
+	var amt := int(r.get("amount", 0))
 	_update_hud()
+	if amt > 0:
+		Audio.play("level_complete", -8.0, 1.1)              # JUICE: a reward chime + coins fly up
+		FX.floating_reward(self, _dock_center(0.0), "coin", amt, STRAW)
+	else:
+		Audio.play("button_tap", -2.0)
 	_fill_spirits_dock()
+
+## A global point near the top-centre of the spirits dock — where dock-action FX read from.
+func _dock_center(dy: float) -> Vector2:
+	if _spirits_dock != null and is_instance_valid(_spirits_dock):
+		return _spirits_dock.global_position + Vector2(_spirits_dock.size.x * 0.5, dy)
+	return get_global_rect().get_center()
 
 ## Re-render the open map's placed spirits (the population layer) after a habitat change.
 func _refresh_population() -> void:

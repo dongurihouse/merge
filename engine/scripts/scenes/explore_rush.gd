@@ -12,9 +12,12 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
+const GOLD := Color("#FFD166")
+const STRAW := Color("#E3B23C")
 const KIND_COLOR := {"leaf": Color("#5BBF7A"), "petal": Color("#E06AA6"), "pebble": Color("#8EA2B0")}
 
 var _cfg: Dictionary = {}
@@ -205,7 +208,19 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	_combo = Explore.combo_after(_combo, _elapsed - _last_merge)
 	_last_merge = _elapsed
 	_mult = Explore.mult_after_merge(_mult, int(win.tier))
-	Explore.add_score(Explore.merge_points(int(win.tier), _mult))
+	var pts := Explore.merge_points(int(win.tier), _mult)
+	Explore.add_score(pts)
+	# JUICE: the result tile squash-pops, the points float up, combos/high-tier builds call out.
+	var node := win.node as Control
+	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
+	FX.squash_pop(node)
+	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
+	if _combo >= 3:
+		FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
+	if int(win.tier) >= 4:
+		FX.flash(_board, node.position + Vector2(_cell, _cell) / 2.0, _cell)
+		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)
+		FX.hitstop(0.05)
 	Audio.play("button_tap", -3.0)
 	_settle()
 	_refresh_readouts()
@@ -236,8 +251,14 @@ func _drop_timber() -> void:
 		if cell != null:
 			(cell.node as Node).queue_free()
 			_grid[r][col] = null
+	# JUICE: the board jolts when the timber lands; a clean dodge celebrates, a hit flashes the column.
+	FX.shake(_board)
+	var col_local := Vector2(_cell * col + _cell / 2.0, _cell * G.ROWS / 2.0)
 	if hits == 0 and _running:
 		_mult = Explore.clean_dodge_mult(_mult)      # clean dodge — emptied the column in time
+		FX.celebrate_at(self, _board.global_position + col_local, "CLEAN DODGE!", GOLD)
+	else:
+		FX.flash(_board, col_local, _cell)
 	_tele.visible = false
 	_tf.ph = "idle"
 	_tf.t = 0.0
@@ -271,6 +292,7 @@ func _make_tile(kind: String, tier: int, r: int, c: int) -> Control:
 	b.add_theme_color_override("font_color", INK)
 	b.pressed.connect(func() -> void: _on_tile(b))
 	_board.add_child(b)
+	FX.pop(b)                       # JUICE: a little landing pop as the trace drops in
 	var cell := {"kind": kind, "tier": tier, "node": b}
 	_paint(cell)
 	return b
