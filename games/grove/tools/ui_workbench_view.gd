@@ -776,17 +776,9 @@ func _make_element(id: String) -> Control:
 				{"icon": "water", "title": "Water", "body": "tops up your watering can", "chip": {"icon": "water", "text": "60"}}]
 			return Kit.mail_dialog(demo, _dlg_px("info"), iopts)
 		"bag_card":
-			# the slot tile in a chosen preview state, rendered at 2× so it's comfortable to edit: only the
-			# SIZE scales — every metric is taken from the cell, so the zoom shows the EXACT proportions the
-			# bag and discovery dialogs will.
+			# The slot tile in a chosen preview state. It renders at the saved cell_w/cell_h so the component
+			# size in Workbench matches the bag, board, and discovery dialogs.
 			var bco := Kit.bag_card_opts_from_config(_params)
-			var z := 2.0
-			bco["cell_w"] = float(bco["cell_w"]) * z
-			bco["cell_h"] = float(bco["cell_h"]) * z
-			bco["cost_font"] = int(float(bco["cost_font"]) * z)
-			bco["cost_icon"] = float(bco["cost_icon"]) * z
-			bco["cost_y"] = float(bco["cost_y"]) * z
-			bco["cost_x"] = float(bco["cost_x"]) * z   # cost_scale is a ratio — not zoomed
 			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
 			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's

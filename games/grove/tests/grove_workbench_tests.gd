@@ -600,6 +600,10 @@ func _initialize() -> void:
 	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
 	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
 		"the default Slot-cell preview actually renders the cost pill")
+	var bag_card_preview := view._make_element("bag_card") as Control
+	var bag_card_opts := Kit.bag_card_opts_from_config(view._params)
+	ok(bag_card_preview.custom_minimum_size == Vector2(float(bag_card_opts.cell_w), float(bag_card_opts.cell_h)), \
+		"the Slot-cell workbench preview respects the saved cell_w/cell_h without preview zoom")
 	ok(not View.IDS.has("border_cell") and not view._sections.has("border_cell") and not view._params.has("border_cell"), \
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
 	ok(view._is_config("bag_card", "frontier_hue") and view._is_config("bag_card", "deep_hue") \

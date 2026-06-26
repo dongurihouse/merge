@@ -58,11 +58,11 @@ func _initialize() -> void:
 	ok(ss._decorate_target() == "barn", "Home/Decorate target the LAST played map, not the hub")
 	Save.grove().erase("last_map")
 	ok(ss._decorate_target() == "", "fresh save (no last_map) → empty target (boot picks the frontier)")
-	# the Bag well is the SHARED home-button disc: the round target is painted by the button's `normal`
-	# StyleBox — a textured disc, or the kit's flat cream-disc fallback (same metrics either way).
+	# the Bag well remains the same hit target, but its own frame is transparent now: the shared
+	# action tray behind it is the only painted background.
 	var bag_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal")
-	ok(bag_sb is StyleBoxTexture or bag_sb is StyleBoxFlat, \
-		"S1: the bag well paints the round satchel disc (shared home-button disc)")
+	ok(bag_sb is StyleBoxEmpty, \
+		"S1: the bag well leaves the shared action tray as the only painted background")
 	# S4: every chip fully on-screen, both scenes (refill asserts when visible)
 	Save.grove()["pops"] = 10
 	ss._update_water_hud()
