@@ -252,14 +252,20 @@ func _process(dt: float) -> void:
 
 # --- spawning --------------------------------------------------------------------
 func _spawn() -> void:
+	var danger := int(_tf.col) if String(_tf.ph) == "tele" else -1   # the column a tree is telegraphed to crush
 	var cols := []
+	var safe := []
 	for c in G.COLS:
 		if Explore.column_fill(_grid, c) < G.ROWS:
 			cols.append(c)
+			if c != danger:
+				safe.append(c)                  # don't seed a trace into the doomed line
 	if cols.is_empty():
 		_end()
 		return
-	var c: int = cols[_rng.randi() % cols.size()]
+	if safe.is_empty():
+		return                                  # only the doomed line has room — skip this tick; the tree clears it shortly
+	var c: int = safe[_rng.randi() % safe.size()]
 	var land := _bottom_empty(c)
 	var line: int = _cfg.lines[_rng.randi() % (_cfg.lines as Array).size()]
 	var tier := 2 if _rng.randf() < float(_cfg.t2) else 1
