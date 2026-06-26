@@ -640,6 +640,8 @@ func _initialize() -> void:
 		"the Slot-cell gallery section reserves the full preview footprint")
 	ok(not View.IDS.has("border_cell") and not view._sections.has("border_cell") and not view._params.has("border_cell"), \
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
+	ok(not (view._params["bag_card"] as Dictionary).has("cell_art") and not (view._params["bag_card"] as Dictionary).has("cell_slice"), \
+		"Slot cell no longer exposes stale art/slice settings")
 	ok(view._is_config("bag_card", "frontier_hue") and view._is_config("bag_card", "deep_hue") \
 		and view._is_config("bag_card", "rim_alpha") and view._is_config("bag_card", "corner"), \
 		"Slot cell owns the locked-background colour and shape knobs")
@@ -744,8 +746,8 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 # bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same
 # transform the game reads), asserting structure — pixels are a screenshot job, not here.
 ## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
-## two INDEPENDENT size knobs — `scale` (zoom the whole board) and `cell` (item width; the grid grows,
-## the frame stays). Both enlarge the footprint; the demo-pieces toggle is preview-only.
+## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
+## content_frac, the same source the live board uses.
 # The new workbench knobs (this branch): home-button caption padding + side-rail badge offset, and the
 # currency pill's "+" size. Each must be SAVED config the kit resolver reads, default to the shipped look,
 # and (for the badge) render a sample badge on the home-button preview so the offset is tunable live.
@@ -790,7 +792,7 @@ func _test_new_knobs(view) -> void:
 	# These are saved design knobs so a workbench pass can tune the quest fence and board area together.
 	var hud_layout_keys := [
 		"quest_bar_x_pct", "quest_bar_y_pct", "quest_bar_h_pct",
-		"board_x_pct", "board_y_pct", "board_h_pct",
+		"board_x_pct", "board_y_pct", "board_h_pct", "bottom_row_h_pct",
 	]
 	var hud_has_stack_knobs := true
 	for k in hud_layout_keys:
@@ -813,6 +815,7 @@ func _test_new_knobs(view) -> void:
 	var default_hud_preview: Control = view._make_element("hud_layout")
 	var default_quest_box := default_hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
+	var default_bottom_box := default_hud_preview.find_child("HudLayoutBottomRow", true, false) as Control
 	var live_board_size := _live_board_frame_size(Vector2(View.PHONE_W, View.PHONE_H), view._params["board"]) * 0.26
 	ok(default_board_box != null and default_board_box.custom_minimum_size.distance_to(live_board_size) <= 2.0, \
 		"hud_layout preview board matches the live game board frame size")
@@ -820,9 +823,12 @@ func _test_new_knobs(view) -> void:
 		and default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
 		"hud_layout preview quest bar stays above the board in the default live layout")
 	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
-	var default_bottom_bar_y := preview_h - preview_w * float(default_layout.get("button_w_frac", 0.15)) - float(default_layout.get("edge_margin_px", 18.0)) * 0.26
+	var default_bottom_bar_h := preview_h * float(default_layout.get("bottom_row_h_frac", 0.0))
+	var default_bottom_bar_y := preview_h - default_bottom_bar_h - float(default_layout.get("edge_margin_px", 18.0)) * 0.26
 	ok(default_board_box != null and default_board_box.position.y + default_board_box.custom_minimum_size.y <= default_bottom_bar_y + 1.0, \
 		"hud_layout preview board sits above the bottom bar in the default live layout")
+	ok(default_bottom_box != null and absf(default_bottom_box.custom_minimum_size.y - default_bottom_bar_h) <= 1.0, \
+		"hud_layout preview bottom row uses the saved percent-of-screen height")
 	ok(is_equal_approx(float(view._params["hud_layout"].get("level_w_pct", 0.0)), 25.0), \
 		"hud_layout saved level badge slot stays at the requested 25% screen width")
 	var default_edge := float(default_layout.get("edge_margin_px", 18.0)) * 0.26
@@ -862,8 +868,9 @@ func _test_new_knobs(view) -> void:
 	view._selected = "hud_layout"
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Quest Bar H Pct") >= 25.0 and _slider_max(view, "Board H Pct") >= 70.0 \
+		and _slider_max(view, "Bottom Row H Pct") >= 22.0 \
 		and _slider_min(view, "Quest Bar Y Pct") <= 0.0 and _slider_min(view, "Board Y Pct") <= 0.0, \
-		"hud_layout sidebar exposes quest-bar and board height/position sliders")
+		"hud_layout sidebar exposes quest-bar, board, and bottom-row height/position sliders")
 	view._params["hud_layout"] = hud_default
 
 	# the board bottom ACTION BAR is merged into the Info bar Workbench target: one component owns the full
@@ -1033,10 +1040,10 @@ func _test_board_element(view) -> void:
 		"live board pieces use Slot-cell content_frac instead of board.item")
 	board_scene.queue_free()
 
-	# the CELL knob = item width: wider items grow the board (the grid, not the frame thickness)
+	# the CELL knob is preview-only: wider preview cells grow the workbench board footprint.
 	view._params["board"]["cell"] = 80
 	ok(view._make_element("board").custom_minimum_size.x > w0, \
-		"a wider item-cell grows the board footprint (item-width knob)")
+		"a wider preview cell grows the board footprint")
 
 	# the SCALE knob zooms the WHOLE composition, independently of cell
 	view._params["board"]["cell"] = 50
@@ -1564,6 +1571,8 @@ func _test_bag_components() -> void:
 		and _slider_max(side_view, "Cell Shadow Size") >= 40.0 and _slider_min(side_view, "Cell Shadow Y") <= -20.0 \
 		and _slider_max(side_view, "Inset") >= 100.0, \
 		"Slot-cell sidebar exposes depth, shadow, and inset controls")
+	ok(not _has_sidebar_label(side_view, "Cell art") and _slider_max(side_view, "Cell Slice") == -INF, \
+		"Slot-cell sidebar hides stale art/slice controls")
 	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0

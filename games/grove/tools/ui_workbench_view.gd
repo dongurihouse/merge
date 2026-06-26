@@ -69,9 +69,9 @@ const HOME_ICONS := ["gear", "shop", "map", "piggy", "gift", "faucet", "mail", "
 #   icon   — the whole element is a polish-tuning sandbox (the shipped recipe is fixed in the kit).
 #   dialog — entries is a preview count, snap is the drag grid.
 const TEST_KEYS := {
-	# the BOARD preview — the size knobs (scale / cell / item / gap / frame / cols / rows) are the saved
-	# design; `pieces` just toggles the demo merge pieces in the preview.
-	"board": ["pieces"],
+	# the BOARD preview — scale/gap/frame/frame-style are saved live-board design. cell/cols/rows are
+	# preview scaffolding because the live board derives cell size from screen fit and uses G.COLS×G.ROWS.
+	"board": ["pieces", "cell", "cols", "rows"],
 	"fx": [],
 	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
 	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
@@ -125,7 +125,7 @@ const TEST_KEYS := {
 }
 const CAPTIONS := {
 	"shadow": "Shadow — the SHARED drop shadow (offset · blur · spread) every component casts",
-	"board": "Board — merge grid (frame · cells · pieces · scale + item width)",
+	"board": "Board — merge grid (frame · cells · pieces · scale)",
 	"fx": "FX Workbench — reward arrivals in board, map, and home context",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
@@ -160,11 +160,10 @@ var _params := {
 	# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
 	# spread are px; alpha + warmth are percent. Defaults reproduce the shipped soft drop beneath.
 	"shadow": {"offset_x": 0, "offset_y": 4, "blur": 14, "spread": 4, "alpha": 34, "warmth": 82},
-	# the BOARD preview — a live merge grid (bamboo frame · the shared slot-cell well · demo pieces). Two
-	# INDEPENDENT size knobs: `scale` zooms the whole composition (frame + cells together, in %); `cell` is
-	# the item width in px (the grid grows, the frame thickness stays), so you trade item size vs frame weight.
-	# `item` = the piece sprite size as a % of its cell; gap/frame/cols/rows shape the grid. Preview only.
-	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "item": 68, "pieces": true,
+	# the BOARD preview — a live merge grid (frame · the shared slot-cell well · demo pieces). `scale` is
+	# the live board's overall zoom; `gap` and `frame` shape live spacing. `cell`/`cols`/`rows` only size
+	# this preview. Piece size is owned by Slot-cell content_frac.
+	"board": {"scale": 100, "cell": 52, "gap": 7, "cols": 7, "rows": 9, "frame": 60, "pieces": true,
 		# the board FRAME (Kit.board_panel): "badge" = the shared gold badge skin; "code" = a code-drawn depth
 		# border. frame_corner + the drop shadow apply to both; border_w / inner_w / top_shadow are code-only.
 		"frame_style": "badge", "frame_corner": 46,
@@ -274,7 +273,7 @@ var _params := {
 		"preview_level": 1, "into": 0, "span": 6, "mode": "info"},
 	# the DISCOVERY dialog — the STANDARD shared frame (border, banner, ✕ — all tuned on the Frame item),
 	# wrapping the discovery content: the tier grid (cols, gap, scroll cap) of SHARED slot cells. The tile's
-	# piece size + well art are INHERITED from the Slot cell item; only the discovery-specific knobs live
+	# piece size + well face are INHERITED from the Slot cell item; only the discovery-specific knobs live
 	# here — the square cell size, plain tier number, and marked-tier sparkle (percents for the sliders).
 	# The grid fills the frame's inner width, derived from the Frame's chosen border padding.
 	"tiers": {"width_pct": 85, "cols": 3, "cell_gap": 16, "list_max_h": 0,
@@ -312,9 +311,9 @@ var _params := {
 	# Its face is inherited wholesale from the Frame/Card elements; only the sheet WIDTH is info-specific (a
 	# 1–2 row sheet is narrower than the inbox). Read by the game's _info_sheet via Kit.info_opts_from_config.
 	"info": {"width_pct": 58},
-	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
+	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). Cell size plus the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
-	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
+	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
 			"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
 			"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
@@ -1058,10 +1057,8 @@ func _sync_legacy_hud_board_layout() -> void:
 
 ## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
 ## slot-cell well the board + bag use) + a few demo merge pieces (PieceView), the SAME art the live board
-## renders. Two INDEPENDENT size knobs: `scale` zooms the WHOLE composition (frame + cells together);
-## `cell` is the item width in px (the grid grows, the frame thickness stays) — so you trade item size
-## against frame weight. `item` sizes the piece sprite as a % of its cell. Pure preview; not yet wired
-## into the in-game board (which still sizes itself responsively from the viewport).
+## renders. Live board sizing is `scale`; preview-only `cell`/`cols`/`rows` let the workbench inspect
+## alternate footprints. Piece size comes from the Slot-cell content_frac setting.
 ## --- the SHARED shadow preview + the per-component wrap ------------------------------------------
 
 ## Components whose KIT builder already casts the shared shadow internally (from opts.shadow + shadow_params);
@@ -1661,7 +1658,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "board":
 		var note := Label.new()
-		note.text = "A live preview of the merge board: the bamboo frame + the SHARED Slot cell states (open wells, frontier locks, deep locks) + demo pieces. Edit the cell art and locked-background colours on the Slot cell item. SCALE zooms the whole board (frame + cells together); CELL is the item width — the grid grows while the frame thickness stays, so you trade item size against frame weight. ITEM is the piece size within its cell."
+		note.text = "A live preview of the merge board: the frame + the shared Slot cell states (open wells, frontier locks, deep locks) + demo pieces. Edit piece size and cell background on the Slot cell item. SCALE zooms the live board; CELL/COLS/ROWS are preview-only."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1707,13 +1704,14 @@ func _rebuild_sidebar() -> void:
 			_group_header("Saved to config", true)
 			_section_header("Size")
 			_sidebar_body.add_child(_slider_row(["scale", 30, 200]))   # overall zoom (% — frame + cells together)
-			_sidebar_body.add_child(_slider_row(["cell", 28, 120]))    # item width (px) — grid grows, frame stays
-			_sidebar_body.add_child(_slider_row(["item", 40, 100]))    # piece sprite size as % of its cell
 			_sidebar_body.add_child(_slider_row(["gap", 0, 30]))       # gutter between cells (px)
 			_sidebar_body.add_child(_slider_row(["frame", 0, 120]))    # bamboo frame overhang (px)
-			_section_header("Grid")
+			_group_header("Preview only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["cell", 28, 120]))    # preview cell width (px)
 			_sidebar_body.add_child(_slider_row(["cols", 1, 9]))
 			_sidebar_body.add_child(_slider_row(["rows", 1, 12]))
+			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
+			_group_header("Saved to config", true)
 			_section_header("Frame")
 			_sidebar_body.add_child(_option_row("Style", "frame_style", ["badge", "code"]))   # shared gold badge vs code-drawn
 			_sidebar_body.add_child(_slider_row(["frame_corner", 0, 90]))         # corner radius (both styles)
@@ -1721,8 +1719,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["frame_border_w", 0, 16]))       # outer border width
 			_sidebar_body.add_child(_slider_row(["frame_inner_w", 0, 10]))        # inner hairline — the border of the border
 			_sidebar_body.add_child(_slider_row(["frame_top_shadow", 0, 100]))    # top inset shadow — depth near the top
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_toggle_row("Demo pieces", "pieces"))
 		"generator":
 			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.gen_highlight_opts_from_config)
 			_section_header("Glow halo")
@@ -2040,10 +2036,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["width_pct", 40, 100]))   # % of the screen width (responsive)
 		"bag_card":
 			_group_header("Saved to config", true)
-			_sidebar_body.add_child(_toggle_row("Cell art", "cell_art"))
 			_sidebar_body.add_child(_slider_row(["cell_w", 60, 180]))
 			_sidebar_body.add_child(_slider_row(["cell_h", 60, 200]))
-			_sidebar_body.add_child(_slider_row(["cell_slice", 0, 80]))      # the well's nine-patch corner margin
 			_sidebar_body.add_child(_slider_row(["content_frac", 30, 95]))   # the piece size (% of cell)
 			_sidebar_body.add_child(_slider_row(["level_frac", 20, 70]))     # the level badge size (% of cell)
 			_sidebar_body.add_child(_slider_row(["cost_font", 12, 48]))

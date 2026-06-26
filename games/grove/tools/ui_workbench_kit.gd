@@ -3219,7 +3219,7 @@ static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
 
 ## The full DISCOVERY-dialog opts: the STANDARD shared frame, exactly like daily/shop/settings — it inherits
 ## dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry, padding), with NO bespoke chrome
-## override. The discovery tile IS the shared slot cell, so its LOOK (piece size, level-medal size, well art)
+## override. The discovery tile IS the shared slot cell, so its LOOK (piece size, level-medal size, well face)
 ## is INHERITED from the bag/slot config (bag_card_opts_from_config) — one source of truth, no duplicate knobs.
 ## Only the genuinely discovery-specific knobs live in the `tiers` block: the square cell size, whether the
 ## tier number shows, the marked-tier sparkle, and the grid (cols, gaps, scroll cap). Fractional sparkle knobs
@@ -3227,12 +3227,10 @@ static func info_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## the cell look on the Slot-cell item, and both flow here. (The banner TEXT is the line name, passed by the caller.)
 static func tiers_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var o := dialog_opts_from_config(cfg)
-	# inherit the shared slot-cell look (the discovered piece + tier-medal size, the well art + nine-patch)
+	# inherit the shared slot-cell look (the discovered piece + tier-medal size + code-drawn well face)
 	var slot := bag_card_opts_from_config(cfg)
 	o["content_frac"] = slot["content_frac"]
 	o["level_frac"] = slot["level_frac"]
-	o["cell_art"] = slot["cell_art"]
-	o["cell_slice"] = slot["cell_slice"]
 	var t: Dictionary = cfg.get("tiers", {})
 	# discovery's OWN cell knobs: the square tile size, plain tier number, and marked-tier sparkle
 	o["cell_w"] = float(t.get("cell_w", 150))
@@ -3913,8 +3911,6 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var opts := {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
-		"cell_slice": float(bc.get("cell_slice", 28)),               # the well's nine-patch corner margin
-		"cell_art": bool(bc.get("cell_art", true)),
 		"content_frac": float(bc.get("content_frac", 62)) / 100.0,   # a held piece, % of the cell
 		"cost_font": int(bc.get("cost_font", 24)),                   # the acorn-cost number
 		"cost_icon": float(bc.get("cost_icon", 26)),                 # the acorn icon px in a cost row
@@ -3949,8 +3945,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## piece (the discovery ladder's tapped tier); d.dim (0..1) sets the cell's modulate alpha (the board's
 ## receded deep locks). The piece is content-agnostic so the kit stays free of game deps: d.make_content
 ## (size) (a Callable that builds the game's piece view at the FITTED size) wins, else d.content (a node),
-## else d.icon (a kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h. A
-## code-drawn well backs every state when the art is off/absent (the kit fallback law).
+## else d.icon (a kit icon id), else nothing. Every state returns a tile of exactly cell_w × cell_h.
 ## d keys: state|kind, make_content|content|icon, cost, level, marked, dim, on_tap. opts: bag_card_opts_from_config(...).
 static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var state := String(d.get("state", d.get("kind", "empty")))

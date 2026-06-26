@@ -111,7 +111,7 @@ var _board_center: Control       # the CenterContainer holding the board (carrie
 var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
 var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
-var _board_item_inset := 0.16    # saved piece-in-cell inset (from board.item width %; 0.16 = the shipped look)
+var _board_item_inset := 0.16    # saved piece-in-cell inset (from Slot-cell content_frac; 0.16 = the old shipped look)
 var giver_chips: Array = []        # [{chip, qi}]
 var home_btn: Button                 # the centre nav Home button — IS the decorate jump; breathes when a spot is affordable
 # the bottom-nav bag is a circular well (the always-present bag row is retired).
@@ -339,27 +339,31 @@ func _board_h() -> float:
 	return G.ROWS * csz + (G.ROWS - 1) * GAP
 
 # --- board design (tools/ui_workbench — the "board" element) --------------------------
-# Pull the optional saved board design out of the UI-Workbench settings (ui_workbench_settings.json →
-# "board"): the gutter, the frame overhang, the overall scale, and the piece-in-cell width. Absent file
-# or keys → the shipped defaults, so the board is unchanged until you save a board block in the workbench.
-# (cell / cols / rows are workbench-PREVIEW only — the live grid is G.COLS×G.ROWS and sizes itself to the
-# screen; `scale` is the in-game cell/item-size knob, `item` the sprite width within each cell.)
+# Pull the optional saved board design out of the UI-Workbench settings. Board layout owns the gutter,
+# frame overhang, and overall scale; Slot-cell owns piece size via bag_card.content_frac. Absent file or
+# keys preserve the shipped defaults. (cell / cols / rows are workbench-PREVIEW only — the live grid is
+# G.COLS×G.ROWS and sizes itself to the screen.)
 func _load_board_config() -> void:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit == null:
 		return
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	if cfg.has("board") and cfg["board"] is Dictionary:
-		_apply_board_config(cfg["board"])
+		var b: Dictionary = (cfg["board"] as Dictionary).duplicate()
+		var bc: Dictionary = cfg.get("bag_card", {})
+		if bc.has("content_frac"):
+			b["content_frac"] = bc["content_frac"]
+		_apply_board_config(b)
 
 # Map a saved "board" block onto the live geometry. Split out so it is unit-testable without a file.
 func _apply_board_config(b: Dictionary) -> void:
 	GAP = float(b.get("gap", 7.0))
 	FRAME_OUT = float(b.get("frame", 60.0))
 	_board_scale = float(b.get("scale", 100.0)) / 100.0
-	# `item` = the piece sprite width as a % of its cell; the inset is the leftover half on each side.
-	# Default 68 reproduces the shipped ITEM_INSET (0.16), so a saved-default board renders identically.
-	_board_item_inset = clampf((1.0 - float(b.get("item", 68.0)) / 100.0) / 2.0, 0.0, 0.45)
+	# Slot-cell content_frac = visible piece width as a % of its cell. Fall back to legacy board.item only
+	# for older settings files that predate the shared Slot-cell control.
+	var content_pct := float(b.get("content_frac", b.get("item", 68.0)))
+	_board_item_inset = clampf((1.0 - content_pct / 100.0) / 2.0, 0.0, 0.45)
 
 # --- board layout offsets ------------------------------------------------------------
 const PLACEMENT_PATH := "res://games/grove/assets/board_layout.json"
@@ -1141,7 +1145,7 @@ func _rebuild_pieces() -> void:
 
 func _make_piece(code: int, size: float) -> Control:
 	# the cell-sized holder stays `size` (placement + drag are unchanged); only the sprite inset shrinks/
-	# grows the visible item per the saved board.item width. The single chokepoint for every board piece.
+	# grows the visible item per the shared Slot-cell content_frac. The single chokepoint for every board piece.
 	return PieceView.make_piece(code, size, _board_item_inset)
 
 # The board surface is built by the SHARED Kit.board_panel (the SAME builder the workbench previews) — the

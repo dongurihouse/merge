@@ -16,12 +16,10 @@
 		"width_pct": 75.0
 	},
 	"bag_card": {
-		"cell_art": true,
 		"cell_h": 120.0,
 		"cell_shadow": 0.0,
 		"cell_shadow_size": 0.0,
 		"cell_shadow_y": -20.0,
-		"cell_slice": 37.0,
 		"cell_w": 116.0,
 		"content_frac": 91.0,
 		"corner": 4.0,
@@ -57,8 +55,6 @@
 		"shadow": false
 	},
 	"board": {
-		"cell": 120.0,
-		"cols": 7.0,
 		"frame": 16.0,
 		"frame_border_w": 4.0,
 		"frame_corner": 46.0,
@@ -66,8 +62,6 @@
 		"frame_style": "badge",
 		"frame_top_shadow": 0.0,
 		"gap": 11.0,
-		"item": 56.0,
-		"rows": 9.0,
 		"scale": 97.0,
 		"shadow": true
 	},

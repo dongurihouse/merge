@@ -119,14 +119,16 @@ func _initialize() -> void:
 		"hud_layout defaults set 15% nav buttons and 70% board info bar")
 	var hud_over: Dictionary = KitHud.hud_layout_opts_from_config({"hud_layout": {
 		"level_w_pct": 22, "currency_area_pct": 66, "currency_pill_w_pct": 20,
-		"top_band_h_pct": 12, "button_w_pct": 14, "info_bar_w_pct": 72}})
+		"top_band_h_pct": 12, "button_w_pct": 14, "info_bar_w_pct": 72,
+		"bottom_row_h_pct": 14}})
 	ok(is_equal_approx(float(hud_over.level_w_frac), 0.22) \
 		and is_equal_approx(float(hud_over.currency_area_frac), 0.66) \
 		and is_equal_approx(float(hud_over.currency_pill_w_frac), 0.20) \
 		and is_equal_approx(float(hud_over.top_band_h_frac), 0.12) \
 		and is_equal_approx(float(hud_over.button_w_frac), 0.14) \
-		and is_equal_approx(float(hud_over.info_bar_w_frac), 0.72), \
-		"hud_layout config overrides each saved percentage independently")
+		and is_equal_approx(float(hud_over.info_bar_w_frac), 0.72) \
+		and is_equal_approx(float(hud_over.get("bottom_row_h_frac", -1.0)), 0.14), \
+		"hud_layout config overrides each saved percentage independently, including board bottom-row height")
 	var action_default: Dictionary = KitHud.action_bar_opts_from_config({})
 	ok(is_equal_approx(float(action_default.icon_scale), 0.50) \
 		and is_equal_approx(float(action_default.pad_x_frac), 0.0) \
@@ -174,6 +176,26 @@ func _initialize() -> void:
 			"hud_layout: board Home button is the configured screen width")
 		ok(absf(info_bar.get_global_rect().size.x - view_hud.x * float(hud_default.info_bar_w_frac)) < 3.0, \
 			"hud_layout: board info bar is the configured screen width")
+	var prior_kit_cfg: Dictionary = KitHud.load_config(KitHud.CONFIG_PATH)
+	KitHud._config_cache[KitHud.CONFIG_PATH] = {"hud_layout": {
+		"button_w_pct": 15, "info_bar_w_pct": 70,
+		"bottom_row_h_pct": 14, "quest_bar_h_pct": 13}}
+	fresh("hud-screen-height")
+	var sized_board = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(sized_board)
+	if sized_board.board == null:
+		sized_board._ready()
+	await create_timer(0.05).timeout
+	var sized_view: Vector2 = sized_board.get_viewport_rect().size
+	ok(absf(sized_board.bottom_bar.get_global_rect().size.y - sized_view.y * 0.14) < 3.0, \
+		"hud_layout: board bottom row height follows the configured percent of screen height")
+	ok(absf(sized_board.giver_bar.custom_minimum_size.y - sized_view.y * 0.13) < 3.0, \
+		"hud_layout: quest row height follows the configured percent of screen height")
+	var quest_rows: Array = sized_board.giver_bar.find_children("*", "HBoxContainer", true, false)
+	ok(not quest_rows.is_empty() and (quest_rows[0] as HBoxContainer).alignment == BoxContainer.ALIGNMENT_CENTER, \
+		"hud_layout: quest row centers its active cards")
+	sized_board.queue_free()
+	KitHud._config_cache[KitHud.CONFIG_PATH] = prior_kit_cfg
 	var p_grove: Control = s7.coins_label.get_parent().get_parent()
 	var p_home: Control = h7.coins_label.get_parent().get_parent()
 	ok(p_grove.offset_top == p_home.offset_top and p_grove.offset_right == p_home.offset_right, \
