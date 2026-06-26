@@ -139,10 +139,11 @@ func _test_run_state() -> void:
 	ok(Explore.buy_box(250), "an affordable box is bought")
 	ok(Explore.score() == 0, "buying a box debits its cost from the score")
 
-# --- the three screens: build smoke + the Trade→hand seam ------------------------
+# --- the Rush/Trade screens: build smoke + the Trade→hand seam -------------------
 func _test_screens() -> void:
 	fresh("explore_screens")
-	for path in ["res://engine/scenes/ExploreLoadout.tscn", "res://engine/scenes/ExploreRush.tscn", "res://engine/scenes/ExploreTrade.tscn"]:
+	# (Load out is now an overlay dialog on the map — map.gd::_open_expedition — not a scene.)
+	for path in ["res://engine/scenes/ExploreRush.tscn", "res://engine/scenes/ExploreTrade.tscn"]:
 		var s = load(path).instantiate()
 		get_root().add_child(s)
 		if s.get_child_count() == 0:        # headless -s defers _ready a frame; build it now

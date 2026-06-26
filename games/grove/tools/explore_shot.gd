@@ -19,7 +19,7 @@ func _initialize() -> void:
 	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
 	var args := OS.get_cmdline_user_args()
-	var which: String = args[0] if args.size() >= 1 else "loadout"
+	var which: String = args[0] if args.size() >= 1 else "rush"   # rush | trade (Load out is now a map dialog)
 	var out: String = args[1] if args.size() >= 2 else "/tmp/explore_%s.png" % which
 
 	var dir := "/tmp/tu_exploreshot_%s/" % which
@@ -41,11 +41,8 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_coins(2000)
 
-	var path := "res://engine/scenes/ExploreLoadout.tscn"
+	var path := "res://engine/scenes/ExploreRush.tscn"
 	match which:
-		"rush":
-			Explore.begin_run({"time": true, "drops": true})
-			path = "res://engine/scenes/ExploreRush.tscn"
 		"trade":
 			Explore.begin_run({})
 			Explore.add_score(1500)
@@ -57,7 +54,8 @@ func _initialize() -> void:
 			for _i in 2:
 				Habitat.hand_add(Explore.roll_kind(pool, rng))
 		_:
-			path = "res://engine/scenes/ExploreLoadout.tscn"
+			Explore.begin_run({"time": true, "drops": true})
+			path = "res://engine/scenes/ExploreRush.tscn"
 
 	var scn = load(path).instantiate()
 	root.add_child(scn)

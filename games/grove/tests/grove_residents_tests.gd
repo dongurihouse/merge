@@ -9,8 +9,7 @@ func _initialize() -> void:
 	_test_hand()
 	_test_place()
 	_test_production()
-	_test_screen()
-	_test_screen_actions()
+	_test_map_dock()
 	finish()
 
 # --- the in-hand holding area + in-hand merge ------------------------------------
@@ -136,41 +135,9 @@ func _test_production() -> void:
 	Save._loaded = false                                 # force a reload from disk
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
 
-# --- the Residents screen (headless smoke + action wiring) -----------------------
-func _test_screen() -> void:
-	fresh("residents_screen")
-	# seed a COMPLETED map 0 so the screen has a habitat to show
-	var z := 0
-	var g := Save.grove()
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true
-	g["unlocks"] = unl
-	g["gates"] = [z]
-	Save.grove_write()
-	ok(G.can_populate(z, unl, [z]), "map 0 is complete (screen precondition)")
-
-	var s = load("res://engine/scenes/Residents.tscn").instantiate()
-	get_root().add_child(s)
-	if s._root == null:        # headless -s defers _ready to a frame; build it now (mirror grove_ui_tests)
-		s._ready()
-	ok(s.get_child_count() > 0, "the Residents screen builds a non-empty tree")
-
-	# placing a spirit then rebuilding shows it on the map row
-	Habitat.hand_add("moss", 1)
-	Habitat.place(String(G.MAPS[0].id), 0)
-	s._rebuild()
-	var labels := _label_texts(s)
-	ok(labels.has(String(G.MAPS[0].name)), "the screen shows the completed map's name")
-	var has_cap := false
-	for t in labels:
-		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
-			has_cap = true
-	ok(has_cap, "the map row shows a capacity readout (n/%d)" % Habitat.DEFAULT_CAP)
-	s.queue_free()
-
-func _test_screen_actions() -> void:
-	fresh("residents_actions")
+# --- the spirits DOCK on the map (the folded-in residents management) -------------
+func _test_map_dock() -> void:
+	fresh("map_dock")
 	var z := 0
 	var g := Save.grove()
 	var unl := {}
@@ -178,13 +145,31 @@ func _test_screen_actions() -> void:
 		unl[String(sp.id)] = true
 	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
 	var mid := String(G.MAPS[z].id)
+	Habitat.hand_add("moss", 1)          # one to place via the dock
+	Habitat.hand_add("acorn", 2)         # one placed up front so the "On map" row renders
+	Habitat.place(mid, 1)                # place the acorn (index 1)
 
-	# acquire stub fills the hand from the core set
-	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
-	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
-	ok(Habitat.hand().size() == 2, "two acquires (the stub) fill the hand")
-	# merge in hand
-	ok(Habitat.hand_merge(String(G.RESIDENT_CORE[0].id), 1), "the two merge to a t2 in hand")
-	# place onto the completed map
-	ok(Habitat.place(mid, 0), "the t2 places onto the completed map")
-	ok(Habitat.rate(mid) == 2, "the placed t2 sets the map's rate to 2")
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	hx.unlocks = unl
+	hx._open_map(z)
+	ok(hx._spirits_dock != null and hx._spirits_dock.visible, "the spirits dock shows on a completed map")
+	var labels := _label_texts(hx._spirits_dock)
+	var has_cap := false
+	for t in labels:
+		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
+			has_cap = true
+	ok(has_cap, "the dock shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)
+
+	# place the remaining hand spirit through the dock (select then place)
+	var before := Habitat.placed(mid).size()
+	hx._on_dock_hand(0)
+	hx._on_dock_place(mid)
+	ok(Habitat.placed(mid).size() == before + 1, "placing through the dock seats a hand spirit on the open map")
+
+	# the dock hides on an INCOMPLETE map
+	hx._open_map(1)                       # map 1 is not completed in this save
+	ok(not hx._spirits_dock.visible, "the dock hides on a map that can't be populated")
+	hx.queue_free()
