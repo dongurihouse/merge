@@ -786,12 +786,15 @@ static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
 	var gold := gold_badge_style(opts.get("gold", {}))
 	var labels := {}
 	var x := 0.0
-	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Time", String(data.get("time", "0:00")), "leaf_l", "left", labels, "time"))
+	var time_cell := _rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Time", String(data.get("time", "0:00")), "leaf_l", "left", labels, "time")
+	bar.add_child(time_cell)
 	x += side_w + gap
-	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(score_w, H), "Score", String(data.get("score", "0")), "coin", "left", labels, "score"))
+	var score_cell := _rush_cell(opts, gold, Vector2(x, top_pad), Vector2(score_w, H), "Score", String(data.get("score", "0")), "coin", "left", labels, "score")
+	bar.add_child(score_cell)
 	var score_cx := x + score_w * 0.5
 	x += score_w + gap
-	bar.add_child(_rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Mult", String(data.get("mult", "x1.0")), "leaf_r", "right", labels, "mult"))
+	var mult_cell := _rush_cell(opts, gold, Vector2(x, top_pad), Vector2(side_w, H), "Mult", String(data.get("mult", "x1.0")), "leaf_r", "right", labels, "mult")
+	bar.add_child(mult_cell)
 	# the acorn CROWN tops the centre cell (the "separator" ornament), straddling its top edge
 	var crown := _bar_art("bar_crown", crown_sz)
 	if crown != null:
@@ -800,6 +803,8 @@ static func rush_bar(opts: Dictionary, data: Dictionary = {}) -> Control:
 	bar.set_meta("time_label", labels.get("time"))
 	bar.set_meta("score_label", labels.get("score"))
 	bar.set_meta("mult_label", labels.get("mult"))
+	bar.set_meta("score_cell", score_cell)        # the score / mult cells, for the rush_fx pop effects
+	bar.set_meta("mult_cell", mult_cell)
 	return bar
 
 # One rush-bar cell: a code-drawn gold-badge panel with a side decoration (leaf / coin) and a centred
