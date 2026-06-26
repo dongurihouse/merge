@@ -113,8 +113,6 @@ var _hud_panels: Array = []       # wallet + Lv chips
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
 var _vine_debug_mode_idx := 0
-var _vine_debug_layer: CanvasLayer = null
-var _vine_debug_button: Button = null
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
@@ -204,7 +202,6 @@ func _ready() -> void:
 		add_child(mail_timer)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
-	_mount_vine_debug_overlay()          # phone vine diagnostics (debug-only; no-op in release)
 
 	SceneWarm.prewarm("res://engine/scenes/Board.tscn")   # warm the board off-thread while the player lingers on the map
 
@@ -501,7 +498,6 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		vframe.add_child(view)
 		view.set_mask_offset(mask_offset)
 		_apply_vine_debug_mode(view)
-		_refresh_vine_debug_button()
 		if _vine_diag_enabled():
 			_print_vine_diag.call_deferred("map_open")
 		return vframe
@@ -631,7 +627,6 @@ func debug_cycle_vine_fx() -> void:
 	_vine_debug_mode_idx = (_vine_debug_mode_idx + 1) % VINE_DEBUG_MODES.size()
 	var view := _active_vine_view()
 	_apply_vine_debug_mode(view)
-	_refresh_vine_debug_button()
 	_print_vine_diag("cycle")
 
 func debug_vine_diag() -> void:
@@ -653,52 +648,6 @@ func _vine_diag_enabled() -> bool:
 	if OS.get_environment("TU_VINE_DIAG") == "1":
 		return true
 	return OS.has_feature("mobile") and OS.is_debug_build()
-
-func _mount_vine_debug_overlay() -> void:
-	if not _vine_diag_enabled() or _vine_debug_layer != null:
-		return
-	_vine_debug_layer = CanvasLayer.new()
-	_vine_debug_layer.name = "VineDebugOverlay"
-	_vine_debug_layer.layer = 129
-	var col := VBoxContainer.new()
-	col.position = Vector2(12.0, Look.safe_top(self) + 330.0)
-	col.add_theme_constant_override("separation", 4)
-	_vine_debug_layer.add_child(col)
-
-	_vine_debug_button = _vine_debug_btn("")
-	_vine_debug_button.pressed.connect(debug_cycle_vine_fx)
-	col.add_child(_vine_debug_button)
-	var diag := _vine_debug_btn("Diag")
-	diag.pressed.connect(debug_vine_diag)
-	col.add_child(diag)
-	add_child(_vine_debug_layer)
-	_refresh_vine_debug_button()
-
-func _vine_debug_btn(label: String) -> Button:
-	var b := Button.new()
-	b.text = label
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(160, 40)
-	b.add_theme_font_size_override("font_size", 18)
-	b.add_theme_color_override("font_color", Color.WHITE)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#4B2E83", 0.88)
-	style.set_corner_radius_all(6)
-	style.set_border_width_all(2)
-	style.border_color = Color(1, 1, 1, 0.55)
-	style.content_margin_left = 10.0
-	style.content_margin_right = 10.0
-	style.content_margin_top = 5.0
-	style.content_margin_bottom = 5.0
-	b.add_theme_stylebox_override("normal", style)
-	b.add_theme_stylebox_override("hover", style)
-	b.add_theme_stylebox_override("pressed", style)
-	return b
-
-func _refresh_vine_debug_button() -> void:
-	if _vine_debug_button == null or not is_instance_valid(_vine_debug_button):
-		return
-	_vine_debug_button.text = "Vine: %s" % String(VINE_DEBUG_MODES[_vine_debug_mode_idx])
 
 func _print_vine_diag(reason: String) -> void:
 	var view := _active_vine_view()
