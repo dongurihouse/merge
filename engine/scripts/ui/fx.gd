@@ -27,6 +27,11 @@ const REWARD_FX_IDS := ["coin_pickup", "board_refill", "stash_to_bag", "quest_pa
 
 static var _dot_tex: Texture2D
 static var _reward_fx_config_path := ""
+# reward FX config is read on every grant (coin pickup, sale, payout…) — cache the parsed
+# result so the gameplay hot path never re-reads/re-parses the workbench settings file. The
+# cache is dropped whenever the config is written or the test path is reconfigured.
+static var _reward_fx_config_cache: Dictionary = {}
+static var _reward_fx_config_cached := false
 
 ## Calm mode (accessibility): fewer particles, gentler motion. Checked at fire time
 ## so toggling applies immediately.
@@ -38,8 +43,21 @@ static func reward_fx_config_path() -> String:
 
 static func configure_reward_fx_config_for_test(path: String) -> void:
 	_reward_fx_config_path = path
+	_reward_fx_config_cached = false   # new path → drop the cache so the next read reloads
+
+# The shared cache. Built once from disk, then reused until invalidated. Callers that read
+# scalars off the hot path use this directly; reward_fx_config() hands out a copy so external
+# mutation can't corrupt the cache.
+static func _cached_reward_fx_config() -> Dictionary:
+	if not _reward_fx_config_cached:
+		_reward_fx_config_cache = _build_reward_fx_config()
+		_reward_fx_config_cached = true
+	return _reward_fx_config_cache
 
 static func reward_fx_config() -> Dictionary:
+	return _cached_reward_fx_config().duplicate(true)
+
+static func _build_reward_fx_config() -> Dictionary:
 	var cfg := _default_reward_fx_config()
 	var path := reward_fx_config_path()
 	var raw := _load_reward_fx_file(path)
@@ -79,6 +97,7 @@ static func _write_reward_fx_config(cfg: Dictionary) -> void:
 		return
 	f.store_string(JSON.stringify(out, "\t"))
 	f.close()
+	_reward_fx_config_cached = false   # next read reflects what we just wrote
 
 static func _load_reward_fx_file(path: String) -> Dictionary:
 	if not FileAccess.file_exists(path):
@@ -98,7 +117,7 @@ static func _set_reward_fx_config_value(key: String, value: Variant) -> void:
 	_write_reward_fx_config(cfg)
 
 static func reward_fx_enabled(id: String) -> bool:
-	var enabled: Dictionary = reward_fx_config().get("enabled", {})
+	var enabled: Dictionary = _cached_reward_fx_config().get("enabled", {})
 	return bool(enabled.get(id, true))
 
 static func set_reward_fx_enabled(id: String, on: bool) -> void:
@@ -110,31 +129,31 @@ static func set_reward_fx_enabled(id: String, on: bool) -> void:
 	_write_reward_fx_config(cfg)
 
 static func reward_fx_amount() -> int:
-	return clampi(int(round(float(reward_fx_config().get("amount", REWARD_FX_DEFAULT_AMOUNT)))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
+	return clampi(int(round(float(_cached_reward_fx_config().get("amount", REWARD_FX_DEFAULT_AMOUNT)))), REWARD_FX_MIN_AMOUNT, REWARD_FX_MAX_AMOUNT)
 
 static func set_reward_fx_amount(value: int) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
 
 static func reward_fx_icon_size() -> float:
-	return clampf(float(reward_fx_config().get("icon_size", REWARD_FX_DEFAULT_ICON_SIZE)), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
+	return clampf(float(_cached_reward_fx_config().get("icon_size", REWARD_FX_DEFAULT_ICON_SIZE)), REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE)
 
 static func set_reward_fx_icon_size(value: float) -> void:
 	_set_reward_fx_config_value("icon_size", clampf(value, REWARD_FX_MIN_ICON_SIZE, REWARD_FX_MAX_ICON_SIZE))
 
 static func reward_fx_trail_count() -> int:
-	return clampi(int(round(float(reward_fx_config().get("trail_count", REWARD_FX_DEFAULT_TRAIL_COUNT)))), REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT)
+	return clampi(int(round(float(_cached_reward_fx_config().get("trail_count", REWARD_FX_DEFAULT_TRAIL_COUNT)))), REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT)
 
 static func set_reward_fx_trail_count(value: int) -> void:
 	_set_reward_fx_config_value("trail_count", clampi(value, REWARD_FX_MIN_TRAIL_COUNT, REWARD_FX_MAX_TRAIL_COUNT))
 
 static func reward_fx_source_size() -> float:
-	return clampf(float(reward_fx_config().get("source_size", REWARD_FX_DEFAULT_SOURCE_SIZE)), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
+	return clampf(float(_cached_reward_fx_config().get("source_size", REWARD_FX_DEFAULT_SOURCE_SIZE)), REWARD_FX_MIN_SOURCE_SIZE, REWARD_FX_MAX_SOURCE_SIZE)
 
 static func set_reward_fx_source_size(value: float) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
 
 static func reward_fx_auto_replay() -> bool:
-	return bool(reward_fx_config().get("auto_replay", false))
+	return bool(_cached_reward_fx_config().get("auto_replay", false))
 
 static func set_reward_fx_auto_replay(on: bool) -> void:
 	pass # test-only preview value; kept as a no-op for older workbench call sites
