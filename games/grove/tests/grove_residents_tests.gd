@@ -9,8 +9,6 @@ func _initialize() -> void:
 	_test_hand()
 	_test_place()
 	_test_production()
-	_test_screen()
-	_test_screen_actions()
 	_test_map_dock()
 	finish()
 
@@ -136,59 +134,6 @@ func _test_production() -> void:
 	Habitat.place(mr, 0)
 	Save._loaded = false                                 # force a reload from disk
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
-
-# --- the Residents screen (headless smoke + action wiring) -----------------------
-func _test_screen() -> void:
-	fresh("residents_screen")
-	# seed a COMPLETED map 0 so the screen has a habitat to show
-	var z := 0
-	var g := Save.grove()
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true
-	g["unlocks"] = unl
-	g["gates"] = [z]
-	Save.grove_write()
-	ok(G.can_populate(z, unl, [z]), "map 0 is complete (screen precondition)")
-
-	var s = load("res://engine/scenes/Residents.tscn").instantiate()
-	get_root().add_child(s)
-	if s._root == null:        # headless -s defers _ready to a frame; build it now (mirror grove_ui_tests)
-		s._ready()
-	ok(s.get_child_count() > 0, "the Residents screen builds a non-empty tree")
-
-	# placing a spirit then rebuilding shows it on the map row
-	Habitat.hand_add("moss", 1)
-	Habitat.place(String(G.MAPS[0].id), 0)
-	s._rebuild()
-	var labels := _label_texts(s)
-	ok(labels.has(String(G.MAPS[0].name)), "the screen shows the completed map's name")
-	var has_cap := false
-	for t in labels:
-		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
-			has_cap = true
-	ok(has_cap, "the map row shows a capacity readout (n/%d)" % Habitat.DEFAULT_CAP)
-	s.queue_free()
-
-func _test_screen_actions() -> void:
-	fresh("residents_actions")
-	var z := 0
-	var g := Save.grove()
-	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true
-	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
-	var mid := String(G.MAPS[z].id)
-
-	# acquire stub fills the hand from the core set
-	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
-	Habitat.hand_add(String(G.RESIDENT_CORE[0].id))
-	ok(Habitat.hand().size() == 2, "two acquires (the stub) fill the hand")
-	# merge in hand
-	ok(Habitat.hand_merge(String(G.RESIDENT_CORE[0].id), 1), "the two merge to a t2 in hand")
-	# place onto the completed map
-	ok(Habitat.place(mid, 0), "the t2 places onto the completed map")
-	ok(Habitat.rate(mid) == 2, "the placed t2 sets the map's rate to 2")
 
 # --- the spirits DOCK on the map (the folded-in residents management) -------------
 func _test_map_dock() -> void:

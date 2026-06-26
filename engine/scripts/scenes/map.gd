@@ -1240,9 +1240,10 @@ func _capture_region_veil(view: Variant, k: int) -> Dictionary:
 		return {}
 	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
 
-# --- §1 residents: legacy welcome shop + unlock gift helpers -----------------------------
-# The bottom-nav Residents button now opens Residents.tscn. This older shop path stays callable for
-# existing tests/tools and for the map-population roster model until that model is migrated or retired.
+# --- §1 residents: DORMANT legacy welcome shop + unlock gift helpers ----------------------
+# Superseded by the unified habitat: the map now renders + manages the habitat (the spirits dock) and
+# the nav routes to the Expedition dialog. This welcome-shop path is no longer reached in-game; it (and
+# the resident_counts roster model it drives) is kept dormant and retires together with the economy pass.
 # G.welcome_resident spends + adds + silently auto-merges two-of-a-kind; the population layer is rebuilt
 # from that roster after each legacy buy.
 
@@ -1664,8 +1665,8 @@ func _open_expedition() -> void:
 		FX.pop_in(panel)
 	rebuild.fn.call()
 
-# Legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon,
-# name, cost). Kept for existing tests/tools while the active button routes to Residents.tscn.
+# DORMANT legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident —
+# spirit icon, name, cost). No in-game caller now (the nav routes to Expedition); retires with the economy pass.
 func _open_residents_shop(z: int) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
