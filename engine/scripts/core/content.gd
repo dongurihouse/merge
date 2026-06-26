@@ -23,6 +23,7 @@ const GEN_CELL = D.GEN_CELL
 const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
+const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines the single generator pops at once
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const QUEST_CLICKS_PER_EXP = D.QUEST_CLICKS_PER_EXP
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -69,6 +70,15 @@ const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
+const SPECIAL_TOP = D.SPECIAL_TOP
+const SPECIAL_ITEMS = D.SPECIAL_ITEMS
+const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
+const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
+const SPECIAL_COLLECT = D.SPECIAL_COLLECT
+const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
+const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
+const KEY_TIER_MULT = D.KEY_TIER_MULT
+const ACCUMULATORS = D.ACCUMULATORS
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
@@ -715,10 +725,130 @@ static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
-## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release), so every
-## future collectable inherits the same gesture by extending this — no board.gd edit needed.
+## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins AND the §6.B
+## resource drops (water/acorn/exp) collect this way; chest/key are OPENED by a drag, not tap-collected.
 static func is_collectable(code: int) -> bool:
-	return is_coin(code)
+	return is_coin(code) or not special_collect(code).is_empty()
+
+# §6.B special drop items — coin-like pseudo-lines (chest/key/water/acorn/exp). is_special gates the
+# shared plumbing (merge ceiling, art, the not-content exclusions); special_kind selects the behaviour.
+static func is_special(code: int) -> bool:
+	return SPECIAL_ITEMS.has(int(code / 100.0))
+
+static func special_kind(code: int) -> String:
+	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("kind", ""))
+
+static func special_base(code: int) -> String:
+	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("base", ""))
+
+# The merge CEILING for a code: coins + special items cap low (3); content lines reach TOP_TIER. One
+# place so can_merge / openable-pair logic agree (board_model, board_logic).
+static func merge_top(code: int) -> int:
+	if is_coin(code):
+		return COIN_TOP
+	if is_special(code):
+		return SPECIAL_TOP
+	return TOP_TIER
+
+# §6.B special-drop roll + reward math (PURE — board.gd applies the side effects).
+# A merge sometimes shakes a special item loose (alongside the coin drop): one randf, weighted kind.
+static func rolls_special_drop(rng: RandomNumberGenerator) -> bool:
+	return rng.randf() < SPECIAL_DROP_RATE
+
+static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 special code, weighted by kind
+	var total := 0
+	for w in SPECIAL_DROP_WEIGHTS.values():
+		total += int(w)
+	var r := rng.randi_range(1, maxi(1, total))
+	for line in SPECIAL_DROP_WEIGHTS:
+		r -= int(SPECIAL_DROP_WEIGHTS[line])
+		if r <= 0:
+			return int(line) * 100 + 1
+	return 10 * 100 + 1                                              # defensive: a chest t1
+
+# What TAPPING a water/acorn/exp item grants: {kind, amount}. Empty for chest/key (opened, not tapped).
+static func special_collect(code: int) -> Dictionary:
+	var kind := special_kind(code)
+	var tier := code % 100
+	if SPECIAL_COLLECT.has(kind):
+		return {"kind": kind, "amount": int((SPECIAL_COLLECT[kind] as Dictionary).get(tier, 0))}
+	return {}
+
+# Whether a key and a chest may OPEN (both special, one chest + one key — order-independent).
+static func can_open_chest(a: int, b: int) -> bool:
+	var ka := special_kind(a)
+	var kb := special_kind(b)
+	return (ka == "chest" and kb == "key") or (ka == "key" and kb == "chest")
+
+# The reward for opening a chest with a key: {coins, acorns}. Scales by the CHEST tier and a KEY-tier
+# multiplier (a better key opens a richer chest). `a`/`b` in either order.
+static func chest_open_reward(a: int, b: int) -> Dictionary:
+	var chest := a if special_kind(a) == "chest" else b
+	var key := b if special_kind(a) == "chest" else a
+	var ct := chest % 100
+	var kt := key % 100
+	var mult: float = float(KEY_TIER_MULT[kt]) if kt >= 0 and kt < KEY_TIER_MULT.size() else 1.0
+	return {
+		"coins": int(round(float(int(CHEST_OPEN_COINS.get(ct, 0))) * mult)),
+		"acorns": int(round(float(int(CHEST_OPEN_ACORNS.get(ct, 0))) * mult)),
+	}
+
+# --- §6.C utility accumulators (bank a resource over time) -----------------------------
+# UNLOCKED is derived: an accumulator is live once map-0's spot at its `unlock_spot` index is claimed.
+static func accumulator_unlocked(kind: String, unlocks: Dictionary) -> bool:
+	var def: Dictionary = ACCUMULATORS.get(kind, {})
+	if def.is_empty():
+		return false
+	var k := int(def.get("unlock_spot", -1))
+	var spots: Array = MAPS[0].spots
+	if k < 0 or k >= spots.size():
+		return false
+	return unlocks.has(String(spots[k].id))
+
+# The kinds unlocked at the current spot state, in registry order.
+static func unlocked_accumulators(unlocks: Dictionary) -> Array:
+	var out: Array = []
+	for kind in ACCUMULATORS:
+		if accumulator_unlocked(kind, unlocks):
+			out.append(kind)
+	return out
+
+# Banked units = +1 every `secs` since `last_ts` (offline-inclusive), capped at `cap`. 0 if never started.
+static func accumulator_banked(kind: String, last_ts: float, now: float) -> int:
+	var def: Dictionary = ACCUMULATORS.get(kind, {})
+	if def.is_empty() or last_ts <= 0.0 or now <= last_ts:
+		return 0
+	var n := int(floor((now - last_ts) / float(def.get("secs", 1))))
+	return clampi(n, 0, int(def.get("cap", 0)))
+
+# True once banked is at the cap (the check-in nudge: collect before it idles full).
+static func accumulator_full(kind: String, last_ts: float, now: float) -> bool:
+	return accumulator_banked(kind, last_ts, now) >= int(ACCUMULATORS.get(kind, {}).get("cap", 0))
+
+# The reward for collecting `banked` units of `kind`: {kind, amount}.
+static func accumulator_reward(kind: String, banked: int) -> Dictionary:
+	return {"kind": kind, "amount": maxi(0, banked) * int(ACCUMULATORS.get(kind, {}).get("value", 0))}
+
+# Accumulators ride the generator infra (placement, render, bag), keyed by their `id` ("acc_<kind>").
+static func is_accumulator(id: String) -> bool:
+	return accumulator_kind_of(id) != ""
+
+static func accumulator_kind_of(id: String) -> String:
+	for kind in ACCUMULATORS:
+		if String(ACCUMULATORS[kind].get("id", "")) == id:
+			return String(kind)
+	return ""
+
+# The generator icon for an id — the merge-generator roster first, then the accumulators. One lookup so
+# _make_generator renders both kinds of on-board "generator" from the same path.
+static func gen_tex(id: String) -> String:
+	var d := gen_def(GENERATORS, id)
+	if not d.is_empty():
+		return String(d.get("tex", ""))
+	var kind := accumulator_kind_of(id)
+	if kind != "":
+		return String(ACCUMULATORS[kind].get("tex", ""))
+	return ""
 
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
@@ -825,6 +955,11 @@ static func grant_level_gift(gift: Dictionary) -> void:
 static func item_tex_path(code: int) -> String:
 	var line := int(code / 100.0)
 	var tier := code % 100
-	if not LINES.has(line):
+	var base := ""
+	if LINES.has(line):
+		base = String(LINES[line].base)
+	elif SPECIAL_ITEMS.has(line):           # §6.B special drop items render from items/<base>/<base>_<tier>.png
+		base = special_base(code)
+	if base == "":
 		return ""
-	return Game.art("items/%s/%s_%d.png" % [LINES[line].base, LINES[line].base, tier])
+	return Game.art("items/%s/%s_%d.png" % [base, base, tier])

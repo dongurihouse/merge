@@ -24,6 +24,32 @@ const LINES := {
 	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},    # map 3 — Pond
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},           # map 4 — Orchard
 	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},     # map 5 — Meadow
+	# §6.E additional per-map content lines (hooked up from assets/_new). Codes are non-contiguous (clear of
+	# the 1-5 anchors, 9 coin, 10-14 special items); map assignment is via the GENERATORS roster below.
+	# Colors are the code-drawn FALLBACK only — every tier ships art at items/<base>/<base>_<tier>.png.
+	# map idx 1 — The Orchard (barn)
+	21: {"name": "Orchard fruits", "base": "orchard_fruits", "color": Color("#D9534F")},
+	22: {"name": "Orchard tools", "base": "orchard_tools", "color": Color("#8A6D3B")},
+	23: {"name": "Orchard seeds", "base": "orchard_seeds", "color": Color("#C9A66B")},
+	24: {"name": "Scarecrows", "base": "orchard_scarecrows", "color": Color("#C8A24A")},
+	# map idx 2 — The Garden (pond)
+	31: {"name": "Juice", "base": "garden_juice", "color": Color("#C76B98")},
+	32: {"name": "Kites", "base": "garden_kites", "color": Color("#4FB0D9")},
+	33: {"name": "Stones", "base": "garden_stones", "color": Color("#9AA0A6")},
+	34: {"name": "Mossy trinkets", "base": "garden_mossy_trinkets", "color": Color("#6B9C5A")},
+	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9")},
+	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9")},
+	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B")},
+	# map idx 3 — The Mill (orchard)
+	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6")},
+	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B")},
+	43: {"name": "Water plants", "base": "mill_water_plants", "color": Color("#5FA66B")},
+	44: {"name": "Gears", "base": "mill_gears", "color": Color("#8A8F94")},
+	# map idx 4 — The Gate (meadow)
+	51: {"name": "Glowcaps", "base": "gate_glowcaps", "color": Color("#6BC9A6")},
+	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
+	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
+	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -42,16 +68,16 @@ const GENERATORS := [
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1], "grant_from": "", "anchor": true,
 		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
 	# map 2 — Barn: Feather.
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2], "grant_from": "",
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
 		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
 	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
-	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3], "grant_from": "",
+	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37], "grant_from": "",
 		"tex": "items/generator/gen_cattails.png", "label": "tools"},
 	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
-	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4], "grant_from": "",
+	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4, 41, 42, 43, 44], "grant_from": "",
 		"tex": "items/generator/gen_apples.png", "label": "hives"},
 	# map 5 — Meadow: Mushroom. (icon still glowcaps — repaint parked, gen_porcini ready)
-	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5], "grant_from": "",
+	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5, 51, 52, 53, 54], "grant_from": "",
 		"tex": "items/generator/gen_glowcaps.png", "label": "mushrooms"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
@@ -83,6 +109,12 @@ const MIN_LEVEL := [
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
+# §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
+# (idea 3.2), but with many opened lines (up to ~24) up to MAX_GIVERS quests could span that many DISTINCT
+# lines — scattering un-mergeable singletons until the board jams. So the generator pops at most this many
+# distinct lines per session (the lowest-indexed wanted lines win; the rest become hot as those clear), so
+# pairs always form. Set ≥ MAX_GIVERS to disable. OWNER/SIM dial (grove_sim I1 = zero jams is the judge).
+const POP_LINE_CAP := 2
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
@@ -221,6 +253,48 @@ const COIN_LINE := 9                      # code 9xx; never popped, never asked
 const COIN_TOP := 3
 const COIN_VALUES := {1: 1, 2: 5, 3: 25}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
+
+# §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Like coins they merge up to a
+# small top (SPECIAL_TOP), are NEVER popped from the generator and NEVER asked by quests or sold; they
+# DROP occasionally and pay out a reward on use. Codes `line*100 + tier` on dedicated line numbers (10+,
+# clear of the 1-5 content lines + 9 = coin). Art at items/<base>/<base>_<tier>.png (already wired). `kind`
+# selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
+# currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
+const SPECIAL_TOP := 3                     # special items merge up to tier 3 (like coins)
+const SPECIAL_ITEMS := {
+	10: {"base": "chest", "kind": "chest"},   # merges; opened by a key for a reward
+	11: {"base": "key",   "kind": "key"},     # merges; opens a chest
+	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
+	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
+	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
+}
+# §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
+# chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
+# Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
+# (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
+const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2}   # chest · key · water · acorn · exp
+const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
+	"water": {1: 8, 2: 20, 3: 50},
+	"acorn": {1: 1, 2: 2, 3: 5},
+	"exp":   {1: 5, 2: 12, 3: 30},
+}
+const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
+const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
+const KEY_TIER_MULT := [1.0, 1.0, 1.5, 2.0]         # index by key tier (1/2/3) → payout multiplier
+
+# §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
+# cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored
+# spots (unlock_spot = the map-0 spot index whose claim reveals it). Each banks +1 every `secs`
+# (offline-inclusive, like water regen), capped at `cap`; collecting grants banked × `value`. The small
+# caps keep them a CHECK-IN reward, never a self-sustaining faucet (§4 energy law; the exp one kept modest
+# vs the pacing clock). PROVISIONAL — sim/owner-tuned. Art at `tex` (already wired).
+const ACCUMULATORS := {
+	"water": {"id": "acc_water", "tex": "items/generator/gen_rainbarrel.png", "cap": 8, "secs": 600, "value": 5, "unlock_spot": 0},
+	"coins": {"id": "acc_coins", "tex": "items/generator/gen_coinpress.png", "cap": 8, "secs": 600, "value": 15, "unlock_spot": 1},
+	"exp":   {"id": "acc_exp", "tex": "items/generator/gen_crystalfont.png", "cap": 6, "secs": 900, "value": 6, "unlock_spot": 2},
+	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 4, "secs": 1800, "value": 1, "unlock_spot": 3},
+}
 
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside

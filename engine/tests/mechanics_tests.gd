@@ -215,5 +215,64 @@ func _initialize() -> void:
 	ok(BoardLogic.combo_step(4, 3.0, 2.5) == 1, "combo: a gap past the window restarts at 1")
 	ok(BoardLogic.combo_step(2, 2.51, 2.5) == 1, "combo: just past the window restarts at 1")
 
+	# --- §6.B special drop items — the shared pseudo-line foundation (chest/key/water/acorn/exp) ---
+	var chest_t1 := 10 * 100 + 1            # chest tier 1
+	var flower_t1 := 1 * 100 + 1           # a content line item
+	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
+	ok(G.is_special(chest_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
+		"is_special gates only the special pseudo-lines (not content, not coins)")
+	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "key",
+		"special_kind selects the per-item behaviour")
+	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
+		"merge_top caps special items low, content high, coins at the coin top")
+	var sbm := BoardModel.new()
+	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
+	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
+	ok(sbm.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "two chest-t2 merge (below the special ceiling)")
+	sbm.place(Vector2i(5, 2), 10 * 100 + 3)
+	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
+	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
+	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
+	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
+
+	# --- §6.B special-drop reward math (drop roll, tap-collect, chest open) ---
+	var srng := RandomNumberGenerator.new(); srng.seed = 7
+	var picked := {}
+	for i in 400:
+		picked[int(G.pick_special_drop(srng) / 100.0)] = true
+	ok(picked.size() >= 4 and G.special_kind(G.pick_special_drop(srng)) != "",
+		"pick_special_drop yields t1 codes spread across the special kinds")
+	# tap-collect grants the resource by tier; chest/key are NOT tap-collected (opened instead)
+	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
+	ok(G.special_collect(13 * 100 + 3) == {"kind": "acorn", "amount": 5}, "acorn t3 tap-collects acorns")
+	ok(G.special_collect(14 * 100 + 1) == {"kind": "exp", "amount": 5}, "exp (spark) t1 tap-collects exp")
+	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
+	# the open pairing: chest + key (either order), not chest+chest or key+water
+	ok(G.can_open_chest(10 * 100 + 1, 11 * 100 + 1) and G.can_open_chest(11 * 100 + 2, 10 * 100 + 3),
+		"a chest and a key open (in either order)")
+	ok(not G.can_open_chest(10 * 100 + 1, 10 * 100 + 1) and not G.can_open_chest(10 * 100 + 1, 12 * 100 + 1),
+		"chest+chest and chest+water do NOT open")
+	# the open reward scales by chest tier and key-tier multiplier (t3 key = ×2)
+	var r1 := G.chest_open_reward(10 * 100 + 1, 11 * 100 + 1)   # chest t1 · key t1 → 40 coins, 0 acorns
+	var r3 := G.chest_open_reward(10 * 100 + 3, 11 * 100 + 3)   # chest t3 · key t3 → 320×2 coins, 3×2 acorns
+	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 + key t1 opens for the base coins")
+	ok(int(r3.coins) == 640 and int(r3.acorns) == 6, "a higher chest + key tier multiplies the open payout")
+
+	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
+	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot
+	ok(not G.accumulator_unlocked("water", {}) and G.accumulator_unlocked("water", {acc_spot: true}),
+		"an accumulator unlocks when its map-1 spot is claimed")
+	ok(G.unlocked_accumulators({acc_spot: true}) == ["water"], "unlocked_accumulators lists only the revealed kinds")
+	# banking: +1 per `secs`, capped; never-started banks 0
+	var secs: float = float(G.ACCUMULATORS["water"]["secs"])
+	var capn: int = int(G.ACCUMULATORS["water"]["cap"])
+	ok(G.accumulator_banked("water", 0.0, 9999.0) == 0, "an un-started accumulator banks nothing")
+	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 3.0) == 3, "banks +1 per interval since last collect")
+	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 1000.0) == capn, "banking is capped at the small cap")
+	ok(G.accumulator_full("water", 1000.0, 1000.0 + secs * 1000.0), "accumulator_full flags the at-cap state")
+	# collect reward = banked × per-unit value
+	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
+		"the collect reward is banked × the per-unit value")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

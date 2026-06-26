@@ -147,8 +147,7 @@ func can_merge(a: Vector2i, b: Vector2i) -> bool:
 	var k := item_at(a)
 	if a == b or k <= 0 or item_at(b) != k:
 		return false
-	var top: int = G.COIN_TOP if G.is_coin(k) else G.TOP_TIER
-	return tier_of(k) < top
+	return tier_of(k) < G.merge_top(k)
 
 ## Merge a onto b → b holds the next tier; returns the produced code.
 func merge(a: Vector2i, b: Vector2i) -> int:

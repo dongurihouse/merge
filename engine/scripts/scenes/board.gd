@@ -46,6 +46,10 @@ const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Bag · info
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const HOME_NAV_ICON_SCALE := 0.62 # board Home glyph size inside the shared bottom well
+const ACTION_BAR_BG := "shared/badge_rect.png"
+const ACTION_BAR_SEPARATOR := "shared/action_separator.png"
+const ACTION_BAR_TEX_MARGIN := 58.0
+const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
@@ -254,7 +258,7 @@ func _ready() -> void:
 	# centre info bar — its name, an info button that opens the Tiers ladder, and a trashcan that sells it
 	# for coins when it's a deletable (non-generator) item. Selling moved here from the old drag-to-merchant
 	# well. Bag stays a drag-to-stash target; Home returns to the Map.
-	var bar := HBoxContainer.new()
+	var bar := PanelContainer.new()
 	bar.anchor_left = 0.0
 	bar.anchor_right = 1.0
 	bar.anchor_top = 1.0
@@ -267,14 +271,23 @@ func _ready() -> void:
 	bar.offset_right = 0.0
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
-	bar.add_theme_constant_override("separation", 0)
-	bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_theme_stylebox_override("panel", _action_bar_style())
+	bar.set_meta("shared_action_tray", true)
 	add_child(bar)
 	bottom_bar = bar
-	bar.add_child(_build_bag_box(bottom_btn_px))   # left: the Bag well + the x/y count
-	bar.add_child(_build_info_bar(bottom_btn_px))  # centre: the selected-item info bar (expands), height-matched to the wells
+	var row := HBoxContainer.new()
+	row.name = "ActionBarRow"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.add_theme_constant_override("separation", 0)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bar.add_child(row)
+	row.add_child(_build_bag_box(bottom_btn_px))   # left: the Bag well + the x/y count
+	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorBagInfo"))
+	row.add_child(_build_info_bar(bottom_btn_px))  # centre: the selected-item info bar (expands), height-matched to the wells
+	row.add_child(_action_bar_separator(bottom_btn_px, "ActionBarSeparatorInfoHome"))
 	home_btn = _home_nav_button(bottom_btn_px)     # right: the Home disc (lit when a spot is affordable)
-	bar.add_child(home_btn)
+	row.add_child(home_btn)
 	_clear_selection()                             # the info bar starts in its empty "tap an item" state
 
 	_build_hud()
@@ -1051,6 +1064,7 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 
 func _rebuild_all() -> void:
 	_grow_generators()                        # a staged second generator grows in once its level is reached
+	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
 		n.queue_free()
 	slot_nodes.clear()
@@ -1072,13 +1086,16 @@ func _rebuild_all() -> void:
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
-		var gn := _make_generator(String(board.gens[cell]), ghl)
+		var gid := String(board.gens[cell])
+		var gn := _make_generator(gid, ghl)
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
 		if _grown_cells.has(cell):            # a just-grown second generator — pop it in
 			FX.pop(gn)
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen persists; new ones arrive via gen_bag, §6)
+		if G.is_accumulator(gid):             # §6.C show the banked count on a utility accumulator
+			_refresh_accumulator_badge(cell)
 	if not _grown_cells.is_empty():
 		Audio.play("level_complete", -6.0, 1.1)
 		_grown_cells = []
@@ -1167,6 +1184,65 @@ static func _slot_style() -> StyleBox:
 		return sbt
 	return _cell_style()
 
+# The bottom action bar is a single stretched tray. Bag, info, and Home stay as real controls inside it;
+# their own frames are cleared so this parent surface is the only painted box.
+func _action_bar_style() -> StyleBox:
+	var p := Look.kit(ACTION_BAR_BG)
+	if ResourceLoader.exists(p):
+		var sb := StyleBoxTexture.new()
+		sb.texture = load(p)
+		sb.set_texture_margin_all(int(ACTION_BAR_TEX_MARGIN))
+		sb.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+		sb.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+		sb.content_margin_left = 0
+		sb.content_margin_right = 0
+		sb.content_margin_top = 0
+		sb.content_margin_bottom = 0
+		return sb
+	var flat := StyleBoxFlat.new()
+	flat.bg_color = Color(Pal.CREAM, 0.96)
+	flat.border_color = Pal.STRAW
+	flat.set_border_width_all(3)
+	flat.set_corner_radius_all(24)
+	return flat
+
+func _action_bar_separator_w(px: float) -> float:
+	return maxf(28.0, roundf(px * ACTION_BAR_SEPARATOR_FRAC))
+
+func _action_bar_separator(px: float, node_name: String) -> Control:
+	var slot := CenterContainer.new()
+	slot.name = node_name + "Slot"
+	slot.custom_minimum_size = Vector2(_action_bar_separator_w(px), px)
+	slot.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sep := TextureRect.new()
+	sep.name = node_name
+	sep.custom_minimum_size = Vector2(_action_bar_separator_w(px), px * 0.94)
+	sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sep.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var p := Look.kit(ACTION_BAR_SEPARATOR)
+	if ResourceLoader.exists(p):
+		sep.texture = load(p)
+	slot.add_child(sep)
+	return slot
+
+func _clear_action_tray_button_frame(b: Button) -> void:
+	var empty := StyleBoxEmpty.new()
+	for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(st_name, empty)
+
+func _transparent_info_bar_frame(opts: Dictionary) -> StyleBoxEmpty:
+	var empty := StyleBoxEmpty.new()
+	var pad: Dictionary = opts.get("pill", {})
+	var pad_x := float(pad.get("pad_x", 18.0))
+	empty.content_margin_left = float(pad.get("pad_left", pad_x))
+	empty.content_margin_right = float(opts.get("pad_right", 16.0))
+	var vpad := float(opts.get("vpad", 8.0))
+	empty.content_margin_top = vpad
+	empty.content_margin_bottom = vpad
+	return empty
+
 # One painted nav button: a flat Button hosting the kit sprite (`ui/nav/<kit_name>`),
 # centered + aspect-kept in a px×px box, with the shared press juice. Falls back to a glyph
 # Look.icon when the sprite is absent (kit_name → icon id by dropping "nav_"/".png").
@@ -1212,6 +1288,7 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 	opts["px"] = px
 	opts["shape"] = "rect"               # the board's Home + Bag wells are rounded-rect badges (same as the Map button)
 	opts["calm"] = FX.calm()
+	opts["shadow"] = false               # the shared action tray now owns the lift/shadow
 	if icon_scale > 0.0:
 		opts["icon_scale"] = icon_scale
 	# `count` (the Bag's "x/y") rides INSIDE the disc via the shared component's workbench-tuned overlay —
@@ -1223,6 +1300,7 @@ func _home_well(px: float, icon_id: String, fallback_art: String, count: String 
 # item (centered, no count badge — the full total lives in the overlay).
 func _make_bag_button(px: float) -> Button:
 	var b := _home_well(px, "bag", "nav_bag.png", _bag_count_text())   # the home-button disc + satchel icon + the in-disc "x/y" count
+	_clear_action_tray_button_frame(b)
 	# The disc's own icon wrapper IS the swap surface: a stashed item REPLACES the satchel here (same box,
 	# same size — a true icon swap, per the workbench-tuned button), and the satchel is restored when the
 	# bag empties (see _rebuild_bag). No separate small overlay riding on top of the satchel anymore.
@@ -1268,6 +1346,7 @@ func _bag_count_text() -> String:
 # The Home disc for the bottom bar's right edge: the shared workbench-tuned home button + the Map jump.
 func _home_nav_button(px: float) -> Button:
 	var b := _home_well(px, "house", "nav_home.png", "", HOME_NAV_ICON_SCALE)
+	_clear_action_tray_button_frame(b)
 	b.pressed.connect(func() -> void:
 		Audio.play("button_tap", -2.0)
 		_persist()
@@ -1285,8 +1364,9 @@ func _build_info_bar(px: float = 130.0) -> Control:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
 	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
-	pill.custom_minimum_size.x = _info_bar_w_px()
+	pill.custom_minimum_size.x = maxf(1.0, _info_bar_w_px() - _action_bar_separator_w(px) * 2.0)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	pill.add_theme_stylebox_override("panel", _transparent_info_bar_frame(opts))
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
@@ -1822,15 +1902,21 @@ func _on_release(pos: Vector2) -> void:
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
 		_stash(from, node)
 		return
-	if target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
-		# a STILL tap. A collectable (coin, …) collects ONLY on a second tap of its already-focused
-		# cell; a first tap (or any tap of a non-collectable) just selects it into the info bar. A
-		# DRAG (distance > 18px) never reaches here, so dragging a collectable never collects it.
-		if G.is_collectable(board.item_at(from)) and _press_was_selected:
-			_collect_coin(from, node)
+	var from_code := board.item_at(from)
+	var target_code := board.item_at(target)
+	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= 18.0:
+		# A still tap selects first. Collectables (coins + §6.B resource drops) collect only
+		# on a second tap of the already-focused cell, so dragging never pockets them.
+		if G.is_collectable(from_code) and _press_was_selected:
+			if G.is_coin(from_code):
+				_collect_coin(from, node)
+			else:
+				_collect_special(from, node)
 		else:
 			_snap_back(from, node)
 			_select_item(from)
+	elif G.can_open_chest(from_code, target_code):
+		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif board.is_empty_ground(target) and target != from:
@@ -1859,8 +1945,11 @@ func _release_gen(pos: Vector2) -> void:
 	if target == from and pos.distance_to(_press_pos) <= 18.0:
 		if node != null:
 			node.position = _cell_pos(from)
-		_pop_seed(from)                       # a still tap pops the generator (merge fuel)
-		_select_generator(from)               # …and surfaces the burst-upgrade chip in the info bar (T54)
+		if G.is_accumulator(board.gen_id_at(from)):
+			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
+		else:
+			_pop_seed(from)                   # a still tap pops the generator (merge fuel)
+			_select_generator(from)           # …and surfaces the burst-upgrade chip in the info bar (T54)
 		return
 	var gp: Vector2 = board_area.get_global_transform() * pos
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
@@ -1921,15 +2010,20 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
-	# SINGLE-GENERATOR model (idea 3): the pop pool is ALL OPENED lines (every map reached so far), not
-	# just this generator's static def — so the one anchor produces every opened line, biased by `wanted`
-	# toward what the current quests ask. As maps open, the pool grows; old lines never retire.
-	var pool: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
+	# SINGLE-GENERATOR model (idea 3.2): the one anchor produces the items the CURRENT QUESTS REQUIRE —
+	# its pop pool is the WANTED (quested) lines, drawn from the ALL-OPENED askable set (§6: quests may
+	# ask any opened line, but the generator pops what's asked). Restricting pops to wanted keeps the
+	# board mergeable no matter how many lines have opened (a 24-line opened set would otherwise scatter
+	# un-mergeable singletons and jam). Fall back to the full opened set only when no quest is poppable.
+	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():
 			giver_quests.append(quests[int(e.qi)])
-	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
+	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
+	var pool: Array = wanted if not wanted.is_empty() else opened
+	if pool.size() > G.POP_LINE_CAP:          # keep the board mergeable: pop at most POP_LINE_CAP lines
+		pool = pool.slice(0, G.POP_LINE_CAP)
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
@@ -2073,6 +2167,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# a little luck: merges sometimes shake a coin loose
 	if BoardLogic.rolls_coin_drop(produced, rng):
 		_drop_coin_near(b)
+	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
+	if not G.is_special(produced) and G.rolls_special_drop(rng):
+		_drop_special_near(b, G.pick_special_drop(rng))
 	animating = false
 	_persist()
 	_refresh_giver_lights()
@@ -2197,6 +2294,171 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	_persist()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: collecting a coin freed a cell → un-dim if the board was full
+
+# §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
+func _drop_special_near(near: Vector2i, code: int) -> void:
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		return
+	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
+	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
+	board.place(cell, code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(near)
+	n.scale = Vector2(0.3, 0.3)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	var t := n.create_tween()
+	t.set_parallel(true)
+	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Audio.play("tidy_poof", -5.0, 1.1)
+
+# §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
+func _collect_special(cell: Vector2i, node: Control) -> void:
+	var got: Dictionary = G.special_collect(board.item_at(cell))
+	if got.is_empty():
+		return
+	board.take(cell)
+	piece_nodes.erase(cell)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	var amount := int(got.amount)
+	match String(got.kind):
+		"water":
+			water = mini(G.WATER_CAP, water + amount)
+		"acorn":
+			Save.add_diamonds(amount)
+		"exp":
+			Save.add_exp(amount)
+	Audio.play("coin_earn", -3.0, 1.15)
+	_persist()
+	_update_hud()
+	_update_water_hud()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
+
+# §6.B open a chest with a key (drag one onto the other): consume BOTH, pay coins (+acorns at higher
+# tiers), scaled by the chest tier and a key-tier multiplier. The richest non-merge board interaction.
+func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
+	var reward: Dictionary = G.chest_open_reward(board.item_at(from), board.item_at(target))
+	board.take(from)
+	board.take(target)
+	piece_nodes.erase(from)
+	if piece_nodes.has(target) and is_instance_valid(piece_nodes[target]):
+		piece_nodes[target].queue_free()
+	piece_nodes.erase(target)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	var coins := int(reward.coins)
+	var acorns := int(reward.acorns)
+	if coins > 0:
+		Save.add_coins(coins)
+	if acorns > 0:
+		Save.add_diamonds(acorns)
+	var at := board_area.get_global_transform() * _cell_pos(target) + Vector2(csz, csz) / 2.0
+	var done := func() -> void:
+		if is_instance_valid(self):
+			_update_hud()
+	FX.reward_arrival(self, at, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "coin_pickup")
+	Audio.play("coin_earn", -2.0)
+	_persist()
+	_update_hud()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
+
+# §6.C ensure every UNLOCKED accumulator (its map-1 spot claimed) is on the board (or the gen bag), and
+# start its banking clock the first time it appears. Idempotent — called each rebuild.
+func _sync_accumulators() -> void:
+	var unlocks: Dictionary = Save.grove().get("unlocks", {})
+	var accs: Dictionary = Save.grove().get("accumulators", {})
+	var owned := {}
+	for v in board.gens.values():
+		owned[String(v)] = true
+	for v in board.gen_bag:
+		owned[String(v)] = true
+	var changed := false
+	for kind in G.ACCUMULATORS:
+		if not G.accumulator_unlocked(String(kind), unlocks):
+			continue
+		var id := String(G.ACCUMULATORS[kind].id)
+		if not accs.has(id):
+			accs[id] = Time.get_unix_time_from_system()   # start banking the moment it unlocks
+			changed = true
+		if owned.has(id):
+			continue
+		var dest := Vector2i(-1, -1)
+		for c in board.empty_ground_cells():
+			if not board.gens.has(c):
+				dest = c
+				break
+		if dest == Vector2i(-1, -1):
+			board.gen_bag.append(id)          # board full → it waits (still banks) in the bag
+		else:
+			board.place_gen(id, dest)
+		changed = true
+	if changed:
+		Save.grove()["accumulators"] = accs
+		_persist()
+
+# §6.C a tap on an accumulator collects its banked resource (grant it, reset the clock). Nothing banked
+# yet → a gentle wobble.
+func _collect_accumulator(cell: Vector2i) -> void:
+	var id := board.gen_id_at(cell)
+	var kind := G.accumulator_kind_of(id)
+	if kind == "":
+		return
+	var accs: Dictionary = Save.grove().get("accumulators", {})
+	var last_ts := float(accs.get(id, 0.0))
+	var now := Time.get_unix_time_from_system()
+	var banked := G.accumulator_banked(kind, last_ts, now)
+	var gn: Control = gen_nodes.get(cell)
+	if banked <= 0:
+		if gn != null:
+			FX.wobble(gn)
+		Audio.play("invalid_soft", -6.0)
+		return
+	var amount := int(G.accumulator_reward(kind, banked).amount)
+	match kind:
+		"water":
+			water = mini(G.WATER_CAP, water + amount)
+		"coins":
+			Save.add_coins(amount)
+		"exp":
+			Save.add_exp(amount)
+		"acorn":
+			Save.add_diamonds(amount)
+	accs[id] = now
+	Save.grove()["accumulators"] = accs
+	if gn != null:
+		FX.pop(gn)
+	Audio.play("coin_earn", -3.0, 1.1)
+	_persist()
+	_update_hud()
+	_update_water_hud()
+	_refresh_accumulator_badge(cell)
+
+# §6.C draw/update the small banked-count badge on an accumulator (reuses the boost-badge chrome).
+func _refresh_accumulator_badge(cell: Vector2i) -> void:
+	var gn: Control = gen_nodes.get(cell)
+	if gn == null:
+		return
+	var kind := G.accumulator_kind_of(board.gen_id_at(cell))
+	if kind == "":
+		return
+	var id := board.gen_id_at(cell)
+	var last_ts := float((Save.grove().get("accumulators", {}) as Dictionary).get(id, 0.0))
+	var banked := G.accumulator_banked(kind, last_ts, Time.get_unix_time_from_system())
+	var badge: Control = gn.get_node_or_null("AccBadge")
+	if banked <= 0:
+		if badge != null:
+			badge.queue_free()
+		return
+	if badge == null:
+		badge = _make_boost_badge()
+		badge.name = "AccBadge"
+		gn.add_child(badge)
+	(badge.get_node("Count") as Label).text = "%d" % banked
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
