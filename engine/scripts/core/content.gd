@@ -72,6 +72,12 @@ const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
 const SPECIAL_TOP = D.SPECIAL_TOP
 const SPECIAL_ITEMS = D.SPECIAL_ITEMS
+const SPECIAL_DROP_RATE = D.SPECIAL_DROP_RATE
+const SPECIAL_DROP_WEIGHTS = D.SPECIAL_DROP_WEIGHTS
+const SPECIAL_COLLECT = D.SPECIAL_COLLECT
+const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
+const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
+const KEY_TIER_MULT = D.KEY_TIER_MULT
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
@@ -739,6 +745,49 @@ static func merge_top(code: int) -> int:
 	if is_special(code):
 		return SPECIAL_TOP
 	return TOP_TIER
+
+# §6.B special-drop roll + reward math (PURE — board.gd applies the side effects).
+# A merge sometimes shakes a special item loose (alongside the coin drop): one randf, weighted kind.
+static func rolls_special_drop(rng: RandomNumberGenerator) -> bool:
+	return rng.randf() < SPECIAL_DROP_RATE
+
+static func pick_special_drop(rng: RandomNumberGenerator) -> int:    # → a t1 special code, weighted by kind
+	var total := 0
+	for w in SPECIAL_DROP_WEIGHTS.values():
+		total += int(w)
+	var r := rng.randi_range(1, maxi(1, total))
+	for line in SPECIAL_DROP_WEIGHTS:
+		r -= int(SPECIAL_DROP_WEIGHTS[line])
+		if r <= 0:
+			return int(line) * 100 + 1
+	return 10 * 100 + 1                                              # defensive: a chest t1
+
+# What TAPPING a water/acorn/exp item grants: {kind, amount}. Empty for chest/key (opened, not tapped).
+static func special_collect(code: int) -> Dictionary:
+	var kind := special_kind(code)
+	var tier := code % 100
+	if SPECIAL_COLLECT.has(kind):
+		return {"kind": kind, "amount": int((SPECIAL_COLLECT[kind] as Dictionary).get(tier, 0))}
+	return {}
+
+# Whether a key and a chest may OPEN (both special, one chest + one key — order-independent).
+static func can_open_chest(a: int, b: int) -> bool:
+	var ka := special_kind(a)
+	var kb := special_kind(b)
+	return (ka == "chest" and kb == "key") or (ka == "key" and kb == "chest")
+
+# The reward for opening a chest with a key: {coins, acorns}. Scales by the CHEST tier and a KEY-tier
+# multiplier (a better key opens a richer chest). `a`/`b` in either order.
+static func chest_open_reward(a: int, b: int) -> Dictionary:
+	var chest := a if special_kind(a) == "chest" else b
+	var key := b if special_kind(a) == "chest" else a
+	var ct := chest % 100
+	var kt := key % 100
+	var mult: float = float(KEY_TIER_MULT[kt]) if kt >= 0 and kt < KEY_TIER_MULT.size() else 1.0
+	return {
+		"coins": int(round(float(int(CHEST_OPEN_COINS.get(ct, 0))) * mult)),
+		"acorns": int(round(float(int(CHEST_OPEN_ACORNS.get(ct, 0))) * mult)),
+	}
 
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via

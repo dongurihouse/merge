@@ -268,6 +268,20 @@ const SPECIAL_ITEMS := {
 	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
 	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
 }
+# §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
+# chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
+# Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
+# (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
+const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2}   # chest · key · water · acorn · exp
+const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
+	"water": {1: 8, 2: 20, 3: 50},
+	"acorn": {1: 1, 2: 2, 3: 5},
+	"exp":   {1: 5, 2: 12, 3: 30},
+}
+const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a chest of this tier …
+const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
+const KEY_TIER_MULT := [1.0, 1.0, 1.5, 2.0]         # index by key tier (1/2/3) → payout multiplier
 
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside

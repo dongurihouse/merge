@@ -235,5 +235,28 @@ func _initialize() -> void:
 	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
 	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
 
+	# --- §6.B special-drop reward math (drop roll, tap-collect, chest open) ---
+	var srng := RandomNumberGenerator.new(); srng.seed = 7
+	var picked := {}
+	for i in 400:
+		picked[int(G.pick_special_drop(srng) / 100.0)] = true
+	ok(picked.size() >= 4 and G.special_kind(G.pick_special_drop(srng)) != "",
+		"pick_special_drop yields t1 codes spread across the special kinds")
+	# tap-collect grants the resource by tier; chest/key are NOT tap-collected (opened instead)
+	ok(G.special_collect(12 * 100 + 2) == {"kind": "water", "amount": 20}, "water t2 tap-collects its tier amount")
+	ok(G.special_collect(13 * 100 + 3) == {"kind": "acorn", "amount": 5}, "acorn t3 tap-collects acorns")
+	ok(G.special_collect(14 * 100 + 1) == {"kind": "exp", "amount": 5}, "exp (spark) t1 tap-collects exp")
+	ok(G.special_collect(10 * 100 + 1).is_empty(), "a chest is NOT tap-collected (it is opened by a key)")
+	# the open pairing: chest + key (either order), not chest+chest or key+water
+	ok(G.can_open_chest(10 * 100 + 1, 11 * 100 + 1) and G.can_open_chest(11 * 100 + 2, 10 * 100 + 3),
+		"a chest and a key open (in either order)")
+	ok(not G.can_open_chest(10 * 100 + 1, 10 * 100 + 1) and not G.can_open_chest(10 * 100 + 1, 12 * 100 + 1),
+		"chest+chest and chest+water do NOT open")
+	# the open reward scales by chest tier and key-tier multiplier (t3 key = ×2)
+	var r1 := G.chest_open_reward(10 * 100 + 1, 11 * 100 + 1)   # chest t1 · key t1 → 40 coins, 0 acorns
+	var r3 := G.chest_open_reward(10 * 100 + 3, 11 * 100 + 3)   # chest t3 · key t3 → 320×2 coins, 3×2 acorns
+	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 + key t1 opens for the base coins")
+	ok(int(r3.coins) == 640 and int(r3.acorns) == 6, "a higher chest + key tier multiplies the open payout")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

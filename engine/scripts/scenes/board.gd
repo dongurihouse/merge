@@ -1878,9 +1878,13 @@ func _on_release(pos: Vector2) -> void:
 		return
 	if target == from and G.is_coin(board.item_at(from)):
 		_collect_coin(from, node)          # tapping a coin pockets it
+	elif target == from and not G.special_collect(board.item_at(from)).is_empty():
+		_collect_special(from, node)       # §6.B tapping a water/acorn/exp item grants the resource
 	elif target == from and board.item_at(from) > 0 and pos.distance_to(_press_pos) <= 18.0:
 		_snap_back(from, node)             # a STILL tap SELECTS the item into the bottom info bar
 		_select_item(from)
+	elif G.can_open_chest(board.item_at(from), board.item_at(target)):
+		_open_chest(from, target, node)    # §6.B drag a KEY onto a CHEST (or vice versa) → open for the reward
 	elif board.can_merge(from, target):
 		_commit_merge(from, target, node)
 	elif board.is_empty_ground(target) and target != from:
@@ -2128,6 +2132,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# a little luck: merges sometimes shake a coin loose
 	if BoardLogic.rolls_coin_drop(produced, rng):
 		_drop_coin_near(b)
+	# §6.B a rarer luck: a merge sometimes also shakes a SPECIAL item loose (chest/key/water/acorn/exp)
+	if not G.is_special(produced) and G.rolls_special_drop(rng):
+		_drop_special_near(b, G.pick_special_drop(rng))
 	animating = false
 	_persist()
 	_refresh_giver_lights()
@@ -2252,6 +2259,78 @@ func _collect_coin(cell: Vector2i, node: Control) -> void:
 	_persist()
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: collecting a coin freed a cell → un-dim if the board was full
+
+# §6.B place a SPECIAL drop item near `near` (mirrors _drop_coin_near — the lucky special-item shake).
+func _drop_special_near(near: Vector2i, code: int) -> void:
+	var empties := board.empty_ground_cells()
+	if empties.is_empty():
+		return
+	empties.sort_custom(func(a, b): return (a - near).length_squared() < (b - near).length_squared())
+	var cell: Vector2i = empties[rng.randi_range(0, mini(2, empties.size() - 1))]
+	board.place(cell, code)
+	var n := _make_piece(code, csz)
+	n.position = _cell_pos(near)
+	n.scale = Vector2(0.3, 0.3)
+	board_area.add_child(n)
+	piece_nodes[cell] = n
+	var t := n.create_tween()
+	t.set_parallel(true)
+	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Audio.play("tidy_poof", -5.0, 1.1)
+
+# §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
+func _collect_special(cell: Vector2i, node: Control) -> void:
+	var got: Dictionary = G.special_collect(board.item_at(cell))
+	if got.is_empty():
+		return
+	board.take(cell)
+	piece_nodes.erase(cell)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	var amount := int(got.amount)
+	match String(got.kind):
+		"water":
+			water = mini(G.WATER_CAP, water + amount)
+		"acorn":
+			Save.add_diamonds(amount)
+		"exp":
+			Save.add_exp(amount)
+	Audio.play("coin_earn", -3.0, 1.15)
+	_persist()
+	_update_hud()
+	_update_water_hud()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
+
+# §6.B open a chest with a key (drag one onto the other): consume BOTH, pay coins (+acorns at higher
+# tiers), scaled by the chest tier and a key-tier multiplier. The richest non-merge board interaction.
+func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
+	var reward: Dictionary = G.chest_open_reward(board.item_at(from), board.item_at(target))
+	board.take(from)
+	board.take(target)
+	piece_nodes.erase(from)
+	if piece_nodes.has(target) and is_instance_valid(piece_nodes[target]):
+		piece_nodes[target].queue_free()
+	piece_nodes.erase(target)
+	if node != null and is_instance_valid(node):
+		node.queue_free()
+	var coins := int(reward.coins)
+	var acorns := int(reward.acorns)
+	if coins > 0:
+		Save.add_coins(coins)
+	if acorns > 0:
+		Save.add_diamonds(acorns)
+	var at := board_area.get_global_transform() * _cell_pos(target) + Vector2(csz, csz) / 2.0
+	var done := func() -> void:
+		if is_instance_valid(self):
+			_update_hud()
+	FX.reward_arrival(self, at, "coin", coins, STRAW, coins_label, done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "coin_pickup")
+	Audio.play("coin_earn", -2.0)
+	_persist()
+	_update_hud()
+	_refresh_giver_lights()
+	_refresh_generator_dim()
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
