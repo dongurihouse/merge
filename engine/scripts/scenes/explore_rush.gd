@@ -14,10 +14,11 @@ const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
-const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its field backdrop + slot-well art
+const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
+const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
@@ -29,6 +30,9 @@ var _grid: Array = []            # [ROWS][COLS] of {kind,tier,node} or null
 var _board: Control = null
 var _tele: ColorRect = null
 var _cell := 64.0
+var _gap := 7.0                  # gutter between cells (matches the home board's GAP)
+var _inset := 3.0                # tile inset within its cell
+var _bar_bottom := 0.0           # the top bar's bottom Y — the board reserves the screen above it
 var _running := false
 var _time := 0.0
 var _elapsed := 0.0
@@ -59,17 +63,18 @@ func _ready() -> void:
 # leaf clusters, the score coin, and the acorn crown. The bar is centred and scaled to fit the width; the
 # value Labels come back via meta so _refresh_readouts updates them. The EXIT × keeps the top-right corner.
 func _build_topbar() -> void:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var Kit: GDScript = load(KIT_PATH)
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var bar_top := maxf(Look.safe_top(self), 14.0) + 8.0
 	var opts: Dictionary = Kit.rush_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var bar: Control = Kit.rush_bar(opts, {"time": "0:00", "score": "0", "mult": "×1.0"})
 	var bw: float = bar.size.x
-	var scale: float = minf(1.0, (vw * 0.97) / maxf(1.0, bw))
+	var scale: float = clampf((vw * 0.74) / maxf(1.0, bw), 0.45, 1.4)   # the bar is ~74% of screen width on any device
 	bar.scale = Vector2(scale, scale)
 	bar.position = Vector2((vw - bw * scale) * 0.5, bar_top)
 	add_child(bar)
+	_bar_bottom = bar_top + bar.size.y * scale          # the board reserves the screen below this
 	_lbl_time = bar.get_meta("time_label")
 	_lbl_score = bar.get_meta("score_label")
 	_lbl_mult = bar.get_meta("mult_label")
@@ -88,29 +93,57 @@ func _tex(name: String) -> Texture2D:
 	var p := RUSH_ART % name
 	return load(p) if ResourceLoader.exists(p) else null
 
+# The Rush board is the SAME board component as the home board — the shared gold frame (Kit.board_panel)
+# + the shared slot-cell wells (Kit.slot_cell) — only every cell is OPEN (no brambles). Its size and
+# position derive from the screen (like the home board): cells fit the screen on whichever axis binds,
+# centred, reserving the top bar above and the safe-area below, with the frame's overhang accounted for.
+const FRAME_OUT := 48.0          # the board frame's overhang past the grid (matches the home planter feel)
+const BOARD_MARGIN := 8.0
+
+func _cellxy(r: int, c: int) -> Vector2:
+	return Vector2(float(c) * (_cell + _gap), float(r) * (_cell + _gap))
+
+func _cell_rest(r: int, c: int) -> Vector2:                 # where a tile rests inside its cell
+	return _cellxy(r, c) + Vector2(_inset, _inset)
+
+func _tile_px() -> float:
+	return _cell - 2.0 * _inset
+
 func _build_board() -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var top := 224.0          # room for the carved-wood top bar (see _build_topbar)
-	var avail_w := vw * 0.96
-	var avail_h := vh - top - 40.0
-	# size cells to fill the screen on whichever axis binds (the board is 7×9, taller than wide)
-	_cell = floor(minf(avail_w / float(G.COLS), avail_h / float(G.ROWS)))
-	var bw := _cell * float(G.COLS)
-	var bh := _cell * float(G.ROWS)
+	var top_reserve := _bar_bottom + vh * 0.02              # the screen below the bar (derived, not a magic px)
+	var bot_reserve := Look.safe_bottom(self) + vh * 0.03
+	# fit cells to the screen on whichever axis binds, accounting for the frame overhang + gutters
+	var w_csz := (vw - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - float(G.COLS - 1) * _gap) / float(G.COLS)
+	var h_csz := (vh - top_reserve - bot_reserve - 2.0 * FRAME_OUT - float(G.ROWS - 1) * _gap) / float(G.ROWS)
+	_cell = floorf(maxf(24.0, minf(w_csz, h_csz)))
+	var bw := float(G.COLS) * _cell + float(G.COLS - 1) * _gap
+	var bh := float(G.ROWS) * _cell + float(G.ROWS - 1) * _gap
 	_board = Control.new()
-	_board.position = Vector2((vw - bw) / 2.0, top + maxf(0.0, (avail_h - bh) / 2.0))
 	_board.custom_minimum_size = Vector2(bw, bh)
+	_board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# centre the grid in the band between the bar and the bottom safe area (frame overhang stays clear of both)
+	var band_top := top_reserve + FRAME_OUT
+	var band_h := vh - bot_reserve - FRAME_OUT - band_top
+	_board.position = Vector2((vw - bw) * 0.5, band_top + maxf(0.0, (band_h - bh) * 0.5))
 	add_child(_board)
-	# per-cell empty wells — the home board's slot-tile art (board/slot_tile.png nine-patch)
-	var well_style: StyleBox = BoardScript._slot_style()
+	# the SHARED board frame (gold planter), behind the cells, overhanging the grid by FRAME_OUT
+	var frame: Control = Kit.board_panel(Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0), Kit.board_panel_opts_from_config(cfg))
+	frame.position = Vector2(-FRAME_OUT, -FRAME_OUT)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_board.add_child(frame)
+	# the SHARED slot-cell wells — every cell OPEN (no locked brambles)
+	var slot_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
+	slot_opts["cell_w"] = _cell
+	slot_opts["cell_h"] = _cell
 	for r in G.ROWS:
 		for c in G.COLS:
-			var slot := Panel.new()
-			slot.position = Vector2(_cell * c + 2.0, _cell * r + 2.0)
-			slot.size = Vector2(_cell - 4.0, _cell - 4.0)
-			slot.add_theme_stylebox_override("panel", well_style)
+			var slot: Control = Kit.slot_cell({"state": "empty"}, slot_opts)
+			slot.position = _cellxy(r, c)
 			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_board.add_child(slot)
 	# the treefall telegraph (a translucent danger pane over one column)
@@ -250,7 +283,7 @@ func _fling(rc: Vector2i) -> void:
 	_grid[_bottom_empty(tgt)][tgt] = cell
 	_settle(node)                                   # settle every OTHER tile (the source column falls); the toss owns this one
 	var fc := _coord_of(node)                       # the flung tile's new resting cell
-	_fly_to(node, start, Vector2(_cell * fc.y + 3.0, _cell * fc.x + 3.0))
+	_fly_to(node, start, _cell_rest(fc.x, fc.y))
 	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
 
 # --- treefall --------------------------------------------------------------------
@@ -258,7 +291,7 @@ func _start_timber() -> void:
 	_tf.ph = "tele"
 	_tf.t = 0.0
 	_tf.col = _rng.randi() % G.COLS
-	_tele.position = Vector2(_cell * int(_tf.col), 0)
+	_tele.position = Vector2(_cellxy(0, int(_tf.col)).x, 0)
 	_tele.visible = true
 
 func _drop_timber() -> void:
@@ -271,7 +304,7 @@ func _drop_timber() -> void:
 			_grid[r][col] = null
 	# JUICE: the board jolts when the timber lands; a clean dodge celebrates, a hit flashes the column.
 	FX.shake(_board)
-	var col_local := Vector2(_cell * col + _cell / 2.0, _cell * G.ROWS / 2.0)
+	var col_local := Vector2(_cellxy(0, col).x + _cell * 0.5, float(G.ROWS) * (_cell + _gap) * 0.5)
 	if hits == 0 and _running:
 		_mult = Explore.clean_dodge_mult(_mult)      # clean dodge — emptied the column in time
 		FX.celebrate_at(self, _board.global_position + col_local, "CLEAN DODGE!", GOLD)
@@ -294,7 +327,7 @@ func _settle(except: Control = null) -> void:
 				var node := cell.node as Control
 				if node == except:
 					continue                                # the fling toss owns this tile's motion
-				var rest := Vector2(_cell * c + 3.0, _cell * r + 3.0)
+				var rest := _cell_rest(r, c)
 				if node.position.y < rest.y - 1.0:
 					_fall_to(node, rest, node.position.y)   # a cleared tile DROPS into the gap (gravity)
 				else:
@@ -329,9 +362,9 @@ func _coord_of(node: Control) -> Vector2i:
 func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 	var b := Button.new()
 	b.flat = true
-	b.custom_minimum_size = Vector2(_cell - 6.0, _cell - 6.0)
-	b.size = Vector2(_cell - 6.0, _cell - 6.0)
-	b.position = Vector2(_cell * c + 3.0, _cell * r + 3.0)
+	b.custom_minimum_size = Vector2(_tile_px(), _tile_px())
+	b.size = Vector2(_tile_px(), _tile_px())
+	b.position = _cell_rest(r, c)
 	var empty := StyleBoxEmpty.new()      # transparent surface — the merge-piece art IS the tile
 	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
 		b.add_theme_stylebox_override(st, empty)
@@ -363,7 +396,7 @@ func _paint(cell: Dictionary) -> void:
 		return
 	for ch in b.get_children():
 		ch.queue_free()                  # drop the old piece (e.g. after a tier-up reroll)
-	var piece := PieceView.make_piece(int(cell.kind) * 100 + int(cell.tier), _cell - 6.0)
+	var piece := PieceView.make_piece(int(cell.kind) * 100 + int(cell.tier), _tile_px())
 	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	b.add_child(piece)
 
