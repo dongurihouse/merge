@@ -1,0 +1,22 @@
+Use case: stylized-concept
+Asset type: 2D game item-line sprite sheet for a merge game, 12-tier Orchard Tools line
+Input images: use the item sheets already shown only as visual style references for clean hand-painted HD game asset rendering, saturated colors, crisp continuous dark outlines, solid magenta cutout workflow, and comparable item footprint. Do not copy their fruit, vegetable, package, flower, or container subjects.
+
+Create one portrait sprite sheet, exactly 1024x1536 pixels, with exactly 12 separate orchard hand-tool items in a clean 3 columns x 4 rows grid. Row-major progression from tier 1 to tier 12.
+
+Critical content requirements:
+- Twelve tool identities must all be different. Do not repeat the same tool type.
+- Exactly one connected tool object per cell. No tool clusters, bundles, piles, crossed tools, pairs, or multi-object kits.
+- Keep each tool compact enough for the same-size item footprint; avoid long thin poles that cross the cell.
+- No acorn symbols, labels, decorative emblems, badges, seals, icons, or text.
+- High tiers should feel funny or special through bright handle colors, unusual silhouette, brass fittings, and polished material, not through sparkles or FX.
+
+Tool list, one per cell, exactly in this order: 1 closed pruning snips, 2 small hand trowel, 3 short hand rake, 4 soft orchard brush, 5 compact fruit picker scoop head, 6 small curved pruning saw, 7 watering wand head, 8 short grafting mallet, 9 folded mini orchard ladder charm, 10 teal brass apple corer tool, 11 purple crescent harvest hook, 12 rainbow-handled master pruner. Each item is a single connected object.
+
+Style/medium: clean hand-painted HD 2D game item art, cozy pastoral merge-game asset, crisp continuous dark outline, cel-shaded forms, smooth color-blocked surfaces, very low texture noise. Warm wood, polished steel, brass, teal enamel, red handles, purple grip, orchard green accents. Do not make pixel art.
+
+Composition/framing: exact 3x4 grid with no visible borders or frames. Each tool must be isolated and centered in its invisible cell, fully inside the cell with generous magenta padding. All 12 tools must have the same visual footprint and comparable maximum silhouette size, about the central 65-70% of each cell. Early tools must not be tiny; final tools must not be oversized. Strong readable silhouettes for cutting.
+
+Cleanup constraints: perfectly flat solid #FF00FF background everywhere, no gradients, no texture, no lighting variation in the background. No cast shadow, no contact shadow, no drop shadow, no blurred shadow, no floor plane, no reflection, no ground smudge. No detached sparkles, particles, glow clouds, smoke, dust, dirt crumbs, chips, tiny screws, hairline decorations, labels, text, numbers, watermark, UI, frame borders, or guide marks.
+
+Avoid: baskets, crates, boards, bowls, jars, bottles, vases, pots, packages, ribbons, furniture, fireplaces, flowers, fruit as the main subject, repeated tool shapes, duplicate tool species, tool piles, crossed tools, long poles, tiny detached parts, acorns, decorative emblems, complicated magical FX. Keep the base assets distinct and cut-friendly.

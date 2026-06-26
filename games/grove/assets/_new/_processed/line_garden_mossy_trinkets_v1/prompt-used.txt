@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Mossy Trinkets line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, old found-object charm, simple readable silhouettes, moss as broad attached patches. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 trinkets must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one mossy trinket per cell, in this order:
+1. round wooden button with one moss patch
+2. smooth clay bead with green moss cap
+3. tiny brass thimble with chunky moss band
+4. old garden key charm with moss on the handle
+5. oval bronze brooch with a single moss corner
+6. small pocket mirror, closed, with moss on rim
+7. little toy crown with two moss patches
+8. small clay mask charm with moss on forehead
+9. compact clockwork token with moss in one groove
+10. turquoise glass relic pebble with moss base
+11. violet eye-shaped amulet with moss edge, not scary
+12. rainbow enamel treasure charm with moss along one side
+
+Important constraints: one connected trinket object per cell only. No chains, no strings, no loose leaves, no flowers, no piles, no containers, no acorn symbols. Moss must be broad and attached, not many tiny fronds. Keep all details large and cutout-friendly.

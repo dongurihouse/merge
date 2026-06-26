@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Rain Charms line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, simple charm silhouettes with attached loops, rain-themed but not a scene. Use blue, teal, yellow, pink, purple, and rainbow accents. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 charms must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one rain charm per cell, in this order:
+1. plain blue raindrop charm with attached top loop
+2. silver cloud charm with a single raindrop shape attached underneath
+3. yellow umbrella charm, closed compact silhouette
+4. teal rain boot charm, one boot only
+5. round puddle charm with blue enamel center
+6. little raincoat charm, flat front-facing icon shape
+7. dark blue storm-drop charm with brass rim
+8. pink flower-rain charm shaped like a droplet with one large petal mark
+9. turquoise cloud-drop medallion, cloud and drop fused together
+10. bright blue glass raindrop charm with gold cap
+11. violet moon-rain charm, crescent and droplet fused into one object
+12. rainbow rain charm with bold color bands inside a large droplet
+
+Important constraints: one connected charm object per cell only. No chain, no string, no loose beads, no falling raindrops, no background clouds, no puddle splashes, no acorn symbols. Keep loops and attached details large and cutout-friendly.

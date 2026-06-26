@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Gate Bells line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, chunky bell silhouettes, distinct materials and colors. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no sound waves, no text, no labels, no watermark.
+Sizing: all 12 bells must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one bell per cell, in this order:
+1. small bronze hand bell with simple handle
+2. round brass service bell
+3. blue ceramic bell with thick rim
+4. red festival bell with gold handle
+5. green patina gate bell with chunky clapper attached inside
+6. yellow cowbell with simple top loop
+7. teal temple bell, compact shape
+8. pink flower-shaped bell, petal rim fused into bell body
+9. dark iron gate bell with pale rim stripe
+10. turquoise glassy bell with brass cap
+11. violet moon bell with crescent mark on body
+12. rainbow enamel bell with bold color panels
+
+Important constraints: one connected bell object per cell only. No strings, no chains, no frames, no mallets, no multiple bells, no loose clappers, no acorn symbols. Bell openings, handles, and rims should be large and chunky for clean cutting.

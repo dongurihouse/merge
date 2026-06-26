@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Gate Star Pebbles line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, smooth pebble silhouettes with star-shaped marks or star-like shapes, magical by material/color only. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 pebbles must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one star pebble per cell, in this order:
+1. gray oval pebble with simple carved star mark
+2. tan rounded star-shaped pebble, soft corners
+3. blue pebble with pale star inset
+4. yellow five-point star stone, chunky rounded points
+5. green river pebble with dark star stripe
+6. red pebble with gold star mark
+7. teal polished star pebble with brass rim vein
+8. pink heart-like pebble with small star indentation
+9. dark indigo gate pebble with raised white star shape
+10. turquoise glassy pebble with brass star inlay
+11. violet moonstone pebble with crescent and star fused mark
+12. rainbow banded star pebble with bold mineral layers and central gold star
+
+Important constraints: one connected pebble object per cell only. No piles, no loose tiny stones, no star particles, no sparkle marks, no constellation dots, no acorn symbols. Star marks must be large and graphic, not many tiny details.

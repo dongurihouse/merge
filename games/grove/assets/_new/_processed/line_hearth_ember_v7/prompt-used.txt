@@ -1,0 +1,8 @@
+Generate a production-ready 2D game asset sheet for the Farm Hearth Ember line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, simple readable silhouettes, no cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 elements must have the same visual footprint and fill the same amount of each grid cell. Early tiers must not be smaller than late tiers.
+
+Accepted line requirements: everyday portable ember-related objects, no fireplace or furniture, high tiers more vibrant/funny/mysterious through color and motif rather than extra FX, and any Grove/acorn signature replaces the existing central emblem slot rather than being added as a separate badge.

@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Garden Birds line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, cute compact bird silhouettes, wings tucked, bright but simple colors. No cast shadow, no contact shadow, no floor shadow, no glow, no sparkles, no particles, no text, no labels, no watermark.
+Sizing: all 12 birds must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one whole bird per cell, in this order:
+1. small brown garden sparrow
+2. round bluebird with pale belly
+3. red-breasted robin, simple shape
+4. yellow canary with orange beak
+5. green finch with striped wing patch
+6. pink blossom bird with rounded crest
+7. teal rainbird with darker wing
+8. orange seedbird with stout beak
+9. dark mossy-blackbird with green breast patch
+10. turquoise glassy bird with brass beak
+11. violet moonbird with crescent wing patch
+12. rainbow feather garden bird with bold color bands
+
+Important constraints: one connected bird object per cell only. No branches, no nests, no eggs, no food, no loose feathers, no cages, no acorn symbols. Feet must be small and attached to the body, not thin separate lines. Keep feather detail large and simple.

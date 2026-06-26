@@ -1,0 +1,22 @@
+Generate a production-ready 2D game asset sheet for the Gate Glowcaps line, matching the clean cozy Grove merge-game asset style.
+
+Canvas: exact 1024x1536 PNG, arranged as a 3 columns x 4 rows grid with generous gutters.
+Background: solid flat #FF00FF only.
+Style: cozy hand-painted game icons, crisp continuous dark outline, magical mushroom silhouettes through color only, simple readable cap and stem shapes. No cast shadow, no contact shadow, no floor shadow, no actual glow halo, no sparkles, no particles, no spores, no text, no labels, no watermark.
+Sizing: all 12 glowcaps must have the same visual footprint and fill the same amount of each grid cell. Center every item.
+
+Create exactly one glowcap mushroom per cell, in this order:
+1. small tan cap mushroom with cream stem
+2. red cap mushroom with large white spots
+3. blue cap mushroom with pale underside
+4. yellow lantern-cap mushroom, color only, no glow
+5. green moss-cap mushroom with one broad moss patch
+6. orange speckled cap mushroom with simple big spots
+7. teal bell-cap mushroom with stout stem
+8. pink umbrella-cap mushroom with thick rim
+9. dark indigo gatecap mushroom with pale vein lines
+10. turquoise glassy cap mushroom with brass stem ring
+11. violet mooncap mushroom with crescent mark on cap
+12. rainbow prism-cap mushroom with bold color panels
+
+Important constraints: one connected mushroom object per cell only. No clusters, no loose tiny mushrooms, no grass, no dirt, no leaves, no acorn symbols. Keep spots and veins large, not tiny speckles. The mushroom should feel magical by color and silhouette, not effects.

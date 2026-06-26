@@ -1,0 +1,9 @@
+Prompt provenance note:
+The exact interactive generation prompt for this earlier accepted Porch Packages line was not preserved.
+
+Accepted production requirements for the final asset:
+- 12-tier Grove/Farm line sheet in a 3x4 row-major layout.
+- Solid magenta key background, clear continuous outlines, no shadows, no floor or grounding.
+- Single cutout-friendly package object per tier with matched visual footprint.
+- Package theme using boxes, parcels, sacks, wrapping, and delivery-like everyday objects.
+- Avoid detached FX, tiny tags, readable text, watermarks, and arbitrary acorn symbols.
