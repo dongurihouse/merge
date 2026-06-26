@@ -2370,10 +2370,8 @@ func _stash(from: Vector2i, node: Control) -> void:
 	_persist()
 	_rebuild_bag()
 	if bag_btn != null and is_instance_valid(bag_btn):
-		var stash_done := func() -> void:
-			if is_instance_valid(self):
-				_update_bag_count()
-		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, stash_done, FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "stash_to_bag")
+		# no completion callback: _rebuild_bag() above already refreshed the bottom-bar count.
+		FX.reward_arrival(self, at, "bag", 1, STRAW, bag_btn, Callable(), FX.reward_fx_icon_size(), "+", FX.reward_fx_trail_count(), "stash_to_bag")
 		FX.floating_text(self, bag_btn.get_global_rect().get_center() - Vector2(70, 82), Strings.t("board.feedback.stored"), STRAW, 24)
 	_refresh_giver_lights()
 
