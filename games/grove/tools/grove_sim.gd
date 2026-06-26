@@ -266,7 +266,8 @@ func _level() -> int:
 	return G.level_for_exp(exp_earned)
 
 func _live_lines() -> Array:
-	return G.lines_for_map(G.GENERATORS, map)
+	# SINGLE-GENERATOR model (idea 3): all opened lines stay live, not just the current map's.
+	return G.askable_lines(G.GENERATORS, map)
 
 # --- §1 POPULATION: the endless coin/diamond sink on COMPLETED maps -----------------
 # The sim keeps its OWN resident roster (residents[z] = {type_id -> [t1..tMAX]}) rather than

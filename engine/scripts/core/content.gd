@@ -121,13 +121,17 @@ static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> A
 				out.append(int(l))
 	return out
 
-## The lines a regular quest may ASK while the player is in `map`: the current map's live lines
-## only (`lines_for_map`), sorted. Old-map lines aren't quested — the newest-line bias keeps the
-## fence on recent content; old generators stay usable for selling + the collection ladder.
-## `level` gates a not-yet-grown generator's lines out (so the fence never asks for what nothing
-## can produce yet).
+## The lines a regular quest may ASK while the player is in `map`: ALL OPENED lines — the current
+## map's live lines PLUS every earlier map's lines (maps 0..map). Old lines NO LONGER RETIRE from the
+## fence: a quest can ask any previously-opened line, so with several quests up the single generator
+## pops several lines at once (idea 3 — "any of the previously opened lines"). `level` still gates a
+## not-yet-grown generator's lines out (so the fence never asks for what nothing can produce yet).
 static func askable_lines(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
-	var out: Array = lines_for_map(roster, map, level)
+	var out: Array = []
+	for z in map + 1:                            # every map reached so far (0..map)
+		for l in lines_for_map(roster, z, level):
+			if not out.has(int(l)):
+				out.append(int(l))
 	out.sort()
 	return out
 
@@ -142,20 +146,17 @@ static func retired_lines(roster: Array, map: int) -> Array:
 				out.append(int(l))
 	return out
 
-## The generators the player is OWED but doesn't have: for every UNLOCKED map (map_unlocked — the SAME
-## gate signal that surfaces a map's quests, NOT where the camera is / which map was last visited), that
-## map's generator id(s) if not already owned (on the board or in the gen_bag). Monotonic + self-healing:
-## any unlocked map missing its tool is "due", so the next generator tap can produce it (board.gd). Empty
-## once every unlocked map's tool is owned. Replaces the retired carrier-quest delivery (gens_to_grant).
+## The generator the player is OWED but doesn't have. SINGLE-GENERATOR model (idea 3): only the map-0
+## ANCHOR is ever produced — later maps no longer grow their own tool (the one anchor pops EVERY opened
+## line, via askable_lines + the board pop pool). So this returns the anchor id only if it is somehow
+## missing (the self-heal for a stranded save); NEVER a later map's tool. Empty once the anchor is owned.
+## (`unlocks`/`gates` are now unused — kept for the call-site signature.)
 static func due_generators(unlocks: Dictionary, gates: Array, owned_ids: Array) -> Array:
 	var out: Array = []
-	for z in MAPS.size():
-		if not map_unlocked(z, unlocks, gates):
-			continue
-		for g in generators_for_map(GENERATORS, z):
-			var id := String(g.id)
-			if not owned_ids.has(id) and not out.has(id):
-				out.append(id)
+	for g in generators_for_map(GENERATORS, 0):      # map 0 only — the single anchor
+		var id := String(g.id)
+		if not owned_ids.has(id) and not out.has(id):
+			out.append(id)
 	return out
 
 static func gen_def(roster: Array, id: String) -> Dictionary:

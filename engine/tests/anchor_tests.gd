@@ -22,28 +22,25 @@ func ok(cond: bool, label: String) -> void:
 const Z0_LINES := [1]
 
 func _initialize() -> void:
-	# --- askable_lines == lines_for_map (sorted), at EVERY map — no anchor union ---
+	# --- askable_lines == ALL OPENED lines (maps 0..map), at EVERY map — opened lines never retire (idea 3) ---
 	for z in G.MAPS.size():
-		var live := G.lines_for_map(G.GENERATORS, z)
-		live.sort()
-		ok(str(G.askable_lines(G.GENERATORS, z)) == str(live), "at map %d askable_lines == lines_for_map sorted (current-map only)" % z)
+		ok(str(G.askable_lines(G.GENERATORS, z)) == str(_opened_lines(z)), "at map %d askable_lines == all opened lines (0..map)" % z)
 
-	# --- map 0: its own four lines are askable ---
+	# --- map 0: its own line(s) are askable ---
 	var z0 := G.askable_lines(G.GENERATORS, 0)
 	for l in Z0_LINES:
 		ok(z0.has(l), "map-0 askable includes its own line %d" % l)
 
-	# --- past map 0, the map-0 lines are NOT askable (no exemption — old-map lines retire from quests) ---
+	# --- past map 0, the map-0 line(s) STAY askable (the single anchor pops every opened line) ---
 	for z in range(1, G.MAPS.size()):
 		var ask := G.askable_lines(G.GENERATORS, z)
-		var none_z0 := true
+		var all_z0 := true
 		for l in Z0_LINES:
-			if ask.has(int(l)):
-				none_z0 = false
-		ok(none_z0, "at map %d NO map-0 line is askable (anchor exemption retired)" % z)
-		# every current-map line is present, and ONLY those (askable is exactly the live set)
-		var live := G.lines_for_map(G.GENERATORS, z); live.sort()
-		ok(str(ask) == str(live), "at map %d askable is exactly the current-map live set (no stray line)" % z)
+			if not ask.has(int(l)):
+				all_z0 = false
+		ok(all_z0, "at map %d the map-0 line(s) stay askable (opened lines don't retire)" % z)
+		# askable is exactly the opened-line union (maps 0..z)
+		ok(str(ask) == str(_opened_lines(z)), "at map %d askable is exactly the opened-line union (0..map)" % z)
 
 	# --- `level` still gates a not-yet-grown generator's lines out (the staging invariant). The
 	# shipped roster is one generator per map (no staged gen), so drive the gate on a SYNTHETIC
@@ -57,12 +54,11 @@ func _initialize() -> void:
 	ok(G.askable_lines(staged, 0, 5).has(3) and G.askable_lines(staged, 0, 5).has(4), \
 		"a staged gen's lines become askable once it appears at its level")
 
-	# --- gen_quest at a later map draws only from the current-map askable set ---
+	# --- gen_quest at a later map draws from the OPENED-line set (which now includes map-0 lines) ---
 	var rng := RandomNumberGenerator.new()
 	var z := 2
 	var askable := G.askable_lines(G.GENERATORS, z)
 	var all_in := true
-	var z0_leak := 0
 	var tier_ok := true
 	for s in 200:
 		rng.seed = s
@@ -70,13 +66,22 @@ func _initialize() -> void:
 		var li := int(aq.line)
 		if not askable.has(li):
 			all_in = false
-		if Z0_LINES.has(li):
-			z0_leak += 1
 		if int(aq.tier) < 1 or int(aq.tier) > G.TOP_TIER:
 			tier_ok = false
-	ok(all_in, "every generated ask draws from the current-map askable set (producible on the board)")
-	ok(z0_leak == 0, "no generated ask ever lands on a retired map-0 line (%d hits)" % z0_leak)
+	ok(all_in, "every generated ask draws from the opened-line askable set (producible on the board)")
+	for l in Z0_LINES:
+		ok(askable.has(int(l)), "a map-0 line stays a valid ask at a later map (opened lines don't retire)")
 	ok(tier_ok, "a regular quest tier stays within 1..TOP_TIER")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
+
+# All lines OPENED by the time you reach `map` = the union of every map 0..map's lines (sorted).
+func _opened_lines(map: int) -> Array:
+	var out: Array = []
+	for z in map + 1:
+		for l in G.lines_for_map(G.GENERATORS, z):
+			if not out.has(int(l)):
+				out.append(int(l))
+	out.sort()
+	return out
