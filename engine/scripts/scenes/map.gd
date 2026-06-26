@@ -106,15 +106,12 @@ var diamonds_label: Label
 var _hud_refresh := Callable()
 var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
-var _open_shop := Callable()      # opens the shared Shop / premium stall (lives in the bottom chrome)
 var _open_water := Callable()     # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_panels: Array = []       # wallet + Lv chips
 # chrome badges (driven by actionable-state queries; visibility only — never a nag)
 var _daily_badge: Control = null  # Daily rail badge — lit when today's login reward is unclaimed
 var _inbox_badge: Control = null  # Inbox rail badge — unread count (only built when the inbox system exists)
 var _vine_debug_mode_idx := 0
-var _vine_debug_layer: CanvasLayer = null
-var _vine_debug_button: Button = null
 # Inbox is a PARALLEL system (core/inbox.gd + ui/inbox.gd) NOT in this worktree's base — GUARD it so
 # this compiles + tests without it, and the button lights up once that system merges (load() is runtime).
 var _has_inbox := ResourceLoader.exists("res://engine/scripts/ui/inbox.gd") and ResourceLoader.exists("res://engine/scripts/core/inbox.gd")
@@ -204,7 +201,6 @@ func _ready() -> void:
 		add_child(mail_timer)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
-	_mount_vine_debug_overlay()          # phone vine diagnostics (debug-only; no-op in release)
 
 	SceneWarm.prewarm("res://engine/scenes/Board.tscn")   # warm the board off-thread while the player lingers on the map
 
@@ -501,7 +497,6 @@ func _build_map_base(z: int, home: Dictionary) -> Control:
 		vframe.add_child(view)
 		view.set_mask_offset(mask_offset)
 		_apply_vine_debug_mode(view)
-		_refresh_vine_debug_button()
 		if _vine_diag_enabled():
 			_print_vine_diag.call_deferred("map_open")
 		return vframe
@@ -631,7 +626,6 @@ func debug_cycle_vine_fx() -> void:
 	_vine_debug_mode_idx = (_vine_debug_mode_idx + 1) % VINE_DEBUG_MODES.size()
 	var view := _active_vine_view()
 	_apply_vine_debug_mode(view)
-	_refresh_vine_debug_button()
 	_print_vine_diag("cycle")
 
 func debug_vine_diag() -> void:
@@ -653,52 +647,6 @@ func _vine_diag_enabled() -> bool:
 	if OS.get_environment("TU_VINE_DIAG") == "1":
 		return true
 	return OS.has_feature("mobile") and OS.is_debug_build()
-
-func _mount_vine_debug_overlay() -> void:
-	if not _vine_diag_enabled() or _vine_debug_layer != null:
-		return
-	_vine_debug_layer = CanvasLayer.new()
-	_vine_debug_layer.name = "VineDebugOverlay"
-	_vine_debug_layer.layer = 129
-	var col := VBoxContainer.new()
-	col.position = Vector2(12.0, Look.safe_top(self) + 330.0)
-	col.add_theme_constant_override("separation", 4)
-	_vine_debug_layer.add_child(col)
-
-	_vine_debug_button = _vine_debug_btn("")
-	_vine_debug_button.pressed.connect(debug_cycle_vine_fx)
-	col.add_child(_vine_debug_button)
-	var diag := _vine_debug_btn("Diag")
-	diag.pressed.connect(debug_vine_diag)
-	col.add_child(diag)
-	add_child(_vine_debug_layer)
-	_refresh_vine_debug_button()
-
-func _vine_debug_btn(label: String) -> Button:
-	var b := Button.new()
-	b.text = label
-	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(160, 40)
-	b.add_theme_font_size_override("font_size", 18)
-	b.add_theme_color_override("font_color", Color.WHITE)
-	var style := StyleBoxFlat.new()
-	style.bg_color = Color("#4B2E83", 0.88)
-	style.set_corner_radius_all(6)
-	style.set_border_width_all(2)
-	style.border_color = Color(1, 1, 1, 0.55)
-	style.content_margin_left = 10.0
-	style.content_margin_right = 10.0
-	style.content_margin_top = 5.0
-	style.content_margin_bottom = 5.0
-	b.add_theme_stylebox_override("normal", style)
-	b.add_theme_stylebox_override("hover", style)
-	b.add_theme_stylebox_override("pressed", style)
-	return b
-
-func _refresh_vine_debug_button() -> void:
-	if _vine_debug_button == null or not is_instance_valid(_vine_debug_button):
-		return
-	_vine_debug_button.text = "Vine: %s" % String(VINE_DEBUG_MODES[_vine_debug_mode_idx])
 
 func _print_vine_diag(reason: String) -> void:
 	var view := _active_vine_view()
@@ -1163,8 +1111,7 @@ func _scroll_select_by(dy: float) -> void:
 			c.position.y = float(hit.y0) - _select_scroll
 
 func _map_tap(gpos: Vector2) -> void:
-	# §1 residents are welcomed via the Residents shop dialog now (not an on-map panel), so taps resolve
-	# straight to spots / wandering spirits.
+	# Residents live on their own screen now, so map taps resolve straight to spots / wandering spirits.
 	for hit in spot_hits:
 		var n: Control = hit.node
 		if n.get_global_rect().grow(8.0).has_point(gpos):
@@ -1277,11 +1224,11 @@ func _capture_region_veil(view: Variant, k: int) -> Dictionary:
 		return {}
 	return {"tex": ImageTexture.create_from_image(img), "bbox": Rect2(used)}
 
-# --- §1 residents: WELCOMING spirits home (the population sub-game) ----------------------
-# On a COMPLETED map the player WELCOMES wandering spirits via the Residents shop dialog
-# (_open_residents_shop, opened from the bottom-nav Residents button). G.welcome_resident spends +
-# adds + silently auto-merges two-of-a-kind; the roster is the source of truth and the population
-# layer is rebuilt from it on each buy. (The old always-on bottom panel was retired for the shop.)
+# --- §1 residents: legacy welcome shop + unlock gift helpers -----------------------------
+# The bottom-nav Residents button now opens Residents.tscn. This older shop path stays callable for
+# existing tests/tools and for the map-population roster model until that model is migrated or retired.
+# G.welcome_resident spends + adds + silently auto-merges two-of-a-kind; the population layer is rebuilt
+# from that roster after each legacy buy.
 
 # --- HUD & chrome -----------------------------------------------------------------------
 
@@ -1307,7 +1254,6 @@ func _build_hud() -> void:
 	level_label = hud.level
 	_hud_refresh = hud.refresh
 	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
-	_open_shop = hud.open_premium    # generic "open the shop" → the premium (acorn) stall
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_panels = [hud.wallet, hud.lv_panel]
 
@@ -1375,7 +1321,7 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
-		# Residents — the resident roster shop (only on a fully-unlocked map; hidden otherwise).
+		# Residents — the habitat management screen (only on a fully-unlocked map; hidden otherwise).
 		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
 		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
@@ -1412,7 +1358,7 @@ func _make_map_button() -> Button:
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	return Kit.home_button({"icon": HC.ICON_MAP, "caption": Strings.t("map.nav.map"), "action": open}, opts)
 
-# The Residents button (bottom nav, between Map and Play) — opens the resident roster shop. Built like the
+# The Residents button (bottom nav, between Map and Play) — opens the habitat management screen. Built like the
 # Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
 # "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
 # out of the nav HBox, so an incomplete map shows just [Map, Play].
@@ -1439,10 +1385,8 @@ func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
 		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
 
-# The residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon, name,
-# cost). Buying welcomes a t1 (G.welcome_resident: spend → add → auto-merge), then rebuilds the population
-# layer and refreshes the shop's affordability in place. Built over a veil overlay with the shared Kit
-# shop_dialog chrome — the same frame the coin/gem store wears.
+# Legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon,
+# name, cost). Kept for existing tests/tools while the active button routes to Residents.tscn.
 func _open_residents_shop(z: int) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
