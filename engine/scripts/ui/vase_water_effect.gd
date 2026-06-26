@@ -36,6 +36,13 @@ var _mask_img: Image
 var _mask_bounds := Rect2i()
 var _mask_row_spans: Array[Vector2i] = []
 
+# The vase + mask caches are full-image pixel scans (~1M get_pixel calls each). The art is
+# fixed, and the purge card rebuilds a fresh vase on every quest delivery, so the scans are
+# cached statically and shared across all instances — the walk runs once per process, not per
+# delivery. (Editor caveat: re-importing the art needs an editor restart to refresh the cache.)
+static var _vase_bounds_cache: Dictionary = {}   # VASE_PATH -> Rect2i content bounds
+static var _mask_cache: Dictionary = {}          # MASK_PATH -> {img, bounds, spans}
+
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -48,6 +55,10 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	# The idle wave / ready-glow are intentional perpetual animation, so we keep redrawing while
+	# on screen; only skip the work when the vase isn't actually visible in the tree.
+	if not is_visible_in_tree():
+		return
 	_advance(delta, false)
 
 
@@ -453,6 +464,9 @@ func _prepare_vase_cache() -> void:
 	_vase_content_bounds = Rect2i()
 	if _tex == null:
 		return
+	if _vase_bounds_cache.has(VASE_PATH):
+		_vase_content_bounds = _vase_bounds_cache[VASE_PATH]
+		return
 	var img := _tex.get_image()
 	if img == null:
 		return
@@ -474,6 +488,7 @@ func _prepare_vase_cache() -> void:
 				max_y = maxi(max_y, y)
 	if max_x >= min_x and max_y >= min_y:
 		_vase_content_bounds = Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+	_vase_bounds_cache[VASE_PATH] = _vase_content_bounds
 
 
 func _has_vase_content_bounds() -> bool:
@@ -499,6 +514,12 @@ func _prepare_mask_cache() -> void:
 	_mask_bounds = Rect2i()
 	_mask_row_spans.clear()
 	if _mask_tex == null:
+		return
+	if _mask_cache.has(MASK_PATH):
+		var cached: Dictionary = _mask_cache[MASK_PATH]
+		_mask_img = cached["img"]
+		_mask_bounds = cached["bounds"]
+		_mask_row_spans.assign(cached["spans"])
 		return
 	_mask_img = _mask_tex.get_image()
 	if _mask_img == null:
@@ -535,6 +556,7 @@ func _prepare_mask_cache() -> void:
 
 	if max_x >= min_x and max_y >= min_y:
 		_mask_bounds = Rect2i(min_x, min_y, max_x - min_x + 1, max_y - min_y + 1)
+	_mask_cache[MASK_PATH] = {"img": _mask_img, "bounds": _mask_bounds, "spans": _mask_row_spans.duplicate()}
 
 
 func _mask_has_alpha_cutout() -> bool:

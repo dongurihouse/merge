@@ -121,21 +121,6 @@ static func move(from_id: String, index: int, to_id: String, now: float = -1.0) 
 	_set_placed(to_id, dst)
 	return true
 
-## Pick a placed spirit back UP into the hand (the other capacity door, for re-merging). Settles
-## production first. Returns true on success.
-static func unplace(map_id: String, index: int, now: float = -1.0) -> bool:
-	var p := placed(map_id)
-	if index < 0 or index >= p.size():
-		return false
-	_settle(map_id, now)
-	var inst: Dictionary = p[index]
-	p.remove_at(index)
-	_set_placed(map_id, p)
-	var h := hand()
-	h.append({"kind": String(inst.kind), "tier": int(inst.tier)})
-	_set_hand(h)
-	return true
-
 # --- idle production ---------------------------------------------------------------
 ## A map's production RATE = sum of its placed spirits' tiers (v1 tier-only yield).
 static func rate(map_id: String) -> int:
@@ -171,7 +156,7 @@ static func pending(map_id: String, now: float = -1.0) -> float:
 	return acc + minf(flow, room)
 
 ## Bank pending into stored `acc` and reset `last` = now. Called before any rate change (place/move/
-## sell/unplace) and inside collect, so accrual is always integrated at the correct rate.
+## sell) and inside collect, so accrual is always integrated at the correct rate.
 static func _settle(map_id: String, now: float = -1.0) -> void:
 	if now < 0.0:
 		now = _now()
