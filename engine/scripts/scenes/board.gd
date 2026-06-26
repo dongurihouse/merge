@@ -789,7 +789,7 @@ func _make_purge_card(stand_w: float) -> Control:
 	var vase_h := FENCE_H
 	var vase_w := minf(cardW * 0.98, vase_h)
 	vase.size = Vector2(vase_w, vase_h)
-	var vase_center_x := clampf(stand_w * 0.32, vase_w * 0.5, stand_w - vase_w * 0.5)
+	var vase_center_x := clampf(stand_w * 0.32 + 5.0, vase_w * 0.5, stand_w - vase_w * 0.5)
 	vase.position = Vector2(vase_center_x - vase_w / 2.0, 0.0)
 	stand.add_child(vase)
 	var pct := Label.new()

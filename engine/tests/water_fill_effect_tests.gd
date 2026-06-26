@@ -246,6 +246,12 @@ func _initialize() -> void:
 		var purge_vase_center_x := purge_vase.position.x + purge_vase.size.x * 0.5
 		ok(purge_vase_center_x <= purge_card.custom_minimum_size.x * 0.38,
 			"purge vase is shifted left under the level badge drop source")
+		var expected_vase_center_x := clampf(
+			purge_card.custom_minimum_size.x * 0.32 + 5.0,
+			purge_vase.size.x * 0.5,
+			purge_card.custom_minimum_size.x - purge_vase.size.x * 0.5)
+		ok(absf(purge_vase_center_x - expected_vase_center_x) < 0.5,
+			"purge vase is nudged 5 px right from the badge-aligned position")
 		if purge_vase.has_method("visible_vase_rect_for_test"):
 			var purge_visible_rect: Rect2 = purge_vase.call("visible_vase_rect_for_test")
 			ok(purge_visible_rect.size.y >= purge_vase.size.y * 0.96, "visible purge vase art fills the whole slot height")
