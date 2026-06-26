@@ -3390,7 +3390,8 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 
 ## Screen-relative HUD layout from the workbench. These are OUTER geometry slots, not the art recipe:
 ## level badge width, wallet band/pill widths, top band reserved before side rail/settings, shared nav
-## button width, and the board info-bar width. Stored as whole percents for simple workbench sliders.
+## button width, board info-bar width, and the shared right-edge inset for the wallet + rail.
+## Stored as whole percents for simple workbench sliders, except edge_margin_px which is literal pixels.
 static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
 	return {
@@ -3400,6 +3401,7 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"top_band_h_frac": clampf(float(h.get("top_band_h_pct", 15.0)) / 100.0, 0.0, 0.50),
 		"button_w_frac": clampf(float(h.get("button_w_pct", 15.0)) / 100.0, 0.05, 0.50),
 		"info_bar_w_frac": clampf(float(h.get("info_bar_w_pct", 70.0)) / 100.0, 0.10, 0.95),
+		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
 	}
 
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench

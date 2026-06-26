@@ -1,6 +1,5 @@
 extends RefCounted
-## The SETTINGS card (music · sounds · calm) — opened from BOTH scenes' chrome: the map's gear AND the
-## board's bottom bar (settings must be reachable from the board, not only after a trip Home).
+## The SETTINGS card (music · sounds · calm) — opened from the map's side-rail Settings tile.
 ##
 ## The FACE is now BUILT from the shared MAIL KIT (games/grove/tools/ui_workbench_kit.gd) using the
 ## design config the UI WORKBENCH saves — the SAME pattern the mailbox (inbox.gd) and daily (login.gd)

@@ -36,7 +36,6 @@ const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-war
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Debug = preload("res://engine/scripts/ui/debug.gd")
-const SettingsUI = preload("res://engine/scripts/ui/settings.gd")   # the shared Settings card — reachable from the board, not only the map
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const Pal = Game.PALETTE
 
@@ -577,11 +576,7 @@ func _build_hud() -> void:
 				_regen_ts = Time.get_unix_time_from_system()
 			_update_water_hud(),
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self),
-		# Settings is a top-RIGHT gear in the shared HUD now (off the bottom bar) — opens the shared card.
-		"settings": func() -> void:
-			Audio.play("button_tap", -2.0)
-			SettingsUI.open(self)})
+		"on_level": func() -> void: LevelPopup.open(self)})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds

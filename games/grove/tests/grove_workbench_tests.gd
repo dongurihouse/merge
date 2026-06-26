@@ -6,6 +6,7 @@ extends SceneTree
 const View = preload("res://games/grove/tools/ui_workbench_view.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 const Pal = preload("res://games/grove/grove_palette.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
@@ -376,14 +377,22 @@ func _initialize() -> void:
 		"the shipped gold_currency_pill renders a wallet capsule that holds its content + stays a touch target (live %d px)" % int(live_h))
 	live_pill.queue_free()
 	var hud_host := Control.new()
-	hud_host.custom_minimum_size = Vector2(1080, 1920)
+	hud_host.size = Design.size()
+	hud_host.custom_minimum_size = Design.size()
 	get_root().add_child(hud_host)
 	var hud := Hud.build(hud_host, {})
+	await process_frame
 	ok(hud.coins is Label, "live HUD exposes the coin amount label")
 	ok(_ancestor_named(hud.coins, "GoldCurrencyPill") != null, "live HUD currency pills use the gold currency pill")
 	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
 	ok(hud.coin_plus is Button and not (hud.coin_plus as Button).flat, \
 		"live HUD plus button draws the same green rounded background as the workbench plus")
+	var wallet_rect := (hud.wallet as Control).get_global_rect()
+	var wallet_right_gap := Design.size().x - wallet_rect.end.x
+	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var edge_margin := float(hud_layout.get("edge_margin_px", 18.0))
+	ok(absf(wallet_right_gap - edge_margin) <= 1.0, \
+		"live HUD wallet right margin matches the shared rail margin (%.1f ~= %.1f)" % [wallet_right_gap, edge_margin])
 	var later_weather := Control.new()
 	later_weather.name = "WeatherLayer"
 	hud_host.add_child(later_weather)
@@ -393,6 +402,26 @@ func _initialize() -> void:
 	ok(level_row != null and (hud.wallet as Control).z_index > level_row.z_index, \
 		"live HUD wallet draws above the level row when their top bands overlap")
 	hud_host.queue_free()
+	await process_frame
+
+	var board_scene = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(board_scene)
+	if board_scene.get("board") == null:
+		board_scene._ready()
+	await process_frame
+	ok(not _has_label_text(board_scene, "Settings"), "board screen hides the settings tile with the rest of the side rail")
+	board_scene.queue_free()
+	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map_scene)
+	if map_scene.get("content") == null:
+		map_scene._ready()
+	await process_frame
+	var map_screen_w: float = map_scene.get_viewport_rect().size.x
+	var settings_gap: float = map_screen_w - (map_scene._gear as Control).get_global_rect().end.x if map_scene._gear != null else INF
+	ok(map_scene._gear != null and _has_label_text(map_scene._gear, "Settings") and map_scene._chrome_nodes.has(map_scene._gear) \
+		and absf(settings_gap - edge_margin) <= 1.0, \
+		"map Settings tile is built through the side rail chrome path")
+	map_scene.queue_free()
 	await process_frame
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a

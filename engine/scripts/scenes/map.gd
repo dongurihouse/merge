@@ -28,7 +28,7 @@ const VaultUI = preload("res://engine/scripts/ui/vault.gd")                  # T
 const Login = preload("res://engine/scripts/core/login.gd")                  # T45: the forgiving daily-login calendar (auto-popup gate)
 const LoginUI = preload("res://engine/scripts/ui/login.gd")                  # T45: the diegetic login-calendar popup surface
 const Shop = preload("res://engine/scripts/ui/shop.gd")                      # chrome: the Store-badge query (starter_available)
-const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # the shared Settings card (gear + board bottom bar)
+const SettingsUI = preload("res://engine/scripts/ui/settings.gd")            # the shared Settings card (side-rail Settings tile)
 const Debug = preload("res://engine/scripts/ui/debug.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
@@ -104,7 +104,7 @@ var level_label: Label
 var coins_label: Label
 var diamonds_label: Label
 var _hud_refresh := Callable()
-var _gear: Button = null          # the shared HUD's top-right settings tile (the live-ops rail hangs beneath it)
+var _gear: Button = null          # the side-rail Settings tile
 var _piggy_pip: Control = null    # T45: the vault chrome button's "claimable" ready glow (shown when Vault.claimable())
 var _open_water := Callable()     # opens the water stall (the water pill's +; wired from the HUD)
 var _hud_panels: Array = []       # wallet + Lv chips
@@ -971,7 +971,7 @@ func _build_select(animate := true) -> void:
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
 	_select_clip = clip
-	# the first card rests TOP_PAD below the band top so it clears the settings gear; the stack then
+	# the first card rests TOP_PAD below the band top so it clears the side-rail Settings tile; the stack then
 	# scrolls if it overflows. y is in clip (= screen) coords: band_top + the in-band offset.
 	var top_pad := 20.0
 	var y0 := maxf(top_pad, (band_h - total_h) * 0.5)          # centered when it fits; TOP_PAD down once it scrolls
@@ -1243,17 +1243,11 @@ func _build_hud() -> void:
 		# Save), so the hub needs no water callbacks — the HUD refresh re-reads Save into the water pill,
 		# and the board reads the banked water on its next open. (No live board on the hub to re-sync.)
 		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self),
-		# Settings is the top-right gear in the shared HUD — the SAME button + spot the board uses, so the
-		# gear sits in one place across both screens (off the LiveOps rail now).
-		"settings": func() -> void:
-			Audio.play("button_tap", -2.0)
-			_open_settings()})
+		"on_level": func() -> void: LevelPopup.open(self)})
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
 	level_label = hud.level
 	_hud_refresh = hud.refresh
-	_gear = hud.gear                 # the top-right settings tile — the live-ops rail hangs beneath it
 	_open_water = hud.open_water     # the water stall (free refill + 💎 fill) — same as the water pill's +
 	_hud_panels = [hud.wallet, hud.lv_panel]
 
@@ -1312,9 +1306,8 @@ func _on_unlock_pressed() -> void:
 func _build_chrome() -> void:
 	# The home/map bottom nav is the SAME shared global row the board uses (ui/nav_bar.gd), at the SAME
 	# board sizing — side buttons 140, the centred primary (Play) 184 — so the two screens' bottom bars
-	# match. Order: Map · Play. PLAY is the way into the garden/board (the prominent leaf). Shop + Settings
-	# left the bottom bar (shop opens from the top pills' "+", Settings is the top-right gear); the Piggy
-	# bank moved to the LiveOps side rail (_build_liveops_rail).
+	# match. Order: Map · Play. PLAY is the way into the garden/board (the prominent leaf). Shop opens
+	# from the top pills' "+", and Settings/Piggy live in the LiveOps side rail (_build_liveops_rail).
 	var sb := Look.safe_bottom(self)
 	# The flanking Map button is the SHARED configurable home button in its ROUNDED-RECT form (icon + "Map"
 	# label inside the badge — ui_mock2); Play is the big CIRCULAR orange CTA (the only round bottom button).
@@ -1333,7 +1326,7 @@ func _build_chrome() -> void:
 	# identity, not nav index: the Residents button shifts Play's position in the row.)
 	if is_instance_valid(_play_btn):
 		FX.breathe_once(_play_btn)
-	# the LiveOps rail: Daily · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
+	# the LiveOps rail: Settings · Daily · Vault · Inbox, pinned TOP-right below the wallet (home.png). The Piggy
 	# bank lives here now (moved off the bottom bar); its claimable ready-pip is attached there. (The
 	# premium pill's "new offer" red dot and the rail "Free" faucet were removed — Free moved to the shop.)
 	_build_liveops_rail()
@@ -1531,6 +1524,7 @@ const RAIL_SCALE := 0.80        # the rail discs are SMALLER than the shared hom
 var _home_opts := {}            # the shared home-button style (loaded once per rail build)
 var _rail_px := RAIL_PX         # the shared home-button size (drives the place-picker back button; full size)
 var _rail_disc_px := RAIL_PX    # the rail's OWN reduced disc size (RAIL_SCALE × shared) — smaller than the nav
+var _rail_margin_px := RAIL_MARGIN
 var _rail_opts := {}            # _home_opts with px overridden to _rail_disc_px (the rail discs only)
 
 func _view_size() -> Vector2:
@@ -1543,7 +1537,7 @@ func _view_size() -> Vector2:
 func _hud_layout() -> Dictionary:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
-		return {"button_w_frac": RAIL_PX / Design.size().x}
+		return {"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
 	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
 func _hud_button_px() -> float:
@@ -1555,8 +1549,13 @@ func _build_liveops_rail() -> void:
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
 	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
 	_home_opts["calm"] = FX.calm()
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {"button_w_frac": RAIL_PX / Design.size().x}
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {
+		"button_w_frac": RAIL_PX / Design.size().x,
+		"edge_margin_px": RAIL_MARGIN,
+		"top_band_h_frac": 0.15,
+	}
 	_rail_px = maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+	_rail_margin_px = float(layout.get("edge_margin_px", RAIL_MARGIN))
 	# the rail tiles now use the same screen-width percentage as Map / Back / board Bag+Home.
 	_rail_disc_px = _rail_px
 	_rail_opts = _home_opts.duplicate()
@@ -1568,14 +1567,15 @@ func _build_liveops_rail() -> void:
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
 	var step := _rail_disc_px + RAIL_CAP_H + RAIL_GAP
-	# the rail hangs directly beneath the settings gear (top-aligned with the wallet), one inter-tile gap
-	# below it — so the gear + the rail read as ONE top-aligned right column. The gear box matches the rail
-	# disc size (both RAIL_SCALE × the home button), so the spacing is even. Fallback: the old fixed inset.
-	var top := (_gear.offset_bottom + RAIL_CAP_H + RAIL_GAP) if (_gear != null and is_instance_valid(_gear)) \
-		else (Look.safe_top(self) + RAIL_TOP)
+	var top := maxf(Look.safe_top(self) + 16.0, _view_size().y * float(layout.get("top_band_h_frac", 0.15)))
 	var slot := 0
-	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	var HC: GDScript = load(HOME_CHROME_PATH)
+	# Settings — first rail tile, using the same builder/placement as the rest of the side rail.
+	_gear = _rail_button(HC.ICON_SETTINGS, Strings.t("settings.title"), func() -> void:
+		Audio.play("button_tap", -2.0)
+		_open_settings())
+	_place_rail(_gear, top, slot, step); slot += 1
+	# Daily — opens the login calendar on demand; badge when today is unclaimed.
 	var daily := _rail_button(HC.ICON_DAILY, Strings.t("map.rail.daily"), _open_daily)
 	_place_rail(daily, top, slot, step); slot += 1
 	_daily_badge = Look.badge("dot", 0, bopts)
@@ -1595,8 +1595,6 @@ func _build_liveops_rail() -> void:
 		_place_rail(inbox, top, slot, step); slot += 1
 		_inbox_badge = Look.badge("pill", 0, bopts)
 		Look.attach_badge(inbox, _inbox_badge, bover)
-	# (Settings is NOT on the rail — it is the shared top-right HUD gear now, the same button + spot the
-	# board uses. See the Hud.build `settings` opt above.)
 	_refresh_liveops_badges()
 
 # One rail button = the SHARED configurable home button (Kit.home_button): the cream/gold disc + icon +
@@ -1623,8 +1621,8 @@ func _place_rail(b: Button, top: float, slot: int, step: float) -> void:
 	b.anchor_right = 1.0
 	b.anchor_top = 0.0
 	b.anchor_bottom = 0.0
-	b.offset_right = -RAIL_MARGIN
-	b.offset_left = -RAIL_MARGIN - _rail_disc_px
+	b.offset_right = -_rail_margin_px
+	b.offset_left = -_rail_margin_px - _rail_disc_px
 	b.offset_top = top + slot * step
 	b.offset_bottom = b.offset_top + _rail_disc_px
 
@@ -1850,7 +1848,7 @@ func _maybe_login_popup_deferred() -> void:
 		_refresh_piggy_pip()})
 
 func _open_settings() -> void:
-	SettingsUI.open(self)               # the shared card (music/sounds/calm) — also on the board's bottom bar
+	SettingsUI.open(self)               # the shared card (music/sounds/calm)
 
 func _on_board() -> void:
 	Audio.play("button_tap", -2.0)

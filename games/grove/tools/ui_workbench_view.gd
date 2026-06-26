@@ -185,6 +185,7 @@ var _params := {
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
+		"edge_margin_px": 18,
 		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
@@ -771,13 +772,14 @@ func _hud_layout_preview() -> Control:
 	root.add_child(_layout_preview_box(Rect2(0, 0, w, top_h), Color("#D9E8D2", 0.18), "top %d%%" % int(p.get("top_band_h_pct", 15))))
 	var level_w := w * float(p.get("level_w_pct", 25)) / 100.0
 	root.add_child(_layout_preview_box(Rect2(0, 0, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
+	var edge := float(p.get("edge_margin_px", 18)) * s
 	var wallet_w := w * float(p.get("currency_area_pct", 75)) / 100.0
-	var wallet_x := w - wallet_w
+	var wallet_x := w - edge - wallet_w
 	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
 	for i in 3:
 		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, 10.0, pill_w, maxf(34.0, top_h * 0.46)), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
 	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
-	var side_x := w - btn_w
+	var side_x := w - edge - btn_w
 	for i in 3:
 		root.add_child(_layout_preview_box(Rect2(side_x, top_h + 8.0 + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
 	var bottom_y := h - btn_w - 10.0
@@ -1541,6 +1543,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["level_w_pct", 10, 40]))          # Lv badge slot width (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_area_pct", 50, 90]))    # wallet's right-side band (% screen width)
 			_sidebar_body.add_child(_slider_row(["currency_pill_w_pct", 12, 35]))  # each currency pill width (% screen width)
+			_sidebar_body.add_child(_slider_row(["edge_margin_px", 0, 48]))        # shared wallet + rail right-edge inset (px)
 			_sidebar_body.add_child(_slider_row(["top_band_h_pct", 5, 30]))        # vertical band reserved before rail/settings
 			_section_header("Buttons + board bottom")
 			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
