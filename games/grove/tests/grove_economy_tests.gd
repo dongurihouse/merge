@@ -381,30 +381,47 @@ func _initialize() -> void:
 		if seen_ids.size() != G.MAPS[z].spots.size():
 			maps_ok = false
 	ok(maps_ok, "every map's spots have unique ids")
-	# 13d. exp level math + the per-spot unlock-threshold ladder (the one uncapped clock)
-	ok(G.level_for_exp(0) == 1 and G.level_for_exp(6) == 2 and G.level_for_exp(126) == 10, \
-		"level_for_exp matches the cumulative thresholds")
-	ok(G.level_for_exp(126 + G.LEVEL_EXP_TAIL) == 11 and G.level_for_exp(100000) > 50, \
-		"the level clock is UNCAPPED — a flat tail past the table")
-	ok(G.exp_at_level(1) == 0 and G.exp_at_level(2) == 6 and G.exp_at_level(11) == 126 + G.LEVEL_EXP_TAIL, \
-		"exp_at_level inverts the curve")
-	ok(G.spot_unlock_exp(0, 0) == 0, "the first spot overall is claimable at 0 exp")
-	# strictly increasing in global order
-	var inc_ok := true
+	# 13d. exp level math — a FRONT-LOADED arithmetic curve (cost(n)=BASE+(n-1)*STEP), uncapped.
+	ok(G.exp_at_level(1) == 0, "level 1 starts at 0 cumulative exp")
+	ok(G.level_for_exp(G.exp_at_level(2)) == 2 and G.level_for_exp(G.exp_at_level(2) - 1) == 1, \
+		"level_for_exp inverts exp_at_level at the L2 boundary")
+	ok(G.exp_at_level(2) > G.exp_at_level(1) and G.exp_at_level(3) > G.exp_at_level(2), \
+		"exp_at_level is strictly increasing")
+	ok(G.level_for_exp(1000000) > 50, "the level clock is UNCAPPED — the arithmetic curve continues past the arc")
+	ok((G.exp_at_level(12) - G.exp_at_level(11)) >= (G.exp_at_level(3) - G.exp_at_level(2)), \
+		"per-level cost is non-decreasing (front-loaded or flat, never back-loaded)")
+	# the per-spot unlock ladder: ONE region per consecutive level across the GLOBAL spot order, the first
+	# at L2 (a quick earned first beat — not free, not endgame-priced). Each level-up grants exactly one region.
+	ok(G.spot_unlock_level(0, 0) == 2, "the first region overall unlocks at level 2")
+	ok(G.spot_unlock_exp(0, 0) == G.exp_at_level(2) and G.spot_unlock_exp(0, 0) > 0, \
+		"the first region's threshold is the L2 floor (earned, never free)")
+	var ladder_ok := true       # each region sits on its own next level …
+	var collide_ok := true      # … so no two regions ever share a level (no finale collapse)
+	var inc_ok := true          # … and exp thresholds strictly increase in global order
+	var seen_levels := {}
+	var expect_level := 2
 	var prev := -1
 	for z in G.MAPS.size():
 		for k in G.MAPS[z].spots.size():
+			var lv := G.spot_unlock_level(z, k)
+			if lv != expect_level:
+				ladder_ok = false
+			if seen_levels.has(lv):
+				collide_ok = false
+			seen_levels[lv] = true
+			if G.spot_unlock_exp(z, k) != G.exp_at_level(lv):
+				ladder_ok = false
 			var e := G.spot_unlock_exp(z, k)
-			if e <= prev and not (z == 0 and k == 0):
+			if e <= prev:
 				inc_ok = false
 			prev = e
+			expect_level += 1
+	ok(ladder_ok, "each region in global order unlocks at the NEXT level (one region per level-up), floored to that level")
+	ok(collide_ok, "no two regions share an unlock level (the finale no longer collapses several onto one level)")
 	ok(inc_ok, "spot_unlock_exp is strictly increasing across the global spot order")
-	# escalates per map: a later map's per-spot increment is larger
-	ok(G.unlock_inc(1) > G.unlock_inc(0) and G.unlock_inc(2) > G.unlock_inc(1), \
-		"the unlock increment escalates per map")
-	# next-unlock picks the lowest-threshold unclaimed spot
+	# next-unlock picks the lowest-threshold unclaimed spot (now the L2 floor, not free)
 	var nu := G.map_next_unlock(0, {})
-	ok(int(nu.k) == 0 and int(nu.exp) == 0, "map_next_unlock targets the lowest-threshold unclaimed spot")
+	ok(int(nu.k) == 0 and int(nu.exp) == G.spot_unlock_exp(0, 0), "map_next_unlock targets the lowest-threshold unclaimed spot")
 	var owned0 := {String(G.MAPS[0].spots[0].id): true}
 	ok(int(G.map_next_unlock(0, owned0).k) == 1, "claiming spot 0 advances the next-unlock to spot 1")
 	# earn_exp bumps the single exp total; the level-up gift is DEFERRED to the dialog's Collect
@@ -412,11 +429,11 @@ func _initialize() -> void:
 	fresh("earn")
 	Save.spend_diamonds(Save.diamonds())       # drain the small new-save seed → the gift below is exact
 	var ge := Save.grove()
-	ge["exp"] = 5
+	ge["exp"] = G.exp_at_level(2) - 1          # one exp short of L2
 	ge["water"] = 10
-	var gained := G.earn_exp(2)                # 5 -> 7 crosses the L2 line (6)
+	var gained := G.earn_exp(2)                # crosses the L2 boundary → one level gained
 	ok(gained == 1, "earn_exp returns the number of levels gained")
-	ok(Save.exp_total() == 7, "earn_exp accrues the single exp total")
+	ok(Save.exp_total() == G.exp_at_level(2) + 1, "earn_exp accrues the single exp total")
 	ok(int(Save.grove()["water"]) == 10 and Save.diamonds() == 0, \
 		"earn_exp does NOT grant the level-up gift (deferred to the dialog's Collect)")
 	var gift := G.level_gift(gained)
@@ -452,15 +469,15 @@ func _initialize() -> void:
 	ok(_all_ignore(h.content), "a non-hub map keeps the single-input-surface rule (unified render)")
 	h._open_map(G.hub_map())
 
-	# a spot CLAIM (tap-to-claim at an exp threshold): the first spot (threshold 0) is claimable
-	# at 0 exp; claiming restores it WITHOUT spending exp (total unchanged). Below the threshold
-	# the claim is a no-op. Exp only ever rises — there is no spendable balance.
-	Save.grove()["exp"] = 0
+	# a spot CLAIM (tap-to-claim at an exp threshold): a spot becomes claimable once exp reaches its
+	# threshold (the first spot at the L2 floor); claiming restores it WITHOUT spending exp (total
+	# unchanged). Below the threshold the claim is a no-op. Exp only ever rises — no spendable balance.
+	Save.grove()["exp"] = G.spot_unlock_exp(0, 0)     # exp at the first spot's threshold (the L2 floor)
 	var exp0 := Save.exp_total()
 	var hearth_id: String = G.MAPS[0].spots[0].id
 	var buy_node: Control = h.spot_hits[0].node
 	h._on_spot_tap(0, 0, buy_node, _hit_center(buy_node))
-	ok(h.spot_owned(hearth_id), "claiming the first spot (threshold 0) records the unlock")
+	ok(h.spot_owned(hearth_id), "claiming the first spot at its threshold records the unlock")
 	ok(Save.exp_total() == exp0, "claiming a spot does NOT spend exp (the total is unchanged)")
 	ok(h._view == "map", "the view stays a map across a claim (no takeover)")
 	# spot 1 sits at a higher threshold — below it the claim is refused, then allowed once exp reaches it

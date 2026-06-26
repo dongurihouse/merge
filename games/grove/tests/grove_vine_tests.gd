@@ -325,7 +325,7 @@ func _test_locked_zone_level_badges() -> void:
 	await create_timer(0.05).timeout
 	var z := G.hub_map()
 	var k := 5
-	var required_level := G.level_for_exp(_raw_zone_unlock_exp(z, k))
+	var required_level := G.spot_unlock_level(z, k)
 	Save.grove()["exp"] = G.exp_at_level(required_level) - 1
 	hx._open_map(z)
 	await create_timer(0.05).timeout
@@ -419,28 +419,20 @@ func _test_registry() -> void:
 	ok(regions[0].has("points") and regions[0].has("tuning"), "a region carries points + tuning")
 	ok(VineMaps.mask_offset_for(e0) == Vector2(0, 100), "map1_farm exposes its authored mask offset")
 
-# The authoring ladder still decides which LEVEL a region belongs to, but the live threshold floors
-# to the start of that level. Example: Farm 6/7 maps into L7, so it opens at exp_at_level(7).
+# The unlock ladder is ONE REGION PER LEVEL: each spot, in GLOBAL order, opens at its own consecutive
+# level (the first region at L2), and the live threshold floors to that level's start. So the home Farm's
+# spots open at L2, L3, L4, … and every later zone continues the run — one region per level-up.
 func _test_zone_unlocks_floor_to_required_level() -> void:
-	var farm_6_raw := _raw_zone_unlock_exp(0, 5)
-	var farm_6_level := G.level_for_exp(farm_6_raw)
-	ok(farm_6_level == 7, "Farm 6/7 maps to required level 7")
-	ok(G.spot_unlock_exp(0, 5) == G.exp_at_level(farm_6_level), "Farm 6/7 unlocks at the L7 floor")
+	ok(G.spot_unlock_level(0, 0) == 2, "the first region overall opens at level 2")
+	ok(G.spot_unlock_exp(0, 0) == G.exp_at_level(2), "the first region unlocks at the L2 floor")
+	var expect_level := 2
 	for z in G.MAPS.size():
 		for k in G.MAPS[z].spots.size():
-			var raw := _raw_zone_unlock_exp(z, k)
-			var required_level := G.level_for_exp(raw)
-			ok(G.spot_unlock_exp(z, k) == G.exp_at_level(required_level),
-				"zone %d/%d unlocks at the floor of L%d" % [z, k, required_level])
-
-func _raw_zone_unlock_exp(z: int, k: int) -> int:
-	var cz: float = G.unlock_content_zone_exp()
-	var last: int = G.MAPS.size() - 1
-	var n: int = maxi(1, G.MAPS[z].spots.size())
-	if z < last:
-		return int(round(z * cz + (k + 1) * (cz / float(n))))
-	var cap := G.GATE_CAP_FRACTION * cz
-	return int(round(last * cz + (k + 1) * (cap / float(n))))
+			ok(G.spot_unlock_level(z, k) == expect_level,
+				"zone %d/%d opens at L%d (one region per level)" % [z, k, expect_level])
+			ok(G.spot_unlock_exp(z, k) == G.exp_at_level(expect_level),
+				"zone %d/%d unlocks at the floor of L%d" % [z, k, expect_level])
+			expect_level += 1
 
 func _test_maps_overlay() -> void:
 	# slot 0 keeps its id/name but is now vine-driven with region-derived spots
