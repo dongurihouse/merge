@@ -200,9 +200,10 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > **⚠ GENERATOR/LINE MODEL EVOLVED — read this box first (2026-06-26).** The original §6 below (a
 > generator emits *two* lines · generators *arrive per map* · old lines *retire* / *hand-in* at
 > boundaries · the *anchor-line exemption*) is **SUPERSEDED**. The authoritative model is here.
-> Implementation map for the SHIPPED parts: `content.gd` (`askable_lines`, `due_generators`),
-> `board.gd` (`_pop_seed` pop pool), `grove_sim.gd`. The PLANNED parts are art-blocked — design lives
-> in `docs/design/generator_line_ideas.md`.
+> Implementation map: `content.gd` (`askable_lines`, `due_generators`, special-drop / accumulator /
+> treat helpers), `board.gd` (`_pop_seed` pop pool, collect / open, accumulators, treat gens),
+> `grove_data.gd` (the tables), `grove_sim.gd`. **A–E are now all SHIPPED (2026-06-26)** — the design
+> history lives in `docs/design/generator_line_ideas.md`.
 >
 > **A. One persistent generator · opened lines never retire — SHIPPED.** There is **a single generator
 > for the whole game** (the map-0 anchor). No new generators grow in per map; tiles never accumulate.
@@ -212,30 +213,31 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > *(With one line per map today, the number of lines flowing = maps reached; multi-line-per-map art —
 > below — surfaces more, sooner.)*
 >
-> **B. Special drop items — PLANNED (art-blocked).** A pool of special items mixes into the generator's
-> pops as occasional surprises, each behaving differently: **chest** (merges like coins → bigger reward
-> when opened) · **key** (merges; opens a chest) · **water** · **acorn** · **exp** (each merges like
-> coins) · **tool** (single-use, no merge — clears any locked cell) · **wildcard** (merges with itself
-> up a tier, and substitutes any same-tier item of any line) · **coins** (already shipped). Mostly short
-> ~3-tier chains; tool is one sprite, wildcard a reusable glyph.
+> **B. Special drop items — SHIPPED.** A pool of special items mixes into the generator's pops as
+> occasional surprises (`SPECIAL_DROP_RATE` / `SPECIAL_DROP_WEIGHTS`), each behaving differently:
+> **chest** (merges; opened by a **key** for a coins+acorns reward that scales with both tiers) · **key**
+> (merges; opens a chest) · **water** · **acorn** · **exp** (each merges, **tap-collect** → the currency)
+> · **wildcard** (a **full 12-tier line**: self-merges, and substitutes any same-tier item of any line) ·
+> **coins** (already shipped). chest/key/water/acorn/exp cap at `SPECIAL_TOP` (3); the wildcard runs the
+> full 12 via a per-item `top`. *(The brainstorm's **tool** item was cut from scope.)*
 >
-> **C. Utility / resource lines — PLANNED.** The **first 4 restored spots of map 1** each unlock a
-> dedicated resource line: **water · coin · exp · acorn**. They **cost no energy**; they are **capped
-> accumulators** — production banks over time up to a small cap, the player **collects**, and they are
-> **stowable in the bag** where they keep accumulating off the merge board. Each is a faucet for a
-> different need — the only decision is *"what do I need now?"* (no routing; §payout-differentiation).
+> **C. Utility / resource accumulators — SHIPPED.** Dedicated **water · coin · exp · acorn** generators
+> (`ACCUMULATORS`) that **cost no energy** and **bank over real time up to a small cap**; the player
+> **taps to collect**, and they are **stowable in the bag** where they keep accumulating off the merge
+> board. Each is a faucet for a different need — the only decision is *"what do I need now?"* (no routing).
 >
-> **D. Temporary treat generators · per-map special lines — PLANNED.** Each map has **one premium
-> "special" line** (a luminous "treasure" chain, distinct from the map's everyday line, paying **acorns**
-> at its pinnacle — a collectible showcase). The special line comes **only** from a **temporary treat
-> generator** the main generator occasionally pops out; it has a **random click-count, then vanishes**.
-> Its specialness is **scarcity + a premium payout + a burst feel** — a fleeting *event* ("grab it before
-> it's gone"), never a faucet. *(Discipline: rarity must be real, the payout qualitatively different —
-> never just a multiplier — and it must never carry the main loop.)*
+> **D. Temporary treat generators · per-map special lines — SHIPPED.** Each map has **one premium
+> "treasure" line** (`MAP_TREAT_LINE` — one luminous fruit chain per map: Farm→pumpkin · Orchard→banana ·
+> Pond Garden→avocado · Mill→cherry · Meadow Gate→melon), distinct from the everyday lines and **selling
+> at a premium band** (`TREAT_SELL_BAND`, above the top map band). It comes **only** from a **temporary
+> treat generator** the main generator occasionally pops (`TREAT_SPAWN_CHANCE`); the gen has a **random
+> click-count, then vanishes** (`TREAT_CLICKS`), pops its line at a **head-start tier** (`TREAT_POP_TIER`),
+> and often **showers a §6.B special drop** (`TREAT_DROP_RATE`). A fleeting *event*, never a faucet.
 >
-> **E. More regular lines per map — PLANNED (the spec's own §6 vision, never built).** The map can carry
-> **2–4 regular lines** (vs. the as-built one), so a new line can debut *mid-map*, not only at a boundary.
-> Each new line = a 12-tier art set via the intake pipeline.
+> **E. More regular lines per map — SHIPPED.** The main pool carries **multiple lines per map** (~24–25
+> across the arc, vs. the original one), gated in by `min_level` so a line can debut *mid-map*, not only at
+> a boundary. The board's clean line-budget ceiling (~24–25, sim-measured) is the cap; premium/overflow art
+> beyond it routes to treat content (D). Each line = a 12-tier art set via the intake pipeline.
 
 ### Generators
 

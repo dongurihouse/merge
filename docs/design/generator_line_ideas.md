@@ -1,11 +1,11 @@
 # Generators & lines — redesign ideas (captured brainstorm)
 
-Status: **BAKED INTO THE CANONICAL SPEC (2026-06-26).** The authoritative model now lives in
-`merge_spec.md` §6 (banner A–E) and `grove_spec.md` §2 (the as-built + planned tables, incl. the 5
-named special lines). **Idea 3 (single persistent generator, opened lines never retire) SHIPPED**
-(content.gd / board.gd / grove_sim.gd). The rest (special drop items, utility accumulator lines,
-temporary treat generators, per-map special lines, more regular lines) is **PLANNED / art-blocked**.
-This file is kept as the working brainstorm + decision log behind that spec.
+Status: **BAKED INTO THE CANONICAL SPEC + ALL SHIPPED (2026-06-26).** The authoritative model lives in
+`merge_spec.md` §6 (banner A–E) and `grove_spec.md` §2 (the as-built tables). All five clusters are now
+built: **idea 3** (single persistent generator, opened lines never retire), **special drop items** (§6.B —
+chest/key/water/acorn/exp/wildcard; the tool was cut), **utility accumulator lines** (§6.C), **temporary
+treat generators + per-map special "treasure" lines** (§6.D — one 12-tier fruit per map), and **more
+regular lines per map** (§6.E). This file is kept as the working brainstorm + decision log behind that spec.
 
 ## Why this exists
 Today every line is mechanically identical (tap generator → merge 12 tiers → deliver/sell), so a 2nd

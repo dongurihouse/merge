@@ -192,8 +192,7 @@ static func _gen_section(host: Control, Kit: GDScript, gen_bag: Array, on_place_
 	var co: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	for gid in gen_bag:
 		var gid_str := String(gid)
-		var gdef: Dictionary = G.gen_def(G.GENERATORS, gid_str)
-		var gtex_path: String = Game.art(String(gdef.get("tex", "")))
+		var gtex_path: String = Game.art(G.gen_tex(gid_str))
 		var make_gen := func(sz: float) -> Control:
 			if ResourceLoader.exists(gtex_path):
 				var gicon := TextureRect.new()

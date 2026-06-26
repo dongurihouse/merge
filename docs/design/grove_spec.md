@@ -117,37 +117,42 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 
 *Instantiates Core §6 (Generators & Item Lines).*
 
-> **⚠ AS-BUILT + PLANNED (2026-06-26) — read first.** The "24 lines / 12 generators / 2 lines per
-> generator" roster below is **NOT what shipped** and is superseded. See Core §6's banner for the model.
+> **⚠ AS-BUILT (2026-06-26) — read first.** The "24 lines / 12 generators / 2 lines per generator" roster
+> below is superseded. The Core §6 model (A–E, **all SHIPPED**) is authoritative; this is its grove build.
 >
-> **As-built + SHIPPED.** The grove runs **5 regular lines, one per map**, from **a single persistent
-> generator** (the seed satchel) that pops **every opened line** — lines never retire (Core §6.A).
-> | Map (display) | Regular line | base |
+> **Regular lines — SHIPPED (Core §6.A + E).** A **single persistent generator** (the seed satchel) pops
+> **every opened line**; lines never retire. Map 0 opens with **one** lead line (the FTUE anchor); maps
+> 1–4 each carry **several** (the §6.E multi-line expansion), gated in by `min_level` so a line can debut
+> mid-map. Lead line per map (the full roster lives in `grove_data.GENERATORS` / `LINES`):
+> | Map (display) | Lead line | base | extra lines on the map (codes) |
+> |---|---|---|---|
+> | The Farm | Wildflower | `flower` | — (single FTUE line) |
+> | The Orchard | Feather | `feather` | fruits · tools · seeds · scarecrows (21–24) |
+> | The Garden | Garden tools | `tools` | juice · kites · stones · trinkets · charms · birds · critters · veg (31–38) |
+> | The Mill | Honey | `honey` | small fish · small animals · water plants · gears (41–44) |
+> | The Gate | Mushroom | `mushroom` | glowcaps · bells · arch tokens · star pebbles (51–54) |
+>
+> **Per-map SPECIAL "treasure" lines — SHIPPED (Core §6.D).** One luminous **12-tier** fruit chain per map
+> (`MAP_TREAT_LINE`), popped only by the temporary treat generator and sold at a premium band
+> (`TREAT_SELL_BAND`):
+> | Map | Special line | base |
 > |---|---|---|
-> | The Farm | Wildflower | `flower` |
-> | The Orchard | Feather | `feather` |
-> | The Garden | Garden tools | `tools` |
-> | The Mill | Honey | `honey` |
-> | The Gate | Mushroom | `mushroom` |
+> | The Farm | **Prize pumpkin** | `special_pumpkin` |
+> | The Orchard | **Golden banana** | `special_banana` |
+> | The Garden | **Jewel avocado** | `special_avacado` |
+> | The Mill | **Ruby cherry** | `special_cherry` |
+> | The Gate | **Sugar melon** | `special_watermelon` |
+> *(The Farm lines 61–66 — hearth embers … flower boxes — are reserve premium treat content, art-ready,
+> assigned to a map when the world grows past map 4.)*
 >
-> **PLANNED — the per-map SPECIAL "treasure" lines** (Core §6.D — premium, acorn-paying, luminous
-> collectible chains from the temporary treat generator; each distinct from its map's regular line):
-> | Map | Special line | t1 → t12 arc |
-> |---|---|---|
-> | The Farm | **Goldgourd** (prize pumpkin) | seed → vine → blossom → gourd → … → giant glowing golden pumpkin |
-> | The Orchard | **Goldapple** | blossom → fruitlet → apple → … → the legendary golden apple |
-> | The Garden | **Moonlotus** (lotus + pearl) | lily pod → bud → lotus → … → radiant moon-lotus, pearl shining |
-> | The Mill | **Spungold** (grain → loaf) | grain → sheaf → flour → braid → … → spun-gold wheat crown |
-> | The Gate | **Starlantern** (fireflies) | firefly spark → jar → lantern → … → lantern crowned with a constellation |
+> **Special drop items — SHIPPED (Core §6.B):** chest · key (drag a key onto a chest → coins+acorns) ·
+> water · acorn · exp (tap-collect) · wildcard (a **full 12-tier** line — self-merge + same-tier
+> substitute) · coins. *(The brainstorm's tool item was cut.)* **Utility accumulators — SHIPPED (Core
+> §6.C):** water · coin · exp · acorn — capped accumulators, no energy cost, tap-collect, bag-stowable.
 >
-> **PLANNED — special drop items** (Core §6.B): chest · key · water · acorn · exp (each merges like
-> coins) · tool (single-use, clears a locked cell) · wildcard (self-merge up a tier + same-tier
-> substitute) · coins (shipped). **PLANNED — utility accumulator lines** (Core §6.C): water · coin · exp
-> · acorn, unlocked across map 1's first 4 spots, capped accumulators, bag-stowable.
->
-> Art tally for the planned set: ~150 sprites MVP (special items ~18 · 5 special lines = 60 · utility +
-> treat generator icons ~9 · +1 regular line/map = 60) up to ~420 at the full multi-line vision. All via
-> the intake pipeline; a line renders code-drawn from its `color` until its tier sprites land.
+> Art: the special items, the 4 accumulator + 5 treat-generator icons, the 5 treasure lines (incl. the
+> 12-tier wildcard), and the multi-line-per-map regular sets all shipped via the intake pipeline; a line
+> still renders code-drawn from its `color` until its tier sprites land.
 
 The grove runs on an **open-ended roster of themed lines** — each the core's exponential **8-tier** ladder (t8 ≈ 128 t1-equivalents, a rare trophy). The **home grove (v1) seeds it with 24 lines across 12 generators**; the roster then grows **without a cap** — every post-launch *place* adds its set, and live-ops events add limited-time lines (Core §17). Codes `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`. **Map 1's lines** (the first four — with art bases + palette; later lines get bases as each map is built):
 

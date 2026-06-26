@@ -82,8 +82,10 @@ const ACCUMULATORS = D.ACCUMULATORS
 const TREAT_SPAWN_CHANCE = D.TREAT_SPAWN_CHANCE
 const TREAT_CLICKS = D.TREAT_CLICKS
 const TREAT_LINES = D.TREAT_LINES
+const MAP_TREAT_LINE = D.MAP_TREAT_LINE
 const TREAT_POP_TIER = D.TREAT_POP_TIER
 const TREAT_DROP_RATE = D.TREAT_DROP_RATE
+const TREAT_SELL_BAND = D.TREAT_SELL_BAND
 const TREAT_GEN_TEX = D.TREAT_GEN_TEX
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
@@ -707,7 +709,8 @@ static func character_count(unlocks: Dictionary) -> int:
 ## old t8=1💎 special case + the 32× anti-arbitrage guard are retired. `premium` is always 0 here.
 static func sell_reward(code: int) -> Vector2i:
 	var tier := code % 100
-	var band: float = sell_map_band(map_for_code(code))
+	# §6.D premium treat lines sell at a flat premium band; everything else at its per-map band.
+	var band: float = TREAT_SELL_BAND if is_treat_line(code) else sell_map_band(map_for_code(code))
 	return Vector2i(int(round(maxi(1, tier) * band)), 0)
 
 ## What it costs to BUY a copy of an item via the board info bar (§10, T55): marked up over the
@@ -882,8 +885,14 @@ static func gen_tex(id: String) -> String:
 static func rolls_treat_spawn(rng: RandomNumberGenerator) -> bool:
 	return rng.randf() < TREAT_SPAWN_CHANCE
 
-static func pick_treat_line(rng: RandomNumberGenerator) -> int:
-	return int(TREAT_LINES[rng.randi_range(0, TREAT_LINES.size() - 1)])
+# §6.D / idea 4.1 — each map has ONE special treasure line: map M pops MAP_TREAT_LINE[M] (deterministic,
+# so the treat always feels like THIS map's treasure, and its icon — TREAT_GEN_TEX[M] — matches).
+static func pick_treat_line(map: int) -> int:
+	return int(MAP_TREAT_LINE[clampi(map, 0, MAP_TREAT_LINE.size() - 1)])
+
+## A premium treat line (the per-map treasure / Farm reserve) — sells at TREAT_SELL_BAND, not the map band.
+static func is_treat_line(code: int) -> bool:
+	return TREAT_LINES.has(int(code / 100.0))
 
 static func pick_treat_clicks(rng: RandomNumberGenerator) -> int:
 	return rng.randi_range(int(TREAT_CLICKS[0]), int(TREAT_CLICKS[1]))

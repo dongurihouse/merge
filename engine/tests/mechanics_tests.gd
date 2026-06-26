@@ -274,19 +274,29 @@ func _initialize() -> void:
 	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
 		"the collect reward is banked × the per-unit value")
 
-	# --- §6.D temporary treat generators (spawn / line / clicks / id mapping) ---
+	# --- §6.D temporary treat generators (per-map line / clicks / id mapping) ---
+	# Each map pops its OWN treasure line (deterministic, idea 4.1), and its icon matches.
+	var per_map_ok := true
+	for m in G.MAP_TREAT_LINE.size():
+		var ln := G.pick_treat_line(m)
+		if ln != int(G.MAP_TREAT_LINE[m]) or not G.TREAT_LINES.has(ln):
+			per_map_ok = false
+		# the themed icon for this map's treat gen resolves to the map-aligned art
+		if G.gen_tex(G.treat_gen_id(ln)) != String(G.TREAT_GEN_TEX[m]):
+			per_map_ok = false
+	ok(per_map_ok, "each map pops its own treasure line with a map-aligned icon")
+	# clicks budget stays in range
 	var trng := RandomNumberGenerator.new(); trng.seed = 5
-	var tlines := {}
 	var clicks_ok := true
-	for i in 200:
-		var ln := G.pick_treat_line(trng)
-		tlines[ln] = true
-		if not G.TREAT_LINES.has(ln):
-			clicks_ok = false
+	for i in 50:
 		var c := G.pick_treat_clicks(trng)
 		if c < int(G.TREAT_CLICKS[0]) or c > int(G.TREAT_CLICKS[1]):
 			clicks_ok = false
-	ok(clicks_ok and tlines.size() >= 4, "pick_treat_line/clicks stay in range and spread across the treat lines")
+	ok(clicks_ok, "pick_treat_clicks stays within the configured budget")
+	# §6.D premium sell band — a treasure line sells above the top map band; a normal line does not
+	ok(G.sell_reward(71 * 100 + 5).x == int(round(5 * G.TREAT_SELL_BAND))
+		and not G.is_treat_line(1 * 100 + 5),
+		"a treasure line sells at the premium treat band; a normal line does not")
 	# id ↔ line roundtrip + the is_treat_gen gate (a real gen id is not a treat)
 	ok(G.is_treat_gen(G.treat_gen_id(63)) and G.treat_line_of(G.treat_gen_id(63)) == 63,
 		"treat_gen_id ↔ treat_line_of roundtrips")

@@ -33,6 +33,15 @@ func _has_label(overlay: Control, text: String) -> bool:
 			return true
 	return false
 
+# Texture resource paths present anywhere inside an overlay.
+func _texture_paths(overlay: Control) -> Array:
+	var out: Array = []
+	for tr in overlay.find_children("*", "TextureRect", true, false):
+		var tex: Texture2D = (tr as TextureRect).texture
+		if tex != null:
+			out.append(String(tex.resource_path))
+	return out
+
 # Pull every slot of a given kind out of a plan, in order.
 func _of_kind(plan: Array, kind: String) -> Array:
 	var out: Array = []
@@ -110,6 +119,28 @@ func _initialize() -> void:
 	ok(_has_label(overlay, "132"), "the reused acorn pill shows the balance (132)")
 	overlay.queue_free()
 	host.queue_free()
+
+	# 7. accumulator generators use the shared generator texture resolver in the stored-generator
+	#    section; otherwise these fall through to raw acc_* labels in the bag.
+	var gen_host := Control.new()
+	gen_host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.add_child(gen_host)
+	var gen_overlay := BagOverlay.open(gen_host, {
+		"bag": [], "owned": start, "balance": 12,
+		"max_slots": cap, "start_slots": start, "prices": prices,
+		"gen_bag": ["acc_water", "acc_coins", "acc_exp"],
+		"on_retrieve": func(_i: int) -> void: pass,
+		"on_buy_slot": func() -> void: pass,
+		"on_place_gen": func(_id: String) -> void: pass,
+	})
+	var tex_paths := _texture_paths(gen_overlay)
+	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_rainbarrel.png"), "stored water accumulator renders rain barrel art")
+	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_coinpress.png"), "stored coin accumulator renders coin press art")
+	ok(tex_paths.has("res://games/grove/assets/items/generator/gen_crystalfont.png"), "stored exp accumulator renders crystal font art")
+	ok(not _has_label(gen_overlay, "acc_water") and not _has_label(gen_overlay, "acc_coins") and not _has_label(gen_overlay, "acc_exp"),
+		"stored accumulator generator tiles do not fall back to raw ids")
+	gen_overlay.queue_free()
+	gen_host.queue_free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

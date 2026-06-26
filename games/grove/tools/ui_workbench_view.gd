@@ -190,7 +190,7 @@ var _params := {
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
 		"edge_margin_px": 18,
-		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70,
+		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
 		"quest_bar_x_pct": 3, "quest_bar_y_pct": 17, "quest_bar_h_pct": 11,
 		"board_x_pct": 12, "board_y_pct": 30, "board_h_pct": 48},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
@@ -792,6 +792,7 @@ func _make_element(id: String) -> Control:
 
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
+	var layout := Kit.hud_layout_opts_from_config({"hud_layout": p})
 	var s := 0.26
 	var w := PHONE_W * s
 	var h := PHONE_H * s
@@ -847,11 +848,12 @@ func _hud_layout_preview() -> Control:
 	var rail_top := wallet_clear_y
 	for i in 4:
 		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
-	var bottom_y := h - btn_w - edge
+	var bottom_h := maxf(btn_w, h * float(layout.get("bottom_row_h_frac", 0.0)))
+	var bottom_y := h - bottom_h - edge
 	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
-	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "bag"))
-	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, btn_w), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
-	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "home"))
+	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "bag", "HudLayoutBottomRow"))
+	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
+	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "home"))
 	return root
 
 func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
@@ -1806,6 +1808,7 @@ func _rebuild_sidebar() -> void:
 			_section_header("Buttons + board bottom")
 			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
 			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
+			_sidebar_body.add_child(_slider_row(["bottom_row_h_pct", 8, 22]))      # board-only bottom tray height (% screen height)
 			_section_header("Quest bar")
 			_sidebar_body.add_child(_slider_row(["quest_bar_x_pct", 0, 30]))       # quest fence left inset / position (% screen width)
 			_sidebar_body.add_child(_slider_row(["quest_bar_y_pct", 0, 55]))       # quest fence top position (% screen height)

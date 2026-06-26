@@ -108,6 +108,7 @@ var _grown_cells: Array = []       # cells of generators that just GREW IN this 
 #  T48 ahead of the UI redesign; the §6 boost coin sink stays in code, see _activate_gen_boost)
 var giver_bar: Control           # the quest fence (givers pop up over it)
 var _board_center: Control       # the CenterContainer holding the board (carries the saved vertical nudge)
+var _fence_h := FENCE_H          # runtime quest-row height, optionally driven by hud_layout % screen height
 var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
 var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
@@ -205,8 +206,9 @@ func _ready() -> void:
 
 	# the quest fence: a full-width wall the giver animals pop up over, each
 	# with a big cream ask-card (item + progress + star reward; ✓ when ready)
+	_fence_h = _quest_row_h_px()
 	giver_bar = Control.new()
-	giver_bar.custom_minimum_size = Vector2(0, FENCE_H)
+	giver_bar.custom_minimum_size = Vector2(0, _fence_h)
 	giver_bar.size_flags_horizontal = Control.SIZE_FILL
 	root.add_child(giver_bar)
 
@@ -221,7 +223,11 @@ func _ready() -> void:
 	board_area = Control.new()
 	# the board fills the screen side to side (owner); on wide screens the
 	# HEIGHT budget binds instead so the fence/bag rows always fit
-	var view := get_viewport_rect().size
+	var view := _view_size()
+	var initial_bottom_btn_px := _bottom_button_px()
+	var initial_bottom_bar_h := _bottom_bar_h_px(initial_bottom_btn_px)
+	var default_bottom_bar_h := maxf(BOTTOM_BAR_H, roundf(view.x * 0.15) + BOTTOM_BAR_PAD)
+	var reserved_rows_h := 536.0 + (_fence_h - FENCE_H) + (initial_bottom_bar_h - default_bottom_bar_h)
 	# pick up any saved UI-Workbench board design (gap / frame / scale / item) BEFORE the fit is computed,
 	# so the gutter + frame budgets and the final cell size all reflect it. Absent → today's defaults.
 	_load_board_config()
@@ -230,7 +236,7 @@ func _ready() -> void:
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
 	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
 	# so the height budget reserves only the frame overhang + the fence/nav rows.
-	var h_csz := (view.y - 536.0 - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within the available space — the
 	# in-game "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
 	csz = minf(w_csz, h_csz) * _board_scale
@@ -265,8 +271,8 @@ func _ready() -> void:
 	bar.anchor_bottom = 1.0
 	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var sb_inset := Look.safe_bottom(self)
-	var bottom_btn_px := _bottom_button_px()
-	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
+	var bottom_btn_px := initial_bottom_btn_px
+	var bottom_bar_h := initial_bottom_bar_h
 	var action_opts := _action_bar_opts()
 	bar.offset_left = 0.0
 	bar.offset_right = _view_size().x
@@ -715,7 +721,7 @@ func _rebuild_givers() -> void:
 	# the fence wall — one bordered strip; busts and cards pop up over its edge
 	var wall := Control.new()
 	wall.set_anchors_preset(Control.PRESET_FULL_RECT)
-	wall.offset_top = 64.0
+	wall.offset_top = 64.0 * (_fence_h / FENCE_H)
 	wall.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
@@ -735,7 +741,7 @@ func _rebuild_givers() -> void:
 	row.anchor_bottom = 1.0
 	row.offset_left = QUEST_SIDE
 	row.offset_right = -QUEST_SIDE
-	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # pack cards from the left
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
 	giver_bar.add_child(row)
 	giver_bar.move_child(row, 1)
@@ -763,7 +769,7 @@ func _purge_progress() -> float:
 # next unlock threshold, then glows + sparkles once that next region is affordable.
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
-	stand.custom_minimum_size = Vector2(stand_w, FENCE_H)
+	stand.custom_minimum_size = Vector2(stand_w, _fence_h)
 	# Keep the same footprint as giver cards so the Purge slot still sits flush in the fence row, but let
 	# the vase art carry the surface instead of another card frame.
 	var L := _giver_lay()
@@ -776,7 +782,7 @@ func _make_purge_card(stand_w: float) -> Control:
 	vase.set_progress(progress)
 	vase.set_ready(ready)
 	_purge_vase = vase
-	var vase_h := FENCE_H
+	var vase_h := _fence_h
 	var vase_w := minf(cardW * 0.98, vase_h)
 	vase.size = Vector2(vase_w, vase_h)
 	var vase_center_x := clampf(stand_w * 0.32 + 5.0, vase_w * 0.5, stand_w - vase_w * 0.5)
@@ -856,7 +862,7 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 		"item_tap": _on_item_tap,       # an ask icon tapped -> claim if ready, else open the ladder (#3)
 		"stand_tap": _on_giver_tap,     # the stand tapped -> try to deliver
 		"wire_tap": _stand_tap,         # still-release tap (also resets the idle hint)
-		"stand_w": stand_w, "fence_h": FENCE_H,
+		"stand_w": stand_w, "fence_h": _fence_h,
 	}
 	# the giver-card LAYOUT is tuned in the UI workbench and SAVED to its config (the quest_card block);
 	# read it the SAME way every other element does — soft-load the game-tool kit (engine → game bridge).
@@ -1225,7 +1231,7 @@ func _relayout_action_bar() -> void:
 		return
 	var sb_inset := Look.safe_bottom(self)
 	var bottom_btn_px := _bottom_button_px()
-	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
+	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
 	var action_opts := _action_bar_opts()
 	bottom_bar.anchor_left = 0.0
 	bottom_bar.anchor_right = 0.0
@@ -1431,6 +1437,32 @@ func _bottom_button_px() -> float:
 		return BOTTOM_BTN_PX
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	return maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+
+func _bottom_bar_h_px(bottom_btn_px: float) -> float:
+	var fallback := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return fallback
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+	if not h.has("bottom_row_h_pct"):
+		return fallback
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
+	var frac := float(layout.get("bottom_row_h_frac", 0.0))
+	if frac <= 0.0:
+		return fallback
+	return maxf(bottom_btn_px, roundf(_view_size().y * frac))
+
+func _quest_row_h_px() -> float:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return FENCE_H
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+	if not h.has("quest_bar_h_pct"):
+		return FENCE_H
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
+	return maxf(1.0, roundf(_view_size().y * float(layout.get("quest_bar_h_frac", FENCE_H / maxf(1.0, _view_size().y)))))
 
 func _info_bar_w_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
@@ -2626,7 +2658,7 @@ func _spawn_treat_gen() -> void:
 			break
 	if dest == Vector2i(-1, -1):
 		return
-	board.place_gen(G.treat_gen_id(G.pick_treat_line(rng)), dest)
+	board.place_gen(G.treat_gen_id(G.pick_treat_line(_quest_map())), dest)
 	Save.grove()["treat_clicks"] = G.pick_treat_clicks(rng)
 	_grown_cells.append(dest)             # _rebuild_all pops it in
 	_rebuild_all()

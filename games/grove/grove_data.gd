@@ -324,9 +324,17 @@ const ACCUMULATORS := {
 # each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
 const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
 const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
-const TREAT_LINES := [71, 72, 73, 74, 75, 61, 62, 63, 64, 65, 66]   # premium treat lines: the §3 fruit treasures + the Farm lines
+# Every premium treat line — sells at TREAT_SELL_BAND and is a valid treat-drop target. The 5 fruit
+# treasures are the per-map ACTIVE specials (MAP_TREAT_LINE below); the Farm lines are reserve premium
+# content (defined + art-ready), assigned to a map when the world grows past map 4.
+const TREAT_LINES := [71, 72, 73, 74, 75, 61, 62, 63, 64, 65, 66]
+# §6.D / idea 4.1 — the ONE special treasure line each map's treat generator pops, indexed by map:
+# Farm→Prize pumpkin · Orchard→Golden banana · Pond Garden→Jewel avocado · Mill→Ruby cherry ·
+# Meadow Gate→Sugar melon. Its themed icon falls out of TREAT_GEN_TEX[map] (same order).
+const MAP_TREAT_LINE := [71, 72, 73, 74, 75]
 const TREAT_POP_TIER := 2                 # treat items pop at this tier (a head start — "better rewards")
 const TREAT_DROP_RATE := 0.5              # each treat tap ALSO drops a §6.B special item this often
+const TREAT_SELL_BAND := 3.5              # §6.D premium treat lines sell at this flat band (> SELL_MAP_BAND's 2.8 top) — DIAL
 const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at random; the wired treat art)
 	"items/generator/gen_seedcart.png", "items/generator/gen_beehive.png",
 	"items/generator/gen_lilyfountain.png", "items/generator/gen_applepress.png",

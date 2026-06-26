@@ -179,7 +179,7 @@ func _initialize() -> void:
 	var prior_kit_cfg: Dictionary = KitHud.load_config(KitHud.CONFIG_PATH)
 	KitHud._config_cache[KitHud.CONFIG_PATH] = {"hud_layout": {
 		"button_w_pct": 15, "info_bar_w_pct": 70,
-		"bottom_row_h_pct": 14, "quest_bar_h_pct": 13}}
+		"bottom_row_h_pct": 18, "quest_bar_h_pct": 13}}
 	fresh("hud-screen-height")
 	var sized_board = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sized_board)
@@ -187,7 +187,7 @@ func _initialize() -> void:
 		sized_board._ready()
 	await create_timer(0.05).timeout
 	var sized_view: Vector2 = sized_board.get_viewport_rect().size
-	ok(absf(sized_board.bottom_bar.get_global_rect().size.y - sized_view.y * 0.14) < 3.0, \
+	ok(absf(sized_board.bottom_bar.get_global_rect().size.y - sized_view.y * 0.18) < 3.0, \
 		"hud_layout: board bottom row height follows the configured percent of screen height")
 	ok(absf(sized_board.giver_bar.custom_minimum_size.y - sized_view.y * 0.13) < 3.0, \
 		"hud_layout: quest row height follows the configured percent of screen height")
