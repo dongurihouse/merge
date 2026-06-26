@@ -17,6 +17,7 @@ func _initialize() -> void:
 	_test_lock_overlay()
 	_test_region_map_membership()
 	_test_vine_image_loader_is_export_safe()
+	_test_mask_loader_survives_export_strip()
 	_test_vine_debug_layer_modes()
 	_test_vine_diagnostic_summary()
 	_test_vine_device_debug_wiring()
@@ -108,6 +109,33 @@ func _test_vine_image_loader_is_export_safe() -> void:
 	var src := FileAccess.get_file_as_string("res://games/grove/vine/vine_map_view.gd")
 	ok(src.find("ProjectSettings.globalize_path") == -1,
 		"VineMapView loads res:// mask/bake images through the virtual filesystem, not exported-unsafe globalized paths")
+	ok(src.find("_load_image_from_resource") != -1,
+		"the image loader keeps a resource-system fallback (raw FileAccess fails for imported textures in an export)")
+
+# REGRESSION (phone-only "purple wash" bug): an exported iOS/Android build ships imported textures
+# only as the .ctex remap and STRIPS the raw PNG source, so the loader's FileAccess /
+# Image.load_from_file reads return empty on device. Before the fix that fell through to
+# _fallback_mask_image() — a full-WHITE mask — which makes every pixel read as in-mask and floods the
+# whole map with the additive vine/ember/veil overlays (fine in the editor, wrong on the phone).
+# Desktop can't reproduce the stripped-bytes condition (the raw file is present), so we exercise the
+# device-recovery path directly: the resource-system fallback must hand back the REAL mask, not white.
+func _test_mask_loader_survives_export_strip() -> void:
+	var view: Control = VineMapView.new()
+	var mask_path := String(VineMaps.entries()[0].get("mask", ""))
+	ok(mask_path != "", "home map declares a mask path")
+	var img: Image = view._load_image_from_resource(mask_path)
+	ok(img != null and not img.is_empty(),
+		"the resource fallback recovers the home mask when raw bytes are export-stripped")
+	if img != null and not img.is_empty():
+		img.convert(Image.FORMAT_RGBA8)
+		var nonwhite := false
+		for i in range(256):
+			var c := img.get_pixel((i * 9973) % img.get_width(), (i * 7919) % img.get_height())
+			if maxf(c.r, maxf(c.g, c.b)) < 0.98:
+				nonwhite = true
+				break
+		ok(nonwhite, "the recovered mask carries real coverage, not the full-white flood fallback")
+	view.free()
 
 func _test_vine_debug_layer_modes() -> void:
 	var e0: Dictionary = VineMaps.entries()[0]
