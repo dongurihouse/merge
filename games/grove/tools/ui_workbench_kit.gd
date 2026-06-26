@@ -3430,8 +3430,14 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
 
+static func live_quest_bar_top_y(safe_top := 0.0) -> float:
+	return safe_top + 44.0 + 10.0
+
+static func live_quest_bar_height() -> float:
+	return 215.0
+
 static func live_board_frame_top_y(safe_top := 0.0) -> float:
-	return safe_top + 44.0 + 10.0 + 215.0 + 10.0
+	return live_quest_bar_top_y(safe_top) + live_quest_bar_height() + 10.0
 
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
 ## all build the same gold_badge-backed component directly from this block.

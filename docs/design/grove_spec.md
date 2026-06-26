@@ -117,6 +117,38 @@ Every beat lands without a word: the **parents' faces + gestures**; the **easing
 
 *Instantiates Core §6 (Generators & Item Lines).*
 
+> **⚠ AS-BUILT + PLANNED (2026-06-26) — read first.** The "24 lines / 12 generators / 2 lines per
+> generator" roster below is **NOT what shipped** and is superseded. See Core §6's banner for the model.
+>
+> **As-built + SHIPPED.** The grove runs **5 regular lines, one per map**, from **a single persistent
+> generator** (the seed satchel) that pops **every opened line** — lines never retire (Core §6.A).
+> | Map (display) | Regular line | base |
+> |---|---|---|
+> | The Farm | Wildflower | `flower` |
+> | The Orchard | Feather | `feather` |
+> | The Garden | Garden tools | `tools` |
+> | The Mill | Honey | `honey` |
+> | The Gate | Mushroom | `mushroom` |
+>
+> **PLANNED — the per-map SPECIAL "treasure" lines** (Core §6.D — premium, acorn-paying, luminous
+> collectible chains from the temporary treat generator; each distinct from its map's regular line):
+> | Map | Special line | t1 → t12 arc |
+> |---|---|---|
+> | The Farm | **Goldgourd** (prize pumpkin) | seed → vine → blossom → gourd → … → giant glowing golden pumpkin |
+> | The Orchard | **Goldapple** | blossom → fruitlet → apple → … → the legendary golden apple |
+> | The Garden | **Moonlotus** (lotus + pearl) | lily pod → bud → lotus → … → radiant moon-lotus, pearl shining |
+> | The Mill | **Spungold** (grain → loaf) | grain → sheaf → flour → braid → … → spun-gold wheat crown |
+> | The Gate | **Starlantern** (fireflies) | firefly spark → jar → lantern → … → lantern crowned with a constellation |
+>
+> **PLANNED — special drop items** (Core §6.B): chest · key · water · acorn · exp (each merges like
+> coins) · tool (single-use, clears a locked cell) · wildcard (self-merge up a tier + same-tier
+> substitute) · coins (shipped). **PLANNED — utility accumulator lines** (Core §6.C): water · coin · exp
+> · acorn, unlocked across map 1's first 4 spots, capped accumulators, bag-stowable.
+>
+> Art tally for the planned set: ~150 sprites MVP (special items ~18 · 5 special lines = 60 · utility +
+> treat generator icons ~9 · +1 regular line/map = 60) up to ~420 at the full multi-line vision. All via
+> the intake pipeline; a line renders code-drawn from its `color` until its tier sprites land.
+
 The grove runs on an **open-ended roster of themed lines** — each the core's exponential **8-tier** ladder (t8 ≈ 128 t1-equivalents, a rare trophy). The **home grove (v1) seeds it with 24 lines across 12 generators**; the roster then grows **without a cap** — every post-launch *place* adds its set, and live-ops events add limited-time lines (Core §17). Codes `line*100 + tier`; art auto-loads `assets/items/<base>_<tier>.png`. **Map 1's lines** (the first four — with art bases + palette; later lines get bases as each map is built):
 
 | Line | Name | Base | Color |

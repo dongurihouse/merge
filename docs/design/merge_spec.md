@@ -197,6 +197,46 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 
 ## 6 · Generators & Item Lines
 
+> **⚠ GENERATOR/LINE MODEL EVOLVED — read this box first (2026-06-26).** The original §6 below (a
+> generator emits *two* lines · generators *arrive per map* · old lines *retire* / *hand-in* at
+> boundaries · the *anchor-line exemption*) is **SUPERSEDED**. The authoritative model is here.
+> Implementation map for the SHIPPED parts: `content.gd` (`askable_lines`, `due_generators`),
+> `board.gd` (`_pop_seed` pop pool), `grove_sim.gd`. The PLANNED parts are art-blocked — design lives
+> in `docs/design/generator_line_ideas.md`.
+>
+> **A. One persistent generator · opened lines never retire — SHIPPED.** There is **a single generator
+> for the whole game** (the map-0 anchor). No new generators grow in per map; tiles never accumulate.
+> It pops **every OPENED line** — the lines of *every map reached so far* (maps 0..current). **Old lines
+> never retire**: a quest may ask *any* previously-opened line, and pops are biased toward what the
+> current quests want (`ASK_WEIGHT`), so with ~3 quests up the one generator outputs ~3 lines at once.
+> *(With one line per map today, the number of lines flowing = maps reached; multi-line-per-map art —
+> below — surfaces more, sooner.)*
+>
+> **B. Special drop items — PLANNED (art-blocked).** A pool of special items mixes into the generator's
+> pops as occasional surprises, each behaving differently: **chest** (merges like coins → bigger reward
+> when opened) · **key** (merges; opens a chest) · **water** · **acorn** · **exp** (each merges like
+> coins) · **tool** (single-use, no merge — clears any locked cell) · **wildcard** (merges with itself
+> up a tier, and substitutes any same-tier item of any line) · **coins** (already shipped). Mostly short
+> ~3-tier chains; tool is one sprite, wildcard a reusable glyph.
+>
+> **C. Utility / resource lines — PLANNED.** The **first 4 restored spots of map 1** each unlock a
+> dedicated resource line: **water · coin · exp · acorn**. They **cost no energy**; they are **capped
+> accumulators** — production banks over time up to a small cap, the player **collects**, and they are
+> **stowable in the bag** where they keep accumulating off the merge board. Each is a faucet for a
+> different need — the only decision is *"what do I need now?"* (no routing; §payout-differentiation).
+>
+> **D. Temporary treat generators · per-map special lines — PLANNED.** Each map has **one premium
+> "special" line** (a luminous "treasure" chain, distinct from the map's everyday line, paying **acorns**
+> at its pinnacle — a collectible showcase). The special line comes **only** from a **temporary treat
+> generator** the main generator occasionally pops out; it has a **random click-count, then vanishes**.
+> Its specialness is **scarcity + a premium payout + a burst feel** — a fleeting *event* ("grab it before
+> it's gone"), never a faucet. *(Discipline: rarity must be real, the payout qualitatively different —
+> never just a multiplier — and it must never carry the main loop.)*
+>
+> **E. More regular lines per map — PLANNED (the spec's own §6 vision, never built).** The map can carry
+> **2–4 regular lines** (vs. the as-built one), so a new line can debut *mid-map*, not only at a boundary.
+> Each new line = a 12-tier art set via the intake pipeline.
+
 ### Generators
 
 A generator emits **two item lines**. **Tap → a small burst pops** — items to free cells, **1 energy each**. Burst size stacks three ways: a **random base** (`BURST_ODDS`), a **free scale-up by map** (later generators pop bigger), and a **player upgrade** (a coin/premium **sink** — pay to grow the burst, §8/§10). All of it cuts **taps**, not the per-item energy economy, so the §3 pacing curve is unchanged. *(v1 (T25): the player upgrade is a single **board-level, global** burst level — one ladder sizing **every** live generator — bought from an **on-board pill** anchored to the generator (`board.gd` `_try_buy_burst` / `_rebuild_burst_chip`), matching §8's "board-level… independent of the hub." A **per-generator** burst level is parked. The free portion (base + per-map gift) is capped **on its own** at `BURST_FREE_MAX`; the paid level adds **on top**, so each bought level always gives +1 (`burst_count` decoupled, T25) — sim-validated, the burst sink absorbs ~64–76% of the coin faucet across seeds (the rest is the parked §8 hub sink).)* Each item is from **one of its two lines** at a tier with decaying odds (`TIER_ODDS = [0.65, 0.25, 0.09, 0.01]` for t1–t4); line and tier are **weighted toward what current givers want** (`ASK_WEIGHT = 0.6`). A full board dims the generator (popping is free while dimmed). A generator is **never sold** and **never merged** (generators do not evolve by merging — retired); it **can be moved** (dragged / swapped like any piece, §2). It leaves the board only by being **handed in at a map boundary** (a generator-grant quest, below).

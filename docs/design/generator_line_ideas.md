@@ -1,8 +1,11 @@
 # Generators & lines — redesign ideas (captured brainstorm)
 
-Status: **raw ideas, not a finalized spec.** Captured 2026-06-25. To be developed into a real
-design later. This is the parking lot for the "make multiple lines genuinely useful, not cosmetic
-swaps" thread.
+Status: **BAKED INTO THE CANONICAL SPEC (2026-06-26).** The authoritative model now lives in
+`merge_spec.md` §6 (banner A–E) and `grove_spec.md` §2 (the as-built + planned tables, incl. the 5
+named special lines). **Idea 3 (single persistent generator, opened lines never retire) SHIPPED**
+(content.gd / board.gd / grove_sim.gd). The rest (special drop items, utility accumulator lines,
+temporary treat generators, per-map special lines, more regular lines) is **PLANNED / art-blocked**.
+This file is kept as the working brainstorm + decision log behind that spec.
 
 ## Why this exists
 Today every line is mechanically identical (tap generator → merge 12 tiers → deliver/sell), so a 2nd

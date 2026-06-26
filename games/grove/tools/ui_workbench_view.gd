@@ -333,6 +333,8 @@ var _building := ""               # the id whose section is mid-build (so the po
 var _hud_board_height_auto := false
 var _hud_board_x_auto := false
 var _hud_board_y_auto := false
+var _hud_quest_height_auto := false
+var _hud_quest_y_auto := false
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -814,11 +816,19 @@ func _hud_layout_preview() -> Control:
 	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
 	var pill_h := maxf(34.0, top_h * 0.46)
 	var pill_body_w := maxf(1.0, pill_w - edge)
+	var pill_y := edge
 	for i in 3:
-		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, 10.0, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
+		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, pill_y, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
+	var wallet_clear_y := pill_y + pill_h + edge
 	var quest_x := w * float(p.get("quest_bar_x_pct", 3)) / 100.0
-	var quest_y := h * float(p.get("quest_bar_y_pct", 17)) / 100.0
-	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	if _hud_quest_y_auto:
+		p["quest_bar_y_pct"] = _live_quest_y_pct()
+	if _hud_quest_height_auto:
+		p["quest_bar_h_pct"] = _live_quest_h_pct()
+	var quest_y := maxf(_live_quest_y_px() * s, wallet_clear_y) if _hud_quest_y_auto else h * float(p.get("quest_bar_y_pct", 17)) / 100.0
+	var quest_h := Kit.live_quest_bar_height() * s if _hud_quest_height_auto else h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	if _hud_quest_y_auto:
+		p["quest_bar_y_pct"] = clampf(roundf(quest_y / h * 100.0), 0.0, 55.0)
 	var quest_w := maxf(1.0, w - quest_x * 2.0)
 	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
 	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
@@ -829,13 +839,15 @@ func _hud_layout_preview() -> Control:
 	if _hud_board_height_auto:
 		p["board_h_pct"] = _live_board_h_pct()
 	var board_x := w * float(p.get("board_x_pct", 12)) / 100.0
-	var board_y := _live_board_y_px() * s if _hud_board_y_auto else h * float(p.get("board_y_pct", 30)) / 100.0
+	var board_y := maxf(_live_board_y_px() * s, quest_y + quest_h + 10.0 * s) if _hud_board_y_auto else h * float(p.get("board_y_pct", 30)) / 100.0
 	var board_h := live_board_size.y if _hud_board_height_auto else h * float(p.get("board_h_pct", 48)) / 100.0
+	if _hud_board_y_auto:
+		p["board_y_pct"] = clampf(roundf(board_y / h * 100.0), 0.0, 75.0)
 	var board_w := minf(w - board_x, live_board_size.x * board_h / maxf(1.0, live_board_size.y))
 	root.add_child(_layout_preview_box(Rect2(board_x, board_y, board_w, board_h), Color("#A8D29B", 0.48), "board", "HudLayoutBoard"))
 	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
 	var side_x := w - edge - btn_w
-	var rail_top := 10.0 + pill_h + edge
+	var rail_top := wallet_clear_y
 	for i in 4:
 		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
 	var bottom_y := h - btn_w - edge
@@ -884,16 +896,42 @@ func _live_board_y_px() -> float:
 func _live_board_y_pct() -> float:
 	return clampf(roundf(_live_board_y_px() / PHONE_H * 100.0), 0.0, 75.0)
 
+func _live_quest_y_px() -> float:
+	return Kit.live_quest_bar_top_y(0.0)
+
+func _live_quest_y_pct() -> float:
+	return clampf(roundf(_live_quest_y_px() / PHONE_H * 100.0), 0.0, 55.0)
+
+func _live_quest_h_pct() -> float:
+	return clampf(roundf(Kit.live_quest_bar_height() / PHONE_H * 100.0), 5.0, 25.0)
+
+func _hud_layout_should_auto(h: Dictionary, key: String, legacy_value: float, live_value: float) -> bool:
+	if not h.has(key):
+		return true
+	var v := float(h.get(key, legacy_value))
+	return is_equal_approx(v, legacy_value) or is_equal_approx(v, live_value)
+
 func _sync_legacy_hud_board_layout() -> void:
 	var h: Dictionary = _params["hud_layout"]
-	if not h.has("board_x_pct") or is_equal_approx(float(h.get("board_x_pct", 12.0)), 12.0):
-		h["board_x_pct"] = _live_board_x_pct()
+	var live_quest_y := _live_quest_y_pct()
+	var live_quest_h := _live_quest_h_pct()
+	var live_board_x := _live_board_x_pct()
+	var live_board_y := _live_board_y_pct()
+	var live_board_h := _live_board_h_pct()
+	if _hud_layout_should_auto(h, "quest_bar_y_pct", 17.0, live_quest_y):
+		h["quest_bar_y_pct"] = live_quest_y
+		_hud_quest_y_auto = true
+	if _hud_layout_should_auto(h, "quest_bar_h_pct", 11.0, live_quest_h):
+		h["quest_bar_h_pct"] = live_quest_h
+		_hud_quest_height_auto = true
+	if _hud_layout_should_auto(h, "board_x_pct", 12.0, live_board_x):
+		h["board_x_pct"] = live_board_x
 		_hud_board_x_auto = true
-	if not h.has("board_y_pct") or is_equal_approx(float(h.get("board_y_pct", 30.0)), 30.0):
-		h["board_y_pct"] = _live_board_y_pct()
+	if _hud_layout_should_auto(h, "board_y_pct", 30.0, live_board_y):
+		h["board_y_pct"] = live_board_y
 		_hud_board_y_auto = true
-	if not h.has("board_h_pct") or is_equal_approx(float(h.get("board_h_pct", 48.0)), 48.0):
-		h["board_h_pct"] = _live_board_h_pct()
+	if _hud_layout_should_auto(h, "board_h_pct", 48.0, live_board_h):
+		h["board_h_pct"] = live_board_h
 		_hud_board_height_auto = true
 
 ## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
@@ -2056,6 +2094,10 @@ func _slider_row(spec: Array, target := "") -> Control:
 				_hud_board_x_auto = false
 			elif key == "board_y_pct":
 				_hud_board_y_auto = false
+			elif key == "quest_bar_h_pct":
+				_hud_quest_height_auto = false
+			elif key == "quest_bar_y_pct":
+				_hud_quest_y_auto = false
 		val.text = "%d" % int(x)
 		_apply_edit())
 	return row

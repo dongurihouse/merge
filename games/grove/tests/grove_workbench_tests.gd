@@ -41,6 +41,13 @@ func _has_label_text(node: Control, text: String) -> bool:
 			return true
 	return false
 
+func _controls_with_label(node: Control, text: String) -> Array:
+	var out := []
+	for l in node.find_children("*", "Label", true, false):
+		if String((l as Label).text) == text and l.get_parent() is Control:
+			out.append(l.get_parent() as Control)
+	return out
+
 # Like _has_label_text but for text carried on a Button (e.g. the shared pill_button cost chip).
 func _has_button_text(node: Control, text: String) -> bool:
 	if node is Button and String((node as Button).text) == text:
@@ -742,14 +749,33 @@ func _test_new_knobs(view) -> void:
 	var preview_w := 1080.0 * 0.26
 	var preview_h := 1920.0 * 0.26
 	var default_hud_preview: Control = view._make_element("hud_layout")
+	var default_quest_box := default_hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
 	var live_board_size := _live_board_frame_size(Vector2(View.PHONE_W, View.PHONE_H), view._params["board"]) * 0.26
 	ok(default_board_box != null and default_board_box.custom_minimum_size.distance_to(live_board_size) <= 2.0, \
 		"hud_layout preview board matches the live game board frame size")
+	ok(default_quest_box != null and default_board_box != null \
+		and default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
+		"hud_layout preview quest bar stays above the board in the default live layout")
 	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
 	var default_bottom_bar_y := preview_h - preview_w * float(default_layout.get("button_w_frac", 0.15)) - float(default_layout.get("edge_margin_px", 18.0)) * 0.26
 	ok(default_board_box != null and default_board_box.position.y + default_board_box.custom_minimum_size.y <= default_bottom_bar_y + 1.0, \
 		"hud_layout preview board sits above the bottom bar in the default live layout")
+	ok(is_equal_approx(float(view._params["hud_layout"].get("level_w_pct", 0.0)), 25.0), \
+		"hud_layout saved level badge slot stays at the requested 25% screen width")
+	var default_edge := float(default_layout.get("edge_margin_px", 18.0)) * 0.26
+	var currency_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("currency_pill_w_pct", 25)))
+	var rail_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("button_w_pct", 15)))
+	ok(currency_boxes.size() >= 3 and absf((currency_boxes[0] as Control).position.y - default_edge) <= 0.5, \
+		"hud_layout preview uses the shared edge margin above the currency pills")
+	ok(currency_boxes.size() >= 3 and default_quest_box != null \
+		and default_quest_box.position.y >= (currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y + default_edge - 0.5, \
+		"hud_layout preview quest bar stays below the currency pills")
+	ok(currency_boxes.size() >= 3 and rail_boxes.size() >= 1 \
+		and absf((rail_boxes[0] as Control).position.y - ((currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y + default_edge)) <= 0.5, \
+		"hud_layout preview side rail starts one shared margin below the currency pills")
+	view._hud_quest_y_auto = false
+	view._hud_quest_height_auto = false
 	view._hud_board_x_auto = false
 	view._hud_board_y_auto = false
 	view._hud_board_height_auto = false
@@ -841,6 +867,7 @@ func _test_board_element(view) -> void:
 		"the item-width (cell) + scale knobs are saved design config")
 	ok(not view._is_config("board", "pieces"), "the demo-pieces toggle is preview-only (not saved)")
 
+	var board_default: Dictionary = (view._params["board"] as Dictionary).duplicate()
 	view._selected = "board"
 	view._params["board"]["scale"] = 100
 	view._params["board"]["cell"] = 50
@@ -866,6 +893,7 @@ func _test_board_element(view) -> void:
 	view._params["board"]["cell"] = 64
 	view._apply_edit()
 	ok(_id_of(view, "board") != id0, "editing a board slider rebuilds the board element live")
+	view._params["board"] = board_default
 
 func _is_warm_shadow(color: Color) -> bool:
 	return color.a > 0.0 and color.r > color.b and color.r > 0.08

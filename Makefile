@@ -158,7 +158,6 @@ clean-cache: ## remove the Godot import cache (forces a full reimport next run)
 c:
 	git add .
 	git commit -m "changes"
-	git push
 
 l:
 	git worktree list
