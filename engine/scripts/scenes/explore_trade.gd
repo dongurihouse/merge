@@ -111,7 +111,7 @@ func _on_buy(cost: int) -> void:
 
 func _on_done() -> void:
 	Audio.play("button_tap", -2.0)
-	SceneWarm.go(get_tree(), "res://engine/scenes/Residents.tscn")
+	SceneWarm.go(get_tree(), "res://engine/scenes/Map.tscn")
 
 # --- widgets ---------------------------------------------------------------------
 func _spirit_widget(kind: String, px: float) -> Control:

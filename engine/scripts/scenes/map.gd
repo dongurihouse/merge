@@ -1330,8 +1330,8 @@ func _build_chrome() -> void:
 	var nav := NavBar.build(self, [
 		# Map — the place-picker (atlas). A labeled rounded-rect badge (built via `make` to pass shape:"rect").
 		{"make": _make_map_button, "label": Strings.t("map.nav.map")},
-		# Residents — the habitat management screen (only on a fully-unlocked map; hidden otherwise).
-		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
+		# Expedition — the acquire ritual (Load out dialog → Rush → Trade). Shown only on a fully-unlocked map.
+		{"make": _make_expedition_button, "label": "Expedition"},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
 		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
 	for b in nav.buttons:
@@ -1373,10 +1373,10 @@ func _make_map_button() -> Button:
 # Map button (rounded-rect badge, shape:"rect"), carrying the "house" icon (residence → residents) + a
 # "Residents" caption. Hidden until the open map is fully unlocked (G.can_populate); a hidden child collapses
 # out of the nav HBox, so an incomplete map shows just [Map, Play].
-func _make_residents_button() -> Button:
+func _make_expedition_button() -> Button:
 	var open := func() -> void:
 		Audio.play("button_tap", -2.0)
-		SceneWarm.go(get_tree(), "res://engine/scenes/Residents.tscn")
+		_open_expedition()
 	var Kit: GDScript = load(KIT_PATH)
 	var b: Button
 	if Kit == null:
@@ -1387,7 +1387,7 @@ func _make_residents_button() -> Button:
 		opts["shape"] = "rect"
 		opts["calm"] = FX.calm()
 		var HC: GDScript = load(HOME_CHROME_PATH)
-		b = Kit.home_button({"icon": HC.ICON_RESIDENTS, "caption": Strings.t("map.nav.residents"), "action": open}, opts)
+		b = Kit.home_button({"icon": HC.ICON_RESIDENTS, "caption": "Expedition", "action": open}, opts)
 	_residents_btn = b
 	_refresh_residents_btn()
 	return b
@@ -1590,6 +1590,79 @@ func _dock_button(text: String, on_press: Callable) -> Button:
 	b.add_theme_font_size_override("font_size", 18)
 	b.pressed.connect(on_press)
 	return b
+
+# The EXPEDITION entry: the Load out as an overlay dialog (the start-expedition dialog). Spend coins on
+# stackable boosts, then Set off → the Rush (a scene) → Trade → back to the map with spirits in hand.
+# Replaces the standalone Loadout scene; built over a veil with the same look as the other map dialogs.
+func _open_expedition() -> void:
+	var equip := {"v": {}}                # boxed so the rebuild closure can mutate the chosen boosts
+	var overlay := Control.new()
+	overlay.name = "ExpeditionOverlay"
+	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
+	add_child(overlay)
+	var veil := ColorRect.new()
+	veil.color = Color(DOCK_INK, 0.55)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(cc)
+	var rebuild := {"fn": Callable()}
+	rebuild.fn = func() -> void:
+		if not is_instance_valid(cc):
+			return
+		for c in cc.get_children():
+			c.queue_free()
+		var panel := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = DOCK_PARCH
+		sb.set_corner_radius_all(18)
+		sb.content_margin_left = 22 ; sb.content_margin_right = 22
+		sb.content_margin_top = 18 ; sb.content_margin_bottom = 18
+		panel.add_theme_stylebox_override("panel", sb)
+		var col := VBoxContainer.new()
+		col.add_theme_constant_override("separation", 10)
+		col.custom_minimum_size = Vector2(minf(get_viewport_rect().size.x * 0.9, 520.0), 0)
+		panel.add_child(col)
+		col.add_child(_dock_label("Load out", 30, true))
+		col.add_child(_dock_label("Spend coins on boosts, then set off. You have %d coins." % Save.coins(), 18))
+		for it in Explore.LOADOUT:
+			var id := String(it.id)
+			var on := bool(equip.v.get(id, false))
+			var row := Button.new()
+			row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			row.add_theme_font_size_override("font_size", 18)
+			row.text = "%s  %s  ·  %d coins%s" % [String(it.name), String(it.eff), int(it.cost), ("   ✓" if on else "")]
+			if on:
+				row.modulate = Color(1.0, 0.92, 0.55)
+			row.pressed.connect(func() -> void:
+				var want := not bool(equip.v.get(id, false))
+				equip.v[id] = want
+				if want and Explore.loadout_cost(equip.v) > Save.coins():
+					equip.v[id] = false      # can't afford — leave it off
+				Audio.play("button_tap", -2.0)
+				rebuild.fn.call())
+			col.add_child(row)
+		col.add_child(_dock_label("Cost: %d coins" % Explore.loadout_cost(equip.v), 20, true))
+		var actions := HBoxContainer.new()
+		actions.add_theme_constant_override("separation", 14)
+		var go := _dock_button("Set off", func() -> void:
+			var cost := Explore.loadout_cost(equip.v)
+			if cost > Save.coins():
+				return
+			if cost > 0:
+				Save.spend(cost, "explore_loadout")
+			Explore.begin_run(equip.v)
+			Audio.play("button_tap", -2.0)
+			SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
+		go.disabled = not Explore.can_start(equip.v)
+		actions.add_child(go)
+		actions.add_child(_dock_button("Cancel", func() -> void: overlay.queue_free()))
+		col.add_child(actions)
+		cc.add_child(panel)
+		FX.pop_in(panel)
+	rebuild.fn.call()
 
 # Legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon,
 # name, cost). Kept for existing tests/tools while the active button routes to Residents.tscn.
@@ -1893,6 +1966,11 @@ func _maybe_show_unlock_reward(z: int) -> void:
 	if rew.is_empty():
 		return
 	_update_hud()
+	# Unified habitat: the free unlock spirit lands in the HAND so it shows + is placeable on the map.
+	# (claim_unlock_reward also seats it in the now-dormant legacy roster; that copy retires with the economy pass.)
+	var unlock_spirit := String(rew.get("spirit", ""))
+	if unlock_spirit != "":
+		Habitat.hand_add(unlock_spirit)
 	if not is_inside_tree():
 		return
 	_show_unlock_dialog.call_deferred(z, rew)
