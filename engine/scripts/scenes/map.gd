@@ -1450,6 +1450,7 @@ func _open_residents_shop(z: int) -> void:
 	var overlay := Control.new()
 	overlay.name = "ResidentsShopOverlay"
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
 	add_child(overlay)
 	var veil := ColorRect.new()
 	veil.color = Color(INK, 0.55)
@@ -1736,6 +1737,7 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 	var overlay := Control.new()
 	overlay.name = "UnlockRewardOverlay"
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = 100
 	add_child(overlay)
 	var dismiss := func() -> void:
 		if is_instance_valid(overlay):
@@ -1752,23 +1754,35 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
+	var entries: Array = []
 	if coins > 0:
-		col.add_child(_reward_row(Look.icon("coin", 44.0), Strings.t("map.unlock.coins"), "+%d" % coins))
+		entries.append({
+			"icon": "coin",
+			"title": Strings.t("map.unlock.coins"),
+			"body": "",
+			"chip": {"icon": "coin", "text": "+%d" % coins},
+		})
 	if gems > 0:
-		col.add_child(_reward_row(Look.icon("gem", 44.0), Strings.t("map.unlock.diamonds"), "+%d" % gems))
+		entries.append({
+			"icon": "gem",
+			"title": Strings.t("map.unlock.diamonds"),
+			"body": "",
+			"chip": {"icon": "gem", "text": "+%d" % gems},
+		})
 	if spirit != "":
-		col.add_child(_reward_row(_spirit_icon(spirit, 44.0), _resident_name(z, spirit), "+1"))
-	var collect: Button = Kit.pill_button(Strings.t("map.unlock.collect"), {"bg": "green", "font": 22})
-	collect.pressed.connect(func() -> void: dismiss.call())
-	var btn_wrap := CenterContainer.new()
-	btn_wrap.add_child(collect)
-	col.add_child(btn_wrap)
+		entries.append({
+			"icon": "gift",
+			"title": _resident_name(z, spirit),
+			"body": Strings.t("map.welcome.new_friend"),
+			"chip": {"icon": "gift", "text": "+1"},
+		})
 	var width: float = minf(get_viewport_rect().size.x * 0.86, 520.0)
-	var opts := {"banner_text": Strings.t("map.unlock.title"), "banner_icon_on": false}
+	var opts: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["banner_text"] = Strings.t("map.unlock.title")
+	opts["banner_icon_on"] = false
+	opts["got_it"] = Strings.t("map.unlock.collect")
 	opts["on_close"] = func() -> void: dismiss.call()
-	var dialog: Control = Kit.dialog_frame(col, width, opts)
+	var dialog: Control = Kit.mail_dialog(entries, width, opts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
 
@@ -1799,30 +1813,6 @@ func _resident_name(z: int, type_id: String) -> String:
 		if String(td.id) == type_id:
 			return tr(String(td.name))
 	return type_id
-
-# One reward-reveal row: [icon] · label (expands) · amount (right). Used by the unlock dialog.
-func _reward_row(icon: Control, label: String, amount: String) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon)
-	var l := Label.new()
-	l.text = label
-	l.add_theme_font_size_override("font_size", 22)
-	l.add_theme_color_override("font_color", INK)
-	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(l)
-	var a := Label.new()
-	a.text = amount
-	a.add_theme_font_size_override("font_size", 22)
-	a.add_theme_color_override("font_color", Color(BARK, 0.95))
-	a.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(a)
-	return row
 
 func _task_reward_fx(coins: int, gems: int) -> void:
 	if not is_inside_tree():
