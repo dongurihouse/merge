@@ -100,6 +100,9 @@ var _select_scroll_max := 0.0    # 0 when the stack fits the band (no scroll); e
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
 var _residents_btn: Button = null  # the bottom-nav Residents badge — shown only on a fully-unlocked map
+var _spirits_dock: PanelContainer = null   # the habitat management strip docked above the nav (built once, refilled per map)
+var _dock_body: VBoxContainer = null       # the dock's content column (cleared + repopulated by _fill_spirits_dock)
+var _sel_hand := -1                        # selected in-hand spirit index for place/merge (-1 = none)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
@@ -351,6 +354,8 @@ func _build_map(animate := true) -> void:
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
+	_sel_hand = -1                # a fresh map clears any in-hand selection
+	_fill_spirits_dock()         # refill the management dock for the map just opened
 
 # The open map's PLACED spirits as ambient members ({type, tier}). The map renders the habitat
 # (engine/scripts/core/habitat.gd) — the single resident model where Explore deposits — instead of the
@@ -1346,6 +1351,7 @@ func _build_chrome() -> void:
 	_select_back = _make_back_button(sb)
 	add_child(_select_back)
 	_select_back.visible = false
+	_make_spirits_dock()                 # the habitat management strip (folded-in residents screen)
 
 # The Map button (bottom nav, index 0) — opens the place-picker. The shared home button in its ROUNDED-RECT
 # form: the ui_asset2 badge with the map icon over a "Map" label, both inside the badge (ui_mock2).
@@ -1390,6 +1396,200 @@ func _make_residents_button() -> Button:
 func _refresh_residents_btn() -> void:
 	if _residents_btn != null and is_instance_valid(_residents_btn):
 		_residents_btn.visible = G.can_populate(_map_idx, unlocks, _gates())
+
+# --- the SPIRITS DOCK: habitat management folded onto the map -------------------------------------
+# The map IS the residents screen now. The open map's placed spirits render as the population layer
+# (see _habitat_members); this compact dock above the nav holds the in-hand spirits and the
+# place / in-hand-merge / collect / sell actions for the OPEN map. Built once as chrome, refilled per
+# map open and after every action. (Move-across-maps stays in the model but has no dock affordance yet.)
+const DOCK_INK := Color("#43352B")
+const DOCK_PARCH := Color("#F3E7CE")
+const DOCK_STRAW := Color("#D9B679")
+
+func _make_spirits_dock() -> void:
+	var panel := PanelContainer.new()
+	panel.name = "SpiritsDock"
+	var lift := Look.safe_bottom(self) + 188.0   # ride above the bottom nav row
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	panel.offset_left = 14.0
+	panel.offset_right = -14.0
+	panel.offset_top = -(lift + 172.0)           # fixed-height band (top ABOVE bottom — else it collapses)
+	panel.offset_bottom = -lift
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(DOCK_PARCH, 0.96)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 14 ; sb.content_margin_right = 14
+	sb.content_margin_top = 10 ; sb.content_margin_bottom = 10
+	panel.add_theme_stylebox_override("panel", sb)
+	_dock_body = VBoxContainer.new()
+	_dock_body.add_theme_constant_override("separation", 6)
+	panel.add_child(_dock_body)
+	add_child(panel)
+	_spirits_dock = panel
+	_chrome_nodes.append(panel)         # toggled with the rest of the map chrome in the place-picker
+	_fill_spirits_dock()
+
+## Clear + repopulate the dock from the OPEN map's habitat, and show it only on a populatable map.
+func _fill_spirits_dock() -> void:
+	if _spirits_dock == null or not is_instance_valid(_spirits_dock):
+		return
+	for c in _dock_body.get_children():
+		c.queue_free()
+	var populatable := G.can_populate(_map_idx, unlocks, _gates())
+	_spirits_dock.visible = populatable
+	if not populatable:
+		return
+	var map_id := String(G.MAPS[_map_idx].id)
+
+	# header: capacity + (on a coin map) the collectable production
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 10)
+	head.add_child(_dock_label("%s  %d/%d" % [String(G.MAPS[_map_idx].name), Habitat.placed(map_id).size(), Habitat.cap(map_id)], 20, true))
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(spacer)
+	var cur := Habitat.reward_currency(map_id)
+	if cur != "":
+		var pend := int(floor(Habitat.pending(map_id)))
+		head.add_child(_dock_label("+%d %s" % [pend, cur], 18))
+		var coll := _dock_button("Collect", func() -> void: _on_dock_collect(map_id))
+		coll.disabled = pend <= 0
+		head.add_child(coll)
+	_dock_body.add_child(head)
+
+	# the hand: tap to select, tap a match to merge; Place seats the selection on the open map
+	var hand_row := HBoxContainer.new()
+	hand_row.add_theme_constant_override("separation", 6)
+	var hand: Array = Habitat.hand()
+	if hand.is_empty():
+		hand_row.add_child(_dock_label("Hand empty — tap Expedition to find spirits.", 16))
+	else:
+		for i in hand.size():
+			var idx := i
+			var inst: Dictionary = hand[i]
+			var w := _spirit_chip(String(inst.kind), int(inst.tier), 56.0, func() -> void: _on_dock_hand(idx))
+			if idx == _sel_hand:
+				w.modulate = Color(1.0, 0.92, 0.55)
+			hand_row.add_child(w)
+		var place := _dock_button("＋ Place", func() -> void: _on_dock_place(map_id))
+		place.disabled = _sel_hand < 0 or Habitat.is_full(map_id)
+		hand_row.add_child(place)
+	_dock_body.add_child(hand_row)
+
+	# what's placed on this map — tap to sell
+	var placed: Array = Habitat.placed(map_id)
+	if not placed.is_empty():
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(_dock_label("On map:", 16))
+		for i in placed.size():
+			var idx := i
+			var inst: Dictionary = placed[i]
+			row.add_child(_spirit_chip(String(inst.kind), int(inst.tier), 48.0, func() -> void: _on_dock_sell(map_id, idx)))
+		_dock_body.add_child(row)
+
+func _on_dock_hand(idx: int) -> void:
+	var h: Array = Habitat.hand()
+	if idx < 0 or idx >= h.size():
+		return
+	if _sel_hand != -1 and _sel_hand != idx and _sel_hand < h.size():
+		var a: Dictionary = h[_sel_hand]
+		var b: Dictionary = h[idx]
+		if String(a.kind) == String(b.kind) and int(a.tier) == int(b.tier):
+			Habitat.hand_merge(String(a.kind), int(a.tier))
+			Audio.play("button_tap", -2.0)
+			_sel_hand = -1
+			_fill_spirits_dock()
+			return
+	_sel_hand = idx
+	_fill_spirits_dock()
+
+func _on_dock_place(map_id: String) -> void:
+	if _sel_hand < 0 or _sel_hand >= Habitat.hand().size():
+		return
+	if Habitat.place(map_id, _sel_hand):
+		Audio.play("button_tap", -2.0)
+		_sel_hand = -1
+		_refresh_population()
+		_fill_spirits_dock()
+
+func _on_dock_sell(map_id: String, idx: int) -> void:
+	Habitat.sell(map_id, idx)
+	Audio.play("button_tap", -2.0)
+	_update_hud()
+	_refresh_population()
+	_fill_spirits_dock()
+
+func _on_dock_collect(map_id: String) -> void:
+	Habitat.collect(map_id)
+	Audio.play("button_tap", -2.0)
+	_update_hud()
+	_fill_spirits_dock()
+
+## Re-render the open map's placed spirits (the population layer) after a habitat change.
+func _refresh_population() -> void:
+	if content == null:
+		return
+	var old := content.get_node_or_null("AmbientLayer")
+	if old == null:
+		return
+	old.free()                          # immediate free so the rebuilt layer can reuse the name
+	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(_map_idx))
+	amb.position = _map_rect.position
+	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(amb)
+
+func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable) -> Control:
+	var btn := Button.new()
+	btn.flat = true
+	btn.custom_minimum_size = Vector2(px, px)
+	btn.pressed.connect(on_tap)
+	var path := G.resident_art(kind)
+	if path != "" and ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.texture = load(path)
+		t.set_anchors_preset(Control.PRESET_FULL_RECT)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(t)
+	else:
+		var disc := Panel.new()
+		disc.set_anchors_preset(Control.PRESET_FULL_RECT)
+		var ds := StyleBoxFlat.new()
+		ds.bg_color = Color(DOCK_STRAW, 0.95)
+		ds.set_corner_radius_all(int(px / 2.0))
+		disc.add_theme_stylebox_override("panel", ds)
+		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		btn.add_child(disc)
+	var badge := Label.new()
+	badge.text = "t%d" % tier
+	badge.add_theme_font_size_override("font_size", 14)
+	badge.add_theme_color_override("font_color", DOCK_INK)
+	badge.add_theme_color_override("font_outline_color", DOCK_PARCH)
+	badge.add_theme_constant_override("outline_size", 3)
+	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	btn.add_child(badge)
+	return btn
+
+func _dock_label(text: String, size: int, bold: bool = false) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", DOCK_INK)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	if bold:
+		l.add_theme_color_override("font_outline_color", DOCK_PARCH)
+		l.add_theme_constant_override("outline_size", 2)
+	return l
+
+func _dock_button(text: String, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(on_press)
+	return b
 
 # Legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident — spirit icon,
 # name, cost). Kept for existing tests/tools while the active button routes to Residents.tscn.

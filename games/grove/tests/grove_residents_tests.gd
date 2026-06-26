@@ -11,6 +11,7 @@ func _initialize() -> void:
 	_test_production()
 	_test_screen()
 	_test_screen_actions()
+	_test_map_dock()
 	finish()
 
 # --- the in-hand holding area + in-hand merge ------------------------------------
@@ -188,3 +189,42 @@ func _test_screen_actions() -> void:
 	# place onto the completed map
 	ok(Habitat.place(mid, 0), "the t2 places onto the completed map")
 	ok(Habitat.rate(mid) == 2, "the placed t2 sets the map's rate to 2")
+
+# --- the spirits DOCK on the map (the folded-in residents management) -------------
+func _test_map_dock() -> void:
+	fresh("map_dock")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
+	var mid := String(G.MAPS[z].id)
+	Habitat.hand_add("moss", 1)          # one to place via the dock
+	Habitat.hand_add("acorn", 2)         # one placed up front so the "On map" row renders
+	Habitat.place(mid, 1)                # place the acorn (index 1)
+
+	var hx = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(hx)
+	if hx.content == null:
+		hx._ready()
+	hx.unlocks = unl
+	hx._open_map(z)
+	ok(hx._spirits_dock != null and hx._spirits_dock.visible, "the spirits dock shows on a completed map")
+	var labels := _label_texts(hx._spirits_dock)
+	var has_cap := false
+	for t in labels:
+		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
+			has_cap = true
+	ok(has_cap, "the dock shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)
+
+	# place the remaining hand spirit through the dock (select then place)
+	var before := Habitat.placed(mid).size()
+	hx._on_dock_hand(0)
+	hx._on_dock_place(mid)
+	ok(Habitat.placed(mid).size() == before + 1, "placing through the dock seats a hand spirit on the open map")
+
+	# the dock hides on an INCOMPLETE map
+	hx._open_map(1)                       # map 1 is not completed in this save
+	ok(not hx._spirits_dock.visible, "the dock hides on a map that can't be populated")
+	hx.queue_free()
