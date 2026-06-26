@@ -236,10 +236,12 @@ func _ready() -> void:
 	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
 	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
 	# so the height budget reserves only the frame overhang + the fence/nav rows.
-	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	var board_frame_h := _board_frame_h_px()
+	var h_budget := board_frame_h if board_frame_h > 0.0 else view.y - reserved_rows_h
+	var h_csz := (h_budget - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within the available space — the
 	# in-game "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
-	csz = minf(w_csz, h_csz) * _board_scale
+	csz = maxf(1.0, h_csz) if board_frame_h > 0.0 else minf(w_csz, h_csz) * _board_scale
 	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
 	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
 	center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
@@ -1452,6 +1454,17 @@ func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 	if frac <= 0.0:
 		return fallback
 	return maxf(bottom_btn_px, roundf(_view_size().y * frac))
+
+func _board_frame_h_px() -> float:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return 0.0
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+	if not h.has("board_h_pct"):
+		return 0.0
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
+	return maxf(1.0, roundf(_view_size().y * float(layout.get("board_h_frac", 0.0))))
 
 func _quest_row_h_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")

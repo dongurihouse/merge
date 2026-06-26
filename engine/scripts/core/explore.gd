@@ -30,6 +30,8 @@ const MULT_CAP := 6.0            # multiplier ceiling
 const WARN := 4.0               # treefall telegraph window (s) between warning and the timber landing
 const COMBO_WINDOW := 1.5        # a merge within this gap keeps the combo climbing (s)
 const COMBO_RESET := 1.7         # idle this long and the combo drops to 0 (s)
+const MULT_GRACE := 0.7          # after a merge the multiplier holds for this long before it bleeds (s)
+const MULT_DECAY := 0.25         # once past the grace window the multiplier bleeds this much per second
 
 # --- Box cost table (score-priced; rarity odds parked → kind-only roll at tier 1) -----------------
 const BOXES := [
@@ -81,9 +83,12 @@ static func mult_after_merge(mult: float, win_tier: int) -> float:
 		m = minf(MULT_CAP, m + 0.3)
 	return m
 
-## The multiplier bleeds back toward 1 while you pause.
-static func mult_decay(mult: float, dt: float) -> float:
-	return maxf(1.0, mult - 0.45 * dt) if mult > 1.0 else mult
+## The multiplier holds for MULT_GRACE after the last merge, then bleeds back toward 1 while you pause.
+## `idle_s` is the time since the last merge — active play stays inside the grace window and never loses ground.
+static func mult_decay(mult: float, dt: float, idle_s: float) -> float:
+	if mult <= 1.0 or idle_s <= MULT_GRACE:
+		return mult
+	return maxf(1.0, mult - MULT_DECAY * dt)
 
 ## Emptying a telegraphed column before the timber lands ("clean dodge") bumps the multiplier.
 static func clean_dodge_mult(mult: float) -> float:

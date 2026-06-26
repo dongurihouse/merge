@@ -184,7 +184,7 @@ func _process(dt: float) -> void:
 		_refresh_readouts()
 		_end()
 		return
-	_mult = Explore.mult_decay(_mult, dt)
+	_mult = Explore.mult_decay(_mult, dt, _elapsed - _last_merge)
 	if _combo > 0 and _elapsed - _last_merge > Explore.COMBO_RESET:
 		_combo = 0
 	var prog := 1.0 - _time / float(_cfg.time)

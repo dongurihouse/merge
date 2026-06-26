@@ -3558,9 +3558,13 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var gap := float(b.get("gap", 7.0))
 	var frame := float(b.get("frame", 60.0))
 	var scale := float(b.get("scale", 100.0)) / 100.0
+	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+	var target_h := 0.0
+	if h.has("board_h_pct"):
+		target_h = view_size.y * float(hud_layout_opts_from_config(cfg).get("board_h_frac", 0.0))
 	var cell_w := (view_size.x - 12.0 - frame * 2.0 - (cols - 1.0) * gap) / cols
-	var cell_h := (view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows
-	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
+	var cell_h := ((target_h if target_h > 0.0 else view_size.y - 536.0) - frame * 2.0 - (rows - 1.0) * gap) / rows
+	var csz := maxf(1.0, cell_h) if target_h > 0.0 else maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
 
 static func live_quest_bar_top_y(safe_top := 0.0) -> float:

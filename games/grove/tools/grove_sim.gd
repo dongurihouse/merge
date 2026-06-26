@@ -77,6 +77,31 @@ var level_gift_water := 0
 var _greedy := false           # bot mode: greedy welcomes residents whenever affordable (no cushion)
 var _cur_day := 0              # the current day index (0-based), for the P1 first-completion stamp
 
+# §6 NEW FAUCETS (B/C/D) — folded in so the invariants see the REAL water/exp/coin/acorn income, not
+# just quests + the level-gift. Collected the way real play does: accumulators per check-in (§6.C),
+# special items on merge (§6.B), treat bursts on pop (§6.D). Tallied separately so the report shows how
+# much each moves the exp arc and the water pinch. (Conservative: drops/treats credited at their t1/head
+# tier, not merged up — a floor on the real yield.)
+var acc_water := 0            # §6.C accumulator faucets (collected at each session check-in)
+var acc_coins := 0
+var acc_exp := 0
+var acc_acorn := 0
+var drop_water := 0          # §6.B special-item drops on merge (collected at t1)
+var drop_exp := 0
+var drop_acorn := 0
+var drop_open_coins := 0     # §6.B chest opened by a key → coins + acorns
+var drop_open_acorns := 0
+var treat_coins := 0         # §6.D treat-gen premium-line sells + its special drops
+var treat_water := 0
+var treat_exp := 0
+var treat_acorn := 0
+var acorns := 0              # acorn (premium) balance — previously unmodeled; the §6 faucets mint it
+var merges := 0             # total board merges (drives special-drop volume)
+var treat_gens := 0         # §6.D treat generators spawned over the run
+var _pending_chests := 0    # banked special-drop chests awaiting a key (paired-open model)
+var _pending_keys := 0
+var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
+
 var jams := 0
 var merchant_sells := 0
 var map_spend := {}           # map -> water spent while restoring it
@@ -99,17 +124,19 @@ func _initialize() -> void:
 	var map_done_day := -1
 	for day in days:
 		_cur_day = day
-		var d_exp := 0
+		var day_exp_b := exp_earned          # exp at day start — the day line reports the full delta (quest + §6)
 		var d_water := 0
 		for _session in 3:
-			water = G.WATER_CAP
+			_session_cap = G.WATER_CAP
+			var bonus := _collect_accumulators()   # §6.C check-in: credits exp/coins/acorn, returns bonus water
+			_session_cap = G.WATER_CAP + bonus
+			water = _session_cap
 			var r := _play_session()
-			d_exp += r.exp
 			d_water += r.water
 		if map_done_day < 0 and map >= G.MAPS.size():
 			map_done_day = day + 1
 		print("  day %d: spent %d💧 · earned %d exp · map %d/%d · maps-done %d · coins %d (quest %d/sell %d) · residents %d (%d💎) · brambles %d" % \
-			[day + 1, d_water, d_exp, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
+			[day + 1, d_water, exp_earned - day_exp_b, mini(map + 1, G.MAPS.size()), G.MAPS.size(), gates_reached, coins, quest_coins, sell_coins, residents_welcomed, residents_premium, board.bramble_count()])
 
 	maps_done = mini(map, G.MAPS.size())
 	print("\n== results ==")
@@ -163,6 +190,33 @@ func _initialize() -> void:
 				pass_all = false
 	if i2_ok:
 		print("  PASS I2: every steady-state map (3+) keeps its water gift under %.0f%% of spend (early maps 1-2 noted above)" % (G.WATER_REWARD_MAX_RATIO * 100))
+
+	# --- §6 NEW FAUCETS (B/C/D): the water/exp/coin/acorn the accumulators, special drops, and treats add
+	# ON TOP of quests + the level-gift. The exp arc (runway/level above) already reflects this exp; here we
+	# surface the magnitude and the WATER self-sustain risk. NOTE: these water faucets BYPASS the level-gift,
+	# so I2's gift-ratio no longer captures total water income — the self-sustain line below is the real
+	# pinch check now. Reported as tuning signals (WARN, not hard fails — the §7 tuning pass owns the dials). ---
+	var new_water := acc_water + drop_water + treat_water
+	var new_exp := acc_exp + drop_exp + treat_exp
+	var new_coins := acc_coins + treat_coins + drop_open_coins
+	var new_acorn := acc_acorn + drop_acorn + treat_acorn + drop_open_acorns
+	print("  -- §6 faucets --  water +%d💧 (acc %d·drop %d·treat %d) · exp +%d✨ (acc %d·drop %d·treat %d) · coins +%d🪙 (acc %d·treat %d·chest %d) · acorn +%d🌰" % \
+		[new_water, acc_water, drop_water, treat_water, new_exp, acc_exp, drop_exp, treat_exp, new_coins, acc_coins, treat_coins, drop_open_coins, new_acorn])
+	print("                 over %d merges · %d treat-gens — §6 supplies %.0f%% of all exp earned (the rest is quests)" % \
+		[merges, treat_gens, 100.0 * float(new_exp) / float(maxi(1, exp_earned))])
+	# WATER self-sustain: gift + the §6 water faucets vs total spend. I2 guards the GIFT alone at <30%; these
+	# faucets are ADDITIONAL income, so if (gift + §6) climbs toward spend the early water pinch is gone.
+	var total_spend := 0
+	for z in map_spend:
+		total_spend += int(map_spend[z])
+	var gift_plus_new := level_gift_water + new_water
+	var sustain := 100.0 * float(gift_plus_new) / float(maxi(1, total_spend))
+	if sustain >= G.WATER_REWARD_MAX_RATIO * 100.0:
+		print("  WARN water self-sustain: gift+§6 water %d💧 vs spend %d💧 (%.0f%% ≥ %.0f%%) — the §6 faucets erase the early water pinch; budget them against I2 in the tuning pass" % \
+			[gift_plus_new, total_spend, sustain, G.WATER_REWARD_MAX_RATIO * 100.0])
+	else:
+		print("  PASS water self-sustain: gift+§6 water %d💧 vs spend %d💧 (%.0f%% < %.0f%%)" % \
+			[gift_plus_new, total_spend, sustain, G.WATER_REWARD_MAX_RATIO * 100.0])
 
 	# --- I3: runway (reported, not a hard fail — the full game is long by design, §3) ---
 	if map_done_day > 0:
@@ -269,6 +323,110 @@ func _live_lines() -> Array:
 	# SINGLE-GENERATOR model (idea 3): all opened lines stay live, not just the current map's. Pass the
 	# LEVEL so per-line stage gates (§6.E min_level) apply, mirroring the board's askable pool.
 	return G.askable_lines(G.GENERATORS, map, _level())
+
+# Credit `amount` exp and fire any level-ups: each level gifts LEVEL_WATER_GIFT water (topped up within
+# the session budget _session_cap) + LEVEL_DIAMONDS, attributed to the current map's gift (I2). Shared by
+# quest delivery AND the new §6 exp faucets (accumulator exp, exp drops, treat exp).
+func _earn_exp(amount: int) -> void:
+	if amount <= 0:
+		return
+	var lvl_b := _level()
+	exp_earned += amount
+	if _level() > lvl_b:
+		var up := _level() - lvl_b
+		water = mini(_session_cap, water + G.LEVEL_WATER_GIFT * up)
+		level_gift_water += G.LEVEL_WATER_GIFT * up
+		map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
+		diamonds += G.LEVEL_DIAMONDS * up
+		gems_from_levels += G.LEVEL_DIAMONDS * up
+
+# §6.C UTILITY ACCUMULATORS — at each session check-in the bot collects every UNLOCKED accumulator (an
+# accumulator unlocks once its map-0 spot is claimed, G.accumulator_unlocked). With 3 sessions spread
+# across the day, each refills to its cap between check-ins (cap×secs ≪ the gap), so a check-in collects a
+# FULL cap. exp/coins/acorn credit directly; water is returned as bonus pop-budget for the session (on TOP
+# of the assumed full regen) — which is why the bot can out-pop a bare WATER_CAP day.
+func _collect_accumulators() -> int:
+	var bonus_water := 0
+	for kind in G.ACCUMULATORS:
+		if not G.accumulator_unlocked(String(kind), unlocks):
+			continue
+		var cap := int(G.ACCUMULATORS[kind].get("cap", 0))
+		var amount := int(G.accumulator_reward(String(kind), cap).amount)
+		match String(kind):
+			"water":
+				bonus_water += amount
+				acc_water += amount
+			"coins":
+				coins += amount
+				coins_earned += amount
+				acc_coins += amount
+			"exp":
+				acc_exp += amount
+				_earn_exp(amount)
+			"acorn":
+				acorns += amount
+				acc_acorn += amount
+	return bonus_water
+
+# A §6.B special item shaken loose by a merge (or a treat tap). Modeled at its t1 collect value — a
+# conservative FLOOR (real play merges drops up first). water → extends the session pop-budget; exp → the
+# exp faucet (levels up); acorn → premium. chest+key pair and OPEN for coins+acorns (paired across drops);
+# wildcard ≈ a free advance, negligible to the water/exp/coin invariants.
+func _credit_special_drop(code: int, src: String = "drop") -> void:
+	match G.special_kind(code):
+		"water":
+			var a := int(G.special_collect(code).amount)
+			_session_cap += a
+			water += a
+			if src == "treat": treat_water += a
+			else: drop_water += a
+		"exp":
+			var a := int(G.special_collect(code).amount)
+			if src == "treat": treat_exp += a
+			else: drop_exp += a
+			_earn_exp(a)
+		"acorn":
+			var a := int(G.special_collect(code).amount)
+			acorns += a
+			if src == "treat": treat_acorn += a
+			else: drop_acorn += a
+		"chest":
+			_pending_chests += 1
+			_try_open_chest()
+		"key":
+			_pending_keys += 1
+			_try_open_chest()
+		_:
+			pass
+
+# Pair a banked chest + key and OPEN for coins+acorns (both t1 — conservative). Models the §6.B chest/key
+# loop without board placement.
+func _try_open_chest() -> void:
+	if _pending_chests >= 1 and _pending_keys >= 1:
+		_pending_chests -= 1
+		_pending_keys -= 1
+		var rw := G.chest_open_reward(10 * 100 + 1, 11 * 100 + 1)
+		coins += int(rw.coins)
+		coins_earned += int(rw.coins)
+		drop_open_coins += int(rw.coins)
+		acorns += int(rw.acorns)
+		drop_open_acorns += int(rw.acorns)
+
+# §6.D a temporary treat generator: TREAT_CLICKS taps, each popping the map's treasure line at the
+# head-start tier (TREAT_POP_TIER) and TREAT_DROP_RATE of the time shaking a §6.B special loose. The
+# treasure items are merged up + sold at the premium band; we credit a conservative per-tap sell at the
+# POP tier (real play merges them higher) plus the special drops.
+func _run_treat_gen() -> void:
+	treat_gens += 1
+	var clicks := G.pick_treat_clicks(rng)
+	var line := G.pick_treat_line(map)
+	for _c in clicks:
+		var sell := int(G.sell_reward(line * 100 + G.TREAT_POP_TIER).x)
+		coins += sell
+		coins_earned += sell
+		treat_coins += sell
+		if rng.randf() < G.TREAT_DROP_RATE:
+			_credit_special_drop(G.pick_special_drop(rng), "treat")
 
 # --- §1 POPULATION: the endless coin/diamond sink on COMPLETED maps -----------------
 # The sim keeps its OWN resident roster (residents[z] = {type_id -> [t1..tMAX]}) rather than
@@ -459,16 +617,7 @@ func _play_session() -> Dictionary:
 			coins_earned += int(rw.coins)
 			quest_coins += int(rw.coins)
 			# (quests pay NO acorns now — acorns are milestone/IAP only, Option A)
-			var lvl_b := _level()
-			exp_earned += sp_exp
-			if _level() > lvl_b:
-				var up := _level() - lvl_b
-				water = mini(G.WATER_CAP, water + G.LEVEL_WATER_GIFT * up)
-				level_gift_water += G.LEVEL_WATER_GIFT * up
-				map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
-				# §1 diamond FAUCET: each level gained gifts LEVEL_DIAMONDS (mirrors earn_stars).
-				diamonds += G.LEVEL_DIAMONDS * up
-				gems_from_levels += G.LEVEL_DIAMONDS * up
+			_earn_exp(sp_exp)
 			live_quests.erase(q)
 			delivered = true
 			break
@@ -547,12 +696,16 @@ func _play_session() -> Dictionary:
 		var pair := _best_pair()
 		if not pair.is_empty():
 			var produced: int = board.merge(pair[0], pair[1])
+			merges += 1
 			for br in board.openable_brambles(pair[1], _level()):
 				board.open_bramble(br)
 			if not G.is_coin(produced) and rng.randf() < G.COIN_DROP_RATE:
 				var empt := board.empty_ground_cells()
 				if not empt.is_empty():
 					board.place(empt[rng.randi_range(0, empt.size() - 1)], G.COIN_LINE * 100 + 1)
+			# §6.B a merge sometimes shakes a special item loose (modeled by collect-yield, not placed)
+			if G.rolls_special_drop(rng):
+				_credit_special_drop(G.pick_special_drop(rng))
 			continue
 
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
@@ -569,6 +722,9 @@ func _play_session() -> Dictionary:
 				s_water += G.POP_COST
 				map_spend[map] = int(map_spend.get(map, 0)) + G.POP_COST
 				_pop()
+			# §6.D each main-generator tap may spawn a temporary treat generator (run to completion here)
+			if G.rolls_treat_spawn(rng):
+				_run_treat_gen()
 			continue
 
 		# 7. nothing to do
