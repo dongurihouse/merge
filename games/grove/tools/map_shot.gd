@@ -124,12 +124,23 @@ func _initialize() -> void:
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
 			var ul := {}
+			var ogates := []
+			var oclaimed := {}
 			for z in G.MAPS.size():
 				for sp in G.MAPS[z].spots:
 					ul[String(sp.id)] = true
+				ogates.append(z)                          # record gates so completed maps are POPULATABLE (spirits dock shows)
+				oclaimed[String(G.MAPS[z].id)] = true     # pre-claim unlock rewards so no popup covers the map
 			go["unlocks"] = ul
+			go["gates"] = ogates
+			go["task_reward"] = oclaimed
 			go["exp"] = 40
 			Save.grove_write()
+			# seed a few in-hand + placed spirits so the dock renders fully (for UI capture)
+			var Habitat = load("res://engine/scripts/core/habitat.gd")
+			var hub_id := String(G.MAPS[G.hub_map()].id)
+			Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Fern", 2)
+			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).

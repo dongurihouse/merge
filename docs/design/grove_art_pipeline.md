@@ -103,11 +103,13 @@ during P1):
 splittable, on-style 3×3, fall back to **individual sprites** or a 2×2 (4 tiers/render). The grid is
 a throughput goal, not a hard requirement.
 
-### 4.1 · Current 12-tier line-sheet prompt requirements
+### 4.1 · Current 12-tier line-sheet generation rule
 
-The live board now uses 12-tier item lines. For new model-generated line sheets, default to a
-**3×4 sheet**: exactly 12 separate icons, row-major tier order (`tier 1` top-left → `tier 12`
-bottom-right), no visible grid, no text, no labels, no watermark. Save the raw in
+This is the default rule for every new model-generated Grove item line. Start from the pasteable
+template in `docs/design/grove_item_line_prompt.md`; do not generate a new line from an ad hoc prompt
+unless the user explicitly overrides this rule. The live board now uses **12-tier item lines**, so
+default to a **3×4 sheet**: exactly 12 separate icons, row-major tier order (`tier 1` top-left →
+`tier 12` bottom-right), no visible grid, no text, no labels, no watermark. Save the raw in
 `games/grove/assets/_new/line_<base>_vN.png`, then keep a normalized cutter copy as
 `line_<base>_vN_keyed.png` if the generated magenta is not exact.
 
@@ -118,7 +120,8 @@ Use these requirements in every item-line prompt before generating:
   no overlapping cells, and no object outside the central safe area.
 - **Low cleanup burden:** avoid dense fine-detail clusters such as many tiny leaves, stems, fronds,
   seeds, crumbs, or hairline decorations. Use fewer, larger attached details and clean color-blocked
-  surfaces so each icon is easy to key, crop, and read at board size.
+  surfaces so each icon is easy to key, crop, and read at board size. If the prompt begins drifting
+  toward "more magical," add color/material contrast instead of more parts.
 - **Simple single-object tiers:** each tier should usually be one main object, not a kit, bundle,
   scene, crossed-tools arrangement, or multi-prop assembly. High tiers may have richer trim or one
   attached accessory, but the silhouette should still read as a single clean item.
@@ -143,9 +146,15 @@ Use these requirements in every item-line prompt before generating:
 - **High-tier distinctness:** the last three tiers should be clearly different at board size
   through silhouette, palette, and material accents. Prefer vibrant color blocking and a bold
   central motif over tiny clutter.
-- **Signature motifs:** when a line needs the Grove/acorn signature, replace an existing central
-  decorative motif on the high-tier object with **one clear acorn emblem**. Do not add extra
-  acorn badges, dangling acorns, floating acorns, or acorns in arbitrary corners.
+- **Signature motifs:** by default, high-tier items with a natural emblem slot should use **one clear
+  Grove acorn emblem** on tiers 10-12. Replace an existing central decorative motif with the acorn.
+  Do not add extra acorn badges, dangling acorns, floating acorns, or acorns in arbitrary corners.
+  If the item family is organic and has no natural emblem slot, omit the acorn rather than forcing
+  awkward placement.
+- **Whole-object food and creature rule:** food, fruit, vegetables, seeds, plants, birds, fish, and
+  small creatures should be whole intact objects. Do not show sliced/opened interiors, repeated
+  same-fruit variants, loose garnish, nests, rocks, branches, water splashes, piles, or clusters
+  unless the user explicitly asks for that line identity.
 
 The Hearth Ember line (`line_hearth_ember_v7_keyed.png`) is the reference outcome: simple
 early tiers, high tiers with more color/personality, no shadows, no FX clutter, and acorn
