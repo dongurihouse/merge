@@ -43,6 +43,16 @@ static func image_size_for(entry: Dictionary) -> Vector2:
 				return Vector2(float(s[0]), float(s[1]))
 	return Vector2.ONE
 
+static func mask_offset_for(entry: Dictionary) -> Vector2:
+	var path := String(entry.get("regions_path", ""))
+	if path != "" and FileAccess.file_exists(path):
+		var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+		if typeof(parsed) == TYPE_DICTIONARY:
+			var raw: Variant = (parsed as Dictionary).get("mask_offset", [])
+			if raw is Array and (raw as Array).size() >= 2:
+				return Vector2(float(raw[0]), float(raw[1]))
+	return Vector2.ZERO
+
 # One spot per region for slot `slot_id`. id=<slot>_r<i>; name/cost from override file else defaults;
 # pos = polygon centroid normalized to image_size. `override_path` defaults to the per-slot file.
 static func spots_for(slot_id: String, entry: Dictionary, override_path: String = "") -> Array:

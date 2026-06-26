@@ -409,6 +409,7 @@ func _initialize() -> void:
 		ok(view._dirty.has("bag"), "editing %s queues the bag to rebuild" % src)
 
 	_test_info_reuses_mail(view)
+	_test_unlock_reward_reuses_mail_dialog()
 
 	view.queue_free()
 	await process_frame
@@ -466,6 +467,21 @@ func _test_info_reuses_mail(view) -> void:
 	ok(not _source_contains(kit_src, "static func info_dialog("), "the standalone info_dialog builder is removed from the kit")
 	ok(not _source_contains(kit_src, "static func _info_row("), "the _info_row helper is removed from the kit")
 	ok(not _source_contains(kit_src, "static func _info_divider("), "the _info_divider helper is removed from the kit")
+
+# The restored-place reward popup should not be a one-off dialog surface. It uses the same shared
+# mail-dialog face as the inbox/info sheets: card rows, shared frame/close chrome, and cta_button footer.
+func _test_unlock_reward_reuses_mail_dialog() -> void:
+	var map_src := "res://engine/scripts/scenes/map.gd"
+	ok(_source_contains(map_src, "Kit.mail_dialog(entries"), \
+		"the restored-place reward popup is built with the shared mail_dialog")
+	ok(_source_contains(map_src, "opts[\"got_it\"] = Strings.t(\"map.unlock.collect\")"), \
+		"the restored-place Collect button is the mail_dialog cta footer")
+	ok(not _source_contains(map_src, "Kit.pill_button(Strings.t(\"map.unlock.collect\")"), \
+		"the restored-place popup no longer hand-builds a Collect pill")
+	ok(not _source_contains(map_src, "func _reward_row("), \
+		"the restored-place popup no longer carries custom reward-row chrome")
+	ok(_source_contains(map_src, "overlay.name = \"UnlockRewardOverlay\"\n\toverlay.set_anchors_preset(Control.PRESET_FULL_RECT)\n\toverlay.z_index = 100"), \
+		"the restored-place popup overlay stays above map badges")
 
 # The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
 # bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same

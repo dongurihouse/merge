@@ -26,6 +26,12 @@ const BOUNDARY_WARP := 0.06
 # the bake and rasterizes live; bump REGION_MAP_BAKE_VERSION when the raster algorithm itself changes.
 const BAKED_REGION_DIR := "res://games/grove/assets/baked/vine/"
 const REGION_MAP_BAKE_VERSION := 1
+const DEBUG_LAYER_ALL := "all"
+const DEBUG_LAYER_NO_LOCK := "no_lock"
+const DEBUG_LAYER_LOCK_ONLY := "lock_only"
+const DEBUG_LAYER_VINES_ONLY := "vines_only"
+const DEBUG_LAYER_OFF := "off"
+const DEBUG_LAYER_MODES := [DEBUG_LAYER_ALL, DEBUG_LAYER_NO_LOCK, DEBUG_LAYER_LOCK_ONLY, DEBUG_LAYER_VINES_ONLY, DEBUG_LAYER_OFF]
 
 # Per-region shader knobs. CANONICAL source: this is the authoritative shader-knob → param
 # mapping. The authoring tool (vine_mask_tool.gd) mirrors it, adding slider-only fields
@@ -63,6 +69,7 @@ var shadow_template_material: ShaderMaterial
 var ember_template_material: ShaderMaterial
 var lock_template_material: ShaderMaterial
 var _calm := false
+var _debug_layer_mode := DEBUG_LAYER_ALL
 # Authoring/dev opt-out: the vine mask tool sets this so it ALWAYS rasterizes live (it mutates geometry,
 # and an author must see the live torn edge, never a stale baked one). The game leaves it false → baked.
 var live_region_map_only := false
@@ -170,13 +177,15 @@ func set_mask_offset(value: Vector2) -> void:
 	mask_offset = value
 	var overlays := get_node_or_null("RegionOverlays") as Control
 	if overlays != null:
+		var display_offset := _mask_offset_display()
 		# Keep the group full-rect (tracking the view's size) and re-apply the offset via the four
-		# offset_* fields, so its size keeps following the view while its position stays == mask_offset.
+		# offset_* fields. mask_offset is authored in source-image pixels; scale it into display pixels
+		# so the game and the authoring tool match on every viewport size.
 		overlays.set_anchors_preset(Control.PRESET_FULL_RECT)
-		overlays.offset_left = mask_offset.x
-		overlays.offset_top = mask_offset.y
-		overlays.offset_right = mask_offset.x
-		overlays.offset_bottom = mask_offset.y
+		overlays.offset_left = display_offset.x
+		overlays.offset_top = display_offset.y
+		overlays.offset_right = display_offset.x
+		overlays.offset_bottom = display_offset.y
 	# The cover container stays full-view (offset 0); the shift is baked into the cover shader's UV so
 	# the purple bleeds out to the edges instead of leaving an uncovered strip on the leading edge.
 	var offset_uv := _mask_offset_uv()
@@ -199,6 +208,40 @@ func set_calm(on: bool) -> void:
 			var m := rect.material as ShaderMaterial
 			m.set_shader_parameter("pulse_speed", 0.0)
 			m.set_shader_parameter("flow_speed", 0.0)
+
+func set_debug_layer_mode(mode: String) -> void:
+	_debug_layer_mode = mode if DEBUG_LAYER_MODES.has(mode) else DEBUG_LAYER_ALL
+	_apply_debug_layer_mode()
+
+func debug_layer_mode() -> String:
+	return _debug_layer_mode
+
+func diagnostic_summary() -> Dictionary:
+	var overlay_data: Array = []
+	for region_index in range(region_overlays.size()):
+		var entry: Dictionary = region_overlays[region_index]
+		overlay_data.append({
+			"index": region_index,
+			"enabled": bool(entry.get("enabled", false)),
+			"shadow": _layer_summary(entry, "shadow", ["shadow_opacity", "region_enabled"]),
+			"glow": _layer_summary(entry, "glow", ["opacity", "glow_strength", "glow_radius", "region_enabled"]),
+			"vines": _layer_summary(entry, "vines", ["opacity", "glow_strength", "edge_power", "region_enabled"]),
+			"embers": _layer_summary(entry, "embers", ["ember_opacity", "region_enabled"]),
+			"lock": _layer_summary(entry, "lock", ["tint_color", "mask_offset_uv", "region_enabled"]),
+		})
+	var displayed := _displayed_size()
+	return {
+		"image_size": [image_size.x, image_size.y],
+		"view_size": [roundi(size.x), roundi(size.y)],
+		"displayed_size": [roundi(displayed.x), roundi(displayed.y)],
+		"mask_offset": [roundi(mask_offset.x), roundi(mask_offset.y)],
+		"mask_texture_size": _texture_size(mask_texture),
+		"region_map_texture_size": _texture_size(region_map_texture),
+		"region_count": _region_count,
+		"debug_layer_mode": _debug_layer_mode,
+		"calm": _calm,
+		"overlays": overlay_data,
+	}
 
 # ── Art + mask load ──────────────────────────────────────────────────────────
 
@@ -328,8 +371,15 @@ func _displayed_size() -> Vector2:
 	return Vector2(image_size) * maxf(s, 0.0001)
 
 func _mask_offset_uv() -> Vector2:
+	return Vector2(
+		mask_offset.x / float(maxi(image_size.x, 1)),
+		mask_offset.y / float(maxi(image_size.y, 1)))
+
+func _mask_offset_display() -> Vector2:
 	var disp := _displayed_size()
-	return Vector2(mask_offset.x / maxf(disp.x, 1.0), mask_offset.y / maxf(disp.y, 1.0))
+	return Vector2(
+		mask_offset.x * disp.x / float(maxi(image_size.x, 1)),
+		mask_offset.y * disp.y / float(maxi(image_size.y, 1)))
 
 # ── Template materials (built in code, mirroring the .tscn defaults) ──────────
 
@@ -545,10 +595,11 @@ func _create_region_overlays(force: bool) -> void:
 	parent.name = "RegionOverlays"
 	parent.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	parent.set_anchors_preset(Control.PRESET_FULL_RECT)
-	parent.offset_left = mask_offset.x
-	parent.offset_top = mask_offset.y
-	parent.offset_right = mask_offset.x
-	parent.offset_bottom = mask_offset.y
+	var display_offset := _mask_offset_display()
+	parent.offset_left = display_offset.x
+	parent.offset_top = display_offset.y
+	parent.offset_right = display_offset.x
+	parent.offset_bottom = display_offset.y
 	add_child(parent)
 
 	# The purple cover lives in its OWN full-view container (NOT translated by mask_offset), added
@@ -678,5 +729,67 @@ func _set_region_enabled(region_index: int, enabled: bool) -> void:
 			continue
 		var material := rect.material as ShaderMaterial
 		material.set_shader_parameter("region_enabled", 1.0 if enabled else 0.0)
-		rect.visible = enabled
+		rect.visible = enabled and _debug_layer_shows(key)
 	region_overlays[region_index] = entry
+
+func _apply_debug_layer_mode() -> void:
+	for entry in region_overlays:
+		var enabled := bool(entry.get("enabled", true))
+		for key in ["shadow", "glow", "vines", "embers", "lock"]:
+			var rect := entry.get(key) as TextureRect
+			if rect != null:
+				rect.visible = enabled and _debug_layer_shows(key)
+
+func _debug_layer_shows(key: String) -> bool:
+	match _debug_layer_mode:
+		DEBUG_LAYER_NO_LOCK:
+			return key != "lock"
+		DEBUG_LAYER_LOCK_ONLY:
+			return key == "lock"
+		DEBUG_LAYER_VINES_ONLY:
+			return key == "glow" or key == "vines"
+		DEBUG_LAYER_OFF:
+			return false
+		_:
+			return true
+
+func _layer_summary(entry: Dictionary, key: String, params: Array) -> Dictionary:
+	var rect := entry.get(key) as TextureRect
+	if rect == null:
+		return {"present": false}
+	var out := {
+		"present": true,
+		"visible": rect.visible,
+	}
+	var material := rect.material as ShaderMaterial
+	if material != null:
+		var values := {}
+		for param in params:
+			var name := String(param)
+			values[name] = _diag_value(material.get_shader_parameter(name))
+		out["params"] = values
+	return out
+
+func _texture_size(texture: Texture2D) -> Array:
+	if texture == null:
+		return [0, 0]
+	return [texture.get_width(), texture.get_height()]
+
+func _diag_value(value: Variant) -> Variant:
+	match typeof(value):
+		TYPE_COLOR:
+			var color: Color = value
+			return [_round4(color.r), _round4(color.g), _round4(color.b), _round4(color.a)]
+		TYPE_VECTOR2:
+			var v2: Vector2 = value
+			return [_round4(v2.x), _round4(v2.y)]
+		TYPE_VECTOR2I:
+			var v2i: Vector2i = value
+			return [v2i.x, v2i.y]
+		TYPE_FLOAT:
+			return _round4(float(value))
+		_:
+			return value
+
+func _round4(value: float) -> float:
+	return roundf(value * 10000.0) / 10000.0
