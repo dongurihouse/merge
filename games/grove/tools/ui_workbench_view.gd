@@ -12,6 +12,7 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")           # the toggleable Rush screen-juice effects
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
@@ -26,7 +27,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 
-const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -34,7 +35,7 @@ const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout",
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -108,6 +109,7 @@ const TEST_KEYS := {
 	"info_bar": ["filled"],
 	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
 	"rush_bar": [],
+	"rush_fx": [],          # every key is a saved toggle (no preview-only state)
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
@@ -153,6 +155,7 @@ const CAPTIONS := {
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
+	"rush_fx": "Rush FX — screen juice for the Expedition: toggle each effect, Replay to feel it, save (the game honours it)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -304,6 +307,9 @@ var _params := {
 	# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
 	"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
 		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16},
+	# the RUSH FX toggles — the master switch + one per screen-juice effect (RushFx.EFFECTS)
+	"rush_fx": {"enabled": true, "merge_burst": true, "score_tick": true, "score_pulse": true, "mult_pop": true,
+		"combo_heat": true, "timer_low": true, "treefall_crack": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -710,6 +716,41 @@ func _make_element(id: String) -> Control:
 			# cells preview the SAME tuning as the board / map-card frame.
 			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p, "gold_badge": _params["gold_badge"]})
 			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
+		"rush_fx":
+			# the screen-juice tester: a sample bar + a Replay that fires the ENABLED effects on it (the game
+			# reads the SAME toggles via RushFx.from_config). Flip toggles in the sidebar, hit Replay, feel it.
+			var fbo := Kit.rush_bar_opts_from_config({"rush_bar": _params["rush_bar"], "gold_badge": _params["gold_badge"]})
+			var demo: Control = Kit.rush_bar(fbo, {"time": "0:30", "score": "0", "mult": "×1.0"})
+			var bsc := 0.6
+			demo.scale = Vector2(bsc, bsc)
+			var wrap := Control.new()
+			wrap.custom_minimum_size = Vector2(demo.size.x * bsc + 40.0, demo.size.y * bsc + 120.0)
+			demo.position = Vector2((wrap.custom_minimum_size.x - demo.size.x * bsc) * 0.5, 16.0)
+			wrap.add_child(demo)
+			var btn := Button.new()
+			btn.text = "▶  Replay"
+			btn.add_theme_font_size_override("font_size", 22)
+			btn.custom_minimum_size = Vector2(190.0, 56.0) ; btn.size = btn.custom_minimum_size
+			btn.position = Vector2((wrap.custom_minimum_size.x - 190.0) * 0.5, demo.size.y * bsc + 36.0)
+			wrap.add_child(btn)
+			var fxp: Dictionary = p
+			var fire := func() -> void:
+				var sl: Label = demo.get_meta("score_label")
+				var ml: Label = demo.get_meta("mult_label")
+				var tl: Label = demo.get_meta("time_label")
+				var ctr := demo.position + demo.size * 0.5 * bsc           # bar centre in wrap-local coords
+				if RushFx.on(fxp, "merge_burst"): RushFx.merge_burst(wrap, ctr, 3)
+				if RushFx.on(fxp, "score_tick"): RushFx.score_tick(sl, 1250)
+				elif sl != null: sl.text = "1,250"
+				if RushFx.on(fxp, "score_pulse"): RushFx.cell_pop(demo.get_meta("score_cell"))
+				if ml != null: ml.text = "×2.0"
+				if RushFx.on(fxp, "mult_pop"): RushFx.cell_pop(demo.get_meta("mult_cell"))
+				if RushFx.on(fxp, "combo_heat"): RushFx.combo_heat(wrap, ctr - Vector2(0.0, 46.0), 6)
+				if tl != null: tl.text = "0:06"
+				if RushFx.on(fxp, "timer_low"): RushFx.timer_low(tl, 6)
+				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, ctr)
+			btn.pressed.connect(fire)
+			return wrap
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
@@ -2008,6 +2049,12 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_size", 20, 100]))  # the score coin
 			_sidebar_body.add_child(_slider_row(["leaf_size", 30, 160]))  # the flank oak-leaf clusters
 			_sidebar_body.add_child(_slider_row(["crown_size", 30, 160])) # the acorn crown over the centre
+		"rush_fx":
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_toggle_row("All effects (master)", "enabled"))
+			_section_header("Effects — flip, then ▶ Replay to feel it")
+			for e in RushFx.EFFECTS:
+				_sidebar_body.add_child(_toggle_row(String(e.get("label", e.id)), String(e.id)))
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")

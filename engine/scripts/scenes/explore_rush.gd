@@ -16,6 +16,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juic
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
+const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
@@ -45,6 +46,10 @@ var _rng := RandomNumberGenerator.new()
 var _lbl_time: Label = null
 var _lbl_score: Label = null
 var _lbl_mult: Label = null
+var _fx: Dictionary = {}         # the resolved rush_fx toggles (RushFx.from_config)
+var _score_cell: Control = null  # the score / mult bar cells (for the pop effects)
+var _mult_cell: Control = null
+var _last_sec := -1              # the last whole second shown (drives the per-second timer urgency)
 
 func _ready() -> void:
 	_rng.randomize()
@@ -78,6 +83,9 @@ func _build_topbar() -> void:
 	_lbl_time = bar.get_meta("time_label")
 	_lbl_score = bar.get_meta("score_label")
 	_lbl_mult = bar.get_meta("mult_label")
+	_score_cell = bar.get_meta("score_cell")
+	_mult_cell = bar.get_meta("mult_cell")
+	_fx = RushFx.from_config(Kit.load_config(Kit.CONFIG_PATH))   # the saved screen-juice toggles
 	# EXIT — the parchment × in the top-right corner
 	var ex_h: float = clampf(float(opts.get("height", 116.0)) * scale * 0.55, 40.0, 92.0)
 	var ex := TextureButton.new()
@@ -253,21 +261,37 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	_paint(win)
 	_combo = Explore.combo_after(_combo, _elapsed - _last_merge)
 	_last_merge = _elapsed
+	var pre_mult := _mult
 	_mult = Explore.mult_after_merge(_mult, int(win.tier))
 	var pts := Explore.merge_points(int(win.tier), _mult)
 	Explore.add_score(pts)
-	# JUICE: the result tile squash-pops, the points float up, combos/high-tier builds call out.
+	# JUICE: the result tile squash-pops + the points float up (always); the toggleable rush_fx layer adds
+	# the leaf burst, the score / mult cell pops, and the heating combo callout.
 	var node := win.node as Control
 	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
 	FX.squash_pop(node)
 	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
+	if RushFx.on(_fx, "merge_burst"):
+		RushFx.merge_burst(self, ctr, int(win.tier))
+	if RushFx.on(_fx, "score_pulse"):
+		RushFx.cell_pop(_score_cell)
+	if RushFx.on(_fx, "mult_pop") and _mult > pre_mult + 0.001:
+		RushFx.cell_pop(_mult_cell)
 	if _combo >= 3:
-		FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
+		if RushFx.on(_fx, "combo_heat"):
+			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo)
+		else:
+			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
 	if int(win.tier) >= 4:
 		FX.flash(_board, node.position + Vector2(_cell, _cell) / 2.0, _cell)
 		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)
 		FX.hitstop(0.05)
 	Audio.play("button_tap", -3.0)
+	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
+	if RushFx.on(_fx, "score_tick"):
+		RushFx.score_tick(_lbl_score, Explore.score())
+	elif _lbl_score != null:
+		_lbl_score.text = str(Explore.score())
 	_settle()
 	_refresh_readouts()
 
@@ -303,8 +327,11 @@ func _drop_timber() -> void:
 			(cell.node as Node).queue_free()
 			_grid[r][col] = null
 	# JUICE: the board jolts when the timber lands; a clean dodge celebrates, a hit flashes the column.
-	FX.shake(_board)
 	var col_local := Vector2(_cellxy(0, col).x + _cell * 0.5, float(G.ROWS) * (_cell + _gap) * 0.5)
+	if RushFx.on(_fx, "treefall_crack"):
+		RushFx.treefall_crack(self, _board, _board.global_position + col_local)   # debris + heavier jolt + crack
+	else:
+		FX.shake(_board)
 	if hits == 0 and _running:
 		_mult = Explore.clean_dodge_mult(_mult)      # clean dodge — emptied the column in time
 		FX.celebrate_at(self, _board.global_position + col_local, "CLEAN DODGE!", GOLD)
@@ -414,8 +441,11 @@ func _refresh_readouts() -> void:
 	if _lbl_time != null:
 		var s := int(ceil(_time))
 		_lbl_time.text = "0:%02d" % s
-	if _lbl_score != null:
-		_lbl_score.text = str(Explore.score())
+		if s != _last_sec:                          # once per whole second: drive the low-time urgency
+			_last_sec = s
+			if RushFx.on(_fx, "timer_low"):
+				RushFx.timer_low(_lbl_time, s)
+	# the score is updated in _merge (it only changes there); leaving it out here lets it TICK uninterrupted
 	if _lbl_mult != null:
 		_lbl_mult.text = "×%.1f" % _mult
 

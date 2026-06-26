@@ -349,6 +349,16 @@
 		"crown_size": 76.0,
 		"pad": 16.0
 	},
+	"rush_fx": {
+		"enabled": true,
+		"merge_burst": true,
+		"score_tick": true,
+		"score_pulse": true,
+		"mult_pop": true,
+		"combo_heat": true,
+		"timer_low": true,
+		"treefall_crack": true
+	},
 	"settings": {
 		"row_gap": 12.0,
 		"shadow": false,
