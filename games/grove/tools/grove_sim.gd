@@ -633,12 +633,17 @@ func _pop() -> void:
 	if empties.is_empty():
 		return
 	var cell: Vector2i = empties[rng.randi_range(0, empties.size() - 1)]
-	# SINGLE-GENERATOR model (idea 3): the one anchor pops every OPENED line (mirrors board.gd's
-	# askable_lines pop pool) — NOT just the current map's generator. Biased toward what quests want.
-	var pool: Array = _live_lines()
-	if pool.is_empty():
+	# SINGLE-GENERATOR model (idea 3.2): pop the items the CURRENT QUESTS REQUIRE — pool = the WANTED
+	# (quested) lines drawn from the all-opened askable set; fall back to opened only when nothing is
+	# wanted. Restricting to wanted keeps the board mergeable however many lines have opened (mirrors
+	# board.gd; the un-restricted 24-line pool scatters un-mergeable singletons and jams).
+	var opened: Array = _live_lines()
+	if opened.is_empty():
 		return
 	var wanted := _wanted_lines()
+	var pool: Array = wanted if not wanted.is_empty() else opened
+	if pool.size() > G.POP_LINE_CAP:          # keep the board mergeable: pop at most POP_LINE_CAP lines
+		pool = pool.slice(0, G.POP_LINE_CAP)
 	var pw: Array = []
 	for l in pool:
 		if wanted.has(int(l)):

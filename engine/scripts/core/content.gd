@@ -23,6 +23,7 @@ const GEN_CELL = D.GEN_CELL
 const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
+const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines the single generator pops at once
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const QUEST_CLICKS_PER_EXP = D.QUEST_CLICKS_PER_EXP
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN

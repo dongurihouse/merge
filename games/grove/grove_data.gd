@@ -24,6 +24,32 @@ const LINES := {
 	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},    # map 3 — Pond
 	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},           # map 4 — Orchard
 	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},     # map 5 — Meadow
+	# §6.E additional per-map content lines (hooked up from assets/_new). Codes are non-contiguous (clear of
+	# the 1-5 anchors, 9 coin, 10-14 special items); map assignment is via the GENERATORS roster below.
+	# Colors are the code-drawn FALLBACK only — every tier ships art at items/<base>/<base>_<tier>.png.
+	# map idx 1 — The Orchard (barn)
+	21: {"name": "Orchard fruits", "base": "orchard_fruits", "color": Color("#D9534F")},
+	22: {"name": "Orchard tools", "base": "orchard_tools", "color": Color("#8A6D3B")},
+	23: {"name": "Orchard seeds", "base": "orchard_seeds", "color": Color("#C9A66B")},
+	24: {"name": "Scarecrows", "base": "orchard_scarecrows", "color": Color("#C8A24A")},
+	# map idx 2 — The Garden (pond)
+	31: {"name": "Juice", "base": "garden_juice", "color": Color("#C76B98")},
+	32: {"name": "Kites", "base": "garden_kites", "color": Color("#4FB0D9")},
+	33: {"name": "Stones", "base": "garden_stones", "color": Color("#9AA0A6")},
+	34: {"name": "Mossy trinkets", "base": "garden_mossy_trinkets", "color": Color("#6B9C5A")},
+	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9")},
+	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9")},
+	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B")},
+	# map idx 3 — The Mill (orchard)
+	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6")},
+	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B")},
+	43: {"name": "Water plants", "base": "mill_water_plants", "color": Color("#5FA66B")},
+	44: {"name": "Gears", "base": "mill_gears", "color": Color("#8A8F94")},
+	# map idx 4 — The Gate (meadow)
+	51: {"name": "Glowcaps", "base": "gate_glowcaps", "color": Color("#6BC9A6")},
+	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
+	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
+	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -42,16 +68,16 @@ const GENERATORS := [
 	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1], "grant_from": "", "anchor": true,
 		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
 	# map 2 — Barn: Feather.
-	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2], "grant_from": "",
+	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
 		"tex": "items/generator/gen_twig_nest.png", "label": "coop"},
 	# map 3 — Pond: Garden tools. (icon still cattails — repaint parked)
-	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3], "grant_from": "",
+	{"id": "tool_shed", "map": 2, "cell": Vector2i(2, 1), "lines": [3, 31, 32, 33, 34, 35, 36, 37], "grant_from": "",
 		"tex": "items/generator/gen_cattails.png", "label": "tools"},
 	# map 4 — Orchard: Honey. (icon still apples — repaint parked, gen_honeycomb ready)
-	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4], "grant_from": "",
+	{"id": "bee_skep", "map": 3, "cell": Vector2i(2, 1), "lines": [4, 41, 42, 43, 44], "grant_from": "",
 		"tex": "items/generator/gen_apples.png", "label": "hives"},
 	# map 5 — Meadow: Mushroom. (icon still glowcaps — repaint parked, gen_porcini ready)
-	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5], "grant_from": "",
+	{"id": "mushroom_ring", "map": 4, "cell": Vector2i(2, 1), "lines": [5, 51, 52, 53, 54], "grant_from": "",
 		"tex": "items/generator/gen_glowcaps.png", "label": "mushrooms"},
 ]
 const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the open-3x3 math)
@@ -83,6 +109,12 @@ const MIN_LEVEL := [
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
+# §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
+# (idea 3.2), but with many opened lines (up to ~24) up to MAX_GIVERS quests could span that many DISTINCT
+# lines — scattering un-mergeable singletons until the board jams. So the generator pops at most this many
+# distinct lines per session (the lowest-indexed wanted lines win; the rest become hot as those clear), so
+# pairs always form. Set ≥ MAX_GIVERS to disable. OWNER/SIM dial (grove_sim I1 = zero jams is the judge).
+const POP_LINE_CAP := 2
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.

@@ -1971,15 +1971,20 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# the spawn decision (landing cell + code) is board_logic's; the active givers' wanted lines AND
 	# poppable wanted tiers bias every item's roll (§6). Pool + wanted are fixed across the burst.
 	# RNG order is load-bearing.
-	# SINGLE-GENERATOR model (idea 3): the pop pool is ALL OPENED lines (every map reached so far), not
-	# just this generator's static def — so the one anchor produces every opened line, biased by `wanted`
-	# toward what the current quests ask. As maps open, the pool grows; old lines never retire.
-	var pool: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
+	# SINGLE-GENERATOR model (idea 3.2): the one anchor produces the items the CURRENT QUESTS REQUIRE —
+	# its pop pool is the WANTED (quested) lines, drawn from the ALL-OPENED askable set (§6: quests may
+	# ask any opened line, but the generator pops what's asked). Restricting pops to wanted keeps the
+	# board mergeable no matter how many lines have opened (a 24-line opened set would otherwise scatter
+	# un-mergeable singletons and jam). Fall back to the full opened set only when no quest is poppable.
+	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
 	var giver_quests: Array = []
 	for e in giver_chips:
 		if int(e.qi) >= 0 and int(e.qi) < quests.size():
 			giver_quests.append(quests[int(e.qi)])
-	var wanted: Array = BoardLogic.wanted_lines(pool, giver_quests)
+	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
+	var pool: Array = wanted if not wanted.is_empty() else opened
+	if pool.size() > G.POP_LINE_CAP:          # keep the board mergeable: pop at most POP_LINE_CAP lines
+		pool = pool.slice(0, G.POP_LINE_CAP)
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
