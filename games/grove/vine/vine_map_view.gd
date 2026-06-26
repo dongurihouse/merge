@@ -351,7 +351,30 @@ func _load_image(path: String) -> Image:
 				err = image.load_webp_from_buffer(bytes)
 		if err == OK and not image.is_empty():
 			return image
-	return Image.load_from_file(path)
+	var direct := Image.load_from_file(path)
+	if direct != null and not direct.is_empty():
+		return direct
+	# Exported builds (iOS/Android) ship imported textures only as the .ctex remap and STRIP the raw
+	# source bytes, so the FileAccess/load_from_file reads above come back empty on device — even though
+	# the file is right there in the editor. Without this, a missing mask falls through to the full-white
+	# fallback, which makes every pixel read as "in-mask" and floods the whole map with the vine/ember/
+	# veil overlays (the purple wash seen only on phone). Recover through the resource system instead.
+	return _load_image_from_resource(path)
+
+# Load an imported image through ResourceLoader and hand back its pixels. This is the export-safe path:
+# the resource system follows the import remap to the packed .ctex, where raw FileAccess on the source
+# path finds nothing. The map masks/region maps import Lossless (compress/mode=0, not VRAM-compressed),
+# so get_image() returns the exact source data.
+func _load_image_from_resource(path: String) -> Image:
+	if not ResourceLoader.exists(path):
+		return null
+	var tex := load(path) as Texture2D
+	if tex == null:
+		return null
+	var img := tex.get_image()
+	if img == null or img.is_empty():
+		return null
+	return img
 
 func _fallback_mask_image() -> Image:
 	var image := Image.create(image_size.x, image_size.y, false, Image.FORMAT_RGBA8)
