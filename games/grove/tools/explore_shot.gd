@@ -1,0 +1,72 @@
+extends SceneTree
+## Dev tool (run via engine/tools/quiet_godot.sh): screenshot an Explore screen.
+##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- <loadout|rush|trade> <out.png>
+## Seeds a completed map (so the box pool is non-empty), coins, and a run; for `rush` it lets the board
+## fill for a couple of seconds before capturing. Mirrors residents_screen_shot.gd's quiet header
+## (REFUSES unless override.cfg exists — the born-minimized window must come from quiet_godot.sh).
+## Parallel-safe (own temp save).
+
+const Save = preload("res://engine/scripts/core/save.gd")
+const G = preload("res://engine/scripts/core/content.gd")
+const Explore = preload("res://engine/scripts/core/explore.gd")
+const Habitat = preload("res://engine/scripts/core/habitat.gd")
+
+func _initialize() -> void:
+	if not FileAccess.file_exists("res://override.cfg"):
+		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh")
+		quit(2)
+		return
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_NO_FOCUS, true, 0)
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_MINIMIZED)
+	var args := OS.get_cmdline_user_args()
+	var which: String = args[0] if args.size() >= 1 else "loadout"
+	var out: String = args[1] if args.size() >= 2 else "/tmp/explore_%s.png" % which
+
+	var dir := "/tmp/tu_exploreshot_%s/" % which
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+	# a completed hub map → a non-empty box pool, plus a fat wallet for the loadout
+	var z := G.hub_map()
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	Save.add_coins(2000)
+
+	var path := "res://engine/scenes/ExploreLoadout.tscn"
+	match which:
+		"rush":
+			Explore.begin_run({"time": true, "drops": true})
+			path = "res://engine/scenes/ExploreRush.tscn"
+		"trade":
+			Explore.begin_run({})
+			Explore.add_score(1500)
+			path = "res://engine/scenes/ExploreTrade.tscn"
+			# pre-open a couple of boxes so the reveal strip shows
+			var pool := Explore.unlocked_pool(unl, [z])
+			var rng := RandomNumberGenerator.new()
+			rng.seed = 7
+			for _i in 2:
+				Habitat.hand_add(Explore.roll_kind(pool, rng))
+		_:
+			path = "res://engine/scenes/ExploreLoadout.tscn"
+
+	var scn = load(path).instantiate()
+	root.add_child(scn)
+	current_scene = scn
+	# rush needs a few seconds of frames to drop tiles; the others just need a layout pass
+	var wait := 2.4 if which == "rush" else 0.7
+	await create_timer(wait).timeout
+	RenderingServer.force_draw()
+	var img := root.get_texture().get_image()
+	var e := img.save_png(out)
+	print("SHOT explore/%s=%s (err %d)" % [which, out, e])
+	quit()

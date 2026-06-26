@@ -80,7 +80,7 @@ func _build() -> void:
 	# the acquire stub (stands in for Rush -> mystery boxes) + back
 	var actions := HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
-	actions.add_child(_button("Find a spirit", _on_acquire))
+	actions.add_child(_button("Explore", _on_explore))
 	actions.add_child(_button("Back", _on_back))
 	col.add_child(actions)
 
@@ -182,13 +182,11 @@ func _on_collect(map_id: String) -> void:
 	Audio.play("button_tap", -2.0)
 	_rebuild()
 
-func _on_acquire() -> void:
-	# stand-in for Rush -> mystery boxes: drop a random core spirit into the hand
-	var core: Array = G.RESIDENT_CORE
-	var kind := String(core[randi() % core.size()].id) if core.size() > 0 else "moss"
-	Habitat.hand_add(kind)
+## The acquire SOURCE: venture out on the Explore ritual (Load out → Rush → Trade → boxes). The free
+## stub it replaces is gone — spirits are now earned. Returns here with the new spirits in the hand.
+func _on_explore() -> void:
 	Audio.play("button_tap", -2.0)
-	_rebuild()
+	SceneWarm.go(get_tree(), "res://engine/scenes/ExploreLoadout.tscn")
 
 func _on_back() -> void:
 	Audio.play("button_tap", -2.0)
