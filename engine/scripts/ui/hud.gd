@@ -43,6 +43,22 @@ static func _set_slot_width(node: Control, width: float) -> void:
 	node.custom_minimum_size.x = width
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
+static func _painted_top_offset(node: Control) -> float:
+	if node == null:
+		return 0.0
+	var top := INF
+	for tr in node.find_children("*", "TextureRect", true, false):
+		var tex := (tr as TextureRect).texture
+		var img := tex.get_image() if tex != null else null
+		if img == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+			continue
+		var used := img.get_used_rect()
+		if used.size.x <= 0 or used.size.y <= 0:
+			continue
+		var scale_y := (tr as TextureRect).size.y / float(tex.get_height())
+		top = minf(top, (tr as TextureRect).position.y + float(used.position.y) * scale_y)
+	return 0.0 if top == INF else top
+
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
 	var Kit = load(KIT_PATH)
@@ -74,9 +90,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	cluster.anchor_top = 0.0
 	cluster.anchor_bottom = 0.0
 	cluster.offset_top = top_edge
-	cluster.offset_left = -edge_margin
+	cluster.offset_left = 0.0
 	cluster.offset_right = -edge_margin
-	cluster.add_theme_constant_override("separation", 0)
+	cluster.add_theme_constant_override("separation", int(round(edge_margin)))
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
 	cluster.z_index = HUD_WALLET_Z
 	host.add_child(cluster)
@@ -92,8 +108,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water, water0)
 	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin, Save.coins())
 	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium, Save.diamonds())
+	var pill_body_w := maxf(1.0, pill_slot_w - edge_margin)
 	for wp in [water_pill.panel, coin_pill.panel, gem_pill.panel]:
-		_set_slot_width(wp as Control, pill_slot_w)
+		_set_slot_width(wp as Control, pill_body_w)
 	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label
@@ -108,6 +125,9 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 	left.z_index = HUD_SIDE_Z
+	var place_level_row := func(top: float) -> void:
+		left.offset_top = top
+		left.offset_bottom = top + lv_px
 
 	# S10: the Lv chip is part of THE module — same top-left pixels in both scenes.
 	# The level number sits INSIDE the sprout avatar; the level-progress fraction sits to
@@ -137,6 +157,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var build_badge := func(lvl: int) -> Control:
 		var av := Look.make_level_badge(lvl, lv_px, _lv_font_size(lvl))
 		av.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		av.set_meta("painted_top_offset", _painted_top_offset(av))
 		if on_level is Callable and (on_level as Callable).is_valid():
 			av.mouse_filter = Control.MOUSE_FILTER_STOP
 			av.gui_input.connect(func(ev: InputEvent) -> void:
@@ -146,6 +167,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 					(on_level as Callable).call())
 		return av
 	var avatar: Control = build_badge.call(lvl0)
+	place_level_row.call(edge_margin - float(avatar.get_meta("painted_top_offset", 0.0)))
 	# the rebuildable badge bits, shared with `refresh` via a dict (closures capture it by reference)
 	var badge_state := {"avatar": avatar, "level": avatar.get_node_or_null("lv_num") as Label,
 		"tier": Look.level_badge_index(lvl0)}
@@ -182,6 +204,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 			badge_state["avatar"] = nb
 			badge_state["level"] = nb.get_node_or_null("lv_num") as Label
 			badge_state["tier"] = tier
+			place_level_row.call(edge_margin - float(nb.get_meta("painted_top_offset", 0.0)))
 			out["level"] = badge_state["level"]
 		var lnum: Label = badge_state["level"]
 		if lnum != null:

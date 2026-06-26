@@ -1306,6 +1306,7 @@ func _build_chrome() -> void:
 	# match. Order: Map · Play. PLAY is the way into the garden/board (the prominent leaf). Shop opens
 	# from the top pills' "+", and Settings/Piggy live in the LiveOps side rail (_build_liveops_rail).
 	var sb := Look.safe_bottom(self)
+	var edge := _hud_edge_margin_px()
 	# The flanking Map button is the SHARED configurable home button in its ROUNDED-RECT form (icon + "Map"
 	# label inside the badge — ui_mock2); Play is the big CIRCULAR orange CTA (the only round bottom button).
 	var nav := NavBar.build(self, [
@@ -1314,7 +1315,8 @@ func _build_chrome() -> void:
 		# Residents — the habitat management screen (only on a fully-unlocked map; hidden otherwise).
 		{"make": _make_residents_button, "label": Strings.t("map.nav.residents")},
 		# Play — the way into the garden/board. The big orange play disc (board+acorn mark, no label).
-		{"make": _make_play_button, "label": Strings.t("map.nav.play")}])
+		{"make": _make_play_button, "label": Strings.t("map.nav.play")}],
+		{"side": edge, "bottom": edge})
 	for b in nav.buttons:
 		_chrome_nodes.append(b)
 	_chrome_nodes.append(nav.row)
@@ -1499,9 +1501,9 @@ func _make_back_button(sb: float) -> Button:
 	b.anchor_right = 0.0
 	b.anchor_top = 1.0
 	b.anchor_bottom = 1.0
-	b.offset_left = 22.0
-	b.offset_right = 22.0 + px
-	b.offset_bottom = -(sb + 30.0)
+	b.offset_left = _rail_margin_px
+	b.offset_right = _rail_margin_px + px
+	b.offset_bottom = -(sb + _rail_margin_px)
 	b.offset_top = b.offset_bottom - px
 	return b
 
@@ -1537,8 +1539,24 @@ func _hud_layout() -> Dictionary:
 		return {"button_w_frac": RAIL_PX / Design.size().x, "edge_margin_px": RAIL_MARGIN}
 	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
+func _hud_edge_margin_px() -> float:
+	return float(_hud_layout().get("edge_margin_px", RAIL_MARGIN))
+
 func _hud_button_px() -> float:
 	return maxf(1.0, roundf(_view_size().x * float(_hud_layout().get("button_w_frac", 0.15))))
+
+func _wallet_bottom_y() -> float:
+	if _hud_panels.size() > 0 and _hud_panels[0] is Control:
+		var wallet := _hud_panels[0] as Control
+		if wallet.get_child_count() > 0 and wallet.get_child(0) is Control:
+			var first := wallet.get_child(0) as Control
+			var rect := first.get_global_rect()
+			if rect.size.y > 0.0:
+				return rect.end.y
+			var h := first.custom_minimum_size.y
+			if h > 0.0:
+				return wallet.get_global_rect().position.y + h
+	return Look.safe_top(self) + 16.0
 
 func _build_liveops_rail() -> void:
 	# Load the shared home-button style ONCE (the same transform the bottom nav + workbench read).
@@ -1564,7 +1582,7 @@ func _build_liveops_rail() -> void:
 	# the workbench-tuned badge SIZE (dot diameter / count font) — the same opts the home-button preview uses.
 	var bopts := {"dot_px": int(_home_opts.get("badge_dot_px", 14)), "num_size": int(_home_opts.get("badge_num_size", 14))}
 	var step := _rail_disc_px + RAIL_CAP_H + RAIL_GAP
-	var top := maxf(Look.safe_top(self) + 16.0, _view_size().y * float(layout.get("top_band_h_frac", 0.15)))
+	var top := _wallet_bottom_y() + _rail_margin_px
 	var slot := 0
 	var HC: GDScript = load(HOME_CHROME_PATH)
 	# Settings — first rail tile, using the same builder/placement as the rest of the side rail.

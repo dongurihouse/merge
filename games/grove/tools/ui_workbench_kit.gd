@@ -3401,6 +3401,12 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"top_band_h_frac": clampf(float(h.get("top_band_h_pct", 15.0)) / 100.0, 0.0, 0.50),
 		"button_w_frac": clampf(float(h.get("button_w_pct", 15.0)) / 100.0, 0.05, 0.50),
 		"info_bar_w_frac": clampf(float(h.get("info_bar_w_pct", 70.0)) / 100.0, 0.10, 0.95),
+		"quest_bar_x_frac": clampf(float(h.get("quest_bar_x_pct", 3.0)) / 100.0, 0.0, 0.50),
+		"quest_bar_y_frac": clampf(float(h.get("quest_bar_y_pct", 17.0)) / 100.0, 0.0, 0.90),
+		"quest_bar_h_frac": clampf(float(h.get("quest_bar_h_pct", 11.0)) / 100.0, 0.02, 0.50),
+		"board_x_frac": clampf(float(h.get("board_x_pct", 12.0)) / 100.0, 0.0, 0.60),
+		"board_y_frac": clampf(float(h.get("board_y_pct", 30.0)) / 100.0, 0.0, 0.90),
+		"board_h_frac": clampf(float(h.get("board_h_pct", 48.0)) / 100.0, 0.05, 0.90),
 		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
 	}
 

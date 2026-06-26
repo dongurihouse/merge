@@ -88,6 +88,31 @@ func _find_button(node: Control, frag: String) -> Button:
 			return b as Button
 	return null
 
+func _find_button_with_label(node: Control, text: String) -> Button:
+	if node is Button and ((node as Button).tooltip_text == text or _has_label_text(node, text)):
+		return node as Button
+	for b in node.find_children("*", "Button", true, false):
+		var btn := b as Button
+		if btn.tooltip_text == text or _has_label_text(btn, text):
+			return btn
+	return null
+
+func _painted_top(node: Control) -> float:
+	if node == null:
+		return INF
+	var top := INF
+	for tr in node.find_children("*", "TextureRect", true, false):
+		var tex := (tr as TextureRect).texture
+		var img := tex.get_image() if tex != null else null
+		if img == null or tex.get_width() <= 0 or tex.get_height() <= 0:
+			continue
+		var used := img.get_used_rect()
+		if used.size.x <= 0 or used.size.y <= 0:
+			continue
+		var scale_y := (tr as TextureRect).get_global_rect().size.y / float(tex.get_height())
+		top = minf(top, (tr as TextureRect).get_global_rect().position.y + float(used.position.y) * scale_y)
+	return top
+
 # The texture on a Button's `normal` stylebox when it wears sprite art (a StyleBoxTexture), else null —
 # lets a test prove two buttons share the SAME baked sprite (e.g. the level cta atom) without node names.
 func _btn_tex(b: Button) -> Texture2D:
@@ -317,21 +342,25 @@ func _initialize() -> void:
 	var tuned_wallet: Control = view._make_element("gold_currency_pill")
 	var tuned_labels: Array = tuned_wallet.find_children("GoldCurrencyAmount", "Label", true, false)
 	var tuned_icons: Array = tuned_wallet.find_children("GoldCurrencyIcon", "TextureRect", true, false)
+	var tuned_gold_opts := Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": view._params["gold_currency_pill"]})
+	var expected_pad_left := float(tuned_gold_opts.pad_left)
+	var expected_icon_size := float(tuned_gold_opts.icon_size)
+	var expected_num_size := int(tuned_gold_opts.num_size)
 	var all_shared: bool = tuned_labels.size() == 3 and tuned_icons.size() == 3
 	for tl in tuned_labels:
 		var n := tl as Node
 		var pill_panel: PanelContainer = null
 		while n != null:
-			if n is PanelContainer and String(n.name).find("GoldCurrencyPill") != -1:
+			if n is PanelContainer:
 				pill_panel = n as PanelContainer
 				break
 			n = n.get_parent()
 		var sb := pill_panel.get_theme_stylebox("panel") as StyleBoxTexture if pill_panel != null else null
-		all_shared = all_shared and sb != null and int(sb.content_margin_left) == 33
+		all_shared = all_shared and sb != null and is_equal_approx(float(sb.content_margin_left), expected_pad_left)
 	for tl in tuned_labels:
-		all_shared = all_shared and int((tl as Label).get_theme_font_size("font_size")) == 42
+		all_shared = all_shared and int((tl as Label).get_theme_font_size("font_size")) == expected_num_size
 	for ti in tuned_icons:
-		all_shared = all_shared and (ti as Control).custom_minimum_size == Vector2(52, 52)
+		all_shared = all_shared and (ti as Control).custom_minimum_size.distance_to(Vector2(expected_icon_size, expected_icon_size)) <= 0.01
 	ok(all_shared, \
 		"gold_currency_pill workbench controls apply padding, icon, and text changes to all three pills")
 	view._params["gold_currency_pill"] = gp_default
@@ -425,6 +454,17 @@ func _initialize() -> void:
 	var edge_margin := float(hud_layout.get("edge_margin_px", 18.0))
 	ok(absf(wallet_right_gap - edge_margin) <= 1.0, \
 		"live HUD wallet right margin matches the shared rail margin (%.1f ~= %.1f)" % [wallet_right_gap, edge_margin])
+	if (hud.wallet as Control).get_child_count() >= 3:
+		for i in 2:
+			var left_pill := ((hud.wallet as Control).get_child(i) as Control).get_global_rect()
+			var right_pill := ((hud.wallet as Control).get_child(i + 1) as Control).get_global_rect()
+			ok(absf(right_pill.position.x - left_pill.end.x - edge_margin) <= 1.0, \
+				"live HUD currency pill %d has the shared right margin before the next pill" % [i + 1])
+	var level_badge := (hud.level as Label).get_parent()
+	while level_badge != null and level_badge.name != "LevelBadge":
+		level_badge = level_badge.get_parent()
+	ok(absf(_painted_top(level_badge) - edge_margin) <= 1.0, \
+		"live HUD level badge painted top uses the shared margin (%.1f ~= %.1f)" % [_painted_top(level_badge), edge_margin])
 	var later_weather := Control.new()
 	later_weather.name = "WeatherLayer"
 	hud_host.add_child(later_weather)
@@ -449,10 +489,29 @@ func _initialize() -> void:
 		map_scene._ready()
 	await process_frame
 	var map_screen_w: float = map_scene.get_viewport_rect().size.x
+	var map_screen_h: float = map_scene.get_viewport_rect().size.y
 	var settings_gap: float = map_screen_w - (map_scene._gear as Control).get_global_rect().end.x if map_scene._gear != null else INF
 	ok(map_scene._gear != null and _has_label_text(map_scene._gear, "Settings") and map_scene._chrome_nodes.has(map_scene._gear) \
 		and absf(settings_gap - edge_margin) <= 1.0, \
 		"map Settings tile is built through the side rail chrome path")
+	if map_scene._gear != null and map_scene._hud_panels.size() > 0:
+		var map_wallet := map_scene._hud_panels[0] as Control
+		var rail_gap: float = map_scene._gear.get_global_rect().position.y - (map_wallet.get_child(0) as Control).get_global_rect().end.y
+		ok(absf(rail_gap - edge_margin) <= 1.0, \
+			"map side rail starts one shared margin below the currency pills (%.1f ~= %.1f)" % [rail_gap, edge_margin])
+	var map_button := _find_button_with_label(map_scene, "Map")
+	if map_button != null:
+		var map_button_rect := map_button.get_global_rect()
+		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0 \
+			and absf(map_screen_h - map_button_rect.end.y - edge_margin) <= 1.0, \
+			"map button uses the shared side/bottom margin")
+	map_scene._open_select()
+	await process_frame
+	if map_scene._select_back != null:
+		var back_rect := (map_scene._select_back as Control).get_global_rect()
+		ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
+			and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
+			"place-picker back button uses the shared side/bottom margin")
 	map_scene.queue_free()
 	await process_frame
 
@@ -589,6 +648,55 @@ func _test_new_knobs(view) -> void:
 	view._selected = "home_button"
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Px") >= 260.0, "the home_button sidebar allows larger shared button sizes")
+
+	# HUD layout: the screen map should include the board stack, not just the top wallet + bottom nav.
+	# These are saved design knobs so a workbench pass can tune the quest fence and board area together.
+	var hud_layout_keys := [
+		"quest_bar_x_pct", "quest_bar_y_pct", "quest_bar_h_pct",
+		"board_x_pct", "board_y_pct", "board_h_pct",
+	]
+	var hud_has_stack_knobs := true
+	for k in hud_layout_keys:
+		hud_has_stack_knobs = hud_has_stack_knobs and (view._params["hud_layout"] as Dictionary).has(k) and view._is_config("hud_layout", k)
+	ok(hud_has_stack_knobs, "hud_layout stores saved quest-bar and board position/height controls")
+	var stack_layout := Kit.hud_layout_opts_from_config({"hud_layout": {
+		"quest_bar_x_pct": 6, "quest_bar_y_pct": 18, "quest_bar_h_pct": 11,
+		"board_x_pct": 12, "board_y_pct": 31, "board_h_pct": 48,
+	}})
+	ok(stack_layout.has("quest_bar_x_frac") and is_equal_approx(float(stack_layout.quest_bar_x_frac), 0.06) \
+		and stack_layout.has("quest_bar_y_frac") and is_equal_approx(float(stack_layout.quest_bar_y_frac), 0.18) \
+		and stack_layout.has("quest_bar_h_frac") and is_equal_approx(float(stack_layout.quest_bar_h_frac), 0.11) \
+		and stack_layout.has("board_x_frac") and is_equal_approx(float(stack_layout.board_x_frac), 0.12) \
+		and stack_layout.has("board_y_frac") and is_equal_approx(float(stack_layout.board_y_frac), 0.31) \
+		and stack_layout.has("board_h_frac") and is_equal_approx(float(stack_layout.board_h_frac), 0.48), \
+		"hud_layout resolver exposes quest-bar and board geometry as screen fractions")
+	var hud_default: Dictionary = (view._params["hud_layout"] as Dictionary).duplicate()
+	view._params["hud_layout"]["quest_bar_x_pct"] = 6
+	view._params["hud_layout"]["quest_bar_y_pct"] = 18
+	view._params["hud_layout"]["quest_bar_h_pct"] = 11
+	view._params["hud_layout"]["board_x_pct"] = 12
+	view._params["hud_layout"]["board_y_pct"] = 31
+	view._params["hud_layout"]["board_h_pct"] = 48
+	var hud_preview: Control = view._make_element("hud_layout")
+	var quest_box := hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
+	var board_box := hud_preview.find_child("HudLayoutBoard", true, false) as Control
+	var preview_w := 1080.0 * 0.26
+	var preview_h := 1920.0 * 0.26
+	ok(quest_box != null and board_box != null and _has_label_text(quest_box, "quest") and _has_label_text(board_box, "board"), \
+		"hud_layout preview draws the quest bar and board area")
+	ok(quest_box != null and absf(quest_box.position.x - preview_w * 0.06) <= 1.0 \
+		and absf(quest_box.position.y - preview_h * 0.18) <= 1.0 \
+		and absf(quest_box.custom_minimum_size.y - preview_h * 0.11) <= 1.0 \
+		and board_box != null and absf(board_box.position.x - preview_w * 0.12) <= 1.0 \
+		and absf(board_box.position.y - preview_h * 0.31) <= 1.0 \
+		and absf(board_box.custom_minimum_size.y - preview_h * 0.48) <= 1.0, \
+		"hud_layout preview applies quest-bar and board position/height controls")
+	view._selected = "hud_layout"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Quest Bar H Pct") >= 25.0 and _slider_max(view, "Board H Pct") >= 70.0 \
+		and _slider_min(view, "Quest Bar Y Pct") <= 0.0 and _slider_min(view, "Board Y Pct") <= 0.0, \
+		"hud_layout sidebar exposes quest-bar and board height/position sliders")
+	view._params["hud_layout"] = hud_default
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains

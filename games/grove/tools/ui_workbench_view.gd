@@ -128,7 +128,7 @@ const CAPTIONS := {
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
-	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, and board bottom bar",
+	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"gold_badge": "Gold badge — CSS port",
 	"level_badge": "Level badge — layered emblem (circle·leaf·flower·acorn·gem + number)",
@@ -186,7 +186,9 @@ var _params := {
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
 		"edge_margin_px": 18,
-		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70},
+		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70,
+		"quest_bar_x_pct": 3, "quest_bar_y_pct": 17, "quest_bar_h_pct": 11,
+		"board_x_pct": 12, "board_y_pct": 30, "board_h_pct": 48},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -484,11 +486,6 @@ func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 		opts["icon"] = icon_id
 		opts["count"] = int(sample.count)
 		var pill := Kit.gold_currency_pill(opts, {icon_id: int(sample.count)})
-		var pill_panel := pill as PanelContainer
-		if pill_panel == null:
-			pill_panel = pill.find_child("GoldCurrencyPill", true, false) as PanelContainer
-		if pill_panel != null:
-			pill_panel.name = "GoldCurrencyPill" + icon_id.capitalize()
 		pill.custom_minimum_size.x = pill_body_w
 		row.add_child(pill)
 	row.custom_minimum_size.x = pill_body_w * 3.0 + edge * 2.0
@@ -798,26 +795,41 @@ func _hud_layout_preview() -> Control:
 	var top_h := h * float(p.get("top_band_h_pct", 15)) / 100.0
 	root.add_child(_layout_preview_box(Rect2(0, 0, w, top_h), Color("#D9E8D2", 0.18), "top %d%%" % int(p.get("top_band_h_pct", 15))))
 	var level_w := w * float(p.get("level_w_pct", 25)) / 100.0
-	root.add_child(_layout_preview_box(Rect2(0, 0, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
 	var edge := float(p.get("edge_margin_px", 18)) * s
+	root.add_child(_layout_preview_box(Rect2(0, edge, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
 	var wallet_w := w * float(p.get("currency_area_pct", 75)) / 100.0
-	var wallet_x := w - edge - wallet_w
+	var wallet_x := w - wallet_w
 	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
+	var pill_h := maxf(34.0, top_h * 0.46)
+	var pill_body_w := maxf(1.0, pill_w - edge)
 	for i in 3:
-		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, 10.0, pill_w, maxf(34.0, top_h * 0.46)), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
+		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, 10.0, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
+	var quest_x := w * float(p.get("quest_bar_x_pct", 3)) / 100.0
+	var quest_y := h * float(p.get("quest_bar_y_pct", 17)) / 100.0
+	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	var quest_w := maxf(1.0, w - quest_x * 2.0)
+	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
+	var board_x := w * float(p.get("board_x_pct", 12)) / 100.0
+	var board_y := h * float(p.get("board_y_pct", 30)) / 100.0
+	var board_h := h * float(p.get("board_h_pct", 48)) / 100.0
+	var board_w := minf(w - board_x, board_h * 7.0 / 9.0)
+	root.add_child(_layout_preview_box(Rect2(board_x, board_y, board_w, board_h), Color("#A8D29B", 0.48), "board", "HudLayoutBoard"))
 	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
 	var side_x := w - edge - btn_w
-	for i in 3:
-		root.add_child(_layout_preview_box(Rect2(side_x, top_h + 8.0 + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
-	var bottom_y := h - btn_w - 10.0
+	var rail_top := 10.0 + pill_h + edge
+	for i in 4:
+		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
+	var bottom_y := h - btn_w - edge
 	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
 	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "bag"))
 	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, btn_w), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
 	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "home"))
 	return root
 
-func _layout_preview_box(rect: Rect2, color: Color, text: String) -> Control:
+func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "") -> Control:
 	var p := PanelContainer.new()
+	if node_name != "":
+		p.name = node_name
 	p.position = rect.position
 	p.size = rect.size
 	p.custom_minimum_size = rect.size
@@ -1575,6 +1587,14 @@ func _rebuild_sidebar() -> void:
 			_section_header("Buttons + board bottom")
 			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
 			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
+			_section_header("Quest bar")
+			_sidebar_body.add_child(_slider_row(["quest_bar_x_pct", 0, 30]))       # quest fence left inset / position (% screen width)
+			_sidebar_body.add_child(_slider_row(["quest_bar_y_pct", 0, 55]))       # quest fence top position (% screen height)
+			_sidebar_body.add_child(_slider_row(["quest_bar_h_pct", 5, 25]))       # quest fence height (% screen height)
+			_section_header("Board area")
+			_sidebar_body.add_child(_slider_row(["board_x_pct", 0, 40]))           # board area left position (% screen width)
+			_sidebar_body.add_child(_slider_row(["board_y_pct", 0, 75]))           # board area top position (% screen height)
+			_sidebar_body.add_child(_slider_row(["board_h_pct", 20, 70]))          # board area height (% screen height)
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
