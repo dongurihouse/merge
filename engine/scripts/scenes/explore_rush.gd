@@ -55,9 +55,9 @@ func _ready() -> void:
 	_start()
 
 # The carved-wood / parchment top bar (rush_concept): a hero TIMER plaque (banner + hourglass + countdown)
-# on the left, a parchment SCORE card and a gilded MULTIPLIER medallion beside it, and a small parchment
-# EXIT square pinned to the top-right corner. Every piece is the rush_asset art; the dynamic numerals ride
-# on top. Sizes derive from one plaque height `H`, scaled down once if the row would overflow the width.
+# CENTRED at the top, a parchment SCORE card on the far left, and a gilded MULTIPLIER medallion + a small
+# parchment EXIT square on the far right. Every piece is the rush_asset art; the dynamic numerals ride on
+# top. Sizes derive from one plaque height `H`, scaled down once if a flank would crowd the centred plaque.
 func _build_topbar() -> void:
 	_lbl_time = _label("0:00", 30, true)
 	_lbl_score = _label("0", 30, true)
@@ -76,30 +76,32 @@ func _build_topbar() -> void:
 	var mult := Vector2(H * 0.70 * 141.0 / 156.0, H * 0.70)
 	var exit := Vector2(H * 0.46 * 185.0 / 188.0, H * 0.46)
 	var gap := vw * 0.015
-	# shrink the whole row once if plaque + score + mult (+ the corner exit) would overflow the width
-	var row_w := plaque.x + gap + score.x + gap + mult.x
-	var avail := vw * 0.97 - exit.x - gap
-	if row_w > avail:
-		var k := avail / row_w
+	# the TIMER sits top-CENTRE (the hero); SCORE flanks far-left, MULT + EXIT flank far-right. Shrink once
+	# so the wider flank still clears the centred plaque within the half-width.
+	var half := vw * 0.5 - vw * 0.03
+	var left_half := plaque.x * 0.5 + gap + score.x
+	var right_half := plaque.x * 0.5 + gap + mult.x + gap + exit.x
+	var widest := maxf(left_half, right_half)
+	if widest > half:
+		var k := half / widest
 		plaque *= k ; score *= k ; mult *= k ; exit *= k ; H *= k
 
-	var cy := bar_top + plaque.y * 0.5                      # the shared vertical centre line
-	var x := vw * 0.02
-	add_child(_timer_widget(plaque, Vector2(x, bar_top)))
-	x += plaque.x + gap
-	add_child(_score_widget(score, Vector2(x, cy - score.y * 0.5)))
-	x += score.x + gap
-	add_child(_mult_widget(mult, Vector2(x, cy - mult.y * 0.5)))
-
+	var cy := bar_top + plaque.y * 0.5                          # the shared vertical centre line
+	# TIMER — top-centre
+	add_child(_timer_widget(plaque, Vector2((vw - plaque.x) * 0.5, bar_top)))
+	# SCORE — top-left
+	add_child(_score_widget(score, Vector2(vw * 0.03, cy - score.y * 0.5)))
 	# EXIT — the parchment × square, pinned to the top-right corner, clear of the board
 	var ex := TextureButton.new()
 	ex.texture_normal = _tex("exit_x")
 	ex.ignore_texture_size = true
 	ex.stretch_mode = TextureButton.STRETCH_SCALE
 	ex.custom_minimum_size = exit ; ex.size = exit
-	ex.position = Vector2(vw * 0.98 - exit.x, cy - exit.y * 0.5)
+	ex.position = Vector2(vw * 0.97 - exit.x, cy - exit.y * 0.5)
 	ex.pressed.connect(func() -> void: _end())
 	add_child(ex)
+	# MULT — just left of the exit
+	add_child(_mult_widget(mult, Vector2(vw * 0.97 - exit.x - gap - mult.x, cy - mult.y * 0.5)))
 
 func _tex(name: String) -> Texture2D:
 	var p := RUSH_ART % name
