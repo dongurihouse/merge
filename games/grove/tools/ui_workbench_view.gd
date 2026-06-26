@@ -26,7 +26,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 
-const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -34,7 +34,7 @@ const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout",
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -52,7 +52,7 @@ const DEPENDENTS := {
 	"toggle_card": ["settings"],
 	"home_button": ["info_bar"],
 	"hud_layout": ["info_bar"],
-	"gold_badge": ["board", "info_bar", "map_card"],
+	"gold_badge": ["board", "info_bar", "map_card", "rush_bar"],   # the rush bar's cells ARE code-drawn gold badges
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
 	"gold_currency_pill": ["bag", "info_bar"],   # bag balance + info bar margins borrow the gold pill padding
@@ -106,6 +106,8 @@ const TEST_KEYS := {
 	# the FRAME is the shared gold badge skin; gold_currency_pill padding controls its content margin. `filled` previews the
 	# selected-vs-empty state (the game fills it from the tapped board item).
 	"info_bar": ["filled"],
+	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
+	"rush_bar": [],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
@@ -150,6 +152,7 @@ const CAPTIONS := {
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
+	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -299,6 +302,9 @@ var _params := {
 	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
 		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
 		"filled": true},
+	# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
+	"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
+		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -699,6 +705,12 @@ func _make_element(id: String) -> Control:
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
+		"rush_bar":
+			# the Expedition top HUD, from the SAME kit builder the game uses: code-drawn gold-badge cells
+			# (Time · Score · Mult) + the asset leaf / coin / crown. Pass the shared gold_badge skin so the
+			# cells preview the SAME tuning as the board / map-card frame.
+			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p, "gold_badge": _params["gold_badge"]})
+			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
@@ -1983,6 +1995,21 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
 			_sidebar_body.add_child(_slider_row(["owned_zones", 0, 12]))
 			_sidebar_body.add_child(_slider_row(["total_zones", 0, 12]))
+		"rush_bar":
+			_group_header("Saved to config", true)
+			_section_header("Cells — code-drawn gold badge (tune the FRAME on the Gold badge item)")
+			_sidebar_body.add_child(_slider_row(["height", 60, 180]))    # cell height
+			_sidebar_body.add_child(_slider_row(["score_w", 160, 460]))  # centred Score cell width
+			_sidebar_body.add_child(_slider_row(["side_w", 120, 380]))   # Time / Mult cell width
+			_sidebar_body.add_child(_slider_row(["gap", 0, 60]))         # spacing between cells
+			_sidebar_body.add_child(_slider_row(["pad", 4, 40]))         # cell content inset
+			_section_header("Text")
+			_sidebar_body.add_child(_slider_row(["label_size", 12, 48]))  # the Time / Score / Mult caption
+			_sidebar_body.add_child(_slider_row(["value_size", 20, 80]))  # the numerals
+			_section_header("Asset decorations — leaf · coin · crown")
+			_sidebar_body.add_child(_slider_row(["icon_size", 20, 100]))  # the score coin
+			_sidebar_body.add_child(_slider_row(["leaf_size", 30, 160]))  # the flank oak-leaf clusters
+			_sidebar_body.add_child(_slider_row(["crown_size", 30, 160])) # the acorn crown over the centre
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")
