@@ -826,6 +826,27 @@ static func accumulator_full(kind: String, last_ts: float, now: float) -> bool:
 static func accumulator_reward(kind: String, banked: int) -> Dictionary:
 	return {"kind": kind, "amount": maxi(0, banked) * int(ACCUMULATORS.get(kind, {}).get("value", 0))}
 
+# Accumulators ride the generator infra (placement, render, bag), keyed by their `id` ("acc_<kind>").
+static func is_accumulator(id: String) -> bool:
+	return accumulator_kind_of(id) != ""
+
+static func accumulator_kind_of(id: String) -> String:
+	for kind in ACCUMULATORS:
+		if String(ACCUMULATORS[kind].get("id", "")) == id:
+			return String(kind)
+	return ""
+
+# The generator icon for an id — the merge-generator roster first, then the accumulators. One lookup so
+# _make_generator renders both kinds of on-board "generator" from the same path.
+static func gen_tex(id: String) -> String:
+	var d := gen_def(GENERATORS, id)
+	if not d.is_empty():
+		return String(d.get("tex", ""))
+	var kind := accumulator_kind_of(id)
+	if kind != "":
+		return String(ACCUMULATORS[kind].get("tex", ""))
+	return ""
+
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.

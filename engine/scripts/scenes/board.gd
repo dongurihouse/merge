@@ -1106,6 +1106,7 @@ func _pos_to_cell(p: Vector2) -> Vector2i:
 
 func _rebuild_all() -> void:
 	_grow_generators()                        # a staged second generator grows in once its level is reached
+	_sync_accumulators()                      # §6.C place any newly-unlocked utility accumulators
 	for n in board_area.get_children():
 		n.queue_free()
 	slot_nodes.clear()
@@ -1127,13 +1128,16 @@ func _rebuild_all() -> void:
 	gen_nodes.clear()
 	var ghl := _gen_highlight_opts()         # workbench-tuned glow/outline/sparkle (or {} for shipped look)
 	for cell in board.gens:                  # the live, stateful set (cell -> id), §6
-		var gn := _make_generator(String(board.gens[cell]), ghl)
+		var gid := String(board.gens[cell])
+		var gn := _make_generator(gid, ghl)
 		gn.position = _cell_pos(cell)
 		board_area.add_child(gn)
 		FX.breathe(gn)
 		if _grown_cells.has(cell):            # a just-grown second generator — pop it in
 			FX.pop(gn)
 		gen_nodes[cell] = gn                  # keyed by CELL now (a gen persists; new ones arrive via gen_bag, §6)
+		if G.is_accumulator(gid):             # §6.C show the banked count on a utility accumulator
+			_refresh_accumulator_badge(cell)
 	if not _grown_cells.is_empty():
 		Audio.play("level_complete", -6.0, 1.1)
 		_grown_cells = []
@@ -1913,8 +1917,11 @@ func _release_gen(pos: Vector2) -> void:
 	if target == from and pos.distance_to(_press_pos) <= 18.0:
 		if node != null:
 			node.position = _cell_pos(from)
-		_pop_seed(from)                       # a still tap pops the generator (merge fuel)
-		_select_generator(from)               # …and surfaces the burst-upgrade chip in the info bar (T54)
+		if G.is_accumulator(board.gen_id_at(from)):
+			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
+		else:
+			_pop_seed(from)                   # a still tap pops the generator (merge fuel)
+			_select_generator(from)           # …and surfaces the burst-upgrade chip in the info bar (T54)
 		return
 	var gp: Vector2 = board_area.get_global_transform() * pos
 	if bag_btn != null and is_instance_valid(bag_btn) and bag_btn.get_global_rect().has_point(gp):
@@ -2331,6 +2338,99 @@ func _open_chest(from: Vector2i, target: Vector2i, node: Control) -> void:
 	_update_hud()
 	_refresh_giver_lights()
 	_refresh_generator_dim()
+
+# §6.C ensure every UNLOCKED accumulator (its map-1 spot claimed) is on the board (or the gen bag), and
+# start its banking clock the first time it appears. Idempotent — called each rebuild.
+func _sync_accumulators() -> void:
+	var unlocks: Dictionary = Save.grove().get("unlocks", {})
+	var accs: Dictionary = Save.grove().get("accumulators", {})
+	var owned := {}
+	for v in board.gens.values():
+		owned[String(v)] = true
+	for v in board.gen_bag:
+		owned[String(v)] = true
+	var changed := false
+	for kind in G.ACCUMULATORS:
+		if not G.accumulator_unlocked(String(kind), unlocks):
+			continue
+		var id := String(G.ACCUMULATORS[kind].id)
+		if not accs.has(id):
+			accs[id] = Time.get_unix_time_from_system()   # start banking the moment it unlocks
+			changed = true
+		if owned.has(id):
+			continue
+		var dest := Vector2i(-1, -1)
+		for c in board.empty_ground_cells():
+			if not board.gens.has(c):
+				dest = c
+				break
+		if dest == Vector2i(-1, -1):
+			board.gen_bag.append(id)          # board full → it waits (still banks) in the bag
+		else:
+			board.place_gen(id, dest)
+		changed = true
+	if changed:
+		Save.grove()["accumulators"] = accs
+		_persist()
+
+# §6.C a tap on an accumulator collects its banked resource (grant it, reset the clock). Nothing banked
+# yet → a gentle wobble.
+func _collect_accumulator(cell: Vector2i) -> void:
+	var id := board.gen_id_at(cell)
+	var kind := G.accumulator_kind_of(id)
+	if kind == "":
+		return
+	var accs: Dictionary = Save.grove().get("accumulators", {})
+	var last_ts := float(accs.get(id, 0.0))
+	var now := Time.get_unix_time_from_system()
+	var banked := G.accumulator_banked(kind, last_ts, now)
+	var gn: Control = gen_nodes.get(cell)
+	if banked <= 0:
+		if gn != null:
+			FX.wobble(gn)
+		Audio.play("invalid_soft", -6.0)
+		return
+	var amount := int(G.accumulator_reward(kind, banked).amount)
+	match kind:
+		"water":
+			water = mini(G.WATER_CAP, water + amount)
+		"coins":
+			Save.add_coins(amount)
+		"exp":
+			Save.add_exp(amount)
+		"acorn":
+			Save.add_diamonds(amount)
+	accs[id] = now
+	Save.grove()["accumulators"] = accs
+	if gn != null:
+		FX.pop(gn)
+	Audio.play("coin_earn", -3.0, 1.1)
+	_persist()
+	_update_hud()
+	_update_water_hud()
+	_refresh_accumulator_badge(cell)
+
+# §6.C draw/update the small banked-count badge on an accumulator (reuses the boost-badge chrome).
+func _refresh_accumulator_badge(cell: Vector2i) -> void:
+	var gn: Control = gen_nodes.get(cell)
+	if gn == null:
+		return
+	var kind := G.accumulator_kind_of(board.gen_id_at(cell))
+	if kind == "":
+		return
+	var id := board.gen_id_at(cell)
+	var last_ts := float((Save.grove().get("accumulators", {}) as Dictionary).get(id, 0.0))
+	var banked := G.accumulator_banked(kind, last_ts, Time.get_unix_time_from_system())
+	var badge: Control = gn.get_node_or_null("AccBadge")
+	if banked <= 0:
+		if badge != null:
+			badge.queue_free()
+		return
+	if badge == null:
+		badge = _make_boost_badge()
+		badge.name = "AccBadge"
+		gn.add_child(badge)
+	(badge.get_node("Count") as Label).text = "%d" % banked
 
 func _commit_move(a: Vector2i, b: Vector2i, node: Control) -> void:
 	board.move(a, b)
