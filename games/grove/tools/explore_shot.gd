@@ -80,6 +80,26 @@ func _initialize() -> void:
 				print("SHOT explore/rush midfall=%s (err %d)" % [out, em])
 				quit()
 				return
+			if String(a) == "fling=1":
+				# clear the board, drop a lone tile at column 0, tap it (no match -> fling), capture mid-arc
+				await create_timer(0.4).timeout
+				scn.set_process(false)
+				for r in G.ROWS:
+					for c in G.COLS:
+						if scn._grid[r][c] != null:
+							(scn._grid[r][c].node as Node).queue_free()
+							scn._grid[r][c] = null
+				var ft = scn._make_tile(1, 1, G.ROWS - 1, 0)
+				scn._grid[G.ROWS - 1][0] = {"kind": 1, "tier": 1, "node": ft}
+				await create_timer(0.45).timeout   # let the spawn-fall finish
+				scn._on_tile(ft)                   # fling
+				await create_timer(0.18).timeout   # catch it mid-arc
+				RenderingServer.force_draw()
+				var ff := root.get_texture().get_image()
+				var ef := ff.save_png(out)
+				print("SHOT explore/rush fling=%s (err %d)" % [out, ef])
+				quit()
+				return
 	# seq=N: dump N frames at ~0.12s intervals (catches tiles mid-fall to show the drop). Else one frame.
 	var seq := 0
 	for a in args:

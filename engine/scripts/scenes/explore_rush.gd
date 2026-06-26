@@ -320,9 +320,14 @@ func _fling(rc: Vector2i) -> void:
 	if tgt < 0:
 		return
 	var cell: Dictionary = _grid[rc.x][rc.y]
+	var node := cell.node as Control
+	var start := node.position                      # where the tile is now (its old column)
 	_grid[rc.x][rc.y] = null
 	_grid[_bottom_empty(tgt)][tgt] = cell
-	_settle()
+	_settle(node)                                   # settle every OTHER tile (the source column falls); the toss owns this one
+	var fc := _coord_of(node)                       # the flung tile's new resting cell
+	_fly_to(node, start, Vector2(_cell * fc.y + 3.0, _cell * fc.x + 3.0))
+	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
 
 # --- treefall --------------------------------------------------------------------
 func _start_timber() -> void:
@@ -356,18 +361,38 @@ func _drop_timber() -> void:
 	_refresh_readouts()
 
 # --- grid <-> nodes --------------------------------------------------------------
-func _settle() -> void:
+func _settle(except: Control = null) -> void:
 	Explore.gravity(_grid)
 	for r in G.ROWS:
 		for c in G.COLS:
 			var cell = _grid[r][c]
 			if cell != null:
 				var node := cell.node as Control
+				if node == except:
+					continue                                # the fling toss owns this tile's motion
 				var rest := Vector2(_cell * c + 3.0, _cell * r + 3.0)
 				if node.position.y < rest.y - 1.0:
 					_fall_to(node, rest, node.position.y)   # a cleared tile DROPS into the gap (gravity)
 				else:
 					node.position = rest                    # already settled / a same-row or sideways move
+
+# A flung tile TOSSES in an arc from `start` to its new resting cell `dest` — up-and-over with a slight
+# spin, then a gravity drop and a small landing squash. The board's other tiles settle separately.
+func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.position = start
+	node.pivot_offset = node.size * 0.5
+	var span := absf(dest.x - start.x)
+	var peak := Vector2((start.x + dest.x) * 0.5, minf(start.y, dest.y) - maxf(_cell * 0.7, span * 0.28))
+	var spin := deg_to_rad(22.0) * (1.0 if dest.x >= start.x else -1.0)
+	var t := node.create_tween()
+	t.tween_property(node, "position", peak, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.parallel().tween_property(node, "rotation", spin, 0.16).set_trans(Tween.TRANS_SINE)
+	t.tween_property(node, "position", dest, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	t.parallel().tween_property(node, "rotation", 0.0, 0.18).set_trans(Tween.TRANS_SINE)
+	t.tween_property(node, "scale", Vector2(1.16, 0.84), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
