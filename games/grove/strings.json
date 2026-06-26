@@ -23,8 +23,7 @@
 			"tool_arrived": "A new tool arrived!"
 		},
 		"hints": {
-			"drag_to_sell": "drag a spare here to sell",
-			"sell_spares": "the merchant buys spares — drag it to his stall"
+			"sell_spares": "tap a spare, then the sell button to cash it in"
 		},
 		"info": {
 			"boost_detail": "Boosted +%d/tap · %d left",
@@ -45,9 +44,6 @@
 		"refill": {
 			"free": "Rain ☔ free refill",
 			"paid": "Rain ☔ %d🌰"
-		},
-		"treat": {
-			"flower": "✿"
 		},
 		"winback": {
 			"rained": "It rained while you were away ☔"
