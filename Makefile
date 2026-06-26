@@ -10,7 +10,7 @@ DEVICE  ?=                                    # desktop phone simulator for make
 # UI + economy/liveops suites are PARKED in the *_DISABLED vars below — they churn with rapid UI/
 # economy iteration and slow the loop without guarding stable code. To RE-ENABLE: move names back
 # from *_DISABLED into the active lists. See docs/BACKLOG.md "Re-enable the UI + economy test suites".
-ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/anchor_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/kit_polish_async_tests engine/tests/kit_bake_tests engine/tests/boot_trace_tests engine/tests/map_canvas_tests engine/tests/strings_tests engine/tests/level_badge_tests engine/tests/fx_juice_tests engine/tests/sfx_tests engine/tests/reward_arrival_tests
+ENGINE_TESTS := engine/tests/save_tests engine/tests/mechanics_tests engine/tests/quest_tests engine/tests/quest_fence_tests engine/tests/anchor_tests engine/tests/layering_tests engine/tests/inbox_sync_tests engine/tests/identity_tests engine/tests/store_tests engine/tests/iap_tests engine/tests/scene_warm_tests engine/tests/kit_config_cache_tests engine/tests/kit_polish_async_tests engine/tests/kit_bake_tests engine/tests/boot_trace_tests engine/tests/map_canvas_tests engine/tests/strings_tests engine/tests/level_badge_tests engine/tests/fx_juice_tests engine/tests/water_fill_effect_tests engine/tests/debug_overlay_tests engine/tests/sfx_tests engine/tests/reward_arrival_tests
 ENGINE_TESTS_DISABLED := engine/tests/inbox_tests engine/tests/login_tests engine/tests/calm_tests engine/tests/mapfx_tests engine/tests/hint_tests engine/tests/gendim_tests engine/tests/floater_tests engine/tests/palette_tests engine/tests/bag_overlay_tests engine/tests/switch_tests engine/tests/settings_kit_tests engine/tests/vault_kit_tests
 # the grove suite was split from one 2.3k-line monolith into focused suites so they
 # parallelise and you can run just the slice you touched (see games/grove/tests/grove_test_base.gd)
@@ -21,8 +21,8 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 
 .DEFAULT_GOAL := help
 
-.PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot shot-workbench shot-fx-workbench \
+.PHONY: help run run_debug run_grove g-phone editor workbench fx water-fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
+        shot-map shot-grove shot shot-workbench shot-fx-workbench shot-water-fx \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -55,6 +55,9 @@ w: ## see + test the UI workbench live (a real window you can click)
 
 fx: ## watch the breaking-glass FX live, looping (a real window; close it to quit):  make fx
 	$(GODOT) --path $(PROJECT) -s res://engine/tools/fx_demo.gd
+
+water-fx: ## watch the water-fill FX live (a real window; close it to quit)
+	$(GODOT) --path $(PROJECT) -s res://engine/tools/water_fill_demo.gd
 
 fx-workbench: ## see + tune Grove FX live (sidebar list + contextual preview)
 	$(GODOT) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd
@@ -133,6 +136,9 @@ shot-workbench: ## quiet screenshot of the UI workbench:  make shot-workbench [O
 
 shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbench [OUT=/tmp/fx_workbench.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
+
+shot-water-fx: ## quiet frame strip of the water-fill FX: make shot-water-fx [OUT=/tmp/water_fill_demo.png]
+	$(QUIET) --path $(PROJECT) -s res://engine/tools/water_fill_demo.gd -- $(or $(OUT),/tmp/water_fill_demo.png)
 
 ## --- iOS -------------------------------------------------------------------
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)

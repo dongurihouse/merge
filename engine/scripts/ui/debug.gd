@@ -24,12 +24,20 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MAR
 # The level-badge BOX height — mirrors Hud.LV_BADGE_PX (NOT preloaded: hud.gd ↔ scene preloads form a cycle).
 # The debug menu sits just below the badge box; keep this in sync if the HUD badge size changes.
 const LV_BADGE_BOX := 225.0
+const DRAG_THRESHOLD := 6.0
+const _UNSET_DRAG_POS := Vector2(-1000000.0, -1000000.0)
 
 static var force := false
 
 ## Whether the action column is expanded. Persists across the scene reload an
 ## action triggers, so the panel stays open and you can tap actions repeatedly.
 static var _menu_open := false
+static var _drag_panel_pos := _UNSET_DRAG_POS
+static var _drag_active := false
+static var _drag_moved := false
+static var _drag_start_pointer := Vector2.ZERO
+static var _drag_start_panel := Vector2.ZERO
+static var _suppress_next_toggle := false
 
 ## The state-jump debug PANEL: on only when explicitly authoring(). Never in
 ## headless suites or quiet captures — the quiet guard here also keeps the panel
@@ -67,9 +75,6 @@ static func mount(host: Control) -> void:
 	layer.name = "DebugOverlay"
 	layer.layer = 128                      # above every game chrome layer
 	var col := VBoxContainer.new()
-	# Pinned just below the level badge — RELATIVE to its box (top inset + safe-top + the badge box height),
-	# so it follows the badge's size instead of a fixed 120 that the bigger badge now overlaps.
-	col.position = Vector2(12, Tune.EDGE_MARGIN + Look.safe_top(host) + LV_BADGE_BOX + 8.0)
 	col.add_theme_constant_override("separation", 4)
 	layer.add_child(col)
 
@@ -77,9 +82,9 @@ static func mount(host: Control) -> void:
 	menu.visible = _menu_open               # reopen after an action's scene reload
 	menu.add_theme_constant_override("separation", 4)
 	var toggle := _dbg_button("DEBUG", Color("#C0392B"))
-	toggle.pressed.connect(func() -> void:
-		_menu_open = not _menu_open
-		menu.visible = _menu_open)
+	toggle.mouse_default_cursor_shape = Control.CURSOR_MOVE
+	toggle.gui_input.connect(func(ev: InputEvent) -> void: _on_toggle_gui_input(ev, host, col))
+	toggle.pressed.connect(func() -> void: _on_toggle_pressed(menu))
 	col.add_child(toggle)
 	col.add_child(menu)
 
@@ -97,7 +102,85 @@ static func mount(host: Control) -> void:
 	if host.has_method("debug_drop_coin"):       # board-only: spawn a coin to exercise tap-to-collect
 		_action(menu, host, "Drop coin", _act_drop_coin)
 
+	col.position = _panel_position(host, col)
 	host.add_child(layer)
+
+static func _panel_position(host: Control, panel: Control) -> Vector2:
+	if _drag_panel_pos != _UNSET_DRAG_POS:
+		return _clamp_panel_position(_drag_panel_pos, _panel_size(panel), _viewport_size(host))
+	return _default_panel_position(host)
+
+static func _default_panel_position(host: Control) -> Vector2:
+	# Pinned just below the level badge — RELATIVE to its box (top inset + safe-top + the badge box height),
+	# so it follows the badge's size instead of a fixed 120 that the bigger badge used to overlap.
+	return Vector2(12, Tune.EDGE_MARGIN + Look.safe_top(host) + LV_BADGE_BOX + 8.0)
+
+static func _viewport_size(host: Control) -> Vector2:
+	var s := host.get_viewport_rect().size
+	if s.x <= 1.0 or s.y <= 1.0:
+		s = host.size
+	if s.x <= 1.0 or s.y <= 1.0:
+		s = Vector2(720, 960)
+	return s
+
+static func _panel_size(panel: Control) -> Vector2:
+	var s := panel.size
+	var min_s := panel.get_combined_minimum_size()
+	if s.x <= 1.0:
+		s.x = maxf(min_s.x, 184.0)
+	if s.y <= 1.0:
+		s.y = maxf(min_s.y, 44.0)
+	return s
+
+static func _clamp_panel_position(pos: Vector2, panel_size: Vector2, viewport_size: Vector2) -> Vector2:
+	var max_pos := Vector2(maxf(0.0, viewport_size.x - panel_size.x), maxf(0.0, viewport_size.y - panel_size.y))
+	return Vector2(clampf(pos.x, 0.0, max_pos.x), clampf(pos.y, 0.0, max_pos.y))
+
+static func _event_pointer(panel: Control, ev: InputEventMouse) -> Vector2:
+	return panel.position + ev.position
+
+static func _on_toggle_gui_input(ev: InputEvent, host: Control, panel: Control) -> void:
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		var mb := ev as InputEventMouseButton
+		if mb.pressed:
+			_drag_active = true
+			_drag_moved = false
+			_drag_start_panel = panel.position
+			_drag_start_pointer = _event_pointer(panel, mb)
+		else:
+			if _drag_active and _drag_moved:
+				_drag_panel_pos = panel.position
+				_suppress_next_toggle = true
+			_drag_active = false
+		return
+	if ev is InputEventMouseMotion and _drag_active:
+		var mm := ev as InputEventMouseMotion
+		if (mm.button_mask & MOUSE_BUTTON_MASK_LEFT) == 0:
+			return
+		var delta := _event_pointer(panel, mm) - _drag_start_pointer
+		if not _drag_moved and delta.length() < DRAG_THRESHOLD:
+			return
+		_drag_moved = true
+		panel.position = _clamp_panel_position(_drag_start_panel + delta, _panel_size(panel), _viewport_size(host))
+
+static func _on_toggle_pressed(menu: Control) -> void:
+	if _suppress_next_toggle:
+		_suppress_next_toggle = false
+		return
+	_menu_open = not _menu_open
+	menu.visible = _menu_open
+
+static func reset_drag_for_test() -> void:
+	_drag_panel_pos = _UNSET_DRAG_POS
+	_drag_active = false
+	_drag_moved = false
+	_drag_start_pointer = Vector2.ZERO
+	_drag_start_panel = Vector2.ZERO
+	_suppress_next_toggle = false
+	_menu_open = false
+
+static func drag_position_for_test() -> Vector2:
+	return _drag_panel_pos
 
 static func _action(menu: VBoxContainer, host: Control, label: String, fn: Callable) -> void:
 	var b := _dbg_button(label, Color("#2C3E50"))
@@ -142,6 +225,9 @@ static func _act_premium(host: Control) -> void:
 ## button enables as exp crosses each spot's threshold). Exactly like real play — earn_exp
 ## advances the one progression total. Tap again for the big later-map gate spots.
 static func _act_stars(host: Control) -> void:
+	if host.has_method("debug_add_exp"):
+		host.debug_add_exp(5)
+		return
 	G.earn_exp(5)
 	_reflect(host)
 
@@ -169,6 +255,9 @@ static func _act_unlock_map(host: Control) -> void:
 static func _act_level_up(host: Control) -> void:
 	var g := Save.grove()
 	var lvl := G.level_for_exp(int(g.get("exp", 0)))
+	if host.has_method("debug_add_exp"):
+		host.debug_add_exp(maxi(0, G.exp_at_level(lvl + 1) - int(g.get("exp", 0))))
+		return
 	g["exp"] = G.exp_at_level(lvl + 1)
 	Save.grove_write()
 	_reflect(host)

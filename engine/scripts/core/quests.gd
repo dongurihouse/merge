@@ -55,6 +55,25 @@ static func purge_state(z: int, exp: int, unlocks: Dictionary, gates: Array) -> 
 		"exp": exp,
 	}
 
+# Progress toward the NEXT unclaimed restore spot on the current frontier map.
+# 0.0 = the previous claimed spot threshold (or a fresh map at 0 exp), 1.0 = the
+# next unclaimed spot's threshold. Exp is cumulative, so extra exp beyond the
+# next threshold stays clamped full until the player claims that spot on the map.
+static func purge_progress(z: int, exp: int, unlocks: Dictionary) -> float:
+	if z < 0 or z >= G.MAPS.size():
+		return 0.0
+	var nxt := G.map_next_unlock(z, unlocks)
+	if int(nxt.k) < 0:
+		return 1.0
+	var previous := 0
+	for k in G.MAPS[z].spots.size():
+		if unlocks.has(String(G.MAPS[z].spots[k].id)):
+			previous = maxi(previous, G.spot_unlock_exp(z, k))
+	var target := int(nxt.exp)
+	if target <= previous:
+		return 1.0
+	return clampf(float(exp - previous) / float(target - previous), 0.0, 1.0)
+
 # Exp the player still has to EARN to make the WHOLE of map z claimable (the highest unclaimed
 # threshold minus current exp, floored at 0).
 static func exp_remaining(z: int, unlocks: Dictionary, exp: int) -> int:
