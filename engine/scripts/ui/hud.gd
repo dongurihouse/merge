@@ -12,6 +12,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")
 const Shop = preload("res://engine/scripts/ui/shop.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Strings = preload("res://engine/scripts/core/strings.gd")
 const Pal = Game.PALETTE
@@ -42,10 +43,34 @@ const LV_BADGE_TOP_INSET := 44.0
 const LV_BADGE_LEFT := 8.0     # painted badge edge aligns with the bottom Map tile's 32px side inset
 const PILL_SHIFT_X := 24.0    # nudge the centred wallet a touch right, giving the big left badge more room
 
+static func _view_size(host: Control) -> Vector2:
+	if host != null and host.is_inside_tree():
+		var v := host.get_viewport_rect().size
+		if v.x > 0.0 and v.y > 0.0:
+			return v
+	return Design.size()
+
+static func _screen_w_px(view: Vector2, frac: float) -> float:
+	return maxf(1.0, roundf(view.x * frac))
+
+static func _set_slot_width(node: Control, width: float) -> void:
+	if node == null:
+		return
+	node.custom_minimum_size.x = width
+	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
 static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# the workbench-tuned gold pill look (padding / font / icon box / plus)
 	var Kit = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
+	var view := _view_size(host)
+	var safe_top := Look.safe_top(host)
+	var top_edge := Tune.EDGE_MARGIN + safe_top
+	var top_band_y := view.y * float(layout.top_band_h_frac)
+	var lv_px := _screen_w_px(view, float(layout.level_w_frac))
+	var pill_slot_w := _screen_w_px(view, float(layout.currency_pill_w_frac))
+	var button_px := _screen_w_px(view, float(layout.button_w_frac))
 	var pill: Dictionary = Kit.gold_currency_pill_opts_from_config(cfg)
 	var num_size := int(pill.num_size)               # the workbench-tuned currency number font
 	var icon_box := float(pill.icon_box)             # the workbench-tuned LAYOUT cell (centerline / min box)
@@ -61,13 +86,14 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var open_coin := func() -> void: Shop.open_coin(host, shop_opts)
 	var open_premium := func() -> void: Shop.open_premium(host, shop_opts)
 	var cluster := HBoxContainer.new()
-	cluster.anchor_left = 0.5
-	cluster.anchor_right = 0.5
-	cluster.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	cluster.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host)
-	cluster.offset_left = PILL_SHIFT_X            # shift the centred cluster right (both offsets = translate)
-	cluster.offset_right = PILL_SHIFT_X
-	cluster.add_theme_constant_override("separation", int(PILL_GAP))
+	cluster.anchor_left = maxf(0.0, 1.0 - float(layout.currency_area_frac))
+	cluster.anchor_right = 1.0
+	cluster.anchor_top = 0.0
+	cluster.anchor_bottom = 0.0
+	cluster.offset_top = top_edge
+	cluster.offset_left = 0.0
+	cluster.offset_right = 0.0
+	cluster.add_theme_constant_override("separation", 0)
 	cluster.alignment = BoxContainer.ALIGNMENT_CENTER
 	cluster.z_index = HUD_WALLET_Z
 	host.add_child(cluster)
@@ -83,6 +109,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	var water_pill := _pill(cluster, Kit, pill, "water", gpx, 1.0, Color.WHITE, num_size, icon_box, open_water, water0)
 	var coin_pill := _pill(cluster, Kit, pill, "coin", gpx, Tune.COIN_OPTICAL, Tune.COIN_TINT, num_size, icon_box, open_coin, Save.coins())
 	var gem_pill := _pill(cluster, Kit, pill, "gem", gpx, Tune.GEM_OPTICAL, Tune.GEM_TINT, num_size, icon_box, open_premium, Save.diamonds())
+	for wp in [water_pill.panel, coin_pill.panel, gem_pill.panel]:
+		_set_slot_width(wp as Control, pill_slot_w)
 	var water_lbl: Label = water_pill.label
 	var coins: Label = coin_pill.label
 	var gems: Label = gem_pill.label
@@ -94,21 +122,18 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	if settings_cb is Callable and (settings_cb as Callable).is_valid():
 		var gopts: Dictionary = Kit.home_button_opts_from_config(cfg)
 		# Settings reuses the SAME rounded-rect badge the Map button uses (gear icon over a "Settings" label),
-		# sized to match the side rail (RAIL_SCALE 0.80 × the home-button size — mirrors map.gd).
-		var gear_px := roundf(float(gopts.get("px", 140)) * 0.80)
+		# sized from the shared HUD layout so it moves with the side rail below the top currency band.
+		var gear_px := button_px
 		gopts["px"] = gear_px
 		gopts["shape"] = "rect"
 		gear = Kit.home_button({"icon": "gear", "caption": Strings.t("settings.title"), "action": settings_cb}, gopts)
-		var gtop := Tune.EDGE_MARGIN + Look.safe_top(host)
+		var gtop := maxf(top_edge, top_band_y)
 		gear.anchor_left = 1.0
 		gear.anchor_right = 1.0
 		gear.anchor_top = 0.0
 		gear.anchor_bottom = 0.0
 		gear.offset_left = -gear_px - Tune.EDGE_MARGIN
 		gear.offset_right = -Tune.EDGE_MARGIN
-		# top-align the gear with the currency pills — both pin to gtop, so the settings tile and the
-		# wallet share a top edge (the map's live-ops rail then hangs directly beneath the gear so the
-		# settings + rail read as one top-aligned right column; see map._build_liveops_rail).
 		gear.offset_top = gtop
 		gear.offset_bottom = gear.offset_top + gear_px
 		gear.z_index = HUD_WALLET_Z
@@ -117,9 +142,10 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# The top-left cluster: Lv plus an optional HOME chip. This is intentionally separate
 	# from the wallet; the level badge is player status, not currency.
 	var left := HBoxContainer.new()
-	left.offset_left = LV_BADGE_LEFT
-	# top-align the badge with the wallet pills: lift it by the medal art's transparent top inset.
-	left.offset_top = Tune.EDGE_MARGIN + Look.safe_top(host) - LV_BADGE_TOP_INSET
+	left.offset_left = 0.0
+	left.offset_top = top_edge
+	left.custom_minimum_size = Vector2(lv_px, lv_px)
+	left.size = left.custom_minimum_size
 	left.add_theme_constant_override("separation", Tune.HOME_GAP)
 	left.alignment = BoxContainer.ALIGNMENT_BEGIN
 	left.z_index = HUD_SIDE_Z
@@ -129,6 +155,8 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	# its right at a readable size (it used to be icon + number + fraction in a
 	# row, which read as "5 420/500" — one garbled value). value TICKS on change.
 	var lv_panel := PanelContainer.new()
+	lv_panel.custom_minimum_size = Vector2(lv_px, lv_px)
+	lv_panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	lv_panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	# the level badge is the painted rope RING — no cream mini-pill behind it and no "n/m"
 	# fraction beside it. (lv_panel stays a valid Control because the map keeps it in its
@@ -139,7 +167,7 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.alignment = BoxContainer.ALIGNMENT_CENTER
 	lv_panel.add_child(lrow)
 	# the level "coin" — the shared LAYERED emblem (cut parts) + the big number.
-	var lv_px := LV_BADGE_PX   # bigger BOX than the gear (its medal under-fills) so the visible medal matches
+	# The HUD layout sizes the OUTER badge slot as a percentage of the screen width.
 	# the level badge — the shared layered emblem + centred number (Look.make_level_badge). The HUD
 	# carries the player's CURRENT level; `refresh` re-ticks the
 	# number and, when leveling crosses a badge TIER (the part SET changes), rebuilds the emblem.

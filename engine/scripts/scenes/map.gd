@@ -1353,6 +1353,7 @@ func _make_map_button() -> Button:
 	if Kit == null:
 		return NavBar._make_nav_button("nav_map.png", 140.0, open)   # defensive: the baked map disc
 	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	opts["px"] = _hud_button_px()
 	opts["shape"] = "rect"                    # the rounded-rect badge (not a disc)
 	opts["calm"] = FX.calm()
 	var HC: GDScript = load(HOME_CHROME_PATH)
@@ -1372,6 +1373,7 @@ func _make_residents_button() -> Button:
 		b = NavBar._make_nav_button("nav_residents.png", 140.0, open)   # defensive: glyph/png fallback
 	else:
 		var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		opts["px"] = _hud_button_px()
 		opts["shape"] = "rect"
 		opts["calm"] = FX.calm()
 		var HC: GDScript = load(HOME_CHROME_PATH)
@@ -1531,14 +1533,32 @@ var _rail_px := RAIL_PX         # the shared home-button size (drives the place-
 var _rail_disc_px := RAIL_PX    # the rail's OWN reduced disc size (RAIL_SCALE × shared) — smaller than the nav
 var _rail_opts := {}            # _home_opts with px overridden to _rail_disc_px (the rail discs only)
 
+func _view_size() -> Vector2:
+	if is_inside_tree():
+		var v := get_viewport_rect().size
+		if v.x > 0.0 and v.y > 0.0:
+			return v
+	return Design.size()
+
+func _hud_layout() -> Dictionary:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return {"button_w_frac": RAIL_PX / Design.size().x}
+	return Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+
+func _hud_button_px() -> float:
+	return maxf(1.0, roundf(_view_size().x * float(_hud_layout().get("button_w_frac", 0.15))))
+
 func _build_liveops_rail() -> void:
 	# Load the shared home-button style ONCE (the same transform the bottom nav + workbench read).
 	var Kit: GDScript = load(KIT_PATH)
-	_home_opts = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
+	_home_opts = Kit.home_button_opts_from_config(cfg) if Kit != null else {}
 	_home_opts["calm"] = FX.calm()
-	_rail_px = float(_home_opts.get("px", RAIL_PX))
-	# the rail discs are smaller than the shared nav/back size, and packed closer (RAIL_GAP) — a tidier column.
-	_rail_disc_px = round(_rail_px * RAIL_SCALE)
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg) if Kit != null else {"button_w_frac": RAIL_PX / Design.size().x}
+	_rail_px = maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+	# the rail tiles now use the same screen-width percentage as Map / Back / board Bag+Home.
+	_rail_disc_px = _rail_px
 	_rail_opts = _home_opts.duplicate()
 	_rail_opts["px"] = _rail_disc_px
 	_rail_opts["shape"] = "rect"   # the rail tiles are ROUNDED-RECT badges (icon over label inside), not discs (ui_mock2)

@@ -107,10 +107,55 @@ func _initialize() -> void:
 	ok(s7.water_label != null and s7.coins_label != null and s7.diamonds_label != null, \
 		"the board's HUD labels exist")
 	ok(h7.coins_label != null, "home's HUD labels exist")
+	var KitHud = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var hud_default: Dictionary = KitHud.hud_layout_opts_from_config({})
+	ok(is_equal_approx(float(hud_default.level_w_frac), 0.25) \
+		and is_equal_approx(float(hud_default.currency_area_frac), 0.75) \
+		and is_equal_approx(float(hud_default.currency_pill_w_frac), 0.25) \
+		and is_equal_approx(float(hud_default.top_band_h_frac), 0.15), \
+		"hud_layout defaults reserve 25% Lv + right 75% wallet under the top 15% band")
+	ok(is_equal_approx(float(hud_default.button_w_frac), 0.15) \
+		and is_equal_approx(float(hud_default.info_bar_w_frac), 0.70), \
+		"hud_layout defaults set 15% nav buttons and 70% board info bar")
+	var hud_over: Dictionary = KitHud.hud_layout_opts_from_config({"hud_layout": {
+		"level_w_pct": 22, "currency_area_pct": 66, "currency_pill_w_pct": 20,
+		"top_band_h_pct": 12, "button_w_pct": 14, "info_bar_w_pct": 72}})
+	ok(is_equal_approx(float(hud_over.level_w_frac), 0.22) \
+		and is_equal_approx(float(hud_over.currency_area_frac), 0.66) \
+		and is_equal_approx(float(hud_over.currency_pill_w_frac), 0.20) \
+		and is_equal_approx(float(hud_over.top_band_h_frac), 0.12) \
+		and is_equal_approx(float(hud_over.button_w_frac), 0.14) \
+		and is_equal_approx(float(hud_over.info_bar_w_frac), 0.72), \
+		"hud_layout config overrides each saved percentage independently")
 	Save.add_coins(3)
 	h7._update_hud()
 	await create_timer(0.6).timeout            # numbers TICK toward the target (§6)
 	ok(h7.coins_label.text == str(Save.coins()), "the module refresh keeps the wallet live (ticked)")
+	var view_hud: Vector2 = h7.get_viewport_rect().size
+	var wallet_cluster: Control = h7._hud_panels[0]
+	var level_panel: Control = h7._hud_panels[1]
+	ok(wallet_cluster != null and wallet_cluster.get_child_count() >= 3, \
+		"hud_layout: wallet exposes three currency pill slots")
+	if wallet_cluster != null and wallet_cluster.get_child_count() >= 3:
+		var want_pill_w := view_hud.x * float(hud_default.currency_pill_w_frac)
+		ok(absf(wallet_cluster.get_global_rect().position.x - view_hud.x * (1.0 - float(hud_default.currency_area_frac))) < 3.0, \
+			"hud_layout: currency pills occupy the right configured screen band")
+		for pi in range(3):
+			ok(absf((wallet_cluster.get_child(pi) as Control).get_global_rect().size.x - want_pill_w) < 3.0, \
+				"hud_layout: currency pill %d is %.0f%% screen width" % [pi + 1, float(hud_default.currency_pill_w_frac) * 100.0])
+	if level_panel != null:
+		ok(absf(level_panel.get_global_rect().size.x - view_hud.x * float(hud_default.level_w_frac)) < 3.0, \
+			"hud_layout: level badge slot is the configured screen width")
+	ok(h7._gear != null and h7._gear.get_global_rect().position.y >= view_hud.y * float(hud_default.top_band_h_frac) - 2.0, \
+		"hud_layout: settings starts below the configured top currency band")
+	if s7.bottom_bar != null and s7.bottom_bar.get_child_count() >= 3:
+		var info_bar: Control = s7.bottom_bar.get_child(1) as Control
+		ok(absf(s7.bag_btn.get_global_rect().size.x - view_hud.x * float(hud_default.button_w_frac)) < 3.0, \
+			"hud_layout: board Bag button is the configured screen width")
+		ok(absf(s7.home_btn.get_global_rect().size.x - view_hud.x * float(hud_default.button_w_frac)) < 3.0, \
+			"hud_layout: board Home button is the configured screen width")
+		ok(absf(info_bar.get_global_rect().size.x - view_hud.x * float(hud_default.info_bar_w_frac)) < 3.0, \
+			"hud_layout: board info bar is the configured screen width")
 	var p_grove: Control = s7.coins_label.get_parent().get_parent()
 	var p_home: Control = h7.coins_label.get_parent().get_parent()
 	ok(p_grove.offset_top == p_home.offset_top and p_grove.offset_right == p_home.offset_right, \
@@ -135,14 +180,19 @@ func _initialize() -> void:
 		"the board Lv badge remains separate from the wallet cluster")
 	ok(lv_home != null and lv_home.get_global_rect().position.x < p_home.get_global_rect().position.x, \
 		"the home Lv badge remains separate from the wallet cluster")
-	# R1: the plank wraps the WHOLE cluster — even (symmetric) padding, the row
-	# (store basket + ★/🪙/💧) fully inside (rect guard; the crop is the eye proof)
+	# R1: each percentage-sized pill contains its own content row; the row no longer needs to sit
+	# symmetrically around the amount label now that the outer pill is a 25%-of-screen slot.
 	await create_timer(0.05).timeout            # let the panel lay out
-	var row_home: Control = h7.coins_label.get_parent()
-	assert_wraps(p_home, row_home, 10.0, 4.0, "R1 wallet")
-	var store_btn: Control = row_home.get_child(0)
-	ok(p_home.get_global_rect().grow(-4.0).encloses(store_btn.get_global_rect()), \
-		"R1: the store button sits fully inside the plank")
+	var coin_pill_panel: Control = wallet_cluster.get_child(1) as Control
+	var coin_row: Control = h7.coins_label.get_parent().get_parent()
+	var coin_pill_rect := coin_pill_panel.get_global_rect()
+	var coin_row_rect := coin_row.get_global_rect()
+	ok(coin_row_rect.position.x >= coin_pill_rect.position.x - 2.0 \
+		and coin_row_rect.end.x <= coin_pill_rect.end.x + 2.0, \
+		"R1 wallet — the percent-sized coin pill contains its content row")
+	var store_btn: Control = coin_row.get_child(0)
+	ok(coin_pill_panel.get_global_rect().grow(-4.0).encloses(store_btn.get_global_rect()), \
+		"R1: the currency icon sits fully inside the percent-sized pill")
 
 	# 19. order L — ambient life + weather
 	fresh("ambient")
@@ -219,9 +269,10 @@ func _initialize() -> void:
 	Save.grove()["pops"] = 10                 # FTUE done → the water chip shows
 	sb4._update_water_hud()
 	await create_timer(0.05).timeout
-	var wchip: Control = sb4.water_label.get_parent().get_parent()
 	var wrow: Control = sb4.water_label.get_parent()
-	assert_wraps(wchip, wrow, 5.0, 4.0, "R4 water chip")
+	var wchip: Control = sb4.water_label.get_parent().get_parent().get_parent()
+	ok(wchip.get_global_rect().grow(-4.0).encloses(wrow.get_global_rect()), \
+		"R4 water chip — the percent-sized water pill contains the amount slot")
 	# level chip (home) — the badge belongs to the top-left HUD row, separate from the wallet.
 	var h4 = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(h4)

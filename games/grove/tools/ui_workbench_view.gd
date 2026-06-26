@@ -26,7 +26,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 
-const IDS := ["board", "fx", "generator", "button", "home_button", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -34,7 +34,7 @@ const IDS := ["board", "fx", "generator", "button", "home_button", "icon", "gold
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -80,6 +80,7 @@ const TEST_KEYS := {
 	# the HOME button is a shared-STYLE sandbox: size / icon scale / caption look / badge offset / SPARKLE
 	# persist. The previewed icon, caption text, sparkle toggle + sample badge count are test props.
 	"home_button": ["icon", "caption", "sparkle", "badge_count", "count"],
+	"hud_layout": [],
 	"icon": ["defringe", "feather", "supersample", "shadow"],
 	"progress_bar": ["frac"],              # frac is a preview slider; height/art/star_knob are the saved style
 	"badge": [],                           # the disc-shell polish is SAVED — the home button reads it
@@ -127,6 +128,7 @@ const CAPTIONS := {
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
+	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, and board bottom bar",
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"gold_badge": "Gold badge — CSS port",
 	"level_badge": "Level badge — layered emblem (circle·leaf·flower·acorn·gem + number)",
@@ -182,6 +184,8 @@ var _params := {
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
+		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -522,6 +526,8 @@ func _make_element(id: String) -> Control:
 			mc.add_theme_constant_override("margin_bottom", int(p.caption_font) + 26)
 			mc.add_child(row)
 			return mc
+		"hud_layout":
+			return _hud_layout_preview()
 		"icon":
 			var box := HBoxContainer.new()
 			box.add_theme_constant_override("separation", 28)
@@ -747,6 +753,62 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
+
+func _hud_layout_preview() -> Control:
+	var p: Dictionary = _params["hud_layout"]
+	var s := 0.26
+	var w := PHONE_W * s
+	var h := PHONE_H * s
+	var root := Control.new()
+	root.custom_minimum_size = Vector2(w, h)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bg := ColorRect.new()
+	bg.color = Color("#20333A")
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bg)
+	var top_h := h * float(p.get("top_band_h_pct", 15)) / 100.0
+	root.add_child(_layout_preview_box(Rect2(0, 0, w, top_h), Color("#D9E8D2", 0.18), "top %d%%" % int(p.get("top_band_h_pct", 15))))
+	var level_w := w * float(p.get("level_w_pct", 25)) / 100.0
+	root.add_child(_layout_preview_box(Rect2(0, 0, level_w, level_w), Color("#F6C76F", 0.72), "Lv %d%%" % int(p.get("level_w_pct", 25))))
+	var wallet_w := w * float(p.get("currency_area_pct", 75)) / 100.0
+	var wallet_x := w - wallet_w
+	var pill_w := w * float(p.get("currency_pill_w_pct", 25)) / 100.0
+	for i in 3:
+		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, 10.0, pill_w, maxf(34.0, top_h * 0.46)), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
+	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
+	var side_x := w - btn_w
+	for i in 3:
+		root.add_child(_layout_preview_box(Rect2(side_x, top_h + 8.0 + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
+	var bottom_y := h - btn_w - 10.0
+	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
+	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "bag"))
+	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, btn_w), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
+	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "home"))
+	return root
+
+func _layout_preview_box(rect: Rect2, color: Color, text: String) -> Control:
+	var p := PanelContainer.new()
+	p.position = rect.position
+	p.size = rect.size
+	p.custom_minimum_size = rect.size
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = color
+	sb.border_color = Color(Pal.CREAM, 0.55)
+	sb.set_border_width_all(1)
+	sb.set_corner_radius_all(7)
+	p.add_theme_stylebox_override("panel", sb)
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.add_theme_font_size_override("font_size", 14)
+	l.add_theme_color_override("font_color", Pal.INK if color.get_luminance() > 0.45 else Pal.CREAM)
+	l.add_theme_constant_override("outline_size", 0)
+	l.clip_text = true
+	p.add_child(l)
+	return p
 
 ## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
 ## slot-cell well the board + bag use) + a few demo merge pieces (PieceView), the SAME art the live board
@@ -1473,6 +1535,16 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_toggle_row("Sparkle", "sparkle"))   # preview the sparkle on the right-hand disc
 			_sidebar_body.add_child(_slider_row(["badge_count", 0, 99]))   # sample badge count (0 = dot, ≥1 = count pill)
 			_sidebar_body.add_child(_text_row("Bag count", "count"))   # sample "x/y" on the nav disc (empty = none)
+		"hud_layout":
+			_group_header("Saved to config", true)
+			_section_header("Top HUD")
+			_sidebar_body.add_child(_slider_row(["level_w_pct", 10, 40]))          # Lv badge slot width (% screen width)
+			_sidebar_body.add_child(_slider_row(["currency_area_pct", 50, 90]))    # wallet's right-side band (% screen width)
+			_sidebar_body.add_child(_slider_row(["currency_pill_w_pct", 12, 35]))  # each currency pill width (% screen width)
+			_sidebar_body.add_child(_slider_row(["top_band_h_pct", 5, 30]))        # vertical band reserved before rail/settings
+			_section_header("Buttons + board bottom")
+			_sidebar_body.add_child(_slider_row(["button_w_pct", 8, 25]))          # rail/nav/back/bag/home width (% screen width)
+			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))

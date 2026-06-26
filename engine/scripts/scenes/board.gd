@@ -8,6 +8,7 @@ extends Control
 ## the moment the gate is affordable — the drive-to-spend loop).
 
 const G = preload("res://engine/scripts/core/content.gd")
+const Design = preload("res://engine/scripts/core/design.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")
 const Quests = preload("res://engine/scripts/core/quests.gd")
@@ -285,11 +286,11 @@ func _ready() -> void:
 	var sb_inset := Look.safe_bottom(self)
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
-	bar.offset_left = QUEST_SIDE
-	bar.offset_right = -QUEST_SIDE
+	bar.offset_left = 0.0
+	bar.offset_right = 0.0
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
-	bar.add_theme_constant_override("separation", 12)
+	bar.add_theme_constant_override("separation", 0)
 	bar.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(bar)
 	bottom_bar = bar
@@ -1357,9 +1358,22 @@ func _bottom_button_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit == null:
 		return BOTTOM_BTN_PX
-	var opts: Dictionary = Kit.home_button_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var shared_px := float(opts.get("px", 140.0))
-	return maxf(1.0, roundf(shared_px * (BOTTOM_BTN_PX / 140.0)))
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+
+func _info_bar_w_px() -> float:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return maxf(1.0, roundf(_view_size().x * 0.70))
+	var layout: Dictionary = Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	return maxf(1.0, roundf(_view_size().x * float(layout.get("info_bar_w_frac", 0.70))))
+
+func _view_size() -> Vector2:
+	if is_inside_tree():
+		var v := get_viewport_rect().size
+		if v.x > 0.0 and v.y > 0.0:
+			return v
+	return Design.size()
 
 # The Bag's "held / capacity" string, e.g. "1/6" — used both to seed the in-disc overlay and to refresh it.
 func _bag_count_text() -> String:
@@ -1385,6 +1399,8 @@ func _build_info_bar(px: float = 130.0) -> Control:
 		return PanelContainer.new()   # engine-only safety net — the grove kit owns the info bar (always present in the bundled game)
 	var opts: Dictionary = Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
+	pill.custom_minimum_size.x = _info_bar_w_px()
+	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)

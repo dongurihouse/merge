@@ -200,6 +200,14 @@
 		"shadow": true,
 		"twinkle": 55.0
 	},
+	"hud_layout": {
+		"button_w_pct": 15.0,
+		"currency_area_pct": 75.0,
+		"currency_pill_w_pct": 25.0,
+		"info_bar_w_pct": 70.0,
+		"level_w_pct": 25.0,
+		"top_band_h_pct": 15.0
+	},
 	"icon": {
 
 	},
