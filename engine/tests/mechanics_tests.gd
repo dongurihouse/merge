@@ -215,5 +215,25 @@ func _initialize() -> void:
 	ok(BoardLogic.combo_step(4, 3.0, 2.5) == 1, "combo: a gap past the window restarts at 1")
 	ok(BoardLogic.combo_step(2, 2.51, 2.5) == 1, "combo: just past the window restarts at 1")
 
+	# --- §6.B special drop items — the shared pseudo-line foundation (chest/key/water/acorn/exp) ---
+	var chest_t1 := 10 * 100 + 1            # chest tier 1
+	var flower_t1 := 1 * 100 + 1           # a content line item
+	var coin_t1 := G.COIN_LINE * 100 + 1   # a coin
+	ok(G.is_special(chest_t1) and not G.is_special(flower_t1) and not G.is_special(coin_t1),
+		"is_special gates only the special pseudo-lines (not content, not coins)")
+	ok(G.special_kind(chest_t1) == "chest" and G.special_kind(11 * 100 + 1) == "key",
+		"special_kind selects the per-item behaviour")
+	ok(G.merge_top(chest_t1) == G.SPECIAL_TOP and G.merge_top(flower_t1) == G.TOP_TIER and G.merge_top(coin_t1) == G.COIN_TOP,
+		"merge_top caps special items low, content high, coins at the coin top")
+	var sbm := BoardModel.new()
+	sbm.place(Vector2i(3, 2), 10 * 100 + 2)
+	sbm.place(Vector2i(3, 4), 10 * 100 + 2)
+	ok(sbm.can_merge(Vector2i(3, 2), Vector2i(3, 4)), "two chest-t2 merge (below the special ceiling)")
+	sbm.place(Vector2i(5, 2), 10 * 100 + 3)
+	sbm.place(Vector2i(5, 4), 10 * 100 + 3)
+	ok(not sbm.can_merge(Vector2i(5, 2), Vector2i(5, 4)), "two chest-t3 do NOT merge (at the special ceiling)")
+	ok(G.item_tex_path(chest_t1).ends_with("items/chest/chest_1.png"), "a special item resolves its wired art path")
+	ok(not G.LINES.has(10), "a special pseudo-line is not a content LINE (never popped/asked/sold as content)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

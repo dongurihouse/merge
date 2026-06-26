@@ -28,8 +28,7 @@ static func find_mergeable_pair(board: BoardModel) -> Array:
 		var k: int = board.items[i]
 		if k <= 0:
 			continue
-		var top: int = G.COIN_TOP if G.is_coin(k) else G.TOP_TIER
-		if BoardModel.tier_of(k) >= top:
+		if BoardModel.tier_of(k) >= G.merge_top(k):
 			continue
 		if seen.has(k):
 			return [seen[k], BoardModel.cell_of(i)]

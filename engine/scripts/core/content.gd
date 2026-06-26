@@ -69,6 +69,8 @@ const COIN_LINE = D.COIN_LINE
 const COIN_TOP = D.COIN_TOP
 const COIN_VALUES = D.COIN_VALUES
 const COIN_DROP_RATE = D.COIN_DROP_RATE
+const SPECIAL_TOP = D.SPECIAL_TOP
+const SPECIAL_ITEMS = D.SPECIAL_ITEMS
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
@@ -717,6 +719,26 @@ static func is_coin(code: int) -> bool:
 static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
+# §6.B special drop items — coin-like pseudo-lines (chest/key/water/acorn/exp). is_special gates the
+# shared plumbing (merge ceiling, art, the not-content exclusions); special_kind selects the behaviour.
+static func is_special(code: int) -> bool:
+	return SPECIAL_ITEMS.has(int(code / 100.0))
+
+static func special_kind(code: int) -> String:
+	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("kind", ""))
+
+static func special_base(code: int) -> String:
+	return String(SPECIAL_ITEMS.get(int(code / 100.0), {}).get("base", ""))
+
+# The merge CEILING for a code: coins + special items cap low (3); content lines reach TOP_TIER. One
+# place so can_merge / openable-pair logic agree (board_model, board_logic).
+static func merge_top(code: int) -> int:
+	if is_coin(code):
+		return COIN_TOP
+	if is_special(code):
+		return SPECIAL_TOP
+	return TOP_TIER
+
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
 # level_for_exp / exp_at_level (defined above). The old stars-named forms are retired.
@@ -822,6 +844,11 @@ static func grant_level_gift(gift: Dictionary) -> void:
 static func item_tex_path(code: int) -> String:
 	var line := int(code / 100.0)
 	var tier := code % 100
-	if not LINES.has(line):
+	var base := ""
+	if LINES.has(line):
+		base = String(LINES[line].base)
+	elif SPECIAL_ITEMS.has(line):           # §6.B special drop items render from items/<base>/<base>_<tier>.png
+		base = special_base(code)
+	if base == "":
 		return ""
-	return Game.art("items/%s/%s_%d.png" % [LINES[line].base, LINES[line].base, tier])
+	return Game.art("items/%s/%s_%d.png" % [base, base, tier])

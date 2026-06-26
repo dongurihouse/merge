@@ -222,6 +222,21 @@ const COIN_TOP := 3
 const COIN_VALUES := {1: 1, 2: 5, 3: 25}  # tap-collect value per coin tier
 const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 
+# §6.B SPECIAL DROP ITEMS — short coin-like PSEUDO-LINES (merge.spec §6.B). Like coins they merge up to a
+# small top (SPECIAL_TOP), are NEVER popped from the generator and NEVER asked by quests or sold; they
+# DROP occasionally and pay out a reward on use. Codes `line*100 + tier` on dedicated line numbers (10+,
+# clear of the 1-5 content lines + 9 = coin). Art at items/<base>/<base>_<tier>.png (already wired). `kind`
+# selects the behaviour (built in sequence): chest+key (open for reward), water/acorn/exp (tap-collect the
+# currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
+const SPECIAL_TOP := 3                     # special items merge up to tier 3 (like coins)
+const SPECIAL_ITEMS := {
+	10: {"base": "chest", "kind": "chest"},   # merges; opened by a key for a reward
+	11: {"base": "key",   "kind": "key"},     # merges; opens a chest
+	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
+	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
+	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
+}
+
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside
 # interior; discrete maps reached via a map-select. `hub: true` marks the permanent home hub (the
