@@ -9,7 +9,7 @@ func _initialize() -> void:
 	_test_hand()
 	_test_place()
 	_test_production()
-	_test_map_dock()
+	_test_residents_button()
 	finish()
 
 # --- the in-hand holding area + in-hand merge ------------------------------------
@@ -70,6 +70,17 @@ func _test_place() -> void:
 	ok(Habitat.move(a, 0, b), "moving a placed spirit between maps succeeds")
 	ok(Habitat.placed(a).is_empty() and Habitat.placed(b).size() == 1, "it leaves a, lands on b")
 	ok(int(Habitat.placed(b)[0].tier) == 3, "the moved instance keeps its tier")
+
+	# bringing a placed spirit back OUT returns it to the hand (frees the slot, keeps its tier)
+	fresh("habitat_unplace")
+	var u := String(G.MAPS[0].id)
+	Habitat.hand_add("fern", 2)
+	Habitat.place(u, 0)
+	ok(Habitat.placed(u).size() == 1 and Habitat.hand().is_empty(), "the spirit is placed, hand empty")
+	ok(Habitat.unplace(u, 0), "bringing a placed spirit out succeeds")
+	ok(Habitat.placed(u).is_empty(), "the slot is freed on the map")
+	ok(Habitat.hand().size() == 1 and int(Habitat.hand()[0].tier) == 2, "it returns to the hand keeping its tier")
+	ok(not Habitat.unplace(u, 0), "bringing out a bad index is refused")
 
 # --- idle production: rate, accrual, collect -------------------------------------
 func _test_production() -> void:
@@ -136,8 +147,8 @@ func _test_production() -> void:
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
 
 # --- the spirits DOCK on the map (the folded-in residents management) -------------
-func _test_map_dock() -> void:
-	fresh("map_dock")
+func _test_residents_button() -> void:
+	fresh("residents_button")
 	var z := 0
 	var g := Save.grove()
 	var unl := {}
@@ -145,7 +156,7 @@ func _test_map_dock() -> void:
 		unl[String(sp.id)] = true
 	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
 	var mid := String(G.MAPS[z].id)
-	Habitat.hand_add("moss", 1)          # one to place via the dock
+	Habitat.hand_add("moss", 1)          # one to place via the dialog
 	Habitat.hand_add("acorn", 2)         # one placed up front so the "On map" row renders
 	Habitat.place(mid, 1)                # place the acorn (index 1)
 
@@ -155,23 +166,39 @@ func _test_map_dock() -> void:
 		hx._ready()
 	hx.unlocks = unl
 	hx._open_map(z)
-	ok(hx._spirits_dock != null and hx._spirits_dock.visible, "the spirits dock shows on a completed map")
-	# capacity now reads from a Kit amount chip (a Button), so check label AND button texts
-	var texts := _label_texts(hx._spirits_dock)
-	texts.append_array(_button_texts(hx._spirits_dock))
+	# the Residents nav badge shows on a completed map, captioned with the placed/cap count
+	ok(hx._residents_count_btn != null and hx._residents_count_btn.visible, "the Residents badge shows on a completed map")
+	ok(hx._residents_count_label != null and String(hx._residents_count_label.text) == "1/%d" % Habitat.DEFAULT_CAP,
+		"the badge caption reads the placed/cap count (1/%d)" % Habitat.DEFAULT_CAP)
+
+	# tapping the badge opens the management dialog; it carries the open map's capacity
+	hx._open_residents_dialog()
+	ok(hx._residents_overlay != null and is_instance_valid(hx._residents_overlay), "tapping the badge opens the management dialog")
+	var texts := _label_texts(hx._residents_overlay)
+	texts.append_array(_button_texts(hx._residents_overlay))
 	var has_cap := false
 	for t in texts:
 		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
 			has_cap = true
-	ok(has_cap, "the dock shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)
+	ok(has_cap, "the dialog shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)
 
-	# place the remaining hand spirit through the dock (select then place)
+	# place the remaining hand spirit through the dialog (select then place); the badge count updates
 	var before := Habitat.placed(mid).size()
 	hx._on_dock_hand(0)
 	hx._on_dock_place(mid)
-	ok(Habitat.placed(mid).size() == before + 1, "placing through the dock seats a hand spirit on the open map")
+	ok(Habitat.placed(mid).size() == before + 1, "placing through the dialog seats a hand spirit on the open map")
+	ok(String(hx._residents_count_label.text) == "%d/%d" % [before + 1, Habitat.DEFAULT_CAP], "the badge count updates after placing")
 
-	# the dock hides on an INCOMPLETE map
+	# bring a placed spirit back OUT into the hand (select → bring out)
+	var placed_n := Habitat.placed(mid).size()
+	var hand_n := Habitat.hand().size()
+	hx._on_placed_select(0)
+	hx._on_unplace(mid, 0)
+	ok(Habitat.placed(mid).size() == placed_n - 1, "bringing out frees a map slot")
+	ok(Habitat.hand().size() == hand_n + 1, "the brought-out spirit returns to the hand")
+
+	# the badge hides on an INCOMPLETE map
+	hx._close_residents_dialog()
 	hx._open_map(1)                       # map 1 is not completed in this save
-	ok(not hx._spirits_dock.visible, "the dock hides on a map that can't be populated")
+	ok(not hx._residents_count_btn.visible, "the Residents badge hides on a map that can't be populated")
 	hx.queue_free()
