@@ -156,6 +156,17 @@ func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
 	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
 
+func _live_board_frame_size(view_size: Vector2, board_cfg: Dictionary) -> Vector2:
+	var cols := 7.0
+	var rows := 9.0
+	var gap := float(board_cfg.get("gap", 7.0))
+	var frame := float(board_cfg.get("frame", 60.0))
+	var scale := float(board_cfg.get("scale", 100.0)) / 100.0
+	var csz := minf(
+		(view_size.x - 12.0 - frame * 2.0 - (cols - 1.0) * gap) / cols,
+		(view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows) * scale
+	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
+
 # The unlockable cell's accent colour — the border colour of its highlight pop (the StyleBoxFlat panel
 # with the 4px gold rim). Returns transparent if the cell carries no such pop (not unlockable).
 func _unlockable_tint(node: Control) -> Color:
@@ -328,13 +339,22 @@ func _initialize() -> void:
 		"gold_currency_pill icon has no extra square badge background")
 	ok(gcp.find_children("GoldCurrencyIcon", "TextureRect", true, false).size() >= 1, \
 		"gold_currency_pill reuses the existing currency icon asset")
+	var view_size_before_wallet := view.size
+	view.size = Vector2(View.PHONE_W * 1.5, View.PHONE_H)
 	var wallet_prev: Control = view._make_element("gold_currency_pill")
+	root.add_child(wallet_prev)
+	await process_frame
 	var wallet_amounts: Array = wallet_prev.find_children("GoldCurrencyAmount", "Label", true, false)
 	ok(wallet_amounts.size() == 3, \
 		"gold_currency_pill workbench preview shows the three live wallet pills")
 	ok(_has_label_text(wallet_prev, "100") and _has_label_text(wallet_prev, "0") and _has_label_text(wallet_prev, "5") \
 		and wallet_prev.find_children("GoldCurrencyPlusButton", "Panel", true, false).size() == 3, \
 		"gold_currency_pill workbench preview uses home-wallet water/coin/gem samples")
+	var wallet_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
+	var wallet_edge := float(wallet_layout.get("edge_margin_px", 18.0))
+	var expected_wallet_pill_w := maxf(1.0, roundf(View.PHONE_W * float(wallet_layout.get("currency_pill_w_frac", 0.25))) - wallet_edge)
+	ok(wallet_prev.get_child_count() >= 3 and absf(((wallet_prev as Control).get_child(0) as Control).get_global_rect().size.x - expected_wallet_pill_w) <= 0.01, \
+		"gold_currency_pill workbench preview sizes each pill to the game screen width, not the wide tool window")
 	var gp_default: Dictionary = (view._params["gold_currency_pill"] as Dictionary).duplicate()
 	view._params["gold_currency_pill"]["pad_left"] = 33
 	view._params["gold_currency_pill"]["icon_size"] = 52
@@ -363,6 +383,9 @@ func _initialize() -> void:
 		all_shared = all_shared and (ti as Control).custom_minimum_size.distance_to(Vector2(expected_icon_size, expected_icon_size)) <= 0.01
 	ok(all_shared, \
 		"gold_currency_pill workbench controls apply padding, icon, and text changes to all three pills")
+	wallet_prev.queue_free()
+	await process_frame
+	view.size = view_size_before_wallet
 	view._params["gold_currency_pill"] = gp_default
 	var tuned := Kit.gold_currency_pill({
 		"icon": "water", "count": 2450, "pill_w": 310, "pill_h": 106,
@@ -416,6 +439,40 @@ func _initialize() -> void:
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
+	var negative_pad_gold: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"pad_y": -8}})
+	ok(is_equal_approx(float(negative_pad_gold.pad_y), -8.0), \
+		"gold_currency_pill config preserves negative pad_y")
+	ok(_slider_min(view, "Pad Y") <= -8.0, "gold_currency_pill sidebar allows pad_y below zero")
+	var zero_pad_pill := Kit.gold_currency_pill({"pill_h": 1, "pad_y": 0, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	var negative_pad_pill := Kit.gold_currency_pill({"pill_h": 1, "pad_y": -8, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	root.add_child(zero_pad_pill)
+	root.add_child(negative_pad_pill)
+	await process_frame
+	ok(negative_pad_pill.get_combined_minimum_size().y < zero_pad_pill.get_combined_minimum_size().y, \
+		"gold_currency_pill negative pad_y reduces laid-out height instead of expanding it")
+	zero_pad_pill.queue_free()
+	negative_pad_pill.queue_free()
+	await process_frame
+	var zero_floor_pill := Kit.gold_currency_pill({"pill_h": 64, "pad_y": 0, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	var negative_floor_pill := Kit.gold_currency_pill({"pill_h": 64, "pad_y": -8, "icon_box": 54, "num_size": 30, "plus_button": 100, "show_plus": true})
+	root.add_child(zero_floor_pill)
+	root.add_child(negative_floor_pill)
+	await process_frame
+	ok(negative_floor_pill.get_combined_minimum_size().y < zero_floor_pill.get_combined_minimum_size().y, \
+		"gold_currency_pill negative pad_y also reduces an explicit pill_h floor")
+	zero_floor_pill.queue_free()
+	negative_floor_pill.queue_free()
+	await process_frame
+	var zero_config_pill := Kit.gold_currency_pill(Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"overall_scale": 116, "pill_h": 64, "pad_y": 0, "icon_box": 27, "num_size": 32, "plus_button": 103}}))
+	var negative_config_pill := Kit.gold_currency_pill(Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"overall_scale": 116, "pill_h": 64, "pad_y": -8, "icon_box": 27, "num_size": 32, "plus_button": 103}}))
+	root.add_child(zero_config_pill)
+	root.add_child(negative_config_pill)
+	await process_frame
+	ok(negative_config_pill.get_combined_minimum_size().y < zero_config_pill.get_combined_minimum_size().y, \
+		"gold_currency_pill negative pad_y reduces the scaled workbench-config height")
+	zero_config_pill.queue_free()
+	negative_config_pill.queue_free()
+	await process_frame
 	var scaled_gold: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"overall_scale": 180}})
 	ok(is_equal_approx(float(scaled_gold.pill_w), 525.6) and is_equal_approx(float(scaled_gold.pill_h), 180.0), \
 		"gold_currency_pill overall_scale grows the frame as one unit")
@@ -448,6 +505,17 @@ func _initialize() -> void:
 	ok(hud.coin_plus is Button, "live HUD gold currency pill exposes a real plus button")
 	ok(hud.coin_plus is Button and not (hud.coin_plus as Button).flat, \
 		"live HUD plus button draws the same green rounded background as the workbench plus")
+	var live_gold_opts := Kit.gold_currency_pill_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	var live_amount_slot := _first_control(hud.coin_pill, "GoldCurrencyAmountSlot")
+	var live_amount := _first_control(hud.coin_pill, "GoldCurrencyAmount", "Label") as Label
+	var live_plus := _first_control(hud.coin_pill, "GoldCurrencyPlusButton", "Button")
+	var live_plus_label := _first_control(hud.coin_pill, "GoldCurrencyPlusLabel", "Label") as Label
+	ok(live_amount_slot != null and live_amount != null and live_plus != null and live_plus_label != null \
+		and absf(live_amount_slot.custom_minimum_size.x - float(live_gold_opts.amount_w)) <= 0.01 \
+		and absf(live_amount.position.x - float(live_gold_opts.amount_x)) <= 0.01 \
+		and absf(live_plus.position.x - float(live_gold_opts.plus_x)) <= 0.01 \
+		and absf(live_plus_label.offset_top - float(live_gold_opts.plus_label_y)) <= 0.01, \
+		"live HUD applies the Workbench amount box and plus location settings")
 	var wallet_rect := (hud.wallet as Control).get_global_rect()
 	var wallet_right_gap := Design.size().x - wallet_rect.end.x
 	var hud_layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
@@ -671,6 +739,20 @@ func _test_new_knobs(view) -> void:
 		and stack_layout.has("board_h_frac") and is_equal_approx(float(stack_layout.board_h_frac), 0.48), \
 		"hud_layout resolver exposes quest-bar and board geometry as screen fractions")
 	var hud_default: Dictionary = (view._params["hud_layout"] as Dictionary).duplicate()
+	var preview_w := 1080.0 * 0.26
+	var preview_h := 1920.0 * 0.26
+	var default_hud_preview: Control = view._make_element("hud_layout")
+	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
+	var live_board_size := _live_board_frame_size(Vector2(View.PHONE_W, View.PHONE_H), view._params["board"]) * 0.26
+	ok(default_board_box != null and default_board_box.custom_minimum_size.distance_to(live_board_size) <= 2.0, \
+		"hud_layout preview board matches the live game board frame size")
+	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
+	var default_bottom_bar_y := preview_h - preview_w * float(default_layout.get("button_w_frac", 0.15)) - float(default_layout.get("edge_margin_px", 18.0)) * 0.26
+	ok(default_board_box != null and default_board_box.position.y + default_board_box.custom_minimum_size.y <= default_bottom_bar_y + 1.0, \
+		"hud_layout preview board sits above the bottom bar in the default live layout")
+	view._hud_board_x_auto = false
+	view._hud_board_y_auto = false
+	view._hud_board_height_auto = false
 	view._params["hud_layout"]["quest_bar_x_pct"] = 6
 	view._params["hud_layout"]["quest_bar_y_pct"] = 18
 	view._params["hud_layout"]["quest_bar_h_pct"] = 11
@@ -680,8 +762,6 @@ func _test_new_knobs(view) -> void:
 	var hud_preview: Control = view._make_element("hud_layout")
 	var quest_box := hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var board_box := hud_preview.find_child("HudLayoutBoard", true, false) as Control
-	var preview_w := 1080.0 * 0.26
-	var preview_h := 1920.0 * 0.26
 	ok(quest_box != null and board_box != null and _has_label_text(quest_box, "quest") and _has_label_text(board_box, "board"), \
 		"hud_layout preview draws the quest bar and board area")
 	ok(quest_box != null and absf(quest_box.position.x - preview_w * 0.06) <= 1.0 \

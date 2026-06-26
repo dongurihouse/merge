@@ -40,7 +40,7 @@ static func _screen_w_px(view: Vector2, frac: float) -> float:
 static func _set_slot_width(node: Control, width: float) -> void:
 	if node == null:
 		return
-	node.custom_minimum_size.x = width
+	node.custom_minimum_size = Vector2(width, node.custom_minimum_size.y)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 static func _painted_top_offset(node: Control) -> float:

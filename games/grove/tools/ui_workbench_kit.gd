@@ -845,11 +845,13 @@ static func _gold_badge_over(dst: Color, src: Color) -> Color:
 ## gold_badge(); the currency glyph reuses make_icon().
 static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -> Control:
 	var pill_w := float(opts.get("pill_w", 292))
-	var pill_h := float(opts.get("pill_h", 100))
+	var base_pill_h := float(opts.get("pill_h", 100))
+	var pill_h := base_pill_h
 	var icon_id := String(opts.get("icon", "water"))
-	var pad_left := float(opts.get("pad_left", pill_h * 0.18))
-	var pad_x := float(opts.get("pad_x", pill_h * 0.16))
-	var pad_y := float(opts.get("pad_y", pill_h * 0.12))
+	var pad_left := float(opts.get("pad_left", base_pill_h * 0.18))
+	var pad_x := float(opts.get("pad_x", base_pill_h * 0.16))
+	var pad_y := float(opts.get("pad_y", base_pill_h * 0.12))
+	var style_pad_y := maxf(pad_y, 0.0)
 	var icon_box := float(opts.get("icon_box", opts.get("badge_px", 54)))
 	var icon_px := float(opts.get("icon_size", 34))
 	var icon_x := float(opts.get("icon_x", 0))
@@ -865,7 +867,9 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	var plus := _gold_currency_plus_button(opts, plus_action)
 	var plus_h := plus.custom_minimum_size.y if show_plus else 0.0
 	var content_h := maxf(icon_box, maxf(float(num_size) * 1.45, plus_h))
-	pill_h = maxf(pill_h, ceilf(content_h + pad_y * 2.0))
+	var height_pad := pad_y * 2.0
+	var pill_floor_h := maxf(1.0, base_pill_h + minf(height_pad, 0.0))
+	pill_h = maxf(pill_floor_h, ceilf(content_h + height_pad))
 
 	var panel := PanelContainer.new()
 	panel.name = "GoldCurrencyPill"
@@ -880,15 +884,21 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	badge_opts["inner_shadow"] = float(opts.get("inner_shadow", badge_opts.get("inner_shadow", 30.0)))
 	badge_opts["content_margin_left"] = pad_left
 	badge_opts["content_margin_right"] = pad_x
-	badge_opts["content_margin_top"] = pad_y
-	badge_opts["content_margin_bottom"] = pad_y
+	badge_opts["content_margin_top"] = style_pad_y
+	badge_opts["content_margin_bottom"] = style_pad_y
 	panel.add_theme_stylebox_override("panel", gold_badge_style(badge_opts))
+
+	var row_host := Control.new()
+	row_host.name = "GoldCurrencyPillContentHost"
+	row_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(row_host)
 
 	var row := HBoxContainer.new()
 	row.name = "GoldCurrencyPillRow"
+	row.set_anchors_preset(Control.PRESET_FULL_RECT)
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", gap)
-	panel.add_child(row)
+	row_host.add_child(row)
 
 	var icon_slot := Control.new()
 	icon_slot.name = "GoldCurrencyIconSlot"
@@ -3409,6 +3419,19 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"board_h_frac": clampf(float(h.get("board_h_pct", 48.0)) / 100.0, 0.05, 0.90),
 		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
 	}
+
+static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7.0, rows := 9.0) -> Vector2:
+	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
+	var gap := float(b.get("gap", 7.0))
+	var frame := float(b.get("frame", 60.0))
+	var scale := float(b.get("scale", 100.0)) / 100.0
+	var cell_w := (view_size.x - 12.0 - frame * 2.0 - (cols - 1.0) * gap) / cols
+	var cell_h := (view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows
+	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
+	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
+
+static func live_board_frame_top_y(safe_top := 0.0) -> float:
+	return safe_top + 44.0 + 10.0 + 215.0 + 10.0
 
 ## The shared GOLD CURRENCY PILL style opts from a saved config. The HUD, bag dialog, and workbench
 ## all build the same gold_badge-backed component directly from this block.

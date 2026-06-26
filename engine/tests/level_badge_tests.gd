@@ -189,7 +189,7 @@ func _initialize() -> void:
 	await process_frame
 	await process_frame
 	var lv_slot: Control = hud.get("lv_panel") as Control
-	var layout := Kit.hud_layout_opts_from_config({})
+	var layout := Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var expected_badge_w := roundf(Design.size().x * float(layout.get("level_w_frac", 0.25)))
 	var badge_rect := lv_slot.get_global_rect() if lv_slot != null else Rect2()
 	ok(lv_slot != null

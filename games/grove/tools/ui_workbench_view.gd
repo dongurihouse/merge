@@ -330,6 +330,9 @@ var _sections: Dictionary = {}    # id -> the element's gallery section (PanelCo
 var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
 var _awaiting: Dictionary = {}    # id -> true: elements showing a raw placeholder until a worker polish lands
 var _building := ""               # the id whose section is mid-build (so the polish previews know who to await)
+var _hud_board_height_auto := false
+var _hud_board_x_auto := false
+var _hud_board_y_auto := false
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -341,6 +344,7 @@ func _ready() -> void:
 		theme = UiFont.make()
 	_ensure_shadow_keys()
 	_load_settings()
+	_sync_legacy_hud_board_layout()
 	_build()
 
 ## Give EVERY component a `shadow` on/off key (default ON for the elements that ship a drop shadow, OFF
@@ -461,10 +465,15 @@ func _build() -> void:
 func _dlg_px(id: String) -> float:
 	return PHONE_W * float((_params[id] as Dictionary).get("width_pct", 85)) / 100.0
 
+func _preview_screen_w() -> float:
+	# The workbench window is intentionally wide so tools/dialogs fit side by side.
+	# HUD previews should still use the game's portrait viewport width.
+	return PHONE_W
+
 func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
 	var edge := float(layout.get("edge_margin_px", 18.0))
-	var pill_slot_w := maxf(1.0, roundf(PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))))
+	var pill_slot_w := maxf(1.0, roundf(_preview_screen_w() * float(layout.get("currency_pill_w_frac", 0.25))))
 	var pill_body_w := maxf(1.0, pill_slot_w - edge)
 	var row := HBoxContainer.new()
 	row.name = "GoldCurrencyWalletPreview"
@@ -486,9 +495,12 @@ func _gold_currency_wallet_preview(p: Dictionary) -> Control:
 		opts["icon"] = icon_id
 		opts["count"] = int(sample.count)
 		var pill := Kit.gold_currency_pill(opts, {icon_id: int(sample.count)})
-		pill.custom_minimum_size.x = pill_body_w
+		var pill_surface := pill.find_child("GoldCurrencyPill", true, false) as Control
+		if pill_surface != null:
+			pill_surface.custom_minimum_size = Vector2(pill_body_w, pill_surface.custom_minimum_size.y)
+		pill.custom_minimum_size = Vector2(pill_body_w, pill.custom_minimum_size.y)
 		row.add_child(pill)
-	row.custom_minimum_size.x = pill_body_w * 3.0 + edge * 2.0
+	row.custom_minimum_size = Vector2(pill_body_w * 3.0 + edge * 2.0, row.custom_minimum_size.y)
 	return row
 
 ## Build the live element for an id from its current params.
@@ -809,10 +821,17 @@ func _hud_layout_preview() -> Control:
 	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
 	var quest_w := maxf(1.0, w - quest_x * 2.0)
 	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
+	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
+	if _hud_board_x_auto:
+		p["board_x_pct"] = _live_board_x_pct()
+	if _hud_board_y_auto:
+		p["board_y_pct"] = _live_board_y_pct()
+	if _hud_board_height_auto:
+		p["board_h_pct"] = _live_board_h_pct()
 	var board_x := w * float(p.get("board_x_pct", 12)) / 100.0
-	var board_y := h * float(p.get("board_y_pct", 30)) / 100.0
-	var board_h := h * float(p.get("board_h_pct", 48)) / 100.0
-	var board_w := minf(w - board_x, board_h * 7.0 / 9.0)
+	var board_y := _live_board_y_px() * s if _hud_board_y_auto else h * float(p.get("board_y_pct", 30)) / 100.0
+	var board_h := live_board_size.y if _hud_board_height_auto else h * float(p.get("board_h_pct", 48)) / 100.0
+	var board_w := minf(w - board_x, live_board_size.x * board_h / maxf(1.0, live_board_size.y))
 	root.add_child(_layout_preview_box(Rect2(board_x, board_y, board_w, board_h), Color("#A8D29B", 0.48), "board", "HudLayoutBoard"))
 	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
 	var side_x := w - edge - btn_w
@@ -850,6 +869,32 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 	l.clip_text = true
 	p.add_child(l)
 	return p
+
+func _live_board_h_pct() -> float:
+	var size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params)
+	return clampf(roundf(size.y / PHONE_H * 100.0), 20.0, 70.0)
+
+func _live_board_x_pct() -> float:
+	var size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params)
+	return clampf(roundf(maxf(0.0, (PHONE_W - size.x) * 0.5) / PHONE_W * 100.0), 0.0, 40.0)
+
+func _live_board_y_px() -> float:
+	return Kit.live_board_frame_top_y(0.0)
+
+func _live_board_y_pct() -> float:
+	return clampf(roundf(_live_board_y_px() / PHONE_H * 100.0), 0.0, 75.0)
+
+func _sync_legacy_hud_board_layout() -> void:
+	var h: Dictionary = _params["hud_layout"]
+	if not h.has("board_x_pct") or is_equal_approx(float(h.get("board_x_pct", 12.0)), 12.0):
+		h["board_x_pct"] = _live_board_x_pct()
+		_hud_board_x_auto = true
+	if not h.has("board_y_pct") or is_equal_approx(float(h.get("board_y_pct", 30.0)), 30.0):
+		h["board_y_pct"] = _live_board_y_pct()
+		_hud_board_y_auto = true
+	if not h.has("board_h_pct") or is_equal_approx(float(h.get("board_h_pct", 48.0)), 48.0):
+		h["board_h_pct"] = _live_board_h_pct()
+		_hud_board_height_auto = true
 
 ## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
 ## slot-cell well the board + bag use) + a few demo merge pieces (PieceView), the SAME art the live board
@@ -1626,7 +1671,7 @@ func _rebuild_sidebar() -> void:
 			_section_header("Padding")
 			_sidebar_body.add_child(_slider_row(["pad_left", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["pad_x", 0, 60]))
-			_sidebar_body.add_child(_slider_row(["pad_y", 0, 36]))
+			_sidebar_body.add_child(_slider_row(["pad_y", -36, 36]))
 			_sidebar_body.add_child(_slider_row(["inner_shadow", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["gap", 0, 30]))
 			_section_header("Icon")
@@ -2004,6 +2049,13 @@ func _slider_row(spec: Array, target := "") -> Control:
 	row.add_child(val)
 	s.value_changed.connect(func(x: float) -> void:
 		params[key] = x
+		if String(target if target != "" else _selected) == "hud_layout":
+			if key == "board_h_pct":
+				_hud_board_height_auto = false
+			elif key == "board_x_pct":
+				_hud_board_x_auto = false
+			elif key == "board_y_pct":
+				_hud_board_y_auto = false
 		val.text = "%d" % int(x)
 		_apply_edit())
 	return row
