@@ -1029,53 +1029,58 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	}
 	return Kit.map_card(d, opts, card_w, card_h)
 
-# A COMPLETED map's place-picker card, in the early-prototype habitat layout (parchment): a thumbnail +
-# name + "reward · n/cap", the housed spirits as ORBS in slots (empty slots show free capacity), and a
-# production fill-bar + Collect. The body is mouse-IGNORE so a tap navigates; only Collect intercepts.
+# A COMPLETED map's place-picker card: the map's own art fills the WHOLE card as a full-bleed background
+# inside the SHARED gold frame (so a completed place reads with the same framed vista as an open one), with
+# the habitat controls riding on top — a name plate over the art, then the housed spirits as ORBS in slots
+# (empty slots show free capacity) and a production fill-bar + Collect on a translucent parchment shelf so
+# the dark-ink content stays legible. The body is mouse-IGNORE so a tap navigates; only Collect intercepts.
 func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	var map_id := String(G.MAPS[z].id)
 	var placed: Array = Habitat.placed(map_id)
 	var cap := Habitat.cap(map_id)
 	var cur := Habitat.reward_currency(map_id)
+	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	var badge_opts: Dictionary = opts.get("badge", {})
 
-	var card := PanelContainer.new()
+	var card := Control.new()
 	card.custom_minimum_size = Vector2(card_w, card_h)
+	card.size = Vector2(card_w, card_h)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = DOCK_PARCH
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(DOCK_INK, 0.18)
-	sb.content_margin_left = 16 ; sb.content_margin_right = 16
-	sb.content_margin_top = 12 ; sb.content_margin_bottom = 12
-	card.add_theme_stylebox_override("panel", sb)
 
+	# full-bleed map art as the card background, framed + COVER-filled exactly like an open vista card.
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var radius := maxf(2.0, float(Kit.gold_badge_cap(badge_opts)) - band)
+	Kit._map_add_frame(card, badge_opts)
+	var art_path := _card_art_path(z)
+	if art_path != "" and ResourceLoader.exists(art_path):
+		Kit._map_add_fill(card, load(art_path), badge_opts, card_w, card_h)
+	else:
+		card.add_child(_inset_fill(Color(DOCK_STRAW, 0.5), band, radius))   # a parched plate when art is absent
+
+	# the map name on a parchment plate, top-left over the art
+	var plate := _habitat_plate(String(G.MAPS[z].name))
+	plate.position = Vector2(band + 8.0, band + 8.0)
+	card.add_child(plate)
+
+	# the controls ride a translucent parchment shelf docked to the bottom so the dark-ink orbs + labels
+	# stay legible while the art still shows through behind them.
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 10)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER     # balance the rows vertically in the card
+	col.add_theme_constant_override("separation", 6)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(col)
 
-	# header: thumbnail + name + "reward · n/cap"
-	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 12)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	head.add_child(_card_thumb(z, card_h * 0.34))
-	var titles := VBoxContainer.new()
-	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	titles.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	titles.add_child(_dock_label(String(G.MAPS[z].name), 24, true))
 	var reward_label := ("Coins" if cur == "coins" else "Resting")
-	titles.add_child(_card_sub("%s · %d/%d housed" % [reward_label, placed.size(), cap]))
-	head.add_child(titles)
-	col.add_child(head)
+	var sub := _card_sub("%s · %d/%d housed" % [reward_label, placed.size(), cap])
+	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(sub)
 
 	# slots: the housed spirits as orbs, then empty slots up to capacity
 	var slots := HBoxContainer.new()
 	slots.add_theme_constant_override("separation", 6)
+	slots.alignment = BoxContainer.ALIGNMENT_CENTER
 	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var orb_px := card_h * 0.20
+	var orb_px := clampf(card_h * 0.16, 26.0, 46.0)
 	for inst in placed:
 		var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass)
 		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1102,7 +1107,58 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 		foot.add_child(collect)
 		col.add_child(foot)
 
+	var shelf := PanelContainer.new()
+	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color(DOCK_PARCH, 0.88)
+	ss.set_corner_radius_all(14)
+	ss.set_border_width_all(2)
+	ss.border_color = Color(DOCK_INK, 0.12)
+	ss.content_margin_left = 14 ; ss.content_margin_right = 14
+	ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
+	shelf.add_theme_stylebox_override("panel", ss)
+	shelf.add_child(col)
+	var inset := band + 6.0
+	var shelf_w := card_w - inset * 2.0
+	shelf.size = Vector2(shelf_w, 0.0)
+	var shelf_h := shelf.get_combined_minimum_size().y
+	shelf.size = Vector2(shelf_w, shelf_h)
+	shelf.position = Vector2(inset, card_h - inset - shelf_h)
+	card.add_child(shelf)
+
 	return card
+
+# A small rounded translucent-parchment plate carrying a bold map name, sized to its text. Mouse-IGNORE.
+func _habitat_plate(text: String) -> Control:
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(DOCK_PARCH, 0.92)
+	s.set_corner_radius_all(12)
+	s.set_border_width_all(2)
+	s.border_color = Color(DOCK_INK, 0.14)
+	s.content_margin_left = 12 ; s.content_margin_right = 12
+	s.content_margin_top = 4 ; s.content_margin_bottom = 4
+	p.add_theme_stylebox_override("panel", s)
+	var lbl := _dock_label(text, 22, true)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.add_child(lbl)
+	p.size = p.get_combined_minimum_size()
+	return p
+
+# A rounded fill inset to the gold frame's inner rim — the habitat card's fallback when a map has no
+# painted art yet (mirrors the COVER art fill's band/radius so it nestles inside the same rim). Mouse-IGNORE.
+func _inset_fill(col: Color, band: float, radius: float) -> Control:
+	var pnl := Panel.new()
+	pnl.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	pnl.offset_left = band ; pnl.offset_top = band
+	pnl.offset_right = -band ; pnl.offset_bottom = -band
+	pnl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := StyleBoxFlat.new()
+	s.bg_color = col
+	s.set_corner_radius_all(int(radius))
+	pnl.add_theme_stylebox_override("panel", s)
+	return pnl
 
 func _on_card_collect(z: int) -> void:
 	var r: Dictionary = Habitat.collect(String(G.MAPS[z].id))
@@ -1110,27 +1166,6 @@ func _on_card_collect(z: int) -> void:
 	if int(r.get("amount", 0)) > 0:
 		Audio.play("level_complete", -8.0, 1.1)
 	_build_select()      # refresh the bar + Collect amount in place
-
-# A small rounded thumbnail of the map's art (or a straw plate when art is absent). Mouse-IGNORE.
-func _card_thumb(z: int, px: float) -> Control:
-	var frame := PanelContainer.new()
-	frame.custom_minimum_size = Vector2(px, px)
-	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.clip_contents = true
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Color(DOCK_STRAW, 0.5)
-	fs.set_corner_radius_all(12)
-	frame.add_theme_stylebox_override("panel", fs)
-	var path := _card_art_path(z)
-	if path != "" and ResourceLoader.exists(path):
-		var t := TextureRect.new()
-		t.texture = load(path)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-		t.custom_minimum_size = Vector2(px, px)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		frame.add_child(t)
-	return frame
 
 func _card_sub(text: String) -> Label:
 	var l := _dock_label(text, 16)
@@ -1152,7 +1187,7 @@ func _empty_slot(px: float) -> Control:
 
 func _card_zone_total(z: int) -> int:
 	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
-	# The picker badge reports restore progress, so a fresh Farm card reads 0/6 rather than 0/7.
+	# The picker badge reports restore progress only, so a fresh card reads (zones − 1), not the full count.
 	return maxi(0, G.MAPS[z].spots.size() - 1)
 
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home

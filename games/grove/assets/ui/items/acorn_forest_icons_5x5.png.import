@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://knjbivedrjgf"
-path="res://.godot/imported/region_map_30e58291ea552de3.png-c34699b71995d9ce4d5578a3c416103d.ctex"
+uid="uid://diqrhrg00ergk"
+path="res://.godot/imported/acorn_forest_icons_5x5.png-02807cc6c1afa0869f78f5a20156dae4.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://games/grove/assets/baked/vine/region_map_30e58291ea552de3.png"
-dest_files=["res://.godot/imported/region_map_30e58291ea552de3.png-c34699b71995d9ce4d5578a3c416103d.ctex"]
+source_file="res://games/grove/assets/ui/items/acorn_forest_icons_5x5.png"
+dest_files=["res://.godot/imported/acorn_forest_icons_5x5.png-02807cc6c1afa0869f78f5a20156dae4.ctex"]
 
 [params]
 

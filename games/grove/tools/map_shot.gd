@@ -39,7 +39,24 @@ func _initialize() -> void:
 
 	match mode:
 		"select":
-			pass   # the place-picker capture needs no special save setup
+			# the place-picker capture needs no special save setup — unless `owned=1` is passed,
+			# which restores EVERY map's spots so completed maps render as the habitat card.
+			for wa in args:
+				if String(wa) == "owned=1":
+					var gsel := Save.grove()
+					var ulsel := {}
+					var gates := []
+					var claimed := {}
+					for z in G.MAPS.size():
+						for sp in G.MAPS[z].spots:
+							ulsel[String(sp.id)] = true
+						gates.append(z)               # record each map's gate so it reads as COMPLETE (habitat card)
+						claimed[String(G.MAPS[z].id)] = true   # pre-claim unlock rewards so no popup covers the picker
+					gsel["unlocks"] = ulsel
+					gsel["gates"] = gates
+					gsel["task_reward"] = claimed
+					gsel["exp"] = 400
+					Save.grove_write()
 		"hub":
 			# the bare hub chrome for UI review — wallet + bottom nav + side rail + level badge,
 			# no overlays. Unlock the hub spots, seed the reference wallet (★256 🪙132 💧87) and a
