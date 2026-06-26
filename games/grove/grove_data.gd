@@ -283,6 +283,19 @@ const CHEST_OPEN_COINS := {1: 40, 2: 120, 3: 320}   # base coins for opening a c
 const CHEST_OPEN_ACORNS := {1: 0, 2: 1, 3: 3}       # … plus acorns at the higher chest tiers
 const KEY_TIER_MULT := [1.0, 1.0, 1.5, 2.0]         # index by key tier (1/2/3) → payout multiplier
 
+# §6.C UTILITY ACCUMULATORS — generators that BANK a resource over real time (no water cost) up to a small
+# cap; tap to collect, bag-stowable (reuse the generator bag). UNLOCKED across map 1's first 4 restored
+# spots (unlock_spot = the map-0 spot index whose claim reveals it). Each banks +1 every `secs`
+# (offline-inclusive, like water regen), capped at `cap`; collecting grants banked × `value`. The small
+# caps keep them a CHECK-IN reward, never a self-sustaining faucet (§4 energy law; the exp one kept modest
+# vs the pacing clock). PROVISIONAL — sim/owner-tuned. Art at `tex` (already wired).
+const ACCUMULATORS := {
+	"water": {"id": "acc_water", "tex": "items/generator/gen_rainbarrel.png", "cap": 8, "secs": 600, "value": 5, "unlock_spot": 0},
+	"coins": {"id": "acc_coins", "tex": "items/generator/gen_coinpress.png", "cap": 8, "secs": 600, "value": 15, "unlock_spot": 1},
+	"exp":   {"id": "acc_exp", "tex": "items/generator/gen_crystalfont.png", "cap": 6, "secs": 900, "value": 6, "unlock_spot": 2},
+	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 4, "secs": 1800, "value": 1, "unlock_spot": 3},
+}
+
 # The world: a sequence of self-contained MAPS (Core §8 / grove_spec §3). Each map is ONE
 # image (open space + buildings/props) restored IN PLACE — no free-pan overworld, no walk-inside
 # interior; discrete maps reached via a map-select. `hub: true` marks the permanent home hub (the

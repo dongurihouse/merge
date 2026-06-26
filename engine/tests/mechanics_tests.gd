@@ -258,5 +258,21 @@ func _initialize() -> void:
 	ok(int(r1.coins) == 40 and int(r1.acorns) == 0, "chest t1 + key t1 opens for the base coins")
 	ok(int(r3.coins) == 640 and int(r3.acorns) == 6, "a higher chest + key tier multiplies the open payout")
 
+	# --- §6.C utility accumulators (bank-to-cap, unlocked by map-1 spots) ---
+	var acc_spot: String = String(G.MAPS[0].spots[0].id)   # the water accumulator's unlock spot
+	ok(not G.accumulator_unlocked("water", {}) and G.accumulator_unlocked("water", {acc_spot: true}),
+		"an accumulator unlocks when its map-1 spot is claimed")
+	ok(G.unlocked_accumulators({acc_spot: true}) == ["water"], "unlocked_accumulators lists only the revealed kinds")
+	# banking: +1 per `secs`, capped; never-started banks 0
+	var secs: float = float(G.ACCUMULATORS["water"]["secs"])
+	var capn: int = int(G.ACCUMULATORS["water"]["cap"])
+	ok(G.accumulator_banked("water", 0.0, 9999.0) == 0, "an un-started accumulator banks nothing")
+	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 3.0) == 3, "banks +1 per interval since last collect")
+	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 1000.0) == capn, "banking is capped at the small cap")
+	ok(G.accumulator_full("water", 1000.0, 1000.0 + secs * 1000.0), "accumulator_full flags the at-cap state")
+	# collect reward = banked × per-unit value
+	ok(G.accumulator_reward("water", 3) == {"kind": "water", "amount": 3 * int(G.ACCUMULATORS["water"]["value"])},
+		"the collect reward is banked × the per-unit value")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)

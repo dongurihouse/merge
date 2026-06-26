@@ -78,6 +78,7 @@ const SPECIAL_COLLECT = D.SPECIAL_COLLECT
 const CHEST_OPEN_COINS = D.CHEST_OPEN_COINS
 const CHEST_OPEN_ACORNS = D.CHEST_OPEN_ACORNS
 const KEY_TIER_MULT = D.KEY_TIER_MULT
+const ACCUMULATORS = D.ACCUMULATORS
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
@@ -788,6 +789,42 @@ static func chest_open_reward(a: int, b: int) -> Dictionary:
 		"coins": int(round(float(int(CHEST_OPEN_COINS.get(ct, 0))) * mult)),
 		"acorns": int(round(float(int(CHEST_OPEN_ACORNS.get(ct, 0))) * mult)),
 	}
+
+# --- §6.C utility accumulators (bank a resource over time) -----------------------------
+# UNLOCKED is derived: an accumulator is live once map-0's spot at its `unlock_spot` index is claimed.
+static func accumulator_unlocked(kind: String, unlocks: Dictionary) -> bool:
+	var def: Dictionary = ACCUMULATORS.get(kind, {})
+	if def.is_empty():
+		return false
+	var k := int(def.get("unlock_spot", -1))
+	var spots: Array = MAPS[0].spots
+	if k < 0 or k >= spots.size():
+		return false
+	return unlocks.has(String(spots[k].id))
+
+# The kinds unlocked at the current spot state, in registry order.
+static func unlocked_accumulators(unlocks: Dictionary) -> Array:
+	var out: Array = []
+	for kind in ACCUMULATORS:
+		if accumulator_unlocked(kind, unlocks):
+			out.append(kind)
+	return out
+
+# Banked units = +1 every `secs` since `last_ts` (offline-inclusive), capped at `cap`. 0 if never started.
+static func accumulator_banked(kind: String, last_ts: float, now: float) -> int:
+	var def: Dictionary = ACCUMULATORS.get(kind, {})
+	if def.is_empty() or last_ts <= 0.0 or now <= last_ts:
+		return 0
+	var n := int(floor((now - last_ts) / float(def.get("secs", 1))))
+	return clampi(n, 0, int(def.get("cap", 0)))
+
+# True once banked is at the cap (the check-in nudge: collect before it idles full).
+static func accumulator_full(kind: String, last_ts: float, now: float) -> bool:
+	return accumulator_banked(kind, last_ts, now) >= int(ACCUMULATORS.get(kind, {}).get("cap", 0))
+
+# The reward for collecting `banked` units of `kind`: {kind, amount}.
+static func accumulator_reward(kind: String, banked: int) -> Dictionary:
+	return {"kind": kind, "amount": maxi(0, banked) * int(ACCUMULATORS.get(kind, {}).get("value", 0))}
 
 # --- progression ------------------------------------------------------------------
 # The ONE clock is exp (§3): one uncapped Level, derived from the cumulative exp total via
