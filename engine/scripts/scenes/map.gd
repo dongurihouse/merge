@@ -972,7 +972,7 @@ func _build_select(animate := true) -> void:
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var band_h := band_bot - band_top
 	var card_w := view.x * w_frac                               # width is honored as-is — it sets the side margins
-	var card_h := view.y * h_frac                               # height is honored as-is — the band scrolls if the stack overflows
+	var card_h := maxf(view.y * h_frac, 212.0)                  # tall enough for the habitat layout; band scrolls if the stack overflows
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
 	var x := (view.x - card_w) * 0.5
 	# the clipped scroll viewport is the FULL screen, so cards scroll off the real top/bottom edges
@@ -1013,6 +1013,9 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	var Kit: GDScript = load(KIT_PATH)
 	if opts.is_empty():     # standalone callers (no _build_select context) resolve the saved look themselves
 		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	# a COMPLETED map renders as the prototype habitat card; in-progress / locked maps keep the vista card
+	if Kit != null and map_unlocked(z) and G.can_populate(z, unlocks, _gates()):
+		return _habitat_card(z, card_w, card_h)
 	var open := map_unlocked(z)
 	var total_zones := _card_zone_total(z)
 	var d := {
@@ -1024,49 +1027,128 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 		"prereq": Strings.t("map.card.prereq") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
 	}
-	var card: Control = Kit.map_card(d, opts, card_w, card_h)
-	if open and G.can_populate(z, unlocks, _gates()):
-		_add_card_habitat(card, z)          # the picker maps each completed map's caught spirits
-	return card
+	return Kit.map_card(d, opts, card_w, card_h)
 
-# Overlay a compact habitat readout on a COMPLETED map's place-picker card — capacity + the housed
-# spirits + production — so the map-SELECT screen shows where the caught spirits live, across all maps.
-# Mouse-IGNORE throughout so a tap still falls through to the card (the picker selects by global rect).
-func _add_card_habitat(card: Control, z: int) -> void:
+# A COMPLETED map's place-picker card, in the early-prototype habitat layout (parchment): a thumbnail +
+# name + "reward · n/cap", the housed spirits as ORBS in slots (empty slots show free capacity), and a
+# production fill-bar + Collect. The body is mouse-IGNORE so a tap navigates; only Collect intercepts.
+func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return
 	var map_id := String(G.MAPS[z].id)
 	var placed: Array = Habitat.placed(map_id)
-	var strip := PanelContainer.new()
-	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	strip.offset_left = 16.0 ; strip.offset_right = -16.0
-	strip.offset_top = -58.0 ; strip.offset_bottom = -12.0
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(DOCK_PARCH, 0.92)
-	sb.set_corner_radius_all(12)
-	sb.content_margin_left = 10 ; sb.content_margin_right = 10
-	sb.content_margin_top = 4 ; sb.content_margin_bottom = 4
-	strip.add_theme_stylebox_override("panel", sb)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	strip.add_child(row)
-	row.add_child(Kit.amount_chip("leaf", "%d/%d" % [placed.size(), Habitat.cap(map_id)]))
-	for i in mini(placed.size(), 6):
-		var inst: Dictionary = placed[i]
-		var chip := _spirit_chip(String(inst.kind), int(inst.tier), 34.0, func() -> void: pass)
-		chip.mouse_filter = Control.MOUSE_FILTER_IGNORE      # display only — the card stays tappable
-		row.add_child(chip)
+	var cap := Habitat.cap(map_id)
 	var cur := Habitat.reward_currency(map_id)
+
+	var card := PanelContainer.new()
+	card.custom_minimum_size = Vector2(card_w, card_h)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = DOCK_PARCH
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(DOCK_INK, 0.18)
+	sb.content_margin_left = 16 ; sb.content_margin_right = 16
+	sb.content_margin_top = 12 ; sb.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", sb)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	col.alignment = BoxContainer.ALIGNMENT_CENTER     # balance the rows vertically in the card
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(col)
+
+	# header: thumbnail + name + "reward · n/cap"
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 12)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	head.add_child(_card_thumb(z, card_h * 0.34))
+	var titles := VBoxContainer.new()
+	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	titles.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	titles.add_child(_dock_label(String(G.MAPS[z].name), 24, true))
+	var reward_label := ("Coins" if cur == "coins" else "Resting")
+	titles.add_child(_card_sub("%s · %d/%d housed" % [reward_label, placed.size(), cap]))
+	head.add_child(titles)
+	col.add_child(head)
+
+	# slots: the housed spirits as orbs, then empty slots up to capacity
+	var slots := HBoxContainer.new()
+	slots.add_theme_constant_override("separation", 6)
+	slots.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var orb_px := card_h * 0.20
+	for inst in placed:
+		var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass)
+		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slots.add_child(orb)
+	for _e in range(placed.size(), cap):
+		slots.add_child(_empty_slot(orb_px))
+	col.add_child(slots)
+
+	# production bar + Collect (only on a map with a wired reward; parked maps just rest)
 	if cur != "":
-		var spacer := Control.new()
-		spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_child(spacer)
-		row.add_child(Kit.amount_chip("coin", "+%d" % int(floor(Habitat.pending(map_id)))))
-	card.add_child(strip)
+		var foot := HBoxContainer.new()
+		foot.add_theme_constant_override("separation", 12)
+		foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var capf := Habitat.accrual_cap(map_id)
+		var frac := (Habitat.pending(map_id) / capf) if capf > 0.0 else 0.0
+		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {})
+		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		foot.add_child(bar)
+		var pend := int(floor(Habitat.pending(map_id)))
+		var collect: Button = Kit.pill_button("Collect %d" % pend, {"bg": "green", "art": true, "font": 18, "icon": "coin", "enabled": pend > 0})
+		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
+		foot.add_child(collect)
+		col.add_child(foot)
+
+	return card
+
+func _on_card_collect(z: int) -> void:
+	var r: Dictionary = Habitat.collect(String(G.MAPS[z].id))
+	_update_hud()
+	if int(r.get("amount", 0)) > 0:
+		Audio.play("level_complete", -8.0, 1.1)
+	_build_select()      # refresh the bar + Collect amount in place
+
+# A small rounded thumbnail of the map's art (or a straw plate when art is absent). Mouse-IGNORE.
+func _card_thumb(z: int, px: float) -> Control:
+	var frame := PanelContainer.new()
+	frame.custom_minimum_size = Vector2(px, px)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.clip_contents = true
+	var fs := StyleBoxFlat.new()
+	fs.bg_color = Color(DOCK_STRAW, 0.5)
+	fs.set_corner_radius_all(12)
+	frame.add_theme_stylebox_override("panel", fs)
+	var path := _card_art_path(z)
+	if path != "" and ResourceLoader.exists(path):
+		var t := TextureRect.new()
+		t.texture = load(path)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		t.custom_minimum_size = Vector2(px, px)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		frame.add_child(t)
+	return frame
+
+func _card_sub(text: String) -> Label:
+	var l := _dock_label(text, 16)
+	l.modulate = Color(1, 1, 1, 0.7)
+	return l
+
+# An empty habitat slot — a faint circular outline (the prototype's dashed empty slot). Mouse-IGNORE.
+func _empty_slot(px: float) -> Control:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(px, px)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(DOCK_INK, 0.05)
+	s.set_corner_radius_all(int(px / 2.0))
+	s.set_border_width_all(2)
+	s.border_color = Color(DOCK_INK, 0.16)
+	p.add_theme_stylebox_override("panel", s)
+	return p
 
 func _card_zone_total(z: int) -> int:
 	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
