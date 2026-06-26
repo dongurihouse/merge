@@ -13,12 +13,13 @@ const Explore = preload("res://engine/scripts/core/explore.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
+const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its field backdrop + slot-well art
 
 const INK := Color("#43352B")
 const PARCH := Color("#F3E7CE")
 const GOLD := Color("#FFD166")
 const STRAW := Color("#E3B23C")
-const KIND_COLOR := {"leaf": Color("#5BBF7A"), "petal": Color("#E06AA6"), "pebble": Color("#8EA2B0")}
 
 var _cfg: Dictionary = {}
 var _grid: Array = []            # [ROWS][COLS] of {kind,tier,node} or null
@@ -44,11 +45,7 @@ func _ready() -> void:
 		Explore.begin_run({})        # direct-open (tool/test) — neutral loadout
 	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}))
 
-	var bg := ColorRect.new()
-	bg.color = Color("#2C3A2E")
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
+	add_child(BoardScript._field_backdrop())   # the painted grove board backdrop (ui/board2_bg.png)
 
 	_build_topbar()
 	_build_board()
@@ -96,24 +93,14 @@ func _build_board() -> void:
 	_board.position = Vector2((vw - bw) / 2.0, top + maxf(0.0, (avail_h - bh) / 2.0))
 	_board.custom_minimum_size = Vector2(bw, bh)
 	add_child(_board)
-	# a darker backing so the play area reads as a distinct board region
-	var pad := ColorRect.new()
-	pad.color = Color(0, 0, 0, 0.22)
-	pad.size = Vector2(bw, bh)
-	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_board.add_child(pad)
-	# faint slot cells so the 7×9 grid reads even when sparse
+	# per-cell empty wells — the home board's slot-tile art (board/slot_tile.png nine-patch)
+	var well_style: StyleBox = BoardScript._slot_style()
 	for r in G.ROWS:
 		for c in G.COLS:
 			var slot := Panel.new()
 			slot.position = Vector2(_cell * c + 2.0, _cell * r + 2.0)
 			slot.size = Vector2(_cell - 4.0, _cell - 4.0)
-			var ss := StyleBoxFlat.new()
-			ss.bg_color = Color(1, 1, 1, 0.04)
-			ss.set_corner_radius_all(8)
-			ss.border_color = Color(1, 1, 1, 0.07)
-			ss.set_border_width_all(1)
-			slot.add_theme_stylebox_override("panel", ss)
+			slot.add_theme_stylebox_override("panel", well_style)
 			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			_board.add_child(slot)
 	# the treefall telegraph (a translucent danger pane over one column)
@@ -180,9 +167,9 @@ func _spawn() -> void:
 		return
 	var c: int = cols[_rng.randi() % cols.size()]
 	var land := _bottom_empty(c)
-	var kind: String = _cfg.lines[_rng.randi() % (_cfg.lines as Array).size()]
+	var line: int = _cfg.lines[_rng.randi() % (_cfg.lines as Array).size()]
 	var tier := 2 if _rng.randf() < float(_cfg.t2) else 1
-	_grid[land][c] = {"kind": kind, "tier": tier, "node": _make_tile(kind, tier, land, c)}
+	_grid[land][c] = {"kind": line, "tier": tier, "node": _make_tile(line, tier, land, c)}
 	if Explore.board_full(_grid):
 		_end()
 
@@ -293,31 +280,32 @@ func _coord_of(node: Control) -> Vector2i:
 				return Vector2i(r, c)
 	return Vector2i(-1, -1)
 
-func _make_tile(kind: String, tier: int, r: int, c: int) -> Control:
+func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 	var b := Button.new()
+	b.flat = true
 	b.custom_minimum_size = Vector2(_cell - 6.0, _cell - 6.0)
 	b.size = Vector2(_cell - 6.0, _cell - 6.0)
 	b.position = Vector2(_cell * c + 3.0, _cell * r + 3.0)
-	b.add_theme_font_size_override("font_size", 22)
-	b.add_theme_color_override("font_color", INK)
+	var empty := StyleBoxEmpty.new()      # transparent surface — the merge-piece art IS the tile
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		b.add_theme_stylebox_override(st, empty)
 	b.pressed.connect(func() -> void: _on_tile(b))
 	_board.add_child(b)
 	FX.pop(b)                       # JUICE: a little landing pop as the trace drops in
-	var cell := {"kind": kind, "tier": tier, "node": b}
+	var cell := {"kind": line, "tier": tier, "node": b}
 	_paint(cell)
 	return b
 
-## Repaint a tile's colour (by kind) and tier number from its cell dict.
+## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:
 	var b := cell.node as Button
 	if b == null:
 		return
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = KIND_COLOR.get(String(cell.kind), Color("#CDBD99"))
-	sb.set_corner_radius_all(10)
-	for st in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(st, sb)
-	b.text = str(int(cell.tier))
+	for ch in b.get_children():
+		ch.queue_free()                  # drop the old piece (e.g. after a tier-up reroll)
+	var piece := PieceView.make_piece(int(cell.kind) * 100 + int(cell.tier), _cell - 6.0)
+	piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(piece)
 
 # --- end -------------------------------------------------------------------------
 func _end() -> void:
@@ -351,8 +339,8 @@ func _label(text: String, size: int, bold: bool = false) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", PARCH)
+	l.add_theme_color_override("font_color", INK)          # dark text reads crisply on the light meadow board
 	if bold:
-		l.add_theme_color_override("font_outline_color", INK)
+		l.add_theme_color_override("font_outline_color", PARCH)
 		l.add_theme_constant_override("outline_size", 3)
 	return l

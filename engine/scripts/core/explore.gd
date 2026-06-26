@@ -23,7 +23,7 @@ const LOADOUT := [
 ]
 
 # --- Rush feel dials (prototype-locked; the Rush sim retunes these) -------------------------------
-const RUSH_LINES := ["leaf", "petal", "pebble"]   # neutral merge-tile kinds — NOT resident spirits
+const RUSH_LINES := [1, 2, 3]   # board LINE indices — the Rush renders real merge pieces (code = line*100 + tier)
 const BASE_TIME := 45.0          # base run length (s); the Lantern boost adds +15
 const MAX_TIER := 7              # a tile at MAX_TIER can no longer merge (taps fling instead)
 const MULT_CAP := 6.0            # multiplier ceiling
