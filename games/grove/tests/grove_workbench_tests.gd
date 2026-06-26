@@ -580,6 +580,10 @@ func _initialize() -> void:
 		ok(absf(map_button_rect.position.x - edge_margin) <= 1.0 \
 			and absf(map_screen_h - map_button_rect.end.y - edge_margin) <= 1.0, \
 			"map button uses the shared side/bottom margin")
+		var play_button := map_scene.get("_play_btn") as Button
+		var play_button_rect := play_button.get_global_rect() if play_button != null else Rect2()
+		ok(play_button != null and absf(map_button_rect.end.y - play_button_rect.end.y) <= 1.0, \
+			"map button bottom-aligns with the Play CTA")
 	map_scene._open_select()
 	await process_frame
 	if map_scene._select_back != null:
@@ -596,32 +600,26 @@ func _initialize() -> void:
 	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
 	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
 		"the default Slot-cell preview actually renders the cost pill")
-	ok(view._sections.has("border_cell"), "the border cell background is a registered gallery item next to the Slot cell")
-	ok(view._is_config("border_cell", "frontier_hue") and view._is_config("border_cell", "deep_hue") \
-		and view._is_config("border_cell", "rim_alpha") and view._is_config("border_cell", "corner"), \
-		"border_cell colour and shape knobs are saved design config")
-	ok(not view._is_config("border_cell", "preview"), "border_cell preview state is test-only")
-	var border_prev: Control = view._make_element("border_cell")
-	ok(border_prev.find_child("BorderCellBackground", true, false) is Panel, \
-		"border_cell preview renders the code-drawn background behind the locked slot")
-	var border_opts := Kit.border_cell_opts_from_config({"border_cell": {
+	ok(not View.IDS.has("border_cell") and not view._sections.has("border_cell") and not view._params.has("border_cell"), \
+		"the temporary Border cell component is removed; its knobs live on Slot cell")
+	ok(view._is_config("bag_card", "frontier_hue") and view._is_config("bag_card", "deep_hue") \
+		and view._is_config("bag_card", "rim_alpha") and view._is_config("bag_card", "corner"), \
+		"Slot cell owns the locked-background colour and shape knobs")
+	var border_opts := Kit.bag_card_opts_from_config({"bag_card": {
 		"frontier_hue": 20, "frontier_sat": 60, "frontier_val": 80,
 		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
 		"rim_hue": 20, "rim_sat": 60, "rim_val": 80, "rim_alpha": 70,
 		"corner": 22,
 	}})
-	var tuned_border: Panel = Kit.border_cell_background(100.0, true, border_opts)
-	var tuned_sb := tuned_border.get_theme_stylebox("panel") as StyleBoxFlat
+	var tuned_slot: Control = Kit.slot_cell({"state": "locked", "frontier": true}, border_opts)
+	var tuned_bg := tuned_slot.find_child("SlotCellBackground", true, false) as Panel
+	var tuned_sb := tuned_bg.get_theme_stylebox("panel") as StyleBoxFlat if tuned_bg != null else null
 	ok(tuned_sb != null and tuned_sb.bg_color.h < Pal.NEAR_UNLOCK.h, \
-		"border_cell frontier hue tuning changes the live background colour")
-	tuned_border.free()
-	ok(_source_contains("res://engine/scripts/ui/piece_view.gd", "border_cell_opts_from_config"), \
-		"live locked board cells read the workbench border_cell config")
-
-	view._selected = "border_cell"
-	view._dirty.clear()
-	view._apply_edit()
-	ok(view._dirty.has("board"), "editing border_cell queues the board preview to rebuild")
+		"Slot-cell frontier hue tuning changes the locked background colour")
+	tuned_slot.free()
+	ok(not _source_contains("res://engine/scripts/ui/piece_view.gd", "border_cell_opts_from_config") \
+		and _source_contains("res://engine/scripts/ui/piece_view.gd", "\"frontier\": frontier"), \
+		"live locked board cells use the Slot-cell background config")
 
 	for src in ["gold_currency_pill", "bag_card", "frame"]:
 		view._selected = src
@@ -1364,8 +1362,11 @@ func _test_bag_components() -> void:
 	ok(_has_class(unl, "TextureRect"), "the unlockable cell carries the outer bloom halo by default")
 	var co_nohalo := Kit.bag_card_opts_from_config({"bag_card": {"glow_size": 0, "next_twinkle": 0}})
 	ok(not _has_class(Kit.slot_cell({"state": "unlockable"}, co_nohalo), "TextureRect"), "glow_size 0 removes the outer bloom halo")
-	# the locked cell's lock is now the board's BAKED padlock (slot_locked) — no separate lock overlay
-	ok(Kit.slot_cell({"state": "locked", "cost": 5}, co).find_child("BagLock", true, false) == null, "the locked cell uses the baked board lock (no overlay node)")
+	# locked cells now use the code-drawn Slot-cell background — no separate lock overlay, no baked locked face.
+	var locked_plain := Kit.slot_cell({"state": "locked"}, co)
+	ok(locked_plain.find_child("SlotCellBackground", true, false) is Panel \
+		and locked_plain.find_child("BagLock", true, false) == null, \
+		"the locked cell uses the code-drawn Slot-cell background")
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
 	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))
@@ -1402,7 +1403,7 @@ func _test_bag_components() -> void:
 	ok(_has_label_text(dlg, "132"), "the gold currency pill shows the acorn balance (132)")
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
-# tier wears the filled well holding its piece; an undiscovered tier the locked well (baked padlock kept, no
+# tier wears the filled well holding its piece; an undiscovered tier the code-drawn locked background (no
 # acorn cost, no "?"), with a plain lower-right tier number and no level badge decoration. A marked tier
 # sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
 func _test_discovery_cell() -> void:
@@ -1414,9 +1415,9 @@ func _test_discovery_cell() -> void:
 	], 560.0, topts)
 	ok(dlg is Control, "tiers_dialog builds the discovery ladder")
 
-	# a DISCOVERED tier → the open (filled) slot well; an UNDISCOVERED tier → the locked well (baked padlock)
+	# a DISCOVERED tier → the open (filled) slot well; an UNDISCOVERED tier → the code-drawn locked background
 	ok(_has_slot_face(dlg, "slot_tile.png"), "a discovered tier wears the open (filled) slot well")
-	ok(_has_slot_face(dlg, "slot_locked.png"), "an undiscovered tier wears the locked well (baked padlock kept)")
+	ok(dlg.find_child("SlotCellBackground", true, false) is Panel, "an undiscovered tier wears the code-drawn locked background")
 	# tier cells carry a plain number, not the decorated level-badge medal.
 	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
 	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")
@@ -1434,9 +1435,8 @@ func _test_discovery_cell() -> void:
 	ok(not _has_label_text(Kit.tiers_dialog([{"tier": 4, "seen": true, "icon": "leaf"}], 560.0, no_num), "4"),
 		"show_num off hides the plain tier number")
 
-# True if any slot-cell well in `node`'s subtree wears well art whose path ends with `suffix` (slot_tile for a
-# filled/discovered tier, slot_locked for a locked/undiscovered one) — lets the test assert the discovery cell's
-# state without reaching into the grid's layout.
+# True if any slot-cell well in `node`'s subtree wears well art whose path ends with `suffix` (used here for
+# filled/discovered tiers) — lets the test assert the discovery cell's state without reaching into the grid's layout.
 func _has_slot_face(node: Control, suffix: String) -> bool:
 	for p in node.find_children("*", "Panel", true, false):
 		var sb := (p as Panel).get_theme_stylebox("panel")

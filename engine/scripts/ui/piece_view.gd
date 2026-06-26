@@ -268,27 +268,25 @@ static func make_board_mat(board_w: float, board_h: float) -> Control:
 # A sealed cell. The look is now FLAG-DRIVEN by the scene (no internal level gating):
 #   frontier   → the cell sits on the live border the player is reaching; the unlock level is
 #                explained on tap in the board info bar, not as an on-cell badge.
-#   not frontier → a NUMBERLESS locked tile (the calm slot_locked look), faded back so deep
+#   not frontier → a NUMBERLESS locked tile (the calm deep locked look), faded back so deep
 #                rings recede and the eye lands on the playable cells.
 #   unlockable → this cell can be opened by a merge RIGHT NOW: it gets a bright highlight border
 #                and full (un-faded) modulate so it POPS as the actionable next move.
 # Defaults keep existing callers (board.gd, tools, tests) compiling unchanged.
 # A sealed/gated board cell, built on the SHARED slot cell (Kit.slot_cell — the same component the bag
-# uses): the slot_locked well (baked padlock); an UNLOCKABLE cell (openable by a merge right now)
-# is the highlighted state (gold border + glow + dynamic sparkle). A tiny code-drawn background backs
-# the well's rounded corners: border cells get the near-unlock wash, deeper cells stay quiet.
+# uses). Locked cells use the Slot-cell code-drawn background; an UNLOCKABLE cell (openable by a merge
+# right now) is the highlighted state (gold border + glow + dynamic sparkle).
 static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlockable: bool = false) -> Control:
 	var holder := Control.new()
 	holder.custom_minimum_size = Vector2(csz, csz)
 	holder.size = Vector2(csz, csz)
 	holder.pivot_offset = Vector2(csz, csz) / 2.0
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	holder.add_child(_locked_background(csz, frontier))
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	opts["cell_w"] = csz
 	opts["cell_h"] = csz
-	var d := {"state": ("unlockable" if unlockable else "locked")}
+	var d := {"state": ("unlockable" if unlockable else "locked"), "frontier": frontier}
 	var cell_view: Control = Kit.slot_cell(d, opts)
 	cell_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.add_child(cell_view)
@@ -296,25 +294,6 @@ static func make_bramble(cell: Vector2i, csz: float, frontier: bool = true, unlo
 	if not unlockable:
 		holder.modulate = Color(1.0, 1.0, 1.0, 0.86 if frontier else 0.60)
 	return holder
-
-static func _locked_background(csz: float, frontier: bool) -> Panel:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit != null:
-		var opts: Dictionary = Kit.border_cell_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		return Kit.border_cell_background(csz, frontier, opts)
-	var base := Panel.new()
-	base.name = "BorderCellBackground"
-	base.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var fs := StyleBoxFlat.new()
-	fs.bg_color = Pal.NEAR_UNLOCK if frontier else Pal.LOCKED
-	fs.set_corner_radius_all(int(maxf(10.0, csz * 0.18)))
-	fs.set_border_width_all(1 if frontier else 0)
-	fs.border_color = Color(Pal.NEAR_HINT, 0.35 if frontier else 0.0)
-	fs.shadow_color = Color(0, 0, 0, 0)
-	fs.shadow_size = 0
-	base.add_theme_stylebox_override("panel", fs)
-	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return base
 
 
 # `hl` is the GEN-highlight override dict (from the UI workbench via Kit.gen_highlight_opts_from_config);

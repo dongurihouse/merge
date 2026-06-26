@@ -77,6 +77,7 @@ static func build(host: Control, specs: Array, opts: Dictionary = {}) -> Diction
 			b.tooltip_text = String(spec.label)
 		if b is Button:
 			(b as Button).disabled = not bool(spec.get("enabled", true))
+		b.size_flags_vertical = Control.SIZE_SHRINK_END
 		b.visible = bool(spec.get("visible", true))
 		if i > 0:
 			row.add_child(_spacer())

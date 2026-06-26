@@ -3811,11 +3811,9 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
 ## The slot cell is ONE component card with four states. A filled slot uses the raised card (a held
-## piece sits on it); empty / next / locked SHARE the flat empty-slot card (bag_card_empty.png) so they
-## read as one component at one size — the state (lock + cost, the buyable sparkle, the locked dim) is an
-## overlay, not a different sprite. The old gold sparkle card is gone; `next` gets a DYNAMIC sparkle FX.
+## piece sits on it); empty / filled use the open cream well art, while locked / unlockable use the
+## code-drawn locked background so it can be tuned live. `next` gets a DYNAMIC sparkle FX.
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
-const SLOT_LOCKED_ART := "board/slot_locked.png" # the same well + the baked gold padlock — locked / unlockable
 
 static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
 	if not c.has(prefix + "_hue") and not c.has(prefix + "_sat") and not c.has(prefix + "_val"):
@@ -3826,10 +3824,11 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
-## The board BORDER-CELL background: the quiet code-drawn fill behind locked frontier/deep cells.
-## It is separate from slot_cell because it lives UNDER the baked locked well and is board-only.
-static func border_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
-	var bc: Dictionary = cfg.get("border_cell", {}) if cfg is Dictionary else {}
+## The locked SLOT-CELL background: the quiet code-drawn fill for frontier/deep locked cells.
+## The knobs live on the Slot cell workbench component (`bag_card`) so the board, bag, and discovery
+## ladder all read one style source.
+static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var bc: Dictionary = cfg.get("bag_card", {}) if cfg is Dictionary else {}
 	return {
 		"frontier_fill": _hsv_setting(bc, "frontier", Pal.NEAR_UNLOCK),
 		"deep_fill": _hsv_setting(bc, "deep", Pal.LOCKED),
@@ -3838,15 +3837,15 @@ static func border_cell_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"corner_frac": clampf(float(bc.get("corner", 18.0)) / 100.0, 0.04, 0.50),
 	}
 
-static func border_cell_background(csz: float, frontier: bool, opts: Dictionary = {}) -> Panel:
+static func slot_cell_background(size_px: Vector2, frontier: bool, opts: Dictionary = {}) -> Panel:
 	var base := Panel.new()
-	base.name = "BorderCellBackground"
-	base.custom_minimum_size = Vector2(csz, csz)
-	base.size = Vector2(csz, csz)
+	base.name = "SlotCellBackground"
+	base.custom_minimum_size = size_px
+	base.size = size_px
 	base.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var fs := StyleBoxFlat.new()
 	fs.bg_color = opts.get("frontier_fill", Pal.NEAR_UNLOCK) if frontier else opts.get("deep_fill", Pal.LOCKED)
-	fs.set_corner_radius_all(int(maxf(10.0, csz * float(opts.get("corner_frac", 0.18)))))
+	fs.set_corner_radius_all(int(maxf(10.0, minf(size_px.x, size_px.y) * float(opts.get("corner_frac", 0.18)))))
 	var rim_alpha := float(opts.get("rim_alpha", 0.35)) if frontier else 0.0
 	fs.set_border_width_all(1 if rim_alpha > 0.0 else 0)
 	var rim: Color = opts.get("rim", Pal.NEAR_HINT)
@@ -3862,7 +3861,7 @@ static func border_cell_background(csz: float, frontier: bool, opts: Dictionary 
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
-	return {
+	var opts := {
 		"cell_w": float(bc.get("cell_w", 116)),
 		"cell_h": float(bc.get("cell_h", 120)),
 		"cell_slice": float(bc.get("cell_slice", 28)),               # the well's nine-patch corner margin
@@ -3885,6 +3884,8 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"glow_shadow_size": float(bc.get("glow_shadow_size", 10)) / 100.0,  # ...and its size (× the cell)
 		"btn": card_btn_opts(cfg),                                   # the SHARED button style (art/shadow/corner) — the cost chip rides it
 	}
+	opts.merge(slot_cell_background_opts_from_config(cfg), true)
+	return opts
 
 ## One SLOT CELL — the shared bag + board cell, on the board's cream-well art. `d.state` (or the legacy
 ## `d.kind`) picks the look + behaviour:
@@ -3928,20 +3929,26 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		b.pressed.connect(func() -> void:
 			if on_tap.is_valid(): on_tap.call())
 
-	# the cell FACE — the board's cream well as a NINE-PATCH (crisp corners at any cell size): slot_tile
-	# (empty / filled) or slot_locked (locked / unlockable — the well with the baked padlock).
-	var art := (SLOT_LOCKED_ART if lockedwell else SLOT_EMPTY_ART)
-	if bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(art)):
+	# the cell FACE — locked states use the code-drawn Slot-cell background; open states keep the cream
+	# well as a NINE-PATCH (crisp corners at any cell size).
+	if lockedwell:
+		var frontier := bool(d.get("frontier", state == "unlockable"))
+		tile.add_child(slot_cell_background(Vector2(cw, ch), frontier, opts))
+	elif bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(SLOT_EMPTY_ART)):
 		var face := Panel.new()
+		face.custom_minimum_size = Vector2(cw, ch)
+		face.size = Vector2(cw, ch)
 		face.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(Look.kit(art))
+		sbt.texture = load(Look.kit(SLOT_EMPTY_ART))
 		sbt.set_texture_margin_all(float(opts.get("cell_slice", 28.0)))
 		face.add_theme_stylebox_override("panel", sbt)
 		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(face)
 	else:
 		var p := Panel.new()
+		p.custom_minimum_size = Vector2(cw, ch)
+		p.size = Vector2(cw, ch)
 		p.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ss := StyleBoxFlat.new()
 		ss.bg_color = (Color(Pal.CREAM, 0.55) if lockedwell else Color(Pal.CREAM, 0.92))
@@ -4028,6 +4035,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()
+		pop.custom_minimum_size = Vector2(cw, ch)
+		pop.size = Vector2(cw, ch)
 		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = Color(0, 0, 0, 0)
