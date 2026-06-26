@@ -15,13 +15,13 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const D = Game.DATA
 
-const DEFAULT_CAP := 8                      # starting slots per habitat (per-map upgrades: parked)
+const DEFAULT_CAP := 8                  # starting slots per habitat (per-map upgrades: parked)
 const MAX_TIER: int = D.RESIDENT_MAX_TIER   # reuse the existing cascade cap (3) as the v1 tier band
 
 # PROVISIONAL feel dials — the slice plays with these; final values come from the parked grove_sim pass.
-const YIELD_PER_HOUR := 6.0                 # reward units per hour a TIER-1 spirit yields (rate scales with tier)
-const ACCRUAL_HOURS := 8.0                  # idle accrual ceiling, in hours of current output (daily-return cap)
-const SELL_PER_TIER := 5                    # coins returned when selling a placed spirit, per housed tier
+const YIELD_PER_HOUR := 6.0             # reward units per hour a TIER-1 spirit yields (rate scales with tier)
+const ACCRUAL_HOURS := 8.0             # idle accrual ceiling, in hours of current output (daily-return cap)
+const SELL_PER_TIER := 5               # coins returned when selling a placed spirit, per housed tier
 
 # --- the in-hand holding area (unbounded) ----------------------------------------
 static func hand() -> Array:
@@ -53,7 +53,7 @@ static func hand_merge(kind: String, tier: int) -> bool:
 				break
 	if idxs.size() < 2:
 		return false
-	list.remove_at(idxs[1])
+	list.remove_at(idxs[1])   # remove the higher index first so the first removal doesn't shift it
 	list.remove_at(idxs[0])
 	list.append({"kind": kind, "tier": tier + 1})
 	_set_hand(list)
@@ -77,7 +77,7 @@ static func is_full(map_id: String) -> bool:
 	return placed(map_id).size() >= cap(map_id)
 
 ## Place hand[index] onto map_id if it has a free slot. Settles that map's production at the OLD
-## rate first (Task 3) so the rate change is clean, then moves the instance hand -> map.
+## rate first so the rate change is clean, then moves the instance hand -> map.
 static func place(map_id: String, index: int, now: float = -1.0) -> bool:
 	var h := hand()
 	if index < 0 or index >= h.size() or is_full(map_id):
@@ -164,7 +164,7 @@ static func pending(map_id: String, now: float = -1.0) -> float:
 	var last := float(pr.get("last", -1.0))
 	var acc := float(pr.get("acc", 0.0))
 	if last < 0.0:
-		last = now
+		last = now                                       # first observation: start the clock, no back-pay
 	var hours := maxf(0.0, (now - last) / 3600.0)
 	var flow := float(rate(map_id)) * YIELD_PER_HOUR * hours
 	var room := maxf(0.0, accrual_cap(map_id) - acc)
@@ -193,12 +193,10 @@ static func reward_currency(map_id: String) -> String:
 
 static func _grant(currency: String, amount: int) -> void:
 	match currency:
-		"coins":
-			Save.add_coins(amount)
-		# "water"/"diamonds" intentionally NOT wired in v1 — parked (I2 / IAP economy).
-		# Do not add here without the Economy pass; doing so reopens a base invariant.
-		_:
-			pass
+		"coins": Save.add_coins(amount)
+		# "water"/"diamonds" intentionally NOT wired in v1 — parked (I2 / IAP economy). Do not add here
+		# without the Economy pass; doing so reopens a base invariant.
+		_: pass
 
 ## Collect a map's accrued production into its reward currency: grant floor(pending), keep the
 ## fractional remainder, reset the clock. Returns {currency, amount} (amount 0 when nothing accrued
@@ -206,6 +204,11 @@ static func _grant(currency: String, amount: int) -> void:
 static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 	if now < 0.0:
 		now = _now()
+	var cur := reward_currency(map_id)
+	if cur == "":
+		# Parked map: accrue, never collect — returning early avoids flooring `pending` and resetting
+		# the clock while granting nothing (a latent data-loss trap until maps 2-5 get a wired reward).
+		return {"currency": "", "amount": 0}
 	var p := pending(map_id, now)
 	var whole := int(floor(p))
 	var g := Save.grove()
@@ -213,7 +216,6 @@ static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 		g["hab_prod"] = {}
 	g["hab_prod"][map_id] = {"acc": p - float(whole), "last": now}
 	Save.grove_write()
-	var cur := reward_currency(map_id)
 	if whole > 0:
 		_grant(cur, whole)
-	return {"currency": cur, "amount": (whole if cur != "" else 0)}
+	return {"currency": cur, "amount": whole}
