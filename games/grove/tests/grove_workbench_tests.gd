@@ -303,6 +303,38 @@ func _initialize() -> void:
 		"gold_currency_pill icon has no extra square badge background")
 	ok(gcp.find_children("GoldCurrencyIcon", "TextureRect", true, false).size() >= 1, \
 		"gold_currency_pill reuses the existing currency icon asset")
+	var wallet_prev: Control = view._make_element("gold_currency_pill")
+	var wallet_amounts: Array = wallet_prev.find_children("GoldCurrencyAmount", "Label", true, false)
+	ok(wallet_amounts.size() == 3, \
+		"gold_currency_pill workbench preview shows the three live wallet pills")
+	ok(_has_label_text(wallet_prev, "100") and _has_label_text(wallet_prev, "0") and _has_label_text(wallet_prev, "5") \
+		and wallet_prev.find_children("GoldCurrencyPlusButton", "Panel", true, false).size() == 3, \
+		"gold_currency_pill workbench preview uses home-wallet water/coin/gem samples")
+	var gp_default: Dictionary = (view._params["gold_currency_pill"] as Dictionary).duplicate()
+	view._params["gold_currency_pill"]["pad_left"] = 33
+	view._params["gold_currency_pill"]["icon_size"] = 52
+	view._params["gold_currency_pill"]["num_size"] = 42
+	var tuned_wallet: Control = view._make_element("gold_currency_pill")
+	var tuned_labels: Array = tuned_wallet.find_children("GoldCurrencyAmount", "Label", true, false)
+	var tuned_icons: Array = tuned_wallet.find_children("GoldCurrencyIcon", "TextureRect", true, false)
+	var all_shared: bool = tuned_labels.size() == 3 and tuned_icons.size() == 3
+	for tl in tuned_labels:
+		var n := tl as Node
+		var pill_panel: PanelContainer = null
+		while n != null:
+			if n is PanelContainer and String(n.name).find("GoldCurrencyPill") != -1:
+				pill_panel = n as PanelContainer
+				break
+			n = n.get_parent()
+		var sb := pill_panel.get_theme_stylebox("panel") as StyleBoxTexture if pill_panel != null else null
+		all_shared = all_shared and sb != null and int(sb.content_margin_left) == 33
+	for tl in tuned_labels:
+		all_shared = all_shared and int((tl as Label).get_theme_font_size("font_size")) == 42
+	for ti in tuned_icons:
+		all_shared = all_shared and (ti as Control).custom_minimum_size == Vector2(52, 52)
+	ok(all_shared, \
+		"gold_currency_pill workbench controls apply padding, icon, and text changes to all three pills")
+	view._params["gold_currency_pill"] = gp_default
 	var tuned := Kit.gold_currency_pill({
 		"icon": "water", "count": 2450, "pill_w": 310, "pill_h": 106,
 		"pad_left": 31, "pad_x": 22, "pad_y": 14, "icon_box": 74,

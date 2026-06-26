@@ -132,7 +132,7 @@ const CAPTIONS := {
 	"icon": "Icon — edge polish (raw vs cleaned)",
 	"gold_badge": "Gold badge — CSS port",
 	"level_badge": "Level badge — layered emblem (circle·leaf·flower·acorn·gem + number)",
-	"gold_currency_pill": "Gold currency pill — CSS plus study",
+	"gold_currency_pill": "Gold currency pills — home wallet",
 	"progress_bar": "Progress bar — track + fill (reusable)",
 	"card": "Mail card — pill + Claim",
 	"daily_card": "Daily card — one day (badges)",
@@ -459,6 +459,41 @@ func _build() -> void:
 func _dlg_px(id: String) -> float:
 	return PHONE_W * float((_params[id] as Dictionary).get("width_pct", 85)) / 100.0
 
+func _gold_currency_wallet_preview(p: Dictionary) -> Control:
+	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
+	var edge := float(layout.get("edge_margin_px", 18.0))
+	var pill_slot_w := maxf(1.0, roundf(PHONE_W * float(layout.get("currency_pill_w_frac", 0.25))))
+	var pill_body_w := maxf(1.0, pill_slot_w - edge)
+	var row := HBoxContainer.new()
+	row.name = "GoldCurrencyWalletPreview"
+	row.add_theme_constant_override("separation", int(round(edge)))
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var base := Kit.gold_currency_pill_opts_from_config({
+		"gold_currency_pill": p,
+		"gold_badge": _params["gold_badge"],
+		"shadow": _params["shadow"],
+	})
+	for sample in [
+		{"icon": "water", "count": 100},
+		{"icon": "coin", "count": 0},
+		{"icon": "gem", "count": 5},
+	]:
+		var opts := base.duplicate()
+		var icon_id := String(sample.icon)
+		opts["icon"] = icon_id
+		opts["count"] = int(sample.count)
+		var pill := Kit.gold_currency_pill(opts, {icon_id: int(sample.count)})
+		var pill_panel := pill as PanelContainer
+		if pill_panel == null:
+			pill_panel = pill.find_child("GoldCurrencyPill", true, false) as PanelContainer
+		if pill_panel != null:
+			pill_panel.name = "GoldCurrencyPill" + icon_id.capitalize()
+		pill.custom_minimum_size.x = pill_body_w
+		row.add_child(pill)
+	row.custom_minimum_size.x = pill_body_w * 3.0 + edge * 2.0
+	return row
+
 ## Build the live element for an id from its current params.
 func _make_element(id: String) -> Control:
 	var p: Dictionary = _params[id]
@@ -538,15 +573,7 @@ func _make_element(id: String) -> Control:
 		"gold_badge":
 			return Kit.gold_badge(float(p.get("px", 270)), float(p.get("inner_inset", 11)), float(p.get("shine", 100)), float(p.get("corner", 58)), float(p.get("gradient", 100)))
 		"gold_currency_pill":
-			var gc := p.duplicate()
-			gc["badge"] = _params["gold_badge"]
-			# cast the SAME overall shadow the live pill does: the shared look + the pill's alpha strength
-			# (gold_currency_pill is SHADOW_WIRED, so the builder casts it — the view must not also wrap).
-			var sp := Look.shadow_params({"shadow": _params["shadow"]})
-			sp["alpha"] = clampf(float(gc.get("shadow_alpha", 34)) / 100.0, 0.0, 1.0)
-			gc["shadow_params"] = sp
-			var icon_id := String(gc.get("icon", "water"))
-			return Kit.gold_currency_pill(gc, {icon_id: int(gc.get("count", 2450))})
+			return _gold_currency_wallet_preview(p)
 		"level_badge":
 			# the shared LAYERED level badge, from the SAME resolver the HUD chip / dialog read.
 			# preview_level -> the tier stage (+ the printed number). The workbench draws ALL parts (show_all)
@@ -1602,9 +1629,6 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button
 			_section_header("Shadow")
 			_sidebar_body.add_child(_slider_row(["shadow_alpha", 0, 80]))   # the pill's own drop-shadow STRENGTH (turn it on with the Shadow toggle above)
-			_group_header("Test only — not saved", false)
-			_sidebar_body.add_child(_option_row("Icon", "icon", ["water", "coin", "gem", "star"]))
-			_sidebar_body.add_child(_slider_row(["count", 0, 9999]))
 		"progress_bar":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_slider_row(["height", 8, 48]))
