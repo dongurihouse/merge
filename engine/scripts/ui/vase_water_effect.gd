@@ -11,7 +11,7 @@ const IMPACT_TIME := 2.05
 const IMPACT_X := 0.50
 
 const _SAMPLES := 28
-const _DROP_SCALE := 3.0
+const _DROP_SCALE := 2.1
 const _DROP_START := 0.45
 const _DROP_GROWN := 1.18
 const _IMPACT_TAIL := 1.5
@@ -28,6 +28,7 @@ var _impact_age := 999.0
 var _progress := 0.5
 var _target_progress := 0.5
 var _ready_fx := false
+var _drop_active := false
 var _tex: Texture2D
 var _vase_content_bounds := Rect2i()
 var _mask_tex: Texture2D
@@ -47,11 +48,12 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
-	_advance(delta, true)
+	_advance(delta, false)
 
 
 func set_time_for_test(value: float) -> void:
 	_time = fposmod(value, LOOP_SECONDS)
+	_drop_active = _time >= _DROP_START and _time <= IMPACT_TIME
 	var age := _time - IMPACT_TIME
 	if age >= 0.0 and age <= _IMPACT_TAIL:
 		_impact_age = age
@@ -64,6 +66,14 @@ func set_time_for_test(value: float) -> void:
 
 func trigger_impact_for_test() -> void:
 	_trigger_impact()
+
+
+func advance_for_test(delta: float) -> void:
+	_advance(delta, false)
+
+
+func play_drop_for_test() -> void:
+	play_drop()
 
 
 func set_progress_for_test(value: float) -> void:
@@ -135,14 +145,26 @@ func set_ready(value: bool) -> void:
 	queue_redraw()
 
 
+func play_drop() -> void:
+	_drop_active = true
+	_time = _DROP_START
+	_impact_age = 999.0
+	_energy = maxf(_energy, IDLE_ENERGY + 2.0)
+	queue_redraw()
+
+
 func _advance(delta: float, auto_trigger: bool) -> void:
 	var previous_time := _time
 	_time = fposmod(_time + delta, LOOP_SECONDS)
 	if _time < previous_time:
 		_impact_age = 999.0
 		_energy = IDLE_ENERGY
+		_drop_active = false
 
-	if auto_trigger and previous_time < IMPACT_TIME and _time >= IMPACT_TIME:
+	var drop_hit := _drop_active and previous_time < IMPACT_TIME and _time >= IMPACT_TIME
+	if drop_hit:
+		_drop_active = false
+	if drop_hit or (auto_trigger and previous_time < IMPACT_TIME and _time >= IMPACT_TIME):
 		_trigger_impact()
 	elif _impact_age < 100.0:
 		_impact_age += delta
@@ -158,6 +180,7 @@ func _advance(delta: float, auto_trigger: bool) -> void:
 
 
 func _trigger_impact() -> void:
+	_drop_active = false
 	_time = IMPACT_TIME
 	_energy = IMPACT_ENERGY
 	_impact_age = 0.0
@@ -315,7 +338,7 @@ func _drop_state(vase: Rect2) -> Dictionary:
 	var top_y := vase.position.y + vase.size.y * 0.12
 	var hit_y := _waterline_y(vase) - vase.size.y * 0.015
 	var x := _center_x(vase)
-	if _time < _DROP_START or _time > IMPACT_TIME:
+	if not _drop_active or _time < _DROP_START or _time > IMPACT_TIME:
 		return {"visible": false, "x": x, "y": hit_y, "radius": 0.0, "alpha": 0.0}
 	var radius := vase.size.x * 0.018 * _DROP_SCALE
 	var y := top_y
@@ -354,16 +377,21 @@ func _drop_shape_points(st: Dictionary) -> PackedVector2Array:
 	var wobble := float(st.get("wobble", 0.0))
 	var w := radius * width_scale
 	var h := radius * height_scale
-	pts.append(center + Vector2(w * 0.00 + w * wobble * 0.30, -h * 1.36))
-	pts.append(center + Vector2(w * 0.34 + w * wobble * 0.18, -h * 0.92))
-	pts.append(center + Vector2(w * 0.68 + w * wobble * 0.08, -h * 0.34))
-	pts.append(center + Vector2(w * 0.80, h * 0.20))
-	pts.append(center + Vector2(w * 0.48 - w * wobble * 0.08, h * 0.76))
-	pts.append(center + Vector2(w * 0.00 - w * wobble * 0.16, h * 0.96))
-	pts.append(center + Vector2(-w * 0.48 - w * wobble * 0.08, h * 0.76))
-	pts.append(center + Vector2(-w * 0.80, h * 0.20))
-	pts.append(center + Vector2(-w * 0.68 + w * wobble * 0.08, -h * 0.34))
-	pts.append(center + Vector2(-w * 0.34 + w * wobble * 0.18, -h * 0.92))
+	var side_steps := 10
+	pts.append(center + Vector2(w * wobble * 0.30, -h * 1.34))
+	for i in range(1, side_steps):
+		var t := float(i) / float(side_steps)
+		var y := lerpf(-h * 1.34, h * 0.96, smoothstep(0.0, 1.0, t))
+		var side_w := w * sin(t * PI) * lerpf(0.42, 1.04, t)
+		var skew := w * wobble * lerpf(0.20, -0.14, t)
+		pts.append(center + Vector2(side_w + skew, y))
+	pts.append(center + Vector2(-w * wobble * 0.16, h * 0.96))
+	for i in range(side_steps - 1, 0, -1):
+		var t := float(i) / float(side_steps)
+		var y := lerpf(-h * 1.34, h * 0.96, smoothstep(0.0, 1.0, t))
+		var side_w := w * sin(t * PI) * lerpf(0.42, 1.04, t)
+		var skew := w * wobble * lerpf(0.20, -0.14, t)
+		pts.append(center + Vector2(-side_w + skew, y))
 	return pts
 
 

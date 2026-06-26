@@ -778,9 +778,6 @@ func _make_purge_card(stand_w: float) -> Control:
 	# the vase art carry the surface instead of another card frame.
 	var L := _giver_lay()
 	var cardW := stand_w * float(L.card_w)
-	var cardH := FENCE_H * float(L.card_h)
-	var cx := (stand_w - cardW) / 2.0
-	var cy := (FENCE_H - cardH) / 2.0
 	var ready := _gate_ready()                     # affordable → light + breathe; else grey + still
 	var progress := _purge_progress()
 	var vase := VaseWaterEffect.new()
@@ -792,7 +789,8 @@ func _make_purge_card(stand_w: float) -> Control:
 	var vase_h := FENCE_H
 	var vase_w := minf(cardW * 0.98, vase_h)
 	vase.size = Vector2(vase_w, vase_h)
-	vase.position = Vector2(cx + cardW * 0.5 - vase_w / 2.0, 0.0)
+	var vase_center_x := clampf(stand_w * 0.32, vase_w * 0.5, stand_w - vase_w * 0.5)
+	vase.position = Vector2(vase_center_x - vase_w / 2.0, 0.0)
 	stand.add_child(vase)
 	var pct := Label.new()
 	pct.name = "PurgeProgressLabel"
@@ -823,13 +821,15 @@ func _make_purge_card(stand_w: float) -> Control:
 		FX.breathe_once(vase)
 	return stand
 
-func _animate_purge_vase_from(previous_progress: float) -> void:
+func _animate_purge_vase_from(previous_progress: float, show_drop: bool = false) -> void:
 	if _purge_vase == null or not is_instance_valid(_purge_vase):
 		return
 	var now := _purge_progress()
 	_purge_vase.set_ready(_gate_ready())
 	_purge_vase.set_progress(previous_progress)
 	_purge_vase.animate_progress_to(now)
+	if show_drop:
+		_purge_vase.play_drop()
 	if now >= 1.0:
 		FX.breathe_once(_purge_vase)
 
@@ -2572,7 +2572,7 @@ func _on_giver_tap(qi: int, chip: Control) -> void:
 	_refresh_generator_dim()   # §6: delivering items freed cells → un-dim the generator(s)
 	if sp_coins <= 0:
 		_update_hud()
-	_animate_purge_vase_from(purge_before)
+	_animate_purge_vase_from(purge_before, true)
 	# §10: a quest's coin overflow is the surviving lump coin faucet. Offer to DOUBLE it for a few
 	# 💎 — but only when the reward is big enough that the deal beats the shop (G.collect_2x_offered).
 	if sp_coins > 0:

@@ -172,16 +172,29 @@ func _initialize() -> void:
 	vase_fx.animate_progress_for_test(0.8)
 	ok(vase_fx.energy_for_test() > VaseWaterEffect.IDLE_ENERGY + 7.0,
 		"vase water fill animation injects stronger wave energy")
+	ok(vase_fx.has_method("advance_for_test"), "vase water effect exposes idle advance for droplet gating")
+	if vase_fx.has_method("advance_for_test"):
+		vase_fx.set_time_for_test(0.0)
+		vase_fx.call("advance_for_test", VaseWaterEffect.IMPACT_TIME + 0.08)
+		var idle_vase_drop: Dictionary = vase_fx.drop_state_for_test()
+		ok(not bool(idle_vase_drop.visible), "vase droplet does not auto-play during idle animation")
+	ok(vase_fx.has_method("play_drop_for_test"), "vase water effect exposes explicit quest droplet playback")
+	if vase_fx.has_method("play_drop_for_test"):
+		vase_fx.call("play_drop_for_test")
+		var quest_vase_drop: Dictionary = vase_fx.drop_state_for_test()
+		ok(bool(quest_vase_drop.visible), "quest droplet playback makes the vase droplet visible")
 	vase_fx.set_time_for_test(0.9)
 	var vase_drop: Dictionary = vase_fx.drop_state_for_test()
-	ok(bool(vase_drop.visible) and float(vase_drop.radius) > vase_fx.size.x * 0.07,
-		"vase droplet is large enough to read on the acorn vase")
+	ok(bool(vase_drop.visible)
+			and float(vase_drop.radius) > vase_fx.size.x * 0.05
+			and float(vase_drop.radius) < vase_fx.size.x * 0.09,
+		"vase droplet is smaller but still readable on the acorn vase")
 	ok(str(vase_drop.get("shape", "")) == "teardrop", "vase droplet uses a teardrop shape")
 	ok(vase_drop.has("width_scale") and vase_drop.has("height_scale"), "vase droplet reports squash/stretch shape")
 	ok(vase_fx.has_method("drop_shape_points_for_test"), "vase droplet exposes its outline points for tests")
 	if vase_fx.has_method("drop_shape_points_for_test"):
 		var drop_points: PackedVector2Array = vase_fx.call("drop_shape_points_for_test")
-		ok(drop_points.size() >= 8, "vase droplet outline has enough points to read as a droplet")
+		ok(drop_points.size() >= 18, "vase droplet outline has enough points to look smooth")
 		var top_y := INF
 		var bottom_y := -INF
 		for p in drop_points:
@@ -230,6 +243,9 @@ func _initialize() -> void:
 		var slot_h := purge_card.custom_minimum_size.y
 		ok(purge_vase.size.y >= slot_h * 0.96, "purge vase fills the whole Purge slot height")
 		ok(purge_vase.position.y <= slot_h * 0.02, "purge vase starts at the top of the Purge slot")
+		var purge_vase_center_x := purge_vase.position.x + purge_vase.size.x * 0.5
+		ok(purge_vase_center_x <= purge_card.custom_minimum_size.x * 0.38,
+			"purge vase is shifted left under the level badge drop source")
 		if purge_vase.has_method("visible_vase_rect_for_test"):
 			var purge_visible_rect: Rect2 = purge_vase.call("visible_vase_rect_for_test")
 			ok(purge_visible_rect.size.y >= purge_vase.size.y * 0.96, "visible purge vase art fills the whole slot height")
@@ -260,6 +276,7 @@ func _initialize() -> void:
 	ok(Save.exp_total() == 5, "debug board exp gain credits Save without scene reload")
 	if debug_vase != null:
 		ok(debug_vase.progress_for_test() > before_progress, "debug board exp gain fills the visible purge vase")
+		ok(not bool(debug_vase.drop_state_for_test().visible), "debug board exp gain does not show the quest droplet")
 	debug_card.free()
 	debug_board.free()
 	await process_frame
