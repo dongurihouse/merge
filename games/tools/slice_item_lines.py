@@ -67,6 +67,7 @@ SHEETS = {
     "special_banana":   (4, 3),
     "special_avacado":  (4, 3),
     "special_cherry":   (4, 3),
+    "special_watermelon": (4, 3),
 }
 
 SIZE = 512          # output canvas (square)

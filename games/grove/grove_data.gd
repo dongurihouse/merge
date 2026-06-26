@@ -67,6 +67,7 @@ const LINES := {
 	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A")},
 	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F")},
 	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F")},
+	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B")},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -322,7 +323,7 @@ const ACCUMULATORS := {
 # each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
 const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
 const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
-const TREAT_LINES := [71, 72, 73, 74, 61, 62, 63, 64, 65, 66]   # premium treat lines: the §3 fruit treasures + the Farm lines
+const TREAT_LINES := [71, 72, 73, 74, 75, 61, 62, 63, 64, 65, 66]   # premium treat lines: the §3 fruit treasures + the Farm lines
 const TREAT_POP_TIER := 2                 # treat items pop at this tier (a head start — "better rewards")
 const TREAT_DROP_RATE := 0.5              # each treat tap ALSO drops a §6.B special item this often
 const TREAT_GEN_TEX := [                   # the per-spawn icon (picked at random; the wired treat art)
