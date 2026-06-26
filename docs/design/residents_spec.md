@@ -157,16 +157,16 @@ give you comes home** — then you place them across your maps (see **Place**).
 
 ### Place — capacity & assignment
 
-The residents loop lives on a **Residents screen** — a hub separate from the merge board and the
-map-restoration view. From it you **merge** spirits in your hand, **assign** them to maps, **free or
-sell** a spirit, and **launch an expedition** (Explore) — the collection lives on its own almanac page.
-The screen
-**promotes** the existing per-map welcome overlay (already reached from the residents nav button) into
-a full hub — likely a dedicated scene (today only the board and map scenes exist) — and **supersedes
-that per-map welcome panel**; acquisition moves off the individual maps into Explore. (*Assign* is the
-v1 verb for the Place action; hand-positioning is a later seam. Diegetic trade-off: the base game
-welcomes spirits on the map they live on; the hub swaps a little of that intimacy for one legible
-management surface.)
+The residents loop lives **on the map screen itself** — the map *is* the management surface. A completed
+map renders its **placed** spirits as the population layer, and a **spirits dock** above the bottom nav
+holds the in-hand spirits and the verbs: **merge** spirits in hand, **assign** (place) the selection onto
+the open map, **collect** that map's production, and **free/sell** a placed spirit. The bottom nav's
+**Expedition** button **launches an expedition** (Explore) via a Load-out dialog. (An earlier draft put
+this on a *separate* Residents hub scene; it was folded into the map because the hub mostly duplicated the
+map view — one screen, no separate page.) This **supersedes the per-map welcome panel**; acquisition moves
+off the individual maps into Explore. (*Assign* is the v1 verb for Place; hand-positioning is a later seam.
+Move-across-maps and the collection almanac are later seams. The legacy welcome-shop + its `resident_counts`
+roster are kept dormant and retire with the economy pass — until then the map renders the habitat model.)
 
 Each completed map is a **habitat with a slot capacity** (start: **~8**, upgradable). Assigning a
 spirit to a map fills a slot *and* raises that map's production (see **Reward**) — placement is a real
