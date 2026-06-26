@@ -191,6 +191,9 @@ func _unlockable_shadow_size(node: Control) -> int:
 			return (sb as StyleBoxFlat).shadow_size
 	return -1
 
+func _same_rgb(a: Color, b: Color, eps := 0.01) -> bool:
+	return absf(a.r - b.r) <= eps and absf(a.g - b.g) <= eps and absf(a.b - b.b) <= eps
+
 # True if `node` or any descendant is of the given built-in class.
 func _has_class(node: Node, klass: String) -> bool:
 	if node.is_class(klass):
@@ -597,13 +600,20 @@ func _initialize() -> void:
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
 	# scale) with no pill to act on — they look broken.
+	ok(String(view._params["bag_card"]["preview"]) == "locked", \
+		"the Slot-cell preview defaults to the plain locked background state")
 	ok(int(view._params["bag_card"]["cost"]) > 0, "the Slot-cell preview defaults to a visible cost (the cost sliders have a pill to act on)")
 	ok(_has_button_text(view._make_element("bag_card"), str(int(view._params["bag_card"]["cost"]))), \
 		"the default Slot-cell preview actually renders the cost pill")
 	var bag_card_preview := view._make_element("bag_card") as Control
 	var bag_card_opts := Kit.bag_card_opts_from_config(view._params)
-	ok(bag_card_preview.custom_minimum_size == Vector2(float(bag_card_opts.cell_w), float(bag_card_opts.cell_h)), \
-		"the Slot-cell workbench preview respects the saved cell_w/cell_h without preview zoom")
+	ok(bag_card_preview.custom_minimum_size == Vector2(float(bag_card_opts.cell_w) * 2.0, float(bag_card_opts.cell_h) * 2.0), \
+		"the Slot-cell workbench preview keeps the original 2x display size")
+	var bag_card_section := view._sections["bag_card"] as Control
+	var bag_card_body := bag_card_section.get_child(0) as VBoxContainer if bag_card_section != null and bag_card_section.get_child_count() > 0 else null
+	var bag_card_holder := bag_card_body.get_child(1) as Control if bag_card_body != null and bag_card_body.get_child_count() > 1 else null
+	ok(bag_card_holder != null and bag_card_holder.custom_minimum_size == bag_card_preview.custom_minimum_size, \
+		"the Slot-cell gallery section reserves the full preview footprint")
 	ok(not View.IDS.has("border_cell") and not view._sections.has("border_cell") and not view._params.has("border_cell"), \
 		"the temporary Border cell component is removed; its knobs live on Slot cell")
 	ok(view._is_config("bag_card", "frontier_hue") and view._is_config("bag_card", "deep_hue") \
@@ -832,6 +842,44 @@ func _test_new_knobs(view) -> void:
 		"hud_layout sidebar exposes quest-bar and board height/position sliders")
 	view._params["hud_layout"] = hud_default
 
+	# the board bottom ACTION BAR is merged into the Info bar Workbench target: one component owns the full
+	# shared tray (Bag · Info · Home), so the workbench cannot accidentally reintroduce inner frames.
+	ok(not View.IDS.has("action_bar") and not view._params.has("action_bar"), \
+		"the standalone action_bar component is merged into info_bar")
+	var ab: Dictionary = Kit.action_bar_opts_from_config({"info_bar": {
+		"icon_scale_pct": 65, "pad_x_pct": 6, "pad_y_pct": 4,
+		"bag_x_pct": -7, "info_x_pct": 5, "home_x_pct": 8}})
+	ok(is_equal_approx(float(ab.icon_scale), 0.65) \
+		and is_equal_approx(float(ab.pad_x_frac), 0.06) \
+		and is_equal_approx(float(ab.pad_y_frac), 0.04) \
+		and is_equal_approx(float(ab.bag_x_frac), -0.07) \
+		and is_equal_approx(float(ab.info_x_frac), 0.05) \
+		and is_equal_approx(float(ab.home_x_frac), 0.08), \
+		"info_bar resolver reads icon size, padding, and item x as percentages")
+	var action_keys := ["icon_scale_pct", "pad_x_pct", "pad_y_pct", "bag_x_pct", "info_x_pct", "home_x_pct"]
+	var action_has_knobs := true
+	for k in action_keys:
+		action_has_knobs = action_has_knobs and (view._params["info_bar"] as Dictionary).has(k) and view._is_config("info_bar", k)
+	ok(action_has_knobs, "merged info_bar action percentage knobs are saved config")
+	var action_prev: Control = view._make_element("info_bar")
+	var preview_bag := action_prev.find_child("ActionBarPreviewBag", true, false) as Button
+	var preview_home := action_prev.find_child("ActionBarPreviewHome", true, false) as Button
+	var preview_info := action_prev.find_child("ActionBarPreviewInfoBar", true, false) as PanelContainer
+	ok(action_prev is PanelContainer \
+		and action_prev.find_child("ActionBarPreviewSeparatorBagInfo", true, false) != null \
+		and action_prev.find_child("ActionBarPreviewSeparatorInfoHome", true, false) != null, \
+		"merged info_bar preview renders the shared tray with Bag/Info/Home separators")
+	ok(preview_bag != null and preview_bag.get_theme_stylebox("normal") is StyleBoxEmpty \
+		and preview_home != null and preview_home.get_theme_stylebox("normal") is StyleBoxEmpty \
+		and preview_info != null and preview_info.get_theme_stylebox("panel") is StyleBoxEmpty, \
+		"merged info_bar preview has one shared outer border and no inner Bag/Info/Home frames")
+	view._selected = "info_bar"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Icon Scale Pct") >= 95.0 and _slider_max(view, "Pad X Pct") >= 16.0 \
+		and _slider_min(view, "Bag X Pct") <= -30.0 and _slider_max(view, "Home X Pct") >= 30.0 \
+		and _slider_max(view, "Item Icon Scale") >= 120.0, \
+		"merged info_bar sidebar exposes both action-bar and info-bar sliders")
+
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
 	# the shared gold-pill padding as its content margin.
@@ -902,6 +950,32 @@ func _test_board_element(view) -> void:
 	var base: Control = view._make_element("board")
 	var w0: float = base.custom_minimum_size.x
 	ok(w0 > 0.0, "the board preview reports a real footprint")
+
+	var bag_default: Dictionary = (view._params["bag_card"] as Dictionary).duplicate()
+	view._params["bag_card"]["frontier_hue"] = 20
+	view._params["bag_card"]["frontier_sat"] = 60
+	view._params["bag_card"]["frontier_val"] = 80
+	view._params["bag_card"]["deep_hue"] = 44
+	view._params["bag_card"]["deep_sat"] = 12
+	view._params["bag_card"]["deep_val"] = 85
+	var board_with_locks: Control = view._make_element("board")
+	var board_slot_opts := Kit.bag_card_opts_from_config(view._params)
+	var saw_frontier_lock := false
+	var saw_deep_lock := false
+	var board_backgrounds := board_with_locks.find_children("SlotCellBackground", "Panel", true, false)
+	for bg in board_backgrounds:
+		var sb: StyleBox = (bg as Panel).get_theme_stylebox("panel")
+		if sb is StyleBoxFlat:
+			var fill := (sb as StyleBoxFlat).bg_color
+			saw_frontier_lock = saw_frontier_lock or _same_rgb(fill, board_slot_opts.frontier_fill)
+			saw_deep_lock = saw_deep_lock or _same_rgb(fill, board_slot_opts.deep_fill)
+	ok(saw_frontier_lock and saw_deep_lock, \
+		"the board preview shows frontier and deep locked cells using Slot-cell background settings")
+	ok(board_backgrounds.size() >= int(view._params["board"].cols) * int(view._params["board"].rows), \
+		"the board preview renders every cell state through the Slot-cell background")
+	ok(_has_class(board_with_locks, "GPUParticles2D"), \
+		"the board preview includes the unlockable Slot-cell state")
+	view._params["bag_card"] = bag_default
 
 	# the CELL knob = item width: wider items grow the board (the grid, not the frame thickness)
 	view._params["board"]["cell"] = 80
@@ -1376,6 +1450,25 @@ func _test_bag_components() -> void:
 	ok(locked_bg != null and locked_bg.size == cwh, "the locked background paints at the configured slot-cell size")
 	ok(locked_bg != null and locked_bg.custom_minimum_size == Vector2.ZERO, \
 		"the locked background is paint-only and does not expand the slot cell")
+	var co_depth := Kit.bag_card_opts_from_config({"bag_card": {
+		"depth": 10, "depth_alpha": 42, "cell_shadow": 55, "cell_shadow_size": 18, "cell_shadow_y": 7,
+	}})
+	var depth_cell := Kit.slot_cell({"state": "empty"}, co_depth)
+	var depth_bg := depth_cell.find_child("SlotCellBackground", true, false) as Panel
+	var depth_style: StyleBox = depth_bg.get_theme_stylebox("panel") if depth_bg != null else null
+	ok(depth_style is StyleBoxFlat and (depth_style as StyleBoxFlat).border_width_bottom == 10 \
+		and (depth_style as StyleBoxFlat).shadow_size > 0 \
+		and (depth_style as StyleBoxFlat).shadow_color.a > 0.5 \
+		and is_equal_approx((depth_style as StyleBoxFlat).shadow_offset.y, 7.0), \
+		"Slot-cell depth and shadow settings affect the code-drawn background")
+	var locked_host := Control.new()
+	locked_host.custom_minimum_size = cwh
+	locked_host.size = cwh
+	root.add_child(locked_host)
+	locked_host.add_child(locked_plain)
+	await process_frame
+	ok(locked_bg != null and locked_bg.get_global_rect().size == locked_plain.get_global_rect().size, \
+		"the locked background stays inside the slot cell after layout")
 	var unl_bg := unl.find_child("SlotCellBackground", true, false) as Control
 	ok(unl.custom_minimum_size == cwh, "the unlockable slot cell owns the configured cell_w/cell_h")
 	ok(unl_bg != null and unl_bg.custom_minimum_size == Vector2.ZERO, \
@@ -1388,6 +1481,15 @@ func _test_bag_components() -> void:
 			break
 	ok(unlockable_pop != null and unlockable_pop.custom_minimum_size == Vector2.ZERO, \
 		"the unlockable highlight overlay is paint-only and does not expand the slot cell")
+	var side_view := View.new()
+	root.add_child(side_view)
+	await process_frame
+	side_view._selected = "bag_card"
+	side_view._rebuild_sidebar()
+	ok(_slider_max(side_view, "Depth") >= 24.0 and _slider_max(side_view, "Cell Shadow") >= 100.0 \
+		and _slider_max(side_view, "Cell Shadow Size") >= 40.0 and _slider_min(side_view, "Cell Shadow Y") <= -20.0, \
+		"Slot-cell sidebar exposes depth and shadow controls")
+	side_view.queue_free()
 	# cost_y nudges the acorn-cost cluster vertically — a positive value shifts it DOWN by that many px
 	var co_y := co.duplicate(); co_y["cost_y"] = 24.0
 	var cost0 := (Kit.slot_cell({"state": "locked", "cost": 5}, co).find_children("*", "CenterContainer", true, false))
@@ -1424,7 +1526,8 @@ func _test_bag_components() -> void:
 	ok(_has_label_text(dlg, "132"), "the gold currency pill shows the acorn balance (132)")
 
 # The DISCOVERY ladder — built straight from the SHARED slot cell, with NO tier-cell component: a discovered
-# tier wears the filled well holding its piece; an undiscovered tier the code-drawn locked background (no
+# tier wears the filled Slot-cell background holding its piece; an undiscovered tier uses the same
+# code-drawn background (no
 # acorn cost, no "?"), with a plain lower-right tier number and no level badge decoration. A marked tier
 # sparkles. Asserted through the PUBLIC discovery dialog, since there is no standalone tile builder.
 func _test_discovery_cell() -> void:
@@ -1436,9 +1539,9 @@ func _test_discovery_cell() -> void:
 	], 560.0, topts)
 	ok(dlg is Control, "tiers_dialog builds the discovery ladder")
 
-	# a DISCOVERED tier → the open (filled) slot well; an UNDISCOVERED tier → the code-drawn locked background
-	ok(_has_slot_face(dlg, "slot_tile.png"), "a discovered tier wears the open (filled) slot well")
-	ok(dlg.find_child("SlotCellBackground", true, false) is Panel, "an undiscovered tier wears the code-drawn locked background")
+	# a DISCOVERED tier → filled Slot-cell background; an UNDISCOVERED tier → locked Slot-cell background
+	ok(dlg.find_children("SlotCellBackground", "Panel", true, false).size() >= 2, \
+		"discovered and undiscovered tiers both use the shared Slot-cell background")
 	# tier cells carry a plain number, not the decorated level-badge medal.
 	ok(_has_label_text(dlg, "3") and _has_label_text(dlg, "7"), "tiers_dialog shows plain tier numbers (3, 7)")
 	ok(dlg.find_child("lv_num", true, false) == null, "tiers_dialog omits decorated level-badge nodes")
@@ -1455,15 +1558,6 @@ func _test_discovery_cell() -> void:
 	no_num["show_num"] = false
 	ok(not _has_label_text(Kit.tiers_dialog([{"tier": 4, "seen": true, "icon": "leaf"}], 560.0, no_num), "4"),
 		"show_num off hides the plain tier number")
-
-# True if any slot-cell well in `node`'s subtree wears well art whose path ends with `suffix` (used here for
-# filled/discovered tiers) — lets the test assert the discovery cell's state without reaching into the grid's layout.
-func _has_slot_face(node: Control, suffix: String) -> bool:
-	for p in node.find_children("*", "Panel", true, false):
-		var sb := (p as Panel).get_theme_stylebox("panel")
-		if sb is StyleBoxTexture and (sb as StyleBoxTexture).texture != null and (sb as StyleBoxTexture).texture.resource_path.ends_with(suffix):
-			return true
-	return false
 
 # The DISCOVERY dialog uses the STANDARD shared frame, with NO bespoke chrome override: it inherits
 # dialog_opts_from_config wholesale (border, banner ribbon, ✕, geometry) and adds only its CONTENT (the

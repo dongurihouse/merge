@@ -127,6 +127,24 @@ func _initialize() -> void:
 		and is_equal_approx(float(hud_over.button_w_frac), 0.14) \
 		and is_equal_approx(float(hud_over.info_bar_w_frac), 0.72), \
 		"hud_layout config overrides each saved percentage independently")
+	var action_default: Dictionary = KitHud.action_bar_opts_from_config({})
+	ok(is_equal_approx(float(action_default.icon_scale), 0.50) \
+		and is_equal_approx(float(action_default.pad_x_frac), 0.0) \
+		and is_equal_approx(float(action_default.pad_y_frac), 0.0) \
+		and is_equal_approx(float(action_default.bag_x_frac), 0.0) \
+		and is_equal_approx(float(action_default.info_x_frac), 0.0) \
+		and is_equal_approx(float(action_default.home_x_frac), 0.0), \
+		"merged info_bar defaults expose percentage-based icon, padding, and x controls")
+	var action_over: Dictionary = KitHud.action_bar_opts_from_config({"info_bar": {
+		"icon_scale_pct": 64, "pad_x_pct": 5, "pad_y_pct": 3,
+		"bag_x_pct": -8, "info_x_pct": 4, "home_x_pct": 9}})
+	ok(is_equal_approx(float(action_over.icon_scale), 0.64) \
+		and is_equal_approx(float(action_over.pad_x_frac), 0.05) \
+		and is_equal_approx(float(action_over.pad_y_frac), 0.03) \
+		and is_equal_approx(float(action_over.bag_x_frac), -0.08) \
+		and is_equal_approx(float(action_over.info_x_frac), 0.04) \
+		and is_equal_approx(float(action_over.home_x_frac), 0.09), \
+		"merged info_bar config resolves action-bar percent knobs into fractions")
 	Save.add_coins(3)
 	h7._update_hud()
 	await create_timer(0.6).timeout            # numbers TICK toward the target (§6)

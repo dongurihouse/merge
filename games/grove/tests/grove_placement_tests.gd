@@ -39,14 +39,25 @@ func _initialize() -> void:
 		"S1: the Home button sits fully on-screen")
 	ok(ss.bottom_bar is PanelContainer and bool(ss.bottom_bar.get_meta("shared_action_tray", false)), \
 		"S1: the bottom action bar paints one shared extended tray background")
+	var tray_sb: StyleBox = ss.bottom_bar.get_theme_stylebox("panel")
+	var tray_tex: Texture2D = (tray_sb as StyleBoxTexture).texture if tray_sb is StyleBoxTexture else null
+	var tray_tex_path := String(tray_tex.resource_path) if tray_tex != null else ""
+	ok((tray_sb is StyleBoxTexture or tray_sb is StyleBoxFlat) and not tray_tex_path.ends_with("badge_rect.png"), \
+		"S1: the bottom action bar uses the board's code-drawn frame, not the old button badge art")
 	var action_seps: Array = ss.bottom_bar.find_children("ActionBarSeparator*", "TextureRect", true, false)
 	ok(action_seps.size() == 2, \
 		"S1: the shared action tray uses separators between Bag, Info, and Home")
 	ok(ss.home_btn.has_meta("icon_px") and ss.bag_btn.has_meta("icon_px") \
-		and float(ss.home_btn.get_meta("icon_px")) > float(ss.bag_btn.get_meta("icon_px")), \
-		"S1: the board Home icon is larger than the default bottom-well icon")
-	ok(ss.bottom_bar.find_children("*", "PanelContainer", true, false).size() >= 1, \
-		"S1: the centre info bar (a framed pill) is present")
+		and absf(float(ss.home_btn.get_meta("icon_px")) - float(ss.bag_btn.get_meta("icon_px"))) < 0.01, \
+		"S1: the board Home and Bag icons use the same size")
+	var action_info := ss.bottom_bar.find_child("ActionBarInfoBar", true, false) as PanelContainer
+	var action_info_sb: StyleBox = action_info.get_theme_stylebox("panel") if action_info != null else null
+	var bag_action_sb: StyleBox = ss.bag_btn.get_theme_stylebox("normal") if ss.bag_btn != null else null
+	var home_action_sb: StyleBox = ss.home_btn.get_theme_stylebox("normal") if ss.home_btn != null else null
+	ok(action_info_sb is StyleBoxEmpty and bag_action_sb is StyleBoxEmpty and home_action_sb is StyleBoxEmpty, \
+		"S1: the shared action tray has no separate inner Bag/Info/Home borders")
+	ok(action_info != null, \
+		"S1: the centre info bar content is present")
 	var board_mat: Control = ss.board_area.get_child(0)
 	ok(board_mat.get_global_rect().position.y >= ss.giver_bar.get_global_rect().end.y, \
 		"S1: the board frame starts below the quest strip and does not cut off ready cards")

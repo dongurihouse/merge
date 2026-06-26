@@ -50,6 +50,8 @@ const DEPENDENTS := {
 	"frame": ["dialog", "daily", "mystery", "shop", "settings", "bag", "tiers", "info"],
 	"daily_card": ["daily", "shop"],
 	"toggle_card": ["settings"],
+	"home_button": ["info_bar"],
+	"hud_layout": ["info_bar"],
 	"gold_badge": ["board", "info_bar", "map_card"],
 	# the slot cell backs the bag dialog, the discovery ladder (inherits its look), AND the Board preview's wells — editing it rebuilds all
 	"bag_card": ["bag", "tiers", "board"],
@@ -147,7 +149,7 @@ const CAPTIONS := {
 	"shop": "Shop — packs (shared frame)",
 	"level": "Level — dialog (medallion · bar · collect)",
 	"tiers": "Discovery — tier ladder (shared frame, no vines)",
-	"info_bar": "Info bar — board bottom bar (ⓘ · selected piece + name · sell)",
+	"info_bar": "Info bar — board bottom action bar (Bag · ⓘ · selected piece · Home)",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -294,7 +296,9 @@ var _params := {
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
 	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. item_icon_scale is
 	# % of the selected-piece box. `filled` previews state.
-	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16, "filled": true},
+	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
+		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "bag_x_pct": 0, "info_x_pct": 0, "home_x_pct": 0,
+		"filled": true},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -310,13 +314,15 @@ var _params := {
 	"info": {"width_pct": 58},
 	# the BAG CELL — the slot tile, its own component (the Bag dialog reuses it). cell size/art + the
 	# content/lock/cost metrics are saved; `preview` just picks which state the standalone tile shows.
-	"bag_card": {"preview": "unlockable", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
+	"bag_card": {"preview": "locked", "cell_w": 116, "cell_h": 120, "cell_slice": 28, "cell_art": true,
 		"content_frac": 62, "cost_font": 24, "cost_icon": 26, "cost_y": 0, "cost_x": 0, "cost_scale": 100, "level_frac": 44,
 		"next_glow": 45, "next_twinkle": 55, "glow_hue": 42, "glow_sat": 74,
 		"glow_size": 170, "glow_shadow": 55, "glow_shadow_size": 10,
+		"open_hue": 43, "open_sat": 10, "open_val": 92,
 		"frontier_hue": 45, "frontier_sat": 14, "frontier_val": 89,
 		"deep_hue": 44, "deep_sat": 12, "deep_val": 85,
 		"rim_hue": 89, "rim_sat": 37, "rim_val": 68, "rim_alpha": 35, "corner": 18,
+		"depth": 4, "depth_alpha": 18, "cell_shadow": 16, "cell_shadow_size": 10, "cell_shadow_y": 3,
 		"level": 7, "cost": 120},
 	# the BAG dialog — the shared frame + the reused currency pill (acorn balance) + a grid of bag cells.
 	# width_pct/cols/gaps/caption are saved; balance/owned/filled preview the slot ladder (the game sets
@@ -722,32 +728,9 @@ func _make_element(id: String) -> Control:
 			topts["banner_text"] = "Wildflower"
 			return Kit.tiers_dialog(Kit.DEMO_TIERS, _dlg_px("tiers"), topts)
 		"info_bar":
-			# the board's bottom-bar info pill, built from the SAME kit component + resolver the game reads
-			# (so the preview is exactly the live bar). Pull in the gold_currency_pill block too — the bar keeps
-			# its padding as content margins. `filled` previews the selected-vs-empty state.
-			var io := Kit.info_bar_opts_from_config({"info_bar": p, "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
-			var ib: PanelContainer = Kit.info_bar({}, io)   # no live callbacks in the preview
-			var inner := float(ib.get_meta("inner_px", 62.0))
-			var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
-			if bool(p.get("filled", true)):
-				(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * item_scale))
-				(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
-				(ib.get_meta("info_btn") as Button).disabled = false
-				var sb := ib.get_meta("sell_btn") as Button
-				(ib.get_meta("sell_count") as Label).text = "12"    # demo payout under the coin in the vertical "Sell" badge
-				var demo_coin_slot := ib.get_meta("sell_coin") as Control
-				demo_coin_slot.add_child(Look.icon("coin", demo_coin_slot.custom_minimum_size.x))
-				sb.visible = true
-			else:
-				(ib.get_meta("name_label") as Label).text = "Tap an item to inspect it"
-				(ib.get_meta("info_btn") as Button).disabled = true
-				(ib.get_meta("sell_btn") as Button).visible = false
-			# the bar expands to fill the bottom row in-game; give the preview a representative bottom-bar width
-			var wrap := Control.new()
-			wrap.custom_minimum_size = Vector2(620, float(io.get("height", 130)))
-			ib.set_anchors_preset(Control.PRESET_FULL_RECT)
-			wrap.add_child(ib)
-			return wrap
+			# The merged Workbench target previews the LIVE board bottom bar as one shared tray: Bag · Info ·
+			# Home. The inner Bag/Home/Info frames are transparent so only the parent tray paints a border.
+			return _action_bar_preview()
 		"settings":
 			# the SHARED frame + a column of toggle cards (the SAME builder the game's settings.gd uses)
 			var setopts := Kit.settings_opts_from_config(_params)
@@ -776,9 +759,16 @@ func _make_element(id: String) -> Control:
 				{"icon": "water", "title": "Water", "body": "tops up your watering can", "chip": {"icon": "water", "text": "60"}}]
 			return Kit.mail_dialog(demo, _dlg_px("info"), iopts)
 		"bag_card":
-			# The slot tile in a chosen preview state. It renders at the saved cell_w/cell_h so the component
-			# size in Workbench matches the bag, board, and discovery dialogs.
+			# The slot tile in a chosen preview state, rendered at the original 2x Workbench preview size so
+			# it stays comfortable to edit while the saved cell_w/cell_h remain the live game size.
 			var bco := Kit.bag_card_opts_from_config(_params)
+			var z := 2.0
+			bco["cell_w"] = float(bco["cell_w"]) * z
+			bco["cell_h"] = float(bco["cell_h"]) * z
+			bco["cost_font"] = int(float(bco["cost_font"]) * z)
+			bco["cost_icon"] = float(bco["cost_icon"]) * z
+			bco["cost_y"] = float(bco["cost_y"]) * z
+			bco["cost_x"] = float(bco["cost_x"]) * z   # cost_scale is a ratio; it stays unzoomed.
 			return Kit.slot_cell(_bag_preview_cell(String(p.preview), int(p.level), int(p.cost)), bco)
 		"bag":
 			# the SHARED frame + the reused gold currency pill + a grid of bag cells (the SAME builder the game's
@@ -852,6 +842,137 @@ func _hud_layout_preview() -> Control:
 	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, btn_w), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
 	root.add_child(_layout_preview_box(Rect2(btn_w + info_w, bottom_y, btn_w, btn_w), Color("#B9D5FF", 0.72), "home"))
 	return root
+
+func _action_bar_preview_style(bar_h: float, ao: Dictionary) -> StyleBox:
+	var bopts: Dictionary = Kit.board_panel_opts_from_config(_params)
+	var pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
+	var pad_y := roundf(bar_h * float(ao.get("pad_y_frac", 0.0)))
+	if String(bopts.get("frame_style", "badge")) == "code":
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color("#FBF3E2")
+		flat.border_color = Pal.STRAW
+		flat.set_border_width_all(int(bopts.get("border_w", 4)))
+		flat.set_corner_radius_all(int(bopts.get("corner", 46)))
+		flat.content_margin_left = pad_x
+		flat.content_margin_right = pad_x
+		flat.content_margin_top = pad_y
+		flat.content_margin_bottom = pad_y
+		return flat
+	var badge: Dictionary = (bopts.get("badge", {}) as Dictionary).duplicate() if bopts.get("badge", {}) is Dictionary else {}
+	badge["content_margin_left"] = pad_x
+	badge["content_margin_right"] = pad_x
+	badge["content_margin_top"] = pad_y
+	badge["content_margin_bottom"] = pad_y
+	return Kit.gold_badge_style(badge)
+
+func _action_bar_nudge(child: Control, x_frac: float, node_name: String) -> Control:
+	if absf(x_frac) < 0.001:
+		return child
+	var slot := MarginContainer.new()
+	slot.name = node_name
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.custom_minimum_size = child.custom_minimum_size
+	slot.size_flags_horizontal = child.size_flags_horizontal
+	slot.size_flags_vertical = child.size_flags_vertical
+	var x_px := int(roundf(maxf(1.0, child.custom_minimum_size.x) * x_frac))
+	slot.add_theme_constant_override("margin_left", x_px)
+	slot.add_theme_constant_override("margin_right", -x_px)
+	child.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slot.add_child(child)
+	return slot
+
+func _action_bar_clear_button_frame(b: Button) -> void:
+	var empty := StyleBoxEmpty.new()
+	for st_name in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(st_name, empty)
+
+func _action_bar_transparent_info_frame(opts: Dictionary) -> StyleBoxEmpty:
+	var empty := StyleBoxEmpty.new()
+	var pad: Dictionary = opts.get("pill", {})
+	var pad_x := float(pad.get("pad_x", 18.0))
+	empty.content_margin_left = float(pad.get("pad_left", pad_x))
+	empty.content_margin_right = float(opts.get("pad_right", 16.0))
+	var vpad := float(opts.get("vpad", 8.0))
+	empty.content_margin_top = vpad
+	empty.content_margin_bottom = vpad
+	return empty
+
+func _action_bar_separator_preview(px: float, node_name: String) -> Control:
+	var slot := CenterContainer.new()
+	slot.name = node_name + "Slot"
+	slot.custom_minimum_size = Vector2(maxf(18.0, px * 0.24), px)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sep := TextureRect.new()
+	sep.name = node_name
+	sep.custom_minimum_size = Vector2(maxf(18.0, px * 0.24), px * 0.94)
+	sep.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	sep.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	sep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var p := Look.kit("shared/action_separator.png")
+	if ResourceLoader.exists(p):
+		sep.texture = load(p)
+	slot.add_child(sep)
+	return slot
+
+func _action_bar_preview() -> Control:
+	var p: Dictionary = _params["info_bar"]
+	var ao := Kit.action_bar_opts_from_config({"info_bar": p})
+	var layout := Kit.hud_layout_opts_from_config({"hud_layout": _params["hud_layout"]})
+	var ho := Kit.home_button_opts_from_config({"home_button": _params["home_button"], "badge": _params["badge"], "shadow": _params["shadow"]})
+	var preview_w := PHONE_W
+	var btn_px := maxf(80.0, float(ho.get("px", roundf(preview_w * float(layout.get("button_w_frac", 0.15))))))
+	var bar_h := maxf(166.0, btn_px + 36.0)
+	var sep_w := maxf(18.0, btn_px * 0.24)
+	var tray_pad_x := roundf(bar_h * float(ao.get("pad_x_frac", 0.0)))
+	var info_w := maxf(120.0, preview_w * float(layout.get("info_bar_w_frac", 0.70)) - sep_w * 2.0 - tray_pad_x * 2.0)
+
+	var bar := PanelContainer.new()
+	bar.custom_minimum_size = Vector2(preview_w, bar_h)
+	bar.add_theme_stylebox_override("panel", _action_bar_preview_style(bar_h, ao))
+	var row := HBoxContainer.new()
+	row.name = "ActionBarPreviewRow"
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 0)
+	bar.add_child(row)
+
+	ho["px"] = btn_px
+	ho["shape"] = "rect"
+	ho["shadow"] = false
+	ho["icon_scale"] = float(ao.get("icon_scale", 0.5))
+	var bag_btn := Kit.home_button({"icon": "bag", "caption": "", "count": "0/6"}, ho.duplicate())
+	bag_btn.name = "ActionBarPreviewBag"
+	_action_bar_clear_button_frame(bag_btn)
+	row.add_child(_action_bar_nudge(bag_btn, float(ao.get("bag_x_frac", 0.0)), "ActionBarPreviewBagOffset"))
+	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorBagInfo"))
+	var io := Kit.info_bar_opts_from_config({"info_bar": _params["info_bar"], "gold_currency_pill": _params["gold_currency_pill"], "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})
+	var ib: PanelContainer = Kit.info_bar({}, io)
+	ib.name = "ActionBarPreviewInfoBar"
+	ib.custom_minimum_size.x = info_w
+	ib.add_theme_stylebox_override("panel", _action_bar_transparent_info_frame(io))
+	var inner := float(ib.get_meta("inner_px", 62.0))
+	var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
+	if bool(p.get("filled", true)):
+		(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * item_scale))
+		(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
+		(ib.get_meta("info_btn") as Button).disabled = false
+		var sb := ib.get_meta("sell_btn") as Button
+		(ib.get_meta("sell_count") as Label).text = "12"
+		var demo_coin_slot := ib.get_meta("sell_coin") as Control
+		demo_coin_slot.add_child(Look.icon("coin", demo_coin_slot.custom_minimum_size.x))
+		sb.visible = true
+	else:
+		(ib.get_meta("name_label") as Label).text = "Tap an item to inspect it"
+		(ib.get_meta("info_btn") as Button).disabled = true
+		(ib.get_meta("sell_btn") as Button).visible = false
+	row.add_child(_action_bar_nudge(ib, float(ao.get("info_x_frac", 0.0)), "ActionBarPreviewInfoOffset"))
+	row.add_child(_action_bar_separator_preview(btn_px, "ActionBarPreviewSeparatorInfoHome"))
+	var home_btn := Kit.home_button({"icon": "house", "caption": ""}, ho.duplicate())
+	home_btn.name = "ActionBarPreviewHome"
+	_action_bar_clear_button_frame(home_btn)
+	row.add_child(_action_bar_nudge(home_btn, float(ao.get("home_x_frac", 0.0)), "ActionBarPreviewHomeOffset"))
+	return bar
 
 func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "") -> Control:
 	var p := PanelContainer.new()
@@ -1017,31 +1138,37 @@ func _make_board_preview() -> Control:
 	# so this preview shows the ACTUAL border (the gold badge skin, or the code-drawn depth border per the knobs).
 	root.add_child(Kit.board_panel(total, Kit.board_panel_opts_from_config({"board": p, "gold_badge": _params["gold_badge"], "shadow": _params["shadow"]})))
 
-	# the empty wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style
+	# the wells — the SHARED slot cell (Kit.slot_cell), at the LIVE Slot-cell (bag_card) style. Preview the
+	# board's outer locked/frontier cells too, so Slot-cell locked-background knobs are visible on Board.
 	var opts: Dictionary = Kit.bag_card_opts_from_config(_params)
 	opts["cell_w"] = cell
 	opts["cell_h"] = cell
+	var demo_by_cell := {}
+	var inset: float = clampf((1.0 - float(p.item) / 100.0) / 2.0, 0.0, 0.45)
+	if bool(p.pieces):
+		for d in BOARD_DEMO:
+			var dr: int = int(d[0])
+			var dc: int = int(d[1])
+			if dr < rows and dc < cols:
+				demo_by_cell["%d,%d" % [dr, dc]] = int(d[2])
 	for r in rows:
 		for c in cols:
-			var well: Control = Kit.slot_cell({"state": "empty"}, opts)
+			var cell_data := {"state": "empty"}
+			var demo_key := "%d,%d" % [r, c]
+			if demo_by_cell.has(demo_key):
+				var piece_code: int = int(demo_by_cell[demo_key])
+				cell_data = {"state": "filled", "make_content": func(_px: float) -> Control:
+					return PieceView.make_piece(piece_code, cell, inset)}
+			elif r == 0 and c == 0:
+				cell_data = {"state": "unlockable", "frontier": true}
+			elif r == 0 or c == 0:
+				cell_data = {"state": "locked", "frontier": true}
+			elif r == rows - 1 or c == cols - 1:
+				cell_data = {"state": "locked", "frontier": false}
+			var well: Control = Kit.slot_cell(cell_data, opts)
 			well.position = Vector2(frame + c * (cell + gap), frame + r * (cell + gap))
 			well.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			root.add_child(well)
-
-	# a few demo merge pieces. The holder fills the cell (so it centers exactly like the game); the `item`
-	# knob is the sprite width WITHIN it, applied as the inset — the SAME path the live board uses, so the
-	# preview reads 1:1 with the game (board._make_piece passes the same inset from the saved board.item).
-	if bool(p.pieces):
-		var inset: float = clampf((1.0 - float(p.item) / 100.0) / 2.0, 0.0, 0.45)
-		for d in BOARD_DEMO:
-			var r: int = int(d[0])
-			var c: int = int(d[1])
-			if r >= rows or c >= cols:
-				continue
-			var piece: Control = PieceView.make_piece(int(d[2]), cell, inset)
-			piece.position = Vector2(frame + c * (cell + gap), frame + r * (cell + gap))
-			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			root.add_child(piece)
 	return root
 
 ## A demo slot CELL for the standalone Slot-cell preview, in the chosen state. `level`>0 docks the board
@@ -1287,6 +1414,7 @@ func _section(id: String) -> Control:
 	_building = ""
 	el = _maybe_wrap_shadow(el, id)         # cast the SHARED shadow behind the preview when this component's Shadow toggle is on
 	_make_clickthrough(el, id == "frame")   # only the FRAME keeps its handles grabbable
+	holder.custom_minimum_size = el.custom_minimum_size
 	holder.add_child(el)
 	v.add_child(holder)
 	_sections[id] = sec
@@ -1529,7 +1657,7 @@ func _rebuild_sidebar() -> void:
 		_sidebar_body.add_child(note)
 	if _selected == "board":
 		var note := Label.new()
-		note.text = "A live preview of the merge board: the bamboo frame + the SHARED cell well (edit its look on the Slot cell item) + demo pieces. SCALE zooms the whole board (frame + cells together); CELL is the item width — the grid grows while the frame thickness stays, so you trade item size against frame weight. ITEM is the piece size within its cell. Preview only — not yet wired into the in-game board (which still sizes itself from the screen)."
+		note.text = "A live preview of the merge board: the bamboo frame + the SHARED Slot cell states (open wells, frontier locks, deep locks) + demo pieces. Edit the cell art and locked-background colours on the Slot cell item. SCALE zooms the whole board (frame + cells together); CELL is the item width — the grid grows while the frame thickness stays, so you trade item size against frame weight. ITEM is the piece size within its cell."
 		note.add_theme_font_size_override("font_size", 12)
 		note.add_theme_color_override("font_color", Color(Pal.STRAW, 0.85))
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1866,7 +1994,15 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["mark_twinkle", 0, 100]))  # ...and its drifting twinkles (0 = off)
 			# the frame chrome (border · banner · ✕) is the STANDARD shared frame — tune it on the Frame item.
 		"info_bar":
-			_group_header("Saved to config", true)                         # layout only — the frame is tuned on Gold badge
+			_group_header("Saved to config", true)                         # full bottom action tray + info content
+			_section_header("Action tray")
+			_sidebar_body.add_child(_slider_row(["icon_scale_pct", 25, 95]))       # Bag/Home icon size (% of the button slot)
+			_sidebar_body.add_child(_slider_row(["pad_x_pct", 0, 16]))             # left/right padding (% of bar height)
+			_sidebar_body.add_child(_slider_row(["pad_y_pct", 0, 16]))             # top/bottom padding (% of bar height)
+			_sidebar_body.add_child(_slider_row(["bag_x_pct", -30, 30]))           # Bag item horizontal nudge
+			_sidebar_body.add_child(_slider_row(["info_x_pct", -30, 30]))          # Info pill horizontal nudge
+			_sidebar_body.add_child(_slider_row(["home_x_pct", -30, 30]))          # Home item horizontal nudge
+			_section_header("Info content")
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
 			_sidebar_body.add_child(_slider_row(["item_icon_scale", 50, 120]))  # selected item/generator art as % of that box
@@ -1921,21 +2057,30 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["glow_size", 0, 250]))       # outer-bloom spread (% of cell; 100 = cell-sized, 0 = no halo)
 			_sidebar_body.add_child(_slider_row(["glow_shadow", 0, 100]))     # rim-shadow strength (0 = no glow hugging the cell)
 			_sidebar_body.add_child(_slider_row(["glow_shadow_size", 0, 40])) # rim-shadow size (% of cell)
-			_section_header("Locked background: frontier fill")
+			_section_header("Cell background: open fill")
+			_sidebar_body.add_child(_slider_row(["open_hue", 0, 90]))
+			_sidebar_body.add_child(_slider_row(["open_sat", 0, 100]))
+			_sidebar_body.add_child(_slider_row(["open_val", 40, 100]))
+			_section_header("Cell background: frontier fill")
 			_sidebar_body.add_child(_slider_row(["frontier_hue", 0, 90]))
 			_sidebar_body.add_child(_slider_row(["frontier_sat", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["frontier_val", 40, 100]))
-			_section_header("Locked background: deep fill")
+			_section_header("Cell background: deep fill")
 			_sidebar_body.add_child(_slider_row(["deep_hue", 0, 90]))
 			_sidebar_body.add_child(_slider_row(["deep_sat", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["deep_val", 40, 100]))
-			_section_header("Locked background: frontier rim")
+			_section_header("Cell background: frontier rim")
 			_sidebar_body.add_child(_slider_row(["rim_hue", 0, 140]))
 			_sidebar_body.add_child(_slider_row(["rim_sat", 0, 100]))
 			_sidebar_body.add_child(_slider_row(["rim_val", 40, 100]))
 			_sidebar_body.add_child(_slider_row(["rim_alpha", 0, 100]))
-			_section_header("Locked background: shape")
+			_section_header("Cell background: shape, depth, shadow")
 			_sidebar_body.add_child(_slider_row(["corner", 4, 50]))
+			_sidebar_body.add_child(_slider_row(["depth", 0, 24]))
+			_sidebar_body.add_child(_slider_row(["depth_alpha", 0, 100]))
+			_sidebar_body.add_child(_slider_row(["cell_shadow", 0, 100]))
+			_sidebar_body.add_child(_slider_row(["cell_shadow_size", 0, 40]))
+			_sidebar_body.add_child(_slider_row(["cell_shadow_y", -20, 20]))
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Preview", "preview", ["unlockable", "filled", "empty", "locked"]))
 			_sidebar_body.add_child(_slider_row(["level", 0, 25]))           # 0 = no level badge; >0 docks it (board)

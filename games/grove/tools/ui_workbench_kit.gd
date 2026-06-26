@@ -3420,6 +3420,21 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
 	}
 
+## Board bottom action-bar tuning from the workbench. Values are saved as whole percents:
+## icon_scale_pct is % of the Bag/Home slot size; pad_*_pct are % of bar height; *_x_pct nudges each
+## bottom-bar item horizontally as a % of its own slot width.
+static func action_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
+	var legacy: Dictionary = cfg.get("action_bar", {}) if cfg is Dictionary else {}
+	return {
+		"icon_scale": clampf(float(i.get("icon_scale_pct", legacy.get("icon_scale_pct", 50.0))) / 100.0, 0.10, 1.50),
+		"pad_x_frac": clampf(float(i.get("pad_x_pct", legacy.get("pad_x_pct", 0.0))) / 100.0, 0.0, 0.30),
+		"pad_y_frac": clampf(float(i.get("pad_y_pct", legacy.get("pad_y_pct", 0.0))) / 100.0, 0.0, 0.30),
+		"bag_x_frac": clampf(float(i.get("bag_x_pct", legacy.get("bag_x_pct", 0.0))) / 100.0, -0.50, 0.50),
+		"info_x_frac": clampf(float(i.get("info_x_pct", legacy.get("info_x_pct", 0.0))) / 100.0, -0.50, 0.50),
+		"home_x_frac": clampf(float(i.get("home_x_pct", legacy.get("home_x_pct", 0.0))) / 100.0, -0.50, 0.50),
+	}
+
 static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7.0, rows := 9.0) -> Vector2:
 	var b: Dictionary = cfg.get("board", {}) if cfg is Dictionary else {}
 	var gap := float(b.get("gap", 7.0))
@@ -3810,9 +3825,8 @@ static func board_panel_opts_from_config(cfg: Dictionary) -> Dictionary:
 	}
 
 ## --- the bag screen: the slot CELL + the dialog -----------------------------------------------------
-## The slot cell is ONE component card with four states. A filled slot uses the raised card (a held
-## piece sits on it); empty / filled use the open cream well art, while locked / unlockable use the
-## code-drawn locked background so it can be tuned live. `next` gets a DYNAMIC sparkle FX.
+## The slot cell is ONE component card with four states. All states use the same code-drawn background
+## so the board, bag, and discovery ladder inherit one live-tunable face. `next` gets a DYNAMIC sparkle FX.
 const SLOT_EMPTY_ART := "board/slot_tile.png"    # the open cream well — empty / filled
 
 static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Color:
@@ -3824,33 +3838,44 @@ static func _hsv_setting(c: Dictionary, prefix: String, fallback: Color) -> Colo
 		float(c.get(prefix + "_val", roundf(fallback.v * 100.0))) / 100.0,
 		fallback.a)
 
-## The locked SLOT-CELL background: the quiet code-drawn fill for frontier/deep locked cells.
-## The knobs live on the Slot cell workbench component (`bag_card`) so the board, bag, and discovery
-## ladder all read one style source.
+## The SLOT-CELL background: one code-drawn face for open, frontier, and deep cells. The knobs live on
+## the Slot cell workbench component (`bag_card`) so the board, bag, and discovery ladder share one style.
 static func slot_cell_background_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {}) if cfg is Dictionary else {}
 	return {
+		"open_fill": _hsv_setting(bc, "open", Color(Pal.CREAM, 0.92)),
 		"frontier_fill": _hsv_setting(bc, "frontier", Pal.NEAR_UNLOCK),
 		"deep_fill": _hsv_setting(bc, "deep", Pal.LOCKED),
 		"rim": _hsv_setting(bc, "rim", Pal.NEAR_HINT),
 		"rim_alpha": clampf(float(bc.get("rim_alpha", 35.0)) / 100.0, 0.0, 1.0),
 		"corner_frac": clampf(float(bc.get("corner", 18.0)) / 100.0, 0.04, 0.50),
+		"depth_px": clampf(float(bc.get("depth", 4.0)), 0.0, 40.0),
+		"depth_alpha": clampf(float(bc.get("depth_alpha", 18.0)) / 100.0, 0.0, 1.0),
+		"cell_shadow": clampf(float(bc.get("cell_shadow", 16.0)) / 100.0, 0.0, 1.0),
+		"cell_shadow_size": clampf(float(bc.get("cell_shadow_size", 10.0)) / 100.0, 0.0, 0.60),
+		"cell_shadow_y": clampf(float(bc.get("cell_shadow_y", 3.0)), -40.0, 40.0),
 	}
 
-static func slot_cell_background(size_px: Vector2, frontier: bool, opts: Dictionary = {}) -> Panel:
+static func slot_cell_background(size_px: Vector2, state: String, frontier: bool, opts: Dictionary = {}) -> Panel:
 	var base := Panel.new()
 	base.name = "SlotCellBackground"
+	base.position = Vector2.ZERO
 	base.size = size_px
-	base.set_anchors_preset(Control.PRESET_FULL_RECT)
 	var fs := StyleBoxFlat.new()
-	fs.bg_color = opts.get("frontier_fill", Pal.NEAR_UNLOCK) if frontier else opts.get("deep_fill", Pal.LOCKED)
+	var open_state := state == "empty" or state == "filled"
+	fs.bg_color = opts.get("open_fill", Color(Pal.CREAM, 0.92)) if open_state else (opts.get("frontier_fill", Pal.NEAR_UNLOCK) if frontier else opts.get("deep_fill", Pal.LOCKED))
 	fs.set_corner_radius_all(int(maxf(10.0, minf(size_px.x, size_px.y) * float(opts.get("corner_frac", 0.18)))))
-	var rim_alpha := float(opts.get("rim_alpha", 0.35)) if frontier else 0.0
-	fs.set_border_width_all(1 if rim_alpha > 0.0 else 0)
 	var rim: Color = opts.get("rim", Pal.NEAR_HINT)
-	fs.border_color = Color(rim.r, rim.g, rim.b, rim_alpha)
-	fs.shadow_color = Color(0, 0, 0, 0)
-	fs.shadow_size = 0
+	var rim_alpha := float(opts.get("rim_alpha", 0.35)) if frontier else float(opts.get("rim_alpha", 0.35)) * 0.25
+	var depth_px := int(round(float(opts.get("depth_px", 4.0))))
+	var depth_alpha := float(opts.get("depth_alpha", 0.18))
+	fs.set_border_width_all(1 if rim_alpha > 0.0 else 0)
+	fs.border_width_bottom = maxi(fs.border_width_bottom, depth_px)
+	fs.border_color = Color(rim.r, rim.g, rim.b, maxf(rim_alpha, depth_alpha))
+	var shadow_a := float(opts.get("cell_shadow", 0.16))
+	fs.shadow_color = Color(0.16, 0.10, 0.05, shadow_a)
+	fs.shadow_size = int(round(minf(size_px.x, size_px.y) * float(opts.get("cell_shadow_size", 0.10))))
+	fs.shadow_offset = Vector2(0, float(opts.get("cell_shadow_y", 3.0)))
 	base.add_theme_stylebox_override("panel", fs)
 	base.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return base
@@ -3928,33 +3953,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		b.pressed.connect(func() -> void:
 			if on_tap.is_valid(): on_tap.call())
 
-	# the cell FACE — locked states use the code-drawn Slot-cell background; open states keep the cream
-	# well as a NINE-PATCH (crisp corners at any cell size).
-	if lockedwell:
-		var frontier := bool(d.get("frontier", state == "unlockable"))
-		tile.add_child(slot_cell_background(Vector2(cw, ch), frontier, opts))
-	elif bool(opts.get("cell_art", true)) and ResourceLoader.exists(Look.kit(SLOT_EMPTY_ART)):
-		var face := Panel.new()
-		face.size = Vector2(cw, ch)
-		face.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var sbt := StyleBoxTexture.new()
-		sbt.texture = load(Look.kit(SLOT_EMPTY_ART))
-		sbt.set_texture_margin_all(float(opts.get("cell_slice", 28.0)))
-		face.add_theme_stylebox_override("panel", sbt)
-		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.add_child(face)
-	else:
-		var p := Panel.new()
-		p.size = Vector2(cw, ch)
-		p.set_anchors_preset(Control.PRESET_FULL_RECT)
-		var ss := StyleBoxFlat.new()
-		ss.bg_color = (Color(Pal.CREAM, 0.55) if lockedwell else Color(Pal.CREAM, 0.92))
-		ss.set_corner_radius_all(int(maxf(10.0, cw * 0.16)))
-		ss.set_border_width_all(2)
-		ss.border_color = Color(Pal.GROUND_EDGE, 0.4)
-		p.add_theme_stylebox_override("panel", ss)
-		p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tile.add_child(p)
+	# the cell FACE — one code-drawn Slot-cell background for every state, so the Workbench knobs apply
+	# consistently to board, bag, and discovery cells.
+	var frontier := bool(d.get("frontier", state == "unlockable"))
+	tile.add_child(slot_cell_background(Vector2(cw, ch), state, frontier, opts))
 
 	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
 	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.
@@ -3981,7 +3983,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		if piece != null:
 			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			var pc := CenterContainer.new()
-			pc.set_anchors_preset(Control.PRESET_FULL_RECT)
+			pc.position = Vector2.ZERO
+			pc.size = Vector2(cw, ch)
 			pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			pc.add_child(piece)
 			tile.add_child(pc)
@@ -4032,8 +4035,8 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()
+		pop.position = Vector2.ZERO
 		pop.size = Vector2(cw, ch)
-		pop.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = Color(0, 0, 0, 0)
 		ps.set_border_width_all(4)
