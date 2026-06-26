@@ -1,0 +1,16 @@
+{
+  "source": "_new/rush_asset.png",
+  "category": "sheet",
+  "params": { "min_area": 600 },
+  "outputs": [
+    { "island": 0, "name": "rush_timer_plaque",   "path": "ui/rush/timer_plaque.png" },
+    { "island": 1, "name": "rush_title_banner",   "path": "ui/rush/title_banner.png" },
+    { "island": 2, "name": "rush_hourglass",      "path": "ui/rush/hourglass.png" },
+    { "island": 3, "name": "rush_score_card",     "path": "ui/rush/score_card.png" },
+    { "island": 4, "name": "rush_acorn",          "path": "ui/rush/acorn.png" },
+    { "island": 6, "name": "rush_mult_medallion", "path": "ui/rush/mult_medallion.png" },
+    { "island": 7, "name": "rush_exit_x",         "path": "ui/rush/exit_x.png" },
+    { "island": 13, "name": "rush_score_card_plain", "path": "ui/rush/score_card_plain.png" }
+  ],
+  "archive": "_originals/ui/rush_asset.png"
+}
