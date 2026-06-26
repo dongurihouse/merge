@@ -34,6 +34,8 @@ const Game = preload("res://engine/scripts/core/game.gd")
 const Design = preload("res://engine/scripts/core/design.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")   # pre-warm Board off-thread so the garden CTA is snappy
 const BootTrace = preload("res://engine/scripts/core/boot_trace.gd")   # cold-boot phase timer — no-ops unless the Boot splash opened a trace
+const Habitat = preload("res://engine/scripts/core/habitat.gd")   # the unified resident model (hand + placed + production) — the map IS the habitat surface
+const Explore = preload("res://engine/scripts/core/explore.gd")   # the acquire ritual (Expedition nav button → Load out dialog → Rush → Trade)
 const Pal = Game.PALETTE
 # The grove UI kit (a game-side tool): lazy-loaded so the engine never hard-depends on it — the unowned
 # home spot's restore-cost disc builds through it from the workbench-saved style. Missing → baked fallback.
@@ -334,7 +336,7 @@ func _build_map(animate := true) -> void:
 	# population sub-game); an in-progress map keeps the baseline generic ambient.
 	var amb: Control
 	if G.can_populate(z, unlocks, _gates()):
-		amb = Ambient.build_population_layer(_map_rect.size, G.resident_members(z))
+		amb = Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
 	else:
 		amb = Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
 	amb.position = _map_rect.position
@@ -349,6 +351,15 @@ func _build_map(animate := true) -> void:
 	BootTrace.end("map.open.ambient")
 	if animate:
 		FX.pop_in(content)        # a navigation pops in; a live resize re-fit does not (would flicker)
+
+# The open map's PLACED spirits as ambient members ({type, tier}). The map renders the habitat
+# (engine/scripts/core/habitat.gd) — the single resident model where Explore deposits — instead of the
+# legacy per-map welcome roster (G.resident_members), which is now dormant (retired with the economy pass).
+func _habitat_members(z: int) -> Array:
+	var out: Array = []
+	for inst in Habitat.placed(String(G.MAPS[z].id)):
+		out.append({"type": String(inst.kind), "tier": int(inst.tier)})
+	return out
 
 # Seat one tap-hit per spot, index-aligned with G.MAPS[z].spots (the buy flow + tests rely on this).
 # A §16 home (home != {}) renders the per-building reveal/badge into `frame`; any other map renders the
