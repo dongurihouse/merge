@@ -61,11 +61,11 @@ const GEN_CELL := Vector2i(4, 3)          # the starter satchel (kept for the op
 # any merge opens an eligible neighbour). 0 = open at start (the center 3×3 + the generator).
 # A hand-tuned diamond: the L1 inner frontier (T37 — where the merge verb is taught; the board MUST
 # grow before L2, or a cramped 9-cell board strands on unlucky seeds — see seed 123) radiates to L22
-# at the four corners (the last cells to open). RE-TUNED for the flat §exp curve (LEVEL_BASE_EXP=420,
-# LEVEL_STEP_EXP=0 → ~35 levels for the whole 5-map game): the board grows ~half by the end of map 1,
-# ~87% by the end of map 2, and the outer two rings complete during MAP 3 (L18 / L22) — so "fill the
-# board" is a map-3 beat, not something finished in map 1 (the old L12 corner landed in early map 2).
-# Map→level bands: map1 L1–9 · map2 L9–17 · map3 L17–25 · map4 L25–33 · map5 L33–35. THIS GRID IS THE
+# at the four corners (the last cells to open). Under the §exp ONE-REGION-PER-LEVEL curve (front-loaded
+# LEVEL_BASE_EXP/LEVEL_STEP_EXP → the whole 5-zone game ≈ L26, one region per level from L2): with ~6/4/7/4/4
+# spots, the zones span roughly map1 L2–7 · map2 L8–11 · map3 L12–18 · map4 L19–22 · map5 L23–26, so the
+# board's inner rings open across maps 1–3 and the L22 corners finish near the end of MAP 4. The grove_sim
+# confirms the board drains smoothly to zero sealed cells with ZERO jams across the arc. THIS GRID IS THE
 # OWNER'S FEEL DIAL — re-tune it; the engine reads it via G.cell_min_level(). 9 rows × 7 cols, indexed
 # [row][col] = [cell.x][cell.y].
 const MIN_LEVEL := [
@@ -95,9 +95,11 @@ const QUEST_CLICKS_PER_EXP := 7           # 1 exp (★) ≈ 7 clicks of effort (
 const QUEST_CLICKS_PER_COIN := [8, 7, 6, 5, 4]   # clicks-per-coin per map (Farmhouse→Meadow); later maps pay more coins/click
 const QUEST_COIN_DEPTH := 1.05            # per-tier coin multiplier — a deep merge's click is worth ~1.5× a shallow one across the band
 const COINS_PER_ACORN := 1024             # acorn↔coin value peg (acorns precious; earned only at milestones / bought)
-# The whole-game effort budget: clicks to finish ALL maps (map 5 complete). Drives the unlock ladder +
-# the level curve — both are spread across this budget (total exp = ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP).
-const ENDGAME_CLICKS := 100000            # 100K-click game (docs/economy_model.html is the live calculator)
+# The whole-game effort budget: clicks to finish ALL maps (last region restored). COMPRESSED 100K → 30K
+# (~3–4 weeks of daily play, not many months). The unlock ladder no longer reads this directly (it is one
+# region per level now); the LEVEL curve below is sized so the last region lands near this budget, so this
+# stays the single "how long is the whole arc" anchor (docs/economy_model.html recalculates from it).
+const ENDGAME_CLICKS := 30000             # 30K-click game (docs/economy_model.html is the live calculator)
 # §7 ask shape (a regular quest is a SINGLE ask; tier band, count, line weighting, featured) — PROVISIONAL, sim-tuned.
 const QUEST_TIER_BASE := 4                # floor of the asked-tier band (no quest asks below t4); band is always [4..TOP_TIER]
 const QUEST_LEVELS_PER_TIER := 2          # the asked-tier bell's CENTRE climbs +1 every N levels, up to the band midpoint
@@ -318,20 +320,21 @@ static func _apply_vine_maps(maps: Array) -> Array:
 	return maps
 
 
-const LEVEL_WATER_GIFT := 20
-# §map-unlock — the per-spot exp threshold ladder (owner pick: option C). The first N-1 maps are CONTENT
-# zones that split the whole-game exp budget (= ENDGAME_CLICKS / QUEST_CLICKS_PER_EXP) EVENLY; the LAST map
-# (the Gate finale) is a small final CAP worth GATE_CAP_FRACTION of a content zone — so the climax is a
-# short push right after the Mill, not a ~20% dead stretch. Within a zone the spots divide its share
-# evenly. EVERY spot costs one even increment — the FIRST unlock is not free on a fresh save (it lands at
-# cz/n of effort); the last spot lands at the full budget (~14,286 exp).
-# No per-spot const — the budget + map shape drive it (content.gd: spot_unlock_exp / unlock_content_zone_exp).
-const GATE_CAP_FRACTION := 0.25   # the Gate finale = this fraction of a content zone (≈ one content spot)
-# The one uncapped LEVEL clock (cosmetic badge + per-level gift), derived from the same budget. EVEN curve
-# (owner pick — replaces the front-loaded geometric): every level costs the SAME exp, so each takes equal
-# wall-clock time and levels spread evenly across the maps (~8 per content zone). ~L35 at the 100K endgame.
-const LEVEL_BASE_EXP := 420       # exp PER level (≈ 2,940 clicks ≈ 24 min each) — flat
-const LEVEL_STEP_EXP := 0         # 0 = perfectly even (raise for a gentle ramp; cost(n)=BASE+(n-1)*STEP)
+# Level-up energy gift. Loosened (20 → 40) to LOOSEN THE EARLY GAME: with the front-loaded level curve below,
+# week-1 level-ups are frequent, so a bigger gift surges water early then tapers automatically as leveling
+# slows — early leveling is actually FELT without permanently changing the cap/regen monetization socket.
+const LEVEL_WATER_GIFT := 40
+# §map-unlock — the per-spot exp threshold ladder is now ONE REGION PER LEVEL (content.gd: spot_unlock_level
+# / spot_unlock_exp): every spot, in global order, unlocks at its own consecutive level (first region at L2,
+# next at L3, …). So each level-up grants exactly one region and zones map cleanly onto a band of levels —
+# no per-spot const, no even-split budget math, no finale cap. The level curve below is what paces it.
+# The one uncapped LEVEL clock (cosmetic badge + per-level gift). FRONT-LOADED arithmetic curve: early levels
+# are cheap so the first week delivers a region (and a level-up beat) every half-day or so; later levels cost
+# more (STEP) for a gentle ramp. cost(n) = LEVEL_BASE_EXP + (n-1)*LEVEL_STEP_EXP. Sized so the last region
+# (~L26 at 25 spots) lands near the compressed click budget — the whole 5-zone arc in ~3–4 weeks of daily
+# play, vs the old flat curve's ~L35 / many-month grind. RE-TUNE on grove_sim (the pacing sim is the judge).
+const LEVEL_BASE_EXP := 40        # exp for the FIRST level-up (≈ 280 clicks ≈ a couple minutes) — cheap early
+const LEVEL_STEP_EXP := 3         # each level costs +3 more than the last (gentle ramp; 0 = perfectly even)
 
 # ambient life + board gameplay tuning
 const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)

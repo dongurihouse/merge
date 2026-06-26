@@ -73,7 +73,6 @@ static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at lo
 const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
 const ENDGAME_CLICKS = D.ENDGAME_CLICKS
-const GATE_CAP_FRACTION = D.GATE_CAP_FRACTION
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
 const CHARACTER_TYPES = D.CHARACTER_TYPES
 const CHARACTER_CAP = D.CHARACTER_CAP
@@ -742,33 +741,28 @@ static func exp_at_level(level: int) -> int:
 	var m := level - 1                                   # number of completed level-ups
 	return m * LEVEL_BASE_EXP + (m * (m - 1) / 2) * LEVEL_STEP_EXP
 
-# --- the per-spot unlock-threshold ladder (§map-unlock) — OPTION C --------------------
-# The first N-1 maps are CONTENT zones splitting the budget evenly; the last map is a small finale CAP
-# (GATE_CAP_FRACTION of a content zone). One content zone's exp share:
-static func unlock_content_zone_exp() -> float:
-	var n_content: int = maxi(1, MAPS.size() - 1)
-	return (float(ENDGAME_CLICKS) / float(QUEST_CLICKS_PER_EXP)) / (float(n_content) + GATE_CAP_FRACTION)
+# --- the per-spot unlock ladder (§map-unlock) — ONE REGION PER LEVEL --------------------
+# Every restoration spot, taken in GLOBAL order (all of map 0's spots, then map 1's, …), unlocks at its
+# OWN consecutive level: the first region at L2, the next at L3, and so on. So each level-up grants exactly
+# ONE region — the "unlock on every new level" rhythm — regardless of how many spots a zone has (no more
+# every-OTHER-level in thin zones, no finale collapsing several regions onto one level). Live claiming
+# floors to the level's start (spot_unlock_exp = exp_at_level(level)); the FRONT-LOADED level curve
+# (grove_data LEVEL_BASE_EXP / LEVEL_STEP_EXP) is what makes the early regions cheap and sizes the whole
+# arc against the click budget. The first region sits at L2 (not L1) so it is a small EARNED first beat —
+# a quest or two of effort — never free on a fresh save, never endgame-priced.
 
-# Raw authoring ladder for spot k of map z. A CONTENT map z occupies the band [z·cz, (z+1)·cz]
-# and its spots divide it evenly; the FINALE map occupies the small cap band at the end.
-# This raw value chooses the required LEVEL; live claiming floors to exp_at_level(required_level)
-# so a zone opens as soon as the player reaches that level.
-static func spot_unlock_raw_exp(z: int, k: int) -> int:
-	var cz := unlock_content_zone_exp()
-	var last: int = MAPS.size() - 1
-	var n: int = maxi(1, MAPS[z].spots.size())
-	if z < last:
-		return int(round(z * cz + (k + 1) * (cz / float(n))))
-	# finale cap: band [last·cz, last·cz + GATE_CAP_FRACTION·cz] (ends at the full budget)
-	var cap := GATE_CAP_FRACTION * cz
-	return int(round(last * cz + (k + 1) * (cap / float(n))))
+# The 0-based position of spot k of map z in the global spot order (map 0's spots first, then map 1's, …).
+static func global_spot_index(z: int, k: int) -> int:
+	var idx := 0
+	for zz in z:
+		idx += MAPS[zz].spots.size()
+	return idx + k
 
+# The LEVEL at which spot k of map z unlocks = its global order position, offset so the first region is L2.
 static func spot_unlock_level(z: int, k: int) -> int:
-	return level_for_exp(spot_unlock_raw_exp(z, k))
+	return 2 + global_spot_index(z, k)
 
-# Cumulative exp threshold at which spot k of map z becomes claimable. The authored raw threshold
-# maps to a level, then floors to that level's start; e.g. Farm 6/7 maps to L7 and unlocks at
-# exp_at_level(7), not at the middle of L7.
+# Cumulative exp threshold at which spot k of map z becomes claimable = the START of its unlock level.
 static func spot_unlock_exp(z: int, k: int) -> int:
 	return exp_at_level(spot_unlock_level(z, k))
 
