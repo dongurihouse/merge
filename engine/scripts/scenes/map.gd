@@ -1654,13 +1654,14 @@ func _open_residents_dialog() -> void:
 			return
 		for c in cc.get_children():
 			c.queue_free()
-		var dialog: Control = Kit.dialog_frame(_build_residents_body(map_id, width), width, {
-			"banner_text": String(G.MAPS[_map_idx].name),
-			"banner_icon_id": "leaf",
-			"card_art": true,
-			"on_close": func() -> void: _close_residents_dialog(),
-			"list_max_h": get_viewport_rect().size.y * 0.72,
-		})
+		# the SHARED standard dialog face (border / banner ribbon / ✕ / slices), workbench-tuned — same as
+		# mail / shop / settings — so the placement dialog matches the rest, then the residents-specific bits.
+		var fo: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		fo["banner_text"] = String(G.MAPS[_map_idx].name)
+		fo["banner_icon_id"] = "leaf"
+		fo["on_close"] = func() -> void: _close_residents_dialog()
+		fo["list_max_h"] = get_viewport_rect().size.y * 0.72
+		var dialog: Control = Kit.dialog_frame(_build_residents_body(map_id, width), width, fo)
 		cc.add_child(dialog)
 		FX.pop_in(dialog)
 	_residents_rebuild.call()
@@ -1971,14 +1972,13 @@ func _open_expedition() -> void:
 		cancel.pressed.connect(func() -> void: overlay.queue_free())
 		actions.add_child(cancel)
 		col.add_child(actions)
-		# the shared parchment dialog frame (banner ribbon + ✕), as mail/shop/settings wear
-		var dialog: Control = Kit.dialog_frame(col, width, {
-			"banner_text": "Load out",
-			"banner_icon_id": "leaf",
-			"card_art": true,
-			"on_close": func() -> void: overlay.queue_free(),
-			"list_max_h": get_viewport_rect().size.y * 0.7,
-		})
+		# the SHARED standard dialog face (workbench-tuned border / banner / ✕), as mail/shop/settings wear
+		var fo: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+		fo["banner_text"] = "Load out"
+		fo["banner_icon_id"] = "leaf"
+		fo["on_close"] = func() -> void: overlay.queue_free()
+		fo["list_max_h"] = get_viewport_rect().size.y * 0.7
+		var dialog: Control = Kit.dialog_frame(col, width, fo)
 		cc.add_child(dialog)
 		FX.pop_in(dialog)
 	rebuild.fn.call()
