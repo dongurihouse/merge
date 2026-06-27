@@ -20,6 +20,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home 
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
@@ -681,18 +682,19 @@ func _settle(except: Control = null) -> void:
 func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.position = start
 	node.pivot_offset = node.size * 0.5
-	var span := absf(dest.x - start.x)
-	var peak := Vector2((start.x + dest.x) * 0.5, minf(start.y, dest.y) - maxf(_cell * 0.7, span * 0.28))
+	# the flung tile TOSSES up-and-over through the unified MOVE verb ("arc": up-leg eases out, down-
+	# leg accelerates into the target). The ±22° spin (the fling's signature) rides as a SEPARATE
+	# parallel tween — Feel.move's lean verb skips "arc" so it never fights this spin.
+	var t := Feel.move(node, start, dest, "arc")
+	if t == null:
+		return
 	var spin := deg_to_rad(22.0) * (1.0 if dest.x >= start.x else -1.0)
-	var t := node.create_tween()
-	t.tween_property(node, "position", peak, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(node, "rotation", spin, 0.16).set_trans(Tween.TRANS_SINE)
-	t.tween_property(node, "position", dest, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.parallel().tween_property(node, "rotation", 0.0, 0.18).set_trans(Tween.TRANS_SINE)
+	var st := node.create_tween()
+	st.tween_property(node, "rotation", spin, Tune.MOVE_ARC_T_UP).set_trans(Tween.TRANS_SINE)
+	st.tween_property(node, "rotation", 0.0, Tune.MOVE_ARC_T_DOWN).set_trans(Tween.TRANS_SINE)
 	# JUICE: the fling TOUCHES DOWN — a discrete (loud) land. The unified Feel.land verb owns the
-	# impact squash + small flash + micro-puff + touch sound + haptic (replaces the old inline squash).
+	# impact squash + small flash + micro-puff + touch sound + haptic.
 	t.tween_callback(func() -> void:
 		if node and is_instance_valid(node):
 			Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, false))
@@ -726,18 +728,17 @@ func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.position = Vector2(rest.x, from_y)
 	node.pivot_offset = node.size * 0.5
-	var dist := maxf(0.0, rest.y - from_y)
-	var dur := clampf(0.10 + dist / maxf(1.0, _cell * float(G.ROWS)) * 0.24, 0.10, 0.36)
-	var t := node.create_tween()
-	t.tween_property(node, "position:y", rest.y, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	# JUICE: a spawn fall or a gravity settle drops a whole COLUMN of tiles at once — a QUIET land
-	# (squash only, no flash/puff/sound/haptic) so a settling column can't fire N flashes + N poofs
-	# simultaneously. Replaces the old inline impact squash.
-	t.tween_callback(func() -> void:
-		if node and is_instance_valid(node):
-			Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, true))
+	# the tile FALLS to its resting cell through the unified MOVE verb ("fall": gravity drop, EASE_IN,
+	# distance-scaled timing — the same weight the inline tween gave). fall is the perf-critical path
+	# (a whole column settles at once), so Feel.move makes NO trail ghosts on it and the tiles already
+	# carry their piece_view ContactShadow (so no cast shadow either). On landing, chain a QUIET land
+	# (squash only — no flash/puff/sound/haptic) so a settling column can't fire N effects at once.
+	var t := Feel.move(node, Vector2(rest.x, from_y), rest, "fall")
+	if t != null:
+		t.tween_callback(func() -> void:
+			if node and is_instance_valid(node):
+				Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, true))
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:

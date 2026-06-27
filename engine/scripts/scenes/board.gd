@@ -2530,10 +2530,15 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)
 	piece_nodes.erase(a)
 	animating = true
-	var t := node.create_tween()
-	var slide_ease := Tween.EASE_IN if Features.on("merge_impact") else Tween.EASE_OUT   # accelerate INTO the hit
-	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(slide_ease)
-	t.tween_callback(_after_merge.bind(a, b, produced, node))
+	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
+	# impact). The board piece already carries its own piece_view ContactShadow, so Feel.move detects
+	# it and adds NO cast shadow (no double). _after_merge stays the completion callback — chained on
+	# the returned tween so the merge still resolves exactly when the slide lands.
+	var t := Feel.move(node, node.position, _cell_pos(b), "slide")
+	if t != null:
+		t.tween_callback(_after_merge.bind(a, b, produced, node))
+	else:
+		_after_merge(a, b, produced, node)   # node went invalid mid-merge — resolve immediately
 
 func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> void:
 	if is_instance_valid(moved):
