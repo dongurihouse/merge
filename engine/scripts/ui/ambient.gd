@@ -93,7 +93,7 @@ static func _make_resident(_i: int, type_id: String, tier: int) -> Control:
 	ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ch.set_meta("resident", type_id)
 	ch.set_meta("tier", tier)
-	var path := G.resident_art(type_id)
+	var path := G.resident_art(type_id, tier)
 	if path != "" and ResourceLoader.exists(path):
 		var tex := TextureRect.new()
 		tex.texture = load(path)

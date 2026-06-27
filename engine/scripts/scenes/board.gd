@@ -39,9 +39,19 @@ const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
+const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
+const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
+# Responsive band caps (the bottom-anchored layout). The quest bar scales with screen HEIGHT (taller on
+# tall screens, to absorb spare vertical room) but is bounded; the bottom bar is bounded so it never
+# balloons on wide screens. HUD_CLEARANCE is the top reserve so the quest fence clears the HUD pills.
+const QUEST_H_MIN := 150.0
+const QUEST_H_MAX := 300.0
+const BOTTOM_BAR_MIN := 150.0
+const BOTTOM_BAR_MAX := 200.0
+const BOTTOM_BTN_MIN := 110.0
+const HUD_CLEARANCE := 150.0     # top reserve below the HUD pills before the quest fence (tunable)
 const DRAG_HILITE := Color(1.12, 1.12, 1.12, 1.0)   # a drop-target well's brighten while a piece is dragged
 const FENCE_H := 215.0           # the quest fence band above the grid (wide giver boxes)
-const BOARD_STACK_TOP_SPACER := 44.0 # top offset for the quest fence + board stack under the pinned HUD
 const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · info bar · Bag); runtime follows workbench button px
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
@@ -49,7 +59,9 @@ const ACTION_BAR_SEPARATOR := "shared/action_separator.png"
 const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
-const GIVER_COLS := 4            # cards across the FULL width — each is ~25% of the screen (Purge card + up to 3 quests, or 4 quests)
+const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
+const MAX_QUEST_CARDS := 5       # the fence shows at most this many cards (purge + quests); extra width stays empty on the right
+const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
@@ -107,10 +119,9 @@ var _grown_cells: Array = []       # cells of generators that just GREW IN this 
 # (the §6 burst buy pill and the W3 merchant drag sell-tag were the dark stat_chip pill — retired
 #  T48 ahead of the UI redesign; the §6 boost coin sink stays in code, see _activate_gen_boost)
 var giver_bar: Control           # the quest fence (givers pop up over it)
-var _board_center: Control       # the CenterContainer holding the board (carries the saved vertical nudge)
+var _stack: VBoxContainer         # the bottom-anchored quest+board stack (region set in _recompute_board_geometry)
+var _board_center: Control       # the CenterContainer holding the board, bottom-aligned in the stack
 var _fence_h := FENCE_H          # runtime quest-row height, optionally driven by hud_layout % screen height
-var _place_fence_dy := 0.0       # saved vertical nudge for the quest fence (fraction of viewport height)
-var _place_board_dy := 0.0       # saved vertical nudge for the board (fraction of viewport height)
 var _board_scale := 1.0          # saved UI-Workbench board size (board.scale; 1.0 = the responsive full-fit)
 var _board_item_inset := 0.16    # saved piece-in-cell inset (from Slot-cell content_frac; 0.16 = the old shipped look)
 var giver_chips: Array = []        # [{chip, qi}]
@@ -159,6 +170,7 @@ var _action_bar_relayout_queued := false
 var _last_action_bar_view_size := Vector2.ZERO
 var _board_reflow_queued := false           # debounce for the board-grid reflow on a window resize
 var _last_board_view_size := Vector2.ZERO
+var _landscape := false                      # display orientation: wide viewports render the 7×9 model transposed to 9×7
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
@@ -192,19 +204,14 @@ func _ready() -> void:
 
 	var root := VBoxContainer.new()
 	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	root.alignment = BoxContainer.ALIGNMENT_BEGIN   # pin the stack to the top so quests sit right above the grid (no centred dead band)
+	# Bottom-anchored: the quest fence + board pack to the BOTTOM of the stack region (just above the
+	# bottom bar); any spare vertical room falls to the TOP (below the HUD), instead of a dead gap under
+	# the board. The region's top/bottom offsets are set in _recompute_board_geometry (they depend on the
+	# bottom bar height and recompute on a live resize).
+	root.alignment = BoxContainer.ALIGNMENT_END
 	root.add_theme_constant_override("separation", 10)
 	add_child(root)
-
-	# the fence band lives BELOW the pinned HUD chips, never under them
-	# (44, was 54 — raised the fence + board 10px higher under the HUD chips)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, BOARD_STACK_TOP_SPACER + Look.safe_top(self))
-	root.add_child(spacer)
-
-	# The chapter ribbon is retired (T49 — progression is one `level` clock, merge_spec §3;
-	# the player-facing "Chapter N" title is gone per the UI-language redesign §6). The
-	# top-bar center stays empty, which also reclaims vertical space for the fence below.
+	_stack = root
 
 	# the quest fence: a full-width wall the giver animals pop up over, each
 	# with a big cream ask-card (item + progress + star reward; ✓ when ready)
@@ -218,29 +225,18 @@ func _ready() -> void:
 	# jump, and it lights up (a gold ready-dot + a gentle breathe) the moment a spot is affordable.
 
 	var center := CenterContainer.new()
-	# the grid pins DIRECTLY under the quest fence (no vertical centring) — quests sit right
-	# above the board; the leftover meadow falls below toward the bottom nav.
-	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	center.size_flags_vertical = Control.SIZE_SHRINK_END   # sit at the bottom of the END-aligned stack
 	root.add_child(center)
 	_board_center = center
 	board_area = Control.new()
 	# pick up any saved UI-Workbench board design (gap / frame / scale / item) BEFORE the fit is computed,
 	# so the gutter + frame budgets and the final cell size all reflect it. Absent → today's defaults.
 	_load_board_config()
-	# size the cells + quest band to the current viewport. WIDTH-governed (see _recompute_board_geometry);
-	# recomputed again on a live window resize so a resized desktop window reflows instead of clipping.
+	# size the cells + quest band to the current viewport AND position the bottom-anchored stack region.
+	# Recomputed on a live window resize so a resized desktop window reflows instead of clipping.
 	_recompute_board_geometry()
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
-
-	# (the wood-branch divider that used to sit between the quest fence and the grid is retired —
-	# the grid pins directly under the fence now.)
-
-	# The quest fence + the board carry an optional saved vertical nudge (board_layout.json).
-	# Applied AFTER the VBox lays out, per sort, so the offsets are independent and the responsive
-	# layout is untouched. No file / 0 → identical render.
-	_load_placement()
-	root.sort_children.connect(_apply_placement)
 
 	# the bag is no longer an always-present row; it is a single circular well in the bottom nav
 	# (tap → full bag overlay, drag a board item onto it → stash). See _make_bag_button.
@@ -337,11 +333,37 @@ func _hint_pair() -> Array:
 			FX.rock(n, HINT_ROCK_DEG, HINT_ROCK_CYCLE, HINT_ROCK_CYCLES)   # W1: gentle rock
 	return pair
 
+# --- display orientation -------------------------------------------------------------
+# The DATA model is always G.COLS×G.ROWS (7 wide × 9 tall). On a WIDE viewport we render it TRANSPOSED —
+# the same cells drawn 9 across × 7 down, items still upright — so the board fills a landscape area. The
+# model, saves, generators, and merge/adjacency logic never change; only cell→pixel mapping (and its
+# inverse) and the board's pixel size swap. _landscape is recomputed (with hysteresis) per geometry pass.
+func _compute_landscape() -> bool:
+	var v := _view_size()
+	var a := v.x / maxf(1.0, v.y)
+	# hysteresis: hold the current orientation across a deadband so a resize near the cutoff is stable.
+	if _landscape:
+		return a >= ROTATE_ASPECT - ROTATE_DEADBAND
+	return a > ROTATE_ASPECT + ROTATE_DEADBAND
+
+# Cells ACROSS / DOWN as drawn: portrait 7×9, landscape (transposed) 9×7.
+func _disp_cols() -> int:
+	return G.ROWS if _landscape else G.COLS
+
+func _disp_rows() -> int:
+	return G.COLS if _landscape else G.ROWS
+
 func _board_w() -> float:
-	return G.COLS * csz + (G.COLS - 1) * GAP
+	return _disp_cols() * csz + (_disp_cols() - 1) * GAP
 
 func _board_h() -> float:
-	return G.ROWS * csz + (G.ROWS - 1) * GAP
+	return _disp_rows() * csz + (_disp_rows() - 1) * GAP
+
+# Live aspect + grid read-out for the debug overlay (you read this to pick the rotation cutoff).
+func debug_layout_info() -> String:
+	var v := _view_size()
+	return "aspect %.0f×%.0f = %.3f   grid %d×%d   %s" % [
+		v.x, v.y, v.x / maxf(1.0, v.y), _disp_cols(), _disp_rows(), ("LANDSCAPE" if _landscape else "PORTRAIT")]
 
 # Size the cell grid + quest band to the CURRENT viewport, and resize the board containers to match.
 # Shared by the initial build and the live window-resize reflow so the two can never drift. The board
@@ -349,26 +371,29 @@ func _board_h() -> float:
 # CAP so on wide/short screens the board never grows past the vertical budget into the quest/bottom
 # rows. Assumes _load_board_config() has already loaded GAP / FRAME_OUT / _board_scale.
 func _recompute_board_geometry() -> void:
+	_landscape = _compute_landscape()   # pick orientation FIRST (the size + cell mapping below read it)
 	_fence_h = _quest_row_h_px()
 	if giver_bar != null and is_instance_valid(giver_bar):
 		giver_bar.custom_minimum_size = Vector2(0, _fence_h)
 	var view := _view_size()
 	var bottom_bar_h := _bottom_bar_h_px(_bottom_button_px())
-	# Reserve the REAL height of everything stacked around the grid, so the board is capped to the
-	# space that actually remains. Both the quest fence and the bottom bar GROW on wide screens; an
-	# earlier fixed baseline under-counted them there and the grid ran under the bottom bar (clipped).
-	# From the top: the HUD spacer (BOARD_STACK_TOP_SPACER + safe top), then the quest fence, then the
-	# grid, with the VBox's 10px separation between each; the bottom bar floats 14px + safe-bottom above
-	# the screen edge. BOARD_BREATHING keeps the grid from kissing the fence / bar.
 	const VBOX_SEP := 10.0
 	const BOARD_BREATHING := 12.0
-	var reserved_rows_h := BOARD_STACK_TOP_SPACER + Look.safe_top(self) + VBOX_SEP \
-		+ _fence_h + VBOX_SEP \
-		+ bottom_bar_h + 14.0 + Look.safe_bottom(self) + BOARD_BREATHING
+	# The bottom-anchored stack region: top below the HUD, bottom just above the floating bottom bar.
+	# The quest fence + board pack to the BOTTOM of this region (spare room falls to the top).
+	var top_reserve := HUD_CLEARANCE + Look.safe_top(self)
+	var bottom_reserve := bottom_bar_h + 14.0 + Look.safe_bottom(self)
+	if _stack != null and is_instance_valid(_stack):
+		_stack.offset_top = top_reserve
+		_stack.offset_bottom = -(bottom_reserve + BOARD_BREATHING)   # leave a small gap above the bottom bar
+	# Cap the board to the room that actually remains inside the region after the quest fence + a gap, so
+	# the grid never runs into the fence or the bottom bar regardless of screen shape.
+	var reserved_rows_h := top_reserve + _fence_h + VBOX_SEP + bottom_reserve + BOARD_BREATHING
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the frame +
 	# last column never run off-screen (the prior calc sized only the cells → overflow).
-	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
-	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	# use the DISPLAY dims (transposed on a landscape viewport) so the cells fill the screen in either orientation.
+	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (_disp_cols() - 1) * GAP) / float(_disp_cols())
+	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (_disp_rows() - 1) * GAP) / float(_disp_rows())
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within that space — the in-game
 	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
 	csz = minf(w_csz, h_csz) * _board_scale
@@ -428,36 +453,9 @@ func _apply_board_config(b: Dictionary) -> void:
 	var content_pct := float(b.get("content_frac", b.get("item", 68.0)))
 	_board_item_inset = clampf((1.0 - content_pct / 100.0) / 2.0, 0.0, 0.45)
 
-# --- board layout offsets ------------------------------------------------------------
-const PLACEMENT_PATH := "res://games/grove/assets/board_layout.json"
-
-# Read the saved fence/board vertical nudges. Missing file or 0 → no offset (today's layout).
-func _load_placement() -> void:
-	if not FileAccess.file_exists(PLACEMENT_PATH):
-		return
-	var d = JSON.parse_string(FileAccess.get_file_as_string(PLACEMENT_PATH))
-	if typeof(d) == TYPE_DICTIONARY:
-		_place_fence_dy = float(d.get("fence_dy", 0.0))
-		_place_board_dy = float(d.get("board_dy", 0.0))
-
-# Shift the fence + board by their saved fractions AFTER the VBox has positioned them, so the
-# nudges are independent of each other and the responsive sizing is unchanged. Runs per sort.
-func _apply_placement() -> void:
-	if _place_fence_dy == 0.0 and _place_board_dy == 0.0:
-		return
-	var h := get_viewport_rect().size.y
-	if giver_bar != null:
-		giver_bar.position.y += _place_fence_dy * h
-	if _board_center != null:
-		var dy := _place_board_dy * h
-		# The saved nudge is a fraction of viewport height, tuned at the design aspect. On wide/short
-		# screens the grid is already height-capped, so the raw downward nudge would shove its bottom
-		# rows under the floating bottom bar (the reported clip). Cap a DOWNWARD nudge to the room that
-		# actually remains above the bar; an upward nudge is left free.
-		if dy > 0.0 and bottom_bar != null and is_instance_valid(bottom_bar):
-			var room := bottom_bar.get_global_rect().position.y - _board_center.get_global_rect().end.y
-			dy = minf(dy, maxf(0.0, room - 8.0))
-		_board_center.position.y += dy
+# (The old per-axis fence/board vertical NUDGES — board_layout.json's fence_dy/board_dy, applied on
+# sort — were retired with the bottom-anchored layout: the stack now packs to the bottom and the board
+# is sized to the room between the HUD and bottom bar, so a manual nudge is no longer needed.)
 
 # --- state ----------------------------------------------------------------------
 
@@ -791,14 +789,16 @@ func _rebuild_givers() -> void:
 	giver_bar.add_child(wall)
 	giver_bar.move_child(wall, 0)
 	# (the full-width quest-band Panel is removed — the cards ride directly on the painted backdrop.)
-	# The fence is FULL-WIDTH: GIVER_COLS cards at ~25% each, inset QUEST_SIDE on each edge with QUEST_GAP
-	# between them. A "Purge" card takes the FIRST slot when the player can afford to unlock a region
-	# (_show_purge_card) — so the fence is Purge + up to 3 quests, otherwise up to 4 quests.
+	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
+	# right, as many as fit up to MAX_QUEST_CARDS. Wide screens show more cards and leave the right empty
+	# (rather than stretching a few); narrow screens fit fewer, bigger cards. Purge takes the first slot.
 	var span := giver_bar.size.x
 	if span <= 0.0:
 		span = get_viewport_rect().size.x
-	var cols := GIVER_COLS
-	var stand_w := (span - 2.0 * QUEST_SIDE - float(cols - 1) * QUEST_GAP) / float(cols)
+	var stand_w := STAND_W_PER_FENCE * _fence_h
+	var avail := span - 2.0 * QUEST_SIDE
+	var fit := int(floorf((avail + QUEST_GAP) / (stand_w + QUEST_GAP)))
+	var slots := clampi(fit, 1, MAX_QUEST_CARDS)
 	var row := HBoxContainer.new()
 	row.anchor_left = 0.0
 	row.anchor_right = 1.0
@@ -806,13 +806,13 @@ func _rebuild_givers() -> void:
 	row.anchor_bottom = 1.0
 	row.offset_left = QUEST_SIDE
 	row.offset_right = -QUEST_SIDE
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
 	giver_bar.add_child(row)
 	giver_bar.move_child(row, 1)
 	if show_purge:
 		row.add_child(_make_purge_card(stand_w))
-	var quest_slots := cols - (1 if show_purge else 0)   # Purge eats one slot → only 3 quests beside it
+	var quest_slots := slots - (1 if show_purge else 0)
 	for k in range(mini(quest_slots, qidx.size())):
 		var qi: int = qidx[k]
 		var stand := _make_giver_stand(qi, quests[qi], stand_w)
@@ -1131,10 +1131,18 @@ func _make_boost_badge() -> Control:
 # --- board rendering --------------------------------------------------------------
 
 func _cell_pos(cell: Vector2i) -> Vector2:
-	return Vector2(cell.y * (csz + GAP), cell.x * (csz + GAP))
+	var step := csz + GAP
+	# landscape transposes the grid: model row drives X, model col drives Y (9 across × 7 down).
+	if _landscape:
+		return Vector2(cell.x * step, cell.y * step)
+	return Vector2(cell.y * step, cell.x * step)
 
 func _pos_to_cell(p: Vector2) -> Vector2i:
-	return Vector2i(clampi(int(p.y / (csz + GAP)), 0, G.ROWS - 1), clampi(int(p.x / (csz + GAP)), 0, G.COLS - 1))
+	var step := csz + GAP
+	# inverse of _cell_pos; the returned cell is always a MODEL cell (x in 0..ROWS-1, y in 0..COLS-1).
+	if _landscape:
+		return Vector2i(clampi(int(p.x / step), 0, G.ROWS - 1), clampi(int(p.y / step), 0, G.COLS - 1))
+	return Vector2i(clampi(int(p.y / step), 0, G.ROWS - 1), clampi(int(p.x / step), 0, G.COLS - 1))
 
 func _rebuild_all() -> void:
 	_grow_generators()                        # a staged second generator grows in once its level is reached
@@ -1497,44 +1505,38 @@ func _build_bag_box(px: float, action_opts: Dictionary = {}) -> Control:
 	return bag_btn
 
 func _bottom_button_px() -> float:
+	var frac := 0.15
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return BOTTOM_BTN_PX
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	return maxf(1.0, roundf(_view_size().x * float(layout.get("button_w_frac", 0.15))))
+	if Kit != null:
+		frac = float(Kit.hud_layout_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("button_w_frac", 0.15))
+	# Bounded: a min so it stays tappable on narrow screens, a max so it (and the bar) can't balloon on
+	# wide ones — capped to leave the bar within BOTTOM_BAR_MAX (button + pad).
+	return clampf(roundf(_view_size().x * frac), BOTTOM_BTN_MIN, BOTTOM_BAR_MAX - BOTTOM_BAR_PAD)
 
 func _bottom_bar_h_px(bottom_btn_px: float) -> float:
-	var fallback := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
+	var raw := maxf(BOTTOM_BAR_H, bottom_btn_px + BOTTOM_BAR_PAD)
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return fallback
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-	if not h.has("bottom_row_h_pct"):
-		return fallback
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
-	var frac := float(layout.get("bottom_row_h_frac", 0.0))
-	if frac <= 0.0:
-		return fallback
-	return maxf(bottom_btn_px, roundf(_view_size().y * frac))
+	if Kit != null:
+		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+		if h.has("bottom_row_h_pct"):
+			var frac := float(Kit.hud_layout_opts_from_config(cfg).get("bottom_row_h_frac", 0.0))
+			if frac > 0.0:
+				raw = maxf(bottom_btn_px, roundf(_view_size().y * frac))
+	# Capped: never too short to hold the wells, never tall enough to look weird on wide screens.
+	return clampf(raw, BOTTOM_BAR_MIN, BOTTOM_BAR_MAX)
 
 func _quest_row_h_px() -> float:
+	var frac := 0.13
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return FENCE_H
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-	if not h.has("quest_bar_h_pct"):
-		return FENCE_H
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
-	# The quest cards are 4-across the FULL screen width, so their width scales with view.x. The band
-	# height must scale with view.x too or the cards distort on off-design aspects. The saved
-	# quest_bar_h_pct is a %-of-HEIGHT knob at the design aspect; convert it to the matching %-of-WIDTH
-	# so the design-aspect look is identical and wider/narrower screens scale the band proportionally.
-	var design := Design.size()
-	var aspect := design.y / maxf(1.0, design.x)
-	var frac := float(layout.get("quest_bar_h_frac", FENCE_H / maxf(1.0, design.y)))
-	return maxf(1.0, roundf(_view_size().x * frac * aspect))
+	if Kit != null:
+		var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+		var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
+		if h.has("quest_bar_h_pct"):
+			frac = float(Kit.hud_layout_opts_from_config(cfg).get("quest_bar_h_frac", frac))
+	# Scale with screen HEIGHT (taller screens → taller band, absorbing spare vertical room) and clamp.
+	# Cards pack to fit the WIDTH (see _rebuild_givers), so the band height no longer keys off width.
+	return clampf(roundf(_view_size().y * frac), QUEST_H_MIN, QUEST_H_MAX)
 
 func _info_bar_w_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
@@ -2241,8 +2243,9 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 			giver_quests.append(quests[int(e.qi)])
 	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
 	var pool: Array = wanted if not wanted.is_empty() else opened
-	if pool.size() > G.POP_LINE_CAP:          # keep the board mergeable: pop at most POP_LINE_CAP lines
-		pool = pool.slice(0, G.POP_LINE_CAP)
+	var line_cap := G.pop_line_cap(_quest_map())   # staged: 2 on the zone-1 board, 3 from zone 2
+	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
+		pool = pool.slice(0, line_cap)
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()

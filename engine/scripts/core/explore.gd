@@ -13,7 +13,12 @@ extends RefCounted
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 
-# --- Loadout: coin-bought boosts, stacked and consumed per run (the recurring coin sink) ----------
+# §1 the DEFAULT MINIMUM coin cost to set off on an expedition — the acquisition coin SINK that gives the
+# residents economy a drain (placement/yield/sell only ADD coins; this is the only place they leave). The
+# loadout boosts stack ON TOP of this base. PROVISIONAL — the Habitat/economy sim tunes it.
+const MIN_COST := 150
+
+# --- Loadout: coin-bought boosts, stacked and consumed per run (added ON TOP of MIN_COST) ----------
 const LOADOUT := [
 	{"id": "time",  "name": "Lantern",     "eff": "+15s time",        "cost": 120},
 	{"id": "drops", "name": "Trail mix",   "eff": "faster drops",     "cost": 100},
@@ -49,9 +54,13 @@ static func loadout_cost(equip: Dictionary) -> int:
 			tot += int(it.cost)
 	return tot
 
-## Can the player afford the chosen loadout right now?
+## Total coin cost to SET OFF: the default minimum (MIN_COST) plus any equipped boosts.
+static func start_cost(equip: Dictionary) -> int:
+	return MIN_COST + loadout_cost(equip)
+
+## Can the player afford to set off right now (base minimum + the chosen boosts)?
 static func can_start(equip: Dictionary) -> bool:
-	return loadout_cost(equip) <= Save.coins()
+	return start_cost(equip) <= Save.coins()
 
 ## Resolve the equipped boosts into the Rush's config (mirrors the prototype's cfg).
 static func rush_cfg(equip: Dictionary) -> Dictionary:

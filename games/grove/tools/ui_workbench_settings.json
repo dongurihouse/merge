@@ -215,9 +215,6 @@
 		"twinkle": 55.0
 	},
 	"hud_layout": {
-		"board_h_pct": 69.0,
-		"board_x_pct": 2.0,
-		"board_y_pct": 20.0,
 		"bottom_row_h_pct": 10,
 		"button_w_pct": 15.0,
 		"currency_area_pct": 75.0,
@@ -226,8 +223,6 @@
 		"info_bar_w_pct": 70.0,
 		"level_w_pct": 25.0,
 		"quest_bar_h_pct": 11.0,
-		"quest_bar_x_pct": 3.0,
-		"quest_bar_y_pct": 9.0,
 		"shadow": false,
 		"top_band_h_pct": 15.0
 	},

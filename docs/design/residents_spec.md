@@ -282,9 +282,11 @@ Things a vertical slice must respect, captured here rather than left implicit:
 - **Save shape & migration** — the habitat needs state today's per-map roster doesn't hold:
   **per-map capacity**, **per-map production state** (last-collect time + accrued), and an **in-hand
   holding area** (no slot limit) for box-spirits awaiting placement. The v1 roster **keys on (kind)**;
-  an instance stores **kind + housed tier**, and merges require matching **kind *and* tier**. Migration
+  an instance stores **kind + housed tier**, and merges require matching **kind *and* tier**. Housed
+  tier runs a **full 12-step ladder** (`RESIDENT_MAX_TIER = 12`, t1 → t12 by in-hand merges) — like the
+  produce lines, not the old "shallow 2–3" residents model. Migration
   is non-destructive — old per-map roster entries read as housed **tier-1** spirits, capacity defaults
-  to ~8. *(Later — the **rarity extension**: add a rarity axis and a **global collection** ledger,
+  to ~8 (a saved count array shorter than 12 right-pads with zeros on read — no schema bump). *(Later — the **rarity extension**: add a rarity axis and a **global collection** ledger,
   re-key the roster to **(kind, rarity)**, and gate merges on **kind + rarity**.)*
 - **The Rush is a net-new board engine** — the expedition board shares nothing with the home board: a
   separate grid model, an **auto-drop / no-Water spawn driver**, **tap-to-merge with random-line

@@ -12,6 +12,22 @@ func _initialize() -> void:
 	_test_residents_button()
 	finish()
 
+# §1 the roster CAP now RAMPS with restored spots (Habitat.cap → Content.resident_capacity), so a habitat
+# placement test needs an OPEN map. Restore one map's spots so its cap reaches DEFAULT_CAP.
+func _open_spots(z: int) -> void:
+	var g := Save.grove()
+	if not g.has("unlocks"):
+		g["unlocks"] = {}
+	for sp in G.MAPS[z].spots:
+		g["unlocks"][String(sp.id)] = true
+	Save.grove_write()
+
+# Override the reset to also open the HOME map (map 0) — most habitat mechanic tests place there. Tests
+# that touch other maps (move, parked-reward) open those explicitly; map 1 stays closed for the button test.
+func fresh(name: String) -> void:
+	super.fresh(name)
+	_open_spots(0)
+
 # --- the in-hand holding area + in-hand merge ------------------------------------
 func _test_hand() -> void:
 	fresh("habitat_hand")
@@ -31,7 +47,7 @@ func _test_hand() -> void:
 func _test_place() -> void:
 	fresh("habitat_place")
 	var mid := String(G.MAPS[0].id)   # "farmhouse"
-	ok(Habitat.cap(mid) == Habitat.DEFAULT_CAP, "a map starts with DEFAULT_CAP slots")
+	ok(Habitat.cap(mid) == Habitat.DEFAULT_CAP, "a fully-restored map reaches DEFAULT_CAP slots")
 	ok(Habitat.placed(mid).is_empty(), "a fresh map has no placed spirits")
 	Habitat.hand_add("moss")
 	ok(Habitat.place(mid, 0), "placing a hand spirit onto a map with room succeeds")
@@ -65,6 +81,7 @@ func _test_place() -> void:
 	fresh("habitat_move")
 	var a := String(G.MAPS[0].id)
 	var b := String(G.MAPS[1].id)
+	_open_spots(1)                       # open the move TARGET map so it has room
 	Habitat.hand_add("lantern", 3)
 	Habitat.place(a, 0)
 	ok(Habitat.move(a, 0, b), "moving a placed spirit between maps succeeds")
@@ -119,6 +136,7 @@ func _test_production() -> void:
 	# a PARKED map (not farmhouse) accrues but pays nothing yet
 	fresh("habitat_parked_reward")
 	var mp := String(G.MAPS[2].id)   # pond — parked reward
+	_open_spots(2)                       # open the parked map so placement has a slot
 	Habitat.hand_add("moss", 1)
 	Habitat.place(mp, 0, t0)
 	var diamonds_b := Save.diamonds()

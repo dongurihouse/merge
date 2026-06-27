@@ -23,7 +23,9 @@ const GEN_CELL = D.GEN_CELL
 const MIN_LEVEL = D.MIN_LEVEL
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
-const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines the single generator pops at once
+const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines popped at once (zone 2+)
+const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse) cap — the tiny FTUE board
+const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for the askable lines
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
 const QUEST_CLICKS_PER_EXP = D.QUEST_CLICKS_PER_EXP
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
@@ -44,11 +46,11 @@ const BOOST_BONUS = D.BOOST_BONUS
 const BOOST_TAPS = D.BOOST_TAPS
 const BOOST_COST = D.BOOST_COST
 const RESIDENT_MAX_TIER = D.RESIDENT_MAX_TIER
-const RESIDENT_CORE = D.RESIDENT_CORE
+const RESIDENT_SLOTS_MAX = D.RESIDENT_SLOTS_MAX
+const RESIDENT_LINES = D.RESIDENT_LINES
 const RESIDENT_ART = D.RESIDENT_ART
 const RESIDENT_BASE_COST = D.RESIDENT_BASE_COST
 const RESIDENT_PREMIUM_COST = D.RESIDENT_PREMIUM_COST
-const RESIDENT_SIGNATURE = D.RESIDENT_SIGNATURE
 const STARTER_ITEMS = D.STARTER_ITEMS
 const SELL_MAP_BAND = D.SELL_MAP_BAND
 const BUY_MARKUP = D.BUY_MARKUP
@@ -141,26 +143,31 @@ static func lines_for_map(roster: Array, map: int, level: int = APPEAR_ALL) -> A
 				out.append(int(l))
 	return out
 
-## The lines a regular quest may ASK while the player is in `map`: ALL OPENED lines — the current
-## map's live lines PLUS every earlier map's lines (maps 0..map). Old lines NO LONGER RETIRE from the
-## fence: a quest can ask any previously-opened line, so with several quests up the single generator
-## pops several lines at once (idea 3 — "any of the previously opened lines"). `level` still gates a
-## not-yet-grown generator's lines out (so the fence never asks for what nothing can produce yet).
+## The lines a regular quest may ASK while the player is in `map`: a ROLLING WINDOW of the last
+## LINE_WINDOW maps — the current map's live lines PLUS the previous LINE_WINDOW-1 maps' (maps
+## [map-LINE_WINDOW+1 .. map], clamped). Older lines RETIRE off the fence (→ the Collection), so the
+## live set stays small as the lifetime roster grows (NOT cumulative — the old "nothing retires" set is
+## retired). `level` still gates a not-yet-grown generator's lines out (the staging invariant).
 static func askable_lines(roster: Array, map: int, level: int = APPEAR_ALL) -> Array:
 	var out: Array = []
-	for z in map + 1:                            # every map reached so far (0..map)
+	for z in range(maxi(0, map - LINE_WINDOW + 1), map + 1):   # the rolling window: current + previous (LINE_WINDOW-1) maps
 		for l in lines_for_map(roster, z, level):
 			if not out.has(int(l)):
 				out.append(int(l))
 	out.sort()
 	return out
 
-## Lines that have RETIRED by the time you reach `map` — every earlier map's lines.
-## A retired line is never popped or asked again (it archives to the Collection — that
-## hook is a separate task; here it simply drops out of the live set).
+## The max distinct lines the single generator pops at once — STAGED by map: a tighter cap on the tiny
+## zone-1 (Farmhouse) board, the full cap from zone 2 on (the §6 rolling window is POP_LINE_CAP maps wide).
+static func pop_line_cap(map: int) -> int:
+	return POP_LINE_CAP_Z1 if map <= 0 else POP_LINE_CAP
+
+## Lines that have RETIRED by the time you reach `map` — the maps that have fallen OUT of the rolling
+## window (every map z < map-LINE_WINDOW+1). A retired line is never popped or asked again (it archives
+## to the Collection — that hook is a separate task; here it simply drops out of the live set).
 static func retired_lines(roster: Array, map: int) -> Array:
 	var out: Array = []
-	for z in map:
+	for z in maxi(0, map - LINE_WINDOW + 1):     # maps 0 .. (window start - 1) — everything before the window
 		for l in lines_for_map(roster, z):
 			if not out.has(int(l)):
 				out.append(int(l))
@@ -467,10 +474,33 @@ static func consume_boost_tap() -> void:
 # display rebuilds from it (stateless), with NO cap. A map is addressed by int `z`; the data
 # layer keys by map_id (MAPS[z].id). Cost: coins for core/non-premium, diamonds for premium.
 
-## Can the player welcome residents on map `z`? Only on a fully-completed map (its spots done,
-## recorded in `gates`) — the same bar as `map_complete`. (Welcoming lives on the finished map.)
-static func can_populate(z: int, unlocks: Dictionary, gates: Array) -> bool:
-	return map_complete(z, unlocks, gates)
+## Can the player welcome residents on map `z`? §1 EARLY POPULATION — opens as soon as the FIRST spot is
+## restored (not full completion). The roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as more spots are
+## restored (`resident_capacity`). `gates` is retained for signature compatibility (no longer gates the open).
+static func can_populate(z: int, unlocks: Dictionary, _gates: Array = []) -> bool:
+	return map_spots_restored(z, unlocks) >= 1
+
+## How many of map `z`'s spots are restored (claimed in `unlocks`). Drives both the early-population open
+## (≥1) and the roster capacity ramp.
+static func map_spots_restored(z: int, unlocks: Dictionary) -> int:
+	var n := 0
+	for sp in MAPS[z].spots:
+		if unlocks.has(String(sp.id)):
+			n += 1
+	return n
+
+## The resident SLOT capacity on map `z`: 1 at the first restored spot, ramping linearly to
+## RESIDENT_SLOTS_MAX once every spot is restored. 0 before any spot (roster not open). The LIVE roster is
+## the Habitat (engine/scripts/core/habitat.gd) — Habitat.cap reads this ramp; Habitat.is_full / .sell
+## enforce + free slots (a full roster is thinned by a merge or a sell, the live "throw away").
+static func resident_capacity(z: int, unlocks: Dictionary) -> int:
+	var total := int(MAPS[z].spots.size())
+	var done := map_spots_restored(z, unlocks)
+	if done <= 0 or total <= 0:
+		return 0
+	if total <= 1:
+		return RESIDENT_SLOTS_MAX
+	return 1 + int(floor(float(RESIDENT_SLOTS_MAX - 1) * float(done - 1) / float(total - 1)))
 
 ## The resident types OFFERED on map `z`: the shared core + that map's signature (each a
 ## Dictionary {id, name, premium?}). Delegates to the game data, addressed by the map's id.
@@ -488,9 +518,10 @@ static func resident_cost(type_def: Dictionary) -> Dictionary:
 		return {"currency": "diamonds", "cost": int(RESIDENT_PREMIUM_COST)}
 	return {"currency": "coins", "cost": int(RESIDENT_BASE_COST)}
 
-## The res:// art path for a resident `type_id` (reuses the CHARACTER_ART convention via Game.art).
-static func resident_art(type_id: String) -> String:
-	return Game.art(RESIDENT_ART % type_id)
+## The res:// art path for a resident `type_id` at `tier` (the per-tier item-line ladder via Game.art).
+## tier defaults to 1 so shop/reveal callers that only show the base form need not pass it.
+static func resident_art(type_id: String, tier: int = 1) -> String:
+	return Game.art(RESIDENT_ART % [type_id, type_id, tier])
 
 ## The data behind the residents SHOP: one card per offered resident on map z — {id, name, cost, currency,
 ## affordable}. Affordability reads the live wallet (coins/diamonds). Pure model; the scene turns each into

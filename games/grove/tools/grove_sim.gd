@@ -33,6 +33,8 @@ extends SceneTree
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const Explore = preload("res://engine/scripts/core/explore.gd")   # §1 expedition cost (the live residents coin SINK)
+const Habitat = preload("res://engine/scripts/core/habitat.gd")   # §1 idle yield + sell (the live residents coin SOURCES)
 const SESSION_GAP_SECS := 8 * 3600   # ~3 sessions/day → ~8h between check-ins; sets how full each §6.C accumulator banks
 const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
 
@@ -104,6 +106,18 @@ var _pending_chests := 0    # banked special-drop chests awaiting a key (paired-
 var _pending_keys := 0
 var _session_cap := 0       # this session's water budget = WATER_CAP + §6 water (lets the bot out-pop a bare cap)
 
+# §1 LIVE RESIDENTS ECONOMY (Habitat) — replaces the dormant welcome-coin-SINK the older model used. The
+# live loop: pay coins to run an EXPEDITION (the only coin SINK) → acquire spirits → PLACE into cap-limited
+# habitat slots → they YIELD coins over time (idle production) + SELL for coins (both SOURCES). Modeled on
+# map 0 (the only map whose habitat pays coins; maps 2-5 yield is parked). Abstraction: an expedition costs
+# Explore.MIN_COST and yields EXP_SPIRITS t1 spirits; the Rush skill layer is collapsed (parked sim).
+const EXP_SPIRITS := 2        # spirits an expedition yields (abstracts the Rush→boxes chain; provisional)
+var hab0: Array = []          # placed spirit TIERS on map 0 (the coin habitat); rate = sum, cap = resident_capacity(0)
+var expedition_spend := 0     # coins spent launching expeditions — the ONLY live residents coin SINK
+var expeditions := 0          # expeditions run over the run
+var habitat_yield := 0        # coins from idle production collected (a recurring SOURCE)
+var habitat_sell := 0         # coins from selling un-housed spirits (a SOURCE)
+
 var jams := 0
 var merchant_sells := 0
 var map_spend := {}           # map -> water spent while restoring it
@@ -133,6 +147,7 @@ func _initialize() -> void:
 			var bonus := _collect_accumulators()   # §6.C check-in: credits exp/coins/acorn, returns bonus water
 			_session_cap = G.WATER_CAP + bonus
 			water = _session_cap
+			_hab_collect()                         # §1 collect the live habitat's idle coin yield (a SOURCE)
 			var r := _play_session()
 			d_water += r.water
 		if map_done_day < 0 and map >= G.MAPS.size():
@@ -247,12 +262,12 @@ func _initialize() -> void:
 	# quest + sell + drops/featured; the sinks = the resident-welcome spend + the (finite) burst ladder.
 	# REPORTED; the absorption ratio is a tuning signal (the population invariants P1/P2 below are the
 	# hard checks). ---
-	var other_coins := coins_earned - quest_coins - sell_coins   # drop-coins (merge spawns) + featured bonuses
-	var total_sink := boost_coins_spent + resident_coins_spent
-	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + drops/featured %d) · held balance %d🪙" % \
-		[coins_earned, quest_coins, sell_coins, other_coins, coins])
-	print("                 sink %d🪙 = residents %d🪙 (%d welcomed, %d auto-merges) + boosts %d🪙 (%d bought) → absorbs %.0f%% of the faucet" % \
-		[total_sink, resident_coins_spent, residents_welcomed - residents_premium, resident_merges, boost_coins_spent, boosts_bought, minf(100.0, 100.0 * float(total_sink) / float(maxi(1, coins_earned)))])
+	var other_coins := coins_earned - quest_coins - sell_coins   # §6 drops/featured + §1 habitat yield/sell
+	var coin_sink := boost_coins_spent + expedition_spend
+	print("  -- Z coins --  faucet %d🪙 (quest %d + sell %d + other %d, incl. §1 habitat yield %d / sell %d) · held %d🪙" % \
+		[coins_earned, quest_coins, sell_coins, other_coins, habitat_yield, habitat_sell, coins])
+	print("                 sink %d🪙 = boosts %d🪙 (%d) + expeditions %d🪙 (%d run) → absorbs %.0f%% of the faucet" % \
+		[coin_sink, boost_coins_spent, boosts_bought, expedition_spend, expeditions, minf(100.0, 100.0 * float(coin_sink) / float(maxi(1, coins_earned)))])
 
 	# --- D: the DIAMOND economy (previously unmodeled). Faucet = level-ups (LEVEL_DIAMONDS) +
 	# map-restores (MAP_DIAMONDS) + t8-pinnacle sells (flat 1💎); sink = premium signature residents
@@ -261,57 +276,34 @@ func _initialize() -> void:
 	print("  -- D diamonds --  faucet %d💎 (levels %d + maps %d + t8-sells %d + quests %d) · sink %d💎 (%d premium residents) · balance %d💎" % \
 		[gems_earned, gems_from_levels, gems_from_maps, gems_from_sells, gems_from_quests, resident_gems_spent, residents_premium, diamonds])
 
-	# --- P: the POPULATION invariants (NEW — the old §8 hub keystone is deleted, not re-runnable).
-	# The residents loop is the post-completion economy, so the two failure modes it must avoid are:
-	#   P1 LATE-GAME pile-up: once a map completes and the roster opens, the coin faucet earned AFTER
-	#      that point must find a sink (residents) — a completed game whose coins just pile is the bug
-	#      the endless sink exists to prevent. We measure the coins earned post-first-completion vs the
-	#      resident spend over the same window; the population sink must absorb a healthy share.
-	#   P2 EARLY-GAME dead-zone: BEFORE the first completion (population isn't open yet) there must be
-	#      no idle coin gap — the active faucet has to keep flowing into restoration + boost activations,
-	#      i.e. the bot is never sitting on a fat pre-population coin pile with nothing to spend on. ---
-	var boost_budget := G.BOOST_COST * 4         # a few boosts' worth — the repeatable pre-population coin sink
-
-	# P1 — late-game (post-first-completion) no-pile. The HARD check: once population opened, the coin
-	# faucet earned since must have been ABSORBED, leaving no growing pile. We compare the coin INTAKE
-	# after the first completion against the RESIDENT spend over the same window, and also assert the
-	# final held BALANCE didn't run away (the endless sink keeps draining). Only checkable once a map
-	# completed in the window; otherwise NOTED out-of-window (the run never reached population — runway).
-	if first_complete_day > 0 and coins_at_first_complete >= 0:
-		var faucet_after := coins_earned - coins_at_first_complete                   # coin intake since pop opened
-		var sink_after := resident_coins_spent - resident_spend_at_first_complete    # resident coins spent since
-		var absorb := minf(100.0, 100.0 * float(sink_after) / float(maxi(1, faucet_after)))
-		# the held balance is the actual pile; with an endless sink it must stay BOUNDED (under one more
-		# welcome's worth of cushion), never grow with the faucet. That bound is the real anti-pile teeth.
-		var pile_bound := 2 * G.RESIDENT_BASE_COST
-		if faucet_after <= 0:
-			print("  -- P1: no coin faucet after the first completion (day %d) — nothing to pile (ok) --" % first_complete_day)
-		elif coins > pile_bound and sink_after <= 0:
-			print("  FAIL P1: %d🪙 earned after population opened (day %d) but the resident sink absorbed NONE and %d🪙 piled — late-game coins pile" % [faucet_after, first_complete_day, coins])
-			pass_all = false
-		elif coins > pile_bound and absorb < 50.0:
-			print("  WARN P1: only %.0f%% of the %d🪙 earned post-completion went to residents and %d🪙 sits held (> %d🪙 bound) — tune the welcome cost/cadence (residents are endless; the bot just out-earned its welcomes)" % [absorb, faucet_after, coins, pile_bound])
-		else:
-			print("  PASS P1: the population sink absorbed %.0f%% of the %d🪙 earned after the first completion (day %d); only %d🪙 held (≤ %d🪙 bound) — late-game coins keep draining into residents (endless sink)" % [absorb, faucet_after, first_complete_day, coins, pile_bound])
+	# --- §1 RESIDENTS economy — REALIGNED to the LIVE Habitat (was: the dormant welcome-roster modeled as an
+	# ENDLESS coin sink). The live loop is the OPPOSITE: an EXPEDITION (Explore.MIN_COST) is the only coin
+	# SINK and it STOPS once the habitat fills, while placed spirits YIELD coins forever (idle production) and
+	# SELL for coins. So the question flips from "does the sink absorb the faucet?" to "are residents a net
+	# coin SINK or a net FAUCET?" — a net faucet means the game still has NO standing coin sink (P1 unsolved).
+	var res_source := habitat_yield + habitat_sell
+	var res_net := res_source - expedition_spend          # > 0 ⇒ residents are a net coin FAUCET
+	print("  -- §1 residents --  SINK expeditions %d🪙 (%d run; stop when the habitat fills) · SOURCE yield %d🪙 + sell %d🪙 = %d🪙 · NET %s%d🪙" % \
+		[expedition_spend, expeditions, habitat_yield, habitat_sell, res_source, ("+" if res_net >= 0 else ""), res_net])
+	# P1 — the late-game standing-sink check, re-derived. With the live model residents ADD coins (idle yield),
+	# so res_net > 0 means there is NO endless coin sink and late coins pile. REPORTED (not a hard fail): this
+	# is the realignment finding the economy pass must answer, not a sim bug.
+	if res_net > 0:
+		print("  WARN P1: residents are a NET COIN FAUCET (+%d🪙) — the live Habitat idle-yield ADDS coins; the expedition cost only drains during the slot ramp, so there is NO standing coin sink (late-game coins pile %d🪙 held). The economy needs a real sink (cosmetics/upgrades/events)." % [res_net, coins])
 	else:
-		print("  -- P1: no map completed in the %d-day window — population never opened (a RUNWAY signal, not a pile; see I3) --" % days)
+		print("  PASS P1: residents are a net coin SINK (%d🪙) — expeditions out-drain the habitat yield+sell." % res_net)
 
-	# P2 — early-game (pre-population) no dead-zone. Before the first map completes, population isn't
-	# open, so the ONLY coin sink is the (finite) burst ladder. The dead-zone bug would be a fat
-	# pre-population coin PILE the bot can't spend. We assert the held balance at the first completion
-	# (the end of the pre-pop phase) stayed within the burst ladder's reach — i.e. surplus coins kept
-	# flowing into burst-upgrades until population opened, leaving no idle gap. (If no map completed,
-	# population never opened and there is no pre-pop/post-pop boundary — P1 already noted the runway.)
+	# P2 — early-game no dead-zone: at the first completion, did the surplus have somewhere to go (the boost
+	# ladder + the expedition entry cost)? A pile beyond those early sinks is the early coin gap.
 	if first_complete_day > 0:
+		var early_sink := G.BOOST_COST * 4 + Explore.MIN_COST * 2
 		var pre_pop_pile := balance_at_first_complete
-		# boosts are the standing pre-pop sink; a few boosts' worth of held coins between activations is
-		# normal churn — a pile beyond that before pop opens is the dead-zone to flag.
-		if pre_pop_pile <= boost_budget:
-			print("  PASS P2: at the first completion the held pile (%d🪙) stayed within the boost sink (%d🪙) — surplus kept flowing pre-population, no early-game coin dead-zone" % [pre_pop_pile, boost_budget])
+		if pre_pop_pile <= early_sink:
+			print("  PASS P2: at the first completion the held pile (%d🪙) stayed within the early sinks (boosts + expedition, %d🪙) — no early coin dead-zone" % [pre_pop_pile, early_sink])
 		else:
-			print("  WARN P2: at the first completion the bot held %d🪙 — beyond the %d🪙 boost sink, the only pre-population sink — an early-game coin gap (tune the boost cadence or open population sooner)" % [pre_pop_pile, boost_budget])
+			print("  WARN P2: at the first completion the bot held %d🪙 — beyond the early sinks (%d🪙); early coins pile (raise the expedition cost or open it sooner)" % [pre_pop_pile, early_sink])
 	else:
-		print("  -- P2: population never opened (no completion) — no pre-population boundary to check (see I3 runway) --")
+		print("  -- P2: no completion in the %d-day window — no pre/post boundary to check (see I3 runway) --" % days)
 
 	print("== sim %s ==" % ("PASS" if pass_all else "FAIL"))
 	quit(0 if pass_all else 1)
@@ -433,7 +425,60 @@ func _run_treat_gen() -> void:
 		if rng.randf() < G.TREAT_DROP_RATE:
 			_credit_special_drop(G.pick_special_drop(rng), "treat")
 
-# --- §1 POPULATION: the endless coin/diamond sink on COMPLETED maps -----------------
+# --- §1 LIVE RESIDENTS (Habitat) coin loop: expedition SINK + idle-yield/sell SOURCE ----------------
+func _hab_rate() -> int:
+	var r := 0
+	for t in hab0:
+		r += int(t)
+	return r
+
+# Map-0 habitat capacity right now — the 1→8 ramp (Habitat.cap → Content.resident_capacity).
+func _hab_cap() -> int:
+	return G.resident_capacity(0, unlocks)
+
+# Cascade 2-of-a-tier → one a tier up (mirrors the hand/auto merge), raising rate + freeing a slot.
+func _hab_merge() -> void:
+	var changed := true
+	while changed:
+		changed = false
+		for tier in range(1, G.RESIDENT_MAX_TIER):
+			var same: Array = []
+			for i in hab0.size():
+				if int(hab0[i]) == tier:
+					same.append(i)
+			if same.size() >= 2:
+				hab0.remove_at(same[1]); hab0.remove_at(same[0])
+				hab0.append(tier + 1)
+				changed = true
+				break
+
+# One session's idle-production collect (map 0 pays coins): ACCRUAL_HOURS of output per ~8h check-in.
+func _hab_collect() -> void:
+	var hy := int(round(float(_hab_rate()) * Habitat.YIELD_PER_HOUR * Habitat.ACCRUAL_HOURS))
+	if hy > 0:
+		coins += hy
+		coins_earned += hy
+		habitat_yield += hy
+
+# Launch an expedition: pay the base cost (the SINK), acquire EXP_SPIRITS t1 spirits, PLACE what fits in
+# map-0's cap (then auto-merge), SELL the overflow (a small SOURCE).
+func _run_expedition() -> void:
+	if coins < Explore.MIN_COST:
+		return
+	coins -= Explore.MIN_COST
+	expedition_spend += Explore.MIN_COST
+	expeditions += 1
+	for _s in EXP_SPIRITS:
+		if hab0.size() < _hab_cap():
+			hab0.append(1)
+			_hab_merge()
+		else:
+			var sv := Habitat.SELL_PER_TIER * 1
+			coins += sv
+			coins_earned += sv
+			habitat_sell += sv
+
+# --- §1 POPULATION (DORMANT welcome-roster — kept only for the unlock-gift grant; NOT the live sink) ---
 # The sim keeps its OWN resident roster (residents[z] = {type_id -> [t1..tMAX]}) rather than
 # driving Save, but mirrors content.gd's welcome + auto-merge math exactly: welcome adds a t1,
 # then two-of-a-kind cascade up to RESIDENT_MAX_TIER. Cost is read off G.resident_cost (coins for
@@ -672,33 +717,24 @@ func _play_session() -> Dictionary:
 		if delivered:
 			continue
 
-		# 1b. SINK surplus coins. Two sinks now: the repeatable §6 BOOST (re-armed whenever none is live),
-		# and the ENDLESS §1 POPULATION loop (welcoming residents on COMPLETED maps — no roster cap, so it
-		# absorbs coins forever once the first map is done). The bot re-arms the cheap boost when it lapses,
-		# then pours the rest into residents — the standing coin sink that replaced the deleted §8 hub
-		# ladder. (Greedy mode welcomes more aggressively; see _greedy.)
+		# 1b. SINK surplus coins. Live sinks: the repeatable §6 BOOST (re-armed whenever none is live), and the
+		# §1 EXPEDITION (pay Explore.MIN_COST to acquire spirits) — the ONLY live residents coin sink. The bot
+		# runs an expedition only while map-0's habitat has ROOM to place (once full, an expedition is pure loss
+		# — a rational player stops, so the sink STOPS and the habitat just keeps YIELDING coins). This is the
+		# realignment: the old welcome-roster sink is dormant; the live loop is acquire(sink)→place→yield(source).
 		var net := coins - boost_coins_spent
 		if boost_taps <= 0 and net >= G.BOOST_COST:
 			boost_coins_spent += G.BOOST_COST
 			boost_taps = G.BOOST_TAPS
 			boosts_bought += 1
 			continue
-		# §1 population SINK (coins): welcome a base resident on a completed map. The default mode
-		# keeps a one-resident coin cushion for restoration; greedy welcomes whenever it can afford one.
-		var coin_cushion: int = 0 if _greedy else G.RESIDENT_BASE_COST
-		if coins >= G.RESIDENT_BASE_COST + coin_cushion:
-			var bw := _next_base_welcome()
-			if not bw.is_empty():
-				_welcome(int(bw.z), bw.def)
-				continue
-		# §1 population SINK (diamonds): spend surplus premium on the per-map signature resident.
-		# Keep a small premium reserve in the default mode (the diamond faucet leads the sink).
-		var gem_reserve: int = 0 if _greedy else G.RESIDENT_PREMIUM_COST
-		if diamonds >= G.RESIDENT_PREMIUM_COST + gem_reserve:
-			var pw := _next_premium_welcome()
-			if not pw.is_empty():
-				_welcome(int(pw.z), pw.def)
-				continue
+		# §1 EXPEDITION — the live residents coin SINK: pay Explore.MIN_COST to acquire spirits, only while
+		# map-0's habitat has ROOM to place (once full, an expedition is pure loss, so a rational player stops —
+		# the sink STOPS and the habitat just keeps YIELDING). Draining surplus here (vs post-session) also keeps
+		# the boost from over-fuelling on the big habitat-coin faucet.
+		if hab0.size() < _hab_cap() and coins >= Explore.MIN_COST + (0 if _greedy else G.BOOST_COST):
+			_run_expedition()
+			continue
 
 		# 2. restore: CLAIM the next spot once cumulative exp has reached its threshold (no spending —
 		# §exp model). Claiming the LAST spot makes the map spots-done — step 0 fires completion next iter.
@@ -850,8 +886,9 @@ func _pop() -> void:
 		return
 	var wanted := _wanted_lines()
 	var pool: Array = wanted if not wanted.is_empty() else opened
-	if pool.size() > G.POP_LINE_CAP:          # keep the board mergeable: pop at most POP_LINE_CAP lines
-		pool = pool.slice(0, G.POP_LINE_CAP)
+	var line_cap := G.pop_line_cap(map)       # staged: 2 on the zone-1 board, 3 from zone 2
+	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
+		pool = pool.slice(0, line_cap)
 	var pw: Array = []
 	for l in pool:
 		if wanted.has(int(l)):

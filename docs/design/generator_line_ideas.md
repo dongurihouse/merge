@@ -2,7 +2,8 @@
 
 Status: **BAKED INTO THE CANONICAL SPEC + ALL SHIPPED (2026-06-26).** The authoritative model lives in
 `merge_spec.md` §6 (banner A–E) and `grove_spec.md` §2 (the as-built tables). All five clusters are now
-built: **idea 3** (single persistent generator, opened lines never retire), **special drop items** (§6.B —
+built: **idea 3** (single persistent generator, a **rolling line window** — older lines retire; revised
+2026-06-26 from the earlier "opened lines never retire"), **special drop items** (§6.B —
 chest/key/water/acorn/exp/wildcard; the tool was cut), **utility accumulator lines** (§6.C), **temporary
 treat generators + per-map special "treasure" lines** (§6.D — one 12-tier fruit per map), and **more
 regular lines per map** (§6.E). This file is kept as the working brainstorm + decision log behind that spec.

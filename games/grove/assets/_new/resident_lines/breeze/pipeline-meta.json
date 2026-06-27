@@ -1,0 +1,227 @@
+{
+  "slug": "breeze",
+  "zone": "mill",
+  "name": "Breeze",
+  "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f369010fc81988e7d98c98db8c8ae.png",
+  "raw_sheet": "games/grove/assets/_new/line_resident_breeze_v1.png",
+  "transparent_sheet": "games/grove/assets/_new/resident_lines/breeze/line_resident_breeze_v1_transparent_sheet.png",
+  "contact_sheet": "games/grove/assets/_new/resident_lines/breeze/line_resident_breeze_v1_contact.png",
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "Gust",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_01.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 2,
+      "name": "Breeze sprite",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_02.png",
+      "source_bbox": [
+        0,
+        65,
+        342,
+        384
+      ],
+      "output_bbox": [
+        41,
+        60,
+        471,
+        461
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 3,
+      "name": "Gale-warden",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_03.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 4,
+      "name": "Whirl child",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_04.png",
+      "source_bbox": [
+        44,
+        0,
+        341,
+        344
+      ],
+      "output_bbox": [
+        79,
+        41,
+        442,
+        461
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 5,
+      "name": "Flour-dust keeper",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_05.png",
+      "source_bbox": [
+        0,
+        0,
+        342,
+        353
+      ],
+      "output_bbox": [
+        52,
+        41,
+        459,
+        463
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 6,
+      "name": "Pinwheel sprite",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_06.png",
+      "source_bbox": [
+        0,
+        0,
+        276,
+        384
+      ],
+      "output_bbox": [
+        97,
+        41,
+        406,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 7,
+      "name": "Cloudcap monk",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_07.png",
+      "source_bbox": [
+        37,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        90,
+        41,
+        430,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 8,
+      "name": "Millmender",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_08.png",
+      "source_bbox": [
+        0,
+        1,
+        342,
+        384
+      ],
+      "output_bbox": [
+        64,
+        42,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 9,
+      "name": "Wind-scarf elder",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_09.png",
+      "source_bbox": [
+        0,
+        0,
+        318,
+        384
+      ],
+      "output_bbox": [
+        73,
+        41,
+        428,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 10,
+      "name": "Golden breeze guardian",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_10.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 11,
+      "name": "Gale-crowned sage",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_11.png",
+      "source_bbox": [
+        0,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        64,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 12,
+      "name": "Great mill-wind spirit",
+      "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_12.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    }
+  ]
+}

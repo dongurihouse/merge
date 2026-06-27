@@ -37,9 +37,11 @@ func _initialize() -> void:
 	ok(G.generators_for_map(r, 0).size() == 2, "map 0 has 2 generators")
 	ok(G.generators_for_map(r, 1).size() == 3, "map 1 has 3 generators")
 	ok(G.lines_for_map(r, 1) == [5, 6, 7, 8, 10, 11], "map 1's live lines are its 3 generators' 6 lines")
-	ok(G.retired_lines(r, 1) == [1, 2, 3, 4], "map 0's 4 lines retire once map 1 is live")
+	ok(G.retired_lines(r, 1) == [], "at map 1 nothing has retired yet — the 3-map rolling window still covers map 0")
 	ok(G.lines_for_map(r, 0) == [1, 2, 3, 4], "map 0's live lines are its own 4")
 	ok(G.retired_lines(r, 0) == [], "nothing is retired while in map 0")
+	# retirement kicks in once a map falls OUTSIDE the rolling window: on the REAL roster, Wildflower(1) retires by map 3
+	ok(G.retired_lines(G.GENERATORS, 3).has(1) and not G.askable_lines(G.GENERATORS, 3).has(1), "Wildflower(1) has RETIRED by map 3 (outside the 3-map window)")
 
 	# (gens_to_grant + the carrier-quest delivery are RETIRED — generators now arrive when a generator tap
 	#  produces a DUE tool; see G.due_generators, covered in quest_tests.gd against the real maps.)

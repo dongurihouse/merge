@@ -89,6 +89,22 @@ static func mount(host: Control) -> void:
 	col.add_child(toggle)
 	col.add_child(menu)
 
+	# Always-visible live read-out: viewport aspect + the resulting grid/orientation. Lets the owner read
+	# off the current width/height ratio to pick the portrait↔landscape rotation cutoff (ROTATE_ASPECT).
+	if host.has_method("debug_layout_info"):
+		var readout := _dbg_readout()
+		col.add_child(readout)
+		var lbl := readout.get_node("DbgReadout") as Label
+		var upd := func() -> void:
+			if is_instance_valid(lbl) and is_instance_valid(host):
+				lbl.text = host.debug_layout_info()
+		upd.call()
+		var t := Timer.new()                 # self-contained poll (frees with the readout — no cross-session leak)
+		t.wait_time = 0.25
+		t.autostart = true
+		t.timeout.connect(upd)
+		readout.add_child(t)
+
 	_action(menu, host, "Reset progress", _act_reset)
 	_action(menu, host, "+100 premium", _act_premium)
 	_action(menu, host, "+5 stars", _act_stars)
@@ -199,6 +215,23 @@ static func _weather_action(menu: VBoxContainer, host: Control) -> void:
 
 static func _weather_action_text() -> String:
 	return Ambient.weather_debug_label()
+
+static func _dbg_readout() -> Control:
+	var pc := PanelContainer.new()
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.10, 0.10, 0.12, 0.85)
+	s.set_corner_radius_all(6)
+	s.content_margin_left = 10.0
+	s.content_margin_right = 10.0
+	s.content_margin_top = 5.0
+	s.content_margin_bottom = 5.0
+	pc.add_theme_stylebox_override("panel", s)
+	var l := Label.new()
+	l.name = "DbgReadout"
+	l.add_theme_font_size_override("font_size", 18)
+	l.add_theme_color_override("font_color", Color("#FFF3B8"))
+	pc.add_child(l)
+	return pc
 
 static func _dbg_button(text: String, bg: Color) -> Button:
 	var b := Button.new()

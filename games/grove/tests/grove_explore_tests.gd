@@ -32,10 +32,14 @@ func _test_loadout() -> void:
 	ok(Explore.loadout_cost({}) == 0, "an empty loadout costs nothing")
 	ok(Explore.loadout_cost({"time": true, "drops": true}) == 120 + 100, "loadout cost sums the equipped boosts")
 
+	# §1 an expedition has a DEFAULT MINIMUM cost (MIN_COST) — the acquisition coin sink — and boosts add on top.
+	ok(Explore.start_cost({}) == Explore.MIN_COST, "an empty expedition still costs the default MIN_COST")
+	ok(Explore.start_cost({"drops": true}) == Explore.MIN_COST + 100, "boosts add ON TOP of the base minimum")
 	Save.spend(Save.coins())               # zero the wallet, then set a known balance
-	Save.add_coins(150)
-	ok(Explore.can_start({"drops": true}), "can start when coins (150) cover the loadout (100)")
-	ok(not Explore.can_start({"focus": true}), "cannot start when the loadout (200) exceeds coins (150)")
+	Save.add_coins(300)
+	ok(Explore.can_start({}), "can set off with the base minimum covered (300 ≥ 150)")
+	ok(Explore.can_start({"drops": true}), "can set off when coins (300) cover base+boost (250)")
+	ok(not Explore.can_start({"focus": true}), "cannot set off when base+boost (350) exceeds coins (300)")
 
 	var base: Dictionary = Explore.rush_cfg({})
 	ok(base.time == Explore.BASE_TIME, "no-boost run length is BASE_TIME")

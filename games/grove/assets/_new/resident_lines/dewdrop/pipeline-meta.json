@@ -1,0 +1,227 @@
+{
+  "slug": "dewdrop",
+  "zone": "garden",
+  "name": "Dewdrop",
+  "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f3641ba8c8198a49277648852f7d5.png",
+  "raw_sheet": "games/grove/assets/_new/line_resident_dewdrop_v1.png",
+  "transparent_sheet": "games/grove/assets/_new/resident_lines/dewdrop/line_resident_dewdrop_v1_transparent_sheet.png",
+  "contact_sheet": "games/grove/assets/_new/resident_lines/dewdrop/line_resident_dewdrop_v1_contact.png",
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "Droplet",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_01.png",
+      "source_bbox": [
+        0,
+        0,
+        286,
+        375
+      ],
+      "output_bbox": [
+        91,
+        41,
+        412,
+        462
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 2,
+      "name": "Dewdrop sprite",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_02.png",
+      "source_bbox": [
+        18,
+        112,
+        342,
+        384
+      ],
+      "output_bbox": [
+        51,
+        83,
+        471,
+        437
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 3,
+      "name": "Tide-elder",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_03.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 4,
+      "name": "Puddle child",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_04.png",
+      "source_bbox": [
+        0,
+        70,
+        323,
+        384
+      ],
+      "output_bbox": [
+        41,
+        57,
+        460,
+        465
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 5,
+      "name": "Lily shawl keeper",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_05.png",
+      "source_bbox": [
+        10,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        73,
+        41,
+        446,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 6,
+      "name": "Pebble-ripple sprite",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_06.png",
+      "source_bbox": [
+        0,
+        0,
+        277,
+        351
+      ],
+      "output_bbox": [
+        85,
+        41,
+        418,
+        464
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 7,
+      "name": "Reedcap monk",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_07.png",
+      "source_bbox": [
+        83,
+        0,
+        305,
+        384
+      ],
+      "output_bbox": [
+        131,
+        41,
+        381,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 8,
+      "name": "Pondmender",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_08.png",
+      "source_bbox": [
+        9,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        73,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 9,
+      "name": "Ripple-heart elder",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_09.png",
+      "source_bbox": [
+        0,
+        4,
+        293,
+        384
+      ],
+      "output_bbox": [
+        87,
+        45,
+        415,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 10,
+      "name": "Silver dew guardian",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_10.png",
+      "source_bbox": [
+        0,
+        0,
+        328,
+        384
+      ],
+      "output_bbox": [
+        68,
+        41,
+        435,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 11,
+      "name": "Moonlit reed sage",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_11.png",
+      "source_bbox": [
+        6,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        68,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 12,
+      "name": "Great tide spirit",
+      "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_12.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    }
+  ]
+}

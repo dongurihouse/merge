@@ -12,6 +12,8 @@ const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 
 const BOARD_MARGIN := 6.0   # mirrors board.gd: breathing room each side when width binds
+const QUEST_H_MIN := 150.0  # mirrors board.gd quest-band clamp
+const QUEST_H_MAX := 300.0
 
 var _pass := 0
 var _fail := 0
@@ -61,7 +63,7 @@ func _metrics(view_size: Vector2i) -> Dictionary:
 		"csz": board.csz,
 		"board_total_w": board._board_w() + board.FRAME_OUT * 2.0,
 		"quest_h": board.giver_bar.custom_minimum_size.y,
-		"row_centered": not rows.is_empty() and (rows[0] as HBoxContainer).alignment == BoxContainer.ALIGNMENT_CENTER,
+		"row_left": not rows.is_empty() and (rows[0] as HBoxContainer).alignment == BoxContainer.ALIGNMENT_BEGIN,
 		# vertical fit: the board frame's bottom must stay above the floating bottom bar's top.
 		"center_bottom": board._board_center.get_global_rect().end.y,
 		"bar_top": board.bottom_bar.get_global_rect().position.y,
@@ -110,20 +112,20 @@ func _initialize() -> void:
 	ok(m1320.center_bottom <= m1320.bar_top + 1.0 and mtall.center_bottom <= mtall.bar_top + 1.0, \
 		"board fits vertically above the bottom bar at every aspect")
 
-	# Width binds on portrait screens: the board fills the screen width (minus the side margin),
-	# instead of being pinned to a fixed % of screen height.
-	ok(absf(m1080.board_total_w - (m1080.view.x - 2.0 * BOARD_MARGIN)) < 3.0 \
-		and absf(mtall.board_total_w - (mtall.view.x - 2.0 * BOARD_MARGIN)) < 3.0, \
-		"board fills the screen width on portrait screens (width-governed, not a fixed % of height)")
+	# Portrait screens fill (most of) the width: the board is width-governed, occupying nearly the whole
+	# screen width (a small height-cap margin is allowed once the bottom-anchored bands take their room).
+	ok(m1080.board_total_w >= m1080.view.x * 0.92 and mtall.board_total_w >= mtall.view.x * 0.92, \
+		"board fills (most of) the screen width on portrait screens")
 
-	# Quest band height tracks WIDTH (its 4-across cards scale with width, so the band must too).
-	ok(m1320.quest_h > m1080.quest_h + 1.0, "quest band height grows with screen width")
-	ok(absf(mtall.quest_h - m1080.quest_h) < 2.0, \
-		"quest band height tracks width, not height (unchanged on a taller screen of equal width)")
-	ok(absf(m1080.quest_h - 1080.0 * 0.11 * aspect) < 3.0, \
-		"quest band height matches the saved percent at the design aspect")
+	# Quest band height now scales with screen HEIGHT (taller screens → taller band, absorbing spare
+	# vertical room) and is clamped. It no longer keys off width — same height/different width = same band.
+	ok(mtall.quest_h > m1080.quest_h + 1.0, "quest band height grows with screen height")
+	ok(absf(m1320.quest_h - m1080.quest_h) < 2.0 and absf(mwide.quest_h - m1080.quest_h) < 2.0, \
+		"quest band height is independent of width (same band at equal height)")
+	ok(m1080.quest_h >= QUEST_H_MIN - 0.5 and mtall.quest_h <= QUEST_H_MAX + 0.5, \
+		"quest band height stays within its clamp range")
 
-	ok(m1080.row_centered, "quest row centers active cards")
+	ok(m1080.row_left, "quest row packs cards from the left (spare width falls on the right)")
 
 	# The workbench board-frame helper is a pure function — verify width-scaling at any width here,
 	# including a genuinely narrow one the live window can't produce.
@@ -137,29 +139,48 @@ func _initialize() -> void:
 	ok(absf(f720.x - (720.0 - 2.0 * BOARD_MARGIN)) < 3.0 and absf(f1080.x - (1080.0 - 2.0 * BOARD_MARGIN)) < 3.0, \
 		"workbench board helper fills the width on portrait screens")
 
-	# A live window resize must reflow the board (recompute cell size + quest band), not clip it.
-	# Reference: a board built fresh at the target size. Then build at the design size and resize live
-	# to the same target — the reflowed geometry must match the fresh build.
-	var target := Vector2i(1600, 1920)
-	var ref: Dictionary = await _metrics(target)
+	# A live window resize must reflow the board — including flipping orientation when it crosses into
+	# landscape. Reference: a board built fresh at the (landscape) target. Then build portrait and resize
+	# live to the target; the reflowed geometry must match the fresh build and adopt the new orientation.
+	var land_target := Vector2i(2560, 1280)
+	var ref: Dictionary = await _metrics(land_target)
 	var board: Control = await _build_board_at(Vector2i(1080, 1920))
-	var csz_before: float = board.csz
-	for _i in 8:
-		get_root().size = target
+	ok(not board._landscape and board._disp_cols() == 7, "board starts in portrait (7×9)")
+	for _i in 10:
+		get_root().size = land_target
 		await process_frame
-		if get_root().size == target:
+		if get_root().size == land_target:
 			break
 	# let the deferred reflow coalesce + run
 	await process_frame
 	await process_frame
 	await process_frame
-	ok(absf(board.csz - csz_before) > 1.0, "board cell size changes when the window is resized")
-	ok(absf(board.csz - float(ref.csz)) < 2.0, "resized board cell size matches a fresh build at the new size")
-	ok(absf(board.giver_bar.custom_minimum_size.y - float(ref.quest_h)) < 2.0, \
-		"resized quest band height matches a fresh build at the new size")
+	ok(board._landscape and board._disp_cols() == 9, "live resize into landscape reflows the grid to 9×7")
+	ok(absf(board.csz - float(ref.csz)) < 2.0, "reflowed cell size matches a fresh build at the new size")
 	ok((board._board_w() + board.FRAME_OUT * 2.0) <= board.get_viewport_rect().size.x + 1.0, \
-		"reflowed board still fits within the screen width")
+		"reflowed board fits within the new screen width")
 	_free_board(board)
+	await process_frame
+
+	# Rotation: a LANDSCAPE viewport renders the 7×9 model transposed to 9 across × 7 down (display only —
+	# the model stays 7×9). Items/cells map through the transposed cell↔pixel pair and must round-trip.
+	var land: Control = await _build_board_at(Vector2i(2560, 1280))
+	var lv: Vector2 = land.get_viewport_rect().size
+	ok(lv.x > lv.y, "test harness produced a landscape viewport (%0.fx%0.f)" % [lv.x, lv.y])
+	ok(land._landscape and land._disp_cols() == 9 and land._disp_rows() == 7, \
+		"wide viewport transposes the display grid to 9×7 (model unchanged)")
+	ok(land._board_w() > land._board_h(), "rotated board is wider than tall")
+	var probe := Vector2i(3, 5)   # a model cell (row 3, col 5)
+	var center_px: Vector2 = land._cell_pos(probe) + Vector2(land.csz, land.csz) * 0.5
+	ok(land._pos_to_cell(center_px) == probe, "rotated cell↔pixel mapping round-trips")
+	_free_board(land)
+	await process_frame
+
+	# Portrait stays 7×9.
+	var port: Control = await _build_board_at(Vector2i(1080, 1920))
+	ok(not port._landscape and port._disp_cols() == 7 and port._disp_rows() == 9, \
+		"portrait viewport keeps the 7×9 grid")
+	_free_board(port)
 	await process_frame
 
 	get_root().size = prior_size

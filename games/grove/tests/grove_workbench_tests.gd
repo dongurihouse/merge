@@ -187,17 +187,6 @@ func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
 	return (grids[0] as GridContainer).get_child_count() if not grids.is_empty() else -1
 
-func _live_board_frame_size(view_size: Vector2, board_cfg: Dictionary) -> Vector2:
-	var cols := 7.0
-	var rows := 9.0
-	var gap := float(board_cfg.get("gap", 7.0))
-	var frame := float(board_cfg.get("frame", 60.0))
-	var scale := float(board_cfg.get("scale", 100.0)) / 100.0
-	var csz := minf(
-		(view_size.x - 12.0 - frame * 2.0 - (cols - 1.0) * gap) / cols,
-		(view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows) * scale
-	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
-
 # The unlockable cell's highlight pop style. Returns null if the cell carries no such pop (not unlockable).
 func _unlockable_highlight_style(node: Control) -> StyleBoxFlat:
 	for p in node.find_children("SlotCellUnlockableHighlight", "Panel", true, false):
@@ -797,89 +786,65 @@ func _test_new_knobs(view) -> void:
 	view._rebuild_sidebar()
 	ok(_slider_max(view, "Px") >= 260.0, "the home_button sidebar allows larger shared button sizes")
 
-	# HUD layout: the screen map should include the board stack, not just the top wallet + bottom nav.
-	# These are saved design knobs so a workbench pass can tune the quest fence and board area together.
-	var hud_layout_keys := [
-		"quest_bar_x_pct", "quest_bar_y_pct", "quest_bar_h_pct",
-		"board_x_pct", "board_y_pct", "board_h_pct", "bottom_row_h_pct",
-	]
-	var hud_has_stack_knobs := true
-	for k in hud_layout_keys:
-		hud_has_stack_knobs = hud_has_stack_knobs and (view._params["hud_layout"] as Dictionary).has(k) and view._is_config("hud_layout", k)
-	ok(hud_has_stack_knobs, "hud_layout stores saved quest-bar and board position/height controls")
-	var stack_layout := Kit.hud_layout_opts_from_config({"hud_layout": {
-		"quest_bar_x_pct": 6, "quest_bar_y_pct": 18, "quest_bar_h_pct": 11,
-		"board_x_pct": 12, "board_y_pct": 31, "board_h_pct": 48,
-	}})
-	ok(stack_layout.has("quest_bar_x_frac") and is_equal_approx(float(stack_layout.quest_bar_x_frac), 0.06) \
-		and stack_layout.has("quest_bar_y_frac") and is_equal_approx(float(stack_layout.quest_bar_y_frac), 0.18) \
-		and stack_layout.has("quest_bar_h_frac") and is_equal_approx(float(stack_layout.quest_bar_h_frac), 0.11) \
-		and stack_layout.has("board_x_frac") and is_equal_approx(float(stack_layout.board_x_frac), 0.12) \
-		and stack_layout.has("board_y_frac") and is_equal_approx(float(stack_layout.board_y_frac), 0.31) \
-		and stack_layout.has("board_h_frac") and is_equal_approx(float(stack_layout.board_h_frac), 0.48), \
-		"hud_layout resolver exposes quest-bar and board geometry as screen fractions")
+	# HUD layout: the board is responsive now (fills width / auto-rotates 9×7) and the quest+board stack is
+	# bottom-anchored, so the old manual board+quest POSITION and board-HEIGHT knobs are retired. Only the
+	# band heights the live layout still reads remain tunable.
 	var hud_default: Dictionary = (view._params["hud_layout"] as Dictionary).duplicate()
+	var live_knobs := ["quest_bar_h_pct", "bottom_row_h_pct", "button_w_pct", "info_bar_w_pct", "level_w_pct"]
+	var has_live := true
+	for k in live_knobs:
+		has_live = has_live and (view._params["hud_layout"] as Dictionary).has(k) and view._is_config("hud_layout", k)
+	ok(has_live, "hud_layout keeps the live band-height controls (quest/bottom/button/info/level)")
+	var dead_knobs := ["quest_bar_x_pct", "quest_bar_y_pct", "board_x_pct", "board_y_pct", "board_h_pct"]
+	var dead_gone := true
+	for k in dead_knobs:
+		dead_gone = dead_gone and not (view._params["hud_layout"] as Dictionary).has(k)
+	ok(dead_gone, "retired board/quest position + board-height knobs are gone from hud_layout defaults")
+
+	# resolver: the quest band height still resolves to a fraction; the retired geometry fracs are dropped.
+	var stack_layout := Kit.hud_layout_opts_from_config({"hud_layout": {"quest_bar_h_pct": 11}})
+	ok(stack_layout.has("quest_bar_h_frac") and is_equal_approx(float(stack_layout.quest_bar_h_frac), 0.11) \
+		and not stack_layout.has("board_h_frac") and not stack_layout.has("quest_bar_y_frac") \
+		and not stack_layout.has("board_x_frac"), \
+		"hud_layout resolver exposes the quest band height fraction and drops the retired geometry fracs")
+
+	# preview: board + quest are BOTTOM-ANCHORED — quest above board, board above the bottom row, the board
+	# fills (most of) the width, and the quest still clears the currency pills (board is height-capped).
 	var preview_w := 1080.0 * 0.26
 	var preview_h := 1920.0 * 0.26
 	var default_hud_preview: Control = view._make_element("hud_layout")
 	var default_quest_box := default_hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
 	var default_board_box := default_hud_preview.find_child("HudLayoutBoard", true, false) as Control
 	var default_bottom_box := default_hud_preview.find_child("HudLayoutBottomRow", true, false) as Control
-	var live_board_size := _live_board_frame_size(Vector2(View.PHONE_W, View.PHONE_H), view._params["board"]) * 0.26
-	ok(default_board_box != null and default_board_box.custom_minimum_size.distance_to(live_board_size) <= 2.0, \
-		"hud_layout preview board matches the live game board frame size")
-	ok(default_quest_box != null and default_board_box != null \
-		and default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
-		"hud_layout preview quest bar stays above the board in the default live layout")
+	ok(default_quest_box != null and default_board_box != null and default_bottom_box != null \
+		and _has_label_text(default_quest_box, "quest") and _has_label_text(default_board_box, "board"), \
+		"hud_layout preview draws the quest bar, board, and bottom row")
+	ok(default_quest_box.position.y + default_quest_box.custom_minimum_size.y <= default_board_box.position.y + 1.0, \
+		"hud_layout preview quest bar sits above the board (bottom-anchored stack)")
 	var default_layout := Kit.hud_layout_opts_from_config({"hud_layout": view._params["hud_layout"]})
 	var default_bottom_bar_h := preview_h * float(default_layout.get("bottom_row_h_frac", 0.0))
-	var default_bottom_bar_y := preview_h - default_bottom_bar_h - float(default_layout.get("edge_margin_px", 18.0)) * 0.26
-	ok(default_board_box != null and default_board_box.position.y + default_board_box.custom_minimum_size.y <= default_bottom_bar_y + 1.0, \
-		"hud_layout preview board sits above the bottom bar in the default live layout")
-	ok(default_bottom_box != null and absf(default_bottom_box.custom_minimum_size.y - default_bottom_bar_h) <= 1.0, \
-		"hud_layout preview bottom row uses the saved percent-of-screen height")
-	ok(is_equal_approx(float(view._params["hud_layout"].get("level_w_pct", 0.0)), 25.0), \
-		"hud_layout saved level badge slot stays at the requested 25% screen width")
 	var default_edge := float(default_layout.get("edge_margin_px", 18.0)) * 0.26
+	var btn_w := preview_w * float(view._params["hud_layout"].get("button_w_pct", 15)) / 100.0
+	var bottom_y := preview_h - maxf(btn_w, default_bottom_bar_h) - default_edge
+	ok(default_board_box.position.y + default_board_box.custom_minimum_size.y <= bottom_y + 2.0, \
+		"hud_layout preview board sits above the bottom row")
+	ok(absf(default_bottom_box.custom_minimum_size.y - maxf(btn_w, default_bottom_bar_h)) <= 1.0, \
+		"hud_layout preview bottom row uses the saved percent-of-screen height")
+	ok(default_board_box.custom_minimum_size.x >= preview_w * 0.85, \
+		"hud_layout preview board fills most of the width")
 	var currency_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("currency_pill_w_pct", 25)))
-	var rail_boxes := _controls_with_label(default_hud_preview, "%d%%" % int(view._params["hud_layout"].get("button_w_pct", 15)))
-	ok(currency_boxes.size() >= 3 and absf((currency_boxes[0] as Control).position.y - default_edge) <= 0.5, \
-		"hud_layout preview uses the shared edge margin above the currency pills")
-	ok(currency_boxes.size() >= 3 and default_quest_box != null \
-		and default_quest_box.position.y >= (currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y + default_edge - 0.5, \
-		"hud_layout preview quest bar stays below the currency pills")
-	ok(currency_boxes.size() >= 3 and rail_boxes.size() >= 1 \
-		and absf((rail_boxes[0] as Control).position.y - ((currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y + default_edge)) <= 0.5, \
-		"hud_layout preview side rail starts one shared margin below the currency pills")
-	view._hud_quest_y_auto = false
-	view._hud_quest_height_auto = false
-	view._hud_board_x_auto = false
-	view._hud_board_y_auto = false
-	view._hud_board_height_auto = false
-	view._params["hud_layout"]["quest_bar_x_pct"] = 6
-	view._params["hud_layout"]["quest_bar_y_pct"] = 18
-	view._params["hud_layout"]["quest_bar_h_pct"] = 11
-	view._params["hud_layout"]["board_x_pct"] = 12
-	view._params["hud_layout"]["board_y_pct"] = 31
-	view._params["hud_layout"]["board_h_pct"] = 48
-	var hud_preview: Control = view._make_element("hud_layout")
-	var quest_box := hud_preview.find_child("HudLayoutQuestBar", true, false) as Control
-	var board_box := hud_preview.find_child("HudLayoutBoard", true, false) as Control
-	ok(quest_box != null and board_box != null and _has_label_text(quest_box, "quest") and _has_label_text(board_box, "board"), \
-		"hud_layout preview draws the quest bar and board area")
-	ok(quest_box != null and absf(quest_box.position.x - preview_w * 0.06) <= 1.0 \
-		and absf(quest_box.position.y - preview_h * 0.18) <= 1.0 \
-		and absf(quest_box.custom_minimum_size.y - preview_h * 0.11) <= 1.0 \
-		and board_box != null and absf(board_box.position.x - preview_w * 0.12) <= 1.0 \
-		and absf(board_box.position.y - preview_h * 0.31) <= 1.0 \
-		and absf(board_box.custom_minimum_size.y - preview_h * 0.48) <= 1.0, \
-		"hud_layout preview applies quest-bar and board position/height controls")
+	ok(currency_boxes.size() >= 3 \
+		and default_quest_box.position.y >= (currency_boxes[0] as Control).position.y + (currency_boxes[0] as Control).custom_minimum_size.y - 0.5, \
+		"hud_layout preview quest bar clears the currency pills")
+
+	# sidebar: the live height sliders remain; the retired position + board-height sliders are gone.
 	view._selected = "hud_layout"
 	view._rebuild_sidebar()
-	ok(_slider_max(view, "Quest Bar H Pct") >= 25.0 and _slider_max(view, "Board H Pct") >= 70.0 \
-		and _slider_max(view, "Bottom Row H Pct") >= 22.0 \
-		and _slider_min(view, "Quest Bar Y Pct") <= 0.0 and _slider_min(view, "Board Y Pct") <= 0.0, \
-		"hud_layout sidebar exposes quest-bar, board, and bottom-row height/position sliders")
+	ok(_slider_max(view, "Quest Bar H Pct") >= 25.0 and _slider_max(view, "Bottom Row H Pct") >= 22.0, \
+		"hud_layout sidebar keeps the quest + bottom-row height sliders")
+	ok(_slider_max(view, "Board H Pct") < 0.0 and _slider_max(view, "Board Y Pct") < 0.0 \
+		and _slider_max(view, "Quest Bar Y Pct") < 0.0 and _slider_max(view, "Board X Pct") < 0.0, \
+		"hud_layout sidebar drops the retired board/quest position + board-height sliders")
 	view._params["hud_layout"] = hud_default
 
 	# the board bottom ACTION BAR is merged into the Info bar Workbench target: one component owns the full

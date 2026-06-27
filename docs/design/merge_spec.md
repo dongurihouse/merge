@@ -205,13 +205,19 @@ Each expansion is a premium fee (exact prices a game instance — see `grove_spe
 > `grove_data.gd` (the tables), `grove_sim.gd`. **A–E are now all SHIPPED (2026-06-26)** — the design
 > history lives in `docs/design/generator_line_ideas.md`.
 >
-> **A. One persistent generator · opened lines never retire — SHIPPED.** There is **a single generator
+> **A. One persistent generator · a ROLLING LINE WINDOW — SHIPPED.** There is **a single generator
 > for the whole game** (the map-0 anchor). No new generators grow in per map; tiles never accumulate.
-> It pops **every OPENED line** — the lines of *every map reached so far* (maps 0..current). **Old lines
-> never retire**: a quest may ask *any* previously-opened line, and pops are biased toward what the
-> current quests want (`ASK_WEIGHT`), so with ~3 quests up the one generator outputs ~3 lines at once.
-> *(With one line per map today, the number of lines flowing = maps reached; multi-line-per-map art —
-> below — surfaces more, sooner.)*
+> It pops from a **rolling window of the last `LINE_WINDOW` maps** (= **3**: the current map **+ the
+> previous 2**) — older lines **RETIRE** off the fence (→ the Collection), keeping the live set small as
+> the lifetime roster grows. There is **no anchor exemption**: even Wildflower retires once map 0 leaves
+> the window (by map 3 / zone 4). A quest may ask any line *in that window*, with pops biased toward what
+> the current quests want (`ASK_WEIGHT`). The generator pops at most `POP_LINE_CAP` distinct lines at once
+> — **staged: 2 on the tiny zone-1 (Farmhouse) board, 3 from zone 2 on** — so with ~3 quests up it outputs
+> ~3 lines. *(Code: `askable_lines` = the windowed set, `pop_line_cap(map)` = the staged cap;
+> `LINE_WINDOW` / `POP_LINE_CAP` / `POP_LINE_CAP_Z1` are grove dials.)*
+> *(**Revised 2026-06-26** — earlier this read "opened lines never retire / draw from all maps 0..current";
+> that cumulative model is **superseded** by this rolling window. The §6 body's retire concept is back, but
+> **window-based, not hand-in-based** — generators still never hand in, and there is no anchor exemption.)*
 >
 > **B. Special drop items — SHIPPED.** A pool of special items mixes into the generator's pops as
 > occasional surprises (`SPECIAL_DROP_RATE` / `SPECIAL_DROP_WEIGHTS`), each behaving differently:
@@ -323,7 +329,7 @@ The spend surface is not a checklist — **it is the game** (§1: *the merge is 
 Restoration spots are **unlock-once** — gated by a **cumulative exp threshold** (§3), restored from ruined→**restored** in one free claim (no spend, no second coin-upgrade axis; a spot is binary, not a renovation ladder). When a map is **fully restored (complete)**, it opens a **population layer**: the player **welcomes residents** to live in the restored world. This is the engine's **endless soft-currency sink** and its **anti-abandonment "living world"** layer — it replaces the older home-hub coin-upgrade→passive-yield loop (deleted: with it goes the keystone coin *sink* and the passive coin *faucet*, and the "building visibly grows richer" beat — an accepted loss, not patched with a slimmed renovation).
 
 - **Welcome — soft currency for base, hard currency for premium.** A completed map invites residents in: **base/core residents cost Coins** (the primary functional coin sink — repeatable, **endless**), **premium residents cost the hard currency** (the deterministic premium character — the v1 gem sink). Framed **diegetically as welcoming/inviting** (per §13's "commerce wears the world" law), never a bare "Buy Resident" store.
-- **Residents wander the ambient layer; same-kind pairs auto-merge.** Welcomed residents join the existing **ambient life (§12)** and wander the scene. **Two of the same type *and* tier auto-merge — silently, with no tap** (the engine introduces them; a "meet-and-poof" visual) into **one resident a tier up**. Merge tiers are **shallow (2–3)**. This reuses the merge verb on the populace — **no second board, no second merge surface.**
+- **Residents wander the ambient layer; same-kind pairs auto-merge.** Welcomed residents join the existing **ambient life (§12)** and wander the scene. **Two of the same type *and* tier auto-merge — silently, with no tap** (the engine introduces them; a "meet-and-poof" visual) into **one resident a tier up**. Merge tiers run a **full 12-step ladder** (`RESIDENT_MAX_TIER`). This reuses the merge verb on the populace — **no second board, no second merge surface.**
 - **The roster is the source of truth — not the display.** Membership is a **persisted per-map roster**, *not* the stateless on-screen crowd: who lives here survives a session, and the wandering sprites are a *render* of the roster. Residents now have a **per-map capacity** (superseded — see `residents_spec.md`); **tier-compression** (each merge raising tier removes two and adds one) still keeps the **on-screen density manageable**. Ties to §16's **"never a dense single render"** and the §12 **Calm-Mode** particle budget — the visible populace stays sparse even as the lifetime roster grows.
 
 **The home hub is now a narrative + functional anchor, not a unique mechanic.** Every restored map is populate-able, so the population loop is *general*, not the hub's. One map is still the **home hub** (the game designates it — typically the **first**; the grove's homestead): it restores and completes like any map, but stays special through **narrative/functional anchors** — the **HUD "home" shortcut** that jumps back from anywhere, **deeper authoring** (a richer scene than a finish-once map), and any **story spine** sited there — **not** a mechanic other maps lack. *(Ongoing per-map **yield** and resource **feed-forward** — old maps continuously paying into the new — were considered and **parked** as a 10-map chore; the population loop is the chosen "old maps stay alive" answer instead. The one-time **generator hand-in** at a boundary (§6/§7) is *not* that loop: it's a single, forward-flowing step of progression, so it stays. BACKLOG.)*

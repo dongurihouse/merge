@@ -191,11 +191,13 @@ var _params := {
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
+	# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
+	# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
+	# the live layout still reads remain tunable: quest_bar_h_pct, bottom_row_h_pct, button_w_pct.
 	"hud_layout": {"level_w_pct": 25, "currency_area_pct": 75, "currency_pill_w_pct": 25,
 		"edge_margin_px": 18,
 		"top_band_h_pct": 15, "button_w_pct": 15, "info_bar_w_pct": 70, "bottom_row_h_pct": 10,
-		"quest_bar_x_pct": 3, "quest_bar_y_pct": 17, "quest_bar_h_pct": 11,
-		"board_x_pct": 12, "board_y_pct": 30, "board_h_pct": 48},
+		"quest_bar_h_pct": 11},
 	"icon": {"defringe": false, "feather": 1, "supersample": 1, "shadow": false},
 	# the BADGE — the home button's disc shell, extracted as its own polish sandbox (defringe / shadow /
 	# feather, like the Icon item). SAVED, and the home button reads it so a tweak flows to the rail + nav.
@@ -351,11 +353,6 @@ var _sections: Dictionary = {}    # id -> the element's gallery section (PanelCo
 var _dirty: Dictionary = {}       # id -> true: linked elements queued to rebuild, one per frame (coalesced)
 var _awaiting: Dictionary = {}    # id -> true: elements showing a raw placeholder until a worker polish lands
 var _building := ""               # the id whose section is mid-build (so the polish previews know who to await)
-var _hud_board_height_auto := false
-var _hud_board_x_auto := false
-var _hud_board_y_auto := false
-var _hud_quest_height_auto := false
-var _hud_quest_y_auto := false
 
 # drag-to-move (banner icon / ✕), with snap-to-grid
 var _drag_kind := ""
@@ -367,7 +364,6 @@ func _ready() -> void:
 		theme = UiFont.make()
 	_ensure_shadow_keys()
 	_load_settings()
-	_sync_legacy_hud_board_layout()
 	_build()
 
 ## Give EVERY component a `shadow` on/off key (default ON for the elements that ship a drop shadow, OFF
@@ -876,38 +872,33 @@ func _hud_layout_preview() -> Control:
 	for i in 3:
 		root.add_child(_layout_preview_box(Rect2(wallet_x + pill_w * i, pill_y, pill_body_w, pill_h), Color("#F8F1C9", 0.82), "%d%%" % int(p.get("currency_pill_w_pct", 25))))
 	var wallet_clear_y := pill_y + pill_h + edge
-	var quest_x := w * float(p.get("quest_bar_x_pct", 3)) / 100.0
-	if _hud_quest_y_auto:
-		p["quest_bar_y_pct"] = _live_quest_y_pct()
-	if _hud_quest_height_auto:
-		p["quest_bar_h_pct"] = _live_quest_h_pct()
-	var quest_y := maxf(_live_quest_y_px() * s, wallet_clear_y) if _hud_quest_y_auto else h * float(p.get("quest_bar_y_pct", 17)) / 100.0
-	var quest_h := Kit.live_quest_bar_height() * s if _hud_quest_height_auto else h * float(p.get("quest_bar_h_pct", 11)) / 100.0
-	if _hud_quest_y_auto:
-		p["quest_bar_y_pct"] = clampf(roundf(quest_y / h * 100.0), 0.0, 55.0)
-	var quest_w := maxf(1.0, w - quest_x * 2.0)
-	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
-	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
-	if _hud_board_x_auto:
-		p["board_x_pct"] = _live_board_x_pct()
-	if _hud_board_y_auto:
-		p["board_y_pct"] = _live_board_y_pct()
-	if _hud_board_height_auto:
-		p["board_h_pct"] = _live_board_h_pct()
-	var board_x := w * float(p.get("board_x_pct", 12)) / 100.0
-	var board_y := maxf(_live_board_y_px() * s, quest_y + quest_h + 10.0 * s) if _hud_board_y_auto else h * float(p.get("board_y_pct", 30)) / 100.0
-	var board_h := live_board_size.y if _hud_board_height_auto else h * float(p.get("board_h_pct", 48)) / 100.0
-	if _hud_board_y_auto:
-		p["board_y_pct"] = clampf(roundf(board_y / h * 100.0), 0.0, 75.0)
-	var board_w := minf(w - board_x, live_board_size.x * board_h / maxf(1.0, live_board_size.y))
-	root.add_child(_layout_preview_box(Rect2(board_x, board_y, board_w, board_h), Color("#A8D29B", 0.48), "board", "HudLayoutBoard"))
+	# The board + quest stack is BOTTOM-ANCHORED in the live game (packed above the bottom bar; spare room
+	# falls to the top) and the board fills the width / auto-rotates — so the preview derives their boxes
+	# from the live layout, not from manual x·y·h knobs (those are retired).
 	var btn_w := w * float(p.get("button_w_pct", 15)) / 100.0
+	var bottom_h := maxf(btn_w, h * float(layout.get("bottom_row_h_frac", 0.0)))
+	var bottom_y := h - bottom_h - edge
+	# The quest + board fill the space between the cleared HUD top (wallet_clear_y, the preview's
+	# HUD_CLEARANCE) and the bottom row, packed to the bottom. The board is height-capped to that room
+	# (keeping its aspect) so the quest always clears the pills — exactly like the live layout.
+	var gap := 8.0 * s
+	var quest_h := h * float(p.get("quest_bar_h_pct", 11)) / 100.0
+	var live_board_size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params) * s
+	var board_max_h := maxf(1.0, (bottom_y - wallet_clear_y) - quest_h - gap * 2.0)
+	var board_h := minf(live_board_size.y, board_max_h)
+	var board_w := minf(w, live_board_size.x * board_h / maxf(1.0, live_board_size.y))   # keep aspect if capped
+	var board_x := (w - board_w) / 2.0
+	var board_y := bottom_y - gap - board_h
+	root.add_child(_layout_preview_box(Rect2(board_x, board_y, board_w, board_h), Color("#A8D29B", 0.48), "board", "HudLayoutBoard"))
+	# quest fence: full width (small inset), height from quest_bar_h_pct, packed just above the board.
+	var quest_x := 6.0 * s
+	var quest_w := maxf(1.0, w - quest_x * 2.0)
+	var quest_y := board_y - gap - quest_h
+	root.add_child(_layout_preview_box(Rect2(quest_x, quest_y, quest_w, quest_h), Color("#E7B36B", 0.58), "quest", "HudLayoutQuestBar"))
 	var side_x := w - edge - btn_w
 	var rail_top := wallet_clear_y
 	for i in 4:
 		root.add_child(_layout_preview_box(Rect2(side_x, rail_top + i * (btn_w + 8.0), btn_w, btn_w), Color("#9AD7C8", 0.72), "%d%%" % int(p.get("button_w_pct", 15))))
-	var bottom_h := maxf(btn_w, h * float(layout.get("bottom_row_h_frac", 0.0)))
-	var bottom_y := h - bottom_h - edge
 	var info_w := w * float(p.get("info_bar_w_pct", 70)) / 100.0
 	root.add_child(_layout_preview_box(Rect2(0, bottom_y, btn_w, bottom_h), Color("#B9D5FF", 0.72), "bag", "HudLayoutBottomRow"))
 	root.add_child(_layout_preview_box(Rect2(btn_w, bottom_y, info_w, bottom_h), Color("#F2D59A", 0.78), "info %d%%" % int(p.get("info_bar_w_pct", 70))))
@@ -1075,57 +1066,9 @@ func _layout_preview_box(rect: Rect2, color: Color, text: String, node_name := "
 	p.add_child(l)
 	return p
 
-func _live_board_h_pct() -> float:
-	var size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params)
-	return clampf(roundf(size.y / PHONE_H * 100.0), 20.0, 70.0)
-
-func _live_board_x_pct() -> float:
-	var size := Kit.live_board_frame_size(Vector2(PHONE_W, PHONE_H), _params)
-	return clampf(roundf(maxf(0.0, (PHONE_W - size.x) * 0.5) / PHONE_W * 100.0), 0.0, 40.0)
-
-func _live_board_y_px() -> float:
-	return Kit.live_board_frame_top_y(0.0)
-
-func _live_board_y_pct() -> float:
-	return clampf(roundf(_live_board_y_px() / PHONE_H * 100.0), 0.0, 75.0)
-
-func _live_quest_y_px() -> float:
-	return Kit.live_quest_bar_top_y(0.0)
-
-func _live_quest_y_pct() -> float:
-	return clampf(roundf(_live_quest_y_px() / PHONE_H * 100.0), 0.0, 55.0)
-
-func _live_quest_h_pct() -> float:
-	return clampf(roundf(Kit.live_quest_bar_height() / PHONE_H * 100.0), 5.0, 25.0)
-
-func _hud_layout_should_auto(h: Dictionary, key: String, legacy_value: float, live_value: float) -> bool:
-	if not h.has(key):
-		return true
-	var v := float(h.get(key, legacy_value))
-	return is_equal_approx(v, legacy_value) or is_equal_approx(v, live_value)
-
-func _sync_legacy_hud_board_layout() -> void:
-	var h: Dictionary = _params["hud_layout"]
-	var live_quest_y := _live_quest_y_pct()
-	var live_quest_h := _live_quest_h_pct()
-	var live_board_x := _live_board_x_pct()
-	var live_board_y := _live_board_y_pct()
-	var live_board_h := _live_board_h_pct()
-	if _hud_layout_should_auto(h, "quest_bar_y_pct", 17.0, live_quest_y):
-		h["quest_bar_y_pct"] = live_quest_y
-		_hud_quest_y_auto = true
-	if _hud_layout_should_auto(h, "quest_bar_h_pct", 11.0, live_quest_h):
-		h["quest_bar_h_pct"] = live_quest_h
-		_hud_quest_height_auto = true
-	if _hud_layout_should_auto(h, "board_x_pct", 12.0, live_board_x):
-		h["board_x_pct"] = live_board_x
-		_hud_board_x_auto = true
-	if _hud_layout_should_auto(h, "board_y_pct", 30.0, live_board_y):
-		h["board_y_pct"] = live_board_y
-		_hud_board_y_auto = true
-	if _hud_layout_should_auto(h, "board_h_pct", 48.0, live_board_h):
-		h["board_h_pct"] = live_board_h
-		_hud_board_height_auto = true
+# (The legacy hud_layout AUTO-derivation — _live_*_pct/_px helpers + _sync_legacy_hud_board_layout — was
+# retired with the board/quest position+height knobs: the live layout is fully responsive now, so there is
+# nothing to snap the workbench preview back to.)
 
 ## A faithful BOARD preview — the bamboo frame (board_frame.png nine-patch) + the cell grid (the SHARED
 ## slot-cell well the board + bag use) + a few demo merge pieces (PieceView), the SAME art the live board
@@ -1869,13 +1812,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["info_bar_w_pct", 40, 85]))       # board info-bar width (% screen width)
 			_sidebar_body.add_child(_slider_row(["bottom_row_h_pct", 8, 22]))      # board-only bottom tray height (% screen height)
 			_section_header("Quest bar")
-			_sidebar_body.add_child(_slider_row(["quest_bar_x_pct", 0, 30]))       # quest fence left inset / position (% screen width)
-			_sidebar_body.add_child(_slider_row(["quest_bar_y_pct", 0, 55]))       # quest fence top position (% screen height)
+			# Position/board-height knobs retired — the board fills the width / auto-rotates and the quest+board
+			# stack is bottom-anchored, so only the quest band HEIGHT (% screen height, clamped in board.gd) is tunable.
 			_sidebar_body.add_child(_slider_row(["quest_bar_h_pct", 5, 25]))       # quest fence height (% screen height)
-			_section_header("Board area")
-			_sidebar_body.add_child(_slider_row(["board_x_pct", 0, 40]))           # board area left position (% screen width)
-			_sidebar_body.add_child(_slider_row(["board_y_pct", 0, 75]))           # board area top position (% screen height)
-			_sidebar_body.add_child(_slider_row(["board_h_pct", 20, 70]))          # board area height (% screen height)
 		"card":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_option_row("Icon badge", "icon_badge", Kit.ICON_BADGES.keys()))
@@ -2335,17 +2274,6 @@ func _slider_row(spec: Array, target := "") -> Control:
 	row.add_child(val)
 	s.value_changed.connect(func(x: float) -> void:
 		params[key] = x
-		if String(target if target != "" else _selected) == "hud_layout":
-			if key == "board_h_pct":
-				_hud_board_height_auto = false
-			elif key == "board_x_pct":
-				_hud_board_x_auto = false
-			elif key == "board_y_pct":
-				_hud_board_y_auto = false
-			elif key == "quest_bar_h_pct":
-				_hud_quest_height_auto = false
-			elif key == "quest_bar_y_pct":
-				_hud_quest_y_auto = false
 		val.text = "%d" % int(x)
 		_apply_edit())
 	return row

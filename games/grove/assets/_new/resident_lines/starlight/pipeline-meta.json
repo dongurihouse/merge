@@ -1,0 +1,227 @@
+{
+  "slug": "starlight",
+  "zone": "gate",
+  "name": "Starlight",
+  "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f36dce2348198971641d14d94c109.png",
+  "raw_sheet": "games/grove/assets/_new/line_resident_starlight_v1.png",
+  "transparent_sheet": "games/grove/assets/_new/resident_lines/starlight/line_resident_starlight_v1_transparent_sheet.png",
+  "contact_sheet": "games/grove/assets/_new/resident_lines/starlight/line_resident_starlight_v1_contact.png",
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "Glimmer",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_01.png",
+      "source_bbox": [
+        0,
+        0,
+        275,
+        384
+      ],
+      "output_bbox": [
+        97,
+        41,
+        405,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 2,
+      "name": "Glow sprite",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_02.png",
+      "source_bbox": [
+        18,
+        80,
+        342,
+        384
+      ],
+      "output_bbox": [
+        51,
+        64,
+        471,
+        458
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 3,
+      "name": "Star-warden",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_03.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 4,
+      "name": "Mooncap child",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_04.png",
+      "source_bbox": [
+        72,
+        0,
+        279,
+        357
+      ],
+      "output_bbox": [
+        132,
+        41,
+        379,
+        463
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 5,
+      "name": "Lantern shawl keeper",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_05.png",
+      "source_bbox": [
+        8,
+        0,
+        342,
+        358
+      ],
+      "output_bbox": [
+        65,
+        41,
+        457,
+        461
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 6,
+      "name": "Glowcap sprite",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_06.png",
+      "source_bbox": [
+        0,
+        0,
+        279,
+        356
+      ],
+      "output_bbox": [
+        86,
+        41,
+        415,
+        464
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 7,
+      "name": "Astral monk",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_07.png",
+      "source_bbox": [
+        49,
+        16,
+        312,
+        384
+      ],
+      "output_bbox": [
+        105,
+        50,
+        406,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 8,
+      "name": "Gate mender",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_08.png",
+      "source_bbox": [
+        5,
+        38,
+        342,
+        384
+      ],
+      "output_bbox": [
+        54,
+        51,
+        463,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 9,
+      "name": "Constellation elder",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_09.png",
+      "source_bbox": [
+        0,
+        1,
+        298,
+        384
+      ],
+      "output_bbox": [
+        84,
+        43,
+        418,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 10,
+      "name": "Golden starlight guardian",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_10.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 11,
+      "name": "Halo-crowned sage",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_11.png",
+      "source_bbox": [
+        0,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        64,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 12,
+      "name": "Great threshold spirit",
+      "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_12.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    }
+  ]
+}

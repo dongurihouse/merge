@@ -13,13 +13,14 @@ extends RefCounted
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
+const Content = preload("res://engine/scripts/core/content.gd")   # §1 the spot-scaled roster capacity ramp
 const D = Game.DATA
 
-const DEFAULT_CAP := 8                  # starting slots per habitat (per-map upgrades: parked)
-const MAX_TIER: int = D.RESIDENT_MAX_TIER   # reuse the existing cascade cap (3) as the v1 tier band
+const DEFAULT_CAP := 8                  # full habitat slots (= RESIDENT_SLOTS_MAX); the roster RAMPS up to this as the map is restored
+const MAX_TIER: int = D.RESIDENT_MAX_TIER   # reuse the existing cascade cap (12) as the v1 tier band
 
 # PROVISIONAL feel dials — the slice plays with these; final values come from the parked grove_sim pass.
-const YIELD_PER_HOUR := 6.0             # reward units per hour a TIER-1 spirit yields (rate scales with tier)
+const YIELD_PER_HOUR := 1.0             # reward units per hour a TIER-1 spirit yields (rate scales with tier) — sim-tuned down from 6.0 (it flooded ~30× the quest faucet)
 const ACCRUAL_HOURS := 8.0             # idle accrual ceiling, in hours of current output (daily-return cap)
 const SELL_PER_TIER := 5               # coins returned when selling a placed spirit, per housed tier
 
@@ -61,7 +62,15 @@ static func hand_merge(kind: String, tier: int) -> bool:
 
 # --- per-map placement & capacity -------------------------------------------------
 static func cap(map_id: String) -> int:
-	return int(Save.grove().get("hab_cap", {}).get(map_id, DEFAULT_CAP))
+	var override: Dictionary = Save.grove().get("hab_cap", {})
+	if override.has(map_id):
+		return int(override[map_id])                  # explicit per-map override (parked upgrades) wins
+	# §1 EARLY POPULATION: the roster opens at the FIRST restored spot with 1 slot and RAMPS to DEFAULT_CAP
+	# once every spot is restored (the shared content ramp; a full roster forces a merge or a sell to make room).
+	var z := Content.map_for_id(map_id)
+	if z < 0:
+		return DEFAULT_CAP
+	return Content.resident_capacity(z, Save.grove().get("unlocks", {}))
 
 static func placed(map_id: String) -> Array:
 	return Save.grove().get("habitat", {}).get(map_id, [])

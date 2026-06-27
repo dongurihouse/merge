@@ -1,0 +1,227 @@
+{
+  "slug": "sprout",
+  "zone": "orchard",
+  "name": "Sprout",
+  "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f35fe84b08198bbd23fd1c8ec911d.png",
+  "raw_sheet": "games/grove/assets/_new/line_resident_sprout_v1.png",
+  "transparent_sheet": "games/grove/assets/_new/resident_lines/sprout/line_resident_sprout_v1_transparent_sheet.png",
+  "contact_sheet": "games/grove/assets/_new/resident_lines/sprout/line_resident_sprout_v1_contact.png",
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "Seedling",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_01.png",
+      "source_bbox": [
+        0,
+        0,
+        267,
+        384
+      ],
+      "output_bbox": [
+        102,
+        41,
+        402,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 2,
+      "name": "Sprout sprite",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_02.png",
+      "source_bbox": [
+        17,
+        114,
+        305,
+        384
+      ],
+      "output_bbox": [
+        52,
+        70,
+        459,
+        452
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 3,
+      "name": "Grove-keeper",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_03.png",
+      "source_bbox": [
+        3,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        69,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 4,
+      "name": "Rootling child",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_04.png",
+      "source_bbox": [
+        0,
+        0,
+        278,
+        354
+      ],
+      "output_bbox": [
+        86,
+        41,
+        418,
+        464
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 5,
+      "name": "Clover shawl keeper",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_05.png",
+      "source_bbox": [
+        21,
+        0,
+        281,
+        355
+      ],
+      "output_bbox": [
+        100,
+        41,
+        412,
+        463
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 6,
+      "name": "Bud-belly sprite",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_06.png",
+      "source_bbox": [
+        1,
+        0,
+        278,
+        357
+      ],
+      "output_bbox": [
+        89,
+        41,
+        416,
+        463
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 7,
+      "name": "Barkcap monk",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_07.png",
+      "source_bbox": [
+        0,
+        9,
+        303,
+        384
+      ],
+      "output_bbox": [
+        81,
+        50,
+        421,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 8,
+      "name": "Orchard mender",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_08.png",
+      "source_bbox": [
+        12,
+        24,
+        342,
+        384
+      ],
+      "output_bbox": [
+        67,
+        50,
+        453,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 9,
+      "name": "Blossom-heart elder",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_09.png",
+      "source_bbox": [
+        0,
+        13,
+        280,
+        384
+      ],
+      "output_bbox": [
+        92,
+        50,
+        410,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 10,
+      "name": "Golden sprout guardian",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_10.png",
+      "source_bbox": [
+        0,
+        0,
+        314,
+        384
+      ],
+      "output_bbox": [
+        75,
+        41,
+        427,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 11,
+      "name": "Bloom-crowned sage",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_11.png",
+      "source_bbox": [
+        1,
+        0,
+        342,
+        290
+      ],
+      "output_bbox": [
+        42,
+        68,
+        471,
+        433
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 12,
+      "name": "Great grove spirit",
+      "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_12.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    }
+  ]
+}

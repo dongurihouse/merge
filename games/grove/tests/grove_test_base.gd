@@ -161,49 +161,49 @@ func finish() -> void:
 
 
 # ── §1 · the RESIDENTS population sub-game (own fn = its own scope) ────────────────────────
-# Replaces the removed §8 home-hub coin-yield keystone. A COMPLETED map opens its resident
-# roster: welcome (buy) a t1 — coins for a core/non-premium type, diamonds for the per-map
-# premium signature — and two-of-a-kind AUTO-MERGE one tier up, cascading to RESIDENT_MAX_TIER.
-# No roster cap (the endless coin sink). The merge + cost math is content.gd; storage is Save.
+# Replaces the removed §8 home-hub coin-yield keystone. A populated map opens its resident roster:
+# welcome (buy) a t1 with coins, and two-of-a-kind AUTO-MERGE one tier up, cascading to
+# RESIDENT_MAX_TIER. No roster cap (the endless coin sink). Merge + cost math is content.gd; storage is Save.
+
+# Pad a counts literal to a full RESIDENT_MAX_TIER int array (resident_counts always returns that length).
+func _pad(vals: Array) -> Array:
+	var a: Array = vals.duplicate()
+	while a.size() < G.RESIDENT_MAX_TIER:
+		a.append(0)
+	return a
+
 func _test_residents() -> void:
 	var z := 0                                  # map 0 (Farmhouse) — populate it once it's complete
 	var map_id := String(G.MAPS[z].id)
 
-	# 0. the OFFER: the roster = the shared core (moss/acorn/lantern) + this map's signature, with
-	# exactly one premium (diamond) signature per map. Costs come off resident_cost.
+	# 0. the OFFER: each map offers ONE resident line (a nature-elemental spirit-folk family),
+	# welcomed with coins. Costs come off resident_cost.
 	var lines := G.resident_lines(z)
-	ok(lines.size() >= G.RESIDENT_CORE.size() + 1, "the map's roster offers the core + its signature(s)")
-	var premium_count := 0
-	var core_def := {}
-	var premium_def := {}
-	for td in lines:
-		if bool(td.get("premium", false)):
-			premium_count += 1
-			premium_def = td
-		elif core_def.is_empty():
-			core_def = td
-	ok(premium_count == 1, "each map offers exactly one premium (💎) signature resident")
-	ok(String(G.resident_cost(core_def).currency) == "coins" and int(G.resident_cost(core_def).cost) == G.RESIDENT_BASE_COST, \
-		"a core resident costs %d🪙" % G.RESIDENT_BASE_COST)
-	ok(String(G.resident_cost(premium_def).currency) == "diamonds" and int(G.resident_cost(premium_def).cost) == G.RESIDENT_PREMIUM_COST, \
-		"a premium resident costs %d💎" % G.RESIDENT_PREMIUM_COST)
-	var _rart := G.resident_art(String(core_def.id))   # "" under the placeholder art-root (engine draws its fallback), else a real .png
+	ok(lines.size() == 1, "the map offers exactly one resident line")
+	var line_def: Dictionary = lines[0]
+	ok(String(G.resident_cost(line_def).currency) == "coins" and int(G.resident_cost(line_def).cost) == G.RESIDENT_BASE_COST, \
+		"a resident costs %d🪙" % G.RESIDENT_BASE_COST)
+	var _rart := G.resident_art(String(line_def.id))   # "" under the placeholder art-root (engine draws its fallback), else a real .png
 	ok(_rart == "" or _rart.ends_with(".png"), "resident_art resolves a type to an art path (or empty under the placeholder root)")
 
-	# 1. the POPULATE GATE: can_populate is FALSE until the map is fully complete (spots done AND its
-	# gate delivered) — the same bar as map_complete. An incomplete or gate-pending map stays closed.
+	# 1. EARLY POPULATE GATE: can_populate opens as soon as the FIRST spot is restored (not full
+	# completion); the roster CAPACITY then ramps 1 → RESIDENT_SLOTS_MAX as the rest come in.
 	fresh("residents_gate")
+	var first_spot := String(G.MAPS[z].spots[0].id)
 	var unl := {}
 	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true                                # all spots restored…
-	ok(not G.can_populate(z, unl, []), "can_populate is FALSE on a spot-done but gate-PENDING map")
-	ok(not G.can_populate(z, {}, [z]), "can_populate is FALSE on a gated but spot-INCOMPLETE map")
-	ok(G.can_populate(z, unl, [z]), "can_populate opens once the map is COMPLETE (spots done + gate delivered)")
+		unl[String(sp.id)] = true                                # all spots restored
+	ok(not G.can_populate(z, {}, []), "can_populate is FALSE before any spot is restored")
+	ok(G.can_populate(z, {first_spot: true}, []), "can_populate OPENS once the first spot is restored")
+	ok(G.resident_capacity(z, {first_spot: true}) == 1, "capacity is 1 at the first restored spot")
+	ok(G.resident_capacity(z, unl) == G.RESIDENT_SLOTS_MAX, "capacity reaches RESIDENT_SLOTS_MAX when all spots are restored")
+	# (the live roster CAP is enforced by Habitat — Habitat.cap reads resident_capacity, is_full/sell guard +
+	# free slots; covered in grove_residents_tests. Here we cover the early-open + the capacity ramp only.)
 
 	# 2. WELCOME spends + adds a t1. A core welcome debits coins and pushes the t1 count to 1.
 	fresh("residents_welcome")
 	Save.add_coins(1000)
-	var cid := String(core_def.id)
+	var cid := String(line_def.id)
 	var coins_b := Save.coins()
 	var r1: Dictionary = G.welcome_resident(z, cid)
 	ok(bool(r1.ok) and r1.events.is_empty(), "welcoming the first t1 succeeds with NO merge event")
@@ -251,25 +251,13 @@ func _test_residents() -> void:
 	ok(not bool(rb.ok) and rb.events.is_empty(), "a broke welcome refuses (ok=false, no event)")
 	ok(Save.resident_counts(map_id, cid) == before_broke, "a refused welcome leaves the roster untouched")
 
-	# 7. a PREMIUM welcome spends DIAMONDS, not coins.
-	fresh("residents_premium")
-	Save.add_diamonds(20)
-	var pid := String(premium_def.id)
-	var gems_b := Save.diamonds()
-	var coins_pb := Save.coins()
-	var rp: Dictionary = G.welcome_resident(z, pid)
-	ok(bool(rp.ok) and Save.diamonds() == gems_b - G.RESIDENT_PREMIUM_COST and Save.coins() == coins_pb, \
-		"a premium welcome spends diamonds (coins untouched)")
-	ok(Save.resident_counts(map_id, pid)[0] == 1, "the premium t1 lands in its own roster line")
-
-	# 8. PERSISTENCE: the roster survives a cold reload (set → reload from disk → counts intact).
+	# 7. PERSISTENCE: the roster survives a cold reload (set → reload from disk → counts intact). A saved
+	# array shorter than RESIDENT_MAX_TIER right-pads with zeros on read (old-save migration, no schema bump).
 	fresh("residents_persist")
 	Save.set_resident_counts(map_id, cid, [2, 1, 0])
-	Save.set_resident_counts(map_id, pid, [0, 0, 1])
 	Save._loaded = false                                         # force a reload from disk
-	ok(Save.resident_counts(map_id, cid) == [2, 1, 0], "a core roster line persists across a reload")
-	ok(Save.resident_counts(map_id, pid) == [0, 0, 1], "a premium roster line persists across a reload")
-	ok(Save.resident_counts(map_id, "no_such_type") == [0, 0, 0], "an un-welcomed type defaults to all-zero counts")
+	ok(Save.resident_counts(map_id, cid) == _pad([2, 1, 0]), "a roster line persists across a reload (padded to RESIDENT_MAX_TIER)")
+	ok(Save.resident_counts(map_id, "no_such_type") == _pad([]), "an un-welcomed type defaults to all-zero counts")
 
 # §1 · the per-map UNLOCK reward (scaling coins/gems + a free signature spirit), the free-spirit grant,
 # and the one-time claim. Pure-model coverage routed into the ACTIVE shop+ads suite (the resident tests
@@ -280,15 +268,15 @@ func _test_unlock_rewards() -> void:
 		var rew: Dictionary = G.map_unlock_reward(z)
 		ok(int(rew.coins) == 120 + 80 * z, "map %d unlock grants %d coins (120 + 80*%d)" % [z, 120 + 80 * z, z])
 		ok(int(rew.gems) == 2 + z, "map %d unlock grants %d diamonds (2 + %d)" % [z, 2 + z, z])
-		var sig: Array = G.RESIDENT_SIGNATURE.get(String(G.MAPS[z].id), [])
-		var want := String(sig[0].id) if sig.size() > 0 else ""
-		ok(String(rew.spirit) == want, "map %d unlock's free spirit is its signature[0] (%s)" % [z, want])
+		var ln: Dictionary = G.RESIDENT_LINES.get(String(G.MAPS[z].id), {})
+		var want := String(ln.get("id", ""))
+		ok(String(rew.spirit) == want, "map %d unlock's free spirit is its resident line (%s)" % [z, want])
 
 	# grant_resident adds a t1 WITHOUT spending, and still cascades merges.
 	fresh("grant_resident_free")
 	var z0 := 0
 	var mid := String(G.MAPS[z0].id)
-	var gid := String(G.RESIDENT_CORE[0].id)
+	var gid := String(G.resident_lines(z0)[0].id)
 	var coins_before := Save.coins()
 	var ev1: Array = G.grant_resident(z0, gid)
 	ok(Save.coins() == coins_before, "grant_resident does NOT spend coins")
@@ -306,7 +294,7 @@ func _test_unlock_rewards() -> void:
 
 	# claim_unlock_reward grants coins + gems + the free spirit ONCE per map; a second claim is a no-op.
 	fresh("claim_unlock_once")
-	var cz := 1                                       # map 1 (Orchard): 200 coins, 3 gems, signature "bee"
+	var cz := 1                                       # map 1 (Orchard): 200 coins, 3 gems, resident line "sprout"
 	var cmid := String(G.MAPS[cz].id)
 	var coins0 := Save.coins()
 	var gems0 := Save.diamonds()
@@ -374,7 +362,7 @@ func _test_resident_wiring() -> void:
 	G.welcome_resident(z, cid)
 	G.welcome_resident(z, cid)
 	G.welcome_resident(z, cid)
-	ok(Save.resident_counts(map_id, cid) == [1, 1, 0], "3 welcomes leave a t1 + an auto-merged t2")
+	ok(Save.resident_counts(map_id, cid) == _pad([1, 1, 0]), "3 welcomes leave a t1 + an auto-merged t2")
 
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
@@ -401,7 +389,7 @@ func _test_resident_wiring() -> void:
 	var coins_b := Save.coins()
 	_welcome_kind(hx, z, cid)                                     # a 4th t1 → cascades t1+t2 → a t3
 	ok(Save.coins() == coins_b - G.RESIDENT_BASE_COST, "welcoming through map.gd spent the coin cost")
-	ok(Save.resident_counts(map_id, cid) == [0, 0, 1], "the welcome cascaded the roster to a single t3")
+	ok(Save.resident_counts(map_id, cid) == _pad([0, 0, 1]), "the welcome cascaded the roster to a single t3")
 	hx.queue_free()
 
 # collect every rendered resident sprite under `n` (meta-tagged by build_population_layer).
@@ -412,10 +400,10 @@ func _find_residents(n: Node, acc: Array) -> Array:
 		_find_residents(c, acc)
 	return acc
 
-# drive map.gd's REAL buy handler for kind `cid` (the Residents shop's on_buy path: spend + cascade +
-# rebuild). A null refresh Callable is skipped (no open shop to refresh in this headless wiring check).
-func _welcome_kind(hx, z: int, cid: String) -> void:
-	hx._buy_resident(z, cid, Callable())
+# welcome kind `cid` on map z via the MODEL (the dead welcome-shop UI handler `_buy_resident` was removed —
+# the live acquisition is the Expedition; this stays a model-level cascade check).
+func _welcome_kind(_hx, z: int, cid: String) -> void:
+	G.welcome_resident(z, cid)
 
 # §10 · the 2× DOUBLER re-homed to the board's quest COIN reward (was the removed hub yield-collect).
 # Proves the moved card subsystem: a coin reward offers the doubler, accepting credits a SECOND N,

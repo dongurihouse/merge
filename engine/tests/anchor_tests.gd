@@ -1,7 +1,7 @@
 extends SceneTree
-## Headless tests for ASKABLE LINES — now CURRENT-MAP ONLY (the anchor-line exemption is retired:
-## generators persist, no hand-in, no retirement-driven exemption). A regular quest may ask only
-## the current map's live lines; old-map lines are not quested. Uses the REAL grove roster.
+## Headless tests for ASKABLE LINES — a ROLLING WINDOW of the last LINE_WINDOW maps (the current map +
+## the previous LINE_WINDOW-1): a regular quest may ask any line in that window; older lines RETIRE off
+## the fence (Wildflower drops out by map 3). Uses the REAL grove roster.
 ##   godot --headless --path . -s res://engine/tests/anchor_tests.gd
 
 const G = preload("res://engine/scripts/core/content.gd")
@@ -22,9 +22,9 @@ func ok(cond: bool, label: String) -> void:
 const Z0_LINES := [1]
 
 func _initialize() -> void:
-	# --- askable_lines == ALL OPENED lines (maps 0..map), at EVERY map — opened lines never retire (idea 3) ---
+	# --- askable_lines == the ROLLING WINDOW of the last LINE_WINDOW maps, at EVERY map (older lines retire) ---
 	for z in G.MAPS.size():
-		ok(str(G.askable_lines(G.GENERATORS, z)) == str(_opened_lines(z)), "at map %d askable_lines == all opened lines (0..map)" % z)
+		ok(str(G.askable_lines(G.GENERATORS, z)) == str(_window_lines(z)), "at map %d askable_lines == the rolling-window lines" % z)
 
 	# --- map 0: its own line(s) are askable ---
 	var z0 := G.askable_lines(G.GENERATORS, 0)
@@ -52,16 +52,13 @@ func _initialize() -> void:
 			all_farm_l6 = false
 	ok(all_farm_l6, "all 6 Farm lines are live by L6 (staged in before the Barn opens)")
 
-	# --- past map 0, the map-0 line(s) STAY askable (the single anchor pops every opened line) ---
+	# --- the ROLLING WINDOW: map-0 lines stay askable only while map 0 is within the last LINE_WINDOW maps
+	# (maps 1-2), then RETIRE from map 3 on — late-game quests can no longer ask Wildflower(1). ---
 	for z in range(1, G.MAPS.size()):
 		var ask := G.askable_lines(G.GENERATORS, z)
-		var all_z0 := true
-		for l in Z0_LINES:
-			if not ask.has(int(l)):
-				all_z0 = false
-		ok(all_z0, "at map %d the map-0 line(s) stay askable (opened lines don't retire)" % z)
-		# askable is exactly the opened-line union (maps 0..z)
-		ok(str(ask) == str(_opened_lines(z)), "at map %d askable is exactly the opened-line union (0..map)" % z)
+		var in_window := z <= G.LINE_WINDOW - 1            # map 0 is in the window iff z < LINE_WINDOW
+		ok(ask.has(1) == in_window, "at map %d Wildflower(1) is %s (rolling window of %d maps)" % [z, "askable" if in_window else "RETIRED", G.LINE_WINDOW])
+		ok(str(ask) == str(_window_lines(z)), "at map %d askable is exactly the rolling-window lines" % z)
 
 	# --- `level` still gates a not-yet-grown generator's lines out (the staging invariant). The
 	# shipped roster is one generator per map (no staged gen), so drive the gate on a SYNTHETIC
@@ -75,7 +72,8 @@ func _initialize() -> void:
 	ok(G.askable_lines(staged, 0, 5).has(3) and G.askable_lines(staged, 0, 5).has(4), \
 		"a staged gen's lines become askable once it appears at its level")
 
-	# --- gen_quest at a later map draws from the OPENED-line set (which now includes map-0 lines) ---
+	# --- gen_quest at a later map draws from the rolling-window askable set (at map 2 that still includes
+	# map-0 lines — maps 0,1,2 all fit a 3-map window) ---
 	var rng := RandomNumberGenerator.new()
 	var z := 2
 	var askable := G.askable_lines(G.GENERATORS, z)
@@ -89,18 +87,18 @@ func _initialize() -> void:
 			all_in = false
 		if int(aq.tier) < 1 or int(aq.tier) > G.TOP_TIER:
 			tier_ok = false
-	ok(all_in, "every generated ask draws from the opened-line askable set (producible on the board)")
+	ok(all_in, "every generated ask draws from the rolling-window askable set (producible on the board)")
 	for l in Z0_LINES:
-		ok(askable.has(int(l)), "a map-0 line stays a valid ask at a later map (opened lines don't retire)")
+		ok(askable.has(int(l)), "a map-0 line is still asked at map 2 (within the 3-map rolling window)")
 	ok(tier_ok, "a regular quest tier stays within 1..TOP_TIER")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(0 if _fail == 0 else 1)
 
-# All lines OPENED by the time you reach `map` = the union of every map 0..map's lines (sorted).
-func _opened_lines(map: int) -> Array:
+# All lines ASKABLE at `map` = the union of the last LINE_WINDOW maps' lines (the rolling window), sorted.
+func _window_lines(map: int) -> Array:
 	var out: Array = []
-	for z in map + 1:
+	for z in range(maxi(0, map - G.LINE_WINDOW + 1), map + 1):
 		for l in G.lines_for_map(G.GENERATORS, z):
 			if not out.has(int(l)):
 				out.append(int(l))

@@ -1,0 +1,1142 @@
+{
+  "rows": 4,
+  "cols": 3,
+  "cell_output_px": 512,
+  "lines": [
+    {
+      "slug": "ember",
+      "zone": "farm",
+      "name": "Ember",
+      "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_037ad6f306ec3bc5016a3f31456b08819a81e6604345c9852a.png",
+      "raw_sheet": "games/grove/assets/_new/line_resident_ember_v1.png",
+      "transparent_sheet": "games/grove/assets/_new/resident_lines/ember/line_resident_ember_v1_transparent_sheet.png",
+      "contact_sheet": "games/grove/assets/_new/resident_lines/ember/line_resident_ember_v1_contact.png",
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "Cinder",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_01.png",
+          "source_bbox": [
+            0,
+            0,
+            239,
+            384
+          ],
+          "output_bbox": [
+            117,
+            41,
+            385,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 2,
+          "name": "Ember sprite",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_02.png",
+          "source_bbox": [
+            5,
+            58,
+            342,
+            384
+          ],
+          "output_bbox": [
+            47,
+            56,
+            471,
+            466
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 3,
+          "name": "Hearth-warden",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_03.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 4,
+          "name": "Kindling child",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_04.png",
+          "source_bbox": [
+            50,
+            0,
+            297,
+            384
+          ],
+          "output_bbox": [
+            117,
+            41,
+            394,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 5,
+          "name": "Ash shawl keeper",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_05.png",
+          "source_bbox": [
+            8,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            72,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 6,
+          "name": "Stove sprite",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_06.png",
+          "source_bbox": [
+            0,
+            0,
+            278,
+            384
+          ],
+          "output_bbox": [
+            96,
+            41,
+            408,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 7,
+          "name": "Coalcap monk",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_07.png",
+          "source_bbox": [
+            57,
+            37,
+            297,
+            384
+          ],
+          "output_bbox": [
+            111,
+            50,
+            401,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 8,
+          "name": "Hearthmender",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_08.png",
+          "source_bbox": [
+            6,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            70,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 9,
+          "name": "Lantern-heart elder",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_09.png",
+          "source_bbox": [
+            0,
+            0,
+            259,
+            384
+          ],
+          "output_bbox": [
+            106,
+            41,
+            397,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 10,
+          "name": "Golden ember guardian",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_10.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 11,
+          "name": "Cinder-crowned sage",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_11.png",
+          "source_bbox": [
+            0,
+            0,
+            342,
+            332
+          ],
+          "output_bbox": [
+            41,
+            42,
+            471,
+            460
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 12,
+          "name": "Great hearth spirit",
+          "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_12.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        }
+      ]
+    },
+    {
+      "slug": "sprout",
+      "zone": "orchard",
+      "name": "Sprout",
+      "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f35fe84b08198bbd23fd1c8ec911d.png",
+      "raw_sheet": "games/grove/assets/_new/line_resident_sprout_v1.png",
+      "transparent_sheet": "games/grove/assets/_new/resident_lines/sprout/line_resident_sprout_v1_transparent_sheet.png",
+      "contact_sheet": "games/grove/assets/_new/resident_lines/sprout/line_resident_sprout_v1_contact.png",
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "Seedling",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_01.png",
+          "source_bbox": [
+            0,
+            0,
+            267,
+            384
+          ],
+          "output_bbox": [
+            102,
+            41,
+            402,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 2,
+          "name": "Sprout sprite",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_02.png",
+          "source_bbox": [
+            17,
+            114,
+            305,
+            384
+          ],
+          "output_bbox": [
+            52,
+            70,
+            459,
+            452
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 3,
+          "name": "Grove-keeper",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_03.png",
+          "source_bbox": [
+            3,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            69,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 4,
+          "name": "Rootling child",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_04.png",
+          "source_bbox": [
+            0,
+            0,
+            278,
+            354
+          ],
+          "output_bbox": [
+            86,
+            41,
+            418,
+            464
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 5,
+          "name": "Clover shawl keeper",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_05.png",
+          "source_bbox": [
+            21,
+            0,
+            281,
+            355
+          ],
+          "output_bbox": [
+            100,
+            41,
+            412,
+            463
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 6,
+          "name": "Bud-belly sprite",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_06.png",
+          "source_bbox": [
+            1,
+            0,
+            278,
+            357
+          ],
+          "output_bbox": [
+            89,
+            41,
+            416,
+            463
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 7,
+          "name": "Barkcap monk",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_07.png",
+          "source_bbox": [
+            0,
+            9,
+            303,
+            384
+          ],
+          "output_bbox": [
+            81,
+            50,
+            421,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 8,
+          "name": "Orchard mender",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_08.png",
+          "source_bbox": [
+            12,
+            24,
+            342,
+            384
+          ],
+          "output_bbox": [
+            67,
+            50,
+            453,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 9,
+          "name": "Blossom-heart elder",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_09.png",
+          "source_bbox": [
+            0,
+            13,
+            280,
+            384
+          ],
+          "output_bbox": [
+            92,
+            50,
+            410,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 10,
+          "name": "Golden sprout guardian",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_10.png",
+          "source_bbox": [
+            0,
+            0,
+            314,
+            384
+          ],
+          "output_bbox": [
+            75,
+            41,
+            427,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 11,
+          "name": "Bloom-crowned sage",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_11.png",
+          "source_bbox": [
+            1,
+            0,
+            342,
+            290
+          ],
+          "output_bbox": [
+            42,
+            68,
+            471,
+            433
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 12,
+          "name": "Great grove spirit",
+          "file": "games/grove/assets/_new/resident_lines/sprout/tiers/resident_sprout_12.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        }
+      ]
+    },
+    {
+      "slug": "dewdrop",
+      "zone": "garden",
+      "name": "Dewdrop",
+      "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f3641ba8c8198a49277648852f7d5.png",
+      "raw_sheet": "games/grove/assets/_new/line_resident_dewdrop_v1.png",
+      "transparent_sheet": "games/grove/assets/_new/resident_lines/dewdrop/line_resident_dewdrop_v1_transparent_sheet.png",
+      "contact_sheet": "games/grove/assets/_new/resident_lines/dewdrop/line_resident_dewdrop_v1_contact.png",
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "Droplet",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_01.png",
+          "source_bbox": [
+            0,
+            0,
+            286,
+            375
+          ],
+          "output_bbox": [
+            91,
+            41,
+            412,
+            462
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 2,
+          "name": "Dewdrop sprite",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_02.png",
+          "source_bbox": [
+            18,
+            112,
+            342,
+            384
+          ],
+          "output_bbox": [
+            51,
+            83,
+            471,
+            437
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 3,
+          "name": "Tide-elder",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_03.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 4,
+          "name": "Puddle child",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_04.png",
+          "source_bbox": [
+            0,
+            70,
+            323,
+            384
+          ],
+          "output_bbox": [
+            41,
+            57,
+            460,
+            465
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 5,
+          "name": "Lily shawl keeper",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_05.png",
+          "source_bbox": [
+            10,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            73,
+            41,
+            446,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 6,
+          "name": "Pebble-ripple sprite",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_06.png",
+          "source_bbox": [
+            0,
+            0,
+            277,
+            351
+          ],
+          "output_bbox": [
+            85,
+            41,
+            418,
+            464
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 7,
+          "name": "Reedcap monk",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_07.png",
+          "source_bbox": [
+            83,
+            0,
+            305,
+            384
+          ],
+          "output_bbox": [
+            131,
+            41,
+            381,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 8,
+          "name": "Pondmender",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_08.png",
+          "source_bbox": [
+            9,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            73,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 9,
+          "name": "Ripple-heart elder",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_09.png",
+          "source_bbox": [
+            0,
+            4,
+            293,
+            384
+          ],
+          "output_bbox": [
+            87,
+            45,
+            415,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 10,
+          "name": "Silver dew guardian",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_10.png",
+          "source_bbox": [
+            0,
+            0,
+            328,
+            384
+          ],
+          "output_bbox": [
+            68,
+            41,
+            435,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 11,
+          "name": "Moonlit reed sage",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_11.png",
+          "source_bbox": [
+            6,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            68,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 12,
+          "name": "Great tide spirit",
+          "file": "games/grove/assets/_new/resident_lines/dewdrop/tiers/resident_dewdrop_12.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        }
+      ]
+    },
+    {
+      "slug": "breeze",
+      "zone": "mill",
+      "name": "Breeze",
+      "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f369010fc81988e7d98c98db8c8ae.png",
+      "raw_sheet": "games/grove/assets/_new/line_resident_breeze_v1.png",
+      "transparent_sheet": "games/grove/assets/_new/resident_lines/breeze/line_resident_breeze_v1_transparent_sheet.png",
+      "contact_sheet": "games/grove/assets/_new/resident_lines/breeze/line_resident_breeze_v1_contact.png",
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "Gust",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_01.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 2,
+          "name": "Breeze sprite",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_02.png",
+          "source_bbox": [
+            0,
+            65,
+            342,
+            384
+          ],
+          "output_bbox": [
+            41,
+            60,
+            471,
+            461
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 3,
+          "name": "Gale-warden",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_03.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 4,
+          "name": "Whirl child",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_04.png",
+          "source_bbox": [
+            44,
+            0,
+            341,
+            344
+          ],
+          "output_bbox": [
+            79,
+            41,
+            442,
+            461
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 5,
+          "name": "Flour-dust keeper",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_05.png",
+          "source_bbox": [
+            0,
+            0,
+            342,
+            353
+          ],
+          "output_bbox": [
+            52,
+            41,
+            459,
+            463
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 6,
+          "name": "Pinwheel sprite",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_06.png",
+          "source_bbox": [
+            0,
+            0,
+            276,
+            384
+          ],
+          "output_bbox": [
+            97,
+            41,
+            406,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 7,
+          "name": "Cloudcap monk",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_07.png",
+          "source_bbox": [
+            37,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            90,
+            41,
+            430,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 8,
+          "name": "Millmender",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_08.png",
+          "source_bbox": [
+            0,
+            1,
+            342,
+            384
+          ],
+          "output_bbox": [
+            64,
+            42,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 9,
+          "name": "Wind-scarf elder",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_09.png",
+          "source_bbox": [
+            0,
+            0,
+            318,
+            384
+          ],
+          "output_bbox": [
+            73,
+            41,
+            428,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 10,
+          "name": "Golden breeze guardian",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_10.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 11,
+          "name": "Gale-crowned sage",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_11.png",
+          "source_bbox": [
+            0,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            64,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 12,
+          "name": "Great mill-wind spirit",
+          "file": "games/grove/assets/_new/resident_lines/breeze/tiers/resident_breeze_12.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        }
+      ]
+    },
+    {
+      "slug": "starlight",
+      "zone": "gate",
+      "name": "Starlight",
+      "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_0a711f14a7e07d86016a3f36dce2348198971641d14d94c109.png",
+      "raw_sheet": "games/grove/assets/_new/line_resident_starlight_v1.png",
+      "transparent_sheet": "games/grove/assets/_new/resident_lines/starlight/line_resident_starlight_v1_transparent_sheet.png",
+      "contact_sheet": "games/grove/assets/_new/resident_lines/starlight/line_resident_starlight_v1_contact.png",
+      "tiers": [
+        {
+          "tier": 1,
+          "name": "Glimmer",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_01.png",
+          "source_bbox": [
+            0,
+            0,
+            275,
+            384
+          ],
+          "output_bbox": [
+            97,
+            41,
+            405,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 2,
+          "name": "Glow sprite",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_02.png",
+          "source_bbox": [
+            18,
+            80,
+            342,
+            384
+          ],
+          "output_bbox": [
+            51,
+            64,
+            471,
+            458
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 3,
+          "name": "Star-warden",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_03.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 4,
+          "name": "Mooncap child",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_04.png",
+          "source_bbox": [
+            72,
+            0,
+            279,
+            357
+          ],
+          "output_bbox": [
+            132,
+            41,
+            379,
+            463
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 5,
+          "name": "Lantern shawl keeper",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_05.png",
+          "source_bbox": [
+            8,
+            0,
+            342,
+            358
+          ],
+          "output_bbox": [
+            65,
+            41,
+            457,
+            461
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 6,
+          "name": "Glowcap sprite",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_06.png",
+          "source_bbox": [
+            0,
+            0,
+            279,
+            356
+          ],
+          "output_bbox": [
+            86,
+            41,
+            415,
+            464
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 7,
+          "name": "Astral monk",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_07.png",
+          "source_bbox": [
+            49,
+            16,
+            312,
+            384
+          ],
+          "output_bbox": [
+            105,
+            50,
+            406,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 8,
+          "name": "Gate mender",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_08.png",
+          "source_bbox": [
+            5,
+            38,
+            342,
+            384
+          ],
+          "output_bbox": [
+            54,
+            51,
+            463,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 9,
+          "name": "Constellation elder",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_09.png",
+          "source_bbox": [
+            0,
+            1,
+            298,
+            384
+          ],
+          "output_bbox": [
+            84,
+            43,
+            418,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 10,
+          "name": "Golden starlight guardian",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_10.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 11,
+          "name": "Halo-crowned sage",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_11.png",
+          "source_bbox": [
+            0,
+            0,
+            342,
+            384
+          ],
+          "output_bbox": [
+            64,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        },
+        {
+          "tier": 12,
+          "name": "Great threshold spirit",
+          "file": "games/grove/assets/_new/resident_lines/starlight/tiers/resident_starlight_12.png",
+          "source_bbox": [
+            0,
+            0,
+            341,
+            384
+          ],
+          "output_bbox": [
+            65,
+            41,
+            447,
+            471
+          ],
+          "edge_touch": false
+        }
+      ]
+    }
+  ]
+}

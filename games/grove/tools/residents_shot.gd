@@ -10,6 +10,7 @@ extends SceneTree
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
+const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const MapScene = preload("res://engine/scripts/scenes/map.gd")
 
 func _initialize() -> void:
@@ -44,8 +45,13 @@ func _initialize() -> void:
 	g["last_map"] = String(G.MAPS[z].id)
 	g["exp"] = 60
 	Save.grove_write()
-	Save.add_coins(800)                        # afford the coin cards in the shop shot
-	Save.add_diamonds(20)                      # afford the premium card too
+	Save.add_coins(800)
+	Save.add_diamonds(20)
+	# seed the live Habitat roster so the dialog shot has content: a couple in hand + one placed on the map.
+	Habitat.hand_add("moss", 1)
+	Habitat.hand_add("acorn", 2)
+	Habitat.hand_add("lantern", 2)
+	Habitat.place(String(G.MAPS[z].id), 0)
 
 	MapScene._login_shown_launch = true         # arm the per-launch guard so the daily calendar never auto-pops over our shot
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()
@@ -59,16 +65,16 @@ func _initialize() -> void:
 	var img1 := root.get_texture().get_image()
 	var e1 := img1.save_png(out_dir + "unlock_dialog.png")
 
-	# dismiss the unlock overlay, then open the Residents shop and capture it.
+	# dismiss the unlock overlay, then open the live Residents (Habitat) dialog and capture it.
 	var ov: Node = scn.get_node_or_null("UnlockRewardOverlay")
 	if ov != null:
 		ov.queue_free()
 	await create_timer(0.3).timeout
-	scn._open_residents_shop(z)
+	scn._open_residents_dialog()
 	await create_timer(0.7).timeout
 	RenderingServer.force_draw()
 	var img2 := root.get_texture().get_image()
-	var e2 := img2.save_png(out_dir + "residents_shop.png")
+	var e2 := img2.save_png(out_dir + "residents_dialog.png")
 
 	print("SHOT unlock=%s (err %d) shop=%s (err %d) coins=%d gems=%d" % [
 		out_dir + "unlock_dialog.png", e1, out_dir + "residents_shop.png", e2, Save.coins(), Save.diamonds()])

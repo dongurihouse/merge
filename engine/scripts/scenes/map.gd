@@ -1867,7 +1867,7 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable) -> Contr
 	btn.flat = true
 	btn.custom_minimum_size = Vector2(px, px)
 	btn.pressed.connect(on_tap)
-	var path := G.resident_art(kind)
+	var path := G.resident_art(kind, tier)
 	if path != "" and ResourceLoader.exists(path):
 		var t := TextureRect.new()
 		t.texture = load(path)
@@ -1955,8 +1955,8 @@ func _open_expedition() -> void:
 				"value": bool(equip.v.get(id, false)),
 				"on_toggle": func(want: bool) -> void:
 					equip.v[id] = want
-					if want and Explore.loadout_cost(equip.v) > Save.coins():
-						equip.v[id] = false      # can't afford — leave it off
+					if want and Explore.start_cost(equip.v) > Save.coins():
+						equip.v[id] = false      # can't afford (base + boosts) — leave it off
 					Audio.play("button_tap", -2.0)
 					rebuild.fn.call(),
 			}, {"label_font": 19, "card_art": true}))
@@ -1965,7 +1965,7 @@ func _open_expedition() -> void:
 		chips.add_theme_constant_override("separation", 10)
 		chips.alignment = BoxContainer.ALIGNMENT_CENTER
 		chips.add_child(Kit.amount_chip("coin", "Have %d" % Save.coins()))
-		chips.add_child(Kit.amount_chip("coin", "Cost %d" % Explore.loadout_cost(equip.v)))
+		chips.add_child(Kit.amount_chip("coin", "Cost %d" % Explore.start_cost(equip.v)))
 		col.add_child(chips)
 		# actions: Set off (green) + Cancel (cream) — the shared pill buttons
 		var actions := HBoxContainer.new()
@@ -1973,11 +1973,11 @@ func _open_expedition() -> void:
 		actions.alignment = BoxContainer.ALIGNMENT_CENTER
 		var go: Button = Kit.pill_button("Set off", {"bg": "green", "art": true, "font": 22, "enabled": Explore.can_start(equip.v)})
 		go.pressed.connect(func() -> void:
-			var cost := Explore.loadout_cost(equip.v)
+			var cost := Explore.start_cost(equip.v)        # base minimum + boosts — the acquisition coin sink
 			if cost > Save.coins():
 				return
 			if cost > 0:
-				Save.spend(cost, "explore_loadout")
+				Save.spend(cost, "expedition")
 			Explore.begin_run(equip.v)
 			Audio.play("button_tap", -2.0)
 			SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
@@ -1997,81 +1997,9 @@ func _open_expedition() -> void:
 		FX.pop_in(dialog)
 	rebuild.fn.call()
 
-# DORMANT legacy residents SHOP: the roster as a shop-style dialog (one cell per offered resident —
-# spirit icon, name, cost). No in-game caller now (the nav routes to Expedition); retires with the economy pass.
-func _open_residents_shop(z: int) -> void:
-	var Kit: GDScript = load(KIT_PATH)
-	if Kit == null:
-		return
-	var overlay := Control.new()
-	overlay.name = "ResidentsShopOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
-	var veil := ColorRect.new()
-	veil.color = Color(INK, 0.55)
-	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.add_child(veil)
-	veil.gui_input.connect(func(ev: InputEvent) -> void:
-		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
-			overlay.queue_free())
-	var cc := CenterContainer.new()
-	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
-	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	overlay.add_child(cc)
-	var width: float = minf(get_viewport_rect().size.x * 0.92, 520.0)
-	# rebuild closure: clears + rebuilds the storefront so a buy refreshes affordability in place.
-	var rebuild := {"fn": Callable()}
-	rebuild.fn = func() -> void:
-		if not is_instance_valid(cc):
-			return
-		for c in cc.get_children():
-			c.queue_free()
-		var cards: Array = []
-		for cd in G.residents_shop_cards(z):
-			var id := String(cd.id)
-			cards.append({
-				"node": _spirit_icon(id, width / 3.0 * 0.52),
-				"label": tr(String(cd.name)),
-				"price": str(int(cd.cost)),
-				"price_icon": ("gem" if String(cd.currency) == "diamonds" else "coin"),
-				"affordable": bool(cd.affordable),
-				"on_buy": func() -> void: _buy_resident(z, id, rebuild.fn),
-			})
-		var sopts: Dictionary = Kit.shop_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		sopts["banner_text"] = Strings.t("map.welcome.title")
-		sopts["on_close"] = func() -> void: overlay.queue_free()
-		if float(sopts.get("list_max_h", 0)) <= 0.0:
-			sopts["list_max_h"] = get_viewport_rect().size.y * 0.72
-		var dialog: Control = Kit.shop_dialog([{"caption": "", "cards": cards}], width, sopts)
-		cc.add_child(dialog)
-		FX.pop_in(dialog)
-	rebuild.fn.call()
-
-# Buy one resident from the shop: welcome (spend + add + auto-merge), rebuild the population layer + refresh
-# the open shop, and play the warm success / merge / can't-afford feedback (the old panel's feel).
-func _buy_resident(z: int, type_id: String, refresh: Callable) -> void:
-	var res := G.welcome_resident(z, type_id)
-	if not bool(res.get("ok", false)):
-		Audio.play("invalid_soft", -4.0)
-		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
-			Strings.t("map.welcome.not_enough"), Color(CREAM, 0.9), 26)
-		return
-	Audio.play("level_complete", -6.0, 1.15)
-	_build_map()
-	_update_hud()
-	if refresh.is_valid():
-		refresh.call()
-	var events: Array = res.get("events", [])
-	if not events.is_empty():
-		var amb: Control = content.get_node_or_null("AmbientLayer")
-		Ambient.merge_poof(amb, events.size())
-		Audio.play("tidy_poof", -2.0, 1.1)
-		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
-			Strings.t("map.welcome.two_became_one"), CREAM, 26)
-	else:
-		FX.floating_text(self, get_global_rect().get_center() - Vector2(0, 40),
-			Strings.t("map.welcome.new_friend"), STRAW, 26)
+# (The dormant legacy residents SHOP — `_open_residents_shop` + its `_buy_resident` welcome handler — was
+# REMOVED: the live residents surface is the Expedition (acquire) → Habitat dialog (place/sell/yield). The
+# welcome_resident MODEL stays for the unlock-gift grant + the pacing sim.)
 
 # The Play button (bottom nav, index 1) — the home screen's primary CTA, and the MERGED restore button: the
 # big ORANGE play disc (ui_asset2 play_disc), CAPTIONLESS. It wears the board+acorn mark and taps into the

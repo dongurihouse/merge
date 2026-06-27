@@ -130,12 +130,17 @@ const MIN_LEVEL := [
 
 const TIER_ODDS := [0.65, 0.25, 0.09, 0.01]   # pop tier 1..4, decaying
 const ASK_WEIGHT := 0.6                   # mild lean toward lines the givers want
+# §6 ROLLING LINE WINDOW — a quest may ask only from the last LINE_WINDOW maps (the current map + the
+# previous LINE_WINDOW-1); older lines RETIRE off the fence (→ the Collection). Keeps the live set small as
+# the lifetime roster grows, instead of the old cumulative "nothing retires" set. OWNER dial.
+const LINE_WINDOW := 3                    # quests draw from the current + previous 2 maps' lines
 # §6 single-generator board-mergeability cap. The one anchor pops the items the current quests require
-# (idea 3.2), but with many opened lines (up to ~24) up to MAX_GIVERS quests could span that many DISTINCT
-# lines — scattering un-mergeable singletons until the board jams. So the generator pops at most this many
-# distinct lines per session (the lowest-indexed wanted lines win; the rest become hot as those clear), so
-# pairs always form. Set ≥ MAX_GIVERS to disable. OWNER/SIM dial (grove_sim I1 = zero jams is the judge).
-const POP_LINE_CAP := 2
+# (idea 3.2), but several quests could span many DISTINCT lines — scattering un-mergeable singletons until
+# the board jams. So the generator pops at most this many distinct lines per session (the lowest-indexed
+# wanted lines win; the rest become hot as those clear), so pairs always form. STAGED: a tighter cap on the
+# tiny zone-1 (Farmhouse) board, the full cap from zone 2 on. OWNER/SIM dial (grove_sim I1 = zero jams judges).
+const POP_LINE_CAP := 3                   # zone 2+ (the window is 3 maps wide, so up to 3 lines pop)
+const POP_LINE_CAP_Z1 := 2               # zone 1 only — the tiny FTUE board holds fewer lines
 const ASK_TIER_WEIGHT := 0.0             # §6 spawn TIER-bias strength — OFF by default (owner pacing
                                          # dial). At 0.6 the sim front-loads spend ~3x (parked pacing
                                          # pass); ramp here once the level curve is re-tuned on grove_sim.
@@ -181,40 +186,33 @@ const BURST_MAX := BURST_FREE_MAX + BOOST_BONUS   # absolute ceiling = free cap 
 # loop). Residents are WELCOMED (bought) on COMPLETED maps; two of the same type+tier
 # AUTO-MERGE into one a tier up (cascading). The roster is persisted (Save.residents);
 # the ambient display (ambient.gd) is stateless and rebuilt from the roster — NO cap.
-# Each map offers a SHARED CORE set (on every map, recolorable) plus a couple of
-# SIGNATURE residents (one premium 💎). Art reuses the CHARACTER_ART convention. The
-# ENGINE math (welcome / merge / members) lives in content.gd and reads these tables.
-const RESIDENT_MAX_TIER := 3              # t1 welcomed → merges up to this tier (cascading)
-const RESIDENT_ART := "characters/spirit_%s.png"   # type → clothes asset (reuse the CHARACTER_ART convention)
-# The SHARED core residents — offered on every map, recolorable. Each {id, name}.
-const RESIDENT_CORE := [
-	{"id": "moss", "name": "Moss sprite"},
-	{"id": "acorn", "name": "Acorn sprite"},
-	{"id": "lantern", "name": "Lantern sprite"},
-]
-# The per-map SIGNATURE residents — ~2 unique to each map; one marked premium (💎). Keyed by the stable
-# slot id, themed to the slot's vine ART (the slot ids stay fixed for save-stability, but the displayed
-# map + its critters follow the art: barn=Orchard, pond=Garden, orchard=Mill, meadow=Gate). No signature
-# resident ships a sprite yet (all render the shared placeholder), so these names are pure flavor.
-const RESIDENT_SIGNATURE := {
-	"farmhouse": [{"id": "hen", "name": "Hen-kin"}, {"id": "piglet", "name": "Piglet-kin", "premium": true}],
-	"barn": [{"id": "bee", "name": "Bee-kin"}, {"id": "robin", "name": "Robin", "premium": true}],
-	"pond": [{"id": "butterfly", "name": "Butterfly-kin"}, {"id": "ladybird", "name": "Ladybird", "premium": true}],
-	"orchard": [{"id": "fieldmouse", "name": "Field-mouse"}, {"id": "sparrow", "name": "Sparrow", "premium": true}],
-	"meadow": [{"id": "hedgehog", "name": "Hedgehog-kin"}, {"id": "wren", "name": "Wren", "premium": true}],
+# Each map has ONE resident LINE — a nature-elemental spirit-folk family welcomed onto the map and
+# merged two-of-a-kind up a 12-tier ladder (RESIDENT_MAX_TIER). Each tier ships its own art under
+# items/resident_<id>/ (the item-line convention), addressed by RESIDENT_ART. The ENGINE math
+# (welcome / merge / members) lives in content.gd and reads these tables.
+const RESIDENT_MAX_TIER := 12             # t1 welcomed → merges up to this tier (cascading)
+const RESIDENT_SLOTS_MAX := 8            # §1 a map's roster CAP: scales 1 (first spot restored) → this (all spots); a full roster forces a merge or discard
+const RESIDENT_ART := "items/resident_%s/resident_%s_%d.png"   # (id, id, tier) → per-tier ladder art (item-line convention)
+# ONE resident line per map — keyed by the stable slot id (ids stay fixed for save-stability; the
+# DISPLAYED map follows the art: barn=Orchard, pond=Garden, orchard=Mill, meadow=Gate). Each is a
+# nature-elemental spirit-folk family; its 12 tiers are arted at items/resident_<id>/resident_<id>_<tier>.png.
+const RESIDENT_LINES := {
+	"farmhouse": {"id": "ember", "name": "Ember"},        # The Farm — fire / hearth-warmth
+	"barn": {"id": "sprout", "name": "Sprout"},           # The Orchard — earth / green growth
+	"pond": {"id": "dewdrop", "name": "Dewdrop"},         # The Garden — water / pond-dew
+	"orchard": {"id": "breeze", "name": "Breeze"},        # The Mill — air / wind
+	"meadow": {"id": "starlight", "name": "Starlight"},   # The Gate — light / aether
 }
-# Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 core / non-premium
-# resident costs coins; a premium (signature, marked) resident costs diamonds.
-const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 core / non-premium resident
-const RESIDENT_PREMIUM_COST := 3         # 💎 to welcome a premium resident
+# Welcome PRICING — PROVISIONAL feel dials (sim-tuned later). A t1 resident costs coins.
+const RESIDENT_BASE_COST := 40           # 🪙 to welcome a t1 resident
+const RESIDENT_PREMIUM_COST := 3         # 💎 vestigial — no line is premium in the one-line-per-map model (kept for resident_cost compat)
 
-# The full set of resident types OFFERED on `map_id`: the shared core + that map's signature
-# (each entry a Dictionary {id, name, premium?}). The order here is the stable roster order the
-# engine flattens/merges in (content.resident_members / resolve_resident_merges).
+# The resident line(s) OFFERED on `map_id`: the map's single line as a one-element array (the stable
+# roster order the engine flattens/merges in — content.resident_members / resolve_resident_merges).
+# Empty for a map with no line. Each entry a Dictionary {id, name}.
 static func resident_lines(map_id: String) -> Array:
-	var out: Array = RESIDENT_CORE.duplicate(true)
-	out.append_array(RESIDENT_SIGNATURE.get(map_id, []))
-	return out
+	var ln: Dictionary = RESIDENT_LINES.get(map_id, {})
+	return [ln.duplicate(true)] if not ln.is_empty() else []
 
 # BACKLOG (post-v1): premium 💎 surprise-capsule (no-loss, cosmetic, guardrails) — see grove_spec §1.
 
@@ -364,7 +362,7 @@ static func _build_maps() -> Array:
 	# via the §16 mask-reveal `home` below (not per-spot cutouts), so spots need no `art`/`fsize`.
 	# Display names follow each slot's vine ART (farm/orchard/garden/mill/gate); the `id`s stay fixed
 	# (farmhouse/barn/pond/orchard/meadow) for save + progression stability, so e.g. id `orchard` shows
-	# "The Mill" and id `barn` shows "The Orchard". See RESIDENT_SIGNATURE for the matching critter themes.
+	# "The Mill" and id `barn` shows "The Orchard". See RESIDENT_LINES for each map's resident spirit-line.
 	{"id": "farmhouse", "name": "The Farm", "hub": true,
 		# §16 mask-reveal home: the hub renders farm_brokenv2 (overgrown) and reveals the clean `farm` per
 		# building (mask_<spot>.png) as each is restored; unrestored buildings show a ✿cost badge (map._build_home_spot).
@@ -574,6 +572,6 @@ const VAULT_CAP := 500                    # a generous ceiling so the jar art ha
 # map index z: more coins/diamonds on later maps, plus one free signature spirit (the map's non-premium
 # critter). z=0 (120 coins / 2 gems) equals the old flat MAP_TASK_REWARD, so the first map is unchanged.
 static func map_unlock_reward(z: int) -> Dictionary:
-	var sig: Array = RESIDENT_SIGNATURE.get(String(MAPS[z].id), [])
-	var spirit: String = String(sig[0].id) if sig.size() > 0 else ""
+	var ln: Dictionary = RESIDENT_LINES.get(String(MAPS[z].id), {})
+	var spirit: String = String(ln.get("id", ""))
 	return {"coins": 120 + 80 * z, "gems": 2 + z, "spirit": spirit}

@@ -118,22 +118,22 @@ func _initialize() -> void:
 		ok(not G.due_generators(m0_done, [0], anchor_ids).has(mid), "a later map's tool is never due (%s)" % mid)
 	ok(str(G.due_generators(m0_done, [0], [])) == str(anchor_ids), "a MISSING anchor is still self-healed (the only thing ever due)")
 
-	# --- askable_lines is ALL OPENED lines (maps 0..map) — old lines no longer retire (idea 3) ---
+	# --- askable_lines is the ROLLING WINDOW of the last LINE_WINDOW maps — older lines retire ---
 	for z in G.MAPS.size():
-		var opened: Array = []
-		for zz in z + 1:
+		var win: Array = []
+		for zz in range(maxi(0, z - G.LINE_WINDOW + 1), z + 1):
 			for l in G.lines_for_map(G.GENERATORS, zz):
-				if not opened.has(int(l)):
-					opened.append(int(l))
-		opened.sort()
-		ok(str(G.askable_lines(G.GENERATORS, z)) == str(opened), "askable_lines(map %d) == all opened lines (0..map)" % z)
+				if not win.has(int(l)):
+					win.append(int(l))
+		win.sort()
+		ok(str(G.askable_lines(G.GENERATORS, z)) == str(win), "askable_lines(map %d) == the rolling-window lines" % z)
 	var z1_ask := G.askable_lines(G.GENERATORS, 1)
 	var z0_only := G.lines_for_map(G.GENERATORS, 0)
 	var z1_includes_z0 := true
 	for l in z0_only:
 		if not z1_ask.has(int(l)):
 			z1_includes_z0 = false
-	ok(z1_includes_z0, "askable_lines(roster, 1) INCLUDES map-0 lines (opened lines stay askable)")
+	ok(z1_includes_z0, "askable_lines(roster, 1) INCLUDES map-0 lines (still inside the window at map 1)")
 
 	# --- economy ceiling + sell economy (Option A: no premium-sell pinnacle, every tier → coins) ---
 	ok(int(G.TOP_TIER) == 12, "the merge/ask ceiling is 12")

@@ -1,0 +1,227 @@
+{
+  "slug": "ember",
+  "zone": "farm",
+  "name": "Ember",
+  "source_generated_image": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_037ad6f306ec3bc5016a3f31456b08819a81e6604345c9852a.png",
+  "raw_sheet": "games/grove/assets/_new/line_resident_ember_v1.png",
+  "transparent_sheet": "games/grove/assets/_new/resident_lines/ember/line_resident_ember_v1_transparent_sheet.png",
+  "contact_sheet": "games/grove/assets/_new/resident_lines/ember/line_resident_ember_v1_contact.png",
+  "tiers": [
+    {
+      "tier": 1,
+      "name": "Cinder",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_01.png",
+      "source_bbox": [
+        0,
+        0,
+        239,
+        384
+      ],
+      "output_bbox": [
+        117,
+        41,
+        385,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 2,
+      "name": "Ember sprite",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_02.png",
+      "source_bbox": [
+        5,
+        58,
+        342,
+        384
+      ],
+      "output_bbox": [
+        47,
+        56,
+        471,
+        466
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 3,
+      "name": "Hearth-warden",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_03.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 4,
+      "name": "Kindling child",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_04.png",
+      "source_bbox": [
+        50,
+        0,
+        297,
+        384
+      ],
+      "output_bbox": [
+        117,
+        41,
+        394,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 5,
+      "name": "Ash shawl keeper",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_05.png",
+      "source_bbox": [
+        8,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        72,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 6,
+      "name": "Stove sprite",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_06.png",
+      "source_bbox": [
+        0,
+        0,
+        278,
+        384
+      ],
+      "output_bbox": [
+        96,
+        41,
+        408,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 7,
+      "name": "Coalcap monk",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_07.png",
+      "source_bbox": [
+        57,
+        37,
+        297,
+        384
+      ],
+      "output_bbox": [
+        111,
+        50,
+        401,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 8,
+      "name": "Hearthmender",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_08.png",
+      "source_bbox": [
+        6,
+        0,
+        342,
+        384
+      ],
+      "output_bbox": [
+        70,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 9,
+      "name": "Lantern-heart elder",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_09.png",
+      "source_bbox": [
+        0,
+        0,
+        259,
+        384
+      ],
+      "output_bbox": [
+        106,
+        41,
+        397,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 10,
+      "name": "Golden ember guardian",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_10.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 11,
+      "name": "Cinder-crowned sage",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_11.png",
+      "source_bbox": [
+        0,
+        0,
+        342,
+        332
+      ],
+      "output_bbox": [
+        41,
+        42,
+        471,
+        460
+      ],
+      "edge_touch": false
+    },
+    {
+      "tier": 12,
+      "name": "Great hearth spirit",
+      "file": "games/grove/assets/_new/resident_lines/ember/tiers/resident_ember_12.png",
+      "source_bbox": [
+        0,
+        0,
+        341,
+        384
+      ],
+      "output_bbox": [
+        65,
+        41,
+        447,
+        471
+      ],
+      "edge_touch": false
+    }
+  ]
+}
