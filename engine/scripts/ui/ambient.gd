@@ -28,13 +28,9 @@ const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 
 # --- residents (the population sub-game) --------------------------------------------
-# Tier reads as "elder": each step up scales the sprite a touch larger and warms its
-# tint, so a merged-up resident looks more settled/venerable without a new asset. These
-# are small, tasteful steps (the cozy look) — kept LOCAL since Tune.Ambient owns the
-# generic-wander dials, and the resident layer is a distinct, no-cap concern.
-const RES_TIER_SCALE_STEP := 0.14      # +this per tier above t1 (t1=1.0, t2=1.14, t3=1.28…)
-const RES_TIER_TINT := Color("#F3D9A6")  # the warm "elder" wash a higher tier leans toward
-const RES_TIER_TINT_STEP := 0.18       # how far toward RES_TIER_TINT each tier above t1 leans
+# Tier reads from the ART itself — each tier ships its own sprite (items/resident_<id>/), so the
+# layer applies NO per-tier scale or tint (that doubled up on the art and ballooned/tinted high
+# tiers). Merge still gets a celebratory poof. Dials kept LOCAL (Tune.Ambient owns generic-wander).
 const RES_POOF_PER_EVENT := 12         # burst particles per merge event
 const RES_POOF_COLOR := Color("#F3D9A6")  # the warm celebratory poof colour
 
@@ -65,9 +61,9 @@ static func build_layer(bounds: Vector2, count: int, sparse := false) -> Control
 ## is the map's ROSTER: one sprite per member dict `{type, tier}` from G.resident_members.
 ## The roster is the source of truth — the layer is stateless + freely rebuildable (positions
 ## stay a pure function of child index + time via _update_layer), so a welcome/merge just
-## rebuilds it. NO cap on member count. Every node IGNOREs the mouse. Higher TIERS read as
-## "elder" via a gentle scale + warm recolour. Art per member = load(G.resident_art(type)),
-## falling back to the shared placeholder body when the sprite is absent.
+## rebuilds it. NO cap on member count. Every node IGNOREs the mouse. Each member renders its
+## own tier art (G.resident_art(type, tier)), falling back to the shared placeholder body when
+## the sprite is absent.
 static func build_population_layer(bounds: Vector2, members: Array) -> Control:
 	var layer := Control.new()
 	layer.name = "AmbientLayer"          # same node name → _map_tap's spirit-hop find still works
@@ -83,9 +79,8 @@ static func build_population_layer(bounds: Vector2, members: Array) -> Control:
 	tw.tween_method(func(_t: float) -> void: _update_layer(layer), 0.0, 1.0, Tune.REPATH_SPAN)
 	return layer
 
-# One resident sprite: the type's art (G.resident_art) when present, else the shared placeholder
-# body. The TIER is applied visually — a gentle scale step + a warm recolour wash — so a merged-up
-# resident reads as more settled/venerable. Mouse-IGNORE like every wandering sprite.
+# One resident sprite: the type+tier's own art (G.resident_art(type, tier)) when present, else the
+# shared placeholder body. Mouse-IGNORE like every wandering sprite.
 static func _make_resident(_i: int, type_id: String, tier: int) -> Control:
 	var ch := Control.new()
 	ch.size = Tune.CHAR_SIZE
@@ -122,11 +117,7 @@ static func _make_resident(_i: int, type_id: String, tier: int) -> Control:
 			eye.position = Tune.EYE_ORIGIN + Vector2(e * Tune.EYE_SPACING, 0)
 			eye.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			ch.add_child(eye)
-	# TIER as "elder": grow a step + warm the wash, per tier above t1 (t1 is untouched).
-	var steps := float(maxi(tier - 1, 0))
-	if steps > 0.0:
-		ch.scale = Vector2.ONE * (1.0 + RES_TIER_SCALE_STEP * steps)
-		ch.modulate = Color.WHITE.lerp(RES_TIER_TINT, clampf(RES_TIER_TINT_STEP * steps, 0.0, 0.7))
+	# Tier needs no scale/tint here — each tier's own art carries the "elder" read.
 	return ch
 
 ## A one-shot celebratory burst for `count` two-of-a-kind merge events — the merge FLOURISH. Safe
