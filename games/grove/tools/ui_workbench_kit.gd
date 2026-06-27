@@ -1787,10 +1787,14 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sw)
+	# Make the WHOLE card tap = one switch flip. Handle ONLY the mouse-button press, never the
+	# touch press: with project's emulate_touch_from_mouse=true a single physical click delivers
+	# BOTH a mouse-button AND a screen-touch press here, so accepting both flipped the switch
+	# TWICE (a net no-op — the "Sounds toggle won't save" bug). emulate_mouse_from_touch (Godot's
+	# default, on here) means a real mobile touch still yields a mouse-button event, so one tap =
+	# exactly one flip on phone and desktop alike. Do NOT re-add the InputEventScreenTouch branch.
 	panel.gui_input.connect(func(ev: InputEvent) -> void:
-		var tap: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed) \
-			or (ev is InputEventScreenTouch and ev.pressed)
-		if tap:
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
 			sw.pressed.emit()
 			panel.accept_event())
 	return panel

@@ -54,6 +54,21 @@ func _initialize() -> void:
 		sw.pressed.emit()
 	ok(flipped[0] == false, "second press fires on_toggle(false)")
 
+	# --- a single physical tap on the CARD flips the switch exactly ONCE -----------
+	# Regression: with emulate_touch_from_mouse=true one click delivers BOTH a mouse-button
+	# AND a screen-touch press to the card; the handler must act on only one, or the switch
+	# flips twice (net no-op) and the setting "won't save" (the Sounds-toggle bug).
+	var taps: Array = [0]
+	var tap_card := Kit.toggle_card({
+		"label": "Sounds", "value": true,
+		"on_toggle": func(_on: bool) -> void: taps[0] += 1,
+	})
+	var mb := InputEventMouseButton.new(); mb.button_index = MOUSE_BUTTON_LEFT; mb.pressed = true
+	var st := InputEventScreenTouch.new(); st.index = 0; st.pressed = true
+	tap_card.gui_input.emit(mb)   # the real mouse press
+	tap_card.gui_input.emit(st)   # the emulated touch press from the SAME click
+	ok(taps[0] == 1, "one physical card tap fires on_toggle exactly once (no double-fire)")
+
 	# --- rich toggle cards can present mail-style rows ----------------------------
 	var rich := Kit.toggle_card({
 		"icon": "leaf", "title": "Lantern", "body": "+15s time", "cost": 120, "value": true,
