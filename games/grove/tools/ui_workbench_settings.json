@@ -246,10 +246,10 @@
 	"info_bar": {
 		"height": 125.0,
 		"icon_scale_pct": 50.0,
-		"info_button_scale": 75.0,
+		"info_button_scale": 131.0,
 		"info_x": 33.0,
 		"info_x_pct": 0.0,
-		"info_y": 71.0,
+		"info_y": 29.0,
 		"inner_scale": 52.0,
 		"item_icon_scale": 119.0,
 		"name_font": 30.0,

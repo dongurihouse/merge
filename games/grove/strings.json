@@ -32,6 +32,7 @@
 			"buy_label": "Buy",
 			"buy_need": "Need more",
 			"no_room": "No room!",
+			"empty_bag_hint": "Drag an item to the bag to free up space on the board",
 			"empty_prompt": "Tap an item to inspect it",
 			"generator": "Generator",
 			"item_fallback": "Item",
@@ -152,7 +153,6 @@
 			"info_row_label": "Coins",
 			"info_row_note": "for restoring spots around the grove",
 			"info_title": "Coin pouch",
-			"pouch_label": "Coin pouch",
 			"quick_help_caption": "Quick help"
 		},
 		"confirm": {

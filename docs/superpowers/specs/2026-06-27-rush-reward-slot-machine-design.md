@@ -21,9 +21,9 @@ slot-machine reveal — one spinning reel per earned spirit.
 Convert the run's score directly into spirits at a fixed rate, then reveal them as slot reels.
 There is **no player choice** on this screen; its job is the payout *feel*, not a decision.
 
-- **Conversion:** `n = floor(score / RATE)` with `RATE = 200` (the old Grove-chest per-spirit rate,
-  i.e. every run now gets the best value automatically). The remainder is **discarded** — no bonus
-  reel, no carry-over.
+- **Conversion:** `n = max(1, floor(score / RATE))` with `RATE = 200` (the old Grove-chest per-spirit
+  rate, i.e. every run now gets the best value automatically). The remainder is **discarded** — no
+  bonus reel, no carry-over. The `max(1, …)` floor means a run always pays out **at least one** spirit.
 - **What each spirit is:** unchanged. Kind is rolled uniformly from the unlocked pool; tier off the
   generator curve (`TIER_ODDS` = 65/25/9/1). This is purely a *presentation* change over the rewards
   `Habitat.grant_chest(n)` already produces — same RNG, pool, and hand-add path.
@@ -62,10 +62,10 @@ predicate, and keeps its pick phase locally. `explore_trade.gd` calls `slot_reel
 spirit-tile builder (reusing the existing `_spirit_widget` art path) + a `tier >= 3` predicate, and
 has no pick. This matches the codebase's "single source" convention and keeps both reveals in step.
 
-**Lighter alternative (fallback):** adapt the spin in place inside `explore_trade.gd` by porting
-`_spin_reels` / `_land_reel` / `shine` over spirit tiles, leaving `login_mystery.gd` untouched. Less
-churn to a tested feature, but duplicates ~120 lines of tween/juice. The implementation plan picks;
-the shared extraction is preferred unless it destabilises the mystery tests.
+**Owner's call (2026-06-27): take the shared extraction**, refactoring `login_mystery.gd` to delegate
+to `slot_reel.gd` as needed. The adapt-in-place duplicate (port `_spin_reels` / `_land_reel` / `shine`
+into `explore_trade.gd`, leave the mystery reveal untouched) is the fallback only if the extraction
+destabilises the mystery tests.
 
 ## Tier shine (the "rare" moment)
 
@@ -95,15 +95,14 @@ shared framed dialog (`Kit.dialog_frame`) with the run-score chip at top. Inside
 - **Add** a centred caption (reusing the mystery caption pattern: a "revealing…" line that becomes
   `+N spirits to your hand` on finish) over a centred **reel row** that **wraps to a grid** when `n`
   is large (mirror the old Revealed grid: ~5 columns).
-- Banner text: the "Trade" framing (spend score) no longer fits. Rename to **"Rewards"** (open
-  decision below).
+- Banner text: the "Trade" framing (spend score) no longer fits. Rename to **"Rewards"**.
 
 ## Edge cases
 
-- **`n == 0`** (score < `RATE`): no reels. Show a gentle "not enough score for a spirit this run"
-  caption; `Done` closes. (We honour floor + discard — no minimum-one guarantee. Flagged below.)
-- **Empty unlocked pool** (`grant_chest` returns `[]`): same gentle empty state. Unlikely after the
-  first map.
+- **Weak run** (score < `RATE`): `max(1, …)` still grants **one** spirit — the screen always pays out
+  at least one reel. No "not enough score" empty state.
+- **Empty unlocked pool** (`grant_chest` returns `[]` — nothing to roll): the one edge that can still
+  yield zero reels. Show a gentle empty caption; `Done` closes. Unlikely after the first map.
 - **Large `n`** (a high-scoring run, e.g. 4000 → 20 spirits): reels wrap into the grid, and the spin
   **caps total reveal time** — compress the per-reel stagger so the whole cascade stays bounded
   (target ≤ ~3.5 s) instead of `n × stagger`. `Done`-skip is always available as the escape hatch.
@@ -149,11 +148,10 @@ The animation can't be observed headless (no real renderer), so logic is tested 
   must behave identically after delegating to the shared helper).
 - `make test-grove` for the slice; `make test` before handoff.
 
-## Open decisions (for owner review)
+## Resolved decisions (owner, 2026-06-27)
 
-1. **Banner rename** — "Trade" → "Rewards" (recommended), or keep "Trade", or another word
-   ("Spoils"). Default: "Rewards".
-2. **`n == 0` floor** — accept a possible zero-spirit reward on a weak run (honours discard), or
-   guarantee a minimum of 1 spirit when `score > 0`. Default: floor, with the gentle empty state.
-3. **Shared extraction vs adapt-in-place** — confirm appetite for refactoring `login_mystery.gd` into
-   a shared `slot_reel.gd`. Default: shared extraction.
+1. **Weak run** — guarantee a **minimum of 1** spirit: `n = max(1, floor(score / RATE))`. No
+   zero-spirit empty state (except the empty-pool edge).
+2. **Code reuse** — **shared extraction**: refactor `login_mystery.gd` into a shared `slot_reel.gd`,
+   reusing as much as possible. Adapt-in-place is the fallback only on test instability.
+3. **Banner** — "Rewards" (default; trivially changed if the owner prefers "Trade" / "Spoils").
