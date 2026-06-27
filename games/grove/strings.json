@@ -57,6 +57,9 @@
 	"ladder": {
 		"title": "Tiers"
 	},
+	"producing": {
+		"title": "Producing"
+	},
 	"level": {
 		"banner": "Level %d"
 	},

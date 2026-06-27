@@ -1,7 +1,8 @@
 extends SceneTree
 ## Dev tool (real renderer; run via engine/tools/quiet_godot.sh): screenshot the Grove
 ## in a given state.   quiet_godot.sh --path . -s res://games/grove/tools/grove_shot.gd -- <mode> <out.png>
-## modes: fresh | played | gate | compost | ladder | hive | bag | level | levelup
+## modes: fresh | played | gate | compost | ladder | hive | bag | level | levelup |
+##        producing (generator → ⓘ Producing dialog) | producingdrill (→ tap a line → its Tiers ladder)
 
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
@@ -124,6 +125,35 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"producing", "producingdrill":
+			# the PRODUCING dialog (tap generator → ⓘ): the lines the anchor currently makes. ~L6 so all six
+			# staged Farm lines (61–66) have grown in alongside Wildflower (1) — the live pop pool's lines wear
+			# the gold ring, popped lines show their piece, and not-yet-discovered lines fall to the locked "?".
+			var gpr := Save.grove()
+			gpr["exp"] = 250                       # ≈ L6 (exp_at_level 6 = 230) → every Farm line is live
+			gpr["pops"] = 30                       # past the FTUE so taps cost water (and read the played state)
+			gpr["water"] = 300
+			gpr["seen"] = {}                       # an explicit blank discovery set, then pop to fill it
+			Save.grove_write()
+			scn.water = 300
+			scn._update_hud()
+			scn._rebuild_givers()
+			await create_timer(0.3).timeout
+			for i in 6:                            # pop bursts → establish the live pop pool (its lines wear the ring)
+				scn._pop_seed()
+				await create_timer(0.12).timeout
+			# seed a legible discovery mix: Wildflower (1) + three Farm lines discovered → filled pieces; the
+			# remaining live lines (Larder 64 · Porch 65 · Flower-box 66) stay unseen → locked "?" wells.
+			var pseen: Dictionary = Save.grove().get("seen", {})
+			for sc in [101, 102, 6101, 6201, 6301]:   # Wildflower t1/t2 · Hearth t1 · Kitchen-herbs t1 · Well-water t1
+				pseen[str(sc)] = true
+			scn._select_generator(scn.board.gens.keys()[0])
+			await create_timer(0.2).timeout
+			scn._on_info_pressed()                 # tap ⓘ → open the Producing dialog
+			await create_timer(0.45).timeout
+			if mode == "producingdrill":
+				scn._open_ladder(1, 1)             # tap the Wildflower line → its tier ladder, stacked on top
+				await create_timer(0.4).timeout
 		"infosel", "infobuy":
 			# the bottom-bar INFO BAR with an item SELECTED: place a known item, select it → the bar shows
 			# the piece + "<name> · Tier N" + the BUY chip (T55) + the sell button. Coins make the buy chip
