@@ -1,6 +1,7 @@
 extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot an Explore screen.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- <loadout|rush|trade> <out.png>
+##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- trade <out.png> revealed=12
 ## Seeds a completed map (so the box pool is non-empty), coins, and a run; for `rush` it lets the board
 ## fill for a couple of seconds before capturing. Mirrors residents_screen_shot.gd's quiet header
 ## (REFUSES unless override.cfg exists — the born-minimized window must come from quiet_godot.sh).
@@ -21,6 +22,10 @@ func _initialize() -> void:
 	var args := OS.get_cmdline_user_args()
 	var which: String = args[0] if args.size() >= 1 else "rush"   # rush | trade (Load out is now a map dialog)
 	var out: String = args[1] if args.size() >= 2 else "/tmp/explore_%s.png" % which
+	var revealed := 0
+	for a in args:
+		if String(a).begins_with("revealed="):
+			revealed = int(String(a).split("=")[1])
 
 	var dir := "/tmp/tu_exploreshot_%s/" % which
 	if DirAccess.dir_exists_absolute(dir):
@@ -47,7 +52,7 @@ func _initialize() -> void:
 			Explore.begin_run({})
 			Explore.add_score(1500)
 			path = "res://engine/scenes/ExploreTrade.tscn"
-			# pre-open a couple of boxes so the reveal strip shows
+			# seed the hand so the done flow has trade rewards available in the save
 			var pool := Explore.unlocked_pool(unl, [z])
 			var rng := RandomNumberGenerator.new()
 			rng.seed = 7
@@ -58,6 +63,9 @@ func _initialize() -> void:
 			path = "res://engine/scenes/ExploreRush.tscn"
 
 	var scn = load(path).instantiate()
+	if which == "trade" and revealed > 0:
+		for _i in revealed:
+			scn._revealed.append("ember")
 	root.add_child(scn)
 	current_scene = scn
 	# midfall=1: clear the board, force-spawn one tile, capture it part-way through its drop (a guaranteed
