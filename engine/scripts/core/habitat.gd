@@ -19,10 +19,27 @@ const D = Game.DATA
 const DEFAULT_CAP := 8                  # full habitat slots (= RESIDENT_SLOTS_MAX); the roster RAMPS up to this as the map is restored
 const MAX_TIER: int = D.RESIDENT_MAX_TIER   # reuse the existing cascade cap (12) as the v1 tier band
 
-# PROVISIONAL feel dials — the slice plays with these; final values come from the parked grove_sim pass.
-const YIELD_PER_HOUR := 1.0             # reward units per hour a TIER-1 spirit yields (rate scales with tier) — sim-tuned down from 6.0 (it flooded ~30× the quest faucet)
-const ACCRUAL_HOURS := 8.0             # idle accrual ceiling, in hours of current output (daily-return cap)
-const SELL_PER_TIER := 5               # coins returned when selling a placed spirit, per housed tier
+# PROVISIONAL feel dials — the slice plays with these; final values come from the parked grove_sim/economy pass.
+# The production model: each map matures a FIXED reward UNIT; TIER speeds the cadence, COUNT raises the cap,
+# the per-unit AMOUNT never scales — which is what keeps water/diamonds bounded (I2 / IAP safe).
+const UNITS_PER_HOUR_PER_TIER := 0.25   # production UNITS/hour per placed TIER (Σtiers × this) — TIER speeds the cadence
+const BASE_CAP_UNITS := 4.0             # accrued-UNIT ceiling with a single spirit placed (the daily-return floor)
+const CAP_UNITS_PER_SPIRIT := 1.0       # extra UNIT ceiling per ADDITIONAL placed spirit — the COUNT lever
+const SELL_PER_TIER := 5                # coins returned when selling a placed spirit, per housed tier
+
+# Hard caps on the rewards (the economy guards). PROVISIONAL — the economy pass tunes them.
+const DIAMOND_DAILY_CAP := 3            # max diamonds COLLECTABLE from habitats per calendar day (the IAP guard)
+const BOOST_CHARGE_CAP := 5            # max stockpiled generator-boost charges (map 3 stock ceiling)
+
+# Per-map FIXED reward per matured unit (residents_spec Reward table; amount is TIER-INDEPENDENT). Each
+# currency is hard-capped at the grant (see _grant). Map 5 (meadow) is special — it pays a resident CHEST.
+const REWARD := {
+	"farmhouse": {"currency": "coins",     "per_unit": 5},   # map 1
+	"barn":      {"currency": "water",     "per_unit": 3},   # map 2 — clamped to WATER_CAP
+	"pond":      {"currency": "boost",     "per_unit": 1},   # map 3 — a generator-boost charge, click to use
+	"orchard":   {"currency": "diamonds",  "per_unit": 1},   # map 4 — DIAMOND_DAILY_CAP per day
+	"meadow":    {"currency": "residents", "per_unit": 1},   # map 5 — a chest of chest_size() random spirits
+}
 
 # --- the in-hand holding area (unbounded) ----------------------------------------
 static func hand() -> Array:
@@ -145,8 +162,10 @@ static func unplace(map_id: String, index: int, now: float = -1.0) -> bool:
 	_set_hand(h)
 	return true
 
-# --- idle production ---------------------------------------------------------------
-## A map's production RATE = sum of its placed spirits' tiers (v1 tier-only yield).
+# --- idle production: TIER speeds the cadence, COUNT raises the cap, the per-unit AMOUNT is FIXED -----
+## A map's production SPEED = sum of its placed spirits' tiers. Higher tier (and, naturally, more spirits)
+## = a faster cadence; the per-unit reward AMOUNT stays fixed (see REWARD), which is what keeps water and
+## diamonds bounded. (Kept named `rate` — every existing caller reads the tier-sum from here.)
 static func rate(map_id: String) -> int:
 	var r := 0
 	for inst in placed(map_id):
@@ -159,13 +178,19 @@ static func _now() -> float:
 static func _prod(map_id: String) -> Dictionary:
 	return Save.grove().get("hab_prod", {}).get(map_id, {"acc": 0.0, "last": -1.0})
 
-## The fresh-flow ceiling (units) = ACCRUAL_HOURS of the CURRENT rate's output.
+## The accrued-UNIT ceiling. COUNT is the lever: one placed spirit caps at BASE_CAP_UNITS; each extra
+## spirit adds CAP_UNITS_PER_SPIRIT. An EMPTY map produces nothing (cap 0 — the ≥1-spirit gate). Map 5
+## (residents) banks at most ONE ready chest, keeping the free-resident faucet slow so Explore stays primary.
 static func accrual_cap(map_id: String) -> float:
-	return float(rate(map_id)) * YIELD_PER_HOUR * ACCRUAL_HOURS
+	if rate(map_id) <= 0:
+		return 0.0
+	if reward_currency(map_id) == "residents":
+		return 1.0
+	return BASE_CAP_UNITS + CAP_UNITS_PER_SPIRIT * float(placed(map_id).size() - 1)
 
-## Units accrued and not yet collected, as of `now` (defaults to wall clock; tests pass an explicit
-## `now`). Banked `acc` is kept whole; only the fresh flow since `last` is clamped on top of it, so a
-## rate drop (sell/move-away) never erases already-earned units.
+## Production UNITS accrued and not yet collected, as of `now` (defaults to wall clock; tests pass an
+## explicit `now`). Banked `acc` is kept whole; only the fresh flow since `last` is clamped on top of it,
+## so a speed drop (sell/move-away) never erases already-earned units.
 static func pending(map_id: String, now: float = -1.0) -> float:
 	if now < 0.0:
 		now = _now()
@@ -175,12 +200,12 @@ static func pending(map_id: String, now: float = -1.0) -> float:
 	if last < 0.0:
 		last = now                                       # first observation: start the clock, no back-pay
 	var hours := maxf(0.0, (now - last) / 3600.0)
-	var flow := float(rate(map_id)) * YIELD_PER_HOUR * hours
+	var flow := float(rate(map_id)) * UNITS_PER_HOUR_PER_TIER * hours
 	var room := maxf(0.0, accrual_cap(map_id) - acc)
 	return acc + minf(flow, room)
 
-## Bank pending into stored `acc` and reset `last` = now. Called before any rate change (place/move/
-## sell) and inside collect, so accrual is always integrated at the correct rate.
+## Bank pending into stored `acc` and reset `last` = now. Called before any speed change (place/move/
+## sell/unplace) and inside collect, so accrual is always integrated at the correct speed.
 static func _settle(map_id: String, now: float = -1.0) -> void:
 	if now < 0.0:
 		now = _now()
@@ -191,31 +216,117 @@ static func _settle(map_id: String, now: float = -1.0) -> void:
 	g["hab_prod"][map_id] = {"acc": banked, "last": now}
 	Save.grove_write()
 
-## The reward currency each map pays (residents_spec Reward table). v1 wires ONLY map 1 (farmhouse ->
-## coins). Maps 2-5 are PARKED on the Economy pass (water reopens I2; diamonds reopen the IAP economy;
-## maps 3/5 are net-new content), so they return "" and pay nothing — they accrue, and light up with a
-## one-line change here once their reward is decided.
+# --- the per-map reward (residents_spec Reward table; all five maps wired) ------------------------
+## The reward currency each map pays: coins / water / boost / diamonds / residents. "" for an unknown id.
 static func reward_currency(map_id: String) -> String:
-	match map_id:
-		"farmhouse": return "coins"
-		_: return ""
+	return String(REWARD.get(map_id, {}).get("currency", ""))
 
-static func _grant(currency: String, amount: int) -> void:
+## The FIXED reward amount per matured unit (tier-independent; the economy pass tunes it).
+static func reward_per_unit(map_id: String) -> int:
+	return int(REWARD.get(map_id, {}).get("per_unit", 0))
+
+# --- generator-boost charges (map 3 / pond stock) -----------------------------------------------
+## Stockpiled generator-boost charges minted by map 3. A charge arms the temporary boost for FREE (no
+## coin cost) via use_boost_charge; the stock is capped at BOOST_CHARGE_CAP.
+static func boost_charges() -> int:
+	return int(Save.grove().get("boost_charges", 0))
+
+static func _set_boost_charges(n: int) -> void:
+	Save.grove()["boost_charges"] = clampi(n, 0, BOOST_CHARGE_CAP)
+	Save.grove_write()
+
+## Spend one stockpiled charge to arm the generator boost for free. Refuses (keeps the charge) when the
+## stock is empty or a boost is already live (one boost at a time, mirroring content.try_activate_boost).
+static func use_boost_charge() -> bool:
+	if boost_charges() <= 0:
+		return false
+	if not Content.arm_boost_free():
+		return false
+	_set_boost_charges(boost_charges() - 1)
+	return true
+
+# --- diamond daily cap (map 4 / orchard — the IAP guard) ----------------------------------------
+static func _day_index(now: float) -> int:
+	return int(floor(now / 86400.0))
+
+## Diamonds still collectable from habitats today (resets each calendar day).
+static func diamond_daily_remaining(now: float = -1.0) -> int:
+	if now < 0.0:
+		now = _now()
+	var g := Save.grove()
+	var spent := int(g.get("hab_dia_count", 0)) if int(g.get("hab_dia_day", -1)) == _day_index(now) else 0
+	return maxi(0, DIAMOND_DAILY_CAP - spent)
+
+static func _spend_diamond_allowance(now: float, n: int) -> void:
+	var g := Save.grove()
+	if int(g.get("hab_dia_day", -1)) != _day_index(now):
+		g["hab_dia_day"] = _day_index(now)
+		g["hab_dia_count"] = 0
+	g["hab_dia_count"] = int(g.get("hab_dia_count", 0)) + n
+	Save.grove_write()
+
+# --- map 5 resident chest ------------------------------------------------------------------------
+## The chest size map 5 yields, set by the placed COUNT (more spirits = a better chest): 1 / 4 / 8.
+static func chest_size(map_id: String) -> int:
+	var n := placed(map_id).size()
+	if n >= 8:
+		return 8
+	if n >= 4:
+		return 4
+	if n >= 1:
+		return 1
+	return 0
+
+## The kinds map 5 may roll: the union of every populatable map's offered residents (mirrors the box pool).
+static func _resident_pool() -> Array:
+	var unlocks: Dictionary = Save.grove().get("unlocks", {})
+	var kinds := {}
+	for z in Content.MAPS.size():
+		if Content.map_spots_restored(z, unlocks) >= 1:
+			for ln in Content.resident_lines(z):
+				kinds[String(ln.id)] = true
+	return kinds.keys()
+
+static func _drop_random_resident() -> bool:
+	var pool := _resident_pool()
+	if pool.is_empty():
+		return false
+	hand_add(String(pool[randi() % pool.size()]), 1)
+	return true
+
+# --- grant + collect -----------------------------------------------------------------------------
+## Grant `amount` of `currency`, applying each currency's HARD CAP. Returns what was ACTUALLY granted
+## (after clamping). `now` drives the diamond daily window. Residents are handled in collect, not here.
+static func _grant(currency: String, amount: int, now: float) -> int:
 	match currency:
-		"coins": Save.add_coins(amount)
-		# "water"/"diamonds" intentionally NOT wired in v1 — parked (I2 / IAP economy). Do not add here
-		# without the Economy pass; doing so reopens a base invariant.
+		"coins":
+			Save.add_coins(amount)
+			return amount
+		"water":
+			var before := Save.water()
+			Save.add_water(amount)                       # add_water clamps to WATER_CAP
+			return Save.water() - before
+		"diamonds":
+			var give := mini(amount, diamond_daily_remaining(now))
+			if give > 0:
+				Save.add_diamonds(give)
+				_spend_diamond_allowance(now, give)
+			return give
+		"boost":
+			var was := boost_charges()
+			_set_boost_charges(was + amount)             # clamps to BOOST_CHARGE_CAP
+			return boost_charges() - was
+		_:
+			return 0
 
-## Collect a map's accrued production into its reward currency: grant floor(pending), keep the
-## fractional remainder, reset the clock. Returns {currency, amount} (amount 0 when nothing accrued
-## or the map's reward is parked).
+## Collect a map's matured production into its reward. Floors pending to whole UNITS, banks the fractional
+## remainder, resets the clock. Currency maps grant floor(units) × per_unit (each hard-capped). Map 5 yields
+## ONE resident chest of chest_size() random spirits when a unit is ready. Returns {currency, amount[, chest]}.
 static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 	if now < 0.0:
 		now = _now()
 	var cur := reward_currency(map_id)
 	if cur == "":
-		# Parked map: accrue, never collect — returning early avoids flooring `pending` and resetting
-		# the clock while granting nothing (a latent data-loss trap until maps 2-5 get a wired reward).
 		return {"currency": "", "amount": 0}
 	var p := pending(map_id, now)
 	var whole := int(floor(p))
@@ -224,6 +335,17 @@ static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 		g["hab_prod"] = {}
 	g["hab_prod"][map_id] = {"acc": p - float(whole), "last": now}
 	Save.grove_write()
-	if whole > 0:
-		_grant(cur, whole)
-	return {"currency": cur, "amount": whole}
+	if cur == "residents":
+		# map 5: a matured unit = a ready CHEST; collecting drops chest_size() random spirits into the hand.
+		if whole < 1:
+			return {"currency": "residents", "amount": 0, "chest": 0}
+		var size := chest_size(map_id)
+		var dropped := 0
+		for _i in size:
+			if _drop_random_resident():
+				dropped += 1
+		return {"currency": "residents", "amount": dropped, "chest": size}
+	if whole <= 0:
+		return {"currency": cur, "amount": 0}
+	var granted := _grant(cur, whole * reward_per_unit(map_id), now)
+	return {"currency": cur, "amount": granted}

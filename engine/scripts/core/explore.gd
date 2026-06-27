@@ -39,10 +39,11 @@ const MULT_GRACE := 0.7          # after a merge the multiplier holds for this l
 const MULT_DECAY := 0.25         # once past the grace window the multiplier bleeds this much per second
 
 # --- Box cost table (score-priced; rarity odds parked → kind-only roll at tier 1) -----------------
+# A pricier box opens to MORE residents (1 / 4 / 8) — the same chest tiers map 5's habitat faucet reuses.
 const BOXES := [
-	{"id": "pouch", "name": "Acorn pouch",  "cost": 250},
-	{"id": "chest", "name": "Grove chest",  "cost": 800},
-	{"id": "vault", "name": "Spirit vault", "cost": 2000},
+	{"id": "pouch", "name": "Acorn pouch",  "cost": 250,  "residents": 1},
+	{"id": "chest", "name": "Grove chest",  "cost": 800,  "residents": 4},
+	{"id": "vault", "name": "Spirit vault", "cost": 2000, "residents": 8},
 ]
 
 # === Loadout math ================================================================================

@@ -183,10 +183,19 @@ func _test_screens() -> void:
 	get_root().add_child(t)
 	if t.get_child_count() == 0:
 		t._ready()
-	t._on_buy(int(Explore.BOXES[0].cost))
-	ok(Habitat.hand().size() == hand_before + 1, "opening a box on the Trade screen adds a spirit to the hand")
+	t._on_buy(Explore.BOXES[0])          # pouch = 1 resident
+	ok(Habitat.hand().size() == hand_before + 1, "opening a pouch on the Trade screen adds one spirit to the hand")
 	ok(pool.has(String(Habitat.hand()[Habitat.hand().size() - 1].kind)), "the box-spirit's kind comes from the unlocked pool")
 	ok(int(Habitat.hand()[Habitat.hand().size() - 1].tier) == 1, "the box-spirit enters the hand at tier 1")
+
+	# a pricier box opens to MORE residents (pouch 1 / chest 4 / vault 8)
+	ok(int(Explore.BOXES[0].residents) == 1 and int(Explore.BOXES[1].residents) == 4 and int(Explore.BOXES[2].residents) == 8,
+		"the three boxes yield 1 / 4 / 8 residents")
+	Explore.add_score(int(Explore.BOXES[2].cost))
+	var before_vault := Habitat.hand().size()
+	t._on_buy(Explore.BOXES[2])          # vault = 8 residents
+	ok(Habitat.hand().size() == before_vault + int(Explore.BOXES[2].residents), "a vault opens to %d residents at once" % int(Explore.BOXES[2].residents))
+
 	var piglet_reveal: Control = t._spirit_widget("piglet", 72.0)
 	ok(piglet_reveal.find_child("SpiritEye0", true, false) != null and piglet_reveal.find_child("SpiritEye1", true, false) != null,
 		"an unarted box-spirit reveal shows placeholder face details instead of a blank disc")

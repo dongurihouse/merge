@@ -113,21 +113,31 @@ func _box_card(Kit: GDScript, b: Dictionary) -> Control:
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	box.add_child(icon)
 	box.add_child(_label(String(b.name), 20, true))
+	var count := int(b.get("residents", 1))
+	box.add_child(_label("%d spirit%s" % [count, "" if count == 1 else "s"], 16))
 	var open: Button = Kit.pill_button("%d pts" % int(b.cost), {"bg": "green", "art": true, "font": 18, "enabled": Explore.score() >= int(b.cost)})
-	open.pressed.connect(func() -> void: _on_buy(int(b.cost)))
+	open.pressed.connect(func() -> void: _on_buy(b))
 	box.add_child(open)
 	return panel
 
-func _on_buy(cost: int) -> void:
-	if not Explore.buy_box(cost):
+## Open a box: spend its score cost, then roll its `residents` count of kinds (pouch 1 / chest 4 /
+## vault 8) from the unlocked pool into the habitat hand at tier 1. Reveals each pull.
+func _on_buy(box: Dictionary) -> void:
+	if not Explore.buy_box(int(box.get("cost", 0))):
 		return
 	var pool := _pool()
-	var kind := Explore.roll_kind(pool, _rng)
-	if kind != "":
+	var got := 0
+	for _i in int(box.get("residents", 1)):
+		var kind := Explore.roll_kind(pool, _rng)
+		if kind == "":
+			break
 		Habitat.hand_add(kind)
 		_revealed.append(kind)
-		Audio.play("level_complete", -8.0, 1.15)   # JUICE: a reward chime + a name callout on a pull
-		FX.celebrate_at(self, get_global_rect().get_center() - Vector2(0, 70), "%s!" % String(kind).capitalize(), STRAW)
+		got += 1
+	if got > 0:
+		Audio.play("level_complete", -8.0, 1.15)   # JUICE: a reward chime + a callout on a pull
+		var label := ("%s!" % String(_revealed[_revealed.size() - 1]).capitalize()) if got == 1 else ("+%d spirits!" % got)
+		FX.celebrate_at(self, get_global_rect().get_center() - Vector2(0, 70), label, STRAW)
 	else:
 		Audio.play("button_tap", -2.0)
 	_rebuild()

@@ -3,12 +3,14 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## and a headless smoke test of the Residents screen. Active suite (in GROVE_TESTS).
 
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const Game = preload("res://engine/scripts/core/game.gd")   # for WATER_CAP
 
 func _initialize() -> void:
 	begin("grove · residents habitat")
 	_test_hand()
 	_test_place()
 	_test_production()
+	_test_rewards()
 	_test_residents_button()
 	finish()
 
@@ -99,62 +101,73 @@ func _test_place() -> void:
 	ok(Habitat.hand().size() == 1 and int(Habitat.hand()[0].tier) == 2, "it returns to the hand keeping its tier")
 	ok(not Habitat.unplace(u, 0), "bringing out a bad index is refused")
 
-# --- idle production: rate, accrual, collect -------------------------------------
+# --- idle production: TIER speeds the cadence, COUNT raises the cap, AMOUNT is fixed --------------
 func _test_production() -> void:
 	var t0 := 1_000_000.0
+	var far := t0 + 3600.0 * 100000.0   # long enough to saturate any cap
 
-	# rate = sum of placed tiers
+	# speed = sum of placed tiers
 	fresh("habitat_rate")
 	var mid := String(G.MAPS[0].id)   # farmhouse pays COINS
 	for spec in [["moss", 1], ["acorn", 2], ["lantern", 3]]:
 		Habitat.hand_add(String(spec[0]), int(spec[1]))
 		Habitat.place(mid, 0)
-	ok(Habitat.rate(mid) == 6, "rate is the sum of placed tiers (1+2+3)")
+	ok(Habitat.rate(mid) == 6, "speed is the sum of placed tiers (1+2+3)")
 
-	# accrual: one tier-1 spirit, one hour elapsed -> YIELD_PER_HOUR units pending
+	# accrual: one tier-1 spirit, one hour -> rate × UNITS_PER_HOUR_PER_TIER units pending
 	fresh("habitat_accrual")
 	var m := String(G.MAPS[0].id)
 	Habitat.hand_add("moss", 1)
 	Habitat.place(m, 0, t0)                              # settle stamps last = t0
-	var p1h := Habitat.pending(m, t0 + 3600.0)
-	ok(abs(p1h - Habitat.YIELD_PER_HOUR) < 0.001, "a t1 spirit accrues YIELD_PER_HOUR units in one hour")
-	# the accrual is CAPPED at ACCRUAL_HOURS of output
-	var pbig := Habitat.pending(m, t0 + 3600.0 * 100.0)
-	ok(abs(pbig - Habitat.YIELD_PER_HOUR * Habitat.ACCRUAL_HOURS) < 0.001, "accrual clamps to the ACCRUAL_HOURS ceiling")
+	var u1 := Habitat.UNITS_PER_HOUR_PER_TIER            # one tier × one hour
+	ok(abs(Habitat.pending(m, t0 + 3600.0) - u1) < 1e-6, "a t1 spirit accrues UNITS_PER_HOUR_PER_TIER units in one hour")
 
-	# collect grants floor(pending) coins, keeps the remainder, resets the clock
-	fresh("habitat_collect")
+	# TIER speeds the cadence (not the amount): a t2 accrues twice the units of a t1 in the same hour
+	fresh("habitat_tier_speed")
+	var mt := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 2)
+	Habitat.place(mt, 0, t0)
+	ok(abs(Habitat.pending(mt, t0 + 3600.0) - 2.0 * u1) < 1e-6, "a t2 accrues 2× the units of a t1 (tier = faster cadence)")
+
+	# COUNT is the cap lever: one spirit caps at BASE_CAP_UNITS, each extra adds CAP_UNITS_PER_SPIRIT
+	fresh("habitat_count_cap")
+	var mca := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 1)
+	Habitat.place(mca, 0, t0)
+	ok(abs(Habitat.accrual_cap(mca) - Habitat.BASE_CAP_UNITS) < 1e-6, "one spirit caps at BASE_CAP_UNITS")
+	Habitat.hand_add("moss", 1)
+	Habitat.place(mca, 0, t0)
+	ok(abs(Habitat.accrual_cap(mca) - (Habitat.BASE_CAP_UNITS + Habitat.CAP_UNITS_PER_SPIRIT)) < 1e-6, "a second spirit raises the cap by CAP_UNITS_PER_SPIRIT")
+	ok(abs(Habitat.pending(mca, far) - Habitat.accrual_cap(mca)) < 1e-6, "accrual clamps to the count-scaled cap")
+
+	# GATING: an empty map has no speed, no cap, no production (the ≥1-spirit gate)
+	fresh("habitat_gating")
+	var mg := String(G.MAPS[0].id)
+	ok(Habitat.rate(mg) == 0 and Habitat.accrual_cap(mg) == 0.0, "an empty map has no speed and no cap")
+	ok(Habitat.pending(mg, far) == 0.0, "an empty map accrues nothing")
+
+	# FIXED amount: collect on the coin map pays floor(units) × per_unit (NOT scaled by tier)
+	fresh("habitat_collect_coins")
 	var mc := String(G.MAPS[0].id)
 	Habitat.hand_add("moss", 1)
 	Habitat.place(mc, 0, t0)
+	var per := Habitat.reward_per_unit("farmhouse")
 	var coins_b := Save.coins()
-	var r := Habitat.collect(mc, t0 + 3600.0)            # YIELD_PER_HOUR = 6.0 -> 6 coins
-	ok(String(r.currency) == "coins" and int(r.amount) == int(Habitat.YIELD_PER_HOUR), "collect pays floor(pending) coins on the coin map")
-	ok(Save.coins() == coins_b + int(Habitat.YIELD_PER_HOUR), "the coins are credited")
-	ok(abs(Habitat.pending(mc, t0 + 3600.0) - 0.0) < 0.001, "pending resets to ~0 right after collect")
+	var units := int(floor(Habitat.pending(mc, far)))
+	var r := Habitat.collect(mc, far)
+	ok(units > 0, "the coin map accrues whole units to collect")
+	ok(String(r.currency) == "coins" and int(r.amount) == units * per, "collect pays floor(units) × per_unit coins")
+	ok(Save.coins() == coins_b + units * per, "the coins are credited")
+	ok(Habitat.pending(mc, far) < 1.0, "pending drops below one unit right after collect")
 
-	# a PARKED map (not farmhouse) accrues but pays nothing yet
-	fresh("habitat_parked_reward")
-	var mp := String(G.MAPS[2].id)   # pond — parked reward
-	_open_spots(2)                       # open the parked map so placement has a slot
-	Habitat.hand_add("moss", 1)
-	Habitat.place(mp, 0, t0)
-	var diamonds_b := Save.diamonds()
-	var coins_p := Save.coins()
-	var pend_before := Habitat.pending(mp, t0 + 3600.0 * 100.0)
-	var rp := Habitat.collect(mp, t0 + 3600.0 * 100.0)
-	ok(String(rp.currency) == "" and int(rp.amount) == 0, "a parked map pays nothing (reward content not shipped)")
-	ok(Save.diamonds() == diamonds_b and Save.coins() == coins_p, "no currency leaks from a parked map")
-	# data-loss guard: collecting a parked map must NOT erase the units it already accrued
-	ok(abs(Habitat.pending(mp, t0 + 3600.0 * 100.0) - pend_before) < 0.001, "a parked collect keeps accrued production (no data-loss trap)")
-
-	# selling does NOT erase already-banked production (settle banks before the rate drops)
+	# selling does NOT erase already-banked production (settle banks before the speed drops)
 	fresh("habitat_settle_keeps_acc")
 	var ms := String(G.MAPS[0].id)
 	Habitat.hand_add("moss", 1)
 	Habitat.place(ms, 0, t0)
+	var banked := Habitat.pending(ms, t0 + 3600.0)
 	Habitat.sell(ms, 0, t0 + 3600.0)                    # one hour banked, then the only spirit sold
-	ok(abs(Habitat.pending(ms, t0 + 3600.0) - Habitat.YIELD_PER_HOUR) < 0.001, "an hour of production survives selling the producer")
+	ok(abs(Habitat.pending(ms, t0 + 3600.0) - banked) < 1e-6, "an hour of production survives selling the producer")
 
 	# the roster survives a cold reload
 	fresh("habitat_persist")
@@ -163,6 +176,99 @@ func _test_production() -> void:
 	Habitat.place(mr, 0)
 	Save._loaded = false                                 # force a reload from disk
 	ok(Habitat.placed(mr).size() == 1 and int(Habitat.placed(mr)[0].tier) == 2, "placed spirits persist across a reload")
+
+# --- the five reward streams: each map pays its own fixed-unit reward (provisional, hard-capped) --
+func _test_rewards() -> void:
+	var t0 := 1_000_000.0
+	var far := t0 + 3600.0 * 100000.0
+
+	# reward_currency wires all five maps (no more parked "" maps)
+	ok(Habitat.reward_currency("farmhouse") == "coins", "map 1 pays coins")
+	ok(Habitat.reward_currency("barn") == "water", "map 2 pays water")
+	ok(Habitat.reward_currency("pond") == "boost", "map 3 pays a generator-boost charge")
+	ok(Habitat.reward_currency("orchard") == "diamonds", "map 4 pays diamonds")
+	ok(Habitat.reward_currency("meadow") == "residents", "map 5 pays residents (a chest)")
+
+	# WATER (map 2) — collect tops up water, clamped to WATER_CAP (I2-safe: a fixed amount, never tier-scaled)
+	fresh("reward_water")
+	_open_spots(1)
+	var bw := String(G.MAPS[1].id)   # barn
+	Save.set_water(0)
+	Habitat.hand_add("moss", 1)
+	Habitat.place(bw, 0, t0)
+	var rw := Habitat.collect(bw, far)
+	ok(String(rw.currency) == "water" and int(rw.amount) > 0, "collecting map 2 grants water")
+	ok(Save.water() == int(rw.amount), "the water is credited")
+	# the clamp: collecting near the cap never exceeds WATER_CAP
+	Save.set_water(int(Game.DATA.WATER_CAP) - 1)
+	Habitat._settle(bw, t0)                               # re-bank a full cap of water units
+	Habitat.collect(bw, far)
+	ok(Save.water() == int(Game.DATA.WATER_CAP), "water clamps to WATER_CAP on collect")
+
+	# BOOST (map 3) — collect stockpiles generator-boost CHARGES (capped); a charge arms the boost for free
+	fresh("reward_boost")
+	_open_spots(2)
+	var bp := String(G.MAPS[2].id)   # pond
+	Habitat.hand_add("moss", 1)
+	Habitat.place(bp, 0, t0)
+	var cb := Habitat.boost_charges()
+	var rb := Habitat.collect(bp, far)
+	ok(String(rb.currency) == "boost" and int(rb.amount) > 0, "collecting map 3 grants boost charges")
+	ok(Habitat.boost_charges() == cb + int(rb.amount), "the charges are stockpiled")
+	ok(Habitat.boost_charges() <= Habitat.BOOST_CHARGE_CAP, "the stock never exceeds BOOST_CHARGE_CAP")
+	var ch := Habitat.boost_charges()
+	ok(Habitat.use_boost_charge(), "a stockpiled charge can be used")
+	ok(Habitat.boost_charges() == ch - 1, "using a charge decrements the stock")
+	ok(G.boost_active(), "using a charge arms the generator boost (free activation)")
+	ok(not Habitat.use_boost_charge(), "a second charge is refused while a boost is already live")
+
+	# DIAMONDS (map 4) — collect pays diamonds, HARD-CAPPED per calendar day (the IAP guard)
+	fresh("reward_diamonds")
+	_open_spots(3)
+	var bo := String(G.MAPS[3].id)   # orchard
+	for _i in 6:                          # enough placed that a full accrual would exceed the daily cap
+		Habitat.hand_add("moss", 1)
+		Habitat.place(bo, 0, t0)
+	var day0 := 3600.0 * 24.0 * 100.0    # a fixed calendar day
+	var db := Save.diamonds()
+	var r1 := Habitat.collect(bo, day0)
+	ok(int(r1.amount) == Habitat.DIAMOND_DAILY_CAP, "the first collect of a saturated diamond map grants exactly the daily cap")
+	Habitat._settle(bo, day0 - 3600.0 * 100.0)           # re-saturate within the same day
+	var r2 := Habitat.collect(bo, day0 + 600.0)
+	ok(int(r2.amount) == 0, "a second collect the same day grants nothing (daily cap spent)")
+	Habitat._settle(bo, day0 + 86400.0 - 3600.0 * 100.0) # re-saturate for the next day
+	var r3 := Habitat.collect(bo, day0 + 86400.0 + 600.0)
+	ok(int(r3.amount) == Habitat.DIAMOND_DAILY_CAP, "a new day reopens the daily diamond allowance")
+	ok(Save.diamonds() == db + 2 * Habitat.DIAMOND_DAILY_CAP, "total diamonds = the daily cap per distinct day")
+
+	# MEADOW (map 5) — collect drops a CHEST of residents into the hand; chest size set by placed COUNT
+	fresh("reward_chest")
+	_open_spots(4)
+	var bm := String(G.MAPS[4].id)   # meadow
+	Habitat.hand_add("moss", 1)
+	Habitat.place(bm, 0, t0)
+	ok(Habitat.chest_size(bm) == 1, "one placed spirit yields a 1-chest")
+	var hand_b := Habitat.hand().size()
+	var rc := Habitat.collect(bm, far)
+	ok(String(rc.currency) == "residents" and int(rc.chest) == 1, "collecting map 5 yields a 1-resident chest")
+	ok(int(rc.amount) == 1 and Habitat.hand().size() == hand_b + 1, "the chest resident lands in the hand")
+
+	# the chest scales with COUNT: 4 placed -> a 4-chest, 8 placed -> an 8-chest
+	fresh("reward_chest_scale")
+	_open_spots(4)
+	var bm2 := String(G.MAPS[4].id)
+	for _i in 4:
+		Habitat.hand_add("moss", 1)
+		Habitat.place(bm2, 0, t0)
+	ok(Habitat.chest_size(bm2) == 4, "four placed spirits yield a 4-chest")
+	for _i in 4:
+		Habitat.hand_add("moss", 1)
+		Habitat.place(bm2, 0, t0)
+	ok(Habitat.chest_size(bm2) == 8, "eight placed spirits yield an 8-chest")
+	var hand_b2 := Habitat.hand().size()
+	var rc2 := Habitat.collect(bm2, far)
+	ok(int(rc2.chest) == 8 and int(rc2.amount) == 8, "an 8-chest drops eight residents")
+	ok(Habitat.hand().size() == hand_b2 + 8, "all eight chest residents land in the hand")
 
 # --- the spirits DOCK on the map (the folded-in residents management) -------------
 func _test_residents_button() -> void:

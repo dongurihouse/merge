@@ -1093,8 +1093,7 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var reward_label := ("Coins" if cur == "coins" else "Resting")
-	var sub := _card_sub("%s · %d/%d housed" % [reward_label, placed.size(), cap])
+	var sub := _card_sub("%s · %d/%d housed" % [_reward_label(cur), placed.size(), cap])
 	sub.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(sub)
 
@@ -1112,7 +1111,7 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 		slots.add_child(_empty_slot(orb_px))
 	col.add_child(slots)
 
-	# production bar + Collect (only on a map with a wired reward; parked maps just rest)
+	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
 	if cur != "":
 		var foot := HBoxContainer.new()
 		foot.add_theme_constant_override("separation", 12)
@@ -1124,10 +1123,15 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		foot.add_child(bar)
-		var pend := int(floor(Habitat.pending(map_id)))
-		var collect: Button = Kit.pill_button("Collect %d" % pend, {"bg": "green", "art": true, "font": 18, "icon": "coin", "enabled": pend > 0})
+		var ready := _reward_amount_ready(map_id)
+		var collect: Button = Kit.pill_button("Collect %d" % ready, {"bg": "green", "art": true, "font": 18, "icon": _reward_icon(cur), "enabled": ready > 0})
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
 		foot.add_child(collect)
+		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
+		if cur == "boost" and Habitat.boost_charges() > 0:
+			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 16, "enabled": not G.boost_active()})
+			useb.pressed.connect(func() -> void: _on_use_boost())
+			foot.add_child(useb)
 		col.add_child(foot)
 
 	var shelf := PanelContainer.new()
@@ -1196,9 +1200,70 @@ func _inset_fill(col: Color, band: float, radius: float) -> Control:
 func _on_card_collect(z: int) -> void:
 	var r: Dictionary = Habitat.collect(String(G.MAPS[z].id))
 	_update_hud()
-	if int(r.get("amount", 0)) > 0:
-		Audio.play("level_complete", -8.0, 1.1)
+	_refresh_residents_count()                               # a residents-chest collect grows the hand + badge
+	_collect_fx(r, get_global_rect().get_center() - Vector2(0, 40))
 	_build_select()      # refresh the bar + Collect amount in place
+
+# --- the per-map reward, surfaced (label / icon / collectable amount / feedback) ------------------
+# Map 1 coins · map 2 water · map 3 a generator-boost charge · map 4 diamonds · map 5 a resident chest.
+func _reward_label(cur: String) -> String:
+	match cur:
+		"coins": return "Coins"
+		"water": return "Water"
+		"boost": return "Boosts"
+		"diamonds": return "Diamonds"
+		"residents": return "Spirits"
+		_: return "Resting"
+
+# Boost + residents reuse the leaf glyph until their bespoke art ships (parked); diamonds read as gems.
+func _reward_icon(cur: String) -> String:
+	match cur:
+		"coins": return "coin"
+		"water": return "water"
+		"diamonds": return "gem"
+		_: return "leaf"
+
+# The amount a collect would bank right now: units × per_unit, clamped to each reward's hard cap. For
+# map 5 it's the chest size; 0 until a whole unit has matured.
+func _reward_amount_ready(map_id: String) -> int:
+	var cur := Habitat.reward_currency(map_id)
+	var units := int(floor(Habitat.pending(map_id)))
+	if cur == "residents":
+		return Habitat.chest_size(map_id) if units >= 1 else 0
+	if cur == "diamonds":
+		return mini(units * Habitat.reward_per_unit(map_id), Habitat.diamond_daily_remaining())
+	if cur == "boost":
+		return mini(units * Habitat.reward_per_unit(map_id), Habitat.BOOST_CHARGE_CAP - Habitat.boost_charges())
+	return units * Habitat.reward_per_unit(map_id)
+
+# Reward-aware collect feedback (a chime + a float/callout matched to the currency).
+func _collect_fx(r: Dictionary, at: Vector2) -> void:
+	var amt := int(r.get("amount", 0))
+	if amt <= 0:
+		Audio.play("button_tap", -2.0)
+		return
+	Audio.play("level_complete", -8.0, 1.1)
+	match String(r.get("currency", "")):
+		"coins": FX.floating_reward(self, at, "coin", amt, STRAW)
+		"water": FX.floating_reward(self, at, "water", amt, STRAW)
+		"diamonds": FX.floating_reward(self, at, "gem", amt, STRAW)
+		"boost": FX.celebrate_at(self, at, "+%d boost%s" % [amt, "" if amt == 1 else "s"], STRAW)
+		"residents": FX.celebrate_at(self, at, "Chest! +%d spirit%s" % [amt, "" if amt == 1 else "s"], STRAW)
+		_: FX.celebrate_at(self, at, "+%d" % amt, STRAW)
+
+# Spend one stockpiled generator-boost charge (map 3's reward) to arm the board boost for FREE. Refreshes
+# whichever surface is open (the management dialog, else the map-select carousel).
+func _on_use_boost() -> void:
+	if Habitat.use_boost_charge():
+		Audio.play("level_complete", -8.0, 1.1)
+		FX.celebrate_at(self, _dock_center(-12.0), "Boost armed!", STRAW)
+	else:
+		Audio.play("button_tap", -2.0)
+	_update_hud()
+	if _residents_overlay != null and is_instance_valid(_residents_overlay) and _residents_rebuild.is_valid():
+		_residents_rebuild.call()
+	else:
+		_build_select()
 
 func _card_sub(text: String) -> Label:
 	var l := _dock_label(text, 16)
@@ -1706,11 +1771,16 @@ func _build_residents_body(map_id: String, width: float) -> Control:
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(spacer)
 	if cur != "":
-		var pend := int(floor(Habitat.pending(map_id)))
-		head.add_child(Kit.amount_chip("coin", "+%d" % pend))
-		var coll: Button = Kit.pill_button("Collect", {"bg": "green", "art": true, "font": 18, "icon": "coin", "enabled": pend > 0})
+		var ready := _reward_amount_ready(map_id)
+		head.add_child(Kit.amount_chip(_reward_icon(cur), "+%d" % ready))
+		var coll: Button = Kit.pill_button("Collect", {"bg": "green", "art": true, "font": 18, "icon": _reward_icon(cur), "enabled": ready > 0})
 		coll.pressed.connect(func() -> void: _on_dock_collect(map_id))
 		head.add_child(coll)
+		# map 3: spend a stockpiled generator-boost charge for free
+		if cur == "boost" and Habitat.boost_charges() > 0:
+			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 16, "enabled": not G.boost_active()})
+			useb.pressed.connect(func() -> void: _on_use_boost())
+			head.add_child(useb)
 	col.add_child(head)
 	if cur != "":
 		var capf := Habitat.accrual_cap(map_id)
@@ -1833,13 +1903,9 @@ func _on_unplace(map_id: String, idx: int) -> void:
 
 func _on_dock_collect(map_id: String) -> void:
 	var r: Dictionary = Habitat.collect(map_id)
-	var amt := int(r.get("amount", 0))
 	_update_hud()
-	if amt > 0:
-		Audio.play("level_complete", -8.0, 1.1)              # JUICE: a reward chime + coins fly up
-		FX.floating_reward(self, _dock_center(0.0), "coin", amt, STRAW)
-	else:
-		Audio.play("button_tap", -2.0)
+	_refresh_residents_count()                               # a residents-chest collect grows the hand + badge
+	_collect_fx(r, _dock_center(0.0))                        # JUICE: a chime + a reward-matched float/callout
 	_residents_rebuild.call()
 
 ## A global point near the centre of the screen — where habitat-action FX read from (the dialog is modal,

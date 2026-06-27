@@ -452,9 +452,13 @@ func _hab_merge() -> void:
 				changed = true
 				break
 
-# One session's idle-production collect (map 0 pays coins): ACCRUAL_HOURS of output per ~8h check-in.
+# One session's idle-production collect (map 0 pays coins): a full accrual cap of UNITS × the fixed
+# per-unit coin reward, per check-in (the fixed-unit / count-cap model; TIER only speeds the cadence).
 func _hab_collect() -> void:
-	var hy := int(round(float(_hab_rate()) * Habitat.YIELD_PER_HOUR * Habitat.ACCRUAL_HOURS))
+	if _hab_rate() <= 0:
+		return
+	var cap_units := Habitat.BASE_CAP_UNITS + Habitat.CAP_UNITS_PER_SPIRIT * maxf(0.0, float(hab0.size()) - 1.0)
+	var hy := int(floor(cap_units)) * int(Habitat.REWARD["farmhouse"]["per_unit"])
 	if hy > 0:
 		coins += hy
 		coins_earned += hy
