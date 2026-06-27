@@ -13,6 +13,7 @@ func _initialize() -> void:
 	_test_grid()
 	_test_pool_and_box()
 	_test_run_state()
+	_test_rush_intro_hint()
 	_test_screens()
 	_test_trade_box_icons()
 	_test_trade_reward_dialog_layout()
@@ -212,6 +213,47 @@ func _test_run_state() -> void:
 	ok(Explore.score() == 250, "a refused box leaves the score intact")
 	ok(Explore.buy_box(250), "an affordable box is bought")
 	ok(Explore.score() == 0, "buying a box debits its cost from the score")
+
+# --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
+# The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
+# retires (gated on a saved counter). The fling/treefall bottom hint stays on EVERY rush.
+func _test_rush_intro_hint() -> void:
+	# the pure gate: shown on the first three rushes, retired from the fourth on
+	ok(Explore.rush_intro_should_show(0), "the tap-to-merge popup shows on the first rush")
+	ok(Explore.rush_intro_should_show(2), "the popup still shows on the third rush")
+	ok(not Explore.rush_intro_should_show(3), "the popup retires once three rushes have shown it")
+	ok(not Explore.rush_intro_should_show(9), "the popup stays retired beyond three")
+
+	# the seen-counter persists in the save, defaulted to 0 on a fresh save (no migration)
+	fresh("rush_intro_seen")
+	ok(Save.rush_intro_seen() == 0, "a fresh save has shown the popup zero times")
+	Save.mark_rush_intro_seen()
+	ok(Save.rush_intro_seen() == 1, "marking the popup seen bumps the saved counter")
+
+	# the scene wiring: the popup appears on the first three rushes and bumps the counter;
+	# the bottom fling hint is present on EVERY rush regardless of the popup gate
+	fresh("rush_intro_scene")
+	Explore.begin_run({})
+	for i in 3:
+		var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+		get_root().add_child(s)
+		if s.get_child_count() == 0:
+			s._ready()
+		ok(s.find_child("RushTapHint", true, false) != null, "rush %d shows the Tap to Merge popup" % (i + 1))
+		var hint := s.find_child("RushBottomHint", true, false) as Label
+		ok(hint != null, "rush %d shows the always-on bottom hint" % (i + 1))
+		ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "rush %d bottom hint explains the fling tap" % (i + 1))
+		ok(Save.rush_intro_seen() == i + 1, "rush %d bumps the intro-seen counter to %d" % [i + 1, i + 1])
+		s.queue_free()
+	# the fourth rush: the popup is retired, the bottom hint stays, the counter holds at 3
+	var s4 = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(s4)
+	if s4.get_child_count() == 0:
+		s4._ready()
+	ok(s4.find_child("RushTapHint", true, false) == null, "the popup is gone on the fourth rush")
+	ok(s4.find_child("RushBottomHint", true, false) != null, "the bottom hint stays on the fourth rush")
+	ok(Save.rush_intro_seen() == 3, "a retired popup does not bump the counter further")
+	s4.queue_free()
 
 # --- the Rush/Trade screens: build smoke + the Trade→hand seam -------------------
 func _test_screens() -> void:

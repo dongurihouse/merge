@@ -368,6 +368,17 @@ static func set_first_purchase_made() -> void:
 	grove()["first_purchase_made"] = true
 	grove_write()
 
+# --- rush teaching popup: how many times the "Tap to Merge!" intro has shown ------
+# A small counter in the grove blob (defaulted to 0 on old saves, no migration) gating the
+# rush-start teaching popup to a player's first few rushes. The threshold lives in explore.gd
+# (Explore.rush_intro_should_show); this is the pure persistence — read with a default, bump + save.
+static func rush_intro_seen() -> int:
+	return int(grove().get("rush_intro_seen", 0))
+
+static func mark_rush_intro_seen() -> void:
+	grove()["rush_intro_seen"] = rush_intro_seen() + 1
+	grove_write()
+
 # --- water — a Save-backed currency (grove energy) -------------------------
 # Water lives in the grove blob, capped at WATER_CAP. It is the SINGLE source of truth: the shop
 # grants through these accessors (like coins/diamonds), the HUD reads them, and the board keeps a
