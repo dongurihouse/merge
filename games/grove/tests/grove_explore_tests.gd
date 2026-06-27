@@ -13,9 +13,10 @@ func _initialize() -> void:
 	_test_grid()
 	_test_pool_and_box()
 	_test_run_state()
+	_test_trade_count()
+	_test_slot_reel()
 	_test_rush_intro_hint()
 	_test_screens()
-	_test_trade_box_icons()
 	_test_trade_reward_dialog_layout()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
@@ -209,10 +210,48 @@ func _test_run_state() -> void:
 	ok(bool(Explore.run().equip.get("drops", false)), "the run carries the chosen loadout")
 	Explore.add_score(250)
 	ok(Explore.score() == 250, "add_score accrues the run score")
-	ok(not Explore.buy_box(300), "a box the run can't afford is refused")
-	ok(Explore.score() == 250, "a refused box leaves the score intact")
-	ok(Explore.buy_box(250), "an affordable box is bought")
-	ok(Explore.score() == 0, "buying a box debits its cost from the score")
+
+func _test_trade_count() -> void:
+	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
+	ok(Explore.trade_count(150) == 1, "a sub-rate score still yields one spirit (min 1)")
+	ok(Explore.trade_count(199) == 1, "just under the rate yields one spirit")
+	ok(Explore.trade_count(200) == 1, "exactly the rate yields one spirit")
+	ok(Explore.trade_count(400) == 2, "double the rate yields two spirits")
+	ok(Explore.trade_count(852) == 4, "852 converts to four spirits (remainder discarded)")
+
+func _test_slot_reel() -> void:
+	var SlotReel: GDScript = load("res://engine/scripts/ui/slot_reel.gd")
+	var mk := func(_sym, w: float, h: float) -> Control:
+		var c := Control.new()
+		c.custom_minimum_size = Vector2(w, h)
+		return c
+	# a built reel sits landed on its target tile
+	var reel: Control = SlotReel.build_reel(["a", "b", "c"], "c", 80.0, 84.0, 0, mk, true)
+	var tile_h: float = float(reel.get_meta("tile_h"))
+	var n_syms: int = int(reel.get_meta("n_syms"))
+	var band: Control = reel.get_meta("band")
+	ok(is_equal_approx(band.position.y, -tile_h * float(n_syms - 1)), "a built reel is landed on its target tile")
+	ok(bool(reel.get_meta("shine")) == true, "build_reel records the shine flag")
+	# spinning zero reels lands immediately
+	var fired := {"v": false}
+	SlotReel.spin_reels(self, [], null, func() -> void: fired.v = true)
+	ok(fired.v, "spinning zero reels fires on_all_landed at once")
+	# finish() snaps every band to its landed tile and fires on_all_landed exactly once
+	var host := Control.new()
+	get_root().add_child(host)
+	var r0: Control = SlotReel.build_reel(["a", "b"], "b", 80.0, 84.0, 0, mk, false)
+	var r1: Control = SlotReel.build_reel(["a", "b"], "a", 80.0, 84.0, 1, mk, false)
+	host.add_child(r0)
+	host.add_child(r1)
+	(r0.get_meta("band") as Control).position.y = 0.0
+	(r1.get_meta("band") as Control).position.y = 0.0
+	var done := {"n": 0}
+	var handle: Dictionary = SlotReel.spin_reels(host, [r0, r1], null, func() -> void: done.n += 1)
+	(handle["finish"] as Callable).call()
+	var b0: Control = r0.get_meta("band")
+	ok(is_equal_approx(b0.position.y, -float(r0.get_meta("tile_h")) * float(int(r0.get_meta("n_syms")) - 1)), "finish() snaps a reel to its landed tile")
+	ok(done.n == 1, "finish() fires on_all_landed exactly once")
+	host.queue_free()
 
 # --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
 # The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
@@ -267,7 +306,7 @@ func _test_screens() -> void:
 		ok(s.get_child_count() > 0, "%s builds a non-empty tree" % String(path).get_file())
 		s.queue_free()
 
-	# the seam: buying a box on the Trade screen lands a pool kind in the habitat hand
+	# the seam: opening the Rewards screen converts the run score DIRECTLY into hand spirits
 	fresh("explore_trade_seam")
 	var z := 0
 	var g := Save.grove()
@@ -278,90 +317,44 @@ func _test_screens() -> void:
 	g["gates"] = [z]
 	Save.grove_write()
 	Explore.begin_run({})
-	Explore.add_score(400)
+	Explore.add_score(400)                          # 400 / 200 = 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
 	var hand_before := Habitat.hand().size()
 	var t = load("res://engine/scenes/ExploreTrade.tscn").instantiate()
 	get_root().add_child(t)
 	if t.get_child_count() == 0:
 		t._ready()
-	t._on_buy(Explore.BOXES[0])          # pouch = 1 resident
-	ok(Habitat.hand().size() == hand_before + 1, "opening a pouch on the Trade screen adds one spirit to the hand")
-	ok(pool.has(String(Habitat.hand()[Habitat.hand().size() - 1].kind)), "the box-spirit's kind comes from the unlocked pool")
-	var box_tier := int(Habitat.hand()[Habitat.hand().size() - 1].tier)
-	ok(box_tier >= 1 and box_tier <= 4, "the box-spirit rolls a generator tier (1–4)")
-
-	# a pricier box opens to MORE residents (pouch 1 / chest 4 / vault 8)
-	ok(int(Explore.BOXES[0].residents) == 1 and int(Explore.BOXES[1].residents) == 4 and int(Explore.BOXES[2].residents) == 8,
-		"the three boxes yield 1 / 4 / 8 residents")
-	Explore.add_score(int(Explore.BOXES[2].cost))
-	var before_vault := Habitat.hand().size()
-	t._on_buy(Explore.BOXES[2])          # vault = 8 residents
-	ok(Habitat.hand().size() == before_vault + int(Explore.BOXES[2].residents), "a vault opens to %d residents at once" % int(Explore.BOXES[2].residents))
-
+	ok(Habitat.hand().size() == hand_before + 2, "opening the Rewards screen grants floor(score / RATE) spirits to the hand")
+	var last: Dictionary = Habitat.hand()[Habitat.hand().size() - 1]
+	ok(pool.has(String(last.kind)), "a granted spirit's kind comes from the unlocked pool")
+	ok(int(last.tier) >= 1 and int(last.tier) <= 4, "a granted spirit rolls a generator tier (1–4)")
+	ok(t.find_child("TradeDialog", true, false) != null, "the Rewards screen uses the shared framed dialog")
+	ok(t._reels.size() == 2, "the screen builds one reel per granted spirit")
 	var piglet_reveal: Control = t._spirit_widget("piglet", 72.0)
 	ok(piglet_reveal.find_child("SpiritEye0", true, false) != null and piglet_reveal.find_child("SpiritEye1", true, false) != null,
-		"an unarted box-spirit reveal shows placeholder face details instead of a blank disc")
+		"an unarted spirit reveal shows placeholder face details instead of a blank disc")
 	t.queue_free()
 
-func _test_trade_box_icons() -> void:
-	var expected := {
-		"pouch": "rush_box_pouch",
-		"chest": "rush_box_chest",
-		"vault": "rush_box_vault",
-	}
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	var trade = load("res://engine/scenes/ExploreTrade.tscn").instantiate()
-	get_root().add_child(trade)
-	for b in Explore.BOXES:
-		var id := String(b.get("id", ""))
-		var icon_id := String(b.get("icon", ""))
-		ok(icon_id == String(expected.get(id, "")), "%s trade box declares its tier icon id" % id)
-		ok(ResourceLoader.exists("res://games/grove/assets/ui/rush/%s.png" % icon_id),
-			"%s trade box icon exists as a Rush UI asset" % id)
-		var card: Control = trade._box_card(Kit, b)
-		ok(String(card.get_meta("box_icon", "")) == icon_id, "%s trade card records the icon id it renders" % id)
-		ok(card.find_child("RushRewardIcon", true, false) != null, "%s trade card has a named reward icon node" % id)
-		card.free()
-	trade.queue_free()
 
 func _test_trade_reward_dialog_layout() -> void:
+	fresh("trade_reward_layout")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	Explore.begin_run({})
+	Explore.add_score(800)                          # 800 / 200 = 4 reels
 	var trade = load("res://engine/scenes/ExploreTrade.tscn").instantiate()
-	for _i in 12:
-		trade._revealed.append("ember")
 	get_root().add_child(trade)
 	if trade.get_child_count() == 0:
 		trade._ready()
 	var dialog := trade.find_child("TradeDialog", true, false) as Control
-	ok(dialog != null, "Trade uses the shared framed dialog instead of a loose full-page layout")
-	ok(dialog != null and dialog.find_child("DialogBanner", true, false) != null,
-		"the Trade dialog carries the standard banner chrome")
-	var reveal_scroll := trade.find_child("RevealScroll", true, false) as ScrollContainer
-	ok(reveal_scroll != null, "revealed spirits live in a bounded scroll area")
-	ok(reveal_scroll != null and reveal_scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_DISABLED,
-		"the revealed spirits cannot widen the dialog with a horizontal scroll")
-	ok(reveal_scroll != null and reveal_scroll.custom_minimum_size.x <= 460.0,
-		"the reveal area has a capped width so reward claims do not shift the screen")
-	ok(reveal_scroll != null and reveal_scroll.custom_minimum_size.y >= 232.0,
-		"the reveal area shows a full vault's two rows before scrolling")
-	var grid := trade.find_child("RevealGrid", true, false) as GridContainer
-	ok(grid != null and grid.columns == 4, "revealed spirits wrap into a compact four-column grid")
-	var cards: Array = []
-	if grid != null:
-		for child in grid.get_children():
-			if child is PanelContainer and (child as PanelContainer).has_meta("spirit_reveal_card"):
-				cards.append(child)
-	ok(cards.size() == 12, "each revealed spirit renders as its own card")
-	if cards.size() > 0:
-		var first := cards[0] as PanelContainer
-		ok(first.custom_minimum_size.x >= 88.0 and first.custom_minimum_size.y >= 108.0,
-			"spirit reveal cards have a stable footprint")
-		var icon := first.find_child("SpiritIcon", true, false) as Control
-		var name := first.find_child("SpiritName", true, false) as Label
-		ok(icon != null and icon.custom_minimum_size == Vector2(56.0, 56.0),
-			"spirit card icons sit in a fixed centered square")
-		ok(name != null and name.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER,
-			"spirit names center under their icons")
+	ok(dialog != null, "the Rewards screen uses the shared framed dialog instead of a loose full-page layout")
+	ok(trade._reels.size() == 4, "an 800-point run reveals four reels")
 	trade.queue_free()
 
 func _test_loadout_uses_toggle_card_callback() -> void:

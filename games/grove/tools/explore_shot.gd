@@ -2,7 +2,7 @@ extends SceneTree
 ## Dev tool (run via engine/tools/quiet_godot.sh): screenshot an Explore screen.
 ##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- <loadout|rush|trade> <out.png>
 ##   quiet_godot.sh --path . -s res://games/grove/tools/explore_shot.gd -- trade <out.png> revealed=12
-## Seeds a completed map (so the box pool is non-empty), coins, and a run; for `rush` it lets the board
+## Seeds a completed map (so the spirit pool is non-empty), coins, and a run; for `rush` it lets the board
 ## fill for a couple of seconds before capturing. Mirrors residents_screen_shot.gd's quiet header
 ## (REFUSES unless override.cfg exists — the born-minimized window must come from quiet_godot.sh).
 ## Parallel-safe (own temp save).
@@ -10,7 +10,6 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
-const Habitat = preload("res://engine/scripts/core/habitat.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -35,7 +34,7 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	# a completed hub map → a non-empty box pool, plus a fat wallet for the loadout
+	# a completed hub map → a non-empty spirit pool, plus a fat wallet for the loadout
 	var z := G.hub_map()
 	var g := Save.grove()
 	var unl := {}
@@ -50,22 +49,14 @@ func _initialize() -> void:
 	match which:
 		"trade":
 			Explore.begin_run({})
-			Explore.add_score(1500)
+			# the Rewards screen converts score → spirits on open; this sets how many reels reveal
+			Explore.add_score((revealed if revealed > 0 else 7) * Explore.TRADE_RATE)
 			path = "res://engine/scenes/ExploreTrade.tscn"
-			# seed the hand so the done flow has trade rewards available in the save
-			var pool := Explore.unlocked_pool(unl, [z])
-			var rng := RandomNumberGenerator.new()
-			rng.seed = 7
-			for _i in 2:
-				Habitat.hand_add(Explore.roll_kind(pool, rng))
 		_:
 			Explore.begin_run({"time": true, "drops": true})
 			path = "res://engine/scenes/ExploreRush.tscn"
 
 	var scn = load(path).instantiate()
-	if which == "trade" and revealed > 0:
-		for _i in revealed:
-			scn._revealed.append("ember")
 	root.add_child(scn)
 	current_scene = scn
 	# midfall=1: clear the board, force-spawn one tile, capture it part-way through its drop (a guaranteed
