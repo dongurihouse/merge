@@ -62,14 +62,45 @@ static func start_cost(equip: Dictionary) -> int:
 static func can_start(equip: Dictionary) -> bool:
 	return start_cost(equip) <= Save.coins()
 
-## Resolve the equipped boosts into the Rush's config (mirrors the prototype's cfg).
-static func rush_cfg(equip: Dictionary) -> Dictionary:
+## The distinct merge LINES the player has ever SEEN — derived from the saved `seen` set, where each
+## key is an item code (line*100 + tier), so the line is `code / 100`. Sorted, deduped; any line ever
+## met counts (treats included). This is the Rush's candidate pool.
+static func seen_lines(seen: Dictionary) -> Array:
+	var out: Array = []
+	for k in seen.keys():
+		var line := int(int(k) / 100)
+		if line > 0 and not out.has(line):
+			out.append(line)
+	out.sort()
+	return out
+
+## Choose up to `count` distinct lines for ONE Rush run from `pool` (the seen lines). A pool smaller
+## than `count` plays in full; an empty pool falls back to RUSH_LINES so a brand-new player still gets
+## a board. The random draw uses `rng` (seeded in tests for determinism). Returns sorted.
+static func pick_rush_lines(pool: Array, count: int, rng: RandomNumberGenerator) -> Array:
+	var src: Array = (pool.duplicate() if not pool.is_empty() else RUSH_LINES.duplicate())
+	if src.size() <= count:
+		return src
+	var picked: Array = []
+	for _i in count:
+		picked.append(src.pop_at(rng.randi() % src.size()))
+	picked.sort()
+	return picked
+
+## Resolve the equipped boosts into the Rush's config (mirrors the prototype's cfg). `seen` is the
+## player's seen-item set (Save.grove()["seen"]) the line pool is drawn from; `rng` picks the run's
+## lines (a fresh randomized one when omitted). The focus boost narrows the draw from 3 lines to 2.
+static func rush_cfg(equip: Dictionary, seen: Dictionary = {}, rng: RandomNumberGenerator = null) -> Dictionary:
+	if rng == null:
+		rng = RandomNumberGenerator.new()
+		rng.randomize()
+	var count := 2 if bool(equip.get("focus", false)) else 3
 	return {
 		"time": BASE_TIME + (15.0 if bool(equip.get("time", false)) else 0.0),
 		"spawn_mul": 0.72 if bool(equip.get("drops", false)) else 1.0,   # <1 = faster drops
 		"calm_mul": 2.0 if bool(equip.get("calm", false)) else 1.0,      # >1 = rarer treefalls
 		"t2": 0.28 if bool(equip.get("lucky", false)) else 0.0,          # chance a drop arrives at tier 2
-		"lines": (RUSH_LINES.slice(0, 2) if bool(equip.get("focus", false)) else RUSH_LINES.duplicate()),
+		"lines": pick_rush_lines(seen_lines(seen), count, rng),
 	}
 
 # === Rush scoring (pure) ========================================================================
