@@ -66,12 +66,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	# space) — the frame takes min(content, cap).
 	dopts["list_max_h"] = host.get_viewport_rect().size.y * 0.66
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		var piece := PieceView.make_piece(int(d.get("code", 0)), px)
-		# a SEEN but NOT-in-pool line is a discovered line the generator ISN'T making right now — recede it
-		# (greyscale + faded) so only the live pop pool's pieces read as "currently producing".
-		if not bool(d.get("marked", false)):
-			_recede(piece)
-		return piece
+		return PieceView.make_piece(int(d.get("code", 0)), px)   # always full-colour; the cell BG dims if inactive
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 
@@ -79,37 +74,22 @@ static func open(host: Control, opts: Dictionary) -> void:
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
 
-# Desaturate (greyscale) the discovered-but-inactive cell's sprite so it clearly recedes behind the live
-# pool's full-colour pieces; the holder fade also dims its contact shadow. One shared material across cells.
-const _RECEDE_SHADER := "shader_type canvas_item;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tfloat g = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n\tc.rgb = mix(c.rgb, vec3(g), 0.92);\n\tc.rgb *= 0.92;\n\tCOLOR = c;\n}\n"
-static var _recede_mat: ShaderMaterial
-
-static func _recede(piece: Control) -> void:
-	piece.modulate = Color(1.0, 1.0, 1.0, 0.62)        # fade the whole piece (sprite + contact shadow) back
-	if _recede_mat == null:
-		var sh := Shader.new()
-		sh.code = _RECEDE_SHADER
-		_recede_mat = ShaderMaterial.new()
-		_recede_mat.shader = sh
-	_apply_mat(piece, _recede_mat)
-
-static func _apply_mat(n: Node, mat: ShaderMaterial) -> void:
-	if n is TextureRect or n is Sprite2D:
-		(n as CanvasItem).material = mat
-	for c in n.get_children():
-		_apply_mat(c, mat)
-
 # Map line entries → kit discovery cells. tier 0 keeps the number badge off; marked rides the live pop pool;
 # `code` feeds make_content's piece (only a SEEN line is filled); on_tap drills a seen line into its ladder.
+# `dim_bg` recedes the WELL (not the piece) for a discovered line the generator isn't making right now, so the
+# full-colour item still reads but its cell sits back from the live (glowing) pool cells.
 static func _cells(entries: Array, on_line: Callable) -> Array:
 	var out: Array = []
 	for e in entries:
 		var line := int(e.get("line", 0))
+		var seen := bool(e.get("seen", false))
+		var in_pool := bool(e.get("in_pool", false))
 		var cell := {
 			"tier": 0,
-			"seen": bool(e.get("seen", false)),
-			"marked": bool(e.get("in_pool", false)),
+			"seen": seen,
+			"marked": in_pool,
 			"code": int(e.get("code", 0)),
+			"dim_bg": seen and not in_pool,   # discovered but not in the live pool → recede the WELL, keep the item
 		}
 		if on_line.is_valid():
 			cell["on_tap"] = func() -> void: on_line.call(line)
