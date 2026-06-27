@@ -182,6 +182,7 @@ var _drag_is_gen := false          # the current drag picked up a generator (mov
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
 var animating := false
+var _anim_t := 0.0                  # seconds the animating gate has been held (watchdog — see _process)
 var _idle := 0.0                   # seconds without input → the wiggle hint
 
 var water_label: Label
@@ -315,6 +316,18 @@ func debug_refresh_weather() -> void:
 func _process(delta: float) -> void:
 	if board == null:
 		return
+	# Watchdog: `animating` gates ALL board taps and is meant to be true only for a merge tween
+	# (~0.12s, cleared in _after_merge). If a tween callback is ever missed the gate sticks true and
+	# the board silently swallows every tap (taps "do nothing"). Self-heal so input can never soft-lock.
+	if animating:
+		_anim_t += delta
+		if _anim_t > 0.6:
+			animating = false
+			_anim_t = 0.0
+			if Debug.on():
+				print("[collect] animating watchdog fired — gate was stuck; input re-enabled")
+	else:
+		_anim_t = 0.0
 	if animating or _drag_node != null or not Features.on("idle_hint"):
 		_idle = 0.0
 		return
@@ -2100,6 +2113,8 @@ func _gen_highlight_opts() -> Dictionary:
 func _on_board_input(event: InputEvent) -> void:
 	_idle = 0.0
 	if animating:
+		if Debug.on() and ((event is InputEventMouseButton and event.pressed) or (event is InputEventScreenTouch and event.pressed)):
+			print("[collect] board tap IGNORED — animating gate is true (a merge/anim never cleared it)")
 		return
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) or event is InputEventScreenTouch
 	if pressed and event.pressed:
@@ -2161,6 +2176,10 @@ func _on_release(pos: Vector2) -> void:
 		return
 	var from_code := board.item_at(from)
 	var target_code := board.item_at(target)
+	if Debug.on() and G.is_collectable(from_code):
+		print("[collect] still-tap on collectable %d at %s — was_focused=%s dist=%.1f → %s" % [
+			from_code, str(from), str(_press_was_selected), pos.distance_to(_press_pos),
+			("COLLECT" if (target == from and from_code > 0 and pos.distance_to(_press_pos) <= 18.0 and _press_was_selected) else "select/snap-back")])
 	if target == from and from_code > 0 and pos.distance_to(_press_pos) <= 18.0:
 		# A still tap selects first. Collectables (coins + §6.B resource drops) collect only
 		# on a second tap of the already-focused cell, so dragging never pockets them.

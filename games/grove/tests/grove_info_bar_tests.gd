@@ -67,6 +67,15 @@ func _initialize() -> void:
 		ok(Save.coins() == coins0 + G.coin_value(902), "collecting credits the coin value (+%d)" % G.coin_value(902))
 		ok(not board_scene._focus_ring.visible, "collecting clears the focus frame")
 
+	# Watchdog: a stuck `animating` gate must self-heal so board taps can never soft-lock. Force the
+	# gate true and confirm it clears within the watchdog window; a brief gate (a normal merge) must NOT.
+	board_scene.animating = true
+	board_scene._anim_t = 0.0
+	await create_timer(0.25).timeout
+	ok(board_scene.animating, "a brief animating gate (a normal merge) is NOT force-cleared early")
+	await create_timer(0.6).timeout
+	ok(not board_scene.animating, "a STUCK animating gate self-heals (watchdog re-enables board input)")
+
 	board_scene.queue_free()
 	board_scene = null
 	content = null
