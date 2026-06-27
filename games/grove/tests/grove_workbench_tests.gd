@@ -370,6 +370,7 @@ func _initialize() -> void:
 	_test_warm_shadow_port()
 	_test_mystery_preview(view)
 	_test_level_badge_component(view)
+	_test_rush_bar_component(view)
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -1686,6 +1687,28 @@ func _test_level_badge_component(view) -> void:
 	ok(view._is_config("level_badge", "circle_design") and view._is_config("level_badge", "num_burn")
 		and view._is_config("level_badge", "leaf_x"), "part/coin/burn knobs are saved config")
 	ok(not view._is_config("level_badge", "preview_level"), "preview_level is test-only")
+
+func _test_rush_bar_component(view) -> void:
+	ok(view._sections.has("rush_bar"), "rush_bar is a registered gallery item")
+	ok((view._params["rush_bar"] as Dictionary).has("burn"), "rush_bar defaults include the text burn knob")
+	view._selected = "rush_bar"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Burn") >= 100.0, "rush_bar sidebar exposes the engraved burn slider")
+	ok(view._is_config("rush_bar", "burn"), "rush_bar burn is saved config")
+	var opts := Kit.rush_bar_opts_from_config({"rush_bar": {"burn": 75}})
+	ok(is_equal_approx(float(opts.get("burn", -1.0)), 0.75), "rush_bar burn config is stored as a 0..1 style value")
+	var bar := Kit.rush_bar(opts, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
+	var score := bar.get_meta("score_label") as Label
+	var caption: Label = null
+	for found in bar.find_children("*", "Label", true, false):
+		var l := found as Label
+		if String(l.text) == "Score":
+			caption = l
+			break
+	ok(score != null and int(score.get_theme_constant("outline_size")) > 0, \
+		"rush_bar burn applies engraved styling to dynamic values")
+	ok(caption != null and int(caption.get_theme_constant("outline_size")) > 0, \
+		"rush_bar burn applies engraved styling to captions")
 
 func _test_discovery_frame() -> void:
 	var dopts := Kit.dialog_opts_from_config({})
