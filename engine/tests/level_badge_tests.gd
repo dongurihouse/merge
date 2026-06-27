@@ -211,6 +211,7 @@ func _initialize() -> void:
 	var ov2 := LevelPopup.open(host)   # the duplicate emulated event, same frame
 	ok(host.get_child_count() == 1, "double-fire opens ONE overlay, not two (got %d)" % host.get_child_count())
 	ok(ov1 == ov2, "the second open returns the existing overlay")
+	ok(ov1.z_index >= 100, "level popup overlay stays above map badges")
 	host.free()
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
