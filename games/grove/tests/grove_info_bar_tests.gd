@@ -39,9 +39,50 @@ func _initialize() -> void:
 		var desc_label: Label = board_scene.get("_info_desc_label") as Label
 		ok(desc_label != null and desc_label.visible and desc_label.text.contains("8 water"), "the info bar shows the selected item's useful hint")
 
+	# Focus + two-tap collect (real click routing): tapping a coin FOCUSES its cell (a corner-bracket
+	# frame appears) and a SECOND tap of the now-focused cell COLLECTS it. The frame is the on-board
+	# cue that makes the two-tap discoverable — without it players read the collect as broken.
+	var coin_cell := Vector2i(-1, -1)
+	for c in board_scene.board.empty_ground_cells():
+		if not board_scene.board.is_gen(c) and c != cell:
+			coin_cell = c
+			break
+	ok(coin_cell.x >= 0, "the collect test found a second empty cell")
+	if coin_cell.x >= 0:
+		board_scene.board.place(coin_cell, 902)   # a tier-2 coin worth 5
+		board_scene._rebuild_pieces()
+		var half := Vector2(board_scene.csz, board_scene.csz) / 2.0
+		var gat: Vector2 = board_scene.board_area.get_global_transform() * (board_scene._cell_pos(coin_cell) + half)
+		var coins0 := Save.coins()
+		_push_tap(gat)                                   # tap 1 → focus
+		await create_timer(0.05).timeout
+		ok(board_scene._selected_cell == coin_cell, "tap 1 focuses the coin cell")
+		ok(board_scene._focus_ring != null and is_instance_valid(board_scene._focus_ring) and board_scene._focus_ring.visible, \
+			"tap 1 shows the corner-bracket focus frame")
+		ok(board_scene._focus_ring.position == board_scene._cell_pos(coin_cell), "the focus frame sits on the focused cell")
+		ok(board_scene.board.item_at(coin_cell) == 902, "tap 1 does NOT collect the coin")
+		_push_tap(gat)                                   # tap 2 → collect
+		await create_timer(0.05).timeout
+		ok(board_scene.board.item_at(coin_cell) == 0, "tap 2 of the focused coin collects it")
+		ok(Save.coins() == coins0 + G.coin_value(902), "collecting credits the coin value (+%d)" % G.coin_value(902))
+		ok(not board_scene._focus_ring.visible, "collecting clears the focus frame")
+
 	board_scene.queue_free()
 	board_scene = null
 	content = null
 	await process_frame
 	await process_frame
 	finish()
+
+# A real still-tap routed through the viewport's GUI hit-testing (honours mouse_filter, z-order,
+# overlays) at a GLOBAL screen point — the closest headless analog to a live finger tap.
+func _push_tap(gpos: Vector2) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = gpos
+	down.global_position = gpos
+	get_root().push_input(down, true)
+	var up := down.duplicate()
+	up.pressed = false
+	get_root().push_input(up, true)

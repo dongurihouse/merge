@@ -138,6 +138,20 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			scn._select_item(icell)
 			await create_timer(0.3).timeout
+		"focuscoin":
+			# the new SELECTED-cell focus frame (corner brackets) around a focused COIN — the on-board cue
+			# that makes tap-to-focus / tap-again-to-collect visible. Prints the cell's pixel rect for a crop.
+			Save.add_coins(2000)
+			var fes: Array = scn.board.empty_ground_cells()
+			var fcell := Vector2i(fes[fes.size() / 2])   # a coin near the middle of the open ground
+			scn.board.place(fcell, 902)                  # a tier-2 coin
+			scn._rebuild_pieces()
+			scn._update_hud()
+			await create_timer(0.3).timeout
+			scn._select_item(fcell)
+			await create_timer(0.3).timeout
+			var frect: Rect2 = Rect2(scn.board_area.get_global_transform() * scn._cell_pos(fcell), Vector2(scn.csz, scn.csz))
+			print("FOCUSCOIN cell=%s crop=%d,%d,%d,%d" % [str(fcell), int(frect.position.x), int(frect.position.y), int(frect.size.x), int(frect.size.y)])
 		"genburst", "genburstbroke":
 			# T54→boost: the info bar with the GENERATOR selected → the boost chip in the action slot.
 			# "genburst" = affordable, no boost live (coins present → green chip); "genburstbroke" = broke

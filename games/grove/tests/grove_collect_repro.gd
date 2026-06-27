@@ -1,49 +1,58 @@
 extends "res://games/grove/tests/grove_test_base.gd"
-## TEMP reproduction — two-tap coin collect. Delete after diagnosis.
+## TEMP high-fidelity reproduction — real coin-drop path + realistic two-tap timing. Delete after.
 
 func _initialize() -> void:
-	begin("grove · collect repro")
-	fresh("collect_repro")
+	begin("grove · collect repro (live)")
+	fresh("collect_repro_live")
 	var ws = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(ws)
+	await process_frame
 	if ws.board == null:
 		ws._ready()
 	await create_timer(0.05).timeout
 
-	# place a tier-2 coin (902) on a clean open ground cell
-	var es: Array = ws.board.empty_ground_cells()
-	var cell := Vector2i(es[0])
-	ws.board.place(cell, 902)
-	ws._rebuild_pieces()
-	ok(ws.board.item_at(cell) == 902, "setup: coin 902 sits on the board")
-	ok(G.is_coin(902) and G.is_collectable(902), "setup: 902 is a collectable coin")
-	ok(ws.piece_nodes.has(cell) and is_instance_valid(ws.piece_nodes[cell]), "setup: coin has a tracked piece node")
+	# Drop a coin via the REAL path (the same _drop_coin_near generator pops use), then settle its
+	# fly-in tween — so the coin under test is byte-identical to a live dropped coin.
+	ws.debug_drop_coin()
+	await create_timer(0.4).timeout   # let the 0.25s fly-in tween finish
+	var cell := Vector2i(-1, -1)
+	for r in G.ROWS:
+		for cc in G.COLS:
+			var k: int = ws.board.item_at(Vector2i(r, cc))
+			if k > 0 and G.is_coin(k):
+				cell = Vector2i(r, cc)
+	ok(cell.x >= 0, "a coin landed on the board via the real drop path (cell %s)" % str(cell))
+	if cell.x < 0:
+		finish()
+		return
+	ok(ws.piece_nodes.has(cell) and is_instance_valid(ws.piece_nodes[cell]), "the dropped coin has a tracked piece node")
 
 	var half := Vector2(ws.csz, ws.csz) / 2.0
-	# GLOBAL position of the coin centre — exercises the REAL GUI hit-test + mouse_filter routing.
 	var gat: Vector2 = ws.board_area.get_global_transform() * (ws._cell_pos(cell) + half)
-	print("  DBG board_area.mouse_filter=%d gat=%s coin_holder.mouse_filter=%d" % [ws.board_area.mouse_filter, str(gat), ws.piece_nodes[cell].mouse_filter])
-
 	var coins0 := Save.coins()
+	print("  DBG pre: animating=%s drag=%s selected=%s coins=%d" % [str(ws.animating), str(ws._drag_node), str(ws._selected_cell), coins0])
 
-	# TAP 1 via the viewport — should FOCUS (select) the coin, not collect it
+	# TAP 1 → focus
 	_push_tap(gat)
 	await create_timer(0.05).timeout
-	ok(ws._selected_cell == cell, "tap 1 (real routing) focuses the coin cell (got %s)" % str(ws._selected_cell))
-	ok(ws.board.item_at(cell) == 902, "tap 1 does NOT collect (coin still present)")
-	print("  DBG after tap1: selected=%s press_was_selected=%s item=%d coins=%d" % [str(ws._selected_cell), str(ws._press_was_selected), ws.board.item_at(cell), Save.coins()])
+	print("  DBG after tap1: selected=%s ring_vis=%s item=%d" % [str(ws._selected_cell), str(ws._focus_ring != null and ws._focus_ring.visible), ws.board.item_at(cell)])
+	ok(ws._selected_cell == cell, "tap 1 focuses the coin")
 
-	# TAP 2 via the viewport — should COLLECT the now-focused coin
+	# WAIT through the idle-hint window (IDLE_HINT_SECS = 4.5) with frames processing — does anything
+	# clear the selection over time the way the live app would?
+	await create_timer(5.0).timeout
+	print("  DBG after 5s idle: selected=%s ring_vis=%s animating=%s" % [str(ws._selected_cell), str(ws._focus_ring != null and ws._focus_ring.visible), str(ws.animating)])
+	ok(ws._selected_cell == cell, "the focus SURVIVES the idle-hint window (still selected after 5s)")
+
+	# TAP 2 → collect
 	_push_tap(gat)
-	await create_timer(0.05).timeout
-	print("  DBG after tap2: selected=%s press_was_selected=%s item=%d coins=%d (was %d)" % [str(ws._selected_cell), str(ws._press_was_selected), ws.board.item_at(cell), Save.coins(), coins0])
-	ok(ws.board.item_at(cell) == 0, "tap 2 (real routing) collects the coin (cell now empty)")
-	ok(Save.coins() == coins0 + G.coin_value(902), "tap 2 credits the coin value (+%d)" % G.coin_value(902))
+	await create_timer(0.1).timeout
+	print("  DBG after tap2: selected=%s item=%d coins=%d (was %d)" % [str(ws._selected_cell), ws.board.item_at(cell), Save.coins(), coins0])
+	ok(ws.board.item_at(cell) == 0, "tap 2 of the focused coin COLLECTS it (cell empty)")
+	ok(Save.coins() > coins0, "collecting credited coins (%d → %d)" % [coins0, Save.coins()])
 
 	finish()
 
-# A real still-tap routed through the viewport's GUI hit-testing (honours mouse_filter,
-# z-order, overlays) at a GLOBAL screen point — the closest headless analog to a live click.
 func _push_tap(gpos: Vector2) -> void:
 	var down := InputEventMouseButton.new()
 	down.button_index = MOUSE_BUTTON_LEFT

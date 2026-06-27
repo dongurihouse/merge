@@ -215,13 +215,13 @@
 		"twinkle": 55.0
 	},
 	"hud_layout": {
-		"bottom_row_h_pct": 10,
+		"bottom_row_h_pct": 10.0,
 		"button_w_pct": 15.0,
 		"currency_area_pct": 75.0,
 		"currency_pill_w_pct": 25.0,
 		"edge_margin_px": 18.0,
 		"info_bar_w_pct": 70.0,
-		"level_w_pct": 25.0,
+		"level_w_pct": 20.0,
 		"quest_bar_h_pct": 11.0,
 		"shadow": false,
 		"top_band_h_pct": 15.0

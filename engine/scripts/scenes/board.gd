@@ -19,6 +19,7 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tuning = preload("res://engine/scripts/core/tuning.gd")   # UI-redesign role dials (Tuning.UiSkin.*)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
@@ -136,6 +137,7 @@ var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 # the bottom-bar INFO BAR: tapping a board item selects it here (its name + an info button that opens the
 # Tiers ladder + a trashcan that sells it for coins when it's a deletable, non-generator item).
 var _selected_cell := Vector2i(-1, -1)
+var _focus_ring: Control = null      # the corner-bracket frame drawn on the selected cell (lazily built in board_area)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_desc_label: Label          # compact player-use hint for the selected item
@@ -1201,6 +1203,8 @@ func _rebuild_all() -> void:
 	_refresh_generator_dim()   # §6: the freshly-built generators take their full/dimmed state
 	_refresh_boost_indicator() # §6: re-light the boost sparkle + count badge if a boost is live
 	_update_hud()
+	if _selected_cell.x >= 0:  # the wipe above freed the focus frame — redraw it on the still-selected cell
+		_show_focus(_selected_cell)
 
 # (The §14 FTUE feature-spotlight wiring — _maybe_spotlight_chrome / _spotlight_chrome_deferred /
 # _show_spotlight / _on_spotlight_done, plus the Spotlight/SpotlightOverlay preloads and the
@@ -1696,6 +1700,7 @@ func _select_item(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
+	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
 	var tier := BoardModel.tier_of(code)
@@ -1733,6 +1738,7 @@ func _select_generator(cell: Vector2i) -> void:
 		_clear_selection()
 		return
 	_selected_cell = cell
+	_show_focus(cell)                          # the corner-bracket frame makes the focus visible on the board
 	var gid := board.gen_id_at(cell)
 	for c in _info_icon.get_children():
 		c.queue_free()
@@ -1763,6 +1769,7 @@ func _gen_info_text(gid: String) -> String:
 # Reset the info bar to its empty "tap an item" state.
 func _clear_selection() -> void:
 	_selected_cell = Vector2i(-1, -1)
+	_hide_focus()
 	if _info_icon != null and is_instance_valid(_info_icon):
 		for c in _info_icon.get_children():
 			c.queue_free()
@@ -1779,6 +1786,28 @@ func _clear_selection() -> void:
 		_info_burst.visible = false
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false
+
+# Draw the corner-bracket focus frame on `cell`. Lazily built in board_area (recreated after a
+# _rebuild_all wipes it); z-lifted so the brackets sit above the resting piece they frame. The frame
+# is the only on-board signal of focus — without it the tap-to-focus / tap-again-to-collect flow is
+# invisible and reads as "collecting is broken".
+func _show_focus(cell: Vector2i) -> void:
+	if cell.x < 0 or board_area == null or not is_instance_valid(board_area):
+		_hide_focus()
+		return
+	if _focus_ring == null or not is_instance_valid(_focus_ring):
+		_focus_ring = FocusRing.new()
+		_focus_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_focus_ring.z_index = 8                 # above resting pieces (z 0); below a lifted/dragged piece (z 20)
+		board_area.add_child(_focus_ring)
+	_focus_ring.size = Vector2(csz, csz)
+	_focus_ring.position = _cell_pos(cell)
+	_focus_ring.visible = true
+	_focus_ring.queue_redraw()
+
+func _hide_focus() -> void:
+	if _focus_ring != null and is_instance_valid(_focus_ring):
+		_focus_ring.visible = false
 
 func _show_locked_cell_info(cell: Vector2i) -> void:
 	_clear_selection()
