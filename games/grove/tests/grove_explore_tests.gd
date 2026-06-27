@@ -16,6 +16,7 @@ func _initialize() -> void:
 	_test_screens()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
+	await _test_loadout_keeps_unaffordable_choices_visible()
 	finish()
 
 # a rows×cols grid of empty cells (the Rush tile grid: null or {kind,tier})
@@ -50,8 +51,38 @@ func _switch_for_label(node: Control, text: String) -> Button:
 			p = p.get_parent()
 	return null
 
+func _card_for_label(node: Control, text: String) -> PanelContainer:
+	for l in node.find_children("", "Label", true, false):
+		if String((l as Label).text) != text:
+			continue
+		var p: Node = l
+		while p != null and p != node:
+			if p is PanelContainer:
+				return p as PanelContainer
+			p = p.get_parent()
+	return null
+
+func _button_with_text(node: Control, text: String) -> Button:
+	if node is Button and String((node as Button).text) == text:
+		return node as Button
+	for b in node.find_children("", "Button", true, false):
+		if String((b as Button).text) == text:
+			return b as Button
+	return null
+
 func _source_contains(path: String, needle: String) -> bool:
 	return FileAccess.get_file_as_string(path).find(needle) != -1
+
+func _push_tap(gpos: Vector2) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT
+	down.pressed = true
+	down.position = gpos
+	down.global_position = gpos
+	get_root().push_input(down, true)
+	var up := down.duplicate()
+	up.pressed = false
+	get_root().push_input(up, true)
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
 func _test_loadout() -> void:
@@ -244,6 +275,7 @@ func _test_loadout_toggle_updates_in_place() -> void:
 	get_root().add_child(map)
 	await process_frame
 	map._open_expedition()
+	await process_frame
 	var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
 	ok(overlay != null, "the map opens the expedition loadout overlay")
 	if overlay == null:
@@ -258,17 +290,71 @@ func _test_loadout_toggle_updates_in_place() -> void:
 		map.queue_free()
 		await process_frame
 		return
-	sw.pressed.emit()
+	ok(sw.get_global_rect().size.x > 0.0 and sw.get_global_rect().size.y > 0.0,
+		"the Lantern switch has a real hit rect")
+	_push_tap(_hit_center(sw))
+	await process_frame
 	ok(cc.get_child_count() == 1, "toggling a boost does not queue a replacement dialog")
 	ok(cc.get_child(0) == dialog_before, "the same loadout dialog instance remains after a toggle")
 	var cost_after := _button_text_with_prefix(dialog_before, "Cost")
 	ok(cost_after == "Cost 270", "the total cost chip updates in place after toggling Lantern (%s)" % cost_after)
-	ok(bool(sw.get_meta("on")), "the Lantern switch remains on after an affordable toggle")
-	sw.pressed.emit()
-	ok(not bool(sw.get_meta("on")), "pressing Lantern again toggles it back off")
+	ok(bool(sw.get_meta("on")), "a real tap leaves the Lantern switch on after an affordable toggle")
+	_push_tap(_hit_center(sw))
+	await process_frame
+	ok(not bool(sw.get_meta("on")), "a second real tap toggles Lantern back off")
 	var cost_off := _button_text_with_prefix(dialog_before, "Cost")
 	ok(cost_off == "Cost 150", "the total cost chip returns to base cost after toggling Lantern off (%s)" % cost_off)
+	var card := _card_for_label(dialog_before, "Lantern")
+	ok(card != null, "the Lantern loadout row has a mail-style card tap target")
+	if card != null:
+		_push_tap(_hit_center(card))
+		await process_frame
+		ok(is_instance_valid(dialog_before), "tapping the loadout row keeps the dialog open")
+		if is_instance_valid(dialog_before):
+			ok(bool(sw.get_meta("on")), "tapping the mail-style row toggles Lantern on")
+			var row_cost := _button_text_with_prefix(dialog_before, "Cost")
+			ok(row_cost == "Cost 270", "row-tapping Lantern updates the total cost (%s)" % row_cost)
 	await process_frame
 	ok(cc.get_child_count() == 1 and cc.get_child(0) == dialog_before, "the original loadout dialog survives the next frame")
+	map.queue_free()
+	await process_frame
+
+func _test_loadout_keeps_unaffordable_choices_visible() -> void:
+	fresh("explore_loadout_unaffordable")
+	Save.spend(Save.coins())
+	Save.add_coins(300)
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_expedition()
+	await process_frame
+	var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
+	ok(overlay != null, "the low-wallet loadout overlay opens")
+	if overlay == null:
+		map.queue_free()
+		await process_frame
+		return
+	var cc := overlay.get_child(1) as CenterContainer
+	var dialog := cc.get_child(0) as Control
+	var focus_sw: Button = _switch_for_label(dialog, "Focus totem")
+	var go := _button_with_text(dialog, "Set off")
+	ok(focus_sw != null, "the Focus totem row has a switch")
+	ok(go != null, "the loadout dialog has a Set off button")
+	if focus_sw == null or go == null:
+		map.queue_free()
+		await process_frame
+		return
+	_push_tap(_hit_center(focus_sw))
+	await process_frame
+	var cost_after := _button_text_with_prefix(dialog, "Cost")
+	ok(bool(focus_sw.get_meta("on")), "an unaffordable boost still stays visibly selected")
+	ok(cost_after == "Cost 350", "the total cost still shows the selected unaffordable boost (%s)" % cost_after)
+	ok(go.disabled, "Set off is disabled while the selected total exceeds the wallet")
+	_push_tap(_hit_center(focus_sw))
+	await process_frame
+	var cost_off := _button_text_with_prefix(dialog, "Cost")
+	ok(not bool(focus_sw.get_meta("on")), "tapping the unaffordable boost again turns it off")
+	ok(cost_off == "Cost 150", "turning it off returns to the base cost (%s)" % cost_off)
+	ok(not go.disabled, "Set off is re-enabled once the selected total is affordable")
 	map.queue_free()
 	await process_frame

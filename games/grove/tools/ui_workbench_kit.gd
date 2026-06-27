@@ -1696,6 +1696,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var card_art := bool(opts.get("card_art", true))
 	var rich := entry.has("title") or entry.has("body") or entry.has("icon") or entry.has("cost")
 	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box: StyleBox = Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD) if card_art else null
 	if box != null:
@@ -1711,6 +1712,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		panel.add_theme_stylebox_override("panel", s)
 
 	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_theme_constant_override("separation", 12 if rich else 18)
 	panel.add_child(row)
 	if rich:
@@ -1765,6 +1767,7 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		row.add_child(name_l)
 
 	# the switch is the SHARED Look.toggle_switch (the sliced kit/switch_on·off art) — the same one the
@@ -1776,6 +1779,12 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sw)
+	panel.gui_input.connect(func(ev: InputEvent) -> void:
+		var tap: bool = (ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed) \
+			or (ev is InputEventScreenTouch and ev.pressed)
+		if tap:
+			sw.pressed.emit()
+			panel.accept_event())
 	return panel
 
 ## The dialog banner band: ribbon art + the "Mail" text drawn FULL-RECT and vertically CENTRED, so it
