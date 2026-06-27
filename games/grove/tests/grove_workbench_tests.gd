@@ -277,6 +277,11 @@ func _initialize() -> void:
 		and long_sidebar_note.size_flags_horizontal == Control.SIZE_EXPAND_FILL \
 		and is_equal_approx(long_sidebar_note.custom_minimum_size.x, 0.0), \
 		"workbench sidebar descriptive text wraps inside the fixed width")
+	view._selected = "rush_bar"
+	view._rebuild_sidebar()
+	await process_frame
+	ok(sidebar != null and is_equal_approx(sidebar.size.x, 348.0), \
+		"workbench sidebar actual layout width stays 348px when section text is long")
 
 	ok(view._sections.size() >= 16, "gallery built: every element section registered (%d)" % view._sections.size())
 	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")

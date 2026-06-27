@@ -2175,11 +2175,16 @@ func _rebuild_sidebar() -> void:
 func _constrain_sidebar_text(node: Node) -> void:
 	if node is Label:
 		var label := node as Label
-		if label.autowrap_mode != TextServer.AUTOWRAP_OFF:
+		if label.autowrap_mode != TextServer.AUTOWRAP_OFF or label.get_parent() == _sidebar_body:
+			label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			label.custom_minimum_size.x = 0.0
 			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	for child in node.get_children():
 		_constrain_sidebar_text(child)
+
+func _wrap_sidebar_row_label(label: Label) -> void:
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:
@@ -2270,7 +2275,7 @@ func _slider_row(spec: Array, target := "") -> Control:
 	var lbl := Label.new()
 	lbl.text = key.replace("_", " ").capitalize()
 	lbl.custom_minimum_size = Vector2(118, 0)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var s := HSlider.new()
 	s.min_value = lo
@@ -2299,7 +2304,7 @@ func _text_row(label: String, key: String) -> Control:
 	var lbl := Label.new()
 	lbl.text = label
 	lbl.custom_minimum_size = Vector2(118, 0)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var le := LineEdit.new()
 	le.text = String(_params[_selected].get(key, ""))
@@ -2317,7 +2322,7 @@ func _toggle_row(label: String, key: String, rebuild_sidebar := false, target :=
 	var lbl := Label.new()
 	lbl.text = label
 	lbl.custom_minimum_size = Vector2(118, 0)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var cb := CheckButton.new()
 	cb.button_pressed = bool(params.get(key, false))
@@ -2335,7 +2340,7 @@ func _option_row(label: String, key: String, options: Array, rebuild_sidebar := 
 	var lbl := Label.new()
 	lbl.text = label
 	lbl.custom_minimum_size = Vector2(118, 0)
-	lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_wrap_sidebar_row_label(lbl)
 	row.add_child(lbl)
 	var ob := OptionButton.new()
 	var cur := String(_params[_selected].get(key, options[0]))
