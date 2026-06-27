@@ -6,6 +6,9 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -26,7 +29,40 @@ func _initialize() -> void:
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
 	_test_rush_fx_knob_forwarding()
+	_test_combo_bloom()
 	finish()
+
+# Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
+# _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.
+func _test_combo_bloom() -> void:
+	# bump raises the target, scaled by the streak, never above COMBO_BLOOM_MAX.
+	ok(approx(ComboBloom._bump_target(0.0, 0), 0.0), "bloom: a combo-0 bump adds nothing")
+	ok(ComboBloom._bump_target(0.0, 3) > ComboBloom._bump_target(0.0, 1), "bloom: a longer streak raises the target more")
+	ok(ComboBloom._bump_target(0.0, 99) <= Tune.COMBO_BLOOM_MAX + 0.0001, "bloom: the target is clamped to COMBO_BLOOM_MAX")
+	ok(approx(ComboBloom._bump_target(Tune.COMBO_BLOOM_MAX, 5), Tune.COMBO_BLOOM_MAX), "bloom: already-maxed stays at the ceiling")
+	# _advance eases strength TOWARD the target (rising) and never overshoots in one step.
+	var s := ComboBloom._advance(0.0, Tune.COMBO_BLOOM_MAX, 0.016)
+	ok(s > 0.0 and s < Tune.COMBO_BLOOM_MAX, "bloom: one ease step moves toward the target without overshooting")
+	ok(ComboBloom._advance(0.2, 0.0, 0.016) < 0.2, "bloom: with target below, the live strength eases down")
+	# target decays over time (no bumps) at ~COMBO_BLOOM_DECAY/sec — checked via the _process bleed math.
+	ok(Tune.COMBO_BLOOM_DECAY > 0.0, "bloom: the target bleeds off when the streak lapses (decay > 0)")
+	# calm halves the VISIBLE strength (the glow is allowed under calm, just gentler).
+	var prev := Save.get_setting("calm", false)
+	Save.set_setting("calm", false)
+	ok(approx(ComboBloom._visible_strength(0.2), 0.2), "bloom: full strength shows when calm is off")
+	Save.set_setting("calm", true)
+	ok(approx(ComboBloom._visible_strength(0.2), 0.1), "bloom: calm halves the visible glow (gentler, not gone)")
+	Save.set_setting("calm", prev)
+	# scene wiring: both merge scenes own ONE bloom child (freed with the scene) and bump it after Feel.merge.
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("ComboBloom") != -1, "board owns a ComboBloom overlay")
+	ok(board_src.find("_combo_bloom.bump(combo)") != -1, "board bumps the bloom after the merge")
+	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
+	ok(rush_src.find("ComboBloom") != -1, "rush owns a ComboBloom overlay")
+	ok(rush_src.find("_combo_bloom.bump(_combo)") != -1, "rush bumps the bloom after the merge")
+
+func approx(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
 
 # a rows×cols grid of empty cells (the Rush tile grid: null or {kind,tier})
 func _grid(rows: int, cols: int) -> Array:

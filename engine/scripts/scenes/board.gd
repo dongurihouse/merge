@@ -30,6 +30,7 @@ const Feel = preload("res://engine/scripts/ui/feel.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
@@ -99,6 +100,7 @@ var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var _combo_count := 0                 # cozy successive-merge streak length (see _bump_combo)
 var _last_merge_ms := -100000         # ticks at the last merge; a big initial gap → first merge starts at 1
+var _combo_bloom: ComboBloom          # bundle D: the warm screen-bloom overlay that swells on a streak
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
@@ -307,6 +309,10 @@ func _ready() -> void:
 	add_child(tick)
 	tick.start()
 	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm())))
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
+	# dies with the board). It sits above the board art but below the HUD; merges poke it via bump().
+	_combo_bloom = ComboBloom.new()
+	add_child(_combo_bloom)
 	_rebuild_all()
 	if _winback:
 		_winback = false
@@ -2659,6 +2665,9 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# escalation curve — now lives in the shared verb. intensity=1.0, gate=0 reproduce today's
 	# board feel exactly; the flash square is csz (the cell size), matching the old FX.flash call.
 	Feel.merge(board_area, n, center, tier, combo, 1.0, 0)
+	# bundle D: poke the screen-bloom — the verb stays parameter-light, the scene owns the world reaction.
+	if _combo_bloom != null and is_instance_valid(_combo_bloom):
+		_combo_bloom.bump(combo)
 	# bundle B: the up-to-4 orthogonal neighbour tiles JIGGLE outward from the merge cell (the scene
 	# owns the grid, so we gather the neighbour nodes here and hand them to the verb). The impact centre
 	# is GLOBAL so each neighbour squashes away from the true hit point.

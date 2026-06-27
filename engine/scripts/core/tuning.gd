@@ -286,6 +286,7 @@ class FX:
 	const COMBO_BLOOM_MAX := 0.28
 	const COMBO_BLOOM_RISE := 0.12
 	const COMBO_BLOOM_DECAY := 0.5
+	const COMBO_BLOOM_EASE := 6.0       # how fast the live bloom strength chases its target (per sec)
 	const MOTE_PUFF_IMPULSE := 220.0
 
 

@@ -21,6 +21,7 @@ const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
@@ -47,6 +48,7 @@ var _elapsed := 0.0
 var _spawn_acc := 0.0
 var _mult := 1.0
 var _combo := 0
+var _combo_bloom: ComboBloom = null   # bundle D: the warm screen-bloom that swells on a merge streak
 var _last_merge := -999.0
 var _tf: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -82,6 +84,11 @@ func _ready() -> void:
 	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}), Save.grove().get("seen", {}), _rng)
 
 	add_child(BoardScript._field_backdrop())   # the painted grove backdrop (ui/board2_bg.png), full-rect → auto-fits
+
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
+	# survives the chrome relayout and dies with the run). Merges poke it via bump().
+	_combo_bloom = ComboBloom.new()
+	add_child(_combo_bloom)
 
 	_layout()                                  # build all four bands + the board chrome for the current size
 	# Re-fit every band + the live tiles on a live viewport resize (drag the window / rotate), like the home
@@ -584,6 +591,9 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	var node := win.node as Control
 	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
 	Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)
+	# bundle D: poke the screen-bloom — the scene owns the world reaction, the verb stays parameter-light.
+	if _combo_bloom != null and is_instance_valid(_combo_bloom):
+		_combo_bloom.bump(_combo)
 	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
 	if RushFx.on(_fx, "score_pulse"):
 		RushFx.cell_pop(_score_cell, RushFx.knob(_fx, "score_pulse_pct"))
