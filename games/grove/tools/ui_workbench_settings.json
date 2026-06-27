@@ -364,7 +364,7 @@
 	},
 	"rush_fx": {
 		"combo_heat": true,
-		"combo_heat_size": 18.0,
+		"combo_heat_size": 24.0,
 		"enabled": true,
 		"merge_burst": true,
 		"merge_burst_count": 20.0,
@@ -373,7 +373,7 @@
 		"score_pulse": true,
 		"score_pulse_pct": 100.0,
 		"score_tick": true,
-		"score_tick_ms": 401.0,
+		"score_tick_ms": 400.0,
 		"shadow": false,
 		"timer_low": true,
 		"timer_low_secs": 10.0,
