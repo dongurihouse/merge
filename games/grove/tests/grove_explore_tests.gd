@@ -23,6 +23,7 @@ func _initialize() -> void:
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
+	_test_rush_fx_knob_forwarding()
 	finish()
 
 # a rows×cols grid of empty cells (the Rush tile grid: null or {kind,tier})
@@ -486,3 +487,23 @@ func _test_loadout_keeps_unaffordable_choices_visible() -> void:
 	ok(not go.disabled, "Set off is re-enabled once the selected total is affordable")
 	map.queue_free()
 	await process_frame
+
+func _test_rush_fx_knob_forwarding() -> void:
+	# the resolved opts the scene reads carry the knobs (overrides honoured)
+	var RushFx = load("res://engine/scripts/ui/rush_fx.gd")
+	var opts: Dictionary = RushFx.from_config({"rush_fx": {"treefall_shake": 33}})
+	ok(RushFx.knob(opts, "treefall_shake") == 33, "from_config carries a saved knob the scene can read")
+	# each gated call site forwards a knob value (guards the wiring without a live grid)
+	var src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
+	for needle in [
+		"RushFx.knob(_fx, \"merge_burst_count\")",
+		"RushFx.knob(_fx, \"score_tick_ms\")",
+		"RushFx.knob(_fx, \"score_pulse_pct\")",
+		"RushFx.knob(_fx, \"mult_pop_pct\")",
+		"RushFx.knob(_fx, \"combo_heat_size\")",
+		"RushFx.knob(_fx, \"timer_low_secs\")",
+		"RushFx.knob(_fx, \"treefall_debris\")",
+		"RushFx.knob(_fx, \"treefall_shake\")",
+		"RushFx.knob(_fx, \"treefall_hitstop_ms\")",
+	]:
+		ok(src.find(needle) != -1, "explore_rush forwards %s" % needle)

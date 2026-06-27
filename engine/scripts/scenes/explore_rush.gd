@@ -362,14 +362,14 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	FX.squash_pop(node)
 	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
 	if RushFx.on(_fx, "merge_burst"):
-		RushFx.merge_burst(self, ctr, int(win.tier))
+		RushFx.merge_burst(self, ctr, int(win.tier), RushFx.knob(_fx, "merge_burst_count"))
 	if RushFx.on(_fx, "score_pulse"):
-		RushFx.cell_pop(_score_cell)
+		RushFx.cell_pop(_score_cell, RushFx.knob(_fx, "score_pulse_pct"))
 	if RushFx.on(_fx, "mult_pop") and _mult > pre_mult + 0.001:
-		RushFx.cell_pop(_mult_cell)
+		RushFx.cell_pop(_mult_cell, RushFx.knob(_fx, "mult_pop_pct"))
 	if _combo >= 3:
 		if RushFx.on(_fx, "combo_heat"):
-			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo)
+			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo, RushFx.knob(_fx, "combo_heat_size"))
 		else:
 			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
 	if int(win.tier) >= 4:
@@ -379,7 +379,7 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	Audio.play("button_tap", -3.0)
 	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
 	if RushFx.on(_fx, "score_tick"):
-		RushFx.score_tick(_lbl_score, Explore.score())
+		RushFx.score_tick(_lbl_score, Explore.score(), RushFx.knob(_fx, "score_tick_ms"))
 	elif _lbl_score != null:
 		_lbl_score.text = str(Explore.score())
 	_settle()
@@ -419,7 +419,7 @@ func _drop_timber() -> void:
 	# JUICE: the board jolts when the timber lands; a clean dodge celebrates, a hit flashes the column.
 	var col_local := Vector2(_cellxy(0, col).x + _cell * 0.5, float(G.ROWS) * (_cell + _gap) * 0.5)
 	if RushFx.on(_fx, "treefall_crack"):
-		RushFx.treefall_crack(self, _board, _board.global_position + col_local)   # debris + heavier jolt + crack
+		RushFx.treefall_crack(self, _board, _board.global_position + col_local, false, RushFx.knob(_fx, "treefall_debris"), float(RushFx.knob(_fx, "treefall_shake")), RushFx.knob(_fx, "treefall_hitstop_ms"))   # debris + heavier jolt + crack
 	else:
 		FX.shake(_board)
 	if hits == 0 and _running:
@@ -535,7 +535,7 @@ func _refresh_readouts() -> void:
 		if s != _last_sec:                          # once per whole second: drive the low-time urgency
 			_last_sec = s
 			if RushFx.on(_fx, "timer_low"):
-				RushFx.timer_low(_lbl_time, s)
+				RushFx.timer_low(_lbl_time, s, false, RushFx.knob(_fx, "timer_low_secs"))
 	# the score is updated in _merge (it only changes there); leaving it out here lets it TICK uninterrupted
 	if _lbl_mult != null:
 		_lbl_mult.text = "×%.1f" % _mult
