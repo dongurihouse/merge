@@ -283,9 +283,17 @@ func _test_rush_intro_hint() -> void:
 		if s.get_child_count() == 0:
 			s._ready()
 		ok(s.find_child("RushTapHint", true, false) != null, "rush %d shows the Tap to Merge popup" % (i + 1))
+		var strip := s.find_child("RushBottomHintStrip", true, false) as Control
 		var hint := s.find_child("RushBottomHint", true, false) as Label
 		ok(hint != null, "rush %d shows the always-on bottom hint" % (i + 1))
 		ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "rush %d bottom hint explains the fling tap" % (i + 1))
+		ok(strip != null and String(strip.get_meta("slice_mode", "")) == "three", \
+			"rush %d bottom hint uses 3-slice art, not a 9-slice/flat panel" % (i + 1))
+		ok(strip != null \
+			and strip.find_child("RushBottomHintLeftCap", true, false) is TextureRect \
+			and strip.find_child("RushBottomHintCenterSlice", true, false) is TextureRect \
+			and strip.find_child("RushBottomHintRightCap", true, false) is TextureRect, \
+			"rush %d bottom hint preserves fixed side caps with a stretchable centre" % (i + 1))
 		ok(Save.rush_intro_seen() == i + 1, "rush %d bumps the intro-seen counter to %d" % [i + 1, i + 1])
 		s.queue_free()
 	# the fourth rush: the popup is retired, the bottom hint stays, the counter holds at 3
