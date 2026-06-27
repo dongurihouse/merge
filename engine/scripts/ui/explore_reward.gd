@@ -25,6 +25,8 @@ const SHINE_TIER := 3                               # a spirit landing at tier �
 const MAX_ROWS := 3                                 # cap revealed rows so a huge haul can't make the dialog endless
 const SPIN_CFG := {"spin": 1.2, "stagger": 0.55, "anticipate": 0.5, "total_cap": 3.5}
 
+static var _trim_cache := {}                        # path → opaque-cropped texture (so spirit art fills its cell)
+
 ## Open the reward reveal as a modal overlay on `host` (the Rush board). opts: on_done (Callable; default
 ## = warp to the Map). Idempotent — a duplicated open() (double-tap) finds the first overlay and bails.
 static func open(host: Control, opts: Dictionary = {}) -> void:
@@ -179,11 +181,11 @@ static func _top_tier_index(spirits: Array) -> int:
 			best = i
 	return best
 
-# one reel tile: just the spirit face, sized BIG to fill the cell — no name label, no pips (the icon is
+# one reel tile: just the spirit face, sized to FILL the cell window — no name label, no pips (the icon is
 # the read; tier is signalled by the shine). `sym` = {kind,tier}; SlotReel centres it in the window.
 static func _spirit_tile(sym, w: float, h: float) -> Control:
 	var d: Dictionary = sym
-	return _spirit_icon(String(d.get("kind", "")), minf(w, h) * 0.92)
+	return _spirit_icon(String(d.get("kind", "")), minf(w, h))
 
 # the overflow tile: a parchment cell reading "+N" for the spirits past the row cap (all still in the hand).
 static func _more_cell(n: int, cw: float, ch: float) -> Control:
@@ -196,6 +198,29 @@ static func _more_cell(n: int, cw: float, ch: float) -> Control:
 	cell.add_child(l)
 	return cell
 
+# Crop a spirit texture to its opaque bounding box so the art FILLS + CENTRES its cell. The source art
+# has wide transparent margins (e.g. ember sits in the lower-right quarter), so KEEP_ASPECT_CENTERED on the
+# raw texture renders it small + off-centre. Cached per path. Returns the original texture when the image
+# can't be read (the headless dummy renderer's get_image() is null) or needs no trim — never crashes.
+static func _trimmed_tex(path: String) -> Texture2D:
+	if _trim_cache.has(path):
+		return _trim_cache[path]
+	var tex: Texture2D = load(path)
+	var result: Texture2D = tex
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			var used := img.get_used_rect()
+			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != img.get_size()):
+				var at := AtlasTexture.new()
+				at.atlas = tex
+				at.region = Rect2(used)
+				result = at
+	_trim_cache[path] = result
+	return result
+
 # The spirit icon: real art when present, else the placeholder disc with two eyes (named SpiritEye0/1).
 static func _spirit_icon(kind: String, px: float) -> Control:
 	var icon := Control.new()
@@ -205,7 +230,7 @@ static func _spirit_icon(kind: String, px: float) -> Control:
 	var path := G.resident_art(kind)
 	if path != "" and ResourceLoader.exists(path):
 		var t := TextureRect.new()
-		t.texture = load(path)
+		t.texture = _trimmed_tex(path)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
