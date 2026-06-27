@@ -47,11 +47,10 @@ func _initialize() -> void:
 	Save.grove_write()
 	Save.add_coins(800)
 	Save.add_diamonds(20)
-	# seed the live Habitat roster so the dialog shot has content: a couple in hand + one placed on the map.
-	Habitat.hand_add("moss", 1)
-	Habitat.hand_add("acorn", 2)
-	Habitat.hand_add("lantern", 2)
-	Habitat.place(String(G.MAPS[z].id), 0)
+	# seed the live Habitat roster with REAL residents (these carry per-tier art) so the shot shows icons.
+	for spec in [["ember", 1], ["ember", 2], ["sprout", 1], ["dewdrop", 3], ["breeze", 2], ["starlight", 1], ["ember", 1]]:
+		Habitat.hand_add(String(spec[0]), int(spec[1]))
+	Habitat.place(String(G.MAPS[z].id), 0)   # seat one (ember t1) on the map so its housed strip shows
 
 	MapScene._login_shown_launch = true         # arm the per-launch guard so the daily calendar never auto-pops over our shot
 	var scn = load("res://engine/scenes/Map.tscn").instantiate()

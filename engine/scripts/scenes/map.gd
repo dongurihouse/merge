@@ -1228,7 +1228,8 @@ func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, ca
 # grid scrolls (wheel, or a drag on the board's empty soil). Orbs IGNORE the mouse (the single input surface
 # hit-tests them); only the info-bar Sell button intercepts its own tap.
 func _build_hand_panel(rect: Rect2) -> Control:
-	var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
+	var Kit: GDScript = load(KIT_PATH)
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH) if Kit != null else {}
 	var panel := Control.new()
 	panel.name = "HandColumn"
 	panel.position = rect.position
@@ -1236,19 +1237,23 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	panel.custom_minimum_size = rect.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	# the reused garden board fills the column (it extends 22px around the content it is sized for, so size it
-	# 44px smaller and pin it to the panel origin).
-	if PV != null:
-		var mat: Control = PV.make_board_mat(maxf(40.0, rect.size.x - 44.0), maxf(40.0, rect.size.y - 44.0))
-		mat.position = Vector2.ZERO
-		_force_ignore(mat)
-		panel.add_child(mat)
+	# the NEW board skin — the reskinned Kit.board_panel (cream face + gold frame), the SAME surface the merge
+	# board now wears — fills the column.
+	if Kit != null:
+		var bp_opts: Dictionary = Kit.board_panel_opts_from_config(cfg)
+		bp_opts["calm"] = FX.calm()
+		var bp: Control = Kit.board_panel(rect.size, bp_opts)
+		bp.position = Vector2.ZERO
+		_force_ignore(bp)
+		panel.add_child(bp)
 
-	var ci := 22.0                                               # the content region inset (sits on the soil bed)
+	var ci := 22.0                                               # content inset inside the board frame
 	var cx := ci
 	var cw := rect.size.x - ci * 2.0
 	var ctop := ci
-	var cbot := rect.size.y - ci
+	# the board frame's corner radius is large (GOLD_BADGE_CAP = 58); keep the bottom info bar clear of the
+	# rounded bottom corners so neither it nor its Sell button pokes past the frame.
+	var cbot := rect.size.y - 62.0
 
 	var title := _dock_label("In hand", 20, true)
 	title.position = Vector2(cx, ctop)
@@ -1256,8 +1261,8 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	panel.add_child(title)
 	var grid_top := ctop + 30.0
 
-	# the bottom INFO BAR — the selected spirit's tier + Sell (housed)
-	var bar_h := 92.0
+	# the bottom INFO BAR — the selected spirit's tier + Sell (housed), sitting above the rounded corners
+	var bar_h := 88.0
 	panel.add_child(_inhand_info_bar(Rect2(cx, cbot - bar_h, cw, bar_h)))
 	var grid_bot := cbot - bar_h - 8.0
 
@@ -1281,8 +1286,13 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		_hand_scroll_max = 0.0
 		return panel
 	var sep := 8.0
-	var cols := maxi(2, int((cw + sep) / (76.0 + sep)))          # at least two columns
-	var orb_px := (cw - sep * float(cols - 1)) / float(cols)     # fill the width evenly
+	var cols := 2                                                # exactly two columns → larger cells
+	var cell_px := (cw - sep * float(cols - 1)) / float(cols)    # fill the width evenly
+	# the NEW board CELLS — Kit.slot_cell, the very component the reskinned board + bag use
+	var bag_opts: Dictionary = Kit.bag_card_opts_from_config(cfg) if Kit != null else {}
+	bag_opts["cell_w"] = cell_px
+	bag_opts["cell_h"] = cell_px
+	bag_opts["calm"] = FX.calm()
 	var grid := GridContainer.new()
 	grid.name = "HandGrid"
 	grid.columns = cols
@@ -1291,15 +1301,18 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for i in hand.size():
 		var inst: Dictionary = hand[i]
-		var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass, false)
-		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if String(_sel_orb.get("src", "")) == "hand" and int(_sel_orb.get("idx", -1)) == i:
-			orb.modulate = Color(1.0, 0.92, 0.55)               # the selected hand orb
-		grid.add_child(orb)
-		_hand_orbs.append({"node": orb, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
+		var sel := String(_sel_orb.get("src", "")) == "hand" and int(_sel_orb.get("idx", -1)) == i
+		var cell := _spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), cell_px, sel)
+		grid.add_child(cell)
+		_hand_orbs.append({"node": cell, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
+	# round the grid out with EMPTY cells so it reads as a board, filling the visible rows
+	var vis_rows := maxi(1, int((view_h + sep) / (cell_px + sep)))
+	var want_cells := maxi(hand.size(), vis_rows * cols)
+	for _e in range(hand.size(), want_cells):
+		grid.add_child(_empty_cell(Kit, bag_opts, cell_px))
 	clip.add_child(grid)
-	var rows := int(ceil(float(hand.size()) / float(cols)))
-	var grid_h := float(rows) * orb_px + float(maxi(rows - 1, 0)) * sep
+	var rows := int(ceil(float(want_cells) / float(cols)))
+	var grid_h := float(rows) * cell_px + float(maxi(rows - 1, 0)) * sep
 	_hand_scroll_max = maxf(0.0, grid_h - view_h)
 	_hand_scroll = clampf(_hand_scroll, 0.0, _hand_scroll_max)
 	grid.position = Vector2(0.0, -_hand_scroll)
@@ -1342,15 +1355,28 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	lbl.position = Vector2(pad + icon_px + 12.0, (rect.size.y - 26.0) * 0.5)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(lbl)
-	if String(_sel_orb.get("src", "")) == "placed" and Kit != null:
+	if String(_sel_orb.get("src", "")) == "placed":
+		# a FIXED-size green Sell button (a custom pill, so its footprint is fully controlled and never pokes
+		# past the bar / board frame — the kit pill_button sizes to its art and overflowed this small bar).
 		var tier := int(_sel_orb.get("tier", 1))
-		var sell: Button = Kit.pill_button("Sell +%d" % (Habitat.SELL_PER_TIER * tier),
-			{"bg": "green", "art": true, "font": 16, "icon": "coin"})
-		var sw := clampf(rect.size.x * 0.42, 110.0, 168.0)
-		sell.custom_minimum_size = Vector2(sw, 0.0)
-		var sh := minf(maxf(sell.get_combined_minimum_size().y, 40.0), rect.size.y - pad * 2.0)
+		var sw := 116.0
+		var sh := 42.0
+		var sell := Button.new()
+		sell.text = "Sell +%d" % (Habitat.SELL_PER_TIER * tier)
+		sell.add_theme_font_size_override("font_size", 17)
+		sell.add_theme_color_override("font_color", Color("#F4FBE9"))
+		sell.add_theme_color_override("font_outline_color", Color("#173404"))
+		sell.add_theme_constant_override("outline_size", 3)
+		var gsb := StyleBoxFlat.new()
+		gsb.bg_color = Color("#639922")
+		gsb.set_corner_radius_all(12)
+		gsb.set_border_width_all(2)
+		gsb.border_color = Color("#3B6D11")
+		for st in ["normal", "hover", "pressed", "focus"]:
+			sell.add_theme_stylebox_override(st, gsb)
+		sell.custom_minimum_size = Vector2(sw, sh)
 		sell.size = Vector2(sw, sh)
-		sell.position = Vector2(rect.size.x - sw - pad, (rect.size.y - sh) * 0.5)
+		sell.position = Vector2(rect.size.x - sw - pad - 2.0, (rect.size.y - sh) * 0.5)
 		sell.pressed.connect(func() -> void: _on_focus_sell())
 		bar.add_child(sell)
 	return bar
@@ -2071,8 +2097,9 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	btn.pressed.connect(on_tap)
 	var path := G.resident_art(kind, tier)
 	if path != "" and ResourceLoader.exists(path):
+		var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
 		var t := TextureRect.new()
-		t.texture = load(path)
+		t.texture = PV._content_tex(path) if PV != null else load(path)   # crop to opaque content → uniform size + centered
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -2098,6 +2125,60 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(badge)
 	return btn
+
+# A NEW-STYLE board CELL holding a spirit — built from Kit.slot_cell (the SAME cell the reskinned merge board
+# + bag use), with the spirit's icon (content-cropped → uniform + centered) as its filled content. The cell
+# IGNOREs the mouse (the single input surface hit-tests it); `selected` draws a gold ring.
+func _spirit_cell(Kit: GDScript, bag_opts: Dictionary, kind: String, tier: int, px: float, selected: bool) -> Control:
+	if Kit == null:
+		return _empty_cell(Kit, bag_opts, px)
+	var cell: Control = Kit.slot_cell({"state": "filled",
+		"make_content": func(pp: float) -> Control: return _spirit_icon_node(kind, tier, pp)}, bag_opts)
+	cell.custom_minimum_size = Vector2(px, px)
+	_force_ignore(cell)
+	if selected:
+		cell.add_child(_sel_ring())
+	return cell
+
+# An EMPTY new-style board cell (Kit.slot_cell, no spirit) so the in-hand grid reads as a board of cells.
+func _empty_cell(Kit: GDScript, bag_opts: Dictionary, px: float) -> Control:
+	if Kit == null:
+		var c := Panel.new()
+		c.custom_minimum_size = Vector2(px, px)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return c
+	var cell: Control = Kit.slot_cell({"state": "empty"}, bag_opts)
+	cell.custom_minimum_size = Vector2(px, px)
+	_force_ignore(cell)
+	return cell
+
+# The spirit's icon for a cell's content — cropped to its opaque bounds (the board pipeline) so every creature
+# fills the cell uniformly + centered. `px` is the fitted content size slot_cell asks for.
+func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
+	var t := TextureRect.new()
+	t.custom_minimum_size = Vector2(px, px)
+	t.size = Vector2(px, px)
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var art := G.resident_art(kind, tier)
+	if art != "" and ResourceLoader.exists(art):
+		var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
+		t.texture = PV._content_tex(art) if PV != null else load(art)
+	return t
+
+# The gold selection ring overlaid on the selected cell.
+func _sel_ring() -> Control:
+	var ring := Panel.new()
+	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var rs := StyleBoxFlat.new()
+	rs.bg_color = Color(1, 1, 1, 0)
+	rs.set_border_width_all(4)
+	rs.border_color = Color(1.0, 0.85, 0.35)
+	rs.set_corner_radius_all(14)
+	ring.add_theme_stylebox_override("panel", rs)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return ring
 
 func _dock_label(text: String, size: int, bold: bool = false) -> Label:
 	var l := Label.new()
