@@ -1,7 +1,7 @@
 # Residents — Expansion Spec
 
 *Working title: "The Homecoming" (placeholder).*
-*Status: in progress — Explore (merge-rush → mystery boxes) + mechanics + risk drafted; economy structure stubbed (numbers sim-tuned last).*
+*Status: in progress — Explore (merge-rush → mystery boxes) + the habitat payback (hand-merge, capacity, placement) + **all five map reward streams** (coins · water · boost charge · diamonds · resident chest) are BUILT with provisional, hard-capped numbers. Rarity, the collection almanac, and the economy/Rush-sim re-author remain parked (numbers sim-tuned last).*
 
 A standalone expansion layered on top of the base game (`merge_spec.md`, `grove_spec.md`). It
 supersedes the base game's "residents are cosmetic-only" stance; the base specs (`merge_spec.md`
@@ -93,7 +93,8 @@ sink finite again (the base `sink > faucet` proof relied on there being no cap),
 parked Economy/Risk pass.*
 
 *v1 simplification — **rarity is parked.** Assume every spirit is **common**; production is
-**tier-only** and the merge rule is **same kind + same tier**. Rarity (white · blue · orange · red) is
+**fixed-unit** (a placed spirit's **tier speeds the cadence** and **count raises the cap**, but the
+per-unit amount never scales by rarity) and the merge rule is **same kind + same tier**. Rarity (white · blue · orange · red) is
 a clean later extension — wherever this spec still says "rarity × tier", "box rarity odds", or "kind ×
 rarity collection", read v1 as the all-common, tier-only version. The merge-across-rarity rule (result
 takes the higher) and the collection almanac come back with it.*
@@ -211,47 +212,46 @@ long-tail this move leans on.)*
 
 ### Reward — the payback
 
-**Each completed map produces one specific reward type, and its rate is the sum of every assigned
-spirit's yield** — and a spirit's yield rises with its **rarity × housed tier**. So you raise a map's
-output two ways: place *more* spirits, or place **higher-tier** ones (merged up in hand). Production is
-**idle and compounding**: it accrues while you're away (capped, so it's a daily-return pull rather
-than infinite idle) and you **collect** it from the Residents screen.
+**Built (v1).** All five reward streams are wired (`engine/scripts/core/habitat.gd`). The production
+model: **each completed map matures a FIXED reward unit; placed-spirit TIER speeds the cadence and
+COUNT raises the accrual cap — the per-unit amount never scales.** That decoupling is what keeps the
+invariant-sensitive streams (water, diamonds) bounded: stacking high-tier spirits collects *faster*,
+not *more*. Production is **idle and capped** (a daily-return ceiling, not infinite idle); you
+**collect** each map from the habitat surface (the map-select card + the residents dialog). All
+numbers are PROVISIONAL feel dials, hard-capped, deferred to the parked economy pass.
 
-- **Merge stays worth it** — yield rises *per slot* with tier: a higher-tier spirit out-produces the
-  two that merged into it, so merging up in hand is always a production gain — there's no "place a pile
-  of tier-1s" degenerate play.
-- **Accrual contract** — each completed map stores a last-collect time; accrued = its assigned
-  spirits' rate × elapsed, **clamped to a cap** (the daily-return ceiling); **collect** banks it into
-  that map's reward target and resets the clock. Rates and caps are Economy.
+- **Placement still matters** — production runs only with **≥1 spirit placed**; count lifts the cap and
+  merging up in hand raises a map's tier total, so it matures sooner. No "leave it empty" free income,
+  no degenerate pile play.
+- **Accrual contract** — each map stores a last-collect time; accrued **units** = tier-total × rate ×
+  elapsed, **clamped to a count-scaled cap**; **collect** grants `floor(units) × the map's fixed
+  per-unit reward` (each currency hard-capped on grant) and resets the clock. Magnitudes are Economy.
 
-**Map → reward (home grove, 5 maps).** Each map has a fixed, distinct payback — deliberately chosen
-to be things that *don't* go stale (currencies and utility, not early-tier board line-items):
+**Map → reward (home grove, 5 maps) — all wired.** Each map has a fixed, distinct payback —
+deliberately chosen to be things that *don't* go stale (currencies and utility, not early-tier board
+line-items):
 
-| Map | Produces |
-|-----|----------|
-| 1 | **Coins** |
-| 2 | **Water** |
-| 3 | a **generator-booster item** (boosts generator output) |
-| 4 | **Premium currency** (diamonds) |
-| 5 | a **special generator** — itself spawns *random residents* over time, no expedition needed |
+| Map | Produces | v1 status |
+|-----|----------|-----------|
+| 1 | **Coins** | built |
+| 2 | **Water** — a fixed top-up, clamped to WATER_CAP | built (I2-safe: amount fixed, only cadence scales) |
+| 3 | a **generator-boost charge** — stockpiled, click to arm the board boost for free | built (reuses the temporary-boost mechanic, armed free) |
+| 4 | **Premium currency** (diamonds) | built (strict per-day hard cap — the IAP guard) |
+| 5 | a **resident chest** — collecting drops 1/4/8 random spirits into the hand | built (size by placed count; tier speeds the timer) |
 
-Every map gets a clear identity, and "Expand" now opens a genuinely new payback each unlock (map 4 →
-a diamond stream; map 5 → a free-resident faucet). A vertical slice can start on **map 1 (coins)** —
-the simplest stream — and layer the rest in.
+Every map gets a clear identity, and "Expand" opens a genuinely new payback each unlock (map 4 → a
+diamond trickle; map 5 → a free-resident faucet). The three streams that reopen base-economy questions
+are now wired **provisionally with hard caps** — the magnitudes still belong to the parked Economy pass:
 
-Three of these reopen base-economy questions, flagged for the parked Risk/Economy pass, not settled
-here:
+- **Water (map 2)** respects the energy invariant (I2) by construction: the per-collect amount is a
+  fixed top-up clamped to WATER_CAP and does **not** scale with spirit count/tier (only the cadence does).
+- **Premium currency (map 4)** is gated by a strict **per-day diamond cap** so the faucet can't out-pace
+  the IAP ladder — the cap value is the most-scrutinized number, owned by the economy pass.
+- **Special generator (map 5)** banks **one chest at a time** so the free-resident faucet stays slow
+  enough that Explore remains the primary, targeted route.
 
-- **Water (map 2)** must respect the energy invariant (I2) — a capped top-up that cannot scale with
-  spirit count/tier like the others, or it is pulled from v1.
-- **Premium currency (map 4)** makes residents a *diamond faucet.* Diamonds are tightly metered today
-  (IAP + sparse earns), so this reopens the premium economy and the IAP value proposition — the
-  highest-stakes balance question in the expansion; it needs hard caps.
-- **Special generator (map 5)** is a second resident-acquisition path that bypasses the coin-funded
-  expedition — it must stay slow/random enough that Explore remains the primary, targeted route.
-
-The **generator-booster (map 3)** and **special generator (map 5)** are new content to define and
-build; their exact behaviour and numbers are an implementation/Economy detail.
+The map-5 chest reuses the **same 1/4/8 tiers as the rush Trade boxes** (pouch/chest/vault). Exact
+numbers (per-unit amounts, rates, caps, the box/chest sizes) remain a sim-tuned Economy detail.
 
 Beyond production, the same residents feed a **collection**:
 
