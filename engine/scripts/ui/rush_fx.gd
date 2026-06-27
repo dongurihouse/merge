@@ -101,12 +101,12 @@ static func timer_low(label: Label, secs_left: int, silent: bool = false, thresh
 	label.add_theme_color_override("font_color", INK.lerp(HOT, warm))
 	FX.squash_pop(label)
 	if not silent:
-		Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)
+		Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)  # a soft rising tick
 
 ## The timber LANDS with a crack — debris burst + jolt + a brief freeze, all tunable.
-static func treefall_crack(host: Node, board: Control, gpos: Vector2, silent: bool = false, debris := 18, shake_amp := 16.0, hitstop_secs := 0.06) -> void:
+static func treefall_crack(host: Node, board: Control, gpos: Vector2, silent: bool = false, debris := 18, shake_amp := 16.0, hitstop_ms := 60) -> void:
 	FX.burst(host, gpos, STRAW, debris)
 	FX.shake(board, shake_amp)
-	FX.hitstop(hitstop_secs)
+	FX.hitstop(maxf(0.0, hitstop_ms / 1000.0))
 	if not silent:
 		Audio.play("tidy_poof", -1.0, 0.65)                 # low poof = a woody crack

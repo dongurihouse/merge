@@ -42,16 +42,24 @@ func _initialize() -> void:
 	# cell_pop strength flows to squash_pop (pct 50 → half deviation)
 	var cp := Control.new(); cp.size = Vector2(80, 80); get_root().add_child(cp)
 	RushFx.cell_pop(cp, 50)
+	# calm is false (set above), so squash_pop sets node.scale synchronously before tweening
 	ok(not cp.scale.is_equal_approx(Vector2.ONE), "cell_pop: applies a scaled squash (pct 50)")
 	cp.queue_free()
 	# treefall_crack accepts debris/shake/hitstop without error and bursts on the host
 	var th := Control.new(); get_root().add_child(th)
 	var tb := Control.new(); tb.size = Vector2(100, 100); get_root().add_child(tb)
-	RushFx.treefall_crack(th, tb, Vector2(20, 20), true, 9, 24.0, 0.04)
+	RushFx.treefall_crack(th, tb, Vector2(20, 20), true, 9, 24.0, 40)
 	var has_burst := false
 	for ch in th.get_children():
 		if ch is GPUParticles2D: has_burst = true
 	ok(has_burst, "treefall_crack: debris bursts with custom params (silent)")
 	th.queue_free(); tb.queue_free()
+	# timer_low: threshold drives the warm lerp + colour override (synchronous, silent)
+	var tlbl := Label.new(); get_root().add_child(tlbl)
+	RushFx.timer_low(tlbl, 10, true, 20)   # secs_left 10 of threshold 20 → warm 0.5
+	ok(tlbl.get_theme_color("font_color").is_equal_approx(RushFx.INK.lerp(RushFx.HOT, 0.5)), "timer_low: warm lerp at half the threshold")
+	RushFx.timer_low(tlbl, 30, true, 20)   # above threshold → resting ink restored
+	ok(tlbl.get_theme_color("font_color").is_equal_approx(RushFx.INK), "timer_low: above threshold restores resting ink")
+	tlbl.queue_free()
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
