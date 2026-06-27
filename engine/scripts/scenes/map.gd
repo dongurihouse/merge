@@ -1355,9 +1355,9 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 	lbl.position = Vector2(pad + icon_px + 12.0, (rect.size.y - 26.0) * 0.5)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar.add_child(lbl)
-	if String(_sel_orb.get("src", "")) == "placed":
-		# a FIXED-size green Sell button (a custom pill, so its footprint is fully controlled and never pokes
-		# past the bar / board frame — the kit pill_button sizes to its art and overflowed this small bar).
+	if not _sel_orb.is_empty():
+		# Sell shows for ANY selected spirit — in-hand OR housed (both pay SELL_PER_TIER × tier). A FIXED-size
+		# green pill, so its footprint is controlled and never pokes past the bar / board frame.
 		var tier := int(_sel_orb.get("tier", 1))
 		var sw := 116.0
 		var sh := 42.0
@@ -1729,13 +1729,14 @@ func _invalid_at(node: Control) -> void:
 	if is_instance_valid(node):
 		FX.wobble(node)
 
-# Sell the SELECTED housed orb (its button lives in the in-hand board's info bar); float the coins, drop it.
+# Sell the SELECTED spirit (its button lives in the in-hand board's info bar) — a housed one frees its map
+# slot, an in-hand one drops from the hand; either way it pays SELL_PER_TIER × tier coins.
 func _on_focus_sell() -> void:
-	if String(_sel_orb.get("src", "")) != "placed":
+	var src := String(_sel_orb.get("src", ""))
+	if src == "":
 		return
-	var mid := String(_sel_orb.get("map_id", ""))
 	var idx := int(_sel_orb.get("idx", -1))
-	var got := int(Habitat.sell(mid, idx))
+	var got := int(Habitat.sell(String(_sel_orb.get("map_id", "")), idx)) if src == "placed" else int(Habitat.sell_hand(idx))
 	Audio.play("button_tap", -2.0)
 	if got > 0:
 		FX.floating_reward(self, _screen_center(0.0), "coin", got, STRAW)

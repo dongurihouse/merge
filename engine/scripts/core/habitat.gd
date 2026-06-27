@@ -132,6 +132,19 @@ static func sell(map_id: String, index: int, now: float = -1.0) -> int:
 	Save.add_coins(coins)
 	return coins
 
+## Sell hand[index] (an in-hand spirit) for the SAME coin value as a placed one (SELL_PER_TIER * tier):
+## drop it from the hand, credit + return the coins. Returns 0 on a bad index.
+static func sell_hand(index: int) -> int:
+	var h := hand()
+	if index < 0 or index >= h.size():
+		return 0
+	var tier := int(h[index].tier)
+	h.remove_at(index)
+	_set_hand(h)
+	var coins := SELL_PER_TIER * tier
+	Save.add_coins(coins)
+	return coins
+
 ## Move placed[index] from one map to another that has room. Settles BOTH maps' production.
 ## Returns true on success (false on a bad index or a full target).
 static func move(from_id: String, index: int, to_id: String, now: float = -1.0) -> bool:
