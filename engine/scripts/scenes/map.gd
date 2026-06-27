@@ -2013,11 +2013,21 @@ func _open_expedition() -> void:
 		var col := VBoxContainer.new()
 		col.add_theme_constant_override("separation", 10)
 		col.custom_minimum_size = Vector2(width - 64.0, 0)
+		var loadout_icons := {
+			"time": "star",
+			"drops": "chest",
+			"calm": "daisy",
+			"lucky": "leaf",
+			"focus": "board",
+		}
 		# each boost is a shared toggle card (parchment + the kit switch)
 		for it in Explore.LOADOUT:
 			var id := String(it.id)
 			col.add_child(Kit.toggle_card({
-				"label": "%s — %s · %d" % [String(it.name), String(it.eff), int(it.cost)],
+				"icon": String(loadout_icons.get(id, "leaf")),
+				"title": String(it.name),
+				"body": String(it.eff),
+				"cost": int(it.cost),
 				"value": bool(equip.v.get(id, false)),
 				"on_toggle": func(want: bool) -> void:
 					equip.v[id] = want
@@ -2025,12 +2035,11 @@ func _open_expedition() -> void:
 						equip.v[id] = false      # can't afford (base + boosts) — leave it off
 					Audio.play("button_tap", -2.0)
 					rebuild.fn.call(),
-			}, {"label_font": 19, "card_art": true}))
-		# coins + cost as the shared cream amount chips
+			}, {"label_font": 19, "body_font": 15, "switch_h": 40, "card_art": true}))
+		# total set-off cost as a shared cream amount chip
 		var chips := HBoxContainer.new()
 		chips.add_theme_constant_override("separation", 10)
 		chips.alignment = BoxContainer.ALIGNMENT_CENTER
-		chips.add_child(Kit.amount_chip("coin", "Have %d" % Save.coins()))
 		chips.add_child(Kit.amount_chip("coin", "Cost %d" % Explore.start_cost(equip.v)))
 		col.add_child(chips)
 		# actions: Set off (green) + Cancel (cream) — the shared pill buttons

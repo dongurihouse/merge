@@ -54,6 +54,31 @@ func _initialize() -> void:
 		sw.pressed.emit()
 	ok(flipped[0] == false, "second press fires on_toggle(false)")
 
+	# --- rich toggle cards can present mail-style rows ----------------------------
+	var rich := Kit.toggle_card({
+		"icon": "leaf", "title": "Lantern", "body": "+15s time", "cost": 120, "value": true,
+	}, {"label_font": 19, "body_font": 15, "card_art": true})
+	var rich_labels := rich.find_children("", "Label", true, false)
+	var has_title := false
+	var has_body := false
+	for l in rich_labels:
+		var txt := (l as Label).text
+		if txt == "Lantern":
+			has_title = true
+		if txt == "+15s time":
+			has_body = true
+	ok(has_title, "rich toggle_card shows a title label")
+	ok(has_body, "rich toggle_card shows a detail/body label")
+	var cost_chip: Button = null
+	for b in rich.find_children("", "Button", true, false):
+		var btn := b as Button
+		if btn.text == "120" and not btn.has_meta("on"):
+			cost_chip = btn
+	ok(cost_chip != null, "rich toggle_card shows the cost as a separate cream chip")
+	var rich_sw := _find_switch(rich)
+	ok(rich_sw != null and cost_chip != null and rich_sw.get_index() > cost_chip.get_index(),
+		"rich toggle_card puts the toggle after the cost chip")
+
 	# --- card_art off still builds (the flat-pill fallback) -----------------------
 	var flat := Kit.toggle_card({"label": "Sounds", "value": true}, {"card_art": false})
 	ok(_find_switch(flat) != null, "card_art off still builds a working row")

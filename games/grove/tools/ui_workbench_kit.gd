@@ -1681,17 +1681,20 @@ static func mail_card(entry: Dictionary, title_font: int = 20, body_font: int = 
 			row.add_child(ac)
 	return panel
 
-## A TOGGLE CARD — a NEW card type (sibling of mail_card / daily_card): one persisted setting as a row,
+## A TOGGLE CARD — a card type (sibling of mail_card / daily_card): one persisted setting as a row,
 ## its name on the LEFT and the shared Look.toggle_switch on the RIGHT, riding the SAME kit/mail_card.png
 ## parchment surface the mail rows use (a flat cream pill when card_art is off). The settings dialog
 ## stacks one per flag. Game-state-agnostic: `entry` carries label + value + on_toggle, so the workbench
 ## previews it (a local flip) and the GAME drives it from Save — the kit never reads game state itself.
-##   entry: label (String) · value (bool, current state) · on_toggle (Callable(on: bool)).
-##   opts:  label_font (px) · switch_h (px, the switch height) · card_art (bool, parchment vs pill).
+## Rich rows opt into the mail rhythm with icon + title/body + a cream coin chip before the switch.
+##   entry: label/title/body/icon/cost · value (bool, current state) · on_toggle (Callable(on: bool)).
+##   opts:  label_font/body_font (px) · switch_h (px, the switch height) · card_art (bool, parchment vs pill).
 static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var label_font := int(opts.get("label_font", 28))
+	var body_font := int(opts.get("body_font", maxi(13, label_font - 4)))
 	var switch_h := float(opts.get("switch_h", 44.0))
 	var card_art := bool(opts.get("card_art", true))
+	var rich := entry.has("title") or entry.has("body") or entry.has("icon") or entry.has("cost")
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var box: StyleBox = Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD) if card_art else null
@@ -1708,17 +1711,61 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 		panel.add_theme_stylebox_override("panel", s)
 
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 18)
+	row.add_theme_constant_override("separation", 12 if rich else 18)
 	panel.add_child(row)
-	var name_l := Label.new()
-	name_l.text = String(entry.get("label", ""))
-	name_l.add_theme_font_size_override("font_size", label_font)
-	name_l.add_theme_color_override("font_color", Pal.INK)
-	name_l.add_theme_constant_override("outline_size", 0)
-	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(name_l)
+	if rich:
+		var ic_wrap := MarginContainer.new()
+		ic_wrap.add_theme_constant_override("margin_top", 8)
+		ic_wrap.add_theme_constant_override("margin_bottom", 8)
+		ic_wrap.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		ic_wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ic_wrap.add_child(plated_icon(String(entry.get("icon", "leaf")), float(opts.get("icon_px", 52.0))))
+		row.add_child(ic_wrap)
+
+		var text := VBoxContainer.new()
+		text.add_theme_constant_override("separation", 1)
+		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		text.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		row.add_child(text)
+
+		var title := Label.new()
+		title.text = String(entry.get("title", entry.get("label", "")))
+		title.add_theme_font_size_override("font_size", label_font)
+		title.add_theme_color_override("font_color", Pal.INK)
+		title.add_theme_constant_override("outline_size", 0)
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		text.add_child(title)
+
+		var body := Label.new()
+		body.text = String(entry.get("body", ""))
+		body.add_theme_font_size_override("font_size", body_font)
+		body.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+		body.add_theme_constant_override("outline_size", 0)
+		body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		text.add_child(body)
+
+		if entry.has("cost"):
+			var cost := amount_chip("coin", "%d" % int(entry.get("cost", 0)), {
+				"art": true,
+				"font": int(opts.get("cost_font", 18)),
+				"icon_size": int(opts.get("cost_icon", 22)),
+				"pad_scale": float(opts.get("cost_pad", 0.72)),
+			})
+			cost.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			row.add_child(cost)
+	else:
+		var name_l := Label.new()
+		name_l.text = String(entry.get("label", ""))
+		name_l.add_theme_font_size_override("font_size", label_font)
+		name_l.add_theme_color_override("font_color", Pal.INK)
+		name_l.add_theme_constant_override("outline_size", 0)
+		name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		row.add_child(name_l)
 
 	# the switch is the SHARED Look.toggle_switch (the sliced kit/switch_on·off art) — the same one the
 	# settings rows have always used. The callback fires the entry's on_toggle (game persists; preview no-ops).
