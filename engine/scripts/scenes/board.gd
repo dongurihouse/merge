@@ -849,8 +849,8 @@ func _rebuild_givers() -> void:
 	scroll.anchor_right = 1.0
 	scroll.anchor_top = 0.0
 	scroll.anchor_bottom = 1.0
-	scroll.offset_left = QUEST_SIDE
-	scroll.offset_right = 0.0                                                 # extend the scroll viewport to the screen's right edge so the scrolled/peeking cards stay visible all the way to the edge
+	scroll.offset_left = 0.0                                                  # extend the scroll viewport to BOTH screen edges so the jar/cards stay visible right up to the left and right edges as the row scrolls
+	scroll.offset_right = 0.0
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER   # drag-scrollable; the scrollbar itself stays hidden
 	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED       # the band never scrolls vertically (busts stay un-clipped)
 	giver_bar.add_child(scroll)
