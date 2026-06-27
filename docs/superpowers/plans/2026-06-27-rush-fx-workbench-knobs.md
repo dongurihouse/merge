@@ -427,7 +427,7 @@ func _rush_fx_play(which: String) -> void:
 	if want.call("combo_heat"): RushFx.combo_heat(c["wrap"], c["tile_ctr"] - Vector2(0.0, c["tile_px"]), 6, int(p["combo_heat_size"]))
 	if tl != null: tl.text = "0:06"
 	if want.call("timer_low"): RushFx.timer_low(tl, 6, true, int(p["timer_low_secs"]))
-	if want.call("treefall_crack"): RushFx.treefall_crack(c["wrap"], c["demo"], c["tile_ctr"], true, int(p["treefall_debris"]), float(p["treefall_shake"]), int(p["treefall_hitstop_ms"]) / 1000.0)
+	if want.call("treefall_crack"): RushFx.treefall_crack(c["wrap"], c["demo"], c["tile_ctr"], true, int(p["treefall_debris"]), float(p["treefall_shake"]), int(p["treefall_hitstop_ms"]))
 ```
 
 - [ ] **Step 3e: Rebuild the sidebar block** — replace the `"rush_fx":` branch in `_rebuild_sidebar()` (~2061-2066) with per-effect groups (label + toggle + ▶ + knob sliders):
@@ -533,7 +533,7 @@ In `_drop_timber`, the crack branch:
 
 ```gdscript
 	if RushFx.on(_fx, "treefall_crack"):
-		RushFx.treefall_crack(self, _board, _board.global_position + col_local, false, RushFx.knob(_fx, "treefall_debris"), float(RushFx.knob(_fx, "treefall_shake")), RushFx.knob(_fx, "treefall_hitstop_ms") / 1000.0)
+		RushFx.treefall_crack(self, _board, _board.global_position + col_local, false, RushFx.knob(_fx, "treefall_debris"), float(RushFx.knob(_fx, "treefall_shake")), RushFx.knob(_fx, "treefall_hitstop_ms"))
 	else:
 		FX.shake(_board)
 ```
