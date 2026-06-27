@@ -94,9 +94,6 @@ const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
 const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
 const ENDGAME_CLICKS = D.ENDGAME_CLICKS
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
-const CHARACTER_TYPES = D.CHARACTER_TYPES
-const CHARACTER_CAP = D.CHARACTER_CAP
-const CHARACTER_ART = D.CHARACTER_ART
 
 # --- the bag (§5) ----------------------------------------------------------------
 # The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).
@@ -737,11 +734,6 @@ static func frontier_map(unlocks: Dictionary, gates: Array = []) -> int:
 		if map_unlocked(z, unlocks, gates) and not map_complete(z, unlocks, gates):
 			return z
 	return -1
-
-## How many ambient characters wander: 1 + completed maps, capped. The host
-## passes this to Ambient.build_layer (progression stays a game rule, not engine).
-static func character_count(unlocks: Dictionary) -> int:
-	return mini(1 + completed_maps(unlocks), CHARACTER_CAP)
 
 # --- sell / economy formulas ------------------------------------------------------
 ## What an item sells for at the merchant (§9): Vector2i(coins, premium). Option A: EVERY tier sells

@@ -17,11 +17,7 @@ const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
-const Game = preload("res://engine/scripts/core/game.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engine's ambient look/feel dials
-
-const CHARACTER_TYPES = G.CHARACTER_TYPES   # the character roster lives in the game's data
-const CHARACTER_ART = G.CHARACTER_ART       # type → clothes asset path (game-provided convention)
 
 const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
 
@@ -34,31 +30,10 @@ static var forced_weather := ""        # shot tools force a state ("rain"…)
 const RES_POOF_PER_EVENT := 12         # burst particles per merge event
 const RES_POOF_COLOR := Color("#F3D9A6")  # the warm celebratory poof colour
 
-# --- characters --------------------------------------------------------------------
+# --- residents population layer ----------------------------------------------------
 
-## The wandering layer. `bounds` = the area they roam; `count` = how many wander
-## (the host decides, e.g. from progression). Everything IGNOREs the mouse; taps
-## are the host's business.
-static func build_layer(bounds: Vector2, count: int, sparse := false) -> Control:
-	var layer := Control.new()
-	layer.name = "AmbientLayer"
-	layer.size = bounds
-	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	if not Features.on("ambient_characters"):
-		return layer                       # the empty layer keeps the node contract
-	var n := count
-	if sparse:
-		n = mini(n, Tune.SPARSE_CAP)
-	for i in n:
-		var ch := _make_character(i)
-		layer.add_child(ch)
-	_update_layer(layer)                  # correct positions on the very first frame
-	var tw := layer.create_tween().set_loops()
-	tw.tween_method(func(_t: float) -> void: _update_layer(layer), 0.0, 1.0, Tune.REPATH_SPAN)
-	return layer
-
-## The POPULATION layer (the residents sub-game). Like build_layer, but the wandering set
-## is the map's ROSTER: one sprite per member dict `{type, tier}` from G.resident_members.
+## The POPULATION layer (the residents sub-game): the map's ROSTER, one sprite per member dict
+## `{type, tier}` from G.resident_members.
 ## The roster is the source of truth — the layer is stateless + freely rebuildable (positions
 ## stay a pure function of child index + time via _update_layer), so a welcome/merge just
 ## rebuilds it. NO cap on member count. Every node IGNOREs the mouse. Each member renders its
@@ -153,44 +128,6 @@ static func _character_pos(i: int, t: float, day_seed: int, bounds: Vector2) -> 
 	var y := bounds.y * (cy + Tune.AMP_Y * cos(t * spd * Tune.FREQ_Y_RATIO + ph * Tune.PHASE_Y_MULT))
 	y += Tune.BOB_AMP * sin(t * Tune.BOB_SPEED + float(i) * Tune.BOB_PHASE_STEP)        # the gentle vertical bob
 	return Vector2(clampf(x, Tune.EDGE_MARGIN, bounds.x - Tune.EDGE_MARGIN), clampf(y, Tune.EDGE_MARGIN, bounds.y - Tune.EDGE_MARGIN))
-
-static func _make_character(i: int) -> Control:
-	var kind: String = CHARACTER_TYPES[i % CHARACTER_TYPES.size()]
-	var ch := Control.new()
-	ch.size = Tune.CHAR_SIZE
-	ch.pivot_offset = Tune.CHAR_SIZE / 2.0
-	ch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	ch.set_meta("character", kind)
-	var path := Game.art(CHARACTER_ART % kind)
-	if ResourceLoader.exists(path):
-		var tex := TextureRect.new()
-		tex.texture = load(path)
-		tex.set_anchors_preset(Control.PRESET_FULL_RECT)
-		tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		tex.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ch.add_child(tex)
-	else:
-		# placeholder character: a soft rounded body with two eyes
-		var body := Panel.new()
-		body.size = Tune.BODY_SIZE
-		body.position = Tune.BODY_OFFSET
-		var bs := StyleBoxFlat.new()
-		bs.bg_color = Tune.BODY_COLOR
-		bs.set_corner_radius_all(int(Tune.BODY_SIZE.x / 2.0))
-		bs.shadow_color = Tune.BODY_SHADOW
-		bs.shadow_size = Tune.BODY_SHADOW_SIZE
-		body.add_theme_stylebox_override("panel", bs)
-		body.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		ch.add_child(body)
-		for e in Tune.EYE_COUNT:
-			var eye := ColorRect.new()
-			eye.color = Tune.EYE_COLOR
-			eye.size = Tune.EYE_SIZE
-			eye.position = Tune.EYE_ORIGIN + Vector2(e * Tune.EYE_SPACING, 0)
-			eye.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			ch.add_child(eye)
-	return ch
 
 ## The tap reaction (pure charm — no mechanics).
 static func hop(ch: Control) -> void:

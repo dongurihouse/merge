@@ -238,13 +238,15 @@ func _initialize() -> void:
 	fresh("ambient")
 	var Ambient = load("res://engine/scripts/ui/ambient.gd")
 	ok(G.completed_maps({}) == 0, "no maps done on a fresh save")
-	var full0 := {}
-	for sp0 in G.MAPS[0].spots:
-		full0[String(sp0.id)] = true
-	ok(G.completed_maps(full0) == 1 and G.character_count(full0) == 2, \
-		"character count = 1 + completed maps")
-	var alayer: Control = Ambient.build_layer(Vector2(1000, 1000), G.character_count(full0))
-	ok(alayer.get_child_count() == 2, "the layer carries that many characters")
+	# The ambient life layer IS the map's placed residents (the §1 population sub-game): one sprite per
+	# placed spirit, EMPTY until a resident is placed. The old generic moss/acorn/lantern wander fallback
+	# was retired, so a fresh, unpopulated map shows NO critters.
+	var empty_layer: Control = Ambient.build_population_layer(Vector2(1000, 1000), [])
+	ok(empty_layer.get_child_count() == 0, "an unpopulated map shows no ambient critters")
+	empty_layer.free()
+	var alayer: Control = Ambient.build_population_layer(Vector2(1000, 1000), \
+		[{"type": "ember", "tier": 1}, {"type": "ember", "tier": 2}])
+	ok(alayer.get_child_count() == 2, "the layer carries one sprite per placed resident")
 	ok(_all_ignore(alayer), "spirits never eat input")
 	alayer.free()
 	var ga := Save.grove()
@@ -259,6 +261,8 @@ func _initialize() -> void:
 	if h8.content == null:
 		h8._ready()
 	ok(h8.content.get_node_or_null("AmbientLayer") != null, "the map carries the spirit layer")
+	ok(h8.content.get_node("AmbientLayer").get_child_count() == 0, \
+		"a fresh, unpopulated map carries no ambient critters (residents-driven, nothing placed)")
 	ok(h8.get_node_or_null("WeatherLayer") != null, "the map carries the weather layer")
 	ok(_all_ignore(h8.content), "the map guard stays green with spirits wandering")
 	var s8 = load("res://engine/scenes/Board.tscn").instantiate()
