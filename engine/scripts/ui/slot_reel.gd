@@ -1,6 +1,6 @@
 extends RefCounted
 ## Shared slot-machine REEL mechanic — the spin choreography + land juice, factored out of the daily
-## mystery reveal (ui/login_mystery.gd) so the Rush reward (scenes/explore_trade.gd) reuses the exact
+## mystery reveal (ui/login_mystery.gd) so the Rush reward (ui/explore_reward.gd) reuses the exact
 ## same "all reels whir → land left→right with a thunk + shine" feel. The CALLER supplies the per-tile
 ## content via a make_tile Callable (currency rows / spirit faces) and a per-reel `shine` flag; this
 ## module owns the band, the clipped window, the staggered tweens, the bounce/flash/chime/shine, plus a
