@@ -52,6 +52,22 @@ var _fx: Dictionary = {}         # the resolved rush_fx toggles (RushFx.from_con
 var _score_cell: Control = null  # the score / mult bar cells (for the pop effects)
 var _mult_cell: Control = null
 var _last_sec := -1              # the last whole second shown (drives the per-second timer urgency)
+# --- layout chrome the resize relayout tears down + rebuilds (the live tiles persist across it) ---
+var _topbar: Control = null
+var _exit_btn: Control = null
+var _chrome: Control = null            # the board's frame + slot wells + telegraph (rebuilt on resize)
+var _activity: Control = null          # the treefall activity bar (between the top bar and the board)
+var _act_idle: Control = null          # the calm "no treefall" rail
+var _act_warn: Control = null          # the red treefall warning strip
+var _act_label: Label = null           # the "Ns" countdown caption on the warning strip
+var _act_fill: ColorRect = null        # the draining countdown bar
+var _act_fill_w := 0.0                 # the countdown bar's full width
+var _act_arrow: Polygon2D = null       # the down-chevron pointing from the bar at the doomed column
+var _act_bottom := 0.0                 # the activity bar's bottom Y — the board reserves below this
+var _hint: Control = null              # the always-on bottom hint strip
+var _hint_h := 0.0                     # its measured height — the board reserves above it
+var _last_view := Vector2.ZERO         # the last laid-out viewport size (resize coalesce)
+var _relayout_queued := false          # coalesces a burst of size_changed into one relayout per frame
 
 func _ready() -> void:
 	_rng.randomize()
@@ -59,12 +75,47 @@ func _ready() -> void:
 		Explore.begin_run({})        # direct-open (tool/test) — neutral loadout
 	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}))
 
-	add_child(BoardScript._field_backdrop())   # the painted grove board backdrop (ui/board2_bg.png)
+	add_child(BoardScript._field_backdrop())   # the painted grove backdrop (ui/board2_bg.png), full-rect → auto-fits
 
-	_build_topbar()
-	_build_board()
-	_build_bottom_hint()
+	_layout()                                  # build all four bands + the board chrome for the current size
+	# Re-fit every band + the live tiles on a live viewport resize (drag the window / rotate), like the home
+	# map and the board action bar. A resize fires size_changed many times — coalesce to one relayout per frame.
+	# (Headless harnesses run _ready out of tree → no viewport to watch; the engine's in-tree _ready connects.)
+	if get_viewport() != null and not get_viewport().size_changed.is_connected(_on_viewport_resized):
+		get_viewport().size_changed.connect(_on_viewport_resized)
 	_start()
+
+# (Re)build every band for the current viewport size. The stateless chrome (top bar, activity bar, bottom
+# hint, board frame + wells + telegraph) is torn down and rebuilt; the live tiles persist (they hold the run
+# grid) and are only repositioned + repainted. Called once at _ready and again on each coalesced resize.
+func _layout() -> void:
+	if _topbar != null and is_instance_valid(_topbar): _topbar.queue_free()
+	if _exit_btn != null and is_instance_valid(_exit_btn): _exit_btn.queue_free()
+	if _activity != null and is_instance_valid(_activity): _activity.queue_free()
+	if _hint != null and is_instance_valid(_hint): _hint.queue_free()
+	if _chrome != null and is_instance_valid(_chrome): _chrome.queue_free()
+	_build_topbar()
+	_build_activity()
+	_build_bottom_hint()
+	_build_board_chrome()
+	_reposition_tiles()
+	_apply_treefall_visual()
+	_refresh_readouts()
+	_last_view = get_viewport_rect().size
+
+func _on_viewport_resized() -> void:
+	if _relayout_queued:
+		return
+	_relayout_queued = true
+	_relayout_after_resize.call_deferred()
+
+func _relayout_after_resize() -> void:
+	_relayout_queued = false
+	if get_viewport() == null:
+		return
+	if get_viewport_rect().size == _last_view:
+		return                            # no real change — skip the rebuild
+	_layout()
 
 # The rush_concept top bar: three CODE-DRAWN gold-badge cells — Time | SCORE (centred, larger) | Mult —
 # built by the SHARED kit (Kit.rush_bar, workbench-tunable) with the rush_bar_asset art used only for the
@@ -76,12 +127,14 @@ func _build_topbar() -> void:
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var bar_top := maxf(Look.safe_top(self), 14.0) + 8.0
 	var opts: Dictionary = Kit.rush_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-	var bar: Control = Kit.rush_bar(opts, {"time": "0:00", "score": "0", "mult": "×1.0"})
+	# seed the live readouts so a resize mid-run keeps the time / score / mult (not a reset to 0)
+	var bar: Control = Kit.rush_bar(opts, {"time": _fmt_time(), "score": str(Explore.score()), "mult": "×%.1f" % _mult})
 	var bw: float = bar.size.x
 	var scale: float = clampf((vw * 0.74) / maxf(1.0, bw), 0.45, 1.4)   # the bar is ~74% of screen width on any device
 	bar.scale = Vector2(scale, scale)
 	bar.position = Vector2((vw - bw * scale) * 0.5, bar_top)
 	add_child(bar)
+	_topbar = bar
 	_bar_bottom = bar_top + bar.size.y * scale          # the board reserves the screen below this
 	_lbl_time = bar.get_meta("time_label")
 	_lbl_score = bar.get_meta("score_label")
@@ -99,6 +152,93 @@ func _build_topbar() -> void:
 	ex.position = Vector2(vw * 0.97 - ex_h, bar_top + 6.0)
 	ex.pressed.connect(func() -> void: _end())
 	add_child(ex)
+	_exit_btn = ex
+
+# The treefall ACTIVITY BAR: a fixed-height slot between the top bar and the board that telegraphs the
+# treefall. Idle shows a calm parchment rail; when a tree is telegraphed it turns into a red warning strip
+# with a draining countdown and a down-chevron over the doomed column. Today it carries ONLY the treefall
+# notice (a second indicator — multiplier cooldown / board-fill — is parked). Its bottom sets the board's
+# top reserve, so the board never jumps between the idle and warning states.
+func _build_activity() -> void:
+	var vp := get_viewport_rect().size
+	var vw: float = vp.x if vp.x > 0.0 else 720.0
+	var vh: float = vp.y if vp.y > 0.0 else 1280.0
+	var margin := vw * 0.05
+	var w := vw - margin * 2.0
+	var h := clampf(vh * 0.05, 44.0, 70.0)
+	var top := _bar_bottom + vh * 0.01
+	_activity = Control.new()
+	_activity.name = "RushActivityBar"
+	_activity.position = Vector2(margin, top)
+	_activity.size = Vector2(w, h)
+	_activity.custom_minimum_size = _activity.size
+	_activity.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_activity)
+	_act_bottom = top + h
+	var fs := int(clampf(h * 0.34, 15.0, 23.0))
+	var pad := h * 0.28
+	# IDLE — a quiet parchment rail (low-key, so it is not a second empty void)
+	_act_idle = _act_panel(Vector2(w, h), Color(PARCH, 0.34), Color(INK, 0.16))
+	var il := _act_text("No treefall — keep merging", fs, Color(INK, 0.72))
+	il.position = Vector2.ZERO ; il.size = Vector2(w, h)
+	_act_idle.add_child(il)
+	_activity.add_child(_act_idle)
+	# WARNING — a red strip: a left caption, a right "Ns" countdown over a draining bar, a down-chevron
+	_act_warn = _act_panel(Vector2(w, h), Color(0.78, 0.26, 0.20, 0.95), Color(0.45, 0.12, 0.10))
+	var wl := _act_text("Treefall incoming", fs, PARCH)
+	wl.position = Vector2(pad, 0.0) ; wl.size = Vector2(w * 0.55 - pad, h)
+	wl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_act_warn.add_child(wl)
+	_act_label = _act_text("", fs, PARCH)
+	_act_label.position = Vector2(w * 0.55, 0.0) ; _act_label.size = Vector2(w * 0.45 - pad, h * 0.56)
+	_act_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_act_warn.add_child(_act_label)
+	var track_w := w * 0.45 - pad
+	var track := ColorRect.new()
+	track.color = Color(1, 1, 1, 0.28)
+	track.position = Vector2(w * 0.55, h * 0.66) ; track.size = Vector2(track_w, h * 0.14)
+	track.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_act_warn.add_child(track)
+	_act_fill = ColorRect.new()
+	_act_fill.color = PARCH
+	_act_fill.position = Vector2.ZERO ; _act_fill.size = Vector2(track_w, h * 0.14)
+	_act_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	track.add_child(_act_fill)
+	_act_fill_w = track_w
+	# the down-chevron (code-drawn triangle) — its x is aimed at the doomed column in _apply_treefall_visual
+	_act_arrow = Polygon2D.new()
+	_act_arrow.color = Color(0.78, 0.26, 0.20)
+	var a := h * 0.26
+	_act_arrow.polygon = PackedVector2Array([Vector2(-a, 0.0), Vector2(a, 0.0), Vector2(0.0, a)])
+	_act_arrow.position = Vector2(w * 0.5, h - 1.0)
+	_act_warn.add_child(_act_arrow)
+	_activity.add_child(_act_warn)
+	_act_idle.visible = true
+	_act_warn.visible = false
+
+# A flat rounded panel for an activity-bar state (children are positioned absolutely, so a Panel — which
+# does NOT arrange children like PanelContainer would — is the right base).
+func _act_panel(size: Vector2, bg: Color, border: Color) -> Panel:
+	var p := Panel.new()
+	p.position = Vector2.ZERO ; p.size = size ; p.custom_minimum_size = size
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = bg
+	sb.set_corner_radius_all(int(clampf(size.y * 0.28, 8.0, 18.0)))
+	sb.set_border_width_all(2)
+	sb.border_color = border
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+func _act_text(text: String, size: int, color: Color) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", color)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 func _tex(name: String) -> Texture2D:
 	var p := RUSH_ART % name
@@ -120,33 +260,42 @@ func _cell_rest(r: int, c: int) -> Vector2:                 # where a tile rests
 func _tile_px() -> float:
 	return _cell - 2.0 * _inset
 
-func _build_board() -> void:
+func _build_board_chrome() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var top_reserve := _bar_bottom + vh * 0.02              # the screen below the bar (derived, not a magic px)
-	var bot_reserve := Look.safe_bottom(self) + vh * 0.03
+	var top_reserve := _act_bottom + vh * 0.015             # the screen below the activity bar
+	var bot_reserve := Look.safe_bottom(self) + _hint_h + vh * 0.04   # leave room for the bigger bottom hint
 	# fit cells to the screen on whichever axis binds, accounting for the frame overhang + gutters
 	var w_csz := (vw - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - float(G.COLS - 1) * _gap) / float(G.COLS)
 	var h_csz := (vh - top_reserve - bot_reserve - 2.0 * FRAME_OUT - float(G.ROWS - 1) * _gap) / float(G.ROWS)
 	_cell = floorf(maxf(24.0, minf(w_csz, h_csz)))
 	var bw := float(G.COLS) * _cell + float(G.COLS - 1) * _gap
 	var bh := float(G.ROWS) * _cell + float(G.ROWS - 1) * _gap
-	_board = Control.new()
+	# the board node PERSISTS across relayouts (it holds the live tiles); only reposition it on a rebuild
+	if _board == null:
+		_board = Control.new()
+		_board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_board)
 	_board.custom_minimum_size = Vector2(bw, bh)
-	_board.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	# centre the grid in the band between the bar and the bottom safe area (frame overhang stays clear of both)
+	_board.size = Vector2(bw, bh)
+	# centre the grid in the band between the activity bar and the bottom hint (frame overhang clears both)
 	var band_top := top_reserve + FRAME_OUT
 	var band_h := vh - bot_reserve - FRAME_OUT - band_top
 	_board.position = Vector2((vw - bw) * 0.5, band_top + maxf(0.0, (band_h - bh) * 0.5))
-	add_child(_board)
+	# the STATELESS chrome (frame + wells + telegraph) — rebuilt each layout, kept BEHIND the tiles
+	_chrome = Control.new()
+	_chrome.name = "RushBoardChrome"
+	_chrome.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_board.add_child(_chrome)
+	_board.move_child(_chrome, 0)
 	# the SHARED board frame (gold planter), behind the cells, overhanging the grid by FRAME_OUT
 	var frame: Control = Kit.board_panel(Vector2(bw + FRAME_OUT * 2.0, bh + FRAME_OUT * 2.0), Kit.board_panel_opts_from_config(cfg))
 	frame.position = Vector2(-FRAME_OUT, -FRAME_OUT)
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_board.add_child(frame)
+	_chrome.add_child(frame)
 	# the SHARED slot-cell wells — every cell OPEN (no locked brambles)
 	var slot_opts: Dictionary = Kit.bag_card_opts_from_config(cfg)
 	slot_opts["cell_w"] = _cell
@@ -156,14 +305,49 @@ func _build_board() -> void:
 			var slot: Control = Kit.slot_cell({"state": "empty"}, slot_opts)
 			slot.position = _cellxy(r, c)
 			slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_board.add_child(slot)
+			_chrome.add_child(slot)
 	# the treefall telegraph (a translucent danger pane over one column)
 	_tele = ColorRect.new()
 	_tele.color = Color(0.85, 0.25, 0.2, 0.32)
 	_tele.size = Vector2(_cell, bh)
 	_tele.visible = false
 	_tele.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_board.add_child(_tele)
+	_chrome.add_child(_tele)
+
+# Snap every live tile to its cell at the current cell size, repainting its piece — used after a relayout
+# (the grid array survives a resize; only the on-screen geometry changed).
+func _reposition_tiles() -> void:
+	for r in G.ROWS:
+		if r >= _grid.size():
+			continue
+		for c in G.COLS:
+			if c >= (_grid[r] as Array).size():
+				continue
+			var cell = _grid[r][c]
+			if cell == null:
+				continue
+			var node := cell.node as Control
+			if node == null or not is_instance_valid(node):
+				continue
+			node.size = Vector2(_tile_px(), _tile_px())
+			node.custom_minimum_size = node.size
+			node.position = _cell_rest(r, c)
+			_paint(cell)
+
+# Sync the treefall telegraph to the current _tf state: which activity sub-panel shows, the on-board danger
+# pane, and the chevron's x (aimed at the doomed column). Idempotent — safe to call after a relayout.
+func _apply_treefall_visual() -> void:
+	var tele := String(_tf.get("ph", "idle")) == "tele"
+	if _act_idle != null and is_instance_valid(_act_idle): _act_idle.visible = not tele
+	if _act_warn != null and is_instance_valid(_act_warn): _act_warn.visible = tele
+	if _tele != null and is_instance_valid(_tele):
+		_tele.visible = tele
+		if tele:
+			_tele.position = Vector2(_cellxy(0, int(_tf.col)).x, 0)
+	if tele and _act_arrow != null and is_instance_valid(_act_arrow) \
+			and _board != null and _activity != null:
+		var col_screen_x := _board.position.x + _cellxy(0, int(_tf.col)).x + _cell * 0.5
+		_act_arrow.position.x = clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
 
 # An ALWAYS-ON micro-hint along the bottom safe area, teaching the two secondary verbs the
 # top popup leaves out: tap-again-to-fling and clearing a column before a treefall. Quiet
@@ -178,25 +362,29 @@ func _build_bottom_hint() -> void:
 	strip.name = "RushBottomHintStrip"
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(INK, 0.5)
-	sb.set_corner_radius_all(16)
-	sb.content_margin_left = 18.0 ; sb.content_margin_right = 18.0
-	sb.content_margin_top = 8.0 ; sb.content_margin_bottom = 8.0
+	sb.bg_color = Color(INK, 0.82)                                  # more solid than before, so it reads as real guidance
+	sb.set_corner_radius_all(18)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(GOLD, 0.5)
+	sb.content_margin_left = 22.0 ; sb.content_margin_right = 22.0
+	sb.content_margin_top = 12.0 ; sb.content_margin_bottom = 12.0
 	strip.add_theme_stylebox_override("panel", sb)
 	var l := Label.new()
 	l.name = "RushBottomHint"
 	l.text = "Tap again to fling · empty a column before the treefall"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(vw * 0.82, 0.0)                 # wrap within the strip, not off the screen
-	l.add_theme_font_size_override("font_size", 20)
+	l.custom_minimum_size = Vector2(vw * 0.86, 0.0)                 # wrap within the strip, not off the screen
+	l.add_theme_font_size_override("font_size", int(clampf(vw * 0.038, 22.0, 30.0)))   # bigger, scales with width
 	l.add_theme_color_override("font_color", PARCH)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	add_child(strip)
 	strip.reset_size()
 	var sz := strip.get_combined_minimum_size()
-	strip.position = Vector2((vw - sz.x) * 0.5, vh - Look.safe_bottom(self) - 12.0 - sz.y)
+	strip.position = Vector2((vw - sz.x) * 0.5, vh - Look.safe_bottom(self) - 14.0 - sz.y)
+	_hint = strip
+	_hint_h = sz.y
 
 # The rush-start teaching popup: a parchment pill reading "Tap to Merge!" that POPS in with the
 # board's signature back-ease overshoot, holds, then fades + drifts up and frees itself — a ~1.5s
@@ -405,8 +593,7 @@ func _start_timber() -> void:
 	_tf.ph = "tele"
 	_tf.t = 0.0
 	_tf.col = _rng.randi() % G.COLS
-	_tele.position = Vector2(_cellxy(0, int(_tf.col)).x, 0)
-	_tele.visible = true
+	_apply_treefall_visual()
 
 func _drop_timber() -> void:
 	var col := int(_tf.col)
@@ -431,10 +618,10 @@ func _drop_timber() -> void:
 		FX.celebrate_at(self, _board.global_position + col_local, "CLEAN DODGE!", GOLD)
 	else:
 		FX.flash(_board, col_local, _cell)
-	_tele.visible = false
 	_tf.ph = "idle"
 	_tf.t = 0.0
 	_tf.next = (7.0 + _rng.randf() * 3.0) * float(_cfg.calm_mul)
+	_apply_treefall_visual()
 	_settle()
 	_refresh_readouts()
 
@@ -543,6 +730,16 @@ func _refresh_readouts() -> void:
 	# the score is updated in _merge (it only changes there); leaving it out here lets it TICK uninterrupted
 	if _lbl_mult != null:
 		_lbl_mult.text = "×%.1f" % _mult
+	# the treefall countdown: "Ns" + the draining bar, while a tree is telegraphed
+	if _act_warn != null and is_instance_valid(_act_warn) and _act_warn.visible:
+		var remain := maxf(0.0, Explore.WARN - float(_tf.get("t", 0.0)))
+		if _act_label != null:
+			_act_label.text = "%ds" % int(ceil(remain))
+		if _act_fill != null:
+			_act_fill.size.x = _act_fill_w * clampf(remain / maxf(0.01, Explore.WARN), 0.0, 1.0)
+
+func _fmt_time() -> String:
+	return "0:%02d" % int(ceil(_time))
 
 func _label(text: String, size: int, bold: bool = false) -> Label:
 	var l := Label.new()

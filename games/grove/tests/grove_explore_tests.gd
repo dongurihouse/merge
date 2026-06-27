@@ -18,6 +18,7 @@ func _initialize() -> void:
 	_test_slot_reel()
 	_test_rush_intro_hint()
 	_test_screens()
+	await _test_rush_resize()
 	_test_trade_reward_dialog_layout()
 	_test_reward_row_cap()
 	_test_loadout_uses_toggle_card_callback()
@@ -340,6 +341,48 @@ func _test_screens() -> void:
 		"an unarted spirit reveal shows placeholder face details instead of a blank disc")
 	host.queue_free()
 
+
+# S-RESIZE: the Rush screen must re-fit on a live viewport resize (drag the window wider / rotate), like the
+# home map and the board action bar — it was built once from the startup size and stayed pinned. Drive two
+# known widths and assert the board re-centres + re-fits, the activity bar tracks the width, and the bottom
+# hint follows (deferred one-frame coalesce → wait two frames). Also guards the treefall warning toggle.
+func _test_rush_resize() -> void:
+	fresh("rush_resize")
+	Explore.begin_run({})
+	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(s)
+	if s.get_child_count() == 0:
+		s._ready()
+	# let the engine run the in-tree _ready (it connects size_changed — the manual one above ran out of tree)
+	await create_timer(0.06).timeout
+	get_root().size = Vector2i(1080, 1920)
+	await create_timer(0.06).timeout
+	await create_timer(0.06).timeout
+	var cx1080: float = s._board.position.x + s._board.size.x * 0.5
+	var bx1080: float = s._board.position.x
+	ok(absf(cx1080 - 540.0) < 3.0, "S-RESIZE: the rush board re-centres to the 1080 width (cx=%.0f)" % cx1080)
+	ok(s._board.position.x + s._board.size.x <= 1082.0, "S-RESIZE: the board fits within the 1080 width")
+	ok(absf(s._activity.size.x - 1080.0 * 0.9) < 3.0, "S-RESIZE: the activity bar tracks the 1080 width (w=%.0f)" % s._activity.size.x)
+	get_root().size = Vector2i(1600, 1920)
+	await create_timer(0.06).timeout
+	await create_timer(0.06).timeout
+	var cx1600: float = s._board.position.x + s._board.size.x * 0.5
+	ok(absf(cx1600 - 800.0) < 3.0, "S-RESIZE: the rush board re-centres on a live resize to 1600 (cx=%.0f)" % cx1600)
+	ok(s._board.position.x + s._board.size.x <= 1602.0, "S-RESIZE: the re-fitted board fits within the 1600 width")
+	ok(absf(s._activity.size.x - 1600.0 * 0.9) < 3.0, "S-RESIZE: the activity bar re-fits to the new width (w=%.0f)" % s._activity.size.x)
+	ok(absf(s._board.position.x - bx1080) > 10.0, "S-RESIZE: the board actually moved on the resize (not pinned to the old width)")
+	ok(s._hint != null and absf((s._hint.position.x + s._hint.size.x * 0.5) - 800.0) < 8.0, "S-RESIZE: the bottom hint re-centres to the new width")
+	# the treefall telegraph flips the activity bar to its warning state (and aims the chevron)
+	s._tf = {"ph": "tele", "t": 0.0, "col": 3, "next": 9.0}
+	s._apply_treefall_visual()
+	ok(s._act_warn.visible and not s._act_idle.visible, "S-RESIZE: telegraphing a treefall shows the warning strip, hides the idle rail")
+	s._tf = {"ph": "idle", "t": 0.0, "col": 0, "next": 9.0}
+	s._apply_treefall_visual()
+	ok(s._act_idle.visible and not s._act_warn.visible, "S-RESIZE: clearing the treefall returns to the idle rail")
+	get_root().size = Vector2i(1080, 1920)
+	await create_timer(0.06).timeout
+	s.queue_free()
+	await create_timer(0.05).timeout
 
 func _test_trade_reward_dialog_layout() -> void:
 	fresh("reward_overlay_layout")
