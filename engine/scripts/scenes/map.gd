@@ -2098,9 +2098,8 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	btn.pressed.connect(on_tap)
 	var path := G.resident_art(kind, tier)
 	if path != "" and ResourceLoader.exists(path):
-		var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
 		var t := TextureRect.new()
-		t.texture = PV._content_tex_centered(path) if PV != null else load(path)   # re-frame on visual mass → uniform + centered
+		t.texture = load(path)                            # art is pre-centered (re-cut), so display it as-is
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -2164,8 +2163,7 @@ func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art := G.resident_art(kind, tier)
 	if art != "" and ResourceLoader.exists(art):
-		var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
-		t.texture = PV._content_tex_centered(art) if PV != null else load(art)
+		t.texture = load(art)                             # art is pre-centered (re-cut), so display it as-is
 	return t
 
 # The gold selection ring overlaid on the selected cell.
@@ -2605,9 +2603,8 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 func _spirit_icon(type_id: String, px: float) -> Control:
 	var path := G.resident_art(type_id)
 	if path != "" and ResourceLoader.exists(path):
-		var PV: GDScript = load("res://engine/scripts/ui/piece_view.gd")
 		var t := TextureRect.new()
-		t.texture = PV._content_tex_centered(path) if PV != null else load(path)   # re-frame on visual mass → uniform + centered
+		t.texture = load(path)                            # art is pre-centered (re-cut), so display it as-is
 		t.custom_minimum_size = Vector2(px, px)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED

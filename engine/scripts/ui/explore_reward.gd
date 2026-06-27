@@ -15,7 +15,6 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
-const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # shared spirit-icon centering
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const OVERLAY_NAME := "ExploreRewardOverlay"
@@ -206,7 +205,7 @@ static func _spirit_icon(kind: String, px: float) -> Control:
 	var path := G.resident_art(kind)
 	if path != "" and ResourceLoader.exists(path):
 		var t := TextureRect.new()
-		t.texture = PieceView._content_tex_centered(path)
+		t.texture = load(path)                             # art is pre-centered (re-cut), so display it as-is
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
