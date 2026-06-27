@@ -36,10 +36,10 @@ const COMBO_RESET := 1.7         # idle this long and the combo drops to 0 (s)
 const MULT_GRACE := 0.7          # after a merge the multiplier holds for this long before it bleeds (s)
 const MULT_DECAY := 0.25         # once past the grace window the multiplier bleeds this much per second
 
-# --- the rush-start teaching popup gate ----------------------------------------------------------
-const RUSH_INTRO_SHOWS := 3      # show the "Tap to Merge!" teaching popup on a player's first N rushes, then retire it
+# --- the rush-start teaching image gate ----------------------------------------------------------
+const RUSH_INTRO_SHOWS := 1      # show the Rush how-to image on the player's first Rush, then retire it
 
-## Should the rush-start teaching popup show, given how many times it has already shown (Save.rush_intro_seen)?
+## Should the rush-start teaching image show, given how many times it has already shown (Save.rush_intro_seen)?
 static func rush_intro_should_show(seen: int) -> bool:
 	return seen < RUSH_INTRO_SHOWS
 

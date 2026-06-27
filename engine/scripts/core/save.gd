@@ -368,6 +368,13 @@ static func set_first_purchase_made() -> void:
 	grove()["first_purchase_made"] = true
 	grove_write()
 
+static func board_tutorial_seen() -> bool:
+	return bool(grove().get("board_tutorial_seen", false))
+
+static func mark_board_tutorial_seen() -> void:
+	grove()["board_tutorial_seen"] = true
+	grove_write()
+
 # --- rush teaching popup: how many times the "Tap to Merge!" intro has shown ------
 # A small counter in the grove blob (defaulted to 0 on old saves, no migration) gating the
 # rush-start teaching popup to a player's first few rushes. The threshold lives in explore.gd

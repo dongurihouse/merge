@@ -19,9 +19,12 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home 
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
+const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
+const RUSH_TUTORIAL_OVERLAY := "RushTutorialOverlay"
+const RUSH_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_rush.png"
 const BOTTOM_HINT_BOTTOM_GAP_FRAC := 0.05
 const BOTTOM_HINT_TEXT_VISUAL_NUDGE_Y := 4.0
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
@@ -381,20 +384,24 @@ func _build_bottom_hint() -> void:
 	strip.add_child(_bottom_hint_slice("RushBottomHintRightCap", tex, Rect2(tex_w - src_cap_w, 0.0, src_cap_w, tex_h), Vector2(cap_w + center_w, 0.0), Vector2(cap_w, strip_h)))
 	var l := Label.new()
 	l.name = "RushBottomHint"
-	l.text = "Tap again to fling · empty a column before the treefall"
+	l.text = "Tap again to fling · avoid treefall"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	var text_vpad := strip_h * 0.08
 	var text_nudge := BOTTOM_HINT_TEXT_VISUAL_NUDGE_Y
 	l.position = Vector2(cap_w * 0.65, text_vpad + text_nudge)
-	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3), maxf(1.0, strip_h - text_vpad - text_nudge))
+	var info_px := strip_h * 0.74
+	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3 - info_px * 1.25), maxf(1.0, strip_h - text_vpad - text_nudge))
 	l.add_theme_font_size_override("font_size", int(clampf(strip_h * 0.48, 20.0, 27.0)))
 	l.add_theme_color_override("font_color", Color("#F8E9D0"))
 	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
 	l.add_theme_constant_override("outline_size", 2)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
+	var info := _rush_info_button(info_px)
+	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, (strip_h - info_px) * 0.5)
+	strip.add_child(info)
 	add_child(strip)
 	var bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
 	strip.position = Vector2((vw - strip_w) * 0.5, vh - Look.safe_bottom(self) - bottom_gap - strip_h)
@@ -416,55 +423,33 @@ func _bottom_hint_slice(node_name: String, tex: Texture2D, src: Rect2, pos: Vect
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return t
 
-# The rush-start teaching popup: a parchment pill reading "Tap to Merge!" that POPS in with the
-# board's signature back-ease overshoot, holds, then fades + drifts up and frees itself — a ~1.5s
-# beat. Non-blocking (taps pass straight through to the board). Gated by the caller to first rushes.
-const HINT_POP := 0.18
-const HINT_HOLD := 0.9
-const HINT_FADE := 0.34
-func _show_tap_hint() -> void:
-	var vp := get_viewport_rect().size
-	var vw: float = vp.x if vp.x > 0.0 else 720.0
-	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var pill := PanelContainer.new()
-	pill.name = "RushTapHint"
-	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE                 # a hint, not a wall
-	# A DARK parchment-ink pill with a gold rim — reads crisply over the light cream board (a
-	# PARCH pill would vanish into it). Soft shadow lifts it off the field.
+func _rush_info_button(px: float) -> Button:
+	var b := Button.new()
+	b.name = "RushInfoButton"
+	b.text = "i"
+	b.tooltip_text = "How to play"
+	b.focus_mode = Control.FOCUS_NONE
+	b.size = Vector2(px, px)
+	b.custom_minimum_size = b.size
+	b.add_theme_font_size_override("font_size", int(px * 0.62))
+	b.add_theme_color_override("font_color", INK)
+	b.add_theme_color_override("font_outline_color", Color("#F8E9D0", 0.70))
+	b.add_theme_constant_override("outline_size", 1)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = INK
+	sb.bg_color = Color("#F8E9D0")
 	sb.border_color = GOLD
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(24)
-	sb.content_margin_left = 30.0 ; sb.content_margin_right = 30.0
-	sb.content_margin_top = 16.0 ; sb.content_margin_bottom = 16.0
-	sb.shadow_color = Color(0.16, 0.11, 0.07, 0.34)
-	sb.shadow_size = 10
-	sb.shadow_offset = Vector2(0, 5)
-	pill.add_theme_stylebox_override("panel", sb)
-	var lbl := Label.new()
-	lbl.text = "Tap to Merge!"
-	lbl.add_theme_font_size_override("font_size", 34)
-	lbl.add_theme_color_override("font_color", PARCH)
-	lbl.add_theme_color_override("font_outline_color", Color(INK, 0.5))
-	lbl.add_theme_constant_override("outline_size", 2)
-	pill.add_child(lbl)
-	add_child(pill)
-	# centre it in the upper third, clear of the board action below
-	pill.reset_size()
-	var sz := pill.get_combined_minimum_size()
-	pill.pivot_offset = sz * 0.5
-	pill.position = Vector2((vw - sz.x) * 0.5, vh * 0.40 - sz.y * 0.5)
-	# POP → HOLD → FADE+RISE → free (the same back-ease overshoot the merge juice uses)
-	pill.scale = Vector2(0.6, 0.6)
-	pill.modulate.a = 0.0
-	var t := pill.create_tween()
-	t.tween_property(pill, "modulate:a", 1.0, HINT_POP * 0.6)
-	t.parallel().tween_property(pill, "scale", Vector2.ONE, HINT_POP).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_interval(HINT_HOLD)
-	t.tween_property(pill, "modulate:a", 0.0, HINT_FADE)
-	t.parallel().tween_property(pill, "position:y", pill.position.y - 26.0, HINT_FADE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
-	t.tween_callback(pill.queue_free)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(int(px * 0.5))
+	sb.shadow_color = Color(0.10, 0.06, 0.03, 0.28)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 2)
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		b.add_theme_stylebox_override(state, sb)
+	b.pressed.connect(_show_rush_tutorial)
+	return b
+
+func _show_rush_tutorial() -> Control:
+	return TutorialImage.open(self, RUSH_TUTORIAL_OVERLAY, RUSH_TUTORIAL_IMAGE)
 
 func _start() -> void:
 	_grid = []
@@ -483,10 +468,10 @@ func _start() -> void:
 	_running = true
 	_refresh_readouts()
 	set_process(true)
-	# The "Tap to Merge!" teaching popup — only on a player's first few rushes (then it retires).
+	# The Rush how-to image appears once, then stays available through the bottom info button.
 	if Explore.rush_intro_should_show(Save.rush_intro_seen()):
 		Save.mark_rush_intro_seen()
-		_show_tap_hint()
+		_show_rush_tutorial()
 
 # --- frame loop ------------------------------------------------------------------
 func _process(dt: float) -> void:

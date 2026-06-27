@@ -44,7 +44,24 @@ func _initialize() -> void:
 	var info_button := board_scene.get("_info_btn") as Button
 	var live_hides_info := bool(Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("hide_info_button", false))
 	ok(info_button != null, "the info bar exposes its info button")
-	ok(info_button != null and not info_button.visible, "the empty info bar hides the info button")
+	ok(info_button != null and info_button.visible and not info_button.disabled, \
+		"the empty info bar shows an enabled tutorial info button")
+	ok(board_scene.get_node_or_null("BoardTutorialOverlay") != null, \
+		"a fresh board opens the how-to-play tutorial on first run")
+	ok(bool(Save.grove().get("board_tutorial_seen", false)), \
+		"opening the first-run board tutorial marks it seen")
+	var board_intro: Node = board_scene.get_node_or_null("BoardTutorialOverlay")
+	if board_intro != null:
+		board_intro.queue_free()
+		await process_frame
+	board_scene._on_info_pressed()
+	await process_frame
+	ok(board_scene.get_node_or_null("BoardTutorialOverlay") != null, \
+		"the empty info button reopens the board how-to-play tutorial")
+	var reopened_intro: Node = board_scene.get_node_or_null("BoardTutorialOverlay")
+	if reopened_intro != null:
+		reopened_intro.queue_free()
+		await process_frame
 	var desc_label: Label = board_scene.get("_info_desc_label") as Label
 	ok(desc_label != null and desc_label.visible and desc_label.text.contains("Drag an item to the bag"), \
 		"the empty info bar mentions dragging an item to the bag for space")
@@ -93,7 +110,7 @@ func _initialize() -> void:
 			special_overlay.queue_free()
 			await process_frame
 		board_scene._clear_selection()
-		ok(not info_button.visible and info_button.disabled, "clearing focus hides and disables the info button")
+		ok(info_button.visible and not info_button.disabled, "clearing focus restores the tutorial info button")
 		ok(desc_label != null and desc_label.visible and desc_label.text.contains("Drag an item to the bag"), \
 			"clearing focus restores the empty info bar bag-space hint")
 
@@ -265,8 +282,8 @@ func _initialize() -> void:
 	if hidden_board.board == null:
 		hidden_board._ready()
 	await create_timer(0.05).timeout
-	ok(hidden_board._info_btn != null and not hidden_board._info_btn.visible, \
-		"the live board reads the workbench config and hides the info button")
+	ok(hidden_board._info_btn != null and hidden_board._info_btn.visible and not hidden_board._info_btn.disabled, \
+		"the empty info bar keeps the tutorial info button visible even when selected-item info is hidden")
 	var hidden_cell := Vector2i(-1, -1)
 	for c in hidden_board.board.empty_ground_cells():
 		if not hidden_board.board.is_gen(c):

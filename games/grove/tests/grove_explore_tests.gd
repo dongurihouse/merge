@@ -288,54 +288,65 @@ func _test_slot_reel() -> void:
 	ok(done.n == 1, "finish() fires on_all_landed exactly once")
 	host.queue_free()
 
-# --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
-# The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
+# --- the rush-start tutorial image: first-run gate + the always-on bottom hint ----
+# The tutorial image teaches tap/merge/fling/treefall on the player's first Rush, then
 # retires (gated on a saved counter). The fling/treefall bottom hint stays on EVERY rush.
 func _test_rush_intro_hint() -> void:
-	# the pure gate: shown on the first three rushes, retired from the fourth on
-	ok(Explore.rush_intro_should_show(0), "the tap-to-merge popup shows on the first rush")
-	ok(Explore.rush_intro_should_show(2), "the popup still shows on the third rush")
-	ok(not Explore.rush_intro_should_show(3), "the popup retires once three rushes have shown it")
-	ok(not Explore.rush_intro_should_show(9), "the popup stays retired beyond three")
+	# the pure gate: shown on the first Rush, retired from the second on
+	ok(Explore.rush_intro_should_show(0), "the Rush tutorial image shows on the first rush")
+	ok(not Explore.rush_intro_should_show(1), "the Rush tutorial image retires after the first showing")
+	ok(not Explore.rush_intro_should_show(9), "the Rush tutorial image stays retired after that")
 
 	# the seen-counter persists in the save, defaulted to 0 on a fresh save (no migration)
 	fresh("rush_intro_seen")
-	ok(Save.rush_intro_seen() == 0, "a fresh save has shown the popup zero times")
+	ok(Save.rush_intro_seen() == 0, "a fresh save has shown the tutorial zero times")
 	Save.mark_rush_intro_seen()
-	ok(Save.rush_intro_seen() == 1, "marking the popup seen bumps the saved counter")
+	ok(Save.rush_intro_seen() == 1, "marking the tutorial seen bumps the saved counter")
 
-	# the scene wiring: the popup appears on the first three rushes and bumps the counter;
-	# the bottom fling hint is present on EVERY rush regardless of the popup gate
+	# the scene wiring: the image tutorial appears on the first Rush and bumps the counter;
+	# the bottom hint + replay info button stay on every Rush.
 	fresh("rush_intro_scene")
 	Explore.begin_run({})
-	for i in 3:
-		var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-		get_root().add_child(s)
-		if s.get_child_count() == 0:
-			s._ready()
-		ok(s.find_child("RushTapHint", true, false) != null, "rush %d shows the Tap to Merge popup" % (i + 1))
-		var strip := s.find_child("RushBottomHintStrip", true, false) as Control
-		var hint := s.find_child("RushBottomHint", true, false) as Label
-		ok(hint != null, "rush %d shows the always-on bottom hint" % (i + 1))
-		ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "rush %d bottom hint explains the fling tap" % (i + 1))
-		ok(strip != null and String(strip.get_meta("slice_mode", "")) == "three", \
-			"rush %d bottom hint uses 3-slice art, not a 9-slice/flat panel" % (i + 1))
-		ok(strip != null \
-			and strip.find_child("RushBottomHintLeftCap", true, false) is TextureRect \
-			and strip.find_child("RushBottomHintCenterSlice", true, false) is TextureRect \
-			and strip.find_child("RushBottomHintRightCap", true, false) is TextureRect, \
-			"rush %d bottom hint preserves fixed side caps with a stretchable centre" % (i + 1))
-		ok(Save.rush_intro_seen() == i + 1, "rush %d bumps the intro-seen counter to %d" % [i + 1, i + 1])
-		s.queue_free()
-	# the fourth rush: the popup is retired, the bottom hint stays, the counter holds at 3
-	var s4 = load("res://engine/scenes/ExploreRush.tscn").instantiate()
-	get_root().add_child(s4)
-	if s4.get_child_count() == 0:
-		s4._ready()
-	ok(s4.find_child("RushTapHint", true, false) == null, "the popup is gone on the fourth rush")
-	ok(s4.find_child("RushBottomHint", true, false) != null, "the bottom hint stays on the fourth rush")
-	ok(Save.rush_intro_seen() == 3, "a retired popup does not bump the counter further")
-	s4.queue_free()
+	var s = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(s)
+	if s.get_child_count() == 0:
+		s._ready()
+	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the first Rush shows the image tutorial")
+	ok(s.find_child("RushTapHint", true, false) == null, "the old transient Tap to Merge popup is gone")
+	var strip := s.find_child("RushBottomHintStrip", true, false) as Control
+	var hint := s.find_child("RushBottomHint", true, false) as Label
+	ok(hint != null, "the first Rush shows the always-on bottom hint")
+	ok(hint != null and String(hint.text).to_lower().find("fling") != -1, "the bottom hint explains the fling tap")
+	ok(strip != null and String(strip.get_meta("slice_mode", "")) == "three", \
+		"the bottom hint uses 3-slice art, not a 9-slice/flat panel")
+	ok(strip != null \
+		and strip.find_child("RushBottomHintLeftCap", true, false) is TextureRect \
+		and strip.find_child("RushBottomHintCenterSlice", true, false) is TextureRect \
+		and strip.find_child("RushBottomHintRightCap", true, false) is TextureRect, \
+		"the bottom hint preserves fixed side caps with a stretchable centre")
+	ok(Save.rush_intro_seen() == 1, "the first Rush marks the tutorial seen once")
+	var first_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
+	if first_overlay != null:
+		first_overlay.queue_free()
+		await process_frame
+	var replay := s.find_child("RushInfoButton", true, false) as Button
+	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
+	if replay != null:
+		replay.pressed.emit()
+		await process_frame
+	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the Rush info button reopens the tutorial")
+	s.queue_free()
+	await process_frame
+	# the second Rush: the first-run tutorial is retired, the bottom hint and replay button stay.
+	var s2 = load("res://engine/scenes/ExploreRush.tscn").instantiate()
+	get_root().add_child(s2)
+	if s2.get_child_count() == 0:
+		s2._ready()
+	ok(s2.find_child("RushTutorialOverlay", true, false) == null, "the image tutorial is gone on the second Rush")
+	ok(s2.find_child("RushBottomHint", true, false) != null, "the bottom hint stays on the second Rush")
+	ok(s2.find_child("RushInfoButton", true, false) != null, "the tutorial replay info button stays on the second Rush")
+	ok(Save.rush_intro_seen() == 1, "a retired Rush tutorial does not bump the counter further")
+	s2.queue_free()
 
 # --- the Rush screen + the reward overlay: build smoke + the score→hand seam ------
 func _test_screens() -> void:

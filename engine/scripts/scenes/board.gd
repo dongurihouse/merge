@@ -25,6 +25,7 @@ const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
+const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
@@ -58,6 +59,8 @@ const BOTTOM_BAR_H := 166.0      # fallback board bottom bar height (Home · inf
 const BOTTOM_BTN_PX := 130.0     # fallback Bag/Home well size; runtime scales from the workbench home_button px
 const BOTTOM_BAR_PAD := BOTTOM_BAR_H - BOTTOM_BTN_PX
 const ACTION_BAR_SEPARATOR := "shared/action_separator.png"
+const BOARD_TUTORIAL_OVERLAY := "BoardTutorialOverlay"
+const BOARD_TUTORIAL_IMAGE := "res://games/grove/assets/ui/tutorial/how_to_play_board.png"
 const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
@@ -304,6 +307,7 @@ func _ready() -> void:
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
+	_maybe_show_board_tutorial_first_run.call_deferred()
 
 func debug_refresh_weather() -> void:
 	var insert_at := get_child_count()
@@ -1858,8 +1862,8 @@ func _clear_selection() -> void:
 		_info_desc_label.text = Strings.t("board.info.empty_bag_hint")
 		_info_desc_label.visible = _info_desc_label.text != ""
 	if _info_btn != null and is_instance_valid(_info_btn):
-		_info_btn.visible = false
-		_info_btn.disabled = true
+		_info_btn.visible = true
+		_info_btn.disabled = false
 	if _info_trash != null and is_instance_valid(_info_trash):
 		_info_trash.visible = false
 	if _info_burst != null and is_instance_valid(_info_burst):
@@ -2039,10 +2043,11 @@ func _on_buy_pressed() -> void:
 	_refresh_generator_dim()                      # a now-full board dims the generator(s)
 	_refresh_buy_chip(code)                       # re-read affordability (currency dropped)
 
-# The info button → open the selected item's Tiers ladder (or, for a generator, the ladder of the
-# line it produces). Guards a stale/empty selection.
+# The info button → open the board tutorial when nothing is focused, or the selected item's Tiers
+# ladder (or, for a generator, the ladder of what it produces) when something is focused.
 func _on_info_pressed() -> void:
 	if _selected_cell.x < 0:
+		_show_board_tutorial(false)
 		return
 	if board.is_gen(_selected_cell):
 		if not Features.on("discovery_ladder"):
@@ -2061,6 +2066,16 @@ func _on_info_pressed() -> void:
 	if code <= 0:
 		return
 	_open_ladder(BoardModel.line_of(code), BoardModel.tier_of(code))
+
+func _maybe_show_board_tutorial_first_run() -> void:
+	if Save.board_tutorial_seen():
+		return
+	_show_board_tutorial(true)
+
+func _show_board_tutorial(mark_seen: bool) -> void:
+	var overlay := TutorialImage.open(self, BOARD_TUTORIAL_OVERLAY, BOARD_TUTORIAL_IMAGE)
+	if overlay != null and mark_seen:
+		Save.mark_board_tutorial_seen()
 
 # The trashcan → sell the selected item for coins (guards generators / coins / a stale selection).
 func _on_trash_pressed() -> void:
