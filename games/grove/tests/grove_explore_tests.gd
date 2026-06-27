@@ -602,3 +602,12 @@ func _test_rush_fx_knob_forwarding() -> void:
 	# the merge impact now routes through the unified verb (gate 2 keeps low-combo merges snappy)
 	ok(src.find("Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)") != -1, "explore_rush routes the merge through Feel.merge (gate 2)")
 	ok(src.find("RushFx.merge_burst(") == -1, "explore_rush no longer calls RushFx.merge_burst in the live merge")
+	# bundle B: the merge ripples the win cell's neighbours, and a big merge punches the whole board.
+	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)") != -1, "explore_rush ripples the merge's neighbours (skipping the falling lose column)")
+	ok(src.find("Feel.board_punch(_board, 1.0)") != -1, "explore_rush punches the board on a big merge")
+	# the fling touchdown ALSO ripples its settled neighbours; the bulk gravity settle does NOT ripple.
+	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(fc.x, fc.y), lc, 0.8)") != -1, "explore_rush ripples the fling touchdown's neighbours")
+	ok(src.find("func _settle") != -1 and src.find("Explore.gravity(_grid)") != -1, "explore_rush still has the bulk settle (which must NOT ripple)")
+	# guard: _settle (the bulk gravity path) carries no Feel.ripple — only discrete impacts ripple.
+	var settle_seg := src.substr(src.find("func _settle"), 400)
+	ok(settle_seg.find("Feel.ripple") == -1, "the bulk gravity settle does NOT ripple (only discrete merge/land impacts do)")

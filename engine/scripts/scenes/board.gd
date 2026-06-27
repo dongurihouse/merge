@@ -2659,6 +2659,14 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# escalation curve — now lives in the shared verb. intensity=1.0, gate=0 reproduce today's
 	# board feel exactly; the flash square is csz (the cell size), matching the old FX.flash call.
 	Feel.merge(board_area, n, center, tier, combo, 1.0, 0)
+	# bundle B: the up-to-4 orthogonal neighbour tiles JIGGLE outward from the merge cell (the scene
+	# owns the grid, so we gather the neighbour nodes here and hand them to the verb). The impact centre
+	# is GLOBAL so each neighbour squashes away from the true hit point.
+	Feel.ripple(_orthogonal_neighbour_nodes(b), board_area.get_global_transform() * center, 1.0)
+	# bundle B: a BIG merge (tier >= ESCALATE_TIER) PUNCHES the whole board — co-fires with the reserved
+	# shake feel.merge already throws at the pinnacle tier. (Combined shake+punch is a review-time tuning.)
+	if tier >= FX.Tune.ESCALATE_TIER:
+		Feel.board_punch(board_area, 1.0)
 	_combo_celebrate(combo, center)
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
@@ -2675,6 +2683,18 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	_refresh_giver_lights()
 	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
 	_update_hud()
+
+# The up-to-4 ORTHOGONAL neighbour piece nodes of `cell`, gathered from the live grid (piece_nodes,
+# keyed by cell). Empty cells and invalid/freed nodes are skipped, so the returned list only ever holds
+# real, settled tiles — the verb (Feel.ripple) never animates a missing or in-flight node. Scene-side on
+# purpose: the board owns its grid, so the impact verb stays grid-agnostic.
+func _orthogonal_neighbour_nodes(cell: Vector2i) -> Array:
+	var out: Array = []
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nb: Control = piece_nodes.get(cell + d)
+		if nb != null and is_instance_valid(nb):
+			out.append(nb)
+	return out
 
 # Extend or restart the cozy merge streak. A merge within COMBO_WINDOW of the previous one
 # bumps the count; a longer gap restarts at 1. Returns the new streak length. Cadence is
@@ -2763,7 +2783,8 @@ func _drop_coin_near(near: Vector2i) -> void:
 	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			Feel.land(self, n, coin_ctr, 0.8, false))
+			Feel.land(self, n, coin_ctr, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
 ## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
@@ -2816,7 +2837,8 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			Feel.land(self, n, special_ctr, 0.8, false))
+			Feel.land(self, n, special_ctr, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:

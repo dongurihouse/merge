@@ -594,6 +594,18 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo, RushFx.knob(_fx, "combo_heat_size"))
 		else:
 			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
+	# bundle B: the neighbours of the WIN cell jiggle outward from the merge. We gather them BEFORE the
+	# settle (which clears the lose cell and drops its column) and skip any tile that's about to fall in
+	# the lose column, so the ripple never fights gravity. The lose cell itself is already cleared, so the
+	# direction toward it is simply absent from the list.
+	Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)
+	# bundle B: a BIG merge (tier >= ESCALATE_TIER) punches the whole board — co-fires with feel.merge's
+	# reserved shake at the pinnacle tier (combined shake+punch is a review-time tuning). NOTE: Rush caps
+	# at MAX_TIER 7 (a tier-7 tile flings, never merges), below ESCALATE_TIER 8 — so today this gate (like
+	# feel.merge's reserved shake, which uses the same threshold) never trips in Rush. Kept on the shared
+	# threshold so it lights up automatically if the Rush ceiling ever rises.
+	if int(win.tier) >= FX.Tune.ESCALATE_TIER:
+		Feel.board_punch(_board, 1.0)
 	if int(win.tier) >= 4:
 		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)   # a Rush milestone callout (not part of the merge verb)
 	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
@@ -697,7 +709,31 @@ func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	# impact squash + small flash + micro-puff + touch sound + haptic.
 	t.tween_callback(func() -> void:
 		if node and is_instance_valid(node):
-			Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, false))
+			var lc := node.global_position + Vector2(_cell, _cell) * 0.5
+			Feel.land(self, node, lc, 0.8, false)
+			# bundle B: the fling touchdown jiggles its now-settled neighbours (the rest of the board has
+			# already settled by the time the arc lands, so nothing is falling — gather all 4).
+			var fc := _coord_of(node)
+			if fc.x >= 0:
+				Feel.ripple(_orthogonal_neighbour_nodes(fc.x, fc.y), lc, 0.8))
+
+# The up-to-4 ORTHOGONAL neighbour tile NODES of cell (r,c) in the live grid. Empty cells and any cell
+# in `skip_falling_above_col` that sits ABOVE `skip_row` are excluded — those are the tiles the imminent
+# gravity settle will drop, and the plan says NOT to ripple a tile that's about to move (the jiggle would
+# ride the fall). Pass skip_col = -1 to gather all neighbours (a discrete land where nothing is settling).
+func _orthogonal_neighbour_nodes(r: int, c: int, skip_col := -1, skip_row := -1) -> Array:
+	var out: Array = []
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nr := r + d.x
+		var nc := c + d.y
+		if nr < 0 or nc < 0 or nr >= _grid.size() or nc >= (_grid[nr] as Array).size():
+			continue
+		if nc == skip_col and nr < skip_row:
+			continue   # this neighbour is above the cleared cell in the settling column — it will fall
+		var cell = _grid[nr][nc]
+		if cell != null and cell.node != null and is_instance_valid(cell.node):
+			out.append(cell.node)
+	return out
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
