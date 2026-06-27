@@ -35,14 +35,17 @@ func _initialize() -> void:
 		DirAccess.make_dir_recursive_absolute(dir)
 	Save.configure_for_test(dir)
 
-	# a completed hub map → a non-empty spirit pool, plus a fat wallet for the loadout
-	var z := G.hub_map()
+	# unlock EVERY map so the spirit pool spans all kinds (a richer, more representative reward shot), plus a
+	# fat wallet for the loadout
 	var g := Save.grove()
 	var unl := {}
-	for sp in G.MAPS[z].spots:
-		unl[String(sp.id)] = true
+	var gates := []
+	for zz in G.MAPS.size():
+		gates.append(zz)
+		for sp in G.MAPS[zz].spots:
+			unl[String(sp.id)] = true
 	g["unlocks"] = unl
-	g["gates"] = [z]
+	g["gates"] = gates
 	Save.grove_write()
 	Save.add_coins(2000)
 
