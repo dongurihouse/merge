@@ -16,6 +16,21 @@ func _initialize() -> void:
 		ok(String(content.call("item_description", 1501)).contains("same-tier"), "wildcards explain their drag rule")
 		ok(content.call("item_display_name", 902) == "Coin", "coin items have a real display name")
 		ok(String(content.call("item_description", 902)).contains("5 coins"), "coin items explain their collect value")
+		for special_line in G.SPECIAL_ITEMS:
+			var special_code := int(special_line) * 100 + 1
+			ok(content.call("item_display_name", special_code) != "Item", "special item line %d has player-facing copy" % int(special_line))
+			ok(String(content.call("item_description", special_code)) != "", "special item line %d has info-bar detail" % int(special_line))
+		for treat_line in G.TREAT_LINES:
+			var treat_code := int(treat_line) * 100 + G.TREAT_POP_TIER
+			ok(content.call("item_display_name", treat_code) != "Item", "treat item line %d has player-facing copy" % int(treat_line))
+			ok(String(content.call("item_description", treat_code)) != "", "treat item line %d has info-bar detail" % int(treat_line))
+	var has_generator_copy_helpers := content.has_method("generator_display_name") and content.has_method("generator_description")
+	ok(has_generator_copy_helpers, "content exposes canonical generator display-name and description helpers")
+	if has_generator_copy_helpers:
+		ok(content.call("generator_display_name", "acc_water") == "Rain barrel", "accumulators have real generator names")
+		ok(String(content.call("generator_description", "acc_water")).contains("water"), "accumulators describe their banked reward")
+		ok(String(content.call("generator_display_name", G.treat_gen_id(71))).contains("Prize pumpkin"), "treat generators name their treasure line")
+		ok(String(content.call("generator_description", G.treat_gen_id(71))).contains("Prize pumpkin"), "treat generators describe their premium output")
 
 	fresh("info_bar_copy")
 	var board_scene = load("res://engine/scenes/Board.tscn").instantiate()
@@ -57,6 +72,15 @@ func _initialize() -> void:
 			and is_equal_approx(selected_art_sprite.offset_left, 0.0) \
 			and is_equal_approx(selected_art_sprite.offset_top, 0.0), \
 			"the live info bar selected item uses the full artwork box without board-cell inset")
+		board_scene._on_info_pressed()
+		await process_frame
+		ok(board_scene.get_node_or_null("LadderOverlay") != null, "the selected special item opens its tier info")
+		var special_ladder: Array = board_scene._ladder_entries(12)
+		ok(special_ladder.size() == G.merge_top(1201), "special item ladders stop at their merge ceiling")
+		var special_overlay: Node = board_scene.get_node_or_null("LadderOverlay")
+		if special_overlay != null:
+			special_overlay.queue_free()
+			await process_frame
 		board_scene._clear_selection()
 		ok(not info_button.visible and info_button.disabled, "clearing focus hides and disables the info button")
 		ok(desc_label != null and desc_label.visible and desc_label.text.contains("Drag an item to the bag"), \
@@ -173,6 +197,50 @@ func _initialize() -> void:
 			ov.queue_free()
 		board_scene._clear_selection()
 
+	# Special generators: accumulators and temporary treat generators are board generators too. A still
+	# tap must leave them focused with useful copy, even though their tap action is collect/pop instead of
+	# the normal seed burst.
+	var acc_cell := _first_empty_cell(board_scene, [])
+	ok(acc_cell.x >= 0, "the accumulator focus test found an empty cell")
+	if acc_cell.x >= 0:
+		board_scene.board.place_gen("acc_water", acc_cell)
+		board_scene._rebuild_all()
+		var acc_at: Vector2 = board_scene._cell_pos(acc_cell) + Vector2(board_scene.csz, board_scene.csz) / 2.0
+		_tap_emulated(board_scene, acc_at)
+		await create_timer(0.05).timeout
+		ok(board_scene._selected_cell == acc_cell, "tapping an accumulator generator focuses its cell")
+		ok(board_scene._info_label.text.contains("Rain barrel"), "focused accumulator shows its real name")
+		var acc_desc: Label = board_scene.get("_info_desc_label") as Label
+		ok(acc_desc != null and acc_desc.visible and acc_desc.text.contains("water"), "focused accumulator shows useful info text")
+		ok(board_scene._info_btn.disabled, "accumulators disable the producing-ladder button because they bank currency")
+		board_scene._clear_selection()
+
+	var treat_cell := acc_cell if acc_cell.x >= 0 else _first_empty_cell(board_scene, [])
+	var treat_id := G.treat_gen_id(71)
+	ok(treat_cell.x >= 0, "the treat generator focus test found an empty cell")
+	if treat_cell.x >= 0:
+		board_scene.board.gens.erase(treat_cell)
+		board_scene.board.place_gen(treat_id, treat_cell)
+		Save.grove()["treat_clicks"] = 2
+		board_scene._rebuild_all()
+		var treat_entries: Array = board_scene._gen_line_entries(treat_id)
+		ok(treat_entries.size() == 1 and int(treat_entries[0].line) == 71, "a treat generator reports only its treasure line")
+		var treat_at: Vector2 = board_scene._cell_pos(treat_cell) + Vector2(board_scene.csz, board_scene.csz) / 2.0
+		_tap_emulated(board_scene, treat_at)
+		await create_timer(0.05).timeout
+		ok(board_scene._selected_cell == treat_cell, "tapping a live treat generator focuses its cell")
+		ok(board_scene._info_label.text.contains("Prize pumpkin"), "focused treat generator names its treasure")
+		var treat_desc: Label = board_scene.get("_info_desc_label") as Label
+		ok(treat_desc != null and treat_desc.visible and treat_desc.text.contains("Prize pumpkin"), "focused treat generator explains its output")
+		ok(not board_scene._info_btn.disabled, "treat generators keep the producing info button enabled")
+		board_scene._on_info_pressed()
+		await process_frame
+		ok(board_scene.get_node_or_null("GenLinesOverlay") != null, "the treat generator info button opens its producing overlay")
+		var tov: Node = board_scene.get_node_or_null("GenLinesOverlay")
+		if tov != null:
+			tov.queue_free()
+		board_scene._clear_selection()
+
 	# Watchdog: a stuck `animating` gate must self-heal so board taps can never soft-lock. Force the
 	# gate true and confirm it clears within the watchdog window; a brief gate (a normal merge) must NOT.
 	board_scene.animating = true
@@ -214,3 +282,9 @@ func _tap_emulated(board, at: Vector2) -> void:
 	var tu := InputEventScreenTouch.new(); tu.pressed = false; tu.position = at
 	board._on_board_input(mu)
 	board._on_board_input(tu)
+
+func _first_empty_cell(board, skip: Array) -> Vector2i:
+	for c in board.board.empty_ground_cells():
+		if not board.board.is_gen(c) and not skip.has(c):
+			return c
+	return Vector2i(-1, -1)

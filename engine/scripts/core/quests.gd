@@ -126,7 +126,8 @@ static func refill(quests: Array, z: int, unlocks: Dictionary, gates: Array, boa
 # from the save's `seen` set (keyed by the string code, as written on merge).
 static func ladder_entries(seen: Dictionary, line: int) -> Array:
 	var out: Array = []
-	for t in range(1, G.TOP_TIER + 1):
+	var top := G.merge_top(line * 100 + 1)
+	for t in range(1, top + 1):
 		var code := line * 100 + t
 		out.append({"tier": t, "code": code, "seen": seen.has(str(code))})
 	return out
