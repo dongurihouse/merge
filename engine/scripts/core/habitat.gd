@@ -163,6 +163,28 @@ static func unplace(map_id: String, index: int, now: float = -1.0) -> bool:
 	_set_hand(h)
 	return true
 
+## On-map merge (the drag-onto-a-match drop): consume hand[h_index] INTO placed[p_index] on map_id when
+## they are the same kind + tier, bumping the placed spirit one tier up. Settles production first (the
+## tier-sum, thus the rate, changes). Returns true iff merged; no-op on a mismatch, a bad index, or a
+## placed spirit already at MAX_TIER.
+static func place_merge(map_id: String, h_index: int, p_index: int, now: float = -1.0) -> bool:
+	var h := hand()
+	var p := placed(map_id)
+	if h_index < 0 or h_index >= h.size() or p_index < 0 or p_index >= p.size():
+		return false
+	var a: Dictionary = h[h_index]
+	var b: Dictionary = p[p_index]
+	if String(a.kind) != String(b.kind) or int(a.tier) != int(b.tier):
+		return false
+	if int(b.tier) >= MAX_TIER:
+		return false
+	_settle(map_id, now)
+	h.remove_at(h_index)
+	_set_hand(h)
+	p[p_index] = {"kind": String(b.kind), "tier": int(b.tier) + 1}
+	_set_placed(map_id, p)
+	return true
+
 # --- idle production: TIER speeds the cadence, COUNT raises the cap, the per-unit AMOUNT is FIXED -----
 ## A map's production SPEED = sum of its placed spirits' tiers. Higher tier (and, naturally, more spirits)
 ## = a faster cadence; the per-unit reward AMOUNT stays fixed (see REWARD), which is what keeps water and

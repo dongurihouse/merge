@@ -9,9 +9,10 @@ func _initialize() -> void:
 	begin("grove · residents habitat")
 	_test_hand()
 	_test_place()
+	_test_place_merge()
 	_test_production()
 	_test_rewards()
-	_test_residents_button()
+	await _test_residents_dock()
 	finish()
 
 # §1 the roster CAP now RAMPS with restored spots (Habitat.cap → Content.resident_capacity), so a habitat
@@ -100,6 +101,34 @@ func _test_place() -> void:
 	ok(Habitat.placed(u).is_empty(), "the slot is freed on the map")
 	ok(Habitat.hand().size() == 1 and int(Habitat.hand()[0].tier) == 2, "it returns to the hand keeping its tier")
 	ok(not Habitat.unplace(u, 0), "bringing out a bad index is refused")
+
+# --- drag-merge in hand INTO a placed spirit (the on-map merge: drop a hand orb onto a match) ------
+func _test_place_merge() -> void:
+	fresh("habitat_place_merge")
+	var mid := String(G.MAPS[0].id)
+	Habitat.hand_add("moss", 2)          # the one we'll place
+	Habitat.place(mid, 0)
+	Habitat.hand_add("moss", 2)          # the in-hand match dragged onto it
+	ok(Habitat.placed(mid).size() == 1 and Habitat.hand().size() == 1, "one moss t2 placed, one matching in hand")
+	ok(Habitat.place_merge(mid, 0, 0), "a same-kind+tier hand spirit merges INTO the placed one")
+	ok(Habitat.hand().is_empty(), "the dragged hand spirit is consumed by the on-map merge")
+	ok(Habitat.placed(mid).size() == 1 and int(Habitat.placed(mid)[0].tier) == 3, "the placed spirit goes one tier up (t3)")
+
+	# a mismatch never merges (kind or tier), and the hand spirit is kept
+	Habitat.hand_add("acorn", 3)
+	ok(not Habitat.place_merge(mid, 0, 0), "a different KIND does not merge onto the placed spirit")
+	Habitat.hand_add("moss", 1)
+	ok(not Habitat.place_merge(mid, 1, 0), "a different TIER does not merge onto the placed spirit")
+	ok(Habitat.hand().size() == 2, "both mismatched spirits stay in the hand")
+	ok(not Habitat.place_merge(mid, 9, 0) and not Habitat.place_merge(mid, 0, 9), "bad indices are refused")
+
+	# a MAX_TIER placed spirit cannot climb higher
+	fresh("habitat_place_merge_max")
+	Habitat.hand_add("moss", Habitat.MAX_TIER)
+	Habitat.place(mid, 0)
+	Habitat.hand_add("moss", Habitat.MAX_TIER)
+	ok(not Habitat.place_merge(mid, 0, 0), "a max-tier placed spirit refuses an on-map merge")
+	ok(Habitat.hand().size() == 1, "the would-be merge spirit stays in hand at max tier")
 
 # --- idle production: TIER speeds the cadence, COUNT raises the cap, AMOUNT is fixed --------------
 func _test_production() -> void:
@@ -277,59 +306,132 @@ func _test_rewards() -> void:
 			all_in_range = false
 	ok(all_in_range, "every chest spirit rolls a tier in 1–4 (the generator curve)")
 
-# --- the spirits DOCK on the map (the folded-in residents management) -------------
-func _test_residents_button() -> void:
-	fresh("residents_button")
+# --- the spirits DOCK in the place-picker (the folded-in residents management, drag-driven) -------
+# The standalone Residents button + modal dialog are GONE; placement/merge/sell/bring-out happen in the
+# place-picker — an in-hand COLUMN on the right + each map's housed STRIP — driven through the single input
+# surface (drag a hand orb onto a map to place / onto a match to merge; a housed orb onto the column to
+# bring out; a tap on a housed orb focuses it for Sell). This drives the REAL drag path (_on_input).
+func _test_residents_dock() -> void:
+	fresh("residents_dock")
 	var z := 0
 	var g := Save.grove()
 	var unl := {}
 	for sp in G.MAPS[z].spots:
 		unl[String(sp.id)] = true
 	g["unlocks"] = unl ; g["gates"] = [z] ; Save.grove_write()
+	for zz in range(G.MAPS.size()):
+		G.claim_unlock_reward(zz)         # pre-claim every map's one-time gift so _open_map grants no surprise hand spirit
 	var mid := String(G.MAPS[z].id)
-	Habitat.hand_add("moss", 1)          # one to place via the dialog
-	Habitat.hand_add("acorn", 2)         # one placed up front so the "On map" row renders
-	Habitat.place(mid, 1)                # place the acorn (index 1)
+	Habitat.hand_add("moss", 2)          # one already housed so the strip renders
+	Habitat.place(mid, 0)
+	Habitat.hand_add("moss", 2)          # a MATCH to drag onto it (merge)
+	Habitat.hand_add("acorn", 1)         # a non-match to drag onto the map (place)
 
 	var hx = load("res://engine/scenes/Map.tscn").instantiate()
 	get_root().add_child(hx)
-	if hx.content == null:
-		hx._ready()
+	hx._login_shown_launch = true         # block the day-first login calendar (a _ready-deferred pop-up)
+	await create_timer(0.1).timeout       # let the ENGINE _ready it once + flush its deferreds (no manual _ready double-fire)
 	hx.unlocks = unl
+	# the standalone residents dialog + nav button are removed outright
+	ok(not hx.has_method("_open_residents_dialog"), "the standalone residents dialog method is gone")
+	ok(not hx.has_method("_make_residents_button"), "the standalone residents nav button is gone")
 	hx._open_map(z)
-	# the Residents nav badge shows on a completed map, captioned with the placed/cap count
-	ok(hx._residents_count_btn != null and hx._residents_count_btn.visible, "the Residents badge shows on a completed map")
-	ok(hx._residents_count_label != null and String(hx._residents_count_label.text) == "1/%d" % Habitat.DEFAULT_CAP,
-		"the badge caption reads the placed/cap count (1/%d)" % Habitat.DEFAULT_CAP)
+	ok(hx._lv_panel != null and hx._lv_panel.visible, "the player Lv chip rides a map")
 
-	# tapping the badge opens the management dialog; it carries the open map's capacity
-	hx._open_residents_dialog()
-	ok(hx._residents_overlay != null and is_instance_valid(hx._residents_overlay), "tapping the badge opens the management dialog")
-	var texts := _label_texts(hx._residents_overlay)
-	texts.append_array(_button_texts(hx._residents_overlay))
-	var has_cap := false
-	for t in texts:
-		if String(t).contains("/%d" % Habitat.DEFAULT_CAP):
-			has_cap = true
-	ok(has_cap, "the dialog shows the open map's capacity (n/%d)" % Habitat.DEFAULT_CAP)
+	# the place-picker drops the Lv chip and builds the in-hand column + the housed strip
+	hx._open_select()
+	await create_timer(0.08).timeout      # containers settle (no more _ready to switch the view back)
+	ok(hx._view == "select", "the place-picker view stays open")
+	ok(not hx._lv_panel.visible, "the place-picker hides the top-left Lv chip")
+	ok(hx._hand_panel != null and is_instance_valid(hx._hand_panel), "the place-picker carries the in-hand column")
+	# every spirit orb IGNOREs the mouse so the drag hit-test owns input (only the card Collect button — the
+	# documented exception — and a focus-gated Sell button intercept; the orbs/strip/hand-column never do).
+	var orbs_ignore := true
+	for arr in [hx._hand_orbs, hx._placed_orbs]:
+		for o in arr:
+			if (o.node as Control).mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				orbs_ignore = false
+	ok(orbs_ignore, "every spirit orb IGNOREs the mouse — the single-surface drag hit-test owns input")
+	ok(hx._hand_orbs.size() == 2, "the two in-hand spirits register as drag sources")
+	ok(_placed_for(hx, z) == 1, "the completed map's housed orb registers (drag-out / merge / focus target)")
 
-	# place the remaining hand spirit through the dialog (select then place); the badge count updates
-	var before := Habitat.placed(mid).size()
-	hx._on_dock_hand(0)
-	hx._on_dock_place(mid)
-	ok(Habitat.placed(mid).size() == before + 1, "placing through the dialog seats a hand spirit on the open map")
-	ok(String(hx._residents_count_label.text) == "%d/%d" % [before + 1, Habitat.DEFAULT_CAP], "the badge count updates after placing")
+	# DRAG the non-matching acorn from the hand onto a HOUSED orb (a non-match) → it still PLACES (the strip
+	# is the map's drop zone; only a MATCH merges, a non-match falls through to a free slot)
+	var before_p := Habitat.placed(mid).size()
+	_drag_select(hx, _hit_center(_hand_orb_of(hx, "acorn", 1)), _hit_center(_placed_orb_of(hx, z, "moss", 2)))
+	ok(Habitat.placed(mid).size() == before_p + 1, "dragging a non-matching hand spirit onto a housed orb PLACES it (the strip is the drop zone)")
+	await create_timer(0.06).timeout
 
-	# bring a placed spirit back OUT into the hand (select → bring out)
-	var placed_n := Habitat.placed(mid).size()
-	var hand_n := Habitat.hand().size()
-	hx._on_placed_select(0)
-	hx._on_unplace(mid, 0)
-	ok(Habitat.placed(mid).size() == placed_n - 1, "bringing out frees a map slot")
-	ok(Habitat.hand().size() == hand_n + 1, "the brought-out spirit returns to the hand")
+	# DRAG the matching moss t2 from the hand onto the housed moss t2 → MERGE (placed climbs to t3)
+	var hand_before := Habitat.hand().size()
+	_drag_select(hx, _hit_center(_hand_orb_of(hx, "moss", 2)), _hit_center(_placed_orb_of(hx, z, "moss", 2)))
+	var has_t3 := false
+	for inst in Habitat.placed(mid):
+		if String(inst.kind) == "moss" and int(inst.tier) == 3:
+			has_t3 = true
+	ok(has_t3, "dragging a hand spirit onto a MATCHING housed orb merges it one tier up")
+	ok(Habitat.hand().size() == hand_before - 1, "the dragged spirit is consumed by the on-map merge")
+	await create_timer(0.06).timeout
 
-	# the badge hides on an INCOMPLETE map
-	hx._close_residents_dialog()
-	hx._open_map(1)                       # map 1 is not completed in this save
-	ok(not hx._residents_count_btn.visible, "the Residents badge hides on a map that can't be populated")
+	# FOCUS a housed orb (a still-tap) → a Sell button appears in the hand column; pressing it sells
+	_map_tap_at(hx, _hit_center(hx._placed_orbs[0].node))
+	await create_timer(0.06).timeout
+	ok(not hx._focus_placed.is_empty(), "a still-tap on a housed orb focuses it")
+	var sells := _buttons_with(hx._hand_panel, "Sell")
+	ok(sells.size() == 1, "the focused orb surfaces a Sell button in the hand column")
+	var before_sell := Habitat.placed(mid).size()
+	sells[0].pressed.emit()
+	ok(Habitat.placed(mid).size() == before_sell - 1, "pressing Sell sells the focused spirit")
+	ok(hx._focus_placed.is_empty(), "selling drops the focus")
+	await create_timer(0.06).timeout
+
+	# DRAG a housed orb back onto the in-hand column → BRING OUT
+	var hb := Habitat.hand().size()
+	var pb := Habitat.placed(mid).size()
+	_drag_select(hx, _hit_center(hx._placed_orbs[0].node), hx._hand_panel.get_global_rect().get_center())
+	ok(Habitat.placed(mid).size() == pb - 1, "dragging a housed orb onto the hand column frees the map slot")
+	ok(Habitat.hand().size() == hb + 1, "the brought-out spirit returns to the hand")
+
+	# leaving the picker restores the Lv chip
+	hx._open_map(z)
+	ok(hx._lv_panel.visible, "returning to a map restores the Lv chip")
 	hx.queue_free()
+
+# --- place-picker drag test helpers -------------------------------------------------
+# A drag through the REAL select input surface: press on `from`, one lift-off motion to `to`, release on `to`.
+func _drag_select(hx, from: Vector2, to: Vector2) -> void:
+	var down := InputEventMouseButton.new()
+	down.button_index = MOUSE_BUTTON_LEFT ; down.pressed = true ; down.position = from
+	hx._on_input(down)
+	var mv := InputEventMouseMotion.new()
+	mv.position = to ; mv.relative = to - from ; mv.button_mask = MOUSE_BUTTON_MASK_LEFT
+	hx._on_input(mv)
+	var up := down.duplicate()
+	up.pressed = false ; up.position = to
+	hx._on_input(up)
+
+func _hand_orb_of(hx, kind: String, tier: int) -> Control:
+	for o in hx._hand_orbs:
+		if String(o.kind) == kind and int(o.tier) == tier:
+			return o.node
+	return null
+
+func _placed_orb_of(hx, z: int, kind: String, tier: int) -> Control:
+	for o in hx._placed_orbs:
+		if int(o.z) == z and String(o.kind) == kind and int(o.tier) == tier:
+			return o.node
+	return null
+
+func _placed_for(hx, z: int) -> int:
+	var n := 0
+	for o in hx._placed_orbs:
+		if int(o.z) == z:
+			n += 1
+	return n
+
+func _buttons_with(node: Node, frag: String) -> Array:
+	var out: Array = []
+	for b in node.find_children("*", "Button", true, false):
+		if String((b as Button).text).contains(frag):
+			out.append(b)
+	return out

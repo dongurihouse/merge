@@ -172,11 +172,8 @@ func _initialize() -> void:
 		scn._open_map(pmap)               # the one-image map view (spots on the image)
 		await create_timer(0.5).timeout
 		for wa in args:
-			if String(wa) == "residents=1":   # open the habitat-management dialog over the map
-				scn._open_residents_dialog()
-				await create_timer(0.3).timeout
-				scn._sel_placed = 0           # pre-select a placed spirit so Sell / Bring out render
-				scn._residents_rebuild.call()
+			if String(wa) == "residents=1":   # residents management now lives in the place-picker (housed strip + in-hand column)
+				scn._open_select()
 				await create_timer(0.4).timeout
 	elif mode == "watershop":
 		# the WATER stall opened from the HUB by pressing the real water-pill "+". Water is Save-backed,

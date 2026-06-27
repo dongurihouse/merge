@@ -65,12 +65,13 @@ func _initialize() -> void:
 	var img1 := root.get_texture().get_image()
 	var e1 := img1.save_png(out_dir + "unlock_dialog.png")
 
-	# dismiss the unlock overlay, then open the live Residents (Habitat) dialog and capture it.
+	# dismiss the unlock overlay, then open the place-picker (residents management now lives here: the
+	# in-hand column + each map's housed strip, dragged to place/merge) and capture it.
 	var ov: Node = scn.get_node_or_null("UnlockRewardOverlay")
 	if ov != null:
 		ov.queue_free()
 	await create_timer(0.3).timeout
-	scn._open_residents_dialog()
+	scn._open_select()
 	await create_timer(0.7).timeout
 	RenderingServer.force_draw()
 	var img2 := root.get_texture().get_image()

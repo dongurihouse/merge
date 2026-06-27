@@ -85,19 +85,14 @@ func _initialize() -> void:
 	RenderingServer.force_draw()
 	var e1 := root.get_texture().get_image().save_png(out_dir + "reward_carousel.png")
 
-	# (2) the pond (map 3) dialog — the "Use boost" affordance + a boost Collect
-	scn._open_map(2)
-	await create_timer(0.4).timeout
-	scn._open_residents_dialog()
+	# (2) the pond (map 3) card — the "Use boost" affordance + a boost Collect ride the card in the picker now
+	scn._open_select()
 	await create_timer(0.6).timeout
 	RenderingServer.force_draw()
 	var e2 := root.get_texture().get_image().save_png(out_dir + "reward_pond_dialog.png")
 
-	# (3) the meadow (map 5) dialog — the resident-chest Collect
-	scn._close_residents_dialog()
-	scn._open_map(4)
-	await create_timer(0.4).timeout
-	scn._open_residents_dialog()
+	# (3) the meadow (map 5) card — the resident-chest Collect rides the card in the picker
+	scn._open_select()
 	await create_timer(0.6).timeout
 	RenderingServer.force_draw()
 	var e3 := root.get_texture().get_image().save_png(out_dir + "reward_meadow_dialog.png")
