@@ -419,7 +419,11 @@ func _drop_timber() -> void:
 	# JUICE: the board jolts when the timber lands; a clean dodge celebrates, a hit flashes the column.
 	var col_local := Vector2(_cellxy(0, col).x + _cell * 0.5, float(G.ROWS) * (_cell + _gap) * 0.5)
 	if RushFx.on(_fx, "treefall_crack"):
-		RushFx.treefall_crack(self, _board, _board.global_position + col_local, false, RushFx.knob(_fx, "treefall_debris"), float(RushFx.knob(_fx, "treefall_shake")), RushFx.knob(_fx, "treefall_hitstop_ms"))   # debris + heavier jolt + crack
+		RushFx.treefall_crack(
+				self, _board, _board.global_position + col_local, false,
+				RushFx.knob(_fx, "treefall_debris"),
+				float(RushFx.knob(_fx, "treefall_shake")),
+				RushFx.knob(_fx, "treefall_hitstop_ms"))   # debris + heavier jolt + crack
 	else:
 		FX.shake(_board)
 	if hits == 0 and _running:
