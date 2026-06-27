@@ -19,11 +19,9 @@ const STRAW := Color("#D9B679")
 
 var _hud_refresh := Callable()
 var _root: Control = null
-var _rng := RandomNumberGenerator.new()
 var _revealed: Array = []        # kinds pulled this Trade session (for the reveal strip)
 
 func _ready() -> void:
-	_rng.randomize()
 	var bg := ColorRect.new()
 	bg.color = Color("#EAD9B5")
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -40,8 +38,6 @@ func _rebuild() -> void:
 	if _hud_refresh.is_valid():
 		_hud_refresh.call()
 
-func _pool() -> Array:
-	return Explore.unlocked_pool(Save.grove().get("unlocks", {}), Save.grove().get("gates", []))
 
 func _build() -> void:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
