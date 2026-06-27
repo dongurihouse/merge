@@ -17,6 +17,7 @@ const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")     # merge pieces for the Board preview
+const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")     # the selected-cell corner-bracket highlight
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")  # the mystery spin-reveal dialog (build_reveal)
 const Login = preload("res://engine/scripts/core/login.gd")            # mystery_config(slot) → the demo pool for the preview
 const Pal = Game.PALETTE
@@ -28,7 +29,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
-const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -36,7 +37,7 @@ const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout",
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -78,6 +79,9 @@ const TEST_KEYS := {
 	# the GENERATOR highlight sandbox: glow / outline / sparkle knobs persist (they flow to the live board
 	# via Kit.gen_highlight_opts_from_config); `preview` (which generator) and `cell` (preview size) are test-only.
 	"generator": ["preview", "cell"],
+	# the FOCUS RING (selected-cell corner brackets): colour/halo/proportions persist (they flow to the
+	# live board via Kit.focus_ring_opts_from_config); `cell` is the preview size only.
+	"focus_ring": ["cell"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
@@ -133,6 +137,7 @@ const CAPTIONS := {
 	"board": "Board — merge grid (frame · cells · pieces · scale)",
 	"fx": "FX Workbench — reward arrivals in board, map, and home context",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
+	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
@@ -182,6 +187,9 @@ var _params := {
 	# GEN_* consts. `preview` (which generator) + `cell` (preview px) are test-only.
 	"generator": {"glow_scale": 100, "glow_a": 30, "outline_w": 35, "outline_a": 85, "sparkle_count": 5, "sparkle_speed": 70,
 		"preview": "seed_satchel", "cell": 170},
+	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
+	# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
+	"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
@@ -302,8 +310,8 @@ var _params := {
 		"gem_x": 0, "gem_y": -40, "gem_scale": 36,
 		"preview_level": 30},
 	# the bottom-bar INFO BAR — the LAYOUT is the saved design; the frame is the shared gold badge skin.
-	# height matches the Bag/Home wells; inner_scale / sell_icon are % of that height. item_icon_scale is
-	# % of the selected-piece box. `filled` previews state.
+	# height matches the Bag/Home wells; inner_scale / sell_icon / item_icon_scale are % of that height.
+	# `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "info_y": 0, "info_button_scale": 100, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
 		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
 		"filled": true},
@@ -556,6 +564,30 @@ func _make_element(id: String) -> Control:
 			gwrap.custom_minimum_size = Vector2(gcell + 90, gcell + 90)
 			gwrap.add_child(PieceView.make_generator(String(p.get("preview", "seed_satchel")), gcell, ghl))
 			return gwrap
+		"focus_ring":
+			# a sample board cell (the shared slot well + a coin) wearing the focus ring, tuned through the
+			# SAME Kit transform the board reads — so the preview matches the focused-cell look in-game 1:1.
+			var fo := Kit.focus_ring_opts_from_config({"focus_ring": p})
+			var fcell := float(p.get("cell", 150))
+			var fwrap := CenterContainer.new()
+			fwrap.custom_minimum_size = Vector2(fcell + 90, fcell + 90)
+			var stack := Control.new()
+			stack.custom_minimum_size = Vector2(fcell, fcell)
+			stack.size = Vector2(fcell, fcell)
+			stack.add_child(Kit.slot_cell({"state": "empty"}, _focus_slot_opts(fcell)))
+			stack.add_child(PieceView.make_piece(902, fcell))   # a tier-2 coin sits in the cell
+			var ring := FocusRing.new()
+			ring.size = Vector2(fcell, fcell)
+			ring.color = fo.color
+			ring.halo_color = fo.halo_color
+			ring.halo_a = fo.halo_a
+			ring.arm_frac = fo.arm_frac
+			ring.thick_frac = fo.thick_frac
+			ring.pad_frac = fo.pad_frac
+			ring.halo = fo.halo
+			stack.add_child(ring)
+			fwrap.add_child(stack)
+			return fwrap
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
@@ -1022,8 +1054,9 @@ func _action_bar_preview() -> Control:
 	ib.add_theme_stylebox_override("panel", _action_bar_transparent_info_frame(io))
 	var inner := float(ib.get_meta("inner_px", 62.0))
 	var item_scale := float(ib.get_meta("item_icon_scale", 0.80))
+	var item_icon_px := float(ib.get_meta("item_icon_px", inner * item_scale))
 	if bool(p.get("filled", true)):
-		(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, inner * item_scale))
+		(ib.get_meta("info_icon") as CenterContainer).add_child(PieceView.make_piece(102, item_icon_px, 0.0))
 		(ib.get_meta("name_label") as Label).text = "Hazelnut · Tier 2"
 		(ib.get_meta("info_btn") as Button).disabled = false
 		var sb := ib.get_meta("sell_btn") as Button
@@ -1753,6 +1786,19 @@ func _rebuild_sidebar() -> void:
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "tool_shed", "bee_skep", "mushroom_ring"]))
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
+		"focus_ring":
+			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.focus_ring_opts_from_config)
+			_section_header("Colour")
+			_sidebar_body.add_child(_color_row("Bracket", "color"))         # the corner-bracket colour
+			_sidebar_body.add_child(_color_row("Halo", "halo_color"))       # the light outline behind the brackets
+			_sidebar_body.add_child(_slider_row(["halo_a", 0, 100]))        # halo opacity %
+			_sidebar_body.add_child(_toggle_row("Halo underlay", "halo"))   # turn the light underlay on/off
+			_section_header("Proportions (% of cell)")
+			_sidebar_body.add_child(_slider_row(["arm_pct", 5, 50]))        # bracket arm length
+			_sidebar_body.add_child(_slider_row(["thick_pct", 1, 20]))      # bracket line thickness
+			_sidebar_body.add_child(_slider_row(["pad_pct", 0, 20]))        # inset from the cell edge
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
 			_group_header("Saved to config", true)            # only the shared STYLE persists
 			_sidebar_body.add_child(_toggle_row("Use art", "art", true))   # sprite (scaled whole) vs code-drawn
@@ -2042,7 +2088,7 @@ func _rebuild_sidebar() -> void:
 			_section_header("Info content")
 			_sidebar_body.add_child(_slider_row(["height", 90, 180]))       # bar height (matches the Bag/Home wells)
 			_sidebar_body.add_child(_slider_row(["inner_scale", 30, 70]))   # the info ⓘ + piece box as % of the height
-			_sidebar_body.add_child(_slider_row(["item_icon_scale", 50, 120]))  # selected item/generator art as % of that box
+			_sidebar_body.add_child(_slider_row(["item_icon_scale", 50, 160]))  # selected item/generator art as % of the bar height
 			_sidebar_body.add_child(_slider_row(["info_x", -120, 120]))     # nudge the info ⓘ button left(−) / right(+)
 			_sidebar_body.add_child(_slider_row(["info_y", -120, 120]))     # nudge the info ⓘ button up(−) / down(+)
 			_sidebar_body.add_child(_slider_row(["info_button_scale", 50, 160]))  # resize the info ⓘ button inside its slot
@@ -2317,6 +2363,36 @@ func _text_row(label: String, key: String) -> Control:
 		_apply_edit())
 	row.add_child(le)
 	return row
+
+# A colour swatch row: a ColorPickerButton bound to a 6-digit hex param (no '#', no alpha). Writes the
+# hex back on change and re-renders the preview live — the only colour control in the workbench so far.
+func _color_row(label: String, key: String, target := "") -> Control:
+	var params: Dictionary = _params[target if target != "" else _selected]
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	var lbl := Label.new()
+	lbl.text = label
+	lbl.custom_minimum_size = Vector2(118, 0)
+	_wrap_sidebar_row_label(lbl)
+	row.add_child(lbl)
+	var btn := ColorPickerButton.new()
+	btn.custom_minimum_size = Vector2(0, 28)
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.edit_alpha = false
+	btn.color = Color.from_string("#" + String(params.get(key, "FFFFFF")).lstrip("#"), Color.WHITE)
+	btn.color_changed.connect(func(c: Color) -> void:
+		params[key] = c.to_html(false)   # store "rrggbb" (6 hex digits, no '#', no alpha)
+		_apply_edit())
+	row.add_child(btn)
+	return row
+
+# Slot-well opts for the focus-ring preview: the SAME shared slot cell the board draws, sized to the
+# preview cell so the brackets frame a real board well.
+func _focus_slot_opts(fcell: float) -> Dictionary:
+	var o := Kit.bag_card_opts_from_config(_params)
+	o["cell_w"] = fcell
+	o["cell_h"] = fcell
+	return o
 
 func _toggle_row(label: String, key: String, rebuild_sidebar := false, target := "") -> Control:
 	var params: Dictionary = _params[target if target != "" else _selected]

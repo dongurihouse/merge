@@ -3552,6 +3552,28 @@ static func hud_layout_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"edge_margin_px": clampf(float(h.get("edge_margin_px", 18.0)), 0.0, 96.0),
 	}
 
+## The SELECTED-cell focus ring (corner brackets) tuning from the workbench. Colours are saved as
+## 6-digit hex strings (no '#'); the rest are whole percents. Flows to the live board via board.gd
+## _focus_ring_opts → applied to the FocusRing control (engine/scripts/ui/focus_ring.gd).
+static func focus_ring_opts_from_config(cfg: Dictionary) -> Dictionary:
+	var f: Dictionary = cfg.get("focus_ring", {}) if cfg is Dictionary else {}
+	return {
+		"color": _hex_color(String(f.get("color", "33402F"))),
+		"halo_color": _hex_color(String(f.get("halo_color", "FBF3EA"))),
+		"halo_a": clampf(float(f.get("halo_a", 90.0)) / 100.0, 0.0, 1.0),
+		"arm_frac": clampf(float(f.get("arm_pct", 30.0)) / 100.0, 0.05, 0.50),
+		"thick_frac": clampf(float(f.get("thick_pct", 8.0)) / 100.0, 0.01, 0.20),
+		"pad_frac": clampf(float(f.get("pad_pct", 4.0)) / 100.0, 0.0, 0.20),
+		"halo": bool(f.get("halo", true)),
+	}
+
+## Parse a 6-digit hex string (with or without a leading '#') into a Color; falls back to white.
+static func _hex_color(hex: String) -> Color:
+	var h := hex.strip_edges()
+	if not h.begins_with("#"):
+		h = "#" + h
+	return Color.from_string(h, Color.WHITE)
+
 ## Board bottom action-bar tuning from the workbench. Values are saved as whole percents:
 ## icon_scale_pct is the single shared Bag/Home icon size; pad_*_pct are % of bar height; info_x_pct
 ## nudges only the center info content. Home and Bag keep fixed edge alignment.
@@ -3632,7 +3654,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## The bottom-bar INFO BAR style opts from a saved config — the board's centre pill (info ⓘ · selected
 ## piece + name · sell cart). The LAYOUT persists here; the FRAME comes from the shared code-drawn
 ## gold badge block, with the gold currency pill padding retained as the content margin.
-## inner_scale / sell_icon are stored 0..100 and divided here to the 0..1 fractions of the bar height.
+## inner_scale / sell_icon / item_icon_scale are stored 0..100 and divided here to fractions of the bar height.
 static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var i: Dictionary = cfg.get("info_bar", {}) if cfg is Dictionary else {}
 	# The content margins borrow the gold wallet's padding numbers, but the visible board comes from the
@@ -3640,8 +3662,8 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var pill: Dictionary = gold_currency_pill_opts_from_config(cfg)
 	return {
 		"height":      float(i.get("height", 130)),                 # the bar height (matches the Bag/Home wells)
-		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
-		"item_icon_scale": float(i.get("item_icon_scale", 80)) / 100.0, # selected item/generator art as % of that piece box
+		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ slot as % of the bar height
+		"item_icon_scale": float(i.get("item_icon_scale", 80)) / 100.0, # selected item/generator art as % of bar height
 		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
 		"info_y":      float(i.get("info_y", 0)),                   # nudge the info ⓘ button up(−) / down(+)
 		"info_button_scale": clampf(float(i.get("info_button_scale", 100)) / 100.0, 0.25, 2.0),
@@ -3669,13 +3691,14 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## sell_btn / inner_px / item_icon_scale / info_button_scale), so the board's selection logic is unchanged.
 ##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
-##     item_icon_scale (0..1, selected art inside the piece box) · info_x/info_y ·
+##     item_icon_scale (0..1+, selected art as % of bar height) · info_x/info_y ·
 ##     info_button_scale (0..1+, info-button art inside its fixed slot) · sell_font (payout number) ·
 ##     sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) · badge (the shared gold badge
 ##     frame opts) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var height := float(opts.get("height", 130.0))
-	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ + piece box scale with the bar
+	var inner := height * float(opts.get("inner_scale", 0.48))   # the info ⓘ slot scale with the bar
+	var item_icon_px := height * float(opts.get("item_icon_scale", 0.80))
 	var pill := PanelContainer.new()
 	pill.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -3697,10 +3720,22 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	pill.add_child(hb)
+	var item_text_row := HBoxContainer.new()
+	item_text_row.add_theme_constant_override("separation", 0)
+	item_text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	item_text_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	item_text_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(item_text_row)
 	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
-	info_icon.custom_minimum_size = Vector2(inner, inner)
+	info_icon.custom_minimum_size = Vector2(item_icon_px, height)
 	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hb.add_child(info_icon)
+	item_text_row.add_child(info_icon)
+	var text_stack := VBoxContainer.new()
+	text_stack.add_theme_constant_override("separation", 0)
+	text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_text_row.add_child(text_stack)
 	var info_btn_scale := clampf(float(opts.get("info_button_scale", 1.0)), 0.25, 2.0)
 	var info_btn_px := maxf(1.0, inner * info_btn_scale)
 	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
@@ -3718,12 +3753,6 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_btn.position = Vector2((inner - info_btn_px) * 0.5 + info_x, (inner - info_btn_px) * 0.5 + info_y)
 	info_slot.add_child(info_btn)
 	hb.add_child(info_slot)
-	var text_stack := VBoxContainer.new()
-	text_stack.add_theme_constant_override("separation", 0)
-	text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	text_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hb.add_child(text_stack)
 	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
 	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
 	name_label.add_theme_color_override("font_color", Pal.INK)
@@ -3832,6 +3861,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("sell_coin", sell_coin)
 	pill.set_meta("inner_px", inner)
 	pill.set_meta("item_icon_scale", float(opts.get("item_icon_scale", 0.80)))
+	pill.set_meta("item_icon_px", item_icon_px)
 	pill.set_meta("info_y", float(opts.get("info_y", 0.0)))
 	pill.set_meta("info_button_scale", info_btn_scale)
 	return pill

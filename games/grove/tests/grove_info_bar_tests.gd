@@ -38,6 +38,19 @@ func _initialize() -> void:
 		ok(board_scene._info_label.text == "Water drop · Tier 1", "the info bar names special drops instead of falling back to Item")
 		var desc_label: Label = board_scene.get("_info_desc_label") as Label
 		ok(desc_label != null and desc_label.visible and desc_label.text.contains("8 water"), "the info bar shows the selected item's useful hint")
+		var selected_icon_slot := board_scene.get("_info_icon") as Control
+		var selected_art := selected_icon_slot.get_child(0) as Control if selected_icon_slot != null and selected_icon_slot.get_child_count() > 0 else null
+		var expected_icon_px_raw = board_scene.get("_info_item_px")
+		var expected_icon_px := float(expected_icon_px_raw) if expected_icon_px_raw != null else -1.0
+		ok(expected_icon_px > float(board_scene.get("_info_inner_px")), \
+			"the live info bar item artwork size is based on bar height, not the info button slot")
+		ok(selected_art != null and is_equal_approx(selected_art.custom_minimum_size.x, expected_icon_px), \
+			"the live info bar selected item uses the height-based artwork size")
+		var selected_art_sprite := selected_art.get_node_or_null(NodePath("ItemArt")) as Control if selected_art != null else null
+		ok(selected_art_sprite != null \
+			and is_equal_approx(selected_art_sprite.offset_left, 0.0) \
+			and is_equal_approx(selected_art_sprite.offset_top, 0.0), \
+			"the live info bar selected item uses the full artwork box without board-cell inset")
 
 	# Focus + two-tap collect (real click routing): tapping a coin FOCUSES its cell (a corner-bracket
 	# frame appears) and a SECOND tap of the now-focused cell COLLECTS it. The frame is the on-board

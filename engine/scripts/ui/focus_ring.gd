@@ -5,14 +5,23 @@ extends Control
 ## visible (board.gd _show_focus). A soft wider underlay keeps the gold legible on any tile.
 ## Never eats input (the board surface stays the single input target).
 
-# --- TWEAK THE LOOK HERE -------------------------------------------------------------
-@export var color := Color("#33402F")   # bracket colour — dark ink-green, high-contrast on the cream cell + the gold coin
-@export var halo_color := Color("#FBF3EA")  # the light outline drawn BEHIND the brackets so they pop on any background
-@export var arm_frac := 0.30            # bracket arm length as a fraction of the cell
-@export var thick_frac := 0.085         # bracket line thickness as a fraction of the cell
-@export var pad_frac := 0.04            # inset of the bracket from the cell edge
-@export var halo := true                # a light underlay so dark brackets stay legible over dark art
+# --- TWEAK THE LOOK HERE (live-editable in the UI workbench → "Focus ring") --------
+@export var color := Color("#33402F"): set = _set_color   # bracket colour — high-contrast on the cream cell + the gold coin
+@export var halo_color := Color("#FBF3EA"): set = _set_halo_color  # the light outline drawn BEHIND the brackets so they pop on any background
+@export var halo_a := 0.9: set = _set_halo_a            # halo opacity
+@export var arm_frac := 0.30: set = _set_arm            # bracket arm length as a fraction of the cell
+@export var thick_frac := 0.08: set = _set_thick        # bracket line thickness as a fraction of the cell
+@export var pad_frac := 0.04: set = _set_pad            # inset of the bracket from the cell edge
+@export var halo := true: set = _set_halo               # a light underlay so the brackets stay legible over dark art
 # -------------------------------------------------------------------------------------
+
+func _set_color(v: Color) -> void: color = v; queue_redraw()
+func _set_halo_color(v: Color) -> void: halo_color = v; queue_redraw()
+func _set_halo_a(v: float) -> void: halo_a = v; queue_redraw()
+func _set_arm(v: float) -> void: arm_frac = v; queue_redraw()
+func _set_thick(v: float) -> void: thick_frac = v; queue_redraw()
+func _set_pad(v: float) -> void: pad_frac = v; queue_redraw()
+func _set_halo(v: bool) -> void: halo = v; queue_redraw()
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -35,7 +44,7 @@ func _draw() -> void:
 		[Vector2(hi, hi), Vector2(-1, 0), Vector2(0, -1)],  # bottom-right
 	]
 	if halo:
-		var hcol := Color(halo_color, 0.9)
+		var hcol := Color(halo_color, halo_a)
 		for c in corners:
 			_bracket(c[0], c[1], c[2], arm, w + maxf(3.0, s * 0.03), hcol)   # a light, wider outline behind
 	for c in corners:

@@ -158,8 +158,9 @@ var _info_buy: Button                # the buy-a-copy chip (a regular item's sec
 var _info_buy_sb: StyleBoxFlat       # the badge's style (mutated for affordable / dimmed states)
 var _info_buy_count: Label           # the price amount inside the badge
 var _info_buy_coin: Control          # the price-currency icon slot (coin / gem) inside the badge
-var _info_inner_px := 62.4           # the info bar's piece-preview box (from the kit's inner-control knob)
-var _info_item_icon_scale := 0.80    # selected item/generator art scale inside the info bar's preview box
+var _info_inner_px := 62.4           # the info bar's info-button slot (from the kit's inner-control knob)
+var _info_item_icon_scale := 0.80    # selected item/generator art scale as a fraction of the info bar height
+var _info_item_px := 62.4            # selected item/generator art size in the info bar
 var coins_label: Label
 var _2x_offer: Control = null   # the post-reward 2× "double your coins" card — pay 💎 to double a big quest coin reward (§10)
 var diamonds_label: Label
@@ -1609,8 +1610,9 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its content shows trash + payout
 	_info_trash_count = pill.get_meta("sell_count")  # the payout-amount label, set in _select_item
 	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
-	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the piece preview scales with the bar's inner-control knob
-	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale inside that fixed preview box
+	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the info-button slot scales with the bar's inner-control knob
+	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale as a fraction of bar height
+	_info_item_px = float(pill.get_meta("item_icon_px", _info_inner_px * _info_item_icon_scale))
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	return pill
@@ -1719,7 +1721,7 @@ func _select_item(cell: Vector2i) -> void:
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	_info_icon.add_child(_make_piece(code, _info_inner_px * _info_item_icon_scale))
+	_info_icon.add_child(PieceView.make_piece(code, _info_item_px, 0.0))
 	var nm: String = tr(G.item_display_name(code))
 	_info_label.text = "%s · %s %d" % [nm, Strings.t("board.info.tier"), tier]
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
@@ -1755,7 +1757,7 @@ func _select_generator(cell: Vector2i) -> void:
 	var gid := board.gen_id_at(cell)
 	for c in _info_icon.get_children():
 		c.queue_free()
-	var prev := PieceView.make_generator(gid, _info_inner_px * _info_item_icon_scale, {})
+	var prev := PieceView.make_generator(gid, _info_item_px, {})
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid)
@@ -1813,6 +1815,15 @@ func _show_focus(cell: Vector2i) -> void:
 		_focus_ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_focus_ring.z_index = 8                 # above resting pieces (z 0); below a lifted/dragged piece (z 20)
 		board_area.add_child(_focus_ring)
+	var o := _focus_ring_opts()                  # workbench-tuned colour/proportions (or the shipped look)
+	if not o.is_empty():
+		_focus_ring.color = o.color
+		_focus_ring.halo_color = o.halo_color
+		_focus_ring.halo_a = o.halo_a
+		_focus_ring.arm_frac = o.arm_frac
+		_focus_ring.thick_frac = o.thick_frac
+		_focus_ring.pad_frac = o.pad_frac
+		_focus_ring.halo = o.halo
 	_focus_ring.size = Vector2(csz, csz)
 	_focus_ring.position = _cell_pos(cell)
 	_focus_ring.visible = true
@@ -1821,6 +1832,14 @@ func _show_focus(cell: Vector2i) -> void:
 func _hide_focus() -> void:
 	if _focus_ring != null and is_instance_valid(_focus_ring):
 		_focus_ring.visible = false
+
+# The focus-ring look, tuned in the UI workbench (→ "Focus ring") and read through the SAME Kit
+# transform the workbench preview uses, so the board matches the preview 1:1. {} → the shipped defaults.
+func _focus_ring_opts() -> Dictionary:
+	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	if Kit == null:
+		return {}
+	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
 func _show_locked_cell_info(cell: Vector2i) -> void:
 	_clear_selection()

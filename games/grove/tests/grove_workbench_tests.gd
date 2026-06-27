@@ -927,7 +927,7 @@ func _test_new_knobs(view) -> void:
 	ok(_slider_max(view, "Icon Scale Pct") >= 95.0 and _slider_max(view, "Pad X Pct") >= 16.0 \
 		and _slider_min(view, "Info X Pct") <= -30.0 \
 		and _slider_max(view, "Bag X Pct") == -INF and _slider_max(view, "Home X Pct") == -INF \
-		and _slider_max(view, "Item Icon Scale") >= 120.0 \
+		and _slider_max(view, "Item Icon Scale") >= 160.0 \
 		and _slider_min(view, "Info Y") <= -120.0 \
 		and _slider_max(view, "Info Button Scale") >= 160.0, \
 		"merged info_bar sidebar exposes shared Bag/Home size but no Bag/Home x sliders")
@@ -950,7 +950,7 @@ func _test_new_knobs(view) -> void:
 		"default info_bar height matches the bottom-bar wells (130)")
 	var default_ib: Dictionary = Kit.info_bar_opts_from_config({})
 	ok(default_ib.has("item_icon_scale") and is_equal_approx(float(default_ib.get("item_icon_scale", -1.0)), 0.80), \
-		"default info_bar item_icon_scale preserves the shipped selected-item size")
+		"default info_bar item_icon_scale is 80 percent of bar height")
 	ok(default_ib.has("info_y") and is_equal_approx(float(default_ib.get("info_y", 99.0)), 0.0) \
 		and default_ib.has("info_button_scale") and is_equal_approx(float(default_ib.get("info_button_scale", -1.0)), 1.0), \
 		"default info_bar keeps the info button centered and full-size")
@@ -961,11 +961,22 @@ func _test_new_knobs(view) -> void:
 	var scaled_meta := float(scaled_bar.get_meta("item_icon_scale")) if scaled_bar.has_meta("item_icon_scale") else -1.0
 	ok(scaled_bar.has_meta("item_icon_scale") and is_equal_approx(scaled_meta, 1.15), \
 		"info_bar exposes item_icon_scale for live board and preview renderers")
+	ok(scaled_bar.has_meta("item_icon_px") and is_equal_approx(float(scaled_bar.get_meta("item_icon_px")), 172.5), \
+		"info_bar exposes selected item art size as a percent of bar height")
 	var scaled_info_btn := scaled_bar.get_meta("info_btn") as Button
 	var scaled_info_slot := scaled_info_btn.get_parent() as Control
 	var scaled_item_slot := scaled_bar.get_meta("info_icon") as Control
-	ok(scaled_item_slot.get_parent().get_child(0) == scaled_item_slot, \
+	var scaled_text_stack := (scaled_bar.get_meta("name_label") as Label).get_parent() as Control
+	var scaled_item_text_row := scaled_item_slot.get_parent() as HBoxContainer
+	ok(scaled_item_text_row != null and scaled_item_text_row.get_child(0) == scaled_item_slot, \
 		"the selected item icon starts at the left edge of the info content row")
+	ok(scaled_item_text_row != null \
+		and scaled_item_text_row.get_child(1) == scaled_text_stack \
+		and scaled_item_text_row.get_theme_constant("separation") == 0, \
+		"the selected item text starts immediately after the item icon")
+	ok(is_equal_approx(scaled_item_slot.custom_minimum_size.x, 172.5) \
+		and is_equal_approx(scaled_item_slot.custom_minimum_size.y, 150.0), \
+		"the selected item slot is sized from bar height, not the info button slot")
 	ok(scaled_bar.has_meta("info_button_scale") and is_equal_approx(float(scaled_bar.get_meta("info_button_scale")), 0.80), \
 		"info_bar exposes info button scale for preview renderers")
 	ok(is_equal_approx(scaled_info_btn.custom_minimum_size.x, 72.0) \
