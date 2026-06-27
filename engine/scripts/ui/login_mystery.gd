@@ -60,11 +60,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 	var on_done: Callable = opts.get("on_done", Callable())
 	var instant: bool = bool(opts.get("instant", false))
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 110                          # above the z=100 calendar overlay
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME, Overlay.MODAL_TOP_Z)  # the reel stacks above the daily calendar
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.INK, 0.6)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)

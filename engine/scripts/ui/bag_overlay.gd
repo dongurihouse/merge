@@ -86,11 +86,7 @@ static func open(host: Control, cfg: Dictionary) -> Control:
 	var gen_bag: Array = cfg.get("gen_bag", [])
 	var on_place_gen: Callable = cfg.get("on_place_gen", Callable())
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 60
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 
 	# the single dismiss seam: fire on_close once (if valid), then free the overlay. Reused by the
 	# backdrop tap, the ✕ button, a slot retrieve, and the next-slot buy.

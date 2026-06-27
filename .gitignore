@@ -44,3 +44,6 @@ games/placeholder/assets/llm/
 
 # Brainstorm visual companion scratch
 .superpowers/
+
+# Local feature worktrees
+.worktrees/

@@ -540,21 +540,19 @@ func _mark_seen(code: int) -> void:
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
-# [{line, seen, in_pool, code}] for the Producing dialog — one entry per line a generator can CURRENTLY make
-# (its roster `lines`, minus any still gated out by min_level). `in_pool` flags the lines the live pop pool
-# would spawn right now (the gold marked ring); `seen`/`code` carry the lowest-seen tier so a discovered line
-# shows its piece and an unseen one falls to the locked "?" well. Pure off the save + roster (tests use it).
+# [{line, seen, in_pool, code}] for the Producing dialog — one entry per line in the generator's roster, ALL
+# of them, so the dialog previews the generator's FULL line-up. Lines not yet grown in (still min_level-gated)
+# are simply unseen, so they render as locked placeholders alongside the discovered-but-undiscovered ones.
+# `in_pool` flags the lines the live pop pool would spawn right now (the gold marked ring); `seen`/`code` carry
+# the lowest-seen tier so a discovered line shows its piece and an unseen one falls to the locked placeholder
+# well. Pure off the save + roster (tests use it).
 func _gen_line_entries(gid: String) -> Array:
 	var lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
-	var level := _quest_level()
 	var seen: Dictionary = Save.grove().get("seen", {})
 	var pool: Array = _pop_pool_ctx()["pool"]
 	var out: Array = []
 	for l in lines:
 		var line := int(l)
-		# a line still gated by min_level isn't producible yet — leave it off the dialog (no future teasers).
-		if int(G.LINES.get(line, {}).get("min_level", 0)) > level:
-			continue
 		var code := _lowest_seen_code(line, seen)
 		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
 	return out

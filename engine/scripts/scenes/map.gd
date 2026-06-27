@@ -19,6 +19,7 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-overlay mount (one source of truth for dialog z)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -369,13 +370,12 @@ func _build_map(animate := true) -> void:
 		_seat_spots(z, home_dict, frame)
 	BootTrace.end("map.open.seat")
 	BootTrace.begin("map.open.ambient")
-	# ambient life + title — every map. On a COMPLETED map the wanderers ARE its residents (the §1
-	# population sub-game); an in-progress map keeps the baseline generic ambient.
-	var amb: Control
-	if G.can_populate(z, unlocks, _gates()):
-		amb = Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
-	else:
-		amb = Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
+	# ambient life — every map. The wanderers ARE the map's placed residents (the §1 population
+	# sub-game): one sprite per placed spirit, EMPTY until something is placed. A map opens to
+	# placement at its FIRST restored spot (resident_capacity ramps 1 → MAX), so a single complete
+	# zone hosts one resident and it shows here. (The old generic moss/acorn/lantern wander fallback
+	# for not-yet-populated maps was retired — ambient life now derives solely from the habitat.)
+	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)
@@ -2054,11 +2054,7 @@ func _open_expedition() -> void:
 	if Kit == null:
 		return
 	var equip := {"v": {}}                # boxed so the toggle callbacks can mutate the chosen boosts
-	var overlay := Control.new()
-	overlay.name = "ExpeditionOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
+	var overlay := Overlay.mount(self, "ExpeditionOverlay")
 	var veil := ColorRect.new()
 	veil.color = Color(DOCK_INK, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2072,7 +2068,6 @@ func _open_expedition() -> void:
 	overlay.add_child(cc)
 	var width: float = minf(get_viewport_rect().size.x * 0.9, 540.0)
 	var switch_h := 40.0
-	var switches := {}
 	var ui_refs := {"cost_chip": null, "go": null}
 	var refresh_state := func() -> void:
 		var cost_chip := ui_refs.get("cost_chip", null) as Button
@@ -2081,20 +2076,11 @@ func _open_expedition() -> void:
 		var go_btn := ui_refs.get("go", null) as Button
 		if is_instance_valid(go_btn):
 			go_btn.disabled = not Explore.can_start(equip.v)
-	var set_switch := func(id: String, on: bool) -> void:
-		var sw := switches.get(id, null) as Button
-		if sw == null or not is_instance_valid(sw):
-			return
-		sw.set_meta("on", on)
-		Look._switch_paint(sw, on, switch_h)
-	var on_switch_pressed := func(boost_id: String, sw: Button) -> void:
-		var want := bool(sw.get_meta("on"))
-		equip.v[boost_id] = want
-		if want and Explore.start_cost(equip.v) > Save.coins():
-			equip.v[boost_id] = false      # can't afford (base + boosts) — leave it off
-			set_switch.call(boost_id, false)
-		Audio.play("button_tap", -2.0)
-		refresh_state.call()
+	var make_loadout_toggle := func(boost_id: String) -> Callable:
+		return func(want: bool) -> void:
+			equip.v[boost_id] = want
+			Audio.play("button_tap", -2.0)
+			refresh_state.call()
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(width - 64.0, 0)
@@ -2114,14 +2100,9 @@ func _open_expedition() -> void:
 			"body": String(it.eff),
 			"cost": int(it.cost),
 			"value": bool(equip.v.get(id, false)),
+			"on_toggle": make_loadout_toggle.call(id),
 		}, {"label_font": 19, "body_font": 15, "switch_h": switch_h, "card_art": true})
 		col.add_child(card)
-		for b in card.find_children("", "Button", true, false):
-			if (b as Button).has_meta("on"):
-				var sw := b as Button
-				switches[id] = sw
-				sw.pressed.connect(on_switch_pressed.bind(id, sw))
-				break
 	# total set-off cost as a shared cream amount chip
 	var chips := HBoxContainer.new()
 	chips.add_theme_constant_override("separation", 10)
@@ -2425,11 +2406,7 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 	if Kit == null:
 		_task_reward_fx(coins, gems)          # defensive: at least play the float FX if the kit is absent
 		return
-	var overlay := Control.new()
-	overlay.name = "UnlockRewardOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
+	var overlay := Overlay.mount(self, "UnlockRewardOverlay")
 	var dismiss := func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()

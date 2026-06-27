@@ -37,11 +37,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var on_line: Callable = opts.get("on_line", Callable())
 	Audio.play("button_tap", -4.0)
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.GROUND_EDGE, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -66,13 +62,38 @@ static func open(host: Control, opts: Dictionary) -> void:
 	dopts["show_num"] = false
 	dopts["banner_text"] = Strings.t("producing.title")
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
-		return PieceView.make_piece(int(d.get("code", 0)), px)
+		var piece := PieceView.make_piece(int(d.get("code", 0)), px)
+		# a SEEN but NOT-in-pool line is a discovered line the generator ISN'T making right now — recede it
+		# (greyscale + faded) so only the live pop pool's pieces read as "currently producing".
+		if not bool(d.get("marked", false)):
+			_recede(piece)
+		return piece
 	dopts["on_close"] = func() -> void:
 		if is_instance_valid(overlay): overlay.queue_free()
 
 	var dialog: Control = Kit.tiers_dialog(_cells(entries, on_line), width, dopts)
 	cc.add_child(dialog)
 	FX.pop_in(dialog)
+
+# Desaturate (greyscale) the discovered-but-inactive cell's sprite so it clearly recedes behind the live
+# pool's full-colour pieces; the holder fade also dims its contact shadow. One shared material across cells.
+const _RECEDE_SHADER := "shader_type canvas_item;\nvoid fragment() {\n\tvec4 c = texture(TEXTURE, UV);\n\tfloat g = dot(c.rgb, vec3(0.299, 0.587, 0.114));\n\tc.rgb = mix(c.rgb, vec3(g), 0.92);\n\tc.rgb *= 0.92;\n\tCOLOR = c;\n}\n"
+static var _recede_mat: ShaderMaterial
+
+static func _recede(piece: Control) -> void:
+	piece.modulate = Color(1.0, 1.0, 1.0, 0.62)        # fade the whole piece (sprite + contact shadow) back
+	if _recede_mat == null:
+		var sh := Shader.new()
+		sh.code = _RECEDE_SHADER
+		_recede_mat = ShaderMaterial.new()
+		_recede_mat.shader = sh
+	_apply_mat(piece, _recede_mat)
+
+static func _apply_mat(n: Node, mat: ShaderMaterial) -> void:
+	if n is TextureRect or n is Sprite2D:
+		(n as CanvasItem).material = mat
+	for c in n.get_children():
+		_apply_mat(c, mat)
 
 # Map line entries → kit discovery cells. tier 0 keeps the number badge off; marked rides the live pop pool;
 # `code` feeds make_content's piece (only a SEEN line is filled); on_tap drills a seen line into its ladder.
