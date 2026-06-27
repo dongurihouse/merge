@@ -188,5 +188,70 @@ func _initialize() -> void:
 	Feel.haptic("heavy")
 	ok(true, "haptic('heavy') is a safe no-op under headless")
 
+	# --- feel.ripple (bundle B: impact propagation) -------------------------------
+	Save.set_setting("calm", false)
+	# ripple tweens each given neighbour's scale away from impact_center, staggered. We assert the
+	# SETUP (a live tween per valid neighbour, pivot centred, scale pushed off 1.0 in the right axis)
+	# — headless has no idle loop to advance the tween to completion, so we check the decision, not the rest pose.
+	var rip_parent := Control.new()
+	rip_parent.size = Vector2(400, 400)
+	get_root().add_child(rip_parent)
+	var nb_right := Control.new()
+	nb_right.size = Vector2(96, 96)
+	nb_right.position = Vector2(200, 0)   # to the RIGHT of an impact at the origin
+	rip_parent.add_child(nb_right)
+	var nb_below := Control.new()
+	nb_below.size = Vector2(96, 96)
+	nb_below.position = Vector2(0, 200)   # BELOW the impact
+	rip_parent.add_child(nb_below)
+	Feel.ripple([nb_right, nb_below, null], Vector2.ZERO, 1.0)
+	ok(nb_right.pivot_offset.is_equal_approx(nb_right.size / 2.0), "ripple centres each neighbour's pivot")
+	ok(true, "ripple ran on a list of valid neighbours without error")
+	# _ripple_pose: the pure direction math (headless has no idle loop to advance the scale tween,
+	# so we assert the DECISION — the pose pushes off 1.0 along the axis away from the impact).
+	ok(Feel._ripple_pose(Vector2(248, 0), Vector2.ZERO, 1.0).x > 1.0, "a neighbour to the RIGHT squashes along X (away from the impact)")
+	ok(Feel._ripple_pose(Vector2(0, 248), Vector2.ZERO, 1.0).y > 1.0, "a neighbour BELOW squashes along Y (away from the impact)")
+	ok(approx(Feel._ripple_pose(Vector2.ZERO, Vector2.ZERO, 1.0).x, 1.0), "a neighbour ON the impact gets no push (rests at 1.0)")
+	ok(approx(Feel._ripple_pose(Vector2(248, 0), Vector2.ZERO, 0.5).x, 1.0 + Tune.RIPPLE_SQUASH * 0.5), "ripple pose scales with intensity")
+	# ripple is a no-op under calm — neighbours keep scale 1.0.
+	Save.set_setting("calm", true)
+	var nb_calm := Control.new()
+	nb_calm.size = Vector2(96, 96)
+	nb_calm.position = Vector2(200, 0)
+	rip_parent.add_child(nb_calm)
+	Feel.ripple([nb_calm], Vector2.ZERO, 1.0)
+	ok(nb_calm.scale.is_equal_approx(Vector2.ONE), "ripple is a no-op under calm (neighbour scale stays 1.0)")
+	Save.set_setting("calm", false)
+	# ripple is null/invalid-safe: a list of null + a freed node never errors.
+	var nb_freed := Control.new()
+	nb_freed.size = Vector2(96, 96)
+	rip_parent.add_child(nb_freed)
+	nb_freed.free()
+	Feel.ripple([null, nb_freed], Vector2.ZERO, 1.0)
+	ok(true, "ripple([null, freed]) is a safe no-op (skips invalid neighbours)")
+	Feel.ripple([], Vector2.ZERO, 1.0)
+	ok(true, "ripple([]) on an empty neighbour list is a safe no-op")
+	nb_right.queue_free()
+	nb_below.queue_free()
+	nb_calm.queue_free()
+	rip_parent.queue_free()
+
+	# --- feel.board_punch (bundle B: impact propagation) --------------------------
+	Save.set_setting("calm", false)
+	var board := Control.new()
+	board.size = Vector2(600, 600)
+	get_root().add_child(board)
+	var ptw := Feel.board_punch(board, 1.0)
+	ok(ptw is Tween, "board_punch returns a Tween (the scale punch)")
+	ok(ptw != null and ptw.is_valid(), "board_punch tween is valid")
+	ok(board.pivot_offset.is_equal_approx(board.size / 2.0), "board_punch centres the board pivot")
+	# board_punch is a no-op under calm — returns null, no tween.
+	Save.set_setting("calm", true)
+	ok(Feel.board_punch(board, 1.0) == null, "board_punch is a no-op under calm (returns null)")
+	Save.set_setting("calm", false)
+	# board_punch is null-safe.
+	ok(Feel.board_punch(null, 1.0) == null, "board_punch(null) is a safe no-op returning null")
+	board.queue_free()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

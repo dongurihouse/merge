@@ -404,7 +404,53 @@ static func _haptic_weight_ms(weight: String) -> int:
 static func _haptic_allowed(now_ms: int, last_ms: int) -> bool:
 	return now_ms - last_ms >= Tune.HAPTIC_THROTTLE_MS
 
+## The RIPPLE — the up-to-4 orthogonal neighbours of a discrete impact (a merge or a land) jiggle
+## OUTWARD from the hit, staggered so the wave reads as travelling. Each neighbour squashes along the
+## AXIS pointing away from `impact_center` (RIPPLE_SQUASH * intensity), held briefly, then springs back
+## to 1.0 — a SINE in/out so it never snaps. The neighbour list is gathered SCENE-SIDE (the scene owns
+## the grid); this verb only animates the nodes it's handed. Hard no-op under calm (motion accessibility),
+## and per-neighbour null/invalid-safe (a freed or empty cell is skipped, never errors). Every tween ends
+## on Vector2.ONE, so a neighbour can't leak off-scale even if it's interrupted partway by the next ripple
+## (create_tween on the SAME node auto-kills the prior one, so a re-rippled neighbour restarts cleanly
+## rather than stacking — no scale leak).
 static func ripple(neighbors: Array, impact_center: Vector2, intensity := 1.0) -> void:
-	pass
-static func board_punch(board: Control, intensity := 1.0) -> void:
-	pass
+	if FX.calm():
+		return
+	var i := 0
+	for nb in neighbors:
+		if nb == null or not is_instance_valid(nb) or not (nb is Control):
+			continue
+		var n := nb as Control
+		var sz := n.size if n.size.x > 0.0 and n.size.y > 0.0 else n.custom_minimum_size
+		n.pivot_offset = sz / 2.0
+		var pose := _ripple_pose(n.global_position + sz / 2.0, impact_center, intensity)
+		var t := n.create_tween()   # same-node create_tween kills any prior ripple — restarts clean, no stacking
+		if i > 0:
+			t.tween_interval(i * Tune.RIPPLE_STAGGER_MS / 1000.0)
+		t.tween_property(n, "scale", pose, 0.05).set_trans(Tween.TRANS_SINE)
+		t.tween_property(n, "scale", Vector2.ONE, 0.08).set_trans(Tween.TRANS_SINE)
+		i += 1
+
+# --- ripple pure helper (no scene tree — unit-tested in feel_tests.gd) ----------------
+
+## The squash pose for a neighbour at `nb_center` reacting to an impact at `impact_center`: push the
+## scale OFF 1.0 by RIPPLE_SQUASH*intensity along the (abs) direction away from the impact, so a tile to
+## the side stretches along X and a tile above/below along Y. A neighbour sitting exactly on the impact
+## (zero direction) gets no push (rests at 1.0). Pure — testable without the tween clock.
+static func _ripple_pose(nb_center: Vector2, impact_center: Vector2, intensity: float) -> Vector2:
+	var dir := (nb_center - impact_center).normalized()
+	return Vector2.ONE + dir.abs() * (Tune.RIPPLE_SQUASH * intensity)
+
+## The BOARD PUNCH — a whole-board scale pulse on a BIG merge (tier >= ESCALATE_TIER): the board snaps up
+## to 1 + PUNCH*intensity then springs back to 1.0 (a QUAD-out punch, BACK-out settle for a tiny overshoot).
+## Reserved for the pinnacle moments only — co-fires with feel.merge's reserved shake there. Returns the
+## scale Tween (so a caller could chain) or null when suppressed. Hard no-op under calm + null-safe; the
+## settle always lands on Vector2.ONE, so the board can't leak off-scale.
+static func board_punch(board: Control, intensity := 1.0) -> Tween:
+	if FX.calm() or board == null or not is_instance_valid(board):
+		return null
+	board.pivot_offset = board.size / 2.0
+	var t := board.create_tween()   # same-node create_tween kills any prior punch — no stacking
+	t.tween_property(board, "scale", Vector2.ONE * (1.0 + Tune.PUNCH * intensity), Tune.PUNCH_T * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(board, "scale", Vector2.ONE, Tune.PUNCH_T * 0.5).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	return t
