@@ -34,6 +34,7 @@ const FLAGS := [
 	{"key": "music", "label": "Music", "def": false},
 	{"key": "sfx", "label": "Sounds", "def": true},
 	{"key": "calm", "label": "Calm mode", "def": false},
+	{"key": "haptics", "label": "Vibration", "def": true},
 ]
 
 static func open(host: Control) -> void:

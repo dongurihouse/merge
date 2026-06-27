@@ -7,6 +7,7 @@ extends RefCounted
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 const LEAF := Color("#7FB069")
@@ -369,8 +370,40 @@ static func _move_lean(node: Control, from: Vector2, to: Vector2, kind: String, 
 	var t := node.create_tween()
 	t.tween_property(node, "rotation", lean, dur * 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	t.tween_property(node, "rotation", 0.0, dur * 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+## A real handheld VIBRATION pulse — the tactile spine all four verbs already CALL (merge/land/
+## launch pass a weight). `weight` picks the pulse length from Tune.HAPTIC_MS. Hard-off when the
+## player's "haptics" setting (Settings card) is OFF and under headless (no vibrator, no felt effect,
+## and a vibrate would touch a real device input on a test bot). A global THROTTLE (HAPTIC_THROTTLE_MS)
+## collapses a burst of near-simultaneous pulses (a settling column firing N lands) into one buzz, so
+## the motor never machine-guns. The throttle DECISION is a pure helper (_haptic_allowed) so it unit-tests
+## without a vibrator.
+static var _last_haptic := -100000
 static func haptic(weight := "soft") -> void:
-	pass
+	if not _haptics_enabled() or DisplayServer.get_name() == "headless":
+		return
+	var now := Time.get_ticks_msec()
+	if not _haptic_allowed(now, _last_haptic):
+		return
+	_last_haptic = now
+	Input.vibrate_handheld(_haptic_weight_ms(weight))
+
+# --- haptic pure helpers (no vibrator — unit-tested in feel_tests.gd) ------------------
+
+## The "haptics" player setting (Settings card, default ON), read the same pull-based way FX.calm()
+## reads "calm" — so toggling it applies immediately, no caching.
+static func _haptics_enabled() -> bool:
+	return Save.get_setting("haptics", true)
+
+## Weight -> pulse length (ms) via Tune.HAPTIC_MS, with a 14ms fallback for an unknown weight.
+static func _haptic_weight_ms(weight: String) -> int:
+	return int(Tune.HAPTIC_MS.get(weight, 14))
+
+## The pure THROTTLE decision: is a pulse allowed at `now_ms` given the last allowed pulse at `last_ms`?
+## True when at least HAPTIC_THROTTLE_MS has elapsed (so a rapid burst collapses to one buzz). Passing
+## `now`/`last` in keeps it deterministic + testable without the real clock or a vibrator.
+static func _haptic_allowed(now_ms: int, last_ms: int) -> bool:
+	return now_ms - last_ms >= Tune.HAPTIC_THROTTLE_MS
+
 static func ripple(neighbors: Array, impact_center: Vector2, intensity := 1.0) -> void:
 	pass
 static func board_punch(board: Control, intensity := 1.0) -> void:

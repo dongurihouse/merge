@@ -6,6 +6,7 @@ extends SceneTree
 
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
+const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0
@@ -158,6 +159,34 @@ func _initialize() -> void:
 
 	# move() must be a safe no-op on a null/invalid node — returns null, never errors.
 	ok(Feel.move(null, Vector2.ZERO, Vector2(10, 0), "slide") == null, "move(null, ...) is a safe no-op returning null")
+
+	# --- feel.haptic (bundle A: tactile) -----------------------------------------
+	# The setting reads the same way FX.calm() does (Save.get_setting). Default is ON (true).
+	ok(Feel._haptics_enabled() == true, "haptics setting defaults ON")
+	Save.set_setting("haptics", false)
+	ok(Feel._haptics_enabled() == false, "haptics setting reads OFF when the flag is cleared")
+	Save.set_setting("haptics", true)
+	ok(Feel._haptics_enabled() == true, "haptics setting reads ON again when re-enabled")
+
+	# _haptic_weight_ms: weight -> ms via HAPTIC_MS, with a 14ms fallback for an unknown weight.
+	ok(Feel._haptic_weight_ms("tick") == int(Tune.HAPTIC_MS["tick"]), "tick weight maps to HAPTIC_MS['tick']")
+	ok(Feel._haptic_weight_ms("soft") == int(Tune.HAPTIC_MS["soft"]), "soft weight maps to HAPTIC_MS['soft']")
+	ok(Feel._haptic_weight_ms("firm") == int(Tune.HAPTIC_MS["firm"]), "firm weight maps to HAPTIC_MS['firm']")
+	ok(Feel._haptic_weight_ms("heavy") == int(Tune.HAPTIC_MS["heavy"]), "heavy weight maps to HAPTIC_MS['heavy']")
+	ok(Feel._haptic_weight_ms("nonsense") == 14, "an unknown weight falls back to 14ms")
+
+	# _haptic_allowed(now_ms, last_ms): the PURE throttle decision (testable without a vibrator).
+	# Allowed when never fired before, or when >= HAPTIC_THROTTLE_MS since the last allowed pulse.
+	ok(Feel._haptic_allowed(0, -100000), "a haptic is allowed when none has fired yet")
+	ok(not Feel._haptic_allowed(1000, 1000), "a repeat at the same instant is throttled")
+	ok(not Feel._haptic_allowed(1000 + Tune.HAPTIC_THROTTLE_MS - 1, 1000), "a repeat just under the throttle window is suppressed")
+	ok(Feel._haptic_allowed(1000 + Tune.HAPTIC_THROTTLE_MS, 1000), "a repeat at exactly the throttle window is allowed")
+	ok(Feel._haptic_allowed(1000 + Tune.HAPTIC_THROTTLE_MS + 50, 1000), "a repeat past the throttle window is allowed")
+
+	# haptic() stays a safe no-op under headless (no real vibrator) — calling it never errors and,
+	# because of the headless guard, never advances the throttle clock.
+	Feel.haptic("heavy")
+	ok(true, "haptic('heavy') is a safe no-op under headless")
 
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
