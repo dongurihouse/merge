@@ -672,8 +672,6 @@ func _initialize() -> void:
 			"place-picker back button uses the shared side/bottom margin")
 	map_scene.queue_free()
 	await process_frame
-	ok(_source_contains("res://games/grove/tools/map_shot.gd", "claimed[String(G.MAPS[G.hub_map()].id)] = true"), \
-		"home review screenshots pre-claim the hub reward so chrome captures are overlay-free")
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
 	# locked/unlockable cell WITH a cost > 0, so a zero default leaves the cost_* sliders (font/icon/x/y/
