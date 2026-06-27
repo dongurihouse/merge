@@ -43,6 +43,14 @@ const MAP_CARD_PILL_ASPECT := 293.0 / 102.0        # pill_left's aspect
 const MAP_FRAME_NODE := "MapGoldFrame"             # the open card's shared gold-badge frame (tests assert it)
 const MAP_CARD_LOCK := "map/lock_flower.png"       # the standalone lock medallion centred on a locked card
 const MAP_LOCK_NODE := "MapLockMedallion"          # the locked card's centred lock medallion (tests assert it)
+const MAP_LEFT_LOCKED_PREVIEW := "map/left_locked_preview.png"
+const MAP_LEFT_LOCKED_PREVIEW_INNER := "map/left_locked_preview_inner.png"
+const MAP_LEFT_LOCK_FLOWER_LARGE := "map/left_lock_flower_large.png"
+const MAP_LEFT_LOCK_FLOWER_SOFT := "map/left_lock_flower_soft.png"
+const MAP_LEFT_TITLE_PLATE := "map/left_title_plate.png"
+const MAP_LEFT_LEAF_LEFT := "map/left_leaf_left.png"
+const MAP_LEFT_LEAF_RIGHT := "map/left_leaf_right.png"
+const MAP_LOCKED_PREVIEW_NODE := "MapLockedPreviewArt"
 const LOCK_FILL_TOP := Color(0.165, 0.490, 0.588)  # locked-card interior gradient — teal at top …
 const LOCK_FILL_BOTTOM := Color(0.235, 0.290, 0.275)  # … to a muted dark at the base (sampled from card_locked)
 # Draws the locale art COVER-fitted to fill the inner rect, clipped to a rounded rect so it tucks INSIDE the
@@ -4085,6 +4093,7 @@ static func board_panel(size: Vector2, opts: Dictionary = {}) -> Control:
 		np.patch_margin_bottom = cap
 		np.axis_stretch_horizontal = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 		np.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
+		np.draw_center = bool(opts.get("draw_center", true))
 		np.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		root.add_child(np)
 	return root
@@ -4560,6 +4569,7 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 # board-consistent). Named so tests + the fill can find it. Open AND locked cards wear the SAME frame, so
 # the picker reads as one surface; only the interior (lit art vs dark veil) tells them apart.
 static func _map_add_frame(card: Control, badge_opts: Dictionary) -> void:
+	_map_add_card_shell(card, badge_opts)
 	var cap := gold_badge_cap(badge_opts)
 	var frame := NinePatchRect.new()
 	frame.name = MAP_FRAME_NODE
@@ -4573,6 +4583,96 @@ static func _map_add_frame(card: Control, badge_opts: Dictionary) -> void:
 	frame.axis_stretch_vertical = NinePatchRect.AXIS_STRETCH_MODE_STRETCH
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(frame)
+
+static func _map_add_card_shell(card: Control, badge_opts: Dictionary) -> void:
+	if card.find_child("MapCardShadow", false, false) != null:
+		return
+	var cap := float(gold_badge_cap(badge_opts))
+	var radius := int(maxf(18.0, cap * 0.58))
+	var shadow := Panel.new()
+	shadow.name = "MapCardShadow"
+	shadow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shadow.offset_left = 4.0
+	shadow.offset_top = 5.0
+	shadow.offset_right = 2.0
+	shadow.offset_bottom = 5.0
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sh := StyleBoxFlat.new()
+	sh.bg_color = Color(0.10, 0.055, 0.025, 0.28)
+	sh.set_corner_radius_all(radius)
+	shadow.add_theme_stylebox_override("panel", sh)
+	card.add_child(shadow)
+	var rim := Panel.new()
+	rim.name = "MapCardOuterBorder"
+	rim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rs := StyleBoxFlat.new()
+	rs.bg_color = Color(0, 0, 0, 0)
+	rs.border_color = Color(0.13, 0.075, 0.028, 0.58)
+	rs.set_border_width_all(4)
+	rs.set_corner_radius_all(radius)
+	rim.add_theme_stylebox_override("panel", rs)
+	card.add_child(rim)
+
+static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := false) -> TextureRect:
+	var leaf := TextureRect.new()
+	leaf.name = node_name
+	var path := Look.kit(rel)
+	leaf.texture = load(path) if ResourceLoader.exists(path) else null
+	leaf.ignore_texture_size = true
+	leaf.custom_minimum_size = size
+	leaf.size = size
+	leaf.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	leaf.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	leaf.flip_h = flip_h
+	leaf.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return leaf
+
+static func _map_add_title_plate(card: Control, d: Dictionary, card_w: float, card_h: float) -> void:
+	var title := String(d.get("title", "")).strip_edges()
+	if title == "":
+		return
+	var plate := Control.new()
+	plate.name = "MapCardTitlePlate"
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ph := clampf(card_h * 0.125, 36.0, 54.0)
+	var pw := clampf(maxf(152.0, float(title.length()) * ph * 0.34 + 76.0), 152.0, card_w * 0.46)
+	plate.size = Vector2(pw, ph)
+	plate.custom_minimum_size = plate.size
+	plate.position = Vector2(card_w * 0.035, card_h * 0.035)
+	var bg_path := Look.kit(MAP_LEFT_TITLE_PLATE)
+	if ResourceLoader.exists(bg_path):
+		var bg := TextureRect.new()
+		bg.texture = load(bg_path)
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_SCALE
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plate.add_child(bg)
+	else:
+		var panel := Panel.new()
+		panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ps := StyleBoxFlat.new()
+		ps.bg_color = Color(Pal.CREAM, 0.92)
+		ps.border_color = Color(Pal.BARK, 0.28)
+		ps.set_border_width_all(2)
+		ps.set_corner_radius_all(10)
+		panel.add_theme_stylebox_override("panel", ps)
+		plate.add_child(panel)
+	var lbl := Label.new()
+	lbl.text = title
+	lbl.add_theme_font_size_override("font_size", int(clampf(ph * 0.48, 19.0, 27.0)))
+	lbl.add_theme_color_override("font_color", Pal.INK)
+	lbl.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.7))
+	lbl.add_theme_constant_override("outline_size", 2)
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.position = Vector2(24.0, 2.0)
+	lbl.size = Vector2(maxf(2.0, pw - 48.0), ph - 4.0)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(lbl)
+	card.add_child(plate)
 
 # The card's interior fill: `tex` COVER-sampled to FILL the box right up to the frame's gold rim — tucked
 # just past the badge groove (inner_inset) so the art meets the rim with NO cream gap, and never stretched
@@ -4604,6 +4704,7 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	_map_add_fill(card, fill_tex, badge_opts, card_w, card_h)
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
+	_map_add_title_plate(card, d, card_w, card_h)
 	_map_count_pill(d, opts, card, card_w, card_h)
 	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
 	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
@@ -4640,41 +4741,80 @@ static func _map_add_gradient_fill(card: Control, badge_opts: Dictionary, card_w
 	card.add_child(fill)
 	return fill
 
-# A LOCKED place: the SAME shared gold frame as an open card + a dark gradient interior carrying the
+static func _map_add_locked_preview(card: Control, opts: Dictionary, badge_opts: Dictionary, card_w: float, card_h: float) -> Control:
+	var preview_rel := MAP_LEFT_LOCKED_PREVIEW_INNER if ResourceLoader.exists(Look.kit(MAP_LEFT_LOCKED_PREVIEW_INNER)) else MAP_LEFT_LOCKED_PREVIEW
+	var preview_path := Look.kit(preview_rel)
+	if bool(opts.get("use_art", true)) and ResourceLoader.exists(preview_path):
+		var preview := _map_add_fill(card, load(preview_path), badge_opts, card_w, card_h)
+		preview.name = MAP_LOCKED_PREVIEW_NODE
+		preview.set_meta("asset_rel", preview_rel)
+		return preview
+	var fill := _map_add_gradient_fill(card, badge_opts, card_w, card_h)
+	fill.name = MAP_LOCKED_PREVIEW_NODE
+	return fill
+
+# A LOCKED place: the SAME shared gold frame as an open card + generated teal map preview art carrying the
 # standalone lock medallion (centred), with the "after <prev>" prerequisite line low. Open and locked read
-# as one surface — same frame — distinguished by the lit art vs the dark veil + lock.
+# as one surface — same frame — distinguished by the lit art vs the veiled preview + lock.
 static func _map_card_locked(d: Dictionary, opts: Dictionary, card: Control, card_w: float, card_h: float) -> void:
 	var badge_opts: Dictionary = opts.get("badge", {})
 	_map_add_frame(card, badge_opts)
-	_map_add_gradient_fill(card, badge_opts, card_w, card_h)
+	_map_add_locked_preview(card, opts, badge_opts, card_w, card_h)
 	# the standalone lock medallion, centred (lifted slightly so the prerequisite line clears it).
-	var lock_path := Look.kit(MAP_CARD_LOCK)
+	var lock_rel := MAP_LEFT_LOCK_FLOWER_SOFT if bool(opts.get("use_art", true)) and ResourceLoader.exists(Look.kit(MAP_LEFT_LOCK_FLOWER_SOFT)) else MAP_CARD_LOCK
+	var lock_path := Look.kit(lock_rel)
 	if ResourceLoader.exists(lock_path):
 		var med := TextureRect.new()
 		med.name = MAP_LOCK_NODE
 		med.texture = load(lock_path)
 		med.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		med.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		med.set_meta("asset_rel", lock_rel)
 		var msz := clampf(card_h * 0.44, 56.0, 260.0)
 		med.custom_minimum_size = Vector2(msz, msz)
 		med.size = Vector2(msz, msz)
 		med.position = Vector2((card_w - msz) * 0.5, (card_h - msz) * 0.5 - card_h * 0.07)
 		med.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		card.add_child(med)
-	# the prerequisite line, low on the panel.
+	# the prerequisite line, low on the panel, wrapped by small leaf ornaments.
+	var row := Control.new()
+	row.name = "MapLockedPrereqRow"
+	var prereq := String(d.get("prereq", ""))
+	var prereq_font := int(clampf(card_h * 0.115, 18.0, 27.0))
+	var leaf_size := Vector2(
+		clampf(float(prereq_font) * 1.05, 22.0, 32.0),
+		clampf(float(prereq_font) * 0.74, 15.0, 22.0)
+	)
+	var row_gap := clampf(card_w * 0.018, 8.0, 12.0)
+	var text_est := clampf(float(prereq.length()) * float(prereq_font) * 0.54, card_w * 0.26, card_w * 0.48)
+	var row_w := clampf(text_est + leaf_size.x * 2.0 + row_gap * 2.0, card_w * 0.40, card_w * 0.66)
+	var row_h := maxf(float(prereq_font) * 1.45, leaf_size.y + 8.0)
+	row.position = Vector2((card_w - row_w) * 0.5, card_h - row_h - card_h * 0.145)
+	row.size = Vector2(row_w, row_h)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(row)
+	var left_leaf := _map_leaf(MAP_LEFT_LEAF_LEFT, "MapLockedPrereqLeafLeft", leaf_size)
+	left_leaf.position = Vector2(0.0, (row_h - leaf_size.y) * 0.5)
+	left_leaf.modulate = Color(1, 1, 1, 0.9)
+	row.add_child(left_leaf)
+	var right_leaf := _map_leaf(MAP_LEFT_LEAF_RIGHT, "MapLockedPrereqLeafRight", leaf_size)
+	right_leaf.position = Vector2(row_w - leaf_size.x, (row_h - leaf_size.y) * 0.5)
+	right_leaf.modulate = Color(1, 1, 1, 0.9)
+	row.add_child(right_leaf)
 	var state_l := Label.new()
-	state_l.text = String(d.get("prereq", ""))
-	state_l.add_theme_font_size_override("font_size", int(clampf(card_h * 0.135, 18.0, 30.0)))
+	state_l.name = "MapLockedPrereqLabel"
+	state_l.text = prereq
+	state_l.add_theme_font_size_override("font_size", prereq_font)
 	state_l.add_theme_color_override("font_color", Color(Pal.CREAM, 0.88))
 	state_l.add_theme_color_override("font_outline_color", Pal.INK)
 	state_l.add_theme_constant_override("outline_size", 5)
 	state_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	state_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	state_l.autowrap_mode = TextServer.AUTOWRAP_WORD
-	state_l.position = Vector2(card_w * 0.12, card_h - card_h * 0.30)
-	state_l.size = Vector2(card_w * 0.76, card_h * 0.24)
+	state_l.position = Vector2(leaf_size.x + row_gap, 0.0)
+	state_l.size = Vector2(row_w - (leaf_size.x + row_gap) * 2.0, row_h)
 	state_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	card.add_child(state_l)
+	row.add_child(state_l)
 
 # The restore count on an open card's lower edge: a cream pill (pill_left) carrying "owned / total"
 # restored-zone progress (panel-text law: dark INK, no halo).
@@ -4862,6 +5002,8 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
+		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident circle diameter px
+		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident circles px
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 

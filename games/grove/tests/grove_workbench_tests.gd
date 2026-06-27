@@ -661,14 +661,20 @@ func _initialize() -> void:
 		var play_button_rect := play_button.get_global_rect() if play_button != null else Rect2()
 		ok(play_button != null and absf(map_button_rect.end.y - play_button_rect.end.y) <= 1.0, \
 			"map button bottom-aligns with the Play CTA")
-	map_scene._open_select()
-	await process_frame
-	if map_scene._select_back != null:
-		var back_rect := (map_scene._select_back as Control).get_global_rect()
-		ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
-			and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
-			"place-picker back button uses the shared side/bottom margin")
-	map_scene.queue_free()
+		map_scene._open_select()
+		await process_frame
+		if map_scene._select_back != null:
+			var back_rect := (map_scene._select_back as Control).get_global_rect()
+			ok(absf(back_rect.position.x - edge_margin) <= 1.0 \
+				and absf(map_screen_h - back_rect.end.y - edge_margin) <= 1.0, \
+				"place-picker back button uses the shared side/bottom margin")
+		if map_scene.select_hits.size() >= 2:
+			var unlocked_select_card := map_scene.select_hits[0].node as Control
+			var locked_select_card := map_scene.select_hits[1].node as Control
+			ok(unlocked_select_card != null and locked_select_card != null \
+				and unlocked_select_card.size.y > locked_select_card.size.y + 8.0, \
+				"place-picker unlocked map cards are slightly taller than locked map cards")
+		map_scene.queue_free()
 	await process_frame
 
 	# REGRESSION: the Slot-cell preview must DEFAULT to a non-zero cost. The cost pill only renders on a
@@ -1441,12 +1447,89 @@ func _test_gold_badge_consumers(view) -> void:
 	var map_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
 	ok(map_opts.has("badge"), \
 		"map_card opts carry the shared gold_badge skin BOTH card states' frame wears")
-	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": ""}, map_opts, 460.0, 160.0)
+	ok(map_opts.has("resident_slot_px") and map_opts.has("resident_slot_gap"), \
+		"map_card opts carry saved resident rail circle size and circle gap")
+	ok(view._params["map_card"].has("resident_slot_px") and view._params["map_card"].has("resident_slot_gap") \
+		and view._is_config("map_card", "resident_slot_px") and view._is_config("map_card", "resident_slot_gap"), \
+		"the map-card resident rail knobs are saved Workbench config")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
+		"the Workbench map-card sidebar exposes resident circle-size and gap sliders")
+	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
 	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"a LOCKED map card ALSO wears the shared gold-badge frame (consistent with open)")
+	ok(open_card.find_child("MapCardShadow", true, false) is Control and open_card.find_child("MapCardOuterBorder", true, false) is Control, \
+		"an OPEN map card has an outer shadow and dark rim behind the golden border")
+	ok(open_card.find_child("MapCardTitlePlate", true, false) is Control \
+		and ResourceLoader.exists(Look.kit("map/left_title_plate.png")), \
+		"an OPEN map card wraps its map name in the generated leafy bordered title plate")
+	ok(locked_card.find_child("MapCardShadow", true, false) is Control and locked_card.find_child("MapCardOuterBorder", true, false) is Control, \
+		"a LOCKED map card has an outer shadow and dark rim behind the golden border")
+	ok(ResourceLoader.exists(Look.kit("map/left_locked_preview_inner.png")), \
+		"the generated left-map locked preview asset is available")
+	ok(ResourceLoader.exists(Look.kit("map/left_lock_flower_soft.png")), \
+		"the generated left-map lock medallion asset is available")
+	var locked_preview := locked_card.find_child("MapLockedPreviewArt", true, false)
+	ok(locked_preview is Control and String((locked_preview as Control).get_meta("asset_rel", "")) == "map/left_locked_preview_inner.png", \
+		"a LOCKED map card uses the generated preview art under the shared frame")
+	var locked_med := locked_card.find_child(Kit.MAP_LOCK_NODE, true, false)
+	ok(locked_med is TextureRect and String((locked_med as TextureRect).get_meta("asset_rel", "")) == "map/left_lock_flower_soft.png", \
+		"a LOCKED map card uses the generated large lock medallion")
+	var prereq_row := locked_card.find_child("MapLockedPrereqRow", true, false) as Control
+	var prereq_left := locked_card.find_child("MapLockedPrereqLeafLeft", true, false) as TextureRect
+	var prereq_right := locked_card.find_child("MapLockedPrereqLeafRight", true, false) as TextureRect
+	var prereq_label := locked_card.find_child("MapLockedPrereqLabel", true, false) as Label
+	ok(prereq_left != null and prereq_right != null and prereq_label != null, \
+		"a LOCKED map card wraps its prerequisite line with leaf ornaments")
+	if prereq_row != null and prereq_left != null and prereq_right != null and prereq_label != null:
+		var left_center_y := prereq_left.position.y + prereq_left.size.y * 0.5
+		var right_center_y := prereq_right.position.y + prereq_right.size.y * 0.5
+		var row_center_y := prereq_row.size.y * 0.5
+		ok(prereq_left.size.x <= 32.0 and prereq_left.size.y <= 22.0 \
+			and prereq_right.size.x <= 32.0 and prereq_right.size.y <= 22.0, \
+			"locked prerequisite leaves stay small enough to flank the text instead of overpowering it")
+		ok(absf(left_center_y - row_center_y) <= 2.0 and absf(right_center_y - row_center_y) <= 2.0, \
+			"locked prerequisite leaves are vertically centered on the text row")
+		ok(prereq_label.position.x >= prereq_left.position.x + prereq_left.size.x + 6.0 \
+			and prereq_label.position.x + prereq_label.size.x <= prereq_right.position.x - 6.0, \
+			"locked prerequisite text sits between the two leaves with a readable gap")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardIcon") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatCollectButton"), \
+		"completed map cards render a reward icon and named large green Collect button")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "\"shadow\": false") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "\"pad_scale\": 0.82") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "\"font\": 20") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(card_w * 0.22, 108.0, 142.0)") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(card_h * 0.105, 38.0, 48.0)"), \
+		"completed map Collect button stays compact and does not cast the heavy shared shadow")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentSlot") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "var display_cap := maxi(cap, 8)"), \
+		"completed map resident rails use circular slots and keep eight spaces ready")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentFallbackDisc") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "MapResidentTierBadge"), \
+		"completed map resident chips keep filled slots readable even when art is missing")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "var slot_cols := 2") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "var slot_rows := 4"), \
+		"completed map resident rails arrange eight spaces as a two-column/four-row rail")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentRailFrame") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.board_panel") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "\"draw_center\": true") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "strip.add_child(frame)") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "LEFT_MAP_HABITAT_STRIP"), \
+		"completed map resident rail uses the code-drawn board background instead of baked strip art")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentRailInset") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "resident_slot_px") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "resident_slot_gap") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0"), \
+		"completed map resident rail border expands and shrinks with the circle size and circle gap")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "LEFT_MAP_TITLE_PLATE") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatTitleLeafLeft") \
+		and not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "MapCardTitleLeafLeft"), \
+		"map title plates rely on the generated leafy plate without extra flourish overlays")
 	open_card.queue_free()
 	locked_card.queue_free()
 

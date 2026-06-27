@@ -259,6 +259,7 @@ var _params := {
 	# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
 	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
+		"resident_slot_px": 58, "resident_slot_gap": 10,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
@@ -2028,7 +2029,7 @@ func _rebuild_sidebar() -> void:
 			# place-picker SCROLLS when tall cards overflow the band). A w:h far from the art's ~2.92 aspect
 			# stretches the gold frame (the preview shows it).
 			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
-			_sidebar_body.add_child(_slider_row(["card_h_frac", 8, 50]))      # card height (% of screen height; the picker scrolls past the band)
+			_sidebar_body.add_child(_slider_row(["card_h_frac", 5, 50]))      # card height (% of screen height; the picker scrolls past the band)
 			# the count pill's painted art (pill_left) vs a code-drawn cream pill — both card frames + the
 			# locked interior are code-drawn now, so this toggle only governs the count pill.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
@@ -2037,6 +2038,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pill_min", 80, 360]))       # …clamped to this min px
 			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
 			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
+			_section_header("Resident rail")
+			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 74])) # completed-card circle diameter px
+			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card circles px
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))
