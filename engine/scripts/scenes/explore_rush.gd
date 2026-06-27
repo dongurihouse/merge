@@ -21,6 +21,7 @@ const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
+const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 const INK := Color("#43352B")
@@ -350,41 +351,64 @@ func _apply_treefall_visual() -> void:
 		_act_arrow.position.x = clampf(col_screen_x - _activity.position.x, 8.0, _activity.size.x - 8.0)
 
 # An ALWAYS-ON micro-hint along the bottom safe area, teaching the two secondary verbs the
-# top popup leaves out: tap-again-to-fling and clearing a column before a treefall. Quiet
-# parchment text, never gated — it stays for every rush as ambient help.
+# top popup leaves out: tap-again-to-fling and clearing a column before a treefall. The
+# source art is used as a 3-slice: fixed side caps + horizontally stretched center.
 func _build_bottom_hint() -> void:
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	# A quiet translucent caption strip (same ink family as the popup) so the text reads on the
-	# cream board AND the grass below it — never gated, it stays for every rush as ambient help.
-	var strip := PanelContainer.new()
+	var tex := load(BOTTOM_HINT_ART) as Texture2D
+	var tex_w := float(tex.get_width())
+	var tex_h := float(tex.get_height())
+	var strip_w := minf(vw * 0.91, 760.0)
+	var strip_h := clampf(vh * 0.037, 42.0, 56.0)
+	var src_cap_w := minf(roundf(tex_h * 1.12), floorf((tex_w - 1.0) * 0.5))
+	var cap_w := src_cap_w * (strip_h / tex_h)
+	var center_w := maxf(1.0, strip_w - cap_w * 2.0)
+	var center_src_w := maxf(1.0, tex_w - src_cap_w * 2.0)
+	var strip := Control.new()
 	strip.name = "RushBottomHintStrip"
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(INK, 0.82)                                  # more solid than before, so it reads as real guidance
-	sb.set_corner_radius_all(18)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(GOLD, 0.5)
-	sb.content_margin_left = 22.0 ; sb.content_margin_right = 22.0
-	sb.content_margin_top = 12.0 ; sb.content_margin_bottom = 12.0
-	strip.add_theme_stylebox_override("panel", sb)
+	strip.size = Vector2(strip_w, strip_h)
+	strip.custom_minimum_size = strip.size
+	strip.set_meta("slice_mode", "three")
+	strip.set_meta("cap_source_px", src_cap_w)
+	strip.add_child(_bottom_hint_slice("RushBottomHintLeftCap", tex, Rect2(0.0, 0.0, src_cap_w, tex_h), Vector2.ZERO, Vector2(cap_w, strip_h)))
+	strip.add_child(_bottom_hint_slice("RushBottomHintCenterSlice", tex, Rect2(src_cap_w, 0.0, center_src_w, tex_h), Vector2(cap_w, 0.0), Vector2(center_w, strip_h)))
+	strip.add_child(_bottom_hint_slice("RushBottomHintRightCap", tex, Rect2(tex_w - src_cap_w, 0.0, src_cap_w, tex_h), Vector2(cap_w + center_w, 0.0), Vector2(cap_w, strip_h)))
 	var l := Label.new()
 	l.name = "RushBottomHint"
 	l.text = "Tap again to fling · empty a column before the treefall"
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.custom_minimum_size = Vector2(vw * 0.86, 0.0)                 # wrap within the strip, not off the screen
-	l.add_theme_font_size_override("font_size", int(clampf(vw * 0.038, 22.0, 30.0)))   # bigger, scales with width
-	l.add_theme_color_override("font_color", PARCH)
+	l.position = Vector2(cap_w * 0.65, 0.0)
+	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3), strip_h)
+	l.add_theme_font_size_override("font_size", int(clampf(strip_h * 0.48, 20.0, 27.0)))
+	l.add_theme_color_override("font_color", Color("#F8E9D0"))
+	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
+	l.add_theme_constant_override("outline_size", 2)
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	add_child(strip)
-	strip.reset_size()
-	var sz := strip.get_combined_minimum_size()
-	strip.position = Vector2((vw - sz.x) * 0.5, vh - Look.safe_bottom(self) - 14.0 - sz.y)
+	strip.position = Vector2((vw - strip_w) * 0.5, vh - Look.safe_bottom(self) - 14.0 - strip_h)
 	_hint = strip
-	_hint_h = sz.y
+	_hint_h = strip_h
+
+func _bottom_hint_slice(node_name: String, tex: Texture2D, src: Rect2, pos: Vector2, sz: Vector2) -> TextureRect:
+	var atlas := AtlasTexture.new()
+	atlas.atlas = tex
+	atlas.region = src
+	var t := TextureRect.new()
+	t.name = node_name
+	t.texture = atlas
+	t.position = pos
+	t.size = sz
+	t.custom_minimum_size = sz
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return t
 
 # The rush-start teaching popup: a parchment pill reading "Tap to Merge!" that POPS in with the
 # board's signature back-ease overshoot, holds, then fades + drifts up and frees itself — a ~1.5s
