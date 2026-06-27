@@ -198,10 +198,11 @@ static func _more_cell(n: int, cw: float, ch: float) -> Control:
 	cell.add_child(l)
 	return cell
 
-# Crop a spirit texture to its opaque bounding box so the art FILLS + CENTRES its cell. The source art
-# has wide transparent margins (e.g. ember sits in the lower-right quarter), so KEEP_ASPECT_CENTERED on the
-# raw texture renders it small + off-centre. Cached per path. Returns the original texture when the image
-# can't be read (the headless dummy renderer's get_image() is null) or needs no trim — never crashes.
+# Crop a spirit texture to a SQUARE centred on its alpha-weighted VISUAL CENTRE, so every spirit fills its
+# cell at a uniform size and reads as centred — not bottom-heavy. The source art frames each subject low in
+# a 512² canvas with a thin wisp on top, so the opaque box (or the raw texture) renders small + bottom-heavy;
+# centring on the mass fixes it. Cached per path. Returns the raw texture when the image can't be read (the
+# headless dummy renderer's get_image() is null) or the crop would be degenerate — never crashes.
 static func _trimmed_tex(path: String) -> Texture2D:
 	if _trim_cache.has(path):
 		return _trim_cache[path]
@@ -212,12 +213,32 @@ static func _trimmed_tex(path: String) -> Texture2D:
 		if img != null:
 			if img.is_compressed():
 				img.decompress()
-			var used := img.get_used_rect()
-			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != img.get_size()):
-				var at := AtlasTexture.new()
-				at.atlas = tex
-				at.region = Rect2(used)
-				result = at
+			var fw := float(img.get_width())
+			var fh := float(img.get_height())
+			# alpha centroid, computed on a cheap 64² downscale (the full art is ~512²)
+			var n := 64
+			var small: Image = img.duplicate()
+			small.resize(n, n, Image.INTERPOLATE_BILINEAR)
+			var sx := 0.0
+			var sy := 0.0
+			var sw := 0.0
+			for yy in n:
+				for xx in n:
+					var a := small.get_pixel(xx, yy).a
+					if a > 0.0:
+						sx += float(xx) * a
+						sy += float(yy) * a
+						sw += a
+			if sw > 0.0:
+				var cx := (sx / sw + 0.5) / float(n) * fw
+				var cy := (sy / sw + 0.5) / float(n) * fh
+				# the largest square centred on the centroid that still fits inside the canvas
+				var half := minf(minf(cx, fw - cx), minf(cy, fh - cy))
+				if half > 8.0:
+					var at := AtlasTexture.new()
+					at.atlas = tex
+					at.region = Rect2(cx - half, cy - half, half * 2.0, half * 2.0)
+					result = at
 	_trim_cache[path] = result
 	return result
 
