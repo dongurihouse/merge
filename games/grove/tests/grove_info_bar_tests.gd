@@ -108,25 +108,33 @@ func _initialize() -> void:
 		var gid: String = board_scene.board.gen_id_at(gcell)
 		var entries: Array = board_scene._gen_line_entries(gid)
 		ok(not entries.is_empty(), "the generator reports its lines")
-		var roster_lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
-		var all_rostered := true
+		# SHOW ALL: every line in the WHOLE game (every generator / every map) gets a cell — the full roadmap.
+		var all_game_lines: Array = []
+		for gen in G.GENERATORS:
+			for l in gen.get("lines", []):
+				if not all_game_lines.has(int(l)):
+					all_game_lines.append(int(l))
 		var entry_lines: Array = []
+		var all_valid := true
 		var gated_present := false
 		var gated_unseen := false
+		var has_other_map := false
 		for e in entries:
-			if not roster_lines.has(int(e.line)):
-				all_rostered = false
 			entry_lines.append(int(e.line))
+			if not G.LINES.has(int(e.line)):
+				all_valid = false
 			if int(e.line) == 66:                 # Flower boxes — min_level 6, NOT yet grown in at the fresh level
 				gated_present = true
 				gated_unseen = not bool(e.seen)
-		ok(all_rostered, "every Producing entry is one of the generator's roster lines")
-		# the dialog previews the generator's FULL line-up — one cell per roster line, even not-yet-grown-in ones.
+			if int(e.line) == 5:                  # Mushroom — a LATER map's (Meadow) line, far from the farm anchor
+				has_other_map = true
+		ok(all_valid, "every Producing entry is a real game line")
 		var all_present := true
-		for rl in roster_lines:
-			if not entry_lines.has(int(rl)):
+		for gl in all_game_lines:
+			if not entry_lines.has(int(gl)):
 				all_present = false
-		ok(all_present and entries.size() == roster_lines.size(), "every roster line gets a cell (full line-up, no min_level filtering)")
+		ok(all_present and entries.size() == all_game_lines.size(), "every line in the game gets a cell (show-all roadmap)")
+		ok(has_other_map, "lines from later maps appear too (not just the tapped generator's own roster)")
 		ok(gated_present, "a not-yet-grown-in line (min_level-gated) still appears as a cell, not hidden")
 		ok(gated_unseen, "the not-yet-grown-in line shows as an unseen placeholder until the player reaches it")
 		# in_pool must match the live pop pool exactly — the dialog highlight is what a tap would spawn now.
