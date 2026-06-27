@@ -3643,6 +3643,8 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"inner_scale": float(i.get("inner_scale", 48)) / 100.0,     # the info ⓘ + piece box as % of the bar height
 		"item_icon_scale": float(i.get("item_icon_scale", 80)) / 100.0, # selected item/generator art as % of that piece box
 		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
+		"info_y":      float(i.get("info_y", 0)),                   # nudge the info ⓘ button up(−) / down(+)
+		"info_button_scale": clampf(float(i.get("info_button_scale", 100)) / 100.0, 0.25, 2.0),
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
 		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
@@ -3656,18 +3658,19 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
 
-## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece + name] [Sell badge] -------------------------
+## --- the bottom-bar INFO BAR: [selected piece] [info ⓘ] [name] [Sell badge] -------------------------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
 ## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button — the word "Sell" in
 ## plain ink over a vertical green badge (the payout coin on top, the payout number below).
 ## The FRAME is the shared gold badge skin, so the board border and bottom bar read as one surface.
 ## The board AND the workbench build through this — a layout tweak (height · inner control scale · name
-## font · separation · selected-item art scale · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
+## font · separation · selected-item art scale · info button position/scale · sell button) flows to the live bar. The bar is STATELESS: the caller drives the
 ## empty/selected state by mutating the sub-nodes exposed via meta (info_btn / info_icon / name_label /
-## sell_btn / inner_px / item_icon_scale), so the board's selection logic is unchanged.
+## sell_btn / inner_px / item_icon_scale / info_button_scale), so the board's selection logic is unchanged.
 ##   spec (per-instance wiring): info_action (Callable) · sell_action (Callable).
 ##   opts (shared STYLE — see info_bar_opts_from_config): height · inner_scale (0..1) · name_font · sep ·
-##     item_icon_scale (0..1, selected art inside the piece box) · sell_font (payout number) ·
+##     item_icon_scale (0..1, selected art inside the piece box) · info_x/info_y ·
+##     info_button_scale (0..1+, info-button art inside its fixed slot) · sell_font (payout number) ·
 ##     sell_label_font ("Sell" caption) · sell_icon (0..1, the coin) · badge (the shared gold badge
 ##     frame opts) · pill (content margins).
 static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
@@ -3694,29 +3697,27 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	hb.add_theme_constant_override("separation", int(opts.get("sep", 10)))
 	hb.alignment = BoxContainer.ALIGNMENT_CENTER
 	pill.add_child(hb)
-	var info_btn := _info_circle_btn("info", inner)              # opens the selected item's tier ladder
-	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
-		info_btn.pressed.connect(spec.get("info_action"))
-	# the ⓘ keeps its footprint in the row via a fixed SLOT; info_x nudges the button (hit area and all)
-	# inside it — +right / −left — so the icon can be repositioned without disturbing the rest of the bar.
-	var info_x := float(opts.get("info_x", 0.0))
-	if info_x != 0.0:
-		var info_slot := Control.new()
-		info_slot.custom_minimum_size = Vector2(inner, inner)
-		# stay inner-tall and let the HBox vertically center the slot — matches the info_x==0 path
-		# (the button's own SIZE_SHRINK_CENTER) so nudging x doesn't make the ⓘ jump to the row top.
-		info_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		info_btn.size = Vector2(inner, inner)
-		info_btn.position = Vector2(info_x, 0.0)
-		info_slot.add_child(info_btn)
-		hb.add_child(info_slot)
-	else:
-		hb.add_child(info_btn)
 	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
 	info_icon.custom_minimum_size = Vector2(inner, inner)
 	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(info_icon)
+	var info_btn_scale := clampf(float(opts.get("info_button_scale", 1.0)), 0.25, 2.0)
+	var info_btn_px := maxf(1.0, inner * info_btn_scale)
+	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
+	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
+		info_btn.pressed.connect(spec.get("info_action"))
+	# The selected-piece slot starts the row. The ⓘ keeps a fixed footprint after it; x/y/scale move the
+	# button inside that slot without pushing the item, label, or Sell chip around.
+	var info_x := float(opts.get("info_x", 0.0))
+	var info_y := float(opts.get("info_y", 0.0))
+	var info_slot := Control.new()
+	info_slot.custom_minimum_size = Vector2(inner, inner)
+	info_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_btn.size = Vector2(info_btn_px, info_btn_px)
+	info_btn.position = Vector2((inner - info_btn_px) * 0.5 + info_x, (inner - info_btn_px) * 0.5 + info_y)
+	info_slot.add_child(info_btn)
+	hb.add_child(info_slot)
 	var text_stack := VBoxContainer.new()
 	text_stack.add_theme_constant_override("separation", 0)
 	text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3831,6 +3832,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("sell_coin", sell_coin)
 	pill.set_meta("inner_px", inner)
 	pill.set_meta("item_icon_scale", float(opts.get("item_icon_scale", 0.80)))
+	pill.set_meta("info_y", float(opts.get("info_y", 0.0)))
+	pill.set_meta("info_button_scale", info_btn_scale)
 	return pill
 
 ## The info bar's "ⓘ" button. When the shipped disc sprite (ui/shared/icon_<id>.png — the cream

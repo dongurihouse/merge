@@ -927,32 +927,52 @@ func _test_new_knobs(view) -> void:
 	ok(_slider_max(view, "Icon Scale Pct") >= 95.0 and _slider_max(view, "Pad X Pct") >= 16.0 \
 		and _slider_min(view, "Info X Pct") <= -30.0 \
 		and _slider_max(view, "Bag X Pct") == -INF and _slider_max(view, "Home X Pct") == -INF \
-		and _slider_max(view, "Item Icon Scale") >= 120.0, \
+		and _slider_max(view, "Item Icon Scale") >= 120.0 \
+		and _slider_min(view, "Info Y") <= -120.0 \
+		and _slider_max(view, "Info Button Scale") >= 160.0, \
 		"merged info_bar sidebar exposes shared Bag/Home size but no Bag/Home x sliders")
 
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
 	# the shared gold-pill padding as its content margin.
-	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115}})
+	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115, "info_y": 11, "info_button_scale": 80}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
 	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
 		"info_bar reads name_font / sep / sell_font / sell_icon")
 	ok(ib.has("item_icon_scale") and is_equal_approx(float(ib.get("item_icon_scale", -1.0)), 1.15), \
 		"info_bar reads item_icon_scale as a selected item/generator artwork scale")
+	ok(ib.has("info_y") and is_equal_approx(float(ib.get("info_y", 99.0)), 11.0) \
+		and ib.has("info_button_scale") and is_equal_approx(float(ib.get("info_button_scale", -1.0)), 0.80), \
+		"info_bar reads the info button y offset and size scale")
 	ok(ib.has("pill") and ib.has("badge"), "info_bar reads gold-pill padding plus the shared gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
 	var default_ib: Dictionary = Kit.info_bar_opts_from_config({})
 	ok(default_ib.has("item_icon_scale") and is_equal_approx(float(default_ib.get("item_icon_scale", -1.0)), 0.80), \
 		"default info_bar item_icon_scale preserves the shipped selected-item size")
-	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon") and view._is_config("info_bar", "item_icon_scale"), \
+	ok(default_ib.has("info_y") and is_equal_approx(float(default_ib.get("info_y", 99.0)), 0.0) \
+		and default_ib.has("info_button_scale") and is_equal_approx(float(default_ib.get("info_button_scale", -1.0)), 1.0), \
+		"default info_bar keeps the info button centered and full-size")
+	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon") and view._is_config("info_bar", "item_icon_scale") and view._is_config("info_bar", "info_y") and view._is_config("info_bar", "info_button_scale"), \
 		"the info-bar layout knobs are saved config")
 	ok(not view._is_config("info_bar", "filled"), "the filled-vs-empty preview toggle is not saved")
 	var scaled_bar: PanelContainer = Kit.info_bar({}, ib)
 	var scaled_meta := float(scaled_bar.get_meta("item_icon_scale")) if scaled_bar.has_meta("item_icon_scale") else -1.0
 	ok(scaled_bar.has_meta("item_icon_scale") and is_equal_approx(scaled_meta, 1.15), \
 		"info_bar exposes item_icon_scale for live board and preview renderers")
+	var scaled_info_btn := scaled_bar.get_meta("info_btn") as Button
+	var scaled_info_slot := scaled_info_btn.get_parent() as Control
+	var scaled_item_slot := scaled_bar.get_meta("info_icon") as Control
+	ok(scaled_item_slot.get_parent().get_child(0) == scaled_item_slot, \
+		"the selected item icon starts at the left edge of the info content row")
+	ok(scaled_bar.has_meta("info_button_scale") and is_equal_approx(float(scaled_bar.get_meta("info_button_scale")), 0.80), \
+		"info_bar exposes info button scale for preview renderers")
+	ok(is_equal_approx(scaled_info_btn.custom_minimum_size.x, 72.0) \
+		and is_equal_approx(scaled_info_btn.position.y, 20.0), \
+		"the info button can be resized and moved vertically inside its fixed slot")
+	ok(is_equal_approx(scaled_info_slot.custom_minimum_size.x, 90.0), \
+		"resizing the info button does not resize the row slot")
 	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \
 		"the info-bar preview shows a sample selected item")
 
