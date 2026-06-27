@@ -60,10 +60,21 @@ func _initialize() -> void:
 	ok(Feel._merge_weight(4) == "firm", "tier 4 haptic weight is firm")
 	ok(Feel._merge_weight(Tune.ESCALATE_TIER) == "heavy", "big-moment tier haptic weight is heavy")
 
-	# --- _merge_pitch: base climbs with tier, combo nudges up ---
+	# --- _ladder_pitch: pure pentatonic ladder indexed by the combo degree ---
+	ok(approx(Feel._ladder_pitch(1.0, 0), 1.0), "ladder degree 0 (combo 0) returns base unchanged (factor 1.0)")
+	ok(approx(Feel._ladder_pitch(1.2, 0), 1.2), "ladder at combo 0 returns the base for any base")
+	ok(approx(Feel._ladder_pitch(1.0, 1), pow(2.0, Tune.PENTA[1] / 12.0)), "ladder degree 1 = base * 2^(PENTA[1]/12)")
+	ok(approx(Feel._ladder_pitch(1.0, 3), pow(2.0, Tune.PENTA[3] / 12.0)), "ladder degree 3 = base * 2^(PENTA[3]/12)")
+	ok(Feel._ladder_pitch(1.0, 2) > Feel._ladder_pitch(1.0, 1), "ladder rises with the combo degree")
+	# degree clamps at the top of PENTA — combo past the array tops out, never indexes out of bounds.
+	ok(approx(Feel._ladder_pitch(1.0, Tune.PENTA.size() - 1), Feel._ladder_pitch(1.0, 999)), "ladder degree clamps at the top of PENTA")
+
+	# --- _merge_pitch: tier base, then the pentatonic ladder when merge_combo is on ---
 	ok(approx(Feel._merge_pitch(4, 0), clampf(0.95 + 0.03 * 4, 0.9, 1.3)), "base pitch matches board curve at combo 0")
-	ok(Feel._merge_pitch(4, 8) > Feel._merge_pitch(4, 0), "combo climb raises pitch")
-	ok(Feel._merge_pitch(4, 100) <= Tune.COMBO_PITCH_MAX, "combo pitch clamps to COMBO_PITCH_MAX")
+	var _base4 := clampf(0.95 + 0.03 * 4, 0.9, 1.3)
+	ok(approx(Feel._merge_pitch(4, 8), Feel._ladder_pitch(_base4, 8)), "merge pitch applies the ladder over the tier base")
+	ok(Feel._merge_pitch(4, 8) > Feel._merge_pitch(4, 0), "a live streak climbs the ladder above the base")
+	ok(approx(Feel._merge_pitch(4, 999), Feel._ladder_pitch(_base4, Tune.PENTA.size() - 1)), "a huge streak tops out at the ladder ceiling")
 
 	# --- _combo_milestones_passed: counts COMBO_MILESTONES reached ---
 	ok(Feel._combo_milestones_passed(0) == 0, "combo 0 passes 0 milestones")

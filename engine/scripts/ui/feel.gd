@@ -87,14 +87,25 @@ static func _merge_burst_count(tier: int, combo: int, intensity: float) -> int:
 		n += Tune.COMBO_BURST_BONUS
 	return int(n * intensity)
 
-## Merge audio pitch: the board's `clampf(0.95 + 0.03*tier, 0.9, 1.3)` base, plus the combo
-## climb (COMBO_PITCH_STEP per milestone passed, clamped to COMBO_PITCH_MAX) when merge_combo is on.
-## Audio.play applies its own jitter on top — the board relied on that, so this returns the plain pitch.
+## Merge audio pitch: the board's `clampf(0.95 + 0.03*tier, 0.9, 1.3)` tier base, then — when
+## merge_combo is on — the MUSICAL PENTATONIC LADDER on top. Each consecutive merge climbs one
+## degree of the PENTA scale (degree = the live combo count, which the game increments per merge in
+## the streak window and resets when the window lapses), so a streak literally plays a rising
+## pentatonic run and snaps back to the base when it breaks. Stateless + deterministic: the degree
+## is the combo already handed in, no separate ladder counter or timer. Audio.play applies its own
+## jitter on top — the board relied on that, so this returns the plain center pitch.
 static func _merge_pitch(tier: int, combo: int) -> float:
-	var pitch := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
+	var base := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
 	if Features.on("merge_combo"):
-		pitch = clampf(pitch + Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, Tune.COMBO_PITCH_MAX)
-	return pitch
+		return _ladder_pitch(base, combo)
+	return base
+
+## The pure pentatonic ladder: shift `base` up by the PENTA semitone at degree `combo`, clamped to
+## the array (a streak past the top sustains the ceiling note). `combo == 0` → degree 0 → PENTA[0]
+## (0 semitones) → factor 1.0 → base unchanged. Pure (no scene tree / global state) — unit-tested.
+static func _ladder_pitch(base: float, combo: int) -> float:
+	var semitones: float = float(Tune.PENTA[clampi(combo, 0, Tune.PENTA.size() - 1)])
+	return base * pow(2.0, semitones / 12.0)
 
 ## How many COMBO_MILESTONES thresholds the streak has reached (drives the pitch nudge).
 ## Replicates board.gd's _combo_milestones_passed so the verb owns the same logic.
