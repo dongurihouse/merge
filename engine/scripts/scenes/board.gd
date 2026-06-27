@@ -2430,6 +2430,8 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()
+	if Audio.has("water_pop"):
+		Audio.play("water_pop", -2.0)
 	# W2: the spawn flight is COSMETIC and must NOT set `animating` — that flag gates the board
 	# input surface, so a 0.22s flight used to EAT the next generator tap. Items are placed in
 	# the model immediately; `animating` now guards MERGES only, so rapid taps each land.
@@ -2456,9 +2458,12 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		t.set_parallel(true)
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	# Unified launch EMIT: the generator recoil + ONE toss sound + a muzzle puff. Called ONCE per pop
-	# (not per burst seed) with the representative item, preserving the prior one-sound-per-pop cardinality.
+	# Unified launch EMIT: the generator recoil + a muzzle puff (toss sound left OFF — the generator
+	# keeps its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per
+	# pop (not per burst seed) with the representative item.
 	Feel.launch(gnode, last_piece, 1.0)
+	if not Audio.has("water_pop"):
+		Audio.play("item_drop", -3.0, 1.1)
 	if G.boost_active():
 		G.consume_boost_tap()              # §6: each charged tap spends one boost tap, then it expires
 		_refresh_boost_indicator()         # tick the on-board sparkle + count badge down (or clear it)
