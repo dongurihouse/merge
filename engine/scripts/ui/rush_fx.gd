@@ -26,6 +26,25 @@ const EFFECTS := [
 	{"id": "treefall_crack", "label": "Treefall crack",  "tip": "the timber lands with debris + a heavier jolt"},
 ]
 
+# id → default value for the per-effect intensity / feel knobs. The workbench edits these and
+# saves them into the same rush_fx config block; the game reads them via from_config + knob().
+# Defaults reproduce today's hardcoded numbers exactly (see the effect fns below).
+const KNOBS := {
+	"merge_burst_count": 20,
+	"score_tick_ms": 400,
+	"score_pulse_pct": 100,
+	"mult_pop_pct": 100,
+	"combo_heat_size": 24,
+	"timer_low_secs": 10,
+	"treefall_debris": 18,
+	"treefall_shake": 16,
+	"treefall_hitstop_ms": 60,
+}
+
+## Read a numeric knob from a resolved opts dict, falling back to its KNOBS default.
+static func knob(opts: Dictionary, id: String) -> int:
+	return int(opts.get(id, KNOBS.get(id, 0)))
+
 static func defaults() -> Dictionary:
 	var d := {"enabled": true}
 	for e in EFFECTS:
@@ -39,6 +58,8 @@ static func from_config(cfg: Dictionary) -> Dictionary:
 	for k in d.keys():
 		if r.has(k):
 			d[k] = bool(r[k])
+	for k in KNOBS.keys():
+		d[k] = int(r.get(k, KNOBS[k]))
 	return d
 
 ## True when the master switch is on AND this effect is on.
