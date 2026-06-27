@@ -80,6 +80,16 @@ func _test_place() -> void:
 	ok(Save.coins() == coins_b + got, "the coins are credited")
 	ok(Habitat.placed(m3).is_empty(), "the slot is freed")
 
+	# an IN-HAND spirit sells too (same per-tier value), dropping it from the hand
+	Habitat.hand_add("moss", 3)
+	Habitat.hand_add("acorn", 1)
+	var hcoins_b := Save.coins()
+	var hgot := Habitat.sell_hand(0)
+	ok(hgot == Habitat.SELL_PER_TIER * 3, "selling an in-hand t3 returns SELL_PER_TIER * 3 coins")
+	ok(Save.coins() == hcoins_b + hgot, "the hand-sell coins are credited")
+	ok(Habitat.hand().size() == 1 and String(Habitat.hand()[0].kind) == "acorn", "the sold spirit leaves the hand")
+	ok(Habitat.sell_hand(9) == 0, "selling a bad hand index is refused")
+
 	# moving relocates a placed spirit to another map (frees the source slot)
 	fresh("habitat_move")
 	var a := String(G.MAPS[0].id)
@@ -383,6 +393,20 @@ func _test_residents_dock() -> void:
 	sells[0].pressed.emit()
 	ok(Habitat.placed(mid).size() == before_sell - 1, "pressing Sell sells the focused spirit")
 	ok(hx._sel_orb.is_empty(), "selling drops the focus")
+	await create_timer(0.06).timeout
+
+	# an IN-HAND spirit ALSO surfaces Sell on a still-tap, and pressing it drops it from the hand
+	Habitat.hand_add("acorn", 2)
+	hx._refresh_picker()
+	await create_timer(0.06).timeout
+	_map_tap_at(hx, _hit_center(_hand_orb_of(hx, "acorn", 2)))
+	await create_timer(0.06).timeout
+	ok(String(hx._sel_orb.get("src", "")) == "hand", "a still-tap on an in-hand spirit selects it")
+	var hsells := _buttons_with(hx._hand_panel, "Sell")
+	ok(hsells.size() == 1, "an in-hand selection also surfaces a Sell button")
+	var hand_n := Habitat.hand().size()
+	hsells[0].pressed.emit()
+	ok(Habitat.hand().size() == hand_n - 1, "pressing Sell on an in-hand spirit drops it from the hand")
 	await create_timer(0.06).timeout
 
 	# DRAG a housed orb back onto the in-hand column → BRING OUT

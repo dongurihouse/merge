@@ -3789,9 +3789,25 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	item_text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	item_text_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	item_text_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
+	var info_action: Callable = spec.get("info_action", Callable())
+	var info_icon := CenterContainer.new()                       # selected-piece preview; tapping it opens the same info dialog as the ⓘ button
 	info_icon.custom_minimum_size = Vector2(item_icon_px, height)
-	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_icon.mouse_filter = Control.MOUSE_FILTER_STOP if info_action.is_valid() else Control.MOUSE_FILTER_IGNORE
+	if info_action.is_valid():
+		info_icon.gui_input.connect(func(ev: InputEvent) -> void:
+			var tapped := false
+			if ev is InputEventMouseButton:
+				var mb := ev as InputEventMouseButton
+				tapped = mb.button_index == MOUSE_BUTTON_LEFT and not mb.pressed
+			elif ev is InputEventScreenTouch:
+				tapped = not (ev as InputEventScreenTouch).pressed
+			if not tapped:
+				return
+			info_action.call()
+			var vp := info_icon.get_viewport()
+			if vp != null:
+				vp.set_input_as_handled()
+		)
 	item_text_row.add_child(info_icon)
 	var text_stack := VBoxContainer.new()
 	text_stack.add_theme_constant_override("separation", 0)
@@ -3804,8 +3820,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var info_btn_px := maxf(1.0, inner * info_btn_scale)
 	var hide_info_button := bool(opts.get("hide_info_button", false))
 	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
-	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
-		info_btn.pressed.connect(spec.get("info_action"))
+	if info_action.is_valid():
+		info_btn.pressed.connect(info_action)
 	info_btn.visible = not hide_info_button
 	info_btn.disabled = hide_info_button
 	# The ⓘ floats above the row in a fixed footprint; x/y/scale move the button without pushing the item,
@@ -3834,16 +3850,16 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.add_theme_constant_override("outline_size", 0)
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_label.clip_text = true
-	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	name_label.clip_text = false
 	text_stack.add_child(name_label)
 	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
 	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", 18)))
 	desc_label.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
 	desc_label.add_theme_constant_override("outline_size", 0)
 	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	desc_label.clip_text = true
-	desc_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	desc_label.clip_text = false
 	desc_label.visible = false
 	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	text_stack.add_child(desc_label)
@@ -3906,14 +3922,18 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	badge.add_theme_stylebox_override("panel", ts)
 	badge.add_child(badge_col)
 	sell_stack.add_child(badge)
-	# size the button to its content (a Button does not grow to fit child controls), then center the stack in
-	# it via a full-rect CenterContainer. The min height tracks the label + coin + number so the badge never
-	# clips and the bar height stays close to the Bag/Home wells.
+	# size the button to its content (a Button does not grow to fit child controls), then LEFT-align the stack in
+	# it via a full-rect HBox. The min height tracks the label + coin + number so the badge never clips and the
+	# bar height stays close to the Bag/Home wells. Left-aligning pins the Sell badge to its button's left edge so
+	# it hugs the buy chip beside it (which right-aligns the same way) — closing the gap between the two chips.
 	var sell_h := int(sell_label_font * 1.45) + 3 + 8 + sell_icon_px + 1 + int(sell_num_font * 1.45)
 	sell_btn.custom_minimum_size = Vector2(maxf(sell_icon_px + 64.0, 96.0), sell_h)
-	var sell_center := CenterContainer.new()                     # center the stack within the button rect
+	var sell_center := HBoxContainer.new()                       # left-align the stack within the button rect
 	sell_center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	sell_center.alignment = BoxContainer.ALIGNMENT_BEGIN
 	sell_center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sell_stack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	sell_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	sell_center.add_child(sell_stack)
 	sell_btn.add_child(sell_center)
 	# the button itself is transparent — the green now lives on the inner badge; the press juice (scale)
