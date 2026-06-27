@@ -293,6 +293,20 @@ func _initialize() -> void:
 	ok(view.find_child("CoinFlowPreview", true, false) != null, "Coin Flow gallery section uses a native workbench component preview")
 	ok(view.find_child("CoinFlowSource", true, false) != null, "Coin Flow preview shows the shared source")
 	ok(view.find_child("CoinWalletTarget", true, false) != null, "Coin Flow preview shows the wallet target")
+	# the FOCUS RING group — the selected-cell corner brackets, live-tunable here, flowing to the board.
+	ok(View.IDS.has("focus_ring") and view._sections.has("focus_ring"), "the focus ring is a registered workbench element")
+	view._selected = "focus_ring"
+	view._rebuild_sidebar()
+	await process_frame
+	ok(view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 2, \
+		"the focus ring sidebar exposes colour pickers (bracket + halo)")
+	view._params["focus_ring"]["color"] = "FF8800"
+	view._apply_edit()
+	var _fr_kit = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var fr_opts: Dictionary = _fr_kit.focus_ring_opts_from_config({"focus_ring": view._params["focus_ring"]})
+	ok(fr_opts.color.is_equal_approx(Color("#FF8800")), "a workbench bracket-colour edit flows through the kit transform the board reads")
+	ok(view._make_element("focus_ring") != null, "the focus ring preview element builds")
+
 	view._selected = "fx"
 	view._rebuild_sidebar()
 	await process_frame
