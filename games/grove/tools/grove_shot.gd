@@ -125,6 +125,24 @@ func _initialize() -> void:
 			await create_timer(0.5).timeout
 			scn._open_ladder(1, 2)
 			await create_timer(0.4).timeout
+		"producingearly":
+			# the BEGINNING the player first sees (low level — only Wildflower + Hearth embers have grown in).
+			# The dialog must still preview the generator's FULL line-up: the live lines as pieces, the rest as
+			# locked placeholder cells. Regression for "at the start it only shows 2 items".
+			var gpe := Save.grove()
+			gpe["pops"] = 30                       # past the FTUE so taps cost water
+			gpe["water"] = 200
+			Save.grove_write()
+			scn.water = 200
+			scn._update_hud()
+			await create_timer(0.3).timeout
+			for i in 4:                            # a few pops so the live lines get discovered (show pieces)
+				scn._pop_seed()
+				await create_timer(0.12).timeout
+			scn._select_generator(scn.board.gens.keys()[0])
+			await create_timer(0.2).timeout
+			scn._on_info_pressed()                 # tap ⓘ → open the Producing dialog
+			await create_timer(0.45).timeout
 		"producing", "producingdrill":
 			# the PRODUCING dialog (tap generator → ⓘ): the lines the anchor currently makes. ~L6 so all six
 			# staged Farm lines (61–66) have grown in alongside Wildflower (1) — the live pop pool's lines wear

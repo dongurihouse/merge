@@ -107,22 +107,28 @@ func _initialize() -> void:
 		var gcell: Vector2i = gens.keys()[0]
 		var gid: String = board_scene.board.gen_id_at(gcell)
 		var entries: Array = board_scene._gen_line_entries(gid)
-		ok(not entries.is_empty(), "the generator reports at least one currently-live line")
+		ok(not entries.is_empty(), "the generator reports its lines")
 		var roster_lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
-		var level: int = board_scene._quest_level()
 		var all_rostered := true
-		var all_live := true
-		var hides_gated := true
+		var entry_lines: Array = []
+		var gated_present := false
+		var gated_unseen := false
 		for e in entries:
 			if not roster_lines.has(int(e.line)):
 				all_rostered = false
-			if int(G.LINES.get(int(e.line), {}).get("min_level", 0)) > level:
-				all_live = false
-			if int(e.line) == 66:                 # Flower boxes — min_level 6, gated out at the fresh low level
-				hides_gated = false
+			entry_lines.append(int(e.line))
+			if int(e.line) == 66:                 # Flower boxes — min_level 6, NOT yet grown in at the fresh level
+				gated_present = true
+				gated_unseen = not bool(e.seen)
 		ok(all_rostered, "every Producing entry is one of the generator's roster lines")
-		ok(all_live, "every Producing entry is currently live (no future min_level-gated teasers)")
-		ok(hides_gated, "a future min_level-gated line stays hidden until the player reaches it")
+		# the dialog previews the generator's FULL line-up — one cell per roster line, even not-yet-grown-in ones.
+		var all_present := true
+		for rl in roster_lines:
+			if not entry_lines.has(int(rl)):
+				all_present = false
+		ok(all_present and entries.size() == roster_lines.size(), "every roster line gets a cell (full line-up, no min_level filtering)")
+		ok(gated_present, "a not-yet-grown-in line (min_level-gated) still appears as a cell, not hidden")
+		ok(gated_unseen, "the not-yet-grown-in line shows as an unseen placeholder until the player reaches it")
 		# in_pool must match the live pop pool exactly — the dialog highlight is what a tap would spawn now.
 		var pool: Array = board_scene._pop_pool_ctx()["pool"]
 		var pool_match := true
