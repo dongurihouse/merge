@@ -102,6 +102,25 @@ func _initialize() -> void:
 	Features.FLAGS["gen_anticipation"] = true
 	gc.queue_free(); gc2.queue_free()
 
+	# --- squash_pop strength scales the impact pose (default 1.0 unchanged) -----------
+	Save.set_setting("calm", false)
+	var sps := Control.new(); sps.size = Vector2(80, 80); get_root().add_child(sps)
+	FX.squash_pop(sps, 1.0)
+	ok(sps.scale.is_equal_approx(Tune.SQUASH_K[0]), "squash_pop: strength 1.0 keeps the default squash pose")
+	var sph := Control.new(); sph.size = Vector2(80, 80); get_root().add_child(sph)
+	FX.squash_pop(sph, 0.5)
+	var half := Vector2.ONE + (Tune.SQUASH_K[0] - Vector2.ONE) * 0.5
+	ok(sph.scale.is_equal_approx(half), "squash_pop: strength 0.5 halves the deviation from rest")
+	sps.queue_free(); sph.queue_free()
+
+	# --- tick accepts a duration param; flag-off path snaps regardless --------------
+	Features.FLAGS["wallet_tick"] = false
+	var tl := Label.new(); tl.text = "0"; get_root().add_child(tl)
+	FX.tick(tl, 1250, 0.2)
+	ok(tl.text == "1250", "tick: flag off snaps to the value (custom dur accepted, no crash)")
+	tl.queue_free()
+	Features.FLAGS["wallet_tick"] = true
+
 	# leave shared state clean
 	Save.set_setting("calm", false)
 

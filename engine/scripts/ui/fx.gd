@@ -189,19 +189,19 @@ static func pop(node: Control) -> void:
 
 ## The merge result's IMPACT: squash & stretch (the chosen "C" feel). Calm falls back to a
 ## gentle uniform overshoot. `pop()` stays for taps/confirms — this is for produced tiles.
-static func squash_pop(node: Control) -> void:
+static func squash_pop(node: Control, strength := 1.0) -> void:
 	if not (node and is_instance_valid(node)):
 		return
 	node.pivot_offset = _center_pivot(node)
 	if calm():
 		var c := node.create_tween()
-		c.tween_property(node, "scale", Tune.SQUASH_CALM, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		c.tween_property(node, "scale", Vector2.ONE + (Tune.SQUASH_CALM - Vector2.ONE) * strength, Tune.POP_T_OUT).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		c.tween_property(node, "scale", Vector2.ONE, Tune.POP_T_SETTLE).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		return
-	node.scale = Tune.SQUASH_K[0]
+	node.scale = Vector2.ONE + (Tune.SQUASH_K[0] - Vector2.ONE) * strength
 	var t := node.create_tween()
 	for i in range(1, Tune.SQUASH_K.size()):
-		t.tween_property(node, "scale", Tune.SQUASH_K[i], Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+		t.tween_property(node, "scale", Vector2.ONE + (Tune.SQUASH_K[i] - Vector2.ONE) * strength, Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 ## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash).
 ## `gpos`/`size` are host-local — a `size`×`size` square centred on `gpos`. Gated on
@@ -480,13 +480,13 @@ static func scatter_in(nodes: Array, base_delay := 0.0) -> void:
 		tw.tween_property(n, "scale", Vector2.ONE, Tune.SCATTER_T).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 ## A wallet number counts toward its target and its chip pulses once.
-static func tick(label: Label, to_value: int) -> void:
+static func tick(label: Label, to_value: int, dur := Tune.TICK_T_COUNT) -> void:
 	if not Features.on("wallet_tick"):
 		label.text = str(to_value)
 		return
 	var from := int(label.text) if label.text.is_valid_int() else 0
 	var tw := label.create_tween()
-	tw.tween_method(func(v: float) -> void: label.text = str(int(v)), float(from), float(to_value), Tune.TICK_T_COUNT)
+	tw.tween_method(func(v: float) -> void: label.text = str(int(v)), float(from), float(to_value), dur)
 	var chip: Node = label.get_parent()
 	while chip != null and not chip is PanelContainer:
 		chip = chip.get_parent()
