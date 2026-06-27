@@ -756,6 +756,7 @@ func _make_element(id: String) -> Control:
 			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
 			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "",
+				"title": "The Farm", "resident_preview": true,
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": ""}
 			return Kit.map_card(mdata, mco, mw, mh)
