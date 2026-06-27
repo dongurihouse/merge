@@ -109,10 +109,14 @@ Per-surface result:
 
 ### 2. `feel.land(host, node, center, intensity)`
 
-The arrival of a tile that **traveled then touched down**:
+The arrival of a tile that **traveled then touched down** — it is the impact the
+fast end of `feel.move` lands into:
 
 - **squash** — the 2-key land squash `LAND_SQUASH_K` (`1.14/0.86 → 1.0`, the value Rush
   already uses), strength × intensity.
+- **small flash** — a brief, soft white `FX.flash` at the touch-down point, peak
+  `FLASH_PEAK * LAND_FLASH_FACTOR * intensity` over `LAND_FLASH_T` (much softer and
+  shorter than a merge flash) — the visual "tap" that catches the arriving tile.
 - **sound** — one canonical soft touch sound at a consistent level (proposed
   `tidy_poof` at -4.0 dB, slight pitch). One id everywhere.
 - **micro-puff** — optional small `FX.burst` (a few neutral particles) × intensity.
@@ -147,28 +151,51 @@ Applies to:
 
 ### 4. `feel.move(node, from, to, kind, dur)`
 
-Travel between positions. `kind ∈ {slide, arc, fall}`, shared easing + a slight
-motion-lean, replacing the per-site hand-rolled tweens:
+Travel between positions, built to **sell the arrival**. `kind ∈ {slide, arc, fall}`,
+replacing the per-site hand-rolled tweens. Components:
 
-- **slide** — fixed `dur`, `TRANS_QUAD` (board merge slide, [board.gd:2522](../../../engine/scripts/scenes/board.gd)).
-- **arc** — up (`MOVE_ARC_T_UP`) + down (`MOVE_ARC_T_DOWN`) with peak + optional spin
-  (rush fling, [explore_rush.gd:674 `_fly_to`](../../../engine/scripts/scenes/explore_rush.gd)).
-- **fall** — distance-scaled `TRANS_QUAD` `EASE_IN` (rush settle/spawn fall,
-  [explore_rush.gd:714 `_fall_to`](../../../engine/scripts/scenes/explore_rush.gd)).
+- **variable speed — accelerate into the destination.** All move kinds use an ease
+  that leaves slowly and is **fastest as it reaches the target** (`TRANS_QUAD`/
+  `TRANS_CUBIC` `EASE_IN`; the arc's down-leg already does this). The late
+  acceleration is what gives the chained `feel.land` its punch — the tile arrives
+  *fast*, then the land squash + small flash catch it. This makes accelerate-into-
+  impact the canonical move easing (board merge slide already does it under
+  `merge_impact`; now every move does).
+- **cast shadow** — a soft dark blob following under the node (a darkened, blurred
+  duplicate of the node's own sprite — no new art), offset by a fixed light
+  direction. For `arc`, the shadow hugs the ground line and its size/alpha shrink as
+  the node rises and snap back as it lands, reading the height of the hop. For
+  `slide`/`fall`, a subtle constant-offset shadow. Frees itself once the move settles.
+- **motion trail (cheap "blur")** — a short fading afterimage: `MOVE_TRAIL_N` ghost
+  copies of the node sprite dropped along the path at decreasing alpha, each
+  self-freeing over `MOVE_TRAIL_T`. Reads as motion blur with no shader and no new
+  art; density scales with travel speed, so a fast fling smears and a gentle settle
+  barely does. (A true shader-based smear is parked — see out of scope.)
+- **motion-lean** — a slight tilt (`MOVE_LEAN_DEG`) into the direction of travel,
+  righting on arrival.
 
-Mostly consolidation — low visible change, but it is what keeps the other three
-consistent and removes drifting per-site durations. Returns the tween so callers can
-chain a `feel.land` on completion.
+`slide` = board merge slide ([board.gd:2522](../../../engine/scripts/scenes/board.gd));
+`arc` = rush fling ([explore_rush.gd:674 `_fly_to`](../../../engine/scripts/scenes/explore_rush.gd)),
+keeping its ±22° spin; `fall` = rush settle/spawn fall
+([explore_rush.gd:714 `_fall_to`](../../../engine/scripts/scenes/explore_rush.gd)).
+Returns the tween so callers chain `feel.land` on completion — the fast arrival + land
+squash/flash are one continuous impact.
 
 ## New / changed tuning constants (`tuning.gd` class `FX`)
 
 - `LAND_SQUASH_K`, `LAND_SQUASH_T` — the 2-key land squash (extract Rush's current values).
+- `LAND_FLASH_FACTOR`, `LAND_FLASH_T` — the small land flash (a fraction of `FLASH_PEAK`,
+  shorter than a merge flash).
 - `LAND_TOUCH_DB`, `LAND_PUFF_N` — touch sound level + micro-puff count.
 - `LAUNCH_TOSS_DB`, `LAUNCH_PUFF_N` — toss sound level + muzzle-puff count.
 - `MERGE_FLASH_TIER_RAMP` (tier→peak factor), `MERGE_HITSTOP_COMBO_BONUS`,
   `MERGE_BURST_HOT_TIER` (8).
-- `MOVE_SLIDE_T`, `MOVE_ARC_T_UP`, `MOVE_ARC_T_DOWN`, `MOVE_FALL_T_MIN/MAX`,
-  `MOVE_LEAN_DEG` — extracted from the current per-site literals so they stop drifting.
+- `MOVE_SLIDE_T`, `MOVE_ARC_T_UP`, `MOVE_ARC_T_DOWN`, `MOVE_FALL_T_MIN/MAX` —
+  extracted from the current per-site literals so they stop drifting.
+- `MOVE_LEAN_DEG` — motion-lean tilt.
+- `MOVE_SHADOW_ALPHA`, `MOVE_SHADOW_OFFSET`, `MOVE_SHADOW_SCALE` — cast-shadow look.
+- `MOVE_TRAIL_N`, `MOVE_TRAIL_T`, `MOVE_TRAIL_SPEED_REF` — afterimage count, fade,
+  speed at which the trail reaches full density.
 
 Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`,
 `GEN_CHARGE_K/T`, `ESCALATE_TIER`, `COMBO_MILESTONES`.
@@ -212,10 +239,16 @@ Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`
 - **Sound choices** — `tidy_poof` (land) and `item_drop` (launch) are *proposed*
   canonical ids; audio was not the owner's priority gap, so these are easy to retune
   and are isolated to one constant each.
+- **Move-fx churn** — shadow + trail spawn transient nodes per move, and Rush settles
+  many tiles at once. Mitigation: short self-freeing lifetimes, trail density capped
+  by `MOVE_TRAIL_N` and scaled down at low speed (a gentle settle barely trails), and
+  shadow/trail skipped under `calm()` and in headless. Verify Rush settle frame cost
+  with a full board.
 
 ## Out of scope (parked)
 
 - Exposing `intensity` and the verb knobs in the workbench.
+- A true shader-based motion blur on `move` (the afterimage trail stands in for it).
 - A `move` motion-lean beyond a slight constant tilt.
 - Resident silent auto-merge ([map.gd:2101](../../../engine/scripts/scenes/map.gd)) —
   stays silent (it is a bookkeeping merge, not a player action).
