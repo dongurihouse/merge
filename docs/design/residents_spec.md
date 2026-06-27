@@ -143,8 +143,8 @@ give you comes home** — then you place them across your maps (see **Place**).
 
 - **Rarity lives on the spirit, set by the box** — four tiers: **white** (common) · **blue** (magic) ·
   **orange** (legendary) · **red** (heroic). Pricier boxes weight toward the top. Rarity drives
-  production (yield rises with rarity × housed tier — see Reward); spirits enter the roster at **housed
-  tier 1** and climb only via **in-hand** merges. *(The roster of spirits at each rarity is content,
+  production (yield rises with rarity × housed tier — see Reward); spirits enter the roster at a
+  **generator-rolled tier** (t1–t4, weighted toward t1) and climb via **in-hand** merges. *(The roster of spirits at each rarity is content,
   parked with the reward-set design; current placeholders aren't the final set.)*
 - **Boxes are skill-earned, not sold.** They're bought with **score** (earned by play), and **every
   box tier is reachable** by playing well — a loot reveal, not a paid gacha. If diamonds ever buy a
@@ -275,10 +275,12 @@ Things a vertical slice must respect, captured here rather than left implicit:
   one completed map. The **pre-first-completion coin gap** (until the first map is done, coins have only
   burst-upgrades / cosmetics to spend on) is a known base-economy concern, carried to Economy.
 - **Score → box → spirit contract** — a run yields a **score** (sum of merge value × multiplier);
-  score buys **boxes** at fixed costs; a box rolls a **kind** from the unlocked pool and the spirit
-  enters the roster at **tier 1** (no rarity roll in v1). This is the seam between the Rush (skill) and
-  the habitat (roster) — define the box **cost table** and the **kind pool** with it. *(Pricier boxes
-  weighting better rarity odds is the parked rarity extension.)*
+  score buys **boxes** at fixed costs (1/4/8 spirits); each granted spirit rolls a **kind** from the
+  unlocked pool **and a tier off the generator's own curve** (`TIER_ODDS` via `BoardLogic.roll_tier` —
+  t1-heavy, capped at **t4**; higher tiers still only via in-hand merges). The box grant and **map 5's
+  habitat chest share one path** (`Habitat.grant_chest`) — they are one system. This is the seam between
+  the Rush (skill) and the habitat (roster). *(Pricier boxes weighting better rarity odds is the parked
+  rarity extension.)*
 - **Save shape & migration** — the habitat needs state today's per-map roster doesn't hold:
   **per-map capacity**, **per-map production state** (last-collect time + accrued), and an **in-hand
   holding area** (no slot limit) for box-spirits awaiting placement. The v1 roster **keys on (kind)**;

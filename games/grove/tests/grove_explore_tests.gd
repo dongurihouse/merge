@@ -186,7 +186,8 @@ func _test_screens() -> void:
 	t._on_buy(Explore.BOXES[0])          # pouch = 1 resident
 	ok(Habitat.hand().size() == hand_before + 1, "opening a pouch on the Trade screen adds one spirit to the hand")
 	ok(pool.has(String(Habitat.hand()[Habitat.hand().size() - 1].kind)), "the box-spirit's kind comes from the unlocked pool")
-	ok(int(Habitat.hand()[Habitat.hand().size() - 1].tier) == 1, "the box-spirit enters the hand at tier 1")
+	var box_tier := int(Habitat.hand()[Habitat.hand().size() - 1].tier)
+	ok(box_tier >= 1 and box_tier <= 4, "the box-spirit rolls a generator tier (1–4)")
 
 	# a pricier box opens to MORE residents (pouch 1 / chest 4 / vault 8)
 	ok(int(Explore.BOXES[0].residents) == 1 and int(Explore.BOXES[1].residents) == 4 and int(Explore.BOXES[2].residents) == 8,

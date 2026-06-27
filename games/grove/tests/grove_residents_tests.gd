@@ -252,6 +252,8 @@ func _test_rewards() -> void:
 	var rc := Habitat.collect(bm, far)
 	ok(String(rc.currency) == "residents" and int(rc.chest) == 1, "collecting map 5 yields a 1-resident chest")
 	ok(int(rc.amount) == 1 and Habitat.hand().size() == hand_b + 1, "the chest resident lands in the hand")
+	var chest_tier := int(Habitat.hand()[Habitat.hand().size() - 1].tier)
+	ok(chest_tier >= 1 and chest_tier <= 4, "a chest spirit rolls a generator tier (1–4), not a fixed tier")
 
 	# the chest scales with COUNT: 4 placed -> a 4-chest, 8 placed -> an 8-chest
 	fresh("reward_chest_scale")
@@ -269,6 +271,11 @@ func _test_rewards() -> void:
 	var rc2 := Habitat.collect(bm2, far)
 	ok(int(rc2.chest) == 8 and int(rc2.amount) == 8, "an 8-chest drops eight residents")
 	ok(Habitat.hand().size() == hand_b2 + 8, "all eight chest residents land in the hand")
+	var all_in_range := true
+	for inst in Habitat.hand().slice(hand_b2):
+		if int(inst.tier) < 1 or int(inst.tier) > 4:
+			all_in_range = false
+	ok(all_in_range, "every chest spirit rolls a tier in 1–4 (the generator curve)")
 
 # --- the spirits DOCK on the map (the folded-in residents management) -------------
 func _test_residents_button() -> void:
