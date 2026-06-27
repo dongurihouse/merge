@@ -49,11 +49,7 @@ static func open(host: Control, opts: Dictionary = {}) -> void:
 	if Kit == null:
 		push_warning("Vault: ui kit missing at %s" % KIT_PATH)
 		return
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the dimmed backdrop, dismissing on tap (the same light modal seam as mail / shop / settings).
 	var veil := ColorRect.new()
 	veil.color = Color(INK, 0.55)
@@ -106,6 +102,7 @@ static func _confirm_crack(host: Control, parent_overlay: Control, opts: Diction
 	var plain: Font = Kit.plain_font() if Kit != null else null
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = Overlay.MODAL_TOP_Z          # the crack confirm sits ABOVE the open vault
 	host.add_child(overlay)
 	var veil := ColorRect.new()
 	veil.color = Color(INK, 0.5)

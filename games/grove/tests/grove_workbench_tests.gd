@@ -789,8 +789,8 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 		"the restored-place popup no longer hand-builds a Collect pill")
 	ok(not _source_contains(map_src, "func _reward_row("), \
 		"the restored-place popup no longer carries custom reward-row chrome")
-	ok(_source_contains(map_src, "overlay.name = \"UnlockRewardOverlay\"\n\toverlay.set_anchors_preset(Control.PRESET_FULL_RECT)\n\toverlay.z_index = 100"), \
-		"the restored-place popup overlay stays above map badges")
+	ok(_source_contains(map_src, "Overlay.mount(self, \"UnlockRewardOverlay\")"), \
+		"the restored-place popup mounts on the shared modal layer (kept above map badges)")
 
 # The bag-screen kit pieces: the single-acorn currency pill, the bag-cell card in each state, and the
 # bag dialog (shared frame + reused pill + a grid of cells). Built directly from the kit (the same

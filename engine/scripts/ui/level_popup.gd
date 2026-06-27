@@ -15,10 +15,10 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")
 const Pal = Game.PALETTE
 const OVERLAY_NAME = "LevelPopupOverlay"
 const DEFAULT_WIDTH_PCT := 80.0
-const MODAL_Z_INDEX := 100
 
 static func open(host: Control) -> Control:
 	return _build(host, "info", 0)
@@ -42,11 +42,7 @@ static func _build(host: Control, mode: String, levels_up: int) -> Control:
 	var span := maxi(1, nxt - base)
 	var remaining := maxi(0, nxt - earned)
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = MODAL_Z_INDEX
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.INK, 0.5)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)

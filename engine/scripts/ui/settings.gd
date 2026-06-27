@@ -45,11 +45,7 @@ static func open(host: Control) -> void:
 		return
 	Audio.play("button_tap", -2.0)
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the dimmed backdrop, dismissing on tap (the same light modal seam as mail / shop / bag).
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.INK, 0.6)

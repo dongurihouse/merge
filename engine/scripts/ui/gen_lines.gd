@@ -37,11 +37,7 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var on_line: Callable = opts.get("on_line", Callable())
 	Audio.play("button_tap", -4.0)
 
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	var veil := ColorRect.new()
 	veil.color = Color(Pal.GROUND_EDGE, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
