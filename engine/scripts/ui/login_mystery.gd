@@ -15,22 +15,12 @@ const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Pal = Game.PALETTE
 const STRAW := Pal.STRAW
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const OVERLAY_NAME := "LoginMysteryOverlay"
-const CELL_ART := "res://games/grove/assets/ui/kit/daily_card.png"
-
-# reel spin pacing (owner feel dial — watch via the workbench "▶ Play spin", §T54). The reels ALL start
-# spinning together and STOP one-by-one (left→right): every reel scrolls a band of desynced symbols and reel
-# i keeps whirring LONGER (a longer duration → its stop is staggered), so you get "all spin → thunk-thunk-
-# thunk". The last reel hangs an extra beat for suspense.
-const REEL_SYMS := 10           # tiles per reel band (decoys + the target). Kept modest — make_icon per tile is not free.
-const REEL_SPIN := 1.0          # reel 0 spin time (sec)
-const REEL_STAGGER := 0.45      # +spin time per reel index (the gap between successive STOPS)
-const REEL_ANTICIPATE := 0.5    # the LAST reel hangs a touch longer (suspense before the final prize)
-const REEL_BLUR_ALPHA := 0.78   # band opacity while whirring fast (a light motion-blur fake); 1.0 when landed
 
 # --- reward value + premium (drives the SHINE) --------------------------------------
 
@@ -86,7 +76,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 		return
 
 	# spin the reels (land one by one + shine), then let the player pick `win`, then grant the picks.
-	_spin_reels(overlay, reels, dialog, func() -> void:
+	SlotReel.spin_reels(overlay, reels, dialog, func() -> void:
 		enter_pick(reels, win, caption, claim, func(picked: Array) -> void:
 			_grant_and_finish(overlay, picked, caption, on_done, false)))
 
@@ -128,8 +118,10 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 	var top_i: int = _top_value_index(options)
 	var reels: Array = []
 	for i in options.size():
-		var reel: Control = _reel(options, options[i], cw, ch, i)   # i drives the band length + the desync
-		reel.set_meta("top", i == top_i)            # the richest reel shines hardest
+		var reel: Control = SlotReel.build_reel(options, options[i], cw, ch, i,
+			func(sym, w, _h) -> Control: return _reward_amounts(load(KIT_PATH), sym, w),
+			is_premium(options[i]))
+		reel.set_meta("top", i == top_i)
 		reel.set_meta("index", i)
 		reels.append(reel)
 		row.add_child(reel)
@@ -156,100 +148,6 @@ static func _top_value_index(options: Array) -> int:
 			best_v = v; best = i
 	return best
 
-# --- one slot reel ------------------------------------------------------------------
-
-# A reel: a clipped parchment cell over a vertical BAND of reward tiles ending on `target`. Reel `index`
-# carries a LONGER band (so it spins longer at the same speed → stops later) and a DESYNCED symbol order
-# (so neighbouring reels never show the same symbol). A built reel is LANDED on its target (the static
-# look). A full-rect tap Button (disabled until the pick phase) makes it selectable. Meta: reward,
-# selected, band/tile_h/n_syms.
-static func _reel(pool: Array, target: Dictionary, cw: float, ch: float, index: int = 0) -> Control:
-	var reel := Control.new()
-	reel.custom_minimum_size = Vector2(cw, ch)
-	reel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	reel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	reel.set_meta("reward", target)
-	reel.set_meta("selected", false)
-
-	var bg := PanelContainer.new()
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bg.add_theme_stylebox_override("panel", _cell_stylebox())
-	reel.add_child(bg)
-
-	# The symbols scroll inside an INSET clipped window, so they slide UNDER the rounded parchment frame
-	# (which masks the edge) instead of clipping at a hard square line. No overlay → no edge artifacts.
-	var inset: float = 8.0
-	var win := Control.new()
-	win.name = "ReelWin"
-	win.clip_contents = true
-	win.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	win.set_anchors_preset(Control.PRESET_FULL_RECT)
-	win.offset_left = inset; win.offset_top = inset; win.offset_right = -inset; win.offset_bottom = -inset
-	reel.add_child(win)
-	var win_w: float = cw - inset * 2.0
-	var win_h: float = ch - inset * 2.0
-
-	var syms: Array = _reel_symbols(pool, target, REEL_SYMS - 1, index * 3 + 1)
-	var band := VBoxContainer.new()
-	band.name = "ReelBand"
-	band.add_theme_constant_override("separation", 0)
-	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for s in syms:
-		band.add_child(_reel_tile(s, win_w, win_h))
-	band.custom_minimum_size = Vector2(win_w, win_h * syms.size())
-	band.size = Vector2(win_w, win_h * syms.size())
-	band.position = Vector2(0, -win_h * float(syms.size() - 1))   # landed on the last (target) tile
-	win.add_child(band)
-	reel.set_meta("band", band)
-	reel.set_meta("tile_h", win_h)
-	reel.set_meta("n_syms", syms.size())
-
-	var tap := Button.new()
-	tap.name = "ReelTap"
-	tap.flat = true
-	tap.focus_mode = Control.FOCUS_NONE
-	tap.disabled = true                            # enabled in enter_pick
-	tap.set_anchors_preset(Control.PRESET_FULL_RECT)
-	reel.add_child(tap)
-	reel.set_meta("tap", tap)
-	return reel
-
-# The reel's scroll symbols: `count` decoys then the TARGET as the last (landing) tile. The decoys cycle
-# the pool from `offset` (per-reel desync + variety), so the whir reads as varied prizes whizzing past.
-static func _reel_symbols(pool: Array, target: Dictionary, count: int, offset: int) -> Array:
-	var syms: Array = []
-	var src: Array = pool if not pool.is_empty() else [target]
-	for j in count:
-		syms.append(src[(j + offset) % src.size()])
-	syms.append(target)
-	return syms
-
-# One band tile: the reward as icon(s)+amount, centred in a cw×ch window (no frame — the reel cell is it).
-static func _reel_tile(reward: Dictionary, cw: float, ch: float) -> Control:
-	var Kit: GDScript = load(KIT_PATH)
-	var tile := CenterContainer.new()
-	tile.custom_minimum_size = Vector2(cw, ch)
-	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	tile.add_child(_reward_amounts(Kit, reward, cw))
-	return tile
-
-# The shared parchment-cell stylebox (the same daily_card look the calendar uses; code fallback if absent).
-static func _cell_stylebox() -> StyleBox:
-	if ResourceLoader.exists(CELL_ART):
-		var st := StyleBoxTexture.new()
-		st.texture = load(CELL_ART)
-		st.set_texture_margin_all(28.0)
-		st.content_margin_left = 8; st.content_margin_right = 8
-		st.content_margin_top = 7; st.content_margin_bottom = 7
-		return st
-	var cf := StyleBoxFlat.new()
-	cf.bg_color = Color(Pal.CREAM, 0.9)
-	cf.set_corner_radius_all(12); cf.set_border_width_all(1); cf.border_color = Color(Pal.BARK, 0.4)
-	cf.content_margin_left = 8; cf.content_margin_right = 8
-	cf.content_margin_top = 7; cf.content_margin_bottom = 7
-	return cf
-
 # A reveal card: the parchment cell + the reward as icon(s)+AMOUNT (kept for the static card preview/tests).
 static func _reveal_card(reward: Dictionary, cw: float, ch: float) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
@@ -257,7 +155,7 @@ static func _reveal_card(reward: Dictionary, cw: float, ch: float) -> Control:
 	panel.custom_minimum_size = Vector2(cw, ch)
 	panel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	panel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	panel.add_theme_stylebox_override("panel", _cell_stylebox())
+	panel.add_theme_stylebox_override("panel", SlotReel.cell_stylebox())
 	var center := CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -323,99 +221,12 @@ static func _claim_button() -> Button:
 	b.add_theme_stylebox_override("disabled", dim)
 	return b
 
-# --- the spin -----------------------------------------------------------------------
-
-# Spin EVERY reel at once and stop them ONE BY ONE (left→right): all bands start scrolling together; reel i
-# carries a longer band + a longer spin time, so it keeps whirring at the same speed and lands later (the
-# last reel hangs an extra beat for suspense). While fast the band is a touch faint (a light motion-blur
-# fake); it sharpens as it eases to a stop, then `_land_reel` lands it with a bounce + flash + chime + shine.
-static func _spin_reels(overlay: Control, reels: Array, dialog: Control, on_all_landed: Callable) -> void:
-	var n: int = reels.size()
-	if n == 0:
-		on_all_landed.call()
-		return
-	for i in n:
-		var reel: Control = reels[i]
-		var band: Control = reel.get_meta("band")
-		var tile_h: float = float(reel.get_meta("tile_h"))
-		var n_syms: int = int(reel.get_meta("n_syms"))
-		band.position.y = 0.0                      # pre-roll: top of the band (all reels start here, together)
-		band.modulate.a = REEL_BLUR_ALPHA          # a touch faint while it whirs
-		var landed_y: float = -tile_h * float(n_syms - 1)
-		var dur: float = REEL_SPIN + float(i) * REEL_STAGGER + (REEL_ANTICIPATE if i == n - 1 else 0.0)
-		var ri := i
-		var t := overlay.create_tween()
-		t.tween_property(band, "position:y", landed_y, dur).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
-		t.parallel().tween_property(band, "modulate:a", 1.0, dur * 0.4).set_delay(dur * 0.6)   # sharpen as it slows
-		t.tween_callback(func() -> void: _land_reel(reels[ri], ri, n, dialog))
-		if i == n - 1:
-			t.tween_callback(on_all_landed)
-
-# A reel lands: a weighty BOUNCE (squash → overshoot → settle) + a quick flash + an escalating chime (pitch
-# climbs reel by reel), and SHINE if premium. The TOP-value reel also kicks a dialog SHAKE — the big "thunk"
-# that sells the jackpot. `idx`/`total` pitch the chime; `dialog` (may be null) is the node that shakes.
-static func _land_reel(reel: Control, idx: int = 0, total: int = 1, dialog: Control = null) -> void:
-	if not is_instance_valid(reel):
-		return
-	var band: Control = reel.get_meta("band")
-	if is_instance_valid(band):
-		band.modulate.a = 1.0
-	var reward: Dictionary = reel.get_meta("reward")
-	var top: bool = bool(reel.get_meta("top", false))
-	if is_premium(reward):
-		shine(reel, top)
-	# the BOUNCE: squash on impact, overshoot, settle (gives the reel weight — the slot "thunk")
-	reel.pivot_offset = Vector2(reel.size.x * 0.5, reel.size.y)
-	reel.scale = Vector2(1.14, 0.82)
-	var t := reel.create_tween()
-	t.tween_property(reel, "scale", Vector2(0.96, 1.08), 0.09).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(reel, "scale", Vector2.ONE, 0.13).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_flash(reel, top)
-	if top and is_instance_valid(dialog):          # the jackpot reel kicks a screen shake
-		FX.shake(dialog, FX.Tune.SHAKE_BIG_AMP)
-	# the chime climbs in pitch as the reels stop, building toward the last — classic slot escalation
-	Audio.play("merge_success", -4.0, 1.04 + float(idx) / float(maxi(1, total)) * 0.5)
-
-# A quick impact flash over a landed reel (gold + bigger for the top prize); fades out fast.
-static func _flash(reel: Control, strong: bool = false) -> void:
-	var fl := ColorRect.new()
-	fl.color = (Color(1, 0.95, 0.7, 0.85) if strong else Color(1, 1, 1, 0.6))
-	fl.set_anchors_preset(Control.PRESET_FULL_RECT)
-	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reel.add_child(fl)
-	if not reel.is_inside_tree():
-		fl.queue_free()
-		return
-	var t := fl.create_tween()
-	t.tween_property(fl, "modulate:a", 0.0, 0.26 if strong else 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_callback(fl.queue_free)
-
-# The premium-reward SHINE: just a warm glow BEHIND the band that gently pulses (so the valuable reels
-# keep drawing the eye), plus a one-shot sparkle burst on land. Deliberately quiet — no rim or corner
-# icon (those read as busy clutter). `strong` (the richest reel) glows a touch warmer + a bigger burst.
-static func shine(reel: Control, strong: bool) -> void:
-	if reel.has_node("Shine"):
-		return
-	var hi: float = 0.5 if strong else 0.34
-	var glow := ColorRect.new()
-	glow.name = "Shine"
-	glow.color = Color(STRAW, hi)
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reel.add_child(glow)
-	reel.move_child(glow, 1)                        # above the cell bg, below the band — tints, never frames
-	if reel.is_inside_tree():                       # a slow breathing pulse so it reads as "shining", not just tinted
-		var pt := glow.create_tween().set_loops()
-		pt.tween_property(glow, "color:a", hi * 0.5, 0.8).set_trans(Tween.TRANS_SINE)
-		pt.tween_property(glow, "color:a", hi, 0.8).set_trans(Tween.TRANS_SINE)
-	FX.burst(reel, reel.size * 0.5, STRAW, 18 if strong else 11)
-
 ## The "all reels landed" look WITHOUT animation (the workbench revealed/pick states) — shine the premium
 ## reels (build_reveal already lands every band on its target). Lets the workbench preview the end-of-spin.
 static func reveal_static(reels: Array) -> void:
 	for reel in reels:
 		if is_premium((reel as Control).get_meta("reward")):
-			shine(reel, bool((reel as Control).get_meta("top", false)))
+			SlotReel.shine(reel, bool((reel as Control).get_meta("top", false)))
 
 ## Re-run the reel spin from the top (the workbench "▶ Play spin"): clear shine + reset each band, then spin.
 static func replay_spin(host: Control, reels: Array, on_done: Callable = Callable()) -> void:
@@ -428,7 +239,7 @@ static func replay_spin(host: Control, reels: Array, on_done: Callable = Callabl
 		var band: Control = (reel as Control).get_meta("band")
 		band.position.y = 0.0
 		band.modulate.a = 1.0
-	_spin_reels(host, reels, null, on_done if on_done.is_valid() else (func() -> void: pass))
+	SlotReel.spin_reels(host, reels, null, on_done if on_done.is_valid() else (func() -> void: pass))
 
 # --- the pick -----------------------------------------------------------------------
 
