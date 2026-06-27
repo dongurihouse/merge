@@ -69,7 +69,7 @@ static func combo_heat(host: Control, gpos: Vector2, combo: int) -> void:
 
 ## The clock under ~10s: redden toward hot + a heartbeat pop. Call once per WHOLE second; pass the
 ## seconds left. At >10s it restores the resting ink colour, so it can be called unconditionally.
-static func timer_low(label: Label, secs_left: int) -> void:
+static func timer_low(label: Label, secs_left: int, silent: bool = false) -> void:
 	if label == null or not is_instance_valid(label):
 		return
 	if secs_left > 10:
@@ -78,11 +78,13 @@ static func timer_low(label: Label, secs_left: int) -> void:
 	var warm := clampf(float(10 - secs_left) / 10.0, 0.0, 1.0)
 	label.add_theme_color_override("font_color", INK.lerp(HOT, warm))
 	FX.squash_pop(label)
-	Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)        # a soft rising tick
+	if not silent:
+		Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)    # a soft rising tick
 
 ## The timber LANDS with a crack — debris burst + a heavier jolt + a brief freeze.
-static func treefall_crack(host: Node, board: Control, gpos: Vector2) -> void:
+static func treefall_crack(host: Node, board: Control, gpos: Vector2, silent: bool = false) -> void:
 	FX.burst(host, gpos, STRAW, 18)
 	FX.shake(board, 16.0)
 	FX.hitstop(0.06)
-	Audio.play("tidy_poof", -1.0, 0.65)                     # low poof = a woody crack
+	if not silent:
+		Audio.play("tidy_poof", -1.0, 0.65)                 # low poof = a woody crack
