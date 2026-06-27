@@ -985,11 +985,14 @@ func _test_new_knobs(view) -> void:
 	var scaled_item_slot := scaled_bar.get_meta("info_icon") as Control
 	var scaled_text_stack := (scaled_bar.get_meta("name_label") as Label).get_parent() as Control
 	var scaled_item_text_row := scaled_item_slot.get_parent() as HBoxContainer
-	var scaled_hb := scaled_info_slot.get_parent() as HBoxContainer
-	ok(scaled_hb != null and scaled_hb.get_child(0) == scaled_info_slot, \
-		"the info button starts at the left edge of the info bar content")
-	ok(scaled_hb != null and scaled_hb.get_child(1) == scaled_item_text_row, \
-		"the selected item art and text sit immediately after the left info button")
+	var scaled_hb := scaled_item_text_row.get_parent() as HBoxContainer
+	ok(scaled_hb != null and scaled_hb.get_child(0) == scaled_item_text_row, \
+		"the selected item art and text start at the left edge of the info bar layout")
+	ok(scaled_info_slot != null \
+		and scaled_info_slot.get_parent() != scaled_hb \
+		and scaled_info_slot.get_parent() != null \
+		and scaled_info_slot.get_parent().get_parent() == scaled_bar, \
+		"the info button floats in an overlay instead of consuming layout width")
 	ok(scaled_item_text_row != null and scaled_item_text_row.get_child(0) == scaled_item_slot, \
 		"the selected item icon starts the item/text group")
 	ok(scaled_item_text_row != null \
@@ -1080,8 +1083,8 @@ func _test_board_element(view) -> void:
 		"the board preview shows frontier and deep locked cells using Slot-cell background settings")
 	ok(board_backgrounds.size() >= int(view._params["board"].cols) * int(view._params["board"].rows), \
 		"the board preview renders every cell state through the Slot-cell background")
-	ok(_locked_placeholder(board_with_locks) != null and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.60), \
-		"the board preview inherits the shared locked placeholder sprite at 60% opacity")
+	ok(_locked_placeholder(board_with_locks) != null and is_equal_approx(_locked_placeholder(board_with_locks).modulate.a, 0.30), \
+		"the board preview inherits the shared locked placeholder sprite at 30% opacity")
 	ok(_has_class(board_with_locks, "GPUParticles2D"), \
 		"the board preview includes the unlockable Slot-cell state")
 	view._params["board"]["cell"] = 100
@@ -1579,12 +1582,12 @@ func _test_bag_components() -> void:
 		"the locked cell uses the code-drawn Slot-cell background")
 	var locked_placeholder := _locked_placeholder(locked_plain)
 	ok(locked_placeholder != null and locked_placeholder.texture != null \
-		and is_equal_approx(locked_placeholder.modulate.a, 0.60), \
-		"the locked cell layers the shared placeholder sprite at 60% opacity")
+		and is_equal_approx(locked_placeholder.modulate.a, 0.30), \
+		"the locked cell layers the shared placeholder sprite at 30% opacity")
 	var unlockable_placeholder := _locked_placeholder(unl)
 	ok(unlockable_placeholder != null and unlockable_placeholder.texture == locked_placeholder.texture \
-		and is_equal_approx(unlockable_placeholder.modulate.a, 0.60), \
-		"the unlockable cell uses the same locked placeholder sprite at 60% opacity")
+		and is_equal_approx(unlockable_placeholder.modulate.a, 0.30), \
+		"the unlockable cell uses the same locked placeholder sprite at 30% opacity")
 	var locked_bg := locked_plain.find_child("SlotCellBackground", true, false) as Control
 	ok(locked_plain.custom_minimum_size == cwh, "the locked slot cell owns the configured cell_w/cell_h")
 	ok(locked_bg != null and locked_bg.size == cwh, "the locked background paints at the configured slot-cell size")
@@ -1699,8 +1702,8 @@ func _test_discovery_cell() -> void:
 	# a DISCOVERED tier → filled Slot-cell background; an UNDISCOVERED tier → locked Slot-cell background
 	ok(dlg.find_children("SlotCellBackground", "Panel", true, false).size() >= 2, \
 		"discovered and undiscovered tiers both use the shared Slot-cell background")
-	ok(_locked_placeholder(dlg) != null and is_equal_approx(_locked_placeholder(dlg).modulate.a, 0.60), \
-		"undiscovered tiers inherit the shared locked placeholder sprite at 60% opacity")
+	ok(_locked_placeholder(dlg) != null and is_equal_approx(_locked_placeholder(dlg).modulate.a, 0.30), \
+		"undiscovered tiers inherit the shared locked placeholder sprite at 30% opacity")
 	var tuned_cfg := {"bag_card": {"open_hue": 126, "open_sat": 78, "open_val": 52}}
 	var tuned_topts := Kit.tiers_opts_from_config(tuned_cfg)
 	var tuned_dlg := Kit.tiers_dialog([{"tier": 1, "seen": true, "icon": "leaf"}], 560.0, tuned_topts)

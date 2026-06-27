@@ -3731,7 +3731,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
 
-## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece] [name] [Sell badge] -------------------------
+## --- the bottom-bar INFO BAR: [selected piece] [name] [Sell badge], with floating [info ⓘ] -----------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
 ## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button — the word "Sell" in
 ## plain ink over a vertical green badge (the payout coin on top, the payout number below).
@@ -3786,24 +3786,32 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	text_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	item_text_row.add_child(text_stack)
+	hb.add_child(item_text_row)
 	var info_btn_scale := clampf(float(opts.get("info_button_scale", 1.0)), 0.25, 2.0)
 	var info_btn_px := maxf(1.0, inner * info_btn_scale)
 	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
 	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
 		info_btn.pressed.connect(spec.get("info_action"))
-	# The ⓘ starts the row in a fixed footprint; x/y/scale move the button inside that slot without pushing
-	# the item, label, or Sell chip around.
+	# The ⓘ floats above the row in a fixed footprint; x/y/scale move the button without pushing the item,
+	# label, or Sell chip around.
 	var info_x := float(opts.get("info_x", 0.0))
 	var info_y := float(opts.get("info_y", 0.0))
+	var info_overlay := Control.new()
+	info_overlay.name = "InfoButtonOverlay"
+	info_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info_overlay.z_index = 5
+	pill.add_child(info_overlay)
 	var info_slot := Control.new()
+	info_slot.name = "InfoButtonSlot"
 	info_slot.custom_minimum_size = Vector2(inner, inner)
+	info_slot.size = Vector2(inner, inner)
+	info_slot.position = Vector2(0.0, maxf(0.0, (height - (vpad * 2.0) - inner) * 0.5))
 	info_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	info_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	info_btn.size = Vector2(info_btn_px, info_btn_px)
 	info_btn.position = Vector2((inner - info_btn_px) * 0.5 + info_x, (inner - info_btn_px) * 0.5 + info_y)
 	info_slot.add_child(info_btn)
-	hb.add_child(info_slot)
-	hb.add_child(item_text_row)
+	info_overlay.add_child(info_slot)
 	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
 	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
 	name_label.add_theme_color_override("font_color", Pal.INK)
@@ -4146,7 +4154,7 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
 const SLOT_LOCKED_PLACEHOLDER_ART := "board/locked_placeholder.png"
-const SLOT_LOCKED_PLACEHOLDER_ALPHA := 0.60
+const SLOT_LOCKED_PLACEHOLDER_ALPHA := 0.30
 const SLOT_LOCKED_PLACEHOLDER_FRAC := 0.72
 
 static func _slot_locked_placeholder(cw: float, ch: float) -> Control:
