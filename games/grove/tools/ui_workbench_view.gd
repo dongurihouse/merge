@@ -766,8 +766,8 @@ func _make_element(id: String) -> Control:
 			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
 		"rush_fx":
 			# the screen-juice tester: a sample bar + two demo TILES (so the merge burst lands on a board-like
-			# spot) + a ▶ Replay that fires the ENABLED effects. The game reads the SAME toggles (RushFx). It
-			# auto-plays once on build, so flipping a toggle replays with the new set; Replay re-fires on demand.
+			# spot). The sidebar has a ▶ Replay per effect + that effect's knobs; this "▶ Replay all" button fires
+			# every ENABLED effect. The game reads the SAME toggles + knobs (RushFx). No auto-play — replay on demand.
 			var fbo := Kit.rush_bar_opts_from_config({"rush_bar": _params["rush_bar"], "gold_badge": _params["gold_badge"]})
 			var demo: Control = Kit.rush_bar(fbo, {"time": "0:30", "score": "0", "mult": "×1.0"})
 			var bsc := 0.6
@@ -788,7 +788,7 @@ func _make_element(id: String) -> Control:
 			wrap.add_child(tb)
 			var tile_ctr := Vector2(tcx, tiles_y + tpx * 0.5)
 			var btn := Button.new()
-			btn.text = "▶  Replay"
+			btn.text = "▶  Replay all"
 			btn.add_theme_font_size_override("font_size", 22)
 			btn.custom_minimum_size = Vector2(190.0, 52.0) ; btn.size = btn.custom_minimum_size
 			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
@@ -800,7 +800,6 @@ func _make_element(id: String) -> Control:
 				"mult_cell": demo.get_meta("mult_cell"), "tile_a": ta, "tile_b": tb,
 				"wrap": wrap, "demo": demo, "tile_ctr": tile_ctr, "tile_px": tpx,
 			}
-			btn.text = "▶  Replay all"
 			btn.pressed.connect(func() -> void: _rush_fx_play("__all__"))
 			return wrap
 		"quest_card":
