@@ -4571,6 +4571,51 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_add_resident_preview(card, opts, card_w, card_h)
 	return card
 
+static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: float = 0.0, safe_bottom: float = 0.0) -> Dictionary:
+	var top := 96.0 + safe_top
+	var sep := 18.0
+	var band_top := top + 16.0
+	var band_bot := view.y - (safe_bottom + 150.0)
+	var col_h := maxf(1.0, band_bot - band_top)
+	var margin := clampf(view.x * 0.012, 8.0, 16.0)
+	var col_gap := clampf(view.x * 0.02, 10.0, 24.0)
+	var hand_w := clampf(view.x * 0.30, 210.0, 360.0)
+	var card_w := maxf(160.0, view.x - margin * 2.0 - col_gap - hand_w)
+	var h_frac := float(opts.get("card_h_frac", 0.16))
+	var base_card_h := maxf(view.y * h_frac, 150.0)
+	var left_x := margin
+	var hand_x := left_x + card_w + col_gap
+	return {
+		"top": top,
+		"sep": sep,
+		"band_top": band_top,
+		"band_bot": band_bot,
+		"col_h": col_h,
+		"margin": margin,
+		"col_gap": col_gap,
+		"hand_w": hand_w,
+		"card_w": card_w,
+		"base_card_h": base_card_h,
+		"left_x": left_x,
+		"hand_x": hand_x,
+	}
+
+static func map_card_art_path(map_data: Dictionary) -> String:
+	var thumb_path := Game.art("map/map_%s.png" % String(map_data.get("id", "")))
+	if ResourceLoader.exists(thumb_path):
+		return thumb_path
+	var vine = map_data.get("vine", null)
+	if typeof(vine) == TYPE_DICTIONARY:
+		var base := String(vine.get("base", ""))
+		if base != "" and ResourceLoader.exists(base):
+			return base
+	var home = map_data.get("home", null)
+	if typeof(home) == TYPE_DICTIONARY:
+		var clean := String(home.get("clean", ""))
+		if clean != "" and ResourceLoader.exists(clean):
+			return clean
+	return ""
+
 # The SHARED gold-badge frame, filling the card as a 9-slice (corners native, edges stretch —
 # board-consistent). Named so tests + the fill can find it. Open AND locked cards wear the SAME frame, so
 # the picker reads as one surface; only the interior (lit art vs dark veil) tells them apart.
@@ -5121,7 +5166,6 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"use_art":         bool(c.get("use_art", true)),
 		"badge":           gold_badge_opts_from_config(cfg),           # the SHARED gold-badge skin BOTH cards' frame wears (board/info-bar consistent)
-		"card_w_frac":     float(c.get("card_w_frac", 96)) / 100.0,     # card width  as a % of the screen width (smaller = wider side margins)
 		"card_h_frac":     float(c.get("card_h_frac", 16)) / 100.0,     # card height as a % of the screen height (a w:h far from the art's ~2.92 aspect stretches the gold frame)
 		"edge_sparkle":    float(c.get("edge_sparkle", 60)) / 100.0,    # twinkles ringing an ACTIVE open card's gold band (0 = off); reduced-motion freezes them
 		"calm":            bool(c.get("calm", false)),                  # reduced-motion: freeze the edge sparkle (set live by map.gd from FX.calm())

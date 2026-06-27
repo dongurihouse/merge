@@ -306,7 +306,6 @@
 	},
 	"map_card": {
 		"card_h_frac": 38.0,
-		"card_w_frac": 97.0,
 		"edge_sparkle": 60.0,
 		"pill_max": 290.0,
 		"pill_min": 170.0,
