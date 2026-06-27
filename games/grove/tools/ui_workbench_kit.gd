@@ -3053,6 +3053,9 @@ static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 	# slot_cell makes a FILLED cell a Button when on_tap is valid; a locked (unseen) cell ignores it.
 	if d.get("on_tap") is Callable and (d.get("on_tap") as Callable).is_valid():
 		sd["on_tap"] = d.get("on_tap")
+	# dim_bg recedes the WELL for a discovered-but-inactive line (the Producing dialog) — forward it to slot_cell.
+	if bool(d.get("dim_bg", false)):
+		sd["dim_bg"] = true
 	var cell := slot_cell(sd, opts)
 	if bool(opts.get("show_num", true)):
 		var tier := int(d.get("tier", 0))
