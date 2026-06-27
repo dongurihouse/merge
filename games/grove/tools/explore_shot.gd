@@ -10,6 +10,7 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
+const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
@@ -49,9 +50,7 @@ func _initialize() -> void:
 	match which:
 		"trade":
 			Explore.begin_run({})
-			# the Rewards screen converts score → spirits on open; this sets how many reels reveal
-			Explore.add_score((revealed if revealed > 0 else 7) * Explore.TRADE_RATE)
-			path = "res://engine/scenes/ExploreTrade.tscn"
+			path = "res://engine/scenes/ExploreRush.tscn"   # the reward is now an overlay ON the board
 		_:
 			Explore.begin_run({"time": true, "drops": true})
 			path = "res://engine/scenes/ExploreRush.tscn"
@@ -60,10 +59,10 @@ func _initialize() -> void:
 	root.add_child(scn)
 	current_scene = scn
 	if which == "trade":
-		await create_timer(0.5).timeout          # let the dialog lay out + the reels build
-		if scn.has_method("_on_done_pressed"):
-			scn._on_done_pressed()               # first Done press snaps the reveal to its LANDED state (no waiting on the spin)
-		await create_timer(0.3).timeout          # let the shine + settle apply
+		scn.set_process(false)                   # freeze the board as a static backdrop behind the overlay
+		Explore.add_score((revealed if revealed > 0 else 7) * Explore.TRADE_RATE)  # set after the board's _ready, before the overlay reads it
+		ExploreReward.open(scn, {"on_done": func() -> void: pass})
+		await create_timer(3.9).timeout          # let the reel cascade land (SPIN_CFG total_cap 3.5)
 		RenderingServer.force_draw()
 		var ti := root.get_texture().get_image()
 		var et := ti.save_png(out)

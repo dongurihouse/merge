@@ -42,6 +42,7 @@ func _initialize() -> void:
 		board_scene._ready()
 	await create_timer(0.05).timeout
 	var info_button := board_scene.get("_info_btn") as Button
+	var live_hides_info := bool(Kit.info_bar_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)).get("hide_info_button", false))
 	ok(info_button != null, "the info bar exposes its info button")
 	ok(info_button != null and not info_button.visible, "the empty info bar hides the info button")
 	var desc_label: Label = board_scene.get("_info_desc_label") as Label
@@ -58,9 +59,17 @@ func _initialize() -> void:
 		board_scene.board.place(cell, 1201)
 		board_scene._rebuild_pieces()
 		board_scene._select_item(cell)
-		ok(info_button.visible and not info_button.disabled, "selecting an item shows and enables the info button")
-		ok(board_scene._info_label.text == "Water drop · Tier 1", "the info bar names special drops instead of falling back to Item")
-		ok(desc_label != null and desc_label.visible and desc_label.text.contains("8 water"), "the info bar shows the selected item's useful hint")
+		ok(info_button.visible == (not live_hides_info) and info_button.disabled == live_hides_info, \
+			"selecting an item applies the configured info button visibility")
+		ok(board_scene._info_label.text == "Water drop", "the info bar title is the item name without tier suffix")
+		ok(desc_label != null and desc_label.visible and desc_label.text.begins_with("Tier 1"), \
+			"the info bar subtitle starts with the selected item's tier")
+		ok(desc_label != null and desc_label.visible and desc_label.text.contains("8 water"), \
+			"the info bar subtitle keeps the selected item's useful hint")
+		ok(board_scene._info_label.autowrap_mode != TextServer.AUTOWRAP_OFF and not board_scene._info_label.clip_text, \
+			"the info bar title wraps instead of ellipsizing when it overflows")
+		ok(desc_label != null and desc_label.autowrap_mode != TextServer.AUTOWRAP_OFF and not desc_label.clip_text, \
+			"the info bar subtitle wraps instead of ellipsizing when it overflows")
 		var selected_icon_slot := board_scene.get("_info_icon") as Control
 		var selected_art := selected_icon_slot.get_child(0) as Control if selected_icon_slot != null and selected_icon_slot.get_child_count() > 0 else null
 		var expected_icon_px_raw = board_scene.get("_info_item_px")
@@ -190,7 +199,7 @@ func _initialize() -> void:
 		ok(bool(lit[0].seen) and int(lit[0].code) == probe * 100 + 1, "a seen line shows its lowest-seen tier piece")
 		# wiring: selecting the generator enables ⓘ, and ⓘ opens the Producing overlay (feature is on).
 		board_scene._select_generator(gcell)
-		ok(not board_scene._info_btn.disabled, "selecting a generator enables the info button")
+		ok(board_scene._info_btn.disabled == live_hides_info, "selecting a generator applies the configured info button visibility")
 		board_scene._on_info_pressed()
 		await process_frame
 		ok(board_scene.get_node_or_null("GenLinesOverlay") != null, "the info button opens the Producing dialog overlay")
@@ -234,7 +243,7 @@ func _initialize() -> void:
 		ok(board_scene._info_label.text.contains("Prize pumpkin"), "focused treat generator names its treasure")
 		var treat_desc: Label = board_scene.get("_info_desc_label") as Label
 		ok(treat_desc != null and treat_desc.visible and treat_desc.text.contains("Prize pumpkin"), "focused treat generator explains its output")
-		ok(not board_scene._info_btn.disabled, "treat generators keep the producing info button enabled")
+		ok(board_scene._info_btn.disabled == live_hides_info, "treat generators apply the configured info button visibility")
 		board_scene._on_info_pressed()
 		await process_frame
 		ok(board_scene.get_node_or_null("GenLinesOverlay") != null, "the treat generator info button opens its producing overlay")
@@ -269,6 +278,18 @@ func _initialize() -> void:
 		hidden_board._select_item(hidden_cell)
 		ok(not hidden_board._info_btn.visible, \
 			"selecting an item keeps the hidden info button out of the live info bar")
+		var hidden_icon_slot := hidden_board.get("_info_icon") as Control
+		ok(hidden_icon_slot != null and hidden_icon_slot.visible, \
+			"selecting an item keeps the selected item icon visible when the info button is hidden")
+		if hidden_icon_slot != null:
+			_push_tap(hidden_icon_slot.get_global_rect().get_center())
+			await process_frame
+			ok(hidden_board.get_node_or_null("LadderOverlay") != null, \
+				"tapping the selected item icon opens the item info dialog when the info button is hidden")
+			var hidden_ladder: Node = hidden_board.get_node_or_null("LadderOverlay")
+			if hidden_ladder != null:
+				hidden_ladder.queue_free()
+				await process_frame
 	hidden_board.queue_free()
 	hidden_board = null
 	Kit.clear_config_cache(Kit.CONFIG_PATH)

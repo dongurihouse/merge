@@ -5,6 +5,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
+const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -18,6 +19,7 @@ func _initialize() -> void:
 	_test_rush_intro_hint()
 	_test_screens()
 	_test_trade_reward_dialog_layout()
+	_test_reward_row_cap()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -294,11 +296,11 @@ func _test_rush_intro_hint() -> void:
 	ok(Save.rush_intro_seen() == 3, "a retired popup does not bump the counter further")
 	s4.queue_free()
 
-# --- the Rush/Trade screens: build smoke + the Trade→hand seam -------------------
+# --- the Rush screen + the reward overlay: build smoke + the score→hand seam ------
 func _test_screens() -> void:
 	fresh("explore_screens")
 	# (Load out is now an overlay dialog on the map — map.gd::_open_expedition — not a scene.)
-	for path in ["res://engine/scenes/ExploreRush.tscn", "res://engine/scenes/ExploreTrade.tscn"]:
+	for path in ["res://engine/scenes/ExploreRush.tscn"]:
 		var s = load(path).instantiate()
 		get_root().add_child(s)
 		if s.get_child_count() == 0:        # headless -s defers _ready a frame; build it now
@@ -306,8 +308,8 @@ func _test_screens() -> void:
 		ok(s.get_child_count() > 0, "%s builds a non-empty tree" % String(path).get_file())
 		s.queue_free()
 
-	# the seam: opening the Rewards screen converts the run score DIRECTLY into hand spirits
-	fresh("explore_trade_seam")
+	# the seam: opening the reward OVERLAY converts the run score DIRECTLY into hand spirits
+	fresh("explore_reward_seam")
 	var z := 0
 	var g := Save.grove()
 	var unl := {}
@@ -320,24 +322,26 @@ func _test_screens() -> void:
 	Explore.add_score(400)                          # 400 / 200 = 2 spirits
 	var pool: Array = Explore.unlocked_pool(unl, [z])
 	var hand_before := Habitat.hand().size()
-	var t = load("res://engine/scenes/ExploreTrade.tscn").instantiate()
-	get_root().add_child(t)
-	if t.get_child_count() == 0:
-		t._ready()
-	ok(Habitat.hand().size() == hand_before + 2, "opening the Rewards screen grants floor(score / RATE) spirits to the hand")
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(Habitat.hand().size() == hand_before + 2, "opening the reward overlay grants floor(score / RATE) spirits to the hand")
 	var last: Dictionary = Habitat.hand()[Habitat.hand().size() - 1]
 	ok(pool.has(String(last.kind)), "a granted spirit's kind comes from the unlocked pool")
 	ok(int(last.tier) >= 1 and int(last.tier) <= 4, "a granted spirit rolls a generator tier (1–4)")
-	ok(t.find_child("TradeDialog", true, false) != null, "the Rewards screen uses the shared framed dialog")
-	ok(t._reels.size() == 2, "the screen builds one reel per granted spirit")
-	var piglet_reveal: Control = t._spirit_widget("piglet", 72.0)
-	ok(piglet_reveal.find_child("SpiritEye0", true, false) != null and piglet_reveal.find_child("SpiritEye1", true, false) != null,
+	ok(host.find_child("ExploreRewardOverlay", true, false) != null, "the reward mounts as a modal overlay (not a separate scene)")
+	ok(host.find_child("RewardDialog", true, false) != null, "the reward uses the shared framed dialog")
+	var grid := host.find_child("RewardReels", true, false)
+	ok(grid != null and grid.get_child_count() == 2, "the reveal builds one reel per granted spirit")
+	var piglet_icon: Control = ExploreReward._spirit_icon("piglet", 72.0)
+	ok(piglet_icon.find_child("SpiritEye0", true, false) != null and piglet_icon.find_child("SpiritEye1", true, false) != null,
 		"an unarted spirit reveal shows placeholder face details instead of a blank disc")
-	t.queue_free()
+	host.queue_free()
 
 
 func _test_trade_reward_dialog_layout() -> void:
-	fresh("trade_reward_layout")
+	fresh("reward_overlay_layout")
 	var z := 0
 	var g := Save.grove()
 	var unl := {}
@@ -348,14 +352,41 @@ func _test_trade_reward_dialog_layout() -> void:
 	Save.grove_write()
 	Explore.begin_run({})
 	Explore.add_score(800)                          # 800 / 200 = 4 reels
-	var trade = load("res://engine/scenes/ExploreTrade.tscn").instantiate()
-	get_root().add_child(trade)
-	if trade.get_child_count() == 0:
-		trade._ready()
-	var dialog := trade.find_child("TradeDialog", true, false) as Control
-	ok(dialog != null, "the Rewards screen uses the shared framed dialog instead of a loose full-page layout")
-	ok(trade._reels.size() == 4, "an 800-point run reveals four reels")
-	trade.queue_free()
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(host.find_child("RewardDialog", true, false) != null, "the reward mounts the shared framed dialog on the board")
+	var grid := host.find_child("RewardReels", true, false)
+	ok(grid != null and grid.get_child_count() == 4, "an 800-point run reveals four reels")
+	host.queue_free()
+
+# a huge haul is row-capped: only MAX_ROWS rows reveal, the rest fold into a "+N more" tile — but every
+# granted spirit still lands in the hand (the reveal is cosmetic).
+func _test_reward_row_cap() -> void:
+	fresh("reward_row_cap")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	Explore.begin_run({})
+	Explore.add_score(6000)                         # 6000 / 200 = 30 spirits — well past the row cap
+	var hand_before := Habitat.hand().size()
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(Habitat.hand().size() == hand_before + 30, "every granted spirit lands in the hand even past the reveal cap")
+	var grid := host.find_child("RewardReels", true, false) as GridContainer
+	ok(grid != null, "the reveal grid is built")
+	ok(grid.get_child_count() <= 4 * ExploreReward.MAX_ROWS, "the reveal never exceeds the row cap (≤ 4 × MAX_ROWS cells)")
+	ok(grid.get_child_count() == grid.columns * ExploreReward.MAX_ROWS, "a big haul fills exactly the capped rows")
+	ok(host.find_child("RewardMore", true, false) != null, "the overflow folds into a +N more tile")
+	host.queue_free()
 
 func _test_loadout_uses_toggle_card_callback() -> void:
 	var map_src := "res://engine/scripts/scenes/map.gd"

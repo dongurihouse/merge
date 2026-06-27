@@ -3,7 +3,8 @@ extends Control
 ## Traces rain in automatically (no Water); TAP a tile to merge a matching neighbour (the result rerolls
 ## to a random line) or, with no match, to FLING it to a safe column; a telegraphed TREEFALL periodically
 ## destroys a column (empty it first for a clean-dodge multiplier). Two clocks end the run — the countdown
-## or a full board. Score accrues into the run state (Explore.add_score) and the run hands off to Trade.
+## or a full board. Score accrues into the run state (Explore.add_score) and the run reveals its reward
+## as an overlay on this frozen board (ui/explore_reward.gd), not a separate screen.
 ##
 ## The decision logic is core/explore.gd (pure, tested); this script is the real-time orchestration +
 ## simple tile visuals. Numbers are the feel-prototype's provisional values (Rush sim retunes later).
@@ -11,7 +12,7 @@ extends Control
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro popup's first-N-rushes counter
-const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
+const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")  # the run's payout, as an overlay on this board
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
@@ -522,8 +523,9 @@ func _end() -> void:
 		return
 	_running = false
 	set_process(false)
-	# Explore.run() already holds the accrued score (added per merge); hand off to Trade.
-	SceneWarm.go(get_tree(), "res://engine/scenes/ExploreTrade.tscn")
+	# Explore.run() already holds the accrued score (added per merge); reveal the reward ON TOP of the
+	# frozen board (a modal overlay, not a scene change). Done returns to the Map.
+	ExploreReward.open(self, {})
 
 # --- readouts / widgets ----------------------------------------------------------
 func _refresh_readouts() -> void:
