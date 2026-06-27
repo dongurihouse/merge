@@ -1056,6 +1056,20 @@ func _test_new_knobs(view) -> void:
 		and not _source_contains("res://engine/scripts/scenes/board.gd", "_home_nav_button(BOTTOM_BTN_PX)"), \
 		"board Bag/Home wells use the workbench home_button px instead of the old board constant")
 
+	# bundle B (impact propagation): the board merge ripples its neighbours and big merges punch the board.
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(b), board_area.get_global_transform() * center, 1.0)") != -1, \
+		"board merge ripples the merge cell's orthogonal neighbours")
+	ok(board_src.find("Feel.board_punch(board_area, 1.0)") != -1, \
+		"board punches the whole board on a big merge (tier >= ESCALATE_TIER)")
+	ok(board_src.find("func _orthogonal_neighbour_nodes") != -1, \
+		"board gathers neighbour nodes scene-side (the grid stays in the scene, not the verb)")
+	# discrete coin / special touchdowns also ripple their neighbours.
+	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8)") != -1, \
+		"a coin touchdown ripples its neighbours")
+	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8)") != -1, \
+		"a special-drop touchdown ripples its neighbours")
+
 	# the SIDEBAR slider panel for each edited element builds without error and emits the new sliders
 	# (label rows). A typo in a _slider_row key here would otherwise only surface when a human opens the tool.
 	for sel in ["home_button", "gold_currency_pill", "info_bar"]:

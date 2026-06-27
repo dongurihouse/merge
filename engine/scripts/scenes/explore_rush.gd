@@ -15,11 +15,14 @@ const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro p
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")  # the run's payout, as an overlay on this board
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
+const Feel = preload("res://engine/scripts/ui/feel.gd")  # the unified feel verbs — merge juice routes through Feel.merge
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
@@ -48,6 +51,7 @@ var _elapsed := 0.0
 var _spawn_acc := 0.0
 var _mult := 1.0
 var _combo := 0
+var _combo_bloom: ComboBloom = null   # bundle D: the warm screen-bloom that swells on a merge streak
 var _last_merge := -999.0
 var _tf: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
@@ -83,6 +87,11 @@ func _ready() -> void:
 	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}), Save.grove().get("seen", {}), _rng)
 
 	add_child(BoardScript._field_backdrop())   # the painted grove backdrop (ui/board2_bg.png), full-rect → auto-fits
+
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
+	# survives the chrome relayout and dies with the run). Merges poke it via bump().
+	_combo_bloom = ComboBloom.new()
+	add_child(_combo_bloom)
 
 	_layout()                                  # build all four bands + the board chrome for the current size
 	# Re-fit every band + the live tiles on a live viewport resize (drag the window / rotate), like the home
@@ -558,14 +567,19 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	_mult = Explore.mult_after_merge(_mult, int(win.tier))
 	var pts := Explore.merge_points(int(win.tier), _mult)
 	Explore.add_score(pts)
-	# JUICE: the result tile squash-pops + the points float up (always); the toggleable rush_fx layer adds
-	# the leaf burst, the score / mult cell pops, and the heating combo callout.
+	# JUICE: the merge IMPACT (squash + flash + tier-escalating burst + combo-gated thunk + the real
+	# merge sound + haptic) now comes from the unified Feel.merge verb — gate 2 keeps an isolated
+	# low-combo merge snappy in the fast mode, a building streak lands a mounting thunk. The points
+	# float up (always); the toggleable rush_fx layer still adds the score / mult cell pops, the
+	# heating combo callout, and the score-tick. (merge_burst + the tier>=4 flash/hitstop + the
+	# old button_tap moved INTO Feel.merge; RushFx.merge_burst is now workbench-preview-only.)
 	var node := win.node as Control
 	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
-	FX.squash_pop(node)
+	Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)
+	# bundle D: poke the screen-bloom — the scene owns the world reaction, the verb stays parameter-light.
+	if _combo_bloom != null and is_instance_valid(_combo_bloom):
+		_combo_bloom.bump(_combo)
 	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
-	if RushFx.on(_fx, "merge_burst"):
-		RushFx.merge_burst(self, ctr, int(win.tier), RushFx.knob(_fx, "merge_burst_count"))
 	if RushFx.on(_fx, "score_pulse"):
 		RushFx.cell_pop(_score_cell, RushFx.knob(_fx, "score_pulse_pct"))
 	if RushFx.on(_fx, "mult_pop") and _mult > pre_mult + 0.001:
@@ -575,11 +589,20 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo, RushFx.knob(_fx, "combo_heat_size"))
 		else:
 			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
+	# bundle B: the neighbours of the WIN cell jiggle outward from the merge. We gather them BEFORE the
+	# settle (which clears the lose cell and drops its column) and skip any tile that's about to fall in
+	# the lose column, so the ripple never fights gravity. The lose cell itself is already cleared, so the
+	# direction toward it is simply absent from the list.
+	Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)
+	# bundle B: a BIG merge (tier >= ESCALATE_TIER) punches the whole board — co-fires with feel.merge's
+	# reserved shake at the pinnacle tier (combined shake+punch is a review-time tuning). NOTE: Rush caps
+	# at MAX_TIER 7 (a tier-7 tile flings, never merges), below ESCALATE_TIER 8 — so today this gate (like
+	# feel.merge's reserved shake, which uses the same threshold) never trips in Rush. Kept on the shared
+	# threshold so it lights up automatically if the Rush ceiling ever rises.
+	if int(win.tier) >= FX.Tune.ESCALATE_TIER:
+		Feel.board_punch(_board, 1.0)
 	if int(win.tier) >= 4:
-		FX.flash(_board, node.position + Vector2(_cell, _cell) / 2.0, _cell)
-		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)
-		FX.hitstop(0.05)
-	Audio.play("button_tap", -3.0)
+		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)   # a Rush milestone callout (not part of the merge verb)
 	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
 	if RushFx.on(_fx, "score_tick"):
 		RushFx.score_tick(_lbl_score, Explore.score(), RushFx.knob(_fx, "score_tick_ms"))
@@ -601,6 +624,11 @@ func _fling(rc: Vector2i) -> void:
 	_settle(node)                                   # settle every OTHER tile (the source column falls); the toss owns this one
 	var fc := _coord_of(node)                       # the flung tile's new resting cell
 	_fly_to(node, start, _cell_rest(fc.x, fc.y))
+	# Unified launch EMIT: the recoil + muzzle puff + haptic. The fling has no discrete emitter node,
+	# so the flung tile itself is the emitter — a small recoil reads as the tile launching itself. The
+	# toss sound is left OFF so the fling keeps its OWN button_tap tick below. The arc + ±22° spin
+	# stays in _fly_to (that is feel.move's arc, Phase 5 — untouched here).
+	Feel.launch(node, node, 0.9)
 	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
 
 # --- treefall --------------------------------------------------------------------
@@ -661,18 +689,46 @@ func _settle(except: Control = null) -> void:
 func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.position = start
 	node.pivot_offset = node.size * 0.5
-	var span := absf(dest.x - start.x)
-	var peak := Vector2((start.x + dest.x) * 0.5, minf(start.y, dest.y) - maxf(_cell * 0.7, span * 0.28))
+	# the flung tile TOSSES up-and-over through the unified MOVE verb ("arc": up-leg eases out, down-
+	# leg accelerates into the target). The ±22° spin (the fling's signature) rides as a SEPARATE
+	# parallel tween — Feel.move's lean verb skips "arc" so it never fights this spin.
+	var t := Feel.move(node, start, dest, "arc")
+	if t == null:
+		return
 	var spin := deg_to_rad(22.0) * (1.0 if dest.x >= start.x else -1.0)
-	var t := node.create_tween()
-	t.tween_property(node, "position", peak, 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.parallel().tween_property(node, "rotation", spin, 0.16).set_trans(Tween.TRANS_SINE)
-	t.tween_property(node, "position", dest, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.parallel().tween_property(node, "rotation", 0.0, 0.18).set_trans(Tween.TRANS_SINE)
-	t.tween_property(node, "scale", Vector2(1.16, 0.84), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	var st := node.create_tween()
+	st.tween_property(node, "rotation", spin, Tune.MOVE_ARC_T_UP).set_trans(Tween.TRANS_SINE)
+	st.tween_property(node, "rotation", 0.0, Tune.MOVE_ARC_T_DOWN).set_trans(Tween.TRANS_SINE)
+	# JUICE: the fling TOUCHES DOWN — a discrete (loud) land. The unified Feel.land verb owns the
+	# impact squash + small flash + micro-puff + touch sound + haptic.
+	t.tween_callback(func() -> void:
+		if node and is_instance_valid(node):
+			var lc := node.global_position + Vector2(_cell, _cell) * 0.5
+			Feel.land(self, node, lc, 0.8, false)
+			# bundle B: the fling touchdown jiggles its now-settled neighbours (the rest of the board has
+			# already settled by the time the arc lands, so nothing is falling — gather all 4).
+			var fc := _coord_of(node)
+			if fc.x >= 0:
+				Feel.ripple(_orthogonal_neighbour_nodes(fc.x, fc.y), lc, 0.8))
+
+# The up-to-4 ORTHOGONAL neighbour tile NODES of cell (r,c) in the live grid. Empty cells and any cell
+# in `skip_falling_above_col` that sits ABOVE `skip_row` are excluded — those are the tiles the imminent
+# gravity settle will drop, and the plan says NOT to ripple a tile that's about to move (the jiggle would
+# ride the fall). Pass skip_col = -1 to gather all neighbours (a discrete land where nothing is settling).
+func _orthogonal_neighbour_nodes(r: int, c: int, skip_col := -1, skip_row := -1) -> Array:
+	var out: Array = []
+	for d: Vector2i in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nr := r + d.x
+		var nc := c + d.y
+		if nr < 0 or nc < 0 or nr >= _grid.size() or nc >= (_grid[nr] as Array).size():
+			continue
+		if nc == skip_col and nr < skip_row:
+			continue   # this neighbour is above the cleared cell in the settling column — it will fall
+		var cell = _grid[nr][nc]
+		if cell != null and cell.node != null and is_instance_valid(cell.node):
+			out.append(cell.node)
+	return out
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
@@ -703,14 +759,17 @@ func _make_tile(line: int, tier: int, r: int, c: int) -> Control:
 func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
 	if not (node and is_instance_valid(node)):
 		return
-	node.position = Vector2(rest.x, from_y)
 	node.pivot_offset = node.size * 0.5
-	var dist := maxf(0.0, rest.y - from_y)
-	var dur := clampf(0.10 + dist / maxf(1.0, _cell * float(G.ROWS)) * 0.24, 0.10, 0.36)
-	var t := node.create_tween()
-	t.tween_property(node, "position:y", rest.y, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# the tile FALLS to its resting cell through the unified MOVE verb ("fall": gravity drop, EASE_IN,
+	# distance-scaled timing — the same weight the inline tween gave). fall is the perf-critical path
+	# (a whole column settles at once), so Feel.move makes NO trail ghosts on it and the tiles already
+	# carry their piece_view ContactShadow (so no cast shadow either). On landing, chain a QUIET land
+	# (squash only — no flash/puff/sound/haptic) so a settling column can't fire N effects at once.
+	var t := Feel.move(node, Vector2(rest.x, from_y), rest, "fall")
+	if t != null:
+		t.tween_callback(func() -> void:
+			if node and is_instance_valid(node):
+				Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, true))
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:

@@ -17,7 +17,7 @@ const HOT := Color("#E0592B")
 
 # id · label (shown in the workbench) · tip (one-line feel). DEFAULT is on; the config can turn any off.
 const EFFECTS := [
-	{"id": "merge_burst",    "label": "Merge burst",     "tip": "leaves puff out where two tiles fuse"},
+	{"id": "merge_burst",    "label": "Merge burst",     "tip": "leaves puff out where two tiles fuse (preview only — live burst comes from Feel.merge)"},
 	{"id": "score_tick",     "label": "Score ticks up",  "tip": "the number rolls up instead of snapping"},
 	{"id": "score_pulse",    "label": "Score cell pulse","tip": "the score cell pops on a gain"},
 	{"id": "mult_pop",       "label": "Mult pop",        "tip": "the medallion pops when the multiplier climbs"},
@@ -69,7 +69,11 @@ static func on(opts: Dictionary, id: String) -> bool:
 
 # --- the effects ------------------------------------------------------------------------------------
 
-## A puff of leaves where two tiles fused; `count` is the base, the result tier nudges it.
+## WORKBENCH-PREVIEW ONLY. A puff of leaves where two tiles fused; `count` is the base, the result
+## tier nudges it. The LIVE Rush merge no longer calls this — its burst (and the tier>=4 flash +
+## combo-gated thunk + real merge sound) now come from Feel.merge in explore_rush._merge, gated on
+## the global feature flags + calm rather than this RushFx toggle. The `merge_burst` toggle therefore
+## only drives the workbench rush_fx preview (ui_workbench_view._rush_fx_play), which still calls this.
 static func merge_burst(host: Node, gpos: Vector2, tier: int, count := 20) -> void:
 	FX.burst(host, gpos, LEAF, clampi(count + (tier - 3) * 4, 4, 40))
 

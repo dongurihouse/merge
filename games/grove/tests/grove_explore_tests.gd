@@ -6,6 +6,10 @@ extends "res://games/grove/tests/grove_test_base.gd"
 const Explore = preload("res://engine/scripts/core/explore.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
+const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 func _initialize() -> void:
 	begin("grove · explore acquire")
@@ -26,7 +30,66 @@ func _initialize() -> void:
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
 	_test_rush_fx_knob_forwarding()
+	_test_combo_bloom()
+	await _test_mote_puff()
 	finish()
+
+# Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
+# _advance / _visible_strength) so it tests without a frame loop; the scene wiring is a source check.
+func _test_combo_bloom() -> void:
+	# bump raises the target, scaled by the streak, never above COMBO_BLOOM_MAX.
+	ok(approx(ComboBloom._bump_target(0.0, 0), 0.0), "bloom: a combo-0 bump adds nothing")
+	ok(ComboBloom._bump_target(0.0, 3) > ComboBloom._bump_target(0.0, 1), "bloom: a longer streak raises the target more")
+	ok(ComboBloom._bump_target(0.0, 99) <= Tune.COMBO_BLOOM_MAX + 0.0001, "bloom: the target is clamped to COMBO_BLOOM_MAX")
+	ok(approx(ComboBloom._bump_target(Tune.COMBO_BLOOM_MAX, 5), Tune.COMBO_BLOOM_MAX), "bloom: already-maxed stays at the ceiling")
+	# _advance eases strength TOWARD the target (rising) and never overshoots in one step.
+	var s := ComboBloom._advance(0.0, Tune.COMBO_BLOOM_MAX, 0.016)
+	ok(s > 0.0 and s < Tune.COMBO_BLOOM_MAX, "bloom: one ease step moves toward the target without overshooting")
+	ok(ComboBloom._advance(0.2, 0.0, 0.016) < 0.2, "bloom: with target below, the live strength eases down")
+	# target decays over time (no bumps) at ~COMBO_BLOOM_DECAY/sec — checked via the _process bleed math.
+	ok(Tune.COMBO_BLOOM_DECAY > 0.0, "bloom: the target bleeds off when the streak lapses (decay > 0)")
+	# calm halves the VISIBLE strength (the glow is allowed under calm, just gentler).
+	var prev := Save.get_setting("calm", false)
+	Save.set_setting("calm", false)
+	ok(approx(ComboBloom._visible_strength(0.2), 0.2), "bloom: full strength shows when calm is off")
+	Save.set_setting("calm", true)
+	ok(approx(ComboBloom._visible_strength(0.2), 0.1), "bloom: calm halves the visible glow (gentler, not gone)")
+	Save.set_setting("calm", prev)
+	# scene wiring: both merge scenes own ONE bloom child (freed with the scene) and bump it after Feel.merge.
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("ComboBloom") != -1, "board owns a ComboBloom overlay")
+	ok(board_src.find("_combo_bloom.bump(combo)") != -1, "board bumps the bloom after the merge")
+	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
+	ok(rush_src.find("ComboBloom") != -1, "rush owns a ComboBloom overlay")
+	ok(rush_src.find("_combo_bloom.bump(_combo)") != -1, "rush bumps the bloom after the merge")
+
+# Bundle D: the reactive ambient motes (Ambient.puff). The count is calm-trimmed; puff is a graceful
+# no-op when there's no layer (Rush / weather off); the board reaches its WeatherLayer and puffs.
+func _test_mote_puff() -> void:
+	# the puff count is positive (motes fly) and never exceeds the base MOTE_PUFF_COUNT.
+	ok(Ambient._puff_count() > 0, "puff: a merge flings at least one mote")
+	ok(Ambient._puff_count() <= Tune.MOTE_PUFF_COUNT, "puff: the count never exceeds the MOTE_PUFF_COUNT base")
+	# GRACEFUL no-op: a null layer must not error (Rush / weather off path).
+	Ambient.puff(null, Vector2(10, 10))
+	ok(true, "puff: a null ambient layer is a safe no-op (Rush / weather off)")
+	# with a real layer + weather on, the puff adds a one-shot particle child that frees itself.
+	var layer := Control.new()
+	layer.size = Vector2(400, 400)
+	get_root().add_child(layer)
+	await create_timer(0.05).timeout
+	var before := layer.get_child_count()
+	Ambient.puff(layer, Vector2(200, 200))
+	ok(layer.get_child_count() > before, "puff: a real ambient layer gains a one-shot mote burst")
+	layer.queue_free()
+	# scene wiring: the board reaches its WeatherLayer and puffs after the merge; Rush does NOT (no layer).
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("Ambient.puff(weather") != -1, "board puffs the ambient motes after a merge")
+	ok(board_src.find("get_node_or_null(\"WeatherLayer\")") != -1, "board reaches its WeatherLayer to puff")
+	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
+	ok(rush_src.find("Ambient.puff") == -1, "rush does NOT puff (it has no ambient layer — graceful absence)")
+
+func approx(a: float, b: float, eps := 0.0001) -> bool:
+	return absf(a - b) <= eps
 
 # a rows×cols grid of empty cells (the Rush tile grid: null or {kind,tier})
 func _grid(rows: int, cols: int) -> Array:
@@ -595,10 +658,11 @@ func _test_rush_fx_knob_forwarding() -> void:
 	var RushFx = load("res://engine/scripts/ui/rush_fx.gd")
 	var opts: Dictionary = RushFx.from_config({"rush_fx": {"treefall_shake": 33}})
 	ok(RushFx.knob(opts, "treefall_shake") == 33, "from_config carries a saved knob the scene can read")
-	# each gated call site forwards a knob value (guards the wiring without a live grid)
+	# each gated call site forwards a knob value (guards the wiring without a live grid).
+	# merge_burst_count is no longer forwarded by the live scene — the merge burst routes through
+	# Feel.merge now (merge_burst stays a workbench-preview-only effect), so it is not in this list.
 	var src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
 	for needle in [
-		"RushFx.knob(_fx, \"merge_burst_count\")",
 		"RushFx.knob(_fx, \"score_tick_ms\")",
 		"RushFx.knob(_fx, \"score_pulse_pct\")",
 		"RushFx.knob(_fx, \"mult_pop_pct\")",
@@ -609,3 +673,15 @@ func _test_rush_fx_knob_forwarding() -> void:
 		"RushFx.knob(_fx, \"treefall_hitstop_ms\")",
 	]:
 		ok(src.find(needle) != -1, "explore_rush forwards %s" % needle)
+	# the merge impact now routes through the unified verb (gate 2 keeps low-combo merges snappy)
+	ok(src.find("Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)") != -1, "explore_rush routes the merge through Feel.merge (gate 2)")
+	ok(src.find("RushFx.merge_burst(") == -1, "explore_rush no longer calls RushFx.merge_burst in the live merge")
+	# bundle B: the merge ripples the win cell's neighbours, and a big merge punches the whole board.
+	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)") != -1, "explore_rush ripples the merge's neighbours (skipping the falling lose column)")
+	ok(src.find("Feel.board_punch(_board, 1.0)") != -1, "explore_rush punches the board on a big merge")
+	# the fling touchdown ALSO ripples its settled neighbours; the bulk gravity settle does NOT ripple.
+	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(fc.x, fc.y), lc, 0.8)") != -1, "explore_rush ripples the fling touchdown's neighbours")
+	ok(src.find("func _settle") != -1 and src.find("Explore.gravity(_grid)") != -1, "explore_rush still has the bulk settle (which must NOT ripple)")
+	# guard: _settle (the bulk gravity path) carries no Feel.ripple — only discrete impacts ripple.
+	var settle_seg := src.substr(src.find("func _settle"), 400)
+	ok(settle_seg.find("Feel.ripple") == -1, "the bulk gravity settle does NOT ripple (only discrete merge/land impacts do)")

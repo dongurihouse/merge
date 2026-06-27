@@ -18,6 +18,7 @@ const Save = preload("res://engine/scripts/core/save.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engine's ambient look/feel dials
+const FXTune = preload("res://engine/scripts/core/tuning.gd").FX      # the merge-puff dials live with the other feel-verb tunables
 
 const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
 
@@ -105,6 +106,46 @@ static func merge_poof(layer: Control, count: int) -> void:
 	var center := layer.size / 2.0
 	for _e in count:
 		FX.burst(layer, center, RES_POOF_COLOR, RES_POOF_PER_EVENT)
+
+## The WORLD REACTION to a merge: a quick outward PUFF of ambient motes from `center`. Rather than
+## nudge the existing drift particles (a CPUParticles2D exposes no per-particle velocity), it spawns
+## a tiny one-shot radial burst of the SAME breeze petal/leaf motes flying OUTWARD from the hit, so
+## the ambient layer reads as recoiling from the merge. Cheap: MOTE_PUFF_COUNT motes, ~MOTE_PUFF_LIFE
+## then self-free. `impulse` sets how hard they scatter (outward velocity). The motes are a CPUParticles2D
+## (a Node2D — it never eats input). No-op when ambient_weather is off OR the layer is gone — the caller
+## guards the no-ambient case (Rush) too.
+## The mote COUNT is calm-trimmed (FX.amount_for); the puff is light, so it still fires under calm.
+static func puff(layer: Control, center: Vector2, impulse := FXTune.MOTE_PUFF_IMPULSE) -> void:
+	if layer == null or not is_instance_valid(layer) or not Features.on("ambient_weather"):
+		return
+	var n := _puff_count()
+	if n <= 0:
+		return
+	var p := CPUParticles2D.new()
+	p.texture = FX._pick_tex(Tune.BREEZE_PETAL)
+	p.position = center
+	p.amount = n
+	p.lifetime = FXTune.MOTE_PUFF_LIFE
+	p.one_shot = true
+	p.explosiveness = 1.0                # all at once — a single outward gust
+	p.emission_shape = CPUParticles2D.EMISSION_SHAPE_POINT
+	p.direction = Vector2(0, -1)
+	p.spread = 180.0                     # a full radial fan — motes scatter every which way outward
+	p.gravity = Vector2.ZERO             # the puff is a free outward scatter, no fall
+	p.initial_velocity_min = impulse * 0.5
+	p.initial_velocity_max = impulse
+	p.angular_velocity_min = -Tune.DRIFT_SPIN
+	p.angular_velocity_max = Tune.DRIFT_SPIN
+	p.scale_amount_min = FXTune.MOTE_PUFF_SCALE_MIN
+	p.scale_amount_max = FXTune.MOTE_PUFF_SCALE_MAX
+	layer.add_child(p)
+	p.emitting = true
+	p.finished.connect(p.queue_free)
+
+# How many motes a puff flings — MOTE_PUFF_COUNT, calm-trimmed (FX.amount_for). Pure-ish (reads the
+# calm setting through FX); unit-tested for "> 0 normally, never above the base count".
+static func _puff_count() -> int:
+	return FX.amount_for(FXTune.MOTE_PUFF_COUNT)
 
 static func _update_layer(layer: Control) -> void:
 	if layer == null or not is_instance_valid(layer) or layer.get_meta("paused", false):

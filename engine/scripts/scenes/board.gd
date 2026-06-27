@@ -27,9 +27,11 @@ const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Feel = preload("res://engine/scripts/ui/feel.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
 const Vault = preload("res://engine/scripts/core/vault.gd")                  # T44 SKIM-SITE — the piggy bank skims the t8-sell premium here
 const HomeScene = preload("res://engine/scripts/scenes/map.gd")   # T2: the Decorate jump request
@@ -101,6 +103,7 @@ var board: BoardModel
 var rng := RandomNumberGenerator.new()
 var _combo_count := 0                 # cozy successive-merge streak length (see _bump_combo)
 var _last_merge_ms := -100000         # ticks at the last merge; a big initial gap → first merge starts at 1
+var _combo_bloom: ComboBloom          # bundle D: the warm screen-bloom overlay that swells on a streak
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
@@ -189,6 +192,16 @@ var _pressing := false              # a physical press is in flight — dedupes 
 var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
+# Bundle A (tactile) drag feel — live only while a board piece is dragged:
+#   • telegraph: the cell the held tile currently hovers as a VALID merge target (glow + breathe +
+#     magnet lean). Tracked so it clears cleanly when the hover moves off / the drag ends (no stuck glow).
+#   • lean: the held tile tilts into pointer velocity, lagged, easing back to upright when still.
+var _telegraph_cell := Vector2i(-1, -1)
+var _telegraph_node: Control = null   # the target piece currently telegraphed (its modulate/offset are restored on clear)
+var _telegraph_rest := Vector2.ZERO   # the target's resting position (to undo the magnet lean)
+var _drag_lean := 0.0                 # the held tile's current lean (rad), lerped toward the velocity target
+var _drag_last_pos := Vector2.ZERO    # previous drag-follow pointer pos (for the per-update delta)
+var _drag_lean_seeded := false        # false until the first follow seeds _drag_last_pos (so the first frame has no spurious velocity)
 var animating := false
 var _anim_t := 0.0                  # seconds the animating gate has been held (watchdog — see _process)
 var _idle := 0.0                   # seconds without input → the wiggle hint
@@ -299,6 +312,10 @@ func _ready() -> void:
 	add_child(tick)
 	tick.start()
 	add_child(Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm())))
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
+	# dies with the board). It sits above the board art but below the HUD; merges poke it via bump().
+	_combo_bloom = ComboBloom.new()
+	add_child(_combo_bloom)
 	_rebuild_all()
 	if _winback:
 		_winback = false
@@ -2242,7 +2259,95 @@ func _on_board_input(event: InputEvent) -> void:
 		_pressing = false
 		_on_release(event.position)
 	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and _drag_node != null:
-		_drag_node.position = event.position - Vector2(csz, csz) / 2.0
+		_drag_follow(event.position)
+
+# The per-update drag FOLLOW (Bundle A tactile): seat the held tile under the pointer, then layer the
+# two felt cues — the merge-target TELEGRAPH (glow + breathe + magnet on a valid target) and the held
+# tile's LEAN into pointer velocity. A generator drag gets the plain follow only (it never merges, and
+# its own lift pose owns its look). Both cues tear down cleanly on release / snap-back (_clear_drag_feel).
+func _drag_follow(pos: Vector2) -> void:
+	_drag_node.position = pos - Vector2(csz, csz) / 2.0
+	if _drag_is_gen:
+		return
+	_update_telegraph(pos)
+	_update_drag_lean(pos)
+
+# Resolve the cell the held tile hovers; if it's a NEW valid merge target, telegraph it (glow + breathe +
+# magnet the pair together) and pull the held tile a touch toward it. Moving off a telegraphed target (to a
+# non-mergeable cell or a different one) restores the old target first. Mirrors the Bag-highlight idiom
+# (DRAG_HILITE + breathe_once / breathe_stop). No-op under calm (the glow/breathe self-quiet there too).
+func _update_telegraph(pos: Vector2) -> void:
+	var target := _pos_to_cell(pos)
+	var valid := target != _drag_from and board.can_merge(_drag_from, target) and piece_nodes.has(target)
+	if not valid:
+		_clear_telegraph()
+		return
+	if target == _telegraph_cell:
+		# still hovering the same target — keep the held tile leaning toward it (the follow re-seated it).
+		_apply_drag_magnet(target)
+		return
+	_clear_telegraph()                       # moved onto a new valid target — drop the previous glow first
+	var tnode: Control = piece_nodes.get(target)
+	if tnode == null or not is_instance_valid(tnode):
+		return
+	_telegraph_cell = target
+	_telegraph_node = tnode
+	_telegraph_rest = _cell_pos(target)
+	if not FX.calm():
+		tnode.modulate = FX.Tune.TELEGRAPH_GLOW
+		# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
+		tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+	FX.breathe_once(tnode)
+	_apply_drag_magnet(target)
+
+# Pull the HELD tile a fraction of a cell toward the telegraphed target (the magnet, held-tile half). Layered
+# ON TOP of the pointer-seated position each follow so it reads as a tug, never a teleport. Off under calm.
+func _apply_drag_magnet(target: Vector2i) -> void:
+	if FX.calm() or _drag_node == null:
+		return
+	var tcenter := _cell_pos(target)
+	var hcenter := _drag_node.position
+	_drag_node.position += (tcenter - hcenter).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+
+# Restore the currently-telegraphed target (modulate + magnet offset + breathe) and forget it. Safe when
+# nothing is telegraphed (no-op). The single teardown both the hover-exit and the drag-end call.
+func _clear_telegraph() -> void:
+	if _telegraph_node != null and is_instance_valid(_telegraph_node):
+		FX.breathe_stop(_telegraph_node)
+		_telegraph_node.modulate = Color(1, 1, 1, 1.0)
+		_telegraph_node.position = _telegraph_rest
+	_telegraph_node = null
+	_telegraph_cell = Vector2i(-1, -1)
+	_telegraph_rest = Vector2.ZERO
+
+# Tilt the held tile INTO pointer velocity, lagged: the lean target is DRAG_LEAN_DEG scaled by the
+# normalized horizontal speed of this update, sign following travel direction; we lerp the live lean toward
+# it by DRAG_LEAN_LAG (so it trails the motion) and ease toward upright when the pointer is still. Clamped to
+# ±DRAG_LEAN_DEG. Skipped under calm (motion accessibility) — the tile stays upright.
+func _update_drag_lean(pos: Vector2) -> void:
+	if FX.calm():
+		return
+	if not _drag_lean_seeded:
+		_drag_last_pos = pos
+		_drag_lean_seeded = true
+	var dx := pos.x - _drag_last_pos.x
+	_drag_last_pos = pos
+	var max_rad := deg_to_rad(FX.Tune.DRAG_LEAN_DEG)
+	# a px-per-update delta -> a -1..1 factor (DRAG_LEAN_VEL_REF px reaches full lean), signed by direction.
+	var target_lean := clampf(dx / FX.Tune.DRAG_LEAN_VEL_REF, -1.0, 1.0) * max_rad
+	_drag_lean = lerpf(_drag_lean, target_lean, FX.Tune.DRAG_LEAN_LAG)
+	_drag_node.pivot_offset = _drag_node.size / 2.0 if _drag_node.size.x > 0.0 else _drag_node.custom_minimum_size / 2.0
+	_drag_node.rotation = clampf(_drag_lean, -max_rad, max_rad)
+
+# Tear down ALL drag feel (telegraph glow/magnet + held-tile lean) and reset the lean tracker. Called from
+# every drag-end path (release, snap-back, stash, gen release) so no glow or rotation can leak past a drop.
+func _clear_drag_feel(node: Control = null) -> void:
+	_clear_telegraph()
+	_drag_lean = 0.0
+	_drag_lean_seeded = false
+	_drag_last_pos = Vector2.ZERO
+	if node != null and is_instance_valid(node):
+		node.rotation = 0.0
 
 func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
@@ -2288,6 +2393,7 @@ func _on_release(pos: Vector2) -> void:
 	node.z_index = 0
 	node.scale = Vector2.ONE
 	PieceView.set_lifted(node, false)   # back to the tight resting shadow
+	_clear_drag_feel(node)   # drop the merge-target telegraph + the held tile's lean (no stuck glow/rotation)
 	_hide_drag_targets()   # drag ended — settle the Bag back to rest
 	# the bag is a drop target too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
@@ -2340,6 +2446,7 @@ func _release_gen(pos: Vector2) -> void:
 		node.z_index = 0
 		node.scale = Vector2.ONE
 		PieceView.set_lifted(node, false)   # back to the tight resting shadow
+	_clear_drag_feel(node)   # reset the lean tracker (a gen never telegraphs, but never leak a residual tilt)
 	if target == from and pos.distance_to(_press_pos) <= 18.0:
 		if node != null:
 			node.position = _cell_pos(from)
@@ -2449,6 +2556,7 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# W2: the spawn flight is COSMETIC and must NOT set `animating` — that flag gates the board
 	# input surface, so a 0.22s flight used to EAT the next generator tap. Items are placed in
 	# the model immediately; `animating` now guards MERGES only, so rapid taps each land.
+	var last_piece: Control = null         # the representative projectile for Feel.launch (one emit per pop)
 	for _b in burst:
 		if charged:
 			water -= G.POP_COST
@@ -2465,11 +2573,16 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		n.scale = Vector2(0.3, 0.3)
 		board_area.add_child(n)
 		piece_nodes[pick] = n
+		last_piece = n
+		# KEEP the grow-in 0.3 -> 1.0 flight — the generator's OWN spawn signature, not part of the verb.
 		var t := n.create_tween()
 		t.set_parallel(true)
 		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	FX.gen_charge(gnode)
+	# Unified launch EMIT: the generator recoil + a muzzle puff (toss sound left OFF — the generator
+	# keeps its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per
+	# pop (not per burst seed) with the representative item.
+	Feel.launch(gnode, last_piece, 1.0)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
 	if G.boost_active():
@@ -2538,10 +2651,15 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	var produced := board.merge(a, b)
 	piece_nodes.erase(a)
 	animating = true
-	var t := node.create_tween()
-	var slide_ease := Tween.EASE_IN if Features.on("merge_impact") else Tween.EASE_OUT   # accelerate INTO the hit
-	t.tween_property(node, "position", _cell_pos(b), 0.12).set_trans(Tween.TRANS_QUAD).set_ease(slide_ease)
-	t.tween_callback(_after_merge.bind(a, b, produced, node))
+	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
+	# impact). The board piece already carries its own piece_view ContactShadow, so Feel.move detects
+	# it and adds NO cast shadow (no double). _after_merge stays the completion callback — chained on
+	# the returned tween so the merge still resolves exactly when the slide lands.
+	var t := Feel.move(node, node.position, _cell_pos(b), "slide")
+	if t != null:
+		t.tween_callback(_after_merge.bind(a, b, produced, node))
+	else:
+		_after_merge(a, b, produced, node)   # node went invalid mid-merge — resolve immediately
 
 func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> void:
 	if is_instance_valid(moved):
@@ -2557,28 +2675,28 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	piece_nodes[b] = n
 	var tier := BoardModel.tier_of(produced)
 	var center := _cell_pos(b) + Vector2(csz, csz) / 2.0
-	# the merge IMPACT (the chosen "C" feel): squash & stretch on the result + a white flash
-	if Features.on("merge_impact"):
-		FX.squash_pop(n)
-		FX.flash(board_area, center, csz)
-	else:
-		FX.pop(n)
 	var combo := _bump_combo()
-	var hit := FX.Tune.HITSTOP_MERGE + FX.Tune.HITSTOP_TIER_BONUS * maxf(0.0, tier - 1)
-	var burst_n := 10 + tier * 3
-	var pitch := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
-	# big-moment escalation: a rare high-tier merge earns a gentle board shake + a longer hold + a fuller burst
-	if Features.on("big_moment_shake") and tier >= FX.Tune.ESCALATE_TIER:
-		FX.shake(board_area)
-		hit = FX.Tune.HITSTOP_BIG
-		burst_n += FX.Tune.BIG_BURST_BONUS
-	# cozy combo: a live streak nudges the pitch up and the burst out a touch
-	if Features.on("merge_combo"):
-		burst_n += FX.Tune.COMBO_BURST_BONUS
-		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, FX.Tune.COMBO_PITCH_MAX)
-	FX.hitstop(minf(hit, FX.Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm
-	FX.burst(board_area, center, STRAW if tier >= 4 else Color("#7FA65A"), burst_n)
-	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, pitch)
+	# the merge IMPACT (the chosen "C" feel) — squash/flash/shake/hitstop/burst/sound, the full
+	# escalation curve — now lives in the shared verb. intensity=1.0, gate=0 reproduce today's
+	# board feel exactly; the flash square is csz (the cell size), matching the old FX.flash call.
+	Feel.merge(board_area, n, center, tier, combo, 1.0, 0)
+	# bundle D: poke the screen-bloom — the verb stays parameter-light, the scene owns the world reaction.
+	if _combo_bloom != null and is_instance_valid(_combo_bloom):
+		_combo_bloom.bump(combo)
+	# bundle D: the ambient WORLD reacts — nearby motes puff outward from the merge. GRACEFUL no-op when
+	# there's no weather layer (weather off / cleared): the scene reaches the layer, ambient guards the rest.
+	var weather := get_node_or_null("WeatherLayer") as Control
+	if weather != null:
+		var weather_ctr := weather.get_global_transform().affine_inverse() * (board_area.get_global_transform() * center)
+		Ambient.puff(weather, weather_ctr)
+	# bundle B: the up-to-4 orthogonal neighbour tiles JIGGLE outward from the merge cell (the scene
+	# owns the grid, so we gather the neighbour nodes here and hand them to the verb). The impact centre
+	# is GLOBAL so each neighbour squashes away from the true hit point.
+	Feel.ripple(_orthogonal_neighbour_nodes(b), board_area.get_global_transform() * center, 1.0)
+	# bundle B: a BIG merge (tier >= ESCALATE_TIER) PUNCHES the whole board — co-fires with the reserved
+	# shake feel.merge already throws at the pinnacle tier. (Combined shake+punch is a review-time tuning.)
+	if tier >= FX.Tune.ESCALATE_TIER:
+		Feel.board_punch(board_area, 1.0)
 	_combo_celebrate(combo, center)
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
@@ -2596,6 +2714,18 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	_refresh_generator_dim()   # §6: a merge freed a cell → un-dim the generator(s) if the board was full
 	_update_hud()
 
+# The up-to-4 ORTHOGONAL neighbour piece nodes of `cell`, gathered from the live grid (piece_nodes,
+# keyed by cell). Empty cells and invalid/freed nodes are skipped, so the returned list only ever holds
+# real, settled tiles — the verb (Feel.ripple) never animates a missing or in-flight node. Scene-side on
+# purpose: the board owns its grid, so the impact verb stays grid-agnostic.
+func _orthogonal_neighbour_nodes(cell: Vector2i) -> Array:
+	var out: Array = []
+	for d in [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]:
+		var nb: Control = piece_nodes.get(cell + d)
+		if nb != null and is_instance_valid(nb):
+			out.append(nb)
+	return out
+
 # Extend or restart the cozy merge streak. A merge within COMBO_WINDOW of the previous one
 # bumps the count; a longer gap restarts at 1. Returns the new streak length. Cadence is
 # BoardLogic.combo_step (pure, unit-tested).
@@ -2605,14 +2735,6 @@ func _bump_combo() -> int:
 	_last_merge_ms = now
 	_combo_count = BoardLogic.combo_step(_combo_count, dt, FX.Tune.COMBO_WINDOW)
 	return _combo_count
-
-# How many milestone thresholds the current streak has reached (drives the pitch nudge).
-func _combo_milestones_passed(count: int) -> int:
-	var k := 0
-	for m in FX.Tune.COMBO_MILESTONES:
-		if count >= int(m):
-			k += 1
-	return k
 
 # At an EXACT milestone, shout a cozy word over the merge (never a "COMBO xN" tag).
 func _combo_celebrate(count: int, center: Vector2) -> void:
@@ -2685,7 +2807,14 @@ func _drop_coin_near(near: Vector2i) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Audio.play("tidy_poof", -5.0, 1.3)
+	# JUICE: the coin TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) Feel.land
+	# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
+	# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
+	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	t.chain().tween_callback(func() -> void:
+		if n and is_instance_valid(n):
+			Feel.land(self, n, coin_ctr, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
 ## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
@@ -2732,7 +2861,14 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Audio.play("tidy_poof", -5.0, 1.1)
+	# JUICE: the special item TOUCHES DOWN at the end of its grow-in flight — a discrete (loud)
+	# Feel.land owns the impact squash + small flash + micro-puff + the canonical touch sound, so
+	# the old inline poof here is dropped (no double-sound). Mirrors _drop_coin_near.
+	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	t.chain().tween_callback(func() -> void:
+		if n and is_instance_valid(n):
+			Feel.land(self, n, special_ctr, 0.8, false)
+			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:
