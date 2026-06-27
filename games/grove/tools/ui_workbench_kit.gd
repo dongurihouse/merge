@@ -4094,6 +4094,37 @@ static func slot_cell_background(size_px: Vector2, state: String, frontier: bool
 ## The BAG-CELL opts from config — the slot tile's saved STYLE. Its own component (the bag dialog reuses
 ## it), read by both the workbench card preview and the bag dialog/overlay. Fractional knobs (the piece /
 ## lock size as a % of the cell) are stored as integer percents for the sliders and divided here.
+const SLOT_LOCKED_PLACEHOLDER_ART := "board/locked_placeholder.png"
+const SLOT_LOCKED_PLACEHOLDER_ALPHA := 0.60
+const SLOT_LOCKED_PLACEHOLDER_FRAC := 0.72
+
+static func _slot_locked_placeholder(cw: float, ch: float) -> Control:
+	var tex := clean_tex_path(Look.kit(SLOT_LOCKED_PLACEHOLDER_ART), 512)
+	if tex == null:
+		return null
+	var px := minf(cw, ch) * SLOT_LOCKED_PLACEHOLDER_FRAC
+	var tr := TextureRect.new()
+	tr.name = "SlotCellLockedPlaceholder"
+	tr.texture = tex
+	tr.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var inset_x := (cw - px) * 0.5
+	var inset_y := (ch - px) * 0.5
+	tr.offset_left = inset_x
+	tr.offset_top = inset_y
+	tr.offset_right = -inset_x
+	tr.offset_bottom = -inset_y
+	tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	tr.modulate = Color(1.0, 1.0, 1.0, SLOT_LOCKED_PLACEHOLDER_ALPHA)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var wrap := Control.new()
+	wrap.name = "SlotCellLockedPlaceholderWrap"
+	wrap.position = Vector2.ZERO
+	wrap.size = Vector2(cw, ch)
+	wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wrap.add_child(tr)
+	return wrap
+
 static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var bc: Dictionary = cfg.get("bag_card", {})
 	var opts := {
@@ -4124,11 +4155,11 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## `d.kind`) picks the look + behaviour:
 ##   empty      — the open cream well (seen / unlocked / owned-empty), inert
 ##   filled     — the open well + a piece on top; a tap fires d.on_tap (retrieve)
-##   locked     — the well with the BAKED gold padlock (unseen / gated), inert
-##   unlockable — the locked well, HIGHLIGHTED (glow + dynamic sparkle), full opacity; a
+##   locked     — the locked well with the flat placeholder stamp (unseen / gated), inert
+##   unlockable — the locked well + placeholder, HIGHLIGHTED (glow + dynamic sparkle), full opacity; a
 ##                tap fires d.on_tap (buy / open). The bag's "next" maps here.
-## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge,
-## under the baked lock (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
+## Optional overlays (a cell shows what is passed): d.cost (int) → the acorn cost near the lower edge
+## (bag); d.level (int) → Look.make_level_badge docked lower-right — the SAME HUD
 ## level badge (board / discovery tier); d.marked (bool) → the engine sparkle over the well, under the
 ## piece (the discovery ladder's tapped tier); d.dim (0..1) sets the cell's modulate alpha (the board's
 ## receded deep locks). The piece is content-agnostic so the kit stays free of game deps: d.make_content
@@ -4148,7 +4179,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	var cost_scale := float(opts.get("cost_scale", 1.0))
 	var on_tap: Callable = d.get("on_tap", Callable())
 	var tappable := on_tap.is_valid() and (state == "filled" or state == "unlockable")
-	var lockedwell := (state == "locked" or state == "unlockable")   # both show the baked-lock well
+	var lockedwell := (state == "locked" or state == "unlockable")   # both show the placeholder-stamped well
 
 	var tile: Control = (Button.new() if tappable else Control.new())
 	tile.custom_minimum_size = Vector2(cw, ch)
@@ -4165,6 +4196,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# consistently to board, bag, and discovery cells.
 	var frontier := bool(d.get("frontier", state == "unlockable"))
 	tile.add_child(slot_cell_background(Vector2(cw, ch), state, frontier, opts))
+	if lockedwell:
+		var placeholder := _slot_locked_placeholder(cw, ch)
+		if placeholder != null:
+			tile.add_child(placeholder)
 
 	# a MARKED cell (the discovery ladder's tapped/asked tier) wears the SAME engine sparkle the home
 	# buttons use, sitting over the well but UNDER the piece — an overlay, so the footprint never changes.
@@ -4197,7 +4232,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 			pc.add_child(piece)
 			tile.add_child(pc)
 
-	# the acorn cost (bag) — under the baked lock, near the lower edge. The SHARED green pill_button (the
+	# the acorn cost (bag) — near the lower edge. The SHARED green pill_button (the
 	# same atom as the shop buy / daily claim), as a STATIC display chip: the CELL itself takes the buy tap,
 	# so the price isn't separately pressable. It rides the Button style (art/shadow/corner) via opts.btn,
 	# sized by this cell's own cost_font / cost_icon knobs. cost_x / cost_y nudge it; cost_scale shrinks the
