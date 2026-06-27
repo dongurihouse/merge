@@ -13,6 +13,7 @@ func _initialize() -> void:
 	_test_grid()
 	_test_pool_and_box()
 	_test_run_state()
+	_test_trade_count()
 	_test_rush_intro_hint()
 	_test_screens()
 	_test_trade_box_icons()
@@ -213,6 +214,14 @@ func _test_run_state() -> void:
 	ok(Explore.score() == 250, "a refused box leaves the score intact")
 	ok(Explore.buy_box(250), "an affordable box is bought")
 	ok(Explore.score() == 0, "buying a box debits its cost from the score")
+
+func _test_trade_count() -> void:
+	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
+	ok(Explore.trade_count(150) == 1, "a sub-rate score still yields one spirit (min 1)")
+	ok(Explore.trade_count(199) == 1, "just under the rate yields one spirit")
+	ok(Explore.trade_count(200) == 1, "exactly the rate yields one spirit")
+	ok(Explore.trade_count(400) == 2, "double the rate yields two spirits")
+	ok(Explore.trade_count(852) == 4, "852 converts to four spirits (remainder discarded)")
 
 # --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
 # The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then

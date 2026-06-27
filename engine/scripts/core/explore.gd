@@ -45,6 +45,8 @@ const RUSH_INTRO_SHOWS := 3      # show the "Tap to Merge!" teaching popup on a 
 static func rush_intro_should_show(seen: int) -> bool:
 	return seen < RUSH_INTRO_SHOWS
 
+const TRADE_RATE := 200          # score → spirits at the Rewards screen: floor(score / TRADE_RATE), min 1 if any score
+
 # --- Box cost table (score-priced; rarity odds parked → kind-only roll at tier 1) -----------------
 # A pricier box opens to MORE residents (1 / 4 / 8) — the same chest tiers map 5's habitat faucet reuses.
 const BOXES := [
@@ -221,3 +223,10 @@ static func buy_box(cost: int) -> bool:
 		return false
 	_run["score"] = score() - cost
 	return true
+
+## Convert a run's score to a spirit count for the Rewards screen: floor(score / TRADE_RATE), but at
+## least 1 whenever the run scored anything (a run always pays out); 0 only for a literal 0 score.
+static func trade_count(score: int) -> int:
+	if score <= 0:
+		return 0
+	return maxi(1, score / TRADE_RATE)
