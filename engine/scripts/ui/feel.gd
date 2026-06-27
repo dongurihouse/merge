@@ -103,8 +103,56 @@ static func _combo_milestones_passed(count: int) -> int:
 		if count >= int(m):
 			k += 1
 	return k
-static func land(host: Node, node: Control, center: Vector2, intensity := 1.0) -> void:
-	pass
+## The land IMPACT — a tile that traveled then touched down. `quiet` separates a discrete
+## arrival (fling-land, a coin/special drop: squash + small flash + micro-puff + touch sound
+## + haptic) from a BULK settle (a Rush gravity column or the spawn fall, where N tiles land
+## at once): quiet does the SQUASH ONLY — no flash/puff/sound/haptic — so a settling column
+## can't fire N flashes + N poofs + N motor pulses simultaneously. `node` is the arriving tile;
+## `center`/`host` locate the flash + puff; `intensity` (0..1) dials strength.
+static func land(host: Node, node: Control, center: Vector2, intensity := 1.0, quiet := false) -> void:
+	_land_squash(node)   # the 2-key LAND_SQUASH_K impact (1.14/0.86 -> 1.0); calm-gated; null-safe
+	if not _land_should_emit(intensity, quiet):
+		return
+	var size := node.size.x if node != null and is_instance_valid(node) else 96.0
+	FX.flash(host, center, size, _land_flash_peak(intensity))   # flash self-gates on merge_impact + calm
+	FX.burst(host, center, LEAF, FX.amount_for(_land_puff_count(intensity)))
+	Audio.play("tidy_poof", Tune.LAND_TOUCH_DB, 1.0)
+	haptic("soft")
+
+## The land squash: set the initial squashed pose then tween through the LAND_SQUASH_K keys to
+## rest with TRANS_BACK/EASE_OUT — the 2-key `1.14/0.86 -> 1.0` impact Rush already uses inline.
+## Mirrors fx.squash_pop's calm handling: under calm it skips the stretch and does a gentle uniform
+## overshoot (SQUASH_CALM) instead, so motion-accessibility holds. No-op on a null/invalid node.
+static func _land_squash(node: Control) -> void:
+	if not (node and is_instance_valid(node)):
+		return
+	node.pivot_offset = node.size / 2.0 if node.size.x > 0.0 and node.size.y > 0.0 else node.custom_minimum_size / 2.0
+	if FX.calm():
+		var c := node.create_tween()
+		c.tween_property(node, "scale", Tune.SQUASH_CALM, Tune.LAND_SQUASH_T[0]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		c.tween_property(node, "scale", Vector2.ONE, Tune.LAND_SQUASH_T[1]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		return
+	node.scale = Tune.LAND_SQUASH_K[0]
+	var t := node.create_tween()
+	for i in range(1, Tune.LAND_SQUASH_K.size()):
+		t.tween_property(node, "scale", Tune.LAND_SQUASH_K[i], Tune.LAND_SQUASH_T[i - 1]).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+# --- land pure helpers (no scene tree — unit-tested in feel_tests.gd) ------------------
+
+## Land flash peak: FLASH_PEAK softened by LAND_FLASH_FACTOR, scaled by intensity. 0 at intensity 0.
+## Much softer than a merge flash (which ramps the FLASH_PEAK up by tier).
+static func _land_flash_peak(intensity: float) -> float:
+	return Tune.FLASH_PEAK * Tune.LAND_FLASH_FACTOR * intensity
+
+## Do the discrete extras (flash + puff + touch sound + haptic) fire? Only for a non-quiet
+## landing with real strength — a quiet bulk/gravity settle or a zero-intensity land is squash-only.
+static func _land_should_emit(intensity: float, quiet: bool) -> bool:
+	return not quiet and intensity > 0.0
+
+## Micro-puff particle count: LAND_PUFF_N scaled by intensity (FX.burst applies its own
+## calm-trim via amount_for — not pre-applied here). 0 at intensity 0.
+static func _land_puff_count(intensity: float) -> int:
+	return int(Tune.LAND_PUFF_N * intensity)
 static func launch(emitter: Control, projectile: Control, intensity := 1.0) -> void:
 	pass
 static func move(node: Control, from: Vector2, to: Vector2, kind := "slide", dur := -1.0) -> Tween:

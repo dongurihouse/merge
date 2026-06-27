@@ -75,5 +75,24 @@ func _initialize() -> void:
 	ok(Feel._merge_burst_count(Tune.ESCALATE_TIER, 0, 1.0) > Feel._merge_burst_count(Tune.ESCALATE_TIER - 1, 0, 1.0), "big-moment tier adds burst particles")
 	ok(Feel._merge_burst_count(4, 0, 0.5) < Feel._merge_burst_count(4, 0, 1.0), "burst count scales with intensity")
 
+	# --- feel.land ---------------------------------------------------------------
+	# _land_flash_peak: FLASH_PEAK * LAND_FLASH_FACTOR * intensity; 0 at intensity 0.
+	ok(approx(Feel._land_flash_peak(0.0), 0.0), "land flash peak is 0 at intensity 0")
+	ok(approx(Feel._land_flash_peak(1.0), Tune.FLASH_PEAK * Tune.LAND_FLASH_FACTOR), "land flash peak at intensity 1 = FLASH_PEAK * LAND_FLASH_FACTOR")
+	ok(approx(Feel._land_flash_peak(0.5), Tune.FLASH_PEAK * Tune.LAND_FLASH_FACTOR * 0.5), "land flash peak scales with intensity")
+	ok(Feel._land_flash_peak(1.0) < Feel._merge_flash_peak(4, 1.0), "land flash is softer than a tier-4 merge flash")
+	# _land_should_emit: the gate for sound/flash/puff/haptic. Quiet OR intensity<=0 -> no extras.
+	ok(Feel._land_should_emit(1.0, false), "discrete (loud) land at intensity 1 emits flash/puff/sound/haptic")
+	ok(not Feel._land_should_emit(1.0, true), "quiet land emits NO flash/puff/sound/haptic (bulk settle guard)")
+	ok(not Feel._land_should_emit(0.0, false), "land at intensity 0 emits no flash/puff/sound/haptic")
+	ok(not Feel._land_should_emit(0.0, true), "quiet land at intensity 0 emits nothing")
+	# _land_puff_count: LAND_PUFF_N * intensity (floored to int); 0 at intensity 0.
+	ok(Feel._land_puff_count(0.0) == 0, "land puff count is 0 at intensity 0")
+	ok(Feel._land_puff_count(1.0) == int(Tune.LAND_PUFF_N), "land puff count at intensity 1 = LAND_PUFF_N")
+	# land() must be a safe no-op on an invalid/null node. A QUIET land is squash-only, so it never
+	# reaches the flash/puff/sound path — fully headless-safe even with a null host + node.
+	Feel.land(null, null, Vector2.ZERO, 0.8, true)
+	ok(true, "quiet land(null, null, ...) is a safe no-op (squash-only, no sound/flash/puff)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
