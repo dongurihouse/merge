@@ -19,6 +19,7 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
+const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-overlay mount (one source of truth for dialog z)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -1709,11 +1710,7 @@ func _open_residents_dialog() -> void:
 	_sel_hand = -1
 	_sel_placed = -1
 	var map_id := String(G.MAPS[_map_idx].id)
-	var overlay := Control.new()
-	overlay.name = "ResidentsOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
+	var overlay := Overlay.mount(self, "ResidentsOverlay")
 	_residents_overlay = overlay
 	var veil := ColorRect.new()
 	veil.color = Color(DOCK_INK, 0.55)
@@ -1986,11 +1983,7 @@ func _open_expedition() -> void:
 	if Kit == null:
 		return
 	var equip := {"v": {}}                # boxed so the toggle callbacks can mutate the chosen boosts
-	var overlay := Control.new()
-	overlay.name = "ExpeditionOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
+	var overlay := Overlay.mount(self, "ExpeditionOverlay")
 	var veil := ColorRect.new()
 	veil.color = Color(DOCK_INK, 0.55)
 	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2342,11 +2335,7 @@ func _show_unlock_dialog(z: int, rew: Dictionary) -> void:
 	if Kit == null:
 		_task_reward_fx(coins, gems)          # defensive: at least play the float FX if the kit is absent
 		return
-	var overlay := Control.new()
-	overlay.name = "UnlockRewardOverlay"
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	overlay.z_index = 100
-	add_child(overlay)
+	var overlay := Overlay.mount(self, "UnlockRewardOverlay")
 	var dismiss := func() -> void:
 		if is_instance_valid(overlay):
 			overlay.queue_free()

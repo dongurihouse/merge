@@ -146,10 +146,7 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 	if Kit == null:
 		push_warning("Shop: kit missing at %s" % KIT_PATH)
 		return
-	var overlay := Control.new()
-	overlay.name = OVERLAY_NAME
-	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
-	host.add_child(overlay)
+	var overlay := Overlay.mount(host, OVERLAY_NAME)
 	# the backdrop: a BLURRED + warm-tinted + vignetted copy of the live scene, so the boring
 	# flat dim becomes a cozy frosted backdrop that focuses the parchment. Falls back to a flat
 	# dim if the screen-read shader can't compile.
@@ -166,12 +163,20 @@ static func _open(host: Control, opts: Dictionary, kind: String) -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 
-	# The HUD bar IS the wallet (one source) — raise its panels above the blurred backdrop (kept crisp),
-	# and capture its refs so buy feedback (fly-home / wiggle) targets it. Absent (a capture tool) → no-ops.
+	# The HUD bar IS the wallet (one source) — its refs let buy feedback (fly-home / wiggle) target it.
+	# The shop is a SOFT modal: its frosted backdrop is meant to keep the wallet readable while you shop, so
+	# lift the wallet panels ABOVE the modal layer for the shop's lifetime and restore their resting z on
+	# close (a raw move_child no longer suffices now the shop sits at MODAL_Z). Absent (a capture tool) → no-ops.
 	var hud_wallet: Dictionary = opts.get("wallet", {})
+	var raised_wallet: Array = []
 	for p in hud_wallet.get("panels", []):
-		if p != null and is_instance_valid(p) and (p as Node).get_parent() == host:
-			host.move_child(p, host.get_child_count() - 1)
+		if p is CanvasItem and is_instance_valid(p) and (p as Node).get_parent() == host:
+			raised_wallet.append([p, (p as CanvasItem).z_index])
+			(p as CanvasItem).z_index = Overlay.MODAL_TOP_Z
+	overlay.tree_exited.connect(func() -> void:
+		for pair in raised_wallet:
+			if is_instance_valid(pair[0]):
+				(pair[0] as CanvasItem).z_index = int(pair[1]))
 
 	# The storefront FACE is the SHARED kit shop_dialog (frame + centred-title dividers + cells), authored
 	# in the workbench — same chrome as the mail + daily dialogs. Width is a % of the SCREEN (responsive).
@@ -473,6 +478,7 @@ static func _info_sheet(host: Control, title: String, items: Array, note := "") 
 		return
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = Overlay.MODAL_TOP_Z          # the info sheet sits ABOVE the open shop
 	host.add_child(overlay)
 	var veil := ColorRect.new()
 	veil.color = Color(INK, Tune.CONFIRM_VEIL_ALPHA)
@@ -585,6 +591,7 @@ static func _confirm_gem_grant(host: Control, refs: Dictionary, title: String,
 		line: String, sub: String, product_key: String, grant: Callable) -> void:
 	var overlay := Control.new()
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.z_index = Overlay.MODAL_TOP_Z          # the cash confirm sits ABOVE the open shop
 	host.add_child(overlay)
 	var veil := ColorRect.new()
 	veil.color = Color(INK, Tune.CONFIRM_VEIL_ALPHA)
