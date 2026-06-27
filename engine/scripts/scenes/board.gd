@@ -144,6 +144,7 @@ var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
 var _info_desc_label: Label          # compact player-use hint for the selected item
 var _info_btn: Button                # opens the selected item's Tiers ladder
+var _info_button_hidden := false     # workbench option: hide the floating info button even when selected
 var _info_trash: Button              # sells the selected item; its content shows trash + payout (built by the kit)
 var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button (kit meta sell_count)
 var _info_trash_coin: Control        # the payout currency icon slot (standard coin/acorn) inside the trash button
@@ -1658,6 +1659,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_info_inner_px = float(pill.get_meta("inner_px", px * 0.48))   # the info-button slot scales with the bar's inner-control knob
 	_info_item_icon_scale = float(pill.get_meta("item_icon_scale", 0.80)) # artwork scale as a fraction of bar height
 	_info_item_px = float(pill.get_meta("item_icon_px", _info_inner_px * _info_item_icon_scale))
+	_info_button_hidden = bool(pill.get_meta("hide_info_button", false))
 	_build_burst_chip(opts, _info_trash.get_parent())   # T54: the burst-upgrade chip rides the sell button's slot (generators)
 	_build_buy_chip(opts, _info_trash.get_parent())     # T55: the buy-a-copy chip sits just LEFT of the sell button (items)
 	return pill
@@ -1773,8 +1775,8 @@ func _select_item(cell: Vector2i) -> void:
 		var desc := G.item_description(code)
 		_info_desc_label.text = desc
 		_info_desc_label.visible = desc != ""
-	_info_btn.visible = true
-	_info_btn.disabled = false
+	_info_btn.visible = not _info_button_hidden
+	_info_btn.disabled = _info_button_hidden
 	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
 		_info_trash.visible = false           # generators, coins, and special drops aren't deletable for coins
 		if _info_buy != null and is_instance_valid(_info_buy):
@@ -1812,8 +1814,9 @@ func _select_generator(cell: Vector2i) -> void:
 		_info_desc_label.text = desc
 		_info_desc_label.visible = desc != ""
 	var entries := _gen_line_entries(gid)
-	_info_btn.visible = not entries.is_empty()
-	_info_btn.disabled = entries.is_empty()   # ⓘ opens the line ladder of what this generator makes
+	var show_info_btn := not entries.is_empty() and not _info_button_hidden
+	_info_btn.visible = show_info_btn
+	_info_btn.disabled = not show_info_btn     # ⓘ opens the line ladder unless empty or hidden in the workbench
 	_info_trash.visible = false               # a generator is never sold
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # …nor buyable as a copy (the boost chip is its action)

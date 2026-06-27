@@ -245,6 +245,7 @@
 	},
 	"info_bar": {
 		"height": 125.0,
+		"hide_info_button": false,
 		"icon_scale_pct": 50.0,
 		"info_button_scale": 131.0,
 		"info_x": 33.0,
