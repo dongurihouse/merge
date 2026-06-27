@@ -210,10 +210,6 @@ func _test_run_state() -> void:
 	ok(bool(Explore.run().equip.get("drops", false)), "the run carries the chosen loadout")
 	Explore.add_score(250)
 	ok(Explore.score() == 250, "add_score accrues the run score")
-	ok(not Explore.buy_box(300), "a box the run can't afford is refused")
-	ok(Explore.score() == 250, "a refused box leaves the score intact")
-	ok(Explore.buy_box(250), "an affordable box is bought")
-	ok(Explore.score() == 0, "buying a box debits its cost from the score")
 
 func _test_trade_count() -> void:
 	ok(Explore.trade_count(0) == 0, "no score yields no spirits")
@@ -223,9 +219,6 @@ func _test_trade_count() -> void:
 	ok(Explore.trade_count(400) == 2, "double the rate yields two spirits")
 	ok(Explore.trade_count(852) == 4, "852 converts to four spirits (remainder discarded)")
 
-# --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
-# The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
-# retires (gated on a saved counter). The fling/treefall bottom hint stays on EVERY rush.
 func _test_slot_reel() -> void:
 	var SlotReel: GDScript = load("res://engine/scripts/ui/slot_reel.gd")
 	var mk := func(_sym, w: float, h: float) -> Control:

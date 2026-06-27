@@ -2,13 +2,11 @@ extends RefCounted
 ## Explore — the acquire ritual (Load out → Rush → Trade) of the residents expansion.
 ##
 ## This is the PURE model + a cross-scene run-state holder; the three Explore screens render over it.
-## The Rush board is abstract merge tiles played for SCORE — it is NOT the spirits. Score buys boxes;
-## a box rolls a resident KIND from the unlocked pool and lands it in the habitat hand at tier 1
-## (Habitat.hand_add). That box is the seam between the Rush (skill) and the habitat (roster).
+## The Rush board is abstract merge tiles played for SCORE — it is NOT the spirits. Score converts to
+## spirits at the Rewards screen via trade_count (floor(score / TRADE_RATE), min 1 if any score).
 ##
 ## Numbers are the feel-prototype's PROVISIONAL values (docs/design/prototypes/expedition_rush.html);
-## the Rush sim retunes them later (parked). v1 RARITY IS PARKED — a box rolls a kind, no rarity roll,
-## so the box cost table carries no odds yet (pricier-box rarity weighting is the parked extension).
+## the Rush sim retunes them later (parked).
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Save = preload("res://engine/scripts/core/save.gd")
@@ -46,14 +44,6 @@ static func rush_intro_should_show(seen: int) -> bool:
 	return seen < RUSH_INTRO_SHOWS
 
 const TRADE_RATE := 200          # score → spirits at the Rewards screen: floor(score / TRADE_RATE), min 1 if any score
-
-# --- Box cost table (score-priced; rarity odds parked → kind-only roll at tier 1) -----------------
-# A pricier box opens to MORE residents (1 / 4 / 8) — the same chest tiers map 5's habitat faucet reuses.
-const BOXES := [
-	{"id": "pouch", "name": "Acorn pouch",  "cost": 250,  "residents": 1, "icon": "rush_box_pouch"},
-	{"id": "chest", "name": "Grove chest",  "cost": 800,  "residents": 4, "icon": "rush_box_chest"},
-	{"id": "vault", "name": "Spirit vault", "cost": 2000, "residents": 8, "icon": "rush_box_vault"},
-]
 
 # === Loadout math ================================================================================
 ## Total coin cost of the currently-equipped boosts.
@@ -184,8 +174,8 @@ static func board_full(grid: Array) -> bool:
 				return false
 	return true
 
-# === Box / unlocked pool ========================================================================
-## The resident KINDS a box can roll: the union of each COMPLETED map's offered lines (core + signature).
+# === Unlocked pool (spirits the Trade screen can award) =========================================
+## The resident KINDS the Trade screen can award: the union of each COMPLETED map's offered lines (core + signature).
 static func unlocked_pool(unlocks: Dictionary, gates: Array) -> Array:
 	var kinds := {}
 	for z in G.MAPS.size():
@@ -204,7 +194,7 @@ static func roll_kind(pool: Array, rng: RandomNumberGenerator) -> String:
 # === Run state — carried across the 3 scenes, never persisted ====================================
 static var _run: Dictionary = {}
 
-## Start a fresh run with the chosen loadout (score 0, no pending box-spirits).
+## Start a fresh run with the chosen loadout (score 0).
 static func begin_run(equip: Dictionary) -> void:
 	_run = {"equip": equip.duplicate(true), "score": 0, "pending": []}
 
@@ -216,13 +206,6 @@ static func score() -> int:
 
 static func add_score(pts: int) -> void:
 	_run["score"] = score() + pts
-
-## Spend `cost` score on a box. Returns false (no-op) when the run can't afford it.
-static func buy_box(cost: int) -> bool:
-	if score() < cost:
-		return false
-	_run["score"] = score() - cost
-	return true
 
 ## Convert a run's score to a spirit count for the Rewards screen: floor(score / TRADE_RATE), but at
 ## least 1 whenever the run scored anything (a run always pays out); 0 only for a literal 0 score.
