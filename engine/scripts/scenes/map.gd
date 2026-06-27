@@ -1986,7 +1986,7 @@ func _open_expedition() -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	if Kit == null:
 		return
-	var equip := {"v": {}}                # boxed so the rebuild closure can mutate the chosen boosts
+	var equip := {"v": {}}                # boxed so the toggle callbacks can mutate the chosen boosts
 	var overlay := Control.new()
 	overlay.name = "ExpeditionOverlay"
 	overlay.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2004,73 +2004,94 @@ func _open_expedition() -> void:
 	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	overlay.add_child(cc)
 	var width: float = minf(get_viewport_rect().size.x * 0.9, 540.0)
-	var rebuild := {"fn": Callable()}
-	rebuild.fn = func() -> void:
-		if not is_instance_valid(cc):
+	var switch_h := 40.0
+	var switches := {}
+	var ui_refs := {"cost_chip": null, "go": null}
+	var refresh_state := func() -> void:
+		var cost_chip := ui_refs.get("cost_chip", null) as Button
+		if is_instance_valid(cost_chip):
+			cost_chip.text = "Cost %d" % Explore.start_cost(equip.v)
+		var go_btn := ui_refs.get("go", null) as Button
+		if is_instance_valid(go_btn):
+			go_btn.disabled = not Explore.can_start(equip.v)
+	var set_switch := func(id: String, on: bool) -> void:
+		var sw := switches.get(id, null) as Button
+		if sw == null or not is_instance_valid(sw):
 			return
-		for c in cc.get_children():
-			c.queue_free()
-		var col := VBoxContainer.new()
-		col.add_theme_constant_override("separation", 10)
-		col.custom_minimum_size = Vector2(width - 64.0, 0)
-		var loadout_icons := {
-			"time": "star",
-			"drops": "chest",
-			"calm": "daisy",
-			"lucky": "leaf",
-			"focus": "board",
-		}
-		# each boost is a shared toggle card (parchment + the kit switch)
-		for it in Explore.LOADOUT:
-			var id := String(it.id)
-			col.add_child(Kit.toggle_card({
-				"icon": String(loadout_icons.get(id, "leaf")),
-				"title": String(it.name),
-				"body": String(it.eff),
-				"cost": int(it.cost),
-				"value": bool(equip.v.get(id, false)),
-				"on_toggle": func(want: bool) -> void:
-					equip.v[id] = want
-					if want and Explore.start_cost(equip.v) > Save.coins():
-						equip.v[id] = false      # can't afford (base + boosts) — leave it off
-					Audio.play("button_tap", -2.0)
-					rebuild.fn.call(),
-			}, {"label_font": 19, "body_font": 15, "switch_h": 40, "card_art": true}))
-		# total set-off cost as a shared cream amount chip
-		var chips := HBoxContainer.new()
-		chips.add_theme_constant_override("separation", 10)
-		chips.alignment = BoxContainer.ALIGNMENT_CENTER
-		chips.add_child(Kit.amount_chip("coin", "Cost %d" % Explore.start_cost(equip.v)))
-		col.add_child(chips)
-		# actions: Set off (green) + Cancel (cream) — the shared pill buttons
-		var actions := HBoxContainer.new()
-		actions.add_theme_constant_override("separation", 14)
-		actions.alignment = BoxContainer.ALIGNMENT_CENTER
-		var go: Button = Kit.pill_button("Set off", {"bg": "green", "art": true, "font": 22, "enabled": Explore.can_start(equip.v)})
-		go.pressed.connect(func() -> void:
-			var cost := Explore.start_cost(equip.v)        # base minimum + boosts — the acquisition coin sink
-			if cost > Save.coins():
-				return
-			if cost > 0:
-				Save.spend(cost, "expedition")
-			Explore.begin_run(equip.v)
-			Audio.play("button_tap", -2.0)
-			SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
-		actions.add_child(go)
-		var cancel: Button = Kit.pill_button("Cancel", {"bg": "cream", "art": true, "font": 22})
-		cancel.pressed.connect(func() -> void: overlay.queue_free())
-		actions.add_child(cancel)
-		col.add_child(actions)
-		# the SHARED standard dialog face (workbench-tuned border / banner / ✕), as mail/shop/settings wear
-		var fo: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
-		fo["banner_text"] = "Load out"
-		fo["banner_icon_id"] = "leaf"
-		fo["on_close"] = func() -> void: overlay.queue_free()
-		fo["list_max_h"] = get_viewport_rect().size.y * 0.7
-		var dialog: Control = Kit.dialog_frame(col, width, fo)
-		cc.add_child(dialog)
-		FX.pop_in(dialog)
-	rebuild.fn.call()
+		sw.set_meta("on", on)
+		Look._switch_paint(sw, on, switch_h)
+	var on_switch_pressed := func(boost_id: String, sw: Button) -> void:
+		var want := bool(sw.get_meta("on"))
+		equip.v[boost_id] = want
+		if want and Explore.start_cost(equip.v) > Save.coins():
+			equip.v[boost_id] = false      # can't afford (base + boosts) — leave it off
+			set_switch.call(boost_id, false)
+		Audio.play("button_tap", -2.0)
+		refresh_state.call()
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 10)
+	col.custom_minimum_size = Vector2(width - 64.0, 0)
+	var loadout_icons := {
+		"time": "star",
+		"drops": "chest",
+		"calm": "daisy",
+		"lucky": "leaf",
+		"focus": "board",
+	}
+	# each boost is a shared toggle card (parchment + the kit switch)
+	for it in Explore.LOADOUT:
+		var id := String(it.id)
+		var card: Control = Kit.toggle_card({
+			"icon": String(loadout_icons.get(id, "leaf")),
+			"title": String(it.name),
+			"body": String(it.eff),
+			"cost": int(it.cost),
+			"value": bool(equip.v.get(id, false)),
+		}, {"label_font": 19, "body_font": 15, "switch_h": switch_h, "card_art": true})
+		col.add_child(card)
+		for b in card.find_children("", "Button", true, false):
+			if (b as Button).has_meta("on"):
+				var sw := b as Button
+				switches[id] = sw
+				sw.pressed.connect(on_switch_pressed.bind(id, sw))
+				break
+	# total set-off cost as a shared cream amount chip
+	var chips := HBoxContainer.new()
+	chips.add_theme_constant_override("separation", 10)
+	chips.alignment = BoxContainer.ALIGNMENT_CENTER
+	var cost_chip: Button = Kit.amount_chip("coin", "Cost %d" % Explore.start_cost(equip.v))
+	ui_refs["cost_chip"] = cost_chip
+	chips.add_child(cost_chip)
+	col.add_child(chips)
+	# actions: Set off (green) + Cancel (cream) — the shared pill buttons
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	actions.alignment = BoxContainer.ALIGNMENT_CENTER
+	var go: Button = Kit.pill_button("Set off", {"bg": "green", "art": true, "font": 22, "enabled": Explore.can_start(equip.v)})
+	ui_refs["go"] = go
+	go.pressed.connect(func() -> void:
+		var cost := Explore.start_cost(equip.v)        # base minimum + boosts — the acquisition coin sink
+		if cost > Save.coins():
+			return
+		if cost > 0:
+			Save.spend(cost, "expedition")
+		Explore.begin_run(equip.v)
+		Audio.play("button_tap", -2.0)
+		SceneWarm.go(get_tree(), "res://engine/scenes/ExploreRush.tscn"))
+	actions.add_child(go)
+	var cancel: Button = Kit.pill_button("Cancel", {"bg": "cream", "art": true, "font": 22})
+	cancel.pressed.connect(func() -> void: overlay.queue_free())
+	actions.add_child(cancel)
+	col.add_child(actions)
+	# the SHARED standard dialog face (workbench-tuned border / banner / ✕), as mail/shop/settings wear
+	var fo: Dictionary = Kit.dialog_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	fo["banner_text"] = "Load out"
+	fo["banner_icon_id"] = "leaf"
+	fo["on_close"] = func() -> void: overlay.queue_free()
+	fo["list_max_h"] = get_viewport_rect().size.y * 0.7
+	var dialog: Control = Kit.dialog_frame(col, width, fo)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
 
 # (The dormant legacy residents SHOP — `_open_residents_shop` + its `_buy_resident` welcome handler — was
 # REMOVED: the live residents surface is the Expedition (acquire) → Habitat dialog (place/sell/yield). The

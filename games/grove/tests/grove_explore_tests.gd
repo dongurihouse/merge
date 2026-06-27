@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_pool_and_box()
 	_test_run_state()
 	_test_screens()
+	await _test_loadout_toggle_updates_in_place()
 	finish()
 
 # a rows×cols grid of empty cells (the Rush tile grid: null or {kind,tier})
@@ -25,6 +26,28 @@ func _grid(rows: int, cols: int) -> Array:
 			row.append(null)
 		g.append(row)
 	return g
+
+func _button_text_with_prefix(node: Control, prefix: String) -> String:
+	if node is Button and String((node as Button).text).begins_with(prefix):
+		return String((node as Button).text)
+	for b in node.find_children("", "Button", true, false):
+		var text := String((b as Button).text)
+		if text.begins_with(prefix):
+			return text
+	return "<missing>"
+
+func _switch_for_label(node: Control, text: String) -> Button:
+	for l in node.find_children("", "Label", true, false):
+		if String((l as Label).text) != text:
+			continue
+		var p: Node = l
+		while p != null and p != node:
+			if p is PanelContainer:
+				for b in (p as Control).find_children("", "Button", true, false):
+					if (b as Button).has_meta("on"):
+						return b as Button
+			p = p.get_parent()
+	return null
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
 func _test_loadout() -> void:
@@ -201,3 +224,35 @@ func _test_screens() -> void:
 	ok(piglet_reveal.find_child("SpiritEye0", true, false) != null and piglet_reveal.find_child("SpiritEye1", true, false) != null,
 		"an unarted box-spirit reveal shows placeholder face details instead of a blank disc")
 	t.queue_free()
+
+func _test_loadout_toggle_updates_in_place() -> void:
+	fresh("explore_loadout_overlay")
+	Save.spend(Save.coins())
+	Save.add_coins(1000)
+	var map = load("res://engine/scenes/Map.tscn").instantiate()
+	get_root().add_child(map)
+	await process_frame
+	map._open_expedition()
+	var overlay := map.get_node_or_null("ExpeditionOverlay") as Control
+	ok(overlay != null, "the map opens the expedition loadout overlay")
+	if overlay == null:
+		map.queue_free()
+		await process_frame
+		return
+	var cc := overlay.get_child(1) as CenterContainer
+	var dialog_before := cc.get_child(0) as Control
+	var sw: Button = _switch_for_label(dialog_before, "Lantern")
+	ok(sw != null, "the Lantern loadout row has a switch to toggle")
+	if sw == null:
+		map.queue_free()
+		await process_frame
+		return
+	sw.pressed.emit()
+	ok(cc.get_child_count() == 1, "toggling a boost does not queue a replacement dialog")
+	ok(cc.get_child(0) == dialog_before, "the same loadout dialog instance remains after a toggle")
+	var cost_after := _button_text_with_prefix(dialog_before, "Cost")
+	ok(cost_after == "Cost 270", "the total cost chip updates in place after toggling Lantern (%s)" % cost_after)
+	await process_frame
+	ok(cc.get_child_count() == 1 and cc.get_child(0) == dialog_before, "the original loadout dialog survives the next frame")
+	map.queue_free()
+	await process_frame
