@@ -237,6 +237,52 @@ class FX:
 	const COMBO_PITCH_MAX := 1.6        # upper clamp on the streak-nudged merge pitch
 	const COMBO_BURST_BONUS := 3        # + burst particles while a streak is live
 
+	# --- feel.land ---
+	const LAND_SQUASH_K := [Vector2(1.14, 0.86), Vector2.ONE]
+	const LAND_SQUASH_T := [0.05, 0.10]
+	const LAND_FLASH_FACTOR := 0.45
+	const LAND_FLASH_T := 0.10
+	const LAND_TOUCH_DB := -4.0
+	const LAND_PUFF_N := 4
+	# --- feel.launch ---
+	const LAUNCH_TOSS_DB := -5.0
+	const LAUNCH_PUFF_N := 4
+	# --- feel.merge extras ---
+	const MERGE_FLASH_TIER_RAMP := [0.5, 0.65, 0.8, 1.0]
+	const MERGE_HITSTOP_COMBO_BONUS := 0.004
+	const MERGE_BURST_HOT_TIER := 8
+	# --- feel.move ---
+	const MOVE_SLIDE_T := 0.12
+	const MOVE_ARC_T_UP := 0.16
+	const MOVE_ARC_T_DOWN := 0.18
+	const MOVE_FALL_T_MIN := 0.10
+	const MOVE_FALL_T_MAX := 0.36
+	const MOVE_LEAN_DEG := 6.0
+	const MOVE_SHADOW_ALPHA := 0.22
+	const MOVE_SHADOW_OFFSET := Vector2(3, 6)
+	const MOVE_SHADOW_SCALE := 0.9
+	const MOVE_TRAIL_N := 3
+	const MOVE_TRAIL_T := 0.12
+	const MOVE_TRAIL_SPEED_REF := 1400.0
+	# --- bundle A: tactile ---
+	const HAPTIC_MS := {"tick": 8, "soft": 14, "firm": 22, "heavy": 32}
+	const HAPTIC_THROTTLE_MS := 40
+	const DRAG_LEAN_DEG := 8.0
+	const DRAG_LEAN_LAG := 0.12
+	const TELEGRAPH_GLOW := Color(1.15, 1.15, 1.05, 1.0)
+	const TELEGRAPH_MAGNET := 0.10
+	# --- bundle B: impact propagation ---
+	const RIPPLE_SQUASH := 0.06
+	const RIPPLE_STAGGER_MS := 18
+	const PUNCH := 0.03
+	const PUNCH_T := 0.09
+	# --- bundle D: combo / world ---
+	const PENTA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21]
+	const COMBO_BLOOM_MAX := 0.28
+	const COMBO_BLOOM_RISE := 0.12
+	const COMBO_BLOOM_DECAY := 0.5
+	const MOTE_PUFF_IMPULSE := 220.0
+
 
 class Hud:
 	# --- layout ------------------------------------------------------------------------
