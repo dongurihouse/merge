@@ -1668,7 +1668,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 # the kit sell button's recipe so every action in the bar reads one button language. Shared by the T54
 # burst chip and the T55 buy chip; returns the mutable nodes the caller drives (caption set here, the
 # coin glyph + number filled per-selection). The chip starts hidden and is added to `row`.
-func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on_press: Callable) -> Dictionary:
+func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on_press: Callable, content_align: int = BoxContainer.ALIGNMENT_CENTER) -> Dictionary:
 	var height := float(opts.get("height", 130.0))
 	var icon_px := height * float(opts.get("sell_icon", 0.30))
 	var label_font := int(opts.get("sell_label_font", 22))
@@ -1722,9 +1722,14 @@ func _build_action_chip(opts: Dictionary, row: Control, caption_text: String, on
 	stack.add_child(badge)
 	var h := int(label_font * 1.45) + 3 + 8 + icon_px + 1 + int(num_font * 1.45)
 	btn.custom_minimum_size = Vector2(maxf(icon_px + 64.0, 96.0), h)
-	var center := CenterContainer.new()
+	# the badge floats in a button wider than itself (a comfortable tap target); content_align decides where in
+	# that slack it sits — the buy chip aligns its badge to the RIGHT so it hugs the sell button beside it.
+	var center := HBoxContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.alignment = content_align
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stack.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	center.add_child(stack)
 	btn.add_child(center)
 	var flat := StyleBoxEmpty.new()                  # the green lives on the inner badge; the button is bare
@@ -1747,14 +1752,14 @@ func _build_burst_chip(opts: Dictionary, row: Control) -> void:
 
 # T55 — the buy-a-copy chip (a regular item's action, beside sell). Built from the shared recipe.
 func _build_buy_chip(opts: Dictionary, row: Control) -> void:
-	var c := _build_action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed)
+	var c := _build_action_chip(opts, row, Strings.t("board.info.buy_label"), _on_buy_pressed, BoxContainer.ALIGNMENT_END)
 	_info_buy = c.btn
 	_info_buy_sb = c.sb
 	_info_buy_count = c.count
 	_info_buy_coin = c.coin
 	row.move_child(_info_buy, _info_trash.get_index())   # buy sits just LEFT of the sell button
 
-# Select a board item INTO the info bar: show its piece + "<name> · Tier N", enable the info button, and
+# Select a board item INTO the info bar: show its piece + name, put "Tier N" in the subtitle, enable the info button, and
 # show the trashcan with its sell payout (hidden for generators / raw coins — they aren't deletable here).
 func _select_item(cell: Vector2i) -> void:
 	var code := board.item_at(cell)
@@ -1770,11 +1775,12 @@ func _select_item(cell: Vector2i) -> void:
 		c.queue_free()
 	_info_icon.add_child(PieceView.make_piece(code, _info_item_px, 0.0))
 	var nm: String = tr(G.item_display_name(code))
-	_info_label.text = "%s · %s %d" % [nm, Strings.t("board.info.tier"), tier]
+	_info_label.text = nm
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		var tier_text := "%s %d" % [Strings.t("board.info.tier"), tier]
 		var desc := G.item_description(code)
-		_info_desc_label.text = desc
-		_info_desc_label.visible = desc != ""
+		_info_desc_label.text = tier_text if desc == "" else "%s · %s" % [tier_text, desc]
+		_info_desc_label.visible = true
 	_info_btn.visible = not _info_button_hidden
 	_info_btn.disabled = _info_button_hidden
 	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
