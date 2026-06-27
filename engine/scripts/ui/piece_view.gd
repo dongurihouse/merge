@@ -59,6 +59,61 @@ static func _content_tex(path: String) -> Texture2D:
 	_content_cache[path] = result
 	return result
 
+# Like _content_tex, but RE-FRAMES the subject into a SQUARE centred on its alpha-weighted VISUAL MASS,
+# large enough to contain the whole subject (no clipping) and normalised to ~0.73 of the box. For art whose
+# subject sits OFF-CENTRE in its opaque box — the spirit lines frame the body low with a thin wisp on top, so
+# a plain opaque-box crop reads bottom-heavy + inconsistent. Cached per path; falls back to the raw texture
+# if get_image fails. NOT for board items (those are already centred in their art — use _content_tex).
+static var _centered_cache: Dictionary = {}
+static func _content_tex_centered(path: String) -> Texture2D:
+	if _centered_cache.has(path):
+		return _centered_cache[path]
+	var tex: Texture2D = load(path)
+	var result: Texture2D = tex
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			if img.get_format() != Image.FORMAT_RGBA8:
+				img.convert(Image.FORMAT_RGBA8)
+			var bb := img.get_used_rect()
+			if bb.size.x > 4 and bb.size.y > 4:
+				var crop := img.get_region(bb)
+				var c := _centroid(crop)               # mass centre within the cropped subject
+				var bw := float(bb.size.x)
+				var bh := float(bb.size.y)
+				# the square must (a) contain the whole subject around its mass and (b) hold it at ~73% of the
+				# box; all spirit tiers share a source height, so this reads uniform.
+				var contain := 2.0 * maxf(maxf(c.x, bw - c.x), maxf(c.y, bh - c.y))
+				var side := int(ceil(maxf(contain, bh / 0.73)))
+				var sq := Image.create(side, side, false, Image.FORMAT_RGBA8)
+				sq.fill(Color(0, 0, 0, 0))
+				var dst := Vector2i(int(round(side / 2.0 - c.x)), int(round(side / 2.0 - c.y)))
+				sq.blit_rect(crop, Rect2i(Vector2i.ZERO, bb.size), dst)
+				result = ImageTexture.create_from_image(sq)
+	_centered_cache[path] = result
+	return result
+
+# the alpha-weighted centroid of an image, in its own pixel coords (computed on a cheap 64² downscale).
+static func _centroid(im: Image) -> Vector2:
+	var n := 64
+	var small: Image = im.duplicate()
+	small.resize(n, n, Image.INTERPOLATE_BILINEAR)
+	var sx := 0.0
+	var sy := 0.0
+	var sw := 0.0
+	for yy in n:
+		for xx in n:
+			var a := small.get_pixel(xx, yy).a
+			if a > 0.0:
+				sx += float(xx) * a
+				sy += float(yy) * a
+				sw += a
+	if sw <= 0.0:
+		return Vector2(im.get_width() * 0.5, im.get_height() * 0.5)
+	return Vector2((sx / sw + 0.5) / float(n) * im.get_width(), (sy / sw + 0.5) / float(n) * im.get_height())
+
 const ITEM_INSET := 0.16   # margin so art sits INSIDE the cell, not bleeding to its edge
 
 # THE shared board-item pipeline. Every board item — piece, coin, or generator — is a cell-sized

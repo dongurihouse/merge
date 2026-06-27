@@ -15,6 +15,7 @@ const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const SlotReel = preload("res://engine/scripts/ui/slot_reel.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # shared spirit-icon centering
 
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const OVERLAY_NAME := "ExploreRewardOverlay"
@@ -24,9 +25,6 @@ const DIALOG_MAX_W := 540.0
 const SHINE_TIER := 3                               # a spirit landing at tier ≥ this shines (the "jackpot" beat)
 const MAX_ROWS := 3                                 # cap revealed rows so a huge haul can't make the dialog endless
 const SPIN_CFG := {"spin": 1.2, "stagger": 0.55, "anticipate": 0.5, "total_cap": 3.5}
-const SPIRIT_FILL := 0.73                           # the re-cut spirit's height as a fraction of its square box
-
-static var _trim_cache := {}                        # path → opaque-cropped texture (so spirit art fills its cell)
 
 ## Open the reward reveal as a modal overlay on `host` (the Rush board). opts: on_done (Callable; default
 ## = warp to the Map). Idempotent — a duplicated open() (double-tap) finds the first overlay and bails.
@@ -199,61 +197,6 @@ static func _more_cell(n: int, cw: float, ch: float) -> Control:
 	cell.add_child(l)
 	return cell
 
-# Re-frame a spirit texture: composite it into a SQUARE centred on its alpha-weighted VISUAL MASS, large
-# enough to contain the WHOLE subject (no clipping), with the subject normalised to ~SPIRIT_FILL of the
-# square. So every spirit reads centred and uniform — not bottom-heavy, not cut off. The source art frames
-# the body low in a 512² canvas with a thin wisp up top, so the raw texture (or an opaque-box crop) renders
-# small, bottom-heavy and inconsistent. Cached per path. Returns the raw texture if the image can't be read
-# (e.g. the headless dummy renderer's get_image() is null) — never crashes.
-static func _trimmed_tex(path: String) -> Texture2D:
-	if _trim_cache.has(path):
-		return _trim_cache[path]
-	var tex: Texture2D = load(path)
-	var result: Texture2D = tex
-	if tex != null:
-		var img := tex.get_image()
-		if img != null:
-			if img.is_compressed():
-				img.decompress()
-			if img.get_format() != Image.FORMAT_RGBA8:
-				img.convert(Image.FORMAT_RGBA8)
-			var bb := img.get_used_rect()
-			if bb.size.x > 4 and bb.size.y > 4:
-				var crop := img.get_region(bb)
-				var c := _centroid(crop)                # mass centre within the cropped subject
-				var bw := float(bb.size.x)
-				var bh := float(bb.size.y)
-				# the square must (a) contain the whole subject around its mass and (b) hold the subject at
-				# ~SPIRIT_FILL of the square — all subjects share the source height, so this reads uniform.
-				var contain := 2.0 * maxf(maxf(c.x, bw - c.x), maxf(c.y, bh - c.y))
-				var side := int(ceil(maxf(contain, bh / SPIRIT_FILL)))
-				var sq := Image.create(side, side, false, Image.FORMAT_RGBA8)
-				sq.fill(Color(0, 0, 0, 0))
-				var dst := Vector2i(int(round(side / 2.0 - c.x)), int(round(side / 2.0 - c.y)))
-				sq.blit_rect(crop, Rect2i(Vector2i.ZERO, bb.size), dst)
-				result = ImageTexture.create_from_image(sq)
-	_trim_cache[path] = result
-	return result
-
-# the alpha-weighted centroid of an image, in its own pixel coords (computed on a cheap 64² downscale).
-static func _centroid(im: Image) -> Vector2:
-	var n := 64
-	var small: Image = im.duplicate()
-	small.resize(n, n, Image.INTERPOLATE_BILINEAR)
-	var sx := 0.0
-	var sy := 0.0
-	var sw := 0.0
-	for yy in n:
-		for xx in n:
-			var a := small.get_pixel(xx, yy).a
-			if a > 0.0:
-				sx += float(xx) * a
-				sy += float(yy) * a
-				sw += a
-	if sw <= 0.0:
-		return Vector2(im.get_width() * 0.5, im.get_height() * 0.5)
-	return Vector2((sx / sw + 0.5) / float(n) * im.get_width(), (sy / sw + 0.5) / float(n) * im.get_height())
-
 # The spirit icon: real art when present, else the placeholder disc with two eyes (named SpiritEye0/1).
 static func _spirit_icon(kind: String, px: float) -> Control:
 	var icon := Control.new()
@@ -263,7 +206,7 @@ static func _spirit_icon(kind: String, px: float) -> Control:
 	var path := G.resident_art(kind)
 	if path != "" and ResourceLoader.exists(path):
 		var t := TextureRect.new()
-		t.texture = _trimmed_tex(path)
+		t.texture = PieceView._content_tex_centered(path)
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
 		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
