@@ -288,6 +288,10 @@ class FX:
 	const COMBO_BLOOM_DECAY := 0.5
 	const COMBO_BLOOM_EASE := 6.0       # how fast the live bloom strength chases its target (per sec)
 	const MOTE_PUFF_IMPULSE := 220.0
+	const MOTE_PUFF_COUNT := 8          # motes flung outward by a merge puff (before calm-trim)
+	const MOTE_PUFF_LIFE := 0.7         # seconds the flung motes drift before fading out
+	const MOTE_PUFF_SCALE_MIN := 0.5    # mote sprite scale range (the breeze tex is small)
+	const MOTE_PUFF_SCALE_MAX := 0.9
 
 
 class Hud:

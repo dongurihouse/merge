@@ -7,6 +7,7 @@ const Explore = preload("res://engine/scripts/core/explore.gd")
 const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
@@ -30,6 +31,7 @@ func _initialize() -> void:
 	await _test_loadout_keeps_unaffordable_choices_visible()
 	_test_rush_fx_knob_forwarding()
 	_test_combo_bloom()
+	await _test_mote_puff()
 	finish()
 
 # Bundle D: the combo screen-bloom overlay. The strength/target math is PURE (_bump_target /
@@ -60,6 +62,31 @@ func _test_combo_bloom() -> void:
 	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
 	ok(rush_src.find("ComboBloom") != -1, "rush owns a ComboBloom overlay")
 	ok(rush_src.find("_combo_bloom.bump(_combo)") != -1, "rush bumps the bloom after the merge")
+
+# Bundle D: the reactive ambient motes (Ambient.puff). The count is calm-trimmed; puff is a graceful
+# no-op when there's no layer (Rush / weather off); the board reaches its WeatherLayer and puffs.
+func _test_mote_puff() -> void:
+	# the puff count is positive (motes fly) and never exceeds the base MOTE_PUFF_COUNT.
+	ok(Ambient._puff_count() > 0, "puff: a merge flings at least one mote")
+	ok(Ambient._puff_count() <= Tune.MOTE_PUFF_COUNT, "puff: the count never exceeds the MOTE_PUFF_COUNT base")
+	# GRACEFUL no-op: a null layer must not error (Rush / weather off path).
+	Ambient.puff(null, Vector2(10, 10))
+	ok(true, "puff: a null ambient layer is a safe no-op (Rush / weather off)")
+	# with a real layer + weather on, the puff adds a one-shot particle child that frees itself.
+	var layer := Control.new()
+	layer.size = Vector2(400, 400)
+	get_root().add_child(layer)
+	await create_timer(0.05).timeout
+	var before := layer.get_child_count()
+	Ambient.puff(layer, Vector2(200, 200))
+	ok(layer.get_child_count() > before, "puff: a real ambient layer gains a one-shot mote burst")
+	layer.queue_free()
+	# scene wiring: the board reaches its WeatherLayer and puffs after the merge; Rush does NOT (no layer).
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(board_src.find("Ambient.puff(weather") != -1, "board puffs the ambient motes after a merge")
+	ok(board_src.find("get_node_or_null(\"WeatherLayer\")") != -1, "board reaches its WeatherLayer to puff")
+	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
+	ok(rush_src.find("Ambient.puff") == -1, "rush does NOT puff (it has no ambient layer — graceful absence)")
 
 func approx(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps

@@ -2668,6 +2668,12 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# bundle D: poke the screen-bloom — the verb stays parameter-light, the scene owns the world reaction.
 	if _combo_bloom != null and is_instance_valid(_combo_bloom):
 		_combo_bloom.bump(combo)
+	# bundle D: the ambient WORLD reacts — nearby motes puff outward from the merge. GRACEFUL no-op when
+	# there's no weather layer (weather off / cleared): the scene reaches the layer, ambient guards the rest.
+	var weather := get_node_or_null("WeatherLayer") as Control
+	if weather != null:
+		var weather_ctr := weather.get_global_transform().affine_inverse() * (board_area.get_global_transform() * center)
+		Ambient.puff(weather, weather_ctr)
 	# bundle B: the up-to-4 orthogonal neighbour tiles JIGGLE outward from the merge cell (the scene
 	# owns the grid, so we gather the neighbour nodes here and hand them to the verb). The impact centre
 	# is GLOBAL so each neighbour squashes away from the true hit point.
