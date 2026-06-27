@@ -187,6 +187,16 @@ var _pressing := false              # a physical press is in flight — dedupes 
 var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
+# Bundle A (tactile) drag feel — live only while a board piece is dragged:
+#   • telegraph: the cell the held tile currently hovers as a VALID merge target (glow + breathe +
+#     magnet lean). Tracked so it clears cleanly when the hover moves off / the drag ends (no stuck glow).
+#   • lean: the held tile tilts into pointer velocity, lagged, easing back to upright when still.
+var _telegraph_cell := Vector2i(-1, -1)
+var _telegraph_node: Control = null   # the target piece currently telegraphed (its modulate/offset are restored on clear)
+var _telegraph_rest := Vector2.ZERO   # the target's resting position (to undo the magnet lean)
+var _drag_lean := 0.0                 # the held tile's current lean (rad), lerped toward the velocity target
+var _drag_last_pos := Vector2.ZERO    # previous drag-follow pointer pos (for the per-update delta)
+var _drag_lean_seeded := false        # false until the first follow seeds _drag_last_pos (so the first frame has no spurious velocity)
 var animating := false
 var _anim_t := 0.0                  # seconds the animating gate has been held (watchdog — see _process)
 var _idle := 0.0                   # seconds without input → the wiggle hint
@@ -2228,7 +2238,95 @@ func _on_board_input(event: InputEvent) -> void:
 		_pressing = false
 		_on_release(event.position)
 	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and _drag_node != null:
-		_drag_node.position = event.position - Vector2(csz, csz) / 2.0
+		_drag_follow(event.position)
+
+# The per-update drag FOLLOW (Bundle A tactile): seat the held tile under the pointer, then layer the
+# two felt cues — the merge-target TELEGRAPH (glow + breathe + magnet on a valid target) and the held
+# tile's LEAN into pointer velocity. A generator drag gets the plain follow only (it never merges, and
+# its own lift pose owns its look). Both cues tear down cleanly on release / snap-back (_clear_drag_feel).
+func _drag_follow(pos: Vector2) -> void:
+	_drag_node.position = pos - Vector2(csz, csz) / 2.0
+	if _drag_is_gen:
+		return
+	_update_telegraph(pos)
+	_update_drag_lean(pos)
+
+# Resolve the cell the held tile hovers; if it's a NEW valid merge target, telegraph it (glow + breathe +
+# magnet the pair together) and pull the held tile a touch toward it. Moving off a telegraphed target (to a
+# non-mergeable cell or a different one) restores the old target first. Mirrors the Bag-highlight idiom
+# (DRAG_HILITE + breathe_once / breathe_stop). No-op under calm (the glow/breathe self-quiet there too).
+func _update_telegraph(pos: Vector2) -> void:
+	var target := _pos_to_cell(pos)
+	var valid := target != _drag_from and board.can_merge(_drag_from, target) and piece_nodes.has(target)
+	if not valid:
+		_clear_telegraph()
+		return
+	if target == _telegraph_cell:
+		# still hovering the same target — keep the held tile leaning toward it (the follow re-seated it).
+		_apply_drag_magnet(target)
+		return
+	_clear_telegraph()                       # moved onto a new valid target — drop the previous glow first
+	var tnode: Control = piece_nodes.get(target)
+	if tnode == null or not is_instance_valid(tnode):
+		return
+	_telegraph_cell = target
+	_telegraph_node = tnode
+	_telegraph_rest = _cell_pos(target)
+	if not FX.calm():
+		tnode.modulate = FX.Tune.TELEGRAPH_GLOW
+		# pull the TARGET toward the held tile (the magnet's other half) — a small, steady lean toward the pair centre.
+		tnode.position = _telegraph_rest + (_drag_node.position - tnode.position).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+	FX.breathe_once(tnode)
+	_apply_drag_magnet(target)
+
+# Pull the HELD tile a fraction of a cell toward the telegraphed target (the magnet, held-tile half). Layered
+# ON TOP of the pointer-seated position each follow so it reads as a tug, never a teleport. Off under calm.
+func _apply_drag_magnet(target: Vector2i) -> void:
+	if FX.calm() or _drag_node == null:
+		return
+	var tcenter := _cell_pos(target)
+	var hcenter := _drag_node.position
+	_drag_node.position += (tcenter - hcenter).normalized() * (FX.Tune.TELEGRAPH_MAGNET * csz)
+
+# Restore the currently-telegraphed target (modulate + magnet offset + breathe) and forget it. Safe when
+# nothing is telegraphed (no-op). The single teardown both the hover-exit and the drag-end call.
+func _clear_telegraph() -> void:
+	if _telegraph_node != null and is_instance_valid(_telegraph_node):
+		FX.breathe_stop(_telegraph_node)
+		_telegraph_node.modulate = Color(1, 1, 1, 1.0)
+		_telegraph_node.position = _telegraph_rest
+	_telegraph_node = null
+	_telegraph_cell = Vector2i(-1, -1)
+	_telegraph_rest = Vector2.ZERO
+
+# Tilt the held tile INTO pointer velocity, lagged: the lean target is DRAG_LEAN_DEG scaled by the
+# normalized horizontal speed of this update, sign following travel direction; we lerp the live lean toward
+# it by DRAG_LEAN_LAG (so it trails the motion) and ease toward upright when the pointer is still. Clamped to
+# ±DRAG_LEAN_DEG. Skipped under calm (motion accessibility) — the tile stays upright.
+func _update_drag_lean(pos: Vector2) -> void:
+	if FX.calm():
+		return
+	if not _drag_lean_seeded:
+		_drag_last_pos = pos
+		_drag_lean_seeded = true
+	var dx := pos.x - _drag_last_pos.x
+	_drag_last_pos = pos
+	var max_rad := deg_to_rad(FX.Tune.DRAG_LEAN_DEG)
+	# a px-per-update delta -> a -1..1 factor (DRAG_LEAN_VEL_REF px reaches full lean), signed by direction.
+	var target_lean := clampf(dx / FX.Tune.DRAG_LEAN_VEL_REF, -1.0, 1.0) * max_rad
+	_drag_lean = lerpf(_drag_lean, target_lean, FX.Tune.DRAG_LEAN_LAG)
+	_drag_node.pivot_offset = _drag_node.size / 2.0 if _drag_node.size.x > 0.0 else _drag_node.custom_minimum_size / 2.0
+	_drag_node.rotation = clampf(_drag_lean, -max_rad, max_rad)
+
+# Tear down ALL drag feel (telegraph glow/magnet + held-tile lean) and reset the lean tracker. Called from
+# every drag-end path (release, snap-back, stash, gen release) so no glow or rotation can leak past a drop.
+func _clear_drag_feel(node: Control = null) -> void:
+	_clear_telegraph()
+	_drag_lean = 0.0
+	_drag_lean_seeded = false
+	_drag_last_pos = Vector2.ZERO
+	if node != null and is_instance_valid(node):
+		node.rotation = 0.0
 
 func _on_press(pos: Vector2) -> void:
 	var cell := _pos_to_cell(pos)
@@ -2274,6 +2372,7 @@ func _on_release(pos: Vector2) -> void:
 	node.z_index = 0
 	node.scale = Vector2.ONE
 	PieceView.set_lifted(node, false)   # back to the tight resting shadow
+	_clear_drag_feel(node)   # drop the merge-target telegraph + the held tile's lean (no stuck glow/rotation)
 	_hide_drag_targets()   # drag ended — settle the Bag back to rest
 	# the bag is a drop target too (global-rect check)
 	var gp: Vector2 = board_area.get_global_transform() * pos
@@ -2326,6 +2425,7 @@ func _release_gen(pos: Vector2) -> void:
 		node.z_index = 0
 		node.scale = Vector2.ONE
 		PieceView.set_lifted(node, false)   # back to the tight resting shadow
+	_clear_drag_feel(node)   # reset the lean tracker (a gen never telegraphs, but never leak a residual tilt)
 	if target == from and pos.distance_to(_press_pos) <= 18.0:
 		if node != null:
 			node.position = _cell_pos(from)

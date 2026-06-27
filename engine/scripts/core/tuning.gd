@@ -273,6 +273,7 @@ class FX:
 	const HAPTIC_THROTTLE_MS := 40
 	const DRAG_LEAN_DEG := 8.0
 	const DRAG_LEAN_LAG := 0.12
+	const DRAG_LEAN_VEL_REF := 36.0        # px of per-update horizontal pointer travel that reaches full DRAG_LEAN_DEG
 	const TELEGRAPH_GLOW := Color(1.15, 1.15, 1.05, 1.0)
 	const TELEGRAPH_MAGNET := 0.10
 	# --- bundle B: impact propagation ---

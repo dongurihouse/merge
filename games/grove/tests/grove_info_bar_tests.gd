@@ -2,6 +2,7 @@ extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · info bar — focused tests for player-facing selected-item copy.
 
 const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+const FX = preload("res://engine/scripts/ui/fx.gd")
 
 func _initialize() -> void:
 	begin("grove · info bar")
@@ -303,12 +304,115 @@ func _initialize() -> void:
 	await create_timer(0.6).timeout
 	ok(not board_scene.animating, "a STUCK animating gate self-heals (watchdog re-enables board input)")
 
+	# Bundle A (tactile) board drag: the merge-target TELEGRAPH and the held-tile LEAN.
+	_test_drag_feel()
+
 	board_scene.queue_free()
 	board_scene = null
 	content = null
 	await process_frame
 	await process_frame
 	finish()
+
+# Bundle A board-drag feel — the merge-target telegraph (glow + breathe + magnet) and the held-tile lean.
+# Drives the real _on_board_input path: press a piece, motion the held tile over a mergeable neighbour
+# (telegraph lights), motion onto a non-mergeable cell (telegraph clears), and release (all feel torn down,
+# no stuck glow/rotation). Runs with calm OFF so the felt cues are active.
+func _test_drag_feel() -> void:
+	fresh("drag_feel")
+	Save.set_setting("calm", false)
+	var b = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(b)
+	if b.board == null:
+		b._ready()
+	# Gather three OPEN, non-generator cells (clearing any item on them), then plant a known MERGEABLE
+	# PAIR (two tier-1 starters) and a third non-mergeable item — so a drag from the pair can light then
+	# clear the telegraph. (A virgin board is mostly sealed brambles, so empty_ground_cells alone is thin.)
+	var empties: Array = []
+	for x in range(G.ROWS):
+		for y in range(G.COLS):
+			var c := Vector2i(x, y)
+			if b.board.is_open(c) and not b.board.is_gen(c):
+				b.board.take(c)   # clear any seeded item so place() lands cleanly
+				empties.append(c)
+				if empties.size() >= 3:
+					break
+		if empties.size() >= 3:
+			break
+	ok(empties.size() >= 3, "drag-feel test found three open board cells for the pair + a foil")
+	if empties.size() < 3:
+		b.queue_free()
+		return
+	var pair_code := 101                       # a tier-1 starter line (tier_of < merge_top → mergeable)
+	var foil_code := 201                       # a DIFFERENT line → never merges with the held tile
+	var from_cell: Vector2i = empties[0]
+	var target_cell: Vector2i = empties[1]
+	var foil_cell: Vector2i = empties[2]
+	b.board.place(from_cell, pair_code)
+	b.board.place(target_cell, pair_code)
+	b.board.place(foil_cell, foil_code)
+	b._rebuild_pieces()
+	ok(b.board.can_merge(from_cell, target_cell), "the planted pair is a valid merge (telegraph precondition)")
+	ok(not b.board.can_merge(from_cell, foil_cell), "the foil cell is NOT a valid merge (telegraph must clear over it)")
+
+	var h := Vector2(b.csz, b.csz) / 2.0
+	var target_node: Control = b.piece_nodes.get(target_cell)
+	var held_node: Control = b.piece_nodes.get(from_cell)
+	ok(target_node != null and held_node != null, "the pair rendered piece nodes to telegraph + lean")
+
+	# press the held tile, then motion-follow it over the mergeable TARGET → the telegraph lights.
+	_press_emulated(b, b._cell_pos(from_cell) + h)
+	ok(b._drag_node == held_node, "pressing the pair tile picks it up for the drag")
+	_motion(b, b._cell_pos(target_cell) + h)
+	ok(b._telegraph_cell == target_cell, "hovering a mergeable target sets the telegraph cell")
+	ok(target_node.modulate.is_equal_approx(FX.Tune.TELEGRAPH_GLOW), "the telegraphed target glows (modulate == TELEGRAPH_GLOW)")
+	ok(target_node.has_meta("_fx_breathing"), "the telegraphed target runs a breathe pulse")
+
+	# motion onto the NON-mergeable foil → the telegraph clears (glow + breathe + magnet undone).
+	_motion(b, b._cell_pos(foil_cell) + h)
+	ok(b._telegraph_cell == Vector2i(-1, -1), "moving onto a non-mergeable cell clears the telegraph cell")
+	ok(target_node.modulate.is_equal_approx(Color(1, 1, 1, 1.0)), "the old target's glow is restored on hover-exit")
+	ok(target_node.position.is_equal_approx(b._cell_pos(target_cell)), "the old target's magnet offset is undone on hover-exit")
+
+	# horizontal motion tilts the HELD tile (lean), clamped to ±DRAG_LEAN_DEG.
+	_motion(b, b._cell_pos(from_cell) + h + Vector2(40, 0))
+	_motion(b, b._cell_pos(from_cell) + h + Vector2(120, 0))
+	ok(absf(held_node.rotation) > 0.0001, "horizontal drag motion leans the held tile")
+	ok(absf(held_node.rotation) <= deg_to_rad(FX.Tune.DRAG_LEAN_DEG) + 0.0001, "the held-tile lean is clamped to DRAG_LEAN_DEG")
+
+	# release on empty ground (a move) → ALL drag feel tears down: telegraph clear, held rotation 0.
+	_release_emulated(b, b._cell_pos(foil_cell) + h)   # foil is occupied; release where it began → snap-back
+	ok(b._telegraph_cell == Vector2i(-1, -1), "dropping leaves no telegraphed target")
+	ok(absf(held_node.rotation) < 0.0001, "dropping resets the held tile's lean to upright")
+	ok(target_node.modulate.is_equal_approx(Color(1, 1, 1, 1.0)), "no glow leaks onto the target after the drop")
+
+	# calm OFF was asserted above; verify calm SUPPRESSES the telegraph glow + the lean.
+	Save.set_setting("calm", true)
+	_press_emulated(b, b._cell_pos(from_cell) + h)
+	_motion(b, b._cell_pos(target_cell) + h)
+	ok(target_node.modulate.is_equal_approx(Color(1, 1, 1, 1.0)), "under calm the telegraph does NOT glow the target")
+	_motion(b, b._cell_pos(from_cell) + h + Vector2(120, 0))
+	ok(absf(held_node.rotation) < 0.0001, "under calm the held tile does NOT lean")
+	_release_emulated(b, b._cell_pos(from_cell) + h)
+	Save.set_setting("calm", false)
+	b.queue_free()
+
+# --- drag-gesture drivers (emulate_touch_from_mouse: mouse + synth touch per event) ----
+func _press_emulated(board, at: Vector2) -> void:
+	var md := InputEventMouseButton.new(); md.button_index = MOUSE_BUTTON_LEFT; md.pressed = true; md.position = at
+	var td := InputEventScreenTouch.new(); td.pressed = true; td.position = at
+	board._on_board_input(md)
+	board._on_board_input(td)
+
+func _release_emulated(board, at: Vector2) -> void:
+	var mu := InputEventMouseButton.new(); mu.button_index = MOUSE_BUTTON_LEFT; mu.pressed = false; mu.position = at
+	var tu := InputEventScreenTouch.new(); tu.pressed = false; tu.position = at
+	board._on_board_input(mu)
+	board._on_board_input(tu)
+
+func _motion(board, at: Vector2) -> void:
+	var mm := InputEventMouseMotion.new(); mm.position = at
+	board._on_board_input(mm)
 
 # A real still-tap routed through the viewport's GUI hit-testing (honours mouse_filter, z-order,
 # overlays) at a GLOBAL screen point — the closest headless analog to a live finger tap.
