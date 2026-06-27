@@ -18,6 +18,7 @@ const Music = preload("res://engine/scripts/core/music.gd")
 const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Feel = preload("res://engine/scripts/ui/feel.gd")   # the unified feel verbs — the spirit merge uses Feel.merge gently
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-overlay mount (one source of truth for dialog z)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
@@ -1878,7 +1879,12 @@ func _on_orb_tap(d: Dictionary) -> void:
 	_refresh_picker()
 
 func _merge_fx(at: Vector2) -> void:
-	Audio.play("tidy_poof", -2.0, 1.1)
+	# the spirit merge gets the unified verb at a GENTLE intensity (squash + a soft bloom + a light
+	# burst + the real merge sound) — no hitstop (the sentinel gate 9999 sits above any possible combo,
+	# so the freeze never fires on the calm map) and no tier escalation (low constant tier 1). The verb
+	# plays the merge sound now, so the old redundant `tidy_poof` poof is dropped (the placement poof
+	# elsewhere still stands). The picker rebuilds the orbs after this, so no result node is passed.
+	Feel.merge(self, null, at, 1, 0, 0.4, 9999)
 	FX.celebrate_at(self, at, "Merged!", STRAW)
 
 func _invalid_at(node: Control) -> void:
