@@ -269,6 +269,7 @@ var _params := {
 	"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
 		"resident_slot_px": 58, "resident_slot_gap": 10,
+		"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
@@ -755,7 +756,7 @@ func _make_element(id: String) -> Control:
 			var mh := live_h
 			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
-				"title": "The Farm", "resident_preview": true,
+				"title": "The Farm", "resident_preview": true, "habitat_preview": bool(p.done),
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
 			var card := Kit.map_card(mdata, mco, mw, mh)
@@ -2078,6 +2079,10 @@ func _rebuild_sidebar() -> void:
 			_section_header("Resident rail")
 			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 74])) # completed-card circle diameter px
 			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card circles px
+			_section_header("Reward shelf")
+			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)
+			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 30]))   # completed-card shelf height (% of card height)
+			_sidebar_body.add_child(_slider_row(["reward_shelf_y_frac", 0, 35]))   # lift the shelf upward from the bottom (% of height)
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))

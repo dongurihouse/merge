@@ -313,6 +313,9 @@
 		"pill_y_frac": 13.0,
 		"resident_slot_gap": 10.0,
 		"resident_slot_px": 60.0,
+		"reward_shelf_h_frac": 14.0,
+		"reward_shelf_w_frac": 100.0,
+		"reward_shelf_y_frac": 0.0,
 		"shadow": false,
 		"use_art": true,
 		"veil_mark_size": 64.0

@@ -50,6 +50,7 @@ const MAP_LEFT_LOCK_FLOWER_SOFT := "map/left_lock_flower_soft.png"
 const MAP_LEFT_TITLE_PLATE := "map/left_title_plate.png"
 const MAP_LEFT_LEAF_LEFT := "map/left_leaf_left.png"
 const MAP_LEFT_LEAF_RIGHT := "map/left_leaf_right.png"
+const MAP_LEFT_REWARD_SHELF := "map/left_reward_shelf.png"
 const MAP_LOCKED_PREVIEW_NODE := "MapLockedPreviewArt"
 const LOCK_FILL_TOP := Color(0.165, 0.490, 0.588)  # locked-card interior gradient — teal at top …
 const LOCK_FILL_BOTTOM := Color(0.235, 0.290, 0.275)  # … to a muted dark at the base (sampled from card_locked)
@@ -4569,6 +4570,8 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_card_locked(d, opts, card, card_w, card_h)
 	if bool(d.get("resident_preview", false)) and bool(d.get("open", true)):
 		_map_add_resident_preview(card, opts, card_w, card_h)
+	if bool(d.get("habitat_preview", false)) and bool(d.get("open", true)):
+		_map_add_habitat_shelf_preview(card, opts, card_w, card_h)
 	return card
 
 static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: float = 0.0, safe_bottom: float = 0.0) -> Dictionary:
@@ -4599,6 +4602,20 @@ static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: fl
 		"left_x": left_x,
 		"hand_x": hand_x,
 	}
+
+static func map_habitat_shelf_rect(card_w: float, card_h: float, inset: float, strip_w: float, opts: Dictionary = {}) -> Rect2:
+	var rail_gap := 8.0
+	var available_w := maxf(1.0, card_w - inset * 2.0 - strip_w - rail_gap)
+	var requested_w := available_w * clampf(float(opts.get("reward_shelf_w_frac", 1.0)), 0.20, 1.0)
+	var shelf_w := clampf(requested_w, minf(96.0, available_w), available_w)
+	var max_h := maxf(1.0, card_h - inset * 2.0)
+	var requested_h := card_h * clampf(float(opts.get("reward_shelf_h_frac", 0.14)), 0.08, 0.40)
+	var shelf_h := clampf(requested_h, minf(52.0, max_h), minf(max_h, 128.0))
+	var max_lift := maxf(0.0, card_h - inset * 2.0 - shelf_h)
+	var lift := clampf(card_h * clampf(float(opts.get("reward_shelf_y_frac", 0.0)), 0.0, 0.60), 0.0, max_lift)
+	var y_max := maxf(inset, card_h - inset - shelf_h)
+	var y := clampf(card_h - inset - shelf_h - lift, inset, y_max)
+	return Rect2(Vector2(inset, y), Vector2(shelf_w, shelf_h))
 
 static func map_card_art_path(map_data: Dictionary) -> String:
 	var thumb_path := Game.art("map/map_%s.png" % String(map_data.get("id", "")))
@@ -4741,6 +4758,103 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 		grid.add_child(slot)
 	card.add_child(rail)
 
+static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
+	var badge_opts: Dictionary = opts.get("badge", {})
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var inset := band + 6.0
+	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+	var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+	var rect := map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
+
+	var shelf := PanelContainer.new()
+	shelf.name = "MapHabitatRewardShelf"
+	shelf.position = rect.position
+	shelf.size = rect.size
+	shelf.custom_minimum_size = rect.size
+	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shelf_style := _map_habitat_shelf_style()
+	if shelf_style != null:
+		shelf.add_theme_stylebox_override("panel", shelf_style)
+	else:
+		var ss := StyleBoxFlat.new()
+		ss.bg_color = Color(Pal.CREAM, 0.88)
+		ss.set_corner_radius_all(14)
+		ss.set_border_width_all(2)
+		ss.border_color = Color(Pal.INK, 0.12)
+		ss.content_margin_left = 14 ; ss.content_margin_right = 14
+		ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
+		shelf.add_theme_stylebox_override("panel", ss)
+
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 5)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shelf.add_child(col)
+
+	var row := HBoxContainer.new()
+	row.name = "MapHabitatRewardRow"
+	row.add_theme_constant_override("separation", 5)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ico := make_icon("coin", clampf(rect.size.y * 0.26, 22.0, 34.0))
+	ico.name = "MapHabitatRewardIcon"
+	ico.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(ico)
+	var label := Label.new()
+	label.text = "Coins · 1/1 housed"
+	label.add_theme_font_size_override("font_size", int(clampf(rect.size.y * 0.18, 15.0, 22.0)))
+	label.add_theme_color_override("font_color", Pal.INK)
+	label.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.65))
+	label.add_theme_constant_override("outline_size", 2)
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(label)
+	col.add_child(row)
+
+	var foot := HBoxContainer.new()
+	foot.add_theme_constant_override("separation", 10)
+	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bar := progress_bar(0.42, {"width": maxf(80.0, rect.size.x * 0.52), "height": clampf(rect.size.y * 0.14, 10.0, 18.0), "art": true})
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.add_child(bar)
+	var collect := pill_button("Collect 5", {
+		"bg": "green",
+		"art": true,
+		"font": int(clampf(rect.size.y * 0.17, 15.0, 20.0)),
+		"icon": "coin",
+		"icon_size": int(clampf(rect.size.y * 0.24, 22.0, 30.0)),
+		"enabled": true,
+		"shadow": false,
+		"pad_scale": 0.82,
+	})
+	collect.name = "MapHabitatCollectButton"
+	collect.custom_minimum_size = Vector2(clampf(rect.size.x * 0.26, 104.0, 138.0), clampf(rect.size.y * 0.31, 34.0, 44.0))
+	collect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	foot.add_child(collect)
+	col.add_child(foot)
+	card.add_child(shelf)
+
+static func _map_habitat_shelf_style() -> StyleBoxTexture:
+	var path := Look.kit(MAP_LEFT_REWARD_SHELF)
+	if not ResourceLoader.exists(path):
+		return null
+	var st := StyleBoxTexture.new()
+	st.texture = load(path)
+	st.set_texture_margin(SIDE_LEFT, 36)
+	st.set_texture_margin(SIDE_TOP, 24)
+	st.set_texture_margin(SIDE_RIGHT, 36)
+	st.set_texture_margin(SIDE_BOTTOM, 24)
+	st.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	st.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	st.content_margin_left = 14
+	st.content_margin_top = 8
+	st.content_margin_right = 14
+	st.content_margin_bottom = 8
+	return st
+
 static func _map_resident_preview_slot(px: float) -> Control:
 	var slot := Control.new()
 	slot.name = "MapResidentRailPreviewSlot"
@@ -4864,7 +4978,8 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
 	_map_add_title_plate(card, d, card_w, card_h)
-	_map_count_pill(d, opts, card, card_w, card_h)
+	if not bool(d.get("habitat_preview", false)):
+		_map_count_pill(d, opts, card, card_w, card_h)
 	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
 	# DONE/restored card stays quiet (its pill already says "restored"); the amount is workbench-tuned.
 	if not bool(d.get("done", false)):
@@ -5175,6 +5290,9 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
 		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident circle diameter px
 		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident circles px
+		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
+		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)
+		"reward_shelf_y_frac": float(c.get("reward_shelf_y_frac", 0)) / 100.0,   # completed-card reward shelf lift from bottom (% of card height)
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 

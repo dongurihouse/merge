@@ -1115,6 +1115,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 18.0)
 	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.38, 220.0))
 	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, badge_opts, resident_slot_gap)
+	var shelf_rect: Rect2 = Kit.map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
 
 	# the name + production read ride a translucent parchment shelf docked to the BOTTOM-LEFT (clear of the
 	# strip) so the dark-ink labels stay legible while the art still shows through behind them.
@@ -1128,7 +1129,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	sub_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var reward_icon: Control = null
 	if Kit != null:
-		reward_icon = Kit.make_icon(_reward_icon(cur), clampf(card_h * 0.095, 28.0, 38.0))
+		reward_icon = Kit.make_icon(_reward_icon(cur), clampf(shelf_rect.size.y * 0.28, 22.0, 34.0))
 	if reward_icon != null:
 		reward_icon.name = "MapHabitatRewardIcon"
 		reward_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1146,7 +1147,11 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var capf := Habitat.accrual_cap(map_id)
 		var frac := (Habitat.pending(map_id) / capf) if capf > 0.0 else 0.0
-		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {})
+		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
+			"height": clampf(shelf_rect.size.y * 0.13, 10.0, 18.0),
+			"width": maxf(92.0, shelf_rect.size.x * 0.52),
+			"art": true,
+		})
 		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1155,15 +1160,15 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		var collect: Button = Kit.pill_button("Collect %d" % ready, {
 			"bg": "green",
 			"art": true,
-			"font": 20,
+			"font": int(clampf(shelf_rect.size.y * 0.18, 16.0, 20.0)),
 			"icon": _reward_icon(cur),
-			"icon_size": int(clampf(card_h * 0.09, 26.0, 32.0)),
+			"icon_size": int(clampf(shelf_rect.size.y * 0.26, 20.0, 28.0)),
 			"enabled": ready > 0,
 			"shadow": false,
 			"pad_scale": 0.82,
 		})
 		collect.name = "MapHabitatCollectButton"
-		collect.custom_minimum_size = Vector2(clampf(card_w * 0.22, 108.0, 142.0), clampf(card_h * 0.105, 38.0, 48.0))
+		collect.custom_minimum_size = Vector2(clampf(shelf_rect.size.x * 0.26, 104.0, 138.0), clampf(shelf_rect.size.y * 0.36, 34.0, 42.0))
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
 		foot.add_child(collect)
 		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
@@ -1174,6 +1179,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		col.add_child(foot)
 
 	var shelf := PanelContainer.new()
+	shelf.name = "MapHabitatRewardShelf"
 	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shelf_style := _left_map_style(LEFT_MAP_REWARD_SHELF, Vector4(36, 24, 36, 24), Vector4(14, 8, 14, 8))
 	if shelf_style != null:
@@ -1189,19 +1195,11 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		shelf.add_theme_stylebox_override("panel", ss)
 	shelf.add_child(col)
 
-	# dock the shelf to the bottom-LEFT via a full-height VBox (a transparent EXPAND spacer pushes it down),
-	# its right offset clearing the housed strip so the two never overlap.
-	var lay := VBoxContainer.new()
-	lay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	lay.offset_left = inset ; lay.offset_top = inset
-	lay.offset_right = -(inset + strip_w + 8.0) ; lay.offset_bottom = -inset
-	lay.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	lay.add_child(spacer)
-	lay.add_child(shelf)
-	card.add_child(lay)
+	# Workbench-tuned: the shelf occupies the left lane that remains after the resident rail.
+	shelf.position = shelf_rect.position
+	shelf.size = shelf_rect.size
+	shelf.custom_minimum_size = shelf_rect.size
+	card.add_child(shelf)
 
 	return card
 

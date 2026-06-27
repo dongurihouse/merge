@@ -1466,11 +1466,23 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(view._params["map_card"].has("resident_slot_px") and view._params["map_card"].has("resident_slot_gap") \
 		and view._is_config("map_card", "resident_slot_px") and view._is_config("map_card", "resident_slot_gap"), \
 		"the map-card resident rail knobs are saved Workbench config")
+	ok(map_opts.has("reward_shelf_w_frac") and map_opts.has("reward_shelf_h_frac") and map_opts.has("reward_shelf_y_frac"), \
+		"map_card opts carry saved completed-map reward shelf size and lift knobs")
+	ok(view._params["map_card"].has("reward_shelf_w_frac") and view._params["map_card"].has("reward_shelf_h_frac") \
+		and view._params["map_card"].has("reward_shelf_y_frac") and view._is_config("map_card", "reward_shelf_w_frac") \
+		and view._is_config("map_card", "reward_shelf_h_frac") and view._is_config("map_card", "reward_shelf_y_frac"), \
+		"the completed-map reward shelf knobs are saved Workbench config")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident circle-size and gap sliders")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_w_frac\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
+		"the Workbench map-card sidebar exposes completed-map reward shelf sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
 		"the Workbench map-card preview requests the resident-slot preview overlay")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.done)"), \
+		"the Workbench map-card preview shows the reward shelf when Done/restored is toggled on")
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
@@ -1531,9 +1543,9 @@ func _test_gold_badge_consumers(view) -> void:
 		"completed map cards render a reward icon and named large green Collect button")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "\"shadow\": false") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "\"pad_scale\": 0.82") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "\"font\": 20") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(card_w * 0.22, 108.0, 142.0)") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(card_h * 0.105, 38.0, 48.0)"), \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.y * 0.18, 16.0, 20.0)") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.x * 0.26, 104.0, 138.0)") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.y * 0.36, 34.0, 42.0)"), \
 		"completed map Collect button stays compact and does not cast the heavy shared shadow")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentSlot") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "var display_cap := maxi(cap, 8)"), \
@@ -1556,6 +1568,10 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0"), \
 		"completed map resident rail border expands and shrinks with the circle size and circle gap")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_habitat_shelf_rect") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_habitat_shelf_rect") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardShelf"), \
+		"completed map reward shelf placement is driven by the shared Workbench-tuned layout helper")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "LEFT_MAP_TITLE_PLATE") \
 		and not _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatTitleLeafLeft") \
 		and not _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "MapCardTitleLeafLeft"), \
