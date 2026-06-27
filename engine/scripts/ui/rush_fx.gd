@@ -69,44 +69,44 @@ static func on(opts: Dictionary, id: String) -> bool:
 
 # --- the effects ------------------------------------------------------------------------------------
 
-## A puff of leaves where two tiles fused; bigger for a higher result tier.
-static func merge_burst(host: Node, gpos: Vector2, tier: int) -> void:
-	FX.burst(host, gpos, LEAF, clampi(8 + tier * 4, 8, 28))
+## A puff of leaves where two tiles fused; `count` is the base, the result tier nudges it.
+static func merge_burst(host: Node, gpos: Vector2, tier: int, count := 20) -> void:
+	FX.burst(host, gpos, LEAF, clampi(count + (tier - 3) * 4, 4, 40))
 
-## Roll the score label up to `to_value` (vs a hard snap).
-static func score_tick(label: Label, to_value: int) -> void:
+## Roll the score label up to `to_value` over `ms` milliseconds (vs a hard snap).
+static func score_tick(label: Label, to_value: int, ms := 400) -> void:
 	if label != null and is_instance_valid(label):
-		FX.tick(label, to_value)
+		FX.tick(label, to_value, maxf(0.01, ms / 1000.0))
 
-## Pop a cell (used for the score cell on a gain, and the mult medallion when it climbs).
-static func cell_pop(cell: Control) -> void:
+## Pop a cell at `pct` strength (100 = the default squash). Used by score_pulse + mult_pop.
+static func cell_pop(cell: Control, pct := 100) -> void:
 	if cell != null and is_instance_valid(cell):
-		FX.squash_pop(cell)
+		FX.squash_pop(cell, maxf(0.0, pct / 100.0))
 
-## The COMBO callout, growing + warming with the streak (gold → straw → hot-orange).
-static func combo_heat(host: Control, gpos: Vector2, combo: int) -> void:
+## The COMBO callout; `base_size` is the floor, the streak grows it (gold → straw → hot-orange).
+static func combo_heat(host: Control, gpos: Vector2, combo: int, base_size := 24) -> void:
 	var col := GOLD if combo < 5 else (STRAW if combo < 8 else HOT)
-	var sz := clampi(24 + combo * 3, 24, 54)
+	var sz := clampi(base_size + combo * 3, base_size, base_size + 30)
 	FX.floating_text(host, gpos, "COMBO ×%d" % combo, col, sz)
 
-## The clock under ~10s: redden toward hot + a heartbeat pop. Call once per WHOLE second; pass the
-## seconds left. At >10s it restores the resting ink colour, so it can be called unconditionally.
-static func timer_low(label: Label, secs_left: int, silent: bool = false) -> void:
+## The clock under `threshold` seconds: redden toward hot + a heartbeat pop. Call once per whole
+## second; pass the seconds left. Above the threshold it restores the resting ink colour.
+static func timer_low(label: Label, secs_left: int, silent: bool = false, threshold := 10) -> void:
 	if label == null or not is_instance_valid(label):
 		return
-	if secs_left > 10:
+	if secs_left > threshold:
 		label.add_theme_color_override("font_color", INK)
 		return
-	var warm := clampf(float(10 - secs_left) / 10.0, 0.0, 1.0)
+	var warm := clampf(float(threshold - secs_left) / float(maxi(1, threshold)), 0.0, 1.0)
 	label.add_theme_color_override("font_color", INK.lerp(HOT, warm))
 	FX.squash_pop(label)
 	if not silent:
-		Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)    # a soft rising tick
+		Audio.play("button_tap", -8.0, 1.4 + warm * 0.4)
 
-## The timber LANDS with a crack — debris burst + a heavier jolt + a brief freeze.
-static func treefall_crack(host: Node, board: Control, gpos: Vector2, silent: bool = false) -> void:
-	FX.burst(host, gpos, STRAW, 18)
-	FX.shake(board, 16.0)
-	FX.hitstop(0.06)
+## The timber LANDS with a crack — debris burst + jolt + a brief freeze, all tunable.
+static func treefall_crack(host: Node, board: Control, gpos: Vector2, silent: bool = false, debris := 18, shake_amp := 16.0, hitstop_secs := 0.06) -> void:
+	FX.burst(host, gpos, STRAW, debris)
+	FX.shake(board, shake_amp)
+	FX.hitstop(hitstop_secs)
 	if not silent:
 		Audio.play("tidy_poof", -1.0, 0.65)                 # low poof = a woody crack
