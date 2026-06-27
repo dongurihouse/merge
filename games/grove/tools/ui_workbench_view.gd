@@ -167,6 +167,17 @@ const CAPTIONS := {
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
 	"bag": "Bag — slot grid (shared frame · acorn pill)",
 }
+# per-effect knob slider specs for the rush_fx inspector: effect id → [[param, lo, hi], …]
+const RUSH_FX_KNOBS := {
+	"merge_burst": [["merge_burst_count", 4, 40]],
+	"score_tick": [["score_tick_ms", 80, 600]],
+	"score_pulse": [["score_pulse_pct", 40, 180]],
+	"mult_pop": [["mult_pop_pct", 40, 180]],
+	"combo_heat": [["combo_heat_size", 18, 60]],
+	"timer_low": [["timer_low_secs", 3, 20]],
+	"treefall_crack": [["treefall_debris", 4, 40], ["treefall_shake", 0, 40], ["treefall_hitstop_ms", 0, 160]],
+}
+var _rush_fx_ctx: Dictionary = {}
 var _params := {
 	# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
 	# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
@@ -321,7 +332,11 @@ var _params := {
 		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16, "burn": 0},
 	# the RUSH FX toggles — the master switch + one per screen-juice effect (RushFx.EFFECTS)
 	"rush_fx": {"enabled": true, "merge_burst": true, "score_tick": true, "score_pulse": true, "mult_pop": true,
-		"combo_heat": true, "timer_low": true, "treefall_crack": true},
+		"combo_heat": true, "timer_low": true, "treefall_crack": true,
+		"merge_burst_count": 20, "score_tick_ms": 400, "score_pulse_pct": 100, "mult_pop_pct": 100,
+		"combo_heat_size": 24, "timer_low_secs": 10,
+		"treefall_debris": 18, "treefall_shake": 16, "treefall_hitstop_ms": 60,
+	},
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -779,27 +794,14 @@ func _make_element(id: String) -> Control:
 			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
 			btn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
 			wrap.add_child(btn)
-			var fxp: Dictionary = p
-			var fire := func() -> void:
-				var sl: Label = demo.get_meta("score_label")
-				var ml: Label = demo.get_meta("mult_label")
-				var tl: Label = demo.get_meta("time_label")
-				if sl != null: sl.text = "0"             # reset so the tick / colour change reads each replay
-				if ml != null: ml.text = "×1.0"
-				if tl != null: tl.text = "0:30"
-				FX.squash_pop(ta) ; FX.squash_pop(tb)    # the two tiles fuse
-				if RushFx.on(fxp, "merge_burst"): RushFx.merge_burst(wrap, tile_ctr, 3)
-				if RushFx.on(fxp, "score_tick"): RushFx.score_tick(sl, 1250)
-				elif sl != null: sl.text = "1,250"
-				if RushFx.on(fxp, "score_pulse"): RushFx.cell_pop(demo.get_meta("score_cell"))
-				if ml != null: ml.text = "×2.0"
-				if RushFx.on(fxp, "mult_pop"): RushFx.cell_pop(demo.get_meta("mult_cell"))
-				if RushFx.on(fxp, "combo_heat"): RushFx.combo_heat(wrap, tile_ctr - Vector2(0.0, tpx), 6)
-				if tl != null: tl.text = "0:06"
-				if RushFx.on(fxp, "timer_low"): RushFx.timer_low(tl, 6, true)
-				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, tile_ctr, true)
-			btn.pressed.connect(fire)
-			fire.call_deferred()                         # play once on build (and on every toggle rebuild)
+			_rush_fx_ctx = {
+				"score_label": demo.get_meta("score_label"), "mult_label": demo.get_meta("mult_label"),
+				"time_label": demo.get_meta("time_label"), "score_cell": demo.get_meta("score_cell"),
+				"mult_cell": demo.get_meta("mult_cell"), "tile_a": ta, "tile_b": tb,
+				"wrap": wrap, "demo": demo, "tile_ctr": tile_ctr, "tile_px": tpx,
+			}
+			btn.text = "▶  Replay all"
+			btn.pressed.connect(func() -> void: _rush_fx_play("__all__"))
 			return wrap
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
@@ -1636,6 +1638,35 @@ func _section_style(selected: bool) -> StyleBox:
 
 ## --- sidebar (right) -----------------------------------------------------------------------------
 
+# Fire one rush_fx effect (or "__all__") on the live demo context, reading current knob values
+# from _params. A single id fires regardless of its toggle (an explicit test trigger);
+# "__all__" respects the enabled toggles, mirroring the game.
+func _rush_fx_play(which: String) -> void:
+	if _rush_fx_ctx.is_empty():
+		return
+	var p: Dictionary = _params["rush_fx"]
+	var c := _rush_fx_ctx
+	var sl: Label = c.get("score_label")
+	var ml: Label = c.get("mult_label")
+	var tl: Label = c.get("time_label")
+	if sl != null: sl.text = "0"
+	if ml != null: ml.text = "×1.0"
+	if tl != null: tl.text = "0:30"
+	var want := func(id: String) -> bool:
+		return which == id or (which == "__all__" and RushFx.on(p, id))
+	if c.get("tile_a") != null: FX.squash_pop(c["tile_a"])
+	if c.get("tile_b") != null: FX.squash_pop(c["tile_b"])
+	if want.call("merge_burst"): RushFx.merge_burst(c["wrap"], c["tile_ctr"], 3, int(p["merge_burst_count"]))
+	if want.call("score_tick"): RushFx.score_tick(sl, 1250, int(p["score_tick_ms"]))
+	elif which == "__all__" and sl != null: sl.text = "1,250"
+	if want.call("score_pulse"): RushFx.cell_pop(c.get("score_cell"), int(p["score_pulse_pct"]))
+	if ml != null: ml.text = "×2.0"
+	if want.call("mult_pop"): RushFx.cell_pop(c.get("mult_cell"), int(p["mult_pop_pct"]))
+	if want.call("combo_heat"): RushFx.combo_heat(c["wrap"], c["tile_ctr"] - Vector2(0.0, c["tile_px"]), 6, int(p["combo_heat_size"]))
+	if tl != null: tl.text = "0:06"
+	if want.call("timer_low"): RushFx.timer_low(tl, 6, true, int(p["timer_low_secs"]))
+	if want.call("treefall_crack"): RushFx.treefall_crack(c["wrap"], c["demo"], c["tile_ctr"], true, int(p["treefall_debris"]), float(p["treefall_shake"]), int(p["treefall_hitstop_ms"]))
+
 func _rebuild_sidebar() -> void:
 	if _sidebar_body == null or not is_instance_valid(_sidebar_body):
 		return
@@ -2061,9 +2092,20 @@ func _rebuild_sidebar() -> void:
 		"rush_fx":
 			_group_header("Saved to config", true)
 			_sidebar_body.add_child(_toggle_row("All effects (master)", "enabled"))
-			_section_header("Effects — flip, then ▶ Replay to feel it")
+			_section_header("Each effect — flip · tune · ▶ to feel it (the game honours these)")
 			for e in RushFx.EFFECTS:
-				_sidebar_body.add_child(_toggle_row(String(e.get("label", e.id)), String(e.id)))
+				var fid := String(e.get("id", ""))
+				_section_header(String(e.get("label", fid)))
+				_sidebar_body.add_child(_toggle_row("On", fid))
+				var rb := Button.new()
+				rb.name = "RushFxReplay_%s" % fid
+				rb.text = "▶  Replay"
+				rb.set_meta("wb_active", true)
+				rb.add_theme_font_size_override("font_size", 16)
+				rb.pressed.connect(func() -> void: _rush_fx_play(fid))
+				_sidebar_body.add_child(rb)
+				for spec in RUSH_FX_KNOBS.get(fid, []):
+					_sidebar_body.add_child(_slider_row(spec))
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")

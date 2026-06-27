@@ -12,6 +12,7 @@ const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")
 
 var _pass := 0
 var _fail := 0
@@ -388,6 +389,7 @@ func _initialize() -> void:
 	_test_mystery_preview(view)
 	_test_level_badge_component(view)
 	_test_rush_bar_component(view)
+	_test_rush_fx_knobs()
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -1802,3 +1804,25 @@ func _test_discovery_frame() -> void:
 	# and it still builds on the shared frame (the named banner overlay is present)
 	var dlg := Kit.tiers_dialog(Kit.DEMO_TIERS, 620.0, topts)
 	ok(dlg.find_child("DialogBanner", true, false) != null, "the discovery dialog wraps the shared frame")
+
+func _test_rush_fx_knobs() -> void:
+	var view = load("res://games/grove/tools/UiWorkbench.tscn").instantiate()
+	get_root().add_child(view)
+	if view.get_child_count() == 0:
+		view._ready()
+	# params carry every rush_fx knob, defaulted from RushFx.KNOBS
+	var p: Dictionary = view._params["rush_fx"]
+	for k in RushFx.KNOBS.keys():
+		ok(p.has(k) and int(p[k]) == int(RushFx.KNOBS[k]), "rush_fx params include knob %s at its default" % k)
+	# selecting rush_fx builds a ▶ Replay per effect + the knob sliders
+	view._selected = "rush_fx"
+	view._rebuild_sidebar()
+	var replays: Array = view._sidebar_body.find_children("RushFxReplay_*", "Button", true, false)
+	ok(replays.size() == RushFx.EFFECTS.size(), "one ▶ Replay button per effect (%d)" % RushFx.EFFECTS.size())
+	var sliders: Array = view._sidebar_body.find_children("*", "HSlider", true, false)
+	ok(sliders.size() == RushFx.KNOBS.size(), "one knob slider per knob (%d)" % RushFx.KNOBS.size())
+	# firing one effect does not error and does not require the toggle on
+	view._params["rush_fx"]["merge_burst"] = false
+	view._rush_fx_play("merge_burst")
+	ok(true, "per-effect replay fires without error even when the effect toggle is off")
+	view.queue_free()
