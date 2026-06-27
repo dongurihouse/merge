@@ -13,10 +13,13 @@ const LEAF := Color("#7FB069")
 const STRAW := Color("#E3B23C")
 const HOT := Color("#E0592B")
 
-## The merge IMPACT. Composes the primitives that the board's _after_merge hand-assembled,
-## reproducing its feel exactly at intensity=1.0, hitstop_gate=0. `node` is the produced tile;
-## `center`/`host` locate the flash + burst; `tier`/`combo` drive the escalation; `intensity`
-## (0..1) lets a surface dial the strength; `hitstop_gate` suppresses the freeze below a combo.
+## The merge IMPACT. Composes the primitives the board's _after_merge hand-assembled. At
+## intensity=1.0, hitstop_gate=0 it matches the board's prior feel EXCEPT for two deliberate
+## spec escalations the unified verb now applies everywhere (so all merges feel consistent):
+##   - the flash peak ramps soft->full over tier 1..>=4 (board used to flash flat at every tier);
+##   - the burst goes HOT at tier >= MERGE_BURST_HOT_TIER (board capped at STRAW gold).
+## `node` is the produced tile; `center`/`host` locate the flash + burst; `tier`/`combo` drive
+## the escalation; `intensity` (0..1) dials strength; `hitstop_gate` suppresses the freeze below a combo.
 static func merge(host: Node, node: Control, center: Vector2, tier: int, combo: int, intensity := 1.0, hitstop_gate := 0) -> void:
 	# squash & stretch on the produced tile + a white flash — the chosen "C" feel. Mirrors the
 	# board's merge_impact gate: squash+flash when on, else fall back to a plain pop.
