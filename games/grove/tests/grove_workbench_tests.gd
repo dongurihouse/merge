@@ -676,6 +676,12 @@ func _initialize() -> void:
 			ok(unlocked_select_card != null and locked_select_card != null \
 				and unlocked_select_card.size.y > locked_select_card.size.y + 8.0, \
 				"place-picker unlocked map cards are slightly taller than locked map cards")
+			var left_scroll_clip := unlocked_select_card.get_parent() as Control
+			var left_scroll_rect := left_scroll_clip.get_global_rect() if left_scroll_clip != null else Rect2()
+			ok(left_scroll_clip != null \
+				and absf(left_scroll_rect.position.y) <= 1.0 \
+				and absf(left_scroll_rect.end.y - map_screen_h) <= 1.0, \
+				"place-picker left map-card scroll viewport extends to the top and bottom screen edges")
 		map_scene.queue_free()
 	await process_frame
 

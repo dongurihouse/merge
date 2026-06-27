@@ -1004,16 +1004,20 @@ func _build_select(animate := true) -> void:
 	var sep := float(layout.sep)
 	var band_top := float(layout.band_top)
 	var col_h := float(layout.col_h)
+	var left_clip_top := float(layout.get("left_clip_top", band_top))
+	var left_clip_h := float(layout.get("left_clip_h", col_h))
+	var left_content_top := float(layout.get("left_content_top", band_top - left_clip_top))
 	var card_w := float(layout.card_w)
 	var base_card_h := float(layout.base_card_h)
 	var left_x := float(layout.left_x)
 	var hand_x := float(layout.hand_x)
 	var hand_w := float(layout.hand_w)
-	# LEFT column: the map cards, clipped + flush to the TOP (so it top-aligns with the hand board), scrolled
-	# when the stack overflows the column.
+	# LEFT column: the card stack keeps its visual top alignment with the hand board, but the clip itself spans
+	# the full screen so scrolling can reveal cards all the way to the top and bottom edges.
 	var clip := Control.new()
-	clip.position = Vector2(left_x, band_top)
-	clip.size = Vector2(card_w, col_h)
+	clip.name = "MapSelectCardScrollClip"
+	clip.position = Vector2(left_x, left_clip_top)
+	clip.size = Vector2(card_w, left_clip_h)
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
@@ -1024,9 +1028,9 @@ func _build_select(animate := true) -> void:
 		this_h = maxf(this_h, 132.0)
 		card_heights.append(this_h)
 		total_h += this_h
-	_select_scroll_max = maxf(0.0, total_h - col_h)
+	_select_scroll_max = maxf(0.0, left_content_top + total_h - left_clip_h)
 	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
-	var y := 0.0
+	var y := left_content_top
 	for z in n:
 		var card_h := float(card_heights[z])
 		var card := _make_card(z, card_w, card_h, opts)

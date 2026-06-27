@@ -4580,6 +4580,8 @@ static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: fl
 	var band_top := top + 16.0
 	var band_bot := view.y - (safe_bottom + 150.0)
 	var col_h := maxf(1.0, band_bot - band_top)
+	var left_clip_top := 0.0
+	var left_clip_h := maxf(1.0, view.y)
 	var margin := clampf(view.x * 0.012, 8.0, 16.0)
 	var col_gap := clampf(view.x * 0.02, 10.0, 24.0)
 	var hand_w := clampf(view.x * 0.30, 210.0, 360.0)
@@ -4594,6 +4596,9 @@ static func map_select_layout(view: Vector2, opts: Dictionary = {}, safe_top: fl
 		"band_top": band_top,
 		"band_bot": band_bot,
 		"col_h": col_h,
+		"left_clip_top": left_clip_top,
+		"left_clip_h": left_clip_h,
+		"left_content_top": band_top,
 		"margin": margin,
 		"col_gap": col_gap,
 		"hand_w": hand_w,
