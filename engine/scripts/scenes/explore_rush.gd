@@ -10,6 +10,7 @@ extends Control
 
 const G = preload("res://engine/scripts/core/content.gd")
 const Explore = preload("res://engine/scripts/core/explore.gd")
+const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro popup's first-N-rushes counter
 const SceneWarm = preload("res://engine/scripts/core/scene_warm.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
@@ -61,6 +62,7 @@ func _ready() -> void:
 
 	_build_topbar()
 	_build_board()
+	_build_bottom_hint()
 	_start()
 
 # The rush_concept top bar: three CODE-DRAWN gold-badge cells — Time | SCORE (centred, larger) | Mult —
@@ -162,6 +164,89 @@ func _build_board() -> void:
 	_tele.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_board.add_child(_tele)
 
+# An ALWAYS-ON micro-hint along the bottom safe area, teaching the two secondary verbs the
+# top popup leaves out: tap-again-to-fling and clearing a column before a treefall. Quiet
+# parchment text, never gated — it stays for every rush as ambient help.
+func _build_bottom_hint() -> void:
+	var vp := get_viewport_rect().size
+	var vw: float = vp.x if vp.x > 0.0 else 720.0
+	var vh: float = vp.y if vp.y > 0.0 else 1280.0
+	# A quiet translucent caption strip (same ink family as the popup) so the text reads on the
+	# cream board AND the grass below it — never gated, it stays for every rush as ambient help.
+	var strip := PanelContainer.new()
+	strip.name = "RushBottomHintStrip"
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(INK, 0.5)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 18.0 ; sb.content_margin_right = 18.0
+	sb.content_margin_top = 8.0 ; sb.content_margin_bottom = 8.0
+	strip.add_theme_stylebox_override("panel", sb)
+	var l := Label.new()
+	l.name = "RushBottomHint"
+	l.text = "Tap again to fling · empty a column before the treefall"
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(vw * 0.82, 0.0)                 # wrap within the strip, not off the screen
+	l.add_theme_font_size_override("font_size", 20)
+	l.add_theme_color_override("font_color", PARCH)
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_child(l)
+	add_child(strip)
+	strip.reset_size()
+	var sz := strip.get_combined_minimum_size()
+	strip.position = Vector2((vw - sz.x) * 0.5, vh - Look.safe_bottom(self) - 12.0 - sz.y)
+
+# The rush-start teaching popup: a parchment pill reading "Tap to Merge!" that POPS in with the
+# board's signature back-ease overshoot, holds, then fades + drifts up and frees itself — a ~1.5s
+# beat. Non-blocking (taps pass straight through to the board). Gated by the caller to first rushes.
+const HINT_POP := 0.18
+const HINT_HOLD := 0.9
+const HINT_FADE := 0.34
+func _show_tap_hint() -> void:
+	var vp := get_viewport_rect().size
+	var vw: float = vp.x if vp.x > 0.0 else 720.0
+	var vh: float = vp.y if vp.y > 0.0 else 1280.0
+	var pill := PanelContainer.new()
+	pill.name = "RushTapHint"
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE                 # a hint, not a wall
+	# A DARK parchment-ink pill with a gold rim — reads crisply over the light cream board (a
+	# PARCH pill would vanish into it). Soft shadow lifts it off the field.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = INK
+	sb.border_color = GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(24)
+	sb.content_margin_left = 30.0 ; sb.content_margin_right = 30.0
+	sb.content_margin_top = 16.0 ; sb.content_margin_bottom = 16.0
+	sb.shadow_color = Color(0.16, 0.11, 0.07, 0.34)
+	sb.shadow_size = 10
+	sb.shadow_offset = Vector2(0, 5)
+	pill.add_theme_stylebox_override("panel", sb)
+	var lbl := Label.new()
+	lbl.text = "Tap to Merge!"
+	lbl.add_theme_font_size_override("font_size", 34)
+	lbl.add_theme_color_override("font_color", PARCH)
+	lbl.add_theme_color_override("font_outline_color", Color(INK, 0.5))
+	lbl.add_theme_constant_override("outline_size", 2)
+	pill.add_child(lbl)
+	add_child(pill)
+	# centre it in the upper third, clear of the board action below
+	pill.reset_size()
+	var sz := pill.get_combined_minimum_size()
+	pill.pivot_offset = sz * 0.5
+	pill.position = Vector2((vw - sz.x) * 0.5, vh * 0.40 - sz.y * 0.5)
+	# POP → HOLD → FADE+RISE → free (the same back-ease overshoot the merge juice uses)
+	pill.scale = Vector2(0.6, 0.6)
+	pill.modulate.a = 0.0
+	var t := pill.create_tween()
+	t.tween_property(pill, "modulate:a", 1.0, HINT_POP * 0.6)
+	t.parallel().tween_property(pill, "scale", Vector2.ONE, HINT_POP).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_interval(HINT_HOLD)
+	t.tween_property(pill, "modulate:a", 0.0, HINT_FADE)
+	t.parallel().tween_property(pill, "position:y", pill.position.y - 26.0, HINT_FADE).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	t.tween_callback(pill.queue_free)
+
 func _start() -> void:
 	_grid = []
 	for _r in G.ROWS:
@@ -179,6 +264,10 @@ func _start() -> void:
 	_running = true
 	_refresh_readouts()
 	set_process(true)
+	# The "Tap to Merge!" teaching popup — only on a player's first few rushes (then it retires).
+	if Explore.rush_intro_should_show(Save.rush_intro_seen()):
+		Save.mark_rush_intro_seen()
+		_show_tap_hint()
 
 # --- frame loop ------------------------------------------------------------------
 func _process(dt: float) -> void:
