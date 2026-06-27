@@ -107,14 +107,6 @@ static func _ladder_pitch(base: float, combo: int) -> float:
 	var semitones: float = float(Tune.PENTA[clampi(combo, 0, Tune.PENTA.size() - 1)])
 	return base * pow(2.0, semitones / 12.0)
 
-## How many COMBO_MILESTONES thresholds the streak has reached (drives the pitch nudge).
-## Replicates board.gd's _combo_milestones_passed so the verb owns the same logic.
-static func _combo_milestones_passed(count: int) -> int:
-	var k := 0
-	for m in Tune.COMBO_MILESTONES:
-		if count >= int(m):
-			k += 1
-	return k
 ## The land IMPACT — a tile that traveled then touched down. `quiet` separates a discrete
 ## arrival (fling-land, a coin/special drop: squash + small flash + micro-puff + touch sound
 ## + haptic) from a BULK settle (a Rush gravity column or the spawn fall, where N tiles land

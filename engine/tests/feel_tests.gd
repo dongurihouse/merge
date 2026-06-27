@@ -76,11 +76,6 @@ func _initialize() -> void:
 	ok(Feel._merge_pitch(4, 8) > Feel._merge_pitch(4, 0), "a live streak climbs the ladder above the base")
 	ok(approx(Feel._merge_pitch(4, 999), Feel._ladder_pitch(_base4, Tune.PENTA.size() - 1)), "a huge streak tops out at the ladder ceiling")
 
-	# --- _combo_milestones_passed: counts COMBO_MILESTONES reached ---
-	ok(Feel._combo_milestones_passed(0) == 0, "combo 0 passes 0 milestones")
-	ok(Feel._combo_milestones_passed(int(Tune.COMBO_MILESTONES[0])) == 1, "combo at first milestone passes 1")
-	ok(Feel._combo_milestones_passed(100) == Tune.COMBO_MILESTONES.size(), "huge combo passes all milestones")
-
 	# --- _merge_burst_count: base curve + bonuses, intensity-scaled ---
 	# (combo + big-moment bonuses are feature-gated; with the default flags on they apply)
 	ok(Feel._merge_burst_count(3, 0, 1.0) >= 10 + 3 * 3, "tier 3 burst count includes base curve")
