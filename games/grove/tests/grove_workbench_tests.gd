@@ -1449,6 +1449,18 @@ func _test_gold_badge_consumers(view) -> void:
 	var map_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
 	ok(map_opts.has("badge"), \
 		"map_card opts carry the shared gold_badge skin BOTH card states' frame wears")
+	ok(not map_opts.has("card_w_frac"), \
+		"map_card opts no longer carry an obsolete width fraction; two-column layout owns card width")
+	ok(not view._params["map_card"].has("card_w_frac") and not _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"card_w_frac\""), \
+		"the Workbench map-card sidebar no longer exposes a width slider")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_select_layout") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_select_layout") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.map_select_layout(Vector2(PHONE_W, PHONE_H)"), \
+		"Workbench and game derive map-card preview geometry from the same two-column layout helper")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_card_art_path") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_card_art_path") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.map_card_art_path(Game.DATA.MAPS[0])"), \
+		"Workbench and game resolve the open map-card artwork through the same helper")
 	ok(map_opts.has("resident_slot_px") and map_opts.has("resident_slot_gap"), \
 		"map_card opts carry saved resident rail circle size and circle gap")
 	ok(view._params["map_card"].has("resident_slot_px") and view._params["map_card"].has("resident_slot_gap") \

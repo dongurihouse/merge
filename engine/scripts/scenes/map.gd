@@ -993,7 +993,6 @@ func _build_select(animate := true) -> void:
 	_placed_orbs.clear()
 	_hand_panel = null
 	var view := get_viewport_rect().size
-	var top := 96.0 + Look.safe_top(self)
 	# TWO SEPARATE columns, both top-aligned. LEFT: the individual map cards, scrolled in a clipped column.
 	# RIGHT: the in-hand spirits on a reused garden BOARD (its own framed planter — a 2-column grid + a bottom
 	# info bar). The board is the single input surface (cards / orbs are hit-tested by their scrolled global rect).
@@ -1001,18 +1000,15 @@ func _build_select(animate := true) -> void:
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
-	var h_frac: float = float(opts.get("card_h_frac", 0.16))    # card height as a fraction of the screen height
-	var sep := 18.0
-	var band_top := top + 16.0
-	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
-	var col_h := band_bot - band_top
-	var margin := clampf(view.x * 0.012, 8.0, 16.0)
-	var col_gap := clampf(view.x * 0.02, 10.0, 24.0)
-	var hand_w := clampf(view.x * 0.30, 210.0, 360.0)           # the in-hand garden board column
-	var card_w := maxf(160.0, view.x - margin * 2.0 - col_gap - hand_w)
-	var base_card_h := maxf(view.y * h_frac, 150.0)
-	var left_x := margin
-	var hand_x := left_x + card_w + col_gap
+	var layout: Dictionary = Kit.map_select_layout(view, opts, Look.safe_top(self), Look.safe_bottom(self))
+	var sep := float(layout.sep)
+	var band_top := float(layout.band_top)
+	var col_h := float(layout.col_h)
+	var card_w := float(layout.card_w)
+	var base_card_h := float(layout.base_card_h)
+	var left_x := float(layout.left_x)
+	var hand_x := float(layout.hand_x)
+	var hand_w := float(layout.hand_w)
 	# LEFT column: the map cards, clipped + flush to the TOP (so it top-aligns with the hand board), scrolled
 	# when the stack overflows the column.
 	var clip := Control.new()
@@ -1673,21 +1669,8 @@ func _empty_slot(px: float) -> Control:
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home
 # clean art (the hub's restored cottage), else "" → a code-drawn meadow fill.
 func _card_art_path(z: int) -> String:
-	var map_data: Dictionary = G.MAPS[z]
-	var thumb_path := Game.art("map/map_%s.png" % String(map_data.id))
-	if ResourceLoader.exists(thumb_path):
-		return thumb_path
-	var vine = map_data.get("vine", null)
-	if typeof(vine) == TYPE_DICTIONARY:
-		var base := String(vine.get("base", ""))
-		if base != "" and ResourceLoader.exists(base):
-			return base
-	var home = map_data.get("home", null)
-	if typeof(home) == TYPE_DICTIONARY:
-		var clean := String(home.get("clean", ""))
-		if clean != "" and ResourceLoader.exists(clean):
-			return clean
-	return ""
+	var Kit: GDScript = load(KIT_PATH)
+	return Kit.map_card_art_path(G.MAPS[z]) if Kit != null else ""
 
 # A centered "✿ N to restore" status row (no star sprite — exp/level is the only currency now). `n`
 # is the count of UNCLAIMED spots. Used by the (disabled) map title plank fallback. Mouse-IGNOREd.

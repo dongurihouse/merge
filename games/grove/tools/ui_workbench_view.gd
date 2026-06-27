@@ -263,12 +263,10 @@ var _params := {
 	# the TOGGLE CARD — a new card type: one setting row (a label + the shared switch). label_font /
 	# switch_h / card_art are the saved STYLE; label + value just preview the row. Reused by Settings.
 	"toggle_card": {"label_font": 28, "switch_h": 44, "card_art": true, "label": "Music", "value": false},
-	# the MAP-SELECT place-picker card (spec §8). card_w_frac / card_h_frac SIZE the card as a % of the
-	# screen (width % of screen width — smaller = wider side margins; height % of screen height). The rest
-	# mirror the shipped §8 constants, so the saved block the game's map.gd reads renders the card until you
-	# change it. Fracs are scaled integers for the sliders (fracs + veil alphas in percent — see
+	# the MAP-SELECT place-picker card (spec §8). The two-column picker owns card width; this block tunes
+	# card height and in-card presentation. Fracs are scaled integers for sliders (see
 	# Kit.map_card_opts_from_config). open/done/zone progress are preview-only (the game sets each per map).
-	"map_card": {"use_art": true, "card_w_frac": 96, "card_h_frac": 16, "edge_sparkle": 60,
+	"map_card": {"use_art": true, "card_h_frac": 16, "edge_sparkle": 60,
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
 		"resident_slot_px": 58, "resident_slot_gap": 10,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
@@ -743,23 +741,34 @@ func _make_element(id: String) -> Control:
 			return Kit.level_dialog(lv_data, _dlg_px("level"), lo)
 		"map_card":
 			# the place-picker card, built from the SAME kit resolver map.gd reads (so the preview is
-			# exactly what the game renders). The locale art is preview-only "" → the meadow fill, so the
-			# gold frame / dark panel + the §8 veil read on their own; open/done/zone progress preview the state.
+			# exactly what the game renders). The open preview uses the real Farm art; locked state still
+			# passes no art so the veiled panel + prerequisite row remain checkable.
 			# pass the shared gold_badge skin so the open card's frame previews the SAME tuning as board/info-bar.
 			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"]})
-			# preview at the SAME proportion the game lays out — card_w_frac of the screen WIDTH by
-			# card_h_frac of the screen HEIGHT — scaled to the 460-px preview width, so dragging the
-			# size sliders reshapes the card live (and shows any gold-frame stretch). No height cap: the
-			# place-picker scrolls in-game, so a tall card previews at its true (tall) shape.
-			var mw := 460.0
-			var wf: float = maxf(1.0, float(p.get("card_w_frac", 96)))
-			var hf: float = maxf(1.0, float(p.get("card_h_frac", 16)))
-			var mh := mw * (PHONE_H * hf) / (PHONE_W * wf)
-			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": "",
+			# Build at the SAME two-column geometry as map.gd, then uniformly scale the whole preview so
+			# resident slots, count pill, title plate, and rail stay in the same proportions as the game.
+			var live_layout := Kit.map_select_layout(Vector2(PHONE_W, PHONE_H), mco)
+			var live_w := float(live_layout.card_w)
+			var live_h := maxf(float(live_layout.base_card_h) * (1.045 if bool(p.open) else 0.965), 132.0)
+			var scale := minf(1.0, 460.0 / maxf(1.0, live_w))
+			var mw := live_w
+			var mh := live_h
+			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
+			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
 				"title": "The Farm", "resident_preview": true,
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
-				"prereq": "✿ after Meadow", "map_id": ""}
-			return Kit.map_card(mdata, mco, mw, mh)
+				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
+			var card := Kit.map_card(mdata, mco, mw, mh)
+			if scale >= 0.999:
+				return card
+			var wrap := Control.new()
+			wrap.name = "MapCardLiveLayoutPreview"
+			wrap.custom_minimum_size = Vector2(mw * scale, mh * scale)
+			wrap.size = wrap.custom_minimum_size
+			wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			card.scale = Vector2(scale, scale)
+			wrap.add_child(card)
+			return wrap
 		"rush_bar":
 			# the Expedition top HUD, from the SAME kit builder the game uses: code-drawn gold-badge cells
 			# (Time · Score · Mult) + the asset leaf / coin / crown. Pass the shared gold_badge skin so the
@@ -2055,12 +2064,9 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["preview_level", 1, 110]))
 		"map_card":
 			_group_header("Saved to config", true)
-			# card SIZE: width as a % of the screen width (smaller = wider side margins) and height as a % of
-			# the screen height — the two are INDEPENDENT (width sets margins; height has no ceiling now: the
-			# place-picker SCROLLS when tall cards overflow the band). A w:h far from the art's ~2.92 aspect
-			# stretches the gold frame (the preview shows it).
-			_sidebar_body.add_child(_slider_row(["card_w_frac", 60, 100]))    # card width  (% of screen width)
-			_sidebar_body.add_child(_slider_row(["card_h_frac", 5, 50]))      # card height (% of screen height; the picker scrolls past the band)
+			# card SIZE: width comes from the live two-column place-picker layout; height remains a saved
+			# percent of screen height, and the picker scrolls when tall cards overflow the band.
+			_sidebar_body.add_child(_slider_row(["card_h_frac", 5, 50]))      # card height (% of screen height; width is layout-derived)
 			# the count pill's painted art (pill_left) vs a code-drawn cream pill — both card frames + the
 			# locked interior are code-drawn now, so this toggle only governs the count pill.
 			_sidebar_body.add_child(_toggle_row("Use art", "use_art", true))
