@@ -717,39 +717,56 @@ func _make_element(id: String) -> Control:
 			var rbo := Kit.rush_bar_opts_from_config({"rush_bar": p, "gold_badge": _params["gold_badge"]})
 			return Kit.rush_bar(rbo, {"time": "0:58", "score": "1,250", "mult": "x2.0"})
 		"rush_fx":
-			# the screen-juice tester: a sample bar + a Replay that fires the ENABLED effects on it (the game
-			# reads the SAME toggles via RushFx.from_config). Flip toggles in the sidebar, hit Replay, feel it.
+			# the screen-juice tester: a sample bar + two demo TILES (so the merge burst lands on a board-like
+			# spot) + a ▶ Replay that fires the ENABLED effects. The game reads the SAME toggles (RushFx). It
+			# auto-plays once on build, so flipping a toggle replays with the new set; Replay re-fires on demand.
 			var fbo := Kit.rush_bar_opts_from_config({"rush_bar": _params["rush_bar"], "gold_badge": _params["gold_badge"]})
 			var demo: Control = Kit.rush_bar(fbo, {"time": "0:30", "score": "0", "mult": "×1.0"})
 			var bsc := 0.6
 			demo.scale = Vector2(bsc, bsc)
+			var tpx := 76.0
 			var wrap := Control.new()
-			wrap.custom_minimum_size = Vector2(demo.size.x * bsc + 40.0, demo.size.y * bsc + 120.0)
-			demo.position = Vector2((wrap.custom_minimum_size.x - demo.size.x * bsc) * 0.5, 16.0)
+			wrap.custom_minimum_size = Vector2(maxf(demo.size.x * bsc, tpx * 3.0) + 40.0, demo.size.y * bsc + tpx + 132.0)
+			var tcx := wrap.custom_minimum_size.x * 0.5
+			demo.position = Vector2(tcx - demo.size.x * bsc * 0.5, 14.0)
 			wrap.add_child(demo)
+			# the two demo tiles — the "merge" happens between them, so the leaf burst reads on a real tile
+			var tiles_y := demo.size.y * bsc + 22.0
+			var ta := PieceView.make_piece(101, tpx)
+			ta.position = Vector2(tcx - tpx - 6.0, tiles_y) ; ta.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			wrap.add_child(ta)
+			var tb := PieceView.make_piece(201, tpx)
+			tb.position = Vector2(tcx + 6.0, tiles_y) ; tb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			wrap.add_child(tb)
+			var tile_ctr := Vector2(tcx, tiles_y + tpx * 0.5)
 			var btn := Button.new()
 			btn.text = "▶  Replay"
 			btn.add_theme_font_size_override("font_size", 22)
-			btn.custom_minimum_size = Vector2(190.0, 56.0) ; btn.size = btn.custom_minimum_size
-			btn.position = Vector2((wrap.custom_minimum_size.x - 190.0) * 0.5, demo.size.y * bsc + 36.0)
+			btn.custom_minimum_size = Vector2(190.0, 52.0) ; btn.size = btn.custom_minimum_size
+			btn.position = Vector2(tcx - 95.0, tiles_y + tpx + 14.0)
+			btn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
 			wrap.add_child(btn)
 			var fxp: Dictionary = p
 			var fire := func() -> void:
 				var sl: Label = demo.get_meta("score_label")
 				var ml: Label = demo.get_meta("mult_label")
 				var tl: Label = demo.get_meta("time_label")
-				var ctr := demo.position + demo.size * 0.5 * bsc           # bar centre in wrap-local coords
-				if RushFx.on(fxp, "merge_burst"): RushFx.merge_burst(wrap, ctr, 3)
+				if sl != null: sl.text = "0"             # reset so the tick / colour change reads each replay
+				if ml != null: ml.text = "×1.0"
+				if tl != null: tl.text = "0:30"
+				FX.squash_pop(ta) ; FX.squash_pop(tb)    # the two tiles fuse
+				if RushFx.on(fxp, "merge_burst"): RushFx.merge_burst(wrap, tile_ctr, 3)
 				if RushFx.on(fxp, "score_tick"): RushFx.score_tick(sl, 1250)
 				elif sl != null: sl.text = "1,250"
 				if RushFx.on(fxp, "score_pulse"): RushFx.cell_pop(demo.get_meta("score_cell"))
 				if ml != null: ml.text = "×2.0"
 				if RushFx.on(fxp, "mult_pop"): RushFx.cell_pop(demo.get_meta("mult_cell"))
-				if RushFx.on(fxp, "combo_heat"): RushFx.combo_heat(wrap, ctr - Vector2(0.0, 46.0), 6)
+				if RushFx.on(fxp, "combo_heat"): RushFx.combo_heat(wrap, tile_ctr - Vector2(0.0, tpx), 6)
 				if tl != null: tl.text = "0:06"
 				if RushFx.on(fxp, "timer_low"): RushFx.timer_low(tl, 6)
-				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, ctr)
+				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, tile_ctr)
 			btn.pressed.connect(fire)
+			fire.call_deferred()                         # play once on build (and on every toggle rebuild)
 			return wrap
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
@@ -1529,7 +1546,8 @@ func _make_clickthrough(n: Node, keep_handles: bool) -> void:
 	for c in n.get_children():
 		if c is Control:
 			var is_handle: bool = String(c.name) in ["DialogBanner", "DialogBannerIcon", "DialogClose"]
-			if not (keep_handles and is_handle):
+			var keep_active: bool = (c as Control).has_meta("wb_active")   # an interactive preview control (e.g. Rush FX ▶ Replay)
+			if not ((keep_handles and is_handle) or keep_active):
 				(c as Control).mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_make_clickthrough(c, keep_handles)
 

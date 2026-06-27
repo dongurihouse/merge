@@ -4191,7 +4191,7 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		pop.size = Vector2(cw, ch)
 		var ps := StyleBoxFlat.new()
 		ps.bg_color = Color(0, 0, 0, 0)
-			ps.set_border_width_all(0)
+		ps.set_border_width_all(0)
 		ps.border_color = tint
 		ps.set_corner_radius_all(int(maxf(10.0, cw * 0.18)))
 		# the rim drop-shadow — its own strength (alpha) + size knobs, so it can be dialled all the way
