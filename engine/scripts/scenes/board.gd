@@ -1767,6 +1767,7 @@ func _select_item(cell: Vector2i) -> void:
 		var desc := G.item_description(code)
 		_info_desc_label.text = desc
 		_info_desc_label.visible = desc != ""
+	_info_btn.visible = true
 	_info_btn.disabled = false
 	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
 		_info_trash.visible = false           # generators, coins, and special drops aren't deletable for coins
@@ -1803,6 +1804,7 @@ func _select_generator(cell: Vector2i) -> void:
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
 		_info_desc_label.text = ""
 		_info_desc_label.visible = false
+	_info_btn.visible = true
 	_info_btn.disabled = false                # ⓘ opens the line ladder of what this generator makes
 	_info_trash.visible = false               # a generator is never sold
 	if _info_buy != null and is_instance_valid(_info_buy):
@@ -1833,6 +1835,7 @@ func _clear_selection() -> void:
 		_info_desc_label.text = ""
 		_info_desc_label.visible = false
 	if _info_btn != null and is_instance_valid(_info_btn):
+		_info_btn.visible = false
 		_info_btn.disabled = true
 	if _info_trash != null and is_instance_valid(_info_trash):
 		_info_trash.visible = false

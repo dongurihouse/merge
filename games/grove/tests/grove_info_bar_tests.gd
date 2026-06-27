@@ -24,6 +24,9 @@ func _initialize() -> void:
 	if board_scene.board == null:
 		board_scene._ready()
 	await create_timer(0.05).timeout
+	var info_button := board_scene.get("_info_btn") as Button
+	ok(info_button != null, "the info bar exposes its info button")
+	ok(info_button != null and not info_button.visible, "the empty info bar hides the info button")
 
 	var cell := Vector2i(-1, -1)
 	for c in board_scene.board.empty_ground_cells():
@@ -35,6 +38,7 @@ func _initialize() -> void:
 		board_scene.board.place(cell, 1201)
 		board_scene._rebuild_pieces()
 		board_scene._select_item(cell)
+		ok(info_button.visible and not info_button.disabled, "selecting an item shows and enables the info button")
 		ok(board_scene._info_label.text == "Water drop · Tier 1", "the info bar names special drops instead of falling back to Item")
 		var desc_label: Label = board_scene.get("_info_desc_label") as Label
 		ok(desc_label != null and desc_label.visible and desc_label.text.contains("8 water"), "the info bar shows the selected item's useful hint")
@@ -51,6 +55,8 @@ func _initialize() -> void:
 			and is_equal_approx(selected_art_sprite.offset_left, 0.0) \
 			and is_equal_approx(selected_art_sprite.offset_top, 0.0), \
 			"the live info bar selected item uses the full artwork box without board-cell inset")
+		board_scene._clear_selection()
+		ok(not info_button.visible and info_button.disabled, "clearing focus hides and disables the info button")
 
 	# Focus + two-tap collect (real click routing): tapping a coin FOCUSES its cell (a corner-bracket
 	# frame appears) and a SECOND tap of the now-focused cell COLLECTS it. The frame is the on-board
