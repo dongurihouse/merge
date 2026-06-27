@@ -112,6 +112,10 @@ func _initialize() -> void:
 	var half := Vector2.ONE + (Tune.SQUASH_K[0] - Vector2.ONE) * 0.5
 	ok(sph.scale.is_equal_approx(half), "squash_pop: strength 0.5 halves the deviation from rest")
 	sps.queue_free(); sph.queue_free()
+	var sp0 := Control.new(); sp0.size = Vector2(80, 80); get_root().add_child(sp0)
+	FX.squash_pop(sp0, 0.0)
+	ok(sp0.scale.is_equal_approx(Vector2.ONE), "squash_pop: strength 0.0 leaves the node at rest")
+	sp0.queue_free()
 
 	# --- tick accepts a duration param; flag-off path snaps regardless --------------
 	Features.FLAGS["wallet_tick"] = false
@@ -119,7 +123,12 @@ func _initialize() -> void:
 	FX.tick(tl, 1250, 0.2)
 	ok(tl.text == "1250", "tick: flag off snaps to the value (custom dur accepted, no crash)")
 	tl.queue_free()
+	# tick flag ON builds the count tween with the custom dur (not snapped before any frame)
 	Features.FLAGS["wallet_tick"] = true
+	var tl2 := Label.new(); tl2.text = "0"; get_root().add_child(tl2)
+	FX.tick(tl2, 1250, 0.2)
+	ok(tl2.text == "0", "tick: flag on defers to the count tween (custom dur, no immediate snap)")
+	tl2.queue_free()
 
 	# leave shared state clean
 	Save.set_setting("calm", false)
