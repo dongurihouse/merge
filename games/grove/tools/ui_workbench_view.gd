@@ -756,7 +756,7 @@ func _make_element(id: String) -> Control:
 			var mh := live_h
 			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
-				"title": "The Farm", "resident_preview": true, "habitat_preview": bool(p.done),
+				"title": "The Farm", "resident_preview": true, "habitat_preview": bool(p.open),
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
 			var card := Kit.map_card(mdata, mco, mw, mh)

@@ -1501,8 +1501,8 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench map-card sidebar exposes completed-map reward shelf sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
 		"the Workbench map-card preview requests the resident-slot preview overlay")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.done)"), \
-		"the Workbench map-card preview shows the reward shelf when Done/restored is toggled on")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open)"), \
+		"the Workbench map-card preview shows the collection progress shelf for open map cards")
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
