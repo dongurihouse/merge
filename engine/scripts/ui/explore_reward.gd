@@ -22,6 +22,7 @@ const INK := Color("#43352B")
 const STRAW := Color("#D9B679")
 const DIALOG_MAX_W := 540.0
 const SHINE_TIER := 3                               # a spirit landing at tier ≥ this shines (the "jackpot" beat)
+const MAX_ROWS := 3                                 # cap revealed rows so a huge haul can't make the dialog endless
 const SPIN_CFG := {"spin": 1.2, "stagger": 0.55, "anticipate": 0.5, "total_cap": 3.5}
 
 ## Open the reward reveal as a modal overlay on `host` (the Rush board). opts: on_done (Callable; default
@@ -117,14 +118,27 @@ static func build(Kit: GDScript, granted: Array, width: float, vh: float, press:
 	var cw: float = clampf((avail - float(cols - 1) * 14.0) / float(cols), 92.0, 138.0)
 	var ch: float = cw * 1.06
 	var decoys := _decoy_symbols()
-	var top_i := _top_tier_index(granted)
+	# cap the REVEALED reels to MAX_ROWS so a huge haul can't make the dialog endless — the overflow folds
+	# into a "+N more" tile (every spirit is still granted to the hand; the reveal is purely cosmetic). When
+	# it overflows, show the highest-tier pulls so a rare never hides behind the chip.
+	var cap: int = cols * MAX_ROWS
+	var display: Array = granted
+	var more: int = 0
+	if granted.size() > cap:
+		var ranked := granted.duplicate()
+		ranked.sort_custom(func(a, b) -> bool: return int((a as Dictionary).get("tier", 1)) > int((b as Dictionary).get("tier", 1)))
+		display = ranked.slice(0, cap - 1)
+		more = granted.size() - display.size()
+	var top_i := _top_tier_index(display)
 	var reels: Array = []
-	for i in granted.size():
-		var sp: Dictionary = granted[i]
+	for i in display.size():
+		var sp: Dictionary = display[i]
 		var reel: Control = SlotReel.build_reel(decoys, sp, cw, ch, i, _spirit_tile, int(sp.get("tier", 1)) >= SHINE_TIER)
 		reel.set_meta("top", i == top_i)
 		reels.append(reel)
 		grid.add_child(reel)
+	if more > 0:
+		grid.add_child(_more_cell(more, cw, ch))
 	col.add_child(grid)
 
 	var done: Button = Kit.pill_button("Done", {"bg": "cream", "art": true, "font": 22})
@@ -170,6 +184,17 @@ static func _top_tier_index(spirits: Array) -> int:
 static func _spirit_tile(sym, w: float, h: float) -> Control:
 	var d: Dictionary = sym
 	return _spirit_icon(String(d.get("kind", "")), minf(w, h) * 0.92)
+
+# the overflow tile: a parchment cell reading "+N" for the spirits past the row cap (all still in the hand).
+static func _more_cell(n: int, cw: float, ch: float) -> Control:
+	var cell := PanelContainer.new()
+	cell.name = "RewardMore"
+	cell.custom_minimum_size = Vector2(cw, ch)
+	cell.add_theme_stylebox_override("panel", SlotReel.cell_stylebox())
+	var l := _label("+%d" % n, 30, true)
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	cell.add_child(l)
+	return cell
 
 # The spirit icon: real art when present, else the placeholder disc with two eyes (named SpiritEye0/1).
 static func _spirit_icon(kind: String, px: float) -> Control:

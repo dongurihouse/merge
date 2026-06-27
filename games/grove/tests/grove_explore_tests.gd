@@ -19,6 +19,7 @@ func _initialize() -> void:
 	_test_rush_intro_hint()
 	_test_screens()
 	_test_trade_reward_dialog_layout()
+	_test_reward_row_cap()
 	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	await _test_loadout_keeps_unaffordable_choices_visible()
@@ -358,6 +359,33 @@ func _test_trade_reward_dialog_layout() -> void:
 	ok(host.find_child("RewardDialog", true, false) != null, "the reward mounts the shared framed dialog on the board")
 	var grid := host.find_child("RewardReels", true, false)
 	ok(grid != null and grid.get_child_count() == 4, "an 800-point run reveals four reels")
+	host.queue_free()
+
+# a huge haul is row-capped: only MAX_ROWS rows reveal, the rest fold into a "+N more" tile — but every
+# granted spirit still lands in the hand (the reveal is cosmetic).
+func _test_reward_row_cap() -> void:
+	fresh("reward_row_cap")
+	var z := 0
+	var g := Save.grove()
+	var unl := {}
+	for sp in G.MAPS[z].spots:
+		unl[String(sp.id)] = true
+	g["unlocks"] = unl
+	g["gates"] = [z]
+	Save.grove_write()
+	Explore.begin_run({})
+	Explore.add_score(6000)                         # 6000 / 200 = 30 spirits — well past the row cap
+	var hand_before := Habitat.hand().size()
+	var host := Control.new()
+	host.set_anchors_preset(Control.PRESET_FULL_RECT)
+	get_root().add_child(host)
+	ExploreReward.open(host, {"on_done": func() -> void: pass})
+	ok(Habitat.hand().size() == hand_before + 30, "every granted spirit lands in the hand even past the reveal cap")
+	var grid := host.find_child("RewardReels", true, false) as GridContainer
+	ok(grid != null, "the reveal grid is built")
+	ok(grid.get_child_count() <= 4 * ExploreReward.MAX_ROWS, "the reveal never exceeds the row cap (≤ 4 × MAX_ROWS cells)")
+	ok(grid.get_child_count() == grid.columns * ExploreReward.MAX_ROWS, "a big haul fills exactly the capped rows")
+	ok(host.find_child("RewardMore", true, false) != null, "the overflow folds into a +N more tile")
 	host.queue_free()
 
 func _test_loadout_uses_toggle_card_callback() -> void:
