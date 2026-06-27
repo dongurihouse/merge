@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_pool_and_box()
 	_test_run_state()
 	_test_trade_count()
+	_test_slot_reel()
 	_test_rush_intro_hint()
 	_test_screens()
 	_test_trade_box_icons()
@@ -222,6 +223,43 @@ func _test_trade_count() -> void:
 	ok(Explore.trade_count(200) == 1, "exactly the rate yields one spirit")
 	ok(Explore.trade_count(400) == 2, "double the rate yields two spirits")
 	ok(Explore.trade_count(852) == 4, "852 converts to four spirits (remainder discarded)")
+
+# --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
+# The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
+# retires (gated on a saved counter). The fling/treefall bottom hint stays on EVERY rush.
+func _test_slot_reel() -> void:
+	var SlotReel: GDScript = load("res://engine/scripts/ui/slot_reel.gd")
+	var mk := func(_sym, w: float, h: float) -> Control:
+		var c := Control.new()
+		c.custom_minimum_size = Vector2(w, h)
+		return c
+	# a built reel sits landed on its target tile
+	var reel: Control = SlotReel.build_reel(["a", "b", "c"], "c", 80.0, 84.0, 0, mk, true)
+	var tile_h: float = float(reel.get_meta("tile_h"))
+	var n_syms: int = int(reel.get_meta("n_syms"))
+	var band: Control = reel.get_meta("band")
+	ok(is_equal_approx(band.position.y, -tile_h * float(n_syms - 1)), "a built reel is landed on its target tile")
+	ok(bool(reel.get_meta("shine")) == true, "build_reel records the shine flag")
+	# spinning zero reels lands immediately
+	var fired := {"v": false}
+	SlotReel.spin_reels(self, [], null, func() -> void: fired.v = true)
+	ok(fired.v, "spinning zero reels fires on_all_landed at once")
+	# finish() snaps every band to its landed tile and fires on_all_landed exactly once
+	var host := Control.new()
+	get_root().add_child(host)
+	var r0: Control = SlotReel.build_reel(["a", "b"], "b", 80.0, 84.0, 0, mk, false)
+	var r1: Control = SlotReel.build_reel(["a", "b"], "a", 80.0, 84.0, 1, mk, false)
+	host.add_child(r0)
+	host.add_child(r1)
+	(r0.get_meta("band") as Control).position.y = 0.0
+	(r1.get_meta("band") as Control).position.y = 0.0
+	var done := {"n": 0}
+	var handle: Dictionary = SlotReel.spin_reels(host, [r0, r1], null, func() -> void: done.n += 1)
+	(handle["finish"] as Callable).call()
+	var b0: Control = r0.get_meta("band")
+	ok(is_equal_approx(b0.position.y, -float(r0.get_meta("tile_h")) * float(int(r0.get_meta("n_syms")) - 1)), "finish() snaps a reel to its landed tile")
+	ok(done.n == 1, "finish() fires on_all_landed exactly once")
+	host.queue_free()
 
 # --- the rush-start teaching popup: first-3 gate + the always-on bottom hint ------
 # The "Tap to Merge!" popup teaches the core verb on the player's first few rushes, then
