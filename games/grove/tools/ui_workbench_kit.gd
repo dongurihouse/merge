@@ -3634,6 +3634,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"item_icon_scale": float(i.get("item_icon_scale", 80)) / 100.0, # selected item/generator art as % of that piece box
 		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
+		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
 		"sell_font":   int(i.get("sell_font", 30)),                 # the sell badge's payout number font
 		"sell_label_font": int(i.get("sell_label_font", 22)),       # the plain "Sell" caption above the badge
@@ -3706,6 +3707,12 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_icon.custom_minimum_size = Vector2(inner, inner)
 	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hb.add_child(info_icon)
+	var text_stack := VBoxContainer.new()
+	text_stack.add_theme_constant_override("separation", 0)
+	text_stack.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_stack.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	text_stack.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hb.add_child(text_stack)
 	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
 	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
 	name_label.add_theme_color_override("font_color", Pal.INK)
@@ -3713,7 +3720,18 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.clip_text = true
-	hb.add_child(name_label)
+	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	text_stack.add_child(name_label)
+	var desc_label := Label.new()                                # one-line player-use hint; hidden when empty
+	desc_label.add_theme_font_size_override("font_size", int(opts.get("desc_font", 18)))
+	desc_label.add_theme_color_override("font_color", Color(Pal.BARK, 0.92))
+	desc_label.add_theme_constant_override("outline_size", 0)
+	desc_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	desc_label.clip_text = true
+	desc_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	desc_label.visible = false
+	desc_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	text_stack.add_child(desc_label)
 	var sell_btn := Button.new()                                 # sells the selected item; content = "Sell" over a coin·payout badge
 	sell_btn.focus_mode = Control.FOCUS_NONE
 	sell_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -3797,6 +3815,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("info_btn", info_btn)
 	pill.set_meta("info_icon", info_icon)
 	pill.set_meta("name_label", name_label)
+	pill.set_meta("desc_label", desc_label)
 	pill.set_meta("sell_btn", sell_btn)
 	pill.set_meta("sell_count", sell_count)
 	pill.set_meta("sell_coin", sell_coin)

@@ -769,6 +769,38 @@ static func is_coin(code: int) -> bool:
 static func coin_value(code: int) -> int:
 	return int(COIN_VALUES.get(code % 100, 0))
 
+static func item_display_name(code: int) -> String:
+	var line := int(code / 100.0)
+	if is_coin(code):
+		return "Coin"
+	if LINES.has(line):
+		return String((LINES[line] as Dictionary).get("name", "Item"))
+	if SPECIAL_ITEMS.has(line):
+		return String((SPECIAL_ITEMS[line] as Dictionary).get("name", "Item"))
+	return "Item"
+
+static func item_description(code: int) -> String:
+	var line := int(code / 100.0)
+	if is_coin(code):
+		var coins := coin_value(code)
+		return "Tap again to collect %d %s." % [coins, "coin" if coins == 1 else "coins"]
+	if SPECIAL_ITEMS.has(line):
+		var collect := special_collect(code)
+		if not collect.is_empty():
+			var amount := int(collect.get("amount", 0))
+			var kind := String(collect.get("kind", ""))
+			match kind:
+				"water":
+					return "Tap again to collect %d water. Merge first for more." % amount
+				"acorn":
+					return "Tap again to collect %d %s. Merge first for more." % [amount, "acorn" if amount == 1 else "acorns"]
+				"exp":
+					return "Tap again to gain %d exp. Merge first for more." % amount
+		return String((SPECIAL_ITEMS[line] as Dictionary).get("desc", ""))
+	if LINES.has(line):
+		return String((LINES[line] as Dictionary).get("desc", ""))
+	return ""
+
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
 ## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins AND the §6.B
 ## resource drops (water/acorn/exp) collect this way; chest/key are OPENED by a drag, not tap-collected.

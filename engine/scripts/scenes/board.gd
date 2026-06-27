@@ -138,6 +138,7 @@ var _bag_count_lbl: Label            # the "x/y" bag count under the bag well
 var _selected_cell := Vector2i(-1, -1)
 var _info_icon: CenterContainer      # the selected piece preview
 var _info_label: Label               # "<name> · Tier N" (or the empty-state prompt)
+var _info_desc_label: Label          # compact player-use hint for the selected item
 var _info_btn: Button                # opens the selected item's Tiers ladder
 var _info_trash: Button              # sells the selected item; its content shows trash + payout (built by the kit)
 var _info_trash_count: Label         # the "+N" sell payout amount inside the trash button (kit meta sell_count)
@@ -1587,6 +1588,7 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
 	_info_icon = pill.get_meta("info_icon")          # the selected piece preview (filled in _select_item)
 	_info_label = pill.get_meta("name_label")        # "<name> · Tier N" (or the empty prompt)
+	_info_desc_label = pill.get_meta("desc_label")   # compact player-use hint under the title
 	_info_trash = pill.get_meta("sell_btn")          # sells the selected item; its content shows trash + payout
 	_info_trash_count = pill.get_meta("sell_count")  # the payout-amount label, set in _select_item
 	_info_trash_coin = pill.get_meta("sell_coin")    # the payout currency icon slot (standard coin/acorn)
@@ -1696,16 +1698,19 @@ func _select_item(cell: Vector2i) -> void:
 	_selected_cell = cell
 	if _info_burst != null and is_instance_valid(_info_burst):
 		_info_burst.visible = false           # the burst chip is a GENERATOR action (see _select_generator)
-	var line := BoardModel.line_of(code)
 	var tier := BoardModel.tier_of(code)
 	for c in _info_icon.get_children():
 		c.queue_free()
 	_info_icon.add_child(_make_piece(code, _info_inner_px * _info_item_icon_scale))
-	var nm: String = tr(String(G.LINES[line].name)) if G.LINES.has(line) else Strings.t("board.info.item_fallback")
+	var nm: String = tr(G.item_display_name(code))
 	_info_label.text = "%s · %s %d" % [nm, Strings.t("board.info.tier"), tier]
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		var desc := G.item_description(code)
+		_info_desc_label.text = desc
+		_info_desc_label.visible = desc != ""
 	_info_btn.disabled = false
-	if board.is_gen(cell) or G.is_coin(code):
-		_info_trash.visible = false           # generators + raw coins aren't "deletable for coins"
+	if board.is_gen(cell) or G.is_coin(code) or G.is_special(code):
+		_info_trash.visible = false           # generators, coins, and special drops aren't deletable for coins
 		if _info_buy != null and is_instance_valid(_info_buy):
 			_info_buy.visible = false         # …nor buyable
 	else:
@@ -1735,6 +1740,9 @@ func _select_generator(cell: Vector2i) -> void:
 	prev.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid)
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.text = ""
+		_info_desc_label.visible = false
 	_info_btn.disabled = false                # ⓘ opens the line ladder of what this generator makes
 	_info_trash.visible = false               # a generator is never sold
 	if _info_buy != null and is_instance_valid(_info_buy):
@@ -1760,6 +1768,9 @@ func _clear_selection() -> void:
 			c.queue_free()
 	if _info_label != null and is_instance_valid(_info_label):
 		_info_label.text = Strings.t("board.info.empty_prompt")
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.text = ""
+		_info_desc_label.visible = false
 	if _info_btn != null and is_instance_valid(_info_btn):
 		_info_btn.disabled = true
 	if _info_trash != null and is_instance_valid(_info_trash):

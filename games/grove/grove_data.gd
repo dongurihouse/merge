@@ -19,57 +19,57 @@ const PREMIUM_TIER := 8  # pins the diamond-earn rate + sell pinnacle, decoupled
 # retires). Codes skip 9 (= COIN_LINE). Earlier drafts carried 22 lines / 2-per-map; the unused
 # lines (Milk, Reed, Lotus, Fish, Snail, Apple, Pear, Plum, …, Firefly) were retired here.
 const LINES := {
-	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3")},     # map 1 — Farmhouse
-	2: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0")},       # map 2 — Barn
-	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B")},    # map 3 — Pond
-	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C")},           # map 4 — Orchard
-	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B")},     # map 5 — Meadow
+	1: {"name": "Wildflower", "base": "flower", "color": Color("#D98BA3"), "desc": "Merge wildflowers to restore the first garden paths."},     # map 1 — Farmhouse
+	2: {"name": "Feather", "base": "feather", "color": Color("#E8E0D0"), "desc": "Soft coop finds for orchard-side asks."},       # map 2 — Barn
+	3: {"name": "Garden tools", "base": "tools", "color": Color("#A6794B"), "desc": "Useful tools for clearing and tending the garden."},    # map 3 — Pond
+	4: {"name": "Honey", "base": "honey", "color": Color("#E3B23C"), "desc": "Sweet hive goods for mill-side requests."},           # map 4 — Orchard
+	5: {"name": "Mushroom", "base": "mushroom", "color": Color("#C9A66B"), "desc": "Gate mushrooms with a hint of old magic."},     # map 5 — Meadow
 	# §6.E additional per-map content lines (hooked up from assets/_new). Codes are non-contiguous (clear of
 	# the 1-5 anchors, 9 coin, 10-14 special items); map assignment is via the GENERATORS roster below.
 	# Colors are the code-drawn FALLBACK only — every tier ships art at items/<base>/<base>_<tier>.png.
 	# map idx 1 — The Orchard (barn)
-	21: {"name": "Orchard fruits", "base": "orchard_fruits", "color": Color("#D9534F")},
-	22: {"name": "Orchard tools", "base": "orchard_tools", "color": Color("#8A6D3B")},
-	23: {"name": "Orchard seeds", "base": "orchard_seeds", "color": Color("#C9A66B")},
-	24: {"name": "Scarecrows", "base": "orchard_scarecrows", "color": Color("#C8A24A")},
+	21: {"name": "Orchard fruits", "base": "orchard_fruits", "color": Color("#D9534F"), "desc": "Fruit harvests that grow richer as the orchard wakes."},
+	22: {"name": "Orchard tools", "base": "orchard_tools", "color": Color("#8A6D3B"), "desc": "Handy tools for repairing orchard corners."},
+	23: {"name": "Orchard seeds", "base": "orchard_seeds", "color": Color("#C9A66B"), "desc": "Seeds for new orchard growth. Merge for bigger asks."},
+	24: {"name": "Scarecrows", "base": "orchard_scarecrows", "color": Color("#C8A24A"), "desc": "Cheerful field guardians that become more complete with each merge."},
 	# map idx 2 — The Garden (pond)
-	31: {"name": "Juice", "base": "garden_juice", "color": Color("#C76B98")},
-	32: {"name": "Kites", "base": "garden_kites", "color": Color("#4FB0D9")},
-	33: {"name": "Stones", "base": "garden_stones", "color": Color("#9AA0A6")},
-	34: {"name": "Mossy trinkets", "base": "garden_mossy_trinkets", "color": Color("#6B9C5A")},
-	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9")},
-	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9")},
-	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B")},
-	38: {"name": "Vegetables", "base": "garden_vegetables", "color": Color("#6BA84F")},
+	31: {"name": "Juice", "base": "garden_juice", "color": Color("#C76B98"), "desc": "Sweet garden drinks for picnic-ready asks."},
+	32: {"name": "Kites", "base": "garden_kites", "color": Color("#4FB0D9"), "desc": "Breezy toys from the garden air."},
+	33: {"name": "Stones", "base": "garden_stones", "color": Color("#9AA0A6"), "desc": "Smooth stones for paths and borders."},
+	34: {"name": "Mossy trinkets", "base": "garden_mossy_trinkets", "color": Color("#6B9C5A"), "desc": "Small moss-touched treasures from quiet corners."},
+	35: {"name": "Rain charms", "base": "garden_rain_charms", "color": Color("#6B8FD9"), "desc": "Charms that carry the feel of gentle rain."},
+	36: {"name": "Birds", "base": "garden_birds", "color": Color("#7FB4D9"), "desc": "Friendly garden birds. Merge pairs into rarer visitors."},
+	37: {"name": "Small critters", "base": "garden_small_critters", "color": Color("#7FB46B"), "desc": "Tiny garden friends for lively restoration asks."},
+	38: {"name": "Vegetables", "base": "garden_vegetables", "color": Color("#6BA84F"), "desc": "Garden harvests that become heartier with each merge."},
 	# map idx 3 — The Mill (orchard)
-	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6")},
-	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B")},
-	43: {"name": "Water plants", "base": "mill_water_plants", "color": Color("#5FA66B")},
-	44: {"name": "Gears", "base": "mill_gears", "color": Color("#8A8F94")},
+	41: {"name": "Small fish", "base": "mill_small_fish", "color": Color("#4FA6A6"), "desc": "Brook fish that merge into rarer catches."},
+	42: {"name": "Small animals", "base": "mill_small_animals", "color": Color("#A6794B"), "desc": "Little mill visitors. Pair them into more helpful friends."},
+	43: {"name": "Water plants", "base": "mill_water_plants", "color": Color("#5FA66B"), "desc": "Brookside plants for restoring damp, green places."},
+	44: {"name": "Gears", "base": "mill_gears", "color": Color("#8A8F94"), "desc": "Mill parts that repair more complex mechanisms."},
 	# map idx 4 — The Gate (meadow)
-	51: {"name": "Glowcaps", "base": "gate_glowcaps", "color": Color("#6BC9A6")},
-	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
-	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
-	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
+	51: {"name": "Glowcaps", "base": "gate_glowcaps", "color": Color("#6BC9A6"), "desc": "Soft-lit mushrooms from near the Vale Gate."},
+	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F"), "desc": "Little ringing tokens for gate rituals and asks."},
+	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F"), "desc": "Old gate pieces. Merge them toward a restored arch."},
+	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9"), "desc": "Pebbles marked with starlight. Higher tiers feel rare."},
 	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). WIRED onto the seed_satchel
 	# anchor (the single generator emits them — no extra generator) and STAGED via `min_level`: the FTUE
 	# board is tiny early, so all 6 live from L1 would jam it. min_level keeps each line off the askable/pop
 	# set until the player's level reaches it. Hearth embers (61) is min_level 1 — LIVE at L1, the board's
 	# SECOND starting line (its starters seed the open 3x3, see STARTER_ITEMS); the rest "grow in" one per
 	# level across L2–6, all live by L6 (before the Barn opens ~L8). (askable_lines gate; see lines_for_map.)
-	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F"), "min_level": 1},
-	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A"), "min_level": 2},
-	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9"), "min_level": 3},
-	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A"), "min_level": 4},
-	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B"), "min_level": 5},
-	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3"), "min_level": 6},
+	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F"), "min_level": 1, "desc": "Warm little coals for early quests around the farmhouse."},
+	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A"), "min_level": 2, "desc": "Fresh herbs for cozy kitchen asks."},
+	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9"), "min_level": 3, "desc": "Clear water from the old well. Merge into stronger supplies."},
+	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A"), "min_level": 4, "desc": "Pantry goods for hungry helpers around the grove."},
+	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B"), "min_level": 5, "desc": "Bundled deliveries from the porch. Merge to unpack better goods."},
+	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3"), "min_level": 6, "desc": "Bright boxes that help the farmhouse bloom again."},
 	# §6.D special "treasure" lines (#3) — the premium fruit chains, emitted ONLY by temp treat generators
 	# (TREAT_LINES below), never the main pool. 12 tiers each, sliced from _originals/items/special_*.
-	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F")},
-	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A")},
-	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F")},
-	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F")},
-	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B")},
+	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F"), "desc": "A special harvest treasure. Merge high, then sell for coins."},
+	72: {"name": "Golden banana", "base": "special_banana", "color": Color("#E3C84A"), "desc": "A rare golden treat line. Merge for better treasure value."},
+	73: {"name": "Jewel avocado", "base": "special_avacado", "color": Color("#6BA84F"), "desc": "A glossy treasure fruit. Higher tiers are worth saving."},
+	74: {"name": "Ruby cherry", "base": "special_cherry", "color": Color("#D9433F"), "desc": "A bright treasure fruit for coin value."},
+	75: {"name": "Sugar melon", "base": "special_watermelon", "color": Color("#5FA86B"), "desc": "A sweet special melon. Merge it before selling."},
 }
 
 # Generators — the v1 home-grove roster (grove_spec §2): ONE generator per map across maps 1–5
@@ -285,14 +285,14 @@ const COIN_DROP_RATE := 0.10              # chance a merge also drops a c1
 # currency). OWNER-TUNABLE; drop rates + rewards live with each behaviour as it lands.
 const SPECIAL_TOP := 3                     # default special-item merge ceiling (like coins); a def may override with "top"
 const SPECIAL_ITEMS := {
-	10: {"base": "chest", "kind": "chest"},   # merges; opened by a key for a reward
-	11: {"base": "key",   "kind": "key"},     # merges; opens a chest
-	12: {"base": "water", "kind": "water"},   # merges; tap-collect → energy
-	13: {"base": "acorn", "kind": "acorn"},   # merges; tap-collect → acorns (premium)
-	14: {"base": "spark", "kind": "exp"},     # merges; tap-collect → exp
+	10: {"name": "Chest", "base": "chest", "kind": "chest", "desc": "Drag a key onto this chest to open a reward."},   # merges; opened by a key for a reward
+	11: {"name": "Key",   "base": "key",   "kind": "key", "desc": "Drag onto a chest to open it. Better keys improve the reward."},     # merges; opens a chest
+	12: {"name": "Water drop", "base": "water", "kind": "water", "desc": "Tap again to collect water. Merge first for more."},   # merges; tap-collect → energy
+	13: {"name": "Acorn drop", "base": "acorn", "kind": "acorn", "desc": "Tap again to collect acorns. Merge first for more."},   # merges; tap-collect → acorns (premium)
+	14: {"name": "Spark", "base": "spark", "kind": "exp", "desc": "Tap again to gain exp. Merge first for more."},     # merges; tap-collect → exp
 	# wildcard — a full 12-tier line (overrides SPECIAL_TOP) so a high-tier wildcard can advance high-tier
 	# items; art PENDING (code-drawn from `color` until the 12-tier sprite lands, §6.B/#5).
-	15: {"base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9")},  # self-merges up to 12; OR advances any same-tier item
+	15: {"name": "Wildcard", "base": "wildcard", "kind": "wildcard", "top": 12, "color": Color("#C77DD9"), "desc": "Drag onto a same-tier item to raise it one tier."},  # self-merges up to 12; OR advances any same-tier item
 }
 # §6.B special-drop ROLL + collect/open rewards (PROVISIONAL — sim-tuned). On a merge there is a small
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
