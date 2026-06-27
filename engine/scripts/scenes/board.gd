@@ -1832,8 +1832,8 @@ func _clear_selection() -> void:
 	if _info_label != null and is_instance_valid(_info_label):
 		_info_label.text = Strings.t("board.info.empty_prompt")
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
-		_info_desc_label.text = ""
-		_info_desc_label.visible = false
+		_info_desc_label.text = Strings.t("board.info.empty_bag_hint")
+		_info_desc_label.visible = _info_desc_label.text != ""
 	if _info_btn != null and is_instance_valid(_info_btn):
 		_info_btn.visible = false
 		_info_btn.disabled = true
@@ -1887,6 +1887,9 @@ func _show_locked_cell_info(cell: Vector2i) -> void:
 	_clear_selection()
 	if _info_label != null and is_instance_valid(_info_label):
 		_info_label.text = Strings.t("board.info.unlock_level") % maxi(1, G.cell_min_level(cell))
+	if _info_desc_label != null and is_instance_valid(_info_desc_label):
+		_info_desc_label.text = ""
+		_info_desc_label.visible = false
 
 # T54→boost — drive the boost chip for a selected generator. ALWAYS shown (the single booster never
 # "maxes out"): full-color only when a boost can be armed right now (affordable AND none live), and
