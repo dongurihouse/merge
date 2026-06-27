@@ -14,6 +14,7 @@ func _initialize() -> void:
 	_test_pool_and_box()
 	_test_run_state()
 	_test_screens()
+	_test_loadout_uses_toggle_card_callback()
 	await _test_loadout_toggle_updates_in_place()
 	finish()
 
@@ -48,6 +49,9 @@ func _switch_for_label(node: Control, text: String) -> Button:
 						return b as Button
 			p = p.get_parent()
 	return null
+
+func _source_contains(path: String, needle: String) -> bool:
+	return FileAccess.get_file_as_string(path).find(needle) != -1
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
 func _test_loadout() -> void:
@@ -225,6 +229,13 @@ func _test_screens() -> void:
 		"an unarted box-spirit reveal shows placeholder face details instead of a blank disc")
 	t.queue_free()
 
+func _test_loadout_uses_toggle_card_callback() -> void:
+	var map_src := "res://engine/scripts/scenes/map.gd"
+	ok(_source_contains(map_src, "\"on_toggle\": make_loadout_toggle.call(id)"),
+		"loadout rows use toggle_card's on_toggle callback as the single toggle path")
+	ok(not _source_contains(map_src, "sw.pressed.connect(on_switch_pressed"),
+		"loadout rows do not add a second switch pressed handler")
+
 func _test_loadout_toggle_updates_in_place() -> void:
 	fresh("explore_loadout_overlay")
 	Save.spend(Save.coins())
@@ -252,6 +263,11 @@ func _test_loadout_toggle_updates_in_place() -> void:
 	ok(cc.get_child(0) == dialog_before, "the same loadout dialog instance remains after a toggle")
 	var cost_after := _button_text_with_prefix(dialog_before, "Cost")
 	ok(cost_after == "Cost 270", "the total cost chip updates in place after toggling Lantern (%s)" % cost_after)
+	ok(bool(sw.get_meta("on")), "the Lantern switch remains on after an affordable toggle")
+	sw.pressed.emit()
+	ok(not bool(sw.get_meta("on")), "pressing Lantern again toggles it back off")
+	var cost_off := _button_text_with_prefix(dialog_before, "Cost")
+	ok(cost_off == "Cost 150", "the total cost chip returns to base cost after toggling Lantern off (%s)" % cost_off)
 	await process_frame
 	ok(cc.get_child_count() == 1 and cc.get_child(0) == dialog_before, "the original loadout dialog survives the next frame")
 	map.queue_free()

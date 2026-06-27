@@ -2020,14 +2020,14 @@ func _open_expedition() -> void:
 			return
 		sw.set_meta("on", on)
 		Look._switch_paint(sw, on, switch_h)
-	var on_switch_pressed := func(boost_id: String, sw: Button) -> void:
-		var want := bool(sw.get_meta("on"))
-		equip.v[boost_id] = want
-		if want and Explore.start_cost(equip.v) > Save.coins():
-			equip.v[boost_id] = false      # can't afford (base + boosts) — leave it off
-			set_switch.call(boost_id, false)
-		Audio.play("button_tap", -2.0)
-		refresh_state.call()
+	var make_loadout_toggle := func(boost_id: String) -> Callable:
+		return func(want: bool) -> void:
+			equip.v[boost_id] = want
+			if want and Explore.start_cost(equip.v) > Save.coins():
+				equip.v[boost_id] = false      # can't afford (base + boosts) — leave it off
+				set_switch.call(boost_id, false)
+			Audio.play("button_tap", -2.0)
+			refresh_state.call()
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	col.custom_minimum_size = Vector2(width - 64.0, 0)
@@ -2047,13 +2047,13 @@ func _open_expedition() -> void:
 			"body": String(it.eff),
 			"cost": int(it.cost),
 			"value": bool(equip.v.get(id, false)),
+			"on_toggle": make_loadout_toggle.call(id),
 		}, {"label_font": 19, "body_font": 15, "switch_h": switch_h, "card_art": true})
 		col.add_child(card)
 		for b in card.find_children("", "Button", true, false):
 			if (b as Button).has_meta("on"):
 				var sw := b as Button
 				switches[id] = sw
-				sw.pressed.connect(on_switch_pressed.bind(id, sw))
 				break
 	# total set-off cost as a shared cream amount chip
 	var chips := HBoxContainer.new()
