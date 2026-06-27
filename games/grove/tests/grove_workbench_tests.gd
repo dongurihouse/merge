@@ -1457,8 +1457,24 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident circle-size and gap sliders")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
+		"the Workbench map-card preview requests the resident-slot preview overlay")
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
+	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
+		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 36, "resident_slot_gap": 4}, "gold_badge": {}}), 460.0, 230.0)
+	var preview_big := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
+		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 64, "resident_slot_gap": 18}, "gold_badge": {}}), 460.0, 230.0)
+	var small_rail := preview_small.find_child("MapResidentRailPreview", true, false) as Control
+	var big_rail := preview_big.find_child("MapResidentRailPreview", true, false) as Control
+	var preview_slot_count := 0
+	for node in preview_small.find_children("*", "", true, false):
+		if String(node.name).begins_with("MapResidentRailPreviewSlot_"):
+			preview_slot_count += 1
+	ok(small_rail != null and preview_slot_count == 8, \
+		"the Workbench map-card preview shows all eight resident slots")
+	ok(big_rail != null and small_rail != null and big_rail.size.x > small_rail.size.x and big_rail.size.y > small_rail.size.y, \
+		"the resident-slot preview grows when the circle-size and gap sliders grow")
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
 	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
@@ -1534,6 +1550,8 @@ func _test_gold_badge_consumers(view) -> void:
 		"map title plates rely on the generated leafy plate without extra flourish overlays")
 	open_card.queue_free()
 	locked_card.queue_free()
+	preview_small.queue_free()
+	preview_big.queue_free()
 
 	var map_boxy := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 28})
 	var map_round := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 92})

@@ -4563,6 +4563,8 @@ static func map_card(d: Dictionary, opts: Dictionary, card_w: float, card_h: flo
 		_map_card_open(d, opts, card, card_w, card_h)
 	else:
 		_map_card_locked(d, opts, card, card_w, card_h)
+	if bool(d.get("resident_preview", false)) and bool(d.get("open", true)):
+		_map_add_resident_preview(card, opts, card_w, card_h)
 	return card
 
 # The SHARED gold-badge frame, filling the card as a 9-slice (corners native, edges stretch —
@@ -4613,6 +4615,114 @@ static func _map_add_card_shell(card: Control, badge_opts: Dictionary) -> void:
 	rs.set_corner_radius_all(radius)
 	rim.add_theme_stylebox_override("panel", rs)
 	card.add_child(rim)
+
+static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: float, card_h: float) -> void:
+	var badge_opts: Dictionary = opts.get("badge", {})
+	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+	var inset := band + 6.0
+	var slot_cols := 2
+	var slot_rows := 4
+	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+	var requested_rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0
+	var requested_rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0
+	var strip_w := clampf(requested_rail_w, 96.0, minf(card_w * 0.38, 220.0))
+	var rect := Rect2(card_w - inset - strip_w, inset, strip_w, maxf(1.0, card_h - inset * 2.0))
+	var rail_w := minf(rect.size.x, maxf(96.0, requested_rail_w))
+	var rail_h := minf(rect.size.y, requested_rail_h)
+
+	var max_sep_w := maxf(0.0, (rail_w - rail_pad * 2.0 - 10.0 * float(slot_cols)) / float(slot_cols - 1))
+	var max_sep_h := maxf(0.0, (rail_h - rail_pad * 2.0 - 10.0 * float(slot_rows)) / float(slot_rows - 1))
+	sep = minf(sep, minf(max_sep_w, max_sep_h))
+	var max_orb_w := (rail_w - rail_pad * 2.0 - sep * float(slot_cols - 1)) / float(slot_cols)
+	var max_orb_h := (rail_h - rail_pad * 2.0 - sep * float(slot_rows - 1)) / float(slot_rows)
+	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 74.0))
+	rail_pad = clampf(orb_px * 0.26, 11.0, 18.0)
+	var rail := Control.new()
+	rail.name = "MapResidentRailPreview"
+	rail.position = rect.position + Vector2(maxf(0.0, rect.size.x - rail_w), maxf(0.0, (rect.size.y - rail_h) * 0.5))
+	rail.size = Vector2(rail_w, rail_h)
+	rail.custom_minimum_size = rail.size
+	rail.clip_contents = true
+	rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var rail_badge := badge_opts.duplicate()
+	rail_badge["corner"] = minf(float(rail_badge.get("corner", 24.0)), 24.0)
+	rail_badge["inner_inset"] = clampf(float(rail_badge.get("inner_inset", 7.0)), 4.0, 8.0)
+	var frame := board_panel(rail.size, {
+		"frame_style": "badge",
+		"badge": rail_badge,
+		"draw_center": true,
+		"shadow": false,
+	})
+	frame.name = "MapResidentRailPreviewFrame"
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.modulate = Color(1, 1, 1, 0.96)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rail.add_child(frame)
+
+	var margin := MarginContainer.new()
+	margin.name = "MapResidentRailPreviewInset"
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
+		margin.add_theme_constant_override(side, int(round(rail_pad)))
+	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rail.add_child(margin)
+
+	var center := CenterContainer.new()
+	center.name = "MapResidentRailPreviewCenter"
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	margin.add_child(center)
+
+	var grid := GridContainer.new()
+	grid.columns = slot_cols
+	grid.custom_minimum_size = Vector2(
+		orb_px * float(slot_cols) + sep * float(slot_cols - 1),
+		orb_px * float(slot_rows) + sep * float(slot_rows - 1)
+	)
+	grid.add_theme_constant_override("h_separation", int(round(sep)))
+	grid.add_theme_constant_override("v_separation", int(round(sep)))
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	center.add_child(grid)
+	for i in range(slot_cols * slot_rows):
+		var slot := _map_resident_preview_slot(orb_px)
+		slot.name = "MapResidentRailPreviewSlot_%02d" % i
+		grid.add_child(slot)
+	card.add_child(rail)
+
+static func _map_resident_preview_slot(px: float) -> Control:
+	var slot := Control.new()
+	slot.name = "MapResidentRailPreviewSlot"
+	slot.custom_minimum_size = Vector2(px, px)
+	slot.size = Vector2(px, px)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var shadow := Panel.new()
+	shadow.name = "MapResidentRailPreviewSlotShadow"
+	shadow.position = Vector2(maxf(1.0, px * 0.035), maxf(2.0, px * 0.055))
+	shadow.size = Vector2(maxf(1.0, px - 2.0), maxf(1.0, px - 2.0))
+	shadow.show_behind_parent = true
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color(0.05, 0.035, 0.02, 0.20)
+	ss.set_corner_radius_all(int(px * 0.5))
+	shadow.add_theme_stylebox_override("panel", ss)
+	slot.add_child(shadow)
+
+	var disc := Panel.new()
+	disc.name = "MapResidentRailPreviewSlotRing"
+	disc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ds := StyleBoxFlat.new()
+	ds.bg_color = Color(Pal.CREAM, 0.26)
+	ds.border_color = Color(Pal.BARK, 0.18)
+	ds.set_border_width_all(maxi(1, int(round(px * 0.035))))
+	ds.set_corner_radius_all(int(px * 0.5))
+	disc.add_theme_stylebox_override("panel", ds)
+	slot.add_child(disc)
+	return slot
 
 static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := false) -> TextureRect:
 	var leaf := TextureRect.new()
@@ -4823,9 +4933,22 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 	var pw := clampf(card_w * float(opts.get("pill_w_frac", 0.30)), float(opts.get("pill_min", 170.0)), float(opts.get("pill_max", 290.0)))
 	var ph := pw / MAP_CARD_PILL_ASPECT
 	var node := Control.new()
+	node.name = "MapCardCountPill"
 	node.size = Vector2(pw, ph)
 	# sit in the lower body, ABOVE the frame's bottom gold band so the pill never overlaps the border.
 	node.position = Vector2((card_w - pw) * 0.5, card_h - ph - card_h * float(opts.get("pill_y_frac", 0.13)))
+	if bool(d.get("resident_preview", false)):
+		var badge_opts: Dictionary = opts.get("badge", {})
+		var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
+		var inset := band + 6.0
+		var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+		var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
+		var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+		var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+		var rail_left := card_w - inset - strip_w
+		var min_x := band + 8.0
+		var max_x := maxf(min_x, rail_left - pw - 8.0)
+		node.position.x = clampf((rail_left - pw) * 0.5, min_x, max_x)
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	card.add_child(node)
 	var pill_path := Look.kit(MAP_CARD_PILL)
