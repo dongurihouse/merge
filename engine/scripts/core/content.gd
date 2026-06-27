@@ -459,6 +459,16 @@ static func try_activate_boost() -> bool:
 	Save.grove_write()
 	return true
 
+## Arm one boost for FREE (no coin spend) — the path the habitat's map-3 boost CHARGE drives
+## (Habitat.use_boost_charge). Refuses (no arm) when a boost is already live, mirroring try_activate_boost's
+## one-at-a-time rule. Returns true on a real arm.
+static func arm_boost_free() -> bool:
+	if boost_active():
+		return false
+	Save.grove()["boost_taps"] = BOOST_TAPS
+	Save.grove_write()
+	return true
+
 ## Spend one tap off the live boost — called once per charged generator tap. No-op (never underflows)
 ## when no boost is active. Persists so the count rides app restarts.
 static func consume_boost_tap() -> void:
