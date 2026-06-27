@@ -183,4 +183,7 @@ func _test_screens() -> void:
 	ok(Habitat.hand().size() == hand_before + 1, "opening a box on the Trade screen adds a spirit to the hand")
 	ok(pool.has(String(Habitat.hand()[Habitat.hand().size() - 1].kind)), "the box-spirit's kind comes from the unlocked pool")
 	ok(int(Habitat.hand()[Habitat.hand().size() - 1].tier) == 1, "the box-spirit enters the hand at tier 1")
+	var piglet_reveal: Control = t._spirit_widget("piglet", 72.0)
+	ok(piglet_reveal.find_child("SpiritEye0", true, false) != null and piglet_reveal.find_child("SpiritEye1", true, false) != null,
+		"an unarted box-spirit reveal shows placeholder face details instead of a blank disc")
 	t.queue_free()

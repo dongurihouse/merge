@@ -160,6 +160,16 @@ func _spirit_widget(kind: String, px: float) -> Control:
 		disc.add_theme_stylebox_override("panel", ds)
 		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		icon.add_child(disc)
+		var eye_size := Vector2(maxf(4.0, px * 0.09), maxf(5.0, px * 0.12))
+		var eye_gap := px * 0.24
+		for i in 2:
+			var eye := ColorRect.new()
+			eye.name = "SpiritEye%d" % i
+			eye.color = Color(INK, 0.82)
+			eye.size = eye_size
+			eye.position = Vector2(px * 0.5 + (-0.5 + float(i)) * eye_gap - eye_size.x * 0.5, px * 0.50)
+			eye.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			icon.add_child(eye)
 	holder.add_child(icon)
 	holder.add_child(_label(kind, 14))
 	return holder

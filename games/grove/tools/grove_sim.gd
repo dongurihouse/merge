@@ -34,6 +34,7 @@ extends SceneTree
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
 const SESSION_GAP_SECS := 8 * 3600   # ~3 sessions/day → ~8h between check-ins; sets how full each §6.C accumulator banks
+const POP_SLOTS_MAX := 8             # §1 a map's resident roster scales 1 (first spot restored) → this (all spots) — PROTOTYPE
 
 var rng := RandomNumberGenerator.new()
 var board: BoardModel
@@ -438,13 +439,52 @@ func _run_treat_gen() -> void:
 # then two-of-a-kind cascade up to RESIDENT_MAX_TIER. Cost is read off G.resident_cost (coins for
 # core/non-premium, diamonds for the per-map premium signature).
 
-# The list of COMPLETED maps whose rosters are open to welcome onto.
+# The list of COMPLETED maps (all spots bought) — used for the diamond/map-reward bookkeeping.
 func _completed_maps() -> Array:
 	var out: Array = []
 	for z in G.MAPS.size():
 		if _map_all_bought(z) and gates_done.has(z):
 			out.append(z)
 	return out
+
+# §1 EARLY POPULATION (prototype): how many of map z's spots are restored — drives both when its roster
+# OPENS (≥1) and its CAPACITY (1 at the first spot → POP_SLOTS_MAX at all spots).
+func _spots_restored(z: int) -> int:
+	var n := 0
+	for sp in G.MAPS[z].spots:
+		if unlocks.has(String(sp.id)):
+			n += 1
+	return n
+
+# A map is welcomeable once its FIRST spot is restored (not full completion — the early sink that closes P2).
+func _populatable_maps() -> Array:
+	var out: Array = []
+	for z in G.MAPS.size():
+		if _spots_restored(z) >= 1:
+			out.append(z)
+	return out
+
+# The resident SLOT capacity on map z: 1 at the first restored spot, scaling linearly to POP_SLOTS_MAX
+# once every spot is restored. 0 while nothing is restored (roster not open yet).
+func _resident_capacity(z: int) -> int:
+	var total := int(G.MAPS[z].spots.size())
+	var done := _spots_restored(z)
+	if done <= 0 or total <= 0:
+		return 0
+	if total <= 1:
+		return POP_SLOTS_MAX
+	return 1 + int(floor(float(POP_SLOTS_MAX - 1) * float(done - 1) / float(total - 1)))
+
+# The total resident TOKENS currently on map z (every type, every tier) — what the capacity caps. Merges
+# REDUCE this (2→1), so climbing tiers frees slots; a roster of all-max-tier tokens at cap is saturated.
+func _resident_tokens(z: int) -> int:
+	if not residents.has(z):
+		return 0
+	var n := 0
+	for tid in residents[z]:
+		for c in residents[z][tid]:
+			n += int(c)
+	return n
 
 # The roster array for (map z, type_id), defaulting to all-zero counts (length RESIDENT_MAX_TIER).
 func _resident_counts(z: int, type_id: String) -> Array:
@@ -496,7 +536,9 @@ func _welcome(z: int, type_def: Dictionary) -> bool:
 # The cheapest BASE (coin) resident the bot can welcome on any completed map, given the coin balance,
 # or {} when none affordable / no completed map. Premium picks are handled separately (diamonds).
 func _next_base_welcome() -> Dictionary:
-	for z in _completed_maps():
+	for z in _populatable_maps():
+		if _resident_tokens(z) >= _resident_capacity(z):   # roster full at the current capacity
+			continue
 		for td in G.resident_lines(z):
 			if bool(td.get("premium", false)):
 				continue
@@ -504,9 +546,11 @@ func _next_base_welcome() -> Dictionary:
 				return {"z": z, "def": td}
 	return {}
 
-# The cheapest PREMIUM (diamond) resident the bot can welcome on any completed map, or {}.
+# The cheapest PREMIUM (diamond) resident the bot can welcome on any populatable map with room, or {}.
 func _next_premium_welcome() -> Dictionary:
-	for z in _completed_maps():
+	for z in _populatable_maps():
+		if _resident_tokens(z) >= _resident_capacity(z):
+			continue
 		for td in G.resident_lines(z):
 			if not bool(td.get("premium", false)):
 				continue
