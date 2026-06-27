@@ -540,21 +540,25 @@ func _mark_seen(code: int) -> void:
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
-# [{line, seen, in_pool, code}] for the Producing dialog — one entry per line in the generator's roster, ALL
-# of them, so the dialog previews the generator's FULL line-up. Lines not yet grown in (still min_level-gated)
-# are simply unseen, so they render as locked placeholders alongside the discovered-but-undiscovered ones.
-# `in_pool` flags the lines the live pop pool would spawn right now (the gold marked ring); `seen`/`code` carry
-# the lowest-seen tier so a discovered line shows its piece and an unseen one falls to the locked placeholder
-# well. Pure off the save + roster (tests use it).
-func _gen_line_entries(gid: String) -> Array:
-	var lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
+# [{line, seen, in_pool, code}] for the Producing dialog — SHOW ALL: one entry per line in the WHOLE game
+# (every generator / every map, in roster order), so the panel reads as the full collection roadmap. The
+# single anchor only pops a rolling window at a time, but the dialog previews everything: discovered lines
+# show their piece, the live pop pool's lines wear the gold ring, and the rest (future maps / undiscovered)
+# fall to locked placeholders. `seen`/`code` carry the lowest-seen tier for the piece. (`_gid` is unused — the
+# anchor's panel previews the whole line-up regardless of which generator was tapped.) Pure off save + roster.
+func _gen_line_entries(_gid: String) -> Array:
 	var seen: Dictionary = Save.grove().get("seen", {})
 	var pool: Array = _pop_pool_ctx()["pool"]
 	var out: Array = []
-	for l in lines:
-		var line := int(l)
-		var code := _lowest_seen_code(line, seen)
-		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
+	var added := {}
+	for gen in G.GENERATORS:
+		for l in gen.get("lines", []):
+			var line := int(l)
+			if added.has(line):
+				continue                      # a line lives on one generator, but guard against roster overlap
+			added[line] = true
+			var code := _lowest_seen_code(line, seen)
+			out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
 	return out
 
 # The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0

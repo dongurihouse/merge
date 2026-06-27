@@ -61,6 +61,10 @@ static func open(host: Control, opts: Dictionary) -> void:
 	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
 	dopts["show_num"] = false
 	dopts["banner_text"] = Strings.t("producing.title")
+	# SHOW-ALL lists every line in the game (~30 cells), so cap the card to a screen-fit height and let the grid
+	# scroll inside it. A short list (rows shorter than the cap) still lays out at its natural height (no empty
+	# space) — the frame takes min(content, cap).
+	dopts["list_max_h"] = host.get_viewport_rect().size.y * 0.66
 	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
 		var piece := PieceView.make_piece(int(d.get("code", 0)), px)
 		# a SEEN but NOT-in-pool line is a discovered line the generator ISN'T making right now — recede it
