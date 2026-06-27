@@ -4263,7 +4263,12 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 	# the cell FACE — one code-drawn Slot-cell background for every state, so the Workbench knobs apply
 	# consistently to board, bag, and discovery cells.
 	var frontier := bool(d.get("frontier", state == "unlockable"))
-	tile.add_child(slot_cell_background(Vector2(cw, ch), state, frontier, opts))
+	var bg := slot_cell_background(Vector2(cw, ch), state, frontier, opts)
+	# dim_bg recedes JUST THE WELL (the Producing dialog's discovered-but-inactive lines): the piece is added
+	# later as its own child, so darkening the background here leaves the full-colour item untouched.
+	if bool(d.get("dim_bg", false)):
+		bg.modulate = Color(0.74, 0.74, 0.74, 1.0)
+	tile.add_child(bg)
 	if lockedwell:
 		var placeholder := _slot_locked_placeholder(cw, ch)
 		if placeholder != null:
