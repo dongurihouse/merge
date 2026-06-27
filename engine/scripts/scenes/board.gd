@@ -26,6 +26,7 @@ const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
+const Feel = preload("res://engine/scripts/ui/feel.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -2542,28 +2543,11 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	piece_nodes[b] = n
 	var tier := BoardModel.tier_of(produced)
 	var center := _cell_pos(b) + Vector2(csz, csz) / 2.0
-	# the merge IMPACT (the chosen "C" feel): squash & stretch on the result + a white flash
-	if Features.on("merge_impact"):
-		FX.squash_pop(n)
-		FX.flash(board_area, center, csz)
-	else:
-		FX.pop(n)
 	var combo := _bump_combo()
-	var hit := FX.Tune.HITSTOP_MERGE + FX.Tune.HITSTOP_TIER_BONUS * maxf(0.0, tier - 1)
-	var burst_n := 10 + tier * 3
-	var pitch := clampf(0.95 + 0.03 * tier, 0.9, 1.3)
-	# big-moment escalation: a rare high-tier merge earns a gentle board shake + a longer hold + a fuller burst
-	if Features.on("big_moment_shake") and tier >= FX.Tune.ESCALATE_TIER:
-		FX.shake(board_area)
-		hit = FX.Tune.HITSTOP_BIG
-		burst_n += FX.Tune.BIG_BURST_BONUS
-	# cozy combo: a live streak nudges the pitch up and the burst out a touch
-	if Features.on("merge_combo"):
-		burst_n += FX.Tune.COMBO_BURST_BONUS
-		pitch = clampf(pitch + FX.Tune.COMBO_PITCH_STEP * _combo_milestones_passed(combo), 0.9, FX.Tune.COMBO_PITCH_MAX)
-	FX.hitstop(minf(hit, FX.Tune.HITSTOP_MAX))     # the "thunk" — no-op in headless / calm
-	FX.burst(board_area, center, STRAW if tier >= 4 else Color("#7FA65A"), burst_n)
-	Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, pitch)
+	# the merge IMPACT (the chosen "C" feel) — squash/flash/shake/hitstop/burst/sound, the full
+	# escalation curve — now lives in the shared verb. intensity=1.0, gate=0 reproduce today's
+	# board feel exactly; the flash square is csz (the cell size), matching the old FX.flash call.
+	Feel.merge(board_area, n, center, tier, combo, 1.0, 0)
 	_combo_celebrate(combo, center)
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
@@ -2590,14 +2574,6 @@ func _bump_combo() -> int:
 	_last_merge_ms = now
 	_combo_count = BoardLogic.combo_step(_combo_count, dt, FX.Tune.COMBO_WINDOW)
 	return _combo_count
-
-# How many milestone thresholds the current streak has reached (drives the pitch nudge).
-func _combo_milestones_passed(count: int) -> int:
-	var k := 0
-	for m in FX.Tune.COMBO_MILESTONES:
-		if count >= int(m):
-			k += 1
-	return k
 
 # At an EXACT milestone, shout a cozy word over the merge (never a "COMBO xN" tag).
 func _combo_celebrate(count: int, center: Vector2) -> void:
