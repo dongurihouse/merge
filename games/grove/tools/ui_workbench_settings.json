@@ -305,13 +305,15 @@
 		"size": 105.0
 	},
 	"map_card": {
-		"card_h_frac": 31.0,
+		"card_h_frac": 28.0,
 		"card_w_frac": 97.0,
 		"edge_sparkle": 60.0,
 		"pill_max": 290.0,
 		"pill_min": 170.0,
 		"pill_w_frac": 30.0,
 		"pill_y_frac": 13.0,
+		"resident_slot_gap": 10.0,
+		"resident_slot_px": 60.0,
 		"shadow": false,
 		"use_art": true,
 		"veil_mark_size": 64.0

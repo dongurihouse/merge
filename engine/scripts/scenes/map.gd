@@ -78,6 +78,9 @@ const CLAY = Pal.CLAY
 # locale art · star count · the "after <prev>" prerequisite) and owns the back-arrow chrome below; the
 # card LOOK is workbench-saved config. The back arrow returns to the map you were viewing.
 const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
+const LEFT_MAP_TITLE_PLATE := "map/left_title_plate.png"
+const LEFT_MAP_REWARD_SHELF := "map/left_reward_shelf.png"
+const LEFT_MAP_EMPTY_SLOT := "map/left_empty_slot_ring.png"
 
 var unlocks := {}
 
@@ -1003,11 +1006,11 @@ func _build_select(animate := true) -> void:
 	var band_top := top + 16.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
 	var col_h := band_bot - band_top
-	var margin := clampf(view.x * 0.02, 8.0, 22.0)
+	var margin := clampf(view.x * 0.012, 8.0, 16.0)
 	var col_gap := clampf(view.x * 0.02, 10.0, 24.0)
 	var hand_w := clampf(view.x * 0.30, 210.0, 360.0)           # the in-hand garden board column
 	var card_w := maxf(160.0, view.x - margin * 2.0 - col_gap - hand_w)
-	var card_h := maxf(view.y * h_frac, 212.0)
+	var base_card_h := maxf(view.y * h_frac, 150.0)
 	var left_x := margin
 	var hand_x := left_x + card_w + col_gap
 	# LEFT column: the map cards, clipped + flush to the TOP (so it top-aligns with the hand board), scrolled
@@ -1018,11 +1021,18 @@ func _build_select(animate := true) -> void:
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
-	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
+	var card_heights: Array = []
+	var total_h := sep * float(maxi(n - 1, 0))
+	for z in n:
+		var this_h := base_card_h * (1.045 if map_unlocked(z) else 0.965)
+		this_h = maxf(this_h, 132.0)
+		card_heights.append(this_h)
+		total_h += this_h
 	_select_scroll_max = maxf(0.0, total_h - col_h)
 	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
 	var y := 0.0
 	for z in n:
+		var card_h := float(card_heights[z])
 		var card := _make_card(z, card_w, card_h, opts)
 		card.position = Vector2(0.0, y - _select_scroll)        # clip-local: flush to the column's top-left
 		card.size = Vector2(card_w, card_h)
@@ -1048,7 +1058,7 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	# a COMPLETED map renders as the prototype habitat card; in-progress / locked maps keep the vista card
 	if Kit != null and map_unlocked(z) and G.can_populate(z, unlocks, _gates()):
-		return _habitat_card(z, card_w, card_h)
+		return _habitat_card(z, card_w, card_h, opts)
 	var open := map_unlocked(z)
 	# One zone per vine region — the badge reports honest restore progress over every region (owned/total),
 	# and a map is "done" only when all of them are restored (map_spots_done). No phantom base-region offset.
@@ -1056,6 +1066,7 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	var d := {
 		"open": open,
 		"done": map_spots_done(z),
+		"title": tr(G.MAPS[z].name),
 		"art": _card_art_path(z) if open else "",     # painted thumbnail / §16 home clean art / "" → meadow fill
 		"owned_zones": owned_count(z),
 		"total_zones": total_zones,
@@ -1069,13 +1080,14 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 # the habitat controls riding on top — a name plate over the art, then the housed spirits as ORBS in slots
 # (empty slots show free capacity) and a production fill-bar + Collect on a translucent parchment shelf so
 # the dark-ink content stays legible. The body is mouse-IGNORE so a tap navigates; only Collect intercepts.
-func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
+func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) -> Control:
 	var Kit: GDScript = load(KIT_PATH)
 	var map_id := String(G.MAPS[z].id)
 	var placed: Array = Habitat.placed(map_id)
 	var cap := Habitat.cap(map_id)
 	var cur := Habitat.reward_currency(map_id)
-	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
+	if opts.is_empty() and Kit != null:
+		opts = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 	var badge_opts: Dictionary = opts.get("badge", {})
 
 	var card := Control.new()
@@ -1102,9 +1114,11 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	# the HOUSED spirits ride a VERTICAL strip down the card's RIGHT side. This strip IS the drop zone for a
 	# dragged in-hand spirit — sized generously so a drop lands easily, while a tap elsewhere on the card still
 	# navigates into the map. The orbs register into `_placed_orbs` (drag-out / merge / focus targets).
-	var strip_w := clampf(card_w * 0.30, 96.0, 220.0)
-	var orb_px := clampf(card_h * 0.20, 30.0, 56.0)
-	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), orb_px)
+	var resident_slot_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var resident_slot_gap := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
+	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 18.0)
+	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, badge_opts, resident_slot_gap)
 
 	# the name + production read ride a translucent parchment shelf docked to the BOTTOM-LEFT (clear of the
 	# strip) so the dark-ink labels stay legible while the art still shows through behind them.
@@ -1112,8 +1126,22 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	col.add_theme_constant_override("separation", 6)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
+	var sub_row := HBoxContainer.new()
+	sub_row.name = "MapHabitatRewardRow"
+	sub_row.add_theme_constant_override("separation", 6)
+	sub_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var reward_icon: Control = null
+	if Kit != null:
+		reward_icon = Kit.make_icon(_reward_icon(cur), clampf(card_h * 0.095, 28.0, 38.0))
+	if reward_icon != null:
+		reward_icon.name = "MapHabitatRewardIcon"
+		reward_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sub_row.add_child(reward_icon)
 	var sub := _card_sub("%s · %d/%d housed" % [_reward_label(cur), placed.size(), cap])
-	col.add_child(sub)
+	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sub_row.add_child(sub)
+	col.add_child(sub_row)
 
 	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
 	if cur != "":
@@ -1128,7 +1156,18 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		foot.add_child(bar)
 		var ready := _reward_amount_ready(map_id)
-		var collect: Button = Kit.pill_button("Collect %d" % ready, {"bg": "green", "art": true, "font": 22, "icon": _reward_icon(cur), "enabled": ready > 0})
+		var collect: Button = Kit.pill_button("Collect %d" % ready, {
+			"bg": "green",
+			"art": true,
+			"font": 20,
+			"icon": _reward_icon(cur),
+			"icon_size": int(clampf(card_h * 0.09, 26.0, 32.0)),
+			"enabled": ready > 0,
+			"shadow": false,
+			"pad_scale": 0.82,
+		})
+		collect.name = "MapHabitatCollectButton"
+		collect.custom_minimum_size = Vector2(clampf(card_w * 0.22, 108.0, 142.0), clampf(card_h * 0.105, 38.0, 48.0))
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
 		foot.add_child(collect)
 		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
@@ -1140,14 +1179,18 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 
 	var shelf := PanelContainer.new()
 	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color(DOCK_PARCH, 0.88)
-	ss.set_corner_radius_all(14)
-	ss.set_border_width_all(2)
-	ss.border_color = Color(DOCK_INK, 0.12)
-	ss.content_margin_left = 14 ; ss.content_margin_right = 14
-	ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
-	shelf.add_theme_stylebox_override("panel", ss)
+	var shelf_style := _left_map_style(LEFT_MAP_REWARD_SHELF, Vector4(36, 24, 36, 24), Vector4(14, 8, 14, 8))
+	if shelf_style != null:
+		shelf.add_theme_stylebox_override("panel", shelf_style)
+	else:
+		var ss := StyleBoxFlat.new()
+		ss.bg_color = Color(DOCK_PARCH, 0.88)
+		ss.set_corner_radius_all(14)
+		ss.set_border_width_all(2)
+		ss.border_color = Color(DOCK_INK, 0.12)
+		ss.content_margin_left = 14 ; ss.content_margin_right = 14
+		ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
+		shelf.add_theme_stylebox_override("panel", ss)
 	shelf.add_child(col)
 
 	# dock the shelf to the bottom-LEFT via a full-height VBox (a transparent EXPAND spacer pushes it down),
@@ -1167,54 +1210,96 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 	return card
 
 # The housed-spirit STRIP down a card's right side — a translucent vertical plate carrying the placed orbs
-# (then empty slots up to capacity), wrapped into as many columns as the strip width allows. The whole strip
+# (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
 # is the card's PLACE/merge drop zone; each filled orb registers into `_placed_orbs` (drag-out + merge + focus
 # target) and the focused orb is tinted. Every node IGNOREs the mouse (the single input surface hit-tests it).
-func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float) -> void:
+func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float, badge_opts: Dictionary = {}, slot_gap: float = 10.0) -> void:
+	var Kit: GDScript = load(KIT_PATH)
+	var display_cap := maxi(cap, 8)
+	var slot_cols := 2
+	var slot_rows := 4
+	display_cap = mini(display_cap, slot_cols * slot_rows)
+	var sep := clampf(slot_gap, 0.0, 36.0)
+	orb_px = clampf(orb_px, 30.0, 74.0)
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+	var max_sep_w := maxf(0.0, (rect.size.x - rail_pad * 2.0 - 10.0 * float(slot_cols)) / float(slot_cols - 1))
+	var max_sep_h := maxf(0.0, (rect.size.y - rail_pad * 2.0 - 10.0 * float(slot_rows)) / float(slot_rows - 1))
+	sep = minf(sep, minf(max_sep_w, max_sep_h))
+	var max_orb_w := (rect.size.x - rail_pad * 2.0 - sep * float(slot_cols - 1)) / float(slot_cols)
+	var max_orb_h := (rect.size.y - rail_pad * 2.0 - sep * float(slot_rows - 1)) / float(slot_rows)
+	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 74.0))
+	rail_pad = clampf(orb_px * 0.26, 11.0, 18.0)
+	var rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0
+	var rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0
+	rail_w = minf(rect.size.x, rail_w)
+	rail_h = minf(rect.size.y, rail_h)
 	var strip := Control.new()
-	strip.position = rect.position
-	strip.size = rect.size
+	strip.position = rect.position + Vector2(maxf(0.0, rect.size.x - rail_w), maxf(0.0, (rect.size.y - rail_h) * 0.5))
+	strip.size = Vector2(rail_w, rail_h)
+	strip.clip_contents = true
 	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bg := Panel.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(DOCK_PARCH, 0.78)
-	sb.set_corner_radius_all(14)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(DOCK_INK, 0.12)
-	bg.add_theme_stylebox_override("panel", sb)
-	strip.add_child(bg)
-	# a MarginContainer → top-aligned VBox(grid + spacer) sizes the orb grid (a free GridContainer with
-	# top-wide anchors collapses to zero height); mirrors the in-hand column's layout.
-	var pad := 8.0
-	var sep := 6.0
+
+	var rail_badge: Dictionary = badge_opts.duplicate()
+	rail_badge["corner"] = minf(float(rail_badge.get("corner", 24.0)), 24.0)
+	rail_badge["inner_inset"] = clampf(float(rail_badge.get("inner_inset", 7.0)), 4.0, 8.0)
+	var frame: Control = null
+	if Kit != null:
+		frame = Kit.board_panel(strip.size, {
+			"frame_style": "badge",
+			"badge": rail_badge,
+			"draw_center": true,
+			"shadow": false,
+		})
+	if frame == null:
+		var panel := Panel.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(DOCK_PARCH, 0.96)
+		sb.draw_center = true
+		sb.set_corner_radius_all(18)
+		sb.set_border_width_all(2)
+		sb.border_color = Color(DOCK_STRAW, 0.72)
+		panel.add_theme_stylebox_override("panel", sb)
+		frame = panel
+	frame.name = "MapResidentRailFrame"
+	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	frame.modulate = Color(1, 1, 1, 0.96)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_child(frame)
+
+	# a MarginContainer insets the two-column / four-row grid inside the board-style background.
 	var margin := MarginContainer.new()
+	margin.name = "MapResidentRailInset"
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, int(pad))
+		margin.add_theme_constant_override(side, int(round(rail_pad)))
 	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(margin)
 	var vb := VBoxContainer.new()
 	vb.add_theme_constant_override("separation", sep)
 	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	margin.add_child(vb)
-	var cols := maxi(1, int((rect.size.x - pad * 2.0 + sep) / (orb_px + sep)))
+	var avail_w := maxf(1.0, rail_w - rail_pad * 2.0)
+	var avail_h := maxf(1.0, rail_h - rail_pad * 2.0)
+	var slot_gap_x := sep
+	var slot_gap_y := sep
 	var grid := GridContainer.new()
-	grid.columns = cols
-	grid.add_theme_constant_override("h_separation", sep)
-	grid.add_theme_constant_override("v_separation", sep)
+	grid.columns = slot_cols
+	grid.custom_minimum_size = Vector2(avail_w, avail_h)
+	grid.add_theme_constant_override("h_separation", int(round(slot_gap_x)))
+	grid.add_theme_constant_override("v_separation", int(round(slot_gap_y)))
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var resident_px := clampf(orb_px * 0.74, 18.0, 56.0)
 	for i in placed.size():
 		var inst: Dictionary = placed[i]
-		var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass)
+		var orb := _spirit_chip(String(inst.kind), int(inst.tier), resident_px, func() -> void: pass)
 		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		if String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("z", -1)) == z and int(_sel_orb.get("idx", -1)) == i:
 			orb.modulate = Color(1.0, 0.92, 0.55)     # the selected housed orb — its tier + Sell show in the in-hand info bar
-		grid.add_child(orb)
-		_placed_orbs.append({"node": orb, "z": z, "map_id": map_id, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
-	for _e in range(placed.size(), cap):
-		grid.add_child(_empty_slot(orb_px))
+		var slot := _resident_slot(orb_px, orb)
+		grid.add_child(slot)
+		_placed_orbs.append({"node": slot, "z": z, "map_id": map_id, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
+	for _e in range(placed.size(), display_cap):
+		grid.add_child(_resident_slot(orb_px))
 	vb.add_child(grid)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1381,8 +1466,49 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		bar.add_child(sell)
 	return bar
 
-# A small rounded translucent-parchment plate carrying a bold map name, sized to its text. Mouse-IGNORE.
+func _left_map_texture(rel: String) -> Texture2D:
+	var path := Look.kit(rel)
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+func _left_map_style(rel: String, slice: Vector4, content: Vector4) -> StyleBoxTexture:
+	var tex := _left_map_texture(rel)
+	if tex == null:
+		return null
+	var st := StyleBoxTexture.new()
+	st.texture = tex
+	st.set_texture_margin(SIDE_LEFT, slice.x)
+	st.set_texture_margin(SIDE_TOP, slice.y)
+	st.set_texture_margin(SIDE_RIGHT, slice.z)
+	st.set_texture_margin(SIDE_BOTTOM, slice.w)
+	st.axis_stretch_horizontal = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	st.axis_stretch_vertical = StyleBoxTexture.AXIS_STRETCH_MODE_STRETCH
+	st.content_margin_left = content.x
+	st.content_margin_top = content.y
+	st.content_margin_right = content.z
+	st.content_margin_bottom = content.w
+	return st
+
 func _habitat_plate(text: String) -> Control:
+	var plate_tex := _left_map_texture(LEFT_MAP_TITLE_PLATE)
+	if plate_tex != null:
+		var node := Control.new()
+		node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var lbl := _dock_label(text, 24, true)
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var text_size := lbl.get_combined_minimum_size()
+		node.size = Vector2(maxf(text_size.x + 54.0, 142.0), maxf(text_size.y + 16.0, 42.0))
+		node.custom_minimum_size = node.size
+		var bg := TextureRect.new()
+		bg.texture = plate_tex
+		bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		bg.stretch_mode = TextureRect.STRETCH_SCALE
+		bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		node.add_child(bg)
+		lbl.position = Vector2(24.0, 6.0)
+		lbl.size = Vector2(maxf(2.0, node.size.x - 48.0), maxf(2.0, node.size.y - 10.0))
+		node.add_child(lbl)
+		return node
 	var p := PanelContainer.new()
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var s := StyleBoxFlat.new()
@@ -1483,8 +1609,56 @@ func _card_sub(text: String) -> Label:
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 
-# An empty habitat slot — a faint circular outline (the prototype's dashed empty slot). Mouse-IGNORE.
+func _resident_slot(px: float, resident: Control = null) -> Control:
+	var slot := Control.new()
+	slot.name = "MapResidentSlot"
+	slot.custom_minimum_size = Vector2(px, px)
+	slot.size = Vector2(px, px)
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	var shadow := Panel.new()
+	shadow.name = "MapResidentSlotShadow"
+	shadow.position = Vector2(maxf(1.0, px * 0.035), maxf(2.0, px * 0.055))
+	shadow.size = Vector2(maxf(1.0, px - 2.0), maxf(1.0, px - 2.0))
+	shadow.show_behind_parent = true
+	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ss := StyleBoxFlat.new()
+	ss.bg_color = Color(0.05, 0.035, 0.02, 0.22)
+	ss.set_corner_radius_all(int(px * 0.5))
+	shadow.add_theme_stylebox_override("panel", ss)
+	slot.add_child(shadow)
+
+	var ring := _empty_slot(px)
+	ring.name = "MapResidentSlotRing"
+	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	ring.modulate = Color(1, 1, 1, 0.82 if resident != null else 0.62)
+	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.add_child(ring)
+
+	if resident != null:
+		resident.name = "MapResidentSlotResident"
+		var resident_size := resident.custom_minimum_size
+		if resident_size.x <= 0.0 or resident_size.y <= 0.0:
+			resident_size = Vector2(px * 0.78, px * 0.78)
+		resident.custom_minimum_size = resident_size
+		resident.size = resident_size
+		resident.position = (Vector2(px, px) - resident_size) * 0.5
+		resident.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(resident)
+	return slot
+
+# An empty habitat slot - a faint circular outline. Mouse-IGNORE.
 func _empty_slot(px: float) -> Control:
+	var slot_tex := _left_map_texture(LEFT_MAP_EMPTY_SLOT)
+	if slot_tex != null:
+		var t := TextureRect.new()
+		t.texture = slot_tex
+		t.custom_minimum_size = Vector2(px, px)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.modulate = Color(1, 1, 1, 0.22)
+		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return t
 	var p := Panel.new()
 	p.custom_minimum_size = Vector2(px, px)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2097,7 +2271,8 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	btn.custom_minimum_size = Vector2(px, px)
 	btn.pressed.connect(on_tap)
 	var path := G.resident_art(kind, tier)
-	if path != "" and ResourceLoader.exists(path):
+	var has_art := path != "" and ResourceLoader.exists(path)
+	if has_art:
 		var t := TextureRect.new()
 		t.texture = load(path)                            # art is pre-centered (re-cut), so display it as-is
 		t.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -2107,10 +2282,13 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 		btn.add_child(t)
 	else:
 		var disc := Panel.new()
+		disc.name = "MapResidentFallbackDisc"
 		disc.set_anchors_preset(Control.PRESET_FULL_RECT)
 		var ds := StyleBoxFlat.new()
-		ds.bg_color = Color(DOCK_STRAW, 0.95)
+		ds.bg_color = Color("#F6B659", 0.96)
 		ds.set_corner_radius_all(int(px / 2.0))
+		ds.set_border_width_all(maxi(2, int(round(px * 0.075))))
+		ds.border_color = Color("#8D5A26", 0.72)
 		disc.add_theme_stylebox_override("panel", ds)
 		disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		btn.add_child(disc)
@@ -2118,10 +2296,16 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 		return btn                                       # the in-hand board reads tier from its info bar, not a per-orb badge
 	var badge := Label.new()
 	badge.text = "t%d" % tier
-	badge.add_theme_font_size_override("font_size", int(clampf(px * 0.30, 14.0, 22.0)))   # scales with the orb size
+	badge.name = "MapResidentTierBadge"
+	badge.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	badge.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	badge.add_theme_font_size_override("font_size", int(clampf(px * (0.38 if has_art else 0.46), 14.0, 24.0)))   # scales with the orb size
 	badge.add_theme_color_override("font_color", DOCK_INK)
 	badge.add_theme_color_override("font_outline_color", DOCK_PARCH)
 	badge.add_theme_constant_override("outline_size", 3)
+	badge.custom_minimum_size = Vector2(px * (0.48 if has_art else 1.0), px * (0.34 if has_art else 1.0))
+	badge.size = badge.custom_minimum_size
+	badge.position = Vector2(px - badge.size.x - 1.0, 0.0) if has_art else Vector2.ZERO
 	badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	btn.add_child(badge)
 	return btn

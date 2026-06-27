@@ -140,9 +140,9 @@ func _initialize() -> void:
 			# mergeable pair left in hand + a few placed on the hub.
 			var Habitat = load("res://engine/scripts/core/habitat.gd")
 			var hub_id := String(G.MAPS[G.hub_map()].id)
-			Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1) ; Habitat.hand_add("Moss", 1)
-			Habitat.hand_add("Fern", 2) ; Habitat.hand_add("Fern", 2)
-			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)   # 3 Moss placed; 2 Fern left in hand
+			Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1) ; Habitat.hand_add("ember", 1)
+			Habitat.hand_add("sprout", 2) ; Habitat.hand_add("sprout", 2)
+			Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0) ; Habitat.place(hub_id, 0)   # 3 Ember placed; 2 Sprout left in hand
 
 	# noftue=1: suppress the daily-login calendar auto-popup so a map-view capture shows the bare map,
 	# not a popup. Must run after Save.configure_for_test (above).
