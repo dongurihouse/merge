@@ -182,6 +182,21 @@ func _has_sidebar_label(view: Control, label: String) -> bool:
 			return true
 	return false
 
+func _sidebar_panel(view: Control) -> Control:
+	var n: Node = view._sidebar_body
+	while n != null:
+		if n is PanelContainer:
+			return n as Control
+		n = n.get_parent()
+	return null
+
+func _sidebar_label_containing(view: Control, text: String) -> Label:
+	for found in view._sidebar_body.find_children("*", "Label", true, false):
+		var label := found as Label
+		if String(label.text).find(text) != -1:
+			return label
+	return null
+
 # Count the slot tiles in a bag dialog's grid (the GridContainer's children).
 func _grid_cells(dialog: Control) -> int:
 	var grids := dialog.find_children("*", "GridContainer", true, false)
@@ -248,6 +263,20 @@ func _initialize() -> void:
 	root.add_child(view)
 	await process_frame
 	await process_frame   # _ready -> _build -> _rebuild_gallery populates _sections
+
+	var sidebar := _sidebar_panel(view)
+	ok(sidebar != null and is_equal_approx(sidebar.custom_minimum_size.x, 348.0) \
+		and sidebar.size_flags_horizontal == Control.SIZE_SHRINK_BEGIN, \
+		"workbench sidebar keeps a static 348px width")
+	view._selected = "tiers"
+	view._rebuild_sidebar()
+	await process_frame
+	var long_sidebar_note := _sidebar_label_containing(view, "The tiles ARE the SHARED slot cell")
+	ok(long_sidebar_note != null \
+		and long_sidebar_note.autowrap_mode != TextServer.AUTOWRAP_OFF \
+		and long_sidebar_note.size_flags_horizontal == Control.SIZE_EXPAND_FILL \
+		and is_equal_approx(long_sidebar_note.custom_minimum_size.x, 0.0), \
+		"workbench sidebar descriptive text wraps inside the fixed width")
 
 	ok(view._sections.size() >= 16, "gallery built: every element section registered (%d)" % view._sections.size())
 	ok(not View.IDS.has("currency_pill"), "legacy currency_pill gallery id is removed")

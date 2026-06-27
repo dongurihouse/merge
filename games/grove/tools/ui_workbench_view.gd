@@ -26,6 +26,7 @@ const SETTINGS := "res://games/grove/tools/ui_workbench_settings.json"   # persi
 const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are a % of it (and of the live
                           # screen in-game), so the workbench previews the same responsive width the game uses
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
+const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
 const IDS := ["board", "fx", "generator", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
@@ -450,7 +451,9 @@ func _build() -> void:
 
 	# left — the options sidebar (fixed width)
 	var side := PanelContainer.new()
-	side.custom_minimum_size = Vector2(348, 0)
+	side.name = "WorkbenchSidebar"
+	side.custom_minimum_size = Vector2(SIDEBAR_W, 0)
+	side.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	side.size_flags_vertical = Control.SIZE_FILL
 	var ssb := StyleBoxFlat.new()
 	ssb.bg_color = Color(0, 0, 0, 0.42)
@@ -469,6 +472,7 @@ func _build() -> void:
 	hb.move_child(side, 0)   # sidebar on the LEFT, gallery to its right
 	var side_scroll := ScrollContainer.new()
 	side_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	side_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	side.add_child(side_scroll)
 	_sidebar_body = VBoxContainer.new()
 	_sidebar_body.add_theme_constant_override("separation", 10)
@@ -759,8 +763,8 @@ func _make_element(id: String) -> Control:
 				if RushFx.on(fxp, "mult_pop"): RushFx.cell_pop(demo.get_meta("mult_cell"))
 				if RushFx.on(fxp, "combo_heat"): RushFx.combo_heat(wrap, tile_ctr - Vector2(0.0, tpx), 6)
 				if tl != null: tl.text = "0:06"
-				if RushFx.on(fxp, "timer_low"): RushFx.timer_low(tl, 6)
-				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, tile_ctr)
+				if RushFx.on(fxp, "timer_low"): RushFx.timer_low(tl, 6, true)
+				if RushFx.on(fxp, "treefall_crack"): RushFx.treefall_crack(wrap, demo, tile_ctr, true)
 			btn.pressed.connect(fire)
 			fire.call_deferred()                         # play once on build (and on every toggle rebuild)
 			return wrap
@@ -2165,6 +2169,17 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["stand_w", 200, 640]))    # preview stand width
 			_sidebar_body.add_child(_slider_row(["fence_h", 160, 460]))    # preview stand height
 			_sidebar_body.add_child(_toggle_row("Ready (✓)", "met"))       # preview the deliverable state
+
+	_constrain_sidebar_text(_sidebar_body)
+
+func _constrain_sidebar_text(node: Node) -> void:
+	if node is Label:
+		var label := node as Label
+		if label.autowrap_mode != TextServer.AUTOWRAP_OFF:
+			label.custom_minimum_size.x = 0.0
+			label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for child in node.get_children():
+		_constrain_sidebar_text(child)
 
 ## A bold top-level group header — the two buckets: gold ● = saved to config, dim ○ = test-only.
 func _group_header(title: String, saved: bool) -> void:
