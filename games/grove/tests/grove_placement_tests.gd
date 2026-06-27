@@ -171,7 +171,7 @@ func _initialize() -> void:
 		ws._ready()
 	await create_timer(0.05).timeout
 	# W1: the idle merge hint comes SOONER and rocks gently (was 7s + a fast shake)
-	ok(absf(float(ws.IDLE_HINT_SECS) - 4.5) < 0.01, "W1: first idle hint at 4.5s (was 7)")
+	ok(absf(float(ws.IDLE_HINT_SECS) - 2.0) < 0.01, "W1: first idle hint at 2s (was 7, then 4.5)")
 	ok(int(ws.HINT_ROCK_CYCLES) >= 2 and float(ws.HINT_ROCK_DEG) <= 10.0, \
 		"W1: the hint is a gentle multi-cycle rock, not a one-off fast shake")
 	for cc in [Vector2i(1, 3), Vector2i(2, 3)]:
