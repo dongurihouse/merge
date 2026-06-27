@@ -59,6 +59,17 @@ func _initialize() -> void:
 	var scn = load(path).instantiate()
 	root.add_child(scn)
 	current_scene = scn
+	if which == "trade":
+		await create_timer(0.5).timeout          # let the dialog lay out + the reels build
+		if scn.has_method("_on_done_pressed"):
+			scn._on_done_pressed()               # first Done press snaps the reveal to its LANDED state (no waiting on the spin)
+		await create_timer(0.3).timeout          # let the shine + settle apply
+		RenderingServer.force_draw()
+		var ti := root.get_texture().get_image()
+		var et := ti.save_png(out)
+		print("SHOT explore/trade=%s (err %d)" % [out, et])
+		quit()
+		return
 	# midfall=1: clear the board, force-spawn one tile, capture it part-way through its drop (a guaranteed
 	# mid-fall frame, since random sequence captures keep landing on settled tiles).
 	if which == "rush":
