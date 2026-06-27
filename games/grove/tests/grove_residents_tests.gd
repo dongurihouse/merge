@@ -376,13 +376,13 @@ func _test_residents_dock() -> void:
 	# FOCUS a housed orb (a still-tap) → a Sell button appears in the hand column; pressing it sells
 	_map_tap_at(hx, _hit_center(hx._placed_orbs[0].node))
 	await create_timer(0.06).timeout
-	ok(not hx._focus_placed.is_empty(), "a still-tap on a housed orb focuses it")
+	ok(not hx._sel_orb.is_empty(), "a still-tap on a housed orb focuses it")
 	var sells := _buttons_with(hx._hand_panel, "Sell")
 	ok(sells.size() == 1, "the focused orb surfaces a Sell button in the hand column")
 	var before_sell := Habitat.placed(mid).size()
 	sells[0].pressed.emit()
 	ok(Habitat.placed(mid).size() == before_sell - 1, "pressing Sell sells the focused spirit")
-	ok(hx._focus_placed.is_empty(), "selling drops the focus")
+	ok(hx._sel_orb.is_empty(), "selling drops the focus")
 	await create_timer(0.06).timeout
 
 	# DRAG a housed orb back onto the in-hand column → BRING OUT
