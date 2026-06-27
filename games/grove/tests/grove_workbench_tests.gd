@@ -952,7 +952,7 @@ func _test_new_knobs(view) -> void:
 	# the bottom-bar INFO BAR element: its layout knobs are read by the resolver, default to the shipped bar,
 	# and are SAVED config; `filled` is preview-only. Its frame uses the shared gold badge skin and retains
 	# the shared gold-pill padding as its content margin.
-	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115, "info_y": 11, "info_button_scale": 80}})
+	var ib: Dictionary = Kit.info_bar_opts_from_config({"info_bar": {"height": 150, "inner_scale": 60, "name_font": 28, "sep": 6, "sell_font": 24, "sell_icon": 40, "item_icon_scale": 115, "info_y": 11, "info_button_scale": 80, "hide_info_button": true}})
 	ok(is_equal_approx(float(ib.height), 150.0) and is_equal_approx(float(ib.inner_scale), 0.60), \
 		"info_bar reads height + inner_scale (0..1)")
 	ok(int(ib.name_font) == 28 and int(ib.sep) == 6 and int(ib.sell_font) == 24 and is_equal_approx(float(ib.sell_icon), 0.40), \
@@ -962,6 +962,8 @@ func _test_new_knobs(view) -> void:
 	ok(ib.has("info_y") and is_equal_approx(float(ib.get("info_y", 99.0)), 11.0) \
 		and ib.has("info_button_scale") and is_equal_approx(float(ib.get("info_button_scale", -1.0)), 0.80), \
 		"info_bar reads the info button y offset and size scale")
+	ok(ib.has("hide_info_button") and bool(ib.get("hide_info_button", false)), \
+		"info_bar reads the saved hide-info-button toggle")
 	ok(ib.has("pill") and ib.has("badge"), "info_bar reads gold-pill padding plus the shared gold_badge frame opts")
 	ok(is_equal_approx(float(Kit.info_bar_opts_from_config({}).height), 130.0), \
 		"default info_bar height matches the bottom-bar wells (130)")
@@ -971,7 +973,9 @@ func _test_new_knobs(view) -> void:
 	ok(default_ib.has("info_y") and is_equal_approx(float(default_ib.get("info_y", 99.0)), 0.0) \
 		and default_ib.has("info_button_scale") and is_equal_approx(float(default_ib.get("info_button_scale", -1.0)), 1.0), \
 		"default info_bar keeps the info button centered and full-size")
-	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon") and view._is_config("info_bar", "item_icon_scale") and view._is_config("info_bar", "info_y") and view._is_config("info_bar", "info_button_scale"), \
+	ok(default_ib.has("hide_info_button") and not bool(default_ib.get("hide_info_button", true)), \
+		"default info_bar shows the info button")
+	ok(view._is_config("info_bar", "height") and view._is_config("info_bar", "name_font") and view._is_config("info_bar", "sell_icon") and view._is_config("info_bar", "item_icon_scale") and view._is_config("info_bar", "info_y") and view._is_config("info_bar", "info_button_scale") and view._is_config("info_bar", "hide_info_button"), \
 		"the info-bar layout knobs are saved config")
 	ok(not view._is_config("info_bar", "filled"), "the filled-vs-empty preview toggle is not saved")
 	var scaled_bar: PanelContainer = Kit.info_bar({}, ib)
@@ -1007,6 +1011,8 @@ func _test_new_knobs(view) -> void:
 	ok(is_equal_approx(scaled_info_btn.custom_minimum_size.x, 72.0) \
 		and is_equal_approx(scaled_info_btn.position.y, 20.0), \
 		"the info button can be resized and moved vertically inside its fixed slot")
+	ok(not scaled_info_btn.visible, \
+		"the info button is hidden when the saved hide toggle is on")
 	ok(is_equal_approx(scaled_info_slot.custom_minimum_size.x, 90.0), \
 		"resizing the info button does not resize the row slot")
 	ok(_has_label_text(view._make_element("info_bar"), "Hazelnut · Tier 2"), \

@@ -3730,6 +3730,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"info_x":      float(i.get("info_x", 0)),                   # nudge the info ⓘ button left(−) / right(+)
 		"info_y":      float(i.get("info_y", 0)),                   # nudge the info ⓘ button up(−) / down(+)
 		"info_button_scale": clampf(float(i.get("info_button_scale", 100)) / 100.0, 0.25, 2.0),
+		"hide_info_button": bool(i.get("hide_info_button", false)),
 		"name_font":   int(i.get("name_font", 32)),                 # the "<name> · Tier N" font
 		"desc_font":   int(i.get("desc_font", 18)),                 # the compact player-use hint under the selected item name
 		"sep":         int(i.get("sep", 10)),                       # the gap between the bar's controls
@@ -3801,9 +3802,12 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	hb.add_child(item_text_row)
 	var info_btn_scale := clampf(float(opts.get("info_button_scale", 1.0)), 0.25, 2.0)
 	var info_btn_px := maxf(1.0, inner * info_btn_scale)
+	var hide_info_button := bool(opts.get("hide_info_button", false))
 	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
 	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
 		info_btn.pressed.connect(spec.get("info_action"))
+	info_btn.visible = not hide_info_button
+	info_btn.disabled = hide_info_button
 	# The ⓘ floats above the row in a fixed footprint; x/y/scale move the button without pushing the item,
 	# label, or Sell chip around.
 	var info_x := float(opts.get("info_x", 0.0))
@@ -3935,6 +3939,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	pill.set_meta("item_icon_px", item_icon_px)
 	pill.set_meta("info_y", float(opts.get("info_y", 0.0)))
 	pill.set_meta("info_button_scale", info_btn_scale)
+	pill.set_meta("hide_info_button", hide_info_button)
 	return pill
 
 ## The info bar's "ⓘ" button. When the shipped disc sprite (ui/shared/icon_<id>.png — the cream

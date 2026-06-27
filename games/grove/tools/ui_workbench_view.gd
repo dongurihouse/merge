@@ -314,6 +314,7 @@ var _params := {
 	# `filled` previews state.
 	"info_bar": {"height": 130, "inner_scale": 48, "item_icon_scale": 80, "info_x": 0, "info_y": 0, "info_button_scale": 100, "name_font": 32, "sep": 10, "sell_font": 24, "sell_label_font": 22, "sell_icon": 30, "sell_badge_radius": 10, "pad_right": 16,
 		"icon_scale_pct": 50, "pad_x_pct": 0, "pad_y_pct": 0, "info_x_pct": 0,
+		"hide_info_button": false,
 		"filled": true},
 	# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
 	"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
@@ -2092,6 +2093,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["info_x", -120, 120]))     # nudge the info ⓘ button left(−) / right(+)
 			_sidebar_body.add_child(_slider_row(["info_y", -120, 120]))     # nudge the info ⓘ button up(−) / down(+)
 			_sidebar_body.add_child(_slider_row(["info_button_scale", 50, 160]))  # resize the info ⓘ button inside its slot
+			_sidebar_body.add_child(_toggle_row("Hide info button", "hide_info_button"))  # hide the floating ⓘ in workbench + game
 			_sidebar_body.add_child(_slider_row(["name_font", 18, 44]))     # the "<name> · Tier N" font
 			_sidebar_body.add_child(_slider_row(["sep", 0, 30]))            # gap between the bar's controls
 			_sidebar_body.add_child(_slider_row(["sell_label_font", 14, 34]))  # the plain "Sell" caption font

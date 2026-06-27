@@ -1,6 +1,8 @@
 extends "res://games/grove/tests/grove_test_base.gd"
 ## grove · info bar — focused tests for player-facing selected-item copy.
 
+const Kit = preload("res://games/grove/tools/ui_workbench_kit.gd")
+
 func _initialize() -> void:
 	begin("grove · info bar")
 
@@ -168,6 +170,36 @@ func _initialize() -> void:
 		if ov != null:
 			ov.queue_free()
 		board_scene._clear_selection()
+
+	# Workbench parity: when the saved info-bar config hides the info button, the live board hides the
+	# actual tappable icon too, even after an item is selected into the bar.
+	var hidden_cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH).duplicate(true)
+	var hidden_info: Dictionary = (hidden_cfg.get("info_bar", {}) as Dictionary).duplicate(true)
+	hidden_info["hide_info_button"] = true
+	hidden_cfg["info_bar"] = hidden_info
+	Kit._config_cache[Kit.CONFIG_PATH] = hidden_cfg
+	var hidden_board = load("res://engine/scenes/Board.tscn").instantiate()
+	get_root().add_child(hidden_board)
+	await process_frame
+	if hidden_board.board == null:
+		hidden_board._ready()
+	await create_timer(0.05).timeout
+	ok(hidden_board._info_btn != null and not hidden_board._info_btn.visible, \
+		"the live board reads the workbench config and hides the info button")
+	var hidden_cell := Vector2i(-1, -1)
+	for c in hidden_board.board.empty_ground_cells():
+		if not hidden_board.board.is_gen(c):
+			hidden_cell = c
+			break
+	if hidden_cell.x >= 0:
+		hidden_board.board.place(hidden_cell, 1201)
+		hidden_board._rebuild_pieces()
+		hidden_board._select_item(hidden_cell)
+		ok(not hidden_board._info_btn.visible, \
+			"selecting an item keeps the hidden info button out of the live info bar")
+	hidden_board.queue_free()
+	hidden_board = null
+	Kit.clear_config_cache(Kit.CONFIG_PATH)
 
 	# Watchdog: a stuck `animating` gate must self-heal so board taps can never soft-lock. Force the
 	# gate true and confirm it clears within the watchdog window; a brief gate (a normal merge) must NOT.
