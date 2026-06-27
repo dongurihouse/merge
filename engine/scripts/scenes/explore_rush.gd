@@ -616,7 +616,10 @@ func _fling(rc: Vector2i) -> void:
 	_settle(node)                                   # settle every OTHER tile (the source column falls); the toss owns this one
 	var fc := _coord_of(node)                       # the flung tile's new resting cell
 	_fly_to(node, start, _cell_rest(fc.x, fc.y))
-	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
+	# Unified launch EMIT: the toss sound + puff + haptic. The fling has no discrete emitter node, so
+	# the flung tile itself is the emitter — a small recoil reads as the tile launching itself. The
+	# arc + ±22° spin stays in _fly_to (that is feel.move's arc, Phase 5 — untouched here).
+	Feel.launch(node, node, 0.9)
 
 # --- treefall --------------------------------------------------------------------
 func _start_timber() -> void:

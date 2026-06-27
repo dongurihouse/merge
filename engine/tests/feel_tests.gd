@@ -94,5 +94,14 @@ func _initialize() -> void:
 	Feel.land(null, null, Vector2.ZERO, 0.8, true)
 	ok(true, "quiet land(null, null, ...) is a safe no-op (squash-only, no sound/flash/puff)")
 
+	# --- feel.launch -------------------------------------------------------------
+	# _launch_puff_count: LAUNCH_PUFF_N * intensity (floored to int); 0 at intensity 0 (no puff).
+	ok(Feel._launch_puff_count(0.0) == 0, "launch puff count is 0 at intensity 0 (no muzzle puff)")
+	ok(Feel._launch_puff_count(1.0) == int(Tune.LAUNCH_PUFF_N), "launch puff count at intensity 1 = LAUNCH_PUFF_N")
+	ok(Feel._launch_puff_count(0.5) == int(Tune.LAUNCH_PUFF_N * 0.5), "launch puff count scales with intensity")
+	# launch() must be a safe no-op on null emitter + null projectile (no parent, no recoil).
+	Feel.launch(null, null, 1.0)
+	ok(true, "launch(null, null, ...) is a safe no-op (no recoil, no puff parent)")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

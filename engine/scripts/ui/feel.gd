@@ -153,8 +153,28 @@ static func _land_should_emit(intensity: float, quiet: bool) -> bool:
 ## calm-trim via amount_for — not pre-applied here). 0 at intensity 0.
 static func _land_puff_count(intensity: float) -> int:
 	return int(Tune.LAND_PUFF_N * intensity)
+## The launch EMIT — an emitter spits a projectile (the generator pops a tile, the Rush board
+## flings one). Composes: the emitter's gen_charge RECOIL (the crouch->spring->settle anticipation,
+## reused so a "thing was launched" reads the same everywhere) + a muzzle PUFF at the projectile +
+## a toss sound + haptic. `emitter` may be null (no discrete emitter node — skip the recoil). The
+## puff is null-safe: a freshly-built projectile may not be parented yet. `intensity` (0..1) dials
+## strength; at intensity 0 no puff is emitted (recoil + sound still fire).
 static func launch(emitter: Control, projectile: Control, intensity := 1.0) -> void:
-	pass
+	if emitter and is_instance_valid(emitter):
+		FX.gen_charge(emitter)                     # emitter recoil (reuse the generator anticipation)
+	if intensity > 0.0 and projectile and is_instance_valid(projectile):
+		var p := projectile.get_parent()
+		if p is Node:
+			FX.burst(p, projectile.position + projectile.size / 2.0, LEAF, FX.amount_for(_launch_puff_count(intensity)))   # muzzle puff
+	Audio.play("item_drop", Tune.LAUNCH_TOSS_DB, 1.1)
+	haptic("tick")
+
+# --- launch pure helpers (no scene tree — unit-tested in feel_tests.gd) ----------------
+
+## Muzzle-puff particle count: LAUNCH_PUFF_N scaled by intensity (floored to int); 0 at intensity 0,
+## where launch() also skips the puff entirely (FX.burst applies its own calm-trim via amount_for).
+static func _launch_puff_count(intensity: float) -> int:
+	return int(Tune.LAUNCH_PUFF_N * intensity)
 static func move(node: Control, from: Vector2, to: Vector2, kind := "slide", dur := -1.0) -> Tween:
 	return null
 static func haptic(weight := "soft") -> void:
