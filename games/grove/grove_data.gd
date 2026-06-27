@@ -165,7 +165,7 @@ const QUEST_NEWEST_BIAS := 1.5            # line-pick weight exponent toward the
 const QUEST_FEATURED_RATE := 0.15         # share of regular quests flagged featured (a flat coin bonus, no extra ★)
 const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest (featured = COINS ONLY since T58 — acorns precious)
 # §7 soft gate — PROVISIONAL, sim-tuned.
-const MAX_GIVERS := 4                     # fence slots (§7) — the fence is 4 cards at 25% width; the metered active count caps here
+const MAX_GIVERS := 5                     # fence quest slots (§7) — up to 5 quest cards (+ the jar); the metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
 # §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
 # taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,

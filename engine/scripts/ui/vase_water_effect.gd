@@ -22,6 +22,7 @@ const _VASE_ALPHA_THRESHOLD := 0.05
 const _WATER := Color("#3CBCE9")
 const _SURFACE := Color("#BDF5FF")
 
+var show_shadow := true   # the board's purge jar turns this OFF (no contact shadow under the vase)
 var _time := 0.0
 var _energy := IDLE_ENERGY
 var _impact_age := 999.0
@@ -203,7 +204,8 @@ func _draw() -> void:
 	if tex == null:
 		return
 	var vase := _vase_rect()
-	_draw_vase_shadow(vase)
+	if show_shadow:
+		_draw_vase_shadow(vase)
 	if _ready_fx:
 		_draw_ready_glow(vase)
 	draw_texture_rect(tex, vase, false)

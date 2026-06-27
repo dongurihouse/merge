@@ -78,6 +78,7 @@ func _initialize() -> void:
 	ok(ResourceLoader.exists(VaseWaterEffect.MASK_PATH), "acorn vase water mask exists")
 	var vase_fx: Control = VaseWaterEffect.new()
 	vase_fx.size = Vector2(360, 420)
+	ok(vase_fx.show_shadow, "a fresh vase draws its contact shadow by default")
 	root.add_child(vase_fx)
 	await process_frame
 	ok(vase_fx.get_texture_for_test() != null, "vase water effect loads the vase texture")
@@ -189,15 +190,17 @@ func _initialize() -> void:
 		var slot_h := purge_card.custom_minimum_size.y
 		ok(purge_vase.size.y >= slot_h * 0.96, "purge vase fills the whole Purge slot height")
 		ok(purge_vase.position.y <= slot_h * 0.02, "purge vase starts at the top of the Purge slot")
-		var purge_vase_center_x := purge_vase.position.x + purge_vase.size.x * 0.5
-		ok(purge_vase_center_x <= purge_card.custom_minimum_size.x * 0.38,
-			"purge vase is shifted left under the level badge drop source")
-		var expected_vase_center_x := clampf(
-			purge_card.custom_minimum_size.x * 0.32 + 5.0,
-			purge_vase.size.x * 0.5,
-			purge_card.custom_minimum_size.x - purge_vase.size.x * 0.5)
-		ok(absf(purge_vase_center_x - expected_vase_center_x) < 0.5,
-			"purge vase is nudged 5 px right from the badge-aligned position")
+		# The jar card now HUGS the vase: the old layout left a wide dead strip on the vase's right (the
+		# card was a full giver-card width and the vase aligned under the level badge's drop source) — that
+		# badge is gone from the board, so the card is trimmed to the vase's right edge plus a small pad.
+		var purge_vase_right := purge_vase.position.x + purge_vase.size.x
+		var expected_card_w := purge_vase_right + board._fence_h * board.JAR_RIGHT_PAD_FRAC
+		ok(absf(purge_card.custom_minimum_size.x - expected_card_w) < 0.5,
+			"purge (jar) card width hugs the vase's right edge plus a small pad")
+		var right_pad := purge_card.custom_minimum_size.x - purge_vase_right
+		ok(right_pad <= purge_vase.size.x * 0.12,
+			"the jar's right padding is small (hugs the vase, not a wide dead strip)")
+		ok(not purge_vase.show_shadow, "the board jar draws no contact shadow")
 		if purge_vase.has_method("visible_vase_rect_for_test"):
 			var purge_visible_rect: Rect2 = purge_vase.call("visible_vase_rect_for_test")
 			ok(purge_visible_rect.size.y >= purge_vase.size.y * 0.96, "visible purge vase art fills the whole slot height")

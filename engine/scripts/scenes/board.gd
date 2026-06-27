@@ -61,10 +61,11 @@ const ACTION_BAR_SEPARATOR_FRAC := 0.24
 const ACTION_BAR_FIT_SLOP := 12.0
 const STAND_W := 300.0           # fallback giver box width (merchant stall / preview); the live fence sizes by %
 const GIVER_COLS := 4            # legacy fence-slot count (kept for the workbench preview; the live fence packs dynamically)
-const MAX_QUEST_CARDS := 5       # the fence shows at most this many cards (purge + quests); extra width stays empty on the right
+const MAX_QUEST_CARDS := 6       # the fence renders at most this many cards: the jar (purge) + up to MAX_GIVERS (5) quest cards. They scroll horizontally when they overflow the screen.
 const STAND_W_PER_FENCE := 1.17  # quest card width as a multiple of the band height — keeps the card art (~1.77:1) undistorted
 const QUEST_SIDE := 18.0         # the fence row's left/right inset (aligns with the board's side breathing room)
 const QUEST_GAP := 16.0          # gap BETWEEN cards (the "more margin between them")
+const JAR_RIGHT_PAD_FRAC := 0.03 # the jar card hugs the vase: dead space kept on the vase's RIGHT, as a fraction of fence height (was ~0.17 implicit)
 const IDLE_HINT_SECS := 4.5      # W1: first idle hint sooner (was 7) → a mergeable pair rocks
 const IDLE_RENUDGE_SECS := 4.0   # W1: re-nudge cadence while the player stays idle
 const HINT_ROCK_DEG := 6.0       # W1: gentle rock amplitude (was a fast ±0.22rad shake)
@@ -657,8 +658,8 @@ func _build_hud() -> void:
 				water = Save.water()
 				_regen_ts = Time.get_unix_time_from_system()
 			_update_water_hud(),
-		# tap the level badge -> the level screen (stars earned / needed for the next level)
-		"on_level": func() -> void: LevelPopup.open(self)})
+		# the board hides the level badge (player status reads on the Map); no on_level tap target here.
+		"hide_level": true})
 		# (no "home" opt → the shared HUD skips its top-left home chip; the bottom nav owns Home now)
 	coins_label = hud.coins
 	diamonds_label = hud.diamonds
@@ -807,29 +808,31 @@ func _rebuild_givers() -> void:
 	giver_bar.move_child(wall, 0)
 	# (the full-width quest-band Panel is removed — the cards ride directly on the painted backdrop.)
 	# Cards are a FIXED size (proportional to the band height, so the art never distorts) packed LEFT to
-	# right, as many as fit up to MAX_QUEST_CARDS. Wide screens show more cards and leave the right empty
-	# (rather than stretching a few); narrow screens fit fewer, bigger cards. Purge takes the first slot.
-	var span := giver_bar.size.x
-	if span <= 0.0:
-		span = get_viewport_rect().size.x
+	# right inside a horizontal ScrollContainer: the jar (purge) takes the first slot, then up to MAX_GIVERS
+	# quest cards. When the jar + cards FIT the screen they sit left-aligned with spare width on the right
+	# (no scroll, as before). When they OVERFLOW a narrow screen the row scrolls horizontally and the next
+	# card is left half-visible — the peek that signals "more to the right". Vertical scroll is off, so the
+	# busts (which sit within the band height) are never clipped.
 	var stand_w := STAND_W_PER_FENCE * _fence_h
-	var avail := span - 2.0 * QUEST_SIDE
-	var fit := int(floorf((avail + QUEST_GAP) / (stand_w + QUEST_GAP)))
-	var slots := clampi(fit, 1, MAX_QUEST_CARDS)
+	var scroll := ScrollContainer.new()
+	scroll.anchor_left = 0.0
+	scroll.anchor_right = 1.0
+	scroll.anchor_top = 0.0
+	scroll.anchor_bottom = 1.0
+	scroll.offset_left = QUEST_SIDE
+	scroll.offset_right = -QUEST_SIDE
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER   # drag-scrollable; the scrollbar itself stays hidden
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED       # the band never scrolls vertically (busts stay un-clipped)
+	giver_bar.add_child(scroll)
+	giver_bar.move_child(scroll, 1)
 	var row := HBoxContainer.new()
-	row.anchor_left = 0.0
-	row.anchor_right = 1.0
-	row.anchor_top = 0.0
-	row.anchor_bottom = 1.0
-	row.offset_left = QUEST_SIDE
-	row.offset_right = -QUEST_SIDE
-	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right
+	row.size_flags_vertical = Control.SIZE_FILL
+	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right when it all fits
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
-	giver_bar.add_child(row)
-	giver_bar.move_child(row, 1)
+	scroll.add_child(row)
 	if show_purge:
 		row.add_child(_make_purge_card(stand_w))
-	var quest_slots := slots - (1 if show_purge else 0)
+	var quest_slots := MAX_QUEST_CARDS - (1 if show_purge else 0)
 	for k in range(mini(quest_slots, qidx.size())):
 		var qi: int = qidx[k]
 		var stand := _make_giver_stand(qi, quests[qi], stand_w)
@@ -861,6 +864,7 @@ func _make_purge_card(stand_w: float) -> Control:
 	var vase := VaseWaterEffect.new()
 	vase.name = "PurgeVaseWater"
 	vase.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vase.show_shadow = false                        # no contact shadow under the board jar
 	vase.set_progress(progress)
 	vase.set_ready(ready)
 	_purge_vase = vase
@@ -870,6 +874,9 @@ func _make_purge_card(stand_w: float) -> Control:
 	var vase_center_x := clampf(stand_w * 0.32 + 5.0, vase_w * 0.5, stand_w - vase_w * 0.5)
 	vase.position = Vector2(vase_center_x - vase_w / 2.0, 0.0)
 	stand.add_child(vase)
+	# Hug the vase: trim the dead space on the jar's RIGHT so the first quest card sits closer (the jar
+	# stand was a full giver-card width; the vase only fills its left ~85%). A small right pad remains.
+	stand.custom_minimum_size.x = vase.position.x + vase_w + _fence_h * JAR_RIGHT_PAD_FRAC
 	var pct := Label.new()
 	pct.name = "PurgeProgressLabel"
 	pct.text = "%d%%" % int(round(progress * 100.0))
