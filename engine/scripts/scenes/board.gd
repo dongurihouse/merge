@@ -2646,7 +2646,13 @@ func _drop_coin_near(near: Vector2i) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Audio.play("tidy_poof", -5.0, 1.3)
+	# JUICE: the coin TOUCHES DOWN at the end of its grow-in flight — a discrete (loud) Feel.land
+	# owns the impact squash + small flash + micro-puff + touch sound. The verb plays the canonical
+	# `tidy_poof` itself, so the old inline poof here is dropped (no double-sound).
+	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	t.chain().tween_callback(func() -> void:
+		if n and is_instance_valid(n):
+			Feel.land(self, n, coin_ctr, 0.8, false))
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
 ## Animates in from the board centre like a merge coin-drop, then persists so the coin survives a
@@ -2693,7 +2699,13 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 	t.set_parallel(true)
 	t.tween_property(n, "position", _cell_pos(cell), 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_property(n, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	Audio.play("tidy_poof", -5.0, 1.1)
+	# JUICE: the special item TOUCHES DOWN at the end of its grow-in flight — a discrete (loud)
+	# Feel.land owns the impact squash + small flash + micro-puff + the canonical touch sound, so
+	# the old inline poof here is dropped (no double-sound). Mirrors _drop_coin_near.
+	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
+	t.chain().tween_callback(func() -> void:
+		if n and is_instance_valid(n):
+			Feel.land(self, n, special_ctr, 0.8, false))
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).
 func _collect_special(cell: Vector2i, node: Control) -> void:

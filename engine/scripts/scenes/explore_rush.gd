@@ -686,8 +686,11 @@ func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	t.parallel().tween_property(node, "rotation", spin, 0.16).set_trans(Tween.TRANS_SINE)
 	t.tween_property(node, "position", dest, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	t.parallel().tween_property(node, "rotation", 0.0, 0.18).set_trans(Tween.TRANS_SINE)
-	t.tween_property(node, "scale", Vector2(1.16, 0.84), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# JUICE: the fling TOUCHES DOWN — a discrete (loud) land. The unified Feel.land verb owns the
+	# impact squash + small flash + micro-puff + touch sound + haptic (replaces the old inline squash).
+	t.tween_callback(func() -> void:
+		if node and is_instance_valid(node):
+			Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, false))
 
 func _coord_of(node: Control) -> Vector2i:
 	for r in G.ROWS:
@@ -724,8 +727,12 @@ func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
 	var dur := clampf(0.10 + dist / maxf(1.0, _cell * float(G.ROWS)) * 0.24, 0.10, 0.36)
 	var t := node.create_tween()
 	t.tween_property(node, "position:y", rest.y, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
-	t.tween_property(node, "scale", Vector2(1.14, 0.86), 0.05).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "scale", Vector2.ONE, 0.10).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# JUICE: a spawn fall or a gravity settle drops a whole COLUMN of tiles at once — a QUIET land
+	# (squash only, no flash/puff/sound/haptic) so a settling column can't fire N flashes + N poofs
+	# simultaneously. Replaces the old inline impact squash.
+	t.tween_callback(func() -> void:
+		if node and is_instance_valid(node):
+			Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, true))
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:
