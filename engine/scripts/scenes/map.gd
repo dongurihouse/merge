@@ -353,13 +353,12 @@ func _build_map(animate := true) -> void:
 		_seat_spots(z, home_dict, frame)
 	BootTrace.end("map.open.seat")
 	BootTrace.begin("map.open.ambient")
-	# ambient life + title — every map. On a COMPLETED map the wanderers ARE its residents (the §1
-	# population sub-game); an in-progress map keeps the baseline generic ambient.
-	var amb: Control
-	if G.can_populate(z, unlocks, _gates()):
-		amb = Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
-	else:
-		amb = Ambient.build_layer(_map_rect.size, G.character_count(unlocks))
+	# ambient life — every map. The wanderers ARE the map's placed residents (the §1 population
+	# sub-game): one sprite per placed spirit, EMPTY until something is placed. A map opens to
+	# placement at its FIRST restored spot (resident_capacity ramps 1 → MAX), so a single complete
+	# zone hosts one resident and it shows here. (The old generic moss/acorn/lantern wander fallback
+	# for not-yet-populated maps was retired — ambient life now derives solely from the habitat.)
+	var amb := Ambient.build_population_layer(_map_rect.size, _habitat_members(z))
 	amb.position = _map_rect.position
 	amb.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	content.add_child(amb)

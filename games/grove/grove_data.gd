@@ -461,11 +461,6 @@ const LEVEL_WATER_GIFT := 40
 const LEVEL_BASE_EXP := 40        # exp for the FIRST level-up (≈ 280 clicks ≈ a couple minutes) — cheap early
 const LEVEL_STEP_EXP := 3         # each level costs +3 more than the last (gentle ramp; 0 = perfectly even)
 
-# ambient life + board gameplay tuning
-const CHARACTER_TYPES := ["moss", "acorn", "lantern"]   # the wandering character roster (art rows)
-const CHARACTER_CAP := 5
-const CHARACTER_ART := "characters/spirit_%s.png"              # type → clothes asset (assets keep their names)
-
 # (The §14 FTUE feature-spotlight registry was removed 2026-06-23 with the dormant spotlight
 # subsystem — the redesign is specced + parked: docs/superpowers/specs/2026-06-23-ftue-hand-
 # gesture-spotlight-design.md + docs/BACKLOG.md. The rebuild re-adds a SPOTLIGHTS table here.)
