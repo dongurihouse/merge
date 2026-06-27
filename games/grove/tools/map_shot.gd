@@ -6,6 +6,11 @@ extends SceneTree
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 
+func _claim_hub_reward(grove: Dictionary) -> void:
+	var claimed: Dictionary = grove.get("task_reward", {})
+	claimed[String(G.MAPS[G.hub_map()].id)] = true
+	grove["task_reward"] = claimed
+
 func _initialize() -> void:
 	if not FileAccess.file_exists("res://override.cfg"):
 		print("REFUSED: real-renderer tools must run via engine/tools/quiet_godot.sh (born-minimized")
@@ -67,6 +72,7 @@ func _initialize() -> void:
 				fh[String(sp.id)] = true
 			gh["unlocks"] = fh
 			gh["exp"] = 200
+			_claim_hub_reward(gh)
 			Save.grove_write()
 			Save.add_exp(256)
 			Save.add_coins(132)
@@ -92,6 +98,7 @@ func _initialize() -> void:
 				fv[String(sp.id)] = true
 			gv["unlocks"] = fv
 			gv["exp"] = 20
+			_claim_hub_reward(gv)
 			Save.grove_write()
 			load("res://engine/scripts/core/vault.gd").skim(load("res://games/grove/grove_data.gd").VAULT_CLAIM_MIN * 4 * load("res://games/grove/grove_data.gd").VAULT_SKIM_DEN)
 		"login":
@@ -120,6 +127,7 @@ func _initialize() -> void:
 				seeded[String(G.MAPS[hub].spots[k].id)] = true
 			g["unlocks"] = seeded
 			g["exp"] = G.spot_unlock_exp(hub, n_owned)   # the next unclaimed spot's threshold
+			_claim_hub_reward(g)
 			Save.grove_write()
 		"owned":                                  # Q4/AD: a fully-restored room (any pmap)
 			var go := Save.grove()
