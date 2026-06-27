@@ -93,8 +93,10 @@ var _map_art_rect := Rect2()     # the placed/scaled background art
 var spot_hits: Array = []        # [{node, z, k}] — the open map's spots
 var select_hits: Array = []      # [{node, z, y0}] — the map-select cards (y0 = screen base y, pre-scroll)
 var _press := Vector2.ZERO       # last press point (still-tap resolution)
-var _select_scroll := 0.0        # current scroll offset of the place-picker stack (px from the top)
-var _select_scroll_max := 0.0    # 0 when the stack fits the band (no scroll); else total_h - band_h
+var _select_scroll := 0.0        # current scroll offset of the place-picker card column (px from the top)
+var _select_scroll_max := 0.0    # 0 when the cards fit their column (no scroll); else total_h - column_h
+var _hand_scroll := 0.0          # current scroll offset of the in-hand orb grid (px from the top)
+var _hand_scroll_max := 0.0      # 0 when the hand fits its column; else grid_h - viewport_h
 
 var _chrome_nodes: Array = []    # bottom chrome (garden CTA, gear, shop, atlas)
 var _play_btn: Button            # the MERGED bottom-right CTA: PLAY (board+acorn → board), or RESTORE (vine → unlock) when the map's next spot is affordable
@@ -989,66 +991,83 @@ func _build_select(animate := true) -> void:
 	_hand_panel = null
 	var view := get_viewport_rect().size
 	var top := 96.0 + Look.safe_top(self)
-	# ONE wide painted card per row — a vista per place (map.png place-picker). No header: the HUD
-	# wallet + the framed cards carry the read. The card SIZE is workbench-saved as a % of the screen
-	# (card_w_frac of the screen width, card_h_frac of the screen height), tuned live in the kit. WIDTH and
-	# HEIGHT are INDEPENDENT: width sets the side margins; height is honored as-is. The cards live in a
-	# clipped band between the HUD and the floor back-arrow — when the stack fits it sits centered and
-	# locked; when it overflows (tall cards) the band SCROLLS (drag / wheel), so height has no ceiling. The
-	# band is the ONE input surface; cards are still hit-tested directly by their (scrolled) global rect.
-	# NOTE: the gold frame STRETCH-scales, so a w:h far from the art's ~2.92 aspect distorts the border.
+	# ONE unified BOARD (a framed parchment surface) split into TWO columns: the scrollable map-card stack
+	# on the LEFT, the in-hand spirit column on the RIGHT, divided by a hairline. Both columns sit at the
+	# board's top inset, so they are top-aligned. Each column scrolls within its own clipped region; the
+	# board is the single input surface (cards / orbs are hit-tested by their scrolled global rect).
 	var n := G.MAPS.size()
 	# the place-picker card LOOK is the workbench-saved config, resolved ONCE for every card in this build
 	var Kit: GDScript = load(KIT_PATH)
 	var opts: Dictionary = Kit.map_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH)) if Kit != null else {}
 	opts["calm"] = FX.calm()                                    # reduced-motion: freeze the active card's edge sparkle
-	var w_frac: float = float(opts.get("card_w_frac", 0.96))    # card width  as a fraction of the screen width
 	var h_frac: float = float(opts.get("card_h_frac", 0.16))    # card height as a fraction of the screen height
 	var sep := 18.0
 	var band_top := top + 16.0
 	var band_bot := view.y - (Look.safe_bottom(self) + 150.0)   # leave the bottom-left back arrow its room
-	var band_h := band_bot - band_top
-	# the IN-HAND column claims a fixed gutter on the RIGHT; the cards live in what's left (left-aligned). The
-	# card width is the saved frac, capped to the remaining area so the two columns never overlap.
-	var hand_w := clampf(view.x * 0.20, 150.0, 260.0)
-	var hand_gap := 14.0
-	var card_area_w := maxf(120.0, view.x - hand_w - hand_gap)
-	var card_w := minf(view.x * w_frac, card_area_w)            # honored, then capped to the card column
-	var card_h := maxf(view.y * h_frac, 212.0)                  # tall enough for the habitat layout; band scrolls if the stack overflows
+	# the unified board fills the band, inset by a small side margin
+	var board_margin := clampf(view.x * 0.018, 8.0, 20.0)
+	var board_rect := Rect2(board_margin, band_top, view.x - board_margin * 2.0, band_bot - band_top)
+	content.add_child(_select_board_bg(board_rect))
+	var pad := clampf(board_rect.size.x * 0.018, 8.0, 16.0)
+	var hand_w := clampf(board_rect.size.x * 0.30, 190.0, 320.0)
+	var gap := pad * 2.0 + 2.0                                   # column padding + a 2px divider
+	var inner_top := board_rect.position.y + pad
+	var inner_h := board_rect.size.y - pad * 2.0
+	var left_x := board_rect.position.x + pad
+	var left_w := maxf(120.0, board_rect.size.x - pad * 2.0 - gap - hand_w)
+	var hand_x := left_x + left_w + gap
+	# the column divider
+	var divider := ColorRect.new()
+	divider.color = Color(DOCK_INK, 0.12)
+	divider.position = Vector2(left_x + left_w + gap * 0.5 - 1.0, inner_top)
+	divider.size = Vector2(2.0, inner_h)
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	content.add_child(divider)
+	# LEFT column: the map cards, clipped to the column and scrolled when they overflow it
+	var card_w := left_w
+	var card_h := maxf(view.y * h_frac, 212.0)
 	var total_h := card_h * float(n) + sep * float(maxi(n - 1, 0))
-	var x := maxf(0.0, (card_area_w - card_w) * 0.5)            # centered within the LEFT card column
-	# the clipped scroll viewport is the FULL screen, so cards scroll off the real top/bottom edges
-	# (passing behind the floating HUD + back arrow) instead of being cut mid-image at an interior band
-	# line. Cards are still LAID OUT within the band (below the HUD, above the back arrow); only the clip
-	# rect spans the whole view.
 	var clip := Control.new()
-	clip.position = Vector2.ZERO
-	clip.size = view
+	clip.position = Vector2(left_x, inner_top)
+	clip.size = Vector2(left_w, inner_h)
 	clip.clip_contents = true
 	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE                  # single-input-surface: taps pass through to `content`
 	content.add_child(clip)
-	# the first card rests TOP_PAD below the band top so it clears the side-rail Settings tile; the stack then
-	# scrolls if it overflows. y is in clip (= screen) coords: band_top + the in-band offset.
-	var top_pad := 20.0
-	var y0 := maxf(top_pad, (band_h - total_h) * 0.5)          # centered when it fits; TOP_PAD down once it scrolls
-	_select_scroll_max = maxf(0.0, y0 + total_h - band_h)
+	var fits := total_h <= inner_h
+	var y0 := ((inner_h - total_h) * 0.5) if fits else 0.0       # centered when it fits, else flush to the top
+	_select_scroll_max = 0.0 if fits else (total_h - inner_h)
 	_select_scroll = clampf(_select_scroll, 0.0, _select_scroll_max)
-	var y := band_top + y0
+	var y := y0
 	for z in n:
 		var card := _make_card(z, card_w, card_h, opts)
-		card.position = Vector2(x, y - _select_scroll)
+		card.position = Vector2(0.0, y - _select_scroll)        # clip-local: the column's left edge
 		card.size = Vector2(card_w, card_h)
 		clip.add_child(card)
 		select_hits.append({"node": card, "z": z, "y0": y})
 		y += card_h + sep
-	# the IN-HAND column on the right — the spirits you hold, dragged onto a map to place / a match to merge.
-	# It rides `content` (NOT the clip), so it stays put while the card stack pans behind it.
-	_hand_panel = _build_hand_panel(Rect2(view.x - hand_w, band_top, hand_w, band_h))
+	# RIGHT column: the in-hand spirits — same board, no frame of its own
+	_hand_panel = _build_hand_panel(Rect2(hand_x, inner_top, hand_w, inner_h))
 	content.add_child(_hand_panel)
 	if _select_back != null and is_instance_valid(_select_back):
 		_select_back.visible = true
 	if animate:
 		FX.pop_in(content)
+
+# The unified place-picker BOARD: a framed parchment surface that both columns ride. Mouse-IGNORE (the board
+# is the single input surface; taps fall through to `content`).
+func _select_board_bg(rect: Rect2) -> Control:
+	var p := Panel.new()
+	p.name = "SelectBoard"
+	p.position = rect.position
+	p.size = rect.size
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(DOCK_PARCH, 0.95)
+	s.set_corner_radius_all(20)
+	s.set_border_width_all(5)
+	s.border_color = Color(DOCK_STRAW)
+	p.add_theme_stylebox_override("panel", s)
+	return p
 
 # One map card, built from the SHARED kit (Kit.map_card) so the workbench tunes the SAME recipe the
 # game renders. This resolves the per-card DATA from game state — OPEN → the locale art inside the gold
@@ -1141,12 +1160,12 @@ func _habitat_card(z: int, card_w: float, card_h: float) -> Control:
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		foot.add_child(bar)
 		var ready := _reward_amount_ready(map_id)
-		var collect: Button = Kit.pill_button("Collect %d" % ready, {"bg": "green", "art": true, "font": 18, "icon": _reward_icon(cur), "enabled": ready > 0})
+		var collect: Button = Kit.pill_button("Collect %d" % ready, {"bg": "green", "art": true, "font": 22, "icon": _reward_icon(cur), "enabled": ready > 0})
 		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
 		foot.add_child(collect)
 		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
 		if cur == "boost" and Habitat.boost_charges() > 0:
-			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 16, "enabled": not G.boost_active()})
+			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 18, "enabled": not G.boost_active()})
 			useb.pressed.connect(func() -> void: _on_use_boost())
 			foot.add_child(useb)
 		col.add_child(foot)
@@ -1247,65 +1266,18 @@ func _build_hand_panel(rect: Rect2) -> Control:
 	panel.size = rect.size
 	panel.custom_minimum_size = rect.size
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bg := Panel.new()
-	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(DOCK_PARCH, 0.88)
-	sb.set_corner_radius_all(16)
-	sb.set_border_width_all(2)
-	sb.border_color = Color(DOCK_INK, 0.14)
-	bg.add_theme_stylebox_override("panel", sb)
-	panel.add_child(bg)
 
-	var pad := 10.0
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for side in ["margin_left", "margin_right", "margin_top", "margin_bottom"]:
-		margin.add_theme_constant_override(side, int(pad))
-	margin.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.add_child(margin)
-
-	var vb := VBoxContainer.new()
-	vb.add_theme_constant_override("separation", 8)
-	vb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	margin.add_child(vb)
-
-	var title := _dock_label("In hand", 16, true)
-	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(title)
-
+	var pad := 8.0
 	var inner_w := rect.size.x - pad * 2.0
-	var hand: Array = Habitat.hand()
-	if hand.is_empty():
-		var empty := _dock_label("Empty — find spirits on Expedition.", 14)
-		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
-		empty.custom_minimum_size = Vector2(inner_w, 0)
-		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		vb.add_child(empty)
-	else:
-		var orb_px := clampf(inner_w * 0.42, 44.0, 64.0)
-		var sep := 8.0
-		var cols := maxi(1, int((inner_w + sep) / (orb_px + sep)))
-		var grid := GridContainer.new()
-		grid.columns = cols
-		grid.add_theme_constant_override("h_separation", sep)
-		grid.add_theme_constant_override("v_separation", sep)
-		grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		for i in hand.size():
-			var inst: Dictionary = hand[i]
-			var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass)
-			orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			grid.add_child(orb)
-			_hand_orbs.append({"node": orb, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
-		vb.add_child(grid)
+	var head_y := pad
+	var title := _dock_label("In hand", 20, true)
+	title.position = Vector2(pad, head_y)
+	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(title)
+	head_y += 32.0
 
-	var spacer := Control.new()
-	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	vb.add_child(spacer)
-
-	# the Sell affordance for a focused housed orb — the ONE STOP control in the column (present only on focus)
+	# the Sell affordance for a focused housed orb is PINNED here at the top, so a full hand can never push it
+	# off-screen (the bug behind "I don't see the Sell button"). It is the one STOP control in the column.
 	if not _focus_placed.is_empty() and Kit != null:
 		var mid := String(_focus_placed.get("map_id", ""))
 		var fidx := int(_focus_placed.get("idx", -1))
@@ -1313,9 +1285,57 @@ func _build_hand_panel(rect: Rect2) -> Control:
 		if fidx >= 0 and fidx < fplaced.size():
 			var tier := int(fplaced[fidx].tier)
 			var sell: Button = Kit.pill_button("Sell +%d" % (Habitat.SELL_PER_TIER * tier),
-				{"bg": "green", "art": true, "font": 16, "icon": "coin"})
+				{"bg": "green", "art": true, "font": 18, "icon": "coin"})
+			sell.position = Vector2(pad, head_y)
+			sell.custom_minimum_size = Vector2(inner_w, 0.0)   # full width; its own (art) height stands
 			sell.pressed.connect(func() -> void: _on_focus_sell())
-			vb.add_child(sell)
+			panel.add_child(sell)
+			head_y += maxf(sell.get_combined_minimum_size().y, 44.0) + 10.0   # reserve its real height so the grid clears it
+
+	var hand: Array = Habitat.hand()
+	if hand.is_empty():
+		var empty := _dock_label("Empty — find spirits on Expedition.", 15)
+		empty.position = Vector2(pad, head_y)
+		empty.autowrap_mode = TextServer.AUTOWRAP_WORD
+		empty.custom_minimum_size = Vector2(inner_w, 0)
+		empty.size = Vector2(inner_w, 60.0)
+		empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		panel.add_child(empty)
+		_hand_scroll_max = 0.0
+		return panel
+
+	# the orb grid scrolls within a clipped viewport below the header (wheel, or a vertical swipe on the
+	# column). At least TWO columns, sized to the width.
+	var view_top := head_y + 4.0
+	var view_h := maxf(40.0, rect.size.y - view_top - pad)
+	var clip := Control.new()
+	clip.name = "HandClip"
+	clip.position = Vector2(pad, view_top)
+	clip.size = Vector2(inner_w, view_h)
+	clip.clip_contents = true
+	clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(clip)
+	var sep := 8.0
+	var cols := maxi(2, int((inner_w + sep) / (76.0 + sep)))     # at least two columns
+	var orb_px := (inner_w - sep * float(cols - 1)) / float(cols)   # fill the width evenly across the columns
+	var grid := GridContainer.new()
+	grid.name = "HandGrid"
+	grid.columns = cols
+	grid.add_theme_constant_override("h_separation", int(sep))
+	grid.add_theme_constant_override("v_separation", int(sep))
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for i in hand.size():
+		var inst: Dictionary = hand[i]
+		var orb := _spirit_chip(String(inst.kind), int(inst.tier), orb_px, func() -> void: pass)
+		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		grid.add_child(orb)
+		_hand_orbs.append({"node": orb, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
+	clip.add_child(grid)
+	var rows := int(ceil(float(hand.size()) / float(cols)))
+	var grid_h := float(rows) * orb_px + float(maxi(rows - 1, 0)) * sep
+	_hand_scroll_max = maxf(0.0, grid_h - view_h)
+	_hand_scroll = clampf(_hand_scroll, 0.0, _hand_scroll_max)
+	grid.position = Vector2(0.0, -_hand_scroll)
 	return panel
 
 # A small rounded translucent-parchment plate carrying a bold map name, sized to its text. Mouse-IGNORE.
@@ -1330,7 +1350,7 @@ func _habitat_plate(text: String) -> Control:
 	s.content_margin_left = 12 ; s.content_margin_right = 12
 	s.content_margin_top = 4 ; s.content_margin_bottom = 4
 	p.add_theme_stylebox_override("panel", s)
-	var lbl := _dock_label(text, 22, true)
+	var lbl := _dock_label(text, 28, true)
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	p.add_child(lbl)
 	p.size = p.get_combined_minimum_size()
@@ -1416,8 +1436,8 @@ func _on_use_boost() -> void:
 		_refresh_picker()    # repaint the card's boost affordance in place
 
 func _card_sub(text: String) -> Label:
-	var l := _dock_label(text, 16)
-	l.modulate = Color(1, 1, 1, 0.7)
+	var l := _dock_label(text, 21, true)
+	l.modulate = Color(1, 1, 1, 0.92)
 	return l
 
 # An empty habitat slot — a faint circular outline (the prototype's dashed empty slot). Mouse-IGNORE.
@@ -1502,26 +1522,42 @@ func _on_select_input(event: InputEvent) -> void:
 	if moved:
 		var gp: Vector2 = content.get_global_transform() * event.position
 		if not _drag.is_empty():
-			if not bool(_drag.get("active", false)) and event.position.distance_to(_press) > 8.0:
-				_begin_drag_ghost(gp)
+			# decide on the first significant move: a vertical swipe on a HAND orb SCROLLS the column; any
+			# other drag lifts the orb (drag it left onto a map to place / onto a match to merge).
+			if not bool(_drag.get("active", false)) and not bool(_drag.get("scrolling", false)):
+				var dx: float = event.position.x - _press.x
+				var dy: float = event.position.y - _press.y
+				if String(_drag.get("src", "")) == "hand" and absf(dy) > absf(dx) * 1.2 and absf(dy) > 8.0:
+					_drag["scrolling"] = true
+				elif event.position.distance_to(_press) > 8.0:
+					_begin_drag_ghost(gp)
+			if bool(_drag.get("scrolling", false)):
+				_scroll_hand_by(-event.relative.y)
+				return
 			if bool(_drag.get("active", false)):
 				_move_drag_ghost(gp)
+				return
 			return
-		if _select_scroll_max > 0.0:
+		if _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gp):
+			_scroll_hand_by(-event.relative.y)            # a drag on the hand column's empty area scrolls it
+		elif _select_scroll_max > 0.0:
 			_scroll_select_by(-event.relative.y)
 		return
-	if event is InputEventMouseButton and event.pressed and _select_scroll_max > 0.0:
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			_scroll_select_by(90.0)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			_scroll_select_by(-90.0)
+	if event is InputEventMouseButton and event.pressed \
+			and (event.button_index == MOUSE_BUTTON_WHEEL_DOWN or event.button_index == MOUSE_BUTTON_WHEEL_UP):
+		var gpw: Vector2 = content.get_global_transform() * event.position
+		var dy := 90.0 if event.button_index == MOUSE_BUTTON_WHEEL_DOWN else -90.0
+		if _hand_panel != null and is_instance_valid(_hand_panel) and _hand_panel.get_global_rect().has_point(gpw):
+			_scroll_hand_by(dy)
+		else:
+			_scroll_select_by(dy)
 		return
 	if release:
 		var gpos: Vector2 = content.get_global_transform() * event.position
 		if not _drag.is_empty():
 			if bool(_drag.get("active", false)):
 				_resolve_drop(gpos)
-			else:
+			elif not bool(_drag.get("scrolling", false)):
 				_on_orb_tap(_drag)
 			_end_drag()
 			return
@@ -1716,6 +1752,18 @@ func _scroll_select_by(dy: float) -> void:
 		var c: Control = hit.node
 		if is_instance_valid(c):
 			c.position.y = float(hit.y0) - _select_scroll
+
+# Scroll the in-hand orb grid by `dy` px, clamped to [0, _hand_scroll_max]. No-op when the hand fits.
+func _scroll_hand_by(dy: float) -> void:
+	if _hand_scroll_max <= 0.0 or _hand_panel == null or not is_instance_valid(_hand_panel):
+		return
+	var prev := _hand_scroll
+	_hand_scroll = clampf(_hand_scroll + dy, 0.0, _hand_scroll_max)
+	if is_equal_approx(_hand_scroll, prev):
+		return
+	var grid := _hand_panel.get_node_or_null("HandClip/HandGrid")
+	if grid != null:
+		(grid as Control).position.y = -_hand_scroll
 
 func _map_tap(gpos: Vector2) -> void:
 	# Residents live on their own screen now, so map taps resolve straight to spots / wandering spirits.
@@ -2027,7 +2075,7 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable) -> Contr
 		btn.add_child(disc)
 	var badge := Label.new()
 	badge.text = "t%d" % tier
-	badge.add_theme_font_size_override("font_size", 14)
+	badge.add_theme_font_size_override("font_size", int(clampf(px * 0.30, 14.0, 22.0)))   # scales with the orb size
 	badge.add_theme_color_override("font_color", DOCK_INK)
 	badge.add_theme_color_override("font_outline_color", DOCK_PARCH)
 	badge.add_theme_constant_override("outline_size", 3)
