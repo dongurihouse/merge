@@ -309,7 +309,7 @@ var _params := {
 		"filled": true},
 	# the RUSH BAR — code-drawn gold-badge cells (Time · Score · Mult) + asset leaf / coin / crown
 	"rush_bar": {"height": 116, "score_w": 300, "side_w": 224, "gap": 18, "label_size": 24, "value_size": 46,
-		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16},
+		"icon_size": 52, "leaf_size": 92, "crown_size": 76, "pad": 16, "burn": 0},
 	# the RUSH FX toggles — the master switch + one per screen-juice effect (RushFx.EFFECTS)
 	"rush_fx": {"enabled": true, "merge_burst": true, "score_tick": true, "score_pulse": true, "mult_pop": true,
 		"combo_heat": true, "timer_low": true, "treefall_crack": true},
@@ -2006,6 +2006,7 @@ func _rebuild_sidebar() -> void:
 			_section_header("Text")
 			_sidebar_body.add_child(_slider_row(["label_size", 12, 48]))  # the Time / Score / Mult caption
 			_sidebar_body.add_child(_slider_row(["value_size", 20, 80]))  # the numerals
+			_sidebar_body.add_child(_slider_row(["burn", 0, 100]))         # engraved burn (dark ink + emboss + outline)
 			_section_header("Asset decorations — leaf · coin · crown")
 			_sidebar_body.add_child(_slider_row(["icon_size", 20, 100]))  # the score coin
 			_sidebar_body.add_child(_slider_row(["leaf_size", 30, 160]))  # the flank oak-leaf clusters

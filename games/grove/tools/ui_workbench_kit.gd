@@ -764,6 +764,7 @@ static func rush_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"leaf_size":  float(r.get("leaf_size", 92.0)),   # the flank oak-leaf clusters (tall, by aspect)
 		"crown_size": float(r.get("crown_size", 76.0)),  # the acorn crown over the centre
 		"pad":        float(r.get("pad", 16.0)),         # cell content inset
+		"burn":       clampf(float(r.get("burn", 0.0)) / 100.0, 0.0, 1.0),
 		"gold":       gold_badge_opts_from_config(cfg),  # the SHARED code-drawn gold badge skin
 		"label_col":  String(r.get("label_col", "#9A7B43")),
 		"value_col":  String(r.get("value_col", "#43352B")),
@@ -836,18 +837,27 @@ static func _rush_cell(opts: Dictionary, gold: StyleBox, pos: Vector2, size: Vec
 	col.custom_minimum_size = col.size
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(_bar_label(caption, int(opts.get("label_size", 24)), String(opts.get("label_col", "#9A7B43")), tw))
-	var val := _bar_label(value_text, int(opts.get("value_size", 46)), String(opts.get("value_col", "#43352B")), tw)
+	var burn := float(opts.get("burn", 0.0))
+	col.add_child(_bar_label(caption, int(opts.get("label_size", 24)), String(opts.get("label_col", "#9A7B43")), tw, burn))
+	var val := _bar_label(value_text, int(opts.get("value_size", 46)), String(opts.get("value_col", "#43352B")), tw, burn)
 	col.add_child(val)
 	cell.add_child(col)
 	labels_out[key] = val
 	return cell
 
-static func _bar_label(text: String, size: int, color_hex: String, width: float) -> Label:
+static func _bar_label(text: String, size: int, color_hex: String, width: float, burn: float = 0.0) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	l.add_theme_color_override("font_color", Color(color_hex))
+	var t := clampf(burn, 0.0, 1.0)
+	if t > 0.0:
+		l.add_theme_color_override("font_color", Color("#4A2E14").darkened(0.35 * t))
+		l.add_theme_color_override("font_shadow_color", Color(1, 1, 1, 0.25 + 0.45 * t))
+		l.add_theme_constant_override("shadow_offset_x", int(round(1.0 + 2.0 * t)))
+		l.add_theme_constant_override("shadow_offset_y", int(round(2.0 + 3.0 * t)))
+		l.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.12 + 0.33 * t))
+		l.add_theme_constant_override("outline_size", int(round(2.0 + 4.0 * t)))
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.custom_minimum_size = Vector2(width, 0)
