@@ -14,6 +14,7 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Content = preload("res://engine/scripts/core/content.gd")   # §1 the spot-scaled roster capacity ramp
+const BoardLogic = preload("res://engine/scripts/core/board_logic.gd")   # the generator's tier roll (roll_tier) — chests reuse the SAME curve
 const D = Game.DATA
 
 const DEFAULT_CAP := 8                  # full habitat slots (= RESIDENT_SLOTS_MAX); the roster RAMPS up to this as the map is restored
@@ -287,12 +288,32 @@ static func _resident_pool() -> Array:
 				kinds[String(ln.id)] = true
 	return kinds.keys()
 
-static func _drop_random_resident() -> bool:
+# A shared loot rng for chest grants — NOT the board's seeded+persisted rng (chest loot is cosmetic and
+# never replayed, so a fresh randomized stream is fine).
+static var _loot_rng: RandomNumberGenerator = null
+
+static func _rng() -> RandomNumberGenerator:
+	if _loot_rng == null:
+		_loot_rng = RandomNumberGenerator.new()
+		_loot_rng.randomize()
+	return _loot_rng
+
+## The SHARED chest grant for BOTH the map-5 habitat chest and the rush Trade boxes (they are one system).
+## Drops `count` spirits into the hand; each rolls a KIND from the unlocked pool and a TIER off the
+## generator's OWN curve (BoardLogic.roll_tier → TIER_ODDS: t1-heavy, capped at t4 — higher tiers still only
+## via in-hand merges). Returns the granted {kind, tier} instances (for the reveal). Empty if the pool is empty.
+static func grant_chest(count: int) -> Array:
 	var pool := _resident_pool()
 	if pool.is_empty():
-		return false
-	hand_add(String(pool[randi() % pool.size()]), 1)
-	return true
+		return []
+	var rng := _rng()
+	var out: Array = []
+	for _i in maxi(0, count):
+		var kind := String(pool[rng.randi() % pool.size()])
+		var tier := BoardLogic.roll_tier(rng)
+		hand_add(kind, tier)
+		out.append({"kind": kind, "tier": tier})
+	return out
 
 # --- grant + collect -----------------------------------------------------------------------------
 ## Grant `amount` of `currency`, applying each currency's HARD CAP. Returns what was ACTUALLY granted
@@ -336,15 +357,12 @@ static func collect(map_id: String, now: float = -1.0) -> Dictionary:
 	g["hab_prod"][map_id] = {"acc": p - float(whole), "last": now}
 	Save.grove_write()
 	if cur == "residents":
-		# map 5: a matured unit = a ready CHEST; collecting drops chest_size() random spirits into the hand.
+		# map 5: a matured unit = a ready CHEST; collecting grants a chest_size() chest via the SHARED grant.
 		if whole < 1:
 			return {"currency": "residents", "amount": 0, "chest": 0}
 		var size := chest_size(map_id)
-		var dropped := 0
-		for _i in size:
-			if _drop_random_resident():
-				dropped += 1
-		return {"currency": "residents", "amount": dropped, "chest": size}
+		var granted := grant_chest(size)
+		return {"currency": "residents", "amount": granted.size(), "chest": size}
 	if whole <= 0:
 		return {"currency": cur, "amount": 0}
 	var granted := _grant(cur, whole * reward_per_unit(map_id), now)

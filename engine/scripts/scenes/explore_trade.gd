@@ -120,23 +120,18 @@ func _box_card(Kit: GDScript, b: Dictionary) -> Control:
 	box.add_child(open)
 	return panel
 
-## Open a box: spend its score cost, then roll its `residents` count of kinds (pouch 1 / chest 4 /
-## vault 8) from the unlocked pool into the habitat hand at tier 1. Reveals each pull.
+## Open a box: spend its score cost, then grant its `residents` count of spirits (pouch 1 / chest 4 /
+## vault 8) via the SHARED chest grant (Habitat.grant_chest) — the same path map 5's habitat chest uses, so
+## each spirit rolls a kind from the unlocked pool AND a tier off the generator curve. Reveals each pull.
 func _on_buy(box: Dictionary) -> void:
 	if not Explore.buy_box(int(box.get("cost", 0))):
 		return
-	var pool := _pool()
-	var got := 0
-	for _i in int(box.get("residents", 1)):
-		var kind := Explore.roll_kind(pool, _rng)
-		if kind == "":
-			break
-		Habitat.hand_add(kind)
-		_revealed.append(kind)
-		got += 1
-	if got > 0:
+	var granted := Habitat.grant_chest(int(box.get("residents", 1)))
+	if not granted.is_empty():
+		for inst in granted:
+			_revealed.append(String(inst.kind))
 		Audio.play("level_complete", -8.0, 1.15)   # JUICE: a reward chime + a callout on a pull
-		var label := ("%s!" % String(_revealed[_revealed.size() - 1]).capitalize()) if got == 1 else ("+%d spirits!" % got)
+		var label := ("%s!" % String(granted[0].kind).capitalize()) if granted.size() == 1 else ("+%d spirits!" % granted.size())
 		FX.celebrate_at(self, get_global_rect().get_center() - Vector2(0, 70), label, STRAW)
 	else:
 		Audio.play("button_tap", -2.0)
