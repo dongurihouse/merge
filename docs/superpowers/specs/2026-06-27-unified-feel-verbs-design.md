@@ -181,6 +181,70 @@ keeping its ±22° spin; `fall` = rush settle/spawn fall
 Returns the tween so callers chain `feel.land` on completion — the fast arrival + land
 squash/flash are one continuous impact.
 
+## Additional screen juice — bundles A, B, D
+
+Picked on top of the four verbs. (Bundle C — premium shine sweep + idle board
+breathing — was considered and parked.) Each hooks into a verb or the drag loop; all
+are calm-aware and headless-safe.
+
+### A. Tactile interaction
+
+**A1. Haptics** *(new — none in the codebase; this is a Mobile/iOS export,
+`emulate_touch_from_mouse`, `renderer=mobile`).*
+A `feel.haptic(weight)` helper wrapping `Input.vibrate_handheld(ms)`,
+`weight ∈ {tick, soft, firm, heavy}`: pickup → tick, land → soft, merge → soft…heavy
+scaled by tier, combo milestone → a double pulse. The four verbs fire the matching
+weight as their final step. Gated by a new `haptics` user setting (default on) and the
+OS reduce-haptics flag; independent of `calm()` (motion-only). A per-frame throttle
+(`HAPTIC_THROTTLE_MS`) stops a multi-tile Rush settle from machine-gunning the motor.
+Richer iOS impact-generator haptics (light/medium/heavy via a plugin) are parked.
+
+**A2. Merge-target telegraph** *(new — today there is no pre-drop feedback; board-only,
+Rush has no drag).* While a dragged tile hovers a cell where
+`board.can_merge(from, target)` is true: the target `FX.breathe`s + shows a soft glow
+ring, and the held tile and target **lean toward each other** (a small position/scale
+magnetism). Moving off clears it; releasing on a valid target flows into `feel.merge`.
+Reuses the `breathe` + `DRAG_HILITE` pattern already used for the Bag button
+([board.gd:1022](../../../engine/scripts/scenes/board.gd)).
+
+**A3. Drag lean/lag** *(new — lift + two-state shadow exist at
+[board.gd:2245](../../../engine/scripts/scenes/board.gd) /
+[piece_view.gd:79](../../../engine/scripts/ui/piece_view.gd), no lean).* The held tile
+tilts into pointer velocity (`DRAG_LEAN_DEG`, clamped) and trails slightly, righting
+when the pointer stills. Board-only, in the drag-follow code.
+
+### B. Impact propagation (a step inside `merge` + `land`)
+
+**B1. Neighbor ripple** *(new).* `feel.ripple(neighbors, impact_center, intensity)` —
+the up-to-4 orthogonal neighbor tiles get a quick directional squash *away* from the
+impact, staggered a few ms, settling back. Called by `feel.merge` and `feel.land` on
+both boards; the caller supplies the neighbor nodes (it owns the grid). Skipped under calm.
+
+**B2. Board punch-zoom** *(new — today big merges only `FX.shake`).*
+`feel.board_punch(board, intensity)` scales the whole board container
+`1.0 → 1.0 + PUNCH×intensity → 1.0` with a quick back-ease — the cozy escalation on
+`tier ≥ ESCALATE_TIER`, complementing (and at mid-tier replacing) the reserved shake.
+Both boards, skipped under calm.
+
+### D. Combo & world reaction
+
+**D1. Musical merge ladder** *(enhance — today pitch climbs continuously with combo +
+`Audio.jitter_pitch`).* In `feel.merge`'s sound step, snap the combo climb to
+**pentatonic** steps: `pitch = base * 2^(PENTA[degree]/12)`, `degree` walking the scale
+by consecutive-merge count and resetting when the combo window (`COMBO_WINDOW`) lapses.
+Keeps the existing jitter. A chain now sounds like a rising melody, not higher beeps.
+
+**D2. Combo screen bloom** *(new).* A soft warm vignette/edge-glow overlay (a
+`CanvasLayer` the scene owns) whose strength tracks the live combo — each merge swells
+it toward `COMBO_BLOOM_MAX`, easing back to rest when the combo window expires.
+`feel.merge` pokes the overlay with the current combo; the scene drives the decay. Both
+boards. Allowed under calm at reduced strength (a soft glow, not motion).
+
+**D3. Reactive ambient motes** *(enhance — `ambient.gd` already runs pollen/weather).*
+On a merge, push an outward puff impulse to the ambient layer at the merge center so
+the floating motes scatter from the impact. Graceful no-op when no ambient layer is
+present (Rush, or weather off).
+
 ## New / changed tuning constants (`tuning.gd` class `FX`)
 
 - `LAND_SQUASH_K`, `LAND_SQUASH_T` — the 2-key land squash (extract Rush's current values).
@@ -196,6 +260,14 @@ squash/flash are one continuous impact.
 - `MOVE_SHADOW_ALPHA`, `MOVE_SHADOW_OFFSET`, `MOVE_SHADOW_SCALE` — cast-shadow look.
 - `MOVE_TRAIL_N`, `MOVE_TRAIL_T`, `MOVE_TRAIL_SPEED_REF` — afterimage count, fade,
   speed at which the trail reaches full density.
+- `HAPTIC_MS` (tick/soft/firm/heavy → ms), `HAPTIC_THROTTLE_MS` — haptic weights + throttle.
+- `DRAG_LEAN_DEG`, `DRAG_LEAN_LAG` — drag tilt + trail amount.
+- `TELEGRAPH_GLOW`, `TELEGRAPH_MAGNET` — target glow strength + lean-together amount.
+- `RIPPLE_SQUASH`, `RIPPLE_STAGGER_MS` — neighbor nudge strength + per-neighbor delay.
+- `PUNCH`, `PUNCH_T` — board punch-zoom scale delta + duration.
+- `PENTA` — pentatonic semitone pattern for the merge ladder.
+- `COMBO_BLOOM_MAX`, `COMBO_BLOOM_RISE`, `COMBO_BLOOM_DECAY` — screen-bloom strength + easing.
+- `MOTE_PUFF_IMPULSE` — outward push given to ambient motes on a merge.
 
 Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`,
 `GEN_CHARGE_K/T`, `ESCALATE_TIER`, `COMBO_MILESTONES`.
@@ -206,6 +278,10 @@ Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`
   `calm()`; `burst` trims via `amount_for`; `hitstop` is hard-off in headless.
 - Sound always punches through (audio ignores `time_scale`), so a merge still *sounds*
   even during the freeze.
+- Bundle additions: ripple, board-punch, drag-lean, telegraph-magnet, and ambient
+  motes all skip under `calm()`. Combo bloom runs under calm at reduced strength (soft
+  glow, not motion). Haptics gate on the `haptics` user setting + OS reduce flag
+  (not on `calm()`), and no-op in headless / on platforms without a vibrator.
 
 ## RushFx interaction
 
@@ -227,6 +303,14 @@ Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`
   requested); the actual `time_scale` freeze is headless-off by design.
 - **Update `engine/tests/rush_fx_tests.gd`** for the rerouting (merge burst/flash/
   hitstop now via `feel.merge`).
+- **Bundle coverage in `feel_tests.gd`:** haptic weight→ms mapping + throttle (assert a
+  vibrate is requested with the mapped ms and suppressed when the setting is off / when
+  throttled); ripple nudges the given neighbors and no-ops under calm; board-punch
+  creates the scale tween; the musical ladder snaps pitch to pentatonic degrees and
+  resets after the combo window; combo bloom strength rises per merge and decays on
+  window expiry.
+- **Board UI tests** for the input-driven pieces: target telegraph shows the glow/breathe
+  only when `can_merge` is true and clears on move-off; drag-lean applies a clamped tilt.
 - Run `make test-fast` after each change; `make test` before handoff.
 
 ## Risks / mitigations
@@ -244,11 +328,24 @@ Existing reused: `SQUASH_K/T`, `FLASH_PEAK/T`, `HITSTOP_*`, `BURST_*`, `SHAKE_*`
   by `MOVE_TRAIL_N` and scaled down at low speed (a gentle settle barely trails), and
   shadow/trail skipped under `calm()` and in headless. Verify Rush settle frame cost
   with a full board.
+- **Haptic spam** — bulk Rush settles could fire many vibrations. Mitigation:
+  `HAPTIC_THROTTLE_MS` per-frame gate + only the *merge*/*pickup* verbs haptic, not
+  every settled tile.
+- **Telegraph false signal** — the glow must mean "this will merge." Mitigation: drive
+  it strictly off `can_merge(from, target)` and clear instantly on move-off.
+- **Bloom overlay leak** — the combo-bloom `CanvasLayer` must free with its scene and
+  never persist across screens. Mitigation: scene-owned, bound to scene lifetime.
+- **Ladder reset** — a stale pentatonic `degree` would start a new chain mid-scale.
+  Mitigation: reset `degree` whenever the combo window lapses, tied to the same
+  `COMBO_WINDOW` the combo system already uses.
 
 ## Out of scope (parked)
 
 - Exposing `intensity` and the verb knobs in the workbench.
 - A true shader-based motion blur on `move` (the afterimage trail stands in for it).
 - A `move` motion-lean beyond a slight constant tilt.
+- **Bundle C** — premium high-tier shine sweep + idle board-piece breathing (considered, parked).
+- iOS rich-haptic plugin (`UIImpactFeedbackGenerator` light/medium/heavy); the baseline
+  uses `Input.vibrate_handheld` durations.
 - Resident silent auto-merge ([map.gd:2101](../../../engine/scripts/scenes/map.gd)) —
   stays silent (it is a bookkeeping merge, not a player action).
