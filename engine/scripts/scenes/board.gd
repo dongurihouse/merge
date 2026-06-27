@@ -179,6 +179,7 @@ var _landscape := false                      # display orientation: wide viewpor
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
 var _press_was_selected := false   # the press landed on the already-focused cell (collect-on-second-tap)
+var _pressing := false              # a physical press is in flight — dedupes the mouse+touch pair emulate_touch_from_mouse delivers
 var _drag_is_gen := false          # the current drag picked up a generator (movable-only, §6)
 var _drag_node: Control = null
 var _drag_from := Vector2i(-1, -1)
@@ -2137,8 +2138,18 @@ func _on_board_input(event: InputEvent) -> void:
 		return
 	var pressed: bool = (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT) or event is InputEventScreenTouch
 	if pressed and event.pressed:
+		# emulate_touch_from_mouse delivers BOTH a mouse-button AND a synthesized touch event per click, so
+		# one physical press fires here twice. Without this guard the 2nd press re-runs _on_press, which
+		# clears the focus the 1st captured — so a collect-on-second-tap reads _press_was_selected=false and
+		# merely re-focuses the coin instead of collecting. Process ONE gesture once.
+		if _pressing:
+			return
+		_pressing = true
 		_on_press(event.position)
 	elif pressed and not event.pressed:
+		if not _pressing:
+			return                              # ignore the paired duplicate release
+		_pressing = false
 		_on_release(event.position)
 	elif (event is InputEventMouseMotion or event is InputEventScreenDrag) and _drag_node != null:
 		_drag_node.position = event.position - Vector2(csz, csz) / 2.0

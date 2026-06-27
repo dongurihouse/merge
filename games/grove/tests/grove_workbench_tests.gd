@@ -985,8 +985,13 @@ func _test_new_knobs(view) -> void:
 	var scaled_item_slot := scaled_bar.get_meta("info_icon") as Control
 	var scaled_text_stack := (scaled_bar.get_meta("name_label") as Label).get_parent() as Control
 	var scaled_item_text_row := scaled_item_slot.get_parent() as HBoxContainer
+	var scaled_hb := scaled_info_slot.get_parent() as HBoxContainer
+	ok(scaled_hb != null and scaled_hb.get_child(0) == scaled_info_slot, \
+		"the info button starts at the left edge of the info bar content")
+	ok(scaled_hb != null and scaled_hb.get_child(1) == scaled_item_text_row, \
+		"the selected item art and text sit immediately after the left info button")
 	ok(scaled_item_text_row != null and scaled_item_text_row.get_child(0) == scaled_item_slot, \
-		"the selected item icon starts at the left edge of the info content row")
+		"the selected item icon starts the item/text group")
 	ok(scaled_item_text_row != null \
 		and scaled_item_text_row.get_child(1) == scaled_text_stack \
 		and scaled_item_text_row.get_theme_constant("separation") == 0, \

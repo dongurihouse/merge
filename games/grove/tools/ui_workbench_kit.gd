@@ -3680,7 +3680,7 @@ static func info_bar_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"badge":       gold_badge_opts_from_config(cfg),             # shared code-drawn board/info frame style
 	}
 
-## --- the bottom-bar INFO BAR: [selected piece] [info ⓘ] [name] [Sell badge] -------------------------
+## --- the bottom-bar INFO BAR: [info ⓘ] [selected piece] [name] [Sell badge] -------------------------
 ## The board's centre bottom-bar pill. It carries the SELECTED board item: an info button (opens that
 ## item's tier ladder), the piece preview + its "<name> · Tier N", and a sell button — the word "Sell" in
 ## plain ink over a vertical green badge (the payout coin on top, the payout number below).
@@ -3725,7 +3725,6 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	item_text_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	item_text_row.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	item_text_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hb.add_child(item_text_row)
 	var info_icon := CenterContainer.new()                       # the selected-piece preview (caller fills it)
 	info_icon.custom_minimum_size = Vector2(item_icon_px, height)
 	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3741,8 +3740,8 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	var info_btn := _info_circle_btn("info", info_btn_px)        # opens the selected item's tier ladder
 	if spec.has("info_action") and (spec.get("info_action") as Callable).is_valid():
 		info_btn.pressed.connect(spec.get("info_action"))
-	# The selected-piece slot starts the row. The ⓘ keeps a fixed footprint after it; x/y/scale move the
-	# button inside that slot without pushing the item, label, or Sell chip around.
+	# The ⓘ starts the row in a fixed footprint; x/y/scale move the button inside that slot without pushing
+	# the item, label, or Sell chip around.
 	var info_x := float(opts.get("info_x", 0.0))
 	var info_y := float(opts.get("info_y", 0.0))
 	var info_slot := Control.new()
@@ -3753,6 +3752,7 @@ static func info_bar(spec: Dictionary, opts: Dictionary = {}) -> PanelContainer:
 	info_btn.position = Vector2((inner - info_btn_px) * 0.5 + info_x, (inner - info_btn_px) * 0.5 + info_y)
 	info_slot.add_child(info_btn)
 	hb.add_child(info_slot)
+	hb.add_child(item_text_row)
 	var name_label := Label.new()                                # "<name> · Tier N" (or the empty prompt)
 	name_label.add_theme_font_size_override("font_size", int(opts.get("name_font", 32)))
 	name_label.add_theme_color_override("font_color", Pal.INK)

@@ -80,6 +80,25 @@ func _initialize() -> void:
 		ok(Save.coins() == coins0 + G.coin_value(902), "collecting credits the coin value (+%d)" % G.coin_value(902))
 		ok(not board_scene._focus_ring.visible, "collecting clears the focus frame")
 
+	# Regression (the live bug): emulate_touch_from_mouse=true delivers a mouse AND a synthesized touch
+	# event per physical tap, so _on_board_input sees each press/release TWICE. Without dedup the 2nd press
+	# clears the focus the 1st captured, so the second tap reads _press_was_selected=false and merely
+	# RE-FOCUSES the coin instead of collecting. Drive a coin with the DOUBLE-event tap and confirm collect.
+	var dbl_cell := coin_cell   # reuse the now-empty cell from the first collect (fresh board has few open cells)
+	if dbl_cell.x >= 0 and board_scene.board.item_at(dbl_cell) == 0:
+		board_scene.board.place(dbl_cell, 902)
+		board_scene._rebuild_pieces()
+		var dhalf := Vector2(board_scene.csz, board_scene.csz) / 2.0
+		var dat: Vector2 = board_scene._cell_pos(dbl_cell) + dhalf   # board_area-local (gui_input space)
+		var dcoins0 := Save.coins()
+		_tap_emulated(board_scene, dat)   # tap 1 → focus
+		await create_timer(0.05).timeout
+		ok(board_scene._selected_cell == dbl_cell, "double-event tap 1 focuses the coin")
+		_tap_emulated(board_scene, dat)   # tap 2 → must COLLECT, not just re-focus
+		await create_timer(0.05).timeout
+		ok(board_scene.board.item_at(dbl_cell) == 0, "double-event tap 2 COLLECTS (emulate_touch_from_mouse dedup)")
+		ok(Save.coins() == dcoins0 + G.coin_value(902), "double-event collect credits the coin value")
+
 	# Watchdog: a stuck `animating` gate must self-heal so board taps can never soft-lock. Force the
 	# gate true and confirm it clears within the watchdog window; a brief gate (a normal merge) must NOT.
 	board_scene.animating = true
@@ -108,3 +127,16 @@ func _push_tap(gpos: Vector2) -> void:
 	var up := down.duplicate()
 	up.pressed = false
 	get_root().push_input(up, true)
+
+# A physical tap under emulate_touch_from_mouse=true: the engine delivers BOTH a mouse-button event AND a
+# synthesized screen-touch event, so the board input handler sees the press/release TWICE per tap. Drives
+# _on_board_input directly with board_area-local positions (its gui_input space).
+func _tap_emulated(board, at: Vector2) -> void:
+	var md := InputEventMouseButton.new(); md.button_index = MOUSE_BUTTON_LEFT; md.pressed = true; md.position = at
+	var td := InputEventScreenTouch.new(); td.pressed = true; td.position = at
+	board._on_board_input(md)
+	board._on_board_input(td)
+	var mu := InputEventMouseButton.new(); mu.button_index = MOUSE_BUTTON_LEFT; mu.pressed = false; mu.position = at
+	var tu := InputEventScreenTouch.new(); tu.pressed = false; tu.position = at
+	board._on_board_input(mu)
+	board._on_board_input(tu)
