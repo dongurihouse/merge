@@ -174,6 +174,11 @@ static func build(host: Control, opts: Dictionary = {}) -> Dictionary:
 	lrow.add_child(avatar)
 	left.add_child(lv_panel)
 
+	# A scene may opt OUT of the level badge (the board hides it — player status lives on the
+	# map). Hidden, not removed: lv_panel stays in the tree (the map's panel list + the refresh
+	# closure still reference it) and an invisible Control receives no taps.
+	lv_panel.visible = not bool(opts.get("hide_level", false))
+
 	# the standalone HOME chip, to the RIGHT of the Lv chip when requested.
 	_build_home_chip(left, opts)
 	host.add_child(left)

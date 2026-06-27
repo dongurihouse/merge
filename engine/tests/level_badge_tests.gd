@@ -197,7 +197,18 @@ func _initialize() -> void:
 		and absf(badge_rect.size.x - expected_badge_w) <= 1.0,
 		"HUD level badge uses %.0f%% screen width from the left edge (%.1f ~= %.1f)" % [
 			float(layout.get("level_w_frac", 0.25)) * 100.0, badge_rect.size.x, expected_badge_w])
+	ok(lv_slot != null and lv_slot.visible, "the level badge shows by default (the Map keeps it)")
 	align_host.free()
+
+	# --- hide_level opt: a scene (the board) can build the HUD without the level badge ---
+	var hidden_host := Control.new()
+	hidden_host.size = Vector2(1080, 1920)
+	get_root().add_child(hidden_host)
+	var hidden_hud := Hud.build(hidden_host, {"hide_level": true})
+	await process_frame
+	var hidden_slot: Control = hidden_hud.get("lv_panel") as Control
+	ok(hidden_slot != null and not hidden_slot.visible, "hide_level hides the HUD level badge")
+	hidden_host.free()
 
 	# --- _safe_tex catches degenerate imports (exists() true but load() null) ----
 	ok(Hud._safe_tex("") == null, "_safe_tex('') is null")
