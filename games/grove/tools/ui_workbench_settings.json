@@ -334,6 +334,7 @@
 		"shadow": false
 	},
 	"rush_bar": {
+		"burn": 55.0,
 		"crown_size": 76.0,
 		"gap": 18.0,
 		"height": 116.0,
