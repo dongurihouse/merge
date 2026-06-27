@@ -6,7 +6,7 @@
   "map_id": "map1_farm",
   "mask_offset": [
     0,
-    100
+    0
   ],
   "mode": "hand_drawn_regions",
   "regions": [
@@ -244,12 +244,12 @@
           1364
         ],
         [
-          940,
-          1572
+          936,
+          1671
         ],
         [
           0,
-          1574
+          1671
         ]
       ],
       "tuning": {
