@@ -584,10 +584,11 @@ func _test_rush_fx_knob_forwarding() -> void:
 	var RushFx = load("res://engine/scripts/ui/rush_fx.gd")
 	var opts: Dictionary = RushFx.from_config({"rush_fx": {"treefall_shake": 33}})
 	ok(RushFx.knob(opts, "treefall_shake") == 33, "from_config carries a saved knob the scene can read")
-	# each gated call site forwards a knob value (guards the wiring without a live grid)
+	# each gated call site forwards a knob value (guards the wiring without a live grid).
+	# merge_burst_count is no longer forwarded by the live scene — the merge burst routes through
+	# Feel.merge now (merge_burst stays a workbench-preview-only effect), so it is not in this list.
 	var src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
 	for needle in [
-		"RushFx.knob(_fx, \"merge_burst_count\")",
 		"RushFx.knob(_fx, \"score_tick_ms\")",
 		"RushFx.knob(_fx, \"score_pulse_pct\")",
 		"RushFx.knob(_fx, \"mult_pop_pct\")",
@@ -598,3 +599,6 @@ func _test_rush_fx_knob_forwarding() -> void:
 		"RushFx.knob(_fx, \"treefall_hitstop_ms\")",
 	]:
 		ok(src.find(needle) != -1, "explore_rush forwards %s" % needle)
+	# the merge impact now routes through the unified verb (gate 2 keeps low-combo merges snappy)
+	ok(src.find("Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)") != -1, "explore_rush routes the merge through Feel.merge (gate 2)")
+	ok(src.find("RushFx.merge_burst(") == -1, "explore_rush no longer calls RushFx.merge_burst in the live merge")

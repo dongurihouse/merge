@@ -15,6 +15,7 @@ const Save = preload("res://engine/scripts/core/save.gd")     # the rush-intro p
 const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")  # the run's payout, as an overlay on this board
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juice toolbox
+const Feel = preload("res://engine/scripts/ui/feel.gd")  # the unified feel verbs — merge juice routes through Feel.merge
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
@@ -573,14 +574,16 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	_mult = Explore.mult_after_merge(_mult, int(win.tier))
 	var pts := Explore.merge_points(int(win.tier), _mult)
 	Explore.add_score(pts)
-	# JUICE: the result tile squash-pops + the points float up (always); the toggleable rush_fx layer adds
-	# the leaf burst, the score / mult cell pops, and the heating combo callout.
+	# JUICE: the merge IMPACT (squash + flash + tier-escalating burst + combo-gated thunk + the real
+	# merge sound + haptic) now comes from the unified Feel.merge verb — gate 2 keeps an isolated
+	# low-combo merge snappy in the fast mode, a building streak lands a mounting thunk. The points
+	# float up (always); the toggleable rush_fx layer still adds the score / mult cell pops, the
+	# heating combo callout, and the score-tick. (merge_burst + the tier>=4 flash/hitstop + the
+	# old button_tap moved INTO Feel.merge; RushFx.merge_burst is now workbench-preview-only.)
 	var node := win.node as Control
 	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
-	FX.squash_pop(node)
+	Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)
 	FX.floating_text(self, ctr, "+%d" % pts, PARCH, 22)
-	if RushFx.on(_fx, "merge_burst"):
-		RushFx.merge_burst(self, ctr, int(win.tier), RushFx.knob(_fx, "merge_burst_count"))
 	if RushFx.on(_fx, "score_pulse"):
 		RushFx.cell_pop(_score_cell, RushFx.knob(_fx, "score_pulse_pct"))
 	if RushFx.on(_fx, "mult_pop") and _mult > pre_mult + 0.001:
@@ -591,10 +594,7 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 		else:
 			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
 	if int(win.tier) >= 4:
-		FX.flash(_board, node.position + Vector2(_cell, _cell) / 2.0, _cell)
-		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)
-		FX.hitstop(0.05)
-	Audio.play("button_tap", -3.0)
+		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)   # a Rush milestone callout (not part of the merge verb)
 	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
 	if RushFx.on(_fx, "score_tick"):
 		RushFx.score_tick(_lbl_score, Explore.score(), RushFx.knob(_fx, "score_tick_ms"))
