@@ -364,14 +364,23 @@
 	},
 	"rush_fx": {
 		"combo_heat": true,
+		"combo_heat_size": 18.0,
 		"enabled": true,
 		"merge_burst": true,
+		"merge_burst_count": 20.0,
 		"mult_pop": true,
+		"mult_pop_pct": 100.0,
 		"score_pulse": true,
+		"score_pulse_pct": 100.0,
 		"score_tick": true,
+		"score_tick_ms": 401.0,
 		"shadow": false,
 		"timer_low": true,
-		"treefall_crack": true
+		"timer_low_secs": 10.0,
+		"treefall_crack": true,
+		"treefall_debris": 18.0,
+		"treefall_hitstop_ms": 60.0,
+		"treefall_shake": 16.0
 	},
 	"settings": {
 		"row_gap": 12.0,
