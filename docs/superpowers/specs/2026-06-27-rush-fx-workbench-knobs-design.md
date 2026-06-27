@@ -61,7 +61,7 @@ Param key names in `_params["rush_fx"]` (snake_case, suffix-per-knob):
 
 Where an effect scales with a runtime quantity in-game (merge result tier, combo length), the
 knob is the **base** and the runtime bonus still applies:
-- `merge_burst`: `count = clampi(merge_burst_count + (tier - 1) * 4, 4, 40)`
+- `merge_burst`: `count = clampi(merge_burst_count + (tier - 3) * 4, 4, 40)` (anchored at tier 3 so the default 20 reproduces the old `clampi(8 + tier*4, 8, 28)` for tiers 1–5)
 - `combo_heat`: `size = clampi(combo_heat_size + combo * 3, combo_heat_size, combo_heat_size + 30)`
 The workbench demo passes representative values (tier 3, combo 6) so the preview reads richly.
 
@@ -84,7 +84,7 @@ No other callers change (defaults preserve behavior).
   from `cfg["rush_fx"]` with the default fallback (mirrors the existing boolean resolve loop).
 - Each effect fn gains the tuning it needs, sourced from the resolved opts. Signatures change
   to accept the value(s) explicitly (callers pass them):
-  - `merge_burst(host, gpos, tier, count)` → `FX.burst(host, gpos, LEAF, clampi(count + (tier-1)*4, 4, 40))`
+  - `merge_burst(host, gpos, tier, count)` → `FX.burst(host, gpos, LEAF, clampi(count + (tier-3)*4, 4, 40))`
   - `score_tick(label, to_value, ms)` → `FX.tick(label, to_value, ms / 1000.0)`
   - `cell_pop(cell, pct)` → `FX.squash_pop(cell, pct / 100.0)` (used by score_pulse + mult_pop)
   - `combo_heat(host, gpos, combo, base_size)` → size = clampi(base_size + combo*3, base_size, base_size+30)
