@@ -321,7 +321,7 @@ static func _coin_sections(refs: Dictionary) -> Array:
 	var host: Control = refs.host
 	var gems := Save.diamonds()
 	var pouch := {
-		"icon": "coin", "label": Strings.t("shop.coin.pouch_label"), "count": COIN_PACK,
+		"icon": "coin", "count": COIN_PACK,
 		"price": str(COIN_PACK_GEM_COST), "price_icon": "gem",
 		"affordable": gems >= COIN_PACK_GEM_COST,
 		"on_buy": func() -> void: _flow_coins(refs),
