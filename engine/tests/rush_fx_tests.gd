@@ -4,9 +4,6 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/rush_fx_tests.gd
 
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")
-const FX = preload("res://engine/scripts/ui/fx.gd")
-const Features = preload("res://engine/scripts/core/features.gd")
-const Save = preload("res://engine/scripts/core/save.gd")
 
 var _pass := 0
 var _fail := 0

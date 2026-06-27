@@ -28,7 +28,8 @@ const EFFECTS := [
 
 # id → default value for the per-effect intensity / feel knobs. The workbench edits these and
 # saves them into the same rush_fx config block; the game reads them via from_config + knob().
-# Defaults reproduce today's hardcoded numbers exactly (see the effect fns below).
+# Defaults match today's values; the parameterized effect fns (next task) reproduce today's feel at
+# these defaults — merge_burst matches the old curve for tiers 1–5 and runs slightly larger at 6–7.
 const KNOBS := {
 	"merge_burst_count": 20,
 	"score_tick_ms": 400,
