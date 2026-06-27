@@ -67,6 +67,56 @@ func _initialize() -> void:
 		ok(Save.coins() == coins0 + G.coin_value(902), "collecting credits the coin value (+%d)" % G.coin_value(902))
 		ok(not board_scene._focus_ring.visible, "collecting clears the focus frame")
 
+	# Producing dialog (tap generator → ⓘ): the lines a generator currently makes, drilling into each line's
+	# tier ladder. Logic (_gen_line_entries / _pop_pool_ctx) + the info-button wiring.
+	var gens: Dictionary = board_scene.board.gens
+	ok(not gens.is_empty(), "the fresh board has its anchor generator")
+	if not gens.is_empty():
+		var gcell: Vector2i = gens.keys()[0]
+		var gid: String = board_scene.board.gen_id_at(gcell)
+		var entries: Array = board_scene._gen_line_entries(gid)
+		ok(not entries.is_empty(), "the generator reports at least one currently-live line")
+		var roster_lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
+		var level: int = board_scene._quest_level()
+		var all_rostered := true
+		var all_live := true
+		var hides_gated := true
+		for e in entries:
+			if not roster_lines.has(int(e.line)):
+				all_rostered = false
+			if int(G.LINES.get(int(e.line), {}).get("min_level", 0)) > level:
+				all_live = false
+			if int(e.line) == 66:                 # Flower boxes — min_level 6, gated out at the fresh low level
+				hides_gated = false
+		ok(all_rostered, "every Producing entry is one of the generator's roster lines")
+		ok(all_live, "every Producing entry is currently live (no future min_level-gated teasers)")
+		ok(hides_gated, "a future min_level-gated line stays hidden until the player reaches it")
+		# in_pool must match the live pop pool exactly — the dialog highlight is what a tap would spawn now.
+		var pool: Array = board_scene._pop_pool_ctx()["pool"]
+		var pool_match := true
+		for e in entries:
+			if bool(e.in_pool) != pool.has(int(e.line)):
+				pool_match = false
+		ok(pool_match, "Producing in_pool flags match the live pop pool exactly")
+		# seen/code: a wholly-unseen line carries no piece (code 0); marking its tier-1 lights it with that code.
+		var probe := int(entries[0].line)
+		var g := Save.grove()
+		g["seen"] = {}
+		ok(int(board_scene._gen_line_entries(gid)[0].code) == 0, "an unseen line carries no representative piece (code 0)")
+		g["seen"][str(probe * 100 + 1)] = true
+		var lit: Array = board_scene._gen_line_entries(gid)
+		ok(bool(lit[0].seen) and int(lit[0].code) == probe * 100 + 1, "a seen line shows its lowest-seen tier piece")
+		# wiring: selecting the generator enables ⓘ, and ⓘ opens the Producing overlay (feature is on).
+		board_scene._select_generator(gcell)
+		ok(not board_scene._info_btn.disabled, "selecting a generator enables the info button")
+		board_scene._on_info_pressed()
+		await process_frame
+		ok(board_scene.get_node_or_null("GenLinesOverlay") != null, "the info button opens the Producing dialog overlay")
+		var ov: Node = board_scene.get_node_or_null("GenLinesOverlay")
+		if ov != null:
+			ov.queue_free()
+		board_scene._clear_selection()
+
 	# Watchdog: a stuck `animating` gate must self-heal so board taps can never soft-lock. Force the
 	# gate true and confirm it clears within the watchdog window; a brief gate (a normal merge) must NOT.
 	board_scene.animating = true

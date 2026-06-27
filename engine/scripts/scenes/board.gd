@@ -24,6 +24,7 @@ const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
+const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
@@ -535,6 +536,34 @@ func _mark_seen(code: int) -> void:
 # [{tier, code, seen}] for a line's full ladder (pure — tests use it directly).
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
+
+# [{line, seen, in_pool, code}] for the Producing dialog — one entry per line a generator can CURRENTLY make
+# (its roster `lines`, minus any still gated out by min_level). `in_pool` flags the lines the live pop pool
+# would spawn right now (the gold marked ring); `seen`/`code` carry the lowest-seen tier so a discovered line
+# shows its piece and an unseen one falls to the locked "?" well. Pure off the save + roster (tests use it).
+func _gen_line_entries(gid: String) -> Array:
+	var lines: Array = G.gen_def(G.GENERATORS, gid).get("lines", [])
+	var level := _quest_level()
+	var seen: Dictionary = Save.grove().get("seen", {})
+	var pool: Array = _pop_pool_ctx()["pool"]
+	var out: Array = []
+	for l in lines:
+		var line := int(l)
+		# a line still gated by min_level isn't producible yet — leave it off the dialog (no future teasers).
+		if int(G.LINES.get(line, {}).get("min_level", 0)) > level:
+			continue
+		var code := _lowest_seen_code(line, seen)
+		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
+	return out
+
+# The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
+# if the line is wholly unseen. Pure off the seen set.
+func _lowest_seen_code(line: int, seen: Dictionary) -> int:
+	for t in range(1, G.TOP_TIER + 1):
+		var code := line * 100 + t
+		if seen.has(str(code)):
+			return code
+	return 0
 
 # water regen rule lives in BoardLogic; apply the returned state to ours
 func _apply_regen(now: float) -> void:
@@ -1958,9 +1987,17 @@ func _on_info_pressed() -> void:
 	if _selected_cell.x < 0:
 		return
 	if board.is_gen(_selected_cell):
-		var lines: Array = G.gen_def(G.GENERATORS, board.gen_id_at(_selected_cell)).get("lines", [])
-		if not lines.is_empty():
-			_open_ladder(int(lines[0]), 1)
+		if not Features.on("discovery_ladder"):
+			return                                # the drill-down opens tier ladders, gated by the same flag
+		var entries := _gen_line_entries(board.gen_id_at(_selected_cell))
+		if entries.is_empty():
+			return
+		# the Producing dialog lists what this generator currently makes; tapping a line drills into its ladder
+		# (opened on top — closing it returns here). The dialog STAYS open behind the ladder.
+		GenLines.open(self, {
+			"entries": entries,
+			"on_line": func(line: int) -> void: _open_ladder(line, 1),
+		})
 		return
 	var code := board.item_at(_selected_cell)
 	if code <= 0:
@@ -2255,6 +2292,24 @@ func _snap_back(from: Vector2i, node: Control) -> void:
 
 # --- actions ---------------------------------------------------------------------
 
+# The CURRENT pop pool (and the wanted/giver context it derives from) — the single source of truth shared by
+# the burst-pop (_pop_seed) and the Producing dialog, so the dialog's highlighted lines are exactly what a tap
+# would spawn right now. SINGLE-GENERATOR model (idea 3.2): the pool is the WANTED (quested) lines drawn from
+# the all-opened askable set, capped to pop_line_cap distinct lines (falling back to the full opened set when
+# no quest is poppable). Returns {pool, wanted, giver_quests}.
+func _pop_pool_ctx() -> Dictionary:
+	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
+	var giver_quests: Array = []
+	for e in giver_chips:
+		if int(e.qi) >= 0 and int(e.qi) < quests.size():
+			giver_quests.append(quests[int(e.qi)])
+	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
+	var pool: Array = wanted if not wanted.is_empty() else opened
+	var line_cap := G.pop_line_cap(_quest_map())   # staged: 2 on the zone-1 board, 3 from zone 2
+	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
+		pool = pool.slice(0, line_cap)
+	return {"pool": pool, "wanted": wanted, "giver_quests": giver_quests}
+
 func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	if cell.x < 0:                            # default: the first live generator (tests / FTUE / no-arg)
 		if board.gens.is_empty():
@@ -2295,16 +2350,10 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 	# ask any opened line, but the generator pops what's asked). Restricting pops to wanted keeps the
 	# board mergeable no matter how many lines have opened (a 24-line opened set would otherwise scatter
 	# un-mergeable singletons and jam). Fall back to the full opened set only when no quest is poppable.
-	var opened: Array = G.askable_lines(G.GENERATORS, _quest_map(), _quest_level())
-	var giver_quests: Array = []
-	for e in giver_chips:
-		if int(e.qi) >= 0 and int(e.qi) < quests.size():
-			giver_quests.append(quests[int(e.qi)])
-	var wanted: Array = BoardLogic.wanted_lines(opened, giver_quests)
-	var pool: Array = wanted if not wanted.is_empty() else opened
-	var line_cap := G.pop_line_cap(_quest_map())   # staged: 2 on the zone-1 board, 3 from zone 2
-	if pool.size() > line_cap:                # keep the board mergeable: pop at most line_cap distinct lines
-		pool = pool.slice(0, line_cap)
+	var ctx := _pop_pool_ctx()
+	var pool: Array = ctx["pool"]
+	var wanted: Array = ctx["wanted"]
+	var giver_quests: Array = ctx["giver_quests"]
 	# §6 spawn tier-bias is OFF by default (G.ASK_TIER_WEIGHT = 0, owner pacing dial) — skip the dict then.
 	var wanted_t: Dictionary = BoardLogic.wanted_tiers(pool, giver_quests) if G.ASK_TIER_WEIGHT > 0.0 else {}
 	var g := Save.grove()

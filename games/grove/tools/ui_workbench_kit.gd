@@ -2993,6 +2993,10 @@ static func _discovery_cell(d: Dictionary, opts: Dictionary) -> Control:
 		sd["content"] = d.get("node")
 	elif seen and String(d.get("icon", "")) != "":
 		sd["icon"] = String(d.get("icon"))
+	# a tappable discovery cell (the Producing dialog's line cells drill into that line's tier ladder) —
+	# slot_cell makes a FILLED cell a Button when on_tap is valid; a locked (unseen) cell ignores it.
+	if d.get("on_tap") is Callable and (d.get("on_tap") as Callable).is_valid():
+		sd["on_tap"] = d.get("on_tap")
 	var cell := slot_cell(sd, opts)
 	if bool(opts.get("show_num", true)):
 		var tier := int(d.get("tier", 0))
