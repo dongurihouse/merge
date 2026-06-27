@@ -51,16 +51,18 @@ const LINES := {
 	52: {"name": "Bells", "base": "gate_bells", "color": Color("#D9B84F")},
 	53: {"name": "Arch tokens", "base": "gate_arch_tokens", "color": Color("#B0A48F")},
 	54: {"name": "Star pebbles", "base": "gate_star_pebbles", "color": Color("#7B6BD9")},
-	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). STAGED via `min_level`:
-	# the FTUE map's board is tiny early, so 6 extra lines live from L1 jam it. min_level keeps each line
-	# off the askable/pop set until the player's level reaches it (the single anchor still emits them — no
-	# extra generator), so the Farm content "grows in" once the board has opened. (askable_lines gate.)
-	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F")},
-	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A")},
-	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9")},
-	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A")},
-	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B")},
-	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3")},
+	# map idx 0 — The Farm (farmhouse), alongside the Wildflower anchor (line 1). WIRED onto the seed_satchel
+	# anchor (the single generator emits them — no extra generator) and STAGED via `min_level`: the FTUE
+	# board is tiny early, so all 6 live from L1 would jam it. min_level keeps each line off the askable/pop
+	# set until the player's level reaches it. Hearth embers (61) is min_level 1 — LIVE at L1, the board's
+	# SECOND starting line (its starters seed the open 3x3, see STARTER_ITEMS); the rest "grow in" one per
+	# level across L2–6, all live by L6 (before the Barn opens ~L8). (askable_lines gate; see lines_for_map.)
+	61: {"name": "Hearth embers", "base": "hearth_ember", "color": Color("#E08A4F"), "min_level": 1},
+	62: {"name": "Kitchen herbs", "base": "kitchen_herbs", "color": Color("#6BA85A"), "min_level": 2},
+	63: {"name": "Well water", "base": "well_water", "color": Color("#5FA6C9"), "min_level": 3},
+	64: {"name": "Larder provisions", "base": "larder_provisions", "color": Color("#C9A24A"), "min_level": 4},
+	65: {"name": "Porch packages", "base": "porch_packages", "color": Color("#B0784B"), "min_level": 5},
+	66: {"name": "Flower boxes", "base": "flower_boxes", "color": Color("#D98BA3"), "min_level": 6},
 	# §6.D special "treasure" lines (#3) — the premium fruit chains, emitted ONLY by temp treat generators
 	# (TREAT_LINES below), never the main pool. 12 tiers each, sliced from _originals/items/special_*.
 	71: {"name": "Prize pumpkin", "base": "special_pumpkin", "color": Color("#E0832F")},
@@ -82,8 +84,9 @@ const LINES := {
 # the icon repaint is PARKED; the intended replacements are gen_honeycomb (Honey) and gen_porcini
 # (Mushroom), kept in items/generator/. Tool-shed (Garden tools) has no themed icon yet.
 const GENERATORS := [
-	# map 1 — Farmhouse: Wildflower. The ANCHOR — live from the first second.
-	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1], "grant_from": "", "anchor": true,
+	# map 1 — Farmhouse: Wildflower + the staged Farm content lines (61-66, min_level-gated). The ANCHOR —
+	# live from the first second; emits line 1 from L1, then each Farm line grows in at its min_level.
+	{"id": "seed_satchel", "map": 0, "cell": Vector2i(4, 3), "lines": [1, 61, 62, 63, 64, 65, 66], "grant_from": "", "anchor": true,
 		"tex": "items/generator/gen_wildflowers.png", "label": "seeds"},
 	# map 2 — Barn: Feather.
 	{"id": "hen_coop", "map": 1, "cell": Vector2i(2, 1), "lines": [2, 21, 22, 23, 24], "grant_from": "",
@@ -215,11 +218,15 @@ static func resident_lines(map_id: String) -> Array:
 
 # BACKLOG (post-v1): premium 💎 surprise-capsule (no-loss, cosmetic, guardrails) — see grove_spec §1.
 
-# Starter items on the open 3x3 (besides the generator cell).
+# Starter items on the open 3x3 (besides the generator cell). The board OPENS with TWO live Farmhouse
+# lines so there is merge fuel for both from the first second: Wildflower (1, the anchor) and Hearth
+# embers (61, the first staged Farm line — min_level 1, so live at L1). Both are popped + quested from the
+# start; neither is premature. (Earlier this seeded Feather (line 2), the BARN anchor — not askable until
+# map 2 — so those starters sat dead the whole first map; replaced by a real L1 Farmhouse line.)
 const STARTER_ITEMS := {
 	Vector2i(3, 2): 101, Vector2i(3, 4): 101,
-	Vector2i(5, 2): 201, Vector2i(5, 4): 201,
-	Vector2i(4, 2): 101, Vector2i(4, 4): 201,
+	Vector2i(5, 2): 6101, Vector2i(5, 4): 6101,
+	Vector2i(4, 2): 101, Vector2i(4, 4): 6101,
 }
 
 
@@ -293,8 +300,8 @@ const SPECIAL_ITEMS := {
 # chance to also shake loose a special item (alongside the coin drop), a t1 of a weighted-random kind.
 # Tap-collect grants the resource (water/acorn/exp) per tier; a CHEST is opened by dragging a KEY onto it
 # (consumes both) for a coins+acorns payout that scales with BOTH the chest and the key tier.
-const SPECIAL_DROP_RATE := 0.04           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10
-const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 2, 13: 1, 14: 2, 15: 1}   # chest·key·water·acorn·exp·wildcard (wildcard scarce)
+const SPECIAL_DROP_RATE := 0.02           # P(a merge also drops a special item); cf COIN_DROP_RATE 0.10 (sim-tuned down — drops fed too much water/exp)
+const SPECIAL_DROP_WEIGHTS := {10: 1, 11: 1, 12: 1, 13: 1, 14: 1, 15: 1}   # chest·key·water·acorn·exp·wildcard (flat — water/exp no longer double-weighted, they over-fed the faucets)
 const SPECIAL_COLLECT := {                 # tap-collect amount per tier for the resource kinds
 	"water": {1: 8, 2: 20, 3: 50},
 	"acorn": {1: 1, 2: 2, 3: 5},
@@ -311,10 +318,10 @@ const KEY_TIER_MULT := [1.0, 1.0, 1.5, 2.0]         # index by key tier (1/2/3) 
 # caps keep them a CHECK-IN reward, never a self-sustaining faucet (§4 energy law; the exp one kept modest
 # vs the pacing clock). PROVISIONAL — sim/owner-tuned. Art at `tex` (already wired).
 const ACCUMULATORS := {
-	"water": {"id": "acc_water", "tex": "items/generator/gen_rainbarrel.png", "cap": 8, "secs": 600, "value": 5, "unlock_spot": 0},
-	"coins": {"id": "acc_coins", "tex": "items/generator/gen_coinpress.png", "cap": 8, "secs": 600, "value": 15, "unlock_spot": 1},
-	"exp":   {"id": "acc_exp", "tex": "items/generator/gen_crystalfont.png", "cap": 6, "secs": 900, "value": 6, "unlock_spot": 2},
-	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 4, "secs": 1800, "value": 1, "unlock_spot": 3},
+	"water": {"id": "acc_water", "tex": "items/generator/gen_rainbarrel.png", "cap": 2, "secs": 3600, "value": 2, "unlock_spot": 0},
+	"coins": {"id": "acc_coins", "tex": "items/generator/gen_coinpress.png", "cap": 5, "secs": 1800, "value": 8, "unlock_spot": 1},
+	"exp":   {"id": "acc_exp", "tex": "items/generator/gen_crystalfont.png", "cap": 4, "secs": 3600, "value": 1, "unlock_spot": 2},
+	"acorn": {"id": "acc_acorn", "tex": "items/generator/gen_acornmill.png", "cap": 3, "secs": 7200, "value": 1, "unlock_spot": 3},
 }
 
 # §6.D TEMPORARY TREAT GENERATORS — the main generator occasionally pops one out; it pops a burst of a
@@ -322,12 +329,13 @@ const ACCUMULATORS := {
 # a head-start tier, for a random number of taps, then VANISHES. Scarce + fleeting (grab it before it's
 # gone), no water cost. The treat items merge + sell (the Farm lines carry the later-map sell band), and
 # each treat tap also showers a §6.B special drop. PROVISIONAL — sim/owner-tuned.
-const TREAT_SPAWN_CHANCE := 0.03          # P(a main-generator tap also spawns a temp treat generator)
+const TREAT_SPAWN_CHANCE := 0.02          # P(a main-generator tap also spawns a temp treat generator) — sim-tuned down (treats fed too much water/exp)
 const TREAT_CLICKS := [4, 9]              # the random tap budget a temp generator lasts [min, max]
 # Every premium treat line — sells at TREAT_SELL_BAND and is a valid treat-drop target. The 5 fruit
-# treasures are the per-map ACTIVE specials (MAP_TREAT_LINE below); the Farm lines are reserve premium
-# content (defined + art-ready), assigned to a map when the world grows past map 4.
-const TREAT_LINES := [71, 72, 73, 74, 75, 61, 62, 63, 64, 65, 66]
+# treasures are the per-map ACTIVE specials (MAP_TREAT_LINE below). (The Farm lines 61-66 USED to sit here
+# as reserve treat content; they were moved into the main pool — wired onto the seed_satchel anchor and
+# staged via min_level — so they are normal Farmhouse content now, NOT treats. Sell at the map band.)
+const TREAT_LINES := [71, 72, 73, 74, 75]
 # §6.D / idea 4.1 — the ONE special treasure line each map's treat generator pops, indexed by map:
 # Farm→Prize pumpkin · Orchard→Golden banana · Pond Garden→Jewel avocado · Mill→Ruby cherry ·
 # Meadow Gate→Sugar melon. Its themed icon falls out of TREAT_GEN_TEX[map] (same order).

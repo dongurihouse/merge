@@ -157,6 +157,8 @@ var _hud_refresh: Callable = Callable() # ticks the shared wallet + re-syncs the
 var bottom_bar: Control          # the board bottom bar row (Home · info bar · Bag+count)
 var _action_bar_relayout_queued := false
 var _last_action_bar_view_size := Vector2.ZERO
+var _board_reflow_queued := false           # debounce for the board-grid reflow on a window resize
+var _last_board_view_size := Vector2.ZERO
 
 var _press_cell := Vector2i(-1, -1)
 var _press_pos := Vector2.ZERO
@@ -220,32 +222,14 @@ func _ready() -> void:
 	# above the board; the leftover meadow falls below toward the bottom nav.
 	center.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	root.add_child(center)
+	_board_center = center
 	board_area = Control.new()
-	# the board fills the screen side to side (owner); on wide screens the
-	# HEIGHT budget binds instead so the fence/bag rows always fit
-	var view := _view_size()
-	var initial_bottom_btn_px := _bottom_button_px()
-	var initial_bottom_bar_h := _bottom_bar_h_px(initial_bottom_btn_px)
-	var default_bottom_bar_h := maxf(BOTTOM_BAR_H, roundf(view.x * 0.15) + BOTTOM_BAR_PAD)
-	var reserved_rows_h := 536.0 + (_fence_h - FENCE_H) + (initial_bottom_bar_h - default_bottom_bar_h)
 	# pick up any saved UI-Workbench board design (gap / frame / scale / item) BEFORE the fit is computed,
 	# so the gutter + frame budgets and the final cell size all reflect it. Absent → today's defaults.
 	_load_board_config()
-	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the
-	# frame + last column never run off-screen (the prior calc sized only the cells → overflow).
-	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
-	# the grid pins directly under the quest fence now (the wood-branch divider band is retired),
-	# so the height budget reserves only the frame overhang + the fence/nav rows.
-	var board_frame_h := _board_frame_h_px()
-	var h_budget := board_frame_h if board_frame_h > 0.0 else view.y - reserved_rows_h
-	var h_csz := (h_budget - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
-	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within the available space — the
-	# in-game "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
-	csz = maxf(1.0, h_csz) if board_frame_h > 0.0 else minf(w_csz, h_csz) * _board_scale
-	# The bamboo frame overhangs the grid by FRAME_OUT on all sides. Reserve that real
-	# visual footprint in the VBox so the frame no longer intrudes into the giver cards.
-	center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
-	board_area.custom_minimum_size = Vector2(_board_w(), _board_h())
+	# size the cells + quest band to the current viewport. WIDTH-governed (see _recompute_board_geometry);
+	# recomputed again on a live window resize so a resized desktop window reflows instead of clipping.
+	_recompute_board_geometry()
 	board_area.gui_input.connect(_on_board_input)
 	center.add_child(board_area)
 
@@ -255,7 +239,6 @@ func _ready() -> void:
 	# The quest fence + the board carry an optional saved vertical nudge (board_layout.json).
 	# Applied AFTER the VBox lays out, per sort, so the offsets are independent and the responsive
 	# layout is untouched. No file / 0 → identical render.
-	_board_center = center
 	_load_placement()
 	root.sort_children.connect(_apply_placement)
 
@@ -273,8 +256,8 @@ func _ready() -> void:
 	bar.anchor_bottom = 1.0
 	bar.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	var sb_inset := Look.safe_bottom(self)
-	var bottom_btn_px := initial_bottom_btn_px
-	var bottom_bar_h := initial_bottom_bar_h
+	var bottom_btn_px := _bottom_button_px()
+	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
 	var action_opts := _action_bar_opts()
 	bar.offset_left = 0.0
 	bar.offset_right = _view_size().x
@@ -294,8 +277,11 @@ func _ready() -> void:
 	_rebuild_action_bar_row(row, bottom_btn_px, action_opts, bottom_bar_h, false)
 	if get_viewport() != null:
 		_last_action_bar_view_size = get_viewport_rect().size
+		_last_board_view_size = get_viewport_rect().size
 		if not get_viewport().size_changed.is_connected(_on_action_bar_viewport_resized):
 			get_viewport().size_changed.connect(_on_action_bar_viewport_resized)
+		if not get_viewport().size_changed.is_connected(_on_board_viewport_resized):
+			get_viewport().size_changed.connect(_on_board_viewport_resized)
 
 	_build_hud()
 	_build_water_hud()
@@ -313,6 +299,17 @@ func _ready() -> void:
 		Audio.play("rain_refill" if Audio.has("rain_refill") else "level_complete", -3.0)
 
 	Debug.mount(self)                    # debug/authoring panel (no-op in prod)
+
+func debug_refresh_weather() -> void:
+	var insert_at := get_child_count()
+	for child in get_children():
+		if child.name == "WeatherLayer":
+			insert_at = mini(insert_at, child.get_index())
+			remove_child(child)
+			child.queue_free()
+	var weather := Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	add_child(weather)
+	move_child(weather, mini(insert_at, get_child_count() - 1))
 
 # After a quiet spell, a pair that can merge wiggles to show the next step
 # (owner: ~5-10s of inactivity). Re-nudges gently while the player stays idle.
@@ -345,6 +342,64 @@ func _board_w() -> float:
 
 func _board_h() -> float:
 	return G.ROWS * csz + (G.ROWS - 1) * GAP
+
+# Size the cell grid + quest band to the CURRENT viewport, and resize the board containers to match.
+# Shared by the initial build and the live window-resize reflow so the two can never drift. The board
+# is WIDTH-governed: square cells fill the screen width (w_csz); the height budget (h_csz) is only a
+# CAP so on wide/short screens the board never grows past the vertical budget into the quest/bottom
+# rows. Assumes _load_board_config() has already loaded GAP / FRAME_OUT / _board_scale.
+func _recompute_board_geometry() -> void:
+	_fence_h = _quest_row_h_px()
+	if giver_bar != null and is_instance_valid(giver_bar):
+		giver_bar.custom_minimum_size = Vector2(0, _fence_h)
+	var view := _view_size()
+	var bottom_bar_h := _bottom_bar_h_px(_bottom_button_px())
+	# Reserve the REAL height of everything stacked around the grid, so the board is capped to the
+	# space that actually remains. Both the quest fence and the bottom bar GROW on wide screens; an
+	# earlier fixed baseline under-counted them there and the grid ran under the bottom bar (clipped).
+	# From the top: the HUD spacer (BOARD_STACK_TOP_SPACER + safe top), then the quest fence, then the
+	# grid, with the VBox's 10px separation between each; the bottom bar floats 14px + safe-bottom above
+	# the screen edge. BOARD_BREATHING keeps the grid from kissing the fence / bar.
+	const VBOX_SEP := 10.0
+	const BOARD_BREATHING := 12.0
+	var reserved_rows_h := BOARD_STACK_TOP_SPACER + Look.safe_top(self) + VBOX_SEP \
+		+ _fence_h + VBOX_SEP \
+		+ bottom_bar_h + 14.0 + Look.safe_bottom(self) + BOARD_BREATHING
+	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the frame +
+	# last column never run off-screen (the prior calc sized only the cells → overflow).
+	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (G.COLS - 1) * GAP) / float(G.COLS)
+	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (G.ROWS - 1) * GAP) / float(G.ROWS)
+	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within that space — the in-game
+	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
+	csz = minf(w_csz, h_csz) * _board_scale
+	# The frame overhangs the grid by FRAME_OUT on all sides — reserve that real footprint in the VBox.
+	if _board_center != null and is_instance_valid(_board_center):
+		_board_center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)
+	if board_area != null and is_instance_valid(board_area):
+		board_area.custom_minimum_size = Vector2(_board_w(), _board_h())
+
+# The desktop window can be resized after launch (a real device's screen is fixed, so this never
+# fires there). Recompute the cell size + quest band for the new viewport and re-lay the grid, so the
+# board reflows instead of clipping. Debounced + coalesced via call_deferred, like the action bar.
+func _on_board_viewport_resized() -> void:
+	if _board_reflow_queued:
+		return
+	_board_reflow_queued = true
+	_reflow_board_after_resize.call_deferred()
+
+func _reflow_board_after_resize() -> void:
+	_board_reflow_queued = false
+	if board == null or get_viewport() == null or not is_inside_tree():
+		return
+	var sz := get_viewport_rect().size
+	if sz == _last_board_view_size:
+		return
+	# don't yank a piece out from under an in-flight drag; the next resize tick will catch up.
+	if _drag_node != null or animating:
+		return
+	_last_board_view_size = sz
+	_recompute_board_geometry()
+	_rebuild_all()   # re-lays the slots, pieces, generators and giver cards at the new cell size
 
 # --- board design (tools/ui_workbench — the "board" element) --------------------------
 # Pull the optional saved board design out of the UI-Workbench settings. Board layout owns the gutter,
@@ -394,7 +449,15 @@ func _apply_placement() -> void:
 	if giver_bar != null:
 		giver_bar.position.y += _place_fence_dy * h
 	if _board_center != null:
-		_board_center.position.y += _place_board_dy * h
+		var dy := _place_board_dy * h
+		# The saved nudge is a fraction of viewport height, tuned at the design aspect. On wide/short
+		# screens the grid is already height-capped, so the raw downward nudge would shove its bottom
+		# rows under the floating bottom bar (the reported clip). Cap a DOWNWARD nudge to the room that
+		# actually remains above the bar; an upward nudge is left free.
+		if dy > 0.0 and bottom_bar != null and is_instance_valid(bottom_bar):
+			var room := bottom_bar.get_global_rect().position.y - _board_center.get_global_rect().end.y
+			dy = minf(dy, maxf(0.0, room - 8.0))
+		_board_center.position.y += dy
 
 # --- state ----------------------------------------------------------------------
 
@@ -1455,17 +1518,6 @@ func _bottom_bar_h_px(bottom_btn_px: float) -> float:
 		return fallback
 	return maxf(bottom_btn_px, roundf(_view_size().y * frac))
 
-func _board_frame_h_px() -> float:
-	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
-	if Kit == null:
-		return 0.0
-	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
-	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-	if not h.has("board_h_pct"):
-		return 0.0
-	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
-	return maxf(1.0, roundf(_view_size().y * float(layout.get("board_h_frac", 0.0))))
-
 func _quest_row_h_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
 	if Kit == null:
@@ -1475,7 +1527,14 @@ func _quest_row_h_px() -> float:
 	if not h.has("quest_bar_h_pct"):
 		return FENCE_H
 	var layout: Dictionary = Kit.hud_layout_opts_from_config(cfg)
-	return maxf(1.0, roundf(_view_size().y * float(layout.get("quest_bar_h_frac", FENCE_H / maxf(1.0, _view_size().y)))))
+	# The quest cards are 4-across the FULL screen width, so their width scales with view.x. The band
+	# height must scale with view.x too or the cards distort on off-design aspects. The saved
+	# quest_bar_h_pct is a %-of-HEIGHT knob at the design aspect; convert it to the matching %-of-WIDTH
+	# so the design-aspect look is identical and wider/narrower screens scale the band proportionally.
+	var design := Design.size()
+	var aspect := design.y / maxf(1.0, design.x)
+	var frac := float(layout.get("quest_bar_h_frac", FENCE_H / maxf(1.0, design.y)))
+	return maxf(1.0, roundf(_view_size().x * frac * aspect))
 
 func _info_bar_w_px() -> float:
 	var Kit: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")

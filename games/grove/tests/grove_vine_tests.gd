@@ -351,8 +351,9 @@ func _test_map_card_zone_progress() -> void:
 	get_root().add_child(card)
 	await create_timer(0.05).timeout
 	# Track the live region geometry instead of a magic number: the picker pill reports restore
-	# progress as zones-minus-the-one-base-region, so an edit in the vine tool shifts the total.
-	var expected_total := maxi(0, int(G.MAPS[G.hub_map()].spots.size()) - 1)
+	# progress over EVERY vine region (one zone per region, no phantom base-region subtraction), so
+	# an edit in the vine tool shifts the total.
+	var expected_total := maxi(0, int(G.MAPS[G.hub_map()].spots.size()))
 	ok(_has_label_text(card, "0/%d" % expected_total), "fresh map card shows unlocked zone progress as 0/%d" % expected_total)
 	ok(not _any_label_contains(card, "exp"), "fresh map card progress pill no longer shows total exp")
 	card.queue_free()

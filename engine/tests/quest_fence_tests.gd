@@ -113,7 +113,7 @@ func _initialize() -> void:
 	# --- item codes, line*100+tier) — a HARD exclusion (the same item-code avoid set the concurrent-fence
 	# --- stands use). When the item pool is too small to honour the whole window it relaxes the OLDEST
 	# --- asks first, never the freshest. A different TIER of the same line still counts as variety. ---
-	var pool := G.askable_lines(G.GENERATORS, 0, 99)
+	var pool := G.askable_lines(G.GENERATORS, 0, 6)   # level 6 — MATCH the refill level below (map-0 lines are min_level-staged, so the pool grows with level)
 	if pool.size() >= 2:
 		# target the newest line at its tier-bell centre (the most-asked item) so the free count is non-zero
 		var fence_hi := clampi(int(G.QUEST_TIER_BASE) + int(6 / float(G.QUEST_LEVELS_PER_TIER)), int(G.QUEST_TIER_BASE), int(G.TOP_TIER))
@@ -137,9 +137,9 @@ func _initialize() -> void:
 		var rd2 := RandomNumberGenerator.new(); rd2.seed = 9
 		ok(str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd1, [rl_target])) == str(Quests.refill([], 0, {}, [], {}, [], 0, 6, rd2, [rl_target])), "refill stays deterministic with a recent-items window")
 
-	# --- NO TWO IN A ROW on the smallest real pool: map-0 has just 2 lines, so the recent window (5)
-	# --- is bigger than the early item pool. Priority relaxation must still keep CONSECUTIVE asks
-	# --- distinct (the bug: the old soft fallback repeated). A rolling window mirrors board.gd. ---
+	# --- NO TWO IN A ROW on a tiny pool: a 2-line pool is smaller than the recent window (5), so
+	# --- priority relaxation must still keep CONSECUTIVE asks distinct (the bug: the old soft fallback
+	# --- repeated). Uses a fixed 2-line pool to model the early FTUE board. Mirrors board.gd's window. ---
 	var small_lines := [1, 2]
 	for lvl in [0, 1, 4, 8]:
 		var rr := RandomNumberGenerator.new(); rr.seed = 99 + lvl

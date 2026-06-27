@@ -31,6 +31,27 @@ func _initialize() -> void:
 	for l in Z0_LINES:
 		ok(z0.has(l), "map-0 askable includes its own line %d" % l)
 
+	# --- map 0 ALSO emits the Farm content lines (61-66), WIRED onto the seed_satchel anchor and STAGED
+	# via min_level so the tiny FTUE board grows in gradually. Hearth embers (61) is LIVE at L1 (the board's
+	# 2nd starting line); the rest grow in across L2–6, all live by L6 — before the Barn opens. ---
+	var farm_lines := [61, 62, 63, 64, 65, 66]
+	var z0_hi := G.askable_lines(G.GENERATORS, 0, 99)
+	var all_farm_hi := true
+	for fl in farm_lines:
+		if not z0_hi.has(int(fl)):
+			all_farm_hi = false
+	ok(all_farm_hi, "map-0 pool includes all 6 Farm lines (61-66) at high level")
+	# the board OPENS with TWO live lines: the anchor (1) + Hearth embers (61, min_level 1)
+	var z0_l1 := G.askable_lines(G.GENERATORS, 0, 1)
+	ok(z0_l1.has(1) and z0_l1.has(61), "map-0 starts with 2 live lines at L1: Wildflower(1) + Hearth embers(61)")
+	ok(not z0_l1.has(62), "the next Farm line (62) is still gated out at L1 (staged)")
+	var z0_l6 := G.askable_lines(G.GENERATORS, 0, 6)
+	var all_farm_l6 := true
+	for fl in farm_lines:
+		if not z0_l6.has(int(fl)):
+			all_farm_l6 = false
+	ok(all_farm_l6, "all 6 Farm lines are live by L6 (staged in before the Barn opens)")
+
 	# --- past map 0, the map-0 line(s) STAY askable (the single anchor pops every opened line) ---
 	for z in range(1, G.MAPS.size()):
 		var ask := G.askable_lines(G.GENERATORS, z)

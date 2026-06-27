@@ -267,7 +267,7 @@ func _initialize() -> void:
 	var secs: float = float(G.ACCUMULATORS["water"]["secs"])
 	var capn: int = int(G.ACCUMULATORS["water"]["cap"])
 	ok(G.accumulator_banked("water", 0.0, 9999.0) == 0, "an un-started accumulator banks nothing")
-	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 3.0) == 3, "banks +1 per interval since last collect")
+	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 3.0) == mini(3, capn), "banks +1 per interval since last collect (capped)")
 	ok(G.accumulator_banked("water", 1000.0, 1000.0 + secs * 1000.0) == capn, "banking is capped at the small cap")
 	ok(G.accumulator_full("water", 1000.0, 1000.0 + secs * 1000.0), "accumulator_full flags the at-cap state")
 	# collect reward = banked × per-unit value

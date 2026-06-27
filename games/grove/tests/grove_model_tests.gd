@@ -163,7 +163,7 @@ func _initialize() -> void:
 	for cell in G.STARTER_ITEMS:
 		var k: int = G.STARTER_ITEMS[cell]
 		counts[k] = int(counts.get(k, 0)) + 1
-	ok(int(counts.get(101, 0)) >= 2 and int(counts.get(201, 0)) >= 2, "starters give each line a pair")
+	ok(int(counts.get(101, 0)) >= 2 and int(counts.get(6101, 0)) >= 2, "starters give each of the 2 L1 lines (Wildflower 101 + Hearth embers 6101) a pair")
 
 	# 9. exp total (Save) — the single progression number (no spendable balance)
 	fresh("exp")

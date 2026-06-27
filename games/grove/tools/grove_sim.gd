@@ -33,6 +33,7 @@ extends SceneTree
 
 const G = preload("res://engine/scripts/core/content.gd")
 const BoardModel = preload("res://engine/scripts/core/board_model.gd")
+const SESSION_GAP_SECS := 8 * 3600   # ~3 sessions/day → ~8h between check-ins; sets how full each §6.C accumulator banks
 
 var rng := RandomNumberGenerator.new()
 var board: BoardModel
@@ -336,7 +337,8 @@ func _earn_exp(amount: int) -> void:
 		var up := _level() - lvl_b
 		water = mini(_session_cap, water + G.LEVEL_WATER_GIFT * up)
 		level_gift_water += G.LEVEL_WATER_GIFT * up
-		map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
+		if map < G.MAPS.size():     # don't attribute gift to the post-completion phantom map (no spend there → false I2 fail)
+			map_gift[map] = int(map_gift.get(map, 0)) + G.LEVEL_WATER_GIFT * up
 		diamonds += G.LEVEL_DIAMONDS * up
 		gems_from_levels += G.LEVEL_DIAMONDS * up
 
@@ -351,7 +353,9 @@ func _collect_accumulators() -> int:
 		if not G.accumulator_unlocked(String(kind), unlocks):
 			continue
 		var cap := int(G.ACCUMULATORS[kind].get("cap", 0))
-		var amount := int(G.accumulator_reward(String(kind), cap).amount)
+		var secs := maxi(1, int(G.ACCUMULATORS[kind].get("secs", 1)))
+		var banked := mini(cap, int(SESSION_GAP_SECS / secs))   # banks min(cap, gap/secs) between check-ins
+		var amount := int(G.accumulator_reward(String(kind), banked).amount)
 		match String(kind):
 			"water":
 				bonus_water += amount
@@ -711,12 +715,15 @@ func _play_session() -> Dictionary:
 		# 6. pop — one tap throws a BURST (§6): burst_count items (scales with map + the live boost),
 		# each costing G.POP_COST, bounded by affordable energy + open cells. A charged tap spends one
 		# boost tap (the boost is global and decays one tap at a time, then lapses).
-		if water >= G.POP_COST and not board.empty_ground_cells().is_empty() and map < G.MAPS.size():
+		# pop only with working ROOM — a real player never bursts into a near-full board (that just floods it
+		# into a singleton lockout). Leave a 2-cell margin; surplus water the board can't absorb is left
+		# UNSPENT (a realistic "energy I can't use right now"), never forced into a jam.
+		if water >= G.POP_COST and board.empty_ground_cells().size() > 3 and map < G.MAPS.size():
 			var burst: int = G.burst_count(map, G.BOOST_BONUS if boost_taps > 0 else 0, rng)
 			if boost_taps > 0:
 				boost_taps -= 1
 			burst = mini(burst, int(water / G.POP_COST))
-			burst = mini(burst, board.empty_ground_cells().size())
+			burst = mini(burst, board.empty_ground_cells().size() - 2)   # keep a 2-cell working margin
 			for _b in burst:
 				water -= G.POP_COST
 				s_water += G.POP_COST

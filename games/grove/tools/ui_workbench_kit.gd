@@ -3563,13 +3563,11 @@ static func live_board_frame_size(view_size: Vector2, cfg: Dictionary, cols := 7
 	var gap := float(b.get("gap", 7.0))
 	var frame := float(b.get("frame", 60.0))
 	var scale := float(b.get("scale", 100.0)) / 100.0
-	var h: Dictionary = cfg.get("hud_layout", {}) if cfg is Dictionary else {}
-	var target_h := 0.0
-	if h.has("board_h_pct"):
-		target_h = view_size.y * float(hud_layout_opts_from_config(cfg).get("board_h_frac", 0.0))
+	# WIDTH-governed: square cells fill the screen width; the height budget (view.y - 536) is only a
+	# cap so the board can't grow past the quest/bottom rows. Mirrors board.gd's live fit.
 	var cell_w := (view_size.x - 12.0 - frame * 2.0 - (cols - 1.0) * gap) / cols
-	var cell_h := ((target_h if target_h > 0.0 else view_size.y - 536.0) - frame * 2.0 - (rows - 1.0) * gap) / rows
-	var csz := maxf(1.0, cell_h) if target_h > 0.0 else maxf(1.0, minf(cell_w, cell_h) * scale)
+	var cell_h := (view_size.y - 536.0 - frame * 2.0 - (rows - 1.0) * gap) / rows
+	var csz := maxf(1.0, minf(cell_w, cell_h) * scale)
 	return Vector2(cols * csz + (cols - 1.0) * gap + frame * 2.0, rows * csz + (rows - 1.0) * gap + frame * 2.0)
 
 static func live_quest_bar_top_y(safe_top := 0.0) -> float:
@@ -4051,7 +4049,7 @@ static func bag_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"level_frac": float(bc.get("level_frac", 44)) / 100.0,       # the level badge size, % of the cell
 		"next_glow": float(bc.get("next_glow", 45)) / 100.0,         # the unlockable highlight's glow halo
 		"next_twinkle": float(bc.get("next_twinkle", 55)) / 100.0,   # ...and its drifting-star density
-			# the unlockable accent COLOUR (halo + shadow), as hue + saturation knobs. Brightness is
+		# the unlockable accent COLOUR (halo + shadow), as hue + saturation knobs. Brightness is
 		# pinned to STRAW's V (0.89), so the defaults (42°, 74%) reproduce Pal.STRAW exactly — drag the
 		# saturation down toward a warm white to take the yellow out of the glow.
 		"glow_tint": Color.from_hsv(float(bc.get("glow_hue", 42)) / 360.0, float(bc.get("glow_sat", 74)) / 100.0, 0.89),
@@ -4179,10 +4177,10 @@ static func slot_cell(d: Dictionary, opts: Dictionary = {}) -> Control:
 		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		tile.add_child(badge)
 
-		# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
-		# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
+	# unlockable — the shared HIGHLIGHT: a warm-gold glow (the board's "pop") AND the dynamic
+	# sparkle (the bag's next), drawn OVER the well so it reads as the live, actionable cell.
 	if state == "unlockable":
-		# the accent COLOUR — halo + border + shadow share one tint (config: glow_hue/glow_sat); the
+		# the accent COLOUR — halo and shadow share one tint (config: glow_hue/glow_sat); the
 		# default is Pal.STRAW, so an un-tuned config looks exactly as before.
 		var tint: Color = opts.get("glow_tint", Pal.STRAW)
 		var pop := Panel.new()

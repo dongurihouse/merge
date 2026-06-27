@@ -298,6 +298,23 @@ func _set_map_chrome_visible(on: bool) -> void:
 	if _weather != null and is_instance_valid(_weather):
 		_weather.visible = on
 
+func debug_refresh_weather() -> void:
+	var insert_at := get_child_count()
+	if _weather != null and is_instance_valid(_weather):
+		insert_at = _weather.get_index()
+		remove_child(_weather)
+		_weather.queue_free()
+	else:
+		var existing := get_node_or_null("WeatherLayer")
+		if existing != null:
+			insert_at = existing.get_index()
+			remove_child(existing)
+			existing.queue_free()
+	_weather = Ambient.build_weather(get_viewport_rect().size, Ambient.weather_now(FX.calm()))
+	add_child(_weather)
+	move_child(_weather, mini(insert_at, get_child_count() - 1))
+	_weather.visible = _view != "select"
+
 # (The 2× DOUBLER lived here, triggered by the now-removed hub yield-collect. It was RE-HOMED to the
 # quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map scene no longer has a
 # coin faucet to double. It is a 💎-priced doubler now, gated to rewards big enough to beat the shop.)
@@ -1021,12 +1038,14 @@ func _make_card(z: int, card_w: float, card_h: float = 0.0, opts: Dictionary = {
 	if Kit != null and map_unlocked(z) and G.can_populate(z, unlocks, _gates()):
 		return _habitat_card(z, card_w, card_h)
 	var open := map_unlocked(z)
-	var total_zones := _card_zone_total(z)
+	# One zone per vine region — the badge reports honest restore progress over every region (owned/total),
+	# and a map is "done" only when all of them are restored (map_spots_done). No phantom base-region offset.
+	var total_zones: int = G.MAPS[z].spots.size()
 	var d := {
 		"open": open,
 		"done": map_spots_done(z),
 		"art": _card_art_path(z) if open else "",     # painted thumbnail / §16 home clean art / "" → meadow fill
-		"owned_zones": mini(owned_count(z), total_zones),
+		"owned_zones": owned_count(z),
 		"total_zones": total_zones,
 		"prereq": Strings.t("map.card.prereq") % tr(G.MAPS[maxi(z - 1, 0)].name),
 		"map_id": String(G.MAPS[z].id),               # the §8 veil-art seam (map/veil_<id>.png)
@@ -1198,11 +1217,6 @@ func _empty_slot(px: float) -> Control:
 	s.border_color = Color(DOCK_INK, 0.16)
 	p.add_theme_stylebox_override("panel", s)
 	return p
-
-func _card_zone_total(z: int) -> int:
-	# The vine mask includes one broad starting/base region in addition to the player-facing restore zones.
-	# The picker badge reports restore progress only, so a fresh card reads (zones − 1), not the full count.
-	return maxi(0, G.MAPS[z].spots.size() - 1)
 
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home
 # clean art (the hub's restored cottage), else "" → a code-drawn meadow fill.

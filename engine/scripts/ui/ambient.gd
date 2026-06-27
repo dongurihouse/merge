@@ -23,6 +23,8 @@ const Tune = preload("res://engine/scripts/core/tuning.gd").Ambient   # the engi
 const CHARACTER_TYPES = G.CHARACTER_TYPES   # the character roster lives in the game's data
 const CHARACTER_ART = G.CHARACTER_ART       # type → clothes asset path (game-provided convention)
 
+const WEATHER_DEBUG_STATES := ["", "clear", "breeze", "rain", "snow"]
+
 static var forced_weather := ""        # shot tools force a state ("rain"…)
 
 # --- residents (the population sub-game) --------------------------------------------
@@ -241,6 +243,19 @@ static func weather_now(calm: bool) -> String:
 	if calm and (w == "rain" or w == "snow"):
 		return "breeze"                          # calm mode WINS
 	return w
+
+static func weather_debug_label() -> String:
+	return "Weather: %s" % ("auto" if forced_weather == "" else forced_weather)
+
+static func debug_cycle_weather() -> String:
+	var i := WEATHER_DEBUG_STATES.find(forced_weather)
+	if i < 0:
+		i = 0
+	forced_weather = WEATHER_DEBUG_STATES[(i + 1) % WEATHER_DEBUG_STATES.size()]
+	return forced_weather
+
+static func reset_weather_debug_for_test() -> void:
+	forced_weather = ""
 
 ## A screen-wide weather layer (≤2 emitters, ≤80 particles). "clear" = empty.
 static func build_weather(view: Vector2, kind: String) -> Control:

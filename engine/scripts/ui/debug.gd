@@ -19,6 +19,7 @@ extends RefCounted
 const Save = preload("res://engine/scripts/core/save.gd")
 const G = preload("res://engine/scripts/core/content.gd")
 const Login = preload("res://engine/scripts/core/login.gd")   # the daily calendar — debug_advance_day()
+const Ambient = preload("res://engine/scripts/ui/ambient.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud       # EDGE_MARGIN — the level badge's top inset
 # The level-badge BOX height — mirrors Hud.LV_BADGE_PX (NOT preloaded: hud.gd ↔ scene preloads form a cycle).
@@ -94,6 +95,7 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
 	_action(menu, host, "Advance day", _act_advance_day)
+	_weather_action(menu, host)
 	_action(menu, host, "-25 water", _act_reduce_water)
 	if host.has_method("debug_cycle_vine_fx"):
 		_action(menu, host, "Vine FX mode", _act_vine_fx_mode)
@@ -186,6 +188,17 @@ static func _action(menu: VBoxContainer, host: Control, label: String, fn: Calla
 	var b := _dbg_button(label, Color("#2C3E50"))
 	b.pressed.connect(fn.bind(host))
 	menu.add_child(b)
+
+static func _weather_action(menu: VBoxContainer, host: Control) -> void:
+	var b := _dbg_button(_weather_action_text(), Color("#2C3E50"))
+	b.pressed.connect(func() -> void:
+		_act_weather(host)
+		b.text = _weather_action_text()
+	)
+	menu.add_child(b)
+
+static func _weather_action_text() -> String:
+	return Ambient.weather_debug_label()
 
 static func _dbg_button(text: String, bg: Color) -> Button:
 	var b := Button.new()
@@ -281,6 +294,11 @@ static func _act_reduce_water(host: Control) -> void:
 	g["water"] = maxi(0, int(g.get("water", G.WATER_CAP)) - 25)
 	Save.grove_write()
 	_reflect(host)
+
+static func _act_weather(host: Control) -> void:
+	Ambient.debug_cycle_weather()
+	if host.has_method("debug_refresh_weather"):
+		host.call("debug_refresh_weather")
 
 static func _act_vine_fx_mode(host: Control) -> void:
 	if host.has_method("debug_cycle_vine_fx"):
