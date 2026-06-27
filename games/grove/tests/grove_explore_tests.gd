@@ -10,6 +10,7 @@ const ExploreReward = preload("res://engine/scripts/ui/explore_reward.gd")
 func _initialize() -> void:
 	begin("grove · explore acquire")
 	_test_loadout()
+	_test_rush_lines()
 	_test_scoring()
 	_test_grid()
 	_test_pool_and_box()
@@ -117,6 +118,36 @@ func _test_loadout() -> void:
 	ok(full.calm_mul > 1.0, "the calm boost rarefies treefalls")
 	ok(full.t2 > 0.0, "the lucky boost enables tier-2 drops")
 	ok((full.lines as Array).size() == 2, "the focus boost restricts play to 2 lines")
+
+# --- Rush lines: drawn from the lines the player has SEEN, 3 picked per run -------
+func _test_rush_lines() -> void:
+	# seen_lines derives distinct merge lines from the saved `seen` set (code = line*100 + tier).
+	ok(Explore.seen_lines({}).is_empty(), "no seen items → no seen lines")
+	ok(Explore.seen_lines({"101": true, "207": true, "201": true, "301": true}) == [1, 2, 3],
+		"seen codes collapse to their sorted, deduped lines")
+	ok(Explore.seen_lines({"7105": true}) == [71], "a seen treat line counts too (any line ever seen)")
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 12345
+	# Empty pool falls back to RUSH_LINES so a brand-new player still gets a board.
+	ok(Explore.pick_rush_lines([], 3, rng) == Explore.RUSH_LINES, "an empty seen pool falls back to RUSH_LINES")
+	ok(Explore.pick_rush_lines([5], 3, rng) == [5], "a pool smaller than the pick count plays in full")
+	var picked: Array = Explore.pick_rush_lines([1, 2, 3, 4, 5], 3, rng)
+	ok(picked.size() == 3, "three lines are picked from a larger pool")
+	var distinct := {}
+	var all_in_pool := true
+	for ln in picked:
+		distinct[ln] = true
+		if not [1, 2, 3, 4, 5].has(ln):
+			all_in_pool = false
+	ok(distinct.size() == 3 and all_in_pool, "the picked lines are distinct and all come from the pool")
+
+	# rush_cfg threads the seen set through: 3 lines normally, 2 with the focus boost.
+	var seen5 := {"101": true, "201": true, "301": true, "401": true, "501": true}
+	var cfg: Dictionary = Explore.rush_cfg({}, seen5, rng)
+	ok((cfg.lines as Array).size() == 3, "rush_cfg draws 3 lines from the seen pool")
+	var focus_cfg: Dictionary = Explore.rush_cfg({"focus": true}, seen5, rng)
+	ok((focus_cfg.lines as Array).size() == 2, "the focus boost narrows the seen draw to 2 lines")
 
 # --- Rush scoring: non-linear value, combo, multiplier, spawn cadence -------------
 func _test_scoring() -> void:

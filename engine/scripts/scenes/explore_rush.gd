@@ -75,7 +75,8 @@ func _ready() -> void:
 	_rng.randomize()
 	if Explore.run().is_empty():
 		Explore.begin_run({})        # direct-open (tool/test) — neutral loadout
-	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}))
+	# Draw this run's lines from what the player has actually SEEN (3 picked, or 2 with the focus boost).
+	_cfg = Explore.rush_cfg(Explore.run().get("equip", {}), Save.grove().get("seen", {}), _rng)
 
 	add_child(BoardScript._field_backdrop())   # the painted grove backdrop (ui/board2_bg.png), full-rect → auto-fits
 
