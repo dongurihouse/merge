@@ -104,5 +104,60 @@ func _initialize() -> void:
 	Feel.launch(null, null, 1.0)
 	ok(true, "launch(null, null, ...) is a safe no-op (no recoil, no puff parent, sound off by default)")
 
+	# --- feel.move ---------------------------------------------------------------
+	# move() returns a non-null Tween that animates `position` from->to. (Headless: the
+	# enhancements are hard-off, so this is the bare position tween — exactly what we want
+	# the deterministic test clock to drive.)
+	var holder := Control.new()
+	holder.size = Vector2(96, 96)
+	get_root().add_child(holder)
+	var mover := Control.new()
+	mover.size = Vector2(96, 96)
+	holder.add_child(mover)
+	var from := Vector2(0, 0)
+	var to := Vector2(200, 0)
+	mover.position = from
+	var mtw := Feel.move(mover, from, to, "slide")
+	ok(mtw is Tween, "move() returns a Tween (so callers can chain feel.land on completion)")
+	ok(mtw != null and mtw.is_valid(), "move() tween is valid")
+	ok(mtw != null and mtw.is_running(), "move() tween is running (animating position toward `to`)")
+	# move() sets the node to `from` synchronously, then the returned tween drives it to `to`.
+	# (In headless _initialize there is no idle frame loop to actually advance the tween, so we
+	# assert the synchronous starting pose + a live tween; the pure timing/ease helpers below
+	# cover the motion shape.)
+	ok(mover.position.is_equal_approx(from), "move() seats the node at `from` before animating")
+	mover.queue_free()
+	holder.queue_free()
+
+	# _move_enhance_enabled(): the shared gate for shadow/trail/lean. Headless ALWAYS disables
+	# them (no felt effect off-device), so under the test runner this is false regardless of calm.
+	ok(not Feel._move_enhance_enabled(), "move enhancements are OFF under headless (no shadow/trail/lean)")
+
+	# _move_ease(): accelerate-INTO-impact for slide/fall (EASE_IN); arc's down-leg owns its own.
+	ok(Feel._move_ease("slide") == Tween.EASE_IN, "slide eases IN (accelerate into the target)")
+	ok(Feel._move_ease("fall") == Tween.EASE_IN, "fall eases IN (accelerate into the target)")
+
+	# _move_dur(): slide is flat MOVE_SLIDE_T; fall is distance-scaled between MIN..MAX.
+	ok(approx(Feel._move_dur("slide", Vector2.ZERO, Vector2(300, 0)), Tune.MOVE_SLIDE_T), "slide duration = MOVE_SLIDE_T")
+	ok(Feel._move_dur("fall", Vector2.ZERO, Vector2.ZERO) >= Tune.MOVE_FALL_T_MIN - 0.0001, "a zero-distance fall is at least MOVE_FALL_T_MIN")
+	ok(Feel._move_dur("fall", Vector2.ZERO, Vector2(0, 100000)) <= Tune.MOVE_FALL_T_MAX + 0.0001, "a huge fall clamps to MOVE_FALL_T_MAX")
+	ok(Feel._move_dur("fall", Vector2.ZERO, Vector2(0, 50)) < Feel._move_dur("fall", Vector2.ZERO, Vector2(0, 5000)), "fall duration grows with distance")
+	# an explicit dur override wins.
+	ok(approx(Feel._move_dur("slide", Vector2.ZERO, Vector2.ZERO, 0.5), 0.5), "explicit dur override is honoured")
+
+	# _move_trail_count(speed): ~0 ghosts near zero speed, up to MOVE_TRAIL_N at/above the ref speed.
+	ok(Feel._move_trail_count(0.0) == 0, "trail count is 0 at zero speed")
+	ok(Feel._move_trail_count(1.0) == 0, "trail count is ~0 at a crawl (a slow settle barely trails)")
+	ok(Feel._move_trail_count(Tune.MOVE_TRAIL_SPEED_REF) == Tune.MOVE_TRAIL_N, "trail count reaches MOVE_TRAIL_N at the reference speed")
+	ok(Feel._move_trail_count(Tune.MOVE_TRAIL_SPEED_REF * 4.0) == Tune.MOVE_TRAIL_N, "trail count clamps to MOVE_TRAIL_N above the reference speed")
+	ok(Feel._move_trail_count(Tune.MOVE_TRAIL_SPEED_REF * 0.5) <= Tune.MOVE_TRAIL_N, "trail count never exceeds MOVE_TRAIL_N")
+	ok(Feel._move_trail_count(Tune.MOVE_TRAIL_SPEED_REF * 0.5) < Feel._move_trail_count(Tune.MOVE_TRAIL_SPEED_REF), "trail count scales up with speed")
+	# fall is the perf-critical path (a full column settles at once): it makes NO trail ghosts.
+	ok(Feel._move_trail_count_for("fall", Tune.MOVE_TRAIL_SPEED_REF * 4.0) == 0, "fall makes NO trail ghosts (full-column settle perf guard)")
+	ok(Feel._move_trail_count_for("arc", Tune.MOVE_TRAIL_SPEED_REF) == Tune.MOVE_TRAIL_N, "arc trails normally at the reference speed")
+
+	# move() must be a safe no-op on a null/invalid node — returns null, never errors.
+	ok(Feel.move(null, Vector2.ZERO, Vector2(10, 0), "slide") == null, "move(null, ...) is a safe no-op returning null")
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)

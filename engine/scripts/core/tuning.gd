@@ -257,6 +257,10 @@ class FX:
 	const MOVE_ARC_T_DOWN := 0.18
 	const MOVE_FALL_T_MIN := 0.10
 	const MOVE_FALL_T_MAX := 0.36
+	const MOVE_FALL_DIST_REF := 720.0      # the fall distance (px) at which duration reaches MOVE_FALL_T_MAX — a full board-height drop
+	const MOVE_ARC_LIFT_MIN := 64.0        # minimum arc apex height (px) above the higher endpoint
+	const MOVE_ARC_LIFT_SPAN := 0.28       # extra apex lift as a fraction of the horizontal span
+	const MOVE_TRAIL_ALPHA := 0.5          # leading ghost opacity (each later ghost fades further)
 	const MOVE_LEAN_DEG := 6.0
 	const MOVE_SHADOW_ALPHA := 0.22
 	const MOVE_SHADOW_OFFSET := Vector2(3, 6)

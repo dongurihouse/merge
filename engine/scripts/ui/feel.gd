@@ -180,8 +180,195 @@ static func launch(emitter: Control, projectile: Control, intensity := 1.0, soun
 ## where launch() also skips the puff entirely (FX.burst applies its own calm-trim — not pre-applied here).
 static func _launch_puff_count(intensity: float) -> int:
 	return int(Tune.LAUNCH_PUFF_N * intensity)
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
+
+## The MOVE — a tile TRAVELS between two positions, built to sell the ARRIVAL. Returns the primary
+## `position` Tween so the caller can chain `Feel.land` on completion (the impact at the destination
+## is the point of the trip). `kind`:
+##   "slide" — a flat in-cell slide (the merge loser sliding into the winner). Accelerates INTO the
+##             hit (EASE_IN), MOVE_SLIDE_T.
+##   "arc"   — an up-and-over toss (the Rush fling). Up-leg EASE_OUT (leaves slowly), down-leg EASE_IN
+##             (falls into the target). MOVE_ARC_T_UP + MOVE_ARC_T_DOWN. The caller adds any spin.
+##   "fall"  — a gravity drop (the Rush spawn fall / column settle). EASE_IN, distance-scaled between
+##             MOVE_FALL_T_MIN..MAX. This is the PERF-CRITICAL path (a whole column settles at once),
+##             so it gets NO trail and only the cheap constant-offset shadow.
+## The ENHANCEMENTS (cast shadow + motion trail + motion-lean) are purely FELT: hard-gated OFF under
+## calm AND under headless (see _move_enhance_enabled), and the cast shadow is SKIPPED entirely when
+## the node already carries a piece_view ContactShadow (no double shadow). `dur >= 0` overrides timing.
 static func move(node: Control, from: Vector2, to: Vector2, kind := "slide", dur := -1.0) -> Tween:
-	return null
+	if not (node and is_instance_valid(node)):
+		return null
+	node.position = from
+	var d := _move_dur(kind, from, to, dur)
+	var t := node.create_tween()
+	if kind == "arc":
+		_move_build_arc(t, node, from, to)
+	else:
+		t.tween_property(node, "position", to, d).set_trans(Tween.TRANS_QUAD).set_ease(_move_ease(kind))
+	# the enhancements ride alongside the primary tween — never block it, never run headless/calm.
+	if _move_enhance_enabled():
+		var speed := from.distance_to(to) / maxf(d, 0.001)
+		_move_shadow(node, from, to, kind, d)
+		_move_trail(node, from, to, kind, speed, d)
+		_move_lean(node, from, to, kind, d)
+	return t
+
+# The arc's two legs: up-and-over (EASE_OUT, leaves slowly) then down-into-target (EASE_IN, accelerates
+# into the hit). The peak sits above the higher endpoint, scaled by the horizontal span — the same shape
+# the Rush fling hand-rolled. Spin is the caller's (a parallel rotation tween), so it's untouched here.
+static func _move_build_arc(t: Tween, node: Control, from: Vector2, to: Vector2) -> void:
+	var span := absf(to.x - from.x)
+	var lift := maxf(Tune.MOVE_ARC_LIFT_MIN, span * Tune.MOVE_ARC_LIFT_SPAN)
+	var peak := Vector2((from.x + to.x) * 0.5, minf(from.y, to.y) - lift)
+	t.tween_property(node, "position", peak, Tune.MOVE_ARC_T_UP).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "position", to, Tune.MOVE_ARC_T_DOWN).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+# --- move pure helpers (no scene tree — unit-tested in feel_tests.gd) ------------------
+
+## The shared gate for ALL of cast-shadow / motion-trail / motion-lean: they are purely FELT, so they
+## never run under calm (motion accessibility) NOR under headless (no renderer, no felt effect, and a
+## per-frame ghost/shadow would only burden the deterministic test clock).
+static func _move_enhance_enabled() -> bool:
+	return not FX.calm() and DisplayServer.get_name() != "headless"
+
+## Accelerate-INTO-impact easing for the flat kinds: EASE_IN (slow to leave, fastest at the target) for
+## slide + fall. (arc builds its own two-leg easing in _move_build_arc and never asks this.)
+static func _move_ease(_kind: String) -> int:
+	return Tween.EASE_IN
+
+## Travel duration. An explicit `dur >= 0` always wins. Else: slide is a flat MOVE_SLIDE_T; arc is its
+## two fixed legs; fall is DISTANCE-SCALED between MOVE_FALL_T_MIN..MAX (a short drop is snappy, a
+## full-board drop has weight) — reproducing the Rush fall's `0.10 + dist/(cell*ROWS)*0.24` feel via
+## the MOVE_FALL_* dials.
+static func _move_dur(kind: String, from: Vector2, to: Vector2, dur := -1.0) -> float:
+	if dur >= 0.0:
+		return dur
+	match kind:
+		"arc":
+			return Tune.MOVE_ARC_T_UP + Tune.MOVE_ARC_T_DOWN
+		"fall":
+			var dist := absf(to.y - from.y)
+			var f := clampf(dist / Tune.MOVE_FALL_DIST_REF, 0.0, 1.0)
+			return lerpf(Tune.MOVE_FALL_T_MIN, Tune.MOVE_FALL_T_MAX, f)
+		_:
+			return Tune.MOVE_SLIDE_T
+
+## Motion-trail ghost count scaled by SPEED: 0 at a crawl, ramping to MOVE_TRAIL_N at/above
+## MOVE_TRAIL_SPEED_REF (a slow settle barely trails; a fast fling smears). Floored to int so a slow
+## move makes literally zero ghosts.
+static func _move_trail_count(speed: float) -> int:
+	var f := clampf(speed / Tune.MOVE_TRAIL_SPEED_REF, 0.0, 1.0)
+	return int(f * Tune.MOVE_TRAIL_N)
+
+## Per-KIND trail count — the PERF GUARD. "fall" is shared by the Rush gravity settle, which drops a
+## whole COLUMN at once; spawning ghosts per tile across a full settle would tank the frame, so fall
+## makes NO trail (0) regardless of speed. slide/arc trail by speed.
+static func _move_trail_count_for(kind: String, speed: float) -> int:
+	if kind == "fall":
+		return 0
+	return _move_trail_count(speed)
+
+## Does `node` (or a descendant) already carry a piece_view ContactShadow? Board pieces AND Rush tiles
+## both wrap a PieceView holder whose first child is a "ContactShadow" (when item_backing is on), so a
+## move-shadow on top would DOUBLE the grounding. When true, move() skips its own cast shadow.
+static func _move_has_contact_shadow(node: Node) -> bool:
+	if node == null or not is_instance_valid(node):
+		return false
+	if node.has_node(NodePath(PieceView.SHADOW_NAME)):
+		return true
+	for ch in node.get_children():
+		if _move_has_contact_shadow(ch):
+			return true
+	return false
+
+# --- move enhancements (scene-tree; only run off-headless, off-calm) -------------------
+
+## A soft cast shadow that follows under the node for the duration of the move — but ONLY for nodes
+## that DON'T already cast one (board pieces + Rush tiles carry their own piece_view ContactShadow, so
+## they're skipped: no double shadow). For an "arc" the blob shrinks/fades as the tile rises and snaps
+## back on land; for slide/fall it's a constant-offset blob. A single ColorRect ellipse — cheap; frees
+## itself when the travel ends.
+static func _move_shadow(node: Control, from: Vector2, to: Vector2, kind: String, dur: float) -> void:
+	if not (node and is_instance_valid(node)) or not node.is_inside_tree():
+		return
+	var parent := node.get_parent()
+	if not (parent is CanvasItem):
+		return
+	if _move_has_contact_shadow(node):
+		return   # already grounded by piece_view — don't double the shadow
+	var sz := node.size
+	if sz.x <= 0.0 or sz.y <= 0.0:
+		sz = node.custom_minimum_size
+	var sh := ColorRect.new()
+	sh.color = Color(0.05, 0.05, 0.05, Tune.MOVE_SHADOW_ALPHA)
+	sh.size = sz * Tune.MOVE_SHADOW_SCALE
+	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sh.z_index = -1   # under the tile
+	(parent as Node).add_child(sh)
+	(parent as Node).move_child(sh, 0)   # behind the moving node
+	sh.pivot_offset = sh.size * 0.5
+	var base_off := Tune.MOVE_SHADOW_OFFSET + (sz - sh.size) * 0.5
+	sh.position = from + base_off
+	var t := sh.create_tween()
+	t.tween_property(sh, "position", to + base_off, dur)   # follow the node along the ground
+	if kind == "arc":
+		# the blob shrinks + fades as the tile rises, then snaps back as it lands.
+		var up := Tune.MOVE_ARC_T_UP
+		t.parallel().tween_property(sh, "scale", Vector2(0.6, 0.6), up).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.parallel().tween_property(sh, "modulate:a", 0.4, up).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.chain().tween_property(sh, "scale", Vector2.ONE, Tune.MOVE_ARC_T_DOWN).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		t.parallel().tween_property(sh, "modulate:a", 1.0, Tune.MOVE_ARC_T_DOWN)
+	t.chain().tween_callback(sh.queue_free)
+
+## A cheap motion TRAIL — a few faded afterimage ghosts dropped along the path, each fading out over
+## MOVE_TRAIL_T then self-freeing. The ghost count scales with speed (and is 0 for "fall" — the perf
+## guard). We snapshot the node's CURRENT look with node.duplicate() ONCE PER GHOST at staggered offsets
+## along the straight from->to line (cheap: at most MOVE_TRAIL_N duplicates for the whole move, none on
+## a settle). SIMPLIFICATION: the ghosts are placed on the straight chord (not the arc's curve) and
+## carry no spin — they read as a faint smear behind a fast fling, which is all the trail is for; a
+## per-frame curve-faithful trail would be far heavier on these composite Control subtrees.
+static func _move_trail(node: Control, from: Vector2, to: Vector2, kind: String, speed: float, dur: float) -> void:
+	if not (node and is_instance_valid(node)) or not node.is_inside_tree():
+		return
+	var parent := node.get_parent()
+	if not (parent is Node):
+		return
+	var n := _move_trail_count_for(kind, speed)
+	if n <= 0:
+		return
+	for i in n:
+		var f := float(i + 1) / float(n + 1)   # spaced strictly between the endpoints
+		var ghost := node.duplicate()
+		if not (ghost is CanvasItem):
+			ghost.free()
+			continue
+		var g := ghost as Control
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		g.modulate = Color(1, 1, 1, Tune.MOVE_TRAIL_ALPHA * (1.0 - f * 0.5))
+		g.z_index = node.z_index - 1
+		(parent as Node).add_child(g)
+		g.position = from.lerp(to, f)
+		var t := g.create_tween()
+		t.tween_interval(dur * f)            # appear as the node passes this point
+		t.tween_property(g, "modulate:a", 0.0, Tune.MOVE_TRAIL_T)
+		t.tween_callback(g.queue_free)
+
+## A small MOVE_LEAN_DEG tilt INTO the travel direction, righting on arrival — a body-language cue that
+## the tile is moving with intent. SKIPPED for "arc": the fling already owns a ±22° spin and a lean
+## would fight it. The tilt sign follows horizontal travel direction.
+static func _move_lean(node: Control, from: Vector2, to: Vector2, kind: String, dur: float) -> void:
+	if kind == "arc":
+		return   # the fling's own spin owns the rotation — don't fight it
+	if not (node and is_instance_valid(node)):
+		return
+	node.pivot_offset = node.size * 0.5 if node.size.x > 0.0 else node.custom_minimum_size * 0.5
+	var dir := signf(to.x - from.x)
+	if dir == 0.0:
+		return   # a pure vertical fall has no lean direction
+	var lean := deg_to_rad(Tune.MOVE_LEAN_DEG) * dir
+	var t := node.create_tween()
+	t.tween_property(node, "rotation", lean, dur * 0.4).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	t.tween_property(node, "rotation", 0.0, dur * 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 static func haptic(weight := "soft") -> void:
 	pass
 static func ripple(neighbors: Array, impact_center: Vector2, intensity := 1.0) -> void:
