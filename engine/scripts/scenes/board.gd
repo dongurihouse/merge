@@ -540,25 +540,31 @@ func _mark_seen(code: int) -> void:
 func _ladder_entries(line: int) -> Array:
 	return Quests.ladder_entries(Save.grove().get("seen", {}), line)
 
-# [{line, seen, in_pool, code}] for the Producing dialog — SHOW ALL: one entry per line in the WHOLE game
-# (every generator / every map, in roster order), so the panel reads as the full collection roadmap. The
-# single anchor only pops a rolling window at a time, but the dialog previews everything: discovered lines
-# show their piece, the live pop pool's lines wear the gold ring, and the rest (future maps / undiscovered)
-# fall to locked placeholders. `seen`/`code` carry the lowest-seen tier for the piece. (`_gid` is unused — the
-# anchor's panel previews the whole line-up regardless of which generator was tapped.) Pure off save + roster.
-func _gen_line_entries(_gid: String) -> Array:
+# [{line, seen, in_pool, code}] for the Producing dialog. Normal generators SHOW ALL: one entry per line
+# in the WHOLE game (every generator / every map, in roster order), so the panel reads as the full
+# collection roadmap. Treat generators show only their treasure line; accumulator generators return no
+# entries because they bank currency, not item lines. `seen`/`code` carry the lowest-seen tier for the piece.
+func _gen_line_entries(gid: String) -> Array:
 	var seen: Dictionary = Save.grove().get("seen", {})
 	var pool: Array = _pop_pool_ctx()["pool"]
 	var out: Array = []
 	var added := {}
-	for gen in G.GENERATORS:
-		for l in gen.get("lines", []):
-			var line := int(l)
-			if added.has(line):
-				continue                      # a line lives on one generator, but guard against roster overlap
-			added[line] = true
-			var code := _lowest_seen_code(line, seen)
-			out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
+	var lines: Array = []
+	if G.is_accumulator(gid):
+		return out
+	if G.is_treat_gen(gid):
+		lines.append(G.treat_line_of(gid))
+	else:
+		for gen in G.GENERATORS:
+			for l in gen.get("lines", []):
+				lines.append(int(l))
+	for l in lines:
+		var line := int(l)
+		if added.has(line) or not G.LINES.has(line):
+			continue                      # a line lives on one generator, but guard against roster overlap
+		added[line] = true
+		var code := _lowest_seen_code(line, seen)
+		out.append({"line": line, "seen": code > 0, "in_pool": pool.has(line), "code": code})
 	return out
 
 # The lowest tier of `line` the player has discovered (its representative piece for the Producing cell), or 0
@@ -1801,22 +1807,29 @@ func _select_generator(cell: Vector2i) -> void:
 	_info_icon.add_child(prev)
 	_info_label.text = _gen_info_text(gid)
 	if _info_desc_label != null and is_instance_valid(_info_desc_label):
-		_info_desc_label.text = ""
-		_info_desc_label.visible = false
-	_info_btn.disabled = false                # ⓘ opens the line ladder of what this generator makes
+		var desc := G.generator_description(gid)
+		_info_desc_label.text = desc
+		_info_desc_label.visible = desc != ""
+	_info_btn.disabled = _gen_line_entries(gid).is_empty()   # ⓘ opens the line ladder of what this generator makes
 	_info_trash.visible = false               # a generator is never sold
 	if _info_buy != null and is_instance_valid(_info_buy):
 		_info_buy.visible = false             # …nor buyable as a copy (the boost chip is its action)
-	_refresh_burst_chip()                     # the boost chip (full when armable, faded while live)
+	if G.is_accumulator(gid) or G.is_treat_gen(gid):
+		if _info_burst != null and is_instance_valid(_info_burst):
+			_info_burst.visible = false
+	else:
+		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
 # The generator's info-bar label: its name, plus — while a boost is live — the boost detail (how much
 # more per tap, and how many taps are left). Built here so a pop can refresh it live without rebuilding
 # the whole info bar (§3 boost detail).
 func _gen_info_text(gid: String) -> String:
-	var lbl := String(G.gen_def(G.GENERATORS, gid).get("label", "")).capitalize()
-	if lbl == "":
-		lbl = Strings.t("board.info.generator")
-	if G.boost_active():
+	var lbl := G.generator_display_name(gid)
+	if G.is_treat_gen(gid):
+		var clicks := int(Save.grove().get("treat_clicks", 0))
+		if clicks > 0:
+			lbl += " · %d taps" % clicks
+	elif G.boost_active():
 		lbl += " · " + (Strings.t("board.info.boost_detail") % [G.boost_bonus(), G.boost_taps_left()])
 	return lbl
 
@@ -2301,8 +2314,12 @@ func _release_gen(pos: Vector2) -> void:
 			node.position = _cell_pos(from)
 		if G.is_accumulator(board.gen_id_at(from)):
 			_collect_accumulator(from)        # §6.C an accumulator banks a resource — a tap collects it
+			if board.is_gen(from):
+				_select_generator(from)
 		elif G.is_treat_gen(board.gen_id_at(from)):
 			_pop_treat(from)                  # §6.D a temp treat generator — a tap pops a premium burst
+			if board.is_gen(from):
+				_select_generator(from)
 		else:
 			_pop_seed(from)                   # a still tap pops the generator (merge fuel)
 			_select_generator(from)           # …and surfaces the burst-upgrade chip in the info bar (T54)
@@ -3333,7 +3350,7 @@ func _grant_sale(code: int, node: Control) -> void:
 # The upgrade path: the line's full ladder, tier by tier — grown tiers show their
 # art, never-seen tiers show "?", and the tapped/asked tier wears a gold ring.
 func _open_ladder(line: int, mark_tier: int) -> void:
-	if not Features.on("discovery_ladder") or not G.LINES.has(line):
+	if not Features.on("discovery_ladder") or (not G.LINES.has(line) and not G.SPECIAL_ITEMS.has(line)):
 		return
 	# Wave 3: the ladder modal lives in ui/ladder.gd; the open-gate + data stay here.
 	# The dialog header is a fixed "Tiers" (set in ladder.gd) — no internal line name passed.

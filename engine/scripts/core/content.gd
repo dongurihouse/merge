@@ -803,6 +803,37 @@ static func item_description(code: int) -> String:
 		return String((LINES[line] as Dictionary).get("desc", ""))
 	return ""
 
+static func generator_display_name(id: String) -> String:
+	var d := gen_def(GENERATORS, id)
+	if not d.is_empty():
+		var lbl := String(d.get("label", ""))
+		return lbl.capitalize() if lbl != "" else id.capitalize()
+	var kind := accumulator_kind_of(id)
+	if kind != "":
+		return String((ACCUMULATORS[kind] as Dictionary).get("name", kind.capitalize()))
+	if is_treat_gen(id):
+		var line := treat_line_of(id)
+		if LINES.has(line):
+			return "%s generator" % String((LINES[line] as Dictionary).get("name", "Treat"))
+		return "Treat generator"
+	return "Generator"
+
+static func generator_description(id: String) -> String:
+	var d := gen_def(GENERATORS, id)
+	if not d.is_empty():
+		return ""
+	var kind := accumulator_kind_of(id)
+	if kind != "":
+		var def: Dictionary = ACCUMULATORS.get(kind, {})
+		var amount := int(def.get("cap", 0)) * int(def.get("value", 0))
+		var unit := "acorns" if kind == "acorn" and amount != 1 else kind
+		return "Banks %s over time. Tap to collect up to %d %s." % [unit, amount, unit]
+	if is_treat_gen(id):
+		var line := treat_line_of(id)
+		var name := item_display_name(line * 100 + TREAT_POP_TIER)
+		return "Temporary generator. Tap to pop %s items and special drops." % name
+	return ""
+
 ## A board piece that is POCKETED rather than merged into goods. The single hook the board's
 ## tap-to-focus / tap-again-to-collect interaction keys off (board.gd _on_release). Coins AND the §6.B
 ## resource drops (water/acorn/exp) collect this way; chest/key are OPENED by a drag, not tap-collected.
