@@ -380,6 +380,12 @@ func _test_rush_resize() -> void:
 	ok(absf(s._activity.size.x - 1600.0 * 0.9) < 3.0, "S-RESIZE: the activity bar re-fits to the new width (w=%.0f)" % s._activity.size.x)
 	ok(absf(s._board.position.x - bx1080) > 10.0, "S-RESIZE: the board actually moved on the resize (not pinned to the old width)")
 	ok(s._hint != null and absf((s._hint.position.x + s._hint.size.x * 0.5) - 800.0) < 8.0, "S-RESIZE: the bottom hint re-centres to the new width")
+	var hint_label := s._hint.find_child("RushBottomHint", true, false) as Label if s._hint != null else null
+	ok(hint_label != null and hint_label.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
+		and absf((hint_label.position.y + hint_label.size.y * 0.5) - s._hint.size.y * 0.5) < 1.0, \
+		"S-RESIZE: the bottom hint text is vertically centred in the strip")
+	var bottom_gap: float = 1920.0 - (s._hint.position.y + s._hint.size.y) if s._hint != null else 0.0
+	ok(bottom_gap >= 1920.0 * 0.05 - 1.0, "S-RESIZE: the bottom hint clears the bottom edge by 5%% (gap=%.0f)" % bottom_gap)
 	# the treefall telegraph flips the activity bar to its warning state (and aims the chevron)
 	s._tf = {"ph": "tele", "t": 0.0, "col": 3, "next": 9.0}
 	s._apply_treefall_visual()

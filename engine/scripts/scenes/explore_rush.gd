@@ -22,6 +22,7 @@ const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggle
 
 const RUSH_ART := "res://games/grove/assets/ui/rush/%s.png"          # the carved-wood / parchment top-bar pieces
 const BOTTOM_HINT_ART := "res://games/grove/assets/ui/rush/bottom_hint_3slice.png"
+const BOTTOM_HINT_BOTTOM_GAP_FRAC := 0.05
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"      # the shared UI kit (board frame · slot cells · rush bar)
 
 const INK := Color("#43352B")
@@ -382,8 +383,9 @@ func _build_bottom_hint() -> void:
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	l.position = Vector2(cap_w * 0.65, 0.0)
-	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3), strip_h)
+	var text_vpad := strip_h * 0.08
+	l.position = Vector2(cap_w * 0.65, text_vpad)
+	l.size = Vector2(maxf(1.0, strip_w - cap_w * 1.3), maxf(1.0, strip_h - text_vpad * 2.0))
 	l.add_theme_font_size_override("font_size", int(clampf(strip_h * 0.48, 20.0, 27.0)))
 	l.add_theme_color_override("font_color", Color("#F8E9D0"))
 	l.add_theme_color_override("font_outline_color", Color("#3D251B", 0.65))
@@ -391,7 +393,8 @@ func _build_bottom_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	add_child(strip)
-	strip.position = Vector2((vw - strip_w) * 0.5, vh - Look.safe_bottom(self) - 14.0 - strip_h)
+	var bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
+	strip.position = Vector2((vw - strip_w) * 0.5, vh - Look.safe_bottom(self) - bottom_gap - strip_h)
 	_hint = strip
 	_hint_h = strip_h
 
