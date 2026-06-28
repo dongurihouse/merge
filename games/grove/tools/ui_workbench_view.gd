@@ -13,6 +13,10 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")           # the toggleable Rush screen-juice effects
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")           # the toggleable Land (touchdown) feel
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")         # the toggleable Merge (fuse) feel
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")       # the toggleable Launch (emit) feel
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")           # the toggleable Move (travel) feel
 const FxWorkbenchView = preload("res://games/grove/tools/fx_workbench_view.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")   # kit-relative art paths (Look.kit) for the polish source
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")   # the quest-giver card builder (board reskin)
@@ -29,7 +33,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
-const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -37,7 +41,8 @@ const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button",
 # them grouped and balances the gallery's height (the tall dialogs no longer each span a full-width row).
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
-	[["shadow"], ["generator"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["frame"], ["progress_bar"]],
+	# … the Rush FX juice tester, then the FOUR feel-verb testers (land · merge · launch · move) grouped beside it.
+	[["shadow"], ["generator"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -115,6 +120,13 @@ const TEST_KEYS := {
 	# the RUSH BAR — every size/spacing knob is saved design; the preview values (time/score/mult) are static demo, not params
 	"rush_bar": [],
 	"rush_fx": [],          # every key is a saved toggle (no preview-only state)
+	# the FOUR feel-verb testers — every toggle + knob is saved (read by {Land,Merge,Launch,Move}Fx.from_config).
+	"land_fx": [],
+	# merge_fx: tier/combo drive the escalation in the preview but are NOT saved (the game passes the live tier/combo).
+	"merge_fx": ["tier", "combo"],
+	"launch_fx": [],
+	# move_fx: `kind` (slide/arc/fall) picks the preview travel; the game passes the live kind, so it is NOT saved.
+	"move_fx": ["kind"],
 	"toggle_card": ["label", "value"],   # sample row content (label + on/off) — preview only, not saved
 	# the map-select place-picker card — the STYLE (art · frame inset · art radius · pill metrics · §8
 	# veil look) persists; open/done/zone progress just preview the card (the game sets each from map state).
@@ -162,6 +174,10 @@ const CAPTIONS := {
 	"info_bar": "Info bar — board bottom action bar (Home · ⓘ · selected piece · Bag)",
 	"rush_bar": "Rush bar — Expedition top HUD (Time · Score · Mult): cell size · text · icon · leaf · crown",
 	"rush_fx": "Rush FX — screen juice for the Expedition: toggle each effect, Replay to feel it, save (the game honours it)",
+	"land_fx": "Land feel — a tile touches down: squash · puff · flash · sound · haptic. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"merge_fx": "Merge feel — two tiles fuse: squash · flash · hitstop · burst · shake · sound · ripple · punch. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"launch_fx": "Launch feel — a generator emits a tile: recoil · muzzle puff · toss sound. Toggle + tune, ▶ to feel it, save (the game honours it).",
+	"move_fx": "Move feel — a tile travels (slide · arc · fall): cast shadow · motion trail · motion lean. Toggle + tune, ▶ to feel it, save (the game honours it).",
 	"settings": "Settings — toggles (shared frame)",
 	"vault": "Vault — piggy bank (twig border)",
 	"info": "Info — detail sheet (mail dialog · no Claim · Got it)",
@@ -178,6 +194,39 @@ const RUSH_FX_KNOBS := {
 	"treefall_crack": [["treefall_debris", 4, 40], ["treefall_shake", 0, 40], ["treefall_hitstop_ms", 0, 160]],
 }
 var _rush_fx_ctx: Dictionary = {}
+# per-effect knob slider specs for the feel-verb inspectors: effect id → [[param, lo, hi], …] (mirror the standalone _KNOBS_FOR).
+const LAND_FX_KNOBS := {
+	"squash": [["squash_pct", 0, 200], ["squash_ms", 60, 600]],
+	"puff":   [["puff_count", 0, 30]],
+	"flash":  [["flash_pct", 0, 100]],
+	"sound":  [["sound_db", -24, 0]],
+	"haptic": [],
+}
+const MERGE_FX_KNOBS := {
+	"squash":      [],
+	"flash":       [["flash_pct", 0, 100]],
+	"hitstop":     [["hitstop_ms", 0, 120]],
+	"burst":       [["burst_count", 0, 60]],
+	"shake":       [["shake_amp", 0, 20]],
+	"sound":       [["pitch_base_pct", 80, 160]],
+	"ripple":      [["ripple_pct", 0, 100]],
+	"board_punch": [["punch_pct", 0, 100]],
+}
+const LAUNCH_FX_KNOBS := {
+	"recoil": [["recoil_pct", 0, 200]],
+	"puff":   [["puff_count", 0, 30]],
+	"sound":  [["sound_db", -24, 0]],
+}
+const MOVE_FX_KNOBS := {
+	"shadow": [["shadow_alpha_pct", 0, 60]],
+	"trail":  [["trail_count", 0, 8]],
+	"lean":   [["lean_deg", 0, 20]],
+}
+const MoveFx_KINDS := ["slide", "arc", "fall"]   # the move preview's travel kinds (preview-only; the game passes the live kind)
+var _land_fx_ctx: Dictionary = {}
+var _merge_fx_ctx: Dictionary = {}
+var _launch_fx_ctx: Dictionary = {}
+var _move_fx_ctx: Dictionary = {}
 var _params := {
 	# the SHARED SHADOW — ONE box-shadow definition every component casts (via its Shadow toggle). Offset-
 	# based, so the same numbers read consistently on a small icon or a large badge. offset_x/y + blur +
@@ -342,6 +391,14 @@ var _params := {
 		"combo_heat_size": 24, "timer_low_secs": 10,
 		"treefall_debris": 18, "treefall_shake": 16, "treefall_hitstop_ms": 60,
 	},
+	# the FOUR feel-verb testers — defaults pulled straight from each registry (enabled + per-effect toggles +
+	# knobs), so the saved block's keys match {Land,Merge,Launch,Move}Fx.from_config exactly.
+	"land_fx": LandFx.defaults(),
+	# merge_fx ALSO carries the two preview-only test sliders (tier/combo) — excluded from save via TEST_KEYS.
+	"merge_fx": _merge_fx_defaults(),
+	"launch_fx": LaunchFx.defaults(),
+	# move_fx ALSO carries the preview-only KIND selector (slide/arc/fall) — excluded from save via TEST_KEYS.
+	"move_fx": _move_fx_defaults(),
 	# the SETTINGS dialog = the shared frame + a column of toggle cards (one per persisted flag). width_pct
 	# like every dialog; the toggle-card style lives on the Toggle card item, the chrome on the Frame item.
 	"settings": {"width_pct": 80, "row_gap": 12},
@@ -373,6 +430,19 @@ var _params := {
 	"bag": {"width_pct": 85, "cols": 6, "cell_gap": 12, "grid_inset": 70, "row_gap": 14, "list_max_h": 0, "acorn_x": 0,
 		"caption": "Open a slot with acorns.", "balance": 132, "owned": 8, "filled": 5},
 }
+# merge_fx defaults = the registry defaults PLUS the preview-only escalation sliders (tier/combo, not saved).
+static func _merge_fx_defaults() -> Dictionary:
+	var d := MergeFx.defaults()
+	d["tier"] = 3
+	d["combo"] = 0
+	return d
+
+# move_fx defaults = the registry defaults PLUS the preview-only KIND selector (slide/arc/fall, not saved).
+static func _move_fx_defaults() -> Dictionary:
+	var d := MoveFx.defaults()
+	d["kind"] = "slide"
+	return d
+
 var _selected := "button"
 var _fx_selected := "coin_pickup"
 var _focus_only := ""             # if set (a component id), _build() renders JUST that element centred — a
@@ -819,6 +889,14 @@ func _make_element(id: String) -> Control:
 			}
 			btn.pressed.connect(func() -> void: _rush_fx_play("__all__"))
 			return wrap
+		"land_fx":
+			return _land_fx_preview()
+		"merge_fx":
+			return _merge_fx_preview()
+		"launch_fx":
+			return _launch_fx_preview()
+		"move_fx":
+			return _move_fx_preview()
 		"quest_card":
 			# the giver card as the board builds it, from the SAME GiverStand.make the board scene calls — and
 			# the SAME Kit.giver_lay_from_config transform the board reads, so the preview is byte-for-byte what
@@ -898,6 +976,267 @@ func _make_element(id: String) -> Control:
 			bopts["banner_min_w"] = PHONE_W * Kit.BANNER_MIN_W_FRAC   # 25% of the screen — matches bag_overlay.gd
 			return Kit.bag_dialog(_bag_demo_entries(int(p.owned), int(p.filled)), int(p.balance), _dlg_px("bag"), bopts)
 	return Control.new()
+
+# --- the FOUR feel-verb stages (ported from the standalone {land,merge,launch,move}_workbench_view) ---
+# Each builds a parchment field with a clickable generator / tile / field that TRIGGERS the verb's play
+# function, stores its node refs in a per-component ctx member (rebuilt fresh on every slider change via
+# _apply_edit → _make_element, exactly like _rush_fx_ctx), and reads the LIVE _params[id] when it fires —
+# so a knob change takes effect on the next trigger without a manual rebuild.
+const FEEL_INK := Color("#43352B")
+const FEEL_PARCH := Color("#F3E7CE")
+const FEEL_CSZ := 116.0                       # the demo tile / cell size in the gallery (compact)
+const FEEL_FIELD := Vector2(440, 540)         # the parchment field, compact for the gallery cell
+
+## A parchment field backdrop sized FEEL_FIELD, with clip off so bursts/shadows spill freely.
+func _feel_field() -> Control:
+	var field := Control.new()
+	field.custom_minimum_size = FEEL_FIELD
+	field.size = FEEL_FIELD
+	field.clip_contents = false
+	var card := ColorRect.new()
+	card.color = FEEL_PARCH
+	card.size = FEEL_FIELD
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(card)
+	return field
+
+## A faint cell marker (rounded inset square) centred at `center`, field-local.
+func _feel_cell_marker(center: Vector2) -> Panel:
+	var cell := Panel.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(FEEL_INK.r, FEEL_INK.g, FEEL_INK.b, 0.06)
+	sb.set_corner_radius_all(16)
+	sb.set_border_width_all(3)
+	sb.border_color = Color(FEEL_INK.r, FEEL_INK.g, FEEL_INK.b, 0.18)
+	cell.add_theme_stylebox_override("panel", sb)
+	cell.size = Vector2(FEEL_CSZ, FEEL_CSZ)
+	cell.position = center - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return cell
+
+# --- LAND: click the generator → a tile flies down + LANDS in the cell ------------------------
+func _land_fx_preview() -> Control:
+	var gen_pos := Vector2(FEEL_FIELD.x * 0.5, 120.0)
+	var land_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y - 150.0)
+	var field := _feel_field()
+	field.add_child(_feel_cell_marker(land_pos))
+	var gbtn := Button.new()
+	gbtn.flat = true
+	gbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
+	gbtn.position = gen_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	gbtn.set_meta("wb_active", true)              # stays clickable despite the gallery's select-on-click
+	var gart := PieceView.make_generator("seed_satchel", FEEL_CSZ)
+	gart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gbtn.add_child(gart)
+	field.add_child(gbtn)
+	var hint := _feel_hint("Click the generator ↑ — or ▶ Drop", gen_pos + Vector2(-90, FEEL_CSZ / 2.0 + 6))
+	field.add_child(hint)
+	_land_fx_ctx = {"field": field, "gen_pos": gen_pos, "land_pos": land_pos, "tile": null}
+	gbtn.pressed.connect(_land_fx_play)
+	return field
+
+# Drop a fresh tile from the generator, accelerate into the impact, then fire LandFx.apply at touchdown.
+func _land_fx_play() -> void:
+	if _land_fx_ctx.is_empty():
+		return
+	var c := _land_fx_ctx
+	var field: Control = c["field"]
+	if not (field != null and is_instance_valid(field)):
+		return
+	if c.get("tile") != null and is_instance_valid(c["tile"]):
+		c["tile"].queue_free()
+	var tile := PieceView.make_piece(102, FEEL_CSZ)
+	var gen_top: Vector2 = c["gen_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	var land_top: Vector2 = c["land_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	tile.position = gen_top
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(tile)
+	c["tile"] = tile
+	var tw := tile.create_tween()
+	tw.tween_property(tile, "position", land_top, 0.26).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		LandFx.apply(field, tile, c["land_pos"], _params["land_fx"]))
+
+# --- MERGE: click the field → tile A slides into tile B + the two FUSE ------------------------
+func _merge_fx_preview() -> Control:
+	var merge_pos := Vector2(FEEL_FIELD.x * 0.5 + 60.0, FEEL_FIELD.y * 0.5)
+	var src_pos := Vector2(FEEL_FIELD.x * 0.5 - 130.0, FEEL_FIELD.y * 0.5)
+	var nb_off := [Vector2(0, -FEEL_CSZ + 6), Vector2(0, FEEL_CSZ - 6), Vector2(-FEEL_CSZ + 6, 0), Vector2(FEEL_CSZ - 6, 0)]
+	var field := _feel_field()
+	field.add_child(_feel_cell_marker(merge_pos))
+	field.add_child(_feel_cell_marker(src_pos))
+	var mbtn := Button.new()                       # the whole field is clickable → merge
+	mbtn.flat = true
+	mbtn.size = FEEL_FIELD
+	mbtn.position = Vector2.ZERO
+	mbtn.mouse_filter = Control.MOUSE_FILTER_PASS
+	mbtn.set_meta("wb_active", true)
+	field.add_child(mbtn)
+	var hint := _feel_hint("Click the field — or ▶ Merge", Vector2(40, 40))
+	field.add_child(hint)
+	_merge_fx_ctx = {"field": field, "merge_pos": merge_pos, "src_pos": src_pos, "nb_off": nb_off,
+		"tile_a": null, "tile_b": null, "neighbors": []}
+	_merge_fx_spawn()
+	mbtn.pressed.connect(_merge_fx_play)
+	return field
+
+# (Re)spawn the two matching tiles + the four dummy neighbours at their start cells.
+func _merge_fx_spawn() -> void:
+	if _merge_fx_ctx.is_empty():
+		return
+	var c := _merge_fx_ctx
+	var field: Control = c["field"]
+	if not (field != null and is_instance_valid(field)):
+		return
+	for n in c["neighbors"]:
+		if n != null and is_instance_valid(n):
+			n.queue_free()
+	c["neighbors"] = []
+	for k in ["tile_a", "tile_b"]:
+		if c.get(k) != null and is_instance_valid(c[k]):
+			c[k].queue_free()
+	for off in c["nb_off"]:
+		var nb := PieceView.make_piece(201, FEEL_CSZ)
+		nb.position = (c["merge_pos"] + off) - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+		nb.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		field.add_child(nb)
+		c["neighbors"].append(nb)
+	var b := PieceView.make_piece(101, FEEL_CSZ)
+	b.position = c["merge_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(b)
+	c["tile_b"] = b
+	var a := PieceView.make_piece(101, FEEL_CSZ)
+	a.position = c["src_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	a.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(a)
+	c["tile_a"] = a
+
+# Replay: respawn, slide A into B, then fire MergeFx.apply with the live tier/combo + neighbours/board.
+func _merge_fx_play() -> void:
+	if _merge_fx_ctx.is_empty():
+		return
+	_merge_fx_spawn()
+	var c := _merge_fx_ctx
+	var field: Control = c["field"]
+	var a: Control = c["tile_a"]
+	var b: Control = c["tile_b"]
+	if not (a != null and is_instance_valid(a) and b != null and is_instance_valid(b)):
+		return
+	var merge_top: Vector2 = c["merge_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	var p: Dictionary = _params["merge_fx"]
+	var tw := a.create_tween()
+	tw.tween_property(a, "position", merge_top, 0.20).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func() -> void:
+		if a != null and is_instance_valid(a):
+			a.queue_free()
+		var nb_nodes: Array = []
+		for n in c["neighbors"]:
+			if n != null and is_instance_valid(n):
+				nb_nodes.append(n)
+		MergeFx.apply(field, b, c["merge_pos"], int(p.get("tier", 3)), int(p.get("combo", 0)), nb_nodes, field, p))
+
+# --- LAUNCH: click the generator → a tile is EMITTED (pops up-and-away) ------------------------
+func _launch_fx_preview() -> Control:
+	var gen_pos := Vector2(FEEL_FIELD.x * 0.5, FEEL_FIELD.y * 0.5 + 60.0)
+	var field := _feel_field()
+	var gbtn := Button.new()
+	gbtn.flat = true
+	gbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
+	gbtn.position = gen_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	gbtn.set_meta("wb_active", true)
+	var gart := PieceView.make_generator("seed_satchel", FEEL_CSZ)
+	gart.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gbtn.add_child(gart)
+	field.add_child(gbtn)
+	var hint := _feel_hint("Click the generator ↑ — or ▶ Launch", gen_pos + Vector2(-90, FEEL_CSZ / 2.0 + 6))
+	field.add_child(hint)
+	_launch_fx_ctx = {"field": field, "gen_pos": gen_pos, "gen_art": gart, "tile": null}
+	gbtn.pressed.connect(_launch_fx_play)
+	return field
+
+# Emit a fresh tile: fire LaunchFx.apply as it LEAVES the emitter, then pop it up-and-away.
+func _launch_fx_play() -> void:
+	if _launch_fx_ctx.is_empty():
+		return
+	var c := _launch_fx_ctx
+	var field: Control = c["field"]
+	if not (field != null and is_instance_valid(field)):
+		return
+	if c.get("tile") != null and is_instance_valid(c["tile"]):
+		c["tile"].queue_free()
+	var tile := PieceView.make_piece(102, FEEL_CSZ)
+	var start: Vector2 = c["gen_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	tile.position = start
+	tile.pivot_offset = Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	tile.scale = Vector2(0.4, 0.4)
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(tile)
+	c["tile"] = tile
+	LaunchFx.apply(c["gen_art"], tile, c["gen_pos"], _params["launch_fx"])
+	var up := start + Vector2(70, -110)
+	var settle := start + Vector2(70, -34)
+	var tw := tile.create_tween()
+	tw.parallel().tween_property(tile, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(tile, "position", up, 0.18).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(tile, "position", settle, 0.12).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+# --- MOVE: click the tile → it TRAVELS across the field (slide / arc / fall) -------------------
+func _move_fx_preview() -> Control:
+	var start_pos := Vector2(120.0, 150.0)
+	var dest_pos := Vector2(FEEL_FIELD.x - 120.0, FEEL_FIELD.y - 130.0)
+	var field := _feel_field()
+	field.add_child(_feel_cell_marker(dest_pos))
+	var sbtn := Button.new()
+	sbtn.flat = true
+	sbtn.size = Vector2(FEEL_CSZ, FEEL_CSZ)
+	sbtn.position = start_pos - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	sbtn.set_meta("wb_active", true)
+	field.add_child(sbtn)
+	var hint := _feel_hint("Click the tile ↓ — or ▶ Send", start_pos + Vector2(-66, -FEEL_CSZ / 2.0 - 30))
+	field.add_child(hint)
+	_move_fx_ctx = {"field": field, "start_pos": start_pos, "dest_pos": dest_pos, "tile": null}
+	_move_fx_reset()
+	sbtn.pressed.connect(_move_fx_play)
+	return field
+
+# Reset the travelling tile to the start cell so the move replays repeatedly.
+func _move_fx_reset() -> void:
+	if _move_fx_ctx.is_empty():
+		return
+	var c := _move_fx_ctx
+	var field: Control = c["field"]
+	if not (field != null and is_instance_valid(field)):
+		return
+	if c.get("tile") != null and is_instance_valid(c["tile"]):
+		c["tile"].queue_free()
+	var tile := PieceView.make_piece(102, FEEL_CSZ)
+	tile.position = c["start_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	tile.rotation = 0.0
+	tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	field.add_child(tile)
+	c["tile"] = tile
+
+# Send the tile across with the live kind + tunables via MoveFx.apply.
+func _move_fx_play() -> void:
+	if _move_fx_ctx.is_empty():
+		return
+	_move_fx_reset()
+	var c := _move_fx_ctx
+	var p: Dictionary = _params["move_fx"]
+	var start_top: Vector2 = c["start_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	var dest_top: Vector2 = c["dest_pos"] - Vector2(FEEL_CSZ, FEEL_CSZ) / 2.0
+	MoveFx.apply(c["tile"], start_top, dest_top, String(p.get("kind", "slide")), p)
+
+# A small INK hint label placed at `pos`, field-local (mouse-transparent).
+func _feel_hint(text: String, pos: Vector2) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_color_override("font_color", FEEL_INK)
+	l.add_theme_font_size_override("font_size", 17)
+	l.position = pos
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return l
 
 func _hud_layout_preview() -> Control:
 	var p: Dictionary = _params["hud_layout"]
@@ -2143,6 +2482,33 @@ func _rebuild_sidebar() -> void:
 				_sidebar_body.add_child(rb)
 				for spec in RUSH_FX_KNOBS.get(fid, []):
 					_sidebar_body.add_child(_slider_row(spec))
+		"land_fx":
+			_feel_trigger_button("▶  Drop", _land_fx_play)
+			_feel_fx_sidebar(LandFx.EFFECTS, LAND_FX_KNOBS, _land_fx_play)
+		"merge_fx":
+			_feel_trigger_button("▶  Merge", _merge_fx_play)
+			_group_header("Preview only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))    # drives colour / flash / pitch escalation
+			_sidebar_body.add_child(_slider_row(["combo", 0, 10]))   # climbs the pentatonic ladder + gates hitstop
+			_feel_fx_sidebar(MergeFx.EFFECTS, MERGE_FX_KNOBS, _merge_fx_play)
+		"launch_fx":
+			_feel_trigger_button("▶  Launch", _launch_fx_play)
+			_feel_fx_sidebar(LaunchFx.EFFECTS, LAUNCH_FX_KNOBS, _launch_fx_play)
+		"move_fx":
+			_feel_trigger_button("▶  Send", _move_fx_play)
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_toggle_row("All cues (master)", "enabled"))
+			_group_header("Preview only — not saved", false)
+			_sidebar_body.add_child(_option_row("Kind", "kind", MoveFx_KINDS))   # slide / arc / fall (the game passes the live kind)
+			_group_header("Saved to config", true)
+			_sidebar_body.add_child(_slider_row(["duration_ms", 60, 600]))       # travel speed — applies to every kind
+			_section_header("Each cue — flip · tune · ▶ to feel it (the game honours these)")
+			for e in MoveFx.EFFECTS:
+				var mfid := String(e.get("id", ""))
+				_section_header(String(e.get("label", mfid)))
+				_sidebar_body.add_child(_toggle_row("On", mfid))
+				for spec in MOVE_FX_KNOBS.get(mfid, []):
+					_sidebar_body.add_child(_slider_row(spec))
 		"tiers":
 			_group_header("Saved to config", true)
 			_section_header("Layout (grid — no vines)")
@@ -2333,6 +2699,38 @@ func _section_header(title: String) -> void:
 	l.add_theme_font_size_override("font_size", 17)
 	l.add_theme_color_override("font_color", Pal.STRAW)
 	_sidebar_body.add_child(l)
+
+## A ▶ trigger button for a feel-verb inspector (Drop / Merge / Launch / Send) — fires `play` on the live
+## stage ctx, exactly like the rush_fx ▶ Replay. `wb_active` keeps it clickable inside the gallery.
+func _feel_trigger_button(label: String, play: Callable) -> void:
+	var b := Button.new()
+	b.text = label
+	b.set_meta("wb_active", true)
+	b.add_theme_font_size_override("font_size", 18)
+	b.pressed.connect(play)
+	_sidebar_body.add_child(b)
+
+## The shared feel-verb inspector body (mirrors the rush_fx case): the master toggle, then per-effect a
+## label · "On" toggle · the effect's knob sliders (from the *_FX_KNOBS spec). Every key is saved to config.
+## (move_fx builds its own variant inline because it inserts a KIND selector + duration under the master.)
+func _feel_fx_sidebar(effects: Array, knobs: Dictionary, _play: Callable) -> void:
+	_group_header("Saved to config", true)
+	_sidebar_body.add_child(_toggle_row("All cues (master)", "enabled"))
+	_section_header("Each cue — flip · tune · ▶ to feel it (the game honours these)")
+	for e in effects:
+		var fid := String(e.get("id", ""))
+		_section_header(String(e.get("label", fid)))
+		var tip := String(e.get("tip", ""))
+		if tip != "":
+			var t := Label.new()
+			t.text = tip
+			t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			t.add_theme_font_size_override("font_size", 12)
+			t.add_theme_color_override("font_color", Color(Pal.CREAM, 0.6))
+			_sidebar_body.add_child(t)
+		_sidebar_body.add_child(_toggle_row("On", fid))
+		for spec in knobs.get(fid, []):
+			_sidebar_body.add_child(_slider_row(spec))
 
 ## The shared FRAME's options: the saved-to-config bucket (sub-grouped by function), then test-only.
 func _frame_sidebar() -> void:

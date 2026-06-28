@@ -13,6 +13,10 @@ const Login = preload("res://engine/scripts/core/login.gd")
 const LoginMystery = preload("res://engine/scripts/ui/login_mystery.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 
 var _pass := 0
 var _fail := 0
@@ -390,6 +394,7 @@ func _initialize() -> void:
 	_test_level_badge_component(view)
 	_test_rush_bar_component(view)
 	_test_rush_fx_knobs()
+	_test_feel_fx()
 
 	# the bag dialog + bag cell are registered gallery items, and the bag depends on the frame, the
 	# bag cell, AND the currency pill — editing any of those rebuilds the bag (the §reuse wiring).
@@ -2062,4 +2067,49 @@ func _test_rush_fx_knobs() -> void:
 	view._params["rush_fx"]["merge_burst"] = false
 	view._rush_fx_play("merge_burst")
 	ok(true, "per-effect replay fires without error even when the effect toggle is off")
+	view.queue_free()
+
+## The FOUR feel-verb gallery components (land/merge/launch/move): params carry the registry defaults,
+## the preview stage builds + stores its ctx, the sidebar builds, and the play function fires clean.
+func _test_feel_fx() -> void:
+	var view = load("res://games/grove/tools/UiWorkbench.tscn").instantiate()
+	get_root().add_child(view)
+	if view.get_child_count() == 0:
+		view._ready()
+	var registries := {"land_fx": LandFx, "merge_fx": MergeFx, "launch_fx": LaunchFx, "move_fx": MoveFx}
+	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:
+		var reg = registries[id]
+		var p: Dictionary = view._params[id]
+		# every registry key (enabled + effect toggles + knobs) is present so from_config reads it back
+		for k in reg.defaults().keys():
+			ok(p.has(k), "%s params include the registry key %s" % [id, k])
+		# the preview stage builds and stores its ctx (so the play function has its node refs)
+		var prev: Control = view._make_element(id)
+		ok(prev != null, "%s preview stage builds" % id)
+		var ctx: Dictionary = view.get("_%s_ctx" % id)
+		ok(not ctx.is_empty(), "%s preview stores its stage ctx" % id)
+		# the sidebar builds with a master toggle + per-effect On toggles (+ a ▶ trigger button)
+		view._selected = id
+		view._rebuild_sidebar()
+		var toggles: Array = view._sidebar_body.find_children("*", "CheckButton", true, false)
+		ok(toggles.size() >= reg.EFFECTS.size() + 1, "%s sidebar has master + per-effect toggles" % id)
+	# merge_fx carries the preview-only tier/combo; move_fx carries the preview-only kind — not saved
+	ok(view._params["merge_fx"].has("tier") and view._params["merge_fx"].has("combo"), "merge_fx carries tier/combo")
+	ok(not view._is_config("merge_fx", "tier") and not view._is_config("merge_fx", "combo"), "merge_fx tier/combo excluded from save")
+	ok(view._params["move_fx"].has("kind") and not view._is_config("move_fx", "kind"), "move_fx kind is preview-only")
+	# the saved block's keys are EXACTLY the registry's from_config keys (the game's read path), so the
+	# saved out[id] round-trips. Every saved key is a registry default; tier/combo/kind are the only excludes.
+	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:
+		var reg2 = registries[id]
+		for k in view._params[id].keys():
+			# `shadow` is injected into EVERY component by _ensure_shadow_keys (like rush_fx) — from_config
+			# ignores unknown keys, so it is harmless; every OTHER saved key must be a registry default.
+			if view._is_config(id, k) and k != "shadow":
+				ok(reg2.defaults().has(k), "%s saved key %s is a registry default (from_config reads it)" % [id, k])
+	# firing each play function does not error (reads the live _params; no rebuild needed)
+	view._land_fx_play()
+	view._merge_fx_play()
+	view._launch_fx_play()
+	view._move_fx_play()
+	ok(true, "all four feel-verb play functions fire without error")
 	view.queue_free()
