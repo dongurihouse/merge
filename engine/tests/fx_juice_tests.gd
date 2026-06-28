@@ -6,6 +6,7 @@ extends SceneTree
 
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Features = preload("res://engine/scripts/core/features.gd")
+const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 var _pass := 0
@@ -74,6 +75,32 @@ func _initialize() -> void:
 	ok(true, "gen_charge: tolerates a null node")
 	Features.FLAGS["gen_anticipation"] = true
 	gc.queue_free(); gc2.queue_free()
+
+	# --- generator highlight: workbench-tuned halo + sparkle -----------------------
+	Features.FLAGS["item_backing"] = true
+	var gen := PieceView.make_generator("seed_satchel", 100.0, {
+		"glow_scale": 1.35,
+		"glow_a": 0.72,
+		"glow_color": Color("#77CCFF"),
+		"sparkle_color": Color("#FF66CC"),
+		"sparkle_size": 1.8,
+		"sparkle_count": 6,
+		"sparkle_speed": 1.1,
+	})
+	var tuned_glow := gen.find_child("GenGlow", true, false) as TextureRect
+	ok(tuned_glow != null and tuned_glow.modulate.is_equal_approx(Color("#77CCFF", 0.72)) \
+		and is_equal_approx(tuned_glow.size.x, 135.0), \
+		"generator glow consumes the workbench-tuned color, alpha, and scale")
+	var tuned_sparkle := gen.find_child("GenSparkle", true, false) as Control
+	var sparkle_tint_ok := false
+	var sparkle_size_ok := false
+	if tuned_sparkle != null:
+		var tint_v = tuned_sparkle.get("tint")
+		var size_v = tuned_sparkle.get("size_mult")
+		sparkle_tint_ok = tint_v is Color and (tint_v as Color).is_equal_approx(Color("#FF66CC"))
+		sparkle_size_ok = (size_v is float or size_v is int) and is_equal_approx(float(size_v), 1.8)
+	ok(tuned_sparkle != null and sparkle_tint_ok and sparkle_size_ok, \
+		"generator sparkle consumes the workbench-tuned color and size")
 
 	# --- squash_pop strength scales the impact pose (default 1.0 unchanged) -----------
 	var sps := Control.new(); sps.size = Vector2(80, 80); get_root().add_child(sps)

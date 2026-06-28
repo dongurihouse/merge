@@ -115,8 +115,8 @@ func _ready() -> void:
 
 	add_child(BoardScript._field_backdrop())   # the painted grove backdrop (ui/board2_bg.png), full-rect → auto-fits
 
-	# bundle D: the combo screen bloom — ONE overlay owned by the scene (a CanvasLayer child, so it
-	# survives the chrome relayout and dies with the run). Merges poke it via bump().
+	# bundle D: the combo screen bloom — ONE overlay owned by the scene, so it survives the chrome
+	# relayout and dies with the run. Merges poke it via bump().
 	_combo_bloom = ComboBloom.new()
 	add_child(_combo_bloom)
 

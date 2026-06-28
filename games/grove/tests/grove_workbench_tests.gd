@@ -17,6 +17,7 @@ const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
 const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
+const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")
 
 var _pass := 0
 var _fail := 0
@@ -410,6 +411,7 @@ func _initialize() -> void:
 	_test_discovery_frame()
 	_test_board_element(view)
 	_test_quest_card_config(view)
+	_test_generator_highlight_controls(view)
 	_test_new_knobs(view)
 	_test_warm_shadow_port()
 	_test_mystery_preview(view)
@@ -880,6 +882,36 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 ## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
 ## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
 ## content_frac, the same source the live board uses.
+func _test_generator_highlight_controls(view) -> void:
+	var opts: Dictionary = Kit.gen_highlight_opts_from_config({"generator": {
+		"glow_scale": 122, "glow_a": 80, "glow_color": "77CCFF",
+		"outline_w": 35, "outline_a": 85,
+		"sparkle_count": 7, "sparkle_speed": 150,
+		"sparkle_size": 180, "sparkle_color": "FF66CC",
+	}})
+	var glow_color_v = opts.get("glow_color", null)
+	var sparkle_color_v = opts.get("sparkle_color", null)
+	ok(is_equal_approx(float(opts.glow_scale), 1.22) \
+		and glow_color_v is Color and (glow_color_v as Color).is_equal_approx(Color("#77CCFF")) \
+		and is_equal_approx(float(opts.glow_a), 0.80), \
+		"generator highlight reads glow halo scale, alpha, and color from workbench config")
+	ok(opts.has("sparkle_size") and is_equal_approx(float(opts.get("sparkle_size", 0.0)), 1.80) \
+		and sparkle_color_v is Color and (sparkle_color_v as Color).is_equal_approx(Color("#FF66CC")) \
+		and int(opts.sparkle_count) == 7, \
+		"generator highlight reads sparkle count, size, speed, and color from workbench config")
+	ok((view._params["generator"] as Dictionary).has("sparkle_size") \
+		and (view._params["generator"] as Dictionary).has("sparkle_color") \
+		and (view._params["generator"] as Dictionary).has("glow_color") \
+		and view._is_config("generator", "sparkle_size") \
+		and view._is_config("generator", "sparkle_color") \
+		and view._is_config("generator", "glow_color"), \
+		"generator glow and sparkle color/size controls are saved config")
+	view._selected = "generator"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Sparkle Size") >= 250.0 \
+		and view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 2, \
+		"generator sidebar exposes sparkle size plus glow/sparkle color pickers")
+
 # The new workbench knobs (this branch): home-button caption padding + side-rail badge offset, and the
 # currency pill's "+" size. Each must be SAVED config the kit resolver reads, default to the shipped look,
 # and (for the badge) render a sample badge on the home-button preview so the offset is tunable live.
@@ -2177,11 +2209,18 @@ func _test_feel_fx() -> void:
 		# every registry key (enabled + effect toggles + knobs) is present so from_config reads it back
 		for k in reg.defaults().keys():
 			ok(p.has(k), "%s params include the registry key %s" % [id, k])
+		if id == "merge_fx":
+			ok(p.has("merge_slide_ms") and int(p["merge_slide_ms"]) == int(MergeFx.KNOBS.get("merge_slide_ms", -1)), \
+				"merge_fx params include the saved merge-slide duration")
 		# the preview stage builds and stores its ctx (so the play function has its node refs)
 		var prev: Control = view._make_element(id)
 		ok(prev != null, "%s preview stage builds" % id)
 		var ctx: Dictionary = view.get("_%s_ctx" % id)
 		ok(not ctx.is_empty(), "%s preview stores its stage ctx" % id)
+		if id == "merge_fx":
+			ok(ctx.get("bloom") is ComboBloom, "merge_fx preview stores the shared ComboBloom node")
+			ok(ctx.get("bloom") != null and ctx["bloom"].get_parent() == ctx.get("field"), \
+				"merge_fx preview mounts ComboBloom inside the preview field")
 		# the sidebar builds with a master toggle + per-effect On toggles (+ a ▶ trigger button)
 		view._selected = id
 		view._rebuild_sidebar()
@@ -2191,6 +2230,15 @@ func _test_feel_fx() -> void:
 	ok(view._params["merge_fx"].has("tier") and view._params["merge_fx"].has("combo"), "merge_fx carries tier/combo")
 	ok(not view._is_config("merge_fx", "tier") and not view._is_config("merge_fx", "combo"), "merge_fx tier/combo excluded from save")
 	ok(view._params["move_fx"].has("kind") and not view._is_config("move_fx", "kind"), "move_fx kind is preview-only")
+	var view_src := FileAccess.get_file_as_string("res://games/grove/tools/ui_workbench_view.gd")
+	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
+	ok(view_src.find("_slider_row([\"merge_slide_ms\"") != -1, "merge_fx sidebar exposes a saved merge-slide duration slider")
+	ok(view_src.find("MoveFx.apply(a, a.position, merge_top, \"slide\", _params[\"move_fx\"], MergeFx.knob(p, \"merge_slide_ms\"))") != -1, \
+		"merge_fx preview uses the same MoveFx slide override as the board")
+	ok(view_src.find("_merge_fx_pulse_bloom") == -1, "merge_fx preview no longer uses a separate local bloom pulse")
+	ok(board_src.find("MergeFx.knob(_merge_opts, \"merge_slide_ms\")") != -1, \
+		"board merge slide duration reads the saved merge_fx knob")
+	ok(board_src.find("MERGE_SLIDE_MS") == -1, "board no longer has a hard-coded merge slide duration constant")
 	# the saved block's keys are EXACTLY the registry's from_config keys (the game's read path), so the
 	# saved out[id] round-trips. Every saved key is a registry default; tier/combo/kind are the only excludes.
 	for id in ["land_fx", "merge_fx", "launch_fx", "move_fx"]:

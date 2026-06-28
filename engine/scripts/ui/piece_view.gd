@@ -342,7 +342,20 @@ static func make_generator(id: String, csz: float, hl: Dictionary = {}) -> Contr
 # sprite invariant make_piece shares). `scale`/`a`/`width` fractions are of the cell size.
 const GEN_GLOW := {"scale": 1.0, "color": "#FFD27A", "a": 0.30}                  # warm halo
 const GEN_OUTLINE := {"width": 0.035, "alpha": 0.85, "color": "#E8BE5C", "steps": 16}   # gold silhouette rim
-const GEN_SPARKLE := {"count": 5, "speed": 0.7, "color": "#FFF4C2"}
+const GEN_SPARKLE := {"count": 5, "size": 1.0, "speed": 0.7, "color": "#FFF4C2"}
+
+static func _highlight_color(value: Variant, fallback_hex: String) -> Color:
+	if value is Color:
+		return value
+	var fallback := Color(fallback_hex)
+	if value == null:
+		return fallback
+	var hex := String(value).strip_edges()
+	if hex == "":
+		return fallback
+	if not hex.begins_with("#"):
+		hex = "#" + hex
+	return Color.from_string(hex, fallback)
 
 # (1/3) A warm radial halo BEHIND the art. Shares the grounding layer with the contact shadow (added
 # before the sprite, drawn under it), so — like the shadow — it follows item_backing; that keeps the
@@ -359,8 +372,35 @@ static func _add_gen_glow(holder: Control, size: float, hl: Dictionary = {}) -> 
 	var gw := size * float(hl.get("glow_scale", GEN_GLOW["scale"]))
 	glow.size = Vector2(gw, gw)
 	glow.position = (Vector2(size, size) - glow.size) / 2.0
-	glow.modulate = Color(GEN_GLOW["color"], float(hl.get("glow_a", GEN_GLOW["a"])))
+	var glow_color := _highlight_color(hl.get("glow_color", GEN_GLOW["color"]), GEN_GLOW["color"])
+	glow_color.a = float(hl.get("glow_a", GEN_GLOW["a"]))
+	glow.modulate = glow_color
 	holder.add_child(glow)
+
+# A warm GOLD "a quest wants this" halo — the board-side twin of the giver's ✓/bob. Reuses the same
+# radial backing_tex the generator glow uses, tinted gold and sized a touch past the cell so it frames
+# the item. Seated just ABOVE the contact shadow (when item_backing adds one) so it sits BEHIND the
+# sprite — never child(0), preserving make_piece's shadow-at-0 invariant. The board breathes it
+# (FX.breathe) and clears it (get_node_or_null("ReadyGlow")) as quests come and go. Returns the glow
+# node, or null when the holder already wears one (idempotent).
+const READY_GLOW := {"scale": 1.34, "color": "#FFB02E", "a": 0.85}   # a SATURATED warm amber, sized well past the cell — a pale gold halo washes out against the cream board
+static func add_ready_glow(holder: Control, size: float) -> Control:
+	if holder.has_node("ReadyGlow"):
+		return null
+	var below := 1 if (holder.get_child_count() > 0 and String(holder.get_child(0).name) == SHADOW_NAME) else 0
+	var glow := TextureRect.new()
+	glow.name = "ReadyGlow"
+	glow.texture = backing_tex()
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.stretch_mode = TextureRect.STRETCH_SCALE
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var gw := size * float(READY_GLOW["scale"])
+	glow.size = Vector2(gw, gw)
+	glow.position = (Vector2(size, size) - glow.size) / 2.0
+	glow.modulate = Color(READY_GLOW["color"], float(READY_GLOW["a"]))
+	holder.add_child(glow)
+	holder.move_child(glow, below)
+	return glow
 
 # A white SILHOUETTE of an icon (rgb forced white, alpha kept) so GenOutline can tint it to any rim
 # colour. Built from the SAME crop-to-content texture the sprite uses, so the rim aligns. Cached per
@@ -415,8 +455,9 @@ static func _add_gen_sparkle(holder: Control, size: float, hl: Dictionary = {}) 
 	sp.name = "GenSparkle"
 	sp.set_anchors_preset(Control.PRESET_FULL_RECT)
 	sp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sp.tint = Color(GEN_SPARKLE["color"])
+	sp.tint = _highlight_color(hl.get("sparkle_color", GEN_SPARKLE["color"]), GEN_SPARKLE["color"])
 	sp.count = int(hl.get("sparkle_count", GEN_SPARKLE["count"]))
+	sp.size_mult = float(hl.get("sparkle_size", GEN_SPARKLE["size"]))
 	sp.speed = float(hl.get("sparkle_speed", GEN_SPARKLE["speed"]))
 	holder.add_child(sp)
 

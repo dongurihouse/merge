@@ -1,6 +1,6 @@
-extends CanvasLayer
-## The COMBO SCREEN BLOOM — a soft warm edge-glow that SWELLS as a merge streak builds and DECAYS
-## back to nothing when the streak lapses. A self-owned overlay a scene drops in once at startup and
+extends Control
+## The COMBO BLOOM — a soft warm edge-glow that SWELLS as a merge streak builds and DECAYS
+## back to nothing when the streak lapses. A self-owned full-rect overlay a scene or preview field drops in once and
 ## pokes (`bump(combo)`) right after each `Feel.merge`; the verb stays parameter-light, the scene
 ## owns the world reaction.
 ##
@@ -17,12 +17,12 @@ var strength := 0.0                   # the live glow amount (eased toward targe
 
 var _rect: ColorRect
 
-func _init() -> void:
-	# sit ABOVE the board art but BELOW the HUD where possible. A high-but-not-topmost layer so a
-	# scene's HUD (built later / on its own higher layer) still reads over the glow.
-	layer = 7
-
 func _ready() -> void:
+	name = "ComboBloom"
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Sit above the board art but below HUD chrome that uses z 30/40.
+	z_index = 7
 	_rect = ColorRect.new()
 	_rect.color = Color(GLOW.r, GLOW.g, GLOW.b, 0.0)
 	_rect.set_anchors_preset(Control.PRESET_FULL_RECT)
