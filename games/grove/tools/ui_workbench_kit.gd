@@ -2126,7 +2126,7 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 			var empty := Label.new()
 			empty.text = empty_text
 			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-			empty.add_theme_font_size_override("font_size", 17)
+			empty.add_theme_font_size_override("font_size", int(opts.get("empty_font", 28)))   # empty-state headline — overridable; default sized to read against the floored card (was a tiny hardcoded 17)
 			empty.add_theme_color_override("font_color", Color(Pal.BARK, 0.9))
 			empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
