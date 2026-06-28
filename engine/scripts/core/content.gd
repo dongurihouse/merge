@@ -20,14 +20,14 @@ const LINES = D.LINES
 const GENERATORS = D.GENERATORS
 const APPEAR_ALL := 1 << 30        # sentinel level: "include every generator regardless of appear_level"
 const GEN_CELL = D.GEN_CELL
-const MIN_LEVEL = D.MIN_LEVEL
+static var MIN_LEVEL: Array = D.MIN_LEVEL   # OWNER DIAL — live-overridable by economy_tuning.json (apply_tuning)
 const TIER_ODDS = D.TIER_ODDS
 const ASK_WEIGHT = D.ASK_WEIGHT
 const POP_LINE_CAP = D.POP_LINE_CAP         # §6 max distinct lines popped at once (zone 2+)
 const POP_LINE_CAP_Z1 = D.POP_LINE_CAP_Z1   # §6 the tighter zone-1 (Farmhouse) cap — the tiny FTUE board
 const LINE_WINDOW = D.LINE_WINDOW           # §6 rolling map-window width for the askable lines
 const ASK_TIER_WEIGHT = D.ASK_TIER_WEIGHT   # §6 spawn TIER-bias strength (0 = off; owner pacing dial)
-const QUEST_CLICKS_PER_EXP = D.QUEST_CLICKS_PER_EXP
+static var QUEST_CLICKS_PER_EXP: int = D.QUEST_CLICKS_PER_EXP   # OWNER DIAL — live-overridable (apply_tuning)
 const QUEST_CLICKS_PER_COIN = D.QUEST_CLICKS_PER_COIN
 const QUEST_COIN_DEPTH = D.QUEST_COIN_DEPTH
 const COINS_PER_ACORN = D.COINS_PER_ACORN
@@ -89,10 +89,61 @@ const TREAT_DROP_RATE = D.TREAT_DROP_RATE
 const TREAT_SELL_BAND = D.TREAT_SELL_BAND
 const TREAT_GEN_TEX = D.TREAT_GEN_TEX
 static var MAPS: Array = D.MAPS   # var, not const: grove_data builds MAPS at load (merges the placer's JSON layout)
-const LEVEL_BASE_EXP = D.LEVEL_BASE_EXP
-const LEVEL_STEP_EXP = D.LEVEL_STEP_EXP
-const ENDGAME_CLICKS = D.ENDGAME_CLICKS
+static var LEVEL_BASE_EXP: int = D.LEVEL_BASE_EXP   # OWNER DIAL — the level curve, live-overridable (apply_tuning)
+static var LEVEL_STEP_EXP: int = D.LEVEL_STEP_EXP   # OWNER DIAL — live-overridable (apply_tuning)
+static var ENDGAME_CLICKS: int = D.ENDGAME_CLICKS   # OWNER DIAL — whole-arc click budget (anchor; economy_tuning.json)
 const LEVEL_WATER_GIFT = D.LEVEL_WATER_GIFT
+
+# --- OWNER ECONOMY TUNING (docs/economy_tuning.html writes the JSON; the game picks it up here) -----
+# The HTML tool is the editor; this is the reader. At class load we read the ACTIVE game's
+# economy_tuning.json and override the curve/board DIALS above (LEVEL_BASE_EXP / LEVEL_STEP_EXP /
+# QUEST_CLICKS_PER_EXP / ENDGAME_CLICKS / MIN_LEVEL). An absent or invalid file is a clean no-op —
+# the grove_data defaults stand — so the dials only move when the owner deliberately saves a file.
+# Only the named keys override; every other dial is untouched.
+const TUNING_PATH := "res://games/%s/economy_tuning.json"
+
+static func _static_init() -> void:
+	apply_tuning()
+
+# Read the tuning JSON (default: the active game's file) and apply any present, valid keys. Exposed
+# (with a path arg) so a test can drive it off a temp file. Returns the keys actually applied.
+static func apply_tuning(path: String = "") -> PackedStringArray:
+	if path == "":
+		path = TUNING_PATH % Game.active()
+	var applied := PackedStringArray()
+	if not FileAccess.file_exists(path):
+		return applied
+	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return applied
+	var t: Dictionary = parsed
+	if t.has("level_base_exp"):
+		LEVEL_BASE_EXP = maxi(1, int(t["level_base_exp"]));   applied.append("level_base_exp")
+	if t.has("level_step_exp"):
+		LEVEL_STEP_EXP = maxi(0, int(t["level_step_exp"]));   applied.append("level_step_exp")
+	if t.has("quest_clicks_per_exp"):
+		QUEST_CLICKS_PER_EXP = maxi(1, int(t["quest_clicks_per_exp"]));  applied.append("quest_clicks_per_exp")
+	if t.has("endgame_clicks"):
+		ENDGAME_CLICKS = maxi(1, int(t["endgame_clicks"]));   applied.append("endgame_clicks")
+	if t.has("min_level") and t["min_level"] is Array:
+		var grid := _coerce_grid(t["min_level"])
+		if not grid.is_empty():
+			MIN_LEVEL = grid;   applied.append("min_level")
+	return applied
+
+# Validate a ROWS×COLS non-negative int grid; [] (→ ignored) on any shape mismatch.
+static func _coerce_grid(raw: Array) -> Array:
+	if raw.size() != int(D.ROWS):
+		return []
+	var grid: Array = []
+	for r in raw:
+		if not (r is Array) or (r as Array).size() != int(D.COLS):
+			return []
+		var row: Array = []
+		for v in r:
+			row.append(maxi(0, int(v)))
+		grid.append(row)
+	return grid
 
 # --- the bag (§5) ----------------------------------------------------------------
 # The 💎 price of the NEXT expansion when `owned` slots are held (BAG_START_SLOTS..BAG_MAX_SLOTS).

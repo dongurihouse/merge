@@ -101,7 +101,7 @@
 		"today_badge": "gold glow"
 	},
 	"dialog": {
-		"empty_font": 28,
+		"empty_font": 36.0,
 		"shadow": false
 	},
 	"focus_ring": {
