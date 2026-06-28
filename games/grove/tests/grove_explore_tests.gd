@@ -260,7 +260,7 @@ func _test_home_expedition_rail_chrome() -> void:
 		var er := exp.get_global_rect()
 		var vs: Vector2 = hx.get_viewport_rect().size
 		ok(er.position.x > vs.x * 0.72 and er.position.y < vs.y * 0.78, "Expedition lives in the right side rail, not the bottom nav")
-		ok(String(exp.get_meta("icon_id", "")) == "1512", "Expedition uses icon id 1512")
+		ok(String(exp.get_meta("icon_id", "")) == "expedition", "Expedition uses the dedicated expedition icon")
 
 	var labels := ["Map", "Settings", "Daily", "Vault", "Expedition"]
 	if _home_chrome_button(hx, "Inbox") != null:
