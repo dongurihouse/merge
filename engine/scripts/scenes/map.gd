@@ -25,6 +25,7 @@ const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
 const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-overlay mount (one source of truth for dialog z)
+const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # selected resident cells use the same corner focus as the board
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
 const NavBar = preload("res://engine/scripts/ui/nav_bar.gd")   # the shared bottom nav row (board + map)
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -1490,24 +1491,37 @@ func _inhand_info_bar(rect: Rect2) -> Control:
 		hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bar.add_child(hint)
 		return bar
-	var icon_px := clampf(rect.size.y * 0.55, 40.0, 56.0)
-	var icon := _spirit_chip(String(_sel_orb.get("kind", "")), int(_sel_orb.get("tier", 1)), icon_px, func() -> void: pass, false)
-	icon.position = Vector2(pad + 2.0, (rect.size.y - icon_px) * 0.5)
-	icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_child(icon)
-	var lbl := _dock_label("Tier %d" % int(_sel_orb.get("tier", 1)), 19, true)
-	lbl.position = Vector2(pad + icon_px + 12.0, (rect.size.y - 26.0) * 0.5)
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.add_child(lbl)
+	var info_px := clampf(rect.size.y * 0.48, 34.0, 48.0)
+	var info := Button.new()
+	info.name = "ResidentInfoButton"
+	info.flat = true
+	info.focus_mode = Control.FOCUS_NONE
+	info.tooltip_text = "Tiers"
+	info.custom_minimum_size = Vector2(info_px, info_px)
+	info.size = Vector2(info_px, info_px)
+	info.position = Vector2(pad + 4.0, (rect.size.y - info_px) * 0.5)
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus", "disabled"]:
+		info.add_theme_stylebox_override(st, empty)
+	var info_icon_px := info_px * 0.86
+	var info_icon: Control = Kit.make_icon("info", info_icon_px) if Kit != null else Look.icon("info", info_icon_px)
+	info_icon.name = "ResidentInfoIcon"
+	info_icon.size = Vector2(info_icon_px, info_icon_px)
+	info_icon.position = Vector2((info_px - info_icon_px) * 0.5, (info_px - info_icon_px) * 0.5)
+	info_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	info.add_child(info_icon)
+	info.pressed.connect(_on_resident_info_pressed)
+	bar.add_child(info)
 	if not _sel_orb.is_empty():
 		# Sell shows for ANY selected spirit — in-hand OR housed (both pay SELL_PER_TIER × tier). A FIXED-size
 		# green pill, so its footprint is controlled and never pokes past the bar / board frame.
 		var tier := int(_sel_orb.get("tier", 1))
-		var sw := 116.0
+		var sw := 122.0
 		var sh := 42.0
 		var sell := Button.new()
+		sell.name = "ResidentSellButton"
 		sell.text = "Sell +%d" % (Habitat.SELL_PER_TIER * tier)
-		sell.add_theme_font_size_override("font_size", 17)
+		sell.add_theme_font_size_override("font_size", 22)
 		sell.add_theme_color_override("font_color", Color("#F4FBE9"))
 		sell.add_theme_color_override("font_outline_color", Color("#173404"))
 		sell.add_theme_constant_override("outline_size", 3)
@@ -1779,20 +1793,20 @@ func _orb_at(gpos: Vector2) -> Dictionary:
 	for o in _hand_orbs:
 		var n: Control = o.node
 		if is_instance_valid(n) and n.get_global_rect().grow(4.0).has_point(gpos):
-			return {"src": "hand", "idx": int(o.idx), "kind": String(o.kind), "tier": int(o.tier)}
+			return {"src": "hand", "idx": int(o.idx), "kind": String(o.kind), "tier": int(o.tier), "node": n}
 	for o in _placed_orbs:
 		var pn: Control = o.node
 		if is_instance_valid(pn) and pn.get_global_rect().grow(4.0).has_point(gpos):
 			return {"src": "placed", "idx": int(o.idx), "z": int(o.z), "map_id": String(o.map_id),
-				"kind": String(o.kind), "tier": int(o.tier)}
+				"kind": String(o.kind), "tier": int(o.tier), "node": pn}
 	return {}
 
 # Lift the dragged spirit into a ghost orb that follows the finger (IGNOREs input, rides above the cards).
 func _begin_drag_ghost(gpos: Vector2) -> void:
 	_drag["active"] = true
 	_sel_orb = {}                       # starting a drag clears any Sell focus
-	var px := clampf(_map_rect.size.x * 0.10, 48.0, 84.0)
-	_drag_ghost = _spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass)
+	var px := _drag_source_px()
+	_drag_ghost = _spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass, false)
 	_force_ignore(_drag_ghost)
 	_drag_ghost.z_index = 200
 	_drag_ghost.modulate = Color(1.0, 1.0, 1.0, 0.92)
@@ -1800,6 +1814,14 @@ func _begin_drag_ghost(gpos: Vector2) -> void:
 	content.add_child(_drag_ghost)
 	_move_drag_ghost(gpos)
 	Audio.play("button_tap", -6.0)
+
+func _drag_source_px() -> float:
+	var source := _drag.get("node", null) as Control
+	if source != null and is_instance_valid(source):
+		var size := source.get_global_rect().size
+		if size.x > 0.0 and size.y > 0.0:
+			return maxf(size.x, size.y)
+	return clampf(_map_rect.size.x * 0.10, 48.0, 84.0)
 
 func _move_drag_ghost(gpos: Vector2) -> void:
 	if _drag_ghost == null or not is_instance_valid(_drag_ghost):
@@ -1924,6 +1946,70 @@ func _on_focus_sell() -> void:
 		FX.floating_reward(self, _screen_center(0.0), "coin", got, STRAW)
 	_sel_orb = {}
 	_after_habitat_action()
+
+func _on_resident_info_pressed() -> void:
+	if _sel_orb.is_empty():
+		return
+	_open_resident_ladder(String(_sel_orb.get("kind", "")), int(_sel_orb.get("tier", 1)))
+
+func _open_resident_ladder(kind: String, mark_tier: int) -> void:
+	if kind == "" or Overlay.is_open(self, "ResidentLadderOverlay"):
+		return
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return
+	Audio.play("button_tap", -4.0)
+	var overlay := Overlay.mount(self, "ResidentLadderOverlay")
+	var veil := ColorRect.new()
+	veil.color = Color(DOCK_INK, 0.55)
+	veil.set_anchors_preset(Control.PRESET_FULL_RECT)
+	overlay.add_child(veil)
+	veil.gui_input.connect(func(ev: InputEvent) -> void:
+		if (ev is InputEventMouseButton and ev.pressed) or (ev is InputEventScreenTouch and ev.pressed):
+			overlay.queue_free())
+	var cc := CenterContainer.new()
+	cc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	overlay.add_child(cc)
+
+	var cfg: Dictionary = Kit.load_config(Kit.CONFIG_PATH)
+	var pct: float = float((cfg.get("tiers", {}) as Dictionary).get("width_pct", 85.0))
+	var width: float = get_viewport_rect().size.x * clampf(pct, 30.0, 100.0) / 100.0
+	var dopts: Dictionary = Kit.tiers_opts_from_config(cfg)
+	dopts["banner_text"] = Strings.t("ladder.title")
+	dopts["make_content"] = func(d: Dictionary, px: float) -> Control:
+		return _spirit_icon_node(String(d.get("kind", "")), int(d.get("tier", 1)), px)
+	dopts["on_close"] = func() -> void:
+		if is_instance_valid(overlay):
+			overlay.queue_free()
+
+	var dialog: Control = Kit.tiers_dialog(_resident_ladder_entries(kind, mark_tier), width, dopts)
+	cc.add_child(dialog)
+	FX.pop_in(dialog)
+
+func _resident_ladder_entries(kind: String, mark_tier: int) -> Array:
+	var out: Array = []
+	var seen_cap := _resident_seen_tier_cap(kind, mark_tier)
+	for tier in range(1, G.RESIDENT_MAX_TIER + 1):
+		out.append({
+			"tier": tier,
+			"seen": tier <= seen_cap,
+			"marked": tier == mark_tier,
+			"kind": kind,
+		})
+	return out
+
+func _resident_seen_tier_cap(kind: String, mark_tier: int) -> int:
+	var cap := clampi(mark_tier, 1, G.RESIDENT_MAX_TIER)
+	for inst in Habitat.hand():
+		if String(inst.get("kind", "")) == kind:
+			cap = maxi(cap, int(inst.get("tier", 1)))
+	for m in G.MAPS:
+		var map_id := String(m.get("id", ""))
+		for inst in Habitat.placed(map_id):
+			if String(inst.get("kind", "")) == kind:
+				cap = maxi(cap, int(inst.get("tier", 1)))
+	return clampi(cap, 1, G.RESIDENT_MAX_TIER)
 
 func _after_habitat_action() -> void:
 	_update_hud()
@@ -2293,6 +2379,7 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	var btn := Button.new()
 	btn.flat = true
 	btn.custom_minimum_size = Vector2(px, px)
+	btn.size = Vector2(px, px)
 	btn.pressed.connect(on_tap)
 	var path := G.resident_art(kind, tier)
 	var has_art := path != "" and ResourceLoader.exists(path)
@@ -2336,7 +2423,7 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 
 # A NEW-STYLE board CELL holding a spirit — built from Kit.slot_cell (the SAME cell the reskinned merge board
 # + bag use), with the spirit's icon (content-cropped → uniform + centered) as its filled content. The cell
-# IGNOREs the mouse (the single input surface hit-tests it); `selected` draws a gold ring.
+# IGNOREs the mouse (the single input surface hit-tests it); `selected` draws the board's shared focus ring.
 func _spirit_cell(Kit: GDScript, bag_opts: Dictionary, kind: String, tier: int, px: float, selected: bool) -> Control:
 	if Kit == null:
 		return _empty_cell(Kit, bag_opts, px)
@@ -2345,7 +2432,7 @@ func _spirit_cell(Kit: GDScript, bag_opts: Dictionary, kind: String, tier: int, 
 	cell.custom_minimum_size = Vector2(px, px)
 	_force_ignore(cell)
 	if selected:
-		cell.add_child(_sel_ring())
+		cell.add_child(_resident_focus_ring())
 	return cell
 
 # An EMPTY new-style board cell (Kit.slot_cell, no spirit) so the in-hand grid reads as a board of cells.
@@ -2374,18 +2461,29 @@ func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
 		t.texture = _resident_content_tex(art)
 	return t
 
-# The gold selection ring overlaid on the selected cell.
-func _sel_ring() -> Control:
-	var ring := Panel.new()
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var rs := StyleBoxFlat.new()
-	rs.bg_color = Color(1, 1, 1, 0)
-	rs.set_border_width_all(4)
-	rs.border_color = Color(1.0, 0.85, 0.35)
-	rs.set_corner_radius_all(14)
-	ring.add_theme_stylebox_override("panel", rs)
+func _resident_focus_ring() -> Control:
+	var ring := FocusRing.new()
+	ring.name = "ResidentFocusRing"
 	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ring.z_index = 8
+	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var o := _focus_ring_opts()
+	if not o.is_empty():
+		ring.color = o.color
+		ring.halo_color = o.halo_color
+		ring.halo_a = o.halo_a
+		ring.arm_frac = o.arm_frac
+		ring.thick_frac = o.thick_frac
+		ring.pad_frac = o.pad_frac
+		ring.halo = o.halo
+	ring.queue_redraw()
 	return ring
+
+func _focus_ring_opts() -> Dictionary:
+	var Kit: GDScript = load(KIT_PATH)
+	if Kit == null:
+		return {}
+	return Kit.focus_ring_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
 
 func _dock_label(text: String, size: int, bold: bool = false) -> Label:
 	var l := Label.new()

@@ -66,17 +66,32 @@ static func _enhance_enabled() -> bool:
 ## Drive the TRAVEL per the resolved opts. `node` slides/arcs/falls `from`->`to`; `kind` is
 ## "slide" / "arc" / "fall". Returns the primary `position` Tween (always built, so the move reaches
 ## `to` even with every enhancement off). Mirrors feel.move but every cue is individually toggled + tuned.
-static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts: Dictionary) -> Tween:
+## `dur_ms` (> 0) OVERRIDES the tunable duration_ms knob — used by callers whose travel must stay a
+## fixed speed regardless of the Move-workbench duration slider (e.g. the board merge SNAP, which must
+## not slow down when someone tunes the travel duration). The shadow/trail/lean toggles still apply.
+static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts: Dictionary, dur_ms := 0) -> Tween:
 	if not (node and is_instance_valid(node)):
 		return null
 	node.position = from
-	var dur := maxf(0.02, float(knob(opts, "duration_ms")) / 1000.0)
+	# A tile IN FLIGHT is not interactable — clicking it mid-travel must not pause it or re-trigger it.
+	# Flip mouse input off for the trip and hand it back when the travel lands (below). The resting filter
+	# is stashed in meta so overlapping moves on the same node never restore to the in-flight IGNORE (which
+	# would leave the tile permanently dead) — the captured value is always the real resting state.
+	if not node.has_meta("_movefx_rest_filter"):
+		node.set_meta("_movefx_rest_filter", node.mouse_filter)
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var dur := maxf(0.02, (float(dur_ms) if dur_ms > 0 else float(knob(opts, "duration_ms"))) / 1000.0)
 	var t := node.create_tween()
 	if kind == "arc":
 		_build_arc(t, node, from, to, dur)
 	else:
 		# slide / fall: accelerate INTO the impact — slow to leave, fastest at the target.
 		t.tween_property(node, "position", to, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	# the travel landed — restore interactability (guarded: the node may be freed mid-flight, e.g. a merge).
+	t.chain().tween_callback(func() -> void:
+		if node and is_instance_valid(node) and node.has_meta("_movefx_rest_filter"):
+			node.mouse_filter = node.get_meta("_movefx_rest_filter")
+			node.remove_meta("_movefx_rest_filter"))
 	# the enhancements ride alongside the primary tween — never block it, never run headless.
 	if _enhance_enabled():
 		if on(opts, "shadow"):

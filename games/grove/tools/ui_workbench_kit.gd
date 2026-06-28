@@ -1087,9 +1087,10 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
 	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
 	# folded into shadow_params by the resolver. A PanelContainer manages its children, so cast it via a holder
-	# (Look.with_shadow) rather than a behind-parent child; the big corner clamps to a capsule.
+	# (Look.with_shadow) rather than a behind-parent child. Cast it with the badge's OWN corner radius (the
+	# nine-patch cap, held constant in px) so the shadow stays CONCENTRIC with the pill — not a fatter capsule.
 	if bool(opts.get("shadow", false)):
-		return Look.with_shadow(panel, pill_h, opts.get("shadow_params", {}) as Dictionary)
+		return Look.with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
@@ -3566,6 +3567,19 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## to the 0..1 the builder wants. The caller overrides `px` per call site (rail vs nav).
 static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("home_button", {})
+	var sp: Dictionary = Look.shadow_params(cfg)
+	if h.has("shadow_alpha"):
+		sp["alpha"] = clampf(float(h["shadow_alpha"]) / 100.0, 0.0, 1.0)
+	if h.has("shadow_offset_x"):
+		sp["offset_x"] = float(h["shadow_offset_x"])
+	if h.has("shadow_offset_y"):
+		sp["offset_y"] = float(h["shadow_offset_y"])
+	if h.has("shadow_blur"):
+		sp["blur"] = float(h["shadow_blur"])
+	if h.has("shadow_spread"):
+		sp["spread"] = float(h["shadow_spread"])
+	if h.has("shadow_warmth"):
+		sp["warmth"] = clampf(float(h["shadow_warmth"]) / 100.0, 0.0, 1.0)
 	return {
 		"px": float(h.get("px", 140)),
 		"shell": HOME_SHELL,
@@ -3586,7 +3600,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# the DROP SHADOW: cast the SHARED box-shadow behind the badge / disc (on by default — the shipped rail +
 		# Map tiles lift off the homestead). home_button() shapes it per button (rounded rect vs circle).
 		"shadow": bool(h.get("shadow", true)),
-		"shadow_params": Look.shadow_params(cfg),
+		"shadow_params": sp,
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges

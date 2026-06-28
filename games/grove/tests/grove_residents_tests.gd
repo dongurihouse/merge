@@ -365,6 +365,25 @@ func _test_residents_dock() -> void:
 	ok(hx._hand_orbs.size() == 2, "the two in-hand spirits register as drag sources")
 	ok(_placed_for(hx, z) == 1, "the completed map's housed orb registers (drag-out / merge / focus target)")
 
+	var moss_ladder: Array = hx._resident_ladder_entries("moss", 2)
+	ok(moss_ladder.size() >= 4 \
+		and bool(moss_ladder[0].seen) and bool(moss_ladder[1].seen) \
+		and not bool(moss_ladder[2].seen) and not bool(moss_ladder[3].seen), \
+		"resident tier ladder hides future tiers until this line has reached them")
+
+	var drag_src := _hand_orb_of(hx, "acorn", 1)
+	var drag_px := drag_src.get_global_rect().size.x if drag_src != null else -1.0
+	hx._drag = hx._orb_at(_hit_center(drag_src))
+	hx._begin_drag_ghost(_hit_center(drag_src))
+	var drag_ghost := hx.get("_drag_ghost") as Control
+	var ghost_px := float(drag_ghost.get_meta("ghost_px", 0.0)) if drag_ghost != null else -1.0
+	ok(drag_ghost != null \
+		and drag_ghost.find_child("MapResidentTierBadge", true, false) == null \
+		and absf(ghost_px - drag_px) <= 1.0 \
+		and absf(drag_ghost.get_global_rect().size.x - drag_px) <= 1.0, \
+		"resident drag preview hides the tier badge and keeps the source slot size")
+	hx._end_drag()
+
 	# DRAG the non-matching acorn from the hand onto a HOUSED orb (a non-match) → it still PLACES (the strip
 	# is the map's drop zone; only a MATCH merges, a non-match falls through to a free slot)
 	var before_p := Habitat.placed(mid).size()

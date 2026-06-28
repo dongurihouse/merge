@@ -261,6 +261,15 @@ func _has_class(node: Node, klass: String) -> bool:
 			return true
 	return false
 
+func _has_script_path(node: Node, script_path: String) -> bool:
+	var script: Resource = node.get_script() as Resource
+	if script != null and String(script.resource_path) == script_path:
+		return true
+	for c in node.get_children():
+		if _has_script_path(c, script_path):
+			return true
+	return false
+
 func _id_of(view: Control, key: String) -> int:
 	var n = view._sections.get(key)
 	return n.get_instance_id() if n != null else 0
@@ -706,6 +715,19 @@ func _initialize() -> void:
 			ok(inhand_frame != null and inhand_flat != null and inhand_line_w > 0 and inhand_line_w <= 2 \
 				and _has_button_text(inhand_bar, "Sell +5"), \
 				"place-picker resident sell bar uses the thin Slot-cell line border")
+			var resident_info := inhand_bar.find_child("ResidentInfoButton", true, false) as Button
+			var resident_sell := _find_button(inhand_bar, "Sell +5")
+			ok(resident_info != null and not _has_label_text(inhand_bar, "Tier 1") \
+				and resident_sell != null and resident_sell.get_theme_font_size("font_size") >= 22, \
+				"place-picker resident sell bar shows only an info icon before a larger Sell button")
+			if resident_info != null:
+				resident_info.pressed.emit()
+				await process_frame
+				ok(map_scene.get_node_or_null("ResidentLadderOverlay") != null, \
+					"place-picker resident info button opens this line's tier ladder")
+				var resident_ladder: Node = map_scene.get_node_or_null("ResidentLadderOverlay")
+				if resident_ladder != null:
+					resident_ladder.queue_free()
 			inhand_bar.queue_free()
 		if map_scene.select_hits.size() >= 2:
 			var unlocked_select_card: Control = null
@@ -1202,6 +1224,7 @@ func _test_board_element(view) -> void:
 	big_resident_opts["cell_h"] = 100.0
 	var small_resident: Control = map_scene._spirit_cell(Kit, small_resident_opts, "ember", 1, 100.0, false)
 	var big_resident: Control = map_scene._spirit_cell(Kit, big_resident_opts, "ember", 1, 100.0, false)
+	var focused_resident: Control = map_scene._spirit_cell(Kit, big_resident_opts, "ember", 1, 100.0, true)
 	var small_resident_px := _resident_art_box_px(small_resident)
 	var big_resident_px := _resident_art_box_px(big_resident)
 	var big_resident_art := _resident_art_rect(big_resident)
@@ -1216,8 +1239,12 @@ func _test_board_element(view) -> void:
 		and absf(resident_atlas.region.size.x - float(resident_used.size.x)) <= 1.0 \
 		and absf(resident_atlas.region.size.y - float(resident_used.size.y)) <= 1.0, \
 		"right-column resident previews crop resident art to opaque bounds like board items")
+	ok(_has_script_path(focused_resident, "res://engine/scripts/ui/focus_ring.gd") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "func _sel_ring("), \
+		"right-column resident focus uses the shared board FocusRing instead of the old full-cell ring")
 	small_resident.queue_free()
 	big_resident.queue_free()
+	focused_resident.queue_free()
 	map_scene.queue_free()
 
 	# the CELL knob is preview-only: wider preview cells grow the workbench board footprint.

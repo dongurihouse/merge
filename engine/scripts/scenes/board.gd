@@ -48,6 +48,7 @@ const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the
 const Pal = Game.PALETTE
 
 var GAP := 7.0                   # #7: tight, consistent gutter (was 10) — cells sit close. Workbench-overridable (board.gap).
+const MERGE_SLIDE_MS := 130      # the merge snap is a fast FIXED slide, decoupled from the tunable move duration_ms
 const BOARD_MARGIN := 6.0        # breathing room each side; the board owns the rest
 const ROTATE_ASPECT := 1.0       # render the grid LANDSCAPE (cols/rows swapped: 9×7) when viewport w/h exceeds this
 const ROTATE_DEADBAND := 0.04    # hysteresis around ROTATE_ASPECT so a near-square resize doesn't flip-flop
@@ -2603,15 +2604,18 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		board_area.add_child(n)
 		piece_nodes[pick] = n
 		last_piece = n
-		# KEEP the grow-in 0.3 -> 1.0 flight — the generator's OWN spawn signature, not part of the verb.
-		var t := n.create_tween()
-		t.set_parallel(true)
-		t.tween_property(n, "position", _cell_pos(pick), 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-		t.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		# JUICE: the tile THUMPS DOWN on arrival — a quiet land (squash + dust puff, no per-seed sound;
-		# the pop's water_pop/item_drop is the one shared batch sound). Grow-in = appearance, land = touchdown.
+		# the grow-in 0.3 -> 1.0 scale is the generator's OWN spawn signature — runs ALONGSIDE the flight.
+		var st := n.create_tween()
+		st.tween_property(n, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		# the position FLIGHT routes through the unified MOVE verb so the workbench-tuned shadow / trail /
+		# lean show on the board's most visible tile travel (the merge snap is too brief to read them). The
+		# flight FOLLOWS the workbench travel duration_ms (no override), so tuning Move speed is felt here.
 		var land_ctr := _cell_pos(pick) + Vector2(csz, csz) / 2.0
-		t.chain().tween_callback(LandFx.apply.bind(board_area, n, land_ctr, _land_opts, 0.7, true))
+		var mt := MoveFx.apply(n, _cell_pos(cell), _cell_pos(pick), "slide", _move_opts)
+		if mt != null:
+			# JUICE: the tile THUMPS DOWN on arrival — a quiet land (squash + dust puff, no per-seed sound;
+			# the pop's water_pop/item_drop is the one shared batch sound). Grow-in = appearance, land = touchdown.
+			mt.tween_callback(LandFx.apply.bind(board_area, n, land_ctr, _land_opts, 0.7, true))
 	# Unified launch EMIT through the workbench-tuned LaunchFx applier (resolved once in _ready): the
 	# generator recoil + a muzzle puff (toss sound stays OFF in the resolved opts — the generator keeps
 	# its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per pop (not
@@ -2687,10 +2691,11 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	piece_nodes.erase(a)
 	animating = true
 	# the losing piece SLIDES into the winner cell through the unified MOVE verb (accelerate-into-
-	# impact). The board piece already carries its own piece_view ContactShadow, so Feel.move detects
-	# it and adds NO cast shadow (no double). _after_merge stays the completion callback — chained on
-	# the returned tween so the merge still resolves exactly when the slide lands.
-	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts)
+	# impact). The slide is a fast FIXED SNAP (MERGE_SLIDE_MS) — NOT the tunable travel duration_ms, so
+	# tuning the Move workbench's travel speed never makes merges feel sluggish. The shadow/trail/lean
+	# toggles still apply. _after_merge stays the completion callback — chained on the returned tween so
+	# the merge still resolves exactly when the slide lands.
+	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts, MERGE_SLIDE_MS)
 	if t != null:
 		t.tween_callback(_after_merge.bind(a, b, produced, node))
 	else:

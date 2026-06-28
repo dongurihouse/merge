@@ -716,6 +716,11 @@ func _settle(except: Control = null) -> void:
 				else:
 					node.position = rest                    # already settled / a same-row or sideways move
 
+# Rush travel runs at HALF the workbench-tuned Move duration — the fast mode wants snappier fall/fling
+# than the home board. Returns the per-move dur override (ms) for MoveFx.apply; 0 would mean "use config".
+func _rush_move_ms() -> int:
+	return maxi(1, int(MoveFx.knob(_move_opts, "duration_ms") * 0.5))
+
 # A flung tile TOSSES in an arc from `start` to its new resting cell `dest` — up-and-over with a slight
 # spin, then a gravity drop and a small landing squash. The board's other tiles settle separately.
 func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
@@ -725,7 +730,8 @@ func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	# the flung tile TOSSES up-and-over through the unified MOVE verb ("arc": up-leg eases out, down-
 	# leg accelerates into the target). The ±22° spin (the fling's signature) rides as a SEPARATE
 	# parallel tween — Feel.move's lean verb skips "arc" so it never fights this spin.
-	var t := MoveFx.apply(node, start, dest, "arc", _move_opts)
+	# Rush runs at a 50% CUT of the workbench travel duration_ms — the fast mode wants snappier travel.
+	var t := MoveFx.apply(node, start, dest, "arc", _move_opts, _rush_move_ms())
 	if t == null:
 		return
 	var spin := deg_to_rad(22.0) * (1.0 if dest.x >= start.x else -1.0)
@@ -797,7 +803,8 @@ func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
 	# (a whole column settles at once), so Feel.move makes NO trail ghosts on it and the tiles already
 	# carry their piece_view ContactShadow (so no cast shadow either). On landing, chain a QUIET land
 	# (squash only — no flash/puff/sound/haptic) so a settling column can't fire N effects at once.
-	var t := MoveFx.apply(node, Vector2(rest.x, from_y), rest, "fall", _move_opts)
+	# Rush runs at a 50% CUT of the workbench travel duration_ms (see _rush_move_ms).
+	var t := MoveFx.apply(node, Vector2(rest.x, from_y), rest, "fall", _move_opts, _rush_move_ms())
 	if t != null:
 		t.tween_callback(func() -> void:
 			if node and is_instance_valid(node):
