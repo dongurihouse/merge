@@ -1798,20 +1798,20 @@ func _orb_at(gpos: Vector2) -> Dictionary:
 	for o in _hand_orbs:
 		var n: Control = o.node
 		if is_instance_valid(n) and n.get_global_rect().grow(4.0).has_point(gpos):
-			return {"src": "hand", "idx": int(o.idx), "kind": String(o.kind), "tier": int(o.tier)}
+			return {"src": "hand", "idx": int(o.idx), "kind": String(o.kind), "tier": int(o.tier), "node": n}
 	for o in _placed_orbs:
 		var pn: Control = o.node
 		if is_instance_valid(pn) and pn.get_global_rect().grow(4.0).has_point(gpos):
 			return {"src": "placed", "idx": int(o.idx), "z": int(o.z), "map_id": String(o.map_id),
-				"kind": String(o.kind), "tier": int(o.tier)}
+				"kind": String(o.kind), "tier": int(o.tier), "node": pn}
 	return {}
 
 # Lift the dragged spirit into a ghost orb that follows the finger (IGNOREs input, rides above the cards).
 func _begin_drag_ghost(gpos: Vector2) -> void:
 	_drag["active"] = true
 	_sel_orb = {}                       # starting a drag clears any Sell focus
-	var px := clampf(_map_rect.size.x * 0.10, 48.0, 84.0)
-	_drag_ghost = _spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass)
+	var px := _drag_source_px()
+	_drag_ghost = _spirit_chip(String(_drag.get("kind", "")), int(_drag.get("tier", 1)), px, func() -> void: pass, false)
 	_force_ignore(_drag_ghost)
 	_drag_ghost.z_index = 200
 	_drag_ghost.modulate = Color(1.0, 1.0, 1.0, 0.92)
@@ -1819,6 +1819,14 @@ func _begin_drag_ghost(gpos: Vector2) -> void:
 	content.add_child(_drag_ghost)
 	_move_drag_ghost(gpos)
 	Audio.play("button_tap", -6.0)
+
+func _drag_source_px() -> float:
+	var source := _drag.get("node", null) as Control
+	if source != null and is_instance_valid(source):
+		var size := source.get_global_rect().size
+		if size.x > 0.0 and size.y > 0.0:
+			return maxf(size.x, size.y)
+	return clampf(_map_rect.size.x * 0.10, 48.0, 84.0)
 
 func _move_drag_ghost(gpos: Vector2) -> void:
 	if _drag_ghost == null or not is_instance_valid(_drag_ghost):
@@ -1986,14 +1994,27 @@ func _open_resident_ladder(kind: String, mark_tier: int) -> void:
 
 func _resident_ladder_entries(kind: String, mark_tier: int) -> Array:
 	var out: Array = []
+	var seen_cap := _resident_seen_tier_cap(kind, mark_tier)
 	for tier in range(1, G.RESIDENT_MAX_TIER + 1):
 		out.append({
 			"tier": tier,
-			"seen": G.resident_art(kind, tier) != "",
+			"seen": tier <= seen_cap,
 			"marked": tier == mark_tier,
 			"kind": kind,
 		})
 	return out
+
+func _resident_seen_tier_cap(kind: String, mark_tier: int) -> int:
+	var cap := clampi(mark_tier, 1, G.RESIDENT_MAX_TIER)
+	for inst in Habitat.hand():
+		if String(inst.get("kind", "")) == kind:
+			cap = maxi(cap, int(inst.get("tier", 1)))
+	for m in G.MAPS:
+		var map_id := String(m.get("id", ""))
+		for inst in Habitat.placed(map_id):
+			if String(inst.get("kind", "")) == kind:
+				cap = maxi(cap, int(inst.get("tier", 1)))
+	return clampi(cap, 1, G.RESIDENT_MAX_TIER)
 
 func _after_habitat_action() -> void:
 	_update_hud()
@@ -2366,6 +2387,7 @@ func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_bad
 	var btn := Button.new()
 	btn.flat = true
 	btn.custom_minimum_size = Vector2(px, px)
+	btn.size = Vector2(px, px)
 	btn.pressed.connect(on_tap)
 	var path := G.resident_art(kind, tier)
 	var has_art := path != "" and ResourceLoader.exists(path)
