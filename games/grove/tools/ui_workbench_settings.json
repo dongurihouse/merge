@@ -437,6 +437,13 @@
 		"plaque_y": 79.0,
 		"shadow": true
 	},
+	"ready_glow": {
+		"color": "FFB12E",
+		"corner_pct": 22.0,
+		"fill_a": 55.0,
+		"halo_a": 60.0,
+		"halo_pct": 16.0
+	},
 	"rush_bar": {
 		"burn": 55.0,
 		"crown_size": 76.0,

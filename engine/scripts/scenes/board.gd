@@ -115,6 +115,9 @@ var _merge_opts := {}
 var _land_opts := {}
 var _launch_opts := {}
 var _move_opts := {}
+# the quest-ready glow look (colour/opacity/roundness/halo), resolved ONCE in _ready from the workbench
+# "ready_glow" section so add_ready_glow renders the SAME look the workbench previews. {} → shipped amber.
+var _ready_glow_opts := {}
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
@@ -338,6 +341,7 @@ func _ready() -> void:
 	_land_opts = LandFx.from_config(fx_cfg)
 	_launch_opts = LaunchFx.from_config(fx_cfg)
 	_move_opts = MoveFx.from_config(fx_cfg)
+	_ready_glow_opts = KitX.ready_glow_opts_from_config(fx_cfg)   # the quest-ready glow look (workbench "ready_glow")
 	_rebuild_all()
 	if _winback:
 		_winback = false
@@ -1187,7 +1191,7 @@ func _refresh_quest_ready_marks() -> void:
 		var glow: Control = node.get_node_or_null("ReadyGlow")
 		if wanted.has(board.item_at(cell)):
 			if glow == null:
-				var g := PieceView.add_ready_glow(node, csz)
+				var g := PieceView.add_ready_glow(node, csz, _ready_glow_opts)
 				if g != null:
 					FX.breathe(g)
 		elif glow != null:

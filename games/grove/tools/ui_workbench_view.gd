@@ -34,7 +34,7 @@ const PHONE_W := 1080.0   # the project's portrait base width; dialog widths are
 const PHONE_H := 1920.0   # the project's portrait base height; the map card's height is a % of it (see map_card)
 const SIDEBAR_W := 348.0  # fixed left inspector width; long labels wrap inside this rail instead of growing it
 
-const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "settings", "vault", "info", "bag"]
+const IDS := ["board", "fx", "generator", "focus_ring", "ready_glow", "button", "home_button", "hud_layout", "icon", "gold_badge", "level_badge", "progress_bar", "card", "daily_card", "toggle_card", "bag_card", "map_card", "quest_card", "frame", "dialog", "daily", "mystery", "shop", "level", "tiers", "gold_currency_pill", "info_bar", "rush_bar", "rush_fx", "land_fx", "merge_fx", "launch_fx", "move_fx", "settings", "vault", "info", "bag"]
 # Gallery layout: TWO side-by-side COLUMNS. The LEFT column is the building-block components, ALWAYS ONE
 # element per row (each on its own line). The RIGHT column leads with the Board preview, then stacks every
 # DIALOG in a single column. Each column is a list of ROWS; a row CAN hold side-by-side elements (the right
@@ -43,7 +43,7 @@ const IDS := ["board", "fx", "generator", "focus_ring", "button", "home_button",
 const COLUMNS := [
 	# the building blocks — one element per row (the HUD gold currency pill lives here too, as a reusable atom).
 	# … the Rush FX juice tester, then the FOUR feel-verb testers (land · merge · launch · move) grouped beside it.
-	[["shadow"], ["generator"], ["focus_ring"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["frame"], ["progress_bar"]],
+	[["shadow"], ["generator"], ["focus_ring"], ["ready_glow"], ["home_button"], ["hud_layout"], ["button"], ["gold_badge"], ["level_badge"], ["gold_currency_pill"], ["icon"], ["card"], ["daily_card"], ["toggle_card"], ["bag_card"], ["map_card"], ["quest_card"], ["info_bar"], ["rush_bar"], ["rush_fx"], ["land_fx"], ["merge_fx"], ["launch_fx"], ["move_fx"], ["frame"], ["progress_bar"]],
 	# the RIGHT column: the Board preview LEADS it — the live merge grid you size with the scale / item-width
 	# knobs — then every dialog stacked below.
 	[["board"], ["fx"], ["dialog"], ["daily"], ["mystery"], ["shop"], ["level"], ["tiers"], ["settings"], ["vault"], ["info"], ["bag"]],   # board + FX + dialogs, settings, vault, info, bag
@@ -88,6 +88,9 @@ const TEST_KEYS := {
 	# the FOCUS RING (selected-cell corner brackets): colour/halo/proportions persist (they flow to the
 	# live board via Kit.focus_ring_opts_from_config); `cell` is the preview size only.
 	"focus_ring": ["cell"],
+	# the READY GLOW (quest-wanted board tile): colour/opacity/roundness/halo-size persist (they flow to
+	# the live board via Kit.ready_glow_opts_from_config); `cell` is the preview size only.
+	"ready_glow": ["cell"],
 	# the Button is a shared-STYLE sandbox: only shadow / use-art / font are real config. Its text, bg,
 	# icon, badge, corner are test props — the REAL text/badge/icon for the game live on the Card.
 	"button": ["text", "bg", "icon", "icon_size", "enabled", "corner", "badge"],
@@ -151,6 +154,7 @@ const CAPTIONS := {
 	"fx": "FX Workbench — reward arrivals in board, map, and home context",
 	"generator": "Generator — board producer (glow · silhouette outline · sparkle)",
 	"focus_ring": "Focus ring — selected-cell corner brackets (colour · halo · proportions)",
+	"ready_glow": "Ready glow — quest-wanted board tile (colour · fill · halo · roundness)",
 	"button": "Button — shared (bg · icon · state)",
 	"home_button": "Home button — rail + nav (shell · icon · sparkle)",
 	"hud_layout": "HUD layout — screen-width slots for top bar, side rail, board stack, and board bottom bar",
@@ -256,6 +260,10 @@ var _params := {
 	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 	# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
 	"focus_ring": {"color": "33402F", "halo_color": "FBF3EA", "halo_a": 90, "arm_pct": 30, "thick_pct": 8, "pad_pct": 4, "halo": true, "cell": 150},
+	# the READY GLOW — the amber highlight a board tile wears when a live quest wants it. Colour is 6-digit
+	# hex (no '#'); fill_a/halo_a are % opacities; corner_pct/halo_pct are % of the cell. Defaults reproduce
+	# piece_view's shipped READY_GLOW (warm amber fill + soft halo). Flows live via Kit.ready_glow_opts_from_config.
+	"ready_glow": {"color": "FFB12E", "fill_a": 55, "halo_a": 60, "corner_pct": 22, "halo_pct": 16, "cell": 150},
 	"button": {"text": "Claim", "bg": "green", "icon": "none", "icon_size": 30, "enabled": true, "font": 22, "corner": 16, "art": true, "shadow": false, "badge": "auto"},
 	# the HOME button — the round icon button shared by the side rail + bottom nav. px / icon_scale /
 	# caption_font / caption_gap / glow / twinkle are the saved STYLE; icon / caption / sparkle preview it.
@@ -690,6 +698,17 @@ func _make_element(id: String) -> Control:
 			stack.add_child(ring)
 			fwrap.add_child(stack)
 			return fwrap
+		"ready_glow":
+			# a sample board item wearing the quest-ready glow, tuned through the SAME Kit transform the board
+			# reads — so the preview matches the live wanted-tile look 1:1 (the glow seats BEHIND the sprite).
+			var rgo := Kit.ready_glow_opts_from_config({"ready_glow": p})
+			var rgcell := float(p.get("cell", 150))
+			var rgwrap := CenterContainer.new()
+			rgwrap.custom_minimum_size = Vector2(rgcell + 90, rgcell + 90)
+			var rgpiece := PieceView.make_piece(104, rgcell)
+			PieceView.add_ready_glow(rgpiece, rgcell, rgo)
+			rgwrap.add_child(rgpiece)
+			return rgwrap
 		"button":
 			return Kit.pill_button(String(p.text), _btn_opts())
 		"home_button":
@@ -2221,6 +2240,17 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["arm_pct", 5, 50]))        # bracket arm length
 			_sidebar_body.add_child(_slider_row(["thick_pct", 1, 20]))      # bracket line thickness
 			_sidebar_body.add_child(_slider_row(["pad_pct", 0, 20]))        # inset from the cell edge
+			_group_header("Test only — not saved", false)
+			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
+		"ready_glow":
+			_group_header("Saved to config", true)     # flows to the LIVE board (Kit.ready_glow_opts_from_config)
+			_section_header("Colour")
+			_sidebar_body.add_child(_color_row("Glow", "color"))            # the amber glow tint (fill + halo)
+			_sidebar_body.add_child(_slider_row(["fill_a", 0, 100]))        # rounded cell-fill opacity %
+			_sidebar_body.add_child(_slider_row(["halo_a", 0, 100]))        # soft halo (spill past the cell) opacity %
+			_section_header("Shape (% of cell)")
+			_sidebar_body.add_child(_slider_row(["corner_pct", 0, 50]))     # fill corner roundness
+			_sidebar_body.add_child(_slider_row(["halo_pct", 0, 50]))       # how far the halo spills past the cell
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)
 		"button":
