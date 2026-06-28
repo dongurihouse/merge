@@ -1482,7 +1482,11 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "Kit.map_card_art_path(Game.DATA.MAPS[0])"), \
 		"Workbench and game resolve the open map-card artwork through the same helper")
 	ok(map_opts.has("resident_slot_px") and map_opts.has("resident_slot_gap"), \
-		"map_card opts carry saved resident rail circle size and circle gap")
+		"map_card opts carry saved resident rail slot size and slot gap")
+	var map_slot_opts: Dictionary = map_opts.get("slot_cell", {})
+	ok(map_slot_opts.has("cell_w") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"bag_card\": _params[\"bag_card\"]"), \
+		"map_card opts carry the shared square Slot-cell style used by the Workbench right column")
 	ok(view._params["map_card"].has("resident_slot_px") and view._params["map_card"].has("resident_slot_gap") \
 		and view._is_config("map_card", "resident_slot_px") and view._is_config("map_card", "resident_slot_gap"), \
 		"the map-card resident rail knobs are saved Workbench config")
@@ -1494,7 +1498,7 @@ func _test_gold_badge_consumers(view) -> void:
 		"the completed-map reward shelf knobs are saved Workbench config")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
-		"the Workbench map-card sidebar exposes resident circle-size and gap sliders")
+		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_w_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
@@ -1512,13 +1516,21 @@ func _test_gold_badge_consumers(view) -> void:
 	var small_rail := preview_small.find_child("MapResidentRailPreview", true, false) as Control
 	var big_rail := preview_big.find_child("MapResidentRailPreview", true, false) as Control
 	var preview_slot_count := 0
+	var preview_slot_background_count := 0
+	var preview_ring_count := 0
 	for node in preview_small.find_children("*", "", true, false):
 		if String(node.name).begins_with("MapResidentRailPreviewSlot_"):
 			preview_slot_count += 1
+		if String(node.name) == "SlotCellBackground":
+			preview_slot_background_count += 1
+		if String(node.name) == "MapResidentRailPreviewSlotRing":
+			preview_ring_count += 1
 	ok(small_rail != null and preview_slot_count == 8, \
 		"the Workbench map-card preview shows all eight resident slots")
+	ok(preview_slot_background_count == 8 and preview_ring_count == 0, \
+		"the Workbench map-card preview uses standard square Slot-cell backgrounds instead of circular resident rings")
 	ok(big_rail != null and small_rail != null and big_rail.size.x > small_rail.size.x and big_rail.size.y > small_rail.size.y, \
-		"the resident-slot preview grows when the circle-size and gap sliders grow")
+		"the resident-slot preview grows when the slot-size and gap sliders grow")
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
 	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
@@ -1567,12 +1579,14 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.x * 0.26, 104.0, 138.0)") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.y * 0.36, 34.0, 42.0)"), \
 		"completed map Collect button stays compact and does not cast the heavy shared shadow")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentSlot") \
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, bag_opts") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "_empty_cell(Kit, bag_opts") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "var display_cap := maxi(cap, 8)"), \
-		"completed map resident rails use circular slots and keep eight spaces ready")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapResidentFallbackDisc") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "MapResidentTierBadge"), \
-		"completed map resident chips keep filled slots readable even when art is missing")
+		"completed map resident rails reuse standard square slot cells and keep eight spaces ready")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), orb_px") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "_resident_slot(orb_px, orb)") \
+		and not _source_contains("res://engine/scripts/scenes/map.gd", "_resident_slot(orb_px)"), \
+		"completed map resident rail filled slots do not render the old per-orb tier badge")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "var slot_cols := 2") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "var slot_rows := 4"), \
 		"completed map resident rails arrange eight spaces as a two-column/four-row rail")
@@ -1587,7 +1601,7 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://engine/scripts/scenes/map.gd", "resident_slot_gap") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0"), \
-		"completed map resident rail border expands and shrinks with the circle size and circle gap")
+		"completed map resident rail border expands and shrinks with the slot size and slot gap")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_habitat_shelf_rect") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_habitat_shelf_rect") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardShelf"), \

@@ -745,7 +745,7 @@ func _make_element(id: String) -> Control:
 			# exactly what the game renders). The open preview uses the real Farm art; locked state still
 			# passes no art so the veiled panel + prerequisite row remain checkable.
 			# pass the shared gold_badge skin so the open card's frame previews the SAME tuning as board/info-bar.
-			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"]})
+			var mco := Kit.map_card_opts_from_config({"map_card": p, "gold_badge": _params["gold_badge"], "bag_card": _params["bag_card"]})
 			# Build at the SAME two-column geometry as map.gd, then uniformly scale the whole preview so
 			# resident slots, count pill, title plate, and rail stay in the same proportions as the game.
 			var live_layout := Kit.map_select_layout(Vector2(PHONE_W, PHONE_H), mco)
@@ -2077,8 +2077,8 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
 			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
 			_section_header("Resident rail")
-			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 74])) # completed-card circle diameter px
-			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card circles px
+			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 74])) # completed-card square slot size px
+			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card resident slots px
 			_section_header("Reward shelf")
 			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)
 			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 30]))   # completed-card shelf height (% of card height)

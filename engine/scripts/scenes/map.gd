@@ -81,7 +81,6 @@ const CLAY = Pal.CLAY
 const CARD_BACK := "map/back_arrow.png"          # the back button's arrow mark (on the shared home disc)
 const LEFT_MAP_TITLE_PLATE := "map/left_title_plate.png"
 const LEFT_MAP_REWARD_SHELF := "map/left_reward_shelf.png"
-const LEFT_MAP_EMPTY_SLOT := "map/left_empty_slot_ring.png"
 
 var unlocks := {}
 
@@ -1119,7 +1118,7 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	var resident_slot_gap := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
 	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 18.0)
 	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.38, 220.0))
-	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, badge_opts, resident_slot_gap)
+	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, opts, resident_slot_gap)
 	var shelf_rect: Rect2 = Kit.map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
 
 	# the name + production read ride a translucent parchment shelf docked to the BOTTOM-LEFT (clear of the
@@ -1212,8 +1211,9 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 # (then empty slots up to capacity), arranged as a stable two-column / four-row rail. The whole strip
 # is the card's PLACE/merge drop zone; each filled orb registers into `_placed_orbs` (drag-out + merge + focus
 # target) and the focused orb is tinted. Every node IGNOREs the mouse (the single input surface hit-tests it).
-func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float, badge_opts: Dictionary = {}, slot_gap: float = 10.0) -> void:
+func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, cap: int, rect: Rect2, orb_px: float, opts: Dictionary = {}, slot_gap: float = 10.0) -> void:
 	var Kit: GDScript = load(KIT_PATH)
+	var badge_opts: Dictionary = opts.get("badge", {})
 	var display_cap := maxi(cap, 8)
 	var slot_cols := 2
 	var slot_rows := 4
@@ -1287,18 +1287,23 @@ func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, ca
 	grid.add_theme_constant_override("h_separation", int(round(slot_gap_x)))
 	grid.add_theme_constant_override("v_separation", int(round(slot_gap_y)))
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var resident_px := clampf(orb_px * 0.74, 18.0, 56.0)
+	var bag_opts: Dictionary = opts.get("slot_cell", {})
+	if bag_opts.is_empty() and Kit != null:
+		bag_opts = Kit.bag_card_opts_from_config(Kit.load_config(Kit.CONFIG_PATH))
+	else:
+		bag_opts = bag_opts.duplicate(true)
+	bag_opts["cell_w"] = orb_px
+	bag_opts["cell_h"] = orb_px
+	bag_opts["calm"] = FX.calm()
 	for i in placed.size():
 		var inst: Dictionary = placed[i]
-		var orb := _spirit_chip(String(inst.kind), int(inst.tier), resident_px, func() -> void: pass)
-		orb.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("z", -1)) == z and int(_sel_orb.get("idx", -1)) == i:
-			orb.modulate = Color(1.0, 0.92, 0.55)     # the selected housed orb — its tier + Sell show in the in-hand info bar
-		var slot := _resident_slot(orb_px, orb)
+		var selected := String(_sel_orb.get("src", "")) == "placed" and int(_sel_orb.get("z", -1)) == z and int(_sel_orb.get("idx", -1)) == i
+		var slot := _spirit_cell(Kit, bag_opts, String(inst.kind), int(inst.tier), orb_px, selected)
+		slot.name = "MapResidentRailCell_%02d" % i
 		grid.add_child(slot)
 		_placed_orbs.append({"node": slot, "z": z, "map_id": map_id, "idx": i, "kind": String(inst.kind), "tier": int(inst.tier)})
 	for _e in range(placed.size(), display_cap):
-		grid.add_child(_resident_slot(orb_px))
+		grid.add_child(_empty_cell(Kit, bag_opts, orb_px))
 	vb.add_child(grid)
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1607,67 +1612,6 @@ func _card_sub(text: String) -> Label:
 	var l := _dock_label(text, 21, true)
 	l.modulate = Color(1, 1, 1, 0.92)
 	return l
-
-func _resident_slot(px: float, resident: Control = null) -> Control:
-	var slot := Control.new()
-	slot.name = "MapResidentSlot"
-	slot.custom_minimum_size = Vector2(px, px)
-	slot.size = Vector2(px, px)
-	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var shadow := Panel.new()
-	shadow.name = "MapResidentSlotShadow"
-	shadow.position = Vector2(maxf(1.0, px * 0.035), maxf(2.0, px * 0.055))
-	shadow.size = Vector2(maxf(1.0, px - 2.0), maxf(1.0, px - 2.0))
-	shadow.show_behind_parent = true
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color(0.05, 0.035, 0.02, 0.22)
-	ss.set_corner_radius_all(int(px * 0.5))
-	shadow.add_theme_stylebox_override("panel", ss)
-	slot.add_child(shadow)
-
-	var ring := _empty_slot(px)
-	ring.name = "MapResidentSlotRing"
-	ring.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	ring.modulate = Color(1, 1, 1, 0.82 if resident != null else 0.62)
-	ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	slot.add_child(ring)
-
-	if resident != null:
-		resident.name = "MapResidentSlotResident"
-		var resident_size := resident.custom_minimum_size
-		if resident_size.x <= 0.0 or resident_size.y <= 0.0:
-			resident_size = Vector2(px * 0.78, px * 0.78)
-		resident.custom_minimum_size = resident_size
-		resident.size = resident_size
-		resident.position = (Vector2(px, px) - resident_size) * 0.5
-		resident.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		slot.add_child(resident)
-	return slot
-
-# An empty habitat slot - a faint circular outline. Mouse-IGNORE.
-func _empty_slot(px: float) -> Control:
-	var slot_tex := _left_map_texture(LEFT_MAP_EMPTY_SLOT)
-	if slot_tex != null:
-		var t := TextureRect.new()
-		t.texture = slot_tex
-		t.custom_minimum_size = Vector2(px, px)
-		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		t.modulate = Color(1, 1, 1, 0.22)
-		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		return t
-	var p := Panel.new()
-	p.custom_minimum_size = Vector2(px, px)
-	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var s := StyleBoxFlat.new()
-	s.bg_color = Color(DOCK_INK, 0.05)
-	s.set_corner_radius_all(int(px / 2.0))
-	s.set_border_width_all(2)
-	s.border_color = Color(DOCK_INK, 0.16)
-	p.add_theme_stylebox_override("panel", s)
-	return p
 
 # The art that fills an open card: the map's own painted thumbnail (map_<id>.png), else its §16 home
 # clean art (the hub's restored cottage), else "" → a code-drawn meadow fill.

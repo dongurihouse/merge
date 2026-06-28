@@ -4758,7 +4758,7 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	center.add_child(grid)
 	for i in range(slot_cols * slot_rows):
-		var slot := _map_resident_preview_slot(orb_px)
+		var slot := _map_resident_preview_slot(orb_px, opts)
 		slot.name = "MapResidentRailPreviewSlot_%02d" % i
 		grid.add_child(slot)
 	card.add_child(rail)
@@ -4860,36 +4860,19 @@ static func _map_habitat_shelf_style() -> StyleBoxTexture:
 	st.content_margin_bottom = 8
 	return st
 
-static func _map_resident_preview_slot(px: float) -> Control:
-	var slot := Control.new()
+static func _map_resident_preview_slot(px: float, opts: Dictionary = {}) -> Control:
+	var slot_opts: Dictionary = opts.get("slot_cell", {})
+	if slot_opts.is_empty():
+		slot_opts = bag_card_opts_from_config({})
+	else:
+		slot_opts = slot_opts.duplicate(true)
+	slot_opts["cell_w"] = px
+	slot_opts["cell_h"] = px
+	var slot := slot_cell({"state": "empty"}, slot_opts)
 	slot.name = "MapResidentRailPreviewSlot"
 	slot.custom_minimum_size = Vector2(px, px)
 	slot.size = Vector2(px, px)
 	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var shadow := Panel.new()
-	shadow.name = "MapResidentRailPreviewSlotShadow"
-	shadow.position = Vector2(maxf(1.0, px * 0.035), maxf(2.0, px * 0.055))
-	shadow.size = Vector2(maxf(1.0, px - 2.0), maxf(1.0, px - 2.0))
-	shadow.show_behind_parent = true
-	shadow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ss := StyleBoxFlat.new()
-	ss.bg_color = Color(0.05, 0.035, 0.02, 0.20)
-	ss.set_corner_radius_all(int(px * 0.5))
-	shadow.add_theme_stylebox_override("panel", ss)
-	slot.add_child(shadow)
-
-	var disc := Panel.new()
-	disc.name = "MapResidentRailPreviewSlotRing"
-	disc.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	disc.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ds := StyleBoxFlat.new()
-	ds.bg_color = Color(Pal.CREAM, 0.26)
-	ds.border_color = Color(Pal.BARK, 0.18)
-	ds.set_border_width_all(maxi(1, int(round(px * 0.035))))
-	ds.set_corner_radius_all(int(px * 0.5))
-	disc.add_theme_stylebox_override("panel", ds)
-	slot.add_child(disc)
 	return slot
 
 static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := false) -> TextureRect:
@@ -5293,8 +5276,9 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"pill_min":        float(c.get("pill_min", 170)),
 		"pill_max":        float(c.get("pill_max", 290)),
 		"pill_y_frac":     float(c.get("pill_y_frac", 13)) / 100.0,     # pill lift off the bottom (% of card height)
-		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident circle diameter px
-		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident circles px
+		"resident_slot_px": float(c.get("resident_slot_px", 58)),        # completed-card resident slot size px
+		"resident_slot_gap": float(c.get("resident_slot_gap", 10)),      # completed-card gap between resident slots px
+		"slot_cell":       bag_card_opts_from_config(cfg),               # completed-card resident cells match the right-column square slots
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)
 		"reward_shelf_y_frac": float(c.get("reward_shelf_y_frac", 0)) / 100.0,   # completed-card reward shelf lift from bottom (% of card height)
