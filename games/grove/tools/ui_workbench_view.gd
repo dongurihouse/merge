@@ -282,7 +282,8 @@ var _params := {
 		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
 		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 		"plus_label_y": 0,
-		"inner_shadow": 30, "shadow_alpha": 34},
+		"inner_shadow": 30, "shadow_alpha": 34,
+		"shadow_offset_x": 1, "shadow_offset_y": 2, "shadow_blur": 15, "shadow_spread": -13, "shadow_warmth": 82},
 	# the reusable PROGRESS BAR — its own building-block component (track + honey fill). height / art /
 	# star_knob are the saved style; frac is a preview-only fill slider. The Level dialog reads this style.
 	"progress_bar": {"height": 20, "art": true, "star_knob": false, "frac": 50},

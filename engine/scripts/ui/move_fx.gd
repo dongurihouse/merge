@@ -119,6 +119,7 @@ static func _shadow(node: Control, from: Vector2, to: Vector2, dur: float, alpha
 	var sz := node.size
 	if sz.x <= 0.0 or sz.y <= 0.0:
 		sz = node.custom_minimum_size
+	print("[MOVE_SHADOW] fired parent=%s node.size=%s cmin=%s sz=%s alpha=%.2f pos=%s" % [node.get_parent().name, node.size, node.custom_minimum_size, sz, alpha, from])
 	var sh := TextureRect.new()
 	sh.texture = FX._flash_texture()     # the soft radial sprite, reused as a SOFT dark blob (not a hard rect)
 	sh.expand_mode = TextureRect.EXPAND_IGNORE_SIZE

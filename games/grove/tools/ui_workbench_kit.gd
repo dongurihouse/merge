@@ -1088,9 +1088,10 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
 	# shadow). The look is the SHARED box-shadow (offset/blur/spread/warmth), with the pill's own alpha strength
 	# folded into shadow_params by the resolver. A PanelContainer manages its children, so cast it via a holder
-	# (Look.with_shadow) rather than a behind-parent child; the big corner clamps to a capsule.
+	# (Look.with_shadow) rather than a behind-parent child. Cast it with the badge's OWN corner radius (the
+	# nine-patch cap, held constant in px) so the shadow stays CONCENTRIC with the pill — not a fatter capsule.
 	if bool(opts.get("shadow", false)):
-		return Look.with_shadow(panel, pill_h, opts.get("shadow_params", {}) as Dictionary)
+		return Look.with_shadow(panel, float(gold_badge_cap(badge_opts)), opts.get("shadow_params", {}) as Dictionary)
 	return panel
 
 static func _gold_currency_plus_button(opts: Dictionary = {}, action: Callable = Callable()) -> Control:
