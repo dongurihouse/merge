@@ -270,6 +270,10 @@ var _params := {
 		"pill_w_frac": 30, "pill_min": 170, "pill_max": 290, "pill_y_frac": 13, "veil_mark_size": 64,
 		"resident_slot_px": 58, "resident_slot_gap": 10,
 		"reward_shelf_w_frac": 100, "reward_shelf_h_frac": 14, "reward_shelf_y_frac": 0,
+		"reward_icon_size": 24, "reward_icon_x": 0, "reward_icon_y": 0,
+		"reward_label_font": 21, "reward_label_x": 0, "reward_label_y": 0,
+		"reward_button_w": 116, "reward_button_h": 36, "reward_button_x": 0, "reward_button_y": 0,
+		"reward_button_font": 18, "reward_button_icon_size": 24,
 		"open": true, "done": false, "owned_zones": 0, "total_zones": 6},
 	# the QUEST-GIVER card (giver_stand.gd) — the painted board_asset box (bubble baked into the right) +
 	# the live portrait (left) / item-in-bubble (right) / hung wooden plaque the board draws on it. The
@@ -2083,6 +2087,21 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)
 			_sidebar_body.add_child(_slider_row(["reward_shelf_h_frac", 8, 30]))   # completed-card shelf height (% of card height)
 			_sidebar_body.add_child(_slider_row(["reward_shelf_y_frac", 0, 35]))   # lift the shelf upward from the bottom (% of height)
+			_section_header("Reward icon")
+			_sidebar_body.add_child(_slider_row(["reward_icon_size", 12, 60]))
+			_sidebar_body.add_child(_slider_row(["reward_icon_x", -60, 60]))
+			_sidebar_body.add_child(_slider_row(["reward_icon_y", -40, 40]))
+			_section_header("Reward text")
+			_sidebar_body.add_child(_slider_row(["reward_label_font", 10, 34]))
+			_sidebar_body.add_child(_slider_row(["reward_label_x", -90, 90]))
+			_sidebar_body.add_child(_slider_row(["reward_label_y", -40, 40]))
+			_section_header("Collect button")
+			_sidebar_body.add_child(_slider_row(["reward_button_w", 70, 200]))
+			_sidebar_body.add_child(_slider_row(["reward_button_h", 24, 70]))
+			_sidebar_body.add_child(_slider_row(["reward_button_x", -120, 120]))
+			_sidebar_body.add_child(_slider_row(["reward_button_y", -50, 50]))
+			_sidebar_body.add_child(_slider_row(["reward_button_font", 10, 34]))
+			_sidebar_body.add_child(_slider_row(["reward_button_icon_size", 10, 48]))
 			_group_header("Test only — not saved", false)                    # the game sets open / done / count per map
 			_sidebar_body.add_child(_toggle_row("Open (unlocked)", "open"))
 			_sidebar_body.add_child(_toggle_row("Done (restored)", "done"))

@@ -1496,6 +1496,12 @@ func _test_gold_badge_consumers(view) -> void:
 		and view._params["map_card"].has("reward_shelf_y_frac") and view._is_config("map_card", "reward_shelf_w_frac") \
 		and view._is_config("map_card", "reward_shelf_h_frac") and view._is_config("map_card", "reward_shelf_y_frac"), \
 		"the completed-map reward shelf knobs are saved Workbench config")
+	var shelf_part_keys := ["reward_icon_size", "reward_icon_x", "reward_icon_y", "reward_label_font", "reward_label_x", "reward_label_y", "reward_button_w", "reward_button_h", "reward_button_x", "reward_button_y", "reward_button_font", "reward_button_icon_size"]
+	var shelf_part_knobs_saved := true
+	for k in shelf_part_keys:
+		shelf_part_knobs_saved = shelf_part_knobs_saved and map_opts.has(k) and view._params["map_card"].has(k) and view._is_config("map_card", k)
+	ok(shelf_part_knobs_saved, \
+		"map_card opts carry saved reward shelf icon/text/button size and location knobs")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
@@ -1503,6 +1509,14 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
 		"the Workbench map-card sidebar exposes completed-map reward shelf sliders")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_icon_size\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_icon_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_label_font\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_label_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_w\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_button_font\""), \
+		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
 		"the Workbench map-card preview requests the resident-slot preview overlay")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open)"), \
@@ -1513,8 +1527,19 @@ func _test_gold_badge_consumers(view) -> void:
 		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 36, "resident_slot_gap": 4}, "gold_badge": {}}), 460.0, 230.0)
 	var preview_big := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
 		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 64, "resident_slot_gap": 18}, "gold_badge": {}}), 460.0, 230.0)
+	var tuned_shelf_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "habitat_preview": true}, \
+		Kit.map_card_opts_from_config({"map_card": {
+			"reward_icon_size": 38, "reward_icon_x": 7, "reward_icon_y": -3,
+			"reward_label_font": 21, "reward_label_x": 11, "reward_label_y": 4,
+			"reward_button_w": 132, "reward_button_h": 36, "reward_button_x": -9, "reward_button_y": -5,
+		}, "gold_badge": {}}), 460.0, 230.0)
 	var small_rail := preview_small.find_child("MapResidentRailPreview", true, false) as Control
 	var big_rail := preview_big.find_child("MapResidentRailPreview", true, false) as Control
+	var tuned_shelf := tuned_shelf_card.find_child("MapHabitatRewardShelf", true, false) as Control
+	var tuned_icon := tuned_shelf_card.find_child("MapHabitatRewardIcon", true, false) as Control
+	var tuned_label := tuned_shelf_card.find_child("MapHabitatRewardLabel", true, false) as Label
+	var tuned_collect := tuned_shelf_card.find_child("MapHabitatCollectButton", true, false) as Button
+	var tuned_collect_icon := tuned_shelf_card.find_child("MapHabitatCollectButtonIcon", true, false) as Control
 	var preview_slot_count := 0
 	var preview_slot_background_count := 0
 	var preview_ring_count := 0
@@ -1531,6 +1556,25 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench map-card preview uses standard square Slot-cell backgrounds instead of circular resident rings")
 	ok(big_rail != null and small_rail != null and big_rail.size.x > small_rail.size.x and big_rail.size.y > small_rail.size.y, \
 		"the resident-slot preview grows when the slot-size and gap sliders grow")
+	ok(tuned_shelf != null and tuned_icon != null and tuned_icon.custom_minimum_size == Vector2(38, 38) \
+		and tuned_icon.position == Vector2(21, 5), \
+		"the Workbench map-card preview applies reward icon size and location knobs")
+	ok(tuned_shelf != null and tuned_label != null and int(tuned_label.get_theme_font_size("font_size")) == 21 \
+		and tuned_label.position == Vector2(67, 11), \
+		"the Workbench map-card preview applies reward label font and location knobs")
+	ok(tuned_collect != null and tuned_collect.custom_minimum_size == Vector2(132, 36), \
+		"the Workbench map-card preview applies reward button size knobs")
+	ok(tuned_collect != null and tuned_collect.size == Vector2(132, 36) \
+		and tuned_collect_icon != null and tuned_collect_icon.custom_minimum_size == Vector2(24, 24), \
+		"the Workbench map-card preview keeps the rendered reward button and icon at the tuned size")
+	ok(tuned_shelf != null and tuned_collect != null \
+		and tuned_collect.position == Vector2(tuned_shelf.size.x - 155, tuned_shelf.size.y - 49), \
+		"the Workbench map-card preview applies reward button location knobs")
+	ok(tuned_shelf != null and tuned_collect != null \
+		and tuned_collect.position.x >= 0 and tuned_collect.position.y >= 0 \
+		and tuned_collect.position.x + tuned_collect.custom_minimum_size.x <= tuned_shelf.size.x \
+		and tuned_collect.position.y + tuned_collect.custom_minimum_size.y <= tuned_shelf.size.y, \
+		"the Workbench map-card preview keeps the tuned reward button inside the shelf")
 	ok(open_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
 		"an OPEN map card wears the shared gold-badge frame (MapGoldFrame NinePatch)")
 	ok(locked_card.find_child(Kit.MAP_FRAME_NODE, true, false) is NinePatchRect, \
@@ -1571,14 +1615,18 @@ func _test_gold_badge_consumers(view) -> void:
 			and prereq_label.position.x + prereq_label.size.x <= prereq_right.position.x - 6.0, \
 			"locked prerequisite text sits between the two leaves with a readable gap")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatRewardIcon") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "MapHabitatCollectButton"), \
+		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "MapHabitatCollectButton"), \
 		"completed map cards render a reward icon and named large green Collect button")
-	ok(_source_contains("res://engine/scripts/scenes/map.gd", "\"shadow\": false") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "\"pad_scale\": 0.82") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.y * 0.18, 16.0, 20.0)") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.x * 0.26, 104.0, 138.0)") \
-		and _source_contains("res://engine/scripts/scenes/map.gd", "clampf(shelf_rect.size.y * 0.36, 34.0, 42.0)"), \
-		"completed map Collect button stays compact and does not cast the heavy shared shadow")
+	ok(_source_contains("res://engine/scripts/scenes/map.gd", "Kit.map_reward_collect_button") \
+		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "static func map_reward_collect_button") \
+		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"shadow\": false") \
+		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"art\": false") \
+		and _source_contains("res://games/grove/tools/ui_workbench_kit.gd", "\"pad_scale\": 0.62") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_font") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_icon_size") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_w") \
+		and _source_contains("res://engine/scripts/scenes/map.gd", "reward_button_h"), \
+		"completed map Collect button stays compact, Workbench-tuned, and avoids sprite-padding/shadow bloat")
 	ok(_source_contains("res://engine/scripts/scenes/map.gd", "_spirit_cell(Kit, bag_opts") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "_empty_cell(Kit, bag_opts") \
 		and _source_contains("res://engine/scripts/scenes/map.gd", "var display_cap := maxi(cap, 8)"), \
@@ -1614,6 +1662,7 @@ func _test_gold_badge_consumers(view) -> void:
 	locked_card.queue_free()
 	preview_small.queue_free()
 	preview_big.queue_free()
+	tuned_shelf_card.queue_free()
 
 	var map_boxy := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 28})
 	var map_round := _map_open_frame_image({"inner_inset": 11, "shine": 100, "corner": 92})

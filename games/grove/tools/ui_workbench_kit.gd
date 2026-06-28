@@ -4773,7 +4773,7 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 	var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.38, 220.0))
 	var rect := map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
 
-	var shelf := PanelContainer.new()
+	var shelf := Panel.new()
 	shelf.name = "MapHabitatRewardShelf"
 	shelf.position = rect.position
 	shelf.size = rect.size
@@ -4792,55 +4792,94 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 		ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
 		shelf.add_theme_stylebox_override("panel", ss)
 
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 5)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shelf.add_child(col)
-
-	var row := HBoxContainer.new()
-	row.name = "MapHabitatRewardRow"
-	row.add_theme_constant_override("separation", 5)
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ico := make_icon("coin", clampf(rect.size.y * 0.26, 22.0, 34.0))
+	var pad_l := 14.0
+	var pad_r := 14.0
+	var pad_t := 8.0
+	var pad_b := 8.0
+	var gap := 8.0
+	var icon_size := clampf(float(opts.get("reward_icon_size", clampf(rect.size.y * 0.26, 22.0, 34.0))), 8.0, 72.0)
+	var ico := make_icon("coin", icon_size)
 	ico.name = "MapHabitatRewardIcon"
-	ico.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(ico)
+	ico.custom_minimum_size = Vector2(icon_size, icon_size)
+	ico.size = ico.custom_minimum_size
+	ico.position = Vector2(pad_l, pad_t) + Vector2(float(opts.get("reward_icon_x", 0.0)), float(opts.get("reward_icon_y", 0.0)))
+	ico.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shelf.add_child(ico)
 	var label := Label.new()
+	label.name = "MapHabitatRewardLabel"
 	label.text = "Coins · 1/1 housed"
-	label.add_theme_font_size_override("font_size", int(clampf(rect.size.y * 0.18, 15.0, 22.0)))
+	var label_font := int(clampf(float(opts.get("reward_label_font", clampf(rect.size.y * 0.18, 15.0, 22.0))), 8.0, 48.0))
+	label.add_theme_font_size_override("font_size", label_font)
 	label.add_theme_color_override("font_color", Pal.INK)
 	label.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.65))
 	label.add_theme_constant_override("outline_size", 2)
+	label.custom_minimum_size = Vector2(maxf(120.0, rect.size.x * 0.40), float(label_font) + 8.0)
+	label.size = label.custom_minimum_size
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(label)
-	col.add_child(row)
+	label.position = Vector2(pad_l + icon_size + 4.0, pad_t - 1.0) + Vector2(float(opts.get("reward_label_x", 0.0)), float(opts.get("reward_label_y", 0.0)))
+	shelf.add_child(label)
 
-	var foot := HBoxContainer.new()
-	foot.add_theme_constant_override("separation", 10)
-	foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var bar := progress_bar(0.42, {"width": maxf(80.0, rect.size.x * 0.52), "height": clampf(rect.size.y * 0.14, 10.0, 18.0), "art": true})
-	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	foot.add_child(bar)
-	var collect := pill_button("Collect 5", {
-		"bg": "green",
-		"art": true,
-		"font": int(clampf(rect.size.y * 0.17, 15.0, 20.0)),
-		"icon": "coin",
-		"icon_size": int(clampf(rect.size.y * 0.24, 22.0, 30.0)),
-		"enabled": true,
-		"shadow": false,
-		"pad_scale": 0.82,
-	})
-	collect.name = "MapHabitatCollectButton"
-	collect.custom_minimum_size = Vector2(clampf(rect.size.x * 0.26, 104.0, 138.0), clampf(rect.size.y * 0.31, 34.0, 44.0))
+	var button_size := Vector2(
+		clampf(float(opts.get("reward_button_w", clampf(rect.size.x * 0.26, 104.0, 138.0))), 40.0, 260.0),
+		clampf(float(opts.get("reward_button_h", clampf(rect.size.y * 0.31, 34.0, 44.0))), 20.0, 90.0)
+	)
+	var collect := map_reward_collect_button("Collect 5", "coin", button_size,
+		int(clampf(float(opts.get("reward_button_font", clampf(rect.size.y * 0.17, 15.0, 20.0))), 8.0, 48.0)),
+		clampf(float(opts.get("reward_button_icon_size", clampf(rect.size.y * 0.24, 22.0, 30.0))), 8.0, 56.0),
+		true)
+	collect.position = Vector2(rect.size.x - pad_r - button_size.x, rect.size.y - pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
 	collect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	foot.add_child(collect)
-	col.add_child(foot)
+	shelf.add_child(collect)
+
+	var bar_h := clampf(rect.size.y * 0.14, 10.0, 18.0)
+	var bar_x := pad_l
+	var bar_y := rect.size.y - pad_b - bar_h - 5.0
+	var bar_w := clampf(collect.position.x - gap - bar_x, 44.0, maxf(44.0, rect.size.x - pad_l - pad_r))
+	var bar := progress_bar(0.42, {"width": bar_w, "height": bar_h, "art": true})
+	bar.position = Vector2(bar_x, bar_y)
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shelf.add_child(bar)
 	card.add_child(shelf)
+
+static func map_reward_collect_button(text: String, icon_id: String, button_size: Vector2, font_px: int, icon_px: float, enabled := true) -> Button:
+	var b := pill_button("", {
+		"bg": "green",
+		"art": false,
+		"font": font_px,
+		"enabled": enabled,
+		"shadow": false,
+		"pad_scale": 0.62,
+	})
+	b.name = "MapHabitatCollectButton"
+	b.custom_minimum_size = button_size
+	b.size = button_size
+	var icon_left := clampf(button_size.x * 0.10, 5.0, 14.0)
+	var label_left := 0.0
+	if icon_id != "" and icon_px > 0.0:
+		var ico := make_icon(icon_id, icon_px)
+		ico.name = "MapHabitatCollectButtonIcon"
+		ico.custom_minimum_size = Vector2(icon_px, icon_px)
+		ico.size = ico.custom_minimum_size
+		ico.position = Vector2(icon_left, (button_size.y - icon_px) * 0.5)
+		ico.modulate = Color(1, 1, 1, 1.0 if enabled else 0.55)
+		ico.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(ico)
+		label_left = icon_left + icon_px + 4.0
+	var label := Label.new()
+	label.name = "MapHabitatCollectButtonLabel"
+	label.text = text
+	label.add_theme_font_size_override("font_size", font_px)
+	label.add_theme_color_override("font_color", Color(Pal.CREAM, 1.0 if enabled else 0.55))
+	label.add_theme_color_override("font_outline_color", Color(Pal.BTN_PRIMARY_EDGE, 0.24))
+	label.add_theme_constant_override("outline_size", 1)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.position = Vector2(label_left, 0.0)
+	label.size = Vector2(maxf(1.0, button_size.x - label_left - 6.0), button_size.y)
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(label)
+	return b
 
 static func _map_habitat_shelf_style() -> StyleBoxTexture:
 	var path := Look.kit(MAP_LEFT_REWARD_SHELF)
@@ -5282,6 +5321,18 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"reward_shelf_w_frac": float(c.get("reward_shelf_w_frac", 100)) / 100.0, # completed-card reward shelf width (% of left lane)
 		"reward_shelf_h_frac": float(c.get("reward_shelf_h_frac", 14)) / 100.0,  # completed-card reward shelf height (% of card height)
 		"reward_shelf_y_frac": float(c.get("reward_shelf_y_frac", 0)) / 100.0,   # completed-card reward shelf lift from bottom (% of card height)
+		"reward_icon_size": float(c.get("reward_icon_size", 24)),
+		"reward_icon_x":    float(c.get("reward_icon_x", 0)),
+		"reward_icon_y":    float(c.get("reward_icon_y", 0)),
+		"reward_label_font": int(c.get("reward_label_font", 21)),
+		"reward_label_x":   float(c.get("reward_label_x", 0)),
+		"reward_label_y":   float(c.get("reward_label_y", 0)),
+		"reward_button_w":  float(c.get("reward_button_w", 116)),
+		"reward_button_h":  float(c.get("reward_button_h", 36)),
+		"reward_button_x":  float(c.get("reward_button_x", 0)),
+		"reward_button_y":  float(c.get("reward_button_y", 0)),
+		"reward_button_font": int(c.get("reward_button_font", 18)),
+		"reward_button_icon_size": float(c.get("reward_button_icon_size", 24)),
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
 	}
 

@@ -1123,67 +1123,11 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 
 	# the name + production read ride a translucent parchment shelf docked to the BOTTOM-LEFT (clear of the
 	# strip) so the dark-ink labels stay legible while the art still shows through behind them.
-	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 6)
-	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-
-	var sub_row := HBoxContainer.new()
-	sub_row.name = "MapHabitatRewardRow"
-	sub_row.add_theme_constant_override("separation", 6)
-	sub_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var reward_icon: Control = null
-	if Kit != null:
-		reward_icon = Kit.make_icon(_reward_icon(cur), clampf(shelf_rect.size.y * 0.28, 22.0, 34.0))
-	if reward_icon != null:
-		reward_icon.name = "MapHabitatRewardIcon"
-		reward_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		sub_row.add_child(reward_icon)
-	var sub := _card_sub("%s · %d/%d housed" % [_reward_label(cur), placed.size(), cap])
-	sub.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	sub_row.add_child(sub)
-	col.add_child(sub_row)
-
-	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
-	if cur != "":
-		var foot := HBoxContainer.new()
-		foot.add_theme_constant_override("separation", 12)
-		foot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var capf := Habitat.accrual_cap(map_id)
-		var frac := (Habitat.pending(map_id) / capf) if capf > 0.0 else 0.0
-		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
-			"height": clampf(shelf_rect.size.y * 0.13, 10.0, 18.0),
-			"width": maxf(92.0, shelf_rect.size.x * 0.52),
-			"art": true,
-		})
-		bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		foot.add_child(bar)
-		var ready := _reward_amount_ready(map_id)
-		var collect: Button = Kit.pill_button("Collect %d" % ready, {
-			"bg": "green",
-			"art": true,
-			"font": int(clampf(shelf_rect.size.y * 0.18, 16.0, 20.0)),
-			"icon": _reward_icon(cur),
-			"icon_size": int(clampf(shelf_rect.size.y * 0.26, 20.0, 28.0)),
-			"enabled": ready > 0,
-			"shadow": false,
-			"pad_scale": 0.82,
-		})
-		collect.name = "MapHabitatCollectButton"
-		collect.custom_minimum_size = Vector2(clampf(shelf_rect.size.x * 0.26, 104.0, 138.0), clampf(shelf_rect.size.y * 0.36, 34.0, 42.0))
-		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
-		foot.add_child(collect)
-		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
-		if cur == "boost" and Habitat.boost_charges() > 0:
-			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 18, "enabled": not G.boost_active()})
-			useb.pressed.connect(func() -> void: _on_use_boost())
-			foot.add_child(useb)
-		col.add_child(foot)
-
-	var shelf := PanelContainer.new()
+	var shelf := Panel.new()
 	shelf.name = "MapHabitatRewardShelf"
+	shelf.position = shelf_rect.position
+	shelf.size = shelf_rect.size
+	shelf.custom_minimum_size = shelf_rect.size
 	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var shelf_style := _left_map_style(LEFT_MAP_REWARD_SHELF, Vector4(36, 24, 36, 24), Vector4(14, 8, 14, 8))
 	if shelf_style != null:
@@ -1194,15 +1138,68 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 		ss.set_corner_radius_all(14)
 		ss.set_border_width_all(2)
 		ss.border_color = Color(DOCK_INK, 0.12)
-		ss.content_margin_left = 14 ; ss.content_margin_right = 14
-		ss.content_margin_top = 8 ; ss.content_margin_bottom = 8
 		shelf.add_theme_stylebox_override("panel", ss)
-	shelf.add_child(col)
+	var shelf_pad_l := 14.0
+	var shelf_pad_r := 14.0
+	var shelf_pad_t := 8.0
+	var shelf_pad_b := 8.0
+	var shelf_gap := 8.0
 
-	# Workbench-tuned: the shelf occupies the left lane that remains after the resident rail.
-	shelf.position = shelf_rect.position
-	shelf.size = shelf_rect.size
-	shelf.custom_minimum_size = shelf_rect.size
+	var reward_icon: Control = null
+	var reward_icon_size := clampf(float(opts.get("reward_icon_size", 24.0)), 8.0, 72.0)
+	if Kit != null:
+		reward_icon = Kit.make_icon(_reward_icon(cur), reward_icon_size)
+	if reward_icon != null:
+		reward_icon.name = "MapHabitatRewardIcon"
+		reward_icon.custom_minimum_size = Vector2(reward_icon_size, reward_icon_size)
+		reward_icon.size = reward_icon.custom_minimum_size
+		reward_icon.position = Vector2(shelf_pad_l, shelf_pad_t) + Vector2(float(opts.get("reward_icon_x", 0.0)), float(opts.get("reward_icon_y", 0.0)))
+		reward_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shelf.add_child(reward_icon)
+	var sub := _card_sub("%s · %d/%d housed" % [_reward_label(cur), placed.size(), cap])
+	sub.name = "MapHabitatRewardLabel"
+	sub.add_theme_font_size_override("font_size", int(clampf(float(opts.get("reward_label_font", 21)), 8.0, 48.0)))
+	sub.custom_minimum_size = Vector2(maxf(120.0, shelf_rect.size.x * 0.40), float(sub.get_theme_font_size("font_size")) + 8.0)
+	sub.size = sub.custom_minimum_size
+	sub.position = Vector2(shelf_pad_l + reward_icon_size + 4.0, shelf_pad_t - 1.0) + Vector2(float(opts.get("reward_label_x", 0.0)), float(opts.get("reward_label_y", 0.0)))
+	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shelf.add_child(sub)
+
+	# production bar + Collect — every completed map pays its own reward now (coins/water/boost/diamonds/chest)
+	if cur != "":
+		var capf := Habitat.accrual_cap(map_id)
+		var frac := (Habitat.pending(map_id) / capf) if capf > 0.0 else 0.0
+		var ready := _reward_amount_ready(map_id)
+		var button_size := Vector2(
+			clampf(float(opts.get("reward_button_w", 116.0)), 40.0, 260.0),
+			clampf(float(opts.get("reward_button_h", 36.0)), 20.0, 90.0)
+		)
+		var button_pos := Vector2(shelf_rect.size.x - shelf_pad_r - button_size.x, shelf_rect.size.y - shelf_pad_b - button_size.y) + Vector2(float(opts.get("reward_button_x", 0.0)), float(opts.get("reward_button_y", 0.0)))
+		var bar_h := clampf(shelf_rect.size.y * 0.13, 10.0, 18.0)
+		var bar_x := shelf_pad_l
+		var bar_y := shelf_rect.size.y - shelf_pad_b - bar_h - 5.0
+		var bar: Control = Kit.progress_bar(clampf(frac, 0.0, 1.0), {
+			"height": bar_h,
+			"width": clampf(button_pos.x - shelf_gap - bar_x, 44.0, maxf(44.0, shelf_rect.size.x - shelf_pad_l - shelf_pad_r)),
+			"art": true,
+		})
+		bar.position = Vector2(bar_x, bar_y)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		shelf.add_child(bar)
+		var collect: Button = Kit.map_reward_collect_button("Collect %d" % ready, _reward_icon(cur), button_size,
+			int(clampf(float(opts.get("reward_button_font", 18)), 8.0, 48.0)),
+			clampf(float(opts.get("reward_button_icon_size", 24.0)), 8.0, 56.0),
+			ready > 0)
+		collect.position = button_pos
+		collect.pressed.connect(func() -> void: _on_card_collect(z))   # STOP filter → intercepts its own tap (no navigate)
+		shelf.add_child(collect)
+		# map 3: a "Use boost" affordance once charges are stockpiled (arms the generator boost for free)
+		if cur == "boost" and Habitat.boost_charges() > 0:
+			var useb: Button = Kit.pill_button("Use boost (%d)" % Habitat.boost_charges(), {"bg": "cream", "art": true, "font": 18, "enabled": not G.boost_active()})
+			useb.position = Vector2(button_pos.x, maxf(shelf_pad_t, button_pos.y - button_size.y - 4.0))
+			useb.pressed.connect(func() -> void: _on_use_boost())
+			shelf.add_child(useb)
+
 	card.add_child(shelf)
 
 	return card
