@@ -1826,6 +1826,104 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 			panel.accept_event())
 	return panel
 
+## The shared row surface for the settings card family — the SAME kit/mail_card.png parchment (or the
+## flat cream pill when card_art is off) toggle_card rides, factored out so info/action rows match it.
+static func _row_panel(card_art: bool) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var box: StyleBox = Look.kit_box("kit/mail_card.png", CARD_TEX, CARD_PAD) if card_art else null
+	if box != null:
+		panel.add_theme_stylebox_override("panel", box)
+	else:
+		var s := StyleBoxFlat.new()
+		s.bg_color = Color(Pal.CREAM, 0.6)
+		s.set_corner_radius_all(18)
+		s.set_border_width_all(1)
+		s.border_color = Color(Pal.BARK, 0.4)
+		s.content_margin_left = 22; s.content_margin_right = 18
+		s.content_margin_top = 12; s.content_margin_bottom = 12
+		panel.add_theme_stylebox_override("panel", s)
+	return panel
+
+## An INFO CARD — a read-only row on the toggle_card surface: a label on the LEFT, a value on the RIGHT,
+## no switch. The settings dialog uses it for non-interactive lines (e.g. the debug Game Center id).
+##   entry: label · value (both String). opts: label_font (px) · card_art (bool).
+static func info_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
+	var label_font := int(opts.get("label_font", 28))
+	var card_art := bool(opts.get("card_art", true))
+	var panel := _row_panel(card_art)
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 18)
+	panel.add_child(row)
+	var name_l := Label.new()
+	name_l.text = String(entry.get("label", ""))
+	name_l.add_theme_font_size_override("font_size", label_font)
+	name_l.add_theme_color_override("font_color", Pal.INK)
+	name_l.add_theme_constant_override("outline_size", 0)
+	name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	name_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	name_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(name_l)
+	var val_l := Label.new()
+	val_l.text = String(entry.get("value", ""))
+	val_l.add_theme_font_size_override("font_size", maxi(13, label_font - 4))
+	val_l.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
+	val_l.add_theme_constant_override("outline_size", 0)
+	val_l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	val_l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	val_l.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	val_l.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	val_l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(val_l)
+	return panel
+
+## An ACTION CARD — a single full-width button styled on the toggle_card surface that fires on_action.
+## With confirm_label set it becomes a TWO-TAP: the first tap morphs the button text to confirm_label and
+## arms (reverting after ~3s if untouched, when in-tree); the next tap fires on_action. The settings
+## dialog uses it for the debug Reset save row (destructive tint).
+##   entry: label · confirm_label? · destructive? (bool) · on_action (Callable()). opts: label_font · card_art.
+static func action_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
+	var label_font := int(opts.get("label_font", 28))
+	var card_art := bool(opts.get("card_art", true))
+	var panel := _row_panel(card_art)
+	var base_label := String(entry.get("label", ""))
+	var confirm_label := String(entry.get("confirm_label", ""))
+	var destructive := bool(entry.get("destructive", false))
+	var on_action: Callable = entry.get("on_action", Callable())
+	var btn := Button.new()
+	btn.text = base_label
+	btn.focus_mode = Control.FOCUS_NONE
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.add_theme_font_size_override("font_size", label_font)
+	var tint: Color = Pal.ACCENT_ALERT if destructive else Pal.INK
+	btn.add_theme_color_override("font_color", tint)
+	btn.add_theme_color_override("font_hover_color", tint)
+	btn.add_theme_color_override("font_pressed_color", tint)
+	btn.add_theme_color_override("font_focus_color", tint)
+	# transparent button chrome so the parchment row shows through (it reads as a row, not a chip)
+	var empty := StyleBoxEmpty.new()
+	for st in ["normal", "hover", "pressed", "focus"]:
+		btn.add_theme_stylebox_override(st, empty)
+	panel.add_child(btn)
+	var armed: Array = [false]
+	btn.pressed.connect(func() -> void:
+		if confirm_label != "" and not armed[0]:
+			armed[0] = true
+			btn.text = confirm_label
+			if btn.is_inside_tree():                 # revert if the confirm is left untouched
+				var t := btn.get_tree().create_timer(3.0)
+				t.timeout.connect(func() -> void:
+					if is_instance_valid(btn) and armed[0]:
+						armed[0] = false
+						btn.text = base_label)
+			return
+		if on_action.is_valid():
+			on_action.call())
+	return panel
+
 ## The dialog banner band: ribbon art + the "Mail" text drawn FULL-RECT and vertically CENTRED, so it
 ## auto-aligns whatever the font size; plus an optional envelope icon (toggle). Named DialogBanner /
 ## DialogBannerIcon so the workbench can drag them.
@@ -2175,7 +2273,15 @@ static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictiona
 	content.add_theme_constant_override("separation", int(opts.get("row_gap", 12)))
 	var to: Dictionary = opts.get("toggle", {})
 	for e in entries:
-		content.add_child(toggle_card(e, to))
+		# entries default to the toggle row; "info" (read-only label + value) and "action"
+		# (a tappable button row, optionally two-tap) share the same card surface + style dict.
+		match String((e as Dictionary).get("kind", "toggle")):
+			"info":
+				content.add_child(info_card(e, to))
+			"action":
+				content.add_child(action_card(e, to))
+			_:
+				content.add_child(toggle_card(e, to))
 	# an optional centered FOOTER LINK — the Privacy Policy hyperlink the game wires to OS.shell_open
 	# (App Store expects a reachable policy link for apps with purchases). Off by default so the
 	# workbench preview stays a pure toggle list — the parallel of mail_dialog's footer note.
@@ -3570,6 +3676,10 @@ static func settings_opts_from_config(cfg: Dictionary) -> Dictionary:
 	o["toggle"] = toggle_card_opts_from_config(cfg)
 	var st: Dictionary = cfg.get("settings", {})
 	o["row_gap"] = float(st.get("row_gap", 12))   # gap between toggle rows
+	# Settings is a SHORT, fixed list — every row must always be visible (you can't scroll a settings
+	# card to reveal a hidden row). Opt out of the shared frame's list_max_h scroll cap (425px, meant for
+	# long dialogs like shop/mail) so the card grows to fit its content, however many rows the build adds.
+	o["list_max_h"] = float(st.get("list_max_h", 0.0))
 	return o
 
 ## The full VAULT-dialog opts: the SHARED frame (banner / close styling inherited from the Frame item)
