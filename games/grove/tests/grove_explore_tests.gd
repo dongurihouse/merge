@@ -171,6 +171,15 @@ func _button_icon_node(btn: Button) -> Control:
 		return wrap
 	return wrap.get_child(0) as Control
 
+func _button_visible_icon_node(btn: Button) -> Control:
+	var icon := _button_icon_node(btn)
+	if icon == null:
+		return null
+	var item_art := icon.find_child("ItemArt", true, false)
+	if item_art is Control:
+		return item_art as Control
+	return icon
+
 func _button_icon_is_centered(btn: Button) -> bool:
 	var icon := _button_icon_node(btn)
 	if icon == null:
@@ -264,6 +273,16 @@ func _test_home_expedition_rail_chrome() -> void:
 		ok(not _button_has_visible_text(btn), "%s button has no visible text" % label)
 		ok(_button_icon_is_large(btn), "%s icon fills the button footprint" % label)
 		ok(_button_icon_is_centered(btn), "%s icon is centered on both axes" % label)
+	var daily_btn := _home_chrome_button(hx, "Daily")
+	var exp_btn := _home_chrome_button(hx, "Expedition")
+	if daily_btn != null and exp_btn != null:
+		var daily_icon := _button_visible_icon_node(daily_btn)
+		var exp_icon := _button_visible_icon_node(exp_btn)
+		if daily_icon != null and exp_icon != null:
+			var daily_size := daily_icon.get_global_rect().size
+			var exp_size := exp_icon.get_global_rect().size
+			ok(exp_size.x >= daily_size.x * 0.92 and exp_size.y >= daily_size.y * 0.92,
+				"Expedition visible icon matches rail icon size (exp %.1fx%.1f vs daily %.1fx%.1f)" % [exp_size.x, exp_size.y, daily_size.x, daily_size.y])
 	hx.queue_free()
 
 # --- loadout: coin cost + the Rush cfg the boosts resolve to ----------------------
