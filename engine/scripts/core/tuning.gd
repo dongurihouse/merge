@@ -210,6 +210,7 @@ class FX:
 	# --- flash (white impact pop over a merged tile) -----------------------------------
 	const FLASH_PEAK := 0.55
 	const FLASH_T := 0.16
+	const FLASH_SIZE_K := 1.3              # the soft round flash is drawn this × the cell, so its blurred halo frames it
 
 	# --- hitstop (global micro-freeze at impact) ---------------------------------------
 	const HITSTOP_SCALE := 0.0          # Engine.time_scale during the freeze (0 = full hold)

@@ -203,18 +203,24 @@ static func squash_pop(node: Control, strength := 1.0) -> void:
 	for i in range(1, Tune.SQUASH_K.size()):
 		t.tween_property(node, "scale", Vector2.ONE + (Tune.SQUASH_K[i] - Vector2.ONE) * strength, Tune.SQUASH_T[i - 1]).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
-## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash).
-## `gpos`/`size` are host-local — a `size`×`size` square centred on `gpos`. Gated on
-## merge_impact, off under calm. Frees itself.
+## A brief white impact pop over a merged tile (modelled on login_mystery's reel flash). A SOFT
+## ROUND glow (radial falloff, blurred edge) — NOT a hard square — so it never pokes sharp corners
+## past a cell's rounded corners. `gpos`/`size` are host-local; the glow is centred on `gpos` and
+## drawn a touch larger than `size` so its soft halo frames the cell. Gated on merge_impact, off
+## under calm. Frees itself.
 static func flash(host: Node, gpos: Vector2, size: float, peak := Tune.FLASH_PEAK) -> void:
 	if not Features.on("merge_impact") or calm():
 		return
 	if not (host and is_instance_valid(host)):
 		return
-	var fl := ColorRect.new()
-	fl.color = Color(1, 1, 1, peak)
-	fl.size = Vector2(size, size)
-	fl.position = gpos - Vector2(size, size) * 0.5
+	var fsz := size * Tune.FLASH_SIZE_K          # a bit larger than the cell so the soft halo extends past it
+	var fl := TextureRect.new()
+	fl.texture = _flash_texture()
+	fl.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	fl.stretch_mode = TextureRect.STRETCH_SCALE
+	fl.size = Vector2(fsz, fsz)
+	fl.position = gpos - Vector2(fsz, fsz) * 0.5
+	fl.modulate = Color(1, 1, 1, peak)           # the soft texture's own alpha falloff × peak
 	fl.z_index = Tune.BURST_Z + 1
 	fl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	host.add_child(fl)
@@ -675,3 +681,21 @@ static func _make_dot_texture() -> Texture2D:
 			var a := clampf(1.0 - d, 0.0, 1.0)
 			img.set_pixel(x, y, Color(1, 1, 1, a * a))
 	return ImageTexture.create_from_image(img)
+
+# A soft white RADIAL flash sprite: a bright round core that BLURS smoothly to fully transparent at
+# the rim (and beyond — the corners are clear), so the flash has no sharp square edges to poke past a
+# cell's rounded corners. Cached; generated once.
+static var _flash_tex: Texture2D = null
+static func _flash_texture() -> Texture2D:
+	if _flash_tex != null:
+		return _flash_tex
+	var n := 128
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	var c := n / 2.0
+	for y in n:
+		for x in n:
+			var d := Vector2(x - c + 0.5, y - c + 0.5).length() / c   # 0 at centre → 1 at the rim
+			var a := 1.0 - smoothstep(0.45, 1.0, d)                   # solid-ish core, soft blurred halo, clear past the rim
+			img.set_pixel(x, y, Color(1, 1, 1, a))
+	_flash_tex = ImageTexture.create_from_image(img)
+	return _flash_tex
