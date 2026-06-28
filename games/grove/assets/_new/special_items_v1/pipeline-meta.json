@@ -16,22 +16,30 @@
       "processed": "games/grove/assets/_new/special_items_v1/processed/chest_1_small_plain_wooden_treasure_chest.png",
       "target": "games/grove/assets/items/chest/chest_1.png",
       "source_bbox": [
-        49,
-        123,
-        276,
-        343
+        47,
+        122,
+        277,
+        346
       ],
       "output_bbox": [
         22,
-        26,
+        25,
         227,
-        224
+        225
       ],
       "components": 1,
       "normalized_max_subject": 205,
       "output_size": 250,
       "big_components": 1,
-      "magenta_like_pixels": 0
+      "magenta_like_pixels": 0,
+      "source_bbox_global": [
+        47,
+        122,
+        277,
+        346
+      ],
+      "recut_method": "global_component_from_raw_sheet",
+      "magenta_like_pixels_after_recut": 0
     },
     {
       "index": 2,
@@ -43,22 +51,30 @@
       "processed": "games/grove/assets/_new/special_items_v1/processed/chest_2_sturdier_brass_banded_chest.png",
       "target": "games/grove/assets/items/chest/chest_2.png",
       "source_bbox": [
-        30,
-        111,
-        273,
-        343
+        334,
+        110,
+        579,
+        360
       ],
       "output_bbox": [
+        25,
         22,
-        27,
-        227,
-        222
+        225,
+        227
       ],
       "components": 1,
       "normalized_max_subject": 205,
       "output_size": 250,
       "big_components": 1,
-      "magenta_like_pixels": 0
+      "magenta_like_pixels": 0,
+      "source_bbox_global": [
+        334,
+        110,
+        579,
+        360
+      ],
+      "recut_method": "global_component_from_raw_sheet",
+      "magenta_like_pixels_after_recut": 0
     },
     {
       "index": 3,
@@ -70,22 +86,30 @@
       "processed": "games/grove/assets/_new/special_items_v1/processed/chest_3_ornate_royal_gold_chest.png",
       "target": "games/grove/assets/items/chest/chest_3.png",
       "source_bbox": [
-        15,
-        98,
-        274,
-        343
+        624,
+        97,
+        886,
+        369
       ],
       "output_bbox": [
+        26,
         22,
-        28,
-        227,
-        222
+        223,
+        227
       ],
       "components": 1,
       "normalized_max_subject": 205,
       "output_size": 250,
       "big_components": 1,
-      "magenta_like_pixels": 0
+      "magenta_like_pixels": 0,
+      "source_bbox_global": [
+        624,
+        97,
+        886,
+        369
+      ],
+      "recut_method": "global_component_from_raw_sheet",
+      "magenta_like_pixels_after_recut": 0
     },
     {
       "index": 4,

@@ -1805,15 +1805,22 @@ static func toggle_card(entry: Dictionary, opts: Dictionary = {}) -> Control:
 	var sw := Look.toggle_switch(bool(entry.get("value", false)), fire, switch_h)
 	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(sw)
-	# Make the WHOLE card tap = one switch flip. Handle ONLY the mouse-button press, never the
-	# touch press: with project's emulate_touch_from_mouse=true a single physical click delivers
-	# BOTH a mouse-button AND a screen-touch press here, so accepting both flipped the switch
-	# TWICE (a net no-op — the "Sounds toggle won't save" bug). emulate_mouse_from_touch (Godot's
-	# default, on here) means a real mobile touch still yields a mouse-button event, so one tap =
-	# exactly one flip on phone and desktop alike. Do NOT re-add the InputEventScreenTouch branch.
+	# Make the WHOLE card tap = exactly ONE switch flip. One physical tap can deliver duplicate
+	# press events here, so there are TWO guards:
+	#   1) act on the mouse-button press only, never the screen-touch — emulate_touch_from_mouse
+	#      pairs every click with a touch; and
+	#   2) at most one flip per process frame — on desktop emulate_mouse_from_touch ALSO re-converts
+	#      that emulated touch back into a SECOND mouse-button press in the same frame, which guard
+	#      (1) cannot catch (both are mouse buttons). The duplicates share one input flush => one
+	#      frame, so the frame guard collapses them; two genuine taps land on different frames and
+	#      both count. Without (2) the switch flipped twice (net no-op) and the setting "wouldn't
+	#      save" / "reset on restart" (the Sounds-toggle bug on the Mac build).
 	panel.gui_input.connect(func(ev: InputEvent) -> void:
 		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
-			sw.pressed.emit()
+			var frame := Engine.get_process_frames()
+			if int(panel.get_meta("tap_frame", -1)) != frame:
+				panel.set_meta("tap_frame", frame)
+				sw.pressed.emit()
 			panel.accept_event())
 	return panel
 

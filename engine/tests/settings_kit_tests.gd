@@ -69,6 +69,23 @@ func _initialize() -> void:
 	tap_card.gui_input.emit(st)   # the emulated touch press from the SAME click
 	ok(taps[0] == 1, "one physical card tap fires on_toggle exactly once (no double-fire)")
 
+	# --- duplicate MOUSE presses from one physical tap still flip only ONCE --------
+	# Desktop has BOTH emulate_touch_from_mouse and emulate_mouse_from_touch on, so one click can
+	# arrive as the click's mouse press PLUS a second mouse press (its emulated touch re-converted
+	# back to a mouse) in the SAME frame. The mouse-only guard above does NOT catch that (both are
+	# mouse buttons) — only a per-frame guard does. Without it the switch flips twice (net no-op)
+	# and the setting "won't save" (the reported "Sounds resets on restart" bug on the Mac build).
+	var dbl: Array = [0]
+	var dbl_card := Kit.toggle_card({
+		"label": "Sounds", "value": true,
+		"on_toggle": func(_on: bool) -> void: dbl[0] += 1,
+	})
+	var mb1 := InputEventMouseButton.new(); mb1.button_index = MOUSE_BUTTON_LEFT; mb1.pressed = true
+	var mb2 := InputEventMouseButton.new(); mb2.button_index = MOUSE_BUTTON_LEFT; mb2.pressed = true
+	dbl_card.gui_input.emit(mb1)   # the real click
+	dbl_card.gui_input.emit(mb2)   # the re-emulated duplicate mouse press from the SAME tap
+	ok(dbl[0] == 1, "two same-frame mouse presses (one physical tap) flip the switch exactly once")
+
 	# --- rich toggle cards can present mail-style rows ----------------------------
 	var rich := Kit.toggle_card({
 		"icon": "leaf", "title": "Lantern", "body": "+15s time", "cost": 120, "value": true,

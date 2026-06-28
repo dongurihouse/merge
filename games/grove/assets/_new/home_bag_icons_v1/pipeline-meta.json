@@ -1,0 +1,51 @@
+{
+  "source": "/Users/xup/.codex/generated_images/019f06c8-947a-76f0-9e8b-6854bde1d6ea/ig_028e3007db6a014a016a415697e1a48198a89681494201060d.png",
+  "raw_copy": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/home_bag_icons_raw.png",
+  "items": [
+    {
+      "name": "house",
+      "target": "/Users/xup/dh/merge/games/grove/assets/ui/shared/icon_house.png",
+      "processed": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/processed/icon_house.png",
+      "previous": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/previous/icon_house.png",
+      "source_bbox": [
+        167,
+        90,
+        835,
+        752
+      ],
+      "output_size": 87,
+      "max_subject": 83,
+      "output_bbox": [
+        2,
+        2,
+        85,
+        84
+      ],
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    },
+    {
+      "name": "bag",
+      "target": "/Users/xup/dh/merge/games/grove/assets/ui/shared/icon_bag.png",
+      "processed": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/processed/icon_bag.png",
+      "previous": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/previous/icon_bag.png",
+      "source_bbox": [
+        1018,
+        162,
+        1596,
+        736
+      ],
+      "output_size": 104,
+      "max_subject": 84,
+      "output_bbox": [
+        10,
+        10,
+        94,
+        93
+      ],
+      "big_components": 1,
+      "magenta_like_pixels": 0
+    }
+  ],
+  "contact": "/Users/xup/dh/merge/games/grove/assets/_new/home_bag_icons_v1/home_bag_icons_contact.png"
+}
