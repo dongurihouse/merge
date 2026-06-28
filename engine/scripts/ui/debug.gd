@@ -111,6 +111,8 @@ static func mount(host: Control) -> void:
 	_action(menu, host, "Unlock next map", _act_unlock_map)
 	_action(menu, host, "Level up", _act_level_up)
 	_action(menu, host, "Advance day", _act_advance_day)
+	if host.has_method("debug_add_resident_to_hand"):
+		_action(menu, host, "+1 resident", _act_add_resident)
 	_weather_action(menu, host)
 	_action(menu, host, "-25 water", _act_reduce_water)
 	if host.has_method("debug_cycle_vine_fx"):
@@ -314,6 +316,12 @@ static func _act_level_up(host: Control) -> void:
 static func _act_advance_day(host: Control) -> void:
 	Login.debug_advance_day()
 	_reflect(host)
+
+## Map-only: add one resident spirit to the in-hand column for quick habitat testing.
+## No _reflect — the map host refreshes the place-picker in place when it is open.
+static func _act_add_resident(host: Control) -> void:
+	if host.has_method("debug_add_resident_to_hand"):
+		host.call("debug_add_resident_to_hand")
 
 ## Board-only: drop a coin onto a free cell so you can exercise the tap-to-collect flow on demand.
 ## No _reflect — the coin animates in live and debug_drop_coin() persists it (no scene reload).

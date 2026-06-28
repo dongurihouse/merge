@@ -356,6 +356,29 @@ func debug_refresh_weather() -> void:
 	move_child(_weather, mini(insert_at, get_child_count() - 1))
 	_weather.visible = _view != "select"
 
+func debug_add_resident_to_hand() -> void:
+	var kind := _debug_resident_kind()
+	if kind == "":
+		return
+	Habitat.hand_add(kind)
+	if is_inside_tree():
+		Audio.play("level_complete", -8.0, 1.05)
+		FX.celebrate_at(self, _screen_center(-12.0), "+1 spirit", STRAW)
+	_refresh_picker()
+
+func _debug_resident_kind() -> String:
+	var z := clampi(_map_idx, 0, G.MAPS.size() - 1)
+	for ln in G.resident_lines(z):
+		var id := String(ln.id)
+		if id != "":
+			return id
+	for zi in G.MAPS.size():
+		for ln in G.resident_lines(zi):
+			var id := String(ln.id)
+			if id != "":
+				return id
+	return ""
+
 # (The 2× DOUBLER lived here, triggered by the now-removed hub yield-collect. It was RE-HOMED to the
 # quest coin reward on the board — see board.gd `_maybe_offer_2x` — since the map scene no longer has a
 # coin faucet to double. It is a 💎-priced doubler now, gated to rewards big enough to beat the shop.)

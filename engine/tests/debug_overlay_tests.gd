@@ -3,11 +3,22 @@ extends SceneTree
 ##   godot --headless --path . -s res://engine/tests/debug_overlay_tests.gd
 
 const Debug = preload("res://engine/scripts/ui/debug.gd")
+const Habitat = preload("res://engine/scripts/core/habitat.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
+const MapScene = preload("res://engine/scripts/scenes/map.gd")
+const Save = preload("res://engine/scripts/core/save.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").Hud
 
 var _pass := 0
 var _fail := 0
+
+
+class ResidentDebugHost:
+	extends Control
+	var calls := 0
+
+	func debug_add_resident_to_hand() -> void:
+		calls += 1
 
 
 func ok(cond: bool, label: String) -> void:
@@ -35,6 +46,16 @@ func _mouse_motion(pos: Vector2, rel: Vector2) -> InputEventMouseMotion:
 	return ev
 
 
+func fresh(name: String) -> void:
+	var dir := "user://tu_debug_overlay_" + name + "/"
+	if DirAccess.dir_exists_absolute(dir):
+		for fn in DirAccess.get_files_at(dir):
+			DirAccess.remove_absolute(dir + fn)
+	else:
+		DirAccess.make_dir_recursive_absolute(dir)
+	Save.configure_for_test(dir)
+
+
 func _initialize() -> void:
 	print("== Debug overlay drag tests ==")
 	Debug.reset_drag_for_test()
@@ -53,6 +74,21 @@ func _initialize() -> void:
 	Ambient.debug_cycle_weather()
 	ok(Debug._weather_action_text() == "Weather: clear", "debug weather action reflects forced weather")
 	Ambient.reset_weather_debug_for_test()
+
+	var resident_host := ResidentDebugHost.new()
+	Debug._act_add_resident(resident_host)
+	ok(resident_host.calls == 1, "debug resident action delegates to map host")
+	resident_host.free()
+
+	fresh("resident_hand")
+	var map_host := MapScene.new()
+	var before_hand := Habitat.hand().size()
+	map_host.debug_add_resident_to_hand()
+	var after_hand := Habitat.hand()
+	ok(after_hand.size() == before_hand + 1, "map debug resident action adds one spirit to hand")
+	if after_hand.size() > before_hand:
+		ok(String(after_hand[before_hand].get("kind", "")) != "", "debug-added hand spirit has a resident kind")
+	map_host.free()
 
 	var host := Control.new()
 	host.size = Vector2(720, 960)
