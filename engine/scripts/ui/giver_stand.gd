@@ -187,10 +187,10 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 
 # The quest card surface: the painted `ui/quest/card_quest.png` (vertical gold-framed parchment
 # card with the reward plaque baked into the bottom) stretched to the card rect; a flat parchment
-# card when the art is absent. An OPTIONAL drop-shadow (lay.card_shadow_*, off by default) casts a
-# soft shadow behind the card — the painted art bakes none, so the workbench can dial one in.
+# card when the art is absent. When the UNIVERSAL Shadow toggle is on (lay.shadow), the card casts the
+# ONE SHARED shadow (Skin.shadow_rect with lay.shadow_params) — the painted art bakes none, so this is how
+# the quest card joins the same drop-shadow every other component casts (off by default → shipped card).
 static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
-	var sa := float(lay.get("card_shadow_a", 0.0))   # drop-shadow alpha (0 = off → the shipped card, untouched)
 	var p := Look.kit("quest/card_quest.png")
 	if ResourceLoader.exists(p):
 		# NINE-SLICE the parchment: the corners (rounded wood frame + peg holes) stay crisp at any box size
@@ -205,49 +205,31 @@ static func _quest_card(w: float, h: float, lay: Dictionary = {}) -> Control:
 		t.patch_margin_right = int(lay.get("card_slice_r", 46))
 		t.patch_margin_bottom = int(lay.get("card_slice_b", 56))
 		t.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		if sa <= 0.0:
-			return t                                  # no shadow → the bare art, zero extra nodes (shipped look)
-		# shadow ON: seat the art over a transparent-fill shadow panel (its StyleBox casts the halo OUTSIDE its
-		# rect). Both children fill the wrapper the caller sizes to the card rect.
-		var wrap := Control.new()
-		wrap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var sh := Panel.new()
-		sh.set_anchors_preset(Control.PRESET_FULL_RECT)
-		sh.add_theme_stylebox_override("panel", _card_shadow_box(w, h, lay))
-		sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		wrap.add_child(sh)
-		t.set_anchors_preset(Control.PRESET_FULL_RECT)
-		wrap.add_child(t)
-		return wrap
+		_add_card_shadow(t, h, lay)
+		return t
 	var card := Panel.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#FBF1D8", 0.98)
 	sb.set_corner_radius_all(20)
 	sb.set_border_width_all(3)
 	sb.border_color = Color("#C9A66B")
-	if sa > 0.0:                                       # the override drives the no-art fallback shadow too
-		sb.shadow_color = Color(0, 0, 0, sa)
-		sb.shadow_size = int(h * float(lay.get("card_shadow_size", 0.0)))
-		sb.shadow_offset = Vector2(w * float(lay.get("card_shadow_x", 0.0)), h * float(lay.get("card_shadow_y", 0.0)))
-	else:
-		sb.shadow_color = Color(0, 0, 0, 0.28)        # the shipped fallback shadow (unchanged)
-		sb.shadow_size = 7
-		sb.shadow_offset = Vector2(0, 4)
+	sb.shadow_color = Color(0, 0, 0, 0.28)
+	sb.shadow_size = 7
+	sb.shadow_offset = Vector2(0, 4)
 	card.add_theme_stylebox_override("panel", sb)
 	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return card
 
-# A transparent-fill StyleBox that casts ONLY a soft drop-shadow, sized from the card box (the lay carries
-# FRACTIONS: shadow size + x/y offset × the card w/h). Rounded near the wood-frame corner so the cast
-# silhouette tucks under the card instead of poking past its corners.
-static func _card_shadow_box(w: float, h: float, lay: Dictionary) -> StyleBoxFlat:
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0, 0, 0, 0)                    # invisible fill — only the shadow renders
-	sb.set_corner_radius_all(int(h * 0.12))
-	sb.shadow_color = Color(0, 0, 0, float(lay.get("card_shadow_a", 0.0)))
-	sb.shadow_size = int(h * float(lay.get("card_shadow_size", 0.0)))
-	sb.shadow_offset = Vector2(w * float(lay.get("card_shadow_x", 0.0)), h * float(lay.get("card_shadow_y", 0.0)))
-	return sb
+# Cast the ONE SHARED drop-shadow behind the card when the universal Shadow toggle is on (lay.shadow). Reuses
+# Skin.shadow_rect + the shared lay.shadow_params (from the global `shadow` block) — the exact shadow every
+# other component casts. Added as a show_behind_parent child so the NinePatch keeps its node identity (the card
+# is a non-container Control — this mirrors Skin's non-container shadow pattern). No-op when the toggle is off.
+static func _add_card_shadow(card: Control, h: float, lay: Dictionary) -> void:
+	if not bool(lay.get("shadow", false)):
+		return
+	var sh := Look.shadow_rect(h * 0.12, lay.get("shadow_params", {}))   # corner ≈ the wood-frame radius
+	sh.show_behind_parent = true
+	card.add_child(sh)
 
 # The standalone speech bubble (ui/quest/bubble_ask.png) drawn at a fixed size in a d×d box (aspect
 # kept, so the tail stays put) — a plain cream rounded panel when the art is absent. The caller seats
