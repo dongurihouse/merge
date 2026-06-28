@@ -2484,16 +2484,16 @@ func _rebuild_sidebar() -> void:
 					_sidebar_body.add_child(_slider_row(spec))
 		"land_fx":
 			_feel_trigger_button("▶  Drop", _land_fx_play)
-			_feel_fx_sidebar(LandFx.EFFECTS, LAND_FX_KNOBS, _land_fx_play)
+			_feel_fx_sidebar(LandFx.EFFECTS, LAND_FX_KNOBS)
 		"merge_fx":
 			_feel_trigger_button("▶  Merge", _merge_fx_play)
 			_group_header("Preview only — not saved", false)
 			_sidebar_body.add_child(_slider_row(["tier", 1, 12]))    # drives colour / flash / pitch escalation
 			_sidebar_body.add_child(_slider_row(["combo", 0, 10]))   # climbs the pentatonic ladder + gates hitstop
-			_feel_fx_sidebar(MergeFx.EFFECTS, MERGE_FX_KNOBS, _merge_fx_play)
+			_feel_fx_sidebar(MergeFx.EFFECTS, MERGE_FX_KNOBS)
 		"launch_fx":
 			_feel_trigger_button("▶  Launch", _launch_fx_play)
-			_feel_fx_sidebar(LaunchFx.EFFECTS, LAUNCH_FX_KNOBS, _launch_fx_play)
+			_feel_fx_sidebar(LaunchFx.EFFECTS, LAUNCH_FX_KNOBS)
 		"move_fx":
 			_feel_trigger_button("▶  Send", _move_fx_play)
 			_group_header("Saved to config", true)
@@ -2713,7 +2713,7 @@ func _feel_trigger_button(label: String, play: Callable) -> void:
 ## The shared feel-verb inspector body (mirrors the rush_fx case): the master toggle, then per-effect a
 ## label · "On" toggle · the effect's knob sliders (from the *_FX_KNOBS spec). Every key is saved to config.
 ## (move_fx builds its own variant inline because it inserts a KIND selector + duration under the master.)
-func _feel_fx_sidebar(effects: Array, knobs: Dictionary, _play: Callable) -> void:
+func _feel_fx_sidebar(effects: Array, knobs: Dictionary) -> void:
 	_group_header("Saved to config", true)
 	_sidebar_body.add_child(_toggle_row("All cues (master)", "enabled"))
 	_section_header("Each cue — flip · tune · ▶ to feel it (the game honours these)")
