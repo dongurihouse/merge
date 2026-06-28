@@ -262,6 +262,7 @@ var _params := {
 		"fill_alpha": 100, "rect_pad": 13, "play_px": 188,
 		"badge_dx": -26, "badge_dy": -26, "badge_dot_px": 14, "badge_num_size": 14, "glow": 45, "twinkle": 55,
 		"count_dx": 0, "count_dy": 38, "count_font": 26,
+		"shadow_alpha": 34, "shadow_offset_x": 0, "shadow_offset_y": 4, "shadow_blur": 14, "shadow_spread": 4, "shadow_warmth": 82,
 		"icon": "gift", "caption": "Daily", "sparkle": true, "badge_count": 3, "count": "1/6"},
 	# The board + quest are responsive now (board fills width / auto-rotates 9×7; the quest+board stack is
 	# bottom-anchored) — so the old manual board/quest x·y·h knobs are retired. Only the band HEIGHTS that
@@ -2837,6 +2838,16 @@ func _slider_row(spec: Array, target := "") -> Control:
 	var lo: float = float(spec[1])
 	var hi: float = float(spec[2])
 	var params: Dictionary = _params[target if target != "" else _selected]
+	if not params.has(key):
+		var fallback := {
+			"shadow_alpha": 34.0,
+			"shadow_offset_x": 0.0,
+			"shadow_offset_y": 4.0,
+			"shadow_blur": 14.0,
+			"shadow_spread": 4.0,
+			"shadow_warmth": 82.0,
+		}
+		params[key] = clampf(float(fallback.get(key, lo)), lo, hi)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	var lbl := Label.new()

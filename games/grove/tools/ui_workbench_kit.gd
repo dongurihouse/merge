@@ -3568,6 +3568,19 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 ## to the 0..1 the builder wants. The caller adds `calm` and overrides `px` per call site (rail vs nav).
 static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var h: Dictionary = cfg.get("home_button", {})
+	var sp: Dictionary = Look.shadow_params(cfg)
+	if h.has("shadow_alpha"):
+		sp["alpha"] = clampf(float(h["shadow_alpha"]) / 100.0, 0.0, 1.0)
+	if h.has("shadow_offset_x"):
+		sp["offset_x"] = float(h["shadow_offset_x"])
+	if h.has("shadow_offset_y"):
+		sp["offset_y"] = float(h["shadow_offset_y"])
+	if h.has("shadow_blur"):
+		sp["blur"] = float(h["shadow_blur"])
+	if h.has("shadow_spread"):
+		sp["spread"] = float(h["shadow_spread"])
+	if h.has("shadow_warmth"):
+		sp["warmth"] = clampf(float(h["shadow_warmth"]) / 100.0, 0.0, 1.0)
 	return {
 		"px": float(h.get("px", 140)),
 		"shell": HOME_SHELL,
@@ -3588,7 +3601,7 @@ static func home_button_opts_from_config(cfg: Dictionary) -> Dictionary:
 		# the DROP SHADOW: cast the SHARED box-shadow behind the badge / disc (on by default — the shipped rail +
 		# Map tiles lift off the homestead). home_button() shapes it per button (rounded rect vs circle).
 		"shadow": bool(h.get("shadow", true)),
-		"shadow_params": Look.shadow_params(cfg),
+		"shadow_params": sp,
 		"glow": float(h.get("glow", 0)) / 100.0,
 		"twinkle": float(h.get("twinkle", 0)) / 100.0,
 		# the count/dot BADGE offset (px past the disc's top-right corner): a caller's attach_badge nudges
