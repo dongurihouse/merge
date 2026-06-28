@@ -291,8 +291,9 @@ func _ready() -> void:
 	var bottom_btn_px := _bottom_button_px()
 	var bottom_bar_h := _bottom_bar_h_px(bottom_btn_px)
 	var action_opts := _action_bar_opts()
-	bar.offset_left = 0.0
-	bar.offset_right = _view_size().x
+	var bar_margin := _board_side_margin_px()
+	bar.offset_left = bar_margin
+	bar.offset_right = _view_size().x - bar_margin
 	bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bar.offset_bottom = -14.0 - sb_inset
 	bar.add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
@@ -420,6 +421,12 @@ func _board_w() -> float:
 func _board_h() -> float:
 	return _disp_rows() * csz + (_disp_rows() - 1) * GAP
 
+# The board panel sits centred in the full-width stack: its visual block is the grid plus the frame
+# overhang on each side, so the breathing space to the screen edge is half the leftover width. The
+# floating bottom bar insets by the SAME amount so its sides line up with the board's sides.
+func _board_side_margin_px() -> float:
+	return maxf(0.0, (_view_size().x - (_board_w() + FRAME_OUT * 2.0)) * 0.5)
+
 # Live aspect + grid read-out for the debug overlay (you read this to pick the rotation cutoff).
 func debug_layout_info() -> String:
 	var v := _view_size()
@@ -488,6 +495,7 @@ func _reflow_board_after_resize() -> void:
 	_last_board_view_size = sz
 	_recompute_board_geometry()
 	_rebuild_all()   # re-lays the slots, pieces, generators and giver cards at the new cell size
+	_relayout_action_bar()   # the bar insets to the board's sides — re-run it now csz (and _board_w) are fresh
 
 # --- board design (tools/ui_workbench — the "board" element) --------------------------
 # Pull the optional saved board design out of the UI-Workbench settings. Board layout owns the gutter,
@@ -1417,8 +1425,9 @@ func _relayout_action_bar() -> void:
 	bottom_bar.anchor_right = 0.0
 	bottom_bar.anchor_top = 1.0
 	bottom_bar.anchor_bottom = 1.0
-	bottom_bar.offset_left = 0.0
-	bottom_bar.offset_right = _view_size().x
+	var bar_margin := _board_side_margin_px()
+	bottom_bar.offset_left = bar_margin
+	bottom_bar.offset_right = _view_size().x - bar_margin
 	bottom_bar.offset_top = -bottom_bar_h - 14.0 - sb_inset
 	bottom_bar.offset_bottom = -14.0 - sb_inset
 	(bottom_bar as PanelContainer).add_theme_stylebox_override("panel", _action_bar_style(bottom_bar_h, action_opts))
@@ -1688,7 +1697,10 @@ func _build_info_bar(px: float = 130.0, action_opts: Dictionary = {}, bar_h: flo
 	var pill: PanelContainer = Kit.info_bar({"info_action": _on_info_pressed, "sell_action": _on_trash_pressed}, opts)
 	pill.name = "ActionBarInfoBar"
 	var tray_pad_x := roundf(bar_h * float(action_opts.get("pad_x_frac", 0.0)))
-	pill.custom_minimum_size.x = maxf(1.0, _info_bar_w_px() - _action_bar_separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
+	# The bar insets to the board's side margins, so the flexible middle (this pill) gives back that same
+	# width — the two fixed end buttons then sit flush to the board's edges instead of overflowing the bar.
+	var info_w := _info_bar_w_px() - 2.0 * _board_side_margin_px()
+	pill.custom_minimum_size.x = maxf(1.0, info_w - _action_bar_separator_w(px) * 2.0 - tray_pad_x * 2.0 - ACTION_BAR_FIT_SLOP)
 	pill.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	pill.add_theme_stylebox_override("panel", _transparent_info_bar_frame(opts))
 	_info_btn = pill.get_meta("info_btn")            # opens the selected item's Tiers ladder
