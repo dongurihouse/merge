@@ -11,6 +11,7 @@ extends Control
 @export var color := Color("#E8BE5C")      # rim colour (gold)
 @export var width := 3.0                    # rim thickness in px (outward)
 @export var alpha := 0.85                   # rim opacity
+@export var blur := 0.0                      # rim feather in px (0 = crisp edge; >0 fades the rim outward)
 @export var inset := 0.16                   # MUST equal the sprite's ITEM_INSET
 @export var steps := 16                     # ring sample count (higher = smoother rim)
 
@@ -31,9 +32,24 @@ func _draw() -> void:
 	var dw := ts.x * sc
 	var dh := ts.y * sc
 	var rect := Rect2((size.x - dw) / 2.0, (size.y - dh) / 2.0, dw, dh)
+	# The solid rim: stamp the silhouette around a ring of radius `width`.
+	_stamp_ring(rect, width, alpha)
+	# The feather (blur): concentric rings fading to 0 across `blur` px beyond the rim, softening the hard
+	# outer edge. Skipped when blur <= 0 so the crisp look is byte-for-byte the single-ring rim as before.
+	if blur > 0.0:
+		var layers := clampi(int(ceil(blur)), 1, 12)
+		for r in range(1, layers + 1):
+			var t := float(r) / float(layers)              # 0..1 outward across the feather band
+			_stamp_ring(rect, width + blur * t, alpha * (1.0 - t))   # linear falloff to 0 at the outer edge
+
+# Stamp the silhouette `steps` times around a ring of the given radius, tinted at alpha `a`. Overlapping
+# copies build a continuous rim; successive rings (see _draw) build the feather band.
+func _stamp_ring(rect: Rect2, radius: float, a: float) -> void:
+	if a <= 0.0 or radius <= 0.0:
+		return
 	var col := color
-	col.a = alpha
+	col.a = a
 	for i in steps:
 		var ang := TAU * float(i) / float(steps)
-		var off := Vector2(cos(ang), sin(ang)) * width
+		var off := Vector2(cos(ang), sin(ang)) * radius
 		draw_texture_rect(tex, Rect2(rect.position + off, rect.size), false, col)

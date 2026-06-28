@@ -86,6 +86,9 @@ func _initialize() -> void:
 		"sparkle_size": 1.8,
 		"sparkle_count": 6,
 		"sparkle_speed": 1.1,
+		"outline_color": Color("#33EE88"),
+		"outline_w": 0.05,
+		"outline_blur": 0.04,
 	})
 	var tuned_glow := gen.find_child("GenGlow", true, false) as TextureRect
 	ok(tuned_glow != null and tuned_glow.modulate.is_equal_approx(Color("#77CCFF", 0.72)) \
@@ -107,6 +110,17 @@ func _initialize() -> void:
 		sparkle_size_ok = (size_v is float or size_v is int) and is_equal_approx(float(size_v), 1.8)
 	ok(tuned_sparkle != null and sparkle_tint_ok and sparkle_size_ok, \
 		"generator sparkle consumes the workbench-tuned color and size")
+	var tuned_outline := gen.find_child("GenOutline", true, false) as Control
+	var outline_color_ok := false
+	var outline_blur_ok := false
+	if tuned_outline != null:
+		var ocol_v = tuned_outline.get("color")
+		var oblur_v = tuned_outline.get("blur")
+		outline_color_ok = ocol_v is Color and (ocol_v as Color).is_equal_approx(Color("#33EE88"))
+		# outline_blur is a fraction of the cell (0.04 × 100 px = 4 px of feather)
+		outline_blur_ok = (oblur_v is float or oblur_v is int) and is_equal_approx(float(oblur_v), 4.0)
+	ok(tuned_outline != null and outline_color_ok and outline_blur_ok, \
+		"generator outline consumes the workbench-tuned color and blur")
 
 	# --- squash_pop strength scales the impact pose (default 1.0 unchanged) -----------
 	var sps := Control.new(); sps.size = Vector2(80, 80); get_root().add_child(sps)

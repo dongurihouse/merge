@@ -3584,6 +3584,8 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"glow_color": _hex_color(String(g.get("glow_color", "FFD27A"))),
 		"outline_w": float(g.get("outline_w", 35)) / 1000.0,      # rim thickness, per-mille of cell
 		"outline_a": float(g.get("outline_a", 85)) / 100.0,       # rim opacity
+		"outline_blur": float(g.get("outline_blur", 0)) / 1000.0, # rim feather, per-mille of cell
+		"outline_color": _hex_color(String(g.get("outline_color", "E8BE5C"))),
 		"sparkle_count": int(g.get("sparkle_count", 5)),          # twinkle count
 		"sparkle_size": float(g.get("sparkle_size", 100)) / 100.0, # twinkle size multiplier
 		"sparkle_speed": float(g.get("sparkle_speed", 70)) / 100.0,   # twinkle cycles/sec
