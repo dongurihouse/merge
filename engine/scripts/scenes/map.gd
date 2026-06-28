@@ -2278,6 +2278,25 @@ const DOCK_INK := Color("#43352B")
 const DOCK_PARCH := Color("#F3E7CE")
 const DOCK_STRAW := Color("#D9B679")
 
+static var _resident_content_cache: Dictionary = {}
+static func _resident_content_tex(path: String) -> Texture2D:
+	if _resident_content_cache.has(path):
+		return _resident_content_cache[path]
+	var tex: Texture2D = load(path)
+	var result: Texture2D = tex
+	if tex != null:
+		var img := tex.get_image()
+		if img != null:
+			var used := img.get_used_rect()
+			var full := Vector2i(tex.get_width(), tex.get_height())
+			if used.size.x > 0 and used.size.y > 0 and (used.position != Vector2i.ZERO or used.size != full):
+				var at := AtlasTexture.new()
+				at.atlas = tex
+				at.region = Rect2(used)
+				result = at
+	_resident_content_cache[path] = result
+	return result
+
 func _spirit_chip(kind: String, tier: int, px: float, on_tap: Callable, show_badge: bool = true) -> Control:
 	var btn := Button.new()
 	btn.flat = true
@@ -2360,7 +2379,7 @@ func _spirit_icon_node(kind: String, tier: int, px: float) -> Control:
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var art := G.resident_art(kind, tier)
 	if art != "" and ResourceLoader.exists(art):
-		t.texture = load(art)                             # art is pre-centered (re-cut), so display it as-is
+		t.texture = _resident_content_tex(art)
 	return t
 
 # The gold selection ring overlaid on the selected cell.

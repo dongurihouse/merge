@@ -146,6 +146,19 @@ func _piece_art_max_px(node: Control) -> float:
 			max_px = maxf(max_px, art_w)
 	return max_px
 
+func _resident_art_rect(node: Control) -> TextureRect:
+	for found in node.find_children("*", "TextureRect", true, false):
+		var art := found as TextureRect
+		if art.texture != null:
+			return art
+	return null
+
+func _resident_art_box_px(node: Control) -> float:
+	var art := _resident_art_rect(node)
+	if art == null:
+		return -1.0
+	return maxf(art.custom_minimum_size.x, art.size.x)
+
 # The texture on a Button's `normal` stylebox when it wears sprite art (a StyleBoxTexture), else null —
 # lets a test prove two buttons share the SAME baked sprite (e.g. the level cta atom) without node names.
 func _btn_tex(b: Button) -> Texture2D:
@@ -1179,6 +1192,33 @@ func _test_board_element(view) -> void:
 	ok(absf(float(board_scene.get("_board_item_inset")) - 0.045) <= 0.001, \
 		"live board pieces use Slot-cell content_frac instead of board.item")
 	board_scene.queue_free()
+
+	var map_scene = load("res://engine/scenes/Map.tscn").instantiate()
+	var small_resident_opts := Kit.bag_card_opts_from_config({"bag_card": {"content_frac": 35}})
+	small_resident_opts["cell_w"] = 100.0
+	small_resident_opts["cell_h"] = 100.0
+	var big_resident_opts := Kit.bag_card_opts_from_config({"bag_card": {"content_frac": 91}})
+	big_resident_opts["cell_w"] = 100.0
+	big_resident_opts["cell_h"] = 100.0
+	var small_resident: Control = map_scene._spirit_cell(Kit, small_resident_opts, "ember", 1, 100.0, false)
+	var big_resident: Control = map_scene._spirit_cell(Kit, big_resident_opts, "ember", 1, 100.0, false)
+	var small_resident_px := _resident_art_box_px(small_resident)
+	var big_resident_px := _resident_art_box_px(big_resident)
+	var big_resident_art := _resident_art_rect(big_resident)
+	var resident_raw: Texture2D = load("res://games/grove/assets/items/resident_ember/resident_ember_1.png")
+	var resident_used := resident_raw.get_image().get_used_rect() if resident_raw != null and resident_raw.get_image() != null else Rect2i()
+	var resident_atlas := big_resident_art.texture as AtlasTexture if big_resident_art != null else null
+	ok(absf(small_resident_px - 35.0) <= 1.0 and absf(big_resident_px - 91.0) <= 1.0, \
+		"right-column resident previews obey Slot-cell content_frac for their fitted art box")
+	ok(resident_atlas != null and resident_used.size.x > 0 and resident_used.size.y > 0 \
+		and absf(resident_atlas.region.position.x - float(resident_used.position.x)) <= 1.0 \
+		and absf(resident_atlas.region.position.y - float(resident_used.position.y)) <= 1.0 \
+		and absf(resident_atlas.region.size.x - float(resident_used.size.x)) <= 1.0 \
+		and absf(resident_atlas.region.size.y - float(resident_used.size.y)) <= 1.0, \
+		"right-column resident previews crop resident art to opaque bounds like board items")
+	small_resident.queue_free()
+	big_resident.queue_free()
+	map_scene.queue_free()
 
 	# the CELL knob is preview-only: wider preview cells grow the workbench board footprint.
 	view._params["board"]["cell"] = 80
