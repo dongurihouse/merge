@@ -525,6 +525,13 @@ func _test_rush_resize() -> void:
 		"S-RESIZE: the bottom hint compensates font ink centering (delta=%.1f)" % hint_label_delta)
 	var bottom_gap: float = 1920.0 - (s._hint.position.y + s._hint.size.y) if s._hint != null else 0.0
 	ok(bottom_gap >= 1920.0 * 0.05 - 1.0, "S-RESIZE: the bottom hint clears the bottom edge by 5%% (gap=%.0f)" % bottom_gap)
+	get_root().size = Vector2i(1600, 1400)
+	await create_timer(0.06).timeout
+	await create_timer(0.06).timeout
+	var board_frame_bottom: float = s._board.position.y + s._board.size.y + float(s.FRAME_OUT)
+	var hint_top: float = s._hint.position.y if s._hint != null else 0.0
+	ok(board_frame_bottom <= hint_top - 8.0, \
+		"S-RESIZE: the rush board frame clears the bottom hint on wide/short screens (frame bottom=%.0f hint top=%.0f)" % [board_frame_bottom, hint_top])
 	# the treefall telegraph flips the activity bar to its warning state (and aims the chevron)
 	s._tf = {"ph": "tele", "t": 0.0, "col": 3, "next": 9.0}
 	s._apply_treefall_visual()

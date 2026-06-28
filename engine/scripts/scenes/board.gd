@@ -22,6 +22,7 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")
 const FocusRing = preload("res://engine/scripts/ui/focus_ring.gd")   # the selected-cell corner-bracket highlight
 const Bust = preload("res://engine/scripts/ui/bust.gd")
 const GiverStand = preload("res://engine/scripts/ui/giver_stand.gd")
+const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const BagOverlay = preload("res://engine/scripts/ui/bag_overlay.gd")   # the tap-to-open full bag (replaces the inline row)
 const Ladder = preload("res://engine/scripts/ui/ladder.gd")
 const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
@@ -448,15 +449,17 @@ func _recompute_board_geometry() -> void:
 		_stack.offset_bottom = -(bottom_reserve + BOARD_BREATHING)   # leave a small gap above the bottom bar
 	# Cap the board to the room that actually remains inside the region after the quest fence + a gap, so
 	# the grid never runs into the fence or the bottom bar regardless of screen shape.
-	var reserved_rows_h := top_reserve + _fence_h + VBOX_SEP + bottom_reserve + BOARD_BREATHING
 	# the bamboo FRAME extends FRAME_OUT past the grid on every side — budget for it so the frame +
 	# last column never run off-screen (the prior calc sized only the cells → overflow).
 	# use the DISPLAY dims (transposed on a landscape viewport) so the cells fill the screen in either orientation.
-	var w_csz := (view.x - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - (_disp_cols() - 1) * GAP) / float(_disp_cols())
-	var h_csz := (view.y - reserved_rows_h - 2.0 * FRAME_OUT - (_disp_rows() - 1) * GAP) / float(_disp_rows())
 	# `_board_scale` (1.0 = the responsive full-fit) shrinks the cells within that space — the in-game
 	# "board size" knob. <1 leaves a centred margin; values >1 may overflow the screen budget.
-	csz = minf(w_csz, h_csz) * _board_scale
+	var board_top := top_reserve + _fence_h + VBOX_SEP
+	var board_bottom := view.y - bottom_reserve - BOARD_BREATHING
+	var fit: Dictionary = BoardFit.fit_bottom_aligned(
+		view, _disp_cols(), _disp_rows(), GAP, FRAME_OUT, BOARD_MARGIN,
+		board_top, board_bottom, _board_scale)
+	csz = float(fit.cell)
 	# The frame overhangs the grid by FRAME_OUT on all sides — reserve that real footprint in the VBox.
 	if _board_center != null and is_instance_valid(_board_center):
 		_board_center.custom_minimum_size = Vector2(_board_w() + FRAME_OUT * 2.0, _board_h() + FRAME_OUT * 2.0)

@@ -18,6 +18,7 @@ const FX = preload("res://engine/scripts/ui/fx.gd")     # the shared screen-juic
 const Feel = preload("res://engine/scripts/ui/feel.gd")  # the unified feel verbs — merge juice routes through Feel.merge
 const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home board's merge-piece renderer
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
+const BoardFit = preload("res://engine/scripts/ui/board_fit.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
 const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")      # the toggleable + tunable feel appliers
@@ -282,9 +283,10 @@ func _tex(name: String) -> Texture2D:
 # The Rush board is the SAME board component as the home board — the shared gold frame (Kit.board_panel)
 # + the shared slot-cell wells (Kit.slot_cell) — only every cell is OPEN (no brambles). Its size and
 # position derive from the screen (like the home board): cells fit the screen on whichever axis binds,
-# centred, reserving the top bar above and the safe-area below, with the frame's overhang accounted for.
+# bottom-aligned between the activity bar and hint bar, with the frame's overhang accounted for.
 const FRAME_OUT := 48.0          # the board frame's overhang past the grid (matches the home planter feel)
 const BOARD_MARGIN := 8.0
+const BOARD_BOTTOM_BREATHING := 12.0
 
 func _cellxy(r: int, c: int) -> Vector2:
 	return Vector2(float(c) * (_cell + _gap), float(r) * (_cell + _gap))
@@ -301,14 +303,18 @@ func _build_board_chrome() -> void:
 	var vp := get_viewport_rect().size
 	var vw: float = vp.x if vp.x > 0.0 else 720.0
 	var vh: float = vp.y if vp.y > 0.0 else 1280.0
-	var top_reserve := _act_bottom + vh * 0.015             # the screen below the activity bar
-	var bot_reserve := Look.safe_bottom(self) + _hint_h + vh * 0.04   # leave room for the bigger bottom hint
-	# fit cells to the screen on whichever axis binds, accounting for the frame overhang + gutters
-	var w_csz := (vw - 2.0 * BOARD_MARGIN - 2.0 * FRAME_OUT - float(G.COLS - 1) * _gap) / float(G.COLS)
-	var h_csz := (vh - top_reserve - bot_reserve - 2.0 * FRAME_OUT - float(G.ROWS - 1) * _gap) / float(G.ROWS)
-	_cell = floorf(maxf(24.0, minf(w_csz, h_csz)))
-	var bw := float(G.COLS) * _cell + float(G.COLS - 1) * _gap
-	var bh := float(G.ROWS) * _cell + float(G.ROWS - 1) * _gap
+	var top_limit := _act_bottom + vh * 0.015             # the screen below the activity bar
+	var fallback_bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
+	var hint_top := vh - Look.safe_bottom(self) - fallback_bottom_gap - _hint_h
+	if _hint != null and is_instance_valid(_hint):
+		hint_top = _hint.position.y
+	var bottom_limit := hint_top - BOARD_BOTTOM_BREATHING
+	var fit: Dictionary = BoardFit.fit_bottom_aligned(
+		Vector2(vw, vh), G.COLS, G.ROWS, _gap, FRAME_OUT, BOARD_MARGIN,
+		top_limit, bottom_limit, 1.0, 24.0, true)
+	_cell = float(fit.cell)
+	var bw: float = (fit.grid_size as Vector2).x
+	var bh: float = (fit.grid_size as Vector2).y
 	# the board node PERSISTS across relayouts (it holds the live tiles); only reposition it on a rebuild
 	if _board == null:
 		_board = Control.new()
@@ -316,10 +322,7 @@ func _build_board_chrome() -> void:
 		add_child(_board)
 	_board.custom_minimum_size = Vector2(bw, bh)
 	_board.size = Vector2(bw, bh)
-	# centre the grid in the band between the activity bar and the bottom hint (frame overhang clears both)
-	var band_top := top_reserve + FRAME_OUT
-	var band_h := vh - bot_reserve - FRAME_OUT - band_top
-	_board.position = Vector2((vw - bw) * 0.5, band_top + maxf(0.0, (band_h - bh) * 0.5))
+	_board.position = fit.grid_position
 	# the STATELESS chrome (frame + wells + telegraph) — rebuilt each layout, kept BEHIND the tiles
 	_chrome = Control.new()
 	_chrome.name = "RushBoardChrome"
