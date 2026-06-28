@@ -1505,6 +1505,10 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_px\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"resident_slot_gap\""), \
 		"the Workbench map-card sidebar exposes resident slot-size and gap sliders")
+	view._selected = "map_card"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Resident Slot Px") >= 148.0, \
+		"the map-card resident slot-size slider can grow to double the old cap")
 	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_w_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_h_frac\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_shelf_y_frac\""), \
@@ -1527,6 +1531,8 @@ func _test_gold_badge_consumers(view) -> void:
 		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 36, "resident_slot_gap": 4}, "gold_badge": {}}), 460.0, 230.0)
 	var preview_big := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
 		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 64, "resident_slot_gap": 18}, "gold_badge": {}}), 460.0, 230.0)
+	var preview_oversized := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
+		Kit.map_card_opts_from_config({"map_card": {"resident_slot_px": 120, "resident_slot_gap": 18}, "gold_badge": {}}), 520.0, 700.0)
 	var tuned_shelf_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "habitat_preview": true}, \
 		Kit.map_card_opts_from_config({"map_card": {
 			"reward_icon_size": 38, "reward_icon_x": 7, "reward_icon_y": -3,
@@ -1540,6 +1546,7 @@ func _test_gold_badge_consumers(view) -> void:
 	var tuned_label := tuned_shelf_card.find_child("MapHabitatRewardLabel", true, false) as Label
 	var tuned_collect := tuned_shelf_card.find_child("MapHabitatCollectButton", true, false) as Button
 	var tuned_collect_icon := tuned_shelf_card.find_child("MapHabitatCollectButtonIcon", true, false) as Control
+	var oversized_slot := preview_oversized.find_child("MapResidentRailPreviewSlot_00", true, false) as Control
 	var preview_slot_count := 0
 	var preview_slot_background_count := 0
 	var preview_ring_count := 0
@@ -1556,6 +1563,8 @@ func _test_gold_badge_consumers(view) -> void:
 		"the Workbench map-card preview uses standard square Slot-cell backgrounds instead of circular resident rings")
 	ok(big_rail != null and small_rail != null and big_rail.size.x > small_rail.size.x and big_rail.size.y > small_rail.size.y, \
 		"the resident-slot preview grows when the slot-size and gap sliders grow")
+	ok(oversized_slot != null and oversized_slot.custom_minimum_size.x >= 118.0 and oversized_slot.custom_minimum_size.y >= 118.0, \
+		"the resident-slot preview applies sizes beyond the old cap when the card has room")
 	ok(tuned_shelf != null and tuned_icon != null and tuned_icon.custom_minimum_size == Vector2(38, 38) \
 		and tuned_icon.position == Vector2(21, 5), \
 		"the Workbench map-card preview applies reward icon size and location knobs")

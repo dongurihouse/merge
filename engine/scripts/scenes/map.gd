@@ -1114,10 +1114,10 @@ func _habitat_card(z: int, card_w: float, card_h: float, opts: Dictionary = {}) 
 	# the HOUSED spirits ride a VERTICAL strip down the card's RIGHT side. This strip IS the drop zone for a
 	# dragged in-hand spirit — sized generously so a drop lands easily, while a tap elsewhere on the card still
 	# navigates into the map. The orbs register into `_placed_orbs` (drag-out / merge / focus targets).
-	var resident_slot_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var resident_slot_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 148.0)
 	var resident_slot_gap := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
-	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 18.0)
-	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+	var rail_pad_preview := clampf(resident_slot_px * 0.26, 11.0, 36.0)
+	var strip_w := clampf(resident_slot_px * 2.0 + resident_slot_gap + rail_pad_preview * 2.0, 96.0, minf(card_w * 0.76, 440.0))
 	_add_habitat_strip(card, z, map_id, placed, cap, Rect2(card_w - inset - strip_w, inset, strip_w, card_h - inset * 2.0), resident_slot_px, opts, resident_slot_gap)
 	var shelf_rect: Rect2 = Kit.map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
 
@@ -1216,15 +1216,15 @@ func _add_habitat_strip(card: Control, z: int, map_id: String, placed: Array, ca
 	var slot_rows := 4
 	display_cap = mini(display_cap, slot_cols * slot_rows)
 	var sep := clampf(slot_gap, 0.0, 36.0)
-	orb_px = clampf(orb_px, 30.0, 74.0)
-	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+	orb_px = clampf(orb_px, 30.0, 148.0)
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 36.0)
 	var max_sep_w := maxf(0.0, (rect.size.x - rail_pad * 2.0 - 10.0 * float(slot_cols)) / float(slot_cols - 1))
 	var max_sep_h := maxf(0.0, (rect.size.y - rail_pad * 2.0 - 10.0 * float(slot_rows)) / float(slot_rows - 1))
 	sep = minf(sep, minf(max_sep_w, max_sep_h))
 	var max_orb_w := (rect.size.x - rail_pad * 2.0 - sep * float(slot_cols - 1)) / float(slot_cols)
 	var max_orb_h := (rect.size.y - rail_pad * 2.0 - sep * float(slot_rows - 1)) / float(slot_rows)
-	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 74.0))
-	rail_pad = clampf(orb_px * 0.26, 11.0, 18.0)
+	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 148.0))
+	rail_pad = clampf(orb_px * 0.26, 11.0, 36.0)
 	var rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0
 	var rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0
 	rail_w = minf(rect.size.x, rail_w)

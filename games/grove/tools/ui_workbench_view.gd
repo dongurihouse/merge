@@ -2081,7 +2081,7 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["pill_max", 120, 460]))      # …and this max px
 			_sidebar_body.add_child(_slider_row(["pill_y_frac", 0, 40]))      # pill lift off the bottom edge (% of height)
 			_section_header("Resident rail")
-			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 74])) # completed-card square slot size px
+			_sidebar_body.add_child(_slider_row(["resident_slot_px", 30, 148])) # completed-card square slot size px
 			_sidebar_body.add_child(_slider_row(["resident_slot_gap", 0, 36])) # gap between completed-card resident slots px
 			_section_header("Reward shelf")
 			_sidebar_body.add_child(_slider_row(["reward_shelf_w_frac", 45, 100])) # completed-card shelf width (% of left lane)

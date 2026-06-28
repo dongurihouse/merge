@@ -4693,12 +4693,12 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 	var inset := band + 6.0
 	var slot_cols := 2
 	var slot_rows := 4
-	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 148.0)
 	var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
-	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 36.0)
 	var requested_rail_w := orb_px * float(slot_cols) + sep * float(slot_cols - 1) + rail_pad * 2.0
 	var requested_rail_h := orb_px * float(slot_rows) + sep * float(slot_rows - 1) + rail_pad * 2.0
-	var strip_w := clampf(requested_rail_w, 96.0, minf(card_w * 0.38, 220.0))
+	var strip_w := clampf(requested_rail_w, 96.0, minf(card_w * 0.76, 440.0))
 	var rect := Rect2(card_w - inset - strip_w, inset, strip_w, maxf(1.0, card_h - inset * 2.0))
 	var rail_w := minf(rect.size.x, maxf(96.0, requested_rail_w))
 	var rail_h := minf(rect.size.y, requested_rail_h)
@@ -4708,8 +4708,8 @@ static func _map_add_resident_preview(card: Control, opts: Dictionary, card_w: f
 	sep = minf(sep, minf(max_sep_w, max_sep_h))
 	var max_orb_w := (rail_w - rail_pad * 2.0 - sep * float(slot_cols - 1)) / float(slot_cols)
 	var max_orb_h := (rail_h - rail_pad * 2.0 - sep * float(slot_rows - 1)) / float(slot_rows)
-	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 74.0))
-	rail_pad = clampf(orb_px * 0.26, 11.0, 18.0)
+	orb_px = floor(clampf(maxf(8.0, minf(orb_px, minf(max_orb_w, max_orb_h))), 8.0, 148.0))
+	rail_pad = clampf(orb_px * 0.26, 11.0, 36.0)
 	var rail := Control.new()
 	rail.name = "MapResidentRailPreview"
 	rail.position = rect.position + Vector2(maxf(0.0, rect.size.x - rail_w), maxf(0.0, (rect.size.y - rail_h) * 0.5))
@@ -4767,10 +4767,10 @@ static func _map_add_habitat_shelf_preview(card: Control, opts: Dictionary, card
 	var badge_opts: Dictionary = opts.get("badge", {})
 	var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
 	var inset := band + 6.0
-	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+	var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 148.0)
 	var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
-	var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
-	var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+	var rail_pad := clampf(orb_px * 0.26, 11.0, 36.0)
+	var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.76, 440.0))
 	var rect := map_habitat_shelf_rect(card_w, card_h, inset, strip_w, opts)
 
 	var shelf := Panel.new()
@@ -5132,10 +5132,10 @@ static func _map_count_pill(d: Dictionary, opts: Dictionary, card: Control, card
 		var badge_opts: Dictionary = opts.get("badge", {})
 		var band := clampf(float(badge_opts.get("inner_inset", 6.0)) + 3.0, 4.0, minf(card_w, card_h) * 0.45)
 		var inset := band + 6.0
-		var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 74.0)
+		var orb_px := clampf(float(opts.get("resident_slot_px", 58.0)), 30.0, 148.0)
 		var sep := clampf(float(opts.get("resident_slot_gap", 10.0)), 0.0, 36.0)
-		var rail_pad := clampf(orb_px * 0.26, 11.0, 18.0)
-		var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.38, 220.0))
+		var rail_pad := clampf(orb_px * 0.26, 11.0, 36.0)
+		var strip_w := clampf(orb_px * 2.0 + sep + rail_pad * 2.0, 96.0, minf(card_w * 0.76, 440.0))
 		var rail_left := card_w - inset - strip_w
 		var min_x := band + 8.0
 		var max_x := maxf(min_x, rail_left - pw - 8.0)
