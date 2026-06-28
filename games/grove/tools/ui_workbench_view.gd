@@ -249,7 +249,8 @@ var _params := {
 	# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
 	# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
 	# `preview` (which generator) + `cell` (preview px) are test-only.
-	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A", "outline_w": 35, "outline_a": 85,
+	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A",
+		"outline_w": 35, "outline_a": 85, "outline_blur": 0, "outline_color": "E8BE5C",
 		"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
 		"preview": "seed_satchel", "cell": 170},
 	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
@@ -281,7 +282,7 @@ var _params := {
 	"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 		"amount_w": 88, "num_size": 30, "amount_x": 0,
-		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
+		"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
 		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 		"plus_label_y": 0,
 		"inner_shadow": 30, "shadow_alpha": 34,
@@ -478,7 +479,7 @@ func _ready() -> void:
 ## otherwise), so the universal Shadow toggle persists through _save / _load (which only round-trip keys
 ## present in _params). Run BEFORE _load_settings so a saved file can still override the default.
 func _ensure_shadow_keys() -> void:
-	var on_by_default := {"home_button": true, "board": true, "gold_badge": true}
+	var on_by_default := {"home_button": true, "board": true, "gold_badge": true, "quest_card": true}
 	for id in _params.keys():
 		if id == "shadow":
 			continue
@@ -845,7 +846,11 @@ func _make_element(id: String) -> Control:
 			var mh := live_h
 			var art_path := Kit.map_card_art_path(Game.DATA.MAPS[0]) if bool(p.open) else ""
 			var mdata := {"open": bool(p.open), "done": bool(p.done), "art": art_path,
-				"title": "The Farm", "resident_preview": true, "habitat_preview": bool(p.open),
+				# A not-yet-done OPEN card previews the in-progress vista the game renders: the count pill (the
+				# pill sliders' target), no resident rail. Flipping Done previews the COMPLETED habitat card —
+				# the resident rail plus the reward shelf — which share the lower edge and replace the pill. So
+				# both overlays are Done-gated together, and each state mirrors what map.gd actually draws.
+				"title": "The Farm", "resident_preview": bool(p.open) and bool(p.done), "habitat_preview": bool(p.open) and bool(p.done),
 				"owned_zones": int(p.owned_zones), "total_zones": int(p.total_zones),
 				"prereq": "✿ after Meadow", "map_id": String(Game.DATA.MAPS[0].id)}
 			var card := Kit.map_card(mdata, mco, mw, mh)
@@ -2194,6 +2199,8 @@ func _rebuild_sidebar() -> void:
 			_section_header("Outline (traces the art)")
 			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
 			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
+			_sidebar_body.add_child(_slider_row(["outline_blur", 0, 60]))    # rim feather (per-mille of cell)
+			_sidebar_body.add_child(_color_row("Outline", "outline_color")) # rim tint
 			_section_header("Sparkle")
 			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
 			_sidebar_body.add_child(_slider_row(["sparkle_size", 50, 250]))  # twinkle size, % of default
@@ -2321,15 +2328,16 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["icon_x", -32, 32]))
 			_section_header("Amount")
 			_sidebar_body.add_child(_slider_row(["amount_w", 40, 180]))
-			_sidebar_body.add_child(_slider_row(["num_size", 16, 48]))
-			_sidebar_body.add_child(_slider_row(["amount_x", -40, 40]))
+			_sidebar_body.add_child(_slider_row(["num_size", 16, 72]))
+			_sidebar_body.add_child(_slider_row(["amount_x", -40, 120]))
 			_section_header("Plus button")
-			_sidebar_body.add_child(_slider_row(["plus_x", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["plus_x", -200, 40]))
+			_sidebar_body.add_child(_slider_row(["plus_y", -60, 60]))   # move the whole green button up/down
 			_sidebar_body.add_child(_slider_row(["plus_radius", 8, 44]))
 			_sidebar_body.add_child(_slider_row(["plus_shine", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["plus_stroke", 0, 5]))
 			_sidebar_body.add_child(_slider_row(["plus_font", 50, 160]))
-			_sidebar_body.add_child(_slider_row(["plus_button", 75, 135]))
+			_sidebar_body.add_child(_slider_row(["plus_button", 40, 135]))
 			_sidebar_body.add_child(_slider_row(["plus_round", 0, 18]))
 			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button

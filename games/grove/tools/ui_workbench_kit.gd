@@ -28,6 +28,7 @@ const PILL_PAD := Vector4(14, 6, 14, 6)
 const CLAIM_PAD := Vector4(24, 8, 24, 8)
 const BANNER_H := 92.0
 const BANNER_MIN_W_FRAC := 0.25   # a dialog floors its banner at this fraction of the SCREEN width (banner_min_w)
+const DIALOG_MIN_H_FRAC := 0.20   # general dialog HEIGHT floor as a fraction of the SCREEN height (mirrors the width %) — sparse states (empty mail …) never collapse to a banner slip; content dialogs (settings) clear it with only light bottom breathing room, and tall ones (daily/shop) are unaffected. An explicit opts.min_h (px) overrides.
 
 static func _shadow_warmth(opts: Dictionary, key: String = "shadow_warmth") -> float:
 	return clampf(float(opts.get(key, 82.0)) / 100.0, 0.0, 1.0)
@@ -1079,7 +1080,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 	amount.add_theme_font_size_override("font_size", num_size)
 	amount.add_theme_color_override("font_color", Color("#3A1C12"))
 	amount.add_theme_constant_override("outline_size", 0)
-	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER   # centre the number within its amount box
+	amount.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # right-align the number; amount_x pushes it toward the pill's right edge
 	amount.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	amount.position = Vector2(amount_x, 0)
 	amount.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1092,7 +1093,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus_slot.custom_minimum_size = Vector2(plus.custom_minimum_size.x, content_h)
 		plus_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
+		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5 + float(opts.get("plus_y", 0)))
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
 	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
@@ -1970,6 +1971,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var close_poke: Vector2 = opts.get("close_poke", Vector2(12, 12))
 	var card_corner: float = float(opts.get("card_corner", 22.0))
 	var card_art: bool = bool(opts.get("card_art", false))
+	var min_h_override: float = float(opts.get("min_h", -1.0))   # explicit px height floor; <0 → use DIALOG_MIN_H_FRAC of the screen height (resolved once mounted)
 	# the BORDER option supplies panel_art / slice / pad DEFAULTS; explicit opts still override (so
 	# mail/daily/shop/settings — which pass no border — stay byte-identical on parchment).
 	var border: Dictionary = frame_border(String(opts.get("border", "parchment")))
@@ -1988,6 +1990,7 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var banner_burn: float = float(opts.get("banner_burn", 0.0))
 	var list_max_h: float = float(opts.get("list_max_h", 0.0))
 	var list_top_pad: float = float(opts.get("list_top_pad", 0.0))
+	var center_content: bool = bool(opts.get("center_content", false))   # stretch a sparse content block to fill the floored body so it centers (empty mail note)
 	var on_close: Callable = opts.get("on_close", Callable())
 	var banner_text: String = String(opts.get("banner_text", "Mail"))
 	# the frame's CHROME ART — defaults are the parchment border + mail ribbon + mail ✕ (mail/daily/shop
@@ -2026,7 +2029,8 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 		cf.content_margin_left = 18; cf.content_margin_right = 18
 		cf.content_margin_top = 18; cf.content_margin_bottom = 18
 		card.add_theme_stylebox_override("panel", cf)
-	card.custom_minimum_size = Vector2(target_w, 0)
+	var pad_y_eff: float = panel_pad_y if (card_art and ResourceLoader.exists(pp)) else 18.0   # the panel's top+bottom content inset (for the centered-fill math)
+	card.custom_minimum_size = Vector2(target_w, maxf(0.0, min_h_override))   # width = the global target; height floor finalised in relayout (needs the viewport for the %)
 	card.position = Vector2.ZERO
 	wrap.custom_minimum_size.x = target_w      # robust horizontal centring even before relayout runs
 	wrap.add_child(card)
@@ -2078,6 +2082,24 @@ static func dialog_frame(content: Control, width: float = 560.0, opts: Dictionar
 	var relayout := func() -> void:
 		if not (is_instance_valid(inner) and is_instance_valid(rows) and is_instance_valid(card) and is_instance_valid(close)):
 			return
+		# Resolve the HEIGHT floor once the card is mounted (needs the viewport for the %): an explicit
+		# px min_h wins, else DIALOG_MIN_H_FRAC of the screen height. Guarded by a 1px delta so setting
+		# custom_minimum_size (which re-fires resized → relayout) converges instead of looping.
+		if card.is_inside_tree():
+			var vh: float = card.get_viewport_rect().size.y
+			var floor_h: float = maxf(0.0, min_h_override if min_h_override >= 0.0 else vh * DIALOG_MIN_H_FRAC)
+			if absf(card.custom_minimum_size.y - floor_h) > 1.0:
+				card.custom_minimum_size.y = floor_h
+			# center_content: pin the content box to the body left under the banner spacer at the floor, so
+			# its center-aligned child sits mid-card (derived from the floor, not live sizes — a live-size
+			# fill is underdetermined, every height ≥ floor would be stable, and the card would float).
+			if center_content and is_instance_valid(content):
+				var fill: float = maxf(0.0, floor_h - 2.0 * pad_y_eff - spacer_h)
+				# `content` is laid out at 1/content_scale and rendered at content_scale (the ScaleContainer),
+				# so target the UNSCALED inner height — its scaled footprint then fills the body exactly.
+				var fill_inner: float = fill / content_scale
+				if absf(content.custom_minimum_size.y - fill_inner) > 1.0:
+					content.custom_minimum_size.y = fill_inner
 		inner.custom_minimum_size.y = (minf(rows.size.y, banner_h + list_max_h) if list_max_h > 0.0 else rows.size.y)
 		wrap.custom_minimum_size = card.size
 		close.position = Vector2(card.size.x - close_size + close_poke.x, -close_poke.y)
@@ -2095,6 +2117,12 @@ static func mail_dialog(entries: Array, width: float = 560.0, opts: Dictionary =
 	if entries.is_empty() or maxi(0, entries_count) == 0:
 		var empty_text: String = String(opts.get("empty_text", ""))
 		if empty_text != "":
+			# the empty note is the dialog's only content — center it in the floored body (center_content)
+			# so the min-height card reads as a deliberate card, not a banner with stranded text up top.
+			content.alignment = BoxContainer.ALIGNMENT_CENTER
+			content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+			opts = opts.duplicate()
+			opts["center_content"] = true
 			var empty := Label.new()
 			empty.text = empty_text
 			empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -3629,6 +3657,8 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"glow_color": _hex_color(String(g.get("glow_color", "FFD27A"))),
 		"outline_w": float(g.get("outline_w", 35)) / 1000.0,      # rim thickness, per-mille of cell
 		"outline_a": float(g.get("outline_a", 85)) / 100.0,       # rim opacity
+		"outline_blur": float(g.get("outline_blur", 0)) / 1000.0, # rim feather, per-mille of cell
+		"outline_color": _hex_color(String(g.get("outline_color", "E8BE5C"))),
 		"sparkle_count": int(g.get("sparkle_count", 5)),          # twinkle count
 		"sparkle_size": float(g.get("sparkle_size", 100)) / 100.0, # twinkle size multiplier
 		"sparkle_speed": float(g.get("sparkle_speed", 70)) / 100.0,   # twinkle cycles/sec
@@ -3811,6 +3841,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"amount_x": float(g.get("amount_x", 0.0)) * scale,
 		"gap": int(round(float(g.get("gap", 12)) * scale)),
 		"plus_x": float(g.get("plus_x", 0.0)) * scale,
+		"plus_y": float(g.get("plus_y", 0.0)) * scale,
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,

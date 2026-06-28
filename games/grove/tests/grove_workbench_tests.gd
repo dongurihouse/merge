@@ -534,6 +534,8 @@ func _initialize() -> void:
 	var amount := _first_control(tuned, "GoldCurrencyAmount", "Label") as Label
 	ok(amount_slot != null and amount != null and amount.position.x == 9 and int(amount.get_theme_font_size("font_size")) == 36, \
 		"gold_currency_pill amount x + font controls adjust the amount component")
+	ok(amount != null and amount.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT, \
+		"gold_currency_pill right-aligns the amount number")
 	var plus_slot := _first_control(tuned, "GoldCurrencyPlusSlot")
 	var plus_btn := _first_control(tuned, "GoldCurrencyPlusButton", "Panel")
 	ok(plus_slot != null and plus_btn != null and plus_btn.position.x == 12, \
@@ -544,8 +546,10 @@ func _initialize() -> void:
 	var icon_center := icon.position.y + icon.custom_minimum_size.y * 0.5
 	var amount_center := amount.position.y + amount.custom_minimum_size.y * 0.5
 	var plus_center := plus_btn.position.y + plus_btn.custom_minimum_size.y * 0.5
-	ok(is_equal_approx(icon_center, amount_center) and is_equal_approx(amount_center, plus_center), \
-		"gold_currency_pill vertically centers icon, amount, and plus on one line")
+	ok(is_equal_approx(icon_center, amount_center), \
+		"gold_currency_pill vertically centers icon and amount on one line")
+	ok(is_equal_approx(plus_center, amount_center - 8.0), \
+		"gold_currency_pill plus_y nudges the plus button off the shared centre line")
 	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	var no_px := no_inner.texture.get_image().get_pixel(58, 14)
@@ -553,8 +557,8 @@ func _initialize() -> void:
 	ok((strong_px.r + strong_px.g + strong_px.b) < (no_px.r + no_px.g + no_px.b), \
 		"gold_currency_pill inner_shadow darkens the badge inset groove")
 	var gp: Dictionary = view._params["gold_currency_pill"]
-	ok(not gp.has("icon_y") and not gp.has("amount_y") and not gp.has("plus_y"), \
-		"gold_currency_pill has no individual vertical offset controls")
+	ok(not gp.has("icon_y") and not gp.has("amount_y") and gp.has("plus_y"), \
+		"gold_currency_pill has a plus_y vertical control but none for icon or amount")
 	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_x") and view._is_config("gold_currency_pill", "plus_button") and view._is_config("gold_currency_pill", "inner_shadow"), \
 		"gold_currency_pill padding and component controls are saved on its own config block")
 	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
@@ -562,6 +566,11 @@ func _initialize() -> void:
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	ok(_slider_max(view, "Num Size") >= 70.0, "gold_currency_pill sidebar allows a larger amount number")
+	ok(_slider_max(view, "Amount X") >= 100.0, "gold_currency_pill sidebar lets the amount push further right")
+	ok(_slider_min(view, "Plus X") <= -100.0, "gold_currency_pill sidebar lets the plus button move far to the left")
+	ok(_slider_min(view, "Plus Y") < 0.0 and _slider_max(view, "Plus Y") > 0.0, "gold_currency_pill sidebar exposes a plus_y vertical nudge")
+	ok(_slider_min(view, "Plus Button") < 75.0, "gold_currency_pill sidebar allows a plus button smaller than 75")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
 	var negative_pad_gold: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"pad_y": -8}})
 	ok(is_equal_approx(float(negative_pad_gold.pad_y), -8.0), \
@@ -1711,10 +1720,43 @@ func _test_gold_badge_consumers(view) -> void:
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_h\"") \
 		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"reward_bar_y\""), \
 		"the Workbench map-card sidebar exposes reward shelf icon/text/button adjustment sliders")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": true"), \
-		"the Workbench map-card preview requests the resident-slot preview overlay")
-	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open)"), \
-		"the Workbench map-card preview shows the collection progress shelf for open map cards")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"resident_preview\": bool(p.open) and bool(p.done)"), \
+		"the Workbench map-card preview requests the resident-slot overlay only for DONE (completed habitat) cards")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "\"habitat_preview\": bool(p.open) and bool(p.done)"), \
+		"the Workbench map-card preview shows the collection progress shelf only for DONE (restored) map cards")
+	# Drive the REAL preview path (_make_element) so the count-pill knobs are proven to reach a rendered pill.
+	# An OPEN, in-progress (not-done) card is the state the game shows the count pill in — the workbench must
+	# render it there so its sliders have a target; a DONE card swaps it for the habitat reward shelf.
+	var mc_params: Dictionary = view._params["map_card"]
+	var saved_mc_open: bool = bool(mc_params.get("open", true))
+	var saved_mc_done: bool = bool(mc_params.get("done", false))
+	var saved_mc_pill_y: float = float(mc_params.get("pill_y_frac", 13))
+	mc_params["open"] = true
+	mc_params["done"] = false
+	var inprogress_card: Control = view._make_element("map_card")
+	var inprogress_pill := inprogress_card.find_child("MapCardCountPill", true, false) as Control
+	ok(inprogress_pill != null, \
+		"the Workbench open/in-progress map-card preview renders the count pill so its sliders have a target")
+	# the game's in-progress card has NO resident rail (that's a completed-habitat element), so the preview
+	# must hide it too — otherwise the pill is shoved aside to dodge a rail the player never sees there.
+	ok(inprogress_card.find_child("MapResidentRailPreview", true, false) == null, \
+		"the Workbench open/in-progress map-card preview hides the resident rail to match the game")
+	mc_params["pill_y_frac"] = 3
+	var low_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	mc_params["pill_y_frac"] = 30
+	var high_pill := view._make_element("map_card").find_child("MapCardCountPill", true, false) as Control
+	ok(low_pill != null and high_pill != null and high_pill.position.y < low_pill.position.y, \
+		"the Workbench count-pill lift slider (pill_y_frac) moves the rendered preview pill up the card")
+	mc_params["pill_y_frac"] = saved_mc_pill_y
+	mc_params["done"] = true
+	var done_card: Control = view._make_element("map_card")
+	ok(done_card.find_child("MapHabitatRewardShelf", true, false) != null \
+		and done_card.find_child("MapCardCountPill", true, false) == null, \
+		"the Workbench done/restored map-card preview swaps the count pill for the habitat reward shelf")
+	ok(done_card.find_child("MapResidentRailPreview", true, false) != null, \
+		"the Workbench done/restored map-card preview shows the resident rail (the completed habitat card)")
+	mc_params["open"] = saved_mc_open
+	mc_params["done"] = saved_mc_done
 	var open_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, map_opts, 460.0, 160.0)
 	var locked_card := Kit.map_card({"open": false, "done": false, "art": "", "prereq": "✿ after X", "map_id": ""}, map_opts, 460.0, 160.0)
 	var preview_small := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "resident_preview": true}, \
@@ -1891,6 +1933,11 @@ func _test_quest_card_config(view) -> void:
 	ok(not view._is_config("quest_card", "bust") and not view._is_config("quest_card", "stand_w") \
 		and not view._is_config("quest_card", "met"), "the quest-card demo knobs are preview-only (not saved)")
 	ok(view._is_config("quest_card", "shadow"), "the quest card's Shadow toggle is saved config (the shared shadow)")
+	# the quest card casts the shared shadow by DEFAULT — so it follows the global shadow config out of the box
+	# (like board / home_button / gold_badge), not an opt-in the player never turns on.
+	view._params["quest_card"].erase("shadow")
+	view._ensure_shadow_keys()
+	ok(bool(view._params["quest_card"].get("shadow", false)), "the quest card's Shadow toggle defaults ON (follows the global shadow)")
 
 	# Kit.giver_lay_from_config DEFAULTS must mirror giver_stand.LAY, so an empty config renders the SHIPPED card
 	var GiverStand = load("res://engine/scripts/ui/giver_stand.gd")
@@ -1945,6 +1992,15 @@ func _test_quest_card_config(view) -> void:
 		if sb is StyleBoxFlat and (sb as StyleBoxFlat).shadow_size > 0 and _is_warm_shadow((sb as StyleBoxFlat).shadow_color):
 			warm_shadow = true
 	ok(warm_shadow, "card Shadow toggle ON casts the shared warm-tinted shadow behind the card")
+	# the shadow HUGS the visible card: card_quest.png pads the parchment with a transparent margin, so the
+	# shadow is inset by it (cast from the visible card edge) — a tight directional drop matching the global
+	# shadow, NOT an all-around halo around the padded NinePatch rect.
+	var cins := Control.new()
+	GiverStand._add_card_shadow(cins, 200.0, {"shadow": true, "shadow_params": on_params})
+	var sins := cins.get_child(0) as Panel
+	ok(sins != null and sins.offset_left > 0.0 and sins.offset_top > 0.0 and sins.offset_right < 0.0 and sins.offset_bottom < 0.0, \
+		"the card shadow insets to hug the visible card, not the transparent-padded rect")
+	cins.queue_free()
 	coff.queue_free()
 	con.queue_free()
 

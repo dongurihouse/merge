@@ -2718,10 +2718,7 @@ func _build_liveops_rail() -> void:
 	var open_expedition := func() -> void:
 		Audio.play("button_tap", -2.0)
 		_open_expedition()
-	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition",
-		open_expedition,
-		false,
-		{"icon_node": PieceView.make_piece(int(HC.ICON_EXPEDITION), _rail_disc_px * HOME_ICON_ONLY_SCALE, 0.0), "icon_id": HC.ICON_EXPEDITION})
+	var expedition := _rail_button(HC.ICON_EXPEDITION, "Expedition", open_expedition)
 	_residents_btn = expedition
 	_place_rail(expedition, top, slot, step); slot += 1
 	_refresh_residents_btn()
