@@ -409,7 +409,7 @@ func _build_bottom_hint() -> void:
 	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	strip.add_child(l)
 	var info := _rush_info_button(info_px)
-	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, (strip_h - info_px) * 0.5)
+	info.position = Vector2(strip_w - cap_w * 0.70 - info_px, l.position.y + (l.size.y - info_px) * 0.5)
 	strip.add_child(info)
 	add_child(strip)
 	var bottom_gap := maxf(14.0, vh * BOTTOM_HINT_BOTTOM_GAP_FRAC)
@@ -435,15 +435,11 @@ func _bottom_hint_slice(node_name: String, tex: Texture2D, src: Rect2, pos: Vect
 func _rush_info_button(px: float) -> Button:
 	var b := Button.new()
 	b.name = "RushInfoButton"
-	b.text = "i"
+	b.text = ""
 	b.tooltip_text = "How to play"
 	b.focus_mode = Control.FOCUS_NONE
 	b.size = Vector2(px, px)
 	b.custom_minimum_size = b.size
-	b.add_theme_font_size_override("font_size", int(px * 0.62))
-	b.add_theme_color_override("font_color", INK)
-	b.add_theme_color_override("font_outline_color", Color("#F8E9D0", 0.70))
-	b.add_theme_constant_override("outline_size", 1)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color("#F8E9D0")
 	sb.border_color = GOLD
@@ -454,11 +450,27 @@ func _rush_info_button(px: float) -> Button:
 	sb.shadow_offset = Vector2(0, 2)
 	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
 		b.add_theme_stylebox_override(state, sb)
+	var glyph := Label.new()
+	glyph.name = "RushInfoGlyph"
+	glyph.text = "i"
+	glyph.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	glyph.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glyph.add_theme_font_size_override("font_size", int(px * 0.62))
+	glyph.add_theme_color_override("font_color", INK)
+	glyph.add_theme_color_override("font_outline_color", Color("#F8E9D0", 0.70))
+	glyph.add_theme_constant_override("outline_size", 1)
+	b.add_child(glyph)
 	b.pressed.connect(_show_rush_tutorial)
 	return b
 
 func _show_rush_tutorial() -> Control:
 	return TutorialImage.open(self, RUSH_TUTORIAL_OVERLAY, RUSH_TUTORIAL_IMAGE)
+
+func _rush_tutorial_open() -> bool:
+	var overlay := get_node_or_null(NodePath(RUSH_TUTORIAL_OVERLAY))
+	return overlay != null and not overlay.is_queued_for_deletion()
 
 func _start() -> void:
 	_grid = []
@@ -485,6 +497,8 @@ func _start() -> void:
 # --- frame loop ------------------------------------------------------------------
 func _process(dt: float) -> void:
 	if not _running:
+		return
+	if _rush_tutorial_open():
 		return
 	dt = minf(dt, 0.1)
 	_elapsed += dt

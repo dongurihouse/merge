@@ -392,12 +392,43 @@ func _test_rush_intro_hint() -> void:
 	if first_overlay != null:
 		first_overlay.queue_free()
 		await process_frame
+	hint = s.find_child("RushBottomHint", true, false) as Label
 	var replay := s.find_child("RushInfoButton", true, false) as Button
 	ok(replay != null and replay.visible and not replay.disabled, "Rush has an info button to replay the tutorial")
+	var replay_glyph := replay.find_child("RushInfoGlyph", true, false) as Label if replay != null else null
+	var replay_center_y := replay.get_global_rect().get_center().y if replay != null else -9999.0
+	var hint_center_y := hint.get_global_rect().get_center().y if hint != null else 9999.0
+	var replay_hint_delta := replay_center_y - hint_center_y
+	ok(replay != null and absf(replay_hint_delta) <= 1.5, \
+		"Rush info button is vertically centered with the bottom hint text (delta=%.1f)" % replay_hint_delta)
+	ok(replay_glyph != null and replay_glyph.vertical_alignment == VERTICAL_ALIGNMENT_CENTER \
+		and absf(replay_glyph.get_global_rect().get_center().y - replay_center_y) <= 1.0, \
+		"Rush info glyph is vertically centered inside the info button")
 	if replay != null:
 		replay.pressed.emit()
 		await process_frame
 	ok(s.find_child("RushTutorialOverlay", true, false) != null, "the Rush info button reopens the tutorial")
+	s._time = 30.0
+	s._elapsed = 1.0
+	s._spawn_acc = 0.25
+	s._tf.t = 2.0
+	var paused_time := float(s._time)
+	var paused_elapsed := float(s._elapsed)
+	var paused_spawn := float(s._spawn_acc)
+	var paused_treefall := float(s._tf.t)
+	s._process(0.5)
+	ok(is_equal_approx(float(s._time), paused_time) \
+		and is_equal_approx(float(s._elapsed), paused_elapsed) \
+		and is_equal_approx(float(s._spawn_acc), paused_spawn) \
+		and is_equal_approx(float(s._tf.t), paused_treefall), \
+		"Rush info tutorial pauses timer, spawn clock, and treefall")
+	var replay_overlay: Node = s.find_child("RushTutorialOverlay", true, false)
+	if replay_overlay != null:
+		replay_overlay.queue_free()
+		await process_frame
+	s._process(0.5)
+	ok(float(s._time) < paused_time and float(s._elapsed) > paused_elapsed, \
+		"Rush timer resumes after the info tutorial closes")
 	s.queue_free()
 	await process_frame
 	# the second Rush: the first-run tutorial is retired, the bottom hint and replay button stay.
