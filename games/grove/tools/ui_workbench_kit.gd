@@ -608,7 +608,7 @@ static func reward_chip(reward: Dictionary, btn_opts: Dictionary = {}) -> Contro
 		cell.add_child(make_icon(String(p[0]), 22))
 		var l := Label.new()
 		l.text = str(int(p[1]))
-		l.add_theme_font_size_override("font_size", 15)
+		l.add_theme_font_size_override("font_size", 18)   # reward amount — readable beside the 22px icon (was 15)
 		l.add_theme_color_override("font_color", Pal.INK)
 		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_child(l)
@@ -2185,7 +2185,7 @@ static func settings_dialog(entries: Array, width: float = 540.0, opts: Dictiona
 		link.text = footer_text
 		link.underline = LinkButton.UNDERLINE_MODE_ALWAYS
 		link.add_theme_font_override("font", plain_font())
-		link.add_theme_font_size_override("font_size", int(opts.get("footer_font", 14)))
+		link.add_theme_font_size_override("font_size", int(opts.get("footer_font", 18)))   # privacy link — readable default (was 14)
 		link.add_theme_color_override("font_color", Color(Pal.BARK, 0.85))
 		link.add_theme_color_override("font_hover_color", Color(Pal.BARK, 1.0))
 		var on_footer: Callable = opts.get("on_footer", Callable())
@@ -2234,7 +2234,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 	pitch.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pitch.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	pitch.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 16)))
+	pitch.add_theme_font_size_override("font_size", int(opts.get("pitch_font", 20)))   # shop pitch — readable default (was 16)
 	pitch.add_theme_color_override("font_color", Color(Pal.BARK, 0.95))
 	pitch.add_theme_constant_override("outline_size", 0)
 	pitch.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2258,7 +2258,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hl := Label.new()
 		hl.text = String(opts.get("hint_text", "Keep playing — it fills at"))
 		hl.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hl.add_theme_font_size_override("font_size", 15)
+		hl.add_theme_font_size_override("font_size", 20)   # vault "keep playing" hint — readable (was 15)
 		hl.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hl.add_theme_constant_override("outline_size", 0)
 		hl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -2268,7 +2268,7 @@ static func vault_dialog(state: Dictionary, width: float = 460.0, opts: Dictiona
 		var hn := Label.new()
 		hn.text = str(int(state.get("claim_min", 0)))
 		hn.add_theme_font_override("font", plain_font())          # plain standard face, not the chunky display font
-		hn.add_theme_font_size_override("font_size", 15)
+		hn.add_theme_font_size_override("font_size", 20)   # matches the hint text (was 15)
 		hn.add_theme_color_override("font_color", Color(Pal.BARK, 0.8))
 		hn.add_theme_constant_override("outline_size", 0)
 		hn.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
