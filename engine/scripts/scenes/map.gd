@@ -19,6 +19,10 @@ const UiFont = preload("res://engine/scripts/ui/ui_font.gd")
 const Look = preload("res://engine/scripts/ui/skin.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")   # the unified feel verbs — the spirit merge uses Feel.merge gently
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")    # the toggleable + tunable feel appliers
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-tuned, resolved once in _ready)
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Overlay = preload("res://engine/scripts/ui/overlay.gd")   # shared modal-overlay mount (one source of truth for dialog z)
 const LevelPopup = preload("res://engine/scripts/ui/level_popup.gd")   # tap the Lv badge → the level screen
@@ -116,6 +120,12 @@ var _drag_ghost: Control = null            # the orb that follows the finger whi
 var _sel_orb: Dictionary = {}         # the SELECTED orb {src, idx, kind, tier[, z, map_id]} → its tier shows in the in-hand info bar (Sell too when housed); {} when none
 var _lv_panel: Control = null              # the HUD Lv chip — hidden on the place-picker (kept on a map)
 var _weather: Control = null     # ambient weather layer — belongs to a MAP; hidden on the place-picker
+# the resolved feel-FX opts (MergeFx/LandFx/LaunchFx/MoveFx.from_config) — workbench-tuned toggles +
+# knobs, resolved ONCE in _ready so the spirit merge runs the same applier the Merge workbench previews.
+var _merge_opts := {}
+var _land_opts := {}
+var _launch_opts := {}
+var _move_opts := {}
 var _select_back: Button         # the place-picker's bottom-left back arrow (shown only in the select view)
 var level_label: Label
 var coins_label: Label
@@ -145,6 +155,15 @@ func _ready() -> void:
 	if get_tree() != null:               # headless harnesses run _ready() out of tree
 		get_tree().quit_on_go_back = false   # we step back to the map-select on OS back instead
 	BootTrace.begin("map.load_state"); _load_state(); BootTrace.end("map.load_state")
+
+	# resolve the workbench-tuned feel-FX opts ONCE — the spirit merge then runs the SAME applier the
+	# Merge workbench previews, so a saved tuning takes effect in-game.
+	var KitFx: GDScript = load(KIT_PATH)
+	var fx_cfg: Dictionary = KitFx.load_config(KitFx.CONFIG_PATH)
+	_merge_opts = MergeFx.from_config(fx_cfg)
+	_land_opts = LandFx.from_config(fx_cfg)
+	_launch_opts = LaunchFx.from_config(fx_cfg)
+	_move_opts = MoveFx.from_config(fx_cfg)
 
 	var sky := ColorRect.new()
 	sky.color = SKY
@@ -1844,7 +1863,12 @@ func _merge_fx(at: Vector2) -> void:
 	# so the freeze never fires on the calm map) and no tier escalation (low constant tier 1). The verb
 	# plays the merge sound now, so the old redundant `tidy_poof` poof is dropped (the placement poof
 	# elsewhere still stands). The picker rebuilds the orbs after this, so no result node is passed.
-	Feel.merge(self, null, at, 1, 0, 0.4, 9999)
+	# the spirit merge runs the workbench-tuned MergeFx applier (resolved once in _ready) at a GENTLE
+	# intensity 0.4 (a soft bloom + a light burst + the real merge sound) — no hitstop (the sentinel gate
+	# 9999 sits above any possible combo, so the freeze never fires on the calm map) and no tier escalation
+	# (low constant tier 1). No produced node + no neighbours (the picker rebuilds the orbs after this), so
+	# null + [] are passed; the board is `self` for the (suppressed) punch.
+	MergeFx.apply(self, null, at, 1, 0, [], self, _merge_opts, 0.4, 9999)
 	FX.celebrate_at(self, at, "Merged!", STRAW)
 
 func _invalid_at(node: Control) -> void:

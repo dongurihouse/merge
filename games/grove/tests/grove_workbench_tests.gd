@@ -1056,15 +1056,21 @@ func _test_new_knobs(view) -> void:
 		and not _source_contains("res://engine/scripts/scenes/board.gd", "_home_nav_button(BOTTOM_BTN_PX)"), \
 		"board Bag/Home wells use the workbench home_button px instead of the old board constant")
 
-	# bundle B (impact propagation): the board merge ripples its neighbours and big merges punch the board.
+	# bundle B (impact propagation): the board merge now routes through the workbench-tuned MergeFx applier,
+	# which does the neighbour ripple + big-merge board punch INTERNALLY — the merge cell's neighbours + the
+	# board are passed in, with NO separate scene-side ripple/board_punch calls (double-firing would be a bug).
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
-	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(b), board_area.get_global_transform() * center, 1.0)") != -1, \
-		"board merge ripples the merge cell's orthogonal neighbours")
-	ok(board_src.find("Feel.board_punch(board_area, 1.0)") != -1, \
-		"board punches the whole board on a big merge (tier >= ESCALATE_TIER)")
+	ok(board_src.find("MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0)") != -1, \
+		"board merge routes through MergeFx.apply (neighbours + board passed in)")
+	ok(board_src.find("_merge_opts = MergeFx.from_config(") != -1, \
+		"board resolves the merge_fx config once")
+	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(b),") == -1, \
+		"board no longer ripples the merge scene-side (MergeFx.apply owns it)")
+	ok(board_src.find("Feel.board_punch(board_area,") == -1, \
+		"board no longer punches the board scene-side (MergeFx.apply owns it)")
 	ok(board_src.find("func _orthogonal_neighbour_nodes") != -1, \
-		"board gathers neighbour nodes scene-side (the grid stays in the scene, not the verb)")
-	# discrete coin / special touchdowns also ripple their neighbours.
+		"board gathers neighbour nodes scene-side (the grid stays in the scene, not the applier)")
+	# discrete coin / special touchdowns still ripple their neighbours scene-side (LandFx has no ripple).
 	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8)") != -1, \
 		"a coin touchdown ripples its neighbours")
 	ok(board_src.find("Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8)") != -1, \

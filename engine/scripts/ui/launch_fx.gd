@@ -57,14 +57,16 @@ static func on(opts: Dictionary, id: String) -> bool:
 	return bool(opts.get("enabled", true)) and bool(opts.get(id, true))
 
 ## Fire the emit per the resolved opts. `emitter` is the node that spat the tile (recoils); `projectile`
-## is the launched tile; `center` locates the muzzle puff. Mirrors feel.launch but every cue is
-## individually toggled + tuned. Null-safe on both nodes.
-static func apply(emitter: Control, projectile: Control, center: Vector2, opts: Dictionary) -> void:
+## is the launched tile; `center` locates the muzzle puff. `intensity` (0..1) scales the muzzle-puff
+## count (0 emits no puff). Mirrors feel.launch but every cue is individually toggled + tuned. Null-safe
+## on both nodes. Also fires the launch HAPTIC ("tick") — the tactile cue feel.launch threw.
+static func apply(emitter: Control, projectile: Control, center: Vector2, opts: Dictionary, intensity := 1.0) -> void:
 	if on(opts, "recoil") and knob(opts, "recoil_pct") > 0 and emitter != null and is_instance_valid(emitter):
 		FX.gen_charge(emitter)
-	if on(opts, "puff") and projectile != null and is_instance_valid(projectile):
+	if on(opts, "puff") and intensity > 0.0 and projectile != null and is_instance_valid(projectile):
 		var host := projectile.get_parent()
 		if host is Node:
-			FX.burst(host, center, LEAF, knob(opts, "puff_count"))
+			FX.burst(host, center, LEAF, int(round(knob(opts, "puff_count") * intensity)))
 	if on(opts, "sound"):
 		Audio.play("item_drop", float(knob(opts, "sound_db")), 1.1)
+	Feel.haptic("tick")

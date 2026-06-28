@@ -28,6 +28,10 @@ const GenLines = preload("res://engine/scripts/ui/gen_lines.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")    # the toggleable + tunable feel appliers
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")      # (workbench-tuned, resolved once in _ready)
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const VaseWaterEffect = preload("res://engine/scripts/ui/vase_water_effect.gd")
 const Hud = preload("res://engine/scripts/ui/hud.gd")
 const Ambient = preload("res://engine/scripts/ui/ambient.gd")
@@ -104,6 +108,12 @@ var rng := RandomNumberGenerator.new()
 var _combo_count := 0                 # cozy successive-merge streak length (see _bump_combo)
 var _last_merge_ms := -100000         # ticks at the last merge; a big initial gap → first merge starts at 1
 var _combo_bloom: ComboBloom          # bundle D: the warm screen-bloom overlay that swells on a streak
+# the resolved feel-FX opts (MergeFx/LandFx/LaunchFx/MoveFx.from_config) — workbench-tuned toggles +
+# knobs, resolved ONCE in _ready so the game runs the same appliers the workbenches preview.
+var _merge_opts := {}
+var _land_opts := {}
+var _launch_opts := {}
+var _move_opts := {}
 var quests: Array = []             # §7: the LIVE generated fence (metered to the next unlock), persisted
 var _recent_givers: Array = []     # the last ≤5 assigned giver indices — a new quest's face avoids these
 var _recent_items: Array = []      # the last ≤5 asked item codes (line*100+tier) — a NEW quest avoids these (§7)
@@ -316,6 +326,14 @@ func _ready() -> void:
 	# dies with the board). It sits above the board art but below the HUD; merges poke it via bump().
 	_combo_bloom = ComboBloom.new()
 	add_child(_combo_bloom)
+	# resolve the workbench-tuned feel-FX opts ONCE — the game then runs the SAME appliers the
+	# Merge/Land/Launch/Move workbenches preview, so a saved tuning takes effect in-game.
+	var KitX: GDScript = load("res://games/grove/tools/ui_workbench_kit.gd")
+	var fx_cfg: Dictionary = KitX.load_config(KitX.CONFIG_PATH)
+	_merge_opts = MergeFx.from_config(fx_cfg)
+	_land_opts = LandFx.from_config(fx_cfg)
+	_launch_opts = LaunchFx.from_config(fx_cfg)
+	_move_opts = MoveFx.from_config(fx_cfg)
 	_rebuild_all()
 	if _winback:
 		_winback = false
@@ -2582,11 +2600,13 @@ func _pop_seed(cell: Vector2i = Vector2i(-1, -1)) -> void:
 		# JUICE: the tile THUMPS DOWN on arrival — a quiet land (squash + dust puff, no per-seed sound;
 		# the pop's water_pop/item_drop is the one shared batch sound). Grow-in = appearance, land = touchdown.
 		var land_ctr := _cell_pos(pick) + Vector2(csz, csz) / 2.0
-		t.chain().tween_callback(Feel.land.bind(board_area, n, land_ctr, 0.7, true))
-	# Unified launch EMIT: the generator recoil + a muzzle puff (toss sound left OFF — the generator
-	# keeps its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per
-	# pop (not per burst seed) with the representative item.
-	Feel.launch(gnode, last_piece, 1.0)
+		t.chain().tween_callback(LandFx.apply.bind(board_area, n, land_ctr, _land_opts, 0.7, true))
+	# Unified launch EMIT through the workbench-tuned LaunchFx applier (resolved once in _ready): the
+	# generator recoil + a muzzle puff (toss sound stays OFF in the resolved opts — the generator keeps
+	# its OWN spawn sound: water_pop above, else the item_drop fallback below). Called ONCE per pop (not
+	# per burst seed) with the representative item; the muzzle puff centres on that tile.
+	var launch_ctr := (last_piece.position + last_piece.size / 2.0) if (last_piece != null and is_instance_valid(last_piece)) else Vector2.ZERO
+	LaunchFx.apply(gnode, last_piece, launch_ctr, _launch_opts, 1.0)
 	if not Audio.has("water_pop"):
 		Audio.play("item_drop", -3.0, 1.1)
 	if G.boost_active():
@@ -2659,7 +2679,7 @@ func _commit_merge(a: Vector2i, b: Vector2i, node: Control) -> void:
 	# impact). The board piece already carries its own piece_view ContactShadow, so Feel.move detects
 	# it and adds NO cast shadow (no double). _after_merge stays the completion callback — chained on
 	# the returned tween so the merge still resolves exactly when the slide lands.
-	var t := Feel.move(node, node.position, _cell_pos(b), "slide")
+	var t := MoveFx.apply(node, node.position, _cell_pos(b), "slide", _move_opts)
 	if t != null:
 		t.tween_callback(_after_merge.bind(a, b, produced, node))
 	else:
@@ -2680,10 +2700,12 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	var tier := BoardModel.tier_of(produced)
 	var center := _cell_pos(b) + Vector2(csz, csz) / 2.0
 	var combo := _bump_combo()
-	# the merge IMPACT (the chosen "C" feel) — squash/flash/shake/hitstop/burst/sound, the full
-	# escalation curve — now lives in the shared verb. intensity=1.0, gate=0 reproduce today's
-	# board feel exactly; the flash square is csz (the cell size), matching the old FX.flash call.
-	Feel.merge(board_area, n, center, tier, combo, 1.0, 0)
+	# the merge IMPACT — squash/flash/shake/hitstop/burst/sound + the neighbour ripple + the big-merge
+	# board punch — now runs through the workbench-tuned MergeFx applier (resolved once in _ready), so
+	# the Merge workbench's toggles + knobs take effect in-game. intensity=1.0, gate=0 keeps today's
+	# board feel; the neighbour list + the board are passed in (the scene owns the grid). MergeFx.apply
+	# does the ripple + board_punch INTERNALLY now — the separate scene-side calls were removed below.
+	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0)
 	# bundle D: poke the screen-bloom — the verb stays parameter-light, the scene owns the world reaction.
 	if _combo_bloom != null and is_instance_valid(_combo_bloom):
 		_combo_bloom.bump(combo)
@@ -2693,14 +2715,8 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	if weather != null:
 		var weather_ctr := weather.get_global_transform().affine_inverse() * (board_area.get_global_transform() * center)
 		Ambient.puff(weather, weather_ctr)
-	# bundle B: the up-to-4 orthogonal neighbour tiles JIGGLE outward from the merge cell (the scene
-	# owns the grid, so we gather the neighbour nodes here and hand them to the verb). The impact centre
-	# is GLOBAL so each neighbour squashes away from the true hit point.
-	Feel.ripple(_orthogonal_neighbour_nodes(b), board_area.get_global_transform() * center, 1.0)
-	# bundle B: a BIG merge (tier >= ESCALATE_TIER) PUNCHES the whole board — co-fires with the reserved
-	# shake feel.merge already throws at the pinnacle tier. (Combined shake+punch is a review-time tuning.)
-	if tier >= FX.Tune.ESCALATE_TIER:
-		Feel.board_punch(board_area, 1.0)
+	# (the neighbour ripple + the big-merge board punch now fire INSIDE MergeFx.apply above — the
+	# separate scene-side Feel.ripple / Feel.board_punch calls were removed to avoid double-firing.)
 	_combo_celebrate(combo, center)
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
@@ -2817,7 +2833,7 @@ func _drop_coin_near(near: Vector2i) -> void:
 	var coin_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			Feel.land(self, n, coin_ctr, 0.8, false)
+			LandFx.apply(self, n, coin_ctr, _land_opts, 0.8, false)
 			Feel.ripple(_orthogonal_neighbour_nodes(cell), coin_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 ## Debug-only: drop a tier-1 coin onto a free board cell (the debug panel's "Drop coin" button).
@@ -2871,7 +2887,7 @@ func _drop_special_near(near: Vector2i, code: int) -> void:
 	var special_ctr := board_area.get_global_transform() * _cell_pos(cell) + Vector2(csz, csz) / 2.0
 	t.chain().tween_callback(func() -> void:
 		if n and is_instance_valid(n):
-			Feel.land(self, n, special_ctr, 0.8, false)
+			LandFx.apply(self, n, special_ctr, _land_opts, 0.8, false)
 			Feel.ripple(_orthogonal_neighbour_nodes(cell), special_ctr, 0.8))   # bundle B: the touchdown jiggles its neighbours
 
 # §6.B tap-collect a water/acorn/exp item → grant the resource (water capped; acorns premium; exp).

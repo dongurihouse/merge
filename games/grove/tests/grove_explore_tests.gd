@@ -704,13 +704,18 @@ func _test_rush_fx_knob_forwarding() -> void:
 		"RushFx.knob(_fx, \"treefall_hitstop_ms\")",
 	]:
 		ok(src.find(needle) != -1, "explore_rush forwards %s" % needle)
-	# the merge impact now routes through the unified verb (gate 2 keeps low-combo merges snappy)
-	ok(src.find("Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)") != -1, "explore_rush routes the merge through Feel.merge (gate 2)")
+	# the merge impact now routes through the workbench-tuned MergeFx applier (gate 2 keeps low-combo merges
+	# snappy). The ripple + board punch fire INSIDE the applier — the win-cell neighbours (skipping the
+	# falling lose column) + the board are passed in, with NO separate scene-side ripple/board_punch calls.
+	ok(src.find("MergeFx.apply(self, node, ctr, int(win.tier), _combo, _orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), _board, _merge_opts, 1.0, 2)") != -1, "explore_rush routes the merge through MergeFx.apply (gate 2, neighbours + board passed in)")
 	ok(src.find("RushFx.merge_burst(") == -1, "explore_rush no longer calls RushFx.merge_burst in the live merge")
-	# bundle B: the merge ripples the win cell's neighbours, and a big merge punches the whole board.
-	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)") != -1, "explore_rush ripples the merge's neighbours (skipping the falling lose column)")
-	ok(src.find("Feel.board_punch(_board, 1.0)") != -1, "explore_rush punches the board on a big merge")
-	# the fling touchdown ALSO ripples its settled neighbours; the bulk gravity settle does NOT ripple.
+	ok(src.find("_merge_opts = MergeFx.from_config(") != -1, "explore_rush resolves the merge_fx config once")
+	# the applier owns the ripple + board punch — the scene no longer calls Feel.ripple/board_punch around
+	# the merge (double-firing would be a bug).
+	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x") == -1, "explore_rush no longer ripples the merge scene-side (MergeFx.apply owns it)")
+	ok(src.find("Feel.board_punch(_board") == -1, "explore_rush no longer punches the board scene-side (MergeFx.apply owns it)")
+	# the fling touchdown ALSO ripples its settled neighbours (this stays scene-side — LandFx has no ripple);
+	# the bulk gravity settle does NOT ripple.
 	ok(src.find("Feel.ripple(_orthogonal_neighbour_nodes(fc.x, fc.y), lc, 0.8)") != -1, "explore_rush ripples the fling touchdown's neighbours")
 	ok(src.find("func _settle") != -1 and src.find("Explore.gravity(_grid)") != -1, "explore_rush still has the bulk settle (which must NOT ripple)")
 	# guard: _settle (the bulk gravity path) carries no Feel.ripple — only discrete impacts ripple.
