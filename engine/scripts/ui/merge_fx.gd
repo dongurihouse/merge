@@ -10,11 +10,13 @@ extends RefCounted
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Feel = preload("res://engine/scripts/ui/feel.gd")
+const Strings = preload("res://engine/scripts/core/strings.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 
 const LEAF := Color("#7FB069")
 const STRAW := Color("#E3B23C")
 const HOT := Color("#E0592B")
+const PETAL := Color("#D98BA3")        # the pink petal puff — resolves to p_petal via FX._pick_tex
 
 # id · label (shown in the workbench) · tip (one-line feel). DEFAULT is on; the config can turn any off.
 const EFFECTS := [
@@ -26,6 +28,9 @@ const EFFECTS := [
 	{"id": "sound",       "label": "Sound",         "tip": "the merge tone — soft below tier 4, success above"},
 	{"id": "ripple",      "label": "Ripple",        "tip": "the orthogonal neighbours jiggle outward"},
 	{"id": "board_punch", "label": "Board punch",   "tip": "the whole board pulses up then settles"},
+	{"id": "world_puff",  "label": "World puff",    "tip": "a little puff of petals scatters from the fuse"},
+	{"id": "combo_words", "label": "Combo words",   "tip": "Nice / Lovely / Wonderful at a streak milestone"},
+	{"id": "combo_bloom", "label": "Combo bloom",   "tip": "a warm screen glow swells with the streak"},
 ]
 
 # id → default numeric knob. Sliders edit these; apply() reads them via knob().
@@ -37,6 +42,10 @@ const KNOBS := {
 	"ripple_pct": 60,       # neighbour ripple strength (% of full intensity)
 	"punch_pct": 100,       # board punch strength (% of full intensity)
 	"pitch_base_pct": 100,  # scales the merge pitch (80–160%)
+	"puff_count": 8,        # petals flung outward by the world puff
+	"puff_size_pct": 120,   # world-puff petal sprite size (% of the grove burst scale)
+	"words_size": 30,       # milestone word font size
+	"bloom_pct": 100,       # combo-bloom rise strength (% — scaled at the call site)
 }
 
 static func knob(opts: Dictionary, id: String) -> int:
@@ -110,6 +119,18 @@ static func apply(host: Node, node: Control, center: Vector2, tier: int, combo: 
 		Feel.ripple(neighbors, center, float(knob(opts, "ripple_pct")) / 100.0 * intensity)
 	if on(opts, "board_punch"):
 		Feel.board_punch(board, float(knob(opts, "punch_pct")) / 100.0 * intensity)
+	# the WORLD REACTION puff: the ambient layer recoils from the fuse as a small grove-scale petal
+	# burst (NOT the old 64–115px Ambient.puff motes — this is a normal FX.burst sized by puff_size_pct).
+	if on(opts, "world_puff"):
+		FX.burst(host, center, PETAL, int(round(knob(opts, "puff_count") * intensity)), knob(opts, "puff_size_pct"))
+	# the milestone shout — only at an EXACT streak milestone (3/5/8), the cozy word, never a "COMBO xN".
+	if on(opts, "combo_words"):
+		var idx: int = Tune.COMBO_MILESTONES.find(combo)
+		if idx >= 0:
+			var key: String = ["combo_nice", "combo_lovely", "combo_wonderful"][mini(idx, 2)]
+			FX.floating_text(host, center - Vector2(20, 50), Strings.t("board.feedback." + key), STRAW, knob(opts, "words_size"))
+	# combo_bloom is a PERSISTENT overlay (ComboBloom), not a one-shot — the CALL SITE gates + scales it
+	# (board.gd gates _combo_bloom.bump on this toggle, scaled by bloom_pct). Nothing fires here.
 
 ## Haptic weight ladder copied from feel._merge_weight: heavy at the big-moment tier, firm at 4..7,
 ## soft below.

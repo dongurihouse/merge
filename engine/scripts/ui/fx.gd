@@ -633,11 +633,12 @@ static func _pick_tex(color: Color) -> Texture2D:
 		_dot_tex = _make_dot_texture()
 	return _dot_tex
 
-static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.BURST_AMOUNT) -> void:
+static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.BURST_AMOUNT, scale_pct := 100) -> void:
 	if not Features.on("celebrate_bursts"):
 		return
 	var tex := _pick_tex(color)
 	var grove := tex != _dot_tex
+	var sk := float(scale_pct) / 100.0       # caller-tunable sprite size (100 = the Tune defaults)
 	var p := GPUParticles2D.new()
 	p.texture = tex
 	p.position = center
@@ -656,8 +657,8 @@ static func burst(host: Node, center: Vector2, color: Color, amount: int = Tune.
 	mat.initial_velocity_max = Tune.BURST_GROVE_VEL_MAX if grove else Tune.BURST_DOT_VEL_MAX
 	mat.angular_velocity_min = -Tune.BURST_GROVE_SPIN if grove else 0.0
 	mat.angular_velocity_max = Tune.BURST_GROVE_SPIN if grove else 0.0
-	mat.scale_min = Tune.BURST_GROVE_SCALE_MIN if grove else Tune.BURST_DOT_SCALE_MIN   # particle sprites are 128px; dots are 24px
-	mat.scale_max = Tune.BURST_GROVE_SCALE_MAX if grove else Tune.BURST_DOT_SCALE_MAX
+	mat.scale_min = (Tune.BURST_GROVE_SCALE_MIN if grove else Tune.BURST_DOT_SCALE_MIN) * sk   # particle sprites are 128px; dots are 24px
+	mat.scale_max = (Tune.BURST_GROVE_SCALE_MAX if grove else Tune.BURST_DOT_SCALE_MAX) * sk
 	mat.color = color if not grove else Tune.BURST_GROVE_TINT   # sprites carry their own paint
 	p.process_material = mat
 	host.add_child(p)

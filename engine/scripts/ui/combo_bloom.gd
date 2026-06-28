@@ -44,9 +44,10 @@ func _edge_material() -> CanvasItemMaterial:
 
 ## RAISE the glow for a streak of length `combo`. The longer the streak, the harder the swell —
 ## scaled by combo, clamped so it can never exceed COMBO_BLOOM_MAX. A combo of 0/1 barely registers;
-## a long streak pins near the ceiling. No-op-safe to call every merge.
-func bump(combo: int) -> void:
-	target = _bump_target(target, combo)
+## a long streak pins near the ceiling. No-op-safe to call every merge. `strength_pct` (default 100 =
+## unchanged) scales the rise — the merge workbench's bloom_pct knob drives it from the call site.
+func bump(combo: int, strength_pct := 100) -> void:
+	target = _bump_target(target, combo, strength_pct)
 
 func _process(delta: float) -> void:
 	# ease the live strength toward the target, then bleed the target down so a lapse fades the glow.
@@ -57,10 +58,11 @@ func _process(delta: float) -> void:
 
 # --- pure helpers (no scene tree — unit-tested in an active grove suite) ---------------
 
-## The new target after a bump for `combo`: raise by COMBO_BLOOM_RISE scaled by the streak length,
-## clamped to [0, COMBO_BLOOM_MAX]. Pure.
-static func _bump_target(current: float, combo: int) -> float:
-	return clampf(current + Tune.COMBO_BLOOM_RISE * float(maxi(0, combo)), 0.0, Tune.COMBO_BLOOM_MAX)
+## The new target after a bump for `combo`: raise by COMBO_BLOOM_RISE scaled by the streak length and
+## by `strength_pct` (100 = full), clamped to [0, COMBO_BLOOM_MAX]. Pure.
+static func _bump_target(current: float, combo: int, strength_pct := 100) -> float:
+	var rise := Tune.COMBO_BLOOM_RISE * float(maxi(0, combo)) * float(maxi(0, strength_pct)) / 100.0
+	return clampf(current + rise, 0.0, Tune.COMBO_BLOOM_MAX)
 
 ## One frame of easing: move `strength` a fraction of the way toward `target` (a time-based lerp, so
 ## it's framerate-independent and always settles). Pure — callable without a real frame.

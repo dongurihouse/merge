@@ -2720,19 +2720,14 @@ func _after_merge(_a: Vector2i, b: Vector2i, produced: int, moved: Control) -> v
 	# the Merge workbench's toggles + knobs take effect in-game. intensity=1.0, gate=0 keeps today's
 	# board feel; the neighbour list + the board are passed in (the scene owns the grid). MergeFx.apply
 	# does the ripple + board_punch INTERNALLY now — the separate scene-side calls were removed below.
+	# squash/flash/shake/hitstop/burst/sound + ripple + board punch + the WORLD PUFF (a small grove-scale
+	# petal burst that replaced the old giant Ambient.puff motes) + the milestone WORD all fire INSIDE
+	# MergeFx.apply now — every cue is a workbench toggle/knob.
 	MergeFx.apply(board_area, n, center, tier, combo, _orthogonal_neighbour_nodes(b), board_area, _merge_opts, 1.0, 0)
-	# bundle D: poke the screen-bloom — the verb stays parameter-light, the scene owns the world reaction.
-	if _combo_bloom != null and is_instance_valid(_combo_bloom):
-		_combo_bloom.bump(combo)
-	# bundle D: the ambient WORLD reacts — nearby motes puff outward from the merge. GRACEFUL no-op when
-	# there's no weather layer (weather off / cleared): the scene reaches the layer, ambient guards the rest.
-	var weather := get_node_or_null("WeatherLayer") as Control
-	if weather != null:
-		var weather_ctr := weather.get_global_transform().affine_inverse() * (board_area.get_global_transform() * center)
-		Ambient.puff(weather, weather_ctr)
-	# (the neighbour ripple + the big-merge board punch now fire INSIDE MergeFx.apply above — the
-	# separate scene-side Feel.ripple / Feel.board_punch calls were removed to avoid double-firing.)
-	_combo_celebrate(combo, center)
+	# bundle D: poke the screen-bloom — a PERSISTENT overlay, so it can't live inside apply(); gate + scale it
+	# here by the workbench's combo_bloom toggle + bloom_pct knob (the scene owns the world reaction).
+	if MergeFx.on(_merge_opts, "combo_bloom") and _combo_bloom != null and is_instance_valid(_combo_bloom):
+		_combo_bloom.bump(combo, MergeFx.knob(_merge_opts, "bloom_pct"))
 	# a merge beside a sealed cell opens it once the player's Level has reached its §4 gate
 	for cell in board.openable_brambles(b, _quest_level()):
 		_open_bramble(cell)
@@ -2771,17 +2766,8 @@ func _bump_combo() -> int:
 	_combo_count = BoardLogic.combo_step(_combo_count, dt, FX.Tune.COMBO_WINDOW)
 	return _combo_count
 
-# At an EXACT milestone, shout a cozy word over the merge (never a "COMBO xN" tag).
-func _combo_celebrate(count: int, center: Vector2) -> void:
-	if not Features.on("merge_combo"):
-		return
-	var idx := FX.Tune.COMBO_MILESTONES.find(count)
-	if idx < 0:
-		return
-	var words := ["combo_nice", "combo_lovely", "combo_wonderful"]
-	var key: String = words[mini(idx, words.size() - 1)]
-	var gpos := board_area.get_global_transform() * center - Vector2(20, 50)
-	FX.floating_text(self, gpos, Strings.t("board.feedback." + key), STRAW, 30)
+# The milestone word ("Nice / Lovely / Wonderful") now fires inside MergeFx.apply as the
+# combo_words cue (a workbench toggle/knob), so the old _combo_celebrate scene method is gone.
 
 # The lines the player's open quests currently ask for (one entry per quest, so a line asked by two
 # quests is twice as likely to seed an unlocked cell). Empty only in the rare no-quest window.

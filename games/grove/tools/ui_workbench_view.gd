@@ -211,6 +211,9 @@ const MERGE_FX_KNOBS := {
 	"sound":       [["pitch_base_pct", 80, 160]],
 	"ripple":      [["ripple_pct", 0, 100]],
 	"board_punch": [["punch_pct", 0, 100]],
+	"world_puff":  [["puff_count", 0, 20], ["puff_size_pct", 40, 300]],
+	"combo_words": [["words_size", 16, 60]],
+	"combo_bloom": [["bloom_pct", 0, 200]],
 }
 const LAUNCH_FX_KNOBS := {
 	"recoil": [["recoil_pct", 0, 200]],
@@ -1063,6 +1066,17 @@ func _merge_fx_preview() -> Control:
 	var src_pos := Vector2(FEEL_FIELD.x * 0.5 - 130.0, FEEL_FIELD.y * 0.5)
 	var nb_off := [Vector2(0, -FEEL_CSZ + 6), Vector2(0, FEEL_CSZ - 6), Vector2(-FEEL_CSZ + 6, 0), Vector2(FEEL_CSZ - 6, 0)]
 	var field := _feel_field()
+	# a STAGE-LOCAL bloom preview — a warm amber wash over the field (NOT the full-screen ComboBloom
+	# CanvasLayer, which would cover the whole gallery). _merge_fx_play pulses its alpha up by bloom_pct
+	# × the combo, then fades it. Additive, non-interactive, gated on the combo_bloom toggle.
+	var bloom := ColorRect.new()
+	bloom.color = Color(Color("#FFD27F"), 0.0)
+	bloom.size = FEEL_FIELD
+	bloom.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var bmat := CanvasItemMaterial.new()
+	bmat.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	bloom.material = bmat
+	field.add_child(bloom)
 	field.add_child(_feel_cell_marker(merge_pos))
 	field.add_child(_feel_cell_marker(src_pos))
 	var mbtn := Button.new()                       # the whole field is clickable → merge
@@ -1075,7 +1089,7 @@ func _merge_fx_preview() -> Control:
 	var hint := _feel_hint("Click the field — or ▶ Merge", Vector2(40, 40))
 	field.add_child(hint)
 	_merge_fx_ctx = {"field": field, "merge_pos": merge_pos, "src_pos": src_pos, "nb_off": nb_off,
-		"tile_a": null, "tile_b": null, "neighbors": []}
+		"tile_a": null, "tile_b": null, "neighbors": [], "bloom": bloom}
 	_merge_fx_spawn()
 	mbtn.pressed.connect(_merge_fx_play)
 	return field
@@ -1134,7 +1148,28 @@ func _merge_fx_play() -> void:
 		for n in c["neighbors"]:
 			if n != null and is_instance_valid(n):
 				nb_nodes.append(n)
-		MergeFx.apply(field, b, c["merge_pos"], int(p.get("tier", 3)), int(p.get("combo", 0)), nb_nodes, field, p))
+		MergeFx.apply(field, b, c["merge_pos"], int(p.get("tier", 3)), int(p.get("combo", 0)), nb_nodes, field, p)
+		_merge_fx_pulse_bloom(p))
+
+# Pulse the STAGE-LOCAL bloom rect: alpha = COMBO_BLOOM_RISE × combo × bloom_pct/100 (clamped to the
+# overlay's ceiling), then fade — a self-contained read of the bloom strength. Gated on the combo_bloom
+# toggle (off → no swell). Mirrors ComboBloom's rise math so the preview tracks the live overlay.
+func _merge_fx_pulse_bloom(p: Dictionary) -> void:
+	if _merge_fx_ctx.is_empty():
+		return
+	var bloom: ColorRect = _merge_fx_ctx.get("bloom")
+	if bloom == null or not is_instance_valid(bloom):
+		return
+	if not MergeFx.on(p, "combo_bloom"):
+		bloom.color.a = 0.0
+		return
+	var combo := int(p.get("combo", 0))
+	var bloom_pct := int(p.get("bloom_pct", 100))
+	var FXTune = MergeFx.Tune
+	var peak := clampf(FXTune.COMBO_BLOOM_RISE * float(maxi(0, combo)) * float(maxi(0, bloom_pct)) / 100.0, 0.0, FXTune.COMBO_BLOOM_MAX)
+	var tw := bloom.create_tween()
+	tw.tween_property(bloom, "color:a", peak, 0.18).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tw.tween_property(bloom, "color:a", 0.0, 0.6).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 
 # --- LAUNCH: click the generator → a tile is EMITTED (pops up-and-away) ------------------------
 func _launch_fx_preview() -> Control:

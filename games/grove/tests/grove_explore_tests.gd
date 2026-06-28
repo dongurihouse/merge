@@ -58,7 +58,7 @@ func _test_combo_bloom() -> void:
 	# scene wiring: both merge scenes own ONE bloom child (freed with the scene) and bump it after Feel.merge.
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
 	ok(board_src.find("ComboBloom") != -1, "board owns a ComboBloom overlay")
-	ok(board_src.find("_combo_bloom.bump(combo)") != -1, "board bumps the bloom after the merge")
+	ok(board_src.find("_combo_bloom.bump(combo,") != -1, "board bumps the bloom after the merge (gated + scaled by merge_fx)")
 	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
 	ok(rush_src.find("ComboBloom") != -1, "rush owns a ComboBloom overlay")
 	ok(rush_src.find("_combo_bloom.bump(_combo)") != -1, "rush bumps the bloom after the merge")
@@ -81,12 +81,13 @@ func _test_mote_puff() -> void:
 	Ambient.puff(layer, Vector2(200, 200))
 	ok(layer.get_child_count() > before, "puff: a real ambient layer gains a one-shot mote burst")
 	layer.queue_free()
-	# scene wiring: the board reaches its WeatherLayer and puffs after the merge; Rush does NOT (no layer).
+	# scene wiring: the merge "world reaction" puff is no longer the giant Ambient.puff — it fires as the
+	# merge_fx `world_puff` cue inside MergeFx.apply (a small grove-scale FX.burst). The board no longer
+	# calls Ambient.puff for the merge reaction; merge_fx owns the cue + its size knob.
 	var board_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/board.gd")
-	ok(board_src.find("Ambient.puff(weather") != -1, "board puffs the ambient motes after a merge")
-	ok(board_src.find("get_node_or_null(\"WeatherLayer\")") != -1, "board reaches its WeatherLayer to puff")
-	var rush_src := FileAccess.get_file_as_string("res://engine/scripts/scenes/explore_rush.gd")
-	ok(rush_src.find("Ambient.puff") == -1, "rush does NOT puff (it has no ambient layer — graceful absence)")
+	ok(board_src.find("Ambient.puff(") == -1, "board no longer fires the giant Ambient.puff on a merge")
+	var merge_fx_src := FileAccess.get_file_as_string("res://engine/scripts/ui/merge_fx.gd")
+	ok(merge_fx_src.find("world_puff") != -1, "merge_fx carries the world_puff cue (the small merge-reaction puff)")
 
 func approx(a: float, b: float, eps := 0.0001) -> bool:
 	return absf(a - b) <= eps

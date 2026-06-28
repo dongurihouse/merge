@@ -309,8 +309,54 @@ func _test_fx_config() -> void:
 	var tile_off := Control.new()
 	tile_off.size = Vector2(96, 96)
 	host_off.add_child(tile_off)
-	MergeFx.apply(host_off, tile_off, Vector2(50, 50), 3, 0, [], host_off, MergeFx.from_config({"merge_fx": {"burst": false}}), 1.0, 0)
-	ok(_count_particles(host_off) == 0, "MergeFx.apply with burst OFF in the config fires NO burst (no child added)")
+	# both particle cues OFF (burst + the world_puff petals) → no GPUParticles2D child at all
+	MergeFx.apply(host_off, tile_off, Vector2(50, 50), 3, 0, [], host_off, MergeFx.from_config({"merge_fx": {"burst": false, "world_puff": false}}), 1.0, 0)
+	ok(_count_particles(host_off) == 0, "MergeFx.apply with burst + world_puff OFF fires NO particles (no child added)")
+
+	# --- the three new world-reaction cues: defaults + apply behaviour ---
+	var d3 := MergeFx.from_config({})
+	ok(MergeFx.on(d3, "world_puff") and MergeFx.on(d3, "combo_words") and MergeFx.on(d3, "combo_bloom"), \
+		"world_puff / combo_words / combo_bloom all default ON")
+	ok(MergeFx.knob(d3, "puff_count") == 8 and MergeFx.knob(d3, "puff_size_pct") == 120 \
+		and MergeFx.knob(d3, "words_size") == 30 and MergeFx.knob(d3, "bloom_pct") == 100, \
+		"the new knobs default to puff_count 8 / puff_size_pct 120 / words_size 30 / bloom_pct 100")
+	var c3 := MergeFx.from_config({"merge_fx": {"world_puff": false, "combo_words": false, "combo_bloom": false, "puff_count": 3, "bloom_pct": 50}})
+	ok(not MergeFx.on(c3, "world_puff") and not MergeFx.on(c3, "combo_words") and not MergeFx.on(c3, "combo_bloom"), \
+		"from_config honours the three new toggles set false")
+	ok(MergeFx.knob(c3, "puff_count") == 3 and MergeFx.knob(c3, "bloom_pct") == 50, "from_config honours the new knobs")
+
+	# world_puff ON (burst OFF) → exactly the petal puff GPUParticles2D appears
+	var host_wp := Control.new()
+	host_wp.size = Vector2(200, 200)
+	get_root().add_child(host_wp)
+	var tile_wp := Control.new()
+	tile_wp.size = Vector2(96, 96)
+	host_wp.add_child(tile_wp)
+	MergeFx.apply(host_wp, tile_wp, Vector2(50, 50), 3, 0, [], host_wp, MergeFx.from_config({"merge_fx": {"burst": false, "world_puff": true}}), 1.0, 0)
+	ok(_count_particles(host_wp) >= 1, "MergeFx.apply with world_puff ON adds a petal GPUParticles2D")
+	# world_puff OFF (burst OFF) → no particle child
+	var host_wo := Control.new()
+	host_wo.size = Vector2(200, 200)
+	get_root().add_child(host_wo)
+	var tile_wo := Control.new()
+	tile_wo.size = Vector2(96, 96)
+	host_wo.add_child(tile_wo)
+	MergeFx.apply(host_wo, tile_wo, Vector2(50, 50), 3, 0, [], host_wo, MergeFx.from_config({"merge_fx": {"burst": false, "world_puff": false}}), 1.0, 0)
+	ok(_count_particles(host_wo) == 0, "MergeFx.apply with world_puff OFF adds no petal particles")
+
+	# combo_words fires a floating Label ONLY at a milestone combo (3/5/8), not at a non-milestone
+	var host_w0 := Control.new()
+	host_w0.size = Vector2(200, 200)
+	get_root().add_child(host_w0)
+	var tile_w0 := Control.new()
+	tile_w0.size = Vector2(96, 96)
+	host_w0.add_child(tile_w0)
+	# combo 2 (not a milestone) → no word
+	MergeFx.apply(host_w0, tile_w0, Vector2(50, 50), 3, 2, [], host_w0, MergeFx.from_config({"merge_fx": {"burst": false, "world_puff": false}}), 1.0, 0)
+	ok(_count_labels(host_w0) == 0, "combo_words fires NO word at a non-milestone combo (2)")
+	# combo 3 (a milestone) → one word
+	MergeFx.apply(host_w0, tile_w0, Vector2(50, 50), 3, 3, [], host_w0, MergeFx.from_config({"merge_fx": {"burst": false, "world_puff": false}}), 1.0, 0)
+	ok(_count_labels(host_w0) >= 1, "combo_words fires a floating word at a milestone combo (3)")
 
 	# --- LandFx.apply: a QUIET land fires the puff but NOT the flash/sound (mirrors feel.land) ---
 	var host_q := Control.new()
@@ -338,5 +384,13 @@ func _count_flashes(host: Node) -> int:
 	var n := 0
 	for ch in host.get_children():
 		if ch is ColorRect:
+			n += 1
+	return n
+
+# Count the FX.floating_text Label children of a host (the combo milestone word floater).
+func _count_labels(host: Node) -> int:
+	var n := 0
+	for ch in host.get_children():
+		if ch is Label:
 			n += 1
 	return n

@@ -285,11 +285,15 @@ class FX:
 	const COMBO_BLOOM_RISE := 0.12
 	const COMBO_BLOOM_DECAY := 0.5
 	const COMBO_BLOOM_EASE := 6.0       # how fast the live bloom strength chases its target (per sec)
+	# NOTE: Ambient.puff is no longer wired to board merges — the merge "world reaction" now fires as the
+	# merge_fx `world_puff` cue (a small grove-scale FX.burst sized by puff_size_pct). These MOTE_PUFF_*
+	# dials only feed Ambient.puff, which survives for tests / reuse. The SCALE range was the bug source
+	# (0.5–0.9 of a 128px tex = 64–115px motes), shrunk here to a sane small size so any future caller is safe.
 	const MOTE_PUFF_IMPULSE := 220.0
 	const MOTE_PUFF_COUNT := 8          # motes flung outward by a merge puff (before calm-trim)
 	const MOTE_PUFF_LIFE := 0.7         # seconds the flung motes drift before fading out
-	const MOTE_PUFF_SCALE_MIN := 0.5    # mote sprite scale range (the breeze tex is small)
-	const MOTE_PUFF_SCALE_MAX := 0.9
+	const MOTE_PUFF_SCALE_MIN := 0.18   # mote sprite scale range (the breeze tex is 128px — keep small)
+	const MOTE_PUFF_SCALE_MAX := 0.32
 
 
 class Hud:
