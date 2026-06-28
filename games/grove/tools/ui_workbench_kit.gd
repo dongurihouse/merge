@@ -5081,18 +5081,30 @@ static func _map_leaf(rel: String, node_name: String, size: Vector2, flip_h := f
 	leaf.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return leaf
 
-static func _map_add_title_plate(card: Control, d: Dictionary, card_w: float, card_h: float) -> void:
+static func _map_add_title_plate(card: Control, d: Dictionary, opts: Dictionary, card_w: float, card_h: float) -> void:
 	var title := String(d.get("title", "")).strip_edges()
 	if title == "":
 		return
+	# Title-plate tuning knobs (workbench-saved). Each NUDGES the auto-sized baseline and defaults to a no-op,
+	# so an untuned card renders the shipped plate; font/W/H/X/Y are px offsets, pad_x/pad_y the label inset
+	# (shipped 24/2). The game resolves the SAME opts (map_card_opts_from_config), so a tweak retunes both.
+	var d_font := float(opts.get("title_font", 0.0))
+	var d_w := float(opts.get("title_w", 0.0))
+	var d_h := float(opts.get("title_h", 0.0))
+	var d_x := float(opts.get("title_x", 0.0))
+	var d_y := float(opts.get("title_y", 0.0))
+	var pad_x := float(opts.get("title_pad_x", 24.0))
+	var pad_y := float(opts.get("title_pad_y", 2.0))
 	var plate := Control.new()
 	plate.name = "MapCardTitlePlate"
 	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var ph := clampf(card_h * 0.125, 36.0, 54.0)
-	var pw := clampf(maxf(152.0, float(title.length()) * ph * 0.34 + 76.0), 152.0, card_w * 0.46)
+	var base_ph := clampf(card_h * 0.125, 36.0, 54.0)
+	var base_pw := clampf(maxf(152.0, float(title.length()) * base_ph * 0.34 + 76.0), 152.0, card_w * 0.46)
+	var ph := maxf(8.0, base_ph + d_h)
+	var pw := maxf(16.0, base_pw + d_w)
 	plate.size = Vector2(pw, ph)
 	plate.custom_minimum_size = plate.size
-	plate.position = Vector2(card_w * 0.035, card_h * 0.035)
+	plate.position = Vector2(card_w * 0.035 + d_x, card_h * 0.035 + d_y)
 	var bg_path := Look.kit(MAP_LEFT_TITLE_PLATE)
 	if ResourceLoader.exists(bg_path):
 		var bg := TextureRect.new()
@@ -5114,15 +5126,16 @@ static func _map_add_title_plate(card: Control, d: Dictionary, card_w: float, ca
 		panel.add_theme_stylebox_override("panel", ps)
 		plate.add_child(panel)
 	var lbl := Label.new()
+	lbl.name = "MapCardTitleLabel"
 	lbl.text = title
-	lbl.add_theme_font_size_override("font_size", int(clampf(ph * 0.48, 19.0, 27.0)))
+	lbl.add_theme_font_size_override("font_size", int(maxf(6.0, clampf(base_ph * 0.48, 19.0, 27.0) + d_font)))
 	lbl.add_theme_color_override("font_color", Pal.INK)
 	lbl.add_theme_color_override("font_outline_color", Color(Pal.CREAM, 0.7))
 	lbl.add_theme_constant_override("outline_size", 2)
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.position = Vector2(24.0, 2.0)
-	lbl.size = Vector2(maxf(2.0, pw - 48.0), ph - 4.0)
+	lbl.position = Vector2(pad_x, pad_y)
+	lbl.size = Vector2(maxf(2.0, pw - pad_x * 2.0), maxf(2.0, ph - pad_y * 2.0))
 	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	plate.add_child(lbl)
 	card.add_child(plate)
@@ -5157,7 +5170,7 @@ static func _map_card_open(d: Dictionary, opts: Dictionary, card: Control, card_
 	_map_add_fill(card, fill_tex, badge_opts, card_w, card_h)
 	if fill_tex == _map_meadow_texture():
 		card.add_child(_map_place_mark(opts))   # the ✿ "place" mark over the bare meadow fill
-	_map_add_title_plate(card, d, card_w, card_h)
+	_map_add_title_plate(card, d, opts, card_w, card_h)
 	if not bool(d.get("habitat_preview", false)):
 		_map_count_pill(d, opts, card, card_w, card_h)
 	# ACTIVE place (open but not yet restored): ring the gold band with twinkles to draw the eye. A
@@ -5485,6 +5498,15 @@ static func map_card_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"reward_bar_h":     float(c.get("reward_bar_h", 10)),
 		"reward_bar_y":     float(c.get("reward_bar_y", 0)),
 		"veil_mark_size":  float(c.get("veil_mark_size", 64)),         # the ✿ place-mark px on an open card's bare meadow fill (no slider; _map_place_mark)
+		# open-card title plate nudges (px offsets from the auto-sized baseline; pad_x/pad_y are the label
+		# inset). Defaults are no-ops (0 / shipped 24/2) so an untuned card renders the SAME plate. _map_add_title_plate.
+		"title_font":      float(c.get("title_font", 0)),             # grow/shrink the map-name text
+		"title_w":         float(c.get("title_w", 0)),                # widen/narrow the plate from its auto width
+		"title_h":         float(c.get("title_h", 0)),                # taller/shorter plate
+		"title_x":         float(c.get("title_x", 0)),                # move the plate right/left
+		"title_y":         float(c.get("title_y", 0)),                # move the plate down/up
+		"title_pad_x":     float(c.get("title_pad_x", 24)),           # label inset left/right inside the plate
+		"title_pad_y":     float(c.get("title_pad_y", 2)),            # label inset vertical
 	}
 
 ## The QUEST-GIVER card layout fractions from a saved config — the workbench's quest_card block (percent

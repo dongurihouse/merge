@@ -1867,6 +1867,48 @@ func _test_gold_badge_consumers(view) -> void:
 	ok(open_card.find_child("MapCardTitlePlate", true, false) is Control \
 		and ResourceLoader.exists(Look.kit("map/left_title_plate.png")), \
 		"an OPEN map card wraps its map name in the generated leafy bordered title plate")
+	# --- Title-plate tuning knobs (font / width / height / X / Y / padding) ---------------------------
+	# Defaults are no-ops (0 offsets; 24/2 padding = the shipped constants), so an untuned card renders the
+	# SAME plate as before; the knobs nudge from that auto-sized baseline and retune the game's open cards.
+	var title_default_opts := Kit.map_card_opts_from_config({"map_card": {}, "gold_badge": {}})
+	ok(float(title_default_opts.get("title_font", -999)) == 0.0 and float(title_default_opts.get("title_w", -999)) == 0.0 \
+		and float(title_default_opts.get("title_h", -999)) == 0.0 and float(title_default_opts.get("title_x", -999)) == 0.0 \
+		and float(title_default_opts.get("title_y", -999)) == 0.0 and float(title_default_opts.get("title_pad_x", -999)) == 24.0 \
+		and float(title_default_opts.get("title_pad_y", -999)) == 2.0, \
+		"map_card opts carry title-plate knobs defaulting to a no-op (0 offsets, 24/2 padding)")
+	var title_tuned_opts := Kit.map_card_opts_from_config({"map_card": {
+		"title_font": 8, "title_w": 40, "title_h": 12, "title_x": 30, "title_y": 18, "title_pad_x": 36, "title_pad_y": 6}, "gold_badge": {}})
+	ok(float(title_tuned_opts.get("title_font")) == 8.0 and float(title_tuned_opts.get("title_x")) == 30.0 \
+		and float(title_tuned_opts.get("title_pad_x")) == 36.0, \
+		"map_card opts carry saved title-plate knob overrides")
+	var base_title_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, title_default_opts, 460.0, 200.0)
+	var tuned_title_card := Kit.map_card({"open": true, "done": false, "art": "", "map_id": "", "title": "The Farm"}, title_tuned_opts, 460.0, 200.0)
+	var base_plate := base_title_card.find_child("MapCardTitlePlate", true, false) as Control
+	var tuned_plate := tuned_title_card.find_child("MapCardTitlePlate", true, false) as Control
+	var base_title_lbl := base_title_card.find_child("MapCardTitleLabel", true, false) as Label
+	var tuned_title_lbl := tuned_title_card.find_child("MapCardTitleLabel", true, false) as Label
+	ok(base_plate != null and base_plate.position == Vector2(460.0 * 0.035, 200.0 * 0.035), \
+		"an untuned title plate keeps its shipped top-left position")
+	ok(base_plate != null and tuned_plate != null \
+		and is_equal_approx(tuned_plate.position.x, base_plate.position.x + 30.0) and is_equal_approx(tuned_plate.position.y, base_plate.position.y + 18.0), \
+		"title-plate X/Y knobs offset the rendered plate position")
+	ok(base_plate != null and tuned_plate != null \
+		and is_equal_approx(tuned_plate.size.x, base_plate.size.x + 40.0) and is_equal_approx(tuned_plate.size.y, base_plate.size.y + 12.0), \
+		"title-plate W/H knobs offset the rendered plate size")
+	ok(base_title_lbl != null and tuned_title_lbl != null \
+		and int(tuned_title_lbl.get_theme_font_size("font_size")) == int(base_title_lbl.get_theme_font_size("font_size")) + 8, \
+		"title-plate Font knob offsets the rendered label font size")
+	ok(base_title_lbl != null and tuned_title_lbl != null \
+		and base_title_lbl.position == Vector2(24.0, 2.0) and tuned_title_lbl.position == Vector2(36.0, 6.0), \
+		"title-plate padding knobs set the label inset inside the plate")
+	ok(_source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_font\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_w\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_h\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_y\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_pad_x\"") \
+		and _source_contains("res://games/grove/tools/ui_workbench_view.gd", "_slider_row([\"title_pad_y\""), \
+		"the Workbench map-card sidebar exposes the seven title-plate sliders")
 	ok(locked_card.find_child("MapCardShadow", true, false) is Control and locked_card.find_child("MapCardOuterBorder", true, false) is Control, \
 		"a LOCKED map card has an outer shadow and dark rim behind the golden border")
 	ok(ResourceLoader.exists(Look.kit("map/left_locked_preview_inner.png")), \
