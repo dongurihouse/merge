@@ -22,7 +22,7 @@ export GODOT JOBS                             # so $(RUNNER) (a python script) s
 .DEFAULT_GOAL := help
 
 .PHONY: help run run_debug run_grove g-phone editor workbench fx fx-workbench vine test test-fast test-engine test-grove test-one smoke import bake bake-textures bake-vine \
-        shot-map shot-grove shot shot-workbench shot-fx-workbench \
+        shot-map shot-grove shot-widget shot shot-workbench shot-fx-workbench \
         decor icon ios clean clean-cache intake intake-test
 
 help: ## list available targets
@@ -124,6 +124,9 @@ shot-map: ## capture the map:  make shot-map [MODE=fresh|interior|progress|shop|
 
 shot-grove: ## capture the board:  make shot-grove [MODE=fresh|played|gate|hud|compost|hive] [OUT=/tmp/grove.png]
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/grove_shot.gd -- $(or $(MODE),hud) $(or $(OUT),/tmp/grove.png)
+
+shot-widget: ## render board widgets in isolation (SEE a UI change cheaply):  make shot-widget OUT=/tmp/w.png TILES="104 104:glow"
+	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/widget_shot.gd -- $(or $(OUT),/tmp/widget.png) $(TILES)
 
 shot: ## any quiet capture by path:  make shot TOOL=games/grove/tools/grove_shot ARGS="hud /tmp/x.png"
 	$(QUIET) --path $(PROJECT) -s res://$(TOOL).gd -- $(ARGS)
