@@ -916,6 +916,7 @@ func _rebuild_givers() -> void:
 	giver_bar.add_child(scroll)
 	giver_bar.move_child(scroll, 1)
 	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE   # transparent: a card-touch (PASS) must propagate THROUGH the row to the ScrollContainer — a STOP row (the default) would block the drag and only the gaps would scroll
 	row.size_flags_vertical = Control.SIZE_FILL
 	row.alignment = BoxContainer.ALIGNMENT_BEGIN   # left-aligned: spare width falls on the right when it all fits
 	row.add_theme_constant_override("separation", int(QUEST_GAP))
@@ -944,6 +945,7 @@ func _purge_progress() -> float:
 # next unlock threshold, then glows + sparkles once that next region is affordable.
 func _make_purge_card(stand_w: float) -> Control:
 	var stand := Control.new()
+	stand.mouse_filter = Control.MOUSE_FILTER_PASS   # drag-scrollable like the giver cards — the touch reaches the ScrollContainer (see giver_stand.gd)
 	stand.custom_minimum_size = Vector2(stand_w, _fence_h)
 	# Keep the same footprint as giver cards so the Purge slot still sits flush in the fence row, but let
 	# the vase art carry the surface instead of another card frame.
@@ -1031,7 +1033,8 @@ func _stand_tap(stand: Control, action: Callable) -> void:
 			stand.remove_meta("press_pos")
 			if moved <= 24.0:
 				_idle = 0.0
-				action.call())
+				action.call()
+				stand.accept_event())   # consume a registered tap so it never ALSO fires an ancestor's tap (ask-icon → card deliver); a drag (moved > 24) skips this branch, so the ScrollContainer still gets it
 
 # Build one quest-giver stand. Wave 3: the construction lives in ui/giver_stand.gd;
 # the coordinator still owns the quests + delivery and wires the stand's taps back.
@@ -1886,8 +1889,8 @@ func _select_generator(cell: Vector2i) -> void:
 	else:
 		_refresh_burst_chip()                 # the boost chip (full when armable, faded while live)
 
-# The generator's info-bar label: its name, plus — while a boost is live — the boost detail (how much
-# more per tap, and how many taps are left). Built here so a pop can refresh it live without rebuilding
+# The generator's info-bar label: its name, plus — while a boost is live — the boost detail (that the
+# boost is on and how many taps are left). Built here so a pop can refresh it live without rebuilding
 # the whole info bar (§3 boost detail).
 func _gen_info_text(gid: String) -> String:
 	var lbl := G.generator_display_name(gid)
@@ -1896,7 +1899,7 @@ func _gen_info_text(gid: String) -> String:
 		if clicks > 0:
 			lbl += " · %d taps" % clicks
 	elif G.boost_active():
-		lbl += " · " + (Strings.t("board.info.boost_detail") % [G.boost_bonus(), G.boost_taps_left()])
+		lbl += " · " + (Strings.t("board.info.boost_detail") % G.boost_taps_left())
 	return lbl
 
 # Reset the info bar to its empty "tap an item" state.

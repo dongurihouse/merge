@@ -94,53 +94,47 @@ func _initialize() -> void:
 	bm2.from_dict(blob)
 	ok(bm2.gen_id_at(open_cell) == "seed_satchel" and str(bm2.gen_bag) == str(bm.gen_bag) and bm2.gen_bag.has("hen_coop"), "the generator map + gen_bag round-trip through to_dict/from_dict")
 
-	# --- burst-pop (§6): a tap pops a BURST — a FREE portion (base BURST_ODDS + per-map scale-up,
-	# capped on its own at BURST_FREE_MAX) PLUS the paid burst-upgrade added on top (decoupled, T25),
-	# clamped to BURST_MAX. Each item still costs 1 energy. ---
+	# --- burst-pop (§6, T58): a tap pops a BURST of items, each 1 energy. WITHOUT a boost a tap almost
+	# always pops a SINGLE item (BURST_ODDS); a live BOOST swaps in BURST_ODDS_BOOST so multiples become
+	# the norm — the boost RAISES THE CHANCE of multiples, it does not add a flat count. Both tables top
+	# out at BURST_MAX, and there is no per-map scale-up (the map arg is ignored). ---
 	var brng := RandomNumberGenerator.new()
 	brng.seed = 7
-	var bmin := 99
-	var bmax := 0
-	for _i in 400:
-		var b := G.burst_count(0, 0, brng)        # map 1, no upgrade → base only
-		bmin = mini(bmin, b)
-		bmax = maxi(bmax, b)
-	ok(bmin == 1 and bmax == 3, "map-1 base burst rolls 1–3 items")
-	var later := 0
-	for _i in 200:
-		later = maxi(later, G.burst_count(4, 0, brng))
-	ok(later > 3, "a later map's generator pops a bigger burst (free per-map scale-up)")
-	var upgraded := 0
-	for _i in 200:
-		upgraded = maxi(upgraded, G.burst_count(0, G.BOOST_BONUS, brng))
-	ok(upgraded > 3, "a live boost raises the burst")
-	var capped := true
+	var N := 4000
+	var un_mult := 0                                    # unboosted taps that popped >1 item
+	var bo_mult := 0                                    # boosted taps that popped >1 item
+	var un_sum := 0
+	var bo_sum := 0
+	var un_max := 0
+	var bo_min := 99
 	var floored := true
-	for _i in 200:
-		var bc := G.burst_count(4, G.BOOST_BONUS, brng)
-		if bc > int(G.BURST_MAX):
-			capped = false
-		if G.burst_count(0, 0, brng) < 1:
+	for _i in N:
+		var u := G.burst_count(0, 0, brng)              # no boost
+		var b := G.burst_count(0, G.BOOST_BONUS, brng)  # boost live (any positive arg = boosted)
+		un_sum += u
+		bo_sum += b
+		un_max = maxi(un_max, u)
+		bo_min = mini(bo_min, b)
+		if u > 1:
+			un_mult += 1
+		if b > 1:
+			bo_mult += 1
+		if u < 1 or b < 1:
 			floored = false
-	ok(capped, "burst never exceeds BURST_MAX")
-	ok(floored, "burst is always at least 1")
+	ok(floored, "a burst is always at least 1 item")
+	ok(un_max <= int(G.BURST_MAX) and bo_min >= 1, "every burst stays within [1, BURST_MAX]")
+	var un_rate := float(un_mult) / N
+	var bo_rate := float(bo_mult) / N
+	ok(un_rate < 0.35, "without a boost a tap is usually a single item (multiple-rate %.2f < 0.35)" % un_rate)
+	ok(bo_rate > 0.60, "with a boost multiples become the norm (multiple-rate %.2f > 0.60)" % bo_rate)
+	ok(bo_rate > un_rate + 0.30, "the boost markedly RAISES the chance of multiples (%.2f vs %.2f)" % [bo_rate, un_rate])
+	ok(bo_sum > un_sum, "the boost raises the average items per tap")
+	var deep_max := 0
+	for _i in N:
+		deep_max = maxi(deep_max, G.burst_count(9, 0, brng))
+	ok(deep_max <= int(G.BURST_MAX), "a deep map does not burst beyond BURST_MAX (no per-map scale-up)")
 	# the boost coin sink: a flat cost, the same every activation (no ladder — T57)
 	ok(G.boost_cost() > 0, "the boost has a positive coin cost")
-	ok(G.boost_bonus() > 0, "the boost adds a positive per-tap bonus")
-	# T25/T57 DECOUPLE: at a deep map the FREE portion is capped (BURST_FREE_MAX), and a live BOOST adds
-	# exactly BOOST_BONUS more ON TOP (clamped — a larger addend can't over-stack). Regression guard for
-	# the old combined cap that clipped the bonus (burst_count(4, bonus) was stuck at the free cap).
-	var deep_free := 0
-	var deep_boost := 0
-	var deep_over := 0
-	for _i in 400:
-		deep_free = maxi(deep_free, G.burst_count(4, 0, brng))                  # no boost
-		deep_boost = maxi(deep_boost, G.burst_count(4, G.BOOST_BONUS, brng))    # a live boost
-		deep_over = maxi(deep_over, G.burst_count(4, G.BOOST_BONUS + 5, brng))  # an over-large addend → clamped
-	ok(deep_free == int(G.BURST_FREE_MAX), "deep-map FREE burst caps at BURST_FREE_MAX")
-	ok(deep_boost == mini(int(G.BURST_FREE_MAX) + int(G.BOOST_BONUS), int(G.BURST_MAX)), "a live boost adds BOOST_BONUS on top of the free cap")
-	ok(deep_boost == int(G.BURST_MAX), "the boosted deep-map burst reaches BURST_MAX (free cap + the boost bonus)")
-	ok(deep_over == deep_boost, "the boost addend is clamped — a larger value can't over-stack the burst")
 
 	# --- §6 spawn TIER-bias: a pop's line AND tier lean toward what givers want (ASK_WEIGHT), but
 	# --- only among POPPABLE tiers (≤ TIER_ODDS range) so a generator never pops a high tier

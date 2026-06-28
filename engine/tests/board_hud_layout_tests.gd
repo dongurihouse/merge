@@ -183,6 +183,36 @@ func _initialize() -> void:
 	_free_board(port)
 	await process_frame
 
+	# --- quest-bar horizontal drag-scroll (mobile): a touch-drag that STARTS on a card must reach the
+	# --- fence's ScrollContainer. That only happens if NO control between the cards and the scroll is
+	# --- MOUSE_FILTER_STOP — a STOP card swallows the drag, so the bar scrolls only in the gaps (the
+	# --- reported bug). Guard the live fence: it has a h-scrollable ScrollContainer whose content row +
+	# --- every descendant is non-STOP (the scroll itself and its scrollbars are legitimately STOP, so we
+	# --- walk only the row). Covers the purge card AND the giver cards as board.gd/GiverStand build them.
+	var qb: Control = await _build_board_at(Vector2i(1080, 1920))
+	var scrolls: Array = qb.giver_bar.find_children("*", "ScrollContainer", true, false)
+	ok(not scrolls.is_empty(), "the quest fence has a ScrollContainer")
+	if not scrolls.is_empty():
+		var sc: ScrollContainer = scrolls[0]
+		ok(sc.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED, \
+			"the quest ScrollContainer is horizontally drag-scrollable")
+		var content_rows: Array = sc.find_children("*", "HBoxContainer", false, false)   # the card row (direct child; skips the scrollbars)
+		var offenders: Array[String] = []
+		var card_count := 0
+		if not content_rows.is_empty():
+			var qrow: Control = content_rows[0]
+			card_count = qrow.get_child_count()
+			var subtree: Array = [qrow]
+			subtree.append_array(qrow.find_children("*", "Control", true, false))
+			for n in subtree:
+				var c := n as Control
+				if c != null and c.mouse_filter == Control.MOUSE_FILTER_STOP:
+					offenders.append(c.get_class() + ":" + String(c.name))
+		ok(card_count >= 1, "the quest fence holds at least one card to scroll (%d)" % card_count)
+		ok(offenders.is_empty(), "no STOP control blocks the quest-bar drag — a card-touch reaches the scroll (offenders: %s)" % str(offenders))
+	_free_board(qb)
+	await process_frame
+
 	get_root().size = prior_size
 	Kit._config_cache[Kit.CONFIG_PATH] = prior_cfg
 	SceneWarm._clear()

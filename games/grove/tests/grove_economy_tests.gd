@@ -109,9 +109,9 @@ func _initialize() -> void:
 	ok(bc.top_tier_cells().is_empty(), "coins are never merchant goods")
 
 	# 11b. BURST-POP (§6) + the temporary BOOST — both engine-side; the grove only sets the odds/
-	# scale/cost dials. One tap throws a burst that scales with the map; while a boost is ACTIVE every
-	# tap drops BOOST_BONUS extra items for BOOST_TAPS taps, then it expires. Activating spends coins,
-	# arms the taps, and refuses a second buy while one is already running (no double spend).
+	# cost dials. One tap throws a burst whose SIZE is rolled from an odds table; while a boost is ACTIVE
+	# the richer (more-multiples) table is used for BOOST_TAPS taps, then it expires. Activating spends
+	# coins, arms the taps, and refuses a second buy while one is already running (no double spend).
 	fresh("burst")
 	var sbp = load("res://engine/scenes/Board.tscn").instantiate()
 	get_root().add_child(sbp)
@@ -147,7 +147,7 @@ func _initialize() -> void:
 	for v in sbp.board.items:
 		if v > 0:
 			burst_got += 1
-	ok(burst_got >= 1 + G.BOOST_BONUS, "with the boost a single tap throws a burst of ≥1+BOOST_BONUS items (map 1)")
+	ok(burst_got >= 1 and burst_got <= int(G.BURST_MAX), "with the boost a single tap throws a burst of 1..BURST_MAX items")
 	ok(sbp.water == bw0 - burst_got * G.POP_COST, "each burst item costs one energy")
 	ok(G.boost_taps_left() == G.BOOST_TAPS - 1, "a charged tap spends one boost tap")
 	# the boost expires when its taps run out — back to no bonus
@@ -234,7 +234,7 @@ func _initialize() -> void:
 	sbu._select_generator(bgcell)
 	ok(sbu._info_burst.visible, "the boost chip stays visible while a boost is live")
 	ok(sbu._info_burst.modulate.a < 1.0, "the live boost chip is faded (like can't-afford) — no re-buy")
-	ok(sbu._info_label.text.contains("+%d" % G.BOOST_BONUS) and sbu._info_label.text.contains(str(G.boost_taps_left())), "the info label shows the boost bonus and taps left")
+	ok(sbu._info_label.text.contains("Boosted") and sbu._info_label.text.contains(str(G.boost_taps_left())), "the info label shows the boost is live and the taps left")
 	var live_c := Save.coins()
 	sbu._on_burst_chip()
 	ok(G.boost_taps_left() == G.BOOST_TAPS and Save.coins() == live_c, "tapping the live chip re-buys nothing, no double spend")

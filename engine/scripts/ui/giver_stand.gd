@@ -71,6 +71,11 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	for k in (cfg.get("lay", {}) as Dictionary):
 		L[k] = (cfg.lay as Dictionary)[k]
 	var stand := Control.new()
+	# PASS (not the default STOP) so a touch-drag that STARTS on the card still reaches the quest-bar
+	# ScrollContainer and scrolls the row. The still-release tap (wire_tap below) is unaffected — it only
+	# fires when the touch barely moved. The bug this fixes: a STOP card swallowed the drag, so the fence
+	# only scrolled in the slivers BETWEEN cards.
+	stand.mouse_filter = Control.MOUSE_FILTER_PASS
 	stand.custom_minimum_size = Vector2(sw, fh)
 	stand.pivot_offset = Vector2(sw / 2.0, fh * 0.5)
 	# the box: sized DIRECTLY to card_w × card_h of the stand — width and height are INDEPENDENT, so card_h
@@ -117,7 +122,10 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 		icon.custom_minimum_size = Vector2(iw, ih)
 		icon.size = Vector2(iw, ih)
 		icon.position = Vector2(cx + cardW * float(L.item_x) - iw / 2.0, cy + cardH * float(L.item_y) - ih / 2.0)
-		icon.mouse_filter = Control.MOUSE_FILTER_STOP
+		# PASS, not STOP: let the drag reach the ScrollContainer so the bar scrolls even when the touch
+		# starts on the ask bubble. Its OWN tap still works (wire_tap), and _stand_tap calls accept_event()
+		# when that tap fires, so it doesn't also trigger the card's deliver-tap underneath.
+		icon.mouse_filter = Control.MOUSE_FILTER_PASS
 		# the asked item — built square at the LARGER of w/h (so it never upscales), then scaled to fill the
 		# w×h box. item_w == item_h gives an undistorted icon; differ them to stretch (the workbench tunes both).
 		var base := maxf(iw, ih)

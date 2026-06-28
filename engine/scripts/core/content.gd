@@ -39,8 +39,7 @@ const QUEST_FEATURED_COIN_BONUS = D.QUEST_FEATURED_COIN_BONUS
 const MAX_GIVERS = D.MAX_GIVERS
 const EXP_PER_QUEST_EST = D.STARS_PER_QUEST_EST
 const BURST_ODDS = D.BURST_ODDS
-const BURST_MAP_EVERY = D.BURST_MAP_EVERY
-const BURST_FREE_MAX = D.BURST_FREE_MAX
+const BURST_ODDS_BOOST = D.BURST_ODDS_BOOST
 const BURST_MAX = D.BURST_MAX
 const BOOST_BONUS = D.BOOST_BONUS
 const BOOST_TAPS = D.BOOST_TAPS
@@ -406,26 +405,23 @@ static func active_giver_count(earned_exp: int, target_exp: int, max_givers: int
 		return 0
 	return clampi(int(ceil(need / float(EXP_PER_QUEST_EST))), 1, max_givers)
 
-## Burst-pop (§6): one tap on a generator pops a BURST of items, not just one. The size is a
-## FREE portion — the base roll (BURST_ODDS = 1/2/3 items) + a per-map scale-up (every
-## BURST_MAP_EVERY maps, generators throw one more) — capped on its OWN at BURST_FREE_MAX, PLUS
-## `boost_bonus` (the live temporary boost's +items/tap, 0 when none is active) added on top.
-## Decoupling the boost from the free cap (T25) means the boost ALWAYS adds its full bonus — the
-## free per-map gift can no longer eat its headroom. Final clamp to [1, BURST_MAX] is a board-flood
+## Burst-pop (§6, T58): one tap on a generator pops a BURST of items, not just one. The COUNT is drawn
+## from an odds table — BURST_ODDS when no boost is live (a single item is the norm, multiples are rare)
+## or BURST_ODDS_BOOST while a boost is live (multiples become the norm). The boost RAISES THE CHANCE of
+## multiples; it does NOT add a flat count, and there is no per-map scale-up (`_map` is unused — kept for
+## call-site stability). `boost_bonus > 0` marks a live boost. Clamped to [1, BURST_MAX] as a board-flood
 ## safety net. Each popped item still costs 1 energy.
-static func burst_count(map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
-	var base := 1
+static func burst_count(_map: int, boost_bonus: int, rng: RandomNumberGenerator) -> int:
+	var odds: Array = BURST_ODDS_BOOST if boost_bonus > 0 else BURST_ODDS
+	var n := 1
 	var roll := rng.randf()
 	var acc := 0.0
-	for i in BURST_ODDS.size():
-		acc += float(BURST_ODDS[i])
+	for i in odds.size():
+		acc += float(odds[i])
 		if roll <= acc:
-			base = i + 1
+			n = i + 1
 			break
-	var free_scale := int(map / float(BURST_MAP_EVERY))     # +1 base burst every N maps…
-	var free := mini(base + free_scale, BURST_FREE_MAX)      # …capped on its own, so the gift can't trivialize the board
-	var paid := clampi(boost_bonus, 0, BOOST_BONUS)         # the live boost's bonus — added on top of the free cap
-	return clampi(free + paid, 1, BURST_MAX)
+	return clampi(n, 1, BURST_MAX)
 
 ## The temporary BOOST (§6/§10 coin sink). One activation arms BOOST_TAPS generator taps that each
 ## drop BOOST_BONUS extra items, board-wide, then it expires. The arm count rides the grove blob under

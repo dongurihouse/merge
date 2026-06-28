@@ -26,7 +26,7 @@
 			"sell_spares": "tap a spare, then the sell button to cash it in"
 		},
 		"info": {
-			"boost_detail": "Boosted +%d/tap · %d left",
+			"boost_detail": "Boosted · %d left",
 			"burst_label": "Boost",
 			"burst_need": "Need more coins",
 			"buy_label": "Buy",

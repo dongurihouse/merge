@@ -135,17 +135,32 @@ shot-fx-workbench: ## quiet screenshot of the FX workbench:  make shot-fx-workbe
 	$(QUIET) --path $(PROJECT) -s res://games/grove/tools/fx_workbench.gd -- $(or $(OUT),/tmp/fx_workbench.png)
 
 ## --- iOS -------------------------------------------------------------------
+# `make ios 1.2.3` passes the version as a positional goal (also accepts `make ios VERSION=1.2.3`). The
+# leftover goal(s) after ios/ios-plugins are taken as the version; when an ios build is requested we stub
+# them as no-op targets so make doesn't error with "No rule to make target '1.2.3'" (scoped to ios runs,
+# so a typo'd target in any other command still errors normally).
+IOS_ARGS    := $(filter-out ios ios-plugins,$(MAKECMDGOALS))
+IOS_VERSION := $(or $(VERSION),$(IOS_ARGS))
+ifneq (,$(filter ios,$(MAKECMDGOALS)))
+ifneq (,$(IOS_ARGS))
+$(eval $(IOS_ARGS):;@:)
+endif
+endif
+
 ios-plugins: ## fetch the Apple-services plugin (Game Center + StoreKit) into addons/ (per-checkout; pinned)
 	tools/install_ios_plugins.sh
 
-ios: ios-plugins ## export the iOS Xcode project to build/ios (needs export templates + Xcode; see docs/design/apple-services-setup.md)
+ios: ios-plugins ## export iOS Xcode project to build/ios; `make ios 1.2.3` sets the app version (see docs/design/apple-services-setup.md)
 	mkdir -p build/ios
 	find build/ios -mindepth 1 -maxdepth 1 ! -name ci_scripts -exec rm -rf {} +
-	$(GODOT) --headless --path $(PROJECT) --export-debug "iOS" build/ios/AcornForest.xcodeproj
+	tools/export_ios.sh $(PROJECT) build/ios/AcornForest.xcodeproj
 	# Godot's template forces empty camera/photo/mic usage strings — strip them (App Store rejects blanks).
 	tools/strip_unused_ios_permissions.sh build/ios/AcornForest/AcornForest-Info.plist
 	# Godot pins "Apple Distribution" on Release under automatic signing — Xcode rejects that. Fix to "Apple Development".
 	tools/normalize_ios_signing.sh build/ios/AcornForest.xcodeproj/project.pbxproj
+	# `make ios 1.2.3` -> app version 1.2.3; bare `make ios` keeps export_presets' version (Xcode Cloud
+	# auto-sets the build number from $$CI_BUILD_NUMBER). See tools/set_ios_version.sh.
+	tools/set_ios_version.sh build/ios/AcornForest.xcodeproj/project.pbxproj $(IOS_VERSION)
 
 ## --- clean -----------------------------------------------------------------
 clean: ## remove the gitignored build/ output

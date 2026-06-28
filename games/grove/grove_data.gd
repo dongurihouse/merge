@@ -167,19 +167,18 @@ const QUEST_FEATURED_COIN_BONUS := 10     # flat coin bonus on a featured quest 
 # §7 soft gate — PROVISIONAL, sim-tuned.
 const MAX_GIVERS := 5                     # fence quest slots (§7) — up to 5 quest cards (+ the jar); the metered active count caps here. The fence scrolls horizontally when these + the jar overflow the screen.
 const STARS_PER_QUEST_EST := 2            # representative ★/quest for sizing the active-giver meter
-# §6 burst-pop — sim-tuned (T25). A generator tap pops a BURST of items, each still 1 energy (burst cuts
-# taps, not the per-item energy economy). Burst = a FREE portion (base BURST_ODDS + per-map scale-up,
-# capped on its own at BURST_FREE_MAX) PLUS — while a temporary BOOST is live — BOOST_BONUS extra items
-# per tap, board-wide, for BOOST_TAPS taps after one BOOST_COST activation (the §10 coin sink). The
-# boost is global and decays one tap at a time, then expires; no permanent stacking (T57, replaces the
-# old paid burst-upgrade ladder).
-const BURST_ODDS := [0.55, 0.30, 0.15]    # base burst pops 1 / 2 / 3 items
-const BURST_MAP_EVERY := 2                # +1 base burst every N maps (the free per-map scale-up)
-const BURST_FREE_MAX := 4                 # cap on the FREE portion (base + per-map gift) — keeps the gift from trivializing the board
-const BOOST_BONUS := 2                    # extra items per generator tap while a boost is live
+# §6 burst-pop (T58). A generator tap pops a BURST of items, each still 1 energy (burst cuts taps, not the
+# per-item energy economy). The COUNT is drawn from an odds table: BURST_ODDS with NO boost (a single item
+# is the norm, multiples are rare) or BURST_ODDS_BOOST while a temporary BOOST is live (multiples become the
+# norm). The boost RAISES THE CHANCE of multiples — it does NOT add a flat count, and there is no per-map
+# scale-up. One BOOST_COST activation arms BOOST_TAPS board-wide taps, decays one tap at a time, then
+# expires (the §10 coin sink; no permanent stacking — T57). Both tables top out at BURST_MAX.
+const BURST_ODDS       := [0.80, 0.15, 0.05]   # no boost: 1 / 2 / 3 items — a single item is the norm
+const BURST_ODDS_BOOST := [0.20, 0.45, 0.35]   # boost live: 1 / 2 / 3 items — multiples are the norm
+const BURST_MAX        := 3                     # ceiling on one tap's burst (both tables top out here)
+const BOOST_BONUS := 2                    # >0 marks "a boost is live" to burst_count (legacy name — no longer a flat add)
 const BOOST_TAPS := 10                    # how many generator taps one boost lasts
 const BOOST_COST := 120                   # coins to activate one boost (the §10 coin sink)
-const BURST_MAX := BURST_FREE_MAX + BOOST_BONUS   # absolute ceiling = free cap + the live boost bonus
 
 # ─────────────────────────────────────────────────────────────────────────────
 # §1 RESIDENTS — the population sub-game (replaces the removed home-hub coin-yield
