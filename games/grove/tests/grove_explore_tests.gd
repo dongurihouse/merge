@@ -325,12 +325,11 @@ func _test_slot_reel() -> void:
 		c.custom_minimum_size = Vector2(w, h)
 		return c
 	# a built reel sits landed on its target tile
-	var reel: Control = SlotReel.build_reel(["a", "b", "c"], "c", 80.0, 84.0, 0, mk, true)
+	var reel: Control = SlotReel.build_reel(["a", "b", "c"], "c", 80.0, 84.0, 0, mk)
 	var tile_h: float = float(reel.get_meta("tile_h"))
 	var n_syms: int = int(reel.get_meta("n_syms"))
 	var band: Control = reel.get_meta("band")
 	ok(is_equal_approx(band.position.y, -tile_h * float(n_syms - 1)), "a built reel is landed on its target tile")
-	ok(bool(reel.get_meta("shine")) == true, "build_reel records the shine flag")
 	# spinning zero reels lands immediately
 	var fired := {"v": false}
 	SlotReel.spin_reels(self, [], null, func() -> void: fired.v = true)
@@ -338,8 +337,8 @@ func _test_slot_reel() -> void:
 	# finish() snaps every band to its landed tile and fires on_all_landed exactly once
 	var host := Control.new()
 	get_root().add_child(host)
-	var r0: Control = SlotReel.build_reel(["a", "b"], "b", 80.0, 84.0, 0, mk, false)
-	var r1: Control = SlotReel.build_reel(["a", "b"], "a", 80.0, 84.0, 1, mk, false)
+	var r0: Control = SlotReel.build_reel(["a", "b"], "b", 80.0, 84.0, 0, mk)
+	var r1: Control = SlotReel.build_reel(["a", "b"], "a", 80.0, 84.0, 1, mk)
 	host.add_child(r0)
 	host.add_child(r1)
 	(r0.get_meta("band") as Control).position.y = 0.0

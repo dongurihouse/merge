@@ -164,9 +164,8 @@ func _initialize() -> void:
 	ok(_collect_label_texts(b54["dialog"]).has("300"), "a reel shows its concrete reward amount (300)")
 	(b54["dialog"] as Control).queue_free(); await process_frame
 
-	# the SHINE classification: a reward with gems is premium; gems outweigh coins for the top-value shine.
-	ok(LoginMystery.is_premium({"gems": 1}) and not LoginMystery.is_premium({"coins": 500}), "a gem reward is premium (shines); a coins reward is not")
-	ok(LoginMystery.reward_value({"gems": 2}) > LoginMystery.reward_value({"coins": 300}), "gems outweigh coins in reward value (top shine)")
+	# the top-value classification: gems outweigh coins so a gem reward becomes the top reel.
+	ok(LoginMystery.reward_value({"gems": 2}) > LoginMystery.reward_value({"coins": 300}), "gems outweigh coins in reward value (top reel)")
 
 	# the PICK phase: each reel is tappable, Claim is gated until exactly `win` are chosen, over-cap is blocked,
 	# deselect works, and Claim hands on_claim EXACTLY the picked rewards.

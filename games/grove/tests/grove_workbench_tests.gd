@@ -1291,11 +1291,10 @@ func _test_mystery_preview(view) -> void:
 	ok((built["reels"][0] as Control).get_meta("reward", {}) == opts[0], "each reel carries its landed reward")
 	(built["dialog"] as Control).queue_free()
 
-	# REVEALED: the day-7 pool shows its amounts, the premium (gem) reels SHINE, and the reels are exposed for replay
+	# REVEALED: the day-7 pool shows its amounts and the reels are exposed for replay
 	view._params["mystery"]["preview"] = "day 7 · revealed"
 	var rev: Control = view._make_element("mystery")
 	ok(_has_label_text(rev, "200"), "the day-7 reveal shows a concrete reward amount (200)")
-	ok(rev.find_child("Shine", true, false) != null, "a premium (gem) reel shines in the revealed state")
 	ok(rev.has_meta("reels") and (rev.get_meta("reels") as Array).size() == 5, "the preview exposes its 5 reels for ▶ Play spin")
 	var rev2: Control = view._make_element("mystery")
 	ok(_collect_label_set(rev) == _collect_label_set(rev2), "the mystery preview is deterministic (no shuffle between builds)")

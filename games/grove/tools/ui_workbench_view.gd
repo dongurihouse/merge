@@ -1685,7 +1685,6 @@ func _mystery_preview(which: String) -> Control:
 	var built: Dictionary = LoginMystery.build_reveal(options, range(win), LoginMystery.reveal_width(PHONE_W), {"frame_cfg": _params})
 	var reels: Array = built["reels"]
 	var dialog: Control = built["dialog"]
-	LoginMystery.reveal_static(reels)                 # land + shine the premium reels (end-of-spin look)
 	if pick_state:
 		var noop := func(_p: Array) -> void: pass
 		LoginMystery.enter_pick(reels, win, built["caption"], built["claim"], noop)

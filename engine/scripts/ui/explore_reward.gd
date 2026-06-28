@@ -21,7 +21,6 @@ const OVERLAY_NAME := "ExploreRewardOverlay"
 const INK := Color("#43352B")
 const STRAW := Color("#D9B679")
 const DIALOG_MAX_W := 540.0
-const SHINE_TIER := 3                               # a spirit landing at tier ≥ this shines (the "jackpot" beat)
 const MAX_ROWS := 3                                 # cap revealed rows so a huge haul can't make the dialog endless
 const SPIN_CFG := {"spin": 1.2, "stagger": 0.55, "anticipate": 0.5, "total_cap": 3.5}
 
@@ -133,7 +132,7 @@ static func build(Kit: GDScript, granted: Array, width: float, vh: float, press:
 	var reels: Array = []
 	for i in display.size():
 		var sp: Dictionary = display[i]
-		var reel: Control = SlotReel.build_reel(decoys, sp, cw, ch, i, _spirit_tile, int(sp.get("tier", 1)) >= SHINE_TIER)
+		var reel: Control = SlotReel.build_reel(decoys, sp, cw, ch, i, _spirit_tile)
 		reel.set_meta("top", i == top_i)
 		reels.append(reel)
 		grid.add_child(reel)
@@ -168,7 +167,7 @@ static func _decoy_symbols() -> Array:
 		out.append({"kind": String(k), "tier": 1})
 	return out
 
-# the index of the highest-tier granted spirit (the reel that shines hardest); -1 if none.
+# the index of the highest-tier granted spirit (the reel that flashes gold on land); -1 if none.
 static func _top_tier_index(spirits: Array) -> int:
 	var best := -1
 	var best_t := -1
@@ -180,7 +179,7 @@ static func _top_tier_index(spirits: Array) -> int:
 	return best
 
 # one reel tile: just the spirit face, sized to FILL the cell window — no name label, no pips (the icon is
-# the read; tier is signalled by the shine). `sym` = {kind,tier}; SlotReel centres it in the window.
+# the read). `sym` = {kind,tier}; SlotReel centres it in the window.
 static func _spirit_tile(sym, w: float, h: float) -> Control:
 	var d: Dictionary = sym
 	return _spirit_icon(String(d.get("kind", "")), minf(w, h))

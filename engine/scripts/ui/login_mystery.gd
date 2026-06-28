@@ -1,7 +1,7 @@
 extends RefCounted
 ## THE MYSTERY GIFT reveal — the daily calendar's slot-machine dialog for the mystery days (week
 ## slots 4 & 7, §18). It shows the `show` DISTINCT rewards a roll drew as a row of SLOT REELS: each
-## reel scrolls reward symbols and lands (one by one, left→right); the premium rewards SHINE; then
+## reel scrolls reward symbols and lands (one by one, left→right); then
 ## the player PICKS `win` of them and Claim grants exactly those (Login.claim_mystery).
 ##
 ## The roll MATH lives in core/login.gd (pure, tested headless); this is its face. `roll.winners` is
@@ -22,16 +22,12 @@ const STRAW := Pal.STRAW
 const KIT_PATH := "res://games/grove/tools/ui_workbench_kit.gd"
 const OVERLAY_NAME := "LoginMysteryOverlay"
 
-# --- reward value + premium (drives the SHINE) --------------------------------------
+# --- reward value -------------------------------------------------------------------
 
-## A single comparable scalar for a reward, premium weighted heaviest, so the top-shine reel is the most
+## A single comparable scalar for a reward, premium weighted heaviest, so the top reel is the most
 ## PREMIUM prize (gems > a comparable coin pile — gems are the rare premium currency in a cozy game).
 static func reward_value(reward: Dictionary) -> int:
 	return int(reward.get("coins", 0)) + int(reward.get("water", 0)) * 10 + int(reward.get("gems", 0)) * 200
-
-## Whether a reward is PREMIUM (carries gems) — premium reels shine on land.
-static func is_premium(reward: Dictionary) -> bool:
-	return int(reward.get("gems", 0)) > 0
 
 # --- the reveal popup ---------------------------------------------------------------
 
@@ -75,7 +71,7 @@ static func open(host: Control, day: int, opts: Dictionary = {}) -> void:
 		_grant_and_finish(overlay, Login.won_rewards(roll), caption, on_done, true)
 		return
 
-	# spin the reels (land one by one + shine), then let the player pick `win`, then grant the picks.
+	# spin the reels (land one by one), then let the player pick `win`, then grant the picks.
 	SlotReel.spin_reels(overlay, reels, dialog, func() -> void:
 		enter_pick(reels, win, caption, claim, func(picked: Array) -> void:
 			_grant_and_finish(overlay, picked, caption, on_done, false)))
@@ -119,8 +115,7 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 	var reels: Array = []
 	for i in options.size():
 		var reel: Control = SlotReel.build_reel(options, options[i], cw, ch, i,
-			func(sym, w, _h) -> Control: return _reward_amounts(load(KIT_PATH), sym, w),
-			is_premium(options[i]))
+			func(sym, w, _h) -> Control: return _reward_amounts(load(KIT_PATH), sym, w))
 		reel.set_meta("top", i == top_i)
 		reel.set_meta("index", i)
 		reels.append(reel)
@@ -138,7 +133,7 @@ static func build_reveal(options: Array, winners: Array, width: float, opts: Dic
 	var dialog: Control = Kit.dialog_frame(body, width, fo)
 	return {"dialog": dialog, "reels": reels, "caption": caption, "claim": claim}
 
-# The index of the highest-value option (the top-shine reel); -1 if none.
+# The index of the highest-value option (the top reel — flashes gold on land); -1 if none.
 static func _top_value_index(options: Array) -> int:
 	var best := -1
 	var best_v := -1
@@ -221,20 +216,9 @@ static func _claim_button() -> Button:
 	b.add_theme_stylebox_override("disabled", dim)
 	return b
 
-## The "all reels landed" look WITHOUT animation (the workbench revealed/pick states) — shine the premium
-## reels (build_reveal already lands every band on its target). Lets the workbench preview the end-of-spin.
-static func reveal_static(reels: Array) -> void:
-	for reel in reels:
-		if is_premium((reel as Control).get_meta("reward")):
-			SlotReel.shine(reel, bool((reel as Control).get_meta("top", false)))
-
-## Re-run the reel spin from the top (the workbench "▶ Play spin"): clear shine + reset each band, then spin.
+## Re-run the reel spin from the top (the workbench "▶ Play spin"): reset each band, then spin.
 static func replay_spin(host: Control, reels: Array, on_done: Callable = Callable()) -> void:
 	for reel in reels:
-		for nm in ["Shine", "ShineRim", "ShineStar"]:
-			var sh := (reel as Control).get_node_or_null(nm)
-			if sh != null:
-				sh.queue_free()
 		(reel as Control).scale = Vector2.ONE
 		var band: Control = (reel as Control).get_meta("band")
 		band.position.y = 0.0

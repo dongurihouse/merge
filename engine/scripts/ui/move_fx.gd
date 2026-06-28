@@ -21,7 +21,7 @@ const KNOBS := {
 	"duration_ms": 220,      # primary travel duration (ms) — bigger = a slower, weightier trip
 	"trail_count": 3,        # afterimage ghosts dropped along the chord
 	"shadow_alpha_pct": 22,  # cast-shadow opacity (% — 0 invisible, 60 heavy)
-	"lean_deg": 6,           # how far the tile tilts into the horizontal travel direction
+	"lean_deg": 10,          # how far the tile tilts into the horizontal travel direction (slide/fall; arc has its own motion)
 }
 
 const SHADOW_DARK := Color(0.05, 0.05, 0.05)
@@ -87,14 +87,20 @@ static func apply(node: Control, from: Vector2, to: Vector2, kind: String, opts:
 			_lean(node, from, to, dur, float(knob(opts, "lean_deg")))
 	return t
 
-# The arc's two legs: up-and-over (EASE_OUT, leaves slowly) to a peak above the higher endpoint, then
-# down-into-target (EASE_IN, accelerates into the hit). Total = dur, split evenly across the two legs.
+# A SMOOTH arc — a single quadratic-bezier path (no tent kink). The control point sits above the
+# midpoint so the tile sweeps up-and-over in one continuous curve; the `s` param is eased so it leaves
+# slowly and accelerates INTO the landing (gravity-like). One `tween_method` drives position along the
+# curve, so there is no sharp apex where two straight legs would have met.
 static func _build_arc(t: Tween, node: Control, from: Vector2, to: Vector2, dur: float) -> void:
 	var span := absf(to.x - from.x)
 	var lift := maxf(60.0, span * 0.4)
-	var peak := Vector2((from.x + to.x) * 0.5, minf(from.y, to.y) - lift)
-	t.tween_property(node, "position", peak, dur * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
-	t.tween_property(node, "position", to, dur * 0.5).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	var ctrl := Vector2((from.x + to.x) * 0.5, minf(from.y, to.y) - lift)   # bezier control, above the path
+	t.tween_method(
+		func(s: float) -> void:
+			if node != null and is_instance_valid(node):
+				var u := 1.0 - s
+				node.position = from * (u * u) + ctrl * (2.0 * u * s) + to * (s * s),
+		0.0, 1.0, dur).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 
 # --- enhancements (scene-tree; only run off-headless, off-calm) ------------------------
 
@@ -114,9 +120,9 @@ static func _shadow(node: Control, from: Vector2, to: Vector2, dur: float, alpha
 	sh.color = Color(SHADOW_DARK.r, SHADOW_DARK.g, SHADOW_DARK.b, alpha)
 	sh.size = sz * SHADOW_SCALE
 	sh.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	sh.z_index = -1   # under the tile
+	sh.z_index = node.z_index            # same layer as the tile — NOT z=-1 (which hid it behind the field/board bg)
 	(parent as Node).add_child(sh)
-	(parent as Node).move_child(sh, 0)   # behind the moving node
+	(parent as Node).move_child(sh, node.get_index())   # just BEHIND the moving node in tree order (above the bg)
 	sh.pivot_offset = sh.size * 0.5
 	var base_off := SHADOW_OFFSET + (sz - sh.size) * 0.5
 	sh.position = from + base_off
@@ -143,13 +149,16 @@ static func _trail(node: Control, from: Vector2, to: Vector2, dur: float, count:
 			continue
 		var g := ghost as Control
 		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		g.modulate = Color(1, 1, 1, 0.5 * (1.0 - f * 0.5))
-		g.z_index = node.z_index - 1
+		var peak_a := 0.5 * (1.0 - f * 0.5)
+		g.modulate = Color(1, 1, 1, 0.0)    # invisible until the tile reaches this point (a true afterimage)
+		g.z_index = node.z_index            # same layer — NOT z-1 (which hid the ghosts behind the field/board bg)
 		(parent as Node).add_child(g)
+		(parent as Node).move_child(g, node.get_index())   # behind the tile in tree order, above the bg
 		g.position = from.lerp(to, f)
 		var t := g.create_tween()
-		t.tween_interval(dur * f)            # appear as the node passes this point
-		t.tween_property(g, "modulate:a", 0.0, TRAIL_T)
+		t.tween_interval(dur * f)            # wait until the node passes this point...
+		t.tween_property(g, "modulate:a", peak_a, 0.03)    # ...flash the afterimage in...
+		t.tween_property(g, "modulate:a", 0.0, TRAIL_T)    # ...then smear out
 		t.tween_callback(g.queue_free)
 
 ## A small `deg` tilt INTO the horizontal travel direction, righting on arrival — a body-language cue

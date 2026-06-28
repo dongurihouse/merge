@@ -1,16 +1,15 @@
 extends RefCounted
 ## Shared slot-machine REEL mechanic — the spin choreography + land juice, factored out of the daily
 ## mystery reveal (ui/login_mystery.gd) so the Rush reward (ui/explore_reward.gd) reuses the exact
-## same "all reels whir → land left→right with a thunk + shine" feel. The CALLER supplies the per-tile
-## content via a make_tile Callable (currency rows / spirit faces) and a per-reel `shine` flag; this
-## module owns the band, the clipped window, the staggered tweens, the bounce/flash/chime/shine, plus a
+## same "all reels whir → land left→right with a thunk" feel. The CALLER supplies the per-tile
+## content via a make_tile Callable (currency rows / spirit faces); this
+## module owns the band, the clipped window, the staggered tweens, the bounce/flash/chime, plus a
 ## finish() handle that snaps every reel to its landed state (the Rush "Done = skip to the end" path).
 
 const FX = preload("res://engine/scripts/ui/fx.gd")
 const Audio = preload("res://engine/scripts/core/audio.gd")
 const Game = preload("res://engine/scripts/core/game.gd")
 const Pal = Game.PALETTE
-const STRAW := Pal.STRAW
 const CELL_ART := "res://games/grove/assets/ui/kit/daily_card.png"
 
 # reel spin pacing (owner feel dial). Reels ALL start together and STOP one-by-one (left→right): reel i
@@ -25,17 +24,15 @@ const REEL_BLUR_ALPHA := 0.78    # band opacity while whirring fast; 1.0 when la
 
 ## Build one reel LANDED on `target`. `pool` are the symbols whizzing past (decoys); `make_tile.call(
 ## symbol, win_w, win_h)` returns the Control for one tile's content (it gets centred in the window).
-## `index` desyncs neighbours + lengthens the band (so reel i lands later). `shine_on_land` marks this
-## reel to glow when it lands (premium / high tier). Metas: reward(=target), band, tile_h, n_syms,
-## shine, selected, tap (a disabled full-rect button a caller may enable for a pick phase).
-static func build_reel(pool: Array, target, cw: float, ch: float, index: int, make_tile: Callable, shine_on_land: bool) -> Control:
+## `index` desyncs neighbours + lengthens the band (so reel i lands later). Metas: reward(=target),
+## band, tile_h, n_syms, selected, tap (a disabled full-rect button a caller may enable for a pick phase).
+static func build_reel(pool: Array, target, cw: float, ch: float, index: int, make_tile: Callable) -> Control:
 	var reel := Control.new()
 	reel.custom_minimum_size = Vector2(cw, ch)
 	reel.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	reel.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	reel.set_meta("reward", target)
 	reel.set_meta("selected", false)
-	reel.set_meta("shine", shine_on_land)
 
 	var bg := PanelContainer.new()
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -183,9 +180,8 @@ static func spin_reels(host, reels: Array, dialog: Control, on_all_landed: Calla
 			on_all_landed.call()
 	return {"finish": finish}
 
-# A reel lands: bounce + flash + escalating chime + shine (if its `shine` meta is set; the `top` meta
-# shines hardest + shakes the dialog). `quiet` skips the bounce/flash/chime/shake (the skip-to-end snap)
-# but still applies the shine, so the final picture matches a full cascade.
+# A reel lands: bounce + flash + escalating chime (the `top` meta flashes gold + shakes the dialog).
+# `quiet` skips the bounce/flash/chime/shake (the skip-to-end snap straight to the final picture).
 static func _land_reel(reel: Control, idx: int, total: int, dialog: Control, quiet: bool) -> void:
 	if not is_instance_valid(reel):
 		return
@@ -193,8 +189,6 @@ static func _land_reel(reel: Control, idx: int, total: int, dialog: Control, qui
 	if is_instance_valid(band):
 		band.modulate.a = 1.0
 	var top: bool = bool(reel.get_meta("top", false))
-	if bool(reel.get_meta("shine", false)):
-		shine(reel, top)
 	if quiet:
 		return
 	reel.pivot_offset = Vector2(reel.size.x * 0.5, reel.size.y)
@@ -220,22 +214,3 @@ static func _flash(reel: Control, strong: bool) -> void:
 	var t := fl.create_tween()
 	t.tween_property(fl, "modulate:a", 0.0, 0.26 if strong else 0.22).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	t.tween_callback(fl.queue_free)
-
-## The shine: a warm glow BEHIND the band that gently pulses + a one-shot sparkle burst on land. `strong`
-## (the richest reel) glows warmer + bursts bigger. Public — login_mystery.reveal_static calls it too.
-static func shine(reel: Control, strong: bool) -> void:
-	if reel.has_node("Shine"):
-		return
-	var hi: float = 0.5 if strong else 0.34
-	var glow := ColorRect.new()
-	glow.name = "Shine"
-	glow.color = Color(STRAW, hi)
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	reel.add_child(glow)
-	reel.move_child(glow, 1)
-	if reel.is_inside_tree():
-		var pt := glow.create_tween().set_loops()
-		pt.tween_property(glow, "color:a", hi * 0.5, 0.8).set_trans(Tween.TRANS_SINE)
-		pt.tween_property(glow, "color:a", hi, 0.8).set_trans(Tween.TRANS_SINE)
-	FX.burst(reel, reel.size * 0.5, STRAW, 18 if strong else 11)
