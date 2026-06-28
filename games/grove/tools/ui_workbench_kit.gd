@@ -3546,9 +3546,9 @@ static func _level_btn_opts(cfg: Dictionary) -> Dictionary:
 
 ## The GENERATOR HIGHLIGHT opts from a saved config — the glow halo / silhouette outline / sparkle that
 ## marks a board generator (drawn by engine PieceView.make_generator). Stored as workbench-friendly ints
-## (percent / per-mille / count) and converted to the fractions the builder reads. Returns {} when the
-## "generator" block is absent so the engine falls back to its shipped GEN_* consts (the source of truth
-## for the defaults below — keep them in sync with piece_view.gd).
+## (percent / per-mille / count) plus 6-digit hex colours, then converted to the values the builder
+## reads. Returns {} when the "generator" block is absent so the engine falls back to its shipped GEN_*
+## consts (the source of truth for the defaults below — keep them in sync with piece_view.gd).
 static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 	var g: Dictionary = cfg.get("generator", {})
 	if g.is_empty():
@@ -3556,10 +3556,13 @@ static func gen_highlight_opts_from_config(cfg: Dictionary) -> Dictionary:
 	return {
 		"glow_scale": float(g.get("glow_scale", 100)) / 100.0,    # halo size, % of cell
 		"glow_a": float(g.get("glow_a", 30)) / 100.0,             # halo opacity
+		"glow_color": _hex_color(String(g.get("glow_color", "FFD27A"))),
 		"outline_w": float(g.get("outline_w", 35)) / 1000.0,      # rim thickness, per-mille of cell
 		"outline_a": float(g.get("outline_a", 85)) / 100.0,       # rim opacity
 		"sparkle_count": int(g.get("sparkle_count", 5)),          # twinkle count
+		"sparkle_size": float(g.get("sparkle_size", 100)) / 100.0, # twinkle size multiplier
 		"sparkle_speed": float(g.get("sparkle_speed", 70)) / 100.0,   # twinkle cycles/sec
+		"sparkle_color": _hex_color(String(g.get("sparkle_color", "FFF4C2"))),
 	}
 
 ## The shared HOME-BUTTON style opts from a saved config — the round icon button used by the home page's

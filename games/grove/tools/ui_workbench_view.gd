@@ -246,10 +246,11 @@ var _params := {
 		"frame_border_w": 4, "frame_inner_w": 0, "frame_top_shadow": 0},
 	"fx": {"shadow": false},
 	# the GENERATOR highlight — the glow halo / silhouette outline / sparkle drawn by engine make_generator.
-	# Saved knobs (glow_scale %, glow_a %, outline_w per-mille of cell, outline_a %, sparkle_count, sparkle_speed
-	# /100 cyc/s) flow to the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's
-	# GEN_* consts. `preview` (which generator) + `cell` (preview px) are test-only.
-	"generator": {"glow_scale": 100, "glow_a": 30, "outline_w": 35, "outline_a": 85, "sparkle_count": 5, "sparkle_speed": 70,
+	# Saved knobs (glow scale/alpha/color, outline width/alpha, sparkle count/size/speed/color) flow to
+	# the LIVE board via Kit.gen_highlight_opts_from_config; defaults mirror piece_view's GEN_* consts.
+	# `preview` (which generator) + `cell` (preview px) are test-only.
+	"generator": {"glow_scale": 100, "glow_a": 30, "glow_color": "FFD27A", "outline_w": 35, "outline_a": 85,
+		"sparkle_count": 5, "sparkle_size": 100, "sparkle_speed": 70, "sparkle_color": "FFF4C2",
 		"preview": "seed_satchel", "cell": 170},
 	# the FOCUS RING — the selected-cell corner brackets. Colours are 6-digit hex (no '#'); arm/thick/pad
 	# are % of the cell, halo_a is %. Defaults reproduce the shipped look (dark ink-green + cream halo).
@@ -2177,12 +2178,15 @@ func _rebuild_sidebar() -> void:
 			_section_header("Glow halo")
 			_sidebar_body.add_child(_slider_row(["glow_scale", 60, 160]))    # halo size, % of cell
 			_sidebar_body.add_child(_slider_row(["glow_a", 0, 80]))          # halo opacity %
+			_sidebar_body.add_child(_color_row("Glow", "glow_color"))        # halo tint
 			_section_header("Outline (traces the art)")
 			_sidebar_body.add_child(_slider_row(["outline_w", 0, 90]))       # rim thickness (per-mille of cell)
 			_sidebar_body.add_child(_slider_row(["outline_a", 0, 100]))      # rim opacity %
 			_section_header("Sparkle")
 			_sidebar_body.add_child(_slider_row(["sparkle_count", 0, 7]))    # twinkle count
+			_sidebar_body.add_child(_slider_row(["sparkle_size", 50, 250]))  # twinkle size, % of default
 			_sidebar_body.add_child(_slider_row(["sparkle_speed", 0, 150]))  # twinkle speed (/100 cyc/s)
+			_sidebar_body.add_child(_color_row("Sparkle", "sparkle_color"))  # twinkle tint
 			_group_header("Test only — not saved", false)
 			_sidebar_body.add_child(_option_row("Generator", "preview", ["seed_satchel", "hen_coop", "tool_shed", "bee_skep", "mushroom_ring"]))
 			_sidebar_body.add_child(_slider_row(["cell", 90, 240]))         # preview size (px)

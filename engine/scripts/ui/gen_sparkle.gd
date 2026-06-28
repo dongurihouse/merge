@@ -9,6 +9,7 @@ extends Control
 
 @export var tint := Color("#FFF4C2")   # warm twinkle colour
 @export var count := 5                  # how many twinkles (capped by the fixed spot list)
+@export var size_mult := 1.0            # multiplier over the fixed spot radii
 @export var speed := 0.7                # twinkle cycles per second
 
 var _t := 0.0
@@ -42,7 +43,7 @@ func _draw() -> void:
 		if a < 0.03:
 			continue
 		var c := Vector2(float(s.p.x) * size.x, float(s.p.y) * size.y)
-		_spark(c, float(s.size) * (0.4 + 0.6 * tw), a)
+		_spark(c, float(s.size) * size_mult * (0.4 + 0.6 * tw), a)
 
 # A 4-point sparkle = two crossed thin diamonds (convex, triangulate cleanly) + a bright core.
 func _spark(c: Vector2, r: float, a: float) -> void:

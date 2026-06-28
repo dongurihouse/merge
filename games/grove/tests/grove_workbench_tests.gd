@@ -411,6 +411,7 @@ func _initialize() -> void:
 	_test_discovery_frame()
 	_test_board_element(view)
 	_test_quest_card_config(view)
+	_test_generator_highlight_controls(view)
 	_test_new_knobs(view)
 	_test_warm_shadow_port()
 	_test_mystery_preview(view)
@@ -881,6 +882,36 @@ func _test_unlock_reward_reuses_mail_dialog() -> void:
 ## The merge BOARD as a workbench element: a faithful preview (frame · shared cell well · pieces) with
 ## live scale/frame/gap knobs plus preview-only `cell`/`cols`/`rows`. Piece size comes from Slot-cell
 ## content_frac, the same source the live board uses.
+func _test_generator_highlight_controls(view) -> void:
+	var opts: Dictionary = Kit.gen_highlight_opts_from_config({"generator": {
+		"glow_scale": 122, "glow_a": 80, "glow_color": "77CCFF",
+		"outline_w": 35, "outline_a": 85,
+		"sparkle_count": 7, "sparkle_speed": 150,
+		"sparkle_size": 180, "sparkle_color": "FF66CC",
+	}})
+	var glow_color_v = opts.get("glow_color", null)
+	var sparkle_color_v = opts.get("sparkle_color", null)
+	ok(is_equal_approx(float(opts.glow_scale), 1.22) \
+		and glow_color_v is Color and (glow_color_v as Color).is_equal_approx(Color("#77CCFF")) \
+		and is_equal_approx(float(opts.glow_a), 0.80), \
+		"generator highlight reads glow halo scale, alpha, and color from workbench config")
+	ok(opts.has("sparkle_size") and is_equal_approx(float(opts.get("sparkle_size", 0.0)), 1.80) \
+		and sparkle_color_v is Color and (sparkle_color_v as Color).is_equal_approx(Color("#FF66CC")) \
+		and int(opts.sparkle_count) == 7, \
+		"generator highlight reads sparkle count, size, speed, and color from workbench config")
+	ok((view._params["generator"] as Dictionary).has("sparkle_size") \
+		and (view._params["generator"] as Dictionary).has("sparkle_color") \
+		and (view._params["generator"] as Dictionary).has("glow_color") \
+		and view._is_config("generator", "sparkle_size") \
+		and view._is_config("generator", "sparkle_color") \
+		and view._is_config("generator", "glow_color"), \
+		"generator glow and sparkle color/size controls are saved config")
+	view._selected = "generator"
+	view._rebuild_sidebar()
+	ok(_slider_max(view, "Sparkle Size") >= 250.0 \
+		and view._sidebar_body.find_children("*", "ColorPickerButton", true, false).size() >= 2, \
+		"generator sidebar exposes sparkle size plus glow/sparkle color pickers")
+
 # The new workbench knobs (this branch): home-button caption padding + side-rail badge offset, and the
 # currency pill's "+" size. Each must be SAVED config the kit resolver reads, default to the shipped look,
 # and (for the badge) render a sample badge on the home-button preview so the offset is tunable live.
