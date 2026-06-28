@@ -200,6 +200,28 @@ func _initialize() -> void:
 			await create_timer(0.3).timeout
 			var frect: Rect2 = Rect2(scn.board_area.get_global_transform() * scn._cell_pos(fcell), Vector2(scn.csz, scn.csz))
 			print("FOCUSCOIN cell=%s crop=%d,%d,%d,%d" % [str(fcell), int(frect.position.x), int(frect.position.y), int(frect.size.x), int(frect.size.y)])
+		"questready":
+			# the quest-ready GLOW: seed a board tile the leftmost giver wants, so it wears the soft gold
+			# halo + breathe (the board-side twin of the giver ✓/bob). Prints a PADDED pixel rect (the halo
+			# spills ~18% past the cell) so eng can crop the exact tile to eyeball the glow.
+			var tut: Node = scn.find_child("BoardTutorialOverlay", true, false)   # drop the FTUE card so the board shows
+			if tut != null:
+				tut.queue_free()
+			await create_timer(0.4).timeout                   # let the board's deferred intro re-deal settle FIRST
+			# seed several wanted tiles (all current asks) AFTER the re-deal so they aren't wiped — more
+			# glowing tiles makes the affordance legible in a single board capture.
+			var seeded: Array = []
+			var qes: Array = scn.board.empty_ground_cells()
+			for ai in scn.quests.size():
+				var ait: Dictionary = G.quest_item(scn.quests[ai])
+				if ait.is_empty() or qes.is_empty():
+					continue
+				scn.board.place(Vector2i(qes.pop_back()), int(ait.line) * 100 + int(ait.tier))
+				seeded.append(int(ait.line) * 100 + int(ait.tier))
+			scn._rebuild_pieces()
+			scn._refresh_quest_ready_marks()
+			scn._update_hud()
+			print("QUESTREADY seeded %d wanted tiles: %s" % [seeded.size(), str(seeded)])
 		"genburst", "genburstbroke":
 			# T54→boost: the info bar with the GENERATOR selected → the boost chip in the action slot.
 			# "genburst" = affordable, no boost live (coins present → green chip); "genburstbroke" = broke

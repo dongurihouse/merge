@@ -39,9 +39,16 @@ func _initialize() -> void:
 		var overlay_name := String(c.overlay)
 		var overlay := TutorialImage.open(host, overlay_name, String(c.path))
 		await process_frame
+		var backdrop := overlay.find_child("TutorialImageBackdrop", true, false) as ColorRect if overlay != null else null
 		var art := overlay.find_child("TutorialImageArt", true, false) as TextureRect if overlay != null else null
 		var hit := overlay.find_child("TutorialDismissHitArea", true, false) as Button if overlay != null else null
 		ok(overlay != null, "%s tutorial opens a full-screen overlay" % String(c.name))
+		ok(backdrop != null and backdrop.get_global_rect().size.distance_to(viewport_size) < 2.0, \
+			"%s tutorial paints a full-screen black backdrop behind contained art" % String(c.name))
+		ok(backdrop != null and backdrop.color.is_equal_approx(Color.BLACK), \
+			"%s tutorial backdrop is opaque black" % String(c.name))
+		ok(backdrop != null and art != null and backdrop.get_index() < art.get_index(), \
+			"%s tutorial backdrop sits behind the art" % String(c.name))
 		ok(art != null and art.get_global_rect().size.distance_to(viewport_size) < 2.0, \
 			"%s tutorial art rect fills the screen" % String(c.name))
 		ok(hit != null and hit.get_global_rect().size.distance_to(viewport_size) < 2.0, \
