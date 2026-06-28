@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/bg_grove_board2.png-8d59d1d5270ffb42a9454542d
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/flower_6.png-bbfa5ca3a8b74bf7f6d1d73e0cb123c5
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1

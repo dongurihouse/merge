@@ -15,9 +15,9 @@ dest_files=["res://.godot/imported/switch_off.png-0a4154fd4f415aa4891bfe01b39a36
 
 [params]
 
-compress/mode=0
+compress/mode=1
 compress/high_quality=false
-compress/lossy_quality=0.7
+compress/lossy_quality=0.88
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
