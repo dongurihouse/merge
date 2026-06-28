@@ -62,11 +62,19 @@ static func on(opts: Dictionary, id: String) -> bool:
 
 ## Fire the landing impact per the resolved opts. `node` is the arriving tile; `host`/`center`
 ## locate the puff + flash. Mirrors feel.land but every cue is individually toggled + tuned.
-static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary) -> void:
+## `intensity` (0..1) scales the squash deviation; `quiet` (a bulk/gravity settle) suppresses the
+## per-tile SOUND, flash, and haptic — but the SQUASH still fires and the dust puff still fires
+## whenever intensity > 0 (the cheap visual touchdown), so a settling column still visibly thumps
+## without machine-gunning N sounds/flashes/pulses. Mirrors feel.land's quiet behaviour.
+static func apply(host: Node, node: Control, center: Vector2, opts: Dictionary, intensity := 1.0, quiet := false) -> void:
 	if on(opts, "squash"):
-		_squash(node, knob(opts, "squash_pct"), knob(opts, "squash_ms"))
-	if on(opts, "puff"):
+		_squash(node, int(round(knob(opts, "squash_pct") * intensity)), knob(opts, "squash_ms"))
+	# the dust puff reads the touchdown — fires even on a quiet bulk settle (it's the SOUND/flash we dedupe)
+	if on(opts, "puff") and intensity > 0.0:
 		FX.burst(host, center, LEAF, knob(opts, "puff_count"))
+	if quiet:
+		return
+	# discrete (loud) landing only: the soft flash + touch sound + haptic
 	if on(opts, "flash"):
 		var size := node.size.x if node != null and is_instance_valid(node) else 96.0
 		FX.flash(host, center, size, Tune.FLASH_PEAK * float(knob(opts, "flash_pct")) / 100.0)

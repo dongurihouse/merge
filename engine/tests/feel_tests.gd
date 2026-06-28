@@ -7,6 +7,10 @@ extends SceneTree
 const Feel = preload("res://engine/scripts/ui/feel.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX
 const Save = preload("res://engine/scripts/core/save.gd")
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 
 var _pass := 0
 var _fail := 0
@@ -259,5 +263,80 @@ func _initialize() -> void:
 	ok(Feel.board_punch(null, 1.0) == null, "board_punch(null) is a safe no-op returning null")
 	board.queue_free()
 
+	_test_fx_config()
+
 	print("== %d passed, %d failed ==" % [_pass, _fail])
 	quit(1 if _fail > 0 else 0)
+
+# --- the four tunable feel appliers read their config (the workbench-saved toggles + knobs) -------
+# Proves a saved config TAKES EFFECT: from_config resolves the toggles/knobs the appliers read, and a
+# cue toggled OFF in the config does not fire (probed via the scene-tree side effect — FX.burst /
+# FX.flash add a child to the host only when their toggle is on).
+func _test_fx_config() -> void:
+	# --- from_config: a saved toggle + knob override resolves over the defaults ---
+	var m := MergeFx.from_config({"merge_fx": {"flash": false, "hitstop_ms": 0}})
+	ok(MergeFx.on(m, "flash") == false, "MergeFx.from_config honours a saved 'flash:false' toggle")
+	ok(MergeFx.knob(m, "hitstop_ms") == 0, "MergeFx.from_config honours a saved 'hitstop_ms:0' knob")
+	ok(MergeFx.on(m, "burst") == true, "MergeFx.from_config leaves un-overridden toggles at their default (on)")
+	var m_default := MergeFx.from_config({})
+	ok(MergeFx.knob(m_default, "burst_count") == MergeFx.KNOBS["burst_count"], "MergeFx.from_config falls back to the default knob when unset")
+	var l := LandFx.from_config({"land_fx": {"sound": false, "puff_count": 3}})
+	ok(LandFx.on(l, "sound") == false and LandFx.knob(l, "puff_count") == 3, "LandFx.from_config honours saved toggle + knob")
+	var la := LaunchFx.from_config({"launch_fx": {"recoil": false}})
+	ok(LaunchFx.on(la, "recoil") == false, "LaunchFx.from_config honours a saved toggle")
+	var mv := MoveFx.from_config({"move_fx": {"duration_ms": 99}})
+	ok(MoveFx.knob(mv, "duration_ms") == 99, "MoveFx.from_config honours a saved knob")
+
+	# --- the master switch gates every cue ---
+	var off := MergeFx.from_config({"merge_fx": {"enabled": false}})
+	ok(MergeFx.on(off, "burst") == false, "the merge master switch (enabled:false) turns every cue off")
+
+	# --- apply: a cue toggled OFF does not fire (burst adds no GPUParticles2D child) ---
+	Save.set_setting("calm", false)
+	var host_on := Control.new()
+	host_on.size = Vector2(200, 200)
+	get_root().add_child(host_on)
+	var tile_on := Control.new()
+	tile_on.size = Vector2(96, 96)
+	host_on.add_child(tile_on)
+	# burst ON (default) → a particle child is added to the host
+	MergeFx.apply(host_on, tile_on, Vector2(50, 50), 3, 0, [], host_on, MergeFx.from_config({}), 1.0, 0)
+	ok(_count_particles(host_on) >= 1, "MergeFx.apply with burst ON fires a particle burst (a child is added)")
+	# burst OFF → no particle child is added
+	var host_off := Control.new()
+	host_off.size = Vector2(200, 200)
+	get_root().add_child(host_off)
+	var tile_off := Control.new()
+	tile_off.size = Vector2(96, 96)
+	host_off.add_child(tile_off)
+	MergeFx.apply(host_off, tile_off, Vector2(50, 50), 3, 0, [], host_off, MergeFx.from_config({"merge_fx": {"burst": false}}), 1.0, 0)
+	ok(_count_particles(host_off) == 0, "MergeFx.apply with burst OFF in the config fires NO burst (no child added)")
+
+	# --- LandFx.apply: a QUIET land fires the puff but NOT the flash/sound (mirrors feel.land) ---
+	var host_q := Control.new()
+	host_q.size = Vector2(200, 200)
+	get_root().add_child(host_q)
+	var tile_q := Control.new()
+	tile_q.size = Vector2(96, 96)
+	host_q.add_child(tile_q)
+	LandFx.apply(host_q, tile_q, Vector2(50, 50), LandFx.from_config({}), 1.0, true)
+	ok(_count_particles(host_q) >= 1, "LandFx.apply quiet still fires the dust puff (the touchdown visual)")
+	ok(_count_flashes(host_q) == 0, "LandFx.apply quiet suppresses the flash (the per-tile dedupe)")
+
+	host_on.queue_free(); host_off.queue_free(); host_q.queue_free()
+
+# Count the GPUParticles2D children of a host (the FX.burst side effect).
+func _count_particles(host: Node) -> int:
+	var n := 0
+	for ch in host.get_children():
+		if ch is GPUParticles2D:
+			n += 1
+	return n
+
+# Count the FX.flash ColorRect children of a host (white impact squares; the tile child is a plain Control).
+func _count_flashes(host: Node) -> int:
+	var n := 0
+	for ch in host.get_children():
+		if ch is ColorRect:
+			n += 1
+	return n

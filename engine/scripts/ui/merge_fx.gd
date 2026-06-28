@@ -77,23 +77,39 @@ static func _color(tier: int) -> Color:
 
 ## Fire the merge impact per the resolved opts. `node` is the produced tile; `host`/`center` locate
 ## the flash + burst; `tier`/`combo` drive the escalation; `neighbors`/`board` feed the ripple +
-## punch. Every cue is individually toggled + tuned. Null-safe on node/neighbors/board.
-static func apply(host: Node, node: Control, center: Vector2, tier: int, combo: int, neighbors: Array, board: Control, opts: Dictionary) -> void:
+## punch. `intensity` (0..1) scales the flash peak, burst count, shake amp, ripple, and board punch
+## (a spirit-merge passes a low intensity); `hitstop_gate` suppresses the freeze when `combo` sits
+## below the gate (a low-combo merge stays snappy), else the freeze fires scaled by intensity. The
+## sound always plays when toggled on. Every cue is individually toggled + tuned. Null-safe on
+## node/neighbors/board. Also fires the merge HAPTIC (preserving feel.merge's tactile cue) — gated
+## on the sound toggle so a fully-muted merge has no buzz either.
+static func apply(host: Node, node: Control, center: Vector2, tier: int, combo: int, neighbors: Array, board: Control, opts: Dictionary, intensity := 1.0, hitstop_gate := 0) -> void:
 	if on(opts, "squash"):
 		FX.squash_pop(node)
 	if on(opts, "flash"):
 		var size := node.size.x if node != null and is_instance_valid(node) else 96.0
-		FX.flash(host, center, size, Tune.FLASH_PEAK * float(knob(opts, "flash_pct")) / 100.0)
+		FX.flash(host, center, size, Tune.FLASH_PEAK * float(knob(opts, "flash_pct")) / 100.0 * intensity)
 	if on(opts, "hitstop"):
-		FX.hitstop(float(knob(opts, "hitstop_ms")) / 1000.0)
+		# the "thunk" — ZERO below the combo gate (keeps low-combo merges snappy), else scaled by intensity.
+		var hs := 0.0 if combo < hitstop_gate else float(knob(opts, "hitstop_ms")) / 1000.0 * intensity
+		if hs > 0.0:
+			FX.hitstop(hs)
 	if on(opts, "burst"):
-		FX.burst(host, center, _color(tier), knob(opts, "burst_count"))
+		FX.burst(host, center, _color(tier), int(round(knob(opts, "burst_count") * intensity)))
 	if on(opts, "shake"):
-		FX.shake(host, float(knob(opts, "shake_amp")))
+		FX.shake(host, float(knob(opts, "shake_amp")) * intensity)
 	if on(opts, "sound"):
 		var base_pitch := clampf(0.95 + 0.03 * tier, 0.9, 1.3) * float(knob(opts, "pitch_base_pct")) / 100.0
 		Audio.play("merge_success" if tier >= 4 else "merge_soft", -1.0, base_pitch)
+		Feel.haptic(_weight(tier))   # the tactile spine feel.merge fired — weight ladders by tier
 	if on(opts, "ripple"):
-		Feel.ripple(neighbors, center, float(knob(opts, "ripple_pct")) / 100.0)
+		Feel.ripple(neighbors, center, float(knob(opts, "ripple_pct")) / 100.0 * intensity)
 	if on(opts, "board_punch"):
-		Feel.board_punch(board, float(knob(opts, "punch_pct")) / 100.0)
+		Feel.board_punch(board, float(knob(opts, "punch_pct")) / 100.0 * intensity)
+
+## Haptic weight ladder copied from feel._merge_weight: heavy at the big-moment tier, firm at 4..7,
+## soft below.
+static func _weight(tier: int) -> String:
+	if tier >= Tune.ESCALATE_TIER:
+		return "heavy"
+	return "firm" if tier >= 4 else "soft"

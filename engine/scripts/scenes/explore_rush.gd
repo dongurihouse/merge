@@ -20,6 +20,10 @@ const PieceView = preload("res://engine/scripts/ui/piece_view.gd")   # the home 
 const BoardScript = preload("res://engine/scripts/scenes/board.gd")  # reuse its painted field backdrop
 const Look = preload("res://engine/scripts/ui/skin.gd")              # safe-area inset for the top bar
 const RushFx = preload("res://engine/scripts/ui/rush_fx.gd")        # the toggleable screen-juice effects (workbench rush_fx)
+const MergeFx = preload("res://engine/scripts/ui/merge_fx.gd")      # the toggleable + tunable feel appliers
+const LandFx = preload("res://engine/scripts/ui/land_fx.gd")        # (workbench-tuned, resolved once in _ready)
+const LaunchFx = preload("res://engine/scripts/ui/launch_fx.gd")
+const MoveFx = preload("res://engine/scripts/ui/move_fx.gd")
 const TutorialImage = preload("res://engine/scripts/ui/tutorial_image.gd")
 const Tune = preload("res://engine/scripts/core/tuning.gd").FX       # MOVE_* arc-leg timings (the fling spin matches the move arc)
 const ComboBloom = preload("res://engine/scripts/ui/combo_bloom.gd")  # bundle D: the warm streak screen-bloom overlay
@@ -59,6 +63,12 @@ var _lbl_time: Label = null
 var _lbl_score: Label = null
 var _lbl_mult: Label = null
 var _fx: Dictionary = {}         # the resolved rush_fx toggles (RushFx.from_config)
+# the resolved feel-FX opts (MergeFx/LandFx/LaunchFx/MoveFx.from_config) — workbench-tuned toggles +
+# knobs, resolved ONCE in _ready alongside _fx so Rush runs the same appliers the workbenches preview.
+var _merge_opts := {}
+var _land_opts := {}
+var _launch_opts := {}
+var _move_opts := {}
 var _score_cell: Control = null  # the score / mult bar cells (for the pop effects)
 var _mult_cell: Control = null
 var _last_sec := -1              # the last whole second shown (drives the per-second timer urgency)
@@ -92,6 +102,15 @@ func _ready() -> void:
 	# survives the chrome relayout and dies with the run). Merges poke it via bump().
 	_combo_bloom = ComboBloom.new()
 	add_child(_combo_bloom)
+
+	# resolve the workbench-tuned feel-FX opts ONCE — Rush then runs the SAME appliers the
+	# Merge/Land/Launch/Move workbenches preview, so a saved tuning takes effect in-game.
+	var KitFx: GDScript = load(KIT_PATH)
+	var fx_cfg: Dictionary = KitFx.load_config(KitFx.CONFIG_PATH)
+	_merge_opts = MergeFx.from_config(fx_cfg)
+	_land_opts = LandFx.from_config(fx_cfg)
+	_launch_opts = LaunchFx.from_config(fx_cfg)
+	_move_opts = MoveFx.from_config(fx_cfg)
 
 	_layout()                                  # build all four bands + the board chrome for the current size
 	# Re-fit every band + the live tiles on a live viewport resize (drag the window / rotate), like the home
@@ -582,14 +601,18 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 	var pts := Explore.merge_points(int(win.tier), _mult)
 	Explore.add_score(pts)
 	# JUICE: the merge IMPACT (squash + flash + tier-escalating burst + combo-gated thunk + the real
-	# merge sound + haptic) now comes from the unified Feel.merge verb — gate 2 keeps an isolated
-	# low-combo merge snappy in the fast mode, a building streak lands a mounting thunk. The points
-	# float up (always); the toggleable rush_fx layer still adds the score / mult cell pops, the
-	# heating combo callout, and the score-tick. (merge_burst + the tier>=4 flash/hitstop + the
-	# old button_tap moved INTO Feel.merge; RushFx.merge_burst is now workbench-preview-only.)
+	# merge sound + haptic) now comes from the workbench-tuned MergeFx applier — gate 2 keeps an
+	# isolated low-combo merge snappy in the fast mode, a building streak lands a mounting thunk. The
+	# points float up (always); the toggleable rush_fx layer still adds the score / mult cell pops, the
+	# heating combo callout, and the score-tick. (merge_burst + the tier>=4 flash/hitstop + the old
+	# button_tap moved INTO the applier; RushFx.merge_burst is now workbench-preview-only.)
 	var node := win.node as Control
 	var ctr := node.global_position + Vector2(_cell, _cell) / 2.0
-	Feel.merge(self, node, ctr, int(win.tier), _combo, 1.0, 2)
+	# the merge IMPACT now runs through the workbench-tuned MergeFx applier (resolved once in _ready) —
+	# squash/flash/shake/hitstop/burst/sound + the neighbour ripple + the board punch, all internal. Gate 2
+	# keeps an isolated low-combo merge snappy. The win-cell neighbours (skipping the falling lose column)
+	# + the board are passed in; the separate scene-side ripple/board_punch calls were removed below.
+	MergeFx.apply(self, node, ctr, int(win.tier), _combo, _orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), _board, _merge_opts, 1.0, 2)
 	# bundle D: poke the screen-bloom — the scene owns the world reaction, the verb stays parameter-light.
 	if _combo_bloom != null and is_instance_valid(_combo_bloom):
 		_combo_bloom.bump(_combo)
@@ -603,18 +626,10 @@ func _merge(win_rc: Vector2i, lose_rc: Vector2i) -> void:
 			RushFx.combo_heat(self, ctr - Vector2(0, 42), _combo, RushFx.knob(_fx, "combo_heat_size"))
 		else:
 			FX.floating_text(self, ctr - Vector2(0, 42), "COMBO ×%d" % _combo, GOLD, 26)
-	# bundle B: the neighbours of the WIN cell jiggle outward from the merge. We gather them BEFORE the
-	# settle (which clears the lose cell and drops its column) and skip any tile that's about to fall in
-	# the lose column, so the ripple never fights gravity. The lose cell itself is already cleared, so the
-	# direction toward it is simply absent from the list.
-	Feel.ripple(_orthogonal_neighbour_nodes(win_rc.x, win_rc.y, lose_rc.y, lose_rc.x), ctr, 1.0)
-	# bundle B: a BIG merge (tier >= ESCALATE_TIER) punches the whole board — co-fires with feel.merge's
-	# reserved shake at the pinnacle tier (combined shake+punch is a review-time tuning). NOTE: Rush caps
-	# at MAX_TIER 7 (a tier-7 tile flings, never merges), below ESCALATE_TIER 8 — so today this gate (like
-	# feel.merge's reserved shake, which uses the same threshold) never trips in Rush. Kept on the shared
-	# threshold so it lights up automatically if the Rush ceiling ever rises.
-	if int(win.tier) >= FX.Tune.ESCALATE_TIER:
-		Feel.board_punch(_board, 1.0)
+	# (the win-cell neighbour ripple + the big-merge board punch now fire INSIDE MergeFx.apply above —
+	# the neighbours are gathered there BEFORE the settle, skipping the falling lose column; the separate
+	# scene-side Feel.ripple / Feel.board_punch calls were removed to avoid double-firing. Note Rush caps
+	# at MAX_TIER 7, below ESCALATE_TIER 8, so the board punch never trips today — kept for a future raise.)
 	if int(win.tier) >= 4:
 		FX.celebrate_at(self, ctr - Vector2(0, 74), "BUILD!", STRAW)   # a Rush milestone callout (not part of the merge verb)
 	# the score updates here only (it changes on merge); tick it up or snap it per the toggle
@@ -642,7 +657,7 @@ func _fling(rc: Vector2i) -> void:
 	# so the flung tile itself is the emitter — a small recoil reads as the tile launching itself. The
 	# toss sound is left OFF so the fling keeps its OWN button_tap tick below. The arc + ±22° spin
 	# stays in _fly_to (that is feel.move's arc, Phase 5 — untouched here).
-	Feel.launch(node, node, 0.9)
+	LaunchFx.apply(node, node, node.position + node.size / 2.0, _launch_opts, 0.9)
 	Audio.play("button_tap", -5.0, 1.2)             # a light toss tick
 
 # --- treefall --------------------------------------------------------------------
@@ -707,7 +722,7 @@ func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	# the flung tile TOSSES up-and-over through the unified MOVE verb ("arc": up-leg eases out, down-
 	# leg accelerates into the target). The ±22° spin (the fling's signature) rides as a SEPARATE
 	# parallel tween — Feel.move's lean verb skips "arc" so it never fights this spin.
-	var t := Feel.move(node, start, dest, "arc")
+	var t := MoveFx.apply(node, start, dest, "arc", _move_opts)
 	if t == null:
 		return
 	var spin := deg_to_rad(22.0) * (1.0 if dest.x >= start.x else -1.0)
@@ -719,7 +734,7 @@ func _fly_to(node: Control, start: Vector2, dest: Vector2) -> void:
 	t.tween_callback(func() -> void:
 		if node and is_instance_valid(node):
 			var lc := node.global_position + Vector2(_cell, _cell) * 0.5
-			Feel.land(self, node, lc, 0.8, false)
+			LandFx.apply(self, node, lc, _land_opts, 0.8, false)
 			# bundle B: the fling touchdown jiggles its now-settled neighbours (the rest of the board has
 			# already settled by the time the arc lands, so nothing is falling — gather all 4).
 			var fc := _coord_of(node)
@@ -779,11 +794,11 @@ func _fall_to(node: Control, rest: Vector2, from_y: float) -> void:
 	# (a whole column settles at once), so Feel.move makes NO trail ghosts on it and the tiles already
 	# carry their piece_view ContactShadow (so no cast shadow either). On landing, chain a QUIET land
 	# (squash only — no flash/puff/sound/haptic) so a settling column can't fire N effects at once.
-	var t := Feel.move(node, Vector2(rest.x, from_y), rest, "fall")
+	var t := MoveFx.apply(node, Vector2(rest.x, from_y), rest, "fall", _move_opts)
 	if t != null:
 		t.tween_callback(func() -> void:
 			if node and is_instance_valid(node):
-				Feel.land(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, 0.8, true))
+				LandFx.apply(self, node, node.global_position + Vector2(_cell, _cell) * 0.5, _land_opts, 0.8, true))
 
 ## (Re)render a tile as the home board's merge piece for its line+tier (code = line*100 + tier).
 func _paint(cell: Dictionary) -> void:
