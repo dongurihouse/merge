@@ -281,7 +281,7 @@ var _params := {
 	"gold_currency_pill": {"icon": "water", "count": 2450, "overall_scale": 100, "pill_w": 292, "pill_h": 100,
 		"pad_left": 18, "pad_x": 16, "pad_y": 12, "icon_box": 54, "icon_size": 34, "icon_x": 0,
 		"amount_w": 88, "num_size": 30, "amount_x": 0,
-		"gap": 12, "plus_x": 0, "plus_radius": 28, "plus_shine": 32,
+		"gap": 12, "plus_x": 0, "plus_y": 0, "plus_radius": 28, "plus_shine": 32,
 		"plus_stroke": 2, "plus_font": 70, "plus_button": 100, "plus_round": 8, "plus_hue": 65,
 		"plus_label_y": 0,
 		"inner_shadow": 30, "shadow_alpha": 34,
@@ -2315,12 +2315,13 @@ func _rebuild_sidebar() -> void:
 			_sidebar_body.add_child(_slider_row(["num_size", 16, 48]))
 			_sidebar_body.add_child(_slider_row(["amount_x", -40, 40]))
 			_section_header("Plus button")
-			_sidebar_body.add_child(_slider_row(["plus_x", -20, 20]))
+			_sidebar_body.add_child(_slider_row(["plus_x", -200, 40]))
+			_sidebar_body.add_child(_slider_row(["plus_y", -60, 60]))   # move the whole green button up/down
 			_sidebar_body.add_child(_slider_row(["plus_radius", 8, 44]))
 			_sidebar_body.add_child(_slider_row(["plus_shine", 0, 60]))
 			_sidebar_body.add_child(_slider_row(["plus_stroke", 0, 5]))
 			_sidebar_body.add_child(_slider_row(["plus_font", 50, 160]))
-			_sidebar_body.add_child(_slider_row(["plus_button", 75, 135]))
+			_sidebar_body.add_child(_slider_row(["plus_button", 40, 135]))
 			_sidebar_body.add_child(_slider_row(["plus_round", 0, 18]))
 			_sidebar_body.add_child(_slider_row(["plus_hue", 55, 82]))
 			_sidebar_body.add_child(_slider_row(["plus_label_y", -20, 20]))   # nudge the "+" up/down within the green button

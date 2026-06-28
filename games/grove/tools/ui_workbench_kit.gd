@@ -1091,7 +1091,7 @@ static func gold_currency_pill(opts: Dictionary = {}, counts: Dictionary = {}) -
 		plus_slot.custom_minimum_size = Vector2(plus.custom_minimum_size.x, content_h)
 		plus_slot.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		plus_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5)
+		plus.position = Vector2(float(opts.get("plus_x", 0)), (content_h - plus.custom_minimum_size.y) * 0.5 + float(opts.get("plus_y", 0)))
 		plus_slot.add_child(plus)
 		row.add_child(plus_slot)
 	# Optional OVERALL drop shadow behind the capsule (the painted badge is a StyleBoxTexture with no native
@@ -3766,6 +3766,7 @@ static func gold_currency_pill_opts_from_config(cfg: Dictionary) -> Dictionary:
 		"amount_x": float(g.get("amount_x", 0.0)) * scale,
 		"gap": int(round(float(g.get("gap", 12)) * scale)),
 		"plus_x": float(g.get("plus_x", 0.0)) * scale,
+		"plus_y": float(g.get("plus_y", 0.0)) * scale,
 		"plus_radius": float(g.get("plus_radius", 28.0)),
 		"plus_shine": float(g.get("plus_shine", 32.0)),
 		"plus_stroke": float(g.get("plus_stroke", 2.0)) * scale,

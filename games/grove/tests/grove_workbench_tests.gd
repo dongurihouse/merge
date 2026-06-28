@@ -544,8 +544,10 @@ func _initialize() -> void:
 	var icon_center := icon.position.y + icon.custom_minimum_size.y * 0.5
 	var amount_center := amount.position.y + amount.custom_minimum_size.y * 0.5
 	var plus_center := plus_btn.position.y + plus_btn.custom_minimum_size.y * 0.5
-	ok(is_equal_approx(icon_center, amount_center) and is_equal_approx(amount_center, plus_center), \
-		"gold_currency_pill vertically centers icon, amount, and plus on one line")
+	ok(is_equal_approx(icon_center, amount_center), \
+		"gold_currency_pill vertically centers icon and amount on one line")
+	ok(is_equal_approx(plus_center, amount_center - 8.0), \
+		"gold_currency_pill plus_y nudges the plus button off the shared centre line")
 	var no_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 0}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	var strong_inner := (Kit.gold_currency_pill({"pill_h": 100, "inner_shadow": 100}) as PanelContainer).get_theme_stylebox("panel") as StyleBoxTexture
 	var no_px := no_inner.texture.get_image().get_pixel(58, 14)
@@ -553,8 +555,8 @@ func _initialize() -> void:
 	ok((strong_px.r + strong_px.g + strong_px.b) < (no_px.r + no_px.g + no_px.b), \
 		"gold_currency_pill inner_shadow darkens the badge inset groove")
 	var gp: Dictionary = view._params["gold_currency_pill"]
-	ok(not gp.has("icon_y") and not gp.has("amount_y") and not gp.has("plus_y"), \
-		"gold_currency_pill has no individual vertical offset controls")
+	ok(not gp.has("icon_y") and not gp.has("amount_y") and gp.has("plus_y"), \
+		"gold_currency_pill has a plus_y vertical control but none for icon or amount")
 	ok(view._is_config("gold_currency_pill", "pad_left") and view._is_config("gold_currency_pill", "icon_x") and view._is_config("gold_currency_pill", "amount_x") and view._is_config("gold_currency_pill", "plus_button") and view._is_config("gold_currency_pill", "inner_shadow"), \
 		"gold_currency_pill padding and component controls are saved on its own config block")
 	ok(not view._is_config("gold_currency_pill", "count"), "gold_currency_pill sample count is preview-only")
@@ -562,6 +564,9 @@ func _initialize() -> void:
 	view._rebuild_sidebar()
 	ok(view._sidebar_body.get_child_count() > 0, "the gold_currency_pill sidebar builds its copied plus controls")
 	ok(_slider_max(view, "Plus Font") >= 140.0, "gold_currency_pill sidebar allows a larger plus font")
+	ok(_slider_min(view, "Plus X") <= -100.0, "gold_currency_pill sidebar lets the plus button move far to the left")
+	ok(_slider_min(view, "Plus Y") < 0.0 and _slider_max(view, "Plus Y") > 0.0, "gold_currency_pill sidebar exposes a plus_y vertical nudge")
+	ok(_slider_min(view, "Plus Button") < 75.0, "gold_currency_pill sidebar allows a plus button smaller than 75")
 	ok(_slider_max(view, "Inner Shadow") >= 100.0, "gold_currency_pill sidebar exposes the inner-shadow override")
 	var negative_pad_gold: Dictionary = Kit.gold_currency_pill_opts_from_config({"gold_currency_pill": {"pad_y": -8}})
 	ok(is_equal_approx(float(negative_pad_gold.pad_y), -8.0), \
