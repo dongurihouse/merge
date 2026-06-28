@@ -99,7 +99,8 @@ static func make(qi: int, q: Dictionary, cfg: Dictionary) -> Dictionary:
 	# the portrait is keyed off the quest's ASSIGNED giver index (board.gd picks one distinct from the last
 	# 5), falling back to the asked line / slot index for quests authored before giver assignment existed.
 	var giver_idx := int(q.get("giver", int(it.line) if not it.is_empty() else qi))
-	var bust := Bust.make(giver_idx, bsz)
+	# the giver POOL is map-specific (map 0 keeps the original cast; maps ≥1 use their own themed sheet)
+	var bust := Bust.make(giver_idx, bsz, int(cfg.get("map_idx", 0)))
 	bust.position = Vector2(cx + cardW * float(L.bust_x) - bsz / 2.0, cy + cardH * float(L.bust_y) - bsz / 2.0)
 	stand.add_child(bust)
 	# Tier 2 §2: the idle-bob is gated by _refresh_giver_lights (it carries "deliverable").

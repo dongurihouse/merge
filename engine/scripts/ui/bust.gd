@@ -13,12 +13,23 @@ const CREAM = Pal.CREAM
 # folded into the pool here, so callers don't need to know the count.
 const GIVER_COUNT := 16
 
-static func make(which: int, px: float = 124.0) -> Control:
+# Each map has its OWN themed 16-face cast: map 0 (The Farm) uses characters/giver_<n>.png; maps ≥1
+# use characters/giver_m<map>_<n>.png (cut from _originals/characters/quest<map+1>.png). `map_idx`
+# selects the pool; a missing per-map tile falls back to the map-0 face so the fence never blanks.
+static func giver_path(which: int, map_idx: int = 0) -> String:
+	var n := which % GIVER_COUNT
+	if map_idx > 0:
+		var p := Game.art("characters/giver_m%d_%d.png" % [map_idx, n])
+		if ResourceLoader.exists(p):
+			return p
+	return Game.art("characters/giver_%d.png" % n)
+
+static func make(which: int, px: float = 124.0, map_idx: int = 0) -> Control:
 	var face := Control.new()
 	face.custom_minimum_size = Vector2(px, px)
 	face.size = Vector2(px, px)
 	face.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var path := Game.art("characters/giver_%d.png" % (which % GIVER_COUNT))
+	var path := giver_path(which, map_idx)
 	if ResourceLoader.exists(path):
 		var tex: Texture2D = load(path)
 		# owner 2026-06-13: the frameless cutout blended into the painted scene.

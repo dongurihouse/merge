@@ -1034,6 +1034,7 @@ func _make_giver_stand(qi: int, q: Dictionary, stand_w: float = STAND_W) -> Dict
 		"stand_tap": _on_giver_tap,     # the stand tapped -> try to deliver
 		"wire_tap": _stand_tap,         # still-release tap (also resets the idle hint)
 		"stand_w": stand_w, "fence_h": _fence_h,
+		"map_idx": _quest_map(),        # the giver portrait pool is themed per map (map 0 = original cast)
 	}
 	# the giver-card LAYOUT is tuned in the UI workbench and SAVED to its config (the quest_card block);
 	# read it the SAME way every other element does — soft-load the game-tool kit (engine → game bridge).
