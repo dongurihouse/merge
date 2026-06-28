@@ -10,9 +10,12 @@ extends RefCounted
 ##   signal purchase_completed(transaction, status: int, error_message: String)
 ##   signal restore_completed(status: int, error_message: String)
 ##
-## CONFIRM-ON-DEVICE (isolated below — undocumented specifics, a one-line fix after one sandbox buy):
-##   • STATUS_OK — the `status` int that means "purchased" / "restored".
-##   • _product_id() — the StoreProduct's id property name (Apple's Product.id → expected "id").
+## CONFIRM-ON-DEVICE — both verified against the plugin's bundled doc classes (addons/…StoreKit):
+##   • STATUS_OK = 0 — StoreKitStatus.OK; the other statuses are INVALID_PRODUCT=1, CANCELLED=2,
+##     UNVERIFIED_TRANSACTION=3, USER_CANCELLED=4, PURCHASE_PENDING=5, UNKNOWN_STATUS=6.
+##   • _product_id() reads the StoreProduct `product_id` member (getter get_product_id) — NOT `id`,
+##     which does not exist on the plugin's StoreProduct (reading it returned null → String(null) threw,
+##     so every live purchase silently failed before opening the payment sheet).
 
 const SK_CLASS := "StoreKitManager"
 const STATUS_OK := 0
@@ -38,7 +41,9 @@ static func _ensure() -> bool:
 			return false
 		_sk.connect("products_request_completed", func(products: Array, _status: int) -> void:
 			_on_products(products))
-		_sk.connect("purchase_completed", func(_tx: Object, status: int, _err: String) -> void:
+		_sk.connect("purchase_completed", func(_tx: Object, status: int, err: String) -> void:
+			if status != STATUS_OK:
+				push_warning("Store: purchase_completed status=%d (not OK) err=\"%s\"" % [status, err])
 			_settle(status == STATUS_OK))
 		_sk.call("start")
 	return true
@@ -59,10 +64,17 @@ static func _on_products(products: Array) -> void:
 		if _product_id(p) == _pending_id:
 			_sk.call("purchase", p)
 			return
-	_settle(false)                                  # the product id wasn't found in App Store Connect
+	# No match → the payment sheet never opens. This is the silent dead-end behind "Confirm does
+	# nothing": almost always an empty/mismatched products response (the id isn't live in App Store
+	# Connect, agreements unsigned, or the wrong bundle id). Logged so the device console shows it.
+	push_warning("Store: product \"%s\" not in the %d returned product(s) — purchase aborted" % [_pending_id, products.size()])
+	_settle(false)
 
 static func _product_id(p: Object) -> String:
-	return String(p.get("id")) if p != null else ""
+	if p == null:
+		return ""
+	var v: Variant = p.get("product_id")            # the plugin's StoreProduct id member (getter get_product_id)
+	return String(v) if v != null else ""
 
 static func _settle(success: bool) -> void:
 	var cb := _pending_cb

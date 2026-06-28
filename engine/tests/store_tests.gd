@@ -6,6 +6,14 @@ extends SceneTree
 
 const Store = preload("res://engine/scripts/core/store.gd")
 
+# A stand-in for GodotApplePlugins' StoreProduct: the plugin exposes the App Store id as the
+# `product_id` property (getter get_product_id) — NOT `id`. _product_id() must read that member,
+# or _on_products can never match the requested id and every purchase silently settles false.
+class FakeProduct extends RefCounted:
+	var product_id := ""
+	func _init(pid: String) -> void:
+		product_id = pid
+
 var _pass := 0
 var _fail := 0
 
@@ -21,6 +29,11 @@ func _initialize() -> void:
 	print("== Store (IAP) tests ==")
 
 	ok(not Store.available(), "StoreKit is unavailable without the iOS plugin (no class)")
+
+	# The id-extraction the live match depends on: must read the StoreProduct `product_id` member.
+	var pid := "com.dongurihouse.dongurimerge.piggybank"
+	ok(Store._product_id(FakeProduct.new(pid)) == pid, "_product_id reads the StoreProduct product_id member")
+	ok(Store._product_id(null) == "", "_product_id is safe on a null product")
 
 	var got := {"called": false, "ok": true}
 	Store.purchase("com.dongurihouse.dongurimerge.piggybank", func(success: bool) -> void:
